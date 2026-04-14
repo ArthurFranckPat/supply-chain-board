@@ -1,0 +1,43 @@
+# config/decisions.yaml
+# Configuration de la couche décision métier
+
+smart_rule:
+  enabled: true
+  criteria_weights:
+    completion: 0.5
+    client: 0.3
+    urgency: 0.2
+
+completion:
+  min_acceptable_rate: 0.80
+  target_completion_rate: 0.95
+  max_absolute_gap: 10
+
+client:
+  priority_clients:
+    - ALDES
+  strategic_clients:
+    - AERECO
+    - PARTN-AIR
+  priority_client_max_gap: 0.05
+
+urgency:
+  very_urgent_days: 3
+  urgent_days: 7
+  comfortable_days: 21
+  very_urgent_tolerance: 0.05
+  urgent_tolerance: 0.02
+
+thresholds:
+  accept_threshold: 0.7
+  reject_threshold: 0.3
+
+persistence:
+  enabled: true
+  file_path: "data/decisions_history.json"
+  max_entries: 10000
+
+reports:
+  enabled: true
+  output_dir: "reports/decisions"
+  format: ["markdown", "json"]

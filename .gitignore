@@ -1,0 +1,29 @@
+﻿# Root ignores
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+.env
+.omx/
+.run-logs/
+apps/suivi-commandes/comments.db
+
+# Node
+node_modules/
+dist/
+
+# Runtime outputs
+outputs/
+reports/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

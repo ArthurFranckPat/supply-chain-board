@@ -1,0 +1,56 @@
+﻿version: "3.9"
+
+services:
+  ordo-core-api:
+    image: python:3.11-slim
+    working_dir: /workspace/apps/ordo-core
+    volumes:
+      - ../:/workspace
+    command: >
+      sh -c "pip install -r requirements.txt &&
+             uvicorn src.api.server:app --host 0.0.0.0 --port 8000"
+    ports:
+      - "8000:8000"
+
+  suivi-api:
+    image: python:3.11-slim
+    working_dir: /workspace/apps/suivi-commandes
+    volumes:
+      - ../:/workspace
+    command: >
+      sh -c "pip install -r requirements.txt &&
+             uvicorn api_server:app --host 0.0.0.0 --port 8001"
+    ports:
+      - "8001:8001"
+
+  integration-hub:
+    image: python:3.11-slim
+    working_dir: /workspace/services/integration-hub
+    volumes:
+      - ../:/workspace
+    environment:
+      ORDO_CORE_API_URL: http://ordo-core-api:8000
+      SUIVI_API_URL: http://suivi-api:8001
+    command: >
+      sh -c "pip install -e /workspace/packages/domain-contracts &&
+             pip install -e /workspace/packages/integration-sdk &&
+             pip install -e /workspace/services/integration-hub &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8010"
+    ports:
+      - "8010:8010"
+    depends_on:
+      - ordo-core-api
+      - suivi-api
+
+  board-ui:
+    image: node:22-alpine
+    working_dir: /workspace/apps/board-ui
+    volumes:
+      - ../:/workspace
+    environment:
+      VITE_HUB_URL: http://127.0.0.1:8010
+    command: >
+      sh -c "npm install &&
+             npm run dev -- --host 0.0.0.0 --port 5173"
+    ports:
+      - "5173:5173"
