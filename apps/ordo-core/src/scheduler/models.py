@@ -18,6 +18,7 @@ class CandidateOF:
     charge_hours: float
     is_buffer_bdh: bool = False
     source: str = "matching_client"
+    blocking_components: str = ""
     scheduled_day: Optional[date] = None
     start_hour: Optional[float] = None
     end_hour: Optional[float] = None
@@ -50,6 +51,7 @@ class SchedulerResult:
     nb_jit: int
     nb_changements_serie: int
     plannings: dict[str, list[CandidateOF]]
+    line_candidates: dict[str, list[CandidateOF]]
     stock_projection: list[dict[str, object]]
     alerts: list[str]
     weights: dict[str, float]

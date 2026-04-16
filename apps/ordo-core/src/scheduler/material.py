@@ -70,21 +70,48 @@ def reserve_candidate_components(loader, checker, candidate, day: date, material
             material_state.allocate(candidate.num_of, scarce)
 
 
-def availability_status(checker, loader, candidate, day: date, material_state: Optional[StockState] = None) -> tuple[str, str]:
+def availability_status(
+    checker,
+    loader,
+    candidate,
+    day: date,
+    material_state: Optional[StockState] = None,
+    *,
+    immediate_components: bool = False,
+    immediate_reference_day: Optional[date] = None,
+) -> tuple[str, str]:
     date_j2 = previous_workday(day, 2)
     date_j1 = previous_workday(day, 1)
     date_j0 = day
     has_existing_allocations = _candidate_has_existing_allocations(loader, candidate)
+    effective_check_day = immediate_reference_day or day if immediate_components else day
     runtime_checker = (
         RecursiveChecker(
             loader,
-            use_receptions=True,
-            check_date=day,
+            use_receptions=not immediate_components,
+            check_date=effective_check_day,
             stock_state=material_state,
         )
         if material_state is not None
         else checker
     )
+
+    if immediate_components:
+        immediate_day = immediate_reference_day or day
+        result = runtime_checker._check_article_recursive(
+            article=candidate.article,
+            qte_besoin=candidate.quantity,
+            date_besoin=immediate_day,
+            depth=0,
+            of_parent_est_ferme=has_existing_allocations,
+            num_of_parent=candidate.num_of,
+        )
+        if result.feasible:
+            return "tight", ""
+        stock = loader.get_stock(candidate.article)
+        if stock and stock.disponible() >= candidate.quantity:
+            return "tight", ""
+        return "blocked", format_feasibility_cause(result)
 
     for status, need_date in (
         ("comfortable", date_j2),
@@ -184,6 +211,66 @@ def format_feasibility_cause(result) -> str:
     if not details:
         return "composants indisponibles"
     return ' | '.join(details)
+
+
+def extract_blocking_components(reason: str) -> str:
+    """Extrait la liste des composants bloquants depuis une cause formatée."""
+    if not reason:
+        return ""
+
+    for part in reason.split("|"):
+        chunk = part.strip()
+        if chunk.lower().startswith("composants indisponibles:"):
+            return chunk.split(":", 1)[1].strip()
+        if chunk.lower() == "composants indisponibles":
+            return "non détaillé"
+    return ""
+
+
+def compute_direct_component_shortages(loader, candidate, material_state: Optional[StockState] = None) -> str:
+    """Calcule les ruptures directes de la nomenclature du candidat."""
+    nomenclature = loader.get_nomenclature(candidate.article)
+    if nomenclature is None:
+        return ""
+
+    # Réintègre les allocations déjà réservées à cet OF : elles sont comptées
+    # dans STOCK_ALLOUE et doivent couvrir son besoin propre.
+    own_allocations_by_article: dict[str, float] = defaultdict(float)
+    for allocation in loader.get_allocations_of(candidate.num_of):
+        own_allocations_by_article[allocation.article] += float(allocation.qte_allouee)
+
+    shortages: list[tuple[str, float]] = []
+    for composant in nomenclature.composants:
+        required_qty = float(composant.qte_lien) * float(candidate.quantity)
+        allocated_to_candidate = own_allocations_by_article.get(composant.article_composant, 0.0)
+        # Si la réservation ERP couvre déjà le besoin de cet OF, on ne le marque pas en rupture.
+        if allocated_to_candidate >= required_qty - 1e-9:
+            continue
+
+        if material_state is not None:
+            available_qty = float(material_state.get_available(composant.article_composant))
+        else:
+            stock = loader.get_stock(composant.article_composant)
+            available_qty = float(stock.disponible()) if stock is not None else 0.0
+
+        free_pool_qty = max(0.0, available_qty)
+        missing_qty = required_qty - allocated_to_candidate - free_pool_qty
+        if missing_qty > 1e-9:
+            shortages.append((composant.article_composant, missing_qty))
+
+    if not shortages:
+        return ""
+
+    def _fmt_qty(value: float) -> str:
+        rounded = round(value, 3)
+        if abs(rounded - round(rounded)) < 1e-9:
+            return str(int(round(rounded)))
+        return str(rounded)
+
+    return ", ".join(
+        f"{article} x{_fmt_qty(missing)}"
+        for article, missing in sorted(shortages)
+    )
 
 
 def format_buffer_shortage_reason(requirements: dict[str, float], projected_buffer: dict[str, float]) -> str:

@@ -22,6 +22,7 @@ def build_unscheduled_rows(by_line: dict[str, list[CandidateOF]]) -> list[dict[s
                     'date_echeance': candidate.due_date.isoformat(),
                     'charge_h': round(candidate.charge_hours, 3),
                     'source': candidate.source,
+                    'composants_bloquants': candidate.blocking_components,
                     'cause': candidate.reason or 'capacité insuffisante ou hors horizon',
                 }
             )
@@ -86,7 +87,7 @@ def write_outputs(output_dir: str, result: SchedulerResult) -> None:
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
 
-    for line, planning in result.plannings.items():
+    for line, planning in result.line_candidates.items():
         _write_planning_csv(output_path / f"planning_{line}.csv", planning)
     _write_stock_projection_csv(output_path / "stock_BDH_projete.csv", result.stock_projection)
 
@@ -116,7 +117,7 @@ def write_outputs(output_dir: str, result: SchedulerResult) -> None:
 def _write_unscheduled_csv(path: Path, rows: list[dict[str, object]]) -> None:
     with path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.writer(handle)
-        writer.writerow(["ligne", "of", "article", "date_echeance", "charge_h", "source", "cause"])
+        writer.writerow(["ligne", "of", "article", "date_echeance", "charge_h", "source", "composants_bloquants", "cause"])
         for row in rows:
             writer.writerow([
                 row['ligne'],
@@ -125,6 +126,7 @@ def _write_unscheduled_csv(path: Path, rows: list[dict[str, object]]) -> None:
                 row['date_echeance'],
                 row['charge_h'],
                 row['source'],
+                row['composants_bloquants'],
                 row['cause'],
             ])
 
@@ -132,8 +134,32 @@ def _write_unscheduled_csv(path: Path, rows: list[dict[str, object]]) -> None:
 def _write_planning_csv(path: Path, planning: list[CandidateOF]) -> None:
     with path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.writer(handle)
-        writer.writerow(["num_of", "article", "qte", "jour", "heure_debut", "heure_fin", "charge_h", "cumul_jour_h", "date_echeance", "source"])
-        for item in planning:
+        writer.writerow([
+            "num_of",
+            "article",
+            "qte",
+            "jour",
+            "heure_debut",
+            "heure_fin",
+            "charge_h",
+            "cumul_jour_h",
+            "date_echeance",
+            "source",
+            "composants_bloquants",
+            "realisable",
+            "cause_non_realisable",
+        ])
+        sorted_rows = sorted(
+            planning,
+            key=lambda item: (
+                item.due_date,
+                item.scheduled_day is None,
+                item.num_of,
+            ),
+        )
+        for item in sorted_rows:
+            realisable = "oui" if item.scheduled_day is not None else "non"
+            cause_non_realisable = "" if realisable == "oui" else (item.reason or "capacité insuffisante ou hors horizon")
             writer.writerow(
                 [
                     item.num_of,
@@ -146,6 +172,9 @@ def _write_planning_csv(path: Path, planning: list[CandidateOF]) -> None:
                     round(item.end_hour, 3) if item.end_hour is not None else "",
                     item.due_date.isoformat(),
                     item.source,
+                    item.blocking_components,
+                    realisable,
+                    cause_non_realisable,
                 ]
             )
 

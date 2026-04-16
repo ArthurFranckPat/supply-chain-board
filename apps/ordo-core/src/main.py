@@ -132,6 +132,18 @@ def main():
         default=None,
         help="Date de reference de l'analyse au format YYYY-MM-DD (defaut: 2026-03-23)",
     )
+    parser.add_argument(
+        "--immediate-components",
+        action="store_true",
+        help="Utilise une disponibilite composants immediate (sans projection par date)",
+    )
+    parser.add_argument(
+        "--blocking-components-mode",
+        type=str,
+        choices=("blocked", "direct", "both"),
+        default="blocked",
+        help="Mode de remplissage de la colonne composants_bloquants (blocked|direct|both)",
+    )
 
     parser.add_argument(
         "--organization",
@@ -166,7 +178,14 @@ def main():
     # Mode AUTORESEARCH scheduler
     if args.schedule and not args.s1:
         console.print("[bold cyan]ðŸ—“ï¸  Scheduler AUTORESEARCH...[/bold cyan]")
-        result = run_schedule(loader, reference_date=reference_date, output_dir="outputs", weights_path="config/weights.json")
+        result = run_schedule(
+            loader,
+            reference_date=reference_date,
+            output_dir="outputs",
+            weights_path="config/weights.json",
+            immediate_components=args.immediate_components,
+            blocking_components_mode=args.blocking_components_mode,
+        )
         total_tasks = sum(len(p) for p in result.plannings.values())
         lines_summary = ", ".join(f"{line}={len(p)}" for line, p in result.plannings.items())
         console.print(f"âœ… Planning genere : {total_tasks} taches rÃ©parties sur les lignes ({lines_summary})")

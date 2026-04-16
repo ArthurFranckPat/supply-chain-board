@@ -57,15 +57,20 @@ def run_schedule(
     demand_calendar_days: int = DEMAND_CALENDAR_DAYS,
     output_dir: str = "outputs",
     weights_path: str = "config/weights.json",
+    immediate_components: bool = False,
+    blocking_components_mode: str = "blocked",
 ) -> SchedulerResult:
     """Run the AUTORESEARCH bootstrap scheduler."""
+    if blocking_components_mode not in {"blocked", "direct", "both"}:
+        raise ValueError(f"Invalid blocking_components_mode={blocking_components_mode}")
+
     reference_date = reference_date or date.today()
     weights = load_weights(weights_path)
     workdays = build_workdays(reference_date, planning_workdays)
     demand_horizon_end = reference_date + timedelta(days=demand_calendar_days)
     target_lines = _build_target_line_articles(loader, lines_config)
     
-    checker = RecursiveChecker(loader, use_receptions=True)
+    checker = RecursiveChecker(loader, use_receptions=not immediate_components)
     material_state = build_material_stock_state(loader)
     receptions_by_day = build_receptions_by_day(loader)
 
@@ -179,7 +184,8 @@ def run_schedule(
     schedulers = {line: GenericLineScheduler(line, capacity_hours=line_capacities[line], min_open_hours=line_min_open[line]) for line in target_lines.keys()}
 
     for day_idx, day in enumerate(workdays):
-        apply_receptions_for_day(material_state, receptions_by_day, day)
+        if not immediate_components:
+            apply_receptions_for_day(material_state, receptions_by_day, day)
         for article, qty in incoming_buffer[day].items():
             projected_buffer[article] += qty
 
@@ -195,6 +201,9 @@ def run_schedule(
                 material_state=material_state,
                 alerts=alerts,
                 is_last_day=is_last_day,
+                immediate_components=immediate_components,
+                immediate_reference_day=workdays[0],
+                blocking_components_mode=blocking_components_mode,
             )
             day_plans[line][workdays.index(day)] = day_plan
             
@@ -231,7 +240,29 @@ def run_schedule(
                 planned_by_of[result.of.num_of] = workdays[0]
     candidate_by_of = {candidate.num_of: candidate for candidate in candidates}
     planning_horizon_end = next_workday(workdays[-1])
-    order_rows = build_order_rows(matching_results, planned_by_of, candidate_by_of, loader, checker, availability_status)
+    def _availability_for_reporting(
+        checker_obj,
+        loader_obj,
+        candidate_obj,
+        due_date,
+    ):
+        return availability_status(
+            checker_obj,
+            loader_obj,
+            candidate_obj,
+            due_date,
+            immediate_components=immediate_components,
+            immediate_reference_day=workdays[0],
+        )
+
+    order_rows = build_order_rows(
+        matching_results,
+        planned_by_of,
+        candidate_by_of,
+        loader,
+        checker,
+        _availability_for_reporting,
+    )
     taux_service, on_time, total_candidates = _compute_service_rate_from_matching(
         matching_results,
         planned_by_of,
@@ -271,6 +302,7 @@ def run_schedule(
         nb_jit=nb_jit,
         nb_changements_serie=nb_changements_serie,
         plannings=plannings,
+        line_candidates=by_line,
         stock_projection=stock_projection,
         alerts=alerts,
         weights=weights,

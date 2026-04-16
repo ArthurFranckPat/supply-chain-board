@@ -11,6 +11,8 @@ from .material import (
     tracked_kanban_requirements,
     format_buffer_shortage_reason,
     reserve_candidate_components,
+    extract_blocking_components,
+    compute_direct_component_shortages,
 )
 from .heuristics import generic_sort_key
 
@@ -59,11 +61,26 @@ class GenericLineScheduler:
                 assignment.start_hour = None
                 assignment.end_hour = None
                 assignment.reason = f"ligne non ouverte (<{self.min_open_hours}h)"
+                assignment.blocking_components = ""
             if plan.assignments:
                 alerts.append(f"{self.line_name} {day.isoformat()} : ligne fermée car charge < {self.min_open_hours}h")
             plan.assignments = []
 
-    def schedule_day(self, day: date, candidates: list[CandidateOF], loader, checker, projected_buffer: dict[str, float], incoming_buffer: dict[date, dict[str, int]], material_state, alerts: list[str], is_last_day: bool = False) -> DaySchedule:
+    def schedule_day(
+        self,
+        day: date,
+        candidates: list[CandidateOF],
+        loader,
+        checker,
+        projected_buffer: dict[str, float],
+        incoming_buffer: dict[date, dict[str, int]],
+        material_state,
+        alerts: list[str],
+        is_last_day: bool = False,
+        immediate_components: bool = False,
+        immediate_reference_day: Optional[date] = None,
+        blocking_components_mode: str = "blocked",
+    ) -> DaySchedule:
         plan = DaySchedule(line=self.line_name, day=day)
         used_hours = 0.0
         earliest_blocked_due: Optional[date] = None
@@ -132,7 +149,20 @@ class GenericLineScheduler:
             for i, c in enumerate(unscheduled):
                 setup_time = SETUP_TIME_HOURS if last_article and c.article != last_article else 0.0
                 if used_hours + c.charge_hours + setup_time <= self.capacity_hours:
-                    status, reason = availability_status(checker, loader, c, day, material_state)
+                    status, reason = availability_status(
+                        checker,
+                        loader,
+                        c,
+                        day,
+                        material_state,
+                        immediate_components=immediate_components,
+                        immediate_reference_day=immediate_reference_day,
+                    )
+                    direct_components = (
+                        compute_direct_component_shortages(loader, c, material_state)
+                        if blocking_components_mode in {"direct", "both"}
+                        else ""
+                    )
                     if status != "blocked":
                         requirements = tracked_bdh_requirements(loader, c.article, c.quantity)
                         buffer_shortage = any(projected_buffer.get(article, 0.0) < qty for article, qty in requirements.items())
@@ -146,6 +176,18 @@ class GenericLineScheduler:
                             break
                     else:
                         c.reason = reason
+                        blocked_components = extract_blocking_components(reason)
+                        if blocking_components_mode == "blocked":
+                            c.blocking_components = blocked_components
+                        elif blocking_components_mode == "direct":
+                            c.blocking_components = direct_components
+                        else:
+                            components = []
+                            for part in f"{blocked_components}, {direct_components}".split(","):
+                                chunk = part.strip()
+                                if chunk and chunk not in components:
+                                    components.append(chunk)
+                            c.blocking_components = ", ".join(components)
                         if earliest_blocked_due is None or c.due_date < earliest_blocked_due:
                             earliest_blocked_due = c.due_date
 
@@ -154,10 +196,24 @@ class GenericLineScheduler:
                 
             candidate = unscheduled.pop(candidate_idx)
 
-            status, reason = availability_status(checker, loader, candidate, day, material_state)
+            status, reason = availability_status(
+                checker,
+                loader,
+                candidate,
+                day,
+                material_state,
+                immediate_components=immediate_components,
+                immediate_reference_day=immediate_reference_day,
+            )
+            direct_components = (
+                compute_direct_component_shortages(loader, candidate, material_state)
+                if blocking_components_mode in {"direct", "both"}
+                else ""
+            )
             requirements = tracked_bdh_requirements(loader, candidate.article, candidate.quantity)
             
             candidate.reason = ""
+            candidate.blocking_components = direct_components
             deviation_marked = self._mark_candidate_deviation(candidate, earliest_blocked_due, deviation_marked, current_day=day)
                 
             used_hours = self._assign_candidate_time(candidate, last_article, used_hours, day)
