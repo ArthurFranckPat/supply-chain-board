@@ -1,6 +1,7 @@
-"""Point d'entrée principal du système de vérification de faisabilité."""
+﻿"""Point d'entrÃ©e principal du systÃ¨me de vÃ©rification de faisabilitÃ©."""
 
 import argparse
+import os
 from datetime import date, datetime
 from pathlib import Path
 
@@ -17,6 +18,11 @@ from .utils import format_charge_heatmap, format_charge_summary
 from .main_s1 import main_s1
 
 console = Console()
+
+DEFAULT_EXTRACTIONS_DIR = os.environ.get(
+    "ORDO_EXTRACTIONS_DIR",
+    "C:\\Users\\bledoua\\OneDrive - Aldes Aeraulique\\Donn\u00e9es\\Extractions",
+)
 
 
 DEFAULT_REFERENCE_DATE = date(2026, 3, 23)
@@ -35,62 +41,62 @@ def _resolve_reference_date(raw_value: str | None) -> date:
 def main():
     """Fonction principale."""
     parser = argparse.ArgumentParser(
-        description="Système de vérification de faisabilité des composants pour l'ordonnancement production"
+        description="SystÃ¨me de vÃ©rification de faisabilitÃ© des composants pour l'ordonnancement production"
     )
     parser.add_argument(
         "--data-dir",
         type=str,
-        default="data",
-        help="Répertoire contenant les fichiers CSV (défaut: data)",
+        default=DEFAULT_EXTRACTIONS_DIR,
+        help="RÃ©pertoire contenant les fichiers CSV (dÃ©faut: data)",
     )
     parser.add_argument(
         "--limit",
         type=int,
         default=None,
-        help="Limite le nombre d'OF à vérifier (pour les tests)",
+        help="Limite le nombre d'OF Ã  vÃ©rifier (pour les tests)",
     )
     parser.add_argument(
         "--of",
         type=str,
         default=None,
-        help="Numéro d'OF spécifique à vérifier (ex: F426-08419)",
+        help="NumÃ©ro d'OF spÃ©cifique Ã  vÃ©rifier (ex: F426-08419)",
     )
     parser.add_argument(
         "--commande",
         type=str,
         default=None,
-        help="Numéro de commande client à vérifier (ex: AR2600885)",
+        help="NumÃ©ro de commande client Ã  vÃ©rifier (ex: AR2600885)",
     )
     parser.add_argument(
         "--detailed",
         action="store_true",
-        help="Affiche un rapport détaillé pour chaque OF",
+        help="Affiche un rapport dÃ©taillÃ© pour chaque OF",
     )
     parser.add_argument(
         "--no-allocation",
         action="store_true",
-        help="Désactive la gestion de la concurrence",
+        help="DÃ©sactive la gestion de la concurrence",
     )
     parser.add_argument(
         "--no-virtual-allocation",
         action="store_true",
-        help="Désactive l'allocation virtuelle (vérification indépendante des OF)",
+        help="DÃ©sactive l'allocation virtuelle (vÃ©rification indÃ©pendante des OF)",
     )
     parser.add_argument(
         "--s1",
         action="store_true",
-        help="Mode S+1 : Vérifier les OF pour les commandes des 7 prochains jours",
+        help="Mode S+1 : VÃ©rifier les OF pour les commandes des 7 prochains jours",
     )
     parser.add_argument(
         "--horizon",
         type=int,
         default=7,
-        help="Horizon en jours pour le mode S+1 (défaut: 7)",
+        help="Horizon en jours pour le mode S+1 (dÃ©faut: 7)",
     )
     parser.add_argument(
         "--with-previsions",
         action="store_true",
-        help="Inclut les prévisions Export dans l'analyse (mode S+1)",
+        help="Inclut les prÃ©visions Export dans l'analyse (mode S+1)",
     )
     parser.add_argument(
         "--schedule",
@@ -100,25 +106,25 @@ def main():
     parser.add_argument(
         "--charge-heatmap",
         action="store_true",
-        help="Génère une heatmap de charge par poste de charge",
+        help="GÃ©nÃ¨re une heatmap de charge par poste de charge",
     )
     parser.add_argument(
         "--num-weeks",
         type=int,
         default=4,
-        help="Nombre de semaines pour la heatmap (défaut: 4)",
+        help="Nombre de semaines pour la heatmap (dÃ©faut: 4)",
     )
     parser.add_argument(
         "--llm",
         action="store_true",
         default=False,
-        help="Active le mode LLM pour les décisions (nécessite MISTRAL_API_KEY)",
+        help="Active le mode LLM pour les dÃ©cisions (nÃ©cessite MISTRAL_API_KEY)",
     )
     parser.add_argument(
         "--llm-model",
         type=str,
         default="mistral-large-latest",
-        help="Modèle LLM à utiliser (défaut: mistral-large-latest)",
+        help="ModÃ¨le LLM Ã  utiliser (dÃ©faut: mistral-large-latest)",
     )
     parser.add_argument(
         "--reference-date",
@@ -137,33 +143,33 @@ def main():
     reference_date = _resolve_reference_date(args.reference_date)
     setattr(args, "_resolved_reference_date", reference_date)
 
-    # Vérifier que le répertoire de données existe
+    # VÃ©rifier que le rÃ©pertoire de Donn\u00e9es existe
     data_dir = Path(args.data_dir)
     if not data_dir.exists():
-        console.print(f"[bold red]Erreur: Répertoire de données introuvable: {data_dir}[/bold red]")
+        console.print(f"[bold red]Erreur: RÃ©pertoire de Donn\u00e9es introuvable: {data_dir}[/bold red]")
         return
 
-    # Charger les données
-    console.print(f"[bold cyan]Chargement des données depuis {data_dir}...[/bold cyan]")
+    # Charger les Donn\u00e9es
+    console.print(f"[bold cyan]Chargement des Donn\u00e9es depuis {data_dir}...[/bold cyan]")
     loader = DataLoader(args.data_dir)
     loader.load_all()
 
-    console.print(f"✅ {len(loader.articles)} articles chargés")
-    console.print(f"✅ {len(loader.nomenclatures)} nomenclatures chargées")
-    console.print(f"✅ {len(loader.gammes)} gammes chargées")
-    console.print(f"✅ {len(loader.ofs)} OF chargés")
-    console.print(f"✅ {len(loader.stocks)} stocks chargés")
-    console.print(f"✅ {len(loader.receptions)} réceptions chargées")
-    console.print(f"✅ {len(loader.commandes_clients)} commandes clients chargées")
+    console.print(f"âœ… {len(loader.articles)} articles chargÃ©s")
+    console.print(f"âœ… {len(loader.nomenclatures)} nomenclatures chargÃ©es")
+    console.print(f"âœ… {len(loader.gammes)} gammes chargÃ©es")
+    console.print(f"âœ… {len(loader.ofs)} OF chargÃ©s")
+    console.print(f"âœ… {len(loader.stocks)} stocks chargÃ©s")
+    console.print(f"âœ… {len(loader.receptions)} rÃ©ceptions chargÃ©es")
+    console.print(f"âœ… {len(loader.commandes_clients)} commandes clients chargÃ©es")
     console.print()
 
     # Mode AUTORESEARCH scheduler
     if args.schedule and not args.s1:
-        console.print("[bold cyan]🗓️  Scheduler AUTORESEARCH...[/bold cyan]")
+        console.print("[bold cyan]ðŸ—“ï¸  Scheduler AUTORESEARCH...[/bold cyan]")
         result = run_schedule(loader, reference_date=reference_date, output_dir="outputs", weights_path="config/weights.json")
         total_tasks = sum(len(p) for p in result.plannings.values())
         lines_summary = ", ".join(f"{line}={len(p)}" for line, p in result.plannings.items())
-        console.print(f"✅ Planning genere : {total_tasks} taches réparties sur les lignes ({lines_summary})")
+        console.print(f"âœ… Planning genere : {total_tasks} taches rÃ©parties sur les lignes ({lines_summary})")
         taux_service = getattr(getattr(result, "kpis", result), "taux_service")
         taux_ouverture = getattr(getattr(result, "kpis", result), "taux_ouverture")
         nb_deviations = getattr(getattr(result, "kpis", result), "nb_deviations")
@@ -171,7 +177,7 @@ def main():
         score = getattr(getattr(result, "kpis", result), "score")
         
         # Calculer le cumul de charge par jour et nombre d'OFs
-        console.print("\n[bold cyan]📊 Cumul de charge par jour :[/bold cyan]")
+        console.print("\n[bold cyan]ðŸ“Š Cumul de charge par jour :[/bold cyan]")
         from collections import defaultdict
         
         charge_by_day_and_line = defaultdict(lambda: defaultdict(float))
@@ -185,10 +191,10 @@ def main():
             # Show only lines that have charge
             details = " | ".join(f"{l}: {h:.1f}h" for l, h in charges.items() if h > 0)
             if details:
-                console.print(f"  📅 {day} -> {details}")
+                console.print(f"  ðŸ“… {day} -> {details}")
         
         console.print(
-            f"\n✅ KPIs : taux_service={taux_service:.3f}, "
+            f"\nâœ… KPIs : taux_service={taux_service:.3f}, "
             f"taux_ouverture={taux_ouverture:.3f}, "
             f"deviations={nb_deviations}, "
             f"changements_serie={nb_changements_serie}"
@@ -200,7 +206,7 @@ def main():
     if args.charge_heatmap:
         from datetime import timedelta
 
-        console.print("[bold cyan]🔥 Calcul de la charge par poste de charge...[/bold cyan]")
+        console.print("[bold cyan]ðŸ”¥ Calcul de la charge par poste de charge...[/bold cyan]")
         console.print()
 
         # Filtrer les besoins
@@ -211,17 +217,17 @@ def main():
         from datetime import timedelta
         weekday = date_ref.weekday()
         lundi_semaine_en_cours = date_ref - timedelta(days=weekday)
-        horizon_end = lundi_semaine_en_cours + timedelta(days=args.num_weeks * 7 + 6)  # Inclure toutes les semaines jusqu'à S+N
+        horizon_end = lundi_semaine_en_cours + timedelta(days=args.num_weeks * 7 + 6)  # Inclure toutes les semaines jusqu'Ã  S+N
 
-        # Filtrer : inclure BACKLOG + EN_COURS + S+1 à S+N
+        # Filtrer : inclure BACKLOG + EN_COURS + S+1 Ã  S+N
         besoins = [
             b for b in besoins
             if b.date_expedition_demandee <= horizon_end and b.qte_restante > 0
         ]
 
-        console.print(f"📋 [bold cyan]{len(besoins)}[/bold cyan] besoins analysés")
-        console.print(f"   Période: [bold white]BACKLOG[/bold white] + [bold white]EN_COURS[/bold white] + [bold white]{args.num_weeks}[/bold white] semaines")
-        console.print(f"   (Consommation des prévisions activée)")
+        console.print(f"ðŸ“‹ [bold cyan]{len(besoins)}[/bold cyan] besoins analysÃ©s")
+        console.print(f"   PÃ©riode: [bold white]BACKLOG[/bold white] + [bold white]EN_COURS[/bold white] + [bold white]{args.num_weeks}[/bold white] semaines")
+        console.print(f"   (Consommation des prÃ©visions activÃ©e)")
         console.print()
 
         # Calculer la heatmap
@@ -260,7 +266,7 @@ def main():
         format_organization_table(results)
         return
 
-    # Mode vérification commande
+    # Mode vÃ©rification commande
     if args.commande:
         commandes = [c for c in loader.commandes_clients if c.num_commande == args.commande]
         if not commandes:
@@ -269,29 +275,29 @@ def main():
 
         commande = commandes[0]
         type_str = "MTS" if commande.is_mts() else "NOR/MTO"
-        console.print(f"🎯 Vérification de la commande {args.commande}")
+        console.print(f"ðŸŽ¯ VÃ©rification de la commande {args.commande}")
         console.print(f"   Client: {commande.nom_client}")
         console.print(f"   Article: {commande.article} - {commande.description}")
-        console.print(f"   Qté restante: {commande.qte_restante}")
+        console.print(f"   QtÃ© restante: {commande.qte_restante}")
         console.print(f"   Type: {type_str}")
         if commande.is_mts() and commande.of_contremarque:
-            console.print(f"   OF lié: {commande.of_contremarque}")
+            console.print(f"   OF liÃ©: {commande.of_contremarque}")
         console.print()
 
-        # Vérifier les allocations
+        # VÃ©rifier les allocations
         allocations = loader.get_allocations_of(args.commande)
         if allocations:
-            console.print(f"   📦 Allocations: {len(allocations)} composant(s)")
+            console.print(f"   ðŸ“¦ Allocations: {len(allocations)} composant(s)")
             for alloc in allocations[:5]:
                 console.print(f"      - {alloc.article}: {alloc.qte_allouee}")
             if len(allocations) > 5:
                 console.print(f"      ... et {len(allocations) - 5} autres")
         else:
-            console.print(f"   📦 Aucune allocation connue")
+            console.print(f"   ðŸ“¦ Aucune allocation connue")
         console.print()
 
-        # Vérification récursive
-        console.print("[bold cyan]🔍 Vérification récursive avec allocations...[/bold cyan]")
+        # VÃ©rification rÃ©cursive
+        console.print("[bold cyan]ðŸ” VÃ©rification rÃ©cursive avec allocations...[/bold cyan]")
         checker = RecursiveChecker(loader)
         result = checker.check_commande(commande)
 
@@ -300,65 +306,65 @@ def main():
             console.print()
             console.print("[bold red]Composants manquants:[/bold red]")
             for article, qte in result.missing_components.items():
-                console.print(f"   ❌ {article}: {qte} unités")
+                console.print(f"   âŒ {article}: {qte} unitÃ©s")
         if result.alerts:
             console.print()
             console.print("[yellow]Alertes:[/yellow]")
             for alert in result.alerts[:5]:
-                console.print(f"   ⚠️  {alert}")
+                console.print(f"   âš ï¸  {alert}")
             if len(result.alerts) > 5:
                 console.print(f"   ... et {len(result.alerts) - 5} autres alertes")
         console.print()
-        console.print(f"   📊 Composants vérifiés: {result.components_checked}")
-        console.print(f"   📊 Profondeur récursion: {result.depth}")
+        console.print(f"   ðŸ“Š Composants vÃ©rifiÃ©s: {result.components_checked}")
+        console.print(f"   ðŸ“Š Profondeur rÃ©cursion: {result.depth}")
         console.print()
 
         return
 
-    # Sélectionner les OF à vérifier
+    # SÃ©lectionner les OF Ã  vÃ©rifier
     if args.of:
-        # OF spécifique
+        # OF spÃ©cifique
         ofs = [of for of in loader.ofs if of.num_of == args.of]
         if not ofs:
             console.print(f"[bold red]Erreur: OF {args.of} introuvable[/bold red]")
             return
-        console.print(f"🎯 Vérification de l'OF {args.of}")
+        console.print(f"ðŸŽ¯ VÃ©rification de l'OF {args.of}")
     else:
-        # Tous les OF à vérifier
+        # Tous les OF Ã  vÃ©rifier
         ofs = loader.get_ofs_to_check()
 
-        # Limiter le nombre d'OF si demandé
+        # Limiter le nombre d'OF si demandÃ©
         if args.limit:
             ofs = ofs[: args.limit]
-            console.print(f"📋 Limite: {len(ofs)} OF à vérifier")
+            console.print(f"ðŸ“‹ Limite: {len(ofs)} OF Ã  vÃ©rifier")
 
-    console.print(f"📋 {len(ofs)} OF à vérifier")
+    console.print(f"ðŸ“‹ {len(ofs)} OF Ã  vÃ©rifier")
     console.print()
 
-    # Vérification immédiate
-    console.print("[bold cyan]🔍 Vérification immédiate (stock actuel)...[/bold cyan]")
+    # VÃ©rification immÃ©diate
+    console.print("[bold cyan]ðŸ” VÃ©rification immÃ©diate (stock actuel)...[/bold cyan]")
     immediate_checker = ImmediateChecker(loader)
     immediate_results = immediate_checker.check_all_ofs(ofs)
 
     imm_feasible = sum(1 for r in immediate_results.values() if r.feasible)
-    console.print(f"✅ Terminé: {imm_feasible}/{len(ofs)} OF faisables")
+    console.print(f"âœ… TerminÃ©: {imm_feasible}/{len(ofs)} OF faisables")
     console.print()
 
-    # Vérification projetée
-    console.print("[bold cyan]🔮 Vérification projetée (stock + réceptions)...[/bold cyan]")
+    # VÃ©rification projetÃ©e
+    console.print("[bold cyan]ðŸ”® VÃ©rification projetÃ©e (stock + rÃ©ceptions)...[/bold cyan]")
     projected_checker = ProjectedChecker(loader)
     projected_results = projected_checker.check_all_ofs(ofs)
 
     proj_feasible = sum(1 for r in projected_results.values() if r.feasible)
-    console.print(f"✅ Terminé: {proj_feasible}/{len(ofs)} OF faisables")
+    console.print(f"âœ… TerminÃ©: {proj_feasible}/{len(ofs)} OF faisables")
     console.print()
 
     # Gestion de la concurrence
     allocation_results = None
     if not args.no_allocation:
         if args.no_virtual_allocation:
-            # Approche 1 : Pas d'allocation virtuelle (vérification indépendante)
-            console.print("[bold cyan]📦 Vérification sans allocation virtuelle...[/bold cyan]")
+            # Approche 1 : Pas d'allocation virtuelle (vÃ©rification indÃ©pendante)
+            console.print("[bold cyan]ðŸ“¦ VÃ©rification sans allocation virtuelle...[/bold cyan]")
 
             # Utiliser ProjectedChecker directement (pas de StockState)
             allocation_results = {
@@ -372,23 +378,23 @@ def main():
             }
 
             alloc_feasible = sum(1 for r in allocation_results.values() if r.status.value == "feasible")
-            console.print(f"✅ Terminé: {alloc_feasible}/{len(ofs)} OF vérifiés (indépendamment)")
+            console.print(f"âœ… TerminÃ©: {alloc_feasible}/{len(ofs)} OF vÃ©rifiÃ©s (indÃ©pendamment)")
             console.print()
         else:
-            # Approche 2 : Allocation virtuelle (défaut)
-            console.print("[bold cyan]📦 Gestion de la concurrence avec allocation virtuelle...[/bold cyan]")
+            # Approche 2 : Allocation virtuelle (dÃ©faut)
+            console.print("[bold cyan]ðŸ“¦ Gestion de la concurrence avec allocation virtuelle...[/bold cyan]")
 
-            # Créer un RecursiveChecker avec réceptions
+            # CrÃ©er un RecursiveChecker avec rÃ©ceptions
             recursive_checker = RecursiveChecker(
                 loader,
-                use_receptions=True,  # Utiliser les réceptions fournisseurs
+                use_receptions=True,  # Utiliser les rÃ©ceptions fournisseurs
                 check_date=date.today()  # Date du jour
             )
 
-            # Créer le DecisionEngine
+            # CrÃ©er le DecisionEngine
             decision_engine = AgentEngine("config/decisions.yaml", loader=loader)
 
-            # Passer à AllocationManager
+            # Passer Ã  AllocationManager
             allocation_manager = AllocationManager(
                 data_loader=loader,
                 checker=recursive_checker,
@@ -397,21 +403,21 @@ def main():
             allocation_results = allocation_manager.allocate_stock(ofs)
 
             alloc_feasible = sum(1 for r in allocation_results.values() if r.status.value == "feasible")
-            console.print(f"✅ Terminé: {alloc_feasible}/{len(ofs)} OF alloués")
+            console.print(f"âœ… TerminÃ©: {alloc_feasible}/{len(ofs)} OF allouÃ©s")
             console.print()
 
-    # Afficher les résultats
+    # Afficher les rÃ©sultats
     format_of_table(ofs, immediate_results, projected_results, allocation_results)
     format_summary(immediate_results, projected_results, allocation_results)
 
-    # Rapport détaillé si demandé
+    # Rapport dÃ©taillÃ© si demandÃ©
     if args.detailed:
         for of in ofs:
             result = projected_results.get(of.num_of)
             if result and not result.feasible:
                 format_detailed_report(of, result)
 
-    # Générer les rapports de décisions
+    # GÃ©nÃ©rer les rapports de dÃ©cisions
     try:
         from .agents.reports import DecisionReporter
         import os
@@ -419,18 +425,19 @@ def main():
         reporter = DecisionReporter()
         output_dir = "reports/decisions"
 
-        # Générer rapport Markdown
+        # GÃ©nÃ©rer rapport Markdown
         md_path = os.path.join(output_dir, "decisions_report.md")
         reporter.generate_markdown_report(allocation_results, md_path)
-        console.print(f"✅ Rapport Markdown généré : {md_path}")
+        console.print(f"âœ… Rapport Markdown gÃ©nÃ©rÃ© : {md_path}")
 
-        # Générer rapport JSON
+        # GÃ©nÃ©rer rapport JSON
         json_path = os.path.join(output_dir, "decisions_report.json")
         reporter.generate_json_report(allocation_results, json_path)
-        console.print(f"✅ Rapport JSON généré : {json_path}")
+        console.print(f"âœ… Rapport JSON gÃ©nÃ©rÃ© : {json_path}")
     except Exception as e:
-        console.print(f"⚠️  Impossible de générer les rapports: {e}")
+        console.print(f"âš ï¸  Impossible de gÃ©nÃ©rer les rapports: {e}")
 
 
 if __name__ == "__main__":
     main()
+

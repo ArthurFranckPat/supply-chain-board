@@ -30,6 +30,14 @@ infra/
 - `ordo-core` exposes scheduling and S+1 APIs.
 - `integration-hub` orchestrates both and returns a consolidated payload for a board UI.
 
+## Ordo-core data source
+
+`ordo-core` now reads ERP extractions from a centralized folder (default):
+
+- `C:\Users\bledoua\OneDrive - Aldes Aeraulique\Donn\u00e9es\Extractions`
+
+Use `ORDO_EXTRACTIONS_DIR` to override this path.
+
 ## Local setup
 
 Quick path:

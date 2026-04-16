@@ -1,46 +1,77 @@
-# Ordonnancement Production v2
+﻿# Ordonnancement Production v2
 
-Système de vérification de faisabilité des composants pour l'ordonnancement manufacturier.
+Moteur d'ordonnancement et de faisabilite composants pour la production.
 
-## 🎯 Objectif
+## Objectif
 
-Permettre à l'ordonnanceur de vérifier rapidement si les composants seront disponibles pour réaliser la production planifiée, en prenant en compte :
+Evaluer rapidement si les besoins clients sont servables en combinant:
+- stock disponible,
+- OF existants,
+- receptions achats,
+- allocations virtuelles.
 
-- La vérification récursive des nomenclatures (jusqu'aux composants ACHAT)
-- La gestion de la concurrence entre OF
-- Deux modes de vérification : immédiate (stock) et projetée (stock + réceptions fournisseurs)
+## Source de donnees
 
-## 📋 Prérequis
+Le projet lit les extractions ERP centralisees dans:
 
-- Python 3.11+
-- pandas
-- rich
+`C:\Users\bledoua\OneDrive - Aldes Aeraulique\Donn\u00e9es\Extractions`
 
-## 🚀 Installation
+Vous pouvez surcharger ce chemin avec la variable d'environnement:
+
+`ORDO_EXTRACTIONS_DIR`
+
+Fichiers attendus:
+- `Articles.csv`
+- `Gammes.csv`
+- `Nomenclatures.csv`
+- `Besoins Clients.csv`
+- `Ordres de fabrication.csv`
+- `Stocks.csv`
+- `Commandes Achats.csv`
+- `Allocations.csv`
+
+## Regles de matching commande -> OF
+
+1. Lien direct prioritaire via `NUM_ORDRE_ORIGINE`:
+- si `OF.NUM_ORDRE_ORIGINE == besoin.NUM_ORDRE`
+- et `METHODE_OBTENTION_LIVRAISON == "Ordre de fabrication"`
+- alors cet OF est prioritaire pour la commande.
+
+2. Sinon, branche NOR/MTO:
+- allocation du stock virtuel,
+- calcul du besoin net,
+- recherche OF compatible par article, quantite, date, statut.
+
+3. Quantite de besoin utilisee pour le matching:
+- `QTE_RESTANTE_FABRICATION` (pas `QTE_RESTANTE_LIVRAISON`).
+
+## Installation
 
 ```bash
 pip install -r requirements.txt
 ```
 
-## 📖 Utilisation
+## Utilisation CLI
 
 ```bash
-python -m src.main --data-dir data
+python -m src.main
+python -m src.main --data-dir "C:/Users/.../Donn\u00e9es/Extractions"
+python -m src.main --s1 --horizon 7
 ```
 
-## 🖥️ GUI Locale
-
-Une V1 d'interface graphique locale est disponible via :
-- une API locale FastAPI
-- un frontend React/Vite inspire de shadcn/ui
-
-### Démarrer l'API locale
+## API locale
 
 ```bash
 uvicorn src.api.server:app --reload
 ```
 
-### Démarrer le frontend
+Endpoints utiles:
+- `GET /health`
+- `GET /config`
+- `POST /data/load` (source `extractions`)
+- `POST /runs/s1`
+
+## GUI locale
 
 ```bash
 cd frontend
@@ -48,51 +79,13 @@ npm install
 npm run dev
 ```
 
-Le frontend s'attend par défaut à une API sur `http://127.0.0.1:8000`.
-Vous pouvez surcharger l'URL avec `VITE_API_BASE_URL`.
+Le frontend pointe par defaut sur `http://127.0.0.1:8000`.
 
-### Vérifications GUI
+## Structure
 
-```bash
-cd frontend
-npm run build
-npm run lint
-npm run test
-```
-
-## 🏗️ Structure du projet
-
-```
-src/
-├── models/         # Modèles de données
-├── loaders/        # Chargement des CSV
-├── checkers/       # Algorithmes de vérification
-├── algorithms/     # Gestion de la concurrence
-├── scheduler/      # Moteur d'ordonnancement (Architecture SOLID)
-│   ├── engine.py     # Orchestrateur principal
-│   ├── lines.py      # Stratégies de planification par ligne (PP830, PP153)
-│   ├── heuristics.py # Algorithmes de tri et calcul de priorités
-│   ├── material.py   # Gestion des stocks, nomenclatures et consos Kanban
-│   ├── reporting.py  # Export CSV/JSON des KPIs et alertes
-│   └── models.py     # Classes de données du scheduler
-└── utils/          # Formatage et affichage
-```
-
-## ⚙️ Moteur de Planification (Scheduler)
-
-Le système intègre désormais un moteur de planification autonome capable de générer des plannings de production optimisés.
-
-**Fonctionnalités clés :**
-- **Lissage Kanban continu** : Algorithme minimisant les pics journaliers de consommation des composants Kanban (avec lecture récursive des nomenclatures).
-- **Temps de changement de série (Setup)** : Déduction dynamique du temps de setup (ex: 15min) sur la capacité de la ligne lors des changements d'articles.
-- **Mix Produit** : Équilibrage automatique des familles de produits fabriquées sur une même journée.
-- **Gestion des buffers (TOC)** : Sécurisation de l'alimentation des lignes d'assemblage finales via les lignes amonts.
-
-Pour générer un planning :
-```bash
-python3 main.py --schedule
-```
-
-## 📚 Documentation
-
-Voir [CLAUDE.md](CLAUDE.md) pour la documentation complète du système.
+- `src/models`: modeles metier
+- `src/loaders`: chargement et normalisation des extractions
+- `src/algorithms`: matching, allocation, calculs
+- `src/checkers`: verification de faisabilite
+- `src/scheduler`: planification
+- `src/api`: API FastAPI

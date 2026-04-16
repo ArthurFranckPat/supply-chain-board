@@ -80,7 +80,7 @@ class Article:
 
         return cls(
             code=row.get("ARTICLE", ""),
-            description=row.get("DESCRIPTION", ""),
+            description=row.get("DESIGNATION", ""),
             categorie=row.get("CATEGORIE", ""),
             type_appro=type_appro,
             delai_reappro=_parse_int(row.get("DELAI_REAPPRO", 0)),

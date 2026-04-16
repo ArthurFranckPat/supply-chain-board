@@ -118,3 +118,11 @@ Ajustement des quantités/priorités
 3. ⏳ Optimisation des quantités de production (cette note)
 4. ⏳ Intégration LLM pour recommandations intelligentes
 5. ⏳ Tableau de bord interactif
+
+## TODO - Flux Extractions ERP
+
+- [ ] Mapper correctement les champs mentionnes dans `Besoins Clients.csv`:
+  - `type_commande`
+  - `code_pays`
+- [ ] Documenter explicitement les regles de mapping retenues (source ERP -> modele metier).
+- [ ] Prendre en compte les stocks en statut Q dans la consommation virtuelle des stocks.

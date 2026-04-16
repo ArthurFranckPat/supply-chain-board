@@ -1,4 +1,4 @@
-import type { DataSource } from '../types'
+﻿import type { DataSource } from '../types'
 
 interface HomeViewProps {
   source: DataSource
@@ -10,10 +10,10 @@ interface HomeViewProps {
   onRunS1: () => void
 }
 
-const SOURCE_OPTIONS: DataSource[] = ['data', 'downloads']
+const SOURCE_OPTIONS: DataSource[] = ['extractions']
 
-function sourceLabel(source: DataSource) {
-  return source === 'data' ? 'Répertoire data/' : 'Téléchargements'
+function sourceLabel(_source: DataSource) {
+  return 'Extractions ERP'
 }
 
 function formatSnapshotValue(value: unknown) {
@@ -38,7 +38,7 @@ export function HomeView({
         <header className="panel-header">
           <div>
             <p className="eyebrow">Source</p>
-            <h3>Choix du jeu de données</h3>
+            <h3>Jeu de donnees ERP</h3>
           </div>
         </header>
         <div className="source-grid">
@@ -50,11 +50,9 @@ export function HomeView({
               onClick={() => setSource(option)}
             >
               <span className="source-card__label">{sourceLabel(option)}</span>
-              <strong>{option === 'data' ? 'CSV versionnés' : 'Exports récents ERP'}</strong>
+              <strong>Fichiers centralises</strong>
               <small>
-                {option === 'data'
-                  ? 'Stable pour analyse, tests et comparaison.'
-                  : 'Lecture directe des derniers exports détectés.'}
+                Lecture directe des extractions automatisees du dossier partage.
               </small>
             </button>
           ))}
@@ -98,8 +96,8 @@ export function HomeView({
             </dl>
           ) : (
             <div className="empty-state">
-              <strong>Aucune source chargée</strong>
-              <p>Chargez `data/` ou `Téléchargements` avant de lancer l’analyse S+1.</p>
+              <strong>Aucune source chargee</strong>
+              <p>Charge les extractions ERP avant de lancer l'analyse S+1.</p>
             </div>
           )}
         </div>
@@ -107,13 +105,13 @@ export function HomeView({
         <div>
           <header className="panel-header">
             <div>
-              <p className="eyebrow">Mode opératoire</p>
+              <p className="eyebrow">Mode operatoire</p>
               <h3>Vertical slice V1</h3>
             </div>
           </header>
           <ol className="step-list">
-            <li>Choisir une source de données.</li>
-            <li>Lancer le run S+1 projeté.</li>
+            <li>Charger la source Extractions ERP.</li>
+            <li>Lancer le run S+1 projete.</li>
             <li>Analyser les OF non faisables.</li>
             <li>Basculer sur les actions appro et rapports.</li>
           </ol>

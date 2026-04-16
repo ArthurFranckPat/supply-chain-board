@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """Menu interactif Rich pour l'ordonnancement production."""
 
 import argparse
@@ -17,7 +17,7 @@ from rich.table import Table
 from src.algorithms import AllocationManager, calculate_weekly_charge_heatmap
 from src.checkers import ImmediateChecker, ProjectedChecker, RecursiveChecker
 from src.agents import AgentEngine
-from src.loaders import DataLoader, resolve_downloads_files
+from src.loaders import DataLoader, resolve_extractions_files
 from src.main_s1 import main_s1
 from src.utils import format_charge_heatmap, format_charge_summary
 from src.utils import format_detailed_report, format_of_table, format_summary
@@ -26,14 +26,14 @@ console = Console()
 
 FEASIBILITY_MODE_LABELS = {
     "compare": "Comparer tous les modes (actuel)",
-    "immediate": "Dispo immédiate (stock actuel)",
-    "projected": "Dispo projetée (stock + réceptions)",
+    "immediate": "Dispo immÃ©diate (stock actuel)",
+    "projected": "Dispo projetÃ©e (stock + rÃ©ceptions)",
     "allocation": "Allocation virtuelle (gestion de concurrence)",
 }
 
 
 def select_feasibility_mode(include_compare: bool = True) -> str | None:
-    """Demande le mode d'évaluation de disponibilité composants."""
+    """Demande le mode d'Ã©valuation de disponibilitÃ© composants."""
     choices = []
     if include_compare:
         choices.append(FEASIBILITY_MODE_LABELS["compare"])
@@ -45,7 +45,7 @@ def select_feasibility_mode(include_compare: bool = True) -> str | None:
         ]
     )
     selection = questionary.select(
-        "Mode d'évaluation des composants ?",
+        "Mode d'Ã©valuation des composants ?",
         choices=choices,
     ).ask()
     if selection is None:
@@ -58,7 +58,7 @@ def select_feasibility_mode(include_compare: bool = True) -> str | None:
 
 
 def allocation_results_to_feasibility(allocation_results):
-    """Convertit les résultats d'allocation en résultats de faisabilité."""
+    """Convertit les rÃ©sultats d'allocation en rÃ©sultats de faisabilitÃ©."""
     return {
         of_num: result.feasibility_result
         for of_num, result in allocation_results.items()
@@ -75,12 +75,12 @@ def format_missing_components(result) -> str:
 
 
 def display_single_mode_results(ofs, mode_label: str, results, allocation_results=None) -> None:
-    """Affiche un tableau synthétique pour un seul mode de vérification."""
-    table = Table(title=f"📋 Résultats de vérification de faisabilité des OF - {mode_label}")
+    """Affiche un tableau synthÃ©tique pour un seul mode de vÃ©rification."""
+    table = Table(title=f"ðŸ“‹ RÃ©sultats de vÃ©rification de faisabilitÃ© des OF - {mode_label}")
 
-    table.add_column("Numéro OF", style="cyan", no_wrap=True)
+    table.add_column("NumÃ©ro OF", style="cyan", no_wrap=True)
     table.add_column("Article", style="magenta")
-    table.add_column("Qté restante", justify="right", style="white")
+    table.add_column("QtÃ© restante", justify="right", style="white")
     table.add_column("Date fin", style="white")
     table.add_column("Statut", justify="center")
     table.add_column("Composants manquants", style="red")
@@ -90,14 +90,14 @@ def display_single_mode_results(ofs, mode_label: str, results, allocation_result
             allocation_result = allocation_results.get(of.num_of)
             feasibility_result = allocation_result.feasibility_result if allocation_result else None
             if allocation_result and allocation_result.status.value == "feasible":
-                status = "✅"
+                status = "âœ…"
             elif allocation_result and allocation_result.status.value in {"skipped", "deferred"}:
-                status = "⏭️"
+                status = "â­ï¸"
             else:
-                status = "❌"
+                status = "âŒ"
         else:
             feasibility_result = results.get(of.num_of)
-            status = "✅" if feasibility_result and feasibility_result.feasible else "❌"
+            status = "âœ…" if feasibility_result and feasibility_result.feasible else "âŒ"
 
         table.add_row(
             of.num_of,
@@ -112,31 +112,31 @@ def display_single_mode_results(ofs, mode_label: str, results, allocation_result
 
 
 def display_single_mode_summary(mode_label: str, results, allocation_results=None) -> None:
-    """Affiche un résumé synthétique pour un seul mode."""
+    """Affiche un rÃ©sumÃ© synthÃ©tique pour un seul mode."""
     console.print("\n" + "=" * 80)
-    console.print(f"📊 [bold]RÉSUMÉ - {mode_label.upper()}[/bold]")
+    console.print(f"ðŸ“Š [bold]RÃ‰SUMÃ‰ - {mode_label.upper()}[/bold]")
     console.print("=" * 80 + "\n")
 
     if allocation_results is not None:
         total = len(allocation_results)
         feasible = sum(1 for result in allocation_results.values() if result.status.value == "feasible")
-        console.print(f"📦 [bold]{mode_label}[/bold]")
-        console.print(f"   ✅ Faisables : {feasible}/{total} ({feasible / total * 100:.1f}%)")
-        console.print(f"   ❌ Non faisables : {total - feasible}/{total}")
+        console.print(f"ðŸ“¦ [bold]{mode_label}[/bold]")
+        console.print(f"   âœ… Faisables : {feasible}/{total} ({feasible / total * 100:.1f}%)")
+        console.print(f"   âŒ Non faisables : {total - feasible}/{total}")
         console.print()
         return
 
     total = len(results)
     feasible = sum(1 for result in results.values() if result.feasible)
-    console.print(f"🔎 [bold]{mode_label}[/bold]")
-    console.print(f"   ✅ Faisables : {feasible}/{total} ({feasible / total * 100:.1f}%)")
-    console.print(f"   ❌ Non faisables : {total - feasible}/{total}")
+    console.print(f"ðŸ”Ž [bold]{mode_label}[/bold]")
+    console.print(f"   âœ… Faisables : {feasible}/{total} ({feasible / total * 100:.1f}%)")
+    console.print(f"   âŒ Non faisables : {total - feasible}/{total}")
     console.print()
 
 
 def run_allocation_mode(loader: DataLoader, ofs):
-    """Exécute le mode allocation virtuelle avec gestion de la concurrence."""
-    console.print("[bold cyan]📦 Allocation virtuelle (gestion de la concurrence)...[/bold cyan]")
+    """ExÃ©cute le mode allocation virtuelle avec gestion de la concurrence."""
+    console.print("[bold cyan]ðŸ“¦ Allocation virtuelle (gestion de la concurrence)...[/bold cyan]")
     recursive_checker = RecursiveChecker(
         loader,
         use_receptions=True,
@@ -150,42 +150,42 @@ def run_allocation_mode(loader: DataLoader, ofs):
     )
     allocation_results = allocation_manager.allocate_stock(ofs)
     alloc_feasible = sum(1 for result in allocation_results.values() if result.status.value == "feasible")
-    console.print(f"[green]✅ Terminé : {alloc_feasible}/{len(ofs)} OF faisables[/green]\n")
+    console.print(f"[green]âœ… TerminÃ© : {alloc_feasible}/{len(ofs)} OF faisables[/green]\n")
     return allocation_results
 
 
 def run_single_feasibility_mode(loader: DataLoader, ofs, mode: str):
-    """Exécute un seul mode de vérification de faisabilité."""
+    """ExÃ©cute un seul mode de vÃ©rification de faisabilitÃ©."""
     if mode == "immediate":
-        console.print("[bold cyan]🔍 Vérification immédiate (stock actuel)...[/bold cyan]")
+        console.print("[bold cyan]ðŸ” VÃ©rification immÃ©diate (stock actuel)...[/bold cyan]")
         checker = ImmediateChecker(loader)
         results = checker.check_all_ofs(ofs)
         feasible = sum(1 for result in results.values() if result.feasible)
-        console.print(f"[green]✅ Terminé : {feasible}/{len(ofs)} OF faisables[/green]\n")
+        console.print(f"[green]âœ… TerminÃ© : {feasible}/{len(ofs)} OF faisables[/green]\n")
         return FEASIBILITY_MODE_LABELS[mode], results, None
 
     if mode == "projected":
-        console.print("[bold cyan]🔮 Vérification projetée (stock + réceptions)...[/bold cyan]")
+        console.print("[bold cyan]ðŸ”® VÃ©rification projetÃ©e (stock + rÃ©ceptions)...[/bold cyan]")
         checker = ProjectedChecker(loader)
         results = checker.check_all_ofs(ofs)
         feasible = sum(1 for result in results.values() if result.feasible)
-        console.print(f"[green]✅ Terminé : {feasible}/{len(ofs)} OF faisables[/green]\n")
+        console.print(f"[green]âœ… TerminÃ© : {feasible}/{len(ofs)} OF faisables[/green]\n")
         return FEASIBILITY_MODE_LABELS[mode], results, None
 
     if mode == "allocation":
         allocation_results = run_allocation_mode(loader, ofs)
         return FEASIBILITY_MODE_LABELS[mode], allocation_results_to_feasibility(allocation_results), allocation_results
 
-    raise ValueError(f"Mode de faisabilité inconnu : {mode}")
+    raise ValueError(f"Mode de faisabilitÃ© inconnu : {mode}")
 
 
-def load_data(data_dir: str = "data") -> DataLoader:
-    """Charge les données depuis le répertoire classique data/statique + data/dynamique."""
-    with console.status("[bold cyan]Chargement des données...[/bold cyan]"):
-        loader = DataLoader(data_dir)
+def load_data(data_dir: str | None = None) -> DataLoader:
+    """Charge les Donn\u00e9es depuis le rÃ©pertoire d'extractions ERP."""
+    with console.status("[bold cyan]Chargement des Donn\u00e9es...[/bold cyan]"):
+        loader = DataLoader.from_extractions(data_dir)
         loader.load_all()
     console.print(
-        f"[green]Données chargées :[/green] "
+        f"[green]Donn\u00e9es chargÃ©es :[/green] "
         f"{len(loader.articles)} articles, "
         f"{len(loader.ofs)} OF, "
         f"{len(loader.commandes_clients)} commandes"
@@ -193,38 +193,30 @@ def load_data(data_dir: str = "data") -> DataLoader:
     return loader
 
 
-def load_data_from_downloads(downloads_dir: str = None) -> DataLoader:
-    """Charge les données depuis le dossier Téléchargements.
-
-    Cherche pour chaque fichier le plus récent au format ``{timestamp}_{CODE}.csv``.
-    """
-    from src.loaders.csv_loader import CSVLoader
-
-    # Résoudre les fichiers
-    resolved, missing = resolve_downloads_files(downloads_dir)
+def load_data_from_extractions(extractions_dir: str | None = None) -> DataLoader:
+    """Charge les Donn\u00e9es depuis le dossier d'extractions ERP centralisÃ©."""
+    resolved, missing = resolve_extractions_files(extractions_dir)
 
     if missing:
-        console.print("[yellow]⚠️  Fichiers non trouvés dans Téléchargements :[/yellow]")
+        console.print("[yellow]âš ï¸  Fichiers manquants dans le dossier d'extractions :[/yellow]")
         for name in missing:
-            code = CSVLoader._code_for_static(name)
-            console.print(f"   [red]✗[/red] {name}  [dim](attendu : *_{code}.csv)[/dim]")
+            console.print(f"   [red]âœ—[/red] {name}")
         console.print()
 
     if not resolved:
-        raise FileNotFoundError("Aucun fichier trouvé dans le dossier Téléchargements.")
+        raise FileNotFoundError("Aucun fichier d'extraction trouvÃ© dans le dossier fourni.")
 
-    # Afficher les fichiers retenus
-    console.print("[bold cyan]Fichiers sélectionnés :[/bold cyan]")
+    console.print("[bold cyan]Fichiers sÃ©lectionnÃ©s :[/bold cyan]")
     for name, path in sorted(resolved.items()):
-        console.print(f"   [green]✓[/green] {name:30s} ← [dim]{path.name}[/dim]")
+        console.print(f"   [green]âœ“[/green] {name:30s} â† [dim]{path.name}[/dim]")
     console.print()
 
-    with console.status("[bold cyan]Chargement des données...[/bold cyan]"):
-        loader = DataLoader.from_downloads(downloads_dir)
+    with console.status("[bold cyan]Chargement des Donn\u00e9es...[/bold cyan]"):
+        loader = DataLoader.from_extractions(extractions_dir)
         loader.load_all()
 
     console.print(
-        f"[green]Données chargées :[/green] "
+        f"[green]Donn\u00e9es chargÃ©es :[/green] "
         f"{len(loader.articles)} articles, "
         f"{len(loader.ofs)} OF, "
         f"{len(loader.commandes_clients)} commandes"
@@ -236,10 +228,10 @@ def run_feasibility_all(loader: DataLoader) -> None:
     mode = select_feasibility_mode(include_compare=True)
     if mode is None:
         return
-    detailed = questionary.confirm("Rapport détaillé ?", default=False).ask()
+    detailed = questionary.confirm("Rapport dÃ©taillÃ© ?", default=False).ask()
     if detailed is None:
         return
-    limit_str = questionary.text("Limite d'OFs (Entrée = tous)", default="").ask()
+    limit_str = questionary.text("Limite d'OFs (EntrÃ©e = tous)", default="").ask()
     if limit_str is None:
         return
     limit = int(limit_str) if limit_str.strip() else None
@@ -254,21 +246,21 @@ def run_feasibility_all(loader: DataLoader) -> None:
         ofs = ofs[:limit]
         console.print(f"[dim]Limite : {len(ofs)} OF[/dim]")
 
-    console.print(f"\n[bold]📋 {len(ofs)} OF à vérifier[/bold]\n")
+    console.print(f"\n[bold]ðŸ“‹ {len(ofs)} OF Ã  vÃ©rifier[/bold]\n")
 
     allocation_results = None
     if mode == "compare":
-        console.print("[bold cyan]🔍 Vérification immédiate (stock actuel)...[/bold cyan]")
+        console.print("[bold cyan]ðŸ” VÃ©rification immÃ©diate (stock actuel)...[/bold cyan]")
         immediate_checker = ImmediateChecker(loader)
         immediate_results = immediate_checker.check_all_ofs(ofs)
         imm_feasible = sum(1 for r in immediate_results.values() if r.feasible)
-        console.print(f"[green]✅ Terminé : {imm_feasible}/{len(ofs)} OF faisables[/green]\n")
+        console.print(f"[green]âœ… TerminÃ© : {imm_feasible}/{len(ofs)} OF faisables[/green]\n")
 
-        console.print("[bold cyan]🔮 Vérification projetée (stock + réceptions)...[/bold cyan]")
+        console.print("[bold cyan]ðŸ”® VÃ©rification projetÃ©e (stock + rÃ©ceptions)...[/bold cyan]")
         projected_checker = ProjectedChecker(loader)
         projected_results = projected_checker.check_all_ofs(ofs)
         proj_feasible = sum(1 for r in projected_results.values() if r.feasible)
-        console.print(f"[green]✅ Terminé : {proj_feasible}/{len(ofs)} OF faisables[/green]\n")
+        console.print(f"[green]âœ… TerminÃ© : {proj_feasible}/{len(ofs)} OF faisables[/green]\n")
 
         if include_allocation:
             allocation_results = run_allocation_mode(loader, ofs)
@@ -299,22 +291,22 @@ def run_feasibility_all(loader: DataLoader) -> None:
         md_path = os.path.join(output_dir, "decisions_report.md")
         if allocation_results is not None:
             reporter.generate_markdown_report(allocation_results, md_path)
-            console.print(f"[green]✅ Rapport Markdown : {md_path}[/green]")
+            console.print(f"[green]âœ… Rapport Markdown : {md_path}[/green]")
             json_path = os.path.join(output_dir, "decisions_report.json")
             reporter.generate_json_report(allocation_results, json_path)
-            console.print(f"[green]✅ Rapport JSON : {json_path}[/green]")
+            console.print(f"[green]âœ… Rapport JSON : {json_path}[/green]")
     except Exception as e:
-        console.print(f"[yellow]⚠️  Impossible de générer les rapports : {e}[/yellow]")
+        console.print(f"[yellow]âš ï¸  Impossible de gÃ©nÃ©rer les rapports : {e}[/yellow]")
 
 
 def run_feasibility_of(loader: DataLoader) -> None:
-    num_of = questionary.text("Numéro de l'OF (ex: F426-08419)").ask()
+    num_of = questionary.text("NumÃ©ro de l'OF (ex: F426-08419)").ask()
     if not num_of:
         return
     mode = select_feasibility_mode(include_compare=True)
     if mode is None:
         return
-    detailed = questionary.confirm("Rapport détaillé ?", default=False).ask()
+    detailed = questionary.confirm("Rapport dÃ©taillÃ© ?", default=False).ask()
     if detailed is None:
         return
 
@@ -323,20 +315,20 @@ def run_feasibility_of(loader: DataLoader) -> None:
         console.print(f"[bold red]OF {num_of} introuvable[/bold red]")
         return
 
-    console.print(f"\n[bold]🎯 Vérification de l'OF {num_of}[/bold]\n")
+    console.print(f"\n[bold]ðŸŽ¯ VÃ©rification de l'OF {num_of}[/bold]\n")
 
     if mode == "compare":
-        console.print("[bold cyan]🔍 Vérification immédiate...[/bold cyan]")
+        console.print("[bold cyan]ðŸ” VÃ©rification immÃ©diate...[/bold cyan]")
         immediate_checker = ImmediateChecker(loader)
         immediate_results = immediate_checker.check_all_ofs(ofs)
         imm_feasible = sum(1 for r in immediate_results.values() if r.feasible)
-        console.print(f"[green]✅ {imm_feasible}/{len(ofs)} faisable[/green]\n")
+        console.print(f"[green]âœ… {imm_feasible}/{len(ofs)} faisable[/green]\n")
 
-        console.print("[bold cyan]🔮 Vérification projetée...[/bold cyan]")
+        console.print("[bold cyan]ðŸ”® VÃ©rification projetÃ©e...[/bold cyan]")
         projected_checker = ProjectedChecker(loader)
         projected_results = projected_checker.check_all_ofs(ofs)
         proj_feasible = sum(1 for r in projected_results.values() if r.feasible)
-        console.print(f"[green]✅ {proj_feasible}/{len(ofs)} faisable[/green]\n")
+        console.print(f"[green]âœ… {proj_feasible}/{len(ofs)} faisable[/green]\n")
 
         allocation_results = run_allocation_mode(loader, ofs)
 
@@ -361,7 +353,7 @@ def run_feasibility_of(loader: DataLoader) -> None:
 
 
 def run_commande(loader: DataLoader) -> None:
-    num_commande = questionary.text("Numéro de commande (ex: AR2600885)").ask()
+    num_commande = questionary.text("NumÃ©ro de commande (ex: AR2600885)").ask()
     if not num_commande:
         return
 
@@ -372,27 +364,27 @@ def run_commande(loader: DataLoader) -> None:
 
     commande = commandes[0]
     type_str = "MTS" if commande.is_mts() else "NOR/MTO"
-    console.print(f"\n[bold]🎯 Commande {num_commande}[/bold]")
+    console.print(f"\n[bold]ðŸŽ¯ Commande {num_commande}[/bold]")
     console.print(f"   Client : {commande.nom_client}")
     console.print(f"   Article : {commande.article} - {commande.description}")
-    console.print(f"   Qté restante : {commande.qte_restante}")
+    console.print(f"   QtÃ© restante : {commande.qte_restante}")
     console.print(f"   Type : {type_str}")
     if commande.is_mts() and commande.of_contremarque:
-        console.print(f"   OF lié : {commande.of_contremarque}")
+        console.print(f"   OF liÃ© : {commande.of_contremarque}")
     console.print()
 
     allocations = loader.get_allocations_of(num_commande)
     if allocations:
-        console.print(f"   📦 Allocations : {len(allocations)} composant(s)")
+        console.print(f"   ðŸ“¦ Allocations : {len(allocations)} composant(s)")
         for alloc in allocations[:5]:
             console.print(f"      - {alloc.article} : {alloc.qte_allouee}")
         if len(allocations) > 5:
             console.print(f"      ... et {len(allocations) - 5} autres")
     else:
-        console.print("   📦 Aucune allocation connue")
+        console.print("   ðŸ“¦ Aucune allocation connue")
     console.print()
 
-    console.print("[bold cyan]🔍 Vérification récursive avec allocations...[/bold cyan]")
+    console.print("[bold cyan]ðŸ” VÃ©rification rÃ©cursive avec allocations...[/bold cyan]")
     checker = RecursiveChecker(loader)
     result = checker.check_commande(commande)
 
@@ -401,17 +393,17 @@ def run_commande(loader: DataLoader) -> None:
         console.print()
         console.print("[bold red]Composants manquants :[/bold red]")
         for article, qte in result.missing_components.items():
-            console.print(f"   ❌ {article} : {qte} unités")
+            console.print(f"   âŒ {article} : {qte} unitÃ©s")
     if result.alerts:
         console.print()
         console.print("[yellow]Alertes :[/yellow]")
         for alert in result.alerts[:5]:
-            console.print(f"   ⚠️  {alert}")
+            console.print(f"   âš ï¸  {alert}")
         if len(result.alerts) > 5:
             console.print(f"   ... et {len(result.alerts) - 5} autres alertes")
     console.print()
-    console.print(f"   📊 Composants vérifiés : {result.components_checked}")
-    console.print(f"   📊 Profondeur récursion : {result.depth}")
+    console.print(f"   ðŸ“Š Composants vÃ©rifiÃ©s : {result.components_checked}")
+    console.print(f"   ðŸ“Š Profondeur rÃ©cursion : {result.depth}")
 
 
 def run_s1(loader: DataLoader) -> None:
@@ -422,19 +414,19 @@ def run_s1(loader: DataLoader) -> None:
     if horizon_str is None:
         return
     horizon = int(horizon_str) if horizon_str else 7
-    previsions = questionary.confirm("Inclure les prévisions ?", default=False).ask()
+    previsions = questionary.confirm("Inclure les prÃ©visions ?", default=False).ask()
     if previsions is None:
         return
-    use_llm = questionary.confirm("Activer le LLM (nécessite MISTRAL_API_KEY) ?", default=False).ask()
+    use_llm = questionary.confirm("Activer le LLM (nÃ©cessite MISTRAL_API_KEY) ?", default=False).ask()
     if use_llm is None:
         return
     llm_model = "mistral-large-latest"
     if use_llm:
         if not os.environ.get("MISTRAL_API_KEY"):
-            console.print("[bold yellow]⚠️  MISTRAL_API_KEY non définie — LLM désactivé[/bold yellow]")
+            console.print("[bold yellow]âš ï¸  MISTRAL_API_KEY non dÃ©finie â€” LLM dÃ©sactivÃ©[/bold yellow]")
             use_llm = False
         else:
-            llm_model = questionary.text("Modèle LLM", default="mistral-large-latest").ask() or "mistral-large-latest"
+            llm_model = questionary.text("ModÃ¨le LLM", default="mistral-large-latest").ask() or "mistral-large-latest"
 
     args = argparse.Namespace(
         horizon=horizon,
@@ -451,7 +443,7 @@ def run_heatmap(loader: DataLoader) -> None:
         return
     num_weeks = int(weeks_str) if weeks_str else 4
 
-    console.print(f"\n[bold cyan]🔥 Calcul de la charge ({num_weeks} semaines)...[/bold cyan]\n")
+    console.print(f"\n[bold cyan]ðŸ”¥ Calcul de la charge ({num_weeks} semaines)...[/bold cyan]\n")
 
     date_ref = date.today()
     weekday = date_ref.weekday()
@@ -463,9 +455,9 @@ def run_heatmap(loader: DataLoader) -> None:
         if b.date_expedition_demandee <= horizon_end and b.qte_restante > 0
     ]
 
-    console.print(f"[bold cyan]{len(besoins)}[/bold cyan] besoins analysés")
+    console.print(f"[bold cyan]{len(besoins)}[/bold cyan] besoins analysÃ©s")
     console.print(
-        f"   Période : [bold white]BACKLOG[/bold white] + [bold white]EN_COURS[/bold white] "
+        f"   PÃ©riode : [bold white]BACKLOG[/bold white] + [bold white]EN_COURS[/bold white] "
         f"+ [bold white]{num_weeks}[/bold white] semaines"
     )
     console.print()
@@ -482,8 +474,8 @@ def run_heatmap(loader: DataLoader) -> None:
 
 
 MENU_CHOICES = {
-    "Vérification de faisabilité (tous les OFs)": run_feasibility_all,
-    "Vérifier un OF spécifique": run_feasibility_of,
+    "VÃ©rification de faisabilitÃ© (tous les OFs)": run_feasibility_all,
+    "VÃ©rifier un OF spÃ©cifique": run_feasibility_of,
     "Analyser une commande client": run_commande,
     "Mode S+1 (court terme)": run_s1,
     "Heatmap de charge": run_heatmap,
@@ -507,7 +499,7 @@ def run_menu(loader: DataLoader) -> None:
         try:
             MENU_CHOICES[choice](loader)
         except KeyboardInterrupt:
-            console.print("\n[dim]Action annulée.[/dim]")
+            console.print("\n[dim]Action annulÃ©e.[/dim]")
         except Exception as e:
             console.print(Panel(
                 f"[bold red]Erreur :[/bold red] {e}",
@@ -519,27 +511,21 @@ def run_menu(loader: DataLoader) -> None:
 def main() -> None:
     console.print(Panel.fit(
         "[bold cyan]Bienvenue dans Ordo v2[/bold cyan]\n"
-        "[dim]Système d'ordonnancement production[/dim]",
+        "[dim]SystÃ¨me d'ordonnancement production[/dim]",
         border_style="cyan",
     ))
     console.print()
 
-    source = questionary.select(
-        "Source des données ?",
-        choices=[
-            "Téléchargements (fichiers les plus récents)",
-            "Répertoire data/ (classique)",
-        ],
+    extractions_dir = questionary.text(
+        "Dossier des extractions ERP ?",
+        default="C:\\Users\\bledoua\\OneDrive - Aldes Aeraulique\\Donn\u00e9es\\Extractions",
     ).ask()
 
-    if source is None:
+    if extractions_dir is None:
         return
 
     try:
-        if source.startswith("Téléchargements"):
-            loader = load_data_from_downloads()
-        else:
-            loader = load_data()
+        loader = load_data_from_extractions(extractions_dir)
     except FileNotFoundError as e:
         console.print(Panel(
             f"[bold red]{e}[/bold red]",
@@ -553,3 +539,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

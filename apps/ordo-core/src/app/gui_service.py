@@ -1,4 +1,4 @@
-"""Application service layer for a local GUI/API."""
+﻿"""Application service layer for a local GUI/API."""
 
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ from uuid import uuid4
 from ..algorithms import AllocationManager, CommandeOFMatcher
 from ..checkers import ImmediateChecker, ProjectedChecker, RecursiveChecker
 from ..loaders import DataLoader
+from ..loaders.csv_loader import DEFAULT_EXTRACTIONS_DIR
 from ..reports import build_action_report, write_action_report_markdown
 
 
@@ -59,38 +60,35 @@ class GuiAppService:
     def get_config(self) -> dict[str, Any]:
         return {
             "project_root": str(self.project_root),
-            "data_dir_default": str(self.project_root / "data"),
-            "downloads_mode_supported": True,
+            "data_dir_default": str(DEFAULT_EXTRACTIONS_DIR),
+            "extractions_mode_supported": True,
             "sources": [
-                {"id": "data", "label": "data/"},
-                {"id": "downloads", "label": "Téléchargements"},
+                {"id": "extractions", "label": "Extractions ERP"},
             ],
             "feasibility_modes": [
-                {"id": "projected", "label": "Dispo projetée"},
-                {"id": "immediate", "label": "Dispo immédiate"},
+                {"id": "projected", "label": "Dispo projetee"},
+                {"id": "immediate", "label": "Dispo immediate"},
                 {"id": "allocation", "label": "Allocation virtuelle"},
             ],
         }
 
     def load_data(
         self,
-        source: str = "data",
+        source: str = "extractions",
         data_dir: Optional[str] = None,
-        downloads_dir: Optional[str] = None,
+        extractions_dir: Optional[str] = None,
     ) -> dict[str, Any]:
-        if source == "downloads":
-            loader = DataLoader.from_downloads(downloads_dir)
-            source_label = "downloads"
-        else:
-            loader = DataLoader(data_dir or str(self.project_root / "data"))
-            source_label = "data"
+        if source != "extractions":
+            raise ValueError(f"Source non supportee: {source}")
+
+        target_dir = extractions_dir or data_dir or str(DEFAULT_EXTRACTIONS_DIR)
+        loader = DataLoader.from_extractions(target_dir)
 
         loader.load_all()
         self.loader = loader
         self.loaded_source = {
-            "source": source_label,
-            "data_dir": data_dir,
-            "downloads_dir": downloads_dir,
+            "source": "extractions",
+            "extractions_dir": target_dir,
             "loaded_at": _utc_now_iso(),
             "counts": _build_loader_counts(loader),
         }
@@ -103,7 +101,7 @@ class GuiAppService:
         feasibility_mode: str = "projected",
     ) -> dict[str, Any]:
         if self.loader is None:
-            raise RuntimeError("Aucune donnée chargée. Appelez load_data avant run_s1.")
+            raise RuntimeError("Aucune donnee chargee. Appelez load_data avant run_s1.")
 
         run_id = uuid4().hex[:12]
         run_state = {

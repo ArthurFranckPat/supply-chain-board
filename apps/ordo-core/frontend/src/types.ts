@@ -1,9 +1,9 @@
-export type DataSource = 'data' | 'downloads'
+﻿export type DataSource = 'extractions'
 
 export interface ApiConfig {
   project_root: string
   data_dir_default: string
-  downloads_mode_supported: boolean
+  extractions_mode_supported: boolean
   sources: Array<{ id: DataSource; label: string }>
   feasibility_modes: Array<{ id: string; label: string }>
 }

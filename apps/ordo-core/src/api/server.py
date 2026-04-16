@@ -1,4 +1,4 @@
-"""FastAPI server for the local GUI."""
+﻿"""FastAPI server for the local GUI."""
 
 from __future__ import annotations
 
@@ -13,9 +13,8 @@ from ..app import GuiAppService
 
 
 class DataLoadRequest(BaseModel):
-    source: str = Field(default="data")
-    data_dir: Optional[str] = None
-    downloads_dir: Optional[str] = None
+    source: str = Field(default="extractions")
+    extractions_dir: Optional[str] = None
 
 
 class RunS1Request(BaseModel):
@@ -51,8 +50,7 @@ def create_app(service: Optional[GuiAppService] = None) -> FastAPI:
     def load_data(payload: DataLoadRequest) -> dict:
         return app.state.gui_service.load_data(
             source=payload.source,
-            data_dir=payload.data_dir,
-            downloads_dir=payload.downloads_dir,
+            extractions_dir=payload.extractions_dir,
         )
 
     @app.post("/runs/s1")

@@ -1,8 +1,14 @@
-"""CSV Loader - Chargement des fichiers CSV."""
+﻿"""CSV Loader - Chargement des fichiers d'extraction ERP."""
 
+from __future__ import annotations
+
+import base64
+import binascii
+import io
 import os
+import re
+from collections import defaultdict
 from pathlib import Path
-from typing import Optional
 
 import pandas as pd
 
@@ -13,47 +19,29 @@ from ..models.nomenclature import Nomenclature
 from ..models.of import OF
 from ..models.reception import Reception
 from ..models.stock import Stock
-from collections import defaultdict
 
 
-def resolve_downloads_files(downloads_dir: str | Path = None) -> tuple[dict[str, Path], list[str]]:
-    """Trouve les fichiers les plus récents dans le dossier Téléchargements.
+DEFAULT_EXTRACTIONS_DIR = Path(
+    os.environ.get(
+        "ORDO_EXTRACTIONS_DIR",
+        "C:\\Users\\bledoua\\OneDrive - Aldes Aeraulique\\Donn\u00e9es\\Extractions",
+    )
+)
 
-    Pour chaque code connu (ex: ORDART), cherche les fichiers de la forme
-    ``*_ORDART.csv`` et retient celui dont le nom est le plus grand
-    (timestamp le plus élevé = le plus récent).
 
-    Parameters
-    ----------
-    downloads_dir : str | Path, optional
-        Dossier à scanner. Si None, utilise ``~/Downloads`` (ou ``~/Téléchargements``
-        sur Windows FR).
-
-    Returns
-    -------
-    tuple[dict[str, Path], list[str]]
-        - resolved : ``{nom_interne: chemin}`` ex: ``{"articles.csv": Path(...)}``
-        - missing  : liste des noms internes non trouvés
-    """
-    if downloads_dir is None:
-        # Chercher ~/Downloads puis ~/Téléchargements (Windows FR)
-        home = Path.home()
-        for candidate in ("Downloads", "Téléchargements"):
-            if (home / candidate).exists():
-                downloads_dir = home / candidate
-                break
-        else:
-            downloads_dir = home / "Downloads"
-
-    downloads_dir = Path(downloads_dir)
+def resolve_extractions_files(
+    extractions_dir: str | Path | None = None,
+) -> tuple[dict[str, Path], list[str]]:
+    """Résout les fichiers d'extraction attendus dans un dossier ERP."""
+    base_dir = Path(extractions_dir) if extractions_dir else DEFAULT_EXTRACTIONS_DIR
 
     resolved: dict[str, Path] = {}
     missing: list[str] = []
 
-    for code, internal_name in CSVLoader.FILE_CODE_MAP.items():
-        candidates = sorted(downloads_dir.glob(f"*_{code}.csv"), reverse=True)
-        if candidates:
-            resolved[internal_name] = candidates[0]
+    for internal_name, physical_name in CSVLoader.EXTRACTIONS_FILE_MAP.items():
+        path = base_dir / physical_name
+        if path.exists():
+            resolved[internal_name] = path
         else:
             missing.append(internal_name)
 
@@ -61,166 +49,138 @@ def resolve_downloads_files(downloads_dir: str | Path = None) -> tuple[dict[str,
 
 
 class CSVLoader:
-    """Loader pour les fichiers CSV de données de production.
+    """Loader pour les fichiers CSV d'extractions ERP."""
 
-    Supporte deux modes :
-    - **Classique** : ``data_dir`` avec sous-dossiers ``statique/`` et ``dynamique/``
-    - **Downloads** : fichiers résolus individuellement via ``resolved_files``
-
-    Attributes
-    ----------
-    FILE_CODE_MAP : dict[str, str]
-        Mapping code export (ex: ``ORDART``) → nom de fichier interne (ex: ``articles.csv``)
-    data_dir : Path | None
-        Répertoire racine (mode classique uniquement)
-    statique_dir : Path | None
-        Répertoire des données statiques (mode classique uniquement)
-    dynamique_dir : Path | None
-        Répertoire des données dynamiques (mode classique uniquement)
-    """
-
-    FILE_CODE_MAP: dict[str, str] = {
-        "ORDART":   "articles.csv",
-        "ORDGAMME": "gammes.csv",
-        "ORDNOM":   "nomenclatures.csv",
-        "ORDBESCL": "besoins_clients.csv",
-        "ORDOF":    "of_entetes.csv",
-        "ORDSTK":   "stock.csv",
-        "ORDOA":    "receptions_oa.csv",
-        "ORDALLOC": "allocations.csv",
+    EXTRACTIONS_FILE_MAP: dict[str, str] = {
+        "articles.csv": "Articles.csv",
+        "gammes.csv": "Gammes.csv",
+        "nomenclatures.csv": "Nomenclatures.csv",
+        "besoins_clients.csv": "Besoins Clients.csv",
+        "of_entetes.csv": "Ordres de fabrication.csv",
+        "stock.csv": "Stocks.csv",
+        "receptions_oa.csv": "Commandes Achats.csv",
+        "allocations.csv": "Allocations.csv",
     }
 
-    def __init__(self, data_dir: str | Path = None, *, resolved_files: dict[str, Path] = None):
-        """Initialise le loader.
+    def __init__(
+        self,
+        data_dir: str | Path | None = None,
+        *,
+        resolved_files: dict[str, Path] | None = None,
+    ):
+        """Initialise le loader ERP.
 
         Parameters
         ----------
-        data_dir : str | Path, optional
-            Répertoire racine contenant ``statique/`` et ``dynamique/``.
-        resolved_files : dict[str, Path], optional
-            Mapping ``{nom_interne: chemin}`` prêt à l'emploi (mode downloads).
-            Incompatible avec ``data_dir``.
-
-        Raises
-        ------
-        ValueError
-            Si ni ``data_dir`` ni ``resolved_files`` n'est fourni.
-        FileNotFoundError
-            Si ``data_dir`` ou ses sous-dossiers sont introuvables (mode classique).
+        data_dir : str | Path | None
+            Dossier des extractions ERP. Si None, utilise DEFAULT_EXTRACTIONS_DIR.
+        resolved_files : dict[str, Path] | None
+            Mapping explicite interne -> chemin physique.
         """
         if resolved_files is not None:
-            # Mode downloads : chemins explicites, pas de sous-dossiers
             self.data_dir = None
-            self.statique_dir = None
-            self.dynamique_dir = None
             self._resolved_files = resolved_files
-        elif data_dir is not None:
-            # Mode classique
-            self.data_dir = Path(data_dir)
-            if not self.data_dir.exists():
-                raise FileNotFoundError(f"Répertoire de données introuvable: {self.data_dir}")
-            self.statique_dir = self.data_dir / "statique"
-            self.dynamique_dir = self.data_dir / "dynamique"
-            if not self.statique_dir.exists():
-                raise FileNotFoundError(f"Sous-dossier 'statique' introuvable: {self.statique_dir}")
-            if not self.dynamique_dir.exists():
-                raise FileNotFoundError(f"Sous-dossier 'dynamique' introuvable: {self.dynamique_dir}")
-            self._resolved_files = None
-        else:
-            raise ValueError("data_dir ou resolved_files est requis")
+            return
 
-    def get_file_path(self, filename: str) -> Path:
-        """Retourne le chemin vers un fichier (fonctionne dans les deux modes).
+        self.data_dir = Path(data_dir) if data_dir else DEFAULT_EXTRACTIONS_DIR
+        if not self.data_dir.exists():
+            raise FileNotFoundError(
+                f"Répertoire d'extractions introuvable: {self.data_dir}"
+            )
 
-        Parameters
-        ----------
-        filename : str
-            Nom interne du fichier (ex: ``"allocations.csv"``).
+        resolved, missing = resolve_extractions_files(self.data_dir)
+        if missing:
+            missing_files = [self.EXTRACTIONS_FILE_MAP[name] for name in missing]
+            raise FileNotFoundError(
+                "Fichiers d'extraction manquants:\n"
+                + "\n".join(f"  - {filename}" for filename in missing_files)
+            )
 
-        Returns
-        -------
-        Path
-            Chemin résolu vers le fichier.
-
-        Raises
-        ------
-        FileNotFoundError
-            Si le fichier est introuvable.
-        """
-        if self._resolved_files is not None:
-            path = self._resolved_files.get(filename)
-            if path is None:
-                raise FileNotFoundError(
-                    f"Fichier '{filename}' non trouvé dans les téléchargements. "
-                    f"Attendu un fichier *_{self._code_for(filename)}.csv"
-                )
-            return path
-        # Mode classique : déterminer le sous-dossier d'après FILE_CODE_MAP
-        subdir = "dynamique" if filename not in ("articles.csv", "gammes.csv", "nomenclatures.csv") else "statique"
-        return self.data_dir / subdir / filename
-
-    def _code_for(self, internal_name: str) -> str:
-        """Retourne le code export associé à un nom de fichier interne."""
-        return self._code_for_static(internal_name)
+        self._resolved_files = resolved
 
     @staticmethod
-    def _code_for_static(internal_name: str) -> str:
-        """Version statique de _code_for (utilisable sans instance)."""
-        return next((k for k, v in CSVLoader.FILE_CODE_MAP.items() if v == internal_name), "?")
+    def _read_text_with_fallback(path: Path) -> str:
+        """Lit un fichier texte avec fallback d'encodage."""
+        last_error: Exception | None = None
+        for encoding in ("utf-8-sig", "utf-8", "latin-1", "cp1252"):
+            try:
+                return path.read_text(encoding=encoding)
+            except UnicodeDecodeError as exc:
+                last_error = exc
 
-    def _load_csv(self, filename: str, subdir: str = None, sep: str = ";") -> pd.DataFrame:
-        """Charge un fichier CSV dans un DataFrame.
+        if last_error is not None:
+            raise last_error
 
-        Parameters
-        ----------
-        filename : str
-            Nom du fichier CSV
-        subdir : str, optional
-            Sous-dossier ("statique" ou "dynamique"). Ignoré en mode downloads.
-        sep : str
-            Séparateur (défaut: ";" pour les CSV français)
+        return path.read_text()
 
-        Returns
-        -------
-        pd.DataFrame
-            DataFrame contenant les données du CSV
+    @staticmethod
+    def _looks_like_base64(payload: str) -> bool:
+        compact = payload.replace("\r", "").replace("\n", "").strip()
+        if len(compact) < 256:
+            return False
+        if not re.fullmatch(r"[A-Za-z0-9+/=]+", compact):
+            return False
+        return True
 
-        Raises
-        ------
-        FileNotFoundError
-            Si le fichier n'existe pas
-        """
-        if self._resolved_files is not None:
-            # Mode downloads : ignorer subdir, utiliser le chemin résolu
-            filepath = self._resolved_files.get(filename)
-            if filepath is None:
-                raise FileNotFoundError(
-                    f"Fichier '{filename}' non trouvé dans les téléchargements."
-                )
-        else:
-            # Mode classique
-            target_dir = self.data_dir / subdir if subdir else self.data_dir
-            filepath = target_dir / filename
-            if not filepath.exists():
-                raise FileNotFoundError(f"Fichier introuvable: {filepath}")
+    @classmethod
+    def _decode_if_base64(cls, raw_content: str) -> str:
+        """Décode le contenu si le fichier contient un CSV encodé en base64."""
+        first_line = raw_content.splitlines()[0] if raw_content.splitlines() else ""
+        if "," in first_line or ";" in first_line:
+            return raw_content
 
-        # Essayer UTF-8 d'abord, puis latin-1 si ça échoue
+        if not cls._looks_like_base64(raw_content):
+            return raw_content
+
+        compact = raw_content.replace("\r", "").replace("\n", "").strip()
         try:
-            return pd.read_csv(filepath, sep=sep, encoding="utf-8", low_memory=False)
-        except UnicodeDecodeError:
-            return pd.read_csv(filepath, sep=sep, encoding="latin-1", low_memory=False)
+            decoded_bytes = base64.b64decode(compact, validate=True)
+        except (ValueError, binascii.Error):
+            return raw_content
 
-    # pylint: disable=too-many-arguments
+        for encoding in ("utf-8-sig", "utf-8", "latin-1", "cp1252"):
+            try:
+                decoded_text = decoded_bytes.decode(encoding)
+                header = decoded_text.splitlines()[0] if decoded_text.splitlines() else ""
+                if "," in header or ";" in header:
+                    return decoded_text
+            except UnicodeDecodeError:
+                continue
+
+        return raw_content
+
+    @staticmethod
+    def _detect_separator(csv_content: str) -> str:
+        """Détecte le séparateur à partir de l'en-tête."""
+        for line in csv_content.splitlines():
+            if not line.strip():
+                continue
+            comma_count = line.count(",")
+            semicolon_count = line.count(";")
+            return "," if comma_count >= semicolon_count else ";"
+        return ","
+
+    def get_file_path(self, filename: str) -> Path:
+        """Retourne le chemin physique d'un fichier interne."""
+        path = self._resolved_files.get(filename)
+        if path is None:
+            expected = self.EXTRACTIONS_FILE_MAP.get(filename, filename)
+            raise FileNotFoundError(
+                f"Fichier d'extraction introuvable pour '{filename}' (attendu: {expected})"
+            )
+        return path
+
+    def _load_csv(self, filename: str, sep: str | None = None) -> pd.DataFrame:
+        """Charge un CSV ERP en DataFrame pandas."""
+        filepath = self.get_file_path(filename)
+        raw = self._read_text_with_fallback(filepath)
+        normalized = self._decode_if_base64(raw)
+        separator = sep or self._detect_separator(normalized)
+        return pd.read_csv(io.StringIO(normalized), sep=separator, low_memory=False)
 
     def load_articles(self) -> dict[str, Article]:
-        """Charge le catalogue des articles.
-
-        Returns
-        -------
-        dict[str, Article]
-            Dictionnaire des articles indexé par code article
-        """
-        df = self._load_csv("articles.csv", subdir="statique")
+        """Charge le catalogue des articles."""
+        df = self._load_csv("articles.csv")
 
         articles = {}
         for _, row in df.iterrows():
@@ -230,18 +190,11 @@ class CSVLoader:
         return articles
 
     def load_nomenclatures(self) -> dict[str, Nomenclature]:
-        """Charge les nomenclatures articles.
+        """Charge les nomenclatures articles."""
+        df = self._load_csv("nomenclatures.csv")
 
-        Returns
-        -------
-        dict[str, Nomenclature]
-            Dictionnaire des nomenclatures indexé par article parent
-        """
-        df = self._load_csv("nomenclatures.csv", subdir="statique")
-
-        # Grouper par article parent
         nomenclatures = {}
-        for article_parent, group in df.groupby("Article parent"):
+        for article_parent, group in df.groupby("ARTICLE_PARENT"):
             nomenclatures[article_parent] = Nomenclature.from_csv_rows(
                 article=article_parent, rows=group.to_dict("records")
             )
@@ -249,55 +202,32 @@ class CSVLoader:
         return nomenclatures
 
     def load_gammes(self) -> dict[str, Gamme]:
-        """Charge les gammes de production.
+        """Charge les gammes de production."""
+        df = self._load_csv("gammes.csv")
 
-        Returns
-        -------
-        dict[str, Gamme]
-            Dictionnaire des gammes indexé par article
-        """
-        df = self._load_csv("gammes.csv", subdir="statique")
-
-        # Grouper par article
         gammes_dict = defaultdict(list)
         for _, row in df.iterrows():
             op = GammeOperation.from_csv_row(row.to_dict())
             gammes_dict[op.article].append(op)
 
-        # Convertir en objets Gamme
-        gammes = {
+        return {
             article: Gamme(article=article, operations=ops)
             for article, ops in gammes_dict.items()
         }
 
-        return gammes
-
     def load_of_entetes(self) -> list[OF]:
-        """Charge les en-têtes d'ordres de fabrication.
-
-        Returns
-        -------
-        list[OF]
-            Liste des OF
-        """
-        df = self._load_csv("of_entetes.csv", subdir="dynamique")
+        """Charge les ordres de fabrication."""
+        df = self._load_csv("of_entetes.csv")
 
         ofs = []
         for _, row in df.iterrows():
-            of = OF.from_csv_row(row.to_dict())
-            ofs.append(of)
+            ofs.append(OF.from_csv_row(row.to_dict()))
 
         return ofs
 
     def load_stock(self) -> dict[str, Stock]:
-        """Charge l'état des stocks.
-
-        Returns
-        -------
-        dict[str, Stock]
-            Dictionnaire des stocks indexé par article
-        """
-        df = self._load_csv("stock.csv", subdir="dynamique")
+        """Charge l'état des stocks."""
+        df = self._load_csv("stock.csv")
 
         stocks = {}
         for _, row in df.iterrows():
@@ -307,118 +237,27 @@ class CSVLoader:
         return stocks
 
     def load_receptions(self) -> list[Reception]:
-        """Charge les réceptions fournisseurs.
-
-        Returns
-        -------
-        list[Reception]
-            Liste des réceptions
-        """
-        df = self._load_csv("receptions_oa.csv", subdir="dynamique")
+        """Charge les commandes achats (réceptions prévues)."""
+        df = self._load_csv("receptions_oa.csv")
 
         receptions = []
         for _, row in df.iterrows():
-            reception = Reception.from_csv_row(row.to_dict())
-            receptions.append(reception)
+            receptions.append(Reception.from_csv_row(row.to_dict()))
 
         return receptions
 
     def load_commandes_clients(self) -> list[BesoinClient]:
-        """Charge les commandes clients.
+        """Charge les besoins clients issus de l'extraction ERP."""
+        df = self._load_csv("besoins_clients.csv")
 
-        Priority: besoins_clients.csv > commandes_clients.csv (legacy)
-
-        Returns
-        -------
-        list[BesoinClient]
-            Liste des besoins clients (toujours au nouveau format)
-        """
-        try:
-            # Essayer besoins_clients.csv d'abord
-            df = self._load_csv("besoins_clients.csv", subdir="dynamique")
-            return self._load_besoins_from_df(df)
-        except FileNotFoundError:
-            # Fallback sur commandes_clients.csv (legacy)
-            df = self._load_csv("commandes_clients.csv", subdir="dynamique")
-            # Convertir vers le nouveau format BesoinClient
-            return self._convert_commandes_legacy_to_besoins(df)
-
-    def _load_besoins_from_df(self, df) -> list[BesoinClient]:
-        """Charge les besoins depuis le DataFrame besoins_clients.csv.
-
-        Parameters
-        ----------
-        df : pd.DataFrame
-            DataFrame contenant les données du CSV
-
-        Returns
-        -------
-        list[BesoinClient]
-            Liste des besoins clients
-        """
         besoins = []
-
-        for _, row in df.iterrows():
+        for idx, row in df.iterrows():
             try:
                 besoin = BesoinClient.from_csv_row(row.to_dict())
-                if besoin.article:  # Ignorer les lignes sans article
-                    besoins.append(besoin)
-            except Exception as e:
-                # Loguer l'erreur mais continuer
-                print(f"Warning: Erreur parsing ligne {_}: {e}")
-                continue
-
-        return besoins
-
-    def _convert_commandes_legacy_to_besoins(self, df) -> list[BesoinClient]:
-        """Convertit les commandes legacy vers BesoinClient.
-
-        Pour compatibilité avec l'ancien format commandes_clients.csv.
-        Convertit FLAG_CONTREMARQUE (5/1) vers TYPE_COMMANDE (MTS/NOR).
-
-        Parameters
-        ----------
-        df : pd.DataFrame
-            DataFrame contenant les données du CSV legacy
-
-        Returns
-        -------
-        list[BesoinClient]
-            Liste des besoins clients convertis
-        """
-        besoins = []
-
-        for _, row in df.iterrows():
-            # Mapper FLAG_CONTREMARQUE vers TYPE_COMMANDE
-            flag = int(row.get("FLAG_CONTREMARQUE", 1))
-            if flag == 5:
-                type_cmd = "MTS"
-            else:
-                # FLAG 1 (NOR/MTO) ou autre → NOR par défaut
-                type_cmd = "NOR"
-
-            # Créer un dict au format BesoinClient
-            row_besoin = {
-                "NOM_CLIENT": row.get("NOM_CLIENT", ""),
-                "TYPE_COMMANDE": type_cmd,
-                "NUM_COMMANDE": row.get("NUM_COMMANDE", ""),
-                "NATURE_BESOIN": "COMMANDE",
-                "ARTICLE": row.get("ARTICLE", ""),
-                "OF_CONTREMARQUE": row.get("OF_CONTREMARQUE", ""),
-                "DATE_COMMANDE": "",  # Pas d'info dans l'ancien format
-                "DATE_EXPEDITION_DEMANDEE": row.get("DATE_EXPEDITION_DEMANDEE", ""),
-                "QTE_COMMANDEE": row.get("QTE_COMMANDEE", 0),
-                "QTE_ALLOUEE": row.get("QTE_ALLOUEE", 0),
-                "QTE_RESTANTE": row.get("QTE_RESTANTE", 0),
-            }
-
-            try:
-                besoin = BesoinClient.from_csv_row(row_besoin)
                 if besoin.article:
                     besoins.append(besoin)
-            except Exception as e:
-                print(f"Warning: Erreur conversion legacy: {e}")
-                continue
+            except Exception as exc:  # pragma: no cover
+                print(f"Warning: erreur parsing ligne {idx}: {exc}")
 
         return besoins
 
@@ -433,17 +272,7 @@ class CSVLoader:
         list[Reception],
         list[BesoinClient],
     ]:
-        """Charge tous les fichiers CSV.
-
-        Returns
-        -------
-        tuple
-            (articles, nomenclatures, gammes, ofs, stocks, receptions, commandes_clients)
-
-        Note
-        ----
-        commandes_clients est maintenant de type list[BesoinClient] (pas CommandeClient).
-        """
+        """Charge tous les fichiers ERP."""
         articles = self.load_articles()
         nomenclatures = self.load_nomenclatures()
         gammes = self.load_gammes()
@@ -453,3 +282,4 @@ class CSVLoader:
         commandes_clients = self.load_commandes_clients()
 
         return articles, nomenclatures, gammes, ofs, stocks, receptions, commandes_clients
+

@@ -68,7 +68,7 @@ function App() {
   const [activeView, setActiveView] = useState<ViewKey>('home')
   const [config, setConfig] = useState<ApiConfig | null>(null)
   const [reports, setReports] = useState<ReportFile[]>([])
-  const [source, setSource] = useState<DataSource>('data')
+  const [source, setSource] = useState<DataSource>('extractions')
   const [loadState, setLoadState] = useState<LoadState>('idle')
   const [runState, setRunState] = useState<RunStateStatus>('idle')
   const [backendState, setBackendState] = useState<'checking' | 'ready' | 'error'>('checking')

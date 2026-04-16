@@ -1,4 +1,6 @@
-"""Modèle OF Allocation - Lien OF → Composants alloués."""
+﻿"""Modele OF Allocation - lien OF/commande vers composants alloues."""
+
+from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
@@ -7,21 +9,7 @@ from typing import Optional
 
 @dataclass
 class OFAllocation:
-    """Allocation d'un article à un document (OF ou commande).
-
-    Attributes
-    ----------
-    article : str
-        Code article (composant ou produit fini)
-    qte_allouee : float
-        Quantité allouée (peut être décimale pour les petits consommables)
-    num_doc : str
-        Numéro du document (OF ou commande client)
-    date_besoin : str
-        Date de besoin au format DD/MM/YYYY
-    date_besoin_obj : Optional[datetime]
-        Date de besoin convertie en objet datetime
-    """
+    """Allocation d'un article a un document (OF ou commande)."""
 
     article: str
     qte_allouee: float
@@ -31,36 +19,34 @@ class OFAllocation:
 
     @classmethod
     def from_csv_row(cls, row: dict) -> "OFAllocation":
-        """Crée une OFAllocation à partir d'une ligne CSV.
-
-        Parameters
-        ----------
-        row : dict
-            Dictionnaire contenant les champs du CSV
-
-        Returns
-        -------
-        OFAllocation
-            Instance créée à partir de la ligne CSV
-        """
         article = row.get("ARTICLE", "")
         qte_allouee_str = row.get("QTE_ALLOUEE", "0")
-        num_doc = row.get("NUM_DOC", "")
-        date_besoin = row.get("DATE_BESOIN", "")
+        num_doc = row.get("NUM_ORDRE", "")
+        raw_date = row.get("DATE_FIN", "")
 
-        # Nettoyer la quantité (peut avoir des virgules)
         qte_allouee_clean = str(qte_allouee_str).replace(",", ".").strip()
         try:
             qte_allouee = float(qte_allouee_clean) if qte_allouee_clean else 0.0
         except ValueError:
             qte_allouee = 0.0
 
-        # Convertir la date
         date_besoin_obj = None
-        try:
-            date_besoin_obj = datetime.strptime(date_besoin, "%d/%m/%Y")
-        except (ValueError, TypeError):
-            pass  # Date invalide ou vide
+        for fmt in (
+            "%m/%d/%Y %H:%M:%S",
+            "%d/%m/%Y %H:%M:%S",
+            "%d/%m/%Y",
+            "%Y-%m-%d",
+        ):
+            try:
+                date_besoin_obj = datetime.strptime(str(raw_date).strip(), fmt)
+                break
+            except (ValueError, TypeError):
+                continue
+
+        if date_besoin_obj is not None:
+            date_besoin = date_besoin_obj.strftime("%d/%m/%Y")
+        else:
+            date_besoin = str(raw_date or "")
 
         return cls(
             article=article,
@@ -71,5 +57,4 @@ class OFAllocation:
         )
 
     def __repr__(self) -> str:
-        """Représentation textuelle de l'allocation."""
-        return f"OFAllocation({self.article} : {self.qte_allouee} → {self.num_doc})"
+        return f"OFAllocation({self.article} : {self.qte_allouee} -> {self.num_doc})"

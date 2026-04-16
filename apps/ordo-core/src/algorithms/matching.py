@@ -212,6 +212,12 @@ class CommandeOFMatcher:
         MatchingResult
             Résultat du matching
         """
+        # Priorité au lien explicite commande -> OF via NUM_ORDRE_ORIGINE.
+        # Ce lien remplace fonctionnellement l'ancien OF_CONTREMARQUE.
+        linked_result = self._match_by_origin_order(commande)
+        if linked_result is not None:
+            return linked_result
+
         if commande.is_mts():
             return self._match_mts(commande)
         elif commande.is_nor_mto():
@@ -223,6 +229,47 @@ class CommandeOFMatcher:
                 matching_method="Inconnu",
                 alertes=[f"Type de commande inconnu: TYPE={commande.type_commande.value}"],
             )
+
+    def _match_by_origin_order(self, commande: BesoinClient) -> Optional[MatchingResult]:
+        """Match direct via OF.NUM_ORDRE_ORIGINE = commande.num_commande.
+
+        Le matching ne s'applique que pour les OF dont
+        METHODE_OBTENTION_LIVRAISON = "Ordre de fabrication".
+        """
+        linked_ofs = self.data_loader.get_ofs_by_origin(
+            commande.num_commande,
+            article=commande.article,
+        )
+        if not linked_ofs:
+            return None
+
+        linked_ofs = [
+            of for of in linked_ofs
+            if (
+                str(of.methode_obtention_livraison).strip().lower() == "ordre de fabrication"
+                and of.statut_num in (1, 2, 3)
+                and of.qte_restante > 0
+            )
+        ]
+        if not linked_ofs:
+            return None
+
+        # Prioriser OF fermés, puis planifiés, puis suggérés; ensuite la date la plus proche.
+        def _priority(of: OF) -> tuple[int, int]:
+            statut_rank = {1: 0, 2: 1, 3: 2}.get(of.statut_num, 3)
+            date_gap = abs((of.date_fin - commande.date_expedition_demandee).days)
+            return (statut_rank, date_gap)
+
+        linked_ofs.sort(key=_priority)
+        selected = linked_ofs[0]
+        self.ofs_deja_utilises.add(selected.num_of)
+
+        return MatchingResult(
+            commande=commande,
+            of=selected,
+            matching_method="Lien direct NUM_ORDRE_ORIGINE",
+            alertes=[],
+        )
 
     def _match_mts(self, commande: BesoinClient) -> MatchingResult:
         """Match une commande MTS avec son OF lié.
@@ -500,7 +547,7 @@ class CommandeOFMatcher:
         self.reset()
 
         # Collecter les articles NOR/MTO pour initialiser OFConso
-        articles_nor_mto = {c.article for c in commandes if c.is_nor_mto()}
+        articles_nor_mto = {c.article for c in commandes}
         self._initialiser_of_conso(articles=articles_nor_mto)
 
         # Créer l'état du stock virtuel pour gérer la concurrence

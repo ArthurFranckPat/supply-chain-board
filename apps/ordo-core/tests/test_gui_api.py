@@ -1,4 +1,4 @@
-"""Contract tests for the local GUI API."""
+﻿"""Contract tests for the local GUI API."""
 
 import time
 
@@ -20,15 +20,14 @@ class _StubGuiService:
 
     def get_config(self):
         return {
-            "sources": [{"id": "data"}, {"id": "downloads"}],
+            "sources": [{"id": "extractions"}],
             "feasibility_modes": [{"id": "projected"}],
         }
 
-    def load_data(self, source="data", data_dir=None, downloads_dir=None):
+    def load_data(self, source="extractions", data_dir=None, extractions_dir=None):
         return {
             "source": source,
-            "data_dir": data_dir,
-            "downloads_dir": downloads_dir,
+            "extractions_dir": extractions_dir,
             "counts": {"ofs": 12},
         }
 
@@ -66,10 +65,10 @@ def test_gui_api_core_endpoints():
 
     config = client.get("/config")
     assert config.status_code == 200
-    assert {item["id"] for item in config.json()["sources"]} == {"data", "downloads"}
+    assert {item["id"] for item in config.json()["sources"]} == {"extractions"}
 
-    loaded = client.post("/data/load", json={"source": "downloads"}).json()
-    assert loaded["source"] == "downloads"
+    loaded = client.post("/data/load", json={"source": "extractions"}).json()
+    assert loaded["source"] == "extractions"
 
     run = client.post("/runs/s1", json={"horizon": 10, "include_previsions": True}).json()
     assert run["status"] == "completed"
@@ -97,7 +96,7 @@ def test_gui_api_returns_404_for_unknown_run():
 def test_gui_service_run_s1_is_pollable(monkeypatch, tmp_path):
     service = GuiAppService(tmp_path)
     service.loader = object()
-    service.loaded_source = {"source": "data"}
+    service.loaded_source = {"source": "extractions"}
 
     def fake_execute_s1(**_kwargs):
         time.sleep(0.05)
@@ -115,7 +114,7 @@ def test_gui_service_run_s1_is_pollable(monkeypatch, tmp_path):
             break
         time.sleep(0.02)
     else:
-        raise AssertionError("Le run S+1 n'a pas terminé en arrière-plan")
+        raise AssertionError("Le run S+1 n'a pas termine en arriere-plan")
 
     assert current is not None
     assert current["result"]["summary"]["matched_ofs"] == 1
