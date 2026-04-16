@@ -17,6 +17,7 @@ class CandidateOF:
     quantity: int
     charge_hours: float
     is_buffer_bdh: bool = False
+    source: str = "matching_client"
     scheduled_day: Optional[date] = None
     start_hour: Optional[float] = None
     end_hour: Optional[float] = None

@@ -21,6 +21,7 @@ def build_unscheduled_rows(by_line: dict[str, list[CandidateOF]]) -> list[dict[s
                     'article': candidate.article,
                     'date_echeance': candidate.due_date.isoformat(),
                     'charge_h': round(candidate.charge_hours, 3),
+                    'source': candidate.source,
                     'cause': candidate.reason or 'capacité insuffisante ou hors horizon',
                 }
             )
@@ -115,7 +116,7 @@ def write_outputs(output_dir: str, result: SchedulerResult) -> None:
 def _write_unscheduled_csv(path: Path, rows: list[dict[str, object]]) -> None:
     with path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.writer(handle)
-        writer.writerow(["ligne", "of", "article", "date_echeance", "charge_h", "cause"])
+        writer.writerow(["ligne", "of", "article", "date_echeance", "charge_h", "source", "cause"])
         for row in rows:
             writer.writerow([
                 row['ligne'],
@@ -123,6 +124,7 @@ def _write_unscheduled_csv(path: Path, rows: list[dict[str, object]]) -> None:
                 row['article'],
                 row['date_echeance'],
                 row['charge_h'],
+                row['source'],
                 row['cause'],
             ])
 
@@ -130,7 +132,7 @@ def _write_unscheduled_csv(path: Path, rows: list[dict[str, object]]) -> None:
 def _write_planning_csv(path: Path, planning: list[CandidateOF]) -> None:
     with path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.writer(handle)
-        writer.writerow(["num_of", "article", "qte", "jour", "heure_debut", "heure_fin", "charge_h", "cumul_jour_h", "date_echeance"])
+        writer.writerow(["num_of", "article", "qte", "jour", "heure_debut", "heure_fin", "charge_h", "cumul_jour_h", "date_echeance", "source"])
         for item in planning:
             writer.writerow(
                 [
@@ -143,6 +145,7 @@ def _write_planning_csv(path: Path, planning: list[CandidateOF]) -> None:
                     round(item.charge_hours, 3),
                     round(item.end_hour, 3) if item.end_hour is not None else "",
                     item.due_date.isoformat(),
+                    item.source,
                 ]
             )
 

@@ -407,11 +407,38 @@ def _select_candidates_from_matching(loader, planning_workdays, demand_horizon_e
                 'line': line,
                 'due_date': result.commande.date_expedition_demandee,
                 'orders': set(),
+                'source': 'matching_client',
             },
         )
         if result.commande.date_expedition_demandee < spec['due_date']:
             spec['due_date'] = result.commande.date_expedition_demandee
         spec['orders'].add(result.commande.num_commande)
+
+    # Ajouter les OF fermes/planifies en cours pour refléter la charge atelier réelle,
+    # même lorsqu'une commande est couverte par stock dans le matching client.
+    for of in loader.ofs:
+        if of.qte_restante <= 0 or of.statut_num not in (1, 2):
+            continue
+        if of.date_fin > demand_horizon_end:
+            continue
+        line = None
+        for l, articles in target_lines.items():
+            if of.article in articles:
+                line = l
+                break
+        if line is None:
+            continue
+
+        candidate_specs.setdefault(
+            of.num_of,
+            {
+                'of': of,
+                'line': line,
+                'due_date': of.date_fin,
+                'orders': set(),
+                'source': 'encours_of',
+            },
+        )
 
     # Ajouter les OF BDH comme levier de reconstitution tampon sur PP_153.
     for tracked_article in BUFFER_THRESHOLDS:
@@ -434,6 +461,7 @@ def _select_candidates_from_matching(loader, planning_workdays, demand_horizon_e
                         'line': line,
                         'due_date': of.date_fin,
                         'orders': set(),
+                        'source': 'buffer_bdh',
                     },
                 )
 
@@ -456,6 +484,7 @@ def _select_candidates_from_matching(loader, planning_workdays, demand_horizon_e
                 quantity=of.qte_restante,
                 charge_hours=charge_hours,
                 is_buffer_bdh=of.article in BUFFER_THRESHOLDS,
+                source=str(spec.get('source', 'matching_client')),
             )
         )
 
