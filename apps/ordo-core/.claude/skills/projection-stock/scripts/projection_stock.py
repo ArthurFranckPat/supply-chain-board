@@ -12,6 +12,7 @@ Usage:
     python3 projection_stock.py --data-dir data --output projection.json
 """
 import argparse
+import os
 import json
 import sys
 from datetime import date, timedelta
@@ -234,7 +235,7 @@ def projeter_stock(data_dir: str, date_ref: date, horizon: int = 4,
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Projection stock sur horizon')
-    parser.add_argument('--data-dir',     default='data')
+    parser.add_argument('--data-dir',     default=os.environ.get('ORDO_EXTRACTIONS_DIR', 'data'))
     parser.add_argument('--date-ref',     default=str(date.today()))
     parser.add_argument('--horizon',      type=int,   default=4)
     parser.add_argument('--article',                  help='Filtrer sur un article')

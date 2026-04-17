@@ -18,16 +18,12 @@ Système de vérification de faisabilité des composants pour l'ordonnancement m
 ```
 src/
 ├── models/          # Article, OF, Nomenclature, Stock, Réception, BesoinClient, Allocation
-├── loaders/         # DataLoader (charge tous les CSV)
+├── loaders/         # DataLoader (charge les extractions ERP via ORDO_EXTRACTIONS_DIR)
 ├── checkers/        # Immediate, Projected, Recursive (supporte stock_state)
 ├── algorithms/      # AllocationManager, Matching (commande→OF)
+├── scheduler/       # Planification
 ├── reports/         # Rapport S1
-├── dashboards/      # App Streamlit
 └── utils/           # Formatage (rich)
-
-data/
-├── statique/        # articles.csv, gammes.csv, nomenclatures.csv
-└── dynamique/       # of_entetes.csv, stock.csv, receptions_oa.csv, besoins_clients.csv
 ```
 
 ---
@@ -58,15 +54,10 @@ Permet de gérer la concurrence entre OF :
 
 ## 📊 Fichiers de données
 
-| Fichier | Lignes | Description |
-|---------|--------|-------------|
-| `articles.csv` | 6 910 | Catalogue produits |
-| `of_entetes.csv` | 15 285 | Ordres de fabrication |
-| `nomenclatures.csv` | 25 028 | Nomenclatures articles (84% des articles FABRICATION) |
-| `gammes.csv` | 2 954 | Gammes de production |
-| `stock.csv` | 6 833 | État des stocks |
-| `receptions_oa.csv` | 1 805 | Réceptions fournisseurs |
-| `besoins_clients.csv` | 835 | Commandes clients (ex: commandes_clients.csv) |
+Les données sont chargées depuis le répertoire d'extractions ERP configuré via `ORDO_EXTRACTIONS_DIR`.
+
+Fichiers attendus : Articles.csv, Gammes.csv, Nomenclatures.csv, Besoins Clients.csv,
+Ordres de fabrication.csv, Stocks.csv, Commandes Achats.csv, Allocations.csv
 
 ---
 

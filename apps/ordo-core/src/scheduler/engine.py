@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import csv
 import json
+import os
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
@@ -156,7 +157,8 @@ def run_schedule(
     # Deux stratégies :
     # 1. Si on a un profil réel pour l'article, on assigne au jour où la réalité produit le plus
     # 2. Sinon, round-robin par charge pour lisser
-    article_day_profile = _load_article_day_profile('data/quantité produites par article.csv')
+    _profile_path = os.environ.get('ORDO_PRODUCTION_PROFILE', '')
+    article_day_profile = _load_article_day_profile(_profile_path) if _profile_path else {}
     for line, line_candidates in by_line.items():
         if not line_candidates:
             continue

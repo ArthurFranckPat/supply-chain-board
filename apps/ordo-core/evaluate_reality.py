@@ -6,6 +6,7 @@ les mêmes formules de score que src/scheduler/engine.py.
 """
 
 import csv
+import os
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
@@ -25,7 +26,7 @@ PLANNING_WORKDAYS = 5
 DEMAND_CALENDAR_DAYS = 15
 WEEK_START = date(2026, 3, 23)
 WEEK_END = date(2026, 3, 27)
-REALITY_CSV = "data/quantité produites par article.csv"
+REALITY_CSV = os.environ.get('ORDO_PRODUCTION_PROFILE', '')
 
 
 # ── Data classes pour les résultats réels ────────────────────────────
@@ -341,7 +342,7 @@ def main():
     print("=" * 70)
 
     # Charger les données
-    loader = DataLoader("data")
+    loader = DataLoader.from_extractions()
     loader.load_all()
     print(f"✅ Données chargées : {len(loader.articles)} articles, {len(loader.ofs)} OF, {len(loader.commandes_clients)} commandes\n")
 

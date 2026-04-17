@@ -21,24 +21,24 @@ Le système ne modifie pas l'ERP directement : il **propose des décisions** que
 
 ### 2.1 Fichiers statiques (référentiels)
 
-| Fichier | Lignes | Rôle |
-|---------|--------|------|
-| `articles.csv` | 6 910 | Catalogue produits — type d'appro (ACHAT / FABRICATION), délai réappro |
-| `nomenclatures.csv` | 25 028 | Arbre de nomenclature article parent → composants (couverture 84% des articles FABRICATION) |
-| `gammes.csv` | 2 954 | Gammes de production — poste de charge + cadence (u/h) par article |
+| Fichier | Rôle |
+|---------|------|
+| `Articles.csv` | Catalogue produits — type d'appro (ACHAT / FABRICATION), délai réappro |
+| `Nomenclatures.csv` | Arbre de nomenclature article parent → composants (couverture 84% des articles FABRICATION) |
+| `Gammes.csv` | Gammes de production — poste de charge + cadence (u/h) par article |
 
-Chemin : `data/statique/<nom>.csv`
+Chemin : configuré via `ORDO_EXTRACTIONS_DIR`
 
 ### 2.2 Fichiers dynamiques (données vivantes)
 
-| Fichier | Lignes | Rôle |
-|---------|--------|------|
-| `of_entetes.csv` | 15 285 | Ordres de fabrication (en-têtes) |
-| `besoins_clients.csv` | ~835 | Commandes clients à servir |
-| `stock.csv` | 6 833 | Niveaux de stock par article |
-| `receptions_oa.csv` | 1 805 | Réceptions fournisseurs attendues |
+| Fichier | Rôle |
+|---------|------|
+| `Ordres de fabrication.csv` | Ordres de fabrication (en-têtes) |
+| `Besoins Clients.csv` | Commandes et prévisions clients |
+| `Stocks.csv` | Niveaux de stock par article |
+| `Commandes Achats.csv` | Réceptions fournisseurs attendues |
 
-Chemin : `data/dynamique/<nom>.csv`
+Chemin : configuré via `ORDO_EXTRACTIONS_DIR`
 
 ### 2.3 Colonnes clés par table
 

@@ -4,38 +4,30 @@ Système de gestion de production et d'ordonnancement manufacturier avec analyse
 
 ## 📁 Structure des données
 
-### Organisation des répertoires
+### Source de données
 
+Les données sont chargées depuis les extractions ERP via la variable d'environnement `ORDO_EXTRACTIONS_DIR`.
+
+Configurer dans `.env` :
 ```
-data/
-├── statique/           # Données de référence (peu variables)
-│   ├── articles.csv
-│   ├── gammes.csv
-│   └── nomenclatures.csv
-└── dynamique/          # Données mouvantes (quotidiennes/hebdomadaires)
-    ├── besoins_clients.csv    # Commandes + Prévisions
-    ├── of_entetes.csv
-    ├── stock.csv
-    ├── receptions_oa.csv
-    └── allocations.csv        # Traçabilité des allocations
+ORDO_EXTRACTIONS_DIR = "/chemin/vers/extractions/ERP"
 ```
 
-### Fichiers CSV disponibles
+Fichiers attendus (noms ERP) :
+- `Articles.csv`
+- `Gammes.csv`
+- `Nomenclatures.csv`
+- `Besoins Clients.csv`
+- `Ordres de fabrication.csv`
+- `Stocks.csv`
+- `Commandes Achats.csv`
+- `Allocations.csv`
 
-| Fichier | Lignes | Description |
-|---------|--------|-------------|
-| `statique/articles.csv` | 6 910 | Catalogue produits |
-| `statique/gammes.csv` | 2 954 | Gammes de production |
-| `statique/nomenclatures.csv` | 25 028 | **Nomenclatures articles (table principale)** |
-| `dynamique/besoins_clients.csv` | 11 041 | **Commandes + Prévisions clients** ⭐ |
-| `dynamique/of_entetes.csv` | 15 044 | Ordres de fabrication (en-têtes) |
-| `dynamique/stock.csv` | 6 830 | État des stocks |
-| `dynamique/receptions_oa.csv` | 1 862 | Réceptions fournisseurs |
-| `dynamique/allocations.csv` | 5 133 | **Traçabilité des allocations** ⭐ |
+Les CSV ne sont **pas** versionnés dans le dépôt.
 
 ## 🗂️ Structure des tables
 
-### statique/articles.csv - Catalogue produits
+### Articles.csv - Catalogue produits
 ```
 ARTICLE         → Code article (PK)
 DESCRIPTION     → Description produit
@@ -44,7 +36,7 @@ TYPE_APPRO      → Type d'approvisionnement (ACHAT ou FABRICATION)
 DELAI_REAPPRO   → Délai de réapprovisionnement (jours)
 ```
 
-### dynamique/besoins_clients.csv - Commandes et Prévisions ⭐
+### Besoins Clients.csv - Commandes et Prévisions ⭐
 
 **Colonnes :**
 ```
@@ -74,7 +66,7 @@ QTE_RESTANTE                → Quantité restante à servir
 - Fusionne maintenant **commandes fermes + prévisions** dans un seul fichier
 - Les prévisions sont consommées par les commandes lors du calcul de charge
 
-### dynamique/of_entetes.csv - Ordres de fabrication
+### Ordres de fabrication.csv - Ordres de fabrication
 ```
 NUM_OF              → Numéro d'OF (PK)
 ARTICLE             → Code article à fabriquer (FK → articles)
@@ -92,7 +84,7 @@ QTE_RESTANTE        → Quantité restante
 - **1 = Ferme (Affermi/WOP)** : OF déjà lancé en production, prioritaire pour le matching
 - **3 = Suggéré (WOS)** : OF suggéré par le moteur CBN/MRP, utilisé si pas d'OF affermi disponible
 
-### dynamique/allocations.csv - Traçabilité des allocations ⭐ NOUVEAU
+### Allocations.csv - Traçabilité des allocations ⭐
 
 **Colonnes :**
 ```
@@ -107,7 +99,7 @@ DATE_BESOIN     → Date de besoin
 - Lien entre OF, commandes et articles
 - Historique des mouvements de stock
 
-### statique/nomenclatures.csv - Nomenclatures articles ⭐
+### Nomenclatures.csv - Nomenclatures articles ⭐
 ```
 Article parent           → Article fabriqué (code)
 Designation parent      → Description de l'article parent
@@ -137,7 +129,7 @@ Type article            → "Acheté" ou "Fabriqué"
 - Essentiel pour la vérification récursive des composants FABRIQUÉS
 - Remplace l'ancien fichier `of_composants.csv` (supprimé)
 
-### statique/gammes.csv - Gammes de production
+### Gammes.csv - Gammes de production
 ```
 ARTICLE         → Code article (FK → articles)
 POSTE_CHARGE    → Poste de travail (PP_XXX)
@@ -145,7 +137,7 @@ LIBELLE_POSTE   → Description du poste
 CADENCE         → Cadence (unités/heure)
 ```
 
-### dynamique/stock.csv - État des stocks
+### Stocks.csv - État des stocks
 ```
 ARTICLE         → Code article (FK → articles)
 STOCK_PHYSIQUE  → Stock physique disponible
@@ -153,7 +145,7 @@ STOCK_ALLOUE    → Stock alloué
 STOCK_BLOQUE    → Stock bloqué
 ```
 
-### dynamique/receptions_oa.csv - Réceptions fournisseurs
+### Commandes Achats.csv - Réceptions fournisseurs
 ```
 NUM_COMMANDE            → Numéro de commande fournisseur
 ARTICLE                 → Code article (FK → articles)
@@ -452,7 +444,7 @@ Lors de la réunion de charge, on décide d'une organisation (ex: 2×8) pour S+1
 
 ### Règle de nomenclature
 - **1 article fabriqué = 1 nomenclature** (standard)
-- **Nomenclatures disponibles dans `statique/nomenclatures.csv`**
+- **Nomenclatures disponibles dans `Nomenclatures.csv`**
 - **Couverture : 84%** des articles FABRICATION (2 501 / 2 964)
 - Pour les 16% restants → Alerte "Nomenclature non disponible"
 
@@ -550,13 +542,13 @@ Avec règle 2:
 
 | Donnée | Fichier | Couverture | Utilité |
 |--------|---------|------------|---------|
-| **Nomenclatures** | `statique/nomenclatures.csv` | 84% (2 501/2 964) | ⭐ Vérification récursive |
-| **OF à vérifier** | `dynamique/of_entetes.csv` | 15 044 OF | Identification des besoins |
-| **Type approvisionnement** | `statique/articles.csv` | 100% | Distinction ACHAT/FABRIQUÉ |
-| **Stock disponible** | `dynamique/stock.csv` | 99% (6 830/6 910) | Vérification immédiate |
-| **Réceptions fournisseurs** | `dynamique/receptions_oa.csv` | 520 articles | Vérification projetée |
-| **Gammes de production** | `statique/gammes.csv` | - | Non utilisé pour faisabilité composants |
-| **Traçabilité** | `dynamique/allocations.csv` | - | Suivi des allocations |
+| **Nomenclatures** | `Nomenclatures.csv` | 84% (2 501/2 964) | ⭐ Vérification récursive |
+| **OF à vérifier** | `Ordres de fabrication.csv` | 15 044 OF | Identification des besoins |
+| **Type approvisionnement** | `Articles.csv` | 100% | Distinction ACHAT/FABRIQUÉ |
+| **Stock disponible** | `Stocks.csv` | 99% | Vérification immédiate |
+| **Réceptions fournisseurs** | `Commandes Achats.csv` | 520 articles | Vérification projetée |
+| **Gammes de production** | `Gammes.csv` | - | Non utilisé pour faisabilité composants |
+| **Traçabilité** | `Allocations.csv` | - | Suivi des allocations |
 
 ### Points forts
 

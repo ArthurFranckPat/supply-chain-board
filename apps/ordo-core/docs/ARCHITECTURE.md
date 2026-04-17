@@ -28,9 +28,6 @@ ordo-v2/
 ├── patch_smooth.py         # Dev tool: 2-line → N-line generalization patch
 ├── config/
 │   └── weights.json        # Scheduler weight configuration
-├── data/
-│   ├── statique/           # Reference data (articles, gammes, nomenclatures)
-│   └── dynamique/          # Operational data (besoins, OFs, stock, receptions)
 ├── src/
 │   ├── main.py             # Core CLI entry (argparse)
 │   ├── main_s1.py          # S+1 pipeline implementation
@@ -144,9 +141,7 @@ class Nomenclature:
 
 ### CSVLoader (`csv_loader.py`)
 
-Low-level CSV reader. Supports two modes:
-- **Standard**: Loads from `data/statique/` and `data/dynamique/`
-- **Downloads**: Resolves timestamped files from `~/Downloads/`
+Low-level CSV reader. Loads from ERP extractions directory configured via `ORDO_EXTRACTIONS_DIR`.
 
 Handles encoding (utf-8, latin-1), delimiters (`;`, `,`), and legacy format conversion (FLAG_CONTREMARQUE → TYPE_COMMANDE).
 

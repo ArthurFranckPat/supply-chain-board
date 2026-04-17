@@ -11,6 +11,7 @@ Usage:
     python3 analyse_charge.py --data-dir data --output rapport.json
 """
 import argparse
+import os
 import json
 import sys
 from datetime import date, timedelta
@@ -194,7 +195,7 @@ def analyse_charge(data_dir: str, date_ref: date, horizon: int = 3) -> dict:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Analyse de charge par poste')
-    parser.add_argument('--data-dir',  default='data')
+    parser.add_argument('--data-dir',  default=os.environ.get('ORDO_EXTRACTIONS_DIR', 'data'))
     parser.add_argument('--date-ref',  default=str(date.today()))
     parser.add_argument('--horizon',   type=int, default=3)
     parser.add_argument('--output',    help='Fichier JSON de sortie')

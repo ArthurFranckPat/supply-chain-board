@@ -14,6 +14,7 @@ Usage:
     python3 matching.py --data-dir data --type MTO,NOR --output matching.json
 """
 import argparse
+import os
 import json
 import sys
 from datetime import date, timedelta
@@ -249,7 +250,7 @@ def run_matching(data_dir: str, date_ref: date = None, horizon: int = 3,
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Matching commandes → OF')
-    parser.add_argument('--data-dir',  default='data')
+    parser.add_argument('--data-dir',  default=os.environ.get('ORDO_EXTRACTIONS_DIR', 'data'))
     parser.add_argument('--date-ref',  default=str(date.today()))
     parser.add_argument('--horizon',   type=int, default=3)
     parser.add_argument('--type',      default='MTO,NOR',

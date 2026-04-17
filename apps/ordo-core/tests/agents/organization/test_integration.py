@@ -16,10 +16,10 @@ def test_organization_full_integration():
     from src.algorithms.matching import CommandeOFMatcher
     import os
 
-    # Load real data - data is in the main repo, not the worktree
-    data_dir = os.path.join(os.path.dirname(__file__), "../../../data")
-    if not os.path.exists(data_dir):
-        pytest.skip(f"Data directory not found at {data_dir}")
+    # Load real data from ERP extractions directory
+    data_dir = os.environ.get("ORDO_EXTRACTIONS_DIR")
+    if not data_dir or not os.path.exists(data_dir):
+        pytest.skip("ORDO_EXTRACTIONS_DIR not set or directory not found")
 
     loader = DataLoader(data_dir)
     loader.load_all()
@@ -55,13 +55,12 @@ def test_organization_cli_integration():
     import sys
     import os
 
-    data_dir = os.path.join(os.path.dirname(__file__), "../../../data")
-    if not os.path.exists(data_dir):
-        pytest.skip(f"Data directory not found at {data_dir}")
+    data_dir = os.environ.get("ORDO_EXTRACTIONS_DIR")
+    if not data_dir or not os.path.exists(data_dir):
+        pytest.skip("ORDO_EXTRACTIONS_DIR not set or directory not found")
 
     result = subprocess.run(
         [sys.executable, "-m", "src.main", "--data-dir", data_dir, "--organization"],
-        cwd="/Users/arthurbledou/Desktop/Code/ordo v2/.worktrees/agent-scheduling",
         capture_output=True,
         text=True,
         timeout=60

@@ -11,6 +11,7 @@ Usage:
     python3 verif_faisabilite.py --data-dir data --mode immediat
 """
 import argparse
+import os
 import json
 import sys
 from collections import defaultdict
@@ -287,7 +288,7 @@ def verifier_faisabilite(data_dir: str, of_list: list = None, mode: str = 'proje
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Vérification faisabilité OF')
-    parser.add_argument('--data-dir', default='data')
+    parser.add_argument('--data-dir', default=os.environ.get('ORDO_EXTRACTIONS_DIR', 'data'))
     parser.add_argument('--of',   help='Numéros OF séparés par virgule')
     parser.add_argument('--mode', choices=['immediat', 'projete'], default='projete')
     parser.add_argument('--output', help='Fichier JSON de sortie')
