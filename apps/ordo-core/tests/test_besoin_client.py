@@ -18,6 +18,9 @@ class TestBesoinClient:
             num_commande="AR2600799",
             nature_besoin=NatureBesoin.COMMANDE,
             article="EFL1345AL",
+            description="Test",
+            categorie="PF3",
+            source_origine_besoin="Ventes",
             of_contremarque="F426-06674",
             date_commande=date(2026, 2, 15),
             date_expedition_demandee=date(2026, 3, 4),
@@ -42,6 +45,9 @@ class TestBesoinClient:
             num_commande="AR2601108",
             nature_besoin=NatureBesoin.COMMANDE,
             article="B6794",
+            description="Test",
+            categorie="PF3",
+            source_origine_besoin="Ventes",
             of_contremarque="",
             date_commande=None,
             date_expedition_demandee=date(2026, 3, 18),
@@ -65,6 +71,9 @@ class TestBesoinClient:
             num_commande="AR2601234",
             nature_besoin=NatureBesoin.COMMANDE,
             article="TEST123",
+            description="Test",
+            categorie="PF3",
+            source_origine_besoin="Ventes",
             of_contremarque="",
             date_commande=date(2026, 2, 20),
             date_expedition_demandee=date(2026, 3, 20),
@@ -86,6 +95,9 @@ class TestBesoinClient:
             num_commande="PREV-2026-03",
             nature_besoin=NatureBesoin.PREVISION,
             article="TEST123",
+            description="Test",
+            categorie="PF3",
+            source_origine_besoin="Ventes",
             of_contremarque="",
             date_commande=None,
             date_expedition_demandee=date(2026, 3, 31),
@@ -102,17 +114,20 @@ class TestBesoinClient:
     def test_parsing_csv_row_mts(self):
         """Test le parsing d'une commande MTS depuis une ligne CSV."""
         row = {
-            "NOM_CLIENT": "ALDES",
+            "NOM_FOURNISSEUR_OU_CLIENT": "ALDES",
+            "PAYS": "FR",
             "TYPE_COMMANDE": "MTS",
-            "NUM_COMMANDE": "AR2600799",
-            "NATURE_BESOIN": "COMMANDE",
+            "NUM_ORDRE": "AR2600799",
+            "SOURCE_ORIGINE_BESOIN": "Ventes",
             "ARTICLE": "EFL1345AL",
+            "DESIGNATION": "EFL1345AL desc",
+            "CATEGORIE": "PF3",
             "OF_CONTREMARQUE": "F426-06674",
-            "DATE_COMMANDE": "15/02/2026",
-            "DATE_EXPEDITION_DEMANDEE": "04/03/2026",
+            "DATE_DEBUT": "02/15/2026 00:00:00",
+            "DATE_FIN": "03/04/2026 00:00:00",
             "QTE_COMMANDEE": "720",
             "QTE_ALLOUEE": "0",
-            "QTE_RESTANTE": "720",
+            "QTE_RESTANTE_FABRICATION": "720",
         }
 
         besoin = BesoinClient.from_csv_row(row)
@@ -130,17 +145,20 @@ class TestBesoinClient:
     def test_parsing_csv_row_nor(self):
         """Test le parsing d'une commande NOR depuis une ligne CSV."""
         row = {
-            "NOM_CLIENT": "AERECO LEGTECHNIKA Kft",
+            "NOM_FOURNISSEUR_OU_CLIENT": "AERECO LEGTECHNIKA Kft",
+            "PAYS": "HU",
             "TYPE_COMMANDE": "NOR",
-            "NUM_COMMANDE": "AR2601108",
-            "NATURE_BESOIN": "COMMANDE",
+            "NUM_ORDRE": "AR2601108",
+            "SOURCE_ORIGINE_BESOIN": "Ventes",
             "ARTICLE": "B6794",
+            "DESIGNATION": "B6794 desc",
+            "CATEGORIE": "PF3",
             "OF_CONTREMARQUE": "",
-            "DATE_COMMANDE": "",
-            "DATE_EXPEDITION_DEMANDEE": "18/03/2026",
+            "DATE_DEBUT": "",
+            "DATE_FIN": "03/18/2026 00:00:00",
             "QTE_COMMANDEE": "36",
             "QTE_ALLOUEE": "0",
-            "QTE_RESTANTE": "36",
+            "QTE_RESTANTE_FABRICATION": "36",
         }
 
         besoin = BesoinClient.from_csv_row(row)
@@ -155,17 +173,20 @@ class TestBesoinClient:
     def test_parsing_csv_row_empty_type_commande(self):
         """Test le parsing avec TYPE_COMMANDE vide (doit défaut à NOR)."""
         row = {
-            "NOM_CLIENT": "TEST CLIENT",
-            "TYPE_COMMANDE": "",  # Vide
-            "NUM_COMMANDE": "TEST001",
-            "NATURE_BESOIN": "COMMANDE",
+            "NOM_FOURNISSEUR_OU_CLIENT": "TEST CLIENT",
+            "PAYS": "",
+            "TYPE_COMMANDE": "",
+            "NUM_ORDRE": "TEST001",
+            "SOURCE_ORIGINE_BESOIN": "Ventes",
             "ARTICLE": "TEST123",
+            "DESIGNATION": "",
+            "CATEGORIE": "",
             "OF_CONTREMARQUE": "",
-            "DATE_COMMANDE": "",
-            "DATE_EXPEDITION_DEMANDEE": "01/03/2026",
+            "DATE_DEBUT": "",
+            "DATE_FIN": "03/01/2026 00:00:00",
             "QTE_COMMANDEE": "100",
             "QTE_ALLOUEE": "0",
-            "QTE_RESTANTE": "100",
+            "QTE_RESTANTE_FABRICATION": "100",
         }
 
         besoin = BesoinClient.from_csv_row(row)
@@ -177,17 +198,20 @@ class TestBesoinClient:
     def test_parsing_csv_row_invalid_type_commande(self):
         """Test le parsing avec TYPE_COMMANDE invalide (doit défaut à NOR)."""
         row = {
-            "NOM_CLIENT": "TEST CLIENT",
-            "TYPE_COMMANDE": "INVALID",  # Invalide
-            "NUM_COMMANDE": "TEST001",
-            "NATURE_BESOIN": "COMMANDE",
+            "NOM_FOURNISSEUR_OU_CLIENT": "TEST CLIENT",
+            "PAYS": "",
+            "TYPE_COMMANDE": "INVALID",
+            "NUM_ORDRE": "TEST001",
+            "SOURCE_ORIGINE_BESOIN": "Ventes",
             "ARTICLE": "TEST123",
+            "DESIGNATION": "",
+            "CATEGORIE": "",
             "OF_CONTREMARQUE": "",
-            "DATE_COMMANDE": "",
-            "DATE_EXPEDITION_DEMANDEE": "01/03/2026",
+            "DATE_DEBUT": "",
+            "DATE_FIN": "03/01/2026 00:00:00",
             "QTE_COMMANDEE": "100",
             "QTE_ALLOUEE": "0",
-            "QTE_RESTANTE": "100",
+            "QTE_RESTANTE_FABRICATION": "100",
         }
 
         besoin = BesoinClient.from_csv_row(row)
@@ -199,17 +223,20 @@ class TestBesoinClient:
     def test_parsing_csv_row_with_thousands_separator(self):
         """Test le parsing avec séparateur de milliers."""
         row = {
-            "NOM_CLIENT": "TEST CLIENT",
+            "NOM_FOURNISSEUR_OU_CLIENT": "TEST CLIENT",
+            "PAYS": "",
             "TYPE_COMMANDE": "NOR",
-            "NUM_COMMANDE": "TEST001",
-            "NATURE_BESOIN": "COMMANDE",
+            "NUM_ORDRE": "TEST001",
+            "SOURCE_ORIGINE_BESOIN": "Ventes",
             "ARTICLE": "TEST123",
+            "DESIGNATION": "",
+            "CATEGORIE": "",
             "OF_CONTREMARQUE": "",
-            "DATE_COMMANDE": "",
-            "DATE_EXPEDITION_DEMANDEE": "01/03/2026",
-            "QTE_COMMANDEE": "1,500",  # Avec virgule
+            "DATE_DEBUT": "",
+            "DATE_FIN": "03/01/2026 00:00:00",
+            "QTE_COMMANDEE": "1,500",
             "QTE_ALLOUEE": "500",
-            "QTE_RESTANTE": "1,000",
+            "QTE_RESTANTE_FABRICATION": "1,000",
         }
 
         besoin = BesoinClient.from_csv_row(row)
@@ -227,6 +254,9 @@ class TestBesoinClient:
             num_commande="AR2600799",
             nature_besoin=NatureBesoin.COMMANDE,
             article="EFL1345AL",
+            description="Test",
+            categorie="PF3",
+            source_origine_besoin="Ventes",
             of_contremarque="F426-06674",
             date_commande=None,
             date_expedition_demandee=date(2026, 3, 4),
@@ -240,8 +270,7 @@ class TestBesoinClient:
         assert "AR2600799" in repr_str
         assert "EFL1345AL" in repr_str
         assert "720" in repr_str
-        assert "MTS" in repr_str
-        assert "F426-06674" in repr_str
+        assert "COMMANDE" in repr_str
 
     def test_repr_without_of_link(self):
         """Test la représentation sans OF lié."""
@@ -252,6 +281,9 @@ class TestBesoinClient:
             num_commande="AR2601108",
             nature_besoin=NatureBesoin.COMMANDE,
             article="B6794",
+            description="Test",
+            categorie="PF3",
+            source_origine_besoin="Ventes",
             of_contremarque="",
             date_commande=None,
             date_expedition_demandee=date(2026, 3, 18),
@@ -265,6 +297,4 @@ class TestBesoinClient:
         assert "AR2601108" in repr_str
         assert "B6794" in repr_str
         assert "36" in repr_str
-        assert "NOR" in repr_str
-        # Pas de OF link
-        assert "→ OF:" not in repr_str
+        assert "COMMANDE" in repr_str

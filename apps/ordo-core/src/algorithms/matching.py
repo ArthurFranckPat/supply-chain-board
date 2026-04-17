@@ -218,17 +218,8 @@ class CommandeOFMatcher:
         if linked_result is not None:
             return linked_result
 
-        if commande.is_mts():
-            return self._match_mts(commande)
-        elif commande.is_nor_mto():
-            return self._match_nor_mto(commande, stock_state)
-        else:
-            return MatchingResult(
-                commande=commande,
-                of=None,
-                matching_method="Inconnu",
-                alertes=[f"Type de commande inconnu: TYPE={commande.type_commande.value}"],
-            )
+        # Tous les types utilisent le même chemin : allocation stock + recherche OF
+        return self._match_nor_mto(commande, stock_state)
 
     def _match_by_origin_order(self, commande: BesoinClient) -> Optional[MatchingResult]:
         """Match direct via OF.NUM_ORDRE_ORIGINE = commande.num_commande.
@@ -268,60 +259,6 @@ class CommandeOFMatcher:
             commande=commande,
             of=selected,
             matching_method="Lien direct NUM_ORDRE_ORIGINE",
-            alertes=[],
-        )
-
-    def _match_mts(self, commande: BesoinClient) -> MatchingResult:
-        """Match une commande MTS avec son OF lié.
-
-        Parameters
-        ----------
-        commande : BesoinClient
-            Commande MTS à matcher
-
-        Returns
-        -------
-        MatchingResult
-            Résultat du matching
-        """
-        if not commande.of_contremarque:
-            result = MatchingResult(
-                commande=commande,
-                of=None,
-                matching_method="MTS (sans OF)",
-                alertes=["Commande MTS sans OF_CONTREMARQUE"],
-            )
-            return result
-
-        of = self.data_loader.get_of_by_num(commande.of_contremarque)
-
-        if not of:
-            result = MatchingResult(
-                commande=commande,
-                of=None,
-                matching_method="MTS (OF introuvable)",
-                alertes=[f"OF {commande.of_contremarque} introuvable"],
-            )
-            return result
-
-        # Vérifier que l'OF correspond à l'article
-        if of.article != commande.article:
-            result = MatchingResult(
-                commande=commande,
-                of=of,
-                matching_method="MTS (incohérence)",
-                alertes=[f"OF article {of.article} != commande article {commande.article}"],
-            )
-            return result
-
-        # Marquer l'OF comme utilisé (MTS = OF dédié)
-        # Pas besoin de suivre la consommation pour MTS car 1 OF = 1 commande
-        self.ofs_deja_utilises.add(of.num_of)
-
-        return MatchingResult(
-            commande=commande,
-            of=of,
-            matching_method="MTS",
             alertes=[],
         )
 

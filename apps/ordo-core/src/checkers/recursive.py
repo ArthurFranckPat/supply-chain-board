@@ -119,18 +119,7 @@ class RecursiveChecker(BaseChecker):
         """
         result = FeasibilityResult(feasible=True, depth=0)
 
-        # Cas 1 : Commande MTS avec OF lié
-        if commande.is_mts() and commande.of_contremarque:
-            of = self.data_loader.get_of_by_num(commande.of_contremarque)
-            if of:
-                # Vérifier l'OF lié
-                return self.check_of(of)
-            else:
-                result.add_alert(f"OF {commande.of_contremarque} introuvable pour la commande MTS")
-                result.feasible = False
-                return result
-
-        # Cas 2 : Vérifier si la commande a des allocations
+        # Vérifier si la commande a des allocations
         allocations = self.data_loader.get_allocations_of(commande.num_commande)
 
         if allocations:

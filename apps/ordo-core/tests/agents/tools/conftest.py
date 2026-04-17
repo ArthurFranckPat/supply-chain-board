@@ -47,6 +47,9 @@ def make_commande(
         num_commande=num,
         nature_besoin=nature_besoin or NatureBesoin.COMMANDE,
         article=article,
+        description="Test",
+        categorie="PF3",
+        source_origine_besoin="Ventes",
         of_contremarque="",
         date_commande=None,
         date_expedition_demandee=date_exp,
@@ -74,7 +77,13 @@ def make_stock(article, physique=100, alloue=0, bloque=0):
 
 def make_nomenclature(article, composants_data):
     """composants_data : list of (article_composant, qte_lien, "Acheté"|"Fabriqué")."""
+    import unicodedata
     from src.models.nomenclature import Nomenclature, NomenclatureEntry, TypeArticle
+
+    def _normalise_type(type_str: str) -> str:
+        """Strip accents so 'Acheté' -> 'Achete', 'Fabriqué' -> 'Fabrique'."""
+        return unicodedata.normalize("NFKD", type_str).encode("ascii", "ignore").decode("ascii")
+
     entries = [
         NomenclatureEntry(
             article_parent=article,
@@ -83,7 +92,7 @@ def make_nomenclature(article, composants_data):
             article_composant=art_comp,
             designation_composant=f"DESC_{art_comp}",
             qte_lien=qte,
-            type_article=TypeArticle(type_str),
+            type_article=TypeArticle(_normalise_type(type_str)),
         )
         for art_comp, qte, type_str in composants_data
     ]

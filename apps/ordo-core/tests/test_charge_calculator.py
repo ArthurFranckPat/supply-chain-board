@@ -87,6 +87,9 @@ class TestGroupByWeek:
                 num_commande="CMD001",
                 nature_besoin=NatureBesoin.COMMANDE,
                 article="ART001",
+                description="Test",
+                categorie="PF3",
+                source_origine_besoin="Ventes",
                 of_contremarque="",
                 date_commande=date(2026, 3, 1),
                 date_expedition_demandee=date(2026, 3, 25),  # S+1
@@ -101,6 +104,9 @@ class TestGroupByWeek:
                 num_commande="CMD002",
                 nature_besoin=NatureBesoin.COMMANDE,
                 article="ART002",
+                description="Test",
+                categorie="PF3",
+                source_origine_besoin="Ventes",
                 of_contremarque="",
                 date_commande=date(2026, 3, 1),
                 date_expedition_demandee=date(2026, 4, 1),  # S+2
@@ -131,6 +137,9 @@ class TestGroupByWeek:
                 num_commande="CMD001",
                 nature_besoin=NatureBesoin.COMMANDE,
                 article="ART001",
+                description="Test",
+                categorie="PF3",
+                source_origine_besoin="Ventes",
                 of_contremarque="",
                 date_commande=date(2026, 3, 1),
                 date_expedition_demandee=date(2026, 3, 25),  # S+1
@@ -145,6 +154,9 @@ class TestGroupByWeek:
                 num_commande="CMD002",
                 nature_besoin=NatureBesoin.COMMANDE,
                 article="ART002",
+                description="Test",
+                categorie="PF3",
+                source_origine_besoin="Ventes",
                 of_contremarque="",
                 date_commande=date(2026, 3, 1),
                 date_expedition_demandee=date(2026, 5, 1),  # Hors horizon (S+7)

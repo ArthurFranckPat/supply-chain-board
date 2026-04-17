@@ -108,9 +108,11 @@ class BesoinClient:
         else:
             nature_besoin = NatureBesoin.PREVISION
 
-        # Le nouveau flux ne fournit pas un type explicite MTS/NOR/MTO.
-        # On force NOR pour conserver un comportement de matching stable.
-        type_commande = TypeCommande.NOR
+        type_str = _to_str(row.get("TYPE_COMMANDE", "NOR")).strip().upper()
+        try:
+            type_commande = TypeCommande(type_str)
+        except ValueError:
+            type_commande = TypeCommande.NOR
 
         date_commande = _parse_date(row.get("DATE_DEBUT", ""))
         date_expedition = _parse_date(row.get("DATE_FIN", "")) or date.today()
@@ -123,7 +125,7 @@ class BesoinClient:
 
         return cls(
             nom_client=_to_str(row.get("NOM_FOURNISSEUR_OU_CLIENT", "")).strip(),
-            code_pays="",
+            code_pays=_to_str(row.get("PAYS", "")).strip(),
             type_commande=type_commande,
             num_commande=_to_str(row.get("NUM_ORDRE", "")).strip(),
             nature_besoin=nature_besoin,
@@ -131,7 +133,7 @@ class BesoinClient:
             description=_to_str(row.get("DESIGNATION", "")).strip(),
             categorie=_to_str(row.get("CATEGORIE", "")).strip(),
             source_origine_besoin=source_origine,
-            of_contremarque="",
+            of_contremarque=_to_str(row.get("OF_CONTREMARQUE", "")).strip(),
             date_commande=date_commande,
             date_expedition_demandee=date_expedition,
             qte_commandee=qte_commandee,

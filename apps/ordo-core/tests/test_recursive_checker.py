@@ -4,28 +4,85 @@ import pytest
 from datetime import date
 from types import SimpleNamespace
 
-from src.loaders import DataLoader
 from src.checkers.recursive import RecursiveChecker
 from src.algorithms.allocation import StockState
 from src.models.nomenclature import Nomenclature, NomenclatureEntry, TypeArticle
 from src.models.article import Article, TypeApprovisionnement
 from src.models.of import OF
 from src.models.stock import Stock
+from src.models.allocation import OFAllocation
 
 
-@pytest.fixture
-def loader():
-    """Fixture pour DataLoader."""
-    loader = DataLoader("data")
-    loader.load_all()
-    return loader
+# ---------------------------------------------------------------------------
+# Helpers - construction de fausses donnees
+# ---------------------------------------------------------------------------
+
+def _make_of(num_of, article, statut_num, date_fin, qte_restante=100):
+    return OF(
+        num_of=num_of,
+        article=article,
+        description=f"DESC_{article}",
+        statut_num=statut_num,
+        statut_texte={1: "Ferme", 2: "Planifie", 3: "Suggere"}.get(statut_num, "Suggere"),
+        date_fin=date_fin,
+        qte_a_fabriquer=qte_restante,
+        qte_fabriquee=0,
+        qte_restante=qte_restante,
+    )
+
+
+def _make_nomenclature(parent, components):
+    """Cree une nomenclature simple. components: list of (code, qte, TypeArticle)."""
+    return Nomenclature(
+        article=parent,
+        designation=f"DESC_{parent}",
+        composants=[
+            NomenclatureEntry(
+                article_parent=parent,
+                designation_parent=f"DESC_{parent}",
+                niveau=10,
+                article_composant=code,
+                designation_composant=f"DESC_{code}",
+                qte_lien=qte,
+                type_article=type_article,
+            )
+            for code, qte, type_article in components
+        ],
+    )
+
+
+def _make_loader(ofs=None, stocks=None, nomenclatures=None,
+                 articles=None, allocations=None, commandes_clients=None):
+    """Cree un SimpleNamespace imitant DataLoader avec les donnees fournies."""
+    allocations = allocations or {}
+    nomenclatures = nomenclatures or {}
+    stocks = stocks or {}
+    articles = articles or {}
+    ofs = ofs or []
+    commandes_clients = commandes_clients or []
+
+    return SimpleNamespace(
+        commandes_clients=commandes_clients,
+        ofs=ofs,
+        articles=articles,
+        get_article=lambda article: articles.get(article),
+        get_nomenclature=lambda article: nomenclatures.get(article),
+        get_stock=lambda article: stocks.get(article),
+        get_allocations_of=lambda num_doc: allocations.get(num_doc, []),
+        get_ofs_by_article=lambda article, statut=None, date_besoin=None: [
+            of for of in ofs if of.article == article and of.qte_restante > 0
+            and (statut is None or of.statut_num == statut)
+        ],
+        get_receptions=lambda article: [],
+    )
 
 
 class TestRecursiveChecker:
     """Tests pour la classe RecursiveChecker."""
 
-    def test_init_without_stock_state(self, loader):
+    def test_init_without_stock_state(self):
         """Test l'initialisation sans stock_state."""
+        loader = _make_loader()
         checker = RecursiveChecker(loader)
 
         assert checker.data_loader == loader
@@ -33,128 +90,137 @@ class TestRecursiveChecker:
         assert checker.check_date is None
         assert checker.stock_state is None
 
-    def test_init_with_stock_state(self, loader):
+    def test_init_with_stock_state(self):
         """Test l'initialisation avec stock_state."""
+        loader = _make_loader()
         stock_state = StockState({"A1953": 100})
         checker = RecursiveChecker(loader, stock_state=stock_state)
 
         assert checker.stock_state == stock_state
 
-    def test_init_with_receptions(self, loader):
+    def test_init_with_receptions(self):
         """Test l'initialisation avec use_receptions."""
+        loader = _make_loader()
         checker = RecursiveChecker(loader, use_receptions=True)
 
         assert checker.use_receptions is True
 
-    def test_check_of_ferme_with_allocations(self, loader):
-        """Test la vérification d'un OF FERME avec allocations."""
-        # Trouver un OF FERME avec allocations
-        of = None
-        for test_of in loader.ofs:
-            if test_of.statut_num == 1:  # FERME
-                allocations = loader.get_allocations_of(test_of.num_of)
-                if allocations:
-                    of = test_of
-                    break
+    def test_check_of_ferme_with_allocations(self):
+        """Test la verification d'un OF FERME avec allocations."""
+        nomenclatures = {
+            "PF": _make_nomenclature("PF", [
+                ("COMP_A", 1.0, TypeArticle.ACHETE),
+                ("COMP_B", 2.0, TypeArticle.ACHETE),
+            ]),
+        }
+        stocks = {
+            "COMP_A": Stock("COMP_A", stock_physique=10, stock_alloue=10, stock_bloque=0),
+            "COMP_B": Stock("COMP_B", stock_physique=5, stock_alloue=0, stock_bloque=0),
+        }
+        # OF FERME avec allocations existantes pour COMP_A
+        of = _make_of("OF_FERME_1", "PF", 1, date(2026, 4, 20), qte_restante=10)
+        allocations = {
+            "OF_FERME_1": [OFAllocation(article="COMP_A", qte_allouee=10.0, num_doc="OF_FERME_1", date_besoin="20/04/2026")],
+        }
+        loader = _make_loader(
+            ofs=[of], stocks=stocks, nomenclatures=nomenclatures,
+            allocations=allocations,
+        )
 
-        if of is None:
-            pytest.skip("Aucun OF FERME avec allocations trouvé")
-
-        # Créer un checker
         checker = RecursiveChecker(loader)
 
-        # Vérifier l'OF
         result = checker.check_of(of)
 
-        # L'OF devrait être faisable (composants déjà alloués)
-        # Note: On ne vérifie pas strictement feasible=True car il peut y avoir
-        # d'autres problèmes, mais on vérifie que la méthode s'exécute
         assert result is not None
         assert isinstance(result.components_checked, int)
 
-    def test_check_of_suggested_without_stock_state(self, loader):
-        """Test la vérification d'un OF SUGGÉRÉ sans stock_state."""
-        # Trouver un OF SUGGÉRÉ
-        of = next((of for of in loader.ofs if of.statut_num == 3), None)
+    def test_check_of_suggested_without_stock_state(self):
+        """Test la verification d'un OF SUGGERE sans stock_state."""
+        nomenclatures = {
+            "PF": _make_nomenclature("PF", [
+                ("COMP_A", 1.0, TypeArticle.ACHETE),
+            ]),
+        }
+        stocks = {
+            "COMP_A": Stock("COMP_A", stock_physique=100, stock_alloue=0, stock_bloque=0),
+        }
+        of = _make_of("OF_SUGG_1", "PF", 3, date(2026, 4, 20), qte_restante=10)
+        loader = _make_loader(ofs=[of], stocks=stocks, nomenclatures=nomenclatures)
 
-        if of is None:
-            pytest.skip("Aucun OF SUGGÉRÉ trouvé")
-
-        # Créer un checker sans stock_state
         checker = RecursiveChecker(loader, stock_state=None)
 
-        # Vérifier l'OF
         result = checker.check_of(of)
 
         assert result is not None
         assert isinstance(result.feasible, bool)
 
-    def test_check_stock_with_real_stock(self, loader):
-        """Test la vérification de stock avec stock réel."""
+    def test_check_stock_with_real_stock(self):
+        """Test la verification de stock avec stock reel."""
+        stocks = {
+            "A1953": Stock("A1953", stock_physique=150, stock_alloue=0, stock_bloque=0),
+        }
+        loader = _make_loader(stocks=stocks)
         checker = RecursiveChecker(loader, stock_state=None)
 
-        # Prendre un article ACHAT avec stock
-        article = "A1953"
-        stock = loader.get_stock(article)
-
-        if stock is None or stock.disponible() == 0:
-            pytest.skip(f"Article {article} sans stock disponible")
-
-        # Vérifier le stock
-        result = checker._check_stock(article, 10, date.today())
+        # Verifier le stock avec besoin inferieur au dispo
+        result = checker._check_stock("A1953", 10, date.today())
 
         assert result is not None
         assert isinstance(result.feasible, bool)
 
-    def test_check_stock_with_virtual_stock_sufficient(self, loader):
-        """Test la vérification de stock avec stock virtuel suffisant."""
+    def test_check_stock_with_virtual_stock_sufficient(self):
+        """Test la verification de stock avec stock virtuel suffisant."""
+        loader = _make_loader()
         article = "A1953"
         stock_state = StockState({article: 100})
 
         checker = RecursiveChecker(loader, stock_state=stock_state)
 
-        # Vérifier avec besoin inférieur au stock
+        # Verifier avec besoin inferieur au stock
         result = checker._check_stock(article, 50, date.today())
 
         assert result.feasible is True
         assert len(result.missing_components) == 0
 
-    def test_check_stock_with_virtual_stock_insufficient(self, loader):
-        """Test la vérification de stock avec stock virtuel insuffisant."""
+    def test_check_stock_with_virtual_stock_insufficient(self):
+        """Test la verification de stock avec stock virtuel insuffisant."""
+        loader = _make_loader()
         article = "A1953"
         stock_state = StockState({article: 100})
 
         checker = RecursiveChecker(loader, stock_state=stock_state)
 
-        # Vérifier avec besoin supérieur au stock
+        # Verifier avec besoin superieur au stock
         result = checker._check_stock(article, 150, date.today())
 
         assert result.feasible is False
         assert article in result.missing_components
         assert result.missing_components[article] == 50  # 150 - 100
 
-    def test_check_stock_with_virtual_stock_zero(self, loader):
-        """Test la vérification de stock avec stock virtuel nul."""
+    def test_check_stock_with_virtual_stock_zero(self):
+        """Test la verification de stock avec stock virtuel nul."""
+        loader = _make_loader()
         article = "A1953"
         stock_state = StockState({article: 0})
 
         checker = RecursiveChecker(loader, stock_state=stock_state)
 
-        # Vérifier avec besoin > 0
+        # Verifier avec besoin > 0
         result = checker._check_stock(article, 50, date.today())
 
         assert result.feasible is False
         assert article in result.missing_components
         assert result.missing_components[article] == 50
 
-    def test_check_stock_article_not_in_stock_state(self, loader):
-        """Test la vérification d'un article absent du stock_state."""
+    def test_check_stock_article_not_in_stock_state(self):
+        """Test la verification d'un article absent du stock_state."""
+        loader = _make_loader()
         article = "A1953"
         stock_state = StockState({})  # Stock vide
 
         checker = RecursiveChecker(loader, stock_state=stock_state)
 
-        # Vérifier - l'article n'est pas dans stock_state
+        # Verifier - l'article n'est pas dans stock_state
         result = checker._check_stock(article, 50, date.today())
 
         # StockState.get_available() retourne 0 si article absent

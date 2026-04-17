@@ -12,7 +12,7 @@ from src.checkers.base import FeasibilityResult
 
 def test_decision_engine_initialization():
     """Test l'initialisation du AgentEngine."""
-    engine = AgentEngine()
+    engine = AgentEngine(persistence_enabled=True)
 
     assert engine.smart_rule is not None
     assert engine.persistence is not None  # Maintenant implémenté

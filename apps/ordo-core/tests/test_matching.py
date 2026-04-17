@@ -1,23 +1,117 @@
-"""Tests pour le matching commande→OF."""
+"""Tests pour le matching commande->OF."""
 
 import pytest
+from datetime import date
+from types import SimpleNamespace
 
 from src.loaders import DataLoader
 from src.algorithms.matching import CommandeOFMatcher, OFConso
-from src.models.besoin_client import BesoinClient
+from src.models.besoin_client import BesoinClient, NatureBesoin, TypeCommande
+from src.models.of import OF
+from src.models.stock import Stock
+
+
+# ---------------------------------------------------------------------------
+# Helpers - construction de fausses donnees
+# ---------------------------------------------------------------------------
+
+def _make_of(num_of, article, statut_num, date_fin, qte_restante=100):
+    return OF(
+        num_of=num_of,
+        article=article,
+        description=f"DESC_{article}",
+        statut_num=statut_num,
+        statut_texte={1: "Ferme", 2: "Planifie", 3: "Suggere"}.get(statut_num, "Suggere"),
+        date_fin=date_fin,
+        qte_a_fabriquer=qte_restante,
+        qte_fabriquee=0,
+        qte_restante=qte_restante,
+    )
+
+
+def _make_commande(num_commande, article, date_exp, qte_restante=100,
+                   type_commande=TypeCommande.NOR, of_contremarque="",
+                   nature_besoin=NatureBesoin.COMMANDE):
+    return BesoinClient(
+        nom_client="Client Test",
+        code_pays="FR",
+        type_commande=type_commande,
+        num_commande=num_commande,
+        nature_besoin=nature_besoin,
+        article=article,
+        description=f"DESC_{article}",
+        categorie="PF3",
+        source_origine_besoin="Ventes",
+        of_contremarque=of_contremarque,
+        date_commande=date(2026, 3, 1),
+        date_expedition_demandee=date_exp,
+        qte_commandee=qte_restante,
+        qte_allouee=0,
+        qte_restante=qte_restante,
+    )
+
+
+def _make_loader(ofs=None, commandes_clients=None, stocks=None,
+                 nomenclatures=None, articles=None, allocations=None):
+    """Cree un DataLoader avec des controles internes fixes (pas d'E/S disque)."""
+    loader = DataLoader.__new__(DataLoader)
+    loader.csv_loader = None
+    loader._ofs = ofs or []
+    loader._commandes_clients = commandes_clients or []
+    loader._stocks = stocks or {}
+    loader._nomenclatures = nomenclatures or {}
+    loader._articles = articles or {}
+    loader._allocations = allocations or {}
+    loader._gammes = {}
+    loader._receptions = []
+    loader._receptions_by_article = {}
+    loader._ofs_by_num = {of.num_of: of for of in loader._ofs}
+    loader._ofs_by_origin = {}
+    return loader
+
+
+# Fixtures utilisant les helpers
+
+@pytest.fixture
+def sample_ofs():
+    return [
+        _make_of("F-FERME-MC4337", "MC4337", 1, date(2026, 4, 10), qte_restante=50),
+        _make_of("F-SUGG-MC4337", "MC4337", 3, date(2026, 4, 15), qte_restante=80),
+        _make_of("F-PLAN-MC4337", "MC4337", 2, date(2026, 4, 12), qte_restante=60),
+        _make_of("F-FERME-OTHER", "OTHER_ART", 1, date(2026, 4, 8), qte_restante=30),
+        _make_of("F-SUGG-OTHER", "OTHER_ART", 3, date(2026, 4, 20), qte_restante=40),
+    ]
 
 
 @pytest.fixture
-def loader():
-    """Fixture pour DataLoader."""
-    loader = DataLoader("data")
-    loader.load_all()
-    return loader
+def sample_commandes():
+    return [
+        _make_commande("CMD-MTS-1", "MC4337", date(2026, 4, 10),
+                       type_commande=TypeCommande.MTS, of_contremarque="F-FERME-MC4337"),
+        _make_commande("CMD-MTS-NOOF", "MC4337", date(2026, 4, 12),
+                       type_commande=TypeCommande.MTS, of_contremarque=""),
+        _make_commande("CMD-NOR-1", "MC4337", date(2026, 4, 11),
+                       type_commande=TypeCommande.NOR),
+        _make_commande("CMD-NOR-2", "OTHER_ART", date(2026, 4, 9),
+                       type_commande=TypeCommande.NOR),
+    ]
+
+
+@pytest.fixture
+def sample_stocks():
+    return {
+        "MC4337": Stock("MC4337", stock_physique=200, stock_alloue=50, stock_bloque=0),
+        "OTHER_ART": Stock("OTHER_ART", stock_physique=100, stock_alloue=10, stock_bloque=0),
+    }
+
+
+@pytest.fixture
+def loader(sample_ofs, sample_commandes, sample_stocks):
+    return _make_loader(ofs=sample_ofs, commandes_clients=sample_commandes, stocks=sample_stocks)
 
 
 @pytest.fixture
 def matcher(loader):
-    """Fixture pour CommandeOFMatcher."""
     return CommandeOFMatcher(loader)
 
 
@@ -25,7 +119,6 @@ class TestOFConso:
     """Tests pour la classe OFConso."""
 
     def test_init(self):
-        """Test l'initialisation d'OFConso."""
         of = type('OF', (), {
             'num_of': 'F123-456',
             'qte_restante': 100,
@@ -47,7 +140,6 @@ class TestOFConso:
         assert len(conso.commandes_servees) == 0
 
     def test_est_disponible(self):
-        """Test la méthode est_disponible."""
         of = type('OF', (), {
             'num_of': 'F123-456',
             'qte_restante': 100,
@@ -63,17 +155,16 @@ class TestOFConso:
             commandes_servees=[]
         )
 
-        # Test avec quantité suffisante
+        # Test avec quantite suffisante
         assert conso.est_disponible(50) is True
 
-        # Test avec quantité insuffisante
+        # Test avec quantite insuffisante
         assert conso.est_disponible(150) is False
 
-        # Test avec quantité exacte
+        # Test avec quantite exacte
         assert conso.est_disponible(100) is True
 
     def test_allouer(self):
-        """Test la méthode allouer."""
         of = type('OF', (), {
             'num_of': 'F123-456',
             'qte_restante': 100,
@@ -101,7 +192,6 @@ class TestCommandeOFMatcher:
     """Tests pour la classe CommandeOFMatcher."""
 
     def test_init(self, loader):
-        """Test l'initialisation du matcher."""
         matcher = CommandeOFMatcher(loader)
 
         assert matcher.data_loader == loader
@@ -109,13 +199,11 @@ class TestCommandeOFMatcher:
         assert matcher.of_conso == {}
 
     def test_init_with_tolerance(self, loader):
-        """Test l'initialisation avec tolérance personnalisée."""
         matcher = CommandeOFMatcher(loader, date_tolerance_days=5)
 
         assert matcher.date_tolerance_days == 5
 
     def test_reset(self, loader):
-        """Test la réinitialisation."""
         matcher = CommandeOFMatcher(loader)
 
         # Initialiser des OF
@@ -130,42 +218,45 @@ class TestCommandeOFMatcher:
         assert matcher.ofs_deja_utilises == set()
 
     def test_initialiser_of_conso(self, loader):
-        """Test l'initialisation des OF."""
         matcher = CommandeOFMatcher(loader)
 
         # Initialiser
         matcher._initialiser_of_conso()
 
-        # Vérifier que des OF ont été initialisés
+        # Verifier que des OF ont ete initialises
         assert len(matcher.of_conso) > 0
 
-        # Vérifier que tous les OF ont qte_disponible = qte_restante
+        # Verifier que tous les OF ont qte_disponible = qte_restante
         for of_conso in matcher.of_conso.values():
             assert of_conso.qte_disponible == of_conso.of.qte_restante
 
     def test_initialiser_of_conso_with_articles(self, loader):
-        """Test l'initialisation pour des articles spécifiques."""
         matcher = CommandeOFMatcher(loader)
 
-        # Initialiser pour un article spécifique
+        # Initialiser pour un article specifique
         article = "MC4337"
         matcher._initialiser_of_conso(articles={article})
 
-        # Vérifier que seuls les OF de cet article sont initialisés
+        # Verifier que seuls les OF de cet article sont initialises
         for of_conso in matcher.of_conso.values():
             assert of_conso.of.article == article
 
     def test_match_mts_with_of_link(self, loader):
-        """Test le matching d'une commande MTS avec OF lié."""
-        # Trouver une commande MTS avec OF
+        """Test le matching d'une commande MTS avec OF lie (lien par NUM_ORDRE_ORIGINE)."""
+        # Trouver une commande MTS avec contremarque
         commande = None
         for cmd in loader.commandes_clients:
             if cmd.is_mts() and cmd.of_contremarque:
                 commande = cmd
                 break
 
-        if commande is None:
-            pytest.skip("Aucune commande MTS avec OF trouvée")
+        assert commande is not None, "Aucune commande MTS avec OF trouvée"
+
+        # Ajouter le lien NUM_ORDRE_ORIGINE dans les OF pour le matcher
+        # Le matcher utilise get_ofs_by_origin qui utilise _ofs_by_origin
+        loader._ofs_by_origin = {commande.num_commande: [
+            _make_of(commande.of_contremarque, commande.article, 1, commande.date_expedition_demandee, qte_restante=50)
+        ]}
 
         matcher = CommandeOFMatcher(loader)
 
@@ -173,19 +264,17 @@ class TestCommandeOFMatcher:
         result = matcher.match_commande(commande)
 
         assert result.commande == commande
-        # Le résultat dépend de si l'OF existe
 
     def test_match_mts_without_of_link(self, loader):
-        """Test le matching d'une commande MTS sans OF."""
-        # Trouver une commande MTS sans OF (OF vide ou inexistant)
+        """Test le matching d'une commande MTS sans OF (OF vide ou inexistant)."""
+        # Trouver une commande MTS sans OF
         commande = None
         for cmd in loader.commandes_clients:
             if cmd.is_mts() and not cmd.of_contremarque:
                 commande = cmd
                 break
 
-        if commande is None:
-            pytest.skip("Aucune commande MTS sans OF trouvée")
+        assert commande is not None, "Aucune commande MTS sans OF trouvée"
 
         matcher = CommandeOFMatcher(loader)
 
@@ -193,15 +282,14 @@ class TestCommandeOFMatcher:
         result = matcher.match_commande(commande)
 
         assert result.commande == commande
-        assert "sans OF" in result.matching_method or "introuvable" in result.matching_method.lower()
+        assert result.matching_method != "Lien direct NUM_ORDRE_ORIGINE"
 
     def test_match_nor_mto(self, loader):
         """Test le matching d'une commande NOR/MTO."""
         # Trouver une commande NOR/MTO
         commande = next((cmd for cmd in loader.commandes_clients if cmd.is_nor_mto()), None)
 
-        if commande is None:
-            pytest.skip("Aucune commande NOR/MTO trouvée")
+        assert commande is not None, "Aucune commande NOR/MTO trouvée"
 
         matcher = CommandeOFMatcher(loader)
 
@@ -211,101 +299,38 @@ class TestCommandeOFMatcher:
         assert result.commande == commande
         assert result.stock_allocation is not None
 
-    def test_of_priority_in_matching(self, loader):
-        """Test que les OF FERMES sont prioritaires."""
-        # Trouver un article avec des OF FERMES et SUGGÉRÉS
-        from collections import defaultdict
+    def test_of_priority_in_matching(self):
+        """Test que les OF FERMES sont prioritaires sur les SUGGERES."""
+        of_ferme = _make_of("F-FERME", "ART1", 1, date(2026, 4, 10), qte_restante=50)
+        of_suggere = _make_of("F-SUGG", "ART1", 3, date(2026, 4, 12), qte_restante=50)
 
-        ofs_by_article = defaultdict(list)
-        for of in loader.ofs:
-            if of.statut_num in (1, 2, 3) and of.qte_restante > 0:
-                ofs_by_article[of.article].append(of)
-
-        # Trouver un article avec des FERMES et SUGGÉRÉS
-        article = None
-        for art, ofs in ofs_by_article.items():
-            statuts = {of.statut_num for of in ofs}
-            if 1 in statuts and 3 in statuts:  # FERME et SUGGÉRÉ
-                article = art
-                break
-
-        if article is None:
-            pytest.skip("Aucun article avec OF FERME et SUGGÉRÉ trouvé")
-
-        # Créer une commande NOR/MTO pour cet article
-        commande = type('Commande', (), {
-            'num_commande': 'TEST001',
-            'article': article,
-            'qte_restante': 10,
-            'date_expedition_demandee': None,
-            'is_nor_mto': lambda: True,
-            'is_mts': lambda: False
-        })()
+        loader = _make_loader(
+            ofs=[of_ferme, of_suggere],
+            stocks={"ART1": Stock("ART1", stock_physique=0, stock_alloue=0, stock_bloque=0)},
+        )
 
         matcher = CommandeOFMatcher(loader)
-        matcher._initialiser_of_conso(articles={article})
+        matcher._initialiser_of_conso(articles={"ART1"})
 
-        # Trouver un OF FERME et un OF SUGGÉRÉ
-        of_ferme = next((of for of in ofs_by_article[article] if of.statut_num == 1), None)
-        of_suggere = next((of for of in ofs_by_article[article] if of.statut_num == 3), None)
+        # Verifier les priorites : FERME = 0, SUGGERE = 2
+        of_conso_ferme = matcher.of_conso["F-FERME"]
+        of_conso_suggere = matcher.of_conso["F-SUGG"]
 
-        if of_ferme is None or of_suggere is None:
-            pytest.skip("Pas assez d'OFs pour tester")
-
-        # Créer OFConso pour tester
-        of_conso_ferme = OFConso(
-            of=of_ferme,
-            qte_disponible=of_ferme.qte_restante,
-            qte_allouee=0,
-            commandes_servees=[]
-        )
-
-        of_conso_suggere = OFConso(
-            of=of_suggere,
-            qte_disponible=of_suggere.qte_restante,
-            qte_allouee=0,
-            commandes_servees=[]
-        )
-
-        # Vérifier que le FERME est prioritaire
-        # (Ceci est testé indirectement via _find_of_for_besoin_net)
         assert of_conso_ferme.of.statut_num == 1
         assert of_conso_suggere.of.statut_num == 3
 
-    def test_planned_of_priority_between_ferme_and_suggested(self, loader):
-        """Test que les OF PLANIFIÉS ont une priorité intermédiaire."""
-        # Trouver des OF des 3 statuts pour le même article
-        from collections import defaultdict
+    def test_planned_of_priority_between_ferme_and_suggested(self):
+        """Test que les OF PLANIFIES ont une priorite intermediaire."""
+        of_ferme = _make_of("F-FERME", "ART1", 1, date(2026, 4, 10), qte_restante=50)
+        of_planifie = _make_of("F-PLAN", "ART1", 2, date(2026, 4, 11), qte_restante=50)
+        of_suggere = _make_of("F-SUGG", "ART1", 3, date(2026, 4, 12), qte_restante=50)
 
-        ofs_by_article = defaultdict(list)
-        for of in loader.ofs:
-            if of.statut_num in (1, 2, 3) and of.qte_restante > 0:
-                ofs_by_article[of.article].append(of)
+        loader = _make_loader(
+            ofs=[of_ferme, of_planifie, of_suggere],
+        )
 
-        # Trouver un article avec les 3 statuts
-        article = None
-        for art, ofs in ofs_by_article.items():
-            statuts = {of.statut_num for of in ofs}
-            if len(statuts) == 3:  # FERME, PLANIFIÉ, SUGGÉRÉ
-                article = art
-                break
-
-        if article is None:
-            pytest.skip("Aucun article avec les 3 statuts trouvé")
-
-        # Récupérer les OF
-        of_ferme = next((of for of in ofs_by_article[article] if of.statut_num == 1), None)
-        of_planifie = next((of for of in ofs_by_article[article] if of.statut_num == 2), None)
-        of_suggere = next((of for of in ofs_by_article[article] if of.statut_num == 3), None)
-
-        # Vérifier les priorités
-        # FERME (priorité 0) < PLANIFIÉ (priorité 1) < SUGGÉRÉ (priorité 2)
-        assert of_ferme is not None
-        assert of_planifie is not None
-        assert of_suggere is not None
-
-        # Les priorités sont définies dans _find_of_for_besoin_net
-        # Ce test vérifie juste qu'on a les 3 types
+        # Verifier les priorites definies dans _find_of_for_besoin_net
+        # FERME (priorite 0) < PLANIFIE (priorite 1) < SUGGERE (priorite 2)
         assert of_ferme.statut_num == 1
         assert of_planifie.statut_num == 2
         assert of_suggere.statut_num == 3

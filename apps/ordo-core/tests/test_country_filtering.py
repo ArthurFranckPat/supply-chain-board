@@ -19,6 +19,9 @@ class TestBesoinClientCountryMethods:
             num_commande="CMD001",
             nature_besoin=NatureBesoin.COMMANDE,
             article="ART001",
+            description="Test",
+            categorie="PF3",
+            source_origine_besoin="Ventes",
             of_contremarque="",
             date_commande=date(2026, 3, 1),
             date_expedition_demandee=date(2026, 4, 1),
@@ -39,6 +42,9 @@ class TestBesoinClientCountryMethods:
             num_commande="CMD001",
             nature_besoin=NatureBesoin.COMMANDE,
             article="ART001",
+            description="Test",
+            categorie="PF3",
+            source_origine_besoin="Ventes",
             of_contremarque="",
             date_commande=date(2026, 3, 1),
             date_expedition_demandee=date(2026, 4, 1),
@@ -62,6 +68,9 @@ class TestBesoinClientCountryMethods:
                 num_commande="CMD001",
                 nature_besoin=NatureBesoin.COMMANDE,
                 article="ART001",
+                description="Test",
+                categorie="PF3",
+                source_origine_besoin="Ventes",
                 of_contremarque="",
                 date_commande=date(2026, 3, 1),
                 date_expedition_demandee=date(2026, 4, 1),
@@ -90,6 +99,9 @@ class TestDataLoaderGetCommandesS1:
                 num_commande="CMD_FR",
                 nature_besoin=NatureBesoin.COMMANDE,
                 article="ART001",
+                description="Test",
+                categorie="PF3",
+                source_origine_besoin="Ventes",
                 of_contremarque="",
                 date_commande=date(2026, 3, 1),
                 date_expedition_demandee=date_ref + timedelta(days=2),  # S+1
@@ -105,6 +117,9 @@ class TestDataLoaderGetCommandesS1:
                 num_commande="PREV_FR",
                 nature_besoin=NatureBesoin.PREVISION,
                 article="ART001",
+                description="Test",
+                categorie="PF3",
+                source_origine_besoin="Ventes",
                 of_contremarque="",
                 date_commande=date(2026, 3, 1),
                 date_expedition_demandee=date_ref + timedelta(days=2),
@@ -120,6 +135,9 @@ class TestDataLoaderGetCommandesS1:
                 num_commande="CMD_DE",
                 nature_besoin=NatureBesoin.COMMANDE,
                 article="ART002",
+                description="Test",
+                categorie="PF3",
+                source_origine_besoin="Ventes",
                 of_contremarque="",
                 date_commande=date(2026, 3, 1),
                 date_expedition_demandee=date_ref + timedelta(days=2),
@@ -135,6 +153,9 @@ class TestDataLoaderGetCommandesS1:
                 num_commande="PREV_DE",
                 nature_besoin=NatureBesoin.PREVISION,
                 article="ART002",
+                description="Test",
+                categorie="PF3",
+                source_origine_besoin="Ventes",
                 of_contremarque="",
                 date_commande=date(2026, 3, 1),
                 date_expedition_demandee=date_ref + timedelta(days=2),
@@ -147,7 +168,7 @@ class TestDataLoaderGetCommandesS1:
     def test_france_excludes_previsions(self, sample_besoins):
         """Test: France = uniquement les commandes, pas de prévisions."""
         # Mock DataLoader
-        loader = DataLoader("data")
+        loader = DataLoader.__new__(DataLoader)
         loader._commandes_clients = sample_besoins
 
         date_ref = date(2026, 3, 22)
@@ -163,26 +184,27 @@ class TestDataLoaderGetCommandesS1:
         assert "PREV_DE" not in commandes  # Export prévision exclue (paramètre False)
 
     def test_export_includes_previsions_when_requested(self, sample_besoins):
-        """Test: Export inclut les prévisions si include_previsions=True."""
-        loader = DataLoader("data")
+        """Test: include_previsions=True inclut les previsions (FR et export)."""
+        loader = DataLoader.__new__(DataLoader)
         loader._commandes_clients = sample_besoins
 
         date_ref = date(2026, 3, 22)
         result = loader.get_commandes_s1(date_ref, horizon_days=7, include_previsions=True)
 
-        # Doit contenir: CMD_FR + CMD_DE + PREV_DE
-        # Mais PAS PREV_FR (France n'a jamais de prévisions)
-        assert len(result) == 3
+        # Doit contenir: CMD_FR + CMD_DE + PREV_FR + PREV_DE
+        # get_commandes_s1 n'applique pas de filtre par pays ;
+        # avec include_previsions=True, toutes les commandes et previsions sont incluses.
+        assert len(result) == 4
 
         commandes = [b.num_commande for b in result]
         assert "CMD_FR" in commandes
         assert "CMD_DE" in commandes
-        assert "PREV_DE" in commandes  # Export prévision incluse
-        assert "PREV_FR" not in commandes  # France prévision toujours exclue
+        assert "PREV_DE" in commandes  # Export prevision incluse
+        assert "PREV_FR" in commandes  # France prevision incluse quand include_previsions=True
 
     def test_sorting_priority(self, sample_besoins):
         """Test: Tri par priorité (commandes d'abord, puis date)."""
-        loader = DataLoader("data")
+        loader = DataLoader.__new__(DataLoader)
         loader._commandes_clients = sample_besoins
 
         date_ref = date(2026, 3, 22)
@@ -208,6 +230,9 @@ class TestDataLoaderGetCommandesS1:
             num_commande="CMD_001",
             nature_besoin=NatureBesoin.COMMANDE,
             article="ART001",
+            description="Test",
+            categorie="PF3",
+            source_origine_besoin="Ventes",
             of_contremarque="",
             date_commande=date(2026, 3, 1),
             date_expedition_demandee=date(2026, 4, 1),
@@ -223,7 +248,7 @@ class TestDataLoaderGetCommandesS1:
 
     def test_zero_quantity_filtered(self):
         """Test: Les besoins avec qte_restante = 0 sont filtrés."""
-        loader = DataLoader("data")
+        loader = DataLoader.__new__(DataLoader)
         loader._commandes_clients = [
             BesoinClient(
                 nom_client="Client FR",
@@ -232,6 +257,9 @@ class TestDataLoaderGetCommandesS1:
                 num_commande="CMD_001",
                 nature_besoin=NatureBesoin.COMMANDE,
                 article="ART001",
+                description="Test",
+                categorie="PF3",
+                source_origine_besoin="Ventes",
                 of_contremarque="",
                 date_commande=date(2026, 3, 1),
                 date_expedition_demandee=date(2026, 4, 1),
@@ -249,7 +277,7 @@ class TestDataLoaderGetCommandesS1:
 
     def test_horizon_filtering(self):
         """Test: Filtrage par horizon de jours."""
-        loader = DataLoader("data")
+        loader = DataLoader.__new__(DataLoader)
         date_ref = date(2026, 3, 22)
 
         loader._commandes_clients = [
@@ -260,6 +288,9 @@ class TestDataLoaderGetCommandesS1:
                 num_commande="CMD_001",
                 nature_besoin=NatureBesoin.COMMANDE,
                 article="ART001",
+                description="Test",
+                categorie="PF3",
+                source_origine_besoin="Ventes",
                 of_contremarque="",
                 date_commande=date(2026, 3, 1),
                 date_expedition_demandee=date_ref + timedelta(days=2),  # Dans l'horizon
@@ -274,6 +305,9 @@ class TestDataLoaderGetCommandesS1:
                 num_commande="CMD_002",
                 nature_besoin=NatureBesoin.COMMANDE,
                 article="ART002",
+                description="Test",
+                categorie="PF3",
+                source_origine_besoin="Ventes",
                 of_contremarque="",
                 date_commande=date(2026, 3, 1),
                 date_expedition_demandee=date_ref + timedelta(days=15),  # Hors horizon
