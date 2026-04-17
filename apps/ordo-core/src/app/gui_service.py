@@ -13,7 +13,13 @@ from ..algorithms import AllocationManager, CommandeOFMatcher
 from ..checkers import ImmediateChecker, ProjectedChecker, RecursiveChecker
 from ..loaders import DataLoader
 from ..loaders.csv_loader import DEFAULT_EXTRACTIONS_DIR
-from ..reports import build_action_report, write_action_report_markdown
+
+# TODO: restore src.reports module
+try:
+    from ..reports import build_action_report, write_action_report_markdown
+except ImportError:
+    build_action_report = None  # type: ignore[assignment]
+    write_action_report_markdown = None  # type: ignore[assignment]
 
 
 def _utc_now_iso() -> str:
@@ -201,16 +207,19 @@ class GuiAppService:
             checker = ProjectedChecker(self.loader)
             resultats_faisabilite = checker.check_all_ofs(ofs_a_verifier)
 
-        action_report = build_action_report(
-            self.loader,
-            resultats_matching,
-            resultats_faisabilite,
-            reference_date=date_ref,
-        )
-        if action_report.component_lines or action_report.poste_kanban_lines:
-            output_dir = self.project_root / "reports" / "actions"
-            output_dir.mkdir(parents=True, exist_ok=True)
-            write_action_report_markdown(action_report, str(output_dir / "s1_action_report.md"))
+        action_report = None
+        if build_action_report is not None:
+            action_report = build_action_report(
+                self.loader,
+                resultats_matching,
+                resultats_faisabilite,
+                reference_date=date_ref,
+            )
+            if action_report and (action_report.component_lines or action_report.poste_kanban_lines):
+                output_dir = self.project_root / "reports" / "actions"
+                output_dir.mkdir(parents=True, exist_ok=True)
+                if write_action_report_markdown is not None:
+                    write_action_report_markdown(action_report, str(output_dir / "s1_action_report.md"))
 
         of_results = []
         for result in resultats_matching:
@@ -247,8 +256,8 @@ class GuiAppService:
                 "matched_ofs": len(ofs_a_verifier),
                 "feasible_ofs": sum(1 for item in of_results if item["feasible"]),
                 "non_feasible_ofs": sum(1 for item in of_results if not item["feasible"]),
-                "action_components": len(action_report.component_lines),
-                "kanban_postes": len(action_report.poste_kanban_lines),
+                "action_components": len(action_report.component_lines) if action_report else 0,
+                "kanban_postes": len(action_report.poste_kanban_lines) if action_report else 0,
             },
             "of_results": of_results,
             "action_report": _serialize_value(action_report),
@@ -280,6 +289,77 @@ class GuiAppService:
                 }
             )
         except Exception as exc:  # pragma: no cover - defensive for UI/API runtime
+            run_state.update(
+                {
+                    "status": "failed",
+                    "completed_at": _utc_now_iso(),
+                    "error": str(exc),
+                }
+            )
+
+    # ── Scheduler run ──────────────────────────────────────────────
+
+    def run_schedule(
+        self,
+        immediate_components: bool = False,
+        blocking_components_mode: str = "blocked",
+    ) -> dict[str, Any]:
+        if self.loader is None:
+            raise RuntimeError("Aucune donnee chargee. Appelez load_data avant run_schedule.")
+
+        run_id = uuid4().hex[:12]
+        run_state: dict[str, Any] = {
+            "run_id": run_id,
+            "status": "running",
+            "created_at": _utc_now_iso(),
+            "kind": "schedule",
+        }
+        self.runs[run_id] = run_state
+        Thread(
+            target=self._run_schedule_in_background,
+            args=(run_id, immediate_components, blocking_components_mode),
+            daemon=True,
+        ).start()
+        return run_state
+
+    def _execute_schedule(
+        self,
+        immediate_components: bool,
+        blocking_components_mode: str,
+    ) -> dict[str, Any]:
+        from ..scheduler import run_schedule as run_schedule_engine
+
+        assert self.loader is not None
+        result = run_schedule_engine(
+            self.loader,
+            reference_date=date.today(),
+            output_dir=str(self.project_root / "outputs"),
+            weights_path=str(self.project_root / "config" / "weights.json"),
+            immediate_components=immediate_components,
+            blocking_components_mode=blocking_components_mode,
+        )
+        return _serialize_value(result)
+
+    def _run_schedule_in_background(
+        self,
+        run_id: str,
+        immediate_components: bool,
+        blocking_components_mode: str,
+    ) -> None:
+        run_state = self.runs[run_id]
+        try:
+            result = self._execute_schedule(
+                immediate_components=immediate_components,
+                blocking_components_mode=blocking_components_mode,
+            )
+            run_state.update(
+                {
+                    "status": "completed",
+                    "completed_at": _utc_now_iso(),
+                    "result": result,
+                }
+            )
+        except Exception as exc:  # pragma: no cover
             run_state.update(
                 {
                     "status": "failed",

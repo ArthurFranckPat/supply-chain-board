@@ -8,12 +8,17 @@ from rich.console import Console
 
 from .checkers import ImmediateChecker, ProjectedChecker, RecursiveChecker
 from .algorithms import AllocationManager, CommandeOFMatcher
-from .reports import (
-    build_action_report,
-    format_rapport_s1,
-    render_action_report_console,
-    write_action_report_markdown,
-)
+# TODO: restore reports module
+# from .reports import (
+#     build_action_report,
+#     format_rapport_s1,
+#     render_action_report_console,
+#     write_action_report_markdown,
+# )
+build_action_report = None
+format_rapport_s1 = None
+render_action_report_console = None
+write_action_report_markdown = None
 from .agents import AgentEngine, AgentContext
 
 

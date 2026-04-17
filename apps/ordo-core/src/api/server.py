@@ -23,6 +23,11 @@ class RunS1Request(BaseModel):
     feasibility_mode: str = Field(default="projected")
 
 
+class RunScheduleRequest(BaseModel):
+    immediate_components: bool = False
+    blocking_components_mode: str = Field(default="blocked", pattern="^(blocked|direct|both)$")
+
+
 def create_app(service: Optional[GuiAppService] = None) -> FastAPI:
     app = FastAPI(
         title="Ordo v2 Local API",
@@ -60,6 +65,16 @@ def create_app(service: Optional[GuiAppService] = None) -> FastAPI:
                 horizon=payload.horizon,
                 include_previsions=payload.include_previsions,
                 feasibility_mode=payload.feasibility_mode,
+            )
+        except RuntimeError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.post("/runs/schedule")
+    def run_schedule(payload: RunScheduleRequest) -> dict:
+        try:
+            return app.state.gui_service.run_schedule(
+                immediate_components=payload.immediate_components,
+                blocking_components_mode=payload.blocking_components_mode,
             )
         except RuntimeError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
