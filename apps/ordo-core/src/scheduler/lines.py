@@ -213,7 +213,8 @@ class GenericLineScheduler:
             requirements = tracked_bdh_requirements(loader, candidate.article, candidate.quantity)
             
             candidate.reason = ""
-            candidate.blocking_components = direct_components
+            is_ferme = getattr(candidate, 'statut_num', 3) == 1
+            candidate.blocking_components = "" if is_ferme else direct_components
             deviation_marked = self._mark_candidate_deviation(candidate, earliest_blocked_due, deviation_marked, current_day=day)
                 
             used_hours = self._assign_candidate_time(candidate, last_article, used_hours, day)
