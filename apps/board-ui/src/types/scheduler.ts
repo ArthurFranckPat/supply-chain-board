@@ -8,6 +8,7 @@ export interface CandidateOF {
   charge_hours: number
   is_buffer_bdh: boolean
   source: 'matching_client' | 'encours_of' | 'buffer_bdh'
+  statut_num: number
   blocking_components: string
   scheduled_day: string | null
   start_hour: number | null

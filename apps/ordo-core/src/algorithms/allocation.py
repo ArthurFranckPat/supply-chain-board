@@ -403,7 +403,7 @@ class AllocationManager:
         for composant in nomenclature.composants:
             if composant.is_achete():
                 # Calculer le besoin pour ce composant
-                besoin = int(composant.qte_lien * of.qte_restante)
+                besoin = composant.qte_requise(of.qte_restante)
 
                 # Vérifier le stock disponible
                 stock_dispo = stock_state.get_available(composant.article_composant)

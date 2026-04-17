@@ -50,6 +50,16 @@ class NomenclatureEntry:
     def is_fabrique(self) -> bool:
         return self.type_article == TypeArticle.FABRIQUE
 
+    def qte_requise(self, qte_parent: int) -> int:
+        """Quantite requise pour ce composant.
+
+        FORFAIT : quantite fixe par OF (qte_lien), independamment du volume.
+        PROPORTIONNEL : qte_lien * qte_parent.
+        """
+        if self.nature_consommation == NatureConsommation.FORFAIT:
+            return int(self.qte_lien)
+        return int(self.qte_lien * qte_parent)
+
     @classmethod
     def from_csv_row(cls, row: dict) -> "NomenclatureEntry":
         qte_str = str(row.get("QTE_LIEN", "0")).replace(",", ".")

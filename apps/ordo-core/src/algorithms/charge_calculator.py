@@ -119,7 +119,7 @@ def calculate_article_charge(
         for composant in nomenclature.composants:
             if composant.is_fabrique():
                 # Récursion pour les composants fabriqués
-                component_qty = int(composant.qte_lien * quantity)
+                component_qty = composant.qte_requise(quantity)
                 component_charge = calculate_article_charge(
                     article=composant.article_composant,
                     quantity=component_qty,

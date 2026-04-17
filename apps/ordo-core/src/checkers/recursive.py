@@ -220,7 +220,7 @@ class RecursiveChecker(BaseChecker):
             result.components_checked += 1
 
             # Calculer la quantité nécessaire pour ce composant
-            qte_composant = int(composant.qte_lien * qte_besoin)
+            qte_composant = composant.qte_requise(qte_besoin)
 
             if self._is_component_treated_as_purchase(composant.article_composant, composant.is_achete(), composant.is_fabrique()):
                 # LOGIQUE : Si le composant est déjà alloué à l'OF parent, skip

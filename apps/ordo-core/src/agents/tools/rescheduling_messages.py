@@ -196,7 +196,7 @@ def get_rescheduling_messages(
                         continue
                     stock = loader.get_stock(comp.article_composant)
                     stock_dispo = (stock.stock_physique - stock.stock_alloue) if stock else 0
-                    besoin_of = comp.qte_lien * of.qte_restante
+                    besoin_of = comp.qte_requise(of.qte_restante)
                     if stock_dispo < besoin_of:
                         composants_deblocables.append(comp.article_composant)
                 if composants_deblocables:

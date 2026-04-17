@@ -52,7 +52,7 @@ class GenericLineScheduler:
         return used_hours
 
     def _handle_under_capacity(self, plan: DaySchedule, day: date, incoming_buffer: dict[date, dict[str, int]], alerts: list[str]) -> None:
-        if plan.total_hours < self.min_open_hours:
+        if plan.engaged_hours < self.min_open_hours:
             for assignment in plan.assignments:
                 if assignment.is_buffer_bdh:
                     availability_day = next_workday(day)
@@ -246,6 +246,13 @@ class GenericLineScheduler:
                 projected_buffer[candidate.article] += candidate.quantity
                 if projected_buffer[candidate.article] >= BUFFER_THRESHOLDS[candidate.article]:
                     shortage_articles.remove(candidate.article)
+
+        # Place blocked candidates on the day without consuming capacity.
+        # They appear in the planning (grayed) but their charge is not engaged.
+        for c in unscheduled:
+            if c.scheduled_day is None and c.blocking_components:
+                c.scheduled_day = day
+                plan.assignments.append(c)
 
         self._handle_under_capacity(plan, day, incoming_buffer, alerts)
 

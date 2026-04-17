@@ -10,6 +10,7 @@ import { ActionsView } from '@/views/ActionsView'
 import { SchedulerView } from '@/views/SchedulerView'
 import { ReportsView } from '@/views/ReportsView'
 import type { DataSource, RunState, DetailItem } from '@/types/api'
+import type { SchedulerOptions } from '@/views/HomeView'
 import { Activity, LayoutDashboard, Wrench, CalendarCheck, FileText, Settings } from 'lucide-react'
 
 type ViewKey = 'home' | 's1' | 'actions' | 'scheduler' | 'reports' | 'settings'
@@ -40,6 +41,11 @@ function App() {
   const [lastSourceSnapshot, setLastSourceSnapshot] = useState<Record<string, unknown> | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [detailItem, setDetailItem] = useState<DetailItem | null>(null)
+  const [schedulerOptions, setSchedulerOptions] = useState<SchedulerOptions>({
+    feasibilityMode: 'projected',
+    blockingComponentsMode: 'blocked',
+    immediateComponents: false,
+  })
 
   const schedule = useScheduleRun()
 
@@ -78,7 +84,7 @@ function App() {
       const response = await apiClient.runS1({
         horizon: 7,
         include_previsions: false,
-        feasibility_mode: 'projected',
+        feasibility_mode: schedulerOptions.feasibilityMode,
       })
       if (response.status === 'running') {
         setLastS1Run(response)
@@ -100,7 +106,10 @@ function App() {
   async function handleRunSchedule() {
     setErrorMessage(null)
     try {
-      await schedule.trigger({ blocking_components_mode: 'blocked' })
+      await schedule.trigger({
+        blocking_components_mode: schedulerOptions.blockingComponentsMode,
+        immediate_components: schedulerOptions.immediateComponents,
+      })
       setActiveView('scheduler')
     } catch (error) {
       setErrorMessage(error instanceof ApiError ? error.message : 'Scheduler impossible.')
@@ -207,9 +216,11 @@ function App() {
               s1RunState={s1RunState}
               scheduleState={schedule.isLoading ? 'running' : schedule.result ? 'success' : 'idle'}
               lastSourceSnapshot={lastSourceSnapshot}
+              options={schedulerOptions}
               onLoadSource={handleLoadSource}
               onRunS1={handleRunS1}
               onRunSchedule={handleRunSchedule}
+              onOptionsChange={setSchedulerOptions}
             />
           )}
           {activeView === 's1' && (

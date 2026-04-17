@@ -45,12 +45,15 @@ def apply_receptions_for_day(material_state: StockState, receptions_by_day, day:
 def reserve_candidate_components(loader, checker, candidate, day: date, material_state: StockState) -> None:
     """Réserve virtuellement les composants consommés par un OF planifié.
 
-    La réservation est limitée aux composants真正ement sous tension :
-    uniquement les composants ACHAT dont le stock est inférieur à 2× le besoin.
-    Les composants FABRICATION sont exclus (l'atelier peut les produire).
+    REGLE METIER : si un composant est déjà alloué à cet OF dans l'ERP,
+    il ne doit pas être réservé à nouveau. Seul le besoin net (besoin - déjà alloué)
+    est réservé virtuellement. Cela s'applique composant par composant, pas
+    de manière tout-ou-rien.
     """
-    if _candidate_has_existing_allocations(loader, candidate):
-        return
+    # Quantités déjà allouées dans l'ERP pour cet OF
+    own_allocations: dict[str, float] = defaultdict(float)
+    for allocation in loader.get_allocations_of(candidate.num_of):
+        own_allocations[allocation.article] += float(allocation.qte_allouee)
 
     allocations = _collect_component_reservations(
         loader,
@@ -61,9 +64,16 @@ def reserve_candidate_components(loader, checker, candidate, day: date, material
         material_state,
     )
     if allocations:
+        # Ne réserver que le besoin net (besoin total - déjà alloué ERP)
+        net_allocations = {}
+        for art, qty in allocations.items():
+            already = int(own_allocations.get(art, 0.0))
+            if qty > already:
+                net_allocations[art] = qty - already
+
         # Ne réserver que les composants en rupture réelle : stock < 1× besoin
         scarce = {
-            art: qty for art, qty in allocations.items()
+            art: qty for art, qty in net_allocations.items()
             if material_state.get_available(art) < qty
         }
         if scarce:
@@ -80,6 +90,13 @@ def availability_status(
     immediate_components: bool = False,
     immediate_reference_day: Optional[date] = None,
 ) -> tuple[str, str]:
+    # FERME OF (statut 1) : déjà lancé en production.
+    # Les achats étaient validés à l'affermissement, les fabriqués manquants
+    # ne bloquent pas (on lance des sous-OFs). Jamais bloqué.
+    is_ferme = getattr(candidate, 'statut_num', 3) == 1
+    if is_ferme:
+        return "comfortable", ""
+
     date_j2 = previous_workday(day, 2)
     date_j1 = previous_workday(day, 1)
     date_j0 = day
@@ -147,7 +164,7 @@ def tracked_bdh_requirements(loader, article: str, quantity: int, seen: Optional
         return {}
 
     for composant in nomenclature.composants:
-        comp_qty = composant.qte_lien * quantity
+        comp_qty = composant.qte_requise(quantity)
         if composant.article_composant in BUFFER_THRESHOLDS:
             requirements[composant.article_composant] += comp_qty
         elif composant.is_fabrique():
@@ -180,7 +197,7 @@ def tracked_kanban_requirements(loader, article: str, quantity: int, kanban_arti
         return requirements
 
     for composant in nomenclature.composants:
-        comp_qty = composant.qte_lien * quantity
+        comp_qty = composant.qte_requise(quantity)
         if composant.article_composant in kanban_articles:
             requirements[composant.article_composant] += comp_qty
         else:
@@ -241,7 +258,7 @@ def compute_direct_component_shortages(loader, candidate, material_state: Option
 
     shortages: list[tuple[str, float]] = []
     for composant in nomenclature.composants:
-        required_qty = float(composant.qte_lien) * float(candidate.quantity)
+        required_qty = float(composant.qte_requise(int(candidate.quantity)))
         allocated_to_candidate = own_allocations_by_article.get(composant.article_composant, 0.0)
         # Si la réservation ERP couvre déjà le besoin de cet OF, on ne le marque pas en rupture.
         if allocated_to_candidate >= required_qty - 1e-9:
@@ -316,7 +333,7 @@ def _collect_component_reservations(
         if composant.article_composant in phantom_variant_exclusions:
             continue
 
-        qte_composant = int(composant.qte_lien * quantity)
+        qte_composant = composant.qte_requise(quantity)
         article_code = composant.article_composant
 
         if checker._is_component_treated_as_purchase(article_code, composant.is_achete(), composant.is_fabrique()):

@@ -125,7 +125,7 @@ def get_competing_ofs_for_component(
             if composant.article_composant != article_composant:
                 continue
 
-            qte_besoin = composant.qte_lien * of.qte_restante
+            qte_besoin = composant.qte_requise(of.qte_restante)
             competing.append({
                 "num_of": of.num_of,
                 "article_parent": of.article,

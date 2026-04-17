@@ -44,17 +44,20 @@ def compute_kpis(scheduled_ofs: List[Any], loader: Any = None) -> Dict[str, floa
     nb_total = len(scheduled_ofs)
     if nb_total == 0:
         return {"taux_service": 0.0, "taux_ouverture": 0.0, "nb_deviations": 0, "nb_jit": 0, "kanban_imbalance": 0}
-        
+
     nb_en_retard = 0
     total_heures = 0.0
     nb_deviations = 0
     nb_jit = 0
-    
+
     # Kanban Tracking pour KPI
     kanban_articles = {"11028877", "11033880", "1133919"}
     kanban_daily_conso = defaultdict(lambda: {a: 0.0 for a in kanban_articles})
 
     for of in scheduled_ofs:
+        # Un OF bloque rupture n'est pas reellement realise -> exclure des KPIs
+        if getattr(of, 'blocking_components', ''):
+            continue
         # Taux de service
         if of.scheduled_day and of.scheduled_day > of.due_date:
             nb_en_retard += 1
@@ -76,7 +79,7 @@ def compute_kpis(scheduled_ofs: List[Any], loader: Any = None) -> Dict[str, floa
             if cand_nom:
                 for comp in cand_nom.composants:
                     if comp.article_composant in kanban_articles:
-                        kanban_daily_conso[of.scheduled_day][comp.article_composant] += comp.qte_lien * of.quantity
+                        kanban_daily_conso[of.scheduled_day][comp.article_composant] += comp.qte_requise(of.quantity)
 
     taux_service = 1.0 - (nb_en_retard / nb_total)
     

@@ -73,6 +73,7 @@ def _make_candidate(loader, bom_graph: BomGraph, of, line: str, demand: DemandMa
         tracked_bdh_qty=tracked_bdh_qty,
         related_orders=list(demand.order_numbers) if demand else [],
         kind=kind,
+        statut_num=of.statut_num,
     )
 
 

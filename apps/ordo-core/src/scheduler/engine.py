@@ -517,6 +517,7 @@ def _select_candidates_from_matching(loader, planning_workdays, demand_horizon_e
                 charge_hours=charge_hours,
                 is_buffer_bdh=of.article in BUFFER_THRESHOLDS,
                 source=str(spec.get('source', 'matching_client')),
+                statut_num=of.statut_num,
             )
         )
 
@@ -576,12 +577,11 @@ def _compute_open_rate(day_plans: dict[str, list[DaySchedule]], line_capacities:
     La capacité d'un jour ouvert est min(14h, planned + marge) pour refléter
     l'utilisation réelle plutôt que la capacité théorique.
     """
-    planned_hours = sum(plan.total_hours for plans in day_plans.values() for plan in plans)
-    # Capacité effective = max(7h, planned) pour chaque jour ouvert
-    # Ça mesure la densité de remplissage des lignes ouvertes
+    planned_hours = sum(plan.engaged_hours for plans in day_plans.values() for plan in plans)
+    # Capacité effective = max(7h, engaged) pour chaque jour ouvert
     available_hours = sum(
-        max(7.0, plan.total_hours)
+        max(7.0, plan.engaged_hours)
         for line, plans in day_plans.items()
-        for plan in plans if plan.total_hours > 0
+        for plan in plans if plan.engaged_hours > 0
     )
     return (planned_hours / available_hours) if available_hours else 0.0

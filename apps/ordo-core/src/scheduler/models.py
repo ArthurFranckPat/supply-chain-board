@@ -18,6 +18,7 @@ class CandidateOF:
     charge_hours: float
     is_buffer_bdh: bool = False
     source: str = "matching_client"
+    statut_num: int = 3
     blocking_components: str = ""
     scheduled_day: Optional[date] = None
     start_hour: Optional[float] = None
@@ -38,6 +39,11 @@ class DaySchedule:
     @property
     def total_hours(self) -> float:
         return round(sum(item.charge_hours for item in self.assignments), 3)
+
+    @property
+    def engaged_hours(self) -> float:
+        """Charge reelle engagee (sans les OF bloques rupture)."""
+        return round(sum(item.charge_hours for item in self.assignments if not item.blocking_components), 3)
 
 
 @dataclass

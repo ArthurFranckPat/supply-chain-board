@@ -193,15 +193,8 @@ class LLMContextBuilder:
             stock_disponible = 0
 
         # Quantité allouée à cet OF précis
-        # Adapter selon la nature de consommation
-        from ...models.nomenclature import NatureConsommation
-
-        if comp.nature_consommation == NatureConsommation.FORFAIT:
-            # Composant au forfait : 1 unité par OF (indépendamment de la quantité fabriquée)
-            quantite_requise = int(comp.qte_lien)  # Généralement 1
-        else:
-            # Composant proportionnel : Qté lien × Quantité fabriquée
-            quantite_requise = int(comp.qte_lien * of.qte_restante)
+        # FORFAIT : quantité fixe par OF ; PROPORTIONNEL : qte_lien × qte_parent
+        quantite_requise = comp.qte_requise(of.qte_restante)
 
         stock_alloue_cet_of = allocations_par_composant.get(comp.article_composant, 0)
 
