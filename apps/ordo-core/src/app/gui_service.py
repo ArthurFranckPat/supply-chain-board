@@ -303,6 +303,7 @@ class GuiAppService:
         self,
         immediate_components: bool = False,
         blocking_components_mode: str = "blocked",
+        demand_horizon_days: int = 15,
     ) -> dict[str, Any]:
         if self.loader is None:
             raise RuntimeError("Aucune donnee chargee. Appelez load_data avant run_schedule.")
@@ -317,7 +318,7 @@ class GuiAppService:
         self.runs[run_id] = run_state
         Thread(
             target=self._run_schedule_in_background,
-            args=(run_id, immediate_components, blocking_components_mode),
+            args=(run_id, immediate_components, blocking_components_mode, demand_horizon_days),
             daemon=True,
         ).start()
         return run_state
@@ -326,6 +327,7 @@ class GuiAppService:
         self,
         immediate_components: bool,
         blocking_components_mode: str,
+        demand_horizon_days: int = 15,
     ) -> dict[str, Any]:
         from ..scheduler import run_schedule as run_schedule_engine
 
@@ -337,6 +339,7 @@ class GuiAppService:
             weights_path=str(self.project_root / "config" / "weights.json"),
             immediate_components=immediate_components,
             blocking_components_mode=blocking_components_mode,
+            demand_calendar_days=demand_horizon_days,
         )
         return _serialize_value(result)
 
@@ -345,12 +348,14 @@ class GuiAppService:
         run_id: str,
         immediate_components: bool,
         blocking_components_mode: str,
+        demand_horizon_days: int = 15,
     ) -> None:
         run_state = self.runs[run_id]
         try:
             result = self._execute_schedule(
                 immediate_components=immediate_components,
                 blocking_components_mode=blocking_components_mode,
+                demand_horizon_days=demand_horizon_days,
             )
             run_state.update(
                 {

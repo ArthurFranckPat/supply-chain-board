@@ -20,6 +20,7 @@ class CandidateOF:
     source: str = "matching_client"
     statut_num: int = 3
     blocking_components: str = ""
+    linked_orders: str = ""
     scheduled_day: Optional[date] = None
     start_hour: Optional[float] = None
     end_hour: Optional[float] = None
@@ -63,3 +64,5 @@ class SchedulerResult:
     weights: dict[str, float]
     unscheduled_rows: list[dict[str, object]]
     order_rows: list[dict[str, object]]
+    line_labels: dict[str, str] = field(default_factory=dict)
+    reception_rows: list[dict[str, object]] = field(default_factory=list)

@@ -18,7 +18,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
-from ..algorithms.charge_calculator import calculate_article_charge
+from ..algorithms.charge_calculator import calculate_article_charge, get_poste_libelle
 from ..algorithms.allocation import StockState
 from ..algorithms.matching import CommandeOFMatcher
 from ..checkers.recursive import RecursiveChecker
@@ -296,6 +296,16 @@ def run_schedule(
         if plan.assignments[i].article != plan.assignments[i-1].article
     )
 
+    # Build line labels from gammes
+    line_labels: dict[str, str] = {}
+    for line_id in target_lines:
+        libelle = get_poste_libelle(line_id, loader)
+        if libelle:
+            line_labels[line_id] = libelle
+
+    # Build reception rows (expected component deliveries)
+    reception_rows = _build_reception_rows(loader, reference_date, demand_horizon_end, all_assignments)
+
     result = SchedulerResult(
         score=round(score, 3),
         taux_service=round(taux_service, 3),
@@ -310,6 +320,8 @@ def run_schedule(
         weights=weights,
         unscheduled_rows=unscheduled_rows,
         order_rows=order_rows,
+        line_labels=line_labels,
+        reception_rows=reception_rows,
     )
     write_outputs(output_dir, result)
     return result
@@ -520,6 +532,7 @@ def _select_candidates_from_matching(loader, planning_workdays, demand_horizon_e
                 is_buffer_bdh=of.article in BUFFER_THRESHOLDS,
                 source=str(spec.get('source', 'matching_client')),
                 statut_num=of.statut_num,
+                linked_orders=",".join(sorted(spec.get('orders', set()))),
             )
         )
 
@@ -587,3 +600,61 @@ def _compute_open_rate(day_plans: dict[str, list[DaySchedule]], line_capacities:
         for plan in plans if plan.engaged_hours > 0
     )
     return (planned_hours / available_hours) if available_hours else 0.0
+
+
+def _build_reception_rows(loader, reference_date: date, horizon_end: date, all_assignments: list[CandidateOF]) -> list[dict[str, object]]:
+    """Construit les lignes de réceptions attendues, liées aux OF planifiés qui les nécessitent.
+
+    Pour chaque réception fournisseur, on identifie les OF planifiés dont l'article parent
+    utilise ce composant dans sa nomenclature.
+    """
+    # Reverse index: composant -> set of parent articles
+    component_to_parents: dict[str, set[str]] = defaultdict(set)
+    for _article, nomen in loader.nomenclatures.items():
+        for comp in nomen.composants:
+            if comp.niveau <= 10:  # composants directs uniquement
+                component_to_parents[comp.article_composant].add(_article)
+
+    # Index: parent article -> list of scheduled OFs
+    parent_to_ofs: dict[str, list[CandidateOF]] = defaultdict(list)
+    for assignment in all_assignments:
+        parent_to_ofs[assignment.article].append(assignment)
+
+    rows: list[dict[str, object]] = []
+    for rec in loader.receptions:
+        if rec.quantite_restante <= 0:
+            continue
+        # Inclure les réceptions jusqu'à un peu après l'horizon (marge de 5 jours)
+        if rec.date_reception_prevue > horizon_end + timedelta(days=5):
+            continue
+        article_obj = loader.get_article(rec.article)
+        stock_obj = loader.get_stock(rec.article)
+        days_until = (rec.date_reception_prevue - reference_date).days
+
+        # Trouver les OF planifiés qui utilisent ce composant
+        parents = component_to_parents.get(rec.article, set())
+        linked_ofs: list[dict[str, object]] = []
+        for parent in sorted(parents):
+            for of_ in parent_to_ofs.get(parent, []):
+                linked_ofs.append({
+                    "num_of": of_.num_of,
+                    "article": of_.article,
+                    "line": of_.line,
+                    "scheduled_day": of_.scheduled_day.isoformat() if of_.scheduled_day else None,
+                    "blocked": bool(of_.blocking_components),
+                })
+
+        rows.append({
+            "num_commande": rec.num_commande,
+            "article": rec.article,
+            "description": article_obj.description if article_obj else "",
+            "fournisseur": rec.code_fournisseur,
+            "quantite": rec.quantite_restante,
+            "date_prevue": rec.date_reception_prevue.isoformat(),
+            "jours_restants": days_until,
+            "stock_actuel": stock_obj.disponible() if stock_obj else 0,
+            "nb_of_concernes": len(linked_ofs),
+            "ofs": linked_ofs[:5],  # limiter à 5 OFs affichés
+        })
+    rows.sort(key=lambda r: (r["date_prevue"], r["article"]))
+    return rows

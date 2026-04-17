@@ -327,21 +327,15 @@ class CommandeOFMatcher:
 
         Priorité :
         1. OF affermis (statut 1) - déjà lancés en production
-        2. OF suggérés (statut 3) - créés par CBN/MRP
+        2. OF planifiés (statut 2) - planifiés
+        3. OF suggérés (statut 3) - créés par CBN/MRP
 
-        Parameters
-        ----------
-        commande : BesoinClient
-            Commande client
-        besoin_net : int
-            Besoin net à couvrir par OF
-
-        Returns
-        -------
-        Optional[OF]
-            OF trouvé ou None
+        Un OF ferme/planifié (statut 1/2) a été créé pour une commande ferme :
+        il ne peut matcher qu'avec un besoin de nature COMMANDE.
+        Les prévisions ne peuvent matcher qu'avec des OF suggérés (statut 3).
         """
         candidates = []
+        is_firm_order = commande.est_commande()
 
         for of_conso in self.of_conso.values():
             of = of_conso.of
@@ -357,6 +351,10 @@ class CommandeOFMatcher:
             # Vérifier la date (± tolérance)
             ecart_days = abs((of.date_fin - commande.date_expedition_demandee).days)
             if ecart_days > self.date_tolerance_days:
+                continue
+
+            # Un OF ferme/planifié ne matche qu'avec des commandes fermes
+            if not is_firm_order and of.statut_num in (1, 2):
                 continue
 
             # Candidat trouvé avec priorité : affermis > planifié > suggéré

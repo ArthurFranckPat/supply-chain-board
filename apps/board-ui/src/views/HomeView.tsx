@@ -15,6 +15,7 @@ export interface SchedulerOptions {
   feasibilityMode: string
   blockingComponentsMode: string
   immediateComponents: boolean
+  demandHorizonDays: number
 }
 
 interface HomeViewProps {
@@ -138,6 +139,25 @@ export function HomeView({
               </div>
             </div>
             <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-muted-foreground shrink-0">Horizon</span>
+                <div className="flex gap-1 flex-1">
+                  {[7, 15, 30].map((d) => (
+                    <button
+                      key={d}
+                      onClick={() => onOptionsChange({ ...options, demandHorizonDays: d })}
+                      disabled={!isReady || scheduleState === 'running'}
+                      className={`flex-1 px-2 py-1 rounded text-[11px] font-medium transition-colors ${
+                        options.demandHorizonDays === d
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted text-muted-foreground hover:bg-accent'
+                      } disabled:opacity-50`}
+                    >
+                      S+{Math.ceil(d / 7)}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div className="flex gap-1">
                 {(['blocked', 'direct', 'both'] as const).map((mode) => (
                   <button

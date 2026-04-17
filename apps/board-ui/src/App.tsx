@@ -11,19 +11,18 @@ import { SchedulerView } from '@/views/SchedulerView'
 import { ReportsView } from '@/views/ReportsView'
 import type { DataSource, RunState, DetailItem } from '@/types/api'
 import type { SchedulerOptions } from '@/views/HomeView'
-import { Activity, LayoutDashboard, Wrench, CalendarCheck, FileText, Settings } from 'lucide-react'
+import { Activity, LayoutDashboard, Wrench, CalendarClock, FileText, Settings, Package, Zap, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 
 type ViewKey = 'home' | 's1' | 'actions' | 'scheduler' | 'reports' | 'settings'
 type LoadState = 'idle' | 'loading' | 'ready' | 'error'
 type RunStateStatus = 'idle' | 'running' | 'success' | 'error'
 
 const NAV_ITEMS: Array<{ key: ViewKey; label: string; icon: React.ReactNode }> = [
-  { key: 'home', label: 'Home', icon: <LayoutDashboard className="h-4 w-4" /> },
-  { key: 's1', label: 'S+1', icon: <CalendarCheck className="h-4 w-4" /> },
-  { key: 'actions', label: 'Actions', icon: <Wrench className="h-4 w-4" /> },
-  { key: 'scheduler', label: 'Scheduler', icon: <Activity className="h-4 w-4" /> },
-  { key: 'reports', label: 'Reports', icon: <FileText className="h-4 w-4" /> },
-  { key: 'settings', label: 'Settings', icon: <Settings className="h-4 w-4" /> },
+  { key: 'home', label: 'Home', icon: <LayoutDashboard className="h-[15px] w-[15px]" /> },
+  { key: 's1', label: 'S+1', icon: <CalendarClock className="h-[15px] w-[15px]" /> },
+  { key: 'actions', label: 'Actions', icon: <Wrench className="h-[15px] w-[15px]" /> },
+  { key: 'scheduler', label: 'Scheduler', icon: <Activity className="h-[15px] w-[15px]" /> },
+  { key: 'reports', label: 'Reports', icon: <FileText className="h-[15px] w-[15px]" /> },
 ]
 
 function formatTimestamp(value?: string | null) {
@@ -33,6 +32,7 @@ function formatTimestamp(value?: string | null) {
 
 function App() {
   const [activeView, setActiveView] = useState<ViewKey>('home')
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [backendState, setBackendState] = useState<'checking' | 'ready' | 'error'>('checking')
   const [source] = useState<DataSource>('extractions')
   const [loadState, setLoadState] = useState<LoadState>('idle')
@@ -45,6 +45,7 @@ function App() {
     feasibilityMode: 'projected',
     blockingComponentsMode: 'blocked',
     immediateComponents: false,
+    demandHorizonDays: 15,
   })
 
   const schedule = useScheduleRun()
@@ -109,6 +110,7 @@ function App() {
       await schedule.trigger({
         blocking_components_mode: schedulerOptions.blockingComponentsMode,
         immediate_components: schedulerOptions.immediateComponents,
+        demand_horizon_days: schedulerOptions.demandHorizonDays,
       })
       setActiveView('scheduler')
     } catch (error) {
@@ -135,53 +137,154 @@ function App() {
     ]
   }, [lastS1Run])
 
+  // Derive topbar subtitle
+  const topbarSubtitle = activeView === 'scheduler' && schedule.result
+    ? (() => {
+        const allOfs = Object.values(schedule.result.line_candidates).flat()
+        const days = [...new Set(allOfs.map(o => o.scheduled_day).filter(Boolean))].sort()
+        if (days.length < 2) return ''
+        const start = new Date(days[0]!).toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: 'short' })
+        const end = new Date(days[days.length - 1]!).toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: 'short' })
+        return `${start} → ${end}`
+      })()
+    : ''
+
   return (
     <div className="flex h-screen overflow-hidden">
       {/* Sidebar */}
-      <aside className="w-56 shrink-0 border-r border-border bg-card flex flex-col">
-        <div className="p-4 border-b border-border">
-          <p className="text-xs text-muted-foreground font-mono uppercase tracking-wider">Supply Chain</p>
-          <h1 className="text-lg font-bold text-primary">Ordo Board</h1>
+      <aside className={`shrink-0 border-r border-border bg-card flex flex-col transition-[width] duration-200 ${sidebarCollapsed ? 'w-[56px]' : 'w-[220px]'}`}>
+        {/* Brand + collapse toggle */}
+        <div className={`flex items-center gap-2.5 py-[14px] ${sidebarCollapsed ? 'px-3 justify-center' : 'px-4.5'}`}>
+          <div className="w-8 h-8 rounded-[9px] shrink-0 flex items-center justify-center" style={{ background: 'linear-gradient(135deg,#0f766e,#166534)' }}>
+            <Package className="h-4 w-4 text-white" />
+          </div>
+          {!sidebarCollapsed && (
+            <div className="min-w-0">
+              <p className="text-[9.5px] text-muted-foreground font-mono uppercase tracking-wider font-medium leading-none">Supply Chain</p>
+              <p className="text-[15px] font-bold text-foreground leading-tight mt-0.5">Ordo Board</p>
+            </div>
+          )}
         </div>
-        <nav className="flex-1 p-2 space-y-1">
+
+        {/* Navigation label */}
+        {!sidebarCollapsed && (
+          <div className="px-3 pt-3.5 pb-1.5 text-[9.5px] font-semibold text-muted-foreground uppercase tracking-wider font-mono">
+            Navigation
+          </div>
+        )}
+
+        {/* Nav items */}
+        <nav className={`flex flex-col gap-0.5 flex-1 ${sidebarCollapsed ? 'px-2 pt-3' : 'px-2.5'}`}>
           {NAV_ITEMS.map((item) => (
             <button
               key={item.key}
               onClick={() => setActiveView(item.key)}
-              className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+              title={sidebarCollapsed ? item.label : undefined}
+              className={`w-full flex items-center gap-2.5 py-2 rounded-[7px] text-[12.5px] font-medium transition-colors text-left ${
+                sidebarCollapsed ? 'px-0 justify-center' : 'px-[11px]'
+              } ${
                 activeView === item.key
                   ? 'bg-primary text-primary-foreground'
                   : 'text-foreground hover:bg-accent'
               }`}
             >
               {item.icon}
-              {item.label}
+              {!sidebarCollapsed && item.label}
             </button>
           ))}
         </nav>
-        <div className="p-3 border-t border-border space-y-1 text-xs">
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground">API</span>
-            <Badge variant={backendState === 'ready' ? 'default' : 'destructive'} className="text-[10px] px-1.5 py-0">
-              {backendState}
-            </Badge>
+
+        {/* System section */}
+        <div className={sidebarCollapsed ? 'px-2 pb-2' : 'px-2.5 pb-2'}>
+          {!sidebarCollapsed && (
+            <div className="px-[11px] pb-1.5 text-[9.5px] font-semibold text-muted-foreground uppercase tracking-wider font-mono">
+              Système
+            </div>
+          )}
+          <button
+            onClick={() => setActiveView('settings')}
+            title={sidebarCollapsed ? 'Settings' : undefined}
+            className={`w-full flex items-center gap-2.5 py-2 rounded-[7px] text-[12.5px] font-medium transition-colors text-left ${
+              sidebarCollapsed ? 'px-0 justify-center' : 'px-[11px]'
+            } ${
+              activeView === 'settings'
+                ? 'bg-primary text-primary-foreground'
+                : 'text-foreground hover:bg-accent'
+            }`}
+          >
+            <Settings className="h-[15px] w-[15px] text-muted-foreground" />
+            {!sidebarCollapsed && 'Settings'}
+          </button>
+        </div>
+
+        {/* Status indicators */}
+        {!sidebarCollapsed && (
+          <div className="px-3.5 py-3.5 border-t border-border flex flex-col gap-1.5">
+            <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+              <span>API</span>
+              <span className={`inline-flex items-center gap-1.5 px-[7px] py-[2px] rounded-full text-[10px] font-semibold ${
+                backendState === 'ready' ? 'bg-green/10 text-green' : 'bg-muted text-muted-foreground'
+              }`}>
+                <span className={`w-[5px] h-[5px] rounded-full ${backendState === 'ready' ? 'bg-green' : 'bg-muted-foreground'}`} />
+                {backendState === 'ready' ? 'ready' : backendState}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+              <span>Source</span>
+              <span className={`inline-flex items-center gap-1.5 px-[7px] py-[2px] rounded-full text-[10px] font-semibold ${
+                loadState === 'ready' ? 'bg-green/10 text-green' : 'bg-muted text-muted-foreground'
+              }`}>
+                <span className={`w-[5px] h-[5px] rounded-full ${loadState === 'ready' ? 'bg-green' : 'bg-muted-foreground'}`} />
+                {loadState === 'ready' ? 'ready' : loadState}
+              </span>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground">Source</span>
-            <Badge variant={loadState === 'ready' ? 'default' : 'outline'} className="text-[10px] px-1.5 py-0">
-              {loadState}
-            </Badge>
-          </div>
+        )}
+
+        {/* Collapse toggle */}
+        <div className={`border-t border-border py-2 ${sidebarCollapsed ? 'px-2' : 'px-3'}`}>
+          <button
+            onClick={() => setSidebarCollapsed(c => !c)}
+            title={sidebarCollapsed ? 'Agrandir' : 'Réduire'}
+            className={`w-full flex items-center gap-2 py-1.5 rounded-[7px] text-[11px] text-muted-foreground hover:text-foreground hover:bg-accent transition-colors ${
+              sidebarCollapsed ? 'px-0 justify-center' : 'px-2'
+            }`}
+          >
+            {sidebarCollapsed
+              ? <PanelLeftOpen className="h-4 w-4 shrink-0" />
+              : <>
+                  <PanelLeftClose className="h-4 w-4 shrink-0" />
+                  <span>Réduire</span>
+                </>
+            }
+          </button>
         </div>
       </aside>
 
       {/* Main workspace */}
       <main className="flex-1 flex flex-col overflow-hidden">
         {/* Topbar */}
-        <header className="h-14 shrink-0 border-b border-border bg-card flex items-center justify-between px-6">
-          <h2 className="text-base font-semibold">{NAV_ITEMS.find((n) => n.key === activeView)?.label}</h2>
-          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-            <span>Dernier run: <strong>{formatTimestamp(lastS1Run?.completed_at ?? lastS1Run?.created_at)}</strong></span>
+        <header className="h-[54px] shrink-0 border-b border-border bg-card flex items-center justify-between px-[22px]">
+          <div className="flex items-baseline gap-3">
+            <h2 className="text-[15.5px] font-semibold tracking-tight">
+              {NAV_ITEMS.find((n) => n.key === activeView)?.label}
+              {activeView === 'settings' && 'Settings'}
+            </h2>
+            {topbarSubtitle && (
+              <span className="text-[11.5px] text-muted-foreground">{topbarSubtitle}</span>
+            )}
+          </div>
+          <div className="flex items-center gap-2.5 text-[11.5px] text-muted-foreground">
+            <span>Dernier run: <strong className="text-foreground font-mono">{formatTimestamp(lastS1Run?.completed_at ?? lastS1Run?.created_at)}</strong></span>
+            {activeView === 'scheduler' && (
+              <button
+                onClick={handleRunSchedule}
+                className="bg-primary text-white border-none px-3 py-[7px] rounded-[7px] text-xs font-semibold cursor-pointer inline-flex items-center gap-1.5 hover:bg-primary/90 transition-colors"
+              >
+                <Zap className="h-3 w-3" />
+                Relancer
+              </button>
+            )}
           </div>
         </header>
 

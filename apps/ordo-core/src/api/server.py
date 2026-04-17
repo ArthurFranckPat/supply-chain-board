@@ -26,6 +26,7 @@ class RunS1Request(BaseModel):
 class RunScheduleRequest(BaseModel):
     immediate_components: bool = False
     blocking_components_mode: str = Field(default="blocked", pattern="^(blocked|direct|both)$")
+    demand_horizon_days: int = Field(default=15, ge=7, le=60)
 
 
 def create_app(service: Optional[GuiAppService] = None) -> FastAPI:
@@ -75,6 +76,7 @@ def create_app(service: Optional[GuiAppService] = None) -> FastAPI:
             return app.state.gui_service.run_schedule(
                 immediate_components=payload.immediate_components,
                 blocking_components_mode=payload.blocking_components_mode,
+                demand_horizon_days=payload.demand_horizon_days,
             )
         except RuntimeError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc

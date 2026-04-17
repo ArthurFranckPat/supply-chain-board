@@ -10,6 +10,7 @@ export interface CandidateOF {
   source: 'matching_client' | 'encours_of' | 'buffer_bdh'
   statut_num: number
   blocking_components: string
+  linked_orders: string
   scheduled_day: string | null
   start_hour: number | null
   end_hour: number | null
@@ -32,6 +33,8 @@ export interface SchedulerResult {
   weights: Record<string, number>
   unscheduled_rows: UnscheduledRow[]
   order_rows: OrderRow[]
+  line_labels: Record<string, string>
+  reception_rows: ReceptionRow[]
 }
 
 export interface StockProjectionEntry {
@@ -62,4 +65,25 @@ export interface OrderRow {
   statut: string
   cause: string
   matching: string
+}
+
+export interface ReceptionLinkedOF {
+  num_of: string
+  article: string
+  line: string
+  scheduled_day: string | null
+  blocked: boolean
+}
+
+export interface ReceptionRow {
+  num_commande: string
+  article: string
+  description: string
+  fournisseur: string
+  quantite: number
+  date_prevue: string
+  jours_restants: number
+  stock_actuel: number
+  nb_of_concernes: number
+  ofs: ReceptionLinkedOF[]
 }

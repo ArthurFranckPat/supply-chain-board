@@ -11,6 +11,7 @@ export function useScheduleRun() {
     mutationFn: async (params: {
       immediate_components?: boolean
       blocking_components_mode?: string
+      demand_horizon_days?: number
     }) => {
       const resp = await apiClient.runSchedule(params)
       setRunId(resp.run_id)

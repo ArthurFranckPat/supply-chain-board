@@ -66,6 +66,7 @@ export const apiClient = {
   runSchedule(payload: {
     immediate_components?: boolean
     blocking_components_mode?: string
+    demand_horizon_days?: number
   }) {
     return request<RunState>('/runs/schedule', {
       method: 'POST',
