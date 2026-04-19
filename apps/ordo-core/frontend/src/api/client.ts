@@ -52,27 +52,12 @@ export const apiClient = {
     })
   },
 
-  runS1(payload: {
-    horizon: number
-    include_previsions: boolean
-    feasibility_mode: string
-  }) {
-    return request<RunState>('/runs/s1', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    })
-  },
-
   getRun(runId: string) {
     return request<RunState>(`/runs/${runId}`)
   },
 
   getLatestActionReport() {
     return request<Record<string, unknown>>('/reports/actions/latest')
-  },
-
-  getLatestS1Report() {
-    return request<Record<string, unknown>>('/reports/s1/latest')
   },
 
   listReports() {

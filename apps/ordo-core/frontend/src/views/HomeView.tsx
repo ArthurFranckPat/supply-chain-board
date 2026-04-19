@@ -4,10 +4,8 @@ interface HomeViewProps {
   source: DataSource
   setSource: (value: DataSource) => void
   loadState: 'idle' | 'loading' | 'ready' | 'error'
-  runState: 'idle' | 'running' | 'success' | 'error'
   lastSourceSnapshot: Record<string, unknown> | null
   onLoadSource: () => void
-  onRunS1: () => void
 }
 
 const SOURCE_OPTIONS: DataSource[] = ['extractions']
@@ -27,10 +25,8 @@ export function HomeView({
   source,
   setSource,
   loadState,
-  runState,
   lastSourceSnapshot,
   onLoadSource,
-  onRunS1,
 }: HomeViewProps) {
   return (
     <section className="panel-stack">
@@ -66,14 +62,6 @@ export function HomeView({
           >
             {loadState === 'loading' ? 'Chargement...' : 'Charger la source'}
           </button>
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={onRunS1}
-            disabled={loadState !== 'ready' || runState === 'running'}
-          >
-            {runState === 'running' ? 'Run S+1 en cours...' : 'Lancer le run S+1'}
-          </button>
         </div>
       </section>
 
@@ -97,7 +85,7 @@ export function HomeView({
           ) : (
             <div className="empty-state">
               <strong>Aucune source chargee</strong>
-              <p>Charge les extractions ERP avant de lancer l'analyse S+1.</p>
+              <p>Charge les extractions ERP avant de lancer l'analyse.</p>
             </div>
           )}
         </div>
@@ -111,7 +99,6 @@ export function HomeView({
           </header>
           <ol className="step-list">
             <li>Charger la source Extractions ERP.</li>
-            <li>Lancer le run S+1 projete.</li>
             <li>Analyser les OF non faisables.</li>
             <li>Basculer sur les actions appro et rapports.</li>
           </ol>
