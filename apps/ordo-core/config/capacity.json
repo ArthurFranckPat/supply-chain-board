@@ -1,0 +1,75 @@
+{
+  "shift_hours": 7.0,
+  "max_day_hours": 21.0,
+  "min_open_hours": 7.0,
+  "postes": {
+    "PP_001": {
+      "label": "MACHINE FAISCEAU S9P",
+      "default_hours": 14.0,
+      "shift_pattern": "2x8",
+      "daily_overrides": {},
+      "daily_override_reasons": {}
+    },
+    "PP_830": {
+      "label": "PP_830",
+      "default_hours": 14.0,
+      "shift_pattern": "2x8",
+      "daily_overrides": {},
+      "daily_override_reasons": {}
+    },
+    "PP_TEST": {
+      "label": "PP_TEST",
+      "default_hours": 14.0,
+      "shift_pattern": "2x8",
+      "daily_overrides": {},
+      "daily_override_reasons": {}
+    },
+    "PP_153": {
+      "label": "PP_153",
+      "default_hours": 14.0,
+      "shift_pattern": "2x8",
+      "daily_overrides": {},
+      "daily_override_reasons": {}
+    }
+  },
+  "weekly_overrides": {
+    "2026-W16": {
+      "PP_001": {
+        "pattern": {
+          "1": 7.0,
+          "2": 7.0,
+          "3": 7.0,
+          "4": 7.0,
+          "5": 7.0,
+          "6": 0.0,
+          "7": 0.0
+        },
+        "reason": "1x8"
+      },
+      "PP_153": {
+        "pattern": {
+          "1": 14.0,
+          "2": 14.0,
+          "3": 14.0,
+          "4": 7.0,
+          "5": 7.0,
+          "6": 0.0,
+          "7": 0.0
+        },
+        "reason": "custom"
+      },
+      "PP_830": {
+        "pattern": {
+          "1": 14.0,
+          "2": 14.0,
+          "3": 14.0,
+          "4": 14.0,
+          "5": 14.0,
+          "6": 7.0,
+          "7": 0.0
+        },
+        "reason": "custom"
+      }
+    }
+  }
+}
