@@ -13,9 +13,9 @@ Rapport exécutif complet pour la réunion de charge du mardi — synthèse acti
 ## 1. Données requises
 
 Tous les fichiers CSV du projet :
-- `gammes.csv`, `of_entetes.csv`, `nomenclatures.csv`
-- `stock.csv`, `receptions_oa.csv`
-- `commandes_clients.csv`, `articles.csv`
+- `Gammes.csv`, `Ordres de fabrication.csv`, `Nomenclatures.csv`
+- `Stocks.csv`, `Commandes Achats.csv`
+- `Besoins Clients.csv`, `Articles.csv`
 
 **Paramètres :**
 - `--data-dir` : chemin vers les CSV (défaut: `data`)

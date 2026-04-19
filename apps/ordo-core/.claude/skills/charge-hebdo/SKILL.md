@@ -14,8 +14,8 @@ Analyse de la charge de production par poste sur S+1 à S+3 pour préparer la r�
 
 | Fichier | Colonnes utilisées |
 |---------|-------------------|
-| `gammes.csv` | ARTICLE, POSTE_CHARGE, LIBELLE_POSTE, CADENCE |
-| `of_entetes.csv` | NUM_OF, ARTICLE, STATUT_NUM_OF, DATE_FIN, QTE_RESTANTE |
+| `Gammes.csv` | ARTICLE, POSTE_CHARGE, LIBELLE_POSTE, CADENCE |
+| `Ordres de fabrication.csv` | NUM_ORDRE, ARTICLE, STATUT_ORDRE, DATE_FIN, QTE_RESTANTE_LIVRAISON |
 
 Demander à l'utilisateur le chemin vers le dossier `data/` si non précisé (exemple : `--data-dir data`).
 

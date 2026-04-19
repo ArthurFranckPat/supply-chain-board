@@ -55,7 +55,7 @@ Teste le filtrage France vs Export :
 
 ### Lancer tous les tests
 ```bash
-cd /Users/arthurbledou/Desktop/Code/ordo\ v2
+cd apps/ordo-core
 python -m pytest tests/ -v
 ```
 

@@ -14,14 +14,17 @@ ORDO_EXTRACTIONS_DIR = "/chemin/vers/extractions/ERP"
 ```
 
 Fichiers attendus (noms ERP) :
-- `Articles.csv`
-- `Gammes.csv`
-- `Nomenclatures.csv`
-- `Besoins Clients.csv`
-- `Ordres de fabrication.csv`
-- `Stocks.csv`
-- `Commandes Achats.csv`
-- `Allocations.csv`
+
+| Nom ERP | Nom interne | Description |
+|---------|-------------|-------------|
+| `Articles.csv` | `articles.csv` | Catalogue produits |
+| `Gammes.csv` | `gammes.csv` | Gammes de production |
+| `Nomenclatures.csv` | `nomenclatures.csv` | Nomenclatures articles |
+| `Besoins Clients.csv` | `besoins_clients.csv` | Commandes + prévisions |
+| `Ordres de fabrication.csv` | `of_entetes.csv` | OF (WOP/WOS) |
+| `Stocks.csv` | `stock.csv` | État des stocks |
+| `Commandes Achats.csv` | `receptions_oa.csv` | Réceptions fournisseurs |
+| `Allocations.csv` | `allocations.csv` | Traçabilité allocations |
 
 Les CSV ne sont **pas** versionnés dans le dépôt.
 
@@ -38,51 +41,54 @@ DELAI_REAPPRO   → Délai de réapprovisionnement (jours)
 
 ### Besoins Clients.csv - Commandes et Prévisions ⭐
 
-**Colonnes :**
+**Colonnes ERP → champ modèle :**
 ```
-NOM_CLIENT                  → Nom client
-PAYS_CLIENT                 → Pays
-TYPE_COMMANDE               → Type (MTS, MTO, NOR)
-NUM_COMMANDE                → Numéro de commande
-NATURE_BESOIN               → Nature (COMMANDE ou PREVISION) ⭐
-ARTICLE                     → Code article (FK → articles)
-OF_CONTREMARQUE             → OF lié (MTS uniquement)
-DATE_COMMANDE               → Date de commande
-DATE_EXPEDITION_DEMANDEE    → Date d'expédition demandée
-QTE_COMMANDEE               → Quantité commandée
-QTE_ALLOUEA                 → Quantité allouée
-QTE_RESTANTE                → Quantité restante à servir
+NOM_FOURNISSEUR_OU_CLIENT   → nom_client
+PAYS                         → code_pays (FR = France, autre = Export)
+TYPE_COMMANDE                → type_commande (MTS, MTO, NOR)
+NUM_ORDRE                    → num_commande
+SOURCE_ORIGINE_BESOIN        → source_origine_besoin (préfixe "VENT*" → COMMANDE, sinon PREVISION)
+ARTICLE                      → article (FK → articles)
+DESIGNATION                  → description
+CATEGORIE                    → categorie
+OF_CONTREMARQUE              → of_contremarque (MTS uniquement)
+DATE_DEBUT                   → date_commande (None pour prévisions)
+DATE_FIN                     → date_expedition_demandee
+QTE_COMMANDEE                → qte_commandee
+QTE_ALLOUEE                  → qte_allouee
+QTE_RESTANTE_FABRICATION     → qte_restante ⭐ (quantité réellement à fabriquer)
 ```
 
-**Statistiques actuelles :**
-- **735** commandes fermes (NATURE_BESOIN = "COMMANDE")
-- **10 307** prévisions (NATURE_BESOIN = "PREVISION")
-- **3 893** MTS (34%)
-- **2 393** MTO (21%)
-- **4 892** NOR (45%)
+**Règle de détermination nature_besoin :**
+- Si `SOURCE_ORIGINE_BESOIN` commence par `"VENT"` → `COMMANDE` (commande ferme)
+- Sinon → `PREVISION`
 
-**Changement majeur :**
-- Anciennement `commandes_clients.csv` (835 lignes)
-- Fusionne maintenant **commandes fermes + prévisions** dans un seul fichier
+**Fichier unifié :**
+- Fusionne **commandes fermes + prévisions** dans un seul fichier
 - Les prévisions sont consommées par les commandes lors du calcul de charge
+- Remplace l'ancien `commandes_clients.csv` (legacy)
 
 ### Ordres de fabrication.csv - Ordres de fabrication
+
+**Colonnes ERP → champ modèle :**
 ```
-NUM_OF              → Numéro d'OF (PK)
-ARTICLE             → Code article à fabriquer (FK → articles)
-DESCRIPTION         → Description
-STATUT_NUM_OF       → Status (1 = Ferme/Affermi, 3 = Suggéré)
-STATUT_TEXTE_OF     → Status texte ("Ferme", "Suggéré")
-DATE_DEBUT          → Date de début prévue (jalonnement CBN)
-DATE_FIN            → Date de fin prévue
-QTE_A_FABRIQUER     → Quantité à fabriquer
-QTE_FABRIQUEE       → Quantité fabriquée
-QTE_RESTANTE        → Quantité restante
+NUM_ORDRE                       → num_of (PK)
+ARTICLE                         → article (FK → articles)
+DESIGNATION                     → description
+STATUT_ORDRE                    → statut_num (F = Ferme/1, P = Planifié/2, S = Suggéré/3)
+DATE_DEBUT                      → date_debut (optionnel, jalonnement CBN)
+DATE_FIN                        → date_fin
+QTE_COMMANDEE                   → qte_a_fabriquer
+QTE_REALISEE                    → qte_fabriquee
+QTE_RESTANTE_LIVRAISON          → qte_restante
+METHODE_OBTENTION_LIVRAISON     → méthode d'obtention (ex: "Ordre de fabrication")
+NUM_ORDRE_ORIGINE               → lien direct besoin→OF (MTS)
 ```
 
-**Statuts OF :**
-- **1 = Ferme (Affermi/WOP)** : OF déjà lancé en production, prioritaire pour le matching
-- **3 = Suggéré (WOS)** : OF suggéré par le moteur CBN/MRP, utilisé si pas d'OF affermi disponible
+**Statuts OF (STATUT_ORDRE) :**
+- **F = Ferme (statut 1, WOP)** : OF déjà lancé en production, prioritaire pour le matching
+- **P = Planifié (statut 2)** : OF planifié
+- **S = Suggéré (statut 3, WOS)** : OF suggéré par le moteur CBN/MRP
 
 ### Allocations.csv - Traçabilité des allocations ⭐
 
@@ -101,13 +107,13 @@ DATE_BESOIN     → Date de besoin
 
 ### Nomenclatures.csv - Nomenclatures articles ⭐
 ```
-Article parent           → Article fabriqué (code)
-Designation parent      → Description de l'article parent
-Niveau                  → Niveau de profondeur (5, 10, 15, 20, 25...)
-Article composant       → Code du composant nécessaire
-Désignation composant   → Description du composant
-Qté lien                → Quantité nécessaire pour 1 unité parent (peut être décimale)
-Type article            → "Acheté" ou "Fabriqué"
+ARTICLE_PARENT          → Article fabriqué (code)
+DESIGNATION_PARENT      → Description de l'article parent
+NIVEAU                  → Niveau de profondeur (5, 10, 15, 20, 25...)
+ARTICLE_COMPOSANT       → Code du composant nécessaire
+DESIGNATION_COMPOSANT   → Description du composant
+QTE_LIEN                → Quantité nécessaire pour 1 unité parent (peut être décimale)
+TYPE_ARTICLE            → "Acheté" ou "Fabriqué"
 ```
 
 **Caractéristiques :**
@@ -144,6 +150,8 @@ STOCK_PHYSIQUE  → Stock physique disponible
 STOCK_ALLOUE    → Stock alloué
 STOCK_BLOQUE    → Stock bloqué
 ```
+
+**Stock disponible :** `STOCK_PHYSIQUE - STOCK_ALLOUE - STOCK_BLOQUE`
 
 ### Commandes Achats.csv - Réceptions fournisseurs
 ```
@@ -268,9 +276,10 @@ Expédition
 - Regroupe les besoins par article et par semaine
 - Allocation manuelle aux besoins
 
-### NATURE_BESOIN - NOUVEAU
-- **COMMANDE** : Commande ferme client (à servir)
-- **PREVISION** : Prévision de consommation (consommée par les commandes)
+### NATURE_BESOIN
+- **COMMANDE** : `SOURCE_ORIGINE_BESOIN` commence par `"VENT"` → commande ferme client
+- **PREVISION** : Tout autre valeur de `SOURCE_ORIGINE_BESOIN` → prévision de consommation
+- Les commandes consomment les prévisions avant le calcul de charge
 
 **Exemple de consommation :**
 - Prévision : 720 unités
@@ -317,13 +326,15 @@ Le moteur CBN:
 
 ## 🎯 Points clés pour le développement
 
-1. **Lien MTS** : `besoins_clients.OF_CONTREMARQUE` → `of_entetes.NUM_OF`
-2. **Pas de lien NOR/MTO** : Les WOS ne sont pas liés aux besoins dans la base
-3. **Allocation** : MTS = auto, NOR/MTO = manuel (champ QTE_ALLOUEA)
-4. **Consommation des prévisions** : Les commandes consomment les prévisions avant calcul de charge
-5. **Regroupement** : Le CBN regroupe par article et semaine pour NOR/MTO
-6. **Traçabilité** : Le fichier `allocations.csv` permet de retracer tous les mouvements
-7. **Types d'approvisionnement** :
+1. **Lien direct OF→besoin** : `OF.NUM_ORDRE_ORIGINE == besoin.NUM_ORDRE` + `METHODE_OBTENTION_LIVRAISON == "Ordre de fabrication"` → OF prioritaire (MTS)
+2. **Contre-marque MTS** : `besoins_clients.OF_CONTREMARQUE` → lien OF (MTS uniquement)
+3. **Pas de lien NOR/MTO** : Les WOS ne sont pas liés aux besoins dans la base
+4. **Quantité de matching** : `QTE_RESTANTE_FABRICATION` (pas `QTE_RESTANTE_LIVRAISON`)
+5. **Allocation** : MTS = auto, NOR/MTO = manuel (champ QTE_ALLOUEE)
+6. **Consommation des prévisions** : Les commandes consomment les prévisions avant calcul de charge
+7. **Regroupement** : Le CBN regroupe par article et semaine pour NOR/MTO
+8. **Traçabilité** : Le fichier `Allocations.csv` permet de retracer tous les mouvements
+9. **Types d'approvisionnement** :
    - ACHAT : Réceptions fournisseurs
    - FABRICATION : OF (WOP ou WOS)
 
@@ -588,9 +599,23 @@ Avec règle 2:
 
 ## 🎯 Algorithme de Matching Besoin→OF
 
-### Logique de matching pour NOR/MTO
+### Logique de matching (par ordre de priorité)
 
-**Pour les besoins NOR/MTO (TYPE_COMMANDE = "NOR" ou "MTO") :**
+**1. Lien direct via NUM_ORDRE_ORIGINE (prioritaire) :**
+- Si `OF.NUM_ORDRE_ORIGINE == besoin.NUM_ORDRE`
+- Et `METHODE_OBTENTION_LIVRAISON == "Ordre de fabrication"`
+- Alors cet OF est prioritaire pour cette commande.
+
+**2. Contre-marque MTS :**
+- Si `besoin.OF_CONTREMARQUE` est renseigné (MTS uniquement)
+- Lien direct besoin → OF
+
+**3. Branche NOR/MTO (sinon) :**
+- Allocation du stock virtuel
+- Calcul du besoin net
+- Recherche OF compatible par article, quantité, date, statut
+
+**Pour les besoins NOR/MTO :**
 
 1. **Vérifier le stock disponible**
    - Allouer le stock disponible pour l'article
@@ -602,8 +627,9 @@ Avec règle 2:
    - **Article FABRICATION** → Chercher un OF (affermi prioritaire, puis suggéré)
 
 3. **Recherche d'OF avec priorité**
-   - **Priorité 1** : OF affermis (statut 1) - déjà lancés en production
-   - **Priorité 2** : OF suggérés (statut 3) - créés par CBN/MRP
+   - **Priorité 1** : OF affermis (statut F/1) - déjà lancés en production
+   - **Priorité 2** : OF planifiés (statut P/2)
+   - **Priorité 3** : OF suggérés (statut S/3) - créés par CBN/MRP
    - **Critères de tri** : Type d'OF → Date de besoin → Quantité disponible
 
 4. **Partage d'OF**
@@ -614,7 +640,7 @@ Avec règle 2:
 
 ```
 Ordre de priorité :
-1. Type d'OF : Affermi (statut 1) > Suggéré (statut 3)
+1. Type d'OF : Ferme (F/1) > Planifié (P/2) > Suggéré (S/3)
 2. Proximité de date : Écart croissant avec date d'expédition
 3. Quantité disponible : Décroissante (pour minimiser le nombre d'OF)
 ```
@@ -630,11 +656,13 @@ Ordre de priorité :
 **Fichier** : `src/algorithms/matching.py`
 
 **Fonctionnalités :**
-1. Allocation de stock avant recherche d'OF (utilise QTE_RESTANTE)
-2. Distinction ACHAT vs FABRICATION
-3. Priorité OF affermi > OF suggéré
-4. Partage d'OF entre plusieurs besoins (via OFConso)
-5. Gestion de la consommation des OF
+1. Lien direct via `NUM_ORDRE_ORIGINE` + `METHODE_OBTENTION_LIVRAISON`
+2. Contre-marque MTS via `OF_CONTREMARQUE`
+3. Allocation de stock avant recherche d'OF (utilise `QTE_RESTANTE_FABRICATION`)
+4. Distinction ACHAT vs FABRICATION
+5. Priorité OF Ferme > Planifié > Suggéré
+6. Partage d'OF entre plusieurs besoins (via `OFConso`)
+7. Gestion de la consommation des OF
 
 **Classes clés :**
 - `OFConso` : Suivi de la consommation d'un OF
@@ -650,6 +678,7 @@ Ordre de priorité :
 2. Vérification projetée (stock + réceptions fournisseurs)
 3. Vérification récursive des nomenclatures jusqu'aux composants ACHAT
 4. Gestion de la concurrence composants entre OF
+5. Utilisation de `DATE_DEBUT` comme date de référence si disponible
 
 ### Heatmap de charge avec consommation des prévisions
 
@@ -660,26 +689,55 @@ Ordre de priorité :
 - Formule : `Prévision nette = max(0, Prévisions - Commandes)`
 - Réduit significativement la surévaluation de la charge
 
+### Calendrier et capacité de production
+
+**Fichiers** : `src/scheduler/calendar_config.py`, `src/scheduler/capacity_config.py`, `src/scheduler/holidays.py`
+
+**Fonctionnalités :**
+1. Calendrier des jours ouvrés avec jours fériés français (API Nager.Date + cache local)
+2. Jours off manuels configurables
+3. Capacité par poste de travail avec patterns de shifts (1×8, 2×8, 3×8)
+4. Overrides quotidiens et hebdomadaires par poste
+5. Configuration persistée dans `config/calendar.json` et `config/capacity.json`
+
+**API endpoints :**
+- `GET /calendar/{year}/{month}` → Calendrier mensuel
+- `PUT /calendar/manual-off` → Jours off manuels
+- `POST /calendar/holidays/refresh` → Rafraîchir jours fériés
+- `GET /capacity` → Configuration capacité
+- `PUT /capacity/poste` → Modifier capacité poste
+- `PUT /capacity/override` → Override quotidien/hebdo
+
+**Config capacité (`config/capacity.json`) :**
+```json
+{
+  "shift_hours": 7.0,
+  "postes": {
+    "PP_001": {
+      "label": "MACHINE FAISCEAU S9P",
+      "default_hours": 14.0,
+      "shift_pattern": "2x8"
+    }
+  }
+}
+```
+
 ---
 
 ## 🔧 Commandes utiles
 
-### Heatmap complète
+### API locale
 ```bash
-python -m src.main --charge-heatmap --num-weeks 4
+uvicorn src.api.server:app --reload --port 8000
 ```
 
-### Lancer le mode S+1
+### Lancer le scheduler via l'API
 ```bash
-python -m src.main --s1 --horizon 7
+curl -X POST http://127.0.0.1:8000/runs/schedule
 ```
 
-### Lancer avec un OF spécifique
+### Frontend local
 ```bash
-python -m src.main --of F426-08419
+cd frontend && npm install && npm run dev
 ```
-
-### Lancer en mode détaillé
-```bash
-python -m src.main --detailed
-```
+Pointe par défaut sur `http://127.0.0.1:8000`.
