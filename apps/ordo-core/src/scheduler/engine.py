@@ -147,9 +147,10 @@ def run_schedule(
         # Garantir au moins la taille du plus gros OF (sinon impossible à planifier)
         capacity = max(capacity, max_of)
 
-        # Capacité physique maximale : 2 shifts avec réserve de 10%
-        # → jamais plus de 90% de la capacité du poste (ou 14h par défaut)
-        max_cap = get_capacity_for_day(line, reference_date, capacity_config) if capacity_config else 14.0
+        # Capacité physique maximale : résolue sur le 1er jour ouvré (pas reference_date
+        # qui peut tomber un week-end et retourner une capacité nulle).
+        cap_ref_day = workdays[0] if workdays else reference_date
+        max_cap = get_capacity_for_day(line, cap_ref_day, capacity_config) if capacity_config else 14.0
         capacity = min(max_cap * 0.90, capacity)
 
         line_capacities[line] = capacity
