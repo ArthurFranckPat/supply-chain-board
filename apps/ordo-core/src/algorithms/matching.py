@@ -255,6 +255,13 @@ class CommandeOFMatcher:
         selected = linked_ofs[0]
         self.ofs_deja_utilises.add(selected.num_of)
 
+        # Consommer l'OF dans of_conso pour éviter un double matching heuristique
+        if selected.num_of in self.of_conso:
+            self.of_conso[selected.num_of].allouer(
+                min(commande.qte_restante, selected.qte_restante),
+                commande.num_commande,
+            )
+
         return MatchingResult(
             commande=commande,
             of=selected,

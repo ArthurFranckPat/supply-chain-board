@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import os
 from datetime import datetime, timezone
@@ -59,30 +59,6 @@ async def health() -> dict[str, Any]:
     }
 
 
-@app.post("/v1/pipeline/ordo-s1")
-async def run_ordo_s1(request: PipelineSupplyBoardRequest) -> dict[str, Any]:
-    ordo_client, _ = _make_clients()
-
-    try:
-        await ordo_client.load_data(source=request.source)
-        run = await ordo_client.run_s1(
-            horizon=request.horizon,
-            include_previsions=request.include_previsions,
-            feasibility_mode=request.feasibility_mode,
-        )
-        run_id = run["run_id"]
-        settled = await ordo_client.wait_for_run(
-            run_id=run_id,
-            poll_interval_seconds=request.poll_interval_seconds,
-            timeout_seconds=request.timeout_seconds,
-        )
-        return settled
-    except TimeoutError as exc:
-        raise HTTPException(status_code=504, detail=str(exc)) from exc
-    except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=502, detail=f"ordo-core call failed: {exc}") from exc
-
-
 @app.post("/v1/pipeline/suivi-status")
 async def run_suivi_status(request: PipelineSupplyBoardRequest) -> dict[str, Any]:
     _, suivi_client = _make_clients()
@@ -100,10 +76,10 @@ async def run_supply_board_pipeline(
 
     try:
         await ordo_client.load_data(source=request.source)
-        ordo_run = await ordo_client.run_s1(
-            horizon=request.horizon,
-            include_previsions=request.include_previsions,
-            feasibility_mode=request.feasibility_mode,
+        ordo_run = await ordo_client.run_schedule(
+            immediate_components=request.immediate_components,
+            blocking_components_mode=request.blocking_components_mode,
+            demand_horizon_days=request.demand_horizon_days,
         )
         run_id = ordo_run["run_id"]
         ordo_result = await ordo_client.wait_for_run(
@@ -122,11 +98,11 @@ async def run_supply_board_pipeline(
         raise HTTPException(status_code=502, detail=f"suivi-commandes call failed: {exc}") from exc
 
     summary = {
-        "ordo_non_feasible_ofs": (
-            ordo_result.get("result", {}).get("summary", {}).get("non_feasible_ofs", 0)
+        "ordo_taux_service": (
+            ordo_result.get("result", {}).get("taux_service", 0)
         ),
-        "ordo_action_components": (
-            ordo_result.get("result", {}).get("summary", {}).get("action_components", 0)
+        "ordo_unscheduled": len(
+            ordo_result.get("result", {}).get("unscheduled_rows", [])
         ),
         "suivi_retard_prod": suivi_result.get("status_counts", {}).get("Retard Prod", 0),
         "suivi_allocation_a_faire": suivi_result.get("status_counts", {}).get("Allocation à faire", 0),

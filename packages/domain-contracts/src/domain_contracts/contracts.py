@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from datetime import date, datetime
 from typing import Any
@@ -24,25 +24,11 @@ class SuiviAssignResponse(BaseModel):
     line_level: list[dict[str, Any]]
 
 
-class OrdoRunS1Request(BaseModel):
-    source: str = "data"
-    horizon: int = Field(default=7, ge=1, le=60)
-    include_previsions: bool = False
-    feasibility_mode: str = "projected"
-
-
-class OrdoRunS1Response(BaseModel):
-    run_id: str
-    status: str
-    summary: dict[str, Any] = Field(default_factory=dict)
-    result: dict[str, Any] | None = None
-
-
 class PipelineSupplyBoardRequest(BaseModel):
     source: str = "data"
-    horizon: int = Field(default=7, ge=1, le=60)
-    include_previsions: bool = False
-    feasibility_mode: str = "projected"
+    demand_horizon_days: int = Field(default=15, ge=7, le=60)
+    immediate_components: bool = False
+    blocking_components_mode: str = "blocked"
     suivi_folder: str | None = None
     poll_interval_seconds: float = Field(default=1.0, ge=0.2, le=10.0)
     timeout_seconds: int = Field(default=120, ge=10, le=1800)

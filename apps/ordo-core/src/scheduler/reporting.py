@@ -30,7 +30,7 @@ def build_unscheduled_rows(by_line: dict[str, list[CandidateOF]]) -> list[dict[s
     return rows
 
 
-def build_order_rows(matching_results, planned_by_of: dict[str, date], candidate_by_of: dict[str, CandidateOF], loader, checker, availability_status_fn) -> list[dict[str, object]]:
+def build_order_rows(matching_results, planned_by_of: dict[str, date], candidate_by_of: dict[str, CandidateOF], loader, checker, availability_status_fn, *, planning_horizon_end: date | None = None) -> list[dict[str, object]]:
     """Construit un rapport métier des lignes de besoin avec cause."""
     rows: list[dict[str, object]] = []
     for result in matching_results:
@@ -46,6 +46,9 @@ def build_order_rows(matching_results, planned_by_of: dict[str, date], candidate
             else:
                 statut = 'Non couverte'
                 cause = ' | '.join(result.alertes) if result.alertes else result.matching_method
+        elif planning_horizon_end and commande.date_expedition_demandee > planning_horizon_end:
+            statut = 'Hors planification'
+            cause = f"échéance {commande.date_expedition_demandee.isoformat()} au-delà de l'horizon"
         elif planned_day is None:
             statut = 'Non planifiée'
             cause = candidate.reason if candidate and candidate.reason else 'OF matché mais non injecté au planning'

@@ -17,16 +17,35 @@ class DataLoadRequest(BaseModel):
     extractions_dir: Optional[str] = None
 
 
-class RunS1Request(BaseModel):
-    horizon: int = Field(default=7, ge=1, le=60)
-    include_previsions: bool = False
-    feasibility_mode: str = Field(default="projected")
-
-
 class RunScheduleRequest(BaseModel):
     immediate_components: bool = False
     blocking_components_mode: str = Field(default="blocked", pattern="^(blocked|direct|both)$")
     demand_horizon_days: int = Field(default=15, ge=7, le=60)
+
+
+class CalendarManualOffRequest(BaseModel):
+    year: int
+    additions: list[dict] = Field(default_factory=list)   # [{date, reason}]
+    removals: list[str] = Field(default_factory=list)      # ["2025-04-25"]
+
+
+class HolidaysRefreshRequest(BaseModel):
+    year: int
+
+
+class PosteCapacityUpdate(BaseModel):
+    poste: str
+    default_hours: float
+    shift_pattern: str = Field(default="1x8", pattern="^(1x8|2x8|3x8)$")
+    label: str = ""
+
+
+class CapacityOverrideRequest(BaseModel):
+    poste: str
+    key: str          # ISO date "2025-04-21" or ISO week "2025-W17"
+    hours: float = 0.0
+    reason: str = ""
+    pattern: Optional[dict[str, float]] = None  # {"1": 14, "2": 14, ...} for weekly
 
 
 def create_app(service: Optional[GuiAppService] = None) -> FastAPI:
@@ -59,17 +78,6 @@ def create_app(service: Optional[GuiAppService] = None) -> FastAPI:
             extractions_dir=payload.extractions_dir,
         )
 
-    @app.post("/runs/s1")
-    def run_s1(payload: RunS1Request) -> dict:
-        try:
-            return app.state.gui_service.run_s1(
-                horizon=payload.horizon,
-                include_previsions=payload.include_previsions,
-                feasibility_mode=payload.feasibility_mode,
-            )
-        except RuntimeError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-
     @app.post("/runs/schedule")
     def run_schedule(payload: RunScheduleRequest) -> dict:
         try:
@@ -92,13 +100,61 @@ def create_app(service: Optional[GuiAppService] = None) -> FastAPI:
     def latest_action_report() -> dict:
         return app.state.gui_service.get_latest_report("actions")
 
-    @app.get("/reports/s1/latest")
-    def latest_s1_report() -> dict:
-        return app.state.gui_service.get_latest_report("s1")
-
     @app.get("/reports/files")
     def list_reports() -> list[dict]:
         return app.state.gui_service.list_reports()
+
+    # ── Calendar ─────────────────────────────────────────────────
+
+    @app.get("/calendar/{year}/{month}")
+    def get_calendar(year: int, month: int) -> dict:
+        if month < 1 or month > 12:
+            raise HTTPException(status_code=400, detail="Month must be 1-12")
+        return app.state.gui_service.get_calendar(year, month)
+
+    @app.put("/calendar/manual-off")
+    def update_manual_off(payload: CalendarManualOffRequest) -> dict:
+        return app.state.gui_service.update_manual_off_days(
+            year=payload.year,
+            additions=payload.additions,
+            removals=payload.removals,
+        )
+
+    @app.post("/calendar/holidays/refresh")
+    def refresh_holidays(payload: HolidaysRefreshRequest) -> dict:
+        return app.state.gui_service.refresh_holidays(payload.year)
+
+    # ── Capacity ─────────────────────────────────────────────────
+
+    @app.get("/capacity")
+    def get_capacity() -> dict:
+        return app.state.gui_service.get_capacity_config()
+
+    @app.put("/capacity/poste")
+    def update_poste_capacity(payload: PosteCapacityUpdate) -> dict:
+        return app.state.gui_service.update_poste_capacity(
+            poste=payload.poste,
+            default_hours=payload.default_hours,
+            shift_pattern=payload.shift_pattern,
+            label=payload.label,
+        )
+
+    @app.put("/capacity/override")
+    def set_capacity_override(payload: CapacityOverrideRequest) -> dict:
+        return app.state.gui_service.set_capacity_override(
+            poste=payload.poste,
+            key=payload.key,
+            hours=payload.hours,
+            reason=payload.reason,
+            pattern=payload.pattern,
+        )
+
+    @app.delete("/capacity/override")
+    def remove_capacity_override(payload: CapacityOverrideRequest) -> dict:
+        return app.state.gui_service.remove_capacity_override(
+            poste=payload.poste,
+            key=payload.key,
+        )
 
     return app
 
