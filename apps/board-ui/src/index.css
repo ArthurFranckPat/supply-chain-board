@@ -27,6 +27,10 @@
   --color-orange-foreground: #ffffff;
   --color-green: #166534;
   --color-green-foreground: #ffffff;
+  --color-blue: #1d4ed8;
+  --color-blue-foreground: #ffffff;
+  --color-purple: #7e22ce;
+  --color-purple-foreground: #ffffff;
   --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
   --radius-sm: 0.25rem;
