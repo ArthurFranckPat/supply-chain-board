@@ -27,18 +27,18 @@ class OrdoCoreClient(BaseApiClient):
         payload = {"source": source}
         return await self._request("POST", "/data/load", json=payload)
 
-    async def run_s1(
+    async def run_schedule(
         self,
-        horizon: int = 7,
-        include_previsions: bool = False,
-        feasibility_mode: str = "projected",
+        immediate_components: bool = False,
+        blocking_components_mode: str = "blocked",
+        demand_horizon_days: int = 15,
     ) -> dict[str, Any]:
         payload = {
-            "horizon": horizon,
-            "include_previsions": include_previsions,
-            "feasibility_mode": feasibility_mode,
+            "immediate_components": immediate_components,
+            "blocking_components_mode": blocking_components_mode,
+            "demand_horizon_days": demand_horizon_days,
         }
-        return await self._request("POST", "/runs/s1", json=payload)
+        return await self._request("POST", "/runs/schedule", json=payload)
 
     async def get_run(self, run_id: str) -> dict[str, Any]:
         return await self._request("GET", f"/runs/{run_id}")

@@ -1,5 +1,10 @@
 # Évolution : Intégration des Prévisions Export pour Lisser la Charge de Production
 
+> **Statut : IMPLÉMENTÉ (partiellement)**
+> Le modèle `BesoinClient` avec `NatureBesoin` (COMMANDE/PREVISION) et `TypeCommande` (MTS/NOR/MTO) est en place.
+> Le fichier `Besoins Clients.csv` unifie commandes et prévisions. La consommation des prévisions est implémentée.
+> Le renommage `CommandeOFMatcher` → `BesoinOFMatcher` et les rapport prévision restent à faire.
+
 ## Contexte
 
 **Problème identifié** : Les filiales Export passent des commandes NOR importantes qui, si on attend la commande réelle pour produire, créent des charges concentrées et difficiles à absorber.

@@ -1,49 +1,25 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import './index.css'
 import { ApiError, apiClient } from './api/client'
 import { ActionsView } from './views/ActionsView'
 import { HomeView } from './views/HomeView'
 import { ReportsView } from './views/ReportsView'
-import { S1View } from './views/S1View'
 import type {
   ApiConfig,
   DataSource,
   DetailItem,
   ReportFile,
-  RunState,
 } from './types'
 
-type ViewKey = 'home' | 's1' | 'actions' | 'reports' | 'settings'
+type ViewKey = 'home' | 'actions' | 'reports' | 'settings'
 type LoadState = 'idle' | 'loading' | 'ready' | 'error'
-type RunStateStatus = 'idle' | 'running' | 'success' | 'error'
 
 const VIEW_ITEMS: Array<{ key: ViewKey; label: string; hint: string }> = [
   { key: 'home', label: 'Home', hint: 'Sources + lancement' },
-  { key: 's1', label: 'S+1', hint: 'Faisabilité OF' },
   { key: 'actions', label: 'Actions', hint: 'Appro + kanban' },
   { key: 'reports', label: 'Reports', hint: 'Markdown générés' },
   { key: 'settings', label: 'Settings', hint: 'Info locale' },
 ]
-
-function formatTimestamp(value?: string | null) {
-  if (!value) return 'N/A'
-  try {
-    return new Date(value).toLocaleString('fr-FR')
-  } catch {
-    return value
-  }
-}
-
-async function pollRunUntilSettled(runId: string) {
-  for (let attempt = 0; attempt < 120; attempt += 1) {
-    const run = await apiClient.getRun(runId)
-    if (run.status !== 'running') {
-      return run
-    }
-    await new Promise((resolve) => window.setTimeout(resolve, 1000))
-  }
-  throw new ApiError('Le run S+1 est resté en attente trop longtemps.')
-}
 
 function getHealthTone(state: 'checking' | 'ready' | 'error') {
   if (state === 'ready') return 'success'
@@ -57,22 +33,13 @@ function getLoadTone(state: LoadState) {
   return 'info'
 }
 
-function getRunTone(state: RunStateStatus) {
-  if (state === 'success') return 'success'
-  if (state === 'error') return 'danger'
-  if (state === 'running') return 'info'
-  return 'muted'
-}
-
 function App() {
   const [activeView, setActiveView] = useState<ViewKey>('home')
   const [config, setConfig] = useState<ApiConfig | null>(null)
   const [reports, setReports] = useState<ReportFile[]>([])
   const [source, setSource] = useState<DataSource>('extractions')
   const [loadState, setLoadState] = useState<LoadState>('idle')
-  const [runState, setRunState] = useState<RunStateStatus>('idle')
   const [backendState, setBackendState] = useState<'checking' | 'ready' | 'error'>('checking')
-  const [lastRun, setLastRun] = useState<RunState | null>(null)
   const [lastSourceSnapshot, setLastSourceSnapshot] = useState<Record<string, unknown> | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [detailItem, setDetailItem] = useState<DetailItem | null>(null)
@@ -111,31 +78,6 @@ function App() {
     }
   }, [])
 
-  const kpis = useMemo(() => {
-    const summary = lastRun?.result?.summary
-    return [
-      {
-        label: 'OF matchés',
-        value: summary?.matched_ofs ?? 0,
-        tone: 'info',
-      },
-      {
-        label: 'OF non faisables',
-        value: summary?.non_feasible_ofs ?? 0,
-        tone: (summary?.non_feasible_ofs ?? 0) > 0 ? 'danger' : 'success',
-      },
-      {
-        label: 'Alertes composants',
-        value: summary?.action_components ?? 0,
-        tone: (summary?.action_components ?? 0) > 0 ? 'warning' : 'success',
-      },
-      {
-        label: 'Postes kanban à risque',
-        value: summary?.kanban_postes ?? 0,
-        tone: (summary?.kanban_postes ?? 0) > 0 ? 'warning' : 'success',
-      },
-    ]
-  }, [lastRun])
   const activeViewItem = VIEW_ITEMS.find((item) => item.key === activeView)
 
   async function refreshReports() {
@@ -163,38 +105,13 @@ function App() {
     }
   }
 
-  async function handleRunS1() {
-    setRunState('running')
-    setErrorMessage(null)
-    try {
-      const response = await apiClient.runS1({
-        horizon: 7,
-        include_previsions: false,
-        feasibility_mode: 'projected',
-      })
-      setLastRun(response)
-      setActiveView('s1')
-      const settledRun =
-        response.status === 'running' ? await pollRunUntilSettled(response.run_id) : response
-      setLastRun(settledRun)
-      setRunState(settledRun.status === 'completed' ? 'success' : 'error')
-      if (settledRun.status === 'failed') {
-        setErrorMessage(settledRun.error ?? 'Le run S+1 a échoué.')
-      }
-      await refreshReports()
-    } catch (error) {
-      setRunState('error')
-      setErrorMessage(error instanceof ApiError ? error.message : 'Exécution S+1 impossible.')
-    }
-  }
-
   return (
     <div className="app-shell">
       <aside className="sidebar">
         <div className="brand-block">
           <span className="brand-kicker">Industrial command center</span>
           <h1>Ordo GUI</h1>
-          <p>Faisabilité, S+1, actions appro et rapports dans une interface dense.</p>
+          <p>Actions appro et rapports dans une interface dense.</p>
         </div>
 
         <nav className="nav-stack" aria-label="Navigation principale">
@@ -224,12 +141,6 @@ function App() {
               {loadState}
             </strong>
           </div>
-          <div className="status-chip">
-            Run S+1
-            <strong className={`tone-${getRunTone(runState)}`}>
-              {runState}
-            </strong>
-          </div>
         </section>
       </aside>
 
@@ -241,7 +152,6 @@ function App() {
           </div>
           <div className="topbar-meta">
             <span>Source: <strong>{source}</strong></span>
-            <span>Dernier run: <strong>{formatTimestamp(lastRun?.completed_at ?? lastRun?.created_at)}</strong></span>
           </div>
         </header>
 
@@ -252,39 +162,20 @@ function App() {
           </div>
         ) : null}
 
-        <section className="kpi-grid" aria-label="Indicateurs">
-          {kpis.map((kpi) => (
-            <article key={kpi.label} className={`kpi-card tone-${kpi.tone}`}>
-              <span>{kpi.label}</span>
-              <strong>{kpi.value}</strong>
-            </article>
-          ))}
-        </section>
-
         <section className="content-area">
           {activeView === 'home' ? (
             <HomeView
               source={source}
               setSource={setSource}
               loadState={loadState}
-              runState={runState}
               lastSourceSnapshot={lastSourceSnapshot}
               onLoadSource={handleLoadSource}
-              onRunS1={handleRunS1}
-            />
-          ) : null}
-
-          {activeView === 's1' ? (
-            <S1View
-              runState={runState}
-              data={lastRun}
-              onInspect={(item) => setDetailItem(item)}
             />
           ) : null}
 
           {activeView === 'actions' ? (
             <ActionsView
-              data={lastRun?.result?.action_report ?? null}
+              data={null}
               onInspect={(item) => setDetailItem(item)}
             />
           ) : null}
@@ -292,7 +183,7 @@ function App() {
           {activeView === 'reports' ? (
             <ReportsView
               reports={reports}
-              embeddedReports={lastRun?.result?.reports ?? null}
+              embeddedReports={null}
               onInspect={(item) => setDetailItem(item)}
               onRefresh={refreshReports}
             />

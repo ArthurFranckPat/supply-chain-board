@@ -1,18 +1,11 @@
-import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Database, Play, CalendarClock, Settings2, ChevronDown, ChevronUp } from 'lucide-react'
+import { Segmented } from '@/components/ui/segmented'
+import { SimpleTooltip } from '@/components/ui/tooltip'
+import { Database, Play } from 'lucide-react'
 
 export interface SchedulerOptions {
-  feasibilityMode: string
   blockingComponentsMode: string
   immediateComponents: boolean
   demandHorizonDays: number
@@ -20,46 +13,42 @@ export interface SchedulerOptions {
 
 interface HomeViewProps {
   loadState: 'idle' | 'loading' | 'ready' | 'error'
-  s1RunState: 'idle' | 'running' | 'success' | 'error'
   scheduleState: 'idle' | 'running' | 'success'
   lastSourceSnapshot: Record<string, unknown> | null
   options: SchedulerOptions
   onLoadSource: () => void
-  onRunS1: () => void
   onRunSchedule: () => void
   onOptionsChange: (options: SchedulerOptions) => void
 }
 
-const FEASIBILITY_LABELS: Record<string, string> = {
-  immediate: 'Immediate',
-  projected: 'Projetee',
-}
+const BLOCKING_OPTIONS: Array<{ value: string; label: string; hint: string }> = [
+  { value: 'blocked', label: 'Recursive', hint: 'Parcourt toute la nomenclature pour trouver les composants achetes manquants' },
+  { value: 'direct', label: 'Directe', hint: 'Verifie uniquement les composants du niveau 1 de la nomenclature' },
+  { value: 'both', label: 'Complete', hint: 'Combine les deux analyses pour un resultat exhaustif' },
+]
 
-const BLOCKING_LABELS: Record<string, string> = {
-  blocked: 'Recursive',
-  direct: 'Directe',
-  both: 'Complete',
-}
+const HORIZON_OPTIONS: Array<{ days: number; hint: string }> = [
+  { days: 7, hint: 'Planification sur la semaine prochaine (S+1)' },
+  { days: 15, hint: 'Horizon elargi couvrant S+1 et S+2' },
+  { days: 30, hint: 'Horizon long couvrant S+1 a S+4' },
+]
 
 export function HomeView({
   loadState,
-  s1RunState,
   scheduleState,
   lastSourceSnapshot,
   options,
   onLoadSource,
-  onRunS1,
   onRunSchedule,
   onOptionsChange,
 }: HomeViewProps) {
   const counts = lastSourceSnapshot?.counts as Record<string, number> | undefined
-  const [showSettings, setShowSettings] = useState(false)
   const isReady = loadState === 'ready'
 
   return (
     <div className="space-y-6 max-w-4xl">
       {/* Actions */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 gap-4">
         {/* Load source */}
         <Card className="relative overflow-hidden">
           <CardContent className="p-5 flex flex-col gap-3">
@@ -85,47 +74,6 @@ export function HomeView({
           </CardContent>
         </Card>
 
-        {/* Run S+1 */}
-        <Card className="relative overflow-hidden">
-          <CardContent className="p-5 flex flex-col gap-3">
-            <div className="flex items-center gap-2.5">
-              <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-muted">
-                <CalendarClock className="h-4 w-4 text-muted-foreground" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold leading-none">Faisabilite S+1</p>
-                <p className="text-[11px] text-muted-foreground mt-0.5">Analyse des OF</p>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <div className="flex gap-1">
-                {(['immediate', 'projected'] as const).map((mode) => (
-                  <button
-                    key={mode}
-                    onClick={() => onOptionsChange({ ...options, feasibilityMode: mode })}
-                    disabled={!isReady || s1RunState === 'running'}
-                    className={`flex-1 px-2 py-1 rounded text-[11px] font-medium transition-colors ${
-                      options.feasibilityMode === mode
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted text-muted-foreground hover:bg-accent'
-                    } disabled:opacity-50`}
-                  >
-                    {FEASIBILITY_LABELS[mode]}
-                  </button>
-                ))}
-              </div>
-              <Button
-                className="w-full"
-                variant="secondary"
-                onClick={onRunS1}
-                disabled={!isReady || s1RunState === 'running'}
-              >
-                {s1RunState === 'running' ? 'Analyse en cours...' : 'Lancer S+1'}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Scheduler */}
         <Card className="relative overflow-hidden">
           <CardContent className="p-5 flex flex-col gap-3">
@@ -138,42 +86,89 @@ export function HomeView({
                 <p className="text-[11px] text-muted-foreground mt-0.5">Planification</p>
               </div>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2.5">
+              {/* Disponibilite composants */}
+              <div className="space-y-1.5">
+                <SimpleTooltip
+                  side="right"
+                  content={
+                    <div className="space-y-1.5 max-w-[220px]">
+                      <p className="font-medium">Mode de verification composants</p>
+                      <p><strong>Avec receptions :</strong> integre les commandes fournisseur a venir dans le stock disponible. Vue realiste a court terme.</p>
+                      <p><strong>Stock seul :</strong> verifie uniquement le stock physique actuel. Vue conservative.</p>
+                    </div>
+                  }
+                >
+                  <button type="button" className="text-[11px] text-muted-foreground hover:text-foreground transition-colors underline decoration-dotted underline-offset-2">
+                    Disponibilite composants
+                  </button>
+                </SimpleTooltip>
+                <Segmented
+                  options={[
+                    { value: 'projected', label: 'Avec receptions' },
+                    { value: 'immediate', label: 'Stock seul' },
+                  ]}
+                  value={options.immediateComponents ? 'immediate' : 'projected'}
+                  onChange={(v) => onOptionsChange({ ...options, immediateComponents: v === 'immediate' })}
+                />
+              </div>
+
+              {/* Horizon */}
               <div className="flex items-center gap-2">
-                <span className="text-[11px] text-muted-foreground shrink-0">Horizon</span>
-                <div className="flex gap-1 flex-1">
-                  {[7, 15, 30].map((d) => (
-                    <button
-                      key={d}
-                      onClick={() => onOptionsChange({ ...options, demandHorizonDays: d })}
-                      disabled={!isReady || scheduleState === 'running'}
-                      className={`flex-1 px-2 py-1 rounded text-[11px] font-medium transition-colors ${
-                        options.demandHorizonDays === d
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted text-muted-foreground hover:bg-accent'
-                      } disabled:opacity-50`}
-                    >
-                      S+{Math.ceil(d / 7)}
-                    </button>
+                <SimpleTooltip
+                  side="top"
+                  content="Nombre de jours couverts par le calcul de demande client"
+                >
+                  <span className="text-[11px] text-muted-foreground shrink-0 cursor-help underline decoration-dotted underline-offset-2">Horizon</span>
+                </SimpleTooltip>
+                <div className="flex gap-1">
+                  {HORIZON_OPTIONS.map(({ days, hint }) => (
+                    <SimpleTooltip key={days} side="bottom" content={hint}>
+                      <button
+                        type="button"
+                        onClick={() => onOptionsChange({ ...options, demandHorizonDays: days })}
+                        disabled={!isReady || scheduleState === 'running'}
+                        className={`px-2 py-1 rounded text-[11px] font-medium transition-colors ${
+                          options.demandHorizonDays === days
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted text-muted-foreground hover:bg-accent'
+                        } disabled:opacity-50`}
+                      >
+                        S+{Math.ceil(days / 7)}
+                      </button>
+                    </SimpleTooltip>
                   ))}
                 </div>
               </div>
-              <div className="flex gap-1">
-                {(['blocked', 'direct', 'both'] as const).map((mode) => (
-                  <button
-                    key={mode}
-                    onClick={() => onOptionsChange({ ...options, blockingComponentsMode: mode })}
-                    disabled={!isReady || scheduleState === 'running'}
-                    className={`flex-1 px-2 py-1 rounded text-[11px] font-medium transition-colors ${
-                      options.blockingComponentsMode === mode
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted text-muted-foreground hover:bg-accent'
-                    } disabled:opacity-50`}
-                  >
-                    {BLOCKING_LABELS[mode]}
-                  </button>
-                ))}
+
+              {/* Composants manquants */}
+              <div className="flex items-center gap-2">
+                <SimpleTooltip
+                  side="right"
+                  content="Profondeur d'analyse de la nomenclature pour detecter les composants manquants"
+                >
+                  <span className="text-[11px] text-muted-foreground shrink-0 cursor-help underline decoration-dotted underline-offset-2">Composants manquants</span>
+                </SimpleTooltip>
+                <div className="flex gap-1">
+                  {BLOCKING_OPTIONS.map(({ value, label, hint }) => (
+                    <SimpleTooltip key={value} side="bottom" content={hint}>
+                      <button
+                        type="button"
+                        onClick={() => onOptionsChange({ ...options, blockingComponentsMode: value })}
+                        disabled={!isReady || scheduleState === 'running'}
+                        className={`px-2 py-1 rounded text-[11px] font-medium transition-colors ${
+                          options.blockingComponentsMode === value
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted text-muted-foreground hover:bg-accent'
+                        } disabled:opacity-50`}
+                      >
+                        {label}
+                      </button>
+                    </SimpleTooltip>
+                  ))}
+                </div>
               </div>
+
               <Button
                 className="w-full"
                 variant="outline"
@@ -186,59 +181,6 @@ export function HomeView({
           </CardContent>
         </Card>
       </div>
-
-      {/* Advanced settings toggle */}
-      <button
-        onClick={() => setShowSettings(!showSettings)}
-        className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-      >
-        <Settings2 className="h-3.5 w-3.5" />
-        Parametres avances
-        {showSettings ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-      </button>
-
-      {showSettings && (
-        <Card>
-          <CardContent className="p-4">
-            <div className="grid grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <p className="text-xs font-medium">Mode composants</p>
-                <p className="text-[11px] text-muted-foreground">
-                  Inclure les receptions prevues dans le calcul de disponibilite
-                </p>
-                <div className="flex gap-1">
-                  {([
-                    { value: false, label: 'Avec receptions' },
-                    { value: true, label: 'Stock seul' },
-                  ] as const).map(({ value, label }) => (
-                    <button
-                      key={String(value)}
-                      onClick={() => onOptionsChange({ ...options, immediateComponents: value })}
-                      className={`flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                        options.immediateComponents === value
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted text-muted-foreground hover:bg-accent'
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="space-y-2">
-                <p className="text-xs font-medium">Horizon S+1</p>
-                <p className="text-[11px] text-muted-foreground">
-                  Horizon fixe a 7 jours pour le run de faisabilite
-                </p>
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="text-xs">7 jours</Badge>
-                  <span className="text-[10px] text-muted-foreground">Configure dans le backend</span>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Snapshot */}
       {counts && (

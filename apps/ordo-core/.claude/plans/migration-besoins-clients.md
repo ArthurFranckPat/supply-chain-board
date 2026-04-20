@@ -1,5 +1,9 @@
 # Migration : `commandes_clients.csv` → `besoins_clients.csv`
 
+> **Statut : IMPLÉMENTÉ**
+> Le loader lit désormais `Besoins Clients.csv` exclusivement. L'ancien format `commandes_clients.csv` n'est plus supporté.
+> Les colonnes ERP actuelles sont documentées dans CLAUDE.md (section Besoins Clients.csv).
+
 ## Contexte
 
 **Pourquoi cette migration ?**

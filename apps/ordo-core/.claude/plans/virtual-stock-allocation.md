@@ -1,5 +1,9 @@
 # Évolution : Gestion de la concurrence avec allocation virtuelle
 
+> **Statut : IMPLÉMENTÉ**
+> L'allocation virtuelle est intégrée dans le scheduler. `StockState` gère le stock virtuel.
+> `RecursiveChecker` supporte le paramètre `stock_state`. Le scheduler trie les OF par priorité.
+
 ## Contexte
 
 **Problème actuel** : La vérification de faisabilité des OF utilise le stock réel (`stock.disponible()`) de manière statique. Chaque OF est vérifié indépendamment sans tenir compte des allocations déjà faites aux autres OF.

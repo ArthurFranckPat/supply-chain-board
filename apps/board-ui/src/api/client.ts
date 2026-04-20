@@ -1,4 +1,5 @@
 import type { DataSource, RunState } from '@/types/api'
+import type { MonthCalendar, CapacityConfigResponse } from '@/types/capacity'
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') ?? 'http://127.0.0.1:8000'
@@ -52,17 +53,6 @@ export const apiClient = {
     })
   },
 
-  runS1(payload: {
-    horizon: number
-    include_previsions: boolean
-    feasibility_mode: string
-  }) {
-    return request<RunState>('/runs/s1', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    })
-  },
-
   runSchedule(payload: {
     immediate_components?: boolean
     blocking_components_mode?: string
@@ -80,5 +70,54 @@ export const apiClient = {
 
   listReports() {
     return request<Record<string, unknown>[]>('/reports/files')
+  },
+
+  // ── Calendar ────────────────────────────────────────────────
+  getCalendar(year: number, month: number) {
+    return request<MonthCalendar>(`/calendar/${year}/${month}`)
+  },
+
+  updateManualOffDays(data: {
+    year: number
+    additions: Array<{ date: string; reason?: string }>
+    removals: string[]
+  }) {
+    return request<{ status: string; manual_off_count: number }>('/calendar/manual-off', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  },
+
+  refreshHolidays(year: number) {
+    return request<{ status: string; holidays_count: number }>('/calendar/holidays/refresh', {
+      method: 'POST',
+      body: JSON.stringify({ year }),
+    })
+  },
+
+  // ── Capacity ────────────────────────────────────────────────
+  getCapacityConfig() {
+    return request<CapacityConfigResponse>('/capacity')
+  },
+
+  updatePosteConfig(data: { poste: string; default_hours: number; shift_pattern: string; label?: string }) {
+    return request<{ status: string }>('/capacity/poste', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  },
+
+  setCapacityOverride(data: { poste: string; key: string; hours?: number; reason: string; pattern?: Record<string, number> }) {
+    return request<{ status: string }>('/capacity/override', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  },
+
+  removeCapacityOverride(data: { poste: string; key: string }) {
+    return request<{ status: string }>('/capacity/override', {
+      method: 'DELETE',
+      body: JSON.stringify({ poste: data.poste, key: data.key, hours: 0, reason: '' }),
+    })
   },
 }

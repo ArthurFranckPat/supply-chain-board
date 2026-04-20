@@ -10,13 +10,10 @@ from rich.console import Console
 from .loaders import DataLoader
 from .checkers import ImmediateChecker, ProjectedChecker, RecursiveChecker
 from .algorithms import AllocationManager, AllocationResult, AllocationStatus
-from .agents import AgentEngine
 from .algorithms import calculate_weekly_charge_heatmap
 from .scheduler import run_schedule
 from .utils import format_of_table, format_detailed_report, format_summary
 from .utils import format_charge_heatmap, format_charge_summary
-from .main_s1 import main_s1
-
 console = Console()
 
 DEFAULT_EXTRACTIONS_DIR = os.environ.get(
@@ -83,25 +80,9 @@ def main():
         help="DÃ©sactive l'allocation virtuelle (vÃ©rification indÃ©pendante des OF)",
     )
     parser.add_argument(
-        "--s1",
-        action="store_true",
-        help="Mode S+1 : VÃ©rifier les OF pour les commandes des 7 prochains jours",
-    )
-    parser.add_argument(
-        "--horizon",
-        type=int,
-        default=7,
-        help="Horizon en jours pour le mode S+1 (dÃ©faut: 7)",
-    )
-    parser.add_argument(
-        "--with-previsions",
-        action="store_true",
-        help="Inclut les prÃ©visions Export dans l'analyse (mode S+1)",
-    )
-    parser.add_argument(
         "--schedule",
         action="store_true",
-        help="Active le planificateur de charge (mode S+1 requis)",
+        help="Active le planificateur de charge",
     )
     parser.add_argument(
         "--charge-heatmap",
@@ -113,18 +94,6 @@ def main():
         type=int,
         default=4,
         help="Nombre de semaines pour la heatmap (dÃ©faut: 4)",
-    )
-    parser.add_argument(
-        "--llm",
-        action="store_true",
-        default=False,
-        help="Active le mode LLM pour les dÃ©cisions (nÃ©cessite MISTRAL_API_KEY)",
-    )
-    parser.add_argument(
-        "--llm-model",
-        type=str,
-        default="mistral-large-latest",
-        help="ModÃ¨le LLM Ã  utiliser (dÃ©faut: mistral-large-latest)",
     )
     parser.add_argument(
         "--reference-date",
@@ -143,12 +112,6 @@ def main():
         choices=("blocked", "direct", "both"),
         default="blocked",
         help="Mode de remplissage de la colonne composants_bloquants (blocked|direct|both)",
-    )
-
-    parser.add_argument(
-        "--organization",
-        action="store_true",
-        help="Analyse l'organisation de l'atelier sur 4 semaines",
     )
 
     args = parser.parse_args()
@@ -176,7 +139,7 @@ def main():
     console.print()
 
     # Mode AUTORESEARCH scheduler
-    if args.schedule and not args.s1:
+    if args.schedule:
         console.print("[bold cyan]ðŸ—“ï¸  Scheduler AUTORESEARCH...[/bold cyan]")
         result = run_schedule(
             loader,
@@ -261,28 +224,6 @@ def main():
         format_charge_heatmap(heatmap, week_labels)
         format_charge_summary(heatmap, len(besoins), args.num_weeks)
 
-        return
-
-    # Mode S+1
-    if args.s1:
-        main_s1(args, loader, include_previsions=args.with_previsions)
-        return
-
-    # Mode organisation
-    if args.organization:
-        from src.agents.organization.organization_agent import OrganizationAgent
-        from src.agents.organization.formatter import format_organization_table
-        from src.algorithms import CommandeOFMatcher
-
-        agent = OrganizationAgent(loader)
-        matcher = CommandeOFMatcher(loader, date_tolerance_days=10)
-
-        results = agent.analyze_workshop_organization(
-            reference_date=reference_date,
-            matcher=matcher
-        )
-
-        format_organization_table(results)
         return
 
     # Mode vÃ©rification commande
@@ -410,14 +351,9 @@ def main():
                 check_date=date.today()  # Date du jour
             )
 
-            # CrÃ©er le DecisionEngine
-            decision_engine = AgentEngine("config/decisions.yaml", loader=loader)
-
-            # Passer Ã  AllocationManager
             allocation_manager = AllocationManager(
                 data_loader=loader,
                 checker=recursive_checker,
-                decision_engine=decision_engine
             )
             allocation_results = allocation_manager.allocate_stock(ofs)
 
@@ -436,25 +372,6 @@ def main():
             if result and not result.feasible:
                 format_detailed_report(of, result)
 
-    # GÃ©nÃ©rer les rapports de dÃ©cisions
-    try:
-        from .agents.reports import DecisionReporter
-        import os
-
-        reporter = DecisionReporter()
-        output_dir = "reports/decisions"
-
-        # GÃ©nÃ©rer rapport Markdown
-        md_path = os.path.join(output_dir, "decisions_report.md")
-        reporter.generate_markdown_report(allocation_results, md_path)
-        console.print(f"âœ… Rapport Markdown gÃ©nÃ©rÃ© : {md_path}")
-
-        # GÃ©nÃ©rer rapport JSON
-        json_path = os.path.join(output_dir, "decisions_report.json")
-        reporter.generate_json_report(allocation_results, json_path)
-        console.print(f"âœ… Rapport JSON gÃ©nÃ©rÃ© : {json_path}")
-    except Exception as e:
-        console.print(f"âš ï¸  Impossible de gÃ©nÃ©rer les rapports: {e}")
 
 
 if __name__ == "__main__":

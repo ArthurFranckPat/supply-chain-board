@@ -18,11 +18,14 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
-from ..algorithms.charge_calculator import calculate_article_charge, get_poste_libelle
+from ..algorithms.charge_calculator import calculate_article_charge, get_poste_libelle, POSTE_CHARGE_REGEX
 from ..algorithms.allocation import StockState
 from ..algorithms.matching import CommandeOFMatcher
 from ..checkers.recursive import RecursiveChecker
 from .calendar import build_workdays, next_workday, previous_workday
+from .calendar_config import CalendarConfig, is_workday as config_is_workday, build_workdays as config_build_workdays, next_workday as config_next_workday, load_calendar_config
+from .capacity_config import CapacityConfig, load_capacity_config, get_capacity_for_day
+from .holidays import ensure_holidays_in_calendar
 from .weights import load_weights
 from .models import CandidateOF, DaySchedule, SchedulerResult
 from .reporting import build_unscheduled_rows, build_order_rows, write_outputs
@@ -60,6 +63,8 @@ def run_schedule(
     weights_path: str = "config/weights.json",
     immediate_components: bool = False,
     blocking_components_mode: str = "blocked",
+    calendar_config: Optional[CalendarConfig] = None,
+    capacity_config: Optional[CapacityConfig] = None,
 ) -> SchedulerResult:
     """Run the AUTORESEARCH bootstrap scheduler."""
     if blocking_components_mode not in {"blocked", "direct", "both"}:
@@ -67,7 +72,22 @@ def run_schedule(
 
     reference_date = reference_date or date.today()
     weights = load_weights(weights_path)
-    workdays = build_workdays(reference_date, planning_workdays)
+
+    # Load calendar & capacity configs when available
+    config_dir = str(Path(weights_path).parent)
+    if calendar_config is None:
+        try:
+            calendar_config = load_calendar_config(config_dir, reference_date.year)
+            calendar_config = ensure_holidays_in_calendar(config_dir, calendar_config)
+        except Exception:
+            calendar_config = None
+    if capacity_config is None:
+        try:
+            capacity_config = load_capacity_config(config_dir)
+        except Exception:
+            capacity_config = None
+
+    workdays = config_build_workdays(reference_date, planning_workdays, calendar_config)
     demand_horizon_end = reference_date + timedelta(days=demand_calendar_days)
     target_lines = _build_target_line_articles(loader, lines_config)
     
@@ -78,7 +98,6 @@ def run_schedule(
     candidates, matching_alerts, matching_results = _select_candidates_from_matching(
         loader=loader,
         planning_workdays=workdays,
-        demand_horizon_end=demand_horizon_end,
         target_lines=target_lines,
     )
 
@@ -128,9 +147,11 @@ def run_schedule(
         # Garantir au moins la taille du plus gros OF (sinon impossible à planifier)
         capacity = max(capacity, max_of)
 
-        # Capacité physique maximale : 2 shifts (14h) avec réserve de 10%
-        # → jamais plus de 12.6h planifiées par jour et par poste
-        capacity = min(14.0 * 0.90, capacity)
+        # Capacité physique maximale : résolue sur le 1er jour ouvré (pas reference_date
+        # qui peut tomber un week-end et retourner une capacité nulle).
+        cap_ref_day = workdays[0] if workdays else reference_date
+        max_cap = get_capacity_for_day(line, cap_ref_day, capacity_config) if capacity_config else 14.0
+        capacity = min(max_cap * 0.90, capacity)
 
         line_capacities[line] = capacity
         line_min_open[line] = 0.0
@@ -241,7 +262,7 @@ def run_schedule(
             if not any(charge_map.get(l, 0.0) > 0 for l in target_lines):
                 planned_by_of[result.of.num_of] = workdays[0]
     candidate_by_of = {candidate.num_of: candidate for candidate in candidates}
-    planning_horizon_end = next_workday(workdays[-1])
+    planning_horizon_end = config_next_workday(workdays[-1], calendar_config)
     def _availability_for_reporting(
         checker_obj,
         loader_obj,
@@ -264,6 +285,7 @@ def run_schedule(
         loader,
         checker,
         _availability_for_reporting,
+        planning_horizon_end=planning_horizon_end,
     )
     taux_service, on_time, total_candidates = _compute_service_rate_from_matching(
         matching_results,
@@ -369,7 +391,7 @@ def _load_article_day_profile(csv_path: str) -> dict[str, Counter]:
 def _build_target_line_articles(loader, lines_config=None) -> dict[str, set[str]]:
     target_lines = {}
     if lines_config is None:
-        lines_config = sorted({op.poste_charge for gamme in loader.gammes.values() for op in gamme.operations})
+        lines_config = sorted({op.poste_charge for gamme in loader.gammes.values() for op in gamme.operations if POSTE_CHARGE_REGEX.match(op.poste_charge)})
 
     for line in lines_config:
         target_lines[line] = set()
@@ -392,12 +414,13 @@ def _is_target_scope_order(besoin, loader, target_lines) -> bool:
     return False
 
 
-def _select_candidates_from_matching(loader, planning_workdays, demand_horizon_end, target_lines) -> tuple[list[CandidateOF], list[str], list]:
-    """Construit les candidats à partir du matching existant commande->OF.
+def _select_candidates_from_matching(loader, planning_workdays, target_lines) -> tuple[list[CandidateOF], list[str], list]:
+    """Construit les candidats à partir du matching commande→OF.
 
-    On réutilise le matcher du repo pour éviter de reconstruire la logique
-    métier MTS/NOR/MTO. Le scheduler ne décide ensuite que du placement
-    journalier et de la stratégie buffer BDH.
+    Le matching porte sur TOUTES les commandes (pas de filtre horizon).
+    Seuls les OF dont date_fin est dans l'horizon de planification
+    deviennent candidats de scheduling. Les autres restent visibles
+    dans les order_rows (statut "Hors planification").
     """
     reference_date = planning_workdays[0]
     planning_horizon_end = next_workday(planning_workdays[-1])
@@ -405,11 +428,9 @@ def _select_candidates_from_matching(loader, planning_workdays, demand_horizon_e
     for besoin in loader.commandes_clients:
         if besoin.qte_restante <= 0:
             continue
-        if not (besoin.date_expedition_demandee <= demand_horizon_end):
-            continue
         if not _is_target_scope_order(besoin, loader, target_lines):
             continue
-            
+
         # Filtrage selon le type de commande
         # MTS et MTO : uniquement les commandes fermes
         # NOR : commandes fermes et prévisions
@@ -420,7 +441,7 @@ def _select_candidates_from_matching(loader, planning_workdays, demand_horizon_e
         elif besoin.type_commande == TypeCommande.NOR:
             if not (besoin.est_commande() or besoin.est_prevision()):
                 continue
-                
+
         commandes.append(besoin)
 
     commandes.sort(key=lambda b: (b.date_expedition_demandee, b.date_commande or date.max, b.num_commande))
@@ -446,6 +467,12 @@ def _select_candidates_from_matching(loader, planning_workdays, demand_horizon_e
         if line is None:
             continue
 
+        # Seuls les OF dont la date de fin est dans l'horizon de planification
+        # deviennent candidats de scheduling. Les OF au-delà restent dans
+        # matching_results pour les order_rows (visibilité matching).
+        if of.date_fin > planning_horizon_end:
+            continue
+
         spec = candidate_specs.setdefault(
             of.num_of,
             {
@@ -465,7 +492,7 @@ def _select_candidates_from_matching(loader, planning_workdays, demand_horizon_e
     for of in loader.ofs:
         if of.qte_restante <= 0 or of.statut_num not in (1, 2):
             continue
-        if of.date_fin > demand_horizon_end:
+        if of.date_fin > planning_horizon_end:
             continue
         line = None
         for l, articles in target_lines.items():

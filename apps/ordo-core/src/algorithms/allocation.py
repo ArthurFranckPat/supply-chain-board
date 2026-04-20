@@ -6,7 +6,6 @@ from typing import Optional
 
 from ..models.of import OF
 from ..checkers.base import FeasibilityResult
-from ..agents.models import AgentDecision, AgentAction
 
 
 class AllocationStatus(Enum):
@@ -40,7 +39,6 @@ class AllocationResult:
     status: AllocationStatus
     feasibility_result: Optional[FeasibilityResult] = None
     allocated_quantity: dict[str, int] = None
-    decision: Optional[AgentDecision] = None
 
     def __repr__(self) -> str:
         """Représentation textuelle du résultat."""
@@ -126,7 +124,7 @@ class AllocationManager:
         Checker à utiliser pour la vérification de faisabilité
     """
 
-    def __init__(self, data_loader, checker, decision_engine=None):
+    def __init__(self, data_loader, checker):
         """Initialise le gestionnaire d'allocation.
 
         Parameters
@@ -135,12 +133,9 @@ class AllocationManager:
             Loader de données
         checker : BaseChecker
             Checker pour la vérification de faisabilité
-        decision_engine : DecisionEngine, optional
-            Moteur de décision métier
         """
         self.data_loader = data_loader
         self.checker = checker
-        self.decision_engine = decision_engine
 
     def allocate_stock(self, ofs: list[OF]) -> dict[str, AllocationResult]:
         """Alloue le stock aux OF en gérant la concurrence.
@@ -184,25 +179,6 @@ class AllocationManager:
         # Filtrer les OF pour l'allocation virtuelle (PLANIFIÉS + SUGGÉRÉS)
         ofs_for_allocation = [of for of in ofs if of.num_of not in of_with_allocations]
 
-        # NOUVEAU : Évaluation pré-allocation
-        decisions = {}
-        original_quantities = {}  # Sauvegarder les quantités originales
-
-        if self.decision_engine:
-            for of in ofs_for_allocation:
-                decision = self.decision_engine.evaluate_pre_allocation(
-                    of=of,
-                    initial_stock=stock_state.initial_stock
-                )
-                decisions[of.num_of] = decision
-
-                # Sauvegarder la quantité originale
-                original_quantities[of.num_of] = of.qte_restante
-
-                # Appliquer ACCEPT_PARTIAL
-                if decision.action == AgentAction.ACCEPT_PARTIAL:
-                    of.qte_restante = decision.modified_quantity
-
         # Trier les OF par priorité (uniquement ceux pour allocation)
         sorted_ofs = self._sort_ofs_by_priority(ofs_for_allocation, stock_state)
 
@@ -224,34 +200,7 @@ class AllocationManager:
         # 2. Traiter les OF PLANIFIÉS et SUGGÉRÉS avec allocation virtuelle
         for of in sorted_ofs:
             result = self._allocate_of(of, stock_state)
-
-            # NOUVEAU : Enrichir avec la décision
-            if of.num_of in decisions:
-                result.decision = decisions[of.num_of]
-
-            # Restaurer la quantité originale si nécessaire
-            if of.num_of in original_quantities:
-                of.qte_restante = original_quantities[of.num_of]
-
             results[of.num_of] = result
-
-        # NOUVEAU : Évaluation post-allocation pour les OF non faisables
-        if self.decision_engine:
-            for of_num, result in results.items():
-                if result.status == AllocationStatus.NOT_FEASIBLE and not result.decision:
-                    of = next((o for o in ofs if o.num_of == of_num), None)
-                    if of:
-                        post_decision = self.decision_engine.evaluate_post_allocation(
-                            of=of,
-                            allocation_result=result
-                        )
-
-                        # Appliquer DEFER/REJECT
-                        if post_decision.action == AgentAction.DEFER:
-                            result.status = AllocationStatus.DEFERRED
-                            result.decision = post_decision
-                        else:
-                            result.decision = post_decision
 
         return results
 

@@ -216,36 +216,4 @@ class DataLoader:
     def get_allocations_of(self, num_doc: str) -> list[OFAllocation]:
         return self.allocations.get(num_doc, [])
 
-    def get_commandes_s1(
-        self,
-        date_reference,
-        horizon_days: int = 7,
-        include_previsions: bool = False,
-    ) -> list[BesoinClient]:
-        """Retourne les besoins clients a expedier dans l'horizon donne."""
-        from datetime import timedelta
 
-        date_fin = date_reference + timedelta(days=horizon_days)
-
-        besoins_s1 = []
-        for besoin in self.commandes_clients:
-            if include_previsions:
-                if not (besoin.est_commande() or besoin.est_prevision()):
-                    continue
-            else:
-                if not besoin.est_commande():
-                    continue
-
-            date_exp = besoin.date_expedition_demandee
-            if date_reference <= date_exp <= date_fin and besoin.qte_restante > 0:
-                besoins_s1.append(besoin)
-
-        besoins_s1.sort(
-            key=lambda b: (
-                0 if b.est_commande() else 1,
-                b.date_expedition_demandee,
-                b.date_commande or date.max,
-            )
-        )
-
-        return besoins_s1

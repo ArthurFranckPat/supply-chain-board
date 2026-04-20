@@ -9,17 +9,11 @@ from threading import Thread
 from typing import Any, Optional
 from uuid import uuid4
 
-from ..algorithms import AllocationManager, CommandeOFMatcher
-from ..checkers import ImmediateChecker, ProjectedChecker, RecursiveChecker
 from ..loaders import DataLoader
 from ..loaders.csv_loader import DEFAULT_EXTRACTIONS_DIR
-
-# TODO: restore src.reports module
-try:
-    from ..reports import build_action_report, write_action_report_markdown
-except ImportError:
-    build_action_report = None  # type: ignore[assignment]
-    write_action_report_markdown = None  # type: ignore[assignment]
+from ..scheduler.calendar_config import load_calendar_config, save_calendar_config, get_month_calendar
+from ..scheduler.capacity_config import load_capacity_config, save_capacity_config, to_api_dict, set_daily_override, remove_daily_override, set_weekly_override, remove_weekly_override, ensure_poste
+from ..scheduler.holidays import ensure_holidays_in_calendar, refresh_holidays as refresh_holidays_api
 
 
 def _utc_now_iso() -> str:
@@ -100,37 +94,12 @@ class GuiAppService:
         }
         return self.loaded_source
 
-    def run_s1(
-        self,
-        horizon: int = 7,
-        include_previsions: bool = False,
-        feasibility_mode: str = "projected",
-    ) -> dict[str, Any]:
-        if self.loader is None:
-            raise RuntimeError("Aucune donnee chargee. Appelez load_data avant run_s1.")
-
-        run_id = uuid4().hex[:12]
-        run_state = {
-            "run_id": run_id,
-            "status": "running",
-            "created_at": _utc_now_iso(),
-            "kind": "s1",
-        }
-        self.runs[run_id] = run_state
-        Thread(
-            target=self._run_s1_in_background,
-            args=(run_id, horizon, include_previsions, feasibility_mode),
-            daemon=True,
-        ).start()
-        return run_state
-
     def get_run(self, run_id: str) -> Optional[dict[str, Any]]:
         return self.runs.get(run_id)
 
     def get_latest_report(self, report_type: str) -> dict[str, Any]:
         report_paths = {
             "actions": self.project_root / "reports" / "actions" / "s1_action_report.md",
-            "s1": self.project_root / "reports" / "decisions" / "decisions_report.md",
         }
         try:
             path = report_paths[report_type]
@@ -164,138 +133,6 @@ class GuiAppService:
                 }
             )
         return entries
-
-    def _execute_s1(
-        self,
-        horizon: int,
-        include_previsions: bool,
-        feasibility_mode: str,
-    ) -> dict[str, Any]:
-        assert self.loader is not None
-
-        date_ref = date.today()
-        besoins_s1 = self.loader.get_commandes_s1(
-            date_ref,
-            horizon,
-            include_previsions=include_previsions,
-        )
-        matcher = CommandeOFMatcher(self.loader, date_tolerance_days=10)
-        resultats_matching = matcher.match_commandes(besoins_s1)
-        ofs_a_verifier = [r.of for r in resultats_matching if r.of is not None]
-
-        if feasibility_mode == "immediate":
-            checker = ImmediateChecker(self.loader)
-            resultats_faisabilite = checker.check_all_ofs(ofs_a_verifier)
-        elif feasibility_mode == "allocation":
-            recursive_checker = RecursiveChecker(
-                self.loader,
-                use_receptions=True,
-                check_date=date_ref,
-            )
-            allocation_manager = AllocationManager(
-                data_loader=self.loader,
-                checker=recursive_checker,
-                decision_engine=None,
-            )
-            allocation_results = allocation_manager.allocate_stock(ofs_a_verifier)
-            resultats_faisabilite = {
-                of_num: result.feasibility_result
-                for of_num, result in allocation_results.items()
-                if result.feasibility_result is not None
-            }
-        else:
-            checker = ProjectedChecker(self.loader)
-            resultats_faisabilite = checker.check_all_ofs(ofs_a_verifier)
-
-        action_report = None
-        if build_action_report is not None:
-            action_report = build_action_report(
-                self.loader,
-                resultats_matching,
-                resultats_faisabilite,
-                reference_date=date_ref,
-            )
-            if action_report and (action_report.component_lines or action_report.poste_kanban_lines):
-                output_dir = self.project_root / "reports" / "actions"
-                output_dir.mkdir(parents=True, exist_ok=True)
-                if write_action_report_markdown is not None:
-                    write_action_report_markdown(action_report, str(output_dir / "s1_action_report.md"))
-
-        of_results = []
-        for result in resultats_matching:
-            if result.of is None:
-                continue
-            feasibility = resultats_faisabilite.get(result.of.num_of)
-            if feasibility is None:
-                continue
-            of_results.append(
-                {
-                    "num_of": result.of.num_of,
-                    "article": result.of.article,
-                    "date_debut": result.of.date_debut.isoformat() if result.of.date_debut else None,
-                    "date_fin": result.of.date_fin.isoformat(),
-                    "qte_restante": result.of.qte_restante,
-                    "commande": result.commande.num_commande,
-                    "commande_article": result.commande.article,
-                    "commande_date_expedition": result.commande.date_expedition_demandee.isoformat(),
-                    "matching_method": result.matching_method,
-                    "feasible": feasibility.feasible,
-                    "missing_components": dict(feasibility.missing_components),
-                    "alerts": list(feasibility.alerts),
-                }
-            )
-
-        return {
-            "reference_date": date_ref.isoformat(),
-            "source": self.loaded_source,
-            "summary": {
-                "horizon_days": horizon,
-                "include_previsions": include_previsions,
-                "feasibility_mode": feasibility_mode,
-                "besoins_s1": len(besoins_s1),
-                "matched_ofs": len(ofs_a_verifier),
-                "feasible_ofs": sum(1 for item in of_results if item["feasible"]),
-                "non_feasible_ofs": sum(1 for item in of_results if not item["feasible"]),
-                "action_components": len(action_report.component_lines) if action_report else 0,
-                "kanban_postes": len(action_report.poste_kanban_lines) if action_report else 0,
-            },
-            "of_results": of_results,
-            "action_report": _serialize_value(action_report),
-            "reports": {
-                "actions": self.get_latest_report("actions"),
-                "s1": self.get_latest_report("s1"),
-            },
-        }
-
-    def _run_s1_in_background(
-        self,
-        run_id: str,
-        horizon: int,
-        include_previsions: bool,
-        feasibility_mode: str,
-    ) -> None:
-        run_state = self.runs[run_id]
-        try:
-            result = self._execute_s1(
-                horizon=horizon,
-                include_previsions=include_previsions,
-                feasibility_mode=feasibility_mode,
-            )
-            run_state.update(
-                {
-                    "status": "completed",
-                    "completed_at": _utc_now_iso(),
-                    "result": result,
-                }
-            )
-        except Exception as exc:  # pragma: no cover - defensive for UI/API runtime
-            run_state.update(
-                {
-                    "status": "failed",
-                    "completed_at": _utc_now_iso(),
-                    "error": str(exc),
-                }
-            )
 
     # ── Scheduler run ──────────────────────────────────────────────
 
@@ -372,3 +209,137 @@ class GuiAppService:
                     "error": str(exc),
                 }
             )
+
+    # ── Calendar / Capacity ─────────────────────────────────────────
+
+    @property
+    def _config_dir(self) -> str:
+        return str(self.project_root / "config")
+
+    def get_calendar(self, year: int, month: int) -> dict[str, Any]:
+        config = load_calendar_config(self._config_dir, year)
+        config = ensure_holidays_in_calendar(self._config_dir, config)
+        days = get_month_calendar(year, month, config)
+        return {
+            "year": year,
+            "month": month,
+            "days": days,
+            "holidays_fetched_at": config.holidays_fetched_at,
+        }
+
+    def update_manual_off_days(
+        self,
+        year: int,
+        additions: list[dict],
+        removals: list[str],
+    ) -> dict[str, Any]:
+        config = load_calendar_config(self._config_dir, year)
+        config = ensure_holidays_in_calendar(self._config_dir, config)
+
+        for entry in additions:
+            from ..scheduler.calendar_config import DayOff
+            config.manual_off_days.append(
+                DayOff(date=entry["date"], name=entry.get("reason", ""), source="manual")
+            )
+
+        removal_set = set(removals)
+        config.manual_off_days = [
+            d for d in config.manual_off_days if d.date not in removal_set
+        ]
+
+        save_calendar_config(self._config_dir, config)
+        return {"status": "ok", "manual_off_count": len(config.manual_off_days)}
+
+    def refresh_holidays(self, year: int) -> dict[str, Any]:
+        holidays = refresh_holidays_api(year, self._config_dir)
+        config = load_calendar_config(self._config_dir, year)
+        config.holidays = holidays
+        config.holidays_fetched_at = _utc_now_iso()
+        save_calendar_config(self._config_dir, config)
+        return {"status": "ok", "holidays_count": len(holidays)}
+
+    def get_capacity_config(self) -> dict[str, Any]:
+        import re
+        config = load_capacity_config(self._config_dir)
+        result = to_api_dict(config)
+        poste_re = re.compile(r"^PP_\d+$")
+
+        # Filter out postes that don't match PP_XXX pattern
+        result["postes"] = {
+            k: v for k, v in result["postes"].items() if poste_re.match(k)
+        }
+
+        # Merge discovered postes from ERP data if loaded
+        if self.loader is not None:
+            discovered: dict[str, str] = {}  # poste -> libelle
+            for gamme in self.loader.gammes.values():
+                for op in gamme.operations:
+                    if poste_re.match(op.poste_charge):
+                        discovered.setdefault(op.poste_charge, op.libelle_poste or "")
+            for poste in sorted(discovered):
+                if poste in result["postes"]:
+                    # Always use ERP label, it's the source of truth
+                    result["postes"][poste]["label"] = discovered[poste]
+                else:
+                    result["postes"][poste] = {
+                        "poste": poste,
+                        "label": discovered[poste],
+                        "default_hours": config.shift_hours,
+                        "shift_pattern": "1x8",
+                        "daily_overrides": {},
+                    }
+
+        return result
+
+    def update_poste_capacity(
+        self,
+        poste: str,
+        default_hours: float,
+        shift_pattern: str,
+        label: str = "",
+    ) -> dict[str, Any]:
+        config = load_capacity_config(self._config_dir)
+        existing_label = getattr(config.postes.get(poste), "label", "") or ""
+        # Prefer explicit label, then existing saved label, then empty
+        effective_label = label or existing_label
+        p = ensure_poste(config, poste, effective_label)
+        p.default_hours = default_hours
+        p.shift_pattern = shift_pattern
+        if effective_label:
+            p.label = effective_label
+        save_capacity_config(self._config_dir, config)
+        return {"status": "ok"}
+
+    def set_capacity_override(
+        self,
+        poste: str,
+        key: str,
+        hours: float = 0.0,
+        reason: str = "",
+        pattern: Optional[dict[str, float]] = None,
+    ) -> dict[str, Any]:
+        config = load_capacity_config(self._config_dir)
+        if "-W" in key:
+            if pattern is not None:
+                set_weekly_override(config, key, poste, pattern, reason)
+            else:
+                # Legacy: single hours value → create uniform pattern
+                p = {str(d): hours for d in range(1, 8)}
+                set_weekly_override(config, key, poste, p, reason)
+        else:
+            set_daily_override(config, poste, key, hours, reason)
+        save_capacity_config(self._config_dir, config)
+        return {"status": "ok"}
+
+    def remove_capacity_override(
+        self,
+        poste: str,
+        key: str,
+    ) -> dict[str, Any]:
+        config = load_capacity_config(self._config_dir)
+        if "-W" in key:
+            remove_weekly_override(config, key, poste)
+        else:
+            remove_daily_override(config, poste, key)
+        save_capacity_config(self._config_dir, config)
+        return {"status": "ok"}

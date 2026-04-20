@@ -64,8 +64,8 @@ Ajouter `DATE_DEBUT` dans la structure de `of_entetes.csv`.
 
 ## Critères d'acceptation
 
-- [ ] `DATE_DEBUT` parsée correctement depuis le CSV (format `DD/MM/YYYY`, `None` si absente)
-- [ ] `ProjectedChecker` utilise `date_debut` si disponible
-- [ ] Fallback sur commande liée - 2j si `date_debut` absente
-- [ ] Fallback sur `date_fin` - 2j si ni `date_debut` ni commande liée
-- [ ] `F426-11691` reste non faisable avec les données actuelles
+- [x] `DATE_DEBUT` parsée correctement depuis le CSV (format `DD/MM/YYYY`, `None` si absente)
+- [x] `ProjectedChecker` utilise `date_debut` si disponible
+- [x] Fallback sur commande liée - 2j si `date_debut` absente
+- [x] Fallback sur `date_fin` - 2j si ni `date_debut` ni commande liée
+- [ ] `F426-11691` reste non faisable avec les données actuelles (à vérifier)
