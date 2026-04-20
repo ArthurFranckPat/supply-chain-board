@@ -204,10 +204,43 @@ class CSVLoader:
     def load_nomenclatures(self) -> dict[str, "Nomenclature"]:
         df = self._load_csv("nomenclatures.csv")
         nomenclatures = {}
-        for article_parent, group in df.groupby("ARTICLE_PARENT"):
-            nomenclatures[article_parent] = parse_nomenclature(
-                article=article_parent, rows=group.to_dict("records")
-            )
+        cols = list(df.columns)
+
+        # Sort by ARTICLE_PARENT for efficient grouping without groupby overhead
+        if "ARTICLE_PARENT" in cols:
+            df_sorted = df.sort_values("ARTICLE_PARENT")
+            current_parent = None
+            current_rows = []
+
+            for row in df_sorted.itertuples(index=False, name=None):
+                row_dict = dict(zip(cols, row))
+                parent = row_dict.get("ARTICLE_PARENT")
+
+                if parent != current_parent:
+                    if current_parent is not None and current_rows:
+                        nomenclatures[current_parent] = parse_nomenclature(
+                            article=current_parent, rows=current_rows
+                        )
+                    current_parent = parent
+                    current_rows = []
+
+                if parent is not None:
+                    current_rows.append(row_dict)
+
+            # Don't forget the last group
+            if current_parent is not None and current_rows:
+                nomenclatures[current_parent] = parse_nomenclature(
+                    article=current_parent, rows=current_rows
+                )
+        else:
+            # Fallback to original method if column not found
+            for article_parent, group in df.groupby("ARTICLE_PARENT"):
+                group_cols = list(group.columns)
+                rows = [dict(zip(group_cols, row)) for row in group.itertuples(index=False, name=None)]
+                nomenclatures[article_parent] = parse_nomenclature(
+                    article=article_parent, rows=rows
+                )
+
         return nomenclatures
 
     def load_gammes(self) -> dict[str, Gamme]:
