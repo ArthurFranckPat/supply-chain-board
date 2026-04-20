@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { LoadingEmpty } from '@/components/ui/loading'
 import type { DetailItem } from '@/types/api'
 
 interface ReportsViewProps {
@@ -38,12 +39,7 @@ export function ReportsView({ embeddedReports, onInspect }: ReportsViewProps) {
         )
       })}
       {reports.length === 0 && (
-        <Card>
-          <CardContent className="py-12 text-center text-muted-foreground">
-            <p className="font-semibold">Aucun rapport disponible</p>
-            <p className="text-sm">Lancez un run S+1 pour generer les rapports.</p>
-          </CardContent>
-        </Card>
+        <LoadingEmpty message="Aucun rapport disponible. Lancez un run S+1 pour générer les rapports." />
       )}
     </div>
   )

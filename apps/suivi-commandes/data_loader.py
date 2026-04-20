@@ -45,3 +45,28 @@ def load_data(folder: Path | None = None) -> pd.DataFrame:
             )
 
     return df
+
+
+def load_data_from_erp(extractions_dir: Path | str | None = None) -> pd.DataFrame:
+    """Load data from ERP extractions via the shared erp-data-access package.
+
+    This uses the same DataLoader as ordo-core, then transforms the domain
+    models into a SUIVCDE-compatible DataFrame so that ``status_logic`` and
+    the dashboard work unchanged.
+
+    Parameters
+    ----------
+    extractions_dir : Path | str | None
+        Path to the ERP extractions directory. Falls back to
+        ``ORDO_EXTRACTIONS_DIR`` env var or the configured default.
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with SUIVCDE-style French column names.
+    """
+    from erp_data_access.loaders import DataLoader
+    from erp_data_access.transformers.suivcde_builder import build_suivcde_dataframe
+
+    loader = DataLoader.from_extractions(extractions_dir)
+    return build_suivcde_dataframe(loader)

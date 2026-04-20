@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from dataclasses import asdict, is_dataclass
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -56,6 +57,7 @@ class GuiAppService:
         self.loader: Optional[DataLoader] = None
         self.loaded_source: Optional[dict[str, Any]] = None
         self.runs: dict[str, dict[str, Any]] = {}
+        self._analyse_rupture_service: Optional[Any] = None
 
     def get_config(self) -> dict[str, Any]:
         return {
@@ -86,6 +88,7 @@ class GuiAppService:
 
         loader.load_all()
         self.loader = loader
+        self._analyse_rupture_service = None  # Invalider le service d'analyse de rupture
         self.loaded_source = {
             "source": "extractions",
             "extractions_dir": target_dir,
@@ -151,6 +154,7 @@ class GuiAppService:
             "status": "running",
             "created_at": _utc_now_iso(),
             "kind": "schedule",
+            "_start_mono": time.monotonic(),
         }
         self.runs[run_id] = run_state
         Thread(
@@ -165,6 +169,7 @@ class GuiAppService:
         immediate_components: bool,
         blocking_components_mode: str,
         demand_horizon_days: int = 15,
+        progress_callback=None,
     ) -> dict[str, Any]:
         from ..scheduler import run_schedule as run_schedule_engine
 
@@ -177,6 +182,7 @@ class GuiAppService:
             immediate_components=immediate_components,
             blocking_components_mode=blocking_components_mode,
             demand_calendar_days=demand_horizon_days,
+            progress_callback=progress_callback,
         )
         return _serialize_value(result)
 
@@ -188,11 +194,26 @@ class GuiAppService:
         demand_horizon_days: int = 15,
     ) -> None:
         run_state = self.runs[run_id]
+        start_mono = run_state.pop("_start_mono", time.monotonic())
+
+        def on_progress(step_key: str, step_label: str, step_index: int, step_count: int) -> None:
+            elapsed_ms = int((time.monotonic() - start_mono) * 1000)
+            progress_pct = round((step_index + 1) / step_count * 100) if step_count > 0 else 0
+            run_state.update({
+                "step_key": step_key,
+                "step_label": step_label,
+                "step_index": step_index,
+                "step_count": step_count,
+                "progress_percent": progress_pct,
+                "elapsed_ms": elapsed_ms,
+            })
+
         try:
             result = self._execute_schedule(
                 immediate_components=immediate_components,
                 blocking_components_mode=blocking_components_mode,
                 demand_horizon_days=demand_horizon_days,
+                progress_callback=on_progress,
             )
             run_state.update(
                 {
@@ -343,3 +364,143 @@ class GuiAppService:
             remove_daily_override(config, poste, key)
         save_capacity_config(self._config_dir, config)
         return {"status": "ok"}
+
+    # ── Analyse de Rupture ──────────────────────────────────────────
+
+    def analyser_rupture(
+        self,
+        component_code: str,
+        include_previsions: bool = False,
+        include_receptions: bool = False,
+        use_pool: bool = True,
+        merge_branches: bool = True,
+        include_sf: bool = True,
+        include_pf: bool = False,
+    ) -> dict[str, Any]:
+        """Analyse l'impact d'une rupture composant."""
+        if self.loader is None:
+            raise RuntimeError("Aucune donnee chargee. Appelez load_data avant analyser_rupture.")
+
+        from ..checkers.analyse_rupture import AnalyseRuptureService
+
+        # Reconstruire le service si le loader a change
+        if self._analyse_rupture_service is None:
+            self._analyse_rupture_service = AnalyseRuptureService(self.loader)
+
+        result = self._analyse_rupture_service.analyze(
+            component_code,
+            include_previsions=include_previsions,
+            include_receptions=include_receptions,
+            use_pool=use_pool,
+            merge_branches=merge_branches,
+            include_sf=include_sf,
+            include_pf=include_pf,
+        )
+        return _serialize_value(result)
+
+    # ── Feasibility ──────────────────────────────────────────────────
+
+    def feasibility_check(
+        self,
+        article: str,
+        quantity: int,
+        desired_date: str,
+        use_receptions: bool = True,
+        check_capacity: bool = True,
+        depth_mode: str = "full",
+    ) -> dict[str, Any]:
+        """Analyse de faisabilite pour un article a une date donnee."""
+        if self.loader is None:
+            raise RuntimeError("Aucune donnee chargee.")
+
+        from ..checkers.feasibility import FeasibilityService
+        from ..scheduler.capacity_config import load_capacity_config
+
+        calendar_cfg = self._get_calendar_config()
+        capacity_cfg = load_capacity_config(self._config_dir)
+
+        service = FeasibilityService(self.loader, calendar_cfg, capacity_cfg)
+        result = service.check(
+            article, quantity, date.fromisoformat(desired_date),
+            use_receptions=use_receptions,
+            check_capacity=check_capacity,
+            depth_mode=depth_mode,
+        )
+        return _serialize_value(result)
+
+    def feasibility_promise_date(
+        self,
+        article: str,
+        quantity: int,
+        max_horizon_days: int = 60,
+    ) -> dict[str, Any]:
+        """Trouve la date la plus tot pour un article+quantite."""
+        if self.loader is None:
+            raise RuntimeError("Aucune donnee chargee.")
+
+        from ..checkers.feasibility import FeasibilityService
+        from ..scheduler.capacity_config import load_capacity_config
+
+        calendar_cfg = self._get_calendar_config()
+        capacity_cfg = load_capacity_config(self._config_dir)
+
+        service = FeasibilityService(self.loader, calendar_cfg, capacity_cfg)
+        result = service.promise_date(article, quantity, max_horizon_days=max_horizon_days)
+        return _serialize_value(result)
+
+    def feasibility_reschedule(
+        self,
+        num_commande: str,
+        article: str,
+        new_date: str,
+        new_quantity: Optional[int] = None,
+        depth_mode: str = "full",
+        use_receptions: bool = True,
+    ) -> dict[str, Any]:
+        """Simule le deplacement d'une commande et analyse les impacts."""
+        if self.loader is None:
+            raise RuntimeError("Aucune donnee chargee.")
+
+        from ..checkers.feasibility import FeasibilityService
+        from ..scheduler.capacity_config import load_capacity_config
+
+        calendar_cfg = self._get_calendar_config()
+        capacity_cfg = load_capacity_config(self._config_dir)
+
+        service = FeasibilityService(self.loader, calendar_cfg, capacity_cfg)
+        result = service.reschedule(
+            num_commande, article, date.fromisoformat(new_date),
+            new_quantity=new_quantity,
+            depth_mode=depth_mode,
+            use_receptions=use_receptions,
+        )
+        return _serialize_value(result)
+
+    def feasibility_search_articles(self, query: str, limit: int = 20) -> list[dict]:
+        """Recherche d'articles pour autocomplete."""
+        if self.loader is None:
+            raise RuntimeError("Aucune donnee chargee.")
+
+        from ..checkers.feasibility import FeasibilityService
+
+        service = FeasibilityService(self.loader)
+        return service.search_articles(query, limit)
+
+    def feasibility_search_orders(self, query: str, limit: int = 30) -> list[dict]:
+        """Recherche de commandes par num_commande ou article."""
+        if self.loader is None:
+            raise RuntimeError("Aucune donnee chargee.")
+
+        from ..checkers.feasibility import FeasibilityService
+
+        service = FeasibilityService(self.loader)
+        return service.search_orders(query, limit)
+
+    def _get_calendar_config(self):
+        """Load calendar config for the current year."""
+        from ..scheduler.calendar_config import load_calendar_config
+        from ..scheduler.holidays import ensure_holidays_in_calendar
+        year = date.today().year
+        config = load_calendar_config(self._config_dir, year)
+        config = ensure_holidays_in_calendar(self._config_dir, config)
+        return config
