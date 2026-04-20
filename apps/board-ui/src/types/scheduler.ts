@@ -73,6 +73,7 @@ export interface ReceptionLinkedOF {
   line: string
   scheduled_day: string | null
   blocked: boolean
+  blocking_components: string
 }
 
 export interface ReceptionRow {

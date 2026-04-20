@@ -161,8 +161,15 @@ export function ExpectedComponents({ rows }: ExpectedComponentsProps) {
                       )}
                       {of.blocked ? (
                         <Pill tone="danger">Bloqué</Pill>
+                      ) : of.blocking_components ? (
+                        <Pill tone="warn">Planifié</Pill>
                       ) : (
                         <Pill tone="good">OK</Pill>
+                      )}
+                      {of.blocked && of.blocking_components && (
+                        <span className="text-[10px] text-destructive font-mono truncate" title={of.blocking_components}>
+                          {of.blocking_components}
+                        </span>
                       )}
                     </div>
                   ))}

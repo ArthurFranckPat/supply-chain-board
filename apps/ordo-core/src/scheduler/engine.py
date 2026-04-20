@@ -710,6 +710,20 @@ def _compute_open_rate(day_plans: dict[str, list[DaySchedule]], line_capacities:
     return (planned_hours / available_hours) if available_hours else 0.0
 
 
+def _is_reception_article_blocking(blocking_components: str, reception_article: str) -> bool:
+    """Retourne True si l'article de la réception est un des composants bloquants de l'OF.
+
+    Le format de blocking_components est "ARTICLE1 xQTY, ARTICLE2 xQTY".
+    """
+    if not blocking_components:
+        return False
+    for part in blocking_components.split(","):
+        code = part.strip().split(" x")[0].strip()
+        if code == reception_article:
+            return True
+    return False
+
+
 def _build_reception_rows(loader, reference_date: date, horizon_end: date, all_assignments: list[CandidateOF]) -> list[dict[str, object]]:
     """Construit les lignes de réceptions attendues, liées aux OF planifiés qui les nécessitent.
 
@@ -744,12 +758,14 @@ def _build_reception_rows(loader, reference_date: date, horizon_end: date, all_a
         linked_ofs: list[dict[str, object]] = []
         for parent in sorted(parents):
             for of_ in parent_to_ofs.get(parent, []):
+                is_blocked = _is_reception_article_blocking(of_.blocking_components, rec.article)
                 linked_ofs.append({
                     "num_of": of_.num_of,
                     "article": of_.article,
                     "line": of_.line,
                     "scheduled_day": of_.scheduled_day.isoformat() if of_.scheduled_day else None,
-                    "blocked": bool(of_.blocking_components),
+                    "blocked": is_blocked,
+                    "blocking_components": of_.blocking_components,
                 })
 
         rows.append({
