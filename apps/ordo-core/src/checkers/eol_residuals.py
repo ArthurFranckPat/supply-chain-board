@@ -131,13 +131,10 @@ class EolResidualsService:
     def _find_target_pfs(
         self, familles: list[str], prefixes: list[str]
     ) -> list:
-        """Find PF articles matching familles/prefixes."""
+        """Find FAB articles matching familles/prefixes (potential finished products)."""
         target_pfs = []
         for article in self.loader.articles.values():
             if not article.is_fabrication():
-                continue
-            # Only consider actual PF (produit fini), not intermediate FAB components
-            if getattr(article, "categorie", "") != "PF":
                 continue
             famille = getattr(article, "famille_produit", None) or ""
             code = article.code or ""
@@ -152,15 +149,19 @@ class EolResidualsService:
     def _find_outside_pfs(
         self, familles: list[str], prefixes: list[str]
     ) -> set:
-        """Find PF articles NOT in target perimeter."""
+        """Find FAB articles with a famille_produit that is NOT in target perimeter.
+
+        Only includes articles that have a real family assignment (i.e. finished products),
+        not intermediate FAB components that happen to be FAB but have no famille_produit.
+        """
         outside = set()
         for article in self.loader.articles.values():
             if not article.is_fabrication():
                 continue
-            # Only consider actual PF (produit fini), not intermediate FAB components
-            if getattr(article, "categorie", "") != "PF":
-                continue
             famille = getattr(article, "famille_produit", None) or ""
+            # Skip articles without a famille_produit (intermediate FAB components)
+            if not famille:
+                continue
             code = article.code or ""
 
             matches_famille = famille in familles
@@ -223,32 +224,14 @@ class EolResidualsService:
         """Keep only components not used by any PF outside target perimeter.
 
         A component is unique if used by at least one target PF and by no outside PFs.
+        Intermediate FAB components in the parent_chain are NOT considered PFs
+        for the exclusion check — only direct usage by outside PFs matters.
         """
-        target_pf_codes = {pf.code for pf in target_pfs}
-
         filtered = {}
         for comp_code, info in raw_components.items():
-            parent_chain = info.get("parent_chain", set())
-
-            # If parent_chain is empty, check direct nomenclature lookup for backwards compat
-            if not parent_chain:
-                is_outside = self._is_component_used_by_outside(comp_code, outside_pfs)
-                if not is_outside:
-                    filtered[comp_code] = info
-                continue
-
-            # Only PF ancestors matter for the uniqueness check (not intermediate FAB components)
-            pf_ancestors = parent_chain & target_pf_codes
-            pf_ancestors_outside = parent_chain & outside_pfs
-
-            if pf_ancestors_outside:
-                # Some PF ancestor is outside the perimeter → component is not unique
-                continue
-
-            # Also check directly if any outside PF uses this component
+            # Exclude if any outside PF directly uses this component
             if self._is_component_used_by_outside(comp_code, outside_pfs):
                 continue
-
             filtered[comp_code] = info
 
         return filtered
