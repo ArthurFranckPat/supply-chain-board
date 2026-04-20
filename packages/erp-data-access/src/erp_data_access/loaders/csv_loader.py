@@ -8,7 +8,9 @@ import io
 import os
 import re
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
+from typing import Callable
 
 import pandas as pd
 
@@ -231,15 +233,43 @@ class CSVLoader:
         return [parse_allocation(row.to_dict()) for _, row in df.iterrows()]
 
     def load_all(self) -> LoadResult:
-        """Charge tous les fichiers ERP et retourne un LoadResult nomme."""
+        """Charge tous les fichiers ERP et retourne un LoadResult nomme.
+
+        Utilise le chargement parallele pour optimiser les performances.
+        """
+        # Define loaders with their names for parallel execution
+        loaders: dict[str, Callable] = {
+            "articles": self.load_articles,
+            "nomenclatures": self.load_nomenclatures,
+            "gammes": self.load_gammes,
+            "ofs": self.load_of_entetes,
+            "stocks": self.load_stock,
+            "receptions": self.load_receptions,
+            "commandes_clients": self.load_commandes_clients,
+        }
+
+        results: dict[str, any] = {}
+
+        # Execute loaders in parallel using thread pool
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            future_to_name = {
+                executor.submit(loader): name for name, loader in loaders.items()
+            }
+            for future in as_completed(future_to_name):
+                name = future_to_name[future]
+                try:
+                    results[name] = future.result()
+                except Exception as exc:
+                    raise RuntimeError(f"Failed to load {name}: {exc}") from exc
+
         return LoadResult(
-            articles=self.load_articles(),
-            nomenclatures=self.load_nomenclatures(),
-            gammes=self.load_gammes(),
-            ofs=self.load_of_entetes(),
-            stocks=self.load_stock(),
-            receptions=self.load_receptions(),
-            commandes_clients=self.load_commandes_clients(),
+            articles=results["articles"],
+            nomenclatures=results["nomenclatures"],
+            gammes=results["gammes"],
+            ofs=results["ofs"],
+            stocks=results["stocks"],
+            receptions=results["receptions"],
+            commandes_clients=results["commandes_clients"],
         )
 
 

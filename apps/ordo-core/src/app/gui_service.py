@@ -523,3 +523,26 @@ class GuiAppService:
         config = load_calendar_config(self._config_dir, year)
         config = ensure_holidays_in_calendar(self._config_dir, config)
         return config
+
+    # ── EOL Residual Stock ──────────────────────────────────────────
+
+    def eol_residuals_analyze(
+        self,
+        familles: list[str],
+        prefixes: list[str],
+        bom_depth_mode: str = "full",
+        stock_mode: str = "physical",
+    ) -> dict[str, Any]:
+        if self.loader is None:
+            raise RuntimeError("Aucune donnee chargee. Appelez load_data avant eol_residuals_analyze.")
+
+        from ..services.eol_residuals import EolResidualsService
+
+        service = EolResidualsService(self.loader)
+        result = service.analyze(
+            familles=familles,
+            prefixes=prefixes,
+            bom_depth_mode=bom_depth_mode,
+            stock_mode=stock_mode,
+        )
+        return _serialize_value(result)
