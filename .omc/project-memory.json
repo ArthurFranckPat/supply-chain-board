@@ -81,6 +81,13 @@
       "keyFiles": []
     }
   },
-  "hotPaths": [],
+  "hotPaths": [
+    {
+      "path": "benchmark_loading.py",
+      "accessCount": 3,
+      "lastAccessed": 1776714721366,
+      "type": "file"
+    }
+  ],
   "userDirectives": []
 }

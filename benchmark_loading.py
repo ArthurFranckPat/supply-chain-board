@@ -12,16 +12,24 @@ sys.path.insert(0, str(Path(__file__).parent / "apps" / "ordo-core" / "src"))
 from erp_data_access.loaders.data_loader import DataLoader
 
 def benchmark_loading():
-    """Mesure le temps de chargement complet des données."""
+    """Mesure le temps de chargement complet des données ERP.
+
+    Requires ORDO_EXTRACTIONS_DIR env var or extractions in default path.
+    """
     import os
-    # Use local test data for consistent benchmarks
-    script_dir = Path(__file__).parent
-    extractions_dir = script_dir / "data" / "test_extractions"
+
+    # Use environment variable if set, otherwise use default OneDrive path
+    extractions_dir = os.environ.get("ORDO_EXTRACTIONS_DIR")
+    if extractions_dir:
+        extractions_path = Path(extractions_dir)
+    else:
+        # Default OneDrive path
+        extractions_path = Path("/Users/arthurbledou/Library/CloudStorage/OneDrive-AldesAeraulique/Données/Extractions")
 
     start = time.perf_counter()
 
     try:
-        loader = DataLoader.from_extractions(extractions_dir)
+        loader = DataLoader.from_extractions(extractions_path)
         loader.load_all()
     except FileNotFoundError as e:
         print(f"ERREUR: {e}", file=sys.stderr)
