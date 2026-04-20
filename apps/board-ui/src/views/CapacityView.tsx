@@ -4,6 +4,7 @@ import { useCapacityConfig } from '@/hooks/useCapacityConfig'
 import { MonthGrid } from '@/components/capacity/MonthGrid'
 import { WeeklyCapacityGrid } from '@/components/capacity/WeeklyCapacityGrid'
 import { Segmented } from '@/components/ui/segmented'
+import { LoadingInline, LoadingError } from '@/components/ui/loading'
 import { Card, CardContent } from '@/components/ui/card'
 import { CalendarDays, Gauge } from 'lucide-react'
 import type { DetailItem } from '@/types/api'
@@ -45,14 +46,13 @@ export function CapacityView({ onInspect: _onInspect }: CapacityViewProps) {
         <Card>
           <CardContent className="p-5">
             {calendar.isLoading && (
-              <div className="py-12 text-center text-sm text-muted-foreground">
-                Chargement du calendrier...
-              </div>
+              <LoadingInline label="du calendrier" />
             )}
             {calendar.error && (
-              <div className="py-12 text-center text-sm text-destructive">
-                Erreur : {(calendar.error as Error).message || 'Impossible de charger le calendrier'}
-              </div>
+              <LoadingError
+                message={`Impossible de charger le calendrier : ${(calendar.error as Error).message}`}
+                onRetry={() => calendar.refetch()}
+              />
             )}
             {calendar.data && (
               <MonthGrid
@@ -76,14 +76,13 @@ export function CapacityView({ onInspect: _onInspect }: CapacityViewProps) {
         <Card>
           <CardContent className="p-5">
             {capacity.isLoading && (
-              <div className="py-12 text-center text-sm text-muted-foreground">
-                Chargement des capacites...
-              </div>
+              <LoadingInline label="des capacités" />
             )}
             {capacity.error && (
-              <div className="py-12 text-center text-sm text-destructive">
-                Erreur : {(capacity.error as Error).message || 'Impossible de charger les capacites'}
-              </div>
+              <LoadingError
+                message={`Impossible de charger les capacités : ${(capacity.error as Error).message}`}
+                onRetry={() => capacity.refetch()}
+              />
             )}
             {capacity.data && (
               <WeeklyCapacityGrid

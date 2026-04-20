@@ -94,10 +94,17 @@ export type RunKind = 's1' | 'schedule'
 
 export interface RunState {
   run_id: string
-  status: string
+  status: 'running' | 'completed' | 'failed'
   created_at: string
   completed_at?: string
   kind: RunKind
+  // Progress fields (only when status === 'running')
+  step_key?: string
+  step_label?: string
+  step_index?: number
+  step_count?: number
+  progress_percent?: number
+  elapsed_ms?: number
   result?: Record<string, unknown>
   error?: string
 }

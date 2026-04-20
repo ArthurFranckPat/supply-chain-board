@@ -16,7 +16,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 from ..algorithms.charge_calculator import calculate_article_charge, get_poste_libelle, POSTE_CHARGE_REGEX
 from ..algorithms.allocation import StockState
@@ -65,13 +65,29 @@ def run_schedule(
     blocking_components_mode: str = "blocked",
     calendar_config: Optional[CalendarConfig] = None,
     capacity_config: Optional[CapacityConfig] = None,
+    progress_callback: Optional[Callable[[str, str, int, int], None]] = None,
 ) -> SchedulerResult:
-    """Run the AUTORESEARCH bootstrap scheduler."""
+    """Run the AUTORESEARCH bootstrap scheduler.
+
+    Args:
+        progress_callback: Optional callback invoked at each phase boundary.
+            Signature: (step_key, step_label, step_index, step_count).
+            Exceptions are silently caught to not interrupt scheduling.
+    """
+
+    def _progress(step_key: str, step_label: str, step_index: int, step_count: int) -> None:
+        if progress_callback is not None:
+            try:
+                progress_callback(step_key, step_label, step_index, step_count)
+            except Exception:
+                pass
+
     if blocking_components_mode not in {"blocked", "direct", "both"}:
         raise ValueError(f"Invalid blocking_components_mode={blocking_components_mode}")
 
     reference_date = reference_date or date.today()
     weights = load_weights(weights_path)
+    _progress("loading_data", "Chargement des données ERP", 0, 7)
 
     # Load calendar & capacity configs when available
     config_dir = str(Path(weights_path).parent)
@@ -90,16 +106,19 @@ def run_schedule(
     workdays = config_build_workdays(reference_date, planning_workdays, calendar_config)
     demand_horizon_end = reference_date + timedelta(days=demand_calendar_days)
     target_lines = _build_target_line_articles(loader, lines_config)
-    
+    _progress("loading_capacity", "Chargement des capacités", 1, 7)
+
     checker = RecursiveChecker(loader, use_receptions=not immediate_components)
     material_state = build_material_stock_state(loader)
     receptions_by_day = build_receptions_by_day(loader)
+    _progress("preparing_data", "Préparation des données", 2, 7)
 
     candidates, matching_alerts, matching_results = _select_candidates_from_matching(
         loader=loader,
         planning_workdays=workdays,
         target_lines=target_lines,
     )
+    _progress("resolving_constraints", "Résolution des contraintes", 3, 7)
 
     # Calcul de la charge brute cible par ligne en se basant sur les candidats réels
     # Cela inclut les commandes fermes, prévisions (si NOR) et les tampons BDH
@@ -205,6 +224,7 @@ def run_schedule(
             c.target_day = workdays[i % n_days]
 
     schedulers = {line: GenericLineScheduler(line, capacity_hours=line_capacities[line], min_open_hours=line_min_open[line]) for line in target_lines.keys()}
+    _progress("computing_schedule", "Calcul du planning", 4, 7)
 
     for day_idx, day in enumerate(workdays):
         if not immediate_components:
@@ -243,6 +263,7 @@ def run_schedule(
                 }
             )
 
+    _progress("generating_reports", "Génération des rapports", 5, 7)
     plannings = {
         line: [assignment for plan in day_plans[line] for assignment in plan.assignments]
         for line in target_lines.keys()
@@ -327,6 +348,7 @@ def run_schedule(
 
     # Build reception rows (expected component deliveries)
     reception_rows = _build_reception_rows(loader, reference_date, demand_horizon_end, all_assignments)
+    _progress("finalizing", "Finalisation", 6, 7)
 
     result = SchedulerResult(
         score=round(score, 3),

@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { LoadingEmpty } from '@/components/ui/loading'
 import {
   Table,
   TableBody,
@@ -36,12 +37,10 @@ export function ActionsView({ data, onInspect }: ActionsViewProps) {
 
   if (!data) {
     return (
-      <Card>
-        <CardContent className="py-12 text-center text-muted-foreground">
-          <p className="font-semibold">Aucune action appro disponible</p>
-          <p className="text-sm">Lancez un run S+1 d'abord.</p>
-        </CardContent>
-      </Card>
+      <LoadingEmpty
+        message="Aucune action appro disponible. Lancez un run S+1 d'abord."
+        action={{ label: 'Aller au Scheduler', onClick: () => {} }}
+      />
     )
   }
 
