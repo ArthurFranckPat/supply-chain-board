@@ -193,8 +193,11 @@ class CSVLoader:
     def load_articles(self) -> dict[str, "Article"]:
         df = self._load_csv("articles.csv")
         articles = {}
-        for _, row in df.iterrows():
-            article = parse_article(row.to_dict())
+        # Use itertuples with name=None for faster iteration
+        cols = list(df.columns)
+        for row in df.itertuples(index=False, name=None):
+            row_dict = dict(zip(cols, row))
+            article = parse_article(row_dict)
             articles[article.code] = article
         return articles
 
@@ -210,8 +213,10 @@ class CSVLoader:
     def load_gammes(self) -> dict[str, Gamme]:
         df = self._load_csv("gammes.csv")
         gammes_dict = defaultdict(list)
-        for _, row in df.iterrows():
-            op = parse_gamme_operation(row.to_dict())
+        cols = list(df.columns)
+        for row in df.itertuples(index=False, name=None):
+            row_dict = dict(zip(cols, row))
+            op = parse_gamme_operation(row_dict)
             gammes_dict[op.article].append(op)
         return {
             article: Gamme(article=article, operations=ops)
@@ -220,26 +225,32 @@ class CSVLoader:
 
     def load_of_entetes(self) -> list["OF"]:
         df = self._load_csv("of_entetes.csv")
-        return [parse_of(row.to_dict()) for _, row in df.iterrows()]
+        cols = list(df.columns)
+        return [parse_of(dict(zip(cols, row))) for row in df.itertuples(index=False, name=None)]
 
     def load_stock(self) -> dict[str, "Stock"]:
         df = self._load_csv("stock.csv")
         stocks = {}
-        for _, row in df.iterrows():
-            stock = parse_stock(row.to_dict())
+        cols = list(df.columns)
+        for row in df.itertuples(index=False, name=None):
+            row_dict = dict(zip(cols, row))
+            stock = parse_stock(row_dict)
             stocks[stock.article] = stock
         return stocks
 
     def load_receptions(self) -> list["Reception"]:
         df = self._load_csv("receptions_oa.csv")
-        return [parse_reception(row.to_dict()) for _, row in df.iterrows()]
+        cols = list(df.columns)
+        return [parse_reception(dict(zip(cols, row))) for row in df.itertuples(index=False, name=None)]
 
     def load_commandes_clients(self) -> list["BesoinClient"]:
         df = self._load_csv("besoins_clients.csv")
         besoins = []
-        for idx, row in df.iterrows():
+        cols = list(df.columns)
+        for idx, row in enumerate(df.itertuples(index=False, name=None)):
             try:
-                besoin = parse_besoin_client(row.to_dict())
+                row_dict = dict(zip(cols, row))
+                besoin = parse_besoin_client(row_dict)
                 if besoin.article:
                     besoins.append(besoin)
             except Exception as exc:  # pragma: no cover
@@ -248,7 +259,8 @@ class CSVLoader:
 
     def load_allocations(self) -> list["OFAllocation"]:
         df = self._load_csv("allocations.csv")
-        return [parse_allocation(row.to_dict()) for _, row in df.iterrows()]
+        cols = list(df.columns)
+        return [parse_allocation(dict(zip(cols, row))) for row in df.itertuples(index=False, name=None)]
 
     def load_all(self) -> LoadResult:
         """Charge tous les fichiers ERP et retourne un LoadResult nomme."""
