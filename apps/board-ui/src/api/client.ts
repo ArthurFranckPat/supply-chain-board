@@ -2,6 +2,7 @@ import type { DataSource, RunState } from '@/types/api'
 import type { MonthCalendar, CapacityConfigResponse } from '@/types/capacity'
 import type { AnalyseRuptureResponse } from '@/types/analyse-rupture'
 import type { FeasibilityResponse, ArticleSearchResult, OrderSearchResult } from '@/types/feasibility'
+import type { EolResidualsResponse } from '@/types/eol-residuals'
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') ?? 'http://127.0.0.1:8000'
@@ -146,6 +147,21 @@ export const apiClient = {
         include_sf: options?.include_sf ?? true,
         include_pf: options?.include_pf ?? false,
       }),
+    })
+  },
+
+  // ── EOL Residual Stock Analysis ────────────────────────────────
+  eolResidualsAnalysis(data: {
+    familles?: string[]
+    prefixes?: string[]
+    bom_depth_mode?: string
+    stock_mode?: string
+    component_types?: string
+    projection_date?: string
+  }) {
+    return request<EolResidualsResponse>('/api/v1/eol-residuals', {
+      method: 'POST',
+      body: JSON.stringify(data),
     })
   },
 

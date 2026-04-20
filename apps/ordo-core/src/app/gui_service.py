@@ -58,6 +58,7 @@ class GuiAppService:
         self.loaded_source: Optional[dict[str, Any]] = None
         self.runs: dict[str, dict[str, Any]] = {}
         self._analyse_rupture_service: Optional[Any] = None
+        self._eol_residuals_service: Optional[Any] = None
         try:
             from ..scheduler.db_schedule import init_db
             init_db()
@@ -94,6 +95,7 @@ class GuiAppService:
         loader.load_all()
         self.loader = loader
         self._analyse_rupture_service = None  # Invalider le service d'analyse de rupture
+        self._eol_residuals_service = None  # Invalider le service EOL residuels
         self.loaded_source = {
             "source": "extractions",
             "extractions_dir": target_dir,
@@ -414,6 +416,40 @@ class GuiAppService:
             merge_branches=merge_branches,
             include_sf=include_sf,
             include_pf=include_pf,
+        )
+        return _serialize_value(result)
+
+    # ── EOL Residual Stock Analysis ────────────────────────────────
+
+    def eol_residuals_analyze(
+        self,
+        familles: list[str],
+        prefixes: list[str],
+        bom_depth_mode: str = "full",
+        stock_mode: str = "physical",
+        component_types: str = "achat_fabrication",
+        projection_date: Optional[str] = None,
+    ) -> dict[str, Any]:
+        """Analyse residual stock for EOL product families."""
+        if self.loader is None:
+            raise RuntimeError("Aucune donnee chargee. Appelez load_data avant eol_residuals_analyze.")
+
+        from ..checkers.eol_residuals import EolResidualsService
+
+        if self._eol_residuals_service is None:
+            self._eol_residuals_service = EolResidualsService(self.loader)
+
+        parsed_projection_date = None
+        if projection_date and stock_mode == "projected":
+            parsed_projection_date = date.fromisoformat(projection_date)
+
+        result = self._eol_residuals_service.analyze(
+            familles=familles,
+            prefixes=prefixes,
+            bom_depth_mode=bom_depth_mode,
+            stock_mode=stock_mode,
+            component_types=component_types,
+            projection_date=parsed_projection_date,
         )
         return _serialize_value(result)
 

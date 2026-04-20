@@ -58,6 +58,15 @@ class AnalyseRuptureRequest(BaseModel):
     include_pf: bool = False
 
 
+class EolResidualsRequest(BaseModel):
+    familles: list[str] = Field(default_factory=list)
+    prefixes: list[str] = Field(default_factory=list)
+    bom_depth_mode: str = Field(default="full", pattern="^(level1|full)$")
+    stock_mode: str = Field(default="physical", pattern="^(physical|net_releaseable|projected)$")
+    component_types: str = Field(default="achat_fabrication")
+    projection_date: Optional[str] = None
+
+
 class FeasibilityCheckRequest(BaseModel):
     article: str
     quantity: int = Field(gt=0)
@@ -205,6 +214,24 @@ def create_app(service: Optional[GuiAppService] = None) -> FastAPI:
                 merge_branches=payload.merge_branches,
                 include_sf=payload.include_sf,
                 include_pf=payload.include_pf,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except RuntimeError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    # ── EOL Residual Stock Analysis ─────────────────────────────────
+
+    @app.post("/api/v1/eol-residuals")
+    def eol_residuals(payload: EolResidualsRequest) -> dict:
+        try:
+            return app.state.gui_service.eol_residuals_analyze(
+                familles=payload.familles,
+                prefixes=payload.prefixes,
+                bom_depth_mode=payload.bom_depth_mode,
+                stock_mode=payload.stock_mode,
+                component_types=payload.component_types,
+                projection_date=payload.projection_date,
             )
         except ValueError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
