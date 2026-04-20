@@ -1,7 +1,13 @@
 import type { DataSource, RunState } from '@/types/api'
+import type { MonthCalendar, CapacityConfigResponse } from '@/types/capacity'
+import type { AnalyseRuptureResponse } from '@/types/analyse-rupture'
+import type { FeasibilityResponse, ArticleSearchResult, OrderSearchResult } from '@/types/feasibility'
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') ?? 'http://127.0.0.1:8000'
+
+const DEFAULT_EXTRACTIONS_DIR =
+  import.meta.env.VITE_EXTRACTIONS_DIR ?? null
 
 export class ApiError extends Error {
   status: number
@@ -48,18 +54,7 @@ export const apiClient = {
   loadData(source: DataSource, extractionsDir?: string) {
     return request<Record<string, unknown>>('/data/load', {
       method: 'POST',
-      body: JSON.stringify({ source, extractions_dir: extractionsDir ?? null }),
-    })
-  },
-
-  runS1(payload: {
-    horizon: number
-    include_previsions: boolean
-    feasibility_mode: string
-  }) {
-    return request<RunState>('/runs/s1', {
-      method: 'POST',
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ source, extractions_dir: extractionsDir ?? DEFAULT_EXTRACTIONS_DIR }),
     })
   },
 
@@ -80,5 +75,107 @@ export const apiClient = {
 
   listReports() {
     return request<Record<string, unknown>[]>('/reports/files')
+  },
+
+  // ── Calendar ────────────────────────────────────────────────
+  getCalendar(year: number, month: number) {
+    return request<MonthCalendar>(`/calendar/${year}/${month}`)
+  },
+
+  updateManualOffDays(data: {
+    year: number
+    additions: Array<{ date: string; reason?: string }>
+    removals: string[]
+  }) {
+    return request<{ status: string; manual_off_count: number }>('/calendar/manual-off', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  },
+
+  refreshHolidays(year: number) {
+    return request<{ status: string; holidays_count: number }>('/calendar/holidays/refresh', {
+      method: 'POST',
+      body: JSON.stringify({ year }),
+    })
+  },
+
+  // ── Capacity ────────────────────────────────────────────────
+  getCapacityConfig() {
+    return request<CapacityConfigResponse>('/capacity')
+  },
+
+  updatePosteConfig(data: { poste: string; default_hours: number; shift_pattern: string; label?: string }) {
+    return request<{ status: string }>('/capacity/poste', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  },
+
+  setCapacityOverride(data: { poste: string; key: string; hours?: number; reason: string; pattern?: Record<string, number> }) {
+    return request<{ status: string }>('/capacity/override', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  },
+
+  removeCapacityOverride(data: { poste: string; key: string }) {
+    return request<{ status: string }>('/capacity/override', {
+      method: 'DELETE',
+      body: JSON.stringify({ poste: data.poste, key: data.key, hours: 0, reason: '' }),
+    })
+  },
+
+  // ── Analyse de Rupture ────────────────────────────────────────
+  analyserRupture(componentCode: string, options?: {
+    include_previsions?: boolean
+    include_receptions?: boolean
+    use_pool?: boolean
+    merge_branches?: boolean
+    include_sf?: boolean
+    include_pf?: boolean
+  }) {
+    return request<AnalyseRuptureResponse>('/api/v1/analyse-rupture', {
+      method: 'POST',
+      body: JSON.stringify({
+        component_code: componentCode,
+        include_previsions: options?.include_previsions ?? false,
+        include_receptions: options?.include_receptions ?? false,
+        use_pool: options?.use_pool ?? true,
+        merge_branches: options?.merge_branches ?? true,
+        include_sf: options?.include_sf ?? true,
+        include_pf: options?.include_pf ?? false,
+      }),
+    })
+  },
+
+  // ── Feasibility ──────────────────────────────────────────────
+  checkFeasibility(data: { article: string; quantity: number; desired_date: string; use_receptions?: boolean; check_capacity?: boolean; depth_mode?: string }) {
+    return request<FeasibilityResponse>('/api/v1/feasibility/check', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  },
+
+  findPromiseDate(data: { article: string; quantity: number; max_horizon_days?: number }) {
+    return request<FeasibilityResponse>('/api/v1/feasibility/promise-date', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  },
+
+  simulateReschedule(data: { num_commande: string; article: string; new_date: string; new_quantity?: number; depth_mode?: string; use_receptions?: boolean }) {
+    return request<FeasibilityResponse>('/api/v1/feasibility/reschedule', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  },
+
+  searchArticles(query: string, limit?: number) {
+    return request<{ articles: ArticleSearchResult[] }>(`/api/v1/feasibility/articles?q=${encodeURIComponent(query)}&limit=${limit ?? 20}`)
+  },
+
+  searchOrders(query: string, limit?: number) {
+    return request<{ orders: OrderSearchResult[] }>(`/api/v1/feasibility/orders?q=${encodeURIComponent(query)}&limit=${limit ?? 30}`)
   },
 }

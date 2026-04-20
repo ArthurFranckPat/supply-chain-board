@@ -2,36 +2,18 @@
 
 ---
 
-## 🚀 Exécution principale
+## 🚀 Execution principale
 
-### Vérification standard (S+1)
+### Lancer l'API
 ```bash
-python -m src.main --data-dir data --s1
+cd apps/ordo-core
+uvicorn src.api.server:app --reload --port 8000
 ```
 
-### Vérification S+1 avec horizon personnalisé
+### Charger les donnees et lancer le scheduler
 ```bash
-python -m src.main --data-dir data --s1 --horizon 14
-```
-
-### Vérification S+1 avec prévisions Export
-```bash
-python -m src.main --data-dir data --s1 --with-previsions
-```
-
-### Vérification sans allocation virtuelle
-```bash
-python -m src.main --data-dir data --s1 --no-virtual-allocation
-```
-
-### Vérification d'un OF spécifique
-```bash
-python -m src.main --data-dir data --of F426-08419 --detailed
-```
-
-### Vérification d'une commande client
-```bash
-python -m src.main --data-dir data --commande AR2600885 --detailed
+curl -X POST http://127.0.0.1:8000/data/load
+curl -X POST http://127.0.0.1:8000/runs/schedule
 ```
 
 ---

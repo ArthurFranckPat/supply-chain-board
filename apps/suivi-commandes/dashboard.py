@@ -7,7 +7,7 @@ import plotly.graph_objects as go
 import streamlit as st
 import streamlit.components.v1 as components
 
-from data_loader import load_data
+from data_loader import load_data, load_data_from_erp
 from db_comments import init_db, load_all_comments, batch_upsert
 from status_logic import assign_statuses, build_line_level_frame
 from ui_components import (
@@ -31,7 +31,7 @@ inject_app_styles()
 
 @st.cache_data
 def load_cached_data() -> pd.DataFrame:
-    return load_data()
+    return load_data_from_erp()
 
 
 def build_sidebar_filters(df: pd.DataFrame) -> dict[str, object]:

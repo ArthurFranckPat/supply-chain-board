@@ -14,11 +14,11 @@ Vérification récursive de la faisabilité des Ordres de Fabrication par analys
 
 | Fichier | Colonnes utilisées |
 |---------|-------------------|
-| `nomenclatures.csv` | Article parent, Niveau, Article composant, Qté lien, Type article |
-| `stock.csv` | ARTICLE, STOCK_PHYSIQUE, STOCK_ALLOUE, STOCK_BLOQUE |
-| `receptions_oa.csv` | ARTICLE, QUANTITE_RESTANTE, DATE_RECEPTION_PREVUE |
-| `articles.csv` | ARTICLE, TYPE_APPRO |
-| `of_entetes.csv` | NUM_OF, ARTICLE, DATE_FIN, QTE_RESTANTE, STATUT_NUM_OF |
+| `Nomenclatures.csv` | ARTICLE_PARENT, NIVEAU, ARTICLE_COMPOSANT, QTE_LIEN, TYPE_ARTICLE |
+| `Stocks.csv` | ARTICLE, STOCK_PHYSIQUE, STOCK_ALLOUE, STOCK_BLOQUE |
+| `Commandes Achats.csv` | ARTICLE, QUANTITE_RESTANTE, DATE_RECEPTION_PREVUE |
+| `Articles.csv` | ARTICLE, TYPE_APPRO |
+| `Ordres de fabrication.csv` | NUM_ORDRE, ARTICLE, DATE_DEBUT, DATE_FIN, QTE_RESTANTE_LIVRAISON, STATUT_ORDRE |
 
 **Paramètres :**
 - `--of` : numéro(s) d'OF à vérifier (ex: `F426-08419` ou `F426-08419,F426-08164`)

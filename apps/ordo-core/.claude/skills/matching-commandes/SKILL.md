@@ -14,29 +14,31 @@ Matching des commandes NOR/MTO (FLAG=1) avec les Ordres de Fabrication disponibl
 
 | Fichier | Colonnes utilisées |
 |---------|-------------------|
-| `commandes_clients.csv` | NUM_COMMANDE, LIGNE_COMMANDE, NOM_CLIENT, ARTICLE, QTE_RESTANTE, DATE_EXPEDITION_DEMANDEE, FLAG_CONTREMARQUE |
-| `of_entetes.csv` | NUM_OF, ARTICLE, STATUT_NUM_OF, DATE_FIN, QTE_RESTANTE |
-| `stock.csv` | ARTICLE, STOCK_PHYSIQUE, STOCK_ALLOUE, STOCK_BLOQUE |
-| `articles.csv` | ARTICLE, TYPE_APPRO |
+| `Besoins Clients.csv` | NUM_ORDRE, NOM_FOURNISSEUR_OU_CLIENT, ARTICLE, QTE_RESTANTE_FABRICATION, DATE_FIN, SOURCE_ORIGINE_BESOIN, TYPE_COMMANDE, OF_CONTREMARQUE |
+| `Ordres de fabrication.csv` | NUM_ORDRE, ARTICLE, STATUT_ORDRE, DATE_FIN, QTE_RESTANTE_LIVRAISON, NUM_ORDRE_ORIGINE, METHODE_OBTENTION_LIVRAISON |
+| `Stocks.csv` | ARTICLE, STOCK_PHYSIQUE, STOCK_ALLOUE, STOCK_BLOQUE |
+| `Articles.csv` | ARTICLE, TYPE_APPRO |
 
 **Paramètres :**
 - `--data-dir` : chemin vers les CSV
 - `--horizon` : semaine(s) à inclure (ex: `1` pour S+1 seulement, `3` pour S+1 à S+3)
 - `--flag` : `1` (NOR/MTO, défaut) ou `5` (MTS) ou `all`
+- `--type-commande` : filtrer par TYPE_COMMANDE (`NOR`, `MTO`, `MTS`)
 
 ---
 
 ## 2. Algorithme de matching
 
-### Étape 1 — Filtrer les commandes NOR/MTO
+### Étape 1 — Filtrer les besoins NOR/MTO
 
 ```
-Commandes éligibles :
-  - FLAG_CONTREMARQUE = 1
-  - QTE_RESTANTE > 0
-  - DATE_EXPEDITION_DEMANDEE dans l'horizon demandé (si filtré)
+Besoins éligibles :
+  - TYPE_COMMANDE = NOR ou MTO (pas MTS)
+  - QTE_RESTANTE_FABRICATION > 0
+  - DATE_FIN dans l'horizon demandé (si filtré)
+  - SOURCE_ORIGINE_BESOIN commence par "VENT" (commandes fermes)
 
-Trier par DATE_EXPEDITION_DEMANDEE croissante (urgence d'abord).
+Trier par DATE_FIN croissante (urgence d'abord).
 ```
 
 ### Étape 2 — Initialiser le stock virtuel
@@ -49,15 +51,15 @@ stock_virtuel[article] = STOCK_PHYSIQUE - STOCK_ALLOUE - STOCK_BLOQUE
 ### Étape 3 — Pour chaque commande, allouer le stock puis matcher un OF
 
 ```python
-for commande in commandes_triées:
-    article = commande.ARTICLE
-    besoin = commande.QTE_RESTANTE
+for besoin in besoins_triés:
+    article = besoin.ARTICLE
+    qte = besoin.QTE_RESTANTE_FABRICATION
     type_appro = articles[article].TYPE_APPRO
 
     # a) Allouer le stock disponible d'abord
-    stock_alloué = min(besoin, stock_virtuel[article])
+    stock_alloué = min(qte, stock_virtuel[article])
     stock_virtuel[article] -= stock_alloué
-    besoin_net = besoin - stock_alloué
+    besoin_net = qte - stock_alloué
 
     if besoin_net == 0:
         result = COUVERT_PAR_STOCK
@@ -70,11 +72,11 @@ for commande in commandes_triées:
     # b) Chercher un OF (FABRICATION uniquement)
     of_candidats = of_disponibles[article]  # OF avec QTE_RESTANTE_OF > 0
 
-    # Trier : affermi (statut 1) > suggéré (statut 3), puis par écart de date, puis par qté décroissante
+    # Trier : ferme (F) > planifié (P) > suggéré (S), puis par écart de date, puis par qté décroissante
     of_candidats.sort(key=lambda of: (
-        0 if of.STATUT == 1 else 1,           # Affermi prioritaire
-        abs((of.DATE_FIN - commande.DATE_EXP).days),  # Proximité date
-        -of.QTE_RESTANTE_OF                   # Plus grande quantité d'abord
+        0 if of.STATUT_ORDRE == "F" else (1 if of.STATUT_ORDRE == "P" else 2),
+        abs((of.DATE_FIN - besoin.DATE_FIN).days),    # Proximité date
+        -of.QTE_RESTANTE_LIVRAISON                    # Plus grande quantité d'abord
     ))
 
     for of in of_candidats:
@@ -164,8 +166,8 @@ Lister les OF utilisés par 2+ commandes avec leur taux de consommation.
 
 | Situation | Comportement |
 |-----------|-------------|
-| Commande MTS (FLAG=5) passée en paramètre | Traiter mais noter que MTS a un lien direct via OF_CONTREMARQUE |
+| Besoin MTS passé en paramètre | Traiter mais noter que MTS a un lien direct via OF_CONTREMARQUE ou NUM_ORDRE_ORIGINE |
 | OF suggéré déjà consommé à 100% | Ne pas l'utiliser, passer au suivant |
-| Plusieurs OF affermis pour le même article | Prendre le plus proche en date |
+| Plusieurs OF fermes pour le même article | Prendre le plus proche en date |
 | Stock négatif (STOCK_ALLOUE > STOCK_PHYSIQUE) | Traiter comme 0 disponible, avertir |
 | Article ACHAT avec stock suffisant | Couvrir par stock, pas d'OF requis |

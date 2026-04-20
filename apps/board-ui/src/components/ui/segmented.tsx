@@ -20,7 +20,7 @@ export function Segmented({ options, value, onChange }: SegmentedProps) {
             onClick={() => onChange(opt.value)}
             className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
               active
-                ? 'bg-card text-foreground shadow-sm'
+                ? 'bg-primary text-primary-foreground shadow-sm'
                 : 'bg-transparent text-muted-foreground hover:text-foreground'
             }`}
           >

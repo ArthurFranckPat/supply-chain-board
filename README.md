@@ -1,4 +1,4 @@
-﻿# Supply Chain Board Monorepo
+# Supply Chain Board Monorepo
 
 This repository is a monorepo that hosts independent supply-chain applications and shared integration building blocks.
 
@@ -12,9 +12,18 @@ This repository is a monorepo that hosts independent supply-chain applications a
 
 ```text
 apps/
-  ordo-core/          # Scheduling, feasibility, S+1 engine (existing project)
-  suivi-commandes/    # Order tracking and status logic (existing project)
-  board-ui/           # Unified cockpit UI (React + Vite)
+  ordo-core/          # Scheduling engine, feasibility, calendar, capacity (Python + FastAPI)
+    src/
+      models/         # BesoinClient, OF, Article, Stock, etc.
+      loaders/        # CSV loading from ERP extractions
+      algorithms/     # Matching, allocation, calculations
+      checkers/       # Feasibility verification (recursive, projected)
+      scheduler/      # Engine, reporting, calendar, capacity, holidays
+      api/            # FastAPI server (port 8000)
+    frontend/         # React GUI for the scheduler
+    config/           # calendar.json, capacity.json, holidays, weights
+  suivi-commandes/    # Order tracking and status logic
+  board-ui/           # Unified cockpit UI (React + Vite + TypeScript)
 packages/
   domain-contracts/   # Shared Pydantic contracts used by services
   integration-sdk/    # HTTP clients for inter-service communication
@@ -27,16 +36,20 @@ infra/
 ## Communication model
 
 - `suivi-commandes` exposes status computation API endpoints.
-- `ordo-core` exposes scheduling and S+1 APIs.
+- `ordo-core` exposes scheduling, feasibility, calendar and capacity APIs.
 - `integration-hub` orchestrates both and returns a consolidated payload for a board UI.
 
 ## Ordo-core data source
 
-`ordo-core` now reads ERP extractions from a centralized folder (default):
+`ordo-core` reads ERP CSV extractions from a centralized folder configured via:
 
-- `C:\Users\bledoua\OneDrive - Aldes Aeraulique\Donn\u00e9es\Extractions`
+```
+ORDO_EXTRACTIONS_DIR=/path/to/extractions
+```
 
-Use `ORDO_EXTRACTIONS_DIR` to override this path.
+Expected files: `Articles.csv`, `Gammes.csv`, `Nomenclatures.csv`, `Besoins Clients.csv`, `Ordres de fabrication.csv`, `Stocks.csv`, `Commandes Achats.csv`, `Allocations.csv`
+
+See `apps/ordo-core/CLAUDE.md` for full column-level documentation.
 
 ## Local setup
 

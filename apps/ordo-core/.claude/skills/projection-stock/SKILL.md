@@ -14,12 +14,12 @@ Projection de l'évolution du stock sur S+1 à S+4 en intégrant toutes les entr
 
 | Fichier | Colonnes utilisées |
 |---------|-------------------|
-| `stock.csv` | ARTICLE, STOCK_PHYSIQUE, STOCK_ALLOUE, STOCK_BLOQUE |
-| `receptions_oa.csv` | ARTICLE, QUANTITE_RESTANTE, DATE_RECEPTION_PREVUE |
-| `of_entetes.csv` | NUM_OF, ARTICLE, DATE_FIN, QTE_RESTANTE, STATUT_NUM_OF |
-| `commandes_clients.csv` | ARTICLE, QTE_RESTANTE, DATE_EXPEDITION_DEMANDEE, FLAG_CONTREMARQUE |
-| `nomenclatures.csv` | Article parent, Article composant, Qté lien, Type article |
-| `articles.csv` | ARTICLE, TYPE_APPRO |
+| `Stocks.csv` | ARTICLE, STOCK_PHYSIQUE, STOCK_ALLOUE, STOCK_BLOQUE |
+| `Commandes Achats.csv` | ARTICLE, QUANTITE_RESTANTE, DATE_RECEPTION_PREVUE |
+| `Ordres de fabrication.csv` | NUM_ORDRE, ARTICLE, DATE_FIN, QTE_RESTANTE_LIVRAISON, STATUT_ORDRE |
+| `Besoins Clients.csv` | ARTICLE, QTE_RESTANTE_FABRICATION, DATE_FIN, SOURCE_ORIGINE_BESOIN, TYPE_COMMANDE |
+| `Nomenclatures.csv` | ARTICLE_PARENT, ARTICLE_COMPOSANT, QTE_LIEN, TYPE_ARTICLE |
+| `Articles.csv` | ARTICLE, TYPE_APPRO |
 
 **Paramètres :**
 - `--data-dir` : chemin vers les CSV

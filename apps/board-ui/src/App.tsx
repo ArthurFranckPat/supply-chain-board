@@ -1,34 +1,34 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { apiClient, ApiError } from '@/api/client'
+import { suiviClient } from '@/api/suivi-client'
 import { useScheduleRun } from '@/hooks/useScheduleRun'
 import { HomeView } from '@/views/HomeView'
-import { S1View } from '@/views/S1View'
 import { ActionsView } from '@/views/ActionsView'
 import { SchedulerView } from '@/views/SchedulerView'
+import { CapacityView } from '@/views/CapacityView'
 import { ReportsView } from '@/views/ReportsView'
-import type { DataSource, RunState, DetailItem } from '@/types/api'
+import { AnalyseRuptureView } from '@/views/AnalyseRuptureView'
+import { FeasibilityView } from '@/views/FeasibilityView'
+import { OrderTrackingView } from '@/views/OrderTrackingView'
+import type { DataSource, DetailItem } from '@/types/api'
 import type { SchedulerOptions } from '@/views/HomeView'
-import { Activity, LayoutDashboard, Wrench, CalendarClock, FileText, Settings, Package, Zap, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import type { SuiviStatusResponse } from '@/types/suivi-commandes'
+import { Activity, LayoutDashboard, Wrench, CalendarDays, FileText, Settings, Package, Zap, PanelLeftClose, PanelLeftOpen, AlertTriangle, ShoppingCart, CheckCircle } from 'lucide-react'
 
-type ViewKey = 'home' | 's1' | 'actions' | 'scheduler' | 'reports' | 'settings'
+type ViewKey = 'home' | 'actions' | 'scheduler' | 'analyse-rupture' | 'feasibility' | 'capacity' | 'order-tracking' | 'reports' | 'settings'
 type LoadState = 'idle' | 'loading' | 'ready' | 'error'
-type RunStateStatus = 'idle' | 'running' | 'success' | 'error'
 
 const NAV_ITEMS: Array<{ key: ViewKey; label: string; icon: React.ReactNode }> = [
   { key: 'home', label: 'Home', icon: <LayoutDashboard className="h-[15px] w-[15px]" /> },
-  { key: 's1', label: 'S+1', icon: <CalendarClock className="h-[15px] w-[15px]" /> },
   { key: 'actions', label: 'Actions', icon: <Wrench className="h-[15px] w-[15px]" /> },
   { key: 'scheduler', label: 'Scheduler', icon: <Activity className="h-[15px] w-[15px]" /> },
+  { key: 'analyse-rupture', label: 'Ruptures', icon: <AlertTriangle className="h-[15px] w-[15px]" /> },
+  { key: 'feasibility', label: 'Faisabilite', icon: <CheckCircle className="h-[15px] w-[15px]" /> },
+  { key: 'capacity', label: 'Capacites', icon: <CalendarDays className="h-[15px] w-[15px]" /> },
+  { key: 'order-tracking', label: 'Commandes', icon: <ShoppingCart className="h-[15px] w-[15px]" /> },
   { key: 'reports', label: 'Reports', icon: <FileText className="h-[15px] w-[15px]" /> },
 ]
-
-function formatTimestamp(value?: string | null) {
-  if (!value) return 'N/A'
-  try { return new Date(value).toLocaleString('fr-FR') } catch { return value }
-}
 
 function App() {
   const [activeView, setActiveView] = useState<ViewKey>('home')
@@ -36,13 +36,11 @@ function App() {
   const [backendState, setBackendState] = useState<'checking' | 'ready' | 'error'>('checking')
   const [source] = useState<DataSource>('extractions')
   const [loadState, setLoadState] = useState<LoadState>('idle')
-  const [s1RunState, setS1RunState] = useState<RunStateStatus>('idle')
-  const [lastS1Run, setLastS1Run] = useState<RunState | null>(null)
   const [lastSourceSnapshot, setLastSourceSnapshot] = useState<Record<string, unknown> | null>(null)
+  const [suiviData, setSuiviData] = useState<SuiviStatusResponse | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [detailItem, setDetailItem] = useState<DetailItem | null>(null)
   const [schedulerOptions, setSchedulerOptions] = useState<SchedulerOptions>({
-    feasibilityMode: 'projected',
     blockingComponentsMode: 'blocked',
     immediateComponents: false,
     demandHorizonDays: 15,
@@ -57,13 +55,30 @@ function App() {
         const health = await apiClient.getHealth()
         if (cancelled) return
         setBackendState(health.status === 'ok' ? 'ready' : 'error')
+
+        // Auto-load both data sources in parallel as soon as API is ready
+        if (health.status === 'ok') {
+          setLoadState('loading')
+          try {
+            const [ordoData, suiviResp] = await Promise.all([
+              apiClient.loadData(source),
+              suiviClient.getStatusFromErp().catch(() => null),
+            ])
+            if (cancelled) return
+            setLastSourceSnapshot(ordoData)
+            setSuiviData(suiviResp)
+            setLoadState('ready')
+          } catch {
+            if (!cancelled) setLoadState('error')
+          }
+        }
       } catch {
         if (!cancelled) setBackendState('error')
       }
     }
     bootstrap()
     return () => { cancelled = true }
-  }, [])
+  }, [source])
 
   async function handleLoadSource() {
     setLoadState('loading')
@@ -75,32 +90,6 @@ function App() {
     } catch (error) {
       setLoadState('error')
       setErrorMessage(error instanceof ApiError ? error.message : 'Chargement impossible.')
-    }
-  }
-
-  async function handleRunS1() {
-    setS1RunState('running')
-    setErrorMessage(null)
-    try {
-      const response = await apiClient.runS1({
-        horizon: 7,
-        include_previsions: false,
-        feasibility_mode: schedulerOptions.feasibilityMode,
-      })
-      if (response.status === 'running') {
-        setLastS1Run(response)
-        setActiveView('s1')
-        const settled = await pollRun(response.run_id)
-        setLastS1Run(settled)
-        setS1RunState(settled.status === 'completed' ? 'success' : 'error')
-      } else {
-        setLastS1Run(response)
-        setS1RunState(response.status === 'completed' ? 'success' : 'error')
-        setActiveView('s1')
-      }
-    } catch (error) {
-      setS1RunState('error')
-      setErrorMessage(error instanceof ApiError ? error.message : 'Run S+1 impossible.')
     }
   }
 
@@ -117,25 +106,6 @@ function App() {
       setErrorMessage(error instanceof ApiError ? error.message : 'Scheduler impossible.')
     }
   }
-
-  async function pollRun(runId: string): Promise<RunState> {
-    for (let i = 0; i < 120; i++) {
-      const run = await apiClient.getRun(runId)
-      if (run.status !== 'running') return run
-      await new Promise((r) => setTimeout(r, 1000))
-    }
-    throw new ApiError('Run timeout')
-  }
-
-  const s1Kpis = useMemo(() => {
-    const summary = lastS1Run?.result?.summary as Record<string, number> | undefined
-    return [
-      { label: 'OF matchés', value: summary?.matched_ofs ?? 0 },
-      { label: 'OF non faisables', value: summary?.non_feasible_ofs ?? 0, warn: true },
-      { label: 'Alertes composants', value: summary?.action_components ?? 0, warn: true },
-      { label: 'Postes kanban', value: summary?.kanban_postes ?? 0, warn: true },
-    ]
-  }, [lastS1Run])
 
   // Derive topbar subtitle
   const topbarSubtitle = activeView === 'scheduler' && schedule.result
@@ -275,7 +245,6 @@ function App() {
             )}
           </div>
           <div className="flex items-center gap-2.5 text-[11.5px] text-muted-foreground">
-            <span>Dernier run: <strong className="text-foreground font-mono">{formatTimestamp(lastS1Run?.completed_at ?? lastS1Run?.created_at)}</strong></span>
             {activeView === 'scheduler' && (
               <button
                 onClick={handleRunSchedule}
@@ -295,47 +264,24 @@ function App() {
           </div>
         )}
 
-        {/* KPI bar for S1 context */}
-        {(activeView === 's1' || activeView === 'actions') && (
-          <div className="grid grid-cols-4 gap-3 p-4">
-            {s1Kpis.map((kpi) => (
-              <Card key={kpi.label} className="py-2">
-                <CardContent className="flex items-center justify-between px-4 py-0">
-                  <span className="text-xs text-muted-foreground">{kpi.label}</span>
-                  <span className={`text-lg font-bold ${kpi.warn && kpi.value > 0 ? 'text-orange' : ''}`}>
-                    {kpi.value}
-                  </span>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-
         {/* Content */}
         <div className="flex-1 overflow-auto p-6">
           {activeView === 'home' && (
             <HomeView
               loadState={loadState}
-              s1RunState={s1RunState}
               scheduleState={schedule.isLoading ? 'running' : schedule.result ? 'success' : 'idle'}
               lastSourceSnapshot={lastSourceSnapshot}
+              backendState={backendState}
+              suiviReady={suiviData !== null}
               options={schedulerOptions}
-              onLoadSource={handleLoadSource}
-              onRunS1={handleRunS1}
               onRunSchedule={handleRunSchedule}
               onOptionsChange={setSchedulerOptions}
-            />
-          )}
-          {activeView === 's1' && (
-            <S1View
-              runState={s1RunState}
-              data={lastS1Run as Record<string, unknown> | null}
-              onInspect={(item) => setDetailItem(item)}
+              onNavigate={setActiveView}
             />
           )}
           {activeView === 'actions' && (
             <ActionsView
-              data={(lastS1Run?.result as Record<string, unknown>)?.action_report as Record<string, unknown> | null}
+              data={null}
               onInspect={(item) => setDetailItem(item)}
             />
           )}
@@ -344,12 +290,27 @@ function App() {
               isLoading={schedule.isLoading}
               result={schedule.result}
               error={schedule.error instanceof Error ? schedule.error.message : schedule.error ?? null}
+              runState={schedule.runState}
               onInspect={(item) => setDetailItem(item)}
             />
           )}
+          {activeView === 'capacity' && (
+            <CapacityView onInspect={(item) => setDetailItem(item)} />
+          )}
+          {activeView === 'analyse-rupture' && (
+            <AnalyseRuptureView />
+          )}
+          {activeView === 'feasibility' && (
+            <FeasibilityView />
+          )}
+          {activeView === 'order-tracking' && (
+            <OrderTrackingView data={suiviData} loadState={loadState} onReload={() => {
+              suiviClient.getStatusFromErp().then(setSuiviData).catch(() => {})
+            }} />
+          )}
           {activeView === 'reports' && (
             <ReportsView
-              embeddedReports={(lastS1Run?.result as Record<string, unknown>)?.reports as Record<string, unknown> | null}
+              embeddedReports={null}
               onInspect={(item) => setDetailItem(item)}
             />
           )}

@@ -11,7 +11,7 @@ Ordo v2 is a manufacturing production scheduling system for an industrial site p
 - **Order management**: MTS (Make To Stock), MTO (Make To Order - ALDES), NOR (Normal)
 - **Component feasibility**: Recursive BOM checking down to purchased components
 - **Production scheduling**: Day-by-day, line-by-line planning with capacity constraints
-- **Decision support**: Static rule engine + optional LLM (Mistral) for complex decisions
+- **Decision support**: Allocation virtuelle avec gestion de la concurrence
 - **Reporting**: Action reports, service-rate KPIs, kanban risk analysis, charge heatmaps
 
 ---
@@ -23,7 +23,7 @@ ordo-v2/
 ├── main.py                 # Thin entry point → src.main.main()
 ├── menu.py                 # Interactive Rich REPL (questionary)
 ├── analyze_charge.py       # Standalone charge analysis CLI
-├── run_llm_commandes_v2.py # LLM-assisted order analysis script
+├── run_llm_commandes_v2.py # (removed)
 ├── patch_engine.py         # Dev tool: capacity smoothing patch
 ├── patch_smooth.py         # Dev tool: 2-line → N-line generalization patch
 ├── config/
@@ -36,7 +36,7 @@ ordo-v2/
 │   ├── algorithms/         # Core business algorithms
 │   ├── checkers/           # Feasibility verification (immediate/projected/recursive)
 │   ├── scheduler/          # Production scheduling engine
-│   ├── agents/             # Decision engine (static rules + LLM)
+│   ├── agents/             # (removed)
 │   ├── reports/            # Report generation (action, S+1)
 │   ├── api/                # REST API (FastAPI)
 │   ├── app/                # Application service layer
@@ -209,10 +209,8 @@ Main entry point for charge visualization:
 
 **Algorithm**:
 1. Separate FERMES with existing ERP allocations from those needing virtual allocation
-2. Optional pre-allocation evaluation via `AgentEngine` (may ACCEPT_PARTIAL)
-3. Sort OFs by priority (date + feasibility)
-4. Process each OF: create temporary `RecursiveChecker` with shared `StockState`, check feasibility, commit virtual allocations if feasible
-5. Optional post-allocation evaluation for non-feasible OFs
+2. Sort OFs by priority (date + feasibility)
+3. Process each OF: create temporary `RecursiveChecker` with shared `StockState`, check feasibility, commit virtual allocations if feasible
 
 ---
 
@@ -384,91 +382,9 @@ The following files form a **legacy pipeline** that is non-functional (missing m
 
 ---
 
-## 8. Agents (`src/agents/`)
+## 8. Reports (`src/reports/`)
 
-### 8.1 Architecture
-
-The agents module is a **dual-mode decision intelligence system**:
-
-```
-AgentEngine (facade)
-├── Static Mode: SmartDecisionRule
-│     ├── CompletionCriterion (weight: 0.5)
-│     ├── ClientCriterion (weight: 0.3)
-│     └── UrgencyCriterion (weight: 0.2)
-│
-└── LLM Mode: LLMDecisionAgent
-      ├── LLMContextBuilder → builds structured analysis
-      ├── LLMPromptBuilder → constructs markdown prompt
-      ├── BaseLLMClient → MistralLLMClient or MockLLMClient
-      └── LLMResponseParser → extracts + validates JSON
-```
-
-### 8.2 Decision Types
-
-```python
-class AgentAction(Enum):
-    ACCEPT_AS_IS      # Fully acceptable
-    ACCEPT_PARTIAL    # Accept with reduced quantity
-    REJECT            # Not feasible
-    DEFER             # Defer to later date
-    DEFER_PARTIAL     # Partial + defer remainder
-```
-
-### 8.3 Static Rule Engine (`smart_rule.py`)
-
-**Decision hierarchy**:
-1. If any criterion explicitly suggests an action → use it (ACCEPT_AS_IS > ACCEPT_PARTIAL > REJECT)
-2. Otherwise → use weighted score thresholds:
-   - score ≥ 0.7 → ACCEPT_AS_IS
-   - score ≤ 0.3 → REJECT
-   - Otherwise → ACCEPT_PARTIAL
-
-### 8.4 LLM Pipeline
-
-**Three-tier resilience**:
-1. **Prefilter** — resolve trivial cases without LLM call (feasible → ACCEPT, non-feasible without blocked/reception → REJECT)
-2. **LLM call** — with exponential backoff retry
-3. **Contextual fallback** — on error, always REJECT
-
-**Prompt structure**: Markdown table of components (article, level, type, required, stock, situation, ratio, receptions), critical component cards, situation analysis, strict JSON response template.
-
-### 8.5 Agent Tools (`tools/`)
-
-| Tool | File | Purpose |
-|------|------|---------|
-| Rescheduling Messages | `rescheduling_messages.py` | Generates RETARD, RETARD_IMMINENT, URGENCE, DEBLOCAGE messages |
-| Late Receptions | `late_receptions.py` | Impact analysis of delayed supplier deliveries |
-| Schedule Simulator | `schedule_simulator.py` | What-if charge simulation |
-| OF Sequencer | `of_sequencer.py` | Sequences OFs on a post (EDD, FIFO, SPT rules) |
-| Component Competition | `component_competition.py` | OF competition analysis for a component |
-| Service Rate KPIs | `service_rate_kpis.py` | Global and per-client service rates |
-| OF Affirm Suggester | `of_affirm_suggester.py` | Suggests which OFs to firm up |
-| Week Summary | `week_summary.py` | Daily scheduler briefing (aggregates 4 tools) |
-| Bottleneck Detector | `bottleneck_detector.py` | Identifies production bottlenecks |
-
-### 8.6 Organization Agent (`organization/`)
-
-Workshop organization analysis pipeline:
-1. **ChargeCalculator** — Recursive charge by poste, S+1 through S+4
-2. **TrendAnalyzer** — Linear regression on weekly charge (UPWARD/STABLE/DOWNWARD)
-3. **OrganizationEvaluator** — Selects optimal organization (1×8=35h, 2×8=70h, 3×8=105h)
-
-### 8.7 Scheduling Agent (`scheduling/`)
-
-Weekly charge planning for gap-filling:
-1. Extract stockout components from S+1 feasibility results
-2. Build S+1 poste schedule from feasible OFs
-3. Identify under-loaded postes (gaps)
-4. Find S+2/S+3 candidates
-5. Score by composite: 50% urgency + 30% component overlap (Jaccard) + 20% feasibility
-6. Greedy fill until minimum charge reached
-
----
-
-## 9. Reports (`src/reports/`)
-
-### 9.1 Action Report (`action_report.py` — 1449 lines)
+### 8.1 Action Report (`action_report.py` — 1449 lines)
 
 The most comprehensive report. Produces **4 complementary views**:
 
@@ -481,13 +397,13 @@ The most comprehensive report. Produces **4 complementary views**:
 
 **Kanban analysis**: Computes stock coverage in days, compares to threshold based on BOM depth and handoff delays.
 
-### 9.2 S+1 Report (`rapport_s1.py`)
+### 8.2 S+1 Report (`rapport_s1.py`)
 
 Rich table display: Command, Client, Article, Qty, Expedition, Besoin net, Couverture, OF matché, OK?, Manquants.
 
 ---
 
-## 10. Entry Points
+## 9. Entry Points
 
 | Entry Point | Interface | Target User |
 |-------------|-----------|-------------|
@@ -503,7 +419,6 @@ Rich table display: Command, Client, Article, Qty, Expedition, Besoin net, Couve
 | `--schedule` | Scheduler | `run_schedule()` → KPIs + heatmap |
 | `--charge-heatmap` | Heatmap | `calculate_weekly_charge_heatmap()` |
 | `--s1` | S+1 validation | `main_s1()` → matching + feasibility + reports |
-| `--organization` | Workshop org | `OrganizationAgent.analyze()` |
 | `--commande NUM` | Single order | `RecursiveChecker.check_commande()` |
 | `--of NUM` | Single OF | All three checkers |
 | (default) | Full verification | Immediate + Projected + Allocation |
@@ -554,11 +469,6 @@ Scheduler Pipeline
                   → material.* (virtual stock, feasibility)
                   → RecursiveChecker (component checking)
              → reporting.write_outputs()
-
-Decision Pipeline
-  AgentEngine (agents/engine)
-    ├── SmartDecisionRule → Criteria (completion, client, urgency)
-    └── LLMDecisionAgent → ContextBuilder → PromptBuilder → Mistral → ResponseParser
 
 Reports Pipeline
   Matching Results + Feasibility Results
@@ -628,11 +538,6 @@ smart_rule:
 tests/
 ├── conftest.py
 ├── test_*.py                    # Core unit tests (19 files)
-├── agents/
-│   ├── organization/            # 8 test files
-│   ├── scheduling/              # 6 test files
-│   ├── test_criteria/           # 4 test files
-│   └── tools/                   # 9 test files
 ```
 
 Key test areas: matching, allocation, recursive checker, scheduler KPIs, capacity models, charge calculation, forecast consumption, GUI API.

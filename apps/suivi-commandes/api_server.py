@@ -6,9 +6,11 @@ from typing import Any
 
 import pandas as pd
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from data_loader import load_data
+from data_loader import load_data, load_data_from_erp
+from db_comments import init_db, load_all_comments, batch_upsert, delete_comment
 from status_logic import assign_statuses, build_line_level_frame
 
 
@@ -20,6 +22,10 @@ class StatusAssignRequest(BaseModel):
 class LatestExportRequest(BaseModel):
     folder: str | None = None
     reference_date: date | None = None
+
+
+class CommentBatchRequest(BaseModel):
+    rows: list[dict[str, str]] = Field(default_factory=list)
 
 
 def _normalize_dates(frame: pd.DataFrame) -> pd.DataFrame:
@@ -66,6 +72,15 @@ app = FastAPI(
     description="API wrapper for order status assignment logic.",
 )
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+init_db()
+
 
 @app.get("/health")
 def health() -> dict[str, str]:
@@ -84,3 +99,35 @@ def assign_from_latest_export(payload: LatestExportRequest) -> dict[str, Any]:
     folder = Path(payload.folder) if payload.folder else None
     df = load_data(folder=folder)
     return _compute_payload(df, payload.reference_date)
+
+
+@app.post("/v1/status/from-erp-extractions")
+def assign_from_erp_extractions(payload: LatestExportRequest) -> dict[str, Any]:
+    """Compute statuses from ERP extractions via the shared data layer."""
+    folder = Path(payload.folder) if payload.folder else None
+    df = load_data_from_erp(extractions_dir=folder)
+    return _compute_payload(df, payload.reference_date)
+
+
+# ── Comments ─────────────────────────────────────────────────────────────
+
+
+@app.get("/v1/comments")
+def get_comments() -> list[dict[str, Any]]:
+    data = load_all_comments()
+    return [
+        {"no_commande": key[0], "article": key[1], **value}
+        for key, value in data.items()
+    ]
+
+
+@app.put("/v1/comments/batch")
+def save_comments_batch(payload: CommentBatchRequest) -> dict[str, str]:
+    batch_upsert(payload.rows)
+    return {"status": "ok"}
+
+
+@app.delete("/v1/comments/{no_commande}/{article}")
+def remove_comment(no_commande: str, article: str) -> dict[str, str]:
+    delete_comment(no_commande, article)
+    return {"status": "ok"}

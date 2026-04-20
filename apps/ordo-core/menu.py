@@ -16,9 +16,7 @@ from rich.table import Table
 
 from src.algorithms import AllocationManager, calculate_weekly_charge_heatmap
 from src.checkers import ImmediateChecker, ProjectedChecker, RecursiveChecker
-from src.agents import AgentEngine
 from src.loaders import DataLoader, resolve_extractions_files
-from src.main_s1 import main_s1
 from src.utils import format_charge_heatmap, format_charge_summary
 from src.utils import format_detailed_report, format_of_table, format_summary
 
@@ -142,11 +140,9 @@ def run_allocation_mode(loader: DataLoader, ofs):
         use_receptions=True,
         check_date=date.today(),
     )
-    agent_engine = AgentEngine()
     allocation_manager = AllocationManager(
         data_loader=loader,
         checker=recursive_checker,
-        decision_engine=agent_engine,
     )
     allocation_results = allocation_manager.allocate_stock(ofs)
     alloc_feasible = sum(1 for result in allocation_results.values() if result.status.value == "feasible")
@@ -284,19 +280,6 @@ def run_feasibility_all(loader: DataLoader) -> None:
                 if result and not result.feasible:
                     format_detailed_report(of, result)
 
-    try:
-        from src.agents.reports import DecisionReporter
-        reporter = DecisionReporter()
-        output_dir = "reports/decisions"
-        md_path = os.path.join(output_dir, "decisions_report.md")
-        if allocation_results is not None:
-            reporter.generate_markdown_report(allocation_results, md_path)
-            console.print(f"[green]âœ… Rapport Markdown : {md_path}[/green]")
-            json_path = os.path.join(output_dir, "decisions_report.json")
-            reporter.generate_json_report(allocation_results, json_path)
-            console.print(f"[green]âœ… Rapport JSON : {json_path}[/green]")
-    except Exception as e:
-        console.print(f"[yellow]âš ï¸  Impossible de gÃ©nÃ©rer les rapports : {e}[/yellow]")
 
 
 def run_feasibility_of(loader: DataLoader) -> None:
@@ -406,37 +389,6 @@ def run_commande(loader: DataLoader) -> None:
     console.print(f"   ðŸ“Š Profondeur rÃ©cursion : {result.depth}")
 
 
-def run_s1(loader: DataLoader) -> None:
-    mode = select_feasibility_mode(include_compare=False)
-    if mode is None:
-        return
-    horizon_str = questionary.text("Horizon (jours)", default="7").ask()
-    if horizon_str is None:
-        return
-    horizon = int(horizon_str) if horizon_str else 7
-    previsions = questionary.confirm("Inclure les prÃ©visions ?", default=False).ask()
-    if previsions is None:
-        return
-    use_llm = questionary.confirm("Activer le LLM (nÃ©cessite MISTRAL_API_KEY) ?", default=False).ask()
-    if use_llm is None:
-        return
-    llm_model = "mistral-large-latest"
-    if use_llm:
-        if not os.environ.get("MISTRAL_API_KEY"):
-            console.print("[bold yellow]âš ï¸  MISTRAL_API_KEY non dÃ©finie â€” LLM dÃ©sactivÃ©[/bold yellow]")
-            use_llm = False
-        else:
-            llm_model = questionary.text("ModÃ¨le LLM", default="mistral-large-latest").ask() or "mistral-large-latest"
-
-    args = argparse.Namespace(
-        horizon=horizon,
-        llm=use_llm,
-        llm_model=llm_model,
-        feasibility_mode=mode,
-    )
-    main_s1(args, loader, include_previsions=previsions)
-
-
 def run_heatmap(loader: DataLoader) -> None:
     weeks_str = questionary.text("Nombre de semaines", default="4").ask()
     if weeks_str is None:
@@ -477,7 +429,6 @@ MENU_CHOICES = {
     "VÃ©rification de faisabilitÃ© (tous les OFs)": run_feasibility_all,
     "VÃ©rifier un OF spÃ©cifique": run_feasibility_of,
     "Analyser une commande client": run_commande,
-    "Mode S+1 (court terme)": run_s1,
     "Heatmap de charge": run_heatmap,
     "Quitter": None,
 }

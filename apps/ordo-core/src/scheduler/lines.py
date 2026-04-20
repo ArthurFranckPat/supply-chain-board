@@ -80,9 +80,10 @@ class GenericLineScheduler:
         immediate_components: bool = False,
         immediate_reference_day: Optional[date] = None,
         blocking_components_mode: str = "blocked",
+        consumed_hours: float = 0.0,
     ) -> DaySchedule:
         plan = DaySchedule(line=self.line_name, day=day)
-        used_hours = 0.0
+        used_hours = consumed_hours
         earliest_blocked_due: Optional[date] = None
         deviation_marked = False
 

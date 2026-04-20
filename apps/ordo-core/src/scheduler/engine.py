@@ -16,13 +16,17 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
+from uuid import uuid4
 
-from ..algorithms.charge_calculator import calculate_article_charge, get_poste_libelle
+from ..algorithms.charge_calculator import calculate_article_charge, get_poste_libelle, POSTE_CHARGE_REGEX
 from ..algorithms.allocation import StockState
 from ..algorithms.matching import CommandeOFMatcher
 from ..checkers.recursive import RecursiveChecker
 from .calendar import build_workdays, next_workday, previous_workday
+from .calendar_config import CalendarConfig, is_workday as config_is_workday, build_workdays as config_build_workdays, next_workday as config_next_workday, load_calendar_config
+from .capacity_config import CapacityConfig, load_capacity_config, get_capacity_for_day
+from .holidays import ensure_holidays_in_calendar
 from .weights import load_weights
 from .models import CandidateOF, DaySchedule, SchedulerResult
 from .reporting import build_unscheduled_rows, build_order_rows, write_outputs
@@ -60,27 +64,82 @@ def run_schedule(
     weights_path: str = "config/weights.json",
     immediate_components: bool = False,
     blocking_components_mode: str = "blocked",
+    calendar_config: Optional[CalendarConfig] = None,
+    capacity_config: Optional[CapacityConfig] = None,
+    progress_callback: Optional[Callable[[str, str, int, int], None]] = None,
+    run_id: Optional[str] = None,
+    freeze_threshold_hour: float = 12.0,
 ) -> SchedulerResult:
-    """Run the AUTORESEARCH bootstrap scheduler."""
+    """Run the AUTORESEARCH bootstrap scheduler.
+
+    Args:
+        progress_callback: Optional callback invoked at each phase boundary.
+            Signature: (step_key, step_label, step_index, step_count).
+            Exceptions are silently caught to not interrupt scheduling.
+    """
+
+    def _progress(step_key: str, step_label: str, step_index: int, step_count: int) -> None:
+        if progress_callback is not None:
+            try:
+                progress_callback(step_key, step_label, step_index, step_count)
+            except Exception:
+                pass
+
     if blocking_components_mode not in {"blocked", "direct", "both"}:
         raise ValueError(f"Invalid blocking_components_mode={blocking_components_mode}")
 
     reference_date = reference_date or date.today()
     weights = load_weights(weights_path)
-    workdays = build_workdays(reference_date, planning_workdays)
+    freeze_threshold_hour = weights.get("freeze_threshold_hour", freeze_threshold_hour)
+    _progress("loading_data", "Chargement des données ERP", 0, 7)
+
+    # Load calendar & capacity configs when available
+    config_dir = str(Path(weights_path).parent)
+    if calendar_config is None:
+        try:
+            calendar_config = load_calendar_config(config_dir, reference_date.year)
+            calendar_config = ensure_holidays_in_calendar(config_dir, calendar_config)
+        except Exception:
+            calendar_config = None
+    if capacity_config is None:
+        try:
+            capacity_config = load_capacity_config(config_dir)
+        except Exception:
+            capacity_config = None
+
+    workdays = config_build_workdays(reference_date, planning_workdays, calendar_config)
+
+    # Gel du jour courant si l'heure depasse le seuil
+    from datetime import datetime as _dt
+    _freeze_alert = None
+    _now = _dt.now()
+    _current_hour = _now.hour + _now.minute / 60.0
+    if (
+        reference_date == date.today()
+        and _current_hour >= freeze_threshold_hour
+        and workdays
+        and workdays[0] == reference_date
+    ):
+        workdays = workdays[1:]
+        _freeze_alert = (
+            f"Jour courant gele (heure {_now.hour}:{_now.minute:02d} >= seuil {freeze_threshold_hour})"
+        )
+
     demand_horizon_end = reference_date + timedelta(days=demand_calendar_days)
     target_lines = _build_target_line_articles(loader, lines_config)
-    
+    _progress("loading_capacity", "Chargement des capacités", 1, 7)
+
     checker = RecursiveChecker(loader, use_receptions=not immediate_components)
     material_state = build_material_stock_state(loader)
     receptions_by_day = build_receptions_by_day(loader)
+    _progress("preparing_data", "Préparation des données", 2, 7)
 
     candidates, matching_alerts, matching_results = _select_candidates_from_matching(
         loader=loader,
         planning_workdays=workdays,
-        demand_horizon_end=demand_horizon_end,
         target_lines=target_lines,
     )
+    _progress("resolving_constraints", "Résolution des contraintes", 3, 7)
 
     # Calcul de la charge brute cible par ligne en se basant sur les candidats réels
     # Cela inclut les commandes fermes, prévisions (si NOR) et les tampons BDH
@@ -128,9 +187,11 @@ def run_schedule(
         # Garantir au moins la taille du plus gros OF (sinon impossible à planifier)
         capacity = max(capacity, max_of)
 
-        # Capacité physique maximale : 2 shifts (14h) avec réserve de 10%
-        # → jamais plus de 12.6h planifiées par jour et par poste
-        capacity = min(14.0 * 0.90, capacity)
+        # Capacité physique maximale : résolue sur le 1er jour ouvré (pas reference_date
+        # qui peut tomber un week-end et retourner une capacité nulle).
+        cap_ref_day = workdays[0] if workdays else reference_date
+        max_cap = get_capacity_for_day(line, cap_ref_day, capacity_config) if capacity_config else 14.0
+        capacity = min(max_cap * 0.90, capacity)
 
         line_capacities[line] = capacity
         line_min_open[line] = 0.0
@@ -140,6 +201,8 @@ def run_schedule(
         for line in target_lines.keys()
     }
     alerts: list[str] = list(matching_alerts)
+    if _freeze_alert:
+        alerts.append(_freeze_alert)
 
     projected_buffer = {
         article: float(loader.get_stock(article).disponible() if loader.get_stock(article) else 0)
@@ -184,6 +247,23 @@ def run_schedule(
             c.target_day = workdays[i % n_days]
 
     schedulers = {line: GenericLineScheduler(line, capacity_hours=line_capacities[line], min_open_hours=line_min_open[line]) for line in target_lines.keys()}
+    _progress("computing_schedule", "Calcul du planning", 4, 7)
+
+    # --- Capacite residuelle : charger les heures consommees du run precedent ---
+    consumed_hours_map: dict[tuple[str, date], float] = {}
+    try:
+        from . import db_schedule, residual_capacity
+        db_schedule.init_db()
+        prev_run_id = db_schedule.get_latest_run_id()
+        if prev_run_id is not None:
+            consumed_hours_map = residual_capacity.compute_consumed_capacity(
+                previous_run_id=prev_run_id,
+                reference_date=reference_date,
+                loader=loader,
+                db_module=db_schedule,
+            )
+    except Exception:
+        pass  # Non-fatal : si la persistence echoue, scheduler from scratch
 
     for day_idx, day in enumerate(workdays):
         if not immediate_components:
@@ -193,6 +273,7 @@ def run_schedule(
 
         is_last_day = (day_idx == len(workdays) - 1)
         for line, scheduler in schedulers.items():
+            consumed = consumed_hours_map.get((line, day), 0.0)
             day_plan = scheduler.schedule_day(
                 day=day,
                 candidates=by_line[line],
@@ -206,6 +287,7 @@ def run_schedule(
                 immediate_components=immediate_components,
                 immediate_reference_day=workdays[0],
                 blocking_components_mode=blocking_components_mode,
+                consumed_hours=consumed,
             )
             day_plans[line][workdays.index(day)] = day_plan
             
@@ -222,6 +304,7 @@ def run_schedule(
                 }
             )
 
+    _progress("generating_reports", "Génération des rapports", 5, 7)
     plannings = {
         line: [assignment for plan in day_plans[line] for assignment in plan.assignments]
         for line in target_lines.keys()
@@ -241,7 +324,7 @@ def run_schedule(
             if not any(charge_map.get(l, 0.0) > 0 for l in target_lines):
                 planned_by_of[result.of.num_of] = workdays[0]
     candidate_by_of = {candidate.num_of: candidate for candidate in candidates}
-    planning_horizon_end = next_workday(workdays[-1])
+    planning_horizon_end = config_next_workday(workdays[-1], calendar_config)
     def _availability_for_reporting(
         checker_obj,
         loader_obj,
@@ -264,6 +347,7 @@ def run_schedule(
         loader,
         checker,
         _availability_for_reporting,
+        planning_horizon_end=planning_horizon_end,
     )
     taux_service, on_time, total_candidates = _compute_service_rate_from_matching(
         matching_results,
@@ -305,6 +389,7 @@ def run_schedule(
 
     # Build reception rows (expected component deliveries)
     reception_rows = _build_reception_rows(loader, reference_date, demand_horizon_end, all_assignments)
+    _progress("finalizing", "Finalisation", 6, 7)
 
     result = SchedulerResult(
         score=round(score, 3),
@@ -324,6 +409,24 @@ def run_schedule(
         reception_rows=reception_rows,
     )
     write_outputs(output_dir, result)
+
+    # --- Persister le run en SQLite ---
+    try:
+        from . import db_schedule as _db
+        _db.init_db()
+        _run_id = run_id or uuid4().hex[:12]
+        if run_id is None:
+            _db.save_run(_run_id, reference_date, {"immediate_components": immediate_components})
+        _db.save_assignments(_run_id, result.plannings)
+        _db.update_run_status(
+            _run_id, "completed",
+            score=result.score,
+            taux_service=result.taux_service,
+            taux_ouverture=result.taux_ouverture,
+        )
+    except Exception:
+        pass  # Non-fatal
+
     return result
 
 
@@ -369,7 +472,7 @@ def _load_article_day_profile(csv_path: str) -> dict[str, Counter]:
 def _build_target_line_articles(loader, lines_config=None) -> dict[str, set[str]]:
     target_lines = {}
     if lines_config is None:
-        lines_config = sorted({op.poste_charge for gamme in loader.gammes.values() for op in gamme.operations})
+        lines_config = sorted({op.poste_charge for gamme in loader.gammes.values() for op in gamme.operations if POSTE_CHARGE_REGEX.match(op.poste_charge)})
 
     for line in lines_config:
         target_lines[line] = set()
@@ -392,12 +495,13 @@ def _is_target_scope_order(besoin, loader, target_lines) -> bool:
     return False
 
 
-def _select_candidates_from_matching(loader, planning_workdays, demand_horizon_end, target_lines) -> tuple[list[CandidateOF], list[str], list]:
-    """Construit les candidats à partir du matching existant commande->OF.
+def _select_candidates_from_matching(loader, planning_workdays, target_lines) -> tuple[list[CandidateOF], list[str], list]:
+    """Construit les candidats à partir du matching commande→OF.
 
-    On réutilise le matcher du repo pour éviter de reconstruire la logique
-    métier MTS/NOR/MTO. Le scheduler ne décide ensuite que du placement
-    journalier et de la stratégie buffer BDH.
+    Le matching porte sur TOUTES les commandes (pas de filtre horizon).
+    Seuls les OF dont date_fin est dans l'horizon de planification
+    deviennent candidats de scheduling. Les autres restent visibles
+    dans les order_rows (statut "Hors planification").
     """
     reference_date = planning_workdays[0]
     planning_horizon_end = next_workday(planning_workdays[-1])
@@ -405,11 +509,9 @@ def _select_candidates_from_matching(loader, planning_workdays, demand_horizon_e
     for besoin in loader.commandes_clients:
         if besoin.qte_restante <= 0:
             continue
-        if not (besoin.date_expedition_demandee <= demand_horizon_end):
-            continue
         if not _is_target_scope_order(besoin, loader, target_lines):
             continue
-            
+
         # Filtrage selon le type de commande
         # MTS et MTO : uniquement les commandes fermes
         # NOR : commandes fermes et prévisions
@@ -420,7 +522,7 @@ def _select_candidates_from_matching(loader, planning_workdays, demand_horizon_e
         elif besoin.type_commande == TypeCommande.NOR:
             if not (besoin.est_commande() or besoin.est_prevision()):
                 continue
-                
+
         commandes.append(besoin)
 
     commandes.sort(key=lambda b: (b.date_expedition_demandee, b.date_commande or date.max, b.num_commande))
@@ -446,6 +548,12 @@ def _select_candidates_from_matching(loader, planning_workdays, demand_horizon_e
         if line is None:
             continue
 
+        # Seuls les OF dont la date de fin est dans l'horizon de planification
+        # deviennent candidats de scheduling. Les OF au-delà restent dans
+        # matching_results pour les order_rows (visibilité matching).
+        if of.date_fin > planning_horizon_end:
+            continue
+
         spec = candidate_specs.setdefault(
             of.num_of,
             {
@@ -465,7 +573,7 @@ def _select_candidates_from_matching(loader, planning_workdays, demand_horizon_e
     for of in loader.ofs:
         if of.qte_restante <= 0 or of.statut_num not in (1, 2):
             continue
-        if of.date_fin > demand_horizon_end:
+        if of.date_fin > planning_horizon_end:
             continue
         line = None
         for l, articles in target_lines.items():
@@ -602,6 +710,20 @@ def _compute_open_rate(day_plans: dict[str, list[DaySchedule]], line_capacities:
     return (planned_hours / available_hours) if available_hours else 0.0
 
 
+def _is_reception_article_blocking(blocking_components: str, reception_article: str) -> bool:
+    """Retourne True si l'article de la réception est un des composants bloquants de l'OF.
+
+    Le format de blocking_components est "ARTICLE1 xQTY, ARTICLE2 xQTY".
+    """
+    if not blocking_components:
+        return False
+    for part in blocking_components.split(","):
+        code = part.strip().split(" x")[0].strip()
+        if code == reception_article:
+            return True
+    return False
+
+
 def _build_reception_rows(loader, reference_date: date, horizon_end: date, all_assignments: list[CandidateOF]) -> list[dict[str, object]]:
     """Construit les lignes de réceptions attendues, liées aux OF planifiés qui les nécessitent.
 
@@ -636,12 +758,14 @@ def _build_reception_rows(loader, reference_date: date, horizon_end: date, all_a
         linked_ofs: list[dict[str, object]] = []
         for parent in sorted(parents):
             for of_ in parent_to_ofs.get(parent, []):
+                is_blocked = _is_reception_article_blocking(of_.blocking_components, rec.article)
                 linked_ofs.append({
                     "num_of": of_.num_of,
                     "article": of_.article,
                     "line": of_.line,
                     "scheduled_day": of_.scheduled_day.isoformat() if of_.scheduled_day else None,
-                    "blocked": bool(of_.blocking_components),
+                    "blocked": is_blocked,
+                    "blocking_components": of_.blocking_components,
                 })
 
         rows.append({

@@ -1,0 +1,57 @@
+[
+  {
+    "date": "2026-01-01",
+    "name": "Jour de l'an",
+    "source": "api"
+  },
+  {
+    "date": "2026-04-06",
+    "name": "Lundi de Pâques",
+    "source": "api"
+  },
+  {
+    "date": "2026-05-01",
+    "name": "Fête du Travail",
+    "source": "api"
+  },
+  {
+    "date": "2026-05-08",
+    "name": "Victoire 1945",
+    "source": "api"
+  },
+  {
+    "date": "2026-05-14",
+    "name": "Ascension",
+    "source": "api"
+  },
+  {
+    "date": "2026-05-25",
+    "name": "Lundi de Pentecôte",
+    "source": "api"
+  },
+  {
+    "date": "2026-07-14",
+    "name": "Fête nationale",
+    "source": "api"
+  },
+  {
+    "date": "2026-08-15",
+    "name": "Assomption",
+    "source": "api"
+  },
+  {
+    "date": "2026-11-01",
+    "name": "Toussaint",
+    "source": "api"
+  },
+  {
+    "date": "2026-11-11",
+    "name": "Armistice 1918",
+    "source": "api"
+  },
+  {
+    "date": "2026-12-25",
+    "name": "Noël",
+    "source": "api"
+  }
+]

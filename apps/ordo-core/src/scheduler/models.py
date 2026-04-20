@@ -36,10 +36,14 @@ class DaySchedule:
     line: str
     day: date
     assignments: list[CandidateOF] = field(default_factory=list)
+    consumed_hours: float = 0.0
 
     @property
     def total_hours(self) -> float:
-        return round(sum(item.charge_hours for item in self.assignments), 3)
+        return round(
+            sum(item.charge_hours for item in self.assignments) + self.consumed_hours,
+            3,
+        )
 
     @property
     def engaged_hours(self) -> float:

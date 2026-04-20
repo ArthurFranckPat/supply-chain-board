@@ -12,6 +12,7 @@ import {
 import { HeaderStrip } from '@/components/scheduler/HeaderStrip'
 import { CapacityHeatmap } from '@/components/scheduler/CapacityHeatmap'
 import { Workqueue, deriveWorkqueue } from '@/components/scheduler/Workqueue'
+import { ScheduleProgress } from '@/components/scheduler/ScheduleProgress'
 import { SimpleTooltip } from '@/components/ui/tooltip'
 import { FocusBar } from '@/components/scheduler/FocusBar'
 import { StockProjection } from '@/components/scheduler/StockProjection'
@@ -21,12 +22,13 @@ import {
   Search, Save, ChevronDown, ChevronRight, AlertOctagon, CheckCircle2, Package,
 } from 'lucide-react'
 import type { SchedulerResult, CandidateOF } from '@/types/scheduler'
-import type { DetailItem } from '@/types/api'
+import type { DetailItem, RunState } from '@/types/api'
 
 interface SchedulerViewProps {
   isLoading: boolean
   result: SchedulerResult | null
   error: string | null
+  runState?: RunState | null
   onInspect: (item: DetailItem) => void
 }
 
@@ -45,7 +47,7 @@ const STATUT_CONFIG: Record<number, { label: string; tone: 'good' | 'primary' | 
   3: { label: 'Suggéré', tone: 'default' },
 }
 
-export function SchedulerView({ isLoading, result, error, onInspect: _onInspect }: SchedulerViewProps) {
+export function SchedulerView({ isLoading, result, error, runState, onInspect: _onInspect }: SchedulerViewProps) {
   // Controls
   const [activeTab, setActiveTab] = useState<string>('planning')
   const [showKpis, setShowKpis] = useState(true)
@@ -137,6 +139,13 @@ export function SchedulerView({ isLoading, result, error, onInspect: _onInspect 
 
   // Loading state
   if (isLoading) {
+    if (runState?.step_key) {
+      return (
+        <div className="flex items-center justify-center py-24">
+          <ScheduleProgress runState={runState} />
+        </div>
+      )
+    }
     return (
       <div className="space-y-3">
         <div className="h-20 rounded-2xl"><Skeleton className="h-full w-full rounded-2xl" /></div>
