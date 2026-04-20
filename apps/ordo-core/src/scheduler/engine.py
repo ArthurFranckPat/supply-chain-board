@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Callable, Optional
+from uuid import uuid4
 
 from ..algorithms.charge_calculator import calculate_article_charge, get_poste_libelle, POSTE_CHARGE_REGEX
 from ..algorithms.allocation import StockState
@@ -66,6 +67,8 @@ def run_schedule(
     calendar_config: Optional[CalendarConfig] = None,
     capacity_config: Optional[CapacityConfig] = None,
     progress_callback: Optional[Callable[[str, str, int, int], None]] = None,
+    run_id: Optional[str] = None,
+    freeze_threshold_hour: float = 12.0,
 ) -> SchedulerResult:
     """Run the AUTORESEARCH bootstrap scheduler.
 
@@ -87,6 +90,7 @@ def run_schedule(
 
     reference_date = reference_date or date.today()
     weights = load_weights(weights_path)
+    freeze_threshold_hour = weights.get("freeze_threshold_hour", freeze_threshold_hour)
     _progress("loading_data", "Chargement des données ERP", 0, 7)
 
     # Load calendar & capacity configs when available
@@ -104,6 +108,23 @@ def run_schedule(
             capacity_config = None
 
     workdays = config_build_workdays(reference_date, planning_workdays, calendar_config)
+
+    # Gel du jour courant si l'heure depasse le seuil
+    from datetime import datetime as _dt
+    _freeze_alert = None
+    _now = _dt.now()
+    _current_hour = _now.hour + _now.minute / 60.0
+    if (
+        reference_date == date.today()
+        and _current_hour >= freeze_threshold_hour
+        and workdays
+        and workdays[0] == reference_date
+    ):
+        workdays = workdays[1:]
+        _freeze_alert = (
+            f"Jour courant gele (heure {_now.hour}:{_now.minute:02d} >= seuil {freeze_threshold_hour})"
+        )
+
     demand_horizon_end = reference_date + timedelta(days=demand_calendar_days)
     target_lines = _build_target_line_articles(loader, lines_config)
     _progress("loading_capacity", "Chargement des capacités", 1, 7)
@@ -180,6 +201,8 @@ def run_schedule(
         for line in target_lines.keys()
     }
     alerts: list[str] = list(matching_alerts)
+    if _freeze_alert:
+        alerts.append(_freeze_alert)
 
     projected_buffer = {
         article: float(loader.get_stock(article).disponible() if loader.get_stock(article) else 0)
@@ -226,6 +249,22 @@ def run_schedule(
     schedulers = {line: GenericLineScheduler(line, capacity_hours=line_capacities[line], min_open_hours=line_min_open[line]) for line in target_lines.keys()}
     _progress("computing_schedule", "Calcul du planning", 4, 7)
 
+    # --- Capacite residuelle : charger les heures consommees du run precedent ---
+    consumed_hours_map: dict[tuple[str, date], float] = {}
+    try:
+        from . import db_schedule, residual_capacity
+        db_schedule.init_db()
+        prev_run_id = db_schedule.get_latest_run_id()
+        if prev_run_id is not None:
+            consumed_hours_map = residual_capacity.compute_consumed_capacity(
+                previous_run_id=prev_run_id,
+                reference_date=reference_date,
+                loader=loader,
+                db_module=db_schedule,
+            )
+    except Exception:
+        pass  # Non-fatal : si la persistence echoue, scheduler from scratch
+
     for day_idx, day in enumerate(workdays):
         if not immediate_components:
             apply_receptions_for_day(material_state, receptions_by_day, day)
@@ -234,6 +273,7 @@ def run_schedule(
 
         is_last_day = (day_idx == len(workdays) - 1)
         for line, scheduler in schedulers.items():
+            consumed = consumed_hours_map.get((line, day), 0.0)
             day_plan = scheduler.schedule_day(
                 day=day,
                 candidates=by_line[line],
@@ -247,6 +287,7 @@ def run_schedule(
                 immediate_components=immediate_components,
                 immediate_reference_day=workdays[0],
                 blocking_components_mode=blocking_components_mode,
+                consumed_hours=consumed,
             )
             day_plans[line][workdays.index(day)] = day_plan
             
@@ -368,6 +409,24 @@ def run_schedule(
         reception_rows=reception_rows,
     )
     write_outputs(output_dir, result)
+
+    # --- Persister le run en SQLite ---
+    try:
+        from . import db_schedule as _db
+        _db.init_db()
+        _run_id = run_id or uuid4().hex[:12]
+        if run_id is None:
+            _db.save_run(_run_id, reference_date, {"immediate_components": immediate_components})
+        _db.save_assignments(_run_id, result.plannings)
+        _db.update_run_status(
+            _run_id, "completed",
+            score=result.score,
+            taux_service=result.taux_service,
+            taux_ouverture=result.taux_ouverture,
+        )
+    except Exception:
+        pass  # Non-fatal
+
     return result
 
 

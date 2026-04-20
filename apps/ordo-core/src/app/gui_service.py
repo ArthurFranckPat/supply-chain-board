@@ -58,6 +58,11 @@ class GuiAppService:
         self.loaded_source: Optional[dict[str, Any]] = None
         self.runs: dict[str, dict[str, Any]] = {}
         self._analyse_rupture_service: Optional[Any] = None
+        try:
+            from ..scheduler.db_schedule import init_db
+            init_db()
+        except Exception:
+            pass
 
     def get_config(self) -> dict[str, Any]:
         return {
@@ -149,6 +154,17 @@ class GuiAppService:
             raise RuntimeError("Aucune donnee chargee. Appelez load_data avant run_schedule.")
 
         run_id = uuid4().hex[:12]
+
+        try:
+            from ..scheduler import db_schedule
+            db_schedule.save_run(run_id, date.today(), {
+                "immediate_components": immediate_components,
+                "blocking_components_mode": blocking_components_mode,
+                "demand_horizon_days": demand_horizon_days,
+            })
+        except Exception:
+            pass
+
         run_state: dict[str, Any] = {
             "run_id": run_id,
             "status": "running",
@@ -170,6 +186,7 @@ class GuiAppService:
         blocking_components_mode: str,
         demand_horizon_days: int = 15,
         progress_callback=None,
+        run_id: Optional[str] = None,
     ) -> dict[str, Any]:
         from ..scheduler import run_schedule as run_schedule_engine
 
@@ -183,6 +200,7 @@ class GuiAppService:
             blocking_components_mode=blocking_components_mode,
             demand_calendar_days=demand_horizon_days,
             progress_callback=progress_callback,
+            run_id=run_id,
         )
         return _serialize_value(result)
 
@@ -214,6 +232,7 @@ class GuiAppService:
                 blocking_components_mode=blocking_components_mode,
                 demand_horizon_days=demand_horizon_days,
                 progress_callback=on_progress,
+                run_id=run_id,
             )
             run_state.update(
                 {
