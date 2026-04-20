@@ -2,7 +2,6 @@
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
 
 
 class TypeApprovisionnement(Enum):
@@ -21,8 +20,6 @@ class Article:
     categorie: str
     type_appro: TypeApprovisionnement
     delai_reappro: int
-    famille_produit: Optional[str] = None
-    pmp: Optional[float] = None
 
     def is_achat(self) -> bool:
         return self.type_appro == TypeApprovisionnement.ACHAT

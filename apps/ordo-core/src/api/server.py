@@ -82,13 +82,6 @@ class RescheduleRequest(BaseModel):
     use_receptions: bool = True
 
 
-class EolResidualsRequest(BaseModel):
-    familles: list[str] = Field(default_factory=list)
-    prefixes: list[str] = Field(default_factory=list)
-    bom_depth_mode: str = Field(default="full", pattern="^(level1|full)$")
-    stock_mode: str = Field(default="physical", pattern="^(physical|net_releaseable)$")
-
-
 def create_app(service: Optional[GuiAppService] = None) -> FastAPI:
     app = FastAPI(
         title="Ordo v2 Local API",
@@ -278,25 +271,6 @@ def create_app(service: Optional[GuiAppService] = None) -> FastAPI:
         try:
             results = app.state.gui_service.feasibility_search_orders(q, limit)
             return {"orders": results}
-        except RuntimeError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-    # ── EOL Residual Stock ─────────────────────────────────────────────
-
-    @app.post("/api/v1/eol-residuals/analyze")
-    def eol_residuals_analyze(payload: EolResidualsRequest) -> dict:
-        if not payload.familles and not payload.prefixes:
-            raise HTTPException(
-                status_code=400,
-                detail="familles ou prefixes requis (au moins un des deux)",
-            )
-        try:
-            return app.state.gui_service.eol_residuals_analyze(
-                familles=payload.familles,
-                prefixes=payload.prefixes,
-                bom_depth_mode=payload.bom_depth_mode,
-                stock_mode=payload.stock_mode,
-            )
         except RuntimeError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 

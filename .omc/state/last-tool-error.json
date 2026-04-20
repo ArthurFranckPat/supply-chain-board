@@ -1,7 +1,7 @@
 {
-  "tool_name": "Read",
-  "tool_input_preview": "{\"file_path\":\"/Users/arthurbledou/Desktop/Code/supply-chain-board/packages/erp-data-access/src/erp_data_access/parsers/article.py\"}",
-  "error": "File does not exist. Note: your current working directory is /Users/arthurbledou/Desktop/Code/supply-chain-board.",
-  "timestamp": "2026-04-20T19:35:40.939Z",
-  "retry_count": 1
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"python benchmark_loading.py\",\"description\":\"Establish clean baseline\"}",
+  "error": "Exit code 1\nERREUR: Fichiers introuvables dans le dossier d'extractions ERP:\n  - Articles.csv\n  - Gammes.csv\n  - Nomenclatures.csv\n  - Ordres de fabrication.csv\n  - Stocks.csv\n  - Commandes Achats.csv\n  - Allocations.csv",
+  "timestamp": "2026-04-20T19:37:32.586Z",
+  "retry_count": 4
 }

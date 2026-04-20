@@ -8,9 +8,7 @@ import io
 import os
 import re
 from collections import defaultdict
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import Callable
 
 import pandas as pd
 
@@ -167,10 +165,30 @@ class CSVLoader:
 
     def _load_csv(self, filename: str, sep: str | None = None) -> pd.DataFrame:
         filepath = self.get_file_path(filename)
-        raw = self._read_text_with_fallback(filepath)
-        normalized = self._decode_if_base64(raw)
-        separator = sep or self._detect_separator(normalized)
-        return pd.read_csv(io.StringIO(normalized), sep=separator, low_memory=False)
+
+        # Try direct file reading with pandas first (faster than StringIO for large files)
+        if sep is not None:
+            return pd.read_csv(filepath, sep=sep, low_memory=False, encoding='utf-8-sig')
+
+        # Auto-detect separator by reading first few lines
+        with open(filepath, 'r', encoding='utf-8-sig') as f:
+            first_lines = [f.readline() for _ in range(5)]
+            sample = ''.join(first_lines)
+
+        # Check for base64 encoding
+        sample = self._decode_if_base64(sample)
+
+        # Detect separator
+        separator = self._detect_separator(sample)
+
+        # Read CSV with detected separator and optimized settings
+        return pd.read_csv(
+            filepath,
+            sep=separator,
+            low_memory=False,
+            encoding='utf-8-sig',
+            engine='c',  # Use C engine for faster parsing
+        )
 
     def load_articles(self) -> dict[str, "Article"]:
         df = self._load_csv("articles.csv")
@@ -233,43 +251,15 @@ class CSVLoader:
         return [parse_allocation(row.to_dict()) for _, row in df.iterrows()]
 
     def load_all(self) -> LoadResult:
-        """Charge tous les fichiers ERP et retourne un LoadResult nomme.
-
-        Utilise le chargement parallele pour optimiser les performances.
-        """
-        # Define loaders with their names for parallel execution
-        loaders: dict[str, Callable] = {
-            "articles": self.load_articles,
-            "nomenclatures": self.load_nomenclatures,
-            "gammes": self.load_gammes,
-            "ofs": self.load_of_entetes,
-            "stocks": self.load_stock,
-            "receptions": self.load_receptions,
-            "commandes_clients": self.load_commandes_clients,
-        }
-
-        results: dict[str, any] = {}
-
-        # Execute loaders in parallel using thread pool
-        with ThreadPoolExecutor(max_workers=4) as executor:
-            future_to_name = {
-                executor.submit(loader): name for name, loader in loaders.items()
-            }
-            for future in as_completed(future_to_name):
-                name = future_to_name[future]
-                try:
-                    results[name] = future.result()
-                except Exception as exc:
-                    raise RuntimeError(f"Failed to load {name}: {exc}") from exc
-
+        """Charge tous les fichiers ERP et retourne un LoadResult nomme."""
         return LoadResult(
-            articles=results["articles"],
-            nomenclatures=results["nomenclatures"],
-            gammes=results["gammes"],
-            ofs=results["ofs"],
-            stocks=results["stocks"],
-            receptions=results["receptions"],
-            commandes_clients=results["commandes_clients"],
+            articles=self.load_articles(),
+            nomenclatures=self.load_nomenclatures(),
+            gammes=self.load_gammes(),
+            ofs=self.load_of_entetes(),
+            stocks=self.load_stock(),
+            receptions=self.load_receptions(),
+            commandes_clients=self.load_commandes_clients(),
         )
 
 
