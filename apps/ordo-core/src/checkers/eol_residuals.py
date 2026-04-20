@@ -1,0 +1,265 @@
+"""EOL Residual Stock Analysis Service.
+
+Calcule les composants résiduels liés à des familles en fin de vie.
+"""
+
+from __future__ import annotations
+
+from typing import Optional
+
+from .eol_residuals_models import (
+    EolComponent,
+    EolResidualsRequest,
+    EolResidualsResult,
+    EolSummary,
+)
+from ..models.nomenclature import TypeArticle
+
+
+class EolResidualsService:
+    """EOL Residual Stock Analysis service.
+
+    Parameters
+    ----------
+    loader : DataLoader
+        Loaded ERP data.
+    """
+
+    def __init__(self, loader):
+        self.loader = loader
+
+    def analyze(
+        self,
+        familles: list[str],
+        prefixes: list[str],
+        bom_depth_mode: str = "full",
+        stock_mode: str = "physical",
+        component_types: str = "achat_fabrication",
+    ) -> EolResidualsResult:
+        """Analyze residual stock for EOL families.
+
+        Parameters
+        ----------
+        familles : list[str]
+            Liste de familles produit (FAMILLE_PRODUIT).
+        prefixes : list[str]
+            Liste de préfixes (union avec familles).
+        bom_depth_mode : str
+            "level1" (direct components only) or "full" (recursive).
+        stock_mode : str
+            "physical" (stock_physique) or "net_releaseable" (physique + bloque - alloue).
+        component_types : str
+            Currently only "achat_fabrication" is supported.
+
+        Returns
+        -------
+        EolResidualsResult
+        """
+        if not familles and not prefixes:
+            raise ValueError("familles et prefixes ne peuvent pas être tous les deux vides")
+
+        warnings: list[str] = []
+
+        # ── Step 1: Identify target PF articles ────────────────────────
+        target_pfs = self._find_target_pfs(familles, prefixes)
+        if not target_pfs:
+            warnings.append("Aucune famille ou préfixe ne correspond à un article PF")
+            return EolResidualsResult(
+                summary=EolSummary(0, 0, 0.0, 0.0),
+                components=[],
+                warnings=warnings,
+            )
+
+        # ── Step 2: Collect all PF articles outside the target perimeter ─
+        outside_pfs = self._find_outside_pfs(familles, prefixes)
+
+        # ── Step 3: Extract components from target PFs ────────────────
+        raw_components = self._extract_components(target_pfs, bom_depth_mode)
+
+        # ── Step 4: Filter for uniqueness (not used by outside PFs) ───
+        unique_components = self._filter_unique_components(
+            raw_components, target_pfs, outside_pfs
+        )
+
+        # ── Step 5: Build component details with stock & valorization ──
+        components: list[EolComponent] = []
+        total_stock_qty = 0.0
+        total_value = 0.0
+
+        for comp_code, comp_info in unique_components.items():
+            stock = self.loader.get_stock(comp_code)
+            pmp = getattr(comp_info["article"], "pmp", None) or 0.0
+
+            if stock_mode == "physical":
+                stock_qty = stock.stock_physique if stock else 0
+            else:  # net_releaseable
+                stock_qty = (stock.stock_physique + stock.stock_bloque - stock.stock_alloue) if stock else 0
+
+            value = round(stock_qty * pmp, 2)
+
+            if pmp == 0.0:
+                warnings.append(f"PMP manquant pour l'article {comp_code}")
+
+            comp_type = "ACHAT" if comp_info["is_achat"] else "FABRICATION"
+            components.append(EolComponent(
+                article=comp_code,
+                description=comp_info["article"].description or comp_code,
+                component_type=comp_type,
+                used_by_target_pf_count=comp_info["pf_count"],
+                stock_qty=float(stock_qty),
+                pmp=pmp,
+                value=value,
+            ))
+            total_stock_qty += stock_qty
+            total_value += value
+
+        components.sort(key=lambda c: c.article)
+
+        return EolResidualsResult(
+            summary=EolSummary(
+                target_pf_count=len(target_pfs),
+                unique_component_count=len(components),
+                total_stock_qty=round(total_stock_qty, 2),
+                total_value=round(total_value, 2),
+            ),
+            components=components,
+            warnings=warnings,
+        )
+
+    # ── Private helpers ──────────────────────────────────────────────
+
+    def _find_target_pfs(
+        self, familles: list[str], prefixes: list[str]
+    ) -> list:
+        """Find PF articles matching familles/prefixes."""
+        target_pfs = []
+        for article in self.loader.articles.values():
+            if not article.is_fabrication():
+                continue
+            # Only consider actual PF (produit fini), not intermediate FAB components
+            if getattr(article, "categorie", "") != "PF":
+                continue
+            famille = getattr(article, "famille_produit", None) or ""
+            code = article.code or ""
+
+            matches_famille = famille in familles
+            matches_prefix = any(code.startswith(p) for p in prefixes)
+
+            if matches_famille or matches_prefix:
+                target_pfs.append(article)
+        return target_pfs
+
+    def _find_outside_pfs(
+        self, familles: list[str], prefixes: list[str]
+    ) -> set:
+        """Find PF articles NOT in target perimeter."""
+        outside = set()
+        for article in self.loader.articles.values():
+            if not article.is_fabrication():
+                continue
+            # Only consider actual PF (produit fini), not intermediate FAB components
+            if getattr(article, "categorie", "") != "PF":
+                continue
+            famille = getattr(article, "famille_produit", None) or ""
+            code = article.code or ""
+
+            matches_famille = famille in familles
+            matches_prefix = any(code.startswith(p) for p in prefixes)
+
+            if not matches_famille and not matches_prefix:
+                outside.add(article.code)
+        return outside
+
+    def _extract_components(
+        self, target_pfs: list, bom_depth_mode: str
+    ) -> dict:
+        """Extract components from target PFs.
+
+        Returns dict[article_code, {article, is_achat, pf_count, parent_chain: set}]
+        parent_chain contains article codes of parent components (FAB) and PF codes
+        that led to this component being discovered.
+        """
+        components: dict = {}
+
+        def _recurse(article_code: str, parent_chain: set, depth: int = 0):
+            nom = self.loader.get_nomenclature(article_code)
+            if nom is None:
+                return
+
+            for entry in nom.composants:
+                comp_code = entry.article_composant
+                is_achat = entry.is_achete()
+
+                new_chain = parent_chain | {comp_code}
+                if comp_code in components:
+                    components[comp_code]["pf_count"] += 1
+                    components[comp_code]["parent_chain"] |= parent_chain
+                else:
+                    comp_article = self.loader.get_article(comp_code)
+                    if comp_article is None:
+                        continue
+                    components[comp_code] = {
+                        "article": comp_article,
+                        "is_achat": is_achat,
+                        "pf_count": 1,
+                        "parent_chain": parent_chain.copy(),
+                    }
+
+                # Recurse into FABRICATED components if full depth mode
+                if bom_depth_mode == "full" and not is_achat:
+                    _recurse(comp_code, new_chain, depth + 1)
+
+        for pf in target_pfs:
+            _recurse(pf.code, {pf.code})
+
+        return components
+
+    def _filter_unique_components(
+        self,
+        raw_components: dict,
+        target_pfs: list,
+        outside_pfs: set,
+    ) -> dict:
+        """Keep only components not used by any PF outside target perimeter.
+
+        A component is unique if used by at least one target PF and by no outside PFs.
+        """
+        target_pf_codes = {pf.code for pf in target_pfs}
+
+        filtered = {}
+        for comp_code, info in raw_components.items():
+            parent_chain = info.get("parent_chain", set())
+
+            # If parent_chain is empty, check direct nomenclature lookup for backwards compat
+            if not parent_chain:
+                is_outside = self._is_component_used_by_outside(comp_code, outside_pfs)
+                if not is_outside:
+                    filtered[comp_code] = info
+                continue
+
+            # Only PF ancestors matter for the uniqueness check (not intermediate FAB components)
+            pf_ancestors = parent_chain & target_pf_codes
+            pf_ancestors_outside = parent_chain & outside_pfs
+
+            if pf_ancestors_outside:
+                # Some PF ancestor is outside the perimeter → component is not unique
+                continue
+
+            # Also check directly if any outside PF uses this component
+            if self._is_component_used_by_outside(comp_code, outside_pfs):
+                continue
+
+            filtered[comp_code] = info
+
+        return filtered
+
+    def _is_component_used_by_outside(self, comp_code: str, outside_pfs: set) -> bool:
+        """Check if an outside PF uses this component directly."""
+        for outside_pf_code in outside_pfs:
+            nom = self.loader.get_nomenclature(outside_pf_code)
+            if nom is None:
+                continue
+            for entry in nom.composants:
+                if entry.article_composant == comp_code:
+                    return True
+        return False
