@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 
 
-@dataclass
+@dataclass(slots=True)
 class Stock:
     """Etat du stock pour un article."""
 

@@ -31,7 +31,7 @@ class NatureConsommation(Enum):
         return cls.PROPORTIONNEL
 
 
-@dataclass
+@dataclass(slots=True)
 class NomenclatureEntry:
     """Entree de nomenclature (relation parent -> composant)."""
 
@@ -67,7 +67,7 @@ class NomenclatureEntry:
         )
 
 
-@dataclass
+@dataclass(slots=True)
 class Nomenclature:
     """Nomenclature d'un article (liste des composants)."""
 

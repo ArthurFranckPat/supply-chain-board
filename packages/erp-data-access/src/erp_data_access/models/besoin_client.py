@@ -23,7 +23,7 @@ class NatureBesoin(Enum):
     PREVISION = "PREVISION"
 
 
-@dataclass
+@dataclass(slots=True)
 class BesoinClient:
     """Besoin client (commande ou prevision) issu de l'ERP."""
 

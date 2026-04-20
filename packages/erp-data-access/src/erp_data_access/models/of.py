@@ -16,7 +16,7 @@ class StatutOF(Enum):
     SUGGERE = 3
 
 
-@dataclass
+@dataclass(slots=True)
 class OF:
     """Ordre de fabrication."""
 

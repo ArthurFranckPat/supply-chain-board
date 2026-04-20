@@ -1,7 +1,0 @@
-{
-  "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"python benchmark_loading.py\",\"description\":\"Establish clean baseline\"}",
-  "error": "Exit code 1\nERREUR: Fichiers introuvables dans le dossier d'extractions ERP:\n  - Articles.csv\n  - Gammes.csv\n  - Nomenclatures.csv\n  - Ordres de fabrication.csv\n  - Stocks.csv\n  - Commandes Achats.csv\n  - Allocations.csv",
-  "timestamp": "2026-04-20T19:37:32.586Z",
-  "retry_count": 4
-}

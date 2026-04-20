@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 
 
-@dataclass
+@dataclass(slots=True)
 class ChargeByPoste:
     """Charge pour un poste de charge sur plusieurs semaines.
 

@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Optional
 
 
-@dataclass
+@dataclass(slots=True)
 class OFAllocation:
     """Allocation d'un article a un document (OF ou commande)."""
 

@@ -1,0 +1,86 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1776714241585,
+  "projectRoot": "/Users/arthurbledou/Desktop/Code/supply-chain-board",
+  "techStack": {
+    "languages": [],
+    "frameworks": [],
+    "packageManager": null,
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": null,
+    "testCommand": null,
+    "lintCommand": null,
+    "devCommand": null,
+    "scripts": {}
+  },
+  "conventions": {
+    "namingStyle": null,
+    "importStyle": null,
+    "testPattern": null,
+    "fileOrganization": null
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [
+      "docs"
+    ],
+    "gitBranches": {
+      "defaultBranch": "master",
+      "branchingStrategy": null
+    }
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "apps": {
+      "path": "apps",
+      "purpose": null,
+      "fileCount": 0,
+      "lastAccessed": 1776714241577,
+      "keyFiles": []
+    },
+    "data": {
+      "path": "data",
+      "purpose": "Data files",
+      "fileCount": 0,
+      "lastAccessed": 1776714241577,
+      "keyFiles": []
+    },
+    "docs": {
+      "path": "docs",
+      "purpose": "Documentation",
+      "fileCount": 1,
+      "lastAccessed": 1776714241578,
+      "keyFiles": [
+        "scheduler-genetic-algorithm.md"
+      ]
+    },
+    "infra": {
+      "path": "infra",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1776714241578,
+      "keyFiles": [
+        "docker-compose.yml"
+      ]
+    },
+    "packages": {
+      "path": "packages",
+      "purpose": null,
+      "fileCount": 0,
+      "lastAccessed": 1776714241578,
+      "keyFiles": []
+    },
+    "services": {
+      "path": "services",
+      "purpose": "Business logic services",
+      "fileCount": 0,
+      "lastAccessed": 1776714241578,
+      "keyFiles": []
+    }
+  },
+  "hotPaths": [],
+  "userDirectives": []
+}

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 
-@dataclass
+@dataclass(slots=True)
 class GammeOperation:
     """Opération de gamme (poste de charge)."""
 
@@ -19,7 +19,7 @@ class GammeOperation:
         return parse_gamme_operation(row)
 
 
-@dataclass
+@dataclass(slots=True)
 class Gamme:
     """Gamme de production pour un article."""
 
