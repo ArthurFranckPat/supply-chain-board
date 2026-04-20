@@ -35,6 +35,7 @@ class EolResidualsService:
         bom_depth_mode: str = "full",
         stock_mode: str = "physical",
         component_types: str = "achat_fabrication",
+        projection_date=None,
     ) -> EolResidualsResult:
         """Analyze residual stock for EOL families.
 
@@ -47,9 +48,11 @@ class EolResidualsService:
         bom_depth_mode : str
             "level1" (direct components only) or "full" (recursive).
         stock_mode : str
-            "physical" (stock_physique) or "net_releaseable" (physique + bloque - alloue).
+            "physical" (stock_physique), "net_releaseable", or "projected".
         component_types : str
             Currently only "achat_fabrication" is supported.
+        projection_date : date, optional
+            Required when stock_mode="projected". Date for stock projection.
 
         Returns
         -------
@@ -57,6 +60,9 @@ class EolResidualsService:
         """
         if not familles and not prefixes:
             raise ValueError("familles et prefixes ne peuvent pas être tous les deux vides")
+
+        if stock_mode == "projected" and projection_date is None:
+            raise ValueError("projection_date is required when stock_mode='projected'")
 
         warnings: list[str] = []
 
@@ -81,7 +87,14 @@ class EolResidualsService:
             raw_components, target_pfs, outside_pfs
         )
 
-        # ── Step 5: Build component details with stock & valorization ──
+        # ── Step 5: Compute projected consumption if needed ────────────
+        projected_consumption: dict[str, float] = {}
+        if stock_mode == "projected":
+            projected_consumption = self._compute_projected_consumption(
+                unique_components, projection_date
+            )
+
+        # ── Step 6: Build component details with stock & valorization ──
         components: list[EolComponent] = []
         total_stock_qty = 0.0
         total_value = 0.0
@@ -92,8 +105,16 @@ class EolResidualsService:
 
             if stock_mode == "physical":
                 stock_qty = stock.stock_physique if stock else 0
-            else:  # net_releaseable
+            elif stock_mode == "net_releaseable":
                 stock_qty = (stock.stock_physique + stock.stock_bloque - stock.stock_alloue) if stock else 0
+            else:  # projected
+                stock_qty = stock.stock_physique if stock else 0
+                # Add future receptions
+                for reception in self.loader.get_receptions(comp_code):
+                    if reception.date_reception_prevue <= projection_date:
+                        stock_qty += reception.quantite_restante
+                # Subtract projected consumption
+                stock_qty -= projected_consumption.get(comp_code, 0.0)
 
             value = round(stock_qty * pmp, 2)
 
@@ -246,3 +267,58 @@ class EolResidualsService:
                 if entry.article_composant == comp_code:
                     return True
         return False
+
+    def _compute_projected_consumption(
+        self,
+        unique_components: dict,
+        projection_date,
+    ) -> dict[str, float]:
+        """Compute projected consumption per component for OFs finishing before projection_date.
+
+        Returns dict[component_code, qty_consumed].
+        Considers ALL OFs (not just EOL target) since non-EOL products
+        also consume the shared component pool.
+        """
+        consumption: dict[str, float] = {}
+
+        for of in self.loader.ofs:
+            if of.qte_restante <= 0:
+                continue
+            if of.date_fin > projection_date:
+                continue
+
+            # Compute how much of each component this OF consumes
+            self._add_of_consumption(of.article, of.qte_restante, consumption, visited=set())
+
+        return consumption
+
+    def _add_of_consumption(
+        self,
+        article: str,
+        qty: int,
+        consumption: dict[str, float],
+        visited: set,
+    ) -> None:
+        """Add component consumption for producing `qty` of `article`.
+
+        Recurses through nomenclature FAB components to find all ACHAT leaf components
+        and accumulates their consumed quantities.
+        """
+        if article in visited:
+            return
+        visited.add(article)
+
+        nom = self.loader.get_nomenclature(article)
+        if nom is None:
+            return
+
+        for entry in nom.composants:
+            comp_code = entry.article_composant
+            comp_qty = entry.qte_requise(qty)
+
+            if entry.is_achete():
+                # ACHAT component: this is a leaf — consume it directly
+                consumption[comp_code] = consumption.get(comp_code, 0.0) + comp_qty
+            else:
+                # FAB component: recurse to find its ACHAT children
+                self._add_of_consumption(comp_code, comp_qty, consumption, visited)
