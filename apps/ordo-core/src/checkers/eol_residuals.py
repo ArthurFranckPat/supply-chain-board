@@ -115,6 +115,9 @@ class EolResidualsService:
                         stock_qty += reception.quantite_restante
                 # Subtract projected consumption
                 stock_qty -= projected_consumption.get(comp_code, 0.0)
+                # Stock cannot go below zero (over-consumption clamps to 0)
+                if stock_qty < 0:
+                    stock_qty = 0.0
 
             value = round(stock_qty * pmp, 2)
 
