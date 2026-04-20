@@ -264,12 +264,12 @@ export function EolResidualsView() {
             {totalValue > 0 && (
               <div className="mt-4 pt-4 border-t border-border">
                 <div className="flex items-center justify-between text-[10px] mb-1.5">
-                  <span className="text-blue font-semibold">ACHAT &mdash; {achatPct}%</span>
-                  <span className="text-purple font-semibold">{fabPct}% &mdash; FAB</span>
+                  <span className="text-orange font-semibold">ACHAT &mdash; {achatPct}%</span>
+                  <span className="text-green font-semibold">{fabPct}% &mdash; FAB</span>
                 </div>
                 <div className="h-2 bg-muted rounded-full overflow-hidden flex">
-                  <div className="h-full bg-blue transition-all" style={{ width: `${achatPct}%` }} />
-                  <div className="h-full bg-purple transition-all" style={{ width: `${fabPct}%` }} />
+                  <div className="h-full bg-orange transition-all" style={{ width: `${achatPct}%` }} />
+                  <div className="h-full bg-green transition-all" style={{ width: `${fabPct}%` }} />
                 </div>
               </div>
             )}
@@ -279,7 +279,7 @@ export function EolResidualsView() {
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-card border border-border rounded-xl p-4 flex items-start justify-between">
               <div>
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue/10 text-blue mb-2">ACHAT</span>
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-orange/10 text-orange mb-2">ACHAT</span>
                 <p className="text-2xl font-bold tabular-nums">{achatComponents.length}</p>
                 <p className="text-[11px] text-muted-foreground">composants achetes</p>
               </div>
@@ -292,7 +292,7 @@ export function EolResidualsView() {
             </div>
             <div className="bg-card border border-border rounded-xl p-4 flex items-start justify-between">
               <div>
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple/10 text-purple mb-2">FABRICATION</span>
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-green/10 text-green mb-2">FABRICATION</span>
                 <p className="text-2xl font-bold tabular-nums">{fabComponents.length}</p>
                 <p className="text-[11px] text-muted-foreground">composants internes</p>
               </div>
@@ -392,7 +392,7 @@ export function EolResidualsView() {
                         </td>
                         <td className="px-3 py-2.5 text-center">
                           <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
-                            comp.component_type === 'ACHAT' ? 'bg-blue/10 text-blue' : 'bg-purple/10 text-purple'
+                            comp.component_type === 'ACHAT' ? 'bg-orange/10 text-orange' : 'bg-green/10 text-green'
                           }`}>
                             {comp.component_type === 'ACHAT' ? 'ACH' : 'FAB'}
                           </span>
