@@ -11,13 +11,14 @@ import { ReportsView } from '@/views/ReportsView'
 import { AnalyseRuptureView } from '@/views/AnalyseRuptureView'
 import { FeasibilityView } from '@/views/FeasibilityView'
 import { EolResidualsView } from '@/views/EolResidualsView'
+import { ResidualFabricationView } from '@/views/ResidualFabricationView'
 import { OrderTrackingView } from '@/views/OrderTrackingView'
 import type { DataSource, DetailItem } from '@/types/api'
 import type { SchedulerOptions } from '@/views/HomeView'
 import type { SuiviStatusResponse } from '@/types/suivi-commandes'
-import { Activity, LayoutDashboard, Wrench, CalendarDays, FileText, Settings, Package, Zap, PanelLeftClose, PanelLeftOpen, AlertTriangle, ShoppingCart, CheckCircle, PackageSearch } from 'lucide-react'
+import { Activity, LayoutDashboard, Wrench, CalendarDays, FileText, Settings, Package, Zap, PanelLeftClose, PanelLeftOpen, AlertTriangle, ShoppingCart, CheckCircle, PackageSearch, Factory } from 'lucide-react'
 
-type ViewKey = 'home' | 'actions' | 'scheduler' | 'analyse-rupture' | 'feasibility' | 'capacity' | 'eol-residuals' | 'order-tracking' | 'reports' | 'settings'
+type ViewKey = 'home' | 'actions' | 'scheduler' | 'analyse-rupture' | 'feasibility' | 'capacity' | 'eol-residuals' | 'fabricable' | 'order-tracking' | 'reports' | 'settings'
 type LoadState = 'idle' | 'loading' | 'ready' | 'error'
 
 const NAV_ITEMS: Array<{ key: ViewKey; label: string; icon: React.ReactNode }> = [
@@ -27,6 +28,7 @@ const NAV_ITEMS: Array<{ key: ViewKey; label: string; icon: React.ReactNode }> =
   { key: 'analyse-rupture', label: 'Ruptures', icon: <AlertTriangle className="h-[15px] w-[15px]" /> },
   { key: 'feasibility', label: 'Faisabilite', icon: <CheckCircle className="h-[15px] w-[15px]" /> },
   { key: 'eol-residuals', label: 'EOL Residuel', icon: <PackageSearch className="h-[15px] w-[15px]" /> },
+  { key: 'fabricable', label: 'Fabricable', icon: <Factory className="h-[15px] w-[15px]" /> },
   { key: 'capacity', label: 'Capacites', icon: <CalendarDays className="h-[15px] w-[15px]" /> },
   { key: 'order-tracking', label: 'Commandes', icon: <ShoppingCart className="h-[15px] w-[15px]" /> },
   { key: 'reports', label: 'Reports', icon: <FileText className="h-[15px] w-[15px]" /> },
@@ -307,6 +309,9 @@ function App() {
           )}
           {activeView === 'eol-residuals' && (
             <EolResidualsView />
+          )}
+          {activeView === 'fabricable' && (
+            <ResidualFabricationView />
           )}
           {activeView === 'order-tracking' && (
             <OrderTrackingView data={suiviData} loadState={loadState} onReload={() => {

@@ -59,6 +59,7 @@ class GuiAppService:
         self.runs: dict[str, dict[str, Any]] = {}
         self._analyse_rupture_service: Optional[Any] = None
         self._eol_residuals_service: Optional[Any] = None
+        self._eol_residuals_fab_service: Optional[Any] = None
         try:
             from ..scheduler.db_schedule import init_db
             init_db()
@@ -96,6 +97,7 @@ class GuiAppService:
         self.loader = loader
         self._analyse_rupture_service = None  # Invalider le service d'analyse de rupture
         self._eol_residuals_service = None  # Invalider le service EOL residuels
+        self._eol_residuals_fab_service = None
         self.loaded_source = {
             "source": "extractions",
             "extractions_dir": target_dir,
@@ -452,6 +454,67 @@ class GuiAppService:
             projection_date=parsed_projection_date,
         )
         return _serialize_value(result)
+
+    def eol_residuals_fab_check(
+        self,
+        familles: list[str],
+        prefixes: list[str],
+        desired_qty: int = 1,
+        bom_depth_mode: str = "full",
+        stock_mode: str = "physical",
+        projection_date: Optional[str] = None,
+    ) -> dict[str, Any]:
+        """Evaluate which PF can be built from the residual stock pool."""
+        if self.loader is None:
+            raise RuntimeError("Aucune donnee chargee. Appelez load_data avant.")
+
+        from ..checkers.eol_residuals import EolResidualsService
+        from ..checkers.residual_fabrication import ResidualFabricationService
+        from .eol_residuals_models import EolComponent
+
+        # Step 1: get residual pool
+        if self._eol_residuals_service is None:
+            self._eol_residuals_service = EolResidualsService(self.loader)
+
+        eol_result = self._eol_residuals_service.analyze(
+            familles=familles,
+            prefixes=prefixes,
+            bom_depth_mode=bom_depth_mode,
+            stock_mode=stock_mode,
+            component_types="achat_fabrication",
+            projection_date=date.fromisoformat(projection_date) if projection_date else None,
+        )
+
+        pool = [
+            EolComponent(
+                article=c.article,
+                description=c.description,
+                component_type=c.component_type,
+                used_by_target_pf_count=c.used_by_target_pf_count,
+                stock_qty=c.stock_qty,
+                pmp=c.pmp,
+                value=c.value,
+            )
+            for c in eol_result.components
+        ]
+
+        # Step 2: find candidate PF codes matching the perimeter
+        from ..models.article import TypeApprovisionnement
+        pf_codes: list[str] = []
+        for article in self.loader.articles.values():
+            if not article.is_fabrication():
+                continue
+            famille = getattr(article, "famille_produit", None) or ""
+            code = article.code or ""
+            matches_famille = famille in familles
+            matches_prefix = any(code.startswith(p) for p in prefixes)
+            if matches_famille or matches_prefix:
+                pf_codes.append(article.code)
+
+        # Step 3: batch feasibility check
+        service = ResidualFabricationService(self.loader, pool)
+        results = service.check_all(pf_codes=pf_codes, desired_qty=desired_qty)
+        return _serialize_value(results)
 
     # ── Feasibility ──────────────────────────────────────────────────
 

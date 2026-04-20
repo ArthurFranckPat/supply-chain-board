@@ -67,6 +67,15 @@ class EolResidualsRequest(BaseModel):
     projection_date: Optional[str] = None
 
 
+class ResidualFabRequest(BaseModel):
+    familles: list[str] = Field(default_factory=list)
+    prefixes: list[str] = Field(default_factory=list)
+    desired_qty: int = Field(default=1, ge=1)
+    bom_depth_mode: str = Field(default="full", pattern="^(level1|full)$")
+    stock_mode: str = Field(default="physical", pattern="^(physical|net_releaseable|projected)$")
+    projection_date: Optional[str] = None
+
+
 class FeasibilityCheckRequest(BaseModel):
     article: str
     quantity: int = Field(gt=0)
@@ -231,6 +240,22 @@ def create_app(service: Optional[GuiAppService] = None) -> FastAPI:
                 bom_depth_mode=payload.bom_depth_mode,
                 stock_mode=payload.stock_mode,
                 component_types=payload.component_types,
+                projection_date=payload.projection_date,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except RuntimeError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.post("/api/v1/eol-residuals/fabricable")
+    def eol_residuals_fabricable(payload: ResidualFabRequest) -> dict:
+        try:
+            return app.state.gui_service.eol_residuals_fab_check(
+                familles=payload.familles,
+                prefixes=payload.prefixes,
+                desired_qty=payload.desired_qty,
+                bom_depth_mode=payload.bom_depth_mode,
+                stock_mode=payload.stock_mode,
                 projection_date=payload.projection_date,
             )
         except ValueError as exc:
