@@ -46,37 +46,17 @@ class X3StockHistoryRequest(BaseModel):
     )
 
 
-def _filter_items(
-    items: list[dict[str, Any]],
-    payload: X3StockHistoryRequest,
-) -> list[dict[str, Any]]:
-    """Filtre côté Python les mouvements TRSTYP et la date."""
-    horizon_date = date.today() - timedelta(days=payload.horizon_days)
-    filtered: list[dict[str, Any]] = []
+def _build_stock_where(payload: X3StockHistoryRequest) -> str:
+    """Construit la clause SData where pour /stock-history."""
+    clauses: list[str] = [f"ITMREF eq '{payload.itmref}'"]
 
-    for item in items:
-        # Filtre date
-        iptdat = item.get("IPTDAT")
-        if iptdat:
-            try:
-                item_date = date.fromisoformat(str(iptdat))
-                if item_date < horizon_date:
-                    continue
-            except ValueError:
-                pass
+    if not payload.include_internal:
+        clauses.append("TRSTYP le 6")
 
-        # Filtre TRSTYP : internes = <= 6, exclus par défaut
-        trstyp = item.get("TRSTYP")
-        if trstyp is not None and not payload.include_internal:
-            try:
-                if int(trstyp) <= 6:
-                    continue
-            except (ValueError, TypeError):
-                pass
+    horizon_date = (date.today() - timedelta(days=payload.horizon_days)).strftime("%Y-%m-%d")
+    clauses.append(f"IPTDAT ge '{horizon_date}'")
 
-        filtered.append(item)
-
-    return filtered
+    return " and ".join(clauses)
 
 
 @router.post("/query")
@@ -119,7 +99,7 @@ def x3_stock_history(payload: X3StockHistoryRequest) -> dict[str, Any]:
     """Retourne l'historique des mouvements de stock pour un article (parsé)."""
     try:
         client = X3Client()
-        where = f"ITMREF eq '{payload.itmref}'"
+        where = _build_stock_where(payload)
 
         if payload.all_pages:
             resources = client.query_all(
@@ -130,7 +110,6 @@ def x3_stock_history(payload: X3StockHistoryRequest) -> dict[str, Any]:
                 count=payload.count,
             )
             items = parse_resources(resources, fields=STOJOU_FIELDS)
-            items = _filter_items(items, payload)
             return {"count": len(items), "items": items}
 
         raw = client.query(
@@ -140,10 +119,7 @@ def x3_stock_history(payload: X3StockHistoryRequest) -> dict[str, Any]:
             order_by=payload.order_by,
             count=payload.count,
         )
-        result = parse_query_response(raw, fields=STOJOU_FIELDS)
-        result["items"] = _filter_items(result["items"], payload)
-        result["count"] = len(result["items"])
-        return result
+        return parse_query_response(raw, fields=STOJOU_FIELDS)
     except RuntimeError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     except Exception as exc:
