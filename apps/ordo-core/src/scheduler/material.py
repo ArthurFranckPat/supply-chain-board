@@ -2,8 +2,8 @@ from collections import defaultdict
 from datetime import date
 from typing import Optional
 
-from src.algorithms.allocation import StockState
-from src.checkers.recursive import RecursiveChecker
+from ..algorithms.allocation import StockState
+from ..checkers.recursive import RecursiveChecker
 from .calendar import previous_workday
 from .models import CandidateOF
 

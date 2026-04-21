@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date, timedelta
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
@@ -10,6 +11,7 @@ from pydantic import BaseModel, Field
 
 from ..services.x3_client import X3Client
 from ..services.x3_parser import parse_query_response, parse_resources, STOJOU_FIELDS
+import base64
 
 router = APIRouter(prefix="/x3", tags=["sage-x3"])
 
@@ -56,6 +58,27 @@ def _build_stock_where(payload: X3StockHistoryRequest) -> list[str]:
     clauses.append(f"IPTDAT ge @{horizon_date}@")
 
     return clauses
+
+
+@router.get("/config")
+def x3_config() -> dict[str, str]:
+    """Retourne la configuration X3 effective (password masqué)."""
+    try:
+        client = X3Client()
+        creds = f"{client.username}:{client.password}"
+        token = base64.b64encode(creds.encode()).decode()
+        return {
+            "base_url": client.base_url,
+            "username": client.username,
+            "password_masked": "*" * len(client.password),
+            "auth_header": f"Basic {token}",
+            "full_url_template": f"{client.base_url}/{{classe}}?representation={{representation}}.$query",
+        }
+    except Exception as exc:
+        return {
+            "error": str(exc),
+            "env_file_searched": str(Path(__file__).resolve().parents[2] / ".env"),
+        }
 
 
 @router.post("/query")
