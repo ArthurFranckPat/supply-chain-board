@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from ..app import GuiAppService
+from .x3_routes import router as x3_router
 
 
 class DataLoadRequest(BaseModel):
@@ -67,6 +68,15 @@ class EolResidualsRequest(BaseModel):
     projection_date: Optional[str] = None
 
 
+class ResidualFabRequest(BaseModel):
+    familles: list[str] = Field(default_factory=list)
+    prefixes: list[str] = Field(default_factory=list)
+    desired_qty: int = Field(default=1, ge=1)
+    bom_depth_mode: str = Field(default="full", pattern="^(level1|full)$")
+    stock_mode: str = Field(default="physical", pattern="^(physical|net_releaseable|projected)$")
+    projection_date: Optional[str] = None
+
+
 class FeasibilityCheckRequest(BaseModel):
     article: str
     quantity: int = Field(gt=0)
@@ -89,6 +99,12 @@ class RescheduleRequest(BaseModel):
     new_quantity: Optional[int] = None
     depth_mode: str = Field(default="full", pattern="^(level1|full)$")
     use_receptions: bool = True
+
+
+class StockEvolutionRequest(BaseModel):
+    itmref: str
+    horizon_days: int = Field(default=45, ge=1, le=365)
+    include_internal: bool = Field(default=False)
 
 
 def create_app(service: Optional[GuiAppService] = None) -> FastAPI:
@@ -238,6 +254,22 @@ def create_app(service: Optional[GuiAppService] = None) -> FastAPI:
         except RuntimeError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+    @app.post("/api/v1/eol-residuals/fabricable")
+    def eol_residuals_fabricable(payload: ResidualFabRequest) -> dict:
+        try:
+            return app.state.gui_service.eol_residuals_fab_check(
+                familles=payload.familles,
+                prefixes=payload.prefixes,
+                desired_qty=payload.desired_qty,
+                bom_depth_mode=payload.bom_depth_mode,
+                stock_mode=payload.stock_mode,
+                projection_date=payload.projection_date,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except RuntimeError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     # ── Feasibility ─────────────────────────────────────────────────
 
     @app.post("/api/v1/feasibility/check")
@@ -300,6 +332,54 @@ def create_app(service: Optional[GuiAppService] = None) -> FastAPI:
             return {"orders": results}
         except RuntimeError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    # ── Stock Evolution ───────────────────────────────────────────────
+
+    @app.get("/api/v1/stock-evolution/{itmref}")
+    def stock_evolution(payload: StockEvolutionRequest, itmref: str) -> dict:
+        try:
+            return app.state.gui_service.analyser_evolution_stock(
+                itmref=itmref,
+                horizon_days=payload.horizon_days,
+                include_internal=payload.include_internal,
+            )
+        except RuntimeError as exc:
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    @app.get("/api/v1/stock-evolution/{itmref}/chart")
+    def stock_evolution_chart(payload: StockEvolutionRequest, itmref: str) -> dict:
+        try:
+            result = app.state.gui_service.analyser_evolution_stock(
+                itmref=itmref,
+                horizon_days=payload.horizon_days,
+                include_internal=payload.include_internal,
+            )
+            # Format optimisé pour le chart : {dates[], stocks[], mouvements[]}
+            items = result.get("items", [])
+            return {
+                "article": itmref,
+                "dates": [m["iptdat"] for m in items],
+                "stocks": [m["stock_apres"] for m in items],
+                "qtystu": [m["qtystu"] for m in items],
+                "trstyp": [m["trstyp"] for m in items],
+                "vcrnum": [m["vcrnum"] for m in items],
+                "stats": {k: v for k, v in result.items() if k not in ("items", "article")},
+            }
+        except RuntimeError as exc:
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    @app.post("/api/v1/stock-evolution/analytics")
+    def stock_evolution_analytics(payload: StockEvolutionRequest) -> dict:
+        try:
+            return app.state.gui_service.analyser_evolution_stock(
+                itmref=payload.itmref,
+                horizon_days=payload.horizon_days,
+                include_internal=payload.include_internal,
+            )
+        except RuntimeError as exc:
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    app.include_router(x3_router)
 
     return app
 

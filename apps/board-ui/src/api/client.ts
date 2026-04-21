@@ -3,6 +3,8 @@ import type { MonthCalendar, CapacityConfigResponse } from '@/types/capacity'
 import type { AnalyseRuptureResponse } from '@/types/analyse-rupture'
 import type { FeasibilityResponse, ArticleSearchResult, OrderSearchResult } from '@/types/feasibility'
 import type { EolResidualsResponse } from '@/types/eol-residuals'
+import type { ResidualFabricationResponse } from '@/types/residual-fabrication'
+import type { StockEvolutionResponse, StockChartData } from '@/types/stock-evolution'
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') ?? 'http://127.0.0.1:8000'
@@ -165,6 +167,20 @@ export const apiClient = {
     })
   },
 
+  eolResidualsFabricable(data: {
+    familles?: string[]
+    prefixes?: string[]
+    desired_qty?: number
+    bom_depth_mode?: string
+    stock_mode?: string
+    projection_date?: string
+  }) {
+    return request<ResidualFabricationResponse>('/api/v1/eol-residuals/fabricable', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  },
+
   // ── Feasibility ──────────────────────────────────────────────
   checkFeasibility(data: { article: string; quantity: number; desired_date: string; use_receptions?: boolean; check_capacity?: boolean; depth_mode?: string }) {
     return request<FeasibilityResponse>('/api/v1/feasibility/check', {
@@ -193,5 +209,20 @@ export const apiClient = {
 
   searchOrders(query: string, limit?: number) {
     return request<{ orders: OrderSearchResult[] }>(`/api/v1/feasibility/orders?q=${encodeURIComponent(query)}&limit=${limit ?? 30}`)
+  },
+
+  // ── Stock Evolution ───────────────────────────────────────────
+  getStockEvolution(itmref: string, options?: { horizon_days?: number; include_internal?: boolean }) {
+    const params = new URLSearchParams({ itmref })
+    if (options?.horizon_days) params.set('horizon_days', String(options.horizon_days))
+    if (options?.include_internal) params.set('include_internal', 'true')
+    return request<StockEvolutionResponse>(`/api/v1/stock-evolution/${encodeURIComponent(itmref)}?${params}`)
+  },
+
+  getStockEvolutionChart(itmref: string, options?: { horizon_days?: number; include_internal?: boolean }) {
+    const params = new URLSearchParams({ itmref })
+    if (options?.horizon_days) params.set('horizon_days', String(options.horizon_days))
+    if (options?.include_internal) params.set('include_internal', 'true')
+    return request<StockChartData>(`/api/v1/stock-evolution/${encodeURIComponent(itmref)}/chart?${params}`)
   },
 }
