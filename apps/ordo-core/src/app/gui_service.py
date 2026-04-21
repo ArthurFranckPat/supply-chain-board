@@ -60,6 +60,7 @@ class GuiAppService:
         self._analyse_rupture_service: Optional[Any] = None
         self._eol_residuals_service: Optional[Any] = None
         self._eol_residuals_fab_service: Optional[Any] = None
+        self._stock_history_analyzer: Optional[Any] = None
         try:
             from ..scheduler.db_schedule import init_db
             init_db()
@@ -622,3 +623,30 @@ class GuiAppService:
         config = load_calendar_config(self._config_dir, year)
         config = ensure_holidays_in_calendar(self._config_dir, config)
         return config
+
+    # ── Stock History Analysis ───────────────────────────────────────
+
+    def analyser_evolution_stock(
+        self,
+        itmref: str,
+        horizon_days: int = 45,
+        include_internal: bool = False,
+    ) -> dict[str, Any]:
+        """Reconstitue l'historique et calcule les stats pour un article."""
+        from ..services.stock_history_analyzer import StockHistoryAnalyzer
+
+        if self._stock_history_analyzer is None:
+            self._stock_history_analyzer = StockHistoryAnalyzer()
+
+        mouvements = self._stock_history_analyzer.reconstituer_stock(
+            itmref=itmref,
+            horizon_days=horizon_days,
+            include_internal=include_internal,
+            all_pages=True,
+        )
+        stats = self._stock_history_analyzer.calculer_stats(mouvements)
+        return {
+            "article": itmref,
+            **(_serialize_value(stats)),
+            "items": _serialize_value(mouvements),
+        }
