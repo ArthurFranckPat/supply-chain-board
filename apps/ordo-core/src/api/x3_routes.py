@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from ..services.x3_client import X3Client
+from ..services.x3_parser import parse_query_response, STOJOU_FIELDS
 
 router = APIRouter(prefix="/x3", tags=["sage-x3"])
 
@@ -71,17 +72,18 @@ def x3_detail(payload: X3DetailRequest) -> dict[str, Any]:
 
 @router.post("/stock-history")
 def x3_stock_history(payload: X3StockHistoryRequest) -> dict[str, Any]:
-    """Retourne l'historique des mouvements de stock pour un article."""
+    """Retourne l'historique des mouvements de stock pour un article (parsé)."""
     try:
         client = X3Client()
         where = f"ITMREF eq '{payload.itmref}'"
-        return client.query(
+        raw = client.query(
             classe="STOJOU",
             representation=payload.representation,
             where=where,
             order_by=payload.order_by,
             count=payload.count,
         )
+        return parse_query_response(raw, fields=STOJOU_FIELDS)
     except RuntimeError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     except Exception as exc:
