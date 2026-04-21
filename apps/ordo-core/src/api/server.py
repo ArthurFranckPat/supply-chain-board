@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from ..app import GuiAppService
+from .x3_routes import router as x3_router
 
 
 class DataLoadRequest(BaseModel):
@@ -325,6 +326,8 @@ def create_app(service: Optional[GuiAppService] = None) -> FastAPI:
             return {"orders": results}
         except RuntimeError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    app.include_router(x3_router)
 
     return app
 
