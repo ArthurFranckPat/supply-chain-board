@@ -14,29 +14,31 @@ def _basic_auth_header(username: str, password: str) -> str:
     return f"Basic {creds}"
 
 
-def _build_params(
+def _build_url(
+    base_url: str,
+    classe: str,
     representation: str,
     where: str | list[str] | None = None,
     order_by: str | None = None,
     count: int | None = None,
     offset: int | None = None,
-) -> list[tuple[str, str | int]]:
-    """Construit la liste de paramètres SData (clés dupliquées autorisées)."""
-    params: list[tuple[str, str | int]] = [
-        ("representation", f"{representation}.$query"),
+) -> str:
+    """Construit l'URL SData complète sur une seule ligne."""
+    parts: list[str] = [
+        f"{base_url}/{classe}?representation={representation}.$query"
     ]
     if isinstance(where, list):
         for clause in where:
-            params.append(("where", clause))
+            parts.append(f"where={clause}")
     elif where:
-        params.append(("where", where))
+        parts.append(f"where={where}")
     if order_by:
-        params.append(("orderBy", order_by))
+        parts.append(f"orderBy={order_by}")
     if count is not None:
-        params.append(("count", count))
+        parts.append(f"count={count}")
     if offset is not None:
-        params.append(("offset", offset))
-    return params
+        parts.append(f"offset={offset}")
+    return "&".join(parts)
 
 
 class X3Client:
@@ -91,11 +93,10 @@ class X3Client:
             count: Taille de page.
             offset: Offset (pagination).
         """
-        url = f"{self.base_url}/{classe}"
-        params = _build_params(representation, where, order_by, count, offset)
+        url = _build_url(self.base_url, classe, representation, where, order_by, count, offset)
 
         with self._client() as client:
-            resp = client.get(url, params=params)
+            resp = client.get(url)
             resp.raise_for_status()
             return resp.json()
 
@@ -125,8 +126,8 @@ class X3Client:
         with self._client() as client:
             while True:
                 if next_url is None:
-                    params = _build_params(representation, where, order_by, count)
-                    resp = client.get(f"{self.base_url}/{classe}", params=params)
+                    url = _build_url(self.base_url, classe, representation, where, order_by, count)
+                    resp = client.get(url)
                 else:
                     resp = client.get(next_url)
                 resp.raise_for_status()
