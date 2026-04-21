@@ -53,7 +53,7 @@ def _build_stock_where(payload: X3StockHistoryRequest) -> list[str]:
         clauses.append("TRSTYP le 6")
 
     horizon_date = (date.today() - timedelta(days=payload.horizon_days)).strftime("%Y-%m-%d")
-    clauses.append(f"IPTDAT ge '{horizon_date}'")
+    clauses.append(f"IPTDAT ge @{horizon_date}@")
 
     return clauses
 
