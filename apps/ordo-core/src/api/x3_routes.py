@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from datetime import date, timedelta
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from ..services.x3_client import X3Client
@@ -30,10 +31,32 @@ class X3DetailRequest(BaseModel):
 
 class X3StockHistoryRequest(BaseModel):
     itmref: str = Field(..., description="Code article")
-    representation: str = Field(default="ZSTOJOU", description="Représentation STOJOU")
-    order_by: str | None = Field(default="DAT desc", description="Tri")
+    order_by: str | None = Field(default="IPTDAT desc", description="Tri")
     count: int | None = Field(default=100, ge=1, le=1000)
     all_pages: bool = Field(default=False, description="Récupérer toutes les pages via $next")
+    include_internal: bool = Field(
+        default=False,
+        description="Inclure les mouvements internes (TRSTYP > 6)"
+    )
+    horizon_days: int = Field(
+        default=45,
+        ge=1,
+        le=365,
+        description="Horizon en jours glissants (depuis aujourd'hui - N jours)"
+    )
+
+
+def _build_stock_where(payload: X3StockHistoryRequest) -> str:
+    """Construit la clause SData where pour /stock-history."""
+    clauses: list[str] = [f"ITMREF eq '{payload.itmref}'"]
+
+    if not payload.include_internal:
+        clauses.append("TRSTYP le 6")
+
+    horizon_date = (date.today() - timedelta(days=payload.horizon_days)).strftime("%Y-%m-%d")
+    clauses.append(f"IPTDAT ge '{horizon_date}'")
+
+    return " and ".join(clauses)
 
 
 @router.post("/query")
@@ -76,12 +99,12 @@ def x3_stock_history(payload: X3StockHistoryRequest) -> dict[str, Any]:
     """Retourne l'historique des mouvements de stock pour un article (parsé)."""
     try:
         client = X3Client()
-        where = f"ITMREF eq '{payload.itmref}'"
+        where = _build_stock_where(payload)
 
         if payload.all_pages:
             resources = client.query_all(
                 classe="STOJOU",
-                representation=payload.representation,
+                representation="ZSTOJOU",
                 where=where,
                 order_by=payload.order_by,
                 count=payload.count,
@@ -91,7 +114,7 @@ def x3_stock_history(payload: X3StockHistoryRequest) -> dict[str, Any]:
 
         raw = client.query(
             classe="STOJOU",
-            representation=payload.representation,
+            representation="ZSTOJOU",
             where=where,
             order_by=payload.order_by,
             count=payload.count,
