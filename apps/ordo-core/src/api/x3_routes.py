@@ -32,7 +32,6 @@ class X3DetailRequest(BaseModel):
 class X3StockHistoryRequest(BaseModel):
     itmref: str = Field(..., description="Code article")
     order_by: str | None = Field(default="IPTDAT desc", description="Tri")
-    count: int | None = Field(default=100, ge=1, le=1000)
     all_pages: bool = Field(default=False, description="Récupérer toutes les pages via $next")
     include_internal: bool = Field(
         default=False,
@@ -46,8 +45,8 @@ class X3StockHistoryRequest(BaseModel):
     )
 
 
-def _build_stock_where(payload: X3StockHistoryRequest) -> str:
-    """Construit la clause SData where pour /stock-history."""
+def _build_stock_where(payload: X3StockHistoryRequest) -> list[str]:
+    """Construit les clauses SData where pour /stock-history."""
     clauses: list[str] = [f"ITMREF eq '{payload.itmref}'"]
 
     if not payload.include_internal:
@@ -56,7 +55,7 @@ def _build_stock_where(payload: X3StockHistoryRequest) -> str:
     horizon_date = (date.today() - timedelta(days=payload.horizon_days)).strftime("%Y-%m-%d")
     clauses.append(f"IPTDAT ge '{horizon_date}'")
 
-    return " and ".join(clauses)
+    return clauses
 
 
 @router.post("/query")
@@ -107,7 +106,6 @@ def x3_stock_history(payload: X3StockHistoryRequest) -> dict[str, Any]:
                 representation="ZSTOJOU",
                 where=where,
                 order_by=payload.order_by,
-                count=payload.count,
             )
             items = parse_resources(resources, fields=STOJOU_FIELDS)
             return {"count": len(items), "items": items}
@@ -117,7 +115,6 @@ def x3_stock_history(payload: X3StockHistoryRequest) -> dict[str, Any]:
             representation="ZSTOJOU",
             where=where,
             order_by=payload.order_by,
-            count=payload.count,
         )
         return parse_query_response(raw, fields=STOJOU_FIELDS)
     except RuntimeError as exc:

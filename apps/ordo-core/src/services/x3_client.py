@@ -14,6 +14,31 @@ def _basic_auth_header(username: str, password: str) -> str:
     return f"Basic {creds}"
 
 
+def _build_params(
+    representation: str,
+    where: str | list[str] | None = None,
+    order_by: str | None = None,
+    count: int | None = None,
+    offset: int | None = None,
+) -> list[tuple[str, str | int]]:
+    """Construit la liste de paramètres SData (clés dupliquées autorisées)."""
+    params: list[tuple[str, str | int]] = [
+        ("representation", f"{representation}.$query"),
+    ]
+    if isinstance(where, list):
+        for clause in where:
+            params.append(("where", clause))
+    elif where:
+        params.append(("where", where))
+    if order_by:
+        params.append(("orderBy", order_by))
+    if count is not None:
+        params.append(("count", count))
+    if offset is not None:
+        params.append(("offset", offset))
+    return params
+
+
 class X3Client:
     """Client pour interroger la WEB API Sage X3.
 
@@ -50,7 +75,7 @@ class X3Client:
         self,
         classe: str,
         representation: str,
-        where: str | None = None,
+        where: str | list[str] | None = None,
         order_by: str | None = None,
         count: int | None = None,
         offset: int | None = None,
@@ -60,23 +85,14 @@ class X3Client:
         Args:
             classe: Nom de la classe (ex: STOJOU, ITMMASTER).
             representation: Nom de la représentation (ex: ZSTOJOU).
-            where: Clause SData (ex: ``ITMREF eq '11035404'``).
+            where: Clause SData ou liste de clauses (passées en paramètres
+                ``where`` distincts).
             order_by: Tri SData (ex: ``DAT desc``).
             count: Taille de page.
             offset: Offset (pagination).
         """
         url = f"{self.base_url}/{classe}"
-        params: dict[str, str | int] = {
-            "representation": f"{representation}.$query",
-        }
-        if where:
-            params["where"] = where
-        if order_by:
-            params["orderBy"] = order_by
-        if count is not None:
-            params["count"] = count
-        if offset is not None:
-            params["offset"] = offset
+        params = _build_params(representation, where, order_by, count, offset)
 
         with self._client() as client:
             resp = client.get(url, params=params)
@@ -87,7 +103,7 @@ class X3Client:
         self,
         classe: str,
         representation: str,
-        where: str | None = None,
+        where: str | list[str] | None = None,
         order_by: str | None = None,
         count: int | None = None,
     ) -> list[dict[str, Any]]:
@@ -96,7 +112,7 @@ class X3Client:
         Args:
             classe: Nom de la classe.
             representation: Nom de la représentation.
-            where: Clause SData.
+            where: Clause SData ou liste de clauses.
             order_by: Tri SData.
             count: Taille de page.
 
@@ -109,15 +125,8 @@ class X3Client:
         with self._client() as client:
             while True:
                 if next_url is None:
-                    resp = client.get(
-                        f"{self.base_url}/{classe}",
-                        params={
-                            "representation": f"{representation}.$query",
-                            **({"where": where} if where else {}),
-                            **({"orderBy": order_by} if order_by else {}),
-                            **({"count": count} if count else {}),
-                        },
-                    )
+                    params = _build_params(representation, where, order_by, count)
+                    resp = client.get(f"{self.base_url}/{classe}", params=params)
                 else:
                     resp = client.get(next_url)
                 resp.raise_for_status()
