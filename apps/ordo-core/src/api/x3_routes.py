@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from ..services.x3_client import X3Client
-from ..services.x3_parser import parse_query_response, STOJOU_FIELDS
+from ..services.x3_parser import parse_query_response, parse_resources, STOJOU_FIELDS
 
 router = APIRouter(prefix="/x3", tags=["sage-x3"])
 
@@ -33,6 +33,7 @@ class X3StockHistoryRequest(BaseModel):
     representation: str = Field(default="ZSTOJOU", description="Représentation STOJOU")
     order_by: str | None = Field(default="DAT desc", description="Tri")
     count: int | None = Field(default=100, ge=1, le=1000)
+    all_pages: bool = Field(default=False, description="Récupérer toutes les pages via $next")
 
 
 @router.post("/query")
@@ -76,6 +77,18 @@ def x3_stock_history(payload: X3StockHistoryRequest) -> dict[str, Any]:
     try:
         client = X3Client()
         where = f"ITMREF eq '{payload.itmref}'"
+
+        if payload.all_pages:
+            resources = client.query_all(
+                classe="STOJOU",
+                representation=payload.representation,
+                where=where,
+                order_by=payload.order_by,
+                count=payload.count,
+            )
+            items = parse_resources(resources, fields=STOJOU_FIELDS)
+            return {"count": len(items), "items": items}
+
         raw = client.query(
             classe="STOJOU",
             representation=payload.representation,

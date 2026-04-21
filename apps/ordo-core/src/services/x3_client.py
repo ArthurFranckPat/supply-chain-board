@@ -83,6 +83,52 @@ class X3Client:
             resp.raise_for_status()
             return resp.json()
 
+    def query_all(
+        self,
+        classe: str,
+        representation: str,
+        where: str | None = None,
+        order_by: str | None = None,
+        count: int | None = None,
+    ) -> list[dict[str, Any]]:
+        """Interroge toutes les pages $query et retourne la liste complète.
+
+        Args:
+            classe: Nom de la classe.
+            representation: Nom de la représentation.
+            where: Clause SData.
+            order_by: Tri SData.
+            count: Taille de page.
+
+        Returns:
+            Liste fusionnée de tous les ``$resources`` de toutes les pages.
+        """
+        items: list[dict[str, Any]] = []
+        next_url: str | None = None
+
+        with self._client() as client:
+            while True:
+                if next_url is None:
+                    resp = client.get(
+                        f"{self.base_url}/{classe}",
+                        params={
+                            "representation": f"{representation}.$query",
+                            **({"where": where} if where else {}),
+                            **({"orderBy": order_by} if order_by else {}),
+                            **({"count": count} if count else {}),
+                        },
+                    )
+                else:
+                    resp = client.get(next_url)
+                resp.raise_for_status()
+                data = resp.json()
+                items.extend(data.get("$resources", []))
+                links = data.get("$links", {})
+                next_url = links.get("$next", {}).get("$url")
+                if not next_url:
+                    break
+        return items
+
     def detail(
         self,
         classe: str,
