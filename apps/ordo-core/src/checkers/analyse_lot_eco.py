@@ -25,7 +25,6 @@ class AnalyseLotEcoService:
     SEUIL_SURDIM = 2.0
     SEUIL_SOUSDIM = 0.8
     DEMANDE_MIN_HEBDO = 0.5
-    DEFAUT_DELAI_REAPPRO = 28
 
     def __init__(self, loader: DataLoader) -> None:
         self._loader = loader
@@ -46,7 +45,7 @@ class AnalyseLotEcoService:
             demande_hebdo = demande_info["demande_hebdo"]
             nb_parents = demande_info["nb_parents"]
 
-            delai_reappro = article.delai_reappro or self.DEFAUT_DELAI_REAPPRO
+            delai_reappro = article.delai_reappro or 0
             couverture_reappro_sem = delai_reappro / 7.0
 
             stock = stocks.get(code_comp)
@@ -66,11 +65,17 @@ class AnalyseLotEcoService:
                 demande_jour = demande_hebdo / 7.0
                 stock_jours = stock_disponible / demande_jour if demande_jour > 0 else 0
                 couverture_lot_sem = lot_eco / demande_hebdo
-                ratio = couverture_lot_sem / couverture_reappro_sem
-                if ratio > self.SEUIL_SURDIM:
-                    statut = StatutLot.SURDIMENSIONNE
-                elif ratio < self.SEUIL_SOUSDIM:
-                    statut = StatutLot.SOUSDIMENSIONNE
+                if couverture_reappro_sem > 0:
+                    ratio = couverture_lot_sem / couverture_reappro_sem
+                else:
+                    ratio = 0.0
+                if couverture_reappro_sem > 0:
+                    if ratio > self.SEUIL_SURDIM:
+                        statut = StatutLot.SURDIMENSIONNE
+                    elif ratio < self.SEUIL_SOUSDIM:
+                        statut = StatutLot.SOUSDIMENSIONNE
+                    else:
+                        statut = StatutLot.OK
                 else:
                     statut = StatutLot.OK
 
