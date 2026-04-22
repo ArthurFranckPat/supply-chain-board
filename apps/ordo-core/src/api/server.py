@@ -371,6 +371,15 @@ def create_app(service: Optional[GuiAppService] = None) -> FastAPI:
         except RuntimeError as exc:
             raise HTTPException(status_code=500, detail=str(exc)) from exc
 
+    # ── Analyse Lot Eco ─────────────────────────────────────────────
+
+    @app.post("/api/v1/analyse-lot-eco")
+    def analyse_lot_eco() -> dict:
+        try:
+            return app.state.gui_service.analyser_lot_eco()
+        except RuntimeError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     app.include_router(x3_router)
 
     return app

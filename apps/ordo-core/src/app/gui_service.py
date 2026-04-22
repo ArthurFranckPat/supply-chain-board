@@ -61,6 +61,7 @@ class GuiAppService:
         self._eol_residuals_service: Optional[Any] = None
         self._eol_residuals_fab_service: Optional[Any] = None
         self._stock_history_analyzer: Optional[Any] = None
+        self._lot_eco_service: Optional[Any] = None
         try:
             from ..scheduler.db_schedule import init_db
             init_db()
@@ -99,6 +100,7 @@ class GuiAppService:
         self._analyse_rupture_service = None  # Invalider le service d'analyse de rupture
         self._eol_residuals_service = None  # Invalider le service EOL residuels
         self._eol_residuals_fab_service = None
+        self._lot_eco_service = None
         self.loaded_source = {
             "source": "extractions",
             "extractions_dir": target_dir,
@@ -420,6 +422,21 @@ class GuiAppService:
             include_sf=include_sf,
             include_pf=include_pf,
         )
+        return _serialize_value(result)
+
+    # ── Analyse Lot Eco ────────────────────────────────────────────
+
+    def analyser_lot_eco(self) -> dict[str, Any]:
+        """Analyse l'adequation des lots economiques vs besoins reels."""
+        if self.loader is None:
+            raise RuntimeError("Aucune donnee chargee. Appelez load_data avant analyser_lot_eco.")
+
+        from ..checkers.analyse_lot_eco import AnalyseLotEcoService
+
+        if self._lot_eco_service is None:
+            self._lot_eco_service = AnalyseLotEcoService(self.loader)
+
+        result = self._lot_eco_service.analyser()
         return _serialize_value(result)
 
     # ── EOL Residual Stock Analysis ────────────────────────────────

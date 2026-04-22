@@ -15,6 +15,9 @@ def parse_article(row: dict) -> Article:
     famille_raw = row.get("FAMILLE_PRODUIT")
     famille_produit = to_str(famille_raw) or None
 
+    lot_eco_raw = row.get("LOT_ECO")
+    lot_eco = parse_int(lot_eco_raw) if lot_eco_raw is not None else None
+
     return Article(
         code=row.get("ARTICLE", ""),
         description=row.get("DESIGNATION", ""),
@@ -23,4 +26,5 @@ def parse_article(row: dict) -> Article:
         delai_reappro=parse_int(row.get("DELAI_REAPRO", 0)),
         famille_produit=famille_produit,
         pmp=parse_float(row.get("PMP")),
+        lot_eco=lot_eco,
     )

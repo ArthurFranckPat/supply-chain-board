@@ -23,6 +23,7 @@ class Article:
     delai_reappro: int
     famille_produit: Optional[str] = None
     pmp: Optional[float] = None
+    lot_eco: Optional[int] = None
 
     def is_achat(self) -> bool:
         return self.type_appro == TypeApprovisionnement.ACHAT
