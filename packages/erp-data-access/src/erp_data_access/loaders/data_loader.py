@@ -15,6 +15,7 @@ from ..models.of import OF
 from ..models.reception import Reception
 from ..models.stock import Stock
 from ..models.allocation import OFAllocation
+from ..models.tarif_achat import TarifAchat
 from ..results import LoadResult
 
 
@@ -41,6 +42,8 @@ class DataLoader:
         self._receptions: Optional[list[Reception]] = None
         self._commandes_clients: Optional[list[BesoinClient]] = None
         self._allocations: Optional[dict[str, list[OFAllocation]]] = None
+        self._tarifs_achats: Optional[list[TarifAchat]] = None
+        self._tarifs_by_article: Optional[dict[str, list[TarifAchat]]] = None
 
         self._receptions_by_article: Optional[dict[str, list[Reception]]] = None
         self._ofs_by_num: Optional[dict[str, OF]] = None
@@ -84,6 +87,11 @@ class DataLoader:
         if self._ofs_by_origin is not None:
             self._ofs_by_origin = dict(self._ofs_by_origin)
         self._allocations = self._load_allocations()
+        self._tarifs_achats = result.tarifs_achats
+        self._tarifs_by_article = defaultdict(list)
+        for tarif in self._tarifs_achats:
+            self._tarifs_by_article[tarif.article].append(tarif)
+        self._tarifs_by_article = dict(self._tarifs_by_article)
 
     # -- Lazy-loading properties --
 
@@ -207,3 +215,14 @@ class DataLoader:
 
     def get_allocations_of(self, num_doc: str) -> list[OFAllocation]:
         return self.allocations.get(num_doc, [])
+
+    @property
+    def tarifs_achats(self) -> list[TarifAchat]:
+        if self._tarifs_achats is None:
+            self.load_all()
+        return self._tarifs_achats
+
+    def get_tarifs(self, article: str) -> list[TarifAchat]:
+        if self._tarifs_by_article is None:
+            self.load_all()
+        return self._tarifs_by_article.get(article, [])

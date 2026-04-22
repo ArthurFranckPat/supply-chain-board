@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from .models.of import OF
     from .models.reception import Reception
     from .models.stock import Stock
+    from .models.tarif_achat import TarifAchat
 
 
 @dataclass
@@ -32,3 +33,4 @@ class LoadResult:
     stocks: dict[str, "Stock"] = field(default_factory=dict)
     receptions: list["Reception"] = field(default_factory=list)
     commandes_clients: list["BesoinClient"] = field(default_factory=list)
+    tarifs_achats: list["TarifAchat"] = field(default_factory=list)

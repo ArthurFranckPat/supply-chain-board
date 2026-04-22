@@ -16,6 +16,12 @@ export interface LotEcoArticle {
   statut: StatutLot
   nb_parents: number
   valeur_stock: number
+  lot_optimal: number
+  prix_au_lot_eco: number
+  prix_au_lot_optimal: number
+  economie_immobilisation: number
+  surcout_unitaire: number
+  code_fournisseur: number
 }
 
 export interface LotEcoResponse {

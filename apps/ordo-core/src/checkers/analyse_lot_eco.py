@@ -1,8 +1,9 @@
 """Analyse d'adequation des lots economiques vs besoins reels.
 
 Pour chaque composant ache, calcule la demande nette hebdomadaire
-via les besoins clients × nomenclatures, puis compare la couverture
-apportee par un lot economique au delai de reappro.
+via les besoins clients x nomenclatures, puis compare la couverture
+apportee par un lot economique au delai de reappro. Croise avec les
+tarifs fournisseurs pour calculer l'impact financier.
 """
 
 from __future__ import annotations
@@ -28,6 +29,7 @@ class AnalyseLotEcoService:
 
     def __init__(self, loader: DataLoader) -> None:
         self._loader = loader
+        self._tarifs_index = self._build_tarifs_index()
 
     def analyser(self) -> AnalyseLotResult:
         demande_composants = self._calculer_demande_composants()
@@ -55,12 +57,29 @@ class AnalyseLotEcoService:
             pmp = article.pmp or 0.0
             valeur_stock = stock_physique * pmp
 
+            # Lot optimal : couvre exactement le delai fournisseur
+            lot_optimal = max(1, round(demande_hebdo * couverture_reappro_sem)) if demande_hebdo >= self.DEMANDE_MIN_HEBDO and couverture_reappro_sem > 0 else lot_eco
+
+            # Tarifs
+            tarifs = self._tarifs_index.get(code_comp, [])
+            prix_lot_eco = self._prix_pour_quantite(tarifs, lot_eco)
+            prix_lot_optimal = self._prix_pour_quantite(tarifs, lot_optimal)
+            code_fournisseur = tarifs[0].code_fournisseur if tarifs else 0
+
+            # Economie d'immobilisation : capital libere si on passe du lot_eco au lot_optimal
+            excdent_lot = max(0, lot_eco - lot_optimal)
+            economie_immobilisation = excdent_lot * prix_lot_eco
+
+            # Surcout unitaire si on commande au lot optimal (palier plus petit = prix plus eleve)
+            surcout_unitaire = prix_lot_optimal - prix_lot_eco if prix_lot_eco > 0 else 0.0
+
             if demande_hebdo < self.DEMANDE_MIN_HEBDO:
                 demande_jour = 0
                 stock_jours = -1 if stock_disponible > 0 else 0
                 couverture_lot_sem = -1 if lot_eco > 0 else 0
                 ratio = 0.0
                 statut = StatutLot.DEMANDE_NULLE
+                lot_optimal = lot_eco
             else:
                 demande_jour = demande_hebdo / 7.0
                 stock_jours = stock_disponible / demande_jour if demande_jour > 0 else 0
@@ -96,6 +115,12 @@ class AnalyseLotEcoService:
                     statut=statut,
                     nb_parents=nb_parents,
                     valeur_stock=round(valeur_stock, 2),
+                    lot_optimal=lot_optimal,
+                    prix_au_lot_eco=round(prix_lot_eco, 4),
+                    prix_au_lot_optimal=round(prix_lot_optimal, 4),
+                    economie_immobilisation=round(economie_immobilisation, 2),
+                    surcout_unitaire=round(surcout_unitaire, 4),
+                    code_fournisseur=code_fournisseur,
                 )
             )
 
@@ -110,6 +135,30 @@ class AnalyseLotEcoService:
             nb_demande_nulle=sum(1 for a in resultats if a.statut == StatutLot.DEMANDE_NULLE),
         )
 
+    # ── Tarifs helpers ────────────────────────────────────────────
+
+    def _build_tarifs_index(self) -> dict[str, list]:
+        tarifs = self._loader.tarifs_achats
+        index: dict[str, list] = defaultdict(list)
+        for t in tarifs:
+            index[t.article].append(t)
+        for article in index:
+            index[article].sort(key=lambda t: t.quantite_mini)
+        return dict(index)
+
+    def _prix_pour_quantite(self, tarifs: list, qte: int) -> float:
+        if not tarifs or qte <= 0:
+            return 0.0
+        for t in tarifs:
+            if t.quantite_mini <= qte <= t.quantite_maxi:
+                return t.prix_unitaire
+        # Si la quantite depasse le dernier palier, prendre le dernier prix
+        if qte > tarifs[-1].quantite_maxi:
+            return tarifs[-1].prix_unitaire
+        return 0.0
+
+    # ── Lot eco helpers ───────────────────────────────────────────
+
     def _get_lot_eco(self, article_code: str) -> int:
         article = self._loader.articles.get(article_code)
         lot = getattr(article, "lot_eco", None) if article else None
@@ -120,6 +169,8 @@ class AnalyseLotEcoService:
     def _placeholder_lot_eco(self, article_code: str) -> int:
         random.seed(hash(article_code))
         return random.randint(100, 5000)
+
+    # ── Demande composants ────────────────────────────────────────
 
     def _calculer_demande_composants(self) -> dict:
         nomenclatures = self._loader.nomenclatures

@@ -8,6 +8,7 @@ from .of_parser import parse_of
 from .stock_parser import parse_stock
 from .reception_parser import parse_reception
 from .allocation_parser import parse_allocation
+from .tarif_achat_parser import parse_tarif_achat
 from .parsing_utils import parse_int, parse_float, parse_date, to_str
 
 __all__ = [

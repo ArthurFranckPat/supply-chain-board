@@ -32,6 +32,12 @@ class AnalyseLotArticle:
     statut: StatutLot
     nb_parents: int
     valeur_stock: float
+    lot_optimal: int
+    prix_au_lot_eco: float
+    prix_au_lot_optimal: float
+    economie_immobilisation: float
+    surcout_unitaire: float
+    code_fournisseur: int
 
 
 @dataclass(slots=True)

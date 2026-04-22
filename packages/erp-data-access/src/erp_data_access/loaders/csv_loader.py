@@ -24,6 +24,7 @@ from ..parsers import (
     parse_stock,
     parse_reception,
     parse_allocation,
+    parse_tarif_achat,
 )
 
 
@@ -66,6 +67,7 @@ class CSVLoader:
         "stock.csv": "Stocks.csv",
         "receptions_oa.csv": "Commandes Achats.csv",
         "allocations.csv": "Allocations.csv",
+        "tarifs_achats.csv": "Tarifs Achats.csv",
     }
 
     def __init__(
@@ -305,7 +307,16 @@ class CSVLoader:
             stocks=self.load_stock(),
             receptions=self.load_receptions(),
             commandes_clients=self.load_commandes_clients(),
+            tarifs_achats=self.load_tarifs_achats(),
         )
+
+    def load_tarifs_achats(self) -> list["TarifAchat"]:
+        try:
+            df = self._load_csv("tarifs_achats.csv")
+        except FileNotFoundError:
+            return []
+        cols = list(df.columns)
+        return [parse_tarif_achat(dict(zip(cols, row))) for row in df.itertuples(index=False, name=None)]
 
 
 # Late imports for type hints only (avoid circular imports)
@@ -316,3 +327,4 @@ from ..models.of import OF  # noqa: E402
 from ..models.reception import Reception  # noqa: E402
 from ..models.stock import Stock  # noqa: E402
 from ..models.allocation import OFAllocation  # noqa: E402
+from ..models.tarif_achat import TarifAchat  # noqa: E402
