@@ -2,7 +2,7 @@ import type { StockEvolutionResponse } from '@/types/stock-evolution'
 import { TrendingUp, TrendingDown, Minus, Package, Activity, ArrowLeftRight } from 'lucide-react'
 
 interface Props {
-  stats: Pick<StockEvolutionResponse, 'stock_min' | 'stock_max' | 'stock_moyen' | 'rotation' | 'tendance' | 'nombre_mouvements' | 'periode_debut' | 'periode_fin'>
+  stats: Pick<StockEvolutionResponse, 'stock_actuel' | 'stock_min' | 'stock_max' | 'stock_moyen' | 'rotation' | 'tendance' | 'nombre_mouvements' | 'periode_debut' | 'periode_fin'>
 }
 
 function TendanceBadge({ valeur }: { valeur: string }) {
@@ -29,7 +29,13 @@ function TendanceBadge({ valeur }: { valeur: string }) {
 
 export function StockStatsPanel({ stats }: Props) {
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+    <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <StatCard
+        icon={<Package className="h-4 w-4 text-green" />}
+        label="Stock actuel"
+        value={stats.stock_actuel.toLocaleString('fr-FR', { maximumFractionDigits: 1 })}
+        sub="Stock physique"
+      />
       <StatCard
         icon={<Package className="h-4 w-4 text-blue" />}
         label="Stock min"

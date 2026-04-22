@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import {
   LineChart,
   Line,
@@ -12,22 +13,14 @@ import type { StockEvolutionResponse } from '@/types/stock-evolution'
 
 interface Props {
   data: StockEvolutionResponse
+  showAverage?: boolean
 }
 
 interface ChartEntry {
   date: string
   stock: number
   qtystu: number
-  trstyp: number
-  vcrnum: string
-}
-
-const TRSTYP_LABELS: Record<number, string> = {
-  1: 'Entrée',
-  2: 'Sortie',
-  4: 'Vente',
-  5: 'Production',
-  6: 'Transfert',
+  count: number
 }
 
 function CustomTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number; payload: ChartEntry }>; label?: string }) {
@@ -38,25 +31,38 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
       <p className="font-semibold">{label}</p>
       <p>Stock: <span className="font-mono font-semibold">{entry.stock.toLocaleString('fr-FR', { maximumFractionDigits: 1 })}</span></p>
       <p>
-        Mvt:{' '}
-        <span className={entry.qtystu >= 0 ? 'text-green font-semibold' : 'text-destructive font-semibold'}>
+        Mvt: <span className={entry.qtystu >= 0 ? 'text-green font-semibold' : 'text-destructive font-semibold'}>
           {entry.qtystu >= 0 ? '+' : ''}{entry.qtystu.toLocaleString('fr-FR', { maximumFractionDigits: 1 })}
         </span>
+        {entry.count > 1 && <span className="text-muted-foreground ml-1">({entry.count} mouvements)</span>}
       </p>
-      <p>Type: {TRSTYP_LABELS[entry.trstyp] ?? entry.trstyp}</p>
-      {entry.vcrnum && <p>Doc: <span className="font-mono">{entry.vcrnum}</span></p>}
     </div>
   )
 }
 
-export function StockChart({ data }: Props) {
-  const entries: ChartEntry[] = data.items.map((m) => ({
-    date: new Date(m.iptdat).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }),
-    stock: m.stock_apres,
-    qtystu: m.qtystu,
-    trstyp: m.trstyp,
-    vcrnum: m.vcrnum,
-  }))
+export function StockChart({ data, showAverage = false }: Props) {
+  const entries = useMemo(() => {
+    const dayMap = new Map<string, ChartEntry>()
+
+    for (const m of data.items) {
+      const day = m.iptdat.slice(0, 10)
+      const existing = dayMap.get(day)
+      if (existing) {
+        existing.stock = m.stock_apres
+        existing.qtystu += m.qtystu
+        existing.count += 1
+      } else {
+        dayMap.set(day, {
+          date: new Date(day).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }),
+          stock: m.stock_apres,
+          qtystu: m.qtystu,
+          count: 1,
+        })
+      }
+    }
+
+    return Array.from(dayMap.values())
+  }, [data.items])
 
   if (entries.length === 0) {
     return (
@@ -65,8 +71,6 @@ export function StockChart({ data }: Props) {
       </div>
     )
   }
-
-  const stockMoyen = data.stock_moyen
 
   return (
     <div className="bg-card border border-border rounded-xl p-5">
@@ -77,10 +81,12 @@ export function StockChart({ data }: Props) {
             <span className="w-3 h-0.5 bg-blue inline-block" />
             Stock
           </span>
-          <span className="flex items-center gap-1">
-            <span className="w-3 h-0.5 bg-purple/40 inline-block" />
-            Moyenne
-          </span>
+          {showAverage && (
+            <span className="flex items-center gap-1">
+              <span className="w-3 h-0.5 bg-purple/40 inline-block" />
+              Moyenne
+            </span>
+          )}
         </div>
       </div>
       <ResponsiveContainer width="100%" height={300}>
@@ -97,13 +103,15 @@ export function StockChart({ data }: Props) {
             width={60}
           />
           <Tooltip content={<CustomTooltip />} />
-          <ReferenceLine
-            y={stockMoyen}
-            stroke="var(--purple)"
-            strokeDasharray="4 4"
-            strokeOpacity={0.5}
-            label={{ value: `moy: ${stockMoyen.toFixed(0)}`, fontSize: 9, fill: 'var(--purple)', position: 'right' }}
-          />
+          {showAverage && (
+            <ReferenceLine
+              y={data.stock_moyen}
+              stroke="#a855f7"
+              strokeDasharray="4 4"
+              strokeOpacity={0.5}
+              label={{ value: `moy: ${data.stock_moyen.toFixed(0)}`, fontSize: 9, fill: '#a855f7', position: 'right' }}
+            />
+          )}
           <Line
             type="monotone"
             dataKey="stock"

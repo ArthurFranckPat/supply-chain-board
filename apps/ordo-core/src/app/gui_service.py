@@ -638,15 +638,39 @@ class GuiAppService:
         if self._stock_history_analyzer is None:
             self._stock_history_analyzer = StockHistoryAnalyzer()
 
+        stock_actuel = 0.0
+        if self.loader is not None:
+            stk = self.loader.stocks.get(itmref)
+            if stk:
+                stock_actuel = float(stk.stock_physique)
+
         mouvements = self._stock_history_analyzer.reconstituer_stock(
             itmref=itmref,
             horizon_days=horizon_days,
             include_internal=include_internal,
-            all_pages=True,
+            stock_actuel=stock_actuel,
         )
         stats = self._stock_history_analyzer.calculer_stats(mouvements)
+
+        description = self._get_article_description(itmref)
+
         return {
             "article": itmref,
+            "description": description,
+            "stock_actuel": stock_actuel,
             **(_serialize_value(stats)),
             "items": _serialize_value(mouvements),
         }
+
+    def _get_article_description(self, itmref: str) -> str:
+        if self.loader is not None:
+            article = self.loader.articles.get(itmref)
+            if article:
+                return getattr(article, "description", "")
+        try:
+            from ..services.x3_client import X3Client
+            client = X3Client()
+            detail = client.detail("ITMMASTER", itmref, "ZITMMASTER")
+            return detail.get("ITMDES1", "") or detail.get("$resources", [{}])[0].get("ITMDES1", "")
+        except Exception:
+            return ""

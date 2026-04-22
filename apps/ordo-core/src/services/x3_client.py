@@ -23,22 +23,28 @@ def _build_url(
     count: int | None = None,
     offset: int | None = None,
 ) -> str:
-    """Construit l'URL SData complète sur une seule ligne."""
-    parts: list[str] = [
-        f"{base_url}/{classe}?representation={representation}.$query"
-    ]
-    if isinstance(where, list):
-        for clause in where:
-            parts.append(f"where={clause}")
-    elif where:
-        parts.append(f"where={where}")
+    """Construit l'URL SData complète.
+
+    Format cible X3 :
+      {base_url}/{classe}?representation={rep}.$query&where=clause1 and clause2&orderBy=...
+    """
+    url = f"{base_url}/{classe}?representation={representation}.$query"
+
+    if where:
+        if isinstance(where, list):
+            where = " and ".join(where)
+        url += f"&where={where}"
+
     if order_by:
-        parts.append(f"orderBy={order_by}")
+        url += f"&orderBy={order_by}"
+
     if count is not None:
-        parts.append(f"count={count}")
+        url += f"&count={count}"
+
     if offset is not None:
-        parts.append(f"offset={offset}")
-    return "&".join(parts)
+        url += f"&offset={offset}"
+
+    return url
 
 
 class X3Client:
@@ -82,18 +88,9 @@ class X3Client:
         count: int | None = None,
         offset: int | None = None,
     ) -> dict[str, Any]:
-        """Interroge la facette $query d'une classe/représentation.
-
-        Args:
-            classe: Nom de la classe (ex: STOJOU, ITMMASTER).
-            representation: Nom de la représentation (ex: ZSTOJOU).
-            where: Clause SData ou liste de clauses (passées en paramètres
-                ``where`` distincts).
-            order_by: Tri SData (ex: ``DAT desc``).
-            count: Taille de page.
-            offset: Offset (pagination).
-        """
+        """Interroge la facette $query d'une classe/représentation."""
         url = _build_url(self.base_url, classe, representation, where, order_by, count, offset)
+        print(f"[X3Client] GET {url}")
 
         with self._client() as client:
             resp = client.get(url)
@@ -108,18 +105,7 @@ class X3Client:
         order_by: str | None = None,
         count: int | None = None,
     ) -> list[dict[str, Any]]:
-        """Interroge toutes les pages $query et retourne la liste complète.
-
-        Args:
-            classe: Nom de la classe.
-            representation: Nom de la représentation.
-            where: Clause SData ou liste de clauses.
-            order_by: Tri SData.
-            count: Taille de page.
-
-        Returns:
-            Liste fusionnée de tous les ``$resources`` de toutes les pages.
-        """
+        """Interroge toutes les pages $query et retourne la liste complète."""
         items: list[dict[str, Any]] = []
         next_url: str | None = None
 
@@ -127,6 +113,7 @@ class X3Client:
             while True:
                 if next_url is None:
                     url = _build_url(self.base_url, classe, representation, where, order_by, count)
+                    print(f"[X3Client] GET {url}")
                     resp = client.get(url)
                 else:
                     resp = client.get(next_url)
@@ -145,13 +132,7 @@ class X3Client:
         key: str,
         representation: str,
     ) -> dict[str, Any]:
-        """Lit un enregistrement via la facette $detail.
-
-        Args:
-            classe: Nom de la classe.
-            key: Clé primaire (composants séparés par ``~`` si clé composite).
-            representation: Nom de la représentation.
-        """
+        """Lit un enregistrement via la facette $detail."""
         url = f"{self.base_url}/{classe}('{key}')"
         params = {"representation": f"{representation}.$detail"}
 
