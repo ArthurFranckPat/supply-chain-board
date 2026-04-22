@@ -14,12 +14,13 @@ import { EolResidualsView } from '@/views/EolResidualsView'
 import { ResidualFabricationView } from '@/views/ResidualFabricationView'
 import { OrderTrackingView } from '@/views/OrderTrackingView'
 import { StockEvolutionView } from '@/views/StockEvolutionView'
+import { LotEcoView } from '@/views/LotEcoView'
 import type { DataSource, DetailItem } from '@/types/api'
 import type { SchedulerOptions } from '@/views/HomeView'
 import type { SuiviStatusResponse } from '@/types/suivi-commandes'
-import { Activity, LayoutDashboard, Wrench, CalendarDays, FileText, Settings, Package, Zap, PanelLeftClose, PanelLeftOpen, AlertTriangle, ShoppingCart, CheckCircle, PackageSearch, Factory, TrendingUp } from 'lucide-react'
+import { Activity, LayoutDashboard, Wrench, CalendarDays, FileText, Settings, Package, Zap, PanelLeftClose, PanelLeftOpen, AlertTriangle, ShoppingCart, CheckCircle, PackageSearch, Factory, TrendingUp, Scale } from 'lucide-react'
 
-type ViewKey = 'home' | 'actions' | 'scheduler' | 'analyse-rupture' | 'feasibility' | 'capacity' | 'eol-residuals' | 'fabricable' | 'order-tracking' | 'reports' | 'settings' | 'stock-evolution'
+type ViewKey = 'home' | 'actions' | 'scheduler' | 'analyse-rupture' | 'feasibility' | 'capacity' | 'eol-residuals' | 'fabricable' | 'order-tracking' | 'reports' | 'settings' | 'stock-evolution' | 'lot-eco'
 type LoadState = 'idle' | 'loading' | 'ready' | 'error'
 
 const NAV_ITEMS: Array<{ key: ViewKey; label: string; icon: React.ReactNode }> = [
@@ -33,6 +34,7 @@ const NAV_ITEMS: Array<{ key: ViewKey; label: string; icon: React.ReactNode }> =
   { key: 'capacity', label: 'Capacites', icon: <CalendarDays className="h-[15px] w-[15px]" /> },
   { key: 'order-tracking', label: 'Commandes', icon: <ShoppingCart className="h-[15px] w-[15px]" /> },
   { key: 'stock-evolution', label: 'Stock Histoire', icon: <TrendingUp className="h-[15px] w-[15px]" /> },
+  { key: 'lot-eco', label: 'Lot Eco', icon: <Scale className="h-[15px] w-[15px]" /> },
   { key: 'reports', label: 'Reports', icon: <FileText className="h-[15px] w-[15px]" /> },
 ]
 
@@ -321,6 +323,7 @@ function App() {
             }} />
           )}
           {activeView === 'stock-evolution' && <StockEvolutionView />}
+          {activeView === 'lot-eco' && <LotEcoView />}
           {activeView === 'reports' && (
             <ReportsView
               embeddedReports={null}

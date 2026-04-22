@@ -107,8 +107,9 @@ class AnalyseLotEcoService:
 
     def _get_lot_eco(self, article_code: str) -> int:
         article = self._loader.articles.get(article_code)
-        if article and article.lot_eco is not None:
-            return article.lot_eco
+        lot = getattr(article, "lot_eco", None) if article else None
+        if lot is not None:
+            return lot
         return self._placeholder_lot_eco(article_code)
 
     def _placeholder_lot_eco(self, article_code: str) -> int:

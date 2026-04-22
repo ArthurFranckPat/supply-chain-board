@@ -5,6 +5,7 @@ import type { FeasibilityResponse, ArticleSearchResult, OrderSearchResult } from
 import type { EolResidualsResponse } from '@/types/eol-residuals'
 import type { ResidualFabricationResponse } from '@/types/residual-fabrication'
 import type { StockEvolutionResponse, StockChartData } from '@/types/stock-evolution'
+import type { LotEcoResponse } from '@/types/lot-eco'
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') ?? 'http://127.0.0.1:8000'
@@ -225,5 +226,10 @@ export const apiClient = {
     if (options?.horizon_days) params.set('horizon_days', String(options.horizon_days))
     if (options?.include_internal) params.set('include_internal', 'true')
     return request<StockChartData>(`/api/v1/stock-evolution/${encodeURIComponent(itmref)}/chart?${params}`)
+  },
+
+  // ── Analyse Lot Eco ─────────────────────────────────────────────
+  analyseLotEco() {
+    return request<LotEcoResponse>('/api/v1/analyse-lot-eco', { method: 'POST' })
   },
 }

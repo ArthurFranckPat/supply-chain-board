@@ -23,7 +23,7 @@ def parse_article(row: dict) -> Article:
         description=row.get("DESIGNATION", ""),
         categorie=row.get("CATEGORIE", ""),
         type_appro=type_appro,
-        delai_reappro=parse_int(row.get("DELAI_REAPRO", 0)),
+        delai_reappro=parse_int(row.get("DELAI_REAPPRO", 0)),
         famille_produit=famille_produit,
         pmp=parse_float(row.get("PMP")),
         lot_eco=lot_eco,
