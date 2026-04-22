@@ -3,11 +3,12 @@ import { apiClient, ApiError } from '@/api/client'
 import type { LotEcoResponse, LotEcoArticle, StatutLot } from '@/types/lot-eco'
 import { Pill } from '@/components/ui/pill'
 import { LoadingInline, LoadingError, LoadingEmpty } from '@/components/ui/loading'
-import { Package, Download, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
+import { Package, Download, ChevronUp, ChevronDown, ChevronsUpDown, Search, ChevronLeft, ChevronRight } from 'lucide-react'
 
 type TabKey = 'surdimensionne' | 'sous_dimensionne' | 'ok' | 'demande_nulle' | 'all'
 type SortKey = 'ratio_couverture' | 'demande_hebdo' | 'couverture_lot_semaines' | 'valeur_stock' | 'stock_jours' | 'lot_eco' | 'economie_immobilisation' | 'surcout_unitaire'
 type SortDir = 'asc' | 'desc'
+const PAGE_SIZE = 50
 
 const TAB_ITEMS: Array<{ key: TabKey; label: string; filter: StatutLot | 'ALL' }> = [
   { key: 'surdimensionne', label: 'Surdimensionnés', filter: 'SURDIMENSIONNE' },
@@ -46,13 +47,15 @@ function fmtEuros(n: number): string {
 
 function exportCSV(data: LotEcoArticle[]) {
   const headers = [
-    'Article', 'Description', 'Lot éco', 'Lot optimal', 'Demande/sem', 'Couv. lot (sem)',
+    'Article', 'Description', 'Lot éco', 'Lot optimal', 'Cond.', 'Demande/sem', 'Couv. lot (sem)',
     'Délai réappro (j)', 'Ratio couverture', 'Stock physique', 'Stock dispo', 'Stock (jours)',
     'Statut', 'Nb parents', 'Valeur stock', 'Prix lot éco', 'Prix lot optimal',
     'Economie immobilisation', 'Surcoût unitaire', 'Fournisseur',
   ]
   const rows = data.map(a => [
-    a.article, a.description, a.lot_eco, a.lot_optimal, a.demande_hebdo,
+    a.article, a.description, a.lot_eco, a.lot_optimal,
+    a.conditionnement > 0 ? `${a.conditionnement} ${a.conditionnement_type}` : '',
+    a.demande_hebdo,
     a.couverture_lot_semaines, a.delai_reappro_jours, a.ratio_couverture,
     a.stock_physique, a.stock_disponible, a.stock_jours,
     a.statut, a.nb_parents, a.valeur_stock,
@@ -76,6 +79,16 @@ export function LotEcoView() {
   const [tab, setTab] = useState<TabKey>('surdimensionne')
   const [sortKey, setSortKey] = useState<SortKey>('ratio_couverture')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
+  const [search, setSearch] = useState('')
+  const [fournisseur, setFournisseur] = useState<number | 'ALL'>('ALL')
+  const [page, setPage] = useState(1)
+
+  const fournisseurs = useMemo(() => {
+    if (!result) return []
+    const map = new Map<number, number>()
+    result.articles.forEach(a => { if (a.code_fournisseur) map.set(a.code_fournisseur, (map.get(a.code_fournisseur) || 0) + 1) })
+    return [...map.entries()].sort((a, b) => b[1] - a[1]).map(([code, count]) => ({ code, count }))
+  }, [result])
 
   const handleAnalyze = async () => {
     setLoading(true)
@@ -94,20 +107,37 @@ export function LotEcoView() {
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
     else { setSortKey(key); setSortDir('desc') }
+    setPage(1)
   }
 
   const filtered = useMemo(() => {
     if (!result) return []
     const tabDef = TAB_ITEMS.find(t => t.key === tab)!
-    const items = tabDef.filter === 'ALL'
+    let items = tabDef.filter === 'ALL'
       ? result.articles
       : result.articles.filter(a => a.statut === tabDef.filter)
+    if (fournisseur !== 'ALL') {
+      items = items.filter(a => a.code_fournisseur === fournisseur)
+    }
+    if (search) {
+      const q = search.toLowerCase()
+      items = items.filter(a =>
+        a.article.toLowerCase().includes(q)
+        || a.description.toLowerCase().includes(q)
+        || String(a.code_fournisseur).includes(q)
+      )
+    }
     return [...items].sort((a, b) => {
       const av = a[sortKey]
       const bv = b[sortKey]
       return sortDir === 'asc' ? (av as number) - (bv as number) : (bv as number) - (av as number)
     })
-  }, [result, tab, sortKey, sortDir])
+  }, [result, tab, sortKey, sortDir, search, fournisseur])
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const safePage = Math.min(page, totalPages)
+  if (safePage !== page) setPage(safePage)
+  const paged = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
 
   const HeaderCell = ({ label, colKey }: { label: string; colKey: SortKey }) => (
     <th
@@ -180,13 +210,13 @@ export function LotEcoView() {
         ))}
       </div>
 
-      {/* Tabs + export */}
+      {/* Tabs */}
       <div className="flex items-center justify-between">
         <div className="flex gap-1 bg-muted/50 rounded-lg p-1">
           {TAB_ITEMS.map(t => (
             <button
               key={t.key}
-              onClick={() => setTab(t.key)}
+              onClick={() => { setTab(t.key); setPage(1) }}
               className={`px-3 py-1.5 rounded-md text-[11.5px] font-medium transition-colors ${
                 tab === t.key
                   ? 'bg-card text-foreground shadow-sm'
@@ -205,6 +235,31 @@ export function LotEcoView() {
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Filters + export */}
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1 max-w-xs">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/60" />
+          <input
+            type="text"
+            placeholder="Article, description, fournisseur..."
+            value={search}
+            onChange={e => { setSearch(e.target.value); setPage(1) }}
+            className="w-full pl-8 pr-3 py-1.5 text-xs bg-card border border-border rounded-[7px] focus:outline-none focus:ring-1 focus:ring-primary/50 placeholder:text-muted-foreground/50"
+          />
+        </div>
+        <select
+          value={fournisseur === 'ALL' ? 'ALL' : fournisseur}
+          onChange={e => { setFournisseur(e.target.value === 'ALL' ? 'ALL' : Number(e.target.value)); setPage(1) }}
+          className="text-xs bg-card border border-border rounded-[7px] px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary/50 text-foreground"
+        >
+          <option value="ALL">Tous les fournisseurs</option>
+          {fournisseurs.map(f => (
+            <option key={f.code} value={f.code}>Fourn. {f.code} ({f.count})</option>
+          ))}
+        </select>
+        <span className="text-[11px] text-muted-foreground ml-auto">{filtered.length} résultat{filtered.length > 1 ? 's' : ''}</span>
         <button
           onClick={() => exportCSV(filtered)}
           className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
@@ -225,8 +280,10 @@ export function LotEcoView() {
                 <tr>
                   <HeaderCell label="Article" colKey="ratio_couverture" />
                   <th className="text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wider py-2.5 px-3">Description</th>
+                  <th className="text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wider py-2.5 px-3">Fourn.</th>
                   <HeaderCell label="Lot éco" colKey="lot_eco" />
                   <HeaderCell label="Lot optimal" colKey="economie_immobilisation" />
+                  <th className="text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wider py-2.5 px-3">Cond.</th>
                   <HeaderCell label="Dem./sem" colKey="demande_hebdo" />
                   <HeaderCell label="Délai" colKey="ratio_couverture" />
                   <HeaderCell label="Ratio" colKey="ratio_couverture" />
@@ -240,12 +297,16 @@ export function LotEcoView() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(a => (
+                {paged.map(a => (
                   <tr key={a.article} className="border-b border-border/50 hover:bg-accent/30 transition-colors">
                     <td className="py-2 px-3 font-mono font-medium text-foreground">{a.article}</td>
                     <td className="py-2 px-3 text-muted-foreground max-w-[180px] truncate" title={a.description}>{a.description}</td>
+                    <td className="py-2 px-3 font-mono text-muted-foreground">{a.code_fournisseur || '—'}</td>
                     <td className="py-2 px-3 font-mono">{a.lot_eco.toLocaleString('fr-FR')}</td>
                     <td className="py-2 px-3 font-mono text-primary font-medium">{a.lot_optimal.toLocaleString('fr-FR')}</td>
+                    <td className="py-2 px-3 font-mono text-muted-foreground">
+                      {a.conditionnement > 0 ? `${a.conditionnement.toLocaleString('fr-FR')}${a.conditionnement_type ? ' ' + a.conditionnement_type : ''}` : '—'}
+                    </td>
                     <td className="py-2 px-3 font-mono">{fmt(a.demande_hebdo)}</td>
                     <td className="py-2 px-3 font-mono">{a.delai_reappro_jours}j</td>
                     <td className="py-2 px-3 font-mono font-semibold text-foreground">{fmt(a.ratio_couverture, 1)}x</td>
@@ -265,6 +326,30 @@ export function LotEcoView() {
               </tbody>
             </table>
           </div>
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between border-t border-border px-4 py-2.5">
+              <span className="text-[11px] text-muted-foreground">
+                {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, filtered.length)} sur {filtered.length}
+              </span>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={safePage <= 1}
+                  className="p-1 rounded hover:bg-accent disabled:opacity-30 disabled:cursor-default transition-colors"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <span className="text-[11px] text-muted-foreground px-2">{safePage} / {totalPages}</span>
+                <button
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  disabled={safePage >= totalPages}
+                  className="p-1 rounded hover:bg-accent disabled:opacity-30 disabled:cursor-default transition-colors"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

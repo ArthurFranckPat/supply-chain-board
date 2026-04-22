@@ -57,8 +57,16 @@ class AnalyseLotEcoService:
             pmp = article.pmp or 0.0
             valeur_stock = stock_physique * pmp
 
-            # Lot optimal : couvre exactement le delai fournisseur
-            lot_optimal = max(1, round(demande_hebdo * couverture_reappro_sem)) if demande_hebdo >= self.DEMANDE_MIN_HEBDO and couverture_reappro_sem > 0 else lot_eco
+            # Lot optimal : couvre exactement le delai fournisseur, arrondi au conditionnement
+            conds = article.conditionnements()
+            cond_qte = conds[0][0] if conds else 0
+            cond_type = conds[0][1] if conds else ""
+
+            if demande_hebdo >= self.DEMANDE_MIN_HEBDO and couverture_reappro_sem > 0:
+                lot_optimal_brut = max(1, round(demande_hebdo * couverture_reappro_sem))
+                lot_optimal = article.arrondir_au_conditionnement(lot_optimal_brut)
+            else:
+                lot_optimal = lot_eco
 
             # Tarifs
             tarifs = self._tarifs_index.get(code_comp, [])
@@ -121,6 +129,8 @@ class AnalyseLotEcoService:
                     economie_immobilisation=round(economie_immobilisation, 2),
                     surcout_unitaire=round(surcout_unitaire, 4),
                     code_fournisseur=code_fournisseur,
+                    conditionnement=cond_qte,
+                    conditionnement_type=cond_type,
                 )
             )
 

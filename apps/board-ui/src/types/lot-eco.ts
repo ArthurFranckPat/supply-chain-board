@@ -22,6 +22,8 @@ export interface LotEcoArticle {
   economie_immobilisation: number
   surcout_unitaire: number
   code_fournisseur: number
+  conditionnement: number
+  conditionnement_type: string
 }
 
 export interface LotEcoResponse {

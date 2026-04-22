@@ -2,7 +2,7 @@
 
 ## Objectif
 
-Identifier les composants achetés dont le lot économique de réapprovisionnement est disproportionné par rapport aux besoins réels, qu'il soit surdimensionné (surstock) ou sous-dimensionné (risque rupture).
+Identifier les composants achetés dont le lot économique de réapprovisionnement est disproportionné par rapport aux besoins réels, qu'il soit surdimensionné (surstock) ou sous-dimensionné (risque rupture). Croiser avec les tarifs fournisseurs pour mesurer l'impact financier.
 
 ## Périmètre
 
@@ -51,6 +51,67 @@ Un ratio de 1 signifie que le lot couvre exactement le délai fournisseur. Un ra
 
 Les articles avec `DELAI_REAPPRO = 0` (non renseigné dans l'ERP) sont classés OK par défaut car le ratio ne peut pas être calculé sans délai de référence.
 
+## Lot optimal
+
+Le lot optimal est la quantité qui couvre exactement le délai fournisseur, arrondie au conditionnement :
+
+```
+lot_optimal_brut = round(demande_hebdo × couverture_reappro_semaines)
+lot_optimal = arrondir_au_conditionnement(lot_optimal_brut)
+```
+
+L'arrondi se fait au plus petit conditionnement disponible (niveau 1) par excès :
+
+```
+arrondi = ((qte + cond_niveau_1 - 1) // cond_niveau_1) × cond_niveau_1
+```
+
+Si la demande est nulle ou le délai non renseigné, le lot optimal = lot éco.
+
+## Conditionnement
+
+3 niveaux de conditionnement sont lus depuis `Articles.csv` :
+
+| Champ | Description |
+|-------|-------------|
+| `COND_QTE_1` | Plus petit conditionnement (unité de commande) |
+| `COND_TYPE_1` | Type (ex: C16, CAR) |
+| `COND_QTE_2` | Conditionnement intermédiaire |
+| `COND_TYPE_2` | Type |
+| `COND_QTE_3` | Conditionnement palette |
+| `COND_TYPE_3` | Type |
+
+L'arrondi du lot optimal utilise toujours le niveau 1 (plus petit).
+
+## Impact financier (tarifs fournisseurs)
+
+Les tarifs proviennent de `Tarifs Achats.csv` avec des paliers de quantité :
+
+```
+prix_lot_eco     = tarif pour la quantité LOT_ECONOMIQUE
+prix_lot_optimal = tarif pour la quantité LOT_OPTIMAL
+```
+
+### Économie d'immobilisation
+
+```
+economie_immobilisation = (lot_eco - lot_optimal) × prix_lot_eco
+```
+
+Capital libéré si on passe du lot éco au lot optimal (uniquement pour les surdimensionnés).
+
+### Surcoût unitaire
+
+```
+surcout_unitaire = prix_lot_optimal - prix_lot_eco
+```
+
+Différence de prix unitaire entre les deux paliers. Un surcoût négatif indique que le lot optimal est au même prix ou moins cher.
+
+### Fournisseur
+
+Le code fournisseur est extrait du premier palier tarifaire de l'article (`tarifs_achats.code_fournisseur`).
+
 ## Métriques complémentaires
 
 - **stock_jours** : stock disponible / demande journalière (-1 = ∞ si stock disponible sans demande)
@@ -79,11 +140,23 @@ Les articles avec `DELAI_REAPPRO = 0` (non renseigné dans l'ERP) sont classés 
 
 | Fichier | Champ utilisé |
 |---------|--------------|
-| Articles.csv | LOT_ECONOMIQUE, DELAI_REAPPRO, PMP |
+| Articles.csv | LOT_ECONOMIQUE, DELAI_REAPPRO, PMP, COND_QTE_1/2/3, COND_TYPE_1/2/3 |
 | Nomenclatures.csv | ARTICLE_COMPOSANT, QTE_LIEN, TYPE_COMPOSANT |
 | Besoins Clients.csv | ARTICLE, QTE_RESTANTE, DATE_FIN |
 | Stocks.csv | STOCK_PHYSIQUE, STOCK_ALLOUE |
+| Tarifs Achats.csv | CODE_FOURNISSEUR, QUANTITE_MINI, QUANTITE_MAXI, PRIX_UNITAIRE |
 
 ## Endpoint API
 
 `POST /api/v1/analyse-lot-eco` — aucun paramètre requis. Retourne la liste complète des composants analysés avec leurs métriques.
+
+## Frontend
+
+Vue accessible depuis l'onglet "Lots éco" dans le board. Fonctionnalités :
+- Cartes récapitulatives (total, surdimensionnés, valeur immobilisée, économie)
+- Onglets par statut (surdimensionné, sous-dimensionné, OK, demande nulle, tous)
+- Recherche par article, description ou code fournisseur
+- Filtre par fournisseur
+- Pagination (50 lignes par page)
+- Tri par colonne (ratio, demande, stock, valeur, économie, surcoût)
+- Export CSV des résultats filtrés

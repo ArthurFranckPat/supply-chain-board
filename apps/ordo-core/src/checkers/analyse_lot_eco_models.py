@@ -38,6 +38,8 @@ class AnalyseLotArticle:
     economie_immobilisation: float
     surcout_unitaire: float
     code_fournisseur: int
+    conditionnement: int
+    conditionnement_type: str
 
 
 @dataclass(slots=True)
