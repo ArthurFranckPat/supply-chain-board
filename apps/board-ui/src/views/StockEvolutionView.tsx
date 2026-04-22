@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { apiClient, ApiError } from '@/api/client'
 import { StockChart } from './StockChart'
 import { StockStatsPanel } from './StockStatsPanel'
@@ -9,10 +9,18 @@ export function StockEvolutionView() {
   const [article, setArticle] = useState('11035404')
   const [horizon, setHorizon] = useState('45')
   const [includeInternal, setIncludeInternal] = useState(false)
+  const [includeStockQ, setIncludeStockQ] = useState(false)
   const [showAverage, setShowAverage] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<StockEvolutionResponse | null>(null)
+  const hasResult = useRef(false)
+
+  useEffect(() => {
+    if (hasResult.current && article.trim()) {
+      handleAnalyse()
+    }
+  }, [includeStockQ])
 
   const handleAnalyse = async () => {
     if (!article.trim()) return
@@ -25,8 +33,10 @@ export function StockEvolutionView() {
       const data = await apiClient.getStockEvolution(article.trim(), {
         horizon_days: days,
         include_internal: includeInternal,
+        include_stock_q: includeStockQ,
       })
       setResult(data)
+      hasResult.current = true
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Erreur')
     } finally {
@@ -79,6 +89,15 @@ export function StockEvolutionView() {
             <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${includeInternal ? 'translate-x-5' : ''}`} />
           </button>
           <span className="text-[11px] text-muted-foreground">Inclure mouvements internes</span>
+
+          <button
+            type="button"
+            onClick={() => setIncludeStockQ((v) => !v)}
+            className={`relative w-10 h-5 rounded-full transition-colors ${includeStockQ ? 'bg-orange-500' : 'bg-muted'}`}
+          >
+            <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${includeStockQ ? 'translate-x-5' : ''}`} />
+          </button>
+          <span className="text-[11px] text-muted-foreground">Inclure stock sous statut Q</span>
 
           <button
             type="button"

@@ -89,8 +89,9 @@ class StockHistoryAnalyzer:
         horizon_days: int = 45,
         include_internal: bool = False,
         stock_actuel: float = 0.0,
+        include_stock_q: bool = False,
     ) -> list[StockMovement]:
-        key = self._cache_key(itmref, horizon_days, include_internal)
+        key = f"{itmref}:{horizon_days}:{include_internal}:{include_stock_q}"
         cached = self._get_cached(key)
         if cached is not None:
             return cached
@@ -98,6 +99,49 @@ class StockHistoryAnalyzer:
         result = self.reconstituer_stock_from_raw(itmref, raw, stock_actuel)
         self._cache[key] = (result, time.time())
         return result
+
+    @staticmethod
+    def _supprimer_annulations(mouvements: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Retire les paires (entrée + annulation) d'un même VCRNUM.
+
+        Si un VCRNUM a une ligne qtystu=+X et une qtystu=-X, les deux sont retirées.
+        """
+        from collections import defaultdict
+
+        def _get(m: dict, key: str) -> Any:
+            return m.get(key.upper()) or m.get(key.lower()) or m.get(key, "")
+
+        by_vcrnum: dict[str, list[int]] = defaultdict(list)
+        for i, m in enumerate(mouvements):
+            vcr = str(_get(m, "VCRNUM"))
+            if vcr:
+                by_vcrnum[vcr].append(i)
+
+        removed: set[int] = set()
+        for vcr, indices in by_vcrnum.items():
+            if len(indices) < 2:
+                continue
+            positives: list[tuple[int, float]] = []
+            negatives: list[tuple[int, float]] = []
+            for i in indices:
+                q = float(_get(mouvements[i], "QTYSTU") or 0)
+                if q > 0:
+                    positives.append((i, q))
+                elif q < 0:
+                    negatives.append((i, abs(q)))
+
+            matched: set[int] = set()
+            for pi, pq in positives:
+                for ni, nq in negatives:
+                    if ni in matched:
+                        continue
+                    if abs(pq - nq) < 0.001:
+                        matched.add(pi)
+                        matched.add(ni)
+                        break
+            removed.update(matched)
+
+        return [m for i, m in enumerate(mouvements) if i not in removed]
 
     def reconstituer_stock_from_raw(
         self,
@@ -108,8 +152,10 @@ class StockHistoryAnalyzer:
         def _get(m: dict, key: str) -> Any:
             return m.get(key.upper()) or m.get(key.lower()) or m.get(key, "")
 
+        cleaned = self._supprimer_annulations(raw_mouvements)
+
         # Tri stable: MVTSEQ asc puis IPTDAT desc (les plus récents d'abord, seq croissante)
-        sorted_mvts = sorted(raw_mouvements, key=lambda m: int(_get(m, "MVTSEQ") or 0))
+        sorted_mvts = sorted(cleaned, key=lambda m: int(_get(m, "MVTSEQ") or 0))
         sorted_mvts.sort(key=lambda m: _get(m, "IPTDAT"), reverse=True)
 
         stock_courant = stock_actuel

@@ -26,7 +26,10 @@ export interface StockAnalytics {
 export interface StockEvolutionResponse {
   article: string
   description: string
-  stock_actuel: number
+  stock_physique: number
+  stock_bloque: number
+  valeur_stock: number
+  pmp: number
   stock_min: number
   stock_max: number
   stock_moyen: number

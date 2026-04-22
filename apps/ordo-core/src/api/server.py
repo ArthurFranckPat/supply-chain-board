@@ -109,6 +109,7 @@ class StockEvolutionRequest(BaseModel):
     itmref: str
     horizon_days: int = Field(default=45, ge=1, le=365)
     include_internal: bool = Field(default=False)
+    include_stock_q: bool = Field(default=False)
 
 
 def create_app(service: Optional[GuiAppService] = None) -> FastAPI:
@@ -344,12 +345,14 @@ def create_app(service: Optional[GuiAppService] = None) -> FastAPI:
         itmref: str,
         horizon_days: int = 45,
         include_internal: bool = False,
+        include_stock_q: bool = False,
     ) -> dict:
         try:
             return app.state.gui_service.analyser_evolution_stock(
                 itmref=itmref,
                 horizon_days=horizon_days,
                 include_internal=include_internal,
+                include_stock_q=include_stock_q,
             )
         except RuntimeError as exc:
             raise HTTPException(status_code=500, detail=str(exc)) from exc
@@ -363,6 +366,7 @@ def create_app(service: Optional[GuiAppService] = None) -> FastAPI:
                 itmref=payload.itmref,
                 horizon_days=payload.horizon_days,
                 include_internal=payload.include_internal,
+                include_stock_q=payload.include_stock_q,
             )
         except RuntimeError as exc:
             raise HTTPException(status_code=500, detail=str(exc)) from exc
