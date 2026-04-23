@@ -68,14 +68,17 @@ class AnalyseLotEcoService:
             else:
                 lot_optimal = lot_eco
 
-            # Tarifs
+            # Tarifs — les paliers du tarif sont en unite d'achat
             tarifs = self._tarifs_index.get(code_comp, [])
-            prix_lot_eco = self._prix_pour_quantite(tarifs, lot_eco)
-            prix_lot_optimal = self._prix_pour_quantite(tarifs, lot_optimal)
+            coeff = article.coeff_ua_us or 1.0
+            lot_eco_ua = lot_eco / coeff
+            lot_optimal_ua = lot_optimal / coeff
+            prix_lot_eco = self._prix_pour_quantite(tarifs, lot_eco_ua)
+            prix_lot_optimal = self._prix_pour_quantite(tarifs, lot_optimal_ua)
             code_fournisseur = tarifs[0].code_fournisseur if tarifs else 0
 
             # Economie d'immobilisation : capital libere si on passe du lot_eco au lot_optimal
-            excdent_lot = max(0, lot_eco - lot_optimal)
+            excdent_lot = max(0, lot_eco_ua - lot_optimal_ua)
             economie_immobilisation = excdent_lot * prix_lot_eco
 
             # Surcout unitaire si on commande au lot optimal (palier plus petit = prix plus eleve)
@@ -156,7 +159,7 @@ class AnalyseLotEcoService:
             index[article].sort(key=lambda t: t.quantite_mini)
         return dict(index)
 
-    def _prix_pour_quantite(self, tarifs: list, qte: int) -> float:
+    def _prix_pour_quantite(self, tarifs: list, qte: float) -> float:
         if not tarifs or qte <= 0:
             return 0.0
         for t in tarifs:

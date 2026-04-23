@@ -30,6 +30,9 @@ class Article:
     cond_type_2: Optional[str] = None
     cond_qte_3: Optional[int] = None
     cond_type_3: Optional[str] = None
+    unite_stock: Optional[str] = None
+    unite_achat: Optional[str] = None
+    coeff_ua_us: float = 1.0
 
     def conditionnements(self) -> list[tuple[int, str]]:
         """Retourne les conditionnements tries par quantite croissante."""

@@ -42,4 +42,7 @@ def parse_article(row: dict) -> Article:
         cond_type_2=_opt_str("COND_TYPE_2"),
         cond_qte_3=_opt_int("COND_QTE_3"),
         cond_type_3=_opt_str("COND_TYPE_3"),
+        unite_stock=_opt_str("UNITE_STOCK"),
+        unite_achat=_opt_str("UNITE_ACHAT"),
+        coeff_ua_us=parse_float(row.get("COEFF_UA_US")) or 1.0,
     )

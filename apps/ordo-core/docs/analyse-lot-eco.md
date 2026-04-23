@@ -85,14 +85,16 @@ L'arrondi du lot optimal utilise toujours le niveau 1 (plus petit).
 
 ## Impact financier (tarifs fournisseurs)
 
-Les tarifs proviennent de `Tarifs Achats.csv` avec des paliers de quantité :
-
-> **⚠️ Bug connu** : Le champ `prix_unitaire` du tarif est exprimé dans l'unité d'achat (`unite` : RL, C16, CAR...) et non en unité individuelle. Le calcul actuel `economie_immobilisation = (lot_eco - lot_optimal) × prix_unitaire` mélange des quantités en unités avec un prix en unité d'achat, ce qui gonfle artificiellement les montants (ex: E7188 — 2.5M€ au lieu de ~2 400€ car le prix est par rouleau, pas par étiquette). Il faut convertir `lot_eco` et `lot_optimal` dans l'unité d'achat du tarif avant de multiplier.
+Les tarifs proviennent de `Tarifs Achats.csv` avec des paliers de quantité (exprimés en unité d'achat) :
 
 ```
-prix_lot_eco     = tarif pour la quantité LOT_ECONOMIQUE
-prix_lot_optimal = tarif pour la quantité LOT_OPTIMAL
+lot_eco_ua     = LOT_ECONOMIQUE / COEFF_UA_US
+lot_optimal_ua = LOT_OPTIMAL / COEFF_UA_US
+prix_lot_eco     = tarif pour la quantité lot_eco_ua
+prix_lot_optimal = tarif pour la quantité lot_optimal_ua
 ```
+
+> Les quantités `LOT_ECONOMIQUE` et `LOT_OPTIMAL` sont en unité de stock. Les paliers de tarif et le prix unitaire sont en unité d'achat. La conversion utilise `COEFF_UA_US` (coefficient unité d'achat → unité de stock).
 
 ### Économie d'immobilisation
 
