@@ -1,8 +1,8 @@
 import type { StockEvolutionResponse } from '@/types/stock-evolution'
-import { TrendingUp, TrendingDown, Minus, Package, Activity, ArrowLeftRight } from 'lucide-react'
+import { TrendingUp, TrendingDown, Minus, Package, Activity, ArrowLeftRight, Euro } from 'lucide-react'
 
 interface Props {
-  stats: Pick<StockEvolutionResponse, 'stock_min' | 'stock_max' | 'stock_moyen' | 'rotation' | 'tendance' | 'nombre_mouvements' | 'periode_debut' | 'periode_fin'>
+  stats: Pick<StockEvolutionResponse, 'stock_physique' | 'stock_bloque' | 'valeur_stock' | 'pmp' | 'stock_min' | 'stock_max' | 'stock_moyen' | 'rotation' | 'tendance' | 'nombre_mouvements' | 'periode_debut' | 'periode_fin'>
 }
 
 function TendanceBadge({ valeur }: { valeur: string }) {
@@ -29,7 +29,19 @@ function TendanceBadge({ valeur }: { valeur: string }) {
 
 export function StockStatsPanel({ stats }: Props) {
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+    <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+      <StatCard
+        icon={<Package className="h-4 w-4 text-green" />}
+        label="Stock physique"
+        value={stats.stock_physique.toLocaleString('fr-FR', { maximumFractionDigits: 1 })}
+        sub={`Sous statut Q: ${stats.stock_bloque.toLocaleString('fr-FR', { maximumFractionDigits: 1 })}`}
+      />
+      <StatCard
+        icon={<Euro className="h-4 w-4 text-emerald" />}
+        label="Valeur stock"
+        value={stats.valeur_stock.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
+        sub={`PMP: ${stats.pmp.toFixed(2)} €`}
+      />
       <StatCard
         icon={<Package className="h-4 w-4 text-blue" />}
         label="Stock min"

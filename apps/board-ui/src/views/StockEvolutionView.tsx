@@ -1,37 +1,42 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { apiClient, ApiError } from '@/api/client'
 import { StockChart } from './StockChart'
 import { StockStatsPanel } from './StockStatsPanel'
 import { StockMovementsTable } from './StockMovementsTable'
 import type { StockEvolutionResponse } from '@/types/stock-evolution'
 
-const HORIZON_OPTIONS = [
-  { value: 30, label: '30 jours' },
-  { value: 45, label: '45 jours' },
-  { value: 90, label: '90 jours' },
-  { value: 180, label: '180 jours' },
-  { value: 365, label: '1 an' },
-]
-
 export function StockEvolutionView() {
-  const [article, setArticle] = useState('')
-  const [horizon, setHorizon] = useState(45)
+  const [article, setArticle] = useState('11035404')
+  const [horizon, setHorizon] = useState('45')
   const [includeInternal, setIncludeInternal] = useState(false)
+  const [includeStockQ, setIncludeStockQ] = useState(false)
+  const [showAverage, setShowAverage] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<StockEvolutionResponse | null>(null)
+  const hasResult = useRef(false)
+
+  useEffect(() => {
+    if (hasResult.current && article.trim()) {
+      handleAnalyse()
+    }
+  }, [includeStockQ])
 
   const handleAnalyse = async () => {
     if (!article.trim()) return
+    const days = parseInt(horizon, 10)
+    if (isNaN(days) || days < 1) return
     setLoading(true)
     setError(null)
     setResult(null)
     try {
       const data = await apiClient.getStockEvolution(article.trim(), {
-        horizon_days: horizon,
+        horizon_days: days,
         include_internal: includeInternal,
+        include_stock_q: includeStockQ,
       })
       setResult(data)
+      hasResult.current = true
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Erreur')
     } finally {
@@ -42,7 +47,7 @@ export function StockEvolutionView() {
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       {/* Search bar */}
-      <div className="bg-card border border-border rounded-xl p-5">
+      <div className="bg-card border border-border rounded-xl p-5 space-y-3">
         <div className="flex flex-wrap items-end gap-3">
           <div className="flex-1 min-w-[200px]">
             <label className="block text-[11px] font-medium text-muted-foreground mb-1">Article</label>
@@ -55,29 +60,18 @@ export function StockEvolutionView() {
               className="w-full px-3 py-2 border border-border rounded-md text-sm bg-background font-mono"
             />
           </div>
-          <div className="w-36">
-            <label className="block text-[11px] font-medium text-muted-foreground mb-1">Horizon</label>
-            <select
+          <div className="w-28">
+            <label className="block text-[11px] font-medium text-muted-foreground mb-1">Horizon (jours)</label>
+            <input
+              type="number"
               value={horizon}
-              onChange={(e) => setHorizon(Number(e.target.value))}
-              className="w-full px-3 py-2 border border-border rounded-md text-sm bg-background"
-            >
-              {HORIZON_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
+              onChange={(e) => setHorizon(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleAnalyse()}
+              min={1}
+              max={365}
+              className="w-full px-3 py-2 border border-border rounded-md text-sm bg-background font-mono"
+            />
           </div>
-          <button
-            type="button"
-            onClick={() => setIncludeInternal((v) => !v)}
-            className={`px-3 py-2 rounded-md text-[11px] font-semibold border transition-colors ${
-              includeInternal
-                ? 'bg-primary/10 border-primary/20 text-primary'
-                : 'bg-background border-border text-muted-foreground'
-            }`}
-          >
-            Inclure internes
-          </button>
           <button
             onClick={handleAnalyse}
             disabled={loading || !article.trim()}
@@ -85,6 +79,34 @@ export function StockEvolutionView() {
           >
             {loading ? 'Analyse...' : 'Analyser'}
           </button>
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setIncludeInternal((v) => !v)}
+            className={`relative w-10 h-5 rounded-full transition-colors ${includeInternal ? 'bg-primary' : 'bg-muted'}`}
+          >
+            <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${includeInternal ? 'translate-x-5' : ''}`} />
+          </button>
+          <span className="text-[11px] text-muted-foreground">Inclure mouvements internes</span>
+
+          <button
+            type="button"
+            onClick={() => setIncludeStockQ((v) => !v)}
+            className={`relative w-10 h-5 rounded-full transition-colors ${includeStockQ ? 'bg-orange-500' : 'bg-muted'}`}
+          >
+            <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${includeStockQ ? 'translate-x-5' : ''}`} />
+          </button>
+          <span className="text-[11px] text-muted-foreground">Inclure stock sous statut Q</span>
+
+          <button
+            type="button"
+            onClick={() => setShowAverage((v) => !v)}
+            className={`relative w-10 h-5 rounded-full transition-colors ${showAverage ? 'bg-purple-500' : 'bg-muted'}`}
+          >
+            <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${showAverage ? 'translate-x-5' : ''}`} />
+          </button>
+          <span className="text-[11px] text-muted-foreground">Afficher la moyenne</span>
         </div>
       </div>
 
@@ -106,8 +128,14 @@ export function StockEvolutionView() {
       {/* Results */}
       {result && !loading && (
         <>
+          {result.description && (
+            <div className="bg-card border border-border rounded-xl px-5 py-3 flex items-baseline gap-3">
+              <span className="text-xs font-mono text-muted-foreground">{result.article}</span>
+              <span className="text-sm font-medium">{result.description}</span>
+            </div>
+          )}
           <StockStatsPanel stats={result} />
-          <StockChart data={result} />
+          <StockChart data={result} showAverage={showAverage} />
           <StockMovementsTable movements={result.items} />
         </>
       )}

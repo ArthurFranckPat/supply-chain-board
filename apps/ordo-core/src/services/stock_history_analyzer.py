@@ -1,13 +1,13 @@
 """Analyse de l'historique des stocks Sage X3 (table STOJOU).
 
-Réconstitue le stock article par article à partir des mouvements,
+Reconstitue le stock article par article à partir des mouvements,
 calcule les indicateurs descriptifs.
 """
 
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Any
 
@@ -15,11 +15,8 @@ from .x3_client import X3Client
 from .x3_parser import STOJOU_FIELDS, parse_resources
 
 
-# ─── Modèle ───────────────────────────────────────────────────────────────────
-
 @dataclass
 class StockMovement:
-    """Un mouvement de stock avec stock avant/après calculés."""
     iptdat: str
     itmref: str
     qtystu: float
@@ -30,11 +27,11 @@ class StockMovement:
     creusr: str
     stock_avant: float
     stock_apres: float
+    mvtseq: int = 0
 
 
 @dataclass
 class StockAnalytics:
-    """Indicateurs descriptifs d'un historique de stock."""
     article: str
     stock_min: float
     stock_max: float
@@ -46,38 +43,22 @@ class StockAnalytics:
     periode_fin: str | None = None
 
 
-# ─── Analyseur ────────────────────────────────────────────────────────────────
-
 class StockHistoryAnalyzer:
-    """Reconstitue et analyse l'historique des stocks.
-
-    Méthode principale :
-      1. Récupère les mouvements via X3Client (query_all STOJOU)
-      2. Trie par date croissante (IPTDAT asc, MVTSEQ asc)
-      3. Itère pour calculer stock_avant / stock_apres
-      4. Calcule les stats descriptives
-    """
 
     def __init__(self, cache_ttl: float = 60.0):
         self._cache: dict[str, tuple[list[StockMovement], float]] = {}
         self._cache_ttl = cache_ttl
-
-    # ── Accès X3 ────────────────────────────────────────────────────────────
 
     def _fetch_mouvements(
         self,
         itmref: str,
         horizon_days: int = 45,
         include_internal: bool = False,
-        all_pages: bool = True,
     ) -> list[dict[str, Any]]:
-        """Récupère les mouvements bruts depuis X3."""
         client = X3Client()
         where = [f"ITMREF eq '{itmref}'"]
-
         if not include_internal:
             where.append("TRSTYP le 6")
-
         horizon_date = (date.today() - timedelta(days=horizon_days)).strftime("%Y-%m-%d")
         where.append(f"IPTDAT ge @{horizon_date}@")
 
@@ -85,7 +66,7 @@ class StockHistoryAnalyzer:
             classe="STOJOU",
             representation="ZSTOJOU",
             where=where,
-            order_by="IPTDAT asc, MVTSEQ asc",
+            order_by="IPTDAT desc, MVTSEQ asc",
         )
         return parse_resources(resources, fields=STOJOU_FIELDS + ["MVTSEQ"])
 
@@ -96,88 +77,117 @@ class StockHistoryAnalyzer:
         cached = self._cache.get(key)
         if cached is None:
             return None
-        movements, timestamp = cached
-        if time.time() - timestamp > self._cache_ttl:
+        movements, ts = cached
+        if time.time() - ts > self._cache_ttl:
             del self._cache[key]
             return None
         return movements
-
-    # ── Core algorithm ─────────────────────────────────────────────────────
 
     def reconstituer_stock(
         self,
         itmref: str,
         horizon_days: int = 45,
         include_internal: bool = False,
-        all_pages: bool = True,
+        stock_actuel: float = 0.0,
+        include_stock_q: bool = False,
     ) -> list[StockMovement]:
-        """API publique — fetch X3 + reconstitution avec cache."""
-        key = self._cache_key(itmref, horizon_days, include_internal)
+        key = f"{itmref}:{horizon_days}:{include_internal}:{include_stock_q}"
         cached = self._get_cached(key)
         if cached is not None:
             return cached
-
-        raw = self._fetch_mouvements(itmref, horizon_days, include_internal, all_pages)
-        result = self.reconstituer_stock_from_raw(itmref, raw)
+        raw = self._fetch_mouvements(itmref, horizon_days, include_internal)
+        result = self.reconstituer_stock_from_raw(itmref, raw, stock_actuel)
         self._cache[key] = (result, time.time())
         return result
+
+    @staticmethod
+    def _supprimer_annulations(mouvements: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Retire les paires (entrée + annulation) d'un même VCRNUM.
+
+        Si un VCRNUM a une ligne qtystu=+X et une qtystu=-X, les deux sont retirées.
+        """
+        from collections import defaultdict
+
+        def _get(m: dict, key: str) -> Any:
+            return m.get(key.upper()) or m.get(key.lower()) or m.get(key, "")
+
+        by_vcrnum: dict[str, list[int]] = defaultdict(list)
+        for i, m in enumerate(mouvements):
+            vcr = str(_get(m, "VCRNUM"))
+            if vcr:
+                by_vcrnum[vcr].append(i)
+
+        removed: set[int] = set()
+        for vcr, indices in by_vcrnum.items():
+            if len(indices) < 2:
+                continue
+            positives: list[tuple[int, float]] = []
+            negatives: list[tuple[int, float]] = []
+            for i in indices:
+                q = float(_get(mouvements[i], "QTYSTU") or 0)
+                if q > 0:
+                    positives.append((i, q))
+                elif q < 0:
+                    negatives.append((i, abs(q)))
+
+            matched: set[int] = set()
+            for pi, pq in positives:
+                for ni, nq in negatives:
+                    if ni in matched:
+                        continue
+                    if abs(pq - nq) < 0.001:
+                        matched.add(pi)
+                        matched.add(ni)
+                        break
+            removed.update(matched)
+
+        return [m for i, m in enumerate(mouvements) if i not in removed]
 
     def reconstituer_stock_from_raw(
         self,
         itmref: str,
         raw_mouvements: list[dict[str, Any]],
+        stock_actuel: float = 0.0,
     ) -> list[StockMovement]:
-        """Reconstitution pure — ne touche pas X3.
-
-        Algorithme :
-          1. Trier par IPTDAT asc, MVTSEQ asc
-          2. stock_courant = 0
-          3. Pour chaque mouvement : stock_avant = stock_courant,
-             stock_apres = stock_courant + qtystu,
-             stock_courant = stock_apres
-        """
-        # Normalise les clés en uppercase (X3 renvoie IPTDAT, les fixtures utilisent iptdat)
-        def _norm(m: dict[str, Any], key: str) -> Any:
+        def _get(m: dict, key: str) -> Any:
             return m.get(key.upper()) or m.get(key.lower()) or m.get(key, "")
 
-        sorted_mvmts = sorted(
-            raw_mouvements,
-            key=lambda m: (_norm(m, "IPTDAT"), int(_norm(m, "MVTSEQ") or 0)),
-        )
+        cleaned = self._supprimer_annulations(raw_mouvements)
 
-        stock_courant = 0.0
+        # Tri stable: MVTSEQ asc puis IPTDAT desc (les plus récents d'abord, seq croissante)
+        sorted_mvts = sorted(cleaned, key=lambda m: int(_get(m, "MVTSEQ") or 0))
+        sorted_mvts.sort(key=lambda m: _get(m, "IPTDAT"), reverse=True)
+
+        stock_courant = stock_actuel
         result: list[StockMovement] = []
 
-        for m in sorted_mvmts:
-            qtystu = float(_norm(m, "QTYSTU") or 0)
-            stock_avant = stock_courant
-            stock_apres = stock_courant + qtystu
-            stock_courant = stock_apres
+        for m in sorted_mvts:
+            qtystu = float(_get(m, "QTYSTU") or 0)
+            stock_apres = stock_courant
+            stock_avant = stock_courant - qtystu
+            stock_courant = stock_avant
 
-            result.append(
-                StockMovement(
-                    iptdat=str(_norm(m, "IPTDAT")),
-                    itmref=itmref,
-                    qtystu=qtystu,
-                    trstyp=int(_norm(m, "TRSTYP") or 0),
-                    vcrnum=str(_norm(m, "VCRNUM")),
-                    vcrnumori=str(_norm(m, "VCRNUMORI")),
-                    loc=str(_norm(m, "LOC")),
-                    creusr=str(_norm(m, "CREUSR")),
-                    stock_avant=stock_avant,
-                    stock_apres=stock_apres,
-                )
-            )
+            result.append(StockMovement(
+                iptdat=str(_get(m, "IPTDAT")),
+                itmref=itmref,
+                qtystu=qtystu,
+                trstyp=int(_get(m, "TRSTYP") or 0),
+                vcrnum=str(_get(m, "VCRNUM")),
+                vcrnumori=str(_get(m, "VCRNUMORI")),
+                loc=str(_get(m, "LOC")),
+                creusr=str(_get(m, "CREUSR")),
+                stock_avant=stock_avant,
+                stock_apres=stock_apres,
+                mvtseq=int(_get(m, "MVTSEQ") or 0),
+            ))
 
+        result.sort(key=lambda m: (m.iptdat, m.mvtseq))
         return result
 
-    # ── Statistiques ────────────────────────────────────────────────────────
-
     def calculer_stats(self, mouvements: list[StockMovement]) -> StockAnalytics:
-        """Calcule les indicateurs descriptifs."""
         if not mouvements:
             return StockAnalytics(
-                article=mouvements[0].itmref if mouvements else "",
+                article="",
                 stock_min=0.0,
                 stock_max=0.0,
                 stock_moyen=0.0,
@@ -191,11 +201,9 @@ class StockHistoryAnalyzer:
         stock_max = max(stock_apres_list)
         stock_moyen = sum(stock_apres_list) / len(stock_apres_list)
 
-        # Rotation = somme des sorties / stock moyen
         sorties = sum(abs(m.qtystu) for m in mouvements if m.qtystu < 0)
         rotation = (sorties / stock_moyen) if stock_moyen > 0 else 0.0
 
-        # Tendance = régression linéaire simple sur stock_apres
         tendance = self._calculer_tendance(stock_apres_list)
 
         return StockAnalytics(
@@ -211,7 +219,6 @@ class StockHistoryAnalyzer:
         )
 
     def _calculer_tendance(self, values: list[float]) -> str:
-        """Régression linéaire simple — renvoie 'croissante', 'décroissante' ou 'stable'."""
         if len(values) < 2:
             return "stable"
 
@@ -227,8 +234,7 @@ class StockHistoryAnalyzer:
             return "stable"
 
         pente = num / den
-        y_scale = max(abs(y_mean), 1e-9)
-        seuil = y_scale * 0.01
+        seuil = max(abs(y_mean), 1e-9) * 0.01
 
         if pente > seuil:
             return "croissante"

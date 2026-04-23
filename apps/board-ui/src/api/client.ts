@@ -212,10 +212,11 @@ export const apiClient = {
   },
 
   // ── Stock Evolution ───────────────────────────────────────────
-  getStockEvolution(itmref: string, options?: { horizon_days?: number; include_internal?: boolean }) {
+  getStockEvolution(itmref: string, options?: { horizon_days?: number; include_internal?: boolean; include_stock_q?: boolean }) {
     const params = new URLSearchParams({ itmref })
     if (options?.horizon_days) params.set('horizon_days', String(options.horizon_days))
     if (options?.include_internal) params.set('include_internal', 'true')
+    if (options?.include_stock_q) params.set('include_stock_q', 'true')
     return request<StockEvolutionResponse>(`/api/v1/stock-evolution/${encodeURIComponent(itmref)}?${params}`)
   },
 

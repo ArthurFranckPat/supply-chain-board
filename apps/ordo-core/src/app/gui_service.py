@@ -631,6 +631,7 @@ class GuiAppService:
         itmref: str,
         horizon_days: int = 45,
         include_internal: bool = False,
+        include_stock_q: bool = False,
     ) -> dict[str, Any]:
         """Reconstitue l'historique et calcule les stats pour un article."""
         from ..services.stock_history_analyzer import StockHistoryAnalyzer
@@ -638,15 +639,53 @@ class GuiAppService:
         if self._stock_history_analyzer is None:
             self._stock_history_analyzer = StockHistoryAnalyzer()
 
+        if self.loader is None:
+            raise RuntimeError("Aucune donnée chargée. Chargez les extractions ERP avant l'analyse.")
+
+        stk = self.loader.stocks.get(itmref)
+        if stk is None:
+            raise RuntimeError(f"Article {itmref} introuvable dans les stocks. Chargez les extractions ERP.")
+        stock_physique = float(stk.stock_physique)
+        stock_bloque = float(stk.stock_bloque)
+
+        stock_depart = stock_physique + (stock_bloque if include_stock_q else 0.0)
+
         mouvements = self._stock_history_analyzer.reconstituer_stock(
             itmref=itmref,
             horizon_days=horizon_days,
             include_internal=include_internal,
-            all_pages=True,
+            stock_actuel=stock_depart,
+            include_stock_q=include_stock_q,
         )
         stats = self._stock_history_analyzer.calculer_stats(mouvements)
+
+        description = self._get_article_description(itmref)
+
+        pmp = 0.0
+        article = self.loader.articles.get(itmref)
+        if article:
+            pmp = float(getattr(article, "pmp", 0) or 0)
+
         return {
             "article": itmref,
+            "description": description,
+            "stock_physique": stock_physique,
+            "stock_bloque": stock_bloque,
+            "valeur_stock": (stock_physique + stock_bloque) * pmp,
+            "pmp": pmp,
             **(_serialize_value(stats)),
             "items": _serialize_value(mouvements),
         }
+
+    def _get_article_description(self, itmref: str) -> str:
+        if self.loader is not None:
+            article = self.loader.articles.get(itmref)
+            if article:
+                return getattr(article, "description", "")
+        try:
+            from ..services.x3_client import X3Client
+            client = X3Client()
+            detail = client.detail("ITMMASTER", itmref, "ZITMMASTER")
+            return detail.get("ITMDES1", "") or detail.get("$resources", [{}])[0].get("ITMDES1", "")
+        except Exception:
+            return ""

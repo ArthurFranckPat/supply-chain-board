@@ -1,22 +1,14 @@
 import { useState } from 'react'
 import type { StockMovement } from '@/types/stock-evolution'
+import { TRSTYP_LABELS, isStockEntry } from '@/types/trstyp'
 
 interface Props {
   movements: StockMovement[]
 }
 
-const TRSTYP_LABELS: Record<number, string> = {
-  1: 'Entrée',
-  2: 'Sortie',
-  4: 'Vente',
-  5: 'Production',
-  6: 'Transfert',
-  7: 'Ajustement',
-}
-
 function TrstypBadge({ trstyp }: { trstyp: number }) {
   const label = TRSTYP_LABELS[trstyp] ?? String(trstyp)
-  const isPositive = trstyp === 1 || trstyp === 5
+  const isPositive = isStockEntry(trstyp)
   return (
     <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
       isPositive ? 'bg-green/10 text-green' : 'bg-destructive/10 text-destructive'

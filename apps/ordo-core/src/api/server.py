@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Optional
+import os
+
+from dotenv import load_dotenv
+load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -105,6 +109,7 @@ class StockEvolutionRequest(BaseModel):
     itmref: str
     horizon_days: int = Field(default=45, ge=1, le=365)
     include_internal: bool = Field(default=False)
+    include_stock_q: bool = Field(default=False)
 
 
 def create_app(service: Optional[GuiAppService] = None) -> FastAPI:
@@ -336,37 +341,23 @@ def create_app(service: Optional[GuiAppService] = None) -> FastAPI:
     # ── Stock Evolution ───────────────────────────────────────────────
 
     @app.get("/api/v1/stock-evolution/{itmref}")
-    def stock_evolution(payload: StockEvolutionRequest, itmref: str) -> dict:
+    def stock_evolution(
+        itmref: str,
+        horizon_days: int = 45,
+        include_internal: bool = False,
+        include_stock_q: bool = False,
+    ) -> dict:
         try:
             return app.state.gui_service.analyser_evolution_stock(
                 itmref=itmref,
-                horizon_days=payload.horizon_days,
-                include_internal=payload.include_internal,
+                horizon_days=horizon_days,
+                include_internal=include_internal,
+                include_stock_q=include_stock_q,
             )
         except RuntimeError as exc:
             raise HTTPException(status_code=500, detail=str(exc)) from exc
-
-    @app.get("/api/v1/stock-evolution/{itmref}/chart")
-    def stock_evolution_chart(payload: StockEvolutionRequest, itmref: str) -> dict:
-        try:
-            result = app.state.gui_service.analyser_evolution_stock(
-                itmref=itmref,
-                horizon_days=payload.horizon_days,
-                include_internal=payload.include_internal,
-            )
-            # Format optimisé pour le chart : {dates[], stocks[], mouvements[]}
-            items = result.get("items", [])
-            return {
-                "article": itmref,
-                "dates": [m["iptdat"] for m in items],
-                "stocks": [m["stock_apres"] for m in items],
-                "qtystu": [m["qtystu"] for m in items],
-                "trstyp": [m["trstyp"] for m in items],
-                "vcrnum": [m["vcrnum"] for m in items],
-                "stats": {k: v for k, v in result.items() if k not in ("items", "article")},
-            }
-        except RuntimeError as exc:
-            raise HTTPException(status_code=500, detail=str(exc)) from exc
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
 
     @app.post("/api/v1/stock-evolution/analytics")
     def stock_evolution_analytics(payload: StockEvolutionRequest) -> dict:
@@ -375,6 +366,7 @@ def create_app(service: Optional[GuiAppService] = None) -> FastAPI:
                 itmref=payload.itmref,
                 horizon_days=payload.horizon_days,
                 include_internal=payload.include_internal,
+                include_stock_q=payload.include_stock_q,
             )
         except RuntimeError as exc:
             raise HTTPException(status_code=500, detail=str(exc)) from exc
