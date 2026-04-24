@@ -25,7 +25,7 @@ class OrdoCoreClient(BaseApiClient):
 
     async def load_data(self, source: str = "data") -> dict[str, Any]:
         payload = {"source": source}
-        return await self._request("POST", "/data/load", json=payload)
+        return await self._request("POST", "/api/v1/data/load", json=payload)
 
     async def run_schedule(
         self,
@@ -38,10 +38,10 @@ class OrdoCoreClient(BaseApiClient):
             "blocking_components_mode": blocking_components_mode,
             "demand_horizon_days": demand_horizon_days,
         }
-        return await self._request("POST", "/runs/schedule", json=payload)
+        return await self._request("POST", "/api/v1/runs/schedule", json=payload)
 
     async def get_run(self, run_id: str) -> dict[str, Any]:
-        return await self._request("GET", f"/runs/{run_id}")
+        return await self._request("GET", f"/api/v1/runs/{run_id}")
 
     async def wait_for_run(
         self,
@@ -71,7 +71,7 @@ class SuiviCommandesClient(BaseApiClient):
         payload: dict[str, Any] = {"rows": rows}
         if reference_date:
             payload["reference_date"] = reference_date
-        return await self._request("POST", "/v1/status/assign", json=payload)
+        return await self._request("POST", "/api/v1/status/assign", json=payload)
 
     async def status_from_latest_export(
         self,
@@ -83,4 +83,4 @@ class SuiviCommandesClient(BaseApiClient):
             payload["folder"] = folder
         if reference_date:
             payload["reference_date"] = reference_date
-        return await self._request("POST", "/v1/status/from-latest-export", json=payload)
+        return await self._request("POST", "/api/v1/status/from-latest-export", json=payload)

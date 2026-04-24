@@ -1,17 +1,19 @@
-﻿"""FastAPI server for the local GUI."""
+"""FastAPI server for the local GUI."""
 
 from __future__ import annotations
 
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, APIRouter, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from ..app import GuiAppService
 from .x3_routes import router as x3_router
 
+
+# ── Request models ───────────────────────────────────────────────
 
 class DataLoadRequest(BaseModel):
     source: str = Field(default="extractions")
@@ -26,8 +28,8 @@ class RunScheduleRequest(BaseModel):
 
 class CalendarManualOffRequest(BaseModel):
     year: int
-    additions: list[dict] = Field(default_factory=list)   # [{date, reason}]
-    removals: list[str] = Field(default_factory=list)      # ["2025-04-25"]
+    additions: list[dict] = Field(default_factory=list)
+    removals: list[str] = Field(default_factory=list)
 
 
 class HolidaysRefreshRequest(BaseModel):
@@ -43,10 +45,10 @@ class PosteCapacityUpdate(BaseModel):
 
 class CapacityOverrideRequest(BaseModel):
     poste: str
-    key: str          # ISO date "2025-04-21" or ISO week "2025-W17"
+    key: str
     hours: float = 0.0
     reason: str = ""
-    pattern: Optional[dict[str, float]] = None  # {"1": 14, "2": 14, ...} for weekly
+    pattern: Optional[dict[str, float]] = None
 
 
 class AnalyseRuptureRequest(BaseModel):
@@ -80,7 +82,7 @@ class ResidualFabRequest(BaseModel):
 class FeasibilityCheckRequest(BaseModel):
     article: str
     quantity: int = Field(gt=0)
-    desired_date: str  # ISO date
+    desired_date: str
     use_receptions: bool = True
     check_capacity: bool = True
     depth_mode: str = Field(default="full", pattern="^(level1|full)$")
@@ -95,7 +97,7 @@ class PromiseDateRequest(BaseModel):
 class RescheduleRequest(BaseModel):
     num_commande: str
     article: str
-    new_date: str  # ISO date
+    new_date: str
     new_quantity: Optional[int] = None
     depth_mode: str = Field(default="full", pattern="^(level1|full)$")
     use_receptions: bool = True
@@ -106,6 +108,295 @@ class StockEvolutionRequest(BaseModel):
     horizon_days: int = Field(default=45, ge=1, le=365)
     include_internal: bool = Field(default=False)
 
+
+# ── Helper ───────────────────────────────────────────────────────
+
+def _svc(request: Request) -> GuiAppService:
+    return request.app.state.gui_service
+
+
+# ── V1 Router ────────────────────────────────────────────────────
+
+v1 = APIRouter(prefix="/api/v1")
+
+
+@v1.get("/config")
+def get_config(request: Request) -> dict:
+    return _svc(request).get_config()
+
+
+@v1.post("/data/load")
+def load_data(payload: DataLoadRequest, request: Request) -> dict:
+    return _svc(request).load_data(
+        source=payload.source,
+        extractions_dir=payload.extractions_dir,
+    )
+
+
+@v1.post("/runs/schedule")
+def run_schedule(payload: RunScheduleRequest, request: Request) -> dict:
+    try:
+        return _svc(request).run_schedule(
+            immediate_components=payload.immediate_components,
+            blocking_components_mode=payload.blocking_components_mode,
+            demand_horizon_days=payload.demand_horizon_days,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@v1.get("/runs/{run_id}")
+def get_run(run_id: str, request: Request) -> dict:
+    run = _svc(request).get_run(run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="Run introuvable")
+    return run
+
+
+@v1.get("/reports/actions/latest")
+def latest_action_report(request: Request) -> dict:
+    return _svc(request).get_latest_report("actions")
+
+
+@v1.get("/reports/files")
+def list_reports(request: Request) -> list[dict]:
+    return _svc(request).list_reports()
+
+
+# ── Calendar ──────────────────────────────────────────────────────
+
+@v1.get("/calendar/{year}/{month}")
+def get_calendar(year: int, month: int, request: Request) -> dict:
+    if month < 1 or month > 12:
+        raise HTTPException(status_code=400, detail="Month must be 1-12")
+    return _svc(request).get_calendar(year, month)
+
+
+@v1.put("/calendar/manual-off")
+def update_manual_off(payload: CalendarManualOffRequest, request: Request) -> dict:
+    return _svc(request).update_manual_off_days(
+        year=payload.year,
+        additions=payload.additions,
+        removals=payload.removals,
+    )
+
+
+@v1.post("/calendar/holidays/refresh")
+def refresh_holidays(payload: HolidaysRefreshRequest, request: Request) -> dict:
+    return _svc(request).refresh_holidays(payload.year)
+
+
+# ── Capacity ──────────────────────────────────────────────────────
+
+@v1.get("/capacity")
+def get_capacity(request: Request) -> dict:
+    return _svc(request).get_capacity_config()
+
+
+@v1.put("/capacity/poste")
+def update_poste_capacity(payload: PosteCapacityUpdate, request: Request) -> dict:
+    return _svc(request).update_poste_capacity(
+        poste=payload.poste,
+        default_hours=payload.default_hours,
+        shift_pattern=payload.shift_pattern,
+        label=payload.label,
+    )
+
+
+@v1.put("/capacity/override")
+def set_capacity_override(payload: CapacityOverrideRequest, request: Request) -> dict:
+    return _svc(request).set_capacity_override(
+        poste=payload.poste,
+        key=payload.key,
+        hours=payload.hours,
+        reason=payload.reason,
+        pattern=payload.pattern,
+    )
+
+
+@v1.delete("/capacity/override")
+def remove_capacity_override(payload: CapacityOverrideRequest, request: Request) -> dict:
+    return _svc(request).remove_capacity_override(
+        poste=payload.poste,
+        key=payload.key,
+    )
+
+
+# ── Analyse de Rupture ────────────────────────────────────────────
+
+@v1.post("/analyse-rupture")
+def analyser_rupture(payload: AnalyseRuptureRequest, request: Request) -> dict:
+    if not payload.component_code:
+        raise HTTPException(status_code=400, detail="component_code requis")
+    try:
+        return _svc(request).analyser_rupture(
+            payload.component_code,
+            include_previsions=payload.include_previsions,
+            include_receptions=payload.include_receptions,
+            use_pool=payload.use_pool,
+            merge_branches=payload.merge_branches,
+            include_sf=payload.include_sf,
+            include_pf=payload.include_pf,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+# ── EOL Residual Stock Analysis ──────────────────────────────────
+
+@v1.post("/eol-residuals")
+def eol_residuals(payload: EolResidualsRequest, request: Request) -> dict:
+    try:
+        return _svc(request).eol_residuals_analyze(
+            familles=payload.familles,
+            prefixes=payload.prefixes,
+            bom_depth_mode=payload.bom_depth_mode,
+            stock_mode=payload.stock_mode,
+            component_types=payload.component_types,
+            projection_date=payload.projection_date,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@v1.post("/eol-residuals/fabricable")
+def eol_residuals_fabricable(payload: ResidualFabRequest, request: Request) -> dict:
+    try:
+        return _svc(request).eol_residuals_fab_check(
+            familles=payload.familles,
+            prefixes=payload.prefixes,
+            desired_qty=payload.desired_qty,
+            bom_depth_mode=payload.bom_depth_mode,
+            stock_mode=payload.stock_mode,
+            projection_date=payload.projection_date,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+# ── Feasibility ───────────────────────────────────────────────────
+
+@v1.post("/feasibility/check")
+def feasibility_check(payload: FeasibilityCheckRequest, request: Request) -> dict:
+    try:
+        return _svc(request).feasibility_check(
+            article=payload.article,
+            quantity=payload.quantity,
+            desired_date=payload.desired_date,
+            use_receptions=payload.use_receptions,
+            check_capacity=payload.check_capacity,
+            depth_mode=payload.depth_mode,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@v1.post("/feasibility/promise-date")
+def feasibility_promise_date(payload: PromiseDateRequest, request: Request) -> dict:
+    try:
+        return _svc(request).feasibility_promise_date(
+            article=payload.article,
+            quantity=payload.quantity,
+            max_horizon_days=payload.max_horizon_days,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@v1.post("/feasibility/reschedule")
+def feasibility_reschedule(payload: RescheduleRequest, request: Request) -> dict:
+    try:
+        return _svc(request).feasibility_reschedule(
+            num_commande=payload.num_commande,
+            article=payload.article,
+            new_date=payload.new_date,
+            new_quantity=payload.new_quantity,
+            depth_mode=payload.depth_mode,
+            use_receptions=payload.use_receptions,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@v1.get("/feasibility/articles")
+def feasibility_search_articles(q: str = "", limit: int = 20, request: Request = None) -> dict:
+    try:
+        results = _svc(request).feasibility_search_articles(q, limit)
+        return {"articles": results}
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@v1.get("/feasibility/orders")
+def feasibility_search_orders(q: str = "", limit: int = 30, request: Request = None) -> dict:
+    try:
+        results = _svc(request).feasibility_search_orders(q, limit)
+        return {"orders": results}
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+# ── Stock Evolution ───────────────────────────────────────────────
+
+@v1.get("/stock-evolution/{itmref}")
+def stock_evolution(itmref: str, horizon_days: int = 45, include_internal: bool = False, request: Request = None) -> dict:
+    try:
+        return _svc(request).analyser_evolution_stock(
+            itmref=itmref,
+            horizon_days=horizon_days,
+            include_internal=include_internal,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@v1.get("/stock-evolution/{itmref}/chart")
+def stock_evolution_chart(itmref: str, horizon_days: int = 45, include_internal: bool = False, request: Request = None) -> dict:
+    try:
+        result = _svc(request).analyser_evolution_stock(
+            itmref=itmref,
+            horizon_days=horizon_days,
+            include_internal=include_internal,
+        )
+        items = result.get("items", [])
+        return {
+            "article": itmref,
+            "dates": [m["iptdat"] for m in items],
+            "stocks": [m["stock_apres"] for m in items],
+            "qtystu": [m["qtystu"] for m in items],
+            "trstyp": [m["trstyp"] for m in items],
+            "vcrnum": [m["vcrnum"] for m in items],
+            "stats": {k: v for k, v in result.items() if k not in ("items", "article")},
+        }
+    except RuntimeError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@v1.post("/stock-evolution/analytics")
+def stock_evolution_analytics(payload: StockEvolutionRequest, request: Request) -> dict:
+    try:
+        return _svc(request).analyser_evolution_stock(
+            itmref=payload.itmref,
+            horizon_days=payload.horizon_days,
+            include_internal=payload.include_internal,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ── App factory ───────────────────────────────────────────────────
 
 def create_app(service: Optional[GuiAppService] = None) -> FastAPI:
     app = FastAPI(
@@ -126,259 +417,7 @@ def create_app(service: Optional[GuiAppService] = None) -> FastAPI:
     def health() -> dict:
         return {"status": "ok"}
 
-    @app.get("/config")
-    def get_config() -> dict:
-        return app.state.gui_service.get_config()
-
-    @app.post("/data/load")
-    def load_data(payload: DataLoadRequest) -> dict:
-        return app.state.gui_service.load_data(
-            source=payload.source,
-            extractions_dir=payload.extractions_dir,
-        )
-
-    @app.post("/runs/schedule")
-    def run_schedule(payload: RunScheduleRequest) -> dict:
-        try:
-            return app.state.gui_service.run_schedule(
-                immediate_components=payload.immediate_components,
-                blocking_components_mode=payload.blocking_components_mode,
-                demand_horizon_days=payload.demand_horizon_days,
-            )
-        except RuntimeError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-    @app.get("/runs/{run_id}")
-    def get_run(run_id: str) -> dict:
-        run = app.state.gui_service.get_run(run_id)
-        if run is None:
-            raise HTTPException(status_code=404, detail="Run introuvable")
-        return run
-
-    @app.get("/reports/actions/latest")
-    def latest_action_report() -> dict:
-        return app.state.gui_service.get_latest_report("actions")
-
-    @app.get("/reports/files")
-    def list_reports() -> list[dict]:
-        return app.state.gui_service.list_reports()
-
-    # ── Calendar ─────────────────────────────────────────────────
-
-    @app.get("/calendar/{year}/{month}")
-    def get_calendar(year: int, month: int) -> dict:
-        if month < 1 or month > 12:
-            raise HTTPException(status_code=400, detail="Month must be 1-12")
-        return app.state.gui_service.get_calendar(year, month)
-
-    @app.put("/calendar/manual-off")
-    def update_manual_off(payload: CalendarManualOffRequest) -> dict:
-        return app.state.gui_service.update_manual_off_days(
-            year=payload.year,
-            additions=payload.additions,
-            removals=payload.removals,
-        )
-
-    @app.post("/calendar/holidays/refresh")
-    def refresh_holidays(payload: HolidaysRefreshRequest) -> dict:
-        return app.state.gui_service.refresh_holidays(payload.year)
-
-    # ── Capacity ─────────────────────────────────────────────────
-
-    @app.get("/capacity")
-    def get_capacity() -> dict:
-        return app.state.gui_service.get_capacity_config()
-
-    @app.put("/capacity/poste")
-    def update_poste_capacity(payload: PosteCapacityUpdate) -> dict:
-        return app.state.gui_service.update_poste_capacity(
-            poste=payload.poste,
-            default_hours=payload.default_hours,
-            shift_pattern=payload.shift_pattern,
-            label=payload.label,
-        )
-
-    @app.put("/capacity/override")
-    def set_capacity_override(payload: CapacityOverrideRequest) -> dict:
-        return app.state.gui_service.set_capacity_override(
-            poste=payload.poste,
-            key=payload.key,
-            hours=payload.hours,
-            reason=payload.reason,
-            pattern=payload.pattern,
-        )
-
-    @app.delete("/capacity/override")
-    def remove_capacity_override(payload: CapacityOverrideRequest) -> dict:
-        return app.state.gui_service.remove_capacity_override(
-            poste=payload.poste,
-            key=payload.key,
-        )
-
-    # ── Analyse de Rupture ────────────────────────────────────────────
-
-    @app.post("/api/v1/analyse-rupture")
-    def analyser_rupture(payload: AnalyseRuptureRequest) -> dict:
-        if not payload.component_code:
-            raise HTTPException(status_code=400, detail="component_code requis")
-        try:
-            return app.state.gui_service.analyser_rupture(
-                payload.component_code,
-                include_previsions=payload.include_previsions,
-                include_receptions=payload.include_receptions,
-                use_pool=payload.use_pool,
-                merge_branches=payload.merge_branches,
-                include_sf=payload.include_sf,
-                include_pf=payload.include_pf,
-            )
-        except ValueError as exc:
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
-        except RuntimeError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-    # ── EOL Residual Stock Analysis ─────────────────────────────────
-
-    @app.post("/api/v1/eol-residuals")
-    def eol_residuals(payload: EolResidualsRequest) -> dict:
-        try:
-            return app.state.gui_service.eol_residuals_analyze(
-                familles=payload.familles,
-                prefixes=payload.prefixes,
-                bom_depth_mode=payload.bom_depth_mode,
-                stock_mode=payload.stock_mode,
-                component_types=payload.component_types,
-                projection_date=payload.projection_date,
-            )
-        except ValueError as exc:
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
-        except RuntimeError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-    @app.post("/api/v1/eol-residuals/fabricable")
-    def eol_residuals_fabricable(payload: ResidualFabRequest) -> dict:
-        try:
-            return app.state.gui_service.eol_residuals_fab_check(
-                familles=payload.familles,
-                prefixes=payload.prefixes,
-                desired_qty=payload.desired_qty,
-                bom_depth_mode=payload.bom_depth_mode,
-                stock_mode=payload.stock_mode,
-                projection_date=payload.projection_date,
-            )
-        except ValueError as exc:
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
-        except RuntimeError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-    # ── Feasibility ─────────────────────────────────────────────────
-
-    @app.post("/api/v1/feasibility/check")
-    def feasibility_check(payload: FeasibilityCheckRequest) -> dict:
-        try:
-            return app.state.gui_service.feasibility_check(
-                article=payload.article,
-                quantity=payload.quantity,
-                desired_date=payload.desired_date,
-                use_receptions=payload.use_receptions,
-                check_capacity=payload.check_capacity,
-                depth_mode=payload.depth_mode,
-            )
-        except ValueError as exc:
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
-        except RuntimeError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-    @app.post("/api/v1/feasibility/promise-date")
-    def feasibility_promise_date(payload: PromiseDateRequest) -> dict:
-        try:
-            return app.state.gui_service.feasibility_promise_date(
-                article=payload.article,
-                quantity=payload.quantity,
-                max_horizon_days=payload.max_horizon_days,
-            )
-        except ValueError as exc:
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
-        except RuntimeError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-    @app.post("/api/v1/feasibility/reschedule")
-    def feasibility_reschedule(payload: RescheduleRequest) -> dict:
-        try:
-            return app.state.gui_service.feasibility_reschedule(
-                num_commande=payload.num_commande,
-                article=payload.article,
-                new_date=payload.new_date,
-                new_quantity=payload.new_quantity,
-                depth_mode=payload.depth_mode,
-                use_receptions=payload.use_receptions,
-            )
-        except ValueError as exc:
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
-        except RuntimeError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-    @app.get("/api/v1/feasibility/articles")
-    def feasibility_search_articles(q: str = "", limit: int = 20) -> dict:
-        try:
-            results = app.state.gui_service.feasibility_search_articles(q, limit)
-            return {"articles": results}
-        except RuntimeError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-    @app.get("/api/v1/feasibility/orders")
-    def feasibility_search_orders(q: str = "", limit: int = 30) -> dict:
-        try:
-            results = app.state.gui_service.feasibility_search_orders(q, limit)
-            return {"orders": results}
-        except RuntimeError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-    # ── Stock Evolution ───────────────────────────────────────────────
-
-    @app.get("/api/v1/stock-evolution/{itmref}")
-    def stock_evolution(payload: StockEvolutionRequest, itmref: str) -> dict:
-        try:
-            return app.state.gui_service.analyser_evolution_stock(
-                itmref=itmref,
-                horizon_days=payload.horizon_days,
-                include_internal=payload.include_internal,
-            )
-        except RuntimeError as exc:
-            raise HTTPException(status_code=500, detail=str(exc)) from exc
-
-    @app.get("/api/v1/stock-evolution/{itmref}/chart")
-    def stock_evolution_chart(payload: StockEvolutionRequest, itmref: str) -> dict:
-        try:
-            result = app.state.gui_service.analyser_evolution_stock(
-                itmref=itmref,
-                horizon_days=payload.horizon_days,
-                include_internal=payload.include_internal,
-            )
-            # Format optimisé pour le chart : {dates[], stocks[], mouvements[]}
-            items = result.get("items", [])
-            return {
-                "article": itmref,
-                "dates": [m["iptdat"] for m in items],
-                "stocks": [m["stock_apres"] for m in items],
-                "qtystu": [m["qtystu"] for m in items],
-                "trstyp": [m["trstyp"] for m in items],
-                "vcrnum": [m["vcrnum"] for m in items],
-                "stats": {k: v for k, v in result.items() if k not in ("items", "article")},
-            }
-        except RuntimeError as exc:
-            raise HTTPException(status_code=500, detail=str(exc)) from exc
-
-    @app.post("/api/v1/stock-evolution/analytics")
-    def stock_evolution_analytics(payload: StockEvolutionRequest) -> dict:
-        try:
-            return app.state.gui_service.analyser_evolution_stock(
-                itmref=payload.itmref,
-                horizon_days=payload.horizon_days,
-                include_internal=payload.include_internal,
-            )
-        except RuntimeError as exc:
-            raise HTTPException(status_code=500, detail=str(exc)) from exc
-
+    app.include_router(v1)
     app.include_router(x3_router)
 
     return app

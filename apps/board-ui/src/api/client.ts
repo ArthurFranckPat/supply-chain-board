@@ -51,11 +51,11 @@ export const apiClient = {
   },
 
   getConfig() {
-    return request<Record<string, unknown>>('/config')
+    return request<Record<string, unknown>>('/api/v1/config')
   },
 
   loadData(source: DataSource, extractionsDir?: string) {
-    return request<Record<string, unknown>>('/data/load', {
+    return request<Record<string, unknown>>('/api/v1/data/load', {
       method: 'POST',
       body: JSON.stringify({ source, extractions_dir: extractionsDir ?? DEFAULT_EXTRACTIONS_DIR }),
     })
@@ -66,23 +66,23 @@ export const apiClient = {
     blocking_components_mode?: string
     demand_horizon_days?: number
   }) {
-    return request<RunState>('/runs/schedule', {
+    return request<RunState>('/api/v1/runs/schedule', {
       method: 'POST',
       body: JSON.stringify(payload),
     })
   },
 
   getRun(runId: string) {
-    return request<RunState>(`/runs/${runId}`)
+    return request<RunState>(`/api/v1/runs/${runId}`)
   },
 
   listReports() {
-    return request<Record<string, unknown>[]>('/reports/files')
+    return request<Record<string, unknown>[]>('/api/v1/reports/files')
   },
 
   // ── Calendar ────────────────────────────────────────────────
   getCalendar(year: number, month: number) {
-    return request<MonthCalendar>(`/calendar/${year}/${month}`)
+    return request<MonthCalendar>(`/api/v1/calendar/${year}/${month}`)
   },
 
   updateManualOffDays(data: {
@@ -90,14 +90,14 @@ export const apiClient = {
     additions: Array<{ date: string; reason?: string }>
     removals: string[]
   }) {
-    return request<{ status: string; manual_off_count: number }>('/calendar/manual-off', {
+    return request<{ status: string; manual_off_count: number }>('/api/v1/calendar/manual-off', {
       method: 'PUT',
       body: JSON.stringify(data),
     })
   },
 
   refreshHolidays(year: number) {
-    return request<{ status: string; holidays_count: number }>('/calendar/holidays/refresh', {
+    return request<{ status: string; holidays_count: number }>('/api/v1/calendar/holidays/refresh', {
       method: 'POST',
       body: JSON.stringify({ year }),
     })
@@ -105,25 +105,25 @@ export const apiClient = {
 
   // ── Capacity ────────────────────────────────────────────────
   getCapacityConfig() {
-    return request<CapacityConfigResponse>('/capacity')
+    return request<CapacityConfigResponse>('/api/v1/capacity')
   },
 
   updatePosteConfig(data: { poste: string; default_hours: number; shift_pattern: string; label?: string }) {
-    return request<{ status: string }>('/capacity/poste', {
+    return request<{ status: string }>('/api/v1/capacity/poste', {
       method: 'PUT',
       body: JSON.stringify(data),
     })
   },
 
   setCapacityOverride(data: { poste: string; key: string; hours?: number; reason: string; pattern?: Record<string, number> }) {
-    return request<{ status: string }>('/capacity/override', {
+    return request<{ status: string }>('/api/v1/capacity/override', {
       method: 'PUT',
       body: JSON.stringify(data),
     })
   },
 
   removeCapacityOverride(data: { poste: string; key: string }) {
-    return request<{ status: string }>('/capacity/override', {
+    return request<{ status: string }>('/api/v1/capacity/override', {
       method: 'DELETE',
       body: JSON.stringify({ poste: data.poste, key: data.key, hours: 0, reason: '' }),
     })

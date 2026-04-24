@@ -1,7 +1,12 @@
-﻿from __future__ import annotations
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+# Ensure the src/ directory is on sys.path so the package is importable.
+sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
 
 from datetime import date
-from pathlib import Path
 from typing import Any
 
 import pandas as pd
@@ -9,9 +14,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from data_loader import load_data, load_data_from_erp
-from db_comments import init_db, load_all_comments, batch_upsert, delete_comment
-from status_logic import assign_statuses, build_line_level_frame
+from suivi_commandes.data_loader import load_data, load_data_from_erp
+from suivi_commandes.db_comments import init_db, load_all_comments, batch_upsert, delete_comment
+from suivi_commandes.status_logic import assign_statuses, build_line_level_frame
 
 
 class StatusAssignRequest(BaseModel):
@@ -87,23 +92,22 @@ def health() -> dict[str, str]:
     return {"status": "ok", "service": "suivi-commandes"}
 
 
-@app.post("/v1/status/assign")
+@app.post("/api/v1/status/assign")
 def assign_from_rows(payload: StatusAssignRequest) -> dict[str, Any]:
     df = pd.DataFrame(payload.rows)
     df = _normalize_dates(df)
     return _compute_payload(df, payload.reference_date)
 
 
-@app.post("/v1/status/from-latest-export")
+@app.post("/api/v1/status/from-latest-export")
 def assign_from_latest_export(payload: LatestExportRequest) -> dict[str, Any]:
     folder = Path(payload.folder) if payload.folder else None
     df = load_data(folder=folder)
     return _compute_payload(df, payload.reference_date)
 
 
-@app.post("/v1/status/from-erp-extractions")
+@app.post("/api/v1/status/from-erp-extractions")
 def assign_from_erp_extractions(payload: LatestExportRequest) -> dict[str, Any]:
-    """Compute statuses from ERP extractions via the shared data layer."""
     folder = Path(payload.folder) if payload.folder else None
     df = load_data_from_erp(extractions_dir=folder)
     return _compute_payload(df, payload.reference_date)
@@ -112,7 +116,7 @@ def assign_from_erp_extractions(payload: LatestExportRequest) -> dict[str, Any]:
 # ── Comments ─────────────────────────────────────────────────────────────
 
 
-@app.get("/v1/comments")
+@app.get("/api/v1/comments")
 def get_comments() -> list[dict[str, Any]]:
     data = load_all_comments()
     return [
@@ -121,13 +125,13 @@ def get_comments() -> list[dict[str, Any]]:
     ]
 
 
-@app.put("/v1/comments/batch")
+@app.put("/api/v1/comments/batch")
 def save_comments_batch(payload: CommentBatchRequest) -> dict[str, str]:
     batch_upsert(payload.rows)
     return {"status": "ok"}
 
 
-@app.delete("/v1/comments/{no_commande}/{article}")
+@app.delete("/api/v1/comments/{no_commande}/{article}")
 def remove_comment(no_commande: str, article: str) -> dict[str, str]:
     delete_comment(no_commande, article)
     return {"status": "ok"}

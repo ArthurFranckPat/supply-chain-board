@@ -59,7 +59,7 @@ async def health() -> dict[str, Any]:
     }
 
 
-@app.post("/v1/pipeline/suivi-status")
+@app.post("/api/v1/pipeline/suivi-status")
 async def run_suivi_status(request: PipelineSupplyBoardRequest) -> dict[str, Any]:
     _, suivi_client = _make_clients()
     try:
@@ -68,7 +68,7 @@ async def run_suivi_status(request: PipelineSupplyBoardRequest) -> dict[str, Any
         raise HTTPException(status_code=502, detail=f"suivi-commandes call failed: {exc}") from exc
 
 
-@app.post("/v1/pipeline/supply-board")
+@app.post("/api/v1/pipeline/supply-board")
 async def run_supply_board_pipeline(
     request: PipelineSupplyBoardRequest,
 ) -> PipelineSupplyBoardResponse:

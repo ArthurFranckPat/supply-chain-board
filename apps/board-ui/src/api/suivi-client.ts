@@ -45,14 +45,14 @@ export const suiviClient = {
   },
 
   getStatusFromErp(folder?: string, referenceDate?: string) {
-    return request<SuiviStatusResponse>('/v1/status/from-erp-extractions', {
+    return request<SuiviStatusResponse>('/api/v1/status/from-erp-extractions', {
       method: 'POST',
       body: JSON.stringify({ folder: folder ?? DEFAULT_EXTRACTIONS_DIR, reference_date: referenceDate ?? null }),
     })
   },
 
   getStatusFromLatestExport(folder?: string, referenceDate?: string) {
-    return request<SuiviStatusResponse>('/v1/status/from-latest-export', {
+    return request<SuiviStatusResponse>('/api/v1/status/from-latest-export', {
       method: 'POST',
       body: JSON.stringify({ folder: folder ?? null, reference_date: referenceDate ?? null }),
     })
@@ -61,18 +61,18 @@ export const suiviClient = {
   // ── Comments ──────────────────────────────────────────────────
 
   getComments() {
-    return request<CommentEntry[]>('/v1/comments')
+    return request<CommentEntry[]>('/api/v1/comments')
   },
 
   batchUpsertComments(rows: Array<{ no_commande: string; article: string; comment: string }>) {
-    return request<{ status: string }>('/v1/comments/batch', {
+    return request<{ status: string }>('/api/v1/comments/batch', {
       method: 'PUT',
       body: JSON.stringify({ rows }),
     })
   },
 
   deleteComment(noCommande: string, article: string) {
-    return request<{ status: string }>(`/v1/comments/${encodeURIComponent(noCommande)}/${encodeURIComponent(article)}`, {
+    return request<{ status: string }>(`/api/v1/comments/${encodeURIComponent(noCommande)}/${encodeURIComponent(article)}`, {
       method: 'DELETE',
     })
   },
