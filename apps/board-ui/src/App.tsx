@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
 import { apiClient, ApiError } from '@/api/client'
 import { suiviClient } from '@/api/suivi-client'
 import { useScheduleRun } from '@/hooks/useScheduleRun'
-import { HomeView } from '@/views/HomeView'
+import { PilotageView } from '@/views/PilotageView'
 import { ActionsView } from '@/views/ActionsView'
-import { SchedulerView } from '@/views/SchedulerView'
+import { OrdonnancementView } from '@/views/OrdonnancementView'
 import { CapacityView } from '@/views/CapacityView'
-import { ReportsView } from '@/views/ReportsView'
+import { RapportsView } from '@/views/RapportsView'
 import { AnalyseRuptureView } from '@/views/AnalyseRuptureView'
 import { FeasibilityView } from '@/views/FeasibilityView'
 import { EolResidualsView } from '@/views/EolResidualsView'
@@ -15,7 +16,7 @@ import { ResidualFabricationView } from '@/views/ResidualFabricationView'
 import { OrderTrackingView } from '@/views/OrderTrackingView'
 import { StockEvolutionView } from '@/views/StockEvolutionView'
 import type { DataSource, DetailItem } from '@/types/api'
-import type { SchedulerOptions } from '@/views/HomeView'
+import type { SchedulingOptions } from '@/views/PilotageView'
 import type { SuiviStatusResponse } from '@/types/suivi-commandes'
 import { Activity, LayoutDashboard, Wrench, CalendarDays, FileText, Settings, Package, Zap, PanelLeftClose, PanelLeftOpen, AlertTriangle, ShoppingCart, CheckCircle, PackageSearch, Factory, TrendingUp } from 'lucide-react'
 
@@ -23,17 +24,17 @@ type ViewKey = 'home' | 'actions' | 'scheduler' | 'analyse-rupture' | 'feasibili
 type LoadState = 'idle' | 'loading' | 'ready' | 'error'
 
 const NAV_ITEMS: Array<{ key: ViewKey; label: string; icon: React.ReactNode }> = [
-  { key: 'home', label: 'Home', icon: <LayoutDashboard className="h-[15px] w-[15px]" /> },
-  { key: 'actions', label: 'Actions', icon: <Wrench className="h-[15px] w-[15px]" /> },
-  { key: 'scheduler', label: 'Scheduler', icon: <Activity className="h-[15px] w-[15px]" /> },
+  { key: 'home', label: 'Pilotage', icon: <LayoutDashboard className="h-[15px] w-[15px]" /> },
+  { key: 'actions', label: 'Actions appro', icon: <Wrench className="h-[15px] w-[15px]" /> },
+  { key: 'scheduler', label: 'Ordonnancement', icon: <Activity className="h-[15px] w-[15px]" /> },
   { key: 'analyse-rupture', label: 'Ruptures', icon: <AlertTriangle className="h-[15px] w-[15px]" /> },
-  { key: 'feasibility', label: 'Faisabilite', icon: <CheckCircle className="h-[15px] w-[15px]" /> },
-  { key: 'eol-residuals', label: 'EOL Residuel', icon: <PackageSearch className="h-[15px] w-[15px]" /> },
-  { key: 'fabricable', label: 'Fabricable', icon: <Factory className="h-[15px] w-[15px]" /> },
-  { key: 'capacity', label: 'Capacites', icon: <CalendarDays className="h-[15px] w-[15px]" /> },
+  { key: 'feasibility', label: 'Faisabilité', icon: <CheckCircle className="h-[15px] w-[15px]" /> },
+  { key: 'eol-residuals', label: 'Stock EOL', icon: <PackageSearch className="h-[15px] w-[15px]" /> },
+  { key: 'fabricable', label: 'Fabricabilité', icon: <Factory className="h-[15px] w-[15px]" /> },
+  { key: 'capacity', label: 'Capacités', icon: <CalendarDays className="h-[15px] w-[15px]" /> },
   { key: 'order-tracking', label: 'Commandes', icon: <ShoppingCart className="h-[15px] w-[15px]" /> },
-  { key: 'stock-evolution', label: 'Stock Histoire', icon: <TrendingUp className="h-[15px] w-[15px]" /> },
-  { key: 'reports', label: 'Reports', icon: <FileText className="h-[15px] w-[15px]" /> },
+  { key: 'stock-evolution', label: 'Historique stock', icon: <TrendingUp className="h-[15px] w-[15px]" /> },
+  { key: 'reports', label: 'Rapports', icon: <FileText className="h-[15px] w-[15px]" /> },
 ]
 
 function App() {
@@ -46,7 +47,7 @@ function App() {
   const [suiviData, setSuiviData] = useState<SuiviStatusResponse | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [detailItem, setDetailItem] = useState<DetailItem | null>(null)
-  const [schedulerOptions, setSchedulerOptions] = useState<SchedulerOptions>({
+  const [schedulingOptions, setSchedulingOptions] = useState<SchedulingOptions>({
     blockingComponentsMode: 'blocked',
     immediateComponents: false,
     demandHorizonDays: 15,
@@ -86,30 +87,17 @@ function App() {
     return () => { cancelled = true }
   }, [source])
 
-  async function handleLoadSource() {
-    setLoadState('loading')
-    setErrorMessage(null)
-    try {
-      const response = await apiClient.loadData(source)
-      setLastSourceSnapshot(response)
-      setLoadState('ready')
-    } catch (error) {
-      setLoadState('error')
-      setErrorMessage(error instanceof ApiError ? error.message : 'Chargement impossible.')
-    }
-  }
-
   async function handleRunSchedule() {
     setErrorMessage(null)
     try {
       await schedule.trigger({
-        blocking_components_mode: schedulerOptions.blockingComponentsMode,
-        immediate_components: schedulerOptions.immediateComponents,
-        demand_horizon_days: schedulerOptions.demandHorizonDays,
+        blocking_components_mode: schedulingOptions.blockingComponentsMode,
+        immediate_components: schedulingOptions.immediateComponents,
+        demand_horizon_days: schedulingOptions.demandHorizonDays,
       })
       setActiveView('scheduler')
     } catch (error) {
-      setErrorMessage(error instanceof ApiError ? error.message : 'Scheduler impossible.')
+      setErrorMessage(error instanceof ApiError ? error.message : 'Ordonnancement impossible.')
     }
   }
 
@@ -137,7 +125,7 @@ function App() {
           {!sidebarCollapsed && (
             <div className="min-w-0">
               <p className="text-[9.5px] text-muted-foreground font-mono uppercase tracking-wider font-medium leading-none">Supply Chain</p>
-              <p className="text-[15px] font-bold text-foreground leading-tight mt-0.5">Ordo Board</p>
+              <p className="text-[15px] font-bold text-foreground leading-tight mt-0.5">Ordo Cockpit</p>
             </div>
           )}
         </div>
@@ -179,7 +167,7 @@ function App() {
           )}
           <button
             onClick={() => setActiveView('settings')}
-            title={sidebarCollapsed ? 'Settings' : undefined}
+            title={sidebarCollapsed ? 'Paramètres' : undefined}
             className={`w-full flex items-center gap-2.5 py-2 rounded-[7px] text-[12.5px] font-medium transition-colors text-left ${
               sidebarCollapsed ? 'px-0 justify-center' : 'px-[11px]'
             } ${
@@ -189,7 +177,7 @@ function App() {
             }`}
           >
             <Settings className="h-[15px] w-[15px] text-muted-foreground" />
-            {!sidebarCollapsed && 'Settings'}
+            {!sidebarCollapsed && 'Paramètres'}
           </button>
         </div>
 
@@ -244,7 +232,7 @@ function App() {
           <div className="flex items-baseline gap-3">
             <h2 className="text-[15.5px] font-semibold tracking-tight">
               {NAV_ITEMS.find((n) => n.key === activeView)?.label}
-              {activeView === 'settings' && 'Settings'}
+              {activeView === 'settings' && 'Paramètres'}
             </h2>
             {topbarSubtitle && (
               <span className="text-[11.5px] text-muted-foreground">{topbarSubtitle}</span>
@@ -273,59 +261,59 @@ function App() {
         {/* Content */}
         <div className="flex-1 overflow-auto p-6">
           {activeView === 'home' && (
-            <HomeView
+            <ErrorBoundary><PilotageView
               loadState={loadState}
               scheduleState={schedule.isLoading ? 'running' : schedule.result ? 'success' : 'idle'}
               lastSourceSnapshot={lastSourceSnapshot}
               backendState={backendState}
               suiviReady={suiviData !== null}
-              options={schedulerOptions}
+              options={schedulingOptions}
               onRunSchedule={handleRunSchedule}
-              onOptionsChange={setSchedulerOptions}
-              onNavigate={setActiveView}
-            />
+              onOptionsChange={setSchedulingOptions}
+              onNavigate={(view) => setActiveView(view as ViewKey)}
+            /></ErrorBoundary>
           )}
           {activeView === 'actions' && (
-            <ActionsView
+            <ErrorBoundary><ActionsView
               data={null}
               onInspect={(item) => setDetailItem(item)}
-            />
+            /></ErrorBoundary>
           )}
           {activeView === 'scheduler' && (
-            <SchedulerView
+            <ErrorBoundary><OrdonnancementView
               isLoading={schedule.isLoading}
               result={schedule.result}
               error={schedule.error instanceof Error ? schedule.error.message : schedule.error ?? null}
               runState={schedule.runState}
               onInspect={(item) => setDetailItem(item)}
-            />
+            /></ErrorBoundary>
           )}
           {activeView === 'capacity' && (
-            <CapacityView onInspect={(item) => setDetailItem(item)} />
+            <ErrorBoundary><CapacityView onInspect={(item) => setDetailItem(item)} /></ErrorBoundary>
           )}
           {activeView === 'analyse-rupture' && (
-            <AnalyseRuptureView />
+            <ErrorBoundary><AnalyseRuptureView /></ErrorBoundary>
           )}
           {activeView === 'feasibility' && (
-            <FeasibilityView />
+            <ErrorBoundary><FeasibilityView /></ErrorBoundary>
           )}
           {activeView === 'eol-residuals' && (
-            <EolResidualsView />
+            <ErrorBoundary><EolResidualsView /></ErrorBoundary>
           )}
           {activeView === 'fabricable' && (
-            <ResidualFabricationView />
+            <ErrorBoundary><ResidualFabricationView /></ErrorBoundary>
           )}
           {activeView === 'order-tracking' && (
-            <OrderTrackingView data={suiviData} loadState={loadState} onReload={() => {
+            <ErrorBoundary><OrderTrackingView data={suiviData} loadState={loadState} onReload={() => {
               suiviClient.getStatusFromErp().then(setSuiviData).catch(() => {})
-            }} />
+            }} /></ErrorBoundary>
           )}
-          {activeView === 'stock-evolution' && <StockEvolutionView />}
+          {activeView === 'stock-evolution' && <ErrorBoundary><StockEvolutionView /></ErrorBoundary>}
           {activeView === 'reports' && (
-            <ReportsView
+            <ErrorBoundary><RapportsView
               embeddedReports={null}
               onInspect={(item) => setDetailItem(item)}
-            />
+            /></ErrorBoundary>
           )}
           {activeView === 'settings' && (
             <div className="text-sm text-muted-foreground">

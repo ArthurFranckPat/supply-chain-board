@@ -1,9 +1,8 @@
 import { useState } from 'react'
-import { apiClient, ApiError } from '@/api/client'
+import { useStockEvolution } from '@/hooks/useStockEvolution'
 import { StockChart } from './StockChart'
 import { StockStatsPanel } from './StockStatsPanel'
 import { StockMovementsTable } from './StockMovementsTable'
-import type { StockEvolutionResponse } from '@/types/stock-evolution'
 
 const HORIZON_OPTIONS = [
   { value: 30, label: '30 jours' },
@@ -17,26 +16,12 @@ export function StockEvolutionView() {
   const [article, setArticle] = useState('')
   const [horizon, setHorizon] = useState(45)
   const [includeInternal, setIncludeInternal] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [result, setResult] = useState<StockEvolutionResponse | null>(null)
 
-  const handleAnalyse = async () => {
+  const analyse = useStockEvolution()
+
+  const handleAnalyse = () => {
     if (!article.trim()) return
-    setLoading(true)
-    setError(null)
-    setResult(null)
-    try {
-      const data = await apiClient.getStockEvolution(article.trim(), {
-        horizon_days: horizon,
-        include_internal: includeInternal,
-      })
-      setResult(data)
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Erreur')
-    } finally {
-      setLoading(false)
-    }
+    analyse.mutate({ itmref: article.trim(), horizon_days: horizon, include_internal: includeInternal })
   }
 
   return (
@@ -80,23 +65,23 @@ export function StockEvolutionView() {
           </button>
           <button
             onClick={handleAnalyse}
-            disabled={loading || !article.trim()}
+            disabled={analyse.isPending || !article.trim()}
             className="bg-primary text-white px-5 py-2 rounded-md text-xs font-semibold hover:bg-primary/90 disabled:opacity-50 transition-colors"
           >
-            {loading ? 'Analyse...' : 'Analyser'}
+            {analyse.isPending ? 'Analyse...' : 'Analyser'}
           </button>
         </div>
       </div>
 
       {/* Error */}
-      {error && (
+      {analyse.error && (
         <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg text-sm">
-          {error}
+          {analyse.error.message}
         </div>
       )}
 
       {/* Loading */}
-      {loading && (
+      {analyse.isPending && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground py-8 justify-center">
           <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
           Chargement de l&apos;historique...
@@ -104,11 +89,11 @@ export function StockEvolutionView() {
       )}
 
       {/* Results */}
-      {result && !loading && (
+      {analyse.data && !analyse.isPending && (
         <>
-          <StockStatsPanel stats={result} />
-          <StockChart data={result} />
-          <StockMovementsTable movements={result.items} />
+          <StockStatsPanel stats={analyse.data} />
+          <StockChart data={analyse.data} />
+          <StockMovementsTable movements={analyse.data.items} />
         </>
       )}
     </div>

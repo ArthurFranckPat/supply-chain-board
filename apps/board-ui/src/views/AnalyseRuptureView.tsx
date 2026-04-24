@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback, Fragment } from 'react'
-import { apiClient, ApiError } from '@/api/client'
+import { useState, useEffect, Fragment } from 'react'
+import { useAnalyseRupture } from '@/hooks/useAnalyseRupture'
 import { Pill } from '@/components/ui/pill'
 import { Segmented } from '@/components/ui/segmented'
 import { LoadingInline, LoadingError, LoadingEmpty } from '@/components/ui/loading'
-import type { AnalyseRuptureResponse, PoolContrib } from '@/types/analyse-rupture'
+import type { PoolContrib } from '@/types/analyse-rupture'
 import {
   Search, AlertTriangle, Factory, Truck,
   ChevronDown, ChevronRight, Package, Layers, Loader2,
@@ -109,9 +109,8 @@ function PoolTree({ repartition }: { repartition: PoolContrib[] }) {
 
 export function AnalyseRuptureView() {
   const [query, setQuery] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [result, setResult] = useState<AnalyseRuptureResponse | null>(null)
+  const analyse = useAnalyseRupture()
+  const result = analyse.data ?? null
   const [expandedOfs, setExpandedOfs] = useState<Set<number>>(new Set())
   const [expandedOrphans, setExpandedOrphans] = useState(false)
   const [expandedBranches, setExpandedBranches] = useState<Set<string>>(new Set())
@@ -122,39 +121,30 @@ export function AnalyseRuptureView() {
   const [includeSf, setIncludeSf] = useState(true)
   const [includePf, setIncludePf] = useState(false)
 
-  const handleAnalyze = useCallback(async (codeOverride?: string) => {
+  const handleAnalyze = (codeOverride?: string) => {
     const code = (codeOverride ?? query).trim()
     if (!code) return
 
-    setLoading(true)
-    setError(null)
-    setResult(null)
+    setExpandedOfs(new Set())
+    setExpandedBranches(new Set())
 
-    try {
-      const data = await apiClient.analyserRupture(code, {
-        include_previsions: demandFilter === 'tout',
-        include_receptions: stockFilter === 'projeté',
-        use_pool: usePool,
-        merge_branches: mergeBranches,
-        include_sf: includeSf,
-        include_pf: includePf,
-      })
-      setResult(data)
-      setExpandedOfs(new Set())
-      setExpandedBranches(new Set())
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Erreur lors de l'analyse")
-    } finally {
-      setLoading(false)
-    }
-  }, [query, demandFilter, stockFilter, usePool, mergeBranches, includeSf, includePf])
+    analyse.mutate({
+      componentCode: code,
+      include_previsions: demandFilter === 'tout',
+      include_receptions: stockFilter === 'projeté',
+      use_pool: usePool,
+      merge_branches: mergeBranches,
+      include_sf: includeSf,
+      include_pf: includePf,
+    })
+  }
 
   // Re-analyze automatically when filters change (if we already have a result)
   useEffect(() => {
-    if (result) {
+    if (analyse.data) {
       handleAnalyze()
     }
-  }, [demandFilter, stockFilter, usePool, mergeBranches, includeSf, includePf]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [demandFilter, stockFilter, usePool, mergeBranches, includeSf, includePf])
 
   function toggleOfs(index: number) {
     setExpandedOfs((prev) => {
@@ -184,8 +174,8 @@ export function AnalyseRuptureView() {
   }
 
   function groupedByBranch() {
-    const map = new Map<string, { cmd: (typeof result.commandes_bloquees)[number]; idx: number }[]>()
-    const cmds = result!.commandes_bloquees
+    const cmds = result?.commandes_bloquees ?? []
+    const map = new Map<string, { cmd: (typeof cmds)[number]; idx: number }[]>()
     for (let idx = 0; idx < cmds.length; idx++) {
       const cmd = cmds[idx]
       const key = cmd.branch_key ?? '(Autres)'
@@ -223,10 +213,10 @@ export function AnalyseRuptureView() {
           </div>
           <button
             onClick={() => handleAnalyze()}
-            disabled={loading || !query.trim()}
+            disabled={analyse.isPending || !query.trim()}
             className="h-9 px-4 rounded-lg bg-primary text-primary-foreground text-[12px] font-semibold flex items-center gap-2 hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
+            {analyse.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
             Analyser
           </button>
         </div>
@@ -303,17 +293,17 @@ export function AnalyseRuptureView() {
       </div>
 
       {/* ── Loading state ──────────────────────────────────── */}
-      {loading && (
+      {analyse.isPending && (
         <LoadingInline label="analyse de rupture" sublabel="Remontee de la nomenclature..." />
       )}
 
       {/* ── Error state ────────────────────────────────────── */}
-      {error && !loading && (
-        <LoadingError message={error} onRetry={() => handleAnalyze()} />
+      {analyse.error && !analyse.isPending && (
+        <LoadingError message={analyse.error.message} onRetry={() => handleAnalyze()} />
       )}
 
       {/* ── Empty state ────────────────────────────────────── */}
-      {!result && !loading && !error && (
+      {!analyse.data && !analyse.isPending && !analyse.error && (
         <LoadingEmpty
           message="Recherchez un composant pour analyser son impact de rupture."
           icon={<AlertTriangle className="h-6 w-6 text-muted-foreground" />}
@@ -321,7 +311,7 @@ export function AnalyseRuptureView() {
       )}
 
       {/* ── Results ────────────────────────────────────────── */}
-      {result && !loading && (
+      {analyse.data && !analyse.isPending && (
         <>
           {/* Component info */}
           <div className="bg-card border border-border rounded-2xl px-[18px] py-[14px]">
@@ -368,7 +358,7 @@ export function AnalyseRuptureView() {
             </Pill>
             {result.summary.truncated && (
               <Pill tone="warn" icon={<Layers className="h-3 w-3" />}>
-                Resultat tronque
+                Résultat tronqué
               </Pill>
             )}
           </div>

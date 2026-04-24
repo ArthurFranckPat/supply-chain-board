@@ -1,15 +1,13 @@
-import { useState } from 'react'
-import { apiClient, ApiError } from '@/api/client'
-import type { ResidualFabricationResponse, ResidualFabricationResult } from '@/types/residual-fabrication'
+import { useState, useMemo } from 'react'
+import { useResidualFabrication } from '@/hooks/useResidualFabrication'
+import type { ResidualFabricationResult } from '@/types/residual-fabrication'
 import { Package, AlertTriangle, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
 
 type SortKey = 'pf_article' | 'description' | 'desired_qty' | 'feasible' | 'max_feasible_qty'
 type SortDir = 'asc' | 'desc'
 
 export function ResidualFabricationView() {
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [results, setResults] = useState<ResidualFabricationResponse | null>(null)
+  const analyse = useResidualFabrication()
 
   const [familles, setFamilles] = useState('BDS,BDC')
   const [prefixes, setPrefixes] = useState('')
@@ -21,27 +19,17 @@ export function ResidualFabricationView() {
   const [sortKey, setSortKey] = useState<SortKey>('max_feasible_qty')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
 
-  const handleAnalyze = async () => {
+  const handleAnalyze = () => {
     const famillesList = familles.split(',').map(s => s.trim()).filter(Boolean)
     const prefixesList = prefixes.split(',').map(s => s.trim()).filter(Boolean)
-    setLoading(true)
-    setError(null)
-    setResults(null)
-    try {
-      const data = await apiClient.eolResidualsFabricable({
-        familles: famillesList,
-        prefixes: prefixesList,
-        desired_qty: desiredQty,
-        bom_depth_mode: bomDepthMode,
-        stock_mode: stockMode,
-        projection_date: stockMode === 'projected' ? projectionDate : undefined,
-      })
-      setResults(data)
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Erreur inattendue')
-    } finally {
-      setLoading(false)
-    }
+    analyse.mutate({
+      familles: famillesList,
+      prefixes: prefixesList,
+      desired_qty: desiredQty,
+      bom_depth_mode: bomDepthMode,
+      stock_mode: stockMode,
+      projection_date: stockMode === 'projected' ? projectionDate : undefined,
+    })
   }
 
   const handleSort = (key: SortKey) => {
@@ -53,7 +41,7 @@ export function ResidualFabricationView() {
     }
   }
 
-  const sorted = results ? [...results].sort((a, b) => {
+  const sorted = useMemo(() => analyse.data ? [...analyse.data].sort((a, b) => {
     let aVal: string | number | boolean = a[sortKey]
     let bVal: string | number | boolean = b[sortKey]
     if (typeof aVal === 'boolean') aVal = aVal ? 1 : 0
@@ -64,7 +52,7 @@ export function ResidualFabricationView() {
     return sortDir === 'asc'
       ? String(aVal).localeCompare(String(bVal))
       : String(bVal).localeCompare(String(aVal))
-  }) : []
+  }) : [], [analyse.data, sortKey, sortDir])
 
   const feasibleCount = sorted.filter(r => r.feasible).length
   const infeasibleCount = sorted.length - feasibleCount
@@ -102,7 +90,7 @@ export function ResidualFabricationView() {
             <label className="block text-[11px] font-medium text-muted-foreground mb-1">Profondeur nomenclature</label>
             <select value={bomDepthMode} onChange={e => setBomDepthMode(e.target.value as 'full' | 'level1')}
               className="w-full px-3 py-2 border border-border rounded-md text-sm bg-background">
-              <option value="full">Complete</option>
+              <option value="full">Complète</option>
               <option value="level1">Niveau 1</option>
             </select>
           </div>
@@ -122,7 +110,7 @@ export function ResidualFabricationView() {
                 className="w-full px-3 py-2 border border-border rounded-md text-sm bg-background" />
             </div>
           )}
-          <button onClick={handleAnalyze} disabled={loading}
+          <button onClick={handleAnalyze} disabled={analyse.isPending}
             className="bg-primary text-white px-5 py-2 rounded-md text-xs font-semibold hover:bg-primary/90 disabled:opacity-50 transition-colors">
             Analyser
           </button>
@@ -130,15 +118,15 @@ export function ResidualFabricationView() {
       </div>
 
       {/* Error */}
-      {error && (
+      {analyse.error && (
         <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg text-sm flex items-center gap-2">
           <AlertTriangle className="h-4 w-4 shrink-0" />
-          {error}
+          {analyse.error.message}
         </div>
       )}
 
       {/* Loading */}
-      {loading && (
+      {analyse.isPending && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
           Analyse en cours...
@@ -146,7 +134,7 @@ export function ResidualFabricationView() {
       )}
 
       {/* Empty state */}
-      {!loading && !error && !results && (
+      {!analyse.isPending && !analyse.error && !analyse.data && (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <Package className="h-10 w-10 text-muted-foreground/40 mb-3" />
           <p className="text-sm font-medium text-muted-foreground">Aucun resultat</p>
@@ -155,14 +143,14 @@ export function ResidualFabricationView() {
       )}
 
       {/* Results */}
-      {results && (
+      {analyse.data && (
         <div className="space-y-4">
           {/* Summary header */}
           <div className="bg-card border border-border rounded-xl p-5">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-[11px] text-muted-foreground font-mono uppercase">Fabrication residuelle</p>
-                <p className="text-sm font-semibold mt-0.5">{results.length} produitsfinis evalues</p>
+                <p className="text-sm font-semibold mt-0.5">{analyse.data.length} produitsfinis evalues</p>
               </div>
               <div className="flex items-center gap-4 text-sm">
                 <div className="text-right">
@@ -178,7 +166,7 @@ export function ResidualFabricationView() {
           </div>
 
           {/* Table */}
-          {results.length > 0 && (
+          {analyse.data.length > 0 && (
             <div className="bg-card border border-border rounded-xl overflow-hidden">
               <div className="overflow-auto max-h-[520px]">
                 <table className="w-full text-xs">

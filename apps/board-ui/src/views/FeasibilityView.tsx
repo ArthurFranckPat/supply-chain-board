@@ -1,21 +1,24 @@
 import { useState, useCallback, Fragment } from 'react'
-import { apiClient, ApiError } from '@/api/client'
+import { apiClient } from '@/api/client'
+import { useFeasibility } from '@/hooks/useFeasibility'
 import type { FeasibilityResponse, CapacityImpact, AffectedOrder, BOMNode, ArticleSearchResult, OrderSearchResult } from '@/types/feasibility'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 
 type TabKey = 'check' | 'promise' | 'reschedule'
 
 const TABS: Array<{ key: TabKey; label: string }> = [
-  { key: 'check', label: 'Verification' },
+  { key: 'check', label: 'Vérification' },
   { key: 'promise', label: 'Date promise' },
   { key: 'reschedule', label: 'Replanification' },
 ]
 
 export function FeasibilityView() {
+  const { check, findPromise, reschedule } = useFeasibility()
+  const loading = check.isPending || findPromise.isPending || reschedule.isPending
+  const error = check.error ?? findPromise.error ?? reschedule.error
+  const result = check.data ?? findPromise.data ?? reschedule.data
+
   const [activeTab, setActiveTab] = useState<TabKey>('check')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [result, setResult] = useState<FeasibilityResponse | null>(null)
 
   // Check tab
   const [checkArticle, setCheckArticle] = useState('')
@@ -33,6 +36,7 @@ export function FeasibilityView() {
   const [rescheduleDate, setRescheduleDate] = useState('')
   const [rescheduleQty, setRescheduleQty] = useState<number | ''>('')
   const [orderSearchLoading, setOrderSearchLoading] = useState(false)
+  const [orderSearchError, setOrderSearchError] = useState<string | null>(null)
 
   // Autocomplete for article inputs
   const [suggestions, setSuggestions] = useState<ArticleSearchResult[]>([])
@@ -59,60 +63,42 @@ export function FeasibilityView() {
     }
   }, [])
 
-  const handleCheck = async () => {
+  const handleCheck = () => {
     if (!checkArticle || !checkDate) return
-    setLoading(true)
-    setError(null)
-    setResult(null)
-    try {
-      const data = await apiClient.checkFeasibility({
-        article: checkArticle,
-        quantity: checkQty,
-        desired_date: checkDate,
-        depth_mode: depthMode,
-        use_receptions: useReceptions,
-      })
-      setResult(data)
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Erreur')
-    } finally {
-      setLoading(false)
-    }
+    check.mutate({
+      article: checkArticle,
+      quantity: checkQty,
+      desired_date: checkDate,
+      depth_mode: depthMode,
+      use_receptions: useReceptions,
+    })
   }
 
-  const handlePromise = async () => {
+  const handlePromise = () => {
     if (!promiseArticle) return
-    setLoading(true)
-    setError(null)
-    setResult(null)
-    try {
-      const data = await apiClient.findPromiseDate({
-        article: promiseArticle,
-        quantity: promiseQty,
-      })
-      setResult(data)
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Erreur')
-    } finally {
-      setLoading(false)
-    }
+    findPromise.mutate({
+      article: promiseArticle,
+      quantity: promiseQty,
+    })
   }
 
   // Step 1: search orders by num_commande OR article
   const handleOrderSearch = async () => {
     if (!rescheduleQuery || rescheduleQuery.length < 2) return
     setOrderSearchLoading(true)
+    setOrderSearchError(null)
     setSelectedOrder(null)
-    setResult(null)
-    setError(null)
+    check.reset()
+    findPromise.reset()
+    reschedule.reset()
     try {
       const res = await apiClient.searchOrders(rescheduleQuery, 30)
       setOrderResults(res.orders)
       if (res.orders.length === 0) {
-        setError('Aucune commande trouvee')
+        setOrderSearchError('Aucune commande trouvee')
       }
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Erreur')
+      setOrderSearchError(err instanceof Error ? err.message : 'Erreur')
     } finally {
       setOrderSearchLoading(false)
     }
@@ -121,37 +107,30 @@ export function FeasibilityView() {
   // Step 2: select an order line
   const handleSelectOrder = (order: OrderSearchResult) => {
     setSelectedOrder(order)
-    setResult(null)
-    setError(null)
+    check.reset()
+    findPromise.reset()
+    reschedule.reset()
   }
 
   // Step 3: run simulation
-  const handleReschedule = async () => {
+  const handleReschedule = () => {
     if (!selectedOrder || !rescheduleDate) return
-    setLoading(true)
-    setError(null)
-    setResult(null)
-    try {
-      const data = await apiClient.simulateReschedule({
-        num_commande: selectedOrder.num_commande,
-        article: selectedOrder.article,
-        new_date: rescheduleDate,
-        ...(rescheduleQty !== '' && rescheduleQty !== selectedOrder.quantity ? { new_quantity: rescheduleQty } : {}),
-        depth_mode: depthMode,
-        use_receptions: useReceptions,
-      })
-      setResult(data)
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Erreur')
-    } finally {
-      setLoading(false)
-    }
+    reschedule.mutate({
+      num_commande: selectedOrder.num_commande,
+      article: selectedOrder.article,
+      new_date: rescheduleDate,
+      ...(rescheduleQty !== '' && rescheduleQty !== selectedOrder.quantity ? { new_quantity: rescheduleQty } : {}),
+      depth_mode: depthMode,
+      use_receptions: useReceptions,
+    })
   }
 
   const resetTab = (tab: TabKey) => {
     setActiveTab(tab)
-    setResult(null)
-    setError(null)
+    check.reset()
+    findPromise.reset()
+    reschedule.reset()
+    setOrderSearchError(null)
     if (tab === 'reschedule') {
       setOrderResults([])
       setSelectedOrder(null)
@@ -215,7 +194,7 @@ export function FeasibilityView() {
             </div>
             <button onClick={handleCheck} disabled={loading || !checkArticle || !checkDate}
               className="bg-primary text-white px-4 py-2 rounded-md text-xs font-semibold hover:bg-primary/90 disabled:opacity-50 transition-colors">
-              Verifier
+              Vérifier
             </button>
             <select value={depthMode} onChange={(e) => setDepthMode(e.target.value as 'full' | 'level1')}
               className="px-2 py-2 border border-border rounded-md text-[11px] bg-background text-muted-foreground">
@@ -376,7 +355,7 @@ export function FeasibilityView() {
                     </strong>
                   </p>
                 </div>
-                <button onClick={() => { setSelectedOrder(null); setResult(null) }}
+                <button onClick={() => { setSelectedOrder(null); check.reset(); findPromise.reset(); reschedule.reset() }}
                   className="text-[10px] text-muted-foreground hover:text-foreground px-2 py-1 rounded hover:bg-accent transition-colors">
                   Changer
                 </button>
@@ -433,9 +412,9 @@ export function FeasibilityView() {
       )}
 
       {/* Error */}
-      {error && (
+      {(error ?? orderSearchError) && (
         <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg text-sm">
-          {error}
+          {error?.message ?? orderSearchError}
         </div>
       )}
 

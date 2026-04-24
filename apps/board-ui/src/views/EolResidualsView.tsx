@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
-import { apiClient, ApiError } from '@/api/client'
-import type { EolResidualsResponse, EolComponent } from '@/types/eol-residuals'
+import { useEolResiduals } from '@/hooks/useEolResiduals'
+import type { EolComponent } from '@/types/eol-residuals'
 import { Package, AlertTriangle, Download, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
 
 type TypeFilter = 'all' | 'ACHAT' | 'FABRICATION'
@@ -8,9 +8,7 @@ type SortKey = 'article' | 'description' | 'component_type' | 'used_by_target_pf
 type SortDir = 'asc' | 'desc'
 
 export function EolResidualsView() {
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [result, setResult] = useState<EolResidualsResponse | null>(null)
+  const analyse = useEolResiduals()
 
   const [familles, setFamilles] = useState('BDS,BDC')
   const [prefixes, setPrefixes] = useState('')
@@ -23,34 +21,21 @@ export function EolResidualsView() {
   const [sortKey, setSortKey] = useState<SortKey>('value')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
 
-  const handleAnalyze = async () => {
+  const handleAnalyze = () => {
     const famillesList = familles.split(',').map(s => s.trim()).filter(Boolean)
     const prefixesList = prefixes.split(',').map(s => s.trim()).filter(Boolean)
-    if (famillesList.length === 0 && prefixesList.length === 0) {
-      setError('Au moins une famille ou un prefixe requis')
-      return
-    }
-    setLoading(true)
-    setError(null)
-    setResult(null)
-    try {
-      const data = await apiClient.eolResidualsAnalysis({
-        familles: famillesList,
-        prefixes: prefixesList,
-        bom_depth_mode: bomDepthMode,
-        stock_mode: stockMode,
-        projection_date: stockMode === 'projected' ? projectionDate : undefined,
-      })
-      setResult(data)
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Erreur inattendue lors de l\'analyse')
-    } finally {
-      setLoading(false)
-    }
+    if (famillesList.length === 0 && prefixesList.length === 0) return
+    analyse.mutate({
+      familles: famillesList,
+      prefixes: prefixesList,
+      bom_depth_mode: bomDepthMode,
+      stock_mode: stockMode,
+      projection_date: stockMode === 'projected' ? projectionDate : undefined,
+    })
   }
 
-  const achatComponents = result?.components.filter(c => c.component_type === 'ACHAT') ?? []
-  const fabComponents = result?.components.filter(c => c.component_type === 'FABRICATION') ?? []
+  const achatComponents = analyse.data?.components.filter(c => c.component_type === 'ACHAT') ?? []
+  const fabComponents = analyse.data?.components.filter(c => c.component_type === 'FABRICATION') ?? []
   const totalAchatValue = achatComponents.reduce((sum, c) => sum + c.value, 0)
   const totalFabValue = fabComponents.reduce((sum, c) => sum + c.value, 0)
   const totalValue = totalAchatValue + totalFabValue
@@ -59,8 +44,8 @@ export function EolResidualsView() {
 
   // Filtered + sorted components
   const filteredComponents = useMemo(() => {
-    if (!result) return []
-    let comps = result.components
+    if (!analyse.data) return []
+    let comps = analyse.data.components
     if (typeFilter !== 'all') comps = comps.filter(c => c.component_type === typeFilter)
     return [...comps].sort((a, b) => {
       const aVal = a[sortKey]
@@ -72,7 +57,7 @@ export function EolResidualsView() {
         ? String(aVal).localeCompare(String(bVal))
         : String(bVal).localeCompare(String(aVal))
     })
-  }, [result, typeFilter, sortKey, sortDir])
+  }, [analyse.data, typeFilter, sortKey, sortDir])
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -84,7 +69,7 @@ export function EolResidualsView() {
   }
 
   const exportCSV = () => {
-    if (!result) return
+    if (!analyse.data) return
     const headers = ['Article', 'Description', 'Type', 'PF cibles', 'Stock qte', 'PMP', 'Valeur EUR']
     const rows = filteredComponents.map(c => [
       c.article,
@@ -152,7 +137,7 @@ export function EolResidualsView() {
               onChange={(e) => setBomDepthMode(e.target.value as 'full' | 'level1')}
               className="w-full px-3 py-2 border border-border rounded-md text-sm bg-background"
             >
-              <option value="full">Complete</option>
+              <option value="full">Complète</option>
               <option value="level1">Niveau 1</option>
             </select>
           </div>
@@ -181,7 +166,7 @@ export function EolResidualsView() {
           )}
           <button
             onClick={handleAnalyze}
-            disabled={loading || (!familles.trim() && !prefixes.trim())}
+            disabled={analyse.isPending || (!familles.trim() && !prefixes.trim())}
             className="bg-primary text-white px-5 py-2 rounded-md text-xs font-semibold hover:bg-primary/90 disabled:opacity-50 transition-colors"
           >
             Analyser
@@ -190,25 +175,18 @@ export function EolResidualsView() {
       </div>
 
       {/* Error */}
-      {error && (
+      {analyse.error && (
         <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg text-sm flex items-start gap-2.5">
           <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
           <div className="flex-1">
             <p className="font-semibold text-[11px] uppercase mb-0.5">Erreur d'analyse</p>
-            <p>{error}</p>
+            <p>{analyse.error.message}</p>
           </div>
-          <button
-            onClick={() => setError(null)}
-            className="text-destructive/50 hover:text-destructive transition-colors text-base leading-none ml-1"
-            aria-label="Fermer"
-          >
-            &times;
-          </button>
         </div>
       )}
 
       {/* Loading */}
-      {loading && (
+      {analyse.isPending && (
         <div className="bg-card border border-border rounded-xl p-5 flex items-center gap-3">
           <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin shrink-0" />
           <div>
@@ -221,7 +199,7 @@ export function EolResidualsView() {
       )}
 
       {/* Empty state */}
-      {!loading && !result && !error && (
+      {!analyse.isPending && !analyse.data && !analyse.error && (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4">
             <Package className="h-6 w-6 text-muted-foreground" />
@@ -235,7 +213,7 @@ export function EolResidualsView() {
       )}
 
       {/* Results */}
-      {result && (
+      {analyse.data && (
         <div className="space-y-4">
           {/* Summary header card */}
           <div className="bg-card border border-border rounded-xl p-5">
@@ -243,7 +221,7 @@ export function EolResidualsView() {
               <div>
                 <p className="text-[11px] text-muted-foreground font-mono uppercase tracking-wide">Analyse residuelle EOL</p>
                 <p className="text-sm font-semibold mt-0.5">
-                  {result.summary.unique_component_count} composants uniques &middot; {result.summary.target_pf_count} PF cibles
+                  {analyse.data.summary.unique_component_count} composants uniques &middot; {analyse.data.summary.target_pf_count} PF cibles
                 </p>
                 <p className="text-[11px] text-muted-foreground mt-1">
                   {stockModeLabel} &middot; nomenclature {bomDepthMode === 'full' ? 'complete' : 'niveau 1'}
@@ -252,10 +230,10 @@ export function EolResidualsView() {
               <div className="text-right shrink-0">
                 <p className="text-[11px] text-muted-foreground">Valeur totale residuelle</p>
                 <p className="text-xl font-bold tabular-nums mt-0.5">
-                  {result.summary.total_value.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
+                  {analyse.data.summary.total_value.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
                 </p>
                 <p className="text-[11px] text-muted-foreground mt-0.5">
-                  {result.summary.total_stock_qty.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} unites en stock
+                  {analyse.data.summary.total_stock_qty.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} unites en stock
                 </p>
               </div>
             </div>
@@ -281,7 +259,7 @@ export function EolResidualsView() {
               <div>
                 <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-orange/10 text-orange mb-2">ACHAT</span>
                 <p className="text-2xl font-bold tabular-nums">{achatComponents.length}</p>
-                <p className="text-[11px] text-muted-foreground">composants achetes</p>
+                <p className="text-[11px] text-muted-foreground">composants achetés</p>
               </div>
               <div className="text-right">
                 <p className="text-sm font-semibold tabular-nums">
@@ -306,20 +284,20 @@ export function EolResidualsView() {
           </div>
 
           {/* Warnings */}
-          {result.warnings.length > 0 && (
+          {analyse.data.warnings.length > 0 && (
             <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
               <p className="text-[11px] font-semibold text-amber-800 mb-1 flex items-center gap-1.5">
                 <AlertTriangle className="h-3.5 w-3.5" />
                 Alertes
               </p>
-              {result.warnings.map((w, i) => (
+              {analyse.data.warnings.map((w, i) => (
                 <p key={i} className="text-xs text-amber-700">{w}</p>
               ))}
             </div>
           )}
 
           {/* Components table */}
-          {result.components.length > 0 && (
+          {analyse.data.components.length > 0 && (
             <div className="bg-card border border-border rounded-xl overflow-hidden">
               {/* Toolbar: type filter tabs + row count + export */}
               <div className="px-5 py-3 border-b border-border flex items-center justify-between gap-3 flex-wrap">
@@ -335,7 +313,7 @@ export function EolResidualsView() {
                       }`}
                     >
                       {f === 'all'
-                        ? `Tous (${result.components.length})`
+                        ? `Tous (${analyse.data.components.length})`
                         : f === 'ACHAT'
                         ? `ACHAT (${achatComponents.length})`
                         : `FAB (${fabComponents.length})`}
