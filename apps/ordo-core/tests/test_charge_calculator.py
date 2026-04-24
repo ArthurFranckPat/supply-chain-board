@@ -4,7 +4,7 @@ import pytest
 from datetime import date, timedelta
 from unittest.mock import Mock, MagicMock
 
-from src.algorithms.charge_calculator import (
+from src.planning.charge_calculator import (
     is_valid_poste,
     calculate_article_charge,
     get_week_info,

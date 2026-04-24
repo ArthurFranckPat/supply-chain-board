@@ -3,11 +3,11 @@
 import pytest
 from datetime import date, timedelta
 
-from src.checkers.residual_fabrication_models import (
+from src.feasibility.residual_fabrication_models import (
     ResidualFabricationResult,
     ResidualComponentGap,
 )
-from src.checkers.residual_fabrication import ResidualFabricationService
+from src.feasibility.residual_fabrication import ResidualFabricationService
 from src.models.article import Article, TypeApprovisionnement
 from src.models.nomenclature import Nomenclature, NomenclatureEntry, TypeArticle
 from src.models.stock import Stock
@@ -73,7 +73,7 @@ def _eol_component(code, qty, pmp=1.0, component_type="ACHAT"):
 
 
 # Import EolComponent from the existing module for pool construction
-from src.checkers.eol_residuals_models import EolComponent
+from src.feasibility.eol_residuals_models import EolComponent
 
 
 # ── FakeLoader ────────────────────────────────────────────────────────────

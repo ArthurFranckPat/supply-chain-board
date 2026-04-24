@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from .capacity import MAX_DAY_HOURS, TARGET_LINES, is_line_open
+from ..planning.capacity import MAX_DAY_HOURS, TARGET_LINES, is_line_open
 from .models import CandidateOF
 
 DEFAULT_WEIGHTS = {

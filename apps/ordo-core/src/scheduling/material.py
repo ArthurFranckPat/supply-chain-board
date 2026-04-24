@@ -2,9 +2,9 @@ from collections import defaultdict
 from datetime import date
 from typing import Optional
 
-from src.algorithms.allocation import StockState
-from src.checkers.recursive import RecursiveChecker
-from .calendar import previous_workday
+from ..orders.allocation import StockState
+from ..feasibility.recursive import RecursiveChecker
+from ..planning.calendar import previous_workday
 from .models import CandidateOF
 
 

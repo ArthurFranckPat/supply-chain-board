@@ -19,15 +19,15 @@ from pathlib import Path
 from typing import Callable, Optional
 from uuid import uuid4
 
-from ..algorithms.charge_calculator import calculate_article_charge, get_poste_libelle, POSTE_CHARGE_REGEX
-from ..algorithms.allocation import StockState
-from ..algorithms.matching import CommandeOFMatcher
-from ..checkers.recursive import RecursiveChecker
-from .calendar import build_workdays, next_workday, previous_workday
-from .calendar_config import CalendarConfig, is_workday as config_is_workday, build_workdays as config_build_workdays, next_workday as config_next_workday, load_calendar_config
-from .capacity_config import CapacityConfig, load_capacity_config, get_capacity_for_day
-from .holidays import ensure_holidays_in_calendar
-from .weights import load_weights
+from ..planning.charge_calculator import calculate_article_charge, get_poste_libelle, POSTE_CHARGE_REGEX
+from ..orders.allocation import StockState
+from ..orders.matching import CommandeOFMatcher
+from ..feasibility.recursive import RecursiveChecker
+from ..planning.calendar import build_workdays, next_workday, previous_workday
+from ..planning.calendar_config import CalendarConfig, is_workday as config_is_workday, build_workdays as config_build_workdays, next_workday as config_next_workday, load_calendar_config
+from ..planning.capacity_config import CapacityConfig, load_capacity_config, get_capacity_for_day
+from ..planning.holidays import ensure_holidays_in_calendar
+from ..planning.weights import load_weights
 from .models import CandidateOF, DaySchedule, SchedulerResult
 from .reporting import build_unscheduled_rows, build_order_rows, write_outputs
 from .lines import GenericLineScheduler

@@ -14,8 +14,8 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from src.algorithms import AllocationManager, calculate_weekly_charge_heatmap
-from src.checkers import ImmediateChecker, ProjectedChecker, RecursiveChecker
+from src.orders import AllocationManager, calculate_weekly_charge_heatmap
+from src.feasibility import ImmediateChecker, ProjectedChecker, RecursiveChecker
 from src.loaders import DataLoader, resolve_extractions_files
 from src.utils import format_charge_heatmap, format_charge_summary
 from src.utils import format_detailed_report, format_of_table, format_summary

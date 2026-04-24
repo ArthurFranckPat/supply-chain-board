@@ -13,17 +13,17 @@ from collections import defaultdict
 
 import pytest
 
-from src.algorithms.allocation import StockState
-from src.checkers.recursive import RecursiveChecker
+from src.orders.allocation import StockState
+from src.feasibility.recursive import RecursiveChecker
 from src.models.nomenclature import Nomenclature, NomenclatureEntry, TypeArticle
 from src.models.stock import Stock
 from src.models.allocation import OFAllocation
-from src.scheduler.material import (
+from src.scheduling.material import (
     reserve_candidate_components,
     availability_status,
     compute_direct_component_shortages,
 )
-from src.scheduler.models import CandidateOF
+from src.scheduling.models import CandidateOF
 
 
 # ---------------------------------------------------------------------------

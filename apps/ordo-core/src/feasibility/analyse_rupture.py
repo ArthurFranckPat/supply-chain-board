@@ -20,7 +20,7 @@ from __future__ import annotations
 from collections import defaultdict, deque
 
 from ..loaders import DataLoader
-from ..algorithms.matching import CommandeOFMatcher
+from ..orders.matching import CommandeOFMatcher
 from .analyse_rupture_models import (
     AnalyseRuptureResult,
     AnalyseRuptureSummary,

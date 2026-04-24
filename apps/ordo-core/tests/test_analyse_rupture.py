@@ -4,8 +4,8 @@ import pytest
 from types import SimpleNamespace
 from datetime import date
 
-from src.checkers.analyse_rupture import AnalyseRuptureService
-from src.checkers.analyse_rupture_models import AnalyseRuptureResult
+from src.feasibility.analyse_rupture import AnalyseRuptureService
+from src.feasibility.analyse_rupture_models import AnalyseRuptureResult
 from src.models.nomenclature import Nomenclature, NomenclatureEntry, TypeArticle, NatureConsommation
 from src.models.of import OF
 from src.models.stock import Stock

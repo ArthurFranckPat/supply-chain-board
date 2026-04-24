@@ -25,8 +25,8 @@ project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
 from src.loaders.data_loader import DataLoader
-from src.algorithms.charge_calculator import calculate_article_charge, get_week_info
-from src.algorithms.forecast_consumption import consume_forecasts_by_article, format_consumption_stats
+from src.planning.charge_calculator import calculate_article_charge, get_week_info
+from src.orders.forecast_consumption import consume_forecasts_by_article, format_consumption_stats
 
 
 def is_valid_poste(poste: str) -> bool:

@@ -303,7 +303,7 @@ def calculate_weekly_charge_heatmap(
             return
 
         # Appliquer la consommation des prévisions
-        from .forecast_consumption import consume_forecasts_by_article
+        from ..orders.forecast_consumption import consume_forecasts_by_article
         besoins_ajustes, _ = consume_forecasts_by_article(
             besoins_groupe,
             label_besoin

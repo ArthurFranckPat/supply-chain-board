@@ -6,7 +6,7 @@ from datetime import date, timedelta
 
 from .bom_graph import TRACKED_BDH, BomGraph
 from .buffer_manager import BufferManager
-from .capacity import MAX_DAY_HOURS, build_working_day_horizon
+from ..planning.capacity import MAX_DAY_HOURS, build_working_day_horizon
 from .models import CandidateOF, ScheduledTask
 
 
@@ -24,7 +24,7 @@ def _schedule_feasibility(loader, of, launch_day: date):
     Compromis bootstrap: on reutilise le checker recursif existant avec une date de besoin
     forcee pour distinguer J-1 (confortable) et J (tendu).
     """
-    from ..checkers.recursive import RecursiveChecker
+    from ..feasibility.recursive import RecursiveChecker
 
     checker = RecursiveChecker(loader, use_receptions=True, check_date=launch_day)
 

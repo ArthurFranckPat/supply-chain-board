@@ -12,11 +12,11 @@ import time
 from datetime import date, timedelta
 from typing import Optional
 
-from ...algorithms.charge_calculator import calculate_article_charge
-from ...scheduler.calendar_config import CalendarConfig, next_workday, is_workday
-from ...scheduler.capacity_config import CapacityConfig
-from ..recursive import RecursiveChecker
-from .models import (
+from ..planning.charge_calculator import calculate_article_charge
+from ..planning.calendar_config import CalendarConfig, next_workday, is_workday
+from ..planning.capacity_config import CapacityConfig
+from .recursive import RecursiveChecker
+from .feasibility_models import (
     AffectedOrder,
     BOMNode,
     CapacityImpact,
@@ -24,7 +24,7 @@ from .models import (
     ComponentGap,
     FeasibilityResultV2,
 )
-from .simulation import SimulationContext
+from .feasibility_simulation import SimulationContext
 
 
 class FeasibilityService:
@@ -537,7 +537,7 @@ class FeasibilityService:
 
         # Find the production day (working backward from desired_date)
         if not ctx.is_workday(production_day):
-            from ...scheduler.calendar_config import previous_workday as prev_wd
+            from ..planning.calendar_config import previous_workday as prev_wd
             production_day = prev_wd(production_day, 1, self.calendar_config)
 
         for poste, hours_required in charge_map.items():
@@ -821,5 +821,5 @@ class FeasibilityService:
 
     def _prev_workday(self, day: date) -> date:
         """Get previous working day."""
-        from ...scheduler.calendar_config import previous_workday as prev_wd
+        from ..planning.calendar_config import previous_workday as prev_wd
         return prev_wd(day, 1, self.calendar_config)

@@ -3,7 +3,7 @@
 import pytest
 from datetime import date
 
-from src.algorithms.forecast_consumption import consume_forecasts_by_article
+from src.orders.forecast_consumption import consume_forecasts_by_article
 from src.models.besoin_client import BesoinClient, NatureBesoin, TypeCommande
 
 

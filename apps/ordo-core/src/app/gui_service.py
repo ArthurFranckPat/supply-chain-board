@@ -12,9 +12,9 @@ from uuid import uuid4
 
 from ..loaders import DataLoader
 from ..loaders.csv_loader import DEFAULT_EXTRACTIONS_DIR
-from ..scheduler.calendar_config import load_calendar_config, save_calendar_config, get_month_calendar
-from ..scheduler.capacity_config import load_capacity_config, save_capacity_config, to_api_dict, set_daily_override, remove_daily_override, set_weekly_override, remove_weekly_override, ensure_poste
-from ..scheduler.holidays import ensure_holidays_in_calendar, refresh_holidays as refresh_holidays_api
+from ..planning.calendar_config import load_calendar_config, save_calendar_config, get_month_calendar
+from ..planning.capacity_config import load_capacity_config, save_capacity_config, to_api_dict, set_daily_override, remove_daily_override, set_weekly_override, remove_weekly_override, ensure_poste
+from ..planning.holidays import ensure_holidays_in_calendar, refresh_holidays as refresh_holidays_api
 
 
 def _utc_now_iso() -> str:
@@ -62,7 +62,7 @@ class GuiAppService:
         self._eol_residuals_fab_service: Optional[Any] = None
         self._stock_history_analyzer: Optional[Any] = None
         try:
-            from ..scheduler.db_schedule import init_db
+            from ..scheduling.db_schedule import init_db
             init_db()
         except Exception:
             pass
@@ -161,7 +161,7 @@ class GuiAppService:
         run_id = uuid4().hex[:12]
 
         try:
-            from ..scheduler import db_schedule
+            from ..scheduling import db_schedule
             db_schedule.save_run(run_id, date.today(), {
                 "immediate_components": immediate_components,
                 "blocking_components_mode": blocking_components_mode,
@@ -193,7 +193,7 @@ class GuiAppService:
         progress_callback=None,
         run_id: Optional[str] = None,
     ) -> dict[str, Any]:
-        from ..scheduler import run_schedule as run_schedule_engine
+        from ..scheduling import run_schedule as run_schedule_engine
 
         assert self.loader is not None
         result = run_schedule_engine(
@@ -282,7 +282,7 @@ class GuiAppService:
         config = ensure_holidays_in_calendar(self._config_dir, config)
 
         for entry in additions:
-            from ..scheduler.calendar_config import DayOff
+            from ..planning.calendar_config import DayOff
             config.manual_off_days.append(
                 DayOff(date=entry["date"], name=entry.get("reason", ""), source="manual")
             )
@@ -405,7 +405,7 @@ class GuiAppService:
         if self.loader is None:
             raise RuntimeError("Aucune donnee chargee. Appelez load_data avant analyser_rupture.")
 
-        from ..checkers.analyse_rupture import AnalyseRuptureService
+        from ..feasibility.analyse_rupture import AnalyseRuptureService
 
         # Reconstruire le service si le loader a change
         if self._analyse_rupture_service is None:
@@ -437,7 +437,7 @@ class GuiAppService:
         if self.loader is None:
             raise RuntimeError("Aucune donnee chargee. Appelez load_data avant eol_residuals_analyze.")
 
-        from ..checkers.eol_residuals import EolResidualsService
+        from ..feasibility.eol_residuals import EolResidualsService
 
         if self._eol_residuals_service is None:
             self._eol_residuals_service = EolResidualsService(self.loader)
@@ -469,9 +469,9 @@ class GuiAppService:
         if self.loader is None:
             raise RuntimeError("Aucune donnee chargee. Appelez load_data avant.")
 
-        from ..checkers.eol_residuals import EolResidualsService
-        from ..checkers.residual_fabrication import ResidualFabricationService
-        from .eol_residuals_models import EolComponent
+        from ..feasibility.eol_residuals import EolResidualsService
+        from ..feasibility.residual_fabrication import ResidualFabricationService
+        from ..feasibility.eol_residuals_models import EolComponent
 
         # Step 1: get residual pool
         if self._eol_residuals_service is None:
@@ -532,8 +532,8 @@ class GuiAppService:
         if self.loader is None:
             raise RuntimeError("Aucune donnee chargee.")
 
-        from ..checkers.feasibility import FeasibilityService
-        from ..scheduler.capacity_config import load_capacity_config
+        from ..feasibility.feasibility_service import FeasibilityService
+        from ..planning.capacity_config import load_capacity_config
 
         calendar_cfg = self._get_calendar_config()
         capacity_cfg = load_capacity_config(self._config_dir)
@@ -557,8 +557,8 @@ class GuiAppService:
         if self.loader is None:
             raise RuntimeError("Aucune donnee chargee.")
 
-        from ..checkers.feasibility import FeasibilityService
-        from ..scheduler.capacity_config import load_capacity_config
+        from ..feasibility.feasibility_service import FeasibilityService
+        from ..planning.capacity_config import load_capacity_config
 
         calendar_cfg = self._get_calendar_config()
         capacity_cfg = load_capacity_config(self._config_dir)
@@ -580,8 +580,8 @@ class GuiAppService:
         if self.loader is None:
             raise RuntimeError("Aucune donnee chargee.")
 
-        from ..checkers.feasibility import FeasibilityService
-        from ..scheduler.capacity_config import load_capacity_config
+        from ..feasibility.feasibility_service import FeasibilityService
+        from ..planning.capacity_config import load_capacity_config
 
         calendar_cfg = self._get_calendar_config()
         capacity_cfg = load_capacity_config(self._config_dir)
@@ -600,7 +600,7 @@ class GuiAppService:
         if self.loader is None:
             raise RuntimeError("Aucune donnee chargee.")
 
-        from ..checkers.feasibility import FeasibilityService
+        from ..feasibility.feasibility_service import FeasibilityService
 
         service = FeasibilityService(self.loader)
         return service.search_articles(query, limit)
@@ -610,15 +610,15 @@ class GuiAppService:
         if self.loader is None:
             raise RuntimeError("Aucune donnee chargee.")
 
-        from ..checkers.feasibility import FeasibilityService
+        from ..feasibility.feasibility_service import FeasibilityService
 
         service = FeasibilityService(self.loader)
         return service.search_orders(query, limit)
 
     def _get_calendar_config(self):
         """Load calendar config for the current year."""
-        from ..scheduler.calendar_config import load_calendar_config
-        from ..scheduler.holidays import ensure_holidays_in_calendar
+        from ..planning.calendar_config import load_calendar_config
+        from ..planning.holidays import ensure_holidays_in_calendar
         year = date.today().year
         config = load_calendar_config(self._config_dir, year)
         config = ensure_holidays_in_calendar(self._config_dir, config)

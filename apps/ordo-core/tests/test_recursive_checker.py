@@ -4,8 +4,8 @@ import pytest
 from datetime import date
 from types import SimpleNamespace
 
-from src.checkers.recursive import RecursiveChecker
-from src.algorithms.allocation import StockState
+from src.feasibility.recursive import RecursiveChecker
+from src.orders.allocation import StockState
 from src.models.nomenclature import Nomenclature, NomenclatureEntry, TypeArticle
 from src.models.article import Article, TypeApprovisionnement
 from src.models.of import OF

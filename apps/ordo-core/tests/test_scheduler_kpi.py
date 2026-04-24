@@ -1,7 +1,7 @@
 from datetime import date
 
-from src.scheduler.kpi import compute_kpis, load_weights
-from src.scheduler.models import CandidateOF
+from src.scheduling.kpi import compute_kpis, load_weights
+from src.scheduling.models import CandidateOF
 
 
 def test_load_weights_renormalizes_values(tmp_path):

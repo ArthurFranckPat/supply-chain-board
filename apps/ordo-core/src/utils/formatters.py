@@ -5,8 +5,8 @@ from typing import Optional
 from rich.console import Console
 from rich.table import Table
 
-from ..algorithms.allocation import AllocationResult, AllocationStatus
-from ..checkers.base import FeasibilityResult
+from ..orders.allocation import AllocationResult, AllocationStatus
+from ..feasibility.base import FeasibilityResult
 from ..models.of import OF
 
 

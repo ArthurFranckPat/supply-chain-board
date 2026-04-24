@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from .capacity import TARGET_LINES
+from ..planning.capacity import TARGET_LINES
 
 TRACKED_BDH = ("BDH2216AL", "BDH2231AL", "BDH2251AL")
 

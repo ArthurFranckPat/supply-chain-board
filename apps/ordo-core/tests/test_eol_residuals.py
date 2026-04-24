@@ -3,8 +3,8 @@
 import pytest
 from datetime import date, timedelta
 
-from src.checkers.eol_residuals import EolResidualsService
-from src.checkers.eol_residuals_models import (
+from src.feasibility.eol_residuals import EolResidualsService
+from src.feasibility.eol_residuals_models import (
     EolResidualsRequest,
     EolResidualsResult,
 )

@@ -3,7 +3,7 @@ from datetime import date, timedelta
 from typing import Optional
 
 from .models import CandidateOF, DaySchedule
-from .calendar import next_workday
+from ..planning.calendar import next_workday
 from .material import (
     BUFFER_THRESHOLDS,
     availability_status,

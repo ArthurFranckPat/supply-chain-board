@@ -54,7 +54,7 @@ def run_schedule(loader, output_dir: str = "outputs", weights_path: str = "confi
     horizon_end = None
 
     # Le sequencer reconstruit son horizon a partir d'aujourd'hui, on ne garde ici que la borne haute.
-    from .capacity import build_working_day_horizon
+    from ..planning.capacity import build_working_day_horizon
     horizon_days = build_working_day_horizon(__import__("datetime").date.today(), 15)
     horizon_end = horizon_days[-1]
 

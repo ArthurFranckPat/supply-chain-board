@@ -5,7 +5,7 @@ from enum import Enum
 from typing import Optional
 
 from ..models.of import OF
-from ..checkers.base import FeasibilityResult
+from ..feasibility.base import FeasibilityResult
 
 
 class AllocationStatus(Enum):
@@ -280,7 +280,7 @@ class AllocationManager:
             Résultat de l'allocation
         """
         # Créer un checker avec stock_state
-        from ..checkers.recursive import RecursiveChecker
+        from ..feasibility.recursive import RecursiveChecker
 
         # Créer un checker temporaire avec le stock_state
         checker = RecursiveChecker(

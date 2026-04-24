@@ -5,7 +5,7 @@ from datetime import date
 from types import SimpleNamespace
 
 from src.loaders import DataLoader
-from src.algorithms.matching import CommandeOFMatcher, OFConso
+from src.orders.matching import CommandeOFMatcher, OFConso
 from src.models.besoin_client import BesoinClient, NatureBesoin, TypeCommande
 from src.models.of import OF
 from src.models.stock import Stock

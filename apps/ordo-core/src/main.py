@@ -8,10 +8,10 @@ from pathlib import Path
 from rich.console import Console
 
 from .loaders import DataLoader
-from .checkers import ImmediateChecker, ProjectedChecker, RecursiveChecker
-from .algorithms import AllocationManager, AllocationResult, AllocationStatus
-from .algorithms import calculate_weekly_charge_heatmap
-from .scheduler import run_schedule
+from .feasibility import ImmediateChecker, ProjectedChecker, RecursiveChecker
+from .orders import AllocationManager, AllocationResult, AllocationStatus
+from .planning import calculate_weekly_charge_heatmap
+from .scheduling import run_schedule
 from .utils import format_of_table, format_detailed_report, format_summary
 from .utils import format_charge_heatmap, format_charge_summary
 console = Console()

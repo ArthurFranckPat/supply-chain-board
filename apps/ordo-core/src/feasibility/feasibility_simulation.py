@@ -11,8 +11,8 @@ from collections import defaultdict
 from datetime import date, timedelta
 from typing import Optional
 
-from ...scheduler.calendar_config import CalendarConfig, is_workday, previous_workday
-from ...scheduler.capacity_config import CapacityConfig, get_capacity_for_day
+from ..planning.calendar_config import CalendarConfig, is_workday, previous_workday
+from ..planning.capacity_config import CapacityConfig, get_capacity_for_day
 
 
 class SimulationContext:
@@ -35,7 +35,7 @@ class SimulationContext:
         self.capacity_config = capacity_config
 
         # Lazy imports to avoid circular dependency at module level
-        from ...scheduler.material import build_material_stock_state, build_receptions_by_day
+        from ..scheduling.material import build_material_stock_state, build_receptions_by_day
 
         # Virtual stock state (initialized from real data, safe to mutate)
         self.stock_state = build_material_stock_state(loader)
@@ -52,7 +52,7 @@ class SimulationContext:
 
     def _load_existing_schedule(self) -> None:
         """Pre-fill schedule with existing OFs that have date_debut set."""
-        from ...algorithms.charge_calculator import calculate_article_charge
+        from ..planning.charge_calculator import calculate_article_charge
 
         for of in self.loader.ofs:
             if of.qte_restante > 0 and of.date_debut:
@@ -88,7 +88,7 @@ class SimulationContext:
 
     def create_checker(self, check_date: date):
         """Create a RecursiveChecker using virtual stock state."""
-        from ..recursive import RecursiveChecker
+        from .recursive import RecursiveChecker
 
         return RecursiveChecker(
             self.loader,

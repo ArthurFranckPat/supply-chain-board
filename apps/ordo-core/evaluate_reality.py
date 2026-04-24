@@ -13,11 +13,11 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from src.loaders import DataLoader
-from src.algorithms.charge_calculator import calculate_article_charge
-from src.algorithms.matching import CommandeOFMatcher
+from src.planning.charge_calculator import calculate_article_charge
+from src.orders.matching import CommandeOFMatcher
 from src.models.besoin_client import TypeCommande
-from src.scheduler.calendar import build_workdays, next_workday
-from src.scheduler.weights import load_weights
+from src.planning.calendar import build_workdays, next_workday
+from src.planning.weights import load_weights
 
 
 # ── Paramètres identiques au scheduler ──────────────────────────────
