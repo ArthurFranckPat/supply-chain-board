@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { memo, useMemo, useState } from 'react'
 import { Pill } from '@/components/ui/pill'
 import { SimpleTooltip } from '@/components/ui/tooltip'
 import type { OrderRow } from '@/types/suivi-commandes'
@@ -53,7 +53,7 @@ function groupRows(rows: OrderRow[]): GroupedRow[] {
 
 const COL = '90px 110px 1fr 90px 70px 70px 80px 130px'
 
-export function GroupedOrderTable({ rows }: { rows: OrderRow[] }) {
+export const GroupedOrderTable = memo(function GroupedOrderTable({ rows }: { rows: OrderRow[] }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
   const groupedData = useMemo(() => groupRows(rows), [rows])
@@ -231,4 +231,4 @@ export function GroupedOrderTable({ rows }: { rows: OrderRow[] }) {
       </div>
     </section>
   )
-}
+})

@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { CalendarDays, ChevronDown, ChevronRight, AlertOctagon } from 'lucide-react'
 import { Pill } from '@/components/ui/pill'
 import { OfRow } from '@/components/scheduling/OfRow'
@@ -12,7 +13,7 @@ interface DayCardProps {
   onToggle: (day: string) => void
 }
 
-export function DayCard({ day, rows, isOpen, density, onToggle }: DayCardProps) {
+export const DayCard = memo(function DayCard({ day, rows, isOpen, density, onToggle }: DayCardProps) {
   if (rows.length === 0) return null
 
   const totalCharge = rows.reduce((s, o) => s + o.charge_hours, 0)
@@ -50,4 +51,4 @@ export function DayCard({ day, rows, isOpen, density, onToggle }: DayCardProps) 
       )}
     </div>
   )
-}
+})

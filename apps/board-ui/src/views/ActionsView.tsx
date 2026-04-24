@@ -9,37 +9,23 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import type { DetailItem } from '@/types/api'
-
-interface ActionReportLine {
-  article_composant?: string
-  missing_qty_total?: number
-  nb_ofs_impactes?: number
-  nb_commandes_impactees?: number
-  niveau_action?: string
-  action_recommandee?: string
-  fournisseur?: string
-  num_commande_achat?: string
-  articles_concernes?: string[]
-  poste_fournisseur?: string
-  libelle_poste_fournisseur?: string
-}
+import type { ActionReportPayload, ActionReportLine, DetailItem } from '@/types/api'
 
 interface ActionsViewProps {
-  data: Record<string, unknown> | null
+  data: ActionReportPayload | null
   onInspect: (item: DetailItem) => void
 }
 
 export function ActionsView({ data, onInspect }: ActionsViewProps) {
-  const componentLines = (data?.component_lines ?? []) as ActionReportLine[]
-  const supplierLines = (data?.supplier_lines ?? []) as ActionReportLine[]
-  const kanbanLines = (data?.poste_kanban_lines ?? []) as ActionReportLine[]
+  const componentLines = data?.component_lines ?? []
+  const supplierLines = data?.supplier_lines ?? []
+  const kanbanLines = data?.poste_kanban_lines ?? []
 
   if (!data) {
     return (
       <LoadingEmpty
-        message="Aucune action appro disponible. Lancez un run S+1 d'abord."
-        action={{ label: 'Aller au Scheduler', onClick: () => {} }}
+        message="Aucune action appro disponible. Lancez un calcul d'ordonnancement d'abord."
+        action={{ label: "Aller à l'ordonnancement", onClick: () => {} }}
       />
     )
   }

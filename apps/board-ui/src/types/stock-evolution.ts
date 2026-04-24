@@ -36,6 +36,17 @@ export interface StockEvolutionResponse {
   items: StockMovement[]
 }
 
+export interface StockChartStats {
+  stock_min: number
+  stock_max: number
+  stock_moyen: number
+  rotation: number
+  tendance: string
+  nombre_mouvements: number
+  periode_debut: string | null
+  periode_fin: string | null
+}
+
 export interface StockChartData {
   article: string
   dates: string[]
@@ -43,5 +54,5 @@ export interface StockChartData {
   qtystu: number[]
   trstyp: number[]
   vcrnum: string[]
-  stats: Record<string, unknown>
+  stats: StockChartStats
 }

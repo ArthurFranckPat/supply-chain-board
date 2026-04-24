@@ -78,9 +78,16 @@ export interface EmbeddedReport {
   updated_at?: string | null
 }
 
+export interface DataSourceSnapshot {
+  source: string
+  extractions_dir: string
+  loaded_at: string
+  counts: Record<string, number>
+}
+
 export interface RunResult {
   reference_date: string
-  source: Record<string, unknown> | null
+  source: DataSourceSnapshot | null
   summary: RunSummary
   of_results: OfResult[]
   action_report: ActionReportPayload
@@ -105,7 +112,7 @@ export interface RunState {
   step_count?: number
   progress_percent?: number
   elapsed_ms?: number
-  result?: Record<string, unknown>
+  result?: RunResult
   error?: string
 }
 

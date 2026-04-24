@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { AlertOctagon, CheckCircle2 } from 'lucide-react'
 import { Pill } from '@/components/ui/pill'
 import { SimpleTooltip } from '@/components/ui/tooltip'
@@ -11,7 +12,7 @@ interface OfRowProps {
   index: number
 }
 
-export function OfRow({ of, density, index }: OfRowProps) {
+export const OfRow = memo(function OfRow({ of, density, index }: OfRowProps) {
   const s = STATUT_CONFIG[of.statut_num] ?? STATUT_CONFIG[3]
   const sched = new Date(of.scheduled_day ?? '')
   const due = new Date(of.due_date)
@@ -98,4 +99,4 @@ export function OfRow({ of, density, index }: OfRowProps) {
       )}
     </div>
   )
-}
+})

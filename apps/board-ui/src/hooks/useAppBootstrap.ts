@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { apiClient } from '@/api/client'
 import { suiviClient } from '@/api/suivi-client'
-import type { DataSource } from '@/types/api'
+import type { DataSource, DataSourceSnapshot } from '@/types/api'
 import type { SuiviStatusResponse } from '@/types/suivi-commandes'
 
 type BackendState = 'checking' | 'ready' | 'error'
@@ -12,7 +12,7 @@ export type { BackendState, LoadState }
 export function useAppBootstrap(source: DataSource) {
   const [backendState, setBackendState] = useState<BackendState>('checking')
   const [loadState, setLoadState] = useState<LoadState>('idle')
-  const [lastSourceSnapshot, setLastSourceSnapshot] = useState<Record<string, unknown> | null>(null)
+  const [lastSourceSnapshot, setLastSourceSnapshot] = useState<DataSourceSnapshot | null>(null)
   const [suiviData, setSuiviData] = useState<SuiviStatusResponse | null>(null)
 
   useEffect(() => {

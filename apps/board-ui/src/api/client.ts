@@ -1,4 +1,4 @@
-import type { DataSource, RunState } from '@/types/api'
+import type { DataSource, RunState, ApiConfig, DataSourceSnapshot, ReportFile } from '@/types/api'
 import type { MonthCalendar, CapacityConfigResponse } from '@/types/capacity'
 import type { AnalyseRuptureResponse } from '@/types/analyse-rupture'
 import type { FeasibilityResponse, ArticleSearchResult, OrderSearchResult } from '@/types/feasibility'
@@ -35,11 +35,11 @@ export const apiClient = {
   },
 
   getConfig() {
-    return apiRequest<Record<string, unknown>>('/api/v1/config')
+    return apiRequest<ApiConfig>('/api/v1/config')
   },
 
   loadData(source: DataSource, extractionsDir?: string) {
-    return apiRequest<Record<string, unknown>>('/api/v1/data/load', {
+    return apiRequest<DataSourceSnapshot>('/api/v1/data/load', {
       method: 'POST',
       body: JSON.stringify({ source, extractions_dir: extractionsDir ?? DEFAULT_EXTRACTIONS_DIR }),
     })
@@ -61,7 +61,7 @@ export const apiClient = {
   },
 
   listReports() {
-    return apiRequest<Record<string, unknown>[]>('/api/v1/reports/files')
+    return apiRequest<ReportFile[]>('/api/v1/reports/files')
   },
 
   // ── Calendar ────────────────────────────────────────────────

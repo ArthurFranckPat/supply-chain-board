@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { memo, useState, useMemo } from 'react'
 import type { EolComponent, EolResidualsResult } from '@/types/eol-residuals'
 import { AlertTriangle, Download, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
 
@@ -13,7 +13,7 @@ export interface EolResultsTableProps {
   projectionDate: string
 }
 
-export function EolResultsTable({ data, bomDepthMode, stockMode, projectionDate }: EolResultsTableProps) {
+export const EolResultsTable = memo(function EolResultsTable({ data, bomDepthMode, stockMode, projectionDate }: EolResultsTableProps) {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all')
   const [sortKey, setSortKey] = useState<SortKey>('value')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
@@ -265,4 +265,4 @@ export function EolResultsTable({ data, bomDepthMode, stockMode, projectionDate 
       )}
     </div>
   )
-}
+})

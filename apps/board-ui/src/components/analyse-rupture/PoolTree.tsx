@@ -1,4 +1,4 @@
-import { useState, Fragment } from 'react'
+import { memo, useState, Fragment } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import type { PoolContrib } from '@/types/analyse-rupture'
 
@@ -7,7 +7,7 @@ interface PoolTreeProps {
 }
 
 /** Pool breakdown as a collapsible tree: Composant → SF → PF */
-export function PoolTree({ repartition }: PoolTreeProps) {
+export const PoolTree = memo(function PoolTree({ repartition }: PoolTreeProps) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
 
   // Build adjacency: parent_article → children
@@ -101,4 +101,4 @@ export function PoolTree({ repartition }: PoolTreeProps) {
       </div>
     </div>
   )
-}
+})
