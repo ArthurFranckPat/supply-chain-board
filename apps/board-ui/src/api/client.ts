@@ -5,6 +5,7 @@ import type { FeasibilityResponse, ArticleSearchResult, OrderSearchResult } from
 import type { EolResidualsResponse } from '@/types/eol-residuals'
 import type { ResidualFabricationResponse } from '@/types/residual-fabrication'
 import type { StockEvolutionResponse, StockChartData } from '@/types/stock-evolution'
+import { HttpError, request } from '@/api/shared'
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') ?? 'http://127.0.0.1:8000'
@@ -12,50 +13,33 @@ const API_BASE_URL =
 const DEFAULT_EXTRACTIONS_DIR =
   import.meta.env.VITE_EXTRACTIONS_DIR ?? null
 
-export class ApiError extends Error {
-  status: number
-
+export class ApiError extends HttpError {
   constructor(message: string, status = 500) {
-    super(message)
+    super(message, status)
     this.name = 'ApiError'
-    this.status = status
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init?.headers ?? {}),
-    },
-    ...init,
-  })
-
-  if (!response.ok) {
-    let message = `HTTP ${response.status}`
-    try {
-      const payload = (await response.json()) as { detail?: string }
-      message = payload.detail ?? message
-    } catch {
-      // ignore json parse errors
+function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  return request<T>(API_BASE_URL, path, init).catch(err => {
+    if (err instanceof HttpError && !(err instanceof ApiError)) {
+      throw new ApiError(err.message, err.status)
     }
-    throw new ApiError(message, response.status)
-  }
-
-  return (await response.json()) as T
+    throw err
+  })
 }
 
 export const apiClient = {
   getHealth() {
-    return request<{ status: string }>('/health')
+    return apiRequest<{ status: string }>('/health')
   },
 
   getConfig() {
-    return request<Record<string, unknown>>('/api/v1/config')
+    return apiRequest<Record<string, unknown>>('/api/v1/config')
   },
 
   loadData(source: DataSource, extractionsDir?: string) {
-    return request<Record<string, unknown>>('/api/v1/data/load', {
+    return apiRequest<Record<string, unknown>>('/api/v1/data/load', {
       method: 'POST',
       body: JSON.stringify({ source, extractions_dir: extractionsDir ?? DEFAULT_EXTRACTIONS_DIR }),
     })
@@ -66,23 +50,23 @@ export const apiClient = {
     blocking_components_mode?: string
     demand_horizon_days?: number
   }) {
-    return request<RunState>('/api/v1/runs/schedule', {
+    return apiRequest<RunState>('/api/v1/runs/schedule', {
       method: 'POST',
       body: JSON.stringify(payload),
     })
   },
 
   getRun(runId: string) {
-    return request<RunState>(`/api/v1/runs/${runId}`)
+    return apiRequest<RunState>(`/api/v1/runs/${runId}`)
   },
 
   listReports() {
-    return request<Record<string, unknown>[]>('/api/v1/reports/files')
+    return apiRequest<Record<string, unknown>[]>('/api/v1/reports/files')
   },
 
   // ── Calendar ────────────────────────────────────────────────
   getCalendar(year: number, month: number) {
-    return request<MonthCalendar>(`/api/v1/calendar/${year}/${month}`)
+    return apiRequest<MonthCalendar>(`/api/v1/calendar/${year}/${month}`)
   },
 
   updateManualOffDays(data: {
@@ -90,14 +74,14 @@ export const apiClient = {
     additions: Array<{ date: string; reason?: string }>
     removals: string[]
   }) {
-    return request<{ status: string; manual_off_count: number }>('/api/v1/calendar/manual-off', {
+    return apiRequest<{ status: string; manual_off_count: number }>('/api/v1/calendar/manual-off', {
       method: 'PUT',
       body: JSON.stringify(data),
     })
   },
 
   refreshHolidays(year: number) {
-    return request<{ status: string; holidays_count: number }>('/api/v1/calendar/holidays/refresh', {
+    return apiRequest<{ status: string; holidays_count: number }>('/api/v1/calendar/holidays/refresh', {
       method: 'POST',
       body: JSON.stringify({ year }),
     })
@@ -105,25 +89,25 @@ export const apiClient = {
 
   // ── Capacity ────────────────────────────────────────────────
   getCapacityConfig() {
-    return request<CapacityConfigResponse>('/api/v1/capacity')
+    return apiRequest<CapacityConfigResponse>('/api/v1/capacity')
   },
 
   updatePosteConfig(data: { poste: string; default_hours: number; shift_pattern: string; label?: string }) {
-    return request<{ status: string }>('/api/v1/capacity/poste', {
+    return apiRequest<{ status: string }>('/api/v1/capacity/poste', {
       method: 'PUT',
       body: JSON.stringify(data),
     })
   },
 
   setCapacityOverride(data: { poste: string; key: string; hours?: number; reason: string; pattern?: Record<string, number> }) {
-    return request<{ status: string }>('/api/v1/capacity/override', {
+    return apiRequest<{ status: string }>('/api/v1/capacity/override', {
       method: 'PUT',
       body: JSON.stringify(data),
     })
   },
 
   removeCapacityOverride(data: { poste: string; key: string }) {
-    return request<{ status: string }>('/api/v1/capacity/override', {
+    return apiRequest<{ status: string }>('/api/v1/capacity/override', {
       method: 'DELETE',
       body: JSON.stringify({ poste: data.poste, key: data.key, hours: 0, reason: '' }),
     })
@@ -138,7 +122,7 @@ export const apiClient = {
     include_sf?: boolean
     include_pf?: boolean
   }) {
-    return request<AnalyseRuptureResponse>('/api/v1/analyse-rupture', {
+    return apiRequest<AnalyseRuptureResponse>('/api/v1/analyse-rupture', {
       method: 'POST',
       body: JSON.stringify({
         component_code: componentCode,
@@ -161,7 +145,7 @@ export const apiClient = {
     component_types?: string
     projection_date?: string
   }) {
-    return request<EolResidualsResponse>('/api/v1/eol-residuals', {
+    return apiRequest<EolResidualsResponse>('/api/v1/eol-residuals', {
       method: 'POST',
       body: JSON.stringify(data),
     })
@@ -175,7 +159,7 @@ export const apiClient = {
     stock_mode?: string
     projection_date?: string
   }) {
-    return request<ResidualFabricationResponse>('/api/v1/eol-residuals/fabricable', {
+    return apiRequest<ResidualFabricationResponse>('/api/v1/eol-residuals/fabricable', {
       method: 'POST',
       body: JSON.stringify(data),
     })
@@ -183,32 +167,32 @@ export const apiClient = {
 
   // ── Feasibility ──────────────────────────────────────────────
   checkFeasibility(data: { article: string; quantity: number; desired_date: string; use_receptions?: boolean; check_capacity?: boolean; depth_mode?: string }) {
-    return request<FeasibilityResponse>('/api/v1/feasibility/check', {
+    return apiRequest<FeasibilityResponse>('/api/v1/feasibility/check', {
       method: 'POST',
       body: JSON.stringify(data),
     })
   },
 
   findPromiseDate(data: { article: string; quantity: number; max_horizon_days?: number }) {
-    return request<FeasibilityResponse>('/api/v1/feasibility/promise-date', {
+    return apiRequest<FeasibilityResponse>('/api/v1/feasibility/promise-date', {
       method: 'POST',
       body: JSON.stringify(data),
     })
   },
 
   simulateReschedule(data: { num_commande: string; article: string; new_date: string; new_quantity?: number; depth_mode?: string; use_receptions?: boolean }) {
-    return request<FeasibilityResponse>('/api/v1/feasibility/reschedule', {
+    return apiRequest<FeasibilityResponse>('/api/v1/feasibility/reschedule', {
       method: 'POST',
       body: JSON.stringify(data),
     })
   },
 
   searchArticles(query: string, limit?: number) {
-    return request<{ articles: ArticleSearchResult[] }>(`/api/v1/feasibility/articles?q=${encodeURIComponent(query)}&limit=${limit ?? 20}`)
+    return apiRequest<{ articles: ArticleSearchResult[] }>(`/api/v1/feasibility/articles?q=${encodeURIComponent(query)}&limit=${limit ?? 20}`)
   },
 
   searchOrders(query: string, limit?: number) {
-    return request<{ orders: OrderSearchResult[] }>(`/api/v1/feasibility/orders?q=${encodeURIComponent(query)}&limit=${limit ?? 30}`)
+    return apiRequest<{ orders: OrderSearchResult[] }>(`/api/v1/feasibility/orders?q=${encodeURIComponent(query)}&limit=${limit ?? 30}`)
   },
 
   // ── Stock Evolution ───────────────────────────────────────────
@@ -216,13 +200,13 @@ export const apiClient = {
     const params = new URLSearchParams({ itmref })
     if (options?.horizon_days) params.set('horizon_days', String(options.horizon_days))
     if (options?.include_internal) params.set('include_internal', 'true')
-    return request<StockEvolutionResponse>(`/api/v1/stock-evolution/${encodeURIComponent(itmref)}?${params}`)
+    return apiRequest<StockEvolutionResponse>(`/api/v1/stock-evolution/${encodeURIComponent(itmref)}?${params}`)
   },
 
   getStockEvolutionChart(itmref: string, options?: { horizon_days?: number; include_internal?: boolean }) {
     const params = new URLSearchParams({ itmref })
     if (options?.horizon_days) params.set('horizon_days', String(options.horizon_days))
     if (options?.include_internal) params.set('include_internal', 'true')
-    return request<StockChartData>(`/api/v1/stock-evolution/${encodeURIComponent(itmref)}/chart?${params}`)
+    return apiRequest<StockChartData>(`/api/v1/stock-evolution/${encodeURIComponent(itmref)}/chart?${params}`)
   },
 }

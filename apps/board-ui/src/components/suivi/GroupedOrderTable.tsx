@@ -3,6 +3,7 @@ import { Pill } from '@/components/ui/pill'
 import { SimpleTooltip } from '@/components/ui/tooltip'
 import type { OrderRow } from '@/types/suivi-commandes'
 import { STATUS_TONE_MAP } from '@/types/suivi-commandes'
+import { formatDate, formatDateLabel, isOverdue, isSoon } from '@/lib/format'
 import { ChevronRight, ChevronDown, CalendarDays, MessageSquare } from 'lucide-react'
 
 interface GroupedRow {
@@ -50,27 +51,6 @@ function groupRows(rows: OrderRow[]): GroupedRow[] {
   })
 }
 
-function formatDate(v: string | null): string {
-  if (!v) return '-'
-  try { return new Date(v).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }) } catch { return '-' }
-}
-
-function formatDateLabel(v: string | null): string {
-  if (!v) return '-'
-  try { return new Date(v).toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: 'short' }) } catch { return '-' }
-}
-
-function isOverdue(d: string | null): boolean {
-  if (!d) return false
-  return new Date(d) < new Date(new Date().toDateString())
-}
-
-function isSoon(d: string | null): boolean {
-  if (!d) return false
-  const diff = (new Date(d).getTime() - new Date(new Date().toDateString()).getTime()) / 86400000
-  return diff >= 0 && diff <= 2
-}
-
 const COL = '90px 110px 1fr 90px 70px 70px 80px 130px'
 
 export function GroupedOrderTable({ rows }: { rows: OrderRow[] }) {
@@ -89,7 +69,7 @@ export function GroupedOrderTable({ rows }: { rows: OrderRow[] }) {
   function expandAll() { setExpanded(new Set(groupedData.map((r) => r.id))) }
   function collapseAll() { setExpanded(new Set()) }
 
-  // Group by date for day sections (like SchedulerView)
+  // Group by date for day sections, consistent with OrdonnancementView.
   const byDate = useMemo(() => {
     const map = new Map<string, GroupedRow[]>()
     for (const row of groupedData) {
@@ -151,7 +131,7 @@ export function GroupedOrderTable({ rows }: { rows: OrderRow[] }) {
               {/* Day section header */}
               <button
                 className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 border-none cursor-pointer font-[inherit] text-left border-b border-border ${
-                  isOverdate(dateKey) ? 'bg-destructive/5' : 'bg-accent/30'
+                  isOverdue(dateKey) ? 'bg-destructive/5' : 'bg-accent/30'
                 }`}
                 style={{ background: isOverdue(dateKey) ? 'rgba(var(--color-destructive), 0.05)' : undefined }}
               >
@@ -251,9 +231,4 @@ export function GroupedOrderTable({ rows }: { rows: OrderRow[] }) {
       </div>
     </section>
   )
-}
-
-function isOverdate(d: string): boolean {
-  if (d === '__none__') return false
-  return new Date(d) < new Date(new Date().toDateString())
 }

@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react'
-import { Clock, AlertTriangle, CheckCircle2, Truck, ChevronDown, ChevronRight, Search, Filter } from 'lucide-react'
+import { Clock, AlertTriangle, CheckCircle2, Truck, ChevronDown, ChevronRight, Search } from 'lucide-react'
 import { Pill } from '@/components/ui/pill'
 import { Segmented } from '@/components/ui/segmented'
+import { formatDateShort } from '@/lib/format'
 import type { ReceptionRow } from '@/types/scheduler'
 
 interface ExpectedComponentsProps {
@@ -189,9 +190,4 @@ export function ExpectedComponents({ rows }: ExpectedComponentsProps) {
       </div>
     </div>
   )
-}
-
-function formatDateShort(v?: string | null) {
-  if (!v) return '-'
-  try { return new Date(v).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }) } catch { return v }
 }

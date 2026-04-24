@@ -1,4 +1,5 @@
-import type { SuiviStatusResponse, CommentEntry } from '@/types/suivi-commandes'
+import type { SuiviStatusResponse } from '@/types/suivi-commandes'
+import { HttpError, request } from '@/api/shared'
 
 const SUIVI_API_BASE =
   import.meta.env.VITE_SUIVI_API_BASE_URL?.replace(/\/$/, '') ?? 'http://127.0.0.1:8001'
@@ -6,74 +7,38 @@ const SUIVI_API_BASE =
 const DEFAULT_EXTRACTIONS_DIR =
   import.meta.env.VITE_EXTRACTIONS_DIR ?? null
 
-export class SuiviApiError extends Error {
-  status: number
-
+export class SuiviApiError extends HttpError {
   constructor(message: string, status = 500) {
-    super(message)
+    super(message, status)
     this.name = 'SuiviApiError'
-    this.status = status
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${SUIVI_API_BASE}${path}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init?.headers ?? {}),
-    },
-    ...init,
-  })
-
-  if (!response.ok) {
-    let message = `HTTP ${response.status}`
-    try {
-      const payload = (await response.json()) as { detail?: string }
-      message = payload.detail ?? message
-    } catch {
-      // ignore json parse errors
+function suiviRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  return request<T>(SUIVI_API_BASE, path, init).catch(err => {
+    if (err instanceof HttpError && !(err instanceof SuiviApiError)) {
+      throw new SuiviApiError(err.message, err.status)
     }
-    throw new SuiviApiError(message, response.status)
-  }
-
-  return (await response.json()) as T
+    throw err
+  })
 }
 
 export const suiviClient = {
   getHealth() {
-    return request<{ status: string }>('/health')
+    return suiviRequest<{ status: string }>('/health')
   },
 
   getStatusFromErp(folder?: string, referenceDate?: string) {
-    return request<SuiviStatusResponse>('/api/v1/status/from-erp-extractions', {
+    return suiviRequest<SuiviStatusResponse>('/api/v1/status/from-erp-extractions', {
       method: 'POST',
       body: JSON.stringify({ folder: folder ?? DEFAULT_EXTRACTIONS_DIR, reference_date: referenceDate ?? null }),
     })
   },
 
   getStatusFromLatestExport(folder?: string, referenceDate?: string) {
-    return request<SuiviStatusResponse>('/api/v1/status/from-latest-export', {
+    return suiviRequest<SuiviStatusResponse>('/api/v1/status/from-latest-export', {
       method: 'POST',
       body: JSON.stringify({ folder: folder ?? null, reference_date: referenceDate ?? null }),
-    })
-  },
-
-  // ── Comments ──────────────────────────────────────────────────
-
-  getComments() {
-    return request<CommentEntry[]>('/api/v1/comments')
-  },
-
-  batchUpsertComments(rows: Array<{ no_commande: string; article: string; comment: string }>) {
-    return request<{ status: string }>('/api/v1/comments/batch', {
-      method: 'PUT',
-      body: JSON.stringify({ rows }),
-    })
-  },
-
-  deleteComment(noCommande: string, article: string) {
-    return request<{ status: string }>(`/api/v1/comments/${encodeURIComponent(noCommande)}/${encodeURIComponent(article)}`, {
-      method: 'DELETE',
     })
   },
 }
