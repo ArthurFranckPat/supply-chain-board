@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { apiClient, ApiError } from '@/api/client'
 import { StockEvolutionChart } from './StockEvolutionChart'
+import { StockProjectionTable } from './StockProjectionTable'
 import type { LotEcoArticle, StatutLot, TarifAchat } from '@/types/lot-eco'
 import type { StockEvolutionResponse } from '@/types/stock-evolution'
 import { lotEcoCache } from '@/api/lotEcoCache'
@@ -353,6 +354,24 @@ export function LotEcoDetailView({ article, onBack }: Props) {
           </div>
         )}
       </div>
+
+      {/* Projection stock semaines S+1 à S+26 */}
+      {article.demande_hebdo > 0 && (
+        <div className="bg-card border border-border rounded-2xl p-6 space-y-4">
+          <SectionHeader
+            icon={<Package className="h-4 w-4 text-stone-500" />}
+            title="Projection Stock — 26 prochaines semaines"
+          />
+          <StockProjectionTable
+            articleCode={article.article}
+            stockInitial={article.stock_disponible}
+            lotEco={article.lot_eco}
+            lotOptimal={article.lot_optimal}
+            delaiReappro={article.delai_reappro_jours}
+            demandeHebdo={article.demande_hebdo}
+          />
+        </div>
+      )}
 
       {/* Grille tarifaire */}
       {tarifsLoading ? (

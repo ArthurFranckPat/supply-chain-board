@@ -438,6 +438,32 @@ class GuiAppService:
         serialized = _serialize_value(result)
         return serialized
 
+    # ── Stock Projection ────────────────────────────────────────────
+
+    def project_stock(
+        self,
+        article: str,
+        stock_initial: float,
+        lot_eco: int,
+        lot_optimal: int,
+        delai_reappro_jours: int,
+        demande_hebdo: float,
+        horizon_weeks: int = 26,
+    ) -> dict[str, Any]:
+        """Projette l'evolution du stock pour un article sur horizon semaines."""
+        from ..services.stock_projection_analyzer import StockProjectionService
+
+        service = StockProjectionService(self.loader, horizon_weeks=horizon_weeks)
+        result = service.project(
+            article=article,
+            stock_initial=stock_initial,
+            lot_eco=lot_eco,
+            lot_optimal=lot_optimal,
+            delai_reappro_jours=delai_reappro_jours,
+            demande_hebdo=demande_hebdo,
+        )
+        return _serialize_value(result)
+
     # ── EOL Residual Stock Analysis ────────────────────────────────
 
     def eol_residuals_analyze(

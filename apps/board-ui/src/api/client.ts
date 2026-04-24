@@ -4,7 +4,7 @@ import type { AnalyseRuptureResponse } from '@/types/analyse-rupture'
 import type { FeasibilityResponse, ArticleSearchResult, OrderSearchResult } from '@/types/feasibility'
 import type { EolResidualsResponse } from '@/types/eol-residuals'
 import type { ResidualFabricationResponse } from '@/types/residual-fabrication'
-import type { StockEvolutionResponse, StockChartData } from '@/types/stock-evolution'
+import type { StockEvolutionResponse, StockChartData, StockProjectionResponse } from '@/types/stock-evolution'
 import type { LotEcoResponse, TarifAchat } from '@/types/lot-eco'
 
 const API_BASE_URL =
@@ -235,5 +235,20 @@ export const apiClient = {
 
   getTarifs(article: string) {
     return request<TarifAchat[]>(`/api/v1/tarifs/${encodeURIComponent(article)}`)
+  },
+
+  projectStock(data: {
+    article: string
+    stock_initial: number
+    lot_eco: number
+    lot_optimal: number
+    delai_reappro_jours: number
+    demande_hebdo: number
+    horizon_weeks?: number
+  }) {
+    return request<StockProjectionResponse>('/api/v1/stock-projection', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
   },
 }

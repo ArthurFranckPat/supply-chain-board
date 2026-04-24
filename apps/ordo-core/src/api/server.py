@@ -380,6 +380,30 @@ def create_app(service: Optional[GuiAppService] = None) -> FastAPI:
         except RuntimeError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+    # ── Stock Projection ────────────────────────────────────────────
+
+    @app.post("/api/v1/stock-projection")
+    def stock_projection(payload: dict) -> dict:
+        """Project stock evolution for an article over a weekly horizon.
+
+        Payload: { article, stock_initial, lot_eco, lot_optimal,
+                   delai_reappro_jours, demande_hebdo, horizon_weeks? }
+        """
+        try:
+            return app.state.gui_service.project_stock(
+                article=payload["article"],
+                stock_initial=float(payload.get("stock_initial", 0)),
+                lot_eco=int(payload.get("lot_eco", 0)),
+                lot_optimal=int(payload.get("lot_optimal", 0)),
+                delai_reappro_jours=int(payload.get("delai_reappro_jours", 0)),
+                demande_hebdo=float(payload.get("demande_hebdo", 0)),
+                horizon_weeks=int(payload.get("horizon_weeks", 26)),
+            )
+        except KeyError as exc:
+            raise HTTPException(status_code=400, detail=f"Missing field: {exc}") from exc
+        except RuntimeError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     # ── Tarifs achat ────────────────────────────────────────────────
 
     @app.get("/api/v1/tarifs/{article}")
