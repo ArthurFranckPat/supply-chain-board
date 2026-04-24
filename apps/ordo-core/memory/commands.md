@@ -7,7 +7,7 @@
 ### Lancer l'API
 ```bash
 cd apps/ordo-core
-uvicorn src.api.server:app --reload --port 8000
+uvicorn production_planning.api.server:app --reload --port 8000
 ```
 
 ### Charger les donnees et lancer le scheduler
@@ -21,14 +21,11 @@ curl -X POST http://127.0.0.1:8000/runs/schedule
 ## 📊 Dashboard Streamlit
 
 ### Lancer le dashboard
-```bash
-streamlit run src/dashboards/app.py
-```
+> **Note**: le dashboard Streamlit a été supprimé. Utiliser l'UI board (`apps/board-ui`) à la place.
+> Anciennement: `streamlit run production_planning/dashboards/app.py`
 
 ### Avec port personnalisé
-```bash
-streamlit run src/dashboards/app.py --server.port 8502
-```
+> Supprimé. Voir `apps/board-ui`.
 
 ---
 
@@ -61,7 +58,7 @@ pytest -v
 
 ### Tests avec couverture
 ```bash
-pytest --cov=src --cov-report=html
+pytest --cov=production_planning --cov-report=html
 ```
 
 ---
@@ -87,7 +84,7 @@ git log --oneline -10
 
 ### Vérifier les données chargées
 ```bash
-python -c "from src.loaders import DataLoader; l = DataLoader('data'); l.load_all(); print(f'{len(l.articles)} articles, {len(l.ofs)} OFs')"
+python -c "from production_planning.loaders import DataLoader; l = DataLoader('data'); l.load_all(); print(f'{len(l.articles)} articles, {len(l.ofs)} OFs')"
 ```
 
 ### Comparer deux modes d'allocation

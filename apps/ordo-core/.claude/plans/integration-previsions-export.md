@@ -255,7 +255,7 @@ class DataLoader:
 
 ### 4. Matching - Renommage et priorité
 
-**Renommage : `CommandeOFMatcher` → `BesoinOFMatcher`** (`src/algorithms/matching.py`) :
+**Renommage : `CommandeOFMatcher` → `BesoinOFMatcher`** (`production_planning/orders/matching.py`) :
 
 ```python
 class BesoinOFMatcher:
@@ -400,7 +400,7 @@ class BesoinOFMatcher:
 
 ### 5. Allocation - Priorité dans la concurrence
 
-**Modification de `AllocationManager`** (`src/algorithms/allocation.py`) :
+**Modification de `AllocationManager`** (`production_planning/orders/allocation.py`) :
 
 ```python
 class AllocationManager:
@@ -504,7 +504,7 @@ class AllocationManager:
 
 ### 6. Rapports - Distinction visuelle
 
-**Modification de `RapportS1`** (`src/reports/rapport_s1.py`) :
+**Modification de `RapportS1`** (`production_planning/reports/rapport_s1.py (supprimé)`) :
 
 ```python
 def format_rapport_s1(
@@ -588,9 +588,9 @@ AR2600929;1000;90045;AEROHOUSE Ltd;FR;EMM716HU;EMM 716;2160;0;2160;25/03/2026;10
 
 1. **`src/loaders/csv_loader.py`** - Ajouter `load_besoins_clients()`
 2. **`src/loaders/data_loader.py`** - Remplacer `_commandes_clients` par `_besoins_clients`
-3. **`src/algorithms/matching.py`** - Renommer en `BesoinOFMatcher`, ajouter gestion prévisions
-4. **`src/algorithms/allocation.py`** - Intégrer priorité commande > prévision
-5. **`src/reports/rapport_s1.py`** - Distinction visuelle commande/prévision
+3. **`production_planning/orders/matching.py`** - Renommer en `BesoinOFMatcher`, ajouter gestion prévisions
+4. **`production_planning/orders/allocation.py`** - Intégrer priorité commande > prévision
+5. **`production_planning/reports/rapport_s1.py (supprimé)`** - Distinction visuelle commande/prévision
 
 ### Fichiers de compatibilité
 

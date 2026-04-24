@@ -58,8 +58,8 @@ Ajouter `DATE_DEBUT` dans la structure de `of_entetes.csv`.
 
 | Fichier | Modification |
 |---|---|
-| `src/models/of.py` | Ajouter `date_debut: Optional[date]` + parsing |
-| `src/checkers/recursive.py` | Utiliser `of.date_debut` en priorité dans `_get_date_besoin_commande` |
+| `production_planning/models/of.py` | Ajouter `date_debut: Optional[date]` + parsing |
+| `production_planning/feasibility/recursive.py` | Utiliser `of.date_debut` en priorité dans `_get_date_besoin_commande` |
 | `CLAUDE.md` | Documenter `DATE_DEBUT` dans la table `of_entetes.csv` |
 
 ## Critères d'acceptation
