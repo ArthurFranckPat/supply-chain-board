@@ -5,7 +5,7 @@ import type { FeasibilityResponse, ArticleSearchResult, OrderSearchResult } from
 import type { EolResidualsResponse } from '@/types/eol-residuals'
 import type { ResidualFabricationResponse } from '@/types/residual-fabrication'
 import type { StockEvolutionResponse, StockChartData } from '@/types/stock-evolution'
-import type { LotEcoResponse } from '@/types/lot-eco'
+import type { LotEcoResponse, TarifAchat } from '@/types/lot-eco'
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') ?? 'http://127.0.0.1:8000'
@@ -229,7 +229,11 @@ export const apiClient = {
   },
 
   // ── Analyse Lot Eco ─────────────────────────────────────────────
-  analyseLotEco() {
-    return request<LotEcoResponse>('/api/v1/analyse-lot-eco', { method: 'POST' })
+  analyseLotEco(targetCoverageWeeks = 4) {
+    return request<LotEcoResponse>(`/api/v1/analyse-lot-eco?target_coverage_weeks=${targetCoverageWeeks}`, { method: 'POST' })
+  },
+
+  getTarifs(article: string) {
+    return request<TarifAchat[]>(`/api/v1/tarifs/${encodeURIComponent(article)}`)
   },
 }

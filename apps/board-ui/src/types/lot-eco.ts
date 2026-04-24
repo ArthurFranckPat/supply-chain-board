@@ -22,8 +22,8 @@ export interface LotEcoArticle {
   economie_immobilisation: number
   surcout_unitaire: number
   code_fournisseur: number
-  conditionnement: number
-  conditionnement_type: string
+  conditionnements: [number, string][]
+  target_coverage_weeks: number
 }
 
 export interface LotEcoResponse {
@@ -33,4 +33,16 @@ export interface LotEcoResponse {
   nb_surdimensionne: number
   nb_sousdimensionne: number
   nb_demande_nulle: number
+}
+
+export interface TarifAchat {
+  code_fournisseur: number
+  article: string
+  quantite_mini: number
+  quantite_maxi: number
+  prix_unitaire: number
+  unite: string
+  devise: string
+  date_debut_validite: string | null
+  date_fin_validite: string | null
 }

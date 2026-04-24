@@ -426,18 +426,17 @@ class GuiAppService:
 
     # ── Analyse Lot Eco ────────────────────────────────────────────
 
-    def analyser_lot_eco(self) -> dict[str, Any]:
+    def analyser_lot_eco(self, target_coverage_weeks: float = 4.0) -> dict[str, Any]:
         """Analyse l'adequation des lots economiques vs besoins reels."""
         if self.loader is None:
             raise RuntimeError("Aucune donnee chargee. Appelez load_data avant analyser_lot_eco.")
 
         from ..checkers.analyse_lot_eco import AnalyseLotEcoService
 
-        if self._lot_eco_service is None:
-            self._lot_eco_service = AnalyseLotEcoService(self.loader)
-
-        result = self._lot_eco_service.analyser()
-        return _serialize_value(result)
+        service = AnalyseLotEcoService(self.loader, target_coverage_weeks=target_coverage_weeks)
+        result = service.analyser()
+        serialized = _serialize_value(result)
+        return serialized
 
     # ── EOL Residual Stock Analysis ────────────────────────────────
 

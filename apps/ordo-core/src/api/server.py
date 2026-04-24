@@ -374,11 +374,34 @@ def create_app(service: Optional[GuiAppService] = None) -> FastAPI:
     # ── Analyse Lot Eco ─────────────────────────────────────────────
 
     @app.post("/api/v1/analyse-lot-eco")
-    def analyse_lot_eco() -> dict:
+    def analyse_lot_eco(target_coverage_weeks: float = 4.0) -> dict:
         try:
-            return app.state.gui_service.analyser_lot_eco()
+            return app.state.gui_service.analyser_lot_eco(target_coverage_weeks=target_coverage_weeks)
         except RuntimeError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    # ── Tarifs achat ────────────────────────────────────────────────
+
+    @app.get("/api/v1/tarifs/{article}")
+    def get_tarifs(article: str) -> list[dict]:
+        loader = app.state.gui_service.loader
+        if loader is None:
+            raise HTTPException(status_code=400, detail="Aucune donnee chargee")
+        tarifs = loader.get_tarifs(article)
+        return [
+            {
+                "code_fournisseur": t.code_fournisseur,
+                "article": t.article,
+                "quantite_mini": t.quantite_mini,
+                "quantite_maxi": t.quantite_maxi,
+                "prix_unitaire": t.prix_unitaire,
+                "unite": t.unite,
+                "devise": t.devise,
+                "date_debut_validite": t.date_debut_validite.isoformat() if t.date_debut_validite else None,
+                "date_fin_validite": t.date_fin_validite.isoformat() if t.date_fin_validite else None,
+            }
+            for t in tarifs
+        ]
 
     app.include_router(x3_router)
 

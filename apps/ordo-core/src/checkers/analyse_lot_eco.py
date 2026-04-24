@@ -26,10 +26,14 @@ class AnalyseLotEcoService:
     SEUIL_SURDIM = 2.0
     SEUIL_SOUSDIM = 0.8
     DEMANDE_MIN_HEBDO = 0.5
+    DEFAULT_TARGET_COVERAGE_WEEKS = 4.0
 
-    def __init__(self, loader: DataLoader) -> None:
+    def __init__(self, loader: DataLoader, target_coverage_weeks: float | None = None) -> None:
         self._loader = loader
         self._tarifs_index = self._build_tarifs_index()
+        self._target_coverage_weeks = (
+            target_coverage_weeks if target_coverage_weeks is not None else self.DEFAULT_TARGET_COVERAGE_WEEKS
+        )
 
     def analyser(self) -> AnalyseLotResult:
         demande_composants = self._calculer_demande_composants()
@@ -57,13 +61,11 @@ class AnalyseLotEcoService:
             pmp = article.pmp or 0.0
             valeur_stock = stock_physique * pmp
 
-            # Lot optimal : couvre exactement le delai fournisseur, arrondi au conditionnement
+            # Lot optimal : couvre X semaines de couverture cible, arrondi au conditionnement
             conds = article.conditionnements()
-            cond_qte = conds[0][0] if conds else 0
-            cond_type = conds[0][1] if conds else ""
 
-            if demande_hebdo >= self.DEMANDE_MIN_HEBDO and couverture_reappro_sem > 0:
-                lot_optimal_brut = max(1, round(demande_hebdo * couverture_reappro_sem))
+            if demande_hebdo >= self.DEMANDE_MIN_HEBDO:
+                lot_optimal_brut = max(1, round(demande_hebdo * self._target_coverage_weeks))
                 lot_optimal = article.arrondir_au_conditionnement(lot_optimal_brut)
             else:
                 lot_optimal = lot_eco
@@ -95,17 +97,12 @@ class AnalyseLotEcoService:
                 demande_jour = demande_hebdo / 7.0
                 stock_jours = stock_disponible / demande_jour if demande_jour > 0 else 0
                 couverture_lot_sem = lot_eco / demande_hebdo
-                if couverture_reappro_sem > 0:
-                    ratio = couverture_lot_sem / couverture_reappro_sem
-                else:
-                    ratio = 0.0
-                if couverture_reappro_sem > 0:
-                    if ratio > self.SEUIL_SURDIM:
-                        statut = StatutLot.SURDIMENSIONNE
-                    elif ratio < self.SEUIL_SOUSDIM:
-                        statut = StatutLot.SOUSDIMENSIONNE
-                    else:
-                        statut = StatutLot.OK
+                # ratio compares current lot_eco coverage vs TARGET coverage weeks
+                ratio = couverture_lot_sem / self._target_coverage_weeks if self._target_coverage_weeks > 0 else 0.0
+                if ratio > self.SEUIL_SURDIM:
+                    statut = StatutLot.SURDIMENSIONNE
+                elif ratio < self.SEUIL_SOUSDIM:
+                    statut = StatutLot.SOUSDIMENSIONNE
                 else:
                     statut = StatutLot.OK
 
@@ -132,8 +129,8 @@ class AnalyseLotEcoService:
                     economie_immobilisation=round(economie_immobilisation, 2),
                     surcout_unitaire=round(surcout_unitaire, 4),
                     code_fournisseur=code_fournisseur,
-                    conditionnement=cond_qte,
-                    conditionnement_type=cond_type,
+                    conditionnements=conds,
+                    target_coverage_weeks=self._target_coverage_weeks,
                 )
             )
 
@@ -162,13 +159,14 @@ class AnalyseLotEcoService:
     def _prix_pour_quantite(self, tarifs: list, qte: float) -> float:
         if not tarifs or qte <= 0:
             return 0.0
+        # En dessous du premier palier : utiliser le prix du premier palier
+        if qte < tarifs[0].quantite_mini:
+            return tarifs[0].prix_unitaire
         for t in tarifs:
             if t.quantite_mini <= qte <= t.quantite_maxi:
                 return t.prix_unitaire
-        # Si la quantite depasse le dernier palier, prendre le dernier prix
-        if qte > tarifs[-1].quantite_maxi:
-            return tarifs[-1].prix_unitaire
-        return 0.0
+        # Au-dessus du dernier palier : utiliser le prix du dernier palier
+        return tarifs[-1].prix_unitaire
 
     # ── Lot eco helpers ───────────────────────────────────────────
 
@@ -185,10 +183,33 @@ class AnalyseLotEcoService:
 
     # ── Demande composants ────────────────────────────────────────
 
-    def _calculer_demande_composants(self) -> dict:
-        nomenclatures = self._loader.nomenclatures
-        besoins = self._loader.commandes_clients
+    def _explode_bom(self, article_code: str, qty: float, visited: set[str]) -> dict[str, float]:
+        """Recursively explode a BOM down to bought components.
 
+        Returns a dict: {article_code: qty_needed} for all bought components
+        reachable from article_code, respecting circular reference protection.
+        """
+        if article_code in visited:
+            return {}
+        nomen = self._loader.nomenclatures.get(article_code)
+        if nomen is None:
+            return {}
+        visited.add(article_code)
+        results: dict[str, float] = {}
+        for comp in nomen.composants:
+            needed = comp.qte_requise(qty)
+            if comp.is_achete():
+                results[comp.article_composant] = (
+                    results.get(comp.article_composant, 0.0) + needed
+                )
+            else:
+                sub = self._explode_bom(comp.article_composant, needed, visited)
+                for k, v in sub.items():
+                    results[k] = results.get(k, 0.0) + v
+        return results
+
+    def _calculer_demande_composants(self) -> dict:
+        besoins = self._loader.commandes_clients
         besoins_actifs = [b for b in besoins if b.qte_restante > 0]
         if not besoins_actifs:
             return {}
@@ -203,18 +224,14 @@ class AnalyseLotEcoService:
         nb_semaines = nb_jours / 7.0
 
         demande_brute: dict[str, float] = defaultdict(float)
-        nb_parents: dict[str, int] = defaultdict(set)
+        nb_parents: dict[str, set[str]] = defaultdict(set)
 
         for besoin in besoins_actifs:
-            nomen = nomenclatures.get(besoin.article)
-            if nomen is None:
-                continue
-            for comp in nomen.composants:
-                if not comp.is_achete():
-                    continue
-                qte = comp.qte_requise(besoin.qte_restante)
-                demande_brute[comp.article_composant] += qte
-                nb_parents[comp.article_composant].add(besoin.article)
+            # Recursively explode the full BOM tree, protecting against cycles
+            exploded = self._explode_bom(besoin.article, float(besoin.qte_restante), set())
+            for article_code, qty in exploded.items():
+                demande_brute[article_code] += qty
+                nb_parents[article_code].add(besoin.article)
 
         resultat: dict[str, dict] = {}
         for code, total in demande_brute.items():

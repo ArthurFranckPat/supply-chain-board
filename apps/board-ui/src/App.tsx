@@ -39,7 +39,11 @@ const NAV_ITEMS: Array<{ key: ViewKey; label: string; icon: React.ReactNode }> =
 ]
 
 function App() {
-  const [activeView, setActiveView] = useState<ViewKey>('home')
+  const savedView = (typeof sessionStorage !== 'undefined'
+    ? sessionStorage.getItem('loteco-view') as ViewKey | null
+    : null) ?? 'home'
+
+  const [activeView, setActiveView] = useState<ViewKey>(savedView)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [backendState, setBackendState] = useState<'checking' | 'ready' | 'error'>('checking')
   const [source] = useState<DataSource>('extractions')
@@ -55,6 +59,10 @@ function App() {
   })
 
   const schedule = useScheduleRun()
+
+  useEffect(() => {
+    sessionStorage.setItem('loteco-view', activeView)
+  }, [activeView])
 
   useEffect(() => {
     let cancelled = false
