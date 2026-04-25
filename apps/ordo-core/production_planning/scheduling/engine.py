@@ -306,83 +306,43 @@ def run_schedule(
             )
 
     _progress("generating_reports", "Génération des rapports", 5, 7)
-    plannings = {
-        line: [assignment for plan in day_plans[line] for assignment in plan.assignments]
-        for line in target_lines.keys()
-    }
+    plannings = _flatten_plannings(day_plans, target_lines)
     _mark_unscheduled_candidates(by_line, alerts)
     unscheduled_rows = build_unscheduled_rows(by_line)
 
-    all_assignments = [a for p in plannings.values() for a in p]
-    planned_by_of = {assignment.num_of: assignment.scheduled_day for assignment in all_assignments}
-    # OFs matchés mais sans charge machine (charge_hours=0) sont traités comme
-    # disponibles dès le premier jour — ils ne chargent pas nos lignes.
-    for spec in {c.num_of for c in candidates}:
-        pass  # already in planned_by_of via assignments
-    for result in matching_results:
-        for allocation in result.of_allocations:
-            of = allocation.of
-            if of.num_of in planned_by_of:
-                continue
-            charge_map = calculate_article_charge(of.article, of.qte_restante, loader)
-            if not any(charge_map.get(l, 0.0) > 0 for l in target_lines):
-                planned_by_of[of.num_of] = workdays[0]
-    candidate_by_of = {candidate.num_of: candidate for candidate in candidates}
-    planning_horizon_end = config_next_workday(workdays[-1], calendar_config)
-    def _availability_for_reporting(
-        checker_obj,
-        loader_obj,
-        candidate_obj,
-        due_date,
-    ):
-        return availability_status(
-            checker_obj,
-            loader_obj,
-            candidate_obj,
-            due_date,
-            immediate_components=immediate_components,
-            immediate_reference_day=workdays[0],
-        )
-
-    order_rows = build_order_rows(
-        matching_results,
+    (
+        order_rows,
         planned_by_of,
-        candidate_by_of,
+        planning_horizon_end,
+        all_assignments,
+    ) = _build_order_reporting_rows(
+        matching_results,
+        plannings,
+        candidates,
+        target_lines,
+        workdays,
+        calendar_config,
         loader,
         checker,
-        _availability_for_reporting,
-        planning_horizon_end=planning_horizon_end,
+        immediate_components=immediate_components,
     )
-    taux_service, on_time, total_candidates = _compute_service_rate_from_matching(
+    kpis = _compute_schedule_kpis(
         matching_results,
         planned_by_of,
-        evaluation_horizon_end=planning_horizon_end,
-    )
-    taux_ouverture = _compute_open_rate(day_plans, line_capacities)
-    nb_deviations = sum(candidate.deviations for candidate in candidates)
-    deviation_penalty = min(
-        1.0,
-        nb_deviations / max(1, len(all_assignments)),
-    )
-
-    nb_jit = sum(1 for c in all_assignments if c.scheduled_day == c.due_date)
-    jit_penalty = min(
-        1.0,
-        nb_jit / max(1, len(all_assignments)),
+        planning_horizon_end,
+        day_plans,
+        line_capacities,
+        candidates,
+        all_assignments,
+        weights,
     )
 
-    score = (
-        taux_service * weights["w1"]
-        + taux_ouverture * weights["w2"]
-        - deviation_penalty * weights["w3"]
-        + jit_penalty * weights.get("w4", 0.15)
-    )
-
-    nb_changements_serie = sum(
-        1 for plans in day_plans.values() for plan in plans
-        for i in range(1, len(plan.assignments))
-        if plan.assignments[i].article != plan.assignments[i-1].article
-    )
+    score = kpis["score"]
+    taux_service = kpis["taux_service"]
+    taux_ouverture = kpis["taux_ouverture"]
+    nb_deviations = kpis["nb_deviations"]
+    nb_jit = kpis["nb_jit"]
+    nb_changements_serie = kpis["nb_changements_serie"]
 
     # Build line labels from gammes
     line_labels: dict[str, str] = {}
@@ -432,6 +392,121 @@ def run_schedule(
         pass  # Non-fatal
 
     return result
+
+
+def _flatten_plannings(
+    day_plans: dict[str, list[DaySchedule]],
+    target_lines: dict[str, set[str]],
+) -> dict[str, list[CandidateOF]]:
+    """Pipeline step 5a: flatten line/day planning into line assignment lists."""
+    return {
+        line: [assignment for plan in day_plans[line] for assignment in plan.assignments]
+        for line in target_lines.keys()
+    }
+
+
+def _build_order_reporting_rows(
+    matching_results,
+    plannings: dict[str, list[CandidateOF]],
+    candidates: list[CandidateOF],
+    target_lines: dict[str, set[str]],
+    workdays: list[date],
+    calendar_config: Optional[CalendarConfig],
+    loader,
+    checker,
+    *,
+    immediate_components: bool,
+) -> tuple[list[dict[str, object]], dict[str, date], date, list[CandidateOF]]:
+    """Pipeline step 5b: build order-level reporting inputs and rows."""
+    all_assignments = [assignment for assignments in plannings.values() for assignment in assignments]
+    planned_by_of = {assignment.num_of: assignment.scheduled_day for assignment in all_assignments}
+
+    # OFs matchés mais sans charge machine (charge_hours=0) sont traités comme
+    # disponibles dès le premier jour — ils ne chargent pas nos lignes.
+    for result in matching_results:
+        for allocation in result.of_allocations:
+            of = allocation.of
+            if of.num_of in planned_by_of:
+                continue
+            charge_map = calculate_article_charge(of.article, of.qte_restante, loader)
+            if not any(charge_map.get(line, 0.0) > 0 for line in target_lines):
+                planned_by_of[of.num_of] = workdays[0]
+
+    candidate_by_of = {candidate.num_of: candidate for candidate in candidates}
+    planning_horizon_end = config_next_workday(workdays[-1], calendar_config)
+
+    def _availability_for_reporting(
+        checker_obj,
+        loader_obj,
+        candidate_obj,
+        due_date,
+    ):
+        return availability_status(
+            checker_obj,
+            loader_obj,
+            candidate_obj,
+            due_date,
+            immediate_components=immediate_components,
+            immediate_reference_day=workdays[0],
+        )
+
+    order_rows = build_order_rows(
+        matching_results,
+        planned_by_of,
+        candidate_by_of,
+        loader,
+        checker,
+        _availability_for_reporting,
+        planning_horizon_end=planning_horizon_end,
+    )
+    return order_rows, planned_by_of, planning_horizon_end, all_assignments
+
+
+def _compute_schedule_kpis(
+    matching_results,
+    planned_by_of: dict[str, date],
+    planning_horizon_end: date,
+    day_plans: dict[str, list[DaySchedule]],
+    line_capacities: dict[str, float],
+    candidates: list[CandidateOF],
+    all_assignments: list[CandidateOF],
+    weights: dict[str, float],
+) -> dict[str, float | int]:
+    """Pipeline step 6: evaluate scheduling KPIs and global score."""
+    taux_service, _served, _total = _compute_service_rate_from_matching(
+        matching_results,
+        planned_by_of,
+        evaluation_horizon_end=planning_horizon_end,
+    )
+    taux_ouverture = _compute_open_rate(day_plans, line_capacities)
+    nb_deviations = sum(candidate.deviations for candidate in candidates)
+    deviation_penalty = min(1.0, nb_deviations / max(1, len(all_assignments)))
+
+    nb_jit = sum(1 for candidate in all_assignments if candidate.scheduled_day == candidate.due_date)
+    jit_penalty = min(1.0, nb_jit / max(1, len(all_assignments)))
+
+    score = (
+        taux_service * weights["w1"]
+        + taux_ouverture * weights["w2"]
+        - deviation_penalty * weights["w3"]
+        + jit_penalty * weights.get("w4", 0.15)
+    )
+
+    nb_changements_serie = sum(
+        1
+        for plans in day_plans.values()
+        for plan in plans
+        for i in range(1, len(plan.assignments))
+        if plan.assignments[i].article != plan.assignments[i - 1].article
+    )
+    return {
+        "score": score,
+        "taux_service": taux_service,
+        "taux_ouverture": taux_ouverture,
+        "nb_deviations": nb_deviations,
+        "nb_jit": nb_jit,
+        "nb_changements_serie": nb_changements_serie,
+    }
 
 
 def _load_article_day_profile(csv_path: str) -> dict[str, Counter]:
