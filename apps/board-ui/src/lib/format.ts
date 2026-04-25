@@ -43,3 +43,9 @@ export function fmtEuros(n: number): string {
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k€`
   return `${n.toFixed(0)}€`
 }
+
+export function addDays(isoDate: string, days: number): string {
+  const d = new Date(isoDate)
+  d.setDate(d.getDate() + days)
+  return d.toISOString().slice(0, 10)
+}

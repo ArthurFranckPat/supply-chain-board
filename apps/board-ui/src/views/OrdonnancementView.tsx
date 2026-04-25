@@ -1,4 +1,3 @@
-import { useState, useMemo } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { HeaderStrip } from '@/components/scheduler/HeaderStrip'
 import { CapacityHeatmap } from '@/components/scheduler/CapacityHeatmap'
@@ -9,11 +8,12 @@ import { StockProjection } from '@/components/scheduler/StockProjection'
 import { ExpectedComponents } from '@/components/scheduler/ExpectedComponents'
 import { SchedulerFilters } from '@/components/scheduling/SchedulerFilters'
 import { DayCard } from '@/components/scheduling/DayCard'
+import { useSchedulerData } from '@/hooks/useSchedulerData'
 import {
   CalendarDays, TrendingDown, AlertTriangle,
   ChevronDown, ChevronRight, Package,
 } from 'lucide-react'
-import type { SchedulerResult, CandidateOF } from '@/types/scheduler'
+import type { SchedulerResult } from '@/types/scheduler'
 import type { RunState } from '@/types/api'
 
 interface OrdonnancementViewProps {
@@ -23,90 +23,16 @@ interface OrdonnancementViewProps {
   runState?: RunState | null
 }
 
+const TABS = [
+  { k: 'planning', label: 'Planning', icon: <CalendarDays className="h-3 w-3" /> },
+  { k: 'components', label: 'Composants', icon: <Package className="h-3 w-3" />, countKey: 'reception_rows' as const },
+  { k: 'stock', label: 'Stock', icon: <TrendingDown className="h-3 w-3" /> },
+]
+
 export function OrdonnancementView({ isLoading, result, error, runState }: OrdonnancementViewProps) {
-  /* ── Controls ─────────────────────────────────────────────── */
-  const [activeTab, setActiveTab] = useState<string>('planning')
-  const [showKpis, setShowKpis] = useState(true)
-  const [weekMode, setWeekMode] = useState('week')
-  const [density, setDensity] = useState<'compact' | 'comfort'>('comfort')
-  const [dark, setDark] = useState(false)
-  const [focusLine, setFocusLine] = useState<string | null>(null)
-  const [focusDay, setFocusDay] = useState<string | null>(null)
-  const [lensBlocked, setLensBlocked] = useState(false)
-  const [query, setQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState('all')
-  const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set())
-  const [showHeatmap, setShowHeatmap] = useState(false)
-  const [showWorkqueue, setShowWorkqueue] = useState(false)
+  const s = useSchedulerData(result)
 
-  /* ── Derived data ─────────────────────────────────────────── */
-  const allOfs = useMemo(() => {
-    if (!result) return []
-    return Object.entries(result.line_candidates).flatMap(([line, ofs]) =>
-      ofs.map((o) => ({ ...o, line }))
-    )
-  }, [result])
-
-  const days = useMemo(() => {
-    const daySet = new Set<string>()
-    for (const o of allOfs) { if (o.scheduled_day) daySet.add(o.scheduled_day) }
-    return [...daySet].sort()
-  }, [allOfs])
-
-  const lines = useMemo(() => [...new Set(allOfs.map(o => o.line))].sort(), [allOfs])
-
-  const filtered = useMemo(() => allOfs.filter(o => {
-    if (focusLine && o.line !== focusLine) return false
-    if (focusDay && o.scheduled_day !== focusDay) return false
-    if (lensBlocked && !o.blocking_components) return false
-    if (statusFilter === 'ferme' && o.statut_num !== 1) return false
-    if (statusFilter === 'planifie' && o.statut_num !== 2) return false
-    if (statusFilter === 'sugg' && o.statut_num !== 3) return false
-    if (query) {
-      const q = query.toLowerCase()
-      const lineLabel = result?.line_labels?.[o.line]?.toLowerCase() ?? ''
-      return o.num_of.toLowerCase().includes(q)
-          || o.article.toLowerCase().includes(q)
-          || (o.description ?? '').toLowerCase().includes(q)
-          || o.line.toLowerCase().includes(q)
-          || lineLabel.includes(q)
-    }
-    return true
-  }), [allOfs, focusLine, focusDay, lensBlocked, statusFilter, query, result?.line_labels])
-
-  const grouped = useMemo(() => {
-    const g: Record<string, CandidateOF[]> = {}
-    for (const of_ of filtered) {
-      const day = of_.scheduled_day ?? '__none__'
-      if (!g[day]) g[day] = []
-      g[day].push(of_)
-    }
-    return g
-  }, [filtered])
-
-  function toggleDay(key: string) {
-    setExpandedDays(prev => {
-      const n = new Set(prev)
-      if (n.has(key)) n.delete(key); else n.add(key)
-      return n
-    })
-  }
-
-  const workqueue = useMemo(() => result ? deriveWorkqueue(result.alerts) : [], [result])
-
-  const stats = useMemo(() => {
-    if (!result) return null
-    const all = Object.values(result.line_candidates).flat()
-    const totalPlanned = all.filter(o => o.scheduled_day).length
-    const totalBlocked = all.filter(o => o.blocking_components).length
-    return {
-      totalPlanned,
-      totalBlocked,
-      totalRealisables: totalPlanned - totalBlocked,
-      unscheduledCount: result.unscheduled_rows.length,
-      ordersLate: result.order_rows.filter(r => r.statut.toLowerCase().includes('retard') || r.statut.toLowerCase().includes('non')).length,
-    }
-  }, [result])
+  const workqueue = result ? deriveWorkqueue(result.alerts) : []
 
   /* ── Early returns ────────────────────────────────────────── */
   if (isLoading) {
@@ -155,55 +81,49 @@ export function OrdonnancementView({ isLoading, result, error, runState }: Ordon
   }
 
   /* ── Main render ──────────────────────────────────────────── */
-  const tabs = [
-    { k: 'planning', label: 'Planning', icon: <CalendarDays className="h-3 w-3" /> },
-    { k: 'components', label: 'Composants', icon: <Package className="h-3 w-3" />, count: result.reception_rows.length },
-    { k: 'stock', label: 'Stock', icon: <TrendingDown className="h-3 w-3" /> },
-  ]
-
   return (
-    <div className={dark ? 'dark' : ''}>
+    <div className={s.dark ? 'dark' : ''}>
       <div className="flex flex-col gap-3">
         <HeaderStrip
           score={result.score} tauxService={result.taux_service} tauxOuverture={result.taux_ouverture}
-          totalOf={stats?.totalPlanned ?? 0} totalRealisables={stats?.totalRealisables ?? 0}
-          totalBlocked={stats?.totalBlocked ?? 0} totalUnscheduled={stats?.unscheduledCount ?? 0}
-          totalOrdersRisk={stats?.ordersLate ?? 0} nbJit={result.nb_jit}
-          nbChangements={result.nb_changements_serie} showKpis={showKpis}
-          onToggleKpis={() => setShowKpis(v => !v)} weekMode={weekMode} onWeekMode={setWeekMode}
-          density={density} onDensity={(v) => setDensity(v as 'compact' | 'comfort')} dark={dark} onDark={() => setDark(v => !v)}
-          showWorkqueue={showWorkqueue} onToggleWorkqueue={() => setShowWorkqueue(v => !v)}
+          totalOf={s.stats?.totalPlanned ?? 0} totalRealisables={s.stats?.totalRealisables ?? 0}
+          totalBlocked={s.stats?.totalBlocked ?? 0} totalUnscheduled={s.stats?.unscheduledCount ?? 0}
+          totalOrdersRisk={s.stats?.ordersLate ?? 0} nbJit={result.nb_jit}
+          nbChangements={result.nb_changements_serie} showKpis={s.showKpis}
+          onToggleKpis={() => s.setShowKpis(v => !v)} weekMode={s.weekMode} onWeekMode={s.setWeekMode}
+          density={s.density} onDensity={(v) => s.setDensity(v as 'compact' | 'comfort')} dark={s.dark} onDark={() => s.setDark(v => !v)}
+          showWorkqueue={s.showWorkqueue} onToggleWorkqueue={() => s.setShowWorkqueue(v => !v)}
         />
 
         <div className="relative p-3.5 pt-0">
-          {showWorkqueue && (
+          {s.showWorkqueue && (
             <div className="absolute top-0 left-3.5 z-30 w-[320px]">
               <Workqueue items={workqueue} onFocus={(refs) => {
-                if (refs.line) setFocusLine(refs.line)
-                if (refs.day) setFocusDay(refs.day)
+                if (refs.line) s.setFocusLine(refs.line)
+                if (refs.day) s.setFocusDay(refs.day)
               }} />
             </div>
           )}
 
           <div className="flex flex-col gap-3 min-w-0">
-            {activeTab === 'planning' && (
+            {s.activeTab === 'planning' && (
               <>
-                <button onClick={() => setShowHeatmap(v => !v)}
+                <button onClick={() => s.setShowHeatmap(v => !v)}
                   className="flex items-center gap-2 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  {showHeatmap ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                  {s.showHeatmap ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
                   <span className="font-semibold uppercase tracking-wider font-mono text-[10px]">Heatmap charge</span>
-                  <span className="text-muted-foreground/50">{showHeatmap ? 'masquer' : 'afficher'}</span>
+                  <span className="text-muted-foreground/50">{s.showHeatmap ? 'masquer' : 'afficher'}</span>
                 </button>
-                {showHeatmap && (
+                {s.showHeatmap && (
                   <CapacityHeatmap candidates={result.line_candidates} lineLabels={result.line_labels ?? {}}
-                    focusLine={focusLine} focusDay={focusDay}
-                    onCell={(line, day) => { setFocusLine(line === focusLine ? null : line); setFocusDay(day === focusDay ? null : day) }}
+                    focusLine={s.focusLine} focusDay={s.focusDay}
+                    onCell={(line, day) => { s.setFocusLine(line === s.focusLine ? null : line); s.setFocusDay(day === s.focusDay ? null : day) }}
                   />
                 )}
-                <FocusBar focusLine={focusLine} focusDay={focusDay} lensBlocked={lensBlocked}
-                  onFocusLine={setFocusLine} onFocusDay={setFocusDay} setLensBlocked={setLensBlocked}
-                  count={filtered.length} total={allOfs.length}
+                <FocusBar focusLine={s.focusLine} focusDay={s.focusDay} lensBlocked={s.lensBlocked}
+                  onFocusLine={s.setFocusLine} onFocusDay={s.setFocusDay} setLensBlocked={s.setLensBlocked}
+                  count={s.filtered.length} total={s.allOfs.length}
                 />
               </>
             )}
@@ -211,37 +131,38 @@ export function OrdonnancementView({ isLoading, result, error, runState }: Ordon
             <section className="bg-card border border-border rounded-2xl overflow-hidden">
               {/* Tabs */}
               <div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-border">
-                {tabs.map(tb => {
-                  const isActive = activeTab === tb.k
+                {TABS.map(tb => {
+                  const isActive = s.activeTab === tb.k
+                  const count = tb.countKey ? (result[tb.countKey]?.length ?? 0) : undefined
                   return (
-                    <button key={tb.k} onClick={() => setActiveTab(tb.k)}
+                    <button key={tb.k} onClick={() => s.setActiveTab(tb.k)}
                       className={`inline-flex items-center gap-1.5 px-3 py-[7px] text-xs font-semibold rounded-[7px] transition-colors ${
                         isActive ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-accent'
                       }`}
                     >
                       {tb.icon}{tb.label}
-                      {tb.count !== undefined && (
+                      {count !== undefined && (
                         <span className={`text-[10px] font-bold px-1.5 py-[1px] rounded-full font-mono ${
                           isActive ? 'bg-primary/15' : 'bg-muted'
-                        } text-muted-foreground`}>{tb.count}</span>
+                        } text-muted-foreground`}>{count}</span>
                       )}
                     </button>
                   )
                 })}
               </div>
 
-              {activeTab === 'planning' && (
+              {s.activeTab === 'planning' && (
                 <>
                   <SchedulerFilters
-                    query={query} onQueryChange={setQuery}
-                    focusLine={focusLine} onFocusLineChange={setFocusLine}
-                    focusDay={focusDay} onFocusDayChange={setFocusDay}
-                    statusFilter={statusFilter} onStatusFilterChange={setStatusFilter}
-                    lines={lines} days={days} lineLabels={result.line_labels ?? {}}
-                    expandedDays={expandedDays}
-                    onCollapseAll={() => setExpandedDays(new Set())}
-                    onExpandAll={(d) => setExpandedDays(new Set(d))}
-                    allDays={days}
+                    query={s.query} onQueryChange={s.setQuery}
+                    focusLine={s.focusLine} onFocusLineChange={s.setFocusLine}
+                    focusDay={s.focusDay} onFocusDayChange={s.setFocusDay}
+                    statusFilter={s.statusFilter} onStatusFilterChange={s.setStatusFilter}
+                    lines={s.lines} days={s.days} lineLabels={result.line_labels ?? {}}
+                    expandedDays={s.expandedDays}
+                    onCollapseAll={() => s.setExpandedDays(new Set())}
+                    onExpandAll={(d) => s.setExpandedDays(new Set(d))}
+                    allDays={s.days}
                   />
                   {/* Column headers */}
                   <div className="grid gap-3 px-3.5 py-2 border-b border-border text-[10px] font-semibold text-muted-foreground font-mono uppercase tracking-wider bg-accent/30"
@@ -253,22 +174,22 @@ export function OrdonnancementView({ isLoading, result, error, runState }: Ordon
                   </div>
                   {/* Body */}
                   <div className="max-h-[62vh] overflow-y-auto">
-                    {days.map(d => (
-                      <DayCard key={d} day={d} rows={grouped[d] ?? []}
-                        isOpen={!expandedDays.has(d)} density={density} onToggle={toggleDay}
+                    {s.days.map(d => (
+                      <DayCard key={d} day={d} rows={s.grouped[d] ?? []}
+                        isOpen={!s.expandedDays.has(d)} density={s.density} onToggle={s.toggleDay}
                       />
                     ))}
-                    {days.length === 0 && (
+                    {s.days.length === 0 && (
                       <div className="py-12 text-center text-sm text-muted-foreground">Aucun résultat</div>
                     )}
                   </div>
                 </>
               )}
 
-              {activeTab === 'components' && (
+              {s.activeTab === 'components' && (
                 <div className="p-4"><ExpectedComponents rows={result.reception_rows} /></div>
               )}
-              {activeTab === 'stock' && (
+              {s.activeTab === 'stock' && (
                 <div className="p-4"><StockProjection entries={result.stock_projection} /></div>
               )}
             </section>
