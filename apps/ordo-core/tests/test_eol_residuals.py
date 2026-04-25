@@ -3,15 +3,11 @@
 import pytest
 from datetime import date, timedelta
 
-from src.feasibility.eol_residuals import EolResidualsService
-from src.feasibility.eol_residuals_models import (
-    EolResidualsRequest,
-    EolResidualsResult,
-)
-from src.models.article import Article, TypeApprovisionnement
-from src.models.nomenclature import Nomenclature, NomenclatureEntry, TypeArticle
-from src.models.stock import Stock
-from src.models.of import OF
+from production_planning.feasibility.eol_residuals import EolResidualsService
+from production_planning.models.article import Article, TypeApprovisionnement
+from production_planning.models.nomenclature import Nomenclature, NomenclatureEntry, TypeArticle
+from production_planning.models.stock import Stock
+from production_planning.models.of import OF
 
 
 # ── Helpers ──────────────────────────────────────────────────────────

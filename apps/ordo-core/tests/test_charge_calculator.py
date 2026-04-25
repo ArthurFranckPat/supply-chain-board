@@ -1,10 +1,9 @@
 """Tests unitaires pour le calcul de charge."""
 
-import pytest
-from datetime import date, timedelta
-from unittest.mock import Mock, MagicMock
+from datetime import date
+from unittest.mock import Mock
 
-from src.planning.charge_calculator import (
+from production_planning.planning.charge_calculator import (
     is_valid_poste,
     calculate_article_charge,
     get_week_info,
@@ -12,10 +11,9 @@ from src.planning.charge_calculator import (
     calculate_weekly_charge_heatmap,
     get_poste_libelle,
 )
-from src.models.besoin_client import BesoinClient, NatureBesoin, TypeCommande
-from src.models.gamme import Gamme, GammeOperation
-from src.models.nomenclature import Nomenclature, NomenclatureEntry
-from src.models.charge import ChargeByPoste
+from production_planning.models.besoin_client import BesoinClient, NatureBesoin, TypeCommande
+from production_planning.models.gamme import Gamme, GammeOperation
+from production_planning.models.charge import ChargeByPoste
 
 
 class TestIsValidPoste:

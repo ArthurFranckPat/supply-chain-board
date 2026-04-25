@@ -1,9 +1,8 @@
 """Tests unitaires pour le filtrage par pays."""
 
-import pytest
 from datetime import date
 
-from src.models.besoin_client import BesoinClient, NatureBesoin, TypeCommande
+from production_planning.models.besoin_client import BesoinClient, NatureBesoin, TypeCommande
 
 
 class TestBesoinClientCountryMethods:

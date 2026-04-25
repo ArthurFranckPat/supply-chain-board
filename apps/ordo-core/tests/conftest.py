@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 @pytest.fixture
 def sample_gamme():
     """Fixture pour une gamme de test."""
-    from src.models.gamme import Gamme, GammeOperation
+    from production_planning.models.gamme import Gamme, GammeOperation
 
     return Gamme(
         article="ART001",
@@ -35,7 +35,7 @@ def sample_gamme():
 @pytest.fixture
 def sample_nomenclature():
     """Fixture pour une nomenclature de test."""
-    from src.models.nomenclature import Nomenclature, NomenclatureEntry
+    from production_planning.models.nomenclature import Nomenclature, NomenclatureEntry
 
     return Nomenclature(
         article="ART001",

@@ -1,7 +1,7 @@
 """Recursive Checker - Algorithme de vérification récursive des nomenclatures."""
 
 from datetime import timedelta
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from .base import BaseChecker, FeasibilityResult
 from ..availability import AvailabilityKernel
@@ -9,6 +9,9 @@ from ..domain_rules import is_component_treated_as_purchase, is_firm_of_status
 from ..models.nomenclature import Nomenclature
 from ..models.of import OF
 from ..models.besoin_client import BesoinClient
+
+if TYPE_CHECKING:
+    from ..orders.allocation import StockState
 
 
 class RecursiveChecker(BaseChecker):
@@ -120,8 +123,6 @@ class RecursiveChecker(BaseChecker):
         FeasibilityResult
             Résultat de la vérification
         """
-        result = FeasibilityResult(feasible=True, depth=0)
-
         # Vérifier si la commande a des allocations
         allocations = self.data_loader.get_allocations_of(commande.num_commande)
 

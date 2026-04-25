@@ -100,7 +100,7 @@ Exemple :
 """Tests pour ma nouvelle fonctionnalité."""
 
 import pytest
-from src.mon_module import ma_fonction
+from production_planning.mon_module import ma_fonction
 
 
 class TestMaFonction:

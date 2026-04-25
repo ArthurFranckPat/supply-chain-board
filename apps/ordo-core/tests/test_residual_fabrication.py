@@ -1,17 +1,11 @@
 """Tests pour le service de faisabilité de fabrication sur pool résiduel."""
 
-import pytest
-from datetime import date, timedelta
 
-from src.feasibility.residual_fabrication_models import (
-    ResidualFabricationResult,
-    ResidualComponentGap,
-)
-from src.feasibility.residual_fabrication import ResidualFabricationService
-from src.models.article import Article, TypeApprovisionnement
-from src.models.nomenclature import Nomenclature, NomenclatureEntry, TypeArticle
-from src.models.stock import Stock
-from src.models.of import OF
+from production_planning.feasibility.residual_fabrication import ResidualFabricationService
+from production_planning.feasibility.eol_residuals_models import EolComponent
+from production_planning.models.article import Article, TypeApprovisionnement
+from production_planning.models.nomenclature import Nomenclature, NomenclatureEntry, TypeArticle
+from production_planning.models.stock import Stock
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────
@@ -70,10 +64,6 @@ def _eol_component(code, qty, pmp=1.0, component_type="ACHAT"):
         pmp=pmp,
         value=round(qty * pmp, 2),
     )
-
-
-# Import EolComponent from the existing module for pool construction
-from src.feasibility.eol_residuals_models import EolComponent
 
 
 # ── FakeLoader ────────────────────────────────────────────────────────────

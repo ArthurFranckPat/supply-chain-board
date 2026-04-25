@@ -9,21 +9,19 @@ Cette regle garantit que :
 
 from datetime import date
 from types import SimpleNamespace
-from collections import defaultdict
 
-import pytest
 
-from src.orders.allocation import StockState
-from src.feasibility.recursive import RecursiveChecker
-from src.models.nomenclature import Nomenclature, NomenclatureEntry, TypeArticle
-from src.models.stock import Stock
-from src.models.allocation import OFAllocation
-from src.scheduling.material import (
+from production_planning.orders.allocation import StockState
+from production_planning.feasibility.recursive import RecursiveChecker
+from production_planning.models.nomenclature import Nomenclature, NomenclatureEntry, TypeArticle
+from production_planning.models.stock import Stock
+from production_planning.models.allocation import OFAllocation
+from production_planning.scheduling.material import (
     reserve_candidate_components,
     availability_status,
     compute_direct_component_shortages,
 )
-from src.scheduling.models import CandidateOF
+from production_planning.scheduling.models import CandidateOF
 
 
 # ---------------------------------------------------------------------------

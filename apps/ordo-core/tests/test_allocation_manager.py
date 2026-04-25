@@ -4,12 +4,12 @@ import pytest
 from datetime import date
 from types import SimpleNamespace
 
-from src.feasibility.recursive import RecursiveChecker
-from src.orders.allocation import AllocationManager, StockState, AllocationStatus
-from src.models.of import OF
-from src.models.stock import Stock
-from src.models.nomenclature import Nomenclature, NomenclatureEntry, TypeArticle
-from src.models.allocation import OFAllocation
+from production_planning.feasibility.recursive import RecursiveChecker
+from production_planning.orders.allocation import AllocationManager, StockState
+from production_planning.models.of import OF
+from production_planning.models.stock import Stock
+from production_planning.models.nomenclature import Nomenclature, NomenclatureEntry, TypeArticle
+from production_planning.models.allocation import OFAllocation
 
 
 # ---------------------------------------------------------------------------

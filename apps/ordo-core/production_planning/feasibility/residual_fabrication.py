@@ -15,7 +15,6 @@ from .residual_fabrication_models import (
     ResidualFabricationResult,
 )
 from .eol_residuals_models import EolComponent
-from ..models.nomenclature import NomenclatureEntry, TypeArticle
 
 
 class ResidualFabricationService:

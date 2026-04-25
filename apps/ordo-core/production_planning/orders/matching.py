@@ -20,7 +20,6 @@ from .matching_diagnostics import (
 )
 from ..models.besoin_client import BesoinClient
 from ..models.of import OF
-from ..models.stock import Stock
 from ..loaders.data_loader import DataLoader
 from .allocation import StockState
 

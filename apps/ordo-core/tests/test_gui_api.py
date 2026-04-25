@@ -2,8 +2,7 @@
 
 from fastapi.testclient import TestClient
 
-from src.app.gui_service import GuiAppService
-from src.api.server import create_app
+from production_planning.api.server import create_app
 
 
 class _StubGuiService:
@@ -48,25 +47,25 @@ def test_gui_api_core_endpoints():
 
     assert client.get("/health").json() == {"status": "ok"}
 
-    config = client.get("/config")
+    config = client.get("/api/v1/config")
     assert config.status_code == 200
     assert {item["id"] for item in config.json()["sources"]} == {"extractions"}
 
-    loaded = client.post("/data/load", json={"source": "extractions"}).json()
+    loaded = client.post("/api/v1/data/load", json={"source": "extractions"}).json()
     assert loaded["source"] == "extractions"
 
-    fetched = client.get("/runs/run-1")
+    fetched = client.get("/api/v1/runs/run-1")
     assert fetched.status_code == 200
     assert fetched.json()["run_id"] == "run-1"
 
-    assert client.get("/reports/actions/latest").json()["type"] == "actions"
-    assert client.get("/reports/files").json()[0]["name"] == "schedule_report.md"
+    assert client.get("/api/v1/reports/actions/latest").json()["type"] == "actions"
+    assert client.get("/api/v1/reports/files").json()[0]["name"] == "schedule_report.md"
 
 
 def test_gui_api_returns_404_for_unknown_run():
     client = _make_client()
 
-    response = client.get("/runs/missing")
+    response = client.get("/api/v1/runs/missing")
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Run introuvable"

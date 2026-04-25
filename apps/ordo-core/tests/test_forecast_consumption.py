@@ -1,10 +1,9 @@
 """Tests unitaires pour la consommation des prévisions."""
 
-import pytest
 from datetime import date
 
-from src.orders.forecast_consumption import consume_forecasts_by_article
-from src.models.besoin_client import BesoinClient, NatureBesoin, TypeCommande
+from production_planning.orders.forecast_consumption import consume_forecasts_by_article
+from production_planning.models.besoin_client import BesoinClient, NatureBesoin, TypeCommande
 
 
 class TestConsumeForecastsByArticle:

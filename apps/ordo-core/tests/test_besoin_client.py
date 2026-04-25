@@ -1,9 +1,8 @@
 """Tests pour le modèle BesoinClient."""
 
-import pytest
 from datetime import date
 
-from src.models.besoin_client import BesoinClient, TypeCommande, NatureBesoin
+from production_planning.models.besoin_client import BesoinClient, TypeCommande, NatureBesoin
 
 
 class TestBesoinClient:

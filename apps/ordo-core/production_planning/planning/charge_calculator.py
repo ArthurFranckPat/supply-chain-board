@@ -8,7 +8,6 @@ from typing import Optional
 from ..loaders.data_loader import DataLoader
 from ..models.besoin_client import BesoinClient
 from ..models.charge import ChargeByPoste
-from ..models.nomenclature import Nomenclature
 
 # Regex pour valider les postes de charge : PP_xxx où xxx est un chiffre
 POSTE_CHARGE_REGEX = re.compile(r"^PP_\d+$")
@@ -274,7 +273,6 @@ def calculate_weekly_charge_heatmap(
     weekday = date_ref.weekday()  # 0 = lundi, 6 = dimanche
     lundi_semaine_en_cours = date_ref - timedelta(days=weekday)
     dimanche_semaine_en_cours = lundi_semaine_en_cours + timedelta(days=6)
-    lundi_semaine_prochaine = lundi_semaine_en_cours + timedelta(days=7)
 
     # 1. Grouper les besoins par semaine (S+1, S+2, etc.)
     weekly_besoins = group_by_week(besoins, num_weeks)

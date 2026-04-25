@@ -2,13 +2,13 @@
 
 import pytest
 from datetime import date
-from types import SimpleNamespace
 
-from src.loaders import DataLoader
-from src.orders.matching import CommandeOFMatcher, OFConso
-from src.models.besoin_client import BesoinClient, NatureBesoin, TypeCommande
-from src.models.of import OF
-from src.models.stock import Stock
+from production_planning.loaders import DataLoader
+from production_planning.orders.matching import CommandeOFMatcher, OFConso
+from production_planning.models.article import Article, TypeApprovisionnement
+from production_planning.models.besoin_client import BesoinClient, NatureBesoin, TypeCommande
+from production_planning.models.of import OF
+from production_planning.models.stock import Stock
 
 
 # ---------------------------------------------------------------------------
@@ -26,6 +26,7 @@ def _make_of(num_of, article, statut_num, date_fin, qte_restante=100):
         qte_a_fabriquer=qte_restante,
         qte_fabriquee=0,
         qte_restante=qte_restante,
+        methode_obtention_livraison="Ordre de fabrication",
     )
 
 
@@ -264,6 +265,10 @@ class TestCommandeOFMatcher:
         result = matcher.match_commande(commande)
 
         assert result.commande == commande
+        assert result.matching_method == "MTS hard pegging"
+        assert result.of is not None
+        assert len(result.of_allocations) == 1
+        assert result.remaining_uncovered_qty == max(commande.qte_restante - 50, 0)
 
     def test_match_mts_without_of_link(self, loader):
         """Test le matching d'une commande MTS sans OF (OF vide ou inexistant)."""
@@ -282,7 +287,31 @@ class TestCommandeOFMatcher:
         result = matcher.match_commande(commande)
 
         assert result.commande == commande
-        assert result.matching_method != "Lien direct NUM_ORDRE_ORIGINE"
+        assert result.matching_method == "MTS hard pegging"
+        assert result.of is None
+        assert result.remaining_uncovered_qty == commande.qte_restante
+        assert result.alertes
+
+    def test_match_mts_partial_linked_of_keeps_explicit_remainder(self):
+        commande = _make_commande(
+            "CMD-MTS-PARTIAL",
+            "ART1",
+            date(2026, 4, 10),
+            qte_restante=100,
+            type_commande=TypeCommande.MTS,
+        )
+        linked_of = _make_of("OF-MTS-1", "ART1", 1, date(2026, 4, 10), qte_restante=40)
+        loader = _make_loader(ofs=[linked_of], commandes_clients=[commande])
+        loader._ofs_by_origin = {commande.num_commande: [linked_of]}
+
+        matcher = CommandeOFMatcher(loader)
+        result = matcher.match_commande(commande)
+
+        assert result.of is not None
+        assert result.of.num_of == "OF-MTS-1"
+        assert result.of_allocations[0].qte_allouee == 40
+        assert result.remaining_uncovered_qty == 60
+        assert result.alertes
 
     def test_match_nor_mto(self, loader):
         """Test le matching d'une commande NOR/MTO."""
@@ -298,6 +327,83 @@ class TestCommandeOFMatcher:
 
         assert result.commande == commande
         assert result.stock_allocation is not None
+        assert result.remaining_uncovered_qty == 0
+
+    def test_match_nor_mto_can_use_multiple_ofs(self):
+        commande = _make_commande(
+            "CMD-NOR-MULTI",
+            "ART1",
+            date(2026, 4, 11),
+            qte_restante=90,
+            type_commande=TypeCommande.NOR,
+        )
+        loader = _make_loader(
+            ofs=[
+                _make_of("OF-FERME", "ART1", 1, date(2026, 4, 10), qte_restante=50),
+                _make_of("OF-PLAN", "ART1", 2, date(2026, 4, 11), qte_restante=20),
+                _make_of("OF-SUGG", "ART1", 3, date(2026, 4, 12), qte_restante=30),
+            ],
+            commandes_clients=[commande],
+            stocks={"ART1": Stock("ART1", stock_physique=0, stock_alloue=0, stock_bloque=0)},
+            articles={
+                "ART1": Article(
+                    code="ART1",
+                    description="Article fabrique",
+                    categorie="PF",
+                    type_appro=TypeApprovisionnement.FABRICATION,
+                    delai_reappro=0,
+                )
+            },
+        )
+
+        matcher = CommandeOFMatcher(loader)
+        result = matcher.match_commande(commande)
+
+        assert result.commande == commande
+        assert [allocation.of.num_of for allocation in result.of_allocations] == [
+            "OF-FERME",
+            "OF-PLAN",
+            "OF-SUGG",
+        ]
+        assert [allocation.qte_allouee for allocation in result.of_allocations] == [50, 20, 20]
+        assert result.remaining_uncovered_qty == 0
+        assert result.of is not None
+        assert result.of.num_of == "OF-FERME"
+
+    def test_match_nor_mto_partial_multi_of_keeps_remaining_qty(self):
+        commande = _make_commande(
+            "CMD-NOR-PARTIAL",
+            "ART1",
+            date(2026, 4, 11),
+            qte_restante=100,
+            type_commande=TypeCommande.NOR,
+        )
+        loader = _make_loader(
+            ofs=[
+                _make_of("OF-FERME", "ART1", 1, date(2026, 4, 10), qte_restante=30),
+                _make_of("OF-SUGG", "ART1", 3, date(2026, 4, 12), qte_restante=40),
+            ],
+            commandes_clients=[commande],
+            stocks={"ART1": Stock("ART1", stock_physique=10, stock_alloue=0, stock_bloque=0)},
+            articles={
+                "ART1": Article(
+                    code="ART1",
+                    description="Article fabrique",
+                    categorie="PF",
+                    type_appro=TypeApprovisionnement.FABRICATION,
+                    delai_reappro=0,
+                )
+            },
+        )
+
+        matcher = CommandeOFMatcher(loader)
+        result = matcher.match_commande(commande)
+
+        assert result.stock_allocation is not None
+        assert result.stock_allocation.qte_allouee == 10
+        assert [allocation.qte_allouee for allocation in result.of_allocations] == [30, 40]
+        assert result.remaining_uncovered_qty == 20
+        assert result.alertes
 
     def test_of_priority_in_matching(self):
         """Test que les OF FERMES sont prioritaires sur les SUGGERES."""
@@ -324,10 +430,6 @@ class TestCommandeOFMatcher:
         of_ferme = _make_of("F-FERME", "ART1", 1, date(2026, 4, 10), qte_restante=50)
         of_planifie = _make_of("F-PLAN", "ART1", 2, date(2026, 4, 11), qte_restante=50)
         of_suggere = _make_of("F-SUGG", "ART1", 3, date(2026, 4, 12), qte_restante=50)
-
-        loader = _make_loader(
-            ofs=[of_ferme, of_planifie, of_suggere],
-        )
 
         # Verifier les priorites definies dans _find_of_for_besoin_net
         # FERME (priorite 0) < PLANIFIE (priorite 1) < SUGGERE (priorite 2)

@@ -6,10 +6,8 @@ from datetime import date, timedelta
 
 import pytest
 
-from src.services.stock_history_analyzer import (
-    StockMovement,
+from production_planning.services.stock_history_analyzer import (
     StockHistoryAnalyzer,
-    StockAnalytics,
 )
 
 
@@ -170,7 +168,6 @@ class TestStockHistoryAnalyzerIntegration:
 
     def test_reconstituer_stock_with_mocked_x3(self, analyzer, mocker):
         """X3Client query_all renvoie des mouvements bruts → reconstituer."""
-        from unittest.mock import MagicMock
 
         today = date.today()
         mock_response = [
