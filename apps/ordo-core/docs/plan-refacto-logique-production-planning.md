@@ -28,9 +28,16 @@ Stabiliser la logique metier de `production_planning` autour de quatre principes
   - diagnostics scheduler sortis de `scheduling/reporting.py` vers `scheduling/order_diagnostics.py`
   - messages faisabilite sortis de `feasibility/feasibility_service.py` vers `feasibility/diagnostics.py`
   - calculs de ratios sortis de `utils/formatters.py` pour separer calcul et rendu
-- [ ] Chantier 4 - Scheduler: Pipeline Metier Explicite
-  - en cours: etapes reporting/evaluation explicitees dans `scheduling/engine.py`
-  - en cours: etapes capacite ligne, pre-affectation cible et boucle journaliere explicitees dans `scheduling/engine.py`
+- [x] Chantier 4 - Scheduler: Pipeline Metier Explicite
+  - etapes 1-2 explicitees dans `scheduling/engine.py`:
+    - selection des besoins (`_select_scheduler_demands`)
+    - couverture stock/OF (`_match_scheduler_demands`, `_build_candidate_specs_from_matching`, enrichissements encours/buffer)
+  - etapes 3-5 explicitees dans `scheduling/engine.py` + `scheduling/lines.py`:
+    - admissibilite capacitaire (`_compute_line_capacities`, `_pick_next_schedulable_candidate_index`)
+    - ordonnancement ligne/jour (`_run_daily_scheduling_loop`, `_commit_selected_candidate`)
+    - verification composants/buffers factorisee (`_evaluate_candidate_material_status`)
+  - etape 6 explicitee dans `scheduling/engine.py`:
+    - evaluation service/retard/non-couverture (`_compute_schedule_kpis`, `_build_order_reporting_rows`)
 
 ## Chantiers restants
 

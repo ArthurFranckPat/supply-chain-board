@@ -634,31 +634,61 @@ def _is_target_scope_order(besoin, loader, target_lines) -> bool:
 
 
 def _select_candidates_from_matching(loader, planning_workdays, target_lines) -> tuple[list[CandidateOF], list[str], list]:
-    """Construit les candidats à partir du matching commande→OF.
-
-    Le matching porte sur TOUTES les commandes (pas de filtre horizon).
-    Seuls les OF dont date_fin est dans l'horizon de planification
-    deviennent candidats de scheduling. Les autres restent visibles
-    dans les order_rows (statut "Hors planification").
-    """
+    """Pipeline steps 1-2: select demands, match stock/OF coverage, build scheduling candidates."""
     planning_horizon_end = next_workday(planning_workdays[-1])
-    commandes = []
+    demandes = _select_scheduler_demands(loader, target_lines)
+    matching_results = _match_scheduler_demands(loader, demandes)
+    candidate_specs, alerts = _build_candidate_specs_from_matching(
+        matching_results,
+        target_lines,
+        planning_horizon_end,
+    )
+    _add_inflight_of_candidates(loader, candidate_specs, target_lines, planning_horizon_end)
+    _add_buffer_bdh_candidates(loader, candidate_specs, target_lines)
+    candidates = _build_candidates_from_specs(loader, candidate_specs, planning_horizon_end)
+    return candidates, alerts, matching_results
+
+
+def _select_scheduler_demands(loader, target_lines) -> list:
+    """Step 1a: keep only demand lines relevant for this scheduling perimeter."""
+    demandes = []
     for besoin in loader.commandes_clients:
         if besoin.qte_restante <= 0:
             continue
         if not _is_target_scope_order(besoin, loader, target_lines):
             continue
-
         if not should_include_besoin_for_scheduler(besoin):
             continue
+        demandes.append(besoin)
+    demandes.sort(
+        key=lambda besoin: (
+            besoin.date_expedition_demandee,
+            besoin.date_commande or date.max,
+            besoin.num_commande,
+        )
+    )
+    return demandes
 
-        commandes.append(besoin)
 
-    commandes.sort(key=lambda b: (b.date_expedition_demandee, b.date_commande or date.max, b.num_commande))
-
+def _match_scheduler_demands(loader, demandes: list):
+    """Step 1b: compute stock/OF coverage through commande→OF matching."""
     matcher = CommandeOFMatcher(loader, date_tolerance_days=30)
-    matching_results = matcher.match_commandes(commandes)
+    return matcher.match_commandes(demandes)
 
+
+def _resolve_line_for_article(article: str, target_lines: dict[str, set[str]]) -> Optional[str]:
+    for line_code, articles in target_lines.items():
+        if article in articles:
+            return line_code
+    return None
+
+
+def _build_candidate_specs_from_matching(
+    matching_results,
+    target_lines: dict[str, set[str]],
+    planning_horizon_end: date,
+) -> tuple[dict[str, dict[str, object]], list[str]]:
+    """Step 2a: build candidate specs from matched OF allocations."""
     candidate_specs: dict[str, dict[str, object]] = {}
     alerts: list[str] = []
     for result in matching_results:
@@ -675,90 +705,95 @@ def _select_candidates_from_matching(loader, planning_workdays, target_lines) ->
 
         for allocation in result.of_allocations:
             of = allocation.of
-            line = None
-            for line_code, articles in target_lines.items():
-                if of.article in articles:
-                    line = line_code
-                    break
+            line = _resolve_line_for_article(of.article, target_lines)
             if line is None:
                 continue
-
-            # Seuls les OF dont la date de fin est dans l'horizon de planification
-            # deviennent candidats de scheduling. Les OF au-delà restent dans
-            # matching_results pour les order_rows (visibilité matching).
             if of.date_fin > planning_horizon_end:
                 continue
 
             spec = candidate_specs.setdefault(
                 of.num_of,
                 {
-                    'of': of,
-                    'line': line,
-                    'due_date': result.commande.date_expedition_demandee,
-                    'orders': set(),
-                    'source': 'matching_client',
+                    "of": of,
+                    "line": line,
+                    "due_date": result.commande.date_expedition_demandee,
+                    "orders": set(),
+                    "source": "matching_client",
                 },
             )
-            if result.commande.date_expedition_demandee < spec['due_date']:
-                spec['due_date'] = result.commande.date_expedition_demandee
-            spec['orders'].add(result.commande.num_commande)
+            if result.commande.date_expedition_demandee < spec["due_date"]:
+                spec["due_date"] = result.commande.date_expedition_demandee
+            spec["orders"].add(result.commande.num_commande)
+    return candidate_specs, alerts
 
-    # Ajouter les OF fermes/planifies en cours pour refléter la charge atelier réelle,
-    # même lorsqu'une commande est couverte par stock dans le matching client.
+
+def _add_inflight_of_candidates(
+    loader,
+    candidate_specs: dict[str, dict[str, object]],
+    target_lines: dict[str, set[str]],
+    planning_horizon_end: date,
+) -> None:
+    """Step 2b: inject firm/planned in-flight OFs to reflect real workshop load."""
     for of in loader.ofs:
         if of.qte_restante <= 0 or of.statut_num not in (1, 2):
             continue
         if of.date_fin > planning_horizon_end:
             continue
-        line = None
-        for line_code, articles in target_lines.items():
-            if of.article in articles:
-                line = line_code
-                break
+        line = _resolve_line_for_article(of.article, target_lines)
         if line is None:
             continue
-
         candidate_specs.setdefault(
             of.num_of,
             {
-                'of': of,
-                'line': line,
-                'due_date': of.date_fin,
-                'orders': set(),
-                'source': 'encours_of',
+                "of": of,
+                "line": line,
+                "due_date": of.date_fin,
+                "orders": set(),
+                "source": "encours_of",
             },
         )
 
-    # Ajouter les OF BDH comme levier de reconstitution tampon sur PP_153.
+
+def _add_buffer_bdh_candidates(
+    loader,
+    candidate_specs: dict[str, dict[str, object]],
+    target_lines: dict[str, set[str]],
+) -> None:
+    """Step 2c: inject BDH replenishment OFs used by the buffer strategy."""
     for tracked_article in BUFFER_THRESHOLDS:
         buffer_ofs = [
-            of for of in loader.ofs
+            of
+            for of in loader.ofs
             if of.article == tracked_article and of.qte_restante > 0 and of.statut_num in (1, 2, 3)
         ]
         buffer_ofs.sort(key=lambda item: (item.date_fin, 0 if item.is_ferme() else 1, item.num_of))
+        line = _resolve_line_for_article(tracked_article, target_lines)
+        if line is None:
+            continue
         for of in buffer_ofs[:25]:
-            line = None
-            for line_code, articles in target_lines.items():
-                if tracked_article in articles:
-                    line = line_code
-                    break
-            if line:
-                candidate_specs.setdefault(
-                    of.num_of,
-                    {
-                        'of': of,
-                        'line': line,
-                        'due_date': of.date_fin,
-                        'orders': set(),
-                        'source': 'buffer_bdh',
-                    },
-                )
+            candidate_specs.setdefault(
+                of.num_of,
+                {
+                    "of": of,
+                    "line": line,
+                    "due_date": of.date_fin,
+                    "orders": set(),
+                    "source": "buffer_bdh",
+                },
+            )
 
+
+def _build_candidates_from_specs(
+    loader,
+    candidate_specs: dict[str, dict[str, object]],
+    planning_horizon_end: date,
+) -> list[CandidateOF]:
+    """Step 2d: materialize scheduler candidates from specs."""
     candidates: list[CandidateOF] = []
     for spec in candidate_specs.values():
-        of = spec['of']
-        line = spec['line']
-        due_date = spec['due_date']
+        of = spec["of"]
+        line = spec["line"]
+        due_date = spec["due_date"]
         charge_map = calculate_article_charge(of.article, of.qte_restante, loader)
         charge_hours = round(charge_map.get(line, 0.0), 3)
         if charge_hours <= 0:
@@ -773,14 +808,21 @@ def _select_candidates_from_matching(loader, planning_workdays, target_lines) ->
                 quantity=of.qte_restante,
                 charge_hours=charge_hours,
                 is_buffer_bdh=of.article in BUFFER_THRESHOLDS,
-                source=str(spec.get('source', 'matching_client')),
+                source=str(spec.get("source", "matching_client")),
                 statut_num=of.statut_num,
-                linked_orders=",".join(sorted(spec.get('orders', set()))),
+                linked_orders=",".join(sorted(spec.get("orders", set()))),
             )
         )
-
-    candidates.sort(key=lambda item: (item.due_date > planning_horizon_end, item.due_date, 0 if item.is_buffer_bdh else 1, item.charge_hours, item.num_of))
-    return candidates, alerts, matching_results
+    candidates.sort(
+        key=lambda item: (
+            item.due_date > planning_horizon_end,
+            item.due_date,
+            0 if item.is_buffer_bdh else 1,
+            item.charge_hours,
+            item.num_of,
+        )
+    )
+    return candidates
 
 
 def _mark_unscheduled_candidates(by_line, alerts) -> None:
