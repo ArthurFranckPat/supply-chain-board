@@ -30,6 +30,7 @@ Stabiliser la logique metier de `production_planning` autour de quatre principes
   - calculs de ratios sortis de `utils/formatters.py` pour separer calcul et rendu
 - [ ] Chantier 4 - Scheduler: Pipeline Metier Explicite
   - en cours: etapes reporting/evaluation explicitees dans `scheduling/engine.py`
+  - en cours: etapes capacite ligne, pre-affectation cible et boucle journaliere explicitees dans `scheduling/engine.py`
 
 ## Chantiers restants
 

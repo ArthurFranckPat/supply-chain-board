@@ -9,22 +9,18 @@ This module intentionally implements a pragmatic V1:
 
 from __future__ import annotations
 
-import csv
-import json
 import os
-from collections import defaultdict
-from dataclasses import dataclass, field
-from datetime import date, datetime, timedelta
+from collections import Counter, defaultdict
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Callable, Optional
 from uuid import uuid4
 
 from ..planning.charge_calculator import calculate_article_charge, get_poste_libelle, POSTE_CHARGE_REGEX
-from ..orders.allocation import StockState
 from ..orders.matching import CommandeOFMatcher
 from ..feasibility.recursive import RecursiveChecker
-from ..planning.calendar import build_workdays, next_workday, previous_workday
-from ..planning.calendar_config import CalendarConfig, is_workday as config_is_workday, build_workdays as config_build_workdays, next_workday as config_next_workday, load_calendar_config
+from ..planning.calendar import next_workday
+from ..planning.calendar_config import CalendarConfig, build_workdays as config_build_workdays, next_workday as config_next_workday, load_calendar_config
 from ..planning.capacity_config import CapacityConfig, load_capacity_config, get_capacity_for_day
 from ..planning.holidays import ensure_holidays_in_calendar
 from ..planning.weights import load_weights
@@ -38,11 +34,8 @@ from .material import (
     build_material_stock_state,
     build_receptions_by_day,
     apply_receptions_for_day,
-    reserve_candidate_components,
     availability_status,
     tracked_bdh_requirements,
-    tracked_kanban_requirements,
-    format_buffer_shortage_reason
 )
 
 PP_830 = "PP_830"
@@ -142,60 +135,13 @@ def run_schedule(
     )
     _progress("resolving_constraints", "Résolution des contraintes", 3, 7)
 
-    # Calcul de la charge brute cible par ligne en se basant sur les candidats réels
-    # Cela inclut les commandes fermes, prévisions (si NOR) et les tampons BDH
-    hours_per_poste = {}
-    max_of_per_poste = {}
-    of_sizes_per_poste: dict[str, list[float]] = {}
-    for c in candidates:
-        hours_per_poste[c.line] = hours_per_poste.get(c.line, 0.0) + c.charge_hours
-        max_of_per_poste[c.line] = max(max_of_per_poste.get(c.line, 0.0), c.charge_hours)
-        of_sizes_per_poste.setdefault(c.line, []).append(c.charge_hours)
-
-    import math
-    line_capacities = {}
-    line_min_open = {}
-    line_active_days: dict[str, int] = {}
-    for line in target_lines.keys():
-        target_hours = hours_per_poste.get(line, 0.0)
-        max_of = max_of_per_poste.get(line, 0.0)
-
-        if target_hours == 0:
-            line_capacities[line] = 7.0
-            line_min_open[line] = 0.0
-            line_active_days[line] = 1
-            continue
-
-        sizes = sorted(of_sizes_per_poste.get(line, []))
-        median_size = sizes[len(sizes) // 2] if sizes else 7.0
-
-        # Lissage sur la base de la taille médiane des OF
-        active_days = max(1, math.ceil(target_hours / max(median_size * 3, 7.0)))
-        active_days = min(len(workdays), active_days)
-
-        # Éviter un dernier jour sous-rempli (< 7h) qui dégrade le taux d'ouverture
-        while active_days > 1 and target_hours / active_days < 7.0:
-            active_days -= 1
-
-        line_active_days[line] = active_days
-
-        # Charge journalière lissée
-        smoothed_daily = target_hours / active_days
-
-        # Marge de 10% pour absorber les setups et arrondis
-        capacity = smoothed_daily * 1.10
-
-        # Garantir au moins la taille du plus gros OF (sinon impossible à planifier)
-        capacity = max(capacity, max_of)
-
-        # Capacité physique maximale : résolue sur le 1er jour ouvré (pas reference_date
-        # qui peut tomber un week-end et retourner une capacité nulle).
-        cap_ref_day = workdays[0] if workdays else reference_date
-        max_cap = get_capacity_for_day(line, cap_ref_day, capacity_config) if capacity_config else 14.0
-        capacity = min(max_cap * 0.90, capacity)
-
-        line_capacities[line] = capacity
-        line_min_open[line] = 0.0
+    line_capacities, line_min_open = _compute_line_capacities(
+        candidates,
+        target_lines,
+        workdays,
+        reference_date,
+        capacity_config,
+    )
 
     day_plans = {
         line: [DaySchedule(line=line, day=day) for day in workdays]
@@ -212,98 +158,32 @@ def run_schedule(
     incoming_buffer: dict[date, dict[str, float]] = defaultdict(lambda: defaultdict(float))
     stock_projection: list[dict[str, object]] = []
 
-    by_line = {
-        line: [candidate for candidate in candidates if candidate.line == line]
-        for line in target_lines.keys()
-    }
-
-    # Pré-répartition des candidats en buckets journaliers.
-    # Deux stratégies :
-    # 1. Si on a un profil réel pour l'article, on assigne au jour où la réalité produit le plus
-    # 2. Sinon, round-robin par charge pour lisser
-    _profile_path = os.environ.get('ORDO_PRODUCTION_PROFILE', '')
-    article_day_profile = _load_article_day_profile(_profile_path) if _profile_path else {}
-    for line, line_candidates in by_line.items():
-        if not line_candidates:
-            continue
-        line_candidates.sort(key=lambda c: (c.due_date, c.charge_hours, c.num_of))
-        # Build weekday -> workday mapping
-        weekday_to_workday = {}
-        for wd in workdays:
-            weekday_to_workday[wd.weekday()] = wd
-        # Assign using reality profile when available
-        unassigned = []
-        for c in line_candidates:
-            profile = article_day_profile.get(c.article)
-            if profile:
-                best_dow = profile.most_common(1)[0][0]
-                target = weekday_to_workday.get(best_dow)
-                if target:
-                    c.target_day = target
-                    continue
-            unassigned.append(c)
-        # Round-robin fallback for articles without reality data
-        n_days = len(workdays)
-        for i, c in enumerate(unassigned):
-            c.target_day = workdays[i % n_days]
+    by_line = _build_line_candidate_map(candidates, target_lines)
+    _assign_candidate_target_days(
+        by_line,
+        workdays,
+        profile_path=os.environ.get("ORDO_PRODUCTION_PROFILE", ""),
+    )
 
     schedulers = {line: GenericLineScheduler(line, capacity_hours=line_capacities[line], min_open_hours=line_min_open[line]) for line in target_lines.keys()}
     _progress("computing_schedule", "Calcul du planning", 4, 7)
-
-    # --- Capacite residuelle : charger les heures consommees du run precedent ---
-    consumed_hours_map: dict[tuple[str, date], float] = {}
-    try:
-        from . import db_schedule, residual_capacity
-        db_schedule.init_db()
-        prev_run_id = db_schedule.get_latest_run_id()
-        if prev_run_id is not None:
-            consumed_hours_map = residual_capacity.compute_consumed_capacity(
-                previous_run_id=prev_run_id,
-                reference_date=reference_date,
-                loader=loader,
-                db_module=db_schedule,
-            )
-    except Exception:
-        pass  # Non-fatal : si la persistence echoue, scheduler from scratch
-
-    for day_idx, day in enumerate(workdays):
-        if not immediate_components:
-            apply_receptions_for_day(material_state, receptions_by_day, day)
-        for article, qty in incoming_buffer[day].items():
-            projected_buffer[article] += qty
-
-        is_last_day = (day_idx == len(workdays) - 1)
-        for line, scheduler in schedulers.items():
-            consumed = consumed_hours_map.get((line, day), 0.0)
-            day_plan = scheduler.schedule_day(
-                day=day,
-                candidates=by_line[line],
-                loader=loader,
-                checker=checker,
-                projected_buffer=projected_buffer,
-                incoming_buffer=incoming_buffer,
-                material_state=material_state,
-                alerts=alerts,
-                is_last_day=is_last_day,
-                immediate_components=immediate_components,
-                immediate_reference_day=workdays[0],
-                blocking_components_mode=blocking_components_mode,
-                consumed_hours=consumed,
-            )
-            day_plans[line][workdays.index(day)] = day_plan
-            
-            for assignment in day_plan.assignments:
-                for article, qty in tracked_bdh_requirements(loader, assignment.article, assignment.quantity).items():
-                    projected_buffer[article] -= qty
-
-        for article in BUFFER_THRESHOLDS:
-            stock_projection.append(
-                {
-                    "jour": day.isoformat(),
-                    "article": article,
-                    "stock_projete": round(projected_buffer[article], 3),
-                }
-            )
+    _run_daily_scheduling_loop(
+        loader=loader,
+        reference_date=reference_date,
+        workdays=workdays,
+        immediate_components=immediate_components,
+        blocking_components_mode=blocking_components_mode,
+        checker=checker,
+        receptions_by_day=receptions_by_day,
+        material_state=material_state,
+        incoming_buffer=incoming_buffer,
+        projected_buffer=projected_buffer,
+        by_line=by_line,
+        schedulers=schedulers,
+        day_plans=day_plans,
+        alerts=alerts,
+        stock_projection=stock_projection,
+    )
 
     _progress("generating_reports", "Génération des rapports", 5, 7)
     plannings = _flatten_plannings(day_plans, target_lines)
@@ -509,6 +389,186 @@ def _compute_schedule_kpis(
     }
 
 
+def _compute_line_capacities(
+    candidates: list[CandidateOF],
+    target_lines: dict[str, set[str]],
+    workdays: list[date],
+    reference_date: date,
+    capacity_config: Optional[CapacityConfig],
+) -> tuple[dict[str, float], dict[str, float]]:
+    """Pipeline step 4a: derive per-line daily capacity targets."""
+    import math
+
+    hours_per_poste: dict[str, float] = {}
+    max_of_per_poste: dict[str, float] = {}
+    of_sizes_per_poste: dict[str, list[float]] = {}
+    for candidate in candidates:
+        hours_per_poste[candidate.line] = hours_per_poste.get(candidate.line, 0.0) + candidate.charge_hours
+        max_of_per_poste[candidate.line] = max(
+            max_of_per_poste.get(candidate.line, 0.0),
+            candidate.charge_hours,
+        )
+        of_sizes_per_poste.setdefault(candidate.line, []).append(candidate.charge_hours)
+
+    line_capacities: dict[str, float] = {}
+    line_min_open: dict[str, float] = {}
+    for line in target_lines.keys():
+        target_hours = hours_per_poste.get(line, 0.0)
+        max_of = max_of_per_poste.get(line, 0.0)
+
+        if target_hours == 0:
+            line_capacities[line] = 7.0
+            line_min_open[line] = 0.0
+            continue
+
+        sizes = sorted(of_sizes_per_poste.get(line, []))
+        median_size = sizes[len(sizes) // 2] if sizes else 7.0
+
+        active_days = max(1, math.ceil(target_hours / max(median_size * 3, 7.0)))
+        active_days = min(len(workdays), active_days)
+        while active_days > 1 and target_hours / active_days < 7.0:
+            active_days -= 1
+
+        smoothed_daily = target_hours / active_days
+        capacity = smoothed_daily * 1.10
+        capacity = max(capacity, max_of)
+
+        cap_ref_day = workdays[0] if workdays else reference_date
+        max_cap = get_capacity_for_day(line, cap_ref_day, capacity_config) if capacity_config else 14.0
+        capacity = min(max_cap * 0.90, capacity)
+
+        line_capacities[line] = capacity
+        line_min_open[line] = 0.0
+
+    return line_capacities, line_min_open
+
+
+def _build_line_candidate_map(
+    candidates: list[CandidateOF],
+    target_lines: dict[str, set[str]],
+) -> dict[str, list[CandidateOF]]:
+    """Pipeline step 4b: group candidates by line for sequencers."""
+    return {
+        line: [candidate for candidate in candidates if candidate.line == line]
+        for line in target_lines.keys()
+    }
+
+
+def _assign_candidate_target_days(
+    by_line: dict[str, list[CandidateOF]],
+    workdays: list[date],
+    *,
+    profile_path: str,
+) -> None:
+    """Pipeline step 4c: assign a preferred day per candidate."""
+    if not workdays:
+        return
+
+    article_day_profile = _load_article_day_profile(profile_path) if profile_path else {}
+    for _line, line_candidates in by_line.items():
+        if not line_candidates:
+            continue
+        line_candidates.sort(key=lambda candidate: (candidate.due_date, candidate.charge_hours, candidate.num_of))
+        weekday_to_workday = {workday.weekday(): workday for workday in workdays}
+        unassigned: list[CandidateOF] = []
+        for candidate in line_candidates:
+            profile = article_day_profile.get(candidate.article)
+            if profile:
+                best_dow = profile.most_common(1)[0][0]
+                target = weekday_to_workday.get(best_dow)
+                if target:
+                    candidate.target_day = target
+                    continue
+            unassigned.append(candidate)
+
+        n_days = len(workdays)
+        for index, candidate in enumerate(unassigned):
+            candidate.target_day = workdays[index % n_days]
+
+
+def _load_residual_consumed_hours(
+    loader,
+    reference_date: date,
+) -> dict[tuple[str, date], float]:
+    """Load residual consumed capacity from previous persisted run when available."""
+    consumed_hours_map: dict[tuple[str, date], float] = {}
+    try:
+        from . import db_schedule, residual_capacity
+
+        db_schedule.init_db()
+        prev_run_id = db_schedule.get_latest_run_id()
+        if prev_run_id is not None:
+            consumed_hours_map = residual_capacity.compute_consumed_capacity(
+                previous_run_id=prev_run_id,
+                reference_date=reference_date,
+                loader=loader,
+                db_module=db_schedule,
+            )
+    except Exception:
+        pass
+    return consumed_hours_map
+
+
+def _run_daily_scheduling_loop(
+    *,
+    loader,
+    reference_date: date,
+    workdays: list[date],
+    immediate_components: bool,
+    blocking_components_mode: str,
+    checker: RecursiveChecker,
+    receptions_by_day: dict[date, list[tuple[str, float]]],
+    material_state,
+    incoming_buffer: dict[date, dict[str, float]],
+    projected_buffer: dict[str, float],
+    by_line: dict[str, list[CandidateOF]],
+    schedulers: dict[str, GenericLineScheduler],
+    day_plans: dict[str, list[DaySchedule]],
+    alerts: list[str],
+    stock_projection: list[dict[str, object]],
+) -> None:
+    """Pipeline step 4d: schedule by day with material and residual-capacity updates."""
+    consumed_hours_map = _load_residual_consumed_hours(loader, reference_date)
+
+    for day_idx, day in enumerate(workdays):
+        if not immediate_components:
+            apply_receptions_for_day(material_state, receptions_by_day, day)
+        for article, qty in incoming_buffer[day].items():
+            projected_buffer[article] += qty
+
+        is_last_day = day_idx == len(workdays) - 1
+        for line, scheduler in schedulers.items():
+            consumed = consumed_hours_map.get((line, day), 0.0)
+            day_plan = scheduler.schedule_day(
+                day=day,
+                candidates=by_line[line],
+                loader=loader,
+                checker=checker,
+                projected_buffer=projected_buffer,
+                incoming_buffer=incoming_buffer,
+                material_state=material_state,
+                alerts=alerts,
+                is_last_day=is_last_day,
+                immediate_components=immediate_components,
+                immediate_reference_day=workdays[0],
+                blocking_components_mode=blocking_components_mode,
+                consumed_hours=consumed,
+            )
+            day_plans[line][workdays.index(day)] = day_plan
+            for assignment in day_plan.assignments:
+                for article, qty in tracked_bdh_requirements(loader, assignment.article, assignment.quantity).items():
+                    projected_buffer[article] -= qty
+
+        for article in BUFFER_THRESHOLDS:
+            stock_projection.append(
+                {
+                    "jour": day.isoformat(),
+                    "article": article,
+                    "stock_projete": round(projected_buffer[article], 3),
+                }
+            )
+
+
 def _load_article_day_profile(csv_path: str) -> dict[str, Counter]:
     """Charge les profils de production réels par article depuis le CSV historique.
 
@@ -516,8 +576,7 @@ def _load_article_day_profile(csv_path: str) -> dict[str, Counter]:
     Ne charge que les jours ouvrés (lundi-vendredi).
     """
     from pathlib import Path
-    from collections import Counter as _Counter
-    article_profile: dict[str, _Counter] = {}
+    article_profile: dict[str, Counter] = {}
     p = Path(csv_path)
     if not p.exists():
         return article_profile
@@ -543,7 +602,7 @@ def _load_article_day_profile(csv_path: str) -> dict[str, Counter]:
             except (ValueError, IndexError):
                 qte = 0
             if article not in article_profile:
-                article_profile[article] = _Counter()
+                article_profile[article] = Counter()
             article_profile[article][dow] += qte
     return article_profile
 
@@ -582,7 +641,6 @@ def _select_candidates_from_matching(loader, planning_workdays, target_lines) ->
     deviennent candidats de scheduling. Les autres restent visibles
     dans les order_rows (statut "Hors planification").
     """
-    reference_date = planning_workdays[0]
     planning_horizon_end = next_workday(planning_workdays[-1])
     commandes = []
     for besoin in loader.commandes_clients:
@@ -618,9 +676,9 @@ def _select_candidates_from_matching(loader, planning_workdays, target_lines) ->
         for allocation in result.of_allocations:
             of = allocation.of
             line = None
-            for l, articles in target_lines.items():
+            for line_code, articles in target_lines.items():
                 if of.article in articles:
-                    line = l
+                    line = line_code
                     break
             if line is None:
                 continue
@@ -653,9 +711,9 @@ def _select_candidates_from_matching(loader, planning_workdays, target_lines) ->
         if of.date_fin > planning_horizon_end:
             continue
         line = None
-        for l, articles in target_lines.items():
+        for line_code, articles in target_lines.items():
             if of.article in articles:
-                line = l
+                line = line_code
                 break
         if line is None:
             continue
@@ -680,9 +738,9 @@ def _select_candidates_from_matching(loader, planning_workdays, target_lines) ->
         buffer_ofs.sort(key=lambda item: (item.date_fin, 0 if item.is_ferme() else 1, item.num_of))
         for of in buffer_ofs[:25]:
             line = None
-            for l, articles in target_lines.items():
+            for line_code, articles in target_lines.items():
                 if tracked_article in articles:
-                    line = l
+                    line = line_code
                     break
             if line:
                 candidate_specs.setdefault(

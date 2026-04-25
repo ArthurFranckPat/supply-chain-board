@@ -22,7 +22,6 @@ from .diagnostics import (
     alert_order_line_not_found,
     alert_purchase_supply_insufficient,
 )
-from .recursive import RecursiveChecker
 from .feasibility_models import (
     AffectedOrder,
     BOMNode,
@@ -651,7 +650,6 @@ class FeasibilityService:
         """
         # Baseline: original date + quantity
         baseline_missing: dict[str, int] = {}
-        baseline_alerts: list[str] = []
         if original_date is not None:
             try:
                 _ctx_orig, _checker_orig, orig_result = self._run_component_check(
@@ -662,7 +660,6 @@ class FeasibilityService:
                     reference_date=original_date,
                 )
                 baseline_missing = orig_result.missing_components
-                baseline_alerts = orig_result.alerts
             except Exception:
                 pass
 
