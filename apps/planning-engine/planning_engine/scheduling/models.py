@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date
-from typing import Optional
+from typing import Any, Optional
 
 
 @dataclass
@@ -27,6 +27,7 @@ class CandidateOF:
     reason: str = ""
     deviations: int = 0
     target_day: Optional[date] = None  # Jour cible idéal pour le lissage
+    decision_trace: Optional[Any] = None  # DecisionTrace if trace mode enabled
 
 
 @dataclass

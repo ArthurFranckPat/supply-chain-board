@@ -138,7 +138,9 @@ def _write_planning_csv(path: Path, planning: list[CandidateOF]) -> None:
             "source",
             "composants_bloquants",
             "realisable",
-            "cause_non_realisable",
+            'cause_non_realisable',
+            'decision_trace',
+            'reason_human',
         ])
         sorted_rows = sorted(
             planning,
@@ -151,6 +153,8 @@ def _write_planning_csv(path: Path, planning: list[CandidateOF]) -> None:
         for item in sorted_rows:
             realisable = "oui" if item.scheduled_day is not None else "non"
             cause_non_realisable = "" if realisable == "oui" else (item.reason or "capacité insuffisante ou hors horizon")
+            decision_trace_json = "" if item.decision_trace is None else str(item.decision_trace)
+            reason_human = cause_non_realisable  # Par défaut = cause_non_realisable
             writer.writerow(
                 [
                     item.num_of,
@@ -166,6 +170,8 @@ def _write_planning_csv(path: Path, planning: list[CandidateOF]) -> None:
                     item.blocking_components,
                     realisable,
                     cause_non_realisable,
+                    decision_trace_json,
+                    reason_human,
                 ]
             )
 
