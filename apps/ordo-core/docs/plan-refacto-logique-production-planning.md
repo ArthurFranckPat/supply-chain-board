@@ -19,6 +19,17 @@ Stabiliser la logique metier de `production_planning` autour de quatre principes
 - Unification pratique du calendrier
 - Suppression de l'ancien pipeline scheduler parallele
 
+## Etat d avancement (2026-04-25)
+
+- [x] Chantier 1 - Availability Kernel
+- [x] Chantier 2 - Regles Metier Centralisees
+- [x] Chantier 3 - Separation Calcul / Diagnostic / Reporting
+  - diagnostics sortis de `orders/matching.py` vers `orders/matching_diagnostics.py`
+  - diagnostics scheduler sortis de `scheduling/reporting.py` vers `scheduling/order_diagnostics.py`
+  - messages faisabilite sortis de `feasibility/feasibility_service.py` vers `feasibility/diagnostics.py`
+  - calculs de ratios sortis de `utils/formatters.py` pour separer calcul et rendu
+- [ ] Chantier 4 - Scheduler: Pipeline Metier Explicite
+
 ## Chantiers restants
 
 ### 1. Availability Kernel

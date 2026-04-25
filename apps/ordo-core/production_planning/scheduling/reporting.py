@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Optional
 
 from .models import CandidateOF, SchedulerResult
+from .order_diagnostics import build_order_diagnostic
 
 
 def build_unscheduled_rows(by_line: dict[str, list[CandidateOF]]) -> list[dict[str, object]]:
@@ -41,40 +42,17 @@ def build_order_rows(matching_results, planned_by_of: dict[str, date], candidate
         latest_planned_day = max((day for day in planned_days if day is not None), default=None)
         candidate = candidate_by_of.get(primary_of.num_of) if primary_of else None
 
-        if result.remaining_uncovered_qty > 0:
-            statut = 'Non couverte'
-            cause = ' | '.join(result.alertes) if result.alertes else (
-                f"reliquat non couvert: {result.remaining_uncovered_qty}"
-            )
-        elif not allocations and primary_of is None:
-            if 'stock complet' in result.matching_method.lower():
-                statut = 'Servie sur stock'
-                cause = 'stock complet'
-            else:
-                statut = 'Non couverte'
-                cause = ' | '.join(result.alertes) if result.alertes else result.matching_method
-        elif planning_horizon_end and commande.date_expedition_demandee > planning_horizon_end:
-            statut = 'Hors planification'
-            cause = f"échéance {commande.date_expedition_demandee.isoformat()} au-delà de l'horizon"
-        elif any(day is None for day in planned_days):
-            statut = 'Non planifiée'
-            cause = candidate.reason if candidate and candidate.reason else 'OF matché mais non injecté au planning'
-        elif latest_planned_day is not None and latest_planned_day <= commande.date_expedition_demandee:
-            statut = 'Servie par OF planifiés à temps'
-            cause = 'OF planifiés à temps'
-        else:
-            statut = 'Servie en retard'
-            if candidate is not None:
-                status_at_due, reason_at_due = availability_status_fn(checker, loader, candidate, commande.date_expedition_demandee)
-                if status_at_due == 'blocked':
-                    cause = reason_at_due
-                else:
-                    cause = (
-                        f"dernier OF planifié le {latest_planned_day.isoformat()} après l'échéance du {commande.date_expedition_demandee.isoformat()} | "
-                        "capacité ligne saturée avant son tour"
-                    )
-            else:
-                cause = f"dernier OF planifié le {latest_planned_day.isoformat()} après l'échéance du {commande.date_expedition_demandee.isoformat()}"
+        diagnostic = build_order_diagnostic(
+            result,
+            latest_planned_day=latest_planned_day,
+            candidate=candidate,
+            planning_horizon_end=planning_horizon_end,
+            availability_status_fn=availability_status_fn,
+            checker=checker,
+            loader=loader,
+        )
+        statut = diagnostic.status
+        cause = diagnostic.reason
 
         of_codes = ",".join(allocation.of.num_of for allocation in allocations) if allocations else (primary_of.num_of if primary_of else "")
         of_article = primary_of.article if primary_of else ""

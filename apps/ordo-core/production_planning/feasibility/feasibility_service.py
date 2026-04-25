@@ -17,6 +17,11 @@ from ..domain_rules import is_purchase_article
 from ..planning.charge_calculator import calculate_article_charge
 from ..planning.calendar_config import CalendarConfig, next_workday, is_workday
 from ..planning.capacity_config import CapacityConfig
+from .diagnostics import (
+    alert_no_feasible_date,
+    alert_order_line_not_found,
+    alert_purchase_supply_insufficient,
+)
 from .recursive import RecursiveChecker
 from .feasibility_models import (
     AffectedOrder,
@@ -200,7 +205,7 @@ class FeasibilityService:
                 description=description,
                 quantity=quantity,
                 feasible_date=None,
-                alerts=[f"Aucune date feasible trouvee dans {max_horizon_days} jours"],
+                alerts=[alert_no_feasible_date(max_horizon_days)],
                 computation_ms=elapsed_ms,
             )
 
@@ -233,7 +238,7 @@ class FeasibilityService:
                 article=article,
                 description=art.description if art else article,
                 quantity=0,
-                alerts=[f"Commande {num_commande} / article {article} non trouvee"],
+                alerts=[alert_order_line_not_found(num_commande, article)],
                 computation_ms=int((time.monotonic() - t0) * 1000),
             )
 
@@ -424,7 +429,7 @@ class FeasibilityService:
             article=article,
             description=description,
             quantity=quantity,
-            alerts=["Stock et receptions insuffisants meme a horizon max"],
+            alerts=[alert_purchase_supply_insufficient()],
             computation_ms=elapsed_ms,
         )
 
