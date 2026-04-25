@@ -1,15 +1,13 @@
 import { type ReactNode } from 'react'
+import { useLocation } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
 import { DetailDrawer } from './DetailDrawer'
 import { useDetailDrawer } from '@/context/DetailDrawerContext'
-import type { ViewKey } from './nav'
 import type { BackendState, LoadState } from '@/hooks/useAppBootstrap'
 import type { SchedulerResult } from '@/types/scheduler'
 
 interface AppLayoutProps {
-  activeView: ViewKey
-  onNavigate: (view: ViewKey) => void
   sidebarCollapsed: boolean
   onToggleSidebar: () => void
   backendState: BackendState
@@ -21,8 +19,6 @@ interface AppLayoutProps {
 }
 
 export function AppLayout({
-  activeView,
-  onNavigate,
   sidebarCollapsed,
   onToggleSidebar,
   backendState,
@@ -33,12 +29,11 @@ export function AppLayout({
   children,
 }: AppLayoutProps) {
   const { item, close } = useDetailDrawer()
+  const location = useLocation()
 
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar
-        activeView={activeView}
-        onNavigate={onNavigate}
         collapsed={sidebarCollapsed}
         onToggleCollapse={onToggleSidebar}
         backendState={backendState}
@@ -47,7 +42,7 @@ export function AppLayout({
 
       <main className="flex-1 flex flex-col overflow-hidden">
         <Topbar
-          activeView={activeView}
+          activePath={location.pathname}
           onRunSchedule={onRunSchedule}
           scheduleResult={scheduleResult}
         />

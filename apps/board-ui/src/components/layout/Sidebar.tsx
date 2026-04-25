@@ -1,18 +1,20 @@
+import { Fragment } from 'react'
 import { Settings, Package, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { NavLink } from 'react-router-dom'
 import { NAV_ITEMS } from './nav'
-import type { ViewKey } from './nav'
 import type { BackendState, LoadState } from '@/hooks/useAppBootstrap'
 
 interface SidebarProps {
-  activeView: ViewKey
-  onNavigate: (view: ViewKey) => void
   collapsed: boolean
   onToggleCollapse: () => void
   backendState: BackendState
   loadState: LoadState
 }
 
-export function Sidebar({ activeView, onNavigate, collapsed, onToggleCollapse, backendState, loadState }: SidebarProps) {
+export function Sidebar({ collapsed, onToggleCollapse, backendState, loadState }: SidebarProps) {
+  const linkClass = (isActive: boolean, base: string) =>
+    `${base} ${isActive ? 'bg-primary text-primary-foreground' : 'text-foreground hover:bg-accent'}`
+
   return (
     <aside className={`shrink-0 border-r border-border bg-card flex flex-col transition-[width] duration-200 ${collapsed ? 'w-[56px]' : 'w-[220px]'}`}>
       {/* Brand + collapse toggle */}
@@ -38,21 +40,17 @@ export function Sidebar({ activeView, onNavigate, collapsed, onToggleCollapse, b
       {/* Nav items */}
       <nav className={`flex flex-col gap-0.5 flex-1 ${collapsed ? 'px-2 pt-3' : 'px-2.5'}`}>
         {NAV_ITEMS.map((item) => (
-          <button
+          <NavLink
             key={item.key}
-            onClick={() => onNavigate(item.key)}
+            to={item.path}
             title={collapsed ? item.label : undefined}
-            className={`w-full flex items-center gap-2.5 py-2 rounded-[7px] text-[12.5px] font-medium transition-colors text-left ${
-              collapsed ? 'px-0 justify-center' : 'px-[11px]'
-            } ${
-              activeView === item.key
-                ? 'bg-primary text-primary-foreground'
-                : 'text-foreground hover:bg-accent'
-            }`}
+            className={({ isActive }) =>
+              linkClass(isActive, `w-full flex items-center gap-2.5 py-2 rounded-[7px] text-[12.5px] font-medium transition-colors text-left ${collapsed ? 'px-0 justify-center' : 'px-[11px]'}`)
+            }
           >
             {item.icon}
             {!collapsed && item.label}
-          </button>
+          </NavLink>
         ))}
       </nav>
 
@@ -63,20 +61,16 @@ export function Sidebar({ activeView, onNavigate, collapsed, onToggleCollapse, b
             Système
           </div>
         )}
-        <button
-          onClick={() => onNavigate('settings')}
+        <NavLink
+          to="/settings"
           title={collapsed ? 'Paramètres' : undefined}
-          className={`w-full flex items-center gap-2.5 py-2 rounded-[7px] text-[12.5px] font-medium transition-colors text-left ${
-            collapsed ? 'px-0 justify-center' : 'px-[11px]'
-          } ${
-            activeView === 'settings'
-              ? 'bg-primary text-primary-foreground'
-              : 'text-foreground hover:bg-accent'
-          }`}
+          className={({ isActive }) =>
+            linkClass(isActive, `w-full flex items-center gap-2.5 py-2 rounded-[7px] text-[12.5px] font-medium transition-colors text-left ${collapsed ? 'px-0 justify-center' : 'px-[11px]'}`)
+          }
         >
           <Settings className="h-[15px] w-[15px] text-muted-foreground" />
           {!collapsed && 'Paramètres'}
-        </button>
+        </NavLink>
       </div>
 
       {/* Status indicators */}
@@ -114,10 +108,10 @@ export function Sidebar({ activeView, onNavigate, collapsed, onToggleCollapse, b
         >
           {collapsed
             ? <PanelLeftOpen className="h-4 w-4 shrink-0" />
-            : <>
+            : <Fragment>
                 <PanelLeftClose className="h-4 w-4 shrink-0" />
                 <span>Réduire</span>
-              </>
+              </Fragment>
           }
         </button>
       </div>

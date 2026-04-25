@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { Segmented } from '@/components/ui/segmented'
 import { SimpleTooltip } from '@/components/ui/tooltip'
@@ -27,7 +28,6 @@ interface PilotageViewProps {
   options: SchedulingOptions
   onRunSchedule: () => void
   onOptionsChange: (options: SchedulingOptions) => void
-  onNavigate: (view: string) => void
 }
 
 const BLOCKING_OPTIONS: Array<{ value: string; label: string; hint: string }> = [
@@ -53,10 +53,10 @@ const SNAPSHOT_ICONS: Record<string, React.ReactNode> = {
 }
 
 const QUICK_NAV = [
-  { view: 'order-tracking', label: 'Commandes', icon: <ShoppingCart className="h-4 w-4" /> },
-  { view: 'capacity', label: 'Capacités', icon: <CalendarDays className="h-4 w-4" /> },
-  { view: 'feasibility', label: 'Faisabilité', icon: <CheckCircle className="h-4 w-4" /> },
-  { view: 'analyse-rupture', label: 'Ruptures', icon: <AlertTriangle className="h-4 w-4" /> },
+  { path: '/order-tracking', label: 'Commandes', icon: <ShoppingCart className="h-4 w-4" /> },
+  { path: '/capacity', label: 'Capacités', icon: <CalendarDays className="h-4 w-4" /> },
+  { path: '/feasibility', label: 'Faisabilité', icon: <CheckCircle className="h-4 w-4" /> },
+  { path: '/analyse-rupture', label: 'Ruptures', icon: <AlertTriangle className="h-4 w-4" /> },
 ]
 
 function statusDot(state: 'checking' | 'ready' | 'error' | boolean) {
@@ -82,8 +82,8 @@ export function PilotageView({
   options,
   onRunSchedule,
   onOptionsChange,
-  onNavigate,
 }: PilotageViewProps) {
+  const navigate = useNavigate()
   const counts = lastSourceSnapshot?.counts
   const isReady = loadState === 'ready'
 
@@ -323,8 +323,8 @@ export function PilotageView({
             <div className="grid grid-cols-2 gap-2">
               {QUICK_NAV.map((item) => (
                 <button
-                  key={item.view}
-                  onClick={() => onNavigate(item.view)}
+                  key={item.path}
+                  onClick={() => navigate(item.path)}
                   className="flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl bg-muted/50 hover:bg-accent transition-colors text-foreground"
                 >
                   {item.icon}
