@@ -9,11 +9,10 @@ import {
   ResponsiveContainer,
   ReferenceLine,
   ReferenceArea,
-  Legend,
 } from 'recharts'
 import type { StockEvolutionResponse } from '@/types/stock-evolution'
 import type { LotEcoArticle } from '@/types/lot-eco'
-import { TrendingDown, TrendingUp, Minus, Package } from 'lucide-react'
+import { Package } from 'lucide-react'
 
 interface Props {
   data: StockEvolutionResponse
@@ -45,10 +44,9 @@ function addDays(isoDate: string, days: number): string {
   return d.toISOString().slice(0, 10)
 }
 
-function CustomTooltip({ active, payload, label }: {
+function CustomTooltip({ active, payload }: {
   active?: boolean
   payload?: Array<{ value: number; payload: ChartEntry }>
-  label?: string
 }) {
   if (!active || !payload?.length) return null
   const entry = payload[0]!.payload
@@ -168,7 +166,6 @@ export function StockEvolutionChart({ data, lotEco }: Props) {
     if (!lastEntry) return []
 
     let currentStock = lastEntry.stock ?? 0
-    let nextDeliveryDate = lastHistoryDate
     const forecasts: ChartEntry[] = []
 
     // Advance to last history date
@@ -220,7 +217,6 @@ export function StockEvolutionChart({ data, lotEco }: Props) {
         })
 
         currentStock += qty
-        nextDeliveryDate = deliveryDate
       } else {
         forecasts.push({
           date: fmtDate(cursor),

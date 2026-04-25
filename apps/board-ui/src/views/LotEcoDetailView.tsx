@@ -7,8 +7,7 @@ import type { StockEvolutionResponse } from '@/types/stock-evolution'
 import { lotEcoCache } from '@/api/lotEcoCache'
 import {
   ArrowLeft, Package, TrendingDown, AlertTriangle, CheckCircle2, Minus,
-  CalendarDays, Boxes, Scale, Euro, Clock, Package2, Layers,
-  ArrowRight, Info, Database
+  CalendarDays, Boxes, Scale, Euro, Info
 } from 'lucide-react'
 
 type Props = {
@@ -41,37 +40,6 @@ function StatutBadge({ statut }: { statut: StatutLot }) {
       {icon}
       {label}
     </span>
-  )
-}
-
-function MetricCard({
-  icon,
-  label,
-  value,
-  sub,
-  accent = false,
-  highlight = false,
-}: {
-  icon: React.ReactNode
-  label: string
-  value: string
-  sub?: string
-  accent?: boolean
-  highlight?: boolean
-}) {
-  return (
-    <div className={`relative overflow-hidden rounded-2xl border p-5 transition-all ${highlight ? 'border-primary/30 bg-primary/[0.03]' : 'border-border bg-card'}`}>
-      <div className="flex items-start justify-between">
-        <div className="space-y-2">
-          <p className="text-[10.5px] text-stone-400 font-medium uppercase tracking-wider">{label}</p>
-          <p className={`text-2xl font-bold ${accent ? 'text-primary' : highlight ? 'text-primary' : 'text-foreground'}`}>{value}</p>
-          {sub && <p className="text-[10.5px] text-stone-400">{sub}</p>}
-        </div>
-        <div className={`p-2.5 rounded-xl ${highlight ? 'bg-primary/10' : 'bg-stone-100'}`}>
-          {icon}
-        </div>
-      </div>
-    </div>
   )
 }
 

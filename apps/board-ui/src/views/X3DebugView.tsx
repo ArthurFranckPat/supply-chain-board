@@ -33,13 +33,6 @@ export function X3DebugView() {
     setLoading(true)
     setResult(null)
     try {
-      const params = new URLSearchParams({
-        classe,
-        representation,
-        ...(where ? { where } : {}),
-        ...(orderBy ? { order_by: orderBy } : {}),
-        ...(count ? { count } : {}),
-      })
       const res = await fetch(`${API_BASE}/x3/query`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

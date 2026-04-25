@@ -411,7 +411,7 @@ export function LotEcoView() {
       {/* Summary stats */}
       <AnimatedEntry delay={100}>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {stats.map((stat, i) => {
+          {stats.map((stat) => {
             const Icon = stat.icon
             return (
               <div key={stat.label} className="relative overflow-hidden bg-card border border-border rounded-2xl p-5 shadow-sm">
@@ -452,7 +452,7 @@ export function LotEcoView() {
       <AnimatedEntry delay={200}>
         <div className="flex items-center justify-between gap-6">
           <div className="flex gap-1 bg-stone-100/80 rounded-xl p-1 backdrop-blur-sm">
-            {TAB_ITEMS.map((t, i) => {
+            {TAB_ITEMS.map((t) => {
               const count = t.key === 'surdimensionne' ? result.nb_surdimensionne
                 : t.key === 'sous_dimensionne' ? result.nb_sousdimensionne
                 : t.key === 'ok' ? result.nb_ok

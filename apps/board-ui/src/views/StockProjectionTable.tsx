@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { apiClient, ApiError } from '@/api/client'
 import type { StockProjectionResponse } from '@/types/stock-evolution'
-import { TrendingUp, TrendingDown, AlertTriangle, Package } from 'lucide-react'
+import { AlertTriangle } from 'lucide-react'
 
 interface Props {
   articleCode: string
@@ -113,7 +113,6 @@ export function StockProjectionTable({ articleCode, stockInitial, lotEco, lotOpt
             const prodH = Math.max((w.production_entries / maxStock) * 100, 0)
             const simH = Math.max((w.simulated_replenishment / maxStock) * 100, 0)
             const isFirst = i === 0
-            const isS = w.week_label.startsWith('S+')
             return (
               <div key={i} className="flex-1 flex flex-col justify-end gap-px group relative">
                 {/* Tooltip on hover */}
