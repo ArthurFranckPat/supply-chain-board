@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, APIRouter, Request
+from fastapi import FastAPI, HTTPException, APIRouter, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -108,10 +108,6 @@ class StockEvolutionRequest(BaseModel):
     horizon_days: int = Field(default=45, ge=1, le=365)
     include_internal: bool = Field(default=False)
     include_stock_q: bool = Field(default=False)
-
-
-class LotEcoRequest(BaseModel):
-    target_coverage_weeks: float = Field(default=4.0, ge=0.5, le=52.0)
 
 
 class StockProjectionRequest(BaseModel):
@@ -417,9 +413,9 @@ def stock_evolution_analytics(payload: StockEvolutionRequest, request: Request) 
 # ── Analyse Lot Eco ─────────────────────────────────────────────
 
 @v1.post("/analyse-lot-eco")
-def analyse_lot_eco(payload: LotEcoRequest, request: Request) -> dict:
+def analyse_lot_eco(target_coverage_weeks: float = Query(default=4.0, ge=0.5, le=52.0), request: Request = None) -> dict:
     try:
-        return _svc(request).analyser_lot_eco(target_coverage_weeks=payload.target_coverage_weeks)
+        return _svc(request).analyser_lot_eco(target_coverage_weeks=target_coverage_weeks)
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
