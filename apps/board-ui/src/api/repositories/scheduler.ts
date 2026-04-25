@@ -1,5 +1,5 @@
 import type { DataSource, RunState, ApiConfig, DataSourceSnapshot, ReportFile } from '@/types/api'
-import { apiRequest } from '@/api/core'
+import { apiRequest, DEFAULT_EXTRACTIONS_DIR } from '@/api/core'
 
 export const schedulerApi = {
   getHealth() {
@@ -13,7 +13,7 @@ export const schedulerApi = {
   loadData(source: DataSource, extractionsDir?: string | null) {
     return apiRequest<DataSourceSnapshot>('/api/v1/data/load', {
       method: 'POST',
-      body: JSON.stringify({ source, extractions_dir: extractionsDir }),
+      body: JSON.stringify({ source, extractions_dir: extractionsDir ?? DEFAULT_EXTRACTIONS_DIR }),
     })
   },
 
