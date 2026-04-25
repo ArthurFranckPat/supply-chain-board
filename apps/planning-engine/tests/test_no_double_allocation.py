@@ -11,17 +11,17 @@ from datetime import date
 from types import SimpleNamespace
 
 
-from planning_engine.orders.allocation import StockState
-from planning_engine.feasibility.recursive import RecursiveChecker
-from planning_engine.models.nomenclature import Nomenclature, NomenclatureEntry, TypeArticle
-from planning_engine.models.stock import Stock
-from planning_engine.models.allocation import OFAllocation
-from planning_engine.scheduling.material import (
+from production_planning.orders.allocation import StockState
+from production_planning.feasibility.recursive import RecursiveChecker
+from production_planning.models.nomenclature import Nomenclature, NomenclatureEntry, TypeArticle
+from production_planning.models.stock import Stock
+from production_planning.models.allocation import OFAllocation
+from production_planning.scheduling.material import (
     reserve_candidate_components,
     availability_status,
     compute_direct_component_shortages,
 )
-from planning_engine.scheduling.models import CandidateOF
+from production_planning.scheduling.models import CandidateOF
 
 
 # ---------------------------------------------------------------------------

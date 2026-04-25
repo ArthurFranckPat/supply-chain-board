@@ -185,7 +185,7 @@ class CommandeOFMatcher:
         self.of_conso.clear()
         self.ofs_deja_utilises.clear()
 
-    def _initialiser_of_conso(self, articles: set[str] = None):
+    def _initialiser_of_conso(self, articles: Optional[set[str]] = None):
         """Initialise le suivi des OF pour les articles donnés.
 
         Inclut les OF affermis (statut 1), planifiés (statut 2) et suggérés (statut 3).
@@ -257,7 +257,7 @@ class CommandeOFMatcher:
             article=commande.article,
         )
         if not linked_ofs:
-            return None
+            return []
 
         linked_ofs = [
             of for of in linked_ofs

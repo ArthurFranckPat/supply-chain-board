@@ -452,7 +452,7 @@ def test_matching_with_new_format():
 python -m pytest tests/ -v
 
 # Vérifier le nombre de commandes chargées
-python -c "from planning_engine.loaders import DataLoader; l = DataLoader('data'); l.load_all(); print(f'Commandes: {len(l.commandes_clients)}')"
+python -c "from production_planning.loaders import DataLoader; l = DataLoader('data'); l.load_all(); print(f'Commandes: {len(l.commandes_clients)}')"
 ```
 
 ### Après migration
@@ -462,10 +462,10 @@ python -c "from planning_engine.loaders import DataLoader; l = DataLoader('data'
 python -m pytest tests/ -v
 
 # Vérifier que les commandes sont chargées
-python -c "from planning_engine.loaders import DataLoader; l = DataLoader('data'); l.load_all(); print(f'Commandes: {len(l.commandes_clients)}')"
+python -c "from production_planning.loaders import DataLoader; l = DataLoader('data'); l.load_all(); print(f'Commandes: {len(l.commandes_clients)}')"
 
 # Vérifier que les descriptions sont présentes
-python -c "from planning_engine.loaders import DataLoader; l = DataLoader('data'); l.load_all(); print(f'Description 1ère: {l.commandes_clients[0].description}')"
+python -c "from production_planning.loaders import DataLoader; l = DataLoader('data'); l.load_all(); print(f'Description 1ère: {l.commandes_clients[0].description}')"
 ```
 
 ---

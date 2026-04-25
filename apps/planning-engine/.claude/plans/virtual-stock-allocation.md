@@ -39,7 +39,7 @@ Réalité : 668 < (288 + 256 + 540) = 1084 → Les 3 OF ne peuvent PAS être ser
 
 ## Architecture actuelle
 
-### RecursiveChecker (planning_engine/feasibility/recursive.py)
+### RecursiveChecker (production_planning/feasibility/recursive.py)
 
 **Méthode actuelle `_check_stock()`** :
 ```python
@@ -56,7 +56,7 @@ def _check_stock(self, article: str, qte_besoin: int, date_besoin) -> Feasibilit
 
 **Problème** : `stock.disponible()` est identique pour tous les OF
 
-### AllocationManager (planning_engine/orders/allocation.py)
+### AllocationManager (production_planning/orders/allocation.py)
 
 **État actuel** :
 - Structure de base existe (`StockState`, `AllocationManager`)
@@ -69,7 +69,7 @@ def _check_stock(self, article: str, qte_besoin: int, date_besoin) -> Feasibilit
 
 ### 1. Modifier `RecursiveChecker` pour supporter le stock virtuel
 
-**Fichier** : `planning_engine/feasibility/recursive.py`
+**Fichier** : `production_planning/feasibility/recursive.py`
 
 **Changements** :
 
@@ -141,7 +141,7 @@ def _check_stock(self, article: str, qte_besoin: int, date_besoin) -> Feasibilit
 
 ### 2. Implémenter `_calculate_allocations()` dans `AllocationManager`
 
-**Fichier** : `planning_engine/orders/allocation.py`
+**Fichier** : `production_planning/orders/allocation.py`
 
 **Objectif** : Calculer les quantités à allouer pour chaque composant ACHAT d'un OF
 
@@ -193,7 +193,7 @@ def _calculate_allocations(self, of: OF, stock_state: StockState) -> dict[str, i
 
 ### 3. Intégrer `RecursiveChecker` dans `AllocationManager`
 
-**Fichier** : `planning_engine/orders/allocation.py`
+**Fichier** : `production_planning/orders/allocation.py`
 
 **Changements dans `_allocate_of()`** :
 
@@ -362,11 +362,11 @@ OF B (15/03) → Besoin 20 → ✅ Faisable
 
 ## Fichiers à modifier
 
-1. **`planning_engine/feasibility/recursive.py`**
+1. **`production_planning/feasibility/recursive.py`**
    - Ajouter paramètre `stock_state` au constructeur
    - Modifier `_check_stock()` pour utiliser `stock_state` si fourni
 
-2. **`planning_engine/orders/allocation.py`**
+2. **`production_planning/orders/allocation.py`**
    - Implémenter `_calculate_allocations()` complètement
    - Modifier `_allocate_of()` pour utiliser `RecursiveChecker` avec `stock_state`
 

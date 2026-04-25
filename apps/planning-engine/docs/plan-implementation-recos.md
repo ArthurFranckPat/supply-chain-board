@@ -38,9 +38,9 @@ Sept recommandations issues de l'analyse métier, organisées en six lots cohér
 - Doublons de constantes : `DEFAULT_WEIGHTS` aussi dans `planning/weights.py`.
 
 **Actions**
-1. Supprimer `apps/planning-engine/planning_engine/scheduling/kpi.py`.
+1. Supprimer `apps/planning-engine/production_planning/scheduling/kpi.py`.
 2. Supprimer `apps/planning-engine/tests/test_scheduler_kpi.py`.
-3. Vérifier qu'aucun import résiduel ne casse (`grep -r "from planning_engine.scheduling.kpi"`).
+3. Vérifier qu'aucun import résiduel ne casse (`grep -r "from production_planning.scheduling.kpi"`).
 4. Confirmer que `planning/weights.py::load_weights` est l'unique source de vérité.
 
 **Critère d'acceptation**
@@ -76,7 +76,7 @@ Sept recommandations issues de l'analyse métier, organisées en six lots cohér
      ]
    }
    ```
-2. Créer `planning_engine/planning/lines_config.py` :
+2. Créer `production_planning/planning/lines_config.py` :
    - Dataclass `LineConfig(code, label, default_capacity_hours, min_open_hours)`
    - Fonction `load_lines_config(config_dir: str) -> list[LineConfig]`
    - Fallback hardcodé sur `PP_830`/`PP_153` si fichier manquant (rétrocompatibilité).
@@ -127,7 +127,7 @@ Sept recommandations issues de l'analyse métier, organisées en six lots cohér
 |---|---|---|
 | `packages/erp-data-access/src/erp_data_access/models/stock.py:15` | `disponible() = physique - alloue` | Inclut le bloqué dans le disponible (optimiste) |
 | `apps/planning-engine/docs/contexte_metier.md:151` | `disponible = physique - alloue - bloque` | Exclut le bloqué (strict) |
-| `apps/planning-engine/planning_engine/feasibility/eol_residuals.py:106` | `physique + bloque - alloue` | Calcul atypique, semble vouloir dire "physiquement présent moins ce qui sort" mais inclut le bloqué |
+| `apps/planning-engine/production_planning/feasibility/eol_residuals.py:106` | `physique + bloque - alloue` | Calcul atypique, semble vouloir dire "physiquement présent moins ce qui sort" mais inclut le bloqué |
 
 Le `stock_bloque` correspond au **stock en contrôle qualité** : physiquement présent, momentanément indisponible, libérable après validation CQ.
 
@@ -155,10 +155,10 @@ Le `stock_bloque` correspond au **stock en contrôle qualité** : physiquement p
    ```
 2. Lister tous les consommateurs de `Stock.disponible()` :
    ```
-   apps/planning-engine/planning_engine/availability/*.py
-   apps/planning-engine/planning_engine/feasibility/*.py
-   apps/planning-engine/planning_engine/orders/*.py
-   apps/planning-engine/planning_engine/scheduling/material.py
+   apps/planning-engine/production_planning/availability/*.py
+   apps/planning-engine/production_planning/feasibility/*.py
+   apps/planning-engine/production_planning/orders/*.py
+   apps/planning-engine/production_planning/scheduling/material.py
    ```
 3. Pour chaque, choisir explicitement strict ou optimiste (par défaut strict).
 4. Corriger `feasibility/eol_residuals.py:106` :
@@ -189,7 +189,7 @@ Le `stock_bloque` correspond au **stock en contrôle qualité** : physiquement p
 - Pas de journal de décision exploitable post-mortem.
 
 **Actions**
-1. Créer `planning_engine/scheduling/decision_trace.py` :
+1. Créer `production_planning/scheduling/decision_trace.py` :
    ```python
    @dataclass
    class DecisionTrace:
@@ -239,7 +239,7 @@ Le `stock_bloque` correspond au **stock en contrôle qualité** : physiquement p
 - L'ordonnanceur subit ces "trous" sans visibilité préventive.
 
 **Actions**
-1. Créer `apps/planning-engine/scripts/audit_bom_coverage.py` (ou sous `planning_engine/utils/`) :
+1. Créer `apps/planning-engine/scripts/audit_bom_coverage.py` (ou sous `production_planning/utils/`) :
    ```python
    """Audit de couverture nomenclature.
 
@@ -268,7 +268,7 @@ Le `stock_bloque` correspond au **stock en contrôle qualité** : physiquement p
        write_csv("outputs/bom_coverage_audit.csv", missing)
        print_summary_by_category(missing)
    ```
-2. Ajouter une commande CLI `python -m planning_engine.scripts.audit_bom_coverage` ou un endpoint API `GET /api/v1/diagnostics/bom-coverage`.
+2. Ajouter une commande CLI `python -m production_planning.scripts.audit_bom_coverage` ou un endpoint API `GET /api/v1/diagnostics/bom-coverage`.
 3. Programmer une exécution hebdomadaire (cron / CI scheduled).
 
 **Critère d'acceptation**
@@ -319,11 +319,11 @@ cd apps/planning-engine
 .venv/bin/python -m pytest -x
 
 # Lint
-.venv/bin/ruff check planning_engine/
-.venv/bin/black --check planning_engine/
+.venv/bin/ruff check production_planning/
+.venv/bin/black --check production_planning/
 
 # Type check (si mypy en place)
-.venv/bin/mypy planning_engine/
+.venv/bin/mypy production_planning/
 ```
 
 ---

@@ -12,11 +12,11 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from planning_engine.orders import AllocationManager, calculate_weekly_charge_heatmap
-from planning_engine.feasibility import ImmediateChecker, ProjectedChecker, RecursiveChecker
-from planning_engine.loaders import DataLoader, resolve_extractions_files
-from planning_engine.utils import format_charge_heatmap, format_charge_summary
-from planning_engine.utils import format_detailed_report, format_of_table, format_summary
+from production_planning.orders import AllocationManager, calculate_weekly_charge_heatmap
+from production_planning.feasibility import ImmediateChecker, ProjectedChecker, RecursiveChecker
+from production_planning.loaders import DataLoader, resolve_extractions_files
+from production_planning.utils import format_charge_heatmap, format_charge_summary
+from production_planning.utils import format_detailed_report, format_of_table, format_summary
 
 console = Console()
 

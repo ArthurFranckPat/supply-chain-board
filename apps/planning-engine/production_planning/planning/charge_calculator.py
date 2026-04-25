@@ -3,11 +3,13 @@
 import re
 from collections import defaultdict
 from datetime import date, timedelta
+from functools import lru_cache
 from typing import Optional
 
 from ..loaders.data_loader import DataLoader
 from ..models.besoin_client import BesoinClient
 from ..models.charge import ChargeByPoste
+from ..orders.forecast_consumption import consume_forecasts_by_article
 
 # Regex pour valider les postes de charge : PP_xxx où xxx est un chiffre
 POSTE_CHARGE_REGEX = re.compile(r"^PP_\d+$")
@@ -301,7 +303,6 @@ def calculate_weekly_charge_heatmap(
             return
 
         # Appliquer la consommation des prévisions
-        from ..orders.forecast_consumption import consume_forecasts_by_article
         besoins_ajustes, _ = consume_forecasts_by_article(
             besoins_groupe,
             label_besoin
@@ -344,6 +345,17 @@ def calculate_weekly_charge_heatmap(
     return heatmap
 
 
+@lru_cache(maxsize=1)
+def _build_poste_libelle_index(data_loader: DataLoader) -> dict[str, str]:
+    """Build an index of poste_charge -> libelle_poste from all gammes."""
+    index: dict[str, str] = {}
+    for gamme in data_loader.gammes.values():
+        for op in gamme.operations:
+            if op.poste_charge and op.poste_charge not in index:
+                index[op.poste_charge] = op.libelle_poste or ""
+    return index
+
+
 def get_poste_libelle(poste: str, data_loader: DataLoader) -> str:
     """Récupère le libellé d'un poste de charge.
 
@@ -359,9 +371,5 @@ def get_poste_libelle(poste: str, data_loader: DataLoader) -> str:
     str
         Libellé du poste (ou chaîne vide si introuvable)
     """
-    # Chercher dans toutes les gammes pour trouver le libellé
-    for gamme in data_loader.gammes.values():
-        for op in gamme.operations:
-            if op.poste_charge == poste:
-                return op.libelle_poste
-    return ""
+    index = _build_poste_libelle_index(data_loader)
+    return index.get(poste, "")

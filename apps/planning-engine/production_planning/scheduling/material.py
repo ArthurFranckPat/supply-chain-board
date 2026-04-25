@@ -7,22 +7,13 @@ from ..domain_rules import is_firm_of_status
 from ..orders.allocation import StockState
 from ..feasibility.recursive import RecursiveChecker
 from ..planning.calendar import previous_workday
+from .buffer_config import BUFFER_THRESHOLDS
 from .diagnostics import (
     extract_blocking_components as _extract_blocking_components,
     format_buffer_shortage_reason as _format_buffer_shortage_reason,
     format_feasibility_cause as _format_feasibility_cause,
 )
 from .models import CandidateOF
-
-
-# We import BUFFER_THRESHOLDS from a central place, or pass it. 
-# Let's pass it or define it in material.py if it relates to materials.
-# Since it's about buffer stock, it can stay here or be passed.
-BUFFER_THRESHOLDS = {
-    "BDH2216AL": 673,
-    "BDH2231AL": 598,
-    "BDH2251AL": 598,
-}
 
 
 def build_material_stock_state(loader) -> StockState:
@@ -309,7 +300,7 @@ def _collect_component_reservations(
     if nomenclature is None:
         return {}
 
-    phantom_variant_exclusions = checker._get_phantom_sibling_variant_exclusions(nomenclature)
+    phantom_variant_exclusions = checker.get_phantom_sibling_variant_exclusions(nomenclature)
     allocations: dict[str, float] = defaultdict(float)
     for composant in nomenclature.composants:
         if composant.article_composant in phantom_variant_exclusions:
@@ -319,9 +310,9 @@ def _collect_component_reservations(
         article_code = composant.article_composant
 
         if checker._is_component_treated_as_purchase(article_code, composant.is_achete(), composant.is_fabrique()):
-            if checker._is_phantom_article(article_code):
+            if checker.is_phantom_article(article_code):
                 options = [(article_code, 1.0)] + [
-                    option for option in checker._get_phantom_variants(article_code)
+                    option for option in checker.get_phantom_variants(article_code)
                     if option[0] != article_code
                 ]
                 for variant_article, qte_lien in options:

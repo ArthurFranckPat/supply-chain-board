@@ -10,10 +10,11 @@ This module intentionally implements a pragmatic V1:
 from __future__ import annotations
 
 import os
-from collections import Counter, defaultdict
+from collections import defaultdict
+from dataclasses import dataclass, field
 from datetime import date, timedelta
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 from uuid import uuid4
 
 from ..planning.charge_calculator import calculate_article_charge, get_poste_libelle, POSTE_CHARGE_REGEX
@@ -25,18 +26,45 @@ from ..planning.capacity_config import CapacityConfig, load_capacity_config, get
 from ..planning.holidays import ensure_holidays_in_calendar
 from ..planning.weights import load_weights
 from ..domain_rules import should_include_besoin_for_scheduler
+from .buffer_config import BUFFER_THRESHOLDS
 from .models import CandidateOF, DaySchedule, SchedulerResult
+from .profiles import load_article_day_profile
 from .reporting import build_unscheduled_rows, build_order_rows, write_outputs
 from .lines import GenericLineScheduler
 
 from .material import (
-    BUFFER_THRESHOLDS,
     build_material_stock_state,
     build_receptions_by_day,
     apply_receptions_for_day,
     availability_status,
     tracked_bdh_requirements,
 )
+
+
+@dataclass
+class SchedulerContext:
+    """Runtime context for the daily scheduling loop.
+
+    Bundles the 12+ parameters that were previously passed individually
+    to _run_daily_scheduling_loop, making the call-site readable and
+    allowing the loop to focus on scheduling logic.
+    """
+    loader: Any
+    reference_date: date
+    workdays: list[date]
+    immediate_components: bool
+    blocking_components_mode: str
+    checker: RecursiveChecker
+    receptions_by_day: dict[date, list[tuple[str, float]]]
+    material_state: Any
+    incoming_buffer: dict[date, dict[str, float]]
+    projected_buffer: dict[str, float]
+    by_line: dict[str, list[CandidateOF]]
+    schedulers: dict[str, GenericLineScheduler]
+    day_plans: dict[str, list[DaySchedule]]
+    alerts: list[str]
+    stock_projection: list[dict[str, object]]
+    consumed_hours_map: dict[tuple[str, date], float] = field(default_factory=dict)
 
 PP_830 = "PP_830"
 PP_153 = "PP_153"
@@ -170,21 +198,23 @@ def run_schedule(
     schedulers = {line: GenericLineScheduler(line, capacity_hours=line_capacities[line], min_open_hours=line_min_open[line]) for line in target_lines.keys()}
     _progress("computing_schedule", "Calcul du planning", 4, 7)
     _run_daily_scheduling_loop(
-        loader=loader,
-        reference_date=reference_date,
-        workdays=workdays,
-        immediate_components=immediate_components,
-        blocking_components_mode=blocking_components_mode,
-        checker=checker,
-        receptions_by_day=receptions_by_day,
-        material_state=material_state,
-        incoming_buffer=incoming_buffer,
-        projected_buffer=projected_buffer,
-        by_line=by_line,
-        schedulers=schedulers,
-        day_plans=day_plans,
-        alerts=alerts,
-        stock_projection=stock_projection,
+        SchedulerContext(
+            loader=loader,
+            reference_date=reference_date,
+            workdays=workdays,
+            immediate_components=immediate_components,
+            blocking_components_mode=blocking_components_mode,
+            checker=checker,
+            receptions_by_day=receptions_by_day,
+            material_state=material_state,
+            incoming_buffer=incoming_buffer,
+            projected_buffer=projected_buffer,
+            by_line=by_line,
+            schedulers=schedulers,
+            day_plans=day_plans,
+            alerts=alerts,
+            stock_projection=stock_projection,
+        )
     )
 
     _progress("generating_reports", "Génération des rapports", 5, 7)
@@ -466,7 +496,7 @@ def _assign_candidate_target_days(
     if not workdays:
         return
 
-    article_day_profile = _load_article_day_profile(profile_path) if profile_path else {}
+    article_day_profile = load_article_day_profile(profile_path) if profile_path else {}
     for _line, line_candidates in by_line.items():
         if not line_candidates:
             continue
@@ -511,102 +541,51 @@ def _load_residual_consumed_hours(
     return consumed_hours_map
 
 
-def _run_daily_scheduling_loop(
-    *,
-    loader,
-    reference_date: date,
-    workdays: list[date],
-    immediate_components: bool,
-    blocking_components_mode: str,
-    checker: RecursiveChecker,
-    receptions_by_day: dict[date, list[tuple[str, float]]],
-    material_state,
-    incoming_buffer: dict[date, dict[str, float]],
-    projected_buffer: dict[str, float],
-    by_line: dict[str, list[CandidateOF]],
-    schedulers: dict[str, GenericLineScheduler],
-    day_plans: dict[str, list[DaySchedule]],
-    alerts: list[str],
-    stock_projection: list[dict[str, object]],
-) -> None:
+def _run_daily_scheduling_loop(ctx: SchedulerContext) -> None:
     """Pipeline step 4d: schedule by day with material and residual-capacity updates."""
-    consumed_hours_map = _load_residual_consumed_hours(loader, reference_date)
+    if not ctx.consumed_hours_map:
+        ctx.consumed_hours_map = _load_residual_consumed_hours(ctx.loader, ctx.reference_date)
 
-    for day_idx, day in enumerate(workdays):
-        if not immediate_components:
-            apply_receptions_for_day(material_state, receptions_by_day, day)
-        for article, qty in incoming_buffer[day].items():
-            projected_buffer[article] += qty
+    for day_idx, day in enumerate(ctx.workdays):
+        if not ctx.immediate_components:
+            apply_receptions_for_day(ctx.material_state, ctx.receptions_by_day, day)
+        for article, qty in ctx.incoming_buffer[day].items():
+            ctx.projected_buffer[article] += qty
 
-        is_last_day = day_idx == len(workdays) - 1
-        for line, scheduler in schedulers.items():
-            consumed = consumed_hours_map.get((line, day), 0.0)
+        is_last_day = day_idx == len(ctx.workdays) - 1
+        for line, scheduler in ctx.schedulers.items():
+            consumed = ctx.consumed_hours_map.get((line, day), 0.0)
             day_plan = scheduler.schedule_day(
                 day=day,
-                candidates=by_line[line],
-                loader=loader,
-                checker=checker,
-                projected_buffer=projected_buffer,
-                incoming_buffer=incoming_buffer,
-                material_state=material_state,
-                alerts=alerts,
+                candidates=ctx.by_line[line],
+                loader=ctx.loader,
+                checker=ctx.checker,
+                projected_buffer=ctx.projected_buffer,
+                incoming_buffer=ctx.incoming_buffer,
+                material_state=ctx.material_state,
+                alerts=ctx.alerts,
                 is_last_day=is_last_day,
-                immediate_components=immediate_components,
-                immediate_reference_day=workdays[0],
-                blocking_components_mode=blocking_components_mode,
+                immediate_components=ctx.immediate_components,
+                immediate_reference_day=ctx.workdays[0],
+                blocking_components_mode=ctx.blocking_components_mode,
                 consumed_hours=consumed,
             )
-            day_plans[line][workdays.index(day)] = day_plan
+            ctx.day_plans[line][ctx.workdays.index(day)] = day_plan
             for assignment in day_plan.assignments:
-                for article, qty in tracked_bdh_requirements(loader, assignment.article, assignment.quantity).items():
-                    projected_buffer[article] -= qty
+                for article, qty in tracked_bdh_requirements(ctx.loader, assignment.article, assignment.quantity).items():
+                    ctx.projected_buffer[article] -= qty
 
         for article in BUFFER_THRESHOLDS:
-            stock_projection.append(
+            ctx.stock_projection.append(
                 {
                     "jour": day.isoformat(),
                     "article": article,
-                    "stock_projete": round(projected_buffer[article], 3),
+                    "stock_projete": round(ctx.projected_buffer[article], 3),
                 }
             )
 
 
-def _load_article_day_profile(csv_path: str) -> dict[str, Counter]:
-    """Charge les profils de production réels par article depuis le CSV historique.
 
-    Retourne {article: Counter({weekday: qty})} où weekday=0 pour lundi, 4 pour vendredi.
-    Ne charge que les jours ouvrés (lundi-vendredi).
-    """
-    from pathlib import Path
-    article_profile: dict[str, Counter] = {}
-    p = Path(csv_path)
-    if not p.exists():
-        return article_profile
-    import csv as _csv
-    from datetime import datetime as _dt
-    with open(p, encoding='utf-8-sig') as f:
-        reader = _csv.DictReader(f, delimiter=';')
-        for row in reader:
-            date_str = row.get('Date', '').strip()
-            try:
-                dt = _dt.strptime(date_str, '%d/%m/%Y')
-            except (ValueError, TypeError):
-                continue
-            dow = dt.weekday()
-            if dow >= 5:
-                continue
-            article = row.get('Article', '').strip()
-            if not article:
-                continue
-            cols = list(row.values())
-            try:
-                qte = float(cols[7].replace(',', '.').strip())
-            except (ValueError, IndexError):
-                qte = 0
-            if article not in article_profile:
-                article_profile[article] = Counter()
-            article_profile[article][dow] += qte
-    return article_profile
 
 
 def _build_target_line_articles(loader, lines_config=None) -> dict[str, set[str]]:

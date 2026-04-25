@@ -1,6 +1,6 @@
 from datetime import date
 
-from planning_engine.planning.capacity import build_working_day_horizon, is_line_open
+from production_planning.planning.capacity import build_working_day_horizon, is_line_open
 
 
 def test_build_working_day_horizon_skips_weekends():

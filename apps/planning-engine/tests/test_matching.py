@@ -3,12 +3,12 @@
 import pytest
 from datetime import date
 
-from planning_engine.loaders import DataLoader
-from planning_engine.orders.matching import CommandeOFMatcher, OFConso
-from planning_engine.models.article import Article, TypeApprovisionnement
-from planning_engine.models.besoin_client import BesoinClient, NatureBesoin, TypeCommande
-from planning_engine.models.of import OF
-from planning_engine.models.stock import Stock
+from production_planning.loaders import DataLoader
+from production_planning.orders.matching import CommandeOFMatcher, OFConso
+from production_planning.models.article import Article, TypeApprovisionnement
+from production_planning.models.besoin_client import BesoinClient, NatureBesoin, TypeCommande
+from production_planning.models.of import OF
+from production_planning.models.stock import Stock
 
 
 # ---------------------------------------------------------------------------

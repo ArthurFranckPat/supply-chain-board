@@ -50,7 +50,7 @@ pip install -r requirements.txt
 ## API locale
 
 ```bash
-uvicorn planning_engine.api.server:app --reload --port 8000
+uvicorn production_planning.api.server:app --reload --port 8000
 ```
 
 ### Endpoints
@@ -89,11 +89,11 @@ Le frontend pointe par defaut sur `http://127.0.0.1:8000`.
 
 ## Structure
 
-- `planning_engine/models`: modeles metier (`BesoinClient`, `OF`, `Article`, `Stock`, etc.)
-- `planning_engine/loaders`: chargement et normalisation des extractions CSV
-- `planning_engine/orders`: matching, allocation, consommation des previsions
-- `planning_engine/feasibility`: verification de faisabilite et analyses metier
-- `planning_engine/planning`: calendrier, capacite, jours feries, poids, calcul de charge
-- `planning_engine/scheduling`: planification, moteur, reporting, material state
-- `planning_engine/api`: API FastAPI
+- `production_planning/models`: modeles metier (`BesoinClient`, `OF`, `Article`, `Stock`, etc.)
+- `production_planning/loaders`: chargement et normalisation des extractions CSV
+- `production_planning/orders`: matching, allocation, consommation des previsions
+- `production_planning/feasibility`: verification de faisabilite et analyses metier
+- `production_planning/planning`: calendrier, capacite, jours feries, poids, calcul de charge
+- `production_planning/scheduling`: planification, moteur, reporting, material state
+- `production_planning/api`: API FastAPI
 - `config/`: configuration persistente (`calendar.json`, `capacity.json`, `holidays_2026.json`)

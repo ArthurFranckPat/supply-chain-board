@@ -3,13 +3,13 @@
 from datetime import date
 from types import SimpleNamespace
 
-from planning_engine.feasibility.recursive import RecursiveChecker
-from planning_engine.orders.allocation import StockState
-from planning_engine.models.nomenclature import Nomenclature, NomenclatureEntry, TypeArticle
-from planning_engine.models.article import Article, TypeApprovisionnement
-from planning_engine.models.of import OF
-from planning_engine.models.stock import Stock
-from planning_engine.models.allocation import OFAllocation
+from production_planning.feasibility.recursive import RecursiveChecker
+from production_planning.orders.allocation import StockState
+from production_planning.models.nomenclature import Nomenclature, NomenclatureEntry, TypeArticle
+from production_planning.models.article import Article, TypeApprovisionnement
+from production_planning.models.of import OF
+from production_planning.models.stock import Stock
+from production_planning.models.allocation import OFAllocation
 
 
 # ---------------------------------------------------------------------------
@@ -229,7 +229,7 @@ class TestRecursiveChecker:
 
     def test_check_stock_counts_same_day_receptions_when_enabled(self):
         """Une reception le jour du besoin est comptee dans le stock dispo."""
-        from planning_engine.models.reception import Reception
+        from production_planning.models.reception import Reception
 
         need_day = date(2026, 4, 15)
         loader = _make_loader(

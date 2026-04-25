@@ -37,7 +37,7 @@ Ajouter la colonne `DATE_DEBUT` dans le fichier `of_entetes.csv` exporté depuis
 
 ### Mise à jour du modèle `OF`
 
-Ajouter le champ `date_debut: Optional[date]` dans [planning_engine/models/of.py](../planning_engine/models/of.py)
+Ajouter le champ `date_debut: Optional[date]` dans [production_planning/models/of.py](../production_planning/models/of.py)
 et le parser dans `from_csv_row`.
 
 ### Mise à jour de la logique de faisabilité
@@ -58,8 +58,8 @@ Ajouter `DATE_DEBUT` dans la structure de `of_entetes.csv`.
 
 | Fichier | Modification |
 |---|---|
-| `planning_engine/models/of.py` | Ajouter `date_debut: Optional[date]` + parsing |
-| `planning_engine/feasibility/recursive.py` | Utiliser `of.date_debut` en priorité dans `_get_date_besoin_commande` |
+| `production_planning/models/of.py` | Ajouter `date_debut: Optional[date]` + parsing |
+| `production_planning/feasibility/recursive.py` | Utiliser `of.date_debut` en priorité dans `_get_date_besoin_commande` |
 | `CLAUDE.md` | Documenter `DATE_DEBUT` dans la table `of_entetes.csv` |
 
 ## Critères d'acceptation

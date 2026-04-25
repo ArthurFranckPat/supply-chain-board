@@ -653,7 +653,7 @@ Ordre de priorité :
 
 ### Matching besoin→OF avec partage d'OF
 
-**Fichier** : `planning_engine/orders/matching.py`
+**Fichier** : `production_planning/orders/matching.py`
 
 **Fonctionnalités :**
 1. Lien direct via `NUM_ORDRE_ORIGINE` + `METHODE_OBTENTION_LIVRAISON`
@@ -671,7 +671,7 @@ Ordre de priorité :
 
 ### Vérification de faisabilité des OF
 
-**Fichiers** : `planning_engine/feasibility/`
+**Fichiers** : `production_planning/feasibility/`
 
 **Fonctionnalités :**
 1. Vérification immédiate (stock actuel)
@@ -691,7 +691,7 @@ Ordre de priorité :
 
 ### Calendrier et capacité de production
 
-**Fichiers** : `planning_engine/scheduling/calendar_config.py`, `planning_engine/scheduling/capacity_config.py`, `planning_engine/scheduling/holidays.py`
+**Fichiers** : `production_planning/scheduling/calendar_config.py`, `production_planning/scheduling/capacity_config.py`, `production_planning/scheduling/holidays.py`
 
 **Fonctionnalités :**
 1. Calendrier des jours ouvrés avec jours fériés français (API Nager.Date + cache local)
@@ -728,7 +728,7 @@ Ordre de priorité :
 
 ### API locale
 ```bash
-uvicorn planning_engine.api.server:app --reload --port 8000
+uvicorn production_planning.api.server:app --reload --port 8000
 ```
 
 ### Lancer le scheduler via l'API

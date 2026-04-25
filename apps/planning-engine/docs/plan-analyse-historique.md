@@ -42,7 +42,7 @@ class StockMovement:
 ```
 
 ### 1.4 Service
-Fichier : `planning_engine/services/stock_history_analyzer.py`
+Fichier : `production_planning/services/stock_history_analyzer.py`
 - `reconstituer_stock(itmref: str) -> list[StockMovement]`
 - Caching memoire possible (TTL court) pour eviter de re-interroger X3 a chaque appel.
 
@@ -183,4 +183,4 @@ Ajouter une methode `analyser_evolution_stock(itmref, ...)` qui orchestre :
 ---
 
 ## Prochaine action immediate
-Implementer `StockHistoryAnalyzer.reconstituer_stock()` dans `planning_engine/services/stock_history_analyzer.py`.
+Implementer `StockHistoryAnalyzer.reconstituer_stock()` dans `production_planning/services/stock_history_analyzer.py`.

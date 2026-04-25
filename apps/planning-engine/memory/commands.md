@@ -7,7 +7,7 @@
 ### Lancer l'API
 ```bash
 cd apps/planning-engine
-uvicorn planning_engine.api.server:app --reload --port 8000
+uvicorn production_planning.api.server:app --reload --port 8000
 ```
 
 ### Charger les donnees et lancer le scheduler
@@ -22,7 +22,7 @@ curl -X POST http://127.0.0.1:8000/runs/schedule
 
 ### Lancer le dashboard
 > **Note**: le dashboard Streamlit a été supprimé. Utiliser l'UI board (`apps/board-ui`) à la place.
-> Anciennement: `streamlit run planning_engine/dashboards/app.py`
+> Anciennement: `streamlit run production_planning/dashboards/app.py`
 
 ### Avec port personnalisé
 > Supprimé. Voir `apps/board-ui`.
@@ -58,7 +58,7 @@ pytest -v
 
 ### Tests avec couverture
 ```bash
-pytest --cov=planning_engine --cov-report=html
+pytest --cov=production_planning --cov-report=html
 ```
 
 ---
@@ -84,7 +84,7 @@ git log --oneline -10
 
 ### Vérifier les données chargées
 ```bash
-python -c "from planning_engine.loaders import DataLoader; l = DataLoader('data'); l.load_all(); print(f'{len(l.articles)} articles, {len(l.ofs)} OFs')"
+python -c "from production_planning.loaders import DataLoader; l = DataLoader('data'); l.load_all(); print(f'{len(l.articles)} articles, {len(l.ofs)} OFs')"
 ```
 
 ### Comparer deux modes d'allocation

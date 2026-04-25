@@ -1,11 +1,11 @@
 """Tests pour le service de faisabilité de fabrication sur pool résiduel."""
 
 
-from planning_engine.feasibility.residual_fabrication import ResidualFabricationService
-from planning_engine.feasibility.eol_residuals_models import EolComponent
-from planning_engine.models.article import Article, TypeApprovisionnement
-from planning_engine.models.nomenclature import Nomenclature, NomenclatureEntry, TypeArticle
-from planning_engine.models.stock import Stock
+from production_planning.feasibility.residual_fabrication import ResidualFabricationService
+from production_planning.feasibility.eol_residuals_models import EolComponent
+from production_planning.models.article import Article, TypeApprovisionnement
+from production_planning.models.nomenclature import Nomenclature, NomenclatureEntry, TypeArticle
+from production_planning.models.stock import Stock
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────

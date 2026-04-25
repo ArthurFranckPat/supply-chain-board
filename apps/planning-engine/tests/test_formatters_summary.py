@@ -1,6 +1,6 @@
-from planning_engine.feasibility.base import FeasibilityResult
-from planning_engine.orders.allocation import AllocationResult, AllocationStatus
-from planning_engine.utils.formatters import (
+from production_planning.feasibility.base import FeasibilityResult
+from production_planning.orders.allocation import AllocationResult, AllocationStatus
+from production_planning.utils.formatters import (
     compute_allocation_ratio,
     compute_feasibility_ratio,
 )

@@ -8,9 +8,12 @@ Provides three core operations:
 
 from __future__ import annotations
 
+import logging
 import time
 from datetime import date, timedelta
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 from ..availability import AvailabilityKernel
 from ..domain_rules import is_purchase_article
@@ -660,8 +663,11 @@ class FeasibilityService:
                     reference_date=original_date,
                 )
                 baseline_missing = orig_result.missing_components
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning(
+                    "Component check failed for baseline (article=%s, qty=%s, date=%s): %s",
+                    article, original_qty, original_date, exc,
+                )
 
         # Simulated: new date + quantity
         simulated_missing: dict[str, int] = {}
@@ -674,8 +680,11 @@ class FeasibilityService:
                 reference_date=new_date,
             )
             simulated_missing = new_result.missing_components
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning(
+                "Component check failed for simulated (article=%s, qty=%s, date=%s): %s",
+                article, new_qty, new_date, exc,
+            )
 
         # Build unified component set
         all_components = set(baseline_missing.keys()) | set(simulated_missing.keys())
@@ -757,6 +766,13 @@ class FeasibilityService:
         if not charge_map:
             return []
 
+        # Index OFs by start date once to avoid O(n) scan per poste
+        from collections import defaultdict
+        ofs_by_start_date: dict[date, list] = defaultdict(list)
+        for of in self.loader.ofs:
+            if of.qte_restante > 0 and of.date_debut is not None:
+                ofs_by_start_date[of.date_debut].append(of)
+
         affected: list[AffectedOrder] = []
 
         # Find the production day at the new date
@@ -776,12 +792,11 @@ class FeasibilityService:
             # Sum existing OF charge on that day/poste
             existing_hours = 0.0
             competing_ofs = []
-            for of in self.loader.ofs:
-                if of.qte_restante > 0 and of.date_debut == prod_day:
-                    of_charge = calculate_article_charge(of.article, of.qte_restante, self.loader)
-                    if poste in of_charge:
-                        existing_hours += of_charge[poste]
-                        competing_ofs.append(of)
+            for of in ofs_by_start_date.get(prod_day, []):
+                of_charge = calculate_article_charge(of.article, of.qte_restante, self.loader)
+                if poste in of_charge:
+                    existing_hours += of_charge[poste]
+                    competing_ofs.append(of)
 
             # Would adding this production exceed capacity?
             if existing_hours + hours_new > max_cap:

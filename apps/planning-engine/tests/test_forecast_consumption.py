@@ -2,8 +2,8 @@
 
 from datetime import date
 
-from planning_engine.orders.forecast_consumption import consume_forecasts_by_article
-from planning_engine.models.besoin_client import BesoinClient, NatureBesoin, TypeCommande
+from production_planning.orders.forecast_consumption import consume_forecasts_by_article
+from production_planning.models.besoin_client import BesoinClient, NatureBesoin, TypeCommande
 
 
 class TestConsumeForecastsByArticle:

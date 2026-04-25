@@ -1,4 +1,4 @@
-from planning_engine.feasibility.diagnostics import (
+from production_planning.feasibility.diagnostics import (
     alert_no_feasible_date,
     alert_order_line_not_found,
     alert_purchase_supply_insufficient,

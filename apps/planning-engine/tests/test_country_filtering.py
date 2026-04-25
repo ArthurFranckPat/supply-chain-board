@@ -2,7 +2,7 @@
 
 from datetime import date
 
-from planning_engine.models.besoin_client import BesoinClient, NatureBesoin, TypeCommande
+from production_planning.models.besoin_client import BesoinClient, NatureBesoin, TypeCommande
 
 
 class TestBesoinClientCountryMethods:

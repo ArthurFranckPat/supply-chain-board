@@ -4,15 +4,15 @@ import pytest
 from types import SimpleNamespace
 from datetime import date
 
-from planning_engine.feasibility.analyse_rupture import AnalyseRuptureService
-from planning_engine.feasibility.analyse_rupture_models import AnalyseRuptureResult
-from planning_engine.models.nomenclature import Nomenclature, NomenclatureEntry, TypeArticle, NatureConsommation
-from planning_engine.models.of import OF
-from planning_engine.models.stock import Stock
-from planning_engine.models.article import Article, TypeApprovisionnement
-from planning_engine.models.besoin_client import BesoinClient, TypeCommande, NatureBesoin
-from planning_engine.models.gamme import Gamme, GammeOperation
-from planning_engine.models.reception import Reception
+from production_planning.feasibility.analyse_rupture import AnalyseRuptureService
+from production_planning.feasibility.analyse_rupture_models import AnalyseRuptureResult
+from production_planning.models.nomenclature import Nomenclature, NomenclatureEntry, TypeArticle, NatureConsommation
+from production_planning.models.of import OF
+from production_planning.models.stock import Stock
+from production_planning.models.article import Article, TypeApprovisionnement
+from production_planning.models.besoin_client import BesoinClient, TypeCommande, NatureBesoin
+from production_planning.models.gamme import Gamme, GammeOperation
+from production_planning.models.reception import Reception
 
 
 # ── Helpers ────────────────────────────────────────────────────
@@ -669,7 +669,7 @@ class TestDataReload:
 
     def test_service_uses_fresh_data_after_loader_change(self):
         """Apres load_data, le service doit utiliser les nouvelles donnees."""
-        from planning_engine.app.gui_service import GuiAppService
+        from production_planning.app.gui_service import GuiAppService
 
         service = GuiAppService()
         # Pas de loader -> erreur

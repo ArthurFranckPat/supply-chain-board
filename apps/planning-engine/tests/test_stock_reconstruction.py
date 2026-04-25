@@ -6,7 +6,7 @@ from datetime import date, timedelta
 
 import pytest
 
-from planning_engine.services.stock_history_analyzer import (
+from production_planning.services.stock_history_analyzer import (
     StockHistoryAnalyzer,
 )
 

@@ -2,7 +2,7 @@
 
 from datetime import date
 
-from planning_engine.models.of import OF
+from production_planning.models.of import OF
 
 
 class TestOF:

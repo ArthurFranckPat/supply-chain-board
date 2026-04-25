@@ -2,7 +2,7 @@
 
 ## Objectif
 
-Stabiliser la logique metier de `planning_engine` autour de quatre principes:
+Stabiliser la logique metier de `production_planning` autour de quatre principes:
 
 1. une seule interpretation des disponibilites composants
 2. une seule interpretation des jours ouvres
@@ -68,7 +68,7 @@ Resultat attendu:
 ### 2. Regles Metier Centralisees
 
 Extraire les decisions metier transverses dans un module dedie, par exemple
-`planning_engine/domain_rules.py`.
+`production_planning/domain_rules.py`.
 
 Y centraliser:
 

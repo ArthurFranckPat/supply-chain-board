@@ -1,10 +1,10 @@
 from datetime import date
 from types import SimpleNamespace
 
-from planning_engine.availability import AvailabilityKernel
-from planning_engine.models.reception import Reception
-from planning_engine.models.stock import Stock
-from planning_engine.orders.allocation import StockState
+from production_planning.availability import AvailabilityKernel
+from production_planning.models.reception import Reception
+from production_planning.models.stock import Stock
+from production_planning.orders.allocation import StockState
 
 
 def _make_loader(*, stocks=None, receptions=None):

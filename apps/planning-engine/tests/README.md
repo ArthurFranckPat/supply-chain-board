@@ -78,7 +78,7 @@ python -m pytest tests/test_forecast_consumption.py::TestConsumeForecastsByArtic
 
 ### Lancer avec coverage
 ```bash
-python -m pytest tests/ --cov=planning_engine --cov-report=html
+python -m pytest tests/ --cov=production_planning --cov-report=html
 ```
 
 ## Fixtures disponibles
@@ -100,7 +100,7 @@ Exemple :
 """Tests pour ma nouvelle fonctionnalité."""
 
 import pytest
-from planning_engine.mon_module import ma_fonction
+from production_planning.mon_module import ma_fonction
 
 
 class TestMaFonction:

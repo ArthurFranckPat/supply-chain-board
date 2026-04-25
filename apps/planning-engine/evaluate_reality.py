@@ -2,7 +2,7 @@
 
 Lit les données de production réelle depuis "quantité produites par article.csv",
 reconstruit le matching commande→OF, calcule charge via gammes, puis applique
-les mêmes formules de score que planning_engine/scheduler/engine.py.
+les mêmes formules de score que production_planning/scheduler/engine.py.
 """
 
 import csv
@@ -12,12 +12,12 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-from planning_engine.loaders import DataLoader
-from planning_engine.planning.charge_calculator import calculate_article_charge
-from planning_engine.orders.matching import CommandeOFMatcher
-from planning_engine.models.besoin_client import TypeCommande
-from planning_engine.planning.calendar import build_workdays, next_workday
-from planning_engine.planning.weights import load_weights
+from production_planning.loaders import DataLoader
+from production_planning.planning.charge_calculator import calculate_article_charge
+from production_planning.orders.matching import CommandeOFMatcher
+from production_planning.models.besoin_client import TypeCommande
+from production_planning.planning.calendar import build_workdays, next_workday
+from production_planning.planning.weights import load_weights
 
 
 # ── Paramètres identiques au scheduler ──────────────────────────────

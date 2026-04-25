@@ -3,8 +3,8 @@ from typing import Optional
 
 from .models import CandidateOF, DaySchedule
 from ..planning.calendar import next_workday
+from .buffer_config import BUFFER_THRESHOLDS
 from .material import (
-    BUFFER_THRESHOLDS,
     availability_status,
     tracked_bdh_requirements,
     tracked_kanban_requirements,
@@ -17,6 +17,14 @@ from .heuristics import generic_sort_key, generic_decision_trace
 LINE_CAPACITY_HOURS = 14.0
 LINE_MIN_OPEN_HOURS = 3.0  # Seuil minimum pour ouvrir une ligne
 SETUP_TIME_HOURS = 0.25
+
+# Articles suivis en Kanban (pourrait être externalisé en config)
+DEFAULT_KANBAN_ARTICLES: set[str] = {"11028877", "11033880", "11033919"}
+
+# Mots-clés exclus lors du parsing de la description pour déterminer la famille
+DEFAULT_FAMILY_EXCLUSIONS: set[str] = {
+    "ESH", "ESHKIT", "ESHGPE", "CBL", "CPT", "BDH", "BIP", "GP", "PNEU", "BOIT"
+}
 
 
 class GenericLineScheduler:
@@ -225,8 +233,7 @@ class GenericLineScheduler:
                 (
                     part
                     for part in parts
-                    if len(part) >= 3
-                    and part not in ["ESH", "ESHKIT", "ESHGPE", "CBL", "CPT", "BDH", "BIP", "GP", "PNEU", "BOIT"]
+                    if len(part) >= 3 and part not in DEFAULT_FAMILY_EXCLUSIONS
                 ),
                 None,
             )
@@ -348,7 +355,7 @@ class GenericLineScheduler:
         last_article = None
         
         family_counts = {}
-        kanban_articles = {"11028877", "11033880", "11033919"}
+        kanban_articles = DEFAULT_KANBAN_ARTICLES
         kanban_conso = {a: 0.0 for a in kanban_articles}
 
         shortage_articles = {

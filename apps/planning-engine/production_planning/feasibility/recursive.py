@@ -1,5 +1,6 @@
 """Recursive Checker - Algorithme de vérification récursive des nomenclatures."""
 
+from dataclasses import dataclass
 from datetime import timedelta
 from typing import TYPE_CHECKING, Optional
 
@@ -12,6 +13,27 @@ from ..models.besoin_client import BesoinClient
 
 if TYPE_CHECKING:
     from ..orders.allocation import StockState
+
+
+@dataclass
+class CheckContext:
+    """Runtime context for a recursive feasibility check.
+
+    Bundles the three parameters (depth, of_parent_est_ferme, num_of_parent)
+    that are passed down every recursive call so methods only need one
+    ``ctx`` argument.
+    """
+    depth: int = 0
+    of_parent_est_ferme: bool = False
+    num_of_parent: Optional[str] = None
+
+    def child(self, of_parent_est_ferme: Optional[bool] = None, num_of_parent: Optional[str] = None) -> "CheckContext":
+        """Return a child context with incremented depth."""
+        return CheckContext(
+            depth=self.depth + 1,
+            of_parent_est_ferme=of_parent_est_ferme if of_parent_est_ferme is not None else self.of_parent_est_ferme,
+            num_of_parent=num_of_parent if num_of_parent is not None else self.num_of_parent,
+        )
 
 
 class RecursiveChecker(BaseChecker):
@@ -159,109 +181,92 @@ class RecursiveChecker(BaseChecker):
     ) -> FeasibilityResult:
         """Vérifie récursivement la faisabilité pour un article.
 
-        Parameters
-        ----------
-        article : str
-            Code de l'article à vérifier
-        qte_besoin : int
-            Quantité nécessaire
-        date_besoin : date
-            Date de besoin
-        depth : int
-            Profondeur de récursion actuelle
-        of_parent_est_ferme : bool
-            True si l'OF parent est FERME (composants déjà alloués)
-        num_of_parent : Optional[str]
-            Numéro de l'OF parent pour vérifier les allocations
-
-        Returns
-        -------
-        FeasibilityResult
-            Résultat de la vérification
+        Cette méthode reste la façade publique / externe ; elle crée
+        un ``CheckContext`` et délègue à ``_check_article_recursive_ctx``.
         """
-        result = FeasibilityResult(feasible=True, depth=depth)
+        ctx = CheckContext(
+            depth=depth,
+            of_parent_est_ferme=of_parent_est_ferme,
+            num_of_parent=num_of_parent,
+        )
+        return self._check_article_recursive_ctx(article, qte_besoin, date_besoin, ctx)
 
-        # Récupérer la nomenclature de l'article
+    def _check_article_recursive_ctx(
+        self,
+        article: str,
+        qte_besoin: float,
+        date_besoin,
+        ctx: CheckContext,
+    ) -> FeasibilityResult:
+        """Implémentation interne utilisant CheckContext."""
+        result = FeasibilityResult(feasible=True, depth=ctx.depth)
+
         nomenclature = self.data_loader.get_nomenclature(article)
 
         if nomenclature is None:
-            # Nomenclature non disponible
             result.add_alert(f"Nomenclature non disponible pour l'article {article}")
             return result
 
         if not nomenclature.composants:
-            # Pas de composants = article de base (ACHAT ou sans nomenclature)
             result.components_checked = 1
             return result
 
         phantom_variant_exclusions = self._get_phantom_sibling_variant_exclusions(nomenclature)
 
         # Récupérer les allocations de l'OF parent si fourni
-        # IMPORTANT : Les OF FERMES avec allocations ne participent pas à l'allocation virtuelle
         allocations_parent = {}
-        if num_of_parent and of_parent_est_ferme:
+        if ctx.num_of_parent and ctx.of_parent_est_ferme:
             allocations_parent = {
                 alloc.article: alloc.qte_allouee
-                for alloc in self.data_loader.get_allocations_of(num_of_parent)
+                for alloc in self.data_loader.get_allocations_of(ctx.num_of_parent)
             }
 
-        # Vérifier chaque composant de la nomenclature
         for composant in nomenclature.composants:
             if composant.article_composant in phantom_variant_exclusions:
                 continue
 
             result.components_checked += 1
-
-            # Calculer la quantité nécessaire pour ce composant
             qte_composant = composant.qte_requise(qte_besoin)
 
-            if self._is_component_treated_as_purchase(composant.article_composant, composant.is_achete(), composant.is_fabrique()):
-                # LOGIQUE : Si le composant est déjà alloué à l'OF parent, skip
-                if of_parent_est_ferme and composant.article_composant in allocations_parent:
-                    # Composant déjà alloué à l'OF FERME → Pas de vérification
+            if self._is_component_treated_as_purchase(
+                composant.article_composant, composant.is_achete(), composant.is_fabrique()
+            ):
+                if ctx.of_parent_est_ferme and composant.article_composant in allocations_parent:
                     continue
+                if self._is_phantom_article(composant.article_composant):
+                    phantom_result = self._check_phantom_component(
+                        article_code=composant.article_composant,
+                        qte_besoin=qte_composant,
+                        date_besoin=date_besoin,
+                        ctx=ctx.child(),
+                    )
+                    result.merge(phantom_result)
                 else:
-                    if self._is_phantom_article(composant.article_composant):
-                        phantom_result = self._check_phantom_component(
-                            article_code=composant.article_composant,
-                            qte_besoin=qte_composant,
-                            date_besoin=date_besoin,
-                            depth=depth + 1,
-                        )
-                        result.merge(phantom_result)
-                    else:
-                        # Pas alloué → Vérifier le stock disponible
-                        stock_result = self._check_stock(composant.article_composant, qte_composant, date_besoin)
-                        result.merge(stock_result)
+                    stock_result = self._check_stock(composant.article_composant, qte_composant, date_besoin)
+                    result.merge(stock_result)
 
             elif composant.is_fabrique():
-                # LOGIQUE : Vérifier le stock disponible d'abord
                 if self.stock_state:
                     stock_dispo = self.availability.available_without_receptions(
-                        composant.article_composant,
-                        stock_state=self.stock_state,
+                        composant.article_composant, stock_state=self.stock_state,
                     )
                 else:
                     stock_dispo = self.availability.available_without_receptions(
                         composant.article_composant
                     )
 
-                # Si stock suffisant OU OF parent FERME avec allocation → Pas de vérification d'OF
-                if of_parent_est_ferme and composant.article_composant in allocations_parent:
-                    # Composant fabriqué déjà alloué → Pas de vérification
+                if ctx.of_parent_est_ferme and composant.article_composant in allocations_parent:
                     continue
-                elif stock_dispo >= qte_composant:
-                    # Stock disponible suffisant → Pas besoin de vérifier l'OF
+                if stock_dispo >= qte_composant:
                     continue
-                else:
-                    # Stock insuffisant → Vérifier l'OF du composant
-                    component_result = self._check_of_composant_fabrique(
-                        article=composant.article_composant,
-                        qte_besoin=qte_composant,
-                        date_besoin=date_besoin,
-                        depth=depth + 1,
-                    )
-                    result.merge(component_result)
+
+                component_result = self._check_of_composant_fabrique(
+                    article=composant.article_composant,
+                    qte_besoin=qte_composant,
+                    date_besoin=date_besoin,
+                    ctx=ctx.child(),
+                )
+                result.merge(component_result)
 
         return result
 
@@ -270,47 +275,26 @@ class RecursiveChecker(BaseChecker):
         article: str,
         qte_besoin: float,
         date_besoin,
-        depth: int,
+        ctx: CheckContext,
     ) -> FeasibilityResult:
-        """Vérifie un composant fabriqué en cherchant son OF.
-
-        Parameters
-        ----------
-        article : str
-            Article fabriqué à vérifier
-        qte_besoin : float
-            Quantité nécessaire
-        date_besoin : date
-            Date de besoin
-        depth : int
-            Profondeur de récursion
-
-        Returns
-        -------
-        FeasibilityResult
-            Résultat de la vérification
-        """
+        """Vérifie un composant fabriqué en cherchant son OF."""
         for statut, of_parent_est_ferme in ((1, True), (2, False), (3, False)):
             result = self._check_with_candidate_of(
                 article=article,
                 qte_besoin=qte_besoin,
                 date_besoin=date_besoin,
-                depth=depth,
+                ctx=ctx.child(of_parent_est_ferme=of_parent_est_ferme),
                 statut=statut,
-                of_parent_est_ferme=of_parent_est_ferme,
             )
             if result is not None:
                 return result
 
-        # 4. Aucun OF trouvé → marquer le sous-ensemble comme manquant
-        # tout en parcourant sa nomenclature pour identifier les achats racines bloquants.
-        result = self._check_article_recursive(
+        # Aucun OF trouvé → marquer le sous-ensemble comme manquant
+        result = self._check_article_recursive_ctx(
             article=article,
             qte_besoin=qte_besoin,
             date_besoin=date_besoin,
-            depth=depth,
-            of_parent_est_ferme=False,
-            num_of_parent=None,  # Pas d'OF parent
+            ctx=ctx.child(of_parent_est_ferme=False, num_of_parent=None),
         )
         result.feasible = False
         result.add_missing(article, qte_besoin)
@@ -323,9 +307,8 @@ class RecursiveChecker(BaseChecker):
         article: str,
         qte_besoin: float,
         date_besoin,
-        depth: int,
+        ctx: CheckContext,
         statut: int,
-        of_parent_est_ferme: bool,
     ) -> Optional[FeasibilityResult]:
         """Run the recursive check against the closest OF for a given status."""
         ofs = self.data_loader.get_ofs_by_article(
@@ -337,13 +320,11 @@ class RecursiveChecker(BaseChecker):
             return None
 
         selected_of = ofs[0]
-        result = self._check_article_recursive(
+        result = self._check_article_recursive_ctx(
             article=article,
             qte_besoin=qte_besoin,
             date_besoin=date_besoin,
-            depth=depth,
-            of_parent_est_ferme=of_parent_est_ferme,
-            num_of_parent=selected_of.num_of,
+            ctx=ctx.child(num_of_parent=selected_of.num_of),
         )
         if not result.feasible:
             result.add_missing(article, qte_besoin)
@@ -404,7 +385,7 @@ class RecursiveChecker(BaseChecker):
         article_code: str,
         qte_besoin: float,
         date_besoin,
-        depth: int,
+        ctx: CheckContext,
     ) -> FeasibilityResult:
         """Résout un article fantôme vers une seule variante réelle.
 
@@ -431,7 +412,7 @@ class RecursiveChecker(BaseChecker):
                 return variant_result
             failed_variants.append((variant_article, variant_qty, variant_result))
 
-        result = FeasibilityResult(feasible=False, depth=depth)
+        result = FeasibilityResult(feasible=False, depth=ctx.depth)
         result.add_missing(article_code, qte_besoin)
         details = []
         for variant_article, variant_qty, variant_result in failed_variants:
@@ -466,7 +447,7 @@ class RecursiveChecker(BaseChecker):
             component_is_fabrique=is_fabrique,
         )
 
-    def _get_article_metadata(self, article_code: str):
+    def get_article_metadata(self, article_code: str):
         """Retourne le référentiel article quand il est disponible."""
         article = None
         if hasattr(self.data_loader, "get_article"):
@@ -481,12 +462,18 @@ class RecursiveChecker(BaseChecker):
                 article = articles.get(article_code)
         return article
 
-    def _is_phantom_article(self, article_code: str) -> bool:
+    # Backward compat for internal callers
+    _get_article_metadata = get_article_metadata
+
+    def is_phantom_article(self, article_code: str) -> bool:
         """Retourne True si l'article est un fantôme AFANT."""
-        article = self._get_article_metadata(article_code)
+        article = self.get_article_metadata(article_code)
         return bool(article and getattr(article, "is_fantome", None) and article.is_fantome())
 
-    def _get_phantom_variants(self, article_code: str) -> list[tuple[str, float]]:
+    # Backward compat for internal callers
+    _is_phantom_article = is_phantom_article
+
+    def get_phantom_variants(self, article_code: str) -> list[tuple[str, float]]:
         """Retourne les variantes réelles derrière un article fantôme."""
         nomenclature = self.data_loader.get_nomenclature(article_code)
         if nomenclature is None:
@@ -496,19 +483,21 @@ class RecursiveChecker(BaseChecker):
             for component in nomenclature.composants
         ]
 
-    def _get_phantom_sibling_variant_exclusions(self, nomenclature: Nomenclature) -> set[str]:
-        """Retourne les composants à ignorer car déjà couverts par un AFANT.
+    # Backward compat for internal callers
+    _get_phantom_variants = get_phantom_variants
 
-        Si un parent contient à la fois un AFANT et sa variante réelle en
-        composants frères, l'AFANT pilote seul le choix de variante pour l'OF.
-        """
+    def get_phantom_sibling_variant_exclusions(self, nomenclature: Nomenclature) -> set[str]:
+        """Retourne les composants à ignorer car déjà couverts par un AFANT."""
         exclusions: set[str] = set()
         component_codes = {component.article_composant for component in nomenclature.composants}
         for component in nomenclature.composants:
             article_code = component.article_composant
-            if not self._is_phantom_article(article_code):
+            if not self.is_phantom_article(article_code):
                 continue
-            for variant_article, _ in self._get_phantom_variants(article_code):
+            for variant_article, _ in self.get_phantom_variants(article_code):
                 if variant_article != article_code and variant_article in component_codes:
                     exclusions.add(variant_article)
         return exclusions
+
+    # Backward compat for internal callers
+    _get_phantom_sibling_variant_exclusions = get_phantom_sibling_variant_exclusions

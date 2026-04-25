@@ -13,7 +13,7 @@ This repository is a monorepo that hosts independent supply-chain applications a
 ```text
 apps/
   planning-engine/     # Scheduling engine app shell (Python + FastAPI)
-    planning_engine/
+    production_planning/
       models/         # BesoinClient, OF, Article, Stock, etc.
       loaders/        # CSV loading from ERP extractions
       orders/         # Matching, allocation, forecast consumption
@@ -82,7 +82,7 @@ Manual:
 
 - `planning-engine` API:
   - `cd apps/planning-engine`
-  - `uvicorn planning_engine.api.server:app --reload --port 8000`
+  - `uvicorn production_planning.api.server:app --reload --port 8000`
 - `suivi-commandes` API:
   - `cd apps/suivi-commandes`
   - `pip install -r requirements.txt`

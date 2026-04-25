@@ -1,8 +1,8 @@
 from datetime import date
 from types import SimpleNamespace
 
-from planning_engine.scheduling.models import CandidateOF
-from planning_engine.scheduling.reporting import build_order_rows
+from production_planning.scheduling.models import CandidateOF
+from production_planning.scheduling.reporting import build_order_rows
 
 
 def _commande(

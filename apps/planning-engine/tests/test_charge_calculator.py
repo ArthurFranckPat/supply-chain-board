@@ -3,7 +3,7 @@
 from datetime import date
 from unittest.mock import Mock
 
-from planning_engine.planning.charge_calculator import (
+from production_planning.planning.charge_calculator import (
     is_valid_poste,
     calculate_article_charge,
     get_week_info,
@@ -11,9 +11,9 @@ from planning_engine.planning.charge_calculator import (
     calculate_weekly_charge_heatmap,
     get_poste_libelle,
 )
-from planning_engine.models.besoin_client import BesoinClient, NatureBesoin, TypeCommande
-from planning_engine.models.gamme import Gamme, GammeOperation
-from planning_engine.models.charge import ChargeByPoste
+from production_planning.models.besoin_client import BesoinClient, NatureBesoin, TypeCommande
+from production_planning.models.gamme import Gamme, GammeOperation
+from production_planning.models.charge import ChargeByPoste
 
 
 class TestIsValidPoste:

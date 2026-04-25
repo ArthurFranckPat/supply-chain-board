@@ -20,7 +20,7 @@ Ordo v2 is a manufacturing production scheduling system for an industrial site p
 
 ```
 planning-engine/
-├── main.py                 # Thin entry point → planning_engine.main.main()
+├── main.py                 # Thin entry point → production_planning.main.main()
 ├── menu.py                 # Interactive Rich REPL (questionary)
 ├── analyze_charge.py       # Standalone charge analysis CLI
 ├── run_llm_commandes_v2.py # (removed)
@@ -28,7 +28,7 @@ planning-engine/
 ├── patch_smooth.py         # Dev tool: 2-line → N-line generalization patch
 ├── config/
 │   └── weights.json        # Scheduler weight configuration
-├── planning_engine/
+├── production_planning/
 │   ├── main.py             # Core CLI entry (argparse)
 │   ├── main_s1.py          # S+1 pipeline implementation
 │   ├── models/             # Domain dataclasses
@@ -48,7 +48,7 @@ planning-engine/
 
 ---
 
-## 3. Data Models (`planning_engine/models/`)
+## 3. Data Models (`production_planning/models/`)
 
 ### 3.1 Article (`article.py`)
 
@@ -138,7 +138,7 @@ class Nomenclature:
 
 ---
 
-## 4. Data Loading (`planning_engine/loaders/`)
+## 4. Data Loading (`production_planning/loaders/`)
 
 ### CSVLoader (`csv_loader.py`)
 
@@ -156,7 +156,7 @@ High-level query interface wrapping CSVLoader. Key features:
 
 ---
 
-## 5. Orders And Planning (`planning_engine/orders/`, `planning_engine/planning/`)
+## 5. Orders And Planning (`production_planning/orders/`, `production_planning/planning/`)
 
 ### 5.1 Charge Calculator (`charge_calculator.py`)
 
@@ -215,7 +215,7 @@ Main entry point for charge visualization:
 
 ---
 
-## 6. Feasibility (`planning_engine/feasibility/`)
+## 6. Feasibility (`production_planning/feasibility/`)
 
 ### Hierarchy
 
@@ -259,7 +259,7 @@ The most complex checker — **552 lines** of recursive BOM traversal.
 
 ---
 
-## 7. Scheduling (`planning_engine/scheduling/`)
+## 7. Scheduling (`production_planning/scheduling/`)
 
 ### 7.1 Architecture
 
@@ -383,7 +383,7 @@ The following files form a **legacy pipeline** that is non-functional (missing m
 
 ---
 
-## 8. Reports (`planning_engine/reports/`)
+## 8. Reports (`production_planning/reports/`)
 
 ### 8.1 Action Report (`action_report.py` — 1449 lines)
 
@@ -408,12 +408,12 @@ Rich table display: Command, Client, Article, Qty, Expedition, Besoin net, Couve
 
 | Entry Point | Interface | Target User |
 |-------------|-----------|-------------|
-| `main.py` (root) → `planning_engine/main.py` | CLI (argparse) | Developers / automation |
+| `main.py` (root) → `production_planning/main.py` | CLI (argparse) | Developers / automation |
 | `menu.py` | Interactive REPL (Rich + questionary) | Production planners |
-| `planning_engine/api/server.py` | REST API (FastAPI) | Local GUI frontend |
+| `production_planning/api/server.py` | REST API (FastAPI) | Local GUI frontend |
 | `analyze_charge.py` | Specialized CLI | Charge analysts |
 
-### CLI Modes (`planning_engine/main.py`)
+### CLI Modes (`production_planning/main.py`)
 
 | Flag | Mode | Pipeline |
 |------|------|----------|
@@ -426,7 +426,7 @@ Rich table display: Command, Client, Article, Qty, Expedition, Besoin net, Couve
 
 ---
 
-## 11. API (`planning_engine/api/server.py`)
+## 11. API (`production_planning/api/server.py`)
 
 FastAPI server with CORS open for local GUI usage.
 

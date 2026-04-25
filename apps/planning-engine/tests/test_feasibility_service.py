@@ -1,16 +1,16 @@
 from datetime import date
 from types import SimpleNamespace
 
-from planning_engine.feasibility.feasibility_service import FeasibilityService
-from planning_engine.models.article import Article, TypeApprovisionnement
-from planning_engine.models.nomenclature import (
+from production_planning.feasibility.feasibility_service import FeasibilityService
+from production_planning.models.article import Article, TypeApprovisionnement
+from production_planning.models.nomenclature import (
     NatureConsommation,
     Nomenclature,
     NomenclatureEntry,
     TypeArticle,
 )
-from planning_engine.models.reception import Reception
-from planning_engine.models.stock import Stock
+from production_planning.models.reception import Reception
+from production_planning.models.stock import Stock
 
 
 def _make_article(code: str, type_appro: TypeApprovisionnement) -> Article:

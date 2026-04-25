@@ -23,7 +23,7 @@ Ce n'est **PAS** un MRP classique. C'est un **moteur d'aide à la décision** po
 ### 2.1 Structure des modules
 
 ```
-planning_engine/
+production_planning/
 ├── models/              # Data classes métier (pas de logique)
 │   ├── article.py       # Article (ACHAT/FABRICATION, délai, catégorie)
 │   ├── of.py            # OF (num_of, article, statut, date_fin, qte_restante)
@@ -259,11 +259,11 @@ Pour chaque OF à vérifier :
 
 ---
 
-## 9. API FastAPI (`planning_engine/api/server.py`)
+## 9. API FastAPI (`production_planning/api/server.py`)
 
 **Démarrage** :
 ```bash
-uvicorn planning_engine.api.server:app --reload --port 8000
+uvicorn production_planning.api.server:app --reload --port 8000
 ```
 
 **Endpoints principaux** :
@@ -282,23 +282,23 @@ PUT  /api/v1/capacity/override
 
 ---
 
-## 10. CLI — Commandes de base (`planning_engine/main.py`)
+## 10. CLI — Commandes de base (`production_planning/main.py`)
 
 ```bash
 # Vérification rapide d'un OF
-python -m planning_engine.main --of F426-08419
+python -m production_planning.main --of F426-08419
 
 # Vérification d'une commande
-python -m planning_engine.main --commande AR2600885
+python -m production_planning.main --commande AR2600885
 
 # Heatmap de charge
-python -m planning_engine.main --charge-heatmap --num-weeks 4
+python -m production_planning.main --charge-heatmap --num-weeks 4
 
 # Lancer le scheduler complet
-python -m planning_engine.main --schedule --reference-date 2026-04-25
+python -m production_planning.main --schedule --reference-date 2026-04-25
 
 # Avec composant immédiat (sans projections)
-python -m planning_engine.main --schedule --immediate-components
+python -m production_planning.main --schedule --immediate-components
 ```
 
 ---
@@ -366,13 +366,13 @@ pytest tests/test_matching.py
 ls $ORDO_EXTRACTIONS_DIR
 
 # 2. Lancer l'API
-uvicorn planning_engine.api.server:app --reload --port 8000
+uvicorn production_planning.api.server:app --reload --port 8000
 
 # 3. Schedule via API
 curl -X POST http://127.0.0.1:8000/runs/schedule
 
 # 4. Ou directement en CLI
-python -m planning_engine.main --schedule --reference-date 2026-04-25
+python -m production_planning.main --schedule --reference-date 2026-04-25
 
 # 5. Voir les sorties
 ls outputs/

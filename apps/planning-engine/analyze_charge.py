@@ -24,9 +24,9 @@ from collections import defaultdict
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
-from planning_engine.loaders.data_loader import DataLoader  # noqa: E402
-from planning_engine.planning.charge_calculator import calculate_article_charge, get_week_info  # noqa: E402
-from planning_engine.orders.forecast_consumption import consume_forecasts_by_article, format_consumption_stats  # noqa: E402
+from production_planning.loaders.data_loader import DataLoader  # noqa: E402
+from production_planning.planning.charge_calculator import calculate_article_charge, get_week_info  # noqa: E402
+from production_planning.orders.forecast_consumption import consume_forecasts_by_article, format_consumption_stats  # noqa: E402
 
 
 def is_valid_poste(poste: str) -> bool:

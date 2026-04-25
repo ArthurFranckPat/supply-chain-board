@@ -1,14 +1,14 @@
 from datetime import date
 
-from planning_engine.domain_rules import (
+from production_planning.domain_rules import (
     is_component_treated_as_purchase,
     is_firm_of_status,
     is_purchase_article,
     is_subcontracted_article,
     should_include_besoin_for_scheduler,
 )
-from planning_engine.models.article import Article, TypeApprovisionnement
-from planning_engine.models.besoin_client import BesoinClient, NatureBesoin, TypeCommande
+from production_planning.models.article import Article, TypeApprovisionnement
+from production_planning.models.besoin_client import BesoinClient, NatureBesoin, TypeCommande
 
 
 def _make_article(

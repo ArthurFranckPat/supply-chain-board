@@ -3,11 +3,11 @@
 import pytest
 from datetime import date, timedelta
 
-from planning_engine.feasibility.eol_residuals import EolResidualsService
-from planning_engine.models.article import Article, TypeApprovisionnement
-from planning_engine.models.nomenclature import Nomenclature, NomenclatureEntry, TypeArticle
-from planning_engine.models.stock import Stock
-from planning_engine.models.of import OF
+from production_planning.feasibility.eol_residuals import EolResidualsService
+from production_planning.models.article import Article, TypeApprovisionnement
+from production_planning.models.nomenclature import Nomenclature, NomenclatureEntry, TypeArticle
+from production_planning.models.stock import Stock
+from production_planning.models.of import OF
 
 
 # ── Helpers ──────────────────────────────────────────────────────────

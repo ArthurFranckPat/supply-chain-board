@@ -7,6 +7,7 @@ from typing import Optional
 
 from fastapi import FastAPI, HTTPException, APIRouter, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from ..app import GuiAppService
@@ -146,14 +147,11 @@ def load_data(payload: DataLoadRequest, request: Request) -> dict:
 
 @v1.post("/runs/schedule")
 def run_schedule(payload: RunScheduleRequest, request: Request) -> dict:
-    try:
-        return _svc(request).run_schedule(
-            immediate_components=payload.immediate_components,
-            blocking_components_mode=payload.blocking_components_mode,
-            demand_horizon_days=payload.demand_horizon_days,
-        )
-    except RuntimeError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return _svc(request).run_schedule(
+        immediate_components=payload.immediate_components,
+        blocking_components_mode=payload.blocking_components_mode,
+        demand_horizon_days=payload.demand_horizon_days,
+    )
 
 
 @v1.get("/runs/{run_id}")
@@ -239,205 +237,152 @@ def remove_capacity_override(payload: CapacityOverrideRequest, request: Request)
 def analyser_rupture(payload: AnalyseRuptureRequest, request: Request) -> dict:
     if not payload.component_code:
         raise HTTPException(status_code=400, detail="component_code requis")
-    try:
-        return _svc(request).analyser_rupture(
-            payload.component_code,
-            include_previsions=payload.include_previsions,
-            include_receptions=payload.include_receptions,
-            use_pool=payload.use_pool,
-            merge_branches=payload.merge_branches,
-            include_sf=payload.include_sf,
-            include_pf=payload.include_pf,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except RuntimeError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return _svc(request).analyser_rupture(
+        payload.component_code,
+        include_previsions=payload.include_previsions,
+        include_receptions=payload.include_receptions,
+        use_pool=payload.use_pool,
+        merge_branches=payload.merge_branches,
+        include_sf=payload.include_sf,
+        include_pf=payload.include_pf,
+    )
 
 
 # ── EOL Residual Stock Analysis ──────────────────────────────────
 
 @v1.post("/eol-residuals")
 def eol_residuals(payload: EolResidualsRequest, request: Request) -> dict:
-    try:
-        return _svc(request).eol_residuals_analyze(
-            familles=payload.familles,
-            prefixes=payload.prefixes,
-            bom_depth_mode=payload.bom_depth_mode,
-            stock_mode=payload.stock_mode,
-            component_types=payload.component_types,
-            projection_date=payload.projection_date,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except RuntimeError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return _svc(request).eol_residuals_analyze(
+        familles=payload.familles,
+        prefixes=payload.prefixes,
+        bom_depth_mode=payload.bom_depth_mode,
+        stock_mode=payload.stock_mode,
+        component_types=payload.component_types,
+        projection_date=payload.projection_date,
+    )
 
 
 @v1.post("/eol-residuals/fabricable")
 def eol_residuals_fabricable(payload: ResidualFabRequest, request: Request) -> list[dict]:
-    try:
-        return _svc(request).eol_residuals_fab_check(
-            familles=payload.familles,
-            prefixes=payload.prefixes,
-            desired_qty=payload.desired_qty,
-            bom_depth_mode=payload.bom_depth_mode,
-            stock_mode=payload.stock_mode,
-            projection_date=payload.projection_date,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except RuntimeError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return _svc(request).eol_residuals_fab_check(
+        familles=payload.familles,
+        prefixes=payload.prefixes,
+        desired_qty=payload.desired_qty,
+        bom_depth_mode=payload.bom_depth_mode,
+        stock_mode=payload.stock_mode,
+        projection_date=payload.projection_date,
+    )
 
 
 # ── Feasibility ───────────────────────────────────────────────────
 
 @v1.post("/feasibility/check")
 def feasibility_check(payload: FeasibilityCheckRequest, request: Request) -> dict:
-    try:
-        return _svc(request).feasibility_check(
-            article=payload.article,
-            quantity=payload.quantity,
-            desired_date=payload.desired_date,
-            use_receptions=payload.use_receptions,
-            check_capacity=payload.check_capacity,
-            depth_mode=payload.depth_mode,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except RuntimeError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return _svc(request).feasibility_check(
+        article=payload.article,
+        quantity=payload.quantity,
+        desired_date=payload.desired_date,
+        use_receptions=payload.use_receptions,
+        check_capacity=payload.check_capacity,
+        depth_mode=payload.depth_mode,
+    )
 
 
 @v1.post("/feasibility/promise-date")
 def feasibility_promise_date(payload: PromiseDateRequest, request: Request) -> dict:
-    try:
-        return _svc(request).feasibility_promise_date(
-            article=payload.article,
-            quantity=payload.quantity,
-            max_horizon_days=payload.max_horizon_days,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except RuntimeError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return _svc(request).feasibility_promise_date(
+        article=payload.article,
+        quantity=payload.quantity,
+        max_horizon_days=payload.max_horizon_days,
+    )
 
 
 @v1.post("/feasibility/reschedule")
 def feasibility_reschedule(payload: RescheduleRequest, request: Request) -> dict:
-    try:
-        return _svc(request).feasibility_reschedule(
-            num_commande=payload.num_commande,
-            article=payload.article,
-            new_date=payload.new_date,
-            new_quantity=payload.new_quantity,
-            depth_mode=payload.depth_mode,
-            use_receptions=payload.use_receptions,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except RuntimeError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return _svc(request).feasibility_reschedule(
+        num_commande=payload.num_commande,
+        article=payload.article,
+        new_date=payload.new_date,
+        new_quantity=payload.new_quantity,
+        depth_mode=payload.depth_mode,
+        use_receptions=payload.use_receptions,
+    )
 
 
 @v1.get("/feasibility/articles")
 def feasibility_search_articles(q: str = "", limit: int = 20, request: Request = None) -> dict:
-    try:
-        results = _svc(request).feasibility_search_articles(q, limit)
-        return {"articles": results}
-    except RuntimeError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    results = _svc(request).feasibility_search_articles(q, limit)
+    return {"articles": results}
 
 
 @v1.get("/feasibility/orders")
 def feasibility_search_orders(q: str = "", limit: int = 30, request: Request = None) -> dict:
-    try:
-        results = _svc(request).feasibility_search_orders(q, limit)
-        return {"orders": results}
-    except RuntimeError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    results = _svc(request).feasibility_search_orders(q, limit)
+    return {"orders": results}
 
 
 # ── Stock Evolution ───────────────────────────────────────────────
 
 @v1.get("/stock-evolution/{itmref}")
 def stock_evolution(itmref: str, horizon_days: int = 45, include_internal: bool = False, include_stock_q: bool = False, request: Request = None) -> dict:
-    try:
-        return _svc(request).analyser_evolution_stock(
-            itmref=itmref,
-            horizon_days=horizon_days,
-            include_internal=include_internal,
-            include_stock_q=include_stock_q,
-        )
-    except RuntimeError as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    return _svc(request).analyser_evolution_stock(
+        itmref=itmref,
+        horizon_days=horizon_days,
+        include_internal=include_internal,
+        include_stock_q=include_stock_q,
+    )
 
 
 @v1.get("/stock-evolution/{itmref}/chart")
 def stock_evolution_chart(itmref: str, horizon_days: int = 45, include_internal: bool = False, include_stock_q: bool = False, request: Request = None) -> dict:
-    try:
-        result = _svc(request).analyser_evolution_stock(
-            itmref=itmref,
-            horizon_days=horizon_days,
-            include_internal=include_internal,
-            include_stock_q=include_stock_q,
-        )
-        items = result.get("items", [])
-        return {
-            "article": itmref,
-            "dates": [m["iptdat"] for m in items],
-            "stocks": [m["stock_apres"] for m in items],
-            "qtystu": [m["qtystu"] for m in items],
-            "trstyp": [m["trstyp"] for m in items],
-            "vcrnum": [m["vcrnum"] for m in items],
-            "stats": {k: v for k, v in result.items() if k not in ("items", "article")},
-        }
-    except RuntimeError as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    result = _svc(request).analyser_evolution_stock(
+        itmref=itmref,
+        horizon_days=horizon_days,
+        include_internal=include_internal,
+        include_stock_q=include_stock_q,
+    )
+    items = result.get("items", [])
+    return {
+        "article": itmref,
+        "dates": [m["iptdat"] for m in items],
+        "stocks": [m["stock_apres"] for m in items],
+        "qtystu": [m["qtystu"] for m in items],
+        "trstyp": [m["trstyp"] for m in items],
+        "vcrnum": [m["vcrnum"] for m in items],
+        "stats": {k: v for k, v in result.items() if k not in ("items", "article")},
+    }
 
 
 @v1.post("/stock-evolution/analytics")
 def stock_evolution_analytics(payload: StockEvolutionRequest, request: Request) -> dict:
-    try:
-        return _svc(request).analyser_evolution_stock(
-            itmref=payload.itmref,
-            horizon_days=payload.horizon_days,
-            include_internal=payload.include_internal,
-            include_stock_q=payload.include_stock_q,
-        )
-    except RuntimeError as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    return _svc(request).analyser_evolution_stock(
+        itmref=payload.itmref,
+        horizon_days=payload.horizon_days,
+        include_internal=payload.include_internal,
+        include_stock_q=payload.include_stock_q,
+    )
 
 
 # ── Analyse Lot Eco ─────────────────────────────────────────────
 
 @v1.post("/analyse-lot-eco")
 def analyse_lot_eco(target_coverage_weeks: float = Query(default=4.0, ge=0.5, le=52.0), request: Request = None) -> dict:
-    try:
-        return _svc(request).analyser_lot_eco(target_coverage_weeks=target_coverage_weeks)
-    except RuntimeError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return _svc(request).analyser_lot_eco(target_coverage_weeks=target_coverage_weeks)
 
 
 # ── Stock Projection ────────────────────────────────────────────
 
 @v1.post("/stock-projection")
 def stock_projection(payload: StockProjectionRequest, request: Request) -> dict:
-    try:
-        return _svc(request).project_stock(
-            article=payload.article,
-            stock_initial=payload.stock_initial,
-            lot_eco=payload.lot_eco,
-            lot_optimal=payload.lot_optimal,
-            delai_reappro_jours=payload.delai_reappro_jours,
-            demande_hebdo=payload.demande_hebdo,
-            horizon_weeks=payload.horizon_weeks,
-        )
-    except KeyError as exc:
-        raise HTTPException(status_code=400, detail=f"Missing field: {exc}") from exc
-    except RuntimeError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return _svc(request).project_stock(
+        article=payload.article,
+        stock_initial=payload.stock_initial,
+        lot_eco=payload.lot_eco,
+        lot_optimal=payload.lot_optimal,
+        delai_reappro_jours=payload.delai_reappro_jours,
+        demande_hebdo=payload.demande_hebdo,
+        horizon_weeks=payload.horizon_weeks,
+    )
 
 
 # ── Tarifs achat ────────────────────────────────────────────────
@@ -484,6 +429,14 @@ def create_app(service: Optional[GuiAppService] = None) -> FastAPI:
     @app.get("/health")
     def health() -> dict:
         return {"status": "ok"}
+
+    @app.exception_handler(ValueError)
+    async def value_error_handler(_request: Request, exc: ValueError) -> JSONResponse:
+        return JSONResponse(status_code=400, content={"detail": str(exc)})
+
+    @app.exception_handler(RuntimeError)
+    async def runtime_error_handler(_request: Request, exc: RuntimeError) -> JSONResponse:
+        return JSONResponse(status_code=500, content={"detail": str(exc)})
 
     app.include_router(v1)
     app.include_router(x3_router)

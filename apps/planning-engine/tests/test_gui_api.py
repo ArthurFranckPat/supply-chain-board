@@ -2,7 +2,7 @@
 
 from fastapi.testclient import TestClient
 
-from planning_engine.api.server import create_app
+from production_planning.api.server import create_app
 
 
 class _StubGuiService:
