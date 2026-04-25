@@ -32,13 +32,13 @@ class Gamme:
                 return op
         return None
 
-    def calculate_hours(self, quantity: int, poste: str) -> float:
+    def calculate_hours(self, quantity: float, poste: str) -> float:
         op = self.get_operation_for_poste(poste)
         if not op or op.cadence == 0:
             return 0.0
         return quantity / op.cadence
 
-    def calculate_all_hours(self, quantity: int) -> dict[str, float]:
+    def calculate_all_hours(self, quantity: float) -> dict[str, float]:
         result = {}
         for op in self.operations:
             if op.cadence > 0:

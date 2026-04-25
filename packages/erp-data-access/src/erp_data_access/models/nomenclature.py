@@ -50,10 +50,10 @@ class NomenclatureEntry:
     def is_fabrique(self) -> bool:
         return self.type_article == TypeArticle.FABRIQUE
 
-    def qte_requise(self, qte_parent: int) -> int:
+    def qte_requise(self, qte_parent: float) -> float:
         if self.nature_consommation == NatureConsommation.FORFAIT:
-            return int(self.qte_lien)
-        return int(self.qte_lien * qte_parent)
+            return float(self.qte_lien)
+        return float(self.qte_lien * qte_parent)
 
     @classmethod
     def from_csv_row(cls, row: dict) -> "NomenclatureEntry":
