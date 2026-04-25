@@ -2,45 +2,18 @@ import { useState, useEffect, useCallback } from 'react'
 import { apiClient, ApiError } from '@/api/client'
 import { StockEvolutionChart } from './StockEvolutionChart'
 import { StockProjectionTable } from './StockProjectionTable'
-import type { LotEcoArticle, StatutLot, TarifAchat } from '@/types/lot-eco'
+import { StatutBadge } from '@/components/ui/StatutBadge'
+import { fmtNumber, fmtEuros } from '@/lib/format'
+import type { LotEcoArticle, TarifAchat } from '@/types/lot-eco'
 import type { StockEvolutionResponse } from '@/types/stock-evolution'
 import { lotEcoCache } from '@/api/lotEcoCache'
 import {
-  ArrowLeft, Package, TrendingDown, AlertTriangle, CheckCircle2, Minus,
-  CalendarDays, Boxes, Scale, Euro, Info
+  ArrowLeft, Package, CalendarDays, Boxes, Scale, Euro, Info, AlertTriangle, TrendingDown
 } from 'lucide-react'
 
 type Props = {
   article: LotEcoArticle
   onBack: () => void
-}
-
-function fmt(n: number, decimals = 1): string {
-  if (n < 0) return '∞'
-  return n.toLocaleString('fr-FR', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
-}
-
-function fmtEuros(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M€`
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k€`
-  return `${n.toFixed(0)}€`
-}
-
-function StatutBadge({ statut }: { statut: StatutLot }) {
-  const map: Record<StatutLot, { icon: React.ReactNode; label: string; bg: string; text: string; dot: string }> = {
-    OK: { icon: <CheckCircle2 className="h-3.5 w-3.5" />, label: 'OK — Adéquation correcte', bg: 'bg-green-50', text: 'text-green-800', dot: 'bg-green-500' },
-    SURDIMENSIONNE: { icon: <AlertTriangle className="h-3.5 w-3.5" />, label: 'Surdimensionné — Lot supérieur au besoin', bg: 'bg-red-50', text: 'text-red-700', dot: 'bg-red-500' },
-    SOUSDIMENSIONNE: { icon: <TrendingDown className="h-3.5 w-3.5" />, label: 'Sous-dimensionné — Lot inférieur au besoin', bg: 'bg-amber-50', text: 'text-amber-700', dot: 'bg-amber-500' },
-    DEMANDE_NULLE: { icon: <Minus className="h-3.5 w-3.5" />, label: 'Demande nulle — Pas de consommation', bg: 'bg-stone-100', text: 'text-stone-500', dot: 'bg-stone-400' },
-  }
-  const { icon, label, bg, text, dot } = map[statut]
-  return (
-    <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-[11.5px] font-semibold ${bg} ${text}`}>
-      <span className={`w-2 h-2 rounded-full ${dot}`} />
-      {icon}
-      {label}
-    </span>
-  )
 }
 
 function SectionHeader({ icon, title }: { icon: React.ReactNode; title: string }) {
@@ -132,7 +105,7 @@ export function LotEcoDetailView({ article, onBack }: Props) {
           <div className="space-y-2">
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold text-foreground tracking-tight font-mono">{article.article}</h1>
-              <StatutBadge statut={article.statut} />
+              <StatutBadge statut={article.statut} variant="detail" size="md" />
             </div>
             <p className="text-sm text-stone-500">{article.description}</p>
             {article.code_fournisseur > 0 && (
@@ -190,7 +163,7 @@ export function LotEcoDetailView({ article, onBack }: Props) {
             <InfoRow label="Stock alloué" value={article.stock_alloue.toLocaleString('fr-FR')} />
             <InfoRow label="Stock disponible" value={article.stock_disponible.toLocaleString('fr-FR')} />
             <InfoRow label="Valeur du stock" value={fmtEuros(article.valeur_stock)} />
-            <InfoRow label="Stock (jours)" value={article.stock_jours >= 0 ? `${fmt(article.stock_jours, 1)} jours` : '∞'} />
+            <InfoRow label="Stock (jours)" value={article.stock_jours >= 0 ? `${fmtNumber(article.stock_jours, 1)} jours` : '∞'} />
           </div>
 
           <div className="border-t border-border/60 pt-3 space-y-1">
@@ -206,11 +179,11 @@ export function LotEcoDetailView({ article, onBack }: Props) {
         <div className="grid grid-cols-4 gap-4">
           <div className="space-y-1">
             <p className="text-[10.5px] text-stone-400 font-medium uppercase tracking-wider">Demande / sem</p>
-            <p className="text-xl font-bold text-foreground">{fmt(article.demande_hebdo)}</p>
+            <p className="text-xl font-bold text-foreground">{fmtNumber(article.demande_hebdo)}</p>
           </div>
           <div className="space-y-1">
             <p className="text-[10.5px] text-stone-400 font-medium uppercase tracking-wider">Couverture lot</p>
-            <p className="text-xl font-bold text-foreground">{article.couverture_lot_semaines >= 0 ? `${fmt(article.couverture_lot_semaines)} sem` : '∞'}</p>
+            <p className="text-xl font-bold text-foreground">{article.couverture_lot_semaines >= 0 ? `${fmtNumber(article.couverture_lot_semaines)} sem` : '∞'}</p>
           </div>
           <div className="space-y-1">
             <p className="text-[10.5px] text-stone-400 font-medium uppercase tracking-wider">Délai réappro.</p>
@@ -224,7 +197,7 @@ export function LotEcoDetailView({ article, onBack }: Props) {
               : article.ratio_couverture < 0.5 && article.demande_hebdo > 0 ? 'text-amber-600'
               : 'text-green-700'
             }`}>
-              {article.ratio_couverture >= 0 ? `${fmt(article.ratio_couverture, 2)}x` : '∞'}
+              {article.ratio_couverture >= 0 ? `${fmtNumber(article.ratio_couverture, 2)}x` : '∞'}
             </p>
           </div>
         </div>
@@ -233,7 +206,7 @@ export function LotEcoDetailView({ article, onBack }: Props) {
         <div className="space-y-2">
           <div className="flex justify-between text-[10.5px] text-stone-400">
             <span>Ratio de couverture</span>
-            <span className="font-semibold text-foreground">{article.ratio_couverture >= 0 ? `${fmt(article.ratio_couverture, 2)}x` : '∞'}</span>
+            <span className="font-semibold text-foreground">{article.ratio_couverture >= 0 ? `${fmtNumber(article.ratio_couverture, 2)}x` : '∞'}</span>
           </div>
           <div className="relative h-3 bg-stone-100 rounded-full overflow-hidden">
             <div
@@ -261,9 +234,9 @@ export function LotEcoDetailView({ article, onBack }: Props) {
         <div className="bg-stone-50 border border-border/60 rounded-xl p-3 flex items-start gap-2">
           <Info className="h-3.5 w-3.5 text-stone-400 mt-0.5 shrink-0" />
           <p className="text-[11px] text-stone-500 leading-relaxed">
-            Le ratio de couverture compare la durée de consommation du lot éco ({article.couverture_lot_semaines >= 0 ? `${fmt(article.couverture_lot_semaines)} sem` : '∞'}) au délai de réapprovisionnement ({article.delai_reappro_jours > 0 ? `${article.delai_reappro_jours}j` : '—'}).
-            {article.statut === 'SURDIMENSIONNE' && ` Un ratio de ${fmt(article.ratio_couverture)}x signifie un capital immobilisé pendant ${fmt(article.couverture_lot_semaines - (article.delai_reappro_jours / 7), 1)} semaines de trop.`}
-            {article.statut === 'SOUSDIMENSIONNE' && ` Un ratio de ${fmt(article.ratio_couverture)}x implique des ruptures potentielles avant le prochain réapprovisionnement.`}
+            Le ratio de couverture compare la durée de consommation du lot éco ({article.couverture_lot_semaines >= 0 ? `${fmtNumber(article.couverture_lot_semaines)} sem` : '∞'}) au délai de réapprovisionnement ({article.delai_reappro_jours > 0 ? `${article.delai_reappro_jours}j` : '—'}).
+            {article.statut === 'SURDIMENSIONNE' && ` Un ratio de ${fmtNumber(article.ratio_couverture)}x signifie un capital immobilisé pendant ${fmtNumber(article.couverture_lot_semaines - (article.delai_reappro_jours / 7), 1)} semaines de trop.`}
+            {article.statut === 'SOUSDIMENSIONNE' && ` Un ratio de ${fmtNumber(article.ratio_couverture)}x implique des ruptures potentielles avant le prochain réapprovisionnement.`}
             {article.statut === 'OK' && ` Le lot économique est bien calibré au besoin hebdomadaire.`}
           </p>
         </div>

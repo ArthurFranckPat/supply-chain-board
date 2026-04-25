@@ -1,5 +1,6 @@
 import { useState, Fragment } from 'react'
 import { Pill } from '@/components/ui/pill'
+import { fmtDate } from '@/lib/format'
 import {
   Factory, Truck,
   ChevronDown, ChevronRight, Package, Layers,
@@ -7,16 +8,6 @@ import {
 } from 'lucide-react'
 import type { AnalyseRuptureResponse } from '@/types/analyse-rupture'
 import { PoolTree } from './PoolTree'
-
-/** Helper to format ISO date as DD/MM/YYYY */
-function fmtDate(iso: string): string {
-  try {
-    const d = new Date(iso)
-    return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
-  } catch {
-    return iso
-  }
-}
 
 interface BlockedOrdersListProps {
   result: AnalyseRuptureResponse
