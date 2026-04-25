@@ -4,6 +4,8 @@ from datetime import timedelta
 from typing import Optional
 
 from .base import BaseChecker, FeasibilityResult
+from ..availability import AvailabilityKernel
+from ..domain_rules import is_component_treated_as_purchase, is_firm_of_status
 from ..models.nomenclature import Nomenclature
 from ..models.of import OF
 from ..models.besoin_client import BesoinClient
@@ -46,6 +48,7 @@ class RecursiveChecker(BaseChecker):
         self.use_receptions = use_receptions
         self.check_date = check_date
         self.stock_state = stock_state
+        self.availability = AvailabilityKernel(data_loader)
 
     def check_of(self, of: OF) -> FeasibilityResult:
         """Vérifie la faisabilité d'un OF avec récursion.
@@ -61,7 +64,7 @@ class RecursiveChecker(BaseChecker):
             Résultat de la vérification
         """
         # L'OF parent est FERME si statut = 1
-        of_est_ferme = (of.statut_num == 1)
+        of_est_ferme = is_firm_of_status(of.statut_num)
 
         # Pour les réceptions, la date de besoin suit la priorité métier:
         # DATE_DEBUT si disponible, sinon commande liée - 2j, sinon DATE_FIN - 2j.
@@ -233,10 +236,14 @@ class RecursiveChecker(BaseChecker):
             elif composant.is_fabrique():
                 # LOGIQUE : Vérifier le stock disponible d'abord
                 if self.stock_state:
-                    stock_dispo = self.stock_state.get_available(composant.article_composant)
+                    stock_dispo = self.availability.available_without_receptions(
+                        composant.article_composant,
+                        stock_state=self.stock_state,
+                    )
                 else:
-                    stock = self.data_loader.get_stock(composant.article_composant)
-                    stock_dispo = stock.disponible() if stock else 0
+                    stock_dispo = self.availability.available_without_receptions(
+                        composant.article_composant
+                    )
 
                 # Si stock suffisant OU OF parent FERME avec allocation → Pas de vérification d'OF
                 if of_parent_est_ferme and composant.article_composant in allocations_parent:
@@ -365,27 +372,24 @@ class RecursiveChecker(BaseChecker):
         # Récupérer le stock (virtuel ou réel)
         if self.stock_state:
             # Utiliser le stock virtuel (allocation activée)
-            stock_dispo = self.stock_state.get_available(article)
+            stock_dispo = self.availability.available_without_receptions(
+                article,
+                stock_state=self.stock_state,
+            )
         else:
             # Utiliser le stock réel (comportement actuel)
-            stock = self.data_loader.get_stock(article)
-            if stock is None:
+            if not self.availability.has_stock_record(article):
                 # Article sans stock = considéré comme en rupture
                 result.feasible = False
                 result.add_missing(article, qte_besoin)
                 result.add_alert(f"Stock non disponible pour l'article {article}")
                 return result
 
-            stock_dispo = stock.disponible()
-
-            # Ajouter les réceptions si activé
-            if self.use_receptions:
-                # Les réceptions doivent arriver avant la date de besoin
-                # (date d'expédition commande liée, ou date_fin OF en fallback)
-                receptions = self.data_loader.get_receptions(article)
-                for reception in receptions:
-                    if reception.est_disponible_avant(date_besoin):
-                        stock_dispo += reception.quantite_restante
+            stock_dispo = self.availability.available_at_date(
+                article,
+                date_besoin,
+                use_receptions=self.use_receptions,
+            )
 
         # Vérifier si le stock est suffisant
         if stock_dispo < qte_besoin:
@@ -455,14 +459,11 @@ class RecursiveChecker(BaseChecker):
         les marque comme fabriqués.
         """
         article = self._get_article_metadata(article_code)
-        if article is not None and getattr(article, "is_achat", None):
-            if article.is_achat():
-                return True
-        if is_achete:
-            return True
-        if not is_fabrique:
-            return False
-        return self._is_subcontracted_article(article_code)
+        return is_component_treated_as_purchase(
+            article,
+            component_is_achete=is_achete,
+            component_is_fabrique=is_fabrique,
+        )
 
     def _get_article_metadata(self, article_code: str):
         """Retourne le référentiel article quand il est disponible."""
@@ -510,9 +511,3 @@ class RecursiveChecker(BaseChecker):
                 if variant_article != article_code and variant_article in component_codes:
                     exclusions.add(variant_article)
         return exclusions
-
-    def _is_subcontracted_article(self, article_code: str) -> bool:
-        """Retourne True si l'article relève de la sous-traitance."""
-        article = self._get_article_metadata(article_code)
-        categorie = getattr(article, "categorie", "") if article is not None else ""
-        return str(categorie or "").upper().startswith("ST")

@@ -12,6 +12,8 @@ import time
 from datetime import date, timedelta
 from typing import Optional
 
+from ..availability import AvailabilityKernel
+from ..domain_rules import is_purchase_article
 from ..planning.charge_calculator import calculate_article_charge
 from ..planning.calendar_config import CalendarConfig, next_workday, is_workday
 from ..planning.capacity_config import CapacityConfig
@@ -47,6 +49,7 @@ class FeasibilityService:
         capacity_config: Optional[CapacityConfig] = None,
     ):
         self.loader = loader
+        self.availability = AvailabilityKernel(loader)
         self.calendar_config = calendar_config
         self.capacity_config = capacity_config
 
@@ -105,7 +108,7 @@ class FeasibilityService:
         description = art.description if art else article
 
         # Articles ACHAT: no production needed, just check stock/receptions
-        if art and art.is_achat():
+        if is_purchase_article(art):
             return self._check_purchase_article(
                 article, quantity, desired_date, description, t0, use_receptions=use_receptions
             )
@@ -178,7 +181,7 @@ class FeasibilityService:
         description = art.description if art else article
 
         # Articles ACHAT: answer is stock or next reception
-        if art and art.is_achat():
+        if is_purchase_article(art):
             return self._promise_date_purchase(article, quantity, description, t0)
 
         # Walk forward through workdays
@@ -337,36 +340,19 @@ class FeasibilityService:
         use_receptions: bool = True,
     ) -> FeasibilityResultV2:
         """Handle ACHAT articles: just stock + receptions, no capacity."""
-        stock = self.loader.get_stock(article)
-        stock_dispo = stock.disponible() if stock else 0
-
-        # Add receptions before desired_date
-        reception_total = 0
-        earliest_reception: Optional[date] = None
-        for reception in self.loader.get_receptions(article):
-            if use_receptions and reception.date_reception_prevue <= desired_date:
-                reception_total += reception.quantite_restante
-            if reception.quantite_restante > 0:
-                if earliest_reception is None or reception.date_reception_prevue < earliest_reception:
-                    earliest_reception = reception.date_reception_prevue
-
-        total_available = stock_dispo + reception_total
-        gap = max(0, quantity - total_available)
+        snapshot = self.availability.snapshot(
+            article,
+            desired_date,
+            use_receptions=use_receptions,
+        )
+        total_available = snapshot.available_at_date
+        earliest_reception = snapshot.earliest_reception
+        gap = self.availability.net_shortage(quantity, total_available)
         feasible = gap == 0
 
         feasible_date = desired_date if feasible else None
         if not feasible and earliest_reception:
-            # Find when enough stock arrives
-            cumul = stock_dispo
-            for reception in sorted(
-                self.loader.get_receptions(article),
-                key=lambda r: r.date_reception_prevue,
-            ):
-                if reception.quantite_restante > 0:
-                    cumul += reception.quantite_restante
-                    if cumul >= quantity:
-                        feasible_date = reception.date_reception_prevue
-                        break
+            feasible_date = self.availability.earliest_supply_date(article, quantity)
 
         component_gaps = []
         if gap > 0:
@@ -396,8 +382,7 @@ class FeasibilityService:
         self, article: str, quantity: int, description: str, t0: float,
     ) -> FeasibilityResultV2:
         """Find earliest date for ACHAT article: stock or first sufficient reception."""
-        stock = self.loader.get_stock(article)
-        stock_dispo = stock.disponible() if stock else 0
+        stock_dispo = self.availability.available_without_receptions(article)
 
         if stock_dispo >= quantity:
             today = date.today()
@@ -411,33 +396,26 @@ class FeasibilityService:
                 computation_ms=elapsed_ms,
             )
 
-        # Walk receptions in chronological order
-        cumul = stock_dispo
-        for reception in sorted(
-            self.loader.get_receptions(article),
-            key=lambda r: r.date_reception_prevue,
-        ):
-            if reception.quantite_restante > 0:
-                cumul += reception.quantite_restante
-                if cumul >= quantity:
-                    elapsed_ms = int((time.monotonic() - t0) * 1000)
-                    return FeasibilityResultV2(
-                        feasible=True,
-                        article=article,
-                        description=description,
-                        quantity=quantity,
-                        feasible_date=reception.date_reception_prevue.isoformat(),
-                        component_gaps=[ComponentGap(
-                            article=article,
-                            description=description,
-                            quantity_needed=quantity,
-                            quantity_available=cumul - reception.quantite_restante,
-                            quantity_gap=quantity - (cumul - reception.quantite_restante),
-                            earliest_reception=reception.date_reception_prevue.isoformat(),
-                            is_purchase=True,
-                        )],
-                        computation_ms=elapsed_ms,
-                    )
+        coverage = self.availability.earliest_supply_coverage(article, quantity)
+        if coverage is not None:
+            elapsed_ms = int((time.monotonic() - t0) * 1000)
+            return FeasibilityResultV2(
+                feasible=True,
+                article=article,
+                description=description,
+                quantity=quantity,
+                feasible_date=coverage.date.isoformat(),
+                component_gaps=[ComponentGap(
+                    article=article,
+                    description=description,
+                    quantity_needed=quantity,
+                    quantity_available=coverage.available_before,
+                    quantity_gap=max(0, quantity - coverage.available_before),
+                    earliest_reception=coverage.date.isoformat(),
+                    is_purchase=True,
+                )],
+                computation_ms=elapsed_ms,
+            )
 
         # Not enough even with all receptions
         elapsed_ms = int((time.monotonic() - t0) * 1000)
@@ -471,23 +449,15 @@ class FeasibilityService:
 
             # Stock info
             stock = self.loader.get_stock(comp_code)
-            stock_dispo = stock.disponible() if stock else 0
-
-            # Add receptions arriving before check_date (only in projected mode)
-            if use_receptions:
-                for reception in self.loader.get_receptions(comp_code):
-                    if reception.date_reception_prevue <= check_date:
-                        stock_dispo += reception.quantite_restante
-
-            # Earliest reception (any future)
-            earliest_recv: Optional[date] = None
-            for reception in self.loader.get_receptions(comp_code):
-                if reception.quantite_restante > 0:
-                    if earliest_recv is None or reception.date_reception_prevue < earliest_recv:
-                        earliest_recv = reception.date_reception_prevue
+            stock_dispo = self.availability.available_at_date(
+                comp_code,
+                check_date,
+                use_receptions=use_receptions,
+            )
+            earliest_recv = self.availability.earliest_reception_date(comp_code)
 
             art = self.loader.get_article(comp_code)
-            is_purchase = art.is_achat() if art and hasattr(art, 'is_achat') else composant.is_achete()
+            is_purchase = is_purchase_article(art) or composant.is_achete()
 
             gap = max(0, qte - stock_dispo)
             if stock is None:
@@ -531,29 +501,21 @@ class FeasibilityService:
         gaps = []
         for article_code, qty_needed in missing_components.items():
             art = self.loader.get_article(article_code)
-            stock = self.loader.get_stock(article_code)
-            stock_dispo = stock.disponible() if stock else 0
-            available_qty = float(stock_dispo)
-            if use_receptions:
-                for reception in self.loader.get_receptions(article_code):
-                    if reception.date_reception_prevue <= desired_date:
-                        available_qty += reception.quantite_restante
-
-            # Find earliest reception
-            earliest_recv: Optional[date] = None
-            for reception in self.loader.get_receptions(article_code):
-                if reception.quantite_restante > 0:
-                    if earliest_recv is None or reception.date_reception_prevue < earliest_recv:
-                        earliest_recv = reception.date_reception_prevue
+            available_qty = self.availability.available_at_date(
+                article_code,
+                desired_date,
+                use_receptions=use_receptions,
+            )
+            earliest_recv = self.availability.earliest_reception_date(article_code)
 
             gaps.append(ComponentGap(
                 article=article_code,
                 description=art.description if art else article_code,
                 quantity_needed=qty_needed,
                 quantity_available=available_qty,
-                quantity_gap=max(0, qty_needed - available_qty),
+                quantity_gap=self.availability.net_shortage(qty_needed, available_qty),
                 earliest_reception=earliest_recv.isoformat() if earliest_recv else None,
-                is_purchase=art.is_achat() if art and hasattr(art, 'is_achat') else True,
+                is_purchase=is_purchase_article(art) or art is None,
             ))
         return gaps
 
@@ -659,13 +621,12 @@ class FeasibilityService:
         self, missing_components: dict[str, int], ctx: SimulationContext,
     ) -> Optional[date]:
         """Find the earliest date any missing component gets a reception."""
+        _ = ctx  # kept for API compatibility with callers
         earliest: Optional[date] = None
         for article_code in missing_components:
-            for reception in self.loader.get_receptions(article_code):
-                if reception.quantite_restante > 0:
-                    recv_date = reception.date_reception_prevue
-                    if earliest is None or recv_date < earliest:
-                        earliest = recv_date
+            recv_date = self.availability.earliest_reception_date(article_code)
+            if recv_date is not None and (earliest is None or recv_date < earliest):
+                earliest = recv_date
         return earliest
 
     def _compute_component_deltas(
@@ -723,28 +684,21 @@ class FeasibilityService:
         for comp_code in sorted(all_components):
             art = self.loader.get_article(comp_code)
             description = art.description if art else comp_code
-            is_purchase = art.is_achat() if art and hasattr(art, 'is_achat') else True
+            is_purchase = is_purchase_article(art) or art is None
 
             orig_needed = baseline_missing.get(comp_code, 0)
             sim_needed = simulated_missing.get(comp_code, 0)
 
             # Get stock/reception info for context
-            stock = self.loader.get_stock(comp_code)
-            stock_dispo = stock.disponible() if stock else 0
-            available_qty = float(stock_dispo)
-            if use_receptions:
-                for reception in self.loader.get_receptions(comp_code):
-                    if reception.date_reception_prevue <= new_date:
-                        available_qty += reception.quantite_restante
+            available_qty = self.availability.available_at_date(
+                comp_code,
+                new_date,
+                use_receptions=use_receptions,
+            )
+            earliest_recv = self.availability.earliest_reception_date(comp_code)
 
-            earliest_recv: Optional[date] = None
-            for reception in self.loader.get_receptions(comp_code):
-                if reception.quantite_restante > 0:
-                    if earliest_recv is None or reception.date_reception_prevue < earliest_recv:
-                        earliest_recv = reception.date_reception_prevue
-
-            orig_gap = max(0, orig_needed - available_qty)
-            sim_gap = max(0, sim_needed - available_qty)
+            orig_gap = self.availability.net_shortage(orig_needed, available_qty)
+            sim_gap = self.availability.net_shortage(sim_needed, available_qty)
             delta_needed = sim_needed - orig_needed
             delta_gap = sim_gap - orig_gap
 

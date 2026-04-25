@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
 
+from ..domain_rules import is_firm_of_status
 from ..models.of import OF
 from ..feasibility.base import FeasibilityResult
 
@@ -171,7 +172,7 @@ class AllocationManager:
 
         of_with_allocations = set()
         for of in ofs:
-            if of.statut_num == 1:  # OF FERME uniquement
+            if is_firm_of_status(of.statut_num):  # OF FERME uniquement
                 allocations = self.data_loader.get_allocations_of(of.num_of)
                 if allocations:
                     of_with_allocations.add(of.num_of)

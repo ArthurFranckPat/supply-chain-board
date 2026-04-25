@@ -4,13 +4,13 @@ import pytest
 from datetime import date
 from types import SimpleNamespace
 
-from src.feasibility.recursive import RecursiveChecker
-from src.orders.allocation import StockState
-from src.models.nomenclature import Nomenclature, NomenclatureEntry, TypeArticle
-from src.models.article import Article, TypeApprovisionnement
-from src.models.of import OF
-from src.models.stock import Stock
-from src.models.allocation import OFAllocation
+from production_planning.feasibility.recursive import RecursiveChecker
+from production_planning.orders.allocation import StockState
+from production_planning.models.nomenclature import Nomenclature, NomenclatureEntry, TypeArticle
+from production_planning.models.article import Article, TypeApprovisionnement
+from production_planning.models.of import OF
+from production_planning.models.stock import Stock
+from production_planning.models.allocation import OFAllocation
 
 
 # ---------------------------------------------------------------------------
@@ -52,7 +52,7 @@ def _make_nomenclature(parent, components):
 
 
 def _make_loader(ofs=None, stocks=None, nomenclatures=None,
-                 articles=None, allocations=None, commandes_clients=None):
+                 articles=None, allocations=None, commandes_clients=None, receptions=None):
     """Cree un SimpleNamespace imitant DataLoader avec les donnees fournies."""
     allocations = allocations or {}
     nomenclatures = nomenclatures or {}
@@ -60,6 +60,7 @@ def _make_loader(ofs=None, stocks=None, nomenclatures=None,
     articles = articles or {}
     ofs = ofs or []
     commandes_clients = commandes_clients or []
+    receptions = receptions or {}
 
     return SimpleNamespace(
         commandes_clients=commandes_clients,
@@ -73,7 +74,7 @@ def _make_loader(ofs=None, stocks=None, nomenclatures=None,
             of for of in ofs if of.article == article and of.qte_restante > 0
             and (statut is None or of.statut_num == statut)
         ],
-        get_receptions=lambda article: [],
+        get_receptions=lambda article: receptions.get(article, []),
     )
 
 
@@ -226,6 +227,31 @@ class TestRecursiveChecker:
         # StockState.get_available() retourne 0 si article absent
         assert result.feasible is False
         assert article in result.missing_components
+
+    def test_check_stock_counts_same_day_receptions_when_enabled(self):
+        """Une reception le jour du besoin est comptee dans le stock dispo."""
+        from production_planning.models.reception import Reception
+
+        need_day = date(2026, 4, 15)
+        loader = _make_loader(
+            stocks={"A1953": Stock("A1953", stock_physique=0, stock_alloue=0, stock_bloque=0)},
+            receptions={
+                "A1953": [
+                    Reception(
+                        num_commande="PO-1",
+                        article="A1953",
+                        code_fournisseur="F1",
+                        quantite_restante=10,
+                        date_reception_prevue=need_day,
+                    )
+                ]
+            },
+        )
+        checker = RecursiveChecker(loader, use_receptions=True, stock_state=None)
+
+        result = checker._check_stock("A1953", 5, need_day)
+
+        assert result.feasible is True
 
     def test_get_date_besoin_uses_date_debut_in_priority(self):
         """DATE_DEBUT passe avant toute autre source de date."""

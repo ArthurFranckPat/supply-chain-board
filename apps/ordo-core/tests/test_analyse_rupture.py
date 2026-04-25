@@ -4,15 +4,15 @@ import pytest
 from types import SimpleNamespace
 from datetime import date
 
-from src.feasibility.analyse_rupture import AnalyseRuptureService
-from src.feasibility.analyse_rupture_models import AnalyseRuptureResult
-from src.models.nomenclature import Nomenclature, NomenclatureEntry, TypeArticle, NatureConsommation
-from src.models.of import OF
-from src.models.stock import Stock
-from src.models.article import Article, TypeApprovisionnement
-from src.models.besoin_client import BesoinClient, TypeCommande, NatureBesoin
-from src.models.gamme import Gamme, GammeOperation
-from src.models.reception import Reception
+from production_planning.feasibility.analyse_rupture import AnalyseRuptureService
+from production_planning.feasibility.analyse_rupture_models import AnalyseRuptureResult
+from production_planning.models.nomenclature import Nomenclature, NomenclatureEntry, TypeArticle, NatureConsommation
+from production_planning.models.of import OF
+from production_planning.models.stock import Stock
+from production_planning.models.article import Article, TypeApprovisionnement
+from production_planning.models.besoin_client import BesoinClient, TypeCommande, NatureBesoin
+from production_planning.models.gamme import Gamme, GammeOperation
+from production_planning.models.reception import Reception
 
 
 # ── Helpers ────────────────────────────────────────────────────
@@ -174,6 +174,26 @@ class TestComponentNoParents:
         assert result.component.stock_physique == 200
         assert result.component.stock_alloue == 30
         assert result.component.stock_disponible == 170
+
+    def test_include_receptions_updates_projected_stock(self):
+        loader = _make_loader(
+            articles={"COMP-A": _make_article("COMP-A")},
+            stocks={"COMP-A": _make_stock("COMP-A", physique=20, alloue=5)},
+            receptions=[
+                Reception(
+                    num_commande="PO-1",
+                    article="COMP-A",
+                    code_fournisseur="F1",
+                    quantite_restante=8,
+                    date_reception_prevue=date(2026, 5, 1),
+                )
+            ],
+        )
+        service = AnalyseRuptureService(loader)
+        result = service.analyze("COMP-A", include_receptions=True)
+
+        assert result.component.stock_disponible == 15
+        assert result.component.stock_disponible_projete == 23
 
 
 # ── Tests: Impact niveau 1 ────────────────────────────────────
@@ -649,7 +669,7 @@ class TestDataReload:
 
     def test_service_uses_fresh_data_after_loader_change(self):
         """Apres load_data, le service doit utiliser les nouvelles donnees."""
-        from src.app.gui_service import GuiAppService
+        from production_planning.app.gui_service import GuiAppService
 
         service = GuiAppService()
         # Pas de loader -> erreur

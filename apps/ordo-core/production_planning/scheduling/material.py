@@ -2,9 +2,16 @@ from collections import defaultdict
 from datetime import date
 from typing import Optional
 
+from ..availability import AvailabilityKernel
+from ..domain_rules import is_firm_of_status
 from ..orders.allocation import StockState
 from ..feasibility.recursive import RecursiveChecker
 from ..planning.calendar import previous_workday
+from .diagnostics import (
+    extract_blocking_components as _extract_blocking_components,
+    format_buffer_shortage_reason as _format_buffer_shortage_reason,
+    format_feasibility_cause as _format_feasibility_cause,
+)
 from .models import CandidateOF
 
 
@@ -20,18 +27,19 @@ BUFFER_THRESHOLDS = {
 
 def build_material_stock_state(loader) -> StockState:
     """Initialise l'état de stock virtuel pour les composants."""
+    availability = AvailabilityKernel(loader)
     initial_stock = {}
-    for article, stock in loader.stocks.items():
-        initial_stock[article] = stock.disponible()
+    for article in loader.stocks:
+        initial_stock[article] = availability.available_without_receptions(article)
     return StockState(initial_stock)
 
 
-def build_receptions_by_day(loader) -> dict[date, list[tuple[str, int]]]:
+def build_receptions_by_day(loader) -> dict[date, list[tuple[str, float]]]:
     """Indexe les réceptions fournisseurs par jour."""
-    receptions_by_day: dict[date, list[tuple[str, int]]] = defaultdict(list)
+    receptions_by_day: dict[date, list[tuple[str, float]]] = defaultdict(list)
     for reception in loader.receptions:
         receptions_by_day[reception.date_reception_prevue].append(
-            (reception.article, reception.quantite_restante)
+            (reception.article, float(reception.quantite_restante))
         )
     return receptions_by_day
 
@@ -90,10 +98,11 @@ def availability_status(
     immediate_components: bool = False,
     immediate_reference_day: Optional[date] = None,
 ) -> tuple[str, str]:
+    availability = AvailabilityKernel(loader)
     # FERME OF (statut 1) : déjà lancé en production.
     # Les achats étaient validés à l'affermissement, les fabriqués manquants
     # ne bloquent pas (on lance des sous-OFs). Jamais bloqué.
-    is_ferme = getattr(candidate, 'statut_num', 3) == 1
+    is_ferme = is_firm_of_status(getattr(candidate, "statut_num", 3))
     if is_ferme:
         return "comfortable", ""
 
@@ -125,8 +134,7 @@ def availability_status(
         )
         if result.feasible:
             return "tight", ""
-        stock = loader.get_stock(candidate.article)
-        if stock and stock.disponible() >= candidate.quantity:
+        if availability.available_without_receptions(candidate.article) >= candidate.quantity:
             return "tight", ""
         return "blocked", format_feasibility_cause(result)
 
@@ -146,8 +154,7 @@ def availability_status(
         if result.feasible:
             return status, ""
 
-    stock = loader.get_stock(candidate.article)
-    if stock and stock.disponible() >= candidate.quantity:
+    if availability.available_without_receptions(candidate.article) >= candidate.quantity:
         return "tight", ""
     return "blocked", format_feasibility_cause(result)
 
@@ -176,36 +183,17 @@ def tracked_kanban_requirements(loader, article: str, quantity: float, kanban_ar
 
 def format_feasibility_cause(result) -> str:
     """Rend une cause métier lisible à partir du résultat du checker."""
-    details: list[str] = []
-    if getattr(result, 'missing_components', None):
-        missing = ', '.join(
-            f"{article} x{quantity}"
-            for article, quantity in sorted(result.missing_components.items())
-        )
-        details.append(f"composants indisponibles: {missing}")
-    if getattr(result, 'alerts', None):
-        details.extend(result.alerts[:3])
-    if not details:
-        return "composants indisponibles"
-    return ' | '.join(details)
+    return _format_feasibility_cause(result)
 
 
 def extract_blocking_components(reason: str) -> str:
     """Extrait la liste des composants bloquants depuis une cause formatée."""
-    if not reason:
-        return ""
-
-    for part in reason.split("|"):
-        chunk = part.strip()
-        if chunk.lower().startswith("composants indisponibles:"):
-            return chunk.split(":", 1)[1].strip()
-        if chunk.lower() == "composants indisponibles":
-            return "non détaillé"
-    return ""
+    return _extract_blocking_components(reason)
 
 
 def compute_direct_component_shortages(loader, candidate, material_state: Optional[StockState] = None) -> str:
     """Calcule les ruptures directes de la nomenclature du candidat."""
+    availability = AvailabilityKernel(loader)
     nomenclature = loader.get_nomenclature(candidate.article)
     if nomenclature is None:
         return ""
@@ -227,8 +215,9 @@ def compute_direct_component_shortages(loader, candidate, material_state: Option
         if material_state is not None:
             available_qty = float(material_state.get_available(composant.article_composant))
         else:
-            stock = loader.get_stock(composant.article_composant)
-            available_qty = float(stock.disponible()) if stock is not None else 0.0
+            available_qty = availability.available_without_receptions(
+                composant.article_composant
+            )
 
         free_pool_qty = max(0.0, available_qty)
         missing_qty = required_qty - allocated_to_candidate - free_pool_qty
@@ -252,16 +241,7 @@ def compute_direct_component_shortages(loader, candidate, material_state: Option
 
 def format_buffer_shortage_reason(requirements: dict[str, float], projected_buffer: dict[str, float]) -> str:
     """Explique quel stock tampon BDH manque réellement."""
-    shortages = []
-    for article, required_qty in sorted(requirements.items()):
-        available_qty = projected_buffer.get(article, 0.0)
-        if available_qty < required_qty:
-            shortages.append(
-                f"{article} besoin={round(required_qty, 3)} dispo={round(available_qty, 3)}"
-            )
-    if not shortages:
-        return "stock tampon BDH insuffisant"
-    return "stock tampon BDH insuffisant: " + ', '.join(shortages)
+    return _format_buffer_shortage_reason(requirements, projected_buffer)
 
 
 def _candidate_has_existing_allocations(loader, candidate: CandidateOF) -> bool:

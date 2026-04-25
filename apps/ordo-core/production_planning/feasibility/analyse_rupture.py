@@ -19,6 +19,8 @@ from __future__ import annotations
 
 from collections import defaultdict, deque
 
+from ..availability import AvailabilityKernel
+from ..domain_rules import is_firm_of_status
 from ..loaders import DataLoader
 from ..orders.matching import CommandeOFMatcher
 from .analyse_rupture_models import (
@@ -52,6 +54,7 @@ class AnalyseRuptureService:
 
     def __init__(self, loader: DataLoader) -> None:
         self._loader = loader
+        self._availability = AvailabilityKernel(loader)
         self._reverse_index = self._build_reverse_index()
         self._of_index = self._build_of_index()
         self._besoins_by_article = self._build_besoins_index()
@@ -108,14 +111,13 @@ class AnalyseRuptureService:
         stock = self._loader.get_stock(component_code)
         stock_physique = stock.stock_physique if stock else 0
         stock_alloue = stock.stock_alloue if stock else 0
-        stock_disponible = stock.disponible() if stock else 0
+        stock_disponible = self._availability.available_without_receptions(component_code)
 
         # Stock projete = stock disponible + receptions prevues
         receptions = self._loader.get_receptions(component_code)
         stock_disponible_projete = stock_disponible
         if include_receptions:
-            for reception in receptions:
-                stock_disponible_projete += reception.quantite_restante
+            stock_disponible_projete += self._availability.total_receptions(component_code)
 
         # BFS avec ratios cumules
         paths, article_ratios, nodes_visited, truncated = self._bfs_upward(component_code)
@@ -733,7 +735,7 @@ class AnalyseRuptureService:
 
         # Verifier quels OFs Fermes ont ce composant alloue
         for of in self._loader.ofs:
-            if of.statut_num == 1 and of.qte_restante > 0:
+            if is_firm_of_status(of.statut_num) and of.qte_restante > 0:
                 if alloc_by_doc.get(of.num_of, 0) > 0:
                     allocated.add(of.num_of)
 

@@ -135,3 +135,37 @@ def test_qte_requise_keeps_fractional_values():
     )
 
     assert entry.qte_requise(3) == 0.75
+
+
+def test_promise_date_purchase_uses_first_covering_reception():
+    loader = _make_loader(
+        articles={"C1": _make_article("C1", TypeApprovisionnement.ACHAT)},
+        stocks={"C1": Stock("C1", stock_physique=2, stock_alloue=0, stock_bloque=0)},
+        receptions={
+            "C1": [
+                Reception(
+                    num_commande="PO1",
+                    article="C1",
+                    code_fournisseur="F1",
+                    quantite_restante=2,
+                    date_reception_prevue=date(2026, 4, 10),
+                ),
+                Reception(
+                    num_commande="PO2",
+                    article="C1",
+                    code_fournisseur="F1",
+                    quantite_restante=3,
+                    date_reception_prevue=date(2026, 4, 12),
+                ),
+            ]
+        },
+    )
+    service = FeasibilityService(loader)
+
+    result = service.promise_date("C1", 6)
+
+    assert result.feasible is True
+    assert result.feasible_date == "2026-04-12"
+    assert result.component_gaps[0].quantity_available == 4
+    assert result.component_gaps[0].quantity_gap == 2
+    assert result.component_gaps[0].earliest_reception == "2026-04-12"

@@ -28,6 +28,7 @@ from ..planning.calendar_config import CalendarConfig, is_workday as config_is_w
 from ..planning.capacity_config import CapacityConfig, load_capacity_config, get_capacity_for_day
 from ..planning.holidays import ensure_holidays_in_calendar
 from ..planning.weights import load_weights
+from ..domain_rules import should_include_besoin_for_scheduler
 from .models import CandidateOF, DaySchedule, SchedulerResult
 from .reporting import build_unscheduled_rows, build_order_rows, write_outputs
 from .lines import GenericLineScheduler
@@ -515,16 +516,8 @@ def _select_candidates_from_matching(loader, planning_workdays, target_lines) ->
         if not _is_target_scope_order(besoin, loader, target_lines):
             continue
 
-        # Filtrage selon le type de commande
-        # MTS et MTO : uniquement les commandes fermes
-        # NOR : commandes fermes et prévisions
-        from ..models.besoin_client import TypeCommande
-        if besoin.type_commande in (TypeCommande.MTS, TypeCommande.MTO):
-            if not besoin.est_commande():
-                continue
-        elif besoin.type_commande == TypeCommande.NOR:
-            if not (besoin.est_commande() or besoin.est_prevision()):
-                continue
+        if not should_include_besoin_for_scheduler(besoin):
+            continue
 
         commandes.append(besoin)
 

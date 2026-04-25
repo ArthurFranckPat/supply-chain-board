@@ -41,7 +41,7 @@ class SimulationContext:
         self.stock_state = build_material_stock_state(loader)
 
         # Reception index by day (read-only from real data)
-        self.receptions_by_day: dict[date, list[tuple[str, int]]] = build_receptions_by_day(loader)
+        self.receptions_by_day: dict[date, list[tuple[str, float]]] = build_receptions_by_day(loader)
 
         # Virtual schedule: {date: {poste: hours_used}}
         self.schedule_state: dict[date, dict[str, float]] = defaultdict(lambda: defaultdict(float))

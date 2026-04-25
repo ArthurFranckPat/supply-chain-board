@@ -4,6 +4,20 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Optional, Dict
 
+from ..domain_rules import is_plannable_of_status, is_purchase_article
+from .matching_diagnostics import (
+    alert_mts_missing_hard_pegging,
+    alert_mts_non_univoque,
+    alert_mts_partial_cover,
+    alert_no_of_found,
+    alert_partial_of_coverage,
+    alert_purchase_article_supply,
+    method_mts_hard_pegging,
+    method_none,
+    method_nor_mto_cumulative,
+    method_nor_mto_stock_complete,
+    method_purchase_article,
+)
 from ..models.besoin_client import BesoinClient
 from ..models.of import OF
 from ..models.stock import Stock
@@ -184,7 +198,7 @@ class CommandeOFMatcher:
         """
         for of in self.data_loader.ofs:
             # OF affermis (statut 1), planifiés (statut 2) ou suggérés (statut 3)
-            if of.statut_num not in (1, 2, 3):
+            if not is_plannable_of_status(of.statut_num):
                 continue
 
             # Filtrer par articles si demandé
@@ -250,7 +264,7 @@ class CommandeOFMatcher:
             of for of in linked_ofs
             if (
                 str(of.methode_obtention_livraison).strip().lower() == "ordre de fabrication"
-                and of.statut_num in (1, 2, 3)
+                and is_plannable_of_status(of.statut_num)
                 and of.qte_restante > 0
             )
         ]
@@ -288,8 +302,8 @@ class CommandeOFMatcher:
             return MatchingResult(
                 commande=commande,
                 of=None,
-                matching_method="MTS hard pegging",
-                alertes=[f"Commande MTS sans OF hard-peggé pour {commande.article}"],
+                matching_method=method_mts_hard_pegging(),
+                alertes=[alert_mts_missing_hard_pegging(commande.article)],
                 remaining_uncovered_qty=commande.qte_restante,
             )
 
@@ -313,9 +327,9 @@ class CommandeOFMatcher:
             return MatchingResult(
                 commande=commande,
                 of=selected,
-                matching_method="MTS hard pegging",
+                matching_method=method_mts_hard_pegging(),
                 alertes=[
-                    f"Hard pegging non univoque: {len(linked_ofs)} OF liés trouvés pour {commande.num_commande}"
+                    alert_mts_non_univoque(len(linked_ofs), commande.num_commande)
                 ],
                 of_allocations=[allocation],
                 remaining_uncovered_qty=max(commande.qte_restante - allocation.qte_allouee, 0),
@@ -331,14 +345,17 @@ class CommandeOFMatcher:
         alertes = []
         if remaining > 0:
             alertes.append(
-                f"OF hard-peggé {selected.num_of} couvre partiellement la commande: "
-                f"{allocation.qte_allouee}/{commande.qte_restante}"
+                alert_mts_partial_cover(
+                    selected.num_of,
+                    allocation.qte_allouee,
+                    commande.qte_restante,
+                )
             )
 
         return MatchingResult(
             commande=commande,
             of=selected,
-            matching_method="MTS hard pegging",
+            matching_method=method_mts_hard_pegging(),
             alertes=alertes,
             of_allocations=[allocation],
             remaining_uncovered_qty=remaining,
@@ -459,7 +476,7 @@ class CommandeOFMatcher:
             return MatchingResult(
                 commande=commande,
                 of=None,
-                matching_method="NOR/MTO (stock complet)",
+                matching_method=method_nor_mto_stock_complete(),
                 alertes=[],
                 stock_allocation=allocation,
             )
@@ -468,14 +485,16 @@ class CommandeOFMatcher:
         article = self.data_loader.get_article(commande.article)
 
         # 3a. Article ACHAT = pas d'OF, seulement du stock
-        if article and article.is_achat():
+        if is_purchase_article(article):
             return MatchingResult(
                 commande=commande,
                 of=None,
-                matching_method="Article acheté",
+                matching_method=method_purchase_article(),
                 alertes=[
-                    f"Article ACHAT - Stock alloué: {allocation.qte_allouee}, "
-                    f"Besoin net: {allocation.besoin_net} (approvisionnement requis)"
+                    alert_purchase_article_supply(
+                        allocation.qte_allouee,
+                        allocation.besoin_net,
+                    )
                 ],
                 stock_allocation=allocation,
             )
@@ -506,11 +525,13 @@ class CommandeOFMatcher:
             return MatchingResult(
                 commande=commande,
                 of=None,
-                matching_method="Aucun",
+                matching_method=method_none(),
                 alertes=[
-                    f"Stock alloué: {allocation.qte_allouee}, "
-                    f"Besoin net: {allocation.besoin_net}, "
-                    f"Aucun OF trouvé (affermi ou suggéré) pour {commande.article}"
+                    alert_no_of_found(
+                        allocation.qte_allouee,
+                        allocation.besoin_net,
+                        commande.article,
+                    )
                 ],
                 stock_allocation=allocation,
                 remaining_uncovered_qty=allocation.besoin_net,
@@ -524,16 +545,17 @@ class CommandeOFMatcher:
         alertes = []
         if remaining > 0:
             alertes.append(
-                f"Couverture partielle OF: {sum(a.qte_allouee for a in of_allocations)}/{allocation.besoin_net} "
-                f"pour {commande.article}"
+                alert_partial_of_coverage(
+                    sum(a.qte_allouee for a in of_allocations),
+                    allocation.besoin_net,
+                    commande.article,
+                )
             )
 
         return MatchingResult(
             commande=commande,
             of=primary_of,
-            matching_method=(
-                f"NOR/MTO cumulatif (stock: {allocation.qte_allouee} + OFs: {details})"
-            ),
+            matching_method=method_nor_mto_cumulative(allocation.qte_allouee, details),
             alertes=alertes,
             stock_allocation=allocation,
             of_allocations=of_allocations,
