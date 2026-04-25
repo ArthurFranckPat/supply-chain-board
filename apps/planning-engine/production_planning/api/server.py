@@ -438,6 +438,10 @@ def create_app(service: Optional[GuiAppService] = None) -> FastAPI:
     async def runtime_error_handler(_request: Request, exc: RuntimeError) -> JSONResponse:
         return JSONResponse(status_code=500, content={"detail": str(exc)})
 
+    @app.exception_handler(FileNotFoundError)
+    async def file_not_found_handler(_request: Request, exc: FileNotFoundError) -> JSONResponse:
+        return JSONResponse(status_code=400, content={"detail": str(exc)})
+
     app.include_router(v1)
     app.include_router(x3_router)
 
