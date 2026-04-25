@@ -1,13 +1,14 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { LoadingEmpty } from '@/components/ui/loading'
-import type { EmbeddedReport, DetailItem } from '@/types/api'
+import { useDetailDrawer } from '@/context/DetailDrawerContext'
+import type { EmbeddedReport } from '@/types/api'
 
 interface RapportsViewProps {
   embeddedReports: Record<string, EmbeddedReport> | null
-  onInspect: (item: DetailItem) => void
 }
 
-export function RapportsView({ embeddedReports, onInspect }: RapportsViewProps) {
+export function RapportsView({ embeddedReports }: RapportsViewProps) {
+  const { open } = useDetailDrawer()
   const reports = embeddedReports
     ? Object.values(embeddedReports).filter(Boolean)
     : []
@@ -21,7 +22,7 @@ export function RapportsView({ embeddedReports, onInspect }: RapportsViewProps) 
             <CardHeader
               className="cursor-pointer hover:bg-accent rounded-t-lg"
               onClick={() =>
-                onInspect({
+                open({
                   title: String(report.type),
                   description: String(report.path ?? ''),
                   payload: report,

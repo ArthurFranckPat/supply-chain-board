@@ -9,14 +9,15 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import type { ActionReportPayload, DetailItem } from '@/types/api'
+import { useDetailDrawer } from '@/context/DetailDrawerContext'
+import type { ActionReportPayload } from '@/types/api'
 
 interface ActionsViewProps {
   data: ActionReportPayload | null
-  onInspect: (item: DetailItem) => void
 }
 
-export function ActionsView({ data, onInspect }: ActionsViewProps) {
+export function ActionsView({ data }: ActionsViewProps) {
+  const { open } = useDetailDrawer()
   const componentLines = data?.component_lines ?? []
   const supplierLines = data?.supplier_lines ?? []
   const kanbanLines = data?.poste_kanban_lines ?? []
@@ -54,7 +55,7 @@ export function ActionsView({ data, onInspect }: ActionsViewProps) {
                   key={`${line.article_composant}-${i}`}
                   className="cursor-pointer hover:bg-accent"
                   onClick={() =>
-                    onInspect({
+                    open({
                       title: line.article_composant ?? 'Composant',
                       description: line.action_recommandee ?? '',
                       payload: line,
@@ -86,7 +87,7 @@ export function ActionsView({ data, onInspect }: ActionsViewProps) {
               key={`supplier-${i}`}
               className="w-full text-left p-3 rounded-md border border-border hover:bg-accent"
               onClick={() =>
-                onInspect({
+                open({
                   title: `${line.fournisseur ?? 'Fournisseur'} / ${line.num_commande_achat ?? 'N/A'}`,
                   description: 'Vue fournisseur',
                   payload: line,
@@ -107,7 +108,7 @@ export function ActionsView({ data, onInspect }: ActionsViewProps) {
               key={`kanban-${i}`}
               className="w-full text-left p-3 rounded-md border border-border hover:bg-accent"
               onClick={() =>
-                onInspect({
+                open({
                   title: line.poste_fournisseur ?? 'Poste',
                   description: line.action_recommandee ?? '',
                   payload: line,

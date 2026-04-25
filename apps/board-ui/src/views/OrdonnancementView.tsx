@@ -14,17 +14,16 @@ import {
   ChevronDown, ChevronRight, Package,
 } from 'lucide-react'
 import type { SchedulerResult, CandidateOF } from '@/types/scheduler'
-import type { DetailItem, RunState } from '@/types/api'
+import type { RunState } from '@/types/api'
 
 interface OrdonnancementViewProps {
   isLoading: boolean
   result: SchedulerResult | null
   error: string | null
   runState?: RunState | null
-  onInspect: (item: DetailItem) => void
 }
 
-export function OrdonnancementView({ isLoading, result, error, runState, onInspect: _onInspect }: OrdonnancementViewProps) {
+export function OrdonnancementView({ isLoading, result, error, runState }: OrdonnancementViewProps) {
   /* ── Controls ─────────────────────────────────────────────── */
   const [activeTab, setActiveTab] = useState<string>('planning')
   const [showKpis, setShowKpis] = useState(true)

@@ -7,15 +7,9 @@ import { Segmented } from '@/components/ui/segmented'
 import { LoadingInline, LoadingError } from '@/components/ui/loading'
 import { Card, CardContent } from '@/components/ui/card'
 import { CalendarDays, Gauge } from 'lucide-react'
-import type { DetailItem } from '@/types/api'
-
-interface CapacityViewProps {
-  onInspect?: (item: DetailItem) => void
-}
-
 type Tab = 'calendar' | 'capacity'
 
-export function CapacityView({ onInspect: _onInspect }: CapacityViewProps) {
+export function CapacityView() {
   const [activeTab, setActiveTab] = useState<Tab>('calendar')
   const now = new Date()
   const [year, setYear] = useState(now.getFullYear())

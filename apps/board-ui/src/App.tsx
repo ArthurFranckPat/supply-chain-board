@@ -1,24 +1,11 @@
 import { useState, useEffect } from 'react'
-import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
 import { ApiError } from '@/api/client'
 import { useScheduleRun } from '@/hooks/useScheduleRun'
 import { useAppBootstrap } from '@/hooks/useAppBootstrap'
-import { Sidebar } from '@/components/layout/Sidebar'
-import { Topbar } from '@/components/layout/Topbar'
-import { DetailDrawer } from '@/components/layout/DetailDrawer'
-import { PilotageView } from '@/views/PilotageView'
-import { ActionsView } from '@/views/ActionsView'
-import { OrdonnancementView } from '@/views/OrdonnancementView'
-import { CapacityView } from '@/views/CapacityView'
-import { RapportsView } from '@/views/RapportsView'
-import { AnalyseRuptureView } from '@/views/AnalyseRuptureView'
-import { FeasibilityView } from '@/views/FeasibilityView'
-import { EolResidualsView } from '@/views/EolResidualsView'
-import { ResidualFabricationView } from '@/views/ResidualFabricationView'
-import { OrderTrackingView } from '@/views/OrderTrackingView'
-import { StockEvolutionView } from '@/views/StockEvolutionView'
-import { LotEcoView } from '@/views/LotEcoView'
-import type { DataSource, DetailItem } from '@/types/api'
+import { AppLayout } from '@/components/layout/AppLayout'
+import { DetailDrawerProvider } from '@/context/DetailDrawerContext'
+import { ViewRouter } from '@/views/ViewRouter'
+import type { DataSource } from '@/types/api'
 import type { SchedulingOptions } from '@/views/PilotageView'
 import type { ViewKey } from '@/components/layout/nav'
 
@@ -38,7 +25,6 @@ function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [source] = useState<DataSource>('extractions')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const [detailItem, setDetailItem] = useState<DetailItem | null>(null)
   const [schedulingOptions, setSchedulingOptions] = useState<SchedulingOptions>({
     blockingComponentsMode: 'blocked',
     immediateComponents: false,
@@ -63,99 +49,38 @@ function App() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar
+    <DetailDrawerProvider>
+      <AppLayout
         activeView={activeView}
         onNavigate={setActiveView}
-        collapsed={sidebarCollapsed}
-        onToggleCollapse={() => setSidebarCollapsed(c => !c)}
+        sidebarCollapsed={sidebarCollapsed}
+        onToggleSidebar={() => setSidebarCollapsed((c) => !c)}
         backendState={backendState}
         loadState={loadState}
-      />
-
-      <main className="flex-1 flex flex-col overflow-hidden">
-        <Topbar
+        onRunSchedule={handleRunSchedule}
+        scheduleResult={schedule.result}
+        errorMessage={errorMessage}
+      >
+        <ViewRouter
           activeView={activeView}
+          loadState={loadState}
+          backendState={backendState}
+          lastSourceSnapshot={lastSourceSnapshot}
+          suiviData={suiviData}
+          reloadSuivi={reloadSuivi}
+          schedulingOptions={schedulingOptions}
+          onOptionsChange={setSchedulingOptions}
+          onNavigate={setActiveView}
           onRunSchedule={handleRunSchedule}
-          scheduleResult={schedule.result}
+          schedule={{
+            isLoading: schedule.isLoading,
+            result: schedule.result,
+            error: schedule.error instanceof Error ? schedule.error : null,
+            runState: schedule.runState ?? null,
+          }}
         />
-
-        {errorMessage && (
-          <div className="bg-destructive text-destructive-foreground px-6 py-2 text-sm font-medium">
-            {errorMessage}
-          </div>
-        )}
-
-        <div className="flex-1 overflow-auto p-6">
-          {activeView === 'home' && (
-            <ErrorBoundary><PilotageView
-              loadState={loadState}
-              scheduleState={schedule.isLoading ? 'running' : schedule.result ? 'success' : 'idle'}
-              lastSourceSnapshot={lastSourceSnapshot}
-              backendState={backendState}
-              suiviReady={suiviData !== null}
-              options={schedulingOptions}
-              onRunSchedule={handleRunSchedule}
-              onOptionsChange={setSchedulingOptions}
-              onNavigate={(view) => setActiveView(view as ViewKey)}
-            /></ErrorBoundary>
-          )}
-          {activeView === 'actions' && (
-            <ErrorBoundary><ActionsView
-              data={null}
-              onInspect={(item) => setDetailItem(item)}
-            /></ErrorBoundary>
-          )}
-          {activeView === 'scheduler' && (
-            <ErrorBoundary><OrdonnancementView
-              isLoading={schedule.isLoading}
-              result={schedule.result}
-              error={schedule.error instanceof Error ? schedule.error.message : schedule.error ?? null}
-              runState={schedule.runState}
-              onInspect={(item) => setDetailItem(item)}
-            /></ErrorBoundary>
-          )}
-          {activeView === 'capacity' && (
-            <ErrorBoundary><CapacityView onInspect={(item) => setDetailItem(item)} /></ErrorBoundary>
-          )}
-          {activeView === 'analyse-rupture' && (
-            <ErrorBoundary><AnalyseRuptureView /></ErrorBoundary>
-          )}
-          {activeView === 'feasibility' && (
-            <ErrorBoundary><FeasibilityView /></ErrorBoundary>
-          )}
-          {activeView === 'eol-residuals' && (
-            <ErrorBoundary><EolResidualsView /></ErrorBoundary>
-          )}
-          {activeView === 'fabricable' && (
-            <ErrorBoundary><ResidualFabricationView /></ErrorBoundary>
-          )}
-          {activeView === 'order-tracking' && (
-            <ErrorBoundary><OrderTrackingView data={suiviData} loadState={loadState} onReload={reloadSuivi} /></ErrorBoundary>
-          )}
-          {activeView === 'stock-evolution' && (
-            <ErrorBoundary><StockEvolutionView /></ErrorBoundary>
-          )}
-          {activeView === 'lot-eco' && (
-            <ErrorBoundary><LotEcoView /></ErrorBoundary>
-          )}
-          {activeView === 'reports' && (
-            <ErrorBoundary><RapportsView
-              embeddedReports={null}
-              onInspect={(item) => setDetailItem(item)}
-            /></ErrorBoundary>
-          )}
-          {activeView === 'settings' && (
-            <div className="text-sm text-muted-foreground">
-              <p>Source: <strong>{source}</strong></p>
-              <p>API: <strong>{backendState}</strong></p>
-            </div>
-          )}
-        </div>
-      </main>
-
-      <DetailDrawer item={detailItem} onClose={() => setDetailItem(null)} />
-    </div>
+      </AppLayout>
+    </DetailDrawerProvider>
   )
 }
 
