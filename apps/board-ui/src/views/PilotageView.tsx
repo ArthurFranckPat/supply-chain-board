@@ -53,10 +53,10 @@ const SNAPSHOT_ICONS: Record<string, React.ReactNode> = {
 }
 
 const QUICK_NAV = [
-  { path: '/order-tracking', label: 'Commandes', icon: <ShoppingCart className="h-4 w-4" /> },
-  { path: '/capacity', label: 'Capacités', icon: <CalendarDays className="h-4 w-4" /> },
-  { path: '/feasibility', label: 'Faisabilité', icon: <CheckCircle className="h-4 w-4" /> },
-  { path: '/analyse-rupture', label: 'Ruptures', icon: <AlertTriangle className="h-4 w-4" /> },
+  { path: '/order-tracking', label: 'Suivi commandes', icon: <ShoppingCart className="h-4 w-4" /> },
+  { path: '/capacity', label: 'Capacités atelier', icon: <CalendarDays className="h-4 w-4" /> },
+  { path: '/feasibility', label: 'Faisabilité commande', icon: <CheckCircle className="h-4 w-4" /> },
+  { path: '/analyse-rupture', label: 'Ruptures & Gaps', icon: <AlertTriangle className="h-4 w-4" /> },
 ]
 
 function statusDot(state: 'checking' | 'ready' | 'error' | boolean) {

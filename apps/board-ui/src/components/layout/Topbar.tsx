@@ -1,5 +1,5 @@
 import { Zap } from 'lucide-react'
-import { NAV_ITEMS } from './nav'
+import { getNavLabel } from './nav'
 import type { SchedulerResult } from '@/types/scheduler'
 
 interface TopbarProps {
@@ -9,8 +9,8 @@ interface TopbarProps {
 }
 
 export function Topbar({ activePath, onRunSchedule, scheduleResult }: TopbarProps) {
-  const activeItem = NAV_ITEMS.find((n) => n.path === activePath)
   const isScheduler = activePath === '/scheduler'
+  const label = getNavLabel(activePath) || (activePath === '/settings' ? 'Paramètres' : '')
 
   // Derive topbar subtitle
   const topbarSubtitle = isScheduler && scheduleResult
@@ -28,7 +28,7 @@ export function Topbar({ activePath, onRunSchedule, scheduleResult }: TopbarProp
     <header className="h-[54px] shrink-0 border-b border-border bg-card flex items-center justify-between px-[22px]">
       <div className="flex items-baseline gap-3">
         <h2 className="text-[15.5px] font-semibold tracking-tight">
-          {activeItem?.label ?? (activePath === '/settings' ? 'Paramètres' : '')}
+          {label}
         </h2>
         {topbarSubtitle && (
           <span className="text-[11.5px] text-muted-foreground">{topbarSubtitle}</span>
