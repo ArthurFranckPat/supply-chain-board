@@ -15,7 +15,6 @@ from typing import Optional
 
 import pandas as pd
 
-from ..models.besoin_client import BesoinClient
 from ..models.gamme import Gamme
 from ..models.stock import Stock
 from ..protocols import OrderReader, StockReader, GammeReader

@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from ..models.allocation import OFAllocation
-from .parsing_utils import parse_float, to_str
+from .parsing_utils import parse_float
 
 
 def parse_allocation(row: dict) -> OFAllocation:

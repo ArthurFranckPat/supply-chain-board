@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import binascii
-import io
 import os
 import re
 from collections import defaultdict
@@ -19,7 +18,6 @@ from ..parsers import (
     parse_besoin_client,
     parse_gamme_operation,
     parse_nomenclature,
-    parse_nomenclature_entry,
     parse_of,
     parse_stock,
     parse_reception,
