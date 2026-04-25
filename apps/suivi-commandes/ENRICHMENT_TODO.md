@@ -1,10 +1,10 @@
-# Enrichment TODO - Champs SUIVCDE non couverts par ordo-core
+# Enrichment TODO - Champs SUIVCDE non couverts par production-planning
 
 ## Contexte
 
 Suivi-commandes utilise desormais le package partage `erp-data-access` pour
 charger les donnees ERP. Cependant, 8 champs du fichier `*_SUIVCDE.csv` ne
-sont pas disponibles dans les extractions ERP chargees par ordo-core. Ces
+sont pas disponibles dans les extractions ERP chargees par production-planning. Ces
 champs sont actuellement positionnes a `None` dans le DataFrame produit par
 `build_suivcde_dataframe()`.
 
@@ -54,4 +54,4 @@ champs sont actuellement positionnes a `None` dans le DataFrame produit par
 
 L'Option B est la plus pragmatique a court terme. Elle permet de garder
 l'extraction ERP existante et d'ajouter un enrichissement specifique au
-suivi-commandes sans impacter ordo-core.
+suivi-commandes sans impacter production-planning.

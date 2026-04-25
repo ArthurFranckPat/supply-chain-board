@@ -13,7 +13,9 @@ npm run dev
 
 Copy `.env.example` to `.env` and adjust if needed.
 
-- `VITE_HUB_URL`: integration-hub base URL (default `http://127.0.0.1:8010`)
+- `VITE_API_BASE_URL`: production-planning base URL (default `http://127.0.0.1:8000`)
+- `VITE_SUIVI_API_BASE_URL`: suivi-commandes base URL (default `http://127.0.0.1:8001`)
+- `VITE_EXTRACTIONS_DIR`: optional ERP extractions directory passed to API load endpoints
 
 ## Architecture
 
@@ -23,15 +25,15 @@ Copy `.env.example` to `.env` and adjust if needed.
 
 | View | Description |
 |------|-------------|
-| `HomeView` | Control panel: load data, run scheduler |
-| `SchedulerView` | Planning table, stock projection, KPIs, capacity heatmap |
+| `PilotageView` | Vue Pilotage : état des APIs, données chargées, lancement de l'ordonnancement |
+| `OrdonnancementView` | Vue Ordonnancement : planning, projection de stock, KPIs, heatmap capacité |
 | `CapacityView` | Calendar config, capacity per poste, overrides |
-| `ActionsView` | Action reports from scheduler runs |
-| `ReportsView` | Download/view generated reports |
+| `ActionsView` | Actions appro issues des calculs d'ordonnancement |
+| `RapportsView` | Consultation des rapports générés |
 
 ### Key Components
 
-**Scheduler** (`components/scheduler/`):
+**Ordonnancement** (`components/scheduler/`):
 - `PlanningTable` — Production schedule grid
 - `StockProjection` — Stock evolution chart
 - `KpiDashboard` — Key performance indicators
@@ -49,21 +51,22 @@ Copy `.env.example` to `.env` and adjust if needed.
 
 - `useCalendar` — Calendar data fetching and mutation
 - `useCapacityConfig` — Capacity configuration management
-- `useScheduleRun` — Scheduler execution and polling
+- `useScheduleRun` — Execution and polling for ordonnancement runs
 
 ### Types
 
 - `api.ts` — API request/response interfaces
 - `capacity.ts` — Calendar and capacity types
-- `scheduler.ts` — Scheduler result types
+- `scheduler.ts` — Ordonnancement result types
 
 ## Data flow
 
 ```
-board-ui → integration-hub (port 8010) → ordo-core (port 8000)
-                                      → suivi-commandes (port 8001)
+board-ui → production-planning (port 8000, /api/v1)
+         → suivi-commandes (port 8001, /api/v1)
 ```
 
-- `POST /v1/pipeline/supply-board` triggers the full pipeline
-- Scheduler runs return KPIs, planning data, and stock projections
-- Calendar and capacity endpoints are called directly on ordo-core
+- `POST /api/v1/runs/schedule` triggers a production-planning ordonnancement run
+- `POST /api/v1/status/from-erp-extractions` loads order tracking status from suivi-commandes
+- Ordonnancement runs return KPIs, planning data, and stock projections
+- `integration-hub` remains available for service-to-service consolidated pipeline calls

@@ -50,7 +50,7 @@ def load_data(folder: Path | None = None) -> pd.DataFrame:
 def load_data_from_erp(extractions_dir: Path | str | None = None) -> pd.DataFrame:
     """Load data from ERP extractions via the shared erp-data-access package.
 
-    This uses the same DataLoader as ordo-core, then transforms the domain
+    This uses the same DataLoader as production-planning, then transforms the domain
     models into a SUIVCDE-compatible DataFrame so that ``status_logic`` and
     the dashboard work unchanged.
 

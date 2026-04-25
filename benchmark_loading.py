@@ -7,7 +7,6 @@ from pathlib import Path
 
 # Add packages to path
 sys.path.insert(0, str(Path(__file__).parent / "packages" / "erp-data-access" / "src"))
-sys.path.insert(0, str(Path(__file__).parent / "apps" / "ordo-core" / "src"))
 
 from erp_data_access.loaders.data_loader import DataLoader
 

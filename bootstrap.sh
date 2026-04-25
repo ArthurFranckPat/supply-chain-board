@@ -39,9 +39,10 @@ done
 # ── Stop ──────────────────────────────────────────────────────────
 if [ "$ACTION" = "stop" ]; then
   step "Stopping all services..."
-  pkill -f "uvicorn src.api.server:app" 2>/dev/null || true
+  pkill -f "uvicorn production_planning.api.server:app" 2>/dev/null || true
   pkill -f "uvicorn api_server:app" 2>/dev/null || true
   pkill -f "uvicorn app.main:app" 2>/dev/null || true
+  pkill -f "uvicorn integration_hub.api:app" 2>/dev/null || true
   pkill -f "vite.*board-ui" 2>/dev/null || true
   ok "All services stopped."
   exit 0
@@ -63,7 +64,7 @@ if [ "$ACTION" = "all" ] || [ "$ACTION" = "install" ]; then
   "$PYTHON" -m pip install -e "$REPO_ROOT/packages/erp-data-access" -q 2>/dev/null || true
 
   step "Installing app dependencies..."
-  "$PYTHON" -m pip install -r "$REPO_ROOT/apps/ordo-core/requirements.txt" -q 2>/dev/null || true
+  "$PYTHON" -m pip install -r "$REPO_ROOT/apps/production-planning/requirements.txt" -q 2>/dev/null || true
   "$PYTHON" -m pip install -r "$REPO_ROOT/apps/suivi-commandes/requirements.txt" -q 2>/dev/null || true
 
   step "Installing integration-hub..."
@@ -100,9 +101,9 @@ start_service() {
   echo "$!" > "/tmp/supplychain-$(echo "$name" | tr ' ' '-').pid"
 }
 
-start_service "ordo-core" 8000 "apps/ordo-core" "src.api.server:app"
+start_service "production-planning" 8000 "apps/production-planning" "production_planning.api.server:app"
 start_service "suivi-commandes" 8001 "apps/suivi-commandes" "api_server:app"
-start_service "integration-hub" 8010 "services/integration-hub" "app.main:app"
+start_service "integration-hub" 8010 "services/integration-hub" "integration_hub.api:app"
 
 if [ "$START_UI" = true ]; then
   if command -v npm &>/dev/null; then
@@ -125,12 +126,12 @@ done
 
 echo ""
 ok "Services started:"
-ok "  ordo-core API:        http://127.0.0.1:8000"
+ok "  production-planning API: http://127.0.0.1:8000"
 ok "  suivi-commandes API:  http://127.0.0.1:8001"
 ok "  integration-hub API:  http://127.0.0.1:8010"
 if [ "$START_UI" = true ]; then
   ok "  board-ui:             http://127.0.0.1:5173"
 fi
 echo ""
-echo "Logs: tail -f /tmp/ordo-core.log /tmp/suivi-commandes.log /tmp/integration-hub.log"
+echo "Logs: tail -f /tmp/production-planning.log /tmp/suivi-commandes.log /tmp/integration-hub.log"
 echo "Stop:  $0 --stop"

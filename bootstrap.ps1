@@ -30,7 +30,7 @@ if (-not $StartOnly) {
     & $PythonExe -m pip install -e "$RepoRoot\packages\integration-sdk"
 
     Write-Step "Installing app dependencies..."
-    & $PythonExe -m pip install -r "$RepoRoot\apps\ordo-core\requirements.txt"
+    & $PythonExe -m pip install -r "$RepoRoot\apps\production-planning\requirements.txt"
     & $PythonExe -m pip install -r "$RepoRoot\apps\suivi-commandes\requirements.txt"
 
     Write-Step "Installing integration-hub..."
@@ -67,11 +67,11 @@ function Start-ServiceWindow(
     Start-Process -FilePath "powershell.exe" -ArgumentList "-NoExit", "-Command", $psCommand | Out-Null
 }
 
-Write-Step "Starting ordo-core API on http://127.0.0.1:8000"
+Write-Step "Starting production-planning API on http://127.0.0.1:8000"
 Start-ServiceWindow \
-    -Title "ordo-core-api" \
-    -WorkingDirectory "$RepoRoot\apps\ordo-core" \
-    -Command "& '$PythonExe' -m uvicorn src.api.server:app --host 127.0.0.1 --port 8000 --reload"
+    -Title "production-planning-api" \
+    -WorkingDirectory "$RepoRoot\apps\production-planning" \
+    -Command "& '$PythonExe' -m uvicorn production_planning.api.server:app --host 127.0.0.1 --port 8000 --reload"
 
 Write-Step "Starting suivi-commandes API on http://127.0.0.1:8001"
 Start-ServiceWindow \
@@ -83,7 +83,7 @@ Write-Step "Starting integration-hub API on http://127.0.0.1:8010"
 Start-ServiceWindow \
     -Title "integration-hub-api" \
     -WorkingDirectory "$RepoRoot\services\integration-hub" \
-    -Command "& '$PythonExe' -m uvicorn app.main:app --host 127.0.0.1 --port 8010 --reload"
+    -Command "& '$PythonExe' -m uvicorn integration_hub.api:app --host 127.0.0.1 --port 8010 --reload"
 
 if ($StartUi) {
     if (Get-Command npm -ErrorAction SilentlyContinue) {
@@ -100,7 +100,7 @@ if ($StartUi) {
 
 Write-Host ""
 Write-Host "Services started:" -ForegroundColor Green
-Write-Host "- ordo-core API:        http://127.0.0.1:8000" -ForegroundColor Green
+Write-Host "- production-planning API: http://127.0.0.1:8000" -ForegroundColor Green
 Write-Host "- suivi-commandes API:  http://127.0.0.1:8001" -ForegroundColor Green
 Write-Host "- integration-hub API:  http://127.0.0.1:8010" -ForegroundColor Green
 if ($StartUi) {

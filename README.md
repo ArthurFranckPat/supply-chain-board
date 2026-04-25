@@ -12,15 +12,15 @@ This repository is a monorepo that hosts independent supply-chain applications a
 
 ```text
 apps/
-  ordo-core/          # Scheduling engine, feasibility, calendar, capacity (Python + FastAPI)
-    src/
+  production-planning/ # Scheduling engine, feasibility, calendar, capacity (Python + FastAPI)
+    production_planning/
       models/         # BesoinClient, OF, Article, Stock, etc.
       loaders/        # CSV loading from ERP extractions
-      algorithms/     # Matching, allocation, calculations
-      checkers/       # Feasibility verification (recursive, projected)
-      scheduler/      # Engine, reporting, calendar, capacity, holidays
+      orders/         # Matching, allocation, forecast consumption
+      feasibility/    # Feasibility verification and analyses
+      planning/       # Calendar, capacity, holidays, weights, charge calculations
+      scheduling/     # Scheduling engine, line scheduling, reporting
       api/            # FastAPI server (port 8000)
-    frontend/         # React GUI for the scheduler
     config/           # calendar.json, capacity.json, holidays, weights
   suivi-commandes/    # Order tracking and status logic
   board-ui/           # Unified cockpit UI (React + Vite + TypeScript)
@@ -36,12 +36,13 @@ infra/
 ## Communication model
 
 - `suivi-commandes` exposes status computation API endpoints.
-- `ordo-core` exposes scheduling, feasibility, calendar and capacity APIs.
-- `integration-hub` orchestrates both and returns a consolidated payload for a board UI.
+- `production-planning` exposes versioned scheduling, feasibility, calendar and capacity APIs under `/api/v1`.
+- `suivi-commandes` exposes versioned order-status APIs under `/api/v1`.
+- `integration-hub` orchestrates both APIs and returns consolidated pipeline payloads under `/api/v1`.
 
-## Ordo-core data source
+## Production-planning data source
 
-`ordo-core` reads ERP CSV extractions from a centralized folder configured via:
+`production-planning` reads ERP CSV extractions from a centralized folder configured via:
 
 ```
 ORDO_EXTRACTIONS_DIR=/path/to/extractions
@@ -49,7 +50,7 @@ ORDO_EXTRACTIONS_DIR=/path/to/extractions
 
 Expected files: `Articles.csv`, `Gammes.csv`, `Nomenclatures.csv`, `Besoins Clients.csv`, `Ordres de fabrication.csv`, `Stocks.csv`, `Commandes Achats.csv`, `Allocations.csv`
 
-See `apps/ordo-core/CLAUDE.md` for full column-level documentation.
+See `apps/production-planning/CLAUDE.md` for full column-level documentation.
 
 ## Local setup
 
@@ -65,7 +66,7 @@ Manual path:
    - `pip install -e packages/domain-contracts`
    - `pip install -e packages/integration-sdk`
 3. Install app dependencies:
-   - `pip install -r apps/ordo-core/requirements.txt`
+   - `pip install -r apps/production-planning/requirements.txt`
    - `pip install -r apps/suivi-commandes/requirements.txt`
 4. Install integration hub:
    - `pip install -e services/integration-hub`
@@ -79,12 +80,13 @@ One command:
 
 Manual:
 
-- `ordo-core` API:
-  - `cd apps/ordo-core`
-  - `uvicorn src.api.server:app --reload --port 8000`
+- `production-planning` API:
+  - `cd apps/production-planning`
+  - `uvicorn production_planning.api.server:app --reload --port 8000`
 - `suivi-commandes` API:
   - `cd apps/suivi-commandes`
-  - `uvicorn api_server:app --reload --port 8001`
+  - `pip install -r requirements.txt`
+  - `uvicorn suivi_commandes.api:app --reload --port 8001`
 - `integration-hub` API:
   - `cd services/integration-hub`
   - `uvicorn app.main:app --reload --port 8010`
@@ -96,7 +98,7 @@ Manual:
 Then call:
 
 - `GET http://127.0.0.1:8010/health`
-- `POST http://127.0.0.1:8010/v1/pipeline/supply-board`
+- `POST http://127.0.0.1:8010/api/v1/pipeline/supply-board`
 
 ## Design rule
 

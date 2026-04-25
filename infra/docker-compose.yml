@@ -1,14 +1,14 @@
 ﻿version: "3.9"
 
 services:
-  ordo-core-api:
+  production-planning-api:
     image: python:3.11-slim
-    working_dir: /workspace/apps/ordo-core
+    working_dir: /workspace/apps/production-planning
     volumes:
       - ../:/workspace
     command: >
       sh -c "pip install -r requirements.txt &&
-             uvicorn src.api.server:app --host 0.0.0.0 --port 8000"
+             uvicorn production_planning.api.server:app --host 0.0.0.0 --port 8000"
     ports:
       - "8000:8000"
 
@@ -19,7 +19,7 @@ services:
       - ../:/workspace
     command: >
       sh -c "pip install -r requirements.txt &&
-             uvicorn api_server:app --host 0.0.0.0 --port 8001"
+             uvicorn suivi_commandes.api:app --host 0.0.0.0 --port 8001"
     ports:
       - "8001:8001"
 
@@ -29,17 +29,17 @@ services:
     volumes:
       - ../:/workspace
     environment:
-      ORDO_CORE_API_URL: http://ordo-core-api:8000
+      PRODUCTION_PLANNING_API_URL: http://production-planning-api:8000
       SUIVI_API_URL: http://suivi-api:8001
     command: >
       sh -c "pip install -e /workspace/packages/domain-contracts &&
              pip install -e /workspace/packages/integration-sdk &&
              pip install -e /workspace/services/integration-hub &&
-             uvicorn app.main:app --host 0.0.0.0 --port 8010"
+             uvicorn integration_hub.api:app --host 0.0.0.0 --port 8010"
     ports:
       - "8010:8010"
     depends_on:
-      - ordo-core-api
+      - production-planning-api
       - suivi-api
 
   board-ui:
@@ -48,7 +48,8 @@ services:
     volumes:
       - ../:/workspace
     environment:
-      VITE_HUB_URL: http://127.0.0.1:8010
+      VITE_API_BASE_URL: http://127.0.0.1:8000
+      VITE_SUIVI_API_BASE_URL: http://127.0.0.1:8001
     command: >
       sh -c "npm install &&
              npm run dev -- --host 0.0.0.0 --port 5173"
