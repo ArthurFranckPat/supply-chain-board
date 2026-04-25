@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - refactor/**
+      - feature/**
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python-quality:
+    name: Python Lint + Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            apps/production-planning/pyproject.toml
+            apps/production-planning/requirements.txt
+            apps/suivi-commandes/pyproject.toml
+            services/integration-hub/pyproject.toml
+            packages/domain-contracts/pyproject.toml
+            packages/erp-data-access/pyproject.toml
+            packages/integration-sdk/pyproject.toml
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e packages/domain-contracts -e packages/erp-data-access -e packages/integration-sdk
+          python -m pip install -e apps/suivi-commandes -e services/integration-hub
+          python -m pip install -e "apps/production-planning[dev]"
+
+      - name: Ruff
+        run: python -m ruff check .
+
+      - name: Pytest
+        run: |
+          python -m pytest -q apps/production-planning/tests \
+            apps/suivi-commandes/tests \
+            services/integration-hub/tests
+
+  frontend-build:
+    name: Frontend Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/board-ui/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix apps/board-ui
+
+      - name: Build frontend
+        run: npm --prefix apps/board-ui run build

@@ -1,0 +1,122 @@
+name: CD
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+concurrency:
+  group: cd-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-artifacts:
+    name: Build Release Artifacts
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            apps/production-planning/pyproject.toml
+            apps/production-planning/requirements.txt
+            apps/suivi-commandes/pyproject.toml
+            services/integration-hub/pyproject.toml
+            packages/domain-contracts/pyproject.toml
+            packages/erp-data-access/pyproject.toml
+            packages/integration-sdk/pyproject.toml
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e packages/domain-contracts -e packages/erp-data-access -e packages/integration-sdk
+          python -m pip install -e apps/suivi-commandes -e services/integration-hub
+          python -m pip install -e "apps/production-planning[dev]"
+
+      - name: Quality gate (ruff + tests)
+        run: |
+          python -m ruff check .
+          python -m pytest -q apps/production-planning/tests \
+            apps/suivi-commandes/tests \
+            services/integration-hub/tests
+
+      - name: Build Python distributions
+        run: |
+          python -m pip install build
+          mkdir -p dist/python
+          for pkg in \
+            packages/domain-contracts \
+            packages/erp-data-access \
+            packages/integration-sdk \
+            apps/production-planning \
+            apps/suivi-commandes \
+            services/integration-hub
+          do
+            python -m build "$pkg" --outdir dist/python
+          done
+
+      - name: Upload Python artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-distributions
+          path: dist/python/*
+          if-no-files-found: error
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/board-ui/package-lock.json
+
+      - name: Build board-ui static assets
+        run: |
+          npm ci --prefix apps/board-ui
+          npm --prefix apps/board-ui run build
+          tar -czf board-ui-dist.tar.gz -C apps/board-ui dist
+
+      - name: Upload board-ui artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: board-ui-dist
+          path: board-ui-dist.tar.gz
+          if-no-files-found: error
+
+  release:
+    name: GitHub Release (tags only)
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build-artifacts
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download Python artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: python-distributions
+          path: release-assets/python
+
+      - name: Download board-ui artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: board-ui-dist
+          path: release-assets
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release-assets/python/*
+            release-assets/board-ui-dist.tar.gz
+          generate_release_notes: true

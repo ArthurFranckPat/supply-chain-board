@@ -103,3 +103,23 @@ Then call:
 ## Design rule
 
 No app-to-app direct import. Keep integration inside `services/` and `packages/`.
+
+## CI/CD
+
+GitHub Actions workflows are defined under `.github/workflows`:
+
+- `ci.yml`:
+  - Trigger: `pull_request` + pushes on `main`, `refactor/**`, `feature/**`
+  - Runs `ruff` and Python tests for:
+    - `apps/production-planning/tests`
+    - `apps/suivi-commandes/tests`
+    - `services/integration-hub/tests`
+  - Builds frontend: `npm --prefix apps/board-ui run build`
+
+- `cd.yml`:
+  - Trigger: push on `main`, tags `v*`, and manual `workflow_dispatch`
+  - Runs a quality gate (`ruff` + Python tests) before packaging
+  - Builds release artifacts:
+    - Python sdists/wheels for shared packages, apps, and services
+    - `board-ui` static bundle archive
+  - On tag `v*`, publishes a GitHub Release with generated notes and attached artifacts.
