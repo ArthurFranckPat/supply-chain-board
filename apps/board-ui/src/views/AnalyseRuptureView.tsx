@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 import { useAnalyseRupture } from '@/hooks/useAnalyseRupture'
 import { LoadingInline, LoadingError, LoadingEmpty } from '@/components/ui/loading'
 import { AlertTriangle } from 'lucide-react'
@@ -9,7 +9,7 @@ import { BlockedOrdersList } from '@/components/analyse-rupture/BlockedOrdersLis
 
 export function AnalyseRuptureView() {
   const [query, setQuery] = useState('')
-  const analyse = useAnalyseRupture()
+  const { mutate, isPending, error, data } = useAnalyseRupture()
 
   const [filters, setFilters] = useState<RuptureFiltersState>({
     demandFilter: 'fermes',
@@ -24,7 +24,7 @@ export function AnalyseRuptureView() {
     const code = (codeOverride ?? query).trim()
     if (!code) return
 
-    analyse.mutate({
+    mutate({
       componentCode: code,
       include_previsions: filters.demandFilter === 'tout',
       include_receptions: filters.stockFilter === 'projeté',
@@ -33,14 +33,7 @@ export function AnalyseRuptureView() {
       include_sf: filters.includeSf,
       include_pf: filters.includePf,
     })
-  }, [query, filters, analyse])
-
-  // Re-analyze automatically when filters change (if we already have a result)
-  useEffect(() => {
-    if (analyse.data) {
-      handleAnalyze()
-    }
-  }, [filters, handleAnalyze, analyse.data])
+  }, [query, filters, mutate])
 
   const updateFilter = <K extends keyof RuptureFiltersState>(key: K, value: RuptureFiltersState[K]) => {
     setFilters((prev) => ({ ...prev, [key]: value }))
@@ -56,7 +49,7 @@ export function AnalyseRuptureView() {
           query={query}
           onQueryChange={setQuery}
           onAnalyze={() => handleAnalyze()}
-          isPending={analyse.isPending}
+          isPending={isPending}
         />
         <RuptureFilters
           demandFilter={filters.demandFilter}
@@ -75,17 +68,17 @@ export function AnalyseRuptureView() {
       </div>
 
       {/* ── Loading state ──────────────────────────────────── */}
-      {analyse.isPending && (
+      {isPending && (
         <LoadingInline label="analyse de rupture" sublabel="Remontee de la nomenclature..." />
       )}
 
       {/* ── Error state ────────────────────────────────────── */}
-      {analyse.error && !analyse.isPending && (
-        <LoadingError message={analyse.error.message} onRetry={() => handleAnalyze()} />
+      {error && !isPending && (
+        <LoadingError message={error.message} onRetry={() => handleAnalyze()} />
       )}
 
       {/* ── Empty state ────────────────────────────────────── */}
-      {!analyse.data && !analyse.isPending && !analyse.error && (
+      {!data && !isPending && !error && (
         <LoadingEmpty
           message="Recherchez un composant pour analyser son impact de rupture."
           icon={<AlertTriangle className="h-6 w-6 text-muted-foreground" />}
@@ -93,8 +86,8 @@ export function AnalyseRuptureView() {
       )}
 
       {/* ── Results ────────────────────────────────────────── */}
-      {analyse.data && !analyse.isPending && (
-        <BlockedOrdersList result={analyse.data} isProjected={isProjected} />
+      {data && !isPending && (
+        <BlockedOrdersList result={data} isProjected={isProjected} />
       )}
     </div>
   )
