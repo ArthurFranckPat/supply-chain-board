@@ -1,15 +1,31 @@
 from .contracts import (
+    BoardSummary,
+    IntegrationHealthResponse,
+    OrdoLoadDataRequest,
+    OrdoLoadDataResponse,
+    OrdoRunResponse,
+    OrdoScheduleRequest,
+    OrdoScheduleResponse,
     PipelineSupplyBoardRequest,
     PipelineSupplyBoardResponse,
     ServiceHealth,
     SuiviAssignRequest,
     SuiviAssignResponse,
+    SuiviLatestExportRequest,
 )
 
 __all__ = [
+    "BoardSummary",
+    "IntegrationHealthResponse",
+    "OrdoLoadDataRequest",
+    "OrdoLoadDataResponse",
+    "OrdoRunResponse",
+    "OrdoScheduleRequest",
+    "OrdoScheduleResponse",
     "PipelineSupplyBoardRequest",
     "PipelineSupplyBoardResponse",
     "ServiceHealth",
     "SuiviAssignRequest",
     "SuiviAssignResponse",
+    "SuiviLatestExportRequest",
 ]

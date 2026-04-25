@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "suivi-commandes"
+version = "0.1.0"
+description = "Order tracking status API for the supply-chain board"
+requires-python = ">=3.11"
+dependencies = [
+  "domain-contracts>=0.1.0",
+  "fastapi>=0.115.0",
+  "numpy>=1.26.0",
+  "pandas>=2.0.0",
+  "pydantic>=2.8.0",
+  "uvicorn>=0.32.0",
+  "erp-data-access>=0.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=7.0.0",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]

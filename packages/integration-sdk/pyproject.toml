@@ -8,6 +8,7 @@ version = "0.1.0"
 description = "HTTP clients for monorepo service-to-service communication"
 requires-python = ">=3.11"
 dependencies = [
+  "domain-contracts>=0.1.0",
   "httpx>=0.27.0"
 ]
 

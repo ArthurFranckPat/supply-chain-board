@@ -1,9 +1,21 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import asyncio
-from typing import Any
+from typing import Any, TypeVar
 
 import httpx
+from pydantic import BaseModel
+
+from domain_contracts import (
+    OrdoLoadDataResponse,
+    OrdoRunResponse,
+    OrdoScheduleResponse,
+    ServiceHealth,
+    SuiviAssignResponse,
+)
+
+
+ModelT = TypeVar("ModelT", bound=BaseModel)
 
 
 class BaseApiClient:
@@ -18,41 +30,60 @@ class BaseApiClient:
             response.raise_for_status()
             return response.json()
 
+    async def _request_model(
+        self,
+        method: str,
+        path: str,
+        model: type[ModelT],
+        **kwargs: Any,
+    ) -> ModelT:
+        return model.model_validate(await self._request(method, path, **kwargs))
+
 
 class OrdoCoreClient(BaseApiClient):
-    async def health(self) -> dict[str, Any]:
-        return await self._request("GET", "/health")
+    async def health(self) -> ServiceHealth:
+        return await self._request_model("GET", "/health", ServiceHealth)
 
-    async def load_data(self, source: str = "data") -> dict[str, Any]:
+    async def load_data(self, source: str = "data") -> OrdoLoadDataResponse:
         payload = {"source": source}
-        return await self._request("POST", "/api/v1/data/load", json=payload)
+        return await self._request_model(
+            "POST",
+            "/api/v1/data/load",
+            OrdoLoadDataResponse,
+            json=payload,
+        )
 
     async def run_schedule(
         self,
         immediate_components: bool = False,
         blocking_components_mode: str = "blocked",
         demand_horizon_days: int = 15,
-    ) -> dict[str, Any]:
+    ) -> OrdoScheduleResponse:
         payload = {
             "immediate_components": immediate_components,
             "blocking_components_mode": blocking_components_mode,
             "demand_horizon_days": demand_horizon_days,
         }
-        return await self._request("POST", "/api/v1/runs/schedule", json=payload)
+        return await self._request_model(
+            "POST",
+            "/api/v1/runs/schedule",
+            OrdoScheduleResponse,
+            json=payload,
+        )
 
-    async def get_run(self, run_id: str) -> dict[str, Any]:
-        return await self._request("GET", f"/api/v1/runs/{run_id}")
+    async def get_run(self, run_id: str) -> OrdoRunResponse:
+        return await self._request_model("GET", f"/api/v1/runs/{run_id}", OrdoRunResponse)
 
     async def wait_for_run(
         self,
         run_id: str,
         poll_interval_seconds: float = 1.0,
         timeout_seconds: int = 120,
-    ) -> dict[str, Any]:
+    ) -> OrdoRunResponse:
         elapsed = 0.0
         while elapsed <= float(timeout_seconds):
             run_state = await self.get_run(run_id)
-            if run_state.get("status") != "running":
+            if run_state.status != "running":
                 return run_state
             await asyncio.sleep(poll_interval_seconds)
             elapsed += poll_interval_seconds
@@ -60,27 +91,37 @@ class OrdoCoreClient(BaseApiClient):
 
 
 class SuiviCommandesClient(BaseApiClient):
-    async def health(self) -> dict[str, Any]:
-        return await self._request("GET", "/health")
+    async def health(self) -> ServiceHealth:
+        return await self._request_model("GET", "/health", ServiceHealth)
 
     async def assign_status(
         self,
         rows: list[dict[str, Any]],
         reference_date: str | None = None,
-    ) -> dict[str, Any]:
+    ) -> SuiviAssignResponse:
         payload: dict[str, Any] = {"rows": rows}
         if reference_date:
             payload["reference_date"] = reference_date
-        return await self._request("POST", "/api/v1/status/assign", json=payload)
+        return await self._request_model(
+            "POST",
+            "/api/v1/status/assign",
+            SuiviAssignResponse,
+            json=payload,
+        )
 
     async def status_from_latest_export(
         self,
         folder: str | None = None,
         reference_date: str | None = None,
-    ) -> dict[str, Any]:
+    ) -> SuiviAssignResponse:
         payload: dict[str, Any] = {}
         if folder:
             payload["folder"] = folder
         if reference_date:
             payload["reference_date"] = reference_date
-        return await self._request("POST", "/api/v1/status/from-latest-export", json=payload)
+        return await self._request_model(
+            "POST",
+            "/api/v1/status/from-latest-export",
+            SuiviAssignResponse,
+            json=payload,
+        )
