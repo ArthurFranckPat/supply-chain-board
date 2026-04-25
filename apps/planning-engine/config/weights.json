@@ -2,5 +2,7 @@
   "w1": 0.85,
   "w2": 0.10,
   "w3": 0.05,
-  "freeze_threshold_hour": 12.0
+  "freeze_threshold_hour": 12.0,
+  "planning_workdays": 15,
+  "demand_calendar_days": 21
 }

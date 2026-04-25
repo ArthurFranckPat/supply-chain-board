@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
 import { ApiError } from '@/api/client'
 import { useScheduleRun } from '@/hooks/useScheduleRun'
@@ -28,6 +28,13 @@ function App() {
     : null) ?? 'home'
 
   const [activeView, setActiveView] = useState<ViewKey>(savedView)
+
+  useEffect(() => {
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.setItem('active-view', activeView)
+    }
+  }, [activeView])
+
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [source] = useState<DataSource>('extractions')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)

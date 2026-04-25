@@ -103,7 +103,7 @@ class EolResidualsService:
             if stock_mode == "physical":
                 stock_qty = stock.stock_physique if stock else 0
             elif stock_mode == "net_releaseable":
-                stock_qty = (stock.stock_physique + stock.stock_bloque - stock.stock_alloue) if stock else 0
+                stock_qty = stock.disponible() if stock else 0
             else:  # projected
                 stock_qty = stock.stock_physique if stock else 0
                 # Add future receptions

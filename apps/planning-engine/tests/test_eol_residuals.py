@@ -231,7 +231,7 @@ class TestEolResidualsService:
         assert result_physical.components[0].stock_qty == 100
 
         result_net = service.analyze(familles=["FAM-EOL"], prefixes=[], stock_mode="net_releaseable", bom_depth_mode="full")
-        assert result_net.components[0].stock_qty == 80  # 100 + 10 - 30
+        assert result_net.components[0].stock_qty == 70  # 100 - 30 (disponible)
 
     def test_pmp_missing_value_zero_with_warning(self):
         """Cas 6 — PMP manquant → value=0 + warning."""

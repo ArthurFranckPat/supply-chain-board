@@ -12,7 +12,7 @@ from .material import (
     extract_blocking_components,
     compute_direct_component_shortages,
 )
-from .heuristics import generic_sort_key
+from .heuristics import generic_sort_key, generic_decision_trace
 
 LINE_CAPACITY_HOURS = 14.0
 LINE_MIN_OPEN_HOURS = 3.0  # Seuil minimum pour ouvrir une ligne
@@ -332,6 +332,7 @@ class GenericLineScheduler:
         immediate_reference_day: Optional[date] = None,
         blocking_components_mode: str = "blocked",
         consumed_hours: float = 0.0,
+        trace_enabled: bool = False,
     ) -> DaySchedule:
         plan = DaySchedule(line=self.line_name, day=day)
         used_hours = consumed_hours
@@ -392,6 +393,21 @@ class GenericLineScheduler:
                 
             candidate = unscheduled.pop(candidate_idx)
             plan.assignments.append(candidate)
+
+            # Compute and store decision trace if enabled
+            if trace_enabled:
+                candidate.decision_trace = generic_decision_trace(
+                    candidate,
+                    last_article,
+                    loader,
+                    family_counts,
+                    kanban_conso,
+                    kanban_articles,
+                    tracked_kanban_requirements,
+                    shortage_articles,
+                    current_day=day,
+                )
+
             used_hours, last_article, deviation_marked = self._commit_selected_candidate(
                 candidate=candidate,
                 day=day,

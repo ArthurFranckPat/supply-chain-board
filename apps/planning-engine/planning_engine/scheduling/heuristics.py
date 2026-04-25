@@ -1,6 +1,7 @@
 from datetime import date, timedelta
 from typing import Optional
 from .models import CandidateOF
+from .decision_trace import DecisionTrace
 
 
 def generic_sort_key(
@@ -116,3 +117,105 @@ def generic_sort_key(
         candidate.article,
         candidate.num_of,
     )
+
+
+def generic_decision_trace(
+    candidate: CandidateOF,
+    last_article: Optional[str],
+    loader,
+    family_counts: dict[str, int],
+    kanban_conso: dict[str, float],
+    kanban_articles: set[str],
+    tracked_kanban_requirements_fn,
+    shortage_articles: set[str],
+    current_day: Optional[date] = None,
+) -> DecisionTrace:
+    sort_key = generic_sort_key(
+        candidate,
+        last_article,
+        loader,
+        family_counts,
+        kanban_conso,
+        kanban_articles,
+        tracked_kanban_requirements_fn,
+        shortage_articles,
+        current_day,
+    )
+    (priority, due_urgency, jit_bonus, prematurity, target_day_delta,
+     _, neg_charge, serie_bonus, mix_penalty, kanban_penalty, _, _) = sort_key
+
+    composite_score = (
+        priority * 10000
+        + due_urgency * 1000
+        + jit_bonus * 100
+        + prematurity * 10
+        + target_day_delta
+    )
+
+    reason = _build_reason_human(
+        candidate, priority, due_urgency, jit_bonus, prematurity,
+        serie_bonus, mix_penalty, kanban_penalty, current_day,
+    )
+
+    return DecisionTrace(
+        num_of=candidate.num_of,
+        scheduled_day=candidate.scheduled_day,
+        priority=priority,
+        due_urgency=due_urgency,
+        jit_bonus=jit_bonus,
+        prematurity_days=prematurity,
+        target_day_delta=target_day_delta,
+        serie_bonus=serie_bonus,
+        mix_penalty=mix_penalty,
+        kanban_penalty=kanban_penalty,
+        composite_score=composite_score,
+        reason_human=reason,
+    )
+
+
+def _build_reason_human(
+    candidate: CandidateOF,
+    priority: int,
+    due_urgency: int,
+    jit_bonus: float,
+    prematurity: int,
+    serie_bonus: float,
+    mix_penalty: int,
+    kanban_penalty: float,
+    current_day: Optional[date],
+) -> str:
+    reasons = []
+    if priority == 0:
+        reasons.append('BDH en rupture')
+    elif priority == 1:
+        reasons.append('OF normal')
+    else:
+        reasons.append('BDH non urgent')
+
+    if due_urgency == 0:
+        reasons.append('en retard')
+    elif due_urgency == 1:
+        reasons.append('dû demain')
+    elif due_urgency == 2:
+        reasons.append('dû dans 2j')
+    else:
+        reasons.append('pas urgent')
+
+    if jit_bonus == -2:
+        reasons.append('JIT optimal')
+
+    if prematurity > 0:
+        reasons.append(f'précoce-{prematurity}j')
+
+    if serie_bonus == -2:
+        reasons.append('même article')
+    elif serie_bonus == -0.5:
+        reasons.append('série apparentée')
+
+    if mix_penalty > 0:
+        reasons.append('famille majoritaire')
+
+    if kanban_penalty > 0:
+        reasons.append(f'impact kanban+{kanban_penalty}')
+
+    return '; '.join(reasons)[:80]

@@ -40,7 +40,7 @@ from .material import (
 
 PP_830 = "PP_830"
 PP_153 = "PP_153"
-PLANNING_WORKDAYS = 5
+PLANNING_WORKDAYS = 15
 DEMAND_CALENDAR_DAYS = 15
 LINE_CAPACITY_HOURS = 14.0
 LINE_MIN_OPEN_HOURS = 7.0
@@ -85,6 +85,8 @@ def run_schedule(
     reference_date = reference_date or date.today()
     weights = load_weights(weights_path)
     freeze_threshold_hour = weights.get("freeze_threshold_hour", freeze_threshold_hour)
+    planning_workdays = weights.get("planning_workdays", planning_workdays)
+    demand_calendar_days = weights.get("demand_calendar_days", demand_calendar_days)
     _progress("loading_data", "Chargement des données ERP", 0, 7)
 
     # Load calendar & capacity configs when available
