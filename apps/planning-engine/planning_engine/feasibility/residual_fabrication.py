@@ -78,7 +78,7 @@ class ResidualFabricationService:
     def _check_pf(self, pf_code: str, desired_qty: int) -> ResidualFabricationResult:
         """Evaluate one PF article against the residual pool."""
         article = self.loader.get_article(pf_code)
-        description = article.description or pf_code
+        description = getattr(article, 'description', None) or pf_code if article else pf_code
 
         nom = self.loader.get_nomenclature(pf_code)
         if nom is None:
