@@ -4,12 +4,13 @@ import type { StockEvolutionResponse } from '@/types/stock-evolution'
 
 export function useStockEvolution() {
   return useMutation<StockEvolutionResponse, Error, {
-    itmref: string; horizon_days?: number; include_internal?: boolean
+    itmref: string; horizon_days?: number; include_internal?: boolean; include_stock_q?: boolean
   }>({
     mutationFn: (params) =>
       apiClient.getStockEvolution(params.itmref, {
         horizon_days: params.horizon_days,
         include_internal: params.include_internal,
+        include_stock_q: params.include_stock_q,
       }),
   })
 }

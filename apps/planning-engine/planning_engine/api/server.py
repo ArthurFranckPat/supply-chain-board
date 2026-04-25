@@ -107,6 +107,21 @@ class StockEvolutionRequest(BaseModel):
     itmref: str
     horizon_days: int = Field(default=45, ge=1, le=365)
     include_internal: bool = Field(default=False)
+    include_stock_q: bool = Field(default=False)
+
+
+class LotEcoRequest(BaseModel):
+    target_coverage_weeks: float = Field(default=4.0, ge=0.5, le=52.0)
+
+
+class StockProjectionRequest(BaseModel):
+    article: str
+    stock_initial: float = Field(default=0.0)
+    lot_eco: int = Field(default=0, ge=0)
+    lot_optimal: int = Field(default=0, ge=0)
+    delai_reappro_jours: int = Field(default=0, ge=0)
+    demande_hebdo: float = Field(default=0.0)
+    horizon_weeks: int = Field(default=26, ge=4, le=104)
 
 
 # ── Helper ───────────────────────────────────────────────────────
@@ -351,24 +366,26 @@ def feasibility_search_orders(q: str = "", limit: int = 30, request: Request = N
 # ── Stock Evolution ───────────────────────────────────────────────
 
 @v1.get("/stock-evolution/{itmref}")
-def stock_evolution(itmref: str, horizon_days: int = 45, include_internal: bool = False, request: Request = None) -> dict:
+def stock_evolution(itmref: str, horizon_days: int = 45, include_internal: bool = False, include_stock_q: bool = False, request: Request = None) -> dict:
     try:
         return _svc(request).analyser_evolution_stock(
             itmref=itmref,
             horizon_days=horizon_days,
             include_internal=include_internal,
+            include_stock_q=include_stock_q,
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 @v1.get("/stock-evolution/{itmref}/chart")
-def stock_evolution_chart(itmref: str, horizon_days: int = 45, include_internal: bool = False, request: Request = None) -> dict:
+def stock_evolution_chart(itmref: str, horizon_days: int = 45, include_internal: bool = False, include_stock_q: bool = False, request: Request = None) -> dict:
     try:
         result = _svc(request).analyser_evolution_stock(
             itmref=itmref,
             horizon_days=horizon_days,
             include_internal=include_internal,
+            include_stock_q=include_stock_q,
         )
         items = result.get("items", [])
         return {
@@ -391,9 +408,64 @@ def stock_evolution_analytics(payload: StockEvolutionRequest, request: Request) 
             itmref=payload.itmref,
             horizon_days=payload.horizon_days,
             include_internal=payload.include_internal,
+            include_stock_q=payload.include_stock_q,
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ── Analyse Lot Eco ─────────────────────────────────────────────
+
+@v1.post("/analyse-lot-eco")
+def analyse_lot_eco(payload: LotEcoRequest, request: Request) -> dict:
+    try:
+        return _svc(request).analyser_lot_eco(target_coverage_weeks=payload.target_coverage_weeks)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+# ── Stock Projection ────────────────────────────────────────────
+
+@v1.post("/stock-projection")
+def stock_projection(payload: StockProjectionRequest, request: Request) -> dict:
+    try:
+        return _svc(request).project_stock(
+            article=payload.article,
+            stock_initial=payload.stock_initial,
+            lot_eco=payload.lot_eco,
+            lot_optimal=payload.lot_optimal,
+            delai_reappro_jours=payload.delai_reappro_jours,
+            demande_hebdo=payload.demande_hebdo,
+            horizon_weeks=payload.horizon_weeks,
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=400, detail=f"Missing field: {exc}") from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+# ── Tarifs achat ────────────────────────────────────────────────
+
+@v1.get("/tarifs/{article}")
+def get_tarifs(article: str, request: Request) -> list[dict]:
+    loader = _svc(request).loader
+    if loader is None:
+        raise HTTPException(status_code=400, detail="Aucune donnee chargee")
+    tarifs = loader.get_tarifs(article)
+    return [
+        {
+            "code_fournisseur": t.code_fournisseur,
+            "article": t.article,
+            "quantite_mini": t.quantite_mini,
+            "quantite_maxi": t.quantite_maxi,
+            "prix_unitaire": t.prix_unitaire,
+            "unite": t.unite,
+            "devise": t.devise,
+            "date_debut_validite": t.date_debut_validite.isoformat() if t.date_debut_validite else None,
+            "date_fin_validite": t.date_fin_validite.isoformat() if t.date_fin_validite else None,
+        }
+        for t in tarifs
+    ]
 
 
 # ── App factory ───────────────────────────────────────────────────

@@ -1,0 +1,16 @@
+{
+  'target_lines': [
+    {
+      'code': 'PP_830',
+      'label': 'Ligne assemblage 1',
+      'default_capacity_hours': 14.0,
+      'min_open_hours': 7.0
+    },
+    {
+      'code': 'PP_153',
+      'label': 'Ligne assemblage 2',
+      'default_capacity_hours': 14.0,
+      'min_open_hours': 7.0
+    }
+  ]
+}

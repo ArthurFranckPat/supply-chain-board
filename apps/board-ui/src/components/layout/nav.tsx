@@ -1,6 +1,6 @@
-import { Activity, LayoutDashboard, Wrench, CalendarDays, FileText, AlertTriangle, ShoppingCart, CheckCircle, PackageSearch, Factory, TrendingUp } from 'lucide-react'
+import { Activity, LayoutDashboard, Wrench, CalendarDays, FileText, AlertTriangle, ShoppingCart, CheckCircle, PackageSearch, Factory, TrendingUp, Scale } from 'lucide-react'
 
-export type ViewKey = 'home' | 'actions' | 'scheduler' | 'analyse-rupture' | 'feasibility' | 'capacity' | 'eol-residuals' | 'fabricable' | 'order-tracking' | 'reports' | 'settings' | 'stock-evolution'
+export type ViewKey = 'home' | 'actions' | 'scheduler' | 'analyse-rupture' | 'feasibility' | 'capacity' | 'eol-residuals' | 'fabricable' | 'order-tracking' | 'reports' | 'settings' | 'stock-evolution' | 'lot-eco'
 export type LoadState = 'idle' | 'loading' | 'ready' | 'error'
 
 export const NAV_ITEMS: Array<{ key: ViewKey; label: string; icon: React.ReactNode }> = [
@@ -14,5 +14,6 @@ export const NAV_ITEMS: Array<{ key: ViewKey; label: string; icon: React.ReactNo
   { key: 'capacity', label: 'Capacités', icon: <CalendarDays className="h-[15px] w-[15px]" /> },
   { key: 'order-tracking', label: 'Commandes', icon: <ShoppingCart className="h-[15px] w-[15px]" /> },
   { key: 'stock-evolution', label: 'Historique stock', icon: <TrendingUp className="h-[15px] w-[15px]" /> },
+  { key: 'lot-eco', label: 'Lot Eco', icon: <Scale className="h-[15px] w-[15px]" /> },
   { key: 'reports', label: 'Rapports', icon: <FileText className="h-[15px] w-[15px]" /> },
 ]

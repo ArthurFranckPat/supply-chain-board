@@ -1,0 +1,38 @@
+export const TRSTYP_LABELS: Record<number, string> = {
+  1: 'Entrée diverse',
+  2: 'Sortie diverse',
+  3: 'Réception fournisseur',
+  4: 'Livraison client',
+  5: 'Entrée OF',
+  6: 'Sortie OF',
+  7: 'Changement emplacement',
+  8: 'Contrôle qualité',
+  9: 'Changement statut',
+  10: 'Réception transfert inter-sites',
+  11: 'Retour réception',
+  12: 'Retour livraison',
+  13: 'Inventaire',
+  14: 'Transfert inter-sites',
+  15: 'Transfert sous-traitance',
+  16: 'Réception sous-traitance',
+  17: 'Livraison prêt',
+  18: 'Retour livraison prêt',
+  19: 'Réintégration stock',
+  20: 'Livraison sous-traitance',
+  21: 'Refractionnement',
+  22: 'Plan de rangement',
+  23: 'Changement de valeur',
+  24: 'Demande de service',
+  25: 'Réapprovisionnement',
+  26: 'Changement de stock',
+  27: 'Sortie transfert interne',
+  28: 'Entrée transfert interne',
+  29: 'Sortie ordre sous-traitance',
+  34: 'Demande d\'analyse',
+  35: 'Régularisation valeur stock',
+  36: 'Changement identifiant contenant',
+}
+
+export function isStockEntry(trstyp: number): boolean {
+  return [1, 3, 5, 11, 16, 18, 19, 25, 28].includes(trstyp)
+}

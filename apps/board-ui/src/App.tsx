@@ -17,12 +17,17 @@ import { EolResidualsView } from '@/views/EolResidualsView'
 import { ResidualFabricationView } from '@/views/ResidualFabricationView'
 import { OrderTrackingView } from '@/views/OrderTrackingView'
 import { StockEvolutionView } from '@/views/StockEvolutionView'
+import { LotEcoView } from '@/views/LotEcoView'
 import type { DataSource, DetailItem } from '@/types/api'
 import type { SchedulingOptions } from '@/views/PilotageView'
 import type { ViewKey } from '@/components/layout/nav'
 
 function App() {
-  const [activeView, setActiveView] = useState<ViewKey>('home')
+  const savedView = (typeof sessionStorage !== 'undefined'
+    ? sessionStorage.getItem('active-view') as ViewKey | null
+    : null) ?? 'home'
+
+  const [activeView, setActiveView] = useState<ViewKey>(savedView)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [source] = useState<DataSource>('extractions')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -121,7 +126,12 @@ function App() {
           {activeView === 'order-tracking' && (
             <ErrorBoundary><OrderTrackingView data={suiviData} loadState={loadState} onReload={reloadSuivi} /></ErrorBoundary>
           )}
-          {activeView === 'stock-evolution' && <ErrorBoundary><StockEvolutionView /></ErrorBoundary>}
+          {activeView === 'stock-evolution' && (
+            <ErrorBoundary><StockEvolutionView /></ErrorBoundary>
+          )}
+          {activeView === 'lot-eco' && (
+            <ErrorBoundary><LotEcoView /></ErrorBoundary>
+          )}
           {activeView === 'reports' && (
             <ErrorBoundary><RapportsView
               embeddedReports={null}

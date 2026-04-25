@@ -4,7 +4,8 @@ import type { AnalyseRuptureResponse } from '@/types/analyse-rupture'
 import type { FeasibilityResponse, ArticleSearchResult, OrderSearchResult } from '@/types/feasibility'
 import type { EolResidualsResponse } from '@/types/eol-residuals'
 import type { ResidualFabricationResponse } from '@/types/residual-fabrication'
-import type { StockEvolutionResponse, StockChartData } from '@/types/stock-evolution'
+import type { StockEvolutionResponse, StockChartData, StockProjectionResponse } from '@/types/stock-evolution'
+import type { LotEcoResponse, TarifAchat } from '@/types/lot-eco'
 import { HttpError, request } from '@/api/shared'
 
 const API_BASE_URL =
@@ -196,10 +197,11 @@ export const apiClient = {
   },
 
   // ── Stock Evolution ───────────────────────────────────────────
-  getStockEvolution(itmref: string, options?: { horizon_days?: number; include_internal?: boolean }) {
+  getStockEvolution(itmref: string, options?: { horizon_days?: number; include_internal?: boolean; include_stock_q?: boolean }) {
     const params = new URLSearchParams({ itmref })
     if (options?.horizon_days) params.set('horizon_days', String(options.horizon_days))
     if (options?.include_internal) params.set('include_internal', 'true')
+    if (options?.include_stock_q) params.set('include_stock_q', 'true')
     return apiRequest<StockEvolutionResponse>(`/api/v1/stock-evolution/${encodeURIComponent(itmref)}?${params}`)
   },
 
@@ -208,5 +210,29 @@ export const apiClient = {
     if (options?.horizon_days) params.set('horizon_days', String(options.horizon_days))
     if (options?.include_internal) params.set('include_internal', 'true')
     return apiRequest<StockChartData>(`/api/v1/stock-evolution/${encodeURIComponent(itmref)}/chart?${params}`)
+  },
+
+  // ── Analyse Lot Eco ─────────────────────────────────────────────
+  analyseLotEco(targetCoverageWeeks = 4) {
+    return apiRequest<LotEcoResponse>(`/api/v1/analyse-lot-eco?target_coverage_weeks=${targetCoverageWeeks}`, { method: 'POST' })
+  },
+
+  getTarifs(article: string) {
+    return apiRequest<TarifAchat[]>(`/api/v1/tarifs/${encodeURIComponent(article)}`)
+  },
+
+  projectStock(data: {
+    article: string
+    stock_initial: number
+    lot_eco: number
+    lot_optimal: number
+    delai_reappro_jours: number
+    demande_hebdo: number
+    horizon_weeks?: number
+  }) {
+    return apiRequest<StockProjectionResponse>('/api/v1/stock-projection', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
   },
 }
