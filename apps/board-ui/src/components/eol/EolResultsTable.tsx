@@ -1,6 +1,9 @@
 import { memo, useState, useMemo } from 'react'
 import type { EolComponent, EolResidualsResult } from '@/types/eol-residuals'
-import { AlertTriangle, Download, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
+import { AlertTriangle, Download } from 'lucide-react'
+import { DataTable } from '@/components/ui/DataTable'
+import type { DataTableColumn } from '@/components/ui/DataTable'
+import { NumberCell, EuroCell, BadgeCell, MonoCell, TextCell } from '@/components/ui/DataTableCells'
 
 type TypeFilter = 'all' | 'ACHAT' | 'FABRICATION'
 type SortKey = 'article' | 'description' | 'component_type' | 'used_by_target_pf_count' | 'stock_qty' | 'pmp' | 'value'
@@ -77,12 +80,79 @@ export const EolResultsTable = memo(function EolResultsTable({ data, bomDepthMod
     URL.revokeObjectURL(url)
   }
 
-  const SortIcon = ({ col }: { col: SortKey }) => {
-    if (sortKey !== col) return <ChevronsUpDown className="h-3 w-3 opacity-30" />
-    return sortDir === 'asc'
-      ? <ChevronUp className="h-3 w-3" />
-      : <ChevronDown className="h-3 w-3" />
-  }
+  const columns: DataTableColumn<EolComponent>[] = [
+    {
+      key: 'article',
+      header: 'Article',
+      cell: (c) => <MonoCell className="font-semibold">{c.article}</MonoCell>,
+      width: '120px',
+      sortable: true,
+      sortDir: sortKey === 'article' ? sortDir : null,
+      onSort: () => handleSort('article'),
+    },
+    {
+      key: 'description',
+      header: 'Description',
+      cell: (c) => <TextCell muted truncate>{c.description}</TextCell>,
+      sortable: true,
+      sortDir: sortKey === 'description' ? sortDir : null,
+      onSort: () => handleSort('description'),
+    },
+    {
+      key: 'type',
+      header: 'Type',
+      align: 'center',
+      width: '80px',
+      cell: (c) => (
+        <BadgeCell tone={c.component_type === 'ACHAT' ? 'warning' : 'success'}>
+          {c.component_type === 'ACHAT' ? 'ACH' : 'FAB'}
+        </BadgeCell>
+      ),
+      sortable: true,
+      sortDir: sortKey === 'component_type' ? sortDir : null,
+      onSort: () => handleSort('component_type'),
+    },
+    {
+      key: 'pf',
+      header: 'PF cibles',
+      align: 'center',
+      width: '90px',
+      cell: (c) => <NumberCell value={c.used_by_target_pf_count} />,
+      sortable: true,
+      sortDir: sortKey === 'used_by_target_pf_count' ? sortDir : null,
+      onSort: () => handleSort('used_by_target_pf_count'),
+    },
+    {
+      key: 'stock',
+      header: 'Stock qte',
+      align: 'right',
+      width: '100px',
+      cell: (c) => <NumberCell value={c.stock_qty} decimals={1} />,
+      sortable: true,
+      sortDir: sortKey === 'stock_qty' ? sortDir : null,
+      onSort: () => handleSort('stock_qty'),
+    },
+    {
+      key: 'pmp',
+      header: 'PMP',
+      align: 'right',
+      width: '100px',
+      cell: (c) => <EuroCell value={c.pmp} decimals={2} className="text-muted-foreground text-[12.5px]" />,
+      sortable: true,
+      sortDir: sortKey === 'pmp' ? sortDir : null,
+      onSort: () => handleSort('pmp'),
+    },
+    {
+      key: 'value',
+      header: 'Valeur',
+      align: 'right',
+      width: '110px',
+      cell: (c) => <EuroCell value={c.value} className="font-semibold" />,
+      sortable: true,
+      sortDir: sortKey === 'value' ? sortDir : null,
+      onSort: () => handleSort('value'),
+    },
+  ]
 
   return (
     <div className="space-y-4">
@@ -167,11 +237,10 @@ export const EolResultsTable = memo(function EolResultsTable({ data, bomDepthMod
         </div>
       )}
 
-      {/* Components table */}
+      {/* Toolbar + DataTable */}
       {data.components.length > 0 && (
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
-          {/* Toolbar: type filter tabs + row count + export */}
-          <div className="px-5 py-3 border-b border-border flex items-center justify-between gap-3 flex-wrap">
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
             <div className="flex gap-1 bg-muted p-1 rounded-lg">
               {(['all', 'ACHAT', 'FABRICATION'] as TypeFilter[]).map((f) => (
                 <button
@@ -206,61 +275,13 @@ export const EolResultsTable = memo(function EolResultsTable({ data, bomDepthMod
             </div>
           </div>
 
-          <div className="overflow-auto max-h-[480px]">
-            <table className="w-full text-xs">
-              <thead className="sticky top-0 bg-muted/80 backdrop-blur-sm">
-                <tr>
-                  {([
-                    { key: 'article' as SortKey, label: 'Article', align: 'left', px: 'px-4' },
-                    { key: 'description' as SortKey, label: 'Description', align: 'left', px: 'px-3' },
-                    { key: 'component_type' as SortKey, label: 'Type', align: 'center', px: 'px-3' },
-                    { key: 'used_by_target_pf_count' as SortKey, label: 'PF cibles', align: 'center', px: 'px-3' },
-                    { key: 'stock_qty' as SortKey, label: 'Stock qte', align: 'right', px: 'px-3' },
-                    { key: 'pmp' as SortKey, label: 'PMP', align: 'right', px: 'px-3' },
-                    { key: 'value' as SortKey, label: 'Valeur', align: 'right', px: 'px-4' },
-                  ]).map(col => (
-                    <th
-                      key={col.key}
-                      onClick={() => handleSort(col.key)}
-                      className={`${col.px} py-2 font-medium text-muted-foreground cursor-pointer hover:text-foreground transition-colors select-none text-${col.align}`}
-                    >
-                      <span className={`inline-flex items-center gap-1 ${col.align === 'right' ? 'flex-row-reverse' : col.align === 'center' ? 'justify-center' : ''}`}>
-                        {col.label}
-                        <SortIcon col={col.key} />
-                      </span>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filteredComponents.map((comp: EolComponent) => (
-                  <tr key={comp.article} className="border-t border-border hover:bg-accent/40 transition-colors">
-                    <td className="px-4 py-2.5 font-mono font-semibold">{comp.article}</td>
-                    <td className="px-3 py-2.5 text-muted-foreground max-w-[200px] truncate" title={comp.description}>
-                      {comp.description}
-                    </td>
-                    <td className="px-3 py-2.5 text-center">
-                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
-                        comp.component_type === 'ACHAT' ? 'bg-orange/10 text-orange' : 'bg-green/10 text-green'
-                      }`}>
-                        {comp.component_type === 'ACHAT' ? 'ACH' : 'FAB'}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2.5 text-center font-semibold">{comp.used_by_target_pf_count}</td>
-                    <td className="px-3 py-2.5 text-right font-mono tabular-nums">
-                      {comp.stock_qty.toLocaleString('fr-FR', { maximumFractionDigits: 1 })}
-                    </td>
-                    <td className="px-3 py-2.5 text-right font-mono tabular-nums text-muted-foreground">
-                      {comp.pmp.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
-                    </td>
-                    <td className="px-4 py-2.5 text-right font-semibold tabular-nums">
-                      {comp.value.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            columns={columns}
+            data={filteredComponents}
+            keyExtractor={(c) => c.article}
+            maxHeight="480px"
+            emptyMessage="Aucun composant ne correspond aux filtres."
+          />
         </div>
       )}
     </div>

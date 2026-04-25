@@ -1,5 +1,8 @@
 import type { FeasibilityResponse, CapacityImpact, AffectedOrder } from '@/types/feasibility'
 import { BOMTree } from './BOMTree'
+import { DataTable } from '@/components/ui/DataTable'
+import type { DataTableColumn } from '@/components/ui/DataTable'
+import { NumberCell, MonoCell, TextCell, BadgeCell } from '@/components/ui/DataTableCells'
 
 export function FeasibilityResultDisplay({ result }: { result: FeasibilityResponse }) {
   return (
@@ -134,41 +137,59 @@ function CapacityImpacts({ impacts }: { impacts: CapacityImpact[] }) {
 
 function AffectedOrdersTable({ orders }: { orders: AffectedOrder[] }) {
   if (orders.length === 0) return null
+
+  const columns: DataTableColumn<AffectedOrder>[] = [
+    {
+      key: 'num_commande',
+      header: 'Commande',
+      cell: (o) => <MonoCell className="font-semibold">{o.num_commande}</MonoCell>,
+      width: '130px',
+    },
+    {
+      key: 'client',
+      header: 'Client',
+      cell: (o) => <TextCell>{o.client}</TextCell>,
+    },
+    {
+      key: 'article',
+      header: 'Article',
+      cell: (o) => <MonoCell>{o.article}</MonoCell>,
+      width: '120px',
+    },
+    {
+      key: 'quantity',
+      header: 'Qté',
+      align: 'right',
+      width: '70px',
+      cell: (o) => <NumberCell value={o.quantity} />,
+    },
+    {
+      key: 'original_date',
+      header: 'Date originale',
+      align: 'right',
+      width: '110px',
+      cell: (o) => <TextCell muted>{o.original_date}</TextCell>,
+    },
+    {
+      key: 'impact',
+      header: 'Impact',
+      align: 'center',
+      width: '90px',
+      cell: (o) => (
+        <BadgeCell tone={o.impact === 'delayed' ? 'danger' : 'default'}>
+          {o.impact}
+        </BadgeCell>
+      ),
+    },
+  ]
+
   return (
-    <div className="bg-card border border-border rounded-xl overflow-hidden">
-      <div className="px-5 py-3 border-b border-border">
-        <p className="text-xs font-semibold">Commandes impactees ({orders.length})</p>
-      </div>
-      <table className="w-full text-xs">
-        <thead>
-          <tr className="bg-muted/50">
-            <th className="text-left px-5 py-2 font-medium text-muted-foreground">Commande</th>
-            <th className="text-left px-3 py-2 font-medium text-muted-foreground">Client</th>
-            <th className="text-left px-3 py-2 font-medium text-muted-foreground">Article</th>
-            <th className="text-right px-3 py-2 font-medium text-muted-foreground">Qte</th>
-            <th className="text-right px-3 py-2 font-medium text-muted-foreground">Date originale</th>
-            <th className="text-right px-5 py-2 font-medium text-muted-foreground">Impact</th>
-          </tr>
-        </thead>
-        <tbody>
-          {orders.map((order, i) => (
-            <tr key={`${order.num_commande}-${i}`} className="border-t border-border">
-              <td className="px-5 py-2 font-mono">{order.num_commande}</td>
-              <td className="px-3 py-2">{order.client}</td>
-              <td className="px-3 py-2 font-mono">{order.article}</td>
-              <td className="px-3 py-2 text-right">{order.quantity}</td>
-              <td className="px-3 py-2 text-right text-muted-foreground">{order.original_date}</td>
-              <td className="px-5 py-2 text-right">
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                  order.impact === 'delayed' ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground'
-                }`}>
-                  {order.impact}
-                </span>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <DataTable
+      columns={columns}
+      data={orders}
+      keyExtractor={(o) => `${o.num_commande}-${o.article}`}
+      maxHeight="320px"
+      emptyMessage="Aucune commande impactée."
+    />
   )
 }

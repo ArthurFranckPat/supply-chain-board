@@ -1,7 +1,10 @@
 import { useState, useMemo } from 'react'
 import { useResidualFabrication } from '@/hooks/useResidualFabrication'
 import type { ResidualFabricationResult } from '@/types/residual-fabrication'
-import { Package, AlertTriangle, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
+import { Package, AlertTriangle } from 'lucide-react'
+import { DataTable } from '@/components/ui/DataTable'
+import type { DataTableColumn } from '@/components/ui/DataTable'
+import { NumberCell, MonoCell, TextCell, BadgeCell } from '@/components/ui/DataTableCells'
 
 type SortKey = 'pf_article' | 'description' | 'desired_qty' | 'feasible' | 'max_feasible_qty'
 type SortDir = 'asc' | 'desc'
@@ -57,10 +60,73 @@ export function ResidualFabricationView() {
   const feasibleCount = sorted.filter(r => r.feasible).length
   const infeasibleCount = sorted.length - feasibleCount
 
-  const SortIcon = ({ col }: { col: SortKey }) => {
-    if (sortKey !== col) return <ChevronsUpDown className="h-3 w-3 opacity-30" />
-    return sortDir === 'asc' ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
-  }
+  const columns: DataTableColumn<ResidualFabricationResult>[] = [
+    {
+      key: 'pf_article',
+      header: 'Article',
+      cell: (r) => <MonoCell className="font-semibold">{r.pf_article}</MonoCell>,
+      width: '130px',
+      sortable: true,
+      sortDir: sortKey === 'pf_article' ? sortDir : null,
+      onSort: () => handleSort('pf_article'),
+    },
+    {
+      key: 'description',
+      header: 'Description',
+      cell: (r) => <TextCell muted truncate>{r.description}</TextCell>,
+      sortable: true,
+      sortDir: sortKey === 'description' ? sortDir : null,
+      onSort: () => handleSort('description'),
+    },
+    {
+      key: 'feasible',
+      header: 'Statut',
+      align: 'center',
+      width: '90px',
+      cell: (r) => (
+        <BadgeCell tone={r.feasible ? 'success' : 'danger'}>
+          {r.feasible ? 'OK' : 'BLOQUE'}
+        </BadgeCell>
+      ),
+      sortable: true,
+      sortDir: sortKey === 'feasible' ? sortDir : null,
+      onSort: () => handleSort('feasible'),
+    },
+    {
+      key: 'desired_qty',
+      header: 'Qté desired',
+      align: 'right',
+      width: '100px',
+      cell: (r) => <NumberCell value={r.desired_qty} />,
+      sortable: true,
+      sortDir: sortKey === 'desired_qty' ? sortDir : null,
+      onSort: () => handleSort('desired_qty'),
+    },
+    {
+      key: 'max_feasible_qty',
+      header: 'Max qty',
+      align: 'right',
+      width: '100px',
+      cell: (r) => <NumberCell value={r.max_feasible_qty} className="font-semibold" />,
+      sortable: true,
+      sortDir: sortKey === 'max_feasible_qty' ? sortDir : null,
+      onSort: () => handleSort('max_feasible_qty'),
+    },
+    {
+      key: 'gaps',
+      header: 'Gaps',
+      align: 'center',
+      width: '80px',
+      cell: (r) =>
+        r.stock_gaps.length > 0 ? (
+          <span className="text-destructive text-[11px] font-medium" title={r.stock_gaps.map(g => `${g.article}:-${g.shortage_qty}`).join(', ')}>
+            {r.stock_gaps.length} gap{r.stock_gaps.length > 1 ? 's' : ''}
+          </span>
+        ) : (
+          <span className="text-muted-foreground/40 text-[11px]">—</span>
+        ),
+    },
+  ]
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -167,63 +233,13 @@ export function ResidualFabricationView() {
 
           {/* Table */}
           {analyse.data.length > 0 && (
-            <div className="bg-card border border-border rounded-xl overflow-hidden">
-              <div className="overflow-auto max-h-[520px]">
-                <table className="w-full text-xs">
-                  <thead className="sticky top-0 bg-muted/80 backdrop-blur-sm">
-                    <tr>
-                      <th className="text-left px-4 py-2.5 font-medium text-muted-foreground cursor-pointer select-none"
-                        onClick={() => handleSort('pf_article')}>
-                        <span className="flex items-center gap-1">Article <SortIcon col="pf_article" /></span>
-                      </th>
-                      <th className="text-left px-3 py-2.5 font-medium text-muted-foreground cursor-pointer select-none"
-                        onClick={() => handleSort('description')}>
-                        <span className="flex items-center gap-1">Description <SortIcon col="description" /></span>
-                      </th>
-                      <th className="text-center px-3 py-2.5 font-medium text-muted-foreground cursor-pointer select-none"
-                        onClick={() => handleSort('feasible')}>
-                        <span className="flex items-center gap-1 justify-center">Statut <SortIcon col="feasible" /></span>
-                      </th>
-                      <th className="text-right px-3 py-2.5 font-medium text-muted-foreground cursor-pointer select-none"
-                        onClick={() => handleSort('desired_qty')}>
-                        <span className="flex items-center gap-1 justify-end">Qte desired <SortIcon col="desired_qty" /></span>
-                      </th>
-                      <th className="text-right px-3 py-2.5 font-medium text-muted-foreground cursor-pointer select-none"
-                        onClick={() => handleSort('max_feasible_qty')}>
-                        <span className="flex items-center gap-1 justify-end">Max qty <SortIcon col="max_feasible_qty" /></span>
-                      </th>
-                      <th className="text-center px-3 py-2.5 font-medium text-muted-foreground">Gaps</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sorted.map((r: ResidualFabricationResult) => (
-                      <tr key={r.pf_article} className="border-t border-border hover:bg-accent/40 transition-colors">
-                        <td className="px-4 py-2.5 font-mono font-semibold">{r.pf_article}</td>
-                        <td className="px-3 py-2.5 text-muted-foreground max-w-[180px] truncate">{r.description}</td>
-                        <td className="px-3 py-2.5 text-center">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                            r.feasible ? 'bg-green/10 text-green' : 'bg-destructive/10 text-destructive'
-                          }`}>
-                            {r.feasible ? 'OK' : 'BLOQUE'}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2.5 text-right font-mono">{r.desired_qty}</td>
-                        <td className="px-3 py-2.5 text-right font-mono font-semibold">{r.max_feasible_qty}</td>
-                        <td className="px-3 py-2.5 text-center">
-                          {r.stock_gaps.length > 0 ? (
-                            <span className="text-destructive text-[10px]" title={r.stock_gaps.map(g => `${g.article}:-${g.shortage_qty}`).join(', ')}>
-                              {r.stock_gaps.length} gap{r.stock_gaps.length > 1 ? 's' : ''}
-                            </span>
-                          ) : (
-                            <span className="text-muted-foreground/40 text-[10px]">—</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            <DataTable
+              columns={columns}
+              data={sorted}
+              keyExtractor={(r) => r.pf_article}
+              maxHeight="480px"
+              emptyMessage="Aucun résultat."
+            />
           )}
         </div>
       )}

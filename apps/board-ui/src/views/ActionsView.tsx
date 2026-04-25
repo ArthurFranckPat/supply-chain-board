@@ -1,19 +1,63 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { LoadingEmpty } from '@/components/ui/loading'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+import { DataTable } from '@/components/ui/DataTable'
+import type { DataTableColumn } from '@/components/ui/DataTable'
+import { NumberCell, MonoCell, BadgeCell } from '@/components/ui/DataTableCells'
 import { useDetailDrawer } from '@/context/DetailDrawerContext'
-import type { ActionReportPayload } from '@/types/api'
+import type { ActionReportPayload, ActionReportLine } from '@/types/api'
 
 interface ActionsViewProps {
   data: ActionReportPayload | null
+}
+
+function ActionTable({ data, onRowClick }: { data: ActionReportLine[]; onRowClick: (line: ActionReportLine) => void }) {
+  const columns: DataTableColumn<ActionReportLine>[] = [
+    {
+      key: 'article',
+      header: 'Composant',
+      cell: (l) => <MonoCell className="font-semibold">{l.article_composant ?? 'N/A'}</MonoCell>,
+      width: '130px',
+    },
+    {
+      key: 'missing',
+      header: 'Manque',
+      align: 'right',
+      width: '80px',
+      cell: (l) => <NumberCell value={l.missing_qty_total ?? 0} className={l.missing_qty_total && l.missing_qty_total > 0 ? 'text-destructive font-semibold' : ''} />,
+    },
+    {
+      key: 'ofs',
+      header: 'OF',
+      align: 'right',
+      width: '60px',
+      cell: (l) => <NumberCell value={l.nb_ofs_impactes ?? 0} />,
+    },
+    {
+      key: 'cmds',
+      header: 'Cmd',
+      align: 'right',
+      width: '60px',
+      cell: (l) => <NumberCell value={l.nb_commandes_impactees ?? 0} />,
+    },
+    {
+      key: 'niveau',
+      header: 'Niveau',
+      align: 'center',
+      width: '80px',
+      cell: (l) => <BadgeCell tone="info">{l.niveau_action ?? 'N/A'}</BadgeCell>,
+    },
+  ]
+
+  return (
+    <DataTable
+      columns={columns}
+      data={data}
+      keyExtractor={(l) => `${l.article_composant}-${l.niveau_action}-${l.missing_qty_total}`}
+      maxHeight="380px"
+      onRowClick={onRowClick}
+      emptyMessage="Aucun composant bloquant."
+    />
+  )
 }
 
 export function ActionsView({ data }: ActionsViewProps) {
@@ -39,40 +83,13 @@ export function ActionsView({ data }: ActionsViewProps) {
           <CardTitle className="text-base">Composants bloquants ({componentLines.length})</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Composant</TableHead>
-                <TableHead>Manque</TableHead>
-                <TableHead>OF</TableHead>
-                <TableHead>Cmd</TableHead>
-                <TableHead>Niveau</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {componentLines.map((line, i) => (
-                <TableRow
-                  key={`${line.article_composant}-${i}`}
-                  className="cursor-pointer hover:bg-accent"
-                  onClick={() =>
-                    open({
-                      title: line.article_composant ?? 'Composant',
-                      description: line.action_recommandee ?? '',
-                      payload: line,
-                    })
-                  }
-                >
-                  <TableCell className="font-mono text-xs">{line.article_composant ?? 'N/A'}</TableCell>
-                  <TableCell>{line.missing_qty_total ?? 0}</TableCell>
-                  <TableCell>{line.nb_ofs_impactes ?? 0}</TableCell>
-                  <TableCell>{line.nb_commandes_impactees ?? 0}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{line.niveau_action ?? 'N/A'}</Badge>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <ActionTable data={componentLines} onRowClick={(line) =>
+            open({
+              title: line.article_composant ?? 'Composant',
+              description: line.action_recommandee ?? '',
+              payload: line,
+            })
+          } />
         </CardContent>
       </Card>
 

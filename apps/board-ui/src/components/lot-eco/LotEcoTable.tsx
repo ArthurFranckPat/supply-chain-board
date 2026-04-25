@@ -1,11 +1,12 @@
-import { ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import type { LotEcoArticle, StatutLot } from '@/types/lot-eco'
 import { StatutBadge } from '@/components/ui/StatutBadge'
-import { fmtNumber, fmtEuros } from '@/lib/format'
 import { useMemo } from 'react'
+import { DataTable } from '@/components/ui/DataTable'
+import type { DataTableColumn } from '@/components/ui/DataTable'
+import { NumberCell, EuroCell, MonoCell, TextCell } from '@/components/ui/DataTableCells'
 
 type SortKey = keyof LotEcoArticle
-
 type SortDir = 'asc' | 'desc'
 
 interface Props {
@@ -21,26 +22,6 @@ interface Props {
   onPageChange: (page: number) => void
   pageSize?: number
 }
-
-function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
-  if (!active) return <ArrowUpDown className="h-3 w-3 text-stone-300" />
-  return dir === 'asc' ? <ArrowUp className="h-3 w-3 text-primary" /> : <ArrowDown className="h-3 w-3 text-primary" />
-}
-
-const COLUMNS: Array<{ key: SortKey; label: string; align?: 'left' | 'right'; format?: 'number' | 'euros' | 'status' }> = [
-  { key: 'article', label: 'Article' },
-  { key: 'description', label: 'Description' },
-  { key: 'lot_eco', label: 'Lot éco', align: 'right', format: 'number' },
-  { key: 'lot_optimal', label: 'Lot opt.', align: 'right', format: 'number' },
-  { key: 'demande_hebdo', label: 'Dem./sem', align: 'right', format: 'number' },
-  { key: 'couverture_lot_semaines', label: 'Couv. (sem)', align: 'right', format: 'number' },
-  { key: 'ratio_couverture', label: 'Ratio', align: 'right', format: 'number' },
-  { key: 'stock_physique', label: 'Stock', align: 'right', format: 'number' },
-  { key: 'stock_jours', label: 'Stock (j)', align: 'right', format: 'number' },
-  { key: 'statut', label: 'Statut', format: 'status' },
-  { key: 'valeur_stock', label: 'Valeur', align: 'right', format: 'euros' },
-  { key: 'economie_immobilisation', label: 'Éco. immob.', align: 'right', format: 'euros' },
-]
 
 export function LotEcoTable({
   data,
@@ -64,93 +45,184 @@ export function LotEcoTable({
 
   const allSelected = paged.length > 0 && paged.every((a) => selected.has(a.article))
 
-  function renderCell(a: LotEcoArticle, col: typeof COLUMNS[number]) {
-    const val = a[col.key]
-    if (col.format === 'status') return <StatutBadge statut={val as StatutLot} />
-    if (col.format === 'euros') return <span className="font-mono text-[11px]">{fmtEuros(val as number)}</span>
-    if (col.format === 'number') return <span className="font-mono text-[11px]">{fmtNumber(val as number)}</span>
-    return <span className="text-[11px]">{String(val)}</span>
+  const columns: DataTableColumn<LotEcoArticle>[] = [
+    {
+      key: 'select',
+      header: (
+        <input
+          type="checkbox"
+          checked={allSelected}
+          onChange={onToggleAll}
+          className="rounded border-stone-300 text-primary focus:ring-primary"
+        />
+      ),
+      align: 'center',
+      width: '40px',
+      cell: (a) => (
+        <input
+          type="checkbox"
+          checked={selected.has(a.article)}
+          onChange={() => onToggleOne(a.article)}
+          className="rounded border-stone-300 text-primary focus:ring-primary"
+        />
+      ),
+    },
+    {
+      key: 'article',
+      header: 'Article',
+      cell: (a) => <MonoCell className="font-semibold">{a.article}</MonoCell>,
+      width: '120px',
+      sortable: true,
+      sortDir: sortKey === 'article' ? sortDir : null,
+      onSort: () => onSort('article'),
+    },
+    {
+      key: 'description',
+      header: 'Description',
+      cell: (a) => <TextCell muted truncate>{a.description}</TextCell>,
+      sortable: true,
+      sortDir: sortKey === 'description' ? sortDir : null,
+      onSort: () => onSort('description'),
+    },
+    {
+      key: 'lot_eco',
+      header: 'Lot éco',
+      align: 'right',
+      width: '80px',
+      cell: (a) => <NumberCell value={a.lot_eco} />,
+      sortable: true,
+      sortDir: sortKey === 'lot_eco' ? sortDir : null,
+      onSort: () => onSort('lot_eco'),
+    },
+    {
+      key: 'lot_optimal',
+      header: 'Lot opt.',
+      align: 'right',
+      width: '80px',
+      cell: (a) => <NumberCell value={a.lot_optimal} />,
+      sortable: true,
+      sortDir: sortKey === 'lot_optimal' ? sortDir : null,
+      onSort: () => onSort('lot_optimal'),
+    },
+    {
+      key: 'demande_hebdo',
+      header: 'Dem./sem',
+      align: 'right',
+      width: '85px',
+      cell: (a) => <NumberCell value={a.demande_hebdo} />,
+      sortable: true,
+      sortDir: sortKey === 'demande_hebdo' ? sortDir : null,
+      onSort: () => onSort('demande_hebdo'),
+    },
+    {
+      key: 'couverture',
+      header: 'Couv. (sem)',
+      align: 'right',
+      width: '90px',
+      cell: (a) => <NumberCell value={a.couverture_lot_semaines} decimals={1} />,
+      sortable: true,
+      sortDir: sortKey === 'couverture_lot_semaines' ? sortDir : null,
+      onSort: () => onSort('couverture_lot_semaines'),
+    },
+    {
+      key: 'ratio',
+      header: 'Ratio',
+      align: 'right',
+      width: '70px',
+      cell: (a) => <NumberCell value={a.ratio_couverture} decimals={2} />,
+      sortable: true,
+      sortDir: sortKey === 'ratio_couverture' ? sortDir : null,
+      onSort: () => onSort('ratio_couverture'),
+    },
+    {
+      key: 'stock',
+      header: 'Stock',
+      align: 'right',
+      width: '80px',
+      cell: (a) => <NumberCell value={a.stock_physique} />,
+      sortable: true,
+      sortDir: sortKey === 'stock_physique' ? sortDir : null,
+      onSort: () => onSort('stock_physique'),
+    },
+    {
+      key: 'stock_jours',
+      header: 'Stock (j)',
+      align: 'right',
+      width: '80px',
+      cell: (a) => <NumberCell value={a.stock_jours} decimals={0} />,
+      sortable: true,
+      sortDir: sortKey === 'stock_jours' ? sortDir : null,
+      onSort: () => onSort('stock_jours'),
+    },
+    {
+      key: 'statut',
+      header: 'Statut',
+      align: 'center',
+      width: '90px',
+      cell: (a) => <StatutBadge statut={a.statut as StatutLot} />,
+      sortable: true,
+      sortDir: sortKey === 'statut' ? sortDir : null,
+      onSort: () => onSort('statut'),
+    },
+    {
+      key: 'valeur_stock',
+      header: 'Valeur',
+      align: 'right',
+      width: '90px',
+      cell: (a) => <EuroCell value={a.valeur_stock} />,
+      sortable: true,
+      sortDir: sortKey === 'valeur_stock' ? sortDir : null,
+      onSort: () => onSort('valeur_stock'),
+    },
+    {
+      key: 'economie',
+      header: 'Éco. immob.',
+      align: 'right',
+      width: '95px',
+      cell: (a) => <EuroCell value={a.economie_immobilisation} className="text-muted-foreground" />,
+      sortable: true,
+      sortDir: sortKey === 'economie_immobilisation' ? sortDir : null,
+      onSort: () => onSort('economie_immobilisation'),
+    },
+  ]
+
+  const handleRowClick = (a: LotEcoArticle) => {
+    onSelectArticle(a)
   }
 
   return (
     <div className="space-y-3">
-      <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
-        <table className="w-full text-left">
-          <thead className="bg-stone-50/80 border-b border-border">
-            <tr>
-              <th className="py-3 px-2 w-8">
-                <input
-                  type="checkbox"
-                  checked={allSelected}
-                  onChange={onToggleAll}
-                  className="rounded border-stone-300 text-primary focus:ring-primary"
-                />
-              </th>
-              {COLUMNS.map((col) => (
-                <th
-                  key={col.key}
-                  className={`text-[10.5px] font-semibold text-stone-400 uppercase tracking-wider py-3 px-4 cursor-pointer select-none hover:text-stone-600 transition-colors whitespace-nowrap ${col.align === 'right' ? 'text-right' : 'text-left'}`}
-                  onClick={() => onSort(col.key)}
-                >
-                  <span className="inline-flex items-center gap-1.5">
-                    {col.label}
-                    <SortIcon active={sortKey === col.key} dir={sortDir} />
-                  </span>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {paged.map((a) => (
-              <tr
-                key={a.article}
-                className="hover:bg-stone-50/60 transition-colors cursor-pointer group"
-                onClick={() => onSelectArticle(a)}
+      <DataTable
+        columns={columns}
+        data={paged}
+        keyExtractor={(a) => a.article}
+        maxHeight="520px"
+        onRowClick={handleRowClick}
+        emptyMessage="Aucun article ne correspond aux filtres."
+        footer={
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] text-muted-foreground">
+              {data.length} article{data.length > 1 ? 's' : ''} — Page {safePage} / {totalPages}
+            </p>
+            <div className="flex items-center gap-1">
+              <button
+                disabled={safePage <= 1}
+                onClick={() => onPageChange(safePage - 1)}
+                className="p-1.5 rounded-lg hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
               >
-                <td className="py-3 px-2" onClick={(e) => e.stopPropagation()}>
-                  <input
-                    type="checkbox"
-                    checked={selected.has(a.article)}
-                    onChange={() => onToggleOne(a.article)}
-                    className="rounded border-stone-300 text-primary focus:ring-primary"
-                  />
-                </td>
-                {COLUMNS.map((col) => (
-                  <td
-                    key={col.key}
-                    className={`py-3 px-4 ${col.align === 'right' ? 'text-right' : 'text-left'}`}
-                  >
-                    {renderCell(a, col)}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Pagination */}
-      <div className="flex items-center justify-between">
-        <p className="text-[11px] text-stone-400">
-          {data.length} article{data.length > 1 ? 's' : ''} — Page {safePage} / {totalPages}
-        </p>
-        <div className="flex items-center gap-1">
-          <button
-            disabled={safePage <= 1}
-            onClick={() => onPageChange(safePage - 1)}
-            className="p-1.5 rounded-lg hover:bg-stone-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-          <button
-            disabled={safePage >= totalPages}
-            onClick={() => onPageChange(safePage + 1)}
-            className="p-1.5 rounded-lg hover:bg-stone-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button
+                disabled={safePage >= totalPages}
+                onClick={() => onPageChange(safePage + 1)}
+                className="p-1.5 rounded-lg hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        }
+      />
     </div>
   )
 }
