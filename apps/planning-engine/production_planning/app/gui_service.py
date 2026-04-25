@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
@@ -23,7 +23,7 @@ from ..planning.holidays import ensure_holidays_in_calendar, refresh_holidays as
 from ..services.schedule_service import ScheduleService
 from ..services.feasibility_facade import FeasibilityFacade
 from ..services.analyse_service import AnalyseService
-from ..utils.serialization import serialize_value
+
 
 
 def _utc_now_iso() -> str:

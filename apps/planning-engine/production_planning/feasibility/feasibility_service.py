@@ -13,8 +13,6 @@ import time
 from datetime import date, timedelta
 from typing import Optional
 
-logger = logging.getLogger(__name__)
-
 from ..availability import AvailabilityKernel
 from ..domain_rules import is_purchase_article
 from ..planning.charge_calculator import calculate_article_charge
@@ -34,6 +32,8 @@ from .feasibility_models import (
     FeasibilityResultV2,
 )
 from .feasibility_simulation import SimulationContext
+
+logger = logging.getLogger(__name__)
 
 
 class FeasibilityService:
