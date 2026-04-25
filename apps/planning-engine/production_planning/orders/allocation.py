@@ -1,12 +1,16 @@
 """Allocation Manager - Gestion de la concurrence entre OF."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 from ..domain_rules import is_firm_of_status
 from ..models.of import OF
-from ..feasibility.base import FeasibilityResult
+
+if TYPE_CHECKING:
+    from ..feasibility.base import FeasibilityResult
 
 
 class AllocationStatus(Enum):

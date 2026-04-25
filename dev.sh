@@ -71,7 +71,7 @@ start_service() {
 
 # --- planning-engine (FastAPI :8000) ---
 start_service "planning-engine" \
-    "cd $ROOT_DIR/apps/planning-engine && uvicorn planning_engine.api.server:app --reload --port 8000"
+    "cd $ROOT_DIR/apps/planning-engine && uvicorn production_planning.api.server:app --reload --port 8000"
 
 # --- suivi-commandes (FastAPI :8001) ---
 start_service "suivi-commandes" \
