@@ -275,7 +275,7 @@ def eol_residuals(payload: EolResidualsRequest, request: Request) -> dict:
 
 
 @v1.post("/eol-residuals/fabricable")
-def eol_residuals_fabricable(payload: ResidualFabRequest, request: Request) -> dict:
+def eol_residuals_fabricable(payload: ResidualFabRequest, request: Request) -> list[dict]:
     try:
         return _svc(request).eol_residuals_fab_check(
             familles=payload.familles,
@@ -289,9 +289,6 @@ def eol_residuals_fabricable(payload: ResidualFabRequest, request: Request) -> d
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except Exception as exc:
-        import traceback
-        raise HTTPException(status_code=500, detail=traceback.format_exc()) from exc
 
 
 # ── Feasibility ───────────────────────────────────────────────────
