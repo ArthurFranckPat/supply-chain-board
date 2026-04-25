@@ -2,22 +2,22 @@
 
 Lit les données de production réelle depuis "quantité produites par article.csv",
 reconstruit le matching commande→OF, calcule charge via gammes, puis applique
-les mêmes formules de score que src/scheduler/engine.py.
+les mêmes formules de score que production_planning/scheduler/engine.py.
 """
 
 import csv
 import os
-from collections import Counter, defaultdict
+from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-from src.loaders import DataLoader
-from src.planning.charge_calculator import calculate_article_charge
-from src.orders.matching import CommandeOFMatcher
-from src.models.besoin_client import TypeCommande
-from src.planning.calendar import build_workdays, next_workday
-from src.planning.weights import load_weights
+from production_planning.loaders import DataLoader
+from production_planning.planning.charge_calculator import calculate_article_charge
+from production_planning.orders.matching import CommandeOFMatcher
+from production_planning.models.besoin_client import TypeCommande
+from production_planning.planning.calendar import build_workdays, next_workday
+from production_planning.planning.weights import load_weights
 
 
 # ── Paramètres identiques au scheduler ──────────────────────────────
@@ -444,7 +444,7 @@ def main():
 
     # ── Affichage ────────────────────────────────────────────────────
     print(f"\n{'='*70}")
-    print(f"  KPIs RÉELS")
+    print("  KPIs RÉELS")
     print(f"{'='*70}")
     print(f"  Taux de service  : {taux_service:.3f}  ({served}/{total_cmd} commandes servies)")
     print(f"  Taux d'ouverture : {taux_ouverture:.3f}")
@@ -485,7 +485,7 @@ def main():
     row = f"{'TOTAL':>10}"
     grand_total = 0.0
     for j in jours:
-        t = sum(heatmap[l].get(j, 0.0) for l in lignes_actives)
+        t = sum(heatmap[line].get(j, 0.0) for line in lignes_actives)
         row += f"  {t:>5.1f}"
         grand_total += t
     row += f"  |{grand_total:>6.1f}h"
@@ -495,7 +495,7 @@ def main():
     pp830_assigns = [a for a in week_real if a.poste_charge == "PP_830"]
     if pp830_assigns:
         print(f"\n{'='*70}")
-        print(f"  FOCUS PP_830 — Production réelle")
+        print("  FOCUS PP_830 — Production réelle")
         print(f"{'='*70}")
         print(f"  {len(pp830_assigns)} OF, {sum(a.quantity for a in pp830_assigns):.0f} unités, "
               f"{sum(a.charge_hours for a in pp830_assigns):.1f}h")

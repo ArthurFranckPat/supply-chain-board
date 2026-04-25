@@ -24,9 +24,9 @@ from collections import defaultdict
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
-from src.loaders.data_loader import DataLoader
-from src.planning.charge_calculator import calculate_article_charge, get_week_info
-from src.orders.forecast_consumption import consume_forecasts_by_article, format_consumption_stats
+from production_planning.loaders.data_loader import DataLoader  # noqa: E402
+from production_planning.planning.charge_calculator import calculate_article_charge, get_week_info  # noqa: E402
+from production_planning.orders.forecast_consumption import consume_forecasts_by_article, format_consumption_stats  # noqa: E402
 
 
 def is_valid_poste(poste: str) -> bool:
@@ -165,7 +165,7 @@ def analyze_poste(poste, semaine, horizon, loader, date_ref, args=None):
 
             # Afficher le détail de la consommation si demandé
             if args and getattr(args, 'show_consumption', False) and stats_consumption:
-                print(f"\n   📊 CONSOMMATION PAR ARTICLE :")
+                print("\n   📊 CONSOMMATION PAR ARTICLE :")
                 for article_line in format_consumption_stats(stats_consumption).split("\n"):
                     print(f"      {article_line}")
                 print()
@@ -187,7 +187,7 @@ def analyze_poste(poste, semaine, horizon, loader, date_ref, args=None):
                         grouped[r['article']]["type"] = r['type']
                         grouped[r['article']]["lignes"].append(r)
 
-                    print(f"   📋 DÉTAIL DES PRÉVISIONS GROUPÉES PAR ARTICLE :\n")
+                    print("   📋 DÉTAIL DES PRÉVISIONS GROUPÉES PAR ARTICLE :\n")
                     sorted_articles = sorted(grouped.items(), key=lambda x: x[0])
 
                     total_qte = 0
@@ -197,7 +197,7 @@ def analyze_poste(poste, semaine, horizon, loader, date_ref, args=None):
                         print(f"       Type: {data['type']}")
                         print(f"       Qté totale: {data['qte']:,} pièces".replace(",", " "))
                         print(f"       Charge totale: {data['charge']:.2f}h")
-                        print(f"       Détail par besoin:")
+                        print("       Détail par besoin:")
 
                         for ligne in data["lignes"]:
                             print(f"          - {ligne['qte']} pièces le {ligne['date_exp']} ({ligne['charge']:.2f}h)")
@@ -227,8 +227,8 @@ def analyze_poste(poste, semaine, horizon, loader, date_ref, args=None):
                     print()
         else:
             print(f"📅 {week_label} ({start_date} → {end_date})")
-            print(f"   Total: 0h")
-            print(f"   Aucun besoin")
+            print("   Total: 0h")
+            print("   Aucun besoin")
             print()
 
     print(f"{'='*100}")
@@ -291,7 +291,7 @@ def analyze_article(article, semaine, horizon, loader, date_ref):
 
             # Afficher par poste
             print(f"   Qté totale: {total_qte}")
-            print(f"   Charge par poste:")
+            print("   Charge par poste:")
 
             for poste in sorted(charge_by_poste.keys()):
                 hours = charge_by_poste[poste]
@@ -305,7 +305,7 @@ def analyze_article(article, semaine, horizon, loader, date_ref):
             print()
         else:
             print(f"📅 {week_label} ({start_date} → {end_date})")
-            print(f"   Aucun besoin")
+            print("   Aucun besoin")
             print()
 
 

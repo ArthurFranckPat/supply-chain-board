@@ -162,13 +162,17 @@ def analyse_charge(data_dir: str, date_ref: date, horizon: int = 3) -> dict:
     # Recommandation
     taux_max_s1 = max((p['semaines'].get(s1, {}).get('taux_2x8', 0) for p in postes_result), default=0.0)
     if taux_max_s1 <= 80:
-        reco_org = '1x8';           reco_txt = f"Taux max {s1}={taux_max_s1:.1f}% — 1×8 suffisant"
+        reco_org = '1x8'
+        reco_txt = f"Taux max {s1}={taux_max_s1:.1f}% — 1×8 suffisant"
     elif taux_max_s1 <= 100:
-        reco_org = '2x8';           reco_txt = f"Taux max {s1}={taux_max_s1:.1f}% — 2×8 recommandé"
+        reco_org = '2x8'
+        reco_txt = f"Taux max {s1}={taux_max_s1:.1f}% — 2×8 recommandé"
     elif taux_max_s1 <= 130:
-        reco_org = '2x8_prioritaire'; reco_txt = f"Taux max {s1}={taux_max_s1:.1f}% — 2×8 obligatoire + priorisation"
+        reco_org = '2x8_prioritaire'
+        reco_txt = f"Taux max {s1}={taux_max_s1:.1f}% — 2×8 obligatoire + priorisation"
     else:
-        reco_org = '3x8';           reco_txt = f"Taux max {s1}={taux_max_s1:.1f}% — 3×8 nécessaire"
+        reco_org = '3x8'
+        reco_txt = f"Taux max {s1}={taux_max_s1:.1f}% — 3×8 nécessaire"
 
     return {
         'meta': {

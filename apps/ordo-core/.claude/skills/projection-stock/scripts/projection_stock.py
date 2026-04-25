@@ -187,7 +187,7 @@ def projeter_stock(data_dir: str, date_ref: date, horizon: int = 4,
                 rupture_sem = lbl
             s_courant = s_fin
 
-        total_sorties = sum(sorties[art].get(l, 0) for l in labels)
+        total_sorties = sum(sorties[art].get(label, 0) for label in labels)
         cmj_hebdo     = total_sorties / horizon if horizon > 0 else 0
         couverture    = (stock_init.get(art, 0) / cmj_hebdo) if cmj_hebdo > 0 else None
 
@@ -201,7 +201,7 @@ def projeter_stock(data_dir: str, date_ref: date, horizon: int = 4,
             'statut':              statut,
             'rupture_semaine':     rupture_sem,
             'couverture_semaines': round(couverture, 1) if couverture is not None else None,
-            'total_entrees':       round(sum(entrees[art].get(l, 0) for l in labels), 3),
+            'total_entrees':       round(sum(entrees[art].get(label, 0) for label in labels), 3),
             'total_sorties':       round(total_sorties, 3),
             'semaines':            detail,
         })
