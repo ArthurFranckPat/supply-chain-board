@@ -431,7 +431,7 @@ class GuiAppService:
         if self.loader is None:
             raise RuntimeError("Aucune donnee chargee. Appelez load_data avant analyser_lot_eco.")
 
-        from ..checkers.analyse_lot_eco import AnalyseLotEcoService
+        from ..feasibility.analyse_lot_eco import AnalyseLotEcoService
 
         service = AnalyseLotEcoService(self.loader, target_coverage_weeks=target_coverage_weeks)
         result = service.analyser()
