@@ -219,7 +219,7 @@ class TestEolResidualsService:
         """Cas 5 — physical: stock_physique; net_releaseable: physique + bloque - alloue."""
         loader = FakeLoader(
             articles=[_make_pf("PF1", "FAM-EOL"), _make_article("C1")],
-            stocks=[_make_stock("C1", physique=100, alloue=30, bloque=10)],
+            stocks=[_make_stock("C1", physique=100, alloue=30, sous_cq=10)],
             nomenclatures={
                 "PF1": Nomenclature(article="PF1", designation="PF1",
                     composants=[_make_entry("PF1", "C1", qte=1.0)]),
@@ -231,7 +231,7 @@ class TestEolResidualsService:
         assert result_physical.components[0].stock_qty == 100
 
         result_net = service.analyze(familles=["FAM-EOL"], prefixes=[], stock_mode="net_releaseable", bom_depth_mode="full")
-        assert result_net.components[0].stock_qty == 70  # 100 - 30 (disponible)
+        assert result_net.components[0].stock_qty == 80  # 100 + 10 - 30 (disponible = physique + cq - alloue)
 
     def test_pmp_missing_value_zero_with_warning(self):
         """Cas 6 — PMP manquant → value=0 + warning."""

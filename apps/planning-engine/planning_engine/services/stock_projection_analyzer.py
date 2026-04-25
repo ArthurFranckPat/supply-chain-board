@@ -160,11 +160,9 @@ class StockProjectionService:
             current_stock -= client_out
 
             # Check if we need to trigger a simulated replenishment
-            simulated_trigger = 0.0
             if pending_replenishment is None and current_stock <= threshold and lot_optimal > 0:
                 # Order now, arrives after lead time
                 delivery_date = week_start + timedelta(days=delai_reappro_jours)
-                simulated_trigger = float(lot_optimal)
                 pending_replenishment = (delivery_date, float(lot_optimal))
 
             is_below = current_stock < 0 or (current_stock < threshold and client_out > 0)

@@ -10,8 +10,6 @@ from __future__ import annotations
 
 import random
 from collections import defaultdict
-from datetime import date
-
 from ..loaders import DataLoader
 from .analyse_lot_eco_models import (
     AnalyseLotArticle,

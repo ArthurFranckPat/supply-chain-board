@@ -21,6 +21,7 @@ __all__ = [
     "parse_stock",
     "parse_reception",
     "parse_allocation",
+    "parse_tarif_achat",
     "parse_int",
     "parse_float",
     "parse_date",
