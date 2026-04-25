@@ -1,8 +1,7 @@
+import { cn } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { LoadingEmpty } from '@/components/ui/loading'
-import { DataTable } from '@/components/ui/DataTable'
-import type { DataTableColumn } from '@/components/ui/DataTable'
-import { NumberCell, MonoCell, BadgeCell } from '@/components/ui/DataTableCells'
+import { GridTable, type GridTableColumn } from '@/components/ui/GridTable'
 import { useDetailDrawer } from '@/context/DetailDrawerContext'
 import type { ActionReportPayload, ActionReportLine } from '@/types/api'
 
@@ -11,11 +10,11 @@ interface ActionsViewProps {
 }
 
 function ActionTable({ data, onRowClick }: { data: ActionReportLine[]; onRowClick: (line: ActionReportLine) => void }) {
-  const columns: DataTableColumn<ActionReportLine>[] = [
+  const columns: GridTableColumn<ActionReportLine>[] = [
     {
       key: 'article',
       header: 'Composant',
-      cell: (l) => <MonoCell className="font-semibold">{l.article_composant ?? 'N/A'}</MonoCell>,
+      cell: (l) => <span className="font-mono font-semibold">{l.article_composant ?? 'N/A'}</span>,
       width: '130px',
     },
     {
@@ -23,33 +22,41 @@ function ActionTable({ data, onRowClick }: { data: ActionReportLine[]; onRowClic
       header: 'Manque',
       align: 'right',
       width: '80px',
-      cell: (l) => <NumberCell value={l.missing_qty_total ?? 0} className={l.missing_qty_total && l.missing_qty_total > 0 ? 'text-destructive font-semibold' : ''} />,
+      cell: (l) => (
+        <span className={cn('tabular-nums font-mono', l.missing_qty_total && l.missing_qty_total > 0 ? 'text-destructive font-semibold' : '')}>
+          {(l.missing_qty_total ?? 0).toLocaleString('fr-FR')}
+        </span>
+      ),
     },
     {
       key: 'ofs',
       header: 'OF',
       align: 'right',
       width: '60px',
-      cell: (l) => <NumberCell value={l.nb_ofs_impactes ?? 0} />,
+      cell: (l) => <span className="tabular-nums font-mono">{l.nb_ofs_impactes ?? 0}</span>,
     },
     {
       key: 'cmds',
       header: 'Cmd',
       align: 'right',
       width: '60px',
-      cell: (l) => <NumberCell value={l.nb_commandes_impactees ?? 0} />,
+      cell: (l) => <span className="tabular-nums font-mono">{l.nb_commandes_impactees ?? 0}</span>,
     },
     {
       key: 'niveau',
       header: 'Niveau',
       align: 'center',
       width: '80px',
-      cell: (l) => <BadgeCell tone="info">{l.niveau_action ?? 'N/A'}</BadgeCell>,
+      cell: (l) => (
+        <span className="inline-flex items-center px-1.5 py-0.5 text-[9px] font-medium border bg-sky-50 text-sky-700 border-sky-200">
+          {l.niveau_action ?? 'N/A'}
+        </span>
+      ),
     },
   ]
 
   return (
-    <DataTable
+    <GridTable
       columns={columns}
       data={data}
       keyExtractor={(l) => `${l.article_composant}-${l.niveau_action}-${l.missing_qty_total}`}
@@ -76,7 +83,7 @@ export function ActionsView({ data }: ActionsViewProps) {
   }
 
   return (
-    <div className="grid grid-cols-2 gap-6">
+    <div className="grid grid-cols-2 gap-3">
       {/* Composants bloquants */}
       <Card>
         <CardHeader>
@@ -102,7 +109,7 @@ export function ActionsView({ data }: ActionsViewProps) {
           {supplierLines.slice(0, 8).map((line, i) => (
             <button
               key={`supplier-${i}`}
-              className="w-full text-left p-3 rounded-md border border-border hover:bg-accent"
+              className="w-full text-left p-3 rounded-sm border border-border hover:bg-accent"
               onClick={() =>
                 open({
                   title: `${line.fournisseur ?? 'Fournisseur'} / ${line.num_commande_achat ?? 'N/A'}`,
@@ -123,7 +130,7 @@ export function ActionsView({ data }: ActionsViewProps) {
           {kanbanLines.slice(0, 6).map((line, i) => (
             <button
               key={`kanban-${i}`}
-              className="w-full text-left p-3 rounded-md border border-border hover:bg-accent"
+              className="w-full text-left p-3 rounded-sm border border-border hover:bg-accent"
               onClick={() =>
                 open({
                   title: line.poste_fournisseur ?? 'Poste',

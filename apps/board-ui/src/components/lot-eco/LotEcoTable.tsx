@@ -1,10 +1,8 @@
-import { ChevronLeft, ChevronRight } from 'lucide-react'
 import type { LotEcoArticle, StatutLot } from '@/types/lot-eco'
 import { StatutBadge } from '@/components/ui/StatutBadge'
 import { useMemo } from 'react'
-import { DataTable } from '@/components/ui/DataTable'
-import type { DataTableColumn } from '@/components/ui/DataTable'
-import { NumberCell, EuroCell, MonoCell, TextCell } from '@/components/ui/DataTableCells'
+import { GridTable } from '@/components/ui/GridTable'
+import type { GridTableColumn } from '@/components/ui/GridTable'
 
 type SortKey = keyof LotEcoArticle
 type SortDir = 'asc' | 'desc'
@@ -21,6 +19,17 @@ interface Props {
   page: number
   onPageChange: (page: number) => void
   pageSize?: number
+}
+
+function SortHeader({ label, active, dir }: { label: string; active: boolean; dir: SortDir | null }) {
+  return (
+    <span className="inline-flex items-center gap-0.5">
+      {label}
+      {active && (
+        <span className="text-[9px]">{dir === 'asc' ? '▲' : '▼'}</span>
+      )}
+    </span>
+  )
 }
 
 export function LotEcoTable({
@@ -45,7 +54,7 @@ export function LotEcoTable({
 
   const allSelected = paged.length > 0 && paged.every((a) => selected.has(a.article))
 
-  const columns: DataTableColumn<LotEcoArticle>[] = [
+  const columns: GridTableColumn<LotEcoArticle>[] = [
     {
       key: 'select',
       header: (
@@ -53,7 +62,7 @@ export function LotEcoTable({
           type="checkbox"
           checked={allSelected}
           onChange={onToggleAll}
-          className="rounded border-stone-300 text-primary focus:ring-primary"
+          className="h-3 w-3"
         />
       ),
       align: 'center',
@@ -63,126 +72,146 @@ export function LotEcoTable({
           type="checkbox"
           checked={selected.has(a.article)}
           onChange={() => onToggleOne(a.article)}
-          className="rounded border-stone-300 text-primary focus:ring-primary"
+          className="h-3 w-3"
         />
       ),
     },
     {
       key: 'article',
-      header: 'Article',
-      cell: (a) => <MonoCell className="font-semibold">{a.article}</MonoCell>,
+      header: (
+        <button onClick={() => onSort('article')} className="uppercase tracking-wide">
+          <SortHeader label="Article" active={sortKey === 'article'} dir={sortKey === 'article' ? sortDir : null} />
+        </button>
+      ),
+      cell: (a) => <span className="font-mono text-[12px] font-semibold">{a.article}</span>,
       width: '120px',
-      sortable: true,
-      sortDir: sortKey === 'article' ? sortDir : null,
-      onSort: () => onSort('article'),
     },
     {
       key: 'description',
-      header: 'Description',
-      cell: (a) => <TextCell muted truncate>{a.description}</TextCell>,
-      sortable: true,
-      sortDir: sortKey === 'description' ? sortDir : null,
-      onSort: () => onSort('description'),
+      header: (
+        <button onClick={() => onSort('description')} className="uppercase tracking-wide">
+          <SortHeader label="Description" active={sortKey === 'description'} dir={sortKey === 'description' ? sortDir : null} />
+        </button>
+      ),
+      cell: (a) => <span className="text-[12px] text-muted-foreground block max-w-[220px] truncate">{a.description}</span>,
     },
     {
       key: 'lot_eco',
-      header: 'Lot éco',
+      header: (
+        <button onClick={() => onSort('lot_eco')} className="uppercase tracking-wide">
+          <SortHeader label="Lot éco" active={sortKey === 'lot_eco'} dir={sortKey === 'lot_eco' ? sortDir : null} />
+        </button>
+      ),
       align: 'right',
       width: '80px',
-      cell: (a) => <NumberCell value={a.lot_eco} />,
-      sortable: true,
-      sortDir: sortKey === 'lot_eco' ? sortDir : null,
-      onSort: () => onSort('lot_eco'),
+      cell: (a) => <span className="font-mono text-[12px] tabular-nums">{a.lot_eco.toLocaleString('fr-FR', { maximumFractionDigits: 0 })}</span>,
     },
     {
       key: 'lot_optimal',
-      header: 'Lot opt.',
+      header: (
+        <button onClick={() => onSort('lot_optimal')} className="uppercase tracking-wide">
+          <SortHeader label="Lot opt." active={sortKey === 'lot_optimal'} dir={sortKey === 'lot_optimal' ? sortDir : null} />
+        </button>
+      ),
       align: 'right',
       width: '80px',
-      cell: (a) => <NumberCell value={a.lot_optimal} />,
-      sortable: true,
-      sortDir: sortKey === 'lot_optimal' ? sortDir : null,
-      onSort: () => onSort('lot_optimal'),
+      cell: (a) => <span className="font-mono text-[12px] tabular-nums">{a.lot_optimal.toLocaleString('fr-FR', { maximumFractionDigits: 0 })}</span>,
     },
     {
       key: 'demande_hebdo',
-      header: 'Dem./sem',
+      header: (
+        <button onClick={() => onSort('demande_hebdo')} className="uppercase tracking-wide">
+          <SortHeader label="Dem./sem" active={sortKey === 'demande_hebdo'} dir={sortKey === 'demande_hebdo' ? sortDir : null} />
+        </button>
+      ),
       align: 'right',
       width: '85px',
-      cell: (a) => <NumberCell value={a.demande_hebdo} />,
-      sortable: true,
-      sortDir: sortKey === 'demande_hebdo' ? sortDir : null,
-      onSort: () => onSort('demande_hebdo'),
+      cell: (a) => <span className="font-mono text-[12px] tabular-nums">{a.demande_hebdo.toLocaleString('fr-FR', { maximumFractionDigits: 0 })}</span>,
     },
     {
       key: 'couverture',
-      header: 'Couv. (sem)',
+      header: (
+        <button onClick={() => onSort('couverture_lot_semaines')} className="uppercase tracking-wide">
+          <SortHeader label="Couv. (sem)" active={sortKey === 'couverture_lot_semaines'} dir={sortKey === 'couverture_lot_semaines' ? sortDir : null} />
+        </button>
+      ),
       align: 'right',
       width: '90px',
-      cell: (a) => <NumberCell value={a.couverture_lot_semaines} decimals={1} />,
-      sortable: true,
-      sortDir: sortKey === 'couverture_lot_semaines' ? sortDir : null,
-      onSort: () => onSort('couverture_lot_semaines'),
+      cell: (a) => <span className="font-mono text-[12px] tabular-nums">{a.couverture_lot_semaines.toLocaleString('fr-FR', { maximumFractionDigits: 1 })}</span>,
     },
     {
       key: 'ratio',
-      header: 'Ratio',
+      header: (
+        <button onClick={() => onSort('ratio_couverture')} className="uppercase tracking-wide">
+          <SortHeader label="Ratio" active={sortKey === 'ratio_couverture'} dir={sortKey === 'ratio_couverture' ? sortDir : null} />
+        </button>
+      ),
       align: 'right',
       width: '70px',
-      cell: (a) => <NumberCell value={a.ratio_couverture} decimals={2} />,
-      sortable: true,
-      sortDir: sortKey === 'ratio_couverture' ? sortDir : null,
-      onSort: () => onSort('ratio_couverture'),
+      cell: (a) => <span className="font-mono text-[12px] tabular-nums">{a.ratio_couverture.toLocaleString('fr-FR', { maximumFractionDigits: 2 })}</span>,
     },
     {
       key: 'stock',
-      header: 'Stock',
+      header: (
+        <button onClick={() => onSort('stock_physique')} className="uppercase tracking-wide">
+          <SortHeader label="Stock" active={sortKey === 'stock_physique'} dir={sortKey === 'stock_physique' ? sortDir : null} />
+        </button>
+      ),
       align: 'right',
       width: '80px',
-      cell: (a) => <NumberCell value={a.stock_physique} />,
-      sortable: true,
-      sortDir: sortKey === 'stock_physique' ? sortDir : null,
-      onSort: () => onSort('stock_physique'),
+      cell: (a) => <span className="font-mono text-[12px] tabular-nums">{a.stock_physique.toLocaleString('fr-FR', { maximumFractionDigits: 0 })}</span>,
     },
     {
       key: 'stock_jours',
-      header: 'Stock (j)',
+      header: (
+        <button onClick={() => onSort('stock_jours')} className="uppercase tracking-wide">
+          <SortHeader label="Stock (j)" active={sortKey === 'stock_jours'} dir={sortKey === 'stock_jours' ? sortDir : null} />
+        </button>
+      ),
       align: 'right',
       width: '80px',
-      cell: (a) => <NumberCell value={a.stock_jours} decimals={0} />,
-      sortable: true,
-      sortDir: sortKey === 'stock_jours' ? sortDir : null,
-      onSort: () => onSort('stock_jours'),
+      cell: (a) => <span className="font-mono text-[12px] tabular-nums">{a.stock_jours.toLocaleString('fr-FR', { maximumFractionDigits: 0 })}</span>,
     },
     {
       key: 'statut',
-      header: 'Statut',
+      header: (
+        <button onClick={() => onSort('statut')} className="uppercase tracking-wide">
+          <SortHeader label="Statut" active={sortKey === 'statut'} dir={sortKey === 'statut' ? sortDir : null} />
+        </button>
+      ),
       align: 'center',
       width: '90px',
       cell: (a) => <StatutBadge statut={a.statut as StatutLot} />,
-      sortable: true,
-      sortDir: sortKey === 'statut' ? sortDir : null,
-      onSort: () => onSort('statut'),
     },
     {
       key: 'valeur_stock',
-      header: 'Valeur',
+      header: (
+        <button onClick={() => onSort('valeur_stock')} className="uppercase tracking-wide">
+          <SortHeader label="Valeur" active={sortKey === 'valeur_stock'} dir={sortKey === 'valeur_stock' ? sortDir : null} />
+        </button>
+      ),
       align: 'right',
       width: '90px',
-      cell: (a) => <EuroCell value={a.valeur_stock} />,
-      sortable: true,
-      sortDir: sortKey === 'valeur_stock' ? sortDir : null,
-      onSort: () => onSort('valeur_stock'),
+      cell: (a) => (
+        <span className="font-mono text-[12px] tabular-nums">
+          {a.valeur_stock.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
+        </span>
+      ),
     },
     {
       key: 'economie',
-      header: 'Éco. immob.',
+      header: (
+        <button onClick={() => onSort('economie_immobilisation')} className="uppercase tracking-wide">
+          <SortHeader label="Éco. immob." active={sortKey === 'economie_immobilisation'} dir={sortKey === 'economie_immobilisation' ? sortDir : null} />
+        </button>
+      ),
       align: 'right',
       width: '95px',
-      cell: (a) => <EuroCell value={a.economie_immobilisation} className="text-muted-foreground" />,
-      sortable: true,
-      sortDir: sortKey === 'economie_immobilisation' ? sortDir : null,
-      onSort: () => onSort('economie_immobilisation'),
+      cell: (a) => (
+        <span className="font-mono text-[12px] tabular-nums text-muted-foreground">
+          {a.economie_immobilisation.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
+        </span>
+      ),
     },
   ]
 
@@ -192,7 +221,7 @@ export function LotEcoTable({
 
   return (
     <div className="space-y-3">
-      <DataTable
+      <GridTable
         columns={columns}
         data={paged}
         keyExtractor={(a) => a.article}
@@ -205,20 +234,8 @@ export function LotEcoTable({
               {data.length} article{data.length > 1 ? 's' : ''} — Page {safePage} / {totalPages}
             </p>
             <div className="flex items-center gap-1">
-              <button
-                disabled={safePage <= 1}
-                onClick={() => onPageChange(safePage - 1)}
-                className="p-1.5 rounded-lg hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              <button
-                disabled={safePage >= totalPages}
-                onClick={() => onPageChange(safePage + 1)}
-                className="p-1.5 rounded-lg hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
+              <button disabled={safePage <= 1} onClick={() => onPageChange(safePage - 1)} className="h-6 px-2 text-[11px] border border-border hover:bg-muted disabled:opacity-30">←</button>
+              <button disabled={safePage >= totalPages} onClick={() => onPageChange(safePage + 1)} className="h-6 px-2 text-[11px] border border-border hover:bg-muted disabled:opacity-30">→</button>
             </div>
           </div>
         }

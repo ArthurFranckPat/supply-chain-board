@@ -21,7 +21,6 @@ export function FeasibilityView() {
 
   const [activeTab, setActiveTab] = useState<TabKey>('check')
 
-  // Shared options
   const [depthMode, setDepthMode] = useState<'full' | 'level1'>('full')
   const [useReceptions, setUseReceptions] = useState(true)
 
@@ -37,15 +36,14 @@ export function FeasibilityView() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
-      {/* Tabs */}
-      <div className="flex gap-1 bg-muted p-1 rounded-lg w-fit">
+    <div className="max-w-5xl space-y-3">
+      <div className="flex gap-0 border-b border-border">
         {TABS.map((tab) => (
           <button
             key={tab.key}
             onClick={() => resetTab(tab.key)}
-            className={`px-4 py-2 rounded-md text-xs font-semibold transition-colors ${
-              activeTab === tab.key ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+            className={`h-[28px] px-3 text-[11px] font-semibold border border-transparent border-b-0 -mb-px transition-colors ${
+              activeTab === tab.key ? 'bg-card text-foreground border-border relative after:absolute after:inset-x-0 after:top-0 after:h-[2px] after:bg-primary' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             {tab.label}
@@ -53,53 +51,37 @@ export function FeasibilityView() {
         ))}
       </div>
 
-      {/* Active tab */}
       {activeTab === 'check' && (
         <CheckTab
-          loading={loading}
-          depthMode={depthMode}
-          useReceptions={useReceptions}
-          onDepthModeChange={setDepthMode}
-          onUseReceptionsChange={setUseReceptions}
+          loading={loading} depthMode={depthMode} useReceptions={useReceptions}
+          onDepthModeChange={setDepthMode} onUseReceptionsChange={setUseReceptions}
           onCheck={(params) => check.mutate(params)}
         />
       )}
-
       {activeTab === 'promise' && (
-        <PromiseTab
-          loading={loading}
-          onPromise={(params) => findPromise.mutate(params)}
-        />
+        <PromiseTab loading={loading} onPromise={(params) => findPromise.mutate(params)} />
       )}
-
       {activeTab === 'reschedule' && (
         <RescheduleTab
-          loading={loading}
-          depthMode={depthMode}
-          useReceptions={useReceptions}
-          onDepthModeChange={setDepthMode}
-          onUseReceptionsChange={setUseReceptions}
-          onReschedule={(params) => reschedule.mutate(params)}
-          onResetMutations={resetMutations}
+          loading={loading} depthMode={depthMode} useReceptions={useReceptions}
+          onDepthModeChange={setDepthMode} onUseReceptionsChange={setUseReceptions}
+          onReschedule={(params) => reschedule.mutate(params)} onResetMutations={resetMutations}
         />
       )}
 
-      {/* Error */}
       {error && (
-        <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg text-sm">
+        <div className="bg-destructive/10 border border-destructive/20 text-destructive px-3 py-2 text-xs">
           {error.message}
         </div>
       )}
 
-      {/* Loading */}
       {loading && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <div className="w-3 h-3 border-2 border-primary border-t-transparent animate-spin" />
           Analyse en cours...
         </div>
       )}
 
-      {/* Results */}
       {result && <FeasibilityResultDisplay result={result} />}
     </div>
   )

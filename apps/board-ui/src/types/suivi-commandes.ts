@@ -15,6 +15,23 @@ export const STATUS_TONE_MAP: Record<string, 'good' | 'primary' | 'danger' | 'wa
   RAS: 'default',
 }
 
+/** Tailwind classes for a given status. */
+export function statusClass(statut: string): string {
+  if (statut === 'Retard Prod') return 'text-red-600 font-bold'
+  if (statut === 'A Livrer') return 'text-emerald-600 font-bold'
+  if (statut === 'Allocation \u00e0 faire') return 'text-sky-600 font-bold'
+  if (statut === 'Horizon MAD aux Exp\u00e9') return 'text-amber-600 font-bold'
+  return 'text-muted-foreground'
+}
+
+/** Tailwind background classes for a command type badge. */
+export function typeBadgeClass(type: string): string {
+  if (type === 'MTS') return 'bg-emerald-100 text-emerald-700 border-emerald-200'
+  if (type === 'MTO') return 'bg-violet-100 text-violet-700 border-violet-200'
+  if (type === 'NOR') return 'bg-slate-100 text-slate-600 border-slate-200'
+  return 'bg-secondary text-secondary-foreground border-transparent'
+}
+
 /** Single order row returned by the status API. */
 export interface OrderRow {
   'Date expedition': string | null

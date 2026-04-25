@@ -1,5 +1,4 @@
 import type { OrderFilterState, FilterOptions } from '@/types/suivi-commandes'
-import { Search, X, Users, Tag, AlertTriangle } from 'lucide-react'
 
 interface OrderFiltersProps {
   filters: OrderFilterState
@@ -31,89 +30,63 @@ export function OrderFilters({ filters, onChange, options, statusCounts }: Order
   }
 
   return (
-    <div className="bg-card border border-border rounded-2xl overflow-hidden">
+    <div className="bg-card border border-border">
       {/* Toolbar row */}
-      <div className="flex items-center gap-2.5 px-3.5 py-2.5 border-b border-border flex-wrap">
-        {/* Client filter */}
-        <div className="inline-flex items-center gap-1.5 bg-muted px-3 py-1.5 rounded-lg min-w-[180px] max-w-[280px]">
-          <Users className="h-3 w-3 text-muted-foreground shrink-0" />
-          <select
-            value={filters.client}
-            onChange={(e) => onChange({ ...filters, client: e.target.value })}
-            className="flex-1 bg-transparent border-none outline-none text-xs text-foreground cursor-pointer"
-          >
-            <option value="__all__">Tous les clients</option>
-            {options.clients.map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
-        </div>
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-border flex-wrap">
+        <select
+          value={filters.client}
+          onChange={(e) => onChange({ ...filters, client: e.target.value })}
+          className="h-7 px-2 text-[11px] border border-border bg-card outline-none focus:border-ring min-w-[160px]"
+        >
+          <option value="__all__">Tous les clients</option>
+          {options.clients.map((c) => (
+            <option key={c} value={c}>{c}</option>
+          ))}
+        </select>
 
-        {/* Order search */}
-        <div className="inline-flex items-center gap-1.5 bg-muted px-3 py-1.5 rounded-lg min-w-[140px]">
-          <Search className="h-3 w-3 text-muted-foreground shrink-0" />
-          <input
-            value={filters.orderSearch}
-            onChange={(e) => onChange({ ...filters, orderSearch: e.target.value })}
-            placeholder="Commande..."
-            className="flex-1 bg-transparent border-none outline-none text-xs text-foreground placeholder:text-muted-foreground"
-          />
-          {filters.orderSearch && (
-            <button onClick={() => onChange({ ...filters, orderSearch: '' })} className="text-muted-foreground hover:text-foreground">
-              <X className="h-3 w-3" />
-            </button>
-          )}
-        </div>
+        <input
+          value={filters.orderSearch}
+          onChange={(e) => onChange({ ...filters, orderSearch: e.target.value })}
+          placeholder="Commande..."
+          className="h-7 px-2 text-[11px] border border-border bg-card outline-none focus:border-ring placeholder:text-muted-foreground min-w-[120px]"
+        />
 
-        {/* Article search */}
-        <div className="inline-flex items-center gap-1.5 bg-muted px-3 py-1.5 rounded-lg min-w-[120px]">
-          <Search className="h-3 w-3 text-muted-foreground shrink-0" />
-          <input
-            value={filters.articleSearch}
-            onChange={(e) => onChange({ ...filters, articleSearch: e.target.value })}
-            placeholder="Article..."
-            className="flex-1 bg-transparent border-none outline-none text-xs text-foreground placeholder:text-muted-foreground"
-          />
-          {filters.articleSearch && (
-            <button onClick={() => onChange({ ...filters, articleSearch: '' })} className="text-muted-foreground hover:text-foreground">
-              <X className="h-3 w-3" />
-            </button>
-          )}
-        </div>
+        <input
+          value={filters.articleSearch}
+          onChange={(e) => onChange({ ...filters, articleSearch: e.target.value })}
+          placeholder="Article..."
+          className="h-7 px-2 text-[11px] border border-border bg-card outline-none focus:border-ring placeholder:text-muted-foreground min-w-[100px]"
+        />
 
         <div className="w-px h-5 bg-border" />
 
-        {/* Type commande toggles */}
         {options.typesCommande.map((type) => (
           <button
             key={type}
             onClick={() => toggleTypeCommande(type)}
-            className={`inline-flex items-center gap-1 px-2.5 py-[5px] rounded-[7px] text-[11px] font-semibold transition-colors ${
+            className={`h-7 px-2 text-[11px] font-medium border transition-colors ${
               filters.typesCommande.includes(type)
-                ? 'bg-primary/10 text-primary border border-primary/20'
-                : 'bg-transparent text-muted-foreground border border-border hover:bg-muted'
+                ? 'bg-primary text-primary-foreground border-primary'
+                : 'bg-card text-muted-foreground border-border hover:bg-muted'
             }`}
           >
-            <Tag className="h-2.5 w-2.5" />
             {type}
           </button>
         ))}
 
-        {/* Clear all */}
         {hasFilters && (
           <button
             onClick={clearAll}
-            className="ml-auto text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1 transition-colors"
+            className="ml-auto h-7 px-2 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
           >
-            <X className="h-3 w-3" />
-            Effacer filtres
+            Effacer
           </button>
         )}
       </div>
 
       {/* Statut filter row */}
-      <div className="flex items-center gap-1.5 px-3.5 py-2 flex-wrap">
-        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider font-mono mr-1">Statut</span>
+      <div className="flex items-center gap-1.5 px-3 py-1.5 flex-wrap">
+        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mr-1">Statut</span>
         {options.statuts.map((statut) => {
           const count = statusCounts[statut] ?? 0
           const active = filters.statuts.includes(statut)
@@ -121,17 +94,14 @@ export function OrderFilters({ filters, onChange, options, statusCounts }: Order
             <button
               key={statut}
               onClick={() => toggleStatut(statut)}
-              className={`inline-flex items-center gap-1.5 px-2.5 py-[5px] rounded-[7px] text-[11px] font-semibold transition-colors ${
+              className={`h-6 px-2 text-[11px] font-medium border transition-colors ${
                 active
-                  ? 'bg-primary/10 text-primary border border-primary/20'
-                  : 'bg-transparent text-muted-foreground border border-border hover:bg-muted'
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-card text-muted-foreground border-border hover:bg-muted'
               }`}
             >
-              {statut === 'Retard Prod' && <AlertTriangle className="h-2.5 w-2.5" />}
               {statut}
-              <span className={`text-[10px] font-bold px-1.5 py-[1px] rounded-full font-mono ${
-                active ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'
-              }`}>
+              <span className={`text-[10px] font-mono ml-1 ${active ? 'opacity-70' : 'text-muted-foreground'}`}>
                 {count}
               </span>
             </button>

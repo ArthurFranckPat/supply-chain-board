@@ -12,14 +12,14 @@ interface SegmentedProps {
 
 export function Segmented({ options, value, onChange }: SegmentedProps) {
   return (
-    <div className="inline-flex gap-0.5 rounded-lg bg-muted p-0.5">
+    <div className="inline-flex gap-0.5 rounded-sm bg-muted p-0.5">
       {options.map((opt) => {
         const active = value === opt.value
         return (
           <button
             key={opt.value}
             onClick={() => onChange(opt.value)}
-            className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
+            className={`px-2.5 py-1 rounded-sm text-[11px] font-semibold transition-all ${
               active
                 ? 'bg-primary text-primary-foreground shadow-sm'
                 : 'bg-transparent text-muted-foreground hover:text-foreground'

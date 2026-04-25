@@ -1,9 +1,7 @@
 import { memo, useState, useMemo } from 'react'
 import type { EolComponent, EolResidualsResult } from '@/types/eol-residuals'
-import { AlertTriangle, Download } from 'lucide-react'
-import { DataTable } from '@/components/ui/DataTable'
-import type { DataTableColumn } from '@/components/ui/DataTable'
-import { NumberCell, EuroCell, BadgeCell, MonoCell, TextCell } from '@/components/ui/DataTableCells'
+import { GridTable } from '@/components/ui/GridTable'
+import type { GridTableColumn } from '@/components/ui/GridTable'
 
 type TypeFilter = 'all' | 'ACHAT' | 'FABRICATION'
 type SortKey = 'article' | 'description' | 'component_type' | 'used_by_target_pf_count' | 'stock_qty' | 'pmp' | 'value'
@@ -38,9 +36,7 @@ export const EolResultsTable = memo(function EolResultsTable({ data, bomDepthMod
       if (typeof aVal === 'number' && typeof bVal === 'number') {
         return sortDir === 'asc' ? aVal - bVal : bVal - aVal
       }
-      return sortDir === 'asc'
-        ? String(aVal).localeCompare(String(bVal))
-        : String(bVal).localeCompare(String(aVal))
+      return sortDir === 'asc' ? String(aVal).localeCompare(String(bVal)) : String(bVal).localeCompare(String(aVal))
     })
   }, [data.components, typeFilter, sortKey, sortDir])
 
@@ -53,22 +49,15 @@ export const EolResultsTable = memo(function EolResultsTable({ data, bomDepthMod
     }
   }
 
-  const stockModeLabel = stockMode === 'physical'
-    ? 'stock physique'
-    : stockMode === 'net_releaseable'
-    ? 'stock net allouable'
+  const stockModeLabel = stockMode === 'physical' ? 'stock physique'
+    : stockMode === 'net_releaseable' ? 'stock net allouable'
     : `stock projete au ${projectionDate}`
 
   const exportCSV = () => {
     const headers = ['Article', 'Description', 'Type', 'PF cibles', 'Stock qte', 'PMP', 'Valeur EUR']
     const rows = filteredComponents.map(c => [
-      c.article,
-      `"${c.description.replace(/"/g, '""')}"`,
-      c.component_type,
-      c.used_by_target_pf_count,
-      c.stock_qty.toFixed(2),
-      c.pmp.toFixed(4),
-      c.value.toFixed(2),
+      c.article, `"${c.description.replace(/"/g, '""')}"`, c.component_type,
+      c.used_by_target_pf_count, c.stock_qty.toFixed(2), c.pmp.toFixed(4), c.value.toFixed(2),
     ])
     const csv = [headers.join(';'), ...rows.map(r => r.join(';'))].join('\n')
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
@@ -80,207 +69,144 @@ export const EolResultsTable = memo(function EolResultsTable({ data, bomDepthMod
     URL.revokeObjectURL(url)
   }
 
-  const columns: DataTableColumn<EolComponent>[] = [
+  const sortIndicator = (key: SortKey) => (
+    sortKey === key ? (sortDir === 'asc' ? ' ↑' : ' ↓') : null
+  )
+
+  const columns: GridTableColumn<EolComponent>[] = [
     {
-      key: 'article',
-      header: 'Article',
-      cell: (c) => <MonoCell className="font-semibold">{c.article}</MonoCell>,
-      width: '120px',
-      sortable: true,
-      sortDir: sortKey === 'article' ? sortDir : null,
-      onSort: () => handleSort('article'),
+      key: 'article', header: <button onClick={() => handleSort('article')} className="flex items-center gap-0.5">Article{sortIndicator('article')}</button>, width: '110px',
+      cell: (c) => <span className="font-mono text-[12px] font-semibold">{c.article}</span>,
     },
     {
-      key: 'description',
-      header: 'Description',
-      cell: (c) => <TextCell muted truncate>{c.description}</TextCell>,
-      sortable: true,
-      sortDir: sortKey === 'description' ? sortDir : null,
-      onSort: () => handleSort('description'),
+      key: 'description', header: <button onClick={() => handleSort('description')} className="flex items-center gap-0.5">Description{sortIndicator('description')}</button>,
+      cell: (c) => <span className="text-[12px] text-muted-foreground block max-w-[220px] truncate">{c.description}</span>,
     },
     {
-      key: 'type',
-      header: 'Type',
-      align: 'center',
-      width: '80px',
+      key: 'type', header: <button onClick={() => handleSort('component_type')} className="flex items-center gap-0.5">Type{sortIndicator('component_type')}</button>, align: 'center', width: '70px',
       cell: (c) => (
-        <BadgeCell tone={c.component_type === 'ACHAT' ? 'warning' : 'success'}>
+        <span className={`inline-flex items-center px-1.5 py-0.5 text-[10px] font-semibold border ${
+          c.component_type === 'ACHAT'
+            ? 'bg-orange/10 text-orange border-orange/20'
+            : 'bg-green/10 text-green border-green/20'
+        }`}>
           {c.component_type === 'ACHAT' ? 'ACH' : 'FAB'}
-        </BadgeCell>
+        </span>
       ),
-      sortable: true,
-      sortDir: sortKey === 'component_type' ? sortDir : null,
-      onSort: () => handleSort('component_type'),
     },
     {
-      key: 'pf',
-      header: 'PF cibles',
-      align: 'center',
-      width: '90px',
-      cell: (c) => <NumberCell value={c.used_by_target_pf_count} />,
-      sortable: true,
-      sortDir: sortKey === 'used_by_target_pf_count' ? sortDir : null,
-      onSort: () => handleSort('used_by_target_pf_count'),
+      key: 'pf', header: <button onClick={() => handleSort('used_by_target_pf_count')} className="flex items-center gap-0.5">PF{sortIndicator('used_by_target_pf_count')}</button>, align: 'center', width: '60px',
+      cell: (c) => <span className="font-mono text-[12px] tabular-nums">{c.used_by_target_pf_count.toLocaleString('fr-FR', { maximumFractionDigits: 0 })}</span>,
     },
     {
-      key: 'stock',
-      header: 'Stock qte',
-      align: 'right',
-      width: '100px',
-      cell: (c) => <NumberCell value={c.stock_qty} decimals={1} />,
-      sortable: true,
-      sortDir: sortKey === 'stock_qty' ? sortDir : null,
-      onSort: () => handleSort('stock_qty'),
+      key: 'stock', header: <button onClick={() => handleSort('stock_qty')} className="flex items-center gap-0.5">Stock{sortIndicator('stock_qty')}</button>, align: 'right', width: '80px',
+      cell: (c) => <span className="font-mono text-[12px] tabular-nums">{c.stock_qty.toLocaleString('fr-FR', { maximumFractionDigits: 1 })}</span>,
     },
     {
-      key: 'pmp',
-      header: 'PMP',
-      align: 'right',
-      width: '100px',
-      cell: (c) => <EuroCell value={c.pmp} decimals={2} className="text-muted-foreground text-[12.5px]" />,
-      sortable: true,
-      sortDir: sortKey === 'pmp' ? sortDir : null,
-      onSort: () => handleSort('pmp'),
+      key: 'pmp', header: <button onClick={() => handleSort('pmp')} className="flex items-center gap-0.5">PMP{sortIndicator('pmp')}</button>, align: 'right', width: '80px',
+      cell: (c) => <span className="font-mono text-[12px] tabular-nums text-muted-foreground">{c.pmp.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 2 })}</span>,
     },
     {
-      key: 'value',
-      header: 'Valeur',
-      align: 'right',
-      width: '110px',
-      cell: (c) => <EuroCell value={c.value} className="font-semibold" />,
-      sortable: true,
-      sortDir: sortKey === 'value' ? sortDir : null,
-      onSort: () => handleSort('value'),
+      key: 'value', header: <button onClick={() => handleSort('value')} className="flex items-center gap-0.5">Valeur{sortIndicator('value')}</button>, align: 'right', width: '90px',
+      cell: (c) => <span className="font-mono text-[12px] tabular-nums font-semibold">{c.value.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}</span>,
     },
   ]
 
   return (
-    <div className="space-y-4">
-      {/* Summary header card */}
-      <div className="bg-card border border-border rounded-xl p-5">
-        <div className="flex items-start justify-between gap-4">
+    <div className="space-y-2">
+      {/* Summary */}
+      <div className="bg-card border border-border p-3">
+        <div className="flex items-start justify-between gap-2">
           <div>
-            <p className="text-[11px] text-muted-foreground font-mono uppercase tracking-wide">Analyse residuelle EOL</p>
-            <p className="text-sm font-semibold mt-0.5">
-              {data.summary.unique_component_count} composants uniques &middot; {data.summary.target_pf_count} PF cibles
-            </p>
-            <p className="text-[11px] text-muted-foreground mt-1">
-              {stockModeLabel} &middot; nomenclature {bomDepthMode === 'full' ? 'complete' : 'niveau 1'}
-            </p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-semibold">Analyse residuelle EOL</p>
+            <p className="text-xs font-semibold">{data.summary.unique_component_count} composants &middot; {data.summary.target_pf_count} PF cibles</p>
+            <p className="text-[10px] text-muted-foreground">{stockModeLabel} &middot; {bomDepthMode === 'full' ? 'nomenclature complète' : 'niveau 1'}</p>
           </div>
           <div className="text-right shrink-0">
-            <p className="text-[11px] text-muted-foreground">Valeur totale residuelle</p>
-            <p className="text-xl font-bold tabular-nums mt-0.5">
-              {data.summary.total_value.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
-            </p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
-              {data.summary.total_stock_qty.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} unites en stock
-            </p>
+            <p className="text-[10px] text-muted-foreground">Valeur totale</p>
+            <p className="text-[16px] font-bold tabular-nums">{data.summary.total_value.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}</p>
+            <p className="text-[10px] text-muted-foreground">{data.summary.total_stock_qty.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} unités</p>
           </div>
         </div>
 
-        {/* ACHAT vs FAB proportion bar */}
         {totalValue > 0 && (
-          <div className="mt-4 pt-4 border-t border-border">
-            <div className="flex items-center justify-between text-[10px] mb-1.5">
-              <span className="text-orange font-semibold">ACHAT &mdash; {achatPct}%</span>
-              <span className="text-green font-semibold">{fabPct}% &mdash; FAB</span>
+          <div className="mt-2 pt-2 border-t border-border">
+            <div className="flex items-center justify-between text-[10px] mb-0.5">
+              <span className="text-orange font-semibold">ACHAT {achatPct}%</span>
+              <span className="text-green font-semibold">FAB {fabPct}%</span>
             </div>
-            <div className="h-2 bg-muted rounded-full overflow-hidden flex">
-              <div className="h-full bg-orange transition-all" style={{ width: `${achatPct}%` }} />
-              <div className="h-full bg-green transition-all" style={{ width: `${fabPct}%` }} />
+            <div className="h-[3px] bg-border flex">
+              <div className="h-full bg-orange" style={{ width: `${achatPct}%` }} />
+              <div className="h-full bg-green" style={{ width: `${fabPct}%` }} />
             </div>
           </div>
         )}
       </div>
 
-      {/* ACHAT / FAB breakdown cards */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="bg-card border border-border rounded-xl p-4 flex items-start justify-between">
+      {/* Breakdown */}
+      <div className="grid grid-cols-2 gap-2">
+        <div className="bg-card border border-border p-2 flex items-start justify-between">
           <div>
-            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-orange/10 text-orange mb-2">ACHAT</span>
-            <p className="text-2xl font-bold tabular-nums">{achatComponents.length}</p>
-            <p className="text-[11px] text-muted-foreground">composants achetés</p>
+            <span className="text-[10px] font-semibold text-orange">ACHAT</span>
+            <p className="text-[16px] font-bold tabular-nums">{achatComponents.length}</p>
+            <p className="text-[10px] text-muted-foreground">composants</p>
           </div>
           <div className="text-right">
-            <p className="text-sm font-semibold tabular-nums">
-              {totalAchatValue.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
-            </p>
-            <p className="text-[11px] text-muted-foreground">{achatPct}% de la valeur</p>
+            <p className="text-[12px] font-semibold tabular-nums">{totalAchatValue.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}</p>
+            <p className="text-[10px] text-muted-foreground">{achatPct}%</p>
           </div>
         </div>
-        <div className="bg-card border border-border rounded-xl p-4 flex items-start justify-between">
+        <div className="bg-card border border-border p-2 flex items-start justify-between">
           <div>
-            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-green/10 text-green mb-2">FABRICATION</span>
-            <p className="text-2xl font-bold tabular-nums">{fabComponents.length}</p>
-            <p className="text-[11px] text-muted-foreground">composants internes</p>
+            <span className="text-[10px] font-semibold text-green">FABRICATION</span>
+            <p className="text-[16px] font-bold tabular-nums">{fabComponents.length}</p>
+            <p className="text-[10px] text-muted-foreground">composants</p>
           </div>
           <div className="text-right">
-            <p className="text-sm font-semibold tabular-nums">
-              {totalFabValue.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
-            </p>
-            <p className="text-[11px] text-muted-foreground">{fabPct}% de la valeur</p>
+            <p className="text-[12px] font-semibold tabular-nums">{totalFabValue.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}</p>
+            <p className="text-[10px] text-muted-foreground">{fabPct}%</p>
           </div>
         </div>
       </div>
 
       {/* Warnings */}
       {data.warnings.length > 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
-          <p className="text-[11px] font-semibold text-amber-800 mb-1 flex items-center gap-1.5">
-            <AlertTriangle className="h-3.5 w-3.5" />
-            Alertes
-          </p>
+        <div className="bg-orange/5 border border-orange/20 px-3 py-2">
+          <p className="text-[10px] font-semibold text-orange mb-0.5">Alertes</p>
           {data.warnings.map((w, i) => (
-            <p key={i} className="text-xs text-amber-700">{w}</p>
+            <p key={i} className="text-[11px] text-orange/80">{w}</p>
           ))}
         </div>
       )}
 
-      {/* Toolbar + DataTable */}
+      {/* Table */}
       {data.components.length > 0 && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <div className="flex gap-1 bg-muted p-1 rounded-lg">
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex gap-0 border border-border">
               {(['all', 'ACHAT', 'FABRICATION'] as TypeFilter[]).map((f) => (
                 <button
                   key={f}
                   onClick={() => setTypeFilter(f)}
-                  className={`px-3 py-1 rounded-md text-[11px] font-semibold transition-colors ${
-                    typeFilter === f
-                      ? 'bg-card text-foreground shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground'
+                  className={`h-6 px-2 text-[11px] font-medium border-r border-border last:border-r-0 transition-colors ${
+                    typeFilter === f ? 'bg-primary text-primary-foreground' : 'bg-card text-muted-foreground hover:bg-muted'
                   }`}
                 >
-                  {f === 'all'
-                    ? `Tous (${data.components.length})`
-                    : f === 'ACHAT'
-                    ? `ACHAT (${achatComponents.length})`
-                    : `FAB (${fabComponents.length})`}
+                  {f === 'all' ? `Tous (${data.components.length})` : f === 'ACHAT' ? `ACHAT (${achatComponents.length})` : `FAB (${fabComponents.length})`}
                 </button>
               ))}
             </div>
-
             <div className="flex items-center gap-2">
-              <p className="text-[11px] text-muted-foreground">
-                {filteredComponents.length} ligne{filteredComponents.length > 1 ? 's' : ''}
-              </p>
-              <button
-                onClick={exportCSV}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-border text-[11px] font-semibold text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-              >
-                <Download className="h-3 w-3" />
+              <span className="text-[11px] text-muted-foreground">{filteredComponents.length}</span>
+              <button onClick={exportCSV} className="h-6 px-2 border border-border text-[11px] text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
                 CSV
               </button>
             </div>
           </div>
 
-          <DataTable
-            columns={columns}
-            data={filteredComponents}
-            keyExtractor={(c) => c.article}
-            maxHeight="480px"
-            emptyMessage="Aucun composant ne correspond aux filtres."
+          <GridTable
+            columns={columns} data={filteredComponents} keyExtractor={(c) => c.article}
+            maxHeight="480px" emptyMessage="Aucun composant ne correspond aux filtres."
           />
         </div>
       )}

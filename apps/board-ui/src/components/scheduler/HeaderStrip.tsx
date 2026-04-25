@@ -1,5 +1,3 @@
-import { Eye, EyeOff, Moon, Sun, TrendingUp, Target } from 'lucide-react'
-import { ScoreDial } from '@/components/ui/score-dial'
 import { Segmented } from '@/components/ui/segmented'
 
 interface HeaderStripProps {
@@ -26,19 +24,11 @@ interface HeaderStripProps {
 }
 
 function MiniStat({ label, value, tone }: { label: string; value: string | number; tone?: string }) {
-  const toneClass = tone === 'danger'
-    ? 'text-destructive'
-    : tone === 'warn'
-    ? 'text-orange'
-    : tone === 'good'
-    ? 'text-green'
-    : 'text-foreground'
+  const toneClass = tone === 'danger' ? 'text-destructive' : tone === 'warn' ? 'text-orange' : tone === 'good' ? 'text-green' : ''
   return (
-    <div className="min-w-[64px]">
-      <span className="block text-[9px] font-semibold text-muted-foreground uppercase tracking-wider font-mono">{label}</span>
-      <span className={`block text-base font-bold tabular-nums tracking-tight leading-tight ${toneClass}`}>
-        {value}
-      </span>
+    <div className="min-w-[60px]">
+      <span className="block text-[9px] text-muted-foreground uppercase tracking-wide font-semibold">{label}</span>
+      <span className={`block text-[13px] font-bold tabular-nums leading-tight ${toneClass}`}>{value}</span>
     </div>
   )
 }
@@ -57,40 +47,21 @@ export function HeaderStrip({
   const ouverturePct = Math.round(tauxOuverture * 100)
   const realisablePct = totalOf > 0 ? Math.round((totalRealisables / totalOf) * 100) : 0
 
-  const health = [
-    { label: 'Service', pct: servicePct, color: 'var(--color-primary)' },
-    { label: 'Ouverture', pct: ouverturePct, color: 'var(--color-orange)' },
-    { label: 'Réalisable', pct: realisablePct, color: 'var(--color-green)' },
-  ]
-
   return (
-    <div className="bg-card border border-border rounded-2xl transition-all">
-      {/* Row 1: Score + Controls (always visible) */}
-      <div className="flex items-center gap-4" style={{ padding: showKpis ? '14px 18px 8px' : '10px 14px' }}>
-        {/* Hero score */}
-        <div className="flex items-center gap-3 shrink-0">
-          <ScoreDial value={score} size={showKpis ? 56 : 44} />
-          <div>
-            <span className="block text-[10px] font-semibold text-muted-foreground uppercase tracking-wider font-mono">Score global</span>
-            <div className="text-xl font-bold tabular-nums tracking-tight leading-none" style={{ fontSize: showKpis ? 22 : 18 }}>
-              {score.toFixed(3)}
-            </div>
-            <div className="flex items-center gap-1 mt-0.5 text-[10.5px] text-green">
-              <TrendingUp className="h-2.5 w-2.5" />
-              <span>+0.021 vs run précédent</span>
-            </div>
-          </div>
+    <div className="bg-card border border-border">
+      <div className="flex items-center gap-3 px-3 py-2">
+        <div>
+          <span className="block text-[9px] text-muted-foreground uppercase tracking-wide font-semibold">Score</span>
+          <span className="block text-[18px] font-bold tabular-nums leading-none">{score.toFixed(3)}</span>
         </div>
 
-        {/* Spacer */}
         <div className="flex-1" />
 
-        {/* Controls */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2">
           <Segmented
             value={weekMode}
             onChange={onWeekMode}
-            options={[{ value: 'day', label: 'Jour' }, { value: 'week', label: 'Semaine' }]}
+            options={[{ value: 'day', label: 'Jour' }, { value: 'week', label: 'Sem.' }]}
           />
           <Segmented
             value={density}
@@ -99,59 +70,47 @@ export function HeaderStrip({
           />
           <button
             onClick={onToggleWorkqueue}
-            title="À arbitrer"
-            className={`h-[30px] px-2 rounded-lg flex items-center gap-1.5 transition-colors ${
-              showWorkqueue ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'
+            className={`h-6 px-2 text-[11px] font-medium border transition-colors ${
+              showWorkqueue ? 'bg-primary text-primary-foreground border-primary' : 'bg-card text-muted-foreground border-border hover:bg-muted'
             }`}
           >
-            <Target className="h-3.5 w-3.5" />
-            <span className="text-[11px] font-semibold">Arbitrer</span>
+            Arbitrer
           </button>
-          <button
-            onClick={onToggleKpis}
-            title={showKpis ? 'Masquer KPIs' : 'Afficher KPIs'}
-            className="w-[30px] h-[30px] rounded-lg bg-muted text-muted-foreground flex items-center justify-center hover:text-foreground transition-colors"
-          >
-            {showKpis ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+          <button onClick={onToggleKpis} className="h-6 px-2 text-[11px] text-muted-foreground border border-border hover:bg-muted transition-colors">
+            {showKpis ? 'Moins' : 'KPIs'}
           </button>
-          <button
-            onClick={onDark}
-            title="Thème"
-            className="w-[30px] h-[30px] rounded-lg bg-muted text-muted-foreground flex items-center justify-center hover:text-foreground transition-colors"
-          >
-            {dark ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+          <button onClick={onDark} className="h-6 px-2 text-[11px] text-muted-foreground border border-border hover:bg-muted transition-colors">
+            {dark ? 'Clair' : 'Sombre'}
           </button>
         </div>
       </div>
 
-      {/* Row 2: Health bars + Secondary counts (only when KPIs visible) */}
       {showKpis && (
-        <div className="flex items-stretch gap-5 px-[18px] pb-[14px] pt-1 border-t border-border/30">
-          {/* Health bars */}
-          <div className="flex gap-5 flex-1 min-w-0">
-            {health.map((h) => (
-              <div key={h.label} className="min-w-[100px] flex-1">
-                <div className="flex justify-between items-baseline mb-1">
-                  <span className="text-[11px] text-muted-foreground font-medium">{h.label}</span>
-                  <span className="text-sm font-bold tabular-nums">{h.pct}%</span>
+        <div className="flex items-stretch gap-2 px-3 py-2 border-t border-border">
+          <div className="flex gap-2 flex-1 min-w-0">
+            {[
+              { label: 'Service', pct: servicePct },
+              { label: 'Ouverture', pct: ouverturePct },
+              { label: 'Réalisable', pct: realisablePct },
+            ].map((h) => (
+              <div key={h.label} className="min-w-[80px] flex-1">
+                <div className="flex justify-between items-baseline">
+                  <span className="text-[10px] text-muted-foreground">{h.label}</span>
+                  <span className="text-[12px] font-bold tabular-nums">{h.pct}%</span>
                 </div>
-                <div className="h-[5px] bg-muted rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all"
-                    style={{ width: `${h.pct}%`, background: h.color }}
-                  />
+                <div className="h-[3px] bg-border mt-1">
+                  <div className="h-full bg-primary transition-all" style={{ width: `${h.pct}%` }} />
                 </div>
               </div>
             ))}
           </div>
 
-          {/* Secondary counts */}
-          <div className="flex gap-3.5 pl-5 border-l border-border/50 shrink-0">
-            <MiniStat label="OF planifiés" value={totalOf.toLocaleString('fr-FR')} />
-            <MiniStat label="Bloqués" value={totalBlocked} tone={totalBlocked > 0 ? 'danger' : 'good'} />
+          <div className="flex gap-3 pl-4 border-l border-border shrink-0">
+            <MiniStat label="OF" value={totalOf.toLocaleString('fr-FR')} />
+            <MiniStat label="Bloqués" value={totalBlocked} tone={totalBlocked > 0 ? 'danger' : undefined} />
             <MiniStat label="Non planif." value={totalUnscheduled} tone="danger" />
-            <MiniStat label="Cmd à risque" value={totalOrdersRisk} tone="warn" />
-            <MiniStat label="JIT / Chgmts" value={`${nbJit}/${nbChangements}`} />
+            <MiniStat label="Risque" value={totalOrdersRisk} tone="warn" />
+            <MiniStat label="JIT/Chg" value={`${nbJit}/${nbChangements}`} />
           </div>
         </div>
       )}

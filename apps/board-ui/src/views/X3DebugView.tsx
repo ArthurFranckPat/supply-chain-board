@@ -54,13 +54,13 @@ export function X3DebugView() {
   }
 
   return (
-    <div className="flex flex-col gap-4 max-w-4xl">
+    <div className="flex flex-col gap-2 max-w-4xl">
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Configuration X3 (lue depuis .env)</CardTitle>
         </CardHeader>
         <CardContent>
-          <pre className="text-xs bg-muted p-3 rounded-md overflow-auto font-mono whitespace-pre-wrap">
+          <pre className="text-xs bg-muted p-3 rounded-sm overflow-auto font-mono whitespace-pre-wrap">
             {JSON.stringify(config, null, 2)}
           </pre>
         </CardContent>
@@ -110,7 +110,7 @@ export function X3DebugView() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <pre className="text-xs bg-muted p-3 rounded-md overflow-auto max-h-[500px] font-mono whitespace-pre-wrap">
+            <pre className="text-xs bg-muted p-3 rounded-sm overflow-auto max-h-[500px] font-mono whitespace-pre-wrap">
               {JSON.stringify(result.data ?? result.error, null, 2)}
             </pre>
           </CardContent>

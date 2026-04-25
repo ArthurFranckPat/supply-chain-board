@@ -27,7 +27,7 @@ function PopoverContent({
       <PopoverRoot.Positioner side={side} sideOffset={sideOffset} align={align}>
         <PopoverRoot.Popup
           className={cn(
-            "z-50 rounded-xl border border-border/60 bg-popover/60 backdrop-blur-2xl p-3 text-popover-foreground shadow-lg shadow-black/10 ring-1 ring-black/5",
+            "z-50 rounded-sm border border-border/60 bg-popover/60 backdrop-blur-2xl p-3 text-popover-foreground shadow-lg shadow-black/10 ring-1 ring-black/5",
             "data-[side=top]:animate-in data-[side=top]:fade-in-0 data-[side=top]:slide-in-from-bottom-2",
             "data-[side=bottom]:animate-in data-[side=bottom]:fade-in-0 data-[side=bottom]:slide-in-from-top-2",
             "data-[side=left]:animate-in data-[side=left]:fade-in-0 data-[side=left]:slide-in-from-right-2",

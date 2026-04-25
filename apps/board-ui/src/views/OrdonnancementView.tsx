@@ -9,10 +9,7 @@ import { ExpectedComponents } from '@/components/scheduler/ExpectedComponents'
 import { SchedulerFilters } from '@/components/scheduling/SchedulerFilters'
 import { DayCard } from '@/components/scheduling/DayCard'
 import { useSchedulerData } from '@/hooks/useSchedulerData'
-import {
-  CalendarDays, TrendingDown, AlertTriangle,
-  ChevronDown, ChevronRight, Package,
-} from 'lucide-react'
+
 import type { SchedulerResult } from '@/types/scheduler'
 import type { RunState } from '@/types/api'
 
@@ -24,9 +21,9 @@ interface OrdonnancementViewProps {
 }
 
 const TABS = [
-  { k: 'planning', label: 'Planning', icon: <CalendarDays className="h-3 w-3" /> },
-  { k: 'components', label: 'Composants', icon: <Package className="h-3 w-3" />, countKey: 'reception_rows' as const },
-  { k: 'stock', label: 'Stock', icon: <TrendingDown className="h-3 w-3" /> },
+  { k: 'planning', label: 'Planning' },
+  { k: 'components', label: 'Composants', countKey: 'reception_rows' as const },
+  { k: 'stock', label: 'Stock' },
 ]
 
 export function OrdonnancementView({ isLoading, result, error, runState }: OrdonnancementViewProps) {
@@ -40,12 +37,12 @@ export function OrdonnancementView({ isLoading, result, error, runState }: Ordon
       ? <div className="flex items-center justify-center py-24"><ScheduleProgress runState={runState} /></div>
       : (
         <div className="space-y-3">
-          <div className="h-20 rounded-2xl"><Skeleton className="h-full w-full rounded-2xl" /></div>
+          <div className="h-20 rounded-sm"><Skeleton className="h-full w-full rounded-sm" /></div>
           <div className="grid grid-cols-[320px_1fr] gap-3.5">
-            <Skeleton className="h-96 rounded-2xl" />
+            <Skeleton className="h-96 rounded-sm" />
             <div className="space-y-3">
-              <Skeleton className="h-52 rounded-2xl" />
-              <Skeleton className="h-96 rounded-2xl" />
+              <Skeleton className="h-52 rounded-sm" />
+              <Skeleton className="h-96 rounded-sm" />
             </div>
           </div>
         </div>
@@ -54,28 +51,23 @@ export function OrdonnancementView({ isLoading, result, error, runState }: Ordon
 
   if (error) {
     return (
-      <div className="bg-card border border-border rounded-2xl py-16 text-center">
-        <div className="flex items-center justify-center mb-3">
-          <div className="h-10 w-10 rounded-full bg-destructive/10 flex items-center justify-center">
-            <AlertTriangle className="h-5 w-5 text-destructive" />
+      <div className="bg-card border border-border py-6 text-center">
+        <div className="flex items-center justify-center mb-2">
+          <div className="h-8 w-8 bg-destructive/10 flex items-center justify-center">
+            <span className="text-destructive text-xs font-bold">!</span>
           </div>
         </div>
-        <p className="text-destructive font-semibold">Erreur d'ordonnancement</p>
-        <p className="text-sm text-muted-foreground mt-1">{error}</p>
+        <p className="text-destructive font-semibold text-xs">Erreur d'ordonnancement</p>
+        <p className="text-xs text-muted-foreground mt-1">{error}</p>
       </div>
     )
   }
 
   if (!result) {
     return (
-      <div className="bg-card border border-dashed border-border rounded-2xl py-16 text-center">
-        <div className="flex items-center justify-center mb-3">
-          <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
-            <CalendarDays className="h-5 w-5 text-muted-foreground" />
-          </div>
-        </div>
-        <p className="font-semibold text-muted-foreground">Aucun calcul d'ordonnancement disponible</p>
-        <p className="text-sm text-muted-foreground mt-1">Lancez l'ordonnancement depuis Pilotage.</p>
+      <div className="bg-card border border-dashed border-border py-6 text-center">
+        <p className="font-semibold text-muted-foreground text-xs">Aucun calcul d'ordonnancement disponible</p>
+        <p className="text-xs text-muted-foreground mt-1">Lancez l'ordonnancement depuis Pilotage.</p>
       </div>
     )
   }
@@ -111,7 +103,7 @@ export function OrdonnancementView({ isLoading, result, error, runState }: Ordon
                 <button onClick={() => s.setShowHeatmap(v => !v)}
                   className="flex items-center gap-2 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  {s.showHeatmap ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                  {s.showHeatmap ? '▼' : '▶'}
                   <span className="font-semibold uppercase tracking-wider font-mono text-[10px]">Heatmap charge</span>
                   <span className="text-muted-foreground/50">{s.showHeatmap ? 'masquer' : 'afficher'}</span>
                 </button>
@@ -128,23 +120,23 @@ export function OrdonnancementView({ isLoading, result, error, runState }: Ordon
               </>
             )}
 
-            <section className="bg-card border border-border rounded-2xl overflow-hidden">
-              {/* Tabs */}
-              <div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-border">
+            <section className="bg-card border border-border overflow-hidden">
+              {/* Tabs style X3 sections */}
+              <div className="flex items-center gap-0 border-b border-border bg-muted px-1">
                 {TABS.map(tb => {
                   const isActive = s.activeTab === tb.k
                   const count = tb.countKey ? (result[tb.countKey]?.length ?? 0) : undefined
                   return (
                     <button key={tb.k} onClick={() => s.setActiveTab(tb.k)}
-                      className={`inline-flex items-center gap-1.5 px-3 py-[7px] text-xs font-semibold rounded-[7px] transition-colors ${
-                        isActive ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-accent'
+                      className={`inline-flex items-center gap-1.5 px-3 py-[6px] text-[11px] font-semibold transition-colors border border-transparent border-b-0 -mb-px ${
+                        isActive ? 'bg-card text-foreground border-border relative after:absolute after:inset-x-0 after:top-0 after:h-[2px] after:bg-primary' : 'text-muted-foreground hover:text-foreground'
                       }`}
                     >
-                      {tb.icon}{tb.label}
+                      {tb.label}
                       {count !== undefined && (
-                        <span className={`text-[10px] font-bold px-1.5 py-[1px] rounded-full font-mono ${
-                          isActive ? 'bg-primary/15' : 'bg-muted'
-                        } text-muted-foreground`}>{count}</span>
+                        <span className={`text-[10px] font-bold px-1 py-[1px] font-mono border ${
+                          isActive ? 'bg-primary/10 text-primary border-primary/20' : 'bg-muted text-muted-foreground border-border'
+                        }`}>{count}</span>
                       )}
                     </button>
                   )
@@ -187,10 +179,10 @@ export function OrdonnancementView({ isLoading, result, error, runState }: Ordon
               )}
 
               {s.activeTab === 'components' && (
-                <div className="p-4"><ExpectedComponents rows={result.reception_rows} /></div>
+                <div className="p-3"><ExpectedComponents rows={result.reception_rows} /></div>
               )}
               {s.activeTab === 'stock' && (
-                <div className="p-4"><StockProjection entries={result.stock_projection} /></div>
+                <div className="p-3"><StockProjection entries={result.stock_projection} /></div>
               )}
             </section>
           </div>

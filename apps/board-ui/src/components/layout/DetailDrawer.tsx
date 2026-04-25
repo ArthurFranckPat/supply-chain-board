@@ -20,7 +20,7 @@ export function DetailDrawer({ item, onClose }: DetailDrawerProps) {
       </div>
       <div className="p-4">
         <p className="text-sm text-muted-foreground mb-3">{item.description}</p>
-        <pre className="text-xs bg-muted p-3 rounded-md overflow-auto max-h-[70vh] font-mono">
+        <pre className="text-xs bg-muted p-3 rounded-sm overflow-auto max-h-[70vh] font-mono">
           {JSON.stringify(item.payload, null, 2)}
         </pre>
       </div>

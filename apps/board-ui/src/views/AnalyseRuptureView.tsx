@@ -1,7 +1,6 @@
 import { useState, useCallback } from 'react'
 import { useAnalyseRupture } from '@/hooks/useAnalyseRupture'
 import { LoadingInline, LoadingError, LoadingEmpty } from '@/components/ui/loading'
-import { AlertTriangle } from 'lucide-react'
 import { RuptureSearchBar } from '@/components/analyse-rupture/RuptureSearchBar'
 import { RuptureFilters } from '@/components/analyse-rupture/RuptureFilters'
 import type { RuptureFiltersState } from '@/components/analyse-rupture/RuptureFilters'
@@ -12,83 +11,41 @@ export function AnalyseRuptureView() {
   const { mutate, isPending, error, data } = useAnalyseRupture()
 
   const [filters, setFilters] = useState<RuptureFiltersState>({
-    demandFilter: 'fermes',
-    stockFilter: 'immediat',
-    usePool: true,
-    mergeBranches: true,
-    includeSf: true,
-    includePf: false,
+    demandFilter: 'fermes', stockFilter: 'immediat', usePool: true, mergeBranches: true, includeSf: true, includePf: false,
   })
 
   const handleAnalyze = useCallback((codeOverride?: string) => {
     const code = (codeOverride ?? query).trim()
     if (!code) return
-
     mutate({
-      componentCode: code,
-      include_previsions: filters.demandFilter === 'tout',
-      include_receptions: filters.stockFilter === 'projeté',
-      use_pool: filters.usePool,
-      merge_branches: filters.mergeBranches,
-      include_sf: filters.includeSf,
-      include_pf: filters.includePf,
+      componentCode: code, include_previsions: filters.demandFilter === 'tout', include_receptions: filters.stockFilter === 'projeté',
+      use_pool: filters.usePool, merge_branches: filters.mergeBranches, include_sf: filters.includeSf, include_pf: filters.includePf,
     })
   }, [query, filters, mutate])
 
   const updateFilter = <K extends keyof RuptureFiltersState>(key: K, value: RuptureFiltersState[K]) => {
-    setFilters((prev) => ({ ...prev, [key]: value }))
+    setFilters(prev => ({ ...prev, [key]: value }))
   }
 
   const isProjected = filters.stockFilter === 'projeté'
 
   return (
-    <div className="space-y-3 max-w-5xl">
-      {/* ── Search + controls bar ──────────────────────────── */}
-      <div className="bg-card border border-border rounded-2xl px-[18px] py-[14px]">
-        <RuptureSearchBar
-          query={query}
-          onQueryChange={setQuery}
-          onAnalyze={() => handleAnalyze()}
-          isPending={isPending}
-        />
+    <div className="space-y-2 max-w-5xl">
+      <div className="bg-card border border-border p-3">
+        <RuptureSearchBar query={query} onQueryChange={setQuery} onAnalyze={() => handleAnalyze()} isPending={isPending} />
         <RuptureFilters
-          demandFilter={filters.demandFilter}
-          stockFilter={filters.stockFilter}
-          usePool={filters.usePool}
-          mergeBranches={filters.mergeBranches}
-          includeSf={filters.includeSf}
-          includePf={filters.includePf}
-          onDemandFilterChange={(v) => updateFilter('demandFilter', v)}
-          onStockFilterChange={(v) => updateFilter('stockFilter', v)}
-          onUsePoolChange={(v) => updateFilter('usePool', v)}
-          onMergeBranchesChange={(v) => updateFilter('mergeBranches', v)}
-          onIncludeSfChange={(v) => updateFilter('includeSf', v)}
-          onIncludePfChange={(v) => updateFilter('includePf', v)}
+          demandFilter={filters.demandFilter} stockFilter={filters.stockFilter} usePool={filters.usePool}
+          mergeBranches={filters.mergeBranches} includeSf={filters.includeSf} includePf={filters.includePf}
+          onDemandFilterChange={v => updateFilter('demandFilter', v)} onStockFilterChange={v => updateFilter('stockFilter', v)}
+          onUsePoolChange={v => updateFilter('usePool', v)} onMergeBranchesChange={v => updateFilter('mergeBranches', v)}
+          onIncludeSfChange={v => updateFilter('includeSf', v)} onIncludePfChange={v => updateFilter('includePf', v)}
         />
       </div>
 
-      {/* ── Loading state ──────────────────────────────────── */}
-      {isPending && (
-        <LoadingInline label="analyse de rupture" sublabel="Remontee de la nomenclature..." />
-      )}
-
-      {/* ── Error state ────────────────────────────────────── */}
-      {error && !isPending && (
-        <LoadingError message={error.message} onRetry={() => handleAnalyze()} />
-      )}
-
-      {/* ── Empty state ────────────────────────────────────── */}
-      {!data && !isPending && !error && (
-        <LoadingEmpty
-          message="Recherchez un composant pour analyser son impact de rupture."
-          icon={<AlertTriangle className="h-6 w-6 text-muted-foreground" />}
-        />
-      )}
-
-      {/* ── Results ────────────────────────────────────────── */}
-      {data && !isPending && (
-        <BlockedOrdersList result={data} isProjected={isProjected} />
-      )}
+      {isPending && <LoadingInline label="analyse de rupture" />}
+      {error && !isPending && <LoadingError message={error.message} onRetry={() => handleAnalyze()} />}
+      {!data && !isPending && !error && <LoadingEmpty message="Recherchez un composant pour analyser son impact de rupture." />}
+      {data && !isPending && <BlockedOrdersList result={data} isProjected={isProjected} />}
     </div>
   )
 }

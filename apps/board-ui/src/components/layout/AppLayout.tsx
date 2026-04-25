@@ -32,7 +32,7 @@ export function AppLayout({
   const location = useLocation()
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen overflow-hidden bg-background text-foreground">
       <Sidebar
         collapsed={sidebarCollapsed}
         onToggleCollapse={onToggleSidebar}
@@ -40,7 +40,7 @@ export function AppLayout({
         loadState={loadState}
       />
 
-      <main className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         <Topbar
           activePath={location.pathname}
           onRunSchedule={onRunSchedule}
@@ -48,15 +48,17 @@ export function AppLayout({
         />
 
         {errorMessage && (
-          <div className="bg-destructive text-destructive-foreground px-6 py-2 text-sm font-medium">
+          <div className="shrink-0 bg-destructive text-destructive-foreground px-4 py-1.5 text-xs font-medium border-b border-destructive/20">
             {errorMessage}
           </div>
         )}
 
-        <div className="flex-1 overflow-auto p-6">
-          {children}
+        <div className="flex-1 overflow-auto p-3">
+          <div className="max-w-[1400px] mx-auto">
+            {children}
+          </div>
         </div>
-      </main>
+      </div>
 
       <DetailDrawer item={item} onClose={close} />
     </div>

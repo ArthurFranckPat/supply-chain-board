@@ -92,7 +92,7 @@ export function CapacityHeatmap({ candidates, lineLabels, focusLine, focusDay, o
   }
 
   return (
-    <section className="bg-card border border-border rounded-2xl p-3.5">
+    <section className="bg-card border border-border rounded-sm p-3.5">
       <div className="flex items-center justify-between mb-2.5">
         <div>
           <div className="text-[13px] font-semibold">Charge par ligne × jour</div>
@@ -118,7 +118,7 @@ export function CapacityHeatmap({ candidates, lineLabels, focusLine, focusDay, o
           <button
             key={d}
             onClick={() => onCell(null, d)}
-            className={`px-1.5 py-1 text-[10.5px] font-semibold font-mono text-center cursor-pointer rounded-md transition-colors ${
+            className={`px-1.5 py-1 text-[10.5px] font-semibold font-mono text-center cursor-pointer rounded-sm transition-colors ${
               focusDay === d
                 ? 'bg-primary/10 text-primary'
                 : 'text-muted-foreground hover:bg-muted'
@@ -133,7 +133,7 @@ export function CapacityHeatmap({ candidates, lineLabels, focusLine, focusDay, o
           <Fragment key={line}>
             <button
               onClick={() => onCell(line, null)}
-              className={`flex items-center px-2 py-1.5 rounded-md cursor-pointer transition-colors text-left ${
+              className={`flex items-center px-2 py-1.5 rounded-sm cursor-pointer transition-colors text-left ${
                 focusLine === line
                   ? 'bg-primary/10 text-primary'
                   : 'text-foreground hover:bg-muted'
@@ -151,7 +151,7 @@ export function CapacityHeatmap({ candidates, lineLabels, focusLine, focusDay, o
                 <button
                   key={`${line}-${d}`}
                   onClick={() => onCell(line, d)}
-                  className={`flex flex-col items-center gap-0.5 py-1.5 px-1 rounded-md cursor-pointer transition-opacity ${
+                  className={`flex flex-col items-center gap-0.5 py-1.5 px-1 rounded-sm cursor-pointer transition-opacity ${
                     highlighted ? 'border-2 border-primary' : 'border border-transparent'
                   } ${dim ? 'opacity-40' : 'opacity-100'}`}
                   style={{ background: cellBg(cell.pct), color: cellFg(cell.pct) }}

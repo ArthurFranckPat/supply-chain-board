@@ -1,11 +1,6 @@
 import { useState, Fragment } from 'react'
 import { Pill } from '@/components/ui/pill'
 import { fmtDate } from '@/lib/format'
-import {
-  Factory, Truck,
-  ChevronDown, ChevronRight, Package, Layers,
-  Boxes, CircleCheck,
-} from 'lucide-react'
 import type { AnalyseRuptureResponse } from '@/types/analyse-rupture'
 import { PoolTree } from './PoolTree'
 
@@ -58,121 +53,81 @@ export function BlockedOrdersList({ result, isProjected }: BlockedOrdersListProp
   return (
     <Fragment>
       {/* Component info */}
-      <div className="bg-card border border-border rounded-2xl px-[18px] py-[14px]">
-        <div className="flex items-start justify-between gap-4">
+      <div className="bg-card border border-border px-3 py-2">
+        <div className="flex items-start justify-between gap-2">
           <div>
-            <span className="block text-[9px] font-semibold text-muted-foreground uppercase tracking-wider font-mono">
-              Composant
-            </span>
-            <p className="text-base font-bold">{result.component.code}</p>
-            <p className="text-[12px] text-muted-foreground">{result.component.description}</p>
+            <span className="block text-[9px] text-muted-foreground uppercase tracking-wide font-semibold">Composant</span>
+            <p className="text-[14px] font-bold">{result.component.code}</p>
+            <p className="text-[11px] text-muted-foreground">{result.component.description}</p>
           </div>
-          <div className="flex items-center gap-2">
-            <Pill tone="default" icon={<Package className="h-3 w-3" />} mono>
-              Stock {result.component.stock_physique}
-            </Pill>
-            <Pill tone="warn" mono>
-              Alloue {result.component.stock_alloue}
-            </Pill>
-            <Pill tone="good" mono>
-              Dispo {isProjected ? result.component.stock_disponible_projete : result.component.stock_disponible}
-            </Pill>
+          <div className="flex items-center gap-1.5">
+            <Pill tone="default">Stock {result.component.stock_physique}</Pill>
+            <Pill tone="warn">Alloue {result.component.stock_alloue}</Pill>
+            <Pill tone="good">Dispo {isProjected ? result.component.stock_disponible_projete : result.component.stock_disponible}</Pill>
             {(isProjected ? result.component.deficit_projete : result.component.deficit) > 0 && (
-              <Pill tone="danger" mono>
-                Deficit {isProjected ? result.component.deficit_projete : result.component.deficit}
-              </Pill>
+              <Pill tone="danger">Deficit {isProjected ? result.component.deficit_projete : result.component.deficit}</Pill>
             )}
           </div>
         </div>
       </div>
 
-      {/* KPI pills row */}
-      <div className="flex items-center gap-2">
-        <Pill tone="danger" icon={<Package className="h-3 w-3" />} mono>
-          {result.summary.total_blocked_ofs} OFs bloques
-        </Pill>
-        <Pill tone="warn" icon={<Truck className="h-3 w-3" />} mono>
-          {result.summary.total_affected_orders} cmd impactees
-        </Pill>
-        <Pill tone="primary" icon={<Factory className="h-3 w-3" />} mono>
-          {result.summary.affected_lines.length} lignes
-        </Pill>
-        <Pill tone="good" icon={<Layers className="h-3 w-3" />} mono>
-          Pool {Math.round(result.component.pool_total)}
-        </Pill>
-        {result.summary.truncated && (
-          <Pill tone="warn" icon={<Layers className="h-3 w-3" />}>
-            Résultat tronqué
-          </Pill>
-        )}
+      {/* KPI row */}
+      <div className="flex items-center gap-1.5">
+        <Pill tone="danger">{result.summary.total_blocked_ofs} OFs bloques</Pill>
+        <Pill tone="warn">{result.summary.total_affected_orders} cmd impactees</Pill>
+        <Pill tone="primary">{result.summary.affected_lines.length} lignes</Pill>
+        <Pill tone="good">Pool {Math.round(result.component.pool_total)}</Pill>
+        {result.summary.truncated && <Pill tone="warn">Résultat tronqué</Pill>}
       </div>
 
-      {/* Pool breakdown - tree view */}
+      {/* Pool breakdown */}
       {result.component.pool_repartition.filter((p) => p.contribution !== 0).length > 0 && (
         <PoolTree repartition={result.component.pool_repartition.filter((p) => p.contribution !== 0)} />
       )}
 
       {/* Commandes bloquees */}
-      <div className="space-y-2">
-        <span className="block text-[9px] font-semibold text-muted-foreground uppercase tracking-wider font-mono px-1">
+      <div className="space-y-1">
+        <span className="block text-[9px] text-muted-foreground uppercase tracking-wide font-semibold px-1">
           Commandes bloquees ({result.commandes_bloquees.length})
         </span>
 
         {result.merge_branches ? (
-          /* ── MERGE MODE: flat card list ── */
           result.commandes_bloquees.map((cmd, index) => {
             const poolTotal = cmd.branch_pool_total ?? (result.component.pool_total || 1)
             const poolPct = Math.max(0, Math.min(100, (cmd.proj_pool / poolTotal) * 100))
-            const barColor = cmd.etat === 'RUPTURE'
-              ? 'bg-destructive'
-              : 'bg-green-500'
             return (
-              <div key={`${cmd.num_commande}-${cmd.branch_key ?? index}`} className="bg-card border border-border rounded-2xl overflow-hidden">
-                {/* Header row */}
-                <div className="px-[18px] py-2.5 flex items-center justify-between">
+              <div key={`${cmd.num_commande}-${cmd.branch_key ?? index}`} className="bg-card border border-border">
+                <div className="px-3 py-1.5 flex items-center justify-between border-b border-border/40">
                   <div className="flex items-center gap-2 min-w-0">
-                    <span className="font-mono font-semibold text-[12px]">{cmd.num_commande}</span>
-                    <span className="font-semibold text-[12px] truncate">{cmd.client}</span>
-                    <span className="text-[11px] text-muted-foreground">{cmd.article}</span>
+                    <span className="font-mono font-semibold text-[11px]">{cmd.num_commande}</span>
+                    <span className="font-semibold text-[11px] truncate">{cmd.client}</span>
+                    <span className="text-[10px] text-muted-foreground">{cmd.article}</span>
                     <Pill tone="outline">{cmd.type_commande}</Pill>
-                    {cmd.nature === 'PREVISION' && (
-                      <Pill tone="warn">Prevision</Pill>
-                    )}
-                    {cmd.branch_key && (
-                      <Pill tone="outline">{cmd.branch_key}</Pill>
-                    )}
+                    {cmd.nature === 'PREVISION' && <Pill tone="warn">Prevision</Pill>}
+                    {cmd.branch_key && <Pill tone="outline">{cmd.branch_key}</Pill>}
                   </div>
                   <div className="flex items-center gap-2 shrink-0 ml-2">
-                    <span className="text-[11px] text-muted-foreground tabular-nums">{fmtDate(cmd.date_expedition)}</span>
-                    {cmd.etat && (
-                      <Pill tone={cmd.etat === 'RUPTURE' ? 'danger' : 'good'} mono>
-                        {cmd.etat}
-                      </Pill>
-                    )}
+                    <span className="text-[10px] text-muted-foreground tabular-nums">{fmtDate(cmd.date_expedition)}</span>
+                    {cmd.etat && <Pill tone={cmd.etat === 'RUPTURE' ? 'danger' : 'good'}>{cmd.etat}</Pill>}
                   </div>
                 </div>
 
-                {/* Critical path - always visible */}
                 {cmd.chemin_impact.length > 1 && (
-                  <div className="px-[18px] pb-1.5">
+                  <div className="px-3 py-1">
                     <div className="flex items-center gap-0 flex-wrap">
                       {cmd.chemin_impact.map((code, i) => {
                         const isLast = i === cmd.chemin_impact.length - 1
                         const isFirst = i === 0
                         return (
                           <span key={i} className="flex items-center gap-0">
-                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono ${
-                              isFirst
-                                ? 'bg-foreground/10 text-foreground font-semibold'
-                                : isLast
-                                  ? 'bg-destructive/10 text-destructive font-semibold'
-                                  : 'bg-muted text-muted-foreground'
+                            <span className={`inline-flex items-center px-1 py-0 text-[10px] font-mono border ${
+                              isFirst ? 'bg-foreground/10 text-foreground font-semibold border-border'
+                                : isLast ? 'bg-destructive/10 text-destructive font-semibold border-destructive/20'
+                                : 'bg-muted text-muted-foreground border-border'
                             }`}>
                               {code}
                             </span>
-                            {!isLast && (
-                              <span className="mx-0.5 text-[9px] text-muted-foreground/40">&rsaquo;</span>
-                            )}
+                            {!isLast && <span className="mx-0.5 text-[9px] text-muted-foreground">&rsaquo;</span>}
                           </span>
                         )
                       })}
@@ -180,88 +135,56 @@ export function BlockedOrdersList({ result, isProjected }: BlockedOrdersListProp
                   </div>
                 )}
 
-                {/* Metrics row */}
-                <div className="px-[18px] pb-3 flex items-center gap-4">
-                  {/* Qte */}
+                <div className="px-3 py-1.5 flex items-center gap-3">
+                  <div className="w-14 shrink-0 text-center">
+                    <span className="block text-[8px] text-muted-foreground uppercase">Qte</span>
+                    <span className="block text-[14px] font-mono font-bold tabular-nums leading-tight">{cmd.qte_restante}</span>
+                  </div>
+                  <div className="w-px h-6 bg-border shrink-0" />
                   <div className="w-16 shrink-0 text-center">
-                    <span className="block text-[8px] text-muted-foreground uppercase tracking-wider">Qte</span>
-                    <span className="block text-[16px] font-mono font-bold tabular-nums leading-tight">{cmd.qte_restante}</span>
+                    <span className="block text-[8px] text-muted-foreground uppercase">Impact</span>
+                    <span className="block text-[14px] font-mono font-bold tabular-nums leading-tight text-destructive">-{Math.round(cmd.qte_impact_composant)}</span>
                   </div>
-
-                  <div className="w-px h-8 bg-border shrink-0" />
-
-                  {/* Impact composant */}
-                  <div className="w-20 shrink-0 text-center">
-                    <span className="block text-[8px] text-muted-foreground uppercase tracking-wider">Impact</span>
-                    <span className="block text-[16px] font-mono font-bold tabular-nums leading-tight text-destructive">
-                      -{Math.round(cmd.qte_impact_composant)}
-                    </span>
-                  </div>
-
-                  <div className="w-px h-8 bg-border shrink-0" />
-
-                  {/* Pool bar */}
+                  <div className="w-px h-6 bg-border shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-[8px] text-muted-foreground uppercase tracking-wider">Pool restant</span>
-                      <span className="text-[10px] font-mono font-semibold tabular-nums">
-                        {Math.round(Math.max(0, cmd.proj_pool))} / {Math.round(poolTotal)}
-                      </span>
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="text-[8px] text-muted-foreground uppercase">Pool restant</span>
+                      <span className="text-[10px] font-mono font-semibold tabular-nums">{Math.round(Math.max(0, cmd.proj_pool))} / {Math.round(poolTotal)}</span>
                     </div>
-                    <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all ${barColor}`}
-                        style={{ width: `${poolPct}%` }}
-                      />
+                    <div className="h-[3px] bg-border">
+                      <div className="h-full bg-primary transition-all" style={{ width: `${poolPct}%` }} />
                     </div>
                   </div>
                 </div>
 
-                {/* OFs bloquants - behind "more" button */}
                 {cmd.ofs_bloquants.length > 0 && (
-                  <div className="border-t border-border px-[18px]">
+                  <div className="border-t border-border px-3">
                     {expandedOfs.has(index) ? (
                       <>
-                        <button
-                          className="w-full py-2 flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
-                          onClick={() => toggleOfs(index)}
-                        >
-                          <ChevronDown className="h-3 w-3" />
-                          Masquer les OFs
+                        <button className="w-full py-1 flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground" onClick={() => toggleOfs(index)}>
+                          <span>▼</span> Masquer OFs
                         </button>
-                        <div className="space-y-1 pb-3">
+                        <div className="space-y-0.5 pb-2">
                           {cmd.ofs_bloquants.map((of) => (
-                            <div key={of.num_of} className={`flex items-center justify-between rounded-lg px-3 py-2 ${of.composants_alloues ? 'bg-green-500/5 border border-green-500/20' : 'bg-muted/50'}`}>
-                              <div className="flex items-center gap-2">
-                                {of.composants_alloues
-                                  ? <CircleCheck className="h-3 w-3 text-green-600" />
-                                  : <Boxes className="h-3 w-3 text-muted-foreground" />
-                                }
-                                <span className="font-mono font-semibold text-[12px]">{of.num_of}</span>
-                                <span className="text-[12px] text-muted-foreground">{of.article}</span>
+                            <div key={of.num_of} className={`flex items-center justify-between px-2 py-1 text-[11px] ${of.composants_alloues ? 'bg-green/5 border border-green/20' : 'bg-muted/40'}`}>
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-mono font-semibold">{of.num_of}</span>
+                                <span className="text-muted-foreground">{of.article}</span>
                                 <Pill tone="outline">{of.statut}</Pill>
-                                {of.composants_alloues && (
-                                  <Pill tone="good">Composants alloues</Pill>
-                                )}
+                                {of.composants_alloues && <Pill tone="good">Alloues</Pill>}
                               </div>
-                              <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+                              <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
                                 <span className="tabular-nums">{of.qte_restante}/{of.qte_a_fabriquer}</span>
                                 <span>{of.date_fin}</span>
-                                {of.postes_charge.length > 0 && (
-                                  <span>{of.postes_charge.join(', ')}</span>
-                                )}
+                                {of.postes_charge.length > 0 && <span>{of.postes_charge.join(', ')}</span>}
                               </div>
                             </div>
                           ))}
                         </div>
                       </>
                     ) : (
-                      <button
-                        className="w-full py-2 flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
-                        onClick={() => toggleOfs(index)}
-                      >
-                        <ChevronRight className="h-3 w-3" />
-                        {cmd.ofs_bloquants.length} OF{cmd.ofs_bloquants.length > 1 ? 's' : ''} bloquant{cmd.ofs_bloquants.length > 1 ? 's' : ''}
+                      <button className="w-full py-1 flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground" onClick={() => toggleOfs(index)}>
+                        <span>▶</span> {cmd.ofs_bloquants.length} OF{cmd.ofs_bloquants.length > 1 ? 's' : ''} bloquant{cmd.ofs_bloquants.length > 1 ? 's' : ''}
                       </button>
                     )}
                   </div>
@@ -270,7 +193,6 @@ export function BlockedOrdersList({ result, isProjected }: BlockedOrdersListProp
             )
           })
         ) : (
-          /* ── SPLIT MODE: tree layout grouped by SF branch ── */
           (() => {
             const branches = groupedByBranch()
             return Array.from(branches.entries()).map(([branchKey, cmds]) => {
@@ -279,44 +201,26 @@ export function BlockedOrdersList({ result, isProjected }: BlockedOrdersListProp
               const desc = getSfDescription(branchKey)
 
               return (
-                <div key={branchKey} className="bg-card border border-border rounded-2xl overflow-hidden">
-                  {/* Branch header */}
-                  <button
-                    className="w-full px-[18px] py-2.5 flex items-center gap-2 text-left hover:bg-muted/30 transition-colors"
-                    onClick={() => toggleBranch(branchKey)}
-                  >
-                    {isExpanded
-                      ? <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                      : <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                    }
-                    <span className="font-mono font-bold text-[13px]">{branchKey}</span>
-                    {desc && <span className="text-[11px] text-muted-foreground truncate max-w-[200px]">{desc}</span>}
-                    <Pill tone="primary" icon={<Layers className="h-3 w-3" />} mono>
-                      Pool {Math.round(branchPool)}
-                    </Pill>
-                    <span className="ml-auto text-[10px] text-muted-foreground tabular-nums">
-                      {cmds.length} cmd{cmds.length > 1 ? 's' : ''}
-                    </span>
+                <div key={branchKey} className="bg-card border border-border">
+                  <button className="w-full px-3 py-1.5 flex items-center gap-2 text-left hover:bg-muted/20 transition-colors" onClick={() => toggleBranch(branchKey)}>
+                    <span className="text-muted-foreground text-[11px]">{isExpanded ? '▼' : '▶'}</span>
+                    <span className="font-mono font-bold text-[12px]">{branchKey}</span>
+                    {desc && <span className="text-[10px] text-muted-foreground truncate max-w-[200px]">{desc}</span>}
+                    <Pill tone="primary">Pool {Math.round(branchPool)}</Pill>
+                    <span className="ml-auto text-[10px] text-muted-foreground tabular-nums">{cmds.length}</span>
                   </button>
 
-                  {/* Branch commands with tree line */}
                   {isExpanded && (
                     <div className="border-t border-border">
-                      <div className="ml-4 pl-3 border-l-2 border-border space-y-1.5 py-2 pr-[18px]">
+                      <div className="ml-3 pl-2 border-l border-border space-y-1 py-1 pr-3">
                         {cmds.map(({ cmd, idx }) => {
                           const poolTotal = cmd.branch_pool_total ?? (result.component.pool_total || 1)
                           const poolPct = Math.max(0, Math.min(100, (cmd.proj_pool / poolTotal) * 100))
-                          const barColor = cmd.etat === 'RUPTURE' ? 'bg-destructive' : 'bg-green-500'
-
                           return (
-                            <div key={`${cmd.num_commande}-${idx}`} className="relative pl-3">
-                              {/* Horizontal tree connector */}
-                              <div className="absolute left-0 top-4 w-3 border-t-2 border-border" />
-
-                              {/* Command card */}
-                              <div className="bg-background border border-border rounded-xl overflow-hidden">
-                                {/* Header */}
-                                <div className="px-3 py-2 flex items-center justify-between">
+                            <div key={`${cmd.num_commande}-${idx}`} className="relative pl-2">
+                              <div className="absolute left-0 top-3 w-2 border-t border-border" />
+                              <div className="bg-card border border-border">
+                                <div className="px-2 py-1 flex items-center justify-between border-b border-border/40">
                                   <div className="flex items-center gap-1.5 min-w-0">
                                     <span className="font-mono font-semibold text-[11px]">{cmd.num_commande}</span>
                                     <span className="font-semibold text-[11px] truncate">{cmd.client}</span>
@@ -326,85 +230,59 @@ export function BlockedOrdersList({ result, isProjected }: BlockedOrdersListProp
                                   </div>
                                   <div className="flex items-center gap-1.5 shrink-0 ml-2">
                                     <span className="text-[10px] text-muted-foreground tabular-nums">{fmtDate(cmd.date_expedition)}</span>
-                                    {cmd.etat && (
-                                      <Pill tone={cmd.etat === 'RUPTURE' ? 'danger' : 'good'} mono>
-                                        {cmd.etat}
-                                      </Pill>
-                                    )}
+                                    {cmd.etat && <Pill tone={cmd.etat === 'RUPTURE' ? 'danger' : 'good'}>{cmd.etat}</Pill>}
                                   </div>
                                 </div>
 
-                                {/* Metrics row */}
-                                <div className="px-3 pb-2 flex items-center gap-3">
+                                <div className="px-2 py-1 flex items-center gap-2">
+                                  <div className="w-12 shrink-0 text-center">
+                                    <span className="block text-[7px] text-muted-foreground uppercase">Qte</span>
+                                    <span className="block text-[13px] font-mono font-bold">{cmd.qte_restante}</span>
+                                  </div>
+                                  <div className="w-px h-5 bg-border shrink-0" />
                                   <div className="w-14 shrink-0 text-center">
-                                    <span className="block text-[7px] text-muted-foreground uppercase tracking-wider">Qte</span>
-                                    <span className="block text-[14px] font-mono font-bold tabular-nums leading-tight">{cmd.qte_restante}</span>
+                                    <span className="block text-[7px] text-muted-foreground uppercase">Impact</span>
+                                    <span className="block text-[13px] font-mono font-bold text-destructive">-{Math.round(cmd.qte_impact_composant)}</span>
                                   </div>
-                                  <div className="w-px h-6 bg-border shrink-0" />
-                                  <div className="w-16 shrink-0 text-center">
-                                    <span className="block text-[7px] text-muted-foreground uppercase tracking-wider">Impact</span>
-                                    <span className="block text-[14px] font-mono font-bold tabular-nums leading-tight text-destructive">
-                                      -{Math.round(cmd.qte_impact_composant)}
-                                    </span>
-                                  </div>
-                                  <div className="w-px h-6 bg-border shrink-0" />
+                                  <div className="w-px h-5 bg-border shrink-0" />
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-center justify-between mb-0.5">
-                                      <span className="text-[7px] text-muted-foreground uppercase tracking-wider">Pool</span>
-                                      <span className="text-[9px] font-mono font-semibold tabular-nums">
-                                        {Math.round(Math.max(0, cmd.proj_pool))}/{Math.round(poolTotal)}
-                                      </span>
+                                      <span className="text-[7px] text-muted-foreground uppercase">Pool</span>
+                                      <span className="text-[9px] font-mono font-semibold">{Math.round(Math.max(0, cmd.proj_pool))}/{Math.round(poolTotal)}</span>
                                     </div>
-                                    <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                                      <div
-                                        className={`h-full rounded-full transition-all ${barColor}`}
-                                        style={{ width: `${poolPct}%` }}
-                                      />
+                                    <div className="h-[3px] bg-border">
+                                      <div className="h-full bg-primary transition-all" style={{ width: `${poolPct}%` }} />
                                     </div>
                                   </div>
                                 </div>
 
-                                {/* OFs bloquants */}
                                 {cmd.ofs_bloquants.length > 0 && (
-                                  <div className="border-t border-border px-3">
+                                  <div className="border-t border-border px-2">
                                     {expandedOfs.has(idx) ? (
                                       <>
-                                        <button
-                                          className="w-full py-1.5 flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
-                                          onClick={() => toggleOfs(idx)}
-                                        >
-                                          <ChevronDown className="h-3 w-3" />
-                                          Masquer OFs
+                                        <button className="w-full py-1 flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground" onClick={() => toggleOfs(idx)}>
+                                          <span>▼</span> Masquer OFs
                                         </button>
-                                        <div className="space-y-1 pb-2">
+                                        <div className="space-y-0.5 pb-1.5">
                                           {cmd.ofs_bloquants.map((of) => (
-                                            <div key={of.num_of} className={`flex items-center justify-between rounded-lg px-2 py-1.5 ${of.composants_alloues ? 'bg-green-500/5 border border-green-500/20' : 'bg-muted/50'}`}>
+                                            <div key={of.num_of} className={`flex items-center justify-between px-2 py-1 text-[10px] ${of.composants_alloues ? 'bg-green/5 border border-green/20' : 'bg-muted/40'}`}>
                                               <div className="flex items-center gap-1.5">
-                                                {of.composants_alloues
-                                                  ? <CircleCheck className="h-3 w-3 text-green-600" />
-                                                  : <Boxes className="h-3 w-3 text-muted-foreground" />
-                                                }
-                                                <span className="font-mono font-semibold text-[11px]">{of.num_of}</span>
-                                                <span className="text-[11px] text-muted-foreground">{of.article}</span>
+                                                <span className="font-mono font-semibold">{of.num_of}</span>
+                                                <span className="text-muted-foreground">{of.article}</span>
                                                 <Pill tone="outline">{of.statut}</Pill>
                                                 {of.composants_alloues && <Pill tone="good">Alloues</Pill>}
                                               </div>
                                               <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
                                                 <span className="tabular-nums">{of.qte_restante}/{of.qte_a_fabriquer}</span>
                                                 <span>{of.date_fin}</span>
-                                                {of.postes_charge.length > 0 && <span>{of.postes_charge.join(', ')}</span>}
                                               </div>
                                             </div>
                                           ))}
                                         </div>
                                       </>
                                     ) : (
-                                      <button
-                                        className="w-full py-1.5 flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
-                                        onClick={() => toggleOfs(idx)}
-                                      >
-                                        <ChevronRight className="h-3 w-3" />
-                                        {cmd.ofs_bloquants.length} OF{cmd.ofs_bloquants.length > 1 ? 's' : ''}
+                                      <button className="w-full py-1 flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground" onClick={() => toggleOfs(idx)}>
+                                        <span>▶</span> {cmd.ofs_bloquants.length} OF
                                       </button>
                                     )}
                                   </div>
@@ -425,45 +303,27 @@ export function BlockedOrdersList({ result, isProjected }: BlockedOrdersListProp
 
       {/* OFs sans commande */}
       {result.ofs_sans_commande.length > 0 && (
-        <div className="space-y-2">
-          <button
-            className="w-full bg-card border border-border rounded-2xl overflow-hidden"
-            onClick={() => setExpandedOrphans(!expandedOrphans)}
-          >
-            <div className="px-[18px] py-3 flex items-center gap-3 text-left">
-              {expandedOrphans
-                ? <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
-                : <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-              }
-              <span className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider font-mono flex-1">
-                OFs sans rattachement commande ({result.ofs_sans_commande.length})
-              </span>
-              <Pill tone="outline" mono>{result.ofs_sans_commande.length}</Pill>
-            </div>
+        <div className="space-y-1">
+          <button className="w-full bg-card border border-border text-left px-3 py-2 flex items-center gap-2" onClick={() => setExpandedOrphans(!expandedOrphans)}>
+            <span className="text-muted-foreground text-[11px]">{expandedOrphans ? '▼' : '▶'}</span>
+            <span className="text-[9px] text-muted-foreground uppercase tracking-wide font-semibold flex-1">OFs sans rattachement ({result.ofs_sans_commande.length})</span>
+            <Pill tone="outline">{result.ofs_sans_commande.length}</Pill>
           </button>
 
           {expandedOrphans && (
-            <div className="space-y-1">
+            <div className="space-y-0.5">
               {result.ofs_sans_commande.map((of) => (
-                <div key={of.num_of} className={`bg-card border rounded-lg px-[18px] py-2.5 flex items-center justify-between ${of.composants_alloues ? 'border-green-500/20' : 'border-border'}`}>
+                <div key={of.num_of} className={`bg-card border px-3 py-1.5 flex items-center justify-between text-[11px] ${of.composants_alloues ? 'border-green/30' : 'border-border'}`}>
                   <div className="flex items-center gap-2">
-                    {of.composants_alloues
-                      ? <CircleCheck className="h-3 w-3 text-green-600" />
-                      : <Boxes className="h-3 w-3 text-muted-foreground" />
-                    }
-                    <span className="font-mono font-semibold text-[12px]">{of.num_of}</span>
-                    <span className="text-[12px] text-muted-foreground">{of.article}</span>
+                    <span className="font-mono font-semibold">{of.num_of}</span>
+                    <span className="text-muted-foreground">{of.article}</span>
                     <Pill tone="outline">{of.statut}</Pill>
-                    {of.composants_alloues && (
-                      <Pill tone="good">Composants alloues</Pill>
-                    )}
+                    {of.composants_alloues && <Pill tone="good">Alloues</Pill>}
                   </div>
-                  <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+                  <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
                     <span className="tabular-nums">{of.qte_restante}/{of.qte_a_fabriquer}</span>
                     <span>{of.date_fin}</span>
-                    {of.postes_charge.length > 0 && (
-                      <span>{of.postes_charge.join(', ')}</span>
-                    )}
+                    {of.postes_charge.length > 0 && <span>{of.postes_charge.join(', ')}</span>}
                   </div>
                 </div>
               ))}
@@ -474,11 +334,9 @@ export function BlockedOrdersList({ result, isProjected }: BlockedOrdersListProp
 
       {/* Affected lines */}
       {result.summary.affected_lines.length > 0 && (
-        <div className="bg-card border border-border rounded-2xl px-[18px] py-[14px]">
-          <span className="block text-[9px] font-semibold text-muted-foreground uppercase tracking-wider font-mono mb-2">
-            Lignes de production impactees
-          </span>
-          <div className="flex flex-wrap gap-1.5">
+        <div className="bg-card border border-border px-3 py-2">
+          <span className="block text-[9px] text-muted-foreground uppercase tracking-wide font-semibold mb-1">Lignes impactees</span>
+          <div className="flex flex-wrap gap-1">
             {result.summary.affected_lines.map((line) => (
               <Pill key={line} tone="primary">{line}</Pill>
             ))}

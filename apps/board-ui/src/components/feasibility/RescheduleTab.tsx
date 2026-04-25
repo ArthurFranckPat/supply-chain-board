@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { apiClient } from '@/api/client'
+import { GridTable, type GridTableColumn } from '@/components/ui/GridTable'
+import { cn } from '@/lib/utils'
 import type { OrderSearchResult } from '@/types/feasibility'
 
 export interface RescheduleTabProps {
@@ -36,7 +38,6 @@ export function RescheduleTab({
   const [orderSearchLoading, setOrderSearchLoading] = useState(false)
   const [orderSearchError, setOrderSearchError] = useState<string | null>(null)
 
-  // Step 1: search orders by num_commande OR article
   const handleOrderSearch = async () => {
     if (!rescheduleQuery || rescheduleQuery.length < 2) return
     setOrderSearchLoading(true)
@@ -56,13 +57,11 @@ export function RescheduleTab({
     }
   }
 
-  // Step 2: select an order line
   const handleSelectOrder = (order: OrderSearchResult) => {
     setSelectedOrder(order)
     onResetMutations()
   }
 
-  // Step 3: run simulation
   const handleReschedule = () => {
     if (!selectedOrder || !rescheduleDate) return
     onReschedule({
@@ -80,10 +79,31 @@ export function RescheduleTab({
     onResetMutations()
   }
 
+  const columns: GridTableColumn<OrderSearchResult>[] = [
+    { key: 'num_commande', header: 'Commande', width: '110px', cell: (o) => <span className="font-mono font-semibold">{o.num_commande}</span> },
+    { key: 'client', header: 'Client', width: '120px', cell: (o) => <span className="truncate">{o.client}</span> },
+    { key: 'article', header: 'Article', width: '100px', cell: (o) => <span className="font-mono">{o.article}</span> },
+    { key: 'description', header: 'Description', width: '1fr', cell: (o) => <span className="text-muted-foreground truncate">{o.description}</span> },
+    { key: 'type', header: 'Type', align: 'center', width: '60px', cell: (o) => (
+      <span className={cn('px-1.5 py-0.5 rounded text-[10px] font-semibold',
+        o.type_commande === 'MTS' ? 'bg-emerald-50 text-emerald-700' :
+        o.type_commande === 'MTO' ? 'bg-violet-50 text-violet-700' :
+        'bg-muted text-muted-foreground'
+      )}>
+        {o.type_commande}
+      </span>
+    ) },
+    { key: 'qty', header: 'Qté rest.', align: 'right', width: '80px', cell: (o) => <span className="tabular-nums font-mono font-semibold">{o.quantity}</span> },
+    { key: 'qty_cmd', header: 'Qté cmd', align: 'right', width: '80px', cell: (o) => <span className="tabular-nums font-mono text-muted-foreground">{o.quantity_ordered}</span> },
+    { key: 'date', header: 'Date expé', align: 'right', width: '110px', cell: (o) => (
+      <span>{o.date_expedition ? new Date(o.date_expedition).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</span>
+    ) },
+  ]
+
   return (
     <>
       {/* Step 1: Search */}
-      <div className="bg-card border border-border rounded-xl p-5">
+      <div className="bg-card border border-border rounded-sm p-3">
         <div className="flex flex-wrap items-end gap-3">
           <div className="flex-1 min-w-[240px]">
             <label className="block text-[11px] font-medium text-muted-foreground mb-1">Commande ou article</label>
@@ -93,11 +113,11 @@ export function RescheduleTab({
               onChange={(e) => setRescheduleQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleOrderSearch()}
               placeholder="N commande, code article, client..."
-              className="w-full px-3 py-2 border border-border rounded-md text-sm bg-background"
+              className="w-full px-3 py-2 border border-border rounded-sm text-sm bg-background"
             />
           </div>
           <button onClick={handleOrderSearch} disabled={orderSearchLoading || rescheduleQuery.length < 2}
-            className="bg-primary text-white px-4 py-2 rounded-md text-xs font-semibold hover:bg-primary/90 disabled:opacity-50 transition-colors">
+            className="bg-primary text-white px-4 py-2 rounded-sm text-xs font-semibold hover:bg-primary/90 disabled:opacity-50 transition-colors">
             Rechercher
           </button>
         </div>
@@ -105,62 +125,25 @@ export function RescheduleTab({
 
       {/* Step 2: Order selection */}
       {orderResults.length > 0 && !selectedOrder && (
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
-          <div className="px-5 py-3 border-b border-border flex items-center justify-between">
-            <p className="text-xs font-semibold">{orderResults.length} ligne(s) trouvee(s)</p>
+        <div className="bg-card border border-border rounded-sm overflow-hidden">
+          <div className="px-3 py-1.5 border-b border-border flex items-center justify-between">
+            <p className="text-[11px] font-semibold">{orderResults.length} ligne(s) trouvee(s)</p>
             <p className="text-[10px] text-muted-foreground">Cliquez sur une ligne pour la selectionner</p>
           </div>
-          <div className="overflow-auto max-h-[320px]">
-            <table className="w-full text-xs">
-              <thead className="sticky top-0 bg-muted/80 backdrop-blur-sm">
-                <tr>
-                  <th className="text-left px-4 py-2 font-medium text-muted-foreground">Commande</th>
-                  <th className="text-left px-3 py-2 font-medium text-muted-foreground">Client</th>
-                  <th className="text-left px-3 py-2 font-medium text-muted-foreground">Article</th>
-                  <th className="text-left px-3 py-2 font-medium text-muted-foreground">Description</th>
-                  <th className="text-center px-3 py-2 font-medium text-muted-foreground">Type</th>
-                  <th className="text-right px-3 py-2 font-medium text-muted-foreground">Qte restante</th>
-                  <th className="text-right px-3 py-2 font-medium text-muted-foreground">Qte commandee</th>
-                  <th className="text-right px-4 py-2 font-medium text-muted-foreground">Date expedition</th>
-                </tr>
-              </thead>
-              <tbody>
-                {orderResults.map((order, i) => (
-                  <tr key={`${order.num_commande}-${order.article}-${i}`}
-                    onClick={() => handleSelectOrder(order)}
-                    className="border-t border-border hover:bg-accent/50 cursor-pointer transition-colors">
-                    <td className="px-4 py-2.5 font-mono font-semibold">{order.num_commande}</td>
-                    <td className="px-3 py-2.5 max-w-[120px] truncate">{order.client}</td>
-                    <td className="px-3 py-2.5 font-mono">{order.article}</td>
-                    <td className="px-3 py-2.5 text-muted-foreground max-w-[180px] truncate">{order.description}</td>
-                    <td className="px-3 py-2.5 text-center">
-                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
-                        order.type_commande === 'MTS' ? 'bg-blue/10 text-blue' :
-                        order.type_commande === 'MTO' ? 'bg-purple/10 text-purple' :
-                        'bg-muted text-muted-foreground'
-                      }`}>
-                        {order.type_commande}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2.5 text-right font-semibold">{order.quantity}</td>
-                    <td className="px-3 py-2.5 text-right text-muted-foreground">{order.quantity_ordered}</td>
-                    <td className="px-4 py-2.5 text-right">
-                      {order.date_expedition
-                        ? new Date(order.date_expedition).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
-                        : '-'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <GridTable
+            columns={columns}
+            data={orderResults}
+            keyExtractor={(o, i) => `${o.num_commande}-${o.article}-${i}`}
+            maxHeight="320px"
+            onRowClick={handleSelectOrder}
+            emptyMessage="Aucune commande trouvee"
+          />
         </div>
       )}
 
       {/* Step 3: Selected order + simulate */}
       {selectedOrder && (
-        <div className="bg-card border border-border rounded-xl p-5">
-          {/* Selected order summary */}
+        <div className="bg-card border border-border rounded-sm p-3">
           <div className="flex items-start justify-between mb-4">
             <div>
               <p className="text-[10px] text-muted-foreground font-mono uppercase">Commande selectionnee</p>
@@ -184,12 +167,11 @@ export function RescheduleTab({
             </button>
           </div>
 
-          {/* New date + quantity + simulate */}
-          <div className="flex items-end gap-3">
+          <div className="flex items-end gap-3 flex-wrap">
             <div className="w-44">
               <label className="block text-[11px] font-medium text-muted-foreground mb-1">Nouvelle date</label>
               <input type="date" value={rescheduleDate} onChange={(e) => setRescheduleDate(e.target.value)}
-                className="w-full px-3 py-2 border border-border rounded-md text-sm bg-background" />
+                className="w-full px-3 py-2 border border-border rounded-sm text-sm bg-background" />
             </div>
             <div className="w-28">
               <label className="block text-[11px] font-medium text-muted-foreground mb-1">
@@ -204,22 +186,22 @@ export function RescheduleTab({
                 }}
                 min={1}
                 placeholder={String(selectedOrder.quantity)}
-                className="w-full px-3 py-2 border border-border rounded-md text-sm bg-background"
+                className="w-full px-3 py-2 border border-border rounded-sm text-sm bg-background"
               />
             </div>
             <button onClick={handleReschedule} disabled={loading || !rescheduleDate}
-              className="bg-primary text-white px-4 py-2 rounded-md text-xs font-semibold hover:bg-primary/90 disabled:opacity-50 transition-colors">
+              className="bg-primary text-white px-4 py-2 rounded-sm text-xs font-semibold hover:bg-primary/90 disabled:opacity-50 transition-colors">
               Simuler
             </button>
             <select value={depthMode} onChange={(e) => onDepthModeChange(e.target.value as 'full' | 'level1')}
-              className="px-2 py-2 border border-border rounded-md text-[11px] bg-background text-muted-foreground">
+              className="px-2 py-2 border border-border rounded-sm text-[11px] bg-background text-muted-foreground">
               <option value="full">Nomenclature complete</option>
               <option value="level1">Niveau 1 uniquement</option>
             </select>
             <button
               type="button"
               onClick={() => onUseReceptionsChange(!useReceptions)}
-              className={`px-2.5 py-2 rounded-md text-[11px] font-semibold border transition-colors ${
+              className={`px-2.5 py-2 rounded-sm text-[11px] font-semibold border transition-colors ${
                 useReceptions
                   ? 'bg-primary/10 border-primary/20 text-primary'
                   : 'bg-background border-border text-muted-foreground'
@@ -232,9 +214,8 @@ export function RescheduleTab({
         </div>
       )}
 
-      {/* Order search error (local) */}
       {orderSearchError && (
-        <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg text-sm">
+        <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-sm text-sm">
           {orderSearchError}
         </div>
       )}

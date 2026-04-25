@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { useEolResiduals } from '@/hooks/useEolResiduals'
-import { Package, AlertTriangle } from 'lucide-react'
 import { EolSearchForm } from '@/components/eol/EolSearchForm'
 import { EolResultsTable } from '@/components/eol/EolResultsTable'
 
@@ -18,83 +17,44 @@ export function EolResidualsView() {
     const prefixesList = prefixes.split(',').map(s => s.trim()).filter(Boolean)
     if (famillesList.length === 0 && prefixesList.length === 0) return
     analyse.mutate({
-      familles: famillesList,
-      prefixes: prefixesList,
-      bom_depth_mode: bomDepthMode,
-      stock_mode: stockMode,
+      familles: famillesList, prefixes: prefixesList,
+      bom_depth_mode: bomDepthMode, stock_mode: stockMode,
       projection_date: stockMode === 'projected' ? projectionDate : undefined,
     })
   }
 
-  const stockModeLabel = stockMode === 'physical'
-    ? 'stock physique'
-    : stockMode === 'net_releaseable'
-    ? 'stock net allouable'
-    : `stock projete au ${projectionDate}`
-
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="max-w-6xl space-y-3">
       <EolSearchForm
-        familles={familles}
-        setFamilles={setFamilles}
-        prefixes={prefixes}
-        setPrefixes={setPrefixes}
-        bomDepthMode={bomDepthMode}
-        setBomDepthMode={setBomDepthMode}
-        stockMode={stockMode}
-        setStockMode={setStockMode}
-        projectionDate={projectionDate}
-        setProjectionDate={setProjectionDate}
-        onAnalyze={handleAnalyze}
-        isPending={analyse.isPending}
+        familles={familles} setFamilles={setFamilles}
+        prefixes={prefixes} setPrefixes={setPrefixes}
+        bomDepthMode={bomDepthMode} setBomDepthMode={setBomDepthMode}
+        stockMode={stockMode} setStockMode={setStockMode}
+        projectionDate={projectionDate} setProjectionDate={setProjectionDate}
+        onAnalyze={handleAnalyze} isPending={analyse.isPending}
       />
 
-      {/* Error */}
       {analyse.error && (
-        <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg text-sm flex items-start gap-2.5">
-          <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-          <div className="flex-1">
-            <p className="font-semibold text-[11px] uppercase mb-0.5">Erreur d'analyse</p>
-            <p>{analyse.error.message}</p>
-          </div>
+        <div className="bg-destructive/10 border border-destructive/20 text-destructive px-3 py-2 text-xs">
+          {analyse.error.message}
         </div>
       )}
 
-      {/* Loading */}
       {analyse.isPending && (
-        <div className="bg-card border border-border rounded-xl p-5 flex items-center gap-3">
-          <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin shrink-0" />
-          <div>
-            <p className="text-sm font-medium">Analyse residuelle en cours...</p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
-              Nomenclature {bomDepthMode === 'full' ? 'complete' : 'niveau 1'} &middot; {stockModeLabel}
-            </p>
-          </div>
+        <div className="flex items-center gap-2 text-xs text-muted-foreground px-1">
+          <div className="w-3 h-3 border-2 border-primary border-t-transparent animate-spin" />
+          Analyse residuelle en cours...
         </div>
       )}
 
-      {/* Empty state */}
       {!analyse.isPending && !analyse.data && !analyse.error && (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4">
-            <Package className="h-6 w-6 text-muted-foreground" />
-          </div>
-          <p className="text-sm font-medium">Aucune analyse chargee</p>
-          <p className="text-[11px] text-muted-foreground mt-1.5 max-w-[340px] leading-relaxed">
-            Saisissez des familles produit ou des prefixes d'articles, puis cliquez sur{' '}
-            <strong className="text-foreground">Analyser</strong> pour identifier les composants residuels EOL et leur valorisation.
-          </p>
+        <div className="py-10 text-center">
+          <p className="text-xs text-muted-foreground">Saisissez des familles ou prefixes, puis cliquez sur Analyser.</p>
         </div>
       )}
 
-      {/* Results */}
       {analyse.data && (
-        <EolResultsTable
-          data={analyse.data}
-          bomDepthMode={bomDepthMode}
-          stockMode={stockMode}
-          projectionDate={projectionDate}
-        />
+        <EolResultsTable data={analyse.data} bomDepthMode={bomDepthMode} stockMode={stockMode} projectionDate={projectionDate} />
       )}
     </div>
   )

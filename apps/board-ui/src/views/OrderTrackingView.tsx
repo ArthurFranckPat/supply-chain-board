@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import { Pill } from '@/components/ui/pill'
 import { LoadingInline } from '@/components/ui/loading'
 import type { OrderFilterState, FilterOptions, SuiviStatusResponse } from '@/types/suivi-commandes'
 import { OrderFilters } from '@/components/suivi/OrderFilters'
@@ -8,9 +7,6 @@ import { GroupedOrderTable } from '@/components/suivi/GroupedOrderTable'
 import { ByClientTab } from '@/components/suivi/ByClientTab'
 import { ByEtatTab } from '@/components/suivi/ByEtatTab'
 import { ExportBar } from '@/components/suivi/ExportBar'
-import {
-  ShoppingCart, Users, BarChart3, RefreshCw,
-} from 'lucide-react'
 
 const DEFAULT_FILTERS: OrderFilterState = {
   client: '__all__',
@@ -21,9 +17,9 @@ const DEFAULT_FILTERS: OrderFilterState = {
 }
 
 const TABS = [
-  { k: 'commandes', label: 'Commandes', icon: <ShoppingCart className="h-3 w-3" /> },
-  { k: 'par-client', label: 'Par Client', icon: <Users className="h-3 w-3" /> },
-  { k: 'par-etat', label: 'Par Statut', icon: <BarChart3 className="h-3 w-3" /> },
+  { k: 'commandes', label: 'Commandes' },
+  { k: 'par-client', label: 'Par Client' },
+  { k: 'par-etat', label: 'Par Statut' },
 ]
 
 interface OrderTrackingViewProps {
@@ -36,7 +32,6 @@ export function OrderTrackingView({ data, loadState, onReload }: OrderTrackingVi
   const [filters, setFilters] = useState<OrderFilterState>(DEFAULT_FILTERS)
   const [activeTab, setActiveTab] = useState('commandes')
 
-  // Extract filter options from raw data
   const options: FilterOptions = useMemo(() => {
     if (!data) return { clients: [], typesCommande: [], statuts: [] }
     const clients = [...new Set(data.rows.map((r) => r['Nom client commande']))].sort()
@@ -45,7 +40,6 @@ export function OrderTrackingView({ data, loadState, onReload }: OrderTrackingVi
     return { clients, typesCommande, statuts }
   }, [data])
 
-  // Apply all filters
   const filteredRows = useMemo(() => {
     if (!data) return []
     return data.rows.filter((r) => {
@@ -58,33 +52,24 @@ export function OrderTrackingView({ data, loadState, onReload }: OrderTrackingVi
     })
   }, [data, filters])
 
-  // Loading state
   if (loadState === 'loading') {
     return <LoadingInline label="des commandes" />
   }
 
-  // Error / no data
   if (!data || data.rows.length === 0) {
     return (
-      <div className="bg-card border border-dashed border-border rounded-2xl py-16 text-center">
-        <div className="flex items-center justify-center mb-3">
-          <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
-            <ShoppingCart className="h-5 w-5 text-muted-foreground" />
-          </div>
-        </div>
-        <p className="font-semibold text-muted-foreground">Aucune commande</p>
-        <p className="text-sm text-muted-foreground mt-1">
+      <div className="bg-card border border-dashed border-border py-6 text-center">
+        <p className="text-xs text-muted-foreground">
           {loadState === 'error'
-            ? 'Erreur lors du chargement. Vérifiez que l\u2019API suivi-commandes est démarrée (port 8001).'
-            : 'Vérifiez que l\u2019API suivi-commandes est démarrée (port 8001).'}
+            ? 'Erreur lors du chargement. Vérifiez que l\'API suivi-commandes est démarrée (port 8001).'
+            : 'Aucune commande'}
         </p>
         {loadState === 'error' && (
           <button
             onClick={onReload}
-            className="mt-3 text-xs font-medium text-primary hover:text-primary/80 underline underline-offset-2 inline-flex items-center gap-1"
+            className="mt-2 text-[11px] text-primary hover:text-primary/80 underline"
           >
-            <RefreshCw className="h-3 w-3" />
-            R\u00e9essayer
+            Réessayer
           </button>
         )}
       </div>
@@ -92,11 +77,9 @@ export function OrderTrackingView({ data, loadState, onReload }: OrderTrackingVi
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      {/* KPI bar */}
+    <div className="flex flex-col gap-2">
       <OrderKpiBar rows={filteredRows} statusCounts={data.status_counts} />
 
-      {/* Filters */}
       <OrderFilters
         filters={filters}
         onChange={setFilters}
@@ -104,22 +87,19 @@ export function OrderTrackingView({ data, loadState, onReload }: OrderTrackingVi
         statusCounts={data.status_counts}
       />
 
-      {/* Main card with tabs */}
-      <section className="bg-card border border-border rounded-2xl overflow-hidden">
-        {/* Tab bar + actions */}
-        <div className="flex items-center justify-between px-2 py-1.5 border-b border-border">
-          <div className="flex items-center gap-0.5">
+      <div className="bg-card border border-border overflow-hidden">
+        <div className="flex items-center justify-between px-2 py-1 border-b border-border">
+          <div className="flex items-center gap-0">
             {TABS.map((tb) => {
               const isActive = activeTab === tb.k
               return (
                 <button
                   key={tb.k}
                   onClick={() => setActiveTab(tb.k)}
-                  className={`inline-flex items-center gap-1.5 px-3 py-[7px] text-xs font-semibold rounded-[7px] transition-colors ${
-                    isActive ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-accent'
+                  className={`h-[26px] px-3 text-[11px] font-semibold border border-transparent border-b-0 -mb-px transition-colors ${
+                    isActive ? 'bg-card text-foreground border-border relative after:absolute after:inset-x-0 after:top-0 after:h-[2px] after:bg-primary' : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
-                  {tb.icon}
                   {tb.label}
                 </button>
               )
@@ -128,41 +108,35 @@ export function OrderTrackingView({ data, loadState, onReload }: OrderTrackingVi
           <div className="flex items-center gap-2">
             <button
               onClick={onReload}
-              className="text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1 transition-colors"
+              className="text-[11px] text-muted-foreground hover:text-foreground transition-colors"
             >
-              <RefreshCw className="h-3 w-3" />
               Actualiser
             </button>
             <ExportBar rows={filteredRows} />
           </div>
         </div>
 
-        {/* Tab content */}
-        <div className="p-0">
+        <div>
           {activeTab === 'commandes' && <GroupedOrderTable rows={filteredRows} />}
           {activeTab === 'par-client' && (
-            <div className="p-3.5">
+            <div className="p-2">
               <ByClientTab rows={filteredRows} />
             </div>
           )}
           {activeTab === 'par-etat' && (
-            <div className="p-3.5">
+            <div className="p-2">
               <ByEtatTab rows={filteredRows} />
             </div>
           )}
         </div>
-      </section>
+      </div>
 
-      {/* Footer summary */}
       <div className="flex items-center gap-2 text-[11px] text-muted-foreground px-1">
         <span>{filteredRows.length} ligne{filteredRows.length !== 1 ? 's' : ''}</span>
-        <span className="text-border">|</span>
+        <span>|</span>
         <span>{new Set(filteredRows.map((r) => r['No commande'])).size} commandes</span>
-        <span className="text-border">|</span>
         {Object.entries(data.status_counts).map(([status, count]) => (
-          <span key={status}>
-            <Pill tone={status === 'Retard Prod' ? 'danger' : 'default'}>{status}: {count}</Pill>
-          </span>
+          <span key={status} className={status === 'Retard Prod' ? 'text-destructive font-semibold' : ''}>{status}: {count}</span>
         ))}
       </div>
     </div>

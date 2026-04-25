@@ -6,7 +6,7 @@ import { WeeklyCapacityGrid } from '@/components/capacity/WeeklyCapacityGrid'
 import { Segmented } from '@/components/ui/segmented'
 import { LoadingInline, LoadingError } from '@/components/ui/loading'
 import { Card, CardContent } from '@/components/ui/card'
-import { CalendarDays, Gauge } from 'lucide-react'
+
 type Tab = 'calendar' | 'capacity'
 
 export function CapacityView() {
@@ -24,40 +24,26 @@ export function CapacityView() {
   }
 
   return (
-    <div className="space-y-4 max-w-[900px]">
-      <div className="flex items-center justify-between">
-        <Segmented
-          value={activeTab}
-          onChange={v => setActiveTab(v as Tab)}
-          options={[
-            { value: 'calendar', label: 'Calendrier', icon: <CalendarDays className="h-3.5 w-3.5" /> },
-            { value: 'capacity', label: 'Capacités', icon: <Gauge className="h-3.5 w-3.5" /> },
-          ]}
-        />
-      </div>
+    <div className="space-y-2 max-w-[900px]">
+      <Segmented
+        value={activeTab}
+        onChange={v => setActiveTab(v as Tab)}
+        options={[{ value: 'calendar', label: 'Calendrier' }, { value: 'capacity', label: 'Capacités' }]}
+      />
 
       {activeTab === 'calendar' && (
         <Card>
-          <CardContent className="p-5">
-            {calendar.isLoading && (
-              <LoadingInline label="du calendrier" />
-            )}
+          <CardContent className="p-3">
+            {calendar.isLoading && <LoadingInline label="du calendrier" />}
             {calendar.error && (
-              <LoadingError
-                message={`Impossible de charger le calendrier : ${(calendar.error as Error).message}`}
-                onRetry={() => calendar.refetch()}
-              />
+              <LoadingError message={`Impossible de charger le calendrier : ${(calendar.error as Error).message}`} onRetry={() => calendar.refetch()} />
             )}
             {calendar.data && (
               <MonthGrid
-                year={year}
-                month={month}
-                days={calendar.data.days}
+                year={year} month={month} days={calendar.data.days}
                 holidaysFetchedAt={calendar.data.holidays_fetched_at}
                 onMonthChange={handleMonthChange}
-                onToggleDay={(date, reason, remove) =>
-                  calendar.toggleManualOff.mutate({ date, reason, remove })
-                }
+                onToggleDay={(date, reason, remove) => calendar.toggleManualOff.mutate({ date, reason, remove })}
                 onRefreshHolidays={() => calendar.refreshHolidays.mutate()}
                 isRefreshing={calendar.refreshHolidays.isPending}
               />
@@ -68,15 +54,10 @@ export function CapacityView() {
 
       {activeTab === 'capacity' && (
         <Card>
-          <CardContent className="p-5">
-            {capacity.isLoading && (
-              <LoadingInline label="des capacités" />
-            )}
+          <CardContent className="p-3">
+            {capacity.isLoading && <LoadingInline label="des capacités" />}
             {capacity.error && (
-              <LoadingError
-                message={`Impossible de charger les capacités : ${(capacity.error as Error).message}`}
-                onRetry={() => capacity.refetch()}
-              />
+              <LoadingError message={`Impossible de charger les capacités : ${(capacity.error as Error).message}`} onRetry={() => capacity.refetch()} />
             )}
             {capacity.data && (
               <WeeklyCapacityGrid

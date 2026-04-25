@@ -1,4 +1,3 @@
-import { CheckCircle2, Loader2 } from 'lucide-react'
 import type { RunState } from '@/types/api'
 
 const PHASES = [
@@ -28,73 +27,33 @@ export function ScheduleProgress({ runState }: ScheduleProgressProps) {
   const elapsedMs = runState.elapsed_ms ?? 0
 
   return (
-    <div className="bg-card border border-border rounded-2xl p-6 max-w-md mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="text-sm font-semibold text-foreground">
-          Calcul du planning en cours...
-        </h3>
+    <div className="bg-card border border-border p-3 max-w-md mx-auto">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-xs font-semibold">Calcul en cours...</h3>
         {elapsedMs > 0 && (
-          <span className="text-[11px] font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded">
-            {formatElapsed(elapsedMs)} écoulées
-          </span>
+          <span className="text-[10px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5">{formatElapsed(elapsedMs)}</span>
         )}
       </div>
 
-      {/* Stepper */}
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-0.5">
         {PHASES.map((phase, idx) => {
           const isCompleted = idx < currentIdx
           const isActive = idx === currentIdx
           const isPending = idx > currentIdx
-
           return (
-            <div key={phase.key} className="flex items-start gap-3 py-1.5">
-              {/* Icon */}
-              <div className="mt-0.5 shrink-0">
-                {isCompleted && (
-                  <CheckCircle2 className="h-4 w-4 text-teal-700" />
-                )}
-                {isActive && (
-                  <Loader2 className="h-4 w-4 text-teal-700 animate-spin" />
-                )}
-                {isPending && (
-                  <div className="h-4 w-4 rounded-full border-2 border-muted-foreground/20" />
-                )}
+            <div key={phase.key} className="flex items-start gap-2 py-1">
+              <div className="mt-0.5 shrink-0 w-4 text-[11px]">
+                {isCompleted ? '✓' : isActive ? '⟳' : '○'}
               </div>
-
-              {/* Label */}
-              <div className="flex flex-col gap-0.5 min-w-0 flex-1">
-                <span
-                  className={`text-xs font-medium ${
-                    isPending ? 'text-muted-foreground/40' : 'text-foreground'
-                  }`}
-                >
-                  {phase.label}
-                </span>
+              <div className="flex flex-col gap-0 min-w-0 flex-1">
+                <span className={`text-[11px] font-medium ${isPending ? 'text-muted-foreground/40' : ''}`}>{phase.label}</span>
                 {isActive && (
-                  <div className="h-1 w-full bg-muted rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-teal-700 rounded-full transition-all duration-500"
-                      style={{
-                        width: `${Math.round(((currentIdx + 1) / stepCount) * 100)}%`,
-                      }}
-                    />
+                  <div className="h-[2px] w-full bg-border mt-0.5">
+                    <div className="h-full bg-primary transition-all duration-500" style={{ width: `${Math.round(((currentIdx + 1) / stepCount) * 100)}%` }} />
                   </div>
                 )}
               </div>
-
-              {/* Step indicator */}
-              {isCompleted && (
-                <span className="text-[10px] font-mono text-muted-foreground shrink-0">
-                  ✓
-                </span>
-              )}
-              {isActive && (
-                <span className="text-[10px] font-mono text-teal-700 shrink-0">
-                  {currentIdx + 1}/{stepCount}
-                </span>
-              )}
+              {isActive && <span className="text-[10px] font-mono text-primary shrink-0">{currentIdx + 1}/{stepCount}</span>}
             </div>
           )
         })}
