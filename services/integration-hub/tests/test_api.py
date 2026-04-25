@@ -99,7 +99,7 @@ def test_health_reports_downstream_state() -> None:
     payload = response.json()
     assert payload["status"] == "ok"
     assert payload["service"] == "integration-hub"
-    assert payload["downstream"]["production-planning"] == {"status": "ok"}
+    assert payload["downstream"]["planning-engine"] == {"status": "ok"}
     assert payload["downstream"]["suivi-commandes"]["service"] == "suivi-commandes"
 
 

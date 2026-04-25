@@ -69,9 +69,9 @@ start_service() {
     eval "$cmd" > "$log" 2>&1 &
 }
 
-# --- production-planning (FastAPI :8000) ---
-start_service "production-planning" \
-    "cd $ROOT_DIR/apps/production-planning && uvicorn production_planning.api.server:app --reload --port 8000"
+# --- planning-engine (FastAPI :8000) ---
+start_service "planning-engine" \
+    "cd $ROOT_DIR/apps/planning-engine && uvicorn planning_engine.api.server:app --reload --port 8000"
 
 # --- suivi-commandes (FastAPI :8001) ---
 start_service "suivi-commandes" \
@@ -88,7 +88,7 @@ start_service "board-ui" \
 echo ""
 echo -e "${GREEN}All services running.${NC} Press Ctrl+C to stop."
 echo ""
-echo "  production-planning → http://127.0.0.1:8000"
+echo "  planning-engine → http://127.0.0.1:8000"
 echo "  suivi-commandes    → http://127.0.0.1:8001"
 echo "  integration-hub    → http://127.0.0.1:8010"
 echo "  board-ui           → http://127.0.0.1:5173"

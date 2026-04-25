@@ -1,14 +1,14 @@
 ﻿version: "3.9"
 
 services:
-  production-planning-api:
+  planning-engine-api:
     image: python:3.11-slim
-    working_dir: /workspace/apps/production-planning
+    working_dir: /workspace/apps/planning-engine
     volumes:
       - ../:/workspace
     command: >
       sh -c "pip install -r requirements.txt &&
-             uvicorn production_planning.api.server:app --host 0.0.0.0 --port 8000"
+             uvicorn planning_engine.api.server:app --host 0.0.0.0 --port 8000"
     ports:
       - "8000:8000"
 
@@ -29,7 +29,7 @@ services:
     volumes:
       - ../:/workspace
     environment:
-      PRODUCTION_PLANNING_API_URL: http://production-planning-api:8000
+      PLANNING_ENGINE_API_URL: http://planning-engine-api:8000
       SUIVI_API_URL: http://suivi-api:8001
     command: >
       sh -c "pip install -e /workspace/packages/domain-contracts &&
@@ -39,7 +39,7 @@ services:
     ports:
       - "8010:8010"
     depends_on:
-      - production-planning-api
+      - planning-engine-api
       - suivi-api
 
   board-ui:

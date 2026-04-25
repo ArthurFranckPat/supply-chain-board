@@ -12,8 +12,8 @@ This repository is a monorepo that hosts independent supply-chain applications a
 
 ```text
 apps/
-  production-planning/ # Scheduling engine, feasibility, calendar, capacity (Python + FastAPI)
-    production_planning/
+  planning-engine/     # Scheduling engine app shell (Python + FastAPI)
+    planning_engine/
       models/         # BesoinClient, OF, Article, Stock, etc.
       loaders/        # CSV loading from ERP extractions
       orders/         # Matching, allocation, forecast consumption
@@ -36,13 +36,13 @@ infra/
 ## Communication model
 
 - `suivi-commandes` exposes status computation API endpoints.
-- `production-planning` exposes versioned scheduling, feasibility, calendar and capacity APIs under `/api/v1`.
+- `planning-engine` exposes versioned scheduling, feasibility, calendar and capacity APIs under `/api/v1`.
 - `suivi-commandes` exposes versioned order-status APIs under `/api/v1`.
 - `integration-hub` orchestrates both APIs and returns consolidated pipeline payloads under `/api/v1`.
 
-## Production-planning data source
+## Planning-engine data source
 
-`production-planning` reads ERP CSV extractions from a centralized folder configured via:
+`planning-engine` reads ERP CSV extractions from a centralized folder configured via:
 
 ```
 ORDO_EXTRACTIONS_DIR=/path/to/extractions
@@ -50,7 +50,7 @@ ORDO_EXTRACTIONS_DIR=/path/to/extractions
 
 Expected files: `Articles.csv`, `Gammes.csv`, `Nomenclatures.csv`, `Besoins Clients.csv`, `Ordres de fabrication.csv`, `Stocks.csv`, `Commandes Achats.csv`, `Allocations.csv`
 
-See `apps/production-planning/CLAUDE.md` for full column-level documentation.
+See `apps/planning-engine/CLAUDE.md` for full column-level documentation.
 
 ## Local setup
 
@@ -66,7 +66,7 @@ Manual path:
    - `pip install -e packages/domain-contracts`
    - `pip install -e packages/integration-sdk`
 3. Install app dependencies:
-   - `pip install -r apps/production-planning/requirements.txt`
+   - `pip install -r apps/planning-engine/requirements.txt`
    - `pip install -r apps/suivi-commandes/requirements.txt`
 4. Install integration hub:
    - `pip install -e services/integration-hub`
@@ -80,9 +80,9 @@ One command:
 
 Manual:
 
-- `production-planning` API:
-  - `cd apps/production-planning`
-  - `uvicorn production_planning.api.server:app --reload --port 8000`
+- `planning-engine` API:
+  - `cd apps/planning-engine`
+  - `uvicorn planning_engine.api.server:app --reload --port 8000`
 - `suivi-commandes` API:
   - `cd apps/suivi-commandes`
   - `pip install -r requirements.txt`
@@ -111,7 +111,7 @@ GitHub Actions workflows are defined under `.github/workflows`:
 - `ci.yml`:
   - Trigger: `pull_request` + pushes on `main`, `refactor/**`, `feature/**`
   - Runs `ruff` and Python tests for:
-    - `apps/production-planning/tests`
+    - `apps/planning-engine/tests`
     - `apps/suivi-commandes/tests`
     - `services/integration-hub/tests`
   - Builds frontend: `npm --prefix apps/board-ui run build`

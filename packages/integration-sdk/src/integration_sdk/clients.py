@@ -40,7 +40,7 @@ class BaseApiClient:
         return model.model_validate(await self._request(method, path, **kwargs))
 
 
-class OrdoCoreClient(BaseApiClient):
+class PlanningEngineClient(BaseApiClient):
     async def health(self) -> ServiceHealth:
         return await self._request_model("GET", "/health", ServiceHealth)
 

@@ -1,11 +1,11 @@
 ﻿# integration-hub
 
 Orchestration API that composes:
-- production-planning API (scheduling and feasibility)
+- planning-engine API (scheduling and feasibility)
 - suivi-commandes API (order status assignment)
 
 Default ports expected:
-- production-planning: `http://127.0.0.1:8000`
+- planning-engine: `http://127.0.0.1:8000`
 - suivi-commandes: `http://127.0.0.1:8001`
 - integration-hub: `http://127.0.0.1:8010`
 

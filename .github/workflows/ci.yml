@@ -28,8 +28,8 @@ jobs:
           python-version: "3.12"
           cache: pip
           cache-dependency-path: |
-            apps/production-planning/pyproject.toml
-            apps/production-planning/requirements.txt
+            apps/planning-engine/pyproject.toml
+            apps/planning-engine/requirements.txt
             apps/suivi-commandes/pyproject.toml
             services/integration-hub/pyproject.toml
             packages/domain-contracts/pyproject.toml
@@ -41,14 +41,14 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e packages/domain-contracts -e packages/erp-data-access -e packages/integration-sdk
           python -m pip install -e apps/suivi-commandes -e services/integration-hub
-          python -m pip install -e "apps/production-planning[dev]"
+          python -m pip install -e "apps/planning-engine[dev]"
 
       - name: Ruff
         run: python -m ruff check .
 
       - name: Pytest
         run: |
-          python -m pytest -q apps/production-planning/tests \
+          python -m pytest -q apps/planning-engine/tests \
             apps/suivi-commandes/tests \
             services/integration-hub/tests
 

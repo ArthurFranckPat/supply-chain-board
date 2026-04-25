@@ -19,10 +19,10 @@ from domain_contracts import (
     ServiceHealth,
     SuiviAssignResponse,
 )
-from integration_sdk import OrdoCoreClient, SuiviCommandesClient
+from integration_sdk import PlanningEngineClient, SuiviCommandesClient
 
 
-ClientsFactory = Callable[[], tuple[OrdoCoreClient, SuiviCommandesClient]]
+ClientsFactory = Callable[[], tuple[PlanningEngineClient, SuiviCommandesClient]]
 ModelT = TypeVar("ModelT", bound=BaseModel)
 
 
@@ -30,10 +30,10 @@ def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def _make_clients() -> tuple[OrdoCoreClient, SuiviCommandesClient]:
-    planning_url = os.getenv("PRODUCTION_PLANNING_API_URL", "http://127.0.0.1:8000")
+def _make_clients() -> tuple[PlanningEngineClient, SuiviCommandesClient]:
+    planning_url = os.getenv("PLANNING_ENGINE_API_URL", "http://127.0.0.1:8000")
     suivi_url = os.getenv("SUIVI_API_URL", "http://127.0.0.1:8001")
-    return OrdoCoreClient(planning_url), SuiviCommandesClient(suivi_url)
+    return PlanningEngineClient(planning_url), SuiviCommandesClient(suivi_url)
 
 
 def _coerce_model(model: type[ModelT], value: Any) -> ModelT:
@@ -101,7 +101,7 @@ def create_app(clients_factory: ClientsFactory = _make_clients) -> FastAPI:
         return IntegrationHealthResponse(
             timestamp=_utc_now(),
             downstream={
-                "production-planning": ordo_health,
+                "planning-engine": ordo_health,
                 "suivi-commandes": suivi_health,
             },
         )
@@ -142,7 +142,7 @@ def create_app(clients_factory: ClientsFactory = _make_clients) -> FastAPI:
         except TimeoutError as exc:
             raise HTTPException(status_code=504, detail=str(exc)) from exc
         except Exception as exc:  # noqa: BLE001
-            raise HTTPException(status_code=502, detail=f"production-planning call failed: {exc}") from exc
+            raise HTTPException(status_code=502, detail=f"planning-engine call failed: {exc}") from exc
 
         suivi_result = await _downstream_model(
             "suivi-commandes",

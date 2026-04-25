@@ -13,7 +13,7 @@ npm run dev
 
 Copy `.env.example` to `.env` and adjust if needed.
 
-- `VITE_API_BASE_URL`: production-planning base URL (default `http://127.0.0.1:8000`)
+- `VITE_API_BASE_URL`: planning-engine base URL (default `http://127.0.0.1:8000`)
 - `VITE_SUIVI_API_BASE_URL`: suivi-commandes base URL (default `http://127.0.0.1:8001`)
 - `VITE_EXTRACTIONS_DIR`: optional ERP extractions directory passed to API load endpoints
 
@@ -62,11 +62,11 @@ Copy `.env.example` to `.env` and adjust if needed.
 ## Data flow
 
 ```
-board-ui → production-planning (port 8000, /api/v1)
+board-ui → planning-engine (port 8000, /api/v1)
          → suivi-commandes (port 8001, /api/v1)
 ```
 
-- `POST /api/v1/runs/schedule` triggers a production-planning ordonnancement run
+- `POST /api/v1/runs/schedule` triggers a planning-engine ordonnancement run
 - `POST /api/v1/status/from-erp-extractions` loads order tracking status from suivi-commandes
 - Ordonnancement runs return KPIs, planning data, and stock projections
 - `integration-hub` remains available for service-to-service consolidated pipeline calls

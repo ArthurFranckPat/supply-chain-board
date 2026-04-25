@@ -1,3 +1,3 @@
-﻿from .clients import OrdoCoreClient, SuiviCommandesClient
+from .clients import PlanningEngineClient, SuiviCommandesClient
 
-__all__ = ["OrdoCoreClient", "SuiviCommandesClient"]
+__all__ = ["PlanningEngineClient", "SuiviCommandesClient"]
