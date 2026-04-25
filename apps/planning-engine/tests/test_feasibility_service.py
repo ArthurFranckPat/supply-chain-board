@@ -45,7 +45,7 @@ def _make_loader(*, articles=None, stocks=None, receptions=None, nomenclatures=N
 def test_check_purchase_article_respects_use_receptions_flag():
     loader = _make_loader(
         articles={"C1": _make_article("C1", TypeApprovisionnement.ACHAT)},
-        stocks={"C1": Stock("C1", stock_physique=0, stock_alloue=0, stock_bloque=0)},
+        stocks={"C1": Stock("C1", stock_physique=0, stock_alloue=0, stock_sous_cq=0)},
         receptions={
             "C1": [
                 Reception(
@@ -77,7 +77,7 @@ def test_check_fabricated_article_respects_use_receptions_flag():
     c1 = _make_article("C1", TypeApprovisionnement.ACHAT)
     loader = _make_loader(
         articles={"PF1": pf, "C1": c1},
-        stocks={"C1": Stock("C1", stock_physique=0, stock_alloue=0, stock_bloque=0)},
+        stocks={"C1": Stock("C1", stock_physique=0, stock_alloue=0, stock_sous_cq=0)},
         receptions={
             "C1": [
                 Reception(
@@ -140,7 +140,7 @@ def test_qte_requise_keeps_fractional_values():
 def test_promise_date_purchase_uses_first_covering_reception():
     loader = _make_loader(
         articles={"C1": _make_article("C1", TypeApprovisionnement.ACHAT)},
-        stocks={"C1": Stock("C1", stock_physique=2, stock_alloue=0, stock_bloque=0)},
+        stocks={"C1": Stock("C1", stock_physique=2, stock_alloue=0, stock_sous_cq=0)},
         receptions={
             "C1": [
                 Reception(

@@ -27,7 +27,7 @@ export interface StockEvolutionResponse {
   article: string
   description: string
   stock_physique: number
-  stock_bloque: number
+  stock_sous_cq: number
   valeur_stock: number
   pmp: number
   stock_min: number

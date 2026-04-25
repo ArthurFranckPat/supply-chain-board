@@ -101,8 +101,8 @@ def sample_commandes():
 @pytest.fixture
 def sample_stocks():
     return {
-        "MC4337": Stock("MC4337", stock_physique=200, stock_alloue=50, stock_bloque=0),
-        "OTHER_ART": Stock("OTHER_ART", stock_physique=100, stock_alloue=10, stock_bloque=0),
+        "MC4337": Stock("MC4337", stock_physique=200, stock_alloue=50, stock_sous_cq=0),
+        "OTHER_ART": Stock("OTHER_ART", stock_physique=100, stock_alloue=10, stock_sous_cq=0),
     }
 
 
@@ -344,7 +344,7 @@ class TestCommandeOFMatcher:
                 _make_of("OF-SUGG", "ART1", 3, date(2026, 4, 12), qte_restante=30),
             ],
             commandes_clients=[commande],
-            stocks={"ART1": Stock("ART1", stock_physique=0, stock_alloue=0, stock_bloque=0)},
+            stocks={"ART1": Stock("ART1", stock_physique=0, stock_alloue=0, stock_sous_cq=0)},
             articles={
                 "ART1": Article(
                     code="ART1",
@@ -384,7 +384,7 @@ class TestCommandeOFMatcher:
                 _make_of("OF-SUGG", "ART1", 3, date(2026, 4, 12), qte_restante=40),
             ],
             commandes_clients=[commande],
-            stocks={"ART1": Stock("ART1", stock_physique=10, stock_alloue=0, stock_bloque=0)},
+            stocks={"ART1": Stock("ART1", stock_physique=10, stock_alloue=0, stock_sous_cq=0)},
             articles={
                 "ART1": Article(
                     code="ART1",
@@ -412,7 +412,7 @@ class TestCommandeOFMatcher:
 
         loader = _make_loader(
             ofs=[of_ferme, of_suggere],
-            stocks={"ART1": Stock("ART1", stock_physique=0, stock_alloue=0, stock_bloque=0)},
+            stocks={"ART1": Stock("ART1", stock_physique=0, stock_alloue=0, stock_sous_cq=0)},
         )
 
         matcher = CommandeOFMatcher(loader)

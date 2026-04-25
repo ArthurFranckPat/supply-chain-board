@@ -18,7 +18,7 @@ def _make_loader(*, stocks=None, receptions=None):
 
 def test_snapshot_includes_receptions_up_to_date_inclusive():
     loader = _make_loader(
-        stocks={"C1": Stock("C1", stock_physique=10, stock_alloue=2, stock_bloque=0)},
+        stocks={"C1": Stock("C1", stock_physique=10, stock_alloue=2, stock_sous_cq=0)},
         receptions={
             "C1": [
                 Reception("PO-1", "C1", "F1", 5, date(2026, 4, 10)),
@@ -38,7 +38,7 @@ def test_snapshot_includes_receptions_up_to_date_inclusive():
 
 def test_snapshot_can_ignore_receptions():
     loader = _make_loader(
-        stocks={"C1": Stock("C1", stock_physique=10, stock_alloue=2, stock_bloque=0)},
+        stocks={"C1": Stock("C1", stock_physique=10, stock_alloue=2, stock_sous_cq=0)},
         receptions={
             "C1": [
                 Reception("PO-1", "C1", "F1", 5, date(2026, 4, 10)),
@@ -56,7 +56,7 @@ def test_snapshot_can_ignore_receptions():
 
 def test_shortage_considers_reserved_quantity():
     loader = _make_loader(
-        stocks={"C1": Stock("C1", stock_physique=20, stock_alloue=0, stock_bloque=0)},
+        stocks={"C1": Stock("C1", stock_physique=20, stock_alloue=0, stock_sous_cq=0)},
     )
     kernel = AvailabilityKernel(loader)
 
@@ -73,7 +73,7 @@ def test_shortage_considers_reserved_quantity():
 
 def test_earliest_supply_coverage_returns_before_after_quantities():
     loader = _make_loader(
-        stocks={"C1": Stock("C1", stock_physique=5, stock_alloue=0, stock_bloque=0)},
+        stocks={"C1": Stock("C1", stock_physique=5, stock_alloue=0, stock_sous_cq=0)},
         receptions={
             "C1": [
                 Reception("PO-1", "C1", "F1", 3, date(2026, 4, 10)),
@@ -93,7 +93,7 @@ def test_earliest_supply_coverage_returns_before_after_quantities():
 
 def test_available_without_receptions_uses_virtual_stock_state_when_provided():
     loader = _make_loader(
-        stocks={"C1": Stock("C1", stock_physique=50, stock_alloue=0, stock_bloque=0)},
+        stocks={"C1": Stock("C1", stock_physique=50, stock_alloue=0, stock_sous_cq=0)},
     )
     kernel = AvailabilityKernel(loader)
     state = StockState({"C1": 12.5})

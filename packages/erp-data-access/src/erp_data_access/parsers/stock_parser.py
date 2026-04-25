@@ -10,5 +10,5 @@ def parse_stock(row: dict) -> Stock:
         article=row.get("ARTICLE", ""),
         stock_physique=parse_int(row.get("STOCK_PHYSIQUE", 0)),
         stock_alloue=parse_int(row.get("ALLOUE_TOTAL", 0)),
-        stock_bloque=parse_int(row.get("STOCK_SOUS_CQ", 0)),
+        stock_sous_cq=parse_int(row.get("STOCK_SOUS_CQ", 0)),
     )

@@ -51,7 +51,7 @@ def _make_of(num_of, article, qte_restante=100, qte_a_fabriquer=100,
 
 
 def _make_stock(article, physique=100, alloue=50):
-    return Stock(article=article, stock_physique=physique, stock_alloue=alloue, stock_bloque=0)
+    return Stock(article=article, stock_physique=physique, stock_alloue=alloue, stock_sous_cq=0)
 
 
 def _make_article(code, description="Test", categorie="AP"):

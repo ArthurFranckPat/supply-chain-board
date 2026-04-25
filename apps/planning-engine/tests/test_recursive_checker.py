@@ -114,8 +114,8 @@ class TestRecursiveChecker:
             ]),
         }
         stocks = {
-            "COMP_A": Stock("COMP_A", stock_physique=10, stock_alloue=10, stock_bloque=0),
-            "COMP_B": Stock("COMP_B", stock_physique=5, stock_alloue=0, stock_bloque=0),
+            "COMP_A": Stock("COMP_A", stock_physique=10, stock_alloue=10, stock_sous_cq=0),
+            "COMP_B": Stock("COMP_B", stock_physique=5, stock_alloue=0, stock_sous_cq=0),
         }
         # OF FERME avec allocations existantes pour COMP_A
         of = _make_of("OF_FERME_1", "PF", 1, date(2026, 4, 20), qte_restante=10)
@@ -142,7 +142,7 @@ class TestRecursiveChecker:
             ]),
         }
         stocks = {
-            "COMP_A": Stock("COMP_A", stock_physique=100, stock_alloue=0, stock_bloque=0),
+            "COMP_A": Stock("COMP_A", stock_physique=100, stock_alloue=0, stock_sous_cq=0),
         }
         of = _make_of("OF_SUGG_1", "PF", 3, date(2026, 4, 20), qte_restante=10)
         loader = _make_loader(ofs=[of], stocks=stocks, nomenclatures=nomenclatures)
@@ -157,7 +157,7 @@ class TestRecursiveChecker:
     def test_check_stock_with_real_stock(self):
         """Test la verification de stock avec stock reel."""
         stocks = {
-            "A1953": Stock("A1953", stock_physique=150, stock_alloue=0, stock_bloque=0),
+            "A1953": Stock("A1953", stock_physique=150, stock_alloue=0, stock_sous_cq=0),
         }
         loader = _make_loader(stocks=stocks)
         checker = RecursiveChecker(loader, stock_state=None)
@@ -233,7 +233,7 @@ class TestRecursiveChecker:
 
         need_day = date(2026, 4, 15)
         loader = _make_loader(
-            stocks={"A1953": Stock("A1953", stock_physique=0, stock_alloue=0, stock_bloque=0)},
+            stocks={"A1953": Stock("A1953", stock_physique=0, stock_alloue=0, stock_sous_cq=0)},
             receptions={
                 "A1953": [
                     Reception(
@@ -334,8 +334,8 @@ class TestRecursiveChecker:
             ),
         }
         stocks = {
-            "SE_FAB": Stock("SE_FAB", stock_physique=0, stock_alloue=0, stock_bloque=0),
-            "ACH_MISS": Stock("ACH_MISS", stock_physique=0, stock_alloue=0, stock_bloque=0),
+            "SE_FAB": Stock("SE_FAB", stock_physique=0, stock_alloue=0, stock_sous_cq=0),
+            "ACH_MISS": Stock("ACH_MISS", stock_physique=0, stock_alloue=0, stock_sous_cq=0),
         }
 
         loader = SimpleNamespace(
@@ -381,7 +381,7 @@ class TestRecursiveChecker:
             ),
         }
         stocks = {
-            "ST_COMP": Stock("ST_COMP", stock_physique=0, stock_alloue=0, stock_bloque=0),
+            "ST_COMP": Stock("ST_COMP", stock_physique=0, stock_alloue=0, stock_sous_cq=0),
         }
         articles = {
             "ST_COMP": Article(
@@ -439,7 +439,7 @@ class TestRecursiveChecker:
             ),
         }
         stocks = {
-            "ST_COMP": Stock("ST_COMP", stock_physique=10, stock_alloue=0, stock_bloque=0),
+            "ST_COMP": Stock("ST_COMP", stock_physique=10, stock_alloue=0, stock_sous_cq=0),
         }
         articles = {
             "ST_COMP": Article(
@@ -512,7 +512,7 @@ class TestRecursiveChecker:
             ),
         }
         stocks = {
-            "REAL_A": Stock("REAL_A", stock_physique=10, stock_alloue=0, stock_bloque=0),
+            "REAL_A": Stock("REAL_A", stock_physique=10, stock_alloue=0, stock_sous_cq=0),
         }
         articles = {
             "PHANTOM": Article(
@@ -590,8 +590,8 @@ class TestRecursiveChecker:
             ),
         }
         stocks = {
-            "PHANTOM": Stock("PHANTOM", stock_physique=10, stock_alloue=0, stock_bloque=0),
-            "NEW_REF": Stock("NEW_REF", stock_physique=0, stock_alloue=0, stock_bloque=0),
+            "PHANTOM": Stock("PHANTOM", stock_physique=10, stock_alloue=0, stock_sous_cq=0),
+            "NEW_REF": Stock("NEW_REF", stock_physique=0, stock_alloue=0, stock_sous_cq=0),
         }
         articles = {
             "PHANTOM": Article(
@@ -678,8 +678,8 @@ class TestRecursiveChecker:
             ),
         }
         stocks = {
-            "OLD_REF": Stock("OLD_REF", stock_physique=3, stock_alloue=0, stock_bloque=0),
-            "NEW_REF": Stock("NEW_REF", stock_physique=3, stock_alloue=0, stock_bloque=0),
+            "OLD_REF": Stock("OLD_REF", stock_physique=3, stock_alloue=0, stock_sous_cq=0),
+            "NEW_REF": Stock("NEW_REF", stock_physique=3, stock_alloue=0, stock_sous_cq=0),
         }
         articles = {
             "PHANTOM": Article(
@@ -773,8 +773,8 @@ class TestRecursiveChecker:
             ),
         }
         stocks = {
-            "PHANTOM": Stock("PHANTOM", stock_physique=10, stock_alloue=0, stock_bloque=0),
-            "REAL_A": Stock("REAL_A", stock_physique=0, stock_alloue=0, stock_bloque=0),
+            "PHANTOM": Stock("PHANTOM", stock_physique=10, stock_alloue=0, stock_sous_cq=0),
+            "REAL_A": Stock("REAL_A", stock_physique=0, stock_alloue=0, stock_sous_cq=0),
         }
         articles = {
             "PHANTOM": Article(

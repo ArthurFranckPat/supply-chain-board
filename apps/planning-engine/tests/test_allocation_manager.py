@@ -92,8 +92,8 @@ def sample_ofs():
 @pytest.fixture
 def sample_stocks():
     return {
-        "COMP_X": Stock("COMP_X", stock_physique=200, stock_alloue=50, stock_bloque=0),
-        "COMP_Y": Stock("COMP_Y", stock_physique=100, stock_alloue=10, stock_bloque=0),
+        "COMP_X": Stock("COMP_X", stock_physique=200, stock_alloue=50, stock_sous_cq=0),
+        "COMP_Y": Stock("COMP_Y", stock_physique=100, stock_alloue=10, stock_sous_cq=0),
     }
 
 

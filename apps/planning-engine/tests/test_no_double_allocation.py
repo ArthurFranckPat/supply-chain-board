@@ -90,8 +90,8 @@ class TestCheckerSkipsAlreadyAllocatedComponent:
         }
         # Stock tres faible — insuffisant sans allocation
         stocks = {
-            "COMP_A": Stock("COMP_A", stock_physique=0, stock_alloue=0, stock_bloque=0),
-            "COMP_B": Stock("COMP_B", stock_physique=1, stock_alloue=1, stock_bloque=0),
+            "COMP_A": Stock("COMP_A", stock_physique=0, stock_alloue=0, stock_sous_cq=0),
+            "COMP_B": Stock("COMP_B", stock_physique=1, stock_alloue=1, stock_sous_cq=0),
         }
         # OF_A a deja COMP_B alloue (couvre 100%)
         allocations = {
@@ -124,8 +124,8 @@ class TestCheckerSkipsAlreadyAllocatedComponent:
             ]),
         }
         stocks = {
-            "COMP_A": Stock("COMP_A", stock_physique=10, stock_alloue=10, stock_bloque=0),
-            "COMP_B": Stock("COMP_B", stock_physique=5, stock_alloue=0, stock_bloque=0),
+            "COMP_A": Stock("COMP_A", stock_physique=10, stock_alloue=10, stock_sous_cq=0),
+            "COMP_B": Stock("COMP_B", stock_physique=5, stock_alloue=0, stock_sous_cq=0),
         }
         allocations = {
             "OF_X": [OFAllocation(article="COMP_A", qte_allouee=10.0, num_doc="OF_X", date_besoin="20/04/2026")],
@@ -166,8 +166,8 @@ class TestVirtualReservationNoDoubleAllocation:
             ]),
         }
         stocks = {
-            "COMP_A": Stock("COMP_A", stock_physique=100, stock_alloue=50, stock_bloque=0),
-            "COMP_B": Stock("COMP_B", stock_physique=100, stock_alloue=0, stock_bloque=0),
+            "COMP_A": Stock("COMP_A", stock_physique=100, stock_alloue=50, stock_sous_cq=0),
+            "COMP_B": Stock("COMP_B", stock_physique=100, stock_alloue=0, stock_sous_cq=0),
         }
         # OF_A a deja COMP_A alloue dans l'ERP
         allocations = {
@@ -198,8 +198,8 @@ class TestVirtualReservationNoDoubleAllocation:
             ]),
         }
         stocks = {
-            "COMP_A": Stock("COMP_A", stock_physique=100, stock_alloue=50, stock_bloque=0),
-            "COMP_B": Stock("COMP_B", stock_physique=200, stock_alloue=0, stock_bloque=0),
+            "COMP_A": Stock("COMP_A", stock_physique=100, stock_alloue=50, stock_sous_cq=0),
+            "COMP_B": Stock("COMP_B", stock_physique=200, stock_alloue=0, stock_sous_cq=0),
         }
         # OF_A a COMP_A alloue mais PAS COMP_B
         allocations = {
@@ -230,7 +230,7 @@ class TestVirtualReservationNoDoubleAllocation:
             ]),
         }
         stocks = {
-            "COMP_X": Stock("COMP_X", stock_physique=100, stock_alloue=0, stock_bloque=0),
+            "COMP_X": Stock("COMP_X", stock_physique=100, stock_alloue=0, stock_sous_cq=0),
         }
         loader = _make_loader(nomenclatures, stocks)
         # Stock en tension : dispo < besoin pour forcer la reservation
@@ -263,7 +263,7 @@ class TestVirtualReservationNoDoubleAllocation:
             ]),
         }
         stocks = {
-            "COMP_X": Stock("COMP_X", stock_physique=100, stock_alloue=50, stock_bloque=0),
+            "COMP_X": Stock("COMP_X", stock_physique=100, stock_alloue=50, stock_sous_cq=0),
         }
         allocations = {
             "OF_A": [OFAllocation(article="COMP_X", qte_allouee=50.0, num_doc="OF_A", date_besoin="20/04/2026")],
@@ -304,7 +304,7 @@ class TestDirectShortagesRespectsAllocations:
             ]),
         }
         stocks = {
-            "COMP_A": Stock("COMP_A", stock_physique=10, stock_alloue=10, stock_bloque=0),
+            "COMP_A": Stock("COMP_A", stock_physique=10, stock_alloue=10, stock_sous_cq=0),
         }
         allocations = {
             "OF_A": [OFAllocation(article="COMP_A", qte_allouee=10.0, num_doc="OF_A", date_besoin="20/04/2026")],
@@ -325,7 +325,7 @@ class TestDirectShortagesRespectsAllocations:
             ]),
         }
         stocks = {
-            "COMP_A": Stock("COMP_A", stock_physique=100, stock_alloue=10, stock_bloque=0),
+            "COMP_A": Stock("COMP_A", stock_physique=100, stock_alloue=10, stock_sous_cq=0),
         }
         allocations = {
             "OF_A": [OFAllocation(article="COMP_A", qte_allouee=10.0, num_doc="OF_A", date_besoin="20/04/2026")],
@@ -358,7 +358,7 @@ class TestFermeOFNeverBlocked:
             ]),
         }
         stocks = {
-            "COMP_A": Stock("COMP_A", stock_physique=0, stock_alloue=0, stock_bloque=0),
+            "COMP_A": Stock("COMP_A", stock_physique=0, stock_alloue=0, stock_sous_cq=0),
         }
         loader = _make_loader(nomenclatures, stocks)
         checker = RecursiveChecker(loader)
@@ -384,9 +384,9 @@ class TestFermeOFNeverBlocked:
             ]),
         }
         stocks = {
-            "COMP_A": Stock("COMP_A", stock_physique=0, stock_alloue=0, stock_bloque=0),
-            "COMP_F": Stock("COMP_F", stock_physique=0, stock_alloue=0, stock_bloque=0),
-            "COMP_F_ACHAT": Stock("COMP_F_ACHAT", stock_physique=0, stock_alloue=0, stock_bloque=0),
+            "COMP_A": Stock("COMP_A", stock_physique=0, stock_alloue=0, stock_sous_cq=0),
+            "COMP_F": Stock("COMP_F", stock_physique=0, stock_alloue=0, stock_sous_cq=0),
+            "COMP_F_ACHAT": Stock("COMP_F_ACHAT", stock_physique=0, stock_alloue=0, stock_sous_cq=0),
         }
         loader = _make_loader(nomenclatures, stocks)
         checker = RecursiveChecker(loader)
@@ -407,7 +407,7 @@ class TestFermeOFNeverBlocked:
             ]),
         }
         stocks = {
-            "COMP_X": Stock("COMP_X", stock_physique=0, stock_alloue=0, stock_bloque=0),
+            "COMP_X": Stock("COMP_X", stock_physique=0, stock_alloue=0, stock_sous_cq=0),
         }
         loader = _make_loader(nomenclatures, stocks)
         material_state = StockState({"COMP_X": 0})
@@ -430,7 +430,7 @@ class TestFermeOFNeverBlocked:
             ]),
         }
         stocks = {
-            "COMP_A": Stock("COMP_A", stock_physique=0, stock_alloue=0, stock_bloque=0),
+            "COMP_A": Stock("COMP_A", stock_physique=0, stock_alloue=0, stock_sous_cq=0),
         }
         loader = _make_loader(nomenclatures, stocks)
         checker = RecursiveChecker(loader)

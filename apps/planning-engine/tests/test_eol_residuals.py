@@ -46,12 +46,12 @@ def _make_entry(parent, composant, qte=1.0, type_article=TypeArticle.ACHETE):
     )
 
 
-def _make_stock(article, physique=100, alloue=0, bloque=0):
+def _make_stock(article, physique=100, alloue=0, sous_cq=0):
     return Stock(
         article=article,
         stock_physique=physique,
         stock_alloue=alloue,
-        stock_bloque=bloque,
+        stock_sous_cq=sous_cq,
     )
 
 

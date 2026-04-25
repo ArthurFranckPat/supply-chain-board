@@ -687,9 +687,9 @@ class GuiAppService:
         if stk is None:
             raise RuntimeError(f"Article {itmref} introuvable dans les stocks. Chargez les extractions ERP.")
         stock_physique = float(stk.stock_physique)
-        stock_bloque = float(stk.stock_bloque)
+        stock_sous_cq = float(stk.stock_sous_cq)
 
-        stock_depart = stock_physique + (stock_bloque if include_stock_q else 0.0)
+        stock_depart = stock_physique + (stock_sous_cq if include_stock_q else 0.0)
 
         mouvements = self._stock_history_analyzer.reconstituer_stock(
             itmref=itmref,
@@ -711,8 +711,8 @@ class GuiAppService:
             "article": itmref,
             "description": description,
             "stock_physique": stock_physique,
-            "stock_bloque": stock_bloque,
-            "valeur_stock": (stock_physique + stock_bloque) * pmp,
+            "stock_sous_cq": stock_sous_cq,
+            "valeur_stock": (stock_physique + stock_sous_cq) * pmp,
             "pmp": pmp,
             **(_serialize_value(stats)),
             "items": _serialize_value(mouvements),
