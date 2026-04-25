@@ -3,14 +3,6 @@ import { Pill } from '@/components/ui/pill'
 import type { OrderRow } from '@/types/suivi-commandes'
 import { STATUS_TONE_MAP } from '@/types/suivi-commandes'
 
-interface EtatAgg {
-  id: string
-  statut: string
-  nbCommandes: number
-  nbArticles: number
-  totalRestant: number
-}
-
 const COL = '140px 100px 100px 100px'
 
 export function ByEtatTab({ rows }: { rows: OrderRow[] }) {

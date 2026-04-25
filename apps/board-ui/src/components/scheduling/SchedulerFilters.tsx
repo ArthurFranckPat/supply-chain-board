@@ -39,7 +39,7 @@ export function SchedulerFilters({
   lines,
   days,
   lineLabels,
-  expandedDays,
+  expandedDays: _expandedDays,
   onCollapseAll,
   onExpandAll,
   allDays,

@@ -1,6 +1,7 @@
 interface SegmentedOption {
   value: string
   label: string
+  icon?: React.ReactNode
 }
 
 interface SegmentedProps {
@@ -24,6 +25,7 @@ export function Segmented({ options, value, onChange }: SegmentedProps) {
                 : 'bg-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
+            {opt.icon}
             {opt.label}
           </button>
         )

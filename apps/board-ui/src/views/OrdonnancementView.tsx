@@ -172,7 +172,7 @@ export function OrdonnancementView({ isLoading, result, error, runState, onInspe
           totalOrdersRisk={stats?.ordersLate ?? 0} nbJit={result.nb_jit}
           nbChangements={result.nb_changements_serie} showKpis={showKpis}
           onToggleKpis={() => setShowKpis(v => !v)} weekMode={weekMode} onWeekMode={setWeekMode}
-          density={density} onDensity={setDensity} dark={dark} onDark={() => setDark(v => !v)}
+          density={density} onDensity={(v) => setDensity(v as 'compact' | 'comfort')} dark={dark} onDark={() => setDark(v => !v)}
           showWorkqueue={showWorkqueue} onToggleWorkqueue={() => setShowWorkqueue(v => !v)}
         />
 

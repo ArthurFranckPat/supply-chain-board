@@ -9,7 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import type { ActionReportPayload, ActionReportLine, DetailItem } from '@/types/api'
+import type { ActionReportPayload, DetailItem } from '@/types/api'
 
 interface ActionsViewProps {
   data: ActionReportPayload | null

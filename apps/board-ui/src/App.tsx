@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
-import { apiClient, ApiError } from '@/api/client'
-import { suiviClient } from '@/api/suivi-client'
+import { ApiError } from '@/api/client'
 import { useScheduleRun } from '@/hooks/useScheduleRun'
 import { useAppBootstrap } from '@/hooks/useAppBootstrap'
 import { Sidebar } from '@/components/layout/Sidebar'

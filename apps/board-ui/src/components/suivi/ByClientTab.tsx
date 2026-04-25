@@ -1,14 +1,5 @@
 import { useMemo } from 'react'
-import { Pill } from '@/components/ui/pill'
 import type { OrderRow } from '@/types/suivi-commandes'
-
-interface ClientAgg {
-  id: string
-  client: string
-  nbCommandes: number
-  totalLivre: number
-  totalRestant: number
-}
 
 const COL = '1fr 100px 100px 100px'
 

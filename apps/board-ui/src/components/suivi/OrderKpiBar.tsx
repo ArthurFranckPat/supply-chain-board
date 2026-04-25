@@ -1,5 +1,4 @@
 import type { OrderRow } from '@/types/suivi-commandes'
-import { STATUS_TONE_MAP } from '@/types/suivi-commandes'
 import { Package, ShoppingCart, TrendingDown, CheckCircle2, AlertTriangle, Euro } from 'lucide-react'
 
 interface OrderKpiBarProps {

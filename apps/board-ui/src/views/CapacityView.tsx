@@ -37,7 +37,7 @@ export function CapacityView({ onInspect: _onInspect }: CapacityViewProps) {
           onChange={v => setActiveTab(v as Tab)}
           options={[
             { value: 'calendar', label: 'Calendrier', icon: <CalendarDays className="h-3.5 w-3.5" /> },
-            { value: 'capacity', label: 'Capacites', icon: <Gauge className="h-3.5 w-3.5" /> },
+            { value: 'capacity', label: 'Capacités', icon: <Gauge className="h-3.5 w-3.5" /> },
           ]}
         />
       </div>

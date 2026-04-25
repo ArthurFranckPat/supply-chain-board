@@ -1,4 +1,4 @@
-import { Activity, LayoutDashboard, Wrench, CalendarDays, FileText, Settings, Package, AlertTriangle, ShoppingCart, CheckCircle, PackageSearch, Factory, TrendingUp } from 'lucide-react'
+import { Activity, LayoutDashboard, Wrench, CalendarDays, FileText, AlertTriangle, ShoppingCart, CheckCircle, PackageSearch, Factory, TrendingUp } from 'lucide-react'
 
 export type ViewKey = 'home' | 'actions' | 'scheduler' | 'analyse-rupture' | 'feasibility' | 'capacity' | 'eol-residuals' | 'fabricable' | 'order-tracking' | 'reports' | 'settings' | 'stock-evolution'
 export type LoadState = 'idle' | 'loading' | 'ready' | 'error'

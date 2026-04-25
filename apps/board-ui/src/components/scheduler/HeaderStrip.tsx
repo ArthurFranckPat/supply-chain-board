@@ -148,6 +148,7 @@ export function HeaderStrip({
           {/* Secondary counts */}
           <div className="flex gap-3.5 pl-5 border-l border-border/50 shrink-0">
             <MiniStat label="OF planifiés" value={totalOf.toLocaleString('fr-FR')} />
+            <MiniStat label="Bloqués" value={totalBlocked} tone={totalBlocked > 0 ? 'danger' : 'good'} />
             <MiniStat label="Non planif." value={totalUnscheduled} tone="danger" />
             <MiniStat label="Cmd à risque" value={totalOrdersRisk} tone="warn" />
             <MiniStat label="JIT / Chgmts" value={`${nbJit}/${nbChangements}`} />

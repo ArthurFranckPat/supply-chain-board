@@ -1,5 +1,3 @@
-import { Input } from '@/components/ui/input'
-import { Pill } from '@/components/ui/pill'
 import type { OrderFilterState, FilterOptions } from '@/types/suivi-commandes'
 import { Search, X, Users, Tag, AlertTriangle } from 'lucide-react'
 

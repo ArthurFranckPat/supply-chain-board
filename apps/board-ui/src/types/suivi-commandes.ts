@@ -67,14 +67,6 @@ export interface SuiviStatusResponse {
   line_level: LineLevelRow[]
 }
 
-/** Comment entry from the comments API. */
-export interface CommentEntry {
-  no_commande: string
-  article: string
-  comment: string
-  updated_at: string
-}
-
 /** Filter state managed in OrderTrackingView. */
 export interface OrderFilterState {
   client: string
