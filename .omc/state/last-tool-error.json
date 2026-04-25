@@ -1,7 +1,0 @@
-{
-  "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"git add -A && git commit -m \\\"cleanup: remove test data and update benchmark to use real ERP extractions\\n\\nConstraint: Test data should not be committed to repo\\nRemoved: data/test_extrac...",
-  "error": "Exit code 1\n(eval):6: unmatched \"",
-  "timestamp": "2026-04-20T19:52:07.685Z",
-  "retry_count": 1
-}

@@ -9,6 +9,12 @@ __pycache__/
 venv/
 .env
 .omx/
+.omc/project-memory.json
+.omc/sessions/
+.omc/state/
+.dev-logs/
+apps/board-ui/.omc/
+services/integration-hub/.omc/
 .run-logs/
 apps/suivi-commandes/comments.db
 
