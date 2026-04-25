@@ -52,6 +52,28 @@ Expected files: `Articles.csv`, `Gammes.csv`, `Nomenclatures.csv`, `Besoins Clie
 
 See `apps/planning-engine/CLAUDE.md` for full column-level documentation.
 
+## Development workflow (solo)
+
+Before every push, lint and tests are checked automatically via a `pre-push` git hook. If either fails, the push is blocked until you fix the issues.
+
+```bash
+# Install the hooks once
+./scripts/install-hooks.sh
+
+# Or manually copy the hook
+cp scripts/githooks/pre-push .git/hooks/pre-push
+chmod +x .git/hooks/pre-push
+```
+
+What the hook runs:
+```bash
+cd apps/planning-engine
+python -m ruff check production_planning/
+python -m pytest tests/ -q
+```
+
+You can bypass the hook in emergencies with `git push --no-verify`, but prefer fixing the root cause.
+
 ## Local setup
 
 Quick path:

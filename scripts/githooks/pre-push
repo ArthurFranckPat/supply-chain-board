@@ -1,0 +1,30 @@
+#!/bin/sh
+# pre-push hook — blocks push if lint or tests fail
+# Install: ./scripts/install-hooks.sh
+
+echo "🔍 Running pre-push checks..."
+
+cd apps/planning-engine || exit 1
+
+# --- Lint ---
+echo "  → ruff check production_planning/"
+python -m ruff check production_planning/
+if [ $? -ne 0 ]; then
+    echo ""
+    echo "❌ Ruff lint failed. Fix errors before pushing."
+    echo "   Run: python -m ruff check production_planning/ --fix"
+    exit 1
+fi
+
+# --- Tests ---
+echo "  → pytest tests/ -q"
+python -m pytest tests/ -q
+if [ $? -ne 0 ]; then
+    echo ""
+    echo "❌ Tests failed. Fix before pushing."
+    exit 1
+fi
+
+echo ""
+echo "✅ All checks passed. Pushing..."
+exit 0
