@@ -91,6 +91,9 @@ def run_schedule(
     progress_callback: Optional[Callable[[str, str, int, int], None]] = None,
     run_id: Optional[str] = None,
     freeze_threshold_hour: float = 12.0,
+    algorithm: str = "greedy",
+    ga_config: Optional[Any] = None,
+    ga_random_seed: Optional[int] = None,
 ) -> SchedulerResult:
     """Run the AUTORESEARCH bootstrap scheduler.
 
@@ -197,25 +200,81 @@ def run_schedule(
 
     schedulers = {line: GenericLineScheduler(line, capacity_hours=line_capacities[line], min_open_hours=line_min_open[line]) for line in target_lines.keys()}
     _progress("computing_schedule", "Calcul du planning", 4, 7)
-    _run_daily_scheduling_loop(
-        SchedulerContext(
+    if algorithm == "greedy":
+        _run_daily_scheduling_loop(
+            SchedulerContext(
+                loader=loader,
+                reference_date=reference_date,
+                workdays=workdays,
+                immediate_components=immediate_components,
+                blocking_components_mode=blocking_components_mode,
+                checker=checker,
+                receptions_by_day=receptions_by_day,
+                material_state=material_state,
+                incoming_buffer=incoming_buffer,
+                projected_buffer=projected_buffer,
+                by_line=by_line,
+                schedulers=schedulers,
+                day_plans=day_plans,
+                alerts=alerts,
+                stock_projection=stock_projection,
+            )
+        )
+    elif algorithm == "ga":
+        from .ga import run_ga_schedule
+        # Construire le seed glouton (Phase 1 : exécuter d'abord le glouton)
+        _run_daily_scheduling_loop(
+            SchedulerContext(
+                loader=loader,
+                reference_date=reference_date,
+                workdays=workdays,
+                immediate_components=immediate_components,
+                blocking_components_mode=blocking_components_mode,
+                checker=checker,
+                receptions_by_day=receptions_by_day,
+                material_state=material_state,
+                incoming_buffer=incoming_buffer,
+                projected_buffer=projected_buffer,
+                by_line=by_line,
+                schedulers=schedulers,
+                day_plans=day_plans,
+                alerts=alerts,
+                stock_projection=stock_projection,
+            )
+        )
+        # Extraire les genes du planning glouton
+        day_to_idx = {d: i for i, d in enumerate(workdays)}
+        seed_genes: dict[str, int] = {}
+        for line, plans in day_plans.items():
+            for plan in plans:
+                day_idx = day_to_idx.get(plan.day, -1)
+                for assignment in plan.assignments:
+                    if assignment.scheduled_day is not None:
+                        seed_genes[assignment.num_of] = day_idx
+        for line, cands in by_line.items():
+            for c in cands:
+                if c.num_of not in seed_genes:
+                    seed_genes[c.num_of] = -1
+        ga_result = run_ga_schedule(
             loader=loader,
             reference_date=reference_date,
             workdays=workdays,
-            immediate_components=immediate_components,
-            blocking_components_mode=blocking_components_mode,
+            candidates=candidates,
+            line_capacities=line_capacities,
+            line_min_open=line_min_open,
+            weights=weights,
+            ga_config=ga_config,
+            random_seed=ga_random_seed,
+            progress_callback=lambda gen, stats: _progress("ga_gen", f"Génération {gen}", gen, 1) if gen else None,
             checker=checker,
             receptions_by_day=receptions_by_day,
-            material_state=material_state,
-            incoming_buffer=incoming_buffer,
-            projected_buffer=projected_buffer,
-            by_line=by_line,
-            schedulers=schedulers,
-            day_plans=day_plans,
-            alerts=alerts,
-            stock_projection=stock_projection,
+            by_line={line: [c.num_of for c in cs] for line, cs in by_line.items()},
+            seed_genes=seed_genes,
         )
-    )
+        # Reconstruire day_plans à partir du résultat AG
+        _rebuild_day_plans_from_ga(day_plans, ga_result.best_planning, workdays, by_line)
+    else:
+        raise ValueError(f"Unknown algorithm: {algorithm}")
 
     _progress("generating_reports", "Génération des rapports", 5, 7)
     plannings = _flatten_plannings(day_plans, target_lines)
@@ -304,6 +363,45 @@ def run_schedule(
         pass  # Non-fatal
 
     return result
+
+
+def _rebuild_day_plans_from_ga(
+    day_plans: dict[str, list[DaySchedule]],
+    ga_planning: Any,
+    workdays: list[date],
+    by_line: dict[str, list[CandidateOF]],
+) -> None:
+    """Reconstruit les DaySchedule à partir du résultat AG.
+
+    Phase 1 : synchronise les CandidateOF déjà mutés par le décodeur AG
+    avec la structure day_plans attendue par la suite du pipeline.
+    """
+    if ga_planning is None:
+        return
+    # Réinitialiser les assignments existants
+    for line, plans in day_plans.items():
+        for plan in plans:
+            plan.assignments = []
+            plan.consumed_hours = 0.0
+    # Repeupler depuis les plannings AG
+    for line, ofs in (ga_planning.plannings or {}).items():
+        if line not in day_plans:
+            continue
+        for c in ofs:
+            if c.scheduled_day is None:
+                continue
+            for plan in day_plans[line]:
+                if plan.day == c.scheduled_day:
+                    plan.assignments.append(c)
+                    break
+    # Synchroniser les OF non planifiés dans by_line
+    unscheduled_nums = {c.num_of for c in (ga_planning.unscheduled or [])}
+    for line, cands in by_line.items():
+        for c in cands:
+            if c.num_of in unscheduled_nums and c.scheduled_day is not None:
+                c.scheduled_day = None
+                c.start_hour = None
+                c.end_hour = None
 
 
 def _flatten_plannings(

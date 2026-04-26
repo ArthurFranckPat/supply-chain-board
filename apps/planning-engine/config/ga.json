@@ -1,0 +1,32 @@
+{
+  "population_size": 100,
+  "max_generations": 200,
+  "elitism_rate": 0.05,
+  "crossover_probability": 0.8,
+  "mutation_probability": 0.15,
+  "tournament_size": 3,
+  "crossover_mix": {
+    "day_block": 0.5,
+    "article_block": 0.3,
+    "uniform": 0.2
+  },
+  "mutation_mix": {
+    "move": 0.4,
+    "swap": 0.3,
+    "inversion": 0.0,
+    "group": 0.2,
+    "shift": 0.1
+  },
+  "seed_greedy_count": 1,
+  "seed_greedy_variants": 9,
+  "seed_random_count": 90,
+  "early_stop_patience": 20,
+  "early_stop_min_delta": 0.001,
+  "component_check_strategy": "full",
+  "full_check_top_k": 5,
+  "setup_cost": 1.0,
+  "late_weight": 5.0,
+  "component_violation_weight": 100.0,
+  "random_seed": null,
+  "workers": 1
+}
