@@ -11,7 +11,7 @@ export interface GridTableColumn<T> {
 interface GridTableProps<T> {
   columns: GridTableColumn<T>[]
   data: T[]
-  keyExtractor: (row: T) => string
+  keyExtractor: (row: T, index: number) => string
   maxHeight?: string
   emptyMessage?: string
   footer?: React.ReactNode
@@ -50,9 +50,9 @@ export function GridTable<T>({
 
       {/* Body */}
       <div className="overflow-y-auto" style={{ maxHeight }}>
-        {data.map(row => (
+        {data.map((row, index) => (
           <div
-            key={keyExtractor(row)}
+            key={keyExtractor(row, index)}
             onClick={onRowClick ? () => onRowClick(row) : undefined}
             className={cn(
               'grid gap-0 divide-x divide-border/60 text-[11px] border-b border-border/40 transition-colors',
