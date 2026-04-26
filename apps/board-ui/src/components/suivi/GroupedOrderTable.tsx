@@ -49,6 +49,8 @@ function DateHeader({ dateKey, count }: { dateKey: string; count: number }) {
 function OrderTableRow({ row }: { row: OrderRow }) {
   const overdue = isOverdue(row['Date expedition'])
   const detail = [row.Emplacement, row.HUM].filter(Boolean).join(' · ')
+  const hasCqAlert = row['_alerte_cq_statut'] === true || row['_allocation_virtuelle_avec_cq'] === true || row['Marqueur CQ'] === '*'
+  const displayedStatus = row.Statut === 'RAS' && hasCqAlert ? 'Action CQ' : row.Statut
 
   return (
     <div
@@ -80,8 +82,18 @@ function OrderTableRow({ row }: { row: OrderRow }) {
       <div className="flex items-center justify-end h-full px-2 py-[3px]">
         <QtyCell restant={row['Quantité restante']} commande={row['Quantité commandée']} />
       </div>
-      <div className={cn('flex flex-col justify-center h-full px-2 py-[3px] text-[10px]', statusClass(row.Statut))}>
-        <span>{row.Statut}</span>
+      <div className={cn('flex flex-col justify-center h-full px-2 py-[3px] text-[10px]', statusClass(displayedStatus))}>
+        <span className="inline-flex items-start gap-1">
+          <span>{displayedStatus}</span>
+          {hasCqAlert && (
+            <span
+              className="text-[9px] leading-none text-amber-600/90 -translate-y-[1px] cursor-help"
+              title="Cette ligne dépend du stock sous contrôle qualité (allocation ou expédition) — accélération CQ requise."
+            >
+              CQ
+            </span>
+          )}
+        </span>
         {row['Cause retard'] && (
           <span className="text-[9px] text-red-500/80 truncate max-w-[200px]" title={row['Cause retard']}>
             {row['Cause retard']}

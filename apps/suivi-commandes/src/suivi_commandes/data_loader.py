@@ -1,39 +1,78 @@
+from __future__ import annotations
+
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-import pandas as pd
+from erp_data_access.loaders import DataLoader
 
-
-def load_data(extractions_dir: Path | str | None = None) -> pd.DataFrame:
-    """Load data from ERP extractions via the shared erp-data-access package.
-
-    Parameters
-    ----------
-    extractions_dir : Path | str | None
-        Path to the ERP extractions directory. Falls back to
-        ``ORDO_EXTRACTIONS_DIR`` env var or the configured default.
-
-    Returns
-    -------
-    pd.DataFrame
-        DataFrame with SUIVCDE-style French column names.
-    """
-    from erp_data_access.loaders import DataLoader
-    from erp_data_access.transformers.suivcde_builder import build_suivcde_dataframe
-
-    loader = DataLoader.from_extractions(extractions_dir)
-    return build_suivcde_dataframe(loader)
+from suivi_commandes.domain.models import OrderLine, TypeCommande, Emplacement
+from suivi_commandes.infrastructure.mappers import SuivcdeMapper
+if TYPE_CHECKING:
+    from erp_data_access.protocols import DataReader
 
 
-def load_data_with_loader(extractions_dir: Path | str | None = None):
-    """Load data and return both the DataFrame and the DataLoader.
+def load_order_lines(extractions_dir: Path | str | None = None) -> tuple[list[OrderLine], "DataReader"]:
+    """Charge les commandes clients depuis l'ERP et les mappe en OrderLine.
 
     Returns
     -------
-    tuple[pd.DataFrame, DataLoader]
+    tuple[list[OrderLine], DataReader]
+        Lignes de commande typées + reader pour enrichissements futurs.
     """
-    from erp_data_access.loaders import DataLoader
-    from erp_data_access.transformers.suivcde_builder import build_suivcde_dataframe
-
     loader = DataLoader.from_extractions(extractions_dir)
-    df = build_suivcde_dataframe(loader)
-    return df, loader
+    mapper = SuivcdeMapper(loader)
+    lines = mapper.to_order_lines(firm_orders_only=True)
+    return lines, loader
+
+
+def rows_to_order_lines(rows: list[dict]) -> list[OrderLine]:
+    """Convertit des rows JSON/dict (endpoint /status/assign) en OrderLine.
+
+    Permet au endpoint legacy de bénéficier de la logique de domaine pure.
+    """
+    lines: list[OrderLine] = []
+    for row in rows:
+        type_str = str(row.get("Type commande", "MTO")).upper()
+        type_cmd = TypeCommande.MTS if type_str == "MTS" else TypeCommande.MTO if type_str == "MTO" else TypeCommande.NOR
+
+        # Emplacement parsing (peut être une string séparée par des virgules)
+        emplacements: list[Emplacement] = []
+        emp_raw = row.get("Emplacement")
+        if emp_raw:
+            for nom in str(emp_raw).split(","):
+                nom = nom.strip()
+                if nom:
+                    emplacements.append(Emplacement(nom=nom))
+
+        from datetime import date
+
+        def _parse_date(val):
+            if val is None or val == "":
+                return None
+            if isinstance(val, date):
+                return val
+            from datetime import datetime
+            try:
+                return datetime.strptime(str(val)[:10], "%Y-%m-%d").date()
+            except (ValueError, TypeError):
+                return None
+
+        line = OrderLine(
+            num_commande=str(row.get("No commande", "")),
+            article=str(row.get("Article", "")),
+            designation=str(row.get("Désignation 1", "")),
+            nom_client=str(row.get("Nom client commande", "")),
+            type_commande=type_cmd,
+            date_expedition=_parse_date(row.get("Date expedition")),
+            date_liv_prevue=_parse_date(row.get("Date liv prévue")),
+            qte_commandee=float(row.get("Quantité commandée", 0) or 0),
+            qte_allouee=float(row.get("Qté allouée", 0) or 0),
+            qte_restante=float(row.get("Quantité restante", 0) or 0),
+            is_fabrique=bool(row.get("_is_fabrique", False)),
+            is_hard_pegged=bool(row.get("_is_hard_pegged", False)),
+            emplacements=emplacements,
+        )
+        lines.append(line)
+    return lines
+
+

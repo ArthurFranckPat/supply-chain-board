@@ -18,6 +18,7 @@ export function statusClass(statut: string): string {
   if (statut === 'Retard Prod') return 'text-red-600 font-bold'
   if (statut === 'A Exp\u00e9dier') return 'text-emerald-600 font-bold'
   if (statut === 'Allocation \u00e0 faire') return 'text-sky-600 font-bold'
+  if (statut === 'Action CQ') return 'text-amber-700 font-bold'
   return 'text-muted-foreground'
 }
 
@@ -58,6 +59,12 @@ export interface OrderRow {
   'Besoin cumul\u00e9'?: number | null
   'Allocation possible'?: boolean | null
   'Allocation \u00e0 faire'?: boolean | null
+  'Qt\u00e9 allou\u00e9e virtuelle'?: number | null
+  '_qte_allouee_virtuelle_stricte'?: number | null
+  '_qte_allouee_virtuelle_cq'?: number | null
+  '_allocation_virtuelle_avec_cq'?: boolean | null
+  '_alerte_cq_statut'?: boolean | null
+  'Marqueur CQ'?: string | null
   'Jours ouvr\u00e9s avant exp'?: number | null
   Commentaire?: string | null
   'Cause retard'?: string | null

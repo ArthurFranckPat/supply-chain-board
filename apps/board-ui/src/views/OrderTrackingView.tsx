@@ -68,6 +68,11 @@ export function OrderTrackingView({ data, loadState, onReload }: OrderTrackingVi
     return result
   }, [data, filters])
 
+  const cqAlertCount = useMemo(
+    () => filteredRows.filter((r) => r['_alerte_cq_statut'] === true || r['_allocation_virtuelle_avec_cq'] === true).length,
+    [filteredRows],
+  )
+
   if (loadState === 'loading') {
     return <LoadingInline label="des commandes" />
   }
@@ -167,6 +172,14 @@ export function OrderTrackingView({ data, loadState, onReload }: OrderTrackingVi
               </span>
             )
           })}
+          <span className="text-border">|</span>
+          <span
+            className="flex items-center gap-1 text-amber-700"
+            title="Lignes dépendantes du stock sous contrôle qualité (allocation virtuelle ou expédition)."
+          >
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500" />
+            CQ: <span className="font-mono font-semibold text-foreground tabular-nums">{cqAlertCount}</span>
+          </span>
         </div>
       </div>
     </div>

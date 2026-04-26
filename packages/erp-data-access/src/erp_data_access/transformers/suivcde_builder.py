@@ -40,6 +40,7 @@ class SUIVCDEColumnMapping:
     qte_livree: str = "Quantité livrée"
     stock_physique: str = "Stock interne 'A'"
     stock_alloue: str = "Alloué interne 'A'"
+    stock_sous_cq: str = "Stock sous CQ"
     poste_charge: str = "Poste de charge"
     cadence: str = "Cadence"
 
@@ -138,6 +139,7 @@ def build_suivcde_dataframe(
             mapping.qte_livree: qte_livree,
             mapping.stock_physique: stock.stock_physique if stock else 0,
             mapping.stock_alloue: stock.stock_alloue if stock else 0,
+            mapping.stock_sous_cq: stock.stock_sous_cq if stock else 0,
             mapping.poste_charge: poste_charge,
             mapping.cadence: cadence,
             "_is_fabrique": is_fabrique,
