@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from erp_data_access.loaders import DataLoader
+    from erp_data_access.models.of import OF
 
 
 def _get_of_allocations(loader: "DataLoader", of_num: str) -> dict[str, float]:

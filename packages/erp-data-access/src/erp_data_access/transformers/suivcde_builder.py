@@ -18,7 +18,6 @@ import pandas as pd
 from ..models.gamme import Gamme
 from ..models.stock import Stock
 from ..protocols import OrderReader, StockReader, GammeReader
-from ..models.of import OF
 from ..models.besoin_client import TypeCommande
 
 
