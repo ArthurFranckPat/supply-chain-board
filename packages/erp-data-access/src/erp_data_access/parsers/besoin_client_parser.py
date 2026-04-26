@@ -31,6 +31,8 @@ def parse_besoin_client(row: dict) -> BesoinClient:
     qte_allouee = parse_int(row.get("QTE_ALLOUEE", 0))
     qte_rest_fabrication = parse_int(row.get("QTE_RESTANTE_FABRICATION", 0))
     qte_restante = max(qte_rest_fabrication, 0)
+    qte_rest_livraison = parse_int(row.get("QTE_RESTANTE_LIVRAISON", 0))
+    qte_restante_livraison = max(qte_rest_livraison, 0)
 
     return BesoinClient(
         nom_client=to_str(row.get("NOM_FOURNISSEUR_OU_CLIENT", "")).strip(),
@@ -48,4 +50,5 @@ def parse_besoin_client(row: dict) -> BesoinClient:
         qte_commandee=qte_commandee,
         qte_allouee=qte_allouee,
         qte_restante=qte_restante,
+        qte_restante_livraison=qte_restante_livraison,
     )

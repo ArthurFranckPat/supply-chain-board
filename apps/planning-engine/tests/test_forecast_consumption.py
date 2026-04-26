@@ -13,6 +13,7 @@ class TestConsumeForecastsByArticle:
         """Test: Prévisions entièrement consommées par les commandes."""
         besoins = [
             BesoinClient(
+
                 nom_client="Client A",
                 code_pays="FR",
                 type_commande=TypeCommande.NOR,
@@ -28,8 +29,10 @@ class TestConsumeForecastsByArticle:
                 qte_commandee=1200,
                 qte_allouee=0,
                 qte_restante=1200,
+                qte_restante_livraison=100,
             ),
             BesoinClient(
+
                 nom_client="Client A",
                 code_pays="FR",
                 type_commande=TypeCommande.NOR,
@@ -45,6 +48,7 @@ class TestConsumeForecastsByArticle:
                 qte_commandee=720,
                 qte_allouee=0,
                 qte_restante=720,
+                qte_restante_livraison=100,
             ),
         ]
 
@@ -65,6 +69,7 @@ class TestConsumeForecastsByArticle:
         """Test: Prévisions partiellement consommées."""
         besoins = [
             BesoinClient(
+
                 nom_client="Client A",
                 code_pays="FR",
                 type_commande=TypeCommande.NOR,
@@ -80,8 +85,10 @@ class TestConsumeForecastsByArticle:
                 qte_commandee=500,
                 qte_allouee=0,
                 qte_restante=500,
+                qte_restante_livraison=100,
             ),
             BesoinClient(
+
                 nom_client="Client B",
                 code_pays="FR",
                 type_commande=TypeCommande.NOR,
@@ -97,6 +104,7 @@ class TestConsumeForecastsByArticle:
                 qte_commandee=1000,
                 qte_allouee=0,
                 qte_restante=1000,
+                qte_restante_livraison=100,
             ),
         ]
 
@@ -114,6 +122,7 @@ class TestConsumeForecastsByArticle:
         """Test: Pas de consommation (pas de commandes)."""
         besoins = [
             BesoinClient(
+
                 nom_client="Client A",
                 code_pays="FR",
                 type_commande=TypeCommande.NOR,
@@ -129,6 +138,7 @@ class TestConsumeForecastsByArticle:
                 qte_commandee=500,
                 qte_allouee=0,
                 qte_restante=500,
+                qte_restante_livraison=100,
             ),
         ]
 
@@ -144,6 +154,7 @@ class TestConsumeForecastsByArticle:
         besoins = [
             # Article 1: Commande > Prévision
             BesoinClient(
+
                 nom_client="Client A",
                 code_pays="FR",
                 type_commande=TypeCommande.NOR,
@@ -159,8 +170,10 @@ class TestConsumeForecastsByArticle:
                 qte_commandee=1000,
                 qte_allouee=0,
                 qte_restante=1000,
+                qte_restante_livraison=100,
             ),
             BesoinClient(
+
                 nom_client="Client A",
                 code_pays="FR",
                 type_commande=TypeCommande.NOR,
@@ -176,9 +189,11 @@ class TestConsumeForecastsByArticle:
                 qte_commandee=500,
                 qte_allouee=0,
                 qte_restante=500,
+                qte_restante_livraison=100,
             ),
             # Article 2: Prévision > Commande
             BesoinClient(
+
                 nom_client="Client B",
                 code_pays="FR",
                 type_commande=TypeCommande.NOR,
@@ -194,8 +209,10 @@ class TestConsumeForecastsByArticle:
                 qte_commandee=200,
                 qte_allouee=0,
                 qte_restante=200,
+                qte_restante_livraison=100,
             ),
             BesoinClient(
+
                 nom_client="Client B",
                 code_pays="FR",
                 type_commande=TypeCommande.NOR,
@@ -211,6 +228,7 @@ class TestConsumeForecastsByArticle:
                 qte_commandee=800,
                 qte_allouee=0,
                 qte_restante=800,
+                qte_restante_livraison=100,
             ),
         ]
 
@@ -238,6 +256,7 @@ class TestConsumeForecastsByArticle:
         """Test: Uniquement des commandes, pas de prévisions."""
         besoins = [
             BesoinClient(
+
                 nom_client="Client A",
                 code_pays="FR",
                 type_commande=TypeCommande.NOR,
@@ -253,6 +272,7 @@ class TestConsumeForecastsByArticle:
                 qte_commandee=500,
                 qte_allouee=0,
                 qte_restante=500,
+                qte_restante_livraison=100,
             ),
         ]
 

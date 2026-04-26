@@ -11,6 +11,7 @@ class TestBesoinClientCountryMethods:
     def test_est_france_true(self):
         """Test: Client France est correctement identifié."""
         besoin = BesoinClient(
+
             nom_client="Client FR",
             code_pays="FR",
             type_commande=TypeCommande.NOR,
@@ -26,6 +27,7 @@ class TestBesoinClientCountryMethods:
             qte_commandee=100,
             qte_allouee=0,
             qte_restante=100,
+            qte_restante_livraison=100,
         )
 
         assert besoin.est_france() is True
@@ -34,6 +36,7 @@ class TestBesoinClientCountryMethods:
     def test_est_export_true(self):
         """Test: Client Export est correctement identifié."""
         besoin = BesoinClient(
+
             nom_client="Client DE",
             code_pays="DE",
             type_commande=TypeCommande.NOR,
@@ -49,6 +52,7 @@ class TestBesoinClientCountryMethods:
             qte_commandee=100,
             qte_allouee=0,
             qte_restante=100,
+            qte_restante_livraison=100,
         )
 
         assert besoin.est_france() is False
@@ -60,6 +64,7 @@ class TestBesoinClientCountryMethods:
 
         for country in countries:
             besoin = BesoinClient(
+
                 nom_client=f"Client {country}",
                 code_pays=country,
                 type_commande=TypeCommande.NOR,
@@ -75,6 +80,7 @@ class TestBesoinClientCountryMethods:
                 qte_commandee=100,
                 qte_allouee=0,
                 qte_restante=100,
+                qte_restante_livraison=100,
             )
 
             assert besoin.est_france() is False

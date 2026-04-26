@@ -34,6 +34,7 @@ def _make_commande(num_commande, article, date_exp, qte_restante=100,
                    type_commande=TypeCommande.NOR, of_contremarque="",
                    nature_besoin=NatureBesoin.COMMANDE):
     return BesoinClient(
+
         nom_client="Client Test",
         code_pays="FR",
         type_commande=type_commande,
@@ -49,6 +50,7 @@ def _make_commande(num_commande, article, date_exp, qte_restante=100,
         qte_commandee=qte_restante,
         qte_allouee=0,
         qte_restante=qte_restante,
+        qte_restante_livraison=qte_restante,
     )
 
 

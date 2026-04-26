@@ -11,6 +11,7 @@ class TestBesoinClient:
     def test_besoin_client_mts(self):
         """Test la création d'un BesoinClient MTS."""
         besoin = BesoinClient(
+
             code_pays="FR",
             nom_client="ALDES",
             type_commande=TypeCommande.MTS,
@@ -26,6 +27,7 @@ class TestBesoinClient:
             qte_commandee=720,
             qte_allouee=0,
             qte_restante=720,
+            qte_restante_livraison=100,
         )
 
         assert besoin.is_mts()
@@ -38,6 +40,7 @@ class TestBesoinClient:
     def test_besoin_client_nor(self):
         """Test la création d'un BesoinClient NOR."""
         besoin = BesoinClient(
+
             nom_client="AERECO",
             code_pays="DE",
             type_commande=TypeCommande.NOR,
@@ -53,6 +56,7 @@ class TestBesoinClient:
             qte_commandee=36,
             qte_allouee=0,
             qte_restante=36,
+            qte_restante_livraison=100,
         )
 
         assert not besoin.is_mts()
@@ -64,6 +68,7 @@ class TestBesoinClient:
     def test_besoin_client_mto(self):
         """Test la création d'un BesoinClient MTO."""
         besoin = BesoinClient(
+
             nom_client="ALDES",
             code_pays="FR",
             type_commande=TypeCommande.MTO,
@@ -79,6 +84,7 @@ class TestBesoinClient:
             qte_commandee=100,
             qte_allouee=50,
             qte_restante=50,
+            qte_restante_livraison=100,
         )
 
         assert not besoin.is_mts()
@@ -88,6 +94,7 @@ class TestBesoinClient:
     def test_besoin_client_prevision(self):
         """Test la création d'un BesoinClient de type prévision."""
         besoin = BesoinClient(
+
             nom_client="EXPORT CLIENT",
             code_pays="DE",
             type_commande=TypeCommande.NOR,
@@ -103,6 +110,7 @@ class TestBesoinClient:
             qte_commandee=500,
             qte_allouee=0,
             qte_restante=500,
+            qte_restante_livraison=100,
         )
 
         assert not besoin.is_mts()
@@ -247,6 +255,7 @@ class TestBesoinClient:
     def test_repr(self):
         """Test la représentation textuelle."""
         besoin = BesoinClient(
+
             nom_client="ALDES",
             code_pays="FR",
             type_commande=TypeCommande.MTS,
@@ -262,6 +271,7 @@ class TestBesoinClient:
             qte_commandee=720,
             qte_allouee=0,
             qte_restante=720,
+            qte_restante_livraison=100,
         )
 
         repr_str = repr(besoin)
@@ -274,6 +284,7 @@ class TestBesoinClient:
     def test_repr_without_of_link(self):
         """Test la représentation sans OF lié."""
         besoin = BesoinClient(
+
             nom_client="AERECO",
             code_pays="DE",
             type_commande=TypeCommande.NOR,
@@ -289,6 +300,7 @@ class TestBesoinClient:
             qte_commandee=36,
             qte_allouee=0,
             qte_restante=36,
+            qte_restante_livraison=100,
         )
 
         repr_str = repr(besoin)

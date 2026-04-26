@@ -32,6 +32,7 @@ def _make_besoin(
     nature_besoin: NatureBesoin,
 ) -> BesoinClient:
     return BesoinClient(
+
         nom_client="CLIENT",
         code_pays="FR",
         type_commande=type_commande,
@@ -47,6 +48,7 @@ def _make_besoin(
         qte_commandee=10,
         qte_allouee=0,
         qte_restante=10,
+        qte_restante_livraison=100,
     )
 
 

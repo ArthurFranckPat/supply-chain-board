@@ -8,8 +8,6 @@ function formatCurrency(value: number): string {
 
 export function OrderKpiBar({ rows, statusCounts }: { rows: OrderRow[]; statusCounts: Record<string, number> }) {
   const commandes = new Set(rows.map((r) => r['No commande'])).size
-  const qteRestante = rows.reduce((s, r) => s + (r['Quantité restante'] ?? 0), 0)
-  const qteLivre = rows.reduce((s, r) => s + (r['Quantité livrée'] ?? 0), 0)
   const retardProd = statusCounts['Retard Prod'] ?? 0
   const caRestant = rows.reduce(
     (s, r) => s + ((r['Prix brut'] ?? 0) * (r['Quantité restante'] ?? 0)),
@@ -19,8 +17,6 @@ export function OrderKpiBar({ rows, statusCounts }: { rows: OrderRow[]; statusCo
   const kpis = [
     { label: 'Commandes', value: commandes },
     { label: 'Lignes', value: rows.length },
-    { label: 'Restant', value: qteRestante.toLocaleString('fr-FR') },
-    { label: 'Livré', value: qteLivre.toLocaleString('fr-FR') },
     { label: 'Retard', value: retardProd, danger: retardProd > 0 },
     { label: 'CA restant', value: formatCurrency(caRestant) },
   ]

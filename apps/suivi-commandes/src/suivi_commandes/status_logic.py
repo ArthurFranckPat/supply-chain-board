@@ -50,6 +50,9 @@ def build_line_level_frame(df: pd.DataFrame) -> pd.DataFrame:
     )
     work["_date_liv_prevue"] = get_series(work, "Date liv prévue", pd.NaT)
     work["_emplacement"] = get_series(work, "Emplacement", "")
+    work["_type_commande"] = get_series(work, "Type commande", "")
+    work["_is_fabrique"] = get_series(work, "_is_fabrique", False)
+    work["_is_hard_pegged"] = get_series(work, "_is_hard_pegged", False)
 
     # Regroupe les sous-lignes d'emplacement pour raisonner au niveau ligne métier.
     line_level = (
@@ -64,6 +67,9 @@ def build_line_level_frame(df: pd.DataFrame) -> pd.DataFrame:
                 "_qte_allouee": ("_qte_allouee", "max"),
                 "_reliquat": ("_reliquat", "max"),
                 "_stock_libre_ligne": ("_stock_libre_ligne", "max"),
+                "_type_commande": ("_type_commande", "first"),
+                "_is_fabrique": ("_is_fabrique", "first"),
+                "_is_hard_pegged": ("_is_hard_pegged", "first"),
                 "_en_zone_expe": (
                     "_emplacement",
                     lambda values: values.fillna("")
@@ -94,6 +100,7 @@ def assign_statuses(df: pd.DataFrame, today: pd.Timestamp | None = None) -> pd.D
     work = build_line_keys(df)
     line_level = build_line_level_frame(df)
 
+    # Sort by priority for sequential allocation
     sort_columns = [
         column
         for column in ["Date expedition", "Date liv prévue", "No commande", "_row_order"]
@@ -105,37 +112,68 @@ def assign_statuses(df: pd.DataFrame, today: pd.Timestamp | None = None) -> pd.D
         na_position="last",
         kind="stable",
     )
-    line_level["Besoin cumulé"] = line_level.groupby("Article")["Besoin ligne"].cumsum()
-    line_level["Allocation possible"] = (
-        (line_level["Besoin ligne"] > 0)
-        & (line_level["Besoin cumulé"] <= line_level["Stock libre article"])
-    )
-    line_level["Allocation à faire"] = (
-        line_level["Allocation possible"]
-        | ((line_level["Besoin ligne"] > 0) & line_level["_en_zone_expe"])
-    )
-    line_level["Jours ouvrés avant exp"] = line_level["Date expedition"].apply(
-        lambda date_value: business_days_until(date_value, reference_date)
-    )
 
-    line_level["Statut"] = np.select(
-        [
-            line_level["Besoin ligne"] <= 0,
-            line_level["Allocation à faire"],
-            (line_level["Date expedition"] < reference_date)
-            & ~line_level["_en_zone_expe"],
-            (line_level["Date expedition"] > reference_date)
-            & (line_level["Jours ouvrés avant exp"] <= 2)
-            & ~line_level["_en_zone_expe"],
-        ],
-        [
-            "A Livrer",
-            "Allocation à faire",
-            "Retard Prod",
-            "Horizon MAD aux Expé",
-        ],
-        default="RAS",
-    )
+    # Initialize virtual stock per article
+    stock_virtuel = {}
+    for article in line_level["Article"].unique():
+        stock_virtuel[article] = line_level[line_level["Article"] == article]["_stock_libre_ligne"].iloc[0]
+
+    # Sequential allocation
+    couvert = []
+    for _, row in line_level.iterrows():
+        article = row["Article"]
+        besoin_net = max(0, row["_reliquat"] - row["_qte_allouee"])
+
+        if besoin_net <= 0:
+            couvert.append(True)
+            continue
+
+        # MTS fabricated: no stock allocation, check hard-pegging only
+        if row["_type_commande"] == "MTS" and row["_is_fabrique"]:
+            couvert.append(bool(row["_is_hard_pegged"]))
+            continue
+
+        # NOR/MTO (and MTS purchase): virtual stock allocation
+        qte_allouee_virt = min(besoin_net, stock_virtuel[article])
+        stock_virtuel[article] -= qte_allouee_virt
+        couvert.append(qte_allouee_virt >= besoin_net)
+
+    line_level["_couvert"] = couvert
+
+    # Assign statuses — operational action + urgency
+    statuts = []
+    for _, row in line_level.iterrows():
+        besoin_net = max(0, row["_reliquat"] - row["_qte_allouee"])
+
+        if besoin_net <= 0:
+            statuts.append("A Expédier")
+            continue
+
+        # MTS fabriqué : pas d'allocation virtuelle. Statut = action réelle dans l'ERP
+        if row["_type_commande"] == "MTS" and row["_is_fabrique"]:
+            if row["Date expedition"] < reference_date and not row["_en_zone_expe"]:
+                statuts.append("Retard Prod")
+            else:
+                statuts.append("RAS")
+            continue
+
+        # MTS achat (non fabriqué) : pas d'allocation virtuelle non plus
+        if row["_type_commande"] == "MTS":
+            if row["Date expedition"] < reference_date and not row["_en_zone_expe"]:
+                statuts.append("Retard Prod")
+            else:
+                statuts.append("RAS")
+            continue
+
+        # NOR/MTO : allocation virtuelle
+        if row["_couvert"]:
+            statuts.append("Allocation à faire")
+        elif row["Date expedition"] < reference_date and not row["_en_zone_expe"]:
+            statuts.append("Retard Prod")
+        else:
+            statuts.append("RAS")
+
+    line_level["Statut"] = statuts
 
     status_by_line = line_level.set_index("_line_key")["Statut"]
     result = work.copy()

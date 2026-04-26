@@ -1,26 +1,23 @@
 /** Status values assigned by the suivi-commandes backend. */
 export type SuiviStatus =
-  | 'A Livrer'
+  | 'A Exp\u00e9dier'
   | 'Allocation \u00e0 faire'
   | 'Retard Prod'
-  | 'Horizon MAD aux Exp\u00e9'
   | 'RAS'
 
 /** Mapping from status string to Pill tone for the UI. */
-export const STATUS_TONE_MAP: Record<string, 'good' | 'primary' | 'danger' | 'warn' | 'default'> = {
-  'A Livrer': 'good',
+export const STATUS_TONE_MAP: Record<string, 'good' | 'primary' | 'danger' | 'default'> = {
+  'A Exp\u00e9dier': 'good',
   'Allocation \u00e0 faire': 'primary',
   'Retard Prod': 'danger',
-  'Horizon MAD aux Exp\u00e9': 'warn',
   RAS: 'default',
 }
 
 /** Tailwind classes for a given status. */
 export function statusClass(statut: string): string {
   if (statut === 'Retard Prod') return 'text-red-600 font-bold'
-  if (statut === 'A Livrer') return 'text-emerald-600 font-bold'
+  if (statut === 'A Exp\u00e9dier') return 'text-emerald-600 font-bold'
   if (statut === 'Allocation \u00e0 faire') return 'text-sky-600 font-bold'
-  if (statut === 'Horizon MAD aux Exp\u00e9') return 'text-amber-600 font-bold'
   return 'text-muted-foreground'
 }
 
@@ -63,6 +60,7 @@ export interface OrderRow {
   'Allocation \u00e0 faire'?: boolean | null
   'Jours ouvr\u00e9s avant exp'?: number | null
   Commentaire?: string | null
+  'Cause retard'?: string | null
 }
 
 /** Line-level aggregated row for delay depth analysis. */
@@ -86,16 +84,13 @@ export interface SuiviStatusResponse {
 
 /** Filter state managed in OrderTrackingView. */
 export interface OrderFilterState {
-  client: string
-  orderSearch: string
-  articleSearch: string
+  search: string
   typesCommande: string[]
   statuts: string[]
 }
 
 /** Available options extracted from the raw data for filter dropdowns. */
 export interface FilterOptions {
-  clients: string[]
   typesCommande: string[]
   statuts: string[]
 }

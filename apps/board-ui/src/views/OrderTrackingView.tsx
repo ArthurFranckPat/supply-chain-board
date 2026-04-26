@@ -4,22 +4,20 @@ import type { OrderFilterState, FilterOptions, SuiviStatusResponse } from '@/typ
 import { OrderFilters } from '@/components/suivi/OrderFilters'
 import { OrderKpiBar } from '@/components/suivi/OrderKpiBar'
 import { GroupedOrderTable } from '@/components/suivi/GroupedOrderTable'
-import { ByClientTab } from '@/components/suivi/ByClientTab'
-import { ByEtatTab } from '@/components/suivi/ByEtatTab'
 import { ExportBar } from '@/components/suivi/ExportBar'
+import { RetardChargeChart } from '@/components/suivi/RetardChargeChart'
+import { PaletteView } from '@/components/suivi/PaletteView'
 
 const DEFAULT_FILTERS: OrderFilterState = {
-  client: '__all__',
-  orderSearch: '',
-  articleSearch: '',
+  search: '',
   typesCommande: [],
   statuts: [],
 }
 
 const TABS = [
-  { k: 'commandes', label: 'Commandes' },
-  { k: 'par-client', label: 'Par Client' },
-  { k: 'par-etat', label: 'Par Statut' },
+  { k: 'commandes', label: 'Carnet de commandes' },
+  { k: 'retard', label: 'Analyse Retard' },
+  { k: 'logistique', label: 'Logistique' },
 ]
 
 interface OrderTrackingViewProps {
@@ -33,23 +31,41 @@ export function OrderTrackingView({ data, loadState, onReload }: OrderTrackingVi
   const [activeTab, setActiveTab] = useState('commandes')
 
   const options: FilterOptions = useMemo(() => {
-    if (!data) return { clients: [], typesCommande: [], statuts: [] }
-    const clients = [...new Set(data.rows.map((r) => r['Nom client commande']))].sort()
+    if (!data) return { typesCommande: [], statuts: [] }
     const typesCommande = [...new Set(data.rows.map((r) => r['Type commande']))].filter(Boolean).sort()
     const statuts = Object.keys(data.status_counts).sort()
-    return { clients, typesCommande, statuts }
+    return { typesCommande, statuts }
   }, [data])
 
   const filteredRows = useMemo(() => {
     if (!data) return []
-    return data.rows.filter((r) => {
-      if (filters.client !== '__all__' && r['Nom client commande'] !== filters.client) return false
-      if (filters.orderSearch && !r['No commande'].toLowerCase().includes(filters.orderSearch.toLowerCase())) return false
-      if (filters.articleSearch && !r.Article.toLowerCase().includes(filters.articleSearch.toLowerCase())) return false
+    const q = filters.search.trim().toLowerCase()
+    const result = data.rows.filter((r) => {
+      if (q) {
+        const words = q.split(/\s+/).filter(Boolean)
+
+        // Single word that looks like an identifier (no spaces) → exact prefix match on id fields only
+        if (words.length === 1) {
+          const w = words[0]
+          if (r['No commande'].toLowerCase().startsWith(w)) return true
+          if (r.Article.toLowerCase().startsWith(w)) return true
+          return false
+        }
+
+        // Multi-word → match all words anywhere (commande, article, description, client)
+        const haystack = [
+          r['No commande'],
+          r.Article,
+          r['Désignation 1'] ?? '',
+          r['Nom client commande'],
+        ].join(' ').toLowerCase()
+        return words.every((word) => haystack.includes(word))
+      }
       if (filters.typesCommande.length > 0 && !filters.typesCommande.includes(r['Type commande'])) return false
       if (filters.statuts.length > 0 && !filters.statuts.includes(r.Statut)) return false
       return true
     })
+    return result
   }, [data, filters])
 
   if (loadState === 'loading') {
@@ -118,26 +134,40 @@ export function OrderTrackingView({ data, loadState, onReload }: OrderTrackingVi
 
         <div>
           {activeTab === 'commandes' && <GroupedOrderTable rows={filteredRows} />}
-          {activeTab === 'par-client' && (
-            <div className="p-2">
-              <ByClientTab rows={filteredRows} />
+          {activeTab === 'retard' && (
+            <div className="p-4">
+              <RetardChargeChart />
             </div>
           )}
-          {activeTab === 'par-etat' && (
-            <div className="p-2">
-              <ByEtatTab rows={filteredRows} />
-            </div>
-          )}
+          {activeTab === 'logistique' && <PaletteView />}
         </div>
       </div>
 
-      <div className="flex items-center gap-2 text-[11px] text-muted-foreground px-1">
-        <span>{filteredRows.length} ligne{filteredRows.length !== 1 ? 's' : ''}</span>
-        <span>|</span>
-        <span>{new Set(filteredRows.map((r) => r['No commande'])).size} commandes</span>
-        {Object.entries(data.status_counts).map(([status, count]) => (
-          <span key={status} className={status === 'Retard Prod' ? 'text-destructive font-semibold' : ''}>{status}: {count}</span>
-        ))}
+      <div className="flex items-center justify-between px-3 py-1.5 bg-muted/30 border-t border-border text-[10px]">
+        <div className="flex items-center gap-3">
+          <span className="text-muted-foreground">
+            <span className="font-mono font-bold text-foreground tabular-nums">{filteredRows.length}</span> lignes
+          </span>
+          <span className="text-border">|</span>
+          <span className="text-muted-foreground">
+            <span className="font-mono font-bold text-foreground tabular-nums">{new Set(filteredRows.map((r) => r['No commande'])).size}</span> commandes
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          {Object.entries(data.status_counts).map(([status, count]) => {
+            const colorDot =
+              status === 'Retard Prod' ? 'bg-red-500' :
+              status === 'Allocation à faire' ? 'bg-sky-500' :
+              status === 'A Expédier' ? 'bg-emerald-500' :
+              'bg-slate-400'
+            return (
+              <span key={status} className="flex items-center gap-1 text-muted-foreground">
+                <span className={`inline-block w-1.5 h-1.5 rounded-full ${colorDot}`} />
+                {status}: <span className="font-mono font-semibold text-foreground tabular-nums">{count}</span>
+              </span>
+            )
+          })}
+        </div>
       </div>
     </div>
   )

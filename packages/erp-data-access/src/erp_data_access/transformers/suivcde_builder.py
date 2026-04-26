@@ -18,6 +18,8 @@ import pandas as pd
 from ..models.gamme import Gamme
 from ..models.stock import Stock
 from ..protocols import OrderReader, StockReader, GammeReader
+from ..models.of import OF
+from ..models.besoin_client import TypeCommande
 
 
 @dataclass
@@ -59,6 +61,21 @@ _IGNORED_COLUMNS: list[str] = [
 ]
 
 
+def _is_hard_pegged(data_loader, num_commande: str, article: str) -> bool:
+    """True si un OF lié à la commande existe avec méthode OF."""
+    ofs = data_loader.get_ofs_by_origin(num_commande, article)
+    if not ofs:
+        return False
+    for of in ofs:
+        if (
+            str(of.methode_obtention_livraison).strip().lower() == "ordre de fabrication"
+            and of.qte_restante > 0
+            and of.statut_num in (1, 2, 3)
+        ):
+            return True
+    return False
+
+
 def build_suivcde_dataframe(
     data_loader: OrderReader & StockReader & GammeReader,
     *,
@@ -98,7 +115,16 @@ def build_suivcde_dataframe(
             poste_charge = first_op.poste_charge
             cadence = first_op.cadence
 
-        qte_livree = besoin.qte_commandee - besoin.qte_restante
+        qte_livree = besoin.qte_commandee - besoin.qte_restante_livraison
+
+        # Type article et hard-pegging
+        article_obj = data_loader.get_article(besoin.article)
+        is_fabrique = article_obj.is_fabrication() if article_obj else False
+        hard_pegged = (
+            _is_hard_pegged(data_loader, besoin.num_commande, besoin.article)
+            if besoin.type_commande == TypeCommande.MTS and is_fabrique
+            else False
+        )
 
         row = {
             mapping.no_commande: besoin.num_commande,
@@ -109,12 +135,14 @@ def build_suivcde_dataframe(
             mapping.date_expedition: besoin.date_expedition_demandee,
             mapping.qte_commandee: besoin.qte_commandee,
             mapping.qte_allouee: besoin.qte_allouee,
-            mapping.qte_restante: besoin.qte_restante,
+            mapping.qte_restante: besoin.qte_restante_livraison,
             mapping.qte_livree: qte_livree,
             mapping.stock_physique: stock.stock_physique if stock else 0,
             mapping.stock_alloue: stock.stock_alloue if stock else 0,
             mapping.poste_charge: poste_charge,
             mapping.cadence: cadence,
+            "_is_fabrique": is_fabrique,
+            "_is_hard_pegged": hard_pegged,
         }
 
         for col in _IGNORED_COLUMNS:

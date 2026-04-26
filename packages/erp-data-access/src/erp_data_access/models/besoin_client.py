@@ -42,6 +42,7 @@ class BesoinClient:
     qte_commandee: int
     qte_allouee: int
     qte_restante: int
+    qte_restante_livraison: int
 
     def is_mts(self) -> bool:
         return self.type_commande == TypeCommande.MTS

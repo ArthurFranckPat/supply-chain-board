@@ -28,7 +28,7 @@ export function useAppBootstrap(source: DataSource) {
           try {
             const [ordoData, suiviResp] = await Promise.all([
               apiClient.loadData(source),
-              suiviClient.getStatusFromErp().catch(() => null),
+              suiviClient.getStatusFromLatestExport().catch(() => null),
             ])
             if (cancelled) return
             setLastSourceSnapshot(ordoData)
@@ -47,7 +47,7 @@ export function useAppBootstrap(source: DataSource) {
   }, [source])
 
   function reloadSuivi() {
-    suiviClient.getStatusFromErp().then(setSuiviData).catch(() => {})
+    suiviClient.getStatusFromLatestExport().then(setSuiviData).catch(() => {})
   }
 
   return { backendState, loadState, lastSourceSnapshot, suiviData, reloadSuivi }

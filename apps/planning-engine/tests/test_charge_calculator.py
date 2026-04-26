@@ -79,6 +79,7 @@ class TestGroupByWeek:
 
         besoins = [
             BesoinClient(
+
                 nom_client="Client A",
                 code_pays="FR",
                 type_commande=TypeCommande.NOR,
@@ -94,8 +95,10 @@ class TestGroupByWeek:
                 qte_commandee=100,
                 qte_allouee=0,
                 qte_restante=100,
+                qte_restante_livraison=100,
             ),
             BesoinClient(
+
                 nom_client="Client B",
                 code_pays="FR",
                 type_commande=TypeCommande.NOR,
@@ -111,6 +114,7 @@ class TestGroupByWeek:
                 qte_commandee=200,
                 qte_allouee=0,
                 qte_restante=200,
+                qte_restante_livraison=100,
             ),
         ]
 
@@ -129,6 +133,7 @@ class TestGroupByWeek:
 
         besoins = [
             BesoinClient(
+
                 nom_client="Client A",
                 code_pays="FR",
                 type_commande=TypeCommande.NOR,
@@ -144,8 +149,10 @@ class TestGroupByWeek:
                 qte_commandee=100,
                 qte_allouee=0,
                 qte_restante=100,
+                qte_restante_livraison=100,
             ),
             BesoinClient(
+
                 nom_client="Client B",
                 code_pays="FR",
                 type_commande=TypeCommande.NOR,
@@ -161,6 +168,7 @@ class TestGroupByWeek:
                 qte_commandee=200,
                 qte_allouee=0,
                 qte_restante=200,
+                qte_restante_livraison=100,
             ),
         ]
 

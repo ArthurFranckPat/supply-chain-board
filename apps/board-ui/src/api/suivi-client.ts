@@ -28,17 +28,10 @@ export const suiviClient = {
     return suiviRequest<{ status: string }>('/health')
   },
 
-  getStatusFromErp(folder?: string, referenceDate?: string) {
-    return suiviRequest<SuiviStatusResponse>('/api/v1/status/from-erp-extractions', {
-      method: 'POST',
-      body: JSON.stringify({ folder: folder ?? DEFAULT_EXTRACTIONS_DIR, reference_date: referenceDate ?? null }),
-    })
-  },
-
   getStatusFromLatestExport(folder?: string, referenceDate?: string) {
     return suiviRequest<SuiviStatusResponse>('/api/v1/status/from-latest-export', {
       method: 'POST',
-      body: JSON.stringify({ folder: folder ?? null, reference_date: referenceDate ?? null }),
+      body: JSON.stringify({ folder: folder ?? DEFAULT_EXTRACTIONS_DIR, reference_date: referenceDate ?? null }),
     })
   },
 }

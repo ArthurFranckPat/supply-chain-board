@@ -85,6 +85,70 @@ class PipelineSupplyBoardRequest(BaseModel):
     timeout_seconds: int = Field(default=120, ge=10, le=1800)
 
 
+class RetardChargeRequest(BaseModel):
+    folder: str | None = None
+    reference_date: date | None = None
+
+
+class RetardChargeItem(BaseModel):
+    poste: str
+    libelle: str
+    heures: float
+
+
+class RetardChargeResponse(ExtensibleModel):
+    items: list[RetardChargeItem]
+    total_heures: float
+
+
+class PaletteLigne(BaseModel):
+    num_commande: str
+    article: str
+    designation: str
+    type_commande: str
+    statut: str
+    qte_restante: float
+    unites_par_pal: int
+    type_palette: str
+    gamme: str
+    nb_palettes: int
+
+
+class PaletteByDay(BaseModel):
+    date: str
+    date_fmt: str
+    palettes_standard: int
+    palettes_easyhome: int
+    total_palettes: int
+    camions: int
+    nb_lignes: int
+
+
+class PaletteMoyenne(BaseModel):
+    par_jour: float
+    par_semaine: float
+
+
+class PaletteTotaux(BaseModel):
+    palettes_standard: int
+    palettes_easyhome: int
+    total_palettes: int
+    camions: int
+    total_lignes: int
+
+
+class PaletteRequest(BaseModel):
+    folder: str | None = None
+    reference_date: date | None = None
+
+
+class PaletteResponse(ExtensibleModel):
+    lignes: list[PaletteLigne]
+    by_day: list[PaletteByDay]
+    moyenne: PaletteMoyenne
+    totaux: PaletteTotaux
+
+
 class PipelineSupplyBoardResponse(BaseModel):
     timestamp: datetime = Field(default_factory=_utc_now)
     ordo: OrdoRunResponse

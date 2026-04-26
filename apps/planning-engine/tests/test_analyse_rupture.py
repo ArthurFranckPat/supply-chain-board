@@ -67,6 +67,7 @@ def _make_article(code, description="Test", categorie="AP"):
 def _make_besoin(client, article, qte_restante=50, type_cmd=TypeCommande.MTS,
                  nature=NatureBesoin.COMMANDE, of_contremarque=""):
     return BesoinClient(
+
         nom_client=client,
         code_pays="FR",
         type_commande=type_cmd,
@@ -82,6 +83,7 @@ def _make_besoin(client, article, qte_restante=50, type_cmd=TypeCommande.MTS,
         qte_commandee=qte_restante,
         qte_allouee=0,
         qte_restante=qte_restante,
+        qte_restante_livraison=100,
     )
 
 

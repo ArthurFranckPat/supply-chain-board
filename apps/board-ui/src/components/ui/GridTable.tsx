@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils'
 export interface GridTableColumn<T> {
   key: string
   header: React.ReactNode
-  cell: (row: T) => React.ReactNode
+  cell?: (row: T) => React.ReactNode
   align?: 'left' | 'right' | 'center'
   width?: string
 }
@@ -63,7 +63,7 @@ export function GridTable<T>({
           >
             {columns.map(col => (
               <div key={col.key} className={cn('flex items-center h-full px-2 py-[5px]', alignClass(col.align))}>
-                {col.cell(row)}
+                {col.cell ? col.cell(row) : String((row as Record<string, unknown>)[col.key] ?? '')}
               </div>
             ))}
           </div>
