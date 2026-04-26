@@ -19,12 +19,13 @@ from suivi_commandes.domain.of_matcher import OfMatcher
 from suivi_commandes.domain.palette_port import PaletteInfoProvider
 from suivi_commandes.domain.stock_port import StockProvider
 from suivi_commandes.infrastructure.adapters import (
-    DataReaderBomNavigator,
+    DataReaderStockProvider,
     DataReaderOfMatcher,
     DataReaderPaletteInfoProvider,
-    DataReaderStockProvider,
     ProductionPlanningChargeAdapter,
 )
+from suivi_commandes.infrastructure.adapters.bom_source_adapter import DataReaderBomDataSource
+from suivi_commandes.infrastructure.adapters.bom_facade import BomNavigatorFacade
 
 
 @dataclass(frozen=True)
@@ -40,9 +41,13 @@ class ErpContext:
 
     @classmethod
     def from_loader(cls, loader: "DataReader") -> "ErpContext":
+        # BOM : DataReader → BomDataSource → BomService → BomNavigator (facade)
+        bom_source = DataReaderBomDataSource(loader)
+        bom_navigator = BomNavigatorFacade(bom_source)
+
         return cls(
             stock_provider=DataReaderStockProvider(loader),
-            bom_navigator=DataReaderBomNavigator(loader),
+            bom_navigator=bom_navigator,
             of_matcher=DataReaderOfMatcher(loader),
             charge_calculator=ProductionPlanningChargeAdapter(loader),
             palette_provider=DataReaderPaletteInfoProvider(loader),

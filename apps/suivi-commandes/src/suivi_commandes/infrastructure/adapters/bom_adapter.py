@@ -1,3 +1,9 @@
+"""Implémentation de BomNavigator via le DataReader ERP.
+
+⚠️  DEPRECATED — utilise BomNavigatorFacade + BomDataSource + BomService à la place.
+Ce fichier est conservé pour la compatibilité ascendante uniquement.
+"""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING

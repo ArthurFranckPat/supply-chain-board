@@ -1,24 +1,53 @@
+"""Domain layer — modèles, ports et services métier.
+
+Ré-exporte les sous-packages pour compatibilité avec les imports existants.
+"""
+
 from __future__ import annotations
 
-from .models import OrderLine, TypeCommande, Status
-from .stock_port import StockProvider
-from .cause import RetardCause, CauseType
-from .bom_port import BomNavigator
-from .of_matcher import OfMatcher, OFInfo
-from .charge_port import ChargeCalculatorPort
-from .palette_port import PaletteInfoProvider, PaletteInfo
+# Models
+from .models import OrderLine, TypeCommande, Status, Emplacement
+from .models import RetardCause, CauseType
+
+# Ports
+from .ports import (
+    BomNavigator,
+    BomDataSource,
+    BomTree,
+    BomComponent,
+    StockProvider,
+    StockBreakdown,
+    StockComposantInfo,
+    ChargeCalculatorPort,
+    PaletteInfoProvider,
+    PaletteInfo,
+    OfMatcher,
+    OFInfo,
+)
+
+# Services
+from .services import (
+    StatusAssignment,
+    assign_statuses,
+    analyze_retard_cause,
+    compute_retard_charge,
+    compute_palette_summary,
+    get_component_shortages,
+    is_in_bom,
+    is_component_in_subassembly,
+)
 
 __all__ = [
-    "OrderLine",
-    "TypeCommande",
-    "Status",
-    "StockProvider",
-    "RetardCause",
-    "CauseType",
-    "BomNavigator",
-    "OfMatcher",
-    "OFInfo",
-    "ChargeCalculatorPort",
-    "PaletteInfoProvider",
-    "PaletteInfo",
+    # Models
+    "OrderLine", "TypeCommande", "Status", "Emplacement",
+    "RetardCause", "CauseType",
+    # Ports
+    "BomNavigator", "BomDataSource", "BomTree", "BomComponent",
+    "StockProvider", "StockBreakdown", "StockComposantInfo",
+    "ChargeCalculatorPort", "PaletteInfoProvider", "PaletteInfo",
+    "OfMatcher", "OFInfo",
+    # Services
+    "StatusAssignment", "assign_statuses", "analyze_retard_cause",
+    "compute_retard_charge", "compute_palette_summary",
+    "get_component_shortages", "is_in_bom", "is_component_in_subassembly",
 ]
