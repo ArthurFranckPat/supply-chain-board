@@ -4,7 +4,7 @@ Transforme un encodage abstrait {num_of → day_index} en une structure
 DecodedPlanning où chaque CandidateOF a scheduled_day, start_hour, end_hour.
 
 Le décodage est déterministe et inclut un mécanisme de soft-repair pour
-les débordements de capacité.
+les débordements de capacité et les violations de composants.
 """
 
 from __future__ import annotations
@@ -13,7 +13,9 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Any, Optional
 
-from ..models import CandidateOF, DaySchedule
+from ..models import CandidateOF
+from production_planning.orders.allocation import StockState
+from production_planning.scheduling.material import build_material_stock_state, apply_receptions_for_day
 
 
 @dataclass
@@ -35,6 +37,7 @@ class GAContext:
     initial_stock: dict[str, float]
     weights: dict[str, float]
     ga_config: Any  # GAConfig — évite l'import circulaire
+    component_checker: Any = None  # GAComponentChecker
 
 
 @dataclass
@@ -61,16 +64,16 @@ def _intra_day_sort_key(candidate: CandidateOF) -> tuple:
     return (candidate.due_date, candidate.article, candidate.num_of)
 
 
-def decode(individual: "Individual", ctx: GAContext) -> DecodedPlanning:  # noqa: ARG001
+def decode(individual: "Individual", ctx: GAContext) -> DecodedPlanning:
     """Transforme un chromosome en planning concret.
 
     Algorithme :
         1. Grouper les OF par ligne.
         2. Pour chaque jour, récupérer les OF assignés à ce jour.
         3. Trier intra-jour par due_date, article, num_of.
-        4. Assigner les heures séquentiellement (avec setup time).
-        5. En cas de débordement capacitaire, décaler vers le jour suivant
-           ou marquer comme non planifié.
+        4. Vérifier les composants pour chaque OF.
+        5. Assigner les heures séquentiellement (avec setup time).
+        6. En cas de débordement capacitaire, décaler vers le jour suivant.
 
     Args:
         individual: Chromosome à décoder.
@@ -79,8 +82,6 @@ def decode(individual: "Individual", ctx: GAContext) -> DecodedPlanning:  # noqa
     Returns:
         DecodedPlanning avec plannings, unscheduled et éventuelles violations.
     """
-    from ..material import build_material_stock_state, apply_receptions_for_day
-
     # Réinitialiser l'état de stock virtuel
     material_state = build_material_stock_state(ctx.loader)
 
@@ -118,7 +119,6 @@ def decode(individual: "Individual", ctx: GAContext) -> DecodedPlanning:  # noqa
 
             h_courant = 0.0
             last_article: Optional[str] = None
-            scheduled_today: list[CandidateOF] = []
 
             for candidate in ofs_jour:
                 setup = SETUP_TIME_HOURS if last_article and candidate.article != last_article else 0.0
@@ -129,8 +129,6 @@ def decode(individual: "Individual", ctx: GAContext) -> DecodedPlanning:  # noqa
                     placed = False
                     for next_idx in range(day_idx + 1, len(ctx.workdays)):
                         next_day = day_index_to_date[next_idx]
-                        # Vérifier capacité du jour suivant (simplifié : on suppose qu'il reste de la place)
-                        # En Phase 1 on ne refait pas le décodage récursif complet
                         candidate.scheduled_day = next_day
                         candidate.start_hour = 0.0
                         candidate.end_hour = candidate.charge_hours
@@ -148,14 +146,37 @@ def decode(individual: "Individual", ctx: GAContext) -> DecodedPlanning:  # noqa
                         )
                     continue
 
+                # Vérification des composants (Phase 3)
+                if ctx.component_checker is not None:
+                    feasible, reason, blocking = ctx.component_checker.evaluate(
+                        candidate, day, material_state
+                    )
+                    if not feasible:
+                        candidate.blocking_components = blocking
+                        candidate.reason = reason
+                        # Placé "bloqué" sans consommer la capacité
+                        candidate.scheduled_day = day
+                        candidate.start_hour = round(h_courant + setup, 3)
+                        candidate.end_hour = round(needed, 3)
+                        h_courant = needed
+                        last_article = candidate.article
+                        plannings[line].append(candidate)
+                        component_violations.append(
+                            (candidate.num_of, blocking, day)
+                        )
+                        continue
+
                 # Assignation normale
                 candidate.scheduled_day = day
                 candidate.start_hour = round(h_courant + setup, 3)
                 candidate.end_hour = round(needed, 3)
                 h_courant = needed
                 last_article = candidate.article
-                scheduled_today.append(candidate)
                 plannings[line].append(candidate)
+
+                # Réserver les composants
+                if ctx.component_checker is not None:
+                    ctx.component_checker.reserve(candidate, day, material_state)
 
     # Recalculer les unscheduled (ceux sans scheduled_day)
     final_unscheduled = [

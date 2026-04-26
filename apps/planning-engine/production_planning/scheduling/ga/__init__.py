@@ -13,6 +13,7 @@ from .chromosome import Individual, make_individual, clone, hash_genes, invalida
 from .decoder import decode, DecodedPlanning, GAContext
 from .fitness import evaluate, FitnessMetrics
 from .engine import run_ga, GAResult, GenerationStats
+from .evaluation import PrecomputedData, precompute, FullRecursiveChecker, ApproximateChecker
 
 __all__ = [
     "GAConfig",
@@ -31,6 +32,10 @@ __all__ = [
     "run_ga",
     "GAResult",
     "GenerationStats",
+    "PrecomputedData",
+    "precompute",
+    "FullRecursiveChecker",
+    "ApproximateChecker",
     "run_ga_schedule",
 ]
 
@@ -47,7 +52,6 @@ def run_ga_schedule(
     ga_config: GAConfig | None = None,
     random_seed: int | None = None,
     progress_callback: Callable | None = None,
-    # Paramètres additionnels pour le contexte
     checker: Any = None,
     receptions_by_day: dict | None = None,
     by_line: dict[str, list[str]] | None = None,
@@ -55,7 +59,7 @@ def run_ga_schedule(
 ) -> GAResult:
     """Point d'entrée principal pour lancer l'AG depuis le scheduler.
 
-    Assemble le GAContext et orchestre le run.
+    Assemble le GAContext avec le component_checker approprié.
 
     Args:
         loader: DataLoader existant.
@@ -82,6 +86,22 @@ def run_ga_schedule(
         ga_config = default_ga_config()
 
     candidates_by_id = {c.num_of: c for c in candidates}
+    material_state = build_material_stock_state(loader)
+
+    # Pré-calcul des données (Phase 3)
+    precomputed = precompute(
+        loader=loader,
+        candidates=candidates,
+        workdays=workdays,
+        receptions_by_day=receptions_by_day or {},
+        material_state=material_state,
+    )
+
+    # Choix du checker selon la stratégie
+    if ga_config.component_check_strategy == "full" and checker is not None:
+        component_checker = FullRecursiveChecker(checker)
+    else:
+        component_checker = ApproximateChecker(precomputed)
 
     ctx = GAContext(
         candidates=candidates,
@@ -93,9 +113,10 @@ def run_ga_schedule(
         loader=loader,
         checker=checker,
         receptions_by_day=receptions_by_day or {},
-        initial_stock=getattr(build_material_stock_state(loader), "initial_stock", {}),
+        initial_stock=precomputed.initial_stock,
         weights=weights,
         ga_config=ga_config,
+        component_checker=component_checker,
     )
 
     # Injecter le seed glouton dans le contexte
