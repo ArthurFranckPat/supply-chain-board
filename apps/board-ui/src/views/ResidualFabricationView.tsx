@@ -28,11 +28,6 @@ export function ResidualFabricationView() {
     })
   }
 
-  const handleSort = (key: SortKey) => {
-    if (sortKey === key) { setSortDir(d => d === 'asc' ? 'desc' : 'asc') }
-    else { setSortKey(key); setSortDir('desc') }
-  }
-
   const sorted = useMemo(() => analyse.data ? [...analyse.data].sort((a, b) => {
     let aVal: string | number | boolean = a[sortKey]
     let bVal: string | number | boolean = b[sortKey]
