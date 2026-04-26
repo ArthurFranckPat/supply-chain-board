@@ -4,7 +4,7 @@ import type { OrderRow } from '@/types/suivi-commandes'
 import { statusClass, typeBadgeClass } from '@/types/suivi-commandes'
 import { formatDate, formatDateLabel, isOverdue } from '@/lib/format'
 
-const GRID_COLS = 'grid-cols-[minmax(60px,0.5fr)_minmax(44px,0.35fr)_minmax(90px,0.9fr)_minmax(100px,0.9fr)_minmax(100px,0.9fr)_minmax(140px,2fr)_minmax(100px,0.7fr)_minmax(28px,0.25fr)_minmax(72px,0.65fr)]'
+const GRID_COLS = 'grid-cols-[minmax(60px,0.5fr)_minmax(44px,0.35fr)_minmax(90px,0.9fr)_minmax(100px,0.9fr)_minmax(100px,0.9fr)_minmax(140px,2fr)_minmax(100px,0.7fr)_minmax(72px,0.65fr)]'
 
 function QtyCell({ restant, commande }: { restant: number; commande: number }) {
   const pct = commande > 0 ? restant / commande : 0
@@ -92,12 +92,12 @@ function OrderTableRow({
       <div className="flex items-center justify-end h-full px-2 py-[3px]">
         <QtyCell restant={row['Quantité restante']} commande={row['Quantité commandée']} />
       </div>
-      {/* Bouton détail au survol */}
-      <div className="flex items-center justify-center h-full">
+      <div className={cn('relative flex flex-col justify-center h-full px-2 py-[3px] text-[10px]', statusClass(displayedStatus))}>
+        {/* Bouton détail au survol — positionné à droite dans la cellule statut */}
         <button
           onClick={() => onDetailClick?.(row)}
           className={cn(
-            'w-6 h-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-border/60 transition-all',
+            'absolute top-1/2 right-1 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-border/60 transition-all',
             hovered ? 'opacity-100' : 'opacity-0 pointer-events-none'
           )}
           title="Voir le détail"
@@ -108,8 +108,6 @@ function OrderTableRow({
             <circle cx="12" cy="19" r="1.5"/>
           </svg>
         </button>
-      </div>
-      <div className={cn('flex flex-col justify-center h-full px-2 py-[3px] text-[10px]', statusClass(displayedStatus))}>
         <span className="inline-flex items-start gap-1">
           <span>{displayedStatus}</span>
           {hasCqAlert && (
