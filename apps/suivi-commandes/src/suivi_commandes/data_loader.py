@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -7,6 +8,8 @@ from erp_data_access.loaders import DataLoader
 
 from suivi_commandes.domain.models import OrderLine, TypeCommande, Emplacement
 from suivi_commandes.infrastructure.mappers import SuivcdeMapper
+
+logger = logging.getLogger(__name__)
 if TYPE_CHECKING:
     from erp_data_access.protocols import DataReader
 
@@ -46,7 +49,7 @@ def rows_to_order_lines(rows: list[dict]) -> list[OrderLine]:
 
         from datetime import date
 
-        def _parse_date(val):
+        def _parse_date(val, field_name: str = "unknown"):
             if val is None or val == "":
                 return None
             if isinstance(val, date):
@@ -54,7 +57,11 @@ def rows_to_order_lines(rows: list[dict]) -> list[OrderLine]:
             from datetime import datetime
             try:
                 return datetime.strptime(str(val)[:10], "%Y-%m-%d").date()
-            except (ValueError, TypeError):
+            except (ValueError, TypeError) as e:
+                logger.debug(
+                    "[data-loader] Date invalide pour %s: %s (valeur=%r)",
+                    field_name, e, val,
+                )
                 return None
 
         line = OrderLine(
@@ -63,8 +70,8 @@ def rows_to_order_lines(rows: list[dict]) -> list[OrderLine]:
             designation=str(row.get("Désignation 1", "")),
             nom_client=str(row.get("Nom client commande", "")),
             type_commande=type_cmd,
-            date_expedition=_parse_date(row.get("Date expedition")),
-            date_liv_prevue=_parse_date(row.get("Date liv prévue")),
+            date_expedition=_parse_date(row.get("Date expedition"), "Date expedition"),
+            date_liv_prevue=_parse_date(row.get("Date liv prévue"), "Date liv prévue"),
             qte_commandee=float(row.get("Quantité commandée", 0) or 0),
             qte_allouee=float(row.get("Qté allouée", 0) or 0),
             qte_restante=float(row.get("Quantité restante", 0) or 0),

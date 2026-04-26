@@ -1,10 +1,10 @@
-import { memo, useMemo, useState } from 'react'
+import { memo, useMemo } from 'react'
 import { cn } from '@/lib/utils'
 import type { OrderRow } from '@/types/suivi-commandes'
 import { statusClass, typeBadgeClass } from '@/types/suivi-commandes'
 import { formatDate, formatDateLabel, isOverdue } from '@/lib/format'
 
-const GRID_COLS = 'grid-cols-[minmax(60px,0.5fr)_minmax(44px,0.35fr)_minmax(90px,0.9fr)_minmax(100px,0.9fr)_minmax(100px,0.9fr)_minmax(140px,2fr)_minmax(100px,0.7fr)_minmax(28px,0.25fr)_minmax(72px,0.65fr)]'
+const GRID_COLS = 'grid-cols-[minmax(60px,0.5fr)_minmax(44px,0.35fr)_minmax(90px,0.9fr)_minmax(100px,0.9fr)_minmax(100px,0.9fr)_minmax(140px,2fr)_minmax(100px,0.7fr)_minmax(100px,0.9fr)]'
 
 function QtyCell({ restant, commande }: { restant: number; commande: number }) {
   const pct = commande > 0 ? restant / commande : 0
@@ -53,7 +53,6 @@ function OrderTableRow({
   row: OrderRow
   onDetailClick?: (row: OrderRow) => void
 }) {
-  const [hovered, setHovered] = useState(false)
   const overdue = isOverdue(row['Date expedition'])
   const detail = [row.Emplacement, row.HUM].filter(Boolean).join(' · ')
   const hasCqAlert = row['_alerte_cq_statut'] === true || row['_allocation_virtuelle_avec_cq'] === true || row['Marqueur CQ'] === '*'
@@ -63,12 +62,10 @@ function OrderTableRow({
     <div
       className={cn(
         'group grid gap-0 divide-x divide-border/60 text-[11px] border-b border-border transition-colors',
-        hovered ? 'bg-muted/20' : 'hover:bg-muted/10',
+        'hover:bg-muted/15',
         GRID_COLS
       )}
       style={{ borderLeft: overdue ? '2px solid var(--color-destructive)' : '2px solid transparent' }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
     >
       <div className="flex items-center h-full px-2 py-[3px] font-mono text-[11px] text-muted-foreground">
         {formatDate(row['Date expedition'])}
@@ -92,40 +89,34 @@ function OrderTableRow({
       <div className="flex items-center justify-end h-full px-2 py-[3px]">
         <QtyCell restant={row['Quantité restante']} commande={row['Quantité commandée']} />
       </div>
-      {/* Bouton détail au survol */}
-      <div className="flex items-center justify-center h-full">
-        <button
-          onClick={() => onDetailClick?.(row)}
-          className={cn(
-            'w-6 h-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-border/60 transition-all',
-            hovered ? 'opacity-100' : 'opacity-0 pointer-events-none'
-          )}
-          title="Voir le détail"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-            <circle cx="12" cy="5" r="1.5"/>
-            <circle cx="12" cy="12" r="1.5"/>
-            <circle cx="12" cy="19" r="1.5"/>
-          </svg>
-        </button>
-      </div>
-      <div className={cn('flex flex-col justify-center h-full px-2 py-[3px] text-[10px]', statusClass(displayedStatus))}>
-        <span className="inline-flex items-start gap-1">
+      {/* Bouton détail inline dans la cellule statut */}
+      <div className={cn('flex items-center justify-between h-full px-2 py-[3px] text-[10px]', statusClass(displayedStatus))}>
+        <span className="inline-flex items-start gap-1 flex-1 min-w-0">
           <span>{displayedStatus}</span>
           {hasCqAlert && (
             <span
-              className="text-[9px] leading-none text-amber-600/90 -translate-y-[1px] cursor-help"
+              className="text-[9px] leading-none text-amber-600/90 -translate-y-[1px] cursor-help shrink-0"
               title="Cette ligne dépend du stock sous contrôle qualité (allocation ou expédition) — accélération CQ requise."
             >
               CQ
             </span>
           )}
         </span>
-        {row['Cause retard'] && (
-          <span className="text-[9px] text-red-500/80 truncate max-w-[200px]" title={row['Cause retard']}>
-            {row['Cause retard']}
-          </span>
-        )}
+        <button
+          onClick={(e) => { e.stopPropagation(); onDetailClick?.(row) }}
+          className={cn(
+            'ml-1 w-5 h-5 flex items-center justify-center rounded text-muted-foreground/50',
+            'hover:text-muted-foreground hover:bg-border/40 transition-all shrink-0',
+            'group-hover:opacity-100 opacity-0'
+          )}
+          title="Voir le détail"
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="12" cy="5" r="1.5"/>
+            <circle cx="12" cy="12" r="1.5"/>
+            <circle cx="12" cy="19" r="1.5"/>
+          </svg>
+        </button>
       </div>
     </div>
   )
@@ -168,7 +159,6 @@ export const GroupedOrderTable = memo(function GroupedOrderTable({
         <div className="flex items-center px-2 py-1.5">Article</div>
         <div className="flex items-center px-2 py-1.5">Description</div>
         <div className="flex items-center justify-end px-2 py-1.5">Reste à livrer</div>
-        <div className="flex items-center justify-center px-2 py-1.5"></div>
         <div className="flex items-center px-2 py-1.5">Statut</div>
       </div>
 
