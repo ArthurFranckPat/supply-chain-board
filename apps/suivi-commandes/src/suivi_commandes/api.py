@@ -23,7 +23,7 @@ from domain_contracts import (
     PaletteRequest,
     PaletteResponse,
 )
-from suivi_commandes.data_loader import load_data, load_data_with_loader
+from suivi_commandes.data_loader import load_data_with_loader
 from suivi_commandes.palette_calculator import compute_palette_summary
 from suivi_commandes.retard_cause import enrich_retard_causes
 from suivi_commandes.retard_charge import compute_retard_charge_by_poste
@@ -135,8 +135,8 @@ def create_app() -> FastAPI:
         with_status = assign_statuses(df, today=pd.Timestamp(ref_date) if ref_date else None)
         result = compute_palette_summary(with_status, loader, reference_date=ref_date)
         lignes = [
-            PaletteLigne(**l)
-            for l in result["lignes"]
+            PaletteLigne(**row)
+            for row in result["lignes"]
         ]
         by_day = [
             PaletteByDay(**d)
