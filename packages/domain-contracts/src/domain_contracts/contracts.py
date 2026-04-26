@@ -154,3 +154,20 @@ class PipelineSupplyBoardResponse(BaseModel):
     ordo: OrdoRunResponse
     suivi: SuiviAssignResponse
     board_summary: BoardSummary
+
+
+class StatusDetailResponse(ExtensibleModel):
+    no_commande: str
+    article: str
+
+    # OF section
+    of_info: dict[str, Any] | None = None
+
+    # Composants bloquants
+    composants: list[dict[str, Any]] = Field(default_factory=list)
+
+    # Stock article
+    stock_detail: dict[str, Any] = Field(default_factory=dict)
+
+    # Stock composants bloquants
+    stock_composants: dict[str, dict[str, Any]] = Field(default_factory=dict)

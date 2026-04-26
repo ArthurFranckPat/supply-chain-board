@@ -23,6 +23,41 @@ function suiviRequest<T>(path: string, init?: RequestInit): Promise<T> {
   })
 }
 
+export interface StatusDetailResponse {
+  no_commande: string
+  article: string
+  of_info: {
+    num_of: string
+    article: string
+    qte_restante: number
+    statut_num: number
+    statut_texte: string
+    date_debut: string | null
+    date_fin: string | null
+  } | null
+  composants: Array<{
+    article: string
+    designation: string
+    qte_manquante: number
+  }>
+  stock_detail: {
+    stock_physique: number
+    stock_sous_cq: number
+    stock_alloue: number
+    disponible_total: number
+    disponible_strict: number
+    prochain_arrive: string
+    qte_arrive: number
+  }
+  stock_composants: Record<string, {
+    stock_physique: number
+    stock_sous_cq: number
+    disponible_total: number
+    prochain_arrive: string
+    qte_arrive: number
+  }>
+}
+
 export const suiviClient = {
   getHealth() {
     return suiviRequest<{ status: string }>('/health')
@@ -33,5 +68,14 @@ export const suiviClient = {
       method: 'POST',
       body: JSON.stringify({ folder: folder ?? DEFAULT_EXTRACTIONS_DIR, reference_date: referenceDate ?? null }),
     })
+  },
+
+  getStatusDetail(noCommande: string, article: string, folder?: string) {
+    const params = new URLSearchParams({
+      folder: folder ?? DEFAULT_EXTRACTIONS_DIR ?? '',
+    })
+    return suiviRequest<StatusDetailResponse>(
+      `/api/v1/status/detail/${encodeURIComponent(noCommande)}/${encodeURIComponent(article)}?${params}`,
+    )
   },
 }

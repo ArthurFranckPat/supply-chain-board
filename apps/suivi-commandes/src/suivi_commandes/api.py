@@ -12,6 +12,7 @@ from domain_contracts import (
     SuiviAssignRequest,
     SuiviAssignResponse,
     SuiviLatestExportRequest,
+    StatusDetailResponse,
     RetardChargeItem,
     RetardChargeRequest,
     RetardChargeResponse,
@@ -209,7 +210,107 @@ def create_app() -> FastAPI:
             totaux=totaux,
         )
 
+    @api.get(
+        "/api/v1/status/detail/{no_commande}/{article}",
+        response_model=StatusDetailResponse,
+        response_model_exclude_none=True,
+    )
+    def status_detail(
+        no_commande: str,
+        article: str,
+        folder: str | None = None,
+    ) -> StatusDetailResponse:
+        lines, loader = load_order_lines(extractions_dir=Path(folder) if folder else None)
+        stock_provider = DataReaderStockProvider(loader)
+        of_matcher = DataReaderOfMatcher(loader)
+        bom_navigator = DataReaderBomNavigator(loader)
+
+        # Trouver la ligne correspondante
+        line = next(
+            (
+                row for row in lines
+                if row.num_commande == no_commande and row.article == article
+            ),
+            None,
+        )
+        if line is None:
+            return StatusDetailResponse(no_commande=no_commande, article=article)
+
+        # OF info — ne pas afficher si exécuté ou incompatible avec la date client
+        of_info: dict[str, Any] | None = None
+        of = of_matcher.find_matching_of(
+            line.num_commande, line.article, line.type_commande
+        )
+        client_date = line.date_expedition
+        # OF exécuté (manufacturing done) ou OF dont la date fin dépasse la date client
+        of_incompatible = (
+            of is not None
+            and client_date is not None
+            and of.date_fin is not None
+            and of.date_fin > client_date
+        )
+        if of is not None and not of_incompatible:
+            of_info = {
+                "num_of": of.num_of,
+                "article": of.article,
+                "qte_restante": of.qte_restante,
+                "statut_num": of.statut_num,
+                "statut_texte": _of_statut_texte(of.statut_num),
+                "date_debut": of.date_debut.isoformat() if of.date_debut else None,
+                "date_fin": of.date_fin.isoformat() if of.date_fin else None,
+            }
+
+        # Composants bloquants
+        qty_needed = max(float(line.qte_restante), 0.0)
+        own_allocs = of_matcher.get_allocations(of.num_of) if of else {}
+        shortages = bom_navigator.get_component_shortages(
+            line.article, qty_needed, own_allocs
+        )
+
+        composants: list[dict[str, Any]] = []
+        stock_composants: dict[str, dict[str, Any]] = {}
+
+        for comp_article, manque in sorted(shortages.items()):
+            comp_detail = stock_provider.get_stock_detail(comp_article)
+            composants.append({
+                "article": comp_article,
+                "designation": comp_detail.designation,
+                "qte_manquante": round(manque, 3),
+            })
+            stock_composants[comp_article] = {
+                "stock_physique": comp_detail.stock_physique,
+                "stock_sous_cq": comp_detail.stock_sous_cq,
+                "disponible_total": comp_detail.disponible_total,
+                "prochain_arrive": comp_detail.prochain_arrive,
+                "qte_arrive": comp_detail.qte_arrive,
+            }
+
+        # Stock article — avec allocation depuis Allocations.csv pour cette commande
+        stock_detail = stock_provider.get_stock_detail(article, no_commande)
+
+        return StatusDetailResponse(
+            no_commande=no_commande,
+            article=article,
+            of_info=of_info,
+            composants=composants,
+            stock_detail={
+                "stock_physique": stock_detail.stock_physique,
+                "stock_sous_cq": stock_detail.stock_sous_cq,
+                "stock_alloue": stock_detail.stock_alloue,
+                "disponible_total": stock_detail.disponible_total,
+                "disponible_strict": stock_detail.disponible_strict,
+                "prochain_arrive": stock_detail.prochain_arrive,
+                "qte_arrive": stock_detail.qte_arrive,
+            },
+            stock_composants=stock_composants,
+        )
+
     return api
+
+
+def _of_statut_texte(statut_num: int) -> str:
+    mapping = {1: "Fermé", 2: "Planifié", 3: "Suggéré"}
+    return mapping.get(statut_num, f"Statut {statut_num}")
 
 
 app = create_app()

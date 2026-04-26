@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from suivi_commandes.domain.stock_port import StockProvider, StockBreakdown
+from suivi_commandes.domain.stock_port import StockProvider, StockBreakdown, StockComposantInfo
 
 
 class InMemoryStockProvider(StockProvider):
@@ -46,4 +46,23 @@ class InMemoryStockProvider(StockProvider):
         return self._stock.get(
             article,
             StockBreakdown(available_total=0.0, available_strict=0.0, available_qc=0.0),
+        )
+
+    def get_stock_detail(
+        self, article: str, num_commande: str | None = None
+    ) -> StockComposantInfo:
+        breakdown = self._stock.get(article)
+        physique = 0.0
+        sous_cq = 0.0
+        alloue = 0.0
+        if breakdown is not None:
+            physique = breakdown.available_strict
+            sous_cq = breakdown.available_qc
+        return StockComposantInfo(
+            article=article,
+            stock_physique=physique,
+            stock_sous_cq=sous_cq,
+            stock_alloue=alloue,
+            disponible_total=breakdown.available_total if breakdown else 0.0,
+            disponible_strict=breakdown.available_strict if breakdown else 0.0,
         )

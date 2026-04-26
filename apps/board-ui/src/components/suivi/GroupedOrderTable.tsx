@@ -46,7 +46,13 @@ function DateHeader({ dateKey, count }: { dateKey: string; count: number }) {
 }
 
 /* ─── Single row = single backend order line ─── */
-function OrderTableRow({ row }: { row: OrderRow }) {
+function OrderTableRow({
+  row,
+  onStatusClick,
+}: {
+  row: OrderRow
+  onStatusClick?: (row: OrderRow) => void
+}) {
   const overdue = isOverdue(row['Date expedition'])
   const detail = [row.Emplacement, row.HUM].filter(Boolean).join(' · ')
   const hasCqAlert = row['_alerte_cq_statut'] === true || row['_allocation_virtuelle_avec_cq'] === true || row['Marqueur CQ'] === '*'
@@ -82,7 +88,10 @@ function OrderTableRow({ row }: { row: OrderRow }) {
       <div className="flex items-center justify-end h-full px-2 py-[3px]">
         <QtyCell restant={row['Quantité restante']} commande={row['Quantité commandée']} />
       </div>
-      <div className={cn('flex flex-col justify-center h-full px-2 py-[3px] text-[10px]', statusClass(displayedStatus))}>
+      <div
+        className={cn('flex flex-col justify-center h-full px-2 py-[3px] text-[10px]', statusClass(displayedStatus))}
+        onContextMenu={(e) => { e.preventDefault(); onStatusClick?.(row) }}
+      >
         <span className="inline-flex items-start gap-1">
           <span>{displayedStatus}</span>
           {hasCqAlert && (
@@ -105,7 +114,13 @@ function OrderTableRow({ row }: { row: OrderRow }) {
 }
 
 /* ─── Main component ─── */
-export const GroupedOrderTable = memo(function GroupedOrderTable({ rows }: { rows: OrderRow[] }) {
+export const GroupedOrderTable = memo(function GroupedOrderTable({
+  rows,
+  onStatusClick,
+}: {
+  rows: OrderRow[]
+  onStatusClick?: (row: OrderRow) => void
+}) {
   const byDate = useMemo(() => {
     const map = new Map<string, OrderRow[]>()
     for (const row of rows) {
@@ -148,7 +163,11 @@ export const GroupedOrderTable = memo(function GroupedOrderTable({ rows }: { row
             <div key={dateKey}>
               <DateHeader dateKey={dateKey} count={dateRows.length} />
               {dateRows.map((row, idx) => (
-                <OrderTableRow key={`${row['No commande']}-${row.Article}-${row.Emplacement ?? ''}-${idx}`} row={row} />
+                <OrderTableRow
+                  key={`${row['No commande']}-${row.Article}-${row.Emplacement ?? ''}-${idx}`}
+                  row={row}
+                  onStatusClick={onStatusClick}
+                />
               ))}
             </div>
           )

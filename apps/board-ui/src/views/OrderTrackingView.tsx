@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react'
 import { LoadingInline } from '@/components/ui/loading'
-import type { OrderFilterState, FilterOptions, SuiviStatusResponse } from '@/types/suivi-commandes'
+import type { OrderFilterState, FilterOptions, SuiviStatusResponse, OrderRow } from '@/types/suivi-commandes'
 import { OrderFilters } from '@/components/suivi/OrderFilters'
 import { OrderKpiBar } from '@/components/suivi/OrderKpiBar'
 import { GroupedOrderTable } from '@/components/suivi/GroupedOrderTable'
 import { ExportBar } from '@/components/suivi/ExportBar'
 import { RetardChargeChart } from '@/components/suivi/RetardChargeChart'
 import { PaletteView } from '@/components/suivi/PaletteView'
+import { StatusDetailModal } from '@/components/suivi/StatusDetailModal'
 
 const DEFAULT_FILTERS: OrderFilterState = {
   search: '',
@@ -29,6 +30,7 @@ interface OrderTrackingViewProps {
 export function OrderTrackingView({ data, loadState, onReload }: OrderTrackingViewProps) {
   const [filters, setFilters] = useState<OrderFilterState>(DEFAULT_FILTERS)
   const [activeTab, setActiveTab] = useState('commandes')
+  const [detailRow, setDetailRow] = useState<OrderRow | null>(null)
 
   const options: FilterOptions = useMemo(() => {
     if (!data) return { typesCommande: [], statuts: [] }
@@ -144,7 +146,12 @@ export function OrderTrackingView({ data, loadState, onReload }: OrderTrackingVi
         </div>
 
         <div>
-          {activeTab === 'commandes' && <GroupedOrderTable rows={filteredRows} />}
+          {activeTab === 'commandes' && (
+          <GroupedOrderTable
+            rows={filteredRows}
+            onStatusClick={(row) => setDetailRow(row)}
+          />
+        )}
           {activeTab === 'retard' && (
             <div className="p-4">
               <RetardChargeChart />
@@ -188,6 +195,14 @@ export function OrderTrackingView({ data, loadState, onReload }: OrderTrackingVi
           </span>
         </div>
       </div>
+
+      {detailRow && (
+        <StatusDetailModal
+          noCommande={detailRow['No commande']}
+          article={detailRow.Article}
+          onClose={() => setDetailRow(null)}
+        />
+      )}
     </div>
   )
 }
