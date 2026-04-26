@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from collections import defaultdict
 
 from suivi_commandes.domain.models import Status
@@ -7,6 +8,8 @@ from suivi_commandes.domain.status_assigner import StatusAssignment
 from suivi_commandes.domain.cause import CauseType
 from suivi_commandes.domain.bom_port import BomNavigator
 from suivi_commandes.domain.charge_port import ChargeCalculatorPort
+
+logger = logging.getLogger(__name__)
 
 
 def compute_retard_charge(
@@ -58,7 +61,11 @@ def compute_retard_charge(
                 charge_map = charge_calculator.calculate_recursive_charge(article, qte)
             else:
                 charge_map = charge_calculator.calculate_direct_charge(article, qte)
-        except Exception:
+        except Exception as e:
+            logger.warning(
+                "[retard-charge] Échec calcul charge pour article=%s qte=%s recursive=%s : %s",
+                article, qte, is_recursive, e,
+            )
             continue
 
         for poste, hours in charge_map.items():

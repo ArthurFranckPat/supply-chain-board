@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import date
 from typing import Optional
@@ -7,6 +8,8 @@ from typing import Optional
 from .models import OrderLine, Status, TypeCommande
 from .stock_port import StockProvider, StockBreakdown
 from .cause import RetardCause
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,7 +75,11 @@ def assign_statuses(
             continue
         try:
             breakdown = stock_provider.get_stock_breakdown(line.article)
-        except (AttributeError, NotImplementedError):
+        except (AttributeError, NotImplementedError) as e:
+            logger.debug(
+                "[status-assign] StockProvider.get_stock_breakdown non implémenté pour article=%s, fallback : %s",
+                line.article, e,
+            )
             breakdown = _default_breakdown(line.article)
 
         strict = max(0.0, float(breakdown.available_strict))
