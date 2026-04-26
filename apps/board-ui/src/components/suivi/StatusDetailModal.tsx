@@ -8,46 +8,10 @@ interface StatusDetailModalProps {
   onClose: () => void
 }
 
-type Tab = 'of' | 'composants' | 'stock'
-
-const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
-  {
-    key: 'of',
-    label: 'OF',
-    icon: (
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-        <polyline points="14 2 14 8 20 8"/>
-      </svg>
-    ),
-  },
-  {
-    key: 'composants',
-    label: 'Composants',
-    icon: (
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
-        <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
-      </svg>
-    ),
-  },
-  {
-    key: 'stock',
-    label: 'Stock',
-    icon: (
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-        <polyline points="9 22 9 12 15 12 15 22"/>
-      </svg>
-    ),
-  },
-]
-
 export function StatusDetailModal({ noCommande, article, onClose }: StatusDetailModalProps) {
   const [data, setData] = useState<StatusDetailResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<Tab>('stock')
   const overlayRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -67,15 +31,13 @@ export function StatusDetailModal({ noCommande, article, onClose }: StatusDetail
     return () => document.removeEventListener('keydown', handleKey)
   }, [onClose])
 
-  const composantsCount = data?.composants.length ?? 0
-
   return (
     <div
       ref={overlayRef}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
       onClick={(e) => { if (e.target === overlayRef.current) onClose() }}
     >
-      <div className="bg-card border border-border shadow-2xl rounded-lg w-[600px] max-h-[85vh] flex flex-col overflow-hidden">
+      <div className="bg-card border border-border shadow-2xl rounded-lg w-[580px] max-h-[85vh] flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0 bg-muted/30">
           <div className="min-w-0">
@@ -92,52 +54,24 @@ export function StatusDetailModal({ noCommande, article, onClose }: StatusDetail
           </button>
         </div>
 
-        {/* Tabs */}
-        <div className="flex border-b border-border shrink-0">
-          {TABS.map(({ key, label, icon }) => {
-            const isActive = activeTab === key
-            const badge = key === 'composants' && composantsCount > 0
-            return (
-              <button
-                key={key}
-                onClick={() => setActiveTab(key)}
-                className={cn(
-                  'flex-1 flex items-center justify-center gap-1.5 h-9 text-[11px] font-medium border-b-2 transition-colors',
-                  isActive
-                    ? 'text-foreground border-primary -mb-px bg-card'
-                    : 'text-muted-foreground border-transparent hover:text-foreground hover:bg-muted/50'
-                )}
-              >
-                <span className={cn(isActive ? 'text-primary' : 'text-muted-foreground')}>{icon}</span>
-                {label}
-                {badge && (
-                  <span className="text-[9px] font-mono bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center">
-                    {composantsCount}
-                  </span>
-                )}
-              </button>
-            )
-          })}
-        </div>
-
-        {/* Body — fixed height to prevent layout shift */}
-        <div className="h-[320px] overflow-y-auto">
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto p-5 space-y-5">
           {loading && (
-            <div className="flex items-center justify-center h-full">
+            <div className="flex items-center justify-center py-12">
               <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin"/>
               <span className="ml-2 text-[11px] text-muted-foreground">Chargement…</span>
             </div>
           )}
           {error && (
-            <div className="flex items-center justify-center h-full">
+            <div className="flex items-center justify-center py-12">
               <span className="text-[11px] text-red-500">{error}</span>
             </div>
           )}
           {!loading && !error && data && (
             <>
-              {activeTab === 'of' && <OfTab data={data} />}
-              {activeTab === 'composants' && <ComposantsTab data={data} />}
-              {activeTab === 'stock' && <StockTab data={data} />}
+              <OfSection data={data} />
+              <ComposantsSection data={data} />
+              <StockSection data={data} />
             </>
           )}
         </div>
@@ -146,69 +80,55 @@ export function StatusDetailModal({ noCommande, article, onClose }: StatusDetail
   )
 }
 
-/* ── OF tab ── */
-function OfTab({ data }: { data: StatusDetailResponse }) {
-  if (!data.of_info) {
-    return (
-      <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="mb-2 opacity-30">
+/* ── OF section ── */
+function OfSection({ data }: { data: StatusDetailResponse }) {
+  return (
+    <div className="space-y-2">
+      <SectionTitle icon={
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
           <polyline points="14 2 14 8 20 8"/>
         </svg>
-        <span className="text-[11px]">Aucun OF planifié ou exécuté</span>
-      </div>
-    )
-  }
-  const of = data.of_info
+      } label="Ordre de fabrication" />
 
-  const statutConfig: Record<number, { label: string; color: string; bg: string }> = {
-    1: { label: 'ferme', color: 'text-emerald-700', bg: 'bg-emerald-100 border-emerald-200' },
-    2: { label: 'planifié', color: 'text-sky-700', bg: 'bg-sky-100 border-sky-200' },
-    3: { label: 'suggéré', color: 'text-amber-700', bg: 'bg-amber-100 border-amber-200' },
-  }
-  const stat = statutConfig[of.statut_num] ?? { label: of.statut_texte, color: 'text-muted-foreground', bg: 'bg-muted border-border' }
-
-  return (
-    <div className="p-5 space-y-4">
-      {/* Numéro OF */}
-      <div className="flex items-center gap-3">
-        <div className="flex-1 min-w-0">
-          <p className="text-[9px] uppercase tracking-wide text-muted-foreground font-semibold mb-0.5">Ordre de fabrication</p>
-          <p className="text-[13px] font-bold font-mono text-foreground">{of.num_of}</p>
+      {!data.of_info ? (
+        <p className="text-[11px] text-muted-foreground italic px-1">Aucun OF planifié ou exécuté</p>
+      ) : (
+        <div className="grid grid-cols-2 gap-2">
+          {[
+            ['N° OF', data.of_info.num_of],
+            ['Statut', data.of_info.statut_texte, data.of_info.statut_num] as const,
+            ['Qté restante', data.of_info.qte_restante > 0 ? data.of_info.qte_restante.toLocaleString('fr-FR') : '0'],
+            ['Date fin', data.of_info.date_fin ? _formatDate(data.of_info.date_fin) : '—'],
+          ].map(([label, value, extra]) => (
+            <div key={String(label)} className="bg-muted/40 rounded px-3 py-2">
+              <p className="text-[9px] uppercase tracking-wide text-muted-foreground font-semibold mb-0.5">{label}</p>
+              <p className={cn(
+                'text-[12px] font-semibold font-mono truncate',
+                extra === 1 ? 'text-emerald-600' : extra === 2 ? 'text-sky-600' : extra === 3 ? 'text-amber-600' : 'text-foreground'
+              )}>
+                {String(value)}
+              </p>
+            </div>
+          ))}
         </div>
-        <span className={cn('px-2 py-0.5 text-[10px] font-semibold border rounded', stat.color, stat.bg)}>
-          {stat.label}
-        </span>
-      </div>
-
-      {/* Champs */}
-      <div className="grid grid-cols-2 gap-3">
-        {[
-          ['Qté restante OF', of.qte_restante.toLocaleString('fr-FR'), false] as const,
-          ['Date début', of.date_debut ? _formatDate(of.date_debut) : '—', false] as const,
-          ['Date fin prévue', of.date_fin ? _formatDate(of.date_fin) : '—', false] as const,
-          ['Article', of.article, false] as const,
-        ].map(([label, value, isBad]) => (
-          <div key={String(label)} className="bg-muted/40 rounded p-3">
-            <p className="text-[9px] uppercase tracking-wide text-muted-foreground font-semibold mb-0.5">{label}</p>
-            <p className={cn('text-[12px] font-semibold font-mono', isBad ? 'text-red-500' : 'text-foreground')}>{value}</p>
-          </div>
-        ))}
-      </div>
+      )}
     </div>
   )
 }
 
-/* ── Composants tab ── */
-function ComposantsTab({ data }: { data: StatusDetailResponse }) {
+/* ── Composants section ── */
+function ComposantsSection({ data }: { data: StatusDetailResponse }) {
   if (data.composants.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="mb-2 opacity-30">
-          <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
-          <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
-        </svg>
-        <span className="text-[11px]">Aucun composant bloquant</span>
+      <div className="space-y-2">
+        <SectionTitle icon={
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
+            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+          </svg>
+        } label="Composants bloquants" badge={0} />
+        <p className="text-[11px] text-emerald-600 italic px-1">✓ Aucun composant bloquant</p>
       </div>
     )
   }
@@ -216,55 +136,38 @@ function ComposantsTab({ data }: { data: StatusDetailResponse }) {
   const totalManque = data.composants.reduce((s, c) => s + c.qte_manquante, 0)
 
   return (
-    <div className="p-5 space-y-3">
-      <div className="flex items-center justify-between">
-        <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
-          {data.composants.length} composant{data.composants.length > 1 ? 's' : ''} en rupture
+    <div className="space-y-2">
+      <SectionTitle icon={
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
+          <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+        </svg>
+      } label="Composants bloquants" badge={data.composants.length} />
+
+      <div className="bg-red-50 border border-red-200 rounded px-3 py-1.5 flex items-center justify-between">
+        <span className="text-[10px] text-red-700 font-semibold">
+          {data.composants.length} article{data.composants.length > 1 ? 's' : ''} en rupture
         </span>
-        <span className="text-[11px] font-bold font-mono text-red-500">
-          -{totalManque.toLocaleString('fr-FR')}
-        </span>
+        <span className="text-[11px] font-bold font-mono text-red-600">−{totalManque.toLocaleString('fr-FR')}</span>
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         {data.composants.map((comp) => {
           const stock = data.stock_composants[comp.article]
           return (
-            <div key={comp.article} className="bg-muted/30 rounded p-3 border border-border/60">
-              <div className="flex items-start justify-between mb-2">
-                <div className="min-w-0 flex-1">
-                  <p className="text-[11px] font-bold font-mono">{comp.article}</p>
-                  {comp.designation && (
-                    <p className="text-[10px] text-muted-foreground truncate">{comp.designation}</p>
-                  )}
-                </div>
-                <div className="text-right ml-3 shrink-0">
-                  <p className="text-[13px] font-bold text-red-500 tabular-nums">
-                    -{comp.qte_manquante.toLocaleString('fr-FR')}
-                  </p>
-                  <p className="text-[9px] text-muted-foreground">manque</p>
-                </div>
+            <div key={comp.article} className="flex items-center gap-3 bg-muted/30 rounded px-3 py-2">
+              <div className="flex-1 min-w-0">
+                <p className="text-[11px] font-bold font-mono">{comp.article}</p>
+                {comp.designation && (
+                  <p className="text-[10px] text-muted-foreground truncate">{comp.designation}</p>
+                )}
               </div>
-              {stock && (
-                <div className="grid grid-cols-3 gap-2 text-[10px]">
-                  <div>
-                    <p className="text-muted-foreground">Dispo</p>
-                    <p className="font-semibold tabular-nums">{stock.disponible_total.toLocaleString('fr-FR')}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Sous CQ</p>
-                    <p className="font-semibold tabular-nums text-amber-600">{stock.stock_sous_cq.toLocaleString('fr-FR')}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Proch. arrivée</p>
-                    <p className="font-semibold tabular-nums text-muted-foreground/80">
-                      {stock.prochain_arrive
-                        ? `${stock.prochain_arrive}${stock.qte_arrive > 0 ? ` (×${stock.qte_arrive.toLocaleString('fr-FR')})` : ''}`
-                        : '—'}
-                    </p>
-                  </div>
-                </div>
-              )}
+              <div className="text-right shrink-0">
+                <p className="text-[12px] font-bold font-mono text-red-500">−{comp.qte_manquante.toLocaleString('fr-FR')}</p>
+                <p className="text-[9px] text-muted-foreground">
+                  dispo {stock ? stock.disponible_total.toLocaleString('fr-FR') : '—'}
+                </p>
+              </div>
             </div>
           )
         })}
@@ -273,22 +176,29 @@ function ComposantsTab({ data }: { data: StatusDetailResponse }) {
   )
 }
 
-/* ── Stock tab ── */
-function StockTab({ data }: { data: StatusDetailResponse }) {
+/* ── Stock section ── */
+function StockSection({ data }: { data: StatusDetailResponse }) {
   const s = data.stock_detail
   const maxVal = Math.max(s.stock_physique, s.stock_sous_cq, s.stock_alloue, s.disponible_total, 1)
 
-  const rows: { label: string; value: number; color: string; sublabel?: string }[] = [
-    { label: 'Stock physique', value: s.stock_physique, color: 'bg-blue-500', sublabel: 'Disponible immédiatement' },
-    { label: 'Sous contrôle qualité', value: s.stock_sous_cq, color: 'bg-amber-500', sublabel: 'En attente de libération CQ' },
-    { label: 'Alloué à la commande', value: s.stock_alloue, color: 'bg-violet-500', sublabel: 'Réservé pour cette commande' },
-    { label: 'Dispo totale', value: s.disponible_total, color: 'bg-emerald-500', sublabel: 'Total pouvant être alloué' },
+  const rows: { label: string; value: number; color: string }[] = [
+    { label: 'Physique', value: s.stock_physique, color: 'bg-blue-500' },
+    { label: 'Sous CQ', value: s.stock_sous_cq, color: 'bg-amber-500' },
+    { label: 'Alloué', value: s.stock_alloue, color: 'bg-violet-500' },
+    { label: 'Dispo', value: s.disponible_total, color: 'bg-emerald-500' },
   ]
 
   return (
-    <div className="p-5 space-y-4">
+    <div className="space-y-2">
+      <SectionTitle icon={
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+          <polyline points="9 22 9 12 15 12 15 22"/>
+        </svg>
+      } label="Stock article" />
+
       {/* Barre visuelle */}
-      <div className="flex h-8 rounded overflow-hidden border border-border/60">
+      <div className="flex h-7 rounded overflow-hidden border border-border/60">
         {rows.filter(r => r.value > 0).map((r) => (
           <div
             key={r.label}
@@ -301,44 +211,42 @@ function StockTab({ data }: { data: StatusDetailResponse }) {
         ))}
       </div>
 
-      {/* Légende */}
-      <div className="flex flex-wrap gap-x-4 gap-y-2">
+      {/* Légende compacte */}
+      <div className="flex flex-wrap gap-x-4 gap-y-1">
         {rows.map((r) => (
           <div key={r.label} className="flex items-center gap-1.5">
-            <div className={cn('w-2.5 h-2.5 rounded-sm', r.color)} />
+            <div className={cn('w-2 h-2 rounded-sm', r.color)} />
             <span className="text-[10px] text-muted-foreground">{r.label}</span>
             <span className="text-[10px] font-bold font-mono">{r.value.toLocaleString('fr-FR')}</span>
           </div>
         ))}
       </div>
 
-      {/* Détail */}
-      <div className="grid grid-cols-2 gap-3">
-        {rows.map((r) => (
-          <div key={r.label} className="bg-muted/30 rounded p-3">
-            <div className="flex items-center gap-1.5 mb-1">
-              <div className={cn('w-2 h-2 rounded-sm', r.color)} />
-              <p className="text-[9px] uppercase tracking-wide text-muted-foreground font-semibold">{r.label}</p>
-            </div>
-            <p className="text-[15px] font-bold font-mono">{r.value.toLocaleString('fr-FR')}</p>
-            {r.sublabel && <p className="text-[9px] text-muted-foreground mt-0.5">{r.sublabel}</p>}
-          </div>
-        ))}
-      </div>
-
-      {/* Prochaine réception */}
+      {/* Prochaine arrivée */}
       {s.prochain_arrive && (
-        <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded p-3">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-600 shrink-0">
+        <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded px-3 py-2">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-600 shrink-0">
             <rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8 1 3 1 8 20 8"/>
           </svg>
-          <div>
-            <p className="text-[9px] uppercase tracking-wide text-amber-700 font-semibold">Prochaine arrivée fournisseur</p>
-            <p className="text-[11px] font-semibold text-amber-800">
-              {s.qte_arrive > 0 ? `×${s.qte_arrive.toLocaleString('fr-FR')} units` : ''} attendue le {s.prochain_arrive}
-            </p>
-          </div>
+          <p className="text-[10px] text-amber-800">
+            {s.qte_arrive > 0 ? `×${s.qte_arrive.toLocaleString('fr-FR')} unités` : ''} attendue le {s.prochain_arrive}
+          </p>
         </div>
+      )}
+    </div>
+  )
+}
+
+/* ── Section title ── */
+function SectionTitle({ icon, label, badge }: { icon: React.ReactNode; label: string; badge?: number }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-muted-foreground">{icon}</span>
+      <span className="text-[10px] uppercase tracking-wide font-semibold text-muted-foreground">{label}</span>
+      {badge !== undefined && badge > 0 && (
+        <span className="text-[9px] font-mono bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center">
+          {badge}
+        </span>
       )}
     </div>
   )
