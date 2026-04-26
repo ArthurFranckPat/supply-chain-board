@@ -40,31 +40,37 @@ export function OrderTrackingView({ data, loadState, onReload }: OrderTrackingVi
   const filteredRows = useMemo(() => {
     if (!data) return []
     const q = filters.search.trim().toLowerCase()
+
     const result = data.rows.filter((r) => {
+      let searchMatches = true
+
       if (q) {
         const words = q.split(/\s+/).filter(Boolean)
 
         // Single word that looks like an identifier (no spaces) → exact prefix match on id fields only
         if (words.length === 1) {
           const w = words[0]
-          if (r['No commande'].toLowerCase().startsWith(w)) return true
-          if (r.Article.toLowerCase().startsWith(w)) return true
-          return false
+          searchMatches =
+            r['No commande'].toLowerCase().startsWith(w) ||
+            r.Article.toLowerCase().startsWith(w)
+        } else {
+          // Multi-word → match all words anywhere (commande, article, description, client)
+          const haystack = [
+            r['No commande'],
+            r.Article,
+            r['Désignation 1'] ?? '',
+            r['Nom client commande'],
+          ].join(' ').toLowerCase()
+          searchMatches = words.every((word) => haystack.includes(word))
         }
-
-        // Multi-word → match all words anywhere (commande, article, description, client)
-        const haystack = [
-          r['No commande'],
-          r.Article,
-          r['Désignation 1'] ?? '',
-          r['Nom client commande'],
-        ].join(' ').toLowerCase()
-        return words.every((word) => haystack.includes(word))
       }
+
+      if (!searchMatches) return false
       if (filters.typesCommande.length > 0 && !filters.typesCommande.includes(r['Type commande'])) return false
       if (filters.statuts.length > 0 && !filters.statuts.includes(r.Statut)) return false
       return true
     })
+
     return result
   }, [data, filters])
 
