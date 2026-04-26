@@ -94,23 +94,31 @@ function OfSection({ data }: { data: StatusDetailResponse }) {
       {!data.of_info ? (
         <p className="text-[11px] text-muted-foreground italic px-1">Aucun OF planifié ou exécuté</p>
       ) : (
-        <div className="grid grid-cols-2 gap-2">
-          {[
-            ['N° OF', data.of_info.num_of],
-            ['Statut', data.of_info.statut_texte, data.of_info.statut_num] as const,
-            ['Qté restante', data.of_info.qte_restante > 0 ? data.of_info.qte_restante.toLocaleString('fr-FR') : '0'],
-            ['Date fin', data.of_info.date_fin ? _formatDate(data.of_info.date_fin) : '—'],
-          ].map(([label, value, extra]) => (
-            <div key={String(label)} className="bg-muted/40 rounded px-3 py-2">
-              <p className="text-[9px] uppercase tracking-wide text-muted-foreground font-semibold mb-0.5">{label}</p>
-              <p className={cn(
-                'text-[12px] font-semibold font-mono truncate',
-                extra === 1 ? 'text-emerald-600' : extra === 2 ? 'text-sky-600' : extra === 3 ? 'text-amber-600' : 'text-foreground'
-              )}>
-                {String(value)}
-              </p>
+        <div className="space-y-2">
+          {data.of_info.poste_charge && (
+            <div className="bg-muted/40 rounded px-3 py-2">
+              <p className="text-[9px] uppercase tracking-wide text-muted-foreground font-semibold mb-0.5">Poste de charge</p>
+              <p className="text-[12px] font-semibold font-mono">{data.of_info.poste_charge}</p>
             </div>
-          ))}
+          )}
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              ['N° OF', data.of_info.num_of],
+              ['Statut', data.of_info.statut_texte, data.of_info.statut_num] as const,
+              ['Qté restante', data.of_info.qte_restante > 0 ? data.of_info.qte_restante.toLocaleString('fr-FR') : '0'],
+              ['Date fin', data.of_info.date_fin ? _formatDate(data.of_info.date_fin) : '—'],
+            ].map(([label, value, extra]) => (
+              <div key={String(label)} className="bg-muted/40 rounded px-3 py-2">
+                <p className="text-[9px] uppercase tracking-wide text-muted-foreground font-semibold mb-0.5">{label}</p>
+                <p className={cn(
+                  'text-[12px] font-semibold font-mono truncate',
+                  extra === 1 ? 'text-emerald-600' : extra === 2 ? 'text-sky-600' : extra === 3 ? 'text-amber-600' : 'text-foreground'
+                )}>
+                  {String(value)}
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

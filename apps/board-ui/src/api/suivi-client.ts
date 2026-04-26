@@ -34,6 +34,7 @@ export interface StatusDetailResponse {
     statut_texte: string
     date_debut: string | null
     date_fin: string | null
+    poste_charge: string
   } | null
   composants: Array<{
     article: string
