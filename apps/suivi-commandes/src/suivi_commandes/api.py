@@ -251,9 +251,11 @@ def create_app() -> FastAPI:
         )
         if of is not None and not of_incompatible:
             poste_charge = ""
+            poste_libelle = ""
             gamme = loader.get_gamme(of.article)
             if gamme and gamme.operations:
                 poste_charge = gamme.operations[0].poste_charge
+                poste_libelle = gamme.operations[0].libelle_poste or ""
             of_info = {
                 "num_of": of.num_of,
                 "article": of.article,
@@ -262,7 +264,7 @@ def create_app() -> FastAPI:
                 "statut_texte": _of_statut_texte(of.statut_num),
                 "date_debut": of.date_debut.isoformat() if of.date_debut else None,
                 "date_fin": of.date_fin.isoformat() if of.date_fin else None,
-                "poste_charge": poste_charge,
+                "poste_charge": f"{poste_charge} — {poste_libelle}" if poste_libelle else poste_charge,
             }
 
         # Composants bloquants
