@@ -2,9 +2,18 @@
 # pre-push hook — blocks push if lint or tests fail
 # Install: ./scripts/install-hooks.sh
 
+set -e
+
 echo "🔍 Running pre-push checks..."
 
-cd apps/planning-engine || exit 1
+# --- Frontend TypeScript ---
+echo "  → tsc --noEmit (board-ui)"
+cd apps/board-ui
+npx tsc --noEmit
+cd ../..
+
+# --- Backend ---
+cd apps/planning-engine
 
 # --- Lint ---
 echo "  → ruff check production_planning/"
@@ -24,6 +33,8 @@ if [ $? -ne 0 ]; then
     echo "❌ Tests failed. Fix before pushing."
     exit 1
 fi
+
+cd ../..
 
 echo ""
 echo "✅ All checks passed. Pushing..."

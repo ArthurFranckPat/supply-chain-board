@@ -40,7 +40,6 @@ export function ResidualFabricationView() {
   const feasibleCount = sorted.filter(r => r.feasible).length
   const infeasibleCount = sorted.length - feasibleCount
 
-  const sortableKeys: SortKey[] = ['pf_article', 'description', 'desired_qty', 'feasible', 'max_feasible_qty']
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
       setSortDir(d => d === 'asc' ? 'desc' : 'asc')
