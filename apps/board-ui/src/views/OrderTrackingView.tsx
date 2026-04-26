@@ -149,7 +149,7 @@ export function OrderTrackingView({ data, loadState, onReload }: OrderTrackingVi
           {activeTab === 'commandes' && (
           <GroupedOrderTable
             rows={filteredRows}
-            onStatusClick={(row) => setDetailRow(row)}
+            onDetailClick={(row) => setDetailRow(row)}
           />
         )}
           {activeTab === 'retard' && (
