@@ -40,17 +40,31 @@ export function ResidualFabricationView() {
   const feasibleCount = sorted.filter(r => r.feasible).length
   const infeasibleCount = sorted.length - feasibleCount
 
+  const sortableKeys: SortKey[] = ['pf_article', 'description', 'desired_qty', 'feasible', 'max_feasible_qty']
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortKey(key)
+      setSortDir('asc')
+    }
+  }
+  const sortIcon = (key: SortKey) => {
+    if (sortKey !== key) return <span className="inline-block w-2.5" />
+    return <span className="inline-block w-2.5 text-[9px]">{sortDir === 'asc' ? '▲' : '▼'}</span>
+  }
+
   const columns: GridTableColumn<ResidualFabricationResult>[] = [
     {
-      key: 'pf_article', header: 'Article', width: '120px',
+      key: 'pf_article', header: <button onClick={() => handleSort('pf_article')} className="flex items-center gap-1 hover:text-foreground">Article {sortIcon('pf_article')}</button>, width: '120px',
       cell: (r) => <span className="font-mono font-semibold">{r.pf_article}</span>,
     },
     {
-      key: 'description', header: 'Description', width: '1fr',
+      key: 'description', header: <button onClick={() => handleSort('description')} className="flex items-center gap-1 hover:text-foreground">Description {sortIcon('description')}</button>, width: '1fr',
       cell: (r) => <span className="text-muted-foreground truncate">{r.description}</span>,
     },
     {
-      key: 'feasible', header: 'Statut', align: 'center', width: '70px',
+      key: 'feasible', header: <button onClick={() => handleSort('feasible')} className="flex items-center gap-1 hover:text-foreground">Statut {sortIcon('feasible')}</button>, align: 'center', width: '70px',
       cell: (r) => (
         <span className={cn('inline-flex items-center px-1.5 py-0.5 text-[9px] font-medium border',
           r.feasible ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-700 border-red-200'
@@ -60,11 +74,11 @@ export function ResidualFabricationView() {
       ),
     },
     {
-      key: 'desired_qty', header: 'Qté', align: 'right', width: '70px',
+      key: 'desired_qty', header: <button onClick={() => handleSort('desired_qty')} className="flex items-center gap-1 hover:text-foreground">Qté {sortIcon('desired_qty')}</button>, align: 'right', width: '70px',
       cell: (r) => <span className="tabular-nums font-mono">{r.desired_qty}</span>,
     },
     {
-      key: 'max_feasible_qty', header: 'Max', align: 'right', width: '70px',
+      key: 'max_feasible_qty', header: <button onClick={() => handleSort('max_feasible_qty')} className="flex items-center gap-1 hover:text-foreground">Max {sortIcon('max_feasible_qty')}</button>, align: 'right', width: '70px',
       cell: (r) => <span className="tabular-nums font-mono font-semibold">{r.max_feasible_qty}</span>,
     },
     {
