@@ -9,17 +9,14 @@ Orchestre les ports du domaine pour :
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
-from typing import Any, Optional
+from typing import Any
 
 import pandas as pd
 
 from suivi_commandes.data_loader import load_order_lines, rows_to_order_lines
-from suivi_commandes.domain.cause import RetardCause
 from suivi_commandes.domain.cause_analyzer import analyze_retard_cause
 from suivi_commandes.domain.models import Status
 from suivi_commandes.domain.status_assigner import StatusAssignment, assign_statuses
-from suivi_commandes.domain.stock_port import StockComposantInfo
 from suivi_commandes.infrastructure.adapters.in_memory_stock import InMemoryStockProvider
 
 from .composition import ErpContext

@@ -132,7 +132,7 @@ def create_app() -> FastAPI:
             reference_date=payload.reference_date,
         )
         return PaletteResponse(
-            lignes=[PaletteLigne(**{"num_commande": l.num_commande, "article": l.article, "nb_palettes": l.nb_palettes}) for l in result.lignes],
+            lignes=[PaletteLigne(**{"num_commande": ligne.num_commande, "article": ligne.article, "nb_palettes": ligne.nb_palettes}) for ligne in result.lignes],
             by_day=[PaletteByDay(**{"jour": d.jour, "nb_palettes": d.nb_palettes, "nb_commandes": d.nb_commandes}) for d in result.by_day],
             moyenne=PaletteMoyenne(**{"palettes_par_jour": result.moyenne.palettes_par_jour, "palettes_par_commande": result.moyenne.palettes_par_commande}),
             totaux=PaletteTotaux(**{"total_palettes": result.totaux.total_palettes, "total_commandes": result.totaux.total_commandes}),
