@@ -309,7 +309,7 @@ def create_app() -> FastAPI:
 
 
 def _of_statut_texte(statut_num: int) -> str:
-    mapping = {1: "fermé", 2: "planifié", 3: "suggéré"}
+    mapping = {1: "ferme", 2: "planifié", 3: "suggéré"}
     return mapping.get(statut_num, f"Statut {statut_num}")
 
 

@@ -162,7 +162,7 @@ function OfTab({ data }: { data: StatusDetailResponse }) {
   const of = data.of_info
 
   const statutConfig: Record<number, { label: string; color: string; bg: string }> = {
-    1: { label: 'fermé', color: 'text-emerald-700', bg: 'bg-emerald-100 border-emerald-200' },
+    1: { label: 'ferme', color: 'text-emerald-700', bg: 'bg-emerald-100 border-emerald-200' },
     2: { label: 'planifié', color: 'text-sky-700', bg: 'bg-sky-100 border-sky-200' },
     3: { label: 'suggéré', color: 'text-amber-700', bg: 'bg-amber-100 border-amber-200' },
   }
