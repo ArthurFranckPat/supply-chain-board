@@ -1,6 +1,6 @@
 import type { RunState } from '@/types/api'
 
-// ── Phases Glouton (classique) ──────────────────────────────────────
+// ── Phases Glouton ──────────────────────────────────────────────────
 const GREEDY_PHASES = [
   { key: 'loading_data', label: 'Chargement des données ERP' },
   { key: 'loading_capacity', label: 'Chargement des capacités' },
@@ -11,14 +11,14 @@ const GREEDY_PHASES = [
   { key: 'finalizing', label: 'Finalisation' },
 ] as const
 
-// ── Phases AG (dédiées) ─────────────────────────────────────────────
-const GA_PHASES: Record<string, string> = {
-  ga_preparation: 'Préparation des données',
-  ga_seed: 'Calcul du seed glouton',
-  ga_init: 'Initialisation de la population',
-  ga_evolution: 'Évolution génétique',
-  ga_decode: 'Décodage du meilleur planning',
-  ga_reports: 'Génération des rapports',
+// ── Phases AG ───────────────────────────────────────────────────────
+const GA_PHASES: Record<string, { label: string; showLabel?: boolean }> = {
+  ga_preparation: { label: 'Préparation des données' },
+  ga_seed: { label: 'Calcul du seed glouton' },
+  ga_init: { label: 'Initialisation de la population', showLabel: true },
+  ga_evolution: { label: 'Évolution génétique', showLabel: true },
+  ga_decode: { label: 'Décodage du meilleur planning' },
+  ga_reports: { label: 'Génération des rapports' },
 }
 
 function formatElapsed(ms: number): string {
@@ -28,16 +28,23 @@ function formatElapsed(ms: number): string {
   return `${m}m ${s % 60}s`
 }
 
-function parseGaEvolution(label: string): {
+function parseGaStats(label: string): {
   generation: number
   total: number
-  pct: number
   best: number
+  mean: number
+  diversity: number
 } | null {
-  // Format: "Génération 12/50 (24%) — best=0.850"
-  const m = label.match(/Génération\s+(\d+)\/(\d+)\s+\((\d+)%\)\s+—\s+best=([\d.]+)/)
+  // Format: "Gen 12/50 | best=0.850 | mean=0.820 | div=0.65"
+  const m = label.match(/Gen\s+(\d+)\/(\d+)\s+\|\s+best=([\d.]+)\s+\|\s+mean=([\d.]+)\s+\|\s+div=([\d.]+)/)
   if (!m) return null
-  return { generation: parseInt(m[1]), total: parseInt(m[2]), pct: parseInt(m[3]), best: parseFloat(m[4]) }
+  return {
+    generation: parseInt(m[1]),
+    total: parseInt(m[2]),
+    best: parseFloat(m[3]),
+    mean: parseFloat(m[4]),
+    diversity: parseFloat(m[5]),
+  }
 }
 
 interface ScheduleProgressProps {
@@ -54,8 +61,11 @@ function GaProgress({ runState }: { runState: RunState }) {
   const stepCount = runState.step_count ?? 6
   const stepKey = runState.step_key ?? ''
   const stepLabel = runState.step_label ?? ''
+
   const isEvolution = stepKey === 'ga_evolution'
-  const evoStats = isEvolution ? parseGaEvolution(stepLabel) : null
+  const isInit = stepKey === 'ga_init'
+  const gaStats = isEvolution ? parseGaStats(stepLabel) : null
+  const pct = gaStats ? Math.round((gaStats.generation / gaStats.total) * 100) : 0
 
   const phases = Object.entries(GA_PHASES)
 
@@ -75,9 +85,27 @@ function GaProgress({ runState }: { runState: RunState }) {
         </span>
       </div>
 
+      {/* Global progress */}
+      <div className="space-y-1">
+        <div className="flex items-center justify-between text-[10px]">
+          <span className="font-mono text-muted-foreground">
+            Phase {currentIdx + 1} / {stepCount}
+          </span>
+          <span className="font-mono font-semibold">
+            {Math.round(((currentIdx + 1) / stepCount) * 100)}%
+          </span>
+        </div>
+        <div className="h-1.5 w-full bg-border rounded-full overflow-hidden">
+          <div
+            className="h-full bg-primary rounded-full transition-all duration-500"
+            style={{ width: `${Math.round(((currentIdx + 1) / stepCount) * 100)}%` }}
+          />
+        </div>
+      </div>
+
       {/* Phase list */}
       <div className="flex flex-col gap-0.5">
-        {phases.map(([key, label], idx) => {
+        {phases.map(([key, { label }], idx) => {
           const isCompleted = idx < currentIdx
           const isActive = idx === currentIdx
           const isPending = idx > currentIdx
@@ -90,35 +118,51 @@ function GaProgress({ runState }: { runState: RunState }) {
                 <span className={`text-[11px] font-medium ${isPending ? 'text-muted-foreground/40' : ''}`}>
                   {label}
                 </span>
-                {isActive && isEvolution && evoStats && (
-                  <div className="mt-1 space-y-1">
+
+                {/* Detail for active evolution phase */}
+                {isActive && isEvolution && gaStats && (
+                  <div className="mt-1.5 space-y-1.5">
                     <div className="flex items-center justify-between text-[10px]">
                       <span className="font-mono text-muted-foreground">
-                        Génération {evoStats.generation} / {evoStats.total}
+                        Génération {gaStats.generation} / {gaStats.total}
                       </span>
-                      <span className="font-mono font-semibold">{evoStats.pct}%</span>
+                      <span className="font-mono font-semibold">{pct}%</span>
                     </div>
                     <div className="h-1.5 w-full bg-border rounded-full overflow-hidden">
                       <div
                         className="h-full bg-primary rounded-full transition-all duration-300"
-                        style={{ width: `${evoStats.pct}%` }}
+                        style={{ width: `${pct}%` }}
                       />
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-3 gap-2">
                       <div className="bg-muted/50 border border-border p-1.5 text-center">
-                        <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Meilleur score</p>
-                        <p className="text-sm font-bold font-mono text-primary">{evoStats.best.toFixed(3)}</p>
+                        <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Best</p>
+                        <p className="text-sm font-bold font-mono text-primary">{gaStats.best.toFixed(3)}</p>
+                      </div>
+                      <div className="bg-muted/50 border border-border p-1.5 text-center">
+                        <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Mean</p>
+                        <p className="text-sm font-bold font-mono">{gaStats.mean.toFixed(3)}</p>
+                      </div>
+                      <div className="bg-muted/50 border border-border p-1.5 text-center">
+                        <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Div</p>
+                        <p className="text-sm font-bold font-mono">{gaStats.diversity.toFixed(2)}</p>
                       </div>
                     </div>
                   </div>
                 )}
-                {isActive && !isEvolution && (
+
+                {/* Detail for active init phase */}
+                {isActive && isInit && stepLabel && (
+                  <p className="text-[10px] text-muted-foreground mt-0.5">{stepLabel}</p>
+                )}
+
+                {/* Generic pulse for other active phases */}
+                {isActive && !isEvolution && !isInit && (
                   <div className="h-[2px] w-full bg-border mt-0.5">
                     <div className="h-full bg-primary animate-pulse" style={{ width: '60%' }} />
                   </div>
                 )}
               </div>
-              {isActive && <span className="text-[10px] font-mono text-primary shrink-0">{currentIdx + 1}/{stepCount}</span>}
             </div>
           )
         })}
@@ -180,11 +224,7 @@ export function ScheduleProgress({ runState }: ScheduleProgressProps) {
 
   return (
     <div className="bg-card border border-border p-3 max-w-md mx-auto">
-      {isGa ? (
-        <GaProgress runState={runState} />
-      ) : (
-        <GreedyProgress runState={runState} />
-      )}
+      {isGa ? <GaProgress runState={runState} /> : <GreedyProgress runState={runState} />}
     </div>
   )
 }

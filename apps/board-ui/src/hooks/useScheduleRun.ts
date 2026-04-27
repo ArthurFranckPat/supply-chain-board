@@ -32,9 +32,11 @@ export function useScheduleRun() {
     queryFn: () => apiClient.getRun(runId!),
     enabled: !!runId,
     refetchInterval: (query) => {
-      if (query.state.data?.status === 'running') return 2000
+      if (query.state.data?.status === 'running') return 5000
       return false
     },
+    refetchIntervalInBackground: false,
+    staleTime: 3000,
   })
 
   const scheduleResult: SchedulerResult | null =

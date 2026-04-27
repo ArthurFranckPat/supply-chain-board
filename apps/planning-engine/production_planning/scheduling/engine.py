@@ -291,7 +291,11 @@ def run_schedule(
         def _ga_evolution_progress(gen: int, stats) -> None:
             if stats:
                 pct = round((gen + 1) / _ga_cfg.max_generations * 100)
-                _ga_progress(3, f"Génération {gen + 1}/{_ga_cfg.max_generations} ({pct}%) — best={stats.best_fitness:.3f}")
+                label = f"Gen {gen + 1}/{_ga_cfg.max_generations} | best={stats.best_fitness:.3f} | mean={stats.mean_fitness:.3f} | div={stats.diversity:.2f}"
+                # Log pour debug (visible dans la console du backend)
+                import logging as _logging
+                _logging.getLogger("scheduler.ga").debug(f"GA progress: {label}")
+                _ga_progress(3, label)
 
         ga_result = run_ga_schedule(
             loader=loader,
