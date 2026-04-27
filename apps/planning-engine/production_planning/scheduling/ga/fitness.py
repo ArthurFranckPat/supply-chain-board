@@ -117,20 +117,36 @@ def evaluate(individual: "Individual", ctx: "GAContext") -> FitnessMetrics:
         individual.cache_key = hash_genes(individual.genes)
 
     decoded = individual.decoded
-    plannings = decoded.plannings
 
-    taux_service = _compute_taux_service(plannings, ctx.candidates)
-    taux_ouverture = _compute_taux_ouverture(plannings, ctx.line_capacities, ctx.workdays)
-    nb_setups = _count_setups(plannings)
-    nb_jit = _count_jit(plannings)
-    nb_late = _count_late(plannings)
+    # Single pass over all planned OFs
+    served = 0
+    total_candidates = max(len(ctx.candidates), 1)
+    nb_jit = 0
+    nb_late = 0
+    nb_blocked = 0
+    total_engaged = 0.0
+    total_capacity = 0.0
+
+    for line, ofs in decoded.plannings.items():
+        cap = ctx.line_capacities.get(line, 14.0) * len(ctx.workdays)
+        total_capacity += cap
+        for c in ofs:
+            if c.scheduled_day is not None:
+                if c.scheduled_day <= c.due_date:
+                    served += 1
+                    if c.scheduled_day == c.due_date:
+                        nb_jit += 1
+                else:
+                    nb_late += 1
+                if not c.blocking_components:
+                    total_engaged += c.charge_hours
+            if c.blocking_components:
+                nb_blocked += 1
+
+    taux_service = served / total_candidates
+    taux_ouverture = total_engaged / max(total_capacity, 1.0)
     nb_unscheduled = len(decoded.unscheduled)
-    nb_blocked = sum(
-        1
-        for ofs in plannings.values()
-        for c in ofs
-        if c.blocking_components
-    )
+    nb_setups = decoded.total_setups  # Computed during decode
 
     # Pénalités
     setup_penalty = nb_setups * ctx.ga_config.setup_cost
@@ -139,7 +155,7 @@ def evaluate(individual: "Individual", ctx: "GAContext") -> FitnessMetrics:
 
     # Score agrégé (mêmes poids que le V1, enrichis)
     w = ctx.weights
-    total_assignments = sum(len(ofs) for ofs in plannings.values())
+    total_assignments = sum(len(ofs) for ofs in decoded.plannings.values())
     jit_rate = nb_jit / max(1, total_assignments)
 
     score = (

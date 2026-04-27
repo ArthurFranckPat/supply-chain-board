@@ -48,6 +48,7 @@ class DecodedPlanning:
     unscheduled: list[CandidateOF]
     capacity_violations: list[tuple[str, date, float]] = field(default_factory=list)
     component_violations: list[tuple[str, str, date]] = field(default_factory=list)
+    total_setups: int = 0  # Computed during decode, reused by fitness
 
 
 SETUP_TIME_HOURS = 0.25
@@ -90,6 +91,8 @@ def decode(individual: "Individual", ctx: GAContext) -> DecodedPlanning:
     capacity_violations: list[tuple[str, date, float]] = []
     component_violations: list[tuple[str, str, date]] = []
 
+    total_setups = 0
+
     # Index jour → date pour accès rapide
     day_index_to_date = {idx: d for idx, d in enumerate(ctx.workdays)}
 
@@ -122,6 +125,8 @@ def decode(individual: "Individual", ctx: GAContext) -> DecodedPlanning:
 
             for candidate in ofs_jour:
                 setup = SETUP_TIME_HOURS if last_article and candidate.article != last_article else 0.0
+                if setup > 0.0:
+                    total_setups += 1
                 needed = h_courant + setup + candidate.charge_hours
 
                 if needed > capacity:
@@ -178,6 +183,10 @@ def decode(individual: "Individual", ctx: GAContext) -> DecodedPlanning:
                 if ctx.component_checker is not None:
                     ctx.component_checker.reserve(candidate, day, material_state)
 
+            # End: for candidate in ofs_jour
+        # End: for day_idx in range(len(ctx.workdays))
+    # End: for line, num_ofs in ctx.by_line.items()
+
     # Recalculer les unscheduled (ceux sans scheduled_day)
     final_unscheduled = [
         c for c in ctx.candidates
@@ -189,4 +198,5 @@ def decode(individual: "Individual", ctx: GAContext) -> DecodedPlanning:
         unscheduled=final_unscheduled,
         capacity_violations=capacity_violations,
         component_violations=component_violations,
+        total_setups=total_setups,
     )
