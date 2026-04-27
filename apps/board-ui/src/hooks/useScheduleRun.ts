@@ -17,9 +17,11 @@ export function useScheduleRun() {
       ga_config_overrides?: Record<string, unknown> | null
     }) => {
       const isCompare = params.algorithm === 'compare'
+      // Le backend n'accepte que 'greedy' ou 'ga' — 'compare' est une instruction UI
+      const backendParams = { ...params, algorithm: isCompare ? 'ga' : params.algorithm }
       const resp = isCompare
-        ? await apiClient.runCompare(params)
-        : await apiClient.runSchedule(params)
+        ? await apiClient.runCompare(backendParams)
+        : await apiClient.runSchedule(backendParams)
       setRunId(resp.run_id)
       return resp
     },
