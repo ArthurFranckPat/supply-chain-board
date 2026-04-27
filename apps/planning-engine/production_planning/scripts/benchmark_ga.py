@@ -48,7 +48,6 @@ def _build_synthetic_instance(
         (GAContext, FitnessMetrics du glouton)
     """
     from unittest.mock import MagicMock
-    from production_planning.scheduling.material import build_material_stock_state
 
     workdays = [date(2026, 4, 27) + __import__("datetime").timedelta(days=i) for i in range(n_days)]
 

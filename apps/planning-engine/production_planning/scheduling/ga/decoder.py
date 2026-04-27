@@ -14,8 +14,8 @@ from datetime import date
 from typing import Any, Optional
 
 from ..models import CandidateOF
-from production_planning.orders.allocation import StockState
 from production_planning.scheduling.material import build_material_stock_state, apply_receptions_for_day
+from .chromosome import Individual
 
 
 @dataclass

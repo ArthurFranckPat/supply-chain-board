@@ -13,8 +13,8 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Callable
 
-from .chromosome import Individual, clone, invalidate
-from .decoder import GAContext, decode, DecodedPlanning
+from .chromosome import Individual, clone
+from .decoder import GAContext, DecodedPlanning
 from .fitness import evaluate, FitnessMetrics
 from .operators.crossover import crossover_dispatch
 from .operators.mutation import mutate

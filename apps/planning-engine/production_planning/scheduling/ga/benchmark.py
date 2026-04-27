@@ -7,15 +7,13 @@ et des visualisations (boxplots, courbes de convergence).
 from __future__ import annotations
 
 import csv
-import json
 import statistics
 import time
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
-from typing import Any, Callable
+from typing import Callable
 
-from .config import GAConfig
 from .decoder import GAContext
 from .engine import run_ga
 from .fitness import FitnessMetrics, evaluate
