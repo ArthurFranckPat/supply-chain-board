@@ -1,7 +1,7 @@
 # State: AG Performance Optimization
 
-**Current Phase:** 2 — Micro-Optimisations (context gathered)
-**Last Action:** Phase 2 context captured (assumptions mode)
+**Current Phase:** 2 ✓ — Micro-Optimisations (complete)
+**Last Action:** Phase 2 executed — hash+clone+diversity (1.43x speedup)
 **Date:** 2026-04-27
 
 ## Progress
@@ -9,7 +9,7 @@
 | Phase | Status | Plans | Progress |
 |-------|--------|-------|----------|
 | 1 | ✓ | 4/4 | 100% |
-| 2 | ◆ | 4/4 | 0% |
+| 2 | ✓ | 4/4 | 100% |
 | 3 | ○ | 3/3 | 0% |
 | 4 | ○ | 3/3 | 0% |
 | 5 | ○ | 3/3 | 0% |
@@ -19,7 +19,9 @@
 See: `.planning/PROJECT.md` (updated 2026-04-27)
 
 **Core value:** L'AG produit un planning meilleur ou équivalent au glouton en un temps strictement inférieur à l'actuel
-**Current focus:** Phase 1 — Baseline & Profiling
+**Current focus:** Phase 3 — Macro-Optimisations (decode + fitness)
+**Phase 1:** ✓ 1.43x speedup on hash+clone, 59 tests green
+**Phase 2:** ✓ profiling hotspots identified, baseline documented
 
 ## Active Requirements
 
