@@ -39,7 +39,7 @@ done
 # ── Stop ──────────────────────────────────────────────────────────
 if [ "$ACTION" = "stop" ]; then
   step "Stopping all services..."
-  pkill -f "uvicorn planning_engine.api.server:app" 2>/dev/null || true
+  pkill -f "uvicorn production_planning.api.server:app" 2>/dev/null || true
   pkill -f "uvicorn api_server:app" 2>/dev/null || true
   pkill -f "uvicorn app.main:app" 2>/dev/null || true
   pkill -f "uvicorn integration_hub.api:app" 2>/dev/null || true
@@ -66,6 +66,10 @@ if [ "$ACTION" = "all" ] || [ "$ACTION" = "install" ]; then
   step "Installing app dependencies..."
   "$PYTHON" -m pip install -r "$REPO_ROOT/apps/planning-engine/requirements.txt" -q 2>/dev/null || true
   "$PYTHON" -m pip install -r "$REPO_ROOT/apps/suivi-commandes/requirements.txt" -q 2>/dev/null || true
+
+  step "Installing apps as editable packages..."
+  "$PYTHON" -m pip install -e "$REPO_ROOT/apps/planning-engine" -q 2>/dev/null || true
+  "$PYTHON" -m pip install -e "$REPO_ROOT/apps/suivi-commandes" -q 2>/dev/null || true
 
   step "Installing integration-hub..."
   "$PYTHON" -m pip install -e "$REPO_ROOT/services/integration-hub" -q 2>/dev/null || true
@@ -101,7 +105,7 @@ start_service() {
   echo "$!" > "/tmp/supplychain-$(echo "$name" | tr ' ' '-').pid"
 }
 
-start_service "planning-engine" 8000 "apps/planning-engine" "planning_engine.api.server:app"
+start_service "planning-engine" 8000 "apps/planning-engine" "production_planning.api.server:app"
 start_service "suivi-commandes" 8001 "apps/suivi-commandes" "api_server:app"
 start_service "integration-hub" 8010 "services/integration-hub" "integration_hub.api:app"
 

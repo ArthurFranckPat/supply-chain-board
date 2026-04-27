@@ -12,12 +12,20 @@ CYAN='\033[0;36m'
 RED='\033[0;31m'
 NC='\033[0m'
 
+PYTHON="/c/Users/bledoua/AppData/Local/Python/bin/python.exe"
+NPM="/c/Users/bledoua/Downloads/node-v24.14.1-win-x64/node-v24.14.1-win-x64/npm"
+
+find_pid_on_port() {
+    local port=$1
+    netstat -ano 2>/dev/null | grep ":${port} " | grep LISTENING | awk '{print $5}' | head -1 || true
+}
+
 stop_services() {
     echo -e "${RED}▸${NC} Stopping all services..."
     for port in "${PORTS[@]}"; do
-        local pid=$(lsof -ti:$port 2>/dev/null || true)
+        local pid=$(find_pid_on_port "$port")
         if [ -n "$pid" ]; then
-            kill $pid 2>/dev/null || true
+            taskkill //PID "$pid" //F 2>/dev/null || kill "$pid" 2>/dev/null || true
             echo "  Port $port → killed ($pid)"
         fi
     done
@@ -34,7 +42,7 @@ case "${1:-}" in
     status|--status)
         echo "Service status:"
         for port in "${PORTS[@]}"; do
-            local pid=$(lsof -ti:$port 2>/dev/null || true)
+            pid=$(find_pid_on_port "$port")
             if [ -n "$pid" ]; then
                 echo -e "  ${GREEN}●${NC} Port $port → running (PID $pid)"
             else
@@ -71,27 +79,39 @@ start_service() {
 
 # --- planning-engine (FastAPI :8000) ---
 start_service "planning-engine" \
-    "cd $ROOT_DIR/apps/planning-engine && uvicorn production_planning.api.server:app --reload --port 8000"
+    "cd $ROOT_DIR/apps/planning-engine && $PYTHON -m uvicorn production_planning.api.server:app --reload --port 8000"
 
 # --- suivi-commandes (FastAPI :8001) ---
 start_service "suivi-commandes" \
-    "cd $ROOT_DIR/apps/suivi-commandes && uvicorn api_server:app --reload --port 8001"
+    "cd $ROOT_DIR/apps/suivi-commandes && $PYTHON -m uvicorn api_server:app --reload --port 8001"
 
 # --- integration-hub (FastAPI :8010) ---
 start_service "integration-hub" \
-    "cd $ROOT_DIR/services/integration-hub && uvicorn integration_hub.api:app --reload --port 8010"
+    "cd $ROOT_DIR/services/integration-hub && $PYTHON -m uvicorn integration_hub.api:app --reload --port 8010"
 
 # --- board-ui (Vite :5173) ---
 start_service "board-ui" \
-    "cd $ROOT_DIR/apps/board-ui && npm run dev"
+    "cd $ROOT_DIR/apps/board-ui && $NPM run dev -- --host 127.0.0.1 --port 5173"
+
+# Wait for APIs
+echo ""
+echo -e "${CYAN}▸${NC} Waiting for APIs to be ready..."
+for port in 8000 8001 8010; do
+    for i in $(seq 1 15); do
+        if curl -sf "http://127.0.0.1:$port/health" >/dev/null 2>&1; then
+            break
+        fi
+        sleep 1
+    done
+done
 
 echo ""
 echo -e "${GREEN}All services running.${NC} Press Ctrl+C to stop."
 echo ""
 echo "  planning-engine → http://127.0.0.1:8000"
-echo "  suivi-commandes    → http://127.0.0.1:8001"
-echo "  integration-hub    → http://127.0.0.1:8010"
-echo "  board-ui           → http://127.0.0.1:5173"
+echo "  suivi-commandes → http://127.0.0.1:8001"
+echo "  integration-hub → http://127.0.0.1:8010"
+echo "  board-ui        → http://127.0.0.1:5173"
 echo ""
 
 wait

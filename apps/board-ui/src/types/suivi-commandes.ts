@@ -101,3 +101,49 @@ export interface FilterOptions {
   typesCommande: string[]
   statuts: string[]
 }
+
+// ── Rapport suivi-commandes ───────────────────────────────────────
+
+export interface ActionDTO {
+  label: string
+  severity: 'info' | 'warning' | 'critical'
+}
+
+export interface ReportRowDTO {
+  num_commande: string
+  article: string
+  designation: string
+  nom_client: string
+  type_commande: string
+  date_expedition: string | null
+  date_liv_prevue: string | null
+  qte_commandee: number
+  qte_allouee: number
+  qte_restante: number
+  besoin_net: number
+  qte_allouee_virtuelle: number
+  emplacement: string | null
+  hum: string | null
+  zone_expedition: boolean
+  alerte_cq_statut: boolean
+  jours_retard: number | null
+  actions: ActionDTO[]
+  cause_type: string | null
+  cause_message: string | null
+  composants_manquants: string | null
+}
+
+export interface ReportSectionsDTO {
+  a_expedier: ReportRowDTO[]
+  allocation_a_faire: ReportRowDTO[]
+  retard_prod_groups: Record<string, ReportRowDTO[]>
+}
+
+export interface ReportPayload {
+  generated_at: string
+  reference_date: string
+  folder: string | null
+  totals: Record<string, number>
+  sections: ReportSectionsDTO
+  charge_retard: Array<{ poste: string; libelle: string; heures: number }>
+}

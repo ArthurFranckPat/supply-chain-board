@@ -10,8 +10,11 @@ Toute la logique métier / orchestration vit dans `application/`.
 
 from __future__ import annotations
 
+import io
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from domain_contracts import (
     ServiceHealth,
@@ -28,13 +31,17 @@ from domain_contracts import (
     PaletteTotaux,
     PaletteRequest,
     PaletteResponse,
+    ReportRequest,
+    ReportPayloadResponse,
 )
 
 from suivi_commandes.application import (
     StatusService,
     RetardService,
     PaletteService,
+    ReportService,
 )
+from suivi_commandes.infrastructure.adapters.reportlab_renderer import ReportlabRenderer
 
 
 def create_app() -> FastAPI:
@@ -72,12 +79,15 @@ def create_app() -> FastAPI:
             line_level=result.line_level,
         )
 
-    @api.post("/api/v1/status/from-latest-export", response_model=SuiviAssignResponse)
-    def assign_from_latest_export(payload: SuiviLatestExportRequest) -> SuiviAssignResponse:
-        result = StatusService.assign_from_latest_export(
-            folder=payload.folder,
-            reference_date=payload.reference_date,
-        )
+    @api.post("/api/v1/status/from-latest-export")
+    def assign_from_latest_export(payload: SuiviLatestExportRequest):
+        try:
+            result = StatusService.assign_from_latest_export(
+                folder=payload.folder,
+                reference_date=payload.reference_date,
+            )
+        except FileNotFoundError as e:
+            return JSONResponse(status_code=422, content={"detail": str(e)})
         return SuiviAssignResponse(
             total_rows=result.total_rows,
             status_counts=result.status_counts,
@@ -109,12 +119,15 @@ def create_app() -> FastAPI:
 
     # ── Retard charge ────────────────────────────────────────────────
 
-    @api.post("/api/v1/retard-charge", response_model=RetardChargeResponse)
-    def retard_charge(payload: RetardChargeRequest) -> RetardChargeResponse:
-        result = RetardService.compute(
-            folder=payload.folder,
-            reference_date=payload.reference_date,
-        )
+    @api.post("/api/v1/retard-charge")
+    def retard_charge(payload: RetardChargeRequest):
+        try:
+            result = RetardService.compute(
+                folder=payload.folder,
+                reference_date=payload.reference_date,
+            )
+        except FileNotFoundError as e:
+            return JSONResponse(status_code=422, content={"detail": str(e)})
         return RetardChargeResponse(
             items=[
                 RetardChargeItem(poste=i.poste, libelle=i.libelle, heures=i.heures)
@@ -125,18 +138,94 @@ def create_app() -> FastAPI:
 
     # ── Palettes ─────────────────────────────────────────────────────
 
-    @api.post("/api/v1/palettes", response_model=PaletteResponse)
-    def palettes(payload: PaletteRequest) -> PaletteResponse:
-        result = PaletteService.compute(
-            folder=payload.folder,
-            reference_date=payload.reference_date,
-        )
+    @api.post("/api/v1/palettes")
+    def palettes(payload: PaletteRequest):
+        try:
+            result = PaletteService.compute(
+                folder=payload.folder,
+                reference_date=payload.reference_date,
+            )
+        except FileNotFoundError as e:
+            return JSONResponse(status_code=422, content={"detail": str(e)})
         return PaletteResponse(
             lignes=[PaletteLigne(**{"num_commande": ligne.num_commande, "article": ligne.article, "nb_palettes": ligne.nb_palettes}) for ligne in result.lignes],
             by_day=[PaletteByDay(**{"jour": d.jour, "nb_palettes": d.nb_palettes, "nb_commandes": d.nb_commandes}) for d in result.by_day],
             moyenne=PaletteMoyenne(**{"palettes_par_jour": result.moyenne.palettes_par_jour, "palettes_par_commande": result.moyenne.palettes_par_commande}),
             totaux=PaletteTotaux(**{"total_palettes": result.totaux.total_palettes, "total_commandes": result.totaux.total_commandes}),
         )
+
+    # ── Rapport suivi-commandes ──────────────────────────────────────
+
+    def _serialize_payload(payload):
+        from suivi_commandes.application.report_service import ReportPayload
+
+        def row_to_dict(r):
+            return {
+                "num_commande": r.num_commande,
+                "article": r.article,
+                "designation": r.designation,
+                "nom_client": r.nom_client,
+                "type_commande": r.type_commande,
+                "date_expedition": r.date_expedition,
+                "date_liv_prevue": r.date_liv_prevue,
+                "qte_commandee": r.qte_commandee,
+                "qte_allouee": r.qte_allouee,
+                "qte_restante": r.qte_restante,
+                "besoin_net": r.besoin_net,
+                "qte_allouee_virtuelle": r.qte_allouee_virtuelle,
+                "emplacement": r.emplacement,
+                "hum": r.hum,
+                "zone_expedition": r.zone_expedition,
+                "alerte_cq_statut": r.alerte_cq_statut,
+                "jours_retard": r.jours_retard,
+                "actions": [{"label": a.label, "severity": a.severity} for a in r.actions],
+                "cause_type": r.cause_type,
+                "cause_message": r.cause_message,
+                "composants_manquants": r.composants_manquants,
+            }
+
+        return {
+            "generated_at": payload.generated_at,
+            "reference_date": payload.reference_date,
+            "folder": payload.folder,
+            "totals": payload.totals,
+            "sections": {
+                "a_expedier": [row_to_dict(r) for r in payload.sections.a_expedier],
+                "allocation_a_faire": [row_to_dict(r) for r in payload.sections.allocation_a_faire],
+                "retard_prod_groups": {
+                    k: [row_to_dict(r) for r in v]
+                    for k, v in payload.sections.retard_prod_groups.items()
+                },
+            },
+            "charge_retard": [
+                {"poste": c.poste, "libelle": c.libelle, "heures": c.heures}
+                for c in payload.charge_retard
+            ],
+        }
+
+    @api.post("/api/v1/reports/suivi-commandes")
+    def report_suivi_commandes(payload: ReportRequest):
+        ref_date_str = payload.reference_date.isoformat() if payload.reference_date else None
+        try:
+            report_payload = ReportService.build_payload(
+                folder=payload.folder,
+                reference_date=ref_date_str,
+            )
+        except FileNotFoundError as e:
+            return JSONResponse(status_code=422, content={"detail": str(e)})
+
+        if payload.format == "pdf":
+            renderer = ReportlabRenderer()
+            pdf_bytes = renderer.render(report_payload)
+            filename = f"suivi-commandes-{report_payload.reference_date.isoformat()}.pdf"
+            return StreamingResponse(
+                io.BytesIO(pdf_bytes),
+                media_type="application/pdf",
+                headers={"Content-Disposition": f"attachment; filename={filename}"},
+            )
+
+        data = _serialize_payload(report_payload)
+        return ReportPayloadResponse(**data)
 
     return api
 

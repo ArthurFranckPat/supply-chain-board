@@ -6,6 +6,7 @@ from .composition import ErpContext
 from .status_service import StatusService, SuiviAssignResult, StatusDetailResult
 from .retard_service import RetardService, RetardChargeResult
 from .palette_service import PaletteService, PaletteResult
+from .report_service import ReportService, ReportPayload, ReportRow, ReportSections, ChargeItem
 
 __all__ = [
     "ErpContext",
@@ -16,4 +17,9 @@ __all__ = [
     "RetardChargeResult",
     "PaletteService",
     "PaletteResult",
+    "ReportService",
+    "ReportPayload",
+    "ReportRow",
+    "ReportSections",
+    "ChargeItem",
 ]

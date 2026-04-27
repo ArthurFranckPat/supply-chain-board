@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react'
+import { useMutation } from '@tanstack/react-query'
+import { FileSpreadsheet, FileText } from 'lucide-react'
 import { LoadingInline } from '@/components/ui/loading'
 import type { OrderFilterState, FilterOptions, SuiviStatusResponse, OrderRow } from '@/types/suivi-commandes'
 import { OrderFilters } from '@/components/suivi/OrderFilters'
@@ -8,6 +10,8 @@ import { ExportBar } from '@/components/suivi/ExportBar'
 import { RetardChargeChart } from '@/components/suivi/RetardChargeChart'
 import { PaletteView } from '@/components/suivi/PaletteView'
 import { StatusDetailModal } from '@/components/suivi/StatusDetailModal'
+import { suiviClient } from '@/api/suivi-client'
+import { generateXlsx } from '@/lib/xlsx-report'
 
 const DEFAULT_FILTERS: OrderFilterState = {
   search: '',
@@ -20,6 +24,56 @@ const TABS = [
   { k: 'retard', label: 'Analyse Retard' },
   { k: 'logistique', label: 'Logistique' },
 ]
+
+function ReportDownloadBar() {
+  const pdfMutation = useMutation({
+    mutationFn: () => suiviClient.fetchReportPdf(),
+    onSuccess: ({ blob, filename }) => {
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      a.click()
+      URL.revokeObjectURL(url)
+    },
+  })
+
+  const xlsxMutation = useMutation({
+    mutationFn: () => suiviClient.fetchReportJson(),
+    onSuccess: (payload) => {
+      const blob = generateXlsx(payload)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `suivi-commandes-${payload.reference_date}.xlsx`
+      a.click()
+      URL.revokeObjectURL(url)
+    },
+  })
+
+  return (
+    <div className="flex items-center justify-end gap-2 px-1">
+      <button
+        onClick={() => pdfMutation.mutate()}
+        disabled={pdfMutation.isPending}
+        className="flex items-center gap-1.5 h-[26px] px-2.5 text-[11px] font-medium border border-border rounded-sm bg-card hover:bg-muted disabled:opacity-50 transition-colors"
+        title="Télécharger le rapport PDF"
+      >
+        <FileText className="w-3.5 h-3.5" />
+        PDF
+      </button>
+      <button
+        onClick={() => xlsxMutation.mutate()}
+        disabled={xlsxMutation.isPending}
+        className="flex items-center gap-1.5 h-[26px] px-2.5 text-[11px] font-medium border border-border rounded-sm bg-card hover:bg-muted disabled:opacity-50 transition-colors"
+        title="Télécharger le rapport Excel"
+      >
+        <FileSpreadsheet className="w-3.5 h-3.5" />
+        XLSX
+      </button>
+    </div>
+  )
+}
 
 interface OrderTrackingViewProps {
   data: SuiviStatusResponse | null
@@ -115,6 +169,8 @@ export function OrderTrackingView({ data, loadState, onReload }: OrderTrackingVi
         options={options}
         statusCounts={data.status_counts}
       />
+
+      <ReportDownloadBar />
 
       <div className="bg-card border border-border overflow-hidden">
         <div className="flex items-center justify-between px-2 py-1 border-b border-border">

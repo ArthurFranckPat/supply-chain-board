@@ -13,6 +13,7 @@ dependencies = [
   "numpy>=1.26.0",
   "pandas>=2.0.0",
   "pydantic>=2.8.0",
+  "reportlab>=4.2",
   "uvicorn>=0.32.0",
   "erp-data-access>=0.1.0",
 ]

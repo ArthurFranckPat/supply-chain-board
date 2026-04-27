@@ -6,6 +6,8 @@ from .stock_port import StockProvider, StockBreakdown, StockComposantInfo
 from .charge_port import ChargeCalculatorPort
 from .palette_port import PaletteInfoProvider, PaletteInfo
 from .of_matcher import OfMatcher, OFInfo
+from .report_renderer_port import ReportRendererPort
 __all__ = ["BomNavigator", "BomDataSource", "BomTree", "BomComponent",
     "StockProvider", "StockBreakdown", "StockComposantInfo",
-    "ChargeCalculatorPort", "PaletteInfoProvider", "PaletteInfo", "OfMatcher", "OFInfo"]
+    "ChargeCalculatorPort", "PaletteInfoProvider", "PaletteInfo", "OfMatcher", "OFInfo",
+    "ReportRendererPort"]

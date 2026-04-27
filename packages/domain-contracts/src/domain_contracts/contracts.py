@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timezone
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -171,3 +171,50 @@ class StatusDetailResponse(ExtensibleModel):
 
     # Stock composants bloquants
     stock_composants: dict[str, dict[str, Any]] = Field(default_factory=dict)
+
+
+# ── Rapport suivi-commandes (PDF / XLSX) ───────────────────────────
+
+
+class ActionDTO(BaseModel):
+    label: str
+    severity: Literal["info", "warning", "critical"]
+
+
+class ReportRowDTO(BaseModel):
+    num_commande: str
+    article: str
+    designation: str = ""
+    nom_client: str = ""
+    type_commande: str = ""
+    date_expedition: date | None = None
+    date_liv_prevue: date | None = None
+    qte_commandee: float = 0.0
+    qte_allouee: float = 0.0
+    qte_restante: float = 0.0
+    besoin_net: float = 0.0
+    qte_allouee_virtuelle: float = 0.0
+    emplacement: str | None = None
+    hum: str | None = None
+    zone_expedition: bool = False
+    alerte_cq_statut: bool = False
+    jours_retard: int | None = None
+    actions: list[ActionDTO] = Field(default_factory=list)
+    cause_type: str | None = None
+    cause_message: str | None = None
+    composants_manquants: str | None = None
+
+
+class ReportPayloadResponse(BaseModel):
+    generated_at: datetime
+    reference_date: date
+    folder: str | None = None
+    totals: dict[str, int] = Field(default_factory=dict)
+    sections: dict[str, Any] = Field(default_factory=dict)
+    charge_retard: list[RetardChargeItem] = Field(default_factory=list)
+
+
+class ReportRequest(BaseModel):
+    folder: str | None = None
+    reference_date: date | None = None
+    format: Literal["json", "pdf"] = "json"

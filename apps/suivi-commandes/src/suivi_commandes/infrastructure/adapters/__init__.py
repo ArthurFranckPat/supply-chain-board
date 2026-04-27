@@ -8,6 +8,7 @@ from .bom_adapter import DataReaderBomNavigator  # legacy, kept for backward com
 from .of_adapter import DataReaderOfMatcher
 from .charge_adapter import ProductionPlanningChargeAdapter
 from .palette_adapter import DataReaderPaletteInfoProvider
+from .reportlab_renderer import ReportlabRenderer
 
 __all__ = [
     "DataReaderStockProvider",
@@ -18,4 +19,5 @@ __all__ = [
     "DataReaderOfMatcher",
     "ProductionPlanningChargeAdapter",
     "DataReaderPaletteInfoProvider",
+    "ReportlabRenderer",
 ]

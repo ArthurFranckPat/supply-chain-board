@@ -118,11 +118,11 @@ class StatusService:
         return _to_payload(assignments)
 
     @staticmethod
-    def assign_from_latest_export(
+    def get_enriched_assignments(
         folder: str | None = None,
         reference_date: str | None = None,
-    ) -> SuiviAssignResult:
-        """Endpoint /status/from-latest-export — avec ERP + enrichissement causes."""
+    ) -> list[StatusAssignment]:
+        """Retourne les assignments enrichis avec causes (usage interne applicatif)."""
         from suivi_commandes.application.composition import ErpContext
 
         lines, loader = load_order_lines(extractions_dir=folder)
@@ -131,7 +131,6 @@ class StatusService:
         ref_date = pd.Timestamp(reference_date).date() if reference_date else None
         assignments = assign_statuses(lines, stock_provider, reference_date=ref_date)
 
-        # Enrichir les retards avec analyse de cause
         enriched = []
         for assignment in assignments:
             if assignment.status == Status.RETARD_PROD:
@@ -156,8 +155,16 @@ class StatusService:
                 )
             else:
                 enriched.append(assignment)
+        return enriched
 
-        return _to_payload(enriched)
+    @staticmethod
+    def assign_from_latest_export(
+        folder: str | None = None,
+        reference_date: str | None = None,
+    ) -> SuiviAssignResult:
+        """Endpoint /status/from-latest-export — avec ERP + enrichissement causes."""
+        assignments = StatusService.get_enriched_assignments(folder, reference_date)
+        return _to_payload(assignments)
 
     @staticmethod
     def get_detail(

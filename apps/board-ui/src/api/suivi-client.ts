@@ -1,4 +1,4 @@
-import type { SuiviStatusResponse } from '@/types/suivi-commandes'
+import type { ReportPayload, SuiviStatusResponse } from '@/types/suivi-commandes'
 import { HttpError, request } from '@/api/shared'
 
 const SUIVI_API_BASE =
@@ -78,5 +78,32 @@ export const suiviClient = {
     return suiviRequest<StatusDetailResponse>(
       `/api/v1/status/detail/${encodeURIComponent(noCommande)}/${encodeURIComponent(article)}?${params}`,
     )
+  },
+
+  fetchReportJson(folder?: string, referenceDate?: string) {
+    return suiviRequest<ReportPayload>('/api/v1/reports/suivi-commandes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ folder: folder ?? DEFAULT_EXTRACTIONS_DIR, reference_date: referenceDate ?? null, format: 'json' }),
+    })
+  },
+
+  fetchReportPdf(folder?: string, referenceDate?: string): Promise<{ blob: Blob; filename: string }> {
+    const url = `${SUIVI_API_BASE}/api/v1/reports/suivi-commandes`
+    return fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ folder: folder ?? DEFAULT_EXTRACTIONS_DIR, reference_date: referenceDate ?? null, format: 'pdf' }),
+    }).then(async (res) => {
+      if (!res.ok) {
+        const text = await res.text()
+        throw new SuiviApiError(text || `Erreur ${res.status}`, res.status)
+      }
+      const disp = res.headers.get('content-disposition') ?? ''
+      const match = /filename="?([^"]+)"?/.exec(disp)
+      const filename = match ? match[1] : 'suivi-commandes.pdf'
+      const blob = await res.blob()
+      return { blob, filename }
+    })
   },
 }
