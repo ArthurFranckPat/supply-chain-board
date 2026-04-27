@@ -1,14 +1,14 @@
 # State: AG Performance Optimization
 
-**Current Phase:** Not started
-**Last Action:** Project initialized
+**Current Phase:** 1 — Baseline & Profiling (context gathered)
+**Last Action:** Phase 1 context captured (assumptions mode)
 **Date:** 2026-04-27
 
 ## Progress
 
 | Phase | Status | Plans | Progress |
 |-------|--------|-------|----------|
-| 1 | ○ | 4/4 | 0% |
+| 1 | ◆ | 4/4 | 0% |
 | 2 | ○ | 4/4 | 0% |
 | 3 | ○ | 3/3 | 0% |
 | 4 | ○ | 3/3 | 0% |
