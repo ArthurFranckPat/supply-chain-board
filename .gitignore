@@ -34,3 +34,4 @@ reports/
 .DS_Store
 Thumbs.db
 .gstack/
+apps/planning-engine/data/schedule_history.db
