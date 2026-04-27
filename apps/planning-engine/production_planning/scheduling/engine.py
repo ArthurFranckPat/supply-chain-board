@@ -118,7 +118,28 @@ def run_schedule(
     freeze_threshold_hour = weights.get("freeze_threshold_hour", freeze_threshold_hour)
     planning_workdays = weights.get("planning_workdays", planning_workdays)
     demand_calendar_days = weights.get("demand_calendar_days", demand_calendar_days)
-    _progress("loading_data", "Chargement des données ERP", 0, 7)
+    # ── Phases AG (dédiées) vs Glouton (classique) ──────────────────────
+    if algorithm == "ga":
+        _GA_PHASES = [
+            ("ga_preparation", "Préparation des données"),
+            ("ga_seed", "Calcul du seed glouton"),
+            ("ga_init", "Initialisation de la population"),
+            ("ga_evolution", "Évolution génétique"),
+            ("ga_decode", "Décodage du meilleur planning"),
+            ("ga_reports", "Génération des rapports"),
+        ]
+        def _ga_progress(idx: int, label: str | None = None) -> None:
+            key, default = _GA_PHASES[idx]
+            _progress(key, label or default, idx, len(_GA_PHASES))
+    else:
+        _GA_PHASES = None
+        def _ga_progress(idx: int, label: str | None = None) -> None:
+            pass
+
+    if algorithm == "greedy":
+        _progress("loading_data", "Chargement des données ERP", 0, 7)
+    else:
+        _ga_progress(0)
 
     # Load calendar & capacity configs when available
     config_dir = str(Path(weights_path).parent)
@@ -154,19 +175,22 @@ def run_schedule(
 
     demand_horizon_end = reference_date + timedelta(days=demand_calendar_days)
     target_lines = _build_target_line_articles(loader, lines_config)
-    _progress("loading_capacity", "Chargement des capacités", 1, 7)
+    if algorithm == "greedy":
+        _progress("loading_capacity", "Chargement des capacités", 1, 7)
 
     checker = RecursiveChecker(loader, use_receptions=not immediate_components)
     material_state = build_material_stock_state(loader)
     receptions_by_day = build_receptions_by_day(loader)
-    _progress("preparing_data", "Préparation des données", 2, 7)
+    if algorithm == "greedy":
+        _progress("preparing_data", "Préparation des données", 2, 7)
 
     candidates, matching_alerts, matching_results = _select_candidates_from_matching(
         loader=loader,
         planning_workdays=workdays,
         target_lines=target_lines,
     )
-    _progress("resolving_constraints", "Résolution des contraintes", 3, 7)
+    if algorithm == "greedy":
+        _progress("resolving_constraints", "Résolution des contraintes", 3, 7)
 
     line_capacities, line_min_open = _compute_line_capacities(
         candidates,
@@ -199,8 +223,9 @@ def run_schedule(
     )
 
     schedulers = {line: GenericLineScheduler(line, capacity_hours=line_capacities[line], min_open_hours=line_min_open[line]) for line in target_lines.keys()}
-    _progress("computing_schedule", "Calcul du planning", 4, 7)
+
     if algorithm == "greedy":
+        _progress("computing_schedule", "Calcul du planning", 4, 7)
         _run_daily_scheduling_loop(
             SchedulerContext(
                 loader=loader,
@@ -222,7 +247,10 @@ def run_schedule(
         )
     elif algorithm == "ga":
         from .ga import run_ga_schedule
-        # Construire le seed glouton (Phase 1 : exécuter d'abord le glouton)
+        _ga_cfg = ga_config if ga_config is not None else __import__('production_planning.scheduling.ga.config', fromlist=['default_ga_config']).default_ga_config()
+
+        # Phase 1 : Seed glouton
+        _ga_progress(1)
         _run_daily_scheduling_loop(
             SchedulerContext(
                 loader=loader,
@@ -255,9 +283,16 @@ def run_schedule(
             for c in cands:
                 if c.num_of not in seed_genes:
                     seed_genes[c.num_of] = -1
-        # Signaler le passage en mode AG
-        _ga_cfg = ga_config if ga_config is not None else __import__('production_planning.scheduling.ga.config', fromlist=['default_ga_config']).default_ga_config()
-        _progress("ga_init", f"Initialisation AG — population={_ga_cfg.population_size} générations={_ga_cfg.max_generations}", 0, _ga_cfg.max_generations)
+
+        # Phase 2-3 : Initialisation + Évaluation initiale
+        _ga_progress(2, f"Population={_ga_cfg.population_size} — évaluation initiale...")
+
+        # Phase 3 : Évolution
+        def _ga_evolution_progress(gen: int, stats) -> None:
+            if stats:
+                pct = round((gen + 1) / _ga_cfg.max_generations * 100)
+                _ga_progress(3, f"Génération {gen + 1}/{_ga_cfg.max_generations} ({pct}%) — best={stats.best_fitness:.3f}")
+
         ga_result = run_ga_schedule(
             loader=loader,
             reference_date=reference_date,
@@ -268,23 +303,24 @@ def run_schedule(
             weights=weights,
             ga_config=ga_config,
             random_seed=ga_random_seed,
-            progress_callback=lambda gen, stats: _progress(
-                "ga_gen",
-                f"Génération {gen + 1}/{_ga_cfg.max_generations} — best={stats.best_fitness:.3f} mean={stats.mean_fitness:.3f} div={stats.diversity:.2f}",
-                gen + 1,
-                _ga_cfg.max_generations,
-            ) if stats else None,
+            progress_callback=_ga_evolution_progress,
             checker=checker,
             receptions_by_day=receptions_by_day,
             by_line={line: [c.num_of for c in cs] for line, cs in by_line.items()},
             seed_genes=seed_genes,
         )
+
+        # Phase 4 : Décodage
+        _ga_progress(4)
         # Reconstruire day_plans à partir du résultat AG
         _rebuild_day_plans_from_ga(day_plans, ga_result.best_planning, workdays, by_line)
     else:
         raise ValueError(f"Unknown algorithm: {algorithm}")
 
-    _progress("generating_reports", "Génération des rapports", 5, 7)
+    if algorithm == "greedy":
+        _progress("generating_reports", "Génération des rapports", 5, 7)
+    else:
+        _ga_progress(5)
     plannings = _flatten_plannings(day_plans, target_lines)
     _mark_unscheduled_candidates(by_line, alerts)
     unscheduled_rows = build_unscheduled_rows(by_line)
@@ -332,7 +368,8 @@ def run_schedule(
 
     # Build reception rows (expected component deliveries)
     reception_rows = _build_reception_rows(loader, reference_date, demand_horizon_end, all_assignments)
-    _progress("finalizing", "Finalisation", 6, 7)
+    if algorithm == "greedy":
+        _progress("finalizing", "Finalisation", 6, 7)
 
     result = SchedulerResult(
         score=round(score, 3),
