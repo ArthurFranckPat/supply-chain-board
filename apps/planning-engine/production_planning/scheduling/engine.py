@@ -255,6 +255,8 @@ def run_schedule(
             for c in cands:
                 if c.num_of not in seed_genes:
                     seed_genes[c.num_of] = -1
+        # Signaler le passage en mode AG
+        _progress("ga_init", f"Initialisation AG — population={ga_config.population_size} générations={ga_config.max_generations}", 0, ga_config.max_generations)
         ga_result = run_ga_schedule(
             loader=loader,
             reference_date=reference_date,

@@ -149,14 +149,41 @@ function GreedyProgress({ runState }: { runState: RunState }) {
   )
 }
 
+function GaInitProgress({ label, elapsedMs }: { label: string; elapsedMs: number }) {
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary" />
+          </span>
+          <span className="text-xs font-semibold">Algorithme génétique</span>
+        </div>
+        <span className="text-[10px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5">{formatElapsed(elapsedMs)}</span>
+      </div>
+      <div className="bg-muted/50 border border-border p-3 text-center space-y-1">
+        <p className="text-sm font-medium">{label}</p>
+        <p className="text-[10px] text-muted-foreground">Évaluation de la population initiale...</p>
+        <div className="h-1 w-full bg-border rounded-full overflow-hidden mt-2">
+          <div className="h-full bg-primary rounded-full animate-pulse" style={{ width: '60%' }} />
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function ScheduleProgress({ runState }: ScheduleProgressProps) {
   const elapsedMs = runState.elapsed_ms ?? 0
-  const isGa = runState.step_key === 'ga_gen'
-  const gaStats = isGa ? parseGaStats(runState.step_label ?? '') : null
+  const isGa = runState.algorithm === 'ga' || runState.step_key === 'ga_gen' || runState.step_key === 'ga_init'
+  const isGaInit = runState.step_key === 'ga_init'
+  const gaStats = runState.step_key === 'ga_gen' ? parseGaStats(runState.step_label ?? '') : null
 
   return (
     <div className="bg-card border border-border p-3 max-w-md mx-auto">
-      {isGa && gaStats ? (
+      {isGa && isGaInit ? (
+        <GaInitProgress label={runState.step_label ?? 'Initialisation AG...'} elapsedMs={elapsedMs} />
+      ) : isGa && gaStats ? (
         <GaProgress stats={gaStats} elapsedMs={elapsedMs} />
       ) : (
         <>
