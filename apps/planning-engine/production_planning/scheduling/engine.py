@@ -128,9 +128,9 @@ def run_schedule(
             ("ga_decode", "Décodage du meilleur planning"),
             ("ga_reports", "Génération des rapports"),
         ]
-        def _ga_progress(idx: int, label: str | None = None) -> None:
+        def _ga_progress(idx: int, label: str | None = None, *, ga_stats: dict | None = None) -> None:
             key, default = _GA_PHASES[idx]
-            _progress(key, label or default, idx, len(_GA_PHASES))
+            _progress(key, label or default, idx, len(_GA_PHASES), ga_stats=ga_stats)
     else:
         _GA_PHASES = None
         def _ga_progress(idx: int, label: str | None = None) -> None:
