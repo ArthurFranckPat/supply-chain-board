@@ -30,6 +30,10 @@ function App() {
     blockingComponentsMode: 'blocked',
     immediateComponents: false,
     demandHorizonDays: 15,
+    algorithm: 'greedy',
+    gaRandomSeed: null,
+    gaPopulationSize: 50,
+    gaMaxGenerations: 50,
   })
 
   const { backendState, loadState, lastSourceSnapshot, suiviData, reloadSuivi } = useAppBootstrap(source)
@@ -38,11 +42,29 @@ function App() {
   async function handleRunSchedule() {
     setErrorMessage(null)
     try {
-      await schedule.trigger({
+      const isCompare = schedulingOptions.algorithm === 'compare'
+      const algo = isCompare ? 'ga' : schedulingOptions.algorithm
+
+      const payload: Parameters<typeof schedule.trigger>[0] = {
         blocking_components_mode: schedulingOptions.blockingComponentsMode,
         immediate_components: schedulingOptions.immediateComponents,
         demand_horizon_days: schedulingOptions.demandHorizonDays,
-      })
+        algorithm: algo,
+      }
+
+      if (schedulingOptions.algorithm !== 'greedy') {
+        payload.ga_random_seed = schedulingOptions.gaRandomSeed
+        payload.ga_config_overrides = {
+          population_size: schedulingOptions.gaPopulationSize,
+          max_generations: schedulingOptions.gaMaxGenerations,
+        }
+      }
+
+      if (isCompare) {
+        await schedule.trigger({ ...payload, algorithm: 'compare' })
+      } else {
+        await schedule.trigger(payload)
+      }
       navigate('/scheduler')
     } catch (error) {
       setErrorMessage(error instanceof ApiError ? error.message : 'Ordonnancement impossible.')

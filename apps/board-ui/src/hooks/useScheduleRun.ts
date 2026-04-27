@@ -16,7 +16,10 @@ export function useScheduleRun() {
       ga_random_seed?: number | null
       ga_config_overrides?: Record<string, unknown> | null
     }) => {
-      const resp = await apiClient.runSchedule(params)
+      const isCompare = params.algorithm === 'compare'
+      const resp = isCompare
+        ? await apiClient.runCompare(params)
+        : await apiClient.runSchedule(params)
       setRunId(resp.run_id)
       return resp
     },

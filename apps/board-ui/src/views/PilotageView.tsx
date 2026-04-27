@@ -8,6 +8,10 @@ export interface SchedulingOptions {
   blockingComponentsMode: string
   immediateComponents: boolean
   demandHorizonDays: number
+  algorithm: 'greedy' | 'ga' | 'compare'
+  gaRandomSeed: number | null
+  gaPopulationSize: number
+  gaMaxGenerations: number
 }
 
 type LoadState = 'idle' | 'loading' | 'ready' | 'error'
@@ -33,6 +37,12 @@ const HORIZON_OPTIONS: Array<{ days: number; hint: string }> = [
   { days: 7, hint: 'Semaine prochaine (S+1)' },
   { days: 15, hint: 'S+1 et S+2' },
   { days: 30, hint: 'S+1 à S+4' },
+]
+
+const ALGO_OPTIONS: Array<{ value: SchedulingOptions['algorithm']; label: string; hint: string }> = [
+  { value: 'greedy', label: 'Glouton V1', hint: 'Algorithme rapide, résultat déterministe' },
+  { value: 'ga', label: 'Génétique V2', hint: 'Algorithme évolutif, exploration multi-solutions' },
+  { value: 'compare', label: 'Comparer', hint: 'Lance les deux et compare les résultats' },
 ]
 
 const QUICK_NAV = [
@@ -177,6 +187,54 @@ export function PilotageView({ loadState, scheduleState, lastSourceSnapshot, bac
                     </SimpleTooltip>
                   ))}
                 </div>
+              </div>
+
+              <div className="border-t border-border pt-2.5 space-y-2">
+                <div className="flex items-center gap-2">
+                  <SimpleTooltip side="right" content="Algorithme d'ordonnancement">
+                    <span className="text-[11px] text-muted-foreground shrink-0 cursor-help underline decoration-dotted underline-offset-2">Algorithme</span>
+                  </SimpleTooltip>
+                  <div className="flex gap-1">
+                    {ALGO_OPTIONS.map(({ value, label, hint }) => (
+                      <SimpleTooltip key={value} side="bottom" content={hint}>
+                        <button type="button" onClick={() => onOptionsChange({ ...options, algorithm: value })} disabled={!isReady || scheduleState === 'running'}
+                          className={`px-2 py-0.5 text-[11px] font-medium transition-colors border ${options.algorithm === value ? 'bg-primary text-primary-foreground border-primary' : 'bg-card text-muted-foreground border-border hover:bg-muted'} disabled:opacity-50`}>
+                          {label}
+                        </button>
+                      </SimpleTooltip>
+                    ))}
+                  </div>
+                </div>
+
+                {options.algorithm !== 'greedy' && (
+                  <div className="flex items-center gap-2 pl-[68px]">
+                    <SimpleTooltip side="bottom" content="Taille de la population AG">
+                      <span className="text-[10px] text-muted-foreground shrink-0">Pop</span>
+                    </SimpleTooltip>
+                    <input type="number" min={10} max={200} value={options.gaPopulationSize}
+                      onChange={e => onOptionsChange({ ...options, gaPopulationSize: parseInt(e.target.value) || 50 })}
+                      disabled={!isReady || scheduleState === 'running'}
+                      className="w-14 px-1 py-0.5 text-[11px] border border-border bg-card text-foreground disabled:opacity-50" />
+                    <SimpleTooltip side="bottom" content="Nombre max de générations">
+                      <span className="text-[10px] text-muted-foreground shrink-0">Gen</span>
+                    </SimpleTooltip>
+                    <input type="number" min={5} max={500} value={options.gaMaxGenerations}
+                      onChange={e => onOptionsChange({ ...options, gaMaxGenerations: parseInt(e.target.value) || 50 })}
+                      disabled={!isReady || scheduleState === 'running'}
+                      className="w-14 px-1 py-0.5 text-[11px] border border-border bg-card text-foreground disabled:opacity-50" />
+                    <SimpleTooltip side="bottom" content="Graine aléatoire (vide = aléatoire)">
+                      <span className="text-[10px] text-muted-foreground shrink-0">Seed</span>
+                    </SimpleTooltip>
+                    <input type="number" value={options.gaRandomSeed ?? ''}
+                      onChange={e => {
+                        const v = e.target.value
+                        onOptionsChange({ ...options, gaRandomSeed: v === '' ? null : parseInt(v) })
+                      }}
+                      disabled={!isReady || scheduleState === 'running'}
+                      placeholder="—"
+                      className="w-14 px-1 py-0.5 text-[11px] border border-border bg-card text-foreground disabled:opacity-50 placeholder:text-muted-foreground/50" />
+                  </div>
+                )}
               </div>
 
               <button onClick={onRunSchedule} disabled={!isReady || scheduleState === 'running'}
