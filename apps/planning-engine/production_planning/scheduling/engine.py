@@ -265,7 +265,12 @@ def run_schedule(
             weights=weights,
             ga_config=ga_config,
             random_seed=ga_random_seed,
-            progress_callback=lambda gen, stats: _progress("ga_gen", f"Génération {gen}", gen, 1) if gen else None,
+            progress_callback=lambda gen, stats: _progress(
+                "ga_gen",
+                f"Génération {gen + 1}/{ga_config.max_generations} — best={stats.best_fitness:.3f} mean={stats.mean_fitness:.3f} div={stats.diversity:.2f}",
+                gen + 1,
+                ga_config.max_generations,
+            ) if stats else None,
             checker=checker,
             receptions_by_day=receptions_by_day,
             by_line={line: [c.num_of for c in cs] for line, cs in by_line.items()},
