@@ -28,5 +28,5 @@
   "late_weight": 5.0,
   "component_violation_weight": 100.0,
   "random_seed": null,
-  "workers": 1
+  "workers": null
 }

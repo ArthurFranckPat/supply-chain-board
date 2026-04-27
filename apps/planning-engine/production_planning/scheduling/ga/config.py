@@ -63,7 +63,7 @@ class GAConfig:
 
     # Reproductibilité / parallélisme
     random_seed: int | None = None
-    workers: int = 1
+    workers: int | None = None  # None = auto (os.cpu_count())
 
     def __post_init__(self) -> None:
         """Validation des contraintes de cohérence."""

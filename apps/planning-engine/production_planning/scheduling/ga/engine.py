@@ -1,12 +1,15 @@
 """Moteur principal de l'algorithme génétique — boucle évolutive complète.
 
 Phase 2 : population, opérateurs, élitisme, convergence.
+Phase 5+ : parallélisation de l'évaluation via ThreadPoolExecutor + cache global.
 """
 
 from __future__ import annotations
 
+import os
 import random
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Callable
 
@@ -46,19 +49,11 @@ class GAResult:
 
 
 def _compute_diversity(population: list[Individual], sample_size: int = 20) -> float:
-    """Mesure la diversité comme 1 - chevauchement moyen des genes.
-
-    Args:
-        population: Population courante.
-        sample_size: Nombre de paires à échantillonner.
-
-    Returns:
-        Diversité ∈ [0, 1] (1 = très diverse, 0 = tous identiques).
-    """
+    """Mesure la diversité comme 1 - chevauchement moyen des genes."""
     if len(population) < 2:
         return 0.0
 
-    rng = random.Random(42)  # seed fixe pour reproductibilité
+    rng = random.Random(42)
     n_genes = len(population[0].genes)
     if n_genes == 0:
         return 0.0
@@ -75,6 +70,40 @@ def _compute_diversity(population: list[Individual], sample_size: int = 20) -> f
     return 1.0 - (total_overlap / n_pairs)
 
 
+def _evaluate_population(
+    population: list[Individual],
+    ctx: GAContext,
+    workers: int = 1,
+) -> None:
+    """Évalue une population avec cache global et parallélisation optionnelle.
+
+    Args:
+        population: Liste d'individus à évaluer.
+        ctx: Contexte d'évaluation.
+        workers: Nombre de workers threads (> 1 = parallélisé).
+    """
+    eval_cache: dict[str, Individual] = {}
+
+    def _eval_one(ind: Individual) -> None:
+        if ind.fitness is not None:
+            return
+        if ind.cache_key in eval_cache:
+            cached = eval_cache[ind.cache_key]
+            ind.fitness = cached.fitness
+            ind.metrics = cached.metrics
+            ind.decoded = cached.decoded
+            return
+        evaluate(ind, ctx)
+        eval_cache[ind.cache_key] = ind
+
+    if workers > 1:
+        with ThreadPoolExecutor(max_workers=workers) as executor:
+            list(executor.map(_eval_one, population))
+    else:
+        for ind in population:
+            _eval_one(ind)
+
+
 def run_ga(
     ctx: GAContext,
     progress_callback: Callable | None = None,
@@ -82,14 +111,9 @@ def run_ga(
     """Lance l'algorithme génétique complet.
 
     Boucle principale :
-        1. Initialiser la population (seed glouton + variantes + aléatoires).
-        2. Évaluer chaque individu.
-        3. Pour chaque génération :
-           a. Élitisme : conserver les meilleurs.
-           b. Sélection par tournoi + croisement + mutation + réparation.
-           c. Évaluer les enfants.
-           d. Mettre à jour les statistiques.
-           e. Critère d'arrêt anticipé.
+        1. Initialiser la population.
+        2. Évaluer chaque individu (avec cache + threads).
+        3. Pour chaque génération : élitisme, reproduction, évaluation.
         4. Retourner le meilleur individu.
 
     Invariant : le meilleur individu trouvé est toujours ≥ seed glouton.
@@ -105,15 +129,21 @@ def run_ga(
     rng = random.Random(config.random_seed) if config.random_seed is not None else random.Random()
     ctx.rng = rng  # type: ignore[attr-defined]
 
+    # Déterminer le nombre de workers
+    workers = config.workers
+    if workers is None or workers < 1:
+        workers = os.cpu_count() or 1
+        # Limiter à la taille de la population pour éviter l'overhead
+        workers = min(workers, config.population_size)
+
     start_time = time.perf_counter()
 
     # 1. Population initiale
     seed_genes = getattr(ctx, "seed_genes", None)
     population = build_initial_population(ctx, seed_genes=seed_genes)
 
-    # 2. Évaluation initiale
-    for ind in population:
-        evaluate(ind, ctx)
+    # 2. Évaluation initiale (parallèle)
+    _evaluate_population(population, ctx, workers=workers)
 
     # Meilleur individu global
     best_ever = max(population, key=lambda i: i.fitness if i.fitness is not None else float("-inf"))
@@ -131,9 +161,7 @@ def run_ga(
             key=lambda i: i.fitness if i.fitness is not None else float("-inf"),
             reverse=True,
         )
-        # Élitisme : conserver les meilleurs sans clonage (préserver fitness)
         elite = sorted_pop[:elite_n]
-
         new_population = list(elite)
 
         # Reproduction
@@ -148,8 +176,10 @@ def run_ga(
 
             mutate(child, ctx)
             repair(child, ctx)
-            evaluate(child, ctx)
             new_population.append(child)
+
+        # Évaluation parallèle de la nouvelle population
+        _evaluate_population(new_population, ctx, workers=workers)
 
         population = new_population
         for ind in population:
