@@ -6,8 +6,6 @@ hashage, invalidation de caches.
 
 from __future__ import annotations
 
-import hashlib
-import json
 from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any
@@ -60,7 +58,7 @@ def clone(ind: Individual) -> Individual:
     Returns:
         Nouvel Individual avec genes copiés et caches invalidés.
     """
-    return make_individual(genes=deepcopy(ind.genes))
+    return make_individual(genes=ind.genes.copy())
 
 
 def hash_genes(genes: dict[str, int]) -> str:
@@ -74,8 +72,7 @@ def hash_genes(genes: dict[str, int]) -> str:
     Returns:
         Chaîne hexadécimale de 32 caractères (MD5).
     """
-    serialized = json.dumps(genes, sort_keys=True, separators=(",", ":"))
-    return hashlib.md5(serialized.encode("utf-8")).hexdigest()
+    return hex(hash(tuple(sorted(genes.items()))))
 
 
 def invalidate(ind: Individual) -> None:

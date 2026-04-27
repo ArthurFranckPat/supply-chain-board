@@ -59,6 +59,26 @@ The profiler also reveals that `ThreadPoolExecutor` overhead (thread creation, l
 
 ## Next
 
-Phase 2 / Phase 3 ciblera ces hotspots pour optimisation.
-- Phase 2: hash_genes() + clone() (micro-optimisations, gains rapides)
-- Phase 3: decode() + fitness() (macro-optimisations, gains moyens)
+Phase 3 ciblera decode() + fitness() (macro-optimisations, gains moyens).
+
+---
+
+## Phase 2 Results
+
+**Date:** 2026-04-27
+**Optimizations applied:** hash_genes (native hash), clone (shallow copy), _compute_diversity (sample_size=10)
+
+| Metric | Phase 1 (before) | Phase 2 (after) | Delta |
+|--------|-----------------|-----------------|-------|
+| Temps AG moyen (s) | 0.126 | 0.088 | **1.43x** faster |
+| Temps total 3 runs (s) | 0.378 | 0.264 | 1.43x |
+| Score AG (best) | 0.959643 | 0.959643 | ±0 (identical) |
+| Taux de service | 100% | 100% | ✓ maintained |
+| Tests GA | 59/59 | 59/59 | ✓ maintained |
+
+### Analysis
+
+- **30% du temps GA économisé** sur cette instance synthétique (0.126s → 0.088s). Sur des instances plus grandes (plus d'OFs, plus de générations), le gain absolu serait proportionnellement plus élevé car hash et clone sont appelés à chaque opération génétique.
+- **Qualité identique** — le score et le taux de service sont strictement inchangés, ce qui confirme que ces optimisations sont purement mécaniques (aucun changement algorithmique).
+- **ThreadPoolExecutor domine toujours** le temps total (0.088s sur 0.217s profiled = ~40% overhead). La parallélisation (Phase 4) reste le levier le plus important pour les gains réels.
+- **Prochaines cibles** : decode() à 26.6% (Phase 3) puis ProcessPoolExecutor (Phase 4).

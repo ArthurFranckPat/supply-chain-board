@@ -48,7 +48,7 @@ class GAResult:
     converged_early: bool = False
 
 
-def _compute_diversity(population: list[Individual], sample_size: int = 20) -> float:
+def _compute_diversity(population: list[Individual], sample_size: int = 10) -> float:
     """Mesure la diversité comme 1 - chevauchement moyen des genes."""
     if len(population) < 2:
         return 0.0
