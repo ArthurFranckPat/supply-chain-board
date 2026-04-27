@@ -172,14 +172,16 @@ class ScheduleService:
         from ..scheduling.ga.config import load_ga_config
 
         ga_config = None
-        if algorithm == "ga" and ga_config_overrides:
+        if algorithm == "ga":
             try:
+                overrides = ga_config_overrides or {}
                 ga_config = load_ga_config(
                     path=str(self.project_root / "config" / "ga.json"),
-                    overrides=ga_config_overrides,
+                    overrides=overrides,
                 )
             except Exception:
-                pass
+                from ..scheduling.ga.config import default_ga_config
+                ga_config = default_ga_config()
 
         result = run_schedule_engine(
             loader,

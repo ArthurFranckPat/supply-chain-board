@@ -256,7 +256,8 @@ def run_schedule(
                 if c.num_of not in seed_genes:
                     seed_genes[c.num_of] = -1
         # Signaler le passage en mode AG
-        _progress("ga_init", f"Initialisation AG — population={ga_config.population_size} générations={ga_config.max_generations}", 0, ga_config.max_generations)
+        _ga_cfg = ga_config if ga_config is not None else __import__('production_planning.scheduling.ga.config', fromlist=['default_ga_config']).default_ga_config()
+        _progress("ga_init", f"Initialisation AG — population={_ga_cfg.population_size} générations={_ga_cfg.max_generations}", 0, _ga_cfg.max_generations)
         ga_result = run_ga_schedule(
             loader=loader,
             reference_date=reference_date,
@@ -269,9 +270,9 @@ def run_schedule(
             random_seed=ga_random_seed,
             progress_callback=lambda gen, stats: _progress(
                 "ga_gen",
-                f"Génération {gen + 1}/{ga_config.max_generations} — best={stats.best_fitness:.3f} mean={stats.mean_fitness:.3f} div={stats.diversity:.2f}",
+                f"Génération {gen + 1}/{_ga_cfg.max_generations} — best={stats.best_fitness:.3f} mean={stats.mean_fitness:.3f} div={stats.diversity:.2f}",
                 gen + 1,
-                ga_config.max_generations,
+                _ga_cfg.max_generations,
             ) if stats else None,
             checker=checker,
             receptions_by_day=receptions_by_day,
