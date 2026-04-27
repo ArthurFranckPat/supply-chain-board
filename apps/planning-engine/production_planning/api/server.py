@@ -25,6 +25,9 @@ class RunScheduleRequest(BaseModel):
     immediate_components: bool = False
     blocking_components_mode: str = Field(default="blocked", pattern="^(blocked|direct|both)$")
     demand_horizon_days: int = Field(default=15, ge=7, le=60)
+    algorithm: str = Field(default="greedy", pattern="^(greedy|ga)$")
+    ga_random_seed: Optional[int] = None
+    ga_config_overrides: Optional[dict] = None
 
 
 class CalendarManualOffRequest(BaseModel):
@@ -151,6 +154,24 @@ def run_schedule(payload: RunScheduleRequest, request: Request) -> dict:
         immediate_components=payload.immediate_components,
         blocking_components_mode=payload.blocking_components_mode,
         demand_horizon_days=payload.demand_horizon_days,
+        algorithm=payload.algorithm,
+        ga_random_seed=payload.ga_random_seed,
+        ga_config_overrides=payload.ga_config_overrides,
+    )
+
+
+@v1.post("/runs/compare")
+def run_compare(payload: RunScheduleRequest, request: Request) -> dict:
+    """Lance les deux algorithmes (glouton + AG) et retourne la comparaison.
+
+    Le glouton est toujours lancé. L'AG est lancé en parallèle si demandé.
+    """
+    return _svc(request).run_compare(
+        immediate_components=payload.immediate_components,
+        blocking_components_mode=payload.blocking_components_mode,
+        demand_horizon_days=payload.demand_horizon_days,
+        ga_random_seed=payload.ga_random_seed,
+        ga_config_overrides=payload.ga_config_overrides,
     )
 
 
@@ -366,8 +387,15 @@ def stock_evolution_analytics(payload: StockEvolutionRequest, request: Request) 
 # ── Analyse Lot Eco ─────────────────────────────────────────────
 
 @v1.post("/analyse-lot-eco")
-def analyse_lot_eco(target_coverage_weeks: float = Query(default=4.0, ge=0.5, le=52.0), request: Request = None) -> dict:
-    return _svc(request).analyser_lot_eco(target_coverage_weeks=target_coverage_weeks)
+def analyse_lot_eco(
+    target_coverage_weeks: float = Query(default=4.0, ge=0.5, le=52.0),
+    demand_horizon_weeks: float = Query(default=52.0, ge=4.0, le=104.0),
+    request: Request = None,
+) -> dict:
+    return _svc(request).analyser_lot_eco(
+        target_coverage_weeks=target_coverage_weeks,
+        demand_horizon_weeks=demand_horizon_weeks,
+    )
 
 
 # ── Stock Projection ────────────────────────────────────────────

@@ -111,6 +111,9 @@ class GuiAppService:
         immediate_components: bool = False,
         blocking_components_mode: str = "blocked",
         demand_horizon_days: int = 15,
+        algorithm: str = "greedy",
+        ga_random_seed: Optional[int] = None,
+        ga_config_overrides: Optional[dict] = None,
     ) -> dict[str, Any]:
         if self.loader is None:
             raise RuntimeError("Aucune donnee chargee. Appelez load_data avant run_schedule.")
@@ -119,6 +122,28 @@ class GuiAppService:
             immediate_components=immediate_components,
             blocking_components_mode=blocking_components_mode,
             demand_horizon_days=demand_horizon_days,
+            algorithm=algorithm,
+            ga_random_seed=ga_random_seed,
+            ga_config_overrides=ga_config_overrides,
+        )
+
+    def run_compare(
+        self,
+        immediate_components: bool = False,
+        blocking_components_mode: str = "blocked",
+        demand_horizon_days: int = 15,
+        ga_random_seed: Optional[int] = None,
+        ga_config_overrides: Optional[dict] = None,
+    ) -> dict[str, Any]:
+        if self.loader is None:
+            raise RuntimeError("Aucune donnee chargee. Appelez load_data avant run_compare.")
+        return self._schedule_service.run_compare(
+            loader=self.loader,
+            immediate_components=immediate_components,
+            blocking_components_mode=blocking_components_mode,
+            demand_horizon_days=demand_horizon_days,
+            ga_random_seed=ga_random_seed,
+            ga_config_overrides=ga_config_overrides,
         )
 
     def get_run(self, run_id: str) -> Optional[dict[str, Any]]:
@@ -396,8 +421,8 @@ class GuiAppService:
             include_pf=include_pf,
         )
 
-    def analyser_lot_eco(self, target_coverage_weeks: float = 4.0) -> dict[str, Any]:
-        return self._ensure_analyse().analyser_lot_eco(target_coverage_weeks)
+    def analyser_lot_eco(self, target_coverage_weeks: float = 4.0, demand_horizon_weeks: float = 52.0) -> dict[str, Any]:
+        return self._ensure_analyse().analyser_lot_eco(target_coverage_weeks, demand_horizon_weeks)
 
     def project_stock(
         self,

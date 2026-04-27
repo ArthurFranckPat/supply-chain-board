@@ -105,6 +105,7 @@ export interface RunState {
   created_at: string
   completed_at?: string
   kind: RunKind
+  algorithm?: string
   // Progress fields (only when status === 'running')
   step_key?: string
   step_label?: string

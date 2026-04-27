@@ -12,6 +12,9 @@ export function useScheduleRun() {
       immediate_components?: boolean
       blocking_components_mode?: string
       demand_horizon_days?: number
+      algorithm?: string
+      ga_random_seed?: number | null
+      ga_config_overrides?: Record<string, unknown> | null
     }) => {
       const resp = await apiClient.runSchedule(params)
       setRunId(resp.run_id)
