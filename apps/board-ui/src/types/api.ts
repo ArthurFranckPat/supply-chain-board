@@ -99,6 +99,15 @@ export interface RunResult {
 
 export type RunKind = 's1' | 'schedule'
 
+export interface GaStats {
+  generation: number
+  total: number
+  pct: number
+  best: number
+  mean: number
+  diversity: number
+}
+
 export interface RunState {
   run_id: string
   status: 'running' | 'completed' | 'failed'
@@ -113,6 +122,7 @@ export interface RunState {
   step_count?: number
   progress_percent?: number
   elapsed_ms?: number
+  ga_stats?: GaStats
   result?: RunResult
   error?: string
 }

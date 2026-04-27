@@ -103,10 +103,10 @@ def run_schedule(
             Exceptions are silently caught to not interrupt scheduling.
     """
 
-    def _progress(step_key: str, step_label: str, step_index: int, step_count: int) -> None:
+    def _progress(step_key: str, step_label: str, step_index: int, step_count: int, *, ga_stats: dict | None = None) -> None:
         if progress_callback is not None:
             try:
-                progress_callback(step_key, step_label, step_index, step_count)
+                progress_callback(step_key, step_label, step_index, step_count, ga_stats=ga_stats)
             except Exception:
                 pass
 
@@ -291,11 +291,19 @@ def run_schedule(
         def _ga_evolution_progress(gen: int, stats) -> None:
             if stats:
                 pct = round((gen + 1) / _ga_cfg.max_generations * 100)
-                label = f"Gen {gen + 1}/{_ga_cfg.max_generations} | best={stats.best_fitness:.3f} | mean={stats.mean_fitness:.3f} | div={stats.diversity:.2f}"
-                # Log pour debug (visible dans la console du backend)
-                import logging as _logging
-                _logging.getLogger("scheduler.ga").debug(f"GA progress: {label}")
-                _ga_progress(3, label)
+                label = f"Gen {gen + 1}/{_ga_cfg.max_generations} | best={stats.best_fitness:.3f}"
+                _ga_progress(
+                    3,
+                    label,
+                    ga_stats={
+                        "generation": gen + 1,
+                        "total": _ga_cfg.max_generations,
+                        "pct": pct,
+                        "best": round(stats.best_fitness, 4),
+                        "mean": round(stats.mean_fitness, 4),
+                        "diversity": round(stats.diversity, 4),
+                    },
+                )
 
         ga_result = run_ga_schedule(
             loader=loader,

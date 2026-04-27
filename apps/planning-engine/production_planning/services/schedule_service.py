@@ -213,17 +213,20 @@ class ScheduleService:
         run_state = self.runs[run_id]
         start_mono = run_state.pop("_start_mono", time.monotonic())
 
-        def on_progress(step_key: str, step_label: str, step_index: int, step_count: int) -> None:
+        def on_progress(step_key: str, step_label: str, step_index: int, step_count: int, *, ga_stats: dict | None = None) -> None:
             elapsed_ms = int((time.monotonic() - start_mono) * 1000)
             progress_pct = round((step_index + 1) / step_count * 100) if step_count > 0 else 0
-            run_state.update({
+            update: dict[str, Any] = {
                 "step_key": step_key,
                 "step_label": step_label,
                 "step_index": step_index,
                 "step_count": step_count,
                 "progress_percent": progress_pct,
                 "elapsed_ms": elapsed_ms,
-            })
+            }
+            if ga_stats is not None:
+                update["ga_stats"] = ga_stats
+            run_state.update(update)
 
         try:
             result = self._execute(

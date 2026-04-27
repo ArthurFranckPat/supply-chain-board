@@ -1,4 +1,4 @@
-import type { RunState } from '@/types/api'
+import type { RunState, GaStats } from '@/types/api'
 
 // ── Phases Glouton ──────────────────────────────────────────────────
 const GREEDY_PHASES = [
@@ -12,13 +12,13 @@ const GREEDY_PHASES = [
 ] as const
 
 // ── Phases AG ───────────────────────────────────────────────────────
-const GA_PHASES: Record<string, { label: string; showLabel?: boolean }> = {
-  ga_preparation: { label: 'Préparation des données' },
-  ga_seed: { label: 'Calcul du seed glouton' },
-  ga_init: { label: 'Initialisation de la population', showLabel: true },
-  ga_evolution: { label: 'Évolution génétique', showLabel: true },
-  ga_decode: { label: 'Décodage du meilleur planning' },
-  ga_reports: { label: 'Génération des rapports' },
+const GA_PHASES: Record<string, string> = {
+  ga_preparation: 'Préparation des données',
+  ga_seed: 'Calcul du seed glouton',
+  ga_init: 'Initialisation de la population',
+  ga_evolution: 'Évolution génétique',
+  ga_decode: 'Décodage du meilleur planning',
+  ga_reports: 'Génération des rapports',
 }
 
 function formatElapsed(ms: number): string {
@@ -26,25 +26,6 @@ function formatElapsed(ms: number): string {
   if (s < 60) return `${s}s`
   const m = Math.floor(s / 60)
   return `${m}m ${s % 60}s`
-}
-
-function parseGaStats(label: string): {
-  generation: number
-  total: number
-  best: number
-  mean: number
-  diversity: number
-} | null {
-  // Format: "Gen 12/50 | best=0.850 | mean=0.820 | div=0.65"
-  const m = label.match(/Gen\s+(\d+)\/(\d+)\s+\|\s+best=([\d.]+)\s+\|\s+mean=([\d.]+)\s+\|\s+div=([\d.]+)/)
-  if (!m) return null
-  return {
-    generation: parseInt(m[1]),
-    total: parseInt(m[2]),
-    best: parseFloat(m[3]),
-    mean: parseFloat(m[4]),
-    diversity: parseFloat(m[5]),
-  }
 }
 
 interface ScheduleProgressProps {
@@ -61,11 +42,11 @@ function GaProgress({ runState }: { runState: RunState }) {
   const stepCount = runState.step_count ?? 6
   const stepKey = runState.step_key ?? ''
   const stepLabel = runState.step_label ?? ''
+  const gaStats: GaStats | undefined = runState.ga_stats
 
   const isEvolution = stepKey === 'ga_evolution'
   const isInit = stepKey === 'ga_init'
-  const gaStats = isEvolution ? parseGaStats(stepLabel) : null
-  const pct = gaStats ? Math.round((gaStats.generation / gaStats.total) * 100) : 0
+  const pct = gaStats?.pct ?? 0
 
   const phases = Object.entries(GA_PHASES)
 
@@ -105,7 +86,7 @@ function GaProgress({ runState }: { runState: RunState }) {
 
       {/* Phase list */}
       <div className="flex flex-col gap-0.5">
-        {phases.map(([key, { label }], idx) => {
+        {phases.map(([key, label], idx) => {
           const isCompleted = idx < currentIdx
           const isActive = idx === currentIdx
           const isPending = idx > currentIdx
@@ -126,12 +107,12 @@ function GaProgress({ runState }: { runState: RunState }) {
                       <span className="font-mono text-muted-foreground">
                         Génération {gaStats.generation} / {gaStats.total}
                       </span>
-                      <span className="font-mono font-semibold">{pct}%</span>
+                      <span className="font-mono font-semibold">{gaStats.pct}%</span>
                     </div>
                     <div className="h-1.5 w-full bg-border rounded-full overflow-hidden">
                       <div
                         className="h-full bg-primary rounded-full transition-all duration-300"
-                        style={{ width: `${pct}%` }}
+                        style={{ width: `${gaStats.pct}%` }}
                       />
                     </div>
                     <div className="grid grid-cols-3 gap-2">
