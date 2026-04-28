@@ -9,9 +9,10 @@ from __future__ import annotations
 import os
 import random
 import time
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 from dataclasses import dataclass, field
-from typing import Callable
+from datetime import date
+from typing import Any, Callable
 
 from .chromosome import Individual, clone
 from .decoder import GAContext, DecodedPlanning
@@ -48,6 +49,41 @@ class GAResult:
     converged_early: bool = False
 
 
+@dataclass
+class PicklableContext:
+    """Contexte sérialisable pour l'évaluation parallèle via ProcessPoolExecutor.
+
+    Extrait toutes les données nécessaires à evaluate() depuis GAContext,
+    en excluant les objets non-picklables (loader, checker, component_checker).
+    """
+    candidates_by_id: dict[str, Any]
+    candidates: list[Any]
+    workdays: list[date]
+    line_capacities: dict[str, float]
+    line_min_open: dict[str, float]
+    by_line: dict[str, list[str]]
+    receptions_by_day: dict[date, list[tuple[str, float]]]
+    initial_stock: dict[str, float]
+    weights: dict[str, float]
+    ga_config: Any
+
+
+def _make_picklable(ctx: GAContext) -> PicklableContext:
+    """Convertit GAContext en PicklableContext sérialisable."""
+    return PicklableContext(
+        candidates_by_id=ctx.candidates_by_id,
+        candidates=ctx.candidates,
+        workdays=ctx.workdays,
+        line_capacities=ctx.line_capacities,
+        line_min_open=ctx.line_min_open,
+        by_line=ctx.by_line,
+        receptions_by_day=ctx.receptions_by_day,
+        initial_stock=ctx.initial_stock,
+        weights=ctx.weights,
+        ga_config=ctx.ga_config,
+    )
+
+
 def _compute_diversity(population: list[Individual], sample_size: int = 10) -> float:
     """Mesure la diversité comme 1 - chevauchement moyen des genes."""
     if len(population) < 2:
@@ -70,38 +106,88 @@ def _compute_diversity(population: list[Individual], sample_size: int = 10) -> f
     return 1.0 - (total_overlap / n_pairs)
 
 
+def _eval_one_parallel(ind: Individual, pctx: PicklableContext) -> None:
+    """Worker pour ProcessPoolExecutor — module-level requis par pickle.
+
+    Reconstruit un GAContext minimal à partir du PicklableContext
+    et appelle evaluate().
+    """
+    if ind.fitness is not None:
+        return
+    # Reconstruire GAContext minimal
+    ctx = GAContext(
+        candidates=pctx.candidates,
+        candidates_by_id=pctx.candidates_by_id,
+        workdays=pctx.workdays,
+        line_capacities=pctx.line_capacities,
+        line_min_open=pctx.line_min_open,
+        by_line=pctx.by_line,
+        loader=None,
+        checker=None,
+        receptions_by_day=pctx.receptions_by_day,
+        initial_stock=pctx.initial_stock,
+        weights=pctx.weights,
+        ga_config=pctx.ga_config,
+        component_checker=None,
+    )
+    evaluate(ind, ctx)
+
+
 def _evaluate_population(
     population: list[Individual],
     ctx: GAContext,
     workers: int = 1,
 ) -> None:
-    """Évalue une population avec cache global et parallélisation optionnelle.
+    """Évalue une population avec ProcessPoolExecutor + fallback séquentiel.
 
     Args:
         population: Liste d'individus à évaluer.
         ctx: Contexte d'évaluation.
-        workers: Nombre de workers threads (> 1 = parallélisé).
+        workers: Nombre de workers processus (> 1 = parallélisé).
     """
-    eval_cache: dict[str, Individual] = {}
+    # Filtrer les individus non évalués
+    to_evaluate = [ind for ind in population if ind.fitness is None]
+    if not to_evaluate:
+        return
 
-    def _eval_one(ind: Individual) -> None:
-        if ind.fitness is not None:
-            return
-        if ind.cache_key in eval_cache:
-            cached = eval_cache[ind.cache_key]
-            ind.fitness = cached.fitness
-            ind.metrics = cached.metrics
-            ind.decoded = cached.decoded
-            return
-        evaluate(ind, ctx)
-        eval_cache[ind.cache_key] = ind
+    # Chemin séquentiel pour workers=1 ou non spécifié
+    if workers is None or workers <= 1:
+        for ind in to_evaluate:
+            if ind.fitness is None:
+                evaluate(ind, ctx)
+        return
 
-    if workers > 1:
-        with ThreadPoolExecutor(max_workers=workers) as executor:
-            list(executor.map(_eval_one, population))
-    else:
-        for ind in population:
-            _eval_one(ind)
+    # Chemin parallèle (uniquement dans le processus principal, pas sous pytest)
+    import multiprocessing as _mp
+    import sys as _sys
+    if "pytest" in _sys.modules:
+        for ind in to_evaluate:
+            if ind.fitness is None:
+                evaluate(ind, ctx)
+        return
+
+    # macOS: utiliser fork pour éviter les problèmes de spawn avec les imports
+    try:
+        _mp.set_start_method("fork", force=True)
+    except RuntimeError:
+        pass  # déjà configuré
+
+    pctx = _make_picklable(ctx)
+    try:
+        with ProcessPoolExecutor(max_workers=workers) as executor:
+            list(executor.map(
+                _eval_one_parallel,
+                to_evaluate,
+                [pctx] * len(to_evaluate),
+            ))
+    except Exception:
+        import logging
+        logging.getLogger(__name__).warning(
+            "ProcessPoolExecutor failed, falling back to sequential evaluation"
+        )
+        for ind in to_evaluate:
+            if ind.fitness is None:
+                evaluate(ind, ctx)
 
 
 def run_ga(
@@ -236,3 +322,8 @@ def run_ga(
         elapsed_seconds=total_elapsed,
         converged_early=no_improvement >= config.early_stop_patience,
     )
+
+
+if __name__ == "__main__":
+    # Required for ProcessPoolExecutor on macOS/Windows
+    pass

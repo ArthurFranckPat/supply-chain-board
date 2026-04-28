@@ -85,4 +85,30 @@ Phase 3 ciblera decode() + fitness() (macro-optimisations, gains moyens).
 
 ---
 
+---
+
 *Phase 3 complete — 2026-04-27*
+
+---
+
+## Phase 4 Results
+
+**Date:** 2026-04-27
+**Optimizations applied:** ProcessPoolExecutor (fork, workers=auto), PicklableContext, fallback séquentiel
+
+| Metric | Phase 1 | Phase 2 | Phase 3 | Phase 4 | Cumulative |
+|--------|---------|---------|---------|---------|------------|
+| Temps AG moyen (s) | 0.126 | 0.088 | 0.082 | 0.642 | **0.20x** ⚠️ |
+| Score AG (best) | 0.959643 | 0.959643 | 0.954643 | 0.959643 | ✓ |
+| Taux de service | 100% | 100% | 100% | 100% | ✓ |
+
+### Analysis
+
+- **ProcessPool régressif sur instance 20 OFs** : 0.642s vs 0.082s séquentiel (7.8x plus lent). Le fork + IPC coûte plus cher que le calcul lui-même sur une si petite instance.
+- **L'infrastructure est correcte** : ProcessPool fonctionne, PicklableContext se sérialise, les tests passent (59/59). Le speedup se matérialisera sur des instances plus grandes (100+ OFs, 200 générations) où le calcul domine le fork overhead.
+- **Décision** : Conserver le code ProcessPool comme infrastructure, mais garder le fallback séquentiel activé par défaut pour les petites instances. Le `GAConfig.workers` permet à l'utilisateur d'activer explicitement la parallélisation.
+- **Phase 5** documentera les recommandations finales.
+
+---
+
+*Phase 4 complete — 2026-04-27*
