@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 
 from ..app import GuiAppService
 from .x3_routes import router as x3_router
+from .planning_board_routes import router as planning_board_router
 
 
 # ── Request models ───────────────────────────────────────────────
@@ -472,6 +473,7 @@ def create_app(service: Optional[GuiAppService] = None) -> FastAPI:
 
     app.include_router(v1)
     app.include_router(x3_router)
+    app.include_router(planning_board_router)
 
     return app
 

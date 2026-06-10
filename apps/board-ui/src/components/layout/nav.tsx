@@ -27,6 +27,7 @@ export type ViewKey =
   | 'settings'
   | 'stock-evolution'
   | 'lot-eco'
+  | 'planning-board'
 
 export type LoadState = 'idle' | 'loading' | 'ready' | 'error'
 
@@ -62,6 +63,7 @@ export const NAV_ENTRIES: NavEntry[] = [
     label: 'Planification',
     icon: <CalendarDays className="h-[15px] w-[15px]" />,
     items: [
+      { key: 'planning-board', label: 'Planning OF', path: '/planning-of', icon: <CalendarDays className="h-[15px] w-[15px]" /> },
       { key: 'scheduler', label: 'Ordonnancement', path: '/scheduler', icon: <Activity className="h-[15px] w-[15px]" /> },
       { key: 'capacity', label: 'Capacités atelier', path: '/capacity', icon: <CalendarDays className="h-[15px] w-[15px]" /> },
       { key: 'feasibility', label: 'Faisabilité commande', path: '/feasibility', icon: <CheckCircle className="h-[15px] w-[15px]" /> },

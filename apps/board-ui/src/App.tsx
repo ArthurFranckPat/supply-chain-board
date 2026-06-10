@@ -9,6 +9,7 @@ import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
 import { PilotageView } from '@/views/PilotageView'
 import { ActionsView } from '@/views/ActionsView'
 import { OrdonnancementView } from '@/views/OrdonnancementView'
+import { PlanningBoardView } from '@/views/PlanningBoardView'
 import { CapacityView } from '@/views/CapacityView'
 import { RapportsView } from '@/views/RapportsView'
 import { AnalyseRuptureView } from '@/views/AnalyseRuptureView'
@@ -104,6 +105,7 @@ function App() {
             }
           />
           <Route path="/actions" element={<ErrorBoundary><ActionsView data={null} /></ErrorBoundary>} />
+          <Route path="/planning-of" element={<ErrorBoundary><PlanningBoardView /></ErrorBoundary>} />
           <Route
             path="/scheduler"
             element={
