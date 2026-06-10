@@ -1,7 +1,17 @@
 import { useEffect, useState } from 'react'
-import { X, RotateCcw, ShieldCheck, CalendarDays, CheckCircle2, AlertTriangle, HelpCircle } from 'lucide-react'
-import type { FeasibilityEntry, OfPatchPayload, PlanningBoardOF } from '@/types/planningBoard'
+import {
+  X,
+  RotateCcw,
+  ShieldCheck,
+  CalendarDays,
+  CheckCircle2,
+  AlertTriangle,
+  HelpCircle,
+  ShoppingCart,
+} from 'lucide-react'
+import type { FeasibilityEntry, OfPatchPayload, OrderImpactRow, PlanningBoardOF } from '@/types/planningBoard'
 import { STATUT_STYLES } from './OfCard'
+import { ORDER_STATUT_STYLES } from './OrdersImpactTable'
 
 interface OfDetailPanelProps {
   of: PlanningBoardOF
@@ -10,6 +20,7 @@ interface OfDetailPanelProps {
   onReset: (numOf: string) => void
   isSaving: boolean
   feasibility?: FeasibilityEntry | null
+  linkedOrders?: OrderImpactRow[]
 }
 
 function FeasibilitySection({ entry }: { entry: FeasibilityEntry }) {
@@ -56,7 +67,15 @@ function ReadOnly({ value }: { value: React.ReactNode }) {
   return <span className="text-[12px] font-medium text-foreground">{value ?? '—'}</span>
 }
 
-export function OfDetailPanel({ of, onClose, onPatch, onReset, isSaving, feasibility }: OfDetailPanelProps) {
+export function OfDetailPanel({
+  of,
+  onClose,
+  onPatch,
+  onReset,
+  isSaving,
+  feasibility,
+  linkedOrders = [],
+}: OfDetailPanelProps) {
   const [debut, setDebut] = useState(of.date_debut ?? '')
   const [fin, setFin] = useState(of.date_fin ?? '')
   const [note, setNote] = useState(of.note ?? '')
@@ -101,6 +120,39 @@ export function OfDetailPanel({ of, onClose, onPatch, onReset, isSaving, feasibi
       <p className="text-[12px] leading-snug text-foreground/90">{of.description}</p>
 
       {feasibility && <FeasibilitySection entry={feasibility} />}
+
+      {linkedOrders.length > 0 && (
+        <div className="flex flex-col gap-1.5 rounded-xl border border-border/70 bg-muted/20 p-3">
+          <div className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            <ShoppingCart className="h-3.5 w-3.5" />
+            Commandes liées ({linkedOrders.length})
+          </div>
+          {linkedOrders.map((order) => {
+            const statut = ORDER_STATUT_STYLES[order.statut]
+            return (
+              <div
+                key={`${order.num_commande}-${order.article}`}
+                className="flex items-center justify-between gap-2 rounded-lg border border-border/60 bg-card px-2 py-1.5"
+              >
+                <div className="min-w-0">
+                  <div className="truncate font-mono text-[10px] font-bold text-foreground">
+                    {order.num_commande}
+                  </div>
+                  <div className="truncate text-[9px] text-muted-foreground">
+                    {order.client} · {order.qte_restante} pcs · exp. {order.date_expedition}
+                  </div>
+                </div>
+                <span
+                  className={`shrink-0 rounded-full px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider ${statut.chip}`}
+                >
+                  {statut.label}
+                  {order.statut === 'retard' && ` +${order.jours_retard}j`}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-3">
         <Field label="Statut">

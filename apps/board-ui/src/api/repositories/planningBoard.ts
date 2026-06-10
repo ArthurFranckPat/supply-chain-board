@@ -8,6 +8,7 @@ import type {
   FeasibilityResponse,
   WhatIfResponse,
   ArticleSearchResult,
+  OrderImpactsResponse,
 } from '@/types/planningBoard'
 
 export const planningBoardApi = {
@@ -62,6 +63,13 @@ export const planningBoardApi = {
 
   evaluateFeasibility(params: { from?: string; to?: string }) {
     return apiRequest<FeasibilityResponse>('/api/v1/planning-board/feasibility', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    })
+  },
+
+  orderImpacts(params: { from?: string; to?: string }) {
+    return apiRequest<OrderImpactsResponse>('/api/v1/planning-board/orders', {
       method: 'POST',
       body: JSON.stringify(params),
     })

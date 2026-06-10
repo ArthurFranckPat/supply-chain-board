@@ -119,3 +119,46 @@ export interface ArticleSearchResult {
   description: string
   type_appro: string
 }
+
+/* ── Impacts commandes clients ─────────────────────────────────── */
+
+export type OrderStatut = 'on_time' | 'stock' | 'retard' | 'bloquee' | 'sans_couverture'
+
+export interface OrderImpactOF {
+  num_of: string
+  article: string
+  qte_allouee: number
+  date_fin: string
+  faisable: boolean | null
+  modified: boolean
+  statut_num: number
+}
+
+export interface OrderImpactRow {
+  num_commande: string
+  client: string
+  article: string
+  description: string
+  qte_restante: number
+  date_expedition: string
+  deja_en_retard: boolean
+  nature: 'commande' | 'prevision'
+  type_commande: string
+  matching_method: string
+  reliquat: number
+  statut: OrderStatut
+  jours_retard: number
+  ofs: OrderImpactOF[]
+}
+
+export interface OrderImpactsResponse {
+  orders: OrderImpactRow[]
+  window: { from: string; to: string }
+  stats: {
+    nb_commandes: number
+    nb_on_time: number
+    nb_retard: number
+    nb_bloquees: number
+    nb_sans_couverture: number
+  }
+}

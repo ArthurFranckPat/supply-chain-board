@@ -104,53 +104,54 @@ export function BoardGrid({ workdays, ofs, selectedOf, onSelect, feasibilityMap 
   }
 
   return (
-    <div className="overflow-x-auto rounded-2xl border border-border bg-card/60 shadow-sm">
+    <div className="max-h-[calc(100vh-240px)] overflow-auto rounded-2xl border border-border bg-card/60 shadow-sm">
       <div className="min-w-max">
-        {/* En-tête semaines */}
-        <div className="flex border-b border-border/70 bg-muted/40">
-          <div className="w-40 shrink-0 border-r border-border/70 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-            Poste
-          </div>
-          {weekGroups.map((g) => (
-            <div
-              key={g.week}
-              style={{ flexGrow: g.days.length, flexBasis: g.days.length * 148 }}
-              className="border-l border-border/70 px-2 py-1.5 text-center text-[10px] font-bold uppercase tracking-wider text-muted-foreground"
-            >
-              Semaine {g.week}
+        {/* En-têtes figés (semaines + jours) */}
+        <div className="sticky top-0 z-30">
+          <div className="flex border-b border-border/70 bg-card">
+            <div className="sticky left-0 z-40 w-40 shrink-0 border-r border-border/70 bg-card px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              Poste
             </div>
-          ))}
-        </div>
-
-        {/* En-tête jours + charge */}
-        <div className="flex border-b border-border/70 bg-muted/20">
-          <div className="w-40 shrink-0 border-r border-border/70" />
-          {workdays.map((day) => {
-            const d = parseIso(day)
-            const hours = hoursByCol.get(day) ?? 0
-            return (
+            {weekGroups.map((g) => (
               <div
-                key={day}
-                className={[
-                  'min-w-[148px] flex-1 border-l border-border/50 px-2 py-1 text-center',
-                  day === today ? 'bg-primary/[0.06]' : '',
-                ].join(' ')}
+                key={g.week}
+                style={{ flexGrow: g.days.length, flexBasis: g.days.length * 148 }}
+                className="border-l border-border/70 bg-muted/40 px-2 py-1.5 text-center text-[10px] font-bold uppercase tracking-wider text-muted-foreground"
               >
-                <div className={`text-[10px] font-semibold ${day === today ? 'text-primary' : 'text-foreground/80'}`}>
-                  {DAY_LABELS[(d.getDay() + 6) % 7]} {String(d.getDate()).padStart(2, '0')}/{String(d.getMonth() + 1).padStart(2, '0')}
-                </div>
-                <div className="text-[9px] text-muted-foreground">
-                  {hours > 0 ? `${hours.toFixed(1)}h` : '—'}
-                </div>
+                Semaine {g.week}
               </div>
-            )
-          })}
+            ))}
+          </div>
+
+          <div className="flex border-b border-border/70 bg-card">
+            <div className="sticky left-0 z-40 w-40 shrink-0 border-r border-border/70 bg-card" />
+            {workdays.map((day) => {
+              const d = parseIso(day)
+              const hours = hoursByCol.get(day) ?? 0
+              return (
+                <div
+                  key={day}
+                  className={[
+                    'min-w-[148px] flex-1 border-l border-border/50 bg-muted/20 px-2 py-1 text-center',
+                    day === today ? 'bg-primary/[0.08]' : '',
+                  ].join(' ')}
+                >
+                  <div className={`text-[10px] font-semibold ${day === today ? 'text-primary' : 'text-foreground/80'}`}>
+                    {DAY_LABELS[(d.getDay() + 6) % 7]} {String(d.getDate()).padStart(2, '0')}/{String(d.getMonth() + 1).padStart(2, '0')}
+                  </div>
+                  <div className="text-[9px] text-muted-foreground">
+                    {hours > 0 ? `${hours.toFixed(1)}h` : '—'}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </div>
 
         {/* Rangées postes */}
         {rows.map((row) => (
           <div key={row.key} className="flex border-b border-border/40 last:border-b-0">
-            <div className="flex w-40 shrink-0 flex-col justify-center border-r border-border/70 bg-muted/10 px-3 py-2">
+            <div className="sticky left-0 z-20 flex w-40 shrink-0 flex-col justify-center border-r border-border/70 bg-card px-3 py-2">
               <span className="text-[11px] font-bold tracking-tight text-foreground">{row.label}</span>
               {row.sublabel && (
                 <span className="truncate text-[9px] text-muted-foreground" title={row.sublabel}>

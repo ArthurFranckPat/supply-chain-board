@@ -24,6 +24,7 @@ from ..services.planning_board_feasibility import (
     evaluate_window,
     whatif_order,
 )
+from ..services.planning_board_orders import evaluate_order_impacts
 
 router = APIRouter(prefix="/api/v1/planning-board", tags=["planning-board"])
 
@@ -305,6 +306,27 @@ def evaluate_feasibility(payload: FeasibilityRequest, request: Request) -> dict[
             ),
         },
     }
+
+
+@router.post("/orders")
+def order_impacts(payload: FeasibilityRequest, request: Request) -> dict[str, Any]:
+    """Impacts du planning sur les commandes clients de la fenêtre.
+
+    Matching commande→OF (contremarque MTS, ordre d'origine, stock virtuel
+    puis OF partagés) croisé avec dates effectives (overrides) et
+    faisabilité composants → statut par commande :
+    on_time / stock / retard / bloquee / sans_couverture.
+    """
+    loader = _loader(request)
+    overrides = _store(request).get_overrides()
+
+    today = date.today()
+    from_d = _parse_iso(payload.date_from, "from") or (today - timedelta(days=7))
+    to_d = _parse_iso(payload.date_to, "to") or (today + timedelta(days=42))
+    if to_d < from_d:
+        raise HTTPException(status_code=422, detail="'to' antérieur à 'from'")
+
+    return evaluate_order_impacts(loader, overrides, from_d=from_d, to_d=to_d)
 
 
 @router.post("/whatif")

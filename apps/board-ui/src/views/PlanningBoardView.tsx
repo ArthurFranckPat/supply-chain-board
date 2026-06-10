@@ -19,11 +19,13 @@ import {
 } from 'lucide-react'
 import { usePlanningBoard } from '@/hooks/usePlanningBoard'
 import { useBoardFeasibility } from '@/hooks/useBoardFeasibility'
+import { useOrderImpacts } from '@/hooks/useOrderImpacts'
 import { BoardGrid } from '@/components/planning-board/BoardGrid'
 import { BoardToolbar } from '@/components/planning-board/BoardToolbar'
 import { OfCard } from '@/components/planning-board/OfCard'
 import { OfDetailPanel } from '@/components/planning-board/OfDetailPanel'
 import { WhatIfPanel } from '@/components/planning-board/WhatIfPanel'
+import { OrdersImpactTable } from '@/components/planning-board/OrdersImpactTable'
 
 export function PlanningBoardView() {
   const board = usePlanningBoard()
@@ -33,10 +35,17 @@ export function PlanningBoardView() {
   const windowFrom = board.workdays[0]
   const windowTo = board.workdays[board.workdays.length - 1]
   const feasibility = useBoardFeasibility(windowFrom, windowTo)
+  const orders = useOrderImpacts(windowFrom, windowTo)
+
+  const evaluateAll = () => {
+    feasibility.evaluate()
+    orders.evaluate()
+  }
 
   /* Fenêtre changée → l'évaluation précédente n'est plus comparable */
   useEffect(() => {
     feasibility.invalidateBaseline()
+    orders.reset()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [windowFrom, windowTo])
 
@@ -45,6 +54,7 @@ export function PlanningBoardView() {
   useEffect(() => {
     if (wasSaving.current && !board.isSaving && feasibility.entries) {
       feasibility.evaluate()
+      orders.evaluate()
     }
     wasSaving.current = board.isSaving
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -129,16 +139,16 @@ export function PlanningBoardView() {
           onResetAll={board.resetAll}
         />
         <button
-          onClick={feasibility.evaluate}
-          disabled={feasibility.isEvaluating}
+          onClick={evaluateAll}
+          disabled={feasibility.isEvaluating || orders.isEvaluating}
           className="inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/5 px-3 py-1.5 text-[11px] font-bold text-primary transition-colors hover:bg-primary/10 disabled:opacity-50"
         >
-          {feasibility.isEvaluating ? (
+          {feasibility.isEvaluating || orders.isEvaluating ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
           ) : (
             <ShieldCheck className="h-3.5 w-3.5" />
           )}
-          Évaluer faisabilité
+          Évaluer les impacts
         </button>
         <button
           onClick={() => setShowWhatIf((v) => !v)}
@@ -233,9 +243,17 @@ export function PlanningBoardView() {
               }}
               isSaving={board.isSaving}
               feasibility={feasibility.entries?.[board.selected.num_of] ?? null}
+              linkedOrders={orders.ordersByOf[board.selected.num_of] ?? []}
             />
           )}
         </div>
+      )}
+
+      {orders.impacts && (
+        <OrdersImpactTable
+          impacts={orders.impacts}
+          onSelectOf={(numOf) => board.setSelectedOf(numOf)}
+        />
       )}
     </div>
   )
