@@ -146,8 +146,12 @@ export function OrdersImpactTable({ impacts, onSelectOf }: OrdersImpactTableProp
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
-              <OrderRow key={`${row.num_commande}-${row.article}`} row={row} onSelectOf={onSelectOf} />
+            {rows.map((row, idx) => (
+              <OrderRow
+                key={`${row.num_commande}-${row.article}-${row.date_expedition}-${idx}`}
+                row={row}
+                onSelectOf={onSelectOf}
+              />
             ))}
             {rows.length === 0 && (
               <tr>

@@ -127,11 +127,11 @@ export function OfDetailPanel({
             <ShoppingCart className="h-3.5 w-3.5" />
             Commandes liées ({linkedOrders.length})
           </div>
-          {linkedOrders.map((order) => {
+          {linkedOrders.map((order, idx) => {
             const statut = ORDER_STATUT_STYLES[order.statut]
             return (
               <div
-                key={`${order.num_commande}-${order.article}`}
+                key={`${order.num_commande}-${order.article}-${idx}`}
                 className="flex items-center justify-between gap-2 rounded-lg border border-border/60 bg-card px-2 py-1.5"
               >
                 <div className="min-w-0">

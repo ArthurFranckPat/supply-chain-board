@@ -49,6 +49,18 @@ export function PlanningBoardView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [windowFrom, windowTo])
 
+  /* Évaluation automatique dès que les OF sont chargés (et à chaque fenêtre) */
+  const autoEvalKey = board.data ? `${windowFrom}|${windowTo}` : null
+  const lastAutoEval = useRef<string | null>(null)
+  useEffect(() => {
+    if (autoEvalKey && lastAutoEval.current !== autoEvalKey) {
+      lastAutoEval.current = autoEvalKey
+      feasibility.evaluate()
+      orders.evaluate()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoEvalKey])
+
   /* Réévaluation automatique après chaque sauvegarde (affermissement, déplacement…) */
   const wasSaving = useRef(false)
   useEffect(() => {
@@ -197,6 +209,17 @@ export function PlanningBoardView() {
         </div>
       )}
 
+      {(feasibility.error != null || orders.error != null) && (
+        <div className="rounded-xl border border-destructive/40 bg-destructive/5 px-4 py-3 text-[12px] font-semibold text-destructive">
+          Évaluation des impacts impossible :{' '}
+          {[feasibility.error, orders.error]
+            .filter((e): e is Error => e instanceof Error)
+            .map((e) => e.message)
+            .join(' · ') || 'erreur inconnue'}
+          {' — '}vérifiez que les données ERP sont chargées, puis relancez « Évaluer les impacts ».
+        </div>
+      )}
+
       {board.isLoading ? (
         <div className="flex h-64 items-center justify-center gap-2 rounded-2xl border border-border bg-card/60 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
@@ -249,11 +272,24 @@ export function PlanningBoardView() {
         </div>
       )}
 
-      {orders.impacts && (
+      {orders.impacts ? (
         <OrdersImpactTable
           impacts={orders.impacts}
           onSelectOf={(numOf) => board.setSelectedOf(numOf)}
         />
+      ) : (
+        !board.isLoading && (
+          <div className="flex h-20 items-center justify-center gap-2 rounded-2xl border border-dashed border-border text-[12px] text-muted-foreground">
+            {orders.isEvaluating ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Évaluation des commandes clients…
+              </>
+            ) : (
+              <>Commandes clients : cliquez sur « Évaluer les impacts »</>
+            )}
+          </div>
+        )
       )}
     </div>
   )
