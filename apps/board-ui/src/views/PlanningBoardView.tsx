@@ -241,7 +241,7 @@ export function PlanningBoardView() {
             </div>
             <DragOverlay dropAnimation={null}>
               {draggingCard && (
-                <div className="w-[140px]">
+                <div className="w-[96px]">
                   <OfCard of={draggingCard} selected={false} late={false} onClick={() => {}} overlay />
                 </div>
               )}
