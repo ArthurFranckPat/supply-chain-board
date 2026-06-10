@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { X, RotateCcw, ShieldCheck, CalendarDays } from 'lucide-react'
-import type { OfPatchPayload, PlanningBoardOF } from '@/types/planningBoard'
+import { X, RotateCcw, ShieldCheck, CalendarDays, CheckCircle2, AlertTriangle, HelpCircle } from 'lucide-react'
+import type { FeasibilityEntry, OfPatchPayload, PlanningBoardOF } from '@/types/planningBoard'
 import { STATUT_STYLES } from './OfCard'
 
 interface OfDetailPanelProps {
@@ -9,6 +9,38 @@ interface OfDetailPanelProps {
   onPatch: (numOf: string, payload: OfPatchPayload) => void
   onReset: (numOf: string) => void
   isSaving: boolean
+  feasibility?: FeasibilityEntry | null
+}
+
+function FeasibilitySection({ entry }: { entry: FeasibilityEntry }) {
+  const missing = Object.entries(entry.missing_components)
+  const styles = {
+    ok: { border: 'border-green/40 bg-green/5', icon: <CheckCircle2 className="h-4 w-4 text-green" />, label: 'Faisable — composants disponibles' },
+    bloque: { border: 'border-destructive/40 bg-destructive/5', icon: <AlertTriangle className="h-4 w-4 text-destructive" />, label: 'Bloqué — composants manquants' },
+    sans_nomenclature: { border: 'border-orange/50 bg-orange/5', icon: <HelpCircle className="h-4 w-4 text-orange" />, label: 'Nomenclature non disponible' },
+  }[entry.statut]
+
+  return (
+    <div className={`flex flex-col gap-1.5 rounded-xl border p-3 ${styles.border}`}>
+      <div className="flex items-center gap-2 text-[11px] font-bold text-foreground">
+        {styles.icon}
+        {styles.label}
+      </div>
+      {missing.length > 0 && (
+        <ul className="flex flex-col gap-0.5">
+          {missing.map(([code, qty]) => (
+            <li key={code} className="flex justify-between font-mono text-[10px] text-destructive">
+              <span>{code}</span>
+              <span>manque {qty}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {entry.alerts.slice(0, 3).map((alert, i) => (
+        <div key={i} className="text-[9px] leading-snug text-muted-foreground">{alert}</div>
+      ))}
+    </div>
+  )
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
@@ -24,7 +56,7 @@ function ReadOnly({ value }: { value: React.ReactNode }) {
   return <span className="text-[12px] font-medium text-foreground">{value ?? '—'}</span>
 }
 
-export function OfDetailPanel({ of, onClose, onPatch, onReset, isSaving }: OfDetailPanelProps) {
+export function OfDetailPanel({ of, onClose, onPatch, onReset, isSaving, feasibility }: OfDetailPanelProps) {
   const [debut, setDebut] = useState(of.date_debut ?? '')
   const [fin, setFin] = useState(of.date_fin ?? '')
   const [note, setNote] = useState(of.note ?? '')
@@ -67,6 +99,8 @@ export function OfDetailPanel({ of, onClose, onPatch, onReset, isSaving }: OfDet
       </div>
 
       <p className="text-[12px] leading-snug text-foreground/90">{of.description}</p>
+
+      {feasibility && <FeasibilitySection entry={feasibility} />}
 
       <div className="grid grid-cols-2 gap-3">
         <Field label="Statut">

@@ -5,6 +5,9 @@ import type {
   OfPatchPayload,
   PlanningBoardOverride,
   PlanningBoardEvent,
+  FeasibilityResponse,
+  WhatIfResponse,
+  ArticleSearchResult,
 } from '@/types/planningBoard'
 
 export const planningBoardApi = {
@@ -54,6 +57,32 @@ export const planningBoardApi = {
   listEvents(limit = 100) {
     return apiRequest<{ events: PlanningBoardEvent[] }>(
       `/api/v1/planning-board/events?limit=${limit}`,
+    )
+  },
+
+  evaluateFeasibility(params: { from?: string; to?: string }) {
+    return apiRequest<FeasibilityResponse>('/api/v1/planning-board/feasibility', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    })
+  },
+
+  whatIf(payload: {
+    article: string
+    quantite: number
+    date_besoin: string
+    from?: string
+    to?: string
+  }) {
+    return apiRequest<WhatIfResponse>('/api/v1/planning-board/whatif', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  },
+
+  searchArticles(q: string, limit = 15) {
+    return apiRequest<{ articles: ArticleSearchResult[] }>(
+      `/api/v1/feasibility/articles?q=${encodeURIComponent(q)}&limit=${limit}`,
     )
   },
 }

@@ -1,6 +1,12 @@
 import { useDraggable } from '@dnd-kit/core'
 import { Clock, Pencil } from 'lucide-react'
-import type { PlanningBoardOF } from '@/types/planningBoard'
+import type { FeasibilityEntry, PlanningBoardOF } from '@/types/planningBoard'
+
+const FEASIBILITY_DOT: Record<string, { cls: string; label: string }> = {
+  ok: { cls: 'bg-green', label: 'Faisable (composants disponibles)' },
+  bloque: { cls: 'bg-destructive animate-pulse', label: 'Bloqué — composants manquants' },
+  sans_nomenclature: { cls: 'bg-orange', label: 'Nomenclature non disponible' },
+}
 
 export const STATUT_STYLES: Record<number, { label: string; chip: string; border: string }> = {
   1: { label: 'Ferme', chip: 'bg-green text-white', border: 'border-l-green' },
@@ -15,9 +21,10 @@ interface OfCardProps {
   onClick: () => void
   /** Rendu statique (DragOverlay) */
   overlay?: boolean
+  feasibility?: FeasibilityEntry | null
 }
 
-export function OfCard({ of, selected, late, onClick, overlay = false }: OfCardProps) {
+export function OfCard({ of, selected, late, onClick, overlay = false, feasibility }: OfCardProps) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: of.num_of,
     disabled: overlay,
@@ -39,8 +46,22 @@ export function OfCard({ of, selected, late, onClick, overlay = false }: OfCardP
       ].join(' ')}
     >
       <div className="flex items-center justify-between gap-1">
-        <span className="truncate font-mono text-[10px] font-bold tracking-tight text-foreground">
-          {of.num_of}
+        <span className="inline-flex min-w-0 items-center gap-1">
+          {feasibility && (
+            <span
+              title={`${FEASIBILITY_DOT[feasibility.statut]?.label ?? ''}${
+                Object.keys(feasibility.missing_components).length
+                  ? ` : ${Object.entries(feasibility.missing_components)
+                      .map(([c, q]) => `${c} (-${q})`)
+                      .join(', ')}`
+                  : ''
+              }`}
+              className={`h-2 w-2 shrink-0 rounded-full ${FEASIBILITY_DOT[feasibility.statut]?.cls ?? 'bg-muted'}`}
+            />
+          )}
+          <span className="truncate font-mono text-[10px] font-bold tracking-tight text-foreground">
+            {of.num_of}
+          </span>
         </span>
         <span className={`shrink-0 rounded-full px-1.5 py-px text-[8px] font-black uppercase tracking-wider ${statut.chip}`}>
           {statut.label}

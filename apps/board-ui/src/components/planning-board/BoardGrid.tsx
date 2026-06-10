@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useDroppable } from '@dnd-kit/core'
 import { isoWeekNumber, parseIso, toIso } from '@/hooks/usePlanningBoard'
-import type { PlanningBoardOF } from '@/types/planningBoard'
+import type { FeasibilityEntry, PlanningBoardOF } from '@/types/planningBoard'
 import { OfCard } from './OfCard'
 
 const DAY_LABELS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven']
@@ -12,6 +12,7 @@ interface BoardGridProps {
   ofs: PlanningBoardOF[]
   selectedOf: string | null
   onSelect: (numOf: string) => void
+  feasibilityMap?: Record<string, FeasibilityEntry> | null
 }
 
 interface RowDef {
@@ -50,7 +51,7 @@ function DayCell({
   )
 }
 
-export function BoardGrid({ workdays, ofs, selectedOf, onSelect }: BoardGridProps) {
+export function BoardGrid({ workdays, ofs, selectedOf, onSelect, feasibilityMap }: BoardGridProps) {
   const today = toIso(new Date())
 
   /* Regroupement OF par (poste, jour de début effectif) */
@@ -168,6 +169,7 @@ export function BoardGrid({ workdays, ofs, selectedOf, onSelect }: BoardGridProp
                       selected={selectedOf === of.num_of}
                       late={Boolean(of.date_fin && of.date_fin < today)}
                       onClick={() => onSelect(of.num_of)}
+                      feasibility={feasibilityMap?.[of.num_of] ?? null}
                     />
                   ))}
                 </DayCell>

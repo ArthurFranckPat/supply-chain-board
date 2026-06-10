@@ -43,12 +43,40 @@ class _FakeLoader:
                 operations=[GammeOperation("ART-A", "PP_830", "Ligne 830", cadence=50.0)],
             ),
         }
+        # Données minimales pour la faisabilité (nomenclatures vides → alerte)
+        self.stocks = {}
+        self.nomenclatures = {}
+        self.articles = {}
+        self.commandes_clients = []
+        self.receptions = []
 
     def get_of_by_num(self, num_of):
         return next((of for of in self.ofs if of.num_of == num_of), None)
 
     def get_gamme(self, article):
         return self._gammes.get(article)
+
+    def get_article(self, article):
+        return self.articles.get(article)
+
+    def get_nomenclature(self, article):
+        return self.nomenclatures.get(article)
+
+    def get_stock(self, article):
+        return self.stocks.get(article)
+
+    def get_allocations_of(self, num_doc):
+        return []
+
+    def get_receptions(self, article):
+        return []
+
+    def get_ofs_by_article(self, article, statut=None, date_besoin=None):
+        return [
+            of for of in self.ofs
+            if of.article == article and of.qte_restante > 0
+            and (statut is None or of.statut_num == statut)
+        ]
 
 
 class _StubGuiService:
@@ -144,6 +172,23 @@ def test_events_journal(client):
     events = client.get("/api/v1/planning-board/events").json()["events"]
     actions = [e["action"] for e in events]
     assert actions[:2] == ["reset", "update"]  # plus récent en premier
+
+
+def test_feasibility_endpoint_smoke(client):
+    resp = client.post('/api/v1/planning-board/feasibility', json={})
+    assert resp.status_code == 200
+    data = resp.json()
+    # OF001 et OF002 dans la fenêtre ; nomenclatures absentes → signalé
+    assert set(data['results']) == {'OF001', 'OF002'}
+    assert data['stats']['nb_sans_nomenclature'] == 2
+
+
+def test_whatif_endpoint_article_inconnu(client):
+    resp = client.post(
+        '/api/v1/planning-board/whatif',
+        json={'article': 'NOPE', 'quantite': 10, 'date_besoin': TODAY.isoformat()},
+    )
+    assert resp.status_code == 404
 
 
 def test_store_merge_partial_updates(tmp_path):

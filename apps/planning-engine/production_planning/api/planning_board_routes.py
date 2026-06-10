@@ -19,10 +19,32 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from ..services.planning_board_store import PlanningBoardStore
+from ..services.planning_board_feasibility import (
+    build_effective_ofs,
+    evaluate_window,
+    whatif_order,
+)
 
 router = APIRouter(prefix="/api/v1/planning-board", tags=["planning-board"])
 
 STATUT_LABELS = {1: "Ferme", 2: "Planifié", 3: "Suggéré"}
+
+
+class FeasibilityRequest(BaseModel):
+    """Fenêtre d'évaluation (mêmes défauts que la liste des OF)."""
+
+    date_from: Optional[str] = Field(default=None, alias="from")
+    date_to: Optional[str] = Field(default=None, alias="to")
+
+
+class WhatIfRequest(BaseModel):
+    """Nouvelle demande client à simuler : article × quantité × date."""
+
+    article: str = Field(..., min_length=1)
+    quantite: int = Field(..., gt=0)
+    date_besoin: str = Field(..., description="YYYY-MM-DD")
+    date_from: Optional[str] = Field(default=None, alias="from")
+    date_to: Optional[str] = Field(default=None, alias="to")
 
 
 class OfPatchRequest(BaseModel):
@@ -248,6 +270,70 @@ def list_overrides(request: Request) -> dict[str, Any]:
 def reset_all(request: Request) -> dict[str, Any]:
     count = _store(request).delete_all_overrides()
     return {"deleted": count}
+
+
+@router.post("/feasibility")
+def evaluate_feasibility(payload: FeasibilityRequest, request: Request) -> dict[str, Any]:
+    """Faisabilité de tous les OF de la fenêtre, overrides appliqués.
+
+    Allocation virtuelle séquentielle : affermis d'abord, puis date de
+    besoin croissante, puis faisables avant non-faisables. Un OF faisable
+    réserve ses composants ACHAT → la concurrence est visible.
+    """
+    loader = _loader(request)
+    overrides = _store(request).get_overrides()
+
+    today = date.today()
+    from_d = _parse_iso(payload.date_from, "from") or (today - timedelta(days=7))
+    to_d = _parse_iso(payload.date_to, "to") or (today + timedelta(days=42))
+    if to_d < from_d:
+        raise HTTPException(status_code=422, detail="'to' antérieur à 'from'")
+
+    effective_ofs = build_effective_ofs(loader, overrides, from_d, to_d)
+    entries = evaluate_window(loader, effective_ofs, horizon_end=to_d)
+
+    results = {num_of: entry.to_dict() for num_of, entry in entries.items()}
+    return {
+        "results": results,
+        "window": {"from": from_d.isoformat(), "to": to_d.isoformat()},
+        "stats": {
+            "nb_evalues": len(results),
+            "nb_ok": sum(1 for e in results.values() if e["statut"] == "ok"),
+            "nb_bloques": sum(1 for e in results.values() if e["statut"] == "bloque"),
+            "nb_sans_nomenclature": sum(
+                1 for e in results.values() if e["statut"] == "sans_nomenclature"
+            ),
+        },
+    }
+
+
+@router.post("/whatif")
+def whatif(payload: WhatIfRequest, request: Request) -> dict[str, Any]:
+    """Simule une nouvelle commande (article × quantité × date) sans rien enregistrer.
+
+    Retourne la faisabilité de la demande et la liste des OF existants qui
+    deviendraient infaisables (composants asséchés), avec les commandes
+    clients liées à ces OF.
+    """
+    loader = _loader(request)
+    article = payload.article.strip()
+    if loader.get_article(article) is None:
+        raise HTTPException(status_code=404, detail=f"Article inconnu: {article}")
+
+    besoin_d = _parse_iso(payload.date_besoin, "date_besoin")
+    today = date.today()
+    from_d = _parse_iso(payload.date_from, "from") or (today - timedelta(days=7))
+    to_d = _parse_iso(payload.date_to, "to") or (today + timedelta(days=42))
+
+    return whatif_order(
+        loader,
+        _store(request).get_overrides(),
+        article=article,
+        quantite=payload.quantite,
+        date_besoin=besoin_d,
+        from_d=from_d,
+        to_d=to_d,
+    )
 
 
 @router.get("/events")

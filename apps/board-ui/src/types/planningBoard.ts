@@ -52,3 +52,70 @@ export interface PlanningBoardEvent {
   payload: string
   created_at: string
 }
+
+/* ── Faisabilité ───────────────────────────────────────────────── */
+
+export type FeasibilityStatut = 'ok' | 'bloque' | 'sans_nomenclature'
+
+export interface FeasibilityEntry {
+  num_of: string
+  article: string
+  faisable: boolean
+  statut: FeasibilityStatut
+  missing_components: Record<string, number>
+  alerts: string[]
+  allocated: Record<string, number>
+  date_besoin: string | null
+  statut_num: number
+}
+
+export interface FeasibilityResponse {
+  results: Record<string, FeasibilityEntry>
+  window: { from: string; to: string }
+  stats: {
+    nb_evalues: number
+    nb_ok: number
+    nb_bloques: number
+    nb_sans_nomenclature: number
+  }
+}
+
+export interface FeasibilityDiff {
+  degraded: string[]
+  improved: string[]
+}
+
+/* ── What-if ───────────────────────────────────────────────────── */
+
+export interface WhatIfLinkedOrder {
+  num_commande: string
+  client: string
+  article: string
+  qte_restante: number
+  date_expedition: string | null
+  type_commande: string
+}
+
+export interface WhatIfDegradedOf extends FeasibilityEntry {
+  composants_perdus: Record<string, number>
+  commandes: WhatIfLinkedOrder[]
+}
+
+export interface WhatIfResponse {
+  demande: { article: string; quantite: number; date_besoin: string }
+  nouvelle: FeasibilityEntry
+  degraded: WhatIfDegradedOf[]
+  improved: FeasibilityEntry[]
+  stats: {
+    nb_of_evalues: number
+    nb_degrades: number
+    nb_ameliores: number
+    nb_commandes_touchees: number
+  }
+}
+
+export interface ArticleSearchResult {
+  code: string
+  description: string
+  type_appro: string
+}
