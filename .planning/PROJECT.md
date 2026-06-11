@@ -48,29 +48,31 @@ Les algos génétiques et d'ordonnancement sont **exclus** du scope.
 - [x] Service `OverrideStore` — save, get, getAll, delete, deleteAll
 - [x] Tests : 7 tests CRUD
 
-### Phase 6 — Controllers (stubs)
+### Phase 6 — Controllers
 - [x] Routes définies dans `start/routes.ts`
-- [x] 5 controllers stubs (planning_board, suivi, pipeline, health, x3_data)
-- [ ] **Controllers réels** — appeler le domaine + repositories + override store
-  - [ ] `planning_board_controller` — CRUD overrides, feasibility, whatif, order impacts, events
-  - [ ] `suivi_controller` — assignStatuses via flows X3
-  - [ ] `pipeline_controller` — agrège supply board + suivi
-  - [ ] `x3_data_controller` — proxy SQL vers X3
-  - [ ] `health_controller` — quasi OK déjà
+- [x] 5 controllers implementes
+  - [x] `planning_board_controller` — CRUD overrides, feasibility, whatif, order impacts, events
+  - [x] `suivi_controller` — assignStatuses via flows X3, fromLatestExport, statusDetail, palette, retardCharge
+  - [x] `pipeline_controller` — agrège supply board + suivi
+  - [x] `x3_data_controller` — proxy SQL vers X3
+  - [x] `health_controller` — quasi OK déjà
 
 ### Phase 7 — Tests Fonctionnels
-- [ ] Tests HTTP (Japa API client) pour chaque controller
-- [ ] Test d'intégration bout en bout (mock X3 → domain → API response)
+- [x] Tests HTTP (Japa API client) pour chaque controller
+- [x] Test d'intégration bout en bout (health, overrides CRUD, suivi assign, x3_data)
+- [x] Bodyparser middleware configuré dans start/kernel.ts
+- [x] Bootstrap fonctionnel avec httpServer().start() via configureSuite
 
 ### Phase 8 — Wiring & Cleanup
-- [ ] Brancher X3Adapter dans le container IoC AdonisJS
-- [ ] Nettoyer les doublons `X3Queryable` (centraliser dans `x3_connection.ts`)
-- [ ] Variables d'environnement X3 (.env)
+- [x] Brancher X3Adapter dans le container IoC AdonisJS (singleton via `x3_provider.ts`)
+- [x] Nettoyer les doublons `X3Queryable` (centraliser dans `x3_connection.ts`)
+- [x] Variables d'environnement X3 (.env, .env.test, .env.example, start/env.ts)
+- [x] Controllers refactorisés pour utiliser IoC (`ctx.containerResolver.make('x3')`)
 - [ ] README mise à jour
 
 ## Test Count
 
-**66 tests passing** (domain + repositories + override store + planning board)
+**88 tests passing** (78 unit + 10 functional HTTP)
 
 ## File Layout
 
@@ -81,8 +83,9 @@ api/
   app/repositories/        # of_repository, stock_repository, reception_repository, besoin_client_repository, x3_connection
   app/models/              # of_override (Lucid)
   app/services/            # override_store
-  app/controllers/         # stubs → à implémenter
-  config/x3.ts             # X3 env config
+  app/controllers/         # tous implémentés, injection IoC
+  app/services/            # override_store
+  providers/               # api_provider, x3_provider (singleton X3)
   database/migrations/     # of_overrides
   tests/domain/            # flow, availability, orders, feasibility, suivi, repositories, planning, planning_board, override_store
 ```

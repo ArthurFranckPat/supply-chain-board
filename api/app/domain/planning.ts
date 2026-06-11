@@ -4,8 +4,6 @@
  * Pure functions, no I/O. Calendar config and holidays injected as parameters.
  */
 
-import type { GammeOperation } from './models/gamme.js'
-
 // -- Calendar --
 
 export function isWeekend(d: Date): boolean {

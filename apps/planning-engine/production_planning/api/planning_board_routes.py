@@ -141,6 +141,16 @@ def _effective_start(row: dict[str, Any]) -> Optional[str]:
     return row["date_debut"] or row["date_fin"]
 
 
+def _matches_composant(query: str, article: str, loader: Any) -> bool:
+    nomenclature = loader.get_nomenclature(article)
+    if not nomenclature:
+        return False
+    return any(
+        query in c.article_composant.lower() or query in (c.designation_composant or "").lower()
+        for c in nomenclature.composants
+    )
+
+
 @router.get("/ofs")
 def list_ofs(
     request: Request,
@@ -188,6 +198,7 @@ def list_ofs(
             query in of.num_of.lower()
             or query in of.article.lower()
             or query in (of.description or "").lower()
+            or _matches_composant(query, of.article, loader)
         ):
             continue
         rows.append(row)

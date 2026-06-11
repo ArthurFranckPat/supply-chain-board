@@ -5,9 +5,6 @@
 import type { Flow } from '#app/domain/models/flow'
 import type { X3Queryable } from './x3_connection.js'
 
-// Re-export for backward compat
-export type { X3Queryable } from './x3_connection.js'
-
 export class X3OfRepository {
   constructor(private conn: X3Queryable) {}
 

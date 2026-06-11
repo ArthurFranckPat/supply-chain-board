@@ -13,7 +13,7 @@
 export type FlowDirection = 'supply' | 'demand'
 
 export type FlowOrigin =
-  | { type: 'stock' }
+  | { type: 'stock'; subType?: 'strict' | 'qc' }
   | { type: 'reception'; id: string; supplier: string }
   | { type: 'of'; id: string; status: OfStatus }
   | { type: 'order'; id: string; customer: string; orderType: OrderType; nature: NeedNature }

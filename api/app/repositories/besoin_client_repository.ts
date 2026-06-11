@@ -3,7 +3,7 @@
  */
 
 import type { Flow, OrderType, NeedNature } from '#app/domain/models/flow'
-import type { X3Queryable } from './of_repository.js'
+import type { X3Queryable } from './x3_connection.js'
 
 export class X3BesoinClientRepository {
   constructor(private conn: X3Queryable) {}

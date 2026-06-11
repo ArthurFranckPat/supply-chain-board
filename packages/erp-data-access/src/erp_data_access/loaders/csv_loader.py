@@ -26,12 +26,21 @@ from ..parsers import (
 )
 
 
-DEFAULT_EXTRACTIONS_DIR = Path(
-    os.environ.get(
-        "ORDO_EXTRACTIONS_DIR",
-        "C:\\Users\\bledoua\\OneDrive - Aldes Aeraulique\\Donn\u00e9es\\Extractions",
-    )
-)
+def _resolve_default_extractions_dir() -> Path:
+    if env := os.environ.get("ORDO_EXTRACTIONS_DIR"):
+        return Path(env)
+    candidates = [
+        Path.home() / "Library/CloudStorage/OneDrive-AldesAeraulique/Donn\u00e9es/Extractions",
+        Path("C:/Users/bledoua/OneDrive - Aldes Aeraulique/Donn\u00e9es/Extractions"),
+        Path("C:\\Users\\bledoua\\OneDrive - Aldes Aeraulique\\Donn\u00e9es\\Extractions"),
+    ]
+    for p in candidates:
+        if p.exists():
+            return p
+    return candidates[-1]
+
+
+DEFAULT_EXTRACTIONS_DIR = _resolve_default_extractions_dir()
 
 
 def resolve_extractions_files(
@@ -47,7 +56,7 @@ def resolve_extractions_files(
         path = base_dir / physical_name
         if path.exists():
             resolved[internal_name] = path
-        else:
+        elif internal_name not in CSVLoader.OPTIONAL_FILES:
             missing.append(internal_name)
 
     return resolved, missing
@@ -67,6 +76,8 @@ class CSVLoader:
         "allocations.csv": "Allocations.csv",
         "tarifs_achats.csv": "Tarifs Achats.csv",
     }
+
+    OPTIONAL_FILES: frozenset[str] = frozenset({"tarifs_achats.csv"})
 
     def __init__(
         self,

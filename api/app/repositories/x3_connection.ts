@@ -23,7 +23,7 @@ export class X3Adapter implements X3Queryable {
     this.conn = new X3Connection(this.env)
   }
 
-  async query(sql: string, params?: Array<string | number> | Record<string, string, number> | null, options?: any): Promise<X3QueryResult> {
+  async query(sql: string, params?: Array<string | number> | Record<string, string | number> | null, options?: any): Promise<X3QueryResult> {
     if (!this.conn) await this.connect()
     return this.conn.query(sql, params, options)
   }

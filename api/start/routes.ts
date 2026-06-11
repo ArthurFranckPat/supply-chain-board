@@ -5,7 +5,7 @@ router.get('/', async () => {
 })
 
 // Health
-router.get('/health', '#controllers/health_controller')
+router.get('/health', '#controllers/health_controller.index')
 
 // Planning Board
 router.group(() => {

@@ -1,5 +1,4 @@
 import { test } from '@japa/runner'
-import type { Flow } from '#app/domain/models/flow'
 import { X3OfRepository } from '#app/repositories/of_repository'
 import { X3StockRepository } from '#app/repositories/stock_repository'
 import { X3ReceptionRepository } from '#app/repositories/reception_repository'

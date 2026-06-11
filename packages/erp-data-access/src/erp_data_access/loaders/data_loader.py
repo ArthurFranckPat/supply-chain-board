@@ -52,6 +52,12 @@ class DataLoader:
     @classmethod
     def from_extractions(cls, extractions_dir=None) -> "DataLoader":
         """Cree un DataLoader depuis le dossier d'extractions ERP."""
+        from pathlib import Path as _Path
+        base_dir = _Path(extractions_dir) if extractions_dir else None
+        if base_dir is not None and not base_dir.exists():
+            raise FileNotFoundError(
+                f"Dossier d'extractions introuvable: {base_dir}"
+            )
         resolved, missing = resolve_extractions_files(extractions_dir)
         if missing:
             missing_files = [CSVLoader.EXTRACTIONS_FILE_MAP[name] for name in missing]

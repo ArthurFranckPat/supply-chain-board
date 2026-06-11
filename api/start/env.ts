@@ -24,4 +24,17 @@ export default await Env.create(new URL('../', import.meta.url), {
 
   // Session
   SESSION_DRIVER: Env.schema.enum(['cookie', 'memory', 'database'] as const),
+
+  // X3
+  X3_ENV: Env.schema.enum(['test', 'prod'] as const),
+  X3_TEST_HOST: Env.schema.string({ format: 'host' }),
+  X3_TEST_PORT: Env.schema.string(),
+  X3_TEST_USERNAME: Env.schema.string.optional(),
+  X3_TEST_PASSWORD: Env.schema.string.optional(),
+  X3_TEST_POOL: Env.schema.string(),
+  X3_PROD_HOST: Env.schema.string.optional({ format: 'host' }),
+  X3_PROD_PORT: Env.schema.string.optional(),
+  X3_PROD_USERNAME: Env.schema.string.optional(),
+  X3_PROD_PASSWORD: Env.schema.string.optional(),
+  X3_PROD_POOL: Env.schema.string.optional(),
 })

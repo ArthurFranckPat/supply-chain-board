@@ -1,5 +1,4 @@
 import { test } from '@japa/runner'
-import type { Flow } from '#app/domain/models/flow'
 import { assignStatuses } from '#app/domain/suivi'
 import type { OrderLine } from '#app/domain/suivi'
 
@@ -10,12 +9,6 @@ function makeLine(overrides: Partial<OrderLine> & { numCommande: string; article
     qteCommandee: 100, qteAllouee: 0, qteRestante: 100,
     isFabrique: false, isHardPegged: false,
     ...overrides,
-  }
-}
-
-function makeFlow(overrides: Partial<Flow> & { article: string }): Flow {
-  return {
-    quantity: 10, direction: 'supply', date: null, origin: { type: 'stock' }, ...overrides,
   }
 }
 
