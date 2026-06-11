@@ -11,7 +11,7 @@ import time
 from datetime import date, timedelta
 from unittest.mock import MagicMock
 
-from ..benchmark import BenchmarkRun, benchmark_instance
+from ..benchmark import BenchmarkRun
 from ..chromosome import make_individual
 from ..config import GAConfig
 from ..decoder import GAContext

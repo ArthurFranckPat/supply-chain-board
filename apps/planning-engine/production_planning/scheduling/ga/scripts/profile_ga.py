@@ -14,7 +14,7 @@ from unittest.mock import MagicMock
 
 from ..config import GAConfig
 from ..decoder import GAContext
-from ..engine import run_ga
+
 from ...models import CandidateOF
 
 PROFILE_OUTPUT = Path(".planning/research/profiling/profile_ga.pstats")
@@ -88,7 +88,7 @@ def main() -> None:
     ctx = _make_context(n_of=20, n_days=5, n_lines=2, ga_config=_make_ga_config(max_generations=10))
     ctx.seed_genes = {f"OF_{i:03d}": i % 5 for i in range(20)}  # type: ignore[attr-defined]
 
-    print(f"Profiling GA (20 OFs, 5 days, 10 generations)...")
+    print("Profiling GA (20 OFs, 5 days, 10 generations)...")
     cProfile.runctx("run_ga(ctx)", globals(), locals(), str(PROFILE_OUTPUT))
 
     # Quick summary for sanity check
