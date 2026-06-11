@@ -36,7 +36,8 @@
     "#tests/*": "./tests/*.js",
     "#start/*": "./start/*.js",
     "#config/*": "./config/*.js",
-    "#app/domain/*": "./app/domain/*.js"
+    "#app/domain/*": "./app/domain/*.js",
+    "#app/repositories/*": "./app/repositories/*.js"
   },
   "devDependencies": {
     "@adonisjs/assembler": "^8.4.0",
