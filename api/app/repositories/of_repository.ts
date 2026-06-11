@@ -3,10 +3,10 @@
  */
 
 import type { Flow } from '#app/domain/models/flow'
+import type { X3Queryable } from './x3_connection.js'
 
-export interface X3Queryable {
-  query(sql: string, params?: any, options?: any): Promise<{ success: boolean; data: Record<string, string>[]; count: number }>
-}
+// Re-export for backward compat
+export type { X3Queryable } from './x3_connection.js'
 
 export class X3OfRepository {
   constructor(private conn: X3Queryable) {}

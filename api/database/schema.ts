@@ -32,6 +32,27 @@ export class AuthAccessTokenSchema extends BaseModel {
   declare updatedAt: DateTime | null
 }
 
+export class OfOverrideSchema extends BaseModel {
+  static $columns = ['createdAt', 'dateDebut', 'dateFin', 'id', 'note', 'numOf', 'status', 'updatedAt'] as const
+  $columns = OfOverrideSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime | null
+  @column()
+  declare dateDebut: string | null
+  @column()
+  declare dateFin: string | null
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare note: string | null
+  @column()
+  declare numOf: string
+  @column()
+  declare status: number | null
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+}
+
 export class UserSchema extends BaseModel {
   static $columns = ['createdAt', 'email', 'fullName', 'id', 'password', 'updatedAt'] as const
   $columns = UserSchema.$columns
