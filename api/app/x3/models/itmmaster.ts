@@ -1,6 +1,6 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, hasMany } from '@adonisjs/lucid/orm'
-import type { HasMany } from '@adonisjs/lucid/types/relations'
+import { BaseModel, column, hasMany, belongsTo } from '@adonisjs/lucid/orm'
+import type { HasMany, BelongsTo } from '@adonisjs/lucid/types/relations'
 import Bom from '#models/x3/bom'
 import BomDetail from '#models/x3/bomd'
 import ItemFacility from '#models/x3/itmfacilit'
@@ -14,6 +14,7 @@ import Stock from '#models/x3/stock'
 import StockAlloc from '#models/x3/stoall'
 import RoutingOp from '#models/x3/rouope'
 import StockJournal from '#models/x3/stojou'
+import LocalMenu from '#models/local_menu'
 
 export default class ItemMaster extends BaseModel {
   static table = 'ITMMASTER'
@@ -718,5 +719,14 @@ export default class ItemMaster extends BaseModel {
 
   @hasMany(() => RoutingOp, { foreignKey: 'gamme', localKey: 'article' })
   declare routingOpList: HasMany<typeof RoutingOp>
+
+  @belongsTo(() => LocalMenu, { foreignKey: 'statutArticle', localKey: 'value', onQuery: (q) => q.where('chapter', 246) })
+  declare statutArticleMenu: BelongsTo<typeof LocalMenu>
+
+  @belongsTo(() => LocalMenu, { foreignKey: 'gestionStock', localKey: 'value', onQuery: (q) => q.where('chapter', 215) })
+  declare gestionStockMenu: BelongsTo<typeof LocalMenu>
+
+  @belongsTo(() => LocalMenu, { foreignKey: 'modeGestion', localKey: 'value', onQuery: (q) => q.where('chapter', 297) })
+  declare modeGestionMenu: BelongsTo<typeof LocalMenu>
 
 }

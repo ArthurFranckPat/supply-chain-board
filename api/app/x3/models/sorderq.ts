@@ -4,6 +4,7 @@ import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import ItemMaster from '#models/x3/itmmaster'
 import PurchaseOrder from '#models/x3/porder'
 import SalesOrder from '#models/x3/sorder'
+import LocalMenu from '#models/local_menu'
 
 export default class SalesOrderLine extends BaseModel {
   static table = 'SORDERQ'
@@ -498,5 +499,11 @@ export default class SalesOrderLine extends BaseModel {
 
   @belongsTo(() => PurchaseOrder, { foreignKey: 'noCommande', localKey: 'noCommande' })
   declare commandeAchat: BelongsTo<typeof PurchaseOrder>
+
+  @belongsTo(() => LocalMenu, { foreignKey: 'etatLigne', localKey: 'value', onQuery: (q) => q.where('chapter', 279) })
+  declare etatLigneMenu: BelongsTo<typeof LocalMenu>
+
+  @belongsTo(() => LocalMenu, { foreignKey: 'statutOrdre', localKey: 'value', onQuery: (q) => q.where('chapter', 317) })
+  declare statutOrdreMenu: BelongsTo<typeof LocalMenu>
 
 }

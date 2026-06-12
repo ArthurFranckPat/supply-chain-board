@@ -4,6 +4,7 @@ import type { BelongsTo, HasMany } from '@adonisjs/lucid/types/relations'
 import ItemMaster from '#models/x3/itmmaster'
 import MfgHead from '#models/x3/mfghead'
 import Orders from '#models/x3/orders'
+import LocalMenu from '#models/local_menu'
 
 export default class MfgItem extends BaseModel {
   static table = 'MFGITM'
@@ -218,5 +219,17 @@ export default class MfgItem extends BaseModel {
     onQuery: (query) => query.where('typeOrdre', 5),
   })
   declare encoursList: HasMany<typeof Orders>
+
+  @belongsTo(() => LocalMenu, { foreignKey: 'statutOrdreDeFabrication', localKey: 'value', onQuery: (q) => q.where('chapter', 317) })
+  declare statutOFMenu: BelongsTo<typeof LocalMenu>
+
+  @belongsTo(() => LocalMenu, { foreignKey: 'typeProduit', localKey: 'value', onQuery: (q) => q.where('chapter', 2301) })
+  declare typeProduitMenu: BelongsTo<typeof LocalMenu>
+
+  @belongsTo(() => LocalMenu, { foreignKey: 'priorite', localKey: 'value', onQuery: (q) => q.where('chapter', 365) })
+  declare prioriteMenu: BelongsTo<typeof LocalMenu>
+
+  @belongsTo(() => LocalMenu, { foreignKey: 'etatLigne', localKey: 'value', onQuery: (q) => q.where('chapter', 363) })
+  declare etatLigneMenu: BelongsTo<typeof LocalMenu>
 
 }

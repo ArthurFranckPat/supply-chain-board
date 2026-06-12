@@ -1,10 +1,11 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, hasMany } from '@adonisjs/lucid/orm'
-import type { HasMany } from '@adonisjs/lucid/types/relations'
+import { BaseModel, column, hasMany, belongsTo } from '@adonisjs/lucid/orm'
+import type { HasMany, BelongsTo } from '@adonisjs/lucid/types/relations'
 import MfgItem from '#models/x3/mfgitm'
 import MfgMat from '#models/x3/mfgmat'
 import MfgOpe from '#models/x3/mfgope'
 import Orders from '#models/x3/orders'
+import LocalMenu from '#models/local_menu'
 
 export default class MfgHead extends BaseModel {
   static table = 'MFGHEAD'
@@ -312,5 +313,17 @@ export default class MfgHead extends BaseModel {
     onQuery: (query) => query.where('typePiece', 10),
   })
   declare encoursList: HasMany<typeof Orders>
+
+  @belongsTo(() => LocalMenu, { foreignKey: 'statutOrdreDeFabrication', localKey: 'value', onQuery: (q) => q.where('chapter', 317) })
+  declare statutOFMenu: BelongsTo<typeof LocalMenu>
+
+  @belongsTo(() => LocalMenu, { foreignKey: 'typeOf', localKey: 'value', onQuery: (q) => q.where('chapter', 1026) })
+  declare typeOfMenu: BelongsTo<typeof LocalMenu>
+
+  @belongsTo(() => LocalMenu, { foreignKey: 'modeLancement', localKey: 'value', onQuery: (q) => q.where('chapter', 333) })
+  declare modeLancementMenu: BelongsTo<typeof LocalMenu>
+
+  @belongsTo(() => LocalMenu, { foreignKey: 'priorite', localKey: 'value', onQuery: (q) => q.where('chapter', 365) })
+  declare prioriteMenu: BelongsTo<typeof LocalMenu>
 
 }

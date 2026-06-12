@@ -2,6 +2,7 @@ import { BaseModel, column } from '@adonisjs/lucid/orm'
 
 export default class LocalMenu extends BaseModel {
   static table = 'local_menus'
+  static primaryKey = 'value'
 
   @column({ columnName: 'chapter' })
   declare chapter: number
