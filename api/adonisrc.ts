@@ -50,6 +50,7 @@ export default defineConfig({
     () => import('@adonisjs/session/session_provider'),
     () => import('@adonisjs/shield/shield_provider'),
     () => import('@adonisjs/lucid/database_provider'),
+    () => import('#providers/x3_database_provider'),
     () => import('@adonisjs/cors/cors_provider'),
     () => import('@adonisjs/auth/auth_provider'),
     () => import('#providers/api_provider'),

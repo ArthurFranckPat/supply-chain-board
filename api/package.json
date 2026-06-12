@@ -38,6 +38,7 @@
     "#config/*": "./config/*.js",
     "#app/domain/*": "./app/domain/*.js",
     "#app/repositories/*": "./app/repositories/*.js",
+    "#app/database/*": "./app/database/*.js",
     "#repositories/*": "./app/repositories/*.js"
   },
   "devDependencies": {

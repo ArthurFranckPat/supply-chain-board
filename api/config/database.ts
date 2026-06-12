@@ -1,16 +1,11 @@
+import env from '#start/env'
 import app from '@adonisjs/core/services/app'
 import { defineConfig } from '@adonisjs/lucid'
 
 const dbConfig = defineConfig({
-  /**
-   * Default connection used for all queries.
-   */
   connection: 'sqlite',
 
   connections: {
-    /**
-     * SQLite connection (default).
-     */
     sqlite: {
       client: 'better-sqlite3',
 
@@ -46,6 +41,23 @@ const dbConfig = defineConfig({
          */
         rulesPaths: ['./database/schema_rules.js'],
       },
+    },
+
+    /**
+     * X3 Oracle via SOAP/SQL — custom dialect.
+     * Read-only. No migrations.
+     */
+    x3: {
+      client: 'x3',
+      connection: {
+        env: env.get('X3_ENV', 'test'),
+        host: env.get('X3_TEST_HOST'),
+        port: env.get('X3_TEST_PORT', '8124'),
+        user: env.get('X3_TEST_USERNAME', ''),
+        password: env.get('X3_TEST_PASSWORD', ''),
+        pool: env.get('X3_TEST_POOL', 'X3TEST'),
+      },
+      pool: { min: 1, max: 1 },
     },
 
     /**
