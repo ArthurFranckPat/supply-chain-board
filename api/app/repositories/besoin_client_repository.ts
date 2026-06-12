@@ -1,38 +1,111 @@
-/**
- * Repository BesoinClient — materialise des Flows demand depuis les commandes/prevision X3.
- */
-
 import type { Flow, OrderType, NeedNature } from '#app/domain/models/flow'
-import type { X3Queryable } from '#app/x3/types'
+import { X3Database } from '#app/x3/client/x3_database'
+import { parseX3Date } from '#app/x3/utils/parse_date'
+
+const SQL = `
+SELECT
+  NVL(P_REEL.BPRNAM_0, P_LINK.BPRNAM_0) AS CLIENT,
+  NVL(P_REEL.CRY_0, P_LINK.CRY_0) AS PAYS,
+  CASE
+    WHEN O.WIPSTA_0 = 1 THEN H_CUR.SOHTYP_0
+    WHEN O.WIPSTA_0 = 3 THEN
+      CASE
+        WHEN NVL(P_REEL.CRY_0, P_LINK.CRY_0) <> 'FR' THEN 'NOR'
+        ELSE ''
+      END
+    ELSE 'NOR'
+  END AS SOHTYP,
+  O.VCRNUM_0 AS NO_DOCUMENT,
+  CASE
+    WHEN O.WIPSTA_0 = 1 THEN 'COMMANDE'
+    WHEN O.WIPSTA_0 = 3 THEN 'PREVISION'
+    ELSE S.LANMES_0
+  END AS STATUT,
+  O.ITMREF_0 AS ARTICLE,
+  Q.FMINUM_0 AS CONTREMARQUE,
+  O.STRDAT_0 AS DATE_DEBUT,
+  CASE WHEN O.WIPSTA_0 = 1 THEN Q.SHIDAT_0 ELSE O.ENDDAT_0 END AS ECHEANCE,
+  O.EXTQTY_0 AS QTE_PREVUE,
+  O.ALLQTY_0 AS QTE_ALLOUEE,
+  (O.RMNEXTQTY_0 - O.ALLQTY_0) AS RESTE_LIVRER
+FROM ORDERS O
+JOIN ITMMASTER I ON I.ITMREF_0 = O.ITMREF_0
+LEFT JOIN BPARTNER P_REEL ON P_REEL.BPRNUM_0 = O.BPRNUM_0
+LEFT JOIN APLSTD S ON S.LAN_0 = 'FRA' AND S.LANCHP_0 = 317 AND S.LANNUM_0 = O.WIPSTA_0
+LEFT JOIN SORDER H_CUR ON H_CUR.SOHNUM_0 = O.VCRNUM_0
+LEFT JOIN SORDERQ Q ON Q.SOHNUM_0 = O.VCRNUM_0 AND Q.SOPLIN_0 = O.VCRLIN_0
+LEFT JOIN (
+  SELECT ITMREF_0, MIN(BPCNUM_0) AS BPCNUM_0
+  FROM ITMBPC
+  GROUP BY ITMREF_0
+) L ON L.ITMREF_0 = O.ITMREF_0
+LEFT JOIN BPARTNER P_LINK ON P_LINK.BPRNUM_0 = L.BPCNUM_0
+WHERE O.WIPTYP_0 = 1
+  AND I.ITMSTA_0 = 1
+  AND NOT (O.WIPSTA_0 = 3 AND L.ITMREF_0 IS NULL)
+`
+
+type RawRow = Record<string, string | null>
 
 export class X3BesoinClientRepository {
-  constructor(private conn: X3Queryable) {}
-
   async getDemandFlows(): Promise<Flow[]> {
-    const sql = `SELECT NUM_COMMANDE, ARTICLE, TYPE_COMMANDE, NATURE_BESOIN, QTE_RESTANTE,
-DATE_EXPEDITION_DEMANDEE, NOM_CLIENT, CODE_PAYS
-FROM ZBESOINCLIENT
-WHERE QTE_RESTANTE > 0`
+    const db = new X3Database()
+    try {
+      const rows: RawRow[] = await db.raw(SQL)
+      return rows
+        .filter(row => parseFloat(row.RESTE_LIVRER ?? '0') > 0)
+        .map(row => {
+          const statut = row.STATUT?.trim() ?? ''
+          const nature: NeedNature = statut === 'COMMANDE' ? 'COMMANDE' : 'PREVISION'
+          const rawType = row.SOHTYP?.trim() ?? ''
+          const orderType: OrderType | null = rawType === '' ? null : rawType as OrderType
+          const qteCommandee = parseFloat(row.QTE_PREVUE ?? '0') || 0
+          const qteAllouee = parseFloat(row.QTE_ALLOUEE ?? '0') || 0
+          const quantity = parseFloat(row.RESTE_LIVRER ?? '0')
+          const article = row.ARTICLE?.trim() ?? ''
+          const customer = row.CLIENT?.trim() || null
+          const pays = row.PAYS?.trim() || null
+          const contremarque = row.CONTREMARQUE?.trim() || null
+          const date = parseX3Date(row.ECHEANCE)
 
-    const result = await this.conn.query(sql)
-    if (!result.success) return []
-
-    return result.data
-      .filter(row => parseFloat(row.QTE_RESTANTE) > 0)
-      .map(row => {
-        const nature = (row.NATURE_BESOIN?.toUpperCase().trim() ?? '') as NeedNature
-        const isOrder = nature === 'COMMANDE'
-        const orderType = (row.TYPE_COMMANDE?.toUpperCase().trim() ?? 'NOR') as OrderType
-
-        return {
-          article: row.ARTICLE.trim(),
-          quantity: parseFloat(row.QTE_RESTANTE),
-          direction: 'demand' as const,
-          date: row.DATE_EXPEDITION_DEMANDEE ? new Date(row.DATE_EXPEDITION_DEMANDEE) : null,
-          origin: isOrder
-            ? { type: 'order' as const, id: row.NUM_COMMANDE.trim(), customer: row.NOM_CLIENT?.trim() ?? '', orderType, nature }
-            : { type: 'forecast' as const, id: row.NUM_COMMANDE.trim(), orderType },
-        }
-      })
+          if (nature === 'COMMANDE') {
+            return {
+              article,
+              quantity,
+              direction: 'demand' as const,
+              date,
+              origin: {
+                type: 'order' as const,
+                id: row.NO_DOCUMENT?.trim() ?? '',
+                customer: customer ?? '',
+                pays,
+                orderType,
+                nature,
+                contremarque,
+                qteCommandee,
+                qteAllouee,
+              },
+            }
+          }
+          return {
+            article,
+            quantity,
+            direction: 'demand' as const,
+            date,
+            origin: {
+              type: 'forecast' as const,
+              id: row.NO_DOCUMENT?.trim() ?? '',
+              customer,
+              pays,
+              orderType,
+              contremarque,
+              qteCommandee,
+              qteAllouee,
+            },
+          }
+        })
+    } finally {
+      await db.destroy()
+    }
   }
 }

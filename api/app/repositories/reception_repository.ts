@@ -1,33 +1,46 @@
-/**
- * Repository Reception — materialise des Flows supply depuis les receptions prevues X3.
- */
-
 import type { Flow } from '#app/domain/models/flow'
-import type { X3Queryable } from '#app/x3/types'
+import PurchaseOrderLine from '#models/x3/porderq'
+import { parseX3Date } from '#app/x3/utils/parse_date'
 
 export class X3ReceptionRepository {
-  constructor(private conn: X3Queryable) {}
-
   async getReceptionFlows(): Promise<Flow[]> {
-    const sql = `SELECT ARTICLE, QTE_RESTANTE, DATE_RECEPTION_PREVUE, NUM_COMMANDE, CODE_FOURNISSEUR
-FROM ZRECEPTION
-WHERE QTE_RESTANTE > 0`
+    const rows = await PurchaseOrderLine.query()
+      .select(
+        'PORDERQ.POHNUM_0',
+        'PORDERQ.ITMREF_0',
+        'PORDERQ.BPSNUM_0',
+        'PORDERQ.QTYSTU_0',
+        'PORDERQ.RCPQTYSTU_0',
+        'PORDERQ.EXTRCPDAT_0 AS EXTRCPDAT_RAW',
+        'PORDERQ.ORDDAT_0 AS ORDDAT_RAW',
+        'BPSUPPLIER.BPSNAM_0',
+        'ITMMASTER.ITMDES1_0',
+      )
+      .innerJoin('PORDER', 'PORDER.POHNUM_0', 'PORDERQ.POHNUM_0')
+      .innerJoin('ITMMASTER', 'ITMMASTER.ITMREF_0', 'PORDERQ.ITMREF_0')
+      .innerJoin('BPSUPPLIER', 'BPSUPPLIER.BPSNUM_0', 'PORDERQ.BPSNUM_0')
+      .where('PORDER.CLEFLG_0', '1')
+      .where('ITMMASTER.ITMSTA_0', '1')
+      .whereRaw('PORDERQ.QTYSTU_0 > PORDERQ.RCPQTYSTU_0')
 
-    const result = await this.conn.query(sql)
-    if (!result.success) return []
-
-    return result.data
-      .filter(row => parseFloat(row.QTE_RESTANTE) > 0)
-      .map(row => ({
-        article: row.ARTICLE.trim(),
-        quantity: parseFloat(row.QTE_RESTANTE),
+    return rows.map(row => {
+      const qteCommandee = parseFloat(row.quantiteUs ?? '0') || 0
+      const qteRecue = parseFloat(row.quantiteReceptionneeUs ?? '0') || 0
+      return {
+        article: row.article?.trim() ?? '',
+        quantity: qteCommandee - qteRecue,
         direction: 'supply' as const,
-        date: new Date(row.DATE_RECEPTION_PREVUE),
+        date: parseX3Date(row.$extras.EXTRCPDAT_RAW),
         origin: {
           type: 'reception' as const,
-          id: row.NUM_COMMANDE?.trim() ?? '',
-          supplier: row.CODE_FOURNISSEUR?.trim() ?? '',
+          id: row.noCommande?.trim() ?? '',
+          supplier: (row.$extras.BPSNAM_0 as string | null)?.trim() ?? row.fournisseur?.trim() ?? '',
+          designation: (row.$extras.ITMDES1_0 as string | null) ?? null,
+          categorie: null,
+          dateCommande: parseX3Date(row.$extras.ORDDAT_RAW),
+          qteCommandee,
         },
-      }))
+      }
+    })
   }
 }

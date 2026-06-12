@@ -7,7 +7,6 @@ import { X3OfRepository } from '#repositories/of_repository'
 import { X3StockRepository } from '#repositories/stock_repository'
 import { X3ReceptionRepository } from '#repositories/reception_repository'
 import { X3BesoinClientRepository } from '#repositories/besoin_client_repository'
-import type { X3Queryable } from '#app/x3/types'
 import type { Flow } from '#app/domain/models/flow'
 import type { Article } from '#app/domain/models/article'
 import type { Nomenclature } from '#app/domain/models/nomenclature'
@@ -17,9 +16,6 @@ export default class PlanningBoardController {
     return new OverrideStore()
   }
 
-  private async getX3(ctx: HttpContext): Promise<X3Queryable> {
-    return ctx.containerResolver.make('x3')
-  }
 
   async index(ctx: HttpContext) {
     const windowStart = ctx.request.input('windowStart')
@@ -108,11 +104,10 @@ export default class PlanningBoardController {
       'articles', 'nomenclatures', 'upToDate',
     ])
 
-    const x3 = await this.getX3(ctx)
     const [ofFlows, stockFlows, receptionFlows] = await Promise.all([
       new X3OfRepository().getSupplyFlows(),
-      new X3StockRepository(x3).getStockFlows(),
-      new X3ReceptionRepository(x3).getReceptionFlows(),
+      new X3StockRepository().getStockFlows(),
+      new X3ReceptionRepository().getReceptionFlows(),
     ])
 
     const allFlows: Flow[] = [...ofFlows, ...stockFlows, ...receptionFlows]
@@ -154,12 +149,11 @@ export default class PlanningBoardController {
     const whatifOverrides = (body.overrides ?? []) as Array<{ numOf: string; dateFin?: string; status?: number }>
     const articlesInput = body.articles
 
-    const x3 = await this.getX3(ctx)
     const [ofFlows, stockFlows, receptionFlows, demandFlows] = await Promise.all([
       new X3OfRepository().getSupplyFlows(),
-      new X3StockRepository(x3).getStockFlows(),
-      new X3ReceptionRepository(x3).getReceptionFlows(),
-      new X3BesoinClientRepository(x3).getDemandFlows(),
+      new X3StockRepository().getStockFlows(),
+      new X3ReceptionRepository().getReceptionFlows(),
+      new X3BesoinClientRepository().getDemandFlows(),
     ])
 
     const articles = new Map<string, Article>(
@@ -204,12 +198,11 @@ export default class PlanningBoardController {
   async orderImpacts(ctx: HttpContext) {
     const { articles: articlesInput } = ctx.request.only(['articles'])
 
-    const x3 = await this.getX3(ctx)
     const [ofFlows, stockFlows, receptionFlows, demandFlows] = await Promise.all([
       new X3OfRepository().getSupplyFlows(),
-      new X3StockRepository(x3).getStockFlows(),
-      new X3ReceptionRepository(x3).getReceptionFlows(),
-      new X3BesoinClientRepository(x3).getDemandFlows(),
+      new X3StockRepository().getStockFlows(),
+      new X3ReceptionRepository().getReceptionFlows(),
+      new X3BesoinClientRepository().getDemandFlows(),
     ])
 
     const articles = new Map<string, Article>(

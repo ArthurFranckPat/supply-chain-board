@@ -4,13 +4,9 @@ import { X3OfRepository } from '#repositories/of_repository'
 import { X3StockRepository } from '#repositories/stock_repository'
 import { X3ReceptionRepository } from '#repositories/reception_repository'
 import { X3BesoinClientRepository } from '#repositories/besoin_client_repository'
-import type { X3Queryable } from '#app/x3/types'
 import type { Flow } from '#app/domain/models/flow'
 
 export default class SuiviController {
-  private async getX3(ctx: HttpContext): Promise<X3Queryable> {
-    return ctx.containerResolver.make('x3')
-  }
 
   /**
    * POST /api/v1/status/assign
@@ -57,10 +53,9 @@ export default class SuiviController {
     const referenceDate = ctx.request.input('referenceDate')
     const refDate = referenceDate ? new Date(referenceDate) : new Date()
 
-    const x3 = await this.getX3(ctx)
     const [demandFlows, stockFlows] = await Promise.all([
-      new X3BesoinClientRepository(x3).getDemandFlows(),
-      new X3StockRepository(x3).getStockFlows(),
+      new X3BesoinClientRepository().getDemandFlows(),
+      new X3StockRepository().getStockFlows(),
     ])
 
     const orderFlows = demandFlows.filter((f) => f.origin.type === 'order')
@@ -118,8 +113,7 @@ export default class SuiviController {
    * Fetch order detail + matching supply flows from X3.
    */
   async statusDetail(ctx: HttpContext) {
-    const x3 = await this.getX3(ctx)
-    const demandFlows = await new X3BesoinClientRepository(x3).getDemandFlows()
+    const demandFlows = await new X3BesoinClientRepository().getDemandFlows()
 
     const orderLines = demandFlows.filter(
       (f) => f.origin.type === 'order' && (f.origin as any).id === ctx.params.noCommande,
@@ -129,8 +123,8 @@ export default class SuiviController {
       return ctx.response.notFound({ message: `Commande ${ctx.params.noCommande} non trouvee` })
     }
 
-    const stockFlows = await new X3StockRepository(x3).getStockFlows()
-    const receptionFlows = await new X3ReceptionRepository(x3).getReceptionFlows()
+    const stockFlows = await new X3StockRepository().getStockFlows()
+    const receptionFlows = await new X3ReceptionRepository().getReceptionFlows()
     const ofFlows = await new X3OfRepository().getSupplyFlows()
 
     const details = orderLines.map((demand) => {
@@ -164,8 +158,7 @@ export default class SuiviController {
    */
   async palette(ctx: HttpContext) {
     const { lines: inputLines } = ctx.request.only(['lines'])
-    const x3 = await this.getX3(ctx)
-    const demandFlows = await new X3BesoinClientRepository(x3).getDemandFlows()
+    const demandFlows = await new X3BesoinClientRepository().getDemandFlows()
 
     const lines = inputLines ?? demandFlows.filter((f) => f.origin.type === 'order')
 
@@ -205,11 +198,10 @@ export default class SuiviController {
     const referenceDate = ctx.request.input('referenceDate')
     const refDate = referenceDate ? new Date(referenceDate) : new Date()
 
-    const x3 = await this.getX3(ctx)
     const [demandFlows, ofFlows, stockFlows] = await Promise.all([
-      new X3BesoinClientRepository(x3).getDemandFlows(),
+      new X3BesoinClientRepository().getDemandFlows(),
       new X3OfRepository().getSupplyFlows(),
-      new X3StockRepository(x3).getStockFlows(),
+      new X3StockRepository().getStockFlows(),
     ])
 
     const lateDemands = demandFlows.filter(

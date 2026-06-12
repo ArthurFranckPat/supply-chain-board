@@ -14,7 +14,7 @@ function makeFlow(overrides: Partial<Flow> & { article: string }): Flow {
     quantity: 10,
     direction: 'supply',
     date: null,
-    origin: { type: 'stock' },
+    origin: { type: 'stock', pmp: null },
     ...overrides,
   }
 }
@@ -48,8 +48,8 @@ test.group('availableAt', () => {
   test('includes receptions up to date', ({ assert }) => {
     const flows: Flow[] = [
       makeFlow({ article: 'A', direction: 'supply', quantity: 50, date: null }),
-      makeFlow({ article: 'A', direction: 'supply', quantity: 30, date: day1, origin: { type: 'reception', id: 'R1', supplier: 'S' } }),
-      makeFlow({ article: 'A', direction: 'supply', quantity: 20, date: day2, origin: { type: 'reception', id: 'R2', supplier: 'S' } }),
+      makeFlow({ article: 'A', direction: 'supply', quantity: 30, date: day1, origin: { type: 'reception', id: 'R1', supplier: 'S', designation: null, categorie: null, dateCommande: null, qteCommandee: 0 } }),
+      makeFlow({ article: 'A', direction: 'supply', quantity: 20, date: day2, origin: { type: 'reception', id: 'R2', supplier: 'S', designation: null, categorie: null, dateCommande: null, qteCommandee: 0 } }),
     ]
     assert.equal(availableAt(flows, 'A', day1), 80)
     assert.equal(availableAt(flows, 'A', day2), 100)
@@ -58,7 +58,7 @@ test.group('availableAt', () => {
   test('accounts for demand', ({ assert }) => {
     const flows: Flow[] = [
       makeFlow({ article: 'A', direction: 'supply', quantity: 100, date: null }),
-      makeFlow({ article: 'A', direction: 'demand', quantity: 40, date: day1, origin: { type: 'order', id: 'C1', customer: 'X', orderType: 'MTO', nature: 'COMMANDE' } }),
+      makeFlow({ article: 'A', direction: 'demand', quantity: 40, date: day1, origin: { type: 'order', id: 'C1', customer: 'X', pays: null, orderType: 'MTO', nature: 'COMMANDE', contremarque: null, qteCommandee: 0, qteAllouee: 0 } }),
     ]
     assert.equal(availableAt(flows, 'A', day1), 60)
   })
@@ -93,8 +93,8 @@ test.group('firstCoverageDate', () => {
     const d2 = new Date('2026-01-20')
     const flows: Flow[] = [
       makeFlow({ article: 'A', direction: 'supply', quantity: 30, date: null }),
-      makeFlow({ article: 'A', direction: 'supply', quantity: 50, date: d1, origin: { type: 'reception', id: 'R1', supplier: 'S' } }),
-      makeFlow({ article: 'A', direction: 'supply', quantity: 100, date: d2, origin: { type: 'reception', id: 'R2', supplier: 'S' } }),
+      makeFlow({ article: 'A', direction: 'supply', quantity: 50, date: d1, origin: { type: 'reception', id: 'R1', supplier: 'S', designation: null, categorie: null, dateCommande: null, qteCommandee: 0 } }),
+      makeFlow({ article: 'A', direction: 'supply', quantity: 100, date: d2, origin: { type: 'reception', id: 'R2', supplier: 'S', designation: null, categorie: null, dateCommande: null, qteCommandee: 0 } }),
     ]
     // Need 70: stock(30) + reception d1(50) = 80 >= 70 -> d1
     assert.deepEqual(firstCoverageDate(flows, 'A', 70), d1)
@@ -132,7 +132,7 @@ test.group('allocateFromSupply', () => {
   test('allocates from multiple flows in date order', ({ assert }) => {
     const d1 = new Date('2026-01-10')
     const flows: Flow[] = [
-      makeFlow({ article: 'A', direction: 'supply', quantity: 40, date: d1, origin: { type: 'reception', id: 'R1', supplier: 'S' } }),
+      makeFlow({ article: 'A', direction: 'supply', quantity: 40, date: d1, origin: { type: 'reception', id: 'R1', supplier: 'S', designation: null, categorie: null, dateCommande: null, qteCommandee: 0 } }),
       makeFlow({ article: 'A', direction: 'supply', quantity: 80, date: null }),
     ]
     const result = allocateFromSupply(flows, 'A', 100)
@@ -149,7 +149,7 @@ test.group('snapshot', () => {
     const d1 = new Date('2026-01-10')
     const flows: Flow[] = [
       makeFlow({ article: 'A', direction: 'supply', quantity: 50, date: null }),
-      makeFlow({ article: 'A', direction: 'supply', quantity: 30, date: d1, origin: { type: 'reception', id: 'R1', supplier: 'S' } }),
+      makeFlow({ article: 'A', direction: 'supply', quantity: 30, date: d1, origin: { type: 'reception', id: 'R1', supplier: 'S', designation: null, categorie: null, dateCommande: null, qteCommandee: 0 } }),
     ]
     const snap = snapshot(flows, 'A', d1, 100)
     assert.equal(snap.currentStock, 50)

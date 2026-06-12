@@ -6,7 +6,7 @@ import { checkFeasibility } from '#app/domain/feasibility'
 
 function makeFlow(overrides: Partial<Flow> & { article: string }): Flow {
   return {
-    quantity: 10, direction: 'supply', date: null, origin: { type: 'stock' }, ...overrides,
+    quantity: 10, direction: 'supply', date: null, origin: { type: 'stock', pmp: null }, ...overrides,
   }
 }
 
@@ -106,7 +106,7 @@ test.group('checkFeasibility', () => {
     const recvDate = new Date('2026-01-10')
     const flows: Flow[] = [
       makeFlow({ article: 'COMP1', direction: 'supply', quantity: 50, date: null }),
-      makeFlow({ article: 'COMP1', direction: 'supply', quantity: 150, date: recvDate, origin: { type: 'reception', id: 'R1', supplier: 'S' } }),
+      makeFlow({ article: 'COMP1', direction: 'supply', quantity: 150, date: recvDate, origin: { type: 'reception', id: 'R1', supplier: 'S', designation: null, categorie: null, dateCommande: null, qteCommandee: 0 } }),
     ]
     const nomenclatures = new Map<string, Nomenclature>([
       ['ART1', {

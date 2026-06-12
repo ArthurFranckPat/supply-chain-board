@@ -95,6 +95,10 @@ export function buildEffectiveFlows(
         type: 'of' as const,
         id: of.numOf,
         status: of.statutNum as 1 | 2 | 3,
+        statutLabel: null,
+        typeOf: null,
+        typeOfLabel: null,
+        designation: null,
       },
     }))
 }

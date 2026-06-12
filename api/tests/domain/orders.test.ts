@@ -8,7 +8,7 @@ function makeFlow(overrides: Partial<Flow> & { article: string }): Flow {
     quantity: 10,
     direction: 'supply',
     date: null,
-    origin: { type: 'stock' },
+    origin: { type: 'stock', pmp: null },
     ...overrides,
   }
 }
@@ -38,7 +38,7 @@ test.group('matchOrder', () => {
       direction: 'demand',
       quantity: 50,
       date: new Date('2026-01-15'),
-      origin: { type: 'order', id: 'C1', customer: 'Client', orderType: 'MTS', nature: 'COMMANDE' },
+      origin: { type: 'order', id: 'C1', customer: 'Client', pays: null, orderType: 'MTS', nature: 'COMMANDE', contremarque: null, qteCommandee: 0, qteAllouee: 0 },
     })
     const supplies: Flow[] = [
       makeFlow({
@@ -46,7 +46,7 @@ test.group('matchOrder', () => {
         direction: 'supply',
         quantity: 50,
         date: new Date('2026-01-14'),
-        origin: { type: 'of', id: 'OF1', status: 1 },
+        origin: { type: 'of', id: 'OF1', status: 1, statutLabel: null, typeOf: null, typeOfLabel: null, designation: null },
       }),
     ]
     const articles = new Map<string, Article>()
@@ -62,7 +62,7 @@ test.group('matchOrder', () => {
       direction: 'demand',
       quantity: 100,
       date: new Date('2026-01-15'),
-      origin: { type: 'order', id: 'C1', customer: 'Client', orderType: 'MTS', nature: 'COMMANDE' },
+      origin: { type: 'order', id: 'C1', customer: 'Client', pays: null, orderType: 'MTS', nature: 'COMMANDE', contremarque: null, qteCommandee: 0, qteAllouee: 0 },
     })
     const supplies: Flow[] = [
       makeFlow({
@@ -70,7 +70,7 @@ test.group('matchOrder', () => {
         direction: 'supply',
         quantity: 60,
         date: new Date('2026-01-14'),
-        origin: { type: 'of', id: 'OF1', status: 1 },
+        origin: { type: 'of', id: 'OF1', status: 1, statutLabel: null, typeOf: null, typeOfLabel: null, designation: null },
       }),
     ]
     const articles = new Map<string, Article>()
@@ -85,7 +85,7 @@ test.group('matchOrder', () => {
       direction: 'demand',
       quantity: 30,
       date: new Date('2026-01-15'),
-      origin: { type: 'order', id: 'C2', customer: 'Client', orderType: 'MTO', nature: 'COMMANDE' },
+      origin: { type: 'order', id: 'C2', customer: 'Client', pays: null, orderType: 'MTO', nature: 'COMMANDE', contremarque: null, qteCommandee: 0, qteAllouee: 0 },
     })
     const supplies: Flow[] = [
       makeFlow({ article: 'ART1', direction: 'supply', quantity: 100, date: null }),
@@ -103,7 +103,7 @@ test.group('matchOrder', () => {
       direction: 'demand',
       quantity: 80,
       date: new Date('2026-01-15'),
-      origin: { type: 'order', id: 'C3', customer: 'Client', orderType: 'NOR', nature: 'COMMANDE' },
+      origin: { type: 'order', id: 'C3', customer: 'Client', pays: null, orderType: 'NOR', nature: 'COMMANDE', contremarque: null, qteCommandee: 0, qteAllouee: 0 },
     })
     const supplies: Flow[] = [
       makeFlow({ article: 'ART1', direction: 'supply', quantity: 30, date: null }),
@@ -121,12 +121,12 @@ test.group('matchOrder', () => {
       direction: 'demand',
       quantity: 100,
       date: new Date('2026-01-15'),
-      origin: { type: 'order', id: 'C4', customer: 'Client', orderType: 'NOR', nature: 'COMMANDE' },
+      origin: { type: 'order', id: 'C4', customer: 'Client', pays: null, orderType: 'NOR', nature: 'COMMANDE', contremarque: null, qteCommandee: 0, qteAllouee: 0 },
     })
     const supplies: Flow[] = [
       makeFlow({ article: 'ART1', direction: 'supply', quantity: 20, date: null }),
-      makeFlow({ article: 'ART1', direction: 'supply', quantity: 40, date: new Date('2026-01-10'), origin: { type: 'of', id: 'OF1', status: 1 } }),
-      makeFlow({ article: 'ART1', direction: 'supply', quantity: 50, date: new Date('2026-01-12'), origin: { type: 'of', id: 'OF2', status: 3 } }),
+      makeFlow({ article: 'ART1', direction: 'supply', quantity: 40, date: new Date('2026-01-10'), origin: { type: 'of', id: 'OF1', status: 1, statutLabel: null, typeOf: null, typeOfLabel: null, designation: null } }),
+      makeFlow({ article: 'ART1', direction: 'supply', quantity: 50, date: new Date('2026-01-12'), origin: { type: 'of', id: 'OF2', status: 3, statutLabel: null, typeOf: null, typeOfLabel: null, designation: null } }),
     ]
     const articles = new Map<string, Article>([['ART1', makeArticle()]])
     const result = matchOrder(demand, supplies, articles)
@@ -145,14 +145,14 @@ test.group('matchOrders', () => {
         direction: 'demand',
         quantity: 60,
         date: new Date('2026-01-10'),
-        origin: { type: 'order', id: 'C1', customer: 'A', orderType: 'MTO', nature: 'COMMANDE' },
+        origin: { type: 'order', id: 'C1', customer: 'A', pays: null, orderType: 'MTO', nature: 'COMMANDE', contremarque: null, qteCommandee: 0, qteAllouee: 0 },
       }),
       makeFlow({
         article: 'ART1',
         direction: 'demand',
         quantity: 60,
         date: new Date('2026-01-11'),
-        origin: { type: 'order', id: 'C2', customer: 'B', orderType: 'MTO', nature: 'COMMANDE' },
+        origin: { type: 'order', id: 'C2', customer: 'B', pays: null, orderType: 'MTO', nature: 'COMMANDE', contremarque: null, qteCommandee: 0, qteAllouee: 0 },
       }),
     ]
     const supplies: Flow[] = [
@@ -174,14 +174,14 @@ test.group('matchOrders', () => {
         direction: 'demand',
         quantity: 50,
         date: new Date('2026-01-15'),
-        origin: { type: 'forecast', orderType: 'NOR', id: 'F1' },
+        origin: { type: 'forecast', id: 'F1', customer: null, pays: null, orderType: 'NOR', contremarque: null, qteCommandee: 0, qteAllouee: 0 },
       }),
       makeFlow({
         article: 'ART1',
         direction: 'demand',
         quantity: 50,
         date: new Date('2026-01-10'),
-        origin: { type: 'order', id: 'C1', customer: 'A', orderType: 'NOR', nature: 'COMMANDE' },
+        origin: { type: 'order', id: 'C1', customer: 'A', pays: null, orderType: 'NOR', nature: 'COMMANDE', contremarque: null, qteCommandee: 0, qteAllouee: 0 },
       }),
     ]
     const supplies: Flow[] = [

@@ -3,7 +3,6 @@ import { X3OfRepository } from '#repositories/of_repository'
 import { X3StockRepository } from '#repositories/stock_repository'
 import { X3ReceptionRepository } from '#repositories/reception_repository'
 import { X3BesoinClientRepository } from '#repositories/besoin_client_repository'
-import type { X3Queryable } from '#app/x3/types'
 import { matchOrders } from '#app/domain/orders'
 import { assignStatuses, type OrderLine, type StockBreakdown, type SuiviStatus, type TypeCommande } from '#app/domain/suivi'
 import { snapshot } from '#app/domain/availability'
@@ -11,20 +10,16 @@ import type { Flow } from '#app/domain/models/flow'
 import type { Article } from '#app/domain/models/article'
 
 export default class PipelineController {
-  private async getX3(ctx: HttpContext): Promise<X3Queryable> {
-    return ctx.containerResolver.make('x3')
-  }
 
   async supplyBoard(ctx: HttpContext) {
     const { articles: articlesInput, horizonDate } = ctx.request.only(['articles', 'horizonDate'])
     const horizon = horizonDate ? new Date(horizonDate) : new Date(Date.now() + 30 * 24 * 3600 * 1000)
 
-    const x3 = await this.getX3(ctx)
     const [ofFlows, stockFlows, receptionFlows, demandFlows] = await Promise.all([
       new X3OfRepository().getSupplyFlows(),
-      new X3StockRepository(x3).getStockFlows(),
-      new X3ReceptionRepository(x3).getReceptionFlows(),
-      new X3BesoinClientRepository(x3).getDemandFlows(),
+      new X3StockRepository().getStockFlows(),
+      new X3ReceptionRepository().getReceptionFlows(),
+      new X3BesoinClientRepository().getDemandFlows(),
     ])
 
     const articles = new Map<string, Article>(
@@ -62,10 +57,9 @@ export default class PipelineController {
     const referenceDate = ctx.request.input('referenceDate')
     const refDate = referenceDate ? new Date(referenceDate) : new Date()
 
-    const x3 = await this.getX3(ctx)
     const [demandFlows, stockFlows] = await Promise.all([
-      new X3BesoinClientRepository(x3).getDemandFlows(),
-      new X3StockRepository(x3).getStockFlows(),
+      new X3BesoinClientRepository().getDemandFlows(),
+      new X3StockRepository().getStockFlows(),
     ])
 
     const orderFlows = demandFlows.filter((f) => f.origin.type === 'order')

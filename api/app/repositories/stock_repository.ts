@@ -1,40 +1,42 @@
-/**
- * Repository Stock — materialise des Flows supply depuis les stocks X3.
- *
- * Genere deux flows par article: un strict (physique - alloue) et un QC (sous controle qualite).
- */
-
 import type { Flow } from '#app/domain/models/flow'
-import type { X3Queryable } from '#app/x3/types'
+import ItemMovement from '#models/x3/itmmvt'
 
 export class X3StockRepository {
-  constructor(private conn: X3Queryable) {}
-
   async getStockFlows(): Promise<Flow[]> {
-    const sql = `SELECT ARTICLE, STOCK_PHYSIQUE, STOCK_ALLOUE, STOCK_SOUS_CQ FROM ZSTOCK`
-
-    const result = await this.conn.query(sql)
-    if (!result.success) return []
+    const rows = await ItemMovement.query()
+      .select(
+        'ITMMVT.ITMREF_0',
+        'ITMMVT.PHYSTO_0',
+        'ITMMVT.CTLSTO_0',
+        'ITMMVT.REJSTO_0',
+        'ITMMVT.PHYALL_0',
+        'ITMMVT.GLOALL_0',
+        'ITMMVT.AVC_0',
+      )
+      .innerJoin('ITMMASTER', 'ITMMASTER.ITMREF_0', 'ITMMVT.ITMREF_0')
+      .where('ITMMASTER.ITMSTA_0', '1')
 
     const flows: Flow[] = []
-    for (const row of result.data) {
-      const physique = parseFloat(row.STOCK_PHYSIQUE) || 0
-      const alloue = parseFloat(row.STOCK_ALLOUE) || 0
-      const cq = parseFloat(row.STOCK_SOUS_CQ) || 0
-      const article = row.ARTICLE.trim()
+    for (const row of rows) {
+      const article = row.article?.trim() ?? ''
+      if (!article) continue
 
-      const strict = physique - alloue
+      const physique = parseFloat(row.stockInterneA ?? '0') || 0
+      const cq = parseFloat(row.stockInterneQ ?? '0') || 0
+      const rejected = parseFloat(row.stockInterneR ?? '0') || 0
+      const allouePhys = parseFloat(row.alloueInterneA ?? '0') || 0
+      const alloueGlob = parseFloat(row.alloueGlobal ?? '0') || 0
+      const pmp = parseFloat(row.prixMoyenPondere ?? '0') || null
+      const strict = physique - allouePhys - alloueGlob
+
       if (strict > 0) {
-        flows.push({
-          article, quantity: strict, direction: 'supply', date: null,
-          origin: { type: 'stock', subType: 'strict' },
-        })
+        flows.push({ article, quantity: strict, direction: 'supply', date: null, origin: { type: 'stock', subType: 'strict', pmp } })
       }
       if (cq > 0) {
-        flows.push({
-          article, quantity: cq, direction: 'supply', date: null,
-          origin: { type: 'stock', subType: 'qc' },
-        })
+        flows.push({ article, quantity: cq, direction: 'supply', date: null, origin: { type: 'stock', subType: 'qc', pmp } })
+      }
+      if (rejected > 0) {
+        flows.push({ article, quantity: rejected, direction: 'supply', date: null, origin: { type: 'stock', subType: 'rejected', pmp } })
       }
     }
     return flows
