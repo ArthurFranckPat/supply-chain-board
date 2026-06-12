@@ -48,7 +48,7 @@ const dbConfig = defineConfig({
      * Read-only. No migrations.
      */
     x3: {
-      client: 'x3',
+      client: 'x3' as any,
       connection: {
         env: env.get('X3_ENV', 'test'),
         host: env.get('X3_TEST_HOST'),
@@ -56,9 +56,9 @@ const dbConfig = defineConfig({
         user: env.get('X3_TEST_USERNAME', ''),
         password: env.get('X3_TEST_PASSWORD', ''),
         pool: env.get('X3_TEST_POOL', 'X3TEST'),
-      },
+      } as any,
       pool: { min: 1, max: 1 },
-    },
+    } as any,
 
     /**
      * PostgreSQL connection.

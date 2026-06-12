@@ -37,7 +37,7 @@ export class X3Database {
     }
 
     this.db = knex({
-      client: X3Client,
+      client: X3Client as any,
       connection,
       pool: { min: 1, max: 1 },
     })
@@ -50,7 +50,8 @@ export class X3Database {
 
   /** Raw SQL query */
   raw(sql: string, bindings?: any[]) {
-    return this.db.raw(sql, bindings)
+    if (bindings !== undefined) return this.db.raw(sql, bindings)
+    return this.db.raw(sql)
   }
 
   /** Close the Knex pool */

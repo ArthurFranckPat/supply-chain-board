@@ -139,18 +139,18 @@ export class X3Client extends KnexClient {
     const OracleQ = _require('knex/lib/dialects/oracle/query/oracle-querycompiler.js')
     // Custom subclass to avoid subquery wrapping for simple LIMIT
     const X3Q = class extends OracleQ {
-      _surroundQueryWithLimitAndOffset(query) {
+      _surroundQueryWithLimitAndOffset(query: string) {
         const hasLimit = this.single.limit || this.single.limit === 0 || this.single.limit === '0'
         const hasOffset = !!this.single.offset
         if (!hasLimit || hasOffset) return super._surroundQueryWithLimitAndOffset(query)
         const limitVal = +this.single.limit
         const rownumClause = 'ROWNUM <= ' + limitVal  // literal, not parameterized
         if (/\bWHERE\b/i.test(query)) {
-          return query.replace(/\bWHERE\b/i, (m) => m + ' ' + rownumClause + ' AND ')
+          return query.replace(/\bWHERE\b/i, (m: string) => m + ' ' + rownumClause + ' AND ')
         }
         const fromMatch = query.match(/\bFROM\b/i)
         if (fromMatch) {
-          const idx = fromMatch.index + fromMatch[0].length
+          const idx = (fromMatch.index ?? 0) + fromMatch[0].length
           const afterFrom = query.slice(idx).trim()
           const tableName = afterFrom.split(/\s/)[0]
           return query.slice(0, idx) + ' ' + tableName + ' WHERE ' + rownumClause + afterFrom.slice(tableName.length)
@@ -158,8 +158,7 @@ export class X3Client extends KnexClient {
         return 'select * from (' + query + ') where ' + rownumClause
       }
     }
-    return new X3Q(this, builder, formatter)
-    return new OracleQ(this, builder, formatter)
+    return new (X3Q as any)(this, builder, formatter)
   }
 
   columnCompiler() {
@@ -175,7 +174,7 @@ export class X3Client extends KnexClient {
     if (this.config.connection?.x3Connection) return { x3conn: this.config.connection.x3Connection }
 
     // Read X3 credentials from process.env (set by AdonisJS from .env)
-    const host = process.env.X3_TEST_HOST
+    const host = process.env.X3_TEST_HOST ?? 'localhost'
     const port = process.env.X3_TEST_PORT ?? '8124'
     const user = process.env.X3_TEST_USERNAME ?? ''
     const password = process.env.X3_TEST_PASSWORD ?? ''

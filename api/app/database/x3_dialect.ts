@@ -3,10 +3,7 @@
  * Read-only: schema operations, locking, and DDL are unsupported.
  */
 
-import type { DialectContract } from '@adonisjs/lucid/types/database.js'
-import type { QueryClientContract } from '@adonisjs/lucid/types/querybuilder.js'
-
-export class X3Dialect implements DialectContract {
+export class X3Dialect {
   name = 'x3'
   supportsAdvisoryLocks = false
   supportsViews = false
@@ -17,7 +14,7 @@ export class X3Dialect implements DialectContract {
   dateTimeFormat = 'yyyy-MM-dd HH:mm:ss'
 
   constructor(
-    private _client: QueryClientContract,
+    _client: any,
     _config: any,
   ) {
     this.version = undefined
