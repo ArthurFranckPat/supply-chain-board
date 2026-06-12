@@ -90,7 +90,6 @@ export function extractColumns(sql: string): string[] {
 
 /** Remove trailing ORDER BY from a single SELECT. */
 export function stripTrailingOrder(sql: string): [string, string] {
-  const upper = sql.toUpperCase();
   let depth = 0;
 
   for (let i = sql.length - 1; i >= 0; i--) {

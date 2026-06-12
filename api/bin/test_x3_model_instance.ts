@@ -30,7 +30,7 @@ async function test() {
   console.log('App booted, singleton app ready\n')
 
   // Get testUtils from the singleton app
-  const testUtils = await app.containerResolver.make('testUtils')
+  const testUtils = await app.container.make('testUtils')
   console.log('testUtils ready:', !!testUtils)
 
   // Load the SalesOrder model
