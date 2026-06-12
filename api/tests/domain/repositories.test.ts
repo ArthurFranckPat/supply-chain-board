@@ -11,8 +11,8 @@ function mockQuery(rows: Record<string, string>[]): { success: true; count: numb
 test.group('X3OfRepository', () => {
   test('returns supply flows from OF rows', async ({ assert }) => {
     const mockResult = mockQuery([
-      { NUM_OF: 'OF001', ARTICLE: 'ART1', STATUT: '1', QTE_RESTANTE: '50', DATE_FIN: '2026-06-15' },
-      { NUM_OF: 'OF002', ARTICLE: 'ART2', STATUT: '3', QTE_RESTANTE: '30', DATE_FIN: '2026-06-20' },
+      { MFGNUM_0: 'OF001', ITMREF_0: 'ART1', MFGSTA_0: '1', RMNEXTQTY_0: '50', ENDDAT_0: '2026-06-15', EXTQTY_0: '50', CPLQTY_0: '0', STRDAT_0: '2026-06-10', MFGDES_0: 'Article 1' },
+      { MFGNUM_0: 'OF002', ITMREF_0: 'ART2', MFGSTA_0: '3', RMNEXTQTY_0: '30', ENDDAT_0: '2026-06-20', EXTQTY_0: '30', CPLQTY_0: '0', STRDAT_0: '2026-06-15', MFGDES_0: 'Article 2' },
     ])
     const repo = new X3OfRepository({ query: async () => mockResult } as any)
     const flows = await repo.getSupplyFlows()
@@ -28,8 +28,8 @@ test.group('X3OfRepository', () => {
 
   test('skips OFs with zero remaining quantity', async ({ assert }) => {
     const mockResult = mockQuery([
-      { NUM_OF: 'OF001', ARTICLE: 'ART1', STATUT: '1', QTE_RESTANTE: '0', DATE_FIN: '2026-06-15' },
-      { NUM_OF: 'OF002', ARTICLE: 'ART2', STATUT: '2', QTE_RESTANTE: '20', DATE_FIN: '2026-06-20' },
+      { MFGNUM_0: 'OF001', ITMREF_0: 'ART1', MFGSTA_0: '1', RMNEXTQTY_0: '0', ENDDAT_0: '2026-06-15', EXTQTY_0: '50', CPLQTY_0: '50', STRDAT_0: '2026-06-10', MFGDES_0: 'Article 1' },
+      { MFGNUM_0: 'OF002', ITMREF_0: 'ART2', MFGSTA_0: '2', RMNEXTQTY_0: '20', ENDDAT_0: '2026-06-20', EXTQTY_0: '20', CPLQTY_0: '0', STRDAT_0: '2026-06-15', MFGDES_0: 'Article 2' },
     ])
     const repo = new X3OfRepository({ query: async () => mockResult } as any)
     const flows = await repo.getSupplyFlows()

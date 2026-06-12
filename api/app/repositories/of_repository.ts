@@ -1,7 +1,3 @@
-/**
- * Repository OF — materialise des Flows supply depuis les Ordres de Fabrication X3.
- */
-
 import type { Flow } from '#app/domain/models/flow'
 import type { X3Queryable } from '#app/x3/types'
 
@@ -9,24 +5,24 @@ export class X3OfRepository {
   constructor(private conn: X3Queryable) {}
 
   async getSupplyFlows(): Promise<Flow[]> {
-    const sql = `SELECT NUM_OF, ARTICLE, DESCRIPTION, STATUT, QTE_RESTANTE, DATE_FIN, DATE_DEBUT, METHODE_OBTENTION_LIVRAISON
-FROM ZPREVCHARGEPF
-WHERE QTE_RESTANTE > 0 AND STATUT IN (1, 2, 3)`
+    const sql = `SELECT MFGNUM_0, ITMREF_0, MFGDES_0, MFGSTA_0, EXTQTY_0, CPLQTY_0, RMNEXTQTY_0, STRDAT_0, ENDDAT_0
+FROM MFGITM
+WHERE RMNEXTQTY_0 > 0 AND MFGSTA_0 IN (1, 2, 3)`
 
     const result = await this.conn.query(sql)
     if (!result.success) return []
 
     return result.data
-      .filter(row => parseInt(row.QTE_RESTANTE) > 0)
+      .filter(row => parseFloat(row.RMNEXTQTY_0) > 0)
       .map(row => ({
-        article: row.ARTICLE.trim(),
-        quantity: parseInt(row.QTE_RESTANTE),
+        article: row.ITMREF_0.trim(),
+        quantity: parseFloat(row.RMNEXTQTY_0),
         direction: 'supply' as const,
-        date: row.DATE_FIN ? new Date(row.DATE_FIN) : null,
+        date: row.ENDDAT_0 ? new Date(row.ENDDAT_0) : null,
         origin: {
           type: 'of' as const,
-          id: row.NUM_OF.trim(),
-          status: parseInt(row.STATUT) as 1 | 2 | 3,
+          id: row.MFGNUM_0.trim(),
+          status: parseInt(row.MFGSTA_0) as 1 | 2 | 3,
         },
       }))
   }
