@@ -4,7 +4,7 @@ import { X3OfRepository } from '#repositories/of_repository'
 import { X3StockRepository } from '#repositories/stock_repository'
 import { X3ReceptionRepository } from '#repositories/reception_repository'
 import { X3BesoinClientRepository } from '#repositories/besoin_client_repository'
-import type { X3Queryable } from '#repositories/x3_connection'
+import type { X3Queryable } from '#app/x3/types'
 import type { Flow } from '#app/domain/models/flow'
 
 export default class SuiviController {

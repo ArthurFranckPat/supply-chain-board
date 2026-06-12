@@ -16,3 +16,7 @@ export interface SoapResponse {
   count: number;
   error: string;
 }
+
+export interface X3Queryable {
+  query(sql: string, params?: any[] | Record<string, any> | null, options?: any): Promise<X3QueryResult>
+}

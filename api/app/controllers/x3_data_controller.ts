@@ -1,5 +1,5 @@
 import { HttpContext } from '@adonisjs/core/http'
-import type { X3Queryable } from '#repositories/x3_connection'
+import type { X3Queryable } from '#app/x3/types'
 
 export default class X3DataController {
   private async getX3(ctx: HttpContext): Promise<X3Queryable> {

@@ -1,5 +1,5 @@
 import { test } from '@japa/runner'
-import { X3Database } from '#app/database/x3_database'
+import { X3Database } from '#app/x3/client/x3_database'
 import app from '@adonisjs/core/services/app'
 import SalesOrder from '#models/x3/sorder'
 

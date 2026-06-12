@@ -14,8 +14,8 @@
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { ApplicationService } from '@adonisjs/core/types'
-import { X3Client } from '#app/database/x3_client'
-import { X3Dialect } from '#app/database/x3_dialect'
+import { X3Client } from '#app/x3/client/x3_client'
+import { X3Dialect } from '#app/x3/client/x3_dialect'
 
 export default class X3DatabaseProvider {
   constructor(protected app: ApplicationService) {}

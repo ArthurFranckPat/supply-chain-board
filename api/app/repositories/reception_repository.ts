@@ -3,7 +3,7 @@
  */
 
 import type { Flow } from '#app/domain/models/flow'
-import type { X3Queryable } from './x3_connection.js'
+import type { X3Queryable } from '#app/x3/types'
 
 export class X3ReceptionRepository {
   constructor(private conn: X3Queryable) {}

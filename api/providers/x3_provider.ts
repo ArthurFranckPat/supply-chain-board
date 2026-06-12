@@ -1,6 +1,8 @@
 import { ApplicationService } from '@adonisjs/core/types'
-import { X3Database } from '#app/database/x3_database'
-import { X3Adapter, type X3Queryable } from '#repositories/x3_connection'
+import { X3Database } from '#app/x3/client/x3_database'
+import { X3Connection } from '#app/x3/connection'
+import { getX3EnvConfig } from '#config/x3'
+import type { X3Queryable } from '#app/x3/types'
 
 declare module '@adonisjs/core/types' {
   export interface ContainerBindings {
@@ -13,12 +15,10 @@ export default class X3Provider {
   constructor(protected app: ApplicationService) {}
 
   register() {
-    // Low-level X3 SOAP connection (used by repositories)
     this.app.container.singleton('x3', () => {
-      return new X3Adapter()
+      return new X3Connection(getX3EnvConfig())
     })
 
-    // High-level X3 database (Knex + X3Client, for Lucid-like queries)
     this.app.container.singleton('x3db', () => {
       return new X3Database()
     })

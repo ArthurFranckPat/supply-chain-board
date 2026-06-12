@@ -5,7 +5,7 @@
  */
 
 import '#start/env'
-import { X3Database } from '#app/database/x3_database'
+import { X3Database } from '#app/x3/client/x3_database'
 
 async function test() {
   console.log('=== Test X3 via X3Database ===')
