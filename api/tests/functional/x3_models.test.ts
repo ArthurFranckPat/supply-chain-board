@@ -6,6 +6,7 @@ import { X3OfRepository } from '#app/repositories/of_repository'
 import { X3StockRepository } from '#app/repositories/stock_repository'
 import { X3ReceptionRepository } from '#app/repositories/reception_repository'
 import { X3BesoinClientRepository } from '#app/repositories/besoin_client_repository'
+import { X3GammeRepository } from '#app/repositories/gamme_repository'
 
 test.group('X3 Models', () => {
   test('SalesOrder.query() returns SORDER data from X3', async ({ assert }) => {
@@ -100,6 +101,18 @@ test.group('X3 Models', () => {
       const o = f.origin as any
       console.log(`[BESOIN] id=${o.id}  article=${f.article}  qte=${f.quantity}  type=${o.type}  client=${o.customer}  pays=${o.pays}  orderType=${o.orderType}  echeance=${fmtFR(f.date)}`)
     }
+  })
+
+  test('X3GammeRepository returns first operation per article', async ({ assert }) => {
+    const repo = new X3GammeRepository()
+    const ops = await repo.getFirstOperations()
+    assert.isArray(ops)
+    assert.isAbove(ops.length, 0)
+    for (const op of ops.slice(0, 3)) {
+      console.log(`[GAMME] article=${op.article}  poste=${op.workstation}  libelle=${op.workstationLabel}  cadence=${op.rate}`)
+    }
+    assert.isString(ops[0].article)
+    assert.isString(ops[0].workstation)
   })
 
   test('X3OfRepository resolves statutLabel from local_menus', async ({ assert }) => {
