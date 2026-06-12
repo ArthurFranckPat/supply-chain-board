@@ -2,7 +2,9 @@
 import type { routes } from './index.ts'
 
 export interface ApiDefinition {
-  health: typeof routes['health']
+  health: {
+    index: typeof routes['health.index']
+  }
   planningBoard: {
     index: typeof routes['planning_board.index']
     show: typeof routes['planning_board.show']

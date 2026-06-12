@@ -9,10 +9,10 @@
     "./registry": "./.adonisjs/client/registry/index.ts"
   },
   "scripts": {
-    "start": "node bin/server.js",
-    "build": "node ace build",
-    "dev": "node ace serve --hmr",
-    "test": "node ace test",
+    "start": "dotenvx run -- node bin/server.js",
+    "build": "dotenvx run -- node ace build",
+    "dev": "dotenvx run -- node ace serve --hmr",
+    "test": "dotenvx run -- node ace test",
     "lint": "eslint .",
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit"
@@ -39,7 +39,8 @@
     "#app/domain/*": "./app/domain/*.js",
     "#app/repositories/*": "./app/repositories/*.js",
     "#app/database/*": "./app/database/*.js",
-    "#repositories/*": "./app/repositories/*.js"
+    "#repositories/*": "./app/repositories/*.js",
+    "#app/x3/*": "./app/x3/*.js"
   },
   "devDependencies": {
     "@adonisjs/assembler": "^8.4.0",
@@ -66,13 +67,13 @@
     "@adonisjs/lucid": "^22.4.2",
     "@adonisjs/session": "^8.1.0",
     "@adonisjs/shield": "^9.0.0",
+    "@dotenvx/dotenvx": "^1.71.3",
     "@japa/api-client": "^3.2.1",
     "@tuyau/core": "^1.2.2",
     "@vinejs/vine": "^4.4.0",
     "better-sqlite3": "^12.10.0",
     "luxon": "^3.7.2",
-    "reflect-metadata": "^0.2.2",
-    "x3-graphql-mcp": "file:../../../MCP/x3-graphql-node"
+    "reflect-metadata": "^0.2.2"
   },
   "hotHook": {
     "boundaries": [

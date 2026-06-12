@@ -4,7 +4,7 @@ type ParamValue = string | number | bigint | boolean
 
 export type ScannedRoutes = {
   ALL: {
-    'health': { paramsTuple?: []; params?: {} }
+    'health.index': { paramsTuple?: []; params?: {} }
     'planning_board.index': { paramsTuple?: []; params?: {} }
     'planning_board.show': { paramsTuple: [ParamValue]; params: {'numOf': ParamValue} }
     'planning_board.update': { paramsTuple: [ParamValue]; params: {'numOf': ParamValue} }
@@ -25,7 +25,7 @@ export type ScannedRoutes = {
     'x_3_data.load': { paramsTuple?: []; params?: {} }
   }
   GET: {
-    'health': { paramsTuple?: []; params?: {} }
+    'health.index': { paramsTuple?: []; params?: {} }
     'planning_board.index': { paramsTuple?: []; params?: {} }
     'planning_board.show': { paramsTuple: [ParamValue]; params: {'numOf': ParamValue} }
     'planning_board.list_overrides': { paramsTuple?: []; params?: {} }
@@ -33,7 +33,7 @@ export type ScannedRoutes = {
     'suivi.status_detail': { paramsTuple: [ParamValue]; params: {'noCommande': ParamValue} }
   }
   HEAD: {
-    'health': { paramsTuple?: []; params?: {} }
+    'health.index': { paramsTuple?: []; params?: {} }
     'planning_board.index': { paramsTuple?: []; params?: {} }
     'planning_board.show': { paramsTuple: [ParamValue]; params: {'numOf': ParamValue} }
     'planning_board.list_overrides': { paramsTuple?: []; params?: {} }

@@ -1,35 +1,47 @@
 /**
- * X3 Connection adapter -- wraps x3-graphql-node SOAP/SQL client.
+ * X3 Connection adapter -- wraps local SOAP/SQL client.
  *
- * Only uses the raw SQL path (X3Connection.query), no GraphQL.
- * Provides the X3Queryable interface consumed by repositories.
+ * Uses app/x3/ scripts (soap-client, connection, sql-builder, response-parser)
+ * — no external MCP dependency.
  */
 
-import type { X3QueryResult } from 'x3-graphql-mcp/src/types.js'
+import { getX3EnvConfig } from '#config/x3'
+import { X3Connection } from '#app/x3/connection'
+import type { X3QueryResult } from '#app/x3/types'
 
 export type { X3QueryResult }
 
 export interface X3Queryable {
-  query(sql: string, params?: Array<string | number> | Record<string, string | number> | null, options?: any): Promise<X3QueryResult>
+  query(sql: string, params?: any[] | Record<string, any> | null, options?: any): Promise<X3QueryResult>
 }
 
 export class X3Adapter implements X3Queryable {
-  private conn: any = null
+  private conn: X3Connection | null = null
 
-  constructor(private env: string) {}
+  constructor(private env: string = 'test') {}
 
   async connect(): Promise<void> {
-    const { X3Connection } = await import('x3-graphql-mcp/src/x3/connection.js')
-    this.conn = new X3Connection(this.env)
+    const config = getX3EnvConfig(this.env)
+    this.conn = new X3Connection({
+      host: config.host,
+      port: config.port,
+      user: config.user,
+      password: config.password,
+      pool: config.pool,
+      ws: config.ws,
+      grpSql: config.grpSql,
+      grpRes: config.grpRes,
+      grpCount: config.grpCount,
+    })
   }
 
-  async query(sql: string, params?: Array<string | number> | Record<string, string | number> | null, options?: any): Promise<X3QueryResult> {
+  async query(sql: string, params?: any[] | Record<string, any> | null, options?: any): Promise<X3QueryResult> {
     if (!this.conn) await this.connect()
-    return this.conn.query(sql, params, options)
+    return this.conn!.query(sql, params, options)
   }
 
   async healthCheck(): Promise<{ reachable: boolean; env: string; detail: string; error: string }> {
     if (!this.conn) await this.connect()
-    return this.conn.healthCheck()
+    return this.conn!.healthCheck()
   }
 }
