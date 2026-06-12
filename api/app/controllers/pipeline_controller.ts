@@ -21,7 +21,7 @@ export default class PipelineController {
 
     const x3 = await this.getX3(ctx)
     const [ofFlows, stockFlows, receptionFlows, demandFlows] = await Promise.all([
-      new X3OfRepository(x3).getSupplyFlows(),
+      new X3OfRepository().getSupplyFlows(),
       new X3StockRepository(x3).getStockFlows(),
       new X3ReceptionRepository(x3).getReceptionFlows(),
       new X3BesoinClientRepository(x3).getDemandFlows(),

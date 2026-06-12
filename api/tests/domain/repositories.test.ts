@@ -1,5 +1,4 @@
 import { test } from '@japa/runner'
-import { X3OfRepository } from '#app/repositories/of_repository'
 import { X3StockRepository } from '#app/repositories/stock_repository'
 import { X3ReceptionRepository } from '#app/repositories/reception_repository'
 import { X3BesoinClientRepository } from '#app/repositories/besoin_client_repository'
@@ -8,35 +7,7 @@ function mockQuery(rows: Record<string, string>[]): { success: true; count: numb
   return { success: true as const, count: rows.length, data: rows }
 }
 
-test.group('X3OfRepository', () => {
-  test('returns supply flows from OF rows', async ({ assert }) => {
-    const mockResult = mockQuery([
-      { MFGNUM_0: 'OF001', ITMREF_0: 'ART1', MFGSTA_0: '1', RMNEXTQTY_0: '50', ENDDAT_0: '2026-06-15', EXTQTY_0: '50', CPLQTY_0: '0', STRDAT_0: '2026-06-10', MFGDES_0: 'Article 1' },
-      { MFGNUM_0: 'OF002', ITMREF_0: 'ART2', MFGSTA_0: '3', RMNEXTQTY_0: '30', ENDDAT_0: '2026-06-20', EXTQTY_0: '30', CPLQTY_0: '0', STRDAT_0: '2026-06-15', MFGDES_0: 'Article 2' },
-    ])
-    const repo = new X3OfRepository({ query: async () => mockResult } as any)
-    const flows = await repo.getSupplyFlows()
-    assert.lengthOf(flows, 2)
-    assert.equal(flows[0].article, 'ART1')
-    assert.equal(flows[0].quantity, 50)
-    assert.equal(flows[0].direction, 'supply')
-    assert.equal(flows[0].origin.type, 'of')
-    assert.equal((flows[0].origin as any).id, 'OF001')
-    assert.equal((flows[0].origin as any).status, 1)
-    assert.deepEqual(flows[0].date, new Date('2026-06-15'))
-  })
-
-  test('skips OFs with zero remaining quantity', async ({ assert }) => {
-    const mockResult = mockQuery([
-      { MFGNUM_0: 'OF001', ITMREF_0: 'ART1', MFGSTA_0: '1', RMNEXTQTY_0: '0', ENDDAT_0: '2026-06-15', EXTQTY_0: '50', CPLQTY_0: '50', STRDAT_0: '2026-06-10', MFGDES_0: 'Article 1' },
-      { MFGNUM_0: 'OF002', ITMREF_0: 'ART2', MFGSTA_0: '2', RMNEXTQTY_0: '20', ENDDAT_0: '2026-06-20', EXTQTY_0: '20', CPLQTY_0: '0', STRDAT_0: '2026-06-15', MFGDES_0: 'Article 2' },
-    ])
-    const repo = new X3OfRepository({ query: async () => mockResult } as any)
-    const flows = await repo.getSupplyFlows()
-    assert.lengthOf(flows, 1)
-    assert.equal(flows[0].article, 'ART2')
-  })
-})
+// X3OfRepository uses Lucid ORM (MfgItem.query()) — tested via functional tests
 
 test.group('X3StockRepository', () => {
   test('returns supply flows from stock rows', async ({ assert }) => {

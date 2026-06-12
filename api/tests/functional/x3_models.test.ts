@@ -61,3 +61,4 @@ test.group('X3 Models', () => {
     assert.equal(rows[0].SOHNUM_0, 'AR0802469')
   })
 })
+

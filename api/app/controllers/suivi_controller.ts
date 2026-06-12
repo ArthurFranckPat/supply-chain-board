@@ -131,7 +131,7 @@ export default class SuiviController {
 
     const stockFlows = await new X3StockRepository(x3).getStockFlows()
     const receptionFlows = await new X3ReceptionRepository(x3).getReceptionFlows()
-    const ofFlows = await new X3OfRepository(x3).getSupplyFlows()
+    const ofFlows = await new X3OfRepository().getSupplyFlows()
 
     const details = orderLines.map((demand) => {
       const origin = demand.origin as Extract<Flow['origin'], { type: 'order' }>
@@ -208,7 +208,7 @@ export default class SuiviController {
     const x3 = await this.getX3(ctx)
     const [demandFlows, ofFlows, stockFlows] = await Promise.all([
       new X3BesoinClientRepository(x3).getDemandFlows(),
-      new X3OfRepository(x3).getSupplyFlows(),
+      new X3OfRepository().getSupplyFlows(),
       new X3StockRepository(x3).getStockFlows(),
     ])
 

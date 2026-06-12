@@ -25,8 +25,7 @@ export default class PlanningBoardController {
     const windowStart = ctx.request.input('windowStart')
     const windowEnd = ctx.request.input('windowEnd')
 
-    const x3 = await this.getX3(ctx)
-    const ofFlows = await new X3OfRepository(x3).getSupplyFlows()
+    const ofFlows = await new X3OfRepository().getSupplyFlows()
 
     const overrides = await this.store.getAll()
     const overrideMap = new Map(overrides.map((o) => [o.numOf, o]))
@@ -54,8 +53,7 @@ export default class PlanningBoardController {
   }
 
   async show(ctx: HttpContext) {
-    const x3 = await this.getX3(ctx)
-    const ofFlows = await new X3OfRepository(x3).getSupplyFlows()
+    const ofFlows = await new X3OfRepository().getSupplyFlows()
 
     const match = ofFlows.find((f) => (f.origin as any).id === ctx.params.numOf)
     if (!match) {
@@ -112,7 +110,7 @@ export default class PlanningBoardController {
 
     const x3 = await this.getX3(ctx)
     const [ofFlows, stockFlows, receptionFlows] = await Promise.all([
-      new X3OfRepository(x3).getSupplyFlows(),
+      new X3OfRepository().getSupplyFlows(),
       new X3StockRepository(x3).getStockFlows(),
       new X3ReceptionRepository(x3).getReceptionFlows(),
     ])
@@ -158,7 +156,7 @@ export default class PlanningBoardController {
 
     const x3 = await this.getX3(ctx)
     const [ofFlows, stockFlows, receptionFlows, demandFlows] = await Promise.all([
-      new X3OfRepository(x3).getSupplyFlows(),
+      new X3OfRepository().getSupplyFlows(),
       new X3StockRepository(x3).getStockFlows(),
       new X3ReceptionRepository(x3).getReceptionFlows(),
       new X3BesoinClientRepository(x3).getDemandFlows(),
@@ -208,7 +206,7 @@ export default class PlanningBoardController {
 
     const x3 = await this.getX3(ctx)
     const [ofFlows, stockFlows, receptionFlows, demandFlows] = await Promise.all([
-      new X3OfRepository(x3).getSupplyFlows(),
+      new X3OfRepository().getSupplyFlows(),
       new X3StockRepository(x3).getStockFlows(),
       new X3ReceptionRepository(x3).getReceptionFlows(),
       new X3BesoinClientRepository(x3).getDemandFlows(),
@@ -252,8 +250,7 @@ export default class PlanningBoardController {
     const windowStart = ctx.request.input('windowStart')
     const windowEnd = ctx.request.input('windowEnd')
 
-    const x3 = await this.getX3(ctx)
-    const ofFlows = await new X3OfRepository(x3).getSupplyFlows()
+    const ofFlows = await new X3OfRepository().getSupplyFlows()
 
     const overrides = await this.store.getAll()
     const overrideMap = new Map(overrides.map((o) => [o.numOf, o]))

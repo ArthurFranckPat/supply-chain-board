@@ -7,6 +7,19 @@
 import { BaseModel, column } from '@adonisjs/lucid/orm'
 import { DateTime } from 'luxon'
 
+export class LocalMenuSchema extends BaseModel {
+  static $columns = ['chapter', 'label', 'name', 'value'] as const
+  $columns = LocalMenuSchema.$columns
+  @column({ isPrimary: true })
+  declare chapter: number
+  @column()
+  declare label: string
+  @column()
+  declare name: string
+  @column()
+  declare value: number
+}
+
 export class OfOverrideSchema extends BaseModel {
   static $columns = ['createdAt', 'dateDebut', 'dateFin', 'id', 'note', 'numOf', 'status', 'updatedAt'] as const
   $columns = OfOverrideSchema.$columns

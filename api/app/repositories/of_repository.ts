@@ -1,28 +1,39 @@
 import type { Flow } from '#app/domain/models/flow'
-import type { X3Queryable } from '#app/x3/types'
+import MfgItem from '#models/x3/mfgitm'
 
 export class X3OfRepository {
-  constructor(private conn: X3Queryable) {}
-
   async getSupplyFlows(): Promise<Flow[]> {
-    const sql = `SELECT MFGNUM_0, ITMREF_0, MFGDES_0, MFGSTA_0, EXTQTY_0, CPLQTY_0, RMNEXTQTY_0, STRDAT_0, ENDDAT_0
-FROM MFGITM
-WHERE RMNEXTQTY_0 > 0 AND MFGSTA_0 IN (1, 2, 3)`
+    const rows = await MfgItem.query()
+      .select(
+        'MFGITM.MFGNUM_0',
+        'MFGITM.ITMREF_0',
+        'MFGITM.MFGSTA_0',
+        'MFGITM.EXTQTY_0',
+        'MFGITM.CPLQTY_0',
+        'MFGITM.RMNEXTQTY_0',
+        'MFGITM.STRDAT_0',
+        'MFGITM.ENDDAT_0',
+        'MFGHEAD.XTYPOF_0',
+        'ITMMASTER.ITMDES1_0'
+      )
+      .leftJoin('MFGHEAD', 'MFGHEAD.MFGNUM_0', 'MFGITM.MFGNUM_0')
+      .leftJoin('ITMMASTER', 'ITMMASTER.ITMREF_0', 'MFGITM.ITMREF_0')
+      .where('MFGITM.RMNEXTQTY_0', '>', 0)
+      .whereIn('MFGITM.MFGSTA_0', ['1', '2', '3'])
 
-    const result = await this.conn.query(sql)
-    if (!result.success) return []
-
-    return result.data
-      .filter(row => parseFloat(row.RMNEXTQTY_0) > 0)
+    return rows
+      .filter(row => parseFloat(row.quantiteRestante ?? '0') > 0)
       .map(row => ({
-        article: row.ITMREF_0.trim(),
-        quantity: parseFloat(row.RMNEXTQTY_0),
+        article: row.article?.trim() ?? '',
+        quantity: parseFloat(row.quantiteRestante ?? '0'),
         direction: 'supply' as const,
-        date: row.ENDDAT_0 ? new Date(row.ENDDAT_0) : null,
+        date: row.dateFin?.isValid ? row.dateFin.toJSDate() : null,
         origin: {
           type: 'of' as const,
-          id: row.MFGNUM_0.trim(),
-          status: parseInt(row.MFGSTA_0) as 1 | 2 | 3,
+          id: row.numeroOrdreDeFabrication?.trim() ?? '',
+          status: parseInt(row.statutOrdreDeFabrication ?? '0') as 1 | 2 | 3,
+          typeOf: (row.$extras.XTYPOF_0 as string | null) ?? null,
+          designation: (row.$extras.ITMDES1_0 as string | null) ?? null,
         },
       }))
   }
