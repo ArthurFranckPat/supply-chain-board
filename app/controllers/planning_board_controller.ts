@@ -3,11 +3,13 @@ import { OverrideStore } from '#services/override_store'
 import { mergeOfWithOverride, type OfFromErp } from '#app/domain/planning_board'
 import { checkFeasibility, type FeasibilityResult } from '#app/domain/feasibility'
 import { matchOrders } from '#app/domain/orders'
+import { evaluateOrderImpacts } from '#app/domain/order-impacts'
 import { X3OfRepository } from '#repositories/of_repository'
 import { X3GammeRepository } from '#repositories/gamme_repository'
 import { X3StockRepository } from '#repositories/stock_repository'
 import { X3ReceptionRepository } from '#repositories/reception_repository'
 import { X3BesoinClientRepository } from '#repositories/besoin_client_repository'
+import { X3NomenclatureRepository } from '#repositories/nomenclature_repository'
 import type { Flow } from '#app/domain/models/flow'
 import type { Article } from '#app/domain/models/article'
 import type { Nomenclature } from '#app/domain/models/nomenclature'
@@ -524,5 +526,150 @@ export default class PlanningBoardController {
       .sort((a, b) => (a!.date > b!.date ? 1 : -1))
 
     return { events, total: events.length }
+  }
+
+  async boardFeasibility(ctx: HttpContext) {
+    const fromParam = ctx.request.input('from') as string | undefined
+    const toParam = ctx.request.input('to') as string | undefined
+    const workstationFilter = ctx.request.input('workstation') as string | undefined
+
+    if (!fromParam || !toParam) {
+      return ctx.response.badRequest({ error: 'Paramètres "from" et "to" requis (YYYY-MM-DD)' })
+    }
+
+    const windowFrom = new Date(fromParam)
+    const windowTo = new Date(toParam)
+    windowFrom.setHours(0, 0, 0, 0)
+    windowTo.setHours(23, 59, 59, 999)
+
+    if (isNaN(windowFrom.getTime()) || isNaN(windowTo.getTime()) || windowTo <= windowFrom) {
+      return ctx.response.badRequest({ error: 'Dates invalides' })
+    }
+
+    const [ofFlows, stockFlows, receptionFlows, demandFlows, overrides] = await Promise.all([
+      new X3OfRepository().getSupplyFlows(),
+      new X3StockRepository().getStockFlows(),
+      new X3ReceptionRepository().getReceptionFlows(),
+      new X3BesoinClientRepository().getDemandFlows(),
+      this.store.getAll(),
+    ])
+
+    // Filtrer les OF à l'horizon du board
+    const filteredOfFlows = ofFlows.filter((f) => {
+      if (!f.date) return true
+      return f.date >= windowFrom && f.date <= windowTo
+    })
+
+    // Filtrer par workstation si demandé
+    let finalOfFlows = filteredOfFlows
+    if (workstationFilter) {
+      const gammeOps = await new X3GammeRepository().getFirstOperations().catch(() => [])
+      const wstByArticle = new Map<string, string>()
+      for (const g of gammeOps) {
+        if (g.workstation && g.article) wstByArticle.set(g.article, g.workstation)
+      }
+      finalOfFlows = filteredOfFlows.filter((f) => {
+        const wst = wstByArticle.get(f.article) ?? ''
+        return wst.toLowerCase().includes(workstationFilter)
+      })
+    }
+
+    // Filtrer les demandes à l'horizon
+    const filteredDemands = demandFlows.filter((f) => {
+      if (!f.date) return false
+      return f.date >= windowFrom && f.date <= windowTo
+    })
+
+    // Nomenclatures : lazy — pas de fetch X3 bloquant.
+    // Le matching fonctionne sans nomenclatures.
+    // La faisabilité composants sera calculée à la demande (clic OF → sidebar).
+    const nomenclatureEntries: Awaited<ReturnType<X3NomenclatureRepository['getNomenclatureEntries']>> = []
+
+    const allSupply = [...finalOfFlows, ...stockFlows, ...receptionFlows]
+
+    const nomenclatures = new Map<string, Nomenclature>()
+    for (const entry of nomenclatureEntries) {
+      const existing = nomenclatures.get(entry.parentArticle)
+      if (existing) {
+        existing.components.push(entry)
+      } else {
+        nomenclatures.set(entry.parentArticle, {
+          article: entry.parentArticle,
+          description: entry.parentDescription,
+          components: [entry],
+        })
+      }
+    }
+
+    const articles = new Map<string, Article>()
+    for (const entry of nomenclatureEntries) {
+      if (!articles.has(entry.parentArticle)) {
+        articles.set(entry.parentArticle, {
+          code: entry.parentArticle,
+          description: entry.parentDescription,
+          category: '',
+          supplyType: 'FABRICATION',
+          reorderDelay: 0,
+          productFamily: null,
+          pmp: null,
+          economicLot: null,
+          unitStock: null,
+          unitPurchase: null,
+          purchaseToStockRatio: 1,
+          packagings: [],
+        })
+      }
+      if (!articles.has(entry.componentArticle)) {
+        articles.set(entry.componentArticle, {
+          code: entry.componentArticle,
+          description: entry.componentDescription,
+          category: '',
+          supplyType: entry.componentType === 'ACHETE' ? 'ACHAT' : 'FABRICATION',
+          reorderDelay: 0,
+          productFamily: null,
+          pmp: null,
+          economicLot: null,
+          unitStock: null,
+          unitPurchase: null,
+          purchaseToStockRatio: 1,
+          packagings: [],
+        })
+      }
+    }
+
+    const overrideMap = new Map(overrides.map((o) => [o.numOf, o]))
+
+    const result = evaluateOrderImpacts(
+      filteredDemands, allSupply, nomenclatures, articles, overrideMap,
+      { from: windowFrom, to: windowTo },
+    )
+
+    return result
+  }
+
+  async nomenclature(ctx: HttpContext) {
+    const article = ctx.params.article
+    if (!article) {
+      return ctx.response.badRequest({ error: 'Paramètre "article" requis' })
+    }
+
+    const allEntries = await new X3NomenclatureRepository().getNomenclatureEntries().catch(() => [])
+    const components = allEntries.filter((e) => e.parentArticle === article)
+
+    if (components.length === 0) {
+      return { article, components: [], message: 'Nomenclature non disponible' }
+    }
+
+    return {
+      article,
+      components: components.map((c) => ({
+        componentArticle: c.componentArticle,
+        description: c.componentDescription,
+        linkQuantity: c.linkQuantity,
+        type: c.componentType,
+        consumptionNature: c.consumptionNature,
+        level: c.level,
+      })),
+    }
   }
 }

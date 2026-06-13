@@ -163,6 +163,30 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'planning_board.board_feasibility': {
+    methods: ["POST"]
+    pattern: '/api/v1/planning-board/board-feasibility'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'planning_board.nomenclature': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/planning-board/nomenclature/:article'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { article: ParamValue }
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'suivi.assign': {
     methods: ["POST"]
     pattern: '/api/v1/status/assign'

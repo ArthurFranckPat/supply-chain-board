@@ -39,6 +39,8 @@ router.group(() => {
   router.post('/whatif', '#controllers/planning_board_controller.whatif')
   router.post('/order-impacts', '#controllers/planning_board_controller.orderImpacts')
   router.get('/events', '#controllers/planning_board_controller.listEvents')
+  router.post('/board-feasibility', '#controllers/planning_board_controller.boardFeasibility')
+  router.get('/nomenclature/:article', '#controllers/planning_board_controller.nomenclature')
 }).prefix('/api/v1/planning-board')
 
 // Suivi Commandes

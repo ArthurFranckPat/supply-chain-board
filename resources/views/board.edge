@@ -203,6 +203,14 @@
     .p-note { margin-top: 12px; font-size: 12px; color: var(--txt); background: #fff7e6; border: 1px solid #f0d79a; border-radius: 4px; padding: 8px; display: none; }
 
     .bar.selected { outline: 2px solid var(--aldes); outline-offset: 0; z-index: 5; }
+    .bar .feas-badge {
+      position: absolute; top: -6px; right: -4px;
+      width: 14px; height: 14px; border-radius: 50%;
+      font-size: 8px; display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 1px 2px rgba(0,0,0,.2); z-index: 2;
+    }
+    .bar .feas-ok { background: #2e9e00; color: #fff; }
+    .bar .feas-blocked { background: #b42318; color: #fff; }
 
     /* Bouton + panneau backlog (OF en retard) */
     .backlog-btn {
@@ -265,12 +273,14 @@
     <input id="search" type="search" placeholder="Rechercher — ligne de production, OF ou article…" autocomplete="off">
     <span class="hint" id="search-hint"></span>
     <button type="button" id="backlog-btn" class="backlog-btn" style="display:none">⚠ Retard <b id="backlog-count">0</b></button>
+    <button type="button" id="feasibility-btn" style="background:#fff;border:1px solid var(--line);color:var(--txt);font-size:12px;padding:5px 10px;border-radius:4px;cursor:pointer">🔍 Faisabilité</button>
+    <span id="feasibility-status" style="font-size:11px;color:var(--muted);display:none"></span>
     <label class="toggle" style="margin-left:auto">
       <input type="checkbox" id="span-toggle"> Étaler les OF sur leur durée
     </label>
   </div>
 
-  <div id="board-main">
+  <div id="board-main" data-start="{{ start }}" data-horizon="{{ horizon }}">
   <script type="application/json" id="board-data">{{{ boardDataJson }}}</script>
   <div class="gantt" style="--cols:{{ cols }}">
     @if(lines.length === 0)
@@ -358,6 +368,17 @@
       <dt>Reste à produire</dt><dd id="p-qrem">—</dd>
     </dl>
     <div class="p-note" id="p-note"></div>
+
+    <div id="p-feas-section" style="margin-top:16px;display:none">
+      <div style="font-size:12px;font-weight:600;color:var(--txt);margin-bottom:6px;border-bottom:1px solid var(--line-soft);padding-bottom:4px">Faisabilité composants</div>
+      <div id="p-feas-status" style="font-size:12px;padding:6px 0"></div>
+      <div id="p-feas-details" style="font-size:11px;color:var(--muted)"></div>
+    </div>
+
+    <div id="p-bom-section" style="margin-top:16px;display:none">
+      <div style="font-size:12px;font-weight:600;color:var(--txt);margin-bottom:6px;border-bottom:1px solid var(--line-soft);padding-bottom:4px">Nomenclature</div>
+      <div id="p-bom-list" style="font-size:11px"></div>
+    </div>
   </aside>
 
   <aside id="backlog" aria-hidden="true">
@@ -367,6 +388,18 @@
     </div>
     <div class="bk-hint">Glisser un OF sur sa ligne pour le replanifier.</div>
     <div id="backlog-list"></div>
+  </aside>
+
+  <aside id="feas-panel" aria-hidden="true" style="position:fixed;top:0;right:0;height:100vh;width:420px;background:var(--panel);border-left:1px solid var(--line);box-shadow:-4px 0 18px rgba(16,24,40,.12);transform:translateX(100%);transition:transform .18s ease;z-index:80;display:flex;flex-direction:column;overflow-y:auto">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;padding:16px 16px 0">
+      <div>
+        <div style="font-size:15px;font-weight:700;color:var(--txt)">Faisabilité des OF</div>
+        <div style="font-size:11px;color:var(--muted)" id="fp-window"></div>
+      </div>
+      <button class="p-close" id="fp-close" title="Fermer">×</button>
+    </div>
+    <div id="fp-stats" style="display:flex;gap:12px;padding:12px 16px;font-size:12px"></div>
+    <div id="fp-list" style="padding:0 16px 16px;display:flex;flex-direction:column;gap:4px;overflow-y:auto"></div>
   </aside>
 
   <script>
@@ -599,6 +632,15 @@
     const fr = (n) => (n == null ? '—' : new Intl.NumberFormat('fr-FR').format(n))
     const setTxt = (id, v) => { document.getElementById(id).textContent = v }
 
+    // Cache résultats faisabilité (rempli par le bouton Faisabilité)
+    let feasResults = null  // { orders: [...], ofFeasibility: Map<numOf, { feasible, missingComponents, alerts }> }
+    let bomCache = {}  // { article: [components] }
+
+    function getOfFeasibility(numOf) {
+      if (!feasResults || !feasResults.ofFeasibility) return null
+      return feasResults.ofFeasibility[numOf] || null
+    }
+
     function openPanel(numOf) {
       const d = window.OFDATA[numOf]
       if (!d) return
@@ -626,11 +668,74 @@
       const note = document.getElementById('p-note')
       note.textContent = d.note || ''
       note.style.display = d.note ? 'block' : 'none'
+
+      // Faisabilité
+      const feasSection = document.getElementById('p-feas-section')
+      const feasStatus = document.getElementById('p-feas-status')
+      const feasDetails = document.getElementById('p-feas-details')
+      const feas = getOfFeasibility(numOf)
+      if (feas) {
+        feasSection.style.display = ''
+        if (feas.feasible) {
+          feasStatus.innerHTML = '<span style="color:#2e9e00;font-weight:600">✅ Faisable</span> — tous les composants sont disponibles'
+          feasDetails.textContent = ''
+        } else {
+          const missing = feas.missingComponents || {}
+          const lines = Object.entries(missing).map(([art, qty]) => `<div style="color:#b42318">• ${art} : manque ${typeof qty === 'number' ? Math.round(qty * 100) / 100 : qty}</div>`).join('')
+          feasStatus.innerHTML = '<span style="color:#b42318;font-weight:600">❌ Bloqué</span> — composants manquants :'
+          feasDetails.innerHTML = lines || (feas.alerts || []).map(a => `<div style="color:#d98200">⚠ ${a}</div>`).join('')
+        }
+      } else {
+        feasSection.style.display = 'none'
+      }
+
+      // Nomenclature (fetch si pas en cache)
+      const bomSection = document.getElementById('p-bom-section')
+      const bomList = document.getElementById('p-bom-list')
+      if (bomCache[d.article]) {
+        renderBom(bomCache[d.article])
+      } else {
+        bomSection.style.display = ''
+        bomList.innerHTML = '<div style="color:var(--muted);font-style:italic">Chargement…</div>'
+        fetch('/api/v1/planning-board/nomenclature/' + encodeURIComponent(d.article))
+          .then(r => r.ok ? r.json() : Promise.reject(r.statusText))
+          .then(data => {
+            bomCache[d.article] = data.components || []
+            if (panelNum === numOf) renderBom(bomCache[d.article])
+          })
+          .catch(() => {
+            bomCache[d.article] = []
+            if (panelNum === numOf) renderBom([])
+          })
+      }
+
       panel.classList.add('open')
       panel.setAttribute('aria-hidden', 'false')
       document.querySelectorAll('.bar.selected').forEach((b) => b.classList.remove('selected'))
       const bar = document.querySelector('.bar[data-num-of="' + (window.CSS && CSS.escape ? CSS.escape(numOf) : numOf) + '"]')
       if (bar) bar.classList.add('selected')
+    }
+
+    function renderBom(components) {
+      const bomSection = document.getElementById('p-bom-section')
+      const bomList = document.getElementById('p-bom-list')
+      if (!components || components.length === 0) {
+        bomSection.style.display = ''
+        bomList.innerHTML = '<div style="color:var(--muted);font-style:italic">Nomenclature non disponible</div>'
+        return
+      }
+      bomSection.style.display = ''
+      const rows = components.map(c => {
+        const typeColor = c.type === 'ACHETE' ? '#0069B4' : '#2e9e00'
+        const typeLabel = c.type === 'ACHETE' ? 'ACH' : 'FAB'
+        return `<div style="display:flex;align-items:center;gap:6px;padding:3px 0;border-bottom:1px solid var(--line-soft)">
+          <span style="background:${typeColor};color:#fff;border-radius:2px;padding:1px 4px;font-size:9px;font-weight:600;flex:0 0 auto">${typeLabel}</span>
+          <span style="font-weight:600;flex:0 0 auto;min-width:80px">${c.componentArticle}</span>
+          <span style="color:var(--muted);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.description || ''}</span>
+          <span style="color:var(--txt);font-weight:600;flex:0 0 auto">×${c.linkQuantity}</span>
+        </div>`
+      }).join('')
+      bomList.innerHTML = rows
     }
     function closePanel() {
       panel.classList.remove('open')
@@ -659,6 +764,154 @@
     } else {
       initBoard()
     }
+
+    /* ---------- Faisabilité ---------- */
+    const feasPanel = document.getElementById('feas-panel')
+    const feasBtn = document.getElementById('feasibility-btn')
+    const feasStatus = document.getElementById('feasibility-status')
+    const fpStats = document.getElementById('fp-stats')
+    const fpList = document.getElementById('fp-list')
+    const fpWindow = document.getElementById('fp-window')
+
+    function openFeasPanel() {
+      feasPanel.style.transform = 'translateX(0)'
+      feasPanel.setAttribute('aria-hidden', 'false')
+    }
+    function closeFeasPanel() {
+      feasPanel.style.transform = 'translateX(100%)'
+      feasPanel.setAttribute('aria-hidden', 'true')
+    }
+    document.getElementById('fp-close').addEventListener('click', closeFeasPanel)
+
+    const statutColor = { on_time: '#2e9e00', stock: '#2e9e00', retard: '#d98200', bloquee: '#b42318', sans_couverture: '#6b7480' }
+    const statutLabel = { on_time: 'À temps', stock: 'Stock', retard: 'Retard', bloquee: 'Bloquée', sans_couverture: 'Sans couverture' }
+
+    feasBtn.addEventListener('click', async () => {
+      feasBtn.disabled = true
+      feasBtn.textContent = '⏳ Calcul…'
+      feasStatus.style.display = 'inline'
+      feasStatus.textContent = 'Analyse en cours…'
+
+      // Contexte board : start + horizon → from/to
+      const boardMain = document.getElementById('board-main')
+      const boardStart = boardMain?.dataset.start || ''
+      const boardHorizon = parseInt(boardMain?.dataset.horizon || '14', 10)
+
+      const from = boardStart || new Date().toISOString().slice(0, 10)
+      // Calculer to = start + horizon jours ouvrés
+      const fromDate = new Date(from)
+      const toDate = new Date(fromDate)
+      let added = 0
+      while (added < boardHorizon) {
+        toDate.setDate(toDate.getDate() + 1)
+        const dow = toDate.getDay()
+        if (dow !== 0 && dow !== 6) added++
+      }
+      const to = toDate.toISOString().slice(0, 10)
+
+      // Filtre workstation si recherche active
+      const searchQ = document.getElementById('search').value.trim().toLowerCase()
+      const workstation = searchQ && searchQ.length <= 10 ? searchQ : undefined
+
+      try {
+        const controller = new AbortController()
+        const timeout = setTimeout(() => controller.abort(), 60000)
+
+        const res = await fetch('/api/v1/planning-board/board-feasibility', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ from, to, workstation }),
+          signal: controller.signal,
+        })
+        clearTimeout(timeout)
+
+        if (!res.ok) {
+          const errBody = await res.text().catch(() => '')
+          throw new Error('HTTP ' + res.status + (errBody ? ' — ' + errBody.slice(0, 200) : ''))
+        }
+        const data = await res.json()
+
+        fpWindow.textContent = data.window ? data.window.from + ' → ' + data.window.to : ''
+
+        // Stats
+        const s = data.stats || {}
+        fpStats.innerHTML = [
+          { label: 'Total', val: s.nbCommandes, bg: '#e7eaf0', fg: 'var(--txt)' },
+          { label: 'À temps', val: s.nbOnTime, bg: '#eaf6e2', fg: '#2e9e00' },
+          { label: 'Retard', val: s.nbRetard, bg: '#fbefda', fg: '#d98200' },
+          { label: 'Bloquées', val: s.nbBloquees, bg: '#fde8e8', fg: '#b42318' },
+          { label: 'Sans couv.', val: s.nbSansCouverture, bg: '#f1f4f8', fg: '#6b7480' },
+        ].map(x => `<div style="background:${x.bg};border-radius:4px;padding:6px 10px;text-align:center"><div style="font-size:18px;font-weight:700;color:${x.fg}">${x.val ?? 0}</div><div style="font-size:10px;color:var(--muted)">${x.label}</div></div>`).join('')
+
+        // List
+        const orders = data.orders || []
+        fpList.innerHTML = orders.length === 0
+          ? '<div style="color:var(--muted);font-style:italic;padding:20px;text-align:center">Aucune commande dans la fenêtre</div>'
+          : orders.map(o => {
+              const c = statutColor[o.statut] || '#6b7480'
+              const ofsHtml = (o.ofs || []).map(of => {
+                const feasIcon = of.feasible === true ? '✅' : of.feasible === false ? '❌' : '—'
+                return `<span style="font-size:10px;background:#f1f4f8;border-radius:3px;padding:2px 5px;margin-right:3px">${of.numOf} ×${of.qteAllouee} ${feasIcon}</span>`
+              }).join('')
+              return `<div style="background:#fff;border:1px solid var(--line);border-left:3px solid ${c};border-radius:4px;padding:6px 10px;font-size:12px">
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                  <span style="font-weight:600">${o.numCommande}</span>
+                  <span style="background:${c};color:#fff;border-radius:3px;padding:1px 6px;font-size:10px">${statutLabel[o.statut] || o.statut}</span>
+                </div>
+                <div style="color:var(--aldes);font-size:11px;margin-top:2px">${o.article} · ${o.client} · ${o.qteRestante}p · ${o.dateExpedition}</div>
+                ${o.joursRetard > 0 ? `<div style="color:#b42318;font-size:10px;margin-top:2px">+${o.joursRetard}j retard</div>` : ''}
+                ${o.reliquat > 0 ? `<div style="color:#d98200;font-size:10px;margin-top:2px">Reliquat : ${o.reliquat}p non couvert</div>` : ''}
+                ${ofsHtml ? `<div style="margin-top:4px">${ofsHtml}</div>` : ''}
+              </div>`
+            }).join('')
+
+        // Stocker résultats globalement pour le panneau détail
+        const ofFeasMap = {}
+        for (const o of orders) {
+          for (const of of (o.ofs || [])) {
+            ofFeasMap[of.numOf] = { feasible: of.feasible, missingComponents: of.missingComponents || {}, alerts: o.alerts || [] }
+          }
+        }
+        feasResults = { orders, ofFeasibility: ofFeasMap }
+
+        // Color OF bars + badges
+        const ofStatusMap = {}
+        for (const o of orders) {
+          for (const of of (o.ofs || [])) {
+            if (of.feasible === false) ofStatusMap[of.numOf] = 'blocked'
+            else if (of.feasible === true) ofStatusMap[of.numOf] = 'ok'
+          }
+        }
+        document.querySelectorAll('.bar').forEach(bar => {
+          const num = bar.dataset.numOf
+          bar.style.outline = ''
+          bar.style.outlineOffset = ''
+          // Supprimer ancien badge
+          const oldBadge = bar.querySelector('.feas-badge')
+          if (oldBadge) oldBadge.remove()
+          if (ofStatusMap[num] === 'blocked') {
+            bar.style.outline = '2px solid #b42318'
+            bar.style.outlineOffset = '-1px'
+            bar.insertAdjacentHTML('beforeend', '<span class="feas-badge feas-blocked" title="Bloqué — composants manquants">✕</span>')
+          } else if (ofStatusMap[num] === 'ok') {
+            bar.style.outline = '2px solid #2e9e00'
+            bar.style.outlineOffset = '-1px'
+            bar.insertAdjacentHTML('beforeend', '<span class="feas-badge feas-ok" title="Faisable">✓</span>')
+          }
+        })
+
+        feasStatus.textContent = `${s.nbCommandes} commandes · ${s.nbBloquees || 0} bloquées · ${s.nbRetard || 0} en retard`
+        openFeasPanel()
+        toast('Faisabilité calculée')
+      } catch (err) {
+        const msg = err.name === 'AbortError' ? 'Timeout (60s) — trop de données, réduisez l\'horizon' : err.message
+        feasStatus.textContent = 'Erreur : ' + msg
+        toast('Erreur faisabilité : ' + msg, true)
+      } finally {
+        feasBtn.disabled = false
+        feasBtn.textContent = '🔍 Faisabilité'
+      }
+    })
   </script>
 </body>
 </html>

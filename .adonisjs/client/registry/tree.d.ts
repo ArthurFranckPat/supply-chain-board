@@ -20,6 +20,8 @@ export interface ApiDefinition {
     whatif: typeof routes['planning_board.whatif']
     orderImpacts: typeof routes['planning_board.order_impacts']
     listEvents: typeof routes['planning_board.list_events']
+    boardFeasibility: typeof routes['planning_board.board_feasibility']
+    nomenclature: typeof routes['planning_board.nomenclature']
   }
   suivi: {
     assign: typeof routes['suivi.assign']

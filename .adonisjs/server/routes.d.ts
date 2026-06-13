@@ -17,6 +17,8 @@ export type ScannedRoutes = {
     'planning_board.whatif': { paramsTuple?: []; params?: {} }
     'planning_board.order_impacts': { paramsTuple?: []; params?: {} }
     'planning_board.list_events': { paramsTuple?: []; params?: {} }
+    'planning_board.board_feasibility': { paramsTuple?: []; params?: {} }
+    'planning_board.nomenclature': { paramsTuple: [ParamValue]; params: {'article': ParamValue} }
     'suivi.assign': { paramsTuple?: []; params?: {} }
     'suivi.from_latest_export': { paramsTuple?: []; params?: {} }
     'suivi.status_detail': { paramsTuple: [ParamValue]; params: {'noCommande': ParamValue} }
@@ -34,6 +36,7 @@ export type ScannedRoutes = {
     'planning_board.show': { paramsTuple: [ParamValue]; params: {'numOf': ParamValue} }
     'planning_board.list_overrides': { paramsTuple?: []; params?: {} }
     'planning_board.list_events': { paramsTuple?: []; params?: {} }
+    'planning_board.nomenclature': { paramsTuple: [ParamValue]; params: {'article': ParamValue} }
     'suivi.status_detail': { paramsTuple: [ParamValue]; params: {'noCommande': ParamValue} }
   }
   HEAD: {
@@ -44,6 +47,7 @@ export type ScannedRoutes = {
     'planning_board.show': { paramsTuple: [ParamValue]; params: {'numOf': ParamValue} }
     'planning_board.list_overrides': { paramsTuple?: []; params?: {} }
     'planning_board.list_events': { paramsTuple?: []; params?: {} }
+    'planning_board.nomenclature': { paramsTuple: [ParamValue]; params: {'article': ParamValue} }
     'suivi.status_detail': { paramsTuple: [ParamValue]; params: {'noCommande': ParamValue} }
   }
   PATCH: {
@@ -57,6 +61,7 @@ export type ScannedRoutes = {
     'planning_board.feasibility': { paramsTuple?: []; params?: {} }
     'planning_board.whatif': { paramsTuple?: []; params?: {} }
     'planning_board.order_impacts': { paramsTuple?: []; params?: {} }
+    'planning_board.board_feasibility': { paramsTuple?: []; params?: {} }
     'suivi.assign': { paramsTuple?: []; params?: {} }
     'suivi.from_latest_export': { paramsTuple?: []; params?: {} }
     'suivi.palette': { paramsTuple?: []; params?: {} }

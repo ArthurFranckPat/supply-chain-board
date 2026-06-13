@@ -84,6 +84,18 @@ const routes = {
     tokens: [{"old":"/api/v1/planning-board/events","type":0,"val":"api","end":""},{"old":"/api/v1/planning-board/events","type":0,"val":"v1","end":""},{"old":"/api/v1/planning-board/events","type":0,"val":"planning-board","end":""},{"old":"/api/v1/planning-board/events","type":0,"val":"events","end":""}],
     types: placeholder as Registry['planning_board.list_events']['types'],
   },
+  'planning_board.board_feasibility': {
+    methods: ["POST"],
+    pattern: '/api/v1/planning-board/board-feasibility',
+    tokens: [{"old":"/api/v1/planning-board/board-feasibility","type":0,"val":"api","end":""},{"old":"/api/v1/planning-board/board-feasibility","type":0,"val":"v1","end":""},{"old":"/api/v1/planning-board/board-feasibility","type":0,"val":"planning-board","end":""},{"old":"/api/v1/planning-board/board-feasibility","type":0,"val":"board-feasibility","end":""}],
+    types: placeholder as Registry['planning_board.board_feasibility']['types'],
+  },
+  'planning_board.nomenclature': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/planning-board/nomenclature/:article',
+    tokens: [{"old":"/api/v1/planning-board/nomenclature/:article","type":0,"val":"api","end":""},{"old":"/api/v1/planning-board/nomenclature/:article","type":0,"val":"v1","end":""},{"old":"/api/v1/planning-board/nomenclature/:article","type":0,"val":"planning-board","end":""},{"old":"/api/v1/planning-board/nomenclature/:article","type":0,"val":"nomenclature","end":""},{"old":"/api/v1/planning-board/nomenclature/:article","type":1,"val":"article","end":""}],
+    types: placeholder as Registry['planning_board.nomenclature']['types'],
+  },
   'suivi.assign': {
     methods: ["POST"],
     pattern: '/api/v1/status/assign',
