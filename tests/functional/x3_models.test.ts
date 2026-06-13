@@ -46,7 +46,7 @@ test.group('X3 Models', () => {
   test('X3Database raw query returns same data', async ({ assert }) => {
     const db = new X3Database()
     const rows = await db.raw(
-      'SELECT SOHNUM_0, BPCNAM_0, ORDDAT_0 FROM SORDER FETCH FIRST 3 ROWS ONLY'
+      'SELECT SOHNUM_0, BPCNAM_0, ORDDAT_0 FROM SORDER WHERE ROWNUM <= 3'
     )
 
     assert.isArray(rows)

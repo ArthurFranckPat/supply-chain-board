@@ -109,32 +109,31 @@ export function stripTrailingOrder(sql: string): [string, string] {
 
 /** Convert SQL Server TOP N syntax to Oracle ROWNUM. */
 export function topToRownum(sql: string): string {
-  const m = sql.match(/(\s*SELECT\s+)(TOP\s+(\d+)\s+)(.*?)(\s+FROM\s+.*)/is);
-  if (!m) return sql;
+  const topM = sql.match(/\bTOP\s+(\d+)\s+/i);
+  if (!topM) return sql;
 
-  const prefix = m[1];
-  const topN = m[3];
-  let rest = m[5];
+  const n = topM[1];
+  const base = sql.replace(/\bTOP\s+\d+\s+/i, '');
 
-  const rownumCond = `AND ROWNUM <= ${topN}`;
-
-  if (/\bWHERE\b/i.test(rest)) {
-    let insertPos = rest.length;
-    for (const kw of [/\bORDER\s+BY\b/i, /\bGROUP\s+BY\b/i, /\bHAVING\b/i]) {
-      const km = rest.match(kw);
-      if (km && km.index! < insertPos) insertPos = km.index!;
-    }
-    rest = rest.slice(0, insertPos) + rownumCond + rest.slice(insertPos);
-  } else {
-    let insertPos = rest.length;
-    for (const kw of [/\bORDER\s+BY\b/i, /\bGROUP\s+BY\b/i, /\bHAVING\b/i]) {
-      const km = rest.match(kw);
-      if (km && km.index! < insertPos) insertPos = km.index!;
-    }
-    rest = rest.slice(0, insertPos) + ` WHERE ROWNUM <= ${topN}` + rest.slice(insertPos);
+  let insertPos = base.length;
+  for (const kw of [/\bORDER\s+BY\b/i, /\bGROUP\s+BY\b/i, /\bHAVING\b/i]) {
+    const km = base.match(kw);
+    if (km && km.index! < insertPos) insertPos = km.index!;
   }
 
-  return `${prefix}${m[4]}${rest}`;
+  const before = base.slice(0, insertPos);
+  const after = base.slice(insertPos);
+
+  if (/\bWHERE\b/i.test(before)) {
+    return before + ` AND ROWNUM <= ${n}` + after;
+  } else {
+    const fromM = before.match(/\bFROM\s+\S+/i);
+    if (fromM) {
+      const afterFrom = before.slice(fromM.index! + fromM[0].length);
+      return before.slice(0, fromM.index! + fromM[0].length) + ` WHERE ROWNUM <= ${n}` + afterFrom + after;
+    }
+    return before + ` WHERE ROWNUM <= ${n}` + after;
+  }
 }
 
 function isAlphaNum(ch: string): boolean {

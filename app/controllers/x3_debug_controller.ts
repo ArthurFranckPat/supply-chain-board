@@ -66,39 +66,51 @@ const MODELS: [string, typeof BaseModel][] = [
   ['ORDERS (Flux supply)', Orders],
 ]
 
-export default class X3DebugController {
-  async index({ view }: HttpContext) {
-    const sections = []
-    const db = new X3Database()
-
-    try {
-      for (const [title, Model] of MODELS) {
-        const cols = MODEL_COLS[Model.table] ?? []
-        try {
-          const sql = `SELECT ${cols.join(', ')} FROM ${Model.table} FETCH FIRST 5 ROWS ONLY`
-          const raw: Record<string, string | null>[] = await db.raw(sql)
-          const rows = raw.map(r => {
-            const out: Record<string, string> = {}
-            for (const [k, v] of Object.entries(r)) {
-              if (v && k.endsWith('DAT_0')) {
-                const d = parseX3Date(v)
-                out[k] = d ? d.toLocaleDateString('fr-FR') : v
-              } else {
-                out[k] = v ?? ''
-              }
-            }
-            return out
-          })
-          const colNames = rows.length > 0 ? Object.keys(rows[0]) : cols
-          sections.push({ title, rows, cols: colNames, error: null })
-        } catch (e: any) {
-          sections.push({ title, rows: [], cols: [], error: e.message })
+async function loadSection(db: X3Database, title: string, Model: typeof BaseModel) {
+  const key = Model.table
+  const cols = MODEL_COLS[key] ?? []
+  try {
+    const sql = `SELECT ${cols.join(', ')} FROM ${key} WHERE ROWNUM <= 5`
+    const raw: Record<string, string | null>[] = await db.raw(sql)
+    const rows = raw.map((r) => {
+      const out: Record<string, string> = {}
+      for (const [k, v] of Object.entries(r)) {
+        if (v && k.endsWith('DAT_0')) {
+          const d = parseX3Date(v)
+          out[k] = d ? d.toLocaleDateString('fr-FR') : v
+        } else {
+          out[k] = v ?? ''
         }
       }
+      return out
+    })
+    const colNames = rows.length > 0 ? Object.keys(rows[0]) : cols
+    return { key, title, rows, cols: colNames, error: null }
+  } catch (e: any) {
+    return { key, title, rows: [], cols: [], error: e.message }
+  }
+}
+
+export default class X3DebugController {
+  async index({ view, request }: HttpContext) {
+    const allModels = MODELS.map(([t, M]) => ({ key: M.table, title: t }))
+    const modelFilter = request.input('model') as string | undefined
+
+    if (!modelFilter) {
+      return view.render('x3_debug', { allModels })
+    }
+
+    const target = MODELS.find(([, M]) => M.table === modelFilter)
+    if (!target) {
+      return view.render('x3_debug', { allModels })
+    }
+
+    const db = new X3Database()
+    try {
+      const section = await loadSection(db, target[0], target[1])
+      return view.render('x3_debug_section', { section })
     } finally {
       await db.destroy()
     }
-
-    return view.render('x3_debug', { sections })
   }
 }

@@ -14,7 +14,7 @@ async function test() {
   console.log('X3Database instantiated')
 
   const result = await db.raw(
-    'SELECT SOHNUM_0, BPCNAM_0, ORDDAT_0 FROM SORDER FETCH FIRST 3 ROWS ONLY'
+    'SELECT SOHNUM_0, BPCNAM_0, ORDDAT_0 FROM SORDER WHERE ROWNUM <= 3'
   )
   console.log('Result:', JSON.stringify(result, null, 2))
 
