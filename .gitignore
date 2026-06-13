@@ -1,37 +1,29 @@
-﻿# Root ignores
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-*.egg-info/
-.pytest_cache/
-.venv/
-venv/
+# Dependencies and AdonisJS build
+node_modules
+build
+tmp/*
+!tmp/.gitkeep
+
+# Secrets
 .env
-.omx/
-.omc/project-memory.json
-.omc/sessions/
-.omc/state/
-.dev-logs/
-apps/board-ui/.omc/
-services/integration-hub/.omc/
-.run-logs/
-apps/suivi-commandes/comments.db
+.env.*
+.env.local
+.env.production.local
+.env.development.local
 
-# Node
-node_modules/
-dist/
+# Frontend assets compiled code
+public/assets
 
-# Runtime outputs
-outputs/
-reports/
+# Build tools specific
+npm-debug.log
+yarn-error.log
 
-# IDE
-.vscode/
-.idea/
+# Editors specific
+.fleet
+.idea
+.vscode
 
-# OS
+# Platform specific
 .DS_Store
-Thumbs.db
-.gstack/
-apps/planning-engine/data/schedule_history.db
+.env.test
+.env.keys
