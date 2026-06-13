@@ -31,6 +31,18 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'planning_board.board': {
+    methods: ["GET","HEAD"]
+    pattern: '/board'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'planning_board.index': {
     methods: ["GET","HEAD"]
     pattern: '/api/v1/planning-board/ofs'

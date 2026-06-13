@@ -21,7 +21,7 @@ export class LocalMenuSchema extends BaseModel {
 }
 
 export class OfOverrideSchema extends BaseModel {
-  static $columns = ['createdAt', 'dateDebut', 'dateFin', 'id', 'note', 'numOf', 'status', 'updatedAt'] as const
+  static $columns = ['createdAt', 'dateDebut', 'dateFin', 'id', 'note', 'numOf', 'status', 'updatedAt', 'workstation'] as const
   $columns = OfOverrideSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime | null
@@ -39,4 +39,6 @@ export class OfOverrideSchema extends BaseModel {
   declare status: number | null
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
+  @column()
+  declare workstation: string | null
 }

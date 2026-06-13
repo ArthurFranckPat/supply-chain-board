@@ -7,6 +7,7 @@ import { execFile } from "child_process";
 import { writeFileSync, unlinkSync } from "fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { randomBytes } from "node:crypto";
 
 import type { SoapResponse } from "./types.js";
 import { buildConcatSql } from "./sql-builder.js";
@@ -48,7 +49,7 @@ export async function sendSoap(sql: string, config: X3SoapConfig): Promise<SoapR
   </soapenv:Body>
 </soapenv:Envelope>`;
 
-  const tmpFile = join(tmpdir(), `x3_soap_${process.pid}.xml`);
+  const tmpFile = join(tmpdir(), `x3_soap_${process.pid}_${randomBytes(4).toString('hex')}.xml`);
   writeFileSync(tmpFile, envelope, "utf-8");
 
   const args = [
@@ -61,11 +62,12 @@ export async function sendSoap(sql: string, config: X3SoapConfig): Promise<SoapR
   ];
 
   return new Promise((resolve) => {
-    execFile("curl", args, { timeout: 125_000 }, (error, stdout) => {
+    execFile("curl", args, { timeout: 125_000 }, (error, stdout, stderr) => {
       try { unlinkSync(tmpFile) } catch {}
 
       if (error) {
-        resolve({ status: null, data: [], count: 0, error: `curl: ${error.message}` });
+        const detail = stderr?.trim() || error.message
+        resolve({ status: null, data: [], count: 0, error: `curl: ${detail}` });
         return;
       }
 

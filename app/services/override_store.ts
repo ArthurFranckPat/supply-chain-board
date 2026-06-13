@@ -2,15 +2,29 @@ import OfOverride from '#models/of_override'
 import type { OfOverrideRow } from '#app/domain/planning_board'
 
 export class OverrideStore {
-  async save(numOf: string, data: { dateDebut?: string | null; dateFin?: string | null; status?: number | null; note?: string | null }): Promise<OfOverride> {
+  async save(
+    numOf: string,
+    data: {
+      dateDebut?: string | null
+      dateFin?: string | null
+      status?: number | null
+      workstation?: string | null
+      note?: string | null
+    }
+  ): Promise<OfOverride> {
     const existing = await OfOverride.findBy('num_of', numOf)
+
+    // undefined = keep existing value, null = clear it explicitly
+    const pick = <T>(next: T | undefined | null, prev: T | null): T | null =>
+      next === undefined ? prev : next
 
     if (existing) {
       existing.merge({
-        dateDebut: data.dateDebut ?? null,
-        dateFin: data.dateFin ?? null,
-        status: data.status ?? null,
-        note: data.note ?? null,
+        dateDebut: pick(data.dateDebut, existing.dateDebut),
+        dateFin: pick(data.dateFin, existing.dateFin),
+        status: pick(data.status, existing.status),
+        workstation: pick(data.workstation, existing.workstation),
+        note: pick(data.note, existing.note),
       })
       await existing.save()
       return existing
@@ -21,6 +35,7 @@ export class OverrideStore {
       dateDebut: data.dateDebut ?? null,
       dateFin: data.dateFin ?? null,
       status: data.status ?? null,
+      workstation: data.workstation ?? null,
       note: data.note ?? null,
     })
   }
@@ -33,6 +48,7 @@ export class OverrideStore {
       dateDebut: row.dateDebut,
       dateFin: row.dateFin,
       status: row.status,
+      workstation: row.workstation,
       note: row.note,
       updatedAt: row.updatedAt.toISO()!,
     }
@@ -45,6 +61,7 @@ export class OverrideStore {
       dateDebut: row.dateDebut,
       dateFin: row.dateFin,
       status: row.status,
+      workstation: row.workstation,
       note: row.note,
       updatedAt: row.updatedAt.toISO()!,
     }))

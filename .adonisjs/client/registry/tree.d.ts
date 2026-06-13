@@ -9,6 +9,7 @@ export interface ApiDefinition {
     index: typeof routes['x_3_debug.index']
   }
   planningBoard: {
+    board: typeof routes['planning_board.board']
     index: typeof routes['planning_board.index']
     show: typeof routes['planning_board.show']
     update: typeof routes['planning_board.update']

@@ -4,6 +4,7 @@ import { mergeOfWithOverride, type OfFromErp } from '#app/domain/planning_board'
 import { checkFeasibility, type FeasibilityResult } from '#app/domain/feasibility'
 import { matchOrders } from '#app/domain/orders'
 import { X3OfRepository } from '#repositories/of_repository'
+import { X3GammeRepository } from '#repositories/gamme_repository'
 import { X3StockRepository } from '#repositories/stock_repository'
 import { X3ReceptionRepository } from '#repositories/reception_repository'
 import { X3BesoinClientRepository } from '#repositories/besoin_client_repository'
@@ -48,6 +49,254 @@ export default class PlanningBoardController {
     return { ofs: filtered, total: filtered.length }
   }
 
+  /**
+   * Tableau d'ordonnancement (drag & drop), façon Gantt.
+   * Lignes = postes de charge (gamme), colonnes = jours.
+   * Chaque OF s'étend de sa date de début à sa date de fin.
+   * Rend la vue `board.edge`.
+   */
+  async board(ctx: HttpContext) {
+    const startParam = ctx.request.input('start') as string | undefined
+    const daysParam = Number.parseInt(ctx.request.input('days', '14'), 10)
+    const horizon = Number.isFinite(daysParam) && daysParam > 0 && daysParam <= 90 ? daysParam : 14
+
+    const windowStart = startParam ? new Date(startParam) : new Date()
+    windowStart.setHours(0, 0, 0, 0)
+
+    const [mos, gammeOps, overrides] = await Promise.all([
+      new X3OfRepository().getManufacturingOrders(),
+      new X3GammeRepository().getFirstOperations().catch(() => []),
+      this.store.getAll(),
+    ])
+
+    const overrideMap = new Map(overrides.map((o) => [o.numOf, o]))
+    const gammeMap = new Map(gammeOps.map((g) => [g.article, g]))
+
+    const wstLabels = new Map<string, string>()
+    for (const g of gammeOps) {
+      if (g.workstation) wstLabels.set(g.workstation, g.workstationLabel || g.workstation)
+    }
+
+    const DAY = 86400000
+    const isoDay = (d: Date) => {
+      const y = d.getFullYear()
+      const m = String(d.getMonth() + 1).padStart(2, '0')
+      const da = String(d.getDate()).padStart(2, '0')
+      return `${y}-${m}-${da}`
+    }
+    const atMidnight = (d: Date) => {
+      const x = new Date(d)
+      x.setHours(0, 0, 0, 0)
+      return x
+    }
+    const diffDays = (a: Date, b: Date) =>
+      Math.round((atMidnight(a).getTime() - atMidnight(b).getTime()) / DAY)
+
+    const isoWeek = (d: Date) => {
+      const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
+      const dow = t.getUTCDay() || 7
+      t.setUTCDate(t.getUTCDate() + 4 - dow)
+      const yearStart = new Date(Date.UTC(t.getUTCFullYear(), 0, 1))
+      return Math.ceil(((t.getTime() - yearStart.getTime()) / DAY + 1) / 7)
+    }
+
+    // Colonnes = jours ouvrés seulement (week-ends exclus).
+    const colDates: Date[] = []
+    for (let i = 0; i < horizon; i++) {
+      const d = atMidnight(windowStart)
+      d.setDate(windowStart.getDate() + i)
+      const dow = d.getDay()
+      if (dow !== 0 && dow !== 6) colDates.push(d)
+    }
+
+    const dayHours = new Array<number>(colDates.length).fill(0)
+
+    const days: {
+      idx: number
+      iso: string
+      weekday: string
+      dayNum: string
+      weekNum: number
+      weekStart: boolean
+      hours: number
+    }[] = colDates.map((d, idx) => {
+      const wk = isoWeek(d)
+      return {
+        idx,
+        iso: isoDay(d),
+        weekday: d.toLocaleDateString('fr-FR', { weekday: 'short' }),
+        dayNum: d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }),
+        weekNum: wk,
+        weekStart: idx === 0 || isoWeek(colDates[idx - 1]) !== wk,
+        hours: 0,
+      }
+    })
+
+    type Common = {
+      numOf: string
+      article: string
+      designation: string
+      qty: number
+      status: number
+      statutLabel: string
+      modified: boolean
+      note: string | null
+      spanDays: number
+      startIso: string
+      endIso: string
+      hours: number
+    }
+    type Bar = Common & { startIdx: number; span: number; contLeft: boolean; contRight: boolean }
+    type Card = Common & { workstation: string | null }
+
+    const barsByLine = new Map<string, Bar[]>()
+    const backlog: Card[] = []
+    const ofData: Record<string, unknown> = {}
+
+    for (const mo of mos) {
+      const ov = overrideMap.get(mo.numOf) ?? null
+      const wst = ov?.workstation ?? gammeMap.get(mo.article)?.workstation ?? null
+      if (wst && !wstLabels.has(wst)) wstLabels.set(wst, wst)
+
+      let start = ov?.dateDebut ? new Date(ov.dateDebut) : mo.startDate
+      let end = ov?.dateFin ? new Date(ov.dateFin) : mo.endDate
+      if (!start && end) start = end
+      if (!end && start) end = start
+      if (start && end && end < start) end = start
+
+      const status = ov?.status ?? mo.status
+      const spanDays = start && end ? Math.max(1, diffDays(end, start) + 1) : 1
+      const rate = gammeMap.get(mo.article)?.rate ?? 0
+      const hours = rate > 0 ? mo.quantity / rate : 0
+
+      const startIso = start ? isoDay(start) : ''
+      const endIso = end ? isoDay(end) : ''
+
+      const common: Common = {
+        numOf: mo.numOf,
+        article: mo.article,
+        designation: mo.designation ?? '',
+        qty: mo.quantity,
+        status,
+        statutLabel: mo.statutLabel ?? String(status),
+        modified: !!ov,
+        note: ov?.note ?? null,
+        spanDays,
+        startIso,
+        endIso,
+        hours: Math.round(hours * 10) / 10,
+      }
+
+      // Détails OF pour le panneau (tous les OF, placés ou non).
+      ofData[mo.numOf] = {
+        numOf: mo.numOf,
+        article: mo.article,
+        designation: mo.designation ?? '',
+        statutLabel: mo.statutLabel ?? String(status),
+        typeOfLabel: mo.typeOfLabel ?? null,
+        workstation: wst,
+        workstationLabel: wst ? (wstLabels.get(wst) ?? wst) : null,
+        startIso,
+        endIso,
+        spanDays,
+        qtyLaunched: mo.quantityLaunched,
+        qtyDone: mo.quantityDone,
+        qtyRemaining: mo.quantity,
+        unit: mo.unit,
+        hours: Math.round(hours * 10) / 10,
+        status,
+        modified: !!ov,
+        note: ov?.note ?? null,
+      }
+
+      // Colonnes (jours ouvrés) couvertes par [start, end].
+      const startMid = start ? atMidnight(start).getTime() : 0
+      const endMid = end ? atMidnight(end).getTime() : 0
+      let startIdx = -1
+      let endIdx = -1
+      if (wst && start && end) {
+        for (let c = 0; c < colDates.length; c++) {
+          const t = colDates[c].getTime()
+          if (t >= startMid && t <= endMid) {
+            if (startIdx < 0) startIdx = c
+            endIdx = c
+          }
+        }
+      }
+
+      if (startIdx < 0) {
+        // Aucun jour ouvré visible → hors tableau.
+        backlog.push({ ...common, workstation: wst })
+        continue
+      }
+
+      const contLeft = startMid < colDates[0].getTime()
+      const contRight = endMid > colDates[colDates.length - 1].getTime()
+      const span = endIdx - startIdx + 1
+
+      const bar: Bar = { ...common, startIdx, span, contLeft, contRight }
+      const arr = barsByLine.get(wst!) ?? []
+      arr.push(bar)
+      barsByLine.set(wst!, arr)
+
+      // Charge (heures) imputée au jour de début (jour de planification de l'OF).
+      if (hours > 0) dayHours[startIdx] += hours
+    }
+
+    for (const d of days) d.hours = Math.round(dayHours[d.idx])
+
+    // Regroupement des jours par semaine ISO (entête).
+    const weeks: { num: number; span: number }[] = []
+    for (const d of days) {
+      const last = weeks[weeks.length - 1]
+      if (last && last.num === d.weekNum) last.span++
+      else weeks.push({ num: d.weekNum, span: 1 })
+    }
+
+    // Lane packing: stack overlapping OFs of a same line on separate sub-rows.
+    const lines = [...barsByLine.entries()]
+      .map(([code, bars]) => {
+        bars.sort((a, b) => a.startIdx - b.startIdx || b.span - a.span)
+        const laneEnds: number[] = []
+        const lanes: Bar[][] = []
+        for (const bar of bars) {
+          let lane = laneEnds.findIndex((e) => e < bar.startIdx)
+          if (lane === -1) {
+            lane = lanes.length
+            lanes.push([])
+            laneEnds.push(-1)
+          }
+          lanes[lane].push(bar)
+          laneEnds[lane] = bar.startIdx + bar.span - 1
+        }
+        return {
+          code,
+          label: wstLabels.get(code) ?? code,
+          laneCount: lanes.length,
+          lanes: lanes.map((bars, idx) => ({ idx, bars })),
+        }
+      })
+      .sort((a, b) => a.code.localeCompare(b.code))
+
+    return await ctx.view.render('board', {
+      days,
+      weeks,
+      cols: days.length,
+      boardDataJson: JSON.stringify({
+        days: days.map((d) => d.iso),
+        cols: days.length,
+        ofData,
+      }),
+      lines,
+      backlog,
+      start: isoDay(windowStart),
+      horizon,
+      totalOf: mos.length,
+      backlogCount: backlog.length,
+      lineCount: lines.length,
+    })
+  }
+
   async show(ctx: HttpContext) {
     const ofFlows = await new X3OfRepository().getSupplyFlows()
 
@@ -71,14 +320,17 @@ export default class PlanningBoardController {
   }
 
   async update(ctx: HttpContext) {
-    const { dateDebut, dateFin, status, note } = ctx.request.only(['dateDebut', 'dateFin', 'status', 'note'])
-    await this.store.save(ctx.params.numOf, { dateDebut, dateFin, status, note })
+    const { dateDebut, dateFin, status, workstation, note } = ctx.request.only([
+      'dateDebut', 'dateFin', 'status', 'workstation', 'note',
+    ])
+    await this.store.save(ctx.params.numOf, { dateDebut, dateFin, status, workstation, note })
 
     return {
       numOf: ctx.params.numOf,
       dateDebut: dateDebut ?? null,
       dateFin: dateFin ?? null,
       status: status ?? null,
+      workstation: workstation ?? null,
       note: note ?? null,
       modified: true,
     }

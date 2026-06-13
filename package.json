@@ -41,6 +41,7 @@
     "#app/repositories/*": "./app/repositories/*.js",
     "#app/x3/client/*": "./app/x3/client/*.js",
     "#app/x3/*": "./app/x3/*.js",
+    "#app/unpoly/*": "./app/unpoly/*.js",
     "#repositories/*": "./app/repositories/*.js"
   },
   "devDependencies": {
@@ -75,7 +76,8 @@
     "better-sqlite3": "^12.10.0",
     "edge.js": "^6.5.1",
     "luxon": "^3.7.2",
-    "reflect-metadata": "^0.2.2"
+    "reflect-metadata": "^0.2.2",
+    "unpoly": "^3.14.3"
   },
   "hotHook": {
     "boundaries": [

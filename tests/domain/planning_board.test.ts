@@ -22,7 +22,7 @@ test.group('mergeOfWithOverride', () => {
   test('applies override date and status', ({ assert }) => {
     const result = mergeOfWithOverride(baseOf, {
       numOf: 'OF001', dateDebut: '2026-06-12', dateFin: '2026-06-18',
-      status: 1, note: 'Affermi', updatedAt: '2026-06-10T10:00:00Z',
+      status: 1, workstation: null, note: 'Affermi', updatedAt: '2026-06-10T10:00:00Z',
     })
     assert.equal(result.statutNum, 1)
     assert.equal(result.dateDebut, '2026-06-12')
@@ -34,7 +34,7 @@ test.group('mergeOfWithOverride', () => {
   test('null override fields revert to ERP values', ({ assert }) => {
     const result = mergeOfWithOverride(baseOf, {
       numOf: 'OF001', dateDebut: null, dateFin: null,
-      status: null, note: null, updatedAt: '2026-06-10T10:00:00Z',
+      status: null, workstation: null, note: null, updatedAt: '2026-06-10T10:00:00Z',
     })
     assert.equal(result.statutNum, 3) // reverted to ERP
     assert.equal(result.dateDebut, '2026-06-10') // reverted
@@ -45,8 +45,8 @@ test.group('mergeOfWithOverride', () => {
 test.group('buildEffectiveFlows', () => {
   test('converts merged OFs into supply flows', ({ assert }) => {
     const merged = [
-      { numOf: 'OF001', article: 'ART1', description: 'Art 1', dateDebut: '2026-06-10', statutNum: 1, dateFin: '2026-06-15', qteRestante: 50, modified: false },
-      { numOf: 'OF002', article: 'ART2', description: 'Art 2', dateDebut: '2026-06-15', statutNum: 3, dateFin: '2026-06-20', qteRestante: 30, modified: true },
+      { numOf: 'OF001', article: 'ART1', description: 'Art 1', dateDebut: '2026-06-10', statutNum: 1, dateFin: '2026-06-15', qteRestante: 50, workstation: null, modified: false },
+      { numOf: 'OF002', article: 'ART2', description: 'Art 2', dateDebut: '2026-06-15', statutNum: 3, dateFin: '2026-06-20', qteRestante: 30, workstation: null, modified: true },
     ]
     const flows = buildEffectiveFlows(merged)
     assert.lengthOf(flows, 2)
@@ -59,8 +59,8 @@ test.group('buildEffectiveFlows', () => {
 
   test('filters out OFs outside date window', ({ assert }) => {
     const merged = [
-      { numOf: 'OF001', article: 'ART1', description: 'Art 1', dateDebut: '2026-05-25', statutNum: 1, dateFin: '2026-06-01', qteRestante: 50, modified: false },
-      { numOf: 'OF002', article: 'ART2', description: 'Art 2', dateDebut: '2026-06-15', statutNum: 3, dateFin: '2026-06-20', qteRestante: 30, modified: false },
+      { numOf: 'OF001', article: 'ART1', description: 'Art 1', dateDebut: '2026-05-25', statutNum: 1, dateFin: '2026-06-01', qteRestante: 50, workstation: null, modified: false },
+      { numOf: 'OF002', article: 'ART2', description: 'Art 2', dateDebut: '2026-06-15', statutNum: 3, dateFin: '2026-06-20', qteRestante: 30, workstation: null, modified: false },
     ]
     const flows = buildEffectiveFlows(merged, new Date('2026-06-10'), new Date('2026-06-25'))
     assert.lengthOf(flows, 1)

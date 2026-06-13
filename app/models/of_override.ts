@@ -20,6 +20,9 @@ export default class OfOverride extends BaseModel {
   declare status: number | null
 
   @column()
+  declare workstation: string | null
+
+  @column()
   declare note: string | null
 
   @column.dateTime({ autoCreate: true })

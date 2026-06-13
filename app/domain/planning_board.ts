@@ -22,6 +22,7 @@ export interface OfOverride {
   dateDebut: string | null
   dateFin: string | null
   status: number | null
+  workstation: string | null
   note: string | null
   updatedAt: string
 }
@@ -34,6 +35,7 @@ export interface MergedOf {
   dateDebut: string
   dateFin: string
   qteRestante: number
+  workstation: string | null
   modified: boolean
   note?: string | null
 }
@@ -50,6 +52,7 @@ export function mergeOfWithOverride(base: OfFromErp, override: OfOverride | null
       dateDebut: toIsoDate(base.dateDebut),
       dateFin: toIsoDate(base.dateFin),
       qteRestante: base.qteRestante,
+      workstation: null,
       modified: false,
     }
   }
@@ -58,6 +61,7 @@ export function mergeOfWithOverride(base: OfFromErp, override: OfOverride | null
     override.dateDebut !== null ||
     override.dateFin !== null ||
     override.status !== null ||
+    override.workstation !== null ||
     override.note !== null
 
   return {
@@ -68,6 +72,7 @@ export function mergeOfWithOverride(base: OfFromErp, override: OfOverride | null
     dateDebut: override.dateDebut ?? toIsoDate(base.dateDebut),
     dateFin: override.dateFin ?? toIsoDate(base.dateFin),
     qteRestante: base.qteRestante,
+    workstation: override.workstation,
     modified: hasExplicitOverride,
     note: override.note,
   }
@@ -116,6 +121,7 @@ export interface OfOverrideRow {
   dateDebut: string | null
   dateFin: string | null
   status: number | null
+  workstation: string | null
   note: string | null
   updatedAt: string
 }

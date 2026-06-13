@@ -1,7 +1,21 @@
 import router from '@adonisjs/core/services/router'
+import app from '@adonisjs/core/services/app'
+import { readFile } from 'node:fs/promises'
 
 router.get('/', async () => {
   return { status: 'ok', service: 'supply-chain-board' }
+})
+
+// Unpoly client (servi depuis node_modules, pas de CDN)
+router.get('/vendor/unpoly.js', async ({ response }) => {
+  response.header('content-type', 'text/javascript')
+  response.header('cache-control', 'public, max-age=86400')
+  return await readFile(app.makePath('node_modules/unpoly/unpoly.min.js'), 'utf8')
+})
+router.get('/vendor/unpoly.css', async ({ response }) => {
+  response.header('content-type', 'text/css')
+  response.header('cache-control', 'public, max-age=86400')
+  return await readFile(app.makePath('node_modules/unpoly/unpoly.min.css'), 'utf8')
 })
 
 // Health
@@ -10,7 +24,10 @@ router.get('/health', '#controllers/health_controller.index')
 // Debug X3 models
 router.get('/debug/x3', '#controllers/x3_debug_controller.index')
 
-// Planning Board
+// Planning Board — tableau d'ordonnancement drag & drop (vue HTML)
+router.get('/board', '#controllers/planning_board_controller.board')
+
+// Planning Board (API JSON)
 router.group(() => {
   router.get('/ofs', '#controllers/planning_board_controller.index')
   router.get('/ofs/:numOf', '#controllers/planning_board_controller.show')
