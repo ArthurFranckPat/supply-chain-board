@@ -1,3 +1,0 @@
--e ../../packages/domain-contracts
--e ../../packages/erp-data-access
--e .

@@ -52,7 +52,7 @@ export async function sendSoap(sql: string, config: X3SoapConfig): Promise<SoapR
   writeFileSync(tmpFile, envelope, "utf-8");
 
   const args = [
-    "-s", "--max-time", "30",
+    "-s", "--max-time", "120",
     "-H", "Content-Type: text/xml; charset=utf-8",
     "-H", 'SOAPAction: ""',
     "-u", `${config.user}:${config.password}`,
@@ -61,7 +61,7 @@ export async function sendSoap(sql: string, config: X3SoapConfig): Promise<SoapR
   ];
 
   return new Promise((resolve) => {
-    execFile("curl", args, { timeout: 35_000 }, (error, stdout) => {
+    execFile("curl", args, { timeout: 125_000 }, (error, stdout) => {
       try { unlinkSync(tmpFile) } catch {}
 
       if (error) {

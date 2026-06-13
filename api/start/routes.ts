@@ -7,6 +7,9 @@ router.get('/', async () => {
 // Health
 router.get('/health', '#controllers/health_controller.index')
 
+// Debug X3 models
+router.get('/debug/x3', '#controllers/x3_debug_controller.index')
+
 // Planning Board
 router.group(() => {
   router.get('/ofs', '#controllers/planning_board_controller.index')

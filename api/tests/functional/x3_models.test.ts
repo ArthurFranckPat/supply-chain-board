@@ -7,6 +7,7 @@ import { X3StockRepository } from '#app/repositories/stock_repository'
 import { X3ReceptionRepository } from '#app/repositories/reception_repository'
 import { X3BesoinClientRepository } from '#app/repositories/besoin_client_repository'
 import { X3GammeRepository } from '#app/repositories/gamme_repository'
+import { X3NomenclatureRepository } from '#app/repositories/nomenclature_repository'
 
 test.group('X3 Models', () => {
   test('SalesOrder.query() returns SORDER data from X3', async ({ assert }) => {
@@ -102,6 +103,20 @@ test.group('X3 Models', () => {
       console.log(`[BESOIN] id=${o.id}  article=${f.article}  qte=${f.quantity}  type=${o.type}  client=${o.customer}  pays=${o.pays}  orderType=${o.orderType}  echeance=${fmtFR(f.date)}`)
     }
   })
+
+  test('X3NomenclatureRepository returns BOM entries', async ({ assert }) => {
+    const repo = new X3NomenclatureRepository()
+    const entries = await repo.getNomenclatureEntries()
+    assert.isArray(entries)
+    assert.isAbove(entries.length, 0)
+    for (const e of entries.slice(0, 3)) {
+      console.log(`[NOM] parent=${e.parentArticle}  composant=${e.componentArticle}  qte=${e.linkQuantity}  type=${e.componentType}  nature=${e.consumptionNature}  niveau=${e.level}`)
+    }
+    assert.isString(entries[0].parentArticle)
+    assert.isString(entries[0].componentArticle)
+    assert.include(['ACHETE', 'FABRIQUE'], entries[0].componentType)
+    assert.include(['FORFAIT', 'PROPORTIONNEL'], entries[0].consumptionNature)
+  }).timeout(120_000)
 
   test('X3GammeRepository returns first operation per article', async ({ assert }) => {
     const repo = new X3GammeRepository()

@@ -19,6 +19,18 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'x_3_debug.index': {
+    methods: ["GET","HEAD"]
+    pattern: '/debug/x3'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'planning_board.index': {
     methods: ["GET","HEAD"]
     pattern: '/api/v1/planning-board/ofs'

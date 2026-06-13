@@ -9,4 +9,5 @@ export const controllers = {
   PlanningBoard: () => import('#controllers/planning_board_controller'),
   Suivi: () => import('#controllers/suivi_controller'),
   X3Data: () => import('#controllers/x3_data_controller'),
+  X3Debug: () => import('#controllers/x3_debug_controller'),
 }

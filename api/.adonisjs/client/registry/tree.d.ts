@@ -5,6 +5,9 @@ export interface ApiDefinition {
   health: {
     index: typeof routes['health.index']
   }
+  x3Debug: {
+    index: typeof routes['x_3_debug.index']
+  }
   planningBoard: {
     index: typeof routes['planning_board.index']
     show: typeof routes['planning_board.show']

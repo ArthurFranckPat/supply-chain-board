@@ -12,6 +12,12 @@ const routes = {
     tokens: [{"old":"/health","type":0,"val":"health","end":""}],
     types: placeholder as Registry['health.index']['types'],
   },
+  'x_3_debug.index': {
+    methods: ["GET","HEAD"],
+    pattern: '/debug/x3',
+    tokens: [{"old":"/debug/x3","type":0,"val":"debug","end":""},{"old":"/debug/x3","type":0,"val":"x3","end":""}],
+    types: placeholder as Registry['x_3_debug.index']['types'],
+  },
   'planning_board.index': {
     methods: ["GET","HEAD"],
     pattern: '/api/v1/planning-board/ofs',
