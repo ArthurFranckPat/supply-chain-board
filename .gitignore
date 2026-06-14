@@ -29,3 +29,5 @@ yarn-error.log
 excalidraw.log
 .mimocode/
 .planning/
+# Local backup files
+*.bak
