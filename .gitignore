@@ -25,5 +25,5 @@ yarn-error.log
 
 # Platform specific
 .DS_Store
-.env.test
-.env.keys
+# Local tooling logs
+excalidraw.log
