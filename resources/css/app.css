@@ -1,0 +1,115 @@
+@import "tailwindcss";
+
+/* ────────────────────────────────────────────────────────────
+   Design tokens — migrated from board.edge :root CSS variables
+   ──────────────────────────────────────────────────────────── */
+@theme {
+  --color-bg: #eef1f5;
+  --color-panel: #ffffff;
+  --color-line: #d3d8e0;
+  --color-line-soft: #e7eaf0;
+  --color-txt: #1f2733;
+  --color-muted: #6b7480;
+  --color-wk: #8b97a8;
+
+  --color-aldes: #0069B4;
+  --color-aldes-soft: rgba(0, 105, 180, 0.10);
+
+  --color-st-ferme: #2e9e00;
+  --color-st-planifie: #0069B4;
+  --color-st-suggere: #d98200;
+
+  --color-danger: #b42318;
+  --color-danger-soft: #fef3f2;
+  --color-danger-border: #f1bcb6;
+
+  --color-warn: #d98200;
+  --color-warn-soft: #fff4e5;
+  --color-warn-border: #f0c98a;
+
+  --font-sans: -apple-system, system-ui, "Segoe UI", sans-serif;
+}
+
+/* ────────────────────────────────────────────────────────────
+   Gantt-specific CSS — calc()-based positioning that cannot be
+   expressed with Tailwind utilities. Kept as custom layer.
+   ──────────────────────────────────────────────────────────── */
+@layer components {
+  .gantt {
+    --label-w: 180px;
+    --lane-h: 30px;
+    --day-w: max(48px, calc((100vw - var(--label-w) - 18px) / var(--cols)));
+    overflow: auto;
+    height: calc(100vh);
+  }
+
+  .gantt .track {
+    position: relative;
+    background: repeating-linear-gradient(to right,
+      transparent 0, transparent calc(var(--day-w) - 1px),
+      var(--color-line-soft) calc(var(--day-w) - 1px),
+      var(--color-line-soft) var(--day-w));
+    padding: 3px 0;
+  }
+  .gantt .track.drop-hover {
+    outline: 1px dashed var(--color-aldes);
+    outline-offset: -2px;
+  }
+
+  .gantt .wksep {
+    position: absolute; top: 0; bottom: 0; width: 0;
+    border-left: 2px solid var(--color-wk);
+    pointer-events: none; z-index: 1;
+  }
+
+  .gantt .bar {
+    position: absolute;
+    height: calc(var(--lane-h) - 6px);
+    border-radius: 4px;
+    padding: 0 6px;
+    display: flex; align-items: center; gap: 6px;
+    font-size: 11px; white-space: nowrap; overflow: hidden;
+    cursor: grab; user-select: none;
+    box-shadow: 0 1px 3px rgba(16,24,40,.18);
+    border: 1px solid var(--color-line);
+    border-left-width: 3px;
+    /* left, width, top set dynamically by Alpine/JS */
+  }
+  .gantt .bar:active { cursor: grabbing; }
+  .gantt .bar.dragging { opacity: .4; }
+
+  .gantt .bar .feas-badge {
+    position: absolute; top: -6px; right: -4px;
+    width: 14px; height: 14px; border-radius: 50%;
+    font-size: 8px; display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 1px 2px rgba(0,0,0,.2); z-index: 2;
+  }
+
+  /* Compact mode: OF on single day, content stacked */
+  .gantt.compact { --lane-h: 48px; }
+  .gantt.compact .bar {
+    width: calc(1 * var(--day-w) - 5px) !important;
+    flex-direction: column; align-items: flex-start; justify-content: center;
+    gap: 1px; padding: 3px 6px;
+    border-radius: 4px !important; border-left-style: solid !important;
+  }
+  .gantt.compact .bar > span {
+    max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+    white-space: nowrap; line-height: 1.2;
+  }
+
+  /* Sticky labels and headers */
+  .gantt .ghead { position: sticky; top: 0; z-index: 30; }
+  .gantt .corner, .gantt .lbl { position: sticky; left: 0; z-index: 5; }
+  .gantt .ghead .corner { z-index: 35; }
+}
+
+/* ────────────────────────────────────────────────────────────
+   Transitions for slide-in panels
+   ──────────────────────────────────────────────────────────── */
+.panel-slide-right {
+  transition: transform .18s ease;
+}
+.panel-slide-right-enter {
+  transform: translateX(100%);
+}
