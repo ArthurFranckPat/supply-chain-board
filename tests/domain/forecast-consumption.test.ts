@@ -1,14 +1,13 @@
 import { test } from '@japa/runner'
-import type { Flow } from '#app/domain/models/flow'
+import type { Flow, FlowOrigin } from '#app/domain/models/flow'
 import { consumeForecasts } from '#app/domain/forecast-consumption'
 
 function makeDemand(article: string, quantity: number, date: Date, type: 'order' | 'forecast'): Flow {
-  return {
-    article, quantity, direction: 'demand', date,
-    origin: type === 'order'
-      ? { type: 'order', id: `CMD-${article}`, orderType: 'NOR', client: 'Test' } as any
-      : { type: 'forecast', id: `FC-${article}` } as any,
-  } as Flow
+  const origin: Extract<FlowOrigin, { type: 'order' }> | Extract<FlowOrigin, { type: 'forecast' }> =
+    type === 'order'
+      ? { type: 'order', id: `CMD-${article}`, orderType: 'NOR', client: 'Test', pays: null, nature: 'COMMANDE', contremarque: null, qteCommandee: quantity, qteAllouee: 0 }
+      : { type: 'forecast', id: `FC-${article}`, customer: null, pays: null, orderType: null, contremarque: null, qteCommandee: quantity, qteAllouee: 0 }
+  return { article, quantity, direction: 'demand', date, origin }
 }
 
 test.group('consumeForecasts', () => {
@@ -80,5 +79,11 @@ test.group('consumeForecasts', () => {
     assert.equal(adjusted.length, 1)
     assert.equal(adjusted[0].quantity, 500)
     assert.equal(stats[0].forecastNet, 500)
+  })
+
+  test('empty demand list returns empty result', ({ assert }) => {
+    const { adjusted, stats } = consumeForecasts([])
+    assert.equal(adjusted.length, 0)
+    assert.equal(stats.length, 0)
   })
 })

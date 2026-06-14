@@ -41,6 +41,8 @@ router.group(() => {
   router.get('/events', '#controllers/planning_board_controller.listEvents')
   router.post('/board-feasibility', '#controllers/planning_board_controller.boardFeasibility')
   router.get('/nomenclature/:article', '#controllers/planning_board_controller.nomenclature')
+  router.get('/of-materials/:numOf', '#controllers/planning_board_controller.ofMaterials')
+  router.post('/reload', '#controllers/planning_board_controller.reloadData')
 }).prefix('/api/v1/planning-board')
 
 // Suivi Commandes
@@ -58,7 +60,13 @@ router.group(() => {
   router.post('/suivi-status', '#controllers/pipeline_controller.suiviStatus')
 }).prefix('/api/v1/pipeline')
 
-// X3 Data
+// X3 Data (raw SQL debug)
 router.group(() => {
   router.post('/load', '#controllers/x3_data_controller.load')
 }).prefix('/api/v1/data')
+
+// Données statiques (SQLite local, sync depuis X3)
+router.group(() => {
+  router.get('/status', '#controllers/static_sync_controller.status')
+  router.post('/sync', '#controllers/static_sync_controller.sync')
+}).prefix('/api/v1/static')

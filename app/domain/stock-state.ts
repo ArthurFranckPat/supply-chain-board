@@ -11,6 +11,13 @@ import type { Nomenclature } from './models/nomenclature.js'
 import { checkFeasibility } from './feasibility.js'
 import { isFirm } from './rules.js'
 
+
+export interface FeasibilityOptions {
+  useReceptions?: boolean
+  mode?: 'immediate' | 'sequential'
+  /** Allocations ERP par numéro d'OF : Map<numOf, Map<article, qteAllouee>> */
+  allocations?: Map<string, Map<string, number>>
+}
 export interface FeasibilityEntry {
   numOf: string
   article: string
@@ -54,13 +61,12 @@ function classifyFeasibility(result: { feasible: boolean; blockingComponents: Ar
 }
 
 /**
- * Évalue la faisabilité de tous les OF avec allocation virtuelle séquentielle.
+ * Vérifie la faisabilité composants pour une liste d'OF.
  *
- * Algorithme :
- * 1. Stock initial = stock flows + réceptions dans horizon
- * 2. Pré-passe : vérifie faisabilité sur stock complet → tri (faisable d'abord)
- * 3. Tri : (ferme d'abord, date_besoin, faisable avant non-faisable, numOf)
- * 4. Boucle : checkFeasibility avec StockState partagé → si faisable, alloue composants ACHAT
+ * @param mode — 'immediate' : chaque OF vérifié indépendamment (pas de consommation).
+ *                'sequential' : OFs triés par priorité, chaque allocation consomme le stock
+ *                et impacte la faisabilité des suivants (par défaut).
+ * @param options.useReceptions — prend en compte les réceptions (par défaut true).
  */
 export function evaluateSequentialFeasibility(
   ofs: OfInput[],
@@ -68,12 +74,14 @@ export function evaluateSequentialFeasibility(
   nomenclatures: Map<string, Nomenclature>,
   articles: Map<string, Article>,
   horizonEnd: Date,
-  options?: { useReceptions?: boolean },
+  options?: FeasibilityOptions,
 ): Map<string, FeasibilityEntry> {
   const useReceptions = options?.useReceptions ?? true
+  const mode = options?.mode ?? 'immediate'
 
   // 1. Build initial stock
   const initialStock = new Map<string, number>()
+  const entries = new Map<string, FeasibilityEntry>()
   for (const flow of flows) {
     if (flow.direction !== 'supply') continue
     if (flow.origin.type === 'stock') {
@@ -86,23 +94,51 @@ export function evaluateSequentialFeasibility(
 
   const stockState = new StockState(initialStock)
 
-  // 2. Separate firm OFs with ERP allocations (skip virtual allocation)
-  const firmWithAllocations = new Set<string>()
-  // In TS we don't have ERP allocation data directly, so we skip this for now
-
-  // 3. Pre-pass: feasibility on full stock for sorting (rule 2)
-  const preFeasible = new Map<string, boolean>()
-  for (const ofInput of ofs) {
-    if (firmWithAllocations.has(ofInput.numOf)) continue
-    const result = checkFeasibility(ofInput.article, ofInput.qteRestante, flows, nomenclatures, articles, horizonEnd)
-    preFeasible.set(ofInput.numOf, result.feasible)
-  }
-
-  // 4. Sort: firm first, date_besoin, feasible first (rule 2), numOf
   const dateBesoin = (ofInput: OfInput) => ofInput.dateDebut ?? ofInput.dateFin ?? ''
-  const sorted = ofs
-    .filter((ofInput) => !firmWithAllocations.has(ofInput.numOf))
-    .sort((a, b) => {
+
+  if (mode === 'immediate') {
+    for (const ofInput of ofs) {
+      if (isFirm(ofInput.statutNum)) {
+        entries.set(ofInput.numOf, {
+          numOf: ofInput.numOf, article: ofInput.article, feasible: true,
+          status: 'ok' as const, missingComponents: {}, alerts: [], allocated: {},
+          dateBesoin: dateBesoin(ofInput) || null, statutNum: ofInput.statutNum,
+        })
+        continue
+      }
+      const ofAllocs = options?.allocations?.get(ofInput.numOf)
+      const result = checkFeasibility(ofInput.article, ofInput.qteRestante, flows, nomenclatures, articles, horizonEnd, true, undefined, ofAllocs)
+      const missingComponents: Record<string, number> = {}
+      for (const bc of result.blockingComponents) {
+        missingComponents[bc.article] = bc.shortage
+      }
+      entries.set(ofInput.numOf, {
+        numOf: ofInput.numOf, article: ofInput.article, feasible: result.feasible,
+        status: classifyFeasibility(result), missingComponents, alerts: [], allocated: {},
+        dateBesoin: dateBesoin(ofInput) || null, statutNum: ofInput.statutNum,
+      })
+    }
+  } else {
+    // Mode séquentiel
+    const preFeasible = new Map<string, boolean>()
+    for (const ofInput of ofs) {
+      if (isFirm(ofInput.statutNum)) continue
+      const ofAllocs = options?.allocations?.get(ofInput.numOf)
+      const result = checkFeasibility(ofInput.article, ofInput.qteRestante, flows, nomenclatures, articles, horizonEnd, true, undefined, ofAllocs)
+      preFeasible.set(ofInput.numOf, result.feasible)
+    }
+    // OF fermes : toujours faisables, pas de calcul, pas d'allocation virtuelle
+    for (const ofInput of ofs) {
+      if (!isFirm(ofInput.statutNum)) continue
+      entries.set(ofInput.numOf, {
+        numOf: ofInput.numOf, article: ofInput.article, feasible: true,
+        status: 'ok' as const, missingComponents: {}, alerts: [], allocated: {},
+        dateBesoin: dateBesoin(ofInput) || null, statutNum: ofInput.statutNum,
+      })
+    }
+    // OF non fermes : allocation virtuelle séquentielle
+    const nonFirm = ofs.filter((o) => !isFirm(o.statutNum))
+    const sorted = nonFirm.sort((a, b) => {
       const pa = isFirm(a.statutNum) ? 0 : 1
       const pb = isFirm(b.statutNum) ? 0 : 1
       if (pa !== pb) return pa - pb
@@ -114,58 +150,42 @@ export function evaluateSequentialFeasibility(
       if (fa !== fb) return fa - fb
       return a.numOf.localeCompare(b.numOf)
     })
-
-  // 5. Sequential allocation loop — use mutable flows so checkFeasibility sees consumed stock
-  const entries = new Map<string, FeasibilityEntry>()
-  const mutableFlows = flows.map((f) => ({ ...f }))
-
-  for (const ofInput of sorted) {
-    const result = checkFeasibility(ofInput.article, ofInput.qteRestante, mutableFlows, nomenclatures, articles, horizonEnd)
-
-    const allocated: Record<string, number> = {}
-    if (result.feasible) {
-      const requirements = directPurchaseRequirements(ofInput.article, ofInput.qteRestante, nomenclatures)
-      for (const [article, besoin] of Object.entries(requirements)) {
-        const qte = Math.min(besoin, stockState.getAvailable(article))
-        if (qte > 0) {
-          allocated[article] = qte
+    const mutableFlows = flows.map((f) => ({ ...f }))
+    for (const ofInput of sorted) {
+      const result = checkFeasibility(ofInput.article, ofInput.qteRestante, mutableFlows, nomenclatures, articles, horizonEnd)
+      const allocated: Record<string, number> = {}
+      if (result.feasible) {
+        const requirements = directPurchaseRequirements(ofInput.article, ofInput.qteRestante, nomenclatures)
+        for (const [article, besoin] of Object.entries(requirements)) {
+          const qte = Math.min(besoin, stockState.getAvailable(article))
+          if (qte > 0) allocated[article] = qte
         }
-      }
-      if (Object.keys(allocated).length > 0) {
-        stockState.allocate(ofInput.numOf, allocated)
-        // Decrement mutable flows so subsequent OFs see reduced stock
-        for (const [article, qty] of Object.entries(allocated)) {
-          let remaining = qty
-          for (const flow of mutableFlows) {
-            if (remaining <= 0) break
-            if (flow.article === article && flow.direction === 'supply' && flow.quantity > 0) {
-              const taken = Math.min(remaining, flow.quantity)
-              flow.quantity -= taken
-              remaining -= taken
+        if (Object.keys(allocated).length > 0) {
+          stockState.allocate(ofInput.numOf, allocated)
+          for (const [article, qty] of Object.entries(allocated)) {
+            let remaining = qty
+            for (const flow of mutableFlows) {
+              if (remaining <= 0) break
+              if (flow.article === article && flow.direction === 'supply' && flow.quantity > 0) {
+                const taken = Math.min(remaining, flow.quantity)
+                flow.quantity -= taken
+                remaining -= taken
+              }
             }
           }
         }
       }
+      const missingComponents: Record<string, number> = {}
+      for (const bc of result.blockingComponents) {
+        missingComponents[bc.article] = bc.shortage
+      }
+      entries.set(ofInput.numOf, {
+        numOf: ofInput.numOf, article: ofInput.article, feasible: result.feasible,
+        status: classifyFeasibility(result), missingComponents, alerts: [], allocated,
+        dateBesoin: dateBesoin(ofInput) || null, statutNum: ofInput.statutNum,
+      })
     }
-
-    const missingComponents: Record<string, number> = {}
-    for (const bc of result.blockingComponents) {
-      missingComponents[bc.article] = bc.shortage
-    }
-
-    entries.set(ofInput.numOf, {
-      numOf: ofInput.numOf,
-      article: ofInput.article,
-      feasible: result.feasible,
-      status: classifyFeasibility(result),
-      missingComponents,
-      alerts: [],
-      allocated,
-      dateBesoin: dateBesoin(ofInput) || null,
-      statutNum: ofInput.statutNum,
-    })
   }
-
   return entries
 }
 

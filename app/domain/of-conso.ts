@@ -15,6 +15,18 @@ import type { Nomenclature } from './models/nomenclature.js'
 import { isPurchaseArticle } from './rules.js'
 import { StockState } from './stock-state.js'
 
+type OfOrigin = Extract<FlowOrigin, { type: 'of' }>
+type OrderOrForecastOrigin = Extract<FlowOrigin, { type: 'order' } | { type: 'forecast' }>
+
+function isOfOrigin(origin: FlowOrigin): origin is OfOrigin {
+  return origin.type === 'of'
+}
+
+function isOrderOrForecastOrigin(origin: FlowOrigin): origin is OrderOrForecastOrigin {
+  return origin.type === 'order' || origin.type === 'forecast'
+}
+
+
 export class OFConso {
   ofFlow: Flow
   qteDisponible: number
@@ -29,11 +41,11 @@ export class OFConso {
   }
 
   get numOf(): string {
-    return (this.ofFlow.origin as any).id ?? ''
+    return isOfOrigin(this.ofFlow.origin) ? this.ofFlow.origin.id : ''
   }
 
   get statutNum(): number {
-    return (this.ofFlow.origin as any).status ?? 3
+    return isOfOrigin(this.ofFlow.origin) ? this.ofFlow.origin.status : 3
   }
 
   get article(): string {
@@ -94,12 +106,12 @@ function statutPriority(statutNum: number): number {
 }
 
 function getOfStatus(origin: FlowOrigin): number {
-  if (origin.type === 'of') return (origin as any).status ?? 3
+  if (origin.type === 'of') return (origin as OfOrigin).status ?? 3
   return 3
 }
 
 function getOfId(origin: FlowOrigin): string {
-  if (origin.type === 'of') return (origin as any).id ?? ''
+  if (origin.type === 'of') return (origin as OfOrigin).id ?? ''
   return ''
 }
 
@@ -167,7 +179,7 @@ export class CommandeOFMatcher {
   }
 
   private matchMts(demand: Flow): MatchingResult {
-    const numCommande = (demand.origin as any).id ?? ''
+    const numCommande = isOrderOrForecastOrigin(demand.origin) ? demand.origin.id : ''
 
     const linkedOfs = this.supplyFlows.filter((f) => {
       if (f.direction !== 'supply' || f.origin.type !== 'of') return false
@@ -236,13 +248,16 @@ export class CommandeOFMatcher {
     }
   }
 
-  private iterOfCandidates(demand: Flow): OFConso[] {
+  private iterOfCandidates(demand: Flow, isForecast: boolean = false): OFConso[] {
     const demandDate = demand.date?.getTime() ?? Date.now()
     const candidates: Array<[number, number, number, OFConso]> = []
 
     for (const conso of this.ofConso.values()) {
       if (conso.article !== demand.article) continue
       if (conso.qteDisponible <= 0) continue
+
+      // Python: forecasts do not consume firm (1) or planned (2) OFs.
+      if (isForecast && (conso.statutNum === 1 || conso.statutNum === 2)) continue
 
       const ofDate = conso.ofFlow.date?.getTime() ?? 0
       const ecartDays = Math.abs(ofDate - demandDate) / 86400000
@@ -264,7 +279,26 @@ export class CommandeOFMatcher {
   }
 
   private matchNorMto(demand: Flow, stockState: StockState): MatchingResult {
-    const numCommande = (demand.origin as any).id ?? demand.article
+    const numCommande = isOrderOrForecastOrigin(demand.origin) ? demand.origin.id : demand.article
+    const contremarque: string | null = isOrderOrForecastOrigin(demand.origin) ? demand.origin.contremarque ?? null : null
+
+    // Contremarque = lien direct commande↔OF dans X3 (hard peg prioritaire).
+    if (contremarque) {
+      const peggedFlow = this.supplyFlows.find(
+        (f) => f.direction === 'supply' && f.origin.type === 'of' && getOfId(f.origin) === contremarque,
+      )
+      if (peggedFlow) {
+        const allocation = this.allocateStock(demand, stockState)
+        const ofAlloc = this.consumeOfQuantity(peggedFlow, demand.quantity, numCommande, 'contremarque hard peg')
+        const remaining = Math.max(0, demand.quantity - ofAlloc.qteAllouee - allocation.qteAllouee)
+        return {
+          demandFlow: demand, of: peggedFlow, matchingMethod: 'mts_hard_pegging',
+          alerts: remaining > 0 ? [`Contremarque: couverture partielle (${demand.quantity - remaining}/${demand.quantity})`] : [],
+          stockAllocation: allocation, ofAllocations: [ofAlloc], remainingUncoveredQty: remaining,
+        }
+      }
+    }
+
     const allocation = this.allocateStock(demand, stockState)
 
     if (allocation.besoinNet === 0) {
@@ -290,7 +324,7 @@ export class CommandeOFMatcher {
     let remaining = allocation.besoinNet
     const ofAllocations: OFMatchAllocation[] = []
 
-    for (const conso of this.iterOfCandidates(demand)) {
+    for (const conso of this.iterOfCandidates(demand, demand.origin.type === 'forecast')) {
       if (remaining <= 0) break
       const alloc = this.consumeOfQuantity(conso.ofFlow, remaining, numCommande, 'MTO/NOR couverture cumulative')
       if (alloc.qteAllouee <= 0) continue
@@ -320,7 +354,7 @@ export class CommandeOFMatcher {
 
   matchCommande(demand: Flow, stockState?: StockState): MatchingResult {
     const origin = demand.origin
-    if (origin.type === 'order' && (origin as any).orderType === 'MTS') {
+    if (isOrderOrForecastOrigin(origin) && origin.orderType === 'MTS') {
       return this.matchMts(demand)
     }
     return this.matchNorMto(demand, stockState ?? this.createStockState())

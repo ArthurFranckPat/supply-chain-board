@@ -243,6 +243,7 @@ function computeWaterfall(
   articlePaths: Map<string, string[]>,
   poolTotal: number,
   demands: Flow[],
+  flows: Flow[],
 ): Map<string, BlockedOrder> {
   const waterfallDemands: WaterfallDemand[] = []
 
@@ -266,7 +267,7 @@ function computeWaterfall(
 
   const remainingStock = new Map<string, number>()
   for (const articleCode of articleRatios.keys()) {
-    remainingStock.set(articleCode, currentStock(demands, articleCode))
+    remainingStock.set(articleCode, currentStock(flows, articleCode))
   }
 
   let cumulImpact = 0
@@ -377,7 +378,7 @@ export function analyseRupture(
   })
 
   const waterfallResults = computeWaterfall(
-    articleRatios, articlePaths, poolTotal, demands,
+    articleRatios, articlePaths, poolTotal, demands, flows,
   )
 
   const blockedOrders = [...waterfallResults.values()].sort(

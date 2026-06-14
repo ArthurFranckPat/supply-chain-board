@@ -78,6 +78,26 @@ test.group('shortageAt', () => {
     ]
     assert.equal(shortageAt(flows, 'A', 100, new Date('2026-01-10')), 70)
   })
+
+  test('considers reserved quantity', ({ assert }) => {
+    const flows: Flow[] = [
+      makeFlow({ article: 'A', direction: 'supply', quantity: 20, date: null }),
+    ]
+    assert.equal(shortageAt(flows, 'A', 30, new Date('2026-01-10'), 4), 6)
+  })
+})
+
+test.group('availableAt with virtual stock state', () => {
+  test('uses stock state when receptions are ignored', ({ assert }) => {
+    const d1 = new Date('2026-01-10')
+    const flows: Flow[] = [
+      makeFlow({ article: 'A', direction: 'supply', quantity: 50, date: null }),
+      makeFlow({ article: 'A', direction: 'supply', quantity: 30, date: d1, origin: { type: 'reception', id: 'R1', supplier: 'S', designation: null, categorie: null, dateCommande: null, qteCommandee: 0 } }),
+    ]
+    const stockState = { getAvailable: () => 12.5 }
+
+    assert.equal(availableAt(flows, 'A', d1, false, stockState), 12.5)
+  })
 })
 
 test.group('firstCoverageDate', () => {
@@ -157,5 +177,17 @@ test.group('snapshot', () => {
     assert.equal(snap.availableAtDate, 80)
     assert.equal(snap.shortage, 20)
     assert.deepEqual(snap.earliestReception, d1)
+  })
+
+  test('can ignore receptions', ({ assert }) => {
+    const d1 = new Date('2026-01-10')
+    const flows: Flow[] = [
+      makeFlow({ article: 'A', direction: 'supply', quantity: 50, date: null }),
+      makeFlow({ article: 'A', direction: 'supply', quantity: 30, date: d1, origin: { type: 'reception', id: 'R1', supplier: 'S', designation: null, categorie: null, dateCommande: null, qteCommandee: 0 } }),
+    ]
+    const snap = snapshot(flows, 'A', d1, undefined, false)
+    assert.equal(snap.currentStock, 50)
+    assert.equal(snap.receptionsUntilDate, 0)
+    assert.equal(snap.availableAtDate, 50)
   })
 })

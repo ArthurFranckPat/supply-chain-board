@@ -22,6 +22,8 @@ export interface ApiDefinition {
     listEvents: typeof routes['planning_board.list_events']
     boardFeasibility: typeof routes['planning_board.board_feasibility']
     nomenclature: typeof routes['planning_board.nomenclature']
+    ofMaterials: typeof routes['planning_board.of_materials']
+    reloadData: typeof routes['planning_board.reload_data']
   }
   suivi: {
     assign: typeof routes['suivi.assign']
@@ -36,5 +38,9 @@ export interface ApiDefinition {
   }
   x3Data: {
     load: typeof routes['x_3_data.load']
+  }
+  staticSync: {
+    status: typeof routes['static_sync.status']
+    sync: typeof routes['static_sync.sync']
   }
 }

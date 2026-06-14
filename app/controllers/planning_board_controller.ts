@@ -1,16 +1,20 @@
 import { HttpContext } from '@adonisjs/core/http'
 import { OverrideStore } from '#services/override_store'
+import { FeasibilityLoaderAdapter, buildStocksMap, buildReceptionsMap } from '#services/feasibility-loader-adapter'
+import { whatifOrder } from '#app/domain/planning-board-feasibility'
+import type { OfRecord } from '#app/domain/recursive-checker'
+import boardDataset from '#services/board_dataset'
 import { mergeOfWithOverride, type OfFromErp } from '#app/domain/planning_board'
-import { checkFeasibility, type FeasibilityResult } from '#app/domain/feasibility'
+import { FeasibilityService } from '#app/domain/feasibility-service'
 import { matchOrders } from '#app/domain/orders'
 import { evaluateOrderImpacts } from '#app/domain/order-impacts'
-import { X3OfRepository } from '#repositories/of_repository'
-import { X3GammeRepository } from '#repositories/gamme_repository'
+import { X3OfRepository, type ManufacturingOrder } from '#repositories/of_repository'
+import type { GammeOperation } from '#app/domain/models/gamme'
 import { X3StockRepository } from '#repositories/stock_repository'
 import { X3ReceptionRepository } from '#repositories/reception_repository'
 import { X3BesoinClientRepository } from '#repositories/besoin_client_repository'
 import { X3NomenclatureRepository } from '#repositories/nomenclature_repository'
-import type { Flow } from '#app/domain/models/flow'
+import { X3MfgmatRepository } from '#repositories/mfgmat_repository'
 import type { Article } from '#app/domain/models/article'
 import type { Nomenclature } from '#app/domain/models/nomenclature'
 
@@ -65,12 +69,25 @@ export default class PlanningBoardController {
     const windowStart = startParam ? new Date(startParam) : new Date()
     windowStart.setHours(0, 0, 0, 0)
 
-    const [mos, gammeOps, overrides] = await Promise.all([
-      new X3OfRepository().getManufacturingOrders(),
-      new X3GammeRepository().getFirstOperations().catch(() => []),
-      this.store.getAll(),
-    ])
+    // Données servies par le loader mémoire (BoardDataset) ; ?refresh=1 recharge.
+    const force = !!ctx.request.input('refresh')
+    let mos: ManufacturingOrder[] = []
+    let gammeOps: GammeOperation[] = []
+    let x3Error: string | null = null
 
+    try {
+      const [ref, ord] = await Promise.all([
+        boardDataset.getReferential(force),
+        boardDataset.getOrders(force),
+      ])
+      gammeOps = ref.gamme
+      mos = ord.mos
+    } catch (e) {
+      x3Error = (e as Error).message
+    }
+
+    // Overrides toujours frais (SQLite, peu coûteux).
+    const overrides = await this.store.getAll()
     const overrideMap = new Map(overrides.map((o) => [o.numOf, o]))
     const gammeMap = new Map(gammeOps.map((g) => [g.article, g]))
 
@@ -296,7 +313,17 @@ export default class PlanningBoardController {
       totalOf: mos.length,
       backlogCount: backlog.length,
       lineCount: lines.length,
+      x3Error,
+      cached: boardDataset.status().ordersAt
+        ? new Date(boardDataset.status().ordersAt!).toLocaleTimeString('fr-FR')
+        : null,
     })
+  }
+
+  /** Vide le cache mémoire (référentiel + OF + fenêtres) → prochain accès = données X3 fraîches. */
+  async reloadData(_ctx: HttpContext) {
+    boardDataset.reloadAll()
+    return { reloaded: true }
   }
 
   async show(ctx: HttpContext) {
@@ -352,19 +379,18 @@ export default class PlanningBoardController {
     const deleted = await this.store.deleteAll()
     return { deleted }
   }
-
   async feasibility(ctx: HttpContext) {
-    const { articles: articlesInput, nomenclatures: nomInput, upToDate } = ctx.request.only([
-      'articles', 'nomenclatures', 'upToDate',
+    const { articles: articlesInput, nomenclatures: nomInput, upToDate, useReceptions } = ctx.request.only([
+      'articles', 'nomenclatures', 'upToDate', 'useReceptions',
     ])
+    const includeReceptions = useReceptions !== false
+    const upToDateDate = upToDate ? new Date(upToDate) : undefined
 
     const [ofFlows, stockFlows, receptionFlows] = await Promise.all([
       new X3OfRepository().getSupplyFlows(),
       new X3StockRepository().getStockFlows(),
       new X3ReceptionRepository().getReceptionFlows(),
     ])
-
-    const allFlows: Flow[] = [...ofFlows, ...stockFlows, ...receptionFlows]
 
     const articles = new Map<string, Article>(
       (articlesInput ?? []).map((a: Article) => [a.code, a])
@@ -373,28 +399,54 @@ export default class PlanningBoardController {
       (nomInput ?? []).map((n: Nomenclature) => [n.article, n])
     )
 
-    const ofsToCheck = ofFlows.map((f) => ({
-      article: f.article,
-      quantity: f.quantity,
-    }))
+    const stocksMap = buildStocksMap(
+      stockFlows.map((f) => ({ article: f.article, origin: f.origin as { subType?: string }, quantity: f.quantity })),
+    )
+    const receptionsMap = buildReceptionsMap(
+      receptionFlows.map((f) => ({ article: f.article, id: (f.origin as { id?: string }).id, supplier: (f.origin as { supplier?: string }).supplier, quantity: f.quantity, date: f.date })),
+    )
 
-    const upToDateDate = upToDate ? new Date(upToDate) : undefined
+    const adapter = new FeasibilityLoaderAdapter({
+      articles,
+      nomenclatures,
+      stocks: stocksMap,
+      receptions: receptionsMap,
+      ofs: [],
+    })
+    const service = new FeasibilityService(adapter)
 
-    const results: Record<string, FeasibilityResult> = {}
+    const OF_ORIGIN_SUBSTR = 'of'
+    const ofArticles = new Map<string, number>()
+    for (const f of ofFlows) {
+      if ((f.origin as { type?: string }).type !== OF_ORIGIN_SUBSTR) continue
+      const article = f.article
+      ofArticles.set(article, (ofArticles.get(article) ?? 0) + f.quantity)
+    }
+
+    const results: Record<string, unknown> = {}
     let feasibleCount = 0
     let blockedCount = 0
-
-    for (const of of ofsToCheck) {
-      const key = `${of.article} (${of.quantity})`
-      const result = checkFeasibility(of.article, of.quantity, allFlows, nomenclatures, articles, upToDateDate)
-      results[key] = result
+    for (const [article, quantity] of ofArticles) {
+      const key = `${article} (${quantity})`
+      const result = service.check(article, quantity, upToDateDate ?? new Date(), { useReceptions: includeReceptions })
+      results[key] = {
+        feasible: result.feasible,
+        blockingComponents: result.componentGaps.map((g) => ({
+          article: g.article,
+          needed: g.quantityNeeded,
+          available: g.quantityAvailable,
+          shortage: g.quantityGap,
+        })),
+        componentGaps: result.componentGaps,
+        feasibleDate: result.feasibleDate,
+      }
       if (result.feasible) feasibleCount++
       else blockedCount++
     }
 
     return {
       results,
-      stats: { total: ofsToCheck.length, feasible: feasibleCount, blocked: blockedCount },
+      stats: { total: ofArticles.size, feasible: feasibleCount, blocked: blockedCount },
     }
   }
 
@@ -403,49 +455,59 @@ export default class PlanningBoardController {
     const whatifOverrides = (body.overrides ?? []) as Array<{ numOf: string; dateFin?: string; status?: number }>
     const articlesInput = body.articles
 
-    const [ofFlows, stockFlows, receptionFlows, demandFlows] = await Promise.all([
+    const [ofFlows, stockFlows, receptionFlows] = await Promise.all([
       new X3OfRepository().getSupplyFlows(),
       new X3StockRepository().getStockFlows(),
       new X3ReceptionRepository().getReceptionFlows(),
-      new X3BesoinClientRepository().getDemandFlows(),
     ])
 
     const articles = new Map<string, Article>(
       (articlesInput ?? []).map((a: Article) => [a.code, a])
     )
 
-    const overrideMap = new Map(whatifOverrides.map((o) => [o.numOf, o]))
+    // Build overrides map in format expected by whatifOrder
+    const overrides: Record<string, Partial<OfRecord>> = {}
+    for (const ov of whatifOverrides) {
+      overrides[ov.numOf] = {}
+      if (ov.dateFin) overrides[ov.numOf].dateFin = new Date(ov.dateFin)
+      if (ov.status !== undefined) overrides[ov.numOf].statutNum = ov.status
+    }
 
-    const modifiedFlows = ofFlows.map((f) => {
-      const sim = overrideMap.get((f.origin as any).id)
-      if (!sim) return f
-      return {
-        ...f,
-        date: sim.dateFin ? new Date(sim.dateFin) : f.date,
-        origin: { ...f.origin, status: sim.status ?? (f.origin as any).status },
-      }
+    // Build adapter from fetched data using helpers
+    const stocksMap = buildStocksMap(
+      stockFlows.map((f) => ({ article: f.article, origin: f.origin as { subType?: string }, quantity: f.quantity })),
+    )
+    const receptionsMap = buildReceptionsMap(
+      receptionFlows.map((f) => ({ article: f.article, id: (f.origin as { id?: string }).id, supplier: (f.origin as { supplier?: string }).supplier, quantity: f.quantity, date: f.date })),
+    )
+    const ofs: OfRecord[] = ofFlows
+      .filter((f) => (f.origin as { type?: string }).type === 'of')
+      .map((f) => {
+        const origin = f.origin as { id: string; status?: number }
+        return { numOf: origin.id, article: f.article, statutNum: origin.status ?? 3, qteRestante: f.quantity, dateFin: f.date ?? undefined }
+      })
+
+    const adapter = new FeasibilityLoaderAdapter({
+      articles,
+      nomenclatures: new Map(),
+      stocks: stocksMap,
+      receptions: receptionsMap,
+      ofs,
     })
 
-    const allSupply = [...modifiedFlows, ...stockFlows, ...receptionFlows]
-    const matches = matchOrders(demandFlows, allSupply, articles)
+    // Basic window: last 7 days to next 42 days
+    const now = new Date()
+    const fromD = new Date(now)
+    fromD.setDate(now.getDate() - 7)
+    const toD = new Date(now)
+    toD.setDate(now.getDate() + 42)
+
+    const result = whatifOrder(adapter, overrides, '', 0, now, fromD, toD)
 
     return {
       simulated: true,
-      overrideCount: overrideMap.size,
-      orderMatching: {
-        total: matches.length,
-        covered: matches.filter((m) => m.uncovered === 0).length,
-        partial: matches.filter((m) => m.uncovered > 0 && m.coveredByOf.length > 0).length,
-        uncovered: matches.filter((m) => m.method === 'none').length,
-      },
-      details: matches.map((m) => ({
-        article: m.demandFlow.article,
-        method: m.method,
-        coveredByStock: m.coveredByStock,
-        coveredByOf: m.coveredByOf,
-        uncovered: m.uncovered,
-        alerts: m.alerts,
-      })),
+      overrideCount: whatifOverrides.length,
+      whatif: result,
     }
   }
 
@@ -532,13 +594,10 @@ export default class PlanningBoardController {
     const fromParam = ctx.request.input('from') as string | undefined
     const toParam = ctx.request.input('to') as string | undefined
     const workstationFilter = ctx.request.input('workstation') as string | undefined
+    const mode = ctx.request.input('mode') as string | undefined
 
-    if (!fromParam || !toParam) {
-      return ctx.response.badRequest({ error: 'Paramètres "from" et "to" requis (YYYY-MM-DD)' })
-    }
-
-    const windowFrom = new Date(fromParam)
-    const windowTo = new Date(toParam)
+    const windowFrom = new Date(fromParam ?? '')
+    const windowTo = new Date(toParam ?? '')
     windowFrom.setHours(0, 0, 0, 0)
     windowTo.setHours(23, 59, 59, 999)
 
@@ -546,13 +605,20 @@ export default class PlanningBoardController {
       return ctx.response.badRequest({ error: 'Dates invalides' })
     }
 
-    const [ofFlows, stockFlows, receptionFlows, demandFlows, overrides] = await Promise.all([
-      new X3OfRepository().getSupplyFlows(),
-      new X3StockRepository().getStockFlows(),
-      new X3ReceptionRepository().getReceptionFlows(),
-      new X3BesoinClientRepository().getDemandFlows(),
-      this.store.getAll(),
-    ])
+    const force = !!ctx.request.input('refresh')
+
+    // Données via le loader : OF (supply) + référentiel cachés, demande/réception
+    // scopées à l'horizon, stock scopé aux articles concernés.
+    const [{ supply: ofFlows }, { demand: demandFlows, reception: receptionFlows }, { gamme }, nomenclatureEntries, articlesList] =
+      await Promise.all([
+        boardDataset.getOrders(force),
+        boardDataset.getLive(fromParam ?? '', toParam ?? '', force),
+        boardDataset.getReferential(force),
+        boardDataset.getNomenclature(force),
+        boardDataset.getArticles(),
+      ])
+
+    const overrides = await this.store.getAll()
 
     // Filtrer les OF à l'horizon du board
     const filteredOfFlows = ofFlows.filter((f) => {
@@ -560,12 +626,11 @@ export default class PlanningBoardController {
       return f.date >= windowFrom && f.date <= windowTo
     })
 
-    // Filtrer par workstation si demandé
+    // Filtrer par workstation si demandé (gammes du référentiel caché)
     let finalOfFlows = filteredOfFlows
     if (workstationFilter) {
-      const gammeOps = await new X3GammeRepository().getFirstOperations().catch(() => [])
       const wstByArticle = new Map<string, string>()
-      for (const g of gammeOps) {
+      for (const g of gamme) {
         if (g.workstation && g.article) wstByArticle.set(g.article, g.workstation)
       }
       finalOfFlows = filteredOfFlows.filter((f) => {
@@ -574,16 +639,34 @@ export default class PlanningBoardController {
       })
     }
 
-    // Filtrer les demandes à l'horizon
+    // Demandes déjà scopées par X3 ; re-filtre défensif sur l'horizon exact.
     const filteredDemands = demandFlows.filter((f) => {
       if (!f.date) return false
       return f.date >= windowFrom && f.date <= windowTo
     })
 
-    // Nomenclatures : lazy — pas de fetch X3 bloquant.
-    // Le matching fonctionne sans nomenclatures.
-    // La faisabilité composants sera calculée à la demande (clic OF → sidebar).
-    const nomenclatureEntries: Awaited<ReturnType<X3NomenclatureRepository['getNomenclatureEntries']>> = []
+    // Stock vivant, scopé aux articles de la fenêtre + composants BOM ACHAT (tous niveaux).
+    const articleSet = new Set<string>()
+    for (const f of finalOfFlows) if (f.article) articleSet.add(f.article)
+    for (const f of filteredDemands) if (f.article) articleSet.add(f.article)
+    for (const f of receptionFlows) if (f.article) articleSet.add(f.article)
+
+    // Expand récursivement à TOUS les composants (ACHETE + FABRIQUE) de tous les niveaux BOM.
+    // Sans ça, checkFeasibility descend dans un sous-ensemble fabriqué sans OF et trouve 0 stock
+    // pour ses composants ACHETE car ils n'ont pas été chargés.
+    let added = true
+    while (added) {
+      added = false
+      for (const entry of nomenclatureEntries) {
+        if (articleSet.has(entry.parentArticle) && !articleSet.has(entry.componentArticle)) {
+          articleSet.add(entry.componentArticle)
+          added = true
+        }
+      }
+    }
+    const stockFlows = await boardDataset.getStock([...articleSet])
+
+    // Nomenclatures : chargées via boardDataset.getNomenclature() ci-dessus (TTL 2h, tier séparé).
 
     const allSupply = [...finalOfFlows, ...stockFlows, ...receptionFlows]
 
@@ -601,7 +684,7 @@ export default class PlanningBoardController {
       }
     }
 
-    const articles = new Map<string, Article>()
+    const articles = new Map<string, Article>(articlesList.map((a) => [a.code, a]))
     for (const entry of nomenclatureEntries) {
       if (!articles.has(entry.parentArticle)) {
         articles.set(entry.parentArticle, {
@@ -642,9 +725,112 @@ export default class PlanningBoardController {
     const result = evaluateOrderImpacts(
       filteredDemands, allSupply, nomenclatures, articles, overrideMap,
       { from: windowFrom, to: windowTo },
+      mode as 'immediate' | 'sequential' | undefined,
     )
 
     return result
+  }
+
+  async ofMaterials(ctx: HttpContext) {
+    const numOf = ctx.params.numOf
+    if (!numOf) return ctx.response.badRequest({ error: 'numOf requis' })
+
+    // Déterminer le statut de l'OF (ferme = pas de calcul faisabilité)
+    const ofFlows = await new X3OfRepository().getSupplyFlows().catch(() => [])
+    const targetFlow = ofFlows.find((f) => (f.origin as { id?: string }).id === numOf)
+    const isFirm = (targetFlow?.origin as { status?: number }).status === 1
+
+    // 1. MFGMAT (X3) — données réelles de l'OF
+    const materials = await new X3MfgmatRepository().getMaterials(numOf)
+    if (materials.length === 0) {
+      return this.ofMaterialsFromBom(numOf, isFirm)
+    }
+
+    // MFGMAT → ajoute disponibilité stock par composant
+    const articles = [...new Set(materials.map((m) => m.article).filter(Boolean))]
+    const stockFlows = await boardDataset.getStock(articles).catch(() => [])
+
+    const stockByArticle = new Map<string, number>()
+    for (const f of stockFlows) {
+      const sub = (f.origin as any)?.subType
+      if (sub === 'strict' || sub === 'qc') {
+        stockByArticle.set(f.article, (stockByArticle.get(f.article) ?? 0) + f.quantity)
+      }
+    }
+
+    const result = materials.map((m) => {
+      const available = stockByArticle.get(m.article) ?? null
+      const needed = m.remaining
+      // OF ferme : toujours faisable, pas de calcul stock
+      // Sinon : stock disponible + allocation ERP >= besoin (même calcul que checkFeasibility)
+      const feasible = isFirm ? true : (available !== null ? available + m.allocated >= needed : null)
+      return { ...m, available, feasible, missing: feasible === false ? Math.max(0, needed - (available ?? 0)) : 0 }
+    })
+
+    const blocked = result.filter((m) => m.feasible === false).length
+    return { numOf, materials: result, feasible: blocked === 0, blockedCount: blocked }
+  }
+
+  /**
+   * Fallback BOM — utilisé quand MFGMAT n'a pas de données pour cet OF.
+   */
+  private async ofMaterialsFromBom(numOf: string, isFirm?: boolean) {
+    const ofFlows = await new X3OfRepository().getSupplyFlows().catch(() => [])
+    const targetFlow = ofFlows.find((f) => {
+      const id = (f.origin as { id?: string }).id
+      return id === numOf
+    })
+    if (!targetFlow) {
+      return { numOf, materials: [], message: "OF introuvable — impossible de déterminer l'article" }
+    }
+    const article = targetFlow.article
+
+    // Récupérer la nomenclature
+    const nomEntries = await new X3NomenclatureRepository().getNomenclatureEntries().catch(() => [])
+    const bomComponents = nomEntries.filter((e) => e.parentArticle === article)
+    if (!bomComponents.length) {
+      return { numOf, article, materials: [], message: `Aucune nomenclature trouvée pour ${article}` }
+    }
+
+    // Stock pour tous les composants
+    const compArticles = [...new Set(bomComponents.map((c) => c.componentArticle))]
+    const stockFlows = await boardDataset.getStock(compArticles).catch(() => [])
+
+    const stockByArticle = new Map<string, number>()
+    for (const f of stockFlows) {
+      const sub = (f.origin as any)?.subType
+      if (sub === 'strict' || sub === 'qc') {
+        stockByArticle.set(f.article, (stockByArticle.get(f.article) ?? 0) + f.quantity)
+      }
+    }
+
+    const receptionFlows = await new X3ReceptionRepository().getReceptionFlows().catch(() => [])
+    const now = new Date()
+    const nFr = (n: number) => Math.round(n * 100) / 100
+
+    const materials = bomComponents.map((comp) => {
+      const remaining = comp.linkQuantity * targetFlow.quantity
+      let stockTotal = stockByArticle.get(comp.componentArticle) ?? 0
+      for (const rec of receptionFlows) {
+        if (rec.article === comp.componentArticle && rec.date && rec.date <= now) {
+          stockTotal += rec.quantity
+        }
+      }
+      const stockFeasible = stockTotal >= remaining
+      const feasible = isFirm ? true : stockFeasible
+      return {
+        article: comp.componentArticle,
+        description: comp.componentDescription,
+        remaining: nFr(remaining),
+        unit: '',
+        available: nFr(stockTotal),
+        feasible,
+        missing: feasible ? 0 : nFr(remaining - stockTotal),
+      }
+    })
+
+    const blocked = materials.filter((m) => !m.feasible).length
+    return { numOf, article, materials, feasible: blocked === 0, blockedCount: blocked }
   }
 
   async nomenclature(ctx: HttpContext) {

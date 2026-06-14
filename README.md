@@ -1,147 +1,187 @@
-# Supply Chain Board Monorepo
+# Supply Chain Board
 
-This repository is a monorepo that hosts independent supply-chain applications and shared integration building blocks.
+API AdonisJS qui regroupe le tableau d'ordonnancement (planning board Gantt), le suivi des commandes et la faisabilité de production. Elle s'appuie sur une base SQLite locale et interroge Sage X3 via SOAP/SQL.
 
-## Goals
+## Stack
 
-- Keep each app autonomous: codebase, release cadence, tests, dependencies.
-- Avoid direct cross-app imports.
-- Enable communication through stable APIs and shared contracts.
+- **Framework** : [AdonisJS](https://adonisjs.com/) v7 + TypeScript
+- **ORM** : Lucid (SQLite locale)
+- **Frontend embarqué** : Edge.js + [Unpoly](https://unpoly.com/) (servi depuis `node_modules`)
+- **Base distante** : Sage X3 Oracle via web-services SOAP
 
-## Repository layout
+## Structure
 
 ```text
-apps/
-  planning-engine/     # Scheduling engine app shell (Python + FastAPI)
-    production_planning/
-      models/         # BesoinClient, OF, Article, Stock, etc.
-      loaders/        # CSV loading from ERP extractions
-      orders/         # Matching, allocation, forecast consumption
-      feasibility/    # Feasibility verification and analyses
-      planning/       # Calendar, capacity, holidays, weights, charge calculations
-      scheduling/     # Scheduling engine, line scheduling, reporting
-      api/            # FastAPI server (port 8000)
-    config/           # calendar.json, capacity.json, holidays, weights
-  suivi-commandes/    # Order tracking and status logic
-  board-ui/           # Unified cockpit UI (React + Vite + TypeScript)
-packages/
-  domain-contracts/   # Shared Pydantic contracts used by services
-  integration-sdk/    # HTTP clients for inter-service communication
-services/
-  integration-hub/    # Orchestration API that combines app capabilities
-infra/
-  docker-compose.yml  # Local orchestration of APIs
+app/
+  controllers/        # Contrôleurs HTTP
+  domain/             # Logique métier pure (faisabilité, disponibilité, matching, etc.)
+  domain/models/      # Types métiers (Flow, Article, Gamme, Nomenclature, etc.)
+  models/             # Modèles Lucid (SQLite)
+  models/x3/          # Modèles Lucid branchés sur le dialecte X3 SOAP
+  repositories/       # Accès données X3
+  services/           # Services applicatifs (cache, sync statique, overrides)
+  x3/                 # Client SOAP, dialecte Knex, parseur SQL
+  middleware/         # Middlewares Unpoly et JSON
+config/               # Configuration AdonisJS (DB, X3, CORS, etc.)
+database/
+  migrations/         # Schémas SQLite (overrides, menus, tables statiques)
+  schema.ts           # Généré par AdonisJS
+start/
+  routes.ts           # Déclaration des routes
+  env.ts              # Validation des variables d'environnement
+resources/views/      # Templates Edge (board.edge, partials, debug X3)
 ```
 
-## Communication model
+## Prérequis
 
-- `suivi-commandes` exposes status computation API endpoints.
-- `planning-engine` exposes versioned scheduling, feasibility, calendar and capacity APIs under `/api/v1`.
-- `suivi-commandes` exposes versioned order-status APIs under `/api/v1`.
-- `integration-hub` orchestrates both APIs and returns consolidated pipeline payloads under `/api/v1`.
+- Node.js 20+
+- npm
+- Accès réseau à l'instance Sage X3 (test et/ou prod)
 
-## Planning-engine data source
+## Configuration
 
-`planning-engine` reads ERP CSV extractions from a centralized folder configured via:
-
-```
-ORDO_EXTRACTIONS_DIR=/path/to/extractions
-```
-
-Expected files: `Articles.csv`, `Gammes.csv`, `Nomenclatures.csv`, `Besoins Clients.csv`, `Ordres de fabrication.csv`, `Stocks.csv`, `Commandes Achats.csv`, `Allocations.csv`
-
-See `apps/planning-engine/CLAUDE.md` for full column-level documentation.
-
-## Development workflow (solo)
-
-Before every push, lint and tests are checked automatically via a `pre-push` git hook. If either fails, the push is blocked until you fix the issues.
+Copier le fichier d'exemple et renseigner les variables :
 
 ```bash
-# Install the hooks once
-./scripts/install-hooks.sh
-
-# Or manually copy the hook
-cp scripts/githooks/pre-push .git/hooks/pre-push
-chmod +x .git/hooks/pre-push
+cp .env.example .env
 ```
 
-What the hook runs:
+Variables obligatoires :
+
+```text
+NODE_ENV=development
+HOST=0.0.0.0
+PORT=3333
+LOG_LEVEL=info
+APP_KEY=your-app-key-here
+APP_URL=http://localhost:3333
+SESSION_DRIVER=memory
+
+X3_ENV=test
+X3_TEST_HOST=your-x3-host
+X3_TEST_PORT=8124
+X3_TEST_USERNAME=your-username
+X3_TEST_PASSWORD=your-password
+X3_TEST_POOL=your-pool
+```
+
+Pour la production, définir également les variables `X3_PROD_*`.
+
+## Démarrage
+
 ```bash
-cd apps/planning-engine
-python -m ruff check production_planning/
-python -m pytest tests/ -q
+# Installation des dépendances
+npm install
+
+# Démarrage en mode dev avec HMR
+npm run dev
+
+# Build de production
+npm run build
+npm start
 ```
 
-You can bypass the hook in emergencies with `git push --no-verify`, but prefer fixing the root cause.
+Le serveur écoute par défaut sur `http://localhost:3333`.
 
-## Local setup
+## Routes principales
 
-Quick path:
+### Health
 
-- `.\bootstrap.ps1` installs dependencies and starts the 3 APIs.
-- `.\bootstrap.ps1 -StartUi` also installs and starts `board-ui`.
+- `GET /health`
 
-Manual path:
+### Tableau d'ordonnancement
 
-1. Create and activate a Python 3.11+ virtual environment.
-2. Install editable shared packages:
-   - `pip install -e packages/domain-contracts`
-   - `pip install -e packages/integration-sdk`
-3. Install app dependencies:
-   - `pip install -r apps/planning-engine/requirements.txt`
-   - `pip install -r apps/suivi-commandes/requirements.txt`
-4. Install integration hub:
-   - `pip install -e services/integration-hub`
+- `GET /board` — Vue HTML Gantt interactive
+- `GET /api/v1/planning-board/ofs` — Liste des OF ouverts
+- `GET /api/v1/planning-board/ofs/:numOf` — Détail d'un OF
+- `PATCH /api/v1/planning-board/ofs/:numOf` — Modification locale (dates, statut, poste)
+- `DELETE /api/v1/planning-board/ofs/:numOf/override` — Suppression d'un override
+- `GET /api/v1/planning-board/overrides`
+- `DELETE /api/v1/planning-board/overrides`
+- `POST /api/v1/planning-board/feasibility`
+- `POST /api/v1/planning-board/whatif`
+- `POST /api/v1/planning-board/order-impacts`
+- `POST /api/v1/planning-board/board-feasibility`
+- `GET /api/v1/planning-board/of-materials/:numOf`
+- `GET /api/v1/planning-board/nomenclature/:article`
+- `POST /api/v1/planning-board/reload` — Vide les caches mémoire
 
-## Run locally
+### Suivi commandes
 
-One command:
+- `POST /api/v1/status/assign`
+- `POST /api/v1/status/from-latest-export`
+- `GET /api/v1/status/status/:noCommande`
+- `POST /api/v1/status/palette`
+- `POST /api/v1/status/retard-charge`
 
-- `.\bootstrap.ps1`
-- Optional with UI: `.\bootstrap.ps1 -StartUi`
+### Pipeline
 
-Manual:
+- `POST /api/v1/pipeline/supply-board`
+- `POST /api/v1/pipeline/suivi-status`
 
-- `planning-engine` API:
-  - `cd apps/planning-engine`
-  - `uvicorn production_planning.api.server:app --reload --port 8000`
-- `suivi-commandes` API:
-  - `cd apps/suivi-commandes`
-  - `pip install -r requirements.txt`
-  - `uvicorn suivi_commandes.api:app --reload --port 8001`
-- `integration-hub` API:
-  - `cd services/integration-hub`
-  - `uvicorn app.main:app --reload --port 8010`
-- `board-ui`:
-  - `cd apps/board-ui`
-  - `npm install`
-  - `npm run dev`
+### Données statiques (SQLite)
 
-Then call:
+- `GET /api/v1/static/status`
+- `POST /api/v1/static/sync` — Sync X3 → SQLite (articles, gammes, nomenclatures)
 
-- `GET http://127.0.0.1:8010/health`
-- `POST http://127.0.0.1:8010/api/v1/pipeline/supply-board`
+### Debug X3
 
-## Design rule
+- `GET /debug/x3`
+- `POST /api/v1/data/load` — Exécution SQL raw via SOAP (debug)
 
-No app-to-app direct import. Keep integration inside `services/` and `packages/`.
+## Architecture données
 
-## CI/CD
+### Cache mémoire (`app/services/board_dataset.ts`)
 
-GitHub Actions workflows are defined under `.github/workflows`:
+Trois niveaux de cache pour limiter les appels SOAP :
 
-- `ci.yml`:
-  - Trigger: `pull_request` + pushes on `main`, `refactor/**`, `feature/**`
-  - Runs `ruff` and Python tests for:
-    - `apps/planning-engine/tests`
-    - `apps/suivi-commandes/tests`
-    - `services/integration-hub/tests`
-  - Builds frontend: `npm --prefix apps/board-ui run build`
+- **Référentiel** (gammes, nomenclatures) : 2 h
+- **OF ouverts** : 5 min
+- **Live** (besoins clients + réceptions) : 2 min, scopé par fenêtre de dates
 
-- `cd.yml`:
-  - Trigger: push on `main`, tags `v*`, and manual `workflow_dispatch`
-  - Runs a quality gate (`ruff` + Python tests) before packaging
-  - Builds release artifacts:
-    - Python sdists/wheels for shared packages, apps, and services
-    - `board-ui` static bundle archive
-  - On tag `v*`, publishes a GitHub Release with generated notes and attached artifacts.
+Le stock est toujours frais, scopé aux articles demandés.
+
+### Sync statique
+
+Les tables `static_articles`, `static_gammes` et `static_nomenclatures` sont alimentées depuis X3 par `POST /api/v1/static/sync`. Elles servent à la faisabilité et au planning sans solliciter X3 à chaque requête.
+
+### Overrides
+
+Les modifications locales sur les OF (dates, statut, poste, note) sont stockées dans la table SQLite `of_overrides` et fusionnées avec les données X3 dans `app/domain/planning_board.ts`.
+
+### Connexion X3
+
+Le dialecte personnalisé dans `app/x3/client/` transforme les requêtes Lucid en appels SOAP vers le web-service `ZSOAPSQL` de Syracuse. Le client SOAP est implémenté avec `curl` dans `app/x3/soap-client.ts` pour la compatibilité avec l'existant.
+
+## Tests
+
+```bash
+# Tests complets
+npm test
+
+# Vérification des types
+npm run typecheck
+
+# Lint
+npm run lint
+
+# Format
+npm run format
+```
+
+Les tests couvrent les domaines métier (`tests/domain/`), les repositories et les routes fonctionnelles (`tests/functional/`).
+
+## Commandes utiles
+
+```bash
+# Lancer les migrations SQLite
+node ace migration:run
+
+# Vider et recréer la base de dev
+node ace migration:fresh
+```
+
+## Notes
+
+- Ce repo est **uniquement** l'API AdonisJS. Le monorepo Python/FastAPI décrit dans les anciennes versions du README n'est plus présent ici.
+- Les variables X3 peuvent être chiffrées avec `@dotenvx/dotenvx` ; le démarrage utilise `dotenvx run --`.

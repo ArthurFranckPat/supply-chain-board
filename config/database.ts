@@ -57,7 +57,9 @@ const dbConfig = defineConfig({
         password: env.get('X3_TEST_PASSWORD', ''),
         pool: env.get('X3_TEST_POOL', 'X3TEST'),
       } as any,
-      pool: { min: 1, max: 1 },
+      // max>1 : permet aux requêtes d'un Promise.all de partir en parallèle
+      // (SOAP Syracuse supporte la concurrence) au lieu d'être sérialisées.
+      pool: { min: 1, max: 4 },
     } as any,
 
     /**

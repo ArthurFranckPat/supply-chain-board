@@ -24,15 +24,17 @@ export interface FeasibilityResult {
 }
 
 /**
- * Verifie la faisabilite de produire `quantity` d'un article.
+ * Vérifie la faisabilité de produire `quantity` d'un article.
  *
  * @param article - Article a verifier
  * @param quantity - Quantite a produire
  * @param flows - Flows de stock/reception disponibles
  * @param nomenclatures - BOM par article
- * @param articles - Catalogue articles
- * @param upToDate - Date limite pour les receptions (optionnel)
+ * @param articles - Catalogue articles (utilisé pour classification)
+ * @param upToDate - Date limite pour les réceptions (optionnel)
+ * @param useReceptions - Si false, seul le stock immédiat est pris en compte. Defaut: false.
  * @param visited - Set anti-boucle circulaire (interne)
+ * @param allocations - Quantités déjà allouées en ERP par article (ignorées dans le calcul)
  */
 export function checkFeasibility(
   article: string,
@@ -41,7 +43,9 @@ export function checkFeasibility(
   nomenclatures: Map<string, Nomenclature>,
   articles: Map<string, Article>,
   upToDate?: Date,
+  useReceptions: boolean = false,
   visited?: Set<string>,
+  allocations?: Map<string, number>,
 ): FeasibilityResult {
   const blocking: BlockingComponent[] = []
   const seen = visited ?? new Set<string>()
@@ -59,23 +63,29 @@ export function checkFeasibility(
 
   for (const entry of bom.components) {
     const needed = requiredQty(entry, quantity)
-
     if (entry.componentType === 'ACHETE') {
-      // Composant achete: verifier stock + receptions
-      const avail = upToDate
-        ? availableAt(flows, entry.componentArticle, upToDate)
-        : availableAt(flows, entry.componentArticle, new Date('2099-12-31'))
+      // Déduire les quantités déjà allouées en ERP (ne pas les re-vérifier)
+      const alreadyAllocated = allocations?.get(entry.componentArticle) ?? 0
+      const remainingNeed = Math.max(0, needed - alreadyAllocated)
+      if (remainingNeed <= 0) continue
 
-      if (avail < needed) {
+      // Composant acheté : vérifier stock + réceptions (paramétrable)
+      const avail = upToDate
+        ? availableAt(flows, entry.componentArticle, upToDate, useReceptions)
+        : availableAt(flows, entry.componentArticle, new Date('2099-12-31'), useReceptions)
+
+      if (avail < remainingNeed) {
         blocking.push({
           article: entry.componentArticle,
-          needed,
+          needed: remainingNeed,
           available: avail,
-          shortage: needed - avail,
+          shortage: remainingNeed - avail,
         })
       }
+    } else if (hasSupplyFlowFor(flows, entry.componentArticle)) {
+      // Composant fabriqué avec OF de couverture → ignoré (traité par son OF)
     } else {
-      // Composant fabrique: descendre recursivement
+      // Composant fabriqué SANS OF de couverture → descendre récursivement
       const subResult = checkFeasibility(
         entry.componentArticle,
         needed,
@@ -83,7 +93,9 @@ export function checkFeasibility(
         nomenclatures,
         articles,
         upToDate,
-        new Set(seen), // copie pour permettre meme composant dans branches differentes
+        useReceptions,
+        new Set(seen),
+        allocations,
       )
       blocking.push(...subResult.blockingComponents)
     }
@@ -93,6 +105,15 @@ export function checkFeasibility(
     feasible: blocking.length === 0,
     blockingComponents: blocking,
   }
+}
+
+
+/**
+ * Vérifie si un flux supply (OF) existe pour un article fabriqué.
+ * Si oui, le sous-ensemble a son propre OF → pas besoin de récursion.
+ */
+function hasSupplyFlowFor(flows: Flow[], article: string): boolean {
+  return flows.some((f) => f.article === article && f.direction === 'supply' && f.quantity > 0)
 }
 
 function requiredQty(entry: NomenclatureEntry, parentQty: number): number {

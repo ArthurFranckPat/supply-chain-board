@@ -120,7 +120,7 @@ test.group('checkFeasibility', () => {
       ['COMP1', makeArticle({ code: 'COMP1', supplyType: 'ACHAT' })],
     ])
     // Need 100 units ART1 → 200 COMP1. Stock=50 + recv=150 = 200 → feasible
-    const result = checkFeasibility('ART1', 100, flows, nomenclatures, articles, recvDate)
+      const result = checkFeasibility('ART1', 100, flows, nomenclatures, articles, recvDate, true)
     assert.isTrue(result.feasible)
   })
 

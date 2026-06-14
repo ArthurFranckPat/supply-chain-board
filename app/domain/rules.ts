@@ -50,3 +50,12 @@ export function demandPriorityKey(flow: Flow): [number, number] {
   const date = flow.date ? flow.date.getTime() : Infinity
   return [isCommande, date]
 }
+/** Pays d'origine France. */
+export function isFrance(origin: Extract<FlowOrigin, { type: 'order' | 'forecast' }>): boolean {
+  return origin.pays === 'FR'
+}
+
+/** Pays d'origine Export (tout sauf FR). */
+export function isExport(origin: Extract<FlowOrigin, { type: 'order' | 'forecast' }>): boolean {
+  return !isFrance(origin)
+}

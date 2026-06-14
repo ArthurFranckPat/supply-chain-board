@@ -2,19 +2,36 @@ import type { Flow } from '#app/domain/models/flow'
 import ItemMovement from '#models/x3/itmmvt'
 
 export class X3StockRepository {
-  async getStockFlows(): Promise<Flow[]> {
-    const rows = await ItemMovement.query()
-      .select(
-        'ITMMVT.ITMREF_0',
-        'ITMMVT.PHYSTO_0',
-        'ITMMVT.CTLSTO_0',
-        'ITMMVT.REJSTO_0',
-        'ITMMVT.PHYALL_0',
-        'ITMMVT.GLOALL_0',
-        'ITMMVT.AVC_0',
-      )
-      .innerJoin('ITMMASTER', 'ITMMASTER.ITMREF_0', 'ITMMVT.ITMREF_0')
-      .where('ITMMASTER.ITMSTA_0', '1')
+  /**
+   * Stock courant. Si `articles` fourni → scope (WHERE ITMREF IN ...), batché
+   * par 1000 (limite Oracle). Sans `articles` → toute la base (lourd).
+   */
+  async getStockFlows(articles?: string[]): Promise<Flow[]> {
+    const base = () =>
+      ItemMovement.query()
+        .select(
+          'ITMMVT.ITMREF_0',
+          'ITMMVT.PHYSTO_0',
+          'ITMMVT.CTLSTO_0',
+          'ITMMVT.REJSTO_0',
+          'ITMMVT.PHYALL_0',
+          'ITMMVT.GLOALL_0',
+          'ITMMVT.AVC_0',
+        )
+        .innerJoin('ITMMASTER', 'ITMMASTER.ITMREF_0', 'ITMMVT.ITMREF_0')
+        .where('ITMMASTER.ITMSTA_0', '1')
+
+    let rows: ItemMovement[]
+    if (articles && articles.length > 0) {
+      const uniq = [...new Set(articles.filter(Boolean))]
+      rows = []
+      for (let i = 0; i < uniq.length; i += 1000) {
+        const part = await base().whereIn('ITMMVT.ITMREF_0', uniq.slice(i, i + 1000))
+        rows.push(...part)
+      }
+    } else {
+      rows = await base()
+    }
 
     const flows: Flow[] = []
     for (const row of rows) {

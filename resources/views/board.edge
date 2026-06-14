@@ -202,7 +202,24 @@
     .p-grid dd { margin: 0; text-align: right; color: var(--txt); font-weight: 600; padding: 7px 0; border-bottom: 1px solid var(--line-soft); font-variant-numeric: tabular-nums; }
     .p-note { margin-top: 12px; font-size: 12px; color: var(--txt); background: #fff7e6; border: 1px solid #f0d79a; border-radius: 4px; padding: 8px; display: none; }
 
+    /* Composants MFGMAT */
+    .mat-row { display: flex; align-items: center; gap: 6px; padding: 4px 0; border-bottom: 1px solid var(--line-soft); font-size: 11px; }
+    .mat-badge { flex: 0 0 auto; width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; }
+    .mat-badge.ok   { background: #2e9e00; color: #fff; }
+    .mat-badge.ko   { background: #b42318; color: #fff; }
+    .mat-badge.unk  { background: #c0c8d4; color: #fff; }
+    .mat-art { font-weight: 600; flex: 0 0 auto; min-width: 70px; color: var(--txt); }
+    .mat-des { flex: 1; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mat-qty { flex: 0 0 auto; text-align: right; color: var(--txt); font-weight: 600; font-variant-numeric: tabular-nums; }
+    .mat-miss { font-size: 10px; color: #b42318; flex: 0 0 auto; white-space: nowrap; }
+    .mat-summary { font-size: 11px; margin-bottom: 6px; padding: 5px 8px; border-radius: 4px; }
+    .mat-summary.ok  { background: #eaf6e2; color: #2e9e00; }
+    .mat-summary.ko  { background: #fef3f2; color: #b42318; }
+    .mat-summary.unk { background: #f1f4f8; color: var(--muted); }
+
     .bar.selected { outline: 2px solid var(--aldes); outline-offset: 0; z-index: 5; }
+    .x3-banner { background: #fef3f2; border: 1px solid #f1bcb6; color: #b42318; padding: 8px 14px; font-size: 12px; }
+    .x3-banner a { color: #b42318; font-weight: 600; }
     .bar .feas-badge {
       position: absolute; top: -6px; right: -4px;
       width: 14px; height: 14px; border-radius: 50%;
@@ -219,6 +236,9 @@
     }
     .backlog-btn:hover { background: #ffe9cc; }
     .backlog-btn b { color: #b42318; }
+    .reload-btn { background: #fff; color: var(--txt); border: 1px solid var(--line); border-radius: 4px; padding: 5px 10px; font-size: 12px; cursor: pointer; }
+    .reload-btn:hover { border-color: var(--aldes); color: var(--aldes); }
+    .reload-btn:disabled { opacity: .6; cursor: default; }
     #backlog {
       position: fixed; top: 0; left: 0; height: 100vh; width: 300px;
       background: var(--panel); border-right: 1px solid var(--line);
@@ -273,6 +293,11 @@
     <input id="search" type="search" placeholder="Rechercher — ligne de production, OF ou article…" autocomplete="off">
     <span class="hint" id="search-hint"></span>
     <button type="button" id="backlog-btn" class="backlog-btn" style="display:none">⚠ Retard <b id="backlog-count">0</b></button>
+    <button type="button" id="reload-btn" class="reload-btn" title="Recharger les données depuis X3">↻ Recharger</button>
+    <div style="display:inline-flex;align-items:center;gap:0;border:1px solid var(--line);border-radius:4px;overflow:hidden;font-size:12px">
+      <button type="button" id="mode-immediate" class="mode-btn" style="background:#fff;color:var(--txt);border:none;padding:5px 8px;cursor:pointer;font-size:12px;font-weight:600;color:var(--aldes)">Immédiat</button>
+      <button type="button" id="mode-sequential" class="mode-btn" style="background:#fff;color:var(--txt);border:none;padding:5px 8px;cursor:pointer;font-size:12px">Séquentiel</button>
+    </div>
     <button type="button" id="feasibility-btn" style="background:#fff;border:1px solid var(--line);color:var(--txt);font-size:12px;padding:5px 10px;border-radius:4px;cursor:pointer">🔍 Faisabilité</button>
     <span id="feasibility-status" style="font-size:11px;color:var(--muted);display:none"></span>
     <label class="toggle" style="margin-left:auto">
@@ -282,6 +307,9 @@
 
   <div id="board-main" data-start="{{ start }}" data-horizon="{{ horizon }}">
   <script type="application/json" id="board-data">{{{ boardDataJson }}}</script>
+  @if(x3Error)
+    <div class="x3-banner">⚠ X3 injoignable — données {{ cached ? 'du cache (' + cached + ')' : 'indisponibles' }}. <a href="/board?start={{ start }}&days={{ horizon }}&refresh=1" up-follow up-target="#board-main, #board-meta">Réessayer</a></div>
+  @end
   <div class="gantt" style="--cols:{{ cols }}">
     @if(lines.length === 0)
       <div class="empty-board">Aucun OF planifiable dans la fenêtre (vérifier gamme / dates).</div>
@@ -375,9 +403,10 @@
       <div id="p-feas-details" style="font-size:11px;color:var(--muted)"></div>
     </div>
 
-    <div id="p-bom-section" style="margin-top:16px;display:none">
-      <div style="font-size:12px;font-weight:600;color:var(--txt);margin-bottom:6px;border-bottom:1px solid var(--line-soft);padding-bottom:4px">Nomenclature</div>
-      <div id="p-bom-list" style="font-size:11px"></div>
+    <div id="p-mat-section" style="margin-top:16px;display:none">
+      <div style="font-size:12px;font-weight:600;color:var(--txt);margin-bottom:6px;border-bottom:1px solid var(--line-soft);padding-bottom:4px">Composants (MFGMAT)</div>
+      <div id="p-mat-summary"></div>
+      <div id="p-mat-list"></div>
     </div>
   </aside>
 
@@ -634,7 +663,7 @@
 
     // Cache résultats faisabilité (rempli par le bouton Faisabilité)
     let feasResults = null  // { orders: [...], ofFeasibility: Map<numOf, { feasible, missingComponents, alerts }> }
-    let bomCache = {}  // { article: [components] }
+    let matCache = {}  // { numOf: { materials, feasible, blockedCount } }
 
     function getOfFeasibility(numOf) {
       if (!feasResults || !feasResults.ofFeasibility) return null
@@ -668,44 +697,31 @@
       const note = document.getElementById('p-note')
       note.textContent = d.note || ''
       note.style.display = d.note ? 'block' : 'none'
+      // Faisabilité : déléguée à la section "Composants (MFGMAT)" ci-dessous
+      // qui affiche la même info avec plus de détail (stock dispo, articles, quantités).
+      // On cache l'ancienne section redondante qui utilisait un calcul différent.
+      document.getElementById('p-feas-section').style.display = 'none'
 
-      // Faisabilité
-      const feasSection = document.getElementById('p-feas-section')
-      const feasStatus = document.getElementById('p-feas-status')
-      const feasDetails = document.getElementById('p-feas-details')
-      const feas = getOfFeasibility(numOf)
-      if (feas) {
-        feasSection.style.display = ''
-        if (feas.feasible) {
-          feasStatus.innerHTML = '<span style="color:#2e9e00;font-weight:600">✅ Faisable</span> — tous les composants sont disponibles'
-          feasDetails.textContent = ''
-        } else {
-          const missing = feas.missingComponents || {}
-          const lines = Object.entries(missing).map(([art, qty]) => `<div style="color:#b42318">• ${art} : manque ${typeof qty === 'number' ? Math.round(qty * 100) / 100 : qty}</div>`).join('')
-          feasStatus.innerHTML = '<span style="color:#b42318;font-weight:600">❌ Bloqué</span> — composants manquants :'
-          feasDetails.innerHTML = lines || (feas.alerts || []).map(a => `<div style="color:#d98200">⚠ ${a}</div>`).join('')
-        }
+      // Composants MFGMAT
+      const matSection = document.getElementById('p-mat-section')
+      const matSummary = document.getElementById('p-mat-summary')
+      const matList = document.getElementById('p-mat-list')
+      const globalFeasExists = feasResults && feasResults.ofFeasibility && feasResults.ofFeasibility[numOf] !== undefined
+      if (matCache[numOf]) {
+        renderMaterials(matCache[numOf], { silentBadge: globalFeasExists })
       } else {
-        feasSection.style.display = 'none'
-      }
-
-      // Nomenclature (fetch si pas en cache)
-      const bomSection = document.getElementById('p-bom-section')
-      const bomList = document.getElementById('p-bom-list')
-      if (bomCache[d.article]) {
-        renderBom(bomCache[d.article])
-      } else {
-        bomSection.style.display = ''
-        bomList.innerHTML = '<div style="color:var(--muted);font-style:italic">Chargement…</div>'
-        fetch('/api/v1/planning-board/nomenclature/' + encodeURIComponent(d.article))
+        matSection.style.display = ''
+        matSummary.textContent = ''
+        matList.innerHTML = '<div style="color:var(--muted);font-style:italic;font-size:11px">Chargement…</div>'
+        fetch('/api/v1/planning-board/of-materials/' + encodeURIComponent(numOf))
           .then(r => r.ok ? r.json() : Promise.reject(r.statusText))
           .then(data => {
-            bomCache[d.article] = data.components || []
-            if (panelNum === numOf) renderBom(bomCache[d.article])
+            matCache[numOf] = data
+            if (panelNum === numOf) renderMaterials(data, { silentBadge: globalFeasExists })
           })
           .catch(() => {
-            bomCache[d.article] = []
-            if (panelNum === numOf) renderBom([])
+            matCache[numOf] = { materials: [], feasible: null, blockedCount: 0 }
+            if (panelNum === numOf) renderMaterials(matCache[numOf], { silentBadge: globalFeasExists })
           })
       }
 
@@ -716,26 +732,67 @@
       if (bar) bar.classList.add('selected')
     }
 
-    function renderBom(components) {
-      const bomSection = document.getElementById('p-bom-section')
-      const bomList = document.getElementById('p-bom-list')
-      if (!components || components.length === 0) {
-        bomSection.style.display = ''
-        bomList.innerHTML = '<div style="color:var(--muted);font-style:italic">Nomenclature non disponible</div>'
+    function applyBarBadge(numOf, feasible) {
+      const bar = document.querySelector(`.bar[data-num-of="${CSS.escape ? CSS.escape(numOf) : numOf}"]`)
+      if (!bar) return
+      bar.style.outline = ''
+      bar.style.outlineOffset = ''
+      const old = bar.querySelector('.feas-badge')
+      if (old) old.remove()
+      if (feasible === true) {
+        bar.style.outline = '2px solid #2e9e00'
+        bar.style.outlineOffset = '-1px'
+        bar.insertAdjacentHTML('beforeend', '<span class="feas-badge feas-ok" title="Composants disponibles (MFGMAT)">✓</span>')
+      } else if (feasible === false) {
+        bar.style.outline = '2px solid #b42318'
+        bar.style.outlineOffset = '-1px'
+        bar.insertAdjacentHTML('beforeend', '<span class="feas-badge feas-blocked" title="Composants manquants (MFGMAT)">✕</span>')
+      }
+    }
+
+    function renderMaterials(data, opts) {
+      const silentBadge = opts && opts.silentBadge
+      const matSection = document.getElementById('p-mat-section')
+      const matSummary = document.getElementById('p-mat-summary')
+      const matList = document.getElementById('p-mat-list')
+      matSection.style.display = ''
+      const mats = data.materials || []
+      if (!mats.length) {
+        matSummary.innerHTML = ''
+        matList.innerHTML = '<div style="color:var(--muted);font-style:italic;font-size:11px">Aucun composant trouvé dans cet OF</div>'
         return
       }
-      bomSection.style.display = ''
-      const rows = components.map(c => {
-        const typeColor = c.type === 'ACHETE' ? '#0069B4' : '#2e9e00'
-        const typeLabel = c.type === 'ACHETE' ? 'ACH' : 'FAB'
-        return `<div style="display:flex;align-items:center;gap:6px;padding:3px 0;border-bottom:1px solid var(--line-soft)">
-          <span style="background:${typeColor};color:#fff;border-radius:2px;padding:1px 4px;font-size:9px;font-weight:600;flex:0 0 auto">${typeLabel}</span>
-          <span style="font-weight:600;flex:0 0 auto;min-width:80px">${c.componentArticle}</span>
-          <span style="color:var(--muted);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.description || ''}</span>
-          <span style="color:var(--txt);font-weight:600;flex:0 0 auto">×${c.linkQuantity}</span>
+      // Résumé global
+      const known = mats.filter(m => m.feasible !== null)
+      if (!known.length) {
+        matSummary.innerHTML = '<div class="mat-summary unk">Stock non disponible — faisabilité inconnue</div>'
+      } else if (data.feasible) {
+        matSummary.innerHTML = '<div class="mat-summary ok">✅ Tous les composants sont disponibles</div>'
+      } else {
+        matSummary.innerHTML = `<div class="mat-summary ko">❌ ${data.blockedCount} composant(s) en rupture</div>`
+      }
+      // Lignes composants
+      const nFr = (n) => n == null ? '—' : new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 }).format(n)
+      const rows = mats.map(m => {
+        const badgeCls = m.feasible === null ? 'unk' : m.feasible ? 'ok' : 'ko'
+        const badgeLbl = m.feasible === null ? '?' : m.feasible ? '✓' : '✗'
+        const missHtml = m.feasible === false
+          ? `<span class="mat-miss">−${nFr(m.missing)}</span>`
+          : ''
+        const stockTip = m.available !== null ? `Stock dispo : ${nFr(m.available)} ${m.unit || ''}` : 'Stock inconnu'
+        return `<div class="mat-row" title="${escHtml(stockTip)}">
+          <span class="mat-badge ${badgeCls}">${badgeLbl}</span>
+          <span class="mat-art">${escHtml(m.article)}</span>
+          <span class="mat-des">${escHtml(m.description)}</span>
+          <span class="mat-qty">${nFr(m.remaining)} ${escHtml(m.unit || '')}</span>
+          ${missHtml}
         </div>`
       }).join('')
-      bomList.innerHTML = rows
+      matList.innerHTML = rows
+      // Badge barre Gantt : ne pas override si faisabilité globale déjà faite
+      if (!silentBadge && data.feasible !== null && data.feasible !== undefined && panelNum) {
+        applyBarBadge(panelNum, data.feasible)
+      }
     }
     function closePanel() {
       panel.classList.remove('open')
@@ -745,9 +802,85 @@
     }
     document.getElementById('p-close').addEventListener('click', closePanel)
     document.addEventListener('click', (e) => {
-      const bar = e.target.closest('.bar')
-      if (bar) { openPanel(bar.dataset.numOf); return }
-      if (!e.target.closest('#panel')) closePanel()
+      const node = e.target.closest('.bar, .card')
+      if (node) { openPanel(node.dataset.numOf); return }
+      if (!e.target.closest('#panel') && !e.target.closest('#backlog') && !e.target.closest('#backlog-btn')) closePanel()
+    })
+
+    /* ---------- Backlog : OF en retard (fin < début de fenêtre) ---------- */
+    const escHtml = (s) => String(s == null ? '' : s).replace(/[&<>"]/g,
+      (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+    const parseIso = (iso) => { const [y, m, d] = iso.split('-').map(Number); return new Date(y, m - 1, d) }
+    const daysBetween = (a, b) => Math.round((parseIso(b) - parseIso(a)) / 86400000)
+    const frDay = (iso) => { if (!iso) return '—'; const p = iso.split('-'); return p[2] + '/' + p[1] }
+
+    function buildBacklog() {
+      const list = document.getElementById('backlog-list')
+      const btn = document.getElementById('backlog-btn')
+      const cnt = document.getElementById('backlog-count')
+      if (!list || !btn) return
+      const first = DAYS[0]
+      const overdue = first
+        ? Object.values(OFDATA).filter((o) => o.workstation && o.endIso && o.endIso < first)
+        : []
+      overdue.sort((a, b) => (a.endIso < b.endIso ? -1 : a.endIso > b.endIso ? 1 : 0))
+
+      cnt.textContent = overdue.length
+      btn.style.display = overdue.length ? '' : 'none'
+      if (!overdue.length) {
+        list.innerHTML = '<div class="bk-empty">Aucun OF en retard 🎉</div>'
+        document.getElementById('backlog').classList.remove('open')
+        return
+      }
+
+      const byLine = {}
+      overdue.forEach((o) => { (byLine[o.workstation] = byLine[o.workstation] || []).push(o) })
+      let html = ''
+      Object.keys(byLine).sort().forEach((line) => {
+        const lbl = byLine[line][0].workstationLabel || line
+        html += '<div class="bk-line">' + escHtml(lbl) + '</div>'
+        byLine[line].forEach((o) => {
+          const late = daysBetween(o.startIso || o.endIso, first)
+          html += '<div class="card st-' + o.status + '" draggable="true"'
+            + ' data-num-of="' + escHtml(o.numOf) + '" data-art="' + escHtml(o.article) + '"'
+            + ' data-line="' + escHtml(o.workstation) + '" data-span="' + (o.spanDays || 1) + '"'
+            + ' data-hours="' + (o.hours || 0) + '">'
+            + '<span class="num">' + escHtml(o.numOf) + '</span>'
+            + '<span class="art">' + escHtml(o.article) + '</span>'
+            + '<span class="qty">×' + fr(o.qtyRemaining) + '</span>'
+            + '<span class="c-late">prévu ' + frDay(o.startIso) + ' · ' + late + ' j de retard</span>'
+            + '</div>'
+        })
+      })
+      list.innerHTML = html
+    }
+    document.getElementById('backlog-btn').addEventListener('click', () => {
+      document.getElementById('backlog').classList.toggle('open')
+    })
+
+    // Recharger : vide le cache serveur puis re-render le board (données X3 fraîches).
+    const reloadBtn = document.getElementById('reload-btn')
+    reloadBtn.addEventListener('click', async () => {
+      reloadBtn.disabled = true
+      const old = reloadBtn.textContent
+      reloadBtn.textContent = '⏳ …'
+      try {
+        await fetch('/api/v1/planning-board/reload', { method: 'POST' })
+        if (window.up && up.render) {
+          await up.render({ target: '#board-main, #board-meta', url: location.pathname + location.search, cache: false })
+        } else {
+          location.reload()
+        }
+        toast('Données rechargées')
+      } catch (e) {
+        toast('Échec rechargement : ' + e.message, true)
+      } finally {
+        reloadBtn.disabled = false
+        reloadBtn.textContent = old
+      }
+    })
+    document.getElementById('bk-close').addEventListener('click', () => {
+      document.getElementById('backlog').classList.remove('open')
     })
 
     /* ---------- Init / ré-init après swap Unpoly ---------- */
@@ -756,7 +889,11 @@
       applySpan()      // applique le mode compact au nouveau .gantt
       relayoutAll()    // empilement correct selon le mode (compact = 1 colonne)
       applyFilter()    // réapplique le filtre + recalcule la charge
+      buildBacklog()   // recalcule les OF en retard pour la nouvelle fenêtre
       closePanel()     // l'OF sélectionné peut ne plus exister
+      matCache = {}    // invalide le cache composants (nouvelles dates = nouveau stock potentiel)
+      document.querySelectorAll('.bar .feas-badge').forEach(b => b.remove())
+      document.querySelectorAll('.bar').forEach(b => { b.style.outline = ''; b.style.outlineOffset = '' })
     }
     if (window.up && up.compiler) {
       // Exécuté au boot ET à chaque insertion de #board-main (swap formulaire).
@@ -786,6 +923,20 @@
     const statutColor = { on_time: '#2e9e00', stock: '#2e9e00', retard: '#d98200', bloquee: '#b42318', sans_couverture: '#6b7480' }
     const statutLabel = { on_time: 'À temps', stock: 'Stock', retard: 'Retard', bloquee: 'Bloquée', sans_couverture: 'Sans couverture' }
 
+    // Mode d'allocation pour la faisabilité
+    let feasMode = 'immediate'
+    const modeBtns = document.querySelectorAll('.mode-btn')
+    function setMode(mode) {
+      feasMode = mode
+      modeBtns.forEach((btn) => {
+        const isActive = btn.id === 'mode-' + mode
+        btn.style.fontWeight = isActive ? '600' : '400'
+        btn.style.color = isActive ? 'var(--aldes)' : 'var(--txt)'
+      })
+    }
+    modeBtns.forEach((btn) => {
+      btn.addEventListener('click', () => setMode(btn.id.replace('mode-', '')))
+    })
     feasBtn.addEventListener('click', async () => {
       feasBtn.disabled = true
       feasBtn.textContent = '⏳ Calcul…'
@@ -820,7 +971,7 @@
         const res = await fetch('/api/v1/planning-board/board-feasibility', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ from, to, workstation }),
+          body: JSON.stringify({ from, to, workstation, mode: feasMode }),
           signal: controller.signal,
         })
         clearTimeout(timeout)
@@ -882,6 +1033,13 @@
             else if (of.feasible === true) ofStatusMap[of.numOf] = 'ok'
           }
         }
+
+        // DEBUG
+        ;['F426-31559', 'F426-31579'].forEach((targetOf) => {
+          if (ofStatusMap[targetOf]) console.log('DEBUG ofStatusMap[' + targetOf + ']:', ofStatusMap[targetOf])
+          const entries = orders.flatMap((o) => (o.ofs || []).filter((of) => of.numOf === targetOf))
+          if (entries.length) console.log('DEBUG API ofs pour ' + targetOf + ':', entries)
+        })
         document.querySelectorAll('.bar').forEach(bar => {
           const num = bar.dataset.numOf
           bar.style.outline = ''

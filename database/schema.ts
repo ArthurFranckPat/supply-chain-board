@@ -42,3 +42,60 @@ export class OfOverrideSchema extends BaseModel {
   @column()
   declare workstation: string | null
 }
+
+export class StaticArticleSchema extends BaseModel {
+  static $columns = ['category', 'code', 'description', 'supplyType', 'syncedAt'] as const
+  $columns = StaticArticleSchema.$columns
+  @column()
+  declare category: string
+  @column({ isPrimary: true })
+  declare code: string
+  @column()
+  declare description: string
+  @column()
+  declare supplyType: string
+  @column()
+  declare syncedAt: number
+}
+
+export class StaticGammeSchema extends BaseModel {
+  static $columns = ['article', 'id', 'rate', 'syncedAt', 'workstation', 'workstationLabel'] as const
+  $columns = StaticGammeSchema.$columns
+  @column()
+  declare article: string
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare rate: number
+  @column()
+  declare syncedAt: number
+  @column()
+  declare workstation: string
+  @column()
+  declare workstationLabel: string
+}
+
+export class StaticNomenclatureSchema extends BaseModel {
+  static $columns = ['componentArticle', 'componentDescription', 'componentType', 'consumptionNature', 'id', 'level', 'linkQuantity', 'parentArticle', 'parentDescription', 'syncedAt'] as const
+  $columns = StaticNomenclatureSchema.$columns
+  @column()
+  declare componentArticle: string
+  @column()
+  declare componentDescription: string
+  @column()
+  declare componentType: string
+  @column()
+  declare consumptionNature: string
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare level: number
+  @column()
+  declare linkQuantity: number
+  @column()
+  declare parentArticle: string
+  @column()
+  declare parentDescription: string
+  @column()
+  declare syncedAt: number
+}

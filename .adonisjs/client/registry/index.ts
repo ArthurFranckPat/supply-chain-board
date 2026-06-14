@@ -96,6 +96,18 @@ const routes = {
     tokens: [{"old":"/api/v1/planning-board/nomenclature/:article","type":0,"val":"api","end":""},{"old":"/api/v1/planning-board/nomenclature/:article","type":0,"val":"v1","end":""},{"old":"/api/v1/planning-board/nomenclature/:article","type":0,"val":"planning-board","end":""},{"old":"/api/v1/planning-board/nomenclature/:article","type":0,"val":"nomenclature","end":""},{"old":"/api/v1/planning-board/nomenclature/:article","type":1,"val":"article","end":""}],
     types: placeholder as Registry['planning_board.nomenclature']['types'],
   },
+  'planning_board.of_materials': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/planning-board/of-materials/:numOf',
+    tokens: [{"old":"/api/v1/planning-board/of-materials/:numOf","type":0,"val":"api","end":""},{"old":"/api/v1/planning-board/of-materials/:numOf","type":0,"val":"v1","end":""},{"old":"/api/v1/planning-board/of-materials/:numOf","type":0,"val":"planning-board","end":""},{"old":"/api/v1/planning-board/of-materials/:numOf","type":0,"val":"of-materials","end":""},{"old":"/api/v1/planning-board/of-materials/:numOf","type":1,"val":"numOf","end":""}],
+    types: placeholder as Registry['planning_board.of_materials']['types'],
+  },
+  'planning_board.reload_data': {
+    methods: ["POST"],
+    pattern: '/api/v1/planning-board/reload',
+    tokens: [{"old":"/api/v1/planning-board/reload","type":0,"val":"api","end":""},{"old":"/api/v1/planning-board/reload","type":0,"val":"v1","end":""},{"old":"/api/v1/planning-board/reload","type":0,"val":"planning-board","end":""},{"old":"/api/v1/planning-board/reload","type":0,"val":"reload","end":""}],
+    types: placeholder as Registry['planning_board.reload_data']['types'],
+  },
   'suivi.assign': {
     methods: ["POST"],
     pattern: '/api/v1/status/assign',
@@ -143,6 +155,18 @@ const routes = {
     pattern: '/api/v1/data/load',
     tokens: [{"old":"/api/v1/data/load","type":0,"val":"api","end":""},{"old":"/api/v1/data/load","type":0,"val":"v1","end":""},{"old":"/api/v1/data/load","type":0,"val":"data","end":""},{"old":"/api/v1/data/load","type":0,"val":"load","end":""}],
     types: placeholder as Registry['x_3_data.load']['types'],
+  },
+  'static_sync.status': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/static/status',
+    tokens: [{"old":"/api/v1/static/status","type":0,"val":"api","end":""},{"old":"/api/v1/static/status","type":0,"val":"v1","end":""},{"old":"/api/v1/static/status","type":0,"val":"static","end":""},{"old":"/api/v1/static/status","type":0,"val":"status","end":""}],
+    types: placeholder as Registry['static_sync.status']['types'],
+  },
+  'static_sync.sync': {
+    methods: ["POST"],
+    pattern: '/api/v1/static/sync',
+    tokens: [{"old":"/api/v1/static/sync","type":0,"val":"api","end":""},{"old":"/api/v1/static/sync","type":0,"val":"v1","end":""},{"old":"/api/v1/static/sync","type":0,"val":"static","end":""},{"old":"/api/v1/static/sync","type":0,"val":"sync","end":""}],
+    types: placeholder as Registry['static_sync.sync']['types'],
   },
 } as const satisfies Record<string, AdonisEndpoint>
 

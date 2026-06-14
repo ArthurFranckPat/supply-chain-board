@@ -1,20 +1,28 @@
 import { test } from '@japa/runner'
-import type { Flow } from '#app/domain/models/flow'
+import type { Flow, FlowOrigin } from '#app/domain/models/flow'
 import type { Article } from '#app/domain/models/article'
 import { OFConso, CommandeOFMatcher } from '#app/domain/of-conso'
 
 function makeOfFlow(id: string, article: string, status: number, quantity: number, date?: Date): Flow {
-  return {
-    article, quantity, direction: 'supply', date: date ?? null,
-    origin: { type: 'of', id, status, designation: '', typeOfLabel: '', statutLabel: '' } as any,
+  const origin: Extract<FlowOrigin, { type: 'of' }> = {
+    type: 'of', id, status: status as 1 | 2 | 3, designation: '', typeOfLabel: '', statutLabel: '', typeOf: null,
   }
+  return { article, quantity, direction: 'supply', date: date ?? null, origin }
 }
 
 function makeDemandFlow(id: string, article: string, quantity: number, date: Date, orderType?: string): Flow {
-  return {
-    article, quantity, direction: 'demand', date,
-    origin: { type: 'order', id, orderType: orderType ?? 'NOR', client: 'Test' } as any,
+  const origin: Extract<FlowOrigin, { type: 'order' }> = {
+    type: 'order',
+    id,
+    orderType: (orderType ?? 'NOR') as 'MTS' | 'MTO' | 'NOR',
+    client: 'Test',
+    pays: null,
+    nature: 'COMMANDE',
+    contremarque: null,
+    qteCommandee: quantity,
+    qteAllouee: 0,
   }
+  return { article, quantity, direction: 'demand', date, origin }
 }
 
 function makeArticle(code: string, supplyType: 'ACHAT' | 'FABRICATION' = 'FABRICATION'): Article {
@@ -152,5 +160,95 @@ test.group('CommandeOFMatcher', () => {
 
     assert.equal(result.matchingMethod, 'none')
     assert.equal(result.remainingUncoveredQty, 50)
+  })
+
+  test('init accepts custom date tolerance', ({ assert }) => {
+    const matcher = new CommandeOFMatcher([], new Map(), new Map(), 5)
+    assert.equal(matcher['dateToleranceDays'], 5)
+  })
+
+  test('reset clears internal state', ({ assert }) => {
+    const ofFlow = makeOfFlow('OF1', 'ART1', 1, 100)
+    const matcher = new CommandeOFMatcher([ofFlow], new Map(), new Map())
+
+    matcher.matchCommandes([makeDemandFlow('CMD1', 'ART1', 50, new Date('2026-04-10'))])
+    matcher.reset()
+
+    assert.equal(matcher['ofConso'].size, 0)
+    assert.equal(matcher['ofsDejaUtilises'].size, 0)
+  })
+
+  test('MTS with contremarque links OF directly', ({ assert }) => {
+    const ofLinked = makeOfFlow('OF-MTS-1', 'ART1', 1, 50, new Date('2026-04-10'))
+    const origin: Extract<FlowOrigin, { type: 'order' }> = {
+      type: 'order',
+      id: 'CMD-MTS-1',
+      orderType: 'MTS',
+      client: 'Test',
+      pays: null,
+      nature: 'COMMANDE',
+      contremarque: 'OF-MTS-1',
+      qteCommandee: 100,
+      qteAllouee: 0,
+    }
+    const demand: Flow = { article: 'ART1', quantity: 100, direction: 'demand', date: new Date('2026-04-10'), origin }
+
+    const matcher = new CommandeOFMatcher([ofLinked], new Map(), new Map())
+    const result = matcher.matchCommande(demand)
+
+    assert.equal(result.matchingMethod, 'mts_hard_pegging')
+    assert.isNotNull(result.of)
+    assert.equal((result.of!.origin as Extract<FlowOrigin, { type: 'of' }>).id, 'OF-MTS-1')
+    assert.equal(result.ofAllocations[0].qteAllouee, 50)
+    assert.equal(result.remainingUncoveredQty, 50)
+    assert.isAbove(result.alerts.length, 0)
+  })
+
+  test('MTS without contremarque reports no linked OF', ({ assert }) => {
+    const demand = makeDemandFlow('CMD-MTS-NOOF', 'ART1', 100, new Date('2026-04-12'), 'MTS')
+    const matcher = new CommandeOFMatcher([], new Map(), new Map())
+    const result = matcher.matchCommande(demand)
+
+    assert.equal(result.matchingMethod, 'mts_hard_pegging')
+    assert.isNull(result.of)
+    assert.equal(result.remainingUncoveredQty, 100)
+    assert.isAbove(result.alerts.length, 0)
+  })
+
+  test('NOR MTO can use multiple OFs sorted by status and date', ({ assert }) => {
+    const ofFerme = makeOfFlow('OF-FERME', 'ART1', 1, 50, new Date('2026-04-10'))
+    const ofPlan = makeOfFlow('OF-PLAN', 'ART1', 2, 20, new Date('2026-04-11'))
+    const ofSugg = makeOfFlow('OF-SUGG', 'ART1', 3, 30, new Date('2026-04-12'))
+    const demand = makeDemandFlow('CMD-NOR-MULTI', 'ART1', 90, new Date('2026-04-11'))
+
+    const articles = new Map([['ART1', makeArticle('ART1')]])
+    const matcher = new CommandeOFMatcher([ofFerme, ofPlan, ofSugg], articles, new Map(), 30)
+    const result = matcher.matchCommande(demand)
+
+    assert.equal(result.matchingMethod, 'nor_mto_cumulative')
+    assert.equal(result.ofAllocations.length, 3)
+    assert.equal(result.ofAllocations[0].qteAllouee, 50)
+    assert.equal(result.ofAllocations[1].qteAllouee, 20)
+    assert.equal(result.ofAllocations[2].qteAllouee, 20)
+    assert.equal(result.remainingUncoveredQty, 0)
+    assert.equal((result.of!.origin as Extract<FlowOrigin, { type: 'of' }>).id, 'OF-FERME')
+  })
+
+  test('NOR MTO partial multi OF keeps remaining qty and alerts', ({ assert }) => {
+    const ofFerme = makeOfFlow('OF-FERME', 'ART1', 1, 30, new Date('2026-04-10'))
+    const ofSugg = makeOfFlow('OF-SUGG', 'ART1', 3, 40, new Date('2026-04-12'))
+    const stockFlow: Flow = { article: 'ART1', quantity: 10, direction: 'supply', date: null, origin: { type: 'stock', pmp: null } }
+    const demand = makeDemandFlow('CMD-NOR-PARTIAL', 'ART1', 100, new Date('2026-04-11'))
+
+    const articles = new Map([['ART1', makeArticle('ART1')]])
+    const matcher = new CommandeOFMatcher([ofFerme, ofSugg, stockFlow], articles, new Map(), 30)
+    const result = matcher.matchCommande(demand)
+
+    assert.equal(result.matchingMethod, 'nor_mto_cumulative')
+    assert.equal(result.stockAllocation!.qteAllouee, 10)
+    assert.equal(result.ofAllocations[0].qteAllouee, 30)
+    assert.equal(result.ofAllocations[1].qteAllouee, 40)
+    assert.equal(result.remainingUncoveredQty, 20)
+    assert.isAbove(result.alerts.length, 0)
   })
 })

@@ -3,8 +3,9 @@ import PurchaseOrderLine from '#models/x3/porderq'
 import { parseX3Date } from '#app/x3/utils/parse_date'
 
 export class X3ReceptionRepository {
-  async getReceptionFlows(): Promise<Flow[]> {
-    const rows = await PurchaseOrderLine.query()
+  /** Réceptions attendues ; si `to` fourni, bornées à `EXTRCPDAT_0 <= to`. */
+  async getReceptionFlows(opts?: { to?: string }): Promise<Flow[]> {
+    const q = PurchaseOrderLine.query()
       .select(
         'PORDERQ.POHNUM_0',
         'PORDERQ.ITMREF_0',
@@ -22,6 +23,12 @@ export class X3ReceptionRepository {
       .where('PORDER.CLEFLG_0', '1')
       .where('ITMMASTER.ITMSTA_0', '1')
       .whereRaw('PORDERQ.QTYSTU_0 > PORDERQ.RCPQTYSTU_0')
+
+    if (opts?.to && /^\d{4}-\d{2}-\d{2}$/.test(opts.to)) {
+      q.whereRaw(`PORDERQ.EXTRCPDAT_0 <= TO_DATE('${opts.to}', 'YYYY-MM-DD')`)
+    }
+
+    const rows = await q
 
     return rows.map(row => {
       const qteCommandee = parseFloat(row.quantiteUs ?? '0') || 0

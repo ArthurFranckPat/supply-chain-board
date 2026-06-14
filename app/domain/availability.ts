@@ -6,10 +6,20 @@ export function currentStock(flows: Flow[], article: string): number {
     .reduce((sum, f) => sum + (f.direction === 'supply' ? f.quantity : -f.quantity), 0)
 }
 
-export function availableAt(flows: Flow[], article: string, date: Date): number {
+export function availableAt(
+  flows: Flow[],
+  article: string,
+  date: Date,
+  useReceptions: boolean = true,
+  stockState?: { getAvailable(article: string): number },
+): number {
+  if (!useReceptions && stockState) {
+    return stockState.getAvailable(article)
+  }
   return flows
     .filter((f) => f.article === article)
     .filter((f) => f.date === null || f.date <= date)
+    .filter((f) => useReceptions || f.date === null)
     .reduce((sum, f) => sum + (f.direction === 'supply' ? f.quantity : -f.quantity), 0)
 }
 
@@ -18,9 +28,11 @@ export function shortageAt(
   article: string,
   quantityNeeded: number,
   date: Date,
+  reservedQuantity: number = 0,
 ): number {
-  return Math.max(0, quantityNeeded - availableAt(flows, article, date))
+  return Math.max(0, quantityNeeded - reservedQuantity - availableAt(flows, article, date))
 }
+
 
 export function firstCoverageDate(
   flows: Flow[],
@@ -99,18 +111,21 @@ export function snapshot(
   article: string,
   date: Date,
   quantityNeeded?: number,
+  useReceptions: boolean = true,
 ): AvailabilitySnapshot {
   const stock = currentStock(flows, article)
-  const recvQty = flows
-    .filter(
-      (f) =>
-        f.article === article &&
-        f.direction === 'supply' &&
-        f.date !== null &&
-        f.date <= date &&
-        f.origin.type === 'reception',
-    )
-    .reduce((s, f) => s + f.quantity, 0)
+  const recvQty = useReceptions
+    ? flows
+      .filter(
+        (f) =>
+          f.article === article &&
+          f.direction === 'supply' &&
+          f.date !== null &&
+          f.date <= date &&
+          f.origin.type === 'reception',
+      )
+      .reduce((s, f) => s + f.quantity, 0)
+    : 0
 
   const earliest = flows
     .filter(
@@ -123,7 +138,7 @@ export function snapshot(
     )
     .sort((a, b) => (a.date as Date).getTime() - (b.date as Date).getTime())
 
-  const available = availableAt(flows, article, date)
+  const available = availableAt(flows, article, date, useReceptions)
 
   return {
     article,

@@ -187,6 +187,30 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'planning_board.of_materials': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/planning-board/of-materials/:numOf'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { numOf: ParamValue }
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'planning_board.reload_data': {
+    methods: ["POST"]
+    pattern: '/api/v1/planning-board/reload'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'suivi.assign': {
     methods: ["POST"]
     pattern: '/api/v1/status/assign'
@@ -274,6 +298,30 @@ export interface Registry {
   'x_3_data.load': {
     methods: ["POST"]
     pattern: '/api/v1/data/load'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'static_sync.status': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/static/status'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'static_sync.sync': {
+    methods: ["POST"]
+    pattern: '/api/v1/static/sync'
     types: {
       body: {}
       paramsTuple: []

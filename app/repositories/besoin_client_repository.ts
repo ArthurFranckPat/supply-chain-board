@@ -47,11 +47,22 @@ WHERE O.WIPTYP_0 = 1
 
 type RawRow = Record<string, string | null>
 
+const ISO = /^\d{4}-\d{2}-\d{2}$/
+
 export class X3BesoinClientRepository {
-  async getDemandFlows(): Promise<Flow[]> {
+  /**
+   * Besoins clients. Si `from`/`to` fournis → bornés par échéance dans la
+   * fenêtre (gros gain : la table ORDERS est énorme sans filtre date).
+   */
+  async getDemandFlows(opts?: { from?: string; to?: string }): Promise<Flow[]> {
+    let sql = SQL
+    if (opts?.from && opts?.to && ISO.test(opts.from) && ISO.test(opts.to)) {
+      sql += `\n  AND (CASE WHEN O.WIPSTA_0 = 1 THEN Q.SHIDAT_0 ELSE O.ENDDAT_0 END)`
+        + ` BETWEEN TO_DATE('${opts.from}', 'YYYY-MM-DD') AND TO_DATE('${opts.to}', 'YYYY-MM-DD')`
+    }
     const db = new X3Database()
     try {
-      const rows: RawRow[] = await db.raw(SQL)
+      const rows: RawRow[] = await db.raw(sql)
       return rows
         .filter(row => parseFloat(row.RESTE_LIVRER ?? '0') > 0)
         .map(row => {

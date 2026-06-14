@@ -90,7 +90,7 @@ test.group('evaluateSequentialFeasibility', () => {
       { numOf: 'OF-A', article: 'PF1', qteRestante: 60, dateDebut: null, dateFin: '2026-06-20', statutNum: 3 },
     ]
 
-    const result = evaluateSequentialFeasibility(ofs, flows, nomenclatures, articles, new Date('2026-07-01'))
+    const result = evaluateSequentialFeasibility(ofs, flows, nomenclatures, articles, new Date('2026-07-01'), { mode: 'sequential' })
 
     const entry = result.get('OF-A')!
     assert.isTrue(entry.feasible)
@@ -138,7 +138,7 @@ test.group('evaluateSequentialFeasibility', () => {
       { numOf: 'OF-B', article: 'PF1', qteRestante: 40, dateDebut: null, dateFin: '2026-06-22', statutNum: 3 },
     ]
 
-    const result = evaluateSequentialFeasibility(ofs, flows, nomenclatures, articles, new Date('2026-07-01'))
+    const result = evaluateSequentialFeasibility(ofs, flows, nomenclatures, articles, new Date('2026-07-01'), { mode: 'sequential' })
 
     assert.isTrue(result.get('OF-A')!.feasible)
     assert.isFalse(result.get('OF-B')!.feasible)
@@ -166,5 +166,53 @@ test.group('evaluateSequentialFeasibility', () => {
     // Both should be feasible since 200 >= 60 + 60
     assert.isTrue(result.get('OF-FIRM')!.feasible)
     assert.isTrue(result.get('OF-SUGG')!.feasible)
+  })
+
+  test('immediate mode: each OF sees full stock (no competition)', ({ assert }) => {
+    const flows: Flow[] = [
+      makeFlow({ article: 'C1', quantity: 100 }),
+    ]
+    const nomenclatures = new Map<string, Nomenclature>([
+      ['PF1', {
+        article: 'PF1', description: '', components: [
+          { parentArticle: 'PF1', parentDescription: '', level: 5, componentArticle: 'C1', componentDescription: '', linkQuantity: 1, componentType: 'ACHETE', consumptionNature: 'PROPORTIONNEL' },
+        ],
+      }],
+    ])
+    const articles = new Map([['PF1', makeArticle('PF1')], ['C1', makeArticle('C1', 'ACHAT')]])
+    const ofs: OfInput[] = [
+      { numOf: 'OF-A', article: 'PF1', qteRestante: 60, dateDebut: null, dateFin: '2026-06-20', statutNum: 3 },
+      { numOf: 'OF-B', article: 'PF1', qteRestante: 60, dateDebut: null, dateFin: '2026-06-22', statutNum: 3 },
+    ]
+
+    // Mode immédiat : chaque OF doit être faisable (60+60=120 > 100 de stock, mais
+    // chaque OF pris individuellement ne voit que lui-même : 60 <= 100)
+    const result = evaluateSequentialFeasibility(ofs, flows, nomenclatures, articles, new Date('2026-07-01'), { mode: 'immediate' })
+    assert.isTrue(result.get('OF-A')!.feasible)
+    assert.isTrue(result.get('OF-B')!.feasible)
+    assert.deepEqual(result.get('OF-A')!.missingComponents, {})
+    assert.deepEqual(result.get('OF-B')!.missingComponents, {})
+  })
+
+  test('immediate mode reports shortage when stock insufficient per OF', ({ assert }) => {
+    const flows: Flow[] = [
+      makeFlow({ article: 'C1', quantity: 50 }),
+    ]
+    const nomenclatures = new Map<string, Nomenclature>([
+      ['PF1', {
+        article: 'PF1', description: '', components: [
+          { parentArticle: 'PF1', parentDescription: '', level: 5, componentArticle: 'C1', componentDescription: '', linkQuantity: 1, componentType: 'ACHETE', consumptionNature: 'PROPORTIONNEL' },
+        ],
+      }],
+    ])
+    const articles = new Map([['PF1', makeArticle('PF1')], ['C1', makeArticle('C1', 'ACHAT')]])
+    const ofs: OfInput[] = [
+      { numOf: 'OF-A', article: 'PF1', qteRestante: 60, dateDebut: null, dateFin: '2026-06-20', statutNum: 3 },
+    ]
+
+    // Mode immédiat : vérification individuelle, 50 < 60 → pas faisable
+    const result = evaluateSequentialFeasibility(ofs, flows, nomenclatures, articles, new Date('2026-07-01'), { mode: 'immediate' })
+    assert.isFalse(result.get('OF-A')!.feasible)
+    assert.isAbove(result.get('OF-A')!.missingComponents['C1'] ?? 0, 0)
   })
 })

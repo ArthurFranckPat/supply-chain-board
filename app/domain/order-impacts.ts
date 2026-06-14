@@ -12,6 +12,7 @@
 
 import type { Flow } from './models/flow.js'
 import type { Article } from './models/article.js'
+import type { FeasibilityOptions } from './stock-state.js'
 import type { Nomenclature } from './models/nomenclature.js'
 import type { OfOverride } from './planning_board.js'
 import { CommandeOFMatcher } from './of-conso.js'
@@ -67,7 +68,6 @@ function effectiveDateFin(ofId: string, overrides: Map<string, OfOverride>, matc
   if (overrideDate) return overrideDate
   return matchingDate
 }
-
 /**
  * Évalue le statut de service de chaque commande client dans la fenêtre.
  *
@@ -77,6 +77,7 @@ function effectiveDateFin(ofId: string, overrides: Map<string, OfOverride>, matc
  * @param articles - Catalogue articles
  * @param overrides - Overrides locaux (dates/statuts modifiés)
  * @param window - Fenêtre d'analyse { from, to }
+ * @param mode - 'immediate' | 'sequential' (défaut: sequential)
  */
 export function evaluateOrderImpacts(
   demands: Flow[],
@@ -85,6 +86,7 @@ export function evaluateOrderImpacts(
   articles: Map<string, Article>,
   overrides: Map<string, OfOverride>,
   window: { from: Date; to: Date },
+  mode?: FeasibilityOptions['mode'],
 ): OrderImpactResult {
   // 1. Filter demands in window
   const windowDemands = demands.filter((d) => {
@@ -115,6 +117,7 @@ export function evaluateOrderImpacts(
 
   const feasibility = evaluateSequentialFeasibility(
     ofInputs, supplyFlows, nomenclatures, articles, window.to,
+    { mode },
   )
 
   // 4. Cross matching × feasibility × dates → status per commande
