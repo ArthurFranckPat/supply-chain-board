@@ -5,7 +5,7 @@ import { consumeForecasts } from '#app/domain/forecast-consumption'
 function makeDemand(article: string, quantity: number, date: Date, type: 'order' | 'forecast'): Flow {
   const origin: Extract<FlowOrigin, { type: 'order' }> | Extract<FlowOrigin, { type: 'forecast' }> =
     type === 'order'
-      ? { type: 'order', id: `CMD-${article}`, orderType: 'NOR', client: 'Test', pays: null, nature: 'COMMANDE', contremarque: null, qteCommandee: quantity, qteAllouee: 0 }
+      ? { type: 'order', id: `CMD-${article}`, orderType: 'NOR', customer: 'Test', pays: null, nature: 'COMMANDE', contremarque: null, qteCommandee: quantity, qteAllouee: 0 }
       : { type: 'forecast', id: `FC-${article}`, customer: null, pays: null, orderType: null, contremarque: null, qteCommandee: quantity, qteAllouee: 0 }
   return { article, quantity, direction: 'demand', date, origin }
 }

@@ -9,9 +9,7 @@
  */
 import type { Nomenclature } from './models/nomenclature.js'
 import type { Article } from './models/article.js'
-import type { Flow } from './models/flow.js'
 import { RecursiveChecker, type RecursiveCheckerLoader, type StockRecord, type ReceptionRecord, type OfRecord } from './recursive-checker.js'
-import { checkFeasibility } from './availability.js'
 import type { ErpAllocation } from './allocation.js'
 
 export interface ComponentGap {
