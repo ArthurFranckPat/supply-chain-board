@@ -43,6 +43,30 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'scheduler.expert_board': {
+    methods: ["GET","HEAD"]
+    pattern: '/scheduler/board'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'scheduler.of_detail': {
+    methods: ["GET","HEAD"]
+    pattern: '/scheduler/of/:num'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { num: ParamValue }
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'planning_board.index': {
     methods: ["GET","HEAD"]
     pattern: '/api/v1/planning-board/ofs'
@@ -182,6 +206,18 @@ export interface Registry {
       body: {}
       paramsTuple: [ParamValue]
       params: { article: ParamValue }
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'planning_board.articles_by_component': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/planning-board/articles-by-component/:component'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { component: ParamValue }
       query: {}
       response: unknown
       errorResponse: unknown

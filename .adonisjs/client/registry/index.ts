@@ -24,6 +24,18 @@ const routes = {
     tokens: [{"old":"/board","type":0,"val":"board","end":""}],
     types: placeholder as Registry['planning_board.board']['types'],
   },
+  'scheduler.expert_board': {
+    methods: ["GET","HEAD"],
+    pattern: '/scheduler/board',
+    tokens: [{"old":"/scheduler/board","type":0,"val":"scheduler","end":""},{"old":"/scheduler/board","type":0,"val":"board","end":""}],
+    types: placeholder as Registry['scheduler.expert_board']['types'],
+  },
+  'scheduler.of_detail': {
+    methods: ["GET","HEAD"],
+    pattern: '/scheduler/of/:num',
+    tokens: [{"old":"/scheduler/of/:num","type":0,"val":"scheduler","end":""},{"old":"/scheduler/of/:num","type":0,"val":"of","end":""},{"old":"/scheduler/of/:num","type":1,"val":"num","end":""}],
+    types: placeholder as Registry['scheduler.of_detail']['types'],
+  },
   'planning_board.index': {
     methods: ["GET","HEAD"],
     pattern: '/api/v1/planning-board/ofs',
@@ -95,6 +107,12 @@ const routes = {
     pattern: '/api/v1/planning-board/nomenclature/:article',
     tokens: [{"old":"/api/v1/planning-board/nomenclature/:article","type":0,"val":"api","end":""},{"old":"/api/v1/planning-board/nomenclature/:article","type":0,"val":"v1","end":""},{"old":"/api/v1/planning-board/nomenclature/:article","type":0,"val":"planning-board","end":""},{"old":"/api/v1/planning-board/nomenclature/:article","type":0,"val":"nomenclature","end":""},{"old":"/api/v1/planning-board/nomenclature/:article","type":1,"val":"article","end":""}],
     types: placeholder as Registry['planning_board.nomenclature']['types'],
+  },
+  'planning_board.articles_by_component': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/planning-board/articles-by-component/:component',
+    tokens: [{"old":"/api/v1/planning-board/articles-by-component/:component","type":0,"val":"api","end":""},{"old":"/api/v1/planning-board/articles-by-component/:component","type":0,"val":"v1","end":""},{"old":"/api/v1/planning-board/articles-by-component/:component","type":0,"val":"planning-board","end":""},{"old":"/api/v1/planning-board/articles-by-component/:component","type":0,"val":"articles-by-component","end":""},{"old":"/api/v1/planning-board/articles-by-component/:component","type":1,"val":"component","end":""}],
+    types: placeholder as Registry['planning_board.articles_by_component']['types'],
   },
   'planning_board.of_materials': {
     methods: ["GET","HEAD"],

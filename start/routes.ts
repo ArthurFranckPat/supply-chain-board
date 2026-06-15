@@ -113,6 +113,7 @@ router
     router.get('/events', '#controllers/planning_board_controller.listEvents')
     router.post('/board-feasibility', '#controllers/planning_board_controller.boardFeasibility')
     router.get('/nomenclature/:article', '#controllers/planning_board_controller.nomenclature')
+    router.get('/articles-by-component/:component', '#controllers/planning_board_controller.articlesByComponent')
     router.get('/of-materials/:numOf', '#controllers/planning_board_controller.ofMaterials')
     router.post('/reload', '#controllers/planning_board_controller.reloadData')
   })

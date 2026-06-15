@@ -13,14 +13,25 @@
           <span class="material-symbols-outlined absolute left-2.5 text-gray-400 text-[18px] pointer-events-none group-focus-within:text-primary transition-colors">search</span>
           <input
             id="board-search"
-            class="w-72 bg-white border border-gray-200 rounded-lg py-1.5 pl-9 pr-9 text-xs text-gray-800 transition-colors placeholder:text-gray-400 hover:border-gray-300 focus:border-primary/40 focus-visible:outline-none focus-visible:ring-0"
+            class="w-64 bg-white border border-gray-200 rounded-lg py-1.5 pl-9 pr-9 text-xs text-gray-800 transition-colors placeholder:text-gray-400 hover:border-gray-300 focus:border-primary/40 focus-visible:outline-none focus-visible:ring-0"
             style="outline: none"
-            placeholder="Rechercher OF, article, poste…"
+            placeholder="Rechercher…"
             type="text"
             autocomplete="off"
           />
           <kbd class="absolute right-2.5 text-[9px] font-sans font-semibold text-gray-400 bg-white border border-gray-200 rounded px-1 py-0.5 pointer-events-none group-focus-within:hidden">⌘K</kbd>
         </div>
+        <select
+          id="board-search-scope"
+          title="Portée de la recherche"
+          class="bg-white border border-gray-200 rounded-lg py-1.5 pl-2.5 pr-6 text-xs text-gray-600 hover:border-gray-300 focus:border-primary/40 focus-visible:outline-none focus-visible:ring-0 cursor-pointer transition-colors"
+          style="-webkit-appearance: none; -moz-appearance: none; appearance: none; background-image: url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%2210%22 viewBox=%220 0 10 10%22><path fill=%22%239ca3af%22 d=%22M5 6.5L1.5 3h7z%22/></svg>'); background-repeat: no-repeat; background-position: right 0.5rem center; background-size: 10px"
+        >
+          <option value="poste">Poste</option>
+          <option value="of">OF</option>
+          <option value="pf">PF</option>
+          <option value="composant">Composant</option>
+        </select>
       </div>
     </div>
     <div class="flex items-center gap-3">
@@ -342,32 +353,39 @@ document.addEventListener('click', function (e) {
       if (!r.ok) throw new Error('HTTP ' + r.status)
       return r.json()
     }).then(function (data) {
-      // Build per-OF feasibility map from result.orders[].ofs[]
+      // data.ofs = faisabilité de TOUS les OFs évalués (pas seulement rattachés
+      // à une commande). On badger chaque carte du board présente dans la map.
       var status = {}
-      ;(data.orders || []).forEach(function (o) {
-        ;(o.ofs || []).forEach(function (of) {
-          if (of.feasible === false) status[of.numOf] = 'blocked'
-          else if (of.feasible === true && status[of.numOf] !== 'blocked') status[of.numOf] = 'ok'
-        })
+      ;(data.ofs || []).forEach(function (of) {
+        if (of.feasible === false) status[of.numOf] = { st: 'blocked', missing: of.missingComponents || {} }
+        else if (of.feasible === true) status[of.numOf] = { st: 'ok', missing: {} }
       })
-      var nbBlocked = 0
+      var nbOk = 0, nbBlocked = 0
       document.querySelectorAll('.sch-of-card').forEach(function (el) {
         var num = el.getAttribute('data-num-of')
-        // Remove any previous badge
         var old = el.querySelector('.sch-feas-badge')
         if (old) old.remove()
-        var st = status[num]
-        // Only flag problems: red badge on non-feasible OFs. Feasible = no badge.
-        if (st !== 'blocked') return
+        var s = status[num]
+        if (!s) return // OF non évalué (hors fenêtre / non chargé)
         var badge = document.createElement('span')
-        badge.className = 'sch-feas-badge is-blocked'
-        badge.innerHTML = '<span class="material-symbols-outlined">priority_high</span>'
-        badge.title = 'OF non réalisable — composant en rupture'
-        nbBlocked++
+        if (s.st === 'blocked') {
+          badge.className = 'sch-feas-badge is-blocked'
+          badge.innerHTML = '<span class="material-symbols-outlined">priority_high</span>'
+          var miss = Object.keys(s.missing)
+          badge.title = 'OF non réalisable — rupture : ' + (miss.length ? miss.join(', ') : 'composant')
+          nbBlocked++
+        } else {
+          badge.className = 'sch-feas-badge is-ok'
+          badge.innerHTML = '<span class="material-symbols-outlined">check</span>'
+          badge.title = 'OF réalisable'
+          nbOk++
+        }
         el.appendChild(badge)
       })
-      window.dispatchEvent(new CustomEvent('sch-toast', { detail:
-        nbBlocked > 0 ? (nbBlocked + ' OF bloqué(s)') : 'Tous les OF faisables' }))
+      var msg = nbBlocked > 0
+        ? (nbBlocked + ' bloqué(s) · ' + nbOk + ' OK')
+        : (nbOk + ' OF réalisables')
+      window.dispatchEvent(new CustomEvent('sch-toast', { detail: msg }))
     }).catch(function (err) {
       window.dispatchEvent(new CustomEvent('sch-toast', { detail: 'Échec : ' + err.message }))
     }).finally(function () {

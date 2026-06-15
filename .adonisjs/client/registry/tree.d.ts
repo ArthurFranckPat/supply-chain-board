@@ -22,8 +22,13 @@ export interface ApiDefinition {
     listEvents: typeof routes['planning_board.list_events']
     boardFeasibility: typeof routes['planning_board.board_feasibility']
     nomenclature: typeof routes['planning_board.nomenclature']
+    articlesByComponent: typeof routes['planning_board.articles_by_component']
     ofMaterials: typeof routes['planning_board.of_materials']
     reloadData: typeof routes['planning_board.reload_data']
+  }
+  scheduler: {
+    expertBoard: typeof routes['scheduler.expert_board']
+    ofDetail: typeof routes['scheduler.of_detail']
   }
   suivi: {
     assign: typeof routes['suivi.assign']

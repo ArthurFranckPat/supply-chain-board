@@ -16,31 +16,35 @@
 <body class="font-body-md text-on-surface antialiased m-0 bg-background">
   {{{ await $slots.main() }}}
   <script>
-    // Recherche live : filtre OF + lignes de prod.
-    //  - match sur n° OF, désignation, code article, poste (code + libellé)
-    //  - ligne matchée (par son nom/code, ou contenant >=1 OF matché) reste
-    //    visible ; les autres lignes disparaissent de l'écran.
-    //  - dans une ligne visible, les cartes non matchées sont estompées.
+    // Recherche live avec portée (scope) sélectionnable via #board-search-scope.
+    //   poste     → poste de charge (data-wst, data-wst-name, data-line)
+    //   of        → numéro d'OF (data-num-of, texte carte)
+    //   pf        → article produit fini (data-art)
+    //   composant → articles parents qui consomment le composant (API, async)
+    // Une ligne (poste) reste visible si elle matche OU contient ≥1 carte matchée.
+    // Dans une ligne visible, les cartes non matchées sont estompées (opacity .15).
     ;(function () {
-      // ⌘K / Ctrl+K focus search; Esc clears + blurs. Re-query each time so it
-      // works after Unpoly swaps the #board-main fragment (input is recreated).
-      window.addEventListener('keydown', function (e) {
+      var SCOPE_DEFAULT = 'poste'
+      var lastQuery = ''
+      var lastScope = SCOPE_DEFAULT
+      // Cache : composant → Set d'articles parents (PF) qui le consomment.
+      var componentCache = new Map()
+      // Articles matchés pour la requête composant en cours (null = pas de scope composant).
+      var componentMatch = null
+
+      function currentScope() {
+        var sel = document.getElementById('board-search-scope')
+        return sel ? sel.value : SCOPE_DEFAULT
+      }
+
+      function applyFilter() {
         var input = document.getElementById('board-search')
         if (!input) return
-        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-          e.preventDefault(); input.focus(); input.select()
-        } else if (e.key === 'Escape' && document.activeElement === input) {
-          input.value = ''; input.dispatchEvent(new Event('input')); input.blur()
-        }
-      })
-      // Document-delegated input handler — survives fragment swaps.
-      document.addEventListener('input', function (e) {
-        var input = e.target
-        if (!input || input.id !== 'board-search') return
         var q = input.value.trim().toLowerCase()
+        var scope = currentScope()
         document.querySelectorAll('.sch-row').forEach(function (row) {
           var lineHay = (row.getAttribute('data-line') || '').toLowerCase()
-          var lineMatch = !q || lineHay.indexOf(q) !== -1
+          var lineMatch = !q || (scope === 'poste' && lineHay.indexOf(q) !== -1)
           var anyCard = false
           row.querySelectorAll('.sch-of-card').forEach(function (el) {
             var hay = (
@@ -50,27 +54,113 @@
               (el.getAttribute('data-wst-name') || '') + ' ' +
               (el.getAttribute('data-art') || '')
             ).toLowerCase()
-            var cardMatch = !q || lineMatch || hay.indexOf(q) !== -1
+            var num = (el.getAttribute('data-num-of') || '').toLowerCase()
+            var art = (el.getAttribute('data-art') || '').toLowerCase()
+            var wst = (el.getAttribute('data-wst') || '').toLowerCase()
+            var wstName = (el.getAttribute('data-wst-name') || '').toLowerCase()
+            var cardMatch = !q
+            if (q) {
+              if (scope === 'poste') {
+                cardMatch = lineMatch || wst.indexOf(q) !== -1 || wstName.indexOf(q) !== -1 || num.indexOf(q) !== -1
+              } else if (scope === 'of') {
+                cardMatch = num.indexOf(q) !== -1 || hay.indexOf(q) !== -1
+              } else if (scope === 'pf') {
+                cardMatch = art.indexOf(q) !== -1
+              } else if (scope === 'composant') {
+                // componentMatch est un Set d'articles parents ; null pendant le chargement.
+                cardMatch = componentMatch !== null && componentMatch.has(el.getAttribute('data-art') || '')
+              }
+            }
             el.style.opacity = cardMatch ? '' : '0.15'
             el.dataset.match = cardMatch ? '1' : '0'
-            if (q && !lineMatch && hay.indexOf(q) !== -1) anyCard = true
+            if (q && cardMatch) anyCard = true
           })
           row.style.display = (!q || lineMatch || anyCard) ? '' : 'none'
         })
-        recomputeDayLoad(q)
+        recomputeDayLoad()
+      }
+
+      // Recherche par composant : interroge l'API (avec cache), reconstruit le Set
+      // d'articles parents, puis ré-applique le filtre.
+      function runComponentSearch(q) {
+        if (!q) { componentMatch = new Set(); applyFilter(); return }
+        if (componentCache.has(q)) {
+          componentMatch = componentCache.get(q)
+          applyFilter()
+          return
+        }
+        // En attendant la réponse : aucune carte ne matche (tout estompé).
+        componentMatch = null
+        applyFilter()
+        fetch('/api/v1/planning-board/articles-by-component/' + encodeURIComponent(q.toUpperCase()))
+          .then(function (r) { return r.ok ? r.json() : { articles: [] } })
+          .then(function (data) {
+            var set = new Set(data.articles || [])
+            componentCache.set(q, set)
+            // Vérifie qu'on est toujours sur la même requête (l'user a pu retaper).
+            var input = document.getElementById('board-search')
+            if (input && input.value.trim().toLowerCase() === q && currentScope() === 'composant') {
+              componentMatch = set
+              applyFilter()
+            }
+          })
+          .catch(function () {
+            var set = new Set()
+            componentCache.set(q, set)
+            if (currentScope() === 'composant') { componentMatch = set; applyFilter() }
+          })
+      }
+
+      // ⌘K / Ctrl+K focus search; Esc clears + blurs.
+      window.addEventListener('keydown', function (e) {
+        var input = document.getElementById('board-search')
+        if (!input) return
+        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+          e.preventDefault(); input.focus(); input.select()
+        } else if (e.key === 'Escape' && document.activeElement === input) {
+          input.value = ''; componentMatch = null; applyFilter(); input.blur()
+        }
       })
 
-      // Day-header load (top row): always summed live from the DOM so it tracks
-      // drag&drop moves immediately (no refresh needed), and respects the active
-      // filter (hidden rows / non-matching cards excluded).
-      function recomputeDayLoad(q) {
+      // Changement de portée → ré-applique le filtre avec la même requête.
+      document.addEventListener('change', function (e) {
+        if (!e.target || e.target.id !== 'board-search-scope') return
+        var input = document.getElementById('board-search')
+        if (!input) return
+        var q = input.value.trim().toLowerCase()
+        lastScope = e.target.value
+        if (!q) return
+        if (e.target.value === 'composant') {
+          runComponentSearch(q)
+        } else {
+          componentMatch = null
+          applyFilter()
+        }
+      })
+
+      // Document-delegated input handler — survives Unpoly fragment swaps.
+      document.addEventListener('input', function (e) {
+        if (!e.target || e.target.id !== 'board-search') return
+        var q = e.target.value.trim().toLowerCase()
+        lastQuery = e.target.value
+        var scope = currentScope()
+        if (scope === 'composant' && q) {
+          runComponentSearch(q)
+        } else {
+          componentMatch = null
+          applyFilter()
+        }
+      })
+
+      // Day-header load : somme live depuis le DOM (suit les drag&drop, respecte le filtre).
+      function recomputeDayLoad() {
         var sums = {}
         document.querySelectorAll('.sch-cal-cell').forEach(function (cell) {
           var row = cell.closest('.sch-row')
           if (row && row.style.display === 'none') return
           var col = cell.dataset.col
           cell.querySelectorAll('.sch-of-card').forEach(function (card) {
-            if (card.dataset.match === '0') return // excluded by active filter
+            if (card.dataset.match === '0') return
             var h = parseFloat(card.dataset.hours || '0')
             sums[col] = (sums[col] || 0) + h
           })
@@ -81,21 +171,18 @@
         })
       }
 
-      // Keep the active filter across Unpoly #board-main swaps (horizon change,
-      // prev/next nav): remember the last query, restore + reapply it after the
-      // fragment is replaced.
-      var lastQuery = ''
-      document.addEventListener('input', function (e) {
-        if (e.target && e.target.id === 'board-search') lastQuery = e.target.value
-      })
+      // Garde le filtre actif à travers les swaps Unpoly (horizon, prev/next) :
+      // restore query + scope, et relance la recherche composant si besoin.
       if (window.up && window.up.on) {
-        window.up.on('up:fragment:inserted', function (event, fragment) {
+        window.up.on('up:fragment:inserted', function () {
           var input = document.getElementById('board-search')
-          if (!input) return
-          if (lastQuery) {
-            input.value = lastQuery
-            input.dispatchEvent(new Event('input'))
-          }
+          var sel = document.getElementById('board-search-scope')
+          if (sel && lastScope) sel.value = lastScope
+          if (!input || !lastQuery) return
+          input.value = lastQuery
+          var q = lastQuery.trim().toLowerCase()
+          if (currentScope() === 'composant' && q) runComponentSearch(q)
+          else { componentMatch = null; applyFilter() }
         })
       }
     })()

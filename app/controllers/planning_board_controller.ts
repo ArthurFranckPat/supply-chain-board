@@ -858,4 +858,30 @@ export default class PlanningBoardController {
       })),
     }
   }
+
+  /**
+   * GET /api/v1/planning-board/articles-by-component/:component
+   * Retourne les articles parents (PF) qui consomment le composant donné dans
+   * leur nomenclature. Utilisé par la recherche "composant" du board pour
+   * remonter les OFs qui consomment ce composant.
+   */
+  async articlesByComponent(ctx: HttpContext) {
+    const component = String(ctx.params.component ?? '').trim().toUpperCase()
+    if (!component) {
+      return ctx.response.badRequest({ error: 'Paramètre "component" requis' })
+    }
+
+    const allEntries = await boardDataset.getNomenclature().catch(() => [])
+    const q = component.toLowerCase()
+    const parents = new Set<string>()
+    for (const entry of allEntries) {
+      const compCode = (entry.componentArticle ?? '').toLowerCase()
+      const compDesc = (entry.componentDescription ?? '').toLowerCase()
+      if (compCode.includes(q) || compDesc.includes(q)) {
+        if (entry.parentArticle) parents.add(entry.parentArticle)
+      }
+    }
+
+    return { component, articles: [...parents] }
+  }
 }

@@ -46,6 +46,17 @@ export interface OrderImpactRow {
 
 export interface OrderImpactResult {
   orders: OrderImpactRow[]
+  /**
+   * Faisabilité de TOUS les OFs évalués dans la fenêtre (pas seulement ceux
+   * rattachés à une commande). Consommé par le board pour badger chaque carte.
+   */
+  ofs: Array<{
+    numOf: string
+    article: string
+    feasible: boolean | null
+    statutNum: number
+    missingComponents: Record<string, number>
+  }>
   window: { from: string; to: string }
   stats: {
     nbCommandes: number
@@ -201,6 +212,13 @@ export function evaluateOrderImpacts(
 
   return {
     orders: rows,
+    ofs: [...feasibility.values()].map((e) => ({
+      numOf: e.numOf,
+      article: e.article,
+      feasible: e.feasible,
+      statutNum: e.statutNum,
+      missingComponents: e.missingComponents ?? {},
+    })),
     window: { from: window.from.toISOString().slice(0, 10), to: window.to.toISOString().slice(0, 10) },
     stats: {
       nbCommandes: rows.length,
