@@ -884,4 +884,72 @@ export default class PlanningBoardController {
 
     return { component, articles: [...parents] }
   }
+
+  /**
+   * GET /api/v1/planning-board/search/poste?q=…
+   * Postes de charge dont le code ou le libellé matchent q (dataset complet via
+   * les gammes, pas seulement la fenêtre affichée). Sert la recherche par scope
+   * « poste » du board.
+   */
+  async searchPoste(ctx: HttpContext) {
+    const q = String(ctx.request.input('q') ?? '').trim().toLowerCase()
+    if (!q) return ctx.response.badRequest({ error: 'Paramètre "q" requis' })
+    let gamme: GammeOperation[] = []
+    try {
+      gamme = (await boardDataset.getReferential()).gamme
+    } catch {
+      /* référentiel indisponible → réponse vide */
+    }
+    const wsts = new Set<string>()
+    for (const g of gamme) {
+      const code = (g.workstation ?? '').toLowerCase()
+      const label = (g.workstationLabel ?? '').toLowerCase()
+      if (code.includes(q) || label.includes(q)) wsts.add(g.workstation)
+    }
+    return { workstations: [...wsts] }
+  }
+
+  /**
+   * GET /api/v1/planning-board/search/of?q=…
+   * Numéros d'OF dont le numéro, l'article ou la désignation matchent q
+   * (dataset complet des ordres de fabrication).
+   */
+  async searchOf(ctx: HttpContext) {
+    const q = String(ctx.request.input('q') ?? '').trim().toLowerCase()
+    if (!q) return ctx.response.badRequest({ error: 'Paramètre "q" requis' })
+    let mos: ManufacturingOrder[] = []
+    try {
+      mos = (await boardDataset.getOrders()).mos
+    } catch {
+      /* ordres indisponibles → réponse vide */
+    }
+    const ofs = new Set<string>()
+    for (const mo of mos) {
+      const hay = `${mo.numOf} ${mo.article} ${mo.designation ?? ''}`.toLowerCase()
+      if (hay.includes(q)) ofs.add(mo.numOf)
+    }
+    return { ofs: [...ofs] }
+  }
+
+  /**
+   * GET /api/v1/planning-board/search/pf?q=…
+   * Articles (produits finis) dont le code ou la désignation matchent q
+   * (dataset complet des ordres de fabrication).
+   */
+  async searchPf(ctx: HttpContext) {
+    const q = String(ctx.request.input('q') ?? '').trim().toLowerCase()
+    if (!q) return ctx.response.badRequest({ error: 'Paramètre "q" requis' })
+    let mos: ManufacturingOrder[] = []
+    try {
+      mos = (await boardDataset.getOrders()).mos
+    } catch {
+      /* ordres indisponibles → réponse vide */
+    }
+    const articles = new Set<string>()
+    for (const mo of mos) {
+      const hay = `${mo.article} ${mo.designation ?? ''}`.toLowerCase()
+      if (hay.includes(q)) articles.add(mo.article)
+    }
+    return { articles: [...articles] }
+  }
 }
