@@ -107,7 +107,10 @@ export function evaluateSequentialFeasibility(
         continue
       }
       const ofAllocs = options?.allocations?.get(ofInput.numOf)
-      const result = checkFeasibility(ofInput.article, ofInput.qteRestante, flows, nomenclatures, articles, horizonEnd, true, undefined, ofAllocs)
+      // Mode "dispo instantanée" : seul le stock présent compte, PAS les réceptions
+      // à venir. Aligne le badge sur le détail OF (cf. issue #11) — les deux verdicts
+      // doivent répondre à la même question (dispo maintenant), sans réceptions futures.
+      const result = checkFeasibility(ofInput.article, ofInput.qteRestante, flows, nomenclatures, articles, horizonEnd, false, undefined, ofAllocs)
       const missingComponents: Record<string, number> = {}
       for (const bc of result.blockingComponents) {
         missingComponents[bc.article] = bc.shortage

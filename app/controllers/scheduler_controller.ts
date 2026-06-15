@@ -2,6 +2,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import boardDataset from '#services/board_dataset'
 import { OverrideStore } from '#services/override_store'
 import { X3MfgmatRepository } from '#repositories/mfgmat_repository'
+import { evaluateMfgFeasibility, buildStrictQcStock } from '#app/domain/of-feasibility'
 import { type ManufacturingOrder } from '#repositories/of_repository'
 import type { GammeOperation } from '#app/domain/models/gamme'
 
@@ -582,34 +583,20 @@ export default class SchedulerController {
       const articles = [...new Set(materials.map((m) => m.article).filter(Boolean))]
       const stockFlows =
         articles.length > 0 ? await boardDataset.getStock(articles).catch(() => []) : []
-      const stockByArticle = new Map<string, number>()
-      for (const f of stockFlows) {
-        const sub = (f.origin as { subType?: string })?.subType
-        if (sub === 'strict' || sub === 'qc') {
-          stockByArticle.set(f.article, (stockByArticle.get(f.article) ?? 0) + f.quantity)
-        }
-      }
+      const stockByArticle = buildStrictQcStock(stockFlows)
 
-      bomCount = materials.length
-      bom = materials.map((m) => {
-        const available = stockByArticle.get(m.article) ?? null
-        const isFirm = status === 1
-        const ok = isFirm
-          ? true
-          : available !== null
-            ? available + m.allocated >= m.remaining
-            : false
-        const gap = available !== null ? m.remaining - (available + m.allocated) : m.remaining
-        return {
-          id: m.article,
-          name: m.description || m.article,
-          stock: available !== null ? available.toFixed(0) : '—',
-          need: m.remaining.toFixed(m.remaining % 1 === 0 ? 0 : 2),
-          unit: m.unit ?? '',
-          ok,
-          shortage: !ok && gap > 0 ? `−${gap.toFixed(0)}` : null,
-        }
-      })
+      // Faisabilité via le calcul partagé — même source/verdict que le board (issue #11).
+      const verdict = evaluateMfgFeasibility(materials, stockByArticle, status === 1)
+      bomCount = verdict.materials.length
+      bom = verdict.materials.map((m) => ({
+        id: m.article,
+        name: m.description || m.article,
+        stock: m.available !== null ? m.available.toFixed(0) : '—',
+        need: m.remaining.toFixed(m.remaining % 1 === 0 ? 0 : 2),
+        unit: m.unit ?? '',
+        ok: m.feasible !== false,
+        shortage: m.feasible === false && m.missing > 0 ? `−${m.missing.toFixed(0)}` : null,
+      }))
     } catch {
       // BOM unavailable — empty table
     }

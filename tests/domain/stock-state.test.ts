@@ -215,4 +215,31 @@ test.group('evaluateSequentialFeasibility', () => {
     assert.isFalse(result.get('OF-A')!.feasible)
     assert.isAbove(result.get('OF-A')!.missingComponents['C1'] ?? 0, 0)
   })
+
+  // Régression issue #11 : le badge "dispo instantanée" ne doit PAS compter les
+  // réceptions à venir (sinon il contredit le détail OF qui les ignore).
+  test('immediate mode ignores future receptions (issue #11)', ({ assert }) => {
+    const flows: Flow[] = [
+      // 20 en stock présent + 100 en réception future → 120 si réceptions comptées
+      makeFlow({ article: 'C1', quantity: 20, origin: { type: 'stock', subType: 'strict', pmp: null } }),
+      makeFlow({ article: 'C1', quantity: 100, date: new Date('2026-06-25'), origin: { type: 'reception', id: 'R1', supplier: 'S1', designation: null, categorie: null, dateCommande: null, qteCommandee: 100 } }),
+    ]
+    const nomenclatures = new Map<string, Nomenclature>([
+      ['PF1', {
+        article: 'PF1', description: '', components: [
+          { parentArticle: 'PF1', parentDescription: '', level: 5, componentArticle: 'C1', componentDescription: '', linkQuantity: 1, componentType: 'ACHETE', consumptionNature: 'PROPORTIONNEL' },
+        ],
+      }],
+    ])
+    const articles = new Map([['PF1', makeArticle('PF1')], ['C1', makeArticle('C1', 'ACHAT')]])
+    const ofs: OfInput[] = [
+      { numOf: 'OF-A', article: 'PF1', qteRestante: 60, dateDebut: null, dateFin: '2026-06-20', statutNum: 3 },
+    ]
+
+    // Horizon englobe la réception (2026-07-01 > 2026-06-25), mais le mode immédiat
+    // ne doit voir que les 20 en stock → 20 < 60 → bloqué (rupture honnête).
+    const result = evaluateSequentialFeasibility(ofs, flows, nomenclatures, articles, new Date('2026-07-01'), { mode: 'immediate' })
+    assert.isFalse(result.get('OF-A')!.feasible)
+    assert.equal(result.get('OF-A')!.missingComponents['C1'], 40)
+  })
 })

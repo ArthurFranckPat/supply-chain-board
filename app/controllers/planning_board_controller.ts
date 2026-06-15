@@ -8,6 +8,7 @@ import { mergeOfWithOverride, type OfFromErp } from '#app/domain/planning_board'
 import { FeasibilityService } from '#app/domain/feasibility-service'
 import { matchOrders } from '#app/domain/orders'
 import { evaluateOrderImpacts } from '#app/domain/order-impacts'
+import { evaluateMfgFeasibility, buildStrictQcStock } from '#app/domain/of-feasibility'
 import { X3OfRepository, type ManufacturingOrder } from '#repositories/of_repository'
 import type { GammeOperation } from '#app/domain/models/gamme'
 import { X3StockRepository } from '#repositories/stock_repository'
@@ -297,7 +298,7 @@ export default class PlanningBoardController {
       })
       .sort((a, b) => a.code.localeCompare(b.code))
 
-    return await ctx.view.render('board', {
+    return await ctx.view.render('pages/board', {
       days,
       weeks,
       cols: days.length,
@@ -651,6 +652,18 @@ export default class PlanningBoardController {
     for (const f of filteredDemands) if (f.article) articleSet.add(f.article)
     for (const f of receptionFlows) if (f.article) articleSet.add(f.article)
 
+    // Matières RÉELLES des OF (MFGMAT) — source de vérité de la faisabilité, partagée
+    // avec le détail OF (issue #11). Chargées en batch pour tous les OF de la fenêtre.
+    const windowNumOfs = finalOfFlows
+      .map((f) => (f.origin as { id?: string }).id?.trim() ?? '')
+      .filter(Boolean)
+    const mfgByOf = await new X3MfgmatRepository().getMaterialsForOfs(windowNumOfs)
+    // Les composants MFGMAT peuvent différer de la BOM théorique → s'assurer que leur
+    // stock est bien chargé.
+    for (const materials of mfgByOf.values()) {
+      for (const m of materials) if (m.article) articleSet.add(m.article)
+    }
+
     // Expand récursivement à TOUS les composants (ACHETE + FABRIQUE) de tous les niveaux BOM.
     // Sans ça, checkFeasibility descend dans un sous-ensemble fabriqué sans OF et trouve 0 stock
     // pour ses composants ACHETE car ils n'ont pas été chargés.
@@ -664,7 +677,15 @@ export default class PlanningBoardController {
         }
       }
     }
-    const stockFlows = await boardDataset.getStock([...articleSet])
+    // Périmètre stock aligné sur le détail OF (issue #11) : seul le stock strict/qc
+    // est consommable. Le stock 'rejected' (rebut) ne doit jamais compter comme dispo,
+    // sinon le badge sur-évalue la faisabilité vs le panneau de détail.
+    const rawStockFlows = await boardDataset.getStock([...articleSet])
+    const stockFlows = rawStockFlows.filter((f) => {
+      if (f.origin.type !== 'stock') return true
+      const sub = (f.origin as { subType?: string }).subType
+      return sub === 'strict' || sub === 'qc'
+    })
 
     // Nomenclatures : chargées via boardDataset.getNomenclature() ci-dessus (TTL 2h, tier séparé).
 
@@ -722,10 +743,27 @@ export default class PlanningBoardController {
 
     const overrideMap = new Map(overrides.map((o) => [o.numOf, o]))
 
+    // Faisabilité par OF basée sur MFGMAT (matières réelles) — MÊME calcul que le détail.
+    // Surcharge le verdict théorique du moteur pour les OF qui ont des matières MFGMAT,
+    // garantissant badge == détail (issue #11). Les OF sans MFGMAT (suggérés non éclatés)
+    // conservent le calcul BOM théorique partagé du moteur.
+    const stockByArticle = buildStrictQcStock(stockFlows)
+    const mfgFeasibility = new Map<string, { feasible: boolean | null; missingComponents: Record<string, number> }>()
+    for (const f of finalOfFlows) {
+      const numOf = (f.origin as { id?: string }).id?.trim() ?? ''
+      if (!numOf) continue
+      const materials = mfgByOf.get(numOf)
+      if (!materials || materials.length === 0) continue
+      const status = overrideMap.get(numOf)?.status ?? (f.origin as { status?: number }).status ?? 3
+      const verdict = evaluateMfgFeasibility(materials, stockByArticle, status === 1)
+      mfgFeasibility.set(numOf, { feasible: verdict.feasible, missingComponents: verdict.missingComponents })
+    }
+
     const result = evaluateOrderImpacts(
       filteredDemands, allSupply, nomenclatures, articles, overrideMap,
       { from: windowFrom, to: windowTo },
       mode as 'immediate' | 'sequential' | undefined,
+      mfgFeasibility,
     )
 
     return result
@@ -750,25 +788,11 @@ export default class PlanningBoardController {
     const articles = [...new Set(materials.map((m) => m.article).filter(Boolean))]
     const stockFlows = await boardDataset.getStock(articles).catch(() => [])
 
-    const stockByArticle = new Map<string, number>()
-    for (const f of stockFlows) {
-      const sub = (f.origin as any)?.subType
-      if (sub === 'strict' || sub === 'qc') {
-        stockByArticle.set(f.article, (stockByArticle.get(f.article) ?? 0) + f.quantity)
-      }
-    }
+    const stockByArticle = buildStrictQcStock(stockFlows)
 
-    const result = materials.map((m) => {
-      const available = stockByArticle.get(m.article) ?? null
-      const needed = m.remaining
-      // OF ferme : toujours faisable, pas de calcul stock
-      // Sinon : stock disponible + allocation ERP >= besoin (même calcul que checkFeasibility)
-      const feasible = isFirm ? true : (available !== null ? available + m.allocated >= needed : null)
-      return { ...m, available, feasible, missing: feasible === false ? Math.max(0, needed - (available ?? 0)) : 0 }
-    })
-
-    const blocked = result.filter((m) => m.feasible === false).length
-    return { numOf, materials: result, feasible: blocked === 0, blockedCount: blocked }
+    // Faisabilité via le calcul partagé (même source que le badge du board, issue #11).
+    const verdict = evaluateMfgFeasibility(materials, stockByArticle, !!isFirm)
+    return { numOf, materials: verdict.materials, feasible: verdict.feasible, blockedCount: verdict.blockedCount }
   }
 
   /**

@@ -89,6 +89,9 @@ function effectiveDateFin(ofId: string, overrides: Map<string, OfOverride>, matc
  * @param overrides - Overrides locaux (dates/statuts modifiés)
  * @param window - Fenêtre d'analyse { from, to }
  * @param mode - 'immediate' | 'sequential' (défaut: sequential)
+ * @param precomputedFeasibility - Verdict de faisabilité par OF calculé en amont (MFGMAT,
+ *   matières réelles). S'il existe pour un OF, il SURCHARGE le verdict théorique du moteur
+ *   → garantit la cohérence avec le détail OF (issue #11).
  */
 export function evaluateOrderImpacts(
   demands: Flow[],
@@ -98,6 +101,7 @@ export function evaluateOrderImpacts(
   overrides: Map<string, OfOverride>,
   window: { from: Date; to: Date },
   mode?: FeasibilityOptions['mode'],
+  precomputedFeasibility?: Map<string, { feasible: boolean | null; missingComponents: Record<string, number> }>,
 ): OrderImpactResult {
   // 1. Filter demands in window
   const windowDemands = demands.filter((d) => {
@@ -131,6 +135,14 @@ export function evaluateOrderImpacts(
     { mode },
   )
 
+  // Résout le verdict d'un OF : MFGMAT (précalculé) s'il existe, sinon le moteur théorique.
+  const resolveFeasibility = (ofId: string): { feasible: boolean | null; missingComponents: Record<string, number> } => {
+    const pre = precomputedFeasibility?.get(ofId)
+    if (pre) return { feasible: pre.feasible, missingComponents: pre.missingComponents }
+    const entry = feasibility.get(ofId)
+    return { feasible: entry?.feasible ?? null, missingComponents: entry?.missingComponents ?? {} }
+  }
+
   // 4. Cross matching × feasibility × dates → status per commande
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -146,8 +158,8 @@ export function evaluateOrderImpacts(
     for (const alloc of result.ofAllocations) {
       const ofId = (alloc.ofFlow.origin as any).id ?? ''
       const effFin = effectiveDateFin(ofId, overrides, alloc.ofFlow.date)
-      const entry = feasibility.get(ofId)
-      const ofFeasible = entry?.feasible ?? null
+      const resolved = resolveFeasibility(ofId)
+      const ofFeasible = resolved.feasible
 
       if (ofFeasible === false) blocked = true
       if (effFin && (!latestFin || effFin > latestFin)) latestFin = effFin
@@ -158,7 +170,7 @@ export function evaluateOrderImpacts(
         qteAllouee: alloc.qteAllouee,
         dateFin: effFin?.toISOString().slice(0, 10) ?? '',
         feasible: ofFeasible,
-        missingComponents: entry?.missingComponents ?? {},
+        missingComponents: resolved.missingComponents,
         modified: overrides.has(ofId),
         statutNum: overrides.get(ofId)?.status ?? (alloc.ofFlow.origin as any).status ?? 3,
       })
@@ -212,13 +224,16 @@ export function evaluateOrderImpacts(
 
   return {
     orders: rows,
-    ofs: [...feasibility.values()].map((e) => ({
-      numOf: e.numOf,
-      article: e.article,
-      feasible: e.feasible,
-      statutNum: e.statutNum,
-      missingComponents: e.missingComponents ?? {},
-    })),
+    ofs: [...feasibility.values()].map((e) => {
+      const resolved = resolveFeasibility(e.numOf)
+      return {
+        numOf: e.numOf,
+        article: e.article,
+        feasible: resolved.feasible,
+        statutNum: e.statutNum,
+        missingComponents: resolved.missingComponents,
+      }
+    }),
     window: { from: window.from.toISOString().slice(0, 10), to: window.to.toISOString().slice(0, 10) },
     stats: {
       nbCommandes: rows.length,

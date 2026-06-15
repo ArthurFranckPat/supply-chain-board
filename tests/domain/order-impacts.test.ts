@@ -198,4 +198,40 @@ test.group('evaluateOrderImpacts', () => {
     assert.equal(result.stats.nbOnTime, 2) // PF1 (OF) + PF2 (stock)
     assert.equal(result.stats.nbSansCouverture, 1) // PF3
   })
+
+  // Régression issue #11 : la faisabilité MFGMAT (matières réelles) surcharge le verdict
+  // théorique du moteur. Le moteur (BOM théorique vide) verrait l'OF faisable, mais MFGMAT
+  // signale un composant en rupture → le badge doit refléter MFGMAT (== détail OF).
+  test('precomputed MFGMAT feasibility overrides theoretical engine (issue #11)', ({ assert }) => {
+    const supplyFlows: Flow[] = [
+      makeOfFlow('OF-A', 'PF1', 3, 60, daysFromNow(8)),
+    ]
+    const demands: Flow[] = [
+      makeDemand('CMD-1', 'PF1', 60, daysFromNow(10)),
+    ]
+    // Pas de BOM théorique → le moteur seul dirait "faisable".
+    const nomenclatures = new Map<string, Nomenclature>()
+    const articles = new Map([['PF1', makeArticle('PF1')]])
+    const overrides = new Map<string, OfOverride>()
+
+    // Sans précalcul : faisable.
+    const baseline = evaluateOrderImpacts(demands, supplyFlows, nomenclatures, articles, overrides, {
+      from: daysFromNow(-7), to: daysFromNow(42),
+    })
+    assert.notEqual(baseline.orders[0].statut, 'bloquee')
+
+    // Avec verdict MFGMAT en rupture : surcharge → bloquée.
+    const precomputed = new Map([
+      ['OF-A', { feasible: false, missingComponents: { BDH2231AL: 40 } }],
+    ])
+    const result = evaluateOrderImpacts(demands, supplyFlows, nomenclatures, articles, overrides, {
+      from: daysFromNow(-7), to: daysFromNow(42),
+    }, undefined, precomputed)
+
+    assert.equal(result.orders[0].statut, 'bloquee')
+    assert.equal(result.orders[0].ofs[0].feasible, false)
+    assert.equal(result.orders[0].ofs[0].missingComponents['BDH2231AL'], 40)
+    const ofEntry = result.ofs.find((o) => o.numOf === 'OF-A')
+    assert.equal(ofEntry?.feasible, false)
+  })
 })
