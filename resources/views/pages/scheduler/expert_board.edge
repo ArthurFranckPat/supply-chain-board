@@ -1,0 +1,382 @@
+@component('layouts/scheduler', { title: title, bodyClass: 'bg-[#f8f9fb]' })
+<div id="board-root" data-from="{{ windowFrom }}" data-to="{{ windowTo }}" data-col-week='{{ colWeekJson }}' data-week-caps='{{ weekCapsJson }}'>
+  <header class="fixed top-0 w-full z-50 flex justify-between items-center px-4 h-12 bg-white border-b border-gray-200">
+    <div class="flex items-center gap-6">
+      <div class="flex items-center gap-2">
+        <div class="w-6 h-6 bg-primary rounded flex items-center justify-center">
+          <span class="material-symbols-outlined text-white text-[16px]">precision_manufacturing</span>
+        </div>
+        <h1 class="font-headline-sm text-base font-bold text-gray-900 tracking-tight">FactoryOS <span class="text-[10px] mono font-normal text-gray-400 align-top ml-1">v4.2</span></h1>
+      </div>
+      <div class="flex items-center gap-2">
+        <div class="group relative flex items-center">
+          <span class="material-symbols-outlined absolute left-2.5 text-gray-400 text-[18px] pointer-events-none group-focus-within:text-primary transition-colors">search</span>
+          <input
+            id="board-search"
+            class="w-72 bg-white border border-gray-200 rounded-lg py-1.5 pl-9 pr-9 text-xs text-gray-800 transition-colors placeholder:text-gray-400 hover:border-gray-300 focus:border-primary/40 focus-visible:outline-none focus-visible:ring-0"
+            style="outline: none"
+            placeholder="Rechercher OF, article, poste…"
+            type="text"
+            autocomplete="off"
+          />
+          <kbd class="absolute right-2.5 text-[9px] font-sans font-semibold text-gray-400 bg-white border border-gray-200 rounded px-1 py-0.5 pointer-events-none group-focus-within:hidden">⌘K</kbd>
+        </div>
+      </div>
+    </div>
+    <div class="flex items-center gap-3">
+      <div class="flex items-center bg-gray-50 p-0.5 rounded border border-gray-200" id="mode-toggle" data-mode="immediate">
+        <button data-mode-btn="immediate" class="px-2.5 py-1 text-[10px] font-bold rounded bg-white shadow-sm text-primary uppercase tracking-wider transition-all" title="Stock vu en intégralité par chaque OF (instantané)">Dispo instantanée</button>
+        <button data-mode-btn="sequential" class="px-2.5 py-1 text-[10px] font-bold rounded text-gray-400 hover:text-gray-600 uppercase tracking-wider transition-all" title="Stock consommé OF par OF selon priorité (projeté)">Projetée</button>
+      </div>
+      <button id="btn-feasibility" class="flex items-center gap-1.5 bg-primary text-white px-3 py-1.5 rounded text-xs font-semibold hover:bg-m3-primary/90 transition-all disabled:opacity-60">
+        <span class="material-symbols-outlined text-[15px]" id="feas-icon">fact_check</span>
+        <span id="feas-label">Calculer faisabilité</span>
+      </button>
+      <div class="flex items-center gap-0.5 border-l border-gray-200 ml-2 pl-2">
+        <button class="p-1 text-gray-400 hover:text-gray-900 transition-all"><span class="material-symbols-outlined">notifications</span></button>
+        <button class="p-1 text-gray-400 hover:text-gray-900 transition-all"><span class="material-symbols-outlined">settings</span></button>
+        <div class="w-7 h-7 rounded border border-gray-200 ml-1 bg-gray-100 flex items-center justify-center text-[10px] font-bold text-gray-500">OP</div>
+      </div>
+    </div>
+  </header>
+  <aside class="fixed left-0 top-12 h-[calc(100vh-48px)] w-12 flex flex-col items-center py-4 bg-white border-r border-gray-200 z-40">
+    <nav class="flex flex-col gap-5">
+      <a class="p-2 text-gray-400 hover:text-primary transition-colors" href="/scheduler/board" title="Vue d'ensemble"><span class="material-symbols-outlined">grid_view</span></a>
+      <a class="p-2 text-primary bg-m3-primary/5 rounded-lg" href="/scheduler/board" title="Planning Prods"><span class="material-symbols-outlined">event_note</span></a>
+      <a class="p-2 text-gray-400 hover:text-primary transition-colors" href="#" title="Ressources"><span class="material-symbols-outlined">inventory</span></a>
+      <a class="p-2 text-gray-400 hover:text-primary transition-colors" href="#" title="Maintenance"><span class="material-symbols-outlined">build</span></a>
+      <a class="p-2 text-gray-400 hover:text-primary transition-colors" href="#" title="Analytics"><span class="material-symbols-outlined">monitoring</span></a>
+    </nav>
+    <div class="mt-auto flex flex-col gap-4 pb-4">
+      <button class="text-gray-300 hover:text-gray-600"><span class="material-symbols-outlined">terminal</span></button>
+    </div>
+  </aside>
+  <main id="board-main" class="ml-12 mt-12 p-2 h-[calc(100vh-48px)] overflow-hidden flex flex-col">
+    <div class="mb-2 flex items-center justify-between bg-white p-2 rounded border border-gray-200 shadow-sm">
+      <div class="flex items-center gap-4">
+        <div class="flex items-center border border-gray-200 rounded p-0.5">
+          <a href="{{ prevHref }}" up-target="#board-main" up-history="true" class="p-1 px-2 text-[11px] font-medium hover:bg-gray-50">Préc.</a>
+          <a href="{{ todayHref }}" up-target="#board-main" up-history="true" class="p-1 px-3 text-[11px] font-bold bg-gray-50 border-x border-gray-200 text-gray-700 hover:text-primary" title="Revenir à aujourd'hui">{{ weekLabel }}</a>
+          <a href="{{ nextHref }}" up-target="#board-main" up-history="true" class="p-1 px-2 text-[11px] font-medium hover:bg-gray-50">Suiv.</a>
+        </div>
+        <span class="text-[13px] font-bold text-gray-800 mono">{{ dateRange }}</span>
+        <form method="get" up-submit up-target="#board-main" up-history="true" class="flex items-center gap-1 border border-gray-200 rounded px-1.5 py-0.5" title="Horizon (jours)">
+          <span class="material-symbols-outlined text-[14px] text-gray-400">date_range</span>
+          <input type="hidden" name="start" value="{{ windowFrom }}">
+          <input type="number" name="days" min="1" max="90" value="{{ horizon }}"
+                 class="w-10 text-[11px] font-bold mono text-gray-700 text-right bg-transparent focus:outline-none"
+                 onchange="this.form.submit()">
+          <span class="text-[10px] font-bold text-gray-400">j</span>
+        </form>
+      </div>
+      <div class="flex items-center gap-4">
+        <div class="flex gap-3">
+          <div class="flex items-center gap-1 text-[10px] font-bold uppercase text-gray-400"><div class="w-2 h-2 rounded-full bg-emerald-500"></div> Ferme</div>
+          <div class="flex items-center gap-1 text-[10px] font-bold uppercase text-gray-400"><div class="w-2 h-2 rounded-full bg-blue-500"></div> Planifié</div>
+          <div class="flex items-center gap-1 text-[10px] font-bold uppercase text-gray-400"><div class="w-2 h-2 rounded-full bg-amber-500"></div> Suggéré</div>
+        </div>
+        <button class="flex items-center gap-1 px-2 py-1 bg-gray-50 border border-gray-200 rounded text-[10px] font-bold text-gray-600 hover:bg-white transition-all uppercase">
+          <span class="material-symbols-outlined text-[14px]">table_view</span> Export CSV
+        </button>
+      </div>
+    </div>
+
+    @if(x3Error)
+    <div class="mb-2 bg-amber-50 border border-amber-200 text-amber-800 px-3 py-2 text-xs rounded flex items-center gap-2">
+      <span class="material-symbols-outlined text-sm">warning</span>
+      X3 injoignable — données {{ cached ? 'du cache (' + cached + ')' : 'indisponibles' }}.
+      <a href="/scheduler/board?refresh=1" class="font-bold underline">Réessayer</a>
+    </div>
+    @end
+    @if(lines.length === 0)
+    <div class="flex-1 flex items-center justify-center text-gray-400 italic p-10">
+      Aucun OF planifiable dans la fenêtre (vérifier gammes / dates OF).
+    </div>
+    @end
+    <div class="flex-1 sch-scroll bg-gray-50 border border-gray-200 rounded-sm shadow-sm" style="--cols: {{ cols }}">
+      {{-- Both header bands wrapped in ONE sticky element so they pin together
+           on vertical scroll (week band on top, day row below). --}}
+      <div class="sch-head">
+        {{-- Week band: one cell per ISO week, spanning its business days. --}}
+        <div class="grid-expert border-b border-gray-200 bg-gray-100">
+          <div class="sch-col-fix p-1.5 border-r border-gray-200 bg-gray-100"></div>
+          @each(wk in weekSpans)
+          <div class="p-1.5 text-center border-r border-gray-200" style="grid-column: span {{ wk.span }}">
+            <span class="text-[10px] font-bold uppercase tracking-widest mono text-gray-500">Semaine {{ wk.week }}</span>
+          </div>
+          @end
+        </div>
+        {{-- Day row + per-day load --}}
+        <div class="grid-expert border-b border-gray-300 bg-gray-50">
+          <div class="sch-col-fix p-2 border-r border-gray-200 bg-gray-50 flex items-center justify-between">
+            <span class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mono">Ressource / Ligne</span>
+            <span class="material-symbols-outlined text-gray-300 text-sm">unfold_more</span>
+          </div>
+          @each((day, di) in days)
+          <div class="p-2 border-r border-gray-200 text-center {{ day.headerTone }}">
+            <div class="text-[10px] font-bold uppercase mono {{ day.today ? 'text-primary' : 'text-gray-400' }}">{{ day.short }}</div>
+            <div class="mt-1">
+              <span class="sch-day-load text-[11px] font-bold mono {{ day.valClass }}" data-col="{{ di }}" data-base="{{ day.hours }}">{{ day.hours }}</span>
+            </div>
+          </div>
+          @end
+        </div>
+      </div>
+
+      <div class="bg-gray-50">
+        @each(line in lines)
+        <div class="sch-row grid-expert border-b border-gray-200 min-h-[120px]" data-line="{{ line.code }} {{ line.name }}">
+          <div class="sch-col-fix p-3 border-r border-gray-200 bg-white flex flex-col">
+            <div class="flex items-center gap-1.5 mb-2">
+              <div class="w-2 h-2 rounded-full {{ line.dot }}"></div>
+              <span class="text-xs font-bold text-gray-900 uppercase tracking-tight">{{ line.name }}</span>
+            </div>
+
+            {{-- Charge hebdomadaire (par poste) : barres semaine, ligne capacité 100%.
+                 data-* attrs let the client recompute bars live after a drag&drop. --}}
+            @if(line.weekLoads && line.weekLoads.length > 0)
+            <div class="mb-2 sch-hist" data-line-code="{{ line.code }}">
+              <div class="flex items-end gap-1 h-10 relative">
+                <div class="absolute left-0 right-0 border-t border-dashed border-gray-300" style="top: 0"></div>
+                @each(w in line.weekLoads)
+                <div class="flex-1 flex flex-col justify-end h-full sch-hist-col" data-week="{{ w.week }}" title="S{{ w.week }} — {{ w.hours }}h ({{ w.pct }}%)">
+                  <div class="sch-hist-bar w-full rounded-sm {{ w.barClass }}" style="height: {{ w.pct > 100 ? 100 : w.pct }}%; min-height: 2px"></div>
+                </div>
+                @end
+              </div>
+              <div class="flex gap-1 mt-0.5">
+                @each(w in line.weekLoads)
+                <div class="flex-1 text-center text-[8px] font-bold mono sch-hist-lbl {{ w.pct > 100 ? 'text-error' : 'text-gray-400' }}" data-week="{{ w.week }}">{{ w.hours }}h</div>
+                @end
+              </div>
+            </div>
+            @end
+
+            <div class="mt-auto space-y-1">
+              @each(m in line.meta)
+              <div class="flex justify-between text-[10px] text-gray-400 mono"><span>{{ m.k }}:</span><span class="text-gray-600 font-bold">{{ m.v }}</span></div>
+              @end
+            </div>
+          </div>
+          @each((dc, ci) in line.dayCells)
+          <div class="sch-cal-cell p-1.5 border-r border-gray-200 flex flex-col gap-1.5 {{ dc.cellClass }}" data-workstation="{{ line.code }}" data-date="{{ dc.iso }}" data-col="{{ ci }}">
+            @each(card in dc.cards)
+              @!component('components/scheduler/of_card_compact', { card: card, wst: line.code, wstName: line.name })
+            @end
+          </div>
+          @end
+        </div>
+        @end
+      </div>
+    </div>
+  </main>
+</div>
+<script>
+;(function () {
+  var dragNumOf = null
+  var dragEl = null
+  document.addEventListener('dragstart', function (e) {
+    var card = e.target.closest('.sch-of-card')
+    if (!card) return
+    dragEl = card
+    dragNumOf = card.getAttribute('data-num-of')
+    card.style.opacity = '0.4'
+    if (e.dataTransfer) {
+      e.dataTransfer.effectAllowed = 'move'
+      e.dataTransfer.setData('text/plain', dragNumOf)
+    }
+  })
+  document.addEventListener('dragend', function () {
+    if (dragEl) dragEl.style.opacity = ''
+    dragEl = null
+    dragNumOf = null
+    document.querySelectorAll('.sch-cal-cell.is-drop').forEach(function (c) {
+      c.classList.remove('is-drop')
+    })
+  })
+  document.addEventListener('dragover', function (e) {
+    if (!dragNumOf) return
+    var cell = e.target.closest('.sch-cal-cell')
+    if (!cell) return
+    e.preventDefault()
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
+    var prev = document.querySelector('.sch-cal-cell.is-drop')
+    if (prev && prev !== cell) prev.classList.remove('is-drop')
+    cell.classList.add('is-drop')
+  })
+  document.addEventListener('drop', function (e) {
+    var cell = e.target.closest('.sch-cal-cell')
+    if (!cell || !dragNumOf) return
+    e.preventDefault()
+    cell.classList.remove('is-drop')
+    var wst = cell.getAttribute('data-workstation')
+    var date = cell.getAttribute('data-date')
+    if (!wst || !date) return
+    var num = dragNumOf
+    var el = dragEl
+    if (!el) return
+
+    // Optimistic move — no reload, no flash. Snapshot for rollback.
+    var fromParent = el.parentNode
+    var fromNext = el.nextSibling
+    el.style.opacity = ''
+    cell.appendChild(el)
+    el.setAttribute('data-wst', wst)
+    el.setAttribute('data-art', el.getAttribute('data-art') || '')
+    recomputeBoardLoads()
+
+    fetch('/api/v1/planning-board/ofs/' + encodeURIComponent(num), {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ workstation: wst, dateDebut: date })
+    }).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status)
+    }).catch(function (err) {
+      // Rollback DOM move.
+      if (fromNext) fromParent.insertBefore(el, fromNext)
+      else fromParent.appendChild(el)
+      recomputeBoardLoads()
+      alert('Déplacement échoué : ' + (err && err.message ? err.message : err))
+    })
+  })
+
+  // After a move, re-run the live filter handler (day-header load, visibility)…
+  function recomputeBoardLoads() {
+    var input = document.getElementById('board-search')
+    if (input) input.dispatchEvent(new Event('input'))
+    recomputeWeeklyHistograms()
+  }
+
+  // …and recompute each line's weekly load histogram from the live DOM.
+  function recomputeWeeklyHistograms() {
+    var root = document.getElementById('board-root')
+    if (!root) return
+    var colWeek, weekCaps
+    try {
+      colWeek = JSON.parse(root.getAttribute('data-col-week') || '[]')
+      weekCaps = JSON.parse(root.getAttribute('data-week-caps') || '{}')
+    } catch (e) { return }
+
+    document.querySelectorAll('.sch-row').forEach(function (row) {
+      var hist = row.querySelector('.sch-hist')
+      if (!hist) return
+      // Sum card hours per ISO week for this line.
+      var byWeek = {}
+      row.querySelectorAll('.sch-cal-cell').forEach(function (cell) {
+        var wk = colWeek[parseInt(cell.getAttribute('data-col'), 10)]
+        if (wk === undefined) return
+        cell.querySelectorAll('.sch-of-card').forEach(function (card) {
+          byWeek[wk] = (byWeek[wk] || 0) + parseFloat(card.getAttribute('data-hours') || '0')
+        })
+      })
+      // Update each week's bar + label.
+      hist.querySelectorAll('.sch-hist-col').forEach(function (col) {
+        var wk = col.getAttribute('data-week')
+        var hours = Math.round((byWeek[wk] || 0) * 10) / 10
+        var cap = weekCaps[wk] || 0
+        var pct = cap > 0 ? Math.round((hours / cap) * 100) : 0
+        var cls = pct > 100 ? 'bg-error' : pct >= 90 ? 'bg-blue-500' : 'bg-emerald-500'
+        var bar = col.querySelector('.sch-hist-bar')
+        if (bar) {
+          bar.style.height = (pct > 100 ? 100 : pct) + '%'
+          bar.classList.remove('bg-error', 'bg-blue-500', 'bg-emerald-500')
+          bar.classList.add(cls)
+        }
+        col.setAttribute('title', 'S' + wk + ' — ' + hours + 'h (' + pct + '%)')
+        var lbl = hist.querySelector('.sch-hist-lbl[data-week="' + wk + '"]')
+        if (lbl) {
+          lbl.textContent = hours + 'h'
+          lbl.classList.toggle('text-error', pct > 100)
+          lbl.classList.toggle('text-gray-400', pct <= 100)
+        }
+      })
+    })
+  }
+})()
+
+// ── Mode toggle (Dispo instantanée = immediate / Projetée = sequential) ──
+// Mode toggle — document-delegated so it survives Unpoly #board-main swaps.
+document.addEventListener('click', function (e) {
+  var btn = e.target.closest('[data-mode-btn]')
+  if (!btn) return
+  var toggle = document.getElementById('mode-toggle')
+  if (!toggle) return
+  toggle.setAttribute('data-mode', btn.getAttribute('data-mode-btn'))
+  toggle.querySelectorAll('[data-mode-btn]').forEach(function (b) {
+    var on = b === btn
+    b.classList.toggle('bg-white', on)
+    b.classList.toggle('shadow-sm', on)
+    b.classList.toggle('text-primary', on)
+    b.classList.toggle('text-gray-400', !on)
+  })
+})
+
+// ── Calculer faisabilité → POST board-feasibility, colore les cartes ──
+// Document-delegated (survives Unpoly swaps).
+document.addEventListener('click', function (e) {
+  var btn = e.target.closest('#btn-feasibility')
+  if (!btn) return
+  var root = document.getElementById('board-root')
+  if (!root) return
+  var icon = document.getElementById('feas-icon')
+  var label = document.getElementById('feas-label')
+
+  ;(function () {
+    var from = root.getAttribute('data-from')
+    var to = root.getAttribute('data-to')
+    var mode = (document.getElementById('mode-toggle') || {}).getAttribute
+      ? document.getElementById('mode-toggle').getAttribute('data-mode')
+      : 'immediate'
+    if (!from || !to) return
+
+    btn.disabled = true
+    label.textContent = 'Calcul…'
+    icon.classList.add('animate-spin')
+    icon.textContent = 'progress_activity'
+
+    fetch('/api/v1/planning-board/board-feasibility', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from: from, to: to, mode: mode })
+    }).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status)
+      return r.json()
+    }).then(function (data) {
+      // Build per-OF feasibility map from result.orders[].ofs[]
+      var status = {}
+      ;(data.orders || []).forEach(function (o) {
+        ;(o.ofs || []).forEach(function (of) {
+          if (of.feasible === false) status[of.numOf] = 'blocked'
+          else if (of.feasible === true && status[of.numOf] !== 'blocked') status[of.numOf] = 'ok'
+        })
+      })
+      var nbBlocked = 0
+      document.querySelectorAll('.sch-of-card').forEach(function (el) {
+        var num = el.getAttribute('data-num-of')
+        // Remove any previous badge
+        var old = el.querySelector('.sch-feas-badge')
+        if (old) old.remove()
+        var st = status[num]
+        // Only flag problems: red badge on non-feasible OFs. Feasible = no badge.
+        if (st !== 'blocked') return
+        var badge = document.createElement('span')
+        badge.className = 'sch-feas-badge is-blocked'
+        badge.innerHTML = '<span class="material-symbols-outlined">priority_high</span>'
+        badge.title = 'OF non réalisable — composant en rupture'
+        nbBlocked++
+        el.appendChild(badge)
+      })
+      window.dispatchEvent(new CustomEvent('sch-toast', { detail:
+        nbBlocked > 0 ? (nbBlocked + ' OF bloqué(s)') : 'Tous les OF faisables' }))
+    }).catch(function (err) {
+      window.dispatchEvent(new CustomEvent('sch-toast', { detail: 'Échec : ' + err.message }))
+    }).finally(function () {
+      btn.disabled = false
+      label.textContent = 'Calculer faisabilité'
+      icon.classList.remove('animate-spin')
+      icon.textContent = 'fact_check'
+    })
+  })()
+})
+</script>
+@endcomponent

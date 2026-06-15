@@ -7,6 +7,7 @@ export const controllers = {
   Health: () => import('#controllers/health_controller'),
   Pipeline: () => import('#controllers/pipeline_controller'),
   PlanningBoard: () => import('#controllers/planning_board_controller'),
+  Scheduler: () => import('#controllers/scheduler_controller'),
   StaticSync: () => import('#controllers/static_sync_controller'),
   Suivi: () => import('#controllers/suivi_controller'),
   X3Data: () => import('#controllers/x3_data_controller'),

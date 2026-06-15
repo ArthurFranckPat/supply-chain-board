@@ -1,0 +1,270 @@
+@component('layouts/scheduler', { title: title, bodyClass: 'bg-background' })
+<div>
+  <!-- Header (Scheduler chrome) -->
+  <header class="fixed top-0 w-full z-50 flex justify-between items-center px-6 h-14 bg-white/80 backdrop-blur-md border-b border-gray-200">
+    <div class="flex items-center gap-8">
+      <div class="flex items-center gap-2">
+        <div class="w-7 h-7 bg-primary rounded-md flex items-center justify-center">
+          <span class="material-symbols-outlined text-white text-[18px]">factory</span>
+        </div>
+        <h1 class="font-headline-sm text-lg font-bold text-gray-900 tracking-tight">Scheduler</h1>
+      </div>
+      <div class="flex items-center gap-3">
+        <div class="relative flex items-center">
+          <span class="material-symbols-outlined absolute left-3 text-gray-400">search</span>
+          <input
+            id="board-search"
+            class="w-72 bg-gray-100/50 border-transparent rounded-lg pl-9 py-1.5 text-sm transition-all placeholder:text-gray-400 focus:bg-white focus:ring-1 focus:ring-m3-primary/20 focus:border-m3-primary/30"
+            placeholder="Search OF, articles, lines..."
+            type="text"
+          />
+        </div>
+        <button class="p-1.5 text-gray-500 hover:bg-gray-100 rounded-md border border-gray-200 flex items-center gap-1.5 px-2.5">
+          <span class="material-symbols-outlined text-[18px]">filter_list</span>
+          <span class="text-xs font-medium">Filter</span>
+        </button>
+      </div>
+    </div>
+    <div class="flex items-center gap-4">
+      <div class="flex items-center bg-gray-100 p-0.5 rounded-lg border border-gray-200">
+        <button class="px-3 py-1 text-[11px] font-bold rounded-md bg-white shadow-sm text-primary uppercase tracking-wider">Immédiat</button>
+        <button class="px-3 py-1 text-[11px] font-bold rounded-md text-gray-500 hover:text-gray-700 uppercase tracking-wider">Projeté</button>
+      </div>
+      <button class="flex items-center gap-2 bg-primary text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-m3-primary/90 transition-all shadow-sm">Calculer faisabilité</button>
+      <div class="flex items-center gap-1 border-l border-gray-200 ml-2 pl-3">
+        <button class="p-1.5 text-gray-500 hover:bg-gray-100 rounded-md transition-all" title="Hard Refresh"><span class="material-symbols-outlined">refresh</span></button>
+        <button class="p-1.5 text-gray-500 hover:bg-gray-100 rounded-md transition-all"><span class="material-symbols-outlined">settings</span></button>
+        <button class="p-1.5 text-gray-500 hover:bg-gray-100 rounded-md transition-all"><span class="material-symbols-outlined">help</span></button>
+        <div class="w-8 h-8 rounded-full bg-gray-200 ml-2 border border-gray-200 flex items-center justify-center text-[11px] font-bold text-gray-600">OP</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Sidebar (compact) -->
+  <aside class="fixed left-0 top-14 h-[calc(100vh-56px)] w-16 flex flex-col items-center py-4 bg-white border-r border-gray-200 z-40">
+    <div class="mb-8 p-1.5 bg-surface-container-low rounded-lg border border-gray-100">
+      <span class="material-symbols-outlined text-primary">precision_manufacturing</span>
+    </div>
+    <nav class="flex-1 flex flex-col gap-6">
+      <a class="flex flex-col items-center gap-0.5 text-gray-400 hover:text-primary transition-colors" href="#" title="Tableau de bord">
+        <span class="material-symbols-outlined">dashboard</span>
+        <span class="text-[9px] font-bold uppercase tracking-tighter">Dash</span>
+      </a>
+      <a class="flex flex-col items-center gap-0.5 text-primary" href="/scheduler/board" title="Planning">
+        <span class="material-symbols-outlined">calendar_view_week</span>
+        <span class="text-[9px] font-bold uppercase tracking-tighter">Plan</span>
+      </a>
+      <a class="flex flex-col items-center gap-0.5 text-gray-400 hover:text-primary transition-colors" href="#" title="Production">
+        <span class="material-symbols-outlined">factory</span>
+        <span class="text-[9px] font-bold uppercase tracking-tighter">Prod</span>
+      </a>
+      <a class="flex flex-col items-center gap-0.5 text-gray-400 hover:text-primary transition-colors" href="#" title="Analyses">
+        <span class="material-symbols-outlined">analytics</span>
+        <span class="text-[9px] font-bold uppercase tracking-tighter">Data</span>
+      </a>
+    </nav>
+    <div class="mt-auto flex flex-col gap-4 pb-2">
+      <button class="text-gray-400 hover:text-primary transition-colors"><span class="material-symbols-outlined">settings</span></button>
+      <button class="text-gray-400 hover:text-primary transition-colors"><span class="material-symbols-outlined">contact_support</span></button>
+    </div>
+  </aside>
+
+  <!-- Main: board grid behind the detail panel -->
+  <main class="ml-16 mt-14 p-4 min-h-[calc(100vh-56px)] flex flex-col">
+    <div class="mb-4 flex items-center justify-between">
+      <div class="flex items-center gap-4">
+        <div class="flex items-center bg-white border border-gray-200 rounded-lg p-0.5">
+          <a href="{{ prevHref }}" class="p-1 px-3 text-xs font-semibold hover:bg-gray-50 rounded-md">Précédent</a>
+          <a href="{{ todayHref }}" class="p-1 px-4 text-xs font-bold bg-gray-100 rounded-md text-gray-900 mx-0.5">Aujourd'hui</a>
+          <a href="{{ nextHref }}" class="p-1 px-3 text-xs font-semibold hover:bg-gray-50 rounded-md">Suivant</a>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-sm font-bold text-gray-900">{{ dateRange }}</span>
+          <span class="text-xs text-gray-500 font-medium bg-gray-100 px-2 py-0.5 rounded-full">{{ weekLabel }}</span>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <div class="flex items-center gap-1.5 text-xs font-medium text-gray-500 mr-4">
+          <div class="flex items-center gap-1"><div class="w-2.5 h-2.5 rounded-full bg-emerald-500"></div> Fermé</div>
+          <div class="flex items-center gap-1 ml-2"><div class="w-2.5 h-2.5 rounded-full bg-blue-500"></div> Planifié</div>
+          <div class="flex items-center gap-1 ml-2"><div class="w-2.5 h-2.5 rounded-full bg-amber-500"></div> Suggéré</div>
+        </div>
+        <button class="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 hover:bg-gray-50">
+          <span class="material-symbols-outlined text-[16px]">download</span> Export
+        </button>
+      </div>
+    </div>
+
+    <div class="flex-1 bg-white border border-gray-200 rounded-xl overflow-hidden flex flex-col shadow-sm">
+      <div class="grid-week border-b border-gray-200 bg-gray-50/50" style="grid-template-columns: 200px repeat({{ cols }}, minmax(0, 1fr))">
+        <div class="p-4 border-r border-gray-200 flex flex-col justify-center">
+          <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">Lignes de Prod.</span>
+        </div>
+        @each(day in days)
+        <div class="p-4 border-r border-gray-200 flex flex-col items-center">
+          <span class="text-xs font-bold uppercase {{ day.today ? 'text-primary' : 'text-gray-400' }}">{{ day.short }}</span>
+          <div class="mt-2 w-full max-w-[100px]">
+            <div class="flex justify-between text-[10px] font-bold text-gray-600 mb-1">
+              <span>{{ day.hours }} / 8h</span>
+              <span>{{ day.pct }}%</span>
+            </div>
+            <div class="h-1 w-full bg-gray-200 rounded-full overflow-hidden">
+              <div class="h-full {{ day.loadClass }}" style="width: {{ day.pct }}%"></div>
+            </div>
+          </div>
+        </div>
+        @end
+      </div>
+      <div class="flex-1 overflow-y-auto">
+        @each(line in lines)
+        <div class="grid-week border-b border-gray-100 min-h-[140px]" style="grid-template-columns: 200px repeat({{ cols }}, minmax(0, 1fr))">
+          <div class="p-4 border-r border-gray-200 bg-gray-50/20">
+            <div class="flex items-center gap-2 mb-1">
+              <span class="w-2 h-2 rounded-full {{ line.dot }}"></span>
+              <span class="text-sm font-bold text-gray-900">{{ line.name }}</span>
+            </div>
+          </div>
+          @each(dc in line.dayCells)
+          <div class="sch-cal-cell p-2 border-r border-gray-100 flex flex-col gap-2 {{ dc.cellClass }}">
+            @each(card in dc.cards)
+              @!component('components/scheduler/of_card_comfortable', { card, selected: card.id === detail.num })
+            @end
+          </div>
+          @end
+        </div>
+        @end
+      </div>
+    </div>
+  </main>
+
+  <!-- OF detail panel — data-dense industrial -->
+  <div class="fixed inset-0 z-50 flex justify-end" id="side-panel-overlay">
+    <a href="/scheduler/board" class="absolute inset-0 bg-slate-900/30" aria-label="Fermer le panneau"></a>
+    <aside id="sch-detail-panel" class="relative w-[560px] h-full bg-slate-50 shadow-2xl flex flex-col overflow-hidden">
+
+      <!-- Header band (dark, MES style) -->
+      <div class="bg-slate-900 px-5 pt-4 pb-5 text-white">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-2.5">
+            <span class="font-mono text-[12px] font-semibold tracking-wider text-slate-300 bg-white/10 px-2 py-1 rounded">{{ detail.num }}</span>
+            <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider {{ detail.statusLabel === 'Ferme' ? 'bg-emerald-500/15 text-emerald-300' : detail.statusLabel === 'Suggéré' ? 'bg-amber-500/15 text-amber-300' : 'bg-sky-500/15 text-sky-300' }}">
+              <span class="w-1.5 h-1.5 rounded-full {{ detail.statusLabel === 'Ferme' ? 'bg-emerald-400' : detail.statusLabel === 'Suggéré' ? 'bg-amber-400' : 'bg-sky-400' }}"></span>
+              {{ detail.statusLabel }}
+            </span>
+          </div>
+          <a href="/scheduler/board" up-dismiss class="p-1.5 -mr-1 hover:bg-white/10 rounded transition-colors text-slate-400 hover:text-white">
+            <span class="material-symbols-outlined text-[20px]">close</span>
+          </a>
+        </div>
+        <h2 class="text-lg font-bold tracking-tight leading-snug">{{ detail.title }}</h2>
+        <div class="flex items-center gap-1.5 mt-1.5 text-[12px] text-slate-400">
+          <span class="material-symbols-outlined text-[15px]">precision_manufacturing</span>
+          <span class="font-medium">{{ detail.context || 'Poste non assigné' }}</span>
+        </div>
+      </div>
+
+      <!-- Metric strip (tabular numbers) -->
+      <div class="grid grid-cols-3 bg-white border-b border-slate-200 divide-x divide-slate-100">
+        @each(s in detail.stats)
+        <div class="px-4 py-3">
+          <div class="text-[9px] uppercase font-bold text-slate-400 tracking-wider mb-1">{{ s.label }}</div>
+          <div class="flex items-baseline gap-1">
+            <span class="text-[22px] font-bold font-mono tabular-nums leading-none text-slate-900">{{ s.value }}</span>
+            @if(s.sub)
+            <span class="text-[11px] font-mono text-slate-400">{{ s.sub }}</span>
+            @end
+          </div>
+        </div>
+        @end
+      </div>
+      <div class="h-1 bg-slate-100">
+        <div class="h-full bg-primary" style="width: {{ detail.progressPct }}%"></div>
+      </div>
+
+      <!-- Scrollable content -->
+      <div class="flex-1 overflow-y-auto">
+
+        <!-- Quick meta row -->
+        <div class="flex items-center justify-between px-5 py-2.5 bg-white border-b border-slate-200">
+          <span class="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5">
+            <span class="material-symbols-outlined text-[16px] text-slate-400">event</span>
+            Début
+          </span>
+          <span class="font-mono text-[12px] font-semibold text-slate-800">{{ detail.cycle.start }}</span>
+        </div>
+
+        <!-- Materials readiness banner -->
+        @if(detail.bomBlocked > 0)
+        <div class="mx-5 mt-4 flex items-center gap-2.5 px-3 py-2.5 rounded-lg bg-rose-50 border border-rose-200">
+          <span class="material-symbols-outlined text-[20px] text-rose-600">error</span>
+          <div class="text-[12px] leading-tight">
+            <span class="font-bold text-rose-700">{{ detail.bomBlocked }} composant(s) en rupture</span>
+            <span class="text-rose-600/80"> — lancement bloqué</span>
+          </div>
+        </div>
+        @else
+        <div class="mx-5 mt-4 flex items-center gap-2.5 px-3 py-2.5 rounded-lg bg-emerald-50 border border-emerald-200">
+          <span class="material-symbols-outlined text-[20px] text-emerald-600">check_circle</span>
+          <div class="text-[12px] font-bold text-emerald-700">Tous les composants disponibles</div>
+        </div>
+        @end
+
+        <!-- BOM data table -->
+        <section class="px-5 py-4">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Nomenclature</h3>
+            <span class="font-mono text-[11px] text-slate-400">{{ detail.bomCount }} articles</span>
+          </div>
+          <div class="rounded-lg border border-slate-200 overflow-hidden bg-white">
+            <table class="w-full border-collapse table-fixed">
+              <thead>
+                <tr class="bg-slate-100/70 text-[9px] uppercase tracking-wider text-slate-400 font-bold">
+                  <th class="text-left px-3 py-2 w-[44px]"></th>
+                  <th class="text-left px-1 py-2">Composant</th>
+                  <th class="text-right px-2 py-2 w-[68px]">Stock</th>
+                  <th class="text-right px-3 py-2 w-[76px]">Besoin</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">
+                @each(row in detail.bom)
+                <tr class="{{ row.ok ? 'hover:bg-slate-50' : 'bg-rose-50/60 hover:bg-rose-50' }} transition-colors">
+                  <td class="px-3 py-2.5 align-middle">
+                    @if(row.ok)
+                      <span class="material-symbols-outlined text-[18px] text-emerald-500">check_circle</span>
+                    @else
+                      <span class="material-symbols-outlined text-[18px] text-rose-500">cancel</span>
+                    @end
+                  </td>
+                  <td class="px-1 py-2.5 align-middle min-w-0">
+                    <div class="text-[13px] font-semibold text-slate-800 truncate leading-tight">{{ row.name }}</div>
+                    <div class="font-mono text-[10px] text-slate-400 truncate">{{ row.id }}</div>
+                  </td>
+                  <td class="px-2 py-2.5 align-middle text-right">
+                    <span class="font-mono text-[12px] {{ row.ok ? 'text-slate-500' : 'text-rose-600 font-semibold' }}">{{ row.stock }}</span>
+                    @if(row.shortage)
+                      <div class="font-mono text-[10px] font-bold text-rose-600">{{ row.shortage }}</div>
+                    @end
+                  </td>
+                  <td class="px-3 py-2.5 align-middle text-right">
+                    <span class="font-mono text-[13px] font-bold text-slate-900">{{ row.need }}</span>
+                    <span class="text-[9px] text-slate-400 ml-0.5">{{ row.unit }}</span>
+                  </td>
+                </tr>
+                @end
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <!-- Footer actions -->
+      <div class="px-5 py-3 border-t border-slate-200 bg-white flex gap-2.5">
+        <button class="flex-1 bg-slate-900 text-white py-2.5 rounded-lg font-semibold text-[13px] hover:bg-slate-800 transition-colors flex items-center justify-center gap-2">
+          <span class="material-symbols-outlined text-[18px]">edit_calendar</span> Réordonnancer
+        </button>
+        <button class="px-4 py-2.5 border border-slate-300 rounded-lg font-semibold text-[13px] text-slate-700 hover:bg-slate-50 transition-colors">Clôturer</button>
+      </div>
+    </aside>
+  </div>
+</div>
+@endcomponent

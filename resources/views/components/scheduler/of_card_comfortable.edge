@@ -1,0 +1,40 @@
+<!-- Comfortable OF card (board view behind the detail panel) — rounded,
+      shadowed, status footer bar. `card` from SchedulerController;
+      `selected` highlights the OF currently open in the side panel. -->
+<a href="{{ card.href }}" class="sch-of-card block rounded-lg p-3 shadow-sm hover:shadow-md transition-all relative overflow-hidden {{ selected ? 'ring-2 ring-primary border-transparent bg-white' : (card.status === 'bloque' ? 'bg-error/5 border border-error/20' : 'bg-white border border-gray-200') }}">
+  <div class="flex items-center justify-between mb-2">
+    <div class="flex items-center gap-1 {{ card.status === 'bloque' ? 'text-error' : 'text-gray-500' }}">
+      @if(card.status === 'bloque')
+        <span class="material-symbols-outlined text-[14px] font-bold">warning</span>
+      @end
+      <span class="font-mono text-[10px] font-bold tracking-tight">{{ card.id }}</span>
+    </div>
+    <div class="flex items-center gap-1 px-2 py-0.5 rounded-full border {{ card.badgeClass }}">
+      @if(card.badgeIcon)
+        <span class="material-symbols-outlined text-[12px] font-bold">{{ card.badgeIcon }}</span>
+      @end
+      <span class="text-[9px] font-bold uppercase tracking-wider">{{ card.badgeLabel }}</span>
+    </div>
+  </div>
+
+  <h4 class="text-sm font-bold text-gray-900 leading-tight mb-3">{{ card.title }}</h4>
+  @if(card.alert)
+    <p class="text-[10px] text-error font-medium mb-3">{{ card.alert }}</p>
+  @end
+
+  @if(card.fields && card.fields.length > 0)
+  <div class="flex items-center justify-between pt-2 border-t {{ card.status === 'bloque' ? 'border-error/10' : 'border-gray-100' }}">
+    <div class="flex items-center gap-3">
+      @each(f in card.fields)
+      <div class="flex items-center gap-1">
+        <span class="material-symbols-outlined text-[14px] {{ card.status === 'bloque' ? 'text-error/60' : 'text-gray-400' }}">{{ f.icon }}</span>
+        <span class="text-[10px] font-bold {{ card.status === 'bloque' ? 'text-error/80' : 'text-gray-600' }}">{{ f.val }}</span>
+      </div>
+      @end
+    </div>
+    <div class="w-5 h-5 rounded-full {{ card.status === 'bloque' ? 'bg-error/20 text-error' : 'bg-gray-200 text-gray-600' }} flex items-center justify-center text-[8px] font-bold ring-2 ring-white">--</div>
+  </div>
+  @end
+
+  <div class="absolute bottom-0 left-0 w-full h-1 @if(card.status === 'bloque')bg-error @else @if(card.status === 'suggere')bg-amber-500 @else @if(card.status === 'termine')bg-emerald-500 @else @if(card.status === 'ferme')bg-emerald-500 @else bg-blue-500 @end @end @end @end"></div>
+</a>

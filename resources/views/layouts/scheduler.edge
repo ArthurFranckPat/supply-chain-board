@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="fr" class="theme-m3">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700;900&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,400,0,0&display=swap" rel="stylesheet">
+  <script src="/vendor/unpoly.js"></script>
+  <link rel="stylesheet" href="/vendor/unpoly.css">
+  <link rel="stylesheet" href="/css/app.css">
+  <script src="/js/app.js" defer></script>
+</head>
+<body class="font-body-md text-on-surface antialiased m-0 bg-background">
+  {{{ await $slots.main() }}}
+  <script>
+    // Recherche live : filtre OF + lignes de prod.
+    //  - match sur n° OF, désignation, code article, poste (code + libellé)
+    //  - ligne matchée (par son nom/code, ou contenant >=1 OF matché) reste
+    //    visible ; les autres lignes disparaissent de l'écran.
+    //  - dans une ligne visible, les cartes non matchées sont estompées.
+    ;(function () {
+      // ⌘K / Ctrl+K focus search; Esc clears + blurs. Re-query each time so it
+      // works after Unpoly swaps the #board-main fragment (input is recreated).
+      window.addEventListener('keydown', function (e) {
+        var input = document.getElementById('board-search')
+        if (!input) return
+        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+          e.preventDefault(); input.focus(); input.select()
+        } else if (e.key === 'Escape' && document.activeElement === input) {
+          input.value = ''; input.dispatchEvent(new Event('input')); input.blur()
+        }
+      })
+      // Document-delegated input handler — survives fragment swaps.
+      document.addEventListener('input', function (e) {
+        var input = e.target
+        if (!input || input.id !== 'board-search') return
+        var q = input.value.trim().toLowerCase()
+        document.querySelectorAll('.sch-row').forEach(function (row) {
+          var lineHay = (row.getAttribute('data-line') || '').toLowerCase()
+          var lineMatch = !q || lineHay.indexOf(q) !== -1
+          var anyCard = false
+          row.querySelectorAll('.sch-of-card').forEach(function (el) {
+            var hay = (
+              (el.textContent || '') + ' ' +
+              (el.getAttribute('data-num-of') || '') + ' ' +
+              (el.getAttribute('data-wst') || '') + ' ' +
+              (el.getAttribute('data-wst-name') || '') + ' ' +
+              (el.getAttribute('data-art') || '')
+            ).toLowerCase()
+            var cardMatch = !q || lineMatch || hay.indexOf(q) !== -1
+            el.style.opacity = cardMatch ? '' : '0.15'
+            el.dataset.match = cardMatch ? '1' : '0'
+            if (q && !lineMatch && hay.indexOf(q) !== -1) anyCard = true
+          })
+          row.style.display = (!q || lineMatch || anyCard) ? '' : 'none'
+        })
+        recomputeDayLoad(q)
+      })
+
+      // Day-header load (top row): always summed live from the DOM so it tracks
+      // drag&drop moves immediately (no refresh needed), and respects the active
+      // filter (hidden rows / non-matching cards excluded).
+      function recomputeDayLoad(q) {
+        var sums = {}
+        document.querySelectorAll('.sch-cal-cell').forEach(function (cell) {
+          var row = cell.closest('.sch-row')
+          if (row && row.style.display === 'none') return
+          var col = cell.dataset.col
+          cell.querySelectorAll('.sch-of-card').forEach(function (card) {
+            if (card.dataset.match === '0') return // excluded by active filter
+            var h = parseFloat(card.dataset.hours || '0')
+            sums[col] = (sums[col] || 0) + h
+          })
+        })
+        document.querySelectorAll('.sch-day-load').forEach(function (el) {
+          var v = sums[el.dataset.col] || 0
+          el.textContent = (Math.round(v * 10) / 10) + 'h'
+        })
+      }
+
+      // Keep the active filter across Unpoly #board-main swaps (horizon change,
+      // prev/next nav): remember the last query, restore + reapply it after the
+      // fragment is replaced.
+      var lastQuery = ''
+      document.addEventListener('input', function (e) {
+        if (e.target && e.target.id === 'board-search') lastQuery = e.target.value
+      })
+      if (window.up && window.up.on) {
+        window.up.on('up:fragment:inserted', function (event, fragment) {
+          var input = document.getElementById('board-search')
+          if (!input) return
+          if (lastQuery) {
+            input.value = lastQuery
+            input.dispatchEvent(new Event('input'))
+          }
+        })
+      }
+    })()
+  </script>
+</body>
+</html>
