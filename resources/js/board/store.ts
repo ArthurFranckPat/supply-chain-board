@@ -1,0 +1,211 @@
+import { createSignal, createMemo } from 'solid-js'
+import { createStore, produce } from 'solid-js/store'
+import type { BoardData, Card, SearchScope } from './types'
+
+const API = '/api/v1/planning-board'
+
+/** One backend route per scope. Each returns the FULL matched set (not just the
+ *  visible window) → robust vs volume and out-of-window OFs (#7). */
+const SCOPE_CFG: Record<
+  SearchScope,
+  { url: (q: string) => string; key: string; attr: (c: Card, lineCode: string) => string }
+> = {
+  poste: {
+    url: (q) => `${API}/search/poste?q=${encodeURIComponent(q)}`,
+    key: 'workstations',
+    attr: (_c, lineCode) => lineCode,
+  },
+  of: {
+    url: (q) => `${API}/search/of?q=${encodeURIComponent(q)}`,
+    key: 'ofs',
+    attr: (c) => c.id,
+  },
+  pf: {
+    url: (q) => `${API}/search/pf?q=${encodeURIComponent(q)}`,
+    key: 'articles',
+    attr: (c) => c.article ?? '',
+  },
+  composant: {
+    url: (q) => `${API}/articles-by-component/${encodeURIComponent(q.toUpperCase())}`,
+    key: 'articles',
+    attr: (c) => c.article ?? '',
+  },
+}
+
+export function createBoardStore(initial: BoardData) {
+  const [board, setBoard] = createStore<BoardData>(initial)
+
+  const [query, setQuery] = createSignal('')
+  const [scope, setScope] = createSignal<SearchScope>('poste')
+  // null = request in flight → nothing matches (everything dimmed).
+  const [matchSet, setMatchSet] = createSignal<Set<string> | null>(new Set())
+
+  const cache = new Map<string, Set<string>>()
+  let pendingSeq = 0
+
+  /** Whether a card matches the current query under the active scope. */
+  function cardMatches(card: Card, lineCode: string): boolean {
+    const q = query().trim()
+    if (!q) return true
+    const set = matchSet()
+    if (set === null) return false
+    return set.has(SCOPE_CFG[scope()].attr(card, lineCode))
+  }
+
+  /** A line stays visible if it matches (poste) or holds ≥1 matched card. */
+  function lineVisible(lineCode: string): boolean {
+    const q = query().trim()
+    if (!q) return true
+    const set = matchSet()
+    const s = scope()
+    if (s === 'poste' && set !== null && set.has(lineCode)) return true
+    const line = board.lines.find((l) => l.code === lineCode)
+    if (!line) return false
+    return line.dayCells.some((dc) => dc.cards.some((c) => cardMatches(c, lineCode)))
+  }
+
+  /** Fire the per-scope backend search (cached, race-guarded), update matchSet. */
+  function runSearch(s: SearchScope, rawQuery: string) {
+    const q = rawQuery.trim().toLowerCase()
+    if (!q) {
+      setMatchSet(new Set<string>())
+      return
+    }
+    const cacheKey = `${s} ${q}`
+    const cached = cache.get(cacheKey)
+    if (cached) {
+      setMatchSet(cached)
+      return
+    }
+    setMatchSet(null) // loading → all dimmed
+    const seq = ++pendingSeq
+    fetch(SCOPE_CFG[s].url(q))
+      .then((r): Promise<Record<string, string[]>> => (r.ok ? r.json() : Promise.resolve({})))
+      .then((data) => {
+        const set = new Set<string>(data[SCOPE_CFG[s].key] || [])
+        cache.set(cacheKey, set)
+        if (seq === pendingSeq && scope() === s && query().trim().toLowerCase() === q) {
+          setMatchSet(set)
+        }
+      })
+      .catch(() => {
+        const set = new Set<string>()
+        cache.set(cacheKey, set)
+        if (seq === pendingSeq && scope() === s) setMatchSet(set)
+      })
+  }
+
+  function onQueryInput(value: string) {
+    setQuery(value)
+    runSearch(scope(), value)
+  }
+  function onScopeChange(value: SearchScope) {
+    setScope(value)
+    const q = query()
+    if (q.trim()) runSearch(value, q)
+  }
+  function clearSearch() {
+    setQuery('')
+    setMatchSet(new Set<string>())
+  }
+
+  // ── Derived load — day columns (sum visible cards' hours per column) ──
+  const dayLoad = createMemo<number[]>(() => {
+    const sums = new Array<number>(board.cols).fill(0)
+    for (const line of board.lines) {
+      if (!lineVisible(line.code)) continue
+      line.dayCells.forEach((dc, col) => {
+        for (const card of dc.cards) {
+          if (cardMatches(card, line.code)) sums[col] += card.hours
+        }
+      })
+    }
+    return sums
+  })
+
+  /** Per-line weekly histogram, recomputed live from card positions. */
+  function lineWeekLoads(lineCode: string) {
+    const line = board.lines.find((l) => l.code === lineCode)
+    if (!line) return []
+    const byWeek: Record<number, number> = {}
+    line.dayCells.forEach((dc, col) => {
+      const wk = board.colWeek[col]
+      if (wk === undefined) return
+      for (const card of dc.cards) byWeek[wk] = (byWeek[wk] ?? 0) + card.hours
+    })
+    return line.weekLoads.map((wl) => {
+      const hours = Math.round((byWeek[wl.week] ?? 0) * 10) / 10
+      const cap = board.weekCaps[String(wl.week)] ?? 0
+      const pct = cap > 0 ? Math.round((hours / cap) * 100) : 0
+      const barClass = pct > 100 ? 'bg-error' : pct >= 90 ? 'bg-blue-500' : 'bg-emerald-500'
+      return { week: wl.week, hours, pct, barClass }
+    })
+  }
+
+  // ── Drag: optimistic move + PATCH + rollback ──
+  function moveCard(numOf: string, toLineCode: string, toCol: number, toIso: string) {
+    // Locate the card and its current position (returning narrows the type).
+    const findPos = () => {
+      for (let li = 0; li < board.lines.length; li++) {
+        const cells = board.lines[li].dayCells
+        for (let ci = 0; ci < cells.length; ci++) {
+          const idx = cells[ci].cards.findIndex((c) => c.id === numOf)
+          if (idx !== -1) return { line: li, col: ci, idx, card: cells[ci].cards[idx] }
+        }
+      }
+      return null
+    }
+    const from = findPos()
+    if (!from) return
+    const toLine = board.lines.findIndex((l) => l.code === toLineCode)
+    if (toLine === -1) return
+    const { card } = from
+    const snapshot = { line: from.line, col: from.col, idx: from.idx }
+
+    setBoard(
+      produce((b) => {
+        b.lines[snapshot.line].dayCells[snapshot.col].cards.splice(snapshot.idx, 1)
+        b.lines[toLine].dayCells[toCol].cards.push(card)
+      })
+    )
+
+    fetch(`${API}/ofs/${encodeURIComponent(numOf)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ workstation: toLineCode, dateDebut: toIso }),
+    })
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+      })
+      .catch((err) => {
+        // Rollback.
+        setBoard(
+          produce((b) => {
+            const ci = b.lines[toLine].dayCells[toCol].cards.findIndex((c) => c.id === numOf)
+            if (ci !== -1) b.lines[toLine].dayCells[toCol].cards.splice(ci, 1)
+            b.lines[snapshot.line].dayCells[snapshot.col].cards.splice(snapshot.idx, 0, card)
+          })
+        )
+        window.dispatchEvent(
+          new CustomEvent('sch-toast', { detail: `Déplacement échoué : ${err.message}` })
+        )
+      })
+  }
+
+  return {
+    board,
+    query,
+    scope,
+    matchSet,
+    cardMatches,
+    lineVisible,
+    dayLoad,
+    lineWeekLoads,
+    onQueryInput,
+    onScopeChange,
+    clearSearch,
+    moveCard,
+  }
+}
+
+export type BoardStore = ReturnType<typeof createBoardStore>

@@ -430,6 +430,8 @@ export default class SchedulerController {
     })
     // Week header spans (label cell + N day columns grouped per ISO week).
     const weekSpans = weekOrder.map((wk) => ({ week: wk, span: weekDayCount.get(wk) ?? 0 }))
+    // ISO week → capacity hours (business days × 8h), for live histogram recompute.
+    const weekCaps = Object.fromEntries(weekOrder.map((wk) => [wk, (weekDayCount.get(wk) ?? 0) * 8]))
 
     /** Build per-line weekly load: sum line.dayHours by week vs days×8h capacity. */
     const buildWeekLoads = (lineDayHours: number[]) =>
@@ -502,9 +504,9 @@ export default class SchedulerController {
       // Client-side recompute of the weekly histogram after a drag&drop:
       // col index → ISO week, and per-week capacity (business days × 8h).
       colWeekJson: JSON.stringify(colWeek),
-      weekCapsJson: JSON.stringify(
-        Object.fromEntries(weekOrder.map((wk) => [wk, (weekDayCount.get(wk) ?? 0) * 8]))
-      ),
+      weekCapsJson: JSON.stringify(weekCaps),
+      // Full board payload consumed by the Solid grid island (#board-data).
+      boardJson: JSON.stringify({ days, lines, weekSpans, cols: days.length, colWeek, weekCaps }),
       weekLabel: colDates.length ? `S${isoWeek(colDates[0])}` : '',
       dateRange: `${fmtFr(firstDay)} — ${fmtFr(lastDay)}`,
       prevHref,

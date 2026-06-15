@@ -12,7 +12,9 @@
  */
 
 import { render } from 'solid-js/web'
-import Ping from './board/ping'
+import BoardGrid from './board/grid'
+import { createBoardStore } from './board/store'
+import type { BoardData } from './board/types'
 
 declare global {
   interface Window {
@@ -26,7 +28,16 @@ declare global {
 type IslandFactory = (el: HTMLElement) => () => void
 
 const ISLANDS: Record<string, IslandFactory> = {
-  ping: (el) => render(() => <Ping label={el.dataset.label ?? 'Solid'} />, el),
+  'board-grid': (el) => {
+    const dataEl = document.getElementById('board-data')
+    if (!dataEl?.textContent) {
+      console.warn('[solid] #board-data introuvable')
+      return () => {}
+    }
+    const data = JSON.parse(dataEl.textContent) as BoardData
+    const store = createBoardStore(data)
+    return render(() => <BoardGrid store={store} />, el)
+  },
 }
 
 function mount(el: HTMLElement): (() => void) | void {

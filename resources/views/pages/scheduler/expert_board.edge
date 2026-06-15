@@ -43,8 +43,6 @@
         <span class="material-symbols-outlined text-[15px]" id="feas-icon">fact_check</span>
         <span id="feas-label">Calculer faisabilité</span>
       </button>
-      {{-- P1: îlot Solid de validation (build + montage Unpoly + réactivité). À retirer. --}}
-      <div data-solid="ping" data-label="Solid"></div>
       <div class="flex items-center gap-0.5 border-l border-gray-200 ml-2 pl-2">
         <button class="p-1 text-gray-400 hover:text-gray-900 transition-all"><span class="material-symbols-outlined">notifications</span></button>
         <button class="p-1 text-gray-400 hover:text-gray-900 transition-all"><span class="material-symbols-outlined">settings</span></button>
@@ -106,209 +104,15 @@
       Aucun OF planifiable dans la fenêtre (vérifier gammes / dates OF).
     </div>
     @end
-    <div class="flex-1 sch-scroll bg-gray-50 border border-gray-200 rounded-sm shadow-sm" style="--cols: {{ cols }}">
-      {{-- Both header bands wrapped in ONE sticky element so they pin together
-           on vertical scroll (week band on top, day row below). --}}
-      <div class="sch-head">
-        {{-- Week band: one cell per ISO week, spanning its business days. --}}
-        <div class="grid-expert border-b border-gray-200 bg-gray-100">
-          <div class="sch-col-fix p-1.5 border-r border-gray-200 bg-gray-100"></div>
-          @each(wk in weekSpans)
-          <div class="p-1.5 text-center border-r border-gray-200" style="grid-column: span {{ wk.span }}">
-            <span class="text-[10px] font-bold uppercase tracking-widest mono text-gray-500">Semaine {{ wk.week }}</span>
-          </div>
-          @end
-        </div>
-        {{-- Day row + per-day load --}}
-        <div class="grid-expert border-b border-gray-300 bg-gray-50">
-          <div class="sch-col-fix p-2 border-r border-gray-200 bg-gray-50 flex items-center justify-between">
-            <span class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mono">Ressource / Ligne</span>
-            <span class="material-symbols-outlined text-gray-300 text-sm">unfold_more</span>
-          </div>
-          @each((day, di) in days)
-          <div class="p-2 border-r border-gray-200 text-center {{ day.headerTone }}">
-            <div class="text-[10px] font-bold uppercase mono {{ day.today ? 'text-primary' : 'text-gray-400' }}">{{ day.short }}</div>
-            <div class="mt-1">
-              <span class="sch-day-load text-[11px] font-bold mono {{ day.valClass }}" data-col="{{ di }}" data-base="{{ day.hours }}">{{ day.hours }}</span>
-            </div>
-          </div>
-          @end
-        </div>
-      </div>
-
-      <div class="bg-gray-50">
-        @each(line in lines)
-        <div class="sch-row grid-expert border-b border-gray-200 min-h-[120px]" data-line="{{ line.code }} {{ line.name }}">
-          <div class="sch-col-fix p-3 border-r border-gray-200 bg-white flex flex-col">
-            <div class="flex items-center gap-1.5 mb-2">
-              <div class="w-2 h-2 rounded-full {{ line.dot }}"></div>
-              <span class="text-xs font-bold text-gray-900 uppercase tracking-tight">{{ line.name }}</span>
-            </div>
-
-            {{-- Charge hebdomadaire (par poste) : barres semaine, ligne capacité 100%.
-                 data-* attrs let the client recompute bars live after a drag&drop. --}}
-            @if(line.weekLoads && line.weekLoads.length > 0)
-            <div class="mb-2 sch-hist" data-line-code="{{ line.code }}">
-              <div class="flex items-end gap-1 h-10 relative">
-                <div class="absolute left-0 right-0 border-t border-dashed border-gray-300" style="top: 0"></div>
-                @each(w in line.weekLoads)
-                <div class="flex-1 flex flex-col justify-end h-full sch-hist-col" data-week="{{ w.week }}" title="S{{ w.week }} — {{ w.hours }}h ({{ w.pct }}%)">
-                  <div class="sch-hist-bar w-full rounded-sm {{ w.barClass }}" style="height: {{ w.pct > 100 ? 100 : w.pct }}%; min-height: 2px"></div>
-                </div>
-                @end
-              </div>
-              <div class="flex gap-1 mt-0.5">
-                @each(w in line.weekLoads)
-                <div class="flex-1 text-center text-[8px] font-bold mono sch-hist-lbl {{ w.pct > 100 ? 'text-error' : 'text-gray-400' }}" data-week="{{ w.week }}">{{ w.hours }}h</div>
-                @end
-              </div>
-            </div>
-            @end
-
-            <div class="mt-auto space-y-1">
-              @each(m in line.meta)
-              <div class="flex justify-between text-[10px] text-gray-400 mono"><span>{{ m.k }}:</span><span class="text-gray-600 font-bold">{{ m.v }}</span></div>
-              @end
-            </div>
-          </div>
-          @each((dc, ci) in line.dayCells)
-          <div class="sch-cal-cell p-1.5 border-r border-gray-200 flex flex-col gap-1.5 {{ dc.cellClass }}" data-workstation="{{ line.code }}" data-date="{{ dc.iso }}" data-col="{{ ci }}">
-            @each(card in dc.cards)
-              @!component('components/scheduler/of_card_compact', { card: card, wst: line.code, wstName: line.name })
-            @end
-          </div>
-          @end
-        </div>
-        @end
-      </div>
-    </div>
+    {{-- Grille rendue par l'îlot Solid (board-grid). Données dans #board-data. --}}
+    <script id="board-data" type="application/json">{{{ boardJson }}}</script>
+    <div data-solid="board-grid" class="flex-1 flex flex-col min-h-0"></div>
   </main>
 </div>
 <script>
-;(function () {
-  var dragNumOf = null
-  var dragEl = null
-  document.addEventListener('dragstart', function (e) {
-    var card = e.target.closest('.sch-of-card')
-    if (!card) return
-    dragEl = card
-    dragNumOf = card.getAttribute('data-num-of')
-    card.style.opacity = '0.4'
-    if (e.dataTransfer) {
-      e.dataTransfer.effectAllowed = 'move'
-      e.dataTransfer.setData('text/plain', dragNumOf)
-    }
-  })
-  document.addEventListener('dragend', function () {
-    if (dragEl) dragEl.style.opacity = ''
-    dragEl = null
-    dragNumOf = null
-    document.querySelectorAll('.sch-cal-cell.is-drop').forEach(function (c) {
-      c.classList.remove('is-drop')
-    })
-  })
-  document.addEventListener('dragover', function (e) {
-    if (!dragNumOf) return
-    var cell = e.target.closest('.sch-cal-cell')
-    if (!cell) return
-    e.preventDefault()
-    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
-    var prev = document.querySelector('.sch-cal-cell.is-drop')
-    if (prev && prev !== cell) prev.classList.remove('is-drop')
-    cell.classList.add('is-drop')
-  })
-  document.addEventListener('drop', function (e) {
-    var cell = e.target.closest('.sch-cal-cell')
-    if (!cell || !dragNumOf) return
-    e.preventDefault()
-    cell.classList.remove('is-drop')
-    var wst = cell.getAttribute('data-workstation')
-    var date = cell.getAttribute('data-date')
-    if (!wst || !date) return
-    var num = dragNumOf
-    var el = dragEl
-    if (!el) return
-
-    // Optimistic move — no reload, no flash. Snapshot for rollback.
-    var fromParent = el.parentNode
-    var fromNext = el.nextSibling
-    el.style.opacity = ''
-    cell.appendChild(el)
-    el.setAttribute('data-wst', wst)
-    el.setAttribute('data-art', el.getAttribute('data-art') || '')
-    recomputeBoardLoads()
-
-    fetch('/api/v1/planning-board/ofs/' + encodeURIComponent(num), {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ workstation: wst, dateDebut: date })
-    }).then(function (r) {
-      if (!r.ok) throw new Error('HTTP ' + r.status)
-    }).catch(function (err) {
-      // Rollback DOM move.
-      if (fromNext) fromParent.insertBefore(el, fromNext)
-      else fromParent.appendChild(el)
-      recomputeBoardLoads()
-      alert('Déplacement échoué : ' + (err && err.message ? err.message : err))
-    })
-  })
-
-  // After a move, re-run the live filter handler (day-header load, visibility)…
-  function recomputeBoardLoads() {
-    var input = document.getElementById('board-search')
-    // bubbles:true OBLIGATOIRE — le listener 'input' est sur document ( layouts/scheduler.edge).
-    // Sans bubbling, l'event reste sur l'input et applyFilter()/recomputeDayLoad() ne tournent
-    // jamais → la charge journalière et les histogrammes ne suivaient pas le drag&drop (#6).
-    if (input) input.dispatchEvent(new Event('input', { bubbles: true }))
-    recomputeWeeklyHistograms()
-  }
-
-  // …and recompute each line's weekly load histogram from the live DOM.
-  function recomputeWeeklyHistograms() {
-    var root = document.getElementById('board-root')
-    if (!root) return
-    var colWeek, weekCaps
-    try {
-      colWeek = JSON.parse(root.getAttribute('data-col-week') || '[]')
-      weekCaps = JSON.parse(root.getAttribute('data-week-caps') || '{}')
-    } catch (e) { return }
-
-    document.querySelectorAll('.sch-row').forEach(function (row) {
-      var hist = row.querySelector('.sch-hist')
-      if (!hist) return
-      // Sum card hours per ISO week for this line.
-      var byWeek = {}
-      row.querySelectorAll('.sch-cal-cell').forEach(function (cell) {
-        var wk = colWeek[parseInt(cell.getAttribute('data-col'), 10)]
-        if (wk === undefined) return
-        cell.querySelectorAll('.sch-of-card').forEach(function (card) {
-          byWeek[wk] = (byWeek[wk] || 0) + parseFloat(card.getAttribute('data-hours') || '0')
-        })
-      })
-      // Update each week's bar + label.
-      hist.querySelectorAll('.sch-hist-col').forEach(function (col) {
-        var wk = col.getAttribute('data-week')
-        var hours = Math.round((byWeek[wk] || 0) * 10) / 10
-        var cap = weekCaps[wk] || 0
-        var pct = cap > 0 ? Math.round((hours / cap) * 100) : 0
-        var cls = pct > 100 ? 'bg-error' : pct >= 90 ? 'bg-blue-500' : 'bg-emerald-500'
-        var bar = col.querySelector('.sch-hist-bar')
-        if (bar) {
-          bar.style.height = (pct > 100 ? 100 : pct) + '%'
-          bar.classList.remove('bg-error', 'bg-blue-500', 'bg-emerald-500')
-          bar.classList.add(cls)
-        }
-        col.setAttribute('title', 'S' + wk + ' — ' + hours + 'h (' + pct + '%)')
-        var lbl = hist.querySelector('.sch-hist-lbl[data-week="' + wk + '"]')
-        if (lbl) {
-          lbl.textContent = hours + 'h'
-          lbl.classList.toggle('text-error', pct > 100)
-          lbl.classList.toggle('text-gray-400', pct <= 100)
-        }
-      })
-    })
-  }
-})()
+// Drag&drop, filtre recherche, charge/jour et histogrammes hebdo sont désormais
+// gérés par l'îlot Solid board-grid (resources/js/board/*). Restent ici, en attente
+// de portage : le mode-toggle (P2c) et le calcul de faisabilité (P2b).
 
 // ── Mode toggle (Dispo instantanée = immediate / Projetée = sequential) ──
 // Mode toggle — document-delegated so it survives Unpoly #board-main swaps.
