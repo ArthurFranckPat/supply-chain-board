@@ -254,7 +254,10 @@
   // After a move, re-run the live filter handler (day-header load, visibility)…
   function recomputeBoardLoads() {
     var input = document.getElementById('board-search')
-    if (input) input.dispatchEvent(new Event('input'))
+    // bubbles:true OBLIGATOIRE — le listener 'input' est sur document ( layouts/scheduler.edge).
+    // Sans bubbling, l'event reste sur l'input et applyFilter()/recomputeDayLoad() ne tournent
+    // jamais → la charge journalière et les histogrammes ne suivaient pas le drag&drop (#6).
+    if (input) input.dispatchEvent(new Event('input', { bubbles: true }))
     recomputeWeeklyHistograms()
   }
 
