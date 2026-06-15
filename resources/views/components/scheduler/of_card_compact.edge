@@ -1,6 +1,11 @@
 <a href="{{ card.href }}" up-layer="new drawer" up-position="right" up-target="#sch-detail-panel" draggable="true" data-num-of="{{ card.id }}" data-wst="{{ wst }}" data-wst-name="{{ wstName }}" data-art="{{ card.article }}" data-hours="{{ card.hours }}" class="sch-of-card relative block bg-white border border-gray-200 rounded p-1.5 {{ card.accentClass }} {{ card.cardClass }}">
   <div class="flex items-baseline justify-between gap-1.5">
-    <span class="mono text-[10px] font-bold {{ card.idTone }} truncate">{{ card.id }}</span>
+    <span class="flex items-baseline gap-1 min-w-0">
+      <span class="mono text-[10px] font-bold {{ card.idTone }} truncate">{{ card.id }}</span>
+      @if(card.article)
+      <span class="mono text-[9px] {{ card.fieldValTone }} truncate">{{ card.article }}</span>
+      @end
+    </span>
     @if(card.metric)
     <span class="mono text-[10px] font-semibold {{ card.fieldValTone }} shrink-0">{{ card.metric }}</span>
     @end

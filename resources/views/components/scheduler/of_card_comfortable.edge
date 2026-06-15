@@ -8,6 +8,9 @@
         <span class="material-symbols-outlined text-[14px] font-bold">warning</span>
       @end
       <span class="font-mono text-[10px] font-bold tracking-tight">{{ card.id }}</span>
+      @if(card.article)
+      <span class="font-mono text-[10px] text-gray-400">·{{ card.article }}</span>
+      @end
     </div>
     <div class="flex items-center gap-1 px-2 py-0.5 rounded-full border {{ card.badgeClass }}">
       @if(card.badgeIcon)

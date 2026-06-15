@@ -147,6 +147,9 @@
         <div class="flex items-center justify-between mb-4">
           <div class="flex items-center gap-2.5">
             <span class="font-mono text-[12px] font-semibold tracking-wider text-slate-300 bg-white/10 px-2 py-1 rounded">{{ detail.num }}</span>
+            @if(detail.article)
+            <span class="font-mono text-[11px] tracking-wide text-aldes bg-white/5 px-2 py-1 rounded">{{ detail.article }}</span>
+            @end
             <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider {{ detail.statusLabel === 'Ferme' ? 'bg-emerald-500/15 text-emerald-300' : detail.statusLabel === 'Suggéré' ? 'bg-amber-500/15 text-amber-300' : 'bg-sky-500/15 text-sky-300' }}">
               <span class="w-1.5 h-1.5 rounded-full {{ detail.statusLabel === 'Ferme' ? 'bg-emerald-400' : detail.statusLabel === 'Suggéré' ? 'bg-amber-400' : 'bg-sky-400' }}"></span>
               {{ detail.statusLabel }}

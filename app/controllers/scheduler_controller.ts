@@ -90,6 +90,7 @@ interface StatItem {
 interface DetailPayload {
   num: string
   title: string
+  article: string
   statusLabel: string
   statusIcon: string
   statusClass: string
@@ -643,6 +644,7 @@ export default class SchedulerController {
     return {
       num,
       title: mo?.designation ?? mo?.article ?? num,
+      article: mo?.article ?? '',
       statusLabel,
       statusIcon,
       statusClass: preset.badgeClass ?? '',
