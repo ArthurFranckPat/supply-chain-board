@@ -73,6 +73,9 @@
             }
             el.style.opacity = cardMatch ? '' : '0.15'
             el.dataset.match = cardMatch ? '1' : '0'
+            // Carte exclue par le filtre → non glissable. Sinon un simple drag d'une carte
+            // estompée la fait réapparaître et contourne le filtrage (#8).
+            el.draggable = cardMatch
             if (q && cardMatch) anyCard = true
           })
           row.style.display = (!q || lineMatch || anyCard) ? '' : 'none'
