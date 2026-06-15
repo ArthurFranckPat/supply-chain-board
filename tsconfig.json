@@ -4,5 +4,10 @@
     "rootDir": "./",
     "jsx": "react",
     "outDir": "./build"
-  }
+  },
+  "exclude": [
+    "resources/js/**",
+    "node_modules/**",
+    "build/**"
+  ]
 }

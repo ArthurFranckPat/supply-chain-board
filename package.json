@@ -10,8 +10,13 @@
   },
   "scripts": {
     "start": "dotenvx run -- node bin/server.js",
-    "build": "dotenvx run -- node ace build",
+    "build": "npm run css:build && npm run js:build && dotenvx run -- node ace build",
     "dev": "dotenvx run -- node ace serve --hmr",
+    "dev:full": "concurrently \"dotenvx run -- node ace serve --hmr\" \"npm run css:dev\" \"npm run js:dev\"",
+    "css:dev": "tailwindcss -i resources/css/app.css -o public/css/app.css --watch",
+    "css:build": "tailwindcss -i resources/css/app.css -o public/css/app.css --minify",
+    "js:dev": "esbuild resources/js/app.ts --bundle --format=esm --outfile=public/js/app.js --watch",
+    "js:build": "esbuild resources/js/app.ts --bundle --format=esm --minify --outfile=public/js/app.js",
     "test": "dotenvx run -- node ace test",
     "lint": "eslint .",
     "format": "prettier --write .",
@@ -83,7 +88,7 @@
     "edge.js": "^6.5.1",
     "luxon": "^3.7.2",
     "reflect-metadata": "^0.2.2",
-    "sqlite3": "^5.1.7",
+    "sqlite3": "^6.0.1",
     "unpoly": "^3.14.3"
   },
   "hotHook": {
