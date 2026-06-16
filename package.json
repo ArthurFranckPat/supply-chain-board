@@ -87,7 +87,6 @@
     "@japa/api-client": "^3.2.1",
     "@tuyau/core": "^1.2.2",
     "@vinejs/vine": "^4.4.0",
-    "alpinejs": "^3.15.12",
     "edge.js": "^6.5.1",
     "luxon": "^3.7.2",
     "reflect-metadata": "^0.2.2",
