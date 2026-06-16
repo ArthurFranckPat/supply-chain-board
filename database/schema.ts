@@ -43,6 +43,23 @@ export class OfOverrideSchema extends BaseModel {
   declare workstation: string | null
 }
 
+export class OrderLineOverrideSchema extends BaseModel {
+  static $columns = ['createdAt', 'dateLivraison', 'id', 'ligne', 'numCommande', 'updatedAt'] as const
+  $columns = OrderLineOverrideSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime | null
+  @column()
+  declare dateLivraison: string
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare ligne: string
+  @column()
+  declare numCommande: string
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+}
+
 export class StaticArticleSchema extends BaseModel {
   static $columns = ['category', 'code', 'description', 'supplyType', 'syncedAt'] as const
   $columns = StaticArticleSchema.$columns
