@@ -97,6 +97,22 @@ router.get('/board', '#controllers/planning_board_controller.board')
 //   /scheduler/of/:num : Détail OF — panneau Focus Productivité Technique
 router.get('/scheduler/board', '#controllers/scheduler_controller.expertBoard')
 router.get('/scheduler/of/:num', '#controllers/scheduler_controller.ofDetail')
+//   /scheduler/shortages : Tableau de suivi des ruptures (issue #15)
+router.get('/scheduler/shortages', '#controllers/scheduler_controller.shortageTracker')
+// Issue #10 — mode planification (lignes de commande ouvertes, drag en temps)
+router.get('/scheduler/planning-board', '#controllers/order_planning_controller.board')
+
+// Order planning (API JSON) — overrides de date sur lignes de commande
+router
+  .group(() => {
+    router.get('/order-lines', '#controllers/order_planning_controller.index')
+    router.patch('/order-lines/:num/:ligne', '#controllers/order_planning_controller.update')
+    router.delete(
+      '/order-lines/:num/:ligne/override',
+      '#controllers/order_planning_controller.resetOverride'
+    )
+  })
+  .prefix('/api/v1/order-planning')
 
 // Planning Board (API JSON)
 router
@@ -112,6 +128,7 @@ router
     router.post('/order-impacts', '#controllers/planning_board_controller.orderImpacts')
     router.get('/events', '#controllers/planning_board_controller.listEvents')
     router.post('/board-feasibility', '#controllers/planning_board_controller.boardFeasibility')
+    router.get('/shortages', '#controllers/planning_board_controller.shortages')
     router.get('/nomenclature/:article', '#controllers/planning_board_controller.nomenclature')
     router.get('/articles-by-component/:component', '#controllers/planning_board_controller.articlesByComponent')
     router.get('/search/poste', '#controllers/planning_board_controller.searchPoste')

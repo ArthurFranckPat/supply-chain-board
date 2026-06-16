@@ -15,6 +15,9 @@ import { render } from 'solid-js/web'
 import BoardGrid from './board/grid'
 import { createBoardStore } from './board/store'
 import type { BoardData } from './board/types'
+import OrderGrid from './orders/grid'
+import { createOrderBoardStore } from './orders/store'
+import type { OrderBoardData } from './orders/types'
 
 declare global {
   interface Window {
@@ -37,6 +40,17 @@ const ISLANDS: Record<string, IslandFactory> = {
     const data = JSON.parse(dataEl.textContent) as BoardData
     const store = createBoardStore(data)
     return render(() => <BoardGrid store={store} />, el)
+  },
+  // Issue #10 — board planification (lignes de commande ouvertes)
+  'order-grid': (el) => {
+    const dataEl = document.getElementById('order-board-data')
+    if (!dataEl?.textContent) {
+      console.warn('[solid] #order-board-data introuvable')
+      return () => {}
+    }
+    const data = JSON.parse(dataEl.textContent) as OrderBoardData
+    const store = createOrderBoardStore(data)
+    return render(() => <OrderGrid store={store} />, el)
   },
 }
 
