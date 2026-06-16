@@ -101,6 +101,23 @@ export async function createInertiaApp(options: CreateInertiaAppOptions): Promis
 /* Composant racine                                                            */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * Imbrique la page dans sa chaîne de layouts. Rendu en JSX enfant du Provider
+ * (via <App/>) pour que l'ownership — et donc le contexte usePage() — se propage
+ * aux layouts et à la page. Solid résout le contexte par l'arbre d'ownership,
+ * pas par l'imbrication JSX : un createMemo capturé dans App casserait ce lien.
+ */
+function WithLayouts(props: {
+  layouts: Component<{ children: JSX.Element }>[]
+  pageProps: unknown
+  children: JSX.Element
+}): JSX.Element {
+  return props.layouts.reduceRight(
+    (children, Layout) => <Dynamic component={Layout} {...(props.pageProps as Record<string, unknown>)}>{children}</Dynamic>,
+    props.children
+  )
+}
+
 function App(props: SetupProps): JSX.Element {
   const [component, setComponent] = createSignal<InertiaPage>(props.initialComponent)
   const [page, setPage] = createStore<Page>(props.initialPage)
@@ -121,24 +138,16 @@ function App(props: SetupProps): JSX.Element {
     return Array.isArray(layout) ? layout : [layout]
   })
 
-  // Page nue, props réactives via le store.
-  const pageElement = () => <Dynamic component={component()} {...page.props} />
-
-  // Imbrique la page dans sa chaîne de layouts (du plus interne au plus externe).
-  const tree = createMemo<JSX.Element>(() =>
-    layouts()
-      .slice()
-      .reverse()
-      .reduce<JSX.Element>(
-        (children, Layout) => <Dynamic component={Layout} {...page.props}>{children}</Dynamic>,
-        pageElement()
-      )
-  )
-
   return (
     <PageContext.Provider value={page}>
-      <Show when={layouts().length} fallback={pageElement()}>
-        {tree()}
+      {/* Page nue, props réactives via le store — rendue DANS le Provider. */}
+      <Show
+        when={layouts().length > 0}
+        fallback={<Dynamic component={component()} {...page.props} />}
+      >
+        <WithLayouts layouts={layouts()} pageProps={page.props}>
+          <Dynamic component={component()} {...page.props} />
+        </WithLayouts>
       </Show>
     </PageContext.Provider>
   )
