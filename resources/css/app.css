@@ -572,3 +572,14 @@ up-drawer-dismiss { display: none; }
   color: var(--color-primary);
 }
 .order-chip:hover { border-color: var(--color-gray-300, #d1d5db); }
+
+/* ── Inertia UI : Sheet (drawer Kobalte Dialog) ────────────────────────────
+   Animations d'ouverture/fermeture (Kobalte pose data-expanded / data-closed). */
+@keyframes sch-overlay-in { from { opacity: 0 } to { opacity: 1 } }
+@keyframes sch-overlay-out { from { opacity: 1 } to { opacity: 0 } }
+@keyframes sch-sheet-in  { from { transform: translateX(100%) } to { transform: translateX(0) } }
+@keyframes sch-sheet-out { from { transform: translateX(0) } to { transform: translateX(100%) } }
+.sch-overlay[data-expanded] { animation: sch-overlay-in .2s ease-out both; }
+.sch-overlay[data-closed]   { animation: sch-overlay-out .15s ease-in both; }
+.sch-sheet[data-expanded]   { animation: sch-sheet-in .25s cubic-bezier(.32,.72,0,1) both; }
+.sch-sheet[data-closed]     { animation: sch-sheet-out .2s ease-in both; }

@@ -6,7 +6,10 @@ import AppLayout from '@/layouts/app'
 import BoardGrid from '@/components/board/board-grid'
 import OfDetailSheet from '@/components/of/of-detail-sheet'
 import { Button } from '@/components/ui/button'
-import { cn } from '@/libs/cn'
+import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
+import { Separator } from '@/components/ui/separator'
+import { SegmentedControl } from '@/components/ui/segmented-control'
 
 type ExpertBoardProps = {
   board: BoardData
@@ -66,44 +69,47 @@ const ExpertBoard: Component<ExpertBoardProps> = (props) => {
   return (
     <AppLayout active="board">
       {/* En-tête fixe */}
-      <header class="fixed top-0 w-full z-50 flex justify-between items-center px-4 h-12 bg-white border-b border-gray-200">
-        <div class="flex items-center gap-6">
-          <div class="flex items-center gap-2">
-            <div class="w-6 h-6 bg-primary rounded flex items-center justify-center">
+      <header class="fixed top-0 w-full z-50 flex justify-between items-center gap-4 px-4 h-12 bg-card border-b border-border">
+        <div class="flex items-center gap-4 min-w-0">
+          {/* Marque */}
+          <div class="flex items-center gap-2 shrink-0">
+            <div class="w-6 h-6 bg-primary rounded-md flex items-center justify-center">
               <span class="material-symbols-outlined text-white text-[16px]">precision_manufacturing</span>
             </div>
-            <h1 class="font-headline-sm text-base font-bold text-gray-900 tracking-tight">
-              FactoryOS{' '}
-              <span class="text-[10px] mono font-normal text-gray-400 align-top ml-1">v4.2</span>
+            <h1 class="font-headline-sm text-sm font-bold text-foreground tracking-tight">
+              FactoryOS
+              <span class="text-[10px] mono font-normal text-muted-foreground align-top ml-1">v4.2</span>
             </h1>
           </div>
+
+          <Separator orientation="vertical" class="h-6" />
 
           {/* Recherche multi-scope */}
           <div class="flex items-center gap-2">
             <div class="group relative flex items-center">
-              <span class="material-symbols-outlined absolute left-2.5 text-gray-400 text-[18px] pointer-events-none group-focus-within:text-primary transition-colors">
+              <span class="material-symbols-outlined absolute left-2.5 text-muted-foreground text-[18px] pointer-events-none group-focus-within:text-primary transition-colors">
                 search
               </span>
-              <input
-                class="w-64 bg-white border border-gray-200 rounded-lg py-1.5 pl-9 pr-9 text-xs text-gray-800 transition-colors placeholder:text-gray-400 hover:border-gray-300 focus:border-primary/40 focus-visible:outline-none focus-visible:ring-0"
-                style={{ outline: 'none' }}
-                placeholder="Rechercher…"
+              <Input
+                size="sm"
+                class="w-60 pl-9 pr-9 rounded-lg"
+                placeholder="Rechercher un OF, article, poste…"
                 type="text"
                 autocomplete="off"
                 value={store.query()}
                 onInput={(e) => store.onQueryInput(e.currentTarget.value)}
               />
-              <kbd class="absolute right-2.5 text-[9px] font-sans font-semibold text-gray-400 bg-white border border-gray-200 rounded px-1 py-0.5 pointer-events-none group-focus-within:hidden">
+              <kbd class="absolute right-2 text-[9px] font-sans font-semibold text-muted-foreground bg-muted border border-border rounded px-1 py-0.5 pointer-events-none group-focus-within:opacity-0 transition-opacity">
                 ⌘K
               </kbd>
             </div>
             <select
               title="Portée de la recherche"
-              class="bg-white border border-gray-200 rounded-lg py-1.5 pl-2.5 pr-6 text-xs text-gray-600 hover:border-gray-300 focus:border-primary/40 focus-visible:outline-none cursor-pointer transition-colors"
+              aria-label="Portée de la recherche"
+              class="h-8 bg-card border border-border rounded-md pl-2.5 pr-7 text-xs text-muted-foreground hover:border-foreground/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer transition-colors appearance-none bg-[length:10px] bg-[right_0.5rem_center] bg-no-repeat"
               style={{
-                '-webkit-appearance': 'none',
-                '-moz-appearance': 'none',
-                appearance: 'none',
+                'background-image':
+                  "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'><path fill='%239ca3af' d='M5 6.5L1.5 3h7z'/></svg>\")",
               }}
               value={store.scope()}
               onChange={(e) => store.onScopeChange(e.currentTarget.value as typeof SCOPES[number]['v'])}
@@ -113,26 +119,17 @@ const ExpertBoard: Component<ExpertBoardProps> = (props) => {
           </div>
         </div>
 
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2 shrink-0">
           {/* Mode d'allocation stock */}
-          <div class="flex items-center bg-gray-50 p-0.5 rounded border border-gray-200">
-            <For each={['immediate', 'sequential'] as const}>
-              {(m) => (
-                <button
-                  class={cn(
-                    'px-2.5 py-1 text-[10px] font-bold rounded uppercase tracking-wider transition-all',
-                    store.mode() === m
-                      ? 'bg-white shadow-sm text-primary'
-                      : 'text-gray-400 hover:text-gray-600'
-                  )}
-                  title={m === 'immediate' ? 'Stock vu en intégralité par chaque OF (instantané)' : 'Stock consommé OF par OF selon priorité (projeté)'}
-                  onClick={() => store.setMode(m)}
-                >
-                  {m === 'immediate' ? 'Dispo instantanée' : 'Projetée'}
-                </button>
-              )}
-            </For>
-          </div>
+          <SegmentedControl
+            class="hidden md:inline-flex"
+            value={store.mode()}
+            onChange={(v) => store.setMode(v as 'immediate' | 'sequential')}
+            options={[
+              { value: 'immediate', label: 'Instantanée', title: 'Stock vu en intégralité par chaque OF' },
+              { value: 'sequential', label: 'Projetée', title: 'Stock consommé OF par OF selon priorité' },
+            ]}
+          />
 
           <Button
             size="sm"
@@ -143,51 +140,63 @@ const ExpertBoard: Component<ExpertBoardProps> = (props) => {
             <span class="material-symbols-outlined text-[15px]">
               {store.feasLoading() ? 'progress_activity' : 'fact_check'}
             </span>
-            {store.feasLoading() ? 'Calcul…' : 'Calculer faisabilité'}
+            {store.feasLoading() ? 'Calcul…' : 'Faisabilité'}
           </Button>
 
-          <div class="flex items-center gap-0.5 border-l border-gray-200 ml-2 pl-2">
-            <button class="p-1 text-gray-400 hover:text-gray-900 transition-all">
-              <span class="material-symbols-outlined">notifications</span>
-            </button>
-            <button class="p-1 text-gray-400 hover:text-gray-900 transition-all">
-              <span class="material-symbols-outlined">settings</span>
-            </button>
-            <div class="w-7 h-7 rounded border border-gray-200 ml-1 bg-gray-100 flex items-center justify-center text-[10px] font-bold text-gray-500">
-              OP
-            </div>
+          <Separator orientation="vertical" class="h-6 mx-1" />
+
+          <Button variant="ghost" size="icon" title="Notifications" class="text-muted-foreground">
+            <span class="material-symbols-outlined text-[20px]">notifications</span>
+          </Button>
+          <Button variant="ghost" size="icon" title="Réglages" class="text-muted-foreground">
+            <span class="material-symbols-outlined text-[20px]">settings</span>
+          </Button>
+          <div class="w-7 h-7 rounded-full bg-muted border border-border flex items-center justify-center text-[10px] font-bold text-muted-foreground">
+            OP
           </div>
         </div>
       </header>
 
       <main class="ml-12 mt-12 p-2 h-[calc(100vh-48px)] overflow-hidden flex flex-col">
         {/* Barre d'outils : navigation fenêtre + légende */}
-        <div class="mb-2 flex items-center justify-between bg-white p-2 rounded border border-gray-200 shadow-sm">
-          <div class="flex items-center gap-4">
-            <div class="flex items-center border border-gray-200 rounded p-0.5">
-              <Link href={props.prevHref} preserveScroll class="p-1 px-2 text-[11px] font-medium hover:bg-gray-50">
-                Préc.
+        <div class="mb-2 flex items-center justify-between gap-3 bg-card p-2 rounded-lg border border-border shadow-sm">
+          <div class="flex items-center gap-2">
+            {/* Navigation fenêtre (segmented prev/today/next) */}
+            <div class="inline-flex items-center bg-muted/60 rounded-lg border border-border p-0.5">
+              <Link
+                href={props.prevHref}
+                preserveScroll
+                class="px-2.5 h-7 inline-flex items-center text-[11px] font-semibold text-muted-foreground hover:text-foreground rounded-md transition-colors"
+                title="Période précédente"
+              >
+                <span class="material-symbols-outlined text-[18px]">chevron_left</span>
               </Link>
               <Link
                 href={props.todayHref}
                 preserveScroll
-                class="p-1 px-3 text-[11px] font-bold bg-gray-50 border-x border-gray-200 text-gray-700 hover:text-primary"
+                class="px-3 h-7 inline-flex items-center text-[11px] font-bold bg-card text-foreground border-x border-border hover:text-primary rounded-none transition-colors"
                 title="Revenir à aujourd'hui"
               >
                 {props.weekLabel}
               </Link>
-              <Link href={props.nextHref} preserveScroll class="p-1 px-2 text-[11px] font-medium hover:bg-gray-50">
-                Suiv.
+              <Link
+                href={props.nextHref}
+                preserveScroll
+                class="px-2.5 h-7 inline-flex items-center text-[11px] font-semibold text-muted-foreground hover:text-foreground rounded-md transition-colors"
+                title="Période suivante"
+              >
+                <span class="material-symbols-outlined text-[18px]">chevron_right</span>
               </Link>
             </div>
-            <span class="text-[13px] font-bold text-gray-800 mono">{props.dateRange}</span>
+            <span class="text-xs font-bold text-foreground mono">{props.dateRange}</span>
 
+            {/* Horizon (jours) */}
             <form
               onSubmit={onHorizon}
-              class="flex items-center gap-1 border border-gray-200 rounded px-1.5 py-0.5"
+              class="flex items-center gap-1 h-8 border border-border rounded-md px-2 bg-card"
               title="Horizon (jours)"
             >
-              <span class="material-symbols-outlined text-[14px] text-gray-400">date_range</span>
+              <span class="material-symbols-outlined text-[14px] text-muted-foreground">date_range</span>
               <input type="hidden" name="start" value={props.windowFrom} />
               <input
                 type="number"
@@ -195,27 +204,28 @@ const ExpertBoard: Component<ExpertBoardProps> = (props) => {
                 min="1"
                 max="90"
                 value={props.horizon}
-                class="w-10 text-[11px] font-bold mono text-gray-700 text-right bg-transparent focus:outline-none"
+                class="w-8 text-[11px] font-bold mono text-foreground text-right bg-transparent focus:outline-none"
               />
-              <span class="text-[10px] font-bold text-gray-400">j</span>
+              <span class="text-[10px] font-bold text-muted-foreground">j</span>
             </form>
           </div>
 
-          <div class="flex items-center gap-4">
-            <div class="flex gap-3">
-              <div class="flex items-center gap-1 text-[10px] font-bold uppercase text-gray-400">
-                <div class="w-2 h-2 rounded-full bg-emerald-500" /> Ferme
-              </div>
-              <div class="flex items-center gap-1 text-[10px] font-bold uppercase text-gray-400">
-                <div class="w-2 h-2 rounded-full bg-blue-500" /> Planifié
-              </div>
-              <div class="flex items-center gap-1 text-[10px] font-bold uppercase text-gray-400">
-                <div class="w-2 h-2 rounded-full bg-amber-500" /> Suggéré
-              </div>
+          <div class="flex items-center gap-3">
+            {/* Légende statuts */}
+            <div class="hidden sm:flex items-center gap-2">
+              <Badge variant="success" class="gap-1 bg-transparent text-emerald-600 border-transparent hover:bg-transparent">
+                <span class="w-2 h-2 rounded-full bg-emerald-500" /> Ferme
+              </Badge>
+              <Badge variant="secondary" class="gap-1 bg-transparent text-blue-600 border-transparent hover:bg-transparent">
+                <span class="w-2 h-2 rounded-full bg-blue-500" /> Planifié
+              </Badge>
+              <Badge variant="warning" class="gap-1 bg-transparent text-amber-600 border-transparent hover:bg-transparent">
+                <span class="w-2 h-2 rounded-full bg-amber-500" /> Suggéré
+              </Badge>
             </div>
-            <button class="flex items-center gap-1 px-2 py-1 bg-gray-50 border border-gray-200 rounded text-[10px] font-bold text-gray-600 hover:bg-white transition-all uppercase">
-              <span class="material-symbols-outlined text-[14px]">table_view</span> Export CSV
-            </button>
+            <Button variant="outline" size="sm" class="gap-1.5 uppercase text-[10px]" title="Exporter le board en CSV">
+              <span class="material-symbols-outlined text-[14px]">table_view</span> Export
+            </Button>
           </div>
         </div>
 
