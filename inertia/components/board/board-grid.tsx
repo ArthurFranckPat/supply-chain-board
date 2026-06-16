@@ -1,5 +1,4 @@
 import { For, Show, createSignal } from 'solid-js'
-import { Link } from '@/lib/inertia-solid'
 import type { BoardStore } from '@/lib/board/store'
 import type { Card, LineRow, DayCell } from '@/lib/board/types'
 
@@ -12,7 +11,7 @@ import type { Card, LineRow, DayCell } from '@/lib/board/types'
  * La réactivité (visibilité/opacité, charge par jour, histogrammes hebdo,
  * drag&drop optimiste) est portée par le store injecté.
  */
-export default function BoardGrid(props: { store: BoardStore }) {
+export default function BoardGrid(props: { store: BoardStore; onSelectOf?: (num: string) => void }) {
   const { store } = props
   const [draggedNumOf, setDraggedNumOf] = createSignal<string | null>(null)
   const [dropCol, setDropCol] = createSignal<string | null>(null)
@@ -74,6 +73,7 @@ export default function BoardGrid(props: { store: BoardStore }) {
             <Row
               store={store}
               line={line}
+              onSelectOf={props.onSelectOf}
               draggedNumOf={draggedNumOf}
               setDraggedNumOf={setDraggedNumOf}
               dropCol={dropCol}
@@ -89,6 +89,7 @@ export default function BoardGrid(props: { store: BoardStore }) {
 function Row(props: {
   store: BoardStore
   line: LineRow
+  onSelectOf?: (num: string) => void
   draggedNumOf: () => string | null
   setDraggedNumOf: (v: string | null) => void
   dropCol: () => string | null
@@ -162,6 +163,7 @@ function Row(props: {
             line={line}
             dc={dc}
             col={ci()}
+            onSelectOf={props.onSelectOf}
             draggedNumOf={props.draggedNumOf}
             setDraggedNumOf={props.setDraggedNumOf}
             dropCol={props.dropCol}
@@ -178,6 +180,7 @@ function Cell(props: {
   line: LineRow
   dc: DayCell
   col: number
+  onSelectOf?: (num: string) => void
   draggedNumOf: () => string | null
   setDraggedNumOf: (v: string | null) => void
   dropCol: () => string | null
@@ -209,6 +212,7 @@ function Cell(props: {
             store={store}
             card={card}
             line={line}
+            onSelectOf={props.onSelectOf}
             setDraggedNumOf={props.setDraggedNumOf}
             setDropCol={props.setDropCol}
           />
@@ -222,18 +226,23 @@ function CardView(props: {
   store: BoardStore
   card: Card
   line: LineRow
+  onSelectOf?: (num: string) => void
   setDraggedNumOf: (v: string | null) => void
   setDropCol: (v: string | null) => void
 }) {
   const { store, card, line } = props
   const matches = () => store.cardMatches(card, line.code)
   return (
-    <Link
-      href={card.href}
+    <div
+      role="button"
+      tabindex={matches() ? 0 : -1}
       draggable={matches()}
       data-num-of={card.id}
-      class={`sch-of-card relative block bg-white border border-gray-200 rounded p-1.5 ${card.accentClass} ${card.cardClass}`}
+      class={`sch-of-card relative block bg-white border border-gray-200 rounded p-1.5 cursor-pointer ${card.accentClass} ${card.cardClass}`}
       style={{ opacity: matches() ? '' : '0.15' }}
+      onClick={() => {
+        if (matches() && props.onSelectOf) props.onSelectOf(card.id)
+      }}
       onDragStart={(e: DragEvent) => {
         props.setDraggedNumOf(card.id)
         if (e.dataTransfer) {
@@ -276,6 +285,6 @@ function CardView(props: {
           </span>
         )}
       </Show>
-    </Link>
+    </div>
   )
 }

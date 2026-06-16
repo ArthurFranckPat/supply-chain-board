@@ -1,9 +1,10 @@
-import { createEffect, For, on, Show, type Component } from 'solid-js'
+import { createEffect, createSignal, For, on, Show, type Component } from 'solid-js'
 import { Link, router } from '@/lib/inertia-solid'
 import { createBoardStore } from '@/lib/board/store'
 import type { BoardData } from '@/lib/board/types'
 import AppLayout from '@/layouts/app'
 import BoardGrid from '@/components/board/board-grid'
+import OfDetailSheet from '@/components/of/of-detail-sheet'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/libs/cn'
 
@@ -33,6 +34,14 @@ const SCOPES = [
 const ExpertBoard: Component<ExpertBoardProps> = (props) => {
   // Store créé une fois ; resync via reset() sur navigation Inertia (prev/next/…).
   const store = createBoardStore(props.board)
+
+  // Détail OF : drawer contextuel au clic sur une carte (plus de page dédiée).
+  const [selectedOf, setSelectedOf] = createSignal<string | null>(null)
+  const [detailOpen, setDetailOpen] = createSignal(false)
+  const onSelectOf = (num: string) => {
+    setSelectedOf(num)
+    setDetailOpen(true)
+  }
 
   createEffect(
     on(
@@ -229,9 +238,11 @@ const ExpertBoard: Component<ExpertBoardProps> = (props) => {
             </div>
           }
         >
-          <BoardGrid store={store} />
+          <BoardGrid store={store} onSelectOf={onSelectOf} />
         </Show>
       </main>
+
+      <OfDetailSheet num={selectedOf()} open={detailOpen()} onOpenChange={setDetailOpen} />
     </AppLayout>
   )
 }

@@ -304,16 +304,14 @@ export default class SchedulerController {
     })
   }
 
-  /** GET /scheduler/of/:num — OF detail panel (Focus Productivité Technique). */
+  /**
+   * GET /scheduler/of/:num — payload JSON du détail OF (Focus Productivité
+   * Technique). Consommé par le drawer Solid (<OfDetailSheet>) au clic sur une
+   * carte du board. Plus de page dédiée ni d'injection du board.
+   */
   async ofDetail(ctx: HttpContext) {
     const num = ctx.params.num as string
-    const [board, detail] = await Promise.all([this.loadBoardData(ctx, `/scheduler/of/${num}`), this.loadOfDetail(num)])
-    return ctx.view.render('pages/scheduler/of_detail', {
-      title: `${num} — Détail OF`,
-      num,
-      detail,
-      ...board,
-    })
+    return ctx.response.send(await this.loadOfDetail(num))
   }
 
   /**
@@ -673,10 +671,8 @@ export default class SchedulerController {
       // col index → ISO week, and per-week capacity (business days × 8h).
       colWeekJson: JSON.stringify(colWeek),
       weekCapsJson: JSON.stringify(weekCaps),
-      // Objet board brut (props Inertia) + forme sérialisée (îlot Solid #board-data
-      // encore utilisé par of_detail.edge). Les deux reflètent le même payload.
+      // Objet board brut consommé par la page Inertia (props.board).
       board: { days, lines, weekSpans, cols: days.length, colWeek, weekCaps },
-      boardJson: JSON.stringify({ days, lines, weekSpans, cols: days.length, colWeek, weekCaps }),
       weekLabel: colDates.length ? `S${isoWeek(colDates[0])}` : '',
       dateRange: `${fmtFr(firstDay)} — ${fmtFr(lastDay)}`,
       prevHref,
