@@ -21,7 +21,7 @@
   --color-line: #e3e8ef;        /* default border (slate-200-ish) */
   --color-line-soft: #eef1f6;   /* hairline / grid */
   --color-txt: #0f172a;         /* foreground (slate-900) */
-  --color-muted: #64748b;       /* muted foreground (slate-500) */
+  --color-muted: #f1f5f9;       /* muted SURFACE (slate-100) — convention shadcn : bg-muted */
   --color-wk: #94a3b8;          /* week separators (slate-400) */
 
   /* ── Brand accent (Aldes) ── */

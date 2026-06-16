@@ -3,7 +3,10 @@
   "compilerOptions": {
     "rootDir": "./",
     "jsx": "react",
-    "outDir": "./build"
+    "outDir": "./build",
+    "paths": {
+      "@/*": ["./inertia/*"]
+    }
   },
   "exclude": [
     "resources/js/**",

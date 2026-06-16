@@ -88,6 +88,7 @@
     "@vinejs/vine": "^4.4.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "cva": "^1.0.0-beta.4",
     "edge.js": "^6.5.1",
     "luxon": "^3.7.2",
     "reflect-metadata": "^0.2.2",

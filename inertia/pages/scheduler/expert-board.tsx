@@ -9,7 +9,15 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { SegmentedControl } from '@/components/ui/segmented-control'
+import {
+  SegmentedControl,
+  SegmentedControlList,
+  SegmentedControlItems,
+  SegmentedControlItem,
+  SegmentedControlItemInput,
+  SegmentedControlItemLabel,
+  SegmentedControlIndicator,
+} from '@/components/ui/segmented-control'
 
 type ExpertBoardProps = {
   board: BoardData
@@ -122,14 +130,28 @@ const ExpertBoard: Component<ExpertBoardProps> = (props) => {
         <div class="flex items-center gap-2 shrink-0">
           {/* Mode d'allocation stock */}
           <SegmentedControl
-            class="hidden md:inline-flex"
             value={store.mode()}
             onChange={(v) => store.setMode(v as 'immediate' | 'sequential')}
-            options={[
-              { value: 'immediate', label: 'Instantanée', title: 'Stock vu en intégralité par chaque OF' },
-              { value: 'sequential', label: 'Projetée', title: 'Stock consommé OF par OF selon priorité' },
-            ]}
-          />
+            class="hidden md:flex"
+          >
+            <SegmentedControlList>
+              <SegmentedControlIndicator />
+              <SegmentedControlItems class="text-[11px] font-bold uppercase tracking-wider">
+                <SegmentedControlItem value="immediate">
+                  <SegmentedControlItemInput />
+                  <SegmentedControlItemLabel title="Stock vu en intégralité par chaque OF">
+                    Instantanée
+                  </SegmentedControlItemLabel>
+                </SegmentedControlItem>
+                <SegmentedControlItem value="sequential">
+                  <SegmentedControlItemInput />
+                  <SegmentedControlItemLabel title="Stock consommé OF par OF selon priorité">
+                    Projetée
+                  </SegmentedControlItemLabel>
+                </SegmentedControlItem>
+              </SegmentedControlItems>
+            </SegmentedControlList>
+          </SegmentedControl>
 
           <Button
             size="sm"
