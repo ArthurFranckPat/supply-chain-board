@@ -558,3 +558,17 @@ up-drawer-content { display: block; height: 100%; }
 up-drawer-content > #sch-detail-panel { width: 100%; }
 /* Aside carries its own close button — hide Unpoly's stock dismiss X. */
 up-drawer-dismiss { display: none; }
+
+/* Issue #10 — board planification : cases à cocher filtres (type/nature).
+   État coché = .is-on (piloté par l'îlot Solid order-grid). */
+.order-chip {
+  border-color: var(--color-gray-200, #e5e7eb);
+  background: #fff;
+  color: var(--color-gray-400, #9ca3af);
+}
+.order-chip.is-on {
+  border-color: color-mix(in oklch, var(--color-primary) 40%, transparent);
+  background: color-mix(in oklch, var(--color-primary) 8%, #fff);
+  color: var(--color-primary);
+}
+.order-chip:hover { border-color: var(--color-gray-300, #d1d5db); }

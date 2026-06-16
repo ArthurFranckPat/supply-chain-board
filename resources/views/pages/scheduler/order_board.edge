@@ -14,23 +14,46 @@
           <span class="material-symbols-outlined absolute left-2.5 text-gray-400 text-[18px] pointer-events-none group-focus-within:text-primary transition-colors">search</span>
           <input
             id="order-search"
-            class="w-64 bg-white border border-gray-200 rounded-lg py-1.5 pl-9 pr-9 text-xs text-gray-800 transition-colors placeholder:text-gray-400 hover:border-gray-300 focus:border-primary/40 focus-visible:outline-none focus-visible:ring-0"
+            class="w-56 bg-white border border-gray-200 rounded-lg py-1.5 pl-9 pr-9 text-xs text-gray-800 transition-colors placeholder:text-gray-400 hover:border-gray-300 focus:border-primary/40 focus-visible:outline-none focus-visible:ring-0"
             style="outline: none"
-            placeholder="Rechercher commande / client / article…"
+            placeholder="Rechercher…"
             type="text"
             autocomplete="off"
           />
+          <kbd class="absolute right-2.5 text-[9px] font-sans font-semibold text-gray-400 bg-white border border-gray-200 rounded px-1 py-0.5 pointer-events-none group-focus-within:hidden">⌘K</kbd>
         </div>
+        <select
+          id="order-search-scope"
+          title="Portée de la recherche"
+          class="bg-white border border-gray-200 rounded-lg py-1.5 pl-2.5 pr-6 text-xs text-gray-600 hover:border-gray-300 focus:border-primary/40 focus-visible:outline-none focus-visible:ring-0 cursor-pointer transition-colors"
+          style="-webkit-appearance: none; -moz-appearance: none; appearance: none; background-image: url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%2210%22 viewBox=%220 0 10 10%22><path fill=%22%239ca3af%22 d=%22M5 6.5L1.5 3h7z%22/></svg>'); background-repeat: no-repeat; background-position: right 0.5rem center; background-size: 10px"
+        >
+          <option value="poste">Poste</option>
+          <option value="commande">Commande</option>
+          <option value="article">Article</option>
+          <option value="client">Client</option>
+        </select>
         <a href="/scheduler/board" class="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-500 hover:text-primary hover:border-primary/30 transition-all" title="Revenir à la vue d'ordonnancement (OF)">
           <span class="material-symbols-outlined text-[14px]">event_note</span>
-          Vue ordonnancement
+          Ordonnancement
         </a>
       </div>
     </div>
     <div class="flex items-center gap-3">
-      <div class="flex items-center gap-3 text-[10px] font-bold uppercase text-gray-400">
-        <div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-amber-500"></div> Override</div>
+      {{-- Filtre type commande (MTS/MTO/NOR) — cases à cocher, câblées par l'îlot order-grid --}}
+      <div class="flex items-center gap-1" title="Type de commande">
+        <span class="text-[9px] font-bold uppercase text-gray-400 mr-0.5">Type</span>
+        @each(t in ['MTS', 'MTO', 'NOR'])
+        <button type="button" data-type-filter="{{ t }}" class="order-chip is-on px-2 py-1 text-[10px] font-bold rounded border uppercase tracking-wider transition-all">{{ t }}</button>
+        @endeach
       </div>
+      {{-- Filtre nature besoin (COMMANDE = ARxxxx / PREVISION = SGAxxxx) --}}
+      <div class="flex items-center gap-1 border-l border-gray-200 pl-2" title="Nature du besoin">
+        <span class="text-[9px] font-bold uppercase text-gray-400 mr-0.5">Besoin</span>
+        <button type="button" data-nature-filter="COMMANDE" class="order-chip is-on px-2 py-1 text-[10px] font-bold rounded border uppercase tracking-wider transition-all">Commande</button>
+        <button type="button" data-nature-filter="PREVISION" class="order-chip is-on px-2 py-1 text-[10px] font-bold rounded border uppercase tracking-wider transition-all">Prévision</button>
+      </div>
+      <div class="flex items-center gap-1 text-[10px] font-bold uppercase text-gray-400 border-l border-gray-200 pl-2"><div class="w-2 h-2 rounded-full bg-amber-500"></div> Override</div>
     </div>
   </header>
 
@@ -48,10 +71,24 @@
   <main class="ml-12 mt-12 p-2 h-[calc(100vh-48px)] overflow-hidden flex flex-col">
     <div class="mb-2 flex items-center justify-between bg-white p-2 rounded border border-gray-200 shadow-sm">
       <div class="flex items-center gap-4">
-        <div class="flex items-center gap-2 text-[13px] font-bold text-gray-800 mono">
-          <span class="material-symbols-outlined text-[18px] text-primary">inventory_2</span>
-          {{ totalLines }} ligne{{ totalLines > 1 ? 's' : '' }} ouverte{{ totalLines > 1 ? 's' : '' }} sur {{ lineCount }} poste{{ lineCount > 1 ? 's' : '' }}
+        <div class="flex items-center border border-gray-200 rounded p-0.5">
+          <a href="{{ prevHref }}" class="p-1 px-2 text-[11px] font-medium hover:bg-gray-50">Préc.</a>
+          <a href="{{ todayHref }}" class="p-1 px-3 text-[11px] font-bold bg-gray-50 border-x border-gray-200 text-gray-700 hover:text-primary" title="Revenir à la semaine courante">{{ weekLabel }}</a>
+          <a href="{{ nextHref }}" class="p-1 px-2 text-[11px] font-medium hover:bg-gray-50">Suiv.</a>
         </div>
+        <span class="text-[13px] font-bold text-gray-800 mono">{{ dateRange }}</span>
+        <form method="get" class="flex items-center gap-1 border border-gray-200 rounded px-1.5 py-0.5" title="Horizon (semaines)">
+          <span class="material-symbols-outlined text-[14px] text-gray-400">date_range</span>
+          <input type="hidden" name="start" value="{{ windowFrom }}">
+          <input type="number" name="weeks" min="1" max="26" value="{{ horizon }}"
+                 class="w-10 text-[11px] font-bold mono text-gray-700 text-right bg-transparent focus:outline-none"
+                 onchange="this.form.submit()">
+          <span class="text-[10px] font-bold text-gray-400">sem</span>
+        </form>
+      </div>
+      <div class="flex items-center gap-2 text-[13px] font-bold text-gray-800 mono">
+        <span class="material-symbols-outlined text-[18px] text-primary">inventory_2</span>
+        {{ totalLines }} ligne{{ totalLines > 1 ? 's' : '' }} ouverte{{ totalLines > 1 ? 's' : '' }} sur {{ lineCount }} poste{{ lineCount > 1 ? 's' : '' }}
       </div>
     </div>
 

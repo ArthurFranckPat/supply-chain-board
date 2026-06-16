@@ -1,6 +1,6 @@
-import { For, Show, createSignal, onCleanup, onMount } from 'solid-js'
+import { For, Show, createEffect, createSignal, onCleanup, onMount } from 'solid-js'
 import type { OrderBoardStore } from './store'
-import type { OrderCard, OrderLineRow, WeekCell } from './types'
+import type { OrderCard, OrderLineRow, OrderSearchScope, WeekCell } from './types'
 
 /**
  * Solid grid du board planification (issue #10).
@@ -18,6 +18,24 @@ export default function OrderGrid(props: { store: OrderBoardStore }) {
       const t = e.target as HTMLElement
       if (t?.id === 'order-search') store.onQueryInput((t as HTMLInputElement).value)
     }
+    const onChange = (e: Event) => {
+      const t = e.target as HTMLElement
+      if (t?.id === 'order-search-scope')
+        store.onScopeChange((t as HTMLSelectElement).value as OrderSearchScope)
+    }
+    // Cases à cocher type/nature : vivent dans le header SSR, câblées delegated.
+    const onClick = (e: MouseEvent) => {
+      const t = e.target as HTMLElement
+      const typeBtn = t.closest('[data-type-filter]')
+      if (typeBtn) {
+        store.toggleType(typeBtn.getAttribute('data-type-filter')!)
+        return
+      }
+      const natBtn = t.closest('[data-nature-filter]')
+      if (natBtn) {
+        store.toggleNature(natBtn.getAttribute('data-nature-filter')!)
+      }
+    }
     const onKey = (e: KeyboardEvent) => {
       const input = document.getElementById('order-search') as HTMLInputElement | null
       if (!input) return
@@ -32,10 +50,28 @@ export default function OrderGrid(props: { store: OrderBoardStore }) {
       }
     }
     document.addEventListener('input', onInput)
+    document.addEventListener('change', onChange)
+    document.addEventListener('click', onClick)
     window.addEventListener('keydown', onKey)
     onCleanup(() => {
       document.removeEventListener('input', onInput)
+      document.removeEventListener('change', onChange)
+      document.removeEventListener('click', onClick)
       window.removeEventListener('keydown', onKey)
+    })
+  })
+
+  // Chrome réactif des cases à cocher SSR : reflète l'état du store sur le DOM.
+  createEffect(() => {
+    const types = store.typeFilter()
+    document.querySelectorAll<HTMLElement>('[data-type-filter]').forEach((el) => {
+      el.classList.toggle('is-on', types.has(el.getAttribute('data-type-filter')!))
+    })
+  })
+  createEffect(() => {
+    const nats = store.natureFilter()
+    document.querySelectorAll<HTMLElement>('[data-nature-filter]').forEach((el) => {
+      el.classList.toggle('is-on', nats.has(el.getAttribute('data-nature-filter')!))
     })
   })
 

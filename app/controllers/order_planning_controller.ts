@@ -28,6 +28,12 @@ interface Card {
   metric: string | null
   hours: number
   hasOverride: boolean
+  /** Type commande (MTS/MTO/NOR) — pour filtre. */
+  orderType: string | null
+  /** Nature besoin : COMMANDE (ARxxxx) ou PREVISION (SGAxxxx) — pour filtre. */
+  nature: string
+  /** Client pour recherche scope. */
+  customer: string | null
 }
 
 interface WeekCol {
@@ -67,6 +73,13 @@ interface OrderBoardData {
   totalLines: number
   lineCount: number
   x3Error: string | null
+  horizon: number
+  windowFrom: string
+  weekLabel: string
+  dateRange: string
+  prevHref: string
+  nextHref: string
+  todayHref: string
 }
 
 // --- Date helpers (mirror scheduler_controller) ---
@@ -116,12 +129,15 @@ function makeOrderCard(p: {
   quantite: number
   hours: number
   hasOverride: boolean
+  orderType: string | null
+  nature: string
 }): Card {
   const id = `${p.numCommande}#${p.ligne}`
   const fields = [
     { icon: 'package_2', val: `${p.quantite}` },
     ...(p.client ? [{ icon: 'person', val: p.client }] : []),
   ]
+  if (p.orderType) fields.push({ icon: 'sell', val: p.orderType })
   if (p.hours > 0) fields.push({ icon: 'timer', val: `${Math.round(p.hours * 10) / 10}h` })
   return {
     id,
@@ -137,6 +153,9 @@ function makeOrderCard(p: {
     metric: `${p.numCommande} · L${p.ligne}`,
     hours: p.hours,
     hasOverride: p.hasOverride,
+    orderType: p.orderType,
+    nature: p.nature,
+    customer: p.client,
   }
 }
 
@@ -298,6 +317,8 @@ export default class OrderPlanningController {
         quantite: line.quantite,
         hours,
         hasOverride: overrideMap.has(overrideKey),
+        orderType: line.orderType,
+        nature: line.nature,
       })
 
       if (!buckets.has(workstation)) {
@@ -376,6 +397,17 @@ export default class OrderPlanningController {
 
     const colWeek = weekOrder.slice()
 
+    // --- Nav horizon (Préc./Suiv./Aujourd'hui), pas = horizon semaines. ---
+    const fmtFr = (d: Date) =>
+      d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase()
+    const lastWeekStart = addWeeks(windowStart, Math.max(0, horizon - 1))
+    const navQuery = (start: string) =>
+      `?start=${start}&weeks=${horizon}` + (force ? '&refresh=1' : '')
+    const base = '/scheduler/planning-board'
+    const prevHref = `${base}${navQuery(isoDay(addWeeks(windowStart, -horizon)))}`
+    const nextHref = `${base}${navQuery(isoDay(addWeeks(windowStart, horizon)))}`
+    const todayHref = `${base}${navQuery(isoDay(startOfIsoWeek(today)))}`
+
     return {
       weeks,
       lines,
@@ -386,6 +418,13 @@ export default class OrderPlanningController {
       totalLines: ordreLignes.length,
       lineCount: lines.length,
       x3Error,
+      horizon,
+      windowFrom: isoDay(windowStart),
+      weekLabel: weekOrder.length ? `S${weekOrder[0]}` : '',
+      dateRange: `${fmtFr(windowStart)} — ${fmtFr(lastWeekStart)}`,
+      prevHref,
+      nextHref,
+      todayHref,
     }
   }
 }

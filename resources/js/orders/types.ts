@@ -23,7 +23,16 @@ export interface OrderCard {
   metric: string | null
   hours: number
   hasOverride: boolean
+  /** Type commande MTS/MTO/NOR — filtre. */
+  orderType: string | null
+  /** COMMANDE (ARxxxx) ou PREVISION (SGAxxxx) — filtre. */
+  nature: string
+  /** Client — recherche scope. */
+  customer: string | null
 }
+
+/** Portée de la recherche live. */
+export type OrderSearchScope = 'poste' | 'commande' | 'article' | 'client'
 
 export interface WeekCol {
   week: number

@@ -1,33 +1,58 @@
 import { createSignal } from 'solid-js'
 import { createStore, produce } from 'solid-js/store'
-import type { OrderBoardData, OrderCard } from './types'
+import type { OrderBoardData, OrderCard, OrderSearchScope } from './types'
 
 const API = '/api/v1/order-planning'
+
+const ALL_TYPES = ['MTS', 'MTO', 'NOR'] as const
+const ALL_NATURES = ['COMMANDE', 'PREVISION'] as const
 
 /**
  * Store du board planification (issue #10).
  * Drag **en temps seul** : on n'autorise pas le changement de poste (rangée figée
  * par la gamme). Override de date = PATCH endpoint dédié ; rollback + toast en cas d'échec.
+ *
+ * Filtres entièrement client-side (toutes les lignes sont déjà chargées en SSR) :
+ *  - recherche live + scope (poste / commande / article / client)
+ *  - cases à cocher type commande (MTS/MTO/NOR) et nature (COMMANDE/PREVISION)
  */
 export function createOrderBoardStore(initial: OrderBoardData) {
   const [board, setBoard] = createStore<OrderBoardData>(initial)
 
   const [query, setQuery] = createSignal('')
-  const [matchSet, setMatchSet] = createSignal<Set<string>>(new Set())
+  const [scope, setScope] = createSignal<OrderSearchScope>('poste')
+  // Sélection des filtres : un Set vide ⇒ aucun masquage (tout visible).
+  const [typeFilter, setTypeFilter] = createSignal<Set<string>>(new Set(ALL_TYPES))
+  const [natureFilter, setNatureFilter] = createSignal<Set<string>>(new Set(ALL_NATURES))
 
-  /** Une carte matche la recherche si query vide, ou si son id (commande) / client / article matche. */
+  /** Passe le filtre type/nature (cases à cocher). */
+  function passesFilters(card: OrderCard): boolean {
+    const tf = typeFilter()
+    // orderType null ⇒ visible seulement si NOR coché (fallback historique).
+    const t = card.orderType ?? 'NOR'
+    if (!tf.has(t)) return false
+    if (!natureFilter().has(card.nature)) return false
+    return true
+  }
+
+  /** Une carte matche recherche (selon scope) + filtres. */
   function cardMatches(card: OrderCard, lineCode: string): boolean {
+    if (!passesFilters(card)) return false
     const q = query().trim().toLowerCase()
     if (!q) return true
-    if (card.id.toLowerCase().includes(q)) return true
-    if (card.article && card.article.toLowerCase().includes(q)) return true
-    if (card.title.toLowerCase().includes(q)) return true
-    return false
+    switch (scope()) {
+      case 'poste':
+        return lineCode.toLowerCase().includes(q)
+      case 'commande':
+        return card.id.toLowerCase().includes(q)
+      case 'article':
+        return (card.article ?? '').toLowerCase().includes(q) || card.title.toLowerCase().includes(q)
+      case 'client':
+        return (card.customer ?? '').toLowerCase().includes(q)
+    }
   }
 
   function lineVisible(lineCode: string): boolean {
-    const q = query().trim()
-    if (!q) return true
     const line = board.lines.find((l) => l.code === lineCode)
     if (!line) return false
     return line.weekCells.some((wc) => wc.cards.some((c) => cardMatches(c, lineCode)))
@@ -36,9 +61,26 @@ export function createOrderBoardStore(initial: OrderBoardData) {
   function onQueryInput(value: string) {
     setQuery(value)
   }
-
+  function onScopeChange(value: OrderSearchScope) {
+    setScope(value)
+  }
   function clearSearch() {
     setQuery('')
+  }
+
+  function toggleType(t: string) {
+    setTypeFilter((prev) => {
+      const next = new Set(prev)
+      next.has(t) ? next.delete(t) : next.add(t)
+      return next
+    })
+  }
+  function toggleNature(n: string) {
+    setNatureFilter((prev) => {
+      const next = new Set(prev)
+      next.has(n) ? next.delete(n) : next.add(n)
+      return next
+    })
   }
 
   // ── Drag : PATCH override + optimistic + rollback ──
@@ -121,12 +163,16 @@ export function createOrderBoardStore(initial: OrderBoardData) {
   return {
     board,
     query,
-    matchSet,
-    setMatchSet,
+    scope,
+    typeFilter,
+    natureFilter,
     cardMatches,
     lineVisible,
     onQueryInput,
+    onScopeChange,
     clearSearch,
+    toggleType,
+    toggleNature,
     moveCard,
     resetOverride,
   }
