@@ -6,7 +6,6 @@ export type ScannedRoutes = {
   ALL: {
     'health.index': { paramsTuple?: []; params?: {} }
     'x_3_debug.index': { paramsTuple?: []; params?: {} }
-    'planning_board.board': { paramsTuple?: []; params?: {} }
     'scheduler.expert_board': { paramsTuple?: []; params?: {} }
     'scheduler.of_detail': { paramsTuple: [ParamValue]; params: {'num': ParamValue} }
     'scheduler.shortage_tracker': { paramsTuple?: []; params?: {} }
@@ -48,7 +47,6 @@ export type ScannedRoutes = {
   GET: {
     'health.index': { paramsTuple?: []; params?: {} }
     'x_3_debug.index': { paramsTuple?: []; params?: {} }
-    'planning_board.board': { paramsTuple?: []; params?: {} }
     'scheduler.expert_board': { paramsTuple?: []; params?: {} }
     'scheduler.of_detail': { paramsTuple: [ParamValue]; params: {'num': ParamValue} }
     'scheduler.shortage_tracker': { paramsTuple?: []; params?: {} }
@@ -72,7 +70,6 @@ export type ScannedRoutes = {
   HEAD: {
     'health.index': { paramsTuple?: []; params?: {} }
     'x_3_debug.index': { paramsTuple?: []; params?: {} }
-    'planning_board.board': { paramsTuple?: []; params?: {} }
     'scheduler.expert_board': { paramsTuple?: []; params?: {} }
     'scheduler.of_detail': { paramsTuple: [ParamValue]; params: {'num': ParamValue} }
     'scheduler.shortage_tracker': { paramsTuple?: []; params?: {} }

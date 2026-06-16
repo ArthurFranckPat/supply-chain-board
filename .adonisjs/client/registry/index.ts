@@ -18,12 +18,6 @@ const routes = {
     tokens: [{"old":"/debug/x3","type":0,"val":"debug","end":""},{"old":"/debug/x3","type":0,"val":"x3","end":""}],
     types: placeholder as Registry['x_3_debug.index']['types'],
   },
-  'planning_board.board': {
-    methods: ["GET","HEAD"],
-    pattern: '/board',
-    tokens: [{"old":"/board","type":0,"val":"board","end":""}],
-    types: placeholder as Registry['planning_board.board']['types'],
-  },
   'scheduler.expert_board': {
     methods: ["GET","HEAD"],
     pattern: '/scheduler/board',

@@ -31,18 +31,6 @@ export interface Registry {
       errorResponse: unknown
     }
   }
-  'planning_board.board': {
-    methods: ["GET","HEAD"]
-    pattern: '/board'
-    types: {
-      body: {}
-      paramsTuple: []
-      params: {}
-      query: {}
-      response: unknown
-      errorResponse: unknown
-    }
-  }
   'scheduler.expert_board': {
     methods: ["GET","HEAD"]
     pattern: '/scheduler/board'

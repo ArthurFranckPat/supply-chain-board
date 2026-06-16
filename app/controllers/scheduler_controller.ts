@@ -287,9 +287,20 @@ export default class SchedulerController {
   /** GET /scheduler/board — expert high-density scheduling board. */
   async expertBoard(ctx: HttpContext) {
     const data = await this.loadBoardData(ctx)
-    return ctx.view.render('pages/scheduler/expert_board', {
-      title: 'Scheduler — Expert',
-      ...data,
+    return ctx.inertia.render('scheduler/expert-board', {
+      board: data.board,
+      windowFrom: data.windowFrom,
+      windowTo: data.windowTo,
+      horizon: data.horizon,
+      dateRange: data.dateRange,
+      weekLabel: data.weekLabel,
+      prevHref: data.prevHref,
+      nextHref: data.nextHref,
+      todayHref: data.todayHref,
+      totalOf: data.totalOf,
+      lineCount: data.lineCount,
+      x3Error: data.x3Error,
+      cached: data.cached,
     })
   }
 
@@ -662,7 +673,9 @@ export default class SchedulerController {
       // col index → ISO week, and per-week capacity (business days × 8h).
       colWeekJson: JSON.stringify(colWeek),
       weekCapsJson: JSON.stringify(weekCaps),
-      // Full board payload consumed by the Solid grid island (#board-data).
+      // Objet board brut (props Inertia) + forme sérialisée (îlot Solid #board-data
+      // encore utilisé par of_detail.edge). Les deux reflètent le même payload.
+      board: { days, lines, weekSpans, cols: days.length, colWeek, weekCaps },
       boardJson: JSON.stringify({ days, lines, weekSpans, cols: days.length, colWeek, weekCaps }),
       weekLabel: colDates.length ? `S${isoWeek(colDates[0])}` : '',
       dateRange: `${fmtFr(firstDay)} — ${fmtFr(lastDay)}`,

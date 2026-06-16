@@ -16,7 +16,35 @@ export default defineConfig({
  * Chaque page migrée déclare ici la forme de ses props.
  */
 declare module '@adonisjs/inertia/types' {
+  /**
+   * Forme du payload `board` (cartes pré-stylées côté serveur).
+   * Le miroir client précis vit dans `inertia/lib/board/types.ts` (BoardData).
+   */
+  type BoardProp = {
+    cols: number
+    days: any[]
+    lines: any[]
+    weekSpans: { week: number; span: number }[]
+    colWeek: number[]
+    weekCaps: Record<string, number>
+  }
+
   interface InertiaPages {
     home: { message: string }
+    'scheduler/expert-board': {
+      board: BoardProp
+      windowFrom: string
+      windowTo: string
+      horizon: number
+      dateRange: string
+      weekLabel: string
+      prevHref: string
+      nextHref: string
+      todayHref: string
+      totalOf: number
+      lineCount: number
+      x3Error: string | null
+      cached: string | null
+    }
   }
 }
