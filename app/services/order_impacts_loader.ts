@@ -59,7 +59,7 @@ export async function loadOrderImpacts(opts: LoadOrderImpactsOptions): Promise<O
 
   // Données via le loader : OF (supply) + référentiel cachés, demande/réception
   // scopées à l'horizon, stock scopé aux articles concernés.
-  const [{ supply: ofFlows }, { demand: demandFlows, reception: receptionFlows }, { gamme }, nomenclatureEntries, articlesList] =
+  const [{ supply: ofFlows }, { demand: demandFlows, reception: receptionFlows, suggestion: suggestionFlows }, { gamme }, nomenclatureEntries, articlesList] =
     await Promise.all([
       boardDataset.getOrders(force),
       boardDataset.getLive(fromIso, toIso, force),
@@ -70,8 +70,10 @@ export async function loadOrderImpacts(opts: LoadOrderImpactsOptions): Promise<O
 
   const overrides = await new OverrideStore().getAll()
 
-  // Filtrer les OF à l'horizon du board
-  const filteredOfFlows = ofFlows.filter((f) => {
+  // OF affermis/planifiés (MFGHEAD) + suggestions CBN (WOS), tous scopés à l'horizon.
+  // Les suggestions couvrent les commandes MTO/NOR non encore affermies — sans elles, ces
+  // commandes n'ont aucun supply à matcher. Statut « suggéré » → priorité basse dans le matcher.
+  const filteredOfFlows = [...ofFlows, ...suggestionFlows].filter((f) => {
     if (!f.date) return true
     return f.date >= windowFrom && f.date <= windowTo
   })

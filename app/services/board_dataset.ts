@@ -5,6 +5,7 @@ import { X3OfRepository, type ManufacturingOrder } from '#repositories/of_reposi
 import { X3StockRepository } from '#repositories/stock_repository'
 import { X3ReceptionRepository } from '#repositories/reception_repository'
 import { X3BesoinClientRepository } from '#repositories/besoin_client_repository'
+import { X3SuggestionRepository } from '#repositories/suggestion_repository'
 import staticSync from '#services/static_sync_service'
 
 /**
@@ -24,7 +25,7 @@ const LIVE_TTL = 2 * 60 * 1000 // 2 min — demande/réception par fenêtre
 type Referential = { gamme: GammeOperation[]; at: number }
 type BomCache = { entries: NomenclatureEntry[]; at: number }
 type Orders = { mos: ManufacturingOrder[]; supply: Flow[]; at: number }
-type Live = { demand: Flow[]; reception: Flow[]; at: number }
+type Live = { demand: Flow[]; reception: Flow[]; suggestion: Flow[]; at: number }
 
 class BoardDataset {
   private referential: Referential | null = null
@@ -83,11 +84,13 @@ class BoardDataset {
     const hit = this.live.get(key)
     if (!force && hit && this.fresh(hit.at, LIVE_TTL)) return hit
 
-    const [demand, reception] = await Promise.all([
+    const [demand, reception, suggestion] = await Promise.all([
       new X3BesoinClientRepository().getDemandFlows({ from, to }),
       new X3ReceptionRepository().getReceptionFlows({ to }),
+      // Suggestions CBN (WOS) : supply fab couvrant les MTO/NOR non encore affermies.
+      new X3SuggestionRepository().getSuggestionFlows({ from, to }),
     ])
-    const fresh: Live = { demand, reception, at: Date.now() }
+    const fresh: Live = { demand, reception, suggestion, at: Date.now() }
     this.live.set(key, fresh)
     return fresh
   }
