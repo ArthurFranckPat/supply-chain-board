@@ -67,6 +67,78 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'scheduler.shortage_tracker': {
+    methods: ["GET","HEAD"]
+    pattern: '/scheduler/shortages'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'scheduler.shortage_rows': {
+    methods: ["GET","HEAD"]
+    pattern: '/scheduler/shortages/rows'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'order_planning.board': {
+    methods: ["GET","HEAD"]
+    pattern: '/scheduler/planning-board'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'order_planning.index': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/order-planning/order-lines'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'order_planning.update': {
+    methods: ["PATCH"]
+    pattern: '/api/v1/order-planning/order-lines/:num/:ligne'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue, ParamValue]
+      params: { num: ParamValue; ligne: ParamValue }
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'order_planning.reset_override': {
+    methods: ["DELETE"]
+    pattern: '/api/v1/order-planning/order-lines/:num/:ligne/override'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue, ParamValue]
+      params: { num: ParamValue; ligne: ParamValue }
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'planning_board.index': {
     methods: ["GET","HEAD"]
     pattern: '/api/v1/planning-board/ofs'
@@ -199,6 +271,18 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'planning_board.shortages': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/planning-board/shortages'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'planning_board.nomenclature': {
     methods: ["GET","HEAD"]
     pattern: '/api/v1/planning-board/nomenclature/:article'
@@ -218,6 +302,42 @@ export interface Registry {
       body: {}
       paramsTuple: [ParamValue]
       params: { component: ParamValue }
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'planning_board.search_poste': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/planning-board/search/poste'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'planning_board.search_of': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/planning-board/search/of'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'planning_board.search_pf': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/planning-board/search/pf'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
       query: {}
       response: unknown
       errorResponse: unknown

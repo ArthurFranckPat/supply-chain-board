@@ -7,7 +7,8 @@ import boardDataset from '#services/board_dataset'
 import { mergeOfWithOverride, type OfFromErp } from '#app/domain/planning_board'
 import { FeasibilityService } from '#app/domain/feasibility-service'
 import { matchOrders } from '#app/domain/orders'
-import { evaluateOrderImpacts } from '#app/domain/order-impacts'
+import { loadOrderImpacts } from '#services/order_impacts_loader'
+import { buildShortageRows } from '#app/domain/shortages'
 import { evaluateMfgFeasibility, buildStrictQcStock } from '#app/domain/of-feasibility'
 import { X3OfRepository, type ManufacturingOrder } from '#repositories/of_repository'
 import type { GammeOperation } from '#app/domain/models/gamme'
@@ -606,167 +607,60 @@ export default class PlanningBoardController {
       return ctx.response.badRequest({ error: 'Dates invalides' })
     }
 
-    const force = !!ctx.request.input('refresh')
-
-    // Données via le loader : OF (supply) + référentiel cachés, demande/réception
-    // scopées à l'horizon, stock scopé aux articles concernés.
-    const [{ supply: ofFlows }, { demand: demandFlows, reception: receptionFlows }, { gamme }, nomenclatureEntries, articlesList] =
-      await Promise.all([
-        boardDataset.getOrders(force),
-        boardDataset.getLive(fromParam ?? '', toParam ?? '', force),
-        boardDataset.getReferential(force),
-        boardDataset.getNomenclature(force),
-        boardDataset.getArticles(),
-      ])
-
-    const overrides = await this.store.getAll()
-
-    // Filtrer les OF à l'horizon du board
-    const filteredOfFlows = ofFlows.filter((f) => {
-      if (!f.date) return true
-      return f.date >= windowFrom && f.date <= windowTo
+    // Pipeline partagé (issue #11) — voir app/services/order_impacts_loader.ts.
+    const { result } = await loadOrderImpacts({
+      from: windowFrom,
+      to: windowTo,
+      workstation: workstationFilter,
+      mode: mode as 'immediate' | 'sequential' | undefined,
+      force: !!ctx.request.input('refresh'),
     })
-
-    // Filtrer par workstation si demandé (gammes du référentiel caché)
-    let finalOfFlows = filteredOfFlows
-    if (workstationFilter) {
-      const wstByArticle = new Map<string, string>()
-      for (const g of gamme) {
-        if (g.workstation && g.article) wstByArticle.set(g.article, g.workstation)
-      }
-      finalOfFlows = filteredOfFlows.filter((f) => {
-        const wst = wstByArticle.get(f.article) ?? ''
-        return wst.toLowerCase().includes(workstationFilter)
-      })
-    }
-
-    // Demandes déjà scopées par X3 ; re-filtre défensif sur l'horizon exact.
-    const filteredDemands = demandFlows.filter((f) => {
-      if (!f.date) return false
-      return f.date >= windowFrom && f.date <= windowTo
-    })
-
-    // Stock vivant, scopé aux articles de la fenêtre + composants BOM ACHAT (tous niveaux).
-    const articleSet = new Set<string>()
-    for (const f of finalOfFlows) if (f.article) articleSet.add(f.article)
-    for (const f of filteredDemands) if (f.article) articleSet.add(f.article)
-    for (const f of receptionFlows) if (f.article) articleSet.add(f.article)
-
-    // Matières RÉELLES des OF (MFGMAT) — source de vérité de la faisabilité, partagée
-    // avec le détail OF (issue #11). Chargées en batch pour tous les OF de la fenêtre.
-    const windowNumOfs = finalOfFlows
-      .map((f) => (f.origin as { id?: string }).id?.trim() ?? '')
-      .filter(Boolean)
-    const mfgByOf = await new X3MfgmatRepository().getMaterialsForOfs(windowNumOfs)
-    // Les composants MFGMAT peuvent différer de la BOM théorique → s'assurer que leur
-    // stock est bien chargé.
-    for (const materials of mfgByOf.values()) {
-      for (const m of materials) if (m.article) articleSet.add(m.article)
-    }
-
-    // Expand récursivement à TOUS les composants (ACHETE + FABRIQUE) de tous les niveaux BOM.
-    // Sans ça, checkFeasibility descend dans un sous-ensemble fabriqué sans OF et trouve 0 stock
-    // pour ses composants ACHETE car ils n'ont pas été chargés.
-    let added = true
-    while (added) {
-      added = false
-      for (const entry of nomenclatureEntries) {
-        if (articleSet.has(entry.parentArticle) && !articleSet.has(entry.componentArticle)) {
-          articleSet.add(entry.componentArticle)
-          added = true
-        }
-      }
-    }
-    // Périmètre stock aligné sur le détail OF (issue #11) : seul le stock strict/qc
-    // est consommable. Le stock 'rejected' (rebut) ne doit jamais compter comme dispo,
-    // sinon le badge sur-évalue la faisabilité vs le panneau de détail.
-    const rawStockFlows = await boardDataset.getStock([...articleSet])
-    const stockFlows = rawStockFlows.filter((f) => {
-      if (f.origin.type !== 'stock') return true
-      const sub = (f.origin as { subType?: string }).subType
-      return sub === 'strict' || sub === 'qc'
-    })
-
-    // Nomenclatures : chargées via boardDataset.getNomenclature() ci-dessus (TTL 2h, tier séparé).
-
-    const allSupply = [...finalOfFlows, ...stockFlows, ...receptionFlows]
-
-    const nomenclatures = new Map<string, Nomenclature>()
-    for (const entry of nomenclatureEntries) {
-      const existing = nomenclatures.get(entry.parentArticle)
-      if (existing) {
-        existing.components.push(entry)
-      } else {
-        nomenclatures.set(entry.parentArticle, {
-          article: entry.parentArticle,
-          description: entry.parentDescription,
-          components: [entry],
-        })
-      }
-    }
-
-    const articles = new Map<string, Article>(articlesList.map((a) => [a.code, a]))
-    for (const entry of nomenclatureEntries) {
-      if (!articles.has(entry.parentArticle)) {
-        articles.set(entry.parentArticle, {
-          code: entry.parentArticle,
-          description: entry.parentDescription,
-          category: '',
-          supplyType: 'FABRICATION',
-          reorderDelay: 0,
-          productFamily: null,
-          pmp: null,
-          economicLot: null,
-          unitStock: null,
-          unitPurchase: null,
-          purchaseToStockRatio: 1,
-          packagings: [],
-        })
-      }
-      if (!articles.has(entry.componentArticle)) {
-        articles.set(entry.componentArticle, {
-          code: entry.componentArticle,
-          description: entry.componentDescription,
-          category: '',
-          supplyType: entry.componentType === 'ACHETE' ? 'ACHAT' : 'FABRICATION',
-          reorderDelay: 0,
-          productFamily: null,
-          pmp: null,
-          economicLot: null,
-          unitStock: null,
-          unitPurchase: null,
-          purchaseToStockRatio: 1,
-          packagings: [],
-        })
-      }
-    }
-
-    const overrideMap = new Map(overrides.map((o) => [o.numOf, o]))
-
-    // Faisabilité par OF basée sur MFGMAT (matières réelles) — MÊME calcul que le détail.
-    // Surcharge le verdict théorique du moteur pour les OF qui ont des matières MFGMAT,
-    // garantissant badge == détail (issue #11). Les OF sans MFGMAT (suggérés non éclatés)
-    // conservent le calcul BOM théorique partagé du moteur.
-    const stockByArticle = buildStrictQcStock(stockFlows)
-    const mfgFeasibility = new Map<string, { feasible: boolean | null; missingComponents: Record<string, number> }>()
-    for (const f of finalOfFlows) {
-      const numOf = (f.origin as { id?: string }).id?.trim() ?? ''
-      if (!numOf) continue
-      const materials = mfgByOf.get(numOf)
-      if (!materials || materials.length === 0) continue
-      const status = overrideMap.get(numOf)?.status ?? (f.origin as { status?: number }).status ?? 3
-      const verdict = evaluateMfgFeasibility(materials, stockByArticle, status === 1)
-      mfgFeasibility.set(numOf, { feasible: verdict.feasible, missingComponents: verdict.missingComponents })
-    }
-
-    const result = evaluateOrderImpacts(
-      filteredDemands, allSupply, nomenclatures, articles, overrideMap,
-      { from: windowFrom, to: windowTo },
-      mode as 'immediate' | 'sequential' | undefined,
-      mfgFeasibility,
-    )
 
     return result
+  }
+
+  /**
+   * GET /api/v1/planning-board/shortages
+   * Tableau de suivi des ruptures (issue #15) : pivot composant-centrique des OF bloqués.
+   * Réutilise le pipeline de faisabilité (loadOrderImpacts) + réceptions d'achat plein
+   * horizon, pivotées par `buildShortageRows`.
+   */
+  async shortages(ctx: HttpContext) {
+    const startParam = ctx.request.input('start') as string | undefined
+    const daysParam = Number.parseInt(ctx.request.input('days', '14'), 10)
+    const horizon = Number.isFinite(daysParam) && daysParam > 0 && daysParam <= 90 ? daysParam : 14
+    const workstationFilter = ctx.request.input('workstation') as string | undefined
+
+    const windowFrom = startParam ? new Date(startParam) : new Date()
+    windowFrom.setHours(0, 0, 0, 0)
+    const windowTo = new Date(windowFrom)
+    windowTo.setDate(windowTo.getDate() + horizon)
+    windowTo.setHours(23, 59, 59, 999)
+
+    const force = !!ctx.request.input('refresh')
+
+    const { result, articles } = await loadOrderImpacts({
+      from: windowFrom,
+      to: windowTo,
+      workstation: workstationFilter,
+      force,
+    })
+
+    // Réceptions d'achat PLEIN HORIZON (pas seulement la fenêtre board) — l'anticipation
+    // suppose des arrivées au-delà de la fenêtre affichée.
+    const receptionFlows = await new X3ReceptionRepository().getReceptionFlows()
+    const receptionsByArticle = buildReceptionsMap(
+      receptionFlows.map((f) => ({
+        article: f.article,
+        id: (f.origin as { id?: string }).id,
+        supplier: (f.origin as { supplier?: string }).supplier,
+        quantity: f.quantity,
+        date: f.date,
+      })),
+    )
+
+    const { rows, stats } = buildShortageRows(result, receptionsByArticle, articles)
+    return { rows, stats, window: result.window }
   }
 
   async ofMaterials(ctx: HttpContext) {

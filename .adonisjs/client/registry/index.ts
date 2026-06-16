@@ -36,6 +36,42 @@ const routes = {
     tokens: [{"old":"/scheduler/of/:num","type":0,"val":"scheduler","end":""},{"old":"/scheduler/of/:num","type":0,"val":"of","end":""},{"old":"/scheduler/of/:num","type":1,"val":"num","end":""}],
     types: placeholder as Registry['scheduler.of_detail']['types'],
   },
+  'scheduler.shortage_tracker': {
+    methods: ["GET","HEAD"],
+    pattern: '/scheduler/shortages',
+    tokens: [{"old":"/scheduler/shortages","type":0,"val":"scheduler","end":""},{"old":"/scheduler/shortages","type":0,"val":"shortages","end":""}],
+    types: placeholder as Registry['scheduler.shortage_tracker']['types'],
+  },
+  'scheduler.shortage_rows': {
+    methods: ["GET","HEAD"],
+    pattern: '/scheduler/shortages/rows',
+    tokens: [{"old":"/scheduler/shortages/rows","type":0,"val":"scheduler","end":""},{"old":"/scheduler/shortages/rows","type":0,"val":"shortages","end":""},{"old":"/scheduler/shortages/rows","type":0,"val":"rows","end":""}],
+    types: placeholder as Registry['scheduler.shortage_rows']['types'],
+  },
+  'order_planning.board': {
+    methods: ["GET","HEAD"],
+    pattern: '/scheduler/planning-board',
+    tokens: [{"old":"/scheduler/planning-board","type":0,"val":"scheduler","end":""},{"old":"/scheduler/planning-board","type":0,"val":"planning-board","end":""}],
+    types: placeholder as Registry['order_planning.board']['types'],
+  },
+  'order_planning.index': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/order-planning/order-lines',
+    tokens: [{"old":"/api/v1/order-planning/order-lines","type":0,"val":"api","end":""},{"old":"/api/v1/order-planning/order-lines","type":0,"val":"v1","end":""},{"old":"/api/v1/order-planning/order-lines","type":0,"val":"order-planning","end":""},{"old":"/api/v1/order-planning/order-lines","type":0,"val":"order-lines","end":""}],
+    types: placeholder as Registry['order_planning.index']['types'],
+  },
+  'order_planning.update': {
+    methods: ["PATCH"],
+    pattern: '/api/v1/order-planning/order-lines/:num/:ligne',
+    tokens: [{"old":"/api/v1/order-planning/order-lines/:num/:ligne","type":0,"val":"api","end":""},{"old":"/api/v1/order-planning/order-lines/:num/:ligne","type":0,"val":"v1","end":""},{"old":"/api/v1/order-planning/order-lines/:num/:ligne","type":0,"val":"order-planning","end":""},{"old":"/api/v1/order-planning/order-lines/:num/:ligne","type":0,"val":"order-lines","end":""},{"old":"/api/v1/order-planning/order-lines/:num/:ligne","type":1,"val":"num","end":""},{"old":"/api/v1/order-planning/order-lines/:num/:ligne","type":1,"val":"ligne","end":""}],
+    types: placeholder as Registry['order_planning.update']['types'],
+  },
+  'order_planning.reset_override': {
+    methods: ["DELETE"],
+    pattern: '/api/v1/order-planning/order-lines/:num/:ligne/override',
+    tokens: [{"old":"/api/v1/order-planning/order-lines/:num/:ligne/override","type":0,"val":"api","end":""},{"old":"/api/v1/order-planning/order-lines/:num/:ligne/override","type":0,"val":"v1","end":""},{"old":"/api/v1/order-planning/order-lines/:num/:ligne/override","type":0,"val":"order-planning","end":""},{"old":"/api/v1/order-planning/order-lines/:num/:ligne/override","type":0,"val":"order-lines","end":""},{"old":"/api/v1/order-planning/order-lines/:num/:ligne/override","type":1,"val":"num","end":""},{"old":"/api/v1/order-planning/order-lines/:num/:ligne/override","type":1,"val":"ligne","end":""},{"old":"/api/v1/order-planning/order-lines/:num/:ligne/override","type":0,"val":"override","end":""}],
+    types: placeholder as Registry['order_planning.reset_override']['types'],
+  },
   'planning_board.index': {
     methods: ["GET","HEAD"],
     pattern: '/api/v1/planning-board/ofs',
@@ -102,6 +138,12 @@ const routes = {
     tokens: [{"old":"/api/v1/planning-board/board-feasibility","type":0,"val":"api","end":""},{"old":"/api/v1/planning-board/board-feasibility","type":0,"val":"v1","end":""},{"old":"/api/v1/planning-board/board-feasibility","type":0,"val":"planning-board","end":""},{"old":"/api/v1/planning-board/board-feasibility","type":0,"val":"board-feasibility","end":""}],
     types: placeholder as Registry['planning_board.board_feasibility']['types'],
   },
+  'planning_board.shortages': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/planning-board/shortages',
+    tokens: [{"old":"/api/v1/planning-board/shortages","type":0,"val":"api","end":""},{"old":"/api/v1/planning-board/shortages","type":0,"val":"v1","end":""},{"old":"/api/v1/planning-board/shortages","type":0,"val":"planning-board","end":""},{"old":"/api/v1/planning-board/shortages","type":0,"val":"shortages","end":""}],
+    types: placeholder as Registry['planning_board.shortages']['types'],
+  },
   'planning_board.nomenclature': {
     methods: ["GET","HEAD"],
     pattern: '/api/v1/planning-board/nomenclature/:article',
@@ -113,6 +155,24 @@ const routes = {
     pattern: '/api/v1/planning-board/articles-by-component/:component',
     tokens: [{"old":"/api/v1/planning-board/articles-by-component/:component","type":0,"val":"api","end":""},{"old":"/api/v1/planning-board/articles-by-component/:component","type":0,"val":"v1","end":""},{"old":"/api/v1/planning-board/articles-by-component/:component","type":0,"val":"planning-board","end":""},{"old":"/api/v1/planning-board/articles-by-component/:component","type":0,"val":"articles-by-component","end":""},{"old":"/api/v1/planning-board/articles-by-component/:component","type":1,"val":"component","end":""}],
     types: placeholder as Registry['planning_board.articles_by_component']['types'],
+  },
+  'planning_board.search_poste': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/planning-board/search/poste',
+    tokens: [{"old":"/api/v1/planning-board/search/poste","type":0,"val":"api","end":""},{"old":"/api/v1/planning-board/search/poste","type":0,"val":"v1","end":""},{"old":"/api/v1/planning-board/search/poste","type":0,"val":"planning-board","end":""},{"old":"/api/v1/planning-board/search/poste","type":0,"val":"search","end":""},{"old":"/api/v1/planning-board/search/poste","type":0,"val":"poste","end":""}],
+    types: placeholder as Registry['planning_board.search_poste']['types'],
+  },
+  'planning_board.search_of': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/planning-board/search/of',
+    tokens: [{"old":"/api/v1/planning-board/search/of","type":0,"val":"api","end":""},{"old":"/api/v1/planning-board/search/of","type":0,"val":"v1","end":""},{"old":"/api/v1/planning-board/search/of","type":0,"val":"planning-board","end":""},{"old":"/api/v1/planning-board/search/of","type":0,"val":"search","end":""},{"old":"/api/v1/planning-board/search/of","type":0,"val":"of","end":""}],
+    types: placeholder as Registry['planning_board.search_of']['types'],
+  },
+  'planning_board.search_pf': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/planning-board/search/pf',
+    tokens: [{"old":"/api/v1/planning-board/search/pf","type":0,"val":"api","end":""},{"old":"/api/v1/planning-board/search/pf","type":0,"val":"v1","end":""},{"old":"/api/v1/planning-board/search/pf","type":0,"val":"planning-board","end":""},{"old":"/api/v1/planning-board/search/pf","type":0,"val":"search","end":""},{"old":"/api/v1/planning-board/search/pf","type":0,"val":"pf","end":""}],
+    types: placeholder as Registry['planning_board.search_pf']['types'],
   },
   'planning_board.of_materials': {
     methods: ["GET","HEAD"],

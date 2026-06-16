@@ -21,14 +21,26 @@ export interface ApiDefinition {
     orderImpacts: typeof routes['planning_board.order_impacts']
     listEvents: typeof routes['planning_board.list_events']
     boardFeasibility: typeof routes['planning_board.board_feasibility']
+    shortages: typeof routes['planning_board.shortages']
     nomenclature: typeof routes['planning_board.nomenclature']
     articlesByComponent: typeof routes['planning_board.articles_by_component']
+    searchPoste: typeof routes['planning_board.search_poste']
+    searchOf: typeof routes['planning_board.search_of']
+    searchPf: typeof routes['planning_board.search_pf']
     ofMaterials: typeof routes['planning_board.of_materials']
     reloadData: typeof routes['planning_board.reload_data']
   }
   scheduler: {
     expertBoard: typeof routes['scheduler.expert_board']
     ofDetail: typeof routes['scheduler.of_detail']
+    shortageTracker: typeof routes['scheduler.shortage_tracker']
+    shortageRows: typeof routes['scheduler.shortage_rows']
+  }
+  orderPlanning: {
+    board: typeof routes['order_planning.board']
+    index: typeof routes['order_planning.index']
+    update: typeof routes['order_planning.update']
+    resetOverride: typeof routes['order_planning.reset_override']
   }
   suivi: {
     assign: typeof routes['suivi.assign']

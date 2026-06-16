@@ -5,6 +5,10 @@ import { X3MfgmatRepository } from '#repositories/mfgmat_repository'
 import { evaluateMfgFeasibility, buildStrictQcStock } from '#app/domain/of-feasibility'
 import { type ManufacturingOrder } from '#repositories/of_repository'
 import type { GammeOperation } from '#app/domain/models/gamme'
+import { loadOrderImpacts } from '#services/order_impacts_loader'
+import { buildShortageRows, type ShortageRow } from '#app/domain/shortages'
+import { buildReceptionsMap } from '#services/feasibility-loader-adapter'
+import { X3ReceptionRepository } from '#repositories/reception_repository'
 
 // ---------------------------------------------------------------------------
 type CardStatus = 'termine' | 'ferme' | 'cours' | 'planifie' | 'suggere' | 'bloque'
@@ -218,6 +222,20 @@ const isoWeek = (d: Date) => {
   return Math.ceil(((t.getTime() - yearStart.getTime()) / DAY_MS + 1) / 7)
 }
 
+/** Formatte une qté : entier si rond, sinon 2 décimales. */
+function fmtQty(n: number): string {
+  if (!Number.isFinite(n)) return '—'
+  return Number.isInteger(n) ? String(n) : n.toFixed(2)
+}
+
+/** Formatte une date ISO (YYYY-MM-DD) en JJ/MM/AA — '' si absente. */
+function fmtFrShort(iso: string | null | undefined): string {
+  if (!iso) return ''
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso)
+  if (!m) return iso
+  return `${m[3]}/${m[2]}/${m[1].slice(2)}`
+}
+
 /** Map OF planning status (1=Ferme, 2=Planifié, 3=Suggéré) → scheduler CardStatus. */
 function moStatusToCard(status: number): CardStatus {
   switch (status) {
@@ -284,6 +302,126 @@ export default class SchedulerController {
       num,
       detail,
       ...board,
+    })
+  }
+
+  /**
+   * GET /scheduler/shortages — coquille (shell) du suivi des ruptures (issue #15/#16).
+   * Rendu INSTANTANÉ : aucun calcul X3 ici. Le tableau (calcul lourd) est chargé en
+   * différé via Unpoly `[up-defer]` depuis `/scheduler/shortages/rows` → page réactive.
+   */
+  async shortageTracker(ctx: HttpContext) {
+    const startParam = ctx.request.input('start') as string | undefined
+    const daysParam = Number.parseInt(ctx.request.input('days', '14'), 10)
+    const horizon = Number.isFinite(daysParam) && daysParam > 0 && daysParam <= 90 ? daysParam : 14
+    const force = !!ctx.request.input('refresh')
+
+    const windowFrom = startParam ? new Date(startParam) : new Date()
+    windowFrom.setHours(0, 0, 0, 0)
+
+    const navIso = (deltaDays: number) => {
+      const d = new Date(windowFrom)
+      d.setDate(d.getDate() + deltaDays)
+      return isoDay(d)
+    }
+    const startIso = isoDay(windowFrom)
+    const now = atMidnight(new Date())
+    const navQuery = (start: string) => `?start=${start}&days=${horizon}` + (force ? '&refresh=1' : '')
+
+    return ctx.view.render('pages/scheduler/shortage_tracker', {
+      title: 'Ruptures — Suivi',
+      horizon,
+      windowStart: startIso,
+      // URL du fragment différé (calcul lourd côté serveur).
+      rowsHref: `/scheduler/shortages/rows${navQuery(startIso)}`,
+      dateRange: `${fmtFrShort(startIso)} — ${fmtFrShort(navIso(horizon))}`,
+      prevHref: `/scheduler/shortages${navQuery(navIso(-horizon))}`,
+      nextHref: `/scheduler/shortages${navQuery(navIso(horizon))}`,
+      todayHref: `/scheduler/shortages${navQuery(isoDay(now))}`,
+    })
+  }
+
+  /**
+   * GET /scheduler/shortages/rows — fragment Unpoly (calcul lourd).
+   * Charge le pipeline de faisabilité + réceptions, pivote en lignes, rend le partial
+   * `shortage_table` (racine `#shortages-content`).
+   */
+  async shortageRows(ctx: HttpContext) {
+    const startParam = ctx.request.input('start') as string | undefined
+    const daysParam = Number.parseInt(ctx.request.input('days', '14'), 10)
+    const horizon = Number.isFinite(daysParam) && daysParam > 0 && daysParam <= 90 ? daysParam : 14
+    const force = !!ctx.request.input('refresh')
+
+    const windowFrom = startParam ? new Date(startParam) : new Date()
+    windowFrom.setHours(0, 0, 0, 0)
+    const windowTo = new Date(windowFrom)
+    windowTo.setDate(windowTo.getDate() + horizon)
+    windowTo.setHours(23, 59, 59, 999)
+
+    let rows: ShortageRow[] = []
+    let stats = { nbRuptures: 0, nbCouvertes: 0, nbSansCouverture: 0 }
+    let x3Error: string | null = null
+
+    try {
+      const { result, articles } = await loadOrderImpacts({ from: windowFrom, to: windowTo, force })
+      const receptionFlows = await new X3ReceptionRepository().getReceptionFlows()
+      const receptionsByArticle = buildReceptionsMap(
+        receptionFlows.map((f) => ({
+          article: f.article,
+          id: (f.origin as { id?: string }).id,
+          supplier: (f.origin as { supplier?: string }).supplier,
+          quantity: f.quantity,
+          date: f.date,
+        })),
+      )
+      const built = buildShortageRows(result, receptionsByArticle, articles)
+      rows = built.rows
+      stats = built.stats
+    } catch (e) {
+      x3Error = (e as Error).message
+    }
+
+    // Présentation (badges verdict + dates FR). Lecture seule, pas de Solid.
+    const VERDICT_PRESET: Record<ShortageRow['verdict'], { label: string; cls: string; icon: string }> = {
+      couvert: { label: 'Couvert', cls: 'text-emerald-700 bg-emerald-50 border-emerald-100', icon: 'check_circle' },
+      retard: { label: 'Retard', cls: 'text-amber-700 bg-amber-50 border-amber-100', icon: 'schedule' },
+      sans_couverture: { label: 'Sans couverture', cls: 'text-error bg-error/10 border-error/20', icon: 'error' },
+    }
+
+    const displayRows = rows.map((r) => {
+      const preset = VERDICT_PRESET[r.verdict]
+      return {
+        component: r.component,
+        componentDesc: r.componentDesc,
+        qteManquante: fmtQty(r.qteManquante),
+        numOf: r.numOf,
+        ofHref: `/scheduler/of/${r.numOf}`,
+        articleParent: r.articleParent,
+        articleParentDesc: r.articleParentDesc,
+        numCommande: r.numCommande ?? '—',
+        client: r.client ?? '',
+        hasCommande: r.numCommande !== null,
+        dateExpedition: fmtFrShort(r.dateExpedition),
+        reception: r.reception
+          ? {
+              id: r.reception.id,
+              supplier: r.reception.supplier,
+              qty: fmtQty(r.reception.qty),
+              dateArrivee: fmtFrShort(r.reception.dateArrivee),
+            }
+          : null,
+        verdictLabel: r.verdict === 'retard' && r.joursRetard > 0 ? `Retard +${r.joursRetard}j` : preset.label,
+        verdictCls: preset.cls,
+        verdictIcon: preset.icon,
+        // Champ texte concaténé pour le filtre client (composant / commande / fournisseur).
+        filter: `${r.component} ${r.componentDesc} ${r.numCommande ?? ''} ${r.client ?? ''} ${r.reception?.supplier ?? ''} ${r.numOf} ${r.articleParent}`.toLowerCase(),
+      }
+    })
+
+    return ctx.view.render('pages/scheduler/shortage_table', {
+      rows: displayRows,
+      stats,
+      x3Error,
     })
   }
 

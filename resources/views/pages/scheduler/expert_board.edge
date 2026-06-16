@@ -50,18 +50,7 @@
       </div>
     </div>
   </header>
-  <aside class="fixed left-0 top-12 h-[calc(100vh-48px)] w-12 flex flex-col items-center py-4 bg-white border-r border-gray-200 z-40">
-    <nav class="flex flex-col gap-5">
-      <a class="p-2 text-gray-400 hover:text-primary transition-colors" href="/scheduler/board" title="Vue d'ensemble"><span class="material-symbols-outlined">grid_view</span></a>
-      <a class="p-2 text-primary bg-m3-primary/5 rounded-lg" href="/scheduler/board" title="Planning Prods"><span class="material-symbols-outlined">event_note</span></a>
-      <a class="p-2 text-gray-400 hover:text-primary transition-colors" href="#" title="Ressources"><span class="material-symbols-outlined">inventory</span></a>
-      <a class="p-2 text-gray-400 hover:text-primary transition-colors" href="#" title="Maintenance"><span class="material-symbols-outlined">build</span></a>
-      <a class="p-2 text-gray-400 hover:text-primary transition-colors" href="#" title="Analytics"><span class="material-symbols-outlined">monitoring</span></a>
-    </nav>
-    <div class="mt-auto flex flex-col gap-4 pb-4">
-      <button class="text-gray-300 hover:text-gray-600"><span class="material-symbols-outlined">terminal</span></button>
-    </div>
-  </aside>
+  @!component('components/scheduler/sidebar', { active: 'board' })
   <main id="board-main" class="ml-12 mt-12 p-2 h-[calc(100vh-48px)] overflow-hidden flex flex-col">
     <div class="mb-2 flex items-center justify-between bg-white p-2 rounded border border-gray-200 shadow-sm">
       <div class="flex items-center gap-4">

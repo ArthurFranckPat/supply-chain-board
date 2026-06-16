@@ -5,6 +5,7 @@
 
 export const controllers = {
   Health: () => import('#controllers/health_controller'),
+  OrderPlanning: () => import('#controllers/order_planning_controller'),
   Pipeline: () => import('#controllers/pipeline_controller'),
   PlanningBoard: () => import('#controllers/planning_board_controller'),
   Scheduler: () => import('#controllers/scheduler_controller'),

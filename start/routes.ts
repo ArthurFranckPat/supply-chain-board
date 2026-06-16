@@ -98,7 +98,9 @@ router.get('/board', '#controllers/planning_board_controller.board')
 router.get('/scheduler/board', '#controllers/scheduler_controller.expertBoard')
 router.get('/scheduler/of/:num', '#controllers/scheduler_controller.ofDetail')
 //   /scheduler/shortages : Tableau de suivi des ruptures (issue #15)
+//   /scheduler/shortages/rows : fragment différé (Unpoly up-defer) — calcul lourd
 router.get('/scheduler/shortages', '#controllers/scheduler_controller.shortageTracker')
+router.get('/scheduler/shortages/rows', '#controllers/scheduler_controller.shortageRows')
 // Issue #10 — mode planification (lignes de commande ouvertes, drag en temps)
 router.get('/scheduler/planning-board', '#controllers/order_planning_controller.board')
 

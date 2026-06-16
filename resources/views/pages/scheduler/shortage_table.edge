@@ -1,0 +1,100 @@
+{{--
+  Fragment différé (Unpoly up-defer) du suivi des ruptures — racine #shortages-content.
+  Rendu par SchedulerController.shortageRows (calcul lourd). NE PAS étendre de layout.
+--}}
+<div id="shortages-content" class="flex-1 flex flex-col min-h-0">
+  @if(x3Error)
+  <div class="mb-2 bg-amber-50 border border-amber-200 text-amber-800 px-3 py-2 text-xs rounded flex items-center gap-2">
+    <span class="material-symbols-outlined text-sm">warning</span>
+    X3 injoignable — {{ x3Error }}.
+  </div>
+  @end
+
+  {{-- Bandeau stats --}}
+  <div class="mb-2 flex items-center gap-2">
+    <div class="flex items-center gap-2 bg-white border border-gray-200 rounded px-3 py-1.5 shadow-sm">
+      <span class="material-symbols-outlined text-[16px] text-gray-400">analytics</span>
+      <span class="text-[11px] font-bold uppercase tracking-wide text-gray-500">{{ stats.nbRuptures }} rupture(s)</span>
+    </div>
+    <div class="flex items-center gap-1.5 bg-emerald-50 border border-emerald-100 rounded px-3 py-1.5">
+      <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+      <span class="text-[11px] font-bold text-emerald-700">{{ stats.nbCouvertes }} couverte(s)</span>
+    </div>
+    <div class="flex items-center gap-1.5 bg-error/10 border border-error/20 rounded px-3 py-1.5">
+      <span class="w-2 h-2 rounded-full bg-error"></span>
+      <span class="text-[11px] font-bold text-error">{{ stats.nbSansCouverture }} sans couverture</span>
+    </div>
+  </div>
+
+  <div class="flex-1 bg-white border border-gray-200 rounded shadow-sm overflow-auto">
+    <table class="w-full text-xs border-collapse">
+      <thead class="sticky top-0 bg-gray-50 z-10">
+        <tr class="text-[10px] font-bold uppercase text-gray-500 border-b border-gray-200">
+          <th class="text-left px-3 py-2">Composant</th>
+          <th class="text-right px-3 py-2 w-24">Qté manq.</th>
+          <th class="text-left px-3 py-2 w-44">OF bloqué</th>
+          <th class="text-left px-3 py-2 w-44">Commande client</th>
+          <th class="text-left px-3 py-2 w-24">Date expé.</th>
+          <th class="text-left px-3 py-2">Réception attendue</th>
+          <th class="text-left px-3 py-2 w-40">Verdict</th>
+        </tr>
+      </thead>
+      <tbody>
+        @each(row in rows)
+        <tr class="shortage-row border-b border-gray-100 hover:bg-gray-50 transition-colors" data-filter="{{ row.filter }}">
+          <td class="px-3 py-2 align-top">
+            <div class="font-bold text-gray-900 mono">{{ row.component }}</div>
+            <div class="text-[10px] text-gray-500 truncate max-w-[18rem]">{{ row.componentDesc }}</div>
+          </td>
+          <td class="px-3 py-2 text-right mono font-bold text-error align-top">{{ row.qteManquante }}</td>
+          <td class="px-3 py-2 align-top">
+            <a href="{{ row.ofHref }}" class="font-bold text-primary hover:underline mono">{{ row.numOf }}</a>
+            <div class="text-[10px] text-gray-500 mono truncate max-w-[10rem]">{{ row.articleParent }}</div>
+          </td>
+          <td class="px-3 py-2 align-top">
+            @if(row.hasCommande)
+            <div class="font-bold text-gray-900 mono">{{ row.numCommande }}</div>
+            <div class="text-[10px] text-gray-500 truncate max-w-[10rem]">{{ row.client }}</div>
+            @else
+            <span class="text-gray-300 italic">—</span>
+            @end
+          </td>
+          <td class="px-3 py-2 mono text-gray-700 align-top whitespace-nowrap">{{ row.dateExpedition || '—' }}</td>
+          <td class="px-3 py-2 align-top">
+            @if(row.reception)
+            <div class="font-bold text-gray-800 mono">{{ row.reception.id }}</div>
+            <div class="text-[10px] text-gray-500 truncate max-w-[16rem]">
+              {{ row.reception.supplier }} · {{ row.reception.qty }} · arrivée {{ row.reception.dateArrivee }}
+            </div>
+            @else
+            <span class="inline-flex items-center gap-1 text-[10px] font-bold text-error uppercase">
+              <span class="material-symbols-outlined text-[13px]">block</span> Aucune couverture prévue
+            </span>
+            @end
+          </td>
+          <td class="px-3 py-2 align-top">
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 border rounded-full text-[10px] font-bold whitespace-nowrap {{ row.verdictCls }}">
+              <span class="material-symbols-outlined text-[12px]">{{ row.verdictIcon }}</span>
+              {{ row.verdictLabel }}
+            </span>
+          </td>
+        </tr>
+        @end
+        @if(rows.length === 0)
+        <tr>
+          <td colspan="7" class="px-3 py-16 text-center text-gray-400">
+            @if(x3Error)
+            <span class="italic">Données indisponibles.</span>
+            @else
+            <div class="flex flex-col items-center gap-2">
+              <span class="material-symbols-outlined text-[32px] text-emerald-400">check_circle</span>
+              <span class="text-sm font-medium">Aucune rupture détectée dans la fenêtre.</span>
+            </div>
+            @end
+          </td>
+        </tr>
+        @end
+      </tbody>
+    </table>
+  </div>
+</div>
