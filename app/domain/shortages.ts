@@ -137,8 +137,11 @@ export function buildShortageRows(
   ofPegs: Map<string, ShortageOfPeg> = new Map(),
 ): ShortageResult {
   // Map inverse OF → commande (un OF rattaché à une commande porte son statut/retard).
+  // On ne rattache QUE les vraies commandes clientes : une prévision ne constitue pas un
+  // engagement client → parler de « rupture commande » pour une prévision n'a pas de sens.
   const ofToOrder = new Map<string, OrderRollup>()
   for (const order of result.orders) {
+    if (order.nature !== 'commande') continue
     for (const of of order.ofs) {
       // Un OF peut être alloué à plusieurs commandes : on garde la plus urgente
       // (date d'expédition la plus tôt) pour l'affichage de la ligne.

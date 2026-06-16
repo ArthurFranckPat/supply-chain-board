@@ -200,6 +200,23 @@ test.group('buildShortageRows', () => {
     assert.equal(rows[0].statutCommande, null)
   })
 
+  test('OF rattaché à une PRÉVISION → pas de commande (une prévision n\'est pas une rupture)', ({ assert }) => {
+    const result = buildResult(
+      [{ numOf: 'OF-P', article: 'PF1', feasible: false, statutNum: 3, missingComponents: { C1: 5 } }],
+      [{
+        numCommande: 'PREV-1', client: '', article: 'PF1', description: '',
+        qteRestante: 50, dateExpedition: '2026-07-01', dejaEnRetard: false,
+        nature: 'prevision', typeCommande: 'NOR', matchingMethod: 'of', reliquat: 0,
+        statut: 'bloquee', joursRetard: 0,
+        ofs: [{ numOf: 'OF-P', article: 'PF1', qteAllouee: 50, dateFin: '2026-06-30', feasible: false, missingComponents: { C1: 5 }, modified: false, statutNum: 3 }],
+      }],
+    )
+    const rows = buildShortageRows(result, new Map(), new Map()).rows
+    assert.equal(rows.length, 1)
+    assert.isNull(rows[0].numCommande)
+    assert.isNull(rows[0].statutCommande)
+  })
+
   test('OF non bloqué (feasible !== false) n\'apparaît pas', ({ assert }) => {
     const result = buildResult([
       { numOf: 'OF-A', article: 'PF1', feasible: true, statutNum: 3, missingComponents: {} },
