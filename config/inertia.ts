@@ -46,5 +46,19 @@ declare module '@adonisjs/inertia/types' {
       x3Error: string | null
       cached: string | null
     }
+    'scheduler/order-board': {
+      board: BoardProp
+      totalLines: number
+      lineCount: number
+      horizon: number
+      windowFrom: string
+      windowTo: string
+      dateRange: string
+      weekLabel: string
+      prevHref: string
+      nextHref: string
+      todayHref: string
+      x3Error: string | null
+    }
   }
 }

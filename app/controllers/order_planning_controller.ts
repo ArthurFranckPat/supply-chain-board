@@ -152,9 +152,26 @@ export default class OrderPlanningController {
   /** GET /scheduler/planning-board — board planification. */
   async board(ctx: HttpContext) {
     const data = await this.loadBoardData(ctx)
-    return ctx.view.render('pages/scheduler/order_board', {
-      title: 'Planification — Lignes de commande',
-      ...data,
+    return ctx.inertia.render('scheduler/order-board', {
+      board: {
+        days: data.days,
+        lines: data.lines,
+        weekSpans: data.weekSpans,
+        cols: data.cols,
+        colWeek: data.colWeek,
+        weekCaps: data.weekCaps,
+      },
+      totalLines: data.totalLines,
+      lineCount: data.lineCount,
+      horizon: data.horizon,
+      windowFrom: data.windowFrom,
+      windowTo: data.windowTo,
+      dateRange: data.dateRange,
+      weekLabel: data.weekLabel,
+      prevHref: data.prevHref,
+      nextHref: data.nextHref,
+      todayHref: data.todayHref,
+      x3Error: data.x3Error,
     })
   }
 
