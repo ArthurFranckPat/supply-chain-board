@@ -170,6 +170,11 @@ export function buildShortageRows(
     const dateExpedition = rollup?.dateExpedition ?? peg?.dateExpedition ?? null
     const joursRetard = rollup?.joursRetard ?? 0
 
+    // Une SUGGESTION (statut suggéré = 3) non rattachée à une commande = proposition MRP
+    // spéculative, pas un engagement client → pas une rupture à suivre. Les OF affermis
+    // /planifiés (1/2) restent visibles même orphelins (vraie rupture de production).
+    if (numCommande === null && of.statutNum === 3) continue
+
     for (const [component, qteManquante] of Object.entries(of.missingComponents)) {
       if (qteManquante <= 0) continue
       const reception = resolveCoveringReception(

@@ -146,7 +146,8 @@ test.group('buildShortageRows', () => {
 
   test('verdict "sans_couverture" si pas de réception pour le composant', ({ assert }) => {
     const result = buildResult(
-      [{ numOf: 'OF-A', article: 'PF1', feasible: false, statutNum: 3, missingComponents: { C1: 10 } }],
+      // OF affermi (statut 1) → reste visible même sans commande.
+      [{ numOf: 'OF-A', article: 'PF1', feasible: false, statutNum: 1, missingComponents: { C1: 10 } }],
       [],
     )
     const rows = buildShortageRows(result, new Map(), new Map()).rows
@@ -190,7 +191,7 @@ test.group('buildShortageRows', () => {
 
   test('OF bloqué sans commande rattachée → numCommande = null', ({ assert }) => {
     const result = buildResult(
-      [{ numOf: 'OF-B', article: 'PF2', feasible: false, statutNum: 3, missingComponents: { CX: 4 } }],
+      [{ numOf: 'OF-B', article: 'PF2', feasible: false, statutNum: 1, missingComponents: { CX: 4 } }],
       [], // aucune commande
     )
     const rows = buildShortageRows(result, new Map(), new Map()).rows
@@ -202,7 +203,8 @@ test.group('buildShortageRows', () => {
 
   test('OF rattaché à une PRÉVISION → pas de commande (une prévision n\'est pas une rupture)', ({ assert }) => {
     const result = buildResult(
-      [{ numOf: 'OF-P', article: 'PF1', feasible: false, statutNum: 3, missingComponents: { C1: 5 } }],
+      // OF affermi (statut 1) couvrant une prévision → visible mais SANS commande.
+      [{ numOf: 'OF-P', article: 'PF1', feasible: false, statutNum: 1, missingComponents: { C1: 5 } }],
       [{
         numCommande: 'PREV-1', client: '', article: 'PF1', description: '',
         qteRestante: 50, dateExpedition: '2026-07-01', dejaEnRetard: false,
@@ -215,6 +217,35 @@ test.group('buildShortageRows', () => {
     assert.equal(rows.length, 1)
     assert.isNull(rows[0].numCommande)
     assert.isNull(rows[0].statutCommande)
+  })
+
+  test('suggestion (statut 3) sans commande exclue ; OF affermi (statut 1) sans commande conservé', ({ assert }) => {
+    const result = buildResult(
+      [
+        { numOf: 'SGAE-1', article: 'PF1', feasible: false, statutNum: 3, missingComponents: { C1: 5 } },
+        { numOf: 'OF-FERME', article: 'PF2', feasible: false, statutNum: 1, missingComponents: { C2: 5 } },
+      ],
+      [], // aucun rattachement commande
+    )
+    const rows = buildShortageRows(result, new Map(), new Map()).rows
+    assert.equal(rows.length, 1)
+    assert.equal(rows[0].numOf, 'OF-FERME')
+  })
+
+  test('suggestion (statut 3) AVEC commande reste visible', ({ assert }) => {
+    const result = buildResult(
+      [{ numOf: 'SGAE-2', article: 'PF1', feasible: false, statutNum: 3, missingComponents: { C1: 5 } }],
+      [{
+        numCommande: 'AR123', client: 'ACME', article: 'PF1', description: '',
+        qteRestante: 50, dateExpedition: '2026-07-01', dejaEnRetard: false,
+        nature: 'commande', typeCommande: 'NOR', matchingMethod: 'of', reliquat: 0,
+        statut: 'bloquee', joursRetard: 0,
+        ofs: [{ numOf: 'SGAE-2', article: 'PF1', qteAllouee: 50, dateFin: '2026-06-30', feasible: false, missingComponents: { C1: 5 }, modified: false, statutNum: 3 }],
+      }],
+    )
+    const rows = buildShortageRows(result, new Map(), new Map()).rows
+    assert.equal(rows.length, 1)
+    assert.equal(rows[0].numCommande, 'AR123')
   })
 
   test('OF non bloqué (feasible !== false) n\'apparaît pas', ({ assert }) => {
@@ -269,8 +300,8 @@ test.group('buildShortageRows', () => {
   test('stats: nbRuptures, nbCouvertes, nbSansCouverture', ({ assert }) => {
     const result = buildResult(
       [
-        { numOf: 'OF-A', article: 'PF1', feasible: false, statutNum: 3, missingComponents: { C1: 10, C2: 5 } },
-        { numOf: 'OF-B', article: 'PF1', feasible: false, statutNum: 3, missingComponents: { C3: 4 } },
+        { numOf: 'OF-A', article: 'PF1', feasible: false, statutNum: 1, missingComponents: { C1: 10, C2: 5 } },
+        { numOf: 'OF-B', article: 'PF1', feasible: false, statutNum: 1, missingComponents: { C3: 4 } },
       ],
       [],
     )
