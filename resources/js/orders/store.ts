@@ -1,4 +1,4 @@
-import { createSignal } from 'solid-js'
+import { createMemo, createSignal } from 'solid-js'
 import { createStore, produce } from 'solid-js/store'
 import type { OrderBoardData, OrderCard, OrderSearchScope } from './types'
 
@@ -55,7 +55,7 @@ export function createOrderBoardStore(initial: OrderBoardData) {
   function lineVisible(lineCode: string): boolean {
     const line = board.lines.find((l) => l.code === lineCode)
     if (!line) return false
-    return line.weekCells.some((wc) => wc.cards.some((c) => cardMatches(c, lineCode)))
+    return line.dayCells.some((dc) => dc.cards.some((c) => cardMatches(c, lineCode)))
   }
 
   function onQueryInput(value: string) {
@@ -83,6 +83,39 @@ export function createOrderBoardStore(initial: OrderBoardData) {
     })
   }
 
+  // ── Charge/jour live (somme des heures des cartes visibles par colonne). ──
+  const dayLoad = createMemo<number[]>(() => {
+    const sums = new Array<number>(board.cols).fill(0)
+    for (const line of board.lines) {
+      if (!lineVisible(line.code)) continue
+      line.dayCells.forEach((dc, col) => {
+        for (const card of dc.cards) {
+          if (cardMatches(card, line.code)) sums[col] += card.hours
+        }
+      })
+    }
+    return sums
+  })
+
+  /** Histogramme hebdo par ligne, recalculé live depuis les positions des cartes. */
+  function lineWeekLoads(lineCode: string) {
+    const line = board.lines.find((l) => l.code === lineCode)
+    if (!line) return []
+    const byWeek: Record<number, number> = {}
+    line.dayCells.forEach((dc, col) => {
+      const wk = board.colWeek[col]
+      if (wk === undefined) return
+      for (const card of dc.cards) byWeek[wk] = (byWeek[wk] ?? 0) + card.hours
+    })
+    return line.weekLoads.map((wl) => {
+      const hours = Math.round((byWeek[wl.week] ?? 0) * 10) / 10
+      const cap = board.weekCaps[String(wl.week)] ?? 0
+      const pct = cap > 0 ? Math.round((hours / cap) * 100) : 0
+      const barClass = pct > 100 ? 'bg-error' : pct >= 90 ? 'bg-blue-500' : 'bg-emerald-500'
+      return { week: wl.week, hours, pct, barClass }
+    })
+  }
+
   // ── Drag : PATCH override + optimistic + rollback ──
   function moveCard(id: string, fromLineCode: string, toCol: number, toIso: string) {
     const [numCommande, ligne] = id.split('#')
@@ -90,7 +123,7 @@ export function createOrderBoardStore(initial: OrderBoardData) {
 
     const findPos = () => {
       for (let li = 0; li < board.lines.length; li++) {
-        const cells = board.lines[li].weekCells
+        const cells = board.lines[li].dayCells
         for (let ci = 0; ci < cells.length; ci++) {
           const idx = cells[ci].cards.findIndex((c) => c.id === id)
           if (idx !== -1) return { line: li, col: ci, idx, card: cells[ci].cards[idx] }
@@ -102,7 +135,7 @@ export function createOrderBoardStore(initial: OrderBoardData) {
     if (!from) return
     // Interdit cross-row (poste figé par la gamme).
     if (board.lines[from.line].code !== fromLineCode) {
-      toast('Poste figé par la gamme — déplacez seulement la semaine.')
+      toast('Poste figé par la gamme — déplacez seulement le jour.')
       return
     }
     if (from.col === toCol) return
@@ -114,8 +147,8 @@ export function createOrderBoardStore(initial: OrderBoardData) {
 
     setBoard(
       produce((b) => {
-        b.lines[snapshot.line].weekCells[snapshot.col].cards.splice(snapshot.idx, 1)
-        b.lines[toLine].weekCells[toCol].cards.push({ ...card, hasOverride: true, accentClass: 'border-l-amber-500', cardClass: 'bg-amber-50/40', idTone: 'text-amber-700' })
+        b.lines[snapshot.line].dayCells[snapshot.col].cards.splice(snapshot.idx, 1)
+        b.lines[toLine].dayCells[toCol].cards.push({ ...card, hasOverride: true, accentClass: 'border-l-amber-500', cardClass: 'bg-amber-50/40', idTone: 'text-amber-700' })
       })
     )
 
@@ -130,9 +163,9 @@ export function createOrderBoardStore(initial: OrderBoardData) {
       .catch((err) => {
         setBoard(
           produce((b) => {
-            const ci = b.lines[toLine].weekCells[toCol].cards.findIndex((c) => c.id === id)
-            if (ci !== -1) b.lines[toLine].weekCells[toCol].cards.splice(ci, 1)
-            b.lines[snapshot.line].weekCells[snapshot.col].cards.splice(snapshot.idx, 0, card)
+            const ci = b.lines[toLine].dayCells[toCol].cards.findIndex((c) => c.id === id)
+            if (ci !== -1) b.lines[toLine].dayCells[toCol].cards.splice(ci, 1)
+            b.lines[snapshot.line].dayCells[snapshot.col].cards.splice(snapshot.idx, 0, card)
           })
         )
         window.dispatchEvent(
@@ -168,6 +201,8 @@ export function createOrderBoardStore(initial: OrderBoardData) {
     natureFilter,
     cardMatches,
     lineVisible,
+    dayLoad,
+    lineWeekLoads,
     onQueryInput,
     onScopeChange,
     clearSearch,

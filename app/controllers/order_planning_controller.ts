@@ -6,9 +6,9 @@ import type { GammeOperation } from '#app/domain/models/gamme'
 
 // ---------------------------------------------------------------------------
 // Issue #10 — Mode planification (lignes de commande ouvertes).
-// Grille : colonnes = semaines (livraison), lignes = postes de charge (gamme).
-// Drag en temps seul (autre semaine, dans la rangée du poste).
-// Override local SQLite (lecture seule X3).
+// Grille : colonnes = JOURS ouvrés (livraison), bande semaine en en-tête,
+// lignes = postes de charge (gamme). Drag en temps seul (autre jour, même poste).
+// Override local SQLite (lecture seule X3). Horizon en jours, nav via Unpoly.
 // ---------------------------------------------------------------------------
 
 const DAY_MS = 86_400_000
@@ -36,19 +36,14 @@ interface Card {
   customer: string | null
 }
 
-interface WeekCol {
-  week: number
-  iso: string
+interface DayCol {
   short: string
-  loadHours: number
-  cap: number
-  pct: number
-  barClass: string
+  iso: string
+  today: boolean
   headerTone: string
-  labelClass: string
 }
 
-interface WeekCell {
+interface DayCell {
   cellClass: string
   cards: Card[]
   iso: string
@@ -59,12 +54,12 @@ interface LineRow {
   code: string
   dot: string
   meta: { k: string; v: string }[]
-  weekCells: WeekCell[]
+  dayCells: DayCell[]
   weekLoads: { week: number; hours: number; pct: number; barClass: string }[]
 }
 
 interface OrderBoardData {
-  weeks: WeekCol[]
+  days: DayCol[]
   lines: LineRow[]
   weekSpans: { week: number; span: number }[]
   cols: number
@@ -75,6 +70,7 @@ interface OrderBoardData {
   x3Error: string | null
   horizon: number
   windowFrom: string
+  windowTo: string
   weekLabel: string
   dateRange: string
   prevHref: string
@@ -103,19 +99,6 @@ const isoWeek = (d: Date) => {
   t.setUTCDate(t.getUTCDate() + 4 - dow)
   const yearStart = new Date(Date.UTC(t.getUTCFullYear(), 0, 1))
   return Math.ceil(((t.getTime() - yearStart.getTime()) / DAY_MS + 1) / 7)
-}
-
-const startOfIsoWeek = (d: Date) => {
-  const t = atMidnight(d)
-  const dow = t.getDay() || 7
-  t.setDate(t.getDate() - (dow - 1))
-  return t
-}
-
-const addWeeks = (d: Date, n: number) => {
-  const t = atMidnight(d)
-  t.setDate(t.getDate() + n * 7)
-  return t
 }
 
 // --- Card factory ---
@@ -223,13 +206,24 @@ export default class OrderPlanningController {
 
   private async loadBoardData(ctx: HttpContext): Promise<OrderBoardData> {
     const startParam = ctx.request.input('start') as string | undefined
-    const weeksParam = Number.parseInt(ctx.request.input('weeks', '8'), 10)
-    const horizon = Number.isFinite(weeksParam) && weeksParam > 0 && weeksParam <= 26 ? weeksParam : 8
+    const daysParam = Number.parseInt(ctx.request.input('days', '14'), 10)
+    const horizon = Number.isFinite(daysParam) && daysParam > 0 && daysParam <= 90 ? daysParam : 14
     const force = !!ctx.request.input('refresh')
 
     const today = atMidnight(new Date())
-    const windowStart = startParam ? atMidnight(new Date(startParam)) : startOfIsoWeek(today)
-    const windowEnd = addWeeks(windowStart, horizon)
+    const windowStart = startParam ? atMidnight(new Date(startParam)) : today
+
+    // --- Jours ouvrés (Lun–Ven) dans l'horizon. ---
+    const colDates: Date[] = []
+    for (let i = 0; i < horizon; i++) {
+      const d = atMidnight(windowStart)
+      d.setDate(windowStart.getDate() + i)
+      const dow = d.getDay()
+      if (dow !== 0 && dow !== 6) colDates.push(d)
+    }
+    const colIdx = new Map<string, number>()
+    colDates.forEach((d, i) => colIdx.set(isoDay(d), i))
+    const windowEnd = colDates.length ? colDates[colDates.length - 1] : windowStart
 
     let ordreLignes: OrderLineRow[] = []
     let gammeOps: GammeOperation[] = []
@@ -256,38 +250,26 @@ export default class OrderPlanningController {
       if (g.workstation) wstLabels.set(g.workstation, g.workstationLabel || g.workstation)
     }
 
-    // --- N semaines : génère liste ISO week (windowStart → windowStart+horizon). ---
+    // --- Colonne → ISO week + jours ouvrés par semaine (pour capacité hebdo). ---
+    const colWeek = colDates.map((d) => isoWeek(d))
     const weekOrder: number[] = []
-    const weekStart = new Map<number, Date>()
-    for (let w = 0; w < horizon; w++) {
-      const ws = addWeeks(windowStart, w)
-      const wk = isoWeek(ws)
-      if (!weekOrder.includes(wk)) {
-        weekOrder.push(wk)
-        weekStart.set(wk, ws)
-      }
-    }
-
-    // Capacités : jours ouvrés dans la fenêtre × 8h (identique board OF).
-    // Calcul par index de semaine (0..horizon-1) pour rester aligné sur les colonnes.
-    const weekCapHours = (idx: number) => {
-      const ws = addWeeks(windowStart, idx)
-      let days = 0
-      for (let d = 0; d < 7; d++) {
-        const dd = new Date(ws)
-        dd.setDate(ws.getDate() + d)
-        const dow = dd.getDay()
-        if (dow !== 0 && dow !== 6) days++
-      }
-      return days * 8
-    }
+    const weekDayCount = new Map<number, number>()
+    colWeek.forEach((wk) => {
+      if (!weekOrder.includes(wk)) weekOrder.push(wk)
+      weekDayCount.set(wk, (weekDayCount.get(wk) ?? 0) + 1)
+    })
+    const weekSpans = weekOrder.map((wk) => ({ week: wk, span: weekDayCount.get(wk) ?? 0 }))
+    const weekCaps: Record<string, number> = Object.fromEntries(
+      weekOrder.map((wk) => [wk, (weekDayCount.get(wk) ?? 0) * 8])
+    )
 
     // --- Grouping : une carte par ligne, rangée = poste (gamme figé),
-    //     colonne = semaine d'échéance (override > X3). ---
+    //     colonne = JOUR d'échéance (override > X3). ---
     interface Bucket {
-      cards: (Card & { weekIdx: number })[]
+      dayCards: Card[][]
       totalHours: number
-      weekHours: number[]
+      dayHours: number[]
+      lineCount: number
     }
     const buckets = new Map<string, Bucket>()
 
@@ -298,15 +280,11 @@ export default class OrderPlanningController {
       if (!wstLabels.has(workstation)) wstLabels.set(workstation, workstation)
 
       const rate = op?.rate ?? 0
-      const hours = rate > 0 ? (line.quantite / rate) : 0
+      const hours = rate > 0 ? line.quantite / rate : 0
       const overrideKey = `${line.numCommande}#${line.ligne}`
       const dateStr = overrideMap.get(overrideKey) ?? isoDay(line.dateLivraison)
-      const date = new Date(dateStr)
-      if (Number.isNaN(date.getTime())) continue
-
-      const wk = isoWeek(date)
-      const weekIdx = weekOrder.indexOf(wk)
-      if (weekIdx === -1) continue // hors fenêtre
+      const idx = colIdx.get(dateStr)
+      if (idx === undefined) continue // hors fenêtre / week-end
 
       const card = makeOrderCard({
         numCommande: line.numCommande,
@@ -323,105 +301,101 @@ export default class OrderPlanningController {
 
       if (!buckets.has(workstation)) {
         buckets.set(workstation, {
-          cards: [],
+          dayCards: Array.from({ length: colDates.length }, () => []),
           totalHours: 0,
-          weekHours: new Array<number>(horizon).fill(0),
+          dayHours: new Array<number>(colDates.length).fill(0),
+          lineCount: 0,
         })
       }
       const b = buckets.get(workstation)!
-      b.cards.push({ ...card, weekIdx })
+      b.dayCards[idx].push(card)
       b.totalHours += hours
-      b.weekHours[weekIdx] += hours
+      b.dayHours[idx] += hours
+      b.lineCount++
     }
 
-    // --- Construit colonnes + rangées pour le client. ---
-    const weeks: WeekCol[] = weekOrder.map((wk, idx) => {
-      const cap = weekCapHours(idx)
-      const totalLoad = [...buckets.values()].reduce((s, b) => s + b.weekHours[idx], 0)
-      const pct = cap > 0 ? Math.round((totalLoad / cap) * 100) : 0
-      const ws = weekStart.get(wk)!
+    // --- Colonnes jour. ---
+    const now = atMidnight(new Date())
+    const days: DayCol[] = colDates.map((d, i) => {
+      const wd = d.toLocaleDateString('fr-FR', { weekday: 'short' })
+      const dn = d.toLocaleDateString('fr-FR', { day: '2-digit' })
+      const isToday = d.getTime() === now.getTime()
       return {
-        week: wk,
-        iso: isoDay(ws),
-        short: `S${wk}`,
-        loadHours: Math.round(totalLoad * 10) / 10,
-        cap,
-        pct,
-        barClass: pct > 100 ? 'bg-error' : pct >= 90 ? 'bg-blue-500' : pct > 0 ? 'bg-emerald-500' : 'bg-gray-300',
-        headerTone: idx % 2 === 0 ? 'bg-white/50' : 'bg-gray-50/30',
-        labelClass: pct > 100 ? 'text-error' : pct >= 90 ? 'text-blue-600' : 'text-gray-500',
+        short: `${wd} ${dn}`,
+        iso: isoDay(d),
+        today: isToday,
+        headerTone: isToday ? 'bg-blue-50/30' : i % 2 === 0 ? 'bg-white/50' : '',
       }
     })
 
-    const weekCaps: Record<string, number> = Object.fromEntries(
-      weekOrder.map((wk, idx) => [wk, weekCapHours(idx)])
-    )
-
-    const lines: LineRow[] = [...buckets.entries()]
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([code, bucket]) => {
-        const cells: WeekCell[] = weekOrder.map((_, ci) => {
-          const cardsInWeek = bucket.cards
-            .filter((c) => c.weekIdx === ci)
-            .map(({ weekIdx: _wi, ...rest }) => rest)
-          return {
-            cellClass: ci % 2 === 0 ? 'bg-white/30' : 'bg-gray-50/30',
-            cards: cardsInWeek,
-            iso: isoDay(weekStart.get(weekOrder[ci]!)!),
-          }
+    // --- Histogramme hebdo par ligne (somme dayHours par semaine vs jours×8h). ---
+    const buildWeekLoads = (lineDayHours: number[]) =>
+      weekOrder.map((week) => {
+        let hours = 0
+        colWeek.forEach((wk, i) => {
+          if (wk === week) hours += lineDayHours[i]
         })
-        const weekLoads = weekOrder.map((wk, ci) => {
-          const cap = weekCaps[String(wk)] ?? 0
-          const h = bucket.weekHours[ci]
-          const pct = cap > 0 ? Math.round((h / cap) * 100) : 0
-          return {
-            week: wk,
-            hours: Math.round(h * 10) / 10,
-            pct,
-            barClass: pct > 100 ? 'bg-error' : pct >= 90 ? 'bg-blue-500' : 'bg-emerald-500',
-          }
-        })
+        const cap = (weekDayCount.get(week) ?? 0) * 8
+        const pct = cap > 0 ? Math.round((hours / cap) * 100) : 0
         return {
-          name: wstLabels.get(code) ?? code,
-          code,
-          dot: 'bg-primary',
-          meta: [
-            { k: 'LIGNES', v: String(bucket.cards.length) },
-            { k: 'CHG', v: `${Math.round(bucket.totalHours)}h` },
-            { k: 'WST', v: code },
-          ],
-          weekCells: cells,
-          weekLoads,
+          week,
+          hours: Math.round(hours * 10) / 10,
+          pct,
+          barClass: pct > 100 ? 'bg-error' : pct >= 90 ? 'bg-blue-500' : 'bg-emerald-500',
         }
       })
 
-    const colWeek = weekOrder.slice()
+    const lines: LineRow[] = [...buckets.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([code, bucket]) => ({
+        name: wstLabels.get(code) ?? code,
+        code,
+        dot: 'bg-primary',
+        meta: [
+          { k: 'LIGNES', v: String(bucket.lineCount) },
+          { k: 'CHG', v: `${Math.round(bucket.totalHours)}h` },
+          { k: 'WST', v: code },
+        ],
+        dayCells: bucket.dayCards.map((cards, i) => ({
+          cellClass: days[i].today ? 'bg-blue-50/10' : '',
+          cards,
+          iso: isoDay(colDates[i]),
+        })),
+        weekLoads: buildWeekLoads(bucket.dayHours),
+      }))
 
-    // --- Nav horizon (Préc./Suiv./Aujourd'hui), pas = horizon semaines. ---
+    // --- Nav horizon (Préc./Suiv./Aujourd'hui), pas = horizon jours. ---
     const fmtFr = (d: Date) =>
       d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase()
-    const lastWeekStart = addWeeks(windowStart, Math.max(0, horizon - 1))
+    const firstDay = colDates[0] ?? windowStart
+    const lastDay = colDates[colDates.length - 1] ?? windowStart
+    const navIso = (deltaDays: number) => {
+      const d = atMidnight(windowStart)
+      d.setDate(d.getDate() + deltaDays)
+      return isoDay(d)
+    }
     const navQuery = (start: string) =>
-      `?start=${start}&weeks=${horizon}` + (force ? '&refresh=1' : '')
+      `?start=${start}&days=${horizon}` + (force ? '&refresh=1' : '')
     const base = '/scheduler/planning-board'
-    const prevHref = `${base}${navQuery(isoDay(addWeeks(windowStart, -horizon)))}`
-    const nextHref = `${base}${navQuery(isoDay(addWeeks(windowStart, horizon)))}`
-    const todayHref = `${base}${navQuery(isoDay(startOfIsoWeek(today)))}`
+    const prevHref = `${base}${navQuery(navIso(-horizon))}`
+    const nextHref = `${base}${navQuery(navIso(horizon))}`
+    const todayHref = `${base}${navQuery(isoDay(now))}`
 
     return {
-      weeks,
+      days,
       lines,
-      weekSpans: weekOrder.map((wk) => ({ week: wk, span: 1 })),
-      cols: weekOrder.length,
+      weekSpans,
+      cols: days.length,
       colWeek,
       weekCaps,
       totalLines: ordreLignes.length,
       lineCount: lines.length,
       x3Error,
       horizon,
-      windowFrom: isoDay(windowStart),
-      weekLabel: weekOrder.length ? `S${weekOrder[0]}` : '',
-      dateRange: `${fmtFr(windowStart)} — ${fmtFr(lastWeekStart)}`,
+      windowFrom: colDates.length ? isoDay(firstDay) : '',
+      windowTo: colDates.length ? isoDay(lastDay) : '',
+      weekLabel: colDates.length ? `S${isoWeek(firstDay)}` : '',
+      dateRange: `${fmtFr(firstDay)} — ${fmtFr(lastDay)}`,
       prevHref,
       nextHref,
       todayHref,

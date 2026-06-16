@@ -34,22 +34,22 @@ export interface OrderCard {
 /** Portée de la recherche live. */
 export type OrderSearchScope = 'poste' | 'commande' | 'article' | 'client'
 
-export interface WeekCol {
-  week: number
-  iso: string
+export interface DayCol {
   short: string
-  loadHours: number
-  cap: number
-  pct: number
-  barClass: string
+  iso: string
+  today: boolean
   headerTone: string
-  labelClass: string
 }
 
-export interface WeekCell {
+export interface DayCell {
   cellClass: string
   cards: OrderCard[]
   iso: string
+}
+
+export interface WeekSpan {
+  week: number
+  span: number
 }
 
 export interface WeekLoad {
@@ -64,15 +64,17 @@ export interface OrderLineRow {
   code: string
   dot: string
   meta: { k: string; v: string }[]
-  weekCells: WeekCell[]
+  dayCells: DayCell[]
   weekLoads: WeekLoad[]
 }
 
 export interface OrderBoardData {
-  weeks: WeekCol[]
+  days: DayCol[]
   lines: OrderLineRow[]
-  weekSpans: { week: number; span: number }[]
+  weekSpans: WeekSpan[]
   cols: number
+  /** Index colonne → ISO week (pour histogramme live). */
   colWeek: number[]
+  /** ISO week → capacité (jours ouvrés × 8h). */
   weekCaps: Record<string, number>
 }

@@ -68,22 +68,22 @@
     </nav>
   </aside>
 
-  <main class="ml-12 mt-12 p-2 h-[calc(100vh-48px)] overflow-hidden flex flex-col">
+  <main id="order-board-main" class="ml-12 mt-12 p-2 h-[calc(100vh-48px)] overflow-hidden flex flex-col">
     <div class="mb-2 flex items-center justify-between bg-white p-2 rounded border border-gray-200 shadow-sm">
       <div class="flex items-center gap-4">
         <div class="flex items-center border border-gray-200 rounded p-0.5">
-          <a href="{{ prevHref }}" class="p-1 px-2 text-[11px] font-medium hover:bg-gray-50">Préc.</a>
-          <a href="{{ todayHref }}" class="p-1 px-3 text-[11px] font-bold bg-gray-50 border-x border-gray-200 text-gray-700 hover:text-primary" title="Revenir à la semaine courante">{{ weekLabel }}</a>
-          <a href="{{ nextHref }}" class="p-1 px-2 text-[11px] font-medium hover:bg-gray-50">Suiv.</a>
+          <a href="{{ prevHref }}" up-target="#order-board-main" up-history="true" class="p-1 px-2 text-[11px] font-medium hover:bg-gray-50">Préc.</a>
+          <a href="{{ todayHref }}" up-target="#order-board-main" up-history="true" class="p-1 px-3 text-[11px] font-bold bg-gray-50 border-x border-gray-200 text-gray-700 hover:text-primary" title="Revenir à aujourd'hui">{{ weekLabel }}</a>
+          <a href="{{ nextHref }}" up-target="#order-board-main" up-history="true" class="p-1 px-2 text-[11px] font-medium hover:bg-gray-50">Suiv.</a>
         </div>
         <span class="text-[13px] font-bold text-gray-800 mono">{{ dateRange }}</span>
-        <form method="get" class="flex items-center gap-1 border border-gray-200 rounded px-1.5 py-0.5" title="Horizon (semaines)">
+        <form method="get" up-submit up-target="#order-board-main" up-history="true" class="flex items-center gap-1 border border-gray-200 rounded px-1.5 py-0.5" title="Horizon (jours)">
           <span class="material-symbols-outlined text-[14px] text-gray-400">date_range</span>
           <input type="hidden" name="start" value="{{ windowFrom }}">
-          <input type="number" name="weeks" min="1" max="26" value="{{ horizon }}"
+          <input type="number" name="days" min="1" max="90" value="{{ horizon }}"
                  class="w-10 text-[11px] font-bold mono text-gray-700 text-right bg-transparent focus:outline-none"
                  onchange="this.form.submit()">
-          <span class="text-[10px] font-bold text-gray-400">sem</span>
+          <span class="text-[10px] font-bold text-gray-400">j</span>
         </form>
       </div>
       <div class="flex items-center gap-2 text-[13px] font-bold text-gray-800 mono">
@@ -105,7 +105,7 @@
     </div>
     @end
 
-    <script id="order-board-data" type="application/json">{{{ JSON.stringify({ weeks, lines, weekSpans, cols, colWeek, weekCaps }) }}}</script>
+    <script id="order-board-data" type="application/json">{{{ JSON.stringify({ days, lines, weekSpans, cols, colWeek, weekCaps }) }}}</script>
     <div data-solid="order-grid" class="flex-1 flex flex-col min-h-0"></div>
   </main>
 </div>

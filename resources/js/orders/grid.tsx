@@ -1,6 +1,6 @@
 import { For, Show, createEffect, createSignal, onCleanup, onMount } from 'solid-js'
 import type { OrderBoardStore } from './store'
-import type { OrderCard, OrderLineRow, OrderSearchScope, WeekCell } from './types'
+import type { OrderCard, OrderLineRow, OrderSearchScope, DayCell } from './types'
 
 /**
  * Solid grid du board planification (issue #10).
@@ -81,25 +81,29 @@ export default function OrderGrid(props: { store: OrderBoardStore }) {
       style={{ '--cols': String(store.board.cols) }}
     >
       <div class="sch-head">
+        {/* Bande semaine */}
         <div class="grid-expert border-b border-gray-200 bg-gray-100">
           <div class="sch-col-fix p-1.5 border-r border-gray-200 bg-gray-100" />
-          <For each={store.board.weeks}>
+          <For each={store.board.weekSpans}>
             {(wk) => (
-              <div class={`p-1.5 text-center border-r border-gray-200 ${wk.headerTone}`}>
+              <div class="p-1.5 text-center border-r border-gray-200" style={{ 'grid-column': `span ${wk.span}` }}>
                 <span class="text-[10px] font-bold uppercase tracking-widest mono text-gray-500">Semaine {wk.week}</span>
               </div>
             )}
           </For>
         </div>
+        {/* Ligne jours + charge/jour live */}
         <div class="grid-expert border-b border-gray-300 bg-gray-50">
           <div class="sch-col-fix p-2 border-r border-gray-200 bg-gray-50 flex items-center justify-between">
             <span class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mono">Poste de charge</span>
           </div>
-          <For each={store.board.weeks}>
-            {(wk) => (
-              <div class="p-2 border-r border-gray-200 text-center">
-                <div class={`text-[10px] font-bold mono ${wk.labelClass}`}>{wk.loadHours}h</div>
-                <div class={`text-[9px] mono ${wk.labelClass}`}>{wk.pct}%</div>
+          <For each={store.board.days}>
+            {(day, di) => (
+              <div class={`p-2 border-r border-gray-200 text-center ${day.headerTone}`}>
+                <div class={`text-[10px] font-bold uppercase mono ${day.today ? 'text-primary' : 'text-gray-400'}`}>{day.short}</div>
+                <div class="mt-1">
+                  <span class="text-[11px] font-bold mono text-gray-600">{Math.round(store.dayLoad()[di()] * 10) / 10}h</span>
+                </div>
               </div>
             )}
           </For>
@@ -143,11 +147,11 @@ function Row(props: {
           <div class={`w-2 h-2 rounded-full ${line.dot}`} />
           <span class="text-xs font-bold text-gray-900 uppercase tracking-tight">{line.name}</span>
         </div>
-        <Show when={line.weekLoads.length > 0}>
+        <Show when={store.lineWeekLoads(line.code).length > 0}>
           <div class="mb-2 sch-hist">
             <div class="flex items-end gap-1 h-10 relative">
               <div class="absolute left-0 right-0 border-t border-dashed border-gray-300" style={{ top: '0' }} />
-              <For each={line.weekLoads}>
+              <For each={store.lineWeekLoads(line.code)}>
                 {(w) => (
                   <div class="flex-1 flex flex-col justify-end h-full" title={`S${w.week} — ${w.hours}h (${w.pct}%)`}>
                     <div class={`w-full rounded-sm ${w.barClass}`} style={{ height: `${w.pct > 100 ? 100 : w.pct}%`, 'min-height': '2px' }} />
@@ -156,7 +160,7 @@ function Row(props: {
               </For>
             </div>
             <div class="flex gap-1 mt-0.5">
-              <For each={line.weekLoads}>
+              <For each={store.lineWeekLoads(line.code)}>
                 {(w) => (
                   <div class={`flex-1 text-center text-[8px] font-bold mono ${w.pct > 100 ? 'text-error' : 'text-gray-400'}`}>{w.hours}h</div>
                 )}
@@ -175,12 +179,12 @@ function Row(props: {
           </For>
         </div>
       </div>
-      <For each={line.weekCells}>
-        {(wc, ci) => (
+      <For each={line.dayCells}>
+        {(dc, ci) => (
           <Cell
             store={store}
             line={line}
-            wc={wc}
+            dc={dc}
             col={ci()}
             draggedId={props.draggedId}
             setDraggedId={props.setDraggedId}
@@ -196,18 +200,18 @@ function Row(props: {
 function Cell(props: {
   store: OrderBoardStore
   line: OrderLineRow
-  wc: WeekCell
+  dc: DayCell
   col: number
   draggedId: () => string | null
   setDraggedId: (v: string | null) => void
   dropCol: () => string | null
   setDropCol: (v: string | null) => void
 }) {
-  const { store, line, wc, col } = props
+  const { store, line, dc, col } = props
   const cellKey = `${line.code}:${col}`
   return (
     <div
-      class={`sch-cal-cell p-1.5 border-r border-gray-200 flex flex-col gap-1.5 ${wc.cellClass}`}
+      class={`sch-cal-cell p-1.5 border-r border-gray-200 flex flex-col gap-1.5 ${dc.cellClass}`}
       classList={{ 'is-drop': props.dropCol() === cellKey }}
       onDragOver={(e) => {
         if (!props.draggedId()) return
@@ -220,10 +224,10 @@ function Cell(props: {
         props.setDropCol(null)
         if (!id) return
         e.preventDefault()
-        store.moveCard(id, line.code, col, wc.iso)
+        store.moveCard(id, line.code, col, dc.iso)
       }}
     >
-      <For each={wc.cards}>
+      <For each={dc.cards}>
         {(card) => (
           <CardView
             store={store}
