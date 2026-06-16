@@ -35,62 +35,8 @@ router.get('/js/app.js', async ({ response }) => {
 // Health
 router.get('/health', '#controllers/health_controller.index')
 
-// TEMP: board mock route (no X3 dependency, for frontend testing)
-router.get('/board-mock', async ({ view }) => {
-  return view.render('pages/board', {
-    days: [
-      {
-        idx: 0,
-        iso: '2026-06-16',
-        weekday: 'lun.',
-        dayNum: '16/06',
-        weekNum: 25,
-        weekStart: true,
-        hours: 8,
-      },
-      {
-        idx: 1,
-        iso: '2026-06-17',
-        weekday: 'mar.',
-        dayNum: '17/06',
-        weekNum: 25,
-        weekStart: false,
-        hours: 6,
-      },
-      {
-        idx: 2,
-        iso: '2026-06-18',
-        weekday: 'mer.',
-        dayNum: '18/06',
-        weekNum: 25,
-        weekStart: false,
-        hours: 0,
-      },
-    ],
-    weeks: [{ num: 25, span: 3 }],
-    cols: 3,
-    boardDataJson: JSON.stringify({
-      days: ['2026-06-16', '2026-06-17', '2026-06-18'],
-      cols: 3,
-      ofData: {},
-    }),
-    lines: [],
-    backlog: [],
-    start: '2026-06-16',
-    horizon: 3,
-    totalOf: 0,
-    backlogCount: 0,
-    lineCount: 0,
-    x3Error: null,
-    cached: null,
-  })
-})
-
 // Debug X3 models
 router.get('/debug/x3', '#controllers/x3_debug_controller.index')
-
-// Planning Board — tableau d'ordonnancement drag & drop (vue HTML)
-router.get('/board', '#controllers/planning_board_controller.board')
 
 // Scheduler — vues Material 3 (Stitch)
 //   /scheduler/board   : Tableau d'ordonnancement, vue experte haute densité

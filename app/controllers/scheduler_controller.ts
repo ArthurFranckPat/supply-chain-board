@@ -445,7 +445,7 @@ export default class SchedulerController {
   }
 
   // -------------------------------------------------------------------------
-  // Board data — same X3 sources as PlanningBoardController.board()
+  // Board data — same X3 sources as the planning-board API (boardDataset)
   // -------------------------------------------------------------------------
 
   private async loadBoardData(ctx: HttpContext, basePath = '/scheduler/board') {
