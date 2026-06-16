@@ -7,6 +7,7 @@
   },
   "exclude": [
     "resources/js/**",
+    "inertia/**",
     "node_modules/**",
     "build/**"
   ]

@@ -2,8 +2,8 @@ import router from '@adonisjs/core/services/router'
 import app from '@adonisjs/core/services/app'
 import { readFile } from 'node:fs/promises'
 
-router.get('/', async () => {
-  return { status: 'ok', service: 'supply-chain-board' }
+router.get('/', async ({ inertia }) => {
+  return inertia.render('home', { message: 'Infra SolidJS + Inertia opérationnelle.' })
 })
 
 // Unpoly client (servi depuis node_modules, pas de CDN)

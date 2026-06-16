@@ -1,24 +1,22 @@
 import { defineConfig } from 'vite'
+import adonisjs from '@adonisjs/vite/client'
+import solid from 'vite-plugin-solid'
 import tailwindcss from '@tailwindcss/vite'
-import path from 'node:path'
 
 export default defineConfig({
-  plugins: [tailwindcss()],
-  resolve: {
-    alias: {
-      '#resources': path.resolve('./resources'),
-    },
-  },
-  build: {
-    outDir: 'public',
-    assetsDir: '',
-    rollupOptions: {
-      input: './resources/js/app.js',
-      output: {
-        entryFileNames: 'js/[name].js',
-        chunkFileNames: 'js/[name].js',
-        assetFileNames: '[ext]/[name].[ext]',
-      },
-    },
-  },
+  plugins: [
+    solid(),
+    tailwindcss(),
+    adonisjs({
+      /**
+       * Point d'entrée unique de l'app SolidJS/Inertia.
+       */
+      entrypoints: ['inertia/app/app.tsx'],
+
+      /**
+       * Recharge le navigateur quand le shell Edge ou une page Solid change.
+       */
+      reload: ['resources/views/**/*.edge', 'inertia/pages/**/*.tsx'],
+    }),
+  ],
 })
