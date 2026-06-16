@@ -36,6 +36,7 @@
           <th class="text-left px-3 py-2 w-44">Commande client</th>
           <th class="text-left px-3 py-2 w-24">Date expé.</th>
           <th class="text-left px-3 py-2">Réception attendue</th>
+          <th class="text-left px-3 py-2 w-24">Date arrivée</th>
           <th class="text-left px-3 py-2 w-40">Verdict</th>
         </tr>
       </thead>
@@ -64,12 +65,24 @@
             @if(row.reception)
             <div class="font-bold text-gray-800 mono">{{ row.reception.id }}</div>
             <div class="text-[10px] text-gray-500 truncate max-w-[16rem]">
-              {{ row.reception.supplier }} · {{ row.reception.qty }} · arrivée {{ row.reception.dateArrivee }}
+              {{ row.reception.supplier }} · {{ row.reception.qty }}
             </div>
             @else
             <span class="inline-flex items-center gap-1 text-[10px] font-bold text-error uppercase">
               <span class="material-symbols-outlined text-[13px]">block</span> Aucune couverture prévue
             </span>
+            @end
+          </td>
+          <td class="px-3 py-2 mono align-top whitespace-nowrap {{ row.arriveeLate ? 'text-error font-bold' : 'text-gray-700' }}">
+            @if(row.dateArrivee)
+            <span class="inline-flex items-center gap-1">
+              @if(row.arriveeLate)
+              <span class="material-symbols-outlined text-[13px]">warning</span>
+              @end
+              {{ row.dateArrivee }}
+            </span>
+            @else
+            <span class="text-gray-300">—</span>
             @end
           </td>
           <td class="px-3 py-2 align-top">
@@ -82,7 +95,7 @@
         @end
         @if(rows.length === 0)
         <tr>
-          <td colspan="7" class="px-3 py-16 text-center text-gray-400">
+          <td colspan="8" class="px-3 py-16 text-center text-gray-400">
             @if(x3Error)
             <span class="italic">Données indisponibles.</span>
             @else

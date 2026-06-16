@@ -64,7 +64,65 @@ export interface OrderLineRow {
   nature: NeedNature
 }
 
+/** Lien inverse OF → commande cliente, via la contremarque X3 (SORDERQ.FMINUM_0). */
+export interface OfCommandePeg {
+  numCommande: string
+  client: string | null
+  dateExpedition: Date | null
+}
+
+const PEG_SQL = `
+SELECT
+  Q.FMINUM_0 AS OF_NUM,
+  Q.SOHNUM_0 AS NO_COMMANDE,
+  Q.SHIDAT_0 AS ECHEANCE,
+  P.BPRNAM_0 AS CLIENT
+FROM SORDERQ Q
+LEFT JOIN SORDER H ON H.SOHNUM_0 = Q.SOHNUM_0
+LEFT JOIN BPARTNER P ON P.BPRNUM_0 = H.BPCORD_0
+WHERE Q.FMINUM_0 IN (__IN__)
+`
+
 export class X3OrderLineRepository {
+  /**
+   * Reverse peg : pour une liste de numéros d'OF, résout la commande cliente rattachée via
+   * la contremarque (SORDERQ.FMINUM_0 = n° OF). Indépendant de l'échéance — permet d'attribuer
+   * sa commande à un OF fabriqué dans la fenêtre alors que la commande expédie plus tard
+   * (cf. F426-32355 ↔ AR2601963). Un OF peut peg plusieurs lignes : on garde la plus urgente.
+   */
+  async getCommandesByOf(ofNums: string[]): Promise<Map<string, OfCommandePeg>> {
+    const unique = [...new Set(ofNums.map((n) => n.trim()).filter(Boolean))]
+    const out = new Map<string, OfCommandePeg>()
+    if (unique.length === 0) return out
+
+    const db = new X3Database()
+    try {
+      // Chunk pour rester sous la limite IN (1000) d'Oracle.
+      for (let i = 0; i < unique.length; i += 1000) {
+        const chunk = unique.slice(i, i + 1000)
+        const inList = chunk.map((n) => `'${n.replace(/'/g, "''")}'`).join(',')
+        const rows: RawRow[] = await db.raw(PEG_SQL.replace('__IN__', inList))
+        for (const row of rows) {
+          const ofNum = row.OF_NUM?.trim()
+          const numCommande = row.NO_COMMANDE?.trim()
+          if (!ofNum || !numCommande) continue
+          const dateExpedition = parseX3Date(row.ECHEANCE)
+          const existing = out.get(ofNum)
+          // Plus urgente = date d'expédition la plus tôt (nulls en dernier).
+          if (existing) {
+            const a = existing.dateExpedition?.getTime() ?? Infinity
+            const b = dateExpedition?.getTime() ?? Infinity
+            if (a <= b) continue
+          }
+          out.set(ofNum, { numCommande, client: row.CLIENT?.trim() || null, dateExpedition })
+        }
+      }
+      return out
+    } finally {
+      await db.destroy()
+    }
+  }
+
   /**
    * Lignes de commande ouvertes (RESTE_LIVRER > 0), niveau ligne.
    * `from`/`to` optionnels : borne par ECHEANCE (SHIDAT_0 firmes / ENDDAT_0 prévisions).

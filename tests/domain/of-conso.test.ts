@@ -204,6 +204,26 @@ test.group('CommandeOFMatcher', () => {
     assert.isAbove(result.alerts.length, 0)
   })
 
+  test('MTS contremarque cible un OF non-prioritaire (sinon orphelin) — régression AR2602600/F426-32503', ({ assert }) => {
+    // Plusieurs OF même article : le match par article+date sélectionnerait l'OF ferme proche.
+    // La contremarque doit forcer l'OF explicitement peggé (statut 2, plus lointain).
+    const ofFermeProche = makeOfFlow('OF-FERME', 'ART1', 1, 2520, new Date('2026-06-16'))
+    const ofPegge = makeOfFlow('OF-PEGGE', 'ART1', 2, 2520, new Date('2026-06-25'))
+    const origin: Extract<FlowOrigin, { type: 'order' }> = {
+      type: 'order', id: 'CMD-MTS-PEG', orderType: 'MTS', customer: 'Test', pays: null,
+      nature: 'COMMANDE', contremarque: 'OF-PEGGE', qteCommandee: 2520, qteAllouee: 0,
+    }
+    const demand: Flow = { article: 'ART1', quantity: 2520, direction: 'demand', date: new Date('2026-06-25'), origin }
+
+    const matcher = new CommandeOFMatcher([ofFermeProche, ofPegge], new Map(), new Map())
+    const result = matcher.matchCommande(demand)
+
+    assert.equal(result.matchingMethod, 'mts_hard_pegging')
+    assert.equal((result.of!.origin as Extract<FlowOrigin, { type: 'of' }>).id, 'OF-PEGGE')
+    assert.equal(result.ofAllocations[0].qteAllouee, 2520)
+    assert.equal(result.remainingUncoveredQty, 0)
+  })
+
   test('MTS without contremarque reports no linked OF', ({ assert }) => {
     const demand = makeDemandFlow('CMD-MTS-NOOF', 'ART1', 100, new Date('2026-04-12'), 'MTS')
     const matcher = new CommandeOFMatcher([], new Map(), new Map())

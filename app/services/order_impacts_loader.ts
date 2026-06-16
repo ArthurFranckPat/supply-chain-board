@@ -15,6 +15,7 @@ import { OverrideStore } from '#services/override_store'
 import { evaluateOrderImpacts, type OrderImpactResult } from '#app/domain/order-impacts'
 import { evaluateMfgFeasibility, buildStrictQcStock } from '#app/domain/of-feasibility'
 import { X3MfgmatRepository } from '#repositories/mfgmat_repository'
+import { X3OrderLineRepository, type OfCommandePeg } from '#repositories/order_line_repository'
 import type { Article } from '#app/domain/models/article'
 import type { Nomenclature } from '#app/domain/models/nomenclature'
 
@@ -32,6 +33,8 @@ export interface OrderImpactsContext {
   /** Catalogue article (PF + composants), avec descriptions issues de la BOM. */
   articles: Map<string, Article>
   nomenclatures: Map<string, Nomenclature>
+  /** Reverse peg OF → commande (contremarque), pour les OF dont la commande sort de la fenêtre. */
+  ofPegs: Map<string, OfCommandePeg>
 }
 
 /**
@@ -43,8 +46,16 @@ export interface OrderImpactsContext {
 export async function loadOrderImpacts(opts: LoadOrderImpactsOptions): Promise<OrderImpactsContext> {
   const { from: windowFrom, to: windowTo, workstation: workstationFilter, mode, force = false } = opts
 
-  const fromIso = windowFrom.toISOString().slice(0, 10)
-  const toIso = windowTo.toISOString().slice(0, 10)
+  // ISO sur les composantes LOCALES (pas toISOString, qui repasse en UTC et recule d'un jour
+  // en fuseau UTC+1/+2 quand l'heure locale est minuit → scoping getLive décalé).
+  const isoLocal = (d: Date) => {
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const da = String(d.getDate()).padStart(2, '0')
+    return `${y}-${m}-${da}`
+  }
+  const fromIso = isoLocal(windowFrom)
+  const toIso = isoLocal(windowTo)
 
   // Données via le loader : OF (supply) + référentiel cachés, demande/réception
   // scopées à l'horizon, stock scopé aux articles concernés.
@@ -95,6 +106,9 @@ export async function loadOrderImpacts(opts: LoadOrderImpactsOptions): Promise<O
   const windowNumOfs = finalOfFlows
     .map((f) => (f.origin as { id?: string }).id?.trim() ?? '')
     .filter(Boolean)
+  // Reverse peg OF → commande (contremarque), pour rattacher les OF dont la commande
+  // expédie hors fenêtre (le matcher ne voit que les demandes échéant dans la fenêtre).
+  const ofPegs = await new X3OrderLineRepository().getCommandesByOf(windowNumOfs)
   const mfgByOf = await new X3MfgmatRepository().getMaterialsForOfs(windowNumOfs)
   // Les composants MFGMAT peuvent différer de la BOM théorique → s'assurer que leur
   // stock est bien chargé.
@@ -202,5 +216,5 @@ export async function loadOrderImpacts(opts: LoadOrderImpactsOptions): Promise<O
     mfgFeasibility,
   )
 
-  return { result, articles, nomenclatures }
+  return { result, articles, nomenclatures, ofPegs }
 }

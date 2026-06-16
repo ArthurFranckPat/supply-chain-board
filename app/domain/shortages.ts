@@ -44,7 +44,14 @@ export interface ShortageRow {
   client: string | null
   dateExpedition: string | null
   statutCommande: OrderImpactResult['orders'][number]['statut'] | null
+  /** Retard commande (stock strict/qc) issu du moteur de faisabilité. */
   joursRetard: number
+  /**
+   * Retard imputable à la réception : nb de jours entre la date d'expédition commande
+   * et la date d'arrivée de la réception couvrante, si celle-ci arrive APRÈS l'expédition.
+   * 0 si à temps, sans réception, ou sans date d'expédition (OF non rattaché).
+   */
+  joursRetardReception: number
   /** Première réception qui couvre la qté manquante — null si aucune couverture prévue. */
   reception: ShortageReception | null
   couverte: boolean
@@ -67,6 +74,25 @@ interface OrderRollup {
   dateExpedition: string
   statut: OrderImpactResult['orders'][number]['statut']
   joursRetard: number
+}
+
+/**
+ * Reverse peg OF → commande (contremarque X3), fallback quand le matcher n'a pas alloué
+ * l'OF (commande hors fenêtre d'échéance). Pas de statut/retard (pas calculé par le moteur).
+ */
+export interface ShortageOfPeg {
+  numCommande: string
+  client: string | null
+  /** Date d'expédition ISO (YYYY-MM-DD) ou null. */
+  dateExpedition: string | null
+}
+
+/** Nb de jours calendaires entre deux dates ISO (YYYY-MM-DD), en UTC pour éviter tout décalage. */
+function daysBetweenIso(fromIso: string, toIso: string): number {
+  const a = Date.parse(`${fromIso}T00:00:00Z`)
+  const b = Date.parse(`${toIso}T00:00:00Z`)
+  if (Number.isNaN(a) || Number.isNaN(b)) return 0
+  return Math.round((b - a) / 86_400_000)
 }
 
 /**
@@ -108,6 +134,7 @@ export function buildShortageRows(
   result: OrderImpactResult,
   receptionsByArticle: Map<string, ReceptionRecord[]>,
   articles: Map<string, Article>,
+  ofPegs: Map<string, ShortageOfPeg> = new Map(),
 ): ShortageResult {
   // Map inverse OF → commande (un OF rattaché à une commande porte son statut/retard).
   const ofToOrder = new Map<string, OrderRollup>()
@@ -133,6 +160,12 @@ export function buildShortageRows(
   for (const of of result.ofs) {
     if (of.feasible !== false) continue
     const rollup = ofToOrder.get(of.numOf) ?? null
+    // Fallback contremarque quand le matcher n'a pas alloué l'OF (commande hors fenêtre).
+    const peg = !rollup ? (ofPegs.get(of.numOf) ?? null) : null
+    const numCommande = rollup?.numCommande ?? peg?.numCommande ?? null
+    const client = rollup?.client ?? peg?.client ?? null
+    const dateExpedition = rollup?.dateExpedition ?? peg?.dateExpedition ?? null
+    const joursRetard = rollup?.joursRetard ?? 0
 
     for (const [component, qteManquante] of Object.entries(of.missingComponents)) {
       if (qteManquante <= 0) continue
@@ -141,9 +174,17 @@ export function buildShortageRows(
         qteManquante,
       )
 
+      // Retard imputable à la réception : la couvrante arrive-t-elle APRÈS l'expédition ?
+      // Sans date d'expédition (OF non rattaché), pas de référence → 0.
+      let joursRetardReception = 0
+      if (reception && dateExpedition && reception.dateArrivee > dateExpedition) {
+        joursRetardReception = daysBetweenIso(dateExpedition, reception.dateArrivee)
+      }
+
       let verdict: ShortageRow['verdict']
       if (!reception) verdict = 'sans_couverture'
-      else if (rollup && rollup.joursRetard > 0) verdict = 'retard'
+      // Retard si la commande est déjà en retard (stock) OU si la réception arrive trop tard.
+      else if (joursRetard > 0 || joursRetardReception > 0) verdict = 'retard'
       else verdict = 'couvert'
 
       rows.push({
@@ -153,11 +194,12 @@ export function buildShortageRows(
         numOf: of.numOf,
         articleParent: of.article,
         articleParentDesc: descOf(of.article),
-        numCommande: rollup?.numCommande ?? null,
-        client: rollup?.client ?? null,
-        dateExpedition: rollup?.dateExpedition ?? null,
+        numCommande,
+        client,
+        dateExpedition,
         statutCommande: rollup?.statut ?? null,
-        joursRetard: rollup?.joursRetard ?? 0,
+        joursRetard,
+        joursRetardReception,
         reception,
         couverte: reception !== null,
         verdict,

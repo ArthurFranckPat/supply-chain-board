@@ -363,10 +363,22 @@ export default class SchedulerController {
     let x3Error: string | null = null
 
     try {
-      const { result, articles } = await loadOrderImpacts({ from: windowFrom, to: windowTo, force })
+      const { result, articles, ofPegs } = await loadOrderImpacts({ from: windowFrom, to: windowTo, force })
+      // OfCommandePeg (Date) → ShortageOfPeg (ISO) pour le pivot pur.
+      const pegsIso = new Map(
+        [...ofPegs].map(([ofNum, p]) => [
+          ofNum,
+          { numCommande: p.numCommande, client: p.client, dateExpedition: p.dateExpedition?.toISOString().slice(0, 10) ?? null },
+        ]),
+      )
       const receptionFlows = await new X3ReceptionRepository().getReceptionFlows()
+      // N'agréger que les réceptions encore à venir (≥ début de fenêtre) : une réception déjà
+      // arrivée est consommée dans le stock et fausserait la couverture. Pas de borne haute —
+      // une réception au-delà de la fenêtre reste utile pour détecter un retard d'arrivée.
       const receptionsByArticle = buildReceptionsMap(
-        receptionFlows.map((f) => ({
+        receptionFlows
+          .filter((f) => f.date !== null && f.date >= windowFrom)
+          .map((f) => ({
           article: f.article,
           id: (f.origin as { id?: string }).id,
           supplier: (f.origin as { supplier?: string }).supplier,
@@ -374,7 +386,7 @@ export default class SchedulerController {
           date: f.date,
         })),
       )
-      const built = buildShortageRows(result, receptionsByArticle, articles)
+      const built = buildShortageRows(result, receptionsByArticle, articles, pegsIso)
       rows = built.rows
       stats = built.stats
     } catch (e) {
@@ -410,7 +422,14 @@ export default class SchedulerController {
               dateArrivee: fmtFrShort(r.reception.dateArrivee),
             }
           : null,
-        verdictLabel: r.verdict === 'retard' && r.joursRetard > 0 ? `Retard +${r.joursRetard}j` : preset.label,
+        // Colonne dédiée date d'arrivée (rouge si la réception arrive après l'expédition).
+        dateArrivee: r.reception ? fmtFrShort(r.reception.dateArrivee) : '',
+        arriveeLate: r.joursRetardReception > 0,
+        verdictLabel: (() => {
+          // Affiche le pire retard : commande (stock) vs arrivée réception trop tardive.
+          const j = Math.max(r.joursRetard, r.joursRetardReception)
+          return r.verdict === 'retard' && j > 0 ? `Retard +${j}j` : preset.label
+        })(),
         verdictCls: preset.cls,
         verdictIcon: preset.icon,
         // Champ texte concaténé pour le filtre client (composant / commande / fournisseur).

@@ -181,6 +181,25 @@ export class CommandeOFMatcher {
   private matchMts(demand: Flow): MatchingResult {
     const numCommande = isOrderOrForecastOrigin(demand.origin) ? demand.origin.id : ''
 
+    // Contremarque = lien direct commande↔OF dans X3 (FMINUM_0), prioritaire même en MTS.
+    // Sans ça, on retombe sur un match par article + date qui sélectionne UN seul OF et
+    // laisse orphelin l'OF explicitement peggé (cf. AR2602600 MTS ↔ F426-32503).
+    const contremarque = isOrderOrForecastOrigin(demand.origin) ? demand.origin.contremarque ?? null : null
+    if (contremarque) {
+      const peggedFlow = this.supplyFlows.find(
+        (f) => f.direction === 'supply' && f.origin.type === 'of' && getOfId(f.origin) === contremarque,
+      )
+      if (peggedFlow) {
+        const ofAlloc = this.consumeOfQuantity(peggedFlow, demand.quantity, numCommande, 'contremarque hard peg (MTS)')
+        const remaining = Math.max(demand.quantity - ofAlloc.qteAllouee, 0)
+        return {
+          demandFlow: demand, of: peggedFlow, matchingMethod: 'mts_hard_pegging',
+          alerts: remaining > 0 ? [`Contremarque MTS: couverture partielle (${ofAlloc.qteAllouee}/${demand.quantity})`] : [],
+          stockAllocation: null, ofAllocations: [ofAlloc], remainingUncoveredQty: remaining,
+        }
+      }
+    }
+
     const linkedOfs = this.supplyFlows.filter((f) => {
       if (f.direction !== 'supply' || f.origin.type !== 'of') return false
       if (f.article !== demand.article || f.quantity <= 0) return false
