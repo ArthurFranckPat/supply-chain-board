@@ -56,9 +56,10 @@
     </div>
 
     @if(x3Error)
-    <div class="mb-2 bg-amber-50 border border-amber-200 text-amber-800 px-3 py-2 text-xs rounded flex items-center gap-2">
-      <span class="material-symbols-outlined text-sm">warning</span>
-      X3 injoignable — données planification indisponibles.
+    <div class="mb-2 bg-red-50 border border-red-200 text-red-800 px-3 py-2 text-xs rounded flex items-center gap-2">
+      <span class="material-symbols-outlined text-sm">error</span>
+      <span class="font-bold">Erreur chargement planification :</span>
+      <span class="mono">{{ x3Error }}</span>
     </div>
     @end
     @if(lines.length === 0)
