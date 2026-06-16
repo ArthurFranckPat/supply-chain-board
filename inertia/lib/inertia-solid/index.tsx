@@ -11,7 +11,7 @@
  * qui doit réagir aux rechargements partiels (`router.reload({ only })`),
  * lisez `usePage().props` (réactif, mis à jour via `reconcile`).
  */
-import { router, getInitialPageFromDOM, setupProgress, shouldIntercept } from '@inertiajs/core'
+import { router, setupProgress, shouldIntercept } from '@inertiajs/core'
 import type { Page, PageProps, VisitOptions, Method } from '@inertiajs/core'
 import {
   createContext,
@@ -82,8 +82,12 @@ export async function createInertiaApp(options: CreateInertiaAppOptions): Promis
   const el = document.getElementById(id)
   if (!el) throw new Error(`Élément racine Inertia introuvable : #${id}`)
 
-  const initialPage = getInitialPageFromDOM<Page>(id)
-  if (!initialPage) throw new Error(`Données de page Inertia absentes sur #${id}`)
+  // @adonisjs/inertia embarque la page dans `<div id="app" data-page="<json>">`.
+  // On la lit directement (getInitialPageFromDOM de core v3 attend un <script>,
+  // format que le serveur Adonis n'émet pas).
+  const raw = el.getAttribute('data-page')
+  if (!raw) throw new Error(`Données de page Inertia absentes sur #${id}`)
+  const initialPage = JSON.parse(raw) as Page
 
   const resolveComponent = async (name: string) => unwrap(await resolve(name))
   const initialComponent = await resolveComponent(initialPage.component)
