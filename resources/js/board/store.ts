@@ -1,6 +1,6 @@
 import { createSignal, createMemo } from 'solid-js'
 import { createStore, produce } from 'solid-js/store'
-import type { BoardData, Card, SearchScope } from './types'
+import type { BoardData, Card, SearchScope, FeasibilityMode, FeasStatus } from './types'
 
 const API = '/api/v1/planning-board'
 
@@ -39,6 +39,12 @@ export function createBoardStore(initial: BoardData) {
   const [scope, setScope] = createSignal<SearchScope>('poste')
   // null = request in flight → nothing matches (everything dimmed).
   const [matchSet, setMatchSet] = createSignal<Set<string> | null>(new Set())
+
+  const [mode, setMode] = createSignal<FeasibilityMode>('immediate')
+  // numOf → feasibility status (empty until "Calculer faisabilité" runs).
+  const [feasibility, setFeasibility] = createSignal<Record<string, FeasStatus>>({})
+  const [feasLoading, setFeasLoading] = createSignal(false)
+  const feasOf = (numOf: string): FeasStatus | undefined => feasibility()[numOf]
 
   const cache = new Map<string, Set<string>>()
   let pendingSeq = 0
@@ -192,11 +198,54 @@ export function createBoardStore(initial: BoardData) {
       })
   }
 
+  function toast(detail: string) {
+    window.dispatchEvent(new CustomEvent('sch-toast', { detail }))
+  }
+
+  // ── Feasibility: POST board-feasibility → per-OF status map (badges) ──
+  function runFeasibility(from: string, to: string) {
+    if (!from || !to || feasLoading()) return
+    setFeasLoading(true)
+    fetch(`${API}/board-feasibility`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from, to, mode: mode() }),
+    })
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        return r.json() as Promise<{
+          ofs?: { numOf: string; feasible?: boolean; missingComponents?: Record<string, unknown> }[]
+        }>
+      })
+      .then((data) => {
+        const map: Record<string, FeasStatus> = {}
+        let nbOk = 0
+        let nbBlocked = 0
+        for (const of of data.ofs ?? []) {
+          if (of.feasible === false) {
+            map[of.numOf] = { st: 'blocked', missing: Object.keys(of.missingComponents ?? {}) }
+            nbBlocked++
+          } else if (of.feasible === true) {
+            map[of.numOf] = { st: 'ok', missing: [] }
+            nbOk++
+          }
+        }
+        setFeasibility(map)
+        toast(nbBlocked > 0 ? `${nbBlocked} bloqué(s) · ${nbOk} OK` : `${nbOk} OF réalisables`)
+      })
+      .catch((err) => toast(`Échec : ${err.message}`))
+      .finally(() => setFeasLoading(false))
+  }
+
   return {
     board,
     query,
     scope,
     matchSet,
+    mode,
+    setMode,
+    feasOf,
+    feasLoading,
     cardMatches,
     lineVisible,
     dayLoad,
@@ -205,6 +254,7 @@ export function createBoardStore(initial: BoardData) {
     onScopeChange,
     clearSearch,
     moveCard,
+    runFeasibility,
   }
 }
 

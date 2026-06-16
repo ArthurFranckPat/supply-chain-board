@@ -80,3 +80,12 @@ export interface BoardData {
 
 /** Search scope → backend route + matched data-attribute on cards. */
 export type SearchScope = 'poste' | 'of' | 'pf' | 'composant'
+
+/** Stock-availability mode for the feasibility computation. */
+export type FeasibilityMode = 'immediate' | 'sequential'
+
+/** Per-OF feasibility result. `missing` = component refs short on stock. */
+export interface FeasStatus {
+  st: 'ok' | 'blocked'
+  missing: string[]
+}

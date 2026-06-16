@@ -1,6 +1,6 @@
-import { For, Show, createSignal, onCleanup, onMount } from 'solid-js'
+import { For, Show, createEffect, createSignal, onCleanup, onMount } from 'solid-js'
 import type { BoardStore } from './store'
-import type { Card, LineRow, DayCell, SearchScope } from './types'
+import type { Card, LineRow, DayCell, SearchScope, FeasibilityMode } from './types'
 
 /**
  * Solid board grid — replaces the SSR grid + the inline IIFE search/filter/load.
@@ -39,14 +39,57 @@ export default function BoardGrid(props: { store: BoardStore }) {
         input.blur()
       }
     }
+    // Mode toggle + feasibility buttons live in the SSR header (not Solid-owned);
+    // wire them document-delegated so they survive Unpoly #board-main swaps.
+    const onClick = (e: MouseEvent) => {
+      const t = e.target as HTMLElement
+      const modeBtn = t.closest('[data-mode-btn]')
+      if (modeBtn) {
+        store.setMode(modeBtn.getAttribute('data-mode-btn') as FeasibilityMode)
+        return
+      }
+      if (t.closest('#btn-feasibility')) {
+        const root = document.getElementById('board-root')
+        if (!root) return
+        store.runFeasibility(root.getAttribute('data-from') ?? '', root.getAttribute('data-to') ?? '')
+      }
+    }
     document.addEventListener('input', onInput)
     document.addEventListener('change', onChange)
+    document.addEventListener('click', onClick)
     window.addEventListener('keydown', onKey)
     onCleanup(() => {
       document.removeEventListener('input', onInput)
       document.removeEventListener('change', onChange)
+      document.removeEventListener('click', onClick)
       window.removeEventListener('keydown', onKey)
     })
+  })
+
+  // Drive the SSR mode-toggle chrome reactively from the store.
+  createEffect(() => {
+    const m = store.mode()
+    document.querySelectorAll<HTMLElement>('#mode-toggle [data-mode-btn]').forEach((b) => {
+      const on = b.getAttribute('data-mode-btn') === m
+      b.classList.toggle('bg-white', on)
+      b.classList.toggle('shadow-sm', on)
+      b.classList.toggle('text-primary', on)
+      b.classList.toggle('text-gray-400', !on)
+    })
+    document.getElementById('mode-toggle')?.setAttribute('data-mode', m)
+  })
+
+  // Drive the SSR feasibility button chrome (spinner/label/disabled) reactively.
+  createEffect(() => {
+    const loading = store.feasLoading()
+    const btn = document.getElementById('btn-feasibility') as HTMLButtonElement | null
+    const icon = document.getElementById('feas-icon')
+    const label = document.getElementById('feas-label')
+    if (!btn || !icon || !label) return
+    btn.disabled = loading
+    label.textContent = loading ? 'Calcul…' : 'Calculer faisabilité'
+    icon.classList.toggle('animate-spin', loading)
+    icon.textContent = loading ? 'progress_activity' : 'fact_check'
   })
 
   return (
@@ -249,6 +292,20 @@ function CardView(props: {
         </Show>
       </div>
       <p class={`text-[12px] font-semibold leading-tight truncate ${card.textTone}`}>{card.title}</p>
+      <Show when={store.feasOf(card.id)}>
+        {(s) => (
+          <span
+            class={`sch-feas-badge ${s().st === 'blocked' ? 'is-blocked' : 'is-ok'}`}
+            title={
+              s().st === 'blocked'
+                ? `OF non réalisable — rupture : ${s().missing.length ? s().missing.join(', ') : 'composant'}`
+                : 'OF réalisable'
+            }
+          >
+            <span class="material-symbols-outlined">{s().st === 'blocked' ? 'priority_high' : 'check'}</span>
+          </span>
+        )}
+      </Show>
     </a>
   )
 }
