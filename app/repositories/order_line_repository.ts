@@ -124,6 +124,44 @@ export class X3OrderLineRepository {
   }
 
   /**
+   * Une ligne de commande ouverte précise (numCommande, ligne) — sans borne d'échéance.
+   * Pour le panneau de détail (issue planification). Renvoie null si introuvable/livrée.
+   */
+  async getOrderLine(numCommande: string, ligne: string): Promise<OrderLineRow | null> {
+    const esc = (s: string) => s.replace(/'/g, "''")
+    const sql =
+      SQL +
+      `\n  AND O.VCRNUM_0 = '${esc(numCommande)}' AND O.VCRLIN_0 = '${esc(ligne)}'`
+
+    const db = new X3Database()
+    try {
+      const rows: RawRow[] = await db.raw(sql)
+      const row = rows[0]
+      if (!row) return null
+      const date = parseX3Date(row.ECHEANCE)
+      if (!date) return null
+      const rawType = row.SOHTYP?.trim() ?? ''
+      const orderType: OrderType | null = rawType === '' ? null : (rawType as OrderType)
+      const nature: NeedNature = row.WIPSTA?.trim() === '1' ? 'COMMANDE' : 'PREVISION'
+      return {
+        numCommande: row.NO_COMMANDE?.trim() ?? '',
+        ligne: row.LIGNE?.trim() ?? '',
+        client: row.CLIENT?.trim() || null,
+        article: row.ARTICLE?.trim() ?? '',
+        designation: row.DESIGNATION?.trim() || null,
+        quantite: parseFloat(row.RESTE_LIVRER ?? '0') || 0,
+        dateLivraison: date,
+        contremarque: row.CONTREMARQUE?.trim() || null,
+        unite: row.UNITE?.trim() || null,
+        orderType,
+        nature,
+      }
+    } finally {
+      await db.destroy()
+    }
+  }
+
+  /**
    * Lignes de commande ouvertes (RESTE_LIVRER > 0), niveau ligne.
    * `from`/`to` optionnels : borne par ECHEANCE (SHIDAT_0 firmes / ENDDAT_0 prévisions).
    */

@@ -7,7 +7,10 @@ import type { OrderCard, OrderLineRow, DayCell } from '@/lib/orders/types'
  * poste ; drag en temps seul ; bouton "réinitialiser" sur les cartes overridées.
  * Sans couplage au chrome SSR ni attrs Unpoly.
  */
-export default function OrderGrid(props: { store: OrderBoardStore }) {
+export default function OrderGrid(props: {
+  store: OrderBoardStore
+  onSelectCard: (id: string) => void
+}) {
   const { store } = props
   const [draggedId, setDraggedId] = createSignal<string | null>(null)
   const [dropCol, setDropCol] = createSignal<string | null>(null)
@@ -70,6 +73,7 @@ export default function OrderGrid(props: { store: OrderBoardStore }) {
               setDraggedId={setDraggedId}
               dropCol={dropCol}
               setDropCol={setDropCol}
+              onSelectCard={props.onSelectCard}
             />
           )}
         </For>
@@ -85,6 +89,7 @@ function Row(props: {
   setDraggedId: (v: string | null) => void
   dropCol: () => string | null
   setDropCol: (v: string | null) => void
+  onSelectCard: (id: string) => void
 }) {
   const { store, line } = props
   return (
@@ -155,6 +160,7 @@ function Row(props: {
             setDraggedId={props.setDraggedId}
             dropCol={props.dropCol}
             setDropCol={props.setDropCol}
+            onSelectCard={props.onSelectCard}
           />
         )}
       </For>
@@ -171,6 +177,7 @@ function Cell(props: {
   setDraggedId: (v: string | null) => void
   dropCol: () => string | null
   setDropCol: (v: string | null) => void
+  onSelectCard: (id: string) => void
 }) {
   const { store, line, dc, col } = props
   const cellKey = `${line.code}:${col}`
@@ -200,6 +207,7 @@ function Cell(props: {
             line={line}
             setDraggedId={props.setDraggedId}
             setDropCol={props.setDropCol}
+            onSelectCard={props.onSelectCard}
           />
         )}
       </For>
@@ -213,6 +221,7 @@ function CardView(props: {
   line: OrderLineRow
   setDraggedId: (v: string | null) => void
   setDropCol: (v: string | null) => void
+  onSelectCard: (id: string) => void
 }) {
   const { store, card } = props
   const matches = () => store.cardMatches(card, props.line.code)
@@ -220,8 +229,9 @@ function CardView(props: {
     <div
       draggable={matches() && !card.hasOverride}
       data-order-id={card.id}
-      class={`sch-of-card relative block bg-white border border-gray-200 rounded p-1.5 ${card.accentClass} ${card.cardClass}`}
+      class={`sch-of-card relative block bg-white border border-gray-200 rounded p-1.5 cursor-pointer ${card.accentClass} ${card.cardClass}`}
       style={{ opacity: matches() ? '' : '0.15' }}
+      onClick={() => props.onSelectCard(card.id)}
       onDragStart={(e: DragEvent) => {
         if (card.hasOverride) {
           e.preventDefault()

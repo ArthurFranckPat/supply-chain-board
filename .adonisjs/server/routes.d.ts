@@ -5,13 +5,13 @@ type ParamValue = string | number | bigint | boolean
 export type ScannedRoutes = {
   ALL: {
     'health.index': { paramsTuple?: []; params?: {} }
-    'x_3_debug.index': { paramsTuple?: []; params?: {} }
     'scheduler.expert_board': { paramsTuple?: []; params?: {} }
     'scheduler.of_detail': { paramsTuple: [ParamValue]; params: {'num': ParamValue} }
     'scheduler.shortage_tracker': { paramsTuple?: []; params?: {} }
     'scheduler.shortage_rows': { paramsTuple?: []; params?: {} }
     'order_planning.board': { paramsTuple?: []; params?: {} }
     'order_planning.index': { paramsTuple?: []; params?: {} }
+    'order_planning.line_detail': { paramsTuple: [ParamValue,ParamValue]; params: {'num': ParamValue,'ligne': ParamValue} }
     'order_planning.update': { paramsTuple: [ParamValue,ParamValue]; params: {'num': ParamValue,'ligne': ParamValue} }
     'order_planning.reset_override': { paramsTuple: [ParamValue,ParamValue]; params: {'num': ParamValue,'ligne': ParamValue} }
     'planning_board.index': { paramsTuple?: []; params?: {} }
@@ -46,13 +46,13 @@ export type ScannedRoutes = {
   }
   GET: {
     'health.index': { paramsTuple?: []; params?: {} }
-    'x_3_debug.index': { paramsTuple?: []; params?: {} }
     'scheduler.expert_board': { paramsTuple?: []; params?: {} }
     'scheduler.of_detail': { paramsTuple: [ParamValue]; params: {'num': ParamValue} }
     'scheduler.shortage_tracker': { paramsTuple?: []; params?: {} }
     'scheduler.shortage_rows': { paramsTuple?: []; params?: {} }
     'order_planning.board': { paramsTuple?: []; params?: {} }
     'order_planning.index': { paramsTuple?: []; params?: {} }
+    'order_planning.line_detail': { paramsTuple: [ParamValue,ParamValue]; params: {'num': ParamValue,'ligne': ParamValue} }
     'planning_board.index': { paramsTuple?: []; params?: {} }
     'planning_board.show': { paramsTuple: [ParamValue]; params: {'numOf': ParamValue} }
     'planning_board.list_overrides': { paramsTuple?: []; params?: {} }
@@ -69,13 +69,13 @@ export type ScannedRoutes = {
   }
   HEAD: {
     'health.index': { paramsTuple?: []; params?: {} }
-    'x_3_debug.index': { paramsTuple?: []; params?: {} }
     'scheduler.expert_board': { paramsTuple?: []; params?: {} }
     'scheduler.of_detail': { paramsTuple: [ParamValue]; params: {'num': ParamValue} }
     'scheduler.shortage_tracker': { paramsTuple?: []; params?: {} }
     'scheduler.shortage_rows': { paramsTuple?: []; params?: {} }
     'order_planning.board': { paramsTuple?: []; params?: {} }
     'order_planning.index': { paramsTuple?: []; params?: {} }
+    'order_planning.line_detail': { paramsTuple: [ParamValue,ParamValue]; params: {'num': ParamValue,'ligne': ParamValue} }
     'planning_board.index': { paramsTuple?: []; params?: {} }
     'planning_board.show': { paramsTuple: [ParamValue]; params: {'numOf': ParamValue} }
     'planning_board.list_overrides': { paramsTuple?: []; params?: {} }

@@ -60,5 +60,14 @@ declare module '@adonisjs/inertia/types' {
       todayHref: string
       x3Error: string | null
     }
+    'scheduler/shortages': {
+      horizon: number
+      windowStart: string
+      dateRange: string
+      prevHref: string
+      nextHref: string
+      todayHref: string
+      rowsHref: string
+    }
   }
 }

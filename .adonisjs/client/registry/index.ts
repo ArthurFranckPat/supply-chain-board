@@ -12,12 +12,6 @@ const routes = {
     tokens: [{"old":"/health","type":0,"val":"health","end":""}],
     types: placeholder as Registry['health.index']['types'],
   },
-  'x_3_debug.index': {
-    methods: ["GET","HEAD"],
-    pattern: '/debug/x3',
-    tokens: [{"old":"/debug/x3","type":0,"val":"debug","end":""},{"old":"/debug/x3","type":0,"val":"x3","end":""}],
-    types: placeholder as Registry['x_3_debug.index']['types'],
-  },
   'scheduler.expert_board': {
     methods: ["GET","HEAD"],
     pattern: '/scheduler/board',
@@ -53,6 +47,12 @@ const routes = {
     pattern: '/api/v1/order-planning/order-lines',
     tokens: [{"old":"/api/v1/order-planning/order-lines","type":0,"val":"api","end":""},{"old":"/api/v1/order-planning/order-lines","type":0,"val":"v1","end":""},{"old":"/api/v1/order-planning/order-lines","type":0,"val":"order-planning","end":""},{"old":"/api/v1/order-planning/order-lines","type":0,"val":"order-lines","end":""}],
     types: placeholder as Registry['order_planning.index']['types'],
+  },
+  'order_planning.line_detail': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/order-planning/lines/:num/:ligne',
+    tokens: [{"old":"/api/v1/order-planning/lines/:num/:ligne","type":0,"val":"api","end":""},{"old":"/api/v1/order-planning/lines/:num/:ligne","type":0,"val":"v1","end":""},{"old":"/api/v1/order-planning/lines/:num/:ligne","type":0,"val":"order-planning","end":""},{"old":"/api/v1/order-planning/lines/:num/:ligne","type":0,"val":"lines","end":""},{"old":"/api/v1/order-planning/lines/:num/:ligne","type":1,"val":"num","end":""},{"old":"/api/v1/order-planning/lines/:num/:ligne","type":1,"val":"ligne","end":""}],
+    types: placeholder as Registry['order_planning.line_detail']['types'],
   },
   'order_planning.update': {
     methods: ["PATCH"],

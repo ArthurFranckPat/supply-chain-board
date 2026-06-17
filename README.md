@@ -126,7 +126,6 @@ Le serveur écoute par défaut sur `http://localhost:3333`.
 
 ### Debug X3
 
-- `GET /debug/x3`
 - `POST /api/v1/data/load` — Exécution SQL raw via SOAP (debug)
 
 ## Architecture données

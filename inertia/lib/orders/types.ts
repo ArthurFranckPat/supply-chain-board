@@ -68,6 +68,40 @@ export interface OrderLineRow {
   weekLoads: WeekLoad[]
 }
 
+/** Composant BOM d'une ligne (miroir de lineDetail.bom). */
+export interface OrderBomRow {
+  article: string
+  description: string
+  need: string
+  available: string
+  unit: string
+  ok: boolean
+  shortage: string | null
+}
+
+/** Détail d'une ligne de commande — miroir de OrderPlanningController.lineDetail(). */
+export interface OrderLineDetail {
+  numCommande: string
+  ligne: string
+  article: string
+  designation: string | null
+  client: string | null
+  quantite: number
+  unite: string | null
+  dateLivraison: string
+  contremarque: string | null
+  orderType: string | null
+  nature: string
+  hasOverride: boolean
+  workstation: string | null
+  workstationLabel: string | null
+  hours: number
+  bom: OrderBomRow[]
+  bomCount: number
+  bomBlocked: number
+  x3Error: string | null
+}
+
 export interface OrderBoardData {
   days: DayCol[]
   lines: OrderLineRow[]

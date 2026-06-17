@@ -1,9 +1,10 @@
-import { createEffect, For, on, Show, type Component } from 'solid-js'
+import { createEffect, createSignal, For, on, Show, type Component } from 'solid-js'
 import { Link, router } from '@/lib/inertia-solid'
 import { createOrderBoardStore } from '@/lib/orders/store'
 import type { OrderBoardData } from '@/lib/orders/types'
 import AppLayout from '@/layouts/app'
 import OrderGrid from '@/components/board/order-grid'
+import OrderDetailSheet from '@/components/orders/order-detail-sheet'
 import { cn } from '@/libs/cn'
 
 type OrderBoardProps = {
@@ -36,6 +37,14 @@ const NATURES = [
 
 const OrderBoard: Component<OrderBoardProps> = (props) => {
   const store = createOrderBoardStore(props.board)
+
+  // Détail ligne de commande : drawer contextuel au clic sur une carte.
+  const [selectedLine, setSelectedLine] = createSignal<string | null>(null)
+  const [detailOpen, setDetailOpen] = createSignal(false)
+  const onSelectCard = (id: string) => {
+    setSelectedLine(id)
+    setDetailOpen(true)
+  }
 
   createEffect(
     on(
@@ -217,9 +226,11 @@ const OrderBoard: Component<OrderBoardProps> = (props) => {
             </div>
           }
         >
-          <OrderGrid store={store} />
+          <OrderGrid store={store} onSelectCard={onSelectCard} />
         </Show>
       </main>
+
+      <OrderDetailSheet lineId={selectedLine()} open={detailOpen()} onOpenChange={setDetailOpen} />
     </AppLayout>
   )
 }

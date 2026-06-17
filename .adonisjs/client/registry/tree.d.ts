@@ -5,9 +5,6 @@ export interface ApiDefinition {
   health: {
     index: typeof routes['health.index']
   }
-  x3Debug: {
-    index: typeof routes['x_3_debug.index']
-  }
   scheduler: {
     expertBoard: typeof routes['scheduler.expert_board']
     ofDetail: typeof routes['scheduler.of_detail']
@@ -17,6 +14,7 @@ export interface ApiDefinition {
   orderPlanning: {
     board: typeof routes['order_planning.board']
     index: typeof routes['order_planning.index']
+    lineDetail: typeof routes['order_planning.line_detail']
     update: typeof routes['order_planning.update']
     resetOverride: typeof routes['order_planning.reset_override']
   }

@@ -315,9 +315,9 @@ export default class SchedulerController {
   }
 
   /**
-   * GET /scheduler/shortages — coquille (shell) du suivi des ruptures (issue #15/#16).
-   * Rendu INSTANTANÉ : aucun calcul X3 ici. Le tableau (calcul lourd) est chargé en
-   * différé via Unpoly `[up-defer]` depuis `/scheduler/shortages/rows` → page réactive.
+   * GET /scheduler/shortages — coquille (shell) Inertia du suivi des ruptures (issue #15/#16).
+   * Rendu INSTANTANÉ : aucun calcul X3 ici. Le tableau (calcul lourd) est chargé en différé
+   * côté client (fetch JSON) depuis `/scheduler/shortages/rows` → page réactive Solid.
    */
   async shortageTracker(ctx: HttpContext) {
     const startParam = ctx.request.input('start') as string | undefined
@@ -337,8 +337,7 @@ export default class SchedulerController {
     const now = atMidnight(new Date())
     const navQuery = (start: string) => `?start=${start}&days=${horizon}` + (force ? '&refresh=1' : '')
 
-    return ctx.view.render('pages/scheduler/shortage_tracker', {
-      title: 'Ruptures — Suivi',
+    return ctx.inertia.render('scheduler/shortages', {
       horizon,
       windowStart: startIso,
       // URL du fragment différé (calcul lourd côté serveur).
@@ -351,9 +350,9 @@ export default class SchedulerController {
   }
 
   /**
-   * GET /scheduler/shortages/rows — fragment Unpoly (calcul lourd).
-   * Charge le pipeline de faisabilité + réceptions, pivote en lignes, rend le partial
-   * `shortage_table` (racine `#shortages-content`).
+   * GET /scheduler/shortages/rows — endpoint JSON (calcul lourd).
+   * Charge le pipeline de faisabilité + réceptions, pivote en lignes, renvoie les lignes
+   * pré-formatées + stats + erreur X3 (consommé en fetch par la page Solid `scheduler/shortages`).
    */
   async shortageRows(ctx: HttpContext) {
     const startParam = ctx.request.input('start') as string | undefined
@@ -446,11 +445,7 @@ export default class SchedulerController {
       }
     })
 
-    return ctx.view.render('pages/scheduler/shortage_table', {
-      rows: displayRows,
-      stats,
-      x3Error,
-    })
+    return { rows: displayRows, stats, x3Error }
   }
 
   // -------------------------------------------------------------------------

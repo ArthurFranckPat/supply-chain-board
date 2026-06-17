@@ -35,16 +35,13 @@ router.get('/js/app.js', async ({ response }) => {
 // Health
 router.get('/health', '#controllers/health_controller.index')
 
-// Debug X3 models
-router.get('/debug/x3', '#controllers/x3_debug_controller.index')
-
 // Scheduler — vues Material 3 (Stitch)
 //   /scheduler/board   : Tableau d'ordonnancement, vue experte haute densité
 //   /scheduler/of/:num : Détail OF — panneau Focus Productivité Technique
 router.get('/scheduler/board', '#controllers/scheduler_controller.expertBoard')
 router.get('/scheduler/of/:num', '#controllers/scheduler_controller.ofDetail')
-//   /scheduler/shortages : Tableau de suivi des ruptures (issue #15)
-//   /scheduler/shortages/rows : fragment différé (Unpoly up-defer) — calcul lourd
+//   /scheduler/shortages : page Inertia de suivi des ruptures (issue #15)
+//   /scheduler/shortages/rows : endpoint JSON différé (calcul lourd) fetché côté client
 router.get('/scheduler/shortages', '#controllers/scheduler_controller.shortageTracker')
 router.get('/scheduler/shortages/rows', '#controllers/scheduler_controller.shortageRows')
 // Issue #10 — mode planification (lignes de commande ouvertes, drag en temps)
@@ -54,6 +51,7 @@ router.get('/scheduler/planning-board', '#controllers/order_planning_controller.
 router
   .group(() => {
     router.get('/order-lines', '#controllers/order_planning_controller.index')
+    router.get('/lines/:num/:ligne', '#controllers/order_planning_controller.lineDetail')
     router.patch('/order-lines/:num/:ligne', '#controllers/order_planning_controller.update')
     router.delete(
       '/order-lines/:num/:ligne/override',

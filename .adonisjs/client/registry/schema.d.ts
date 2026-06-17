@@ -19,18 +19,6 @@ export interface Registry {
       errorResponse: unknown
     }
   }
-  'x_3_debug.index': {
-    methods: ["GET","HEAD"]
-    pattern: '/debug/x3'
-    types: {
-      body: {}
-      paramsTuple: []
-      params: {}
-      query: {}
-      response: unknown
-      errorResponse: unknown
-    }
-  }
   'scheduler.expert_board': {
     methods: ["GET","HEAD"]
     pattern: '/scheduler/board'
@@ -98,6 +86,18 @@ export interface Registry {
       body: {}
       paramsTuple: []
       params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'order_planning.line_detail': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/order-planning/lines/:num/:ligne'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue, ParamValue]
+      params: { num: ParamValue; ligne: ParamValue }
       query: {}
       response: unknown
       errorResponse: unknown
