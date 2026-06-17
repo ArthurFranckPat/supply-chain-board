@@ -6,7 +6,8 @@ import AppLayout from '@/layouts/app'
 import BoardGrid from '@/components/board/board-grid'
 import OfDetailSheet from '@/components/of/of-detail-sheet'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { TextField, TextFieldInput } from '@/components/ui/text-field'
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import {
@@ -94,36 +95,47 @@ const ExpertBoard: Component<ExpertBoardProps> = (props) => {
 
           {/* Recherche multi-scope */}
           <div class="flex items-center gap-2">
-            <div class="group relative flex items-center">
-              <span class="material-symbols-outlined absolute left-2.5 text-muted-foreground text-[18px] pointer-events-none group-focus-within:text-primary transition-colors">
-                search
-              </span>
-              <Input
-                size="sm"
-                class="w-60 pl-9 pr-9 rounded-lg"
-                placeholder="Rechercher un OF, article, poste…"
-                type="text"
-                autocomplete="off"
-                value={store.query()}
-                onInput={(e) => store.onQueryInput(e.currentTarget.value)}
-              />
-              <kbd class="absolute right-2 text-[9px] font-sans font-semibold text-muted-foreground bg-muted border border-border rounded px-1 py-0.5 pointer-events-none group-focus-within:opacity-0 transition-opacity">
-                ⌘K
-              </kbd>
-            </div>
-            <select
+            <TextField class="contents">
+              <div class="group relative flex items-center">
+                <span class="material-symbols-outlined absolute left-2.5 text-muted-foreground text-[18px] pointer-events-none group-focus-within:text-primary transition-colors">
+                  search
+                </span>
+                <TextFieldInput
+                  class="w-60 h-8 pl-9 pr-9 rounded-md"
+                  placeholder="Rechercher un OF, article, poste…"
+                  type="text"
+                  autocomplete="off"
+                  value={store.query()}
+                  onInput={(e) => store.onQueryInput(e.currentTarget.value)}
+                />
+                <kbd class="absolute right-2 text-[9px] font-sans font-semibold text-muted-foreground bg-muted border border-border rounded px-1 py-0.5 pointer-events-none group-focus-within:opacity-0 transition-opacity">
+                  ⌘K
+                </kbd>
+              </div>
+            </TextField>
+
+            <Select
               title="Portée de la recherche"
-              aria-label="Portée de la recherche"
-              class="h-8 bg-card border border-border rounded-md pl-2.5 pr-7 text-xs text-muted-foreground hover:border-foreground/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer transition-colors appearance-none bg-[length:10px] bg-[right_0.5rem_center] bg-no-repeat"
-              style={{
-                'background-image':
-                  "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'><path fill='%239ca3af' d='M5 6.5L1.5 3h7z'/></svg>\")",
-              }}
               value={store.scope()}
-              onChange={(e) => store.onScopeChange(e.currentTarget.value as typeof SCOPES[number]['v'])}
+              onChange={(v) => store.onScopeChange(v as typeof SCOPES[number]['v'])}
+              options={SCOPES.map((s) => s.v)}
+              disallowEmptySelection
+              optionTextValue={(o: string) => SCOPES.find((s) => s.v === o)?.label ?? o}
             >
-              <For each={SCOPES}>{(s) => <option value={s.v}>{s.label}</option>}</For>
-            </select>
+              <SelectTrigger size="sm" class="w-28" aria-label="Portée de la recherche">
+                <SelectValue<string>>
+                  {(state) => SCOPES.find((s) => s.v === state.selectedOption())?.label ?? 'Portée'}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <For each={SCOPES}>
+                  {(s) => (
+                    // @ts-expect-error — Kobalte Select.Item exige `item: CollectionNode` non exposé ici
+                    <SelectItem value={s.v}>{s.label}</SelectItem>
+                  )}
+                </For>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
