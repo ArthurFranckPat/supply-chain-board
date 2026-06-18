@@ -284,7 +284,7 @@ export default class SchedulerController {
     return new OverrideStore()
   }
 
-  /** GET /scheduler/board — expert high-density scheduling board. */
+  /** GET /ordonnancement — board d'ordonnancement OF, vue experte haute densité. */
   async expertBoard(ctx: HttpContext) {
     const data = await this.loadBoardData(ctx)
     return ctx.inertia.render('scheduler/expert-board', {
@@ -315,7 +315,7 @@ export default class SchedulerController {
   }
 
   /**
-   * GET /scheduler/shortages — coquille (shell) Inertia du suivi des ruptures (issue #15/#16).
+   * GET /ruptures — coquille (shell) Inertia du suivi des ruptures (issue #15/#16).
    * Rendu INSTANTANÉ : aucun calcul X3 ici. Le tableau (calcul lourd) est chargé en différé
    * côté client (fetch JSON) depuis `/api/v1/planning/shortages/rows` → page réactive Solid.
    */
@@ -343,9 +343,9 @@ export default class SchedulerController {
       // URL du fragment différé (calcul lourd côté serveur).
       rowsHref: `/api/v1/planning/shortages/rows${navQuery(startIso)}`,
       dateRange: `${fmtFrShort(startIso)} — ${fmtFrShort(navIso(horizon))}`,
-      prevHref: `/scheduler/shortages${navQuery(navIso(-horizon))}`,
-      nextHref: `/scheduler/shortages${navQuery(navIso(horizon))}`,
-      todayHref: `/scheduler/shortages${navQuery(isoDay(now))}`,
+      prevHref: `/ruptures${navQuery(navIso(-horizon))}`,
+      nextHref: `/ruptures${navQuery(navIso(horizon))}`,
+      todayHref: `/ruptures${navQuery(isoDay(now))}`,
     })
   }
 
@@ -452,7 +452,7 @@ export default class SchedulerController {
   // Board data — same X3 sources as the planning-board API (boardDataset)
   // -------------------------------------------------------------------------
 
-  private async loadBoardData(ctx: HttpContext, basePath = '/scheduler/board') {
+  private async loadBoardData(ctx: HttpContext, basePath = '/ordonnancement') {
     const startParam = ctx.request.input('start') as string | undefined
     const daysParam = Number.parseInt(ctx.request.input('days', '14'), 10)
     const horizon = Number.isFinite(daysParam) && daysParam > 0 && daysParam <= 90 ? daysParam : 14

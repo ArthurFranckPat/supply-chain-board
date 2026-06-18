@@ -93,7 +93,7 @@ export interface Registry {
   }
   'scheduler.expert_board': {
     methods: ["GET","HEAD"]
-    pattern: '/scheduler/board'
+    pattern: '/ordonnancement'
     types: {
       body: {}
       paramsTuple: []
@@ -105,7 +105,7 @@ export interface Registry {
   }
   'order_planning.board': {
     methods: ["GET","HEAD"]
-    pattern: '/scheduler/orders'
+    pattern: '/planification'
     types: {
       body: {}
       paramsTuple: []
@@ -117,7 +117,7 @@ export interface Registry {
   }
   'scheduler.shortage_tracker': {
     methods: ["GET","HEAD"]
-    pattern: '/scheduler/shortages'
+    pattern: '/ruptures'
     types: {
       body: {}
       paramsTuple: []

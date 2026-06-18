@@ -40,14 +40,14 @@ router.get('/js/app.js', async ({ response }) => {
 // Health
 router.get('/health', '#controllers/health_controller.index')
 
-// Scheduler — pages Inertia (HTML, sans param de path). Les endpoints JSON associés
-// (détail OF, rows ruptures) vivent sous /api/v1/planning — voir plus bas (P3, #18).
-//   /scheduler/board     : Ordonnancement OF, vue experte haute densité
-//   /scheduler/orders    : Planification, lignes de commande ouvertes (#10)
-//   /scheduler/shortages : Suivi des ruptures (issue #15)
-router.get('/scheduler/board', '#controllers/scheduler_controller.expertBoard')
-router.get('/scheduler/orders', '#controllers/order_planning_controller.board')
-router.get('/scheduler/shortages', '#controllers/scheduler_controller.shortageTracker')
+// Pages Inertia (HTML, sans param de path) — URLs françaises (app pour public FR).
+// Les endpoints JSON associés vivent sous /api/v1/planning (P3, #18).
+//   /ordonnancement : board OF, vue experte haute densité
+//   /planification  : lignes de commande ouvertes (#10)
+//   /ruptures       : suivi des ruptures (issue #15)
+router.get('/ordonnancement', '#controllers/scheduler_controller.expertBoard')
+router.get('/planification', '#controllers/order_planning_controller.board')
+router.get('/ruptures', '#controllers/scheduler_controller.shortageTracker')
 
 // Planning — API JSON (fusion order-planning + planning-board sous un seul préfixe, #18 P7).
 //   order-lines/* : OrderPlanningController (overrides de date sur lignes de commande)
