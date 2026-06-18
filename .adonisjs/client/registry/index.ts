@@ -54,17 +54,17 @@ const routes = {
     tokens: [{"old":"/scheduler/board","type":0,"val":"scheduler","end":""},{"old":"/scheduler/board","type":0,"val":"board","end":""}],
     types: placeholder as Registry['scheduler.expert_board']['types'],
   },
+  'order_planning.board': {
+    methods: ["GET","HEAD"],
+    pattern: '/scheduler/orders',
+    tokens: [{"old":"/scheduler/orders","type":0,"val":"scheduler","end":""},{"old":"/scheduler/orders","type":0,"val":"orders","end":""}],
+    types: placeholder as Registry['order_planning.board']['types'],
+  },
   'scheduler.shortage_tracker': {
     methods: ["GET","HEAD"],
     pattern: '/scheduler/shortages',
     tokens: [{"old":"/scheduler/shortages","type":0,"val":"scheduler","end":""},{"old":"/scheduler/shortages","type":0,"val":"shortages","end":""}],
     types: placeholder as Registry['scheduler.shortage_tracker']['types'],
-  },
-  'order_planning.board': {
-    methods: ["GET","HEAD"],
-    pattern: '/scheduler/planning-board',
-    tokens: [{"old":"/scheduler/planning-board","type":0,"val":"scheduler","end":""},{"old":"/scheduler/planning-board","type":0,"val":"planning-board","end":""}],
-    types: placeholder as Registry['order_planning.board']['types'],
   },
   'order_planning.index': {
     methods: ["GET","HEAD"],

@@ -150,7 +150,7 @@ export default class OrderPlanningController {
     return new OrderLineOverrideStore()
   }
 
-  /** GET /scheduler/planning-board — board planification. */
+  /** GET /scheduler/orders — board planification. */
   async board(ctx: HttpContext) {
     const data = await this.loadBoardData(ctx)
     return ctx.inertia.render('scheduler/order-board', {
@@ -482,7 +482,7 @@ export default class OrderPlanningController {
     }
     const navQuery = (start: string) =>
       `?start=${start}&days=${horizon}` + (force ? '&refresh=1' : '')
-    const base = '/scheduler/planning-board'
+    const base = '/scheduler/orders'
     const prevHref = `${base}${navQuery(navIso(-horizon))}`
     const nextHref = `${base}${navQuery(navIso(horizon))}`
     const todayHref = `${base}${navQuery(isoDay(now))}`

@@ -14,7 +14,7 @@ export const MANIFEST = {
   "design_system": { method: "GET", pattern: "/design-system" },
   "health.index": { method: "GET", pattern: "/health" },
   "home": { method: "GET", pattern: "/" },
-  "order_planning.board": { method: "GET", pattern: "/scheduler/planning-board" },
+  "order_planning.board": { method: "GET", pattern: "/scheduler/orders" },
   "order_planning.index": { method: "GET", pattern: "/api/v1/planning/order-lines" },
   "order_planning.line_detail": { method: "GET", pattern: "/api/v1/planning/order-lines/:order/:line" },
   "order_planning.reset_override": { method: "DELETE", pattern: "/api/v1/planning/order-lines/:order/:line/override" },

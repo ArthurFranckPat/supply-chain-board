@@ -103,9 +103,9 @@ export interface Registry {
       errorResponse: unknown
     }
   }
-  'scheduler.shortage_tracker': {
+  'order_planning.board': {
     methods: ["GET","HEAD"]
-    pattern: '/scheduler/shortages'
+    pattern: '/scheduler/orders'
     types: {
       body: {}
       paramsTuple: []
@@ -115,9 +115,9 @@ export interface Registry {
       errorResponse: unknown
     }
   }
-  'order_planning.board': {
+  'scheduler.shortage_tracker': {
     methods: ["GET","HEAD"]
-    pattern: '/scheduler/planning-board'
+    pattern: '/scheduler/shortages'
     types: {
       body: {}
       paramsTuple: []
