@@ -12,9 +12,7 @@ export type ScannedRoutes = {
     'assets.js': { paramsTuple?: []; params?: {} }
     'health.index': { paramsTuple?: []; params?: {} }
     'scheduler.expert_board': { paramsTuple?: []; params?: {} }
-    'scheduler.of_detail': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
     'scheduler.shortage_tracker': { paramsTuple?: []; params?: {} }
-    'scheduler.shortage_rows': { paramsTuple?: []; params?: {} }
     'order_planning.board': { paramsTuple?: []; params?: {} }
     'order_planning.index': { paramsTuple?: []; params?: {} }
     'order_planning.line_detail': { paramsTuple: [ParamValue,ParamValue]; params: {'order': ParamValue,'line': ParamValue} }
@@ -39,6 +37,8 @@ export type ScannedRoutes = {
     'planning_board.search_pf': { paramsTuple?: []; params?: {} }
     'planning_board.of_materials': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
     'planning_board.reload_data': { paramsTuple?: []; params?: {} }
+    'scheduler.of_detail': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
+    'scheduler.shortage_rows': { paramsTuple?: []; params?: {} }
     'suivi.assign': { paramsTuple?: []; params?: {} }
     'suivi.from_latest_export': { paramsTuple?: []; params?: {} }
     'suivi.status_detail': { paramsTuple: [ParamValue]; params: {'order': ParamValue} }
@@ -59,9 +59,7 @@ export type ScannedRoutes = {
     'assets.js': { paramsTuple?: []; params?: {} }
     'health.index': { paramsTuple?: []; params?: {} }
     'scheduler.expert_board': { paramsTuple?: []; params?: {} }
-    'scheduler.of_detail': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
     'scheduler.shortage_tracker': { paramsTuple?: []; params?: {} }
-    'scheduler.shortage_rows': { paramsTuple?: []; params?: {} }
     'order_planning.board': { paramsTuple?: []; params?: {} }
     'order_planning.index': { paramsTuple?: []; params?: {} }
     'order_planning.line_detail': { paramsTuple: [ParamValue,ParamValue]; params: {'order': ParamValue,'line': ParamValue} }
@@ -76,6 +74,8 @@ export type ScannedRoutes = {
     'planning_board.search_of': { paramsTuple?: []; params?: {} }
     'planning_board.search_pf': { paramsTuple?: []; params?: {} }
     'planning_board.of_materials': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
+    'scheduler.of_detail': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
+    'scheduler.shortage_rows': { paramsTuple?: []; params?: {} }
     'suivi.status_detail': { paramsTuple: [ParamValue]; params: {'order': ParamValue} }
     'static_sync.status': { paramsTuple?: []; params?: {} }
   }
@@ -88,9 +88,7 @@ export type ScannedRoutes = {
     'assets.js': { paramsTuple?: []; params?: {} }
     'health.index': { paramsTuple?: []; params?: {} }
     'scheduler.expert_board': { paramsTuple?: []; params?: {} }
-    'scheduler.of_detail': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
     'scheduler.shortage_tracker': { paramsTuple?: []; params?: {} }
-    'scheduler.shortage_rows': { paramsTuple?: []; params?: {} }
     'order_planning.board': { paramsTuple?: []; params?: {} }
     'order_planning.index': { paramsTuple?: []; params?: {} }
     'order_planning.line_detail': { paramsTuple: [ParamValue,ParamValue]; params: {'order': ParamValue,'line': ParamValue} }
@@ -105,6 +103,8 @@ export type ScannedRoutes = {
     'planning_board.search_of': { paramsTuple?: []; params?: {} }
     'planning_board.search_pf': { paramsTuple?: []; params?: {} }
     'planning_board.of_materials': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
+    'scheduler.of_detail': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
+    'scheduler.shortage_rows': { paramsTuple?: []; params?: {} }
     'suivi.status_detail': { paramsTuple: [ParamValue]; params: {'order': ParamValue} }
     'static_sync.status': { paramsTuple?: []; params?: {} }
   }

@@ -356,7 +356,7 @@ export default class PlanningBoardController {
   }
 
   /**
-   * GET /api/v1/planning-board/shortages
+   * GET /api/v1/planning/shortages
    * Tableau de suivi des ruptures (issue #15) : pivot composant-centrique des OF bloqués.
    * Réutilise le pipeline de faisabilité (loadOrderImpacts) + réceptions d'achat plein
    * horizon, pivotées par `buildShortageRows`.
@@ -514,7 +514,7 @@ export default class PlanningBoardController {
   }
 
   /**
-   * GET /api/v1/planning-board/articles-by-component/:component
+   * GET /api/v1/planning/articles-by-component/:component
    * Retourne les articles parents (PF) qui consomment le composant donné dans
    * leur nomenclature. Utilisé par la recherche "composant" du board pour
    * remonter les OFs qui consomment ce composant.
@@ -540,7 +540,7 @@ export default class PlanningBoardController {
   }
 
   /**
-   * GET /api/v1/planning-board/search/poste?q=…
+   * GET /api/v1/planning/search/poste?q=…
    * Postes de charge dont le code ou le libellé matchent q (dataset complet via
    * les gammes, pas seulement la fenêtre affichée). Sert la recherche par scope
    * « poste » du board.
@@ -564,7 +564,7 @@ export default class PlanningBoardController {
   }
 
   /**
-   * GET /api/v1/planning-board/search/of?q=…
+   * GET /api/v1/planning/search/of?q=…
    * Numéros d'OF dont le numéro, l'article ou la désignation matchent q
    * (dataset complet des ordres de fabrication).
    */
@@ -586,7 +586,7 @@ export default class PlanningBoardController {
   }
 
   /**
-   * GET /api/v1/planning-board/search/pf?q=…
+   * GET /api/v1/planning/search/pf?q=…
    * Articles (produits finis) dont le code ou la désignation matchent q
    * (dataset complet des ordres de fabrication).
    */

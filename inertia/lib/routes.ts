@@ -2,7 +2,7 @@
  * Helper typé de construction d'URL à partir du nom d'une route Adonis.
  *
  *   route('planning_board.show', { numOf: 'OF0001' })
- *   // → '/api/v1/planning-board/ofs/OF0001'
+ *   // → '/api/v1/planning/ofs/OF0001'
  *
  * Pourquoi (issue #18) : avant ce helper, toutes les URLs étaient des template
  * literals éparpillés (`\`${API}/ofs/${numOf}\``), donc tout renommage de route

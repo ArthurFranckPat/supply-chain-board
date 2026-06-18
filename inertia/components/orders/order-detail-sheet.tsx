@@ -14,7 +14,7 @@ import { route } from '@/lib/routes'
 
 /**
  * Drawer de détail d'une ligne de commande (vue planification). S'ouvre au clic sur une
- * carte ; charge le payload JSON depuis GET /api/v1/order-planning/order-lines/:order/:line.
+ * carte ; charge le payload JSON depuis GET /api/v1/planning/order-lines/:order/:line.
  * `lineId` = `numCommande#ligne` (clé de la carte).
  */
 export const OrderDetailSheet: Component<{

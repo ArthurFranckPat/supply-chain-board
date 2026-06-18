@@ -103,33 +103,9 @@ export interface Registry {
       errorResponse: unknown
     }
   }
-  'scheduler.of_detail': {
-    methods: ["GET","HEAD"]
-    pattern: '/scheduler/of/:of'
-    types: {
-      body: {}
-      paramsTuple: [ParamValue]
-      params: { of: ParamValue }
-      query: {}
-      response: unknown
-      errorResponse: unknown
-    }
-  }
   'scheduler.shortage_tracker': {
     methods: ["GET","HEAD"]
     pattern: '/scheduler/shortages'
-    types: {
-      body: {}
-      paramsTuple: []
-      params: {}
-      query: {}
-      response: unknown
-      errorResponse: unknown
-    }
-  }
-  'scheduler.shortage_rows': {
-    methods: ["GET","HEAD"]
-    pattern: '/scheduler/shortages/rows'
     types: {
       body: {}
       paramsTuple: []
@@ -153,7 +129,7 @@ export interface Registry {
   }
   'order_planning.index': {
     methods: ["GET","HEAD"]
-    pattern: '/api/v1/order-planning/order-lines'
+    pattern: '/api/v1/planning/order-lines'
     types: {
       body: {}
       paramsTuple: []
@@ -165,7 +141,7 @@ export interface Registry {
   }
   'order_planning.line_detail': {
     methods: ["GET","HEAD"]
-    pattern: '/api/v1/order-planning/order-lines/:order/:line'
+    pattern: '/api/v1/planning/order-lines/:order/:line'
     types: {
       body: {}
       paramsTuple: [ParamValue, ParamValue]
@@ -177,7 +153,7 @@ export interface Registry {
   }
   'order_planning.update': {
     methods: ["PATCH"]
-    pattern: '/api/v1/order-planning/order-lines/:order/:line'
+    pattern: '/api/v1/planning/order-lines/:order/:line'
     types: {
       body: {}
       paramsTuple: [ParamValue, ParamValue]
@@ -189,7 +165,7 @@ export interface Registry {
   }
   'order_planning.reset_override': {
     methods: ["DELETE"]
-    pattern: '/api/v1/order-planning/order-lines/:order/:line/override'
+    pattern: '/api/v1/planning/order-lines/:order/:line/override'
     types: {
       body: {}
       paramsTuple: [ParamValue, ParamValue]
@@ -201,7 +177,7 @@ export interface Registry {
   }
   'planning_board.index': {
     methods: ["GET","HEAD"]
-    pattern: '/api/v1/planning-board/ofs'
+    pattern: '/api/v1/planning/ofs'
     types: {
       body: {}
       paramsTuple: []
@@ -213,7 +189,7 @@ export interface Registry {
   }
   'planning_board.show': {
     methods: ["GET","HEAD"]
-    pattern: '/api/v1/planning-board/ofs/:of'
+    pattern: '/api/v1/planning/ofs/:of'
     types: {
       body: {}
       paramsTuple: [ParamValue]
@@ -225,7 +201,7 @@ export interface Registry {
   }
   'planning_board.update': {
     methods: ["PATCH"]
-    pattern: '/api/v1/planning-board/ofs/:of'
+    pattern: '/api/v1/planning/ofs/:of'
     types: {
       body: {}
       paramsTuple: [ParamValue]
@@ -237,7 +213,7 @@ export interface Registry {
   }
   'planning_board.reset_override': {
     methods: ["DELETE"]
-    pattern: '/api/v1/planning-board/ofs/:of/override'
+    pattern: '/api/v1/planning/ofs/:of/override'
     types: {
       body: {}
       paramsTuple: [ParamValue]
@@ -249,7 +225,7 @@ export interface Registry {
   }
   'planning_board.list_overrides': {
     methods: ["GET","HEAD"]
-    pattern: '/api/v1/planning-board/overrides'
+    pattern: '/api/v1/planning/overrides'
     types: {
       body: {}
       paramsTuple: []
@@ -261,7 +237,7 @@ export interface Registry {
   }
   'planning_board.reset_all': {
     methods: ["DELETE"]
-    pattern: '/api/v1/planning-board/overrides'
+    pattern: '/api/v1/planning/overrides'
     types: {
       body: {}
       paramsTuple: []
@@ -273,7 +249,7 @@ export interface Registry {
   }
   'planning_board.feasibility': {
     methods: ["POST"]
-    pattern: '/api/v1/planning-board/feasibility'
+    pattern: '/api/v1/planning/feasibility'
     types: {
       body: {}
       paramsTuple: []
@@ -285,7 +261,7 @@ export interface Registry {
   }
   'planning_board.whatif': {
     methods: ["POST"]
-    pattern: '/api/v1/planning-board/whatif'
+    pattern: '/api/v1/planning/whatif'
     types: {
       body: {}
       paramsTuple: []
@@ -297,7 +273,7 @@ export interface Registry {
   }
   'planning_board.order_impacts': {
     methods: ["POST"]
-    pattern: '/api/v1/planning-board/order-impacts'
+    pattern: '/api/v1/planning/order-impacts'
     types: {
       body: {}
       paramsTuple: []
@@ -309,7 +285,7 @@ export interface Registry {
   }
   'planning_board.list_events': {
     methods: ["GET","HEAD"]
-    pattern: '/api/v1/planning-board/events'
+    pattern: '/api/v1/planning/events'
     types: {
       body: {}
       paramsTuple: []
@@ -321,7 +297,7 @@ export interface Registry {
   }
   'planning_board.board_feasibility': {
     methods: ["POST"]
-    pattern: '/api/v1/planning-board/board-feasibility'
+    pattern: '/api/v1/planning/board-feasibility'
     types: {
       body: {}
       paramsTuple: []
@@ -333,7 +309,7 @@ export interface Registry {
   }
   'planning_board.shortages': {
     methods: ["GET","HEAD"]
-    pattern: '/api/v1/planning-board/shortages'
+    pattern: '/api/v1/planning/shortages'
     types: {
       body: {}
       paramsTuple: []
@@ -345,7 +321,7 @@ export interface Registry {
   }
   'planning_board.nomenclature': {
     methods: ["GET","HEAD"]
-    pattern: '/api/v1/planning-board/nomenclature/:article'
+    pattern: '/api/v1/planning/nomenclature/:article'
     types: {
       body: {}
       paramsTuple: [ParamValue]
@@ -357,7 +333,7 @@ export interface Registry {
   }
   'planning_board.articles_by_component': {
     methods: ["GET","HEAD"]
-    pattern: '/api/v1/planning-board/articles-by-component/:component'
+    pattern: '/api/v1/planning/articles-by-component/:component'
     types: {
       body: {}
       paramsTuple: [ParamValue]
@@ -369,7 +345,7 @@ export interface Registry {
   }
   'planning_board.search_poste': {
     methods: ["GET","HEAD"]
-    pattern: '/api/v1/planning-board/search/poste'
+    pattern: '/api/v1/planning/search/poste'
     types: {
       body: {}
       paramsTuple: []
@@ -381,7 +357,7 @@ export interface Registry {
   }
   'planning_board.search_of': {
     methods: ["GET","HEAD"]
-    pattern: '/api/v1/planning-board/search/of'
+    pattern: '/api/v1/planning/search/of'
     types: {
       body: {}
       paramsTuple: []
@@ -393,7 +369,7 @@ export interface Registry {
   }
   'planning_board.search_pf': {
     methods: ["GET","HEAD"]
-    pattern: '/api/v1/planning-board/search/pf'
+    pattern: '/api/v1/planning/search/pf'
     types: {
       body: {}
       paramsTuple: []
@@ -405,7 +381,7 @@ export interface Registry {
   }
   'planning_board.of_materials': {
     methods: ["GET","HEAD"]
-    pattern: '/api/v1/planning-board/of-materials/:of'
+    pattern: '/api/v1/planning/of-materials/:of'
     types: {
       body: {}
       paramsTuple: [ParamValue]
@@ -417,7 +393,31 @@ export interface Registry {
   }
   'planning_board.reload_data': {
     methods: ["POST"]
-    pattern: '/api/v1/planning-board/reload'
+    pattern: '/api/v1/planning/reload'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'scheduler.of_detail': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/planning/ofs/:of/detail'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { of: ParamValue }
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'scheduler.shortage_rows': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/planning/shortages/rows'
     types: {
       body: {}
       paramsTuple: []

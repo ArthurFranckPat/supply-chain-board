@@ -40,19 +40,17 @@ router.get('/js/app.js', async ({ response }) => {
 // Health
 router.get('/health', '#controllers/health_controller.index')
 
-// Scheduler — vues Material 3 (Stitch)
-//   /scheduler/board   : Tableau d'ordonnancement, vue experte haute densité
-//   /scheduler/of/:of : Détail OF — panneau Focus Productivité Technique
+// Scheduler — pages Inertia (HTML, sans param de path). Les endpoints JSON associés
+// (détail OF, rows ruptures) vivent sous /api/v1/planning — voir plus bas (P3, #18).
+//   /scheduler/board          : Tableau d'ordonnancement, vue experte haute densité
+//   /scheduler/shortages      : Suivi des ruptures (issue #15)
+//   /scheduler/planning-board : Mode planification, lignes de commande ouvertes (#10)
 router.get('/scheduler/board', '#controllers/scheduler_controller.expertBoard')
-router.get('/scheduler/of/:of', '#controllers/scheduler_controller.ofDetail')
-//   /scheduler/shortages : page Inertia de suivi des ruptures (issue #15)
-//   /scheduler/shortages/rows : endpoint JSON différé (calcul lourd) fetché côté client
 router.get('/scheduler/shortages', '#controllers/scheduler_controller.shortageTracker')
-router.get('/scheduler/shortages/rows', '#controllers/scheduler_controller.shortageRows')
-// Issue #10 — mode planification (lignes de commande ouvertes, drag en temps)
 router.get('/scheduler/planning-board', '#controllers/order_planning_controller.board')
 
-// Order planning (API JSON) — overrides de date sur lignes de commande
+// Planning — API JSON (fusion order-planning + planning-board sous un seul préfixe, #18 P7).
+//   order-lines/* : OrderPlanningController (overrides de date sur lignes de commande)
 router
   .group(() => {
     router.get('/order-lines', '#controllers/order_planning_controller.index')
@@ -63,9 +61,9 @@ router
       '#controllers/order_planning_controller.resetOverride'
     )
   })
-  .prefix('/api/v1/order-planning')
+  .prefix('/api/v1/planning')
 
-// Planning Board (API JSON)
+//   ofs/overrides/feasibility/... : PlanningBoardController
 router
   .group(() => {
     router.get('/ofs', '#controllers/planning_board_controller.index')
@@ -91,7 +89,11 @@ router
     router.get('/of-materials/:of', '#controllers/planning_board_controller.ofMaterials')
     router.post('/reload', '#controllers/planning_board_controller.reloadData')
   })
-  .prefix('/api/v1/planning-board')
+  .prefix('/api/v1/planning')
+
+// Endpoints JSON relocalisés depuis /scheduler (P3, #18) : du JSON, pas des pages Inertia.
+router.get('/api/v1/planning/ofs/:of/detail', '#controllers/scheduler_controller.ofDetail')
+router.get('/api/v1/planning/shortages/rows', '#controllers/scheduler_controller.shortageRows')
 
 // Suivi Commandes
 router

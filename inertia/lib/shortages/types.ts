@@ -1,5 +1,5 @@
 /**
- * Formes renvoyées par SchedulerController.shortageRows (GET /scheduler/shortages/rows).
+ * Formes renvoyées par SchedulerController.shortageRows (GET /api/v1/planning/shortages/rows).
  * Lignes DÉJÀ pré-formatées côté serveur (dates FR, quantités, presets verdict) — la page
  * Solid les rend telles quelles. Voir `displayRows` dans scheduler_controller.ts.
  */

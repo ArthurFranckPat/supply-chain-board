@@ -8,7 +8,7 @@ import { route } from '@/lib/routes'
 
 /**
  * Panneau de détail OF « Papier » (D3 · panneau bas). S'ouvre au clic sur une
- * carte du board ; charge le payload JSON depuis GET /scheduler/of/:of.
+ * carte du board ; charge le payload JSON depuis GET /api/v1/planning/ofs/:of/detail.
  *
  * Porté en Sheet side="bottom" + scope .theme-papier (le drawer se porte hors
  * du scope page, il faut donc lui ré-appliquer les tokens Papier).

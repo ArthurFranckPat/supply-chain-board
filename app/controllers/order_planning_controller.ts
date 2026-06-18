@@ -127,7 +127,7 @@ function makeOrderCard(p: {
     id,
     title: p.designation ?? p.article,
     article: p.article,
-    href: `/scheduler/of/${p.numCommande}`,
+    href: `/api/v1/planning/ofs/${p.numCommande}/detail`,
     accentClass: p.hasOverride ? 'border-l-amber-500' : 'border-l-primary',
     cardClass: p.hasOverride ? 'bg-amber-50/40' : '',
     textTone: 'text-gray-800',
@@ -176,7 +176,7 @@ export default class OrderPlanningController {
     })
   }
 
-  /** GET /api/v1/order-planning/order-lines — JSON (debug / clients externes). */
+  /** GET /api/v1/planning/order-lines — JSON (debug / clients externes). */
   async index(ctx: HttpContext) {
     const from = (ctx.request.input('from') as string | undefined) ?? undefined
     const to = (ctx.request.input('to') as string | undefined) ?? undefined
@@ -188,7 +188,7 @@ export default class OrderPlanningController {
     }
   }
 
-  /** PATCH /api/v1/order-planning/order-lines/:order/:line — override date. */
+  /** PATCH /api/v1/planning/order-lines/:order/:line — override date. */
   async update(ctx: HttpContext) {
     const num = ctx.params.order as string
     const ligne = ctx.params.line as string
@@ -204,7 +204,7 @@ export default class OrderPlanningController {
     }
   }
 
-  /** DELETE /api/v1/order-planning/order-lines/:order/:line/override — supprime override. */
+  /** DELETE /api/v1/planning/order-lines/:order/:line/override — supprime override. */
   async resetOverride(ctx: HttpContext) {
     const num = ctx.params.order as string
     const ligne = ctx.params.line as string
@@ -219,7 +219,7 @@ export default class OrderPlanningController {
   }
 
   /**
-   * GET /api/v1/order-planning/order-lines/:order/:line — détail d'une ligne de commande
+   * GET /api/v1/planning/order-lines/:order/:line — détail d'une ligne de commande
    * (panneau au clic dans la vue planification) : infos commande/ligne + poste/charge +
    * override + faisabilité BOM direct (composants × qté, stock strict/qc + réceptions arrivées).
    */

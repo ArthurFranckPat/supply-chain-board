@@ -175,7 +175,7 @@ function makeCard(p: {
     title: p.title,
     article: p.article ?? null,
     status: p.status,
-    href: `/scheduler/of/${p.id.replace('#', '')}`,
+    href: `/api/v1/planning/ofs/${p.id.replace('#', '')}/detail`,
     badgeLabel: '',
     badgeIcon: null,
     badgeClass: '',
@@ -305,7 +305,7 @@ export default class SchedulerController {
   }
 
   /**
-   * GET /scheduler/of/:of — payload JSON du détail OF (Focus Productivité
+   * GET /api/v1/planning/ofs/:of/detail — payload JSON du détail OF (Focus Productivité
    * Technique). Consommé par le drawer Solid (<OfDetailSheet>) au clic sur une
    * carte du board. Plus de page dédiée ni d'injection du board.
    */
@@ -317,7 +317,7 @@ export default class SchedulerController {
   /**
    * GET /scheduler/shortages — coquille (shell) Inertia du suivi des ruptures (issue #15/#16).
    * Rendu INSTANTANÉ : aucun calcul X3 ici. Le tableau (calcul lourd) est chargé en différé
-   * côté client (fetch JSON) depuis `/scheduler/shortages/rows` → page réactive Solid.
+   * côté client (fetch JSON) depuis `/api/v1/planning/shortages/rows` → page réactive Solid.
    */
   async shortageTracker(ctx: HttpContext) {
     const startParam = ctx.request.input('start') as string | undefined
@@ -341,7 +341,7 @@ export default class SchedulerController {
       horizon,
       windowStart: startIso,
       // URL du fragment différé (calcul lourd côté serveur).
-      rowsHref: `/scheduler/shortages/rows${navQuery(startIso)}`,
+      rowsHref: `/api/v1/planning/shortages/rows${navQuery(startIso)}`,
       dateRange: `${fmtFrShort(startIso)} — ${fmtFrShort(navIso(horizon))}`,
       prevHref: `/scheduler/shortages${navQuery(navIso(-horizon))}`,
       nextHref: `/scheduler/shortages${navQuery(navIso(horizon))}`,
@@ -350,7 +350,7 @@ export default class SchedulerController {
   }
 
   /**
-   * GET /scheduler/shortages/rows — endpoint JSON (calcul lourd).
+   * GET /api/v1/planning/shortages/rows — endpoint JSON (calcul lourd).
    * Charge le pipeline de faisabilité + réceptions, pivote en lignes, renvoie les lignes
    * pré-formatées + stats + erreur X3 (consommé en fetch par la page Solid `scheduler/shortages`).
    */
@@ -415,7 +415,7 @@ export default class SchedulerController {
         componentDesc: r.componentDesc,
         qteManquante: fmtQty(r.qteManquante),
         numOf: r.numOf,
-        ofHref: `/scheduler/of/${r.numOf}`,
+        ofHref: `/api/v1/planning/ofs/${r.numOf}/detail`,
         articleParent: r.articleParent,
         articleParentDesc: r.articleParentDesc,
         numCommande: r.numCommande ?? '—',

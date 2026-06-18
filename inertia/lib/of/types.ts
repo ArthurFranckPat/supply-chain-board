@@ -1,6 +1,6 @@
 /**
  * Détail OF — miroir client de SchedulerController.loadOfDetail() (DetailPayload).
- * Servi en JSON par GET /scheduler/of/:num, consommé par <OfDetailSheet>.
+ * Servi en JSON par GET /api/v1/planning/ofs/:of/detail, consommé par <OfDetailSheet>.
  */
 
 export interface StatItem {
