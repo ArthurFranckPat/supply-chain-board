@@ -239,18 +239,39 @@ export interface SuiviContext {
 }
 
 export class SuiviService {
+  /** Contexte mémoïsé : un seul jeu de fetch X3 par instance, réutilisé par les 3 méthodes. */
+  private contextPromise?: Promise<SuiviContext>
+
   /**
    * Charge les données X3 et construit le contexte domaine (lignes + ports branchés).
+   * Mémoïsé : les appels suivants réutilisent le même contexte (pas de re-fetch).
    */
-  async buildContext(): Promise<SuiviContext> {
-    const [demandFlows, stockFlows, ofFlows, nomenclatureEntries] = await Promise.all([
+  buildContext(): Promise<SuiviContext> {
+    return (this.contextPromise ??= this.loadContext())
+  }
+
+  private async loadContext(): Promise<SuiviContext> {
+    // Demande / OF / BOM : déjà filtrés côté serveur (ou sans param de scope). Le stock,
+    // lui, balaie toute la base sans scope → on le borne aux seuls articles utiles.
+    const [demandFlows, ofFlows, nomenclatureEntries] = await Promise.all([
       new X3BesoinClientRepository().getDemandFlows(),
-      new X3StockRepository().getStockFlows(),
       new X3OfRepository().getSupplyFlows(),
       new X3NomenclatureRepository().getNomenclatureEntries(),
     ])
 
     const nomenclatures = buildNomenclatureMap(nomenclatureEntries)
+
+    // Articles dont on a besoin du stock : PF commandés + articles OF + tout l'arbre BOM
+    // (parents + composants) pour le calcul de rupture récursif.
+    const scopeArticles = new Set<string>()
+    for (const f of demandFlows) if (f.direction === 'demand' && f.origin.type === 'order') scopeArticles.add(f.article)
+    for (const f of ofFlows) if (f.origin.type === 'of') scopeArticles.add(f.article)
+    for (const e of nomenclatureEntries) {
+      scopeArticles.add(e.parentArticle)
+      scopeArticles.add(e.componentArticle)
+    }
+
+    const stockFlows = await new X3StockRepository().getStockFlows([...scopeArticles])
     const breakdown = buildStockBreakdownMap(stockFlows)
     const stocks = buildStockRecordMap(stockFlows)
     const ofs: OfRecord[] = buildOfRecords(
