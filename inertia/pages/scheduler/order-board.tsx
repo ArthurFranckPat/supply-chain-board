@@ -6,6 +6,7 @@ import AppLayout from '@/layouts/app'
 import OrderGrid from '@/components/board/order-grid'
 import OrderDetailSheet from '@/components/orders/order-detail-sheet'
 import { cn } from '@/libs/cn'
+import { route } from '@/lib/routes'
 
 type OrderBoardProps = {
   board: OrderBoardData
@@ -60,7 +61,7 @@ const OrderBoard: Component<OrderBoardProps> = (props) => {
     const form = e.target as HTMLFormElement
     const days = (form.elements.namedItem('days') as HTMLInputElement).value
     e.preventDefault()
-    router.visit('/scheduler/planning-board', {
+    router.visit(route('order_planning.board'), {
       data: { start: props.windowFrom, days },
     })
   }
@@ -112,7 +113,7 @@ const OrderBoard: Component<OrderBoardProps> = (props) => {
               <For each={SCOPES}>{(s) => <option value={s.v}>{s.label}</option>}</For>
             </select>
             <Link
-              href="/scheduler/board"
+              href={route('scheduler.expert_board')}
               class="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-500 hover:text-primary hover:border-primary/30 transition-all"
               title="Revenir à la vue d'ordonnancement (OF)"
             >

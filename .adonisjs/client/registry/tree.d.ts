@@ -2,6 +2,14 @@
 import type { routes } from './index.ts'
 
 export interface ApiDefinition {
+  home: typeof routes['home']
+  designSystem: typeof routes['design_system']
+  assets: {
+    unpolyJs: typeof routes['assets.unpoly_js']
+    unpolyCss: typeof routes['assets.unpoly_css']
+    css: typeof routes['assets.css']
+    js: typeof routes['assets.js']
+  }
   health: {
     index: typeof routes['health.index']
   }
@@ -50,8 +58,8 @@ export interface ApiDefinition {
     supplyBoard: typeof routes['pipeline.supply_board']
     suiviStatus: typeof routes['pipeline.suivi_status']
   }
-  x3Data: {
-    load: typeof routes['x_3_data.load']
+  data: {
+    load: typeof routes['data.load']
   }
   staticSync: {
     status: typeof routes['static_sync.status']

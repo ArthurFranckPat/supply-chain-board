@@ -1,8 +1,7 @@
 import { createSignal, createMemo } from 'solid-js'
 import { createStore, produce, reconcile } from 'solid-js/store'
 import type { BoardData, Card, SearchScope, FeasibilityMode, FeasStatus } from './types'
-
-const API = '/api/v1/planning-board'
+import { route } from '@/lib/routes'
 
 /** One backend route per scope. Each returns the FULL matched set (not just the
  *  visible window) → robust vs volume and out-of-window OFs (#7). */
@@ -11,22 +10,22 @@ const SCOPE_CFG: Record<
   { url: (q: string) => string; key: string; attr: (c: Card, lineCode: string) => string }
 > = {
   poste: {
-    url: (q) => `${API}/search/poste?q=${encodeURIComponent(q)}`,
+    url: (q) => `${route('planning_board.search_poste')}?q=${encodeURIComponent(q)}`,
     key: 'workstations',
     attr: (_c, lineCode) => lineCode,
   },
   of: {
-    url: (q) => `${API}/search/of?q=${encodeURIComponent(q)}`,
+    url: (q) => `${route('planning_board.search_of')}?q=${encodeURIComponent(q)}`,
     key: 'ofs',
     attr: (c) => c.id,
   },
   pf: {
-    url: (q) => `${API}/search/pf?q=${encodeURIComponent(q)}`,
+    url: (q) => `${route('planning_board.search_pf')}?q=${encodeURIComponent(q)}`,
     key: 'articles',
     attr: (c) => c.article ?? '',
   },
   composant: {
-    url: (q) => `${API}/articles-by-component/${encodeURIComponent(q.toUpperCase())}`,
+    url: (q) => route('planning_board.articles_by_component', { component: q.toUpperCase() }),
     key: 'articles',
     attr: (c) => c.article ?? '',
   },
@@ -188,7 +187,7 @@ export function createBoardStore(initial: BoardData) {
       })
     )
 
-    fetch(`${API}/ofs/${encodeURIComponent(numOf)}`, {
+    fetch(route('planning_board.update', { numOf }), {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ workstation: toLineCode, dateDebut: toIso }),
@@ -219,7 +218,7 @@ export function createBoardStore(initial: BoardData) {
   function runFeasibility(from: string, to: string) {
     if (!from || !to || feasLoading()) return
     setFeasLoading(true)
-    fetch(`${API}/board-feasibility`, {
+    fetch(route('planning_board.board_feasibility'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ from, to, mode: mode() }),

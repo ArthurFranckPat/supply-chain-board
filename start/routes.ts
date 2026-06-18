@@ -4,24 +4,24 @@ import { readFile } from 'node:fs/promises'
 
 router.get('/', async ({ inertia }) => {
   return inertia.render('home', { message: 'Infra SolidJS + Inertia opérationnelle.' })
-})
+}).as('home')
 
 // Design system « Papier » — showcase des vrais composants ui/* thémés.
 router.get('/design-system', async ({ inertia }) => {
   return inertia.render('design_system', {})
-})
+}).as('design_system')
 
 // Unpoly client (servi depuis node_modules, pas de CDN)
 router.get('/vendor/unpoly.js', async ({ response }) => {
   response.header('content-type', 'text/javascript')
   response.header('cache-control', 'public, max-age=86400')
   return await readFile(app.makePath('node_modules/unpoly/unpoly.min.js'), 'utf8')
-})
+}).as('assets.unpoly_js')
 router.get('/vendor/unpoly.css', async ({ response }) => {
   response.header('content-type', 'text/css')
   response.header('cache-control', 'public, max-age=86400')
   return await readFile(app.makePath('node_modules/unpoly/unpoly.min.css'), 'utf8')
-})
+}).as('assets.unpoly_css')
 
 // Compiled frontend assets (Tailwind CSS + Alpine JS bundles).
 // No caching in dev so rebuilds are picked up on a plain reload; 1h in prod.
@@ -30,12 +30,12 @@ router.get('/css/app.css', async ({ response }) => {
   response.header('content-type', 'text/css')
   response.header('cache-control', assetCache)
   return await readFile(app.makePath('public/css/app.css'), 'utf8')
-})
+}).as('assets.css')
 router.get('/js/app.js', async ({ response }) => {
   response.header('content-type', 'text/javascript')
   response.header('cache-control', assetCache)
   return await readFile(app.makePath('public/js/app.js'), 'utf8')
-})
+}).as('assets.js')
 
 // Health
 router.get('/health', '#controllers/health_controller.index')
@@ -81,7 +81,10 @@ router
     router.post('/board-feasibility', '#controllers/planning_board_controller.boardFeasibility')
     router.get('/shortages', '#controllers/planning_board_controller.shortages')
     router.get('/nomenclature/:article', '#controllers/planning_board_controller.nomenclature')
-    router.get('/articles-by-component/:component', '#controllers/planning_board_controller.articlesByComponent')
+    router.get(
+      '/articles-by-component/:component',
+      '#controllers/planning_board_controller.articlesByComponent'
+    )
     router.get('/search/poste', '#controllers/planning_board_controller.searchPoste')
     router.get('/search/of', '#controllers/planning_board_controller.searchOf')
     router.get('/search/pf', '#controllers/planning_board_controller.searchPf')
@@ -109,10 +112,11 @@ router
   })
   .prefix('/api/v1/pipeline')
 
-// X3 Data (raw SQL debug)
+// X3 Data (raw SQL debug) — `.as('data.load')` pour éviter le nom auto
+// `x_3_data.load` généré depuis X3DataController (issue #18).
 router
   .group(() => {
-    router.post('/load', '#controllers/x3_data_controller.load')
+    router.post('/load', '#controllers/x3_data_controller.load').as('data.load')
   })
   .prefix('/api/v1/data')
 

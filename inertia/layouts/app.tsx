@@ -1,6 +1,7 @@
 import type { Component, JSX } from 'solid-js'
 import { Link } from '@/lib/inertia-solid'
 import { cn } from '@/libs/cn'
+import { route } from '@/lib/routes'
 
 type NavKey = 'board' | 'shortages'
 
@@ -12,8 +13,8 @@ interface NavItem {
 }
 
 const NAV: NavItem[] = [
-  { key: 'board', href: '/scheduler/board', icon: 'event_note', label: 'Planning Prods' },
-  { key: 'shortages', href: '/scheduler/shortages', icon: 'report', label: 'Suivi des ruptures' },
+  { key: 'board', href: route('scheduler.expert_board'), icon: 'event_note', label: 'Planning Prods' },
+  { key: 'shortages', href: route('scheduler.shortage_tracker'), icon: 'report', label: 'Suivi des ruptures' },
 ]
 
 /**
@@ -27,7 +28,7 @@ export const AppLayout: Component<{ active?: NavKey; children: JSX.Element }> = 
         <nav class="flex flex-col gap-5">
           <a
             class="p-2 text-gray-400 hover:text-primary transition-colors"
-            href="/scheduler/board"
+            href={route('scheduler.expert_board')}
             title="Vue d'ensemble"
           >
             <span class="material-symbols-outlined">grid_view</span>

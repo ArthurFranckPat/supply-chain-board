@@ -6,6 +6,42 @@ import type { ApiDefinition } from './tree.d.ts'
 const placeholder: any = {}
 
 const routes = {
+  'home': {
+    methods: ["GET","HEAD"],
+    pattern: '/',
+    tokens: [{"old":"/","type":0,"val":"/","end":""}],
+    types: placeholder as Registry['home']['types'],
+  },
+  'design_system': {
+    methods: ["GET","HEAD"],
+    pattern: '/design-system',
+    tokens: [{"old":"/design-system","type":0,"val":"design-system","end":""}],
+    types: placeholder as Registry['design_system']['types'],
+  },
+  'assets.unpoly_js': {
+    methods: ["GET","HEAD"],
+    pattern: '/vendor/unpoly.js',
+    tokens: [{"old":"/vendor/unpoly.js","type":0,"val":"vendor","end":""},{"old":"/vendor/unpoly.js","type":0,"val":"unpoly.js","end":""}],
+    types: placeholder as Registry['assets.unpoly_js']['types'],
+  },
+  'assets.unpoly_css': {
+    methods: ["GET","HEAD"],
+    pattern: '/vendor/unpoly.css',
+    tokens: [{"old":"/vendor/unpoly.css","type":0,"val":"vendor","end":""},{"old":"/vendor/unpoly.css","type":0,"val":"unpoly.css","end":""}],
+    types: placeholder as Registry['assets.unpoly_css']['types'],
+  },
+  'assets.css': {
+    methods: ["GET","HEAD"],
+    pattern: '/css/app.css',
+    tokens: [{"old":"/css/app.css","type":0,"val":"css","end":""},{"old":"/css/app.css","type":0,"val":"app.css","end":""}],
+    types: placeholder as Registry['assets.css']['types'],
+  },
+  'assets.js': {
+    methods: ["GET","HEAD"],
+    pattern: '/js/app.js',
+    tokens: [{"old":"/js/app.js","type":0,"val":"js","end":""},{"old":"/js/app.js","type":0,"val":"app.js","end":""}],
+    types: placeholder as Registry['assets.js']['types'],
+  },
   'health.index': {
     methods: ["GET","HEAD"],
     pattern: '/health',
@@ -222,11 +258,11 @@ const routes = {
     tokens: [{"old":"/api/v1/pipeline/suivi-status","type":0,"val":"api","end":""},{"old":"/api/v1/pipeline/suivi-status","type":0,"val":"v1","end":""},{"old":"/api/v1/pipeline/suivi-status","type":0,"val":"pipeline","end":""},{"old":"/api/v1/pipeline/suivi-status","type":0,"val":"suivi-status","end":""}],
     types: placeholder as Registry['pipeline.suivi_status']['types'],
   },
-  'x_3_data.load': {
+  'data.load': {
     methods: ["POST"],
     pattern: '/api/v1/data/load',
     tokens: [{"old":"/api/v1/data/load","type":0,"val":"api","end":""},{"old":"/api/v1/data/load","type":0,"val":"v1","end":""},{"old":"/api/v1/data/load","type":0,"val":"data","end":""},{"old":"/api/v1/data/load","type":0,"val":"load","end":""}],
-    types: placeholder as Registry['x_3_data.load']['types'],
+    types: placeholder as Registry['data.load']['types'],
   },
   'static_sync.status': {
     methods: ["GET","HEAD"],

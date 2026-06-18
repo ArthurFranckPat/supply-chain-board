@@ -2,8 +2,7 @@ import { createMemo, createSignal } from 'solid-js'
 import { createStore, produce, reconcile } from 'solid-js/store'
 import type { OrderBoardData, OrderCard, OrderSearchScope } from './types'
 import { router } from '@/lib/inertia-solid'
-
-const API = '/api/v1/order-planning'
+import { route } from '@/lib/routes'
 
 const ALL_TYPES = ['MTS', 'MTO', 'NOR'] as const
 const ALL_NATURES = ['COMMANDE', 'PREVISION'] as const
@@ -159,7 +158,7 @@ export function createOrderBoardStore(initial: OrderBoardData) {
       })
     )
 
-    fetch(`${API}/order-lines/${encodeURIComponent(numCommande)}/${encodeURIComponent(ligne)}`, {
+    fetch(route('order_planning.update', { num: numCommande, ligne }), {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ dateLivraison: toIso }),
@@ -184,7 +183,7 @@ export function createOrderBoardStore(initial: OrderBoardData) {
   function resetOverride(id: string) {
     const [numCommande, ligne] = id.split('#')
     if (!numCommande || !ligne) return
-    fetch(`${API}/order-lines/${encodeURIComponent(numCommande)}/${encodeURIComponent(ligne)}/override`, {
+    fetch(route('order_planning.reset_override', { num: numCommande, ligne }), {
       method: 'DELETE',
     })
       .then((r) => {

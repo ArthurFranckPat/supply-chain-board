@@ -6,6 +6,7 @@ import OfDetailSheet from '@/components/of/of-detail-sheet'
 import { Button } from '@/components/ui/button'
 import { TextField, TextFieldInput } from '@/components/ui/text-field'
 import type { ShortageRowsResponse } from '@/lib/shortages/types'
+import { route } from '@/lib/routes'
 
 type ShortagesProps = {
   horizon: number
@@ -51,7 +52,7 @@ const Shortages: Component<ShortagesProps> = (props) => {
     e.preventDefault()
     const form = e.target as HTMLFormElement
     const days = (form.elements.namedItem('days') as HTMLInputElement).value
-    router.visit('/scheduler/shortages', {
+    router.visit(route('scheduler.shortage_tracker'), {
       data: { start: props.windowStart, days },
       preserveScroll: true,
     })
@@ -86,7 +87,7 @@ const Shortages: Component<ShortagesProps> = (props) => {
         </div>
         <div class="flex items-center gap-2 shrink-0">
           <Link
-            href={`/scheduler/shortages?start=${props.windowStart}&days=${props.horizon}&refresh=1`}
+            href={`${route('scheduler.shortage_tracker')}?start=${props.windowStart}&days=${props.horizon}&refresh=1`}
             preserveScroll
             class="inline-flex items-center gap-1 px-2.5 h-8 bg-muted/60 border border-border rounded text-[10px] font-bold text-muted-foreground hover:bg-card transition-all uppercase"
             title="Recharger les données X3"
@@ -94,7 +95,7 @@ const Shortages: Component<ShortagesProps> = (props) => {
             <span class="material-symbols-outlined text-[15px]">refresh</span>
           </Link>
           <Link
-            href="/scheduler/board"
+            href={route('scheduler.expert_board')}
             class="inline-flex items-center gap-1 px-3 h-8 bg-muted/60 border border-border rounded text-[10px] font-bold text-muted-foreground hover:bg-card transition-all uppercase"
           >
             <span class="material-symbols-outlined text-[15px]">grid_view</span> Board

@@ -15,7 +15,9 @@
     "test": "dotenvx run -- node ace test",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "routes:gen": "node scripts/gen-routes-manifest.mjs",
+    "routes:check": "node scripts/gen-routes-manifest.mjs && git diff --exit-code inertia/lib/routes-manifest.ts"
   },
   "imports": {
     "#controllers/*": "./app/controllers/*.js",

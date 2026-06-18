@@ -10,6 +10,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import type { OrderLineDetail } from '@/lib/orders/types'
 import { cn } from '@/libs/cn'
+import { route } from '@/lib/routes'
 
 /**
  * Drawer de détail d'une ligne de commande (vue planification). S'ouvre au clic sur une
@@ -26,9 +27,7 @@ export const OrderDetailSheet: Component<{
     async (id) => {
       if (!id) return null
       const [num, ligne] = id.split('#')
-      const res = await fetch(
-        `/api/v1/order-planning/lines/${encodeURIComponent(num)}/${encodeURIComponent(ligne)}`
-      )
+      const res = await fetch(route('order_planning.line_detail', { num, ligne }))
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       return (await res.json()) as OrderLineDetail
     }

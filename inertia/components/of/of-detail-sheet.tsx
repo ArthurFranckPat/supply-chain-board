@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { cx } from '@/libs/cva'
 import type { OfDetail } from '@/lib/of/types'
+import { route } from '@/lib/routes'
 
 /**
  * Panneau de détail OF « Papier » (D3 · panneau bas). S'ouvre au clic sur une
@@ -21,7 +22,7 @@ export const OfDetailSheet: Component<{
     () => (props.open ? props.num : null),
     async (num) => {
       if (!num) return null
-      const res = await fetch(`/scheduler/of/${encodeURIComponent(num)}`)
+      const res = await fetch(route('scheduler.of_detail', { num }))
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       return (await res.json()) as OfDetail
     },

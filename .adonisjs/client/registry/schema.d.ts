@@ -7,6 +7,78 @@ import type { InferInput, SimpleError } from '@vinejs/vine/types'
 export type ParamValue = string | number | bigint | boolean
 
 export interface Registry {
+  'home': {
+    methods: ["GET","HEAD"]
+    pattern: '/'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'design_system': {
+    methods: ["GET","HEAD"]
+    pattern: '/design-system'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'assets.unpoly_js': {
+    methods: ["GET","HEAD"]
+    pattern: '/vendor/unpoly.js'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'assets.unpoly_css': {
+    methods: ["GET","HEAD"]
+    pattern: '/vendor/unpoly.css'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'assets.css': {
+    methods: ["GET","HEAD"]
+    pattern: '/css/app.css'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'assets.js': {
+    methods: ["GET","HEAD"]
+    pattern: '/js/app.js'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'health.index': {
     methods: ["GET","HEAD"]
     pattern: '/health'
@@ -439,7 +511,7 @@ export interface Registry {
       errorResponse: unknown
     }
   }
-  'x_3_data.load': {
+  'data.load': {
     methods: ["POST"]
     pattern: '/api/v1/data/load'
     types: {
