@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Board vide · E « Donuts par semaine »</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700;9..144,900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,300,0,0" rel="stylesheet" />
+<style>
+:root{
+  --paper:#f3ece0; --panel:#fbf8ef; --panel2:#efe7d6; --rule:#cdbfa0; --rulesoft:#e3d9c1;
+  --ink:#1f1a13; --ink2:#4a4135; --muted:#8c7d66; --muted2:#a99c84;
+  --terra:#a8431f; --terrasoft:rgba(168,67,31,.10); --ferme:#5b7d4e; --planifie:#2f4858; --suggere:#b8862c;
+  --fd:"Fraunces",Georgia,serif; --fs:"Inter",system-ui,sans-serif; --fm:"JetBrains Mono",monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--fs);font-size:13px;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+.material-symbols-outlined{font-family:"Material Symbols Outlined";font-weight:300;line-height:1;font-feature-settings:"liga";vertical-align:middle}
+.mono{font-family:var(--fm)}
+.wrap{max-width:1180px;margin:0 auto;padding:32px 28px 56px}
+.hd{margin-bottom:14px}
+.hd .k{font:700 10px var(--fm);text-transform:uppercase;letter-spacing:.16em;color:var(--muted)}
+.hd h1{font:900 26px var(--fd);letter-spacing:-.03em;margin-top:5px}
+.hd p{color:var(--ink2);font-size:13px;margin-top:6px;max-width:720px;line-height:1.5}
+.legend{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:12px;font:600 11px var(--fs);color:var(--ink2)}
+.legend span{display:flex;align-items:center;gap:6px}
+.legend i{width:14px;height:10px;border-radius:2px;display:inline-block}
+
+.board{background:var(--panel);border:1px solid var(--rule);border-radius:10px;overflow:hidden;box-shadow:0 1px 2px rgba(31,26,19,.05)}
+.sheet{display:grid;grid-template-columns:220px repeat(10,minmax(60px,1fr));min-width:calc(220px + 10*70px)}
+.wkb{display:contents}
+.wkb .wk{grid-column:span 5;background:var(--ink);color:#e3d9c1;padding:7px 14px;display:flex;align-items:center;gap:8px;font:700 9px var(--fm);text-transform:uppercase;letter-spacing:.12em}
+.wkb .wk .chg{margin-left:auto;color:var(--muted2)}
+.wkb .corner{background:var(--ink)}
+.dh{display:contents}
+.dh .lh{background:var(--panel2);border-bottom:1.5px solid var(--ink);border-right:1px solid var(--rulesoft);padding:10px 14px;font:700 9px var(--fm);text-transform:uppercase;letter-spacing:.12em;color:var(--muted)}
+.dh .dc{background:var(--panel2);border-bottom:1.5px solid var(--ink);border-right:1px solid var(--rulesoft);padding:8px 2px;text-align:center}
+.dh .dc .nm{font:600 9px var(--fm);text-transform:uppercase;color:var(--muted)}
+.dh .dc .nn{font:800 20px var(--fd);line-height:1;letter-spacing:-.02em;margin-top:1px}
+.dh .dc .hh{font:700 10px var(--fm);color:var(--muted);margin-top:3px}
+.dh .dc.today{background:var(--terrasoft)}
+.dh .dc.today .nn,.dh .dc.today .hh{color:var(--terra)}
+
+.row{display:contents}
+.lh-r{background:var(--panel);border-right:1px solid var(--rule);border-bottom:1px solid var(--rulesoft);padding:12px 14px;display:flex;flex-direction:column;gap:8px;min-width:220px}
+.lh-r .t{display:flex;align-items:center;gap:8px}
+.lh-r .dot{width:9px;height:9px;border-radius:2px;flex:none}
+.lh-r .code{font:800 16px var(--fd);letter-spacing:-.02em;line-height:1}
+.lh-r .nm{font:500 11px var(--fs);color:var(--muted)}
+.hero{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}
+.hero .v{font:900 28px var(--fd);line-height:.9;letter-spacing:-.035em;color:var(--ink)}
+.hero .u{font:600 11px var(--fs);color:var(--muted)}
+.hero .avg{font:700 10px var(--fm);color:var(--terra);background:var(--terrasoft);padding:2px 7px;border-radius:5px}
+/* 2 donuts hebdo */
+.donut-row{display:flex;justify-content:center;gap:14px;margin:2px 0}
+.dw{display:flex;flex-direction:column;align-items:center;gap:2px}
+.ring{position:relative;width:64px;height:64px}
+.ring svg{width:64px;height:64px}
+.ring .ctr{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;font:800 16px var(--fd);line-height:.9;color:var(--ink);letter-spacing:-.03em}
+.ring .ctr b{font:500 8px var(--fs);color:var(--muted);font-weight:500}
+.wl{font:700 8px var(--fm);color:var(--muted)}
+.wl b{color:var(--terra);font-weight:700}
+
+.cell{border-right:1px solid var(--rulesoft);border-bottom:1px solid var(--rulesoft);min-height:132px;background-image:linear-gradient(to right,rgba(31,26,19,.045) 1px,transparent 1px),linear-gradient(to bottom,rgba(31,26,19,.045) 1px,transparent 1px);background-size:22px 22px;background-color:var(--panel)}
+.cell.today{background-color:var(--terrasoft)}
+
+.tag{position:fixed;top:14px;right:22px;z-index:60;font:700 9px var(--fm);text-transform:uppercase;letter-spacing:.14em;color:#fff;background:var(--terra);padding:5px 11px;border-radius:5px;display:flex;align-items:center;gap:6px}
+.tag .material-symbols-outlined{font-size:13px}
+</style>
+</head>
+<body>
+<div class="tag"><span class="material-symbols-outlined">donut_large</span> E · « Donuts / semaine »</div>
+<div class="wrap">
+  <div class="hd">
+    <div class="k">Board vide · maille semaine</div>
+    <h1>E — Donuts de composition par semaine (S25 / S26)</h1>
+    <p>Maille hebdo : un donut Ferme/Planifié/Suggéré <b>par semaine</b> (S25 à gauche, S26 à droite), avec le total d'heures de la semaine au centre et le % ferme dessous. On compare la composition semaine par semaine.</p>
+    <div class="legend">
+      <span><i style="background:var(--ferme)"></i>Ferme</span>
+      <span><i style="background:var(--planifie)"></i>Planifié</span>
+      <span><i style="background:var(--suggere)"></i>Suggéré</span>
+    </div>
+  </div>
+
+  <div class="board"><div class="sheet">
+    <div class="wkb"><div class="corner"></div><div class="wk">Semaine XXV · 16–20 juin<span class="chg">152 h</span></div><div class="wk">Semaine XXVI · 23–27 juin<span class="chg">134 h</span></div></div>
+    <div class="dh">
+      <div class="lh">Poste de charge</div>
+      <div class="dc"><div class="nm">Lun</div><div class="nn">16</div><div class="hh">28h</div></div>
+      <div class="dc today"><div class="nm">Mar</div><div class="nn">17</div><div class="hh">34h</div></div>
+      <div class="dc"><div class="nm">Mer</div><div class="nn">18</div><div class="hh">38h</div></div>
+      <div class="dc"><div class="nm">Jeu</div><div class="nn">19</div><div class="hh">22h</div></div>
+      <div class="dc"><div class="nm">Ven</div><div class="nn">20</div><div class="hh">30h</div></div>
+      <div class="dc"><div class="nm">Lun</div><div class="nn">23</div><div class="hh">26h</div></div>
+      <div class="dc"><div class="nm">Mar</div><div class="nn">24</div><div class="hh">32h</div></div>
+      <div class="dc"><div class="nm">Mer</div><div class="nn">25</div><div class="hh">28h</div></div>
+      <div class="dc"><div class="nm">Jeu</div><div class="nn">26</div><div class="hh">24h</div></div>
+      <div class="dc"><div class="nm">Ven</div><div class="nn">27</div><div class="hh">24h</div></div>
+    </div>
+
+    <div class="row">
+      <div class="lh-r"><div class="t"><span class="dot" style="background:var(--ferme)"></span><span class="code">DCP-01</span></div><span class="nm">Découpe Fan · Caisses</span><div class="hero"><span class="v">60</span><span class="u">h</span><span class="avg">moy. 30 h/sem</span></div><div class="donut-row"><div class="dw"><div class="ring" id="donut-dcp-0"></div><span class="wl">S25 · <b>63%F</b></span></div><div class="dw"><div class="ring" id="donut-dcp-1"></div><span class="wl">S26 · <b>50%F</b></span></div></div></div>
+      <div class="cell"></div><div class="cell today"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+    </div>
+    <div class="row">
+      <div class="lh-r"><div class="t"><span class="dot" style="background:var(--planifie)"></span><span class="code">SDR-02</span></div><span class="nm">Soudure Caisson · Robot</span><div class="hero"><span class="v">74</span><span class="u">h</span><span class="avg">moy. 37 h/sem</span></div><div class="donut-row"><div class="dw"><div class="ring" id="donut-sdr-0"></div><span class="wl">S25 · <b>63%F</b></span></div><div class="dw"><div class="ring" id="donut-sdr-1"></div><span class="wl">S26 · <b>56%F</b></span></div></div></div>
+      <div class="cell"></div><div class="cell today"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+    </div>
+    <div class="row">
+      <div class="lh-r"><div class="t"><span class="dot" style="background:var(--suggere)"></span><span class="code">PUD-03</span></div><span class="nm">Peinture Poudre · Four</span><div class="hero"><span class="v">56</span><span class="u">h</span><span class="avg">moy. 28 h/sem</span></div><div class="donut-row"><div class="dw"><div class="ring" id="donut-pud-0"></div><span class="wl">S25 · <b>40%F</b></span></div><div class="dw"><div class="ring" id="donut-pud-1"></div><span class="wl">S26 · <b>38%F</b></span></div></div></div>
+      <div class="cell"></div><div class="cell today"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+    </div>
+    <div class="row">
+      <div class="lh-r"><div class="t"><span class="dot" style="background:#8b5cf6"></span><span class="code">ASV-04</span></div><span class="nm">Assemblage VMC · Manuel</span><div class="hero"><span class="v">32</span><span class="u">h</span><span class="avg">moy. 16 h/sem</span></div><div class="donut-row"><div class="dw"><div class="ring" id="donut-asv-0"></div><span class="wl">S25 · <b>33%F</b></span></div><div class="dw"><div class="ring" id="donut-asv-1"></div><span class="wl">S26 · <b>29%F</b></span></div></div></div>
+      <div class="cell"></div><div class="cell today"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+    </div>
+    <div class="row">
+      <div class="lh-r"><div class="t"><span class="dot" style="background:#8c7d66"></span><span class="code">CTL-05</span></div><span class="nm">Contrôlage Final · Banc</span><div class="hero"><span class="v">64</span><span class="u">h</span><span class="avg">moy. 32 h/sem</span></div><div class="donut-row"><div class="dw"><div class="ring" id="donut-ctl-0"></div><span class="wl">S25 · <b>53%F</b></span></div><div class="dw"><div class="ring" id="donut-ctl-1"></div><span class="wl">S26 · <b>47%F</b></span></div></div></div>
+      <div class="cell"></div><div class="cell today"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+    </div>
+  </div></div>
+</div>
+
+<script>
+// Par poste : semaines [{f,p,s}]
+const POSTES = {
+  dcp:[{f:20,p:8,s:4},{f:14,p:8,s:6}],
+  sdr:[{f:24,p:10,s:4},{f:20,p:12,s:4}],
+  pud:[{f:12,p:10,s:8},{f:10,p:8,s:8}],
+  asv:[{f:6,p:4,s:8},{f:4,p:4,s:6}],
+  ctl:[{f:18,p:10,s:6},{f:14,p:10,s:6}],
+}
+const C = 2*Math.PI*30
+function donut(w){
+  const tot=w.f+w.p+w.s
+  let off=0, arcs=''
+  for(const [v,col] of [[w.f,'ferme'],[w.p,'planifie'],[w.s,'suggere']]){
+    const frac=v/tot
+    arcs+=`<circle r="30" cx="40" cy="40" fill="none" stroke="var(--${col})" stroke-width="13" stroke-dasharray="${(frac*C).toFixed(2)} ${C.toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}" transform="rotate(-90 40 40)"/>`
+    off+=frac*C
+  }
+  return `<svg viewBox="0 0 80 80"><circle r="30" cx="40" cy="40" fill="none" stroke="var(--rulesoft)" stroke-width="13"/>${arcs}</svg><span class="ctr">${tot}<b>h</b></span>`
+}
+for(const id in POSTES){
+  document.getElementById(`donut-${id}-0`).innerHTML=donut(POSTES[id][0])
+  document.getElementById(`donut-${id}-1`).innerHTML=donut(POSTES[id][1])
+}
+</script>
+</body>
+</html>

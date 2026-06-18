@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Planning Board · B « Papier »</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700;9..144,900&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,300,0,0" rel="stylesheet" />
+<style>
+:root{
+  --paper:#f1ebdf; --paper2:#ebe3d3; --panel:#fbf7ee; --panel2:#f7f1e4;
+  --rule:#d9cdb5; --rule-soft:#e6dcc6; --ink:#211c17; --ink2:#4a4138; --muted:#857967;
+  --terra:#b8472a; --terra-dim:rgba(184,71,42,.12); --ochre:#b8862c; --sage:#5b7d4e; --indigo:#2f4858;
+  --ferme:#5b7d4e; --planifie:#2f4858; --suggere:#b8862c; --danger:#a83a23;
+  --r:4px; --r-sm:3px;
+  --font-d:"Fraunces",Georgia,serif;
+  --font-s:"Inter",system-ui,sans-serif;
+  --font-m:"JetBrains Mono",ui-monospace,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--paper);color:var(--ink);font-family:var(--font-s);font-size:14px;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+.material-symbols-outlined{font-family:"Material Symbols Outlined";font-weight:300;font-style:normal;line-height:1;font-feature-settings:"liga";-webkit-font-smoothing:antialiased}
+.mono{font-family:var(--font-m)}
+*{scrollbar-width:thin;scrollbar-color:#cdbfa3 transparent}
+*::-webkit-scrollbar{width:10px;height:10px}
+*::-webkit-scrollbar-thumb{background:#cdbfa3;border-radius:9px;border:3px solid var(--paper)}
+
+.app{height:100vh;display:flex;flex-direction:column;overflow:hidden}
+/* masthead */
+.mast{background:var(--paper);border-bottom:2px solid var(--ink);flex:none}
+.mast-top{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;padding:16px 32px 10px}
+.brand{display:flex;align-items:baseline;gap:14px}
+.brand .mk{font:900 30px var(--font-d);letter-spacing:-.03em;line-height:.9}
+.brand .mk em{font-style:italic;font-weight:500;color:var(--terra)}
+.brand .ed{font:500 11px var(--font-m);text-transform:uppercase;letter-spacing:.18em;color:var(--muted);padding-bottom:4px}
+.mast-meta{text-align:right;font:500 11px var(--font-m);color:var(--muted);line-height:1.6}
+.mast-meta b{color:var(--ink);font-weight:600}
+.mast-meta .vol{font:700 13px var(--font-d);color:var(--terra);letter-spacing:-.01em}
+.nav{display:flex;align-items:center;gap:0;padding:0 32px;border-top:1px solid var(--rule)}
+.nav a{font:600 12px var(--font-s);color:var(--ink2);text-decoration:none;padding:11px 16px;border-bottom:2px solid transparent;transition:.15s;letter-spacing:.01em}
+.nav a:first-child{padding-left:0}
+.nav a:hover{color:var(--terra)}
+.nav a.active{color:var(--terra);border-bottom-color:var(--terra)}
+.nav .right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.cmd{display:flex;align-items:center;background:var(--panel);border:1px solid var(--rule);border-radius:999px;height:32px;padding:0 6px 0 14px;transition:.15s}
+.cmd:focus-within{border-color:var(--terra);box-shadow:0 0 0 3px var(--terra-dim)}
+.cmd .material-symbols-outlined{font-size:18px;color:var(--muted)}
+.cmd input{border:0;outline:0;background:transparent;font:500 13px var(--font-s);width:240px;color:var(--ink)}
+.cmd input::placeholder{color:var(--muted)}
+.avatar{width:30px;height:30px;border-radius:50%;background:var(--terra);color:#fbf7ee;font:700 10px var(--font-m);display:flex;align-items:center;justify-content:center}
+
+/* toolbar */
+.toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 32px 14px;border-bottom:1px solid var(--rule);flex:none}
+.toolbar-l,.toolbar-r{display:flex;align-items:center;gap:14px}
+.winnav{display:flex;align-items:center;gap:0}
+.winnav a{width:32px;height:32px;border:1px solid var(--rule);background:var(--panel);display:flex;align-items:center;justify-content:center;color:var(--ink2);text-decoration:none;transition:.15s}
+.winnav a:first-child{border-radius:999px 0 0 999px}
+.winnav a:last-child{border-radius:0 999px 999px 0;border-left:0}
+.winnav a:hover{background:var(--terra);color:#fbf7ee;border-color:var(--terra)}
+.winnav .material-symbols-outlined{font-size:19px}
+.period{font:700 26px var(--font-d);letter-spacing:-.02em;line-height:1}
+.period .yr{color:var(--muted);font-weight:500;font-style:italic}
+.horizon{display:flex;align-items:center;gap:8px;font:500 12px var(--font-s);color:var(--muted)}
+.horizon b{color:var(--ink);font:700 14px var(--font-m)}
+.legend{display:flex;align-items:center;gap:16px}
+.legend span{display:flex;align-items:center;gap:7px;font:500 12px var(--font-s);color:var(--ink2)}
+.legend i{width:10px;height:10px;border-radius:2px}
+.btn{display:inline-flex;align-items:center;gap:7px;font:600 13px var(--font-s);border-radius:999px;padding:9px 16px;cursor:pointer;transition:.15s;border:1px solid transparent}
+.btn .material-symbols-outlined{font-size:17px}
+.btn-terra{background:var(--terra);color:#fbf7ee}
+.btn-terra:hover{background:#9f3d24}
+.btn-out{background:transparent;border-color:var(--rule);color:var(--ink)}
+.btn-out:hover{border-color:var(--ink);background:var(--panel)}
+
+/* board */
+.board{flex:1;overflow:auto;padding:20px 32px 32px}
+/* week section */
+.weeksec{margin-bottom:34px}
+.weekhd{display:flex;align-items:baseline;gap:16px;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--ink)}
+.weekhd .wn{font:900 22px var(--font-d);font-style:italic;color:var(--terra);letter-spacing:-.02em;line-height:1}
+.weekhd .wd{font:500 13px var(--font-s);color:var(--muted)}
+.weekhd .chg{margin-left:auto;display:flex;align-items:baseline;gap:10px}
+.weekhd .chg .lab{font:500 10px var(--font-m);text-transform:uppercase;letter-spacing:.14em;color:var(--muted)}
+.weekhd .chg .val{font:700 18px var(--font-d);color:var(--ink)}
+.weekhd .chg .val.hot{color:var(--terra)}
+.weekhd .today{font:700 10px var(--font-m);text-transform:uppercase;letter-spacing:.12em;color:#fbf7ee;background:var(--terra);padding:3px 9px;border-radius:999px}
+
+.grid{display:grid;grid-template-columns:220px repeat(5,minmax(150px,1fr));border-top:1px solid var(--ink);border-left:1px solid var(--rule)}
+/* day header */
+.dh{display:contents}
+.dh .lh{background:var(--panel2);border-right:1px solid var(--rule);border-bottom:1px solid var(--ink);padding:12px 14px;font:700 10px var(--font-m);text-transform:uppercase;letter-spacing:.12em;color:var(--muted)}
+.dh .dc{background:var(--panel2);border-right:1px solid var(--rule);border-bottom:1px solid var(--ink);padding:10px 12px;text-align:left}
+.dh .dc .dn{font:500 10px var(--font-m);text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+.dh .dc .dd{font:700 28px var(--font-d);color:var(--ink);line-height:1;margin-top:2px;letter-spacing:-.02em}
+.dh .dc.today .dn{color:var(--terra)}
+.dh .dc.today .dd{color:var(--terra);font-style:italic}
+
+/* row header */
+.lh-r{background:var(--panel);border-right:1px solid var(--rule);border-bottom:1px solid var(--rule);padding:14px;display:flex;flex-direction:column;gap:5px}
+.lh-r .top{display:flex;align-items:center;gap:9px}
+.lh-r .sq{width:11px;height:11px;border-radius:2px}
+.lh-r .code{font:700 14px var(--font-m);color:var(--ink);letter-spacing:-.01em}
+.lh-r .name{font:500 12px var(--font-s);color:var(--muted)}
+.lh-r .load{display:flex;align-items:baseline;gap:8px;margin-top:3px}
+.lh-r .load .v{font:700 16px var(--font-d);color:var(--ink);line-height:1}
+.lh-r .load .l{font:500 10px var(--font-m);text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+.lh-r .bar{height:3px;border-radius:3px;background:var(--paper2);margin-top:5px;overflow:hidden}
+.lh-r .bar i{display:block;height:100%}
+
+/* cell */
+.cell{background:var(--panel);border-right:1px solid var(--rule);border-bottom:1px solid var(--rule);padding:9px;display:flex;flex-direction:column;gap:9px;min-height:84px}
+.cell.today{background:rgba(184,71,42,.04)}
+/* card — editorial */
+.card{position:relative;background:var(--paper2);border-radius:var(--r);padding:11px 12px;cursor:pointer;transition:.18s cubic-bezier(.32,.72,0,1);border:0;border-top:3px solid var(--muted)}
+.card:hover{background:var(--panel);box-shadow:0 6px 18px -6px rgba(33,28,23,.18);transform:translateY(-2px)}
+.card.ferme{border-top-color:var(--ferme)}
+.card.planifie{border-top-color:var(--planifie)}
+.card.suggere{border-top-color:var(--suggere);background:rgba(184,134,44,.06)}
+.card.mod{box-shadow:inset 0 0 0 1.5px var(--terra)}
+.card .art{font:700 13px var(--font-m);color:var(--ink);letter-spacing:-.01em;line-height:1.2}
+.card .ord{font:600 11px var(--font-s);color:var(--muted);margin-top:1px}
+.card .ord b{color:var(--ink);font-weight:600}
+.card .cli{font:500 12px var(--font-s);color:var(--ink2);margin-top:5px;font-style:italic}
+.card .foot{display:flex;align-items:center;gap:8px;margin-top:7px;padding-top:7px;border-top:1px dotted var(--rule)}
+.card .typ{font:700 9px var(--font-m);color:var(--terra);text-transform:uppercase;letter-spacing:.1em}
+.card .h{margin-left:auto;font:700 12px var(--font-d);color:var(--ink)}
+.card .ovr{display:inline-flex;align-items:center;gap:4px;font:600 9px var(--font-m);text-transform:uppercase;letter-spacing:.08em;color:var(--ochre)}
+.card .ovr .material-symbols-outlined{font-size:12px}
+.card .feas{position:absolute;top:-7px;right:9px;width:15px;height:15px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fbf7ee;font-size:10px;font-weight:700;border:2px solid var(--panel)}
+.card .feas.ok{background:var(--ferme)}
+.card .feas.bad{background:var(--danger)}
+
+.tag{position:fixed;top:14px;right:24px;z-index:60;font:700 10px var(--font-m);text-transform:uppercase;letter-spacing:.14em;color:#fbf7ee;background:var(--ink);padding:6px 12px;border-radius:999px;display:flex;align-items:center;gap:7px}
+.tag .material-symbols-outlined{font-size:15px}
+</style>
+</head>
+<body>
+<div class="tag"><span class="material-symbols-outlined">menu_book</span> B · « Papier »</div>
+
+<div class="app">
+  <!-- masthead -->
+  <header class="mast">
+    <div class="mast-top">
+      <div class="brand">
+        <div class="mk">Factory<em>OS</em></div>
+        <div class="ed">La Planification · Édition Quotidienne</div>
+      </div>
+      <div class="mast-meta">
+        <div class="vol">N° 247 · Mercredi 17 juin 2026</div>
+        <div>Fenêtre <b>10 jours</b> · <b>53</b> lignes ouvertes sur <b>5</b> postes</div>
+      </div>
+    </div>
+    <nav class="nav">
+      <a href="#">Tableau</a>
+      <a href="#" class="active">Planification</a>
+      <a href="#">Ordonnancement</a>
+      <a href="#">Ruptures</a>
+      <a href="#">Ressources</a>
+      <div class="right">
+        <div class="cmd"><span class="material-symbols-outlined">search</span><input placeholder="Rechercher une commande, un article…" /></div>
+        <div class="avatar">OP</div>
+      </div>
+    </nav>
+  </header>
+
+  <!-- toolbar -->
+  <div class="toolbar">
+    <div class="toolbar-l">
+      <div class="winnav">
+        <a href="#"><span class="material-symbols-outlined">chevron_left</span></a>
+        <a href="#"><span class="material-symbols-outlined">chevron_right</span></a>
+      </div>
+      <div class="period">Juin <span class="yr">2026</span></div>
+      <div class="horizon">Horizon <b>10</b> jours ouvrés</div>
+    </div>
+    <div class="toolbar-r">
+      <div class="legend">
+        <span><i style="background:#5b7d4e"></i>Ferme</span>
+        <span><i style="background:#2f4858"></i>Planifié</span>
+        <span><i style="background:#b8862c"></i>Suggéré</span>
+      </div>
+      <button class="btn btn-out"><span class="material-symbols-outlined">download</span>Exporter</button>
+      <button class="btn btn-terra"><span class="material-symbols-outlined">fact_check</span>Vérifier la faisabilité</button>
+    </div>
+  </div>
+
+  <!-- board -->
+  <div class="board">
+
+    <!-- Semaine 25 -->
+    <div class="weeksec">
+      <div class="weekhd">
+        <span class="wn">Semaine XXV</span>
+        <span class="wd">16 – 20 juin · cinq jours ouvrés</span>
+        <span class="chg"><span class="lab">Charge</span><span class="val">71<span style="font-size:13px;color:var(--muted)"> %</span></span></span>
+        <span class="today">En cours</span>
+      </div>
+      <div class="grid">
+        <div class="dh">
+          <div class="lh">Poste de production</div>
+          <div class="dc"><div class="dn">Lundi</div><div class="dd">16</div></div>
+          <div class="dc today"><div class="dn">Mardi</div><div class="dd">17</div></div>
+          <div class="dc"><div class="dn">Mercredi</div><div class="dd">18</div></div>
+          <div class="dc"><div class="dn">Jeudi</div><div class="dd">19</div></div>
+          <div class="dc"><div class="dn">Vendredi</div><div class="dd">20</div></div>
+        </div>
+
+        <div class="lh-r"><div class="top"><span class="sq" style="background:#5b7d4e"></span><span class="code">DCP-01</span></div><span class="name">Découpe Fan · Caisses</span><div class="load"><span class="v">64 %</span><span class="l">charge</span></div><div class="bar"><i style="width:64%;background:#5b7d4e"></i></div></div>
+        <div class="cell"></div>
+        <div class="cell today">
+          <div class="card ferme"><div class="art">XTR107842</div><div class="ord"><b>AR24518 · L2</b> · Caisse VMC D250</div><div class="cli">AXION GUEVIN</div><div class="foot"><span class="typ">MTS</span><span class="h">6,0 h</span></div></div>
+        </div>
+        <div class="cell">
+          <div class="card planifie"><div class="art">XTR108120</div><div class="ord"><b>AR24601 · L1</b> · Caisse VMC D350</div><div class="cli">CDC Habitat</div><div class="foot"><span class="typ">MTO</span><span class="h">7,5 h</span></div></div>
+          <div class="card ferme mod"><div class="art">XTR106540</div><div class="ord"><b>AR24490 · L4</b> · Caisse VMC D200</div><div class="cli">Bouygues</div><div class="foot"><span class="ovr"><span class="material-symbols-outlined">edit</span>Modifié</span><span class="typ">MTS</span><span class="h">3,0 h</span></div><span class="feas bad">!</span></div>
+        </div>
+        <div class="cell"></div>
+        <div class="cell"><div class="card suggere"><div class="art">XTR107842</div><div class="ord"><b>SGA8841</b> · Caisse VMC D250</div><div class="cli">Prévision stock</div><div class="foot"><span class="typ">MTS</span><span class="h">5,0 h</span></div></div></div>
+
+        <div class="lh-r"><div class="top"><span class="sq" style="background:#2f4858"></span><span class="code">SDR-02</span></div><span class="name">Soudure Caisson · Robot</span><div class="load"><span class="v" style="color:var(--terra)">91 %</span><span class="l">charge</span></div><div class="bar"><i style="width:91%;background:#b8472a"></i></div></div>
+        <div class="cell"><div class="card ferme"><div class="art">VMC-220</div><div class="ord"><b>AR24533 · L1</b> · Bloc double flux</div><div class="cli">Vinci</div><div class="foot"><span class="typ">MTO</span><span class="h">8,0 h</span></div></div></div>
+        <div class="cell today">
+          <div class="card planifie"><div class="art">VMC-220</div><div class="ord"><b>AR24588 · L3</b> · Bloc double flux</div><div class="cli">AXION GUEVIN</div><div class="foot"><span class="typ">MTS</span><span class="h">7,0 h</span></div></div>
+          <div class="card planifie mod"><div class="art">VMC-310</div><div class="ord"><b>AR24610 · L2</b> · Caisson isolé</div><div class="cli">Bouygues</div><div class="foot"><span class="ovr"><span class="material-symbols-outlined">edit</span>Modifié</span><span class="typ">MTO</span><span class="h">5,5 h</span></div></div>
+        </div>
+        <div class="cell"><div class="card ferme"><div class="art">VMC-220</div><div class="ord"><b>AR24622 · L1</b> · Bloc double flux</div><div class="cli">CDC Habitat</div><div class="foot"><span class="typ">MTO</span><span class="h">8,0 h</span></div><span class="feas ok">✓</span></div></div>
+        <div class="cell"><div class="card suggere"><div class="art">VMC-310</div><div class="ord"><b>SGA8845</b> · Caisson isolé</div><div class="cli">Prévision stock</div><div class="foot"><span class="typ">MTS</span><span class="h">6,0 h</span></div></div></div>
+        <div class="cell"></div>
+
+        <div class="lh-r"><div class="top"><span class="sq" style="background:#b8862c"></span><span class="code">PUD-03</span></div><span class="name">Peinture Poudre · Four</span><div class="load"><span class="v">78 %</span><span class="l">charge</span></div><div class="bar"><i style="width:78%;background:#2f4858"></i></div></div>
+        <div class="cell"></div>
+        <div class="cell today"></div>
+        <div class="cell"><div class="card ferme"><div class="art">VMC-220</div><div class="ord"><b>AR24533 · L1</b> · Bloc double flux</div><div class="cli">Vinci</div><div class="foot"><span class="typ">MTO</span><span class="h">6,0 h</span></div></div></div>
+        <div class="cell"><div class="card planifie"><div class="art">VMC-220</div><div class="ord"><b>AR24588 · L3</b> · Bloc double flux</div><div class="cli">AXION GUEVIN</div><div class="foot"><span class="typ">MTS</span><span class="h">5,0 h</span></div></div></div>
+        <div class="cell"><div class="card suggere mod"><div class="art">VMC-310</div><div class="ord"><b>SGA8850</b> · Caisson isolé</div><div class="cli">Prévision stock</div><div class="foot"><span class="ovr"><span class="material-symbols-outlined">edit</span>Modifié</span><span class="typ">MTS</span><span class="h">7,0 h</span></div></div></div>
+
+        <div class="lh-r"><div class="top"><span class="sq" style="background:#8b5cf6"></span><span class="code">ASV-04</span></div><span class="name">Assemblage VMC · Manuel</span><div class="load"><span class="v">52 %</span><span class="l">charge</span></div><div class="bar"><i style="width:52%;background:#5b7d4e"></i></div></div>
+        <div class="cell"><div class="card ferme"><div class="art">XTR107842</div><div class="ord"><b>AR24518 · L2</b> · Caisse VMC D250</div><div class="cli">AXION GUEVIN</div><div class="foot"><span class="typ">MTS</span><span class="h">5,0 h</span></div></div></div>
+        <div class="cell today"></div>
+        <div class="cell"></div>
+        <div class="cell"><div class="card planifie"><div class="art">VMC-310</div><div class="ord"><b>AR24610 · L2</b> · Caisson isolé</div><div class="cli">Bouygues</div><div class="foot"><span class="typ">MTO</span><span class="h">6,0 h</span></div></div></div>
+        <div class="cell"></div>
+
+        <div class="lh-r"><div class="top"><span class="sq" style="background:#857967"></span><span class="code">CTL-05</span></div><span class="name">Contrôlage Final · Banc</span><div class="load"><span class="v" style="color:var(--terra)">88 %</span><span class="l">charge</span></div><div class="bar"><i style="width:88%;background:#b8472a"></i></div></div>
+        <div class="cell"></div>
+        <div class="cell today"><div class="card ferme"><div class="art">VMC-220</div><div class="ord"><b>AR24533 · L1</b> · Bloc double flux</div><div class="cli">Vinci</div><div class="foot"><span class="typ">MTO</span><span class="h">4,0 h</span></div></div></div>
+        <div class="cell"></div>
+        <div class="cell"><div class="card planifie"><div class="art">VMC-220</div><div class="ord"><b>AR24588 · L3</b> · Bloc double flux</div><div class="cli">AXION GUEVIN</div><div class="foot"><span class="typ">MTS</span><span class="h">3,5 h</span></div></div></div>
+        <div class="cell"><div class="card ferme"><div class="art">VMC-220</div><div class="ord"><b>AR24622 · L1</b> · Bloc double flux</div><div class="cli">CDC Habitat</div><div class="foot"><span class="typ">MTO</span><span class="h">4,0 h</span></div></div></div>
+      </div>
+    </div>
+
+    <!-- Semaine 26 -->
+    <div class="weeksec">
+      <div class="weekhd">
+        <span class="wn">Semaine XXVI</span>
+        <span class="wd">23 – 27 juin · cinq jours ouvrés</span>
+        <span class="chg"><span class="lab">Charge</span><span class="val hot">81<span style="font-size:13px;color:var(--muted)"> %</span></span></span>
+      </div>
+      <div class="grid">
+        <div class="dh">
+          <div class="lh">Poste de production</div>
+          <div class="dc"><div class="dn">Lundi</div><div class="dd">23</div></div>
+          <div class="dc"><div class="dn">Mardi</div><div class="dd">24</div></div>
+          <div class="dc"><div class="dn">Mercredi</div><div class="dd">25</div></div>
+          <div class="dc"><div class="dn">Jeudi</div><div class="dd">26</div></div>
+          <div class="dc"><div class="dn">Vendredi</div><div class="dd">27</div></div>
+        </div>
+
+        <div class="lh-r"><div class="top"><span class="sq" style="background:#5b7d4e"></span><span class="code">DCP-01</span></div><span class="name">Découpe Fan · Caisses</span><div class="load"><span class="v">66 %</span><span class="l">charge</span></div><div class="bar"><i style="width:66%;background:#5b7d4e"></i></div></div>
+        <div class="cell"></div>
+        <div class="cell"><div class="card planifie"><div class="art">XTR108120</div><div class="ord"><b>AR24712 · L1</b> · Caisse VMC D350</div><div class="cli">Eiffage</div><div class="foot"><span class="typ">MTO</span><span class="h">8,0 h</span></div><span class="feas ok">✓</span></div></div>
+        <div class="cell"></div>
+        <div class="cell"><div class="card suggere"><div class="art">XTR107842</div><div class="ord"><b>SGA8902</b> · Caisse VMC D250</div><div class="cli">Prévision stock</div><div class="foot"><span class="typ">MTS</span><span class="h">4,5 h</span></div></div></div>
+        <div class="cell"></div>
+
+        <div class="lh-r"><div class="top"><span class="sq" style="background:#2f4858"></span><span class="code">SDR-02</span></div><span class="name">Soudure Caisson · Robot</span><div class="load"><span class="v" style="color:var(--terra)">88 %</span><span class="l">charge</span></div><div class="bar"><i style="width:88%;background:#b8472a"></i></div></div>
+        <div class="cell"><div class="card planifie"><div class="art">VMC-310</div><div class="ord"><b>AR24730 · L1</b> · Caisson isolé</div><div class="cli">Eiffage</div><div class="foot"><span class="typ">MTO</span><span class="h">8,0 h</span></div></div><div class="card ferme"><div class="art">VMC-220</div><div class="ord"><b>AR24741 · L2</b> · Bloc double flux</div><div class="cli">Vinci</div><div class="foot"><span class="typ">MTS</span><span class="h">4,0 h</span></div></div></div>
+        <div class="cell"><div class="card planifie"><div class="art">VMC-220</div><div class="ord"><b>AR24755 · L1</b> · Bloc double flux</div><div class="cli">Bouygues</div><div class="foot"><span class="typ">MTS</span><span class="h">7,5 h</span></div><span class="feas bad">!</span></div></div>
+        <div class="cell"></div>
+        <div class="cell"><div class="card ferme"><div class="art">VMC-310</div><div class="ord"><b>AR24770 · L1</b> · Caisson isolé</div><div class="cli">CDC Habitat</div><div class="foot"><span class="typ">MTO</span><span class="h">8,0 h</span></div></div></div>
+        <div class="cell"></div>
+
+        <div class="lh-r"><div class="top"><span class="sq" style="background:#b8862c"></span><span class="code">PUD-03</span></div><span class="name">Peinture Poudre · Four</span><div class="load"><span class="v">73 %</span><span class="l">charge</span></div><div class="bar"><i style="width:73%;background:#2f4858"></i></div></div>
+        <div class="cell"></div>
+        <div class="cell"></div>
+        <div class="cell"><div class="card planifie"><div class="art">VMC-310</div><div class="ord"><b>AR24712 · L1</b> · Caisson isolé</div><div class="cli">Eiffage</div><div class="foot"><span class="typ">MTO</span><span class="h">6,5 h</span></div><span class="feas ok">✓</span></div></div>
+        <div class="cell"><div class="card ferme"><div class="art">VMC-310</div><div class="ord"><b>AR24730 · L1</b> · Caisson isolé</div><div class="cli">Eiffage</div><div class="foot"><span class="typ">MTO</span><span class="h">5,5 h</span></div></div></div>
+        <div class="cell"></div>
+
+        <div class="lh-r"><div class="top"><span class="sq" style="background:#8b5cf6"></span><span class="code">ASV-04</span></div><span class="name">Assemblage VMC · Manuel</span><div class="load"><span class="v">45 %</span><span class="l">charge</span></div><div class="bar"><i style="width:45%;background:#5b7d4e"></i></div></div>
+        <div class="cell"><div class="card suggere"><div class="art">VMC-310</div><div class="ord"><b>SGA8860</b> · Caisson isolé</div><div class="cli">Prévision stock</div><div class="foot"><span class="typ">MTS</span><span class="h">4,0 h</span></div></div></div>
+        <div class="cell"></div>
+        <div class="cell"></div>
+        <div class="cell"><div class="card planifie"><div class="art">VMC-220</div><div class="ord"><b>AR24741 · L2</b> · Bloc double flux</div><div class="cli">Vinci</div><div class="foot"><span class="typ">MTS</span><span class="h">7,0 h</span></div><span class="feas ok">✓</span></div></div>
+        <div class="cell"></div>
+
+        <div class="lh-r"><div class="top"><span class="sq" style="background:#857967"></span><span class="code">CTL-05</span></div><span class="name">Contrôlage Final · Banc</span><div class="load"><span class="v" style="color:var(--terra)">80 %</span><span class="l">charge</span></div><div class="bar"><i style="width:80%;background:#b8472a"></i></div></div>
+        <div class="cell"><div class="card planifie"><div class="art">VMC-310</div><div class="ord"><b>AR24712 · L1</b> · Caisson isolé</div><div class="cli">Eiffage</div><div class="foot"><span class="typ">MTO</span><span class="h">4,0 h</span></div></div></div>
+        <div class="cell"></div>
+        <div class="cell"><div class="card planifie"><div class="art">VMC-220</div><div class="ord"><b>AR24755 · L1</b> · Bloc double flux</div><div class="cli">Bouygues</div><div class="foot"><span class="typ">MTS</span><span class="h">4,0 h</span></div></div></div>
+        <div class="cell"><div class="card ferme"><div class="art">VMC-310</div><div class="ord"><b>AR24770 · L1</b> · Caisson isolé</div><div class="cli">CDC Habitat</div><div class="foot"><span class="typ">MTO</span><span class="h">4,0 h</span></div></div></div>
+        <div class="cell"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Planning Board · C « Bento »</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,400,0,0" rel="stylesheet" />
+<style>
+:root{
+  --bg:#e6eceb; --bg2:#dfe6e4; --panel:#fbfaf4; --panel2:#f2f4ee; --line:#cdd6d3; --line-soft:#e0e6e3;
+  --ink:#15201f; --ink2:#3a4846; --muted:#6b7876;
+  --teal:#0e7c72; --teal-d:#0a5e57; --teal-soft:rgba(14,124,114,.12);
+  --orange:#e8602c; --orange-soft:rgba(232,96,44,.12);
+  --ferme:#2f8f5b; --planifie:#0e7c72; --suggere:#d08a22; --danger:#e8602c;
+  --r:16px; --r-md:12px; --r-sm:8px;
+  --font-d:"Bricolage Grotesque",system-ui,sans-serif;
+  --font-s:"Inter",system-ui,sans-serif;
+  --font-m:"JetBrains Mono",ui-monospace,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-s);font-size:13px;-webkit-font-smoothing:antialiased}
+.material-symbols-outlined{font-family:"Material Symbols Outlined";font-weight:400;font-style:normal;line-height:1;font-feature-settings:"liga";-webkit-font-smoothing:antialiased}
+.mono{font-family:var(--font-m)}
+*{scrollbar-width:thin;scrollbar-color:#b9c4c1 transparent}
+*::-webkit-scrollbar{width:10px;height:10px}
+*::-webkit-scrollbar-thumb{background:#b9c4c1;border-radius:9px;border:3px solid var(--bg)}
+
+.app{height:100vh;display:flex;flex-direction:column;overflow:hidden}
+/* header — bandeau teal bold */
+header.bar{height:58px;background:var(--teal);color:#fbfaf4;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:0 20px;flex:none}
+.bar-l,.bar-r{display:flex;align-items:center;gap:12px}
+.wordmark{display:flex;align-items:center;gap:11px}
+.wordmark .mk{width:32px;height:32px;border-radius:9px;background:var(--orange);display:flex;align-items:center;justify-content:center;color:#fff;font:800 16px var(--font-d)}
+.wordmark h1{font:800 19px var(--font-d);letter-spacing:-.03em;line-height:1}
+.crumb{font:600 12px var(--font-s);opacity:.85;display:flex;align-items:center;gap:6px}
+.crumb b{font-weight:700}
+.divider{width:1px;height:24px;background:rgba(255,255,255,.22)}
+.cmd{display:flex;align-items:center;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);border-radius:999px;height:34px;padding:0 6px 0 14px;transition:.15s}
+.cmd:focus-within{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.4)}
+.cmd .material-symbols-outlined{font-size:18px;opacity:.8}
+.cmd input{border:0;outline:0;background:transparent;font:500 13px var(--font-s);width:200px;color:#fbfaf4}
+.cmd input::placeholder{color:rgba(255,255,255,.6)}
+.chip{font:700 10px var(--font-m);text-transform:uppercase;letter-spacing:.08em;color:rgba(255,255,255,.75);background:rgba(255,255,255,.1);border-radius:999px;padding:6px 12px;cursor:pointer;transition:.15s}
+.chip.on{color:#0a3a36;background:#fbfaf4}
+.chip:hover{color:#fff}
+.iconbtn{width:34px;height:34px;border-radius:10px;border:0;background:rgba(255,255,255,.12);color:#fbfaf4;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:.15s}
+.iconbtn:hover{background:rgba(255,255,255,.22)}
+.iconbtn .material-symbols-outlined{font-size:20px}
+.btn{display:inline-flex;align-items:center;gap:7px;font:700 13px var(--font-d);border-radius:999px;padding:9px 16px;cursor:pointer;transition:.15s;border:0}
+.btn .material-symbols-outlined{font-size:18px}
+.btn-orange{background:var(--orange);color:#fff}
+.btn-orange:hover{background:#d4541f}
+.avatar{width:32px;height:32px;border-radius:50%;background:#fbfaf4;color:var(--teal);font:800 11px var(--font-d);display:flex;align-items:center;justify-content:center}
+
+/* body: bento column + board */
+.body{flex:1;display:grid;grid-template-columns:248px 1fr;overflow:hidden;min-height:0}
+/* bento column */
+.bento{background:var(--bg2);border-right:1px solid var(--line);padding:14px;display:flex;flex-direction:column;gap:12px;overflow:auto}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-md);padding:14px;box-shadow:0 1px 2px rgba(20,32,31,.04)}
+.tile.dark{background:var(--ink);color:#fbfaf4;border-color:var(--ink)}
+.tile.teal{background:var(--teal);color:#fbfaf4;border-color:var(--teal)}
+.tile.orange{background:var(--orange);color:#fff;border-color:var(--orange)}
+.tile .t-lab{font:700 9px var(--font-m);text-transform:uppercase;letter-spacing:.12em;opacity:.7;display:flex;align-items:center;gap:6px}
+.tile .t-lab .material-symbols-outlined{font-size:13px}
+.tile .t-val{font:800 32px var(--font-d);letter-spacing:-.03em;line-height:1;margin-top:6px}
+.tile .t-val .u{font:600 13px var(--font-s);opacity:.7}
+.tile .t-sub{font:500 11px var(--font-s);margin-top:5px;opacity:.8}
+/* gauge tile */
+.gauge{position:relative;height:8px;border-radius:999px;background:rgba(255,255,255,.18);margin-top:10px;overflow:hidden}
+.gauge i{display:block;height:100%;background:#fbfaf4;border-radius:999px}
+.tile.dark .gauge{background:rgba(255,255,255,.1)}
+.tile.dark .gauge i{background:var(--teal)}
+/* mini bars */
+.minichart{display:flex;align-items:flex-end;gap:3px;height:30px;margin-top:10px}
+.minichart i{flex:1;background:rgba(14,124,114,.25);border-radius:4px 4px 0 0;min-width:5px}
+.minichart i.hi{background:var(--orange)}
+.minichart i.md{background:var(--teal)}
+/* ruptures list in bento */
+.rup{display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid var(--line-soft)}
+.rup:last-child{border-bottom:0}
+.rup .dot{width:7px;height:7px;border-radius:50%;background:var(--danger);flex:none}
+.rup .a{font:700 11px var(--font-m);color:var(--ink);min-width:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rup .q{font:700 10px var(--font-m);color:var(--danger);background:var(--orange-soft);padding:2px 6px;border-radius:6px;flex:none}
+.legend-tile{display:flex;flex-wrap:wrap;gap:10px}
+.legend-tile span{display:flex;align-items:center;gap:6px;font:600 11px var(--font-s);color:var(--ink2)}
+.legend-tile i{width:9px;height:9px;border-radius:3px}
+
+/* board area */
+.board-wrap{padding:14px 16px;overflow:auto;background:var(--bg)}
+.boardhead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.winnav{display:flex;align-items:center;gap:4px}
+.winnav a{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:var(--ink2);text-decoration:none;background:var(--panel);border:1px solid var(--line);transition:.15s}
+.winnav a:hover{background:var(--teal);color:#fff;border-color:var(--teal)}
+.winnav .material-symbols-outlined{font-size:19px}
+.period{font:800 20px var(--font-d);letter-spacing:-.025em}
+.period .yr{color:var(--muted);font-weight:600}
+.horizon-pill{display:flex;align-items:center;gap:6px;font:700 12px var(--font-m);color:var(--teal);background:var(--teal-soft);border-radius:999px;padding:7px 13px}
+.horizon-pill input{width:20px;border:0;outline:0;background:transparent;font:800 12px var(--font-m);color:var(--teal);text-align:center}
+.daterange{font:700 12px var(--font-m);color:var(--ink2)}
+
+.grid{display:grid;grid-template-columns:170px repeat(10,minmax(82px,1fr));min-width:calc(170px + 10*90px);background:var(--panel);border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden;box-shadow:0 4px 14px -8px rgba(20,32,31,.12)}
+.wkband{grid-column:1/-1;display:grid;grid-template-columns:170px repeat(10,minmax(82px,1fr));min-width:calc(170px + 10*90px)}
+.wkband .wk{grid-column:span 5;padding:8px 14px;display:flex;align-items:center;gap:9px;border-bottom:1px solid var(--line)}
+.wkband .wk:first-of-type{background:var(--panel2)}
+.wkband .wk:nth-of-type(2){background:var(--panel2);border-left:1px solid var(--line)}
+.wkband .wk .wn{font:800 12px var(--font-d);color:var(--teal);letter-spacing:-.01em}
+.wkband .wk .chg{margin-left:auto;font:700 9px var(--font-m);color:var(--ink2)}
+.wkband .corner{background:var(--panel2);border-bottom:1px solid var(--line)}
+.dhead{grid-column:1/-1;display:grid;grid-template-columns:170px repeat(10,minmax(82px,1fr));min-width:calc(170px + 10*90px);background:var(--panel);border-bottom:1px solid var(--line)}
+.dhead .lh{padding:8px 12px;font:700 9px var(--font-m);text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+.dhead .dc{padding:6px 4px;text-align:center;border-left:1px solid var(--line-soft)}
+.dhead .dc .dn{font:600 8px var(--font-m);text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.dhead .dc .dd{font:800 16px var(--font-d);color:var(--ink);line-height:1.1;letter-spacing:-.02em}
+.dhead .dc.today .dn{color:var(--orange)}
+.dhead .dc.today .dd{color:var(--orange)}
+.dhead .dc .pct{font:700 8px var(--font-m);color:var(--muted);margin-top:1px}
+.dhead .dc .pct.hot{color:var(--orange)}
+.dhead .dc .pct.warm{color:var(--suggere)}
+.row{display:contents}
+.lh-r{background:var(--panel);border-right:1px solid var(--line);border-bottom:1px solid var(--line-soft);padding:9px 12px;display:flex;flex-direction:column;justify-content:center;gap:3px;min-width:170px}
+.lh-r .top{display:flex;align-items:center;gap:7px}
+.lh-r .sq{width:9px;height:9px;border-radius:3px}
+.lh-r .code{font:800 12px var(--font-d);color:var(--ink);letter-spacing:-.01em}
+.lh-r .name{font:500 9px var(--font-s);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lh-r .load{display:flex;align-items:center;gap:6px;font:700 9px var(--font-m);color:var(--muted)}
+.lh-r .load b{color:var(--ink)}
+.lh-r .mb{flex:1;height:4px;border-radius:4px;background:var(--line-soft);overflow:hidden;max-width:40px}
+.lh-r .mb i{display:block;height:100%;border-radius:4px}
+.cell{background:var(--panel);border-left:1px solid var(--line-soft);border-bottom:1px solid var(--line-soft);padding:4px;display:flex;flex-direction:column;gap:4px;min-height:46px}
+.cell.today{background:var(--orange-soft)}
+.card{position:relative;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:5px 7px;cursor:pointer;transition:.15s}
+.card:hover{background:#fff;border-color:var(--teal);transform:translateY(-1px);box-shadow:0 4px 10px -4px rgba(14,124,114,.3)}
+.card.ferme{border-top:3px solid var(--ferme);padding-top:3px}
+.card.planifie{border-top:3px solid var(--planifie);padding-top:3px}
+.card.suggere{border-top:3px solid var(--suggere);padding-top:3px}
+.card.mod{box-shadow:0 0 0 1.5px var(--teal);border-color:var(--teal)}
+.card .ct{display:flex;align-items:center;justify-content:space-between;gap:4px}
+.card .ctitle{font:700 9px var(--font-m);color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card .ch{font:700 8px var(--font-m);color:var(--teal);background:var(--teal-soft);border-radius:5px;padding:1px 4px;flex:none}
+.card .cm{display:flex;align-items:center;gap:4px;color:var(--muted);font:500 8px var(--font-s);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card .cype{font:700 7px var(--font-m);color:var(--orange);text-transform:uppercase;letter-spacing:.06em}
+.card .feas{position:absolute;top:-5px;right:-5px;width:14px;height:14px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:9px;font-weight:700;border:2px solid var(--panel)}
+.card .feas.ok{background:var(--ferme)}
+.card .feas.bad{background:var(--danger)}
+.card .ovr{width:5px;height:5px;border-radius:50%;background:var(--suggere);flex:none}
+
+.tag{position:fixed;top:14px;right:20px;z-index:60;font:800 10px var(--font-d);text-transform:uppercase;letter-spacing:.08em;color:#fff;background:var(--orange);padding:6px 12px;border-radius:999px;display:flex;align-items:center;gap:7px;box-shadow:0 4px 12px rgba(232,96,44,.4)}
+.tag .material-symbols-outlined{font-size:15px}
+</style>
+</head>
+<body>
+<div class="tag"><span class="material-symbols-outlined">dashboard</span> C · « Bento »</div>
+
+<div class="app">
+  <!-- header -->
+  <header class="bar">
+    <div class="bar-l">
+      <div class="wordmark"><div class="mk">F</div><h1>FactoryOS</h1></div>
+      <div class="divider"></div>
+      <div class="crumb">Planification <span style="opacity:.5">/</span> <b>Commandes ouvertes</b></div>
+    </div>
+    <div class="bar-r">
+      <div class="cmd"><span class="material-symbols-outlined">search</span><input placeholder="Rechercher…" /></div>
+      <span class="chip on">Commande</span>
+      <span class="chip">Prévision</span>
+      <button class="btn btn-orange"><span class="material-symbols-outlined">fact_check</span>Faisabilité</button>
+      <div class="avatar">OP</div>
+    </div>
+  </header>
+
+  <div class="body">
+    <!-- bento column -->
+    <aside class="bento">
+      <div class="tile teal">
+        <div class="t-lab"><span class="material-symbols-outlined">gauge</span>Charge globale</div>
+        <div class="t-val">78<span class="u">%</span></div>
+        <div class="t-sub">+6 pts vs S24 · 2 postes en surcharge</div>
+        <div class="gauge"><i style="width:78%"></i></div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="tile" style="padding:12px">
+          <div class="t-lab" style="color:var(--muted)">Lignes</div>
+          <div class="t-val" style="font-size:24px;color:var(--ink)">53</div>
+          <div class="t-sub" style="color:var(--ferme)">15 livrées S25</div>
+        </div>
+        <div class="tile orange" style="padding:12px">
+          <div class="t-lab"><span class="material-symbols-outlined">warning</span>Ruptures</div>
+          <div class="t-val" style="font-size:24px">3</div>
+          <div class="t-sub">2 OF bloqués</div>
+        </div>
+      </div>
+
+      <div class="tile">
+        <div class="t-lab" style="color:var(--muted)">Charge par jour</div>
+        <div class="minichart">
+          <i style="height:62%"></i><i class="md" style="height:78%"></i><i class="hi" style="height:91%"></i><i style="height:54%"></i><i class="md" style="height:70%"></i>
+          <i style="height:66%"></i><i class="hi" style="height:88%"></i><i class="md" style="height:73%"></i><i style="height:60%"></i><i class="md" style="height:82%"></i>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:6px;font:600 8px var(--font-m);color:var(--muted)">
+          <span>16</span><span>27 juin</span>
+        </div>
+      </div>
+
+      <div class="tile">
+        <div class="t-lab" style="color:var(--muted)"><span class="material-symbols-outlined">crisis_alert</span>Ruptures composants</div>
+        <div class="rup"><span class="dot"></span><span class="a">MOT-33012 · Moteur</span><span class="q">−42</span></div>
+        <div class="rup"><span class="dot"></span><span class="a">ECP-55821 · Échangeur</span><span class="q">−18</span></div>
+        <div class="rup"><span class="dot"></span><span class="a">CAR-90044 · Filtre G4</span><span class="q">−7</span></div>
+      </div>
+
+      <div class="tile">
+        <div class="t-lab" style="color:var(--muted)">Légende statuts</div>
+        <div class="legend-tile" style="margin-top:8px">
+          <span><i style="background:var(--ferme)"></i>Ferme</span>
+          <span><i style="background:var(--planifie)"></i>Planifié</span>
+          <span><i style="background:var(--suggere)"></i>Suggéré</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- board -->
+    <div class="board-wrap">
+      <div class="boardhead">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div class="winnav">
+            <a href="#"><span class="material-symbols-outlined">chevron_left</span></a>
+            <a href="#"><span class="material-symbols-outlined">chevron_right</span></a>
+          </div>
+          <div class="period">Juin <span class="yr">2026</span></div>
+          <span class="daterange">16 → 27</span>
+        </div>
+        <div class="horizon-pill"><span class="material-symbols-outlined" style="font-size:15px">date_range</span><input type="number" value="10" />jours</div>
+      </div>
+
+      <div class="grid">
+        <div class="wkband">
+          <div class="corner"></div>
+          <div class="wk"><span class="wn">S25</span><span class="chg">CHARGE 71%</span></div>
+          <div class="wk"><span class="wn">S26</span><span class="chg">CHARGE 81%</span></div>
+        </div>
+        <div class="dhead">
+          <div class="lh">Poste</div>
+          <div class="dc"><div class="dn">Lun</div><div class="dd">16</div><div class="pct">62%</div></div>
+          <div class="dc today"><div class="dn">Mar</div><div class="dd">17</div><div class="pct warm">78%</div></div>
+          <div class="dc"><div class="dn">Mer</div><div class="dd">18</div><div class="pct hot">91%</div></div>
+          <div class="dc"><div class="dn">Jeu</div><div class="dd">19</div><div class="pct">54%</div></div>
+          <div class="dc"><div class="dn">Ven</div><div class="dd">20</div><div class="pct">70%</div></div>
+          <div class="dc"><div class="dn">Lun</div><div class="dd">23</div><div class="pct">66%</div></div>
+          <div class="dc"><div class="dn">Mar</div><div class="dd">24</div><div class="pct warm">88%</div></div>
+          <div class="dc"><div class="dn">Mer</div><div class="dd">25</div><div class="pct">73%</div></div>
+          <div class="dc"><div class="dn">Jeu</div><div class="dd">26</div><div class="pct">60%</div></div>
+          <div class="dc"><div class="dn">Ven</div><div class="dd">27</div><div class="pct warm">82%</div></div>
+        </div>
+
+        <!-- Ligne 1 -->
+        <div class="row">
+          <div class="lh-r"><div class="top"><span class="sq" style="background:var(--ferme)"></span><span class="code">DCP-01</span></div><span class="name">Découpe Fan</span><div class="load"><b>9</b>OF<b>64%</b><span class="mb"><i style="width:64%;background:var(--ferme)"></i></span></div></div>
+          <div class="cell"></div>
+          <div class="cell today"><div class="card ferme"><div class="ct"><span class="ctitle">AR24518·L2</span><span class="ch">6,0h</span></div><div class="cm"><span class="cype">MTS</span>AXION</div></div></div>
+          <div class="cell"><div class="card planifie"><div class="ct"><span class="ctitle">AR24601·L1</span><span class="ch">7,5h</span></div><div class="cm"><span class="cype">MTO</span>CDC Habitat</div></div><div class="card ferme mod"><div class="ct"><span class="ctitle">AR24490·L4</span><span class="ch">3,0h</span></div><div class="cm"><span class="ovr"></span><span class="cype">MTS</span>Bouygues</div><span class="feas bad">!</span></div></div>
+          <div class="cell"></div>
+          <div class="cell"><div class="card suggere"><div class="ct"><span class="ctitle">SGA8841</span><span class="ch">5,0h</span></div><div class="cm"><span class="cype">MTS</span>Prévision</div></div></div>
+          <div class="cell"></div>
+          <div class="cell"><div class="card planifie"><div class="ct"><span class="ctitle">AR24712·L1</span><span class="ch">8,0h</span></div><div class="cm"><span class="cype">MTO</span>Eiffage</div><span class="feas ok">✓</span></div></div>
+          <div class="cell"></div><div class="cell"></div>
+          <div class="cell"><div class="card suggere"><div class="ct"><span class="ctitle">SGA8902</span><span class="ch">4,5h</span></div><div class="cm"><span class="cype">MTS</span>Prévision</div></div></div>
+          <div class="cell"></div>
+        </div>
+
+        <!-- Ligne 2 -->
+        <div class="row">
+          <div class="lh-r"><div class="top"><span class="sq" style="background:var(--planifie)"></span><span class="code">SDR-02</span></div><span class="name">Soudure Robot</span><div class="load"><b>14</b>OF<b>91%</b><span class="mb"><i style="width:91%;background:var(--orange)"></i></span></div></div>
+          <div class="cell"><div class="card ferme"><div class="ct"><span class="ctitle">AR24533·L1</span><span class="ch">8,0h</span></div><div class="cm"><span class="cype">MTO</span>Vinci</div></div></div>
+          <div class="cell today"><div class="card planifie"><div class="ct"><span class="ctitle">AR24588·L3</span><span class="ch">7,0h</span></div><div class="cm"><span class="cype">MTS</span>AXION</div></div><div class="card planifie mod"><div class="ct"><span class="ctitle">AR24610·L2</span><span class="ch">5,5h</span></div><div class="cm"><span class="ovr"></span><span class="cype">MTO</span>Bouygues</div></div></div>
+          <div class="cell"><div class="card ferme"><div class="ct"><span class="ctitle">AR24622·L1</span><span class="ch">8,0h</span></div><div class="cm"><span class="cype">MTO</span>CDC Habitat</div><span class="feas ok">✓</span></div></div>
+          <div class="cell"><div class="card suggere"><div class="ct"><span class="ctitle">SGA8845</span><span class="ch">6,0h</span></div><div class="cm"><span class="cype">MTS</span>Prévision</div></div></div>
+          <div class="cell"></div>
+          <div class="cell"><div class="card planifie"><div class="ct"><span class="ctitle">AR24730·L1</span><span class="ch">8,0h</span></div><div class="cm"><span class="cype">MTO</span>Eiffage</div></div><div class="card ferme"><div class="ct"><span class="ctitle">AR24741·L2</span><span class="ch">4,0h</span></div><div class="cm"><span class="cype">MTS</span>Vinci</div></div></div>
+          <div class="cell"><div class="card planifie"><div class="ct"><span class="ctitle">AR24755·L1</span><span class="ch">7,5h</span></div><div class="cm"><span class="cype">MTS</span>Bouygues</div><span class="feas bad">!</span></div></div>
+          <div class="cell"></div>
+          <div class="cell"><div class="card ferme"><div class="ct"><span class="ctitle">AR24770·L1</span><span class="ch">8,0h</span></div><div class="cm"><span class="cype">MTO</span>CDC Habitat</div></div></div>
+          <div class="cell"></div>
+        </div>
+
+        <!-- Ligne 3 -->
+        <div class="row">
+          <div class="lh-r"><div class="top"><span class="sq" style="background:var(--suggere)"></span><span class="code">PUD-03</span></div><span class="name">Peinture Four</span><div class="load"><b>11</b>OF<b>78%</b><span class="mb"><i style="width:78%;background:var(--planifie)"></i></span></div></div>
+          <div class="cell"></div>
+          <div class="cell today"></div>
+          <div class="cell"><div class="card ferme"><div class="ct"><span class="ctitle">AR24533·L1</span><span class="ch">6,0h</span></div><div class="cm"><span class="cype">MTO</span>Vinci</div></div></div>
+          <div class="cell"><div class="card planifie"><div class="ct"><span class="ctitle">AR24588·L3</span><span class="ch">5,0h</span></div><div class="cm"><span class="cype">MTS</span>AXION</div></div></div>
+          <div class="cell"><div class="card suggere mod"><div class="ct"><span class="ctitle">SGA8850</span><span class="ch">7,0h</span></div><div class="cm"><span class="ovr"></span><span class="cype">MTS</span>Prévision</div></div></div>
+          <div class="cell"></div><div class="cell"></div>
+          <div class="cell"><div class="card planifie"><div class="ct"><span class="ctitle">AR24712·L1</span><span class="ch">6,5h</span></div><div class="cm"><span class="cype">MTO</span>Eiffage</div><span class="feas ok">✓</span></div></div>
+          <div class="cell"><div class="card ferme"><div class="ct"><span class="ctitle">AR24730·L1</span><span class="ch">5,5h</span></div><div class="cm"><span class="cype">MTO</span>Eiffage</div></div></div>
+          <div class="cell"></div><div class="cell"></div>
+        </div>
+
+        <!-- Ligne 4 -->
+        <div class="row">
+          <div class="lh-r"><div class="top"><span class="sq" style="background:#8b5cf6"></span><span class="code">ASV-04</span></div><span class="name">Assemblage VMC</span><div class="load"><b>7</b>OF<b>52%</b><span class="mb"><i style="width:52%;background:var(--ferme)"></i></span></div></div>
+          <div class="cell"><div class="card ferme"><div class="ct"><span class="ctitle">AR24518·L2</span><span class="ch">5,0h</span></div><div class="cm"><span class="cype">MTS</span>AXION</div></div></div>
+          <div class="cell today"></div>
+          <div class="cell"></div>
+          <div class="cell"><div class="card planifie"><div class="ct"><span class="ctitle">AR24610·L2</span><span class="ch">6,0h</span></div><div class="cm"><span class="cype">MTO</span>Bouygues</div></div></div>
+          <div class="cell"></div>
+          <div class="cell"><div class="card suggere"><div class="ct"><span class="ctitle">SGA8860</span><span class="ch">4,0h</span></div><div class="cm"><span class="cype">MTS</span>Prévision</div></div></div>
+          <div class="cell"></div><div class="cell"></div>
+          <div class="cell"><div class="card planifie"><div class="ct"><span class="ctitle">AR24741·L2</span><span class="ch">7,0h</span></div><div class="cm"><span class="cype">MTS</span>Vinci</div><span class="feas ok">✓</span></div></div>
+          <div class="cell"></div>
+        </div>
+
+        <!-- Ligne 5 -->
+        <div class="row">
+          <div class="lh-r"><div class="top"><span class="sq" style="background:var(--muted)"></span><span class="code">CTL-05</span></div><span class="name">Contrôlage Final</span><div class="load"><b>12</b>OF<b>88%</b><span class="mb"><i style="width:88%;background:var(--orange)"></i></span></div></div>
+          <div class="cell"></div>
+          <div class="cell today"><div class="card ferme"><div class="ct"><span class="ctitle">AR24533·L1</span><span class="ch">4,0h</span></div><div class="cm"><span class="cype">MTO</span>Vinci</div></div></div>
+          <div class="cell"></div>
+          <div class="cell"><div class="card planifie"><div class="ct"><span class="ctitle">AR24588·L3</span><span class="ch">3,5h</span></div><div class="cm"><span class="cype">MTS</span>AXION</div></div></div>
+          <div class="cell"><div class="card ferme"><div class="ct"><span class="ctitle">AR24622·L1</span><span class="ch">4,0h</span></div><div class="cm"><span class="cype">MTO</span>CDC Habitat</div></div></div>
+          <div class="cell"></div>
+          <div class="cell"><div class="card planifie"><div class="ct"><span class="ctitle">AR24712·L1</span><span class="ch">4,0h</span></div><div class="cm"><span class="cype">MTO</span>Eiffage</div></div></div>
+          <div class="cell"></div>
+          <div class="cell"><div class="card planifie"><div class="ct"><span class="ctitle">AR24755·L1</span><span class="ch">4,0h</span></div><div class="cm"><span class="cype">MTS</span>Bouygues</div></div></div>
+          <div class="cell"><div class="card ferme"><div class="ct"><span class="ctitle">AR24770·L1</span><span class="ch">4,0h</span></div><div class="cm"><span class="cype">MTO</span>CDC Habitat</div></div></div>
+          <div class="cell"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

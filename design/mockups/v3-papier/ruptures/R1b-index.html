@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Ruptures · R1b « Index »</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,300,0,0" rel="stylesheet" />
+<style>
+:root{
+  --paper:#f6f0e2; --paper-warm:#f1eadb; --panel:#fcf9f1;
+  --hair:#e6dcc4; --rule:#d6cab0;
+  --ink:#1c1812; --ink2:#473f34; --muted:#8c7e68; --mute2:#aa9d86;
+  --terra:#a8431f; --ochre:#9a7414; --sage:#516b3f; --danger:#9a3320;
+  --font-d:"Fraunces",Georgia,serif; --font-s:"Inter",system-ui,sans-serif; --font-m:"JetBrains Mono",ui-monospace,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--paper);color:var(--ink);font-family:var(--font-s);font-size:14px;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;font-variant-numeric:tabular-nums}
+.material-symbols-outlined{font-family:"Material Symbols Outlined";font-weight:300;line-height:1;font-feature-settings:"liga";-webkit-font-smoothing:antialiased;vertical-align:middle}
+.mono{font-family:var(--font-m);font-variant-numeric:tabular-nums}
+*{scrollbar-width:thin;scrollbar-color:#c9bb9d transparent}
+*::-webkit-scrollbar{width:11px;height:11px}
+*::-webkit-scrollbar-thumb{background:#c9bb9d;border-radius:9px;border:3px solid var(--paper)}
+
+.app{height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+/* ═══ Masthead — minimal ═══ */
+.mast{flex:none;padding:26px 56px 0;background:var(--paper)}
+.mast-row{display:flex;align-items:flex-end;justify-content:space-between;gap:24px}
+.title-block .eyebrow{font:600 10px var(--font-s);text-transform:uppercase;letter-spacing:.28em;color:var(--mute2);margin-bottom:8px}
+.title-block h1{font:900 40px var(--font-d);letter-spacing:-.04em;line-height:.95}
+.title-block h1 em{font-style:italic;font-weight:500;color:var(--terra)}
+.crumb{font:500 11px var(--font-s);color:var(--muted);letter-spacing:.04em;margin-top:8px}
+.crumb a{color:var(--ink2);text-decoration:none}
+.crumb a:hover{color:var(--terra)}
+.mast-right{display:flex;align-items:center;gap:18px;padding-bottom:6px}
+.cmd{display:flex;align-items:center;background:transparent;border-bottom:1px solid var(--rule);height:30px;padding:0 4px 0 0;transition:.15s}
+.cmd:focus-within{border-color:var(--terra)}
+.cmd .material-symbols-outlined{font-size:17px;color:var(--mute2)}
+.cmd input{border:0;outline:0;background:transparent;font:400 13px var(--font-d);font-style:italic;width:210px;color:var(--ink)}
+.cmd input::placeholder{color:var(--mute2)}
+.ulink{font:600 11px var(--font-s);text-transform:uppercase;letter-spacing:.12em;color:var(--muted);text-decoration:none;display:inline-flex;align-items:center;gap:5px}
+.ulink:hover{color:var(--terra)}
+.avatar{width:30px;height:30px;border-radius:50%;background:var(--ink);color:var(--paper);font:700 10px var(--font-m);display:flex;align-items:center;justify-content:center}
+.thinrule{border-top:1px solid var(--rule);margin:20px 56px 0}
+
+/* ═══ Summary line — typographic, no tiles ═══ */
+.summary{padding:24px 56px 4px;display:flex;align-items:baseline;gap:0;flex-wrap:wrap}
+.summary .s{font:400 15px var(--font-d);color:var(--ink2);padding-right:26px;margin-right:26px;border-right:1px solid var(--hair);letter-spacing:-.005em}
+.summary .s:last-child{border-right:0}
+.summary .s .n{font:900 28px var(--font-d);color:var(--ink);letter-spacing:-.04em;vertical-align:-.28em;margin-right:5px}
+.summary .s .n.bad{color:var(--danger)} .summary .s .n.warn{color:var(--ochre)} .summary .s .n.ok{color:var(--sage)}
+.summary .s .lab{font:500 11px var(--font-s);text-transform:uppercase;letter-spacing:.12em;color:var(--mute2);display:block;margin-top:2px}
+
+/* ═══ List — airy, restraint ═══ */
+.sheet{flex:1;overflow:auto;padding:18px 56px 56px}
+.idx{max-width:1240px;margin:0 auto}
+.idx-head{display:grid;grid-template-columns:4px 2.1fr 0.7fr 1.5fr 0.8fr 2fr 0.9fr;gap:28px;padding:10px 0 12px;border-bottom:1px solid var(--rule);font:600 9px var(--font-s);text-transform:uppercase;letter-spacing:.18em;color:var(--mute2)}
+.idx-head .r{text-align:right}
+.idx-head .c{text-align:center}
+.row{display:grid;grid-template-columns:4px 2.1fr 0.7fr 1.5fr 0.8fr 2fr 0.9fr;gap:28px;align-items:center;padding:21px 0;border-bottom:1px solid var(--hair);transition:background .14s}
+.row:hover{background:var(--paper-warm)}
+.row:last-child{border-bottom:0}
+.sev{width:4px;height:46px;border-radius:2px;justify-self:start}
+.sev.bad{background:var(--danger)} .sev.warn{background:var(--ochre)} .sev.ok{background:var(--sage)}
+/* component hero */
+.comp .c{font:600 21px var(--font-d);color:var(--ink);letter-spacing:-.025em;line-height:1.05;font-variant-numeric:tabular-nums}
+.comp .d{font:400 12px var(--font-d);color:var(--muted);font-style:italic;margin-top:3px;letter-spacing:-.005em}
+/* qty */
+.qty{font:900 30px var(--font-d);color:var(--danger);text-align:right;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums}
+.qty .lab{display:block;font:500 9px var(--font-s);text-transform:uppercase;letter-spacing:.14em;color:var(--mute2);margin-top:4px;letter-spacing:.14em}
+/* commande */
+.cmdc .n{font:600 14px var(--font-m);color:var(--ink)}
+.cmdc .cl{font:400 13px var(--font-d);color:var(--muted);font-style:italic;margin-top:3px}
+/* besoin date */
+.besoin{text-align:center}
+.besoin .d{font:600 16px var(--font-d);color:var(--ink);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.besoin .l{font:500 9px var(--font-s);text-transform:uppercase;letter-spacing:.14em;color:var(--mute2);margin-top:3px}
+/* couverture story */
+.couv{font:400 14px var(--font-d);color:var(--ink2);line-height:1.4}
+.couv .id{font:600 13px var(--font-m);color:var(--ink);font-style:normal}
+.couv .neg{color:var(--danger);font-weight:600}
+.couv .pos{color:#3f5e30;font-weight:600}
+.couv .when{font-variant-numeric:tabular-nums}
+.couv .sub{display:block;font:400 11px var(--font-d);color:var(--muted);font-style:italic;margin-top:2px}
+/* verdict */
+.vd{text-align:right}
+.vd .l{font:700 10px var(--font-s);text-transform:uppercase;letter-spacing:.14em;display:block}
+.vd .l.bad{color:var(--danger)} .vd .l.warn{color:#7a5c10} .vd .l.ok{color:#3f5e30}
+.vd .delta{font:400 12px var(--font-d);color:var(--muted);font-style:italic;margin-top:3px}
+
+.foot{max-width:1240px;margin:18px auto 0;font:400 12px var(--font-d);color:var(--mute2);font-style:italic;display:flex;justify-content:space-between}
+.foot .material-symbols-outlined{font-size:14px;vertical-align:-3px;font-style:normal}
+
+.tag{position:fixed;top:15px;right:30px;z-index:60;font:700 9px var(--font-s);text-transform:uppercase;letter-spacing:.16em;color:#fff;background:var(--terra);padding:6px 12px;border-radius:2px;display:flex;align-items:center;gap:7px}
+.tag .material-symbols-outlined{font-size:13px}
+</style>
+</head>
+<body>
+<div class="tag"><span class="material-symbols-outlined">menu_book</span> R1b · « Index »</div>
+
+<div class="app">
+  <!-- masthead minimal -->
+  <header class="mast">
+    <div class="mast-row">
+      <div class="title-block">
+        <div class="eyebrow">FactoryOS</div>
+        <h1>Ruptures de <em>composants</em></h1>
+        <div class="crumb"><a href="#">Planification</a> › <a href="#">Ruptures</a> · fenêtre 16 → 27 juin</div>
+      </div>
+      <div class="mast-right">
+        <div class="cmd"><span class="material-symbols-outlined">search</span><input placeholder="Composant, commande…" /></div>
+        <a class="ulink" href="#"><span class="material-symbols-outlined" style="font-size:15px">refresh</span>X3</a>
+        <div class="avatar">OP</div>
+      </div>
+    </div>
+  </header>
+  <div class="thinrule"></div>
+
+  <!-- summary -->
+  <div class="summary">
+    <div class="s"><span class="n">8</span>ruptures<span class="lab">5 composants · 8 OF bloqués</span></div>
+    <div class="s"><span class="n bad">2</span>sans couverture<span class="lab">aucune réception prévue</span></div>
+    <div class="s"><span class="n warn">3</span>en retard<span class="lab">réception après le besoin</span></div>
+    <div class="s"><span class="n ok">3</span>couvertes<span class="lab">réception avant le besoin</span></div>
+  </div>
+
+  <!-- list -->
+  <div class="sheet">
+    <div class="idx">
+      <div class="idx-head">
+        <span></span><span>Composant</span><span class="r">Manquant</span><span>Commande</span><span class="c">Besoin</span><span>Couverture</span><span class="r">Verdict</span>
+      </div>
+
+      <div class="row">
+        <span class="sev bad"></span>
+        <div class="comp"><div class="c">ECP-55821</div><div class="d">Échangeur aluminium D350</div></div>
+        <div class="qty">25<span class="lab">unités</span></div>
+        <div class="cmdc"><div class="n">AR24588</div><div class="cl">AXION GUEVIN · OF100288</div></div>
+        <div class="besoin"><div class="d">23/06</div><div class="l">Expédition</div></div>
+        <div class="couv"><span class="neg">Aucune couverture prévue.</span><span class="sub">Aucun ordre d'achat en cours sur cet article.</span></div>
+        <div class="vd"><span class="l bad">Sans couverture</span><span class="delta">action requise</span></div>
+      </div>
+
+      <div class="row">
+        <span class="sev warn"></span>
+        <div class="comp"><div class="c">MOT-33012</div><div class="d">Moteur VMC D250 220V</div></div>
+        <div class="qty">42<span class="lab">unités</span></div>
+        <div class="cmdc"><div class="n">AR24490</div><div class="cl">Bouygues · OF100245</div></div>
+        <div class="besoin"><div class="d">24/06</div><div class="l">Expédition</div></div>
+        <div class="couv">Réception <span class="id">BC-55821</span> Mécapro, 60 u — <span class="neg">le <span class="when">27/06</span>, après le besoin</span>.<span class="sub">3 jours de rupture à couvrir.</span></div>
+        <div class="vd"><span class="l warn">Retard</span><span class="delta">+3 jours</span></div>
+      </div>
+
+      <div class="row">
+        <span class="sev warn"></span>
+        <div class="comp"><div class="c">MOT-33012</div><div class="d">Moteur VMC D250 220V</div></div>
+        <div class="qty">18<span class="lab">unités</span></div>
+        <div class="cmdc"><div class="n">AR24610</div><div class="cl">Bouygues · OF100310</div></div>
+        <div class="besoin"><div class="d">24/06</div><div class="l">Expédition</div></div>
+        <div class="couv">Réception <span class="id">BC-55821</span> Mécapro, 60 u — <span class="neg">le <span class="when">27/06</span>, après le besoin</span>.<span class="sub">Même lot que la ligne précédente.</span></div>
+        <div class="vd"><span class="l warn">Retard</span><span class="delta">+3 jours</span></div>
+      </div>
+
+      <div class="row">
+        <span class="sev bad"></span>
+        <div class="comp"><div class="c">DUC-77120</div><div class="d">Gaine flexible D125</div></div>
+        <div class="qty">90<span class="lab">unités</span></div>
+        <div class="cmdc"><div class="n">AR24730</div><div class="cl">Eiffage · OF100512</div></div>
+        <div class="besoin"><div class="d">27/06</div><div class="l">Expédition</div></div>
+        <div class="couv"><span class="neg">Aucune couverture prévue.</span><span class="sub">Relance fournisseur à programmer.</span></div>
+        <div class="vd"><span class="l bad">Sans couverture</span><span class="delta">action requise</span></div>
+      </div>
+
+      <div class="row">
+        <span class="sev warn"></span>
+        <div class="comp"><div class="c">PCB-44021</div><div class="d">Carte électronique VMC</div></div>
+        <div class="qty">12<span class="lab">unités</span></div>
+        <div class="cmdc"><div class="n">AR24770</div><div class="cl">CDC Habitat · OF100533</div></div>
+        <div class="besoin"><div class="d">27/06</div><div class="l">Expédition</div></div>
+        <div class="couv">Réception <span class="id">BC-69005</span> Euro PCB, 20 u — <span class="neg">le <span class="when">01/07</span>, après le besoin</span>.<span class="sub">Délai fournisseur allongé.</span></div>
+        <div class="vd"><span class="l warn">Retard</span><span class="delta">+4 jours</span></div>
+      </div>
+
+      <div class="row">
+        <span class="sev ok"></span>
+        <div class="comp"><div class="c">CAR-90044</div><div class="d">Cartouche filtre G4</div></div>
+        <div class="qty">60<span class="lab">unités</span></div>
+        <div class="cmdc"><div class="n">AR24712</div><div class="cl">Eiffage · OF100401</div></div>
+        <div class="besoin"><div class="d">26/06</div><div class="l">Expédition</div></div>
+        <div class="couv">Réception <span class="id">BC-66120</span> Sofiltra, 120 u — <span class="pos">le <span class="when">22/06</span>, avant le besoin</span>.<span class="sub">Couverture double du besoin.</span></div>
+        <div class="vd"><span class="l ok">Couvert</span><span class="delta">4 jours tôt</span></div>
+      </div>
+
+      <div class="row">
+        <span class="sev ok"></span>
+        <div class="comp"><div class="c">JNT-90004</div><div class="d">Joint caoutchouc D200</div></div>
+        <div class="qty">30<span class="lab">unités</span></div>
+        <div class="cmdc"><div class="n">AR24622</div><div class="cl">CDC Habitat · OF100421</div></div>
+        <div class="besoin"><div class="d">25/06</div><div class="l">Expédition</div></div>
+        <div class="couv">Réception <span class="id">BC-55012</span> JointsPro, 100 u — <span class="pos">le <span class="when">24/06</span>, avant le besoin</span>.<span class="sub">Marge d'un jour.</span></div>
+        <div class="vd"><span class="l ok">Couvert</span><span class="delta">1 jour tôt</span></div>
+      </div>
+
+      <div class="row">
+        <span class="sev ok"></span>
+        <div class="comp"><div class="c">SCR-10045</div><div class="d">Vis TRCC 4×20</div></div>
+        <div class="qty">500<span class="lab">unités</span></div>
+        <div class="cmdc"><div class="n">AR24755</div><div class="cl">Bouygues · OF100466</div></div>
+        <div class="besoin"><div class="d">27/06</div><div class="l">Expédition</div></div>
+        <div class="couv">Réception <span class="id">BC-71044</span> Fastener, 1 000 u — <span class="pos">le <span class="when">26/06</span>, avant le besoin</span>.<span class="sub">Couverture double du besoin.</span></div>
+        <div class="vd"><span class="l ok">Couvert</span><span class="delta">1 jour tôt</span></div>
+      </div>
+
+    </div>
+    <div class="foot">
+      <span><span class="material-symbols-outlined">info</span> Sévérité en filet coloré à gauche · cliquer un OF ouvre sa fiche.</span>
+      <span>Calculé à 14:32 · cache X3 2 min</span>
+    </div>
+  </div>
+</div>
+</body>
+</html>

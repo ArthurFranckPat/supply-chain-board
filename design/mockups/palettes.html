@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Palettes · exploration couleur</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700;9..144,900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,400,0,0" rel="stylesheet" />
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#e8e5dd;color:#1c1812;font-family:"Inter",system-ui,sans-serif;font-size:14px;-webkit-font-smoothing:antialiased;padding:40px 32px 64px}
+.material-symbols-outlined{font-family:"Material Symbols Outlined";font-weight:400;line-height:1;font-feature-settings:"liga";vertical-align:middle}
+.mono{font-family:"JetBrains Mono",monospace;font-variant-numeric:tabular-nums}
+.fd{font-family:"Fraunces",Georgia,serif}
+
+.hd{max-width:1240px;margin:0 auto 28px}
+.hd .k{font:700 11px "JetBrains Mono",monospace;text-transform:uppercase;letter-spacing:.16em;color:#8c7e68}
+.hd h1{font:900 30px "Fraunces",serif;letter-spacing:-.03em;margin-top:6px}
+.hd p{color:#5a5043;font-size:14px;margin-top:8px;max-width:720px;line-height:1.55}
+.hd .cur{margin-top:12px;font:500 12px "Inter",sans-serif;color:#8c7e68}
+.hd .cur b{color:#1c1812}
+.hd .swcur{display:inline-flex;gap:4px;vertical-align:middle;margin:0 4px}
+.hd .swcur i{width:16px;height:16px;border-radius:4px;border:1px solid rgba(0,0,0,.1)}
+
+.grid{max-width:1240px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:24px}
+
+/* palette card — themed by --p-* vars */
+.pal{border-radius:18px;overflow:hidden;border:1px solid rgba(0,0,0,.08);box-shadow:0 10px 30px -16px rgba(0,0,0,.25);background:var(--p-bg);color:var(--p-ink);display:flex;flex-direction:column}
+.pal-top{padding:20px 22px 16px;display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
+.pal-top .tl .tag{display:inline-block;font:700 10px "JetBrains Mono",monospace;letter-spacing:.1em;color:var(--p-brand);background:color-mix(in srgb,var(--p-brand) 14%,transparent);padding:3px 9px;border-radius:6px;margin-bottom:9px}
+.pal-top h2{font:900 26px "Fraunces",serif;letter-spacing:-.03em;line-height:1}
+.pal-top .mood{font:500 13px "Inter",sans-serif;color:var(--p-muted);margin-top:5px}
+.pal-top .mood b{color:var(--p-ink2);font-weight:600}
+.brandchip{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex:none}
+.brandchip .sq{width:54px;height:54px;border-radius:13px;background:var(--p-brand);box-shadow:0 6px 16px -6px color-mix(in srgb,var(--p-brand) 70%,transparent);display:flex;align-items:center;justify-content:center;color:var(--p-brand-ink);font:900 18px "Fraunces",serif}
+.brandchip .hx{font:600 11px "JetBrains Mono",monospace;color:var(--p-muted)}
+
+/* swatches */
+.swatches{display:flex;gap:6px;padding:0 22px 16px;flex-wrap:wrap}
+.sw{display:flex;flex-direction:column;align-items:center;gap:5px;flex:1;min-width:54px}
+.sw .box{width:100%;height:38px;border-radius:8px;border:1px solid rgba(0,0,0,.08)}
+.sw .lb{font:600 8px "JetBrains Mono",monospace;color:var(--p-muted);text-align:center;letter-spacing:.02em;text-transform:uppercase}
+
+/* preview composition — same markup, themed */
+.preview{margin:0 22px 22px;border-radius:13px;background:var(--p-panel);border:1px solid var(--p-border);overflow:hidden;box-shadow:0 2px 8px -4px rgba(0,0,0,.12)}
+.pv-bar{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--p-border)}
+.pv-bar .ttl{font:700 11px "Inter",sans-serif;color:var(--p-ink);letter-spacing:-.01em}
+.pv-bar .ttl span{color:var(--p-muted);font-weight:500}
+.pv-bar .sp{flex:1}
+.btn{display:inline-flex;align-items:center;gap:6px;font:600 12px "Inter",sans-serif;border-radius:8px;padding:7px 12px;cursor:pointer;border:1px solid transparent}
+.btn .material-symbols-outlined{font-size:15px}
+.btn-brand{background:var(--p-brand);color:var(--p-brand-ink)}
+.btn-ghost{background:transparent;color:var(--p-ink2);border-color:var(--p-border)}
+/* rupture row */
+.pv-row{display:grid;grid-template-columns:auto 1.4fr auto 1fr auto;align-items:center;gap:14px;padding:13px 14px;border-bottom:1px solid var(--p-border)}
+.pv-row .rk{font:500 13px "Fraunces",serif;color:var(--p-muted)}
+.pv-row .comp .c{font:600 14px "JetBrains Mono",monospace;color:var(--p-ink);letter-spacing:-.01em}
+.pv-row .comp .d{font:400 11px "Fraunces",serif;color:var(--p-muted);font-style:italic;margin-top:1px}
+.pv-row .qty{font:700 24px "Fraunces",serif;color:var(--p-danger);letter-spacing:-.03em;text-align:center;line-height:1}
+.pv-row .qty .u{display:block;font:500 8px "Inter",sans-serif;color:var(--p-muted);text-transform:uppercase;letter-spacing:.1em;margin-top:3px}
+.pv-row .couv{font:400 12px "Fraunces",serif;color:var(--p-ink2);line-height:1.35}
+.pv-row .couv .id{font:600 11px "JetBrains Mono",monospace;color:var(--p-ink);font-style:normal}
+.pv-row .couv .neg{color:var(--p-danger);font-weight:600}
+.pv-row .couv .pos{color:var(--p-ok);font-weight:600}
+.pv-row .couv .sub{display:block;font:400 10px "Fraunces",serif;color:var(--p-muted);font-style:italic;margin-top:2px}
+.vd{font:700 9px "Inter",sans-serif;text-transform:uppercase;letter-spacing:.1em;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
+.vd .d{width:7px;height:7px;border-radius:50%}
+.vd.bad{color:var(--p-danger)} .vd.bad .d{background:var(--p-danger)}
+.vd.warn{color:color-mix(in srgb,var(--p-warn) 75%,black)} .vd.warn .d{background:var(--p-warn)}
+.vd.ok{color:color-mix(in srgb,var(--p-ok) 75%,black)} .vd.ok .d{background:var(--p-ok)}
+/* status trio + accent */
+.pv-foot{display:flex;align-items:center;gap:10px;padding:11px 14px;background:var(--p-panel2)}
+.pv-foot .st{font:700 9px "Inter",sans-serif;text-transform:uppercase;letter-spacing:.1em;display:inline-flex;align-items:center;gap:6px;color:var(--p-ink2)}
+.pv-foot .st i{width:9px;height:9px;border-radius:50%}
+.pv-foot .st.ok i{background:var(--p-ok)} .pv-foot .st.warn i{background:var(--p-warn)} .pv-foot .st.bad i{background:var(--p-danger)}
+.pv-foot .sp{flex:1}
+.accent-pill{font:700 10px "Inter",sans-serif;text-transform:uppercase;letter-spacing:.08em;color:var(--p-accent);background:color-mix(in srgb,var(--p-accent) 14%,transparent);padding:5px 10px;border-radius:7px;display:inline-flex;align-items:center;gap:5px}
+.accent-pill .material-symbols-outlined{font-size:13px}
+
+.note{max-width:1240px;margin:26px auto 0;font:500 12px "Inter",sans-serif;color:#8c7e68;line-height:1.6;background:#f3efe6;border:1px solid #d8cfbb;border-radius:12px;padding:16px 20px}
+.note b{color:#1c1812}
+</style>
+</head>
+<body>
+
+<div class="hd">
+  <div class="k">Exploration · palette de l'app</div>
+  <h1>5 palettes, plus modernes</h1>
+  <p>Chaque palette = une famille de neutres + un accent brand (le peps) + des statuts sémantiques (ok / retard / danger). Le peps vient de l'accent brand, utilisé avec mesure ; le reste reste posé et lisible. Mêmes polices qu'aujourd'hui — on ne juge que la couleur.</p>
+  <div class="cur"><b>Baseline actuelle (Papier)</b> :
+    <span class="swcur"><i style="background:#f4eee1"></i><i style="background:#a8431f"></i><i style="background:#516b3f"></i><i style="background:#9a7414"></i><i style="background:#9a3320"></i></span>
+    crème + terre cuite — chaleureux mais un peu « vintage ». Les propositions ci-dessous cherchent plus de fraîcheur et de caractère.</div>
+</div>
+
+<div class="grid">
+
+  <!-- ═══ A · COBALT ═══ -->
+  <section class="pal" style="
+    --p-bg:#F4F6FB;--p-panel:#FFFFFF;--p-panel2:#EEF2FA;--p-border:#DCE3EF;
+    --p-ink:#0E1B2E;--p-ink2:#3A4A63;--p-muted:#7C8AA0;
+    --p-brand:#2F5BFF;--p-brand-ink:#FFFFFF;--p-accent:#FF6A4D;
+    --p-ok:#16A34A;--p-warn:#E08A1E;--p-danger:#E5484D;">
+    <div class="pal-top">
+      <div class="tl"><span class="tag">A</span><h2>Cobalt</h2><div class="mood">Frais · <b>confiant · tech moderne</b>. Le bleu cobalt porte l'énergie ; un accent corail réchauffe les counts.</div></div>
+      <div class="brandchip"><div class="sq">A</div><div class="hx">#2F5BFF</div></div>
+    </div>
+    <div class="swatches">
+      <div class="sw"><div class="box" style="background:var(--p-bg)"></div><div class="lb">Fond</div></div>
+      <div class="sw"><div class="box" style="background:var(--p-panel)"></div><div class="lb">Panneau</div></div>
+      <div class="sw"><div class="box" style="background:var(--p-border)"></div><div class="lb">Filet</div></div>
+      <div class="sw"><div class="box" style="background:var(--p-ink)"></div><div class="lb">Encre</div></div>
+      <div class="sw"><div class="box" style="background:var(--p-muted)"></div><div class="lb">Muté</div></div>
+      <div class="sw"><div class="box" style="background:var(--p-brand)"></div><div class="lb">Brand</div></div>
+      <div class="sw"><div class="box" style="background:var(--p-accent)"></div><div class="lb">Peps</div></div>
+      <div class="sw"><div class="box" style="background:var(--p-ok)"></div><div class="lb">OK</div></div>
+      <div class="sw"><div class="box" style="background:var(--p-warn)"></div><div class="lb">Retard</div></div>
+      <div class="sw"><div class="box" style="background:var(--p-danger)"></div><div class="lb">Danger</div></div>
+    </div>
+    <div class="preview">
+      <div class="pv-bar"><span class="ttl">Ruptures <span>· registre</span></span><span class="sp"></span><span class="btn btn-ghost"><span class="material-symbols-outlined">refresh</span>X3</span><span class="btn btn-brand"><span class="material-symbols-outlined">fact_check</span>Faisabilité</span></div>
+      <div class="pv-row">
+        <span class="rk">02</span>
+        <div class="comp"><div class="c">MOT-33012</div><div class="d">Moteur VMC D250 220V</div></div>
+        <div class="qty">42<span class="u">unités</span></div>
+        <div class="couv">Réception <span class="id">BC-55821</span> Mécapro, 60 u — <span class="neg">le 27/06, après le besoin</span>.<span class="sub">3 jours de rupture à couvrir.</span></div>
+        <span class="vd warn"><span class="d"></span>Retard +3 j</span>
+      </div>
+      <div class="pv-foot">
+        <span class="st ok"><i></i>Ferme</span><span class="st warn"><i></i>Retard</span><span class="st bad"><i></i>Sans couverture</span>
+        <span class="sp"></span>
+        <span class="accent-pill"><span class="material-symbols-outlined">bolt</span>Charge 78 %</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ B · TANGERINE ═══ -->
+  <section class="pal" style="
+    --p-bg:#FBF7F1;--p-panel:#FFFFFF;--p-panel2:#F6EEE3;--p-border:#EBDCC9;
+    --p-ink:#241A12;--p-ink2:#5A4838;--p-muted:#9A8870;
+    --p-brand:#EF5B21;--p-brand-ink:#FFFFFF;--p-accent:#1B8A6B;
+    --p-ok:#1E9E6B;--p-warn:#D98A1B;--p-danger:#D63A2E;">
+    <div class="pal-top">
+      <div class="tl"><span class="tag">B</span><h2>Tangerine</h2><div class="mood">Chaleureux · <b>énergique · convivial</b>. Orange punchy mais posé sur blanc tiède ; lisible et dynamique.</div></div>
+      <div class="brandchip"><div class="sq">B</div><div class="hx">#EF5B21</div></div>
+    </div>
+    <div class="swatches">
+      <div class="sw"><div class="box" style="background:var(--p-bg)"></div><div class="lb">Fond</div></div>
+      <div class="sw"><div class="box" style="background:var(--p-panel)"></div><div class="lb">Panneau</div></div>
+      <div class="sw"><div class="box" style="background:var(--p-border)"></div><div class="lb">Filet</div></div>
+      <div class="sw"><div class="box" style="background:var(--p-ink)"></div><div class="lb">Encre</div></div>
+      <div class="sw"><div class="box" style="background:var(--p-muted)"></div><div class="lb">Muté</div></div>
+      <div class="sw"><div class="box" style="background:var(--p-brand)"></div><div class="lb">Brand</div></div>
+      <div class="sw"><div class="box" style="background:var(--p-accent)"></div><div class="lb">Peps</div></div>
+      <div class="sw"><div class="box" style="background:var(--p-ok)"></div><div class="lb">OK</div></div>
+      <div class="sw"><div class="box" style="background:var(--p-warn)"></div><div class="lb">Retard</div></div>
+      <div class="sw"><div class="box" style="background:var(--p-danger)"></div><div class="lb">Danger</div></div>
+    </div>
+    <div class="preview">
+      <div class="pv-bar"><span class="ttl">Ruptures <span>· registre</span></span><span class="sp"></span><span class="btn btn-ghost"><span class="material-symbols-outlined">refresh</span>X3</span><span class="btn btn-brand"><span class="material-symbols-outlined">fact_check</span>Faisabilité</span></div>
+      <div class="pv-row">
+        <span class="rk">02</span>
+        <div class="comp"><div class="c">MOT-33012</div><div class="d">Moteur VMC D250 220V</div></div>
+        <div class="qty">42<span class="u">unités</span></div>
+        <div class="couv">Réception <span class="id">BC-55821</span> Mécapro, 60 u — <span class="neg">le 27/06, après le besoin</span>.<span class="sub">3 jours de rupture à couvrir.</span></div>
+        <span class="vd warn"><span class="d"></span>Retard +3 j</span>
+      </div>
+      <div class="pv-foot">
+        <span class="st ok"><i></i>Ferme</span><span class="st warn"><i></i>Retard</span><span class="st bad"><i></i>Sans couverture</span>
+        <span class="sp"></span>
+        <span class="accent-pill"><span class="material-symbols-outlined">bolt</span>Charge 78 %</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ C · ÉMERAUDE ═══ -->
+  <section class="pal" style="
+    --p-bg:#F2F7F4;--p-panel:#FFFFFF;--p-panel2:#E8F1EC;--p-border:#D6E3DB;
+    --p-ink:#0F2419;--p-ink2:#345046;--p-muted:#7B9388;
+    --p-brand:#059669;--p-brand-ink:#FFFFFF;--p-accent:#0EA5C7;
+    --p-ok:#22C55E;--p-warn:#D98A1B;--p-danger:#E5484D;">
+    <div class="pal-top">
+      <div class="tl"><span class="tag">C</span><h2>Émeraude</h2><div class="mood">Frais · <b>optimiste · croissance</b>. Vert émeraude vibrant sur fond clair naturel ; un secondaire cyan pour les data.</div></div>
+      <div class="brandchip"><div class="sq">C</div><div class="hx">#059669</div></div>
+    </div>
+    <div class="swatches">
+      <div class="sw"><div class="box" style="background:var(--p-bg)"></div><div class="lb">Fond</div></div>
+      <div class="sw"><div class="box" style="background:var(--p-panel)"></div><div class="lb">Panneau</div></div>
+      <div class="sw"><div class="box" style="background:var(--p-border)"></div><div class="lb">Filet</div></div>
+      <div class="sw"><div class="box" style="background:var(--p-ink)"></div><div class="lb">Encre</div></div>
+      <div class="sw"><div class="box" style="background:var(--p-muted)"></div><div class="lb">Muté</div></div>
+      <div class="sw"><div class="box" style="background:var(--p-brand)"></div><div class="lb">Brand</div></div>
+      <div class="sw"><div class="box" style="background:var(--p-accent)"></div><div class="lb">Peps</div></div>
+      <div class="sw"><div class="box" style="background:var(--p-ok)"></div><div class="lb">OK</div></div>
+      <div class="sw"><div class="box" style="background:var(--p-warn)"></div><div class="lb">Retard</div></div>
+      <div class="sw"><div class="box" style="background:var(--p-danger)"></div><div class="lb">Danger</div></div>
+    </div>
+    <div class="preview">
+      <div class="pv-bar"><span class="ttl">Ruptures <span>· registre</span></span><span class="sp"></span><span class="btn btn-ghost"><span class="material-symbols-outlined">refresh</span>X3</span><span class="btn btn-brand"><span class="material-symbols-outlined">fact_check</span>Faisabilité</span></div>
+      <div class="pv-row">
+        <span class="rk">02</span>
+        <div class="comp"><div class="c">MOT-33012</div><div class="d">Moteur VMC D250 220V</div></div>
+        <div class="qty">42<span class="u">unités</span></div>
+        <div class="couv">Réception <span class="id">BC-55821</span> Mécapro, 60 u — <span class="neg">le 27/06, après le besoin</span>.<span class="sub">3 jours de rupture à couvrir.</span></div>
+        <span class="vd warn"><span class="d"></span>Retard +3 j</span>
+      </div>
+      <div class="pv-foot">
+        <span class="st ok"><i></i>Ferme</span><span class="st warn"><i></i>Retard</span><span class="st bad"><i></i>Sans couverture</span>
+        <span class="sp"></span>
+        <span class="accent-pill"><span class="material-symbols-outlined">bolt</span>Charge 78 %</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ D · GRENADE ═══ -->
+  <section class="pal" style="
+    --p-bg:#FAF5F7;--p-panel:#FFFFFF;--p-panel2:#F5E9EE;--p-border:#EAD7DE;
+    --p-ink:#241218;--p-ink2:#5A3A47;--p-muted:#9A7886;
+    --p-brand:#D11E6B;--p-brand-ink:#FFFFFF;--p-accent:#2D7FF0;
+    --p-ok:#1E9E6B;--p-warn:#D98A1B;--p-danger:#E5484D;">
+    <div class="pal-top">
+      <div class="tl"><span class="tag">D</span><h2>Grenade</h2><div class="mood">Audacieux · <b>caractère · premium</b>. Framboise profonde sur blush clair ; affirmé sans être criard, signature forte.</div></div>
+      <div class="brandchip"><div class="sq">D</div><div class="hx">#D11E6B</div></div>
+    </div>
+    <div class="swatches">
+      <div class="sw"><div class="box" style="background:var(--p-bg)"></div><div class="lb">Fond</div></div>
+      <div class="sw"><div class="box" style="background:var(--p-panel)"></div><div class="lb">Panneau</div></div>
+      <div class="sw"><div class="box" style="background:var(--p-border)"></div><div class="lb">Filet</div></div>
+      <div class="sw"><div class="box" style="background:var(--p-ink)"></div><div class="lb">Encre</div></div>
+      <div class="sw"><div class="box" style="background:var(--p-muted)"></div><div class="lb">Muté</div></div>
+      <div class="sw"><div class="box" style="background:var(--p-brand)"></div><div class="lb">Brand</div></div>
+      <div class="sw"><div class="box" style="background:var(--p-accent)"></div><div class="lb">Peps</div></div>
+      <div class="sw"><div class="box" style="background:var(--p-ok)"></div><div class="lb">OK</div></div>
+      <div class="sw"><div class="box" style="background:var(--p-warn)"></div><div class="lb">Retard</div></div>
+      <div class="sw"><div class="box" style="background:var(--p-danger)"></div><div class="lb">Danger</div></div>
+    </div>
+    <div class="preview">
+      <div class="pv-bar"><span class="ttl">Ruptures <span>· registre</span></span><span class="sp"></span><span class="btn btn-ghost"><span class="material-symbols-outlined">refresh</span>X3</span><span class="btn btn-brand"><span class="material-symbols-outlined">fact_check</span>Faisabilité</span></div>
+      <div class="pv-row">
+        <span class="rk">02</span>
+        <div class="comp"><div class="c">MOT-33012</div><div class="d">Moteur VMC D250 220V</div></div>
+        <div class="qty">42<span class="u">unités</span></div>
+        <div class="couv">Réception <span class="id">BC-55821</span> Mécapro, 60 u — <span class="neg">le 27/06, après le besoin</span>.<span class="sub">3 jours de rupture à couvrir.</span></div>
+        <span class="vd warn"><span class="d"></span>Retard +3 j</span>
+      </div>
+      <div class="pv-foot">
+        <span class="st ok"><i></i>Ferme</span><span class="st warn"><i></i>Retard</span><span class="st bad"><i></i>Sans couverture</span>
+        <span class="sp"></span>
+        <span class="accent-pill"><span class="material-symbols-outlined">bolt</span>Charge 78 %</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ E · MINUIT (dark) ═══ -->
+  <section class="pal" style="
+    --p-bg:#0E1320;--p-panel:#171E2F;--p-panel2:#1F283C;--p-border:#2B3550;
+    --p-ink:#E9EEF9;--p-ink2:#AEB8D0;--p-muted:#7C89A8;
+    --p-brand:#5B8BFF;--p-brand-ink:#0E1320;--p-accent:#FFC233;
+    --p-ok:#34D27B;--p-warn:#F0B848;--p-danger:#FF6B6B;">
+    <div class="pal-top">
+      <div class="tl"><span class="tag">E</span><h2>Minuit</h2><div class="mood">Premium · <b>cockpit · l'accent qui brille</b>. Fond sombre, bleu électrique + or. Le plus moderne, le plus « produit soigné ».</div></div>
+      <div class="brandchip"><div class="sq">E</div><div class="hx">#5B8BFF</div></div>
+    </div>
+    <div class="swatches">
+      <div class="sw"><div class="box" style="background:var(--p-bg)"></div><div class="lb">Fond</div></div>
+      <div class="sw"><div class="box" style="background:var(--p-panel)"></div><div class="lb">Panneau</div></div>
+      <div class="sw"><div class="box" style="background:var(--p-border)"></div><div class="lb">Filet</div></div>
+      <div class="sw"><div class="box" style="background:var(--p-ink)"></div><div class="lb">Encre</div></div>
+      <div class="sw"><div class="box" style="background:var(--p-muted)"></div><div class="lb">Muté</div></div>
+      <div class="sw"><div class="box" style="background:var(--p-brand)"></div><div class="lb">Brand</div></div>
+      <div class="sw"><div class="box" style="background:var(--p-accent)"></div><div class="lb">Peps</div></div>
+      <div class="sw"><div class="box" style="background:var(--p-ok)"></div><div class="lb">OK</div></div>
+      <div class="sw"><div class="box" style="background:var(--p-warn)"></div><div class="lb">Retard</div></div>
+      <div class="sw"><div class="box" style="background:var(--p-danger)"></div><div class="lb">Danger</div></div>
+    </div>
+    <div class="preview">
+      <div class="pv-bar"><span class="ttl">Ruptures <span>· registre</span></span><span class="sp"></span><span class="btn btn-ghost"><span class="material-symbols-outlined">refresh</span>X3</span><span class="btn btn-brand"><span class="material-symbols-outlined">fact_check</span>Faisabilité</span></div>
+      <div class="pv-row">
+        <span class="rk">02</span>
+        <div class="comp"><div class="c">MOT-33012</div><div class="d">Moteur VMC D250 220V</div></div>
+        <div class="qty">42<span class="u">unités</span></div>
+        <div class="couv">Réception <span class="id">BC-55821</span> Mécapro, 60 u — <span class="neg">le 27/06, après le besoin</span>.<span class="sub">3 jours de rupture à couvrir.</span></div>
+        <span class="vd warn"><span class="d"></span>Retard +3 j</span>
+      </div>
+      <div class="pv-foot">
+        <span class="st ok"><i></i>Ferme</span><span class="st warn"><i></i>Retard</span><span class="st bad"><i></i>Sans couverture</span>
+        <span class="sp"></span>
+        <span class="accent-pill"><span class="material-symbols-outlined">bolt</span>Charge 78 %</span>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<div class="note">
+  <b>Comment lire ça :</b> chaque carte montre la palette sur le même élément (rangée de rupture + boutons + statuts + accent secondaire). Regardez le <b>contraste encre/fond</b> (lisible ?), la <b>température</b> (froid A/C/E vs chaud B/D), et si <b>l'accent brand</b> donne le peps sans criarder. Note : C (vert brand) et le statut « OK » (vert) se côtoient — gérable par icône/saturation, mais c'est un point d'attention. Dites-moi laquelle (ou un mix, ex. « neutres de A + accent de D »), je la décline sur le board + ruptures + détail.
+</div>
+
+</body>
+</html>

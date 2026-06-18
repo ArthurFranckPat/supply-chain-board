@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Board vide · C « Chaleur »</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700;9..144,900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,300,0,0" rel="stylesheet" />
+<style>
+:root{
+  --paper:#f3ece0; --panel:#fbf8ef; --panel2:#efe7d6; --rule:#cdbfa0; --rulesoft:#e3d9c1;
+  --ink:#1f1a13; --ink2:#4a4135; --muted:#8c7d66; --muted2:#a99c84;
+  --terra:#a8431f; --terrasoft:rgba(168,67,31,.10); --ferme:#5b7d4e; --planifie:#2f4858; --suggere:#b8862c; --danger:#9a3320;
+  --fd:"Fraunces",Georgia,serif; --fs:"Inter",system-ui,sans-serif; --fm:"JetBrains Mono",monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--fs);font-size:13px;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+.material-symbols-outlined{font-family:"Material Symbols Outlined";font-weight:300;line-height:1;font-feature-settings:"liga";vertical-align:middle}
+.mono{font-family:var(--fm)}
+.wrap{max-width:1180px;margin:0 auto;padding:32px 28px 56px}
+.hd{margin-bottom:18px}
+.hd .k{font:700 10px var(--fm);text-transform:uppercase;letter-spacing:.16em;color:var(--muted)}
+.hd h1{font:900 26px var(--fd);letter-spacing:-.03em;margin-top:5px}
+.hd p{color:var(--ink2);font-size:13px;margin-top:6px;max-width:660px;line-height:1.5}
+
+.board{background:var(--panel);border:1px solid var(--rule);border-radius:10px;overflow:hidden;box-shadow:0 1px 2px rgba(31,26,19,.05)}
+.sheet{display:grid;grid-template-columns:168px repeat(10,minmax(58px,1fr));min-width:calc(168px + 10*66px)}
+.wkb{display:contents}
+.wkb .wk{grid-column:span 5;background:var(--ink);color:#e3d9c1;padding:6px 14px;display:flex;align-items:center;gap:8px;font:700 9px var(--fm);text-transform:uppercase;letter-spacing:.12em}
+.wkb .wk .chg{margin-left:auto;color:var(--muted2)}
+.wkb .corner{background:var(--ink)}
+.dh{display:contents}
+.dh .lh{background:var(--panel2);border-bottom:1.5px solid var(--ink);border-right:1px solid var(--rulesoft);padding:8px 12px;font:700 8px var(--fm);text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+.dh .dc{background:var(--panel2);border-bottom:1.5px solid var(--ink);border-right:1px solid var(--rulesoft);padding:5px 2px;text-align:center}
+.dh .dc .nm{font:600 8px var(--fm);text-transform:uppercase;color:var(--muted)}
+.dh .dc .nn{font:800 16px var(--fd);line-height:1;letter-spacing:-.02em;margin-top:1px}
+.dh .dc .hh{font:700 9px var(--fm);margin-top:2px}
+.dh .dc.today .nn,.dh .dc.today .hh{color:var(--terra)}
+.dh .dc.ok .hh{color:var(--ferme)} .dh .dc.warn .hh{color:var(--suggere)} .dh .dc.over .hh{color:var(--danger)}
+.dh .dc.ok{background:rgba(91,125,78,.06)} .dh .dc.warn{background:rgba(184,134,44,.10)} .dh .dc.over{background:rgba(154,51,32,.07)}
+
+.row{display:contents}
+.lh-r{background:var(--panel);border-right:1px solid var(--rulesoft);border-bottom:1px solid var(--rulesoft);padding:8px 12px;display:flex;flex-direction:column;justify-content:center;gap:3px;min-width:168px}
+.lh-r .t{display:flex;align-items:center;gap:7px}
+.lh-r .dot{width:8px;height:8px;border-radius:1px;flex:none}
+.lh-r .code{font:700 12px var(--fm)}
+.lh-r .nm{font:500 9px var(--fs);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lh-r .meta{display:flex;align-items:center;gap:8px;margin-top:2px}
+.lh-r .hist{display:flex;align-items:flex-end;gap:2px;height:12px}
+.lh-r .hist i{width:6px;border-radius:1px;min-height:2px}
+.lh-r .chg{font:700 10px var(--fm);margin-left:auto}
+.lh-r .chg.ov{color:var(--danger)} .lh-r .chg.wn{color:var(--suggere)}
+
+/* heatmap cells */
+.cell{border-right:1px solid var(--rulesoft);border-bottom:1px solid var(--rulesoft);min-height:58px;display:flex;align-items:center;justify-content:center;font:700 14px var(--fd);letter-spacing:-.02em;background-image:linear-gradient(to right,rgba(31,26,19,.04) 1px,transparent 1px),linear-gradient(to bottom,rgba(31,26,19,.04) 1px,transparent 1px);background-size:20px 20px}
+.cell.c0{color:transparent}
+.cell.c1{background-color:rgba(91,125,78,.12);color:#4e6b3f}
+.cell.c2{background-color:rgba(184,134,44,.20);color:#7a5c10}
+.cell.c3{background-color:rgba(154,51,32,.22);color:var(--danger)}
+.cell.today{box-shadow:inset 0 0 0 1.5px var(--terra)}
+
+.legend{display:flex;align-items:center;gap:14px;margin-top:14px;font:600 11px var(--fs);color:var(--muted)}
+.legend .i{display:flex;align-items:center;gap:6px}
+.legend .i span{display:flex;align-items:center;justify-content:center;width:34px;height:20px;border-radius:4px;font:700 9px var(--fm)}
+.legend .l0{background:var(--panel2);color:var(--muted2);border:1px solid var(--rulesoft)}
+.legend .l1{background:rgba(91,125,78,.20);color:#4e6b3f}
+.legend .l2{background:rgba(184,134,44,.30);color:#7a5c10}
+.legend .l3{background:rgba(154,51,32,.30);color:var(--danger)}
+
+.tag{position:fixed;top:14px;right:22px;z-index:60;font:700 9px var(--fm);text-transform:uppercase;letter-spacing:.14em;color:#fff;background:var(--terra);padding:5px 11px;border-radius:5px;display:flex;align-items:center;gap:6px}
+.tag .material-symbols-outlined{font-size:13px}
+</style>
+</head>
+<body>
+<div class="tag"><span class="material-symbols-outlined">grid_on</span> C · « Chaleur »</div>
+<div class="wrap">
+  <div class="hd">
+    <div class="k">Board vide · alternative</div>
+    <h1>C — Chaleur (heatmap de capacité)</h1>
+    <p>Les cellules vides sont teintées par la charge planifiée : on VOIT la répartition de charge avant même les cartes. Idéal pour repérer les goulots (rouge) et les capacités disponibles (vide/vert).</p>
+  </div>
+
+  <div class="board"><div class="sheet">
+    <div class="wkb"><div class="corner"></div><div class="wk">Semaine XXV · 16–20 juin<span class="chg">charge 71%</span></div><div class="wk">Semaine XXVI · 23–27 juin<span class="chg">charge 81%</span></div></div>
+    <div class="dh">
+      <div class="lh">Poste de charge</div>
+      <div class="dc ok"><div class="nm">Lun</div><div class="nn">16</div><div class="hh">49,6h</div></div>
+      <div class="dc ok today"><div class="nm">Mar</div><div class="nn">17</div><div class="hh">62,4h</div></div>
+      <div class="dc over"><div class="nm">Mer</div><div class="nn">18</div><div class="hh">72,8h</div></div>
+      <div class="dc ok"><div class="nm">Jeu</div><div class="nn">19</div><div class="hh">43,2h</div></div>
+      <div class="dc ok"><div class="nm">Ven</div><div class="nn">20</div><div class="hh">56,0h</div></div>
+      <div class="dc ok"><div class="nm">Lun</div><div class="nn">23</div><div class="hh">52,8h</div></div>
+      <div class="dc warn"><div class="nm">Mar</div><div class="nn">24</div><div class="hh">70,4h</div></div>
+      <div class="dc ok"><div class="nm">Mer</div><div class="nn">25</div><div class="hh">58,4h</div></div>
+      <div class="dc ok"><div class="nm">Jeu</div><div class="nn">26</div><div class="hh">48,0h</div></div>
+      <div class="dc warn"><div class="nm">Ven</div><div class="nn">27</div><div class="hh">65,6h</div></div>
+    </div>
+
+    <!-- DCP-01 : 62,78,0,54,70,66,0,73,60,0 -->
+    <div class="row">
+      <div class="lh-r"><div class="t"><span class="dot" style="background:#5b7d4e"></span><span class="code">DCP-01</span></div><span class="nm">Découpe Fan</span><div class="meta"><div class="hist"><i style="height:64%;background:#5b7d4e"></i><i style="height:66%;background:#5b7d4e"></i></div><span class="chg">9 OF</span></div></div>
+      <div class="cell c1">62</div><div class="cell c2 today">78</div><div class="cell c0"></div><div class="cell c1">54</div><div class="cell c1">70</div><div class="cell c1">66</div><div class="cell c0"></div><div class="cell c2">73</div><div class="cell c1">60</div><div class="cell c0"></div>
+    </div>
+    <!-- SDR-02 : 0,85,95,80,0,0,92,0,60,100 -->
+    <div class="row">
+      <div class="lh-r"><div class="t"><span class="dot" style="background:#2f4858"></span><span class="code">SDR-02</span></div><span class="nm">Soudure Robot</span><div class="meta"><div class="hist"><i style="height:91%;background:var(--danger)"></i><i style="height:88%;background:var(--suggere)"></i></div><span class="chg ov">14 OF</span></div></div>
+      <div class="cell c0"></div><div class="cell c2 today">85</div><div class="cell c3">95</div><div class="cell c2">80</div><div class="cell c0"></div><div class="cell c0"></div><div class="cell c3">92</div><div class="cell c0"></div><div class="cell c1">60</div><div class="cell c3">100</div>
+    </div>
+    <!-- PUD-03 : 0,0,78,65,90,70,0,78,0,72 -->
+    <div class="row">
+      <div class="lh-r"><div class="t"><span class="dot" style="background:#b8862c"></span><span class="code">PUD-03</span></div><span class="nm">Peinture Four</span><div class="meta"><div class="hist"><i style="height:78%;background:var(--planifie)"></i><i style="height:73%;background:var(--planifie)"></i></div><span class="chg wn">11 OF</span></div></div>
+      <div class="cell c0"></div><div class="cell c0 today"></div><div class="cell c2">78</div><div class="cell c1">65</div><div class="cell c2">90</div><div class="cell c1">70</div><div class="cell c0"></div><div class="cell c2">78</div><div class="cell c0"></div><div class="cell c2">72</div>
+    </div>
+    <!-- ASV-04 : 52,0,0,60,0,45,0,0,70,0 -->
+    <div class="row">
+      <div class="lh-r"><div class="t"><span class="dot" style="background:#8b5cf6"></span><span class="code">ASV-04</span></div><span class="nm">Assemblage VMC</span><div class="meta"><div class="hist"><i style="height:52%;background:#5b7d4e"></i><i style="height:45%;background:#5b7d4e"></i></div><span class="chg">7 OF</span></div></div>
+      <div class="cell c1">52</div><div class="cell c0 today"></div><div class="cell c0"></div><div class="cell c1">60</div><div class="cell c0"></div><div class="cell c1">45</div><div class="cell c0"></div><div class="cell c0"></div><div class="cell c1">70</div><div class="cell c0"></div>
+    </div>
+    <!-- CTL-05 : 0,60,0,55,70,0,65,0,0,58 -->
+    <div class="row">
+      <div class="lh-r"><div class="t"><span class="dot" style="background:#8c7d66"></span><span class="code">CTL-05</span></div><span class="nm">Contrôlage Final</span><div class="meta"><div class="hist"><i style="height:88%;background:var(--suggere)"></i><i style="height:80%;background:var(--planifie)"></i></div><span class="chg wn">12 OF</span></div></div>
+      <div class="cell c0"></div><div class="cell c1 today">60</div><div class="cell c0"></div><div class="cell c1">55</div><div class="cell c1">70</div><div class="cell c0"></div><div class="cell c1">65</div><div class="cell c0"></div><div class="cell c0"></div><div class="cell c1">58</div>
+    </div>
+  </div></div>
+
+  <div class="legend">
+    <span class="i"><span class="l0">·</span> Vide (disponible)</span>
+    <span class="i"><span class="l1">62</span> Léger ≤ 70%</span>
+    <span class="i"><span class="l2">78</span> Chargé 71–90%</span>
+    <span class="i"><span class="l3">95</span> Surcharge &gt; 90%</span>
+  </div>
+</div>
+</body>
+</html>

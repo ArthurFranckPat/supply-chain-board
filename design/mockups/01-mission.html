@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Planning Board · A « Mission »</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,300,0,0" rel="stylesheet" />
+<style>
+:root{
+  --bg:#0a0d12; --bg2:#0d1117; --panel:#11161d; --panel2:#161c25; --line:#222b36; --line-soft:#1a212b;
+  --ink:#e6edf3; --muted:#7d8896; --muted2:#565f6b;
+  --lime:#a3e635; --lime-dim:rgba(163,230,53,.14); --cyan:#22d3ee;
+  --ferme:#3fb950; --planifie:#58a6ff; --suggere:#e3b341; --danger:#f85149;
+  --r:7px; --r-sm:5px;
+  --font-d:"Space Grotesk",system-ui,sans-serif;
+  --font-m:"JetBrains Mono",ui-monospace,monospace;
+  --font-s:"Inter",system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-s);font-size:13px;-webkit-font-smoothing:antialiased;overflow:hidden}
+.material-symbols-outlined{font-family:"Material Symbols Outlined";font-weight:300;font-style:normal;line-height:1;font-feature-settings:"liga";-webkit-font-smoothing:antialiased}
+.mono{font-family:var(--font-m)}
+*{scrollbar-width:thin;scrollbar-color:#2a3340 transparent}
+*::-webkit-scrollbar{width:9px;height:9px}
+*::-webkit-scrollbar-thumb{background:#2a3340;border-radius:9px;border:2px solid var(--bg)}
+
+.app{display:grid;grid-template-columns:56px 1fr;height:100vh;overflow:hidden}
+/* sidebar */
+.side{background:var(--bg2);border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;padding:14px 0;gap:4px}
+.side .logo{width:30px;height:30px;border-radius:8px;background:var(--lime);color:#0a0d12;display:flex;align-items:center;justify-content:center;font:700 15px var(--font-d);margin-bottom:20px;box-shadow:0 0 16px rgba(163,230,53,.4)}
+.side a{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted);text-decoration:none;transition:.15s;position:relative}
+.side a .material-symbols-outlined{font-size:21px}
+.side a:hover{color:var(--ink);background:var(--panel)}
+.side a.active{color:var(--lime)}
+.side a.active::before{content:"";position:absolute;left:-14px;top:8px;bottom:8px;width:2px;background:var(--lime);border-radius:2px;box-shadow:0 0 8px var(--lime)}
+.side .bot{margin-top:auto}
+
+.main{display:flex;flex-direction:column;min-width:0;height:100vh;overflow:hidden}
+
+/* top status strip */
+.strip{height:24px;background:var(--bg2);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px;padding:0 16px;font:500 10px var(--font-m);color:var(--muted);flex:none}
+.strip .item{display:flex;align-items:center;gap:6px}
+.strip .dot{width:6px;height:6px;border-radius:50%}
+.strip .dot.live{background:var(--lime);box-shadow:0 0 6px var(--lime);animation:pulse 2s infinite}
+.strip .dot.bad{background:var(--danger);box-shadow:0 0 6px var(--danger)}
+@keyframes pulse{50%{opacity:.4}}
+.strip .sep{width:1px;height:12px;background:var(--line)}
+.strip .clock{margin-left:auto;color:var(--ink);font-weight:600}
+
+/* header */
+header.bar{height:52px;background:var(--bg2);border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:16px;padding:0 18px;flex:none}
+.bar-l,.bar-r{display:flex;align-items:center;gap:12px}
+.wordmark{display:flex;align-items:center;gap:10px}
+.wordmark h1{font:700 16px var(--font-d);letter-spacing:-.02em}
+.wordmark h1 b{color:var(--lime)}
+.modebadge{font:600 9px var(--font-m);text-transform:uppercase;letter-spacing:.14em;color:var(--cyan);background:rgba(34,211,238,.10);border:1px solid rgba(34,211,238,.3);padding:3px 8px;border-radius:5px}
+.divider{width:1px;height:22px;background:var(--line)}
+.cmd{display:flex;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:8px;height:32px;transition:.15s}
+.cmd:focus-within{border-color:var(--lime);box-shadow:0 0 0 3px var(--lime-dim)}
+.cmd .material-symbols-outlined{font-size:18px;color:var(--muted);margin-left:10px}
+.cmd input{border:0;outline:0;background:transparent;font:500 12px var(--font-s);width:220px;padding:0 10px;color:var(--ink)}
+.cmd input::placeholder{color:var(--muted2)}
+.cmd .kbd{font:600 9px var(--font-m);color:var(--muted);background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:2px 6px;margin-right:8px}
+.scope{height:32px;border:1px solid var(--line);border-radius:8px;background:var(--panel);font:600 11px var(--font-m);color:var(--muted);padding:0 26px 0 10px;appearance:none;cursor:pointer}
+.scope:hover{border-color:#39434f}
+.btn{display:inline-flex;align-items:center;gap:7px;font:600 12px var(--font-s);border-radius:8px;padding:8px 13px;cursor:pointer;transition:.15s;border:1px solid transparent}
+.btn .material-symbols-outlined{font-size:16px}
+.btn-lime{background:var(--lime);color:#0a0d12;box-shadow:0 0 16px rgba(163,230,53,.25)}
+.btn-lime:hover{background:#b9f04a}
+.btn-ghost{background:var(--panel);border-color:var(--line);color:var(--ink)}
+.btn-ghost:hover{border-color:#39434f;background:var(--panel2)}
+.btn-ghost.on{color:var(--lime);border-color:rgba(163,230,53,.4);background:var(--lime-dim)}
+.iconbtn{width:32px;height:32px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--muted);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:.15s}
+.iconbtn:hover{color:var(--ink);border-color:#39434f}
+.avatar{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--lime),var(--cyan));color:#0a0d12;font:700 10px var(--font-m);display:flex;align-items:center;justify-content:center}
+
+/* toolbar */
+.toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 18px;border-bottom:1px solid var(--line);background:var(--bg2);flex:none}
+.toolbar-l,.toolbar-r{display:flex;align-items:center;gap:10px}
+.winnav{display:flex;align-items:center;border:1px solid var(--line);border-radius:8px;background:var(--panel);overflow:hidden}
+.winnav a{display:flex;align-items:center;color:var(--muted);text-decoration:none;padding:6px 10px;transition:.15s}
+.winnav a:hover{color:var(--ink);background:var(--panel2)}
+.winnav .material-symbols-outlined{font-size:18px}
+.winnav .today{font:700 11px var(--font-m);color:var(--lime);background:var(--lime-dim);border-left:1px solid var(--line);border-right:1px solid var(--line);padding:6px 14px;letter-spacing:.06em}
+.daterange{font:700 13px var(--font-m);color:var(--ink);letter-spacing:-.01em}
+.daterange .yr{color:var(--muted);font-weight:500}
+.horizon{display:flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:8px;padding:6px 10px;background:var(--panel)}
+.horizon .material-symbols-outlined{font-size:15px;color:var(--muted)}
+.horizon input{width:26px;border:0;outline:0;background:transparent;font:700 12px var(--font-m);color:var(--ink);text-align:right}
+.horizon .u{font:700 10px var(--font-m);color:var(--muted)}
+.legend{display:flex;align-items:center;gap:14px}
+.legend span{display:flex;align-items:center;gap:6px;font:500 11px var(--font-s);color:var(--muted)}
+.legend i{width:8px;height:8px;border-radius:50%}
+.legend i.g{background:var(--ferme);box-shadow:0 0 6px var(--ferme)}
+.legend i.b{background:var(--planifie);box-shadow:0 0 6px var(--planifie)}
+.legend i.a{background:var(--suggere);box-shadow:0 0 6px var(--suggere)}
+.counter{display:flex;align-items:center;gap:7px;font:700 12px var(--font-m);color:var(--ink);background:var(--panel);border:1px solid var(--line);padding:6px 12px;border-radius:8px}
+.counter b{color:var(--lime)}
+
+/* board */
+.board{flex:1;overflow:auto;padding:14px 18px;background:
+  radial-gradient(900px 500px at 70% -10%, rgba(34,211,238,.05), transparent),
+  radial-gradient(700px 400px at 10% 110%, rgba(163,230,53,.05), transparent),
+  var(--bg)}
+.grid{display:grid;grid-template-columns:210px repeat(10,minmax(112px,1fr));min-width:calc(210px + 10*120px);border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--bg2)}
+/* week band */
+.wkband{grid-column:1/-1;display:grid;grid-template-columns:210px repeat(10,minmax(112px,1fr));min-width:calc(210px + 10*120px);border-bottom:1px solid var(--line)}
+.wkband .wk{grid-column:span 5;padding:8px 14px;background:linear-gradient(90deg,var(--panel2),var(--bg2));display:flex;align-items:center;gap:10px;border-right:1px solid var(--line)}
+.wkband .wk .wn{font:700 11px var(--font-m);text-transform:uppercase;letter-spacing:.16em;color:var(--lime)}
+.wkband .wk .wd{font:500 10px var(--font-m);color:var(--muted)}
+.wkband .wk .chg{margin-left:auto;font:700 10px var(--font-m);color:var(--cyan);background:rgba(34,211,238,.08);padding:2px 8px;border-radius:5px}
+.wkband .corner{background:var(--bg2);border-right:1px solid var(--line)}
+/* day header */
+.dhead{grid-column:1/-1;display:grid;grid-template-columns:210px repeat(10,minmax(112px,1fr));min-width:calc(210px + 10*120px);background:var(--panel);border-bottom:1px solid var(--line)}
+.dhead .lh{padding:9px 14px;font:700 9px var(--font-m);text-transform:uppercase;letter-spacing:.12em;color:var(--muted2);border-right:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}
+.dhead .dc{position:relative;padding:7px 6px;text-align:center;border-right:1px solid var(--line-soft);overflow:hidden}
+.dhead .dc .glow{position:absolute;inset:0;opacity:0}
+.dhead .dc .dn{font:600 9px var(--font-m);text-transform:uppercase;letter-spacing:.08em;color:var(--muted);position:relative}
+.dhead .dc .dd{font:700 16px var(--font-d);color:var(--ink);position:relative;line-height:1.1}
+.dhead .dc .ld{font:600 9px var(--font-m);position:relative;margin-top:2px}
+.dhead .dc.today{background:rgba(163,230,53,.06)}
+.dhead .dc.today .dn,.dhead .dc.today .dd{color:var(--lime)}
+.dhead .dc.hot .ld{color:var(--danger)}
+.dhead .dc.warm .ld{color:var(--suggere)}
+.dhead .dc.ok .ld{color:var(--muted)}
+/* rows */
+.row{display:contents}
+.lh-r{background:var(--bg2);border-right:1px solid var(--line);border-bottom:1px solid var(--line-soft);padding:9px 14px;display:flex;flex-direction:column;justify-content:center;gap:4px;min-width:210px}
+.lh-r .top{display:flex;align-items:center;gap:8px}
+.lh-r .dot{width:9px;height:9px;border-radius:50%}
+.lh-r .code{font:700 13px var(--font-m);color:var(--ink);letter-spacing:-.01em}
+.lh-r .name{font:500 10px var(--font-s);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lh-r .load{display:flex;align-items:center;gap:8px;font:600 10px var(--font-m);color:var(--muted)}
+.lh-r .load .bar{flex:1;height:4px;border-radius:4px;background:var(--panel2);overflow:hidden;max-width:64px}
+.lh-r .load .bar i{display:block;height:100%;border-radius:4px}
+.lh-r .load b{color:var(--ink)}
+.cell{background:var(--bg2);border-right:1px solid var(--line-soft);border-bottom:1px solid var(--line-soft);padding:5px;display:flex;flex-direction:column;gap:5px;min-height:50px;position:relative}
+.cell.today{background:rgba(163,230,53,.03)}
+/* card */
+.card{position:relative;background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--muted2);border-radius:6px;padding:5px 8px;box-shadow:0 1px 2px rgba(0,0,0,.3);cursor:pointer;transition:.15s}
+.card:hover{border-color:#39434f;transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.4)}
+.card.ferme{border-left-color:var(--ferme);box-shadow:inset 2px 0 8px -4px var(--ferme),0 1px 2px rgba(0,0,0,.3)}
+.card.planifie{border-left-color:var(--planifie);box-shadow:inset 2px 0 8px -4px var(--planifie),0 1px 2px rgba(0,0,0,.3)}
+.card.suggere{border-left-color:var(--suggere);background:#15140d;box-shadow:inset 2px 0 8px -4px var(--suggere),0 1px 2px rgba(0,0,0,.3)}
+.card.mod{border-color:var(--lime);box-shadow:0 0 0 1px rgba(163,230,53,.3),0 1px 2px rgba(0,0,0,.3)}
+.card .ctop{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.card .ctitle{font:700 10px var(--font-m);color:var(--ink);letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card .ch{font:700 9px var(--font-m);color:var(--muted);background:var(--panel2);border-radius:4px;padding:1px 5px;flex:none}
+.card .cm{display:flex;align-items:center;gap:5px;color:var(--muted);font:500 9px var(--font-s);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card .ct{font:700 8px var(--font-m);color:var(--lime);background:var(--lime-dim);border-radius:3px;padding:0 4px;flex:none}
+.card .feas{position:absolute;top:-5px;right:-5px;width:14px;height:14px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#0a0d12;box-shadow:0 0 8px currentColor;font-size:9px;font-weight:700}
+.card .feas.ok{background:var(--ferme);color:#0a0d12}
+.card .feas.bad{background:var(--danger);color:#fff}
+.card .ovr{width:5px;height:5px;border-radius:50%;background:var(--suggere);box-shadow:0 0 5px var(--suggere);flex:none}
+
+.tag{position:fixed;top:9px;left:70px;z-index:60;font:700 10px var(--font-m);text-transform:uppercase;letter-spacing:.14em;color:#0a0d12;background:var(--lime);padding:5px 11px;border-radius:7px;box-shadow:0 0 18px rgba(163,230,53,.5);display:flex;align-items:center;gap:7px}
+.tag .material-symbols-outlined{font-size:15px}
+</style>
+</head>
+<body>
+<div class="tag"><span class="material-symbols-outlined">satellite_alt</span> A · « Mission »</div>
+
+<div class="app">
+  <aside class="side">
+    <div class="logo">F</div>
+    <a href="#" title="Vue d'ensemble"><span class="material-symbols-outlined">grid_view</span></a>
+    <a href="#" class="active" title="Planning Prods"><span class="material-symbols-outlined">view_timeline</span></a>
+    <a href="#" title="Ruptures"><span class="material-symbols-outlined">crisis_alert</span></a>
+    <a href="#" title="Ressources"><span class="material-symbols-outlined">inventory_2</span></a>
+    <a href="#" title="Maintenance"><span class="material-symbols-outlined">build</span></a>
+    <div class="bot"><a href="#" title="Console"><span class="material-symbols-outlined">terminal</span></a></div>
+  </aside>
+
+  <div class="main">
+    <!-- telemetry strip -->
+    <div class="strip">
+      <div class="item"><span class="dot live"></span>X3 SYNC · OK</div>
+      <div class="sep"></div>
+      <div class="item"><span class="dot bad"></span>3 RUPTURES COMPOSANTS</div>
+      <div class="sep"></div>
+      <div class="item">FENÊTRE 10J · S25→S26</div>
+      <div class="sep"></div>
+      <div class="item">CACHE LIVE · 2 MIN</div>
+      <div class="clock" class="mono">14:32:07 CEST</div>
+    </div>
+
+    <!-- header -->
+    <header class="bar">
+      <div class="bar-l">
+        <div class="wordmark"><h1>Factory<b>OS</b></h1></div>
+        <span class="modebadge">Mode planification</span>
+        <div class="divider"></div>
+        <div class="cmd"><span class="material-symbols-outlined">search</span><input placeholder="Rechercher OF, article, poste…" /><span class="kbd">⌘K</span></div>
+        <select class="scope"><option>Poste</option><option>Commande</option><option>Article</option><option>Client</option></select>
+      </div>
+      <div class="bar-r">
+        <button class="btn btn-ghost on"><span class="material-symbols-outlined">bolt</span>Projetée</button>
+        <button class="btn btn-lime"><span class="material-symbols-outlined">fact_check</span>Faisabilité</button>
+        <div class="avatar">OP</div>
+      </div>
+    </header>
+
+    <!-- toolbar -->
+    <div class="toolbar">
+      <div class="toolbar-l">
+        <div class="winnav">
+          <a href="#"><span class="material-symbols-outlined">chevron_left</span></a>
+          <a href="#" class="today">▸ S25 · 17 JUIN</a>
+          <a href="#"><span class="material-symbols-outlined">chevron_right</span></a>
+        </div>
+        <span class="daterange">16 → 27 JUIN <span class="yr">2026</span></span>
+        <div class="horizon"><span class="material-symbols-outlined">date_range</span><input type="number" value="10" /><span class="u">j</span></div>
+      </div>
+      <div class="toolbar-r">
+        <div class="legend">
+          <span><i class="g"></i>Ferme</span>
+          <span><i class="b"></i>Planifié</span>
+          <span><i class="a"></i>Suggéré</span>
+        </div>
+        <div class="counter"><b>53</b>lignes · <b>5</b>postes</div>
+      </div>
+    </div>
+
+    <!-- board -->
+    <div class="board">
+      <div class="grid">
+        <div class="wkband">
+          <div class="corner"></div>
+          <div class="wk"><span class="wn">S25</span><span class="wd">16–20 juin</span><span class="chg">CHARGE 71%</span></div>
+          <div class="wk"><span class="wn">S26</span><span class="wd">23–27 juin</span><span class="chg">CHARGE 81%</span></div>
+        </div>
+        <div class="dhead">
+          <div class="lh">Poste <span style="color:var(--cyan)">●</span></div>
+          <div class="dc ok"><div class="dn">Lun</div><div class="dd">16</div><div class="ld">62%</div></div>
+          <div class="dc today warm"><div class="dn">Mar</div><div class="dd">17</div><div class="ld">78%</div></div>
+          <div class="dc hot"><div class="dn">Mer</div><div class="dd">18</div><div class="ld">91%</div></div>
+          <div class="dc ok"><div class="dn">Jeu</div><div class="dd">19</div><div class="ld">54%</div></div>
+          <div class="dc ok"><div class="dn">Ven</div><div class="dd">20</div><div class="ld">70%</div></div>
+          <div class="dc ok"><div class="dn">Lun</div><div class="dd">23</div><div class="ld">66%</div></div>
+          <div class="dc warm"><div class="dn">Mar</div><div class="dd">24</div><div class="ld">88%</div></div>
+          <div class="dc ok"><div class="dn">Mer</div><div class="dd">25</div><div class="ld">73%</div></div>
+          <div class="dc ok"><div class="dn">Jeu</div><div class="dd">26</div><div class="ld">60%</div></div>
+          <div class="dc warm"><div class="dn">Ven</div><div class="dd">27</div><div class="ld">82%</div></div>
+        </div>
+
+        <!-- Ligne 1 -->
+        <div class="row">
+          <div class="lh-r"><div class="top"><span class="dot" style="background:#3fb950;box-shadow:0 0 6px #3fb950"></span><span class="code">DCP-01</span></div><span class="name">Découpe Fan · Caisses</span><div class="load"><b>9</b>OF<div class="bar"><i style="width:64%;background:#3fb950"></i></div><b>64%</b></div></div>
+          <div class="cell"></div>
+          <div class="cell today"><div class="card ferme"><div class="ctop"><span class="ctitle">AR24518·L2</span><span class="ch">6,0h</span></div><div class="cm"><span class="ct">MTS</span>AXION GUEVIN</div></div></div>
+          <div class="cell">
+            <div class="card planifie"><div class="ctop"><span class="ctitle">AR24601·L1</span><span class="ch">7,5h</span></div><div class="cm"><span class="ct">MTO</span>CDC Habitat</div></div>
+            <div class="card ferme mod"><div class="ctop"><span class="ctitle">AR24490·L4</span><span class="ch">3,0h</span></div><div class="cm"><span class="ovr"></span><span class="ct">MTS</span>Bouygues</div><span class="feas bad">!</span></div>
+          </div>
+          <div class="cell"></div>
+          <div class="cell"><div class="card suggere"><div class="ctop"><span class="ctitle">SGA8841</span><span class="ch">5,0h</span></div><div class="cm"><span class="ct">MTS</span>Prévision</div></div></div>
+          <div class="cell"></div>
+          <div class="cell"><div class="card planifie"><div class="ctop"><span class="ctitle">AR24712·L1</span><span class="ch">8,0h</span></div><div class="cm"><span class="ct">MTO</span>Eiffage</div><span class="feas ok">✓</span></div></div>
+          <div class="cell"></div>
+          <div class="cell"></div>
+          <div class="cell"><div class="card suggere"><div class="ctop"><span class="ctitle">SGA8902</span><span class="ch">4,5h</span></div><div class="cm"><span class="ct">MTS</span>Prévision</div></div></div>
+          <div class="cell"></div>
+        </div>
+
+        <!-- Ligne 2 -->
+        <div class="row">
+          <div class="lh-r"><div class="top"><span class="dot" style="background:#58a6ff;box-shadow:0 0 6px #58a6ff"></span><span class="code">SDR-02</span></div><span class="name">Soudure Caisson · Robot</span><div class="load"><b>14</b>OF<div class="bar"><i style="width:91%;background:#e3b341"></i></div><b>91%</b></div></div>
+          <div class="cell"><div class="card ferme"><div class="ctop"><span class="ctitle">AR24533·L1</span><span class="ch">8,0h</span></div><div class="cm"><span class="ct">MTO</span>Vinci</div></div></div>
+          <div class="cell today">
+            <div class="card planifie"><div class="ctop"><span class="ctitle">AR24588·L3</span><span class="ch">7,0h</span></div><div class="cm"><span class="ct">MTS</span>AXION GUEVIN</div></div>
+            <div class="card planifie mod"><div class="ctop"><span class="ctitle">AR24610·L2</span><span class="ch">5,5h</span></div><div class="cm"><span class="ovr"></span><span class="ct">MTO</span>Bouygues</div></div>
+          </div>
+          <div class="cell"><div class="card ferme"><div class="ctop"><span class="ctitle">AR24622·L1</span><span class="ch">8,0h</span></div><div class="cm"><span class="ct">MTO</span>CDC Habitat</div><span class="feas ok">✓</span></div></div>
+          <div class="cell"><div class="card suggere"><div class="ctop"><span class="ctitle">SGA8845</span><span class="ch">6,0h</span></div><div class="cm"><span class="ct">MTS</span>Prévision</div></div></div>
+          <div class="cell"></div>
+          <div class="cell">
+            <div class="card planifie"><div class="ctop"><span class="ctitle">AR24730·L1</span><span class="ch">8,0h</span></div><div class="cm"><span class="ct">MTO</span>Eiffage</div></div>
+            <div class="card ferme"><div class="ctop"><span class="ctitle">AR24741·L2</span><span class="ch">4,0h</span></div><div class="cm"><span class="ct">MTS</span>Vinci</div></div>
+          </div>
+          <div class="cell"><div class="card planifie"><div class="ctop"><span class="ctitle">AR24755·L1</span><span class="ch">7,5h</span></div><div class="cm"><span class="ct">MTS</span>Bouygues</div><span class="feas bad">!</span></div></div>
+          <div class="cell"></div>
+          <div class="cell"><div class="card ferme"><div class="ctop"><span class="ctitle">AR24770·L1</span><span class="ch">8,0h</span></div><div class="cm"><span class="ct">MTO</span>CDC Habitat</div></div></div>
+          <div class="cell"></div>
+        </div>
+
+        <!-- Ligne 3 -->
+        <div class="row">
+          <div class="lh-r"><div class="top"><span class="dot" style="background:#e3b341;box-shadow:0 0 6px #e3b341"></span><span class="code">PUD-03</span></div><span class="name">Peinture Poudre · Four</span><div class="load"><b>11</b>OF<div class="bar"><i style="width:78%;background:#58a6ff"></i></div><b>78%</b></div></div>
+          <div class="cell"></div>
+          <div class="cell today"></div>
+          <div class="cell"><div class="card ferme"><div class="ctop"><span class="ctitle">AR24533·L1</span><span class="ch">6,0h</span></div><div class="cm"><span class="ct">MTO</span>Vinci</div></div></div>
+          <div class="cell"><div class="card planifie"><div class="ctop"><span class="ctitle">AR24588·L3</span><span class="ch">5,0h</span></div><div class="cm"><span class="ct">MTS</span>AXION GUEVIN</div></div></div>
+          <div class="cell"><div class="card suggere mod"><div class="ctop"><span class="ctitle">SGA8850</span><span class="ch">7,0h</span></div><div class="cm"><span class="ovr"></span><span class="ct">MTS</span>Prévision</div></div></div>
+          <div class="cell"></div>
+          <div class="cell"></div>
+          <div class="cell"><div class="card planifie"><div class="ctop"><span class="ctitle">AR24712·L1</span><span class="ch">6,5h</span></div><div class="cm"><span class="ct">MTO</span>Eiffage</div><span class="feas ok">✓</span></div></div>
+          <div class="cell"><div class="card ferme"><div class="ctop"><span class="ctitle">AR24730·L1</span><span class="ch">5,5h</span></div><div class="cm"><span class="ct">MTO</span>Eiffage</div></div></div>
+          <div class="cell"></div>
+          <div class="cell"></div>
+        </div>
+
+        <!-- Ligne 4 -->
+        <div class="row">
+          <div class="lh-r"><div class="top"><span class="dot" style="background:#a78bfa;box-shadow:0 0 6px #a78bfa"></span><span class="code">ASV-04</span></div><span class="name">Assemblage VMC · Manuel</span><div class="load"><b>7</b>OF<div class="bar"><i style="width:52%;background:#3fb950"></i></div><b>52%</b></div></div>
+          <div class="cell"><div class="card ferme"><div class="ctop"><span class="ctitle">AR24518·L2</span><span class="ch">5,0h</span></div><div class="cm"><span class="ct">MTS</span>AXION GUEVIN</div></div></div>
+          <div class="cell today"></div>
+          <div class="cell"></div>
+          <div class="cell"><div class="card planifie"><div class="ctop"><span class="ctitle">AR24610·L2</span><span class="ch">6,0h</span></div><div class="cm"><span class="ct">MTO</span>Bouygues</div></div></div>
+          <div class="cell"></div>
+          <div class="cell"><div class="card suggere"><div class="ctop"><span class="ctitle">SGA8860</span><span class="ch">4,0h</span></div><div class="cm"><span class="ct">MTS</span>Prévision</div></div></div>
+          <div class="cell"></div>
+          <div class="cell"></div>
+          <div class="cell"><div class="card planifie"><div class="ctop"><span class="ctitle">AR24741·L2</span><span class="ch">7,0h</span></div><div class="cm"><span class="ct">MTS</span>Vinci</div><span class="feas ok">✓</span></div></div>
+          <div class="cell"></div>
+        </div>
+
+        <!-- Ligne 5 -->
+        <div class="row">
+          <div class="lh-r"><div class="top"><span class="dot" style="background:#7d8896;box-shadow:0 0 6px #7d8896"></span><span class="code">CTL-05</span></div><span class="name">Contrôlage Final · Banc</span><div class="load"><b>12</b>OF<div class="bar"><i style="width:88%;background:#e3b341"></i></div><b>88%</b></div></div>
+          <div class="cell"></div>
+          <div class="cell today"><div class="card ferme"><div class="ctop"><span class="ctitle">AR24533·L1</span><span class="ch">4,0h</span></div><div class="cm"><span class="ct">MTO</span>Vinci</div></div></div>
+          <div class="cell"></div>
+          <div class="cell"><div class="card planifie"><div class="ctop"><span class="ctitle">AR24588·L3</span><span class="ch">3,5h</span></div><div class="cm"><span class="ct">MTS</span>AXION GUEVIN</div></div></div>
+          <div class="cell"><div class="card ferme"><div class="ctop"><span class="ctitle">AR24622·L1</span><span class="ch">4,0h</span></div><div class="cm"><span class="ct">MTO</span>CDC Habitat</div></div></div>
+          <div class="cell"></div>
+          <div class="cell"><div class="card planifie"><div class="ctop"><span class="ctitle">AR24712·L1</span><span class="ch">4,0h</span></div><div class="cm"><span class="ct">MTO</span>Eiffage</div></div></div>
+          <div class="cell"></div>
+          <div class="cell"><div class="card planifie"><div class="ctop"><span class="ctitle">AR24755·L1</span><span class="ch">4,0h</span></div><div class="cm"><span class="ct">MTS</span>Bouygues</div></div></div>
+          <div class="cell"><div class="card ferme"><div class="ctop"><span class="ctitle">AR24770·L1</span><span class="ch">4,0h</span></div><div class="cm"><span class="ct">MTO</span>CDC Habitat</div></div></div>
+          <div class="cell"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

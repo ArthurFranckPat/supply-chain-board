@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Planning Board · 3 cartes commande</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,700;9..144,900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,400,0,0" rel="stylesheet" />
+<style>
+:root{
+  --bg:#e9ecf1; --ink:#0f172a; --muted:#64748b; --line:#cbd5e1;
+  --font-s:"Inter",system-ui,sans-serif;
+  --font-m:"JetBrains Mono",ui-monospace,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-s);-webkit-font-smoothing:antialiased;padding:40px 32px 60px}
+.material-symbols-outlined{font-family:"Material Symbols Outlined";font-weight:400;line-height:1;font-feature-settings:"liga";vertical-align:middle}
+.head{max-width:1180px;margin:0 auto 36px}
+.head .k{font:700 11px var(--font-m);text-transform:uppercase;letter-spacing:.16em;color:#64748b}
+.head h1{font:700 26px "Space Grotesk",sans-serif;letter-spacing:-.02em;margin-top:6px}
+.head p{color:#475569;font-size:14px;margin-top:8px;max-width:680px;line-height:1.5}
+.head .data{margin-top:14px;display:flex;flex-wrap:wrap;gap:8px}
+.head .data span{font:600 11px var(--font-m);background:#fff;border:1px solid var(--line);border-radius:7px;padding:5px 10px;color:#334155}
+.head .data span b{color:#0f172a}
+.row{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:repeat(3,1fr);gap:28px;align-items:start}
+.col{display:flex;flex-direction:column;gap:14px}
+.cap{display:flex;align-items:baseline;gap:10px}
+.cap .n{font:700 11px var(--font-m);color:#fff;background:#0f172a;border-radius:6px;padding:3px 8px;letter-spacing:.06em}
+.cap h2{font:700 19px "Space Grotesk",sans-serif;letter-spacing:-.02em}
+.cap .for{margin-left:auto;font:600 10px var(--font-m);color:#64748b;background:#fff;border:1px solid var(--line);border-radius:6px;padding:3px 8px}
+.desc{font-size:13px;color:#475569;line-height:1.55}
+.stage{background:#fff;border:1px solid var(--line);border-radius:16px;padding:30px;display:flex;justify-content:center;align-items:flex-start;min-height:230px;box-shadow:0 1px 3px rgba(15,23,42,.06)}
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes li{list-style:none;font:500 12px var(--font-s);color:#475569;padding-left:18px;position:relative}
+.notes li::before{content:"";position:absolute;left:0;top:7px;width:6px;height:6px;border-radius:50%;background:#94a3b8}
+
+/* ══════ CARTE 1 · TICKET ══════ */
+.c-ticket{width:260px;background:#fffbeb;border:1px solid #fde68a;border-radius:4px;font-family:var(--font-m);overflow:hidden;box-shadow:0 6px 16px -6px rgba(120,53,15,.25);position:relative}
+.c-ticket .strip{background:#16a34a;color:#fff;padding:6px 12px;display:flex;align-items:center;justify-content:space-between;font:700 9px var(--font-m);text-transform:uppercase;letter-spacing:.1em}
+.c-ticket .strip .st{display:flex;align-items:center;gap:5px}
+.c-ticket .strip .n{opacity:.85}
+.c-ticket .perfo{height:0;border-top:2px dashed #fde68a;position:relative}
+.c-ticket .perfo::before,.c-ticket .perfo::after{content:"";position:absolute;top:-7px;width:12px;height:12px;border-radius:50%;background:var(--bg);border:1px solid #fde68a}
+.c-ticket .perfo::before{left:-7px}.c-ticket .perfo::after{right:-7px}
+.c-ticket .body{padding:12px}
+.c-ticket .row1{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px}
+.c-ticket .ofn{font:700 15px var(--font-m);letter-spacing:-.01em;color:#0f172a}
+.c-ticket .h{font:700 13px var(--font-m);color:#92400e;background:#fff;border:1px solid #fde68a;border-radius:3px;padding:1px 7px}
+.c-ticket .kv{display:flex;justify-content:space-between;font-size:10px;padding:2px 0;color:#78350f}
+.c-ticket .kv .k{color:#a16207;font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+.c-ticket .kv .v{font-weight:600;color:#1c1917;text-align:right;max-width:60%}
+.c-ticket .foot{border-top:1px dashed #fde68a;margin-top:8px;padding-top:8px;display:flex;align-items:center;justify-content:space-between}
+.c-ticket .typ{font:700 9px var(--font-m);color:#fff;background:#0f172a;padding:2px 7px;border-radius:3px;letter-spacing:.08em}
+.c-ticket .stamp{font:700 8px var(--font-m);color:#b91c1c;border:1.5px solid #b91c1c;border-radius:3px;padding:2px 5px;letter-spacing:.08em;transform:rotate(-3deg)}
+
+/* ══════ CARTE 2 · BLOC ══════ */
+.c-bloc{width:260px;background:#fbf7ee;border-top:3px solid #2f4858;border-radius:2px;padding:22px 20px 18px;font-family:var(--font-s);position:relative;box-shadow:0 8px 20px -8px rgba(33,28,23,.18)}
+.c-bloc .art{font:900 26px "Fraunces",serif;letter-spacing:-.03em;color:#211c17;line-height:1}
+.c-bloc .des{font:500 12px var(--font-s);color:#857967;margin-top:7px;font-style:italic}
+.c-bloc .div{height:1px;background:#d9cdb5;margin:14px 0 12px}
+.c-bloc .cli{font:600 13px var(--font-s);color:#211c17}
+.c-bloc .sub{font:500 11px var(--font-m);color:#a16207;text-transform:uppercase;letter-spacing:.08em;margin-top:2px}
+.c-bloc .foot{display:flex;align-items:flex-end;justify-content:space-between;margin-top:16px}
+.c-bloc .h{font:700 22px "Fraunces",serif;color:#b8472a;line-height:1;letter-spacing:-.02em}
+.c-bloc .h .u{font:500 11px var(--font-s);color:#857967}
+.c-bloc .ord{font:700 10px var(--font-m);color:#857967;text-align:right}
+.c-bloc .ord b{color:#211c17}
+.c-bloc .feas{position:absolute;top:14px;right:16px;width:12px;height:12px;border-radius:50%;background:#a83a23;box-shadow:0 0 0 3px #fbf7ee}
+.c-bloc .feas::after{content:"!";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font:700 8px var(--font-m)}
+
+/* ══════ CARTE 3 · DATA ══════ */
+.c-data{width:260px;background:#0d1117;border:1px solid #222b36;border-radius:10px;padding:0;font-family:var(--font-s);overflow:hidden;box-shadow:0 8px 20px -8px rgba(0,0,0,.5)}
+.c-data .dh{display:flex;align-items:center;justify-content:space-between;padding:10px 13px;border-bottom:1px solid #222b36}
+.c-data .ord{font:700 12px var(--font-m);color:#e6edf3;letter-spacing:-.01em}
+.c-data .pill{font:700 8px var(--font-m);text-transform:uppercase;letter-spacing:.08em;color:#0a0d12;background:#a3e635;padding:2px 7px;border-radius:4px;display:flex;align-items:center;gap:4px}
+.c-data .pill.bad{background:#f85149;color:#fff}
+.c-data .grid{display:grid;grid-template-columns:auto 1fr;gap:5px 12px;padding:11px 13px}
+.c-data .k{font:600 9px var(--font-m);text-transform:uppercase;letter-spacing:.07em;color:#565f6b}
+.c-data .v{font:600 11px var(--font-m);color:#e6edf3;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.c-data .v.acc{color:#22d3ee}
+.c-data .v.warn{color:#e3b341}
+.c-data .gauge-w{padding:9px 13px;border-top:1px solid #222b36}
+.c-data .gauge-l{display:flex;align-items:center;justify-content:space-between;font:600 9px var(--font-m);color:#565f6b;text-transform:uppercase;letter-spacing:.07em;margin-bottom:5px}
+.c-data .gauge-l .miss{color:#f85149;font-weight:700}
+.c-data .gauge{height:5px;border-radius:5px;background:#222b36;overflow:hidden;display:flex}
+.c-data .gauge .ok{background:#3fb950;height:100%}
+.c-data .gauge .no{background:#f85149;height:100%}
+.c-data .df{display:flex;align-items:center;justify-content:space-between;padding:9px 13px;border-top:1px solid #222b36;background:#11161d}
+.c-data .typ{font:700 9px var(--font-m);color:#a3e635;background:rgba(163,230,53,.12);padding:2px 6px;border-radius:4px;letter-spacing:.06em}
+.c-data .h{font:700 14px var(--font-m);color:#e6edf3}
+.c-data .ovr{font:700 8px var(--font-m);color:#e3b341;text-transform:uppercase;letter-spacing:.06em;display:flex;align-items:center;gap:3px}
+.c-data .ovr .material-symbols-outlined{font-size:11px}
+
+.compare{max-width:1180px;margin:48px auto 0;background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 24px}
+.compare h3{font:700 15px "Space Grotesk",sans-serif;margin-bottom:12px}
+.compare table{width:100%;border-collapse:collapse;font-size:13px}
+.compare th,.compare td{text-align:left;padding:9px 10px;border-bottom:1px solid #eef1f5}
+.compare th{font:600 11px var(--font-m);text-transform:uppercase;letter-spacing:.08em;color:#64748b}
+.compare td{color:#334155}
+.compare td b{color:#0f172a}
+.compare tr:last-child td{border-bottom:0}
+</style>
+</head>
+<body>
+<div class="head">
+  <div class="k">Composant · Carte commande</div>
+  <h1>3 propositions de carte « ligne de commande »</h1>
+  <p>L'unité atomique du board. Mêmes données affichées dans les trois traitements pour comparer la lisibilité, la densité et la signature visuelle. Chaque carte encode : n° commande·ligne, article, désignation, client, heures, type, override, faisabilité.</p>
+  <div class="data">
+    <span><b>AR24490 · L4</b></span>
+    <span>Article <b>XTR106540</b></span>
+    <span>Caisse VMC D200</span>
+    <span>Client <b>Bouygues</b></span>
+    <span><b>3,0 h</b></span>
+    <span>Type <b>MTS</b></span>
+    <span>Override ✓</span>
+    <span style="color:#b91c1c">Faisabilité <b>BLOQUÉE</b> · MOT-33012 −42</span>
+  </div>
+</div>
+
+<div class="row">
+
+  <!-- ══ TICKET ══ -->
+  <div class="col">
+    <div class="cap"><span class="n">01</span><h2>Ticket</h2><span class="for">→ Mission</span></div>
+    <p class="desc">Métaphore du carnet à souche / ordre de fabrication papier. Bandeau statut en haut, perforation, data en monospace. Le « stamp » rouge signale le blocage.</p>
+    <div class="stage">
+      <div class="c-ticket">
+        <div class="strip"><span class="st"><span class="material-symbols-outlined" style="font-size:13px">check_circle</span>Ferme</span><span class="n">OF · DCP-01</span></div>
+        <div class="perfo"></div>
+        <div class="body">
+          <div class="row1"><span class="ofn">AR24490·L4</span><span class="h">3,0h</span></div>
+          <div class="kv"><span class="k">Article</span><span class="v">XTR106540</span></div>
+          <div class="kv"><span class="k">Désign.</span><span class="v">Caisse VMC D200</span></div>
+          <div class="kv"><span class="k">Client</span><span class="v">Bouygues</span></div>
+          <div class="foot"><span class="typ">MTS</span><span class="stamp">BLOQUÉ</span></div>
+        </div>
+      </div>
+    </div>
+    <ul class="notes">
+      <li>Statut = bandeau coloré plein, immédiat</li>
+      <li>Identité physique : on « tends » un ticket au poste</li>
+      <li>Stamp rouge = alerte faisabilité sans ambigüité</li>
+    </ul>
+  </div>
+
+  <!-- ══ BLOC ══ -->
+  <div class="col">
+    <div class="cap"><span class="n">02</span><h2>Bloc</h2><span class="for">→ Papier</span></div>
+    <p class="desc">Minimal radical. Le code article devient le hero typographique (serif Fraunces), le reste s'efface. Une fine barre de statut en haut, un point rouge en coin pour l'alerte.</p>
+    <div class="stage">
+      <div class="c-bloc">
+        <span class="feas"></span>
+        <div class="art">XTR106540</div>
+        <div class="des">Caisse VMC D200</div>
+        <div class="div"></div>
+        <div class="cli">Bouygues</div>
+        <div class="sub">AR24490 · L4 · Modifié</div>
+        <div class="foot">
+          <div class="h">3,0<span class="u"> h</span></div>
+          <div class="ord">MTS<br/><b>Ferme</b></div>
+        </div>
+      </div>
+    </div>
+    <ul class="notes">
+      <li>Le code article = repère visuel principal (les pros le lisent)</li>
+      <li>Statut = fine barre colorée, discret</li>
+      <li>Maximum de respiration, minimum d'ornement</li>
+    </ul>
+  </div>
+
+  <!-- ══ DATA ══ -->
+  <div class="col">
+    <div class="cap"><span class="n">03</span><h2>Data</h2><span class="for">→ Bento</span></div>
+    <p class="desc">Dense et structuré. Grille clé/valeur exhaustive, jauge de faisabilité avec composant manquant, tout en monospace. Conçu pour le balayage rapide d'un pro.</p>
+    <div class="stage">
+      <div class="c-data">
+        <div class="dh"><span class="ord">AR24490 · L4</span><span class="pill bad"><span class="material-symbols-outlined" style="font-size:11px">block</span>Bloqué</span></div>
+        <div class="grid">
+          <span class="k">Article</span><span class="v">XTR106540</span>
+          <span class="k">Désign.</span><span class="v">Caisse D200</span>
+          <span class="k">Client</span><span class="v">Bouygues</span>
+          <span class="k">Poste</span><span class="v acc">DCP-01</span>
+          <span class="k">Manquant</span><span class="v warn">MOT-33012</span>
+        </div>
+        <div class="gauge-w">
+          <div class="gauge-l"><span>Faisabilité</span><span class="miss">−42 unités</span></div>
+          <div class="gauge"><div class="ok" style="width:64%"></div><div class="no" style="width:36%"></div></div>
+        </div>
+        <div class="df">
+          <span class="typ">MTS</span>
+          <span class="ovr"><span class="material-symbols-outlined">edit</span>Modifié</span>
+          <span class="h">3,0h</span>
+        </div>
+      </div>
+    </div>
+    <ul class="notes">
+      <li>Toute l'info d'un coup d'œil, organisée en grille</li>
+      <li>Jauge = quantifie le manque, pas juste un drapeau</li>
+      <li>Parfait en densité élevée (board serré)</li>
+    </ul>
+  </div>
+
+</div>
+
+<div class="compare">
+  <h3>Comparatif rapide</h3>
+  <table>
+    <tr><th></th><th>Ticket</th><th>Bloc</th><th>Data</th></tr>
+    <tr><td><b>École</b></td><td>Métaphore physique</td><td>Minimalisme éditorial</td><td>Densité data</td></tr>
+    <tr><td><b>Repère principal</b></td><td>N° commande</td><td>Code article</td><td>N° commande + grille</td></tr>
+    <tr><td><b>Densité</b></td><td>Moyenne</td><td>Faible</td><td>Élevée</td></tr>
+    <tr><td><b>Statut</b></td><td>Bandeau plein</td><td>Barre fine</td><td>Pastille + jauge</td></tr>
+    <tr><td><b>S'accorde avec</b></td><td>Layout A « Mission »</td><td>Layout B « Papier »</td><td>Layout C « Bento »</td></tr>
+  </table>
+</div>
+</body>
+</html>

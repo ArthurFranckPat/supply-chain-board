@@ -1,0 +1,784 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Design System · Papier · Supply Chain Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,300,0,0" rel="stylesheet" />
+<style>
+/* ════════════════════════════════════════════════════════════
+   DESIGN SYSTEM — PAPIER  (canonical tokens)
+   Source of truth for the Supply Chain Board look.
+   ════════════════════════════════════════════════════════════ */
+:root{
+  /* ── Surfaces ── */
+  --paper:#f3ece0;        /* app background — warm cream */
+  --panel:#fbf8ef;        /* cards / surfaces — warm white */
+  --panel-2:#efe7d6;      /* recessed / secondary surface */
+  --rule:#cdbfa0;         /* default border */
+  --rule-soft:#e3d9c1;    /* hairline / faint divider */
+  --hair:#ece3cf;
+  /* ── Ink ── */
+  --ink:#1f1a13;          /* primary text */
+  --ink-2:#4a4135;        /* secondary text */
+  --muted:#8c7d66;        /* muted text */
+  --muted-2:#a99c84;      /* faint / placeholder */
+  /* ── Brand ── */
+  --terra:#a8431f;        /* primary brand — terracotta */
+  --terra-2:#8c3617;      /* hover */
+  --terra-soft:rgba(168,67,31,.10);
+  /* ── Status ── */
+  --ferme:#5b7d4e;        /* Ferme / OK — sage */
+  --planifie:#2f4858;     /* Planifié — indigo ink */
+  --suggere:#b8862c;      /* Suggéré / Retard — ochre */
+  --danger:#9a3320;       /* Sans couverture / danger — deep red */
+  --ferme-soft:rgba(91,125,78,.12);
+  --planifie-soft:rgba(47,72,88,.10);
+  --suggere-soft:rgba(184,134,44,.14);
+  --danger-soft:rgba(154,51,32,.10);
+  /* ── Type ── */
+  --font-d:"Fraunces",Georgia,serif;
+  --font-s:"Inter",system-ui,sans-serif;
+  --font-m:"JetBrains Mono",ui-monospace,monospace;
+  /* ── Radius ── */
+  --r-0:2px;   /* sharp / editorial */
+  --r-1:4px;
+  --r-2:6px;
+  --r-3:8px;
+  --r-4:12px;
+  --r-pill:999px;
+  /* ── Shadow (sparingly — Papier is flat/hairline-led) ── */
+  --sh-xs:0 1px 2px rgba(31,26,19,.05);
+  --sh-sm:0 2px 6px -2px rgba(31,26,19,.12);
+  --sh-md:0 10px 28px -8px rgba(31,26,19,.22);
+  --sh-lg:0 24px 48px -16px rgba(31,26,19,.30);
+  /* ── Motion ── */
+  --ease:cubic-bezier(.32,.72,0,1);
+  --d-fast:.12s; --d-med:.16s; --d-slow:.22s;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--paper);color:var(--ink);font-family:var(--font-s);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;font-variant-numeric:tabular-nums}
+.material-symbols-outlined{font-family:"Material Symbols Outlined";font-weight:300;line-height:1;font-feature-settings:"liga";-webkit-font-smoothing:antialiased;vertical-align:middle}
+.mono{font-family:var(--font-m);font-variant-numeric:tabular-nums}
+.fd{font-family:var(--font-d)}
+*{scrollbar-width:thin;scrollbar-color:#c9bb9d transparent}
+*::-webkit-scrollbar{width:11px;height:11px}
+*::-webkit-scrollbar-thumb{background:#c9bb9d;border-radius:9px;border:3px solid var(--paper)}
+
+/* ═══ Layout: TOC + content ═══ */
+.app{display:grid;grid-template-columns:240px 1fr;max-width:1340px;margin:0 auto}
+.toc{position:sticky;top:0;align-self:start;height:100vh;overflow:auto;padding:30px 18px 30px 32px;border-right:1px solid var(--rule-soft)}
+.toc .brand{font:900 19px var(--font-d);letter-spacing:-.03em;line-height:1}
+.toc .brand em{font-style:italic;font-weight:500;color:var(--terra)}
+.toc .ver{font:500 10px var(--font-m);color:var(--muted);margin-top:5px;letter-spacing:.04em}
+.toc nav{margin-top:26px;display:flex;flex-direction:column;gap:1px}
+.toc .grp{font:700 8px var(--font-m);text-transform:uppercase;letter-spacing:.16em;color:var(--muted-2);margin:16px 0 6px}
+.toc a{font:500 12.5px var(--font-s);color:var(--ink-2);text-decoration:none;padding:5px 10px;border-radius:var(--r-2);transition:background var(--d-fast) var(--ease);display:flex;align-items:center;gap:8px}
+.toc a .n{font:600 9px var(--font-m);color:var(--muted-2);width:16px}
+.toc a:hover{background:var(--panel-2);color:var(--ink)}
+.toc a.active{background:var(--terra-soft);color:var(--terra)}
+
+.content{padding:40px 48px 96px;min-width:0}
+
+/* section */
+.sec{padding:34px 0 14px;border-top:1px solid var(--rule-soft);scroll-margin-top:20px}
+.sec:first-child{border-top:0;padding-top:0}
+.sec-h{display:flex;align-items:baseline;gap:14px;margin-bottom:6px}
+.sec-h .nn{font:600 11px var(--font-m);color:var(--terra);background:var(--terra-soft);padding:3px 9px;border-radius:var(--r-2);letter-spacing:.04em}
+.sec-h h2{font:700 24px var(--font-d);letter-spacing:-.025em}
+.sec-d{color:var(--ink-2);font-size:13.5px;max-width:680px;margin-bottom:22px;line-height:1.55}
+.sub{font:700 10px var(--font-m);text-transform:uppercase;letter-spacing:.16em;color:var(--muted);margin:22px 0 12px}
+
+/* generic showcase frame */
+.frame{background:var(--panel);border:1px solid var(--rule);border-radius:var(--r-4);padding:24px;box-shadow:var(--sh-xs)}
+.frame.flat{background:repeating-linear-gradient(45deg,var(--panel),var(--panel) 12px,#f6f0e2 12px,#f6f0e2 13px)}
+.row{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.lab{font:600 10px var(--font-m);text-transform:uppercase;letter-spacing:.1em;color:var(--muted-2);margin-bottom:8px;display:block}
+
+/* ═══ 1. Couleurs ═══ */
+.swgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:12px}
+.sw{border-radius:var(--r-3);overflow:hidden;border:1px solid var(--rule-soft);background:var(--panel)}
+.sw .chip{height:64px}
+.sw .meta{padding:9px 11px}
+.sw .nm{font:600 11px var(--font-m);color:var(--ink);letter-spacing:-.01em}
+.sw .hx{font:500 10px var(--font-m);color:var(--muted)}
+.sw .us{font:400 10px var(--font-d);color:var(--muted-2);font-style:italic;margin-top:2px}
+
+/* ═══ 2. Typographie ═══ */
+.type-row{display:flex;align-items:baseline;gap:18px;padding:12px 0;border-bottom:1px solid var(--hair)}
+.type-row:last-child{border-bottom:0}
+.type-row .spec{flex:none;width:170px;font:500 10px var(--font-m);color:var(--muted);text-transform:uppercase;letter-spacing:.08em;line-height:1.5}
+.type-row .spec b{color:var(--ink);display:block;font-weight:600;text-transform:none;letter-spacing:0;font-family:var(--font-s)}
+.t-disp-xl{font:900 52px var(--font-d);letter-spacing:-.04em;line-height:1}
+.t-disp{font:900 34px var(--font-d);letter-spacing:-.035em;line-height:1.05}
+.t-h1{font:700 26px var(--font-d);letter-spacing:-.025em;line-height:1.15}
+.t-h2{font:700 19px var(--font-d);letter-spacing:-.02em;line-height:1.2}
+.t-h3{font:600 15px var(--font-s);letter-spacing:-.01em}
+.t-body{font:400 14px var(--font-s);line-height:1.55}
+.t-small{font:500 13px var(--font-s)}
+.t-cap{font:500 12px var(--font-s);color:var(--ink-2)}
+.t-over{font:700 10px var(--font-m);text-transform:uppercase;letter-spacing:.16em;color:var(--muted)}
+.t-data{font:600 14px var(--font-m);font-variant-numeric:tabular-nums}
+.t-quote{font:400 16px var(--font-d);font-style:italic;color:var(--ink-2)}
+
+/* ═══ 3. Espacement ═══ */
+.sp{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap}
+.sp .i{display:flex;flex-direction:column;align-items:center;gap:6px}
+.sp .bar{background:var(--terra);border-radius:2px;width:30px}
+.sp .lb{font:600 10px var(--font-m);color:var(--muted)}
+
+/* ═══ 4. Radius / shadow ═══ */
+.rad{display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap}
+.rad .i{display:flex;flex-direction:column;align-items:center;gap:8px}
+.rad .box{width:72px;height:72px;background:var(--panel);border:1px solid var(--rule)}
+.rad .lb{font:600 10px var(--font-m);color:var(--muted)}
+.shgrid{display:flex;gap:22px;flex-wrap:wrap}
+.shgrid .i{display:flex;flex-direction:column;align-items:center;gap:10px}
+.shgrid .box{width:96px;height:64px;background:var(--panel);border-radius:var(--r-3)}
+.shgrid .lb{font:600 10px var(--font-m);color:var(--muted);text-align:center}
+
+/* ═══ 7. Boutons ═══ */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;font:600 13px var(--font-s);border-radius:var(--r-3);padding:9px 16px;cursor:pointer;border:1px solid transparent;transition:background var(--d-fast) var(--ease),box-shadow var(--d-fast) var(--ease),border-color var(--d-fast) var(--ease),transform var(--d-fast) var(--ease);text-decoration:none;line-height:1;white-space:nowrap;font-variant-numeric:tabular-nums}
+.btn .material-symbols-outlined{font-size:17px}
+.btn-primary{background:var(--terra);color:#fbf8ef;box-shadow:var(--sh-xs)}
+.btn-primary:hover{background:var(--terra-2)}
+.btn-primary:active{transform:translateY(1px)}
+.btn-secondary{background:var(--panel);color:var(--ink);border-color:var(--rule);box-shadow:var(--sh-xs)}
+.btn-secondary:hover{background:var(--panel-2);border-color:#b3a47e}
+.btn-outline{background:transparent;color:var(--ink);border-color:var(--rule)}
+.btn-outline:hover{background:var(--panel-2)}
+.btn-ghost{background:transparent;color:var(--ink-2)}
+.btn-ghost:hover{background:var(--panel-2);color:var(--ink)}
+.btn-danger{background:var(--danger);color:#fbf8ef}
+.btn-danger:hover{background:#7d2718}
+.btn-link{background:transparent;color:var(--terra);padding:9px 4px;border-radius:var(--r-1)}
+.btn-link:hover{color:var(--terra-2);text-decoration:underline}
+.btn-sm{padding:6px 11px;font-size:12px;border-radius:var(--r-2)}
+.btn-sm .material-symbols-outlined{font-size:15px}
+.btn-lg{padding:12px 20px;font-size:14px;border-radius:var(--r-3)}
+.btn-icon{padding:0;width:36px;height:36px}
+.btn-icon.btn-sm{width:30px;height:30px}
+.btn[disabled],.btn:disabled{opacity:.45;pointer-events:none}
+
+/* ═══ 8. Champs ═══ */
+.input{height:36px;width:100%;border:1px solid var(--rule);border-radius:var(--r-3);background:var(--panel);padding:0 12px;font:500 13px var(--font-s);color:var(--ink);transition:border-color var(--d-fast) var(--ease),box-shadow var(--d-fast) var(--ease)}
+.input::placeholder{color:var(--muted-2);font-style:italic;font-family:var(--font-d)}
+.input:focus{outline:none;border-color:var(--terra);box-shadow:0 0 0 3px var(--terra-soft)}
+.search{position:relative;display:flex;align-items:center}
+.search .material-symbols-outlined{position:absolute;left:12px;font-size:18px;color:var(--muted);pointer-events:none}
+.search .input{padding-left:36px;padding-right:36px}
+.search .kbd{position:absolute;right:8px;font:600 9px var(--font-m);color:var(--muted);background:var(--panel-2);border:1px solid var(--rule);border-radius:var(--r-1);padding:2px 5px}
+.select{height:36px;border:1px solid var(--rule);border-radius:var(--r-3);background:var(--panel) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238c7d66' d='M2 4l4 4 4-4'/%3E%3C/svg%3E") no-repeat right 11px center;font:500 13px var(--font-s);color:var(--ink);padding:0 30px 0 12px;appearance:none;cursor:pointer}
+.select:focus{outline:none;border-color:var(--terra);box-shadow:0 0 0 3px var(--terra-soft)}
+.seg{display:inline-flex;background:var(--panel-2);border:1px solid var(--rule);border-radius:var(--r-3);padding:3px}
+.seg button{font:700 11px var(--font-s);border:0;background:transparent;color:var(--muted);padding:6px 14px;border-radius:var(--r-2);cursor:pointer;text-transform:uppercase;letter-spacing:.04em}
+.seg button.on{background:var(--panel);color:var(--terra);box-shadow:var(--sh-xs)}
+.num{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--rule);border-radius:var(--r-3);padding:4px 10px;background:var(--panel)}
+.num .material-symbols-outlined{font-size:16px;color:var(--muted)}
+.num input{width:34px;border:0;outline:0;background:transparent;font:700 13px var(--font-m);color:var(--ink);text-align:center}
+.num .u{font:700 10px var(--font-m);color:var(--muted)}
+.field-label{font:600 10px var(--font-m);text-transform:uppercase;letter-spacing:.1em;color:var(--muted);display:block;margin-bottom:6px}
+
+/* ═══ 9. Badges & chips ═══ */
+.badge{display:inline-flex;align-items:center;gap:6px;font:700 9px var(--font-s);text-transform:uppercase;letter-spacing:.1em;padding:4px 9px;border-radius:var(--r-1);border:1px solid transparent}
+.badge .material-symbols-outlined{font-size:13px}
+.bdg-ferme{color:#3f5e30;background:var(--ferme-soft);border-color:rgba(91,125,78,.25)}
+.bdg-planifie{color:var(--planifie);background:var(--planifie-soft);border-color:rgba(47,72,88,.2)}
+.bdg-suggere{color:#7a5c10;background:var(--suggere-soft);border-color:rgba(184,134,44,.3)}
+.bdg-danger{color:var(--danger);background:var(--danger-soft);border-color:rgba(154,51,32,.2)}
+/* verdict small-caps + dot (no box) */
+.vd{font:700 10px var(--font-s);text-transform:uppercase;letter-spacing:.1em;display:inline-flex;align-items:center;gap:7px}
+.vd .d{width:7px;height:7px;border-radius:50%}
+.vd.ok{color:#3f5e30}.vd.ok .d{background:var(--ferme)}
+.vd.warn{color:#7a5c10}.vd.warn .d{background:var(--suggere)}
+.vd.bad{color:var(--danger)}.vd.bad .d{background:var(--danger)}
+/* type chip */
+.chip-type{font:700 9px var(--font-s);text-transform:uppercase;letter-spacing:.08em;color:var(--terra);background:var(--terra-soft);padding:2px 7px;border-radius:var(--r-1)}
+/* filter chip */
+.chip-flt{font:700 10px var(--font-m);text-transform:uppercase;letter-spacing:.06em;background:var(--panel);color:var(--muted);border:1px solid var(--rule);border-radius:var(--r-2);padding:6px 11px;cursor:pointer;transition:var(--d-fast) var(--ease)}
+.chip-flt:hover{border-color:#b3a47e;color:var(--ink)}
+.chip-flt.on{background:var(--terra-soft);color:var(--terra);border-color:rgba(168,67,31,.3)}
+/* override */
+.ovr{font:600 9px var(--font-s);text-transform:uppercase;letter-spacing:.06em;color:var(--suggere);display:inline-flex;align-items:center;gap:3px}
+.ovr .material-symbols-outlined{font-size:12px}
+/* feasibility badge */
+.feas{width:16px;height:16px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700}
+.feas.ok{background:var(--ferme)}
+.feas.bad{background:var(--danger)}
+
+/* ═══ 11. Carte commande ═══ */
+.card{position:relative;background:var(--panel);border:1px solid var(--rule);border-top:3px solid var(--muted);border-radius:var(--r-2);padding:10px 11px 9px;width:172px;box-shadow:var(--sh-xs);transition:box-shadow var(--d-med) var(--ease),transform var(--d-med) var(--ease)}
+.card:hover{box-shadow:var(--sh-md);transform:translateY(-2px)}
+.card.ferme{border-top-color:var(--ferme)}
+.card.planifie{border-top-color:var(--planifie)}
+.card.suggere{border-top-color:var(--suggere)}
+.card.mod{box-shadow:0 0 0 1.5px var(--terra),var(--sh-xs)}
+.card .art{font:600 12px var(--font-m);color:var(--ink);letter-spacing:-.01em;line-height:1.2}
+.card .ord{font:600 11px var(--font-s);color:var(--ink-2);margin-top:3px}
+.card .ord b{color:var(--ink)}
+.card .ord .ds{font-weight:400;color:var(--muted)}
+.card .cli{font:400 11px var(--font-d);color:var(--muted);font-style:italic;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card .foot{display:flex;align-items:center;gap:7px;margin-top:8px;padding-top:7px;border-top:1px solid var(--hair)}
+.card .h{margin-left:auto;font:700 14px var(--font-d);color:var(--ink);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.card .feas-c{position:absolute;top:-7px;right:8px;width:15px;height:15px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:9px;font-weight:700;border:2px solid var(--panel)}
+
+/* ═══ 12. Rangée rupture ═══ */
+.rr{display:grid;grid-template-columns:28px 1.6fr 70px 1.3fr 80px 1.6fr 130px;gap:18px;align-items:center;padding:13px 16px;border-bottom:1px solid var(--hair)}
+.rr:last-child{border-bottom:0}
+.rr:hover{background:var(--terra-soft)}
+.rr .rk{font:500 13px var(--font-d);color:var(--muted-2);font-variant-numeric:tabular-nums}
+.rr .comp .c{font:600 14px var(--font-m);color:var(--ink);letter-spacing:-.01em}
+.rr .comp .d{font:400 12px var(--font-d);color:var(--muted);font-style:italic;margin-top:1px}
+.rr .qty{font:700 22px var(--font-d);color:var(--danger);letter-spacing:-.025em;text-align:right;font-variant-numeric:tabular-nums}
+.rr .ofc .of{font:600 13px var(--font-m);color:var(--terra);cursor:pointer}
+.rr .ofc .of:hover{text-decoration:underline}
+.rr .ofc .art{font:400 11px var(--font-d);color:var(--muted);font-style:italic;margin-top:1px}
+.rr .cmdc .n{font:600 13px var(--font-m);color:var(--ink)}
+.rr .cmdc .cl{font:400 12px var(--font-d);color:var(--muted);font-style:italic;margin-top:1px}
+.rr .date{font:600 13px var(--font-m);color:var(--ink-2);font-variant-numeric:tabular-nums}
+.rr .rec .id{font:600 12px var(--font-m);color:var(--ink)}
+.rr .rec .mt{font:400 11px var(--font-d);color:var(--muted);font-style:italic;margin-top:1px}
+.rr .rec .none{font:600 10px var(--font-m);text-transform:uppercase;letter-spacing:.08em;color:var(--danger);display:inline-flex;align-items:center;gap:4px}
+.rr .rec .none .material-symbols-outlined{font-size:13px}
+
+/* ═══ 13. Navigation ═══ */
+.side-mini{width:56px;background:var(--panel);border:1px solid var(--rule);border-radius:var(--r-3);display:flex;flex-direction:column;align-items:center;padding:12px 0;gap:4px}
+.side-mini .lg{width:30px;height:30px;border-radius:var(--r-2);background:var(--terra);color:#fbf8ef;display:flex;align-items:center;justify-content:center;font:900 15px var(--font-d);margin-bottom:14px}
+.side-mini a{width:36px;height:36px;border-radius:var(--r-2);display:flex;align-items:center;justify-content:center;color:var(--muted);text-decoration:none}
+.side-mini a .material-symbols-outlined{font-size:21px}
+.side-mini a:hover{background:var(--panel-2);color:var(--ink)}
+.side-mini a.active{background:var(--terra-soft);color:var(--terra)}
+.masthead-mini{flex:1;background:var(--paper);border:1px solid var(--rule);border-bottom:2px solid var(--ink);border-radius:var(--r-3) var(--r-3) 0 0;padding:12px 18px}
+.masthead-mini .top{display:flex;align-items:baseline;justify-content:space-between}
+.masthead-mini .mk{font:900 18px var(--font-d);letter-spacing:-.03em}
+.masthead-mini .mk em{font-style:italic;color:var(--terra);font-weight:500}
+.masthead-mini .kk{font:600 9px var(--font-m);text-transform:uppercase;letter-spacing:.2em;color:var(--muted-2)}
+.masthead-mini .ed{font:500 10px var(--font-m);color:var(--muted)}
+
+/* ═══ 14. Board sample ═══ */
+.board-mini{border:1px solid var(--rule);border-radius:var(--r-3);overflow:hidden;background:var(--panel);box-shadow:var(--sh-xs)}
+.bm-band{display:grid;grid-template-columns:130px 1fr 1fr;background:var(--ink);color:#e3d9c1;font:700 9px var(--font-m);text-transform:uppercase;letter-spacing:.12em;padding:7px 14px}
+.bm-band .b1{color:#d9c89a}
+.bm-head{display:grid;grid-template-columns:130px repeat(5,1fr);background:var(--panel-2);border-bottom:1px solid var(--ink)}
+.bm-head .lh{padding:8px 12px;font:700 8px var(--font-m);text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+.bm-head .dc{padding:6px 4px;text-align:center;border-left:1px solid var(--hair)}
+.bm-head .dc .dn{font:600 8px var(--font-m);text-transform:uppercase;color:var(--muted)}
+.bm-head .dc .dd{font:700 15px var(--font-d);color:var(--ink)}
+.bm-head .dc.today .dd{color:var(--terra)}
+.bm-row{display:grid;grid-template-columns:130px repeat(5,1fr);border-bottom:1px solid var(--hair)}
+.bm-row:last-child{border-bottom:0}
+.bm-row .lh{padding:9px 12px;background:var(--panel);border-right:1px solid var(--hair);display:flex;flex-direction:column;gap:2px;justify-content:center}
+.bm-row .lh .c{font:700 12px var(--font-m);color:var(--ink)}
+.bm-row .lh .n{font:500 9px var(--font-s);color:var(--muted)}
+.bm-cell{padding:5px;border-left:1px solid var(--hair);min-height:46px;display:flex;flex-direction:column;gap:4px}
+
+/* ═══ 15. Panneau détail D3 ═══ */
+.d3{border:1px solid var(--ink);border-radius:var(--r-3);overflow:hidden;background:var(--panel);box-shadow:var(--sh-md)}
+.d3 .ph{display:flex;align-items:center;gap:14px;padding:11px 16px;border-bottom:1px solid var(--rule);background:var(--panel-2)}
+.d3 .ph .id{font:700 16px var(--font-d);color:var(--ink)}
+.d3 .ph .art{font:700 12px var(--font-m);color:var(--terra)}
+.d3 .ph .des{font:400 12px var(--font-d);color:var(--muted);font-style:italic}
+.d3 .ph .sp{flex:1}
+.d3 .meta{display:flex;align-items:center;gap:0;padding:0 16px;border-bottom:1px solid var(--hair);background:var(--panel)}
+.d3 .meta .m{display:flex;flex-direction:column;padding:9px 16px 9px 0;margin-right:16px;border-right:1px solid var(--hair)}
+.d3 .meta .m:last-child{border-right:0}
+.d3 .meta .k{font:600 8px var(--font-m);text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.d3 .meta .v{font:700 13px var(--font-d);color:var(--ink);line-height:1.1}
+.bom{width:100%;border-collapse:collapse}
+.bom th{font:700 8px var(--font-m);text-transform:uppercase;letter-spacing:.08em;color:var(--muted);text-align:left;padding:8px 14px;border-bottom:1px solid var(--rule);background:var(--panel-2)}
+.bom th.r,.bom td.r{text-align:right}
+.bom td{padding:8px 14px;border-bottom:1px solid var(--hair);font-size:12px}
+.bom td.art{font:700 11px var(--font-m);color:var(--ink)}
+.bom td.des{color:var(--ink-2)}
+.bom tr.bad td{background:var(--danger-soft)}
+.bom .sh{font:700 11px var(--font-m);color:var(--danger)}
+.bom .oki{color:var(--ferme);font-weight:700}
+
+/* ═══ 16. États ═══ */
+.state{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:40px 20px;border:1px solid var(--rule);border-radius:var(--r-3);background:var(--panel);text-align:center}
+.state .ic{width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.state .ic .material-symbols-outlined{font-size:26px}
+.state .t{font:700 15px var(--font-d);color:var(--ink)}
+.state .s{font:400 13px var(--font-d);color:var(--muted);font-style:italic;max-width:260px}
+.state.empty .ic{background:var(--ferme-soft);color:var(--ferme)}
+.state.error .ic{background:var(--danger-soft);color:var(--danger)}
+.spin{width:30px;height:30px;border:3px solid var(--rule);border-top-color:var(--terra);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ═══ motion sample ═══ */
+.ease-demo{display:flex;align-items:center;gap:18px}
+.ease-track{flex:1;height:40px;background:var(--panel-2);border-radius:var(--r-3);position:relative;overflow:hidden;border:1px solid var(--rule)}
+.ease-track .ball{position:absolute;top:50%;left:8px;transform:translateY(-50%);width:20px;height:20px;border-radius:50%;background:var(--terra);animation:slide 2.4s var(--ease) infinite alternate}
+@keyframes slide{to{left:calc(100% - 28px)}}
+.ease-demo .lb{font:600 11px var(--font-m);color:var(--muted)}
+
+/* misc */
+.kvnote{font:400 12px var(--font-d);color:var(--ink-2);font-style:italic;line-height:1.6;background:var(--panel);border-left:3px solid var(--terra);padding:12px 16px;border-radius:0 var(--r-2) var(--r-2) 0;max-width:680px}
+.divider{height:1px;background:var(--rule-soft);margin:18px 0}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ══════ TOC ══════ -->
+  <aside class="toc">
+    <div class="brand">Design <em>System</em></div>
+    <div class="ver">Papier · v1.0 · 17 juin 2026</div>
+    <nav>
+      <div class="grp">Fondations</div>
+      <a href="#couleurs"><span class="n">01</span>Couleurs</a>
+      <a href="#typo"><span class="n">02</span>Typographie</a>
+      <a href="#espace"><span class="n">03</span>Espacement</a>
+      <a href="#radius"><span class="n">04</span>Rayons & ombres</a>
+      <a href="#icones"><span class="n">05</span>Icônes</a>
+      <a href="#motion"><span class="n">06</span>Motion</a>
+      <div class="grp">Primitives</div>
+      <a href="#boutons"><span class="n">07</span>Boutons</a>
+      <a href="#champs"><span class="n">08</span>Champs</a>
+      <a href="#badges"><span class="n">09</span>Badges & chips</a>
+      <a href="#statuts"><span class="n">10</span>Statuts</a>
+      <div class="grp">Composants app</div>
+      <a href="#carte"><span class="n">11</span>Carte commande</a>
+      <a href="#rupture"><span class="n">12</span>Rangée rupture</a>
+      <a href="#nav"><span class="n">13</span>Navigation</a>
+      <a href="#board"><span class="n">14</span>Board (grille)</a>
+      <a href="#detail"><span class="n">15</span>Panneau détail</a>
+      <a href="#etats"><span class="n">16</span>États</a>
+    </nav>
+  </aside>
+
+  <!-- ══════ CONTENT ══════ -->
+  <main class="content">
+
+    <!-- Intro -->
+    <div style="padding-bottom:14px">
+      <div style="font:600 11px var(--font-m);text-transform:uppercase;letter-spacing:.18em;color:var(--terra)">Supply Chain Board</div>
+      <h1 style="font:900 40px var(--font-d);letter-spacing:-.035em;line-height:1;margin-top:8px">Design System <span style="font-style:italic;font-weight:500;color:var(--terra)">Papier</span></h1>
+      <p style="color:var(--ink-2);font-size:14.5px;margin-top:12px;max-width:640px;line-height:1.6">Référence canonique du look de l'app : un registre éditorial chaud (papier crème, encre, terre cuite), lisible toute la journée, premium par la restraint. Source de vérité pour <code class="mono" style="background:var(--panel-2);padding:1px 5px;border-radius:4px">resources/css/app.css</code> et les composants Solid.</p>
+      <div class="kvnote" style="margin-top:18px">Trois principes : <b style="font-style:normal">1.</b> la typo porte la hiérarchie, pas les boîtes ; <b style="font-style:normal">2.</b> la terre cuite est un accent rare ; <b style="font-style:normal">3.</b> un détail à 120 %, le reste à 80 %.</div>
+    </div>
+
+    <!-- ═══ 01 COULEURS ═══ -->
+    <section class="sec" id="couleurs">
+      <div class="sec-h"><span class="nn">01</span><h2>Couleurs</h2></div>
+      <p class="sec-d">Une palette warm, conservée à l'issue de l'exploration (Cobalt / Tangerine / Émeraude / Grenade / Minuit écartées). Mode clair uniquement. Statuts sur trois familles de teinte distinctes — jamais d'ambiguïté.</p>
+
+      <div class="sub">Surfaces</div>
+      <div class="swgrid">
+        <div class="sw"><div class="chip" style="background:var(--paper)"></div><div class="meta"><div class="nm">Paper</div><div class="hx mono">#f3ece0</div><div class="us">fond de l'app</div></div></div>
+        <div class="sw"><div class="chip" style="background:var(--panel)"></div><div class="meta"><div class="nm">Panel</div><div class="hx mono">#fbf8ef</div><div class="us">cartes, surfaces</div></div></div>
+        <div class="sw"><div class="chip" style="background:var(--panel-2)"></div><div class="meta"><div class="nm">Panel-2</div><div class="hx mono">#efe7d6</div><div class="us">surfaces recesses</div></div></div>
+        <div class="sw"><div class="chip" style="background:var(--rule);"></div><div class="meta"><div class="nm">Rule</div><div class="hx mono">#cdbfa0</div><div class="us">bordure par défaut</div></div></div>
+        <div class="sw"><div class="chip" style="background:var(--rule-soft)"></div><div class="meta"><div class="nm">Rule-soft</div><div class="hx mono">#e3d9c1</div><div class="us">filet cheveux</div></div></div>
+      </div>
+
+      <div class="sub">Encre (texte)</div>
+      <div class="swgrid">
+        <div class="sw"><div class="chip" style="background:var(--ink)"></div><div class="meta"><div class="nm">Ink</div><div class="hx mono">#1f1a13</div><div class="us">texte primaire</div></div></div>
+        <div class="sw"><div class="chip" style="background:var(--ink-2)"></div><div class="meta"><div class="nm">Ink-2</div><div class="hx mono">#4a4135</div><div class="us">texte secondaire</div></div></div>
+        <div class="sw"><div class="chip" style="background:var(--muted)"></div><div class="meta"><div class="nm">Muted</div><div class="hx mono">#8c7d66</div><div class="us">texte atténué</div></div></div>
+        <div class="sw"><div class="chip" style="background:var(--muted-2)"></div><div class="meta"><div class="nm">Muted-2</div><div class="hx mono">#a99c84</div><div class="us">placeholder, faint</div></div></div>
+      </div>
+
+      <div class="sub">Brand & statuts</div>
+      <div class="swgrid">
+        <div class="sw"><div class="chip" style="background:var(--terra)"></div><div class="meta"><div class="nm">Terra (brand)</div><div class="hx mono">#a8431f</div><div class="us">accent primaire</div></div></div>
+        <div class="sw"><div class="chip" style="background:var(--ferme)"></div><div class="meta"><div class="nm">Ferme / OK</div><div class="hx mono">#5b7d4e</div><div class="us">sage — statut ferme</div></div></div>
+        <div class="sw"><div class="chip" style="background:var(--planifie)"></div><div class="meta"><div class="nm">Planifié</div><div class="hx mono">#2f4858</div><div class="us">indigo ink</div></div></div>
+        <div class="sw"><div class="chip" style="background:var(--suggere)"></div><div class="meta"><div class="nm">Suggéré / Retard</div><div class="hx mono">#b8862c</div><div class="us">ocre</div></div></div>
+        <div class="sw"><div class="chip" style="background:var(--danger)"></div><div class="meta"><div class="nm">Danger</div><div class="hx mono">#9a3320</div><div class="us">sans couverture</div></div></div>
+      </div>
+    </section>
+
+    <!-- ═══ 02 TYPO ═══ -->
+    <section class="sec" id="typo">
+      <div class="sec-h"><span class="nn">02</span><h2>Typographie</h2></div>
+      <p class="sec-d">Trois familles : <b>Fraunces</b> (serif d'affichage — titres, chiffres, citations), <b>Inter</b> (sans-serif — corps, UI), <b>JetBrains Mono</b> (données — codes, quantités, dates). Chiffres en <code class="mono">tabular-nums</code> pour l'alignement. Les labels en petites capitales (overline) portent la sophistication.</p>
+      <div class="frame">
+        <div class="type-row"><div class="spec"><b>Display XL</b>Fraunces 900 · 52px</div><div class="t-disp-xl">Planification</div></div>
+        <div class="type-row"><div class="spec"><b>Display</b>Fraunces 900 · 34px</div><div class="t-disp">Semaine XXV</div></div>
+        <div class="type-row"><div class="spec"><b>H1</b>Fraunces 700 · 26px</div><div class="t-h1">Registre des ruptures</div></div>
+        <div class="type-row"><div class="spec"><b>H2</b>Fraunces 700 · 19px</div><div class="t-h2">Panneau de détail commande</div></div>
+        <div class="type-row"><div class="spec"><b>H3</b>Inter 600 · 15px</div><div class="t-h3">Nomenclature composants</div></div>
+        <div class="type-row"><div class="spec"><b>Body</b>Inter 400 · 14px</div><div class="t-body">Sur la fenêtre du 16 au 27 juin, huit lignes sont freinées par des ruptures.</div></div>
+        <div class="type-row"><div class="spec"><b>Caption</b>Inter 500 · 12px</div><div class="t-cap">Cliquer un OF ouvre sa fiche détaillée.</div></div>
+        <div class="type-row"><div class="spec"><b>Overline</b>Mono 700 · 10px</div><div class="t-over">Charge globale</div></div>
+        <div class="type-row"><div class="spec"><b>Data</b>Mono 600 · 14px tabular</div><div class="t-data">AR24518 · L2 · 6,0 h · 120 u</div></div>
+        <div class="type-row"><div class="spec"><b>Quote</b>Fraunces 400 italic · 16px</div><div class="t-quote">« le moteur MOT-33012 bloque deux OF »</div></div>
+      </div>
+    </section>
+
+    <!-- ═══ 03 ESPACE ═══ -->
+    <section class="sec" id="espace">
+      <div class="sec-h"><span class="nn">03</span><h2>Espacement</h2></div>
+      <p class="sec-d">Échelle de 4px. Le rythme vertical est aussi important que les couleurs — d'où le feeling « imprimé ».</p>
+      <div class="frame">
+        <div class="sp">
+          <div class="i"><div class="bar" style="height:4px;width:4px"></div><div class="lb">4</div></div>
+          <div class="i"><div class="bar" style="height:8px;width:8px"></div><div class="lb">8</div></div>
+          <div class="i"><div class="bar" style="height:12px;width:12px"></div><div class="lb">12</div></div>
+          <div class="i"><div class="bar" style="height:16px;width:16px"></div><div class="lb">16</div></div>
+          <div class="i"><div class="bar" style="height:20px;width:20px"></div><div class="lb">20</div></div>
+          <div class="i"><div class="bar" style="height:24px;width:24px"></div><div class="lb">24</div></div>
+          <div class="i"><div class="bar" style="height:32px;width:32px"></div><div class="lb">32</div></div>
+          <div class="i"><div class="bar" style="height:40px;width:40px"></div><div class="lb">40</div></div>
+          <div class="i"><div class="bar" style="height:56px;width:56px"></div><div class="lb">56</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ 04 RADIUS / SHADOW ═══ -->
+    <section class="sec" id="radius">
+      <div class="sec-h"><span class="nn">04</span><h2>Rayons & ombres</h2></div>
+      <p class="sec-d">Rayons volontairement petits (2–8px) — le Papier est net, pas bulleux. Les ombres sont rares : le système est <b>porté par les filets</b>, pas par l'élévation. Les ombres ne servent qu'au flottant (drawer, dropdown, hover de carte).</p>
+      <div class="sub">Rayons</div>
+      <div class="frame">
+        <div class="rad">
+          <div class="i"><div class="box" style="border-radius:2px"></div><div class="lb">2 · sharp</div></div>
+          <div class="i"><div class="box" style="border-radius:4px"></div><div class="lb">4 · input</div></div>
+          <div class="i"><div class="box" style="border-radius:6px"></div><div class="lb">6 · carte</div></div>
+          <div class="i"><div class="box" style="border-radius:8px"></div><div class="lb">8 · bouton</div></div>
+          <div class="i"><div class="box" style="border-radius:12px"></div><div class="lb">12 · frame</div></div>
+          <div class="i"><div class="box" style="border-radius:999px"></div><div class="lb">pill · chip</div></div>
+        </div>
+      </div>
+      <div class="sub">Ombres</div>
+      <div class="frame">
+        <div class="shgrid">
+          <div class="i"><div class="box" style="box-shadow:0 1px 2px rgba(31,26,19,.05)"></div><div class="lb">xs · carte<br>au repos</div></div>
+          <div class="i"><div class="box" style="box-shadow:0 2px 6px -2px rgba(31,26,19,.12)"></div><div class="lb">sm · panel</div></div>
+          <div class="i"><div class="box" style="box-shadow:0 10px 28px -8px rgba(31,26,19,.22)"></div><div class="lb">md · carte<br>hover / drawer</div></div>
+          <div class="i"><div class="box" style="box-shadow:0 24px 48px -16px rgba(31,26,19,.30)"></div><div class="lb">lg · modal</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ 05 ICONES ═══ -->
+    <section class="sec" id="icones">
+      <div class="sec-h"><span class="nn">05</span><h2>Icônes</h2></div>
+      <p class="sec-d"><b>Material Symbols Outlined</b>, weight 300, exclusivement. Pas d'emoji. Tailles : 14 (inline), 17 (bouton), 20 (nav), 26 (état vide). Les icônes portent du sens, jamais de la décoration.</p>
+      <div class="frame">
+        <div class="row" style="gap:26px;color:var(--ink-2)">
+          <span class="material-symbols-outlined" style="font-size:26px">event_note</span>
+          <span class="material-symbols-outlined" style="font-size:26px">report</span>
+          <span class="material-symbols-outlined" style="font-size:26px">fact_check</span>
+          <span class="material-symbols-outlined" style="font-size:26px">inventory_2</span>
+          <span class="material-symbols-outlined" style="font-size:26px">build</span>
+          <span class="material-symbols-outlined" style="font-size:26px">monitoring</span>
+          <span class="material-symbols-outlined" style="font-size:26px">search</span>
+          <span class="material-symbols-outlined" style="font-size:26px">edit</span>
+          <span class="material-symbols-outlined" style="font-size:26px">block</span>
+          <span class="material-symbols-outlined" style="font-size:26px">check_circle</span>
+          <span class="material-symbols-outlined" style="font-size:26px">warning</span>
+          <span class="material-symbols-outlined" style="font-size:26px">swap_horiz</span>
+          <span class="material-symbols-outlined" style="font-size:26px">schedule</span>
+          <span class="material-symbols-outlined" style="font-size:26px">download</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ 06 MOTION ═══ -->
+    <section class="sec" id="motion">
+      <div class="sec-h"><span class="nn">06</span><h2>Motion</h2></div>
+      <p class="sec-d">Une seule courbe : <code class="mono">cubic-bezier(.32,.72,0,1)</code> (.ease, douce et déterminée). Durées courtes (.12–.22s). Le mouvement sert la lisibilité, jamais le spectacle.</p>
+      <div class="frame">
+        <div class="ease-demo">
+          <div class="ease-track"><div class="ball"></div></div>
+          <div class="lb">.16s · --ease</div>
+        </div>
+        <div class="row" style="margin-top:16px;gap:24px">
+          <span class="lab" style="margin:0">--d-fast .12s</span>
+          <span class="lab" style="margin:0">--d-med .16s</span>
+          <span class="lab" style="margin:0">--d-slow .22s</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ 07 BOUTONS ═══ -->
+    <section class="sec" id="boutons">
+      <div class="sec-h"><span class="nn">07</span><h2>Boutons</h2></div>
+      <p class="sec-d">Hiérarchie claire : <b>primary</b> (terra — une action principale par vue), <b>secondary</b>, <b>outline</b>, <b>ghost</b>, <b>danger</b>. Hauteur 36px (md), 30px (sm), 42px (lg).</p>
+      <div class="frame">
+        <span class="lab">Variantes</span>
+        <div class="row" style="margin-bottom:20px">
+          <button class="btn btn-primary"><span class="material-symbols-outlined">fact_check</span>Faisabilité</button>
+          <button class="btn btn-secondary"><span class="material-symbols-outlined">download</span>Exporter</button>
+          <button class="btn btn-outline">Annuler</button>
+          <button class="btn btn-ghost"><span class="material-symbols-outlined">refresh</span>X3</button>
+          <button class="btn btn-danger"><span class="material-symbols-outlined">delete</span>Supprimer l'override</button>
+          <button class="btn btn-link">Détail</button>
+        </div>
+        <span class="lab">Tailles</span>
+        <div class="row" style="margin-bottom:20px;align-items:center">
+          <button class="btn btn-primary btn-sm">Petit · 30px</button>
+          <button class="btn btn-primary">Moyen · 36px</button>
+          <button class="btn btn-primary btn-lg">Grand · 42px</button>
+          <button class="btn btn-secondary btn-icon btn-sm"><span class="material-symbols-outlined">refresh</span></button>
+          <button class="btn btn-secondary btn-icon"><span class="material-symbols-outlined">tune</span></button>
+        </div>
+        <span class="lab">États</span>
+        <div class="row">
+          <button class="btn btn-primary">Repos</button>
+          <button class="btn btn-primary" style="background:var(--terra-2)">Survol / actif</button>
+          <button class="btn btn-primary" disabled>Désactivé</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ 08 CHAMPS ═══ -->
+    <section class="sec" id="champs">
+      <div class="sec-h"><span class="nn">08</span><h2>Champs & entrées</h2></div>
+      <p class="sec-d">Focus = anneau terra (3px soft) + bordure terra. Placeholder en Fraunces italique (signature). Recherche avec raccourci ⌘K.</p>
+      <div class="frame">
+        <div class="grid2">
+          <div>
+            <label class="field-label">Champ texte</label>
+            <input class="input" placeholder="Désignation…" />
+          </div>
+          <div>
+            <label class="field-label">Recherche</label>
+            <div class="search"><span class="material-symbols-outlined">search</span><input class="input" placeholder="Commande, article…" /><span class="kbd">⌘K</span></div>
+          </div>
+          <div>
+            <label class="field-label">Sélecteur</label>
+            <select class="select"><option>Poste</option><option>Commande</option><option>Article</option></select>
+          </div>
+          <div>
+            <label class="field-label">Contrôle segmenté</label>
+            <div class="seg"><button class="on">Instantanée</button><button>Projetée</button></div>
+          </div>
+          <div>
+            <label class="field-label">Horizon (jours)</label>
+            <div class="num"><span class="material-symbols-outlined">date_range</span><input type="number" value="10" /><span class="u">j</span></div>
+          </div>
+          <div>
+            <label class="field-label">Filtres type</label>
+            <div class="row" style="gap:6px"><span class="chip-flt on">MTS</span><span class="chip-flt on">MTO</span><span class="chip-flt">NOR</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ 09 BADGES ═══ -->
+    <section class="sec" id="badges">
+      <div class="sec-h"><span class="nn">09</span><h2>Badges & chips</h2></div>
+      <p class="sec-d">Deux registres : <b>badges encadrés</b> (statut d'un objet, fond soft) et <b>petites capitales + point</b> (verdict, sans boîte — plus premium). Plus le chip <b>type</b> (brand) et l'indicateur d'<b>override</b>.</p>
+      <div class="frame">
+        <span class="lab">Badges statut (encadrés)</span>
+        <div class="row" style="margin-bottom:20px;gap:8px">
+          <span class="badge bdg-ferme"><span class="material-symbols-outlined">check</span>Ferme</span>
+          <span class="badge bdg-planifie">Planifié</span>
+          <span class="badge bdg-suggere">Suggéré</span>
+          <span class="badge bdg-danger"><span class="material-symbols-outlined">block</span>Sans couverture</span>
+        </div>
+        <span class="lab">Verdict (petites capitales + point — sans boîte)</span>
+        <div class="row" style="margin-bottom:20px;gap:20px">
+          <span class="vd ok"><span class="d"></span>Couvert J−4</span>
+          <span class="vd warn"><span class="d"></span>Retard +3 j</span>
+          <span class="vd bad"><span class="d"></span>Sans couverture</span>
+        </div>
+        <span class="lab">Type, override, faisabilité</span>
+        <div class="row" style="gap:18px">
+          <span class="chip-type">MTS</span>
+          <span class="chip-type">MTO</span>
+          <span class="ovr"><span class="material-symbols-outlined">edit</span>Modifié</span>
+          <span class="feas ok">✓</span>
+          <span class="feas bad">!</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ 10 STATUTS ═══ -->
+    <section class="sec" id="statuts">
+      <div class="sec-h"><span class="nn">10</span><h2>Système de statuts</h2></div>
+      <p class="sec-d">Deux vocabulaires parallèles : <b>OF/commande</b> (Ferme · Planifié · Suggéré) et <b>ruptures</b> (Couvert · Retard · Sans couverture). Trois familles de teinte distinctes dans chaque.</p>
+      <div class="frame">
+        <div class="grid2">
+          <div>
+            <div class="lab" style="margin-bottom:10px">Statut OF / commande</div>
+            <div class="row" style="gap:10px;align-items:flex-start">
+              <div style="display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:14px;height:14px;border-radius:3px;background:var(--ferme)"></div><span class="vd ok" style="letter-spacing:.04em;text-transform:none;font-size:11px">Ferme</span></div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:14px;height:14px;border-radius:3px;background:var(--planifie)"></div><span style="font:600 11px var(--font-s);color:var(--planifie)">Planifié</span></div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:14px;height:14px;border-radius:3px;background:var(--suggere)"></div><span class="vd warn" style="letter-spacing:.04em;text-transform:none;font-size:11px">Suggéré</span></div>
+            </div>
+          </div>
+          <div>
+            <div class="lab" style="margin-bottom:10px">Verdict rupture (couverture)</div>
+            <div class="row" style="gap:14px;align-items:flex-start">
+              <span class="vd ok"><span class="d"></span>Couvert</span>
+              <span class="vd warn"><span class="d"></span>Retard</span>
+              <span class="vd bad"><span class="d"></span>Sans couverture</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ 11 CARTE ═══ -->
+    <section class="sec" id="carte">
+      <div class="sec-h"><span class="nn">11</span><h2>Carte commande</h2></div>
+      <p class="sec-d">L'unité atomique du board. Filet supérieur = statut ; contour terra = override ; badge coin = faisabilité. Article en mono, client en serif italique, heures en Fraunces. Survolez pour l'élévation.</p>
+      <div class="frame flat">
+        <div class="row" style="gap:18px">
+          <div class="card ferme"><div class="art">XTR107842</div><div class="ord"><b>AR24518·L2</b> <span class="ds">· Caisse D250</span></div><div class="cli">AXION GUEVIN</div><div class="foot"><span class="chip-type">MTS</span><span class="h">6,0</span></div></div>
+          <div class="card planifie"><div class="art">XTR108120</div><div class="ord"><b>AR24601·L1</b> <span class="ds">· Caisse D350</span></div><div class="cli">CDC Habitat</div><div class="foot"><span class="chip-type">MTO</span><span class="h">7,5</span></div></div>
+          <div class="card planifie mod"><span class="feas-c ok" style="background:var(--ferme)">✓</span><div class="art">VMC-310</div><div class="ord"><b>AR24610·L2</b> <span class="ds">· Caisson isolé</span></div><div class="cli">Bouygues</div><div class="foot"><span class="ovr"><span class="material-symbols-outlined">edit</span>Mod.</span><span class="chip-type">MTO</span><span class="h">5,5</span></div></div>
+          <div class="card suggere mod"><span class="feas-c bad" style="background:var(--danger)">!</span><div class="art">XTR106540</div><div class="ord"><b>AR24490·L4</b> <span class="ds">· Caisse D200</span></div><div class="cli">Bouygues</div><div class="foot"><span class="ovr"><span class="material-symbols-outlined">edit</span>Mod.</span><span class="chip-type">MTS</span><span class="h">3,0</span></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ 12 RUPTURE ═══ -->
+    <section class="sec" id="rupture">
+      <div class="sec-h"><span class="nn">12</span><h2>Rangée rupture</h2></div>
+      <p class="sec-d">Une ligne par couple composant × OF bloqué (modèle <code class="mono">ShortageDisplayRow</code>). Quantité manquante en Fraunces d'affichage (l'ancre visuelle), verdict en petites capitales + point. Filets cheveux, survol terra-soft.</p>
+      <div class="frame" style="padding:0">
+        <div class="rr" style="border-top:1px solid var(--ink)">
+          <span class="rk">02</span>
+          <div class="comp"><div class="c">MOT-33012</div><div class="d">Moteur VMC D250 220V</div></div>
+          <div class="qty">42</div>
+          <div class="ofc"><span class="of">OF100245</span><div class="art">XTR106540 · Caisse D200</div></div>
+          <div class="cmdc"><div class="n">AR24490</div><div class="cl">Bouygues</div></div>
+          <div class="rec"><div class="id">BC-55821</div><div class="mt">Mécapro · 60 u</div></div>
+          <span class="vd warn"><span class="d"></span>Retard +3 j</span>
+        </div>
+        <div class="rr">
+          <span class="rk">03</span>
+          <div class="comp"><div class="c">ECP-55821</div><div class="d">Échangeur aluminium D350</div></div>
+          <div class="qty">25</div>
+          <div class="ofc"><span class="of">OF100288</span><div class="art">VMC-220 · Double flux</div></div>
+          <div class="cmdc"><div class="n">AR24588</div><div class="cl">AXION GUEVIN</div></div>
+          <div class="rec"><span class="none"><span class="material-symbols-outlined">block</span>Aucune couverture</span></div>
+          <span class="vd bad"><span class="d"></span>Sans couverture</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ 13 NAV ═══ -->
+    <section class="sec" id="nav">
+      <div class="sec-h"><span class="nn">13</span><h2>Navigation</h2></div>
+      <p class="sec-d">Sidebar fine (48–56px, icônes seules) à gauche + masthead éditorial en haut (titre Fraunces, kicker, édition). L'item actif = fond terra-soft + couleur terra.</p>
+      <div class="frame">
+        <div class="row" style="align-items:flex-start;gap:18px">
+          <div class="side-mini">
+            <div class="lg">F</div>
+            <a href="#" title="Vue d'ensemble"><span class="material-symbols-outlined">grid_view</span></a>
+            <a href="#" class="active" title="Planning"><span class="material-symbols-outlined">event_note</span></a>
+            <a href="#" title="Ruptures"><span class="material-symbols-outlined">report</span></a>
+            <a href="#" title="Ressources"><span class="material-symbols-outlined">inventory_2</span></a>
+            <a href="#" title="Maintenance"><span class="material-symbols-outlined">build</span></a>
+          </div>
+          <div class="masthead-mini">
+            <div class="top">
+              <div><div class="mk">Factory<em>OS</em></div><div class="kk">La Planification · Suivi des ruptures</div></div>
+              <div class="ed">Édition n° 247 · 17 juin 2026</div>
+            </div>
+            <div style="margin-top:10px;display:flex;gap:18px;border-top:1px solid var(--rule-soft);padding-top:9px">
+              <span style="font:600 11px var(--font-s);text-transform:uppercase;letter-spacing:.1em;color:var(--ink-2)">Tableau</span>
+              <span style="font:600 11px var(--font-s);text-transform:uppercase;letter-spacing:.1em;color:var(--terra);border-bottom:2px solid var(--terra);padding-bottom:2px">Ruptures</span>
+              <span style="font:600 11px var(--font-s);text-transform:uppercase;letter-spacing:.1em;color:var(--ink-2)">Ordonnancement</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ 14 BOARD ═══ -->
+    <section class="sec" id="board">
+      <div class="sec-h"><span class="nn">14</span><h2>Board — grille planning</h2></div>
+      <p class="sec-d">Une rangée par poste, le temps coule à l'horizontale (semaines côte à côte). Bandeau de semaine ink, en-tête de jour Fraunces, colonne poste gelée à gauche, en-têtes gelés en haut. Cartes dans les cellules.</p>
+      <div class="board-mini">
+        <div class="bm-band"><div class="b1">Semaine XXV · 16–20 juin</div><div>Charge 71 %</div></div>
+        <div class="bm-head">
+          <div class="lh">Poste</div>
+          <div class="dc"><div class="dn">Lun</div><div class="dd">16</div></div>
+          <div class="dc today"><div class="dn">Mar</div><div class="dd">17</div></div>
+          <div class="dc"><div class="dn">Mer</div><div class="dd">18</div></div>
+          <div class="dc"><div class="dn">Jeu</div><div class="dd">19</div></div>
+          <div class="dc"><div class="dn">Ven</div><div class="dd">20</div></div>
+        </div>
+        <div class="bm-row">
+          <div class="lh"><div class="c">DCP-01</div><div class="n">Découpe Fan · 64%</div></div>
+          <div class="bm-cell"></div>
+          <div class="bm-cell"><div class="card ferme" style="width:auto"><div class="ord"><b>AR24518·L2</b></div><div class="foot"><span class="chip-type">MTS</span><span class="h">6,0</span></div></div></div>
+          <div class="bm-cell"><div class="card planifie" style="width:auto"><div class="ord"><b>AR24601·L1</b></div><div class="foot"><span class="chip-type">MTO</span><span class="h">7,5</span></div></div></div>
+          <div class="bm-cell"></div>
+          <div class="bm-cell"></div>
+        </div>
+        <div class="bm-row">
+          <div class="lh"><div class="c">SDR-02</div><div class="n">Soudure · 91%</div></div>
+          <div class="bm-cell"><div class="card ferme" style="width:auto"><div class="ord"><b>AR24533·L1</b></div><div class="foot"><span class="chip-type">MTO</span><span class="h">8,0</span></div></div></div>
+          <div class="bm-cell"></div>
+          <div class="bm-cell"><div class="card ferme" style="width:auto"><div class="ord"><b>AR24622·L1</b></div><div class="foot"><span class="feas ok" style="background:var(--ferme)">✓</span><span class="chip-type">MTO</span><span class="h">8,0</span></div></div></div>
+          <div class="bm-cell"></div>
+          <div class="bm-cell"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ 15 DETAIL ═══ -->
+    <section class="sec" id="detail">
+      <div class="sec-h"><span class="nn">15</span><h2>Panneau de détail (D3 · bas)</h2></div>
+      <p class="sec-d">Au clic sur une carte : bandeau bas pleine largeur, board visible au-dessus. Identité + ligne meta + nomenclature (BOM). La rangée bloquante est teintée danger-soft.</p>
+      <div class="d3">
+        <div class="ph">
+          <span class="id">AR24490 · L4</span>
+          <span class="art">XTR106540</span>
+          <span class="des">Caisse VMC D200</span>
+          <span class="badge bdg-danger"><span class="material-symbols-outlined">block</span>Bloquée · MOT-33012 −42</span>
+          <span class="sp"></span>
+          <button class="btn btn-primary btn-sm"><span class="material-symbols-outlined">swap_horiz</span>Replanifier</button>
+        </div>
+        <div class="meta">
+          <div class="m"><span class="k">Client</span><span class="v">Bouygues</span></div>
+          <div class="m"><span class="k">Quantité</span><span class="v mono" style="font-family:var(--font-m)">120 u</span></div>
+          <div class="m"><span class="k">Livraison</span><span class="v mono" style="font-family:var(--font-m)">24 juin</span></div>
+          <div class="m"><span class="k">Poste</span><span class="v">DCP-01</span></div>
+          <div class="m"><span class="k">Charge</span><span class="v mono" style="font-family:var(--font-m)">3,0 h</span></div>
+          <div class="m"><span class="k">Type</span><span class="v">MTS · Cmd</span></div>
+        </div>
+        <table class="bom">
+          <thead><tr><th>Article</th><th>Désignation</th><th class="r">Besoin</th><th class="r">Dispo</th><th class="r">État</th></tr></thead>
+          <tbody>
+            <tr class="bad"><td class="art">MOT-33012</td><td class="des">Moteur VMC D250 220V</td><td class="r mono">120</td><td class="r mono">78</td><td class="r"><span class="sh">−42</span></td></tr>
+            <tr><td class="art">TPS-55120</td><td class="des">Support caisson</td><td class="r mono">120</td><td class="r mono">120</td><td class="r oki">✓</td></tr>
+            <tr><td class="art">JNT-90004</td><td class="des">Joint caoutchouc D200</td><td class="r mono">240</td><td class="r mono">312</td><td class="r oki">✓</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ═══ 16 ETATS ═══ -->
+    <section class="sec" id="etats">
+      <div class="sec-h"><span class="nn">16</span><h2>États</h2></div>
+      <p class="sec-d">Vide, chargement, erreur X3. Toujours avec une icône, un titre Fraunces et une ligne d'explication italique. L'état vide « aucune rupture » est positif (sage).</p>
+      <div class="grid3">
+        <div class="state empty"><div class="ic"><span class="material-symbols-outlined">check_circle</span></div><div class="t">Aucune rupture</div><div class="s">Rien à signaler dans la fenêtre sélectionnée.</div></div>
+        <div class="state"><div class="spin"></div><div class="t">Calcul des ruptures…</div><div class="s">Analyse des besoins et réceptions X3.</div></div>
+        <div class="state error"><div class="ic"><span class="material-symbols-outlined">cloud_off</span></div><div class="t">X3 injoignable</div><div class="s">Données du cache (14:30). <a href="#" style="color:var(--terra);font-weight:600;font-style:normal">Réessayer</a></div></div>
+      </div>
+    </section>
+
+    <div style="margin-top:48px;padding-top:20px;border-top:1px solid var(--rule-soft);font:400 12px var(--font-d);color:var(--muted-2);font-style:italic;display:flex;justify-content:space-between">
+      <span>Design System Papier · v1.0 — source de vérité pour <code class="mono" style="font-style:normal">resources/css/app.css</code> + composants Solid.</span>
+      <span>17 juin 2026</span>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// active TOC link on scroll
+const links=[...document.querySelectorAll('.toc a')];
+const secs=links.map(a=>document.querySelector(a.getAttribute('href')));
+const obs=new IntersectionObserver((es)=>{es.forEach(e=>{if(e.isIntersecting){links.forEach(l=>l.classList.remove('active'));const l=links[secs.indexOf(e.target)];if(l)l.classList.add('active')}}})},{rootMargin:'-20% 0px -70% 0px'});
+secs.forEach(s=>s&&obs.observe(s));
+</script>
+</body>
+</html>

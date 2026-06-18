@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Board vide · A « Régie »</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700;9..144,900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,300,0,0" rel="stylesheet" />
+<style>
+:root{
+  --paper:#f3ece0; --panel:#fbf8ef; --panel2:#efe7d6; --rule:#cdbfa0; --rulesoft:#e3d9c1;
+  --ink:#1f1a13; --ink2:#4a4135; --muted:#8c7d66; --muted2:#a99c84;
+  --terra:#a8431f; --terrasoft:rgba(168,67,31,.10); --ferme:#5b7d4e; --planifie:#2f4858; --suggere:#b8862c; --danger:#9a3320;
+  --fd:"Fraunces",Georgia,serif; --fs:"Inter",system-ui,sans-serif; --fm:"JetBrains Mono",monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--fs);font-size:13px;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+.material-symbols-outlined{font-family:"Material Symbols Outlined";font-weight:300;line-height:1;font-feature-settings:"liga";vertical-align:middle}
+.mono{font-family:var(--fm)}
+.wrap{max-width:1180px;margin:0 auto;padding:32px 28px 56px}
+.hd{margin-bottom:18px}
+.hd .k{font:700 10px var(--fm);text-transform:uppercase;letter-spacing:.16em;color:var(--muted)}
+.hd h1{font:900 26px var(--fd);letter-spacing:-.03em;margin-top:5px}
+.hd p{color:var(--ink2);font-size:13px;margin-top:6px;max-width:640px;line-height:1.5}
+
+/* board — dense */
+.board{background:var(--panel);border:1px solid var(--rule);border-radius:8px;overflow:hidden;box-shadow:0 1px 2px rgba(31,26,19,.05)}
+.sheet{display:grid;grid-template-columns:150px repeat(10,minmax(56px,1fr));min-width:calc(150px + 10*64px)}
+/* week band */
+.wkb{display:contents}
+.wkb .wk{grid-column:span 5;background:var(--ink);color:#e3d9c1;padding:5px 12px;display:flex;align-items:center;gap:8px;font:700 9px var(--fm);text-transform:uppercase;letter-spacing:.12em}
+.wkb .wk .chg{margin-left:auto;color:var(--muted2)}
+.wkb .corner{background:var(--ink)}
+/* day header */
+.dh{display:contents}
+.dh .lh{background:var(--panel2);border-bottom:1.5px solid var(--ink);border-right:1px solid var(--rulesoft);padding:6px 10px;font:700 8px var(--fm);text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+.dh .dc{background:var(--panel2);border-bottom:1.5px solid var(--ink);border-right:1px solid var(--rulesoft);padding:4px 2px 5px;text-align:center}
+.dh .dc .nm{font:600 8px var(--fm);text-transform:uppercase;color:var(--muted)}
+.dh .dc .nn{font:800 13px var(--fd);line-height:1;letter-spacing:-.02em}
+.dh .dc .bar{height:3px;border-radius:2px;background:var(--rulesoft);margin:3px auto 0;max-width:26px;overflow:hidden}
+.dh .dc .bar i{display:block;height:100%}
+.dh .dc .hh{font:700 8px var(--fm);margin-top:2px}
+.dh .dc.today .nn,.dh .dc.today .hh{color:var(--terra)}
+.dh .dc.ok{background:rgba(91,125,78,.07)} .dh .dc.ok .bar i{background:var(--ferme)} .dh .dc.ok .hh{color:var(--ferme)}
+.dh .dc.warn{background:rgba(184,134,44,.12)} .dh .dc.warn .bar i{background:var(--suggere)} .dh .dc.warn .hh{color:var(--suggere)}
+.dh .dc.over{background:rgba(154,51,32,.08)} .dh .dc.over .bar i{background:var(--danger)} .dh .dc.over .hh{color:var(--danger)}
+/* rows */
+.row{display:contents}
+.lh-r{background:var(--panel);border-right:1px solid var(--rulesoft);border-bottom:1px solid var(--rulesoft);padding:5px 10px;display:flex;flex-direction:column;justify-content:center;gap:2px;min-width:150px}
+.lh-r .top{display:flex;align-items:center;gap:6px}
+.lh-r .dot{width:7px;height:7px;border-radius:1px;flex:none}
+.lh-r .code{font:700 11px var(--fm);letter-spacing:-.01em}
+.lh-r .chg{margin-left:auto;font:700 9px var(--fm);color:var(--muted)}
+.lh-r .chg.ov{color:var(--danger)}
+.lh-r .nm{font:500 8px var(--fs);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lh-r .spark{display:flex;align-items:flex-end;gap:2px;height:10px;margin-top:1px}
+.lh-r .spark i{flex:1;border-radius:1px;min-width:3px}
+.cell{background:var(--panel);border-right:1px solid var(--rulesoft);border-bottom:1px solid var(--rulesoft);min-height:40px;background-image:linear-gradient(to right,rgba(31,26,19,.04) 1px,transparent 1px),linear-gradient(to bottom,rgba(31,26,19,.04) 1px,transparent 1px);background-size:16px 16px}
+.cell.today{background-color:var(--terrasoft)}
+
+.tag{position:fixed;top:14px;right:22px;z-index:60;font:700 9px var(--fm);text-transform:uppercase;letter-spacing:.14em;color:#fff;background:var(--terra);padding:5px 11px;border-radius:5px;display:flex;align-items:center;gap:6px}
+.tag .material-symbols-outlined{font-size:13px}
+</style>
+</head>
+<body>
+<div class="tag"><span class="material-symbols-outlined">density_small</span> A · « Régie »</div>
+<div class="wrap">
+  <div class="hd">
+    <div class="k">Board vide · alternative</div>
+    <h1>A — Régie (terminal ops dense)</h1>
+    <p>Compacité maximale : micro-barres de charge sous chaque jour, sparkline de charge hebdo dans l'en-tête poste. Pensé pour voir tous les postes d'un coup et balayer la charge.</p>
+  </div>
+
+  <div class="board"><div class="sheet">
+    <div class="wkb"><div class="corner"></div><div class="wk">S25 · 16–20 juin<span class="chg">71%</span></div><div class="wk">S26 · 23–27 juin<span class="chg">81%</span></div></div>
+    <div class="dh">
+      <div class="lh">Poste</div>
+      <div class="dc ok"><div class="nm">Lun</div><div class="nn">16</div><div class="bar"><i style="width:62%"></i></div><div class="hh">49,6h</div></div>
+      <div class="dc ok today"><div class="nm">Mar</div><div class="nn">17</div><div class="bar"><i style="width:78%"></i></div><div class="hh">62,4h</div></div>
+      <div class="dc over"><div class="nm">Mer</div><div class="nn">18</div><div class="bar"><i style="width:100%"></i></div><div class="hh">72,8h</div></div>
+      <div class="dc ok"><div class="nm">Jeu</div><div class="nn">19</div><div class="bar"><i style="width:54%"></i></div><div class="hh">43,2h</div></div>
+      <div class="dc ok"><div class="nm">Ven</div><div class="nn">20</div><div class="bar"><i style="width:70%"></i></div><div class="hh">56,0h</div></div>
+      <div class="dc ok"><div class="nm">Lun</div><div class="nn">23</div><div class="bar"><i style="width:66%"></i></div><div class="hh">52,8h</div></div>
+      <div class="dc warn"><div class="nm">Mar</div><div class="nn">24</div><div class="bar"><i style="width:88%"></i></div><div class="hh">70,4h</div></div>
+      <div class="dc ok"><div class="nm">Mer</div><div class="nn">25</div><div class="bar"><i style="width:73%"></i></div><div class="hh">58,4h</div></div>
+      <div class="dc ok"><div class="nm">Jeu</div><div class="nn">26</div><div class="bar"><i style="width:60%"></i></div><div class="hh">48,0h</div></div>
+      <div class="dc warn"><div class="nm">Ven</div><div class="nn">27</div><div class="bar"><i style="width:82%"></i></div><div class="hh">65,6h</div></div>
+    </div>
+
+    <div class="row">
+      <div class="lh-r"><div class="top"><span class="dot" style="background:#5b7d4e"></span><span class="code">DCP-01</span><span class="chg">64%</span></div><span class="nm">Découpe Fan</span><div class="spark"><i style="height:64%;background:#5b7d4e"></i><i style="height:66%;background:#5b7d4e"></i></div></div>
+      <div class="cell"></div><div class="cell today"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+    </div>
+    <div class="row">
+      <div class="lh-r"><div class="top"><span class="dot" style="background:#2f4858"></span><span class="code">SDR-02</span><span class="chg ov">91%</span></div><span class="nm">Soudure Robot</span><div class="spark"><i style="height:91%;background:var(--suggere)"></i><i style="height:88%;background:var(--suggere)"></i></div></div>
+      <div class="cell"></div><div class="cell today"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+    </div>
+    <div class="row">
+      <div class="lh-r"><div class="top"><span class="dot" style="background:#b8862c"></span><span class="code">PUD-03</span><span class="chg">78%</span></div><span class="nm">Peinture Four</span><div class="spark"><i style="height:78%;background:var(--planifie)"></i><i style="height:73%;background:var(--planifie)"></i></div></div>
+      <div class="cell"></div><div class="cell today"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+    </div>
+    <div class="row">
+      <div class="lh-r"><div class="top"><span class="dot" style="background:#8b5cf6"></span><span class="code">ASV-04</span><span class="chg">52%</span></div><span class="nm">Assemblage VMC</span><div class="spark"><i style="height:52%;background:#5b7d4e"></i><i style="height:45%;background:#5b7d4e"></i></div></div>
+      <div class="cell"></div><div class="cell today"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+    </div>
+    <div class="row">
+      <div class="lh-r"><div class="top"><span class="dot" style="background:#8c7d66"></span><span class="code">CTL-05</span><span class="chg">88%</span></div><span class="nm">Contrôlage Final</span><div class="spark"><i style="height:88%;background:var(--suggere)"></i><i style="height:80%;background:var(--planifie)"></i></div></div>
+      <div class="cell"></div><div class="cell today"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+    </div>
+  </div></div>
+</div>
+</body>
+</html>

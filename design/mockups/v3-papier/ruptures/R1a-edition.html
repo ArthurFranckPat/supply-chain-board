@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Ruptures · R1a « Édition »</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,300,0,0" rel="stylesheet" />
+<style>
+:root{
+  --paper:#f4eee1; --paper2:#ece4d0; --panel:#fbf8ef;
+  --rule:#cdbfa1; --rule-soft:#e2d8bf; --hair:#e9e0ca;
+  --ink:#1f1a14; --ink2:#4a4136; --muted:#8a7c66; --mute2:#a89a82;
+  --terra:#a8431f; --terra-soft:rgba(168,67,31,.10);
+  --ochre:#9a7414; --sage:#516b3f; --indigo:#2a3b4a;
+  --danger:#9a3320; --gold:#8a6a12;
+  --font-d:"Fraunces",Georgia,serif; --font-s:"Inter",system-ui,sans-serif; --font-m:"JetBrains Mono",ui-monospace,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--paper);color:var(--ink);font-family:var(--font-s);font-size:14px;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;font-variant-numeric:tabular-nums}
+.material-symbols-outlined{font-family:"Material Symbols Outlined";font-weight:300;line-height:1;font-feature-settings:"liga";-webkit-font-smoothing:antialiased;vertical-align:middle}
+.mono{font-family:var(--font-m);font-variant-numeric:tabular-nums}
+*{scrollbar-width:thin;scrollbar-color:#c9bb9d transparent}
+*::-webkit-scrollbar{width:11px;height:11px}
+*::-webkit-scrollbar-thumb{background:#c9bb9d;border-radius:9px;border:3px solid var(--paper)}
+
+.app{height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+/* ═══ Masthead — broadsheet ═══ */
+.mast{flex:none;background:var(--paper);border-bottom:3px double var(--ink)}
+.mast-in{max-width:1320px;margin:0 auto;padding:18px 40px 0}
+.mast-top{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;padding-bottom:12px}
+.brand{display:flex;align-items:baseline;gap:16px}
+.mk{font:900 30px var(--font-d);letter-spacing:-.035em;line-height:.9}
+.mk em{font-style:italic;font-weight:500;color:var(--terra)}
+.kicker{font:600 10px var(--font-m);text-transform:uppercase;letter-spacing:.22em;color:var(--mute2)}
+.edmeta{text-align:right;font:500 11px var(--font-m);color:var(--muted);line-height:1.7}
+.edmeta .vol{font:700 13px var(--font-d);color:var(--terra);font-style:italic}
+.edmeta b{color:var(--ink)}
+/* nav rule */
+.navrule{border-top:1px solid var(--rule);display:flex;align-items:center;max-width:1320px;margin:0 auto;padding:0 40px}
+.navrule a{font:600 11px var(--font-s);text-transform:uppercase;letter-spacing:.12em;color:var(--ink2);text-decoration:none;padding:12px 18px 12px 0;transition:.15s}
+.navrule a:hover{color:var(--terra)}
+.navrule a.active{color:var(--terra)}
+.navrule a.active::after{content:"●";margin-left:6px;font-size:8px;vertical-align:2px}
+.navrule .right{margin-left:auto;display:flex;align-items:center;gap:14px;padding:8px 0}
+.cmd{display:flex;align-items:center;background:transparent;border-bottom:1px solid var(--rule);border-radius:0;height:28px;padding:0 4px 0 0;transition:.15s}
+.cmd:focus-within{border-color:var(--terra)}
+.cmd .material-symbols-outlined{font-size:16px;color:var(--mute2)}
+.cmd input{border:0;outline:0;background:transparent;font:500 12px var(--font-s);width:220px;color:var(--ink)}
+.cmd input::placeholder{color:var(--mute2);font-style:italic}
+.ulink{font:600 11px var(--font-s);text-transform:uppercase;letter-spacing:.1em;color:var(--muted);text-decoration:none;display:inline-flex;align-items:center;gap:5px}
+.ulink:hover{color:var(--terra)}
+.avatar{width:28px;height:28px;border-radius:50%;background:var(--ink);color:var(--paper);font:700 10px var(--font-m);display:flex;align-items:center;justify-content:center}
+
+/* ═══ Table — the page ═══ */
+.sheet{flex:1;overflow:auto;padding:14px 40px 40px}
+.page{max-width:1320px;margin:0 auto;background:var(--panel);border:1px solid var(--rule);border-radius:2px}
+.colhead{display:flex;align-items:baseline;justify-content:space-between;padding:16px 26px 12px;border-bottom:2px solid var(--ink)}
+.colhead h2{font:700 13px var(--font-m);text-transform:uppercase;letter-spacing:.16em;color:var(--ink)}
+.colhead .key{font:500 12px var(--font-d);color:var(--muted);font-style:italic}
+table{width:100%;border-collapse:collapse}
+thead th{font:600 9px var(--font-m);text-transform:uppercase;letter-spacing:.14em;color:var(--mute2);text-align:left;padding:10px 14px;border-bottom:1px solid var(--rule);background:transparent}
+thead th.r{text-align:right}
+thead th:first-child{padding-left:26px}
+thead th:last-child{padding-right:26px}
+tbody td{padding:13px 14px;border-bottom:1px solid var(--hair);font-size:13.5px;color:var(--ink2);vertical-align:middle}
+tbody tr:last-child td{border-bottom:0}
+tbody tr{transition:background .12s}
+tbody tr:hover{background:var(--terra-soft)}
+tbody td:first-child{padding-left:26px}
+tbody td:last-child{padding-right:26px}
+/* rank */
+.rk{font:500 14px var(--font-d);color:var(--mute2);width:28px;font-variant-numeric:tabular-nums}
+/* component */
+.comp .c{font:600 15px var(--font-m);color:var(--ink);letter-spacing:-.01em;display:block}
+.comp .d{font:400 12px var(--font-d);color:var(--muted);font-style:italic;margin-top:1px}
+/* qty hero */
+.qty{font:700 24px var(--font-d);color:var(--danger);text-align:right;letter-spacing:-.025em;font-variant-numeric:tabular-nums;line-height:1}
+.qty .u{font:500 11px var(--font-s);color:var(--mute2);margin-left:2px;letter-spacing:0}
+/* of */
+.ofcell .of{font:600 13px var(--font-m);color:var(--terra);cursor:pointer}
+.ofcell .of:hover{text-decoration:underline}
+.ofcell .art{font:400 11px var(--font-d);color:var(--muted);font-style:italic;margin-top:1px}
+/* commande */
+.cmdcell .n{font:600 13px var(--font-m);color:var(--ink)}
+.cmdcell .cl{font:400 12px var(--font-d);color:var(--muted);font-style:italic;margin-top:1px}
+/* dates */
+.date{font:500 13px var(--font-m);color:var(--ink2);white-space:nowrap;font-variant-numeric:tabular-nums}
+/* reception */
+.rec .id{font:600 12px var(--font-m);color:var(--ink)}
+.rec .meta{font:400 11px var(--font-d);color:var(--muted);font-style:italic;margin-top:1px}
+.rec.none{font:600 10px var(--font-m);text-transform:uppercase;letter-spacing:.1em;color:var(--danger);display:inline-flex;align-items:center;gap:5px}
+.rec.none .material-symbols-outlined{font-size:13px}
+/* arrival */
+.arrv{font:600 13px var(--font-m);white-space:nowrap;font-variant-numeric:tabular-nums;display:inline-flex;align-items:center;gap:5px}
+.arrv .material-symbols-outlined{font-size:15px}
+.arrv.late{color:var(--danger)} .arrv.ok{color:var(--sage)} .arrv.neutral{color:var(--mute2)}
+/* verdict — small caps + dot, no box */
+.vd{font:600 10px var(--font-s);text-transform:uppercase;letter-spacing:.1em;white-space:nowrap;display:inline-flex;align-items:center;gap:7px}
+.vd .d{width:7px;height:7px;border-radius:50%;flex:none}
+.vd.bad{color:var(--danger)} .vd.bad .d{background:var(--danger)}
+.vd.warn{color:#7a5c10} .vd.warn .d{background:var(--ochre)}
+.vd.ok{color:#3f5e30} .vd.ok .d{background:var(--sage)}
+
+/* footer rule */
+.foot{max-width:1320px;margin:14px auto 0;padding:0 40px;display:flex;justify-content:space-between;align-items:center;font:500 11px var(--font-s);color:var(--mute2)}
+.foot .material-symbols-outlined{font-size:14px;vertical-align:-3px}
+
+.tag{position:fixed;top:15px;right:26px;z-index:60;font:700 9px var(--font-m);text-transform:uppercase;letter-spacing:.16em;color:#fff;background:var(--terra);padding:6px 12px;border-radius:2px;display:flex;align-items:center;gap:7px}
+.tag .material-symbols-outlined{font-size:13px}
+</style>
+</head>
+<body>
+<div class="tag"><span class="material-symbols-outlined">newspaper</span> R1a · « Édition »</div>
+
+<div class="app">
+  <!-- masthead -->
+  <header class="mast">
+    <div class="mast-in">
+      <div class="mast-top">
+        <div class="brand">
+          <div class="mk">Factory<em>OS</em></div>
+          <div class="kicker">La Planification · Suivi des ruptures</div>
+        </div>
+        <div class="edmeta">
+          <div class="vol">Édition n° 247</div>
+          <div>Mercredi <b>17 juin 2026</b> · fenêtre 10 j</div>
+        </div>
+      </div>
+    </div>
+    <div class="navrule">
+      <a href="#">Tableau</a><a href="#">Planification</a><a href="#">Ordonnancement</a><a href="#" class="active">Ruptures</a><a href="#">Ressources</a>
+      <div class="right">
+        <div class="cmd"><span class="material-symbols-outlined">search</span><input placeholder="Composant, commande, fournisseur…" /></div>
+        <a class="ulink" href="#"><span class="material-symbols-outlined" style="font-size:15px">refresh</span>X3</a>
+        <div class="avatar">OP</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- table -->
+  <div class="sheet">
+    <div class="page">
+      <div class="colhead">
+        <h2>Registre des ruptures</h2>
+        <div class="key">Trié par sévérité — composant, puis date d'expédition</div>
+      </div>
+      <table>
+        <thead><tr>
+          <th>№</th><th>Composant</th><th class="r">Manquant</th><th>OF bloqué</th><th>Commande</th><th>Expé.</th><th>Réception</th><th>Arrivée</th><th>Verdict</th>
+        </tr></thead>
+        <tbody>
+          <tr>
+            <td class="rk">01</td>
+            <td class="comp"><span class="c">ECP-55821</span><span class="d">Échangeur aluminium D350</span></td>
+            <td class="qty">25</td>
+            <td class="ofcell"><span class="of">OF100288</span><div class="art">VMC-220 · Double flux</div></td>
+            <td class="cmdcell"><div class="n">AR24588</div><div class="cl">AXION GUEVIN</div></td>
+            <td class="date">23 juin</td>
+            <td><span class="rec none"><span class="material-symbols-outlined">block</span>Aucune couverture</span></td>
+            <td><span class="arrv neutral">—</span></td>
+            <td><span class="vd bad"><span class="d"></span>Sans couverture</span></td>
+          </tr>
+          <tr>
+            <td class="rk">02</td>
+            <td class="comp"><span class="c">MOT-33012</span><span class="d">Moteur VMC D250 220V</span></td>
+            <td class="qty">42</td>
+            <td class="ofcell"><span class="of">OF100245</span><div class="art">XTR106540 · Caisse D200</div></td>
+            <td class="cmdcell"><div class="n">AR24490</div><div class="cl">Bouygues</div></td>
+            <td class="date">24 juin</td>
+            <td class="rec"><div class="id">BC-55821</div><div class="meta">Mécapro · 60 u</div></td>
+            <td><span class="arrv late"><span class="material-symbols-outlined">arrow_upward</span>27 juin</span></td>
+            <td><span class="vd warn"><span class="d"></span>Retard +3 j</span></td>
+          </tr>
+          <tr>
+            <td class="rk">03</td>
+            <td class="comp"><span class="c">MOT-33012</span><span class="d">Moteur VMC D250 220V</span></td>
+            <td class="qty">18</td>
+            <td class="ofcell"><span class="of">OF100310</span><div class="art">VMC-310 · Caisson isolé</div></td>
+            <td class="cmdcell"><div class="n">AR24610</div><div class="cl">Bouygues</div></td>
+            <td class="date">24 juin</td>
+            <td class="rec"><div class="id">BC-55821</div><div class="meta">Mécapro · 60 u</div></td>
+            <td><span class="arrv late"><span class="material-symbols-outlined">arrow_upward</span>27 juin</span></td>
+            <td><span class="vd warn"><span class="d"></span>Retard +3 j</span></td>
+          </tr>
+          <tr>
+            <td class="rk">04</td>
+            <td class="comp"><span class="c">DUC-77120</span><span class="d">Gaine flexible D125</span></td>
+            <td class="qty">90</td>
+            <td class="ofcell"><span class="of">OF100512</span><div class="art">XTR108120 · Caisse D350</div></td>
+            <td class="cmdcell"><div class="n">AR24730</div><div class="cl">Eiffage</div></td>
+            <td class="date">27 juin</td>
+            <td><span class="rec none"><span class="material-symbols-outlined">block</span>Aucune couverture</span></td>
+            <td><span class="arrv neutral">—</span></td>
+            <td><span class="vd bad"><span class="d"></span>Sans couverture</span></td>
+          </tr>
+          <tr>
+            <td class="rk">05</td>
+            <td class="comp"><span class="c">PCB-44021</span><span class="d">Carte électronique VMC</span></td>
+            <td class="qty">12</td>
+            <td class="ofcell"><span class="of">OF100533</span><div class="art">VMC-310 · Caisson isolé</div></td>
+            <td class="cmdcell"><div class="n">AR24770</div><div class="cl">CDC Habitat</div></td>
+            <td class="date">27 juin</td>
+            <td class="rec"><div class="id">BC-69005</div><div class="meta">Euro PCB · 20 u</div></td>
+            <td><span class="arrv late"><span class="material-symbols-outlined">arrow_upward</span>01 juil.</span></td>
+            <td><span class="vd warn"><span class="d"></span>Retard +4 j</span></td>
+          </tr>
+          <tr>
+            <td class="rk">06</td>
+            <td class="comp"><span class="c">CAR-90044</span><span class="d">Cartouche filtre G4</span></td>
+            <td class="qty">60</td>
+            <td class="ofcell"><span class="of">OF100401</span><div class="art">VMC-310 · Caisson isolé</div></td>
+            <td class="cmdcell"><div class="n">AR24712</div><div class="cl">Eiffage</div></td>
+            <td class="date">26 juin</td>
+            <td class="rec"><div class="id">BC-66120</div><div class="meta">Sofiltra · 120 u</div></td>
+            <td><span class="arrv ok"><span class="material-symbols-outlined">arrow_downward</span>22 juin</span></td>
+            <td><span class="vd ok"><span class="d"></span>Couvert J−4</span></td>
+          </tr>
+          <tr>
+            <td class="rk">07</td>
+            <td class="comp"><span class="c">JNT-90004</span><span class="d">Joint caoutchouc D200</span></td>
+            <td class="qty">30</td>
+            <td class="ofcell"><span class="of">OF100421</span><div class="art">VMC-220 · Double flux</div></td>
+            <td class="cmdcell"><div class="n">AR24622</div><div class="cl">CDC Habitat</div></td>
+            <td class="date">25 juin</td>
+            <td class="rec"><div class="id">BC-55012</div><div class="meta">JointsPro · 100 u</div></td>
+            <td><span class="arrv ok"><span class="material-symbols-outlined">arrow_downward</span>24 juin</span></td>
+            <td><span class="vd ok"><span class="d"></span>Couvert J−1</span></td>
+          </tr>
+          <tr>
+            <td class="rk">08</td>
+            <td class="comp"><span class="c">SCR-10045</span><span class="d">Vis TRCC 4×20</span></td>
+            <td class="qty">500</td>
+            <td class="ofcell"><span class="of">OF100466</span><div class="art">VMC-310 · Caisson isolé</div></td>
+            <td class="cmdcell"><div class="n">AR24755</div><div class="cl">Bouygues</div></td>
+            <td class="date">27 juin</td>
+            <td class="rec"><div class="id">BC-71044</div><div class="meta">Fastener · 1 000 u</div></td>
+            <td><span class="arrv ok"><span class="material-symbols-outlined">arrow_downward</span>26 juin</span></td>
+            <td><span class="vd ok"><span class="d"></span>Couvert J−1</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="foot">
+      <span><span class="material-symbols-outlined">info</span> Cliquer un n° d'OF ouvre sa fiche détaillée (nomenclature + faisabilité).</span>
+      <span>Calculé à 14:32 · données X3 (cache 2 min)</span>
+    </div>
+  </div>
+</div>
+</body>
+</html>
