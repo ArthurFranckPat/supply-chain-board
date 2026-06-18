@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Charge long-terme · 1 « Barres »</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700;9..144,900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,300,0,0" rel="stylesheet" />
+<style>
+:root{
+  --paper:#f3ece0; --panel:#fbf8ef; --panel2:#efe7d6; --rule:#cdbfa0; --rulesoft:#e3d9c1;
+  --ink:#1f1a13; --ink2:#4a4135; --muted:#8c7d66; --muted2:#a99c84;
+  --terra:#a8431f; --terrasoft:rgba(168,67,31,.10); --ferme:#5b7d4e; --planifie:#2f4858; --suggere:#b8862c; --danger:#9a3320;
+  --fd:"Fraunces",Georgia,serif; --fs:"Inter",system-ui,sans-serif; --fm:"JetBrains Mono",monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--fs);font-size:14px;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+.material-symbols-outlined{font-family:"Material Symbols Outlined";font-weight:300;line-height:1;font-feature-settings:"liga";vertical-align:middle}
+.page{max-width:1180px;margin:0 auto;padding:30px 28px 56px}
+/* header */
+.h-top{display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.h-top .k{font:700 10px var(--fm);text-transform:uppercase;letter-spacing:.16em;color:var(--terra)}
+.h-top h1{font:900 30px var(--fd);letter-spacing:-.03em;margin-top:4px}
+.h-top .p{font:500 13px var(--fd);font-style:italic;color:var(--muted)}
+/* controls */
+.controls{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:18px 0 14px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--rule);background:var(--panel);color:var(--muted);border-radius:999px;padding:6px 12px;font:700 11px var(--fm);cursor:pointer;transition:.14s}
+.chip:hover{border-color:#b3a47e;color:var(--ink)}
+.chip.on{background:var(--ink);color:var(--panel);border-color:var(--ink)}
+.chip .d{width:8px;height:8px;border-radius:2px}
+.seg{display:inline-flex;background:var(--panel2);border:1px solid var(--rule);border-radius:999px;padding:3px}
+.seg button{border:0;background:transparent;color:var(--muted);font:700 11px var(--fs);padding:6px 14px;border-radius:999px;cursor:pointer;text-transform:uppercase;letter-spacing:.04em}
+.seg button.on{background:var(--panel);color:var(--terra);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.legend{display:flex;align-items:center;gap:14px;margin-left:auto;font:600 12px var(--fs);color:var(--ink2)}
+.legend span{display:flex;align-items:center;gap:6px}
+.legend i{width:14px;height:10px;border-radius:2px}
+.legend .ln{width:18px;height:0;border-top:1.5px dashed var(--terra)}
+.legend .sep{width:1px;height:14px;background:var(--rulesoft);margin:0 2px}
+/* summary */
+.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.stat{background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:13px 16px}
+.stat .lab{font:700 9px var(--fm);text-transform:uppercase;letter-spacing:.12em;color:var(--muted);display:flex;align-items:center;gap:6px}
+.stat .lab .material-symbols-outlined{font-size:14px}
+.stat .v{font:900 28px var(--fd);line-height:.95;letter-spacing:-.03em;margin-top:5px}
+.stat .v.terra{color:var(--terra)} .stat .v.ferme{color:var(--ferme)} .stat .v.warn{color:var(--suggere)}
+.stat .s{font:500 11px var(--fs);color:var(--muted);margin-top:3px}
+/* chart */
+.chartcard{background:var(--panel);border:1px solid var(--rule);border-radius:12px;padding:18px 16px 10px;box-shadow:0 1px 2px rgba(31,26,19,.05)}
+.chartcard svg{display:block;width:100%;height:auto}
+.foot{margin-top:14px;display:flex;justify-content:space-between;font:500 11px var(--fd);font-style:italic;color:var(--muted)}
+.foot b{color:var(--ink2);font-style:normal}
+.tag{position:fixed;top:14px;right:22px;z-index:60;font:700 9px var(--fm);text-transform:uppercase;letter-spacing:.14em;color:#fff;background:var(--terra);padding:5px 11px;border-radius:5px;display:flex;align-items:center;gap:6px}
+.tag .material-symbols-outlined{font-size:13px}
+</style>
+</head>
+<body>
+<div class="tag"><span class="material-symbols-outlined">bar_chart</span> 1 · « Barres »</div>
+<div class="page">
+  <div class="h-top">
+    <div>
+      <div class="k">Charge · vision long terme</div>
+      <h1>Projection de charge</h1>
+    </div>
+    <div class="p">Juillet → Décembre 2026 · 6 mois</div>
+  </div>
+
+  <div class="controls">
+    <div class="chips" id="chips"></div>
+    <div class="seg" id="gran">
+      <button data-g="month" class="on">Mois</button>
+      <button data-g="week">Semaine</button>
+    </div>
+    <div class="legend">
+      <span><i style="background:var(--ferme)"></i>Ferme</span>
+      <span><i style="background:var(--planifie)"></i>Planifié</span>
+      <span><i style="background:var(--suggere)"></i>Suggéré</span>
+      <span class="sep"></span>
+      <span><i class="ln"></i>Moyenne mobile</span>
+    </div>
+  </div>
+
+  <div class="summary" id="summary"></div>
+
+  <div class="chartcard"><svg id="chart" viewBox="0 0 1000 400" preserveAspectRatio="xMidYMid meet"></svg></div>
+
+  <div class="foot">
+    <span>Charge en <b>heures</b> (absolues). Suggéré = charge non confirmée (prévision).</span>
+    <span>Horizon glissant · 6 mois</span>
+  </div>
+</div>
+
+<script>
+const LINES=[
+  {id:'all',code:'Toutes',name:'Toutes les lignes',color:'#a8431f'},
+  {id:'dcp',code:'DCP-01',name:'Découpe Fan',color:'#5b7d4e'},
+  {id:'sdr',code:'SDR-02',name:'Soudure Robot',color:'#2f4858'},
+  {id:'pud',code:'PUD-03',name:'Peinture Four',color:'#b8862c'},
+  {id:'asv',code:'ASV-04',name:'Assemblage VMC',color:'#8b5cf6'},
+  {id:'ctl',code:'CTL-05',name:'Contrôlage Final',color:'#8c7d66'},
+]
+const MONTHS=['Juil','Août','Sept','Oct','Nov','Déc']
+// par ligne, par mois : [ferme, planifie, suggere]
+const M={
+  dcp:[[90,30,20],[70,25,15],[100,50,25],[90,60,40],[70,55,35],[40,45,35]],
+  sdr:[[100,40,25],[80,30,20],[110,55,35],[100,70,50],[80,65,40],[50,50,40]],
+  pud:[[80,25,15],[60,20,15],[85,40,25],[75,50,40],[60,50,30],[40,40,25]],
+  asv:[[60,20,10],[45,15,10],[70,25,15],[60,35,25],[45,35,20],[30,30,15]],
+  ctl:[[85,30,15],[65,25,10],[95,40,25],[85,55,35],[65,55,30],[45,45,25]],
+}
+const NSVG='http://www.w3.org/2000/svg'
+function agg(){ // agrégat toutes lignes par mois
+  const r=MONTHS.map(()=>[0,0,0])
+  for(const id in M) M[id].forEach((m,i)=>{r[i][0]+=m[0];r[i][1]+=m[1];r[i][2]+=m[2]})
+  return r
+}
+function weeksOf(monthly){
+  const w=[],jit=[1,.9,1.1,1]
+  monthly.forEach((m,mi)=>{for(let k=0;k<4;k++){w.push({label:'S'+(27+mi*4+k),f:Math.round(m[0]/4*jit[k]),p:Math.round(m[1]/4*jit[k]),s:Math.round(m[2]/4*jit[k])})}})
+  return w
+}
+const state={line:'all',gran:'month'}
+function series(){
+  const monthly = state.line==='all'?agg():M[state.line]
+  if(state.gran==='month') return {items:monthly.map((m,i)=>({label:MONTHS[i],f:m[0],p:m[1],s:m[2]})),month:true}
+  const w=weeksOf(monthly); return {items:w.map(x=>({label:x.label,f:x.f,p:x.p,s:x.s})),month:false}
+}
+function mobileAvg(totals,win){const r=[];for(let i=0;i<totals.length;i++){let s=0,c=0;for(let k=i-win+1;k<=i;k++){if(k>=0){s+=totals[k];c++}}r.push(s/c)}return r}
+function rtop(x,y,w,h,r){r=Math.min(r,w/2,h/2);return 'M '+x.toFixed(1)+' '+(y+r).toFixed(1)+' Q '+x.toFixed(1)+' '+y.toFixed(1)+' '+(x+r).toFixed(1)+' '+y.toFixed(1)+' L '+(x+w-r).toFixed(1)+' '+y.toFixed(1)+' Q '+(x+w).toFixed(1)+' '+y.toFixed(1)+' '+(x+w).toFixed(1)+' '+(y+r).toFixed(1)+' V '+(y+h).toFixed(1)+' H '+x.toFixed(1)+' Z'}
+function el(t,a){const e=document.createElementNS(NSVG,t);for(const k in a)e.setAttribute(k,a[k]);return e}
+
+function render(){
+  const {items}=series()
+  const W=1000,H=400,padL=46,padR=16,padT=16,padB=40
+  const cw=W-padL-padR, ch=H-padT-padB
+  const totals=items.map(d=>d.f+d.p+d.s)
+  const maxV=Math.max(...totals)*1.18||1
+  const n=items.length
+  const slot=cw/n, bw=Math.min(slot*.62, state.gran==='week'?16:60)
+  const y=v=>padT+ch-(v/maxV)*ch
+  const svg=document.getElementById('chart'); svg.innerHTML=''
+  // gridlines
+  for(let g=0;g<=4;g++){const val=maxV*g/4
+    svg.appendChild(el('line',{x1:padL,x2:W-padR,y1:y(val),y2:y(val),stroke:'var(--rulesoft)','stroke-width':1}))
+    svg.appendChild(el('text',{x:padL-8,y:y(val)+4,'text-anchor':'end','font-size':11,'font-family':'JetBrains Mono,monospace',fill:'#8c7d66'})).textContent=Math.round(val)
+  }
+  // bars (sommet arrondi via path sur le segment supérieur uniquement)
+  items.forEach((d,i)=>{
+    const cx=padL+slot*i+slot/2, x=cx-bw/2
+    const segs=[['s',d.s,'var(--suggere)'],['p',d.p,'var(--planifie)'],['f',d.f,'var(--ferme)']]
+    let topIdx=0; while(topIdx<segs.length && segs[topIdx][1]<=0) topIdx++
+    let acc=0
+    segs.forEach((sg,idx)=>{const [k,v,col]=sg; if(v<=0) return; const yTop=y(acc+v), h=y(acc)-yTop
+      if(idx===topIdx) svg.appendChild(el('path',{d:rtop(x,yTop,bw,h,Math.min(bw/3,7)),fill:col}))
+      else svg.appendChild(el('rect',{x,y:yTop,width:bw,height:h,fill:col}))
+      if(h>16){const t=svg.appendChild(el('text',{x:cx,y:(yTop+y(acc))/2+3,'text-anchor':'middle','font-size':10,'font-family':'JetBrains Mono,monospace','font-weight':700,fill: k==='s'?'#3a2a0e':'#fbf8ef'}));t.textContent=v}
+      acc+=v
+    })
+    // total on top
+    const tot=d.f+d.p+d.s
+    const tl=svg.appendChild(el('text',{x:cx,y:y(tot)-6,'text-anchor':'middle','font-size':11,'font-family':'JetBrains Mono,monospace','font-weight':700,fill:'#1f1a13'}));tl.textContent=tot
+    // x label
+    const xl=svg.appendChild(el('text',{x:cx,y:H-padB+18,'text-anchor':'middle','font-size': state.gran==='week'?8:12,'font-family': state.gran==='week'?'JetBrains Mono,monospace':'Fraunces,serif','font-weight': state.gran==='week'?500:700,fill:'#8c7d66'}));xl.textContent=d.label
+  })
+  // moyenne mobile
+  const win=state.gran==='week'?8:2
+  const ma=mobileAvg(totals,win)
+  let dpath=''
+  ma.forEach((v,i)=>{const cx=padL+slot*i+slot/2; dpath+= (i===0?'M':'L')+cx+' '+y(v)+' '})
+  svg.appendChild(el('path',{d:dpath,fill:'none',stroke:'var(--terra)','stroke-width':2,'stroke-dasharray':'5 4','stroke-linecap':'round'}))
+  // peak marker
+  const peakIdx=totals.indexOf(Math.max(...totals))
+  const pcx=padL+slot*peakIdx+slot/2
+  svg.appendChild(el('circle',{cx:pcx,cy:y(totals[peakIdx]),r:4,fill:'var(--terra)'}))
+  renderSummary(items,totals,peakIdx)
+}
+function renderSummary(items,totals,peakIdx){
+  const tot=totals.reduce((a,b)=>a+b,0)
+  const fe=items.reduce((a,d)=>a+d.f,0)
+  const pct=Math.round(fe/tot*100)
+  const peak={l:items[peakIdx].label,v:totals[peakIdx]}
+  const line=LINES.find(l=>l.id===state.line)
+  document.getElementById('summary').innerHTML=`
+    <div class="stat"><div class="lab"><span class="material-symbols-outlined">schedule</span>Charge totale</div><div class="v">${tot} <span style="font-size:14px;color:var(--muted)">h</span></div><div class="s">${line.code} · ${state.gran==='month'?'6 mois':'~24 semaines'}</div></div>
+    <div class="stat"><div class="lab"><span class="material-symbols-outlined">verified</span>Part ferme</div><div class="v ferme">${pct}<span style="font-size:16px;color:var(--muted)"> %</span></div><div class="s">${fe} h acquises</div></div>
+    <div class="stat"><div class="lab"><span class="material-symbols-outlined">stacked_bar_chart</span>Pic de charge</div><div class="v warn">${peak.v}<span style="font-size:14px;color:var(--muted)"> h</span></div><div class="s">${peak.label} · point à anticiper</div></div>
+    <div class="stat"><div class="lab"><span class="material-symbols-outlined">trending_up</span>Tendance</div><div class="v terra">${totals[totals.length-1]>totals[0]?'▲':'▼'} ${Math.abs(totals[totals.length-1]-totals[0])}<span style="font-size:14px;color:var(--muted)"> h</span></div><div class="s">du 1er au dernier ${state.gran==='month'?'mois':'trimestre'}</div></div>`
+}
+// controls
+function buildChips(){
+  const c=document.getElementById('chips'); c.innerHTML=''
+  LINES.forEach(l=>{
+    const b=document.createElement('button'); b.className='chip'+(state.line===l.id?' on':''); b.dataset.l=l.id
+    b.innerHTML=(l.id==='all'?'<span class="material-symbols-outlined" style="font-size:13px">layers</span>':`<span class="d" style="background:${l.color}"></span>`)+l.code
+    b.onclick=()=>{state.line=l.id; buildChips(); render()}; c.appendChild(b)
+  })
+}
+document.getElementById('gran').querySelectorAll('button').forEach(b=>b.onclick=()=>{state.gran=b.dataset.g;document.getElementById('gran').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));render()})
+buildChips(); render()
+</script>
+</body>
+</html>
