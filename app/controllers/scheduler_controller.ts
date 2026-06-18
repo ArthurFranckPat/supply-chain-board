@@ -305,12 +305,12 @@ export default class SchedulerController {
   }
 
   /**
-   * GET /scheduler/of/:num — payload JSON du détail OF (Focus Productivité
+   * GET /scheduler/of/:of — payload JSON du détail OF (Focus Productivité
    * Technique). Consommé par le drawer Solid (<OfDetailSheet>) au clic sur une
    * carte du board. Plus de page dédiée ni d'injection du board.
    */
   async ofDetail(ctx: HttpContext) {
-    const num = ctx.params.num as string
+    const num = ctx.params.of as string
     return ctx.response.send(await this.loadOfDetail(num))
   }
 

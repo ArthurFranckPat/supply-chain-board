@@ -56,8 +56,8 @@ const routes = {
   },
   'scheduler.of_detail': {
     methods: ["GET","HEAD"],
-    pattern: '/scheduler/of/:num',
-    tokens: [{"old":"/scheduler/of/:num","type":0,"val":"scheduler","end":""},{"old":"/scheduler/of/:num","type":0,"val":"of","end":""},{"old":"/scheduler/of/:num","type":1,"val":"num","end":""}],
+    pattern: '/scheduler/of/:of',
+    tokens: [{"old":"/scheduler/of/:of","type":0,"val":"scheduler","end":""},{"old":"/scheduler/of/:of","type":0,"val":"of","end":""},{"old":"/scheduler/of/:of","type":1,"val":"of","end":""}],
     types: placeholder as Registry['scheduler.of_detail']['types'],
   },
   'scheduler.shortage_tracker': {
@@ -86,20 +86,20 @@ const routes = {
   },
   'order_planning.line_detail': {
     methods: ["GET","HEAD"],
-    pattern: '/api/v1/order-planning/lines/:num/:ligne',
-    tokens: [{"old":"/api/v1/order-planning/lines/:num/:ligne","type":0,"val":"api","end":""},{"old":"/api/v1/order-planning/lines/:num/:ligne","type":0,"val":"v1","end":""},{"old":"/api/v1/order-planning/lines/:num/:ligne","type":0,"val":"order-planning","end":""},{"old":"/api/v1/order-planning/lines/:num/:ligne","type":0,"val":"lines","end":""},{"old":"/api/v1/order-planning/lines/:num/:ligne","type":1,"val":"num","end":""},{"old":"/api/v1/order-planning/lines/:num/:ligne","type":1,"val":"ligne","end":""}],
+    pattern: '/api/v1/order-planning/order-lines/:order/:line',
+    tokens: [{"old":"/api/v1/order-planning/order-lines/:order/:line","type":0,"val":"api","end":""},{"old":"/api/v1/order-planning/order-lines/:order/:line","type":0,"val":"v1","end":""},{"old":"/api/v1/order-planning/order-lines/:order/:line","type":0,"val":"order-planning","end":""},{"old":"/api/v1/order-planning/order-lines/:order/:line","type":0,"val":"order-lines","end":""},{"old":"/api/v1/order-planning/order-lines/:order/:line","type":1,"val":"order","end":""},{"old":"/api/v1/order-planning/order-lines/:order/:line","type":1,"val":"line","end":""}],
     types: placeholder as Registry['order_planning.line_detail']['types'],
   },
   'order_planning.update': {
     methods: ["PATCH"],
-    pattern: '/api/v1/order-planning/order-lines/:num/:ligne',
-    tokens: [{"old":"/api/v1/order-planning/order-lines/:num/:ligne","type":0,"val":"api","end":""},{"old":"/api/v1/order-planning/order-lines/:num/:ligne","type":0,"val":"v1","end":""},{"old":"/api/v1/order-planning/order-lines/:num/:ligne","type":0,"val":"order-planning","end":""},{"old":"/api/v1/order-planning/order-lines/:num/:ligne","type":0,"val":"order-lines","end":""},{"old":"/api/v1/order-planning/order-lines/:num/:ligne","type":1,"val":"num","end":""},{"old":"/api/v1/order-planning/order-lines/:num/:ligne","type":1,"val":"ligne","end":""}],
+    pattern: '/api/v1/order-planning/order-lines/:order/:line',
+    tokens: [{"old":"/api/v1/order-planning/order-lines/:order/:line","type":0,"val":"api","end":""},{"old":"/api/v1/order-planning/order-lines/:order/:line","type":0,"val":"v1","end":""},{"old":"/api/v1/order-planning/order-lines/:order/:line","type":0,"val":"order-planning","end":""},{"old":"/api/v1/order-planning/order-lines/:order/:line","type":0,"val":"order-lines","end":""},{"old":"/api/v1/order-planning/order-lines/:order/:line","type":1,"val":"order","end":""},{"old":"/api/v1/order-planning/order-lines/:order/:line","type":1,"val":"line","end":""}],
     types: placeholder as Registry['order_planning.update']['types'],
   },
   'order_planning.reset_override': {
     methods: ["DELETE"],
-    pattern: '/api/v1/order-planning/order-lines/:num/:ligne/override',
-    tokens: [{"old":"/api/v1/order-planning/order-lines/:num/:ligne/override","type":0,"val":"api","end":""},{"old":"/api/v1/order-planning/order-lines/:num/:ligne/override","type":0,"val":"v1","end":""},{"old":"/api/v1/order-planning/order-lines/:num/:ligne/override","type":0,"val":"order-planning","end":""},{"old":"/api/v1/order-planning/order-lines/:num/:ligne/override","type":0,"val":"order-lines","end":""},{"old":"/api/v1/order-planning/order-lines/:num/:ligne/override","type":1,"val":"num","end":""},{"old":"/api/v1/order-planning/order-lines/:num/:ligne/override","type":1,"val":"ligne","end":""},{"old":"/api/v1/order-planning/order-lines/:num/:ligne/override","type":0,"val":"override","end":""}],
+    pattern: '/api/v1/order-planning/order-lines/:order/:line/override',
+    tokens: [{"old":"/api/v1/order-planning/order-lines/:order/:line/override","type":0,"val":"api","end":""},{"old":"/api/v1/order-planning/order-lines/:order/:line/override","type":0,"val":"v1","end":""},{"old":"/api/v1/order-planning/order-lines/:order/:line/override","type":0,"val":"order-planning","end":""},{"old":"/api/v1/order-planning/order-lines/:order/:line/override","type":0,"val":"order-lines","end":""},{"old":"/api/v1/order-planning/order-lines/:order/:line/override","type":1,"val":"order","end":""},{"old":"/api/v1/order-planning/order-lines/:order/:line/override","type":1,"val":"line","end":""},{"old":"/api/v1/order-planning/order-lines/:order/:line/override","type":0,"val":"override","end":""}],
     types: placeholder as Registry['order_planning.reset_override']['types'],
   },
   'planning_board.index': {
@@ -110,20 +110,20 @@ const routes = {
   },
   'planning_board.show': {
     methods: ["GET","HEAD"],
-    pattern: '/api/v1/planning-board/ofs/:numOf',
-    tokens: [{"old":"/api/v1/planning-board/ofs/:numOf","type":0,"val":"api","end":""},{"old":"/api/v1/planning-board/ofs/:numOf","type":0,"val":"v1","end":""},{"old":"/api/v1/planning-board/ofs/:numOf","type":0,"val":"planning-board","end":""},{"old":"/api/v1/planning-board/ofs/:numOf","type":0,"val":"ofs","end":""},{"old":"/api/v1/planning-board/ofs/:numOf","type":1,"val":"numOf","end":""}],
+    pattern: '/api/v1/planning-board/ofs/:of',
+    tokens: [{"old":"/api/v1/planning-board/ofs/:of","type":0,"val":"api","end":""},{"old":"/api/v1/planning-board/ofs/:of","type":0,"val":"v1","end":""},{"old":"/api/v1/planning-board/ofs/:of","type":0,"val":"planning-board","end":""},{"old":"/api/v1/planning-board/ofs/:of","type":0,"val":"ofs","end":""},{"old":"/api/v1/planning-board/ofs/:of","type":1,"val":"of","end":""}],
     types: placeholder as Registry['planning_board.show']['types'],
   },
   'planning_board.update': {
     methods: ["PATCH"],
-    pattern: '/api/v1/planning-board/ofs/:numOf',
-    tokens: [{"old":"/api/v1/planning-board/ofs/:numOf","type":0,"val":"api","end":""},{"old":"/api/v1/planning-board/ofs/:numOf","type":0,"val":"v1","end":""},{"old":"/api/v1/planning-board/ofs/:numOf","type":0,"val":"planning-board","end":""},{"old":"/api/v1/planning-board/ofs/:numOf","type":0,"val":"ofs","end":""},{"old":"/api/v1/planning-board/ofs/:numOf","type":1,"val":"numOf","end":""}],
+    pattern: '/api/v1/planning-board/ofs/:of',
+    tokens: [{"old":"/api/v1/planning-board/ofs/:of","type":0,"val":"api","end":""},{"old":"/api/v1/planning-board/ofs/:of","type":0,"val":"v1","end":""},{"old":"/api/v1/planning-board/ofs/:of","type":0,"val":"planning-board","end":""},{"old":"/api/v1/planning-board/ofs/:of","type":0,"val":"ofs","end":""},{"old":"/api/v1/planning-board/ofs/:of","type":1,"val":"of","end":""}],
     types: placeholder as Registry['planning_board.update']['types'],
   },
   'planning_board.reset_override': {
     methods: ["DELETE"],
-    pattern: '/api/v1/planning-board/ofs/:numOf/override',
-    tokens: [{"old":"/api/v1/planning-board/ofs/:numOf/override","type":0,"val":"api","end":""},{"old":"/api/v1/planning-board/ofs/:numOf/override","type":0,"val":"v1","end":""},{"old":"/api/v1/planning-board/ofs/:numOf/override","type":0,"val":"planning-board","end":""},{"old":"/api/v1/planning-board/ofs/:numOf/override","type":0,"val":"ofs","end":""},{"old":"/api/v1/planning-board/ofs/:numOf/override","type":1,"val":"numOf","end":""},{"old":"/api/v1/planning-board/ofs/:numOf/override","type":0,"val":"override","end":""}],
+    pattern: '/api/v1/planning-board/ofs/:of/override',
+    tokens: [{"old":"/api/v1/planning-board/ofs/:of/override","type":0,"val":"api","end":""},{"old":"/api/v1/planning-board/ofs/:of/override","type":0,"val":"v1","end":""},{"old":"/api/v1/planning-board/ofs/:of/override","type":0,"val":"planning-board","end":""},{"old":"/api/v1/planning-board/ofs/:of/override","type":0,"val":"ofs","end":""},{"old":"/api/v1/planning-board/ofs/:of/override","type":1,"val":"of","end":""},{"old":"/api/v1/planning-board/ofs/:of/override","type":0,"val":"override","end":""}],
     types: placeholder as Registry['planning_board.reset_override']['types'],
   },
   'planning_board.list_overrides': {
@@ -206,8 +206,8 @@ const routes = {
   },
   'planning_board.of_materials': {
     methods: ["GET","HEAD"],
-    pattern: '/api/v1/planning-board/of-materials/:numOf',
-    tokens: [{"old":"/api/v1/planning-board/of-materials/:numOf","type":0,"val":"api","end":""},{"old":"/api/v1/planning-board/of-materials/:numOf","type":0,"val":"v1","end":""},{"old":"/api/v1/planning-board/of-materials/:numOf","type":0,"val":"planning-board","end":""},{"old":"/api/v1/planning-board/of-materials/:numOf","type":0,"val":"of-materials","end":""},{"old":"/api/v1/planning-board/of-materials/:numOf","type":1,"val":"numOf","end":""}],
+    pattern: '/api/v1/planning-board/of-materials/:of',
+    tokens: [{"old":"/api/v1/planning-board/of-materials/:of","type":0,"val":"api","end":""},{"old":"/api/v1/planning-board/of-materials/:of","type":0,"val":"v1","end":""},{"old":"/api/v1/planning-board/of-materials/:of","type":0,"val":"planning-board","end":""},{"old":"/api/v1/planning-board/of-materials/:of","type":0,"val":"of-materials","end":""},{"old":"/api/v1/planning-board/of-materials/:of","type":1,"val":"of","end":""}],
     types: placeholder as Registry['planning_board.of_materials']['types'],
   },
   'planning_board.reload_data': {
@@ -230,8 +230,8 @@ const routes = {
   },
   'suivi.status_detail': {
     methods: ["GET","HEAD"],
-    pattern: '/api/v1/status/status/:noCommande',
-    tokens: [{"old":"/api/v1/status/status/:noCommande","type":0,"val":"api","end":""},{"old":"/api/v1/status/status/:noCommande","type":0,"val":"v1","end":""},{"old":"/api/v1/status/status/:noCommande","type":0,"val":"status","end":""},{"old":"/api/v1/status/status/:noCommande","type":0,"val":"status","end":""},{"old":"/api/v1/status/status/:noCommande","type":1,"val":"noCommande","end":""}],
+    pattern: '/api/v1/status/status/:order',
+    tokens: [{"old":"/api/v1/status/status/:order","type":0,"val":"api","end":""},{"old":"/api/v1/status/status/:order","type":0,"val":"v1","end":""},{"old":"/api/v1/status/status/:order","type":0,"val":"status","end":""},{"old":"/api/v1/status/status/:order","type":0,"val":"status","end":""},{"old":"/api/v1/status/status/:order","type":1,"val":"order","end":""}],
     types: placeholder as Registry['suivi.status_detail']['types'],
   },
   'suivi.palette': {

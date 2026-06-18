@@ -8,7 +8,7 @@ import { route } from '@/lib/routes'
 
 /**
  * Panneau de détail OF « Papier » (D3 · panneau bas). S'ouvre au clic sur une
- * carte du board ; charge le payload JSON depuis GET /scheduler/of/:num.
+ * carte du board ; charge le payload JSON depuis GET /scheduler/of/:of.
  *
  * Porté en Sheet side="bottom" + scope .theme-papier (le drawer se porte hors
  * du scope page, il faut donc lui ré-appliquer les tokens Papier).
@@ -22,7 +22,7 @@ export const OfDetailSheet: Component<{
     () => (props.open ? props.num : null),
     async (num) => {
       if (!num) return null
-      const res = await fetch(route('scheduler.of_detail', { num }))
+      const res = await fetch(route('scheduler.of_detail', { of: num }))
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       return (await res.json()) as OfDetail
     },

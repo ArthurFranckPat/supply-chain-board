@@ -67,13 +67,13 @@ export default class PlanningBoardController {
   async show(ctx: HttpContext) {
     const ofFlows = await new X3OfRepository().getSupplyFlows()
 
-    const match = ofFlows.find((f) => (f.origin as any).id === ctx.params.numOf)
+    const match = ofFlows.find((f) => (f.origin as any).id === ctx.params.of)
     if (!match) {
-      return ctx.response.notFound({ message: `OF ${ctx.params.numOf} not found` })
+      return ctx.response.notFound({ message: `OF ${ctx.params.of} not found` })
     }
 
     const erpOf: OfFromErp = {
-      numOf: ctx.params.numOf,
+      numOf: ctx.params.of,
       article: match.article,
       description: '',
       statutNum: (match.origin as any).status ?? 3,
@@ -82,7 +82,7 @@ export default class PlanningBoardController {
       qteRestante: match.quantity,
     }
 
-    const override = await this.store.get(ctx.params.numOf)
+    const override = await this.store.get(ctx.params.of)
     return mergeOfWithOverride(erpOf, override)
   }
 
@@ -90,10 +90,10 @@ export default class PlanningBoardController {
     const { dateDebut, dateFin, status, workstation, note } = ctx.request.only([
       'dateDebut', 'dateFin', 'status', 'workstation', 'note',
     ])
-    await this.store.save(ctx.params.numOf, { dateDebut, dateFin, status, workstation, note })
+    await this.store.save(ctx.params.of, { dateDebut, dateFin, status, workstation, note })
 
     return {
-      numOf: ctx.params.numOf,
+      numOf: ctx.params.of,
       dateDebut: dateDebut ?? null,
       dateFin: dateFin ?? null,
       status: status ?? null,
@@ -104,8 +104,8 @@ export default class PlanningBoardController {
   }
 
   async resetOverride(ctx: HttpContext) {
-    const deleted = await this.store.delete(ctx.params.numOf)
-    return ctx.response.ok({ numOf: ctx.params.numOf, reset: deleted })
+    const deleted = await this.store.delete(ctx.params.of)
+    return ctx.response.ok({ numOf: ctx.params.of, reset: deleted })
   }
 
   async listOverrides(_ctx: HttpContext) {
@@ -400,7 +400,7 @@ export default class PlanningBoardController {
   }
 
   async ofMaterials(ctx: HttpContext) {
-    const numOf = ctx.params.numOf
+    const numOf = ctx.params.of
     if (!numOf) return ctx.response.badRequest({ error: 'numOf requis' })
 
     // Déterminer le statut de l'OF (ferme = pas de calcul faisabilité)

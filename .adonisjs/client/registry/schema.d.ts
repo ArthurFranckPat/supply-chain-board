@@ -105,11 +105,11 @@ export interface Registry {
   }
   'scheduler.of_detail': {
     methods: ["GET","HEAD"]
-    pattern: '/scheduler/of/:num'
+    pattern: '/scheduler/of/:of'
     types: {
       body: {}
       paramsTuple: [ParamValue]
-      params: { num: ParamValue }
+      params: { of: ParamValue }
       query: {}
       response: unknown
       errorResponse: unknown
@@ -165,11 +165,11 @@ export interface Registry {
   }
   'order_planning.line_detail': {
     methods: ["GET","HEAD"]
-    pattern: '/api/v1/order-planning/lines/:num/:ligne'
+    pattern: '/api/v1/order-planning/order-lines/:order/:line'
     types: {
       body: {}
       paramsTuple: [ParamValue, ParamValue]
-      params: { num: ParamValue; ligne: ParamValue }
+      params: { order: ParamValue; line: ParamValue }
       query: {}
       response: unknown
       errorResponse: unknown
@@ -177,11 +177,11 @@ export interface Registry {
   }
   'order_planning.update': {
     methods: ["PATCH"]
-    pattern: '/api/v1/order-planning/order-lines/:num/:ligne'
+    pattern: '/api/v1/order-planning/order-lines/:order/:line'
     types: {
       body: {}
       paramsTuple: [ParamValue, ParamValue]
-      params: { num: ParamValue; ligne: ParamValue }
+      params: { order: ParamValue; line: ParamValue }
       query: {}
       response: unknown
       errorResponse: unknown
@@ -189,11 +189,11 @@ export interface Registry {
   }
   'order_planning.reset_override': {
     methods: ["DELETE"]
-    pattern: '/api/v1/order-planning/order-lines/:num/:ligne/override'
+    pattern: '/api/v1/order-planning/order-lines/:order/:line/override'
     types: {
       body: {}
       paramsTuple: [ParamValue, ParamValue]
-      params: { num: ParamValue; ligne: ParamValue }
+      params: { order: ParamValue; line: ParamValue }
       query: {}
       response: unknown
       errorResponse: unknown
@@ -213,11 +213,11 @@ export interface Registry {
   }
   'planning_board.show': {
     methods: ["GET","HEAD"]
-    pattern: '/api/v1/planning-board/ofs/:numOf'
+    pattern: '/api/v1/planning-board/ofs/:of'
     types: {
       body: {}
       paramsTuple: [ParamValue]
-      params: { numOf: ParamValue }
+      params: { of: ParamValue }
       query: {}
       response: unknown
       errorResponse: unknown
@@ -225,11 +225,11 @@ export interface Registry {
   }
   'planning_board.update': {
     methods: ["PATCH"]
-    pattern: '/api/v1/planning-board/ofs/:numOf'
+    pattern: '/api/v1/planning-board/ofs/:of'
     types: {
       body: {}
       paramsTuple: [ParamValue]
-      params: { numOf: ParamValue }
+      params: { of: ParamValue }
       query: {}
       response: unknown
       errorResponse: unknown
@@ -237,11 +237,11 @@ export interface Registry {
   }
   'planning_board.reset_override': {
     methods: ["DELETE"]
-    pattern: '/api/v1/planning-board/ofs/:numOf/override'
+    pattern: '/api/v1/planning-board/ofs/:of/override'
     types: {
       body: {}
       paramsTuple: [ParamValue]
-      params: { numOf: ParamValue }
+      params: { of: ParamValue }
       query: {}
       response: unknown
       errorResponse: unknown
@@ -405,11 +405,11 @@ export interface Registry {
   }
   'planning_board.of_materials': {
     methods: ["GET","HEAD"]
-    pattern: '/api/v1/planning-board/of-materials/:numOf'
+    pattern: '/api/v1/planning-board/of-materials/:of'
     types: {
       body: {}
       paramsTuple: [ParamValue]
-      params: { numOf: ParamValue }
+      params: { of: ParamValue }
       query: {}
       response: unknown
       errorResponse: unknown
@@ -453,11 +453,11 @@ export interface Registry {
   }
   'suivi.status_detail': {
     methods: ["GET","HEAD"]
-    pattern: '/api/v1/status/status/:noCommande'
+    pattern: '/api/v1/status/status/:order'
     types: {
       body: {}
       paramsTuple: [ParamValue]
-      params: { noCommande: ParamValue }
+      params: { order: ParamValue }
       query: {}
       response: unknown
       errorResponse: unknown

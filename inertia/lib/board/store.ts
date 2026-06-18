@@ -187,7 +187,7 @@ export function createBoardStore(initial: BoardData) {
       })
     )
 
-    fetch(route('planning_board.update', { numOf }), {
+    fetch(route('planning_board.update', { of: numOf }), {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ workstation: toLineCode, dateDebut: toIso }),

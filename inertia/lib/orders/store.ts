@@ -158,7 +158,7 @@ export function createOrderBoardStore(initial: OrderBoardData) {
       })
     )
 
-    fetch(route('order_planning.update', { num: numCommande, ligne }), {
+    fetch(route('order_planning.update', { order: numCommande, line: ligne }), {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ dateLivraison: toIso }),
@@ -183,7 +183,7 @@ export function createOrderBoardStore(initial: OrderBoardData) {
   function resetOverride(id: string) {
     const [numCommande, ligne] = id.split('#')
     if (!numCommande || !ligne) return
-    fetch(route('order_planning.reset_override', { num: numCommande, ligne }), {
+    fetch(route('order_planning.reset_override', { order: numCommande, line: ligne }), {
       method: 'DELETE',
     })
       .then((r) => {

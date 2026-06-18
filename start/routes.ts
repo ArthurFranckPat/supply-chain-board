@@ -42,9 +42,9 @@ router.get('/health', '#controllers/health_controller.index')
 
 // Scheduler — vues Material 3 (Stitch)
 //   /scheduler/board   : Tableau d'ordonnancement, vue experte haute densité
-//   /scheduler/of/:num : Détail OF — panneau Focus Productivité Technique
+//   /scheduler/of/:of : Détail OF — panneau Focus Productivité Technique
 router.get('/scheduler/board', '#controllers/scheduler_controller.expertBoard')
-router.get('/scheduler/of/:num', '#controllers/scheduler_controller.ofDetail')
+router.get('/scheduler/of/:of', '#controllers/scheduler_controller.ofDetail')
 //   /scheduler/shortages : page Inertia de suivi des ruptures (issue #15)
 //   /scheduler/shortages/rows : endpoint JSON différé (calcul lourd) fetché côté client
 router.get('/scheduler/shortages', '#controllers/scheduler_controller.shortageTracker')
@@ -56,10 +56,10 @@ router.get('/scheduler/planning-board', '#controllers/order_planning_controller.
 router
   .group(() => {
     router.get('/order-lines', '#controllers/order_planning_controller.index')
-    router.get('/lines/:num/:ligne', '#controllers/order_planning_controller.lineDetail')
-    router.patch('/order-lines/:num/:ligne', '#controllers/order_planning_controller.update')
+    router.get('/order-lines/:order/:line', '#controllers/order_planning_controller.lineDetail')
+    router.patch('/order-lines/:order/:line', '#controllers/order_planning_controller.update')
     router.delete(
-      '/order-lines/:num/:ligne/override',
+      '/order-lines/:order/:line/override',
       '#controllers/order_planning_controller.resetOverride'
     )
   })
@@ -69,9 +69,9 @@ router
 router
   .group(() => {
     router.get('/ofs', '#controllers/planning_board_controller.index')
-    router.get('/ofs/:numOf', '#controllers/planning_board_controller.show')
-    router.patch('/ofs/:numOf', '#controllers/planning_board_controller.update')
-    router.delete('/ofs/:numOf/override', '#controllers/planning_board_controller.resetOverride')
+    router.get('/ofs/:of', '#controllers/planning_board_controller.show')
+    router.patch('/ofs/:of', '#controllers/planning_board_controller.update')
+    router.delete('/ofs/:of/override', '#controllers/planning_board_controller.resetOverride')
     router.get('/overrides', '#controllers/planning_board_controller.listOverrides')
     router.delete('/overrides', '#controllers/planning_board_controller.resetAll')
     router.post('/feasibility', '#controllers/planning_board_controller.feasibility')
@@ -88,7 +88,7 @@ router
     router.get('/search/poste', '#controllers/planning_board_controller.searchPoste')
     router.get('/search/of', '#controllers/planning_board_controller.searchOf')
     router.get('/search/pf', '#controllers/planning_board_controller.searchPf')
-    router.get('/of-materials/:numOf', '#controllers/planning_board_controller.ofMaterials')
+    router.get('/of-materials/:of', '#controllers/planning_board_controller.ofMaterials')
     router.post('/reload', '#controllers/planning_board_controller.reloadData')
   })
   .prefix('/api/v1/planning-board')
@@ -98,7 +98,7 @@ router
   .group(() => {
     router.post('/assign', '#controllers/suivi_controller.assign')
     router.post('/from-latest-export', '#controllers/suivi_controller.fromLatestExport')
-    router.get('/status/:noCommande', '#controllers/suivi_controller.statusDetail')
+    router.get('/status/:order', '#controllers/suivi_controller.statusDetail')
     router.post('/palette', '#controllers/suivi_controller.palette')
     router.post('/retard-charge', '#controllers/suivi_controller.retardCharge')
   })

@@ -109,18 +109,18 @@ export default class SuiviController {
   }
 
   /**
-   * GET /api/v1/status/status/:noCommande
+   * GET /api/v1/status/status/:order
    * Fetch order detail + matching supply flows from X3.
    */
   async statusDetail(ctx: HttpContext) {
     const demandFlows = await new X3BesoinClientRepository().getDemandFlows()
 
     const orderLines = demandFlows.filter(
-      (f) => f.origin.type === 'order' && (f.origin as any).id === ctx.params.noCommande,
+      (f) => f.origin.type === 'order' && (f.origin as any).id === ctx.params.order,
     )
 
     if (orderLines.length === 0) {
-      return ctx.response.notFound({ message: `Commande ${ctx.params.noCommande} non trouvee` })
+      return ctx.response.notFound({ message: `Commande ${ctx.params.order} non trouvee` })
     }
 
     const stockFlows = await new X3StockRepository().getStockFlows()
@@ -148,7 +148,7 @@ export default class SuiviController {
       }
     })
 
-    return { no_commande: ctx.params.noCommande, lines: details }
+    return { no_commande: ctx.params.order, lines: details }
   }
 
   /**

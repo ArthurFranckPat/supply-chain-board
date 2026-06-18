@@ -14,7 +14,7 @@ import { route } from '@/lib/routes'
 
 /**
  * Drawer de détail d'une ligne de commande (vue planification). S'ouvre au clic sur une
- * carte ; charge le payload JSON depuis GET /api/v1/order-planning/lines/:num/:ligne.
+ * carte ; charge le payload JSON depuis GET /api/v1/order-planning/order-lines/:order/:line.
  * `lineId` = `numCommande#ligne` (clé de la carte).
  */
 export const OrderDetailSheet: Component<{
@@ -27,7 +27,7 @@ export const OrderDetailSheet: Component<{
     async (id) => {
       if (!id) return null
       const [num, ligne] = id.split('#')
-      const res = await fetch(route('order_planning.line_detail', { num, ligne }))
+      const res = await fetch(route('order_planning.line_detail', { order: num, line: ligne }))
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       return (await res.json()) as OrderLineDetail
     }

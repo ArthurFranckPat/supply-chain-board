@@ -26,7 +26,7 @@ test.group('PlanningBoardController', (group) => {
   test('update creates an override', async ({ assert }) => {
     const ctrl = new PlanningBoardController()
     const ctx = mockContext({
-      params: { numOf: 'OF001' },
+      params: { of: 'OF001' },
       body: { dateFin: '2026-06-25', status: 1, note: 'Affermi' },
     })
     ctx.request.only = (_keys: string[]) => ({ dateFin: '2026-06-25', status: 1, note: 'Affermi', dateDebut: null })
@@ -41,11 +41,11 @@ test.group('PlanningBoardController', (group) => {
     const ctrl = new PlanningBoardController()
 
     // Create one first
-    const createCtx = mockContext({ params: { numOf: 'OF002' } })
+    const createCtx = mockContext({ params: { of: 'OF002' } })
     createCtx.request.only = () => ({ dateFin: '2026-06-20', status: null, note: null, dateDebut: null })
     await ctrl.update(createCtx)
 
-    const deleteCtx = mockContext({ params: { numOf: 'OF002' }, response: { ok: (d: any) => d } })
+    const deleteCtx = mockContext({ params: { of: 'OF002' }, response: { ok: (d: any) => d } })
     const result = await ctrl.resetOverride(deleteCtx)
     assert.isTrue((result as any).reset)
   })
@@ -54,11 +54,11 @@ test.group('PlanningBoardController', (group) => {
     await db.from('of_overrides').delete()
     const ctrl = new PlanningBoardController()
 
-    const ctx1 = mockContext({ params: { numOf: 'OF010' } })
+    const ctx1 = mockContext({ params: { of: 'OF010' } })
     ctx1.request.only = () => ({ dateFin: '2026-06-20', status: null, note: null, dateDebut: null })
     await ctrl.update(ctx1)
 
-    const ctx2 = mockContext({ params: { numOf: 'OF011' } })
+    const ctx2 = mockContext({ params: { of: 'OF011' } })
     ctx2.request.only = () => ({ dateFin: '2026-06-22', status: 1, note: 'Rush', dateDebut: null })
     await ctrl.update(ctx2)
 
@@ -70,7 +70,7 @@ test.group('PlanningBoardController', (group) => {
     await db.from('of_overrides').delete()
     const ctrl = new PlanningBoardController()
 
-    const ctx1 = mockContext({ params: { numOf: 'OF020' } })
+    const ctx1 = mockContext({ params: { of: 'OF020' } })
     ctx1.request.only = () => ({ dateFin: '2026-06-20', status: null, note: null, dateDebut: null })
     await ctrl.update(ctx1)
 

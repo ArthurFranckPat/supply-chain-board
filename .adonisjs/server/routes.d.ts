@@ -12,18 +12,18 @@ export type ScannedRoutes = {
     'assets.js': { paramsTuple?: []; params?: {} }
     'health.index': { paramsTuple?: []; params?: {} }
     'scheduler.expert_board': { paramsTuple?: []; params?: {} }
-    'scheduler.of_detail': { paramsTuple: [ParamValue]; params: {'num': ParamValue} }
+    'scheduler.of_detail': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
     'scheduler.shortage_tracker': { paramsTuple?: []; params?: {} }
     'scheduler.shortage_rows': { paramsTuple?: []; params?: {} }
     'order_planning.board': { paramsTuple?: []; params?: {} }
     'order_planning.index': { paramsTuple?: []; params?: {} }
-    'order_planning.line_detail': { paramsTuple: [ParamValue,ParamValue]; params: {'num': ParamValue,'ligne': ParamValue} }
-    'order_planning.update': { paramsTuple: [ParamValue,ParamValue]; params: {'num': ParamValue,'ligne': ParamValue} }
-    'order_planning.reset_override': { paramsTuple: [ParamValue,ParamValue]; params: {'num': ParamValue,'ligne': ParamValue} }
+    'order_planning.line_detail': { paramsTuple: [ParamValue,ParamValue]; params: {'order': ParamValue,'line': ParamValue} }
+    'order_planning.update': { paramsTuple: [ParamValue,ParamValue]; params: {'order': ParamValue,'line': ParamValue} }
+    'order_planning.reset_override': { paramsTuple: [ParamValue,ParamValue]; params: {'order': ParamValue,'line': ParamValue} }
     'planning_board.index': { paramsTuple?: []; params?: {} }
-    'planning_board.show': { paramsTuple: [ParamValue]; params: {'numOf': ParamValue} }
-    'planning_board.update': { paramsTuple: [ParamValue]; params: {'numOf': ParamValue} }
-    'planning_board.reset_override': { paramsTuple: [ParamValue]; params: {'numOf': ParamValue} }
+    'planning_board.show': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
+    'planning_board.update': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
+    'planning_board.reset_override': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
     'planning_board.list_overrides': { paramsTuple?: []; params?: {} }
     'planning_board.reset_all': { paramsTuple?: []; params?: {} }
     'planning_board.feasibility': { paramsTuple?: []; params?: {} }
@@ -37,11 +37,11 @@ export type ScannedRoutes = {
     'planning_board.search_poste': { paramsTuple?: []; params?: {} }
     'planning_board.search_of': { paramsTuple?: []; params?: {} }
     'planning_board.search_pf': { paramsTuple?: []; params?: {} }
-    'planning_board.of_materials': { paramsTuple: [ParamValue]; params: {'numOf': ParamValue} }
+    'planning_board.of_materials': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
     'planning_board.reload_data': { paramsTuple?: []; params?: {} }
     'suivi.assign': { paramsTuple?: []; params?: {} }
     'suivi.from_latest_export': { paramsTuple?: []; params?: {} }
-    'suivi.status_detail': { paramsTuple: [ParamValue]; params: {'noCommande': ParamValue} }
+    'suivi.status_detail': { paramsTuple: [ParamValue]; params: {'order': ParamValue} }
     'suivi.palette': { paramsTuple?: []; params?: {} }
     'suivi.retard_charge': { paramsTuple?: []; params?: {} }
     'pipeline.supply_board': { paramsTuple?: []; params?: {} }
@@ -59,14 +59,14 @@ export type ScannedRoutes = {
     'assets.js': { paramsTuple?: []; params?: {} }
     'health.index': { paramsTuple?: []; params?: {} }
     'scheduler.expert_board': { paramsTuple?: []; params?: {} }
-    'scheduler.of_detail': { paramsTuple: [ParamValue]; params: {'num': ParamValue} }
+    'scheduler.of_detail': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
     'scheduler.shortage_tracker': { paramsTuple?: []; params?: {} }
     'scheduler.shortage_rows': { paramsTuple?: []; params?: {} }
     'order_planning.board': { paramsTuple?: []; params?: {} }
     'order_planning.index': { paramsTuple?: []; params?: {} }
-    'order_planning.line_detail': { paramsTuple: [ParamValue,ParamValue]; params: {'num': ParamValue,'ligne': ParamValue} }
+    'order_planning.line_detail': { paramsTuple: [ParamValue,ParamValue]; params: {'order': ParamValue,'line': ParamValue} }
     'planning_board.index': { paramsTuple?: []; params?: {} }
-    'planning_board.show': { paramsTuple: [ParamValue]; params: {'numOf': ParamValue} }
+    'planning_board.show': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
     'planning_board.list_overrides': { paramsTuple?: []; params?: {} }
     'planning_board.list_events': { paramsTuple?: []; params?: {} }
     'planning_board.shortages': { paramsTuple?: []; params?: {} }
@@ -75,8 +75,8 @@ export type ScannedRoutes = {
     'planning_board.search_poste': { paramsTuple?: []; params?: {} }
     'planning_board.search_of': { paramsTuple?: []; params?: {} }
     'planning_board.search_pf': { paramsTuple?: []; params?: {} }
-    'planning_board.of_materials': { paramsTuple: [ParamValue]; params: {'numOf': ParamValue} }
-    'suivi.status_detail': { paramsTuple: [ParamValue]; params: {'noCommande': ParamValue} }
+    'planning_board.of_materials': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
+    'suivi.status_detail': { paramsTuple: [ParamValue]; params: {'order': ParamValue} }
     'static_sync.status': { paramsTuple?: []; params?: {} }
   }
   HEAD: {
@@ -88,14 +88,14 @@ export type ScannedRoutes = {
     'assets.js': { paramsTuple?: []; params?: {} }
     'health.index': { paramsTuple?: []; params?: {} }
     'scheduler.expert_board': { paramsTuple?: []; params?: {} }
-    'scheduler.of_detail': { paramsTuple: [ParamValue]; params: {'num': ParamValue} }
+    'scheduler.of_detail': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
     'scheduler.shortage_tracker': { paramsTuple?: []; params?: {} }
     'scheduler.shortage_rows': { paramsTuple?: []; params?: {} }
     'order_planning.board': { paramsTuple?: []; params?: {} }
     'order_planning.index': { paramsTuple?: []; params?: {} }
-    'order_planning.line_detail': { paramsTuple: [ParamValue,ParamValue]; params: {'num': ParamValue,'ligne': ParamValue} }
+    'order_planning.line_detail': { paramsTuple: [ParamValue,ParamValue]; params: {'order': ParamValue,'line': ParamValue} }
     'planning_board.index': { paramsTuple?: []; params?: {} }
-    'planning_board.show': { paramsTuple: [ParamValue]; params: {'numOf': ParamValue} }
+    'planning_board.show': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
     'planning_board.list_overrides': { paramsTuple?: []; params?: {} }
     'planning_board.list_events': { paramsTuple?: []; params?: {} }
     'planning_board.shortages': { paramsTuple?: []; params?: {} }
@@ -104,17 +104,17 @@ export type ScannedRoutes = {
     'planning_board.search_poste': { paramsTuple?: []; params?: {} }
     'planning_board.search_of': { paramsTuple?: []; params?: {} }
     'planning_board.search_pf': { paramsTuple?: []; params?: {} }
-    'planning_board.of_materials': { paramsTuple: [ParamValue]; params: {'numOf': ParamValue} }
-    'suivi.status_detail': { paramsTuple: [ParamValue]; params: {'noCommande': ParamValue} }
+    'planning_board.of_materials': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
+    'suivi.status_detail': { paramsTuple: [ParamValue]; params: {'order': ParamValue} }
     'static_sync.status': { paramsTuple?: []; params?: {} }
   }
   PATCH: {
-    'order_planning.update': { paramsTuple: [ParamValue,ParamValue]; params: {'num': ParamValue,'ligne': ParamValue} }
-    'planning_board.update': { paramsTuple: [ParamValue]; params: {'numOf': ParamValue} }
+    'order_planning.update': { paramsTuple: [ParamValue,ParamValue]; params: {'order': ParamValue,'line': ParamValue} }
+    'planning_board.update': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
   }
   DELETE: {
-    'order_planning.reset_override': { paramsTuple: [ParamValue,ParamValue]; params: {'num': ParamValue,'ligne': ParamValue} }
-    'planning_board.reset_override': { paramsTuple: [ParamValue]; params: {'numOf': ParamValue} }
+    'order_planning.reset_override': { paramsTuple: [ParamValue,ParamValue]; params: {'order': ParamValue,'line': ParamValue} }
+    'planning_board.reset_override': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
     'planning_board.reset_all': { paramsTuple?: []; params?: {} }
   }
   POST: {

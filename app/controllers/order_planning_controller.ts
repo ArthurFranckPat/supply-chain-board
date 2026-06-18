@@ -188,10 +188,10 @@ export default class OrderPlanningController {
     }
   }
 
-  /** PATCH /api/v1/order-planning/order-lines/:num/:ligne — override date. */
+  /** PATCH /api/v1/order-planning/order-lines/:order/:line — override date. */
   async update(ctx: HttpContext) {
-    const num = ctx.params.num as string
-    const ligne = ctx.params.ligne as string
+    const num = ctx.params.order as string
+    const ligne = ctx.params.line as string
     const dateLivraison = ctx.request.input('dateLivraison') as string | null | undefined
     if (!dateLivraison || !ISO_RE.test(dateLivraison)) {
       return ctx.response.badRequest({ error: 'dateLivraison (YYYY-MM-DD) requis' })
@@ -204,10 +204,10 @@ export default class OrderPlanningController {
     }
   }
 
-  /** DELETE /api/v1/order-planning/order-lines/:num/:ligne/override — supprime override. */
+  /** DELETE /api/v1/order-planning/order-lines/:order/:line/override — supprime override. */
   async resetOverride(ctx: HttpContext) {
-    const num = ctx.params.num as string
-    const ligne = ctx.params.ligne as string
+    const num = ctx.params.order as string
+    const ligne = ctx.params.line as string
     try {
       const ok = await this.overrideStore.delete(num, ligne)
       return ok
@@ -219,13 +219,13 @@ export default class OrderPlanningController {
   }
 
   /**
-   * GET /api/v1/order-planning/lines/:num/:ligne — détail d'une ligne de commande
+   * GET /api/v1/order-planning/order-lines/:order/:line — détail d'une ligne de commande
    * (panneau au clic dans la vue planification) : infos commande/ligne + poste/charge +
    * override + faisabilité BOM direct (composants × qté, stock strict/qc + réceptions arrivées).
    */
   async lineDetail(ctx: HttpContext) {
-    const num = ctx.params.num as string
-    const ligne = ctx.params.ligne as string
+    const num = ctx.params.order as string
+    const ligne = ctx.params.line as string
     const nFr = (n: number) => Math.round(n * 100) / 100
     const fmtFr = (d: Date) =>
       d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
