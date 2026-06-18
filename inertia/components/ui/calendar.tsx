@@ -177,7 +177,7 @@ export const Calendar: Component<CalendarProps> = (props) => {
         <div />
         <For each={WEEKDAYS}>
           {(w) => (
-            <div class="pb-2 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+            <div class="pb-2 font-mono text-[9px] font-bold tracking-wider text-muted-foreground">
               {w}
             </div>
           )}
@@ -253,13 +253,13 @@ export const Calendar: Component<CalendarProps> = (props) => {
 
       {/* Pied : rappel contexte + saut à aujourd'hui */}
       <div class="mt-3 flex items-center justify-between border-t border-rule-soft pt-2.5">
-        <span class="font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
+        <span class="font-mono text-[9px] tracking-wider text-muted-foreground">
           {props.mode === 'range' ? 'Plage · 2 clics' : 'Semaines ISO · lun→dim'}
         </span>
         <button
           type="button"
           onClick={goToday}
-          class="font-mono text-[10px] font-bold uppercase tracking-wider text-terra transition-colors hover:text-foreground"
+          class="font-mono text-[10px] font-bold tracking-wider text-terra transition-colors hover:text-foreground"
         >
           Aujourd'hui
         </button>

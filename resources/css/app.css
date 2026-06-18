@@ -600,6 +600,7 @@ up-drawer-dismiss { display: none; }
   --color-ferme: #5b7d4e;
   --color-planifie: #2f4858;
   --color-suggere: #b8862c;
+  --color-rule: #cdbfa0;
   --color-rule-soft: #e3d9c1;
   /* Fraunces — serif d'affichage (titres, chiffres) */
   --font-fraunces: "Fraunces", Georgia, serif;

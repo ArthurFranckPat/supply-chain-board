@@ -150,7 +150,8 @@ function render(){
   items.forEach((d,i)=>{
     const cx=padL+slot*i+slot/2, x=cx-bw/2
     const segs=[['s',d.s,'var(--suggere)'],['p',d.p,'var(--planifie)'],['f',d.f,'var(--ferme)']]
-    let topIdx=0; while(topIdx<segs.length && segs[topIdx][1]<=0) topIdx++
+    // seul le segment le plus HAUT et non vide porte l'arrondi (pas le Suggéré en base)
+    let topIdx=segs.length-1; while(topIdx>=0 && segs[topIdx][1]<=0) topIdx--
     let acc=0
     segs.forEach((sg,idx)=>{const [k,v,col]=sg; if(v<=0) return; const yTop=y(acc+v), h=y(acc)-yTop
       if(idx===topIdx) svg.appendChild(el('path',{d:rtop(x,yTop,bw,h,Math.min(bw/3,7)),fill:col}))

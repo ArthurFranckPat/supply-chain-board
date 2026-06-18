@@ -1,223 +1,276 @@
-import { For, Show, createSignal } from 'solid-js'
+import { For, Show, createMemo, createSignal } from 'solid-js'
+import { cx } from '@/libs/cva'
 import type { BoardStore } from '@/lib/board/store'
-import type { Card, LineRow, DayCell } from '@/lib/board/types'
+import type { Card, LineRow } from '@/lib/board/types'
+import { BoardCard, type CardStatus } from './board-card'
+import { ChargeHistogram, type ChargeWeek } from './charge-histogram'
 
 /**
- * Grille du board — version Inertia. Mêmes cartes "presentation-baked" que
- * l'îlot précédent, mais sans couplage au chrome SSR (pas de listeners
- * document-delégués) ni d'attributs Unpoly. La navigation vers le détail OF
- * passe par <Link> Inertia (visite SPA).
+ * Grille du board « Papier » (B1 · Quotidien) — ordonnancement des OF.
  *
- * La réactivité (visibilité/opacité, charge par jour, histogrammes hebdo,
- * drag&drop optimiste) est portée par le store injecté.
+ * Temps à l'horizontale (jours en colonnes), un poste par ligne. En-tête
+ * collant (bande semaines + jours), colonne « Poste » collante à gauche,
+ * cellules quadrillées style papier. Cartes OF via <BoardCard variant="of">.
+ *
+ * Réactif au store injecté : visibilité/opacité (recherche multi-scope),
+ * charge live par jour (heures absolues), histogramme hebdo par ligne,
+ * drag&drop optimiste + rollback. La navigation vers le détail OF se fait
+ * via onSelectOf (drawer).
  */
-export default function BoardGrid(props: { store: BoardStore; onSelectOf?: (num: string) => void }) {
+
+const LABEL_W = 208 // colonne « Poste » (gelée à gauche)
+const GRAPH_PAPER =
+  'linear-gradient(to right, rgba(31,26,19,.045) 1px, transparent 1px),' +
+  'linear-gradient(to bottom, rgba(31,26,19,.045) 1px, transparent 1px)'
+
+/** Status backend (string) → ton BoardCard. */
+const STATUS_MAP: Record<string, CardStatus> = {
+  ferme: 'ferme',
+  'planifie': 'planifie',
+  'planifié': 'planifie',
+  suggere: 'suggere',
+  'suggéré': 'suggere',
+  cours: 'cours',
+  termine: 'termine',
+  'terminé': 'termine',
+  bloque: 'bloque',
+  'bloqué': 'bloque',
+}
+const toStatus = (s: string): CardStatus => STATUS_MAP[s] ?? 'planifie'
+
+/** "120/150" → {done,total}. */
+function parseProgress(metric: string | null): { done: number; total: number } | undefined {
+  if (!metric) return undefined
+  const m = metric.match(/^\s*(\d+)\s*\/\s*(\d+)\s*$/)
+  if (!m) return undefined
+  const done = Number(m[1])
+  const total = Number(m[2])
+  return total > 0 ? { done, total } : undefined
+}
+
+const fmt = (h: number) => (Math.round(h * 100) / 100).toFixed(2).replace('.', ',')
+const r1 = (n: number) => Math.round(n * 100) / 100
+
+export default function BoardGrid(props: {
+  store: BoardStore
+  onSelectOf?: (num: string) => void
+}) {
   const { store } = props
   const [draggedNumOf, setDraggedNumOf] = createSignal<string | null>(null)
   const [dropCol, setDropCol] = createSignal<string | null>(null)
 
-  return (
-    <div
-      class="flex-1 sch-scroll bg-gray-50 border border-gray-200 rounded-sm shadow-sm"
-      style={{ '--cols': String(store.board.cols) }}
-    >
-      <div class="sch-head">
-        {/* Bande semaines */}
-        <div class="grid-expert border-b border-gray-200 bg-gray-100">
-          <div class="sch-col-fix p-1.5 border-r border-gray-200 bg-gray-100" />
-          <For each={store.board.weekSpans}>
-            {(wk) => (
-              <div
-                class="p-1.5 text-center border-r border-gray-200"
-                style={{ 'grid-column': `span ${wk.span}` }}
-              >
-                <span class="text-[10px] font-bold uppercase tracking-widest mono text-gray-500">
-                  Semaine {wk.week}
-                </span>
-              </div>
-            )}
-          </For>
-        </div>
-        {/* Ligne jours + charge live par jour */}
-        <div class="grid-expert border-b border-gray-300 bg-gray-50">
-          <div class="sch-col-fix p-2 border-r border-gray-200 bg-gray-50 flex items-center justify-between">
-            <span class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mono">
-              Ressource / Ligne
-            </span>
-            <span class="material-symbols-outlined text-gray-300 text-sm">unfold_more</span>
-          </div>
-          <For each={store.board.days}>
-            {(day, di) => (
-              <div class={`p-2 border-r border-gray-200 text-center ${day.headerTone}`}>
-                <div
-                  class={`text-[10px] font-bold uppercase mono ${
-                    day.today ? 'text-primary' : 'text-gray-400'
-                  }`}
-                >
-                  {day.short}
-                </div>
-                <div class="mt-1">
-                  <span class={`text-[11px] font-bold mono ${day.valClass}`}>
-                    {Math.round(store.dayLoad()[di()] * 10) / 10}h
-                  </span>
-                </div>
-              </div>
-            )}
-          </For>
-        </div>
-      </div>
+  const cols = () => store.board.cols
+  /** Template de grille commun (toutes les rangées l'utilisent pour l'alignement). */
+  const gridTpl = () => `${LABEL_W}px repeat(${cols()}, minmax(108px, 1fr))`
+  const minWidth = () => `calc(${LABEL_W}px + ${cols() * 118}px)`
 
-      <div class="bg-gray-50">
+  // Colonnes par semaine (pour total hebdo + Libellés).
+  const weekRanges = createMemo(() => {
+    let off = 0
+    return store.board.weekSpans.map((ws) => {
+      const range = { week: ws.week, from: off, to: off + ws.span }
+      off += ws.span
+      return range
+    })
+  })
+
+  /** Charge totale (heures absolues) par semaine, toutes lignes confondues. */
+  const weekTotals = createMemo(() => {
+    const dl = store.dayLoad()
+    return weekRanges().map((wr) => {
+      let s = 0
+      for (let c = wr.from; c < wr.to; c++) s += dl[c] ?? 0
+      return { week: wr.week, hours: r1(s) }
+    })
+  })
+
+  /** Histogramme hebdo d'une ligne (absolu, ventilé Ferme/Planifié/Suggéré). */
+  function lineCharge(line: LineRow): ChargeWeek[] {
+    const byWeek: Record<number, { ferme: number; planifie: number; suggere: number }> = {}
+    line.dayCells.forEach((dc, col) => {
+      const wk = store.board.colWeek[col]
+      if (wk === undefined) return
+      if (!byWeek[wk]) byWeek[wk] = { ferme: 0, planifie: 0, suggere: 0 }
+      const b = byWeek[wk]
+      for (const c of dc.cards) {
+        const s = toStatus(c.status)
+        if (s === 'ferme') b.ferme += c.hours
+        else if (s === 'suggere') b.suggere += c.hours
+        else b.planifie += c.hours
+      }
+    })
+    return line.weekLoads.map((wl) => {
+      const b = byWeek[wl.week] ?? { ferme: 0, planifie: 0, suggere: 0 }
+      return { week: wl.week, ferme: r1(b.ferme), planifie: r1(b.planifie), suggere: r1(b.suggere) }
+    })
+  }
+
+  /** Échelle commune des histogrammes (total hebdo max, toutes lignes). */
+  const maxLineHours = createMemo(() => {
+    let m = 0
+    for (const line of store.board.lines) {
+      for (const cw of lineCharge(line)) {
+        const t = cw.ferme + cw.planifie + cw.suggere
+        if (t > m) m = t
+      }
+    }
+    return m || 1
+  })
+
+  /** Compte d'OF visibles d'une ligne. */
+  function lineOfCount(line: LineRow): number {
+    let n = 0
+    for (const dc of line.dayCells) n += dc.cards.length
+    return n
+  }
+
+  /** N° du jour dérivé de l'ISO de la colonne (DayCol ne porte pas le n°). */
+  function dayNum(col: number): string {
+    const iso = store.board.lines[0]?.dayCells[col]?.iso
+    return iso ? String(Number(iso.slice(8, 10))) : ''
+  }
+
+  return (
+    <div class="h-full overflow-auto bg-background">
+      <div style={{ 'min-width': minWidth() }}>
+        {/* ═══ En-tête collant (semaines + jours) ═══ */}
+        <div class="sticky top-0 z-30 bg-background shadow-[0_2px_10px_-4px_rgba(31,26,19,.18)]">
+          {/* Bande semaines */}
+          <div class="grid" style={{ 'grid-template-columns': gridTpl() }}>
+            <div class="sticky left-0 z-40 border-b border-rule bg-secondary" />
+            <For each={weekRanges()}>
+              {(wr, i) => (
+                <div
+                  class="flex items-baseline gap-2.5 border-b border-r border-rule bg-secondary px-3.5 py-1.5"
+                  style={{ 'grid-column': `span ${wr.to - wr.from}` }}
+                >
+                  <span class="font-fraunces text-[13px] font-black italic tracking-tight text-terra">
+                    Semaine {wr.week}
+                  </span>
+                  <Show when={weekTotals()[i()]}>
+                    {(wt) => (
+                      <span class="ml-auto font-fraunces text-[12px] font-bold tabular-nums text-foreground">
+                        {fmt(wt().hours)} h
+                      </span>
+                    )}
+                  </Show>
+                </div>
+              )}
+            </For>
+          </div>
+
+          {/* En-tête jours */}
+          <div class="grid" style={{ 'grid-template-columns': gridTpl() }}>
+            <div class="sticky left-0 z-40 border-b border-r border-rule bg-card px-3.5 py-2 font-mono text-[9px] font-bold tracking-[0.12em] text-muted-foreground">
+              Poste de production
+            </div>
+            <For each={store.board.days}>
+              {(day, di) => (
+                <div
+                  class={cx(
+                    'border-b border-r border-rule-soft bg-card px-2.5 py-1.5 text-center',
+                    day.today && 'bg-terra-soft',
+                  )}
+                >
+                  <div
+                    class={cx(
+                      'font-mono text-[9px] font-bold tracking-[0.1em]',
+                      day.today ? 'text-terra' : 'text-muted-foreground',
+                    )}
+                  >
+                    {day.short}
+                  </div>
+                  <div
+                    class={cx(
+                      'font-fraunces text-[19px] font-bold leading-none tracking-tight',
+                      day.today ? 'text-terra italic' : 'text-foreground',
+                    )}
+                  >
+                    {dayNum(di())}
+                  </div>
+                  <div class="mt-0.5 font-mono text-[9px] font-bold tabular-nums text-muted-foreground">
+                    {fmt(store.dayLoad()[di()] ?? 0)} h
+                  </div>
+                </div>
+              )}
+            </For>
+          </div>
+        </div>
+
+        {/* ═══ Rangées de postes ═══ */}
         <For each={store.board.lines}>
           {(line) => (
-            <Row
-              store={store}
-              line={line}
-              onSelectOf={props.onSelectOf}
-              draggedNumOf={draggedNumOf}
-              setDraggedNumOf={setDraggedNumOf}
-              dropCol={dropCol}
-              setDropCol={setDropCol}
-            />
+            <div
+              class="grid border-b border-rule-soft"
+              style={{ 'grid-template-columns': gridTpl(), display: store.lineVisible(line.code) ? 'grid' : 'none' }}
+            >
+              {/* En-tête de poste (collant à gauche) */}
+              <div class="sticky left-0 z-20 flex flex-col gap-1.5 border-r border-rule bg-card px-3.5 py-3">
+                <div class="flex items-center gap-2">
+                  <span
+                    class="size-2.5 rounded-[2px]"
+                    style={{ background: line.dot ? undefined : 'var(--color-planifie)' }}
+                    classList={{ [line.dot]: !!line.dot }}
+                  />
+                  <span class="font-mono text-[13px] font-bold tracking-tight text-foreground">
+                    {line.code}
+                  </span>
+                </div>
+                <span class="text-[11px] leading-tight text-muted-foreground">{line.name}</span>
+                <ChargeHistogram weeks={lineCharge(line)} maxHours={maxLineHours()} variant="line" />
+                <div class="font-mono text-[9px] font-semibold tracking-wider text-muted-foreground">
+                  {lineOfCount(line)} OF
+                </div>
+              </div>
+
+              {/* Cellules */}
+              <For each={line.dayCells}>
+                {(dc, ci) => {
+                  const cellKey = `${line.code}:${ci()}`
+                  const isToday = store.board.days[ci()]?.today
+                  return (
+                    <div
+                      class={cx(
+                        'relative flex min-h-[96px] flex-col gap-2 border-r border-rule-soft bg-card p-2',
+                        isToday && 'bg-terra-soft',
+                      )}
+                      style={{ 'background-image': isToday ? undefined : GRAPH_PAPER, 'background-size': '22px 22px' }}
+                      classList={{ 'ring-2 ring-terra/70 ring-inset': dropCol() === cellKey }}
+                      onDragOver={(e) => {
+                        if (!draggedNumOf()) return
+                        e.preventDefault()
+                        if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
+                        setDropCol(cellKey)
+                      }}
+                      onDrop={(e) => {
+                        const num = draggedNumOf()
+                        setDropCol(null)
+                        if (!num) return
+                        e.preventDefault()
+                        store.moveCard(num, line.code, ci(), dc.iso)
+                      }}
+                    >
+                      <For each={dc.cards}>
+                        {(card) => (
+                          <CardView
+                            store={store}
+                            card={card}
+                            line={line}
+                            onSelectOf={props.onSelectOf}
+                            draggedNumOf={draggedNumOf}
+                            setDraggedNumOf={setDraggedNumOf}
+                            setDropCol={setDropCol}
+                          />
+                        )}
+                      </For>
+                    </div>
+                  )
+                }}
+              </For>
+            </div>
           )}
         </For>
       </div>
-    </div>
-  )
-}
-
-function Row(props: {
-  store: BoardStore
-  line: LineRow
-  onSelectOf?: (num: string) => void
-  draggedNumOf: () => string | null
-  setDraggedNumOf: (v: string | null) => void
-  dropCol: () => string | null
-  setDropCol: (v: string | null) => void
-}) {
-  const { store, line } = props
-  return (
-    <div
-      class="sch-row grid-expert border-b border-gray-200 min-h-[120px]"
-      style={{ display: store.lineVisible(line.code) ? '' : 'none' }}
-    >
-      <div class="sch-col-fix p-3 border-r border-gray-200 bg-white flex flex-col">
-        <div class="flex items-center gap-1.5 mb-2">
-          <div class={`w-2 h-2 rounded-full ${line.dot}`} />
-          <span class="text-xs font-bold text-gray-900 uppercase tracking-tight">{line.name}</span>
-        </div>
-
-        <Show when={store.lineWeekLoads(line.code).length > 0}>
-          <div class="mb-2 sch-hist">
-            <div class="flex items-end gap-1 h-10 relative">
-              <div
-                class="absolute left-0 right-0 border-t border-dashed border-gray-300"
-                style={{ top: '0' }}
-              />
-              <For each={store.lineWeekLoads(line.code)}>
-                {(w) => (
-                  <div
-                    class="flex-1 flex flex-col justify-end h-full"
-                    title={`S${w.week} — ${w.hours}h (${w.pct}%)`}
-                  >
-                    <div
-                      class={`w-full rounded-sm ${w.barClass}`}
-                      style={{ height: `${w.pct > 100 ? 100 : w.pct}%`, 'min-height': '2px' }}
-                    />
-                  </div>
-                )}
-              </For>
-            </div>
-            <div class="flex gap-1 mt-0.5">
-              <For each={store.lineWeekLoads(line.code)}>
-                {(w) => (
-                  <div
-                    class={`flex-1 text-center text-[8px] font-bold mono ${
-                      w.pct > 100 ? 'text-error' : 'text-gray-400'
-                    }`}
-                  >
-                    {w.hours}h
-                  </div>
-                )}
-              </For>
-            </div>
-          </div>
-        </Show>
-
-        <div class="mt-auto space-y-1">
-          <For each={line.meta}>
-            {(m) => (
-              <div class="flex justify-between text-[10px] text-gray-400 mono">
-                <span>{m.k}:</span>
-                <span class="text-gray-600 font-bold">{m.v}</span>
-              </div>
-            )}
-          </For>
-        </div>
-      </div>
-
-      <For each={line.dayCells}>
-        {(dc, ci) => (
-          <Cell
-            store={store}
-            line={line}
-            dc={dc}
-            col={ci()}
-            onSelectOf={props.onSelectOf}
-            draggedNumOf={props.draggedNumOf}
-            setDraggedNumOf={props.setDraggedNumOf}
-            dropCol={props.dropCol}
-            setDropCol={props.setDropCol}
-          />
-        )}
-      </For>
-    </div>
-  )
-}
-
-function Cell(props: {
-  store: BoardStore
-  line: LineRow
-  dc: DayCell
-  col: number
-  onSelectOf?: (num: string) => void
-  draggedNumOf: () => string | null
-  setDraggedNumOf: (v: string | null) => void
-  dropCol: () => string | null
-  setDropCol: (v: string | null) => void
-}) {
-  const { store, line, dc, col } = props
-  const cellKey = `${line.code}:${col}`
-  return (
-    <div
-      class={`sch-cal-cell p-1.5 border-r border-gray-200 flex flex-col gap-1.5 ${dc.cellClass}`}
-      classList={{ 'is-drop': props.dropCol() === cellKey }}
-      onDragOver={(e) => {
-        if (!props.draggedNumOf()) return
-        e.preventDefault()
-        if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
-        props.setDropCol(cellKey)
-      }}
-      onDrop={(e) => {
-        const num = props.draggedNumOf()
-        props.setDropCol(null)
-        if (!num) return
-        e.preventDefault()
-        store.moveCard(num, line.code, col, dc.iso)
-      }}
-    >
-      <For each={dc.cards}>
-        {(card) => (
-          <CardView
-            store={store}
-            card={card}
-            line={line}
-            onSelectOf={props.onSelectOf}
-            setDraggedNumOf={props.setDraggedNumOf}
-            setDropCol={props.setDropCol}
-          />
-        )}
-      </For>
     </div>
   )
 }
@@ -227,19 +280,28 @@ function CardView(props: {
   card: Card
   line: LineRow
   onSelectOf?: (num: string) => void
+  draggedNumOf: () => string | null
   setDraggedNumOf: (v: string | null) => void
   setDropCol: (v: string | null) => void
 }) {
-  const { store, card, line } = props
-  const matches = () => store.cardMatches(card, line.code)
+  const { store, card } = props
+  const matches = () => store.cardMatches(card, props.line.code)
+  const feas = () => {
+    const f = store.feasOf(card.id)
+    if (!f) return undefined
+    return f.st === 'blocked' ? ('bad' as const) : ('ok' as const)
+  }
+  const alert = () => {
+    const f = store.feasOf(card.id)
+    return f && f.st === 'blocked' && f.missing.length ? `Rupture ${f.missing.join(', ')}` : undefined
+  }
   return (
     <div
       role="button"
       tabindex={matches() ? 0 : -1}
       draggable={matches()}
       data-num-of={card.id}
-      class={`sch-of-card relative block bg-white border border-gray-200 rounded p-1.5 cursor-pointer ${card.accentClass} ${card.cardClass}`}
-      style={{ opacity: matches() ? '' : '0.15' }}
+      class={cx('cursor-pointer transition-opacity', !matches() && 'pointer-events-none opacity-15')}
       onClick={() => {
         if (matches() && props.onSelectOf) props.onSelectOf(card.id)
       }}
@@ -255,36 +317,16 @@ function CardView(props: {
         props.setDropCol(null)
       }}
     >
-      <div class="flex items-baseline justify-between gap-1.5">
-        <span class="flex items-baseline gap-1 min-w-0">
-          <span class={`mono text-[10px] font-bold ${card.idTone} truncate`}>{card.id}</span>
-          <Show when={card.article}>
-            <span class={`mono text-[9px] ${card.fieldValTone} truncate`}>{card.article}</span>
-          </Show>
-        </span>
-        <Show when={card.metric}>
-          <span class={`mono text-[10px] font-semibold ${card.fieldValTone} shrink-0`}>
-            {card.metric}
-          </span>
-        </Show>
-      </div>
-      <p class={`text-[12px] font-semibold leading-tight truncate ${card.textTone}`}>{card.title}</p>
-      <Show when={store.feasOf(card.id)}>
-        {(s) => (
-          <span
-            class={`sch-feas-badge ${s().st === 'blocked' ? 'is-blocked' : 'is-ok'}`}
-            title={
-              s().st === 'blocked'
-                ? `OF non réalisable — rupture : ${
-                    s().missing.length ? s().missing.join(', ') : 'composant'
-                  }`
-                : 'OF réalisable'
-            }
-          >
-            <span class="material-symbols-outlined">{s().st === 'blocked' ? 'priority_high' : 'check'}</span>
-          </span>
-        )}
-      </Show>
+      <BoardCard
+        variant="of"
+        status={toStatus(card.status)}
+        article={card.id}
+        title={card.title}
+        hours={fmt(card.hours)}
+        progress={parseProgress(card.metric)}
+        feas={feas()}
+        alert={alert()}
+      />
     </div>
   )
 }

@@ -1,19 +1,16 @@
 import { For, Show, createResource, type Component } from 'solid-js'
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-  SheetBody,
-} from '@/components/ui/sheet'
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { cx } from '@/libs/cva'
 import type { OfDetail } from '@/lib/of/types'
-import { cn } from '@/libs/cn'
 
 /**
- * Drawer de détail OF. S'ouvre au clic sur une carte du board ; charge le
- * payload JSON depuis GET /scheduler/of/:num (createResource).
+ * Panneau de détail OF « Papier » (D3 · panneau bas). S'ouvre au clic sur une
+ * carte du board ; charge le payload JSON depuis GET /scheduler/of/:num.
+ *
+ * Porté en Sheet side="bottom" + scope .theme-papier (le drawer se porte hors
+ * du scope page, il faut donc lui ré-appliquer les tokens Papier).
  */
 export const OfDetailSheet: Component<{
   num: string | null
@@ -27,7 +24,7 @@ export const OfDetailSheet: Component<{
       const res = await fetch(`/scheduler/of/${encodeURIComponent(num)}`)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       return (await res.json()) as OfDetail
-    }
+    },
   )
 
   const statusVariant = (label: string) =>
@@ -35,21 +32,24 @@ export const OfDetailSheet: Component<{
 
   return (
     <Sheet open={props.open} onOpenChange={props.onOpenChange}>
-      <SheetContent>
+      <SheetContent
+        side="bottom"
+        class="theme-papier gap-0 flex max-h-[72vh] w-full max-w-none flex-col rounded-t-xl p-0"
+      >
         <Show
           when={detail()}
           fallback={
             <Show
               when={!detail.error}
               fallback={
-                <div class="flex-1 flex flex-col items-center justify-center gap-2 text-destructive p-8 text-center">
+                <div class="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-center text-destructive">
                   <span class="material-symbols-outlined text-[28px]">error</span>
                   <span class="text-sm font-medium">Échec du chargement du détail.</span>
                 </div>
               }
             >
-              <div class="flex-1 flex flex-col items-center justify-center gap-2 text-muted-foreground p-8">
-                <span class="material-symbols-outlined text-[28px] animate-spin">progress_activity</span>
+              <div class="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-muted-foreground">
+                <span class="material-symbols-outlined animate-spin text-[28px]">progress_activity</span>
                 <span class="text-sm">Chargement…</span>
               </div>
             </Show>
@@ -57,153 +57,99 @@ export const OfDetailSheet: Component<{
         >
           {(d) => (
             <>
-              <SheetHeader>
-                {/* Ligne identité : num + article + statut */}
-                <div class="flex items-center gap-2 pr-8 flex-wrap">
-                  <span class="mono text-[11px] font-semibold tracking-wider text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                    {d().num}
+              {/* Barre d'identité */}
+              <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-border bg-secondary px-5 py-3 pr-14">
+                <span class="font-mono text-[13px] font-bold text-foreground">{d().num}</span>
+                <Show when={d().article}>
+                  <span class="font-mono text-[12px] font-bold text-terra">{d().article}</span>
+                </Show>
+                <SheetTitle class="font-fraunces text-[14px] font-medium italic text-muted-foreground">
+                  {d().title}
+                </SheetTitle>
+                <Badge variant={statusVariant(d().statusLabel)} class="ml-0.5">
+                  {d().statusLabel}
+                </Badge>
+                <Show when={d().bomBlocked > 0}>
+                  <Badge variant="destructive">{d().bomBlocked} rupture(s)</Badge>
+                </Show>
+                <span class="flex-1" />
+                <Button size="sm" variant="outline" class="gap-1.5">
+                  <span class="material-symbols-outlined text-[15px]">swap_horiz</span>
+                  Replanifier
+                </Button>
+              </div>
+
+              {/* Méta + avancement */}
+              <div class="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-rule-soft px-5 py-2.5">
+                <Meta k="Début" v={d().cycle.start} mono />
+                <span class="material-symbols-outlined text-[15px] text-muted-foreground">arrow_forward</span>
+                <Meta k="Fin" v={d().cycle.end} mono />
+                <Show when={d().context}>
+                  <Meta k="Poste" v={d().context} />
+                </Show>
+                <For each={d().stats}>{(s) => <Meta k={s.label} v={s.value} mono />}</For>
+                <div class="ml-auto flex items-center gap-2">
+                  <span class="font-mono text-[10px] font-semibold text-muted-foreground">Avancement</span>
+                  <span class="h-1.5 w-28 overflow-hidden rounded-full bg-secondary">
+                    <span class="block h-full rounded-full bg-terra" style={{ width: `${d().progressPct}%` }} />
                   </span>
-                  <Show when={d().article}>
-                    <span class="mono text-[11px] text-primary bg-m3-primary/5 px-1.5 py-0.5 rounded">
-                      {d().article}
-                    </span>
-                  </Show>
-                  <Badge
-                    variant={statusVariant(d().statusLabel)}
-                    class="ml-auto uppercase tracking-wider text-[10px]"
-                  >
-                    {d().statusLabel}
-                  </Badge>
+                  <span class="font-mono text-[11px] font-bold text-foreground">{d().progressPct}%</span>
+                </div>
+              </div>
+
+              {/* BOM (composants MFGMAT + faisabilité) */}
+              <div class="flex-1 overflow-auto px-5 py-3">
+                <div class="mb-2 flex items-center justify-between">
+                  <h3 class="font-fraunces text-[14px] font-bold tracking-tight">Composants</h3>
+                  <span class="font-mono text-[11px] text-muted-foreground">{d().bomCount} articles</span>
                 </div>
 
-                <SheetTitle>{d().title}</SheetTitle>
-                <SheetDescription>{d().context || 'Poste non assigné'}</SheetDescription>
-
-                {/* Progression */}
-                <div class="mt-1">
-                  <div class="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
-                    <span>Avancement</span>
-                    <span class="text-foreground">{d().progressPct}%</span>
-                  </div>
-                  <div class="h-1.5 bg-muted rounded-full overflow-hidden">
-                    <div class="h-full bg-primary transition-all" style={{ width: `${d().progressPct}%` }} />
-                  </div>
-                </div>
-              </SheetHeader>
-
-              <SheetBody>
-                {/* Stats — grille 3 colonnes homogène */}
-                <Show when={d().stats.length > 0}>
-                  <div class="grid grid-cols-3 gap-2">
-                    <For each={d().stats}>
-                      {(s) => (
-                        <div class="rounded-lg border border-border bg-card px-3 py-2.5">
-                          <div class="text-[9px] font-bold uppercase tracking-wider text-muted-foreground truncate">
-                            {s.label}
-                          </div>
-                          <div class={cn('mt-1 text-base font-bold mono leading-none', s.valueClass)}>
-                            {s.value}
-                          </div>
-                          <Show when={s.sub}>
-                            <div class="text-[10px] text-muted-foreground mt-1 truncate">{s.sub}</div>
-                          </Show>
-                        </div>
-                      )}
-                    </For>
+                <Show when={d().bomBlocked === 0 && d().bom.length > 0}>
+                  <div class="mb-2 flex items-center gap-2 rounded-md bg-ferme/10 px-3 py-1.5 text-[12px] font-medium text-ferme">
+                    <span class="material-symbols-outlined text-[15px]">check_circle</span>
+                    Tous les composants sont disponibles
                   </div>
                 </Show>
 
-                {/* Cycle */}
-                <div class="rounded-lg border border-border bg-card px-3 py-2.5 flex items-center gap-3">
-                  <div class="flex-1">
-                    <div class="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
-                      Début
-                    </div>
-                    <div class="mono text-xs font-semibold text-foreground">{d().cycle.start}</div>
-                  </div>
-                  <span class="material-symbols-outlined text-muted-foreground text-[18px]">
-                    arrow_forward
-                  </span>
-                  <div class="flex-1 text-right">
-                    <div class="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
-                      Fin
-                    </div>
-                    <div class="mono text-xs font-semibold text-foreground">{d().cycle.end}</div>
-                  </div>
+                <div class="grid grid-cols-[1fr_1.7fr_72px_84px_96px] gap-3 border-b border-border bg-secondary px-3 py-1.5 font-mono text-[9px] font-bold tracking-wider text-muted-foreground">
+                  <span>Article</span>
+                  <span>Désignation</span>
+                  <span class="text-right">Besoin</span>
+                  <span class="text-right">Dispo</span>
+                  <span class="text-right">État</span>
                 </div>
 
-                {/* BOM (composants MFGMAT + faisabilité) */}
-                <section>
-                  <div class="flex items-center justify-between mb-2">
-                    <h3 class="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                      Composants
-                    </h3>
-                    <span class="mono text-[10px] text-muted-foreground">{d().bomCount} articles</span>
-                  </div>
-
-                  <Show
-                    when={d().bomBlocked > 0}
-                    fallback={
-                      <Show when={d().bom.length > 0}>
-                        <div class="flex items-center gap-2 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-700 px-3 py-2 text-xs font-medium mb-2">
-                          <span class="material-symbols-outlined text-[16px]">check_circle</span>
-                          Tous les composants sont disponibles
-                        </div>
-                      </Show>
-                    }
-                  >
-                    <div class="flex items-center gap-2 rounded-md bg-destructive/10 border border-destructive/40 text-destructive px-3 py-2 text-xs font-semibold mb-2">
-                      <span class="material-symbols-outlined text-[16px]">error</span>
-                      {d().bomBlocked} composant(s) en rupture
-                    </div>
-                  </Show>
-
-                  <div class="space-y-1">
-                    <For each={d().bom}>
-                      {(row) => (
-                        <div
-                          class="grid grid-cols-[20px_1fr_auto] items-center gap-2 rounded-md border bg-card px-2.5 py-1.5"
-                          classList={{
-                            'border-destructive/40 bg-destructive/5': !row.ok,
-                            'border-border': row.ok,
-                          }}
-                          title={`${row.id} — ${row.name}`}
-                        >
-                          <span
-                            class={cn(
-                              'w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white',
-                              row.ok ? 'bg-emerald-500' : 'bg-destructive'
-                            )}
-                          >
-                            {row.ok ? '✓' : '!'}
-                          </span>
-                          <div class="min-w-0">
-                            <div class="mono text-[11px] font-semibold text-foreground truncate">{row.id}</div>
-                            <div class="text-[10px] text-muted-foreground truncate">{row.name}</div>
-                          </div>
-                          <div class="text-right">
-                            <div class="mono text-[11px] font-semibold text-foreground whitespace-nowrap">
-                              {row.need} {row.unit}
-                            </div>
-                            <Show
-                              when={row.shortage}
-                              fallback={
-                                <div class="mono text-[10px] text-muted-foreground whitespace-nowrap">
-                                  stock {row.stock}
-                                </div>
-                              }
-                            >
-                              <div class="mono text-[10px] font-bold text-destructive whitespace-nowrap">
-                                −{row.shortage} {row.unit}
-                              </div>
-                            </Show>
-                          </div>
-                        </div>
+                <For each={d().bom}>
+                  {(row) => (
+                    <div
+                      class={cx(
+                        'grid grid-cols-[1fr_1.7fr_72px_84px_96px] items-center gap-3 border-b border-rule-soft px-3 py-2',
+                        !row.ok && 'bg-destructive/5',
                       )}
-                    </For>
-                  </div>
-                </section>
-              </SheetBody>
+                      title={`${row.id} — ${row.name}`}
+                    >
+                      <span class="truncate font-mono text-[12px] font-bold text-foreground">{row.id}</span>
+                      <span class="truncate text-[12px] text-foreground/80">{row.name}</span>
+                      <span class="text-right font-mono text-[12px] text-foreground">
+                        {row.need} {row.unit}
+                      </span>
+                      <span class="text-right font-mono text-[12px] text-muted-foreground">{row.stock}</span>
+                      <span class="text-right">
+                        <Show
+                          when={row.ok}
+                          fallback={
+                            <span class="font-mono text-[12px] font-bold text-destructive">
+                              −{row.shortage}
+                            </span>
+                          }
+                        >
+                          <span class="font-bold text-ferme">✓</span>
+                        </Show>
+                      </span>
+                    </div>
+                  )}
+                </For>
+              </div>
             </>
           )}
         </Show>
@@ -211,5 +157,12 @@ export const OfDetailSheet: Component<{
     </Sheet>
   )
 }
+
+const Meta: Component<{ k: string; v: string; mono?: boolean }> = (p) => (
+  <div class="flex items-baseline gap-1.5">
+    <span class="font-mono text-[10px] font-semibold text-muted-foreground">{p.k}</span>
+    <span class={cx('font-fraunces text-[13px] font-bold text-foreground', p.mono && 'font-mono')}>{p.v}</span>
+  </div>
+)
 
 export default OfDetailSheet

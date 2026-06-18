@@ -2,23 +2,13 @@ import { createEffect, createSignal, For, on, Show, type Component } from 'solid
 import { Link, router } from '@/lib/inertia-solid'
 import { createBoardStore } from '@/lib/board/store'
 import type { BoardData } from '@/lib/board/types'
-import AppLayout from '@/layouts/app'
+import { cx } from '@/libs/cva'
 import BoardGrid from '@/components/board/board-grid'
 import OfDetailSheet from '@/components/of/of-detail-sheet'
 import { Button } from '@/components/ui/button'
 import { TextField, TextFieldInput } from '@/components/ui/text-field'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
-import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
-import {
-  SegmentedControl,
-  SegmentedControlList,
-  SegmentedControlItems,
-  SegmentedControlItem,
-  SegmentedControlItemInput,
-  SegmentedControlItemLabel,
-  SegmentedControlIndicator,
-} from '@/components/ui/segmented-control'
+import { Calendar, type DateRange } from '@/components/ui/calendar'
 
 type ExpertBoardProps = {
   board: BoardData
@@ -43,11 +33,23 @@ const SCOPES = [
   { v: 'composant', label: 'Composant' },
 ] as const
 
+const DAY_MS = 86_400_000
+
+const parseIso = (s: string): Date | null => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s ?? '')
+  return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null
+}
+const toIso = (d: Date): string =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+const startOfDay = (d: Date): Date => {
+  const x = new Date(d)
+  x.setHours(0, 0, 0, 0)
+  return x
+}
+
 const ExpertBoard: Component<ExpertBoardProps> = (props) => {
-  // Store créé une fois ; resync via reset() sur navigation Inertia (prev/next/…).
   const store = createBoardStore(props.board)
 
-  // Détail OF : drawer contextuel au clic sur une carte (plus de page dédiée).
   const [selectedOf, setSelectedOf] = createSignal<string | null>(null)
   const [detailOpen, setDetailOpen] = createSignal(false)
   const onSelectOf = (num: string) => {
@@ -61,68 +63,90 @@ const ExpertBoard: Component<ExpertBoardProps> = (props) => {
       (next, prev) => {
         if (prev !== undefined && next !== prev) store.reset(next)
       },
-      { defer: true }
-    )
+      { defer: true },
+    ),
   )
 
-  const onHorizon = (e: Event) => {
-    const form = e.target as HTMLFormElement
-    const days = (form.elements.namedItem('days') as HTMLInputElement).value
-    e.preventDefault()
-    router.visit('/scheduler/board', {
-      data: { start: props.windowFrom, days },
-      preserveScroll: true,
-    })
+  // Calendrier (remplace nav semaine + horizon).
+  const [calOpen, setCalOpen] = createSignal(false)
+  const [range, setRange] = createSignal<DateRange>({
+    start: parseIso(props.windowFrom),
+    end: parseIso(props.windowTo),
+  })
+  const applyRange = (r: DateRange) => {
+    setRange(r)
+    if (r.start && r.end) {
+      setCalOpen(false)
+      const days = Math.round((startOfDay(r.end).getTime() - startOfDay(r.start).getTime()) / DAY_MS) + 1
+      router.visit('/scheduler/board', {
+        data: { start: toIso(r.start), days: String(days) },
+        preserveScroll: true,
+      })
+    }
   }
 
+  const navCls = (active?: boolean) =>
+    `border-b-2 px-3.5 py-2.5 text-[12px] font-semibold transition-colors ${
+      active ? 'border-terra text-terra' : 'border-transparent text-secondary-foreground hover:text-terra'
+    }`
+
   return (
-    <AppLayout active="board">
-      {/* En-tête fixe */}
-      <header class="fixed top-0 w-full z-50 flex justify-between items-center gap-4 px-4 h-12 bg-card border-b border-border">
-        <div class="flex items-center gap-4 min-w-0">
-          {/* Marque */}
-          <div class="flex items-center gap-2 shrink-0">
-            <div class="w-6 h-6 bg-primary rounded-md flex items-center justify-center">
-              <span class="material-symbols-outlined text-white text-[16px]">precision_manufacturing</span>
+    <div class="theme-papier flex h-screen flex-col overflow-hidden bg-background text-foreground">
+      {/* ═══ Masthead ═══ */}
+      <header class="flex-none border-b border-rule bg-background">
+        <div class="flex items-end justify-between gap-5 px-7 pb-2 pt-3.5">
+          <div class="flex items-baseline gap-3.5">
+            <div class="font-fraunces text-[28px] font-black leading-[0.9] tracking-tight">
+              Factory<span class="font-medium italic text-terra">OS</span>
             </div>
-            <h1 class="font-headline-sm text-sm font-bold text-foreground tracking-tight">
-              FactoryOS
-              <span class="text-[10px] mono font-normal text-muted-foreground align-top ml-1">v4.2</span>
-            </h1>
+            <div class="pb-1 font-mono text-[10px] font-medium tracking-[0.12em] text-muted-foreground">
+              Ordonnancement · Édition quotidienne
+            </div>
           </div>
+          <div class="text-right font-mono text-[11px] font-medium leading-relaxed text-muted-foreground">
+            <div class="font-fraunces text-[12px] font-bold not-italic text-terra">{props.weekLabel}</div>
+            <div>
+              Fenêtre <b class="font-bold text-foreground">{props.horizon} j</b> ·{' '}
+              <b class="font-bold text-foreground">{props.totalOf}</b> OF ·{' '}
+              <b class="font-bold text-foreground">{props.lineCount}</b> postes
+            </div>
+          </div>
+        </div>
 
-          <Separator orientation="vertical" class="h-6" />
+        <nav class="flex items-center gap-1 border-t border-rule px-7">
+          <a href="#" class={navCls()}>Tableau</a>
+          <Link href="/scheduler/planning-board" class={navCls()}>Planification</Link>
+          <Link href="/scheduler/board" class={navCls(true)}>Ordonnancement</Link>
+          <Link href="/scheduler/shortages" class={navCls()}>Ruptures</Link>
+          <a href="#" class={navCls()}>Ressources</a>
 
-          {/* Recherche multi-scope */}
-          <div class="flex items-center gap-2">
+          {/* Recherche (pill) + portée — séparés pour éviter tout chevauchement */}
+          <div class="ml-auto flex items-center gap-2 py-1.5">
             <TextField class="contents">
-              <div class="group relative flex items-center">
-                <span class="material-symbols-outlined absolute left-2.5 text-muted-foreground text-[18px] pointer-events-none group-focus-within:text-primary transition-colors">
-                  search
-                </span>
+              <div class="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-terra focus-within:ring-2 focus-within:ring-terra/25">
+                <span class="material-symbols-outlined text-[17px] text-muted-foreground">search</span>
                 <TextFieldInput
-                  class="w-60 h-8 pl-9 pr-9 rounded-md"
-                  placeholder="Rechercher un OF, article, poste…"
+                  class="w-[180px] border-0 bg-transparent px-0 text-[12px] font-medium shadow-none focus-visible:ring-0"
+                  placeholder="OF, article, poste…"
                   type="text"
                   autocomplete="off"
                   value={store.query()}
                   onInput={(e) => store.onQueryInput(e.currentTarget.value)}
                 />
-                <kbd class="absolute right-2 text-[9px] font-sans font-semibold text-muted-foreground bg-muted border border-border rounded px-1 py-0.5 pointer-events-none group-focus-within:opacity-0 transition-opacity">
-                  ⌘K
-                </kbd>
               </div>
             </TextField>
-
             <Select
               title="Portée de la recherche"
               value={store.scope()}
-              onChange={(v) => store.onScopeChange(v as typeof SCOPES[number]['v'])}
+              onChange={(v) => store.onScopeChange(v as (typeof SCOPES)[number]['v'])}
               options={SCOPES.map((s) => s.v)}
               disallowEmptySelection
               optionTextValue={(o: string) => SCOPES.find((s) => s.v === o)?.label ?? o}
             >
-              <SelectTrigger size="sm" class="w-28" aria-label="Portée de la recherche">
+              <SelectTrigger
+                class="h-[30px] w-[92px] rounded-full border border-rule bg-card px-3 text-[11px] font-semibold"
+                aria-label="Portée de la recherche"
+              >
                 <SelectValue<string>>
                   {(state) => SCOPES.find((s) => s.v === state.selectedOption())?.label ?? 'Portée'}
                 </SelectValue>
@@ -136,34 +160,66 @@ const ExpertBoard: Component<ExpertBoardProps> = (props) => {
                 </For>
               </SelectContent>
             </Select>
+            <div class="flex size-7 items-center justify-center rounded-full bg-terra font-mono text-[10px] font-bold text-card">
+              OP
+            </div>
           </div>
+        </nav>
+      </header>
+
+      {/* ═══ Toolbar ═══ */}
+      <div class="flex flex-none flex-wrap items-center justify-between gap-3 border-b border-rule px-7 py-2">
+        {/* Calendrier (remplace nav semaine + horizon) */}
+        <div class="relative">
+          <button
+            type="button"
+            onClick={() => setCalOpen((o) => !o)}
+            class="flex items-center gap-1.5 rounded-full border border-rule bg-card px-2.5 py-1 text-[11px] font-semibold text-foreground transition-colors hover:border-terra"
+          >
+            <span class="material-symbols-outlined text-[14px] text-muted-foreground">calendar_month</span>
+            {props.dateRange}
+            <span class="material-symbols-outlined text-[16px] text-muted-foreground">expand_more</span>
+          </button>
+          <Show when={calOpen()}>
+            <button
+              type="button"
+              tabIndex={-1}
+              aria-hidden="true"
+              class="fixed inset-0 z-40 cursor-default"
+              onClick={() => setCalOpen(false)}
+            />
+            <div class="absolute left-0 top-full z-50 mt-2">
+              <Calendar mode="range" range={range()} onRangeChange={applyRange} />
+            </div>
+          </Show>
         </div>
 
-        <div class="flex items-center gap-2 shrink-0">
-          {/* Mode d'allocation stock */}
-          <SegmentedControl
-            value={store.mode()}
-            onChange={(v) => store.setMode(v as 'immediate' | 'sequential')}
-            class="hidden md:flex"
-          >
-            <SegmentedControlList>
-              <SegmentedControlIndicator />
-              <SegmentedControlItems class="text-[11px] font-bold uppercase tracking-wider">
-                <SegmentedControlItem value="immediate">
-                  <SegmentedControlItemInput />
-                  <SegmentedControlItemLabel title="Stock vu en intégralité par chaque OF">
-                    Instantanée
-                  </SegmentedControlItemLabel>
-                </SegmentedControlItem>
-                <SegmentedControlItem value="sequential">
-                  <SegmentedControlItemInput />
-                  <SegmentedControlItemLabel title="Stock consommé OF par OF selon priorité">
-                    Projetée
-                  </SegmentedControlItemLabel>
-                </SegmentedControlItem>
-              </SegmentedControlItems>
-            </SegmentedControlList>
-          </SegmentedControl>
+        <div class="flex items-center gap-2.5">
+          {/* Mode d'allocation stock — choix exclusif (segment raffiné) */}
+          <div class="inline-flex rounded-md border border-rule bg-card p-0.5">
+            <button
+              type="button"
+              title="Stock vu en intégralité par chaque OF"
+              onClick={() => store.setMode('immediate')}
+              class={cx(
+                'rounded-[5px] px-3 py-1 text-[12px] font-semibold transition-colors',
+                store.mode() === 'immediate' ? 'bg-terra-soft text-terra' : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              Instantanée
+            </button>
+            <button
+              type="button"
+              title="Stock consommé OF par OF selon priorité"
+              onClick={() => store.setMode('sequential')}
+              class={cx(
+                'rounded-[5px] px-3 py-1 text-[12px] font-semibold transition-colors',
+                store.mode() === 'sequential' ? 'bg-terra-soft text-terra' : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              Projetée
+            </button>
+          </div>
 
           <Button
             size="sm"
@@ -176,118 +232,36 @@ const ExpertBoard: Component<ExpertBoardProps> = (props) => {
             </span>
             {store.feasLoading() ? 'Calcul…' : 'Faisabilité'}
           </Button>
-
-          <Separator orientation="vertical" class="h-6 mx-1" />
-
-          <Button variant="ghost" size="icon" title="Notifications" class="text-muted-foreground">
-            <span class="material-symbols-outlined text-[20px]">notifications</span>
-          </Button>
-          <Button variant="ghost" size="icon" title="Réglages" class="text-muted-foreground">
-            <span class="material-symbols-outlined text-[20px]">settings</span>
-          </Button>
-          <div class="w-7 h-7 rounded-full bg-muted border border-border flex items-center justify-center text-[10px] font-bold text-muted-foreground">
-            OP
-          </div>
         </div>
-      </header>
+      </div>
 
-      <main class="ml-12 mt-12 p-2 h-[calc(100vh-48px)] overflow-hidden flex flex-col">
-        {/* Barre d'outils : navigation fenêtre + légende */}
-        <div class="mb-2 flex items-center justify-between gap-3 bg-card p-2 rounded-lg border border-border shadow-sm">
-          <div class="flex items-center gap-2">
-            {/* Navigation fenêtre (segmented prev/today/next) */}
-            <div class="inline-flex items-center bg-muted/60 rounded-lg border border-border p-0.5">
-              <Link
-                href={props.prevHref}
-                preserveScroll
-                class="px-2.5 h-7 inline-flex items-center text-[11px] font-semibold text-muted-foreground hover:text-foreground rounded-md transition-colors"
-                title="Période précédente"
-              >
-                <span class="material-symbols-outlined text-[18px]">chevron_left</span>
-              </Link>
-              <Link
-                href={props.todayHref}
-                preserveScroll
-                class="px-3 h-7 inline-flex items-center text-[11px] font-bold bg-card text-foreground border-x border-border hover:text-primary rounded-none transition-colors"
-                title="Revenir à aujourd'hui"
-              >
-                {props.weekLabel}
-              </Link>
-              <Link
-                href={props.nextHref}
-                preserveScroll
-                class="px-2.5 h-7 inline-flex items-center text-[11px] font-semibold text-muted-foreground hover:text-foreground rounded-md transition-colors"
-                title="Période suivante"
-              >
-                <span class="material-symbols-outlined text-[18px]">chevron_right</span>
-              </Link>
-            </div>
-            <span class="text-xs font-bold text-foreground mono">{props.dateRange}</span>
-
-            {/* Horizon (jours) */}
-            <form
-              onSubmit={onHorizon}
-              class="flex items-center gap-1 h-8 border border-border rounded-md px-2 bg-card"
-              title="Horizon (jours)"
-            >
-              <span class="material-symbols-outlined text-[14px] text-muted-foreground">date_range</span>
-              <input type="hidden" name="start" value={props.windowFrom} />
-              <input
-                type="number"
-                name="days"
-                min="1"
-                max="90"
-                value={props.horizon}
-                class="w-8 text-[11px] font-bold mono text-foreground text-right bg-transparent focus:outline-none"
-              />
-              <span class="text-[10px] font-bold text-muted-foreground">j</span>
-            </form>
-          </div>
-
-          <div class="flex items-center gap-3">
-            {/* Légende statuts */}
-            <div class="hidden sm:flex items-center gap-2">
-              <Badge variant="success" class="gap-1 bg-transparent text-emerald-600 border-transparent hover:bg-transparent">
-                <span class="w-2 h-2 rounded-full bg-emerald-500" /> Ferme
-              </Badge>
-              <Badge variant="secondary" class="gap-1 bg-transparent text-blue-600 border-transparent hover:bg-transparent">
-                <span class="w-2 h-2 rounded-full bg-blue-500" /> Planifié
-              </Badge>
-              <Badge variant="warning" class="gap-1 bg-transparent text-amber-600 border-transparent hover:bg-transparent">
-                <span class="w-2 h-2 rounded-full bg-amber-500" /> Suggéré
-              </Badge>
-            </div>
-            <Button variant="outline" size="sm" class="gap-1.5 uppercase text-[10px]" title="Exporter le board en CSV">
-              <span class="material-symbols-outlined text-[14px]">table_view</span> Export
-            </Button>
-          </div>
+      {/* X3 injoignable */}
+      <Show when={props.x3Error}>
+        <div class="flex flex-none items-center gap-2 border-b border-terra/30 bg-terra-soft px-7 py-2 text-[12px] text-foreground">
+          <span class="material-symbols-outlined text-[16px] text-terra">warning</span>
+          X3 injoignable — données {props.cached ? `du cache (${props.cached})` : 'indisponibles'}.
+          <Link href="/scheduler/board?refresh=1" class="font-bold underline">
+            Réessayer
+          </Link>
         </div>
+      </Show>
 
-        <Show when={props.x3Error}>
-          <div class="mb-2 bg-amber-50 border border-amber-200 text-amber-800 px-3 py-2 text-xs rounded flex items-center gap-2">
-            <span class="material-symbols-outlined text-sm">warning</span>
-            X3 injoignable — données{' '}
-            {props.cached ? `du cache (${props.cached})` : 'indisponibles'}.
-            <Link href="/scheduler/board?refresh=1" class="font-bold underline">
-              Réessayer
-            </Link>
+      {/* ═══ Board ═══ */}
+      <Show
+        when={props.lineCount > 0}
+        fallback={
+          <div class="flex flex-1 items-center justify-center p-10 font-fraunces text-[14px] italic text-muted-foreground">
+            Aucun OF planifiable dans la fenêtre (vérifier gammes / dates OF).
           </div>
-        </Show>
-
-        <Show
-          when={props.lineCount > 0}
-          fallback={
-            <div class="flex-1 flex items-center justify-center text-gray-400 italic p-10">
-              Aucun OF planifiable dans la fenêtre (vérifier gammes / dates OF).
-            </div>
-          }
-        >
+        }
+      >
+        <div class="flex-1 overflow-hidden">
           <BoardGrid store={store} onSelectOf={onSelectOf} />
-        </Show>
-      </main>
+        </div>
+      </Show>
 
       <OfDetailSheet num={selectedOf()} open={detailOpen()} onOpenChange={setDetailOpen} />
-    </AppLayout>
+    </div>
   )
 }
 

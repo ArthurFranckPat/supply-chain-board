@@ -5,6 +5,8 @@ import { TextField, TextFieldInput, TextFieldLabel } from '@/components/ui/text-
 import { Separator } from '@/components/ui/separator'
 import { Calendar } from '@/components/ui/calendar'
 import { Board } from '@/components/board/papier-board'
+import { BoardCard } from '@/components/board/board-card'
+import { ChargeForecast, type ForecastLine } from '@/components/board/charge-forecast'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
 
 /**
@@ -42,12 +44,13 @@ const NAV = [
   { id: 'boutons', n: '03', label: 'Boutons' },
   { id: 'champs', n: '04', label: 'Champs' },
   { id: 'badges', n: '05', label: 'Badges & statuts' },
-  { id: 'carte', n: '06', label: 'Carte commande' },
+  { id: 'carte', n: '06', label: 'Carte board' },
   { id: 'rupture', n: '07', label: 'Rangée rupture' },
   { id: 'detail', n: '08', label: 'Panneau détail / BOM' },
   { id: 'etats', n: '09', label: 'États' },
   { id: 'calendrier', n: '10', label: 'Calendrier' },
   { id: 'board', n: '11', label: 'Board' },
+  { id: 'charge', n: '12', label: 'Charge long-terme' },
 ]
 
 const BOARD_DAYS: { short: string; num: string; today?: boolean; hours: number }[] = [
@@ -63,8 +66,8 @@ const BOARD_DAYS: { short: string; num: string; today?: boolean; hours: number }
   { short: 'Ven', num: '27', hours: 24 },
 ]
 const BOARD_WEEKS = [
-  { label: 'Semaine XXV · 16–20 juin', span: 5 },
-  { label: 'Semaine XXVI · 23–27 juin', span: 5 },
+  { label: 'Semaine 25 · 16–20 juin', span: 5 },
+  { label: 'Semaine 26 · 23–27 juin', span: 5 },
 ]
 const BOARD_LINES = [
   { code: 'DCP-01', name: 'Découpe Fan', tone: '#5b7d4e', weekLoads: [{ week: 25, ferme: 20, planifie: 8, suggere: 4 }, { week: 26, ferme: 14, planifie: 8, suggere: 6 }] },
@@ -72,6 +75,15 @@ const BOARD_LINES = [
   { code: 'PUD-03', name: 'Peinture Four', tone: '#b8862c', weekLoads: [{ week: 25, ferme: 12, planifie: 10, suggere: 8 }, { week: 26, ferme: 10, planifie: 8, suggere: 8 }] },
   { code: 'ASV-04', name: 'Assemblage VMC', tone: '#8b5cf6', weekLoads: [{ week: 25, ferme: 6, planifie: 4, suggere: 8 }, { week: 26, ferme: 4, planifie: 4, suggere: 6 }] },
   { code: 'CTL-05', name: 'Contrôlage Final', tone: '#8c7d66', weekLoads: [{ week: 25, ferme: 18, planifie: 10, suggere: 6 }, { week: 26, ferme: 14, planifie: 10, suggere: 6 }] },
+]
+const FORECAST_MONTHS = ['Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc']
+// par ligne, par mois : [ferme, planifie, suggéré] (heures)
+const FORECAST_LINES: ForecastLine[] = [
+  { id: 'dcp', code: 'DCP-01', name: 'Découpe Fan', color: '#5b7d4e', months: [[90, 30, 20], [70, 25, 15], [100, 50, 25], [90, 60, 40], [70, 55, 35], [40, 45, 35]] },
+  { id: 'sdr', code: 'SDR-02', name: 'Soudure Robot', color: '#2f4858', months: [[100, 40, 25], [80, 30, 20], [110, 55, 35], [100, 70, 50], [80, 65, 40], [50, 50, 40]] },
+  { id: 'pud', code: 'PUD-03', name: 'Peinture Four', color: '#b8862c', months: [[80, 25, 15], [60, 20, 15], [85, 40, 25], [75, 50, 40], [60, 50, 30], [40, 40, 25]] },
+  { id: 'asv', code: 'ASV-04', name: 'Assemblage VMC', color: '#8b5cf6', months: [[60, 20, 10], [45, 15, 10], [70, 25, 15], [60, 35, 25], [45, 35, 20], [30, 30, 15]] },
+  { id: 'ctl', code: 'CTL-05', name: 'Contrôlage Final', color: '#8c7d66', months: [[85, 30, 15], [65, 25, 10], [95, 40, 25], [85, 55, 35], [65, 55, 30], [45, 45, 25]] },
 ]
 
 const DesignSystem: Component = () => {
@@ -86,6 +98,7 @@ const DesignSystem: Component = () => {
   const [flt, setFlt] = createSignal<string[]>(['MTS', 'MTO'])
   const toggleFlt = (t: string) =>
     setFlt((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]))
+  const [exclu, setExclu] = createSignal<'immediate' | 'sequential'>('immediate')
 
   return (
     <div class="theme-papier min-h-screen">
@@ -149,7 +162,7 @@ const DesignSystem: Component = () => {
                 </span>
               </TypeRow>
               <TypeRow spec="Display · Fraunces 900 / 34">
-                <span class="font-fraunces text-[34px] font-black tracking-tight">Semaine XXV</span>
+                <span class="font-fraunces text-[34px] font-black tracking-tight">Semaine 25</span>
               </TypeRow>
               <TypeRow spec="H1 · Fraunces 700 / 26">
                 <span class="font-fraunces text-[26px] font-bold tracking-tight">
@@ -253,17 +266,27 @@ const DesignSystem: Component = () => {
                   </Select>
                 </div>
                 <div>
-                  <FieldLabel>Choix exclusif — tabs soulignées</FieldLabel>
-                  <div class="flex items-center gap-5 border-b border-rule-soft">
+                  <FieldLabel>Choix exclusif — segment raffiné</FieldLabel>
+                  <div class="inline-flex rounded-md border border-border bg-card p-0.5">
                     <button
                       type="button"
-                      class="relative -mb-px border-b-2 border-terra pb-2 text-[13px] font-bold text-foreground"
+                      onClick={() => setExclu('immediate')}
+                      class={`rounded-[5px] px-3 py-1 text-[12px] font-bold transition-colors ${
+                        exclu() === 'immediate'
+                          ? 'bg-terra-soft text-terra'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
                     >
                       Instantanée
                     </button>
                     <button
                       type="button"
-                      class="-mb-px border-b-2 border-transparent pb-2 text-[13px] font-medium text-muted-foreground transition-colors hover:border-rule-soft hover:text-foreground"
+                      onClick={() => setExclu('sequential')}
+                      class={`rounded-[5px] px-3 py-1 text-[12px] font-medium transition-colors ${
+                        exclu() === 'sequential'
+                          ? 'bg-terra-soft text-terra'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
                     >
                       Projetée
                     </button>
@@ -287,68 +310,6 @@ const DesignSystem: Component = () => {
                         </button>
                       )}
                     </For>
-                  </div>
-                </div>
-              </div>
-              <div class="mt-6 rounded-xl border border-border bg-card p-5">
-                <FieldLabel>Choix exclusif — 3 alternatives (statiques, sans indicateur glissant)</FieldLabel>
-                <div class="grid grid-cols-3 gap-6">
-                  <div>
-                    <div class="mb-3 font-mono text-[10px] font-bold uppercase tracking-wider text-terra">
-                      A · Tabs soulignées
-                    </div>
-                    <div class="flex items-center gap-5 border-b border-rule-soft">
-                      <button
-                        type="button"
-                        class="relative -mb-px border-b-2 border-terra pb-2 text-[13px] font-bold text-foreground"
-                      >
-                        Instantanée
-                      </button>
-                      <button
-                        type="button"
-                        class="-mb-px border-b-2 border-transparent pb-2 text-[13px] font-medium text-muted-foreground transition-colors hover:border-rule-soft hover:text-foreground"
-                      >
-                        Projetée
-                      </button>
-                    </div>
-                  </div>
-                  <div>
-                    <div class="mb-3 font-mono text-[10px] font-bold uppercase tracking-wider text-terra">
-                      B · Pills toggle
-                    </div>
-                    <div class="flex items-center gap-2">
-                      <button
-                        type="button"
-                        class="rounded-full bg-terra px-3.5 py-1.5 text-[12px] font-semibold text-card"
-                      >
-                        Instantanée
-                      </button>
-                      <button
-                        type="button"
-                        class="rounded-full border border-border px-3.5 py-1.5 text-[12px] font-semibold text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
-                      >
-                        Projetée
-                      </button>
-                    </div>
-                  </div>
-                  <div>
-                    <div class="mb-3 font-mono text-[10px] font-bold uppercase tracking-wider text-terra">
-                      C · Segment raffiné
-                    </div>
-                    <div class="inline-flex rounded-md border border-border bg-card p-0.5">
-                      <button
-                        type="button"
-                        class="rounded-[5px] bg-terra-soft px-3 py-1 text-[12px] font-bold text-terra"
-                      >
-                        Instantanée
-                      </button>
-                      <button
-                        type="button"
-                        class="rounded-[5px] px-3 py-1 text-[12px] font-medium text-muted-foreground transition-colors hover:text-foreground"
-                      >
-                        Projetée
-                      </button>
-                    </div>
                   </div>
                 </div>
               </div>
@@ -404,14 +365,24 @@ const DesignSystem: Component = () => {
             </Frame>
           </Section>
 
-          {/* ═══ 06 Carte commande ═══ */}
-          <Section id="carte" n="06" title="Carte commande">
+          {/* ═══ 06 Carte board (unifiée) ═══ */}
+          <Section id="carte" n="06" title="Carte board (unifiée)">
             <div class="rounded-xl border border-border bg-secondary/40 p-6">
-              <div class="flex flex-wrap gap-4">
-                <PapierCard tone="ferme" art="XTR107842" ord="AR24518·L2" des="Caisse D250" cli="AXION GUEVIN" typ="MTS" h="6,0" />
-                <PapierCard tone="planifie" art="XTR108120" ord="AR24601·L1" des="Caisse D350" cli="CDC Habitat" typ="MTO" h="7,5" />
-                <PapierCard tone="planifie" mod feas="ok" art="VMC-310" ord="AR24610·L2" des="Caisson isolé" cli="Bouygues" typ="MTO" h="5,5" />
-                <PapierCard tone="suggere" mod feas="bad" art="XTR106540" ord="AR24490·L4" des="Caisse D200" cli="Bouygues" typ="MTS" h="3,0" />
+              <FieldLabel>Variante commande — board planification</FieldLabel>
+              <div class="grid grid-cols-[repeat(auto-fill,176px)] gap-4">
+                <BoardCard variant="commande" status="ferme" article="XTR107842" ord="AR24518·L2" title="Caisse D250" client="AXION GUEVIN" type="MTS" hours="6,0" />
+                <BoardCard variant="commande" status="planifie" article="XTR108120" ord="AR24601·L1" title="Caisse D350" client="CDC Habitat" type="MTO" hours="7,5" />
+                <BoardCard variant="commande" status="planifie" mod feas="ok" article="VMC-310" ord="AR24610·L2" title="Caisson isolé" client="Bouygues" type="MTO" hours="5,5" />
+                <BoardCard variant="commande" status="suggere" mod feas="bad" article="XTR106540" ord="AR24490·L4" title="Caisse D200" client="Bouygues" type="MTS" hours="3,0" />
+              </div>
+              <FieldLabel class="mt-6">Variante OF — board ordonnancement (statuts ferme → bloqué)</FieldLabel>
+              <div class="grid grid-cols-[repeat(auto-fill,176px)] gap-4">
+                <BoardCard variant="of" status="ferme" feas="ok" article="OF100245" title="Caisse D250" poste="DCP-01" progress={{ done: 120, total: 150 }} hours="6,0" />
+                <BoardCard variant="of" status="planifie" article="OF100288" title="Double flux" poste="SDR-02" progress={{ done: 0, total: 120 }} hours="8,5" />
+                <BoardCard variant="of" status="suggere" article="OF100312" title="Caisse D200" poste="PUD-03" progress={{ done: 0, total: 90 }} hours="4,0" />
+                <BoardCard variant="of" status="cours" article="OF100198" title="Caisson isolé" poste="ASV-04" progress={{ done: 95, total: 100 }} hours="5,5" />
+                <BoardCard variant="of" status="termine" article="OF100156" title="Échangeur D350" poste="CTL-05" progress={{ done: 60, total: 60 }} hours="3,0" />
+                <BoardCard variant="of" status="bloque" feas="bad" article="OF100301" title="Caisse D200" poste="DCP-01" progress={{ done: 0, total: 120 }} alert="Rupture MOT-33012" hours="6,0" />
               </div>
             </div>
           </Section>
@@ -516,12 +487,22 @@ const DesignSystem: Component = () => {
           </Section>
 
           {/* ═══ 11 Board (vide) ═══ */}
-          <Section id="board" n="11" title="Board (vide)" last>
+          <Section id="board" n="11" title="Board (vide)">
             <Board days={BOARD_DAYS} weeks={BOARD_WEEKS} lines={BOARD_LINES} />
             <p class="mt-3 max-w-[560px] text-[13px] leading-relaxed text-foreground/70">
               Coquille du board Papier : semaines à l'horizontale, une rangée par poste, cellules
               vides sur fond quadrillé — prêtes à recevoir les cartes commande.
             </p>
+          </Section>
+
+          {/* ═══ 12 Charge long-terme ═══ */}
+          <Section id="charge" n="12" title="Charge long-terme" last>
+            Projection de charge sur 6 mois : barres empilées Ferme / Planifié / Suggéré, seul le
+            sommet réel de la pile est arrondi (le segment Suggéré en base reste net). Sélecteur de
+            ligne + granularité mois/semaine, moyenne mobile terra et pic repérés.
+            <div class="mt-5">
+              <ChargeForecast lines={FORECAST_LINES} monthLabels={FORECAST_MONTHS} />
+            </div>
           </Section>
 
           <div class="mt-12 flex justify-between border-t border-rule-soft pt-5 font-fraunces text-[12px] italic text-muted-foreground">
@@ -605,48 +586,6 @@ const Verdot: Component<{ class?: string; children: any }> = (props) => (
     <span class="size-1.5 rounded-full bg-current" />
     {props.children}
   </span>
-)
-
-const TONE_BORDER: Record<string, string> = {
-  ferme: 'border-t-ferme',
-  planifie: 'border-t-planifie',
-  suggere: 'border-t-suggere',
-}
-const PapierCard: Component<{
-  tone: string; art: string; ord: string; des: string; cli: string; typ: string; h: string
-  mod?: boolean; feas?: 'ok' | 'bad'
-}> = (props) => (
-  <div
-    class={`relative w-[176px] rounded-md border border-border border-t-[3px] ${TONE_BORDER[props.tone]} bg-card px-3 pb-2 pt-2.5 shadow-[0_1px_2px_rgba(31,26,19,.05)]`}
-    style={props.mod ? { 'box-shadow': '0 0 0 1.5px var(--color-terra), 0 1px 2px rgba(31,26,19,.05)' } : {}}
-  >
-    {props.feas && (
-      <span
-        class={`absolute -top-1.5 right-2 flex size-4 items-center justify-center rounded-full border-2 border-card text-[9px] font-bold text-card ${
-          props.feas === 'ok' ? 'bg-ferme' : 'bg-destructive'
-        }`}
-      >
-        {props.feas === 'ok' ? '✓' : '!'}
-      </span>
-    )}
-    <div class="font-mono text-[12px] font-semibold leading-tight">{props.art}</div>
-    <div class="mt-0.5 text-[11px] font-semibold text-foreground/80">
-      <span class="text-foreground">{props.ord}</span>{' '}
-      <span class="font-normal text-muted-foreground">· {props.des}</span>
-    </div>
-    <div class="mt-0.5 truncate font-fraunces text-[11px] italic text-muted-foreground">{props.cli}</div>
-    <div class="mt-2 flex items-center gap-2 border-t border-rule-soft pt-1.5">
-      {props.mod && (
-        <span class="inline-flex items-center gap-0.5 font-mono text-[8px] font-semibold uppercase tracking-wider text-suggere">
-          <span class="material-symbols-outlined text-[11px]">edit</span>Mod.
-        </span>
-      )}
-      <span class="rounded bg-terra-soft px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-terra">
-        {props.typ}
-      </span>
-      <span class="ml-auto font-fraunces text-[14px] font-bold tabular-nums">{props.h}</span>
-    </div>
-  </div>
 )
 
 const RuptureRow: Component<{
