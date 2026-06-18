@@ -584,3 +584,54 @@ up-drawer-dismiss { display: none; }
 .sch-overlay[data-closed]   { animation: sch-overlay-out .15s ease-in both; }
 .sch-sheet[data-expanded]   { animation: sch-sheet-in .25s cubic-bezier(.32,.72,0,1) both; }
 .sch-sheet[data-closed]     { animation: sch-sheet-out .2s ease-in both; }
+
+/* ════════════════════════════════════════════════════════════
+   Design system « Papier » (v1.0).
+   Les composants ui/* (shadcn-solid) consomment les tokens
+   sémantiques (primary / background / foreground / muted…).
+   Retargeter ces tokens sous .theme-papier les thême en Papier
+   SANS toucher aux composants — même principe que .theme-m3.
+   Page de démonstration : GET /design-system.
+   ──────────────────────────────────────────────────────────── */
+@theme static {
+  /* Palette Papier — accents brand + statuts (noms sans collision) */
+  --color-terra: #a8431f;
+  --color-terra-soft: rgba(168, 67, 31, .10);
+  --color-ferme: #5b7d4e;
+  --color-planifie: #2f4858;
+  --color-suggere: #b8862c;
+  --color-rule-soft: #e3d9c1;
+  /* Fraunces — serif d'affichage (titres, chiffres) */
+  --font-fraunces: "Fraunces", Georgia, serif;
+}
+
+/* Retargeting des tokens sémantiques (collisions) sous le scope Papier. */
+.theme-papier {
+  --color-background: #f3ece0;
+  --color-foreground: #1f1a13;
+  --color-card: #fbf8ef;
+  --color-card-foreground: #1f1a13;
+  --color-popover: #fbf8ef;
+  --color-popover-foreground: #1f1a13;
+  --color-primary: #a8431f;
+  --color-primary-foreground: #fbf8ef;
+  --color-secondary: #efe7d6;
+  --color-secondary-foreground: #4a4135;
+  --color-muted: #efe7d6;
+  --color-muted-bg: #efe7d6;
+  --color-muted-foreground: #8c7d66;
+  --color-accent: #efe7d6;
+  --color-accent-foreground: #1f1a13;
+  --color-border: #cdbfa0;
+  --color-input: #cdbfa0;
+  --color-ring: #a8431f;
+  --color-destructive: #9a3320;
+  --color-destructive-foreground: #fbf8ef;
+  --color-danger: #9a3320;
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  font-family: var(--font-sans);
+  color: var(--color-foreground);
+  background-color: var(--color-background);
+}
+.theme-papier ::selection { background: var(--color-terra-soft); }

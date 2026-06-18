@@ -1,4 +1,4 @@
-import type { ComponentProps, ValidComponent, VoidProps } from "solid-js"
+import type { ComponentProps, ValidComponent } from "solid-js"
 import { mergeProps, splitProps } from "solid-js"
 import { Select as SelectPrimitive } from "@kobalte/core/select"
 
@@ -73,8 +73,8 @@ export const SelectTrigger = <T extends ValidComponent = "button">(
   )
 }
 
-export type SelectContentProps<T extends ValidComponent = "div"> = VoidProps<
-  ComponentProps<typeof SelectPrimitive.Content<T>>
+export type SelectContentProps<T extends ValidComponent = "div"> = ComponentProps<
+  typeof SelectPrimitive.Content<T>
 >
 
 export const SelectContent = <T extends ValidComponent = "div">(

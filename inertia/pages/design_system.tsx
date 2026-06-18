@@ -1,0 +1,724 @@
+import { createSignal, For, type Component } from 'solid-js'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { TextField, TextFieldInput, TextFieldLabel } from '@/components/ui/text-field'
+import { Separator } from '@/components/ui/separator'
+import { Calendar } from '@/components/ui/calendar'
+import { Board } from '@/components/board/papier-board'
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
+
+/**
+ * Design system « Papier » — showcase des VRAIS composants ui/* (shadcn-solid)
+ * thémés via le scope .theme-papier (retargeting des tokens sémantiques dans
+ * resources/css/app.css). Route : GET /design-system.
+ *
+ * Chaque section utilise un composant réel du projet ; les patterns app
+ * (carte commande, rangée rupture, BOM) sont composés en utilities Tailwind
+ * sous le scope Papier.
+ */
+
+const SURFACES = [
+  { name: 'Paper', hex: '#f3ece0', tok: 'background', use: 'fond de l’app' },
+  { name: 'Panel', hex: '#fbf8ef', tok: 'card', use: 'cartes, surfaces' },
+  { name: 'Panel-2', hex: '#efe7d6', tok: 'secondary / muted', use: 'surfaces recces.' },
+  { name: 'Rule', hex: '#cdbfa0', tok: 'border', use: 'bordure par défaut' },
+]
+const INKS = [
+  { name: 'Ink', hex: '#1f1a13', tok: 'foreground', use: 'texte primaire' },
+  { name: 'Ink-2', hex: '#4a4135', tok: 'secondary-foreground', use: 'texte secondaire' },
+  { name: 'Muted', hex: '#8c7d66', tok: 'muted-foreground', use: 'texte atténué' },
+]
+const BRAND = [
+  { name: 'Terra', hex: '#a8431f', tok: 'primary', use: 'accent primaire', cls: 'text-terra' },
+  { name: 'Ferme', hex: '#5b7d4e', tok: 'ferme', use: 'statut ferme', cls: 'text-ferme' },
+  { name: 'Planifié', hex: '#2f4858', tok: 'planifie', use: 'statut planifié', cls: 'text-planifie' },
+  { name: 'Suggéré', hex: '#b8862c', tok: 'suggere', use: 'statut suggéré', cls: 'text-suggere' },
+  { name: 'Danger', hex: '#9a3320', tok: 'destructive', use: 'sans couverture', cls: 'text-destructive' },
+]
+
+const NAV = [
+  { id: 'couleurs', n: '01', label: 'Couleurs' },
+  { id: 'typo', n: '02', label: 'Typographie' },
+  { id: 'boutons', n: '03', label: 'Boutons' },
+  { id: 'champs', n: '04', label: 'Champs' },
+  { id: 'badges', n: '05', label: 'Badges & statuts' },
+  { id: 'carte', n: '06', label: 'Carte commande' },
+  { id: 'rupture', n: '07', label: 'Rangée rupture' },
+  { id: 'detail', n: '08', label: 'Panneau détail / BOM' },
+  { id: 'etats', n: '09', label: 'États' },
+  { id: 'calendrier', n: '10', label: 'Calendrier' },
+  { id: 'board', n: '11', label: 'Board' },
+]
+
+const BOARD_DAYS: { short: string; num: string; today?: boolean; hours: number }[] = [
+  { short: 'Lun', num: '16', hours: 28 },
+  { short: 'Mar', num: '17', hours: 34, today: true },
+  { short: 'Mer', num: '18', hours: 38 },
+  { short: 'Jeu', num: '19', hours: 22 },
+  { short: 'Ven', num: '20', hours: 30 },
+  { short: 'Lun', num: '23', hours: 26 },
+  { short: 'Mar', num: '24', hours: 32 },
+  { short: 'Mer', num: '25', hours: 28 },
+  { short: 'Jeu', num: '26', hours: 24 },
+  { short: 'Ven', num: '27', hours: 24 },
+]
+const BOARD_WEEKS = [
+  { label: 'Semaine XXV · 16–20 juin', span: 5 },
+  { label: 'Semaine XXVI · 23–27 juin', span: 5 },
+]
+const BOARD_LINES = [
+  { code: 'DCP-01', name: 'Découpe Fan', tone: '#5b7d4e', weekLoads: [{ week: 25, ferme: 20, planifie: 8, suggere: 4 }, { week: 26, ferme: 14, planifie: 8, suggere: 6 }] },
+  { code: 'SDR-02', name: 'Soudure Robot', tone: '#2f4858', weekLoads: [{ week: 25, ferme: 24, planifie: 10, suggere: 4 }, { week: 26, ferme: 20, planifie: 12, suggere: 4 }] },
+  { code: 'PUD-03', name: 'Peinture Four', tone: '#b8862c', weekLoads: [{ week: 25, ferme: 12, planifie: 10, suggere: 8 }, { week: 26, ferme: 10, planifie: 8, suggere: 8 }] },
+  { code: 'ASV-04', name: 'Assemblage VMC', tone: '#8b5cf6', weekLoads: [{ week: 25, ferme: 6, planifie: 4, suggere: 8 }, { week: 26, ferme: 4, planifie: 4, suggere: 6 }] },
+  { code: 'CTL-05', name: 'Contrôlage Final', tone: '#8c7d66', weekLoads: [{ week: 25, ferme: 18, planifie: 10, suggere: 6 }, { week: 26, ferme: 14, planifie: 10, suggere: 6 }] },
+]
+
+const DesignSystem: Component = () => {
+  const [scope, setScope] = createSignal('poste')
+  const [range, setRange] = createSignal<{ start: Date | null; end: Date | null }>({
+    start: new Date(2026, 5, 16),
+    end: new Date(2026, 5, 27),
+  })
+  const fmtDate = (d: Date) => d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
+  const rangeDays = (r: { start: Date | null; end: Date | null }) =>
+    r.start && r.end ? Math.round((r.end.getTime() - r.start.getTime()) / 86_400_000) + 1 : null
+  const [flt, setFlt] = createSignal<string[]>(['MTS', 'MTO'])
+  const toggleFlt = (t: string) =>
+    setFlt((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]))
+
+  return (
+    <div class="theme-papier min-h-screen">
+      <div class="mx-auto grid max-w-[1280px] grid-cols-[210px_1fr] gap-0">
+        {/* ═══ TOC ═══ */}
+        <aside class="sticky top-0 h-screen overflow-auto border-r border-rule-soft px-4 py-8 pl-8">
+          <div class="font-fraunces text-[19px] font-black leading-none tracking-tight">
+            Design <span class="italic font-medium text-terra">System</span>
+          </div>
+          <div class="mt-1 font-mono text-[10px] text-muted-foreground">Papier · v1.0</div>
+          <nav class="mt-6 flex flex-col gap-0.5">
+            <For each={NAV}>
+              {(item) => (
+                <a
+                  href={`#${item.id}`}
+                  class="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[12.5px] font-medium text-foreground/80 transition-colors hover:bg-secondary hover:text-foreground"
+                >
+                  <span class="font-mono text-[9px] text-muted-foreground">{item.n}</span>
+                  {item.label}
+                </a>
+              )}
+            </For>
+          </nav>
+          <div class="mt-8 rounded-md border border-border bg-card p-3 text-[11px] leading-relaxed text-muted-foreground">
+            Composants <span class="font-mono text-foreground">ui/*</span> réels du projet, thémés via{' '}
+            <span class="font-mono text-foreground">.theme-papier</span>.
+          </div>
+        </aside>
+
+        {/* ═══ Content ═══ */}
+        <main class="min-w-0 px-12 pb-24 pt-10">
+          {/* intro */}
+          <div class="pb-4">
+            <div class="font-mono text-[11px] uppercase tracking-[0.18em] text-terra">
+              Supply Chain Board
+            </div>
+            <h1 class="mt-2 font-fraunces text-[40px] font-black leading-none tracking-tight">
+              Design System <span class="font-medium italic text-terra">Papier</span>
+            </h1>
+            <p class="mt-3 max-w-[620px] text-[14.5px] leading-relaxed text-foreground/80">
+              Les vrais composants du projet, thémés avec le nouveau design system. Chaque primitive
+              ci-dessous est un <code class="rounded bg-secondary px-1.5 py-0.5 font-mono text-[12px]">ui/*</code>{' '}
+              réel — la couleur vient du scope{' '}
+              <code class="rounded bg-secondary px-1.5 py-0.5 font-mono text-[12px]">.theme-papier</code>.
+            </p>
+          </div>
+
+          {/* ═══ 01 Couleurs ═══ */}
+          <Section id="couleurs" n="01" title="Couleurs">
+            <SwatchGroup label="Surfaces" items={SURFACES} />
+            <SwatchGroup label="Encre" items={INKS} />
+            <SwatchGroup label="Brand & statuts" items={BRAND} />
+          </Section>
+
+          {/* ═══ 02 Typographie ═══ */}
+          <Section id="typo" n="02" title="Typographie">
+            <div class="rounded-xl border border-border bg-card p-6">
+              <TypeRow spec="Display XL · Fraunces 900 / 52">
+                <span class="font-fraunces text-[52px] font-black leading-none tracking-tight">
+                  Planification
+                </span>
+              </TypeRow>
+              <TypeRow spec="Display · Fraunces 900 / 34">
+                <span class="font-fraunces text-[34px] font-black tracking-tight">Semaine XXV</span>
+              </TypeRow>
+              <TypeRow spec="H1 · Fraunces 700 / 26">
+                <span class="font-fraunces text-[26px] font-bold tracking-tight">
+                  Registre des ruptures
+                </span>
+              </TypeRow>
+              <TypeRow spec="H3 · Inter 600 / 15">
+                <span class="text-[15px] font-semibold">Nomenclature composants</span>
+              </TypeRow>
+              <TypeRow spec="Body · Inter 400 / 14">
+                <span class="text-[14px]">
+                  Sur la fenêtre du 16 au 27 juin, huit lignes sont freinées par des ruptures.
+                </span>
+              </TypeRow>
+              <TypeRow spec="Overline · Mono 700 / 10">
+                <span class="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
+                  Charge globale
+                </span>
+              </TypeRow>
+              <TypeRow spec="Data · Mono 600 / 14 tabular" last>
+                <span class="font-mono text-[14px] font-semibold">AR24518 · L2 · 6,0 h · 120 u</span>
+              </TypeRow>
+            </div>
+          </Section>
+
+          {/* ═══ 03 Boutons (vrais) ═══ */}
+          <Section id="boutons" n="03" title="Boutons">
+            <Frame>
+              <FieldLabel>Variantes — composant <code class="font-mono">Button</code> réel</FieldLabel>
+              <div class="flex flex-wrap items-center gap-3">
+                <Button>
+                  <span class="material-symbols-outlined text-[17px]">fact_check</span>Faisabilité
+                </Button>
+                <Button variant="secondary">
+                  <span class="material-symbols-outlined text-[17px]">download</span>Exporter
+                </Button>
+                <Button variant="outline">Annuler</Button>
+                <Button variant="ghost">
+                  <span class="material-symbols-outlined text-[17px]">refresh</span>X3
+                </Button>
+                <Button variant="destructive">
+                  <span class="material-symbols-outlined text-[17px]">delete</span>Supprimer
+                </Button>
+                <Button variant="link">Détail</Button>
+              </div>
+
+              <FieldLabel class="mt-6">Tailles</FieldLabel>
+              <div class="flex flex-wrap items-center gap-3">
+                <Button size="sm">Petit</Button>
+                <Button>Moyen</Button>
+                <Button size="lg">Grand</Button>
+                <Button size="icon" variant="secondary">
+                  <span class="material-symbols-outlined text-[18px]">tune</span>
+                </Button>
+                <Button size="icon-sm" variant="secondary">
+                  <span class="material-symbols-outlined text-[16px]">refresh</span>
+                </Button>
+              </div>
+
+              <FieldLabel class="mt-6">États</FieldLabel>
+              <div class="flex flex-wrap items-center gap-3">
+                <Button>Repos</Button>
+                <Button disabled>Désactivé</Button>
+              </div>
+            </Frame>
+          </Section>
+
+          {/* ═══ 04 Champs (vrais) ═══ */}
+          <Section id="champs" n="04" title="Champs & entrées">
+            <Frame>
+              <div class="grid grid-cols-2 gap-5">
+                <div>
+                  <FieldLabel>TextField</FieldLabel>
+                  <TextField>
+                    <TextFieldLabel>Désignation</TextFieldLabel>
+                    <TextFieldInput placeholder="Caisse VMC D250" />
+                  </TextField>
+                </div>
+                <div>
+                  <FieldLabel>Select</FieldLabel>
+                  <Select
+                    value={scope()}
+                    onChange={(v) => setScope(v as string)}
+                    options={['poste', 'commande', 'article', 'client']}
+                    disallowEmptySelection
+                    optionTextValue={(o: string) => o}
+                  >
+                    <SelectTrigger class="w-full" aria-label="Portée">
+                      <SelectValue<string>>
+                        {(state) => state.selectedOption()}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <For each={['poste', 'commande', 'article', 'client']}>
+                        {(o) => (
+                          // @ts-expect-error — Kobalte Select.Item exige `item: CollectionNode` non exposé ici
+                          <SelectItem value={o}>{o}</SelectItem>
+                        )}
+                      </For>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <FieldLabel>Choix exclusif — tabs soulignées</FieldLabel>
+                  <div class="flex items-center gap-5 border-b border-rule-soft">
+                    <button
+                      type="button"
+                      class="relative -mb-px border-b-2 border-terra pb-2 text-[13px] font-bold text-foreground"
+                    >
+                      Instantanée
+                    </button>
+                    <button
+                      type="button"
+                      class="-mb-px border-b-2 border-transparent pb-2 text-[13px] font-medium text-muted-foreground transition-colors hover:border-rule-soft hover:text-foreground"
+                    >
+                      Projetée
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <FieldLabel>Filtres type (toggle)</FieldLabel>
+                  <div class="flex items-center gap-1.5">
+                    <For each={['MTS', 'MTO', 'NOR']}>
+                      {(t) => (
+                        <button
+                          type="button"
+                          class={`rounded-md border px-2.5 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                            flt().includes(t)
+                              ? 'border-terra/40 bg-terra-soft text-terra'
+                              : 'border-border bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground'
+                          }`}
+                          onClick={() => toggleFlt(t)}
+                        >
+                          {t}
+                        </button>
+                      )}
+                    </For>
+                  </div>
+                </div>
+              </div>
+              <div class="mt-6 rounded-xl border border-border bg-card p-5">
+                <FieldLabel>Choix exclusif — 3 alternatives (statiques, sans indicateur glissant)</FieldLabel>
+                <div class="grid grid-cols-3 gap-6">
+                  <div>
+                    <div class="mb-3 font-mono text-[10px] font-bold uppercase tracking-wider text-terra">
+                      A · Tabs soulignées
+                    </div>
+                    <div class="flex items-center gap-5 border-b border-rule-soft">
+                      <button
+                        type="button"
+                        class="relative -mb-px border-b-2 border-terra pb-2 text-[13px] font-bold text-foreground"
+                      >
+                        Instantanée
+                      </button>
+                      <button
+                        type="button"
+                        class="-mb-px border-b-2 border-transparent pb-2 text-[13px] font-medium text-muted-foreground transition-colors hover:border-rule-soft hover:text-foreground"
+                      >
+                        Projetée
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <div class="mb-3 font-mono text-[10px] font-bold uppercase tracking-wider text-terra">
+                      B · Pills toggle
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <button
+                        type="button"
+                        class="rounded-full bg-terra px-3.5 py-1.5 text-[12px] font-semibold text-card"
+                      >
+                        Instantanée
+                      </button>
+                      <button
+                        type="button"
+                        class="rounded-full border border-border px-3.5 py-1.5 text-[12px] font-semibold text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
+                      >
+                        Projetée
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <div class="mb-3 font-mono text-[10px] font-bold uppercase tracking-wider text-terra">
+                      C · Segment raffiné
+                    </div>
+                    <div class="inline-flex rounded-md border border-border bg-card p-0.5">
+                      <button
+                        type="button"
+                        class="rounded-[5px] bg-terra-soft px-3 py-1 text-[12px] font-bold text-terra"
+                      >
+                        Instantanée
+                      </button>
+                      <button
+                        type="button"
+                        class="rounded-[5px] px-3 py-1 text-[12px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+                      >
+                        Projetée
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="mt-5">
+                <FieldLabel>Separator</FieldLabel>
+                <Separator class="my-2" />
+                <span class="text-[12px] text-muted-foreground">filet plein largeur</span>
+              </div>
+            </Frame>
+          </Section>
+
+          {/* ═══ 05 Badges (vrais) ═══ */}
+          <Section id="badges" n="05" title="Badges & statuts">
+            <Frame>
+              <FieldLabel>
+                Badge — composant <code class="font-mono">Badge</code> réel (variantes)
+              </FieldLabel>
+              <div class="flex flex-wrap items-center gap-2">
+                <Badge variant="success">
+                  <span class="material-symbols-outlined text-[13px]">check</span>Ferme
+                </Badge>
+                <Badge variant="secondary">Planifié</Badge>
+                <Badge variant="warning">Suggéré</Badge>
+                <Badge variant="destructive">
+                  <span class="material-symbols-outlined text-[13px]">block</span>Sans couverture
+                </Badge>
+                <Badge variant="outline">Brouillon</Badge>
+                <Badge variant="default">Default / primary</Badge>
+              </div>
+
+              <FieldLabel class="mt-6">Verdicts — petites capitales + point (sans boîte)</FieldLabel>
+              <div class="flex flex-wrap items-center gap-5">
+                <Verdot class="text-ferme">Couvert J−4</Verdot>
+                <Verdot class="text-suggere">Retard +3 j</Verdot>
+                <Verdot class="text-destructive">Sans couverture</Verdot>
+              </div>
+
+              <FieldLabel class="mt-6">Type · override · faisabilité</FieldLabel>
+              <div class="flex flex-wrap items-center gap-4">
+                <span class="rounded bg-terra-soft px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-terra">
+                  MTS
+                </span>
+                <span class="inline-flex items-center gap-1 font-mono text-[9px] font-semibold uppercase tracking-wider text-suggere">
+                  <span class="material-symbols-outlined text-[12px]">edit</span>Modifié
+                </span>
+                <span class="flex size-4 items-center justify-center rounded-full bg-ferme text-[10px] font-bold text-card">
+                  ✓
+                </span>
+                <span class="flex size-4 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-card">
+                  !
+                </span>
+              </div>
+            </Frame>
+          </Section>
+
+          {/* ═══ 06 Carte commande ═══ */}
+          <Section id="carte" n="06" title="Carte commande">
+            <div class="rounded-xl border border-border bg-secondary/40 p-6">
+              <div class="flex flex-wrap gap-4">
+                <PapierCard tone="ferme" art="XTR107842" ord="AR24518·L2" des="Caisse D250" cli="AXION GUEVIN" typ="MTS" h="6,0" />
+                <PapierCard tone="planifie" art="XTR108120" ord="AR24601·L1" des="Caisse D350" cli="CDC Habitat" typ="MTO" h="7,5" />
+                <PapierCard tone="planifie" mod feas="ok" art="VMC-310" ord="AR24610·L2" des="Caisson isolé" cli="Bouygues" typ="MTO" h="5,5" />
+                <PapierCard tone="suggere" mod feas="bad" art="XTR106540" ord="AR24490·L4" des="Caisse D200" cli="Bouygues" typ="MTS" h="3,0" />
+              </div>
+            </div>
+          </Section>
+
+          {/* ═══ 07 Rangée rupture ═══ */}
+          <Section id="rupture" n="07" title="Rangée rupture">
+            <div class="overflow-hidden rounded-xl border border-border bg-card">
+              <div class="grid grid-cols-[28px_1.6fr_70px_1.3fr_90px_1.5fr_120px] gap-4 border-b border-border bg-secondary px-4 py-2 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+                <span>№</span><span>Composant</span><span class="text-right">Manq.</span><span>OF bloqué</span><span>Commande</span><span>Réception</span><span class="text-right">Verdict</span>
+              </div>
+              <RuptureRow rk="02" comp="MOT-33012" desc="Moteur VMC D250 220V" qty="42" of="OF100245" art="XTR106540 · Caisse D200" cmd="AR24490" cli="Bouygues" recId="BC-55821" recMeta="Mécapro · 60 u" verdict="warn" vlabel="Retard +3 j" />
+              <RuptureRow rk="03" comp="ECP-55821" desc="Échangeur aluminium D350" qty="25" of="OF100288" art="VMC-220 · Double flux" cmd="AR24588" cli="AXION GUEVIN" none verdict="bad" vlabel="Sans couverture" />
+            </div>
+          </Section>
+
+          {/* ═══ 08 Panneau détail / BOM ═══ */}
+          <Section id="detail" n="08" title="Panneau de détail (D3 · bas)">
+            <div class="overflow-hidden rounded-xl border-2 border-foreground bg-card shadow-md">
+              <div class="flex items-center gap-3 border-b border-border bg-secondary px-4 py-2.5">
+                <span class="font-fraunces text-[16px] font-bold">AR24490 · L4</span>
+                <span class="font-mono text-[12px] font-bold text-terra">XTR106540</span>
+                <span class="font-fraunces text-[12px] italic text-muted-foreground">Caisse VMC D200</span>
+                <Badge variant="destructive" class="ml-1">
+                  <span class="material-symbols-outlined text-[13px]">block</span>Bloquée · MOT-33012 −42
+                </Badge>
+                <span class="flex-1" />
+                <Button size="sm">
+                  <span class="material-symbols-outlined text-[15px]">swap_horiz</span>Replanifier
+                </Button>
+              </div>
+              <div class="flex items-center gap-0 border-b border-rule-soft bg-card px-4">
+                <Meta k="Client" v="Bouygues" />
+                <Meta k="Quantité" v="120 u" mono />
+                <Meta k="Livraison" v="24 juin" mono />
+                <Meta k="Poste" v="DCP-01" />
+                <Meta k="Charge" v="3,0 h" mono last />
+              </div>
+              <table class="w-full border-collapse">
+                <thead>
+                  <tr class="border-b border-border bg-secondary font-mono text-[8px] font-bold uppercase tracking-wider text-muted-foreground">
+                    <th class="px-4 py-2 text-left">Article</th>
+                    <th class="px-4 py-2 text-left">Désignation</th>
+                    <th class="px-4 py-2 text-right">Besoin</th>
+                    <th class="px-4 py-2 text-right">Dispo</th>
+                    <th class="px-4 py-2 text-right">État</th>
+                  </tr>
+                </thead>
+                <tbody class="font-mono text-[12px]">
+                  <tr class="bg-destructive/5">
+                    <td class="px-4 py-2 font-bold">MOT-33012</td>
+                    <td class="px-4 py-2 font-sans font-normal text-foreground/80">Moteur VMC D250 220V</td>
+                    <td class="px-4 py-2 text-right">120</td>
+                    <td class="px-4 py-2 text-right">78</td>
+                    <td class="px-4 py-2 text-right font-bold text-destructive">−42</td>
+                  </tr>
+                  <tr class="border-t border-rule-soft">
+                    <td class="px-4 py-2 font-bold">TPS-55120</td>
+                    <td class="px-4 py-2 font-sans font-normal text-foreground/80">Support caisson</td>
+                    <td class="px-4 py-2 text-right">120</td>
+                    <td class="px-4 py-2 text-right">120</td>
+                    <td class="px-4 py-2 text-right font-bold text-ferme">✓</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </Section>
+
+          {/* ═══ 09 États ═══ */}
+          <Section id="etats" n="09" title="États">
+            <div class="grid grid-cols-3 gap-4">
+              <StatePane tone="ferme" icon="check_circle" title="Aucune rupture" sub="Rien à signaler dans la fenêtre." />
+              <StatePane tone="muted" spin title="Calcul…" sub="Analyse des besoins X3." />
+              <StatePane tone="destructive" icon="cloud_off" title="X3 injoignable" sub="Données du cache (14:30)." />
+            </div>
+          </Section>
+
+          {/* ═══ 10 Calendrier ═══ */}
+          <Section id="calendrier" n="10" title="Calendrier">
+            <div class="flex items-start gap-8">
+              <Calendar mode="range" range={range()} onRangeChange={setRange} />
+              <div class="pt-1">
+                <div class="font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Plage sélectionnée
+                </div>
+                <div class="mt-1 font-fraunces text-[22px] font-bold tracking-tight">
+                  {range().start ? fmtDate(range().start!) : '—'}{' '}
+                  <span class="text-muted-foreground">→</span>{' '}
+                  {range().end ? fmtDate(range().end!) : '…'}
+                </div>
+                <div class="mt-1 font-mono text-[11px] text-muted-foreground">
+                  {rangeDays(range())
+                    ? `${rangeDays(range())} jours`
+                    : 'Cliquez une seconde date pour fermer la plage'}
+                </div>
+                <p class="mt-4 max-w-[240px] text-[13px] leading-relaxed text-foreground/70">
+                  Mode plage : 1er clic = début, survol = aperçu, 2e clic = fin (ordre auto). Barre
+                  terra-soft continue entre les bornes, qui sont remplies terra. Existe aussi en mode
+                  date unique (<code class="font-mono">mode=&quot;single&quot;</code>).
+                </p>
+              </div>
+            </div>
+          </Section>
+
+          {/* ═══ 11 Board (vide) ═══ */}
+          <Section id="board" n="11" title="Board (vide)" last>
+            <Board days={BOARD_DAYS} weeks={BOARD_WEEKS} lines={BOARD_LINES} />
+            <p class="mt-3 max-w-[560px] text-[13px] leading-relaxed text-foreground/70">
+              Coquille du board Papier : semaines à l'horizontale, une rangée par poste, cellules
+              vides sur fond quadrillé — prêtes à recevoir les cartes commande.
+            </p>
+          </Section>
+
+          <div class="mt-12 flex justify-between border-t border-rule-soft pt-5 font-fraunces text-[12px] italic text-muted-foreground">
+            <span>
+              Design System Papier · composants réels{' '}
+              <code class="font-mono not-italic">inertia/components/ui/*</code>
+            </span>
+            <span>v1.0 · /design-system</span>
+          </div>
+        </main>
+      </div>
+    </div>
+  )
+}
+
+/* ── helpers ── */
+const Section: Component<{ id: string; n: string; title: string; last?: boolean; children: any }> = (
+  props,
+) => (
+  <section
+    id={props.id}
+    class={`scroll-mt-6 ${props.last ? '' : 'border-t border-rule-soft'} py-9`}
+  >
+    <div class="mb-2 flex items-baseline gap-3">
+      <span class="rounded-md bg-terra-soft px-2 py-0.5 font-mono text-[11px] font-semibold text-terra">
+        {props.n}
+      </span>
+      <h2 class="font-fraunces text-[24px] font-bold tracking-tight">{props.title}</h2>
+    </div>
+    <div class="mb-5 max-w-[680px] text-[13.5px] leading-relaxed text-foreground/70">{props.children}</div>
+  </section>
+)
+
+const Frame: Component<{ children: any }> = (props) => (
+  <div class="rounded-xl border border-border bg-card p-6 shadow-[0_1px_2px_rgba(31,26,19,.05)]">
+    {props.children}
+  </div>
+)
+
+const FieldLabel: Component<{ children: any; class?: string }> = (props) => (
+  <span class={`mb-2 block font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground ${props.class ?? ''}`}>
+    {props.children}
+  </span>
+)
+
+const TypeRow: Component<{ spec: string; last?: boolean; children: any }> = (props) => (
+  <div class={`flex items-baseline gap-5 py-3 ${props.last ? '' : 'border-b border-rule-soft'}`}>
+    <div class="w-56 shrink-0 font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
+      {props.spec}
+    </div>
+    <div class="min-w-0">{props.children}</div>
+  </div>
+)
+
+const SwatchGroup: Component<{ label: string; items: { name: string; hex: string; tok: string; use: string }[] }> = (
+  props,
+) => (
+  <>
+    <div class="mb-2 mt-5 font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground first:mt-0">
+      {props.label}
+    </div>
+    <div class="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3">
+      <For each={props.items}>
+        {(s) => (
+          <div class="overflow-hidden rounded-lg border border-rule-soft bg-card">
+            <div class="h-16" style={{ background: s.hex }} />
+            <div class="px-3 py-2">
+              <div class="font-mono text-[11px] font-semibold">{s.name}</div>
+              <div class="font-mono text-[10px] text-muted-foreground">{s.hex}</div>
+              <div class="font-fraunces text-[10px] italic text-muted-foreground/80">{s.use}</div>
+            </div>
+          </div>
+        )}
+      </For>
+    </div>
+  </>
+)
+
+const Verdot: Component<{ class?: string; children: any }> = (props) => (
+  <span class={`inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.1em] ${props.class ?? ''}`}>
+    <span class="size-1.5 rounded-full bg-current" />
+    {props.children}
+  </span>
+)
+
+const TONE_BORDER: Record<string, string> = {
+  ferme: 'border-t-ferme',
+  planifie: 'border-t-planifie',
+  suggere: 'border-t-suggere',
+}
+const PapierCard: Component<{
+  tone: string; art: string; ord: string; des: string; cli: string; typ: string; h: string
+  mod?: boolean; feas?: 'ok' | 'bad'
+}> = (props) => (
+  <div
+    class={`relative w-[176px] rounded-md border border-border border-t-[3px] ${TONE_BORDER[props.tone]} bg-card px-3 pb-2 pt-2.5 shadow-[0_1px_2px_rgba(31,26,19,.05)]`}
+    style={props.mod ? { 'box-shadow': '0 0 0 1.5px var(--color-terra), 0 1px 2px rgba(31,26,19,.05)' } : {}}
+  >
+    {props.feas && (
+      <span
+        class={`absolute -top-1.5 right-2 flex size-4 items-center justify-center rounded-full border-2 border-card text-[9px] font-bold text-card ${
+          props.feas === 'ok' ? 'bg-ferme' : 'bg-destructive'
+        }`}
+      >
+        {props.feas === 'ok' ? '✓' : '!'}
+      </span>
+    )}
+    <div class="font-mono text-[12px] font-semibold leading-tight">{props.art}</div>
+    <div class="mt-0.5 text-[11px] font-semibold text-foreground/80">
+      <span class="text-foreground">{props.ord}</span>{' '}
+      <span class="font-normal text-muted-foreground">· {props.des}</span>
+    </div>
+    <div class="mt-0.5 truncate font-fraunces text-[11px] italic text-muted-foreground">{props.cli}</div>
+    <div class="mt-2 flex items-center gap-2 border-t border-rule-soft pt-1.5">
+      {props.mod && (
+        <span class="inline-flex items-center gap-0.5 font-mono text-[8px] font-semibold uppercase tracking-wider text-suggere">
+          <span class="material-symbols-outlined text-[11px]">edit</span>Mod.
+        </span>
+      )}
+      <span class="rounded bg-terra-soft px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-terra">
+        {props.typ}
+      </span>
+      <span class="ml-auto font-fraunces text-[14px] font-bold tabular-nums">{props.h}</span>
+    </div>
+  </div>
+)
+
+const RuptureRow: Component<{
+  rk: string; comp: string; desc: string; qty: string; of: string; art: string
+  cmd: string; cli: string; recId?: string; recMeta?: string; none?: boolean
+  verdict: 'ok' | 'warn' | 'bad'; vlabel: string
+}> = (props) => {
+  const vcls = { ok: 'text-ferme', warn: 'text-suggere', bad: 'text-destructive' }[props.verdict]
+  return (
+    <div class="grid grid-cols-[28px_1.6fr_70px_1.3fr_90px_1.5fr_120px] items-center gap-4 border-t border-rule-soft px-4 py-3 transition-colors hover:bg-terra-soft">
+      <span class="font-fraunces text-[13px] text-muted-foreground/70">{props.rk}</span>
+      <div>
+        <div class="font-mono text-[14px] font-semibold">{props.comp}</div>
+        <div class="font-fraunces text-[12px] italic text-muted-foreground">{props.desc}</div>
+      </div>
+      <div class="text-right font-fraunces text-[22px] font-bold text-destructive tabular-nums">{props.qty}</div>
+      <div>
+        <span class="cursor-pointer font-mono text-[13px] font-semibold text-terra hover:underline">{props.of}</span>
+        <div class="font-fraunces text-[11px] italic text-muted-foreground">{props.art}</div>
+      </div>
+      <div>
+        <div class="font-mono text-[13px] font-semibold">{props.cmd}</div>
+        <div class="font-fraunces text-[12px] italic text-muted-foreground">{props.cli}</div>
+      </div>
+      <div>
+        {props.none ? (
+          <span class="inline-flex items-center gap-1 font-mono text-[10px] font-semibold uppercase tracking-wider text-destructive">
+            <span class="material-symbols-outlined text-[13px]">block</span>Aucune couverture
+          </span>
+        ) : (
+          <>
+            <div class="font-mono text-[12px] font-semibold">{props.recId}</div>
+            <div class="font-fraunces text-[11px] italic text-muted-foreground">{props.recMeta}</div>
+          </>
+        )}
+      </div>
+      <span class={`justify-self-end inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.1em] ${vcls}`}>
+        <span class="size-1.5 rounded-full bg-current" />
+        {props.vlabel}
+      </span>
+    </div>
+  )
+}
+
+const Meta: Component<{ k: string; v: string; mono?: boolean; last?: boolean }> = (props) => (
+  <div class={`flex flex-col py-2 ${props.last ? '' : 'mr-4 border-r border-rule-soft pr-4'}`}>
+    <span class="font-mono text-[8px] font-semibold uppercase tracking-wider text-muted-foreground">{props.k}</span>
+    <span class={`font-fraunces text-[13px] font-bold ${props.mono ? 'font-mono' : ''}`}>{props.v}</span>
+  </div>
+)
+
+const StatePane: Component<{ tone: string; icon?: string; spin?: boolean; title: string; sub: string }> = (
+  props,
+) => {
+  const toneCls: Record<string, string> = {
+    ferme: 'bg-ferme/15 text-ferme',
+    destructive: 'bg-destructive/10 text-destructive',
+    muted: 'bg-secondary text-muted-foreground',
+  }
+  return (
+    <div class="flex flex-col items-center gap-3 rounded-xl border border-border bg-card px-5 py-9 text-center">
+      {props.spin ? (
+        <div class="size-7 animate-spin rounded-full border-[3px] border-border border-t-terra" />
+      ) : (
+        <div class={`flex size-11 items-center justify-center rounded-full ${toneCls[props.tone]}`}>
+          <span class="material-symbols-outlined text-[26px]">{props.icon}</span>
+        </div>
+      )}
+      <div class="font-fraunces text-[15px] font-bold">{props.title}</div>
+      <div class="font-fraunces text-[13px] italic text-muted-foreground">{props.sub}</div>
+    </div>
+  )
+}
+
+export default DesignSystem

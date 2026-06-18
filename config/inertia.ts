@@ -31,6 +31,7 @@ declare module '@adonisjs/inertia/types' {
 
   interface InertiaPages {
     home: { message: string }
+    'design_system': Record<string, never>
     'scheduler/expert-board': {
       board: BoardProp
       windowFrom: string

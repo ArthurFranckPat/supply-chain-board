@@ -6,6 +6,11 @@ router.get('/', async ({ inertia }) => {
   return inertia.render('home', { message: 'Infra SolidJS + Inertia opérationnelle.' })
 })
 
+// Design system « Papier » — showcase des vrais composants ui/* thémés.
+router.get('/design-system', async ({ inertia }) => {
+  return inertia.render('design_system', {})
+})
+
 // Unpoly client (servi depuis node_modules, pas de CDN)
 router.get('/vendor/unpoly.js', async ({ response }) => {
   response.header('content-type', 'text/javascript')
