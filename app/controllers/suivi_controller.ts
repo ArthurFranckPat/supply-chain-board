@@ -1,116 +1,69 @@
 import { HttpContext } from '@adonisjs/core/http'
-import { assignStatuses, type OrderLine, type StockBreakdown, type SuiviStatus, type TypeCommande } from '#app/domain/suivi'
+import {
+  assignStatuses,
+  recommendActions,
+  buildStatusCounts,
+  causeToDisplayString,
+  type OrderLine,
+  type StockBreakdown,
+  type StatusAssignment,
+} from '#app/domain/suivi'
+import { SuiviService } from '#services/suivi_service'
 import { X3OfRepository } from '#repositories/of_repository'
 import { X3StockRepository } from '#repositories/stock_repository'
 import { X3ReceptionRepository } from '#repositories/reception_repository'
 import { X3BesoinClientRepository } from '#repositories/besoin_client_repository'
 import type { Flow } from '#app/domain/models/flow'
 
+/**
+ * Endpoints minces « suivi des commandes » : délèguent au domaine (#app/domain/suivi)
+ * via la composition (#services/suivi_service). Cf. issue #19.
+ */
 export default class SuiviController {
-
   /**
    * POST /api/v1/status/assign
-   * Body: { lines: OrderLine[], stock: Record<string, StockBreakdown>, referenceDate?: string }
+   * Assignation pure à partir d'un body { lines, stock, referenceDate }.
+   * (La cause de retard n'est pas calculée ici — pas de BOM/OF dans le body.)
    */
   async assign({ request }: HttpContext) {
-    const { lines: rawLines, stock: stockRaw, referenceDate } = request.only(['lines', 'stock', 'referenceDate'])
+    const { lines: rawLines, stock: stockRaw, referenceDate } = request.only([
+      'lines',
+      'stock',
+      'referenceDate',
+    ])
 
     const lines = ((rawLines ?? []) as any[]).map((l: any) => ({
       ...l,
       dateExpedition: l.dateExpedition ? new Date(l.dateExpedition) : null,
       dateLivPrevu: l.dateLivPrevu ? new Date(l.dateLivPrevu) : null,
+      emplacements: l.emplacements ?? [],
     })) as OrderLine[]
 
     const stock = new Map<string, StockBreakdown>(
-      Object.entries(stockRaw ?? {}).map(([article, bd]) => [article, bd as StockBreakdown])
+      Object.entries(stockRaw ?? {}).map(([article, bd]) => [article, bd as StockBreakdown]),
     )
 
     const refDate = referenceDate ? new Date(referenceDate) : new Date()
-
     const assignments = assignStatuses(lines, stock, refDate)
 
-    const statusCounts = buildStatusCounts(assignments.map((a) => a.status))
-
-    return {
-      total_rows: assignments.length,
-      status_counts: statusCounts,
-      assignments: assignments.map((a) => ({
-        numCommande: a.line.numCommande,
-        article: a.line.article,
-        status: a.status,
-        besoinNet: a.besoinNet,
-        qteAlloueeVirtuelle: a.qteAlloueeVirtuelle,
-        utiliseStockSousCq: a.utiliseStockSousCq,
-      })),
-    }
+    return serializeAssignments(assignments)
   }
 
   /**
    * POST /api/v1/status/from-latest-export
-   * Fetch order lines + stock from X3, assign statuses automatically.
+   * Charge commandes + stock + OF + BOM depuis X3 et assigne statuts + cause + signal CQ.
    */
   async fromLatestExport(ctx: HttpContext) {
     const referenceDate = ctx.request.input('referenceDate')
     const refDate = referenceDate ? new Date(referenceDate) : new Date()
 
-    const [demandFlows, stockFlows] = await Promise.all([
-      new X3BesoinClientRepository().getDemandFlows(),
-      new X3StockRepository().getStockFlows(),
-    ])
-
-    const orderFlows = demandFlows.filter((f) => f.origin.type === 'order')
-
-    const lines: OrderLine[] = orderFlows.map((f) => {
-      const origin = f.origin as Extract<Flow['origin'], { type: 'order' }>
-      return {
-        numCommande: origin.id,
-        article: f.article,
-        designation: '',
-        nomClient: origin.customer,
-        typeCommande: (origin.orderType ?? 'NOR') as TypeCommande,
-        dateExpedition: f.date,
-        dateLivPrevu: null,
-        qteCommandee: f.quantity,
-        qteAllouee: 0,
-        qteRestante: f.quantity,
-        isFabrique: false,
-        isHardPegged: origin.orderType === 'MTS',
-      }
-    })
-
-    const stock = new Map<string, StockBreakdown>()
-    for (const f of stockFlows) {
-      const existing = stock.get(f.article) ?? { strict: 0, qc: 0, total: 0 }
-      const origin = f.origin as any
-      if (origin.subType === 'qc') {
-        existing.qc += f.quantity
-      } else {
-        existing.strict += f.quantity
-      }
-      existing.total += f.quantity
-      stock.set(f.article, existing)
-    }
-
-    const assignments = assignStatuses(lines, stock, refDate)
-    const statusCounts = buildStatusCounts(assignments.map((a) => a.status))
-
-    return {
-      total_rows: assignments.length,
-      status_counts: statusCounts,
-      assignments: assignments.map((a) => ({
-        numCommande: a.line.numCommande,
-        article: a.line.article,
-        status: a.status,
-        besoinNet: a.besoinNet,
-        qteAlloueeVirtuelle: a.qteAlloueeVirtuelle,
-        utiliseStockSousCq: a.utiliseStockSousCq,
-      })),
-    }
+    const assignments = await new SuiviService().assignFromLatest(refDate)
+    return serializeAssignments(assignments)
   }
 
   /**
    * GET /api/v1/status/status/:order
-   * Fetch order detail + matching supply flows from X3.
+   * Détail commande + flux d'approvisionnement correspondants depuis X3.
    */
   async statusDetail(ctx: HttpContext) {
     const demandFlows = await new X3BesoinClientRepository().getDemandFlows()
@@ -153,103 +106,42 @@ export default class SuiviController {
 
   /**
    * POST /api/v1/status/palette
-   * Group order lines by shipment palette.
-   * Body: { lines: OrderLine[] } or fetch from X3.
+   * Résumé palettes / camions (horizon 15 j, jours ouvrés). Délègue au domaine.
    */
   async palette(ctx: HttpContext) {
-    const { lines: inputLines } = ctx.request.only(['lines'])
-    const demandFlows = await new X3BesoinClientRepository().getDemandFlows()
-
-    const lines = inputLines ?? demandFlows.filter((f) => f.origin.type === 'order')
-
-    const groups = new Map<string, { customer: string; articles: Map<string, number> }>()
-    for (const line of lines) {
-      const origin = line.origin ?? (line as any).origin
-      const customer = origin?.customer ?? ''
-      if (!groups.has(customer)) {
-        groups.set(customer, { customer, articles: new Map() })
-      }
-      const article = line.article ?? (line as any).article
-      const qty = line.quantity ?? (line as any).qteRestante ?? 0
-      const group = groups.get(customer)!
-      group.articles.set(article, (group.articles.get(article) ?? 0) + qty)
-    }
-
-    const lignes = Array.from(groups.values()).map((g) => ({
-      customer: g.customer,
-      articles: Array.from(g.articles.entries()).map(([article, quantity]) => ({ article, quantity })),
-      total: Array.from(g.articles.values()).reduce((s, q) => s + q, 0),
-    }))
-
-    const totaux = {
-      customers: groups.size,
-      totalArticles: lignes.reduce((s, l) => s + l.articles.length, 0),
-      totalQuantity: lignes.reduce((s, l) => s + l.total, 0),
-    }
-
-    return { lignes, totaux }
+    const referenceDate = ctx.request.input('referenceDate')
+    const refDate = referenceDate ? new Date(referenceDate) : new Date()
+    return new SuiviService().paletteSummary(refDate)
   }
 
   /**
    * POST /api/v1/status/retard-charge
-   * Analyze late orders and compute charge impact.
+   * Charge de retard par poste (directe vs récursive). Délègue au domaine.
    */
   async retardCharge(ctx: HttpContext) {
     const referenceDate = ctx.request.input('referenceDate')
     const refDate = referenceDate ? new Date(referenceDate) : new Date()
-
-    const [demandFlows, ofFlows, stockFlows] = await Promise.all([
-      new X3BesoinClientRepository().getDemandFlows(),
-      new X3OfRepository().getSupplyFlows(),
-      new X3StockRepository().getStockFlows(),
-    ])
-
-    const lateDemands = demandFlows.filter(
-      (f) => f.origin.type === 'order' && f.date && f.date < refDate,
-    )
-
-    const stockMap = new Map<string, number>()
-    for (const f of stockFlows) {
-      stockMap.set(f.article, (stockMap.get(f.article) ?? 0) + f.quantity)
-    }
-
-    const items = lateDemands.map((demand) => {
-      const origin = demand.origin as Extract<Flow['origin'], { type: 'order' }>
-      const available = stockMap.get(demand.article) ?? 0
-      const shortage = Math.max(0, demand.quantity - available)
-      const relatedOfs = ofFlows.filter(
-        (of) => of.article === demand.article && of.direction === 'supply',
-      )
-
-      return {
-        order: origin.id,
-        customer: origin.customer,
-        article: demand.article,
-        quantity: demand.quantity,
-        available,
-        shortage,
-        dateExpedition: demand.date!.toISOString().slice(0, 10),
-        relatedOfs: relatedOfs.map((of) => ({
-          numOf: (of.origin as any).id,
-          quantity: of.quantity,
-          date: of.date?.toISOString().slice(0, 10) ?? null,
-        })),
-      }
-    })
-
-    return { items, total_heures: items.length, reference_date: refDate.toISOString().slice(0, 10) }
+    const charge = await new SuiviService().retardCharge(refDate)
+    return { reference_date: refDate.toISOString().slice(0, 10), charge }
   }
 }
 
-function buildStatusCounts(statuses: SuiviStatus[]): Record<SuiviStatus, number> {
-  const counts: Record<SuiviStatus, number> = {
-    A_EXPEDIER: 0,
-    ALLOCATION_A_FAIRE: 0,
-    RETARD_PROD: 0,
-    RAS: 0,
+function serializeAssignments(assignments: StatusAssignment[]) {
+  return {
+    total_rows: assignments.length,
+    status_counts: buildStatusCounts(assignments.map((a) => a.status)),
+    assignments: assignments.map((a) => ({
+      numCommande: a.line.numCommande,
+      article: a.line.article,
+      status: a.status,
+      besoinNet: a.besoinNet,
+      qteAlloueeVirtuelle: a.qteAlloueeVirtuelle,
+      utiliseStockSousCq: a.utiliseStockSousCq,
+      alerteCqStatut: a.alerteCqStatut,
+      cause: a.cause
+        ? { type: a.cause.typeCause, composants: a.cause.composants, label: causeToDisplayString(a.cause) }
+        : null,
+      action: recommendActions(a),
+    })),
   }
-  for (const s of statuses) {
-    counts[s]++
-  }
-  return counts
 }
