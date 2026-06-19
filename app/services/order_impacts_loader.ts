@@ -26,6 +26,13 @@ export interface LoadOrderImpactsOptions {
   workstation?: string
   mode?: 'immediate' | 'sequential'
   force?: boolean
+  /**
+   * Si vrai (vue proactive), ignore le verdict MFGMAT précalculé (snapshot plat, sans consommation)
+   * au profit du verdict du moteur séquentiel — sinon la consommation virtuelle des composants
+   * partagés (achat ET sous-ensembles) entre OFs resterait invisible : l'override MFGMAT
+   * écraserait le verdict séquentiel pour tout OF ayant des matières réelles.
+   */
+  preferEngineFeasibility?: boolean
 }
 
 export interface OrderImpactsContext {
@@ -44,7 +51,7 @@ export interface OrderImpactsContext {
  * `from`/`to` doivent être déjà bornées (from à minuit, to à 23:59:59) par l'appelant.
  */
 export async function loadOrderImpacts(opts: LoadOrderImpactsOptions): Promise<OrderImpactsContext> {
-  const { from: windowFrom, to: windowTo, workstation: workstationFilter, mode, force = false } = opts
+  const { from: windowFrom, to: windowTo, workstation: workstationFilter, mode, force = false, preferEngineFeasibility = false } = opts
 
   // ISO sur les composantes LOCALES (pas toISOString, qui repasse en UTC et recule d'un jour
   // en fuseau UTC+1/+2 quand l'heure locale est minuit → scoping getLive décalé).
@@ -199,16 +206,25 @@ export async function loadOrderImpacts(opts: LoadOrderImpactsOptions): Promise<O
   // Surcharge le verdict théorique du moteur pour les OF qui ont des matières MFGMAT,
   // garantissant badge == détail (issue #11). Les OF sans MFGMAT (suggérés non éclatés)
   // conservent le calcul BOM théorique partagé du moteur.
+  //
+  // Vue proactive (preferEngineFeasibility) : on SAUTE cet override — le verdict MFGMAT est un
+  // snapshot plat sans consommation virtuelle ; il écraserait le moteur séquentiel et masquerait
+  // la contention des composants partagés entre OFs. Le moteur (consommation séquentielle tous
+  // composants) devient seul juge.
   const stockByArticle = buildStrictQcStock(stockFlows)
-  const mfgFeasibility = new Map<string, { feasible: boolean | null; missingComponents: Record<string, number> }>()
-  for (const f of finalOfFlows) {
-    const numOf = (f.origin as { id?: string }).id?.trim() ?? ''
-    if (!numOf) continue
-    const materials = mfgByOf.get(numOf)
-    if (!materials || materials.length === 0) continue
-    const status = overrideMap.get(numOf)?.status ?? (f.origin as { status?: number }).status ?? 3
-    const verdict = evaluateMfgFeasibility(materials, stockByArticle, status === 1)
-    mfgFeasibility.set(numOf, { feasible: verdict.feasible, missingComponents: verdict.missingComponents })
+  const mfgFeasibility = preferEngineFeasibility
+    ? undefined
+    : new Map<string, { feasible: boolean | null; missingComponents: Record<string, number> }>()
+  if (mfgFeasibility) {
+    for (const f of finalOfFlows) {
+      const numOf = (f.origin as { id?: string }).id?.trim() ?? ''
+      if (!numOf) continue
+      const materials = mfgByOf.get(numOf)
+      if (!materials || materials.length === 0) continue
+      const status = overrideMap.get(numOf)?.status ?? (f.origin as { status?: number }).status ?? 3
+      const verdict = evaluateMfgFeasibility(materials, stockByArticle, status === 1)
+      mfgFeasibility.set(numOf, { feasible: verdict.feasible, missingComponents: verdict.missingComponents })
+    }
   }
 
   const result = evaluateOrderImpacts(

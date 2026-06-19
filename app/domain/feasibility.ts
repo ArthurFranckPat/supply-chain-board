@@ -35,6 +35,11 @@ export interface FeasibilityResult {
  * @param useReceptions - Si false, seul le stock immédiat est pris en compte. Defaut: false.
  * @param visited - Set anti-boucle circulaire (interne)
  * @param allocations - Quantités déjà allouées en ERP par article (ignorées dans le calcul)
+ * @param treatFabricatedAsStock - Si vrai (mode proactif/séquentiel), les composants FABRIQUÉS sont
+ *   vérifiés contre la quantité réellement disponible (stock + supply), comme les achats, au lieu
+ *   d'être considérés couverts dès qu'un OF producteur existe. Reflète la faisabilité réelle :
+ *   « un composant manquant est un composant manquant » (achat ou sous-ensemble fabriqué).
+ *   Défaut faux → comportement historique préservé pour le badge board et promiseDate.
  */
 export function checkFeasibility(
   article: string,
@@ -46,6 +51,7 @@ export function checkFeasibility(
   useReceptions: boolean = false,
   visited?: Set<string>,
   allocations?: Map<string, number>,
+  treatFabricatedAsStock: boolean = false,
 ): FeasibilityResult {
   const blocking: BlockingComponent[] = []
   const seen = visited ?? new Set<string>()
@@ -63,7 +69,9 @@ export function checkFeasibility(
 
   for (const entry of bom.components) {
     const needed = requiredQty(entry, quantity)
-    if (entry.componentType === 'ACHETE') {
+    if (entry.componentType === 'ACHETE' || treatFabricatedAsStock) {
+      // Composant vérifié contre la quantité disponible (stock + supply) : achat, ou fabriqué
+      // en mode proactif (faisabilité réelle — un sous-ensemble manquant est un composant manquant).
       // Déduire les quantités déjà allouées en ERP (ne pas les re-vérifier)
       const alreadyAllocated = allocations?.get(entry.componentArticle) ?? 0
       const remainingNeed = Math.max(0, needed - alreadyAllocated)

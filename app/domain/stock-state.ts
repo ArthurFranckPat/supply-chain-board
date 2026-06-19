@@ -8,7 +8,9 @@
 import type { Flow } from './models/flow.js'
 import type { Article } from './models/article.js'
 import type { Nomenclature } from './models/nomenclature.js'
+import { requiredQuantity } from './models/nomenclature.js'
 import { checkFeasibility } from './feasibility.js'
+import { availableAt } from './availability.js'
 import { isFirm } from './rules.js'
 
 
@@ -39,7 +41,16 @@ export interface OfInput {
   statutNum: number
 }
 
-function directPurchaseRequirements(
+/**
+ * Besoins en COMPOSANTS DIRECTS (achat ET fabriqués) d'un article pour une quantité donnée.
+ *
+ * Tous les composants directs du BOM sont retournés — y compris les sous-ensembles fabriqués —
+ * afin que la consommation séquentielle les réserve virtuellement : si l'OF A consomme un
+ * sous-ensemble S, l'OF B suivant le réclamant verra S diminué. « Un composant manquant est un
+ * composant manquant », achat ou fabriqué. (Les fantômes/sous-traitance sont résolus plus bas
+ * dans checkFeasibility, pas au niveau direct du BOM.)
+ */
+function directComponentRequirements(
   article: string,
   quantity: number,
   nomenclatures: Map<string, Nomenclature>,
@@ -48,10 +59,8 @@ function directPurchaseRequirements(
   const bom = nomenclatures.get(article)
   if (!bom) return requirements
   for (const comp of bom.components) {
-    if (comp.componentType === 'ACHETE') {
-      const qty = comp.consumptionNature === 'FORFAIT' ? comp.linkQuantity : comp.linkQuantity * quantity
-      requirements[comp.componentArticle] = (requirements[comp.componentArticle] ?? 0) + qty
-    }
+    const qty = requiredQuantity(comp, quantity)
+    requirements[comp.componentArticle] = (requirements[comp.componentArticle] ?? 0) + qty
   }
   return requirements
 }
@@ -76,23 +85,9 @@ export function evaluateSequentialFeasibility(
   horizonEnd: Date,
   options?: FeasibilityOptions,
 ): Map<string, FeasibilityEntry> {
-  const useReceptions = options?.useReceptions ?? true
   const mode = options?.mode ?? 'immediate'
 
-  // 1. Build initial stock
-  const initialStock = new Map<string, number>()
   const entries = new Map<string, FeasibilityEntry>()
-  for (const flow of flows) {
-    if (flow.direction !== 'supply') continue
-    if (flow.origin.type === 'stock') {
-      initialStock.set(flow.article, (initialStock.get(flow.article) ?? 0) + flow.quantity)
-    }
-    if (useReceptions && flow.origin.type === 'reception' && flow.date && flow.date <= horizonEnd) {
-      initialStock.set(flow.article, (initialStock.get(flow.article) ?? 0) + flow.quantity)
-    }
-  }
-
-  const stockState = new StockState(initialStock)
 
   const dateBesoin = (ofInput: OfInput) => ofInput.dateDebut ?? ofInput.dateFin ?? ''
 
@@ -127,7 +122,7 @@ export function evaluateSequentialFeasibility(
     for (const ofInput of ofs) {
       if (isFirm(ofInput.statutNum)) continue
       const ofAllocs = options?.allocations?.get(ofInput.numOf)
-      const result = checkFeasibility(ofInput.article, ofInput.qteRestante, flows, nomenclatures, articles, horizonEnd, true, undefined, ofAllocs)
+      const result = checkFeasibility(ofInput.article, ofInput.qteRestante, flows, nomenclatures, articles, horizonEnd, true, undefined, ofAllocs, true)
       preFeasible.set(ofInput.numOf, result.feasible)
     }
     // OF fermes : toujours faisables, pas de calcul, pas d'allocation virtuelle
@@ -153,18 +148,21 @@ export function evaluateSequentialFeasibility(
       if (fa !== fb) return fa - fb
       return a.numOf.localeCompare(b.numOf)
     })
+    // Mode proactif : les composants fabriqués sont vérifiés contre la quantité disponible
+    // (stock + supply) comme les achats — faisabilité réelle + consommation séquentielle.
     const mutableFlows = flows.map((f) => ({ ...f }))
     for (const ofInput of sorted) {
-      const result = checkFeasibility(ofInput.article, ofInput.qteRestante, mutableFlows, nomenclatures, articles, horizonEnd)
+      const result = checkFeasibility(ofInput.article, ofInput.qteRestante, mutableFlows, nomenclatures, articles, horizonEnd, false, undefined, undefined, true)
       const allocated: Record<string, number> = {}
       if (result.feasible) {
-        const requirements = directPurchaseRequirements(ofInput.article, ofInput.qteRestante, nomenclatures)
+        const requirements = directComponentRequirements(ofInput.article, ofInput.qteRestante, nomenclatures)
         for (const [article, besoin] of Object.entries(requirements)) {
-          const qte = Math.min(besoin, stockState.getAvailable(article))
+          // Cap = quantité réellement disponible (stock + supply) sur les flows mutés, pour
+          // réserver aussi les sous-ensembles fabriqués et réduire la couverture des OF suivants.
+          const qte = Math.min(besoin, availableAt(mutableFlows, article, horizonEnd))
           if (qte > 0) allocated[article] = qte
         }
         if (Object.keys(allocated).length > 0) {
-          stockState.allocate(ofInput.numOf, allocated)
           for (const [article, qty] of Object.entries(allocated)) {
             let remaining = qty
             for (const flow of mutableFlows) {

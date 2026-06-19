@@ -243,3 +243,74 @@ test.group('evaluateSequentialFeasibility', () => {
     assert.equal(result.get('OF-A')!.missingComponents['C1'], 40)
   })
 })
+
+test.group('evaluateSequentialFeasibility — vue proactive (sous-ensemble fabriqué partagé)', () => {
+  // PF1 = produit fini ; SF1 = sous-ensemble FABRIQUÉ partagé par 2 OFs.
+  function makeFlow(overrides: Partial<Flow> & { article: string }): Flow {
+    return { quantity: 10, direction: 'supply', date: null, origin: { type: 'stock', pmp: null }, ...overrides }
+  }
+  function makeArticle(code: string, supplyType: 'ACHAT' | 'FABRICATION' = 'FABRICATION'): Article {
+    return {
+      code, description: '', category: 'PF3', supplyType,
+      reorderDelay: 0, productFamily: null, pmp: null, economicLot: null,
+      unitStock: null, unitPurchase: null, purchaseToStockRatio: 1, packagings: [],
+    }
+  }
+  const bom = (parent: string, comp: string, type: 'ACHETE' | 'FABRIQUE'): Nomenclature => ({
+    article: parent, description: '', components: [
+      { parentArticle: parent, parentDescription: '', level: 5, componentArticle: comp, componentDescription: '', linkQuantity: 1, componentType: type, consumptionNature: 'PROPORTIONNEL' },
+    ],
+  })
+
+  test('mode immédiat : 2 OFs sur sous-ensemble partagé -> tous 2 « couverts » (faisabilité logique)', ({ assert }) => {
+    // Stock SF1 = 80. OF-A (60) + OF-B (40) = 100 > 80, mais en immédiat chaque OF est
+    // indépendant ET le fabriqué est couvert dès qu'il y a du stock → les 2 passent.
+    const flows: Flow[] = [makeFlow({ article: 'SF1', quantity: 80 })]
+    const nomenclatures = new Map([['PF1', bom('PF1', 'SF1', 'FABRIQUE')]])
+    const articles = new Map([['PF1', makeArticle('PF1')], ['SF1', makeArticle('SF1')]])
+    const ofs: OfInput[] = [
+      { numOf: 'OF-A', article: 'PF1', qteRestante: 60, dateDebut: null, dateFin: '2026-06-20', statutNum: 3 },
+      { numOf: 'OF-B', article: 'PF1', qteRestante: 40, dateDebut: null, dateFin: '2026-06-22', statutNum: 3 },
+    ]
+
+    const result = evaluateSequentialFeasibility(ofs, flows, nomenclatures, articles, new Date('2026-07-01'), { mode: 'immediate' })
+
+    assert.isTrue(result.get('OF-A')!.feasible)
+    assert.isTrue(result.get('OF-B')!.feasible) // <-- comportement historique (couvert par stock existant)
+  })
+
+  test('mode séquentiel : OF-A consomme le sous-ensemble, OF-B bloqué (faisabilité réelle)', ({ assert }) => {
+    // Mêmes données. Séquentiel + composants fabriqués traités comme stock : OF-A prend
+    // 60 SF1, il en reste 20, OF-B en réclame 40 -> bloqué. « Un composant manquant est un
+    // composant manquant ».
+    const flows: Flow[] = [makeFlow({ article: 'SF1', quantity: 80 })]
+    const nomenclatures = new Map([['PF1', bom('PF1', 'SF1', 'FABRIQUE')]])
+    const articles = new Map([['PF1', makeArticle('PF1')], ['SF1', makeArticle('SF1')]])
+    const ofs: OfInput[] = [
+      { numOf: 'OF-A', article: 'PF1', qteRestante: 60, dateDebut: null, dateFin: '2026-06-20', statutNum: 3 },
+      { numOf: 'OF-B', article: 'PF1', qteRestante: 40, dateDebut: null, dateFin: '2026-06-22', statutNum: 3 },
+    ]
+
+    const result = evaluateSequentialFeasibility(ofs, flows, nomenclatures, articles, new Date('2026-07-01'), { mode: 'sequential' })
+
+    assert.isTrue(result.get('OF-A')!.feasible)
+    assert.isFalse(result.get('OF-B')!.feasible)
+    assert.isAbove(result.get('OF-B')!.missingComponents['SF1'] ?? 0, 0) // manque 20 SF1
+  })
+
+  test('mode séquentiel : sous-ensemble suffisant -> les 2 OFs faisables', ({ assert }) => {
+    // Stock SF1 = 120 >= 60 + 40 : pas de contention, les 2 passent.
+    const flows: Flow[] = [makeFlow({ article: 'SF1', quantity: 120 })]
+    const nomenclatures = new Map([['PF1', bom('PF1', 'SF1', 'FABRIQUE')]])
+    const articles = new Map([['PF1', makeArticle('PF1')], ['SF1', makeArticle('SF1')]])
+    const ofs: OfInput[] = [
+      { numOf: 'OF-A', article: 'PF1', qteRestante: 60, dateDebut: null, dateFin: '2026-06-20', statutNum: 3 },
+      { numOf: 'OF-B', article: 'PF1', qteRestante: 40, dateDebut: null, dateFin: '2026-06-22', statutNum: 3 },
+    ]
+
+    const result = evaluateSequentialFeasibility(ofs, flows, nomenclatures, articles, new Date('2026-07-01'), { mode: 'sequential' })
+
+    assert.isTrue(result.get('OF-A')!.feasible)
+    assert.isTrue(result.get('OF-B')!.feasible)
+  })
+})
