@@ -284,11 +284,11 @@ const Suivi: Component<SuiviPageProps> = (props) => {
                           </td>
                           <td class="px-4 py-[13px] align-middle border-r border-rule-soft">
                             <div class="font-mono text-[13px] font-bold tracking-tight text-foreground">{o.numCommande}</div>
-                            <div class="mt-0.5 font-fraunces text-[12px] font-medium italic text-muted-foreground">{o.client || '—'}</div>
+                            <div class="mt-0.5 font-sans text-[12px] font-medium leading-snug text-secondary-foreground">{o.client || '—'}</div>
                           </td>
                           <td class="px-4 py-[13px] align-middle border-r border-rule-soft">
                             <div class="font-mono text-[13px] font-semibold text-terra">{o.article}</div>
-                            <div class="mt-0.5 font-fraunces text-[12px] font-medium italic text-muted-foreground">{o.designation || '—'}</div>
+                            <div class="mt-0.5 font-sans text-[12px] font-medium leading-snug text-secondary-foreground">{o.designation || '—'}</div>
                           </td>
                           <td class="px-4 py-[13px] align-middle border-r border-rule-soft">
                             <span class="rounded bg-terra-soft px-[7px] py-0.5 font-mono text-[10px] font-bold uppercase tracking-wide text-terra">{o.type}</span>
