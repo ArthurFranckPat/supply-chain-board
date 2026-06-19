@@ -24,6 +24,8 @@ export interface OrderImpactRow {
   article: string
   description: string
   qteRestante: number
+  /** Quantité déjà allouée en ERP (réservée en stock pour cette commande). Optionnel (fixtures). */
+  qteAllouee?: number
   dateExpedition: string
   dejaEnRetard: boolean
   nature: 'commande' | 'prevision'
@@ -200,6 +202,7 @@ export function evaluateOrderImpacts(
       article: demand.article,
       description: origin.description ?? '',
       qteRestante: demand.quantity,
+      qteAllouee: origin.qteAllouee ?? 0,
       dateExpedition: demand.date?.toISOString().slice(0, 10) ?? '',
       dejaEnRetard: demand.date ? demand.date < today : false,
       nature: origin.type === 'order' ? 'commande' : 'prevision',

@@ -343,6 +343,7 @@ export interface ProactiveDisplayRow {
   designation: string
   type: string
   qteRestante: number
+  qteAllouee: number
   reliquat: number
   dateExp: string
   dateExpIso: string | null
@@ -510,8 +511,29 @@ export function buildProactiveDisplay(result: OrderImpactResult): {
       const comps = [...composants.entries()]
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([art, qty]) => ({ art, qty: Math.round(qty * 100) / 100 }))
-      const verdict = VERDICT_DISPLAY[o.statut]
-      const compsTxt = comps.map((c) => `${c.art} -${c.qty}`).join(' ')
+
+      // Override : si la demande est couverte par l'allocation ERP propre de la commande
+      // (quantité réservée en stock, prête à expédier), la commande est RÉALISABLE quel que
+      // soit le verdict du moteur (qui ne voit que le stock libre et re-peg sur des OF futurs,
+      // d'où des ruptures fantômes sur les commandes déjà produites/allouées).
+      const alloueCouvert = (o.qteAllouee ?? 0) >= o.qteRestante && o.qteRestante > 0
+      const verdict = alloueCouvert
+        ? { key: 'stock' as ProactiveVerdictKey, label: 'Allouée — prête' }
+        : VERDICT_DISPLAY[o.statut]
+      const compsFinal = alloueCouvert ? [] : comps
+      const ofsFinal = alloueCouvert ? [] : o.ofs.map((of) => ({
+        numOf: of.numOf,
+        article: of.article,
+        qteAllouee: Math.round(of.qteAllouee),
+        dateFin: fmtFrDay(of.dateFin),
+        feasible: of.feasible,
+        statutNum: of.statutNum,
+        missingComponents: Object.entries(of.missingComponents)
+          .filter(([, q]) => q > 0)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([art, qty]) => ({ art, qty: Math.round(qty * 100) / 100 })),
+      }))
+      const compsTxt = compsFinal.map((c) => `${c.art} -${c.qty}`).join(' ')
       return {
         numCommande: o.numCommande,
         client: o.client,
@@ -519,25 +541,15 @@ export function buildProactiveDisplay(result: OrderImpactResult): {
         designation: o.description,
         type: o.typeCommande,
         qteRestante: Math.round(o.qteRestante),
+        qteAllouee: Math.round(o.qteAllouee ?? 0),
         reliquat: Math.round(o.reliquat),
         dateExp: fmtFrDay(o.dateExpedition),
         dateExpIso: o.dateExpedition || null,
         verdictKey: verdict.key,
         verdictLabel: verdict.label,
         joursRetard: o.joursRetard,
-        composants: comps,
-        ofs: o.ofs.map((of) => ({
-          numOf: of.numOf,
-          article: of.article,
-          qteAllouee: Math.round(of.qteAllouee),
-          dateFin: fmtFrDay(of.dateFin),
-          feasible: of.feasible,
-          statutNum: of.statutNum,
-          missingComponents: Object.entries(of.missingComponents)
-            .filter(([, q]) => q > 0)
-            .sort(([a], [b]) => a.localeCompare(b))
-            .map(([art, qty]) => ({ art, qty: Math.round(qty * 100) / 100 })),
-        })),
+        composants: compsFinal,
+        ofs: ofsFinal,
         filter: `${o.numCommande} ${o.client} ${o.article} ${o.description} ${o.typeCommande} ${verdict.label} ${compsTxt}`.toLowerCase(),
       }
     })

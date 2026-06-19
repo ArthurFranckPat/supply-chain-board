@@ -133,6 +133,7 @@ export interface ProactiveDisplayRow {
   designation: string
   type: string
   qteRestante: number
+  qteAllouee: number
   reliquat: number
   dateExp: string
   dateExpIso: string | null
