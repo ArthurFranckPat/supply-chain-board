@@ -22,6 +22,7 @@ import {
   recommendActions,
   buildStatusCounts,
   type OrderLine,
+  type Emplacement,
   type StockBreakdown,
   type StockProvider,
   type OfMatcherPort,
@@ -36,10 +37,16 @@ import {
 import { X3BesoinClientRepository } from '#repositories/besoin_client_repository'
 import { X3StockRepository } from '#repositories/stock_repository'
 import { X3OfRepository } from '#repositories/of_repository'
-import { X3NomenclatureRepository } from '#repositories/nomenclature_repository'
-import { buildNomenclatureMap, buildOfRecords } from '#services/feasibility-loader-adapter'
+import { buildNomenclatureMap, buildOfRecords, buildReceptionsMap } from '#services/feasibility-loader-adapter'
+import { loadOrderImpacts } from '#services/order_impacts_loader'
+import { buildShortageRows } from '#app/domain/shortages'
+import { X3ReceptionRepository } from '#repositories/reception_repository'
+import { X3EmplacementRepository } from '#repositories/emplacement_repository'
+import staticSync from '#services/static_sync_service'
+import cache from '@adonisjs/cache/services/main'
+import { HttpContext } from '@adonisjs/core/http'
 import { RecursiveChecker, type OfRecord, type StockRecord, type ReceptionRecord } from '#app/domain/recursive-checker'
-import type { Nomenclature } from '#app/domain/models/nomenclature'
+import type { Nomenclature, NomenclatureEntry } from '#app/domain/models/nomenclature'
 import type { Article } from '#app/domain/models/article'
 import type { ErpAllocation } from '#app/domain/allocation'
 import type { Flow } from '#app/domain/models/flow'
@@ -236,30 +243,83 @@ export interface SuiviContext {
   bomNavigator: BomNavigator
   paletteProvider: PaletteInfoProvider
   chargeCalculator: ChargeCalculatorPort
+  /**
+   * Cause du retard = source de vérité ordre → OF → composant (pipeline ruptures #15,
+   * loadOrderImpacts + buildShortageRows). Map numCommande → composants en rupture
+   * ({art, qty}). Remplace l'ancien calcul approximatif (FlowOfMatcher par article seul
+   * + réceptions stubées) qui produisait des causes erronées.
+   */
+  shortageByOrder: Map<string, { art: string; qty: number }[]>
+}
+
+/**
+ * Snapshot brut des données X3/SQLite mis en cache sous `suivi:context` (issue #20).
+ * Uniquement des structures sérialisables : superjson (config/cache.ts) préserve les
+ * `Date` et les `Map` à travers Redis ET la couche L1 mémoire. Les ports domaine
+ * (providers, navigateurs BOM) ne sont PAS sérialisables et sont reconstruits à chaud
+ * à partir de ce snapshot par `assembleContext()` (partie CPU peu coûteuse).
+ */
+interface RawSuiviData {
+  demandFlows: Flow[]
+  ofFlows: Flow[]
+  nomenclatureEntries: NomenclatureEntry[]
+  articleList: Article[]
+  stockFlows: Flow[]
+  detailedByOrderLine: Map<string, Emplacement[]>
+  stockByArticle: Map<string, Emplacement[]>
+  shortageByOrder: Map<string, { art: string; qty: number }[]>
+}
+
+// Cache distribué du contexte (cf. boardDataset, issue #20), namespace `suivi:*`.
+// Le contexte (lignes + stock + OF + BOM) est indépendant de la date : seul
+// assignStatuses/attachCauses (purs, rapides) rerun par referenceDate. Les sources
+// live (demande/OF/stock) sont vivantes → TTL court. Persistant cross-reboot via Redis :
+// après redémarrage, tant que la clé est valide, pas de cold start X3 (~14 s).
+const CONTEXT_TTL = 2 * 60 * 1000 // 2 min
+const suiviCache = () => {
+  const userId = HttpContext.get()?.auth?.user?.id
+  return cache.namespace(userId ? `suivi:user_${userId}` : 'suivi')
+}
+
+/** Invalide le cache de contexte → prochain buildContext() recharge depuis X3. */
+export async function reloadSuiviContext() {
+  await suiviCache().delete({ key: 'context' })
 }
 
 export class SuiviService {
-  /** Contexte mémoïsé : un seul jeu de fetch X3 par instance, réutilisé par les 3 méthodes. */
-  private contextPromise?: Promise<SuiviContext>
-
   /**
-   * Charge les données X3 et construit le contexte domaine (lignes + ports branchés).
-   * Mémoïsé : les appels suivants réutilisent le même contexte (pas de re-fetch).
+   * Construit le contexte domaine (lignes + ports branchés). Le snapshot brut X3 est
+   * mémoïsé (TTL 2 min, cache distribué) ; les ports (non sérialisables) sont reconstruits
+   * à chaque appel à partir du snapshot. Le grace period (config/cache.ts) sert le snapshot
+   * périmé si X3 échoue.
    */
-  buildContext(): Promise<SuiviContext> {
-    return (this.contextPromise ??= this.loadContext())
+  async buildContext(): Promise<SuiviContext> {
+    const raw = await suiviCache().getOrSet({
+      key: 'context',
+      ttl: CONTEXT_TTL,
+      factory: () => this.loadRaw(),
+    })
+    return this.assembleContext(raw)
   }
 
-  private async loadContext(): Promise<SuiviContext> {
-    // Demande / OF / BOM : déjà filtrés côté serveur (ou sans param de scope). Le stock,
-    // lui, balaie toute la base sans scope → on le borne aux seuls articles utiles.
-    const [demandFlows, ofFlows, nomenclatureEntries] = await Promise.all([
+  /**
+   * Récupère le snapshot brut depuis X3/SQLite (partie coûteuse — mise en cache).
+   *
+   * Référentiel (BOM + articles) lu depuis le cache local (staticSync, SQLite) — comme
+   * boardDataset — et NON en live X3 : la requête BOM SOAP est lente (timeout 120 s) et
+   * fait planter le suivi quand X3 est lent/injoignable, alors que le reste de l'app
+   * sert ces mêmes données depuis le local. Demande / OF / stock restent live (vivants).
+   */
+  private async loadRaw(): Promise<RawSuiviData> {
+    const [demandFlows, ofFlows, nomenclatureEntries, articleList] = await Promise.all([
       new X3BesoinClientRepository().getDemandFlows(),
       new X3OfRepository().getSupplyFlows(),
-      new X3NomenclatureRepository().getNomenclatureEntries(),
+      staticSync.readNomenclatures().catch(() => [] as NomenclatureEntry[]),
+      staticSync.readArticles().catch(() => [] as Article[]),
     ])
 
     const nomenclatures = buildNomenclatureMap(nomenclatureEntries)
+    const articles = new Map<string, Article>(articleList.map((a) => [a.code, a]))
 
     // Articles dont on a besoin du stock : PF commandés + articles OF + tout l'arbre BOM
     // (parents + composants) pour le calcul de rupture récursif.
@@ -272,27 +332,67 @@ export class SuiviService {
     }
 
     const stockFlows = await new X3StockRepository().getStockFlows([...scopeArticles])
-    const breakdown = buildStockBreakdownMap(stockFlows)
-    const stocks = buildStockRecordMap(stockFlows)
+
+    // Emplacements par ligne (détection zone d'expé) : STOALL si allocation détaillée
+    // présente (MTS/contre-marque), sinon STOCK physique (MTO/normal pré-allocation).
+    // Lignes reconstruites localement pour dériver les clés de requête (cheap).
+    const linesForScope = buildOrderLines(demandFlows, nomenclatures, articles)
+    const numCommandes = [...new Set(linesForScope.map((l) => l.numCommande).filter(Boolean))]
+    const lineArticles = [...new Set(linesForScope.map((l) => l.article).filter(Boolean))]
+    const emplRepo = new X3EmplacementRepository()
+    const [detailedByOrderLine, stockByArticle] = await Promise.all([
+      emplRepo.getDetailedByOrderLine(numCommandes),
+      emplRepo.getStockLocations(lineArticles),
+    ])
+
+    // Cause du retard : source de vérité ordre→OF→composant via le pipeline ruptures
+    // (loadOrderImpacts + buildShortageRows). Fenêtre large centrée sur maintenant (les
+    // retards sont par définition en retard → dates passées ; +14 j pour les imminents).
+    // Réutilise les caches boardDataset — pas de double-fetch si le board a tourné.
+    const shortageByOrder = await buildShortageByOrder()
+
+    return {
+      demandFlows,
+      ofFlows,
+      nomenclatureEntries,
+      articleList,
+      stockFlows,
+      detailedByOrderLine,
+      stockByArticle,
+      shortageByOrder,
+    }
+  }
+
+  /**
+   * Reconstruit le contexte domaine (ports + maps + lignes) à partir du snapshot brut.
+   * Pur / synchrone : aucune I/O. Rejoué à chaque requête (les instances de classes ne
+   * survivent pas à la sérialisation du cache).
+   */
+  private assembleContext(raw: RawSuiviData): SuiviContext {
+    const nomenclatures = buildNomenclatureMap(raw.nomenclatureEntries)
+    const articles = new Map<string, Article>(raw.articleList.map((a) => [a.code, a]))
+    const breakdown = buildStockBreakdownMap(raw.stockFlows)
+    const stocks = buildStockRecordMap(raw.stockFlows)
     const ofs: OfRecord[] = buildOfRecords(
-      ofFlows
+      raw.ofFlows
         .filter((f) => f.origin.type === 'of')
         .map((f) => {
           const o = f.origin as Extract<Flow['origin'], { type: 'of' }>
           return { numOf: o.id ?? '', article: f.article, status: o.status ?? 3, quantity: f.quantity, endDate: f.date }
         }),
     )
-    const articles = new Map<string, Article>() // catalogue article non chargé ici (dégradation acceptée)
 
-    const lines = buildOrderLines(demandFlows, nomenclatures)
+    const lines = buildOrderLines(raw.demandFlows, nomenclatures, articles)
+    applyEmplacements(lines, raw.detailedByOrderLine, raw.stockByArticle)
 
     return {
       lines,
       stockProvider: new MapStockProvider(breakdown),
-      ofMatcher: new FlowOfMatcher(ofFlows),
+      ofMatcher: new FlowOfMatcher(raw.ofFlows),
       bomNavigator: new NomenclatureBomNavigator(nomenclatures, stocks, ofs, articles),
       paletteProvider: new StubPaletteProvider(),
       chargeCalculator: new StubChargeCalculator(),
+      shortageByOrder: raw.shortageByOrder,
     }
   }
 
@@ -307,6 +407,23 @@ export class SuiviService {
     const breakdownMap = stockProviderToMap(ctx)
     const assignments = assignStatuses(ctx.lines, breakdownMap, referenceDate)
     attachCauses(assignments, ctx.stockProvider, ctx.ofMatcher, ctx.bomNavigator)
+    // Cause réelle = pipeline ruptures (surcharge l'approximation pour RETARD_PROD) :
+    //  - ordre présent dans shortageByOrder → RUPTURE_COMPOSANTS avec les vrais composants ;
+    //  - rupture heuristic non confirmée par le pipeline → null (on n'affiche pas du faux) ;
+    //  - autres causes heuristic (achat : stock dispo / attente réception / aucun OF) conservées.
+    for (const a of assignments) {
+      if (a.status !== 'RETARD_PROD') continue
+      const comps = ctx.shortageByOrder.get(a.line.numCommande)
+      if (comps && comps.length) {
+        a.cause = {
+          typeCause: 'RUPTURE_COMPOSANTS',
+          composants: Object.fromEntries(comps.map((c) => [c.art, c.qty])),
+          message: '',
+        }
+      } else if (a.cause?.typeCause === 'RUPTURE_COMPOSANTS') {
+        a.cause = null
+      }
+    }
     return assignments
   }
 
@@ -358,12 +475,19 @@ function buildStockRecordMap(stockFlows: Flow[]): Map<string, StockRecord> {
 /**
  * Construit les OrderLine domaine à partir des flows de demande (commandes uniquement).
  *
- * Sémantique quantités : `RESTE_LIVRER` (flow.quantity) = besoin net à livrer. On reconstruit
- * qteRestante = quantity + qteAllouee pour que besoin_net() = qteRestante - qteAllouee = quantity.
+ * `f.quantity` = RESTE_LIVRER = EXTQTY_0 - DLVQTY_0 = quantité restant à livrer.
+ * `origin.qteCommandee` = EXTQTY_0 = quantité totale commandée.
+ * `origin.qteAllouee` = ALLQTY_0 = quantité allouée dans X3.
+ *
+ * qteRestante = f.quantity (reste à livrer), pas f.quantity + qteAllouee :
+ * l'ancienne formule compensait le fait que RESTE_LIVRER était en fait
+ * un « reste à fabriquer » (RMNEXTQTY_0 - ALLQTY_0). Maintenant que c'est
+ * un vrai reste à livrer, plus de double-count.
  */
 export function buildOrderLines(
   demandFlows: Flow[],
   nomenclatures: Map<string, Nomenclature>,
+  articles: Map<string, Article>,
 ): OrderLine[] {
   const lines: OrderLine[] = []
   for (const f of demandFlows) {
@@ -372,21 +496,87 @@ export function buildOrderLines(
     const qteAllouee = origin.qteAllouee ?? 0
     lines.push({
       numCommande: origin.id,
+      ligne: String(origin.ligne ?? '').trim(),
       article: f.article,
-      designation: '',
+      designation: articles.get(f.article)?.description ?? '',
       nomClient: origin.customer ?? '',
       typeCommande: (origin.orderType ?? 'NOR') as TypeCommande,
       dateExpedition: f.date,
       dateLivPrevu: null,
       qteCommandee: origin.qteCommandee ?? f.quantity,
       qteAllouee,
-      qteRestante: f.quantity + qteAllouee,
+      qteRestante: f.quantity,
       isFabrique: nomenclatures.has(f.article),
       isHardPegged: origin.contremarque != null,
       emplacements: [],
     })
   }
   return lines
+}
+
+/**
+ * Attache les emplacements à chaque ligne. Deux cas :
+ *  - STOALL (allocation) → pastille verte. Résout le stock physique via
+ *    STOCOU (chrono stock X3, lien canonique entre STOALL et STOCK) pour
+ *    obtenir le vrai emplacement, le PALNUM et la qty réelle.
+ *  - sinon → stock physique STOCK (pré-allocation / MTO / normal).
+ */
+export function applyEmplacements(
+  lines: OrderLine[],
+  detailedByOrderLine: Map<string, Emplacement[]>,
+  stockByArticle: Map<string, Emplacement[]>,
+): void {
+  // Index STOCOU → STOCK pour le lien canonique entre allocation et stock physique.
+  const stockByStoCou = new Map<string, Emplacement>()
+  for (const entries of stockByArticle.values()) {
+    for (const e of entries) {
+      if (e.stoCou) stockByStoCou.set(e.stoCou, e)
+    }
+  }
+
+  // Collecte tous les STOCOU alloués (toutes lignes confondues) → le stock
+  // correspondant n'est pas libre pour les lignes sans allocation.
+  const alloues = new Set<string>()
+  for (const entries of detailedByOrderLine.values()) {
+    for (const e of entries) {
+      if (e.stoCou) alloues.add(e.stoCou)
+    }
+  }
+
+  for (const line of lines) {
+    const fromStoall = detailedByOrderLine.get(`${line.numCommande}#${line.ligne}`)
+    if (fromStoall && fromStoall.length) {
+      // STOALL trouvé → pastille verte. On résout le STOCK physique via
+      // STOCOU pour avoir le vrai LOC, PALNUM et la qty réelle à l'emplacement.
+      let hasQc = false
+      line.emplacements = fromStoall.map((e) => {
+        const stockLoc = e.stoCou ? stockByStoCou.get(e.stoCou) : undefined
+        if (stockLoc) {
+          if (stockLoc.isQc) hasQc = true
+          return {
+            ...e,
+            nom: stockLoc.nom,
+            qtePalette: stockLoc.qtePalette,
+            hum: stockLoc.hum,
+            stoCou: e.stoCou,
+            isQc: stockLoc.isQc,
+          }
+        }
+        return e
+      })
+      line.allocationQc = hasQc
+    } else {
+      // Pas d'allocation → stock libre, mais on signale visuellement les
+      // emplacements déjà alloués à d'autres lignes (flag alreadyAllocated).
+      const fromStock = stockByArticle.get(line.article)
+      if (fromStock && fromStock.length) {
+        line.emplacements = fromStock.map((s) => ({
+          ...s,
+          alreadyAllocated: s.stoCou ? alloues.has(s.stoCou) : false,
+        }))
+      }
+    }
+  }
 }
 
 /** Reconstruit une map breakdown depuis le StockProvider du contexte (pour assignStatuses). */
@@ -397,6 +587,58 @@ function stockProviderToMap(ctx: SuiviContext): Map<string, StockBreakdown> {
     map.set(line.article, ctx.stockProvider.getStockBreakdown(line.article))
   }
   return map
+}
+
+/**
+ * Map numCommande → composants en rupture ({art, qty}), source de vérité du pipeline
+ * ruptures (loadOrderImpacts + buildShortageRows — cf. scheduler_controller.shortageRows).
+ * Fenêtre large centrée sur maintenant (retards = dates passées). Réutilise les caches
+ * boardDataset. Dégrade en map vide si X3 KO (la cause composant est non-bloquante).
+ */
+async function buildShortageByOrder(): Promise<Map<string, { art: string; qty: number }[]>> {
+  const now = new Date()
+  const from = new Date(now)
+  from.setDate(now.getDate() - 90)
+  from.setHours(0, 0, 0, 0)
+  const to = new Date(now)
+  to.setDate(now.getDate() + 14)
+  to.setHours(23, 59, 59, 999)
+  try {
+    const { result, articles, ofPegs } = await loadOrderImpacts({ from, to })
+    const pegsIso = new Map(
+      [...ofPegs].map(([ofNum, p]) => [
+        ofNum,
+        {
+          numCommande: p.numCommande,
+          client: p.client,
+          dateExpedition: p.dateExpedition?.toISOString().slice(0, 10) ?? null,
+        },
+      ]),
+    )
+    const receptionFlows = await new X3ReceptionRepository().getReceptionFlows()
+    const receptionsByArticle = buildReceptionsMap(
+      receptionFlows
+        .filter((f) => f.date !== null && f.date >= from)
+        .map((f) => ({
+          article: f.article,
+          id: (f.origin as { id?: string }).id,
+          supplier: (f.origin as { supplier?: string }).supplier,
+          quantity: f.quantity,
+          date: f.date,
+        })),
+    )
+    const { rows } = buildShortageRows(result, receptionsByArticle, articles, pegsIso)
+    const map = new Map<string, { art: string; qty: number }[]>()
+    for (const r of rows) {
+      if (!r.numCommande || r.qteManquante <= 0) continue
+      const arr = map.get(r.numCommande) ?? []
+      arr.push({ art: r.component, qty: r.qteManquante })
+      map.set(r.numCommande, arr)
+    }
+    return map
+  } catch {
+    return new Map()
+  }
 }
 
 export { recommendActions, buildStatusCounts }

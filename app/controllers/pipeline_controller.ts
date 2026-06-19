@@ -68,6 +68,7 @@ export default class PipelineController {
       const origin = f.origin as Extract<Flow['origin'], { type: 'order' }>
       return {
         numCommande: origin.id,
+        ligne: String(origin.ligne ?? '').trim(),
         article: f.article,
         designation: '',
         nomClient: origin.customer,
@@ -79,6 +80,7 @@ export default class PipelineController {
         qteRestante: f.quantity,
         isFabrique: false,
         isHardPegged: origin.orderType === 'MTS',
+        emplacements: [],
       }
     })
 

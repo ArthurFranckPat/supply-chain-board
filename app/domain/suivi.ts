@@ -25,7 +25,11 @@
 // Modèles
 // ---------------------------------------------------------------------------
 
-export type SuiviStatus = 'A_EXPEDIER' | 'ALLOCATION_A_FAIRE' | 'RETARD_PROD' | 'RAS'
+export type SuiviStatus =
+  | 'A_EXPEDIER'
+  | 'ALLOCATION_A_FAIRE'
+  | 'RETARD_PROD'
+  | 'RAS'
 export type TypeCommande = 'MTS' | 'MTO' | 'NOR'
 
 /** Cause structurée d'un retard de production (remplace l'ancien parsing textuel). */
@@ -43,16 +47,36 @@ export interface RetardCause {
   message: string
 }
 
-/** Un emplacement physique de stock rattaché à une ligne de commande. */
+/**
+ * Un emplacement physique de stock rattaché à une ligne de commande.
+ *
+ * `source` discrimine les 2 cas métier Sage X3 (cf. emplacement_repository) :
+ *  - `STOALL` : allocation DÉTAILLÉE — l'article est déjà « loué » à la commande
+ *    (MTS / contre-marque). LOC = le bin réservé.
+ *  - `STOCK`  : stock PHYSIQUE — l'article est dans ce bin, pas encore alloué
+ *    (MTO / commande normale). Il faut faire l'allocation (ALLOCATION_A_FAIRE).
+ *
+ * `stoCou` = chrono stock X3 (STOCOU_0). Lien canonique entre STOALL et STOCK :
+ *    STOALL.STOCOU_0 = STOCK.STOCOU_0 → donne LOC + PALNUM + qty réelle.
+ * `isQc` = vrai si le stock physique est sous contrôle qualité (STA='Q').
+ * `alreadyAllocated` = vrai si ce stock est déjà alloué à une autre commande
+ *   (utile pour l'affichage des lignes sans allocation : montrer barré).
+ */
 export interface Emplacement {
   nom: string
   hum?: string | null
   dateMiseEnStock?: Date | null
   qtePalette?: number | null
+  source: 'STOALL' | 'STOCK'
+  stoCou?: string | null
+  isQc?: boolean
+  alreadyAllocated?: boolean
 }
 
 export interface OrderLine {
   numCommande: string
+  /** N° de ligne sur la commande (VCRLIN_0) — pour le matching allocations STOALL. */
+  ligne: string
   article: string
   designation: string
   nomClient: string
@@ -66,6 +90,8 @@ export interface OrderLine {
   isHardPegged: boolean
   /** Emplacements de stock (zone d'expédition). Vide si la donnée ERP n'est pas chargée. */
   emplacements?: Emplacement[]
+  /** True si les allocations X3 (MTS) portent sur du stock sous CQ. */
+  allocationQc?: boolean
 }
 
 export interface StatusAssignment {
@@ -153,8 +179,11 @@ export interface PaletteInfoProvider {
 // Helpers ligne (zone d'expédition, retard, besoin net)
 // ---------------------------------------------------------------------------
 
-/** Emplacements considérés « zone d'expédition » : quai, stock magasin, expédition. */
-const ZONE_EXPEDITION_PATTERN = /QUAI|SM|EXP|S9C|S3C/i
+/** Emplacements considérés « zone d'expédition » : quai, stock magasin, expédition.
+ *  Attention : "SM" sans précaution matche "SMLQxx" qui n'est PAS une zone d'expé.
+ *  Le lookahead négatif `(?!LQ)` exclut SMLQ (Stock Magasin Logistique).
+ */
+export const ZONE_EXPEDITION_PATTERN = /QUAI|^(?:SM(?!LQ))|EXP|S9C|S3C/i
 
 export function besoinNet(line: OrderLine): number {
   return Math.max(0, line.qteRestante - line.qteAllouee)
@@ -170,12 +199,39 @@ export function enZoneExpedition(line: OrderLine, pattern: RegExp = ZONE_EXPEDIT
 }
 
 /**
- * Retard = date d'expédition passée ET pas en zone d'expédition.
- * (Le port TS précédent ignorait la zone — corrigé ici, cf. issue #19.)
+ * Retard de production : date d'expédition passée ET pas en zone d'expédition
+ * (rien n'a été préparé, ou c'est bloqué en amont).
  */
-export function isRetard(line: OrderLine, refDate: Date): boolean {
+export function isRetardProd(line: OrderLine, refDate: Date): boolean {
   if (!line.dateExpedition) return false
   return line.dateExpedition < refDate && !enZoneExpedition(line)
+}
+
+/**
+ * Retard d'expédition — sous-classification d'un retard.
+ *
+ * Indépendamment du type de commande (MTS / MTO / NOR) : si la date d'expédition
+ * est passée et que TOUTE la quantité restante est allouée (source STOALL) en
+ * zone d'expédition, la marchandise est au quai et n'est pas partie → retard
+ * d'expédition (sous-type de RETARD_PROD).
+ *
+ * Une ligne en zone avec du stock libre (STOCK, pas STOALL) ou avec allocation
+ * partielle n'est PAS un retard d'expédition : c'est un problème d'allocation
+ * ou de production, et la ligne tombera sur RETARD_PROD via la branche date
+ * passée d'assignStatuses().
+ */
+export function isRetardExpe(line: OrderLine, refDate: Date): boolean {
+  if (!line.dateExpedition) return false
+  if (line.dateExpedition >= refDate) return false
+  const qteInZone = (line.emplacements ?? [])
+    .filter((e) => e.source === 'STOALL' && ZONE_EXPEDITION_PATTERN.test(e.nom))
+    .reduce((sum, e) => sum + (e.qtePalette ?? 0), 0)
+  return qteInZone >= line.qteRestante
+}
+
+/** Alias historique de isRetardProd — conservé pour rétrocompatibilité (tests, code tiers). */
+export function isRetard(line: OrderLine, refDate: Date): boolean {
+  return isRetardProd(line, refDate)
 }
 
 // ---------------------------------------------------------------------------
@@ -185,14 +241,15 @@ export function isRetard(line: OrderLine, refDate: Date): boolean {
 /**
  * Assigne un statut métier à chaque ligne de commande.
  *
- * Règles :
- *  - besoin_net <= 0                            → A_EXPEDIER
- *  - MTS fabriqué (pas d'allocation virtuelle)  → RETARD_PROD si retard, sinon RAS
- *  - MTS achat / MTO / NOR :
+ * Règles, par ordre de priorité :
+ *  1. date d'expédition passée                  → RETARD_PROD
+ *                                                Indépendamment du type (MTS/MTO/NOR).
+ *  2. besoin_net <= 0                            → A_EXPEDIER
+ *  3. MTS fabriqué (pas d'allocation virtuelle)  → RAS
+ *  4. MTS achat / MTO / NOR :
  *      couvert par stock virtuel                → ALLOCATION_A_FAIRE
- *      non couvert + retard                     → RETARD_PROD
  *      sinon                                    → RAS
- *  - Harmonisation : RAS + signal CQ consommé   → ALLOCATION_A_FAIRE
+ *  5. Harmonisation : RAS + signal CQ consommé   → ALLOCATION_A_FAIRE
  *    (sauf MTS fabriqué — l'allocation n'y est pas le bon levier métier)
  *
  * Le champ `cause` reste null : il est renseigné après coup par analyzeRetardCause().
@@ -252,26 +309,37 @@ export function assignStatuses(
   for (const line of sorted) {
     const besoin = besoinNet(line)
 
-    // Signal CQ pour le front. Pour MTS fabriqué, on s'appuie uniquement sur l'allocation
-    // déjà portée par la commande (qteAllouee) pour ne pas ré-allouer virtuellement.
-    let qteSignal: number
-    if (line.typeCommande === 'MTS' && line.isFabrique) {
-      qteSignal = Math.min(Math.max(0, line.qteRestante), Math.max(0, line.qteAllouee))
-    } else {
-      qteSignal =
-        besoin > 0 ? besoin : Math.min(Math.max(0, line.qteRestante), Math.max(0, line.qteAllouee))
+    // Signal CQ.
+    //  - MTS : l'allocation est réelle X3, le CQ vient des attributs du stock
+    //    alloué (via STOCOU→STOCK.STA='Q'). Porté par line.allocationQc.
+    //  - MTO/NOR : allocation virtuelle, on pioche dans le pool stock (strict/QC).
+    let alerteCqStatut = line.allocationQc ?? false
+    if (!alerteCqStatut && line.typeCommande !== 'MTS') {
+      const qteSignal = besoin > 0 ? besoin : Math.min(Math.max(0, line.qteRestante), Math.max(0, line.qteAllouee))
+      alerteCqStatut = consumeForCqSignal(line.article, qteSignal) > 0
     }
-    const qteSignalCq = consumeForCqSignal(line.article, qteSignal)
-    const alerteCqStatut = qteSignalCq > 0
+
+    // RÈGLE 1 — Date d'expédition passée.
+    //  - Si déjà alloué/en zone/besoin ≤ 0 (prêt à expédier) → A_EXPEDIER
+    //  - Sinon → RETARD_PROD (vrai problème de production)
+    if (line.dateExpedition && line.dateExpedition < referenceDate) {
+      if (besoin <= 0 || enZoneExpedition(line)) {
+        assignments.push(emptyAssignment(line, 'A_EXPEDIER', besoin, alerteCqStatut))
+      } else {
+        assignments.push(emptyAssignment(line, 'RETARD_PROD', besoin, alerteCqStatut))
+      }
+      continue
+    }
 
     if (besoin <= 0) {
       assignments.push(emptyAssignment(line, 'A_EXPEDIER', besoin, alerteCqStatut))
       continue
     }
 
-    // MTS fabriqué : hard-pegging uniquement, pas d'allocation virtuelle.
+    // MTS fabriqué : pas d'allocation virtuelle. Si allocation X3 > 0 → prêt à
+    // expédier (même partiel). Sinon → RAS (rien de prêt).
     if (line.typeCommande === 'MTS' && line.isFabrique) {
-      const status: SuiviStatus = isRetard(line, referenceDate) ? 'RETARD_PROD' : 'RAS'
+      const status: SuiviStatus = (line.qteAllouee > 0) ? 'A_EXPEDIER' : 'RAS'
       assignments.push(emptyAssignment(line, status, besoin, alerteCqStatut))
       continue
     }
@@ -293,14 +361,14 @@ export function assignStatuses(
     let status: SuiviStatus
     if (couvert) {
       status = 'ALLOCATION_A_FAIRE'
-    } else if (isRetard(line, referenceDate)) {
+    } else if (isRetardProd(line, referenceDate)) {
       status = 'RETARD_PROD'
     } else {
       status = 'RAS'
     }
 
     // Harmonisation front : RAS + signal CQ consommé → ALLOCATION_A_FAIRE.
-    if (status === 'RAS' && qteSignalCq > 0) {
+    if (status === 'RAS' && alerteCqStatut) {
       status = 'ALLOCATION_A_FAIRE'
     }
 

@@ -27,6 +27,7 @@ const REF = new Date('2026-06-18')
 function line(over: Partial<OrderLine> = {}): OrderLine {
   return {
     numCommande: 'C1',
+    ligne: '1000',
     article: 'ART',
     designation: '',
     nomClient: 'Client',
@@ -57,7 +58,7 @@ test.group('isRetard + zone expédition', () => {
   })
 
   test("passé MAIS en zone d'expédition → pas retard", ({ assert }) => {
-    const l = line({ dateExpedition: new Date('2026-06-10'), emplacements: [{ nom: 'QUAI-A' }] })
+    const l = line({ dateExpedition: new Date('2026-06-10'), emplacements: [{ nom: 'QUAI-A', source: 'STOALL' as const }] })
     assert.isFalse(isRetard(l, REF))
     assert.isTrue(enZoneExpedition(l))
   })
@@ -72,7 +73,7 @@ test.group('isRetard + zone expédition', () => {
 
   test('regex zone insensible à la casse (sm, exp, s9c, s3c)', ({ assert }) => {
     for (const nom of ['sm-12', 'Exp-Quai', 'S9C-01', 'S3C']) {
-      assert.isTrue(enZoneExpedition(line({ emplacements: [{ nom }] })), nom)
+      assert.isTrue(enZoneExpedition(line({ emplacements: [{ nom, source: 'STOALL' as const }] })), nom)
     }
   })
 })
@@ -87,7 +88,7 @@ test.group('assignStatuses — zone & signal CQ', () => {
       typeCommande: 'MTS',
       isFabrique: true,
       dateExpedition: new Date('2026-06-10'),
-      emplacements: [{ nom: 'EXP-1' }],
+      emplacements: [{ nom: 'EXP-1', source: 'STOALL' as const }],
     })
     const [a] = assignStatuses([l], stockMap({ ART: { strict: 0, qc: 0, total: 0 } }), REF)
     assert.equal(a.status, 'RAS')

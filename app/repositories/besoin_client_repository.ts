@@ -16,6 +16,7 @@ SELECT
     ELSE 'NOR'
   END AS SOHTYP,
   O.VCRNUM_0 AS NO_DOCUMENT,
+  O.VCRLIN_0 AS LIGNE,
   CASE
     WHEN O.WIPSTA_0 = 1 THEN 'COMMANDE'
     WHEN O.WIPSTA_0 = 3 THEN 'PREVISION'
@@ -27,7 +28,8 @@ SELECT
   CASE WHEN O.WIPSTA_0 = 1 THEN Q.SHIDAT_0 ELSE O.ENDDAT_0 END AS ECHEANCE,
   O.EXTQTY_0 AS QTE_PREVUE,
   O.ALLQTY_0 AS QTE_ALLOUEE,
-  (O.RMNEXTQTY_0 - O.ALLQTY_0) AS RESTE_LIVRER
+  Q.DLVQTY_0 AS QTE_LIVREE,
+  (O.EXTQTY_0 - NVL(Q.DLVQTY_0, 0)) AS RESTE_LIVRER
 FROM ORDERS O
 JOIN ITMMASTER I ON I.ITMREF_0 = O.ITMREF_0
 LEFT JOIN BPARTNER P_REEL ON P_REEL.BPRNUM_0 = O.BPRNUM_0
@@ -95,6 +97,7 @@ export class X3BesoinClientRepository {
                 contremarque,
                 qteCommandee,
                 qteAllouee,
+                ligne: String(row.LIGNE ?? '').trim(),
               },
             }
           }

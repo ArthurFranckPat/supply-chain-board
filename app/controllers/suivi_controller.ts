@@ -1,14 +1,19 @@
 import { HttpContext } from '@adonisjs/core/http'
+import logger from '@adonisjs/core/services/logger'
 import {
   assignStatuses,
   recommendActions,
   buildStatusCounts,
   causeToDisplayString,
+  enZoneExpedition,
+  ZONE_EXPEDITION_PATTERN,
   type OrderLine,
   type StockBreakdown,
   type StatusAssignment,
+  type SuiviStatus,
+  type CauseType,
 } from '#app/domain/suivi'
-import { SuiviService } from '#services/suivi_service'
+import { SuiviService, reloadSuiviContext } from '#services/suivi_service'
 import { X3OfRepository } from '#repositories/of_repository'
 import { X3StockRepository } from '#repositories/stock_repository'
 import { X3ReceptionRepository } from '#repositories/reception_repository'
@@ -124,6 +129,65 @@ export default class SuiviController {
     const charge = await new SuiviService().retardCharge(refDate)
     return { reference_date: refDate.toISOString().slice(0, 10), charge }
   }
+
+  /**
+   * GET /suivi — coquille (shell) Inertia du suivi des commandes (issue #19).
+   * Rendu INSTANTANÉ : aucun calcul X3 ici. Les lignes (calcul lourd) sont chargées
+   * en différé côté client (fetch JSON) depuis `/api/v1/status/rows` → page réactive
+   * Solid. Même motif que scheduler_controller.shortageTracker / shortageRows.
+   */
+  async board(ctx: HttpContext) {
+    const referenceDate =
+      (ctx.request.input('referenceDate') as string | undefined) || new Date().toISOString().slice(0, 10)
+    return ctx.inertia.render('scheduler/suivi', {
+      referenceDate,
+      rowsHref: `/api/v1/status/rows?referenceDate=${encodeURIComponent(referenceDate)}`,
+    })
+  }
+
+  /**
+   * GET /api/v1/status/rows — endpoint JSON (calcul lourd différé).
+   * Assigne statuts + causes + signal CQ pour toutes les lignes courantes via le
+   * moteur domaine, puis formate en lignes d'affichage (statut court, icône, cause
+   * + composants, action, allocation strict/CQ, date FR). Consommé en fetch par la
+   * page Solid `scheduler/suivi`.
+   */
+  async rows(ctx: HttpContext) {
+    const referenceDate = ctx.request.input('referenceDate')
+    const refDate = referenceDate ? new Date(referenceDate) : new Date()
+    // ?refresh=1 → invalide le cache de contexte (force un re-fetch X3 live).
+    if (ctx.request.input('refresh')) await reloadSuiviContext()
+
+    let rows: SuiviDisplayRow[] = []
+    let statusCounts: Record<SuiviStatus, number> = {
+      A_EXPEDIER: 0,
+      ALLOCATION_A_FAIRE: 0,
+      RETARD_PROD: 0,
+      RAS: 0,
+    }
+    let x3Error: string | null = null
+
+    try {
+      const assignments = await new SuiviService().assignFromLatest(refDate)
+      const built = buildSuiviDisplay(assignments, refDate)
+      rows = built.rows
+      statusCounts = built.statusCounts
+    } catch (e) {
+      // Log serveur complet (debug) ; on ne renvoie JAMAIS le message brut au client :
+      // l'erreur X3 (SOAP via curl) contient les identifiants basic-auth (`-u user:pass`).
+      logger.error({ err: e }, '[suivi] rows — échec chargement X3')
+      x3Error = sanitizeX3Error((e as Error).message ?? String(e))
+    }
+
+    return {
+      total: rows.length,
+      statusCounts,
+      cqCount: rows.filter((r) => r.cq).length,
+      rows,
+      x3Error,
+      referenceDate: refDate.toISOString().slice(0, 10),
+    }
+  }
 }
 
 function serializeAssignments(assignments: StatusAssignment[]) {
@@ -144,4 +208,172 @@ function serializeAssignments(assignments: StatusAssignment[]) {
       action: recommendActions(a),
     })),
   }
+}
+
+// ---------------------------------------------------------------------------
+// Présentation — lignes d'affichage du registre suivi (issue #19).
+// Mirroir côté client : inertia/lib/suivi/types.ts (SuiviDisplayRow).
+// ---------------------------------------------------------------------------
+
+export type SuiviStatusKey = 'exp' | 'alc' | 'ret' | 'ras'
+
+/**
+ * Projection d'un Emplacement pour l'affichage (colonne Emplacement du suivi).
+ * Conserve la source (STOALL/STOCK) et la qté pour la pastille,
+ * et précalcule enZoneExpe pour le rendu.
+ */
+export interface SuiviEmplacementDisplay {
+  nom: string
+  qte: number
+  source: 'STOALL' | 'STOCK'
+  enZoneExpe: boolean
+  alreadyAllocated?: boolean
+  /** PALNUM (identifiant palette), si renseigné par X3. */
+  hum?: string | null
+}
+
+export interface SuiviCauseDisplay {
+  type: CauseType
+  label: string
+  comps: { art: string; qty: number }[]
+}
+
+export interface SuiviDisplayRow {
+  numCommande: string
+  client: string
+  article: string
+  designation: string
+  type: string
+  statusKey: SuiviStatusKey
+  statusLabel: string
+  statusIcon: string
+  qteRestante: number
+  besoinNet: number
+  allocStrict: number
+  allocCq: number
+  cq: boolean
+  dateExp: string
+  /** ISO YYYY-MM-DD pour le tri chronologique (null si absente). */
+  dateExpIso: string | null
+  late: boolean
+  /** Emplacements (LOC) rattachés à la ligne (STOALL si allouée, sinon STOCK). */
+  emplacements: SuiviEmplacementDisplay[]
+  /** True si au moins un emplacement est en zone d'expédition (QUAI|SM|EXP|S9C|S3C). */
+  enZoneExpe: boolean
+  cause: SuiviCauseDisplay | null
+  action: { severity: 'info' | 'warning' | 'critical'; label: string }
+  /** Champ texte pré-concaténé pour le filtre client (lowercase). */
+  filter: string
+}
+
+/** Statut métier → clé courte pour le badge (exp/alc/ret/rxe/ras). */
+const STATUS_KEY: Record<SuiviStatus, SuiviStatusKey> = {
+  A_EXPEDIER: 'exp',
+  ALLOCATION_A_FAIRE: 'alc',
+  RETARD_PROD: 'ret',
+  RAS: 'ras',
+}
+const STATUS_SHORT: Record<SuiviStatus, string> = {
+  A_EXPEDIER: 'À expédier',
+  ALLOCATION_A_FAIRE: 'À allouer',
+  RETARD_PROD: 'Retard',
+  RAS: 'RAS',
+}
+const STATUS_ICON: Record<SuiviStatus, string> = {
+  A_EXPEDIER: 'outbound',
+  ALLOCATION_A_FAIRE: 'inventory_2',
+  RETARD_PROD: 'report',
+  RAS: 'check_circle',
+}
+const CAUSE_LABEL: Record<CauseType, string> = {
+  STOCK_DISPONIBLE_NON_ALLOUE: 'Stock disponible — non alloué',
+  ATTENTE_RECEPTION_FOURNISSEUR: 'Attente réception fournisseur',
+  AUCUN_OF_PLANIFIE: 'Aucun OF planifié',
+  RUPTURE_COMPOSANTS: 'Rupture composants',
+  INCONNUE: 'Cause indéterminée',
+}
+
+/** Formate une date ISO (YYYY-MM-DD) en JJ/MM — '' si absente. */
+function fmtFrDay(iso: string | null | undefined): string {
+  if (!iso) return ''
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso)
+  return m ? `${m[3]}/${m[2]}` : iso
+}
+
+/**
+ * Sanitize une erreur X3 pour la bannière client.
+ *
+ * L'erreur X3 (SOAP via curl) embarque les identifiants basic-auth (`-u user:pass`)
+ * voire des creds en URL — on ne renvoie JAMAIS le message brut au navigateur.
+ * Les erreurs de connexion (réseau/timeout/SOAP) → message court générique ;
+ * sinon on masque les creds et on tronque. Le détail complet est loggué serveur.
+ */
+function sanitizeX3Error(msg: string): string {
+  const isConn =
+    /X3 query failed|curl:|Command failed|ECONNREFUSED|ETIMEDOUT|ENOTFOUND|max-time|SOAP|XML/i.test(
+      msg,
+    )
+  if (isConn) return 'X3 injoignable — la connexion au serveur X3 a échoué.'
+  return msg
+    .replace(/-u\s+\S+/g, '-u ***')
+    .replace(/:\/\/[^\s/@]+@[^\s/]+/g, '://***@')
+    .slice(0, 240)
+}
+
+/**
+ * Projette les StatusAssignment du domaine en lignes d'affichage prêtes au rendu
+ * (statut court + icône, cause + composants triés, action + severity, allocation
+ * strict/CQ, date FR, champ `filter` pré-concaténé pour la recherche client).
+ */
+export function buildSuiviDisplay(assignments: StatusAssignment[], refDate?: Date): {
+  rows: SuiviDisplayRow[]
+  statusCounts: Record<SuiviStatus, number>
+} {
+  const now = refDate ?? new Date()
+  const rows: SuiviDisplayRow[] = assignments.map((a) => {
+    const cause = a.cause
+      ? {
+          type: a.cause.typeCause,
+          label: CAUSE_LABEL[a.cause.typeCause],
+          comps: Object.entries(a.cause.composants)
+            .sort(([x], [y]) => x.localeCompare(y))
+            .map(([art, qty]) => ({ art, qty: Math.round(qty * 1000) / 1000 })),
+        }
+      : null
+    const rec = recommendActions(a)
+    const compsTxt = cause ? cause.comps.map((c) => `${c.art} −${c.qty}`).join(' ') : ''
+    return {
+      numCommande: a.line.numCommande,
+      client: a.line.nomClient,
+      article: a.line.article,
+      designation: a.line.designation,
+      type: a.line.typeCommande,
+      statusKey: STATUS_KEY[a.status],
+      statusLabel: STATUS_SHORT[a.status],
+      statusIcon: STATUS_ICON[a.status],
+      qteRestante: Math.round(a.line.qteRestante),
+      besoinNet: Math.max(0, Math.round(a.besoinNet)),
+      allocStrict: Math.round(a.qteAlloueeVirtuelleStricte),
+      allocCq: Math.round(a.qteAlloueeVirtuelleCq),
+      cq: !!a.alerteCqStatut,
+      dateExp: fmtFrDay(a.line.dateExpedition?.toISOString().slice(0, 10)),
+      dateExpIso: a.line.dateExpedition?.toISOString().slice(0, 10) ?? null,
+      late: a.line.dateExpedition !== null && a.line.dateExpedition < now,
+      emplacements: (a.line.emplacements ?? [])
+        .filter((e) => Boolean(e.nom))
+        .map((e) => ({
+          nom: e.nom,
+          qte: e.qtePalette ?? 0,
+          source: e.source,
+          enZoneExpe: ZONE_EXPEDITION_PATTERN.test(e.nom),
+          alreadyAllocated: e.alreadyAllocated ?? false,
+          hum: e.hum || null,
+        })),
+      enZoneExpe: enZoneExpedition(a.line),
+      cause,
+      action: { severity: rec.severity, label: rec.actions[0] ?? '—' },
+      filter: `${a.line.numCommande} ${a.line.nomClient} ${a.line.article} ${a.line.designation} ${a.line.typeCommande} ${cause?.label ?? ''} ${compsTxt} ${(a.line.emplacements ?? []).map((e) => e.nom).join(' ')}`.toLowerCase(),
+    }
+  })
+  return { rows, statusCounts: buildStatusCounts(assignments.map((a) => a.status)) }
 }
