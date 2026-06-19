@@ -68,10 +68,12 @@ router
     //   /ordonnancement : board OF, vue experte haute densité
     //   /planification  : lignes de commande ouvertes (#10)
     //   /ruptures       : suivi des ruptures (issue #15)
+    //   /vision         : vue unifiée OF ↔ commandes (issue #21)
     router.get('/ordonnancement', '#controllers/scheduler_controller.expertBoard')
     router.get('/planification', '#controllers/order_planning_controller.board')
     router.get('/ruptures', '#controllers/scheduler_controller.shortageTracker')
     router.get('/suivi', '#controllers/suivi_controller.board')
+    router.get('/vision', '#controllers/scheduler_controller.vision')
 
     // Planning — API JSON (fusion order-planning + planning-board sous un seul préfixe, #18 P7).
     //   order-lines/* : OrderPlanningController (overrides de date sur lignes de commande)

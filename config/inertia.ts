@@ -29,6 +29,21 @@ declare module '@adonisjs/inertia/types' {
     weekCaps: Record<string, number>
   }
 
+  /**
+   * Forme du payload `board` de la vue unifiée OF ↔ commandes (issue #21).
+   * Miroir client précis : `inertia/lib/vision/types.ts`.
+   */
+  type VisionBoardProp = {
+    cols: number
+    days: { short: string; iso: string; today: boolean }[]
+    weekSpans: { week: number; span: number }[]
+    colWeek: number[]
+    weekCaps: Record<string, number>
+    postes: any[]
+    commandes: any[]
+    links: any[]
+  }
+
   interface InertiaPages {
     home: { message: string }
     'auth/login': {
@@ -79,6 +94,21 @@ declare module '@adonisjs/inertia/types' {
       referenceDate: string
       rowsHref: string
       proactiveRowsHref: string
+    }
+    'scheduler/vision': {
+      board: VisionBoardProp
+      windowFrom: string
+      windowTo: string
+      horizon: number
+      dateRange: string
+      weekLabel: string
+      prevHref: string
+      nextHref: string
+      todayHref: string
+      totalOf: number
+      lineCount: number
+      x3Error: string | null
+      cached: string | null
     }
   }
 }

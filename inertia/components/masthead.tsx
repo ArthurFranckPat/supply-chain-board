@@ -15,13 +15,21 @@ import UserMenu from '@/components/user-menu'
  *                utilisateur est toujours ajouté en dernier par le composant.
  */
 
-export type MastheadTab = 'tableau' | 'planification' | 'ordonnancement' | 'ruptures' | 'suivi' | 'ressources'
+export type MastheadTab =
+  | 'tableau'
+  | 'planification'
+  | 'ordonnancement'
+  | 'vision'
+  | 'ruptures'
+  | 'suivi'
+  | 'ressources'
 
 /** Onglets canoniques (ordre + cibles uniques). `href: null` = placeholder (pas encore de page). */
 const TABS: { key: MastheadTab; label: string; href: string | null }[] = [
   { key: 'tableau', label: 'Tableau', href: null },
   { key: 'planification', label: 'Planification', href: route('order_planning.board') },
   { key: 'ordonnancement', label: 'Ordonnancement', href: route('scheduler.expert_board') },
+  { key: 'vision', label: 'Vision', href: route('scheduler.vision') },
   { key: 'ruptures', label: 'Ruptures', href: route('scheduler.shortage_tracker') },
   { key: 'suivi', label: 'Suivi', href: route('suivi.board') },
   { key: 'ressources', label: 'Ressources', href: null },

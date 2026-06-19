@@ -78,6 +78,12 @@ const routes = {
     tokens: [{"old":"/suivi","type":0,"val":"suivi","end":""}],
     types: placeholder as Registry['suivi.board']['types'],
   },
+  'scheduler.vision': {
+    methods: ["GET","HEAD"],
+    pattern: '/vision',
+    tokens: [{"old":"/vision","type":0,"val":"vision","end":""}],
+    types: placeholder as Registry['scheduler.vision']['types'],
+  },
   'order_planning.index': {
     methods: ["GET","HEAD"],
     pattern: '/api/v1/planning/order-lines',

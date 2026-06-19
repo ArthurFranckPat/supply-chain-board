@@ -151,6 +151,18 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'scheduler.vision': {
+    methods: ["GET","HEAD"]
+    pattern: '/vision'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'order_planning.index': {
     methods: ["GET","HEAD"]
     pattern: '/api/v1/planning/order-lines'

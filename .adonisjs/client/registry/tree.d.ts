@@ -19,6 +19,7 @@ export interface ApiDefinition {
   scheduler: {
     expertBoard: typeof routes['scheduler.expert_board']
     shortageTracker: typeof routes['scheduler.shortage_tracker']
+    vision: typeof routes['scheduler.vision']
     ofDetail: typeof routes['scheduler.of_detail']
     shortageRows: typeof routes['scheduler.shortage_rows']
   }

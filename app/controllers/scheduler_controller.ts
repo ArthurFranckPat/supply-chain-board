@@ -8,6 +8,7 @@ import type { GammeOperation } from '#app/domain/models/gamme'
 import { loadOrderImpacts } from '#services/order_impacts_loader'
 import { buildShortageRows, type ShortageRow } from '#app/domain/shortages'
 import { loadReceptionsByArticle } from '#repositories/reception_repository'
+import { X3OrderLineRepository, type OfCommandePeg } from '#repositories/order_line_repository'
 
 // ---------------------------------------------------------------------------
 type CardStatus = 'termine' | 'ferme' | 'cours' | 'planifie' | 'suggere' | 'bloque'
@@ -275,6 +276,76 @@ function moToCard(mo: ManufacturingOrder, rate: number, workstationLabel: string
 }
 
 // ---------------------------------------------------------------------------
+// Issue #21 — Vision unifiée OF ↔ commandes (payload dédié, léger).
+// Cartes OF sur postes×jours (date de début) + marqueurs commandes (date
+// d'expédition) + liens OF→commande. PAS de rang CBN ni de seuil « trop tôt »
+// (hors scope) — le cœur = voir l'OF et sa commande reliés, chacun à sa date.
+// ---------------------------------------------------------------------------
+
+interface VisionOfCard {
+  numOf: string
+  status: CardStatus
+  article: string
+  designation: string | null
+  posteCode: string
+  posteLabel: string
+  done: number
+  launched: number
+  hours: number
+}
+
+interface VisionDayCell {
+  iso: string
+  ofs: VisionOfCard[]
+}
+
+interface VisionPosteRow {
+  code: string
+  name: string
+  ofCount: number
+  totalHours: number
+  dayCells: VisionDayCell[]
+}
+
+interface VisionCommande {
+  id: string
+  numCommande: string
+  client: string | null
+  dateExpeditionIso: string | null
+  /** Index de colonne (date d'expédition) dans la fenêtre. */
+  col: number
+}
+
+interface VisionLink {
+  ofId: string
+  posteCode: string
+  /** Colonne de la carte OF (date de début). */
+  ofCol: number
+  commandeId: string
+  /** Colonne du marqueur commande (date d'expédition). */
+  cmdCol: number
+  /** OF suggéré (CBN non affermi) → lien en pointillé côté client. */
+  suggere: boolean
+}
+
+interface VisionDayCol {
+  short: string
+  iso: string
+  today: boolean
+}
+
+interface VisionBoard {
+  days: VisionDayCol[]
+  cols: number
+  weekSpans: { week: number; span: number }[]
+  colWeek: number[]
+  weekCaps: Record<string, number>
+  postes: VisionPosteRow[]
+  commandes: VisionCommande[]
+  links: VisionLink[]
+}
+
+// ---------------------------------------------------------------------------
 // Controller
 // ---------------------------------------------------------------------------
 
@@ -301,6 +372,237 @@ export default class SchedulerController {
       x3Error: data.x3Error,
       cached: data.cached,
     })
+  }
+
+  /** GET /vision — vue unifiée OF ↔ commandes (issue #21). */
+  async vision(ctx: HttpContext) {
+    const data = await this.loadVisionData(ctx)
+    return ctx.inertia.render('scheduler/vision', {
+      board: data.board,
+      windowFrom: data.windowFrom,
+      windowTo: data.windowTo,
+      horizon: data.horizon,
+      dateRange: data.dateRange,
+      weekLabel: data.weekLabel,
+      prevHref: data.prevHref,
+      nextHref: data.nextHref,
+      todayHref: data.todayHref,
+      totalOf: data.totalOf,
+      lineCount: data.lineCount,
+      x3Error: data.x3Error,
+      cached: data.cached,
+    })
+  }
+
+  /**
+   * Payload de la vue unifiée OF ↔ commandes.
+   *
+   * Réutilise la même logique de placement que loadBoardData (OF posés en date de
+   * début sur les postes de charge), puis ajoute le pegging OF→commande via la
+   * contremarque X3 (getCommandesByOf) pour matérialiser le lien visuel. Les
+   * commandes dont l'expédition sort de la fenêtre ne sont ni marquées ni liées
+   * (vue scoppée à l'horizon) ; un échec du pegging est non-fatal (board sans liens).
+   */
+  private async loadVisionData(ctx: HttpContext, basePath = '/vision') {
+    const startParam = ctx.request.input('start') as string | undefined
+    const daysParam = Number.parseInt(ctx.request.input('days', '14'), 10)
+    const horizon = Number.isFinite(daysParam) && daysParam > 0 && daysParam <= 90 ? daysParam : 14
+    const force = !!ctx.request.input('refresh')
+
+    const windowStart = startParam ? new Date(startParam) : new Date()
+    windowStart.setHours(0, 0, 0, 0)
+
+    let mos: ManufacturingOrder[] = []
+    let gammeOps: GammeOperation[] = []
+    let x3Error: string | null = null
+    try {
+      const [ref, ord] = await Promise.all([boardDataset.getReferential(force), boardDataset.getOrders(force)])
+      gammeOps = ref.gamme
+      mos = ord.mos
+    } catch (e) {
+      x3Error = (e as Error).message
+    }
+
+    const overrides = await this.store.getAll()
+    const overrideMap = new Map(overrides.map((o) => [o.numOf, o]))
+    const gammeMap = new Map(gammeOps.map((g) => [g.article, g]))
+    const wstLabels = new Map<string, string>()
+    for (const g of gammeOps) {
+      if (g.workstation) wstLabels.set(g.workstation, g.workstationLabel || g.workstation)
+    }
+
+    // Jours ouvrés dans l'horizon.
+    const colDates: Date[] = []
+    for (let i = 0; i < horizon; i++) {
+      const d = atMidnight(windowStart)
+      d.setDate(windowStart.getDate() + i)
+      const dow = d.getDay()
+      if (dow !== 0 && dow !== 6) colDates.push(d)
+    }
+    const colIdx = new Map<string, number>()
+    colDates.forEach((d, i) => colIdx.set(isoDay(d), i))
+    const now = atMidnight(new Date())
+
+    const days: VisionDayCol[] = colDates.map((d) => ({
+      short: `${d.toLocaleDateString('fr-FR', { weekday: 'short' })} ${d.toLocaleDateString('fr-FR', { day: '2-digit' })}`,
+      iso: isoDay(d),
+      today: atMidnight(d).getTime() === now.getTime(),
+    }))
+
+    // Placement des OF sur poste × jour (date de début).
+    type Placed = {
+      mo: ManufacturingOrder
+      posteCode: string
+      posteLabel: string
+      col: number
+      hours: number
+    }
+    const byPoste = new Map<string, { ofCount: number; totalHours: number; cells: Placed[][] }>()
+    const placed: Placed[] = []
+
+    for (const mo of mos) {
+      const ov = overrideMap.get(mo.numOf) ?? null
+      const wst = ov?.workstation ?? gammeMap.get(mo.article)?.workstation ?? null
+      if (!wst) continue
+      if (!wstLabels.has(wst)) wstLabels.set(wst, wst)
+
+      const start = ov?.dateDebut ? new Date(ov.dateDebut) : mo.startDate
+      if (!start) continue
+      const idx = colIdx.get(isoDay(start))
+      if (idx === undefined) continue
+
+      const rate = gammeMap.get(mo.article)?.rate ?? 0
+      const hours = rate > 0 ? mo.quantity / rate : 0
+      const p: Placed = { mo, posteCode: wst, posteLabel: wstLabels.get(wst) ?? wst, col: idx, hours }
+      placed.push(p)
+
+      if (!byPoste.has(wst)) {
+        byPoste.set(wst, {
+          ofCount: 0,
+          totalHours: 0,
+          cells: Array.from({ length: colDates.length }, () => []),
+        })
+      }
+      const entry = byPoste.get(wst)!
+      entry.ofCount++
+      entry.totalHours += hours
+      entry.cells[idx].push(p)
+    }
+
+    // Pegging OF → commande (contremarque X3). Non-fatal : board sans liens si échec.
+    let pegs = new Map<string, OfCommandePeg>()
+    if (placed.length > 0) {
+      try {
+        pegs = await new X3OrderLineRepository().getCommandesByOf(placed.map((p) => p.mo.numOf))
+      } catch {
+        pegs = new Map()
+      }
+    }
+
+    // Marqueurs commandes (déduits, expédition dans la fenêtre).
+    const commandeByNum = new Map<string, VisionCommande>()
+    for (const p of placed) {
+      const peg = pegs.get(p.mo.numOf)
+      if (!peg || !peg.dateExpedition) continue
+      const expIso = isoDay(peg.dateExpedition)
+      const col = colIdx.get(expIso)
+      if (col === undefined) continue
+      if (!commandeByNum.has(peg.numCommande)) {
+        commandeByNum.set(peg.numCommande, {
+          id: peg.numCommande,
+          numCommande: peg.numCommande,
+          client: peg.client,
+          dateExpeditionIso: expIso,
+          col,
+        })
+      }
+    }
+    const commandes = [...commandeByNum.values()]
+
+    // Liens OF → commande.
+    const links: VisionLink[] = []
+    for (const p of placed) {
+      const peg = pegs.get(p.mo.numOf)
+      if (!peg || !peg.dateExpedition) continue
+      const cmd = commandeByNum.get(peg.numCommande)
+      if (!cmd) continue
+      links.push({
+        ofId: p.mo.numOf,
+        posteCode: p.posteCode,
+        ofCol: p.col,
+        commandeId: peg.numCommande,
+        cmdCol: cmd.col,
+        suggere: p.mo.status === 3,
+      })
+    }
+
+    // Rangées postes (tri par code).
+    const postes: VisionPosteRow[] = [...byPoste.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([code, entry]) => ({
+        code,
+        name: wstLabels.get(code) ?? code,
+        ofCount: entry.ofCount,
+        totalHours: Math.round(entry.totalHours),
+        dayCells: entry.cells.map((arr, i) => ({
+          iso: isoDay(colDates[i]),
+          ofs: arr.map((p) => ({
+            numOf: p.mo.numOf,
+            status: moStatusToCard(p.mo.status),
+            article: p.mo.article,
+            designation: p.mo.designation,
+            posteCode: p.posteCode,
+            posteLabel: p.posteLabel,
+            done: p.mo.quantityDone,
+            launched: p.mo.quantityLaunched,
+            hours: Math.round(p.hours * 10) / 10,
+          })),
+        })),
+      }))
+
+    // Semaines (en-tête + capacités).
+    const colWeek = colDates.map((d) => isoWeek(d))
+    const weekOrder: number[] = []
+    const weekDayCount = new Map<number, number>()
+    colWeek.forEach((wk) => {
+      if (!weekOrder.includes(wk)) weekOrder.push(wk)
+      weekDayCount.set(wk, (weekDayCount.get(wk) ?? 0) + 1)
+    })
+    const weekSpans = weekOrder.map((wk) => ({ week: wk, span: weekDayCount.get(wk) ?? 0 }))
+    const weekCaps = Object.fromEntries(weekOrder.map((wk) => [wk, (weekDayCount.get(wk) ?? 0) * 8]))
+
+    const firstDay = colDates[0] ?? windowStart
+    const lastDay = colDates[colDates.length - 1] ?? windowStart
+    const fmtFr = (d: Date) =>
+      d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase()
+
+    const navIso = (deltaDays: number) => {
+      const d = atMidnight(windowStart)
+      d.setDate(d.getDate() + deltaDays)
+      return isoDay(d)
+    }
+    const navQuery = (start: string) => `?start=${start}&days=${horizon}` + (force ? '&refresh=1' : '')
+    const prevHref = `${basePath}${navQuery(navIso(-horizon))}`
+    const nextHref = `${basePath}${navQuery(navIso(horizon))}`
+    const todayHref = `${basePath}${navQuery(isoDay(now))}`
+
+    return {
+      board: { days, cols: days.length, weekSpans, colWeek, weekCaps, postes, commandes, links } as VisionBoard,
+      horizon,
+      windowFrom: colDates.length ? isoDay(firstDay) : '',
+      windowTo: colDates.length ? isoDay(lastDay) : '',
+      weekLabel: colDates.length ? `S${isoWeek(colDates[0])}` : '',
+      dateRange: `${fmtFr(firstDay)} — ${fmtFr(lastDay)}`,
+      prevHref,
+      nextHref,
+      todayHref,
+      totalOf: mos.length,
+      lineCount: postes.length,
+      x3Error,
+      cached: boardDataset.status().ordersAt
+        ? new Date(boardDataset.status().ordersAt!).toLocaleTimeString('fr-FR')
+        : null,
+    }
   }
 
   /**
