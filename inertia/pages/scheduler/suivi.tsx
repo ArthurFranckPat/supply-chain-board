@@ -303,7 +303,7 @@ const Suivi: Component<SuiviPageProps> = (props) => {
                           <td class="border-r border-rule-soft px-4 py-[13px] align-middle">
                             <Show
                               when={o.emplacements.length > 0}
-                              fallback={<span class="font-fraunces text-[12px] font-medium italic text-muted-foreground/70">—</span>}
+                              fallback={<span class="font-sans text-[12px] font-medium leading-snug text-muted-foreground/70">—</span>}
                             >
                               <div class="flex flex-col gap-[3px]">
                                 <For each={o.emplacements}>
@@ -356,10 +356,10 @@ const Suivi: Component<SuiviPageProps> = (props) => {
                               </Show>
                             </div>
                           </td>
-                          <td class="px-4 py-[13px] align-middle">
+                          <td class="border-r border-rule-soft px-4 py-[13px] align-middle">
                             <Show
                               when={o.cause}
-                              fallback={<span class="font-fraunces text-[12px] font-medium italic text-muted-foreground/70">—</span>}
+                              fallback={<span class="font-sans text-[12px] font-medium leading-snug text-muted-foreground/70">—</span>}
                             >
                               <div class="text-[12px] leading-snug text-secondary-foreground">{o.cause!.label}</div>
                               <Show when={o.cause!.comps.length > 0}>
