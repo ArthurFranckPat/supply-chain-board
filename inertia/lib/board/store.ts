@@ -39,6 +39,23 @@ export function createBoardStore(initial: BoardData) {
   // null = request in flight → nothing matches (everything dimmed).
   const [matchSet, setMatchSet] = createSignal<Set<string> | null>(new Set())
 
+  // ── Filtre par statut d'OF (Ferme / Planifié / Suggéré) ──
+  // Set des statuts ACTIFS (affichés). Les cartes d'un autre statut (en cours,
+  // terminé, bloqué) ne sont jamais masquées par ce filtre. Comme la recherche,
+  // le filtre estompe les cartes hors-sélection (et les retire des charges),
+  // sans masquer les lignes.
+  const STATUS_FILTER_KEYS = ['ferme', 'planifie', 'suggere'] as const
+  type StatusKey = (typeof STATUS_FILTER_KEYS)[number]
+  const normStatus = (s: string) => s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase()
+  const [statusFilter, setStatusFilter] = createSignal<Set<StatusKey>>(new Set(STATUS_FILTER_KEYS))
+  const statusActive = (s: StatusKey) => statusFilter().has(s)
+  const toggleStatus = (s: StatusKey) =>
+    setStatusFilter((prev) => {
+      const next = new Set(prev)
+      next.has(s) ? next.delete(s) : next.add(s)
+      return next
+    })
+
   const [mode, setMode] = createSignal<FeasibilityMode>('immediate')
   // numOf → feasibility status (empty until "Calculer faisabilité" runs).
   const [feasibility, setFeasibility] = createSignal<Record<string, FeasStatus>>({})
@@ -48,8 +65,17 @@ export function createBoardStore(initial: BoardData) {
   const cache = new Map<string, Set<string>>()
   let pendingSeq = 0
 
-  /** Whether a card matches the current query under the active scope. */
+  /** Whether a card passes the status filter (Ferme/Planifié/Suggéré). */
+  function cardStatusOk(card: Card): boolean {
+    const key = normStatus(card.status) as StatusKey
+    // Hors des 3 statuts filtrables (en cours, terminé, bloqué) → toujours visible.
+    if (!STATUS_FILTER_KEYS.includes(key)) return true
+    return statusFilter().has(key)
+  }
+
+  /** Whether a card matches the current query under the active scope + the status filter. */
   function cardMatches(card: Card, lineCode: string): boolean {
+    if (!cardStatusOk(card)) return false
     const q = query().trim()
     if (!q) return true
     const set = matchSet()
@@ -123,6 +149,7 @@ export function createBoardStore(initial: BoardData) {
     setBoard(reconcile(next))
     setQuery('')
     setMatchSet(new Set<string>())
+    setStatusFilter(new Set(STATUS_FILTER_KEYS))
     setFeasibility({})
     cache.clear()
   }
@@ -149,7 +176,7 @@ export function createBoardStore(initial: BoardData) {
     line.dayCells.forEach((dc, col) => {
       const wk = board.colWeek[col]
       if (wk === undefined) return
-      for (const card of dc.cards) byWeek[wk] = (byWeek[wk] ?? 0) + card.hours
+      for (const card of dc.cards) if (cardStatusOk(card)) byWeek[wk] = (byWeek[wk] ?? 0) + card.hours
     })
     return line.weekLoads.map((wl) => {
       const hours = Math.round((byWeek[wl.week] ?? 0) * 10) / 10
@@ -256,6 +283,8 @@ export function createBoardStore(initial: BoardData) {
     matchSet,
     mode,
     setMode,
+    statusActive,
+    toggleStatus,
     feasOf,
     feasLoading,
     cardMatches,

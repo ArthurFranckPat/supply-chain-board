@@ -1,4 +1,4 @@
-import { createEffect, createSignal, on, Show, type Component } from 'solid-js'
+import { For, createEffect, createSignal, on, Show, type Component } from 'solid-js'
 import { Link, router } from '@/lib/inertia-solid'
 import { createBoardStore } from '@/lib/board/store'
 import type { BoardData } from '@/lib/board/types'
@@ -34,6 +34,13 @@ const SCOPES = [
   { v: 'pf', label: 'PF' },
   { v: 'composant', label: 'Composant' },
 ] as const
+
+/** Chips de filtre par statut d'OF (clés canoniques card.status, sans accent). */
+const STATUS_FILTER_CHIPS: { k: 'ferme' | 'planifie' | 'suggere'; label: string }[] = [
+  { k: 'ferme', label: 'Ferme' },
+  { k: 'planifie', label: 'Planifié' },
+  { k: 'suggere', label: 'Suggéré' },
+]
 
 const DAY_MS = 86_400_000
 
@@ -146,6 +153,24 @@ const ExpertBoard: Component<ExpertBoardProps> = (props) => {
 
       {/* ═══ Toolbar ═══ */}
       <div class="flex flex-none flex-wrap items-center justify-between gap-3 border-b border-rule px-7 py-2">
+        {/* Filtre statut d'OF (Ferme / Planifié / Suggéré) */}
+        <div class="inline-flex items-center gap-1 rounded-md border border-rule bg-card p-0.5">
+          <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Statut</span>
+          <For each={STATUS_FILTER_CHIPS}>
+            {({ k, label }) => (
+              <button
+                type="button"
+                class={`rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                  store.statusActive(k) ? 'bg-terra-soft text-terra' : 'text-muted-foreground hover:text-foreground'
+                }`}
+                onClick={() => store.toggleStatus(k)}
+              >
+                {label}
+              </button>
+            )}
+          </For>
+        </div>
+
         {/* Calendrier (remplace nav semaine + horizon) */}
         <div class="relative">
           <button
