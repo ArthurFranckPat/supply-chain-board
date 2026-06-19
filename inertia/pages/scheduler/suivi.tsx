@@ -105,23 +105,20 @@ const Suivi: Component<SuiviPageProps> = (props) => {
     const tf = typeFilter()
     let r = all.filter((row) => (sf === 'all' || row.statusKey === sf) && tf.has(row.type))
     if (q) r = r.filter((row) => row.filter.includes(q))
-    // Retards en haut, puis tri chronologique ascendant (plus urgents avant).
-    // Lignes sans date → en bas.
+    // Tri chronologique ascendant par date d'expédition (plus urgents avant).
+    // Lignes sans date → en bas. Tiebreak : n° de commande.
     // `r` provient déjà d'un .filter() → tableau neuf, tri en place.
     r.sort((a, b) => {
-      const ra = a.statusKey === 'ret' ? 0 : 1
-      const rb = b.statusKey === 'ret' ? 0 : 1
-      if (ra !== rb) return ra - rb
-      // dates ISO (YYYY-MM-DD) : comparaison lexicale = chronologique.
       const da = a.dateExpIso ?? '9999-12-31'
       const db = b.dateExpIso ?? '9999-12-31'
-      return da < db ? -1 : da > db ? 1 : 0
+      if (da !== db) return da < db ? -1 : 1
+      return a.numCommande.localeCompare(b.numCommande)
     })
     return r
   })
 
-  // Lignes proactives filtrées (query + type + verdict). Tri : bloquées/sans couverture
-  // en haut, puis retard, puis chronologique.
+  // Lignes proactives filtrées (query + type + verdict). Tri chronologique ascendant
+  // par date d'expédition (plus urgents avant), tiebreak n° de commande.
   const [verdictFilter, setVerdictFilter] = createSignal<ProactiveVerdictKey | 'all'>('all')
   const visibleProRows = createMemo(() => {
     const all = proView().rows
@@ -130,14 +127,11 @@ const Suivi: Component<SuiviPageProps> = (props) => {
     const tf = typeFilter()
     let r = all.filter((row) => (vf === 'all' || row.verdictKey === vf) && tf.has(row.type))
     if (q) r = r.filter((row) => row.filter.includes(q))
-    const rank = (k: ProactiveVerdictKey) => (k === 'blocked' || k === 'uncov' ? 0 : k === 'late' ? 1 : 2)
     r.sort((a, b) => {
-      const ra = rank(a.verdictKey)
-      const rb = rank(b.verdictKey)
-      if (ra !== rb) return ra - rb
       const da = a.dateExpIso ?? '9999-12-31'
       const db = b.dateExpIso ?? '9999-12-31'
-      return da < db ? -1 : da > db ? 1 : 0
+      if (da !== db) return da < db ? -1 : 1
+      return a.numCommande.localeCompare(b.numCommande)
     })
     return r
   })
