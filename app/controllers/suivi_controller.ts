@@ -19,8 +19,10 @@ import type { OrderImpactResult } from '#app/domain/order-impacts'
 import type { Article } from '#app/domain/models/article'
 import { X3OfRepository } from '#repositories/of_repository'
 import { X3StockRepository } from '#repositories/stock_repository'
-import { X3ReceptionRepository } from '#repositories/reception_repository'
+import { X3ReceptionRepository, loadReceptionsByArticle } from '#repositories/reception_repository'
 import { X3BesoinClientRepository } from '#repositories/besoin_client_repository'
+import { resolveCoveringReception } from '#app/domain/shortages'
+import type { ReceptionRecord } from '#app/domain/recursive-checker'
 import type { Flow } from '#app/domain/models/flow'
 
 /**
@@ -218,7 +220,12 @@ export default class SuiviController {
       const to = new Date(refDate)
       to.setDate(to.getDate() + 90)
       const { result, articles } = await loadOrderImpacts({ from, to, mode: 'sequential', preferEngineFeasibility: true })
-      const built = buildProactiveDisplay(result, articles)
+      // Réceptions encore à venir (≥ réf.) pour l'ETA des goulots — exclut celles déjà
+      // arrivées (consommées dans le stock).
+      const recFrom = new Date(refDate)
+      recFrom.setHours(0, 0, 0, 0)
+      const receptionsByArticle = await loadReceptionsByArticle(recFrom)
+      const built = buildProactiveDisplay(result, articles, receptionsByArticle)
       rows = built.rows
       verdictCounts = built.verdictCounts
     } catch (e) {
@@ -353,8 +360,18 @@ export interface ProactiveDisplayRow {
   /** Mode de couverture : « Stock » | n° OF (« · »-séparés) | « Achat » | « — ». */
   couverture: string
   joursRetard: number
-  /** Composants goulots agrégés sur les OFs de la commande (art + désignation + qté manquante). */
-  composants: { art: string; desc: string; qty: number }[]
+  /**
+   * Composants goulots agrégés sur les OFs de la commande (art + désignation + qté manquante).
+   * `reception` = première réception d'achat couvrant la qté manquante (ETA + n° commande
+   * d'achat) — la lentille appro de la table Ruptures, rapatriée au niveau commande pour
+   * rendre la vue proactive auto-suffisante. `null` si aucune couverture prévue.
+   */
+  composants: {
+    art: string
+    desc: string
+    qty: number
+    reception: { eta: string; po: string; supplier: string } | null
+  }[]
   ofs: ProactiveOf[]
   filter: string
 }
@@ -504,6 +521,7 @@ const PROACTIVE_HORIZON_FUTURE_DAYS = 21
 export function buildProactiveDisplay(
   result: OrderImpactResult,
   articles: Map<string, Article> = new Map(),
+  receptionsByArticle: Map<string, ReceptionRecord[]> = new Map(),
 ): {
   rows: ProactiveDisplayRow[]
   verdictCounts: Record<ProactiveVerdictKey, number>
@@ -527,11 +545,18 @@ export function buildProactiveDisplay(
       }
       const comps = [...composants.entries()]
         .sort(([a], [b]) => a.localeCompare(b))
-        .map(([art, qty]) => ({
-          art,
-          desc: articles.get(art)?.description ?? '',
-          qty: Math.round(qty * 100) / 100,
-        }))
+        .map(([art, qty]) => {
+          const qtyR = Math.round(qty * 100) / 100
+          // Réception couvrante (même résolution que la table Ruptures) : 1ère réception
+          // d'achat dont le cumul atteint la qté manquante → ETA + n° commande d'achat.
+          const rec = resolveCoveringReception(receptionsByArticle.get(art) ?? [], qtyR)
+          return {
+            art,
+            desc: articles.get(art)?.description ?? '',
+            qty: qtyR,
+            reception: rec ? { eta: fmtFrDay(rec.dateArrivee), po: rec.id, supplier: rec.supplier } : null,
+          }
+        })
 
       // La demande est déjà nettoyée de l'allocation ERP côté loader (proactif) : qteRestante
       // = reste à RÉALISER (reste à livrer − alloué). Le verdict moteur porte donc sur la part

@@ -77,4 +77,33 @@ test.group('buildProactiveDisplay — projection du verdict', () => {
     assert.equal(rows[0].verdictLabel, 'Sans couverture')
     assert.equal(verdictCounts.uncov, 1)
   })
+
+  test('goulot enrichi de sa réception couvrante (lentille appro)', ({ assert }) => {
+    const blocked = result({
+      statut: 'bloquee',
+      ofs: [
+        { numOf: 'OF1', article: '11033025', qteAllouee: 28, dateFin: '2026-06-22', feasible: false, missingComponents: { C1: 10 }, modified: false, statutNum: 2 },
+      ],
+    })
+    // Réception couvrant les 10 manquants (cumul 12 ≥ 10) → ETA + n° commande d'achat.
+    const receptions = new Map([
+      ['C1', [{ id: 'PO123', article: 'C1', supplier: 'ACME', quantity: 12, date: new Date('2026-06-25T00:00:00Z') }]],
+    ])
+    const { rows } = buildProactiveDisplay(blocked, new Map(), receptions)
+    assert.equal(rows[0].composants[0].art, 'C1')
+    assert.equal(rows[0].composants[0].reception?.po, 'PO123')
+    assert.equal(rows[0].composants[0].reception?.supplier, 'ACME')
+    assert.isString(rows[0].composants[0].reception?.eta)
+  })
+
+  test('goulot sans réception → reception null', ({ assert }) => {
+    const blocked = result({
+      statut: 'bloquee',
+      ofs: [
+        { numOf: 'OF1', article: '11033025', qteAllouee: 28, dateFin: '2026-06-22', feasible: false, missingComponents: { C1: 10 }, modified: false, statutNum: 2 },
+      ],
+    })
+    const { rows } = buildProactiveDisplay(blocked) // pas de receptionsByArticle
+    assert.isNull(rows[0].composants[0].reception)
+  })
 })

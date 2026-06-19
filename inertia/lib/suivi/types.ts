@@ -142,8 +142,14 @@ export interface ProactiveDisplayRow {
   /** Mode de couverture : « Stock » | n° OF (« · »-séparés) | « Achat » | « — ». */
   couverture: string
   joursRetard: number
-  /** Composants goulots agrégés sur les OFs de la commande. */
-  composants: { art: string; desc: string; qty: number }[]
+  /** Composants goulots agrégés sur les OFs de la commande.
+   *  `reception` = 1ère réception d'achat couvrante (ETA FR + n° commande d'achat), null sinon. */
+  composants: {
+    art: string
+    desc: string
+    qty: number
+    reception: { eta: string; po: string; supplier: string } | null
+  }[]
   ofs: ProactiveOf[]
   filter: string
 }

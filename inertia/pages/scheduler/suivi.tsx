@@ -501,12 +501,27 @@ const Suivi: Component<SuiviPageProps> = (props) => {
           <div class="flex flex-col gap-1">
             <For each={comps.slice(0, 4)}>
               {(c) => (
-                <div class="flex items-center gap-1.5">
-                  <span class="shrink-0 font-mono text-[10.5px] font-bold text-destructive">{c.art}</span>
-                  <Show when={c.desc}>
-                    <span class="truncate font-sans text-[10px] leading-tight text-muted-foreground" title={c.desc}>{c.desc}</span>
+                <div class="flex flex-col gap-px">
+                  <div class="flex items-center gap-1.5">
+                    <span class="shrink-0 font-mono text-[10.5px] font-bold text-destructive">{c.art}</span>
+                    <Show when={c.desc}>
+                      <span class="truncate font-sans text-[10px] leading-tight text-muted-foreground" title={c.desc}>{c.desc}</span>
+                    </Show>
+                    <span class="ml-auto shrink-0 rounded bg-destructive/10 px-1 font-mono text-[10px] font-bold tabular-nums text-destructive">−{c.qty}</span>
+                  </div>
+                  {/* Réception couvrante (lentille appro rapatriée des Ruptures). */}
+                  <Show
+                    when={c.reception}
+                    fallback={
+                      <span class="font-mono text-[9.5px] font-medium leading-tight text-destructive/70">aucune couverture prévue</span>
+                    }
+                  >
+                    {(r) => (
+                      <span class="font-mono text-[9.5px] font-medium leading-tight text-muted-foreground" title={r().supplier}>
+                        arrive {r().eta} · {r().po}
+                      </span>
+                    )}
                   </Show>
-                  <span class="ml-auto shrink-0 rounded bg-destructive/10 px-1 font-mono text-[10px] font-bold tabular-nums text-destructive">−{c.qty}</span>
                 </div>
               )}
             </For>

@@ -7,8 +7,7 @@ import { type ManufacturingOrder } from '#repositories/of_repository'
 import type { GammeOperation } from '#app/domain/models/gamme'
 import { loadOrderImpacts } from '#services/order_impacts_loader'
 import { buildShortageRows, type ShortageRow } from '#app/domain/shortages'
-import { buildReceptionsMap } from '#services/feasibility-loader-adapter'
-import { X3ReceptionRepository } from '#repositories/reception_repository'
+import { loadReceptionsByArticle } from '#repositories/reception_repository'
 
 // ---------------------------------------------------------------------------
 type CardStatus = 'termine' | 'ferme' | 'cours' | 'planifie' | 'suggere' | 'bloque'
@@ -379,21 +378,7 @@ export default class SchedulerController {
           { numCommande: p.numCommande, client: p.client, dateExpedition: p.dateExpedition?.toISOString().slice(0, 10) ?? null },
         ]),
       )
-      const receptionFlows = await new X3ReceptionRepository().getReceptionFlows()
-      // N'agréger que les réceptions encore à venir (≥ début de fenêtre) : une réception déjà
-      // arrivée est consommée dans le stock et fausserait la couverture. Pas de borne haute —
-      // une réception au-delà de la fenêtre reste utile pour détecter un retard d'arrivée.
-      const receptionsByArticle = buildReceptionsMap(
-        receptionFlows
-          .filter((f) => f.date !== null && f.date >= windowFrom)
-          .map((f) => ({
-          article: f.article,
-          id: (f.origin as { id?: string }).id,
-          supplier: (f.origin as { supplier?: string }).supplier,
-          quantity: f.quantity,
-          date: f.date,
-        })),
-      )
+      const receptionsByArticle = await loadReceptionsByArticle(windowFrom)
       const built = buildShortageRows(result, receptionsByArticle, articles, pegsIso)
       rows = built.rows
       stats = built.stats

@@ -40,10 +40,10 @@ import {
 import { X3BesoinClientRepository } from '#repositories/besoin_client_repository'
 import { X3StockRepository } from '#repositories/stock_repository'
 import { X3OfRepository } from '#repositories/of_repository'
-import { buildNomenclatureMap, buildOfRecords, buildReceptionsMap } from '#services/feasibility-loader-adapter'
+import { buildNomenclatureMap, buildOfRecords } from '#services/feasibility-loader-adapter'
 import { loadOrderImpacts } from '#services/order_impacts_loader'
 import { buildShortageRows } from '#app/domain/shortages'
-import { X3ReceptionRepository } from '#repositories/reception_repository'
+import { loadReceptionsByArticle } from '#repositories/reception_repository'
 import { X3EmplacementRepository } from '#repositories/emplacement_repository'
 import { X3MfgmatRepository } from '#repositories/mfgmat_repository'
 import { X3StockAvailabilityRepository } from '#repositories/stock_availability_repository'
@@ -657,18 +657,7 @@ async function buildOrderCauses(): Promise<Map<string, OrderCauseInfo>> {
         },
       ]),
     )
-    const receptionFlows = await new X3ReceptionRepository().getReceptionFlows()
-    const receptionsByArticle = buildReceptionsMap(
-      receptionFlows
-        .filter((f) => f.date !== null && f.date >= from)
-        .map((f) => ({
-          article: f.article,
-          id: (f.origin as { id?: string }).id,
-          supplier: (f.origin as { supplier?: string }).supplier,
-          quantity: f.quantity,
-          date: f.date,
-        })),
-    )
+    const receptionsByArticle = await loadReceptionsByArticle(from)
     const { rows } = buildShortageRows(result, receptionsByArticle, articles, pegsIso)
 
     // Agrège les lignes de rupture par commande : composants manquants + réception goulot
