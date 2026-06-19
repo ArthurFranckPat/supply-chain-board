@@ -14,6 +14,7 @@
 import { router, setupProgress, shouldIntercept } from '@inertiajs/core'
 import type { Page, PageProps, VisitOptions, Method } from '@inertiajs/core'
 import {
+  batch,
   createContext,
   createMemo,
   createSignal,
@@ -126,8 +127,14 @@ function App(props: SetupProps): JSX.Element {
     initialPage: props.initialPage,
     resolveComponent: props.resolveComponent,
     swapComponent: async ({ component: next, page: nextPage }) => {
-      setComponent(() => next as InertiaPage)
-      setPage(reconcile(nextPage as Page))
+      // Atomique : sans `batch`, `setComponent` re-rend AVANT `setPage`, donc le
+      // nouveau composant est monté un instant avec les props de l'ANCIENNE page.
+      // Les pages qui dérivent un état des props au montage (createBoardStore(props.board))
+      // plantent alors sur des props manquantes → page blanche, URL déjà changée.
+      batch(() => {
+        setComponent(() => next as InertiaPage)
+        setPage(reconcile(nextPage as Page))
+      })
     },
   })
 
