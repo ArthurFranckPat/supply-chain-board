@@ -2,12 +2,17 @@ import { createMemo, createResource, createSignal, For, Show, type Component } f
 import { Link } from '@/lib/inertia-solid'
 import { route } from '@/lib/routes'
 import { cx } from '@/libs/cva'
+import { createColumnHelper } from '@tanstack/solid-table'
+import { DataTable, type SortingState } from '@/components/ui/data-table'
+
 import type {
   SuiviPageProps,
   SuiviRowsResponse,
   SuiviStatusKey,
+  SuiviDisplayRow,
   ProactiveRowsResponse,
   ProactiveVerdictKey,
+  ProactiveDisplayRow,
 } from '@/lib/suivi/types'
 import UserMenu from '@/components/user-menu'
 
@@ -98,42 +103,80 @@ const Suivi: Component<SuiviPageProps> = (props) => {
       return next
     })
 
-  const visibleRows = createMemo(() => {
+  // Filtrage + tri manuels (TanStack Table ne tracke pas les signaux extérieurs).
+  const [verdictFilter, setVerdictFilter] = createSignal<ProactiveVerdictKey | 'all'>('all')
+  const [reactiveSorting, setReactiveSorting] = createSignal<SortingState[]>([{ id: 'dateExp', desc: false }])
+  const [proSorting, setProSorting] = createSignal<SortingState[]>([{ id: 'dateExp', desc: false }])
+
+  const sortRows = <T extends { numCommande: string; dateExpIso: string | null }>(rows: T[], sorting: SortingState[]): T[] => {
+    if (sorting.length === 0) return rows
+    const { id, desc } = sorting[0]
+    const sorted = [...rows]
+    sorted.sort((a, b) => {
+      let va: string | number
+      let vb: string | number
+      switch (id) {
+        case 'numCommande':
+          va = a.numCommande
+          vb = b.numCommande
+          break
+        case 'article':
+          va = (a as any).article
+          vb = (b as any).article
+          break
+        case 'type':
+          va = (a as any).type
+          vb = (b as any).type
+          break
+        case 'qteRestante':
+          va = (a as any).qteRestante
+          vb = (b as any).qteRestante
+          break
+        case 'dateExp':
+          va = a.dateExpIso ?? '9999-12-31'
+          vb = b.dateExpIso ?? '9999-12-31'
+          break
+        case 'couverture':
+          va = (a as any).couverture
+          vb = (b as any).couverture
+          break
+        case 'joursRetard':
+          va = (a as any).joursRetard
+          vb = (b as any).joursRetard
+          break
+        default:
+          return 0
+      }
+      let cmp = 0
+      if (typeof va === 'number' && typeof vb === 'number') {
+        cmp = va < vb ? -1 : va > vb ? 1 : 0
+      } else {
+        cmp = String(va).localeCompare(String(vb))
+      }
+      if (cmp !== 0) return cmp
+      // Tiebreak identique à l'ancien tri manuel.
+      return a.numCommande.localeCompare(b.numCommande)
+    })
+    return desc ? sorted.reverse() : sorted
+  }
+
+  const reactiveRows = createMemo(() => {
     const all = view().rows
     const q = query().trim().toLowerCase()
     const sf = statusFilter()
     const tf = typeFilter()
     let r = all.filter((row) => (sf === 'all' || row.statusKey === sf) && tf.has(row.type))
     if (q) r = r.filter((row) => row.filter.includes(q))
-    // Tri chronologique ascendant par date d'expédition (plus urgents avant).
-    // Lignes sans date → en bas. Tiebreak : n° de commande.
-    // `r` provient déjà d'un .filter() → tableau neuf, tri en place.
-    r.sort((a, b) => {
-      const da = a.dateExpIso ?? '9999-12-31'
-      const db = b.dateExpIso ?? '9999-12-31'
-      if (da !== db) return da < db ? -1 : 1
-      return a.numCommande.localeCompare(b.numCommande)
-    })
-    return r
+    return sortRows(r, reactiveSorting())
   })
-
-  // Lignes proactives filtrées (query + type + verdict). Tri chronologique ascendant
-  // par date d'expédition (plus urgents avant), tiebreak n° de commande.
-  const [verdictFilter, setVerdictFilter] = createSignal<ProactiveVerdictKey | 'all'>('all')
-  const visibleProRows = createMemo(() => {
+  const proRows = createMemo(() => {
     const all = proView().rows
     const q = query().trim().toLowerCase()
     const vf = verdictFilter()
     const tf = typeFilter()
     let r = all.filter((row) => (vf === 'all' || row.verdictKey === vf) && tf.has(row.type))
     if (q) r = r.filter((row) => row.filter.includes(q))
-    r.sort((a, b) => {
-      const da = a.dateExpIso ?? '9999-12-31'
-      const db = b.dateExpIso ?? '9999-12-31'
-      if (da !== db) return da < db ? -1 : 1
-      return a.numCommande.localeCompare(b.numCommande)
-    })
-    return r
+    return sortRows(r, proSorting())
   })
 
   const counts = () => view().statusCounts
@@ -177,6 +220,316 @@ const Suivi: Component<SuiviPageProps> = (props) => {
         {label}
       </button>
     )
+  }
+
+  // ── Définitions de colonnes (TanStack) ──────────────────────────────────
+  // Chaque cellule retourne le même JSX qu'avant pour préserver pixel-perfect.
+  const reHelper = createColumnHelper<SuiviDisplayRow>()
+  const reactiveColumns = [
+    reHelper.accessor('numCommande', {
+      header: () => 'Commande · Client',
+      cell: (info) => (
+        <>
+          <div class="font-mono text-[13px] font-bold tracking-tight text-foreground">{info.getValue()}</div>
+          <div class="mt-0.5 font-sans text-[12px] font-medium leading-snug text-secondary-foreground">{info.row.original.client || '—'}</div>
+        </>
+      ),
+      meta: { thClass: 'w-[178px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft', tdClass: 'px-4 py-[13px] align-middle border-r border-rule-soft' },
+    }),
+    reHelper.accessor('article', {
+      header: () => 'Article · Désignation',
+      cell: (info) => (
+        <>
+          <div class="font-mono text-[13px] font-semibold text-terra">{info.getValue()}</div>
+          <div class="mt-0.5 font-sans text-[12px] font-medium leading-snug text-secondary-foreground">{info.row.original.designation || '—'}</div>
+        </>
+      ),
+      meta: { thClass: 'px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft', tdClass: 'px-4 py-[13px] align-middle border-r border-rule-soft' },
+    }),
+    reHelper.accessor('type', {
+      header: () => 'Type',
+      cell: (info) => (
+        <span class="rounded bg-terra-soft px-[7px] py-0.5 font-mono text-[10px] font-bold uppercase tracking-wide text-terra">{info.getValue()}</span>
+      ),
+      meta: { thClass: 'w-[56px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft', tdClass: 'px-4 py-[13px] align-middle border-r border-rule-soft' },
+    }),
+    reHelper.accessor('qteRestante', {
+      header: () => 'Reste',
+      cell: (info) => (
+        <>
+          <span class="font-fraunces text-[21px] font-black leading-none tracking-tight text-foreground">{info.getValue()}</span>
+          <span class="ml-0.5 font-mono text-[10px] font-medium text-muted-foreground/80">u</span>
+        </>
+      ),
+      sortingFn: 'basic',
+      meta: { thClass: 'w-[92px] px-4 py-[11px] text-right font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft', tdClass: 'whitespace-nowrap border-r border-rule-soft px-4 py-[13px] text-right align-middle' },
+    }),
+    reHelper.accessor('dateExp', {
+      header: () => 'Expé',
+      cell: (info) => {
+        const late = info.row.original.late
+        return (
+          <span classList={{ 'font-bold text-destructive': late, 'text-foreground': !late }}>
+            {info.getValue() || '—'}
+          </span>
+        )
+      },
+      sortingFn: (a, b) => {
+        const da = a.original.dateExpIso ?? '9999-12-31'
+        const db = b.original.dateExpIso ?? '9999-12-31'
+        return da < db ? -1 : da > db ? 1 : 0
+      },
+      meta: { thClass: 'w-[76px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft', tdClass: 'whitespace-nowrap border-r border-rule-soft px-4 py-[13px] align-middle font-mono text-[12.5px] font-semibold' },
+    }),
+    reHelper.display({
+      id: 'emplacements',
+      enableSorting: false,
+      header: () => 'Emplacement',
+      cell: (info) => {
+        const emps = info.row.original.emplacements
+        if (emps.length === 0) return <span class="font-sans text-[12px] font-medium leading-snug text-muted-foreground/70">—</span>
+        return (
+          <div class="flex flex-col gap-[3px]">
+            <For each={emps}>
+              {(e) => (
+                <span
+                  class={cx(
+                    'flex w-full items-center justify-between gap-1 rounded border px-1.5 py-px font-mono text-[10.5px] leading-[1.4]',
+                    e.source === 'STOALL'
+                      ? 'border-ferme/30 bg-ferme/15 text-ferme'
+                      : 'border-rule bg-card text-secondary-foreground',
+                    e.alreadyAllocated && 'line-through opacity-60',
+                  )}
+                  title={e.source === 'STOALL' ? 'STOALL — déjà alloué à la commande' : (e.alreadyAllocated ? 'Déjà alloué à une autre commande' : 'STOCK — en stock libre, allocation à faire')}
+                >
+                  <span class="flex items-center gap-1 whitespace-nowrap">
+                    <span
+                      class={cx(
+                        'material-symbols-outlined text-[11px] leading-none',
+                        e.source === 'STOALL' ? 'text-ferme' : 'text-muted-foreground/70',
+                      )}
+                    >
+                      {e.source === 'STOALL' ? 'check_circle' : 'radio_button_unchecked'}
+                    </span>
+                    <span class="font-semibold">{e.nom}</span>
+                  </span>
+                  <span class="flex items-center gap-1">
+                    <Show when={e.hum}>
+                      <span class="rounded bg-card px-1.5 font-mono text-[10.5px] font-bold text-foreground">{e.hum}</span>
+                    </Show>
+                    <span class="font-bold tabular-nums">
+                      {e.qte > 0 ? Math.round(e.qte) : '·'}
+                    </span>
+                  </span>
+                </span>
+              )}
+            </For>
+          </div>
+        )
+      },
+      meta: { thClass: 'w-[140px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft', tdClass: 'border-r border-rule-soft px-4 py-[13px] align-middle' },
+    }),
+    reHelper.display({
+      id: 'statusKey',
+      enableSorting: false,
+      header: () => 'Statut',
+      cell: (info) => {
+        const o = info.row.original
+        return (
+          <div class="flex flex-col items-start gap-1">
+            <span class={cx('inline-flex items-center gap-1 rounded-md border border-transparent px-2 py-0.5 text-[11px] font-medium whitespace-nowrap', BADGE_TONE[o.statusKey])}>
+              <span class="material-symbols-outlined grid size-[14px] place-items-center overflow-hidden text-[14px] leading-none">{o.statusIcon}</span>
+              {o.statusLabel}
+            </span>
+            <Show when={o.cq}>
+              <span class="inline-flex items-center gap-1 rounded-md border border-transparent bg-terra-soft px-2 py-0.5 text-[11px] font-medium text-terra whitespace-nowrap">
+                <span class="material-symbols-outlined grid size-[14px] place-items-center text-[14px] leading-none">science</span>CQ
+              </span>
+            </Show>
+          </div>
+        )
+      },
+      meta: { thClass: 'w-[130px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft', tdClass: 'border-r border-rule-soft px-4 py-[13px] align-middle' },
+    }),
+    reHelper.display({
+      id: 'cause',
+      enableSorting: false,
+      header: () => 'Cause du retard',
+      cell: (info) => {
+        const cause = info.row.original.cause
+        if (!cause) return <span class="font-sans text-[12px] font-medium leading-snug text-muted-foreground/70">—</span>
+        return (
+          <>
+            <div class="text-[12px] leading-snug text-secondary-foreground">{cause.label}</div>
+            <Show when={cause.comps.length > 0}>
+              <span class="mt-[3px] block font-mono text-[10px] font-bold text-destructive">
+                {cause.comps.map((c) => `${c.art} −${c.qty}`).join(' · ')}
+              </span>
+            </Show>
+            <Show when={cause.reception}>
+              <span class="mt-[2px] block font-mono text-[10px] font-medium text-muted-foreground">
+                arrive {cause.reception!.eta} · {cause.reception!.po}
+              </span>
+            </Show>
+            <Show when={cause.retro?.composant}>
+              <span class="mt-[2px] block font-mono text-[10px] font-medium text-muted-foreground">
+                {cause.retro!.composant!.art} dispo {cause.retro!.composant!.dispoA}
+                <Show when={cause.retro!.composant!.cq}> (CQ)</Show>
+              </span>
+            </Show>
+            <Show when={cause.retro?.affermissement}>
+              <span class="mt-[1px] block font-mono text-[10px] text-muted-foreground/70">
+                OF {cause.retro!.ofPegue} affermi {cause.retro!.affermissement}
+              </span>
+            </Show>
+          </>
+        )
+      },
+      meta: { thClass: 'w-[280px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule', tdClass: 'px-4 py-[13px] align-middle' },
+    }),
+  ]
+
+  // Index column partagée (N°) pour la table réactive.
+  const reactiveIndexCol = {
+    headerLabel: 'N°',
+    thClass: 'w-[38px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft',
+    tdClass: (row: SuiviDisplayRow) =>
+      cx(
+        'px-4 py-[13px] align-middle font-fraunces text-[14px] leading-none text-muted-foreground/80 border-r border-rule-soft',
+        row.late && '[box-shadow:inset_3px_0_var(--color-destructive)]',
+      ),
+  }
+
+  const proHelper = createColumnHelper<ProactiveDisplayRow>()
+  const proactiveColumns = [
+    proHelper.accessor('numCommande', {
+      header: () => 'Commande · Client',
+      cell: (info) => (
+        <>
+          <div class="font-mono text-[13px] font-bold tracking-tight text-foreground">{info.getValue()}</div>
+          <div class="mt-0.5 font-sans text-[12px] font-medium leading-snug text-secondary-foreground">{info.row.original.client || '—'}</div>
+        </>
+      ),
+      meta: { thClass: 'w-[178px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft', tdClass: 'px-4 py-[13px] align-middle border-r border-rule-soft' },
+    }),
+    proHelper.accessor('article', {
+      header: () => 'Article · Désignation',
+      cell: (info) => (
+        <>
+          <div class="font-mono text-[13px] font-semibold text-terra">{info.getValue()}</div>
+          <div class="mt-0.5 font-sans text-[12px] font-medium leading-snug text-secondary-foreground">{info.row.original.designation || '—'}</div>
+        </>
+      ),
+      meta: { thClass: 'px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft', tdClass: 'px-4 py-[13px] align-middle border-r border-rule-soft' },
+    }),
+    proHelper.accessor('type', {
+      header: () => 'Type',
+      cell: (info) => (
+        <span class="rounded bg-terra-soft px-[7px] py-0.5 font-mono text-[10px] font-bold uppercase tracking-wide text-terra">{info.getValue()}</span>
+      ),
+      meta: { thClass: 'w-[56px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft', tdClass: 'px-4 py-[13px] align-middle border-r border-rule-soft' },
+    }),
+    proHelper.accessor('qteRestante', {
+      header: () => 'Reste',
+      cell: (info) => (
+        <>
+          <span class="font-fraunces text-[21px] font-black leading-none tracking-tight text-foreground">{info.getValue()}</span>
+          <span class="ml-0.5 font-mono text-[10px] font-medium text-muted-foreground/80">u</span>
+        </>
+      ),
+      sortingFn: 'basic',
+      meta: { thClass: 'w-[92px] px-4 py-[11px] text-right font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft', tdClass: 'whitespace-nowrap border-r border-rule-soft px-4 py-[13px] text-right align-middle' },
+    }),
+    proHelper.accessor('dateExp', {
+      header: () => 'Expé',
+      cell: (info) => info.getValue() || '—',
+      sortingFn: (a, b) => {
+        const da = a.original.dateExpIso ?? '9999-12-31'
+        const db = b.original.dateExpIso ?? '9999-12-31'
+        return da < db ? -1 : da > db ? 1 : 0
+      },
+      meta: { thClass: 'w-[76px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft', tdClass: 'whitespace-nowrap border-r border-rule-soft px-4 py-[13px] align-middle font-mono text-[12.5px] font-semibold text-foreground' },
+    }),
+    proHelper.accessor('couverture', {
+      header: () => 'Couverture',
+      cell: (info) => {
+        const v = info.getValue()
+        const isGood = v === 'Stock' || v === 'Achat'
+        return isGood ? (
+          <span class="inline-flex items-center gap-1 rounded-md border border-transparent bg-ferme/15 px-2 py-0.5 font-mono text-[11px] font-bold text-ferme">
+            {v}
+          </span>
+        ) : (
+          <span class="font-mono text-[11px] font-semibold leading-snug text-secondary-foreground break-all">
+            {v}
+          </span>
+        )
+      },
+      meta: { thClass: 'w-[150px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft', tdClass: 'border-r border-rule-soft px-4 py-[13px] align-middle' },
+    }),
+    proHelper.display({
+      id: 'verdictKey',
+      enableSorting: false,
+      header: () => 'Verdict',
+      cell: (info) => {
+        const o = info.row.original
+        return (
+          <span class={cx('inline-flex items-center gap-1 rounded-md border border-transparent px-2 py-0.5 text-[11px] font-medium whitespace-nowrap', VERDICT_TONE[o.verdictKey])}>
+            {o.verdictLabel}
+          </span>
+        )
+      },
+      meta: { thClass: 'w-[120px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft', tdClass: 'border-r border-rule-soft px-4 py-[13px] align-middle' },
+    }),
+    proHelper.accessor('joursRetard', {
+      header: () => 'J. retard',
+      cell: (info) => {
+        const v = info.getValue()
+        return <>{v > 0 ? v : '—'}</>
+      },
+      sortingFn: 'basic',
+      meta: { thClass: 'w-[70px] px-4 py-[11px] text-right font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft', tdClass: 'whitespace-nowrap border-r border-rule-soft px-4 py-[13px] text-right align-middle font-mono text-[12.5px] font-semibold text-secondary-foreground' },
+    }),
+    proHelper.display({
+      id: 'composants',
+      enableSorting: false,
+      header: () => 'Goulots',
+      cell: (info) => {
+        const comps = info.row.original.composants
+        if (comps.length === 0) return <span class="font-sans text-[12px] font-medium leading-snug text-muted-foreground/70">—</span>
+        return (
+          <div class="flex flex-col gap-1">
+            <For each={comps.slice(0, 4)}>
+              {(c) => (
+                <div class="flex items-center gap-1.5">
+                  <span class="shrink-0 font-mono text-[10.5px] font-bold text-destructive">{c.art}</span>
+                  <Show when={c.desc}>
+                    <span class="truncate font-sans text-[10px] leading-tight text-muted-foreground" title={c.desc}>{c.desc}</span>
+                  </Show>
+                  <span class="ml-auto shrink-0 rounded bg-destructive/10 px-1 font-mono text-[10px] font-bold tabular-nums text-destructive">−{c.qty}</span>
+                </div>
+              )}
+            </For>
+            <Show when={comps.length > 4}>
+              <span class="font-mono text-[10px] font-medium text-muted-foreground/70">+{comps.length - 4} autre(s)</span>
+            </Show>
+          </div>
+        )
+      },
+      meta: { thClass: 'px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule', tdClass: 'px-4 py-[13px] align-middle' },
+    }),
+  ]
+
+  const proIndexCol = {
+    headerLabel: 'N°',
+    thClass: 'w-[38px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft',
+    tdClass: (row: ProactiveDisplayRow) => {
+      const late = row.verdictKey === 'late' || row.verdictKey === 'blocked' || row.verdictKey === 'uncov'
+      return cx(
+        'px-4 py-[13px] align-middle font-fraunces text-[14px] leading-none text-muted-foreground/80 border-r border-rule-soft',
+        late && '[box-shadow:inset_3px_0_var(--color-destructive)]',
+      )
+    },
   }
 
   return (
@@ -367,119 +720,33 @@ const Suivi: Component<SuiviPageProps> = (props) => {
                   </div>
                 }
               >
-                <Show
-                  when={visibleProRows().length > 0}
-                  fallback={
-                    <div class="flex flex-1 items-center justify-center p-10 text-center font-fraunces text-[14px] italic text-muted-foreground">
-                      <div class="flex flex-col items-center gap-2">
-                        <span class="material-symbols-outlined text-[32px] text-muted-foreground/50">
-                          {proView().x3Error ? 'cloud_off' : 'task_alt'}
-                        </span>
-                        {proView().x3Error ? 'Données indisponibles (X3 injoignable).' : 'Toutes les commandes ouvertes sont couvertes.'}
+                <div class="flex-1 overflow-hidden p-5">
+                  <DataTable
+                    columns={proactiveColumns}
+                    rows={proRows}
+                    sorting={proSorting}
+                    onSortingChange={setProSorting}
+                    indexColumn={proIndexCol}
+                    getRowClass={(row) => {
+                      const k = row.verdictKey
+                      const late = k === 'late' || k === 'blocked' || k === 'uncov'
+                      return cx('border-t border-rule-soft transition-colors hover:bg-terra-soft', late && 'bg-destructive/10 hover:bg-destructive/[0.14]')
+                    }}
+                    tableClass="min-w-[1230px]"
+                    scrollContainerClass="h-full border-0 rounded-none shadow-none"
+                    theadRowClass="sticky top-0 z-10 bg-secondary"
+                    emptyState={
+                      <div class="flex flex-1 items-center justify-center p-10 text-center font-fraunces text-[14px] italic text-muted-foreground">
+                        <div class="flex flex-col items-center gap-2">
+                          <span class="material-symbols-outlined text-[32px] text-muted-foreground/50">
+                            {proView().x3Error ? 'cloud_off' : 'task_alt'}
+                          </span>
+                          {proView().x3Error ? 'Données indisponibles (X3 injoignable).' : 'Toutes les commandes ouvertes sont couvertes.'}
+                        </div>
                       </div>
-                    </div>
-                  }
-                >
-                  <div class="flex-1 overflow-hidden p-5">
-                    <div class="h-full overflow-auto rounded-xl border border-rule bg-card shadow-[0_1px_2px_rgba(31,26,19,.05)]">
-                      <table class="w-full min-w-[1230px] border-collapse text-left">
-                        <thead>
-                          <tr class="sticky top-0 z-10 bg-secondary">
-                            <th class="w-[38px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft">N°</th>
-                            <th class="w-[178px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft">Commande · Client</th>
-                            <th class="px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft">Article · Désignation</th>
-                            <th class="w-[56px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft">Type</th>
-                            <th class="w-[92px] px-4 py-[11px] text-right font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft">Reste</th>
-                            <th class="w-[76px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft">Expé</th>
-                            <th class="w-[150px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft">Couverture</th>
-                            <th class="w-[120px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft">Verdict</th>
-                            <th class="w-[70px] px-4 py-[11px] text-right font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft">J. retard</th>
-                            <th class="px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule">Goulots</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <For each={visibleProRows()}>
-                            {(o, i) => {
-                              const late = o.verdictKey === 'late' || o.verdictKey === 'blocked' || o.verdictKey === 'uncov'
-                              return (
-                                <tr class={cx('border-t border-rule-soft transition-colors hover:bg-terra-soft', late && 'bg-destructive/10 hover:bg-destructive/[0.14]')}>
-                                  <td class={cx('px-4 py-[13px] align-middle font-fraunces text-[14px] leading-none text-muted-foreground/80 border-r border-rule-soft', late && '[box-shadow:inset_3px_0_var(--color-destructive)]')}>
-                                    {String(i() + 1).padStart(2, '0')}
-                                  </td>
-                                  <td class="px-4 py-[13px] align-middle border-r border-rule-soft">
-                                    <div class="font-mono text-[13px] font-bold tracking-tight text-foreground">{o.numCommande}</div>
-                                    <div class="mt-0.5 font-sans text-[12px] font-medium leading-snug text-secondary-foreground">{o.client || '—'}</div>
-                                  </td>
-                                  <td class="px-4 py-[13px] align-middle border-r border-rule-soft">
-                                    <div class="font-mono text-[13px] font-semibold text-terra">{o.article}</div>
-                                    <div class="mt-0.5 font-sans text-[12px] font-medium leading-snug text-secondary-foreground">{o.designation || '—'}</div>
-                                  </td>
-                                  <td class="px-4 py-[13px] align-middle border-r border-rule-soft">
-                                    <span class="rounded bg-terra-soft px-[7px] py-0.5 font-mono text-[10px] font-bold uppercase tracking-wide text-terra">{o.type}</span>
-                                  </td>
-                                  <td class="whitespace-nowrap border-r border-rule-soft px-4 py-[13px] text-right align-middle">
-                                    <span class="font-fraunces text-[21px] font-black leading-none tracking-tight text-foreground">{o.qteRestante}</span>
-                                    <span class="ml-0.5 font-mono text-[10px] font-medium text-muted-foreground/80">u</span>
-                                  </td>
-                                  <td class="whitespace-nowrap border-r border-rule-soft px-4 py-[13px] align-middle font-mono text-[12.5px] font-semibold text-foreground">
-                                    {o.dateExp || '—'}
-                                  </td>
-                                  <td class="border-r border-rule-soft px-4 py-[13px] align-middle">
-                                    <Show
-                                      when={o.couverture === 'Stock' || o.couverture === 'Achat'}
-                                      fallback={
-                                        <span class="font-mono text-[11px] font-semibold leading-snug text-secondary-foreground break-all">
-                                          {o.couverture}
-                                        </span>
-                                      }
-                                    >
-                                      <span class="inline-flex items-center gap-1 rounded-md border border-transparent bg-ferme/15 px-2 py-0.5 font-mono text-[11px] font-bold text-ferme">
-                                        {o.couverture}
-                                      </span>
-                                    </Show>
-                                  </td>
-                                  <td class="border-r border-rule-soft px-4 py-[13px] align-middle">
-                                    <span class={cx('inline-flex items-center gap-1 rounded-md border border-transparent px-2 py-0.5 text-[11px] font-medium whitespace-nowrap', VERDICT_TONE[o.verdictKey])}>
-                                      {o.verdictLabel}
-                                    </span>
-                                  </td>
-                                  <td class="whitespace-nowrap border-r border-rule-soft px-4 py-[13px] text-right align-middle font-mono text-[12.5px] font-semibold text-secondary-foreground">
-                                    {o.joursRetard > 0 ? o.joursRetard : '—'}
-                                  </td>
-                                  <td class="px-4 py-[13px] align-middle">
-                                    <Show
-                                      when={o.composants.length > 0}
-                                      fallback={
-                                        <span class="font-sans text-[12px] font-medium leading-snug text-muted-foreground/70">—</span>
-                                      }
-                                    >
-                                      <div class="flex flex-col gap-1">
-                                        <For each={o.composants.slice(0, 4)}>
-                                          {(c) => (
-                                            <div class="flex items-center gap-1.5">
-                                              <span class="shrink-0 font-mono text-[10.5px] font-bold text-destructive">{c.art}</span>
-                                              <Show when={c.desc}>
-                                                <span class="truncate font-sans text-[10px] leading-tight text-muted-foreground" title={c.desc}>{c.desc}</span>
-                                              </Show>
-                                              <span class="ml-auto shrink-0 rounded bg-destructive/10 px-1 font-mono text-[10px] font-bold tabular-nums text-destructive">−{c.qty}</span>
-                                            </div>
-                                          )}
-                                        </For>
-                                        <Show when={o.composants.length > 4}>
-                                          <span class="font-mono text-[10px] font-medium text-muted-foreground/70">+{o.composants.length - 4} autre(s)</span>
-                                        </Show>
-                                      </div>
-                                    </Show>
-                                  </td>
-                                </tr>
-                              )
-                            }}
-                          </For>
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </Show>
+                    }
+                  />
+                </div>
               </Show>
             </Show>
           </>
@@ -513,155 +780,31 @@ const Suivi: Component<SuiviPageProps> = (props) => {
             </div>
           }
         >
-          <Show
-            when={visibleRows().length > 0}
-            fallback={
-              <div class="flex flex-1 items-center justify-center p-10 text-center font-fraunces text-[14px] italic text-muted-foreground">
-                <div class="flex flex-col items-center gap-2">
-                  <span class="material-symbols-outlined text-[32px] text-muted-foreground/50">
-                    {view().x3Error ? 'cloud_off' : 'inbox'}
-                  </span>
-                  {view().x3Error
-                    ? 'Données de suivi indisponibles (X3 injoignable).'
-                    : 'Aucune ligne de commande à suivre à cette date.'}
+          <div class="flex-1 overflow-hidden p-5">
+            <DataTable
+              columns={reactiveColumns}
+              rows={reactiveRows}
+              sorting={reactiveSorting}
+              onSortingChange={setReactiveSorting}
+              indexColumn={reactiveIndexCol}
+              getRowClass={(row) => cx('border-t border-rule-soft transition-colors hover:bg-terra-soft', row.late && 'bg-destructive/10 hover:bg-destructive/[0.14]')}
+              tableClass="min-w-[1076px]"
+              scrollContainerClass="h-full border-0 rounded-none shadow-none"
+              theadRowClass="sticky top-0 z-10 bg-secondary"
+              emptyState={
+                <div class="flex flex-1 items-center justify-center p-10 text-center font-fraunces text-[14px] italic text-muted-foreground">
+                  <div class="flex flex-col items-center gap-2">
+                    <span class="material-symbols-outlined text-[32px] text-muted-foreground/50">
+                      {view().x3Error ? 'cloud_off' : 'inbox'}
+                    </span>
+                    {view().x3Error
+                      ? 'Données de suivi indisponibles (X3 injoignable).'
+                      : 'Aucune ligne de commande à suivre à cette date.'}
+                  </div>
                 </div>
-              </div>
-            }
-          >
-            <div class="flex-1 overflow-hidden p-5">
-              <div class="h-full overflow-auto rounded-xl border border-rule bg-card shadow-[0_1px_2px_rgba(31,26,19,.05)]">
-                <table class="w-full min-w-[1076px] border-collapse text-left">
-                  <thead>
-                    <tr class="sticky top-0 z-10 bg-secondary">
-                      <th class="w-[38px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft">N°</th>
-                      <th class="w-[178px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft">Commande · Client</th>
-                      <th class="px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft">Article · Désignation</th>
-                      <th class="w-[56px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft">Type</th>
-                      <th class="w-[92px] px-4 py-[11px] text-right font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft">Reste</th>
-                      <th class="w-[76px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft">Expé</th>
-                      <th class="w-[140px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft">Emplacement</th>
-                      <th class="w-[130px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft">Statut</th>
-                      <th class="w-[280px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule">Cause du retard</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <For each={visibleRows()}>
-                      {(o, i) => (
-                        <tr class={cx('border-t border-rule-soft transition-colors hover:bg-terra-soft', o.late && 'bg-destructive/10 hover:bg-destructive/[0.14]')}>
-                          <td class={cx('px-4 py-[13px] align-middle font-fraunces text-[14px] leading-none text-muted-foreground/80 border-r border-rule-soft', o.late && '[box-shadow:inset_3px_0_var(--color-destructive)]')}>
-                            {String(i() + 1).padStart(2, '0')}
-                          </td>
-                          <td class="px-4 py-[13px] align-middle border-r border-rule-soft">
-                            <div class="font-mono text-[13px] font-bold tracking-tight text-foreground">{o.numCommande}</div>
-                            <div class="mt-0.5 font-sans text-[12px] font-medium leading-snug text-secondary-foreground">{o.client || '—'}</div>
-                          </td>
-                          <td class="px-4 py-[13px] align-middle border-r border-rule-soft">
-                            <div class="font-mono text-[13px] font-semibold text-terra">{o.article}</div>
-                            <div class="mt-0.5 font-sans text-[12px] font-medium leading-snug text-secondary-foreground">{o.designation || '—'}</div>
-                          </td>
-                          <td class="px-4 py-[13px] align-middle border-r border-rule-soft">
-                            <span class="rounded bg-terra-soft px-[7px] py-0.5 font-mono text-[10px] font-bold uppercase tracking-wide text-terra">{o.type}</span>
-                          </td>
-                          <td class="whitespace-nowrap border-r border-rule-soft px-4 py-[13px] text-right align-middle">
-                            <span class="font-fraunces text-[21px] font-black leading-none tracking-tight text-foreground">{o.qteRestante}</span>
-                            <span class="ml-0.5 font-mono text-[10px] font-medium text-muted-foreground/80">u</span>
-                          </td>
-                          <td class={cx('whitespace-nowrap border-r border-rule-soft px-4 py-[13px] align-middle font-mono text-[12.5px] font-semibold', o.late ? 'font-bold text-destructive' : 'text-foreground')}>
-                            {o.dateExp || '—'}
-                          </td>
-                          <td class="border-r border-rule-soft px-4 py-[13px] align-middle">
-                            <Show
-                              when={o.emplacements.length > 0}
-                              fallback={<span class="font-sans text-[12px] font-medium leading-snug text-muted-foreground/70">—</span>}
-                            >
-                              <div class="flex flex-col gap-[3px]">
-                                <For each={o.emplacements}>
-                                  {(e) => (
-                                    <span
-                                      class={cx(
-                                        'flex w-full items-center justify-between gap-1 rounded border px-1.5 py-px font-mono text-[10.5px] leading-[1.4]',
-                                        e.source === 'STOALL'
-                                          ? 'border-ferme/30 bg-ferme/15 text-ferme'
-                                          : 'border-rule bg-card text-secondary-foreground',
-                                        e.alreadyAllocated && 'line-through opacity-60',
-                                      )}
-                                      title={e.source === 'STOALL' ? 'STOALL — déjà alloué à la commande' : (e.alreadyAllocated ? 'Déjà alloué à une autre commande' : 'STOCK — en stock libre, allocation à faire')}
-                                    >
-                                      <span class="flex items-center gap-1 whitespace-nowrap">
-                                        <span
-                                          class={cx(
-                                            'material-symbols-outlined text-[11px] leading-none',
-                                            e.source === 'STOALL' ? 'text-ferme' : 'text-muted-foreground/70',
-                                          )}
-                                        >
-                                          {e.source === 'STOALL' ? 'check_circle' : 'radio_button_unchecked'}
-                                        </span>
-                                        <span class="font-semibold">{e.nom}</span>
-                                      </span>
-                                      <span class="flex items-center gap-1">
-                                        <Show when={e.hum}>
-                                          <span class="rounded bg-card px-1.5 font-mono text-[10.5px] font-bold text-foreground">{e.hum}</span>
-                                        </Show>
-                                        <span class="font-bold tabular-nums">
-                                          {e.qte > 0 ? Math.round(e.qte) : '·'}
-                                        </span>
-                                      </span>
-                                    </span>
-                                  )}
-                                </For>
-                              </div>
-                            </Show>
-                          </td>
-                          <td class="border-r border-rule-soft px-4 py-[13px] align-middle">
-                            <div class="flex flex-col items-start gap-1">
-                              <span class={cx('inline-flex items-center gap-1 rounded-md border border-transparent px-2 py-0.5 text-[11px] font-medium whitespace-nowrap', BADGE_TONE[o.statusKey])}>
-                                <span class="material-symbols-outlined grid size-[14px] place-items-center overflow-hidden text-[14px] leading-none">{o.statusIcon}</span>
-                                {o.statusLabel}
-                              </span>
-                              <Show when={o.cq}>
-                                <span class="inline-flex items-center gap-1 rounded-md border border-transparent bg-terra-soft px-2 py-0.5 text-[11px] font-medium text-terra whitespace-nowrap">
-                                  <span class="material-symbols-outlined grid size-[14px] place-items-center text-[14px] leading-none">science</span>CQ
-                                </span>
-                              </Show>
-                            </div>
-                          </td>
-                          <td class="border-r border-rule-soft px-4 py-[13px] align-middle">
-                            <Show
-                              when={o.cause}
-                              fallback={<span class="font-sans text-[12px] font-medium leading-snug text-muted-foreground/70">—</span>}
-                            >
-                              <div class="text-[12px] leading-snug text-secondary-foreground">{o.cause!.label}</div>
-                              <Show when={o.cause!.comps.length > 0}>
-                                <span class="mt-[3px] block font-mono text-[10px] font-bold text-destructive">
-                                  {o.cause!.comps.map((c) => `${c.art} −${c.qty}`).join(' · ')}
-                                </span>
-                              </Show>
-                              <Show when={o.cause!.reception}>
-                                <span class="mt-[2px] block font-mono text-[10px] font-medium text-muted-foreground">
-                                  arrive {o.cause!.reception!.eta} · {o.cause!.reception!.po}
-                                </span>
-                              </Show>
-                              <Show when={o.cause!.retro?.composant}>
-                                <span class="mt-[2px] block font-mono text-[10px] font-medium text-muted-foreground">
-                                  {o.cause!.retro!.composant!.art} dispo {o.cause!.retro!.composant!.dispoA}
-                                  <Show when={o.cause!.retro!.composant!.cq}> (CQ)</Show>
-                                </span>
-                              </Show>
-                              <Show when={o.cause!.retro?.affermissement}>
-                                <span class="mt-[1px] block font-mono text-[10px] text-muted-foreground/70">
-                                  OF {o.cause!.retro!.ofPegue} affermi {o.cause!.retro!.affermissement}
-                                </span>
-                              </Show>
-                            </Show>
-                          </td>
-                        </tr>
-                      )}
-                    </For>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </Show>
+              }
+            />
+          </div>
         </Show>
       </Show>
       </Show>

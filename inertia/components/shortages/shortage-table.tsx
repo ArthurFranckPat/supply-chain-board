@@ -1,4 +1,6 @@
-import { For, Show, type Component } from 'solid-js'
+import { Show, createMemo, createSignal, type Component } from 'solid-js'
+import { createColumnHelper } from '@tanstack/solid-table'
+import { DataTable, type SortingState } from '@/components/ui/data-table'
 import type { ShortageDisplayRow, ShortageStats } from '@/lib/shortages/types'
 import { cn } from '@/libs/cn'
 
@@ -13,6 +15,186 @@ export const ShortageTable: Component<{
   x3Error: string | null
   onSelectOf: (numOf: string) => void
 }> = (props) => {
+  const helper = createColumnHelper<ShortageDisplayRow>()
+
+  const columns = [
+    helper.accessor('component', {
+      header: () => 'Composant',
+      cell: (info) => (
+        <>
+          <div class="font-bold text-foreground mono">{info.getValue()}</div>
+          <div class="text-[10px] text-muted-foreground truncate max-w-[18rem]">{info.row.original.componentDesc}</div>
+        </>
+      ),
+      meta: { thClass: 'text-left px-3 py-2', tdClass: 'px-3 py-2 align-top' },
+    }),
+    helper.accessor('qteManquante', {
+      header: () => 'Qté manq.',
+      cell: (info) => <span class="mono font-bold text-error">{info.getValue()}</span>,
+      meta: { thClass: 'text-right px-3 py-2 w-24', tdClass: 'px-3 py-2 text-right align-top' },
+    }),
+    helper.accessor('numOf', {
+      header: () => 'OF bloqué',
+      cell: (info) => {
+        const row = info.row.original
+        return (
+          <>
+            <button
+              type="button"
+              onClick={() => props.onSelectOf(row.numOf)}
+              class="font-bold text-primary hover:underline mono cursor-pointer"
+            >
+              {row.numOf}
+            </button>
+            <div class="text-[10px] text-muted-foreground mono truncate max-w-[10rem]">{row.articleParent}</div>
+          </>
+        )
+      },
+      meta: { thClass: 'text-left px-3 py-2 w-44', tdClass: 'px-3 py-2 align-top' },
+    }),
+    helper.accessor('numCommande', {
+      header: () => 'Commande client',
+      cell: (info) => {
+        const row = info.row.original
+        return (
+          <Show
+            when={row.hasCommande}
+            fallback={<span class="text-muted-foreground/60 italic">—</span>}
+          >
+            <div class="font-bold text-foreground mono">{row.numCommande}</div>
+            <div class="text-[10px] text-muted-foreground truncate max-w-[10rem]">{row.client}</div>
+          </Show>
+        )
+      },
+      meta: { thClass: 'text-left px-3 py-2 w-44', tdClass: 'px-3 py-2 align-top' },
+    }),
+    helper.accessor('dateExpedition', {
+      header: () => 'Date expé.',
+      cell: (info) => <>{info.getValue() || '—'}</>,
+      sortingFn: 'text',
+      meta: { thClass: 'text-left px-3 py-2 w-24', tdClass: 'px-3 py-2 mono text-muted-foreground align-top whitespace-nowrap' },
+    }),
+    helper.display({
+      id: 'reception',
+      enableSorting: false,
+      header: () => 'Réception attendue',
+      cell: (info) => {
+        const rec = info.row.original.reception
+        return (
+          <Show
+            when={rec}
+            fallback={
+              <span class="inline-flex items-center gap-1 text-[10px] font-bold text-error uppercase">
+                <span class="material-symbols-outlined text-[13px]">block</span> Aucune couverture prévue
+              </span>
+            }
+          >
+            {(r) => (
+              <>
+                <div class="font-bold text-foreground mono">{r().id}</div>
+                <div class="text-[10px] text-muted-foreground truncate max-w-[16rem]">
+                  {r().supplier} · {r().qty}
+                </div>
+              </>
+            )}
+          </Show>
+        )
+      },
+      meta: { thClass: 'text-left px-3 py-2', tdClass: 'px-3 py-2 align-top' },
+    }),
+    helper.accessor('dateArrivee', {
+      header: () => 'Date arrivée',
+      cell: (info) => {
+        const v = info.getValue()
+        const late = info.row.original.arriveeLate
+        return (
+          <span class={cn('mono align-top whitespace-nowrap', late ? 'text-error font-bold' : 'text-muted-foreground')}>
+            <Show when={v} fallback={<span class="text-muted-foreground/60">—</span>}>
+              <span class="inline-flex items-center gap-1">
+                <Show when={late}>
+                  <span class="material-symbols-outlined text-[13px]">warning</span>
+                </Show>
+                {v}
+              </span>
+            </Show>
+          </span>
+        )
+      },
+      meta: { thClass: 'text-left px-3 py-2 w-24', tdClass: 'px-3 py-2 mono align-top' },
+    }),
+    helper.display({
+      id: 'verdict',
+      enableSorting: false,
+      header: () => 'Verdict',
+      cell: (info) => {
+        const row = info.row.original
+        return (
+          <span
+            class={cn(
+              'inline-flex items-center gap-1 px-2 py-0.5 border rounded-full text-[10px] font-bold whitespace-nowrap',
+              row.verdictCls
+            )}
+          >
+            <span class="material-symbols-outlined text-[12px]">{row.verdictIcon}</span>
+            {row.verdictLabel}
+          </span>
+        )
+      },
+      meta: { thClass: 'text-left px-3 py-2 w-40', tdClass: 'px-3 py-2 align-top' },
+    }),
+  ]
+
+  const [sorting, setSorting] = createSignal<SortingState[]>([{ id: 'dateArrivee', desc: false }])
+
+  const sortRows = (rows: ShortageDisplayRow[], sorting: SortingState[]): ShortageDisplayRow[] => {
+    if (sorting.length === 0) return rows
+    const { id, desc } = sorting[0]
+    const sorted = [...rows]
+    sorted.sort((a, b) => {
+      let va: string | number
+      let vb: string | number
+      switch (id) {
+        case 'component':
+          va = a.component
+          vb = b.component
+          break
+        case 'qteManquante':
+          va = parseFloat(a.qteManquante)
+          vb = parseFloat(b.qteManquante)
+          break
+        case 'numOf':
+          va = a.numOf
+          vb = b.numOf
+          break
+        case 'numCommande':
+          va = a.numCommande
+          vb = b.numCommande
+          break
+        case 'dateExpedition':
+          va = a.dateExpedition
+          vb = b.dateExpedition
+          break
+        case 'dateArrivee':
+          va = a.dateArrivee
+          vb = b.dateArrivee
+          break
+        default:
+          return 0
+      }
+      let cmp = 0
+      if (typeof va === 'number' && typeof vb === 'number') {
+        cmp = va < vb ? -1 : va > vb ? 1 : 0
+      } else {
+        cmp = String(va).localeCompare(String(vb))
+      }
+      if (cmp !== 0) return cmp
+      return a.component.localeCompare(b.component)
+    })
+    return desc ? sorted.reverse() : sorted
+  }
+
+  const sortedRows = createMemo(() => sortRows(props.rows, sorting()))
+
   return (
     <div class="flex-1 flex flex-col min-h-0">
       <Show when={props.x3Error}>
@@ -40,117 +222,29 @@ export const ShortageTable: Component<{
         </div>
       </div>
 
-      <div class="flex-1 bg-card border border-border rounded shadow-sm overflow-auto">
-        <table class="w-full text-xs border-collapse">
-          <thead class="sticky top-0 bg-muted/50 z-10">
-            <tr class="text-[10px] font-bold uppercase text-muted-foreground border-b border-border">
-              <th class="text-left px-3 py-2">Composant</th>
-              <th class="text-right px-3 py-2 w-24">Qté manq.</th>
-              <th class="text-left px-3 py-2 w-44">OF bloqué</th>
-              <th class="text-left px-3 py-2 w-44">Commande client</th>
-              <th class="text-left px-3 py-2 w-24">Date expé.</th>
-              <th class="text-left px-3 py-2">Réception attendue</th>
-              <th class="text-left px-3 py-2 w-24">Date arrivée</th>
-              <th class="text-left px-3 py-2 w-40">Verdict</th>
-            </tr>
-          </thead>
-          <tbody>
-            <For each={props.rows}>
-              {(row) => (
-                <tr class="border-b border-border/60 hover:bg-muted/40 transition-colors">
-                  <td class="px-3 py-2 align-top">
-                    <div class="font-bold text-foreground mono">{row.component}</div>
-                    <div class="text-[10px] text-muted-foreground truncate max-w-[18rem]">{row.componentDesc}</div>
-                  </td>
-                  <td class="px-3 py-2 text-right mono font-bold text-error align-top">{row.qteManquante}</td>
-                  <td class="px-3 py-2 align-top">
-                    <button
-                      type="button"
-                      onClick={() => props.onSelectOf(row.numOf)}
-                      class="font-bold text-primary hover:underline mono cursor-pointer"
-                    >
-                      {row.numOf}
-                    </button>
-                    <div class="text-[10px] text-muted-foreground mono truncate max-w-[10rem]">{row.articleParent}</div>
-                  </td>
-                  <td class="px-3 py-2 align-top">
-                    <Show
-                      when={row.hasCommande}
-                      fallback={<span class="text-muted-foreground/60 italic">—</span>}
-                    >
-                      <div class="font-bold text-foreground mono">{row.numCommande}</div>
-                      <div class="text-[10px] text-muted-foreground truncate max-w-[10rem]">{row.client}</div>
-                    </Show>
-                  </td>
-                  <td class="px-3 py-2 mono text-muted-foreground align-top whitespace-nowrap">
-                    {row.dateExpedition || '—'}
-                  </td>
-                  <td class="px-3 py-2 align-top">
-                    <Show
-                      when={row.reception}
-                      fallback={
-                        <span class="inline-flex items-center gap-1 text-[10px] font-bold text-error uppercase">
-                          <span class="material-symbols-outlined text-[13px]">block</span> Aucune couverture prévue
-                        </span>
-                      }
-                    >
-                      {(rec) => (
-                        <>
-                          <div class="font-bold text-foreground mono">{rec().id}</div>
-                          <div class="text-[10px] text-muted-foreground truncate max-w-[16rem]">
-                            {rec().supplier} · {rec().qty}
-                          </div>
-                        </>
-                      )}
-                    </Show>
-                  </td>
-                  <td
-                    class={cn(
-                      'px-3 py-2 mono align-top whitespace-nowrap',
-                      row.arriveeLate ? 'text-error font-bold' : 'text-muted-foreground'
-                    )}
-                  >
-                    <Show when={row.dateArrivee} fallback={<span class="text-muted-foreground/60">—</span>}>
-                      <span class="inline-flex items-center gap-1">
-                        <Show when={row.arriveeLate}>
-                          <span class="material-symbols-outlined text-[13px]">warning</span>
-                        </Show>
-                        {row.dateArrivee}
-                      </span>
-                    </Show>
-                  </td>
-                  <td class="px-3 py-2 align-top">
-                    <span
-                      class={cn(
-                        'inline-flex items-center gap-1 px-2 py-0.5 border rounded-full text-[10px] font-bold whitespace-nowrap',
-                        row.verdictCls
-                      )}
-                    >
-                      <span class="material-symbols-outlined text-[12px]">{row.verdictIcon}</span>
-                      {row.verdictLabel}
-                    </span>
-                  </td>
-                </tr>
-              )}
-            </For>
-            <Show when={props.rows.length === 0}>
-              <tr>
-                <td colspan="8" class="px-3 py-16 text-center text-muted-foreground">
-                  <Show
-                    when={!props.x3Error}
-                    fallback={<span class="italic">Données indisponibles.</span>}
-                  >
-                    <div class="flex flex-col items-center gap-2">
-                      <span class="material-symbols-outlined text-[32px] text-emerald-400">check_circle</span>
-                      <span class="text-sm font-medium">Aucune rupture détectée dans la fenêtre.</span>
-                    </div>
-                  </Show>
-                </td>
-              </tr>
+      <DataTable
+        columns={columns}
+        rows={sortedRows}
+        sorting={sorting}
+        onSortingChange={setSorting}
+        tableClass="text-xs"
+        scrollContainerClass="flex-1 bg-card border border-border rounded shadow-sm"
+        theadRowClass="text-[10px] font-bold uppercase text-muted-foreground border-b border-border"
+        getRowClass={() => 'border-b border-border/60 hover:bg-muted/40 transition-colors'}
+        emptyState={
+          <div class="px-3 py-16 text-center text-muted-foreground">
+            <Show
+              when={!props.x3Error}
+              fallback={<span class="italic">Données indisponibles.</span>}
+            >
+              <div class="flex flex-col items-center gap-2">
+                <span class="material-symbols-outlined text-[32px] text-emerald-400">check_circle</span>
+                <span class="text-sm font-medium">Aucune rupture détectée dans la fenêtre.</span>
+              </div>
             </Show>
-          </tbody>
-        </table>
-      </div>
+          </div>
+        }
+      />
     </div>
   )
 }

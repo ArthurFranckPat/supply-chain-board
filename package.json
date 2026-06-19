@@ -88,6 +88,8 @@
     "@inertiajs/core": "^3.4.0",
     "@japa/api-client": "^3.2.1",
     "@kobalte/core": "^0.13.11",
+    "@tanstack/solid-table": "^8.21.3",
+    "@tanstack/solid-virtual": "^3.13.29",
     "@tuyau/core": "^1.2.2",
     "@vinejs/vine": "^4.4.0",
     "class-variance-authority": "^0.7.1",
