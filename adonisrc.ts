@@ -28,6 +28,7 @@ export default defineConfig({
     () => import('@adonisjs/core/commands'),
     () => import('@adonisjs/lucid/commands'),
     () => import('@adonisjs/session/commands'),
+    () => import('@adonisjs/cache/commands'),
   ],
 
   /*
@@ -50,6 +51,8 @@ export default defineConfig({
     () => import('@adonisjs/session/session_provider'),
     () => import('@adonisjs/shield/shield_provider'),
     () => import('@adonisjs/lucid/database_provider'),
+    () => import('@adonisjs/redis/redis_provider'),
+    () => import('@adonisjs/cache/cache_provider'),
     () => import('#providers/x3_database_provider'),
     () => import('@adonisjs/cors/cors_provider'),
     () => import('@adonisjs/auth/auth_provider'),

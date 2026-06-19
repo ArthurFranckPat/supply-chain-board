@@ -11,8 +11,8 @@ export default class StaticSyncController {
   /** POST /api/v1/static/sync — sync X3 → SQLite (bloquant, ~60s première fois) */
   async sync(_ctx: HttpContext) {
     const result = await staticSync.syncAll()
-    // Invalide le cache en mémoire pour que le prochain accès lise les nouvelles données
-    boardDataset.reloadAll()
+    // Invalide le cache (board:*) pour que le prochain accès lise les nouvelles données
+    await boardDataset.reloadAll()
     return result
   }
 }

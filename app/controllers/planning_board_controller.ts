@@ -58,9 +58,9 @@ export default class PlanningBoardController {
   }
 
 
-  /** Vide le cache mémoire (référentiel + OF + fenêtres) → prochain accès = données X3 fraîches. */
+  /** Vide le cache board:* (référentiel + OF + fenêtres) → prochain accès = données X3 fraîches. */
   async reloadData(_ctx: HttpContext) {
-    boardDataset.reloadAll()
+    await boardDataset.reloadAll()
     return { reloaded: true }
   }
 

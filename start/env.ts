@@ -26,6 +26,15 @@ export default await Env.create(new URL('../', import.meta.url), {
   // Session
   SESSION_DRIVER: Env.schema.enum(['cookie', 'memory', 'database'] as const),
 
+  // Redis (utilisé par le cache distribué quand CACHE_STORE=redis)
+  REDIS_HOST: Env.schema.string({ format: 'host' }),
+  REDIS_PORT: Env.schema.number(),
+  REDIS_PASSWORD: Env.schema.string.optional(),
+  REDIS_DB: Env.schema.number.optional(),
+
+  // Cache (config/cache.ts) : `memory` en local/test, `redis` en prod.
+  CACHE_STORE: Env.schema.enum(['memory', 'redis'] as const),
+
   // X3
   X3_ENV: Env.schema.enum(['test', 'prod'] as const),
   X3_TEST_HOST: Env.schema.string({ format: 'host' }),
