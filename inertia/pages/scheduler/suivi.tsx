@@ -14,7 +14,7 @@ import type {
   ProactiveVerdictKey,
   ProactiveDisplayRow,
 } from '@/lib/suivi/types'
-import UserMenu from '@/components/user-menu'
+import { Masthead } from '@/components/masthead'
 
 /**
  * Page « Suivi des commandes » (issue #19) — axe allocation / expédition.
@@ -186,11 +186,6 @@ const Suivi: Component<SuiviPageProps> = (props) => {
       day: 'numeric',
       month: 'long',
     })
-
-  const navCls = (active?: boolean) =>
-    `border-b-2 px-3.5 py-2.5 text-[12px] font-semibold transition-colors ${
-      active ? 'border-terra text-terra' : 'border-transparent text-secondary-foreground hover:text-terra'
-    }`
 
   const statusChip = (k: SuiviStatusKey | 'all', label: string) => {
     const on = statusFilter() === k
@@ -549,50 +544,32 @@ const Suivi: Component<SuiviPageProps> = (props) => {
 
   return (
     <div class="theme-papier flex h-screen flex-col overflow-hidden bg-background text-foreground">
-      {/* ═══ Masthead ═══ */}
-      <header class="flex-none border-b border-rule bg-background">
-        <div class="flex items-end justify-between gap-5 px-7 pb-2 pt-3.5">
-          <div class="flex items-baseline gap-3.5">
-            <div class="font-fraunces text-[28px] font-black leading-[0.9] tracking-tight">
-              Factory<span class="font-medium italic text-terra">OS</span>
-            </div>
-            <div class="pb-1 font-mono text-[10px] font-medium tracking-[0.12em] text-muted-foreground">
-              Suivi · Allocation &amp; expédition
-            </div>
-          </div>
-          <div class="text-right font-mono text-[11px] font-medium leading-relaxed text-muted-foreground">
+      <Masthead
+        subtitle="Suivi · Allocation & expédition"
+        active="suivi"
+        meta={
+          <>
             <div class="font-fraunces text-[12px] font-bold capitalize not-italic text-terra">{refLabel()}</div>
             <div>
               <b class="font-bold text-foreground">{mode() === 'reactif' ? view().total : proView().total}</b> lignes ouvertes
               <Show when={view().referenceDate}> · réf. <b class="font-bold text-foreground">{view().referenceDate}</b></Show>
             </div>
+          </>
+        }
+        actions={
+          <div class="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-terra focus-within:ring-2 focus-within:ring-terra/25">
+            <span class="material-symbols-outlined text-[17px] text-muted-foreground">search</span>
+            <input
+              class="w-[200px] border-0 bg-transparent px-0 text-[12px] font-medium text-foreground shadow-none outline-none"
+              placeholder="Commande, article, client…"
+              type="text"
+              autocomplete="off"
+              value={query()}
+              onInput={(e) => setQuery(e.currentTarget.value)}
+            />
           </div>
-        </div>
-
-        <nav class="flex items-center gap-1 border-t border-rule px-7">
-          <a href="#" class={navCls()}>Tableau</a>
-          <Link href={route('order_planning.board')} class={navCls()}>Planification</Link>
-          <Link href={route('scheduler.expert_board')} class={navCls()}>Ordonnancement</Link>
-          <Link href={route('scheduler.shortage_tracker')} class={navCls()}>Ruptures</Link>
-          <Link href={route('suivi.board')} class={navCls(true)}>Suivi</Link>
-          <a href="#" class={navCls()}>Ressources</a>
-
-          <div class="ml-auto flex items-center gap-2 py-1.5">
-            <div class="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-terra focus-within:ring-2 focus-within:ring-terra/25">
-              <span class="material-symbols-outlined text-[17px] text-muted-foreground">search</span>
-              <input
-                class="w-[200px] border-0 bg-transparent px-0 text-[12px] font-medium text-foreground shadow-none outline-none"
-                placeholder="Commande, article, client…"
-                type="text"
-                autocomplete="off"
-                value={query()}
-                onInput={(e) => setQuery(e.currentTarget.value)}
-              />
-            </div>
-            <UserMenu />
-          </div>
-        </nav>
-      </header>
+        }
+      />
 
       {/* ═══ Bandeau KPI ═══ */}
       <Show
@@ -745,7 +722,7 @@ const Suivi: Component<SuiviPageProps> = (props) => {
                     getRowClass={(row) => {
                       const k = row.verdictKey
                       const late = k === 'late' || k === 'blocked' || k === 'uncov'
-                      return cx('border-t border-rule-soft transition-colors hover:bg-terra-soft', late && 'bg-destructive/10 hover:bg-destructive/[0.14]')
+                      return cx('border-t border-rule-soft transition-colors', late ? 'bg-destructive/10 hover:bg-destructive/[0.18]' : 'hover:bg-foreground/[0.04]')
                     }}
                     tableClass="min-w-[1230px]"
                     scrollContainerClass="h-full border-0 rounded-none shadow-none"
@@ -802,7 +779,7 @@ const Suivi: Component<SuiviPageProps> = (props) => {
               sorting={reactiveSorting}
               onSortingChange={setReactiveSorting}
               indexColumn={reactiveIndexCol}
-              getRowClass={(row) => cx('border-t border-rule-soft transition-colors hover:bg-terra-soft', row.late && 'bg-destructive/10 hover:bg-destructive/[0.14]')}
+              getRowClass={(row) => cx('border-t border-rule-soft transition-colors', row.late ? 'bg-destructive/10 hover:bg-destructive/[0.18]' : 'hover:bg-foreground/[0.04]')}
               tableClass="min-w-[1076px]"
               scrollContainerClass="h-full border-0 rounded-none shadow-none"
               theadRowClass="sticky top-0 z-10 bg-secondary"

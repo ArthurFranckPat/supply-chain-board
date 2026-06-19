@@ -6,7 +6,7 @@ import { cx } from '@/libs/cva'
 import { route } from '@/lib/routes'
 import BoardGrid from '@/components/board/board-grid'
 import OfDetailSheet from '@/components/of/of-detail-sheet'
-import UserMenu from '@/components/user-menu'
+import { Masthead } from '@/components/masthead'
 import { Button } from '@/components/ui/button'
 import { TextField, TextFieldInput } from '@/components/ui/text-field'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
@@ -87,43 +87,23 @@ const ExpertBoard: Component<ExpertBoardProps> = (props) => {
     }
   }
 
-  const navCls = (active?: boolean) =>
-    `border-b-2 px-3.5 py-2.5 text-[12px] font-semibold transition-colors ${
-      active ? 'border-terra text-terra' : 'border-transparent text-secondary-foreground hover:text-terra'
-    }`
-
   return (
     <div class="theme-papier flex h-screen flex-col overflow-hidden bg-background text-foreground">
-      {/* ═══ Masthead ═══ */}
-      <header class="flex-none border-b border-rule bg-background">
-        <div class="flex items-end justify-between gap-5 px-7 pb-2 pt-3.5">
-          <div class="flex items-baseline gap-3.5">
-            <div class="font-fraunces text-[28px] font-black leading-[0.9] tracking-tight">
-              Factory<span class="font-medium italic text-terra">OS</span>
-            </div>
-            <div class="pb-1 font-mono text-[10px] font-medium tracking-[0.12em] text-muted-foreground">
-              Ordonnancement · Édition quotidienne
-            </div>
-          </div>
-          <div class="text-right font-mono text-[11px] font-medium leading-relaxed text-muted-foreground">
+      <Masthead
+        subtitle="Ordonnancement · Édition quotidienne"
+        active="ordonnancement"
+        meta={
+          <>
             <div class="font-fraunces text-[12px] font-bold not-italic text-terra">{props.weekLabel}</div>
             <div>
               Fenêtre <b class="font-bold text-foreground">{props.horizon} j</b> ·{' '}
               <b class="font-bold text-foreground">{props.totalOf}</b> OF ·{' '}
               <b class="font-bold text-foreground">{props.lineCount}</b> postes
             </div>
-          </div>
-        </div>
-
-        <nav class="flex items-center gap-1 border-t border-rule px-7">
-          <a href="#" class={navCls()}>Tableau</a>
-          <Link href={route('order_planning.board')} class={navCls()}>Planification</Link>
-          <Link href={route('scheduler.expert_board')} class={navCls(true)}>Ordonnancement</Link>
-          <Link href={route('scheduler.shortage_tracker')} class={navCls()}>Ruptures</Link>
-          <a href="#" class={navCls()}>Ressources</a>
-
-          {/* Recherche (pill) + portée — séparés pour éviter tout chevauchement */}
-          <div class="ml-auto flex items-center gap-2 py-1.5">
+          </>
+        }
+        actions={
+          <>
             <TextField class="contents">
               <div class="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-terra focus-within:ring-2 focus-within:ring-terra/25">
                 <span class="material-symbols-outlined text-[17px] text-muted-foreground">search</span>
@@ -160,10 +140,9 @@ const ExpertBoard: Component<ExpertBoardProps> = (props) => {
               </SelectTrigger>
               <SelectContent />
             </Select>
-            <UserMenu />
-          </div>
-        </nav>
-      </header>
+          </>
+        }
+      />
 
       {/* ═══ Toolbar ═══ */}
       <div class="flex flex-none flex-wrap items-center justify-between gap-3 border-b border-rule px-7 py-2">
