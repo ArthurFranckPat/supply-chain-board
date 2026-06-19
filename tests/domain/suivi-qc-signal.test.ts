@@ -9,6 +9,7 @@ import { assignStatuses, type OrderLine, type StockBreakdown } from '#app/domain
 
 function makeLine(overrides: Partial<OrderLine> & { numCommande: string; article: string }): OrderLine {
   return {
+    ligne: '1000',
     designation: '',
     nomClient: '',
     typeCommande: 'MTO',

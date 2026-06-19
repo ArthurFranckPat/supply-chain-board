@@ -24,7 +24,7 @@ export default class AuthController {
 
     return inertia.render('auth/login', {
       lastUsername: hint?.username ?? '',
-      lastEnv: hint?.env ?? 'test',
+      lastEnv: hint?.env ?? 'prod',
       error: session.flashMessages.get('error') ?? null,
     })
   }
@@ -70,8 +70,12 @@ export default class AuthController {
   }
 
   /** POST /logout — ferme la session. */
-  async logout({ auth, response }: HttpContext) {
+  async logout({ auth, inertia }: HttpContext) {
     await auth.use('web').logout()
-    return response.redirect('/login')
+    // `inertia.location` (409 + X-Inertia-Location) force une navigation dure
+    // côté client : @adonisjs/inertia n'upgrade 302→303 que pour PUT/PATCH/DELETE,
+    // un POST→302 laisserait le client Inertia suivre la redirection en perdant
+    // son contexte. Le full reload purge aussi tout l'état SPA — idéal au logout.
+    return inertia.location('/login')
   }
 }

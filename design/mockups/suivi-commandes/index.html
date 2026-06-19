@@ -1,0 +1,623 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Suivi des commandes · variantes Papier</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,700;0,9..144,900;1,9..144,500;1,9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,300,0,0" rel="stylesheet" />
+<style>
+/* ════════════════════════════════════════════════════════════════
+   Suivi des commandes — 3 variantes de la future page de suivi.
+   Backed by app/domain/suivi.ts (axe allocation/expédition, issue #19).
+   4 statuts métier : A_EXPEDIER · ALLOCATION_A_FAIRE · RETARD_PROD · RAS
+   + cause de retard (5 types) + signal CQ + allocation virtuelle strict/CQ
+   + logistique palette/camion (computePaletteSummary) + charge retard/poste.
+   Design system « Papier » : crème / terracotta / Fraunces.
+
+   Charpente commune (masthead + nav + KPI + toolbar) + 3 corps :
+     • Registre   — table dense, 1 ligne / ligne de commande (statut + cause + action)
+     • Par statut — board des 4 statuts suivi (workflow allocation/expé)
+     • Logistique — palettes & camions par jour (computePaletteSummary, 15 j)
+   Fichier auto-suffisant, double-clic pour ouvrir.
+   ════════════════════════════════════════════════════════════════ */
+:root{
+  --paper:#f3ece0; --panel:#fbf8ef; --panel2:#efe7d6; --rule:#cdbfa0; --rulesoft:#e3d9c1;
+  --ink:#1f1a13; --ink2:#4a4135; --muted:#8c7d66; --muted2:#a99c84;
+  --terra:#a8431f; --terrasoft:rgba(168,67,31,.10);
+  --ferme:#5b7d4e; --fermesoft:rgba(91,125,78,.12);
+  --planifie:#2f4858; --planifiesoft:rgba(47,72,88,.12);
+  --suggere:#b8862c; --suggeresoft:rgba(184,134,44,.14);
+  --danger:#9a3320; --dangersoft:rgba(154,51,32,.09);
+  --fd:"Fraunces",Georgia,serif; --fs:"Inter",system-ui,sans-serif; --fm:"JetBrains Mono",ui-monospace,monospace;
+  --shadow:0 1px 2px rgba(31,26,19,.05);
+  --shadow-md:0 2px 10px -4px rgba(31,26,19,.18);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--paper);color:var(--ink);font-family:var(--fs);font-size:14px;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+.material-symbols-outlined{font-family:"Material Symbols Outlined";font-weight:300;line-height:1;font-feature-settings:"liga";vertical-align:middle}
+.app{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+
+/* ── Masthead ── */
+.mast{flex:none;border-bottom:1px solid var(--rule);background:var(--paper)}
+.mast-top{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;padding:14px 28px 8px}
+.brand{display:flex;align-items:baseline;gap:14px}
+.brand .logo{font:900 28px/0.9 var(--fd);letter-spacing:-.03em}
+.brand .logo em{font-style:italic;font-weight:500;color:var(--terra)}
+.brand .k{padding-bottom:4px;font:500 10px/1 var(--fm);letter-spacing:.12em;color:var(--muted)}
+.mast-meta{text-align:right;font:500 11px/1.55 var(--fm);color:var(--muted)}
+.mast-meta .wk{font:700 12px var(--fd);color:var(--terra)}
+.mast-meta b{color:var(--ink);font-weight:700}
+.nav{display:flex;align-items:center;gap:4px;padding:0 28px;border-top:1px solid var(--rule)}
+.nav a{padding:10px 14px;font:600 12px var(--fs);color:var(--ink2);text-decoration:none;border-bottom:2px solid transparent;transition:color .12s;cursor:pointer}
+.nav a:hover{color:var(--terra)}
+.nav a.on{color:var(--terra);border-bottom-color:var(--terra)}
+.nav .right{margin-left:auto;display:flex;align-items:center;gap:8px;padding:6px 0}
+.search{display:flex;align-items:center;gap:6px;height:30px;padding:0 12px;border:1px solid var(--rule);border-radius:999px;background:var(--panel);transition:border-color .12s,box-shadow .12s}
+.search:focus-within{border-color:var(--terra);box-shadow:0 0 0 3px var(--terrasoft)}
+.search .material-symbols-outlined{font-size:17px;color:var(--muted)}
+.search input{width:180px;border:0;background:transparent;font:500 12px var(--fs);color:var(--ink);outline:none}
+.avatar{width:28px;height:28px;border-radius:999px;background:var(--terra);color:var(--panel);display:grid;place-items:center;font:700 10px var(--fm)}
+
+/* ── Bandeau KPI (= status_counts du domaine) ── */
+.kpis{flex:none;display:grid;grid-template-columns:repeat(5,1fr);gap:0;border-bottom:1px solid var(--rule);background:var(--paper)}
+.kpi{padding:13px 22px;border-right:1px solid var(--rulesoft);display:flex;flex-direction:column;gap:3px;cursor:default}
+.kpi:last-child{border-right:0}
+.kpi .lbl{font:700 9px var(--fm);text-transform:uppercase;letter-spacing:.13em;color:var(--muted);display:flex;align-items:center;gap:6px}
+.kpi .lbl .dot{width:8px;height:8px;border-radius:2px}
+.kpi .val{font:900 34px/1 var(--fd);letter-spacing:-.03em;color:var(--ink)}
+.kpi .sub{font:500 11px var(--fm);color:var(--muted)}
+.kpi.ferme .val{color:var(--ferme)}
+.kpi.suggere .val{color:var(--suggere)}
+.kpi.danger .val{color:var(--danger)}
+.kpi.terra .val{color:var(--terra)}
+.kpi.planifie .val{color:var(--planifie)}
+
+/* ── Toolbar + switcher ── */
+.toolbar{flex:none;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:10px 28px;border-bottom:1px solid var(--rule);background:var(--paper)}
+.filters{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.cal{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border:1px solid var(--rule);border-radius:999px;background:var(--panel);font:600 11px var(--fs);cursor:pointer;transition:border-color .12s}
+.cal:hover{border-color:var(--terra)}
+.cal .material-symbols-outlined{font-size:14px;color:var(--muted)}
+.seg{display:inline-flex;align-items:center;gap:2px;border:1px solid var(--rule);border-radius:7px;background:var(--panel);padding:3px}
+.seg .tag{padding:0 6px;font:700 9px var(--fm);text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+.seg button{border:0;background:transparent;padding:5px 9px;border-radius:5px;font:700 9px var(--fm);text-transform:uppercase;letter-spacing:.08em;color:var(--muted);cursor:pointer;transition:background .12s,color .12s}
+.seg button.on{background:var(--terrasoft);color:var(--terra)}
+.seg button:hover:not(.on){color:var(--ink)}
+.switch{display:inline-flex;align-items:center;border:1px solid var(--rule);border-radius:8px;background:var(--panel);padding:3px}
+.switch button{display:inline-flex;align-items:center;gap:6px;border:0;background:transparent;padding:6px 12px;border-radius:6px;font:700 11px var(--fs);color:var(--muted);cursor:pointer;transition:background .12s,color .12s}
+.switch button .material-symbols-outlined{font-size:15px}
+.switch button.on{background:var(--ink);color:var(--panel)}
+.switch button:hover:not(.on){color:var(--ink)}
+
+/* ── Visibilité variantes ── */
+.view{flex:1;overflow:hidden;position:relative}
+.view > section{display:none;height:100%;overflow:auto}
+.view > section.on{display:block}
+
+/* ═══ Badge unifié — grammar du composant inertia/components/ui/badge.tsx ═══
+   Une seule forme pour TOUT (statut + signal CQ, registre ET par-statut) :
+   rounded-md · px-2 py-0.5 · text-xs font-medium · gap-1 · icône leading size-3.
+   Couleur par modificateur (tints Papier). Plus de dot/caps hétérogènes. */
+.cel-badges{display:flex;flex-direction:column;align-items:flex-start;gap:4px}
+.bdg{display:inline-flex;align-items:center;gap:5px;border:1px solid transparent;border-radius:6px;padding:3px 8px;font:600 11px/1.3 var(--fs);white-space:nowrap}
+.bdg .material-symbols-outlined{font-size:14px;width:14px;height:14px;line-height:14px;display:inline-grid;place-items:center;flex:0 0 auto;overflow:hidden}
+.bdg.exp{background:var(--fermesoft);color:var(--ferme)}
+.bdg.alc{background:var(--suggeresoft);color:var(--suggere)}
+.bdg.ret{background:var(--dangersoft);color:var(--danger)}
+.bdg.ras{background:var(--panel2);color:var(--muted)}
+.bdg.cq{background:var(--terrasoft);color:var(--terra)}
+
+/* ════════════════════ VARIANTE 1 · REGISTRE (harmonisé tables Papier) ════════════════════
+   Conventions reprises de shortage-table.tsx + RuptureRow (design_system §07) + BOM (§08) :
+   carte rounded-xl bg-card (scroll container), thead bg-secondary collant,
+   séparateurs border-top rule-soft, hover terra-soft, ligne retard teintée destructive/5,
+   N° fraunces · codes mono · désignations fraunces italique · métrique clé en grand
+   chiffre fraunces tabular. */
+.view > section.registre{display:flex;flex-direction:column;overflow:hidden;padding:20px 28px 26px}
+.reg-card{flex:1;min-height:0;background:var(--panel);border:1px solid var(--rule);border-radius:12px;overflow:auto;box-shadow:var(--shadow)}
+.registre table{width:100%;border-collapse:collapse;min-width:1180px}
+.registre thead th{position:sticky;top:0;z-index:5;background:var(--panel2);border-bottom:1px solid var(--rule);border-right:1px solid var(--rulesoft);padding:11px 16px;font:700 9px var(--fm);text-transform:uppercase;letter-spacing:.14em;color:var(--muted);text-align:left;white-space:nowrap}
+.registre thead th:last-child{border-right:0}
+.registre thead th.num,.registre thead th.r{text-align:right}
+.registre thead th.sort{cursor:pointer;user-select:none}
+.registre thead th.sort:hover{color:var(--terra)}
+.registre thead th.sort .material-symbols-outlined{font-size:13px;vertical-align:-2px;color:var(--terra)}
+.registre tbody td{padding:13px 16px;border-top:1px solid var(--rulesoft);border-right:1px solid var(--rulesoft);vertical-align:middle}
+.registre tbody td:last-child{border-right:0}
+.registre tbody tr{transition:background .1s}
+.registre tbody tr:hover{background:var(--terrasoft)}
+.registre tbody tr.ret{background:var(--dangersoft)}
+.registre tbody tr.ret:hover{background:rgba(154,51,32,.13)}
+.registre tbody tr.ret td:first-child{box-shadow:inset 3px 0 var(--danger)}
+.rk{font:400 14px var(--fd);color:var(--muted2);line-height:1}
+.cmd{font:700 13px var(--fm);color:var(--ink);letter-spacing:-.01em}
+.cmd .sub{display:block;font:italic 500 12px var(--fd);color:var(--muted);margin-top:2px}
+.art .code{font:600 13px var(--fm);color:var(--terra)}
+.art .desig{display:block;font:italic 500 12px var(--fd);color:var(--muted);margin-top:2px}
+.typ{font:700 10px var(--fm);color:var(--terra);background:var(--terrasoft);padding:2px 7px;border-radius:4px;letter-spacing:.04em}
+.reste{font:900 21px/1 var(--fd);color:var(--ink);text-align:right;letter-spacing:-.02em;white-space:nowrap}
+.reste .u{font:600 10px var(--fm);color:var(--muted2);margin-left:2px}
+.allo{font:600 12px var(--fm);color:var(--ink2);text-align:right;white-space:nowrap}
+.allo .cqtag{display:block;font:700 8.5px var(--fm);color:var(--terra);text-transform:uppercase;letter-spacing:.05em;margin-top:2px}
+.allo .nil{color:var(--muted2);font-weight:500}
+.dexp{font:600 12.5px var(--fm);color:var(--ink);white-space:nowrap}
+.dexp.late{color:var(--danger);font-weight:700}
+.cause{font:500 12px var(--fs);color:var(--ink2);line-height:1.4}
+.cause .comps{display:block;font:700 10px var(--fm);color:var(--danger);margin-top:3px;letter-spacing:.02em}
+.cause .nil{color:var(--muted2);font:italic 500 12px var(--fd)}
+.act{display:inline-flex;align-items:center;gap:5px;font:700 10px var(--fm);text-transform:uppercase;letter-spacing:.05em;line-height:1.3}
+.act.crit{color:var(--danger)} .act.warn{color:var(--suggere)} .act.info{color:var(--ferme)}
+.act .material-symbols-outlined{font-size:14px;flex-shrink:0}
+
+/* ════════════════════ VARIANTE 2 · PAR STATUT ════════════════════ */
+.statuts{background:var(--panel2);padding:20px 28px 32px}
+.statuts-board{display:grid;grid-template-columns:repeat(4,minmax(280px,1fr));gap:14px}
+.scol{background:var(--paper);border:1px solid var(--rule);border-radius:10px;display:flex;flex-direction:column;min-height:540px}
+.scol.ret{box-shadow:0 0 0 1.5px var(--danger)}
+.scol-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:12px 14px;border-bottom:1px solid var(--rulesoft)}
+.scol-head .nm{display:flex;align-items:center;gap:7px;font:700 12px var(--fs)}
+.scol-head .nm .dot{width:9px;height:9px;border-radius:2px}
+.scol-head .nm small{font:italic 500 10px var(--fd);color:var(--muted);font-weight:500}
+.scol-head .cnt{font:700 11px var(--fm);color:var(--muted)}
+.scol-head .cnt b{color:var(--ink);font:900 16px var(--fd)}
+.scol-foot{padding:8px 14px;border-top:1px solid var(--rulesoft);font:600 9.5px var(--fm);text-transform:uppercase;letter-spacing:.07em;color:var(--muted);display:flex;justify-content:space-between;align-items:center}
+.scol-body{padding:10px;display:flex;flex-direction:column;gap:10px;flex:1}
+/* carte */
+.scard{position:relative;background:var(--panel);border:1px solid var(--rule);border-top:3px solid var(--muted);border-radius:7px;padding:9px 11px 9px;box-shadow:var(--shadow);cursor:pointer;transition:transform .1s,box-shadow .12s}
+.scard:hover{transform:translateY(-1px);box-shadow:0 3px 10px -3px rgba(31,26,19,.18)}
+.scard.exp{border-top-color:var(--ferme)}
+.scard.alc{border-top-color:var(--suggere)}
+.scard.ret{border-top-color:var(--danger)}
+.scard .top{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.scard .ref{font:700 11.5px var(--fm);color:var(--ink)}
+.scard .typ{font:700 8px var(--fm);text-transform:uppercase;letter-spacing:.06em;color:var(--terra);background:var(--terrasoft);padding:2px 5px;border-radius:3px}
+.scard .des{font:600 10.5px var(--fm);color:var(--terra);margin-top:5px}
+.scard .nom{font:500 11px var(--fs);color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.scard .cli{font:italic 11px var(--fd);color:var(--muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* ligne besoin/allocation */
+.alloc{display:flex;align-items:baseline;gap:8px;margin-top:8px;padding-top:7px;border-top:1px solid var(--rulesoft);font:600 10px var(--fm);color:var(--muted)}
+.alloc .big{font:900 15px var(--fd);color:var(--ink)}
+.alloc .split{margin-left:auto;text-align:right;color:var(--ink2)}
+.alloc .split b{color:var(--terra)}
+/* cause/action block (retard) */
+.caused{margin-top:7px;padding:6px 8px;border-radius:5px;background:var(--dangersoft);font:600 9.5px var(--fm);color:var(--danger);text-transform:uppercase;letter-spacing:.03em;line-height:1.4}
+.caused .material-symbols-outlined{font-size:12px;vertical-align:-2px}
+.caused .comps{display:block;font-weight:700;text-transform:none;letter-spacing:0;margin-top:2px}
+.actline{margin-top:6px;display:flex;align-items:center;gap:5px;font:600 9.5px var(--fm);text-transform:uppercase;letter-spacing:.04em}
+.actline.crit{color:var(--danger)} .actline.warn{color:var(--suggere)} .actline.info{color:var(--ferme)}
+.actline .material-symbols-outlined{font-size:13px}
+.empty-col{padding:24px 12px;text-align:center;font:italic 13px var(--fd);color:var(--muted2)}
+
+/* ════════════════════ VARIANTE 3 · LOGISTIQUE ════════════════════ */
+.logi{background:var(--paper);padding:22px 28px 40px}
+.logi-totals{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:22px}
+.ltot{background:var(--panel);border:1px solid var(--rule);border-radius:9px;padding:14px 16px}
+.ltot .lbl{font:700 9px var(--fm);text-transform:uppercase;letter-spacing:.12em;color:var(--muted)}
+.ltot .val{font:900 30px/1 var(--fd);letter-spacing:-.03em;color:var(--ink);margin-top:5px}
+.ltot .sub{font:500 11px var(--fm);color:var(--muted);margin-top:3px;display:flex;align-items:center;gap:6px}
+.ltot.std .val{color:var(--planifie)} .ltot.eh .val{color:var(--suggere)} .ltot.cam .val{color:var(--terra)}
+.sw{width:10px;height:10px;border-radius:2px;display:inline-block}
+/* graphique palettes/jour */
+.chart-card{background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:18px 20px 22px;margin-bottom:20px}
+.chart-card h3{font:700 13px var(--fs);color:var(--ink);display:flex;align-items:center;gap:8px}
+.chart-card h3 .material-symbols-outlined{font-size:16px;color:var(--terra)}
+.chart-card .leg{font:600 10px var(--fm);text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-left:auto;display:flex;gap:14px}
+.chart-card .leg span{display:inline-flex;align-items:center;gap:5px}
+.chart{display:grid;grid-template-columns:repeat(15,1fr);gap:5px;margin-top:18px;align-items:end;height:180px;border-bottom:1px solid var(--rule);padding-bottom:0}
+.bar-col{display:flex;flex-direction:column;align-items:center;justify-content:end;height:100%;position:relative}
+.bar-stack{width:100%;max-width:34px;display:flex;flex-direction:column-reverse;border-radius:4px 4px 0 0;overflow:hidden}
+.bar-stack i{display:block;width:100%}
+.bar-stack i.std{background:var(--planifie)}
+.bar-stack i.eh{background:var(--suggere)}
+.bar-col.cam-mark{position:absolute;top:-2px;width:100%;text-align:center;font:700 8px var(--fm);color:var(--terra)}
+.bar-col .cam{font:700 9px var(--fm);color:var(--terra);margin-bottom:3px}
+.bar-col.today .cam{color:var(--danger)}
+.bar-x{display:grid;grid-template-columns:repeat(15,1fr);gap:5px;margin-top:6px}
+.bar-x div{text-align:center;font:600 9px var(--fm);color:var(--muted)}
+.bar-x div.today{color:var(--terra);font-weight:700}
+.bar-x div.weekend{color:var(--muted2)}
+/* table palette lignes */
+.pal-table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--rule);border-radius:10px;overflow:hidden}
+.pal-table th{background:var(--panel2);border-bottom:1px solid var(--rule);border-right:1px solid var(--rulesoft);padding:9px 13px;font:700 9px var(--fm);text-transform:uppercase;letter-spacing:.11em;color:var(--muted);text-align:left}
+.pal-table th:last-child{border-right:0}
+.pal-table th.r{text-align:right}
+.pal-table td{padding:9px 13px;border-bottom:1px solid var(--rulesoft);border-right:1px solid var(--rulesoft);font:600 12px var(--fm);color:var(--ink)}
+.pal-table td:last-child{border-right:0}
+.pal-table tbody tr:hover{background:var(--terrasoft)}
+.pal-table tbody tr:last-child td{border-bottom:0}
+.pal-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:4px;font:700 8.5px var(--fm);text-transform:uppercase;letter-spacing:.05em}
+.pal-badge.std{background:var(--planifiesoft);color:var(--planifie)}
+.pal-badge.eh{background:var(--suggeresoft);color:var(--suggere)}
+
+/* ═══ Notes designer ═══ */
+.notes{position:fixed;bottom:0;left:0;right:0;z-index:20;background:var(--ink);color:var(--panel);box-shadow:0 -4px 18px -6px rgba(31,26,19,.4);transform:translateY(calc(100% - 38px));transition:transform .25s ease;font-family:var(--fs)}
+.notes:hover,.notes.open{transform:translateY(0)}
+.notes-tab{padding:10px 28px;font:700 10px var(--fm);text-transform:uppercase;letter-spacing:.14em;color:var(--muted2);display:flex;align-items:center;gap:8px;cursor:pointer}
+.notes-tab .material-symbols-outlined{font-size:15px}
+.notes-body{padding:4px 28px 22px;display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
+.notes-body h4{font:700 11px var(--fm);text-transform:uppercase;letter-spacing:.1em;color:var(--terra);margin-bottom:5px}
+.notes-body p{font:400 12px/1.55 var(--fs);color:#d9cdb6}
+.notes-body p b{color:var(--panel);font-weight:600}
+.notes-body code{font:600 11px var(--fm);color:var(--suggere);background:rgba(255,255,255,.06);padding:1px 5px;border-radius:3px}
+@media(max-width:1100px){.kpis,.logi-totals{grid-template-columns:repeat(3,1fr)}.kpi:nth-child(n+4),.ltot:nth-child(n+4){border-top:1px solid var(--rulesoft}}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ═══ Masthead ═══ -->
+  <header class="mast">
+    <div class="mast-top">
+      <div class="brand">
+        <div class="logo">Factory<em>OS</em></div>
+        <div class="k">Suivi · Allocation &amp; expédition des commandes</div>
+      </div>
+      <div class="mast-meta">
+        <div class="wk">Mercredi 18 juin · Semaine 25</div>
+        <div><b>67</b> lignes ouvertes · MAJ X3 <b>14:30</b> · réf. <b>2026-06-18</b></div>
+      </div>
+    </div>
+    <nav class="nav">
+      <a>Tableau</a>
+      <a>Planification</a>
+      <a>Ordonnancement</a>
+      <a>Ruptures</a>
+      <a class="on">Suivi</a>
+      <a>Ressources</a>
+      <div class="right">
+        <label class="search">
+          <span class="material-symbols-outlined">search</span>
+          <input type="text" placeholder="Commande, article, client…" autocomplete="off" />
+        </label>
+        <div class="avatar" title="Opérateur suivi">OP</div>
+      </div>
+    </nav>
+  </header>
+
+  <!-- ═══ KPI = status_counts (app/domain/suivi.ts buildStatusCounts) ═══ -->
+  <section class="kpis">
+    <div class="kpi ferme">
+      <span class="lbl"><span class="dot" style="background:var(--ferme)"></span>À expédier</span>
+      <span class="val">22</span>
+      <span class="sub">besoin net ≤ 0 · prêtes</span>
+    </div>
+    <div class="kpi suggere">
+      <span class="lbl"><span class="dot" style="background:var(--suggere)"></span>Allocation à faire</span>
+      <span class="val">18</span>
+      <span class="sub">couvertes par stock virtuel</span>
+    </div>
+    <div class="kpi danger">
+      <span class="lbl"><span class="dot" style="background:var(--danger)"></span>Retard production</span>
+      <span class="val">6</span>
+      <span class="sub">date expé dépassée</span>
+    </div>
+    <div class="kpi terra">
+      <span class="lbl"><span class="dot" style="background:var(--terra)"></span>Signal CQ</span>
+      <span class="val">9</span>
+      <span class="sub">stock sous contrôle qualité consommé</span>
+    </div>
+    <div class="kpi planifie">
+      <span class="lbl"><span class="dot" style="background:var(--planifie)"></span>Camions · 15 j</span>
+      <span class="val">14</span>
+      <span class="sub">⌀ 2,8 camions / jour ouvré</span>
+    </div>
+  </section>
+
+  <!-- ═══ Toolbar + switcher ═══ -->
+  <div class="toolbar">
+    <div class="filters">
+      <button class="cal" type="button">
+        <span class="material-symbols-outlined">calendar_month</span>
+        À partir du 18 juin 2026
+        <span class="material-symbols-outlined" style="font-size:16px">expand_more</span>
+      </button>
+      <div class="seg" role="group" aria-label="Filtrer par statut">
+        <span class="tag">Statut</span>
+        <button class="on">Tous</button>
+        <button>Retard</button>
+        <button>À allouer</button>
+        <button>À expédier</button>
+      </div>
+      <div class="seg" role="group" aria-label="Filtrer par type">
+        <span class="tag">Type</span>
+        <button class="on">MTS</button>
+        <button class="on">MTO</button>
+        <button>NOR</button>
+      </div>
+    </div>
+    <div class="switch" role="tablist" aria-label="Vue de suivi">
+      <button data-v="registre" class="on" role="tab"><span class="material-symbols-outlined">list_alt</span>Registre</button>
+      <button data-v="statuts" role="tab"><span class="material-symbols-outlined">view_kanban</span>Par statut</button>
+      <button data-v="logi" role="tab"><span class="material-symbols-outlined">local_shipping</span>Logistique</button>
+    </div>
+  </div>
+
+  <div class="view">
+  <!-- ════════════════════ VARIANTE 1 · REGISTRE ════════════════════ -->
+  <section id="registre" class="on registre" role="tabpanel">
+    <div class="reg-card">
+    <table>
+      <thead>
+        <tr>
+          <th class="num" style="width:38px">N°</th>
+          <th style="width:178px">Commande · Client</th>
+          <th>Article · Désignation</th>
+          <th style="width:56px">Type</th>
+          <th class="num" style="width:92px">Reste</th>
+          <th class="num" style="width:104px">Alloué virt.</th>
+          <th style="width:76px">Expé</th>
+          <th class="sort" data-sort="statut" style="width:130px">Statut</th>
+          <th style="width:226px">Cause du retard</th>
+          <th style="width:196px">Action recommandée</th>
+        </tr>
+      </thead>
+      <tbody id="reg-body"></tbody>
+    </table>
+    </div>
+  </section>
+
+  <!-- ════════════════════ VARIANTE 2 · PAR STATUT ════════════════════ -->
+  <section id="statuts" class="statuts" role="tabpanel">
+    <div class="statuts-board" id="statuts-board"></div>
+  </section>
+
+  <!-- ════════════════════ VARIANTE 3 · LOGISTIQUE ════════════════════ -->
+  <section id="logi" class="logi" role="tabpanel">
+    <div class="logi-totals" id="logi-totals"></div>
+    <div class="chart-card">
+      <h3><span class="material-symbols-outlined">stacked_bar_chart</span>Palettes &amp; camions par jour <span class="leg"><span><i class="sw" style="background:var(--planifie)"></i>Standard 800×1200</span><span><i class="sw" style="background:var(--suggere)"></i>EasyHome 1000×1200</span></span></h3>
+      <div class="chart" id="pal-chart"></div>
+      <div class="bar-x" id="pal-x"></div>
+    </div>
+    <table class="pal-table">
+      <thead>
+        <tr><th>Ligne</th><th>Article</th><th>Type palette</th><th class="r">Reste</th><th class="r">U/pal</th><th class="r">Palettes</th><th class="r">Expé</th></tr>
+      </thead>
+      <tbody id="pal-body"></tbody>
+    </table>
+  </section>
+  </div>
+
+  <!-- ═══ Notes designer ═══ -->
+  <aside class="notes" id="notes">
+    <div class="notes-tab" onclick="document.getElementById('notes').classList.toggle('open')">
+      <span class="material-symbols-outlined">styler</span> Notes design — cliquez pour déplier
+    </div>
+    <div class="notes-body">
+      <div>
+        <h4>Registre — statut &amp; cause</h4>
+        <p>Une ligne par ligne de commande. Tri sur <b>statut</b> (retards d'abord). Colonne <b>cause</b> issue de <code>analyzeRetardCause</code> (5 types) avec composants en rupture. Colonne <b>action</b> = <code>recommendActions</code> (severity).</p>
+      </div>
+      <div>
+        <h4>Par statut — workflow expé</h4>
+        <p>4 colonnes = les 4 <code>SuiviStatus</code>. La file de travail : <b>Retard</b> à traiter → <b>Allocation à faire</b> → <b>À expédier</b>. Pastille <b>Signal CQ</b> quand <code>alerteCqStatut</code> (stock sous CQ consommé).</p>
+      </div>
+      <div>
+        <h4>Logistique — palettes &amp; camions</h4>
+        <p><code>computePaletteSummary</code> sur 15 j : palettes Standard/EasyHome, camions = ⌈(std + eh×1,27)/33⌉. Révèle les <b>pics d'expédition</b> et la charge quai. Vue pilotage logistique, distincte du statut.</p>
+      </div>
+    </div>
+  </aside>
+
+</div>
+
+<script>
+/* ═══ Domaine suivi (app/domain/suivi.ts) — données réalistes ═══
+   status   : exp(A_EXPEDIER) | alc(ALLOCATION_A_FAIRE) | ret(RETARD_PROD) | ras(RAS)
+   cause    : {type, comps:{art:qty}} — type parmi
+              RUPTURE_COMPOSANTS | AUCUN_OF_PLANIFIE | ATTENTE_RECEPTION_FOURNISSEUR
+              | STOCK_DISPONIBLE_NON_ALLOUE | INCONNUE
+   qteRes   : qteRestante (besoin brut restant)
+   alloc    : {strict, cq} alloué virtuellement (alc seulement)
+   cq       : alerteCqStatut (stock sous CQ consommé)
+   pal      : {u:unitésParPal, type:'std'|'eh', gamme} — pour computePaletteSummary
+   dExp     : date expé (offset jours depuis aujourd'hui, 0=18 juin) pour palette byDay
+*/
+const CAUSE_LABEL = {
+  RUPTURE_COMPOSANTS:'Rupture composants',
+  AUCUN_OF_PLANIFIE:'Aucun OF planifié',
+  ATTENTE_RECEPTION_FOURNISSEUR:'Attente réception fournisseur',
+  STOCK_DISPONIBLE_NON_ALLOUE:'Stock dispo — non alloué',
+  INCONNUE:'Cause indéterminée',
+};
+const ST_LABEL={exp:'À expédier',alc:'Allocation à faire',ret:'Retard production',ras:'RAS'};
+const ST_SHORT={exp:'À expédier',alc:'À allouer',ret:'Retard',ras:'RAS'};
+const ST_ICON={exp:'outbound',alc:'inventory_2',ret:'report',ras:'check_circle'};
+const ST_DOT={exp:'var(--ferme)',alc:'var(--suggere)',ret:'var(--danger)',ras:'var(--muted)'};
+
+const ORDERS=[
+  // ── RETARD_PROD (5) ──
+  {cmd:'AR24490',art:'XTR106540',des:'Caisse VMC D200',cli:'Bouygues',type:'MTO',fab:true,qteRes:120,alloc:{strict:0,cq:0},status:'ret',
+   cause:{type:'RUPTURE_COMPOSANTS',comps:{'MOT-33012':42}},act:{sev:'crit',txt:'Appro. MOT-33012 (−42)'},cq:false,pal:{u:20,type:'std'},dExp:-4},
+  {cmd:'AR24588',art:'VMC-220',des:'Double flux D350',cli:'AXION GUEVIN',type:'MTO',fab:true,qteRes:40,alloc:{strict:0,cq:0},status:'ret',
+   cause:{type:'RUPTURE_COMPOSANTS',comps:{'ECP-55821':25}},act:{sev:'crit',txt:'Appro. ECP-55821 (−25)'},cq:false,pal:{u:10,type:'eh'},dExp:-2},
+  {cmd:'AR24505',art:'XTR107010',des:'Caisse VMC D200',cli:'Bouygues',type:'MTS',fab:true,qteRes:150,alloc:{strict:0,cq:0},status:'ret',
+   cause:{type:'AUCUN_OF_PLANIFIE',comps:{}},act:{sev:'crit',txt:'Créer et planifier un OF'},cq:false,pal:{u:20,type:'std'},dExp:-1},
+  {cmd:'AR24610',art:'VMC-310',des:'Caisson isolé',cli:'Bouygues',type:'MTO',fab:false,qteRes:60,alloc:{strict:0,cq:0},status:'ret',
+   cause:{type:'ATTENTE_RECEPTION_FOURNISSEUR',comps:{}},act:{sev:'crit',txt:'Relancer le fournisseur'},cq:false,pal:{u:12,type:'eh'},dExp:8},
+  {cmd:'AR24540',art:'XTR107555',des:'Caisse D250',cli:'AXION GUEVIN',type:'MTS',fab:false,qteRes:100,alloc:{strict:0,cq:0},status:'ret',
+   cause:{type:'STOCK_DISPONIBLE_NON_ALLOUE',comps:{}},act:{sev:'crit',txt:'Allouer le stock disponible'},cq:false,pal:{u:24,type:'std'},dExp:0},
+
+  // ── ALLOCATION_A_FAIRE (3) ──
+  {cmd:'AR24518',art:'XTR107842',des:'Caisse VMC D250',cli:'AXION GUEVIN',type:'MTS',fab:false,qteRes:120,alloc:{strict:120,cq:0},status:'alc',cause:null,
+   act:{sev:'warn',txt:"Réaliser l'allocation ERP"},cq:false,pal:{u:20,type:'std'},dExp:6},
+  {cmd:'AR24601',art:'XTR108120',des:'Caisse D350',cli:'CDC Habitat',type:'MTO',fab:false,qteRes:80,alloc:{strict:60,cq:20},status:'alc',cause:null,
+   act:{sev:'warn',txt:'Allocation (stock sous CQ)'},cq:true,pal:{u:24,type:'std'},dExp:8},
+  {cmd:'AR24460',art:'XTR106100',des:'Caisson isolé',cli:'SPIE',type:'MTO',fab:false,qteRes:55,alloc:{strict:55,cq:0},status:'alc',cause:null,
+   act:{sev:'warn',txt:"Réaliser l'allocation ERP"},cq:false,pal:{u:12,type:'eh'},dExp:9},
+
+  // ── A_EXPEDIER (3) ──
+  {cmd:'AR24388',art:'XTR104800',des:'Échangeur D350',cli:'Eiffage',type:'MTS',fab:false,qteRes:50,alloc:{strict:50,cq:0},status:'exp',cause:null,
+   act:{sev:'info',txt:'Expédier'},cq:false,pal:{u:30,type:'std'},dExp:1},
+  {cmd:'AR24420',art:'XTR105910',des:'Caisse D160',cli:'Vinci',type:'MTS',fab:false,qteRes:200,alloc:{strict:200,cq:0},status:'exp',cause:null,
+   act:{sev:'info',txt:'Vérifier levée CQ, expédier'},cq:true,pal:{u:24,type:'std'},dExp:0},
+  {cmd:'AR24350',art:'XTR104200',des:'Échangeur D200',cli:'Vinci',type:'MTS',fab:false,qteRes:70,alloc:{strict:70,cq:0},status:'exp',cause:null,
+   act:{sev:'info',txt:'Expédier'},cq:false,pal:{u:30,type:'std'},dExp:-1},
+
+  // ── RAS (3) ──
+  {cmd:'AR24650',art:'XTR108330',des:'Caisse D250',cli:'SPIE',type:'MTS',fab:false,qteRes:90,alloc:{strict:0,cq:0},status:'ras',cause:null,
+   act:{sev:'info',txt:'—'},cq:false,pal:{u:24,type:'std'},dExp:11},
+  {cmd:'AR24700',art:'XTR108910',des:'Caisse D350',cli:'CDC Habitat',type:'MTS',fab:false,qteRes:110,alloc:{strict:0,cq:0},status:'ras',cause:null,
+   act:{sev:'info',txt:'—'},cq:false,pal:{u:24,type:'std'},dExp:13},
+  {cmd:'AR24680',art:'VMC-410',des:'Caisson isolé',cli:'Bouygues',type:'MTO',fab:false,qteRes:45,alloc:{strict:0,cq:0},status:'ras',cause:null,
+   act:{sev:'info',txt:'—'},cq:false,pal:{u:12,type:'eh'},dExp:12},
+];
+const ST_ORDER={ret:0,alc:1,exp:2,ras:3};
+const dExpFmt=o=>{ if(o.dExp<0)return{t:`${(''+(18+o.dExp)).padStart(2,'0')}/06`,late:true}; const d=18+o.dExp; if(d<=30)return{t:`${(''+d).padStart(2,'0')}/06`,late:false}; return{t:`${(''+(d-30)).padStart(2,'0')}/07`,late:false}; };
+
+/* ═══ V1 · REGISTRE ═══ */
+function renderRegistre(sortKey){
+  let rows=ORDERS.slice();
+  if(sortKey==='statut') rows.sort((a,b)=>ST_ORDER[a.status]-ST_ORDER[b.status]);
+  document.getElementById('reg-body').innerHTML=rows.map((o,i)=>{
+    const dx=dExpFmt(o);
+    const allocHtml=(o.alloc.strict||o.alloc.cq)
+      ? `${o.alloc.strict}${o.alloc.cq?`<span class="cqtag">+${o.alloc.cq} sous CQ</span>`:''}`
+      : '<span class="nil">—</span>';
+    const causeHtml=o.cause
+      ? `<div class="cause">${CAUSE_LABEL[o.cause.type]}${o.cause.comps&&Object.keys(o.cause.comps).length?`<span class="comps">${Object.entries(o.cause.comps).map(([a,q])=>`${a} −${q}`).join(' · ')}</span>`:''}</div>`
+      : '<div class="cause nil">—</div>';
+    const cqBadge=o.cq?'<span class="bdg cq"><span class="material-symbols-outlined">science</span>CQ</span>':'';
+    const sev=o.act.sev==='critical'?'crit':o.act.sev==='warning'?'warn':'info';
+    const sevIcon=o.act.sev==='critical'?'priority_high':o.act.sev==='warning'?'schedule':'check_circle';
+    return `<tr class="${o.status==='ret'?'ret':''}">
+      <td class="rk">${String(i+1).padStart(2,'0')}</td>
+      <td><div class="cmd">${o.cmd}</div><div class="cmd"><span class="sub">${o.cli}</span></div></td>
+      <td><div class="art"><div class="code">${o.art}</div><div class="desig">${o.des}</div></div></td>
+      <td><span class="typ">${o.type}</span></td>
+      <td class="reste">${o.qteRes}<span class="u">u</span></td>
+      <td class="allo">${allocHtml}</td>
+      <td class="dexp ${dx.late?'late':''}">${dx.t}</td>
+      <td><div class="cel-badges"><span class="bdg ${o.status}"><span class="material-symbols-outlined">${ST_ICON[o.status]}</span>${ST_SHORT[o.status]}</span>${cqBadge}</div></td>
+      <td>${causeHtml}</td>
+      <td><span class="act ${sev}"><span class="material-symbols-outlined">${sevIcon}</span>${o.act.txt}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+/* ═══ V2 · PAR STATUT ═══ */
+const STAGES2=[
+  {k:'ret',label:'Retard production',sub:'à traiter en priorité'},
+  {k:'alc',label:'Allocation à faire',sub:'couvertes, ERP à faire'},
+  {k:'exp',label:'À expédier',sub:'prêtes, à charger'},
+  {k:'ras',label:'RAS',sub:'sous contrôle'},
+];
+function renderStatuts(){
+  document.getElementById('statuts-board').innerHTML=STAGES2.map(st=>{
+    const cards=ORDERS.filter(o=>o.status===st.k);
+    const body=cards.length?cards.map(o=>{
+      const dx=dExpFmt(o);
+      const allocLine=o.status==='alc'
+        ? `<div class="alloc"><span>Reste</span><span class="big">${o.qteRes}</span><span class="split">alloué <b>${o.alloc.strict}</b>${o.alloc.cq?` · <b>+${o.alloc.cq}</b> CQ`:''}</span></div>`
+        : o.status==='ret'
+        ? `<div class="alloc"><span>Reste</span><span class="big">${o.qteRes}</span><span class="split">expé <b style="color:var(--danger)">${dx.t}</b></span></div>`
+        : `<div class="alloc"><span>Reste</span><span class="big">${o.qteRes}</span><span class="split">expé <b>${dx.t}</b></span></div>`;
+      const causeBlock=o.cause?`<div class="caused"><span class="material-symbols-outlined">warning</span>${CAUSE_LABEL[o.cause.type]}${o.cause.comps&&Object.keys(o.cause.comps).length?`<span class="comps">${Object.entries(o.cause.comps).map(([a,q])=>`${a} manque ${q}`).join(', ')}</span>`:''}</div>`:'';
+      const actBlock=(o.status==='ret'||o.status==='alc'||o.status==='exp')&&o.act.txt!=='—'
+        ? `<div class="actline ${o.act.sev==='critical'?'crit':o.act.sev==='warning'?'warn':'info'}"><span class="material-symbols-outlined">${o.act.sev==='critical'?'bolt':o.act.sev==='warning'?'assignment':'check'}</span>${o.act.txt}</div>`:'';
+      const cqChip=o.cq?`<span class="bdg cq"><span class="material-symbols-outlined">science</span>Stock sous CQ</span>`:'';
+      return `<div class="scard ${o.status}">
+        <div class="top"><span class="ref">${o.cmd}</span><span class="typ">${o.type}</span></div>
+        <div class="des">${o.art}</div>
+        <div class="nom">${o.des}</div>
+        <div class="cli">${o.cli}</div>
+        ${allocLine}${causeBlock}${cqChip}${actBlock}
+      </div>`;
+    }).join('') : `<div class="empty-col">Aucune ligne</div>`;
+    const palTotal=cards.reduce((s,o)=>s+Math.ceil(o.qteRes/o.pal.u),0);
+    return `<div class="scol ${st.k==='ret'?'ret':''}">
+      <div class="scol-head"><span class="nm"><span class="dot" style="background:${ST_DOT[st.k]}"></span>${st.label}<small>${st.sub}</small></span><span class="cnt"><b>${cards.length}</b></span></div>
+      <div class="scol-body">${body}</div>
+      <div class="scol-foot"><span>Palettes potentielles</span><span style="color:var(--ink2)">${palTotal} pal</span></div>
+    </div>`;
+  }).join('');
+}
+
+/* ═══ V3 · LOGISTIQUE (computePaletteSummary, 15 j) ═══
+   camions = ⌈(std + eh × 1,27) / 33⌉  — EUROP_PER_CAMION=33, EH ratio */
+const EH_RATIO=33/26; // ≈1.27
+const DAY_LABELS=['Me 18','Je 19','Ve 20','Sa 21','Di 22','Lu 23','Ma 24','Me 25','Je 26','Ve 27','Sa 28','Di 29','Lu 30','Ma 01','Me 02'];
+function palOf(o){return Math.ceil(o.qteRes/o.pal.u);}
+function renderLogistique(){
+  // byDay aggregation (15 jours, index 0 = 18 juin = aujourd'hui)
+  const days=Array.from({length:15},()=>({std:0,eh:0,nb:0,lines:[]}));
+  for(const o of ORDERS){
+    if(o.type!=='MTS'&&o.type!=='MTO')continue;
+    if(o.qteRes<=0)continue;
+    const di=o.dExp; if(di<0||di>14){/* retard → compté au jour 0 (aujourd'hui) pour la charge quai */}
+    const idx=Math.max(0,Math.min(14,di));
+    const pal=palOf(o);
+    if(o.pal.type==='std')days[idx].std+=pal; else days[idx].eh+=pal;
+    days[idx].nb+=1; days[idx].lines.push(o);
+  }
+  const maxPal=Math.max(...days.map(d=>d.std+d.eh),1);
+  // totaux
+  let tStd=0,tEh=0;
+  days.forEach(d=>{tStd+=d.std;tEh+=d.eh;});
+  const camTotal=Math.ceil((tStd+tEh*EH_RATIO)/33);
+  // weekend : Sa21(idx3), Di22(idx4), Sa28(idx10), Di29(idx11) — 18 juin 2026 = mercredi
+  const weekendIdx=new Set([3,4,10,11]);
+  const ouvresArr=days.filter((_,i)=>!weekendIdx.has(i));
+  const camOuvres=ouvresArr.reduce((s,d)=>s+Math.ceil((d.std+d.eh*EH_RATIO)/33),0);
+  const moyJour=Math.round(camOuvres/ouvresArr.length*10)/10;
+  document.getElementById('logi-totals').innerHTML=`
+    <div class="ltot std"><div class="lbl">Palettes Standard</div><div class="val">${tStd}</div><div class="sub"><i class="sw" style="background:var(--planifie)"></i>800×1200</div></div>
+    <div class="ltot eh"><div class="lbl">Palettes EasyHome</div><div class="val">${tEh}</div><div class="sub"><i class="sw" style="background:var(--suggere)"></i>1000×1200</div></div>
+    <div class="ltot"><div class="lbl">Total palettes</div><div class="val">${tStd+tEh}</div><div class="sub">${ORDERS.length} lignes expédiées</div></div>
+    <div class="ltot cam"><div class="lbl">Camions (15 j)</div><div class="val">${camTotal}</div><div class="sub">⌀ ${moyJour} cam / jour ouvré</div></div>
+    <div class="ltot"><div class="lbl">Pic journalier</div><div class="val">${Math.max(...days.map(d=>d.std+d.eh))}</div><div class="sub">palettes au pire jour</div></div>`;
+  // chart
+  document.getElementById('pal-chart').innerHTML=days.map((d,i)=>{
+    const tot=d.std+d.eh; const hPct=Math.round(tot/maxPal*100);
+    const cam=Math.ceil((d.std+d.eh*EH_RATIO)/33);
+    const wk=weekendIdx.has(i);
+    return `<div class="bar-col">
+      ${cam>0?`<span class="cam">${cam}<small style="font-size:7px">cam</small></span>`:''}
+      <div class="bar-stack" style="height:${tot>0?Math.max(8,hPct):0}%;opacity:${wk?.45:1}">
+        ${d.std?`<i class="std" style="height:${Math.round(d.std/Math.max(tot,1)*100)}%"></i>`:''}
+        ${d.eh?`<i class="eh" style="height:${Math.round(d.eh/Math.max(tot,1)*100)}%"></i>`:''}
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('pal-x').innerHTML=DAY_LABELS.map((l,i)=>`<div class="${i===0?'today':''} ${weekendIdx.has(i)?'weekend':''}">${l}</div>`).join('');
+  // table lignes (toutes lignes palette, triées par date)
+  const palRows=ORDERS.filter(o=>(o.type==='MTS'||o.type==='MTO')&&o.qteRes>0)
+    .sort((a,b)=>a.dExp-b.dExp);
+  document.getElementById('pal-body').innerHTML=palRows.map(o=>{
+    const dx=dExpFmt(o);
+    return `<tr>
+      <td>${o.cmd} <span style="font:italic 500 10px var(--fd);color:var(--muted)">${o.cli}</span></td>
+      <td style="color:var(--terra)">${o.art} <span style="font:400 11px var(--fs);color:var(--ink2)">${o.des}</span></td>
+      <td><span class="pal-badge ${o.pal.type==='std'?'std':'eh'}">${o.pal.type==='std'?'Standard':'EasyHome'}</span></td>
+      <td class="r">${o.qteRes}</td>
+      <td class="r">${o.pal.u}</td>
+      <td class="r" style="color:var(--ink)">${palOf(o)}</td>
+      <td class="r" style="color:${dx.late?'var(--danger)':'var(--ink2)'}">${dx.t}</td>
+    </tr>`;
+  }).join('');
+}
+
+/* ═══ Switcher + tri ═══ */
+document.querySelector('.switch').addEventListener('click',e=>{
+  const b=e.target.closest('button[data-v]'); if(!b)return;
+  document.querySelectorAll('.switch button').forEach(x=>x.classList.toggle('on',x===b));
+  document.querySelectorAll('.view > section').forEach(s=>s.classList.toggle('on',s.id===b.dataset.v));
+});
+document.querySelector('#registre thead').addEventListener('click',e=>{
+  const th=e.target.closest('th.sort'); if(!th)return;
+  document.querySelectorAll('#registre thead th.sort .material-symbols-outlined').forEach(x=>x.remove());
+  const ic=document.createElement('span');ic.className='material-symbols-outlined';ic.textContent='arrow_upward';th.appendChild(ic);
+  renderRegistre(th.dataset.sort);
+});
+
+/* boot + deep-link */
+renderRegistre('statut'); renderStatuts(); renderLogistique();
+function applyHash(){const v=(location.hash||'').replace('#','');if(['registre','statuts','logi'].includes(v)){document.querySelectorAll('.switch button').forEach(x=>x.classList.toggle('on',x.dataset.v===v));document.querySelectorAll('.view > section').forEach(s=>s.classList.toggle('on',s.id===v));}}
+applyHash(); window.addEventListener('hashchange',applyHash);
+</script>
+</body>
+</html>

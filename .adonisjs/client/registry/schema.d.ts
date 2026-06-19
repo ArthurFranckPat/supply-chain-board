@@ -7,9 +7,9 @@ import type { InferInput, SimpleError } from '@vinejs/vine/types'
 export type ParamValue = string | number | bigint | boolean
 
 export interface Registry {
-  'home': {
+  'auth.login': {
     methods: ["GET","HEAD"]
-    pattern: '/'
+    pattern: '/login'
     types: {
       body: {}
       paramsTuple: []
@@ -19,9 +19,21 @@ export interface Registry {
       errorResponse: unknown
     }
   }
-  'design_system': {
-    methods: ["GET","HEAD"]
-    pattern: '/design-system'
+  'auth.attempt': {
+    methods: ["POST"]
+    pattern: '/login'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'auth.logout': {
+    methods: ["POST"]
+    pattern: '/logout'
     types: {
       body: {}
       paramsTuple: []
@@ -91,6 +103,30 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'home': {
+    methods: ["GET","HEAD"]
+    pattern: '/'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'design_system': {
+    methods: ["GET","HEAD"]
+    pattern: '/design-system'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'scheduler.expert_board': {
     methods: ["GET","HEAD"]
     pattern: '/ordonnancement'
@@ -118,6 +154,18 @@ export interface Registry {
   'scheduler.shortage_tracker': {
     methods: ["GET","HEAD"]
     pattern: '/ruptures'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'suivi.board': {
+    methods: ["GET","HEAD"]
+    pattern: '/suivi'
     types: {
       body: {}
       paramsTuple: []
@@ -478,6 +526,18 @@ export interface Registry {
   'suivi.retard_charge': {
     methods: ["POST"]
     pattern: '/api/v1/status/retard-charge'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'suivi.rows': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/status/rows'
     types: {
       body: {}
       paramsTuple: []

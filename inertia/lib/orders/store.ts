@@ -45,8 +45,12 @@ export function createOrderBoardStore(initial: OrderBoardData) {
         return lineCode.toLowerCase().includes(q)
       case 'commande':
         return card.id.toLowerCase().includes(q)
-      case 'article':
-        return (card.article ?? '').toLowerCase().includes(q) || card.title.toLowerCase().includes(q)
+      case 'article': {
+        // Code article (ITMREF) ET libellé — insensible casse/espaces.
+        const norm = (s: string) => s.toLowerCase().replace(/\s+/g, '')
+        const nq = norm(q)
+        return norm(card.article ?? '').includes(nq) || norm(card.title).includes(nq)
+      }
       case 'client':
         return (card.customer ?? '').toLowerCase().includes(q)
     }

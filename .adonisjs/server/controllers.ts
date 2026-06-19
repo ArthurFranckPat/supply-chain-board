@@ -4,6 +4,7 @@
  */
 
 export const controllers = {
+  Auth: () => import('#controllers/auth_controller'),
   Health: () => import('#controllers/health_controller'),
   OrderPlanning: () => import('#controllers/order_planning_controller'),
   Pipeline: () => import('#controllers/pipeline_controller'),

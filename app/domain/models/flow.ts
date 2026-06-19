@@ -16,7 +16,7 @@ export type FlowOrigin =
   | { type: 'stock'; subType?: 'strict' | 'qc' | 'rejected'; pmp: number | null }
   | { type: 'reception'; id: string; supplier: string; designation: string | null; categorie: string | null; dateCommande: Date | null; qteCommandee: number }
   | { type: 'of'; id: string; status: OfStatus; statutLabel: string | null; typeOf: number | null; typeOfLabel: string | null; designation: string | null }
-  | { type: 'order'; id: string; customer: string; pays: string | null; orderType: OrderType | null; nature: NeedNature; contremarque: string | null; qteCommandee: number; qteAllouee: number }
+  | { type: 'order'; id: string; customer: string; pays: string | null; orderType: OrderType | null; nature: NeedNature; contremarque: string | null; qteCommandee: number; qteAllouee: number; ligne?: string | null }
   | { type: 'forecast'; id: string; customer: string | null; pays: string | null; orderType: OrderType | null; contremarque: string | null; qteCommandee: number; qteAllouee: number }
   | { type: 'component'; parent: string; ofId: string }
   | { type: 'allocation'; docId: string }

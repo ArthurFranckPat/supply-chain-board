@@ -2,7 +2,7 @@
  * AUTO-GÉNÉRÉ par scripts/gen-routes-manifest.mjs — NE PAS ÉDITER À LA MAIN.
  * Source : `start/routes.ts` → `node ace list:routes --jsonl`.
  * Régénérer : `npm run routes:gen` · Vérifier la fraîcheur : `npm run routes:check`.
- * 48 routes nommées.
+ * 50 routes nommées.
  */
 
 export const MANIFEST = {
@@ -50,9 +50,11 @@ export const MANIFEST = {
   "static_sync.status": { method: "GET", pattern: "/api/v1/static/status" },
   "static_sync.sync": { method: "POST", pattern: "/api/v1/static/sync" },
   "suivi.assign": { method: "POST", pattern: "/api/v1/status/assign" },
+  "suivi.board": { method: "GET", pattern: "/suivi" },
   "suivi.from_latest_export": { method: "POST", pattern: "/api/v1/status/from-latest-export" },
   "suivi.palette": { method: "POST", pattern: "/api/v1/status/palette" },
   "suivi.retard_charge": { method: "POST", pattern: "/api/v1/status/retard-charge" },
+  "suivi.rows": { method: "GET", pattern: "/api/v1/status/rows" },
   "suivi.status_detail": { method: "GET", pattern: "/api/v1/status/status/:order" },
 } as const satisfies Record<string, { method: string; pattern: string }>
 
@@ -107,8 +109,10 @@ export type RouteParams = {
   "static_sync.status": void,
   "static_sync.sync": void,
   "suivi.assign": void,
+  "suivi.board": void,
   "suivi.from_latest_export": void,
   "suivi.palette": void,
   "suivi.retard_charge": void,
+  "suivi.rows": void,
   "suivi.status_detail": { "order": string | number }
 }

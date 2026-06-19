@@ -75,5 +75,9 @@ declare module '@adonisjs/inertia/types' {
       todayHref: string
       rowsHref: string
     }
+    'scheduler/suivi': {
+      referenceDate: string
+      rowsHref: string
+    }
   }
 }

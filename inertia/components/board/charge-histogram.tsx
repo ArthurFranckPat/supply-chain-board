@@ -45,12 +45,16 @@ export const ChargeHistogram: Component<ChargeHistogramProps> = (props) => {
   const line = () => variant() === 'line'
 
   const total = () => props.weeks.reduce((s, w) => s + w.ferme + w.planifie + w.suggere, 0)
+  const fermeTotal = () => props.weeks.reduce((s, w) => s + w.ferme, 0)
   const moyenne = () => (props.weeks.length ? total() / props.weeks.length : 0)
   const moyH = () => (props.maxHours ? (moyenne() / props.maxHours) * 100 : 0)
 
-  const barW = () => (line() ? 'w-[44px]' : 'w-[34px]')
+  // 'line' : barres flexibles (remplissent la colonne « Poste », largeur variable
+  // selon le nombre de semaines) -> jamais de débordement hors de l'en-tête.
+  // 'full' : largeur fixe (composant autonome du design system).
+  const barW = () => (line() ? 'min-w-0 flex-1 basis-0 max-w-[44px]' : 'w-[34px] shrink-0')
   const barH = () => (line() ? 'h-[72px]' : 'h-[56px]')
-  const gap = () => (line() ? 'gap-[18px]' : 'gap-[22px]')
+  const gap = () => (line() ? 'gap-2' : 'gap-[22px]')
 
   const lab = (v: number, t: number) =>
     line() || t <= 0 || v / t < LABEL_MIN ? null : `${fmt(v)}h`
@@ -64,6 +68,12 @@ export const ChargeHistogram: Component<ChargeHistogramProps> = (props) => {
           {fmt(total())}
         </span>
         <span class="text-[10px] font-medium text-muted-foreground">heures</span>
+        <Show when={line() && fermeTotal() > 0}>
+          <span class="ml-auto inline-flex items-center gap-1 rounded-[5px] bg-ferme/10 px-1.5 py-0.5 font-mono text-[10px] font-bold text-ferme">
+            <span class="size-1.5 rounded-[2px] bg-ferme" />
+            {fmt(fermeTotal())} h ferme
+          </span>
+        </Show>
         <Show when={!line()}>
           <span class="ml-auto rounded-[5px] bg-terra-soft px-1.5 py-0.5 font-mono text-[10px] font-bold text-terra">
             moy. {fmt(moyenne())} h/sem
@@ -89,7 +99,7 @@ export const ChargeHistogram: Component<ChargeHistogramProps> = (props) => {
             const barHeight = props.maxHours ? (t / props.maxHours) * 100 : 0
             return (
               <div
-                class={cx('flex shrink-0 flex-col justify-end overflow-hidden rounded-t-[6px]', barW())}
+                class={cx('flex flex-col justify-end overflow-hidden rounded-t-[6px]', barW())}
                 style={{ height: `${barHeight}%` }}
               >
                 <Seg bg="bg-suggere" h={pct(w.suggere, t)} label={lab(w.suggere, t)} ink="text-[#3a2a0e]" />
@@ -107,7 +117,7 @@ export const ChargeHistogram: Component<ChargeHistogramProps> = (props) => {
           {(w) => (
             <span
               class={cx(
-                'shrink-0 text-center font-mono font-bold text-muted-foreground',
+                'text-center font-mono font-bold text-muted-foreground',
                 barW(),
                 line() ? 'text-[10px]' : 'text-[8px]',
               )}

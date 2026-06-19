@@ -6,17 +6,23 @@ import type { ApiDefinition } from './tree.d.ts'
 const placeholder: any = {}
 
 const routes = {
-  'home': {
+  'auth.login': {
     methods: ["GET","HEAD"],
-    pattern: '/',
-    tokens: [{"old":"/","type":0,"val":"/","end":""}],
-    types: placeholder as Registry['home']['types'],
+    pattern: '/login',
+    tokens: [{"old":"/login","type":0,"val":"login","end":""}],
+    types: placeholder as Registry['auth.login']['types'],
   },
-  'design_system': {
-    methods: ["GET","HEAD"],
-    pattern: '/design-system',
-    tokens: [{"old":"/design-system","type":0,"val":"design-system","end":""}],
-    types: placeholder as Registry['design_system']['types'],
+  'auth.attempt': {
+    methods: ["POST"],
+    pattern: '/login',
+    tokens: [{"old":"/login","type":0,"val":"login","end":""}],
+    types: placeholder as Registry['auth.attempt']['types'],
+  },
+  'auth.logout': {
+    methods: ["POST"],
+    pattern: '/logout',
+    tokens: [{"old":"/logout","type":0,"val":"logout","end":""}],
+    types: placeholder as Registry['auth.logout']['types'],
   },
   'assets.unpoly_js': {
     methods: ["GET","HEAD"],
@@ -48,6 +54,18 @@ const routes = {
     tokens: [{"old":"/health","type":0,"val":"health","end":""}],
     types: placeholder as Registry['health.index']['types'],
   },
+  'home': {
+    methods: ["GET","HEAD"],
+    pattern: '/',
+    tokens: [{"old":"/","type":0,"val":"/","end":""}],
+    types: placeholder as Registry['home']['types'],
+  },
+  'design_system': {
+    methods: ["GET","HEAD"],
+    pattern: '/design-system',
+    tokens: [{"old":"/design-system","type":0,"val":"design-system","end":""}],
+    types: placeholder as Registry['design_system']['types'],
+  },
   'scheduler.expert_board': {
     methods: ["GET","HEAD"],
     pattern: '/ordonnancement',
@@ -65,6 +83,12 @@ const routes = {
     pattern: '/ruptures',
     tokens: [{"old":"/ruptures","type":0,"val":"ruptures","end":""}],
     types: placeholder as Registry['scheduler.shortage_tracker']['types'],
+  },
+  'suivi.board': {
+    methods: ["GET","HEAD"],
+    pattern: '/suivi',
+    tokens: [{"old":"/suivi","type":0,"val":"suivi","end":""}],
+    types: placeholder as Registry['suivi.board']['types'],
   },
   'order_planning.index': {
     methods: ["GET","HEAD"],
@@ -245,6 +269,12 @@ const routes = {
     pattern: '/api/v1/status/retard-charge',
     tokens: [{"old":"/api/v1/status/retard-charge","type":0,"val":"api","end":""},{"old":"/api/v1/status/retard-charge","type":0,"val":"v1","end":""},{"old":"/api/v1/status/retard-charge","type":0,"val":"status","end":""},{"old":"/api/v1/status/retard-charge","type":0,"val":"retard-charge","end":""}],
     types: placeholder as Registry['suivi.retard_charge']['types'],
+  },
+  'suivi.rows': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/status/rows',
+    tokens: [{"old":"/api/v1/status/rows","type":0,"val":"api","end":""},{"old":"/api/v1/status/rows","type":0,"val":"v1","end":""},{"old":"/api/v1/status/rows","type":0,"val":"status","end":""},{"old":"/api/v1/status/rows","type":0,"val":"rows","end":""}],
+    types: placeholder as Registry['suivi.rows']['types'],
   },
   'pipeline.supply_board': {
     methods: ["POST"],

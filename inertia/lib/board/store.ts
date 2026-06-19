@@ -54,7 +54,7 @@ export function createBoardStore(initial: BoardData) {
     if (!q) return true
     const set = matchSet()
     if (set === null) return false
-    return set.has(SCOPE_CFG[scope()].attr(card, lineCode))
+    return set.has(SCOPE_CFG[scope()].attr(card, lineCode).toLowerCase())
   }
 
   /** A line stays visible if it matches (poste) or holds ≥1 matched card. */
@@ -63,7 +63,7 @@ export function createBoardStore(initial: BoardData) {
     if (!q) return true
     const set = matchSet()
     const s = scope()
-    if (s === 'poste' && set !== null && set.has(lineCode)) return true
+    if (s === 'poste' && set !== null && set.has(lineCode.toLowerCase())) return true
     const line = board.lines.find((l) => l.code === lineCode)
     if (!line) return false
     return line.dayCells.some((dc) => dc.cards.some((c) => cardMatches(c, lineCode)))
@@ -87,7 +87,7 @@ export function createBoardStore(initial: BoardData) {
     fetch(SCOPE_CFG[s].url(q))
       .then((r): Promise<Record<string, string[]>> => (r.ok ? r.json() : Promise.resolve({})))
       .then((data) => {
-        const set = new Set<string>(data[SCOPE_CFG[s].key] || [])
+        const set = new Set<string>((data[SCOPE_CFG[s].key] || []).map((v) => v.toLowerCase()))
         cache.set(cacheKey, set)
         if (seq === pendingSeq && scope() === s && query().trim().toLowerCase() === q) {
           setMatchSet(set)

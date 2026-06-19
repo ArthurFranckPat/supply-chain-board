@@ -82,16 +82,18 @@ export const SelectContent = <T extends ValidComponent = "div">(
 ) => {
   const [, rest] = splitProps(props as SelectContentProps, ["class"])
   return (
-    <SelectPrimitive.Content
-      data-slot="select-content"
-      class={cx(
-        "bg-popover text-popover-foreground data-[expanded]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[expanded]:fade-in-0 data-[closed]:zoom-out-95 data-[expanded]:zoom-in-95 relative z-50 min-w-[8rem] overflow-x-hidden overflow-y-auto rounded-md border shadow-md",
-        props.class,
-      )}
-      {...rest}
-    >
-      <SelectPrimitive.Listbox class="p-1 outline-none" />
-    </SelectPrimitive.Content>
+    <SelectPrimitive.Portal>
+      <SelectPrimitive.Content
+        data-slot="select-content"
+        class={cx(
+          "bg-popover text-popover-foreground data-[expanded]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[expanded]:fade-in-0 data-[closed]:zoom-out-95 data-[expanded]:zoom-in-95 relative z-50 min-w-[8rem] overflow-x-hidden overflow-y-auto rounded-md border shadow-md",
+          props.class,
+        )}
+        {...rest}
+      >
+        <SelectPrimitive.Listbox class="p-1 outline-none" />
+      </SelectPrimitive.Content>
+    </SelectPrimitive.Portal>
   )
 }
 

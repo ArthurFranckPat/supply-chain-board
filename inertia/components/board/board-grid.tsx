@@ -117,13 +117,6 @@ export default function BoardGrid(props: {
     return m || 1
   })
 
-  /** Compte d'OF visibles d'une ligne. */
-  function lineOfCount(line: LineRow): number {
-    let n = 0
-    for (const dc of line.dayCells) n += dc.cards.length
-    return n
-  }
-
   /** N° du jour dérivé de l'ISO de la colonne (DayCol ne porte pas le n°). */
   function dayNum(col: number): string {
     const iso = store.board.lines[0]?.dayCells[col]?.iso
@@ -178,7 +171,7 @@ export default function BoardGrid(props: {
                       day.today ? 'text-terra' : 'text-muted-foreground',
                     )}
                   >
-                    {day.short}
+                    {day.short.replace(/\s*\d+\s*$/, '')}
                   </div>
                   <div
                     class={cx(
@@ -188,8 +181,9 @@ export default function BoardGrid(props: {
                   >
                     {dayNum(di())}
                   </div>
-                  <div class="mt-0.5 font-mono text-[9px] font-bold tabular-nums text-muted-foreground">
-                    {fmt(store.dayLoad()[di()] ?? 0)} h
+                  <div class="mt-0.5 font-mono text-[11px] font-bold tabular-nums text-terra">
+                    {fmt(store.dayLoad()[di()] ?? 0)}
+                    <span class="text-[8px] font-medium opacity-60"> h</span>
                   </div>
                 </div>
               )}
@@ -205,7 +199,7 @@ export default function BoardGrid(props: {
               style={{ 'grid-template-columns': gridTpl(), display: store.lineVisible(line.code) ? 'grid' : 'none' }}
             >
               {/* En-tête de poste (collant à gauche) */}
-              <div class="sticky left-0 z-20 flex flex-col gap-1.5 border-r border-rule bg-card px-3.5 py-3">
+              <div class="sticky left-0 z-20 flex flex-col gap-1.5 overflow-hidden border-r border-rule bg-card px-3.5 py-3">
                 <div class="flex items-center gap-2">
                   <span
                     class="size-2.5 rounded-[2px]"
@@ -218,9 +212,6 @@ export default function BoardGrid(props: {
                 </div>
                 <span class="text-[11px] leading-tight text-muted-foreground">{line.name}</span>
                 <ChargeHistogram weeks={lineCharge(line)} maxHours={maxLineHours()} variant="line" />
-                <div class="font-mono text-[9px] font-semibold tracking-wider text-muted-foreground">
-                  {lineOfCount(line)} OF
-                </div>
               </div>
 
               {/* Cellules */}
@@ -321,6 +312,7 @@ function CardView(props: {
         variant="of"
         status={toStatus(card.status)}
         article={card.id}
+        articleRef={card.article ?? undefined}
         title={card.title}
         hours={fmt(card.hours)}
         progress={parseProgress(card.metric)}

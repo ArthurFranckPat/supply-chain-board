@@ -194,14 +194,26 @@ export const Calendar: Component<CalendarProps> = (props) => {
                   const isWeekend = d.getDay() === 0 || d.getDay() === 6
                   const dis = isDisabled(d)
 
-                  const er = effRange()
-                  const hasSpan =
-                    er.start != null && er.end != null && !sameDay(er.start, er.end)
-                  const isRStart = er.start != null && sameDay(d, er.start)
-                  const isREnd = hasSpan && er.end != null && sameDay(d, er.end)
-                  const between = hasSpan && er.start! < d && d < er.end!
-                  const isSel = props.mode !== 'range' && props.value != null && sameDay(d, props.value)
-                  const filled = isSel || isRStart || isREnd
+                  // Réactifs : suivent effRange() (ancre + survol) pour l'aperçu live.
+                  const hasSpan = () => {
+                    const er = effRange()
+                    return er.start != null && er.end != null && !sameDay(er.start, er.end)
+                  }
+                  const isRStart = () => {
+                    const er = effRange()
+                    return er.start != null && sameDay(d, er.start)
+                  }
+                  const isREnd = () => {
+                    const er = effRange()
+                    return hasSpan() && er.end != null && sameDay(d, er.end)
+                  }
+                  const between = () => {
+                    const er = effRange()
+                    return hasSpan() && er.start! < d && d < er.end!
+                  }
+                  const isSel = () =>
+                    props.mode !== 'range' && props.value != null && sameDay(d, props.value)
+                  const filled = () => isSel() || isRStart() || isREnd()
 
                   return (
                     <button
@@ -214,13 +226,13 @@ export const Calendar: Component<CalendarProps> = (props) => {
                       class="relative flex h-9 items-center justify-center"
                     >
                       {/* barre de plage — pleine entre, demi aux bornes */}
-                      {hasSpan && (between || isRStart || isREnd) && (
+                      {hasSpan() && (between() || isRStart() || isREnd()) && (
                         <span
                           class={cx(
                             'pointer-events-none absolute inset-y-1.5 bg-terra/20',
-                            between && 'left-0 right-0',
-                            isRStart && 'left-1/2 right-0',
-                            isREnd && 'left-0 right-1/2',
+                            between() && 'left-0 right-0',
+                            isRStart() && 'left-1/2 right-0',
+                            isREnd() && 'left-0 right-1/2',
                           )}
                         />
                       )}
@@ -228,7 +240,7 @@ export const Calendar: Component<CalendarProps> = (props) => {
                       <span
                         class={cx(
                           'relative z-[1] flex size-8 items-center justify-center rounded-full text-[12px] tabular-nums transition-colors',
-                          filled
+                          filled()
                             ? 'bg-terra font-bold text-card'
                             : isToday
                               ? 'border border-terra font-bold text-terra'

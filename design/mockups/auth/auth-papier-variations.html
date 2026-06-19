@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Auth · Papier — 3 directions</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,900;1,9..144,400;1,9..144,500&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  /* ── Tokens Papier — extraits 1:1 de resources/css/app.css (.theme-papier) ── */
+  :root{
+    --paper:#f3ece0;        /* background */
+    --panel:#fbf8ef;        /* card */
+    --panel-2:#efe7d6;      /* secondary / muted */
+    --rule:#cdbfa0;         /* border */
+    --rule-soft:#e3d9c1;    /* hairline */
+    --ink:#1f1a13;          /* foreground */
+    --ink-2:#4a4135;        /* secondary-foreground */
+    --muted:#8c7d66;        /* muted-foreground */
+    --terra:#a8431f;        /* primary */
+    --terra-soft:rgba(168,67,31,.10);
+    --ferme:#5b7d4e;
+    --planifie:#2f4858;
+    --suggere:#b8862c;
+    --danger:#9a3320;
+    --fraunces:"Fraunces",Georgia,serif;
+    --sans:"Inter",system-ui,sans-serif;
+    --mono:"JetBrains Mono",ui-monospace,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#d9cdb8;font-family:var(--sans);color:var(--ink);
+    background-image:linear-gradient(rgba(31,26,19,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(31,26,19,.04) 1px,transparent 1px);
+    background-size:28px 28px;}
+  .board{max-width:1240px;margin:0 auto;padding:48px 32px 96px}
+  .board > header{margin-bottom:36px}
+  .board h1{font-family:var(--fraunces);font-weight:900;font-size:30px;letter-spacing:-.02em;margin:0}
+  .board h1 em{font-style:italic;font-weight:500;color:var(--terra)}
+  .board .sub{margin:6px 0 0;color:var(--ink-2);font-size:14px;max-width:60ch}
+  .variant{margin-top:44px}
+  .variant > .tag{display:flex;align-items:baseline;gap:12px;margin-bottom:14px}
+  .variant > .tag .n{font-family:var(--mono);font-size:11px;color:var(--muted)}
+  .variant > .tag .name{font-family:var(--fraunces);font-weight:600;font-size:19px}
+  .variant > .tag .name em{font-style:italic;color:var(--terra);font-weight:500}
+  .variant > .tag .note{font-size:12.5px;color:var(--ink-2)}
+  .frame{border:1px solid var(--rule);border-radius:14px;overflow:hidden;box-shadow:0 16px 40px -16px rgba(31,26,19,.28);background:var(--paper)}
+
+  /* ── primitives Papier réutilisées ── */
+  .field-label{display:block;font-size:13px;font-weight:500;color:var(--ink);margin-bottom:7px}
+  .input{width:100%;height:42px;border-radius:9px;border:1px solid var(--rule);background:var(--panel);
+    padding:0 13px;font-size:14px;color:var(--ink);font-family:var(--sans);outline:none;transition:border-color .12s,box-shadow .12s}
+  .input::placeholder{color:var(--muted)}
+  .input:focus{border-color:var(--terra);box-shadow:0 0 0 3px var(--terra-soft)}
+  .btn{width:100%;height:44px;border:0;border-radius:9px;background:var(--terra);color:var(--panel);
+    font-family:var(--sans);font-size:14.5px;font-weight:600;letter-spacing:.01em;cursor:pointer;transition:background .12s}
+  .btn:hover{background:#8f3818}
+  /* segmented — calque sur components/ui/segmented-control */
+  .seg{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;background:var(--panel-2);border:1px solid var(--rule);border-radius:10px}
+  .seg button{height:34px;border:0;border-radius:7px;background:transparent;font-family:var(--sans);font-size:13px;font-weight:500;color:var(--ink-2);cursor:pointer}
+  .seg button.on{background:var(--panel);color:var(--ink);box-shadow:0 1px 2px rgba(31,26,19,.10);font-weight:600}
+  .seg button.on.prod{color:var(--danger)}
+  .check{display:flex;align-items:center;gap:9px;font-size:13px;color:var(--ink-2);cursor:pointer}
+  .check input{width:16px;height:16px;accent-color:var(--terra)}
+  .ackbox{display:flex;gap:10px;align-items:flex-start;padding:11px 13px;border-radius:9px;
+    border:1px solid color-mix(in srgb,var(--suggere) 50%,transparent);background:color-mix(in srgb,var(--suggere) 12%,transparent);font-size:12.5px;color:var(--ink)}
+  .ackbox input{margin-top:2px;accent-color:var(--suggere)}
+  .errbox{display:flex;gap:9px;align-items:flex-start;padding:11px 13px;border-radius:9px;
+    border:1px solid color-mix(in srgb,var(--danger) 40%,transparent);background:color-mix(in srgb,var(--danger) 10%,transparent);font-size:13px;color:var(--danger)}
+  .quad{background-image:linear-gradient(rgba(31,26,19,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(31,26,19,.05) 1px,transparent 1px);background-size:22px 22px}
+  .x3tag{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+
+  /* ════ V1 — Atelier (split) ════ */
+  .v1{display:grid;grid-template-columns:1.05fr .95fr;min-height:560px}
+  .v1 .brand{position:relative;background:var(--ink);color:#efe7d6;padding:44px 46px;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden}
+  .v1 .brand::after{content:"";position:absolute;inset:0;opacity:.5;
+    background-image:linear-gradient(rgba(243,236,224,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(243,236,224,.06) 1px,transparent 1px);background-size:26px 26px;pointer-events:none}
+  .v1 .brand > *{position:relative;z-index:1}
+  .v1 .wm{font-family:var(--fraunces);font-weight:900;font-size:34px;line-height:1.05;letter-spacing:-.02em}
+  .v1 .wm em{font-style:italic;font-weight:500;color:var(--suggere)}
+  .v1 .brand .lede{margin-top:18px;font-size:14.5px;line-height:1.55;color:#cdbfa0;max-width:32ch}
+  .v1 .brand .meta{font-family:var(--mono);font-size:11px;letter-spacing:.06em;color:#8c7d66}
+  .v1 .brand .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--ferme);margin-right:7px;vertical-align:middle}
+  .v1 .form{position:relative;padding:46px 46px;display:flex;flex-direction:column;justify-content:center;background:var(--paper)}
+  .v1 .form h2{font-family:var(--fraunces);font-weight:600;font-size:22px;margin:0 0 2px}
+  .v1 .form .h-sub{font-size:13px;color:var(--muted);margin:0 0 26px}
+  .v1 .stack{display:flex;flex-direction:column;gap:17px}
+  /* env — discret, en haut à droite */
+  .v1 .envpick{position:absolute;top:22px;right:24px;display:flex;align-items:center;gap:7px}
+  .v1 .envpick .lbl{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+  .v1 .envseg{display:inline-flex;padding:2px;background:var(--panel-2);border:1px solid var(--rule);border-radius:7px}
+  .v1 .envseg button{height:22px;padding:0 9px;border:0;border-radius:5px;background:transparent;font-family:var(--mono);font-size:10.5px;letter-spacing:.03em;color:var(--muted);cursor:pointer}
+  .v1 .envseg button.on{background:var(--panel);color:var(--terra);font-weight:600;box-shadow:0 1px 2px rgba(31,26,19,.10)}
+
+  /* ════ V2 — Carte timbre (centré) ════ */
+  .v2{padding:52px 24px;display:flex;align-items:center;justify-content:center;min-height:560px}
+  .v2 .card{width:100%;max-width:392px;background:var(--panel);border:1px solid var(--rule);border-radius:16px;
+    box-shadow:0 10px 30px -12px rgba(31,26,19,.22);overflow:hidden}
+  .v2 .cap{padding:30px 34px 22px;text-align:center;border-bottom:1px solid var(--rule-soft);position:relative}
+  .v2 .cap::before{content:"";position:absolute;left:0;right:0;top:0;height:4px;background:var(--terra)}
+  .v2 .seal{width:46px;height:46px;border-radius:11px;background:var(--terra-soft);border:1px solid color-mix(in srgb,var(--terra) 35%,transparent);
+    display:flex;align-items:center;justify-content:center;margin:0 auto 14px;font-family:var(--fraunces);font-weight:900;font-size:22px;color:var(--terra)}
+  .v2 .cap h2{font-family:var(--fraunces);font-weight:600;font-size:21px;margin:0}
+  .v2 .cap p{font-size:12.5px;color:var(--muted);margin:5px 0 0}
+  .v2 .body{padding:26px 34px 30px;display:flex;flex-direction:column;gap:16px}
+  .v2 .perf{padding:14px 34px;background:var(--panel-2);border-top:1px solid var(--rule-soft);text-align:center}
+
+  /* ════ V3 — Fiche éditoriale (asymétrique) ════ */
+  .v3{display:grid;grid-template-columns:.85fr 1.15fr;min-height:560px;background:var(--paper)}
+  .v3 .col-l{padding:48px 40px;display:flex;flex-direction:column;justify-content:space-between;border-right:1px solid var(--rule)}
+  .v3 .kicker{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--terra)}
+  .v3 .col-l h2{font-family:var(--fraunces);font-weight:900;font-size:42px;line-height:1.0;letter-spacing:-.025em;margin:16px 0 0}
+  .v3 .col-l h2 em{font-style:italic;font-weight:400;color:var(--terra)}
+  .v3 .col-l .blurb{margin-top:18px;font-size:14px;line-height:1.6;color:var(--ink-2);max-width:30ch}
+  .v3 .legend{display:flex;flex-direction:column;gap:8px;font-size:12px;color:var(--ink-2)}
+  .v3 .legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:8px}
+  .v3 .col-r{padding:48px 46px;display:flex;flex-direction:column;justify-content:center}
+  .v3 .fiche{display:flex;flex-direction:column}
+  .v3 .row{padding:15px 0;border-bottom:1px solid var(--rule-soft)}
+  .v3 .row:first-child{padding-top:0}
+  .v3 .row .field-label{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:8px}
+  .v3 .row .input{background:transparent;border:0;border-radius:0;height:auto;padding:0;font-family:var(--fraunces);font-size:19px}
+  .v3 .row .input:focus{box-shadow:none}
+  .v3 .row.focusish{position:relative}
+  .v3 .row.focusish::after{content:"";position:absolute;left:0;bottom:-1px;width:60px;height:2px;background:var(--terra)}
+  .v3 .v3foot{display:flex;align-items:center;justify-content:space-between;margin-top:26px;gap:18px}
+  .v3 .btn{width:auto;padding:0 26px}
+</style>
+</head>
+<body>
+<div class="board">
+  <header>
+    <h1>Page d'authentification — <em>3 directions Papier</em></h1>
+    <p class="sub">Tokens extraits 1:1 du scope <code>.theme-papier</code> (crème #f3ece0 · terracotta #a8431f · Fraunces). Même formulaire réel (issue #13) : identifiant X3 · mot de passe · environnement Test/Prod · garde-fou Prod · « se souvenir » · état d'erreur. Trois compositions différentes, un seul système.</p>
+  </header>
+
+  <!-- ════════════ V1 ════════════ -->
+  <section class="variant">
+    <div class="tag">
+      <span class="n">01</span>
+      <span class="name">Atelier <em>· split</em></span>
+      <span class="note">Panneau marque ink + quadrillé, formulaire à droite. Le plus « produit ». Sûr.</span>
+    </div>
+    <div class="frame">
+      <div class="v1">
+        <div class="brand">
+          <div>
+            <div class="wm">Supply<br>Chain <em>Board</em></div>
+            <p class="lede">Ordonnancement & suivi de production — connecté à Sage X3.</p>
+          </div>
+          <div class="meta"><span class="dot"></span>X3 · ITMMASTER joignable</div>
+        </div>
+        <div class="form">
+          <div class="envpick">
+            <span class="lbl">Env</span>
+            <div class="envseg">
+              <button>Test</button>
+              <button class="on">Prod</button>
+            </div>
+          </div>
+          <h2>Connexion</h2>
+          <p class="h-sub">Identifiants Sage X3</p>
+          <div class="stack">
+            <div>
+              <label class="field-label">Identifiant</label>
+              <input class="input" value="bledoua" />
+            </div>
+            <div>
+              <label class="field-label">Mot de passe</label>
+              <input class="input" type="password" value="········" />
+            </div>
+            <label class="check"><input type="checkbox" checked /> Se souvenir de mon identifiant et de l'environnement</label>
+            <button class="btn">Se connecter</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════ V2 ════════════ -->
+  <section class="variant">
+    <div class="tag">
+      <span class="n">02</span>
+      <span class="name">Timbre <em>· carte centrée</em></span>
+      <span class="note">Carte papier unique, sceau Fraunces, filet terracotta. État Prod actif → garde-fou. Focalisé.</span>
+    </div>
+    <div class="frame">
+      <div class="v2 quad">
+        <div class="card">
+          <div class="cap">
+            <div class="seal">S</div>
+            <h2>Supply Chain Board</h2>
+            <p>Connexion avec vos identifiants Sage X3</p>
+          </div>
+          <div class="body">
+            <div class="errbox">⚠ Identifiant ou mot de passe X3 refusé. Vérifiez l'environnement.</div>
+            <div>
+              <label class="field-label">Identifiant</label>
+              <input class="input" value="bledoua" />
+            </div>
+            <div>
+              <label class="field-label">Mot de passe</label>
+              <input class="input" type="password" value="········" />
+            </div>
+            <div>
+              <label class="field-label">Environnement</label>
+              <div class="seg">
+                <button>Test</button>
+                <button class="on prod">Production</button>
+              </div>
+            </div>
+            <label class="ackbox"><input type="checkbox" /> <span>Je confirme me connecter à l'environnement de <strong>PRODUCTION</strong>.</span></label>
+            <label class="check"><input type="checkbox" checked /> Se souvenir de moi</label>
+            <button class="btn">Se connecter</button>
+          </div>
+          <div class="perf"><span class="x3tag">Sage X3 · healthcheck avant ouverture de session</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════ V3 ════════════ -->
+  <section class="variant">
+    <div class="tag">
+      <span class="n">03</span>
+      <span class="name">Fiche <em>· éditoriale</em></span>
+      <span class="note">Display Fraunces géant, formulaire en « fiche » à filets, micro-labels mono. Le plus signé / papier-document.</span>
+    </div>
+    <div class="frame">
+      <div class="v3">
+        <div class="col-l">
+          <div>
+            <div class="kicker">Sage X3 · Atelier</div>
+            <h2>Supply<br>Chain<br><em>Board</em></h2>
+            <p class="blurb">Ordonnancement, charge et suivi des ordres de fabrication.</p>
+          </div>
+          <div class="legend">
+            <div><i style="background:var(--ferme)"></i>Ferme</div>
+            <div><i style="background:var(--planifie)"></i>Planifié</div>
+            <div><i style="background:var(--suggere)"></i>Suggéré</div>
+          </div>
+        </div>
+        <div class="col-r">
+          <div class="fiche">
+            <div class="row focusish">
+              <label class="field-label">Identifiant</label>
+              <input class="input" value="bledoua" />
+            </div>
+            <div class="row">
+              <label class="field-label">Mot de passe</label>
+              <input class="input" type="password" value="········" />
+            </div>
+            <div class="row">
+              <label class="field-label">Environnement</label>
+              <div class="seg" style="margin-top:4px">
+                <button class="on">Test</button>
+                <button>Production</button>
+              </div>
+            </div>
+          </div>
+          <div class="v3foot">
+            <label class="check"><input type="checkbox" checked /> Se souvenir</label>
+            <button class="btn">Se connecter →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>

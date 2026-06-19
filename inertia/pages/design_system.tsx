@@ -243,26 +243,22 @@ const DesignSystem: Component = () => {
                 </div>
                 <div>
                   <FieldLabel>Select</FieldLabel>
-                  <Select
+                  <Select<string>
                     value={scope()}
-                    onChange={(v) => setScope(v as string)}
+                    onChange={(v) => v && setScope(v)}
                     options={['poste', 'commande', 'article', 'client']}
                     disallowEmptySelection
-                    optionTextValue={(o: string) => o}
+                    optionTextValue={(o) => o}
+                    itemComponent={(itemProps) => (
+                      <SelectItem item={itemProps.item}>{itemProps.item.rawValue}</SelectItem>
+                    )}
                   >
                     <SelectTrigger class="w-full" aria-label="Portée">
                       <SelectValue<string>>
                         {(state) => state.selectedOption()}
                       </SelectValue>
                     </SelectTrigger>
-                    <SelectContent>
-                      <For each={['poste', 'commande', 'article', 'client']}>
-                        {(o) => (
-                          // @ts-expect-error — Kobalte Select.Item exige `item: CollectionNode` non exposé ici
-                          <SelectItem value={o}>{o}</SelectItem>
-                        )}
-                      </For>
-                    </SelectContent>
+                    <SelectContent />
                   </Select>
                 </div>
                 <div>

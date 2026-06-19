@@ -1,12 +1,37 @@
-import { For, Show, createSignal } from 'solid-js'
+import { For, Show, createMemo, createSignal } from 'solid-js'
+import { cx } from '@/libs/cva'
 import type { OrderBoardStore } from '@/lib/orders/store'
-import type { OrderCard, OrderLineRow, DayCell } from '@/lib/orders/types'
+import type { OrderCard, OrderLineRow } from '@/lib/orders/types'
+import { BoardCard, type CardStatus } from './board-card'
+import { ChargeHistogram, type ChargeWeek } from './charge-histogram'
 
 /**
- * Grille du board planification — version Inertia (issue #10). Grille semaine ×
- * poste ; drag en temps seul ; bouton "réinitialiser" sur les cartes overridées.
- * Sans couplage au chrome SSR ni attrs Unpoly.
+ * Grille du board « Papier » — Planification (issue #10).
+ *
+ * Même charpente que <BoardGrid> (ordonnancement) : temps à l'horizontale,
+ * un poste par ligne, en-tête collant (semaines + jours), colonne « Poste »
+ * collante à gauche, cellules quadrillées. Cartes via <BoardCard variant="commande">.
+ *
+ * Spécificités planification : drag **en temps seul** (poste figé par la gamme),
+ * override de date (liseré terra + bouton réinitialiser), filtres type/nature.
+ * Ton de carte dérivé de la nature : COMMANDE → ferme, PRÉVISION → suggéré.
  */
+
+const LABEL_W = 208
+const GRAPH_PAPER =
+  'linear-gradient(to right, rgba(31,26,19,.045) 1px, transparent 1px),' +
+  'linear-gradient(to bottom, rgba(31,26,19,.045) 1px, transparent 1px)'
+
+const fmt = (h: number) => (Math.round(h * 100) / 100).toFixed(2).replace('.', ',')
+const r1 = (n: number) => Math.round(n * 100) / 100
+
+/** Nature du besoin → ton BoardCard. */
+const natureStatus = (card: OrderCard): CardStatus =>
+  card.nature === 'PREVISION' ? 'suggere' : 'ferme'
+
+/** `numCommande#ligne` → `numCommande·ligne`. */
+const fmtRef = (id: string) => id.replace('#', '·')
+
 export default function OrderGrid(props: {
   store: OrderBoardStore
   onSelectCard: (id: string) => void
@@ -15,202 +40,197 @@ export default function OrderGrid(props: {
   const [draggedId, setDraggedId] = createSignal<string | null>(null)
   const [dropCol, setDropCol] = createSignal<string | null>(null)
 
-  return (
-    <div
-      class="flex-1 sch-scroll bg-gray-50 border border-gray-200 rounded-sm shadow-sm"
-      style={{ '--cols': String(store.board.cols) }}
-    >
-      <div class="sch-head">
-        <div class="grid-expert border-b border-gray-200 bg-gray-100">
-          <div class="sch-col-fix p-1.5 border-r border-gray-200 bg-gray-100" />
-          <For each={store.board.weekSpans}>
-            {(wk) => (
-              <div
-                class="p-1.5 text-center border-r border-gray-200"
-                style={{ 'grid-column': `span ${wk.span}` }}
-              >
-                <span class="text-[10px] font-bold uppercase tracking-widest mono text-gray-500">
-                  Semaine {wk.week}
-                </span>
-              </div>
-            )}
-          </For>
-        </div>
-        <div class="grid-expert border-b border-gray-300 bg-gray-50">
-          <div class="sch-col-fix p-2 border-r border-gray-200 bg-gray-50 flex items-center justify-between">
-            <span class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mono">
-              Poste de charge
-            </span>
-          </div>
-          <For each={store.board.days}>
-            {(day, di) => (
-              <div class={`p-2 border-r border-gray-200 text-center ${day.headerTone}`}>
-                <div
-                  class={`text-[10px] font-bold uppercase mono ${
-                    day.today ? 'text-primary' : 'text-gray-400'
-                  }`}
-                >
-                  {day.short}
-                </div>
-                <div class="mt-1">
-                  <span class="text-[11px] font-bold mono text-gray-600">
-                    {Math.round(store.dayLoad()[di()] * 10) / 10}h
-                  </span>
-                </div>
-              </div>
-            )}
-          </For>
-        </div>
-      </div>
+  const cols = () => store.board.cols
+  // Planification : cartes plus riches (commande + article + désignation) → colonnes plus larges.
+  const gridTpl = () => `${LABEL_W}px repeat(${cols()}, minmax(150px, 1fr))`
+  const minWidth = () => `calc(${LABEL_W}px + ${cols() * 160}px)`
 
-      <div class="bg-gray-50">
+  // Colonnes par semaine (total hebdo + libellés).
+  const weekRanges = createMemo(() => {
+    let off = 0
+    return store.board.weekSpans.map((ws) => {
+      const range = { week: ws.week, from: off, to: off + ws.span }
+      off += ws.span
+      return range
+    })
+  })
+
+  /** Charge totale (heures) par semaine, toutes lignes visibles. */
+  const weekTotals = createMemo(() => {
+    const dl = store.dayLoad()
+    return weekRanges().map((wr) => {
+      let s = 0
+      for (let c = wr.from; c < wr.to; c++) s += dl[c] ?? 0
+      return { week: wr.week, hours: r1(s) }
+    })
+  })
+
+  /** Histogramme hebdo d'une ligne (planifié seul → ton unique). */
+  function lineCharge(line: OrderLineRow): ChargeWeek[] {
+    return store.lineWeekLoads(line.code).map((wl) => ({
+      week: wl.week,
+      ferme: 0,
+      planifie: r1(wl.hours),
+      suggere: 0,
+    }))
+  }
+
+  /** Échelle commune des histogrammes (total hebdo max, toutes lignes). */
+  const maxLineHours = createMemo(() => {
+    let m = 0
+    for (const line of store.board.lines) {
+      for (const cw of lineCharge(line)) {
+        const t = cw.ferme + cw.planifie + cw.suggere
+        if (t > m) m = t
+      }
+    }
+    return m || 1
+  })
+
+  /** N° du jour dérivé de l'ISO de la colonne. */
+  function dayNum(col: number): string {
+    const iso = store.board.lines[0]?.dayCells[col]?.iso
+    return iso ? String(Number(iso.slice(8, 10))) : ''
+  }
+
+  return (
+    <div class="h-full overflow-auto bg-background">
+      <div style={{ 'min-width': minWidth() }}>
+        {/* ═══ En-tête collant (semaines + jours) ═══ */}
+        <div class="sticky top-0 z-30 bg-background shadow-[0_2px_10px_-4px_rgba(31,26,19,.18)]">
+          {/* Bande semaines */}
+          <div class="grid" style={{ 'grid-template-columns': gridTpl() }}>
+            <div class="sticky left-0 z-40 border-b border-rule bg-secondary" />
+            <For each={weekRanges()}>
+              {(wr, i) => (
+                <div
+                  class="flex items-baseline gap-2.5 border-b border-r border-rule bg-secondary px-3.5 py-1.5"
+                  style={{ 'grid-column': `span ${wr.to - wr.from}` }}
+                >
+                  <span class="font-fraunces text-[13px] font-black italic tracking-tight text-terra">
+                    Semaine {wr.week}
+                  </span>
+                  <Show when={weekTotals()[i()]}>
+                    {(wt) => (
+                      <span class="ml-auto font-fraunces text-[12px] font-bold tabular-nums text-foreground">
+                        {fmt(wt().hours)} h
+                      </span>
+                    )}
+                  </Show>
+                </div>
+              )}
+            </For>
+          </div>
+
+          {/* En-tête jours */}
+          <div class="grid" style={{ 'grid-template-columns': gridTpl() }}>
+            <div class="sticky left-0 z-40 border-b border-r border-rule bg-card px-3.5 py-2 font-mono text-[9px] font-bold tracking-[0.12em] text-muted-foreground">
+              Poste de charge
+            </div>
+            <For each={store.board.days}>
+              {(day, di) => (
+                <div
+                  class={cx(
+                    'border-b border-r border-rule-soft bg-card px-2.5 py-1.5 text-center',
+                    day.today && 'bg-terra-soft',
+                  )}
+                >
+                  <div
+                    class={cx(
+                      'font-mono text-[9px] font-bold tracking-[0.1em]',
+                      day.today ? 'text-terra' : 'text-muted-foreground',
+                    )}
+                  >
+                    {day.short.replace(/\s*\d+\s*$/, '')}
+                  </div>
+                  <div
+                    class={cx(
+                      'font-fraunces text-[19px] font-bold leading-none tracking-tight',
+                      day.today ? 'text-terra italic' : 'text-foreground',
+                    )}
+                  >
+                    {dayNum(di())}
+                  </div>
+                  <div class="mt-0.5 font-mono text-[11px] font-bold tabular-nums text-terra">
+                    {fmt(store.dayLoad()[di()] ?? 0)}
+                    <span class="text-[8px] font-medium opacity-60"> h</span>
+                  </div>
+                </div>
+              )}
+            </For>
+          </div>
+        </div>
+
+        {/* ═══ Rangées de postes ═══ */}
         <For each={store.board.lines}>
           {(line) => (
-            <Row
-              store={store}
-              line={line}
-              draggedId={draggedId}
-              setDraggedId={setDraggedId}
-              dropCol={dropCol}
-              setDropCol={setDropCol}
-              onSelectCard={props.onSelectCard}
-            />
+            <div
+              class="grid border-b border-rule-soft"
+              style={{ 'grid-template-columns': gridTpl(), display: store.lineVisible(line.code) ? 'grid' : 'none' }}
+            >
+              {/* En-tête de poste (collant à gauche) */}
+              <div class="sticky left-0 z-20 flex flex-col gap-1.5 overflow-hidden border-r border-rule bg-card px-3.5 py-3">
+                <div class="flex items-center gap-2">
+                  <span
+                    class="size-2.5 rounded-[2px]"
+                    style={{ background: line.dot ? undefined : 'var(--color-planifie)' }}
+                    classList={{ [line.dot]: !!line.dot }}
+                  />
+                  <span class="font-mono text-[13px] font-bold tracking-tight text-foreground">
+                    {line.code}
+                  </span>
+                </div>
+                <span class="text-[11px] leading-tight text-muted-foreground">{line.name}</span>
+                <ChargeHistogram weeks={lineCharge(line)} maxHours={maxLineHours()} variant="line" />
+              </div>
+
+              {/* Cellules */}
+              <For each={line.dayCells}>
+                {(dc, ci) => {
+                  const cellKey = `${line.code}:${ci()}`
+                  const isToday = store.board.days[ci()]?.today
+                  return (
+                    <div
+                      class={cx(
+                        'relative flex min-h-[96px] flex-col gap-2 border-r border-rule-soft bg-card p-2',
+                        isToday && 'bg-terra-soft',
+                      )}
+                      style={{ 'background-image': isToday ? undefined : GRAPH_PAPER, 'background-size': '22px 22px' }}
+                      classList={{ 'ring-2 ring-terra/70 ring-inset': dropCol() === cellKey }}
+                      onDragOver={(e) => {
+                        if (!draggedId()) return
+                        e.preventDefault()
+                        if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
+                        setDropCol(cellKey)
+                      }}
+                      onDrop={(e) => {
+                        const id = draggedId()
+                        setDropCol(null)
+                        if (!id) return
+                        e.preventDefault()
+                        store.moveCard(id, line.code, ci(), dc.iso)
+                      }}
+                    >
+                      <For each={dc.cards}>
+                        {(card) => (
+                          <CardView
+                            store={store}
+                            card={card}
+                            line={line}
+                            onSelectCard={props.onSelectCard}
+                            setDraggedId={setDraggedId}
+                            setDropCol={setDropCol}
+                          />
+                        )}
+                      </For>
+                    </div>
+                  )
+                }}
+              </For>
+            </div>
           )}
         </For>
       </div>
-    </div>
-  )
-}
-
-function Row(props: {
-  store: OrderBoardStore
-  line: OrderLineRow
-  draggedId: () => string | null
-  setDraggedId: (v: string | null) => void
-  dropCol: () => string | null
-  setDropCol: (v: string | null) => void
-  onSelectCard: (id: string) => void
-}) {
-  const { store, line } = props
-  return (
-    <div
-      class="sch-row grid-expert border-b border-gray-200 min-h-[120px]"
-      style={{ display: store.lineVisible(line.code) ? '' : 'none' }}
-    >
-      <div class="sch-col-fix p-3 border-r border-gray-200 bg-white flex flex-col">
-        <div class="flex items-center gap-1.5 mb-2">
-          <div class={`w-2 h-2 rounded-full ${line.dot}`} />
-          <span class="text-xs font-bold text-gray-900 uppercase tracking-tight">{line.name}</span>
-        </div>
-        <Show when={store.lineWeekLoads(line.code).length > 0}>
-          <div class="mb-2 sch-hist">
-            <div class="flex items-end gap-1 h-10 relative">
-              <div
-                class="absolute left-0 right-0 border-t border-dashed border-gray-300"
-                style={{ top: '0' }}
-              />
-              <For each={store.lineWeekLoads(line.code)}>
-                {(w) => (
-                  <div
-                    class="flex-1 flex flex-col justify-end h-full"
-                    title={`S${w.week} — ${w.hours}h (${w.pct}%)`}
-                  >
-                    <div
-                      class={`w-full rounded-sm ${w.barClass}`}
-                      style={{ height: `${w.pct > 100 ? 100 : w.pct}%`, 'min-height': '2px' }}
-                    />
-                  </div>
-                )}
-              </For>
-            </div>
-            <div class="flex gap-1 mt-0.5">
-              <For each={store.lineWeekLoads(line.code)}>
-                {(w) => (
-                  <div
-                    class={`flex-1 text-center text-[8px] font-bold mono ${
-                      w.pct > 100 ? 'text-error' : 'text-gray-400'
-                    }`}
-                  >
-                    {w.hours}h
-                  </div>
-                )}
-              </For>
-            </div>
-          </div>
-        </Show>
-        <div class="mt-auto space-y-1">
-          <For each={line.meta}>
-            {(m) => (
-              <div class="flex justify-between text-[10px] text-gray-400 mono">
-                <span>{m.k}:</span>
-                <span class="text-gray-600 font-bold">{m.v}</span>
-              </div>
-            )}
-          </For>
-        </div>
-      </div>
-      <For each={line.dayCells}>
-        {(dc, ci) => (
-          <Cell
-            store={store}
-            line={line}
-            dc={dc}
-            col={ci()}
-            draggedId={props.draggedId}
-            setDraggedId={props.setDraggedId}
-            dropCol={props.dropCol}
-            setDropCol={props.setDropCol}
-            onSelectCard={props.onSelectCard}
-          />
-        )}
-      </For>
-    </div>
-  )
-}
-
-function Cell(props: {
-  store: OrderBoardStore
-  line: OrderLineRow
-  dc: DayCell
-  col: number
-  draggedId: () => string | null
-  setDraggedId: (v: string | null) => void
-  dropCol: () => string | null
-  setDropCol: (v: string | null) => void
-  onSelectCard: (id: string) => void
-}) {
-  const { store, line, dc, col } = props
-  const cellKey = `${line.code}:${col}`
-  return (
-    <div
-      class={`sch-cal-cell p-1.5 border-r border-gray-200 flex flex-col gap-1.5 ${dc.cellClass}`}
-      classList={{ 'is-drop': props.dropCol() === cellKey }}
-      onDragOver={(e) => {
-        if (!props.draggedId()) return
-        e.preventDefault()
-        if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
-        props.setDropCol(cellKey)
-      }}
-      onDrop={(e) => {
-        const id = props.draggedId()
-        props.setDropCol(null)
-        if (!id) return
-        e.preventDefault()
-        store.moveCard(id, line.code, col, dc.iso)
-      }}
-    >
-      <For each={dc.cards}>
-        {(card) => (
-          <CardView
-            store={store}
-            card={card}
-            line={line}
-            setDraggedId={props.setDraggedId}
-            setDropCol={props.setDropCol}
-            onSelectCard={props.onSelectCard}
-          />
-        )}
-      </For>
     </div>
   )
 }
@@ -219,19 +239,22 @@ function CardView(props: {
   store: OrderBoardStore
   card: OrderCard
   line: OrderLineRow
+  onSelectCard: (id: string) => void
   setDraggedId: (v: string | null) => void
   setDropCol: (v: string | null) => void
-  onSelectCard: (id: string) => void
 }) {
   const { store, card } = props
   const matches = () => store.cardMatches(card, props.line.code)
   return (
     <div
+      role="button"
+      tabindex={matches() ? 0 : -1}
       draggable={matches() && !card.hasOverride}
       data-order-id={card.id}
-      class={`sch-of-card relative block bg-white border border-gray-200 rounded p-1.5 cursor-pointer ${card.accentClass} ${card.cardClass}`}
-      style={{ opacity: matches() ? '' : '0.15' }}
-      onClick={() => props.onSelectCard(card.id)}
+      class={cx('relative cursor-pointer transition-opacity', !matches() && 'pointer-events-none opacity-15')}
+      onClick={() => {
+        if (matches()) props.onSelectCard(card.id)
+      }}
       onDragStart={(e: DragEvent) => {
         if (card.hasOverride) {
           e.preventDefault()
@@ -248,42 +271,31 @@ function CardView(props: {
         props.setDropCol(null)
       }}
     >
-      <div class="flex items-baseline justify-between gap-1.5">
-        <span class="flex items-baseline gap-1 min-w-0">
-          <span class={`mono text-[10px] font-bold ${card.idTone} truncate`}>
-            {card.metric ?? card.id}
-          </span>
-          <Show when={card.article}>
-            <span class={`mono text-[9px] ${card.fieldValTone} truncate`}>{card.article}</span>
-          </Show>
-        </span>
-        <Show when={card.hasOverride}>
-          <button
-            type="button"
-            class="text-[9px] font-bold text-amber-700 hover:text-amber-900 uppercase tracking-wider"
-            title="Réinitialiser l'override (date X3)"
-            onClick={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              store.resetOverride(card.id)
-            }}
-          >
-            <span class="material-symbols-outlined text-[12px]">undo</span>
-          </button>
-        </Show>
-      </div>
-      <p class={`text-[12px] font-semibold leading-tight truncate ${card.textTone}`}>{card.title}</p>
-      <Show when={card.fields.length > 0}>
-        <div class="flex flex-wrap gap-1 mt-1">
-          <For each={card.fields}>
-            {(f) => (
-              <span class="flex items-center gap-0.5 text-[9px] mono text-gray-500">
-                <span class="material-symbols-outlined text-[10px] text-gray-400">{f.icon}</span>
-                {f.val}
-              </span>
-            )}
-          </For>
-        </div>
+      <BoardCard
+        variant="commande"
+        status={natureStatus(card)}
+        article={fmtRef(card.id)}
+        ord={card.article ?? undefined}
+        title={card.title}
+        client={card.customer ?? undefined}
+        type={card.orderType ?? undefined}
+        hours={fmt(card.hours)}
+        mod={card.hasOverride}
+      />
+      {/* Override : bouton réinitialiser (date X3 d'origine) */}
+      <Show when={card.hasOverride}>
+        <button
+          type="button"
+          class="absolute right-1.5 top-1.5 z-10 flex size-5 items-center justify-center rounded-full bg-card text-suggere shadow-[0_1px_2px_rgba(31,26,19,.15)] transition-colors hover:text-foreground"
+          title="Réinitialiser l'override (date X3)"
+          onClick={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            store.resetOverride(card.id)
+          }}
+        >
+          <span class="material-symbols-outlined text-[13px]">undo</span>
+        </button>
       </Show>
     </div>
   )

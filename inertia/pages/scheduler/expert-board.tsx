@@ -1,4 +1,4 @@
-import { createEffect, createSignal, For, on, Show, type Component } from 'solid-js'
+import { createEffect, createSignal, on, Show, type Component } from 'solid-js'
 import { Link, router } from '@/lib/inertia-solid'
 import { createBoardStore } from '@/lib/board/store'
 import type { BoardData } from '@/lib/board/types'
@@ -6,6 +6,7 @@ import { cx } from '@/libs/cva'
 import { route } from '@/lib/routes'
 import BoardGrid from '@/components/board/board-grid'
 import OfDetailSheet from '@/components/of/of-detail-sheet'
+import UserMenu from '@/components/user-menu'
 import { Button } from '@/components/ui/button'
 import { TextField, TextFieldInput } from '@/components/ui/text-field'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
@@ -136,13 +137,18 @@ const ExpertBoard: Component<ExpertBoardProps> = (props) => {
                 />
               </div>
             </TextField>
-            <Select
+            <Select<string>
               title="Portée de la recherche"
               value={store.scope()}
-              onChange={(v) => store.onScopeChange(v as (typeof SCOPES)[number]['v'])}
+              onChange={(v) => v && store.onScopeChange(v as (typeof SCOPES)[number]['v'])}
               options={SCOPES.map((s) => s.v)}
               disallowEmptySelection
-              optionTextValue={(o: string) => SCOPES.find((s) => s.v === o)?.label ?? o}
+              optionTextValue={(o) => SCOPES.find((s) => s.v === o)?.label ?? o}
+              itemComponent={(itemProps) => (
+                <SelectItem item={itemProps.item}>
+                  {SCOPES.find((s) => s.v === itemProps.item.rawValue)?.label ?? itemProps.item.rawValue}
+                </SelectItem>
+              )}
             >
               <SelectTrigger
                 class="h-[30px] w-[92px] rounded-full border border-rule bg-card px-3 text-[11px] font-semibold"
@@ -152,18 +158,9 @@ const ExpertBoard: Component<ExpertBoardProps> = (props) => {
                   {(state) => SCOPES.find((s) => s.v === state.selectedOption())?.label ?? 'Portée'}
                 </SelectValue>
               </SelectTrigger>
-              <SelectContent>
-                <For each={SCOPES}>
-                  {(s) => (
-                    // @ts-expect-error — Kobalte Select.Item exige `item: CollectionNode` non exposé ici
-                    <SelectItem value={s.v}>{s.label}</SelectItem>
-                  )}
-                </For>
-              </SelectContent>
+              <SelectContent />
             </Select>
-            <div class="flex size-7 items-center justify-center rounded-full bg-terra font-mono text-[10px] font-bold text-card">
-              OP
-            </div>
+            <UserMenu />
           </div>
         </nav>
       </header>

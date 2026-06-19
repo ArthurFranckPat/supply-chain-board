@@ -3,6 +3,7 @@ import { Link, router } from '@/lib/inertia-solid'
 import AppLayout from '@/layouts/app'
 import ShortageTable from '@/components/shortages/shortage-table'
 import OfDetailSheet from '@/components/of/of-detail-sheet'
+import UserMenu from '@/components/user-menu'
 import { Button } from '@/components/ui/button'
 import { TextField, TextFieldInput } from '@/components/ui/text-field'
 import type { ShortageRowsResponse } from '@/lib/shortages/types'
@@ -100,6 +101,7 @@ const Shortages: Component<ShortagesProps> = (props) => {
           >
             <span class="material-symbols-outlined text-[15px]">grid_view</span> Board
           </Link>
+          <UserMenu tone="primary" />
         </div>
       </header>
 

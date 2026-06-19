@@ -87,6 +87,7 @@ router
     router.get('/ordonnancement', '#controllers/scheduler_controller.expertBoard')
     router.get('/planification', '#controllers/order_planning_controller.board')
     router.get('/ruptures', '#controllers/scheduler_controller.shortageTracker')
+    router.get('/suivi', '#controllers/suivi_controller.board')
 
     // Planning — API JSON (fusion order-planning + planning-board sous un seul préfixe, #18 P7).
     //   order-lines/* : OrderPlanningController (overrides de date sur lignes de commande)
@@ -142,6 +143,7 @@ router
         router.get('/status/:order', '#controllers/suivi_controller.statusDetail')
         router.post('/palette', '#controllers/suivi_controller.palette')
         router.post('/retard-charge', '#controllers/suivi_controller.retardCharge')
+        router.get('/rows', '#controllers/suivi_controller.rows')
       })
       .prefix('/api/v1/status')
 

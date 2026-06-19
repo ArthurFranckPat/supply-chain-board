@@ -65,6 +65,8 @@ export type CommandeCardProps = Common & {
 
 export type OfCardProps = Common & {
   variant: 'of'
+  /** Réf. article PF (code article, sous le n° d'OF). */
+  articleRef?: string
   /** Poste de charge (pied gauche, point = ton). */
   poste?: string
   /** Progression qty fait/lancé (barre). */
@@ -93,6 +95,7 @@ export const BoardCard: Component<BoardCardProps> = (props) => {
       <OfBody
         status={props.status}
         article={props.article}
+        articleRef={props.articleRef}
         title={props.title}
         poste={props.poste}
         progress={props.progress}
@@ -145,10 +148,18 @@ const CommandeBody: Component<{
   hours: string
 }> = (p) => (
   <>
-    <div class="font-mono text-[12px] font-semibold leading-tight">{p.article}</div>
-    <div class="mt-0.5 text-[11px] font-semibold leading-snug">
-      {p.ord && <span class="text-foreground">{p.ord} </span>}
-      <span class="font-normal text-muted-foreground">· {p.title}</span>
+    {/* Réf. commande·ligne — clé, une seule ligne (tooltip = valeur complète) */}
+    <div class="truncate font-mono text-[12px] font-bold leading-tight text-foreground" title={p.article}>
+      {p.article}
+    </div>
+    {/* Article + désignation = le produit */}
+    <Show when={p.ord}>
+      <div class="mt-1 truncate font-mono text-[11px] font-semibold leading-tight text-terra" title={p.ord}>
+        {p.ord}
+      </div>
+    </Show>
+    <div class="truncate text-[11px] font-medium leading-tight text-muted-foreground" title={p.title}>
+      {p.title}
     </div>
     <Show when={p.client}>
       <div class="mt-0.5 truncate font-fraunces text-[11px] italic text-muted-foreground">
@@ -166,7 +177,10 @@ const CommandeBody: Component<{
           {p.type}
         </span>
       </Show>
-      <span class="ml-auto font-fraunces text-[14px] font-bold tabular-nums">{p.hours}</span>
+      <span class="ml-auto font-fraunces text-[14px] font-bold tabular-nums">
+        {p.hours}
+        <span class="ml-0.5 text-[10px] font-medium text-muted-foreground">h</span>
+      </span>
     </div>
   </>
 )
@@ -175,6 +189,7 @@ const CommandeBody: Component<{
 const OfBody: Component<{
   status: CardStatus
   article: string
+  articleRef?: string
   title: string
   poste?: string
   progress?: { done: number; total: number }
@@ -187,8 +202,12 @@ const OfBody: Component<{
       : 0
   return (
     <>
-      <div class="font-mono text-[12px] font-semibold leading-tight">{p.article}</div>
-      <div class="mt-0.5 truncate text-[11px] font-semibold text-foreground">{p.title}</div>
+      {/* Couple OF / article */}
+      <div class="truncate font-mono text-[12px] font-bold leading-tight text-foreground">{p.article}</div>
+      <Show when={p.articleRef}>
+        <div class="truncate font-mono text-[11px] font-semibold leading-tight text-terra">{p.articleRef}</div>
+      </Show>
+      <div class="mt-1 truncate text-[11px] font-semibold text-foreground">{p.title}</div>
       <Show when={p.progress}>
         <div class="mt-2 flex items-center gap-1.5">
           <span class="h-[5px] flex-1 overflow-hidden rounded-full bg-rule-soft">
@@ -215,7 +234,10 @@ const OfBody: Component<{
             {p.poste}
           </span>
         </Show>
-        <span class="ml-auto font-fraunces text-[14px] font-bold tabular-nums">{p.hours}</span>
+        <span class="ml-auto font-fraunces text-[14px] font-bold tabular-nums">
+        {p.hours}
+        <span class="ml-0.5 text-[10px] font-medium text-muted-foreground">h</span>
+      </span>
       </div>
     </>
   )

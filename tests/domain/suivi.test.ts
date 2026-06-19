@@ -4,6 +4,7 @@ import type { OrderLine } from '#app/domain/suivi'
 
 function makeLine(overrides: Partial<OrderLine> & { numCommande: string; article: string }): OrderLine {
   return {
+    ligne: '1000',
     designation: '', nomClient: '', typeCommande: 'MTO',
     dateExpedition: null, dateLivPrevu: null,
     qteCommandee: 100, qteAllouee: 0, qteRestante: 100,

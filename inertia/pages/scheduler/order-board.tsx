@@ -1,12 +1,15 @@
 import { createEffect, createSignal, For, on, Show, type Component } from 'solid-js'
 import { Link, router } from '@/lib/inertia-solid'
 import { createOrderBoardStore } from '@/lib/orders/store'
-import type { OrderBoardData } from '@/lib/orders/types'
-import AppLayout from '@/layouts/app'
+import type { OrderBoardData, OrderSearchScope } from '@/lib/orders/types'
+import { cx } from '@/libs/cva'
+import { route } from '@/lib/routes'
 import OrderGrid from '@/components/board/order-grid'
 import OrderDetailSheet from '@/components/orders/order-detail-sheet'
-import { cn } from '@/libs/cn'
-import { route } from '@/lib/routes'
+import UserMenu from '@/components/user-menu'
+import { TextField, TextFieldInput } from '@/components/ui/text-field'
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
+import { Calendar, type DateRange } from '@/components/ui/calendar'
 
 type OrderBoardProps = {
   board: OrderBoardData
@@ -36,6 +39,20 @@ const NATURES = [
   { v: 'PREVISION', label: 'Prévision' },
 ] as const
 
+const DAY_MS = 86_400_000
+
+const parseIso = (s: string): Date | null => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s ?? '')
+  return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null
+}
+const toIso = (d: Date): string =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+const startOfDay = (d: Date): Date => {
+  const x = new Date(d)
+  x.setHours(0, 0, 0, 0)
+  return x
+}
+
 const OrderBoard: Component<OrderBoardProps> = (props) => {
   const store = createOrderBoardStore(props.board)
 
@@ -53,186 +70,198 @@ const OrderBoard: Component<OrderBoardProps> = (props) => {
       (next, prev) => {
         if (prev !== undefined && next !== prev) store.reset(next)
       },
-      { defer: true }
-    )
+      { defer: true },
+    ),
   )
 
-  const onHorizon = (e: Event) => {
-    const form = e.target as HTMLFormElement
-    const days = (form.elements.namedItem('days') as HTMLInputElement).value
-    e.preventDefault()
-    router.visit(route('order_planning.board'), {
-      data: { start: props.windowFrom, days },
-    })
+  // Calendrier (remplace nav semaine + horizon).
+  const [calOpen, setCalOpen] = createSignal(false)
+  const [range, setRange] = createSignal<DateRange>({
+    start: parseIso(props.windowFrom),
+    end: parseIso(props.windowTo),
+  })
+  const applyRange = (r: DateRange) => {
+    setRange(r)
+    if (r.start && r.end) {
+      setCalOpen(false)
+      const days = Math.round((startOfDay(r.end).getTime() - startOfDay(r.start).getTime()) / DAY_MS) + 1
+      router.visit(route('order_planning.board'), {
+        data: { start: toIso(r.start), days: String(days) },
+        preserveScroll: true,
+      })
+    }
   }
 
-  return (
-    <AppLayout>
-      <header class="fixed top-0 w-full z-50 flex justify-between items-center px-4 h-12 bg-white border-b border-gray-200">
-        <div class="flex items-center gap-6">
-          <div class="flex items-center gap-2">
-            <div class="w-6 h-6 bg-primary rounded flex items-center justify-center">
-              <span class="material-symbols-outlined text-white text-[16px]">inventory_2</span>
-            </div>
-            <h1 class="font-headline-sm text-base font-bold text-gray-900 tracking-tight">
-              FactoryOS{' '}
-              <span class="text-[10px] mono font-normal text-gray-400 align-top ml-1">v4.2</span>
-            </h1>
-            <span class="text-[10px] font-bold uppercase tracking-widest mono text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 ml-2">
-              Mode planification
-            </span>
-          </div>
+  const navCls = (active?: boolean) =>
+    `border-b-2 px-3.5 py-2.5 text-[12px] font-semibold transition-colors ${
+      active ? 'border-terra text-terra' : 'border-transparent text-secondary-foreground hover:text-terra'
+    }`
 
-          <div class="flex items-center gap-2">
-            <div class="group relative flex items-center">
-              <span class="material-symbols-outlined absolute left-2.5 text-gray-400 text-[18px] pointer-events-none group-focus-within:text-primary transition-colors">
-                search
-              </span>
-              <input
-                class="w-56 bg-white border border-gray-200 rounded-lg py-1.5 pl-9 pr-9 text-xs text-gray-800 transition-colors placeholder:text-gray-400 hover:border-gray-300 focus:border-primary/40 focus-visible:outline-none focus-visible:ring-0"
-                style={{ outline: 'none' }}
-                placeholder="Rechercher…"
-                type="text"
-                autocomplete="off"
-                value={store.query()}
-                onInput={(e) => store.onQueryInput(e.currentTarget.value)}
-              />
-              <kbd class="absolute right-2.5 text-[9px] font-sans font-semibold text-gray-400 bg-white border border-gray-200 rounded px-1 py-0.5 pointer-events-none group-focus-within:hidden">
-                ⌘K
-              </kbd>
+  const chipCls = (active: boolean) =>
+    cx(
+      'rounded-[5px] px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
+      active ? 'bg-terra-soft text-terra' : 'text-muted-foreground hover:text-foreground',
+    )
+
+  return (
+    <div class="theme-papier flex h-screen flex-col overflow-hidden bg-background text-foreground">
+      {/* ═══ Masthead ═══ */}
+      <header class="flex-none border-b border-rule bg-background">
+        <div class="flex items-end justify-between gap-5 px-7 pb-2 pt-3.5">
+          <div class="flex items-baseline gap-3.5">
+            <div class="font-fraunces text-[28px] font-black leading-[0.9] tracking-tight">
+              Factory<span class="font-medium italic text-terra">OS</span>
             </div>
-            <select
-              title="Portée de la recherche"
-              class="bg-white border border-gray-200 rounded-lg py-1.5 pl-2.5 pr-6 text-xs text-gray-600 hover:border-gray-300 focus:border-primary/40 focus-visible:outline-none cursor-pointer transition-colors"
-              style={{ '-webkit-appearance': 'none', '-moz-appearance': 'none', appearance: 'none' }}
-              value={store.scope()}
-              onChange={(e) =>
-                store.onScopeChange(e.currentTarget.value as typeof SCOPES[number]['v'])
-              }
-            >
-              <For each={SCOPES}>{(s) => <option value={s.v}>{s.label}</option>}</For>
-            </select>
-            <Link
-              href={route('scheduler.expert_board')}
-              class="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-500 hover:text-primary hover:border-primary/30 transition-all"
-              title="Revenir à la vue d'ordonnancement (OF)"
-            >
-              <span class="material-symbols-outlined text-[14px]">event_note</span>
-              Ordonnancement
-            </Link>
+            <div class="pb-1 font-mono text-[10px] font-medium tracking-[0.12em] text-muted-foreground">
+              Planification · Lignes de commande ouvertes
+            </div>
+          </div>
+          <div class="text-right font-mono text-[11px] font-medium leading-relaxed text-muted-foreground">
+            <div class="font-fraunces text-[12px] font-bold not-italic text-terra">{props.weekLabel}</div>
+            <div>
+              Fenêtre <b class="font-bold text-foreground">{props.horizon} j</b> ·{' '}
+              <b class="font-bold text-foreground">{props.totalLines}</b> ligne
+              {props.totalLines > 1 ? 's' : ''} ·{' '}
+              <b class="font-bold text-foreground">{props.lineCount}</b> postes
+            </div>
           </div>
         </div>
 
-        <div class="flex items-center gap-3">
+        <nav class="flex items-center gap-1 border-t border-rule px-7">
+          <a href="#" class={navCls()}>Tableau</a>
+          <Link href={route('order_planning.board')} class={navCls(true)}>Planification</Link>
+          <Link href={route('scheduler.expert_board')} class={navCls()}>Ordonnancement</Link>
+          <Link href={route('scheduler.shortage_tracker')} class={navCls()}>Ruptures</Link>
+          <Link href={route('suivi.board')} class={navCls()}>Suivi</Link>
+          <a href="#" class={navCls()}>Ressources</a>
+
+          {/* Recherche (pill) + portée */}
+          <div class="ml-auto flex items-center gap-2 py-1.5">
+            <TextField class="contents">
+              <div class="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-terra focus-within:ring-2 focus-within:ring-terra/25">
+                <span class="material-symbols-outlined text-[17px] text-muted-foreground">search</span>
+                <TextFieldInput
+                  class="w-[180px] border-0 bg-transparent px-0 text-[12px] font-medium shadow-none focus-visible:ring-0"
+                  placeholder="Commande, article, client…"
+                  type="text"
+                  autocomplete="off"
+                  value={store.query()}
+                  onInput={(e) => store.onQueryInput(e.currentTarget.value)}
+                />
+              </div>
+            </TextField>
+            <Select<string>
+              title="Portée de la recherche"
+              value={store.scope()}
+              onChange={(v) => v && store.onScopeChange(v as OrderSearchScope)}
+              options={SCOPES.map((s) => s.v)}
+              disallowEmptySelection
+              optionTextValue={(o) => SCOPES.find((s) => s.v === o)?.label ?? o}
+              itemComponent={(itemProps) => (
+                <SelectItem item={itemProps.item}>
+                  {SCOPES.find((s) => s.v === itemProps.item.rawValue)?.label ?? itemProps.item.rawValue}
+                </SelectItem>
+              )}
+            >
+              <SelectTrigger
+                class="h-[30px] w-[100px] rounded-full border border-rule bg-card px-3 text-[11px] font-semibold"
+                aria-label="Portée de la recherche"
+              >
+                <SelectValue<string>>
+                  {(state) => SCOPES.find((s) => s.v === state.selectedOption())?.label ?? 'Portée'}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent />
+            </Select>
+            <UserMenu />
+          </div>
+        </nav>
+      </header>
+
+      {/* ═══ Toolbar ═══ */}
+      <div class="flex flex-none flex-wrap items-center justify-between gap-3 border-b border-rule px-7 py-2">
+        {/* Calendrier (remplace nav semaine + horizon) */}
+        <div class="relative">
+          <button
+            type="button"
+            onClick={() => setCalOpen((o) => !o)}
+            class="flex items-center gap-1.5 rounded-full border border-rule bg-card px-2.5 py-1 text-[11px] font-semibold text-foreground transition-colors hover:border-terra"
+          >
+            <span class="material-symbols-outlined text-[14px] text-muted-foreground">calendar_month</span>
+            {props.dateRange}
+            <span class="material-symbols-outlined text-[16px] text-muted-foreground">expand_more</span>
+          </button>
+          <Show when={calOpen()}>
+            <button
+              type="button"
+              tabIndex={-1}
+              aria-hidden="true"
+              class="fixed inset-0 z-40 cursor-default"
+              onClick={() => setCalOpen(false)}
+            />
+            <div class="absolute left-0 top-full z-50 mt-2">
+              <Calendar mode="range" range={range()} onRangeChange={applyRange} />
+            </div>
+          </Show>
+        </div>
+
+        <div class="flex items-center gap-2.5">
           {/* Filtre type commande */}
-          <div class="flex items-center gap-1" title="Type de commande">
-            <span class="text-[9px] font-bold uppercase text-gray-400 mr-0.5">Type</span>
+          <div class="inline-flex items-center gap-1 rounded-md border border-rule bg-card p-0.5">
+            <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Type</span>
             <For each={TYPES}>
               {(t) => (
-                <button
-                  type="button"
-                  class={cn(
-                    'order-chip px-2 py-1 text-[10px] font-bold rounded border uppercase tracking-wider transition-all',
-                    store.typeFilter().has(t) && 'is-on'
-                  )}
-                  onClick={() => store.toggleType(t)}
-                >
+                <button type="button" class={chipCls(store.typeFilter().has(t))} onClick={() => store.toggleType(t)}>
                   {t}
                 </button>
               )}
             </For>
           </div>
+
           {/* Filtre nature besoin */}
-          <div class="flex items-center gap-1 border-l border-gray-200 pl-2" title="Nature du besoin">
-            <span class="text-[9px] font-bold uppercase text-gray-400 mr-0.5">Besoin</span>
+          <div class="inline-flex items-center gap-1 rounded-md border border-rule bg-card p-0.5">
+            <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Besoin</span>
             <For each={NATURES}>
               {(n) => (
-                <button
-                  type="button"
-                  class={cn(
-                    'order-chip px-2 py-1 text-[10px] font-bold rounded border uppercase tracking-wider transition-all',
-                    store.natureFilter().has(n.v) && 'is-on'
-                  )}
-                  onClick={() => store.toggleNature(n.v)}
-                >
+                <button type="button" class={chipCls(store.natureFilter().has(n.v))} onClick={() => store.toggleNature(n.v)}>
                   {n.label}
                 </button>
               )}
             </For>
           </div>
-          <div class="flex items-center gap-1 text-[10px] font-bold uppercase text-gray-400 border-l border-gray-200 pl-2">
-            <div class="w-2 h-2 rounded-full bg-amber-500" /> Override
+
+          {/* Légende override */}
+          <div class="flex items-center gap-1.5 border-l border-rule pl-2.5 font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            <span class="size-2 rounded-full bg-suggere" /> Override
           </div>
         </div>
-      </header>
+      </div>
 
-      <main class="ml-12 mt-12 p-2 h-[calc(100vh-48px)] overflow-hidden flex flex-col">
-        <div class="mb-2 flex items-center justify-between bg-white p-2 rounded border border-gray-200 shadow-sm">
-          <div class="flex items-center gap-4">
-            <div class="flex items-center border border-gray-200 rounded p-0.5">
-              <Link href={props.prevHref} class="p-1 px-2 text-[11px] font-medium hover:bg-gray-50">
-                Préc.
-              </Link>
-              <Link
-                href={props.todayHref}
-                class="p-1 px-3 text-[11px] font-bold bg-gray-50 border-x border-gray-200 text-gray-700 hover:text-primary"
-                title="Revenir à aujourd'hui"
-              >
-                {props.weekLabel}
-              </Link>
-              <Link href={props.nextHref} class="p-1 px-2 text-[11px] font-medium hover:bg-gray-50">
-                Suiv.
-              </Link>
-            </div>
-            <span class="text-[13px] font-bold text-gray-800 mono">{props.dateRange}</span>
-            <form
-              onSubmit={onHorizon}
-              class="flex items-center gap-1 border border-gray-200 rounded px-1.5 py-0.5"
-              title="Horizon (jours)"
-            >
-              <span class="material-symbols-outlined text-[14px] text-gray-400">date_range</span>
-              <input type="hidden" name="start" value={props.windowFrom} />
-              <input
-                type="number"
-                name="days"
-                min="1"
-                max="90"
-                value={props.horizon}
-                class="w-10 text-[11px] font-bold mono text-gray-700 text-right bg-transparent focus:outline-none"
-              />
-              <span class="text-[10px] font-bold text-gray-400">j</span>
-            </form>
-          </div>
-          <div class="flex items-center gap-2 text-[13px] font-bold text-gray-800 mono">
-            <span class="material-symbols-outlined text-[18px] text-primary">inventory_2</span>
-            {props.totalLines} ligne{props.totalLines > 1 ? 's' : ''} ouverte
-            {props.totalLines > 1 ? 's' : ''} sur {props.lineCount} poste
-            {props.lineCount > 1 ? 's' : ''}
-          </div>
+      {/* X3 injoignable */}
+      <Show when={props.x3Error}>
+        <div class="flex flex-none items-center gap-2 border-b border-terra/30 bg-terra-soft px-7 py-2 text-[12px] text-foreground">
+          <span class="material-symbols-outlined text-[16px] text-terra">warning</span>
+          <span class="font-bold">Erreur chargement planification :</span>
+          <span class="font-mono">{props.x3Error}</span>
         </div>
+      </Show>
 
-        <Show when={props.x3Error}>
-          <div class="mb-2 bg-red-50 border border-red-200 text-red-800 px-3 py-2 text-xs rounded flex items-center gap-2">
-            <span class="material-symbols-outlined text-sm">error</span>
-            <span class="font-bold">Erreur chargement planification :</span>
-            <span class="mono">{props.x3Error}</span>
+      {/* ═══ Board ═══ */}
+      <Show
+        when={props.lineCount > 0}
+        fallback={
+          <div class="flex flex-1 items-center justify-center p-10 font-fraunces text-[14px] italic text-muted-foreground">
+            Aucune ligne de commande ouverte dans l'horizon.
           </div>
-        </Show>
-
-        <Show
-          when={props.lineCount > 0}
-          fallback={
-            <div class="flex-1 flex items-center justify-center text-gray-400 italic p-10">
-              Aucune ligne de commande ouverte dans l'horizon.
-            </div>
-          }
-        >
+        }
+      >
+        <div class="flex-1 overflow-hidden">
           <OrderGrid store={store} onSelectCard={onSelectCard} />
-        </Show>
-      </main>
+        </div>
+      </Show>
 
       <OrderDetailSheet lineId={selectedLine()} open={detailOpen()} onOpenChange={setDetailOpen} />
-    </AppLayout>
+    </div>
   )
 }
 
