@@ -20,22 +20,6 @@ router
   .use(middleware.auth())
   .as('auth.logout')
 
-// Unpoly client (servi depuis node_modules, pas de CDN)
-router
-  .get('/vendor/unpoly.js', async ({ response }) => {
-    response.header('content-type', 'text/javascript')
-    response.header('cache-control', 'public, max-age=86400')
-    return await readFile(app.makePath('node_modules/unpoly/unpoly.min.js'), 'utf8')
-  })
-  .as('assets.unpoly_js')
-router
-  .get('/vendor/unpoly.css', async ({ response }) => {
-    response.header('content-type', 'text/css')
-    response.header('cache-control', 'public, max-age=86400')
-    return await readFile(app.makePath('node_modules/unpoly/unpoly.min.css'), 'utf8')
-  })
-  .as('assets.unpoly_css')
-
 // Compiled frontend assets (Tailwind CSS + Alpine JS bundles).
 // No caching in dev so rebuilds are picked up on a plain reload; 1h in prod.
 const assetCache = app.inProduction ? 'public, max-age=3600' : 'no-cache, no-store, must-revalidate'

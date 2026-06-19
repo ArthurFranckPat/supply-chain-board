@@ -24,18 +24,6 @@ const routes = {
     tokens: [{"old":"/logout","type":0,"val":"logout","end":""}],
     types: placeholder as Registry['auth.logout']['types'],
   },
-  'assets.unpoly_js': {
-    methods: ["GET","HEAD"],
-    pattern: '/vendor/unpoly.js',
-    tokens: [{"old":"/vendor/unpoly.js","type":0,"val":"vendor","end":""},{"old":"/vendor/unpoly.js","type":0,"val":"unpoly.js","end":""}],
-    types: placeholder as Registry['assets.unpoly_js']['types'],
-  },
-  'assets.unpoly_css': {
-    methods: ["GET","HEAD"],
-    pattern: '/vendor/unpoly.css',
-    tokens: [{"old":"/vendor/unpoly.css","type":0,"val":"vendor","end":""},{"old":"/vendor/unpoly.css","type":0,"val":"unpoly.css","end":""}],
-    types: placeholder as Registry['assets.unpoly_css']['types'],
-  },
   'assets.css': {
     methods: ["GET","HEAD"],
     pattern: '/css/app.css',

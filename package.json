@@ -43,7 +43,6 @@
     "#app/repositories/*": "./app/repositories/*.js",
     "#app/x3/client/*": "./app/x3/client/*.js",
     "#app/x3/*": "./app/x3/*.js",
-    "#app/unpoly/*": "./app/unpoly/*.js",
     "#repositories/*": "./app/repositories/*.js"
   },
   "devDependencies": {
@@ -103,7 +102,6 @@
     "superjson": "^2.2.6",
     "tailwind-merge": "^3.6.0",
     "tailwindcss-animate": "^1.0.7",
-    "unpoly": "^3.14.3",
     "vite": "^7.3.5",
     "vite-plugin-solid": "^2.11.12"
   },

@@ -43,30 +43,6 @@ export interface Registry {
       errorResponse: unknown
     }
   }
-  'assets.unpoly_js': {
-    methods: ["GET","HEAD"]
-    pattern: '/vendor/unpoly.js'
-    types: {
-      body: {}
-      paramsTuple: []
-      params: {}
-      query: {}
-      response: unknown
-      errorResponse: unknown
-    }
-  }
-  'assets.unpoly_css': {
-    methods: ["GET","HEAD"]
-    pattern: '/vendor/unpoly.css'
-    types: {
-      body: {}
-      paramsTuple: []
-      params: {}
-      query: {}
-      response: unknown
-      errorResponse: unknown
-    }
-  }
   'assets.css': {
     methods: ["GET","HEAD"]
     pattern: '/css/app.css'

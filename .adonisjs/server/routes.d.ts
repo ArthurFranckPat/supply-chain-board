@@ -7,8 +7,6 @@ export type ScannedRoutes = {
     'auth.login': { paramsTuple?: []; params?: {} }
     'auth.attempt': { paramsTuple?: []; params?: {} }
     'auth.logout': { paramsTuple?: []; params?: {} }
-    'assets.unpoly_js': { paramsTuple?: []; params?: {} }
-    'assets.unpoly_css': { paramsTuple?: []; params?: {} }
     'assets.css': { paramsTuple?: []; params?: {} }
     'assets.js': { paramsTuple?: []; params?: {} }
     'health.index': { paramsTuple?: []; params?: {} }
@@ -58,8 +56,6 @@ export type ScannedRoutes = {
   }
   GET: {
     'auth.login': { paramsTuple?: []; params?: {} }
-    'assets.unpoly_js': { paramsTuple?: []; params?: {} }
-    'assets.unpoly_css': { paramsTuple?: []; params?: {} }
     'assets.css': { paramsTuple?: []; params?: {} }
     'assets.js': { paramsTuple?: []; params?: {} }
     'health.index': { paramsTuple?: []; params?: {} }
@@ -91,8 +87,6 @@ export type ScannedRoutes = {
   }
   HEAD: {
     'auth.login': { paramsTuple?: []; params?: {} }
-    'assets.unpoly_js': { paramsTuple?: []; params?: {} }
-    'assets.unpoly_css': { paramsTuple?: []; params?: {} }
     'assets.css': { paramsTuple?: []; params?: {} }
     'assets.js': { paramsTuple?: []; params?: {} }
     'health.index': { paramsTuple?: []; params?: {} }

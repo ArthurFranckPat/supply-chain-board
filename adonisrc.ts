@@ -59,7 +59,6 @@ export default defineConfig({
     () => import('#providers/api_provider'),
     () => import('#providers/x3_provider'),
     () => import('@adonisjs/core/providers/edge_provider'),
-    () => import('#providers/unpoly_provider'),
     () => import('@adonisjs/vite/vite_provider'),
     () => import('@adonisjs/inertia/inertia_provider')
   ],

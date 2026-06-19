@@ -8,8 +8,6 @@ export interface ApiDefinition {
     logout: typeof routes['auth.logout']
   }
   assets: {
-    unpolyJs: typeof routes['assets.unpoly_js']
-    unpolyCss: typeof routes['assets.unpoly_css']
     css: typeof routes['assets.css']
     js: typeof routes['assets.js']
   }
