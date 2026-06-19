@@ -260,7 +260,7 @@ const Suivi: Component<SuiviPageProps> = (props) => {
           >
             <div class="flex-1 overflow-hidden p-5">
               <div class="h-full overflow-auto rounded-xl border border-rule bg-card shadow-[0_1px_2px_rgba(31,26,19,.05)]">
-                <table class="w-full min-w-[1180px] border-collapse text-left">
+                <table class="w-full min-w-[1076px] border-collapse text-left">
                   <thead>
                     <tr class="sticky top-0 z-10 bg-secondary">
                       <th class="w-[38px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft">N°</th>
@@ -296,17 +296,6 @@ const Suivi: Component<SuiviPageProps> = (props) => {
                           <td class="whitespace-nowrap border-r border-rule-soft px-4 py-[13px] text-right align-middle">
                             <span class="font-fraunces text-[21px] font-black leading-none tracking-tight text-foreground">{o.qteRestante}</span>
                             <span class="ml-0.5 font-mono text-[10px] font-medium text-muted-foreground/80">u</span>
-                          </td>
-                          <td class="border-r border-rule-soft px-4 py-[13px] text-right align-middle">
-                            <Show
-                              when={o.allocStrict > 0 || o.allocCq > 0}
-                              fallback={<span class="font-mono text-[12px] font-medium text-muted-foreground/70">—</span>}
-                            >
-                              <span class="font-mono text-[12px] font-semibold text-secondary-foreground">{o.allocStrict}</span>
-                              <Show when={o.allocCq > 0}>
-                                <span class="mt-0.5 block font-mono text-[8.5px] font-bold uppercase tracking-wide text-terra">+{o.allocCq} sous CQ</span>
-                              </Show>
-                            </Show>
                           </td>
                           <td class={cx('whitespace-nowrap border-r border-rule-soft px-4 py-[13px] align-middle font-mono text-[12.5px] font-semibold', o.late ? 'font-bold text-destructive' : 'text-foreground')}>
                             {o.dateExp || '—'}
