@@ -139,6 +139,8 @@ export interface ProactiveDisplayRow {
   dateExpIso: string | null
   verdictKey: ProactiveVerdictKey
   verdictLabel: string
+  /** Mode de couverture : « Stock » | n° OF (« · »-séparés) | « Achat » | « — ». */
+  couverture: string
   joursRetard: number
   /** Composants goulots agrégés sur les OFs de la commande. */
   composants: { art: string; qty: number }[]

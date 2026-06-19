@@ -382,7 +382,7 @@ const Suivi: Component<SuiviPageProps> = (props) => {
                 >
                   <div class="flex-1 overflow-hidden p-5">
                     <div class="h-full overflow-auto rounded-xl border border-rule bg-card shadow-[0_1px_2px_rgba(31,26,19,.05)]">
-                      <table class="w-full min-w-[1076px] border-collapse text-left">
+                      <table class="w-full min-w-[1230px] border-collapse text-left">
                         <thead>
                           <tr class="sticky top-0 z-10 bg-secondary">
                             <th class="w-[38px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft">N°</th>
@@ -391,9 +391,10 @@ const Suivi: Component<SuiviPageProps> = (props) => {
                             <th class="w-[56px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft">Type</th>
                             <th class="w-[92px] px-4 py-[11px] text-right font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft">Reste</th>
                             <th class="w-[76px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft">Expé</th>
-                            <th class="w-[130px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft">Verdict</th>
+                            <th class="w-[150px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft">Couverture</th>
+                            <th class="w-[120px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft">Verdict</th>
                             <th class="w-[70px] px-4 py-[11px] text-right font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft">J. retard</th>
-                            <th class="px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule">Goulots · OFs</th>
+                            <th class="px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule">Goulots</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -424,6 +425,20 @@ const Suivi: Component<SuiviPageProps> = (props) => {
                                     {o.dateExp || '—'}
                                   </td>
                                   <td class="border-r border-rule-soft px-4 py-[13px] align-middle">
+                                    <Show
+                                      when={o.couverture === 'Stock' || o.couverture === 'Achat'}
+                                      fallback={
+                                        <span class="font-mono text-[11px] font-semibold leading-snug text-secondary-foreground break-all">
+                                          {o.couverture}
+                                        </span>
+                                      }
+                                    >
+                                      <span class="inline-flex items-center gap-1 rounded-md border border-transparent bg-ferme/15 px-2 py-0.5 font-mono text-[11px] font-bold text-ferme">
+                                        {o.couverture}
+                                      </span>
+                                    </Show>
+                                  </td>
+                                  <td class="border-r border-rule-soft px-4 py-[13px] align-middle">
                                     <span class={cx('inline-flex items-center gap-1 rounded-md border border-transparent px-2 py-0.5 text-[11px] font-medium whitespace-nowrap', VERDICT_TONE[o.verdictKey])}>
                                       {o.verdictLabel}
                                     </span>
@@ -435,19 +450,12 @@ const Suivi: Component<SuiviPageProps> = (props) => {
                                     <Show
                                       when={o.composants.length > 0}
                                       fallback={
-                                        <span class="font-sans text-[12px] font-medium leading-snug text-muted-foreground/70">
-                                          {o.ofs.length > 0 ? `${o.ofs.length} OF` : '—'}
-                                        </span>
+                                        <span class="font-sans text-[12px] font-medium leading-snug text-muted-foreground/70">—</span>
                                       }
                                     >
                                       <span class="block font-mono text-[10px] font-bold text-destructive">
                                         {o.composants.map((c) => `${c.art} −${c.qty}`).join(' · ')}
                                       </span>
-                                      <Show when={o.ofs.length > 0}>
-                                        <span class="mt-[2px] block font-mono text-[10px] text-muted-foreground/70">
-                                          {o.ofs.length} OF · {o.ofs.map((f) => f.numOf).join(' · ')}
-                                        </span>
-                                      </Show>
                                     </Show>
                                   </td>
                                 </tr>

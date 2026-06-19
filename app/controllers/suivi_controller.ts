@@ -349,6 +349,8 @@ export interface ProactiveDisplayRow {
   dateExpIso: string | null
   verdictKey: ProactiveVerdictKey
   verdictLabel: string
+  /** Mode de couverture : « Stock » | n° OF (« · »-séparés) | « Achat » | « — ». */
+  couverture: string
   joursRetard: number
   /** Composants goulots agrégés sur les OFs de la commande (art + qté manquante). */
   composants: { art: string; qty: number }[]
@@ -529,6 +531,17 @@ export function buildProactiveDisplay(result: OrderImpactResult): {
           .map(([art, qty]) => ({ art, qty: Math.round(qty * 100) / 100 })),
       }))
       const compsTxt = comps.map((c) => `${c.art} -${c.qty}`).join(' ')
+      // Mode de couverture : Stock (stock_complete) | OF contremarque/cumulatif (n° OF) |
+      // Achat (purchase_supply) | — (none). Affiche QUEL OF couvre la commande.
+      const ofsNum = ofsFinal.map((f) => f.numOf)
+      const couverture =
+        o.matchingMethod === 'stock_complete'
+          ? 'Stock'
+          : ofsNum.length > 0
+            ? ofsNum.join(' · ')
+            : o.matchingMethod === 'purchase_supply'
+              ? 'Achat'
+              : '—'
       return {
         numCommande: o.numCommande,
         client: o.client,
@@ -542,10 +555,11 @@ export function buildProactiveDisplay(result: OrderImpactResult): {
         dateExpIso: o.dateExpedition || null,
         verdictKey: verdict.key,
         verdictLabel: verdict.label,
+        couverture,
         joursRetard: o.joursRetard,
         composants: comps,
         ofs: ofsFinal,
-        filter: `${o.numCommande} ${o.client} ${o.article} ${o.description} ${o.typeCommande} ${verdict.label} ${compsTxt}`.toLowerCase(),
+        filter: `${o.numCommande} ${o.client} ${o.article} ${o.description} ${o.typeCommande} ${verdict.label} ${couverture} ${compsTxt}`.toLowerCase(),
       }
     })
 
