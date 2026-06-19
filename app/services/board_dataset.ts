@@ -7,15 +7,22 @@ import { X3ReceptionRepository } from '#repositories/reception_repository'
 import { X3BesoinClientRepository } from '#repositories/besoin_client_repository'
 import { X3SuggestionRepository } from '#repositories/suggestion_repository'
 import staticSync from '#services/static_sync_service'
+import cache from '@adonisjs/cache/services/main'
+import { HttpContext } from '@adonisjs/core/http'
 
 /**
- * Loader mémoire des données X3, stratégie en 4 tiers (cf. décision projet) :
+ * Loader des données X3, stratégie en 4 tiers (cf. décision projet) :
  *  - Référentiel (gammes…) : statique, TTL long.
  *  - OF ouverts : tous (backlog en a besoin), TTL court / reload.
  *  - Live (demande + réceptions) : scopé à l'horizon [from,to], par fenêtre.
  *  - Stock : vivant, scopé par article, toujours frais.
  *
- * Singleton (export default instance). Rechargeable via reloadAll().
+ * Cache distribué via `@adonisjs/cache` (issue #20), namespace `board:*` :
+ * persistant cross-reboot + partagé entre instances (L2 Redis), avec une couche
+ * L1 mémoire pour l'accès rapide intra-process. Le grace period (config/cache.ts)
+ * sert la valeur périmée si X3 est injoignable (remplace l'ancien fallback in-memory).
+ *
+ * Singleton (export default instance). Invalidation globale via reloadAll().
  */
 
 const REF_TTL = 2 * 60 * 60 * 1000 // 2 h — référentiel quasi statique
@@ -27,72 +34,81 @@ type BomCache = { entries: NomenclatureEntry[]; at: number }
 type Orders = { mos: ManufacturingOrder[]; supply: Flow[]; at: number }
 type Live = { demand: Flow[]; reception: Flow[]; suggestion: Flow[]; at: number }
 
-class BoardDataset {
-  private referential: Referential | null = null
-  private orders: Orders | null = null
-  private live = new Map<string, Live>()
-  private bom: BomCache | null = null
+/** Cache namespacé `board:*` par utilisateur (cf. config/cache.ts). */
+const board = () => {
+  const userId = HttpContext.get()?.auth?.user?.id
+  return cache.namespace(userId ? `board:user_${userId}` : 'board')
+}
 
-  private fresh(at: number, ttl: number) {
-    return Date.now() - at < ttl
-  }
+class BoardDataset {
+  // Horodatages du dernier peuplement (in-memory, pour status() / affichage UI).
+  // Réinitialisés au boot et au reloadAll ; la donnée elle-même vit dans le cache.
+  private lastReferentialAt: number | null = null
+  private lastOrdersAt: number | null = null
+  private liveWindows = new Set<string>()
 
   /** Référentiel statique (gammes). TTL long. */
   async getReferential(force = false): Promise<Referential> {
-    if (!force && this.referential && this.fresh(this.referential.at, REF_TTL)) {
-      return this.referential
-    }
-    const gamme = await staticSync.readGammes().catch(() => [] as GammeOperation[])
-    this.referential = { gamme, at: Date.now() }
-    return this.referential
+    if (force) await board().delete({ key: 'referential' })
+    return board().getOrSet({
+      key: 'referential',
+      ttl: REF_TTL,
+      factory: async () => {
+        const gamme = await staticSync.readGammes().catch(() => [] as GammeOperation[])
+        this.lastReferentialAt = Date.now()
+        return { gamme, at: this.lastReferentialAt } satisfies Referential
+      },
+    })
   }
 
   /** OF ouverts (tous) + flux supply dérivés. TTL court. */
   async getOrders(force = false): Promise<Orders> {
-    if (!force && this.orders && this.fresh(this.orders.at, ORDERS_TTL)) {
-      return this.orders
-    }
-    let mos: ManufacturingOrder[]
-    try {
-      mos = await new X3OfRepository().getManufacturingOrders()
-    } catch (e) {
-      if (this.orders) return this.orders // sert le cache périmé si X3 KO
-      throw e
-    }
-    const supply: Flow[] = mos.map((mo) => ({
-      article: mo.article,
-      quantity: mo.quantity,
-      direction: 'supply',
-      date: mo.endDate,
-      origin: {
-        type: 'of',
-        id: mo.numOf,
-        status: mo.status,
-        statutLabel: mo.statutLabel,
-        typeOf: null,
-        typeOfLabel: mo.typeOfLabel,
-        designation: mo.designation,
+    if (force) await board().delete({ key: 'orders' })
+    return board().getOrSet({
+      key: 'orders',
+      ttl: ORDERS_TTL,
+      factory: async () => {
+        // Throw si X3 KO → le grace period sert la valeur périmée si disponible.
+        const mos = await new X3OfRepository().getManufacturingOrders()
+        const supply: Flow[] = mos.map((mo) => ({
+          article: mo.article,
+          quantity: mo.quantity,
+          direction: 'supply',
+          date: mo.endDate,
+          origin: {
+            type: 'of',
+            id: mo.numOf,
+            status: mo.status,
+            statutLabel: mo.statutLabel,
+            typeOf: null,
+            typeOfLabel: mo.typeOfLabel,
+            designation: mo.designation,
+          },
+        }))
+        this.lastOrdersAt = Date.now()
+        return { mos, supply, at: this.lastOrdersAt } satisfies Orders
       },
-    }))
-    this.orders = { mos, supply, at: Date.now() }
-    return this.orders
+    })
   }
 
   /** Demande + réceptions scopées à l'horizon [from,to]. Cache par fenêtre. */
   async getLive(from: string, to: string, force = false): Promise<Live> {
-    const key = `${from}|${to}`
-    const hit = this.live.get(key)
-    if (!force && hit && this.fresh(hit.at, LIVE_TTL)) return hit
-
-    const [demand, reception, suggestion] = await Promise.all([
-      new X3BesoinClientRepository().getDemandFlows({ from, to }),
-      new X3ReceptionRepository().getReceptionFlows({ to }),
-      // Suggestions CBN (WOS) : supply fab couvrant les MTO/NOR non encore affermies.
-      new X3SuggestionRepository().getSuggestionFlows({ from, to }),
-    ])
-    const fresh: Live = { demand, reception, suggestion, at: Date.now() }
-    this.live.set(key, fresh)
-    return fresh
+    const key = `live:${from}:${to}`
+    if (force) await board().delete({ key })
+    this.liveWindows.add(`${from}|${to}`)
+    return board().getOrSet({
+      key,
+      ttl: LIVE_TTL,
+      factory: async () => {
+        const [demand, reception, suggestion] = await Promise.all([
+          new X3BesoinClientRepository().getDemandFlows({ from, to }),
+          new X3ReceptionRepository().getReceptionFlows({ to }),
+          // Suggestions CBN (WOS) : supply fab couvrant les MTO/NOR non encore affermies.
+          new X3SuggestionRepository().getSuggestionFlows({ from, to }),
+        ])
+        return { demand, reception, suggestion, at: Date.now() } satisfies Live
+      },
+    })
   }
 
   /**
@@ -101,9 +117,15 @@ class BoardDataset {
    * Ne pas appeler depuis board() pour ne pas bloquer le chargement du tableau.
    */
   async getNomenclature(force = false): Promise<NomenclatureEntry[]> {
-    if (!force && this.bom && this.fresh(this.bom.at, REF_TTL)) return this.bom.entries
-    const entries = await staticSync.readNomenclatures().catch(() => [] as NomenclatureEntry[])
-    this.bom = { entries, at: Date.now() }
+    if (force) await board().delete({ key: 'bom' })
+    const { entries } = await board().getOrSet({
+      key: 'bom',
+      ttl: REF_TTL,
+      factory: async () => {
+        const entries = await staticSync.readNomenclatures().catch(() => [] as NomenclatureEntry[])
+        return { entries, at: Date.now() } satisfies BomCache
+      },
+    })
     return entries
   }
 
@@ -113,12 +135,12 @@ class BoardDataset {
     return new X3StockRepository().getStockFlows(articles)
   }
 
-  /** Vide tous les caches → prochain accès recharge depuis X3. */
-  reloadAll() {
-    this.referential = null
-    this.orders = null
-    this.live.clear()
-    this.bom = null
+  /** Vide tous les caches `board:*` → prochain accès recharge depuis X3. */
+  async reloadAll() {
+    await board().clear()
+    this.lastReferentialAt = null
+    this.lastOrdersAt = null
+    this.liveWindows.clear()
   }
 
   /** Articles (lecture SQLite). Utilisé pour la classification ACHAT/FABRICATION dans la faisabilité. */
@@ -128,9 +150,9 @@ class BoardDataset {
 
   status() {
     return {
-      referentialAt: this.referential?.at ?? null,
-      ordersAt: this.orders?.at ?? null,
-      windows: [...this.live.keys()],
+      referentialAt: this.lastReferentialAt,
+      ordersAt: this.lastOrdersAt,
+      windows: [...this.liveWindows],
     }
   }
 }
