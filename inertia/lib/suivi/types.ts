@@ -143,7 +143,7 @@ export interface ProactiveDisplayRow {
   couverture: string
   joursRetard: number
   /** Composants goulots agrégés sur les OFs de la commande. */
-  composants: { art: string; qty: number }[]
+  composants: { art: string; desc: string; qty: number }[]
   ofs: ProactiveOf[]
   filter: string
 }

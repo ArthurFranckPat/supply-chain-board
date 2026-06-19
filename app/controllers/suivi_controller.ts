@@ -16,6 +16,7 @@ import {
 import { SuiviService, reloadSuiviContext } from '#services/suivi_service'
 import { loadOrderImpacts } from '#services/order_impacts_loader'
 import type { OrderImpactResult } from '#app/domain/order-impacts'
+import type { Article } from '#app/domain/models/article'
 import { X3OfRepository } from '#repositories/of_repository'
 import { X3StockRepository } from '#repositories/stock_repository'
 import { X3ReceptionRepository } from '#repositories/reception_repository'
@@ -216,8 +217,8 @@ export default class SuiviController {
       from.setDate(from.getDate() - 365)
       const to = new Date(refDate)
       to.setDate(to.getDate() + 90)
-      const { result } = await loadOrderImpacts({ from, to, mode: 'sequential', preferEngineFeasibility: true })
-      const built = buildProactiveDisplay(result)
+      const { result, articles } = await loadOrderImpacts({ from, to, mode: 'sequential', preferEngineFeasibility: true })
+      const built = buildProactiveDisplay(result, articles)
       rows = built.rows
       verdictCounts = built.verdictCounts
     } catch (e) {
@@ -352,8 +353,8 @@ export interface ProactiveDisplayRow {
   /** Mode de couverture : « Stock » | n° OF (« · »-séparés) | « Achat » | « — ». */
   couverture: string
   joursRetard: number
-  /** Composants goulots agrégés sur les OFs de la commande (art + qté manquante). */
-  composants: { art: string; qty: number }[]
+  /** Composants goulots agrégés sur les OFs de la commande (art + désignation + qté manquante). */
+  composants: { art: string; desc: string; qty: number }[]
   ofs: ProactiveOf[]
   filter: string
 }
@@ -500,7 +501,10 @@ const PROACTIVE_HORIZON_FUTURE_DAYS = 21
  * pour la vue proactive : verdict court + jours de retard + composants goulots agrégés +
  * OFs rattachés. Seules les vraies commandes (engagements clients) sont conservées.
  */
-export function buildProactiveDisplay(result: OrderImpactResult): {
+export function buildProactiveDisplay(
+  result: OrderImpactResult,
+  articles: Map<string, Article> = new Map(),
+): {
   rows: ProactiveDisplayRow[]
   verdictCounts: Record<ProactiveVerdictKey, number>
 } {
@@ -523,7 +527,11 @@ export function buildProactiveDisplay(result: OrderImpactResult): {
       }
       const comps = [...composants.entries()]
         .sort(([a], [b]) => a.localeCompare(b))
-        .map(([art, qty]) => ({ art, qty: Math.round(qty * 100) / 100 }))
+        .map(([art, qty]) => ({
+          art,
+          desc: articles.get(art)?.description ?? '',
+          qty: Math.round(qty * 100) / 100,
+        }))
 
       // La demande est déjà nettoyée de l'allocation ERP côté loader (proactif) : qteRestante
       // = reste à RÉALISER (reste à livrer − alloué). Le verdict moteur porte donc sur la part

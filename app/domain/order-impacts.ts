@@ -198,9 +198,9 @@ export function evaluateOrderImpacts(
 
     return {
       numCommande: origin.id ?? '',
-      client: origin.client ?? '',
+      client: origin.customer ?? '',
       article: demand.article,
-      description: origin.description ?? '',
+      description: articles.get(demand.article)?.description ?? '',
       qteRestante: demand.quantity,
       qteAllouee: origin.qteAllouee ?? 0,
       dateExpedition: demand.date?.toISOString().slice(0, 10) ?? '',

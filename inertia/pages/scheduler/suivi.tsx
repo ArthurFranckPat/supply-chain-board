@@ -453,9 +453,22 @@ const Suivi: Component<SuiviPageProps> = (props) => {
                                         <span class="font-sans text-[12px] font-medium leading-snug text-muted-foreground/70">—</span>
                                       }
                                     >
-                                      <span class="block font-mono text-[10px] font-bold text-destructive">
-                                        {o.composants.map((c) => `${c.art} −${c.qty}`).join(' · ')}
-                                      </span>
+                                      <div class="flex flex-col gap-1">
+                                        <For each={o.composants.slice(0, 4)}>
+                                          {(c) => (
+                                            <div class="flex items-center gap-1.5">
+                                              <span class="shrink-0 font-mono text-[10.5px] font-bold text-destructive">{c.art}</span>
+                                              <Show when={c.desc}>
+                                                <span class="truncate font-sans text-[10px] leading-tight text-muted-foreground" title={c.desc}>{c.desc}</span>
+                                              </Show>
+                                              <span class="ml-auto shrink-0 rounded bg-destructive/10 px-1 font-mono text-[10px] font-bold tabular-nums text-destructive">−{c.qty}</span>
+                                            </div>
+                                          )}
+                                        </For>
+                                        <Show when={o.composants.length > 4}>
+                                          <span class="font-mono text-[10px] font-medium text-muted-foreground/70">+{o.composants.length - 4} autre(s)</span>
+                                        </Show>
+                                      </div>
                                     </Show>
                                   </td>
                                 </tr>
