@@ -492,6 +492,9 @@ const VERDICT_DISPLAY: Record<OrderImpactResult['orders'][number]['statut'], { k
   sans_couverture: { key: 'uncov', label: 'Sans couverture' },
 }
 
+/** Horizon futur d'affichage de la vue proactive (jours). Au-delà : commandes masquées. */
+const PROACTIVE_HORIZON_FUTURE_DAYS = 21
+
 /**
  * Projette le verdict du moteur séquentiel (OrderImpactResult) en lignes d'affichage
  * pour la vue proactive : verdict court + jours de retard + composants goulots agrégés +
@@ -501,8 +504,16 @@ export function buildProactiveDisplay(result: OrderImpactResult): {
   rows: ProactiveDisplayRow[]
   verdictCounts: Record<ProactiveVerdictKey, number>
 } {
+  // Horizon d'affichage : on borne à aujourd'hui + 21 j (futur proche actionnable).
+  // Les commandes expédiant au-delà sont masquées (souvent du « sans couverture » bruité
+  // car leur OF couvrant est hors tolérance de date). Les retards passés sont conservés.
+  const horizonIso = new Date()
+  horizonIso.setHours(0, 0, 0, 0)
+  horizonIso.setDate(horizonIso.getDate() + PROACTIVE_HORIZON_FUTURE_DAYS)
+
   const rows: ProactiveDisplayRow[] = result.orders
     .filter((o) => o.nature === 'commande')
+    .filter((o) => !o.dateExpedition || o.dateExpedition <= horizonIso.toISOString().slice(0, 10))
     .map((o) => {
       const composants = new Map<string, number>()
       for (const of of o.ofs) {
