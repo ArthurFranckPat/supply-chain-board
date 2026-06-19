@@ -2,7 +2,7 @@
  * AUTO-GÉNÉRÉ par scripts/gen-routes-manifest.mjs — NE PAS ÉDITER À LA MAIN.
  * Source : `start/routes.ts` → `node ace list:routes --jsonl`.
  * Régénérer : `npm run routes:gen` · Vérifier la fraîcheur : `npm run routes:check`.
- * 50 routes nommées.
+ * 51 routes nommées.
  */
 
 export const MANIFEST = {
@@ -53,6 +53,7 @@ export const MANIFEST = {
   "suivi.board": { method: "GET", pattern: "/suivi" },
   "suivi.from_latest_export": { method: "POST", pattern: "/api/v1/status/from-latest-export" },
   "suivi.palette": { method: "POST", pattern: "/api/v1/status/palette" },
+  "suivi.proactive_rows": { method: "GET", pattern: "/api/v1/status/proactive-rows" },
   "suivi.retard_charge": { method: "POST", pattern: "/api/v1/status/retard-charge" },
   "suivi.rows": { method: "GET", pattern: "/api/v1/status/rows" },
   "suivi.status_detail": { method: "GET", pattern: "/api/v1/status/status/:order" },
@@ -112,6 +113,7 @@ export type RouteParams = {
   "suivi.board": void,
   "suivi.from_latest_export": void,
   "suivi.palette": void,
+  "suivi.proactive_rows": void,
   "suivi.retard_charge": void,
   "suivi.rows": void,
   "suivi.status_detail": { "order": string | number }

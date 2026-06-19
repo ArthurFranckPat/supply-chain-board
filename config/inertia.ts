@@ -78,6 +78,7 @@ declare module '@adonisjs/inertia/types' {
     'scheduler/suivi': {
       referenceDate: string
       rowsHref: string
+      proactiveRowsHref: string
     }
   }
 }

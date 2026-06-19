@@ -39,6 +39,7 @@ export interface ApiDefinition {
     palette: typeof routes['suivi.palette']
     retardCharge: typeof routes['suivi.retard_charge']
     rows: typeof routes['suivi.rows']
+    proactiveRows: typeof routes['suivi.proactive_rows']
   }
   planningBoard: {
     index: typeof routes['planning_board.index']

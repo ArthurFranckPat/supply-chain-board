@@ -6,6 +6,8 @@ import type {
   SuiviPageProps,
   SuiviRowsResponse,
   SuiviStatusKey,
+  ProactiveRowsResponse,
+  ProactiveVerdictKey,
 } from '@/lib/suivi/types'
 import UserMenu from '@/components/user-menu'
 
@@ -28,12 +30,29 @@ const EMPTY: SuiviRowsResponse = {
   referenceDate: '',
 }
 
+const PROACTIVE_EMPTY: ProactiveRowsResponse = {
+  total: 0,
+  verdictCounts: { time: 0, stock: 0, late: 0, blocked: 0, uncov: 0 },
+  rows: [],
+  x3Error: null,
+  referenceDate: '',
+}
+
 /** Couleur du badge par statut (grammar uniforme ui/badge — un seul shape). */
 const BADGE_TONE: Record<SuiviStatusKey, string> = {
   exp: 'bg-ferme/15 text-ferme',
   alc: 'bg-suggere/15 text-suggere',
   ret: 'bg-destructive/10 text-destructive',
   ras: 'bg-secondary text-muted-foreground',
+}
+
+/** Couleur du badge verdict (vue proactive). */
+const VERDICT_TONE: Record<ProactiveVerdictKey, string> = {
+  time: 'bg-ferme/15 text-ferme',
+  stock: 'bg-ferme/15 text-ferme',
+  late: 'bg-suggere/15 text-suggere',
+  blocked: 'bg-destructive/10 text-destructive',
+  uncov: 'bg-destructive/10 text-destructive',
 }
 
 const Suivi: Component<SuiviPageProps> = (props) => {
@@ -51,6 +70,21 @@ const Suivi: Component<SuiviPageProps> = (props) => {
 
   // Vue courante avec fallback vide (évite de répéter `data() ?? EMPTY` partout).
   const view = createMemo(() => data() ?? EMPTY)
+
+  // ── Vue proactive (réalisabilité des commandes via le moteur séquentiel) ──
+  // Mode 'reactif' (suivi as-is, causes de retard) ou 'proactif' (faisabilité projetée,
+  // consommation séquentielle des composants entre OFs). Le fetch proactif n'est lancé
+  // qu'en mode proactif (source dépend de mode()).
+  const [mode, setMode] = createSignal<'reactif' | 'proactif'>('reactif')
+  const [proData] = createResource(
+    () => `${props.proactiveRowsHref}${bust() ? `&refresh=${bust()}` : ''}`,
+    async (url): Promise<ProactiveRowsResponse> => {
+      const res = await fetch(url, { headers: { accept: 'application/json' } })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      return (await res.json()) as ProactiveRowsResponse
+    },
+  )
+  const proView = createMemo(() => proData() ?? PROACTIVE_EMPTY)
 
   // Filtres + tri côté client.
   const [query, setQuery] = createSignal('')
@@ -86,6 +120,28 @@ const Suivi: Component<SuiviPageProps> = (props) => {
     return r
   })
 
+  // Lignes proactives filtrées (query + type + verdict). Tri : bloquées/sans couverture
+  // en haut, puis retard, puis chronologique.
+  const [verdictFilter, setVerdictFilter] = createSignal<ProactiveVerdictKey | 'all'>('all')
+  const visibleProRows = createMemo(() => {
+    const all = proView().rows
+    const q = query().trim().toLowerCase()
+    const vf = verdictFilter()
+    const tf = typeFilter()
+    let r = all.filter((row) => (vf === 'all' || row.verdictKey === vf) && tf.has(row.type))
+    if (q) r = r.filter((row) => row.filter.includes(q))
+    const rank = (k: ProactiveVerdictKey) => (k === 'blocked' || k === 'uncov' ? 0 : k === 'late' ? 1 : 2)
+    r.sort((a, b) => {
+      const ra = rank(a.verdictKey)
+      const rb = rank(b.verdictKey)
+      if (ra !== rb) return ra - rb
+      const da = a.dateExpIso ?? '9999-12-31'
+      const db = b.dateExpIso ?? '9999-12-31'
+      return da < db ? -1 : da > db ? 1 : 0
+    })
+    return r
+  })
+
   const counts = () => view().statusCounts
   const refLabel = () =>
     new Date(props.referenceDate + 'T00:00:00').toLocaleDateString('fr-FR', {
@@ -114,6 +170,21 @@ const Suivi: Component<SuiviPageProps> = (props) => {
     )
   }
 
+  const verdictChip = (k: ProactiveVerdictKey | 'all', label: string) => {
+    const on = verdictFilter() === k
+    return (
+      <button
+        type="button"
+        class={`rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors ${
+          on ? 'bg-terra-soft text-terra' : 'text-muted-foreground hover:text-foreground'
+        }`}
+        onClick={() => setVerdictFilter(on ? 'all' : k)}
+      >
+        {label}
+      </button>
+    )
+  }
+
   return (
     <div class="theme-papier flex h-screen flex-col overflow-hidden bg-background text-foreground">
       {/* ═══ Masthead ═══ */}
@@ -130,7 +201,7 @@ const Suivi: Component<SuiviPageProps> = (props) => {
           <div class="text-right font-mono text-[11px] font-medium leading-relaxed text-muted-foreground">
             <div class="font-fraunces text-[12px] font-bold capitalize not-italic text-terra">{refLabel()}</div>
             <div>
-              <b class="font-bold text-foreground">{view().total}</b> lignes ouvertes
+              <b class="font-bold text-foreground">{mode() === 'reactif' ? view().total : proView().total}</b> lignes ouvertes
               <Show when={view().referenceDate}> · réf. <b class="font-bold text-foreground">{view().referenceDate}</b></Show>
             </div>
           </div>
@@ -161,24 +232,71 @@ const Suivi: Component<SuiviPageProps> = (props) => {
         </nav>
       </header>
 
-      {/* ═══ Bandeau KPI = status_counts ═══ */}
-      <section class="flex-none grid grid-cols-5 border-b border-rule">
-        <Kpi label="À expédier" value={counts().A_EXPEDIER} sub="besoin net ≤ 0 · prêtes" dot="var(--color-ferme)" valClass="text-ferme" />
-        <Kpi label="Allocation à faire" value={counts().ALLOCATION_A_FAIRE} sub="couvertes par stock virtuel" dot="var(--color-suggere)" valClass="text-suggere" />
-        <Kpi label="Retard" value={counts().RETARD_PROD} sub="date expé dépassée" dot="var(--color-destructive)" valClass="text-destructive" />
-        <Kpi label="Signal CQ" value={view().cqCount} sub="stock sous contrôle qualité" dot="var(--color-terra)" valClass="text-terra" />
-        <Kpi label="RAS" value={counts().RAS} sub="sous contrôle" dot="var(--color-muted-foreground)" valClass="text-planifie" last />
-      </section>
+      {/* ═══ Bandeau KPI ═══ */}
+      <Show
+        when={mode() === 'reactif'}
+        fallback={
+          <section class="flex-none grid grid-cols-5 border-b border-rule">
+            <Kpi label="À temps" value={proView().verdictCounts.time} sub="réalisables" dot="var(--color-ferme)" valClass="text-ferme" />
+            <Kpi label="En stock" value={proView().verdictCounts.stock} sub="couvertes par stock" dot="var(--color-ferme)" valClass="text-ferme" />
+            <Kpi label="En retard" value={proView().verdictCounts.late} sub="OF après l'expé" dot="var(--color-suggere)" valClass="text-suggere" />
+            <Kpi label="Bloquées" value={proView().verdictCounts.blocked} sub="composant manquant" dot="var(--color-destructive)" valClass="text-destructive" />
+            <Kpi label="Sans couverture" value={proView().verdictCounts.uncov} sub="aucun OF/supply" dot="var(--color-destructive)" valClass="text-destructive" last />
+          </section>
+        }
+      >
+        <section class="flex-none grid grid-cols-5 border-b border-rule">
+          <Kpi label="À expédier" value={counts().A_EXPEDIER} sub="besoin net ≤ 0 · prêtes" dot="var(--color-ferme)" valClass="text-ferme" />
+          <Kpi label="Allocation à faire" value={counts().ALLOCATION_A_FAIRE} sub="couvertes par stock virtuel" dot="var(--color-suggere)" valClass="text-suggere" />
+          <Kpi label="Retard" value={counts().RETARD_PROD} sub="date expé dépassée" dot="var(--color-destructive)" valClass="text-destructive" />
+          <Kpi label="Signal CQ" value={view().cqCount} sub="stock sous contrôle qualité" dot="var(--color-terra)" valClass="text-terra" />
+          <Kpi label="RAS" value={counts().RAS} sub="sous contrôle" dot="var(--color-muted-foreground)" valClass="text-planifie" last />
+        </section>
+      </Show>
 
       {/* ═══ Toolbar ═══ */}
       <div class="flex flex-none flex-wrap items-center gap-2.5 border-b border-rule px-7 py-2">
-        <div class="inline-flex items-center gap-1 rounded-md border border-rule bg-card p-0.5">
-          <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Statut</span>
-          {statusChip('all', 'Tous')}
-          {statusChip('ret', 'Retard')}
-          {statusChip('alc', 'À allouer')}
-          {statusChip('exp', 'À expédier')}
+        {/* Bascule Réactif / Proactif */}
+        <div class="inline-flex items-center rounded-md border border-rule bg-card p-0.5">
+          <button
+            type="button"
+            class={`rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors ${
+              mode() === 'reactif' ? 'bg-terra-soft text-terra' : 'text-muted-foreground hover:text-foreground'
+            }`}
+            onClick={() => setMode('reactif')}
+            title="Suivi as-is : statuts allocation/expédition + causes de retard"
+          >
+            Réactif
+          </button>
+          <button
+            type="button"
+            class={`rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors ${
+              mode() === 'proactif' ? 'bg-terra-soft text-terra' : 'text-muted-foreground hover:text-foreground'
+            }`}
+            onClick={() => setMode('proactif')}
+            title="Réalisabilité projetée : consommation séquentielle des composants entre OFs"
+          >
+            Proactif
+          </button>
         </div>
+        <Show when={mode() === 'reactif'}>
+          <div class="inline-flex items-center gap-1 rounded-md border border-rule bg-card p-0.5">
+            <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Statut</span>
+            {statusChip('all', 'Tous')}
+            {statusChip('ret', 'Retard')}
+            {statusChip('alc', 'À allouer')}
+            {statusChip('exp', 'À expédier')}
+          </div>
+        </Show>
+        <Show when={mode() === 'proactif'}>
+          <div class="inline-flex items-center gap-1 rounded-md border border-rule bg-card p-0.5">
+            <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Verdict</span>
+            {verdictChip('all', 'Tous')}
+            {verdictChip('blocked', 'Bloquée')}
+            {verdictChip('uncov', 'Sans couverture')}
+            {verdictChip('late', 'Retard')}
+          </div>
+        </Show>
         <div class="inline-flex items-center gap-1 rounded-md border border-rule bg-card p-0.5">
           <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Type</span>
           <For each={['MTS', 'MTO', 'NOR']}>
@@ -199,11 +317,14 @@ const Suivi: Component<SuiviPageProps> = (props) => {
           <button
             type="button"
             onClick={() => setBust((b) => b + 1)}
-            disabled={data.loading}
+            disabled={mode() === 'reactif' ? data.loading : proData.loading}
             class="inline-flex items-center gap-1 rounded-full border border-rule bg-card px-3 py-1 text-[11px] font-semibold transition-colors hover:border-terra disabled:opacity-50"
             title="Recharger les données X3 (cache → re-fetch live)"
           >
-            <span class="material-symbols-outlined text-[14px] text-muted-foreground" classList={{ 'animate-spin': data.loading }}>
+            <span
+              class="material-symbols-outlined text-[14px] text-muted-foreground"
+              classList={{ 'animate-spin': mode() === 'reactif' ? data.loading : proData.loading }}
+            >
               refresh
             </span>
             Actualiser
@@ -220,6 +341,135 @@ const Suivi: Component<SuiviPageProps> = (props) => {
         </div>
       </div>
 
+      <Show
+        when={mode() === 'reactif'}
+        fallback={
+          <>
+            {/* ═══ Proactif : X3 injoignable ═══ */}
+            <Show when={proView().x3Error}>
+              <div class="flex flex-none items-center gap-2 border-b border-destructive/30 bg-destructive/10 px-7 py-2 text-[12px] text-foreground">
+                <span class="material-symbols-outlined text-[16px] text-destructive">warning</span>
+                <span class="font-bold">Erreur chargement réalisabilité :</span>
+                <span class="font-mono">{proView().x3Error}</span>
+              </div>
+            </Show>
+
+            {/* ═══ Proactif : table ═══ */}
+            <Show
+              when={!proData.loading}
+              fallback={
+                <div class="flex flex-1 items-center justify-center gap-2 text-muted-foreground">
+                  <span class="material-symbols-outlined animate-spin text-[20px]">progress_activity</span>
+                  <span class="text-[13px] font-medium">Calcul de la réalisabilité…</span>
+                </div>
+              }
+            >
+              <Show
+                when={!proData.error}
+                fallback={
+                  <div class="flex flex-1 items-center justify-center gap-2 text-[13px] text-destructive">
+                    <span class="material-symbols-outlined text-[20px]">error</span>
+                    Échec du calcul de réalisabilité.
+                  </div>
+                }
+              >
+                <Show
+                  when={visibleProRows().length > 0}
+                  fallback={
+                    <div class="flex flex-1 items-center justify-center p-10 text-center font-fraunces text-[14px] italic text-muted-foreground">
+                      <div class="flex flex-col items-center gap-2">
+                        <span class="material-symbols-outlined text-[32px] text-muted-foreground/50">
+                          {proView().x3Error ? 'cloud_off' : 'task_alt'}
+                        </span>
+                        {proView().x3Error ? 'Données indisponibles (X3 injoignable).' : 'Toutes les commandes ouvertes sont couvertes.'}
+                      </div>
+                    </div>
+                  }
+                >
+                  <div class="flex-1 overflow-hidden p-5">
+                    <div class="h-full overflow-auto rounded-xl border border-rule bg-card shadow-[0_1px_2px_rgba(31,26,19,.05)]">
+                      <table class="w-full min-w-[1076px] border-collapse text-left">
+                        <thead>
+                          <tr class="sticky top-0 z-10 bg-secondary">
+                            <th class="w-[38px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft">N°</th>
+                            <th class="w-[178px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft">Commande · Client</th>
+                            <th class="px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft">Article · Désignation</th>
+                            <th class="w-[56px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft">Type</th>
+                            <th class="w-[92px] px-4 py-[11px] text-right font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft">Reste</th>
+                            <th class="w-[76px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft">Expé</th>
+                            <th class="w-[130px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft">Verdict</th>
+                            <th class="w-[70px] px-4 py-[11px] text-right font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft">J. retard</th>
+                            <th class="px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule">Goulots · OFs</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <For each={visibleProRows()}>
+                            {(o, i) => {
+                              const late = o.verdictKey === 'late' || o.verdictKey === 'blocked' || o.verdictKey === 'uncov'
+                              return (
+                                <tr class={cx('border-t border-rule-soft transition-colors hover:bg-terra-soft', late && 'bg-destructive/10 hover:bg-destructive/[0.14]')}>
+                                  <td class={cx('px-4 py-[13px] align-middle font-fraunces text-[14px] leading-none text-muted-foreground/80 border-r border-rule-soft', late && '[box-shadow:inset_3px_0_var(--color-destructive)]')}>
+                                    {String(i() + 1).padStart(2, '0')}
+                                  </td>
+                                  <td class="px-4 py-[13px] align-middle border-r border-rule-soft">
+                                    <div class="font-mono text-[13px] font-bold tracking-tight text-foreground">{o.numCommande}</div>
+                                    <div class="mt-0.5 font-sans text-[12px] font-medium leading-snug text-secondary-foreground">{o.client || '—'}</div>
+                                  </td>
+                                  <td class="px-4 py-[13px] align-middle border-r border-rule-soft">
+                                    <div class="font-mono text-[13px] font-semibold text-terra">{o.article}</div>
+                                    <div class="mt-0.5 font-sans text-[12px] font-medium leading-snug text-secondary-foreground">{o.designation || '—'}</div>
+                                  </td>
+                                  <td class="px-4 py-[13px] align-middle border-r border-rule-soft">
+                                    <span class="rounded bg-terra-soft px-[7px] py-0.5 font-mono text-[10px] font-bold uppercase tracking-wide text-terra">{o.type}</span>
+                                  </td>
+                                  <td class="whitespace-nowrap border-r border-rule-soft px-4 py-[13px] text-right align-middle">
+                                    <span class="font-fraunces text-[21px] font-black leading-none tracking-tight text-foreground">{o.qteRestante}</span>
+                                    <span class="ml-0.5 font-mono text-[10px] font-medium text-muted-foreground/80">u</span>
+                                  </td>
+                                  <td class="whitespace-nowrap border-r border-rule-soft px-4 py-[13px] align-middle font-mono text-[12.5px] font-semibold text-foreground">
+                                    {o.dateExp || '—'}
+                                  </td>
+                                  <td class="border-r border-rule-soft px-4 py-[13px] align-middle">
+                                    <span class={cx('inline-flex items-center gap-1 rounded-md border border-transparent px-2 py-0.5 text-[11px] font-medium whitespace-nowrap', VERDICT_TONE[o.verdictKey])}>
+                                      {o.verdictLabel}
+                                    </span>
+                                  </td>
+                                  <td class="whitespace-nowrap border-r border-rule-soft px-4 py-[13px] text-right align-middle font-mono text-[12.5px] font-semibold text-secondary-foreground">
+                                    {o.joursRetard > 0 ? o.joursRetard : '—'}
+                                  </td>
+                                  <td class="px-4 py-[13px] align-middle">
+                                    <Show
+                                      when={o.composants.length > 0}
+                                      fallback={
+                                        <span class="font-sans text-[12px] font-medium leading-snug text-muted-foreground/70">
+                                          {o.ofs.length > 0 ? `${o.ofs.length} OF` : '—'}
+                                        </span>
+                                      }
+                                    >
+                                      <span class="block font-mono text-[10px] font-bold text-destructive">
+                                        {o.composants.map((c) => `${c.art} −${c.qty}`).join(' · ')}
+                                      </span>
+                                      <Show when={o.ofs.length > 0}>
+                                        <span class="mt-[2px] block font-mono text-[10px] text-muted-foreground/70">
+                                          {o.ofs.length} OF · {o.ofs.map((f) => f.numOf).join(' · ')}
+                                        </span>
+                                      </Show>
+                                    </Show>
+                                  </td>
+                                </tr>
+                              )
+                            }}
+                          </For>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </Show>
+              </Show>
+            </Show>
+          </>
+        }
+      >
       {/* ═══ X3 injoignable ═══ */}
       <Show when={view().x3Error}>
         <div class="flex flex-none items-center gap-2 border-b border-destructive/30 bg-destructive/10 px-7 py-2 text-[12px] text-foreground">
@@ -398,6 +648,7 @@ const Suivi: Component<SuiviPageProps> = (props) => {
             </div>
           </Show>
         </Show>
+      </Show>
       </Show>
     </div>
   )

@@ -105,4 +105,59 @@ export interface SuiviPageProps {
   referenceDate: string
   /** URL JSON du calcul lourd (lignes + stats). Re-fetch auto quand elle change. */
   rowsHref: string
+  /** URL JSON de la vue proactive (réalisabilité séquentielle des commandes). */
+  proactiveRowsHref: string
+}
+
+// ---------------------------------------------------------------------------
+// Vue proactive (réalisabilité des commandes via le moteur séquentiel)
+// ---------------------------------------------------------------------------
+
+/** Clé courte du verdict moteur pour le badge proactif. */
+export type ProactiveVerdictKey = 'time' | 'stock' | 'late' | 'blocked' | 'uncov'
+
+export interface ProactiveOf {
+  numOf: string
+  article: string
+  qteAllouee: number
+  dateFin: string
+  feasible: boolean | null
+  statutNum: number
+  missingComponents: { art: string; qty: number }[]
+}
+
+export interface ProactiveDisplayRow {
+  numCommande: string
+  client: string
+  article: string
+  designation: string
+  type: string
+  qteRestante: number
+  reliquat: number
+  dateExp: string
+  dateExpIso: string | null
+  verdictKey: ProactiveVerdictKey
+  verdictLabel: string
+  joursRetard: number
+  /** Composants goulots agrégés sur les OFs de la commande. */
+  composants: { art: string; qty: number }[]
+  ofs: ProactiveOf[]
+  filter: string
+}
+
+export type ProactiveVerdictCounts = {
+  time: number
+  stock: number
+  late: number
+  blocked: number
+  uncov: number
+}
+
+/** Réponse de GET /api/v1/status/proactive-rows (vue proactive). */
+export interface ProactiveRowsResponse {
+  total: number
+  verdictCounts: ProactiveVerdictCounts
+  rows: ProactiveDisplayRow[]
+  x3Error: string | null
+  referenceDate: string
 }

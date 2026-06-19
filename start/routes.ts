@@ -144,6 +144,7 @@ router
         router.post('/palette', '#controllers/suivi_controller.palette')
         router.post('/retard-charge', '#controllers/suivi_controller.retardCharge')
         router.get('/rows', '#controllers/suivi_controller.rows')
+        router.get('/proactive-rows', '#controllers/suivi_controller.proactiveRows')
       })
       .prefix('/api/v1/status')
 

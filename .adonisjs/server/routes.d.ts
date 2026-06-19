@@ -49,6 +49,7 @@ export type ScannedRoutes = {
     'suivi.palette': { paramsTuple?: []; params?: {} }
     'suivi.retard_charge': { paramsTuple?: []; params?: {} }
     'suivi.rows': { paramsTuple?: []; params?: {} }
+    'suivi.proactive_rows': { paramsTuple?: []; params?: {} }
     'pipeline.supply_board': { paramsTuple?: []; params?: {} }
     'pipeline.suivi_status': { paramsTuple?: []; params?: {} }
     'data.load': { paramsTuple?: []; params?: {} }
@@ -85,6 +86,7 @@ export type ScannedRoutes = {
     'scheduler.shortage_rows': { paramsTuple?: []; params?: {} }
     'suivi.status_detail': { paramsTuple: [ParamValue]; params: {'order': ParamValue} }
     'suivi.rows': { paramsTuple?: []; params?: {} }
+    'suivi.proactive_rows': { paramsTuple?: []; params?: {} }
     'static_sync.status': { paramsTuple?: []; params?: {} }
   }
   HEAD: {
@@ -117,6 +119,7 @@ export type ScannedRoutes = {
     'scheduler.shortage_rows': { paramsTuple?: []; params?: {} }
     'suivi.status_detail': { paramsTuple: [ParamValue]; params: {'order': ParamValue} }
     'suivi.rows': { paramsTuple?: []; params?: {} }
+    'suivi.proactive_rows': { paramsTuple?: []; params?: {} }
     'static_sync.status': { paramsTuple?: []; params?: {} }
   }
   POST: {

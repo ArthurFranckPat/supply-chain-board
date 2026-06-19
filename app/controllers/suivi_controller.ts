@@ -14,6 +14,8 @@ import {
   type CauseType,
 } from '#app/domain/suivi'
 import { SuiviService, reloadSuiviContext } from '#services/suivi_service'
+import { loadOrderImpacts } from '#services/order_impacts_loader'
+import type { OrderImpactResult } from '#app/domain/order-impacts'
 import { X3OfRepository } from '#repositories/of_repository'
 import { X3StockRepository } from '#repositories/stock_repository'
 import { X3ReceptionRepository } from '#repositories/reception_repository'
@@ -143,6 +145,7 @@ export default class SuiviController {
     return ctx.inertia.render('scheduler/suivi', {
       referenceDate,
       rowsHref: `/api/v1/status/rows?referenceDate=${encodeURIComponent(referenceDate)}`,
+      proactiveRowsHref: `/api/v1/status/proactive-rows?referenceDate=${encodeURIComponent(referenceDate)}`,
     })
   }
 
@@ -184,6 +187,47 @@ export default class SuiviController {
       total: rows.length,
       statusCounts,
       cqCount: rows.filter((r) => r.cq).length,
+      rows,
+      x3Error,
+      referenceDate: refDate.toISOString().slice(0, 10),
+    }
+  }
+
+  /**
+   * GET /api/v1/status/proactive-rows — endpoint JSON de la vue PROACTIVE (réalisabilité).
+   *
+   * Repasse toutes les commandes ouvertes dans le moteur de faisabilité en mode SÉQUENTIEL :
+   * consommation virtuelle de TOUS les composants (achat + sous-ensembles fabriqués) entre
+   * OFs, sans override MFGMAT (preferEngineFeasibility) → reflète la contention réelle.
+   * Verdict par commande : on_time / stock / retard / bloquee / sans_couverture. Même moteur
+   * (loadOrderImpacts) que le board/ruptures, caches boardDataset partagés.
+   */
+  async proactiveRows(ctx: HttpContext) {
+    const referenceDate = ctx.request.input('referenceDate')
+    const refDate = referenceDate ? new Date(referenceDate) : new Date()
+    if (ctx.request.input('refresh')) await reloadSuiviContext()
+
+    let rows: ProactiveDisplayRow[] = []
+    let verdictCounts: Record<ProactiveVerdictKey, number> = { time: 0, stock: 0, late: 0, blocked: 0, uncov: 0 }
+    let x3Error: string | null = null
+
+    try {
+      const from = new Date(refDate)
+      from.setDate(from.getDate() - 365)
+      const to = new Date(refDate)
+      to.setDate(to.getDate() + 90)
+      const { result } = await loadOrderImpacts({ from, to, mode: 'sequential', preferEngineFeasibility: true })
+      const built = buildProactiveDisplay(result)
+      rows = built.rows
+      verdictCounts = built.verdictCounts
+    } catch (e) {
+      logger.error({ err: e }, '[suivi] proactiveRows — échec chargement X3')
+      x3Error = sanitizeX3Error((e as Error).message ?? String(e))
+    }
+
+    return {
+      total: rows.length,
+      verdictCounts,
       rows,
       x3Error,
       referenceDate: refDate.toISOString().slice(0, 10),
@@ -272,6 +316,42 @@ export interface SuiviDisplayRow {
   cause: SuiviCauseDisplay | null
   action: { severity: 'info' | 'warning' | 'critical'; label: string }
   /** Champ texte pré-concaténé pour le filtre client (lowercase). */
+  filter: string
+}
+
+// ---------------------------------------------------------------------------
+// Vue proactive (réalisabilité des commandes via le moteur séquentiel)
+// ---------------------------------------------------------------------------
+
+/** Clé courte du verdict moteur pour le badge de la vue proactive. */
+export type ProactiveVerdictKey = 'time' | 'stock' | 'late' | 'blocked' | 'uncov'
+
+export interface ProactiveOf {
+  numOf: string
+  article: string
+  qteAllouee: number
+  dateFin: string
+  feasible: boolean | null
+  statutNum: number
+  missingComponents: { art: string; qty: number }[]
+}
+
+export interface ProactiveDisplayRow {
+  numCommande: string
+  client: string
+  article: string
+  designation: string
+  type: string
+  qteRestante: number
+  reliquat: number
+  dateExp: string
+  dateExpIso: string | null
+  verdictKey: ProactiveVerdictKey
+  verdictLabel: string
+  joursRetard: number
+  /** Composants goulots agrégés sur les OFs de la commande (art + qté manquante). */
+  composants: { art: string; qty: number }[]
+  ofs: ProactiveOf[]
   filter: string
 }
 
@@ -399,4 +479,71 @@ export function buildSuiviDisplay(assignments: StatusAssignment[], refDate?: Dat
     }
   })
   return { rows, statusCounts: buildStatusCounts(assignments.map((a) => a.status)) }
+}
+
+const VERDICT_DISPLAY: Record<OrderImpactResult['orders'][number]['statut'], { key: ProactiveVerdictKey; label: string }> = {
+  on_time: { key: 'time', label: 'À temps' },
+  stock: { key: 'stock', label: 'En stock' },
+  retard: { key: 'late', label: 'En retard' },
+  bloquee: { key: 'blocked', label: 'Bloquée' },
+  sans_couverture: { key: 'uncov', label: 'Sans couverture' },
+}
+
+/**
+ * Projette le verdict du moteur séquentiel (OrderImpactResult) en lignes d'affichage
+ * pour la vue proactive : verdict court + jours de retard + composants goulots agrégés +
+ * OFs rattachés. Seules les vraies commandes (engagements clients) sont conservées.
+ */
+export function buildProactiveDisplay(result: OrderImpactResult): {
+  rows: ProactiveDisplayRow[]
+  verdictCounts: Record<ProactiveVerdictKey, number>
+} {
+  const rows: ProactiveDisplayRow[] = result.orders
+    .filter((o) => o.nature === 'commande')
+    .map((o) => {
+      const composants = new Map<string, number>()
+      for (const of of o.ofs) {
+        for (const [art, qty] of Object.entries(of.missingComponents)) {
+          if (qty > 0) composants.set(art, (composants.get(art) ?? 0) + qty)
+        }
+      }
+      const comps = [...composants.entries()]
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([art, qty]) => ({ art, qty: Math.round(qty * 100) / 100 }))
+      const verdict = VERDICT_DISPLAY[o.statut]
+      const compsTxt = comps.map((c) => `${c.art} -${c.qty}`).join(' ')
+      return {
+        numCommande: o.numCommande,
+        client: o.client,
+        article: o.article,
+        designation: o.description,
+        type: o.typeCommande,
+        qteRestante: Math.round(o.qteRestante),
+        reliquat: Math.round(o.reliquat),
+        dateExp: fmtFrDay(o.dateExpedition),
+        dateExpIso: o.dateExpedition || null,
+        verdictKey: verdict.key,
+        verdictLabel: verdict.label,
+        joursRetard: o.joursRetard,
+        composants: comps,
+        ofs: o.ofs.map((of) => ({
+          numOf: of.numOf,
+          article: of.article,
+          qteAllouee: Math.round(of.qteAllouee),
+          dateFin: fmtFrDay(of.dateFin),
+          feasible: of.feasible,
+          statutNum: of.statutNum,
+          missingComponents: Object.entries(of.missingComponents)
+            .filter(([, q]) => q > 0)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([art, qty]) => ({ art, qty: Math.round(qty * 100) / 100 })),
+        })),
+        filter: `${o.numCommande} ${o.client} ${o.article} ${o.description} ${o.typeCommande} ${verdict.label} ${compsTxt}`.toLowerCase(),
+      }
+    })
+
+  const verdictCounts: Record<ProactiveVerdictKey, number> = { time: 0, stock: 0, late: 0, blocked: 0, uncov: 0 }
+  for (const r of rows) verdictCounts[r.verdictKey]++
+
+  return { rows, verdictCounts }
 }

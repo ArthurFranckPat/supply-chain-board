@@ -276,6 +276,12 @@ const routes = {
     tokens: [{"old":"/api/v1/status/rows","type":0,"val":"api","end":""},{"old":"/api/v1/status/rows","type":0,"val":"v1","end":""},{"old":"/api/v1/status/rows","type":0,"val":"status","end":""},{"old":"/api/v1/status/rows","type":0,"val":"rows","end":""}],
     types: placeholder as Registry['suivi.rows']['types'],
   },
+  'suivi.proactive_rows': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/status/proactive-rows',
+    tokens: [{"old":"/api/v1/status/proactive-rows","type":0,"val":"api","end":""},{"old":"/api/v1/status/proactive-rows","type":0,"val":"v1","end":""},{"old":"/api/v1/status/proactive-rows","type":0,"val":"status","end":""},{"old":"/api/v1/status/proactive-rows","type":0,"val":"proactive-rows","end":""}],
+    types: placeholder as Registry['suivi.proactive_rows']['types'],
+  },
   'pipeline.supply_board': {
     methods: ["POST"],
     pattern: '/api/v1/pipeline/supply-board',

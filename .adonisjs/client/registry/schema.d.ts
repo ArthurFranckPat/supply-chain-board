@@ -547,6 +547,18 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'suivi.proactive_rows': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/status/proactive-rows'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'pipeline.supply_board': {
     methods: ["POST"]
     pattern: '/api/v1/pipeline/supply-board'
