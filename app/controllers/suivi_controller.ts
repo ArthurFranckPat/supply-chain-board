@@ -512,16 +512,11 @@ export function buildProactiveDisplay(result: OrderImpactResult): {
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([art, qty]) => ({ art, qty: Math.round(qty * 100) / 100 }))
 
-      // Override : si la demande est couverte par l'allocation ERP propre de la commande
-      // (quantité réservée en stock, prête à expédier), la commande est RÉALISABLE quel que
-      // soit le verdict du moteur (qui ne voit que le stock libre et re-peg sur des OF futurs,
-      // d'où des ruptures fantômes sur les commandes déjà produites/allouées).
-      const alloueCouvert = (o.qteAllouee ?? 0) >= o.qteRestante && o.qteRestante > 0
-      const verdict = alloueCouvert
-        ? { key: 'stock' as ProactiveVerdictKey, label: 'Allouée — prête' }
-        : VERDICT_DISPLAY[o.statut]
-      const compsFinal = alloueCouvert ? [] : comps
-      const ofsFinal = alloueCouvert ? [] : o.ofs.map((of) => ({
+      // La demande est déjà nettoyée de l'allocation ERP côté loader (proactif) : qteRestante
+      // = reste à RÉALISER (reste à livrer − alloué). Le verdict moteur porte donc sur la part
+      // réellement à produire/couvrir.
+      const verdict = VERDICT_DISPLAY[o.statut]
+      const ofsFinal = o.ofs.map((of) => ({
         numOf: of.numOf,
         article: of.article,
         qteAllouee: Math.round(of.qteAllouee),
@@ -533,7 +528,7 @@ export function buildProactiveDisplay(result: OrderImpactResult): {
           .sort(([a], [b]) => a.localeCompare(b))
           .map(([art, qty]) => ({ art, qty: Math.round(qty * 100) / 100 })),
       }))
-      const compsTxt = compsFinal.map((c) => `${c.art} -${c.qty}`).join(' ')
+      const compsTxt = comps.map((c) => `${c.art} -${c.qty}`).join(' ')
       return {
         numCommande: o.numCommande,
         client: o.client,
@@ -548,7 +543,7 @@ export function buildProactiveDisplay(result: OrderImpactResult): {
         verdictKey: verdict.key,
         verdictLabel: verdict.label,
         joursRetard: o.joursRetard,
-        composants: compsFinal,
+        composants: comps,
         ofs: ofsFinal,
         filter: `${o.numCommande} ${o.client} ${o.article} ${o.description} ${o.typeCommande} ${verdict.label} ${compsTxt}`.toLowerCase(),
       }
