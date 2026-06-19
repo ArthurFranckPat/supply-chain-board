@@ -11,8 +11,15 @@ import type { NextFn } from '@adonisjs/core/types/http'
  * Définir des props partagées à toutes les pages via `share()` ci-dessous.
  */
 class InertiaCore extends BaseInertiaMiddleware {
-  share() {
-    return {}
+  async share(ctx: HttpContext) {
+    const isAuthed = await ctx.auth.use('web').check()
+    return {
+      authUser:
+        isAuthed && ctx.auth.user
+          ? { username: ctx.auth.user.username, env: ctx.auth.user.lastEnv }
+          : null,
+      flash: ctx.session?.flashMessages.all() ?? {},
+    }
   }
 }
 

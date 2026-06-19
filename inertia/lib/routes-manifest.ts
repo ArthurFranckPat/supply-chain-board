@@ -2,7 +2,7 @@
  * AUTO-GÉNÉRÉ par scripts/gen-routes-manifest.mjs — NE PAS ÉDITER À LA MAIN.
  * Source : `start/routes.ts` → `node ace list:routes --jsonl`.
  * Régénérer : `npm run routes:gen` · Vérifier la fraîcheur : `npm run routes:check`.
- * 45 routes nommées.
+ * 48 routes nommées.
  */
 
 export const MANIFEST = {
@@ -10,6 +10,9 @@ export const MANIFEST = {
   "assets.js": { method: "GET", pattern: "/js/app.js" },
   "assets.unpoly_css": { method: "GET", pattern: "/vendor/unpoly.css" },
   "assets.unpoly_js": { method: "GET", pattern: "/vendor/unpoly.js" },
+  "auth.attempt": { method: "POST", pattern: "/login" },
+  "auth.login": { method: "GET", pattern: "/login" },
+  "auth.logout": { method: "POST", pattern: "/logout" },
   "data.load": { method: "POST", pattern: "/api/v1/data/load" },
   "design_system": { method: "GET", pattern: "/design-system" },
   "health.index": { method: "GET", pattern: "/health" },
@@ -64,6 +67,9 @@ export type RouteParams = {
   "assets.js": void,
   "assets.unpoly_css": void,
   "assets.unpoly_js": void,
+  "auth.attempt": void,
+  "auth.login": void,
+  "auth.logout": void,
   "data.load": void,
   "design_system": void,
   "health.index": void,

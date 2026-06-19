@@ -31,6 +31,11 @@ declare module '@adonisjs/inertia/types' {
 
   interface InertiaPages {
     home: { message: string }
+    'auth/login': {
+      lastUsername: string
+      lastEnv: 'test' | 'prod'
+      error: string | null
+    }
     'design_system': Record<string, never>
     'scheduler/expert-board': {
       board: BoardProp

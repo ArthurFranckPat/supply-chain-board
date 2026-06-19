@@ -116,3 +116,22 @@ export class StaticNomenclatureSchema extends BaseModel {
   @column()
   declare syncedAt: number
 }
+
+export class UserSchema extends BaseModel {
+  static $columns = ['createdAt', 'id', 'lastEnv', 'lastLoginAt', 'updatedAt', 'username', 'x3PasswordEncrypted'] as const
+  $columns = UserSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare lastEnv: string
+  @column.dateTime()
+  declare lastLoginAt: DateTime | null
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime
+  @column()
+  declare username: string
+  @column()
+  declare x3PasswordEncrypted: string | null
+}
