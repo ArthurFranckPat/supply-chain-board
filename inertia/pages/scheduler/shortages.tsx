@@ -1,13 +1,21 @@
 import { createMemo, createResource, createSignal, Show, type Component } from 'solid-js'
-import { Link, router } from '@/lib/inertia-solid'
-import AppLayout from '@/layouts/app'
-import ShortageTable from '@/components/shortages/shortage-table'
-import OfDetailSheet from '@/components/of/of-detail-sheet'
-import UserMenu from '@/components/user-menu'
-import { Button } from '@/components/ui/button'
-import { TextField, TextFieldInput } from '@/components/ui/text-field'
-import type { ShortageRowsResponse } from '@/lib/shortages/types'
+import { Link } from '@/lib/inertia-solid'
 import { route } from '@/lib/routes'
+import { cx } from '@/libs/cva'
+import { ShortageRegistre, ShortageTimeline } from '@/components/shortages/shortage-table'
+import OfDetailSheet from '@/components/of/of-detail-sheet'
+import { Masthead } from '@/components/masthead'
+import type { ShortageRowsResponse, ShortageVerdictKey } from '@/lib/shortages/types'
+
+/**
+ * Page « Suivi des ruptures » (issue #15/#16) — design system « Papier », harmonisée
+ * avec /suivi (masthead FactoryOS, bandeau KPI, toolbar à bascule).
+ *
+ * Shell Inertia instantané (SchedulerController.shortageTracker) ; les lignes (calcul
+ * lourd : faisabilité + réceptions) chargées en différé par fetch JSON (shortageRows).
+ * Deux vues d'une même donnée : « Registre » (table éditoriale) et « Couverture »
+ * (frise réception ↔ expédition).
+ */
 
 type ShortagesProps = {
   horizon: number
@@ -16,29 +24,54 @@ type ShortagesProps = {
   prevHref: string
   nextHref: string
   todayHref: string
-  /** URL JSON du calcul lourd (lignes + stats). Re-fetch auto quand elle change. */
   rowsHref: string
 }
 
-const EMPTY: ShortageRowsResponse = { rows: [], stats: { nbRuptures: 0, nbCouvertes: 0, nbSansCouverture: 0 }, x3Error: null }
+const EMPTY: ShortageRowsResponse = {
+  rows: [],
+  stats: { nbRuptures: 0, nbCouvertes: 0, nbSansCouverture: 0 },
+  x3Error: null,
+}
 
 const Shortages: Component<ShortagesProps> = (props) => {
-  // Calcul lourd différé : fetch client-side, relancé à chaque changement de fenêtre.
   const [data] = createResource(
     () => props.rowsHref,
     async (url): Promise<ShortageRowsResponse> => {
       const res = await fetch(url, { headers: { accept: 'application/json' } })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       return (await res.json()) as ShortageRowsResponse
-    }
+    },
+  )
+  const view = createMemo(() => data() ?? EMPTY)
+
+  // Bascule de vue + filtres client.
+  const [mode, setMode] = createSignal<'registre' | 'couverture'>('registre')
+  const [query, setQuery] = createSignal('')
+  const [verdictFilter, setVerdictFilter] = createSignal<ShortageVerdictKey | 'all'>('all')
+
+  const filteredRows = createMemo(() => {
+    const all = view().rows
+    const q = query().trim().toLowerCase()
+    const vf = verdictFilter()
+    let r = vf === 'all' ? all : all.filter((row) => row.verdictKey === vf)
+    if (q) r = r.filter((row) => row.filter.includes(q))
+    return r
+  })
+
+  // Vue Couverture : tri chronologique par date d'expédition (nulls en fin).
+  const timelineRows = createMemo(() =>
+    [...filteredRows()].sort((a, b) => {
+      const da = a.dateExpeditionIso ?? '9999-12-31'
+      const db = b.dateExpeditionIso ?? '9999-12-31'
+      return da < db ? -1 : da > db ? 1 : 0
+    }),
   )
 
-  // Filtre texte client (sur le champ `filter` pré-concaténé par le serveur).
-  const [query, setQuery] = createSignal('')
-  const filteredRows = createMemo(() => {
-    const all = (data() ?? EMPTY).rows
-    const q = query().trim().toLowerCase()
-    return q ? all.filter((r) => r.filter.includes(q)) : all
+  // Compteurs KPI (dérivés des lignes, indépendants des filtres).
+  const counts = createMemo(() => {
+    const c = { couvert: 0, retard: 0, sans_couverture: 0 }
+    for (const r of view().rows) c[r.verdictKey]++
+    return c
   })
 
   // Détail OF : drawer contextuel (même composant que le board).
@@ -49,147 +82,189 @@ const Shortages: Component<ShortagesProps> = (props) => {
     setDetailOpen(true)
   }
 
-  const onHorizon = (e: Event) => {
-    e.preventDefault()
-    const form = e.target as HTMLFormElement
-    const days = (form.elements.namedItem('days') as HTMLInputElement).value
-    router.visit(route('scheduler.shortage_tracker'), {
-      data: { start: props.windowStart, days },
-      preserveScroll: true,
-    })
+  const verdictChip = (k: ShortageVerdictKey | 'all', label: string) => {
+    const on = verdictFilter() === k
+    return (
+      <button
+        type="button"
+        class={`rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors ${
+          on ? 'bg-terra-soft text-terra' : 'text-muted-foreground hover:text-foreground'
+        }`}
+        onClick={() => setVerdictFilter(on ? 'all' : k)}
+      >
+        {label}
+      </button>
+    )
   }
 
+  const emptyState = (
+    <div class="flex flex-1 items-center justify-center p-10 text-center font-fraunces text-[14px] italic text-muted-foreground">
+      <div class="flex flex-col items-center gap-2">
+        <span class="material-symbols-outlined text-[32px] text-muted-foreground/50">
+          {view().x3Error ? 'cloud_off' : 'task_alt'}
+        </span>
+        {view().x3Error
+          ? 'Données indisponibles (X3 injoignable).'
+          : 'Aucune rupture détectée dans la fenêtre.'}
+      </div>
+    </div>
+  )
+
   return (
-    <AppLayout active="shortages">
-      {/* En-tête fixe */}
-      <header class="fixed top-0 w-full z-50 flex justify-between items-center gap-4 px-4 h-12 bg-card border-b border-border">
-        <div class="flex items-center gap-6 min-w-0">
-          <div class="flex items-center gap-2 shrink-0">
-            <div class="w-6 h-6 bg-error rounded flex items-center justify-center">
-              <span class="material-symbols-outlined text-white text-[16px]">report</span>
+    <div class="theme-papier flex h-screen flex-col overflow-hidden bg-background text-foreground">
+      <Masthead
+        subtitle="Ruptures · Couverture composants"
+        active="ruptures"
+        meta={
+          <>
+            <div class="font-fraunces text-[12px] font-bold capitalize not-italic text-terra">{props.dateRange}</div>
+            <div>
+              <b class="font-bold text-foreground">{view().stats.nbRuptures}</b> ruptures · horizon{' '}
+              <b class="font-bold text-foreground">+{props.horizon} j</b>
             </div>
-            <h1 class="font-headline-sm text-base font-bold text-foreground tracking-tight">Suivi des ruptures</h1>
+          </>
+        }
+        actions={
+          <div class="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-terra focus-within:ring-2 focus-within:ring-terra/25">
+            <span class="material-symbols-outlined text-[17px] text-muted-foreground">search</span>
+            <input
+              class="w-[200px] border-0 bg-transparent px-0 text-[12px] font-medium text-foreground shadow-none outline-none"
+              placeholder="Composant, OF, commande, fournisseur…"
+              type="text"
+              autocomplete="off"
+              value={query()}
+              onInput={(e) => setQuery(e.currentTarget.value)}
+            />
           </div>
-          <TextField class="contents">
-            <div class="group relative flex items-center">
-              <span class="material-symbols-outlined absolute left-2.5 text-muted-foreground text-[18px] pointer-events-none group-focus-within:text-primary transition-colors">
-                search
-              </span>
-              <TextFieldInput
-                class="w-72 h-8 pl-9 pr-3 rounded-md"
-                placeholder="Filtrer composant, commande, fournisseur…"
-                type="text"
-                autocomplete="off"
-                value={query()}
-                onInput={(e) => setQuery(e.currentTarget.value)}
-              />
-            </div>
-          </TextField>
+        }
+      />
+
+      {/* ═══ Bandeau KPI ═══ */}
+      <section class="flex-none grid grid-cols-4 border-b border-rule">
+        <Kpi label="Ruptures" value={view().stats.nbRuptures} sub="composants × OF bloqués" dot="var(--color-muted-foreground)" valClass="text-foreground" />
+        <Kpi label="Sans couverture" value={counts().sans_couverture} sub="aucune réception prévue" dot="var(--color-destructive)" valClass="text-destructive" />
+        <Kpi label="Retard" value={counts().retard} sub="réception après l'expé" dot="var(--color-suggere)" valClass="text-suggere" />
+        <Kpi label="Couvert" value={counts().couvert} sub="réception à temps" dot="var(--color-ferme)" valClass="text-ferme" last />
+      </section>
+
+      {/* ═══ Toolbar ═══ */}
+      <div class="flex flex-none flex-wrap items-center gap-2.5 border-b border-rule px-7 py-2">
+        {/* Bascule Registre / Couverture */}
+        <div class="inline-flex items-center rounded-md border border-rule bg-card p-0.5">
+          <button
+            type="button"
+            class={`rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors ${
+              mode() === 'registre' ? 'bg-terra-soft text-terra' : 'text-muted-foreground hover:text-foreground'
+            }`}
+            onClick={() => setMode('registre')}
+            title="Table éditoriale : une ligne par composant × OF bloqué"
+          >
+            Registre
+          </button>
+          <button
+            type="button"
+            class={`rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors ${
+              mode() === 'couverture' ? 'bg-terra-soft text-terra' : 'text-muted-foreground hover:text-foreground'
+            }`}
+            onClick={() => setMode('couverture')}
+            title="Frise temporelle : réception couvrante ↔ date d'expédition"
+          >
+            Couverture
+          </button>
         </div>
-        <div class="flex items-center gap-2 shrink-0">
+
+        {/* Filtre verdict */}
+        <div class="inline-flex items-center gap-1 rounded-md border border-rule bg-card p-0.5">
+          <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Verdict</span>
+          {verdictChip('all', 'Tous')}
+          {verdictChip('sans_couverture', 'Sans couv.')}
+          {verdictChip('retard', 'Retard')}
+          {verdictChip('couvert', 'Couvert')}
+        </div>
+
+        {/* Fenêtre */}
+        <div class="inline-flex items-center gap-1 rounded-md border border-rule bg-card p-0.5">
+          <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Fenêtre</span>
+          <Link href={props.prevHref} preserveScroll class="rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground">Préc.</Link>
+          <Link href={props.todayHref} preserveScroll class="rounded-[5px] bg-terra-soft px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-terra">Auj.</Link>
+          <Link href={props.nextHref} preserveScroll class="rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground">Suiv.</Link>
+        </div>
+
+        <div class="ml-auto flex items-center gap-2">
           <Link
             href={`${route('scheduler.shortage_tracker')}?start=${props.windowStart}&days=${props.horizon}&refresh=1`}
             preserveScroll
-            class="inline-flex items-center gap-1 px-2.5 h-8 bg-muted/60 border border-border rounded text-[10px] font-bold text-muted-foreground hover:bg-card transition-all uppercase"
-            title="Recharger les données X3"
+            class="inline-flex items-center gap-1 rounded-full border border-rule bg-card px-3 py-1 text-[11px] font-semibold transition-colors hover:border-terra"
+            title="Recharger les données X3 (cache → re-fetch live)"
           >
-            <span class="material-symbols-outlined text-[15px]">refresh</span>
+            <span class="material-symbols-outlined text-[14px] text-muted-foreground">refresh</span>
+            Actualiser
           </Link>
-          <Link
-            href={route('scheduler.expert_board')}
-            class="inline-flex items-center gap-1 px-3 h-8 bg-muted/60 border border-border rounded text-[10px] font-bold text-muted-foreground hover:bg-card transition-all uppercase"
-          >
-            <span class="material-symbols-outlined text-[15px]">grid_view</span> Board
-          </Link>
-          <UserMenu tone="primary" />
         </div>
-      </header>
+      </div>
 
-      <main class="ml-12 mt-12 p-2 h-[calc(100vh-48px)] overflow-hidden flex flex-col">
-        {/* Barre d'outils : navigation fenêtre + légende */}
-        <div class="mb-2 flex items-center justify-between bg-card p-2 rounded border border-border shadow-sm">
-          <div class="flex items-center gap-4">
-            <div class="inline-flex items-center border border-border rounded p-0.5">
-              <Link
-                href={props.prevHref}
-                preserveScroll
-                class="p-1 px-2 text-[11px] font-medium hover:bg-muted/60 rounded"
-              >
-                Préc.
-              </Link>
-              <Link
-                href={props.todayHref}
-                preserveScroll
-                class="p-1 px-3 text-[11px] font-bold bg-muted/60 border-x border-border text-foreground hover:text-primary"
-                title="Revenir à aujourd'hui"
-              >
-                Auj.
-              </Link>
-              <Link
-                href={props.nextHref}
-                preserveScroll
-                class="p-1 px-2 text-[11px] font-medium hover:bg-muted/60 rounded"
-              >
-                Suiv.
-              </Link>
-            </div>
-            <span class="text-[13px] font-bold text-foreground mono">{props.dateRange}</span>
-            <form
-              onSubmit={onHorizon}
-              class="flex items-center gap-1 border border-border rounded px-1.5 py-0.5"
-              title="Horizon (jours)"
-            >
-              <span class="material-symbols-outlined text-[14px] text-muted-foreground">date_range</span>
-              <input type="hidden" name="start" value={props.windowStart} />
-              <input
-                type="number"
-                name="days"
-                min="1"
-                max="90"
-                value={props.horizon}
-                class="w-10 text-[11px] font-bold mono text-foreground text-right bg-transparent focus:outline-none"
-              />
-              <span class="text-[10px] font-bold text-muted-foreground">j</span>
-            </form>
-          </div>
-          <div class="flex items-center gap-3 text-[10px] font-bold uppercase text-muted-foreground">
-            <div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-error" /> Sans couverture</div>
-            <div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-amber-500" /> Retard</div>
-            <div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-emerald-500" /> Couvert</div>
-          </div>
+      {/* ═══ X3 injoignable ═══ */}
+      <Show when={view().x3Error}>
+        <div class="flex flex-none items-center gap-2 border-b border-destructive/30 bg-destructive/10 px-7 py-2 text-[12px] text-foreground">
+          <span class="material-symbols-outlined text-[16px] text-destructive">warning</span>
+          <span class="font-bold">Erreur chargement ruptures :</span>
+          <span class="font-mono">{view().x3Error}</span>
         </div>
+      </Show>
 
+      {/* ═══ Vue active ═══ */}
+      <Show
+        when={!data.loading}
+        fallback={
+          <div class="flex flex-1 items-center justify-center gap-2 text-muted-foreground">
+            <span class="material-symbols-outlined animate-spin text-[20px]">progress_activity</span>
+            <span class="text-[13px] font-medium">Calcul des ruptures…</span>
+          </div>
+        }
+      >
         <Show
-          when={!data.loading}
+          when={!data.error}
           fallback={
-            <div class="flex-1 flex items-center justify-center text-muted-foreground gap-2">
-              <span class="material-symbols-outlined animate-spin text-[20px]">progress_activity</span>
-              <span class="text-xs font-medium">Calcul des ruptures…</span>
+            <div class="flex flex-1 items-center justify-center gap-2 text-[13px] text-destructive">
+              <span class="material-symbols-outlined text-[20px]">error</span>
+              Échec du calcul des ruptures.
             </div>
           }
         >
-          <Show
-            when={!data.error}
-            fallback={
-              <div class="flex-1 flex items-center justify-center text-error gap-2 text-sm">
-                <span class="material-symbols-outlined text-[20px]">error</span>
-                Échec du calcul des ruptures.
-              </div>
-            }
-          >
-            <ShortageTable
-              rows={filteredRows()}
-              stats={(data() ?? EMPTY).stats}
-              x3Error={(data() ?? EMPTY).x3Error}
-              onSelectOf={onSelectOf}
-            />
-          </Show>
+          <div class="flex-1 overflow-hidden p-5">
+            <Show
+              when={mode() === 'registre'}
+              fallback={
+                <ShortageTimeline
+                  rows={timelineRows()}
+                  windowStartIso={props.windowStart}
+                  horizon={props.horizon}
+                  onSelectOf={onSelectOf}
+                  emptyState={emptyState}
+                />
+              }
+            >
+              <ShortageRegistre rows={filteredRows} onSelectOf={onSelectOf} emptyState={emptyState} />
+            </Show>
+          </div>
         </Show>
-      </main>
+      </Show>
 
       <OfDetailSheet num={selectedOf()} open={detailOpen()} onOpenChange={setDetailOpen} />
-    </AppLayout>
+    </div>
   )
 }
+
+/** Tuile KPI (miroir de la page /suivi). */
+const Kpi: Component<{ label: string; value: number; sub: string; dot: string; valClass: string; last?: boolean }> = (p) => (
+  <div class={cx('flex flex-col gap-[3px] px-[22px] py-[13px]', !p.last && 'border-r border-rule-soft')}>
+    <span class="flex items-center gap-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.13em] text-muted-foreground">
+      <span class="size-2 rounded-[2px]" style={{ background: p.dot }} />
+      {p.label}
+    </span>
+    <span class={cx('font-fraunces text-[34px] font-black leading-none tracking-tight', p.valClass)}>{p.value}</span>
+    <span class="font-mono text-[11px] font-medium text-muted-foreground">{p.sub}</span>
+  </div>
+)
 
 export default Shortages

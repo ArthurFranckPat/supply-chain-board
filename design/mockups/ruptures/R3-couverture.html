@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Ruptures · R3 Couverture · Papier</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,300,0,0" rel="stylesheet" />
+<link href="_tokens.css" rel="stylesheet" />
+<style>
+/* ═══ R3 « Couverture » — lentille temporelle : frise réception ↔ expédition ═══ */
+.kpis{grid-template-columns:repeat(4,1fr)}
+.tframe{background:var(--panel);border:1px solid var(--rule);border-radius:var(--r-4);overflow:hidden;box-shadow:var(--sh-xs)}
+.row{display:grid;grid-template-columns:330px 1fr;border-bottom:1px solid var(--rule-soft)}
+.row:last-child{border-bottom:0}
+.row:hover{background:var(--terra-soft)}
+.row.late .ctx{box-shadow:inset 3px 0 var(--danger)}
+.ctx{padding:13px 16px;border-right:1px solid var(--rule-soft);display:flex;flex-direction:column;gap:2px}
+.ctx .l1{display:flex;align-items:baseline;gap:8px}
+.ctx .comp{font:700 13px var(--font-m);color:var(--ink)}
+.ctx .defic{font:700 11px var(--font-m);color:var(--danger);margin-left:auto}
+.ctx .cd{font:500 11.5px var(--font-s);color:var(--ink-2)}
+.ctx .l2{font:600 11px var(--font-m);color:var(--muted);margin-top:3px}
+.ctx .of{color:var(--terra);font-weight:700;cursor:pointer}
+.ctx .of:hover{text-decoration:underline}
+/* lane */
+.lane{position:relative;margin:10px 24px 10px 14px;height:46px}
+.grid{position:absolute;inset:0}
+.gl{position:absolute;top:0;bottom:16px;width:1px;background:var(--hair)}
+.gl .wk{position:absolute;top:-2px;left:4px;font:700 8px var(--font-m);color:var(--muted-2);letter-spacing:.08em}
+.today{position:absolute;top:-2px;bottom:14px;width:2px;background:var(--terra);opacity:.5}
+.today .t{position:absolute;top:-2px;left:4px;font:700 8px var(--font-m);color:var(--terra)}
+.axis{position:absolute;left:0;right:0;top:24px;height:2px;background:var(--rule-soft)}
+/* gap bar between expé and arrivée */
+.gap{position:absolute;top:21px;height:8px;border-radius:var(--r-pill)}
+.gap.bad{background:repeating-linear-gradient(45deg,var(--danger-soft),var(--danger-soft) 5px,rgba(154,51,32,.22) 5px,rgba(154,51,32,.22) 10px);border:1px solid rgba(154,51,32,.35)}
+.gap.ok{background:var(--ferme-soft);border:1px solid rgba(91,125,78,.3)}
+/* markers */
+.mk{position:absolute;top:14px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:2px}
+.mk .pin{width:13px;height:13px;border-radius:var(--r-pill);border:2px solid var(--panel)}
+.mk .cap{font:700 9px var(--font-m);white-space:nowrap;margin-top:1px}
+.mk.exp .pin{background:var(--terra)}
+.mk.exp .cap{color:var(--terra)}
+.mk.rec-ok .pin{background:var(--ferme)}
+.mk.rec-ok .cap{color:var(--ferme)}
+.mk.rec-bad .pin{background:var(--danger)}
+.mk.rec-bad .cap{color:var(--danger)}
+.mk.rec-none .pin{background:transparent;border:2px dashed var(--danger)}
+.mk.rec-none .cap{color:var(--danger)}
+.mk .sub{font:500 8px var(--font-m);color:var(--muted)}
+.legend{display:flex;gap:18px;padding:10px 16px;border-top:1px solid var(--rule-soft);background:var(--panel);font:600 10px var(--font-m);color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend .pin{width:10px;height:10px;border-radius:var(--r-pill)}
+</style>
+</head>
+<body>
+<div class="app theme-papier">
+  <header class="mast">
+    <div class="top">
+      <div style="display:flex;align-items:baseline;gap:14px">
+        <div class="brand">Factory<em>OS</em></div>
+        <div class="brand-sub">Ruptures · Couverture dans le temps</div>
+      </div>
+      <div class="meta">
+        <div class="day">jeudi 19 juin</div>
+        <div>réception vs expédition · horizon <b>+21 j</b></div>
+      </div>
+    </div>
+    <nav class="nav">
+      <a href="#">Tableau</a><a href="#">Planification</a><a href="#">Ordonnancement</a>
+      <a href="#" class="active">Ruptures</a><a href="#">Suivi</a><a href="#">Ressources</a>
+      <div class="search"><span class="material-symbols-outlined">search</span><input placeholder="Composant, OF, commande, fournisseur…" /></div>
+      <div class="avatar">AB</div>
+    </nav>
+  </header>
+
+  <section class="kpis">
+    <div class="kpi"><span class="lab"><span class="dot" style="background:var(--ink-2)"></span>Ruptures</span><span class="val" style="color:var(--ink)">14</span><span class="sub">composants × OF</span></div>
+    <div class="kpi"><span class="lab"><span class="dot" style="background:var(--danger)"></span>Arrive trop tard</span><span class="val" style="color:var(--danger)">4</span><span class="sub">après date d'expé</span></div>
+    <div class="kpi"><span class="lab"><span class="dot" style="background:var(--danger)"></span>Sans réception</span><span class="val" style="color:var(--danger)">5</span><span class="sub">à commander</span></div>
+    <div class="kpi"><span class="lab"><span class="dot" style="background:var(--ferme)"></span>À temps</span><span class="val" style="color:var(--ferme)">5</span><span class="sub">marge positive</span></div>
+  </section>
+
+  <div class="toolbar">
+    <div class="seg">
+      <span class="lab">Filtre</span>
+      <button class="chip on">Tous</button>
+      <button class="chip">Trop tard</button>
+      <button class="chip">Sans réception</button>
+      <button class="chip">À temps</button>
+    </div>
+    <div class="seg">
+      <span class="lab">Tri</span>
+      <button class="chip on">Expé ↑</button>
+      <button class="chip">Retard ↓</button>
+    </div>
+    <div class="right">
+      <a class="btn"><span class="material-symbols-outlined">refresh</span>Actualiser</a>
+    </div>
+  </div>
+
+  <div class="scroll">
+    <div class="tframe">
+      <!-- Row 1 : late (arrivée 26/06 après expé 23/06) -->
+      <div class="row late">
+        <div class="ctx">
+          <div class="l1"><span class="comp">CMP-44021</span><span class="defic">−128 u</span></div>
+          <div class="cd">Moteur EC 230V — 92W</div>
+          <div class="l2"><span class="of">F426-33313</span> · AR2602608 · Dupont SAS</div>
+        </div>
+        <div class="lane">
+          <div class="grid">
+            <div class="gl" style="left:0%"></div>
+            <div class="gl" style="left:33%"><span class="wk">S26</span></div>
+            <div class="gl" style="left:67%"><span class="wk">S27</span></div>
+          </div>
+          <div class="axis"></div>
+          <div class="today" style="left:0%"><span class="t">auj.</span></div>
+          <div class="gap bad" style="left:19%;width:14%"></div>
+          <div class="mk exp" style="left:19%"><div class="pin"></div><div class="cap">expé 23/06</div></div>
+          <div class="mk rec-bad" style="left:33%"><div class="pin"></div><div class="cap">arr. 26/06</div><div class="sub">+3 j · PO-118842</div></div>
+        </div>
+      </div>
+
+      <!-- Row 2 : ok (arrivée 24/06 avant expé 27/06) -->
+      <div class="row">
+        <div class="ctx">
+          <div class="l1"><span class="comp">CMP-10204</span><span class="defic">−40 u</span></div>
+          <div class="cd">Carte électronique de régulation</div>
+          <div class="l2"><span class="of">F426-33288</span> · AR2602590 · Bati-Ouest</div>
+        </div>
+        <div class="lane">
+          <div class="grid">
+            <div class="gl" style="left:0%"></div>
+            <div class="gl" style="left:33%"><span class="wk">S26</span></div>
+            <div class="gl" style="left:67%"><span class="wk">S27</span></div>
+          </div>
+          <div class="axis"></div>
+          <div class="today" style="left:0%"><span class="t">auj.</span></div>
+          <div class="gap ok" style="left:24%;width:14%"></div>
+          <div class="mk rec-ok" style="left:24%"><div class="pin"></div><div class="cap">arr. 24/06</div><div class="sub">PO-118790</div></div>
+          <div class="mk exp" style="left:38%"><div class="pin"></div><div class="cap">expé 27/06</div></div>
+        </div>
+      </div>
+
+      <!-- Row 3 : ok -->
+      <div class="row">
+        <div class="ctx">
+          <div class="l1"><span class="comp">CMP-20155</span><span class="defic">−300 u</span></div>
+          <div class="cd">Joint EPDM Ø160</div>
+          <div class="l2"><span class="of">F426-33277</span> · AR2602571 · Clim+ Réseau</div>
+        </div>
+        <div class="lane">
+          <div class="grid">
+            <div class="gl" style="left:0%"></div>
+            <div class="gl" style="left:33%"><span class="wk">S26</span></div>
+            <div class="gl" style="left:67%"><span class="wk">S27</span></div>
+          </div>
+          <div class="axis"></div>
+          <div class="today" style="left:0%"><span class="t">auj.</span></div>
+          <div class="gap ok" style="left:43%;width:14%"></div>
+          <div class="mk rec-ok" style="left:43%"><div class="pin"></div><div class="cap">arr. 28/06</div><div class="sub">PO-118755</div></div>
+          <div class="mk exp" style="left:57%"><div class="pin"></div><div class="cap">expé 01/07</div></div>
+        </div>
+      </div>
+
+      <!-- Row 4 : no reception -->
+      <div class="row late">
+        <div class="ctx">
+          <div class="l1"><span class="comp">CMP-33450</span><span class="defic">−18 u</span></div>
+          <div class="cd">Servomoteur registre 24V</div>
+          <div class="l2"><span class="of">F426-33312</span> · AR2602619 · Bati-Ouest</div>
+        </div>
+        <div class="lane">
+          <div class="grid">
+            <div class="gl" style="left:0%"></div>
+            <div class="gl" style="left:33%"><span class="wk">S26</span></div>
+            <div class="gl" style="left:67%"><span class="wk">S27</span></div>
+          </div>
+          <div class="axis"></div>
+          <div class="today" style="left:0%"><span class="t">auj.</span></div>
+          <div class="mk exp" style="left:24%"><div class="pin"></div><div class="cap">expé 24/06</div></div>
+          <div class="mk rec-none" style="left:88%"><div class="pin"></div><div class="cap">aucune réception</div><div class="sub">à commander</div></div>
+        </div>
+      </div>
+
+      <div class="legend">
+        <span><span class="pin" style="background:var(--terra)"></span>Date d'expédition (cible)</span>
+        <span><span class="pin" style="background:var(--ferme)"></span>Réception à temps</span>
+        <span><span class="pin" style="background:var(--danger)"></span>Réception en retard</span>
+        <span><span class="pin" style="background:transparent;border:2px dashed var(--danger)"></span>Aucune réception</span>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

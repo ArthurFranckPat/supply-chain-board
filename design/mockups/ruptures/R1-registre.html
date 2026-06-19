@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Ruptures · R1 Registre · Papier</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,300,0,0" rel="stylesheet" />
+<link href="_tokens.css" rel="stylesheet" />
+<style>
+/* ═══ R1 « Registre » — jumeau du suivi proactif ═══ */
+.kpis{grid-template-columns:repeat(4,1fr)}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead th{position:sticky;top:0;z-index:10;background:var(--panel-2);text-align:left;
+  padding:11px 16px;font:700 9px var(--font-m);text-transform:uppercase;letter-spacing:.14em;
+  color:var(--muted);border-bottom:1px solid var(--rule);border-right:1px solid var(--rule-soft)}
+thead th:last-child{border-right:0}
+thead th.r{text-align:right}
+tbody td{padding:12px 16px;border-bottom:1px solid var(--rule-soft);border-right:1px solid var(--rule-soft);vertical-align:middle}
+tbody td:last-child{border-right:0}
+tbody tr:hover{background:var(--terra-soft)}
+tbody tr.late{background:var(--danger-soft)}
+tbody tr.late:hover{background:rgba(154,51,32,.14)}
+tr.late td:first-child{box-shadow:inset 3px 0 var(--danger)}
+.num{font:400 14px var(--font-d);color:var(--muted-2)}
+.comp{font:700 13px var(--font-m);color:var(--ink)}
+.desc{font:500 12px var(--font-s);color:var(--ink-2);margin-top:1px}
+.defic{font:900 19px var(--font-d);color:var(--danger);letter-spacing:-.02em}
+.deficu{font:500 10px var(--font-m);color:var(--muted-2);margin-left:2px}
+.of{font:700 13px var(--font-m);color:var(--terra);cursor:pointer}
+.of:hover{text-decoration:underline}
+.pf{font:500 10.5px var(--font-m);color:var(--muted);margin-top:1px}
+.cmd{font:700 13px var(--font-m);color:var(--ink)}
+.client{font:500 11.5px var(--font-s);color:var(--ink-2);margin-top:1px}
+.dim{color:var(--muted-2);font-style:italic}
+.dt{font:600 12.5px var(--font-m);color:var(--ink-2);white-space:nowrap}
+.dt.bad{color:var(--danger);font-weight:700}
+.rec{font:700 12px var(--font-m);color:var(--ink)}
+.recsub{font:500 10.5px var(--font-m);color:var(--muted);margin-top:1px}
+.tframe{background:var(--panel);border:1px solid var(--rule);border-radius:var(--r-4);overflow:hidden;box-shadow:var(--sh-xs)}
+</style>
+</head>
+<body>
+<div class="app theme-papier">
+  <!-- Masthead -->
+  <header class="mast">
+    <div class="top">
+      <div style="display:flex;align-items:baseline;gap:14px">
+        <div class="brand">Factory<em>OS</em></div>
+        <div class="brand-sub">Ruptures · Couverture composants</div>
+      </div>
+      <div class="meta">
+        <div class="day">jeudi 19 juin</div>
+        <div><b>14</b> ruptures · horizon <b>+21 j</b></div>
+      </div>
+    </div>
+    <nav class="nav">
+      <a href="#">Tableau</a>
+      <a href="#">Planification</a>
+      <a href="#">Ordonnancement</a>
+      <a href="#" class="active">Ruptures</a>
+      <a href="#">Suivi</a>
+      <a href="#">Ressources</a>
+      <div class="search"><span class="material-symbols-outlined">search</span><input placeholder="Composant, OF, commande, fournisseur…" /></div>
+      <div class="avatar">AB</div>
+    </nav>
+  </header>
+
+  <!-- KPI -->
+  <section class="kpis">
+    <div class="kpi"><span class="lab"><span class="dot" style="background:var(--ink-2)"></span>Ruptures</span><span class="val" style="color:var(--ink)">14</span><span class="sub">composants × OF bloqués</span></div>
+    <div class="kpi"><span class="lab"><span class="dot" style="background:var(--danger)"></span>Sans couverture</span><span class="val" style="color:var(--danger)">5</span><span class="sub">aucune réception prévue</span></div>
+    <div class="kpi"><span class="lab"><span class="dot" style="background:var(--suggere)"></span>Retard</span><span class="val" style="color:var(--suggere)">4</span><span class="sub">réception après expé</span></div>
+    <div class="kpi"><span class="lab"><span class="dot" style="background:var(--ferme)"></span>Couvert</span><span class="val" style="color:var(--ferme)">5</span><span class="sub">réception à temps</span></div>
+  </section>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <div class="seg">
+      <span class="lab">Verdict</span>
+      <button class="chip on">Tous</button>
+      <button class="chip">Sans couv.</button>
+      <button class="chip">Retard</button>
+      <button class="chip">Couvert</button>
+    </div>
+    <div class="seg">
+      <span class="lab">Fenêtre</span>
+      <button class="chip">Préc.</button>
+      <button class="chip on">Auj.</button>
+      <button class="chip">Suiv.</button>
+    </div>
+    <div class="right">
+      <a class="btn"><span class="material-symbols-outlined">refresh</span>Actualiser</a>
+      <a class="btn"><span class="material-symbols-outlined">calendar_month</span>Aujourd'hui</a>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="scroll">
+    <div class="tframe">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:40px">N°</th>
+          <th>Composant · Désignation</th>
+          <th class="r" style="width:96px">Qté manq.</th>
+          <th style="width:170px">OF bloqué · PF</th>
+          <th style="width:180px">Commande · Client</th>
+          <th style="width:80px">Expé</th>
+          <th>Réception attendue</th>
+          <th style="width:90px">Arrivée</th>
+          <th style="width:150px">Verdict</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="late">
+          <td class="num">01</td>
+          <td><div class="comp">CMP-44021</div><div class="desc">Moteur EC 230V — 92W</div></td>
+          <td class="r"><span class="defic">128</span><span class="deficu">u</span></td>
+          <td><div class="of">F426-33313</div><div class="pf">11033025 · Caisson</div></td>
+          <td><div class="cmd">AR2602608</div><div class="client">Dupont SAS</div></td>
+          <td><span class="dt bad">23/06</span></td>
+          <td><div class="rec">PO-118842</div><div class="recsub">EC Motors · 200 u</div></td>
+          <td><span class="dt bad">26/06</span></td>
+          <td><span class="badge late"><span class="material-symbols-outlined">schedule</span>Retard +3 j</span></td>
+        </tr>
+        <tr>
+          <td class="num">02</td>
+          <td><div class="comp">CMP-10204</div><div class="desc">Carte électronique de régulation</div></td>
+          <td class="r"><span class="defic">40</span><span class="deficu">u</span></td>
+          <td><div class="of">F426-33288</div><div class="pf">11030011 · Centrale DF</div></td>
+          <td><div class="cmd">AR2602590</div><div class="client">Bati-Ouest</div></td>
+          <td><span class="dt">27/06</span></td>
+          <td><div class="rec">PO-118790</div><div class="recsub">Elektro GmbH · 60 u</div></td>
+          <td><span class="dt">24/06</span></td>
+          <td><span class="badge ok"><span class="material-symbols-outlined">check_circle</span>Couvert</span></td>
+        </tr>
+        <tr class="late">
+          <td class="num">03</td>
+          <td><div class="comp">CMP-77310</div><div class="desc">Échangeur à plaques alu</div></td>
+          <td class="r"><span class="defic">12</span><span class="deficu">u</span></td>
+          <td><div class="of">F426-33301</div><div class="pf">11041220 · Récupérateur</div></td>
+          <td><div class="cmd dim">—</div><div class="client dim">OF orphelin (planifié)</div></td>
+          <td><span class="dt dim">—</span></td>
+          <td><div class="rec dim" style="font-weight:700;color:var(--danger)">Aucune réception</div><div class="recsub">à commander</div></td>
+          <td><span class="dt dim">—</span></td>
+          <td><span class="badge none"><span class="material-symbols-outlined">block</span>Sans couverture</span></td>
+        </tr>
+        <tr>
+          <td class="num">04</td>
+          <td><div class="comp">CMP-20155</div><div class="desc">Joint EPDM Ø160</div></td>
+          <td class="r"><span class="defic">300</span><span class="deficu">u</span></td>
+          <td><div class="of">F426-33277</div><div class="pf">11022004 · Manchette</div></td>
+          <td><div class="cmd">AR2602571</div><div class="client">Clim+ Réseau</div></td>
+          <td><span class="dt">01/07</span></td>
+          <td><div class="rec">PO-118755</div><div class="recsub">Sealtech · 500 u</div></td>
+          <td><span class="dt">28/06</span></td>
+          <td><span class="badge ok"><span class="material-symbols-outlined">check_circle</span>Couvert</span></td>
+        </tr>
+        <tr class="late">
+          <td class="num">05</td>
+          <td><div class="comp">CMP-44021</div><div class="desc">Moteur EC 230V — 92W</div></td>
+          <td class="r"><span class="defic">36</span><span class="deficu">u</span></td>
+          <td><div class="of">F426-33340</div><div class="pf">11033025 · Caisson</div></td>
+          <td><div class="cmd">AR2602640</div><div class="client">Habitat Pro</div></td>
+          <td><span class="dt bad">25/06</span></td>
+          <td><div class="rec">PO-118842</div><div class="recsub">EC Motors · 200 u (cumul)</div></td>
+          <td><span class="dt bad">26/06</span></td>
+          <td><span class="badge late"><span class="material-symbols-outlined">schedule</span>Retard +1 j</span></td>
+        </tr>
+        <tr>
+          <td class="num">06</td>
+          <td><div class="comp">CMP-90012</div><div class="desc">Filtre G4 287×287</div></td>
+          <td class="r"><span class="defic">88</span><span class="deficu">u</span></td>
+          <td><div class="of">F426-33295</div><div class="pf">11050330 · Box filtration</div></td>
+          <td><div class="cmd">AR2602602</div><div class="client">Dupont SAS</div></td>
+          <td><span class="dt">03/07</span></td>
+          <td><div class="rec">PO-118801</div><div class="recsub">AirFilter · 150 u</div></td>
+          <td><span class="dt">30/06</span></td>
+          <td><span class="badge ok"><span class="material-symbols-outlined">check_circle</span>Couvert</span></td>
+        </tr>
+        <tr class="late">
+          <td class="num">07</td>
+          <td><div class="comp">CMP-33450</div><div class="desc">Servomoteur registre 24V</div></td>
+          <td class="r"><span class="defic">18</span><span class="deficu">u</span></td>
+          <td><div class="of">F426-33312</div><div class="pf">11060145 · Registre motorisé</div></td>
+          <td><div class="cmd">AR2602619</div><div class="client">Bati-Ouest</div></td>
+          <td><span class="dt bad">24/06</span></td>
+          <td><div class="rec dim" style="font-weight:700;color:var(--danger)">Aucune réception</div><div class="recsub">rupture fournisseur</div></td>
+          <td><span class="dt dim">—</span></td>
+          <td><span class="badge none"><span class="material-symbols-outlined">block</span>Sans couverture</span></td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
+</div>
+</body>
+</html>

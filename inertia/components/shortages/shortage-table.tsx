@@ -1,252 +1,393 @@
-import { Show, createMemo, createSignal, type Component } from 'solid-js'
-import { createColumnHelper } from '@tanstack/solid-table'
+import { For, Show, createSignal, type Accessor, type Component } from 'solid-js'
 import { DataTable, type SortingState } from '@/components/ui/data-table'
-import type { ShortageDisplayRow, ShortageStats } from '@/lib/shortages/types'
-import { cn } from '@/libs/cn'
+import type { ShortageDisplayRow } from '@/lib/shortages/types'
+import { cx } from '@/libs/cva'
 
 /**
- * Tableau du suivi des ruptures. Port Solid de `shortage_table.edge` : bandeau stats +
- * grille (une ligne par couple composant × OF bloqué) + états vide / erreur X3.
- * Les lignes arrivent déjà formatées du serveur (cf. ShortageDisplayRow).
+ * Vues du suivi des ruptures (design system « Papier », harmonisé avec /suivi).
+ *
+ * - `ShortageRegistre` : table éditoriale dense (R1) — une ligne par couple
+ *   composant × OF bloqué, colonnes triables via le DataTable maison.
+ * - `ShortageTimeline` : frise temporelle (R3) — réception couvrante ↔ date
+ *   d'expédition, pour lire d'un coup le retard d'arrivée (gap hachuré) ou la marge.
+ *
+ * Les lignes arrivent déjà filtrées du parent (scheduler/shortages) ; le tri (registre)
+ * est géré localement par le DataTable.
  */
-export const ShortageTable: Component<{
-  rows: ShortageDisplayRow[]
-  stats: ShortageStats
-  x3Error: string | null
+
+const TH =
+  'px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft'
+const TH_R = TH.replace('text-left', 'text-right')
+const TD = 'px-4 py-[13px] align-middle border-r border-rule-soft'
+
+/** True si la ligne traduit un risque (sans couverture, ou réception après l'expé). */
+const isLate = (r: ShortageDisplayRow) => r.verdictKey !== 'couvert'
+
+// ───────────────────────────────────────────────────────────────────────────
+// R1 · Registre
+// ───────────────────────────────────────────────────────────────────────────
+
+export const ShortageRegistre: Component<{
+  rows: Accessor<ShortageDisplayRow[]>
   onSelectOf: (numOf: string) => void
+  emptyState: import('solid-js').JSX.Element
 }> = (props) => {
-  const helper = createColumnHelper<ShortageDisplayRow>()
+  const [sorting, setSorting] = createSignal<SortingState[]>([{ id: 'dateExpedition', desc: false }])
 
   const columns = [
-    helper.accessor('component', {
-      header: () => 'Composant',
-      cell: (info) => (
+    {
+      accessorKey: 'component',
+      header: () => 'Composant · Désignation',
+      cell: (info: { row: { original: ShortageDisplayRow } }) => (
         <>
-          <div class="font-bold text-foreground mono">{info.getValue()}</div>
-          <div class="text-[10px] text-muted-foreground truncate max-w-[18rem]">{info.row.original.componentDesc}</div>
+          <div class="font-mono text-[13px] font-bold tracking-tight text-foreground">{info.row.original.component}</div>
+          <div class="mt-0.5 truncate max-w-[18rem] font-sans text-[12px] font-medium leading-snug text-secondary-foreground">
+            {info.row.original.componentDesc}
+          </div>
         </>
       ),
-      meta: { thClass: 'text-left px-3 py-2', tdClass: 'px-3 py-2 align-top' },
-    }),
-    helper.accessor('qteManquante', {
+      meta: { thClass: TH, tdClass: TD },
+    },
+    {
+      accessorKey: 'qteManquante',
       header: () => 'Qté manq.',
-      cell: (info) => <span class="mono font-bold text-error">{info.getValue()}</span>,
-      meta: { thClass: 'text-right px-3 py-2 w-24', tdClass: 'px-3 py-2 text-right align-top' },
-    }),
-    helper.accessor('numOf', {
-      header: () => 'OF bloqué',
-      cell: (info) => {
+      cell: (info: { row: { original: ShortageDisplayRow } }) => (
+        <>
+          <span class="font-fraunces text-[19px] font-black leading-none tracking-tight text-destructive">
+            {info.row.original.qteManquante}
+          </span>
+          <span class="ml-0.5 font-mono text-[10px] font-medium text-muted-foreground/80">u</span>
+        </>
+      ),
+      meta: { thClass: `w-[96px] ${TH_R}`, tdClass: `w-[96px] whitespace-nowrap text-right ${TD}` },
+    },
+    {
+      accessorKey: 'numOf',
+      header: () => 'OF bloqué · PF',
+      cell: (info: { row: { original: ShortageDisplayRow } }) => {
         const row = info.row.original
         return (
           <>
             <button
               type="button"
               onClick={() => props.onSelectOf(row.numOf)}
-              class="font-bold text-primary hover:underline mono cursor-pointer"
+              class="cursor-pointer font-mono text-[13px] font-bold text-terra hover:underline"
             >
               {row.numOf}
             </button>
-            <div class="text-[10px] text-muted-foreground mono truncate max-w-[10rem]">{row.articleParent}</div>
+            <div class="mt-0.5 truncate max-w-[11rem] font-mono text-[10.5px] font-medium text-muted-foreground">
+              {row.articleParent} · {row.articleParentDesc}
+            </div>
           </>
         )
       },
-      meta: { thClass: 'text-left px-3 py-2 w-44', tdClass: 'px-3 py-2 align-top' },
-    }),
-    helper.accessor('numCommande', {
-      header: () => 'Commande client',
-      cell: (info) => {
+      meta: { thClass: `w-[180px] ${TH}`, tdClass: `w-[180px] ${TD}` },
+    },
+    {
+      accessorKey: 'numCommande',
+      header: () => 'Commande · Client',
+      cell: (info: { row: { original: ShortageDisplayRow } }) => {
         const row = info.row.original
         return (
-          <Show
-            when={row.hasCommande}
-            fallback={<span class="text-muted-foreground/60 italic">—</span>}
-          >
-            <div class="font-bold text-foreground mono">{row.numCommande}</div>
-            <div class="text-[10px] text-muted-foreground truncate max-w-[10rem]">{row.client}</div>
+          <Show when={row.hasCommande} fallback={<span class="font-sans text-[12px] italic text-muted-foreground/60">— OF orphelin</span>}>
+            <div class="font-mono text-[13px] font-bold text-foreground">{row.numCommande}</div>
+            <div class="mt-0.5 truncate max-w-[11rem] font-sans text-[12px] font-medium leading-snug text-secondary-foreground">{row.client}</div>
           </Show>
         )
       },
-      meta: { thClass: 'text-left px-3 py-2 w-44', tdClass: 'px-3 py-2 align-top' },
-    }),
-    helper.accessor('dateExpedition', {
-      header: () => 'Date expé.',
-      cell: (info) => <>{info.getValue() || '—'}</>,
-      sortingFn: 'text',
-      meta: { thClass: 'text-left px-3 py-2 w-24', tdClass: 'px-3 py-2 mono text-muted-foreground align-top whitespace-nowrap' },
-    }),
-    helper.display({
+      meta: { thClass: `w-[185px] ${TH}`, tdClass: `w-[185px] ${TD}` },
+    },
+    {
+      accessorKey: 'dateExpedition',
+      header: () => 'Expé',
+      cell: (info: { row: { original: ShortageDisplayRow } }) => {
+        const row = info.row.original
+        return (
+          <span classList={{ 'font-bold text-destructive': isLate(row), 'text-foreground': !isLate(row) }}>
+            {row.dateExpedition || '—'}
+          </span>
+        )
+      },
+      meta: {
+        thClass: `w-[80px] ${TH}`,
+        tdClass: `w-[80px] whitespace-nowrap font-mono text-[12.5px] font-semibold ${TD}`,
+      },
+    },
+    {
       id: 'reception',
       enableSorting: false,
       header: () => 'Réception attendue',
-      cell: (info) => {
+      cell: (info: { row: { original: ShortageDisplayRow } }) => {
         const rec = info.row.original.reception
         return (
           <Show
             when={rec}
             fallback={
-              <span class="inline-flex items-center gap-1 text-[10px] font-bold text-error uppercase">
-                <span class="material-symbols-outlined text-[13px]">block</span> Aucune couverture prévue
+              <span class="inline-flex items-center gap-1 font-mono text-[11px] font-bold text-destructive">
+                <span class="material-symbols-outlined text-[13px]">block</span> Aucune réception
               </span>
             }
           >
             {(r) => (
               <>
-                <div class="font-bold text-foreground mono">{r().id}</div>
-                <div class="text-[10px] text-muted-foreground truncate max-w-[16rem]">
-                  {r().supplier} · {r().qty}
+                <div class="font-mono text-[12.5px] font-bold text-foreground">{r().id}</div>
+                <div class="mt-0.5 truncate max-w-[16rem] font-mono text-[10.5px] font-medium text-muted-foreground">
+                  {r().supplier} · {r().qty} u
                 </div>
               </>
             )}
           </Show>
         )
       },
-      meta: { thClass: 'text-left px-3 py-2', tdClass: 'px-3 py-2 align-top' },
-    }),
-    helper.accessor('dateArrivee', {
-      header: () => 'Date arrivée',
-      cell: (info) => {
-        const v = info.getValue()
-        const late = info.row.original.arriveeLate
+      meta: { thClass: TH, tdClass: TD },
+    },
+    {
+      accessorKey: 'dateArrivee',
+      header: () => 'Arrivée',
+      cell: (info: { row: { original: ShortageDisplayRow } }) => {
+        const row = info.row.original
         return (
-          <span class={cn('mono align-top whitespace-nowrap', late ? 'text-error font-bold' : 'text-muted-foreground')}>
-            <Show when={v} fallback={<span class="text-muted-foreground/60">—</span>}>
-              <span class="inline-flex items-center gap-1">
-                <Show when={late}>
-                  <span class="material-symbols-outlined text-[13px]">warning</span>
-                </Show>
-                {v}
-              </span>
-            </Show>
-          </span>
+          <Show when={row.dateArrivee} fallback={<span class="text-muted-foreground/60">—</span>}>
+            <span
+              class="inline-flex items-center gap-1"
+              classList={{ 'font-bold text-destructive': row.arriveeLate, 'text-secondary-foreground': !row.arriveeLate }}
+            >
+              <Show when={row.arriveeLate}>
+                <span class="material-symbols-outlined text-[13px]">warning</span>
+              </Show>
+              {row.dateArrivee}
+            </span>
+          </Show>
         )
       },
-      meta: { thClass: 'text-left px-3 py-2 w-24', tdClass: 'px-3 py-2 mono align-top' },
-    }),
-    helper.display({
+      meta: {
+        thClass: `w-[92px] ${TH}`,
+        tdClass: `w-[92px] whitespace-nowrap font-mono text-[12.5px] font-semibold ${TD}`,
+      },
+    },
+    {
       id: 'verdict',
       enableSorting: false,
       header: () => 'Verdict',
-      cell: (info) => {
+      cell: (info: { row: { original: ShortageDisplayRow } }) => {
         const row = info.row.original
+        const tone =
+          row.verdictKey === 'couvert'
+            ? 'bg-ferme/15 text-ferme'
+            : row.verdictKey === 'retard'
+              ? 'bg-suggere/15 text-suggere'
+              : 'bg-destructive/10 text-destructive'
         return (
-          <span
-            class={cn(
-              'inline-flex items-center gap-1 px-2 py-0.5 border rounded-full text-[10px] font-bold whitespace-nowrap',
-              row.verdictCls
-            )}
-          >
-            <span class="material-symbols-outlined text-[12px]">{row.verdictIcon}</span>
+          <span class={cx('inline-flex items-center gap-1 rounded-md border border-transparent px-2 py-0.5 text-[11px] font-medium whitespace-nowrap', tone)}>
+            <span class="material-symbols-outlined text-[13px]">{row.verdictIcon}</span>
             {row.verdictLabel}
           </span>
         )
       },
-      meta: { thClass: 'text-left px-3 py-2 w-40', tdClass: 'px-3 py-2 align-top' },
-    }),
+      meta: { thClass: `w-[150px] ${TH.replace('border-r border-rule-soft', '')}`, tdClass: `w-[150px] px-4 py-[13px] align-middle` },
+    },
   ]
 
-  const [sorting, setSorting] = createSignal<SortingState[]>([{ id: 'dateArrivee', desc: false }])
-
-  const sortRows = (rows: ShortageDisplayRow[], sorting: SortingState[]): ShortageDisplayRow[] => {
-    if (sorting.length === 0) return rows
-    const { id, desc } = sorting[0]
-    const sorted = [...rows]
-    sorted.sort((a, b) => {
-      let va: string | number
-      let vb: string | number
-      switch (id) {
-        case 'component':
-          va = a.component
-          vb = b.component
-          break
-        case 'qteManquante':
-          va = parseFloat(a.qteManquante)
-          vb = parseFloat(b.qteManquante)
-          break
-        case 'numOf':
-          va = a.numOf
-          vb = b.numOf
-          break
-        case 'numCommande':
-          va = a.numCommande
-          vb = b.numCommande
-          break
-        case 'dateExpedition':
-          va = a.dateExpedition
-          vb = b.dateExpedition
-          break
-        case 'dateArrivee':
-          va = a.dateArrivee
-          vb = b.dateArrivee
-          break
-        default:
-          return 0
-      }
-      let cmp = 0
-      if (typeof va === 'number' && typeof vb === 'number') {
-        cmp = va < vb ? -1 : va > vb ? 1 : 0
-      } else {
-        cmp = String(va).localeCompare(String(vb))
-      }
-      if (cmp !== 0) return cmp
-      return a.component.localeCompare(b.component)
-    })
-    return desc ? sorted.reverse() : sorted
+  const indexColumn = {
+    headerLabel: 'N°',
+    thClass: `w-[38px] ${TH}`,
+    tdClass: (row: ShortageDisplayRow) =>
+      cx(
+        'px-4 py-[13px] align-middle font-fraunces text-[14px] leading-none text-muted-foreground/80 border-r border-rule-soft',
+        isLate(row) && '[box-shadow:inset_3px_0_var(--color-destructive)]',
+      ),
   }
 
-  const sortedRows = createMemo(() => sortRows(props.rows, sorting()))
+  return (
+    <DataTable
+      columns={columns}
+      rows={props.rows}
+      sorting={sorting}
+      onSortingChange={setSorting}
+      indexColumn={indexColumn}
+      tableClass="min-w-[1180px] text-xs"
+      scrollContainerClass="h-full border-0 rounded-none shadow-none"
+      theadRowClass="sticky top-0 z-10 bg-secondary"
+      getRowClass={(row) =>
+        cx(
+          'border-t border-rule-soft transition-colors',
+          isLate(row) ? 'bg-destructive/10 hover:bg-destructive/[0.18]' : 'hover:bg-foreground/[0.04]',
+        )
+      }
+      emptyState={props.emptyState}
+    />
+  )
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// R3 · Couverture (frise temporelle)
+// ───────────────────────────────────────────────────────────────────────────
+
+/** Position en % d'une date ISO dans la fenêtre [start, start+horizon j], clampée 0..100. */
+const offsetPct = (iso: string | null, startIso: string, horizon: number): number | null => {
+  if (!iso) return null
+  const a = Date.parse(`${startIso}T00:00:00Z`)
+  const b = Date.parse(`${iso}T00:00:00Z`)
+  if (Number.isNaN(a) || Number.isNaN(b) || horizon <= 0) return null
+  const days = (b - a) / 86_400_000
+  return Math.max(0, Math.min(100, (days / horizon) * 100))
+}
+
+export const ShortageTimeline: Component<{
+  rows: ShortageDisplayRow[]
+  windowStartIso: string
+  horizon: number
+  onSelectOf: (numOf: string) => void
+  emptyState: import('solid-js').JSX.Element
+}> = (props) => {
+  // Repères de semaine (lundis) sur la fenêtre — uniquement pour la grille de fond.
+  const weekTicks = () => {
+    const ticks: { pct: number; label: string }[] = []
+    const start = new Date(`${props.windowStartIso}T00:00:00Z`)
+    for (let d = 0; d <= props.horizon; d++) {
+      const day = new Date(start)
+      day.setUTCDate(start.getUTCDate() + d)
+      if (day.getUTCDay() === 1) {
+        // Lundi → numéro de semaine ISO approximatif (affichage seulement).
+        const jan1 = new Date(Date.UTC(day.getUTCFullYear(), 0, 1))
+        const wk = Math.ceil(((day.getTime() - jan1.getTime()) / 86_400_000 + jan1.getUTCDay() + 1) / 7)
+        ticks.push({ pct: (d / props.horizon) * 100, label: `S${wk}` })
+      }
+    }
+    return ticks
+  }
+
+  const todayPct = () => offsetPct(new Date().toISOString().slice(0, 10), props.windowStartIso, props.horizon)
 
   return (
-    <div class="flex-1 flex flex-col min-h-0">
-      <Show when={props.x3Error}>
-        <div class="mb-2 bg-amber-50 border border-amber-200 text-amber-800 px-3 py-2 text-xs rounded flex items-center gap-2">
-          <span class="material-symbols-outlined text-sm">warning</span>
-          X3 injoignable — {props.x3Error}.
+    <div class="h-full overflow-auto rounded-none border-0 bg-card">
+      <Show when={props.rows.length > 0} fallback={props.emptyState}>
+        <div class="min-w-[980px]">
+          <For each={props.rows}>
+            {(row) => {
+              const expPct = () => offsetPct(row.dateExpeditionIso, props.windowStartIso, props.horizon)
+              const recPct = () => offsetPct(row.receptionIso, props.windowStartIso, props.horizon)
+              const gap = () => {
+                const e = expPct()
+                const r = recPct()
+                if (e === null || r === null) return null
+                return { left: Math.min(e, r), width: Math.abs(r - e), bad: row.arriveeLate }
+              }
+              return (
+                <div
+                  class={cx(
+                    'grid grid-cols-[330px_1fr] border-b border-rule-soft transition-colors',
+                    isLate(row) ? 'bg-destructive/10 hover:bg-destructive/[0.18]' : 'hover:bg-foreground/[0.04]',
+                  )}
+                >
+                  {/* Contexte */}
+                  <div
+                    class={cx(
+                      'flex flex-col gap-0.5 border-r border-rule-soft px-4 py-[13px]',
+                      isLate(row) && '[box-shadow:inset_3px_0_var(--color-destructive)]',
+                    )}
+                  >
+                    <div class="flex items-baseline gap-2">
+                      <span class="font-mono text-[13px] font-bold text-foreground">{row.component}</span>
+                      <span class="ml-auto font-mono text-[11px] font-bold text-destructive">−{row.qteManquante} u</span>
+                    </div>
+                    <div class="truncate font-sans text-[11.5px] font-medium text-secondary-foreground">{row.componentDesc}</div>
+                    <div class="mt-0.5 font-mono text-[11px] font-medium text-muted-foreground">
+                      <button type="button" onClick={() => props.onSelectOf(row.numOf)} class="cursor-pointer font-bold text-terra hover:underline">
+                        {row.numOf}
+                      </button>
+                      {' · '}
+                      {row.hasCommande ? `${row.numCommande} · ${row.client}` : 'OF orphelin'}
+                    </div>
+                  </div>
+
+                  {/* Frise */}
+                  <div class="relative mx-3.5 my-2.5 h-[46px]">
+                    {/* Grille semaines */}
+                    <For each={weekTicks()}>
+                      {(t) => (
+                        <div class="absolute bottom-4 top-0 w-px bg-hair" style={{ left: `${t.pct}%` }}>
+                          <span class="absolute -top-0.5 left-1 font-mono text-[8px] font-bold tracking-wide text-muted-foreground/70">{t.label}</span>
+                        </div>
+                      )}
+                    </For>
+                    {/* Axe */}
+                    <div class="absolute left-0 right-0 top-6 h-0.5 bg-rule-soft" />
+                    {/* Aujourd'hui */}
+                    <Show when={todayPct() !== null}>
+                      <div class="absolute bottom-3.5 top-0 w-0.5 bg-terra/50" style={{ left: `${todayPct()}%` }}>
+                        <span class="absolute -top-0.5 left-1 font-mono text-[8px] font-bold text-terra">auj.</span>
+                      </div>
+                    </Show>
+                    {/* Gap réception ↔ expé */}
+                    <Show when={gap()}>
+                      {(g) => (
+                        <div
+                          class={cx(
+                            'absolute top-[21px] h-2 rounded-full border',
+                            g().bad
+                              ? 'border-destructive/35 [background:repeating-linear-gradient(45deg,var(--color-destructive)/10,var(--color-destructive)/10_5px,transparent_5px,transparent_10px)]'
+                              : 'border-ferme/30 bg-ferme/15',
+                          )}
+                          style={{ left: `${g().left}%`, width: `${g().width}%` }}
+                        />
+                      )}
+                    </Show>
+                    {/* Marqueur expé */}
+                    <Show when={expPct() !== null}>
+                      <Marker pct={expPct()!} tone="exp" cap={`expé ${row.dateExpedition}`} />
+                    </Show>
+                    {/* Marqueur réception (ou absence) */}
+                    <Show
+                      when={row.receptionIso}
+                      fallback={<Marker pct={88} tone="none" cap="aucune réception" sub="à commander" dashed />}
+                    >
+                      <Marker
+                        pct={recPct()!}
+                        tone={row.arriveeLate ? 'bad' : 'ok'}
+                        cap={`arr. ${row.dateArrivee}`}
+                        sub={row.arriveeLate ? `+${row.joursRetardReception} j · ${row.reception?.id ?? ''}` : (row.reception?.id ?? '')}
+                      />
+                    </Show>
+                  </div>
+                </div>
+              )
+            }}
+          </For>
+
+          {/* Légende */}
+          <div class="flex flex-wrap gap-4 border-t border-rule-soft bg-card px-4 py-2.5 font-mono text-[10px] font-semibold text-muted-foreground">
+            <span class="inline-flex items-center gap-1.5"><span class="size-2.5 rounded-full bg-terra" /> Date d'expédition (cible)</span>
+            <span class="inline-flex items-center gap-1.5"><span class="size-2.5 rounded-full bg-ferme" /> Réception à temps</span>
+            <span class="inline-flex items-center gap-1.5"><span class="size-2.5 rounded-full bg-destructive" /> Réception en retard</span>
+            <span class="inline-flex items-center gap-1.5"><span class="size-2.5 rounded-full border-2 border-dashed border-destructive" /> Aucune réception</span>
+          </div>
         </div>
       </Show>
-
-      {/* Bandeau stats */}
-      <div class="mb-2 flex items-center gap-2">
-        <div class="flex items-center gap-2 bg-card border border-border rounded px-3 py-1.5 shadow-sm">
-          <span class="material-symbols-outlined text-[16px] text-muted-foreground">analytics</span>
-          <span class="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-            {props.stats.nbRuptures} rupture(s)
-          </span>
-        </div>
-        <div class="flex items-center gap-1.5 bg-emerald-50 border border-emerald-100 rounded px-3 py-1.5">
-          <span class="w-2 h-2 rounded-full bg-emerald-500" />
-          <span class="text-[11px] font-bold text-emerald-700">{props.stats.nbCouvertes} couverte(s)</span>
-        </div>
-        <div class="flex items-center gap-1.5 bg-error/10 border border-error/20 rounded px-3 py-1.5">
-          <span class="w-2 h-2 rounded-full bg-error" />
-          <span class="text-[11px] font-bold text-error">{props.stats.nbSansCouverture} sans couverture</span>
-        </div>
-      </div>
-
-      <DataTable
-        columns={columns}
-        rows={sortedRows}
-        sorting={sorting}
-        onSortingChange={setSorting}
-        tableClass="text-xs"
-        scrollContainerClass="flex-1 bg-card border border-border rounded shadow-sm"
-        theadRowClass="text-[10px] font-bold uppercase text-muted-foreground border-b border-border"
-        getRowClass={() => 'border-b border-border/60 hover:bg-muted/40 transition-colors'}
-        emptyState={
-          <div class="px-3 py-16 text-center text-muted-foreground">
-            <Show
-              when={!props.x3Error}
-              fallback={<span class="italic">Données indisponibles.</span>}
-            >
-              <div class="flex flex-col items-center gap-2">
-                <span class="material-symbols-outlined text-[32px] text-emerald-400">check_circle</span>
-                <span class="text-sm font-medium">Aucune rupture détectée dans la fenêtre.</span>
-              </div>
-            </Show>
-          </div>
-        }
-      />
     </div>
   )
 }
 
-export default ShortageTable
+/** Marqueur de frise (pastille + libellé + sous-libellé), positionné en %. */
+const Marker: Component<{ pct: number; tone: 'exp' | 'ok' | 'bad' | 'none'; cap: string; sub?: string; dashed?: boolean }> = (
+  p,
+) => {
+  const pinCls =
+    p.tone === 'exp'
+      ? 'bg-terra'
+      : p.tone === 'ok'
+        ? 'bg-ferme'
+        : p.tone === 'bad'
+          ? 'bg-destructive'
+          : 'border-2 border-dashed border-destructive'
+  const capCls = p.tone === 'exp' ? 'text-terra' : p.tone === 'ok' ? 'text-ferme' : 'text-destructive'
+  return (
+    <div class="absolute top-3.5 flex -translate-x-1/2 flex-col items-center gap-0.5" style={{ left: `${p.pct}%` }}>
+      <span class={cx('size-[13px] rounded-full border-2 border-card', pinCls)} />
+      <span class={cx('mt-0.5 whitespace-nowrap font-mono text-[9px] font-bold', capCls)}>{p.cap}</span>
+      <Show when={p.sub}>
+        <span class="whitespace-nowrap font-mono text-[8px] font-medium text-muted-foreground">{p.sub}</span>
+      </Show>
+    </div>
+  )
+}

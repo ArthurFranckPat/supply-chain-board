@@ -418,6 +418,7 @@ export default class SchedulerController {
         // Colonne dédiée date d'arrivée (rouge si la réception arrive après l'expédition).
         dateArrivee: r.reception ? fmtFrShort(r.reception.dateArrivee) : '',
         arriveeLate: r.joursRetardReception > 0,
+        verdictKey: r.verdict,
         verdictLabel: (() => {
           // Affiche le pire retard : commande (stock) vs arrivée réception trop tardive.
           const j = Math.max(r.joursRetard, r.joursRetardReception)
@@ -425,6 +426,12 @@ export default class SchedulerController {
         })(),
         verdictCls: preset.cls,
         verdictIcon: preset.icon,
+        // ── Données pour la vue « Couverture » (frise temporelle R3) ──
+        // ISO (YYYY-MM-DD) pour positionner les marqueurs ; jours de retard d'arrivée
+        // pour le sous-libellé « +N j » du marqueur réception.
+        dateExpeditionIso: r.dateExpedition,
+        receptionIso: r.reception?.dateArrivee ?? null,
+        joursRetardReception: r.joursRetardReception,
         // Champ texte concaténé pour le filtre client (composant / commande / fournisseur).
         filter: `${r.component} ${r.componentDesc} ${r.numCommande ?? ''} ${r.client ?? ''} ${r.reception?.supplier ?? ''} ${r.numOf} ${r.articleParent}`.toLowerCase(),
       }

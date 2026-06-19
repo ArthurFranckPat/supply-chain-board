@@ -1,0 +1,78 @@
+/* ════════════════════════════════════════════════════════════
+   PAPIER — tokens canoniques (extrait de design-system.html)
+   Partagés par les 3 mockups ruptures. Source de vérité réelle :
+   resources/css/app.css (scope .theme-papier).
+   ════════════════════════════════════════════════════════════ */
+:root{
+  --paper:#f3ece0; --panel:#fbf8ef; --panel-2:#efe7d6;
+  --rule:#cdbfa0; --rule-soft:#e3d9c1; --hair:#ece3cf;
+  --ink:#1f1a13; --ink-2:#4a4135; --muted:#8c7d66; --muted-2:#a99c84;
+  --terra:#a8431f; --terra-2:#8c3617; --terra-soft:rgba(168,67,31,.10);
+  --ferme:#5b7d4e; --planifie:#2f4858; --suggere:#b8862c; --danger:#9a3320;
+  --ferme-soft:rgba(91,125,78,.12); --planifie-soft:rgba(47,72,88,.10);
+  --suggere-soft:rgba(184,134,44,.14); --danger-soft:rgba(154,51,32,.10);
+  --font-d:"Fraunces",Georgia,serif;
+  --font-s:"Inter",system-ui,sans-serif;
+  --font-m:"JetBrains Mono",ui-monospace,monospace;
+  --r-1:4px; --r-2:6px; --r-3:8px; --r-4:12px; --r-pill:999px;
+  --sh-xs:0 1px 2px rgba(31,26,19,.05);
+  --sh-sm:0 2px 6px -2px rgba(31,26,19,.12);
+  --ease:cubic-bezier(.32,.72,0,1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--font-s);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+.material-symbols-outlined{font-family:"Material Symbols Outlined";font-weight:300;line-height:1;font-feature-settings:"liga";vertical-align:middle}
+.mono{font-family:var(--font-m);font-variant-numeric:tabular-nums}
+.fd{font-family:var(--font-d)}
+*{scrollbar-width:thin;scrollbar-color:#c9bb9d transparent}
+*::-webkit-scrollbar{width:11px;height:11px}
+*::-webkit-scrollbar-thumb{background:#c9bb9d;border-radius:9px;border:3px solid var(--paper)}
+
+/* ═══ Coque commune : masthead FactoryOS (repris de suivi.tsx) ═══ */
+.app{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+.mast{flex:none;border-bottom:1px solid var(--rule);background:var(--paper)}
+.mast .top{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;padding:14px 28px 8px}
+.brand{font:900 28px var(--font-d);letter-spacing:-.03em;line-height:.9}
+.brand em{font-style:italic;font-weight:500;color:var(--terra)}
+.brand-sub{padding-bottom:4px;font:500 10px var(--font-m);letter-spacing:.12em;color:var(--muted)}
+.mast .meta{text-align:right;font:500 11px var(--font-m);color:var(--muted);line-height:1.5}
+.mast .meta .day{font:700 12px var(--font-d);color:var(--terra);text-transform:capitalize}
+.mast .meta b{color:var(--ink);font-weight:700}
+.nav{display:flex;align-items:center;gap:4px;border-top:1px solid var(--rule);padding:0 28px}
+.nav a{border-bottom:2px solid transparent;padding:10px 14px;font:600 12px var(--font-s);color:var(--ink-2);text-decoration:none;transition:color var(--ease)}
+.nav a:hover{color:var(--terra)}
+.nav a.active{border-bottom-color:var(--terra);color:var(--terra)}
+.nav .search{margin-left:auto;display:flex;align-items:center;gap:6px;height:30px;border:1px solid var(--rule);background:var(--panel);border-radius:var(--r-pill);padding:0 12px}
+.nav .search input{border:0;background:transparent;outline:none;width:190px;font:500 12px var(--font-s);color:var(--ink)}
+.nav .search .material-symbols-outlined{font-size:17px;color:var(--muted)}
+.avatar{width:30px;height:30px;border-radius:var(--r-pill);background:var(--terra);color:#fff;display:grid;place-items:center;font:700 11px var(--font-m);margin-left:8px}
+
+/* ═══ Bandeau KPI (grid, repris de suivi.tsx) ═══ */
+.kpis{flex:none;display:grid;border-bottom:1px solid var(--rule)}
+.kpi{display:flex;flex-direction:column;gap:3px;padding:13px 22px;border-right:1px solid var(--rule-soft)}
+.kpi:last-child{border-right:0}
+.kpi .lab{display:flex;align-items:center;gap:6px;font:700 9px var(--font-m);text-transform:uppercase;letter-spacing:.13em;color:var(--muted)}
+.kpi .dot{width:8px;height:8px;border-radius:2px}
+.kpi .val{font:900 34px var(--font-d);letter-spacing:-.03em;line-height:1}
+.kpi .sub{font:500 11px var(--font-m);color:var(--muted)}
+
+/* ═══ Toolbar ═══ */
+.toolbar{flex:none;display:flex;flex-wrap:wrap;align-items:center;gap:10px;border-bottom:1px solid var(--rule);padding:8px 28px}
+.seg{display:inline-flex;align-items:center;gap:2px;border:1px solid var(--rule);background:var(--panel);border-radius:var(--r-2);padding:2px}
+.seg .lab{padding:0 6px;font:700 9px var(--font-m);text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+.chip{border:0;background:transparent;cursor:pointer;border-radius:5px;padding:4px 10px;font:700 10px var(--font-m);text-transform:uppercase;letter-spacing:.06em;color:var(--muted);transition:all var(--ease)}
+.chip:hover{color:var(--ink)}
+.chip.on{background:var(--terra-soft);color:var(--terra)}
+.toolbar .right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.btn{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--rule);background:var(--panel);border-radius:var(--r-pill);padding:5px 13px;font:600 11px var(--font-s);color:var(--ink-2);cursor:pointer;text-decoration:none;transition:border-color var(--ease)}
+.btn:hover{border-color:var(--terra)}
+.btn .material-symbols-outlined{font-size:14px;color:var(--muted)}
+
+/* ═══ Badges verdict (statuts Papier) ═══ */
+.badge{display:inline-flex;align-items:center;gap:4px;border-radius:var(--r-2);padding:2px 8px;font:600 11px var(--font-s);white-space:nowrap}
+.badge .material-symbols-outlined{font-size:13px}
+.badge.ok{background:var(--ferme-soft);color:var(--ferme)}
+.badge.late{background:var(--suggere-soft);color:var(--suggere)}
+.badge.none{background:var(--danger-soft);color:var(--danger)}
+
+.scroll{flex:1;overflow:auto;padding:20px 28px}
