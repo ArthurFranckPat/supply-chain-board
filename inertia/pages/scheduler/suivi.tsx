@@ -339,12 +339,14 @@ const Suivi: Component<SuiviPageProps> = (props) => {
                                           {e.source === 'STOALL' ? 'check_circle' : 'radio_button_unchecked'}
                                         </span>
                                         <span class="font-semibold">{e.nom}</span>
+                                      </span>
+                                      <span class="flex items-center gap-1">
                                         <Show when={e.hum}>
                                           <span class="rounded bg-card px-1.5 font-mono text-[10.5px] font-bold text-foreground">{e.hum}</span>
                                         </Show>
-                                      </span>
-                                      <span class="font-bold tabular-nums">
-                                        {e.qte > 0 ? Math.round(e.qte) : '·'}
+                                        <span class="font-bold tabular-nums">
+                                          {e.qte > 0 ? Math.round(e.qte) : '·'}
+                                        </span>
                                       </span>
                                     </span>
                                   )}
