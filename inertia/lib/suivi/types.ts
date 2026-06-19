@@ -17,12 +17,22 @@ export type SuiviCauseType =
   | 'ATTENTE_RECEPTION_FOURNISSEUR'
   | 'AUCUN_OF_PLANIFIE'
   | 'RUPTURE_COMPOSANTS'
+  | 'RETARD_ORDONNANCEMENT'
+  | 'RETARD_COMPOSANT_TARDIF'
   | 'INCONNUE'
 
 export interface SuiviCauseDisplay {
   type: SuiviCauseType
   label: string
   comps: { art: string; qty: number }[]
+  /** ETA du composant goulot (date JJ/MM + n° d'achat) pour RUPTURE_COMPOSANTS — null sinon. */
+  reception: { eta: string; po: string; supplier: string } | null
+  /** Analyse rétro (RETARD_COMPOSANT_TARDIF) : affermissement OF + composant disponible tard. */
+  retro: {
+    ofPegue: string
+    affermissement: string
+    composant: { art: string; dispoA: string; cq: boolean } | null
+  } | null
 }
 
 /**

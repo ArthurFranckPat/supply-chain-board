@@ -49,6 +49,9 @@ const Suivi: Component<SuiviPageProps> = (props) => {
     },
   )
 
+  // Vue courante avec fallback vide (évite de répéter `data() ?? EMPTY` partout).
+  const view = createMemo(() => data() ?? EMPTY)
+
   // Filtres + tri côté client.
   const [query, setQuery] = createSignal('')
   const [statusFilter, setStatusFilter] = createSignal<SuiviStatusKey | 'all'>('all')
@@ -62,7 +65,7 @@ const Suivi: Component<SuiviPageProps> = (props) => {
     })
 
   const visibleRows = createMemo(() => {
-    const all = (data() ?? EMPTY).rows
+    const all = view().rows
     const q = query().trim().toLowerCase()
     const sf = statusFilter()
     const tf = typeFilter()
@@ -70,18 +73,20 @@ const Suivi: Component<SuiviPageProps> = (props) => {
     if (q) r = r.filter((row) => row.filter.includes(q))
     // Retards en haut, puis tri chronologique ascendant (plus urgents avant).
     // Lignes sans date → en bas.
-    r = [...r].sort((a, b) => {
+    // `r` provient déjà d'un .filter() → tableau neuf, tri en place.
+    r.sort((a, b) => {
       const ra = a.statusKey === 'ret' ? 0 : 1
       const rb = b.statusKey === 'ret' ? 0 : 1
       if (ra !== rb) return ra - rb
+      // dates ISO (YYYY-MM-DD) : comparaison lexicale = chronologique.
       const da = a.dateExpIso ?? '9999-12-31'
       const db = b.dateExpIso ?? '9999-12-31'
-      return da.localeCompare(db)
+      return da < db ? -1 : da > db ? 1 : 0
     })
     return r
   })
 
-  const counts = () => (data() ?? EMPTY).statusCounts
+  const counts = () => view().statusCounts
   const refLabel = () =>
     new Date(props.referenceDate + 'T00:00:00').toLocaleDateString('fr-FR', {
       weekday: 'long',
@@ -125,8 +130,8 @@ const Suivi: Component<SuiviPageProps> = (props) => {
           <div class="text-right font-mono text-[11px] font-medium leading-relaxed text-muted-foreground">
             <div class="font-fraunces text-[12px] font-bold capitalize not-italic text-terra">{refLabel()}</div>
             <div>
-              <b class="font-bold text-foreground">{(data() ?? EMPTY).total}</b> lignes ouvertes
-              <Show when={(data() ?? EMPTY).referenceDate}> · réf. <b class="font-bold text-foreground">{(data() ?? EMPTY).referenceDate}</b></Show>
+              <b class="font-bold text-foreground">{view().total}</b> lignes ouvertes
+              <Show when={view().referenceDate}> · réf. <b class="font-bold text-foreground">{view().referenceDate}</b></Show>
             </div>
           </div>
         </div>
@@ -161,7 +166,7 @@ const Suivi: Component<SuiviPageProps> = (props) => {
         <Kpi label="À expédier" value={counts().A_EXPEDIER} sub="besoin net ≤ 0 · prêtes" dot="var(--color-ferme)" valClass="text-ferme" />
         <Kpi label="Allocation à faire" value={counts().ALLOCATION_A_FAIRE} sub="couvertes par stock virtuel" dot="var(--color-suggere)" valClass="text-suggere" />
         <Kpi label="Retard" value={counts().RETARD_PROD} sub="date expé dépassée" dot="var(--color-destructive)" valClass="text-destructive" />
-        <Kpi label="Signal CQ" value={(data() ?? EMPTY).cqCount} sub="stock sous contrôle qualité" dot="var(--color-terra)" valClass="text-terra" />
+        <Kpi label="Signal CQ" value={view().cqCount} sub="stock sous contrôle qualité" dot="var(--color-terra)" valClass="text-terra" />
         <Kpi label="RAS" value={counts().RAS} sub="sous contrôle" dot="var(--color-muted-foreground)" valClass="text-planifie" last />
       </section>
 
@@ -216,11 +221,11 @@ const Suivi: Component<SuiviPageProps> = (props) => {
       </div>
 
       {/* ═══ X3 injoignable ═══ */}
-      <Show when={(data() ?? EMPTY).x3Error}>
+      <Show when={view().x3Error}>
         <div class="flex flex-none items-center gap-2 border-b border-destructive/30 bg-destructive/10 px-7 py-2 text-[12px] text-foreground">
           <span class="material-symbols-outlined text-[16px] text-destructive">warning</span>
           <span class="font-bold">Erreur chargement suivi :</span>
-          <span class="font-mono">{(data() ?? EMPTY).x3Error}</span>
+          <span class="font-mono">{view().x3Error}</span>
         </div>
       </Show>
 
@@ -249,9 +254,9 @@ const Suivi: Component<SuiviPageProps> = (props) => {
               <div class="flex flex-1 items-center justify-center p-10 text-center font-fraunces text-[14px] italic text-muted-foreground">
                 <div class="flex flex-col items-center gap-2">
                   <span class="material-symbols-outlined text-[32px] text-muted-foreground/50">
-                    {(data() ?? EMPTY).x3Error ? 'cloud_off' : 'inbox'}
+                    {view().x3Error ? 'cloud_off' : 'inbox'}
                   </span>
-                  {(data() ?? EMPTY).x3Error
+                  {view().x3Error
                     ? 'Données de suivi indisponibles (X3 injoignable).'
                     : 'Aucune ligne de commande à suivre à cette date.'}
                 </div>
@@ -364,6 +369,22 @@ const Suivi: Component<SuiviPageProps> = (props) => {
                               <Show when={o.cause!.comps.length > 0}>
                                 <span class="mt-[3px] block font-mono text-[10px] font-bold text-destructive">
                                   {o.cause!.comps.map((c) => `${c.art} −${c.qty}`).join(' · ')}
+                                </span>
+                              </Show>
+                              <Show when={o.cause!.reception}>
+                                <span class="mt-[2px] block font-mono text-[10px] font-medium text-muted-foreground">
+                                  arrive {o.cause!.reception!.eta} · {o.cause!.reception!.po}
+                                </span>
+                              </Show>
+                              <Show when={o.cause!.retro?.composant}>
+                                <span class="mt-[2px] block font-mono text-[10px] font-medium text-muted-foreground">
+                                  {o.cause!.retro!.composant!.art} dispo {o.cause!.retro!.composant!.dispoA}
+                                  <Show when={o.cause!.retro!.composant!.cq}> (CQ)</Show>
+                                </span>
+                              </Show>
+                              <Show when={o.cause!.retro?.affermissement}>
+                                <span class="mt-[1px] block font-mono text-[10px] text-muted-foreground/70">
+                                  OF {o.cause!.retro!.ofPegue} affermi {o.cause!.retro!.affermissement}
                                 </span>
                               </Show>
                             </Show>

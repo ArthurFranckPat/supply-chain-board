@@ -85,9 +85,10 @@ export default class SuiviController {
     const receptionFlows = await new X3ReceptionRepository().getReceptionFlows()
     const ofFlows = await new X3OfRepository().getSupplyFlows()
 
+    const allSupplyFlows = [...stockFlows, ...receptionFlows, ...ofFlows]
     const details = orderLines.map((demand) => {
       const origin = demand.origin as Extract<Flow['origin'], { type: 'order' }>
-      const supplyFlows = [...stockFlows, ...receptionFlows, ...ofFlows].filter(
+      const supplyFlows = allSupplyFlows.filter(
         (s) => s.article === demand.article && s.direction === 'supply',
       )
 
@@ -236,6 +237,14 @@ export interface SuiviCauseDisplay {
   type: CauseType
   label: string
   comps: { art: string; qty: number }[]
+  /** ETA du composant goulot (date JJ/MM + n° d'achat) pour RUPTURE_COMPOSANTS — null sinon. */
+  reception: { eta: string; po: string; supplier: string } | null
+  /** Analyse rétro (RETARD_COMPOSANT_TARDIF) : affermissement OF + composant disponible tard. */
+  retro: {
+    ofPegue: string
+    affermissement: string
+    composant: { art: string; dispoA: string; cq: boolean } | null
+  } | null
 }
 
 export interface SuiviDisplayRow {
@@ -266,30 +275,20 @@ export interface SuiviDisplayRow {
   filter: string
 }
 
-/** Statut métier → clé courte pour le badge (exp/alc/ret/rxe/ras). */
-const STATUS_KEY: Record<SuiviStatus, SuiviStatusKey> = {
-  A_EXPEDIER: 'exp',
-  ALLOCATION_A_FAIRE: 'alc',
-  RETARD_PROD: 'ret',
-  RAS: 'ras',
-}
-const STATUS_SHORT: Record<SuiviStatus, string> = {
-  A_EXPEDIER: 'À expédier',
-  ALLOCATION_A_FAIRE: 'À allouer',
-  RETARD_PROD: 'Retard',
-  RAS: 'RAS',
-}
-const STATUS_ICON: Record<SuiviStatus, string> = {
-  A_EXPEDIER: 'outbound',
-  ALLOCATION_A_FAIRE: 'inventory_2',
-  RETARD_PROD: 'report',
-  RAS: 'check_circle',
+/** Statut métier → facettes d'affichage du badge (clé courte, libellé, icône). */
+const STATUS_DISPLAY: Record<SuiviStatus, { key: SuiviStatusKey; short: string; icon: string }> = {
+  A_EXPEDIER: { key: 'exp', short: 'À expédier', icon: 'outbound' },
+  ALLOCATION_A_FAIRE: { key: 'alc', short: 'À allouer', icon: 'inventory_2' },
+  RETARD_PROD: { key: 'ret', short: 'Retard', icon: 'report' },
+  RAS: { key: 'ras', short: 'RAS', icon: 'check_circle' },
 }
 const CAUSE_LABEL: Record<CauseType, string> = {
   STOCK_DISPONIBLE_NON_ALLOUE: 'Stock disponible — non alloué',
   ATTENTE_RECEPTION_FOURNISSEUR: 'Attente réception fournisseur',
   AUCUN_OF_PLANIFIE: 'Aucun OF planifié',
   RUPTURE_COMPOSANTS: 'Rupture composants',
+  RETARD_ORDONNANCEMENT: 'OF planifié en retard',
+  RETARD_COMPOSANT_TARDIF: 'Composant disponible tardivement',
   INCONNUE: 'Cause indéterminée',
 }
 
@@ -331,13 +330,37 @@ export function buildSuiviDisplay(assignments: StatusAssignment[], refDate?: Dat
 } {
   const now = refDate ?? new Date()
   const rows: SuiviDisplayRow[] = assignments.map((a) => {
-    const cause = a.cause
+    const cause: SuiviCauseDisplay | null = a.cause
       ? {
           type: a.cause.typeCause,
-          label: CAUSE_LABEL[a.cause.typeCause],
+          // Retard d'ordonnancement : libellé enrichi du nombre de jours (« — N j »).
+          label:
+            a.cause.typeCause === 'RETARD_ORDONNANCEMENT' && a.cause.joursRetard
+              ? `${CAUSE_LABEL[a.cause.typeCause]} — ${a.cause.joursRetard} j`
+              : CAUSE_LABEL[a.cause.typeCause],
           comps: Object.entries(a.cause.composants)
             .sort(([x], [y]) => x.localeCompare(y))
             .map(([art, qty]) => ({ art, qty: Math.round(qty * 1000) / 1000 })),
+          reception: a.cause.reception
+            ? {
+                eta: fmtFrDay(a.cause.reception.eta),
+                po: a.cause.reception.po,
+                supplier: a.cause.reception.supplier,
+              }
+            : null,
+          retro: a.cause.retro
+            ? {
+                ofPegue: a.cause.retro.ofPegue,
+                affermissement: fmtFrDay(a.cause.retro.dateAffermissement),
+                composant: a.cause.retro.composantTardif
+                  ? {
+                      art: a.cause.retro.composantTardif.art,
+                      dispoA: fmtFrDay(a.cause.retro.composantTardif.dispoA),
+                      cq: a.cause.retro.composantTardif.viaControleQualite,
+                    }
+                  : null,
+              }
+            : null,
         }
       : null
     const rec = recommendActions(a)
@@ -348,9 +371,9 @@ export function buildSuiviDisplay(assignments: StatusAssignment[], refDate?: Dat
       article: a.line.article,
       designation: a.line.designation,
       type: a.line.typeCommande,
-      statusKey: STATUS_KEY[a.status],
-      statusLabel: STATUS_SHORT[a.status],
-      statusIcon: STATUS_ICON[a.status],
+      statusKey: STATUS_DISPLAY[a.status].key,
+      statusLabel: STATUS_DISPLAY[a.status].short,
+      statusIcon: STATUS_DISPLAY[a.status].icon,
       qteRestante: Math.round(a.line.qteRestante),
       besoinNet: Math.max(0, Math.round(a.besoinNet)),
       allocStrict: Math.round(a.qteAlloueeVirtuelleStricte),

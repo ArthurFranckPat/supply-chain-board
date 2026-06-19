@@ -19,8 +19,11 @@ import {
   attachCauses,
   computePaletteSummary,
   computeRetardCharge,
-  recommendActions,
-  buildStatusCounts,
+  mapEngineCause,
+  analyzeRetroCause,
+  type OrderCauseInfo,
+  type RetroCauseInput,
+  type CauseReception,
   type OrderLine,
   type Emplacement,
   type StockBreakdown,
@@ -42,6 +45,8 @@ import { loadOrderImpacts } from '#services/order_impacts_loader'
 import { buildShortageRows } from '#app/domain/shortages'
 import { X3ReceptionRepository } from '#repositories/reception_repository'
 import { X3EmplacementRepository } from '#repositories/emplacement_repository'
+import { X3MfgmatRepository } from '#repositories/mfgmat_repository'
+import { X3StockAvailabilityRepository } from '#repositories/stock_availability_repository'
 import staticSync from '#services/static_sync_service'
 import cache from '@adonisjs/cache/services/main'
 import { HttpContext } from '@adonisjs/core/http'
@@ -244,12 +249,19 @@ export interface SuiviContext {
   paletteProvider: PaletteInfoProvider
   chargeCalculator: ChargeCalculatorPort
   /**
-   * Cause du retard = source de vérité ordre → OF → composant (pipeline ruptures #15,
-   * loadOrderImpacts + buildShortageRows). Map numCommande → composants en rupture
-   * ({art, qty}). Remplace l'ancien calcul approximatif (FlowOfMatcher par article seul
-   * + réceptions stubées) qui produisait des causes erronées.
+   * Cause du retard = source de vérité du moteur d'ordonnancement (loadOrderImpacts, le
+   * MÊME pipeline que le board/ruptures). Map numCommande → verdict moteur (statut +
+   * composants en rupture + ETA réception + joursRetard). Remplace l'ancien calcul
+   * approximatif (FlowOfMatcher par article seul + réceptions stubées) qui produisait
+   * des causes erronées. Traduit en RetardCause par `mapEngineCause` dans `assign()`.
    */
-  shortageByOrder: Map<string, { art: string; qty: number }[]>
+  causeByOrder: Map<string, OrderCauseInfo>
+  /**
+   * Analyse rétrospective par commande peguée sur un OF ferme : affermissement réel (MFGHEAD.CREDAT)
+   * + disponibilité (statut A) des composants réels (MFGMAT × STOJOU). Prioritaire sur `causeByOrder`
+   * pour les lignes RETARD_PROD dont l'OF est affermi ; sinon fallback moteur prévisionnel.
+   */
+  retroByOrder: Map<string, RetroCauseInput>
 }
 
 /**
@@ -267,7 +279,8 @@ interface RawSuiviData {
   stockFlows: Flow[]
   detailedByOrderLine: Map<string, Emplacement[]>
   stockByArticle: Map<string, Emplacement[]>
-  shortageByOrder: Map<string, { art: string; qty: number }[]>
+  causeByOrder: Map<string, OrderCauseInfo>
+  retroByOrder: Map<string, RetroCauseInput>
 }
 
 // Cache distribué du contexte (cf. boardDataset, issue #20), namespace `suivi:*`.
@@ -345,11 +358,23 @@ export class SuiviService {
       emplRepo.getStockLocations(lineArticles),
     ])
 
-    // Cause du retard : source de vérité ordre→OF→composant via le pipeline ruptures
-    // (loadOrderImpacts + buildShortageRows). Fenêtre large centrée sur maintenant (les
-    // retards sont par définition en retard → dates passées ; +14 j pour les imminents).
+    // Cause du retard : verdict du moteur d'ordonnancement par commande via le pipeline
+    // partagé (loadOrderImpacts + buildShortageRows). Fenêtre large centrée sur maintenant
+    // (les retards sont par définition en retard → dates passées ; +14 j pour les imminents).
     // Réutilise les caches boardDataset — pas de double-fetch si le board a tourné.
-    const shortageByOrder = await buildShortageByOrder()
+    const causeByOrder = await buildOrderCauses()
+
+    // Analyse rétrospective : pour les commandes peguées sur un OF (contremarque), charge en batch
+    // l'affermissement réel (MFGHEAD.CREDAT) + la dispo statut A des composants réels (MFGMAT×STOJOU).
+    const pegByOrder = new Map<string, string>()
+    for (const l of linesForScope) {
+      if (l.ofPegue && !pegByOrder.has(l.numCommande)) pegByOrder.set(l.numCommande, l.ofPegue)
+    }
+    const expeByOrder = new Map<string, Date | null>()
+    for (const l of linesForScope) {
+      if (!expeByOrder.has(l.numCommande)) expeByOrder.set(l.numCommande, l.dateExpedition)
+    }
+    const retroByOrder = await buildRetroByOrder(pegByOrder, expeByOrder)
 
     return {
       demandFlows,
@@ -359,7 +384,8 @@ export class SuiviService {
       stockFlows,
       detailedByOrderLine,
       stockByArticle,
-      shortageByOrder,
+      causeByOrder,
+      retroByOrder,
     }
   }
 
@@ -392,7 +418,8 @@ export class SuiviService {
       bomNavigator: new NomenclatureBomNavigator(nomenclatures, stocks, ofs, articles),
       paletteProvider: new StubPaletteProvider(),
       chargeCalculator: new StubChargeCalculator(),
-      shortageByOrder: raw.shortageByOrder,
+      causeByOrder: raw.causeByOrder,
+      retroByOrder: raw.retroByOrder,
     }
   }
 
@@ -406,23 +433,32 @@ export class SuiviService {
   assign(ctx: SuiviContext, referenceDate: Date): StatusAssignment[] {
     const breakdownMap = stockProviderToMap(ctx)
     const assignments = assignStatuses(ctx.lines, breakdownMap, referenceDate)
+    // Heuristique BOM locale : sert UNIQUEMENT de fallback pour les commandes hors fenêtre
+    // moteur (ci-dessous). Le moteur d'ordonnancement (causeByOrder) est la source de vérité.
     attachCauses(assignments, ctx.stockProvider, ctx.ofMatcher, ctx.bomNavigator)
-    // Cause réelle = pipeline ruptures (surcharge l'approximation pour RETARD_PROD) :
-    //  - ordre présent dans shortageByOrder → RUPTURE_COMPOSANTS avec les vrais composants ;
-    //  - rupture heuristic non confirmée par le pipeline → null (on n'affiche pas du faux) ;
-    //  - autres causes heuristic (achat : stock dispo / attente réception / aucun OF) conservées.
+    // Cause = verdict du moteur d'ordonnancement (loadOrderImpacts), MÊME pipeline que la page
+    // ruptures → cohérence garantie. On traduit le statut moteur en cause via mapEngineCause :
+    //  - bloquee → RUPTURE_COMPOSANTS (+ composants + ETA réception) ;
+    //  - sans_couverture → AUCUN_OF_PLANIFIE (fab) / ATTENTE_RECEPTION_FOURNISSEUR (achat) ;
+    //  - retard → RETARD_ORDONNANCEMENT (OF faisable mais planifié après l'expé) ;
+    //  - stock / on_time → STOCK_DISPONIBLE_NON_ALLOUE.
+    // Commande absente du moteur (au-delà de la fenêtre) → on conserve la cause heuristique.
+    //
+    // PRIORITÉ : analyse rétrospective (retroByOrder) pour les commandes peguées sur un OF ferme —
+    // dates réelles (affermissement + dispo composant statut A) plus pertinentes que le prévisionnel.
+    // Sinon → verdict moteur (causeByOrder). Sinon → heuristique (déjà posée).
     for (const a of assignments) {
       if (a.status !== 'RETARD_PROD') continue
-      const comps = ctx.shortageByOrder.get(a.line.numCommande)
-      if (comps && comps.length) {
-        a.cause = {
-          typeCause: 'RUPTURE_COMPOSANTS',
-          composants: Object.fromEntries(comps.map((c) => [c.art, c.qty])),
-          message: '',
+      const retro = ctx.retroByOrder.get(a.line.numCommande)
+      if (retro) {
+        const cause = analyzeRetroCause(retro)
+        if (cause) {
+          a.cause = cause
+          continue
         }
-      } else if (a.cause?.typeCause === 'RUPTURE_COMPOSANTS') {
-        a.cause = null
       }
+      const info = ctx.causeByOrder.get(a.line.numCommande)
+      if (info) a.cause = mapEngineCause(info, a.line.isFabrique)
     }
     return assignments
   }
@@ -508,6 +544,7 @@ export function buildOrderLines(
       qteRestante: f.quantity,
       isFabrique: nomenclatures.has(f.article),
       isHardPegged: origin.contremarque != null,
+      ofPegue: origin.contremarque?.trim() || null,
       emplacements: [],
     })
   }
@@ -590,15 +627,20 @@ function stockProviderToMap(ctx: SuiviContext): Map<string, StockBreakdown> {
 }
 
 /**
- * Map numCommande → composants en rupture ({art, qty}), source de vérité du pipeline
- * ruptures (loadOrderImpacts + buildShortageRows — cf. scheduler_controller.shortageRows).
- * Fenêtre large centrée sur maintenant (retards = dates passées). Réutilise les caches
- * boardDataset. Dégrade en map vide si X3 KO (la cause composant est non-bloquante).
+ * Map numCommande → verdict du moteur d'ordonnancement (statut + composants en rupture +
+ * ETA réception + joursRetard), source de vérité de la cause de retard suivi. Construite via
+ * le pipeline PARTAGÉ avec le board/ruptures (loadOrderImpacts + buildShortageRows — cf.
+ * scheduler_controller.shortageRows) → cohérence garantie suivi ↔ planification.
+ *
+ * Fenêtre large (-365 j → +14 j) : un RETARD_PROD a une date d'expédition passée, parfois de
+ * plusieurs mois ; le moteur doit la couvrir pour fournir le statut (sinon fallback heuristique).
+ * Le coût est masqué par les caches boardDataset. Dégrade en map vide si X3 KO (la cause moteur
+ * est non-bloquante → fallback heuristique, la page reste fonctionnelle).
  */
-async function buildShortageByOrder(): Promise<Map<string, { art: string; qty: number }[]>> {
+async function buildOrderCauses(): Promise<Map<string, OrderCauseInfo>> {
   const now = new Date()
   const from = new Date(now)
-  from.setDate(now.getDate() - 90)
+  from.setDate(now.getDate() - 365)
   from.setHours(0, 0, 0, 0)
   const to = new Date(now)
   to.setDate(now.getDate() + 14)
@@ -628,12 +670,39 @@ async function buildShortageByOrder(): Promise<Map<string, { art: string; qty: n
         })),
     )
     const { rows } = buildShortageRows(result, receptionsByArticle, articles, pegsIso)
-    const map = new Map<string, { art: string; qty: number }[]>()
+
+    // Agrège les lignes de rupture par commande : composants manquants + réception goulot
+    // (la plus tardive parmi les composants → détermine la dispo réelle de la commande).
+    const compsByOrder = new Map<string, { art: string; qty: number }[]>()
+    const recByOrder = new Map<string, CauseReception | null>()
     for (const r of rows) {
       if (!r.numCommande || r.qteManquante <= 0) continue
-      const arr = map.get(r.numCommande) ?? []
+      const arr = compsByOrder.get(r.numCommande) ?? []
       arr.push({ art: r.component, qty: r.qteManquante })
-      map.set(r.numCommande, arr)
+      compsByOrder.set(r.numCommande, arr)
+      if (r.reception) {
+        const prev = recByOrder.get(r.numCommande)
+        if (!prev || r.reception.dateArrivee > prev.eta) {
+          recByOrder.set(r.numCommande, {
+            eta: r.reception.dateArrivee,
+            po: r.reception.id,
+            supplier: r.reception.supplier,
+          })
+        }
+      }
+    }
+
+    // Une entrée par commande cliente évaluée par le moteur (les prévisions ne sont pas des
+    // engagements → ignorées). Porte le statut + joursRetard et, si bloquée, les composants.
+    const map = new Map<string, OrderCauseInfo>()
+    for (const o of result.orders) {
+      if (o.nature !== 'commande') continue
+      map.set(o.numCommande, {
+        statut: o.statut,
+        joursRetard: o.joursRetard,
+        components: compsByOrder.get(o.numCommande) ?? [],
+        reception: recByOrder.get(o.numCommande) ?? null,
+      })
     }
     return map
   } catch {
@@ -641,4 +710,48 @@ async function buildShortageByOrder(): Promise<Map<string, { art: string; qty: n
   }
 }
 
-export { recommendActions, buildStatusCounts }
+/**
+ * Map numCommande → entrée d'analyse rétrospective, pour les commandes peguées sur un OF.
+ * Charge en batch : composants réels de l'OF (MFGMAT), affermissement OF (MFGHEAD.CREDAT), et
+ * disponibilité statut A + réception brute de chaque composant (STOJOU). Tout est rattaché à la
+ * commande via son OF pegué (contremarque). Dégrade en map vide si X3 KO (fallback moteur).
+ *
+ * @param pegByOrder   numCommande → n° OF pegué (contremarque)
+ * @param expeByOrder  numCommande → date d'expédition
+ */
+async function buildRetroByOrder(
+  pegByOrder: Map<string, string>,
+  expeByOrder: Map<string, Date | null>,
+): Promise<Map<string, RetroCauseInput>> {
+  const out = new Map<string, RetroCauseInput>()
+  if (pegByOrder.size === 0) return out
+  try {
+    const ofNums = [...new Set([...pegByOrder.values()])]
+    const [materialsByOf, firmDates] = await Promise.all([
+      new X3MfgmatRepository().getMaterialsForOfs(ofNums),
+      new X3OfRepository().getFirmDates(ofNums),
+    ])
+
+    // Tous les articles composants (toutes commandes confondues) → une seule requête STOJOU.
+    const allComponents = new Set<string>()
+    for (const mats of materialsByOf.values()) for (const m of mats) if (m.article) allComponents.add(m.article)
+    const availability = await new X3StockAvailabilityRepository().getAvailabilityByArticle([...allComponents])
+
+    for (const [numCommande, ofNum] of pegByOrder) {
+      const mats = materialsByOf.get(ofNum)
+      if (!mats || mats.length === 0) continue // OF non affermi (pas de MFGMAT) → fallback moteur
+      out.set(numCommande, {
+        ofPegue: ofNum,
+        dateAffermissement: firmDates.get(ofNum) ?? null,
+        dateExpedition: expeByOrder.get(numCommande) ?? null,
+        composants: mats.map((m) => {
+          const av = availability.get(m.article)
+          return { art: m.article, dispoA: av?.dispoA ?? null, rawReception: av?.rawReception ?? null }
+        }),
+      })
+    }
+    return out
+  } catch {
+    return new Map()
+  }
+}

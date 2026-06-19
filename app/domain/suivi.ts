@@ -38,13 +38,179 @@ export type CauseType =
   | 'ATTENTE_RECEPTION_FOURNISSEUR'
   | 'AUCUN_OF_PLANIFIE'
   | 'RUPTURE_COMPOSANTS'
+  /** OF faisable mais planifié après la date d'expédition (retard pur d'ordonnancement). */
+  | 'RETARD_ORDONNANCEMENT'
+  /** Analyse rétro : OF affermi tard car un composant n'est devenu disponible que tardivement. */
+  | 'RETARD_COMPOSANT_TARDIF'
   | 'INCONNUE'
+
+/** Réception d'achat couvrant un composant manquant (ETA + n° d'achat), issue du moteur. */
+export interface CauseReception {
+  /** Date d'arrivée prévue ISO (YYYY-MM-DD). */
+  eta: string
+  /** N° de commande d'achat (PORDERQ.POHNUM). */
+  po: string
+  supplier: string
+}
 
 export interface RetardCause {
   typeCause: CauseType
   /** {article_composant: qté_manquante} — non vide seulement pour RUPTURE_COMPOSANTS. */
   composants: Record<string, number>
   message: string
+  /** ETA de la réception couvrant le composant goulot (RUPTURE_COMPOSANTS) — null sinon. */
+  reception?: CauseReception | null
+  /** Jours de retard d'ordonnancement (RETARD_ORDONNANCEMENT) — OF planifié après expé. */
+  joursRetard?: number
+  /** Analyse rétrospective (RETARD_COMPOSANT_TARDIF / RETARD_ORDONNANCEMENT rétro) — null sinon. */
+  retro?: RetroCause | null
+}
+
+/** Composant le plus tardif d'un OF (analyse rétrospective). */
+export interface RetroComposantTardif {
+  art: string
+  /** Date de disponibilité réelle (passage statut A) ISO YYYY-MM-DD. */
+  dispoA: string
+  /** Vrai si la pièce a séjourné en contrôle qualité (dispoA postérieure à la réception brute). */
+  viaControleQualite: boolean
+}
+
+/** Cause rétrospective : affermissement OF réel + composant disponible tardivement. */
+export interface RetroCause {
+  ofPegue: string
+  /** Date d'affermissement de l'OF (MFGHEAD.CREDAT) ISO YYYY-MM-DD. */
+  dateAffermissement: string | null
+  /** Date d'expédition commande ISO YYYY-MM-DD. */
+  dateExpedition: string | null
+  /** Composant retenu comme goulot (disponible tard) — null si aucun composant tardif. */
+  composantTardif: RetroComposantTardif | null
+}
+
+/** Entrée alimentant `analyzeRetroCause` (construite côté service depuis MFGMAT + MFGHEAD + STOJOU). */
+export interface RetroCauseInput {
+  ofPegue: string
+  dateAffermissement: Date | null
+  dateExpedition: Date | null
+  /** Composants réels de l'OF avec leur disponibilité (statut A) et réception brute. */
+  composants: { art: string; dispoA: Date | null; rawReception: Date | null }[]
+}
+
+const ISO_DAY = (d: Date | null): string | null => (d ? d.toISOString().slice(0, 10) : null)
+
+/**
+ * Analyse rétrospective de la cause d'un retard de production pour une ligne rattachée à un OF
+ * ferme. Identifie le composant dont la disponibilité réelle (statut A) est la plus tardive, et
+ * ne l'impute QUE s'il est arrivé tard : disponible à moins de `margeJours` avant l'expédition,
+ * ou après l'affermissement de l'OF. Sinon → `RETARD_ORDONNANCEMENT` (OF affermi tard sans
+ * composant tardif identifiable). Renvoie null si l'entrée est inexploitable (pas d'OF).
+ */
+export function analyzeRetroCause(input: RetroCauseInput, margeJours = 2): RetardCause | null {
+  if (!input.ofPegue) return null
+
+  // Composant disponible le plus tard (max dispoA). Les composants sans date connue sont ignorés.
+  let latest: { art: string; dispoA: Date; rawReception: Date | null } | null = null
+  for (const c of input.composants) {
+    if (!c.dispoA) continue
+    if (!latest || c.dispoA > latest.dispoA) latest = { art: c.art, dispoA: c.dispoA, rawReception: c.rawReception }
+  }
+
+  const retroBase: RetroCause = {
+    ofPegue: input.ofPegue,
+    dateAffermissement: ISO_DAY(input.dateAffermissement),
+    dateExpedition: ISO_DAY(input.dateExpedition),
+    composantTardif: null,
+  }
+
+  if (latest) {
+    // Seuil « arrivé tard » : dispo >= (expé − marge) OU dispo >= affermissement.
+    const expe = input.dateExpedition
+    const seuilExpe = expe ? new Date(expe.getTime() - margeJours * 86_400_000) : null
+    const tardVsExpe = seuilExpe ? latest.dispoA >= seuilExpe : false
+    const tardVsAffermissement = input.dateAffermissement ? latest.dispoA >= input.dateAffermissement : false
+
+    if (tardVsExpe || tardVsAffermissement) {
+      const viaCq = !!(latest.rawReception && latest.dispoA > latest.rawReception)
+      return {
+        typeCause: 'RETARD_COMPOSANT_TARDIF',
+        composants: {},
+        message: '',
+        retro: {
+          ...retroBase,
+          composantTardif: { art: latest.art, dispoA: ISO_DAY(latest.dispoA)!, viaControleQualite: viaCq },
+        },
+      }
+    }
+  }
+
+  // OF affermi mais aucun composant tardif identifié → retard d'ordonnancement (affermissement↔expé).
+  let joursRetard = 0
+  if (input.dateAffermissement && input.dateExpedition && input.dateAffermissement > input.dateExpedition) {
+    joursRetard = Math.round((input.dateAffermissement.getTime() - input.dateExpedition.getTime()) / 86_400_000)
+  }
+  return {
+    typeCause: 'RETARD_ORDONNANCEMENT',
+    composants: {},
+    message: 'OF affermi en retard',
+    joursRetard,
+    retro: retroBase,
+  }
+}
+
+/** Statut de service d'une commande tel que produit par le moteur de faisabilité. */
+export type EngineStatut = 'on_time' | 'stock' | 'retard' | 'bloquee' | 'sans_couverture'
+
+/**
+ * Verdict du moteur d'ordonnancement (loadOrderImpacts) agrégé par commande — source unique
+ * de vérité de la cause de retard suivi. Construit côté service à partir du même pipeline que
+ * la page ruptures, puis traduit en RetardCause par `mapEngineCause`.
+ */
+export interface OrderCauseInfo {
+  statut: EngineStatut
+  joursRetard: number
+  /** Composants en rupture ({art, qty}) — non vide seulement si statut = 'bloquee'. */
+  components: { art: string; qty: number }[]
+  /** Réception couvrant le composant goulot (la plus tardive) — null si aucune. */
+  reception: CauseReception | null
+}
+
+/**
+ * Traduit le verdict moteur d'une commande en cause de retard (source unique de vérité).
+ * `lineIsFabrique` discrimine, en l'absence de supply (`sans_couverture`), entre « aucun OF
+ * planifié » (article fabriqué) et « attente réception fournisseur » (article acheté).
+ */
+export function mapEngineCause(info: OrderCauseInfo, lineIsFabrique: boolean): RetardCause | null {
+  switch (info.statut) {
+    case 'bloquee':
+      return {
+        typeCause: 'RUPTURE_COMPOSANTS',
+        composants: Object.fromEntries(info.components.map((c) => [c.art, c.qty])),
+        message: '',
+        reception: info.reception,
+      }
+    case 'sans_couverture':
+      return lineIsFabrique
+        ? { typeCause: 'AUCUN_OF_PLANIFIE', composants: {}, message: 'Aucun OF planifié' }
+        : {
+            typeCause: 'ATTENTE_RECEPTION_FOURNISSEUR',
+            composants: {},
+            message: 'Attente réception fournisseur',
+          }
+    case 'retard':
+      return {
+        typeCause: 'RETARD_ORDONNANCEMENT',
+        composants: {},
+        message: 'OF planifié en retard',
+        joursRetard: info.joursRetard,
+      }
+    case 'stock':
+    case 'on_time':
+      // Faisable selon le moteur : le retard ne vient pas de la production → stock à allouer/expédier.
+      return {
+        typeCause: 'STOCK_DISPONIBLE_NON_ALLOUE',
+        composants: {},
+        message: 'Stock disponible — non alloué',
+      }
+  }
 }
 
 /**
@@ -88,6 +254,11 @@ export interface OrderLine {
   qteRestante: number
   isFabrique: boolean
   isHardPegged: boolean
+  /**
+   * N° de l'OF rattaché par contremarque (SORDERQ.FMINUM_0). Permet l'analyse rétrospective
+   * (affermissement + composant tardif). Null si la commande n'est pas peguée sur un OF.
+   */
+  ofPegue?: string | null
   /** Emplacements de stock (zone d'expédition). Vide si la donnée ERP n'est pas chargée. */
   emplacements?: Emplacement[]
   /** True si les allocations X3 (MTS) portent sur du stock sous CQ. */
@@ -472,6 +643,8 @@ export function causeToDisplayString(cause: RetardCause): string {
       return 'Attente réception fournisseur'
     case 'AUCUN_OF_PLANIFIE':
       return 'Aucun OF planifié'
+    case 'RETARD_ORDONNANCEMENT':
+      return cause.joursRetard ? `OF planifié en retard — ${cause.joursRetard} j` : 'OF planifié en retard'
     case 'RUPTURE_COMPOSANTS': {
       const parts = Object.entries(cause.composants)
         .sort(([a], [b]) => a.localeCompare(b))

@@ -1,5 +1,6 @@
 import type { Flow } from '#app/domain/models/flow'
 import MfgItem from '#models/x3/mfgitm'
+import MfgHead from '#models/x3/mfghead'
 import LocalMenu from '#models/local_menu'
 import { parseX3Date } from '#app/x3/utils/parse_date'
 
@@ -71,6 +72,32 @@ export class X3OfRepository {
         },
       }
     })
+  }
+
+  /**
+   * Date d'affermissement (= création de l'OF ferme) par numéro d'OF, lue dans l'en-tête
+   * MFGHEAD.CREDAT_0. Quand une suggestion CBN est affermie, X3 crée une nouvelle ligne MFGHEAD :
+   * cette date matérialise le « lancement » réel de l'OF. Batch (chunk IN 1000). Les OF absents
+   * (suggestions non affermies, sans MFGHEAD) ne figurent simplement pas dans la map.
+   */
+  async getFirmDates(numOfs: string[]): Promise<Map<string, Date>> {
+    const unique = [...new Set(numOfs.map((n) => n.trim()).filter(Boolean))]
+    const out = new Map<string, Date>()
+    if (unique.length === 0) return out
+
+    const CHUNK = 1000
+    for (let i = 0; i < unique.length; i += CHUNK) {
+      const chunk = unique.slice(i, i + CHUNK)
+      const rows = await MfgHead.query()
+        .select('MFGHEAD.MFGNUM_0 AS MFGNUM_0', 'MFGHEAD.CREDAT_0 AS CREDAT_RAW')
+        .whereIn('MFGHEAD.MFGNUM_0', chunk)
+      for (const row of rows) {
+        const numOf = (row.$extras.MFGNUM_0 as string | null)?.trim() ?? ''
+        const date = parseX3Date(row.$extras.CREDAT_RAW)
+        if (numOf && date) out.set(numOf, date)
+      }
+    }
+    return out
   }
 
   async getManufacturingOrders(): Promise<ManufacturingOrder[]> {
