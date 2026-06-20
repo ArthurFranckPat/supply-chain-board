@@ -55,6 +55,10 @@ export interface ShortComponentNode {
   stockQc?: number
   quantityMissing: number
   earliestReception: string | null
+  /** Fournisseur de la prochaine réception attendue (BPSNAM_0). */
+  receptionSupplier?: string
+  /** Numéro de commande d'achat de la prochaine réception (POHNUM_0). */
+  receptionOrderId?: string
   fabricated: boolean
   /** Pour un composant fabriqué : les OF/suggestions couvrants, descendus. */
   covering: CoveringOf[]
@@ -117,6 +121,8 @@ interface RawShort {
   qcAvailable: number // stock sous CQ (non dispo immédiatement)
   qtyMissing: number
   earliestReception: string | null
+  receptionSupplier?: string
+  receptionOrderId?: string
 }
 
 const DEFAULT_MAX_DEPTH = 10
@@ -233,6 +239,8 @@ export class RecursiveDiagnosticChecker {
           ...(s.qcAvailable > 0 ? { stockQc: s.qcAvailable } : {}),
           quantityMissing: s.qtyMissing,
           earliestReception: s.earliestReception,
+          ...(s.receptionSupplier ? { receptionSupplier: s.receptionSupplier } : {}),
+          ...(s.receptionOrderId ? { receptionOrderId: s.receptionOrderId } : {}),
           fabricated: false,
           covering: [],
           status,
@@ -255,6 +263,8 @@ export class RecursiveDiagnosticChecker {
         available: s.available,
         quantityMissing: s.qtyMissing,
         earliestReception: s.earliestReception,
+        ...(s.receptionSupplier ? { receptionSupplier: s.receptionSupplier } : {}),
+        ...(s.receptionOrderId ? { receptionOrderId: s.receptionOrderId } : {}),
         fabricated: true,
         covering,
         status: this.classifyFabricated(s, covering),
@@ -320,7 +330,7 @@ export class RecursiveDiagnosticChecker {
         available: m.available,
         qcAvailable: this.qcForArticle(m.article),
         qtyMissing: m.missing,
-        earliestReception: await this.earliestReception(m.article),
+        ...await this.receptionFields(m.article),
       })
     }
     return out
@@ -348,7 +358,7 @@ export class RecursiveDiagnosticChecker {
           available,
           qcAvailable: this.qcForArticle(article),
           qtyMissing: Math.max(0, qteBesoin - available),
-          earliestReception: await this.earliestReception(article),
+          ...await this.receptionFields(article),
         },
       ]
     }
@@ -376,7 +386,7 @@ export class RecursiveDiagnosticChecker {
           available,
           qcAvailable,
           qtyMissing: missing,
-          earliestReception: await this.earliestReception(entry.componentArticle),
+          ...await this.receptionFields(entry.componentArticle),
         })
       }
     }
@@ -422,13 +432,21 @@ export class RecursiveDiagnosticChecker {
    * futures : une réception attendue il y a peu (transporteur en retard, réception non
    * pointée) reste la prochaine arrivée réelle. Fenêtre = [aujourd'hui − GRACE_DAYS, +∞[.
    */
-  private async earliestReception(article: string): Promise<string | null> {
+  private async receptionFields(
+    article: string,
+  ): Promise<{ earliestReception: string | null; receptionSupplier?: string; receptionOrderId?: string }> {
     const floor = new Date(this.checkDate)
     floor.setDate(floor.getDate() - RECEPTION_GRACE_DAYS)
     const candidates = (await this.loader.getReceptions(article))
       .filter((r) => r.date >= floor)
       .sort((a, b) => a.date.getTime() - b.date.getTime())
-    return candidates[0] ? formatDate(candidates[0].date) : null
+    const r = candidates[0]
+    if (!r) return { earliestReception: null }
+    return {
+      earliestReception: formatDate(r.date),
+      receptionSupplier: r.supplier || undefined,
+      receptionOrderId: r.id || undefined,
+    }
   }
 
   private dateBesoin(of: OfRecord): Date {

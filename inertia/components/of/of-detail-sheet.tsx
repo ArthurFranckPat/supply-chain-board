@@ -32,6 +32,8 @@ interface DiagShort {
   stockQc?: number
   quantityMissing: number
   earliestReception: string | null
+  receptionSupplier?: string
+  receptionOrderId?: string
   fabricated: boolean
   covering: DiagCovering[]
   status: NodeStatus
@@ -112,7 +114,7 @@ const DiagColHeader: Component = () => (
     <span class="w-9 flex-none text-right">Besoin</span>
     <span class="w-9 flex-none text-right">Dispo</span>
     <span class="w-10 flex-none text-right">Manque</span>
-    <span class="w-[6.5rem] flex-none">Réception</span>
+    <span class="w-[13rem] flex-none">Réception prévue</span>
   </div>
 )
 
@@ -151,12 +153,25 @@ const DiagRow: Component<{ short: DiagShort }> = (p) => (
     <span class="w-10 flex-none text-right font-mono text-[11px] font-bold text-destructive">
       −{p.short.quantityMissing}
     </span>
-    <span class="w-[6.5rem] flex-none font-mono text-[11px] text-terra">
-      <Show when={p.short.earliestReception}>réc. {fmtDateFr(p.short.earliestReception)}</Show>
+    <div class="w-[13rem] flex-none font-mono text-[10px]">
+      <Show when={p.short.earliestReception}>
+        <div class="flex flex-col gap-0.5">
+          <Show when={p.short.receptionSupplier}>
+            <span class="font-semibold text-foreground truncate">{p.short.receptionSupplier}</span>
+          </Show>
+          <div class="flex items-center gap-1.5 text-muted-foreground">
+            <Show when={p.short.receptionOrderId}>
+              <span class="text-[9px] font-mono">{p.short.receptionOrderId}</span>
+              <span class="text-border">·</span>
+            </Show>
+            <span class="text-terra">réc. {fmtDateFr(p.short.earliestReception)}</span>
+          </div>
+        </div>
+      </Show>
       <Show when={p.short.status === 'qc_a_controler' && !p.short.earliestReception}>
         <span class="text-warning">lever CQ</span>
       </Show>
-    </span>
+    </div>
   </div>
 )
 
