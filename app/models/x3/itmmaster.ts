@@ -477,6 +477,9 @@ export default class ItemMaster extends BaseModel {
   @column({ columnName: 'TSICOD_0' })
   declare familleStatistique: string | null
 
+  @column({ columnName: 'TSICOD_4' })
+  declare familleStatistique4: string | null
+
   @column({ columnName: 'UNNBR_0' })
   declare numeroOnu: string | null
 

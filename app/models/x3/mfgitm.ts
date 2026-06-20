@@ -158,6 +158,9 @@ export default class MfgItem extends BaseModel {
   @column({ columnName: 'TSICOD_0' })
   declare familleStatistique: string | null
 
+  @column({ columnName: 'TSICOD_4' })
+  declare familleStatistique4: string | null
+
   @column({ columnName: 'UOM_0' })
   declare uniteLancement: string | null
 
