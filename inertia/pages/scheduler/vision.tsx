@@ -485,17 +485,6 @@ const Vision: Component<VisionProps> = (props) => {
             {store.feasLoading() ? 'Calcul…' : 'Faisabilité'}
           </Button>
         </div>
-
-        {/* Légende liens (spécifique vision) */}
-        <div class="flex items-center gap-3 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
-          <span class="flex items-center gap-1.5">
-            <span class="inline-block h-0 w-5 border-t-2 border-terra" /> OF → commande
-          </span>
-          <span class="flex items-center gap-1.5">
-            <span class="inline-block h-0 w-5 border-t-2 border-dashed border-terra/50" /> suggéré
-          </span>
-          <span class="text-muted-foreground/70 normal-case">— survolez un OF ou une commande</span>
-        </div>
       </div>
 
       <Show when={props.x3Error}>
