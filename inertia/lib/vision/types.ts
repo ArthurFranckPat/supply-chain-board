@@ -37,10 +37,15 @@ export interface VisionPosteRow {
 }
 
 export interface VisionCommande {
+  /** Identité LIGNE (numCommande#ligne) — clé des liens. */
   id: string
   numCommande: string
+  /** N° de ligne de commande (X3 VCRLIN_0) ; null pour les prévisions. */
+  ligne: string | null
   client: string | null
   dateExpeditionIso: string | null
+  /** Type de commande (MTS / MTO / NOR). */
+  type: string | null
   /** Index de colonne (date d'expédition) dans la fenêtre. */
   col: number
 }

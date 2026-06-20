@@ -1,4 +1,4 @@
-import { For, Show, createMemo, createSignal } from 'solid-js'
+import { For, Show, createMemo, createSignal, type JSX } from 'solid-js'
 import { cx } from '@/libs/cva'
 import type { BoardStore } from '@/lib/board/store'
 import type { Card, LineRow } from '@/lib/board/types'
@@ -26,15 +26,15 @@ const GRAPH_PAPER =
 /** Status backend (string) → ton BoardCard. */
 const STATUS_MAP: Record<string, CardStatus> = {
   ferme: 'ferme',
-  'planifie': 'planifie',
-  'planifié': 'planifie',
+  planifie: 'planifie',
+  planifié: 'planifie',
   suggere: 'suggere',
-  'suggéré': 'suggere',
+  suggéré: 'suggere',
   cours: 'cours',
   termine: 'termine',
-  'terminé': 'termine',
+  terminé: 'termine',
   bloque: 'bloque',
-  'bloqué': 'bloque',
+  bloqué: 'bloque',
 }
 const toStatus = (s: string): CardStatus => STATUS_MAP[s] ?? 'planifie'
 
@@ -54,6 +54,18 @@ const r1 = (n: number) => Math.round(n * 100) / 100
 export default function BoardGrid(props: {
   store: BoardStore
   onSelectOf?: (num: string) => void
+  /** Contenu additionnel rendu DANS chaque cellule, après les cartes OF
+   *  (ex. marqueurs commande de la vue Vision). Optionnel → board inchangé. */
+  cellExtra?: (lineCode: string, col: number) => JSX.Element
+  /** Réf. du conteneur scrollé interne (pour un calque mesuré au DOM). */
+  contentRef?: (el: HTMLDivElement) => void
+  /** Calque superposé (ex. liens SVG Vision), rendu au-dessus de la grille. */
+  overlay?: JSX.Element
+  /** Survol d'une carte OF (numOf au survol, null à la sortie). Optionnel. */
+  onCardHover?: (numOf: string | null) => void
+  /** Drop d'un élément externe (non-OF) dans une cellule — ex. marqueur commande
+   *  Vision déplacé à une autre date. L'élément se lit dans `e.dataTransfer`. */
+  onCellDrop?: (lineCode: string, col: number, iso: string, e: DragEvent) => void
 }) {
   const { store } = props
   const [draggedNumOf, setDraggedNumOf] = createSignal<string | null>(null)
@@ -125,7 +137,7 @@ export default function BoardGrid(props: {
 
   return (
     <div class="h-full overflow-auto bg-background">
-      <div style={{ 'min-width': minWidth() }}>
+      <div ref={props.contentRef} class="relative" style={{ 'min-width': minWidth() }}>
         {/* ═══ En-tête collant (semaines + jours) ═══ */}
         <div class="sticky top-0 z-30 bg-background shadow-[0_2px_10px_-4px_rgba(31,26,19,.18)]">
           {/* Bande semaines */}
@@ -162,13 +174,13 @@ export default function BoardGrid(props: {
                 <div
                   class={cx(
                     'border-b border-r border-rule-soft bg-card px-2.5 py-1.5 text-center',
-                    day.today && 'bg-terra-soft',
+                    day.today && 'bg-terra-soft'
                   )}
                 >
                   <div
                     class={cx(
                       'font-mono text-[9px] font-bold tracking-[0.1em]',
-                      day.today ? 'text-terra' : 'text-muted-foreground',
+                      day.today ? 'text-terra' : 'text-muted-foreground'
                     )}
                   >
                     {day.short.replace(/\s*\d+\s*$/, '')}
@@ -176,7 +188,7 @@ export default function BoardGrid(props: {
                   <div
                     class={cx(
                       'font-fraunces text-[19px] font-bold leading-none tracking-tight',
-                      day.today ? 'text-terra italic' : 'text-foreground',
+                      day.today ? 'text-terra italic' : 'text-foreground'
                     )}
                   >
                     {dayNum(di())}
@@ -196,7 +208,10 @@ export default function BoardGrid(props: {
           {(line) => (
             <div
               class="grid border-b border-rule-soft"
-              style={{ 'grid-template-columns': gridTpl(), display: store.lineVisible(line.code) ? 'grid' : 'none' }}
+              style={{
+                'grid-template-columns': gridTpl(),
+                'display': store.lineVisible(line.code) ? 'grid' : 'none',
+              }}
             >
               {/* En-tête de poste (collant à gauche) */}
               <div class="sticky left-0 z-20 flex flex-col gap-1.5 overflow-hidden border-r border-rule bg-card px-3.5 py-3">
@@ -211,7 +226,11 @@ export default function BoardGrid(props: {
                   </span>
                 </div>
                 <span class="text-[11px] leading-tight text-muted-foreground">{line.name}</span>
-                <ChargeHistogram weeks={lineCharge(line)} maxHours={maxLineHours()} variant="line" />
+                <ChargeHistogram
+                  weeks={lineCharge(line)}
+                  maxHours={maxLineHours()}
+                  variant="line"
+                />
               </div>
 
               {/* Cellules */}
@@ -223,12 +242,16 @@ export default function BoardGrid(props: {
                     <div
                       class={cx(
                         'relative flex min-h-[96px] flex-col gap-2 border-r border-rule-soft bg-card p-2',
-                        isToday && 'bg-terra-soft',
+                        isToday && 'bg-terra-soft'
                       )}
-                      style={{ 'background-image': isToday ? undefined : GRAPH_PAPER, 'background-size': '22px 22px' }}
+                      style={{
+                        'background-image': isToday ? undefined : GRAPH_PAPER,
+                        'background-size': '22px 22px',
+                      }}
                       classList={{ 'ring-2 ring-terra/70 ring-inset': dropCol() === cellKey }}
                       onDragOver={(e) => {
-                        if (!draggedNumOf()) return
+                        // Drag interne (carte OF) OU externe (ex. commande Vision via onCellDrop).
+                        if (!draggedNumOf() && !props.onCellDrop) return
                         e.preventDefault()
                         if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
                         setDropCol(cellKey)
@@ -236,9 +259,12 @@ export default function BoardGrid(props: {
                       onDrop={(e) => {
                         const num = draggedNumOf()
                         setDropCol(null)
-                        if (!num) return
                         e.preventDefault()
-                        store.moveCard(num, line.code, ci(), dc.iso)
+                        if (num) {
+                          store.moveCard(num, line.code, ci(), dc.iso)
+                        } else {
+                          props.onCellDrop?.(line.code, ci(), dc.iso, e)
+                        }
                       }}
                     >
                       <For each={dc.cards}>
@@ -248,12 +274,14 @@ export default function BoardGrid(props: {
                             card={card}
                             line={line}
                             onSelectOf={props.onSelectOf}
+                            onCardHover={props.onCardHover}
                             draggedNumOf={draggedNumOf}
                             setDraggedNumOf={setDraggedNumOf}
                             setDropCol={setDropCol}
                           />
                         )}
                       </For>
+                      {props.cellExtra?.(line.code, ci())}
                     </div>
                   )
                 }}
@@ -261,6 +289,7 @@ export default function BoardGrid(props: {
             </div>
           )}
         </For>
+        {props.overlay}
       </div>
     </div>
   )
@@ -271,6 +300,7 @@ function CardView(props: {
   card: Card
   line: LineRow
   onSelectOf?: (num: string) => void
+  onCardHover?: (numOf: string | null) => void
   draggedNumOf: () => string | null
   setDraggedNumOf: (v: string | null) => void
   setDropCol: (v: string | null) => void
@@ -284,7 +314,9 @@ function CardView(props: {
   }
   const alert = () => {
     const f = store.feasOf(card.id)
-    return f && f.st === 'blocked' && f.missing.length ? `Rupture ${f.missing.join(', ')}` : undefined
+    return f && f.st === 'blocked' && f.missing.length
+      ? `Rupture ${f.missing.join(', ')}`
+      : undefined
   }
   return (
     <div
@@ -292,7 +324,12 @@ function CardView(props: {
       tabindex={matches() ? 0 : -1}
       draggable={matches()}
       data-num-of={card.id}
-      class={cx('cursor-pointer transition-opacity', !matches() && 'pointer-events-none opacity-15')}
+      class={cx(
+        'cursor-pointer transition-opacity',
+        !matches() && 'pointer-events-none opacity-15'
+      )}
+      onMouseEnter={() => props.onCardHover?.(card.id)}
+      onMouseLeave={() => props.onCardHover?.(null)}
       onClick={() => {
         if (matches() && props.onSelectOf) props.onSelectOf(card.id)
       }}

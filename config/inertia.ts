@@ -29,23 +29,8 @@ declare module '@adonisjs/inertia/types' {
     weekCaps: Record<string, number>
   }
 
-  /**
-   * Forme du payload `board` de la vue unifiée OF ↔ commandes (issue #21).
-   * Miroir client précis : `inertia/lib/vision/types.ts`.
-   */
-  type VisionBoardProp = {
-    cols: number
-    days: { short: string; iso: string; today: boolean }[]
-    weekSpans: { week: number; span: number }[]
-    colWeek: number[]
-    weekCaps: Record<string, number>
-    postes: any[]
-    commandes: any[]
-    links: any[]
-  }
-
   interface InertiaPages {
-    home: { message: string }
+    'home': { message: string }
     'auth/login': {
       lastUsername: string
       lastEnv: 'test' | 'prod'
@@ -96,7 +81,11 @@ declare module '@adonisjs/inertia/types' {
       proactiveRowsHref: string
     }
     'scheduler/vision': {
-      board: VisionBoardProp
+      // Board IDENTIQUE à /ordonnancement (réutilise <BoardGrid>) + commandes/liens
+      // en overlay. Miroirs client : BoardData + VisionCommande/VisionLink.
+      board: BoardProp
+      commandes: any[]
+      links: any[]
       windowFrom: string
       windowTo: string
       horizon: number

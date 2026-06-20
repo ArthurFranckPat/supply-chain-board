@@ -1,4 +1,5 @@
 import type { HttpContext } from '@adonisjs/core/http'
+import cache from '@adonisjs/cache/services/main'
 import boardDataset from '#services/board_dataset'
 import { OverrideStore } from '#services/override_store'
 import { X3MfgmatRepository } from '#repositories/mfgmat_repository'
@@ -8,7 +9,6 @@ import type { GammeOperation } from '#app/domain/models/gamme'
 import { loadOrderImpacts } from '#services/order_impacts_loader'
 import { buildShortageRows, type ShortageRow } from '#app/domain/shortages'
 import { loadReceptionsByArticle } from '#repositories/reception_repository'
-import { X3OrderLineRepository, type OfCommandePeg } from '#repositories/order_line_repository'
 
 // ---------------------------------------------------------------------------
 type CardStatus = 'termine' | 'ferme' | 'cours' | 'planifie' | 'suggere' | 'bloque'
@@ -276,42 +276,21 @@ function moToCard(mo: ManufacturingOrder, rate: number, workstationLabel: string
 }
 
 // ---------------------------------------------------------------------------
-// Issue #21 — Vision unifiée OF ↔ commandes (payload dédié, léger).
-// Cartes OF sur postes×jours (date de début) + marqueurs commandes (date
-// d'expédition) + liens OF→commande. PAS de rang CBN ni de seuil « trop tôt »
-// (hors scope) — le cœur = voir l'OF et sa commande reliés, chacun à sa date.
+// Issue #21 — Vision unifiée OF ↔ commandes. Le board est IDENTIQUE à
+// /ordonnancement (réutilise loadBoardData + <BoardGrid>) ; vision n'ajoute que
+// les marqueurs commande (date d'expédition) et les liens OF→commande en overlay.
 // ---------------------------------------------------------------------------
 
-interface VisionOfCard {
-  numOf: string
-  status: CardStatus
-  article: string
-  designation: string | null
-  posteCode: string
-  posteLabel: string
-  done: number
-  launched: number
-  hours: number
-}
-
-interface VisionDayCell {
-  iso: string
-  ofs: VisionOfCard[]
-}
-
-interface VisionPosteRow {
-  code: string
-  name: string
-  ofCount: number
-  totalHours: number
-  dayCells: VisionDayCell[]
-}
-
 interface VisionCommande {
+  /** Identité LIGNE (numCommande#ligne) — clé des liens. */
   id: string
   numCommande: string
+  /** N° de ligne de commande (X3 VCRLIN_0) ; null pour les prévisions. */
+  ligne: string | null
   client: string | null
   dateExpeditionIso: string | null
+  /** Type de commande (MTS / MTO / NOR). */
+  type: string | null
   /** Index de colonne (date d'expédition) dans la fenêtre. */
   col: number
 }
@@ -326,23 +305,6 @@ interface VisionLink {
   cmdCol: number
   /** OF suggéré (CBN non affermi) → lien en pointillé côté client. */
   suggere: boolean
-}
-
-interface VisionDayCol {
-  short: string
-  iso: string
-  today: boolean
-}
-
-interface VisionBoard {
-  days: VisionDayCol[]
-  cols: number
-  weekSpans: { week: number; span: number }[]
-  colWeek: number[]
-  weekCaps: Record<string, number>
-  postes: VisionPosteRow[]
-  commandes: VisionCommande[]
-  links: VisionLink[]
 }
 
 // ---------------------------------------------------------------------------
@@ -379,6 +341,8 @@ export default class SchedulerController {
     const data = await this.loadVisionData(ctx)
     return ctx.inertia.render('scheduler/vision', {
       board: data.board,
+      commandes: data.commandes,
+      links: data.links,
       windowFrom: data.windowFrom,
       windowTo: data.windowTo,
       horizon: data.horizon,
@@ -398,10 +362,11 @@ export default class SchedulerController {
    * Payload de la vue unifiée OF ↔ commandes.
    *
    * Réutilise la même logique de placement que loadBoardData (OF posés en date de
-   * début sur les postes de charge), puis ajoute le pegging OF→commande via la
-   * contremarque X3 (getCommandesByOf) pour matérialiser le lien visuel. Les
-   * commandes dont l'expédition sort de la fenêtre ne sont ni marquées ni liées
-   * (vue scoppée à l'horizon) ; un échec du pegging est non-fatal (board sans liens).
+   * début sur les postes de charge), puis rattache chaque commande à ses OF via
+   * l'algorithme de matching existant (`loadOrderImpacts` → CommandeOFMatcher,
+   * source de vérité partagée board/ruptures). Chaque commande est posée sur la
+   * rangée du poste de l'OF qui la couvre, à sa date d'expédition ; un lien
+   * horizontal matérialise le rattachement. Échec non-fatal (board sans liens).
    */
   private async loadVisionData(ctx: HttpContext, basePath = '/vision') {
     const startParam = ctx.request.input('start') as string | undefined
@@ -412,197 +377,109 @@ export default class SchedulerController {
     const windowStart = startParam ? new Date(startParam) : new Date()
     windowStart.setHours(0, 0, 0, 0)
 
-    let mos: ManufacturingOrder[] = []
-    let gammeOps: GammeOperation[] = []
-    let x3Error: string | null = null
-    try {
-      const [ref, ord] = await Promise.all([boardDataset.getReferential(force), boardDataset.getOrders(force)])
-      gammeOps = ref.gamme
-      mos = ord.mos
-    } catch (e) {
-      x3Error = (e as Error).message
+    // Cache du payload calculé (matcher + faisabilité = partie coûteuse), namespacé
+    // par utilisateur comme board/suivi (issue #20). TTL court : sources X3 vivantes.
+    // ?refresh=1 invalide la clé → recalcul. Sérialisable (superjson) : ISO partout.
+    const visionCache = () => {
+      const userId = ctx.auth?.user?.id
+      return cache.namespace(userId ? `vision:user_${userId}` : 'vision')
     }
+    const cacheKey = `payload:${basePath}:${isoDay(windowStart)}:${horizon}`
+    if (force) await visionCache().delete({ key: cacheKey })
 
-    const overrides = await this.store.getAll()
-    const overrideMap = new Map(overrides.map((o) => [o.numOf, o]))
-    const gammeMap = new Map(gammeOps.map((g) => [g.article, g]))
-    const wstLabels = new Map<string, string>()
-    for (const g of gammeOps) {
-      if (g.workstation) wstLabels.set(g.workstation, g.workstationLabel || g.workstation)
-    }
+    return visionCache().getOrSet({
+      key: cacheKey,
+      ttl: 2 * 60 * 1000,
+      factory: async () => {
+        // Board IDENTIQUE à /ordonnancement : on réutilise loadBoardData tel quel
+        // (côté front, le MÊME composant <BoardGrid> → charge/jour, histogramme
+        // hebdo, recherche, drag&drop). Seul ajout vision : commandes + liens en
+        // overlay, dérivés du même board (aucune grille réécrite).
+        const data = await this.loadBoardData(ctx, basePath)
+        let x3Error = data.x3Error
 
-    // Jours ouvrés dans l'horizon.
-    const colDates: Date[] = []
-    for (let i = 0; i < horizon; i++) {
-      const d = atMidnight(windowStart)
-      d.setDate(windowStart.getDate() + i)
-      const dow = d.getDay()
-      if (dow !== 0 && dow !== 6) colDates.push(d)
-    }
-    const colIdx = new Map<string, number>()
-    colDates.forEach((d, i) => colIdx.set(isoDay(d), i))
-    const now = atMidnight(new Date())
+        // numOf → poste/colonne et iso → colonne, reconstruits depuis le board bâti.
+        const placedByOf = new Map<string, { posteCode: string; col: number }>()
+        const colIdx = new Map<string, number>()
+        data.board.lines[0]?.dayCells.forEach((dc, i) => colIdx.set(dc.iso, i))
+        for (const line of data.board.lines) {
+          line.dayCells.forEach((dc, col) => {
+            for (const card of dc.cards) placedByOf.set(card.id, { posteCode: line.code, col })
+          })
+        }
 
-    const days: VisionDayCol[] = colDates.map((d) => ({
-      short: `${d.toLocaleDateString('fr-FR', { weekday: 'short' })} ${d.toLocaleDateString('fr-FR', { day: '2-digit' })}`,
-      iso: isoDay(d),
-      today: atMidnight(d).getTime() === now.getTime(),
-    }))
+        // Matching OF ↔ commande via l'algorithme existant (CommandeOFMatcher), exposé
+        // par loadOrderImpacts : chaque commande de la fenêtre porte ses OF alloués
+        // (MTS/MTO/NOR). Non-fatal : board sans liens si X3 indisponible.
+        const windowTo = new Date(windowStart)
+        windowTo.setDate(windowTo.getDate() + horizon)
+        windowTo.setHours(23, 59, 59, 999)
 
-    // Placement des OF sur poste × jour (date de début).
-    type Placed = {
-      mo: ManufacturingOrder
-      posteCode: string
-      posteLabel: string
-      col: number
-      hours: number
-    }
-    const byPoste = new Map<string, { ofCount: number; totalHours: number; cells: Placed[][] }>()
-    const placed: Placed[] = []
+        // Identité au niveau LIGNE de commande (pas commande) : un OrderImpactRow =
+        // une ligne (un demand flow / VCRLIN_0) avec ses propres OF. Deux lignes
+        // d'une même commande (même article possible) restent distinctes → un OF
+        // n'est rattaché qu'au marqueur de SA ligne, jamais à une autre.
+        const commandeByLine = new Map<string, VisionCommande>()
+        const links: VisionLink[] = []
+        try {
+          const { result } = await loadOrderImpacts({ from: windowStart, to: windowTo, force })
+          result.orders.forEach((order, i) => {
+            const col = colIdx.get(order.dateExpedition)
+            if (col === undefined) return
+            const ligne = order.ligne ?? null
+            // Clé unique de ligne ; repli indexé si pas de n° de ligne (prévision).
+            const lineId = `${order.numCommande}#${ligne ?? `i${i}`}`
+            let linked = false
+            for (const of of order.ofs) {
+              const placedOf = placedByOf.get(of.numOf)
+              if (!placedOf) continue // OF non posé sur le board (hors fenêtre / sans poste)
+              links.push({
+                ofId: of.numOf,
+                posteCode: placedOf.posteCode,
+                ofCol: placedOf.col,
+                commandeId: lineId,
+                cmdCol: col,
+                suggere: of.statutNum === 3,
+              })
+              linked = true
+            }
+            // Marqueur posé seulement si au moins un OF la relie (sinon bruit : ligne couverte stock).
+            if (linked && !commandeByLine.has(lineId)) {
+              commandeByLine.set(lineId, {
+                id: lineId,
+                numCommande: order.numCommande,
+                ligne,
+                client: order.client || null,
+                dateExpeditionIso: order.dateExpedition,
+                col,
+                type: order.typeCommande || null,
+              })
+            }
+          })
+        } catch (e) {
+          if (!x3Error) x3Error = (e as Error).message
+        }
+        const commandes = [...commandeByLine.values()]
 
-    for (const mo of mos) {
-      const ov = overrideMap.get(mo.numOf) ?? null
-      const wst = ov?.workstation ?? gammeMap.get(mo.article)?.workstation ?? null
-      if (!wst) continue
-      if (!wstLabels.has(wst)) wstLabels.set(wst, wst)
-
-      const start = ov?.dateDebut ? new Date(ov.dateDebut) : mo.startDate
-      if (!start) continue
-      const idx = colIdx.get(isoDay(start))
-      if (idx === undefined) continue
-
-      const rate = gammeMap.get(mo.article)?.rate ?? 0
-      const hours = rate > 0 ? mo.quantity / rate : 0
-      const p: Placed = { mo, posteCode: wst, posteLabel: wstLabels.get(wst) ?? wst, col: idx, hours }
-      placed.push(p)
-
-      if (!byPoste.has(wst)) {
-        byPoste.set(wst, {
-          ofCount: 0,
-          totalHours: 0,
-          cells: Array.from({ length: colDates.length }, () => []),
-        })
-      }
-      const entry = byPoste.get(wst)!
-      entry.ofCount++
-      entry.totalHours += hours
-      entry.cells[idx].push(p)
-    }
-
-    // Pegging OF → commande (contremarque X3). Non-fatal : board sans liens si échec.
-    let pegs = new Map<string, OfCommandePeg>()
-    if (placed.length > 0) {
-      try {
-        pegs = await new X3OrderLineRepository().getCommandesByOf(placed.map((p) => p.mo.numOf))
-      } catch {
-        pegs = new Map()
-      }
-    }
-
-    // Marqueurs commandes (déduits, expédition dans la fenêtre).
-    const commandeByNum = new Map<string, VisionCommande>()
-    for (const p of placed) {
-      const peg = pegs.get(p.mo.numOf)
-      if (!peg || !peg.dateExpedition) continue
-      const expIso = isoDay(peg.dateExpedition)
-      const col = colIdx.get(expIso)
-      if (col === undefined) continue
-      if (!commandeByNum.has(peg.numCommande)) {
-        commandeByNum.set(peg.numCommande, {
-          id: peg.numCommande,
-          numCommande: peg.numCommande,
-          client: peg.client,
-          dateExpeditionIso: expIso,
-          col,
-        })
-      }
-    }
-    const commandes = [...commandeByNum.values()]
-
-    // Liens OF → commande.
-    const links: VisionLink[] = []
-    for (const p of placed) {
-      const peg = pegs.get(p.mo.numOf)
-      if (!peg || !peg.dateExpedition) continue
-      const cmd = commandeByNum.get(peg.numCommande)
-      if (!cmd) continue
-      links.push({
-        ofId: p.mo.numOf,
-        posteCode: p.posteCode,
-        ofCol: p.col,
-        commandeId: peg.numCommande,
-        cmdCol: cmd.col,
-        suggere: p.mo.status === 3,
-      })
-    }
-
-    // Rangées postes (tri par code).
-    const postes: VisionPosteRow[] = [...byPoste.entries()]
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([code, entry]) => ({
-        code,
-        name: wstLabels.get(code) ?? code,
-        ofCount: entry.ofCount,
-        totalHours: Math.round(entry.totalHours),
-        dayCells: entry.cells.map((arr, i) => ({
-          iso: isoDay(colDates[i]),
-          ofs: arr.map((p) => ({
-            numOf: p.mo.numOf,
-            status: moStatusToCard(p.mo.status),
-            article: p.mo.article,
-            designation: p.mo.designation,
-            posteCode: p.posteCode,
-            posteLabel: p.posteLabel,
-            done: p.mo.quantityDone,
-            launched: p.mo.quantityLaunched,
-            hours: Math.round(p.hours * 10) / 10,
-          })),
-        })),
-      }))
-
-    // Semaines (en-tête + capacités).
-    const colWeek = colDates.map((d) => isoWeek(d))
-    const weekOrder: number[] = []
-    const weekDayCount = new Map<number, number>()
-    colWeek.forEach((wk) => {
-      if (!weekOrder.includes(wk)) weekOrder.push(wk)
-      weekDayCount.set(wk, (weekDayCount.get(wk) ?? 0) + 1)
+        return {
+          board: data.board,
+          commandes,
+          links,
+          horizon: data.horizon,
+          windowFrom: data.windowFrom,
+          windowTo: data.windowTo,
+          weekLabel: data.weekLabel,
+          dateRange: data.dateRange,
+          prevHref: data.prevHref,
+          nextHref: data.nextHref,
+          todayHref: data.todayHref,
+          totalOf: data.totalOf,
+          lineCount: data.lineCount,
+          x3Error,
+          cached: data.cached,
+        }
+      },
     })
-    const weekSpans = weekOrder.map((wk) => ({ week: wk, span: weekDayCount.get(wk) ?? 0 }))
-    const weekCaps = Object.fromEntries(weekOrder.map((wk) => [wk, (weekDayCount.get(wk) ?? 0) * 8]))
-
-    const firstDay = colDates[0] ?? windowStart
-    const lastDay = colDates[colDates.length - 1] ?? windowStart
-    const fmtFr = (d: Date) =>
-      d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase()
-
-    const navIso = (deltaDays: number) => {
-      const d = atMidnight(windowStart)
-      d.setDate(d.getDate() + deltaDays)
-      return isoDay(d)
-    }
-    const navQuery = (start: string) => `?start=${start}&days=${horizon}` + (force ? '&refresh=1' : '')
-    const prevHref = `${basePath}${navQuery(navIso(-horizon))}`
-    const nextHref = `${basePath}${navQuery(navIso(horizon))}`
-    const todayHref = `${basePath}${navQuery(isoDay(now))}`
-
-    return {
-      board: { days, cols: days.length, weekSpans, colWeek, weekCaps, postes, commandes, links } as VisionBoard,
-      horizon,
-      windowFrom: colDates.length ? isoDay(firstDay) : '',
-      windowTo: colDates.length ? isoDay(lastDay) : '',
-      weekLabel: colDates.length ? `S${isoWeek(colDates[0])}` : '',
-      dateRange: `${fmtFr(firstDay)} — ${fmtFr(lastDay)}`,
-      prevHref,
-      nextHref,
-      todayHref,
-      totalOf: mos.length,
-      lineCount: postes.length,
-      x3Error,
-      cached: boardDataset.status().ordersAt
-        ? new Date(boardDataset.status().ordersAt!).toLocaleTimeString('fr-FR')
-        : null,
-    }
   }
 
   /**
@@ -636,7 +513,8 @@ export default class SchedulerController {
     }
     const startIso = isoDay(windowFrom)
     const now = atMidnight(new Date())
-    const navQuery = (start: string) => `?start=${start}&days=${horizon}` + (force ? '&refresh=1' : '')
+    const navQuery = (start: string) =>
+      `?start=${start}&days=${horizon}` + (force ? '&refresh=1' : '')
 
     return ctx.inertia.render('scheduler/shortages', {
       horizon,
@@ -672,13 +550,21 @@ export default class SchedulerController {
     let x3Error: string | null = null
 
     try {
-      const { result, articles, ofPegs } = await loadOrderImpacts({ from: windowFrom, to: windowTo, force })
+      const { result, articles, ofPegs } = await loadOrderImpacts({
+        from: windowFrom,
+        to: windowTo,
+        force,
+      })
       // OfCommandePeg (Date) → ShortageOfPeg (ISO) pour le pivot pur.
       const pegsIso = new Map(
         [...ofPegs].map(([ofNum, p]) => [
           ofNum,
-          { numCommande: p.numCommande, client: p.client, dateExpedition: p.dateExpedition?.toISOString().slice(0, 10) ?? null },
-        ]),
+          {
+            numCommande: p.numCommande,
+            client: p.client,
+            dateExpedition: p.dateExpedition?.toISOString().slice(0, 10) ?? null,
+          },
+        ])
       )
       const receptionsByArticle = await loadReceptionsByArticle(windowFrom)
       const built = buildShortageRows(result, receptionsByArticle, articles, pegsIso)
@@ -689,10 +575,25 @@ export default class SchedulerController {
     }
 
     // Présentation (badges verdict + dates FR). Lecture seule, pas de Solid.
-    const VERDICT_PRESET: Record<ShortageRow['verdict'], { label: string; cls: string; icon: string }> = {
-      couvert: { label: 'Couvert', cls: 'text-emerald-700 bg-emerald-50 border-emerald-100', icon: 'check_circle' },
-      retard: { label: 'Retard', cls: 'text-amber-700 bg-amber-50 border-amber-100', icon: 'schedule' },
-      sans_couverture: { label: 'Sans couverture', cls: 'text-error bg-error/10 border-error/20', icon: 'error' },
+    const VERDICT_PRESET: Record<
+      ShortageRow['verdict'],
+      { label: string; cls: string; icon: string }
+    > = {
+      couvert: {
+        label: 'Couvert',
+        cls: 'text-emerald-700 bg-emerald-50 border-emerald-100',
+        icon: 'check_circle',
+      },
+      retard: {
+        label: 'Retard',
+        cls: 'text-amber-700 bg-amber-50 border-amber-100',
+        icon: 'schedule',
+      },
+      sans_couverture: {
+        label: 'Sans couverture',
+        cls: 'text-error bg-error/10 border-error/20',
+        icon: 'error',
+      },
     }
 
     const displayRows = rows.map((r) => {
@@ -735,7 +636,8 @@ export default class SchedulerController {
         receptionIso: r.reception?.dateArrivee ?? null,
         joursRetardReception: r.joursRetardReception,
         // Champ texte concaténé pour le filtre client (composant / commande / fournisseur).
-        filter: `${r.component} ${r.componentDesc} ${r.numCommande ?? ''} ${r.client ?? ''} ${r.reception?.supplier ?? ''} ${r.numOf} ${r.articleParent}`.toLowerCase(),
+        filter:
+          `${r.component} ${r.componentDesc} ${r.numCommande ?? ''} ${r.client ?? ''} ${r.reception?.supplier ?? ''} ${r.numOf} ${r.articleParent}`.toLowerCase(),
       }
     })
 
@@ -812,10 +714,7 @@ export default class SchedulerController {
 
     // Group MOs by workstation, place cards on start-day cells.
     const cardsByLineDay = new Map<string, Card[][]>()
-    const lineMeta = new Map<
-      string,
-      { ofCount: number; totalHours: number; dayHours: number[] }
-    >()
+    const lineMeta = new Map<string, { ofCount: number; totalHours: number; dayHours: number[] }>()
 
     for (const mo of mos) {
       const ov = overrideMap.get(mo.numOf) ?? null
@@ -886,7 +785,9 @@ export default class SchedulerController {
     // Week header spans (label cell + N day columns grouped per ISO week).
     const weekSpans = weekOrder.map((wk) => ({ week: wk, span: weekDayCount.get(wk) ?? 0 }))
     // ISO week → capacity hours (business days × 8h), for live histogram recompute.
-    const weekCaps = Object.fromEntries(weekOrder.map((wk) => [wk, (weekDayCount.get(wk) ?? 0) * 8]))
+    const weekCaps = Object.fromEntries(
+      weekOrder.map((wk) => [wk, (weekDayCount.get(wk) ?? 0) * 8])
+    )
 
     /** Build per-line weekly load: sum line.dayHours by week vs days×8h capacity. */
     const buildWeekLoads = (lineDayHours: number[]) =>
@@ -1006,7 +907,8 @@ export default class SchedulerController {
 
     const status = ov?.status ?? mo?.status ?? 1
     const statusLabel =
-      mo?.statutLabel ?? (status === 1 ? 'Ferme' : status === 2 ? 'Planifié' : status === 3 ? 'Suggéré' : 'Planifié')
+      mo?.statutLabel ??
+      (status === 1 ? 'Ferme' : status === 2 ? 'Planifié' : status === 3 ? 'Suggéré' : 'Planifié')
 
     const cardStatus = moStatusToCard(status)
     const preset = PRESETS[cardStatus]

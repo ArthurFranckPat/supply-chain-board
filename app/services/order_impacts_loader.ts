@@ -12,6 +12,7 @@
 
 import boardDataset from '#services/board_dataset'
 import { OverrideStore } from '#services/override_store'
+import { OrderLineOverrideStore } from '#services/order_line_override_store'
 import { evaluateOrderImpacts, type OrderImpactResult } from '#app/domain/order-impacts'
 import { evaluateMfgFeasibility, buildStrictQcStock } from '#app/domain/of-feasibility'
 import { X3MfgmatRepository } from '#repositories/mfgmat_repository'
@@ -50,8 +51,17 @@ export interface OrderImpactsContext {
  *
  * `from`/`to` doivent être déjà bornées (from à minuit, to à 23:59:59) par l'appelant.
  */
-export async function loadOrderImpacts(opts: LoadOrderImpactsOptions): Promise<OrderImpactsContext> {
-  const { from: windowFrom, to: windowTo, workstation: workstationFilter, mode, force = false, preferEngineFeasibility = false } = opts
+export async function loadOrderImpacts(
+  opts: LoadOrderImpactsOptions
+): Promise<OrderImpactsContext> {
+  const {
+    from: windowFrom,
+    to: windowTo,
+    workstation: workstationFilter,
+    mode,
+    force = false,
+    preferEngineFeasibility = false,
+  } = opts
 
   // ISO sur les composantes LOCALES (pas toISOString, qui repasse en UTC et recule d'un jour
   // en fuseau UTC+1/+2 quand l'heure locale est minuit → scoping getLive décalé).
@@ -66,14 +76,19 @@ export async function loadOrderImpacts(opts: LoadOrderImpactsOptions): Promise<O
 
   // Données via le loader : OF (supply) + référentiel cachés, demande/réception
   // scopées à l'horizon, stock scopé aux articles concernés.
-  const [{ supply: ofFlows }, { demand: demandFlows, reception: receptionFlows, suggestion: suggestionFlows }, { gamme }, nomenclatureEntries, articlesList] =
-    await Promise.all([
-      boardDataset.getOrders(force),
-      boardDataset.getLive(fromIso, toIso, force),
-      boardDataset.getReferential(force),
-      boardDataset.getNomenclature(force),
-      boardDataset.getArticles(),
-    ])
+  const [
+    { supply: ofFlows },
+    { demand: demandFlows, reception: receptionFlows, suggestion: suggestionFlows },
+    { gamme },
+    nomenclatureEntries,
+    articlesList,
+  ] = await Promise.all([
+    boardDataset.getOrders(force),
+    boardDataset.getLive(fromIso, toIso, force),
+    boardDataset.getReferential(force),
+    boardDataset.getNomenclature(force),
+    boardDataset.getArticles(),
+  ])
 
   const overrides = await new OverrideStore().getAll()
 
@@ -98,8 +113,24 @@ export async function loadOrderImpacts(opts: LoadOrderImpactsOptions): Promise<O
     })
   }
 
-  // Demandes déjà scopées par X3 ; re-filtre défensif sur l'horizon exact.
-  let filteredDemands = demandFlows.filter((f) => {
+  // Overrides de date de commande (issue #10 /planification, désormais partagés) :
+  // une ligne re-datée à la main décale sa demande → repositionne la commande
+  // partout (vision DnD, ruptures). Clé composite numCommande#ligne.
+  const lineDateOverrides = await new OrderLineOverrideStore().getMap()
+  const remappedDemands =
+    lineDateOverrides.size === 0
+      ? demandFlows
+      : demandFlows.map((f) => {
+          const o = f.origin as { type?: string; id?: string; ligne?: string | null }
+          if (o.type !== 'order') return f
+          const ov = lineDateOverrides.get(`${o.id}#${o.ligne ?? ''}`)
+          if (!ov || !/^\d{4}-\d{2}-\d{2}$/.test(ov)) return f
+          return { ...f, date: new Date(ov) }
+        })
+
+  // Demandes déjà scopées par X3 ; re-filtre défensif sur l'horizon exact (après
+  // remap : une commande re-datée peut entrer/sortir de la fenêtre).
+  let filteredDemands = remappedDemands.filter((f) => {
     if (!f.date) return false
     return f.date >= windowFrom && f.date <= windowTo
   })
@@ -239,15 +270,22 @@ export async function loadOrderImpacts(opts: LoadOrderImpactsOptions): Promise<O
       if (!materials || materials.length === 0) continue
       const status = overrideMap.get(numOf)?.status ?? (f.origin as { status?: number }).status ?? 3
       const verdict = evaluateMfgFeasibility(materials, stockByArticle, status === 1)
-      mfgFeasibility.set(numOf, { feasible: verdict.feasible, missingComponents: verdict.missingComponents })
+      mfgFeasibility.set(numOf, {
+        feasible: verdict.feasible,
+        missingComponents: verdict.missingComponents,
+      })
     }
   }
 
   const result = evaluateOrderImpacts(
-    filteredDemands, allSupply, nomenclatures, articles, overrideMap,
+    filteredDemands,
+    allSupply,
+    nomenclatures,
+    articles,
+    overrideMap,
     { from: windowFrom, to: windowTo },
     mode,
-    mfgFeasibility,
+    mfgFeasibility
   )
 
   return { result, articles, nomenclatures, ofPegs }

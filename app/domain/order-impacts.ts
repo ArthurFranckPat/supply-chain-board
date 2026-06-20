@@ -20,6 +20,10 @@ import { evaluateSequentialFeasibility, type OfInput } from './stock-state.js'
 
 export interface OrderImpactRow {
   numCommande: string
+  /** N° de ligne de commande (X3 VCRLIN_0). Distingue deux lignes d'une même
+   *  commande portant éventuellement le même article. Null/absent pour les
+   *  prévisions et les anciennes fixtures. */
+  ligne?: string | null
   client: string
   article: string
   description: string
@@ -75,7 +79,11 @@ function safeDate(value: string | null | undefined): Date | null {
   return isNaN(d.getTime()) ? null : d
 }
 
-function effectiveDateFin(ofId: string, overrides: Map<string, OfOverride>, matchingDate: Date | null): Date | null {
+function effectiveDateFin(
+  ofId: string,
+  overrides: Map<string, OfOverride>,
+  matchingDate: Date | null
+): Date | null {
   const ov = overrides.get(ofId)
   const overrideDate = safeDate(ov?.dateFin)
   if (overrideDate) return overrideDate
@@ -103,7 +111,10 @@ export function evaluateOrderImpacts(
   overrides: Map<string, OfOverride>,
   window: { from: Date; to: Date },
   mode?: FeasibilityOptions['mode'],
-  precomputedFeasibility?: Map<string, { feasible: boolean | null; missingComponents: Record<string, number> }>,
+  precomputedFeasibility?: Map<
+    string,
+    { feasible: boolean | null; missingComponents: Record<string, number> }
+  >
 ): OrderImpactResult {
   // 1. Filter demands in window
   const windowDemands = demands.filter((d) => {
@@ -127,18 +138,24 @@ export function evaluateOrderImpacts(
         article: f.article,
         qteRestante: f.quantity,
         dateDebut: ov?.dateDebut ?? null,
-        dateFin: ov?.dateFin ?? (f.date?.toISOString().slice(0, 10) ?? null),
+        dateFin: ov?.dateFin ?? f.date?.toISOString().slice(0, 10) ?? null,
         statutNum: ov?.status ?? (f.origin as any).status ?? 3,
       }
     })
 
   const feasibility = evaluateSequentialFeasibility(
-    ofInputs, supplyFlows, nomenclatures, articles, window.to,
-    { mode },
+    ofInputs,
+    supplyFlows,
+    nomenclatures,
+    articles,
+    window.to,
+    { mode }
   )
 
   // Résout le verdict d'un OF : MFGMAT (précalculé) s'il existe, sinon le moteur théorique.
-  const resolveFeasibility = (ofId: string): { feasible: boolean | null; missingComponents: Record<string, number> } => {
+  const resolveFeasibility = (
+    ofId: string
+  ): { feasible: boolean | null; missingComponents: Record<string, number> } => {
     const pre = precomputedFeasibility?.get(ofId)
     if (pre) return { feasible: pre.feasible, missingComponents: pre.missingComponents }
     const entry = feasibility.get(ofId)
@@ -184,7 +201,10 @@ export function evaluateOrderImpacts(
     }
 
     let statut: OrderImpactRow['statut']
-    if (result.remainingUncoveredQty > 0 || (result.ofAllocations.length === 0 && result.matchingMethod !== 'stock_complete')) {
+    if (
+      result.remainingUncoveredQty > 0 ||
+      (result.ofAllocations.length === 0 && result.matchingMethod !== 'stock_complete')
+    ) {
       statut = 'sans_couverture'
     } else if (blocked) {
       statut = 'bloquee'
@@ -198,6 +218,7 @@ export function evaluateOrderImpacts(
 
     return {
       numCommande: origin.id ?? '',
+      ligne: origin.ligne ?? null,
       client: origin.customer ?? '',
       article: demand.article,
       description: articles.get(demand.article)?.description ?? '',
@@ -237,7 +258,10 @@ export function evaluateOrderImpacts(
         missingComponents: resolved.missingComponents,
       }
     }),
-    window: { from: window.from.toISOString().slice(0, 10), to: window.to.toISOString().slice(0, 10) },
+    window: {
+      from: window.from.toISOString().slice(0, 10),
+      to: window.to.toISOString().slice(0, 10),
+    },
     stats: {
       nbCommandes: rows.length,
       nbOnTime: statutCounts.on_time + statutCounts.stock,
