@@ -1,5 +1,6 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import boardDataset from '#services/board_dataset'
+import cache from '@adonisjs/cache/services/main'
 import { OrderLineOverrideStore } from '#services/order_line_override_store'
 import { X3OrderLineRepository, type OrderLineRow } from '#repositories/order_line_repository'
 import { X3ReceptionRepository } from '#repositories/reception_repository'
@@ -152,7 +153,27 @@ export default class OrderPlanningController {
 
   /** GET /planification — board planification. */
   async board(ctx: HttpContext) {
-    const data = await this.loadBoardData(ctx)
+    const startParam = ctx.request.input('start') as string | undefined
+    const daysParam = Number.parseInt(ctx.request.input('days', '14'), 10)
+    const horizon = Number.isFinite(daysParam) && daysParam > 0 && daysParam <= 90 ? daysParam : 14
+    const force = !!ctx.request.input('refresh')
+    const windowStart = startParam ? atMidnight(new Date(startParam)) : atMidnight(new Date())
+
+    // Cache du payload calculé, namespacé par utilisateur comme board/vision/suivi
+    // (issue #20). Sans cela, getOpenOrderLines interroge X3 à CHAQUE visite du
+    // board. TTL court (sources X3 vivantes) ; ?refresh=1 invalide la clé.
+    // Sérialisable via superjson (cf. config/cache.ts).
+    const planCache = () => {
+      const userId = ctx.auth?.user?.id
+      return cache.namespace(userId ? `planification:user_${userId}` : 'planification')
+    }
+    const cacheKey = `payload:${isoDay(windowStart)}:${horizon}`
+    if (force) await planCache().delete({ key: cacheKey })
+    const data = await planCache().getOrSet({
+      key: cacheKey,
+      ttl: 2 * 60 * 1000,
+      factory: () => this.loadBoardData(ctx),
+    })
     return ctx.inertia.render('scheduler/order-board', {
       board: {
         days: data.days,
