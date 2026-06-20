@@ -1,6 +1,6 @@
 import { HttpContext } from '@adonisjs/core/http'
 import { OverrideStore } from '#services/override_store'
-import { FeasibilityLoaderAdapter, buildStocksMap, buildReceptionsMap } from '#services/feasibility-loader-adapter'
+import { FeasibilityLoaderAdapter, buildStocksMap, buildReceptionsMap, buildNomenclatureMap } from '#services/feasibility-loader-adapter'
 import { whatifOrder } from '#app/domain/planning-board-feasibility'
 import type { OfRecord } from '#app/domain/recursive-checker'
 import boardDataset from '#services/board_dataset'
@@ -9,7 +9,9 @@ import { FeasibilityService } from '#app/domain/feasibility-service'
 import { matchOrders } from '#app/domain/orders'
 import { loadOrderImpacts } from '#services/order_impacts_loader'
 import { buildShortageRows } from '#app/domain/shortages'
-import { evaluateMfgFeasibility, buildStrictQcStock } from '#app/domain/of-feasibility'
+import { evaluateMfgFeasibility, buildStrictQcStock, type MfgMaterialInput } from '#app/domain/of-feasibility'
+import { RecursiveDiagnosticChecker, type DiagnosticLoader } from '#app/domain/recursive-diagnostic-checker'
+import type { Flow } from '#app/domain/models/flow'
 import { X3OfRepository, type ManufacturingOrder } from '#repositories/of_repository'
 import type { GammeOperation } from '#app/domain/models/gamme'
 import { X3StockRepository } from '#repositories/stock_repository'
@@ -423,6 +425,118 @@ export default class PlanningBoardController {
     // Faisabilité via le calcul partagé (même source que le badge du board, issue #11).
     const verdict = evaluateMfgFeasibility(materials, stockByArticle, !!isFirm)
     return { numOf, materials: verdict.materials, feasible: verdict.feasible, blockedCount: verdict.blockedCount }
+  }
+
+  /**
+   * Diagnostic récursif d'un OF (issue #25). Descend la chaîne des OF — MFGMAT d'abord
+   * (OF fermes/planifiés éclatés), repli nomenclature théorique pour les OF suggérés sans
+   * MFGMAT — pour désigner le VRAI composant bloquant, ou conclure qu'il n'y a qu'un OF de
+   * sous-ensemble à lancer. Distinct du mode direct (ofMaterials, MFGMAT 1 niveau).
+   *
+   * Pool d'OF unifié : orders (statut 1/2, MFGHEAD) + suggestions CBN (statut 3, CBNDET).
+   * En attendant #27 (pool unifié canonique), assemblé inline ici.
+   */
+  async ofMaterialsDiagnostic(ctx: HttpContext) {
+    const numOf = ctx.params.of
+    if (!numOf) return ctx.response.badRequest({ error: 'numOf requis' })
+
+    // Fenêtre large pour capter les suggestions (CBNDET) couvrantes autour de l'OF.
+    const from = new Date()
+    from.setDate(from.getDate() - 30)
+    const to = new Date()
+    to.setFullYear(to.getFullYear() + 1)
+    const fromIso = from.toISOString().split('T')[0]
+    const toIso = to.toISOString().split('T')[0]
+
+    const [orders, live, nomEntries, articlesList] = await Promise.all([
+      boardDataset.getOrders(),
+      boardDataset.getLive(fromIso, toIso).catch(
+        (): { demand: Flow[]; reception: Flow[]; suggestion: Flow[]; at: number } => ({
+          demand: [],
+          reception: [],
+          suggestion: [],
+          at: 0,
+        }),
+      ),
+      boardDataset.getNomenclature().catch(() => []),
+      boardDataset.getArticles().catch(() => []),
+    ])
+
+    // Pool unifié : OF affermis/planifiés (1/2) + suggestions CBN (3).
+    const pool: OfRecord[] = ([...orders.supply, ...live.suggestion] as Flow[]).map((f) => {
+      const o = f.origin as { id?: string; status?: number }
+      return {
+        numOf: o.id ?? '',
+        article: f.article,
+        statutNum: o.status ?? 3,
+        qteRestante: f.quantity,
+        dateFin: f.date ?? undefined,
+      } as OfRecord
+    })
+
+    const head = pool.find((o) => o.numOf === numOf)
+    if (!head) return ctx.response.notFound({ error: `OF ${numOf} introuvable dans le pool` })
+
+    // MFGMAT de tous les OF du pool (batch) → source réelle de descente par OF.
+    const mfgmatByOf = await new X3MfgmatRepository().getMaterialsForOfs(pool.map((o) => o.numOf))
+    const mfgmatMap = new Map<string, MfgMaterialInput[]>()
+    for (const [n, mats] of mfgmatByOf) {
+      mfgmatMap.set(
+        n,
+        mats.map((m) => ({
+          article: m.article,
+          description: m.description,
+          unit: m.unit,
+          remaining: m.remaining,
+          allocated: m.allocated,
+        })),
+      )
+    }
+
+    const articlesMap = new Map<string, Article>(articlesList.map((a) => [a.code, a]))
+    const nomenclaturesMap = buildNomenclatureMap(nomEntries)
+
+    // Stock pour tous les articles du pool + composants de nomenclature.
+    const stockArticles = new Set<string>(pool.map((o) => o.article))
+    for (const e of nomEntries) {
+      stockArticles.add(e.parentArticle)
+      stockArticles.add(e.componentArticle)
+    }
+    const stockFlows = await boardDataset.getStock([...stockArticles]).catch(() => [])
+    const stocksMap = buildStocksMap(
+      stockFlows.map((f) => ({ article: f.article, origin: f.origin as { subType?: string }, quantity: f.quantity })),
+    )
+
+    const receptionFlows = await new X3ReceptionRepository().getReceptionFlows().catch(() => [])
+    const receptionsMap = buildReceptionsMap(
+      receptionFlows.map((f) => ({
+        article: f.article,
+        id: (f.origin as { id?: string }).id,
+        supplier: (f.origin as { supplier?: string }).supplier,
+        quantity: f.quantity,
+        date: f.date,
+      })),
+    )
+
+    const loader: DiagnosticLoader = {
+      getArticle: (a) => articlesMap.get(a),
+      getNomenclature: (a) => nomenclaturesMap.get(a),
+      getStock: (a) => stocksMap.get(a),
+      getReceptions: (a) => receptionsMap.get(a) ?? [],
+      // Allocations ERP non chargées en v1 : la MFGMAT reflète déjà l'alloué (ALLQTY),
+      // et evaluateMfgFeasibility en tient compte.
+      getAllocationsOf: () => [],
+      getMfgmat: (n) => mfgmatMap.get(n) ?? [],
+      getOfsByArticle: (article, statut, dateBesoin) => {
+        let f = pool.filter((o) => o.article === article)
+        if (statut !== undefined) f = f.filter((o) => o.statutNum === statut)
+        if (dateBesoin) f = f.filter((o) => !o.dateFin || o.dateFin <= dateBesoin)
+        return f
+      },
+    }
+
+    const checker = new RecursiveDiagnosticChecker(loader, { checkDate: new Date(), useReceptions: true })
+    return checker.diagnoseOf(head)
   }
 
   /**
