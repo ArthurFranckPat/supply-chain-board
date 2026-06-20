@@ -14,7 +14,6 @@ export const MANIFEST = {
   "data.load": { method: "POST", pattern: "/api/v1/data/load" },
   "design_system": { method: "GET", pattern: "/design-system" },
   "health.index": { method: "GET", pattern: "/health" },
-  "home": { method: "GET", pattern: "/" },
   "order_planning.board": { method: "GET", pattern: "/planification" },
   "order_planning.index": { method: "GET", pattern: "/api/v1/planning/order-lines" },
   "order_planning.line_detail": { method: "GET", pattern: "/api/v1/planning/order-lines/:order/:line" },
@@ -56,6 +55,7 @@ export const MANIFEST = {
   "suivi.retard_charge": { method: "POST", pattern: "/api/v1/status/retard-charge" },
   "suivi.rows": { method: "GET", pattern: "/api/v1/status/rows" },
   "suivi.status_detail": { method: "GET", pattern: "/api/v1/status/status/:order" },
+  "tableau": { method: "GET", pattern: "/" },
 } as const satisfies Record<string, { method: string; pattern: string }>
 
 export type RouteName = keyof typeof MANIFEST
@@ -73,7 +73,6 @@ export type RouteParams = {
   "data.load": void,
   "design_system": void,
   "health.index": void,
-  "home": void,
   "order_planning.board": void,
   "order_planning.index": void,
   "order_planning.line_detail": { "order": string | number; "line": string | number },
@@ -114,5 +113,6 @@ export type RouteParams = {
   "suivi.proactive_rows": void,
   "suivi.retard_charge": void,
   "suivi.rows": void,
-  "suivi.status_detail": { "order": string | number }
+  "suivi.status_detail": { "order": string | number },
+  "tableau": void
 }

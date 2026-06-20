@@ -42,11 +42,11 @@ const routes = {
     tokens: [{"old":"/health","type":0,"val":"health","end":""}],
     types: placeholder as Registry['health.index']['types'],
   },
-  'home': {
+  'tableau': {
     methods: ["GET","HEAD"],
     pattern: '/',
     tokens: [{"old":"/","type":0,"val":"/","end":""}],
-    types: placeholder as Registry['home']['types'],
+    types: placeholder as Registry['tableau']['types'],
   },
   'design_system': {
     methods: ["GET","HEAD"],

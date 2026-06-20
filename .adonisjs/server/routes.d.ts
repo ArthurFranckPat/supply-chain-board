@@ -10,7 +10,7 @@ export type ScannedRoutes = {
     'assets.css': { paramsTuple?: []; params?: {} }
     'assets.js': { paramsTuple?: []; params?: {} }
     'health.index': { paramsTuple?: []; params?: {} }
-    'home': { paramsTuple?: []; params?: {} }
+    'tableau': { paramsTuple?: []; params?: {} }
     'design_system': { paramsTuple?: []; params?: {} }
     'scheduler.expert_board': { paramsTuple?: []; params?: {} }
     'order_planning.board': { paramsTuple?: []; params?: {} }
@@ -60,7 +60,7 @@ export type ScannedRoutes = {
     'assets.css': { paramsTuple?: []; params?: {} }
     'assets.js': { paramsTuple?: []; params?: {} }
     'health.index': { paramsTuple?: []; params?: {} }
-    'home': { paramsTuple?: []; params?: {} }
+    'tableau': { paramsTuple?: []; params?: {} }
     'design_system': { paramsTuple?: []; params?: {} }
     'scheduler.expert_board': { paramsTuple?: []; params?: {} }
     'order_planning.board': { paramsTuple?: []; params?: {} }
@@ -92,7 +92,7 @@ export type ScannedRoutes = {
     'assets.css': { paramsTuple?: []; params?: {} }
     'assets.js': { paramsTuple?: []; params?: {} }
     'health.index': { paramsTuple?: []; params?: {} }
-    'home': { paramsTuple?: []; params?: {} }
+    'tableau': { paramsTuple?: []; params?: {} }
     'design_system': { paramsTuple?: []; params?: {} }
     'scheduler.expert_board': { paramsTuple?: []; params?: {} }
     'order_planning.board': { paramsTuple?: []; params?: {} }

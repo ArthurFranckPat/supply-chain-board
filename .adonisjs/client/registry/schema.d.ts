@@ -79,7 +79,7 @@ export interface Registry {
       errorResponse: unknown
     }
   }
-  'home': {
+  'tableau': {
     methods: ["GET","HEAD"]
     pattern: '/'
     types: {

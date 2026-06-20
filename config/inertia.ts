@@ -30,7 +30,7 @@ declare module '@adonisjs/inertia/types' {
   }
 
   interface InertiaPages {
-    'home': { message: string }
+    'tableau': Record<string, never>
     'auth/login': {
       lastUsername: string
       lastEnv: 'test' | 'prod'

@@ -22,17 +22,15 @@ export type MastheadTab =
   | 'vision'
   | 'ruptures'
   | 'suivi'
-  | 'ressources'
 
-/** Onglets canoniques (ordre + cibles uniques). `href: null` = placeholder (pas encore de page). */
-const TABS: { key: MastheadTab; label: string; href: string | null }[] = [
-  { key: 'tableau', label: 'Tableau', href: null },
+/** Onglets canoniques (ordre + cibles uniques). */
+const TABS: { key: MastheadTab; label: string; href: string }[] = [
+  { key: 'tableau', label: 'Tableau', href: route('tableau') },
   { key: 'planification', label: 'Planification', href: route('order_planning.board') },
   { key: 'ordonnancement', label: 'Ordonnancement', href: route('scheduler.expert_board') },
   { key: 'vision', label: 'Vision', href: route('scheduler.vision') },
   { key: 'ruptures', label: 'Ruptures', href: route('scheduler.shortage_tracker') },
   { key: 'suivi', label: 'Suivi', href: route('suivi.board') },
-  { key: 'ressources', label: 'Ressources', href: null },
 ]
 
 const tabCls = (active: boolean) =>
@@ -66,17 +64,11 @@ export const Masthead: Component<{
 
       <nav class="flex items-center gap-1 border-t border-rule px-7">
         <For each={TABS}>
-          {(t) =>
-            t.href ? (
-              <Link href={t.href} class={tabCls(t.key === props.active)}>
-                {t.label}
-              </Link>
-            ) : (
-              <a href="#" class={tabCls(t.key === props.active)}>
-                {t.label}
-              </a>
-            )
-          }
+          {(t) => (
+            <Link href={t.href} class={tabCls(t.key === props.active)}>
+              {t.label}
+            </Link>
+          )}
         </For>
         <div class="ml-auto flex items-center gap-2 py-1.5">
           {props.actions}

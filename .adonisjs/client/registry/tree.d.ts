@@ -14,7 +14,7 @@ export interface ApiDefinition {
   health: {
     index: typeof routes['health.index']
   }
-  home: typeof routes['home']
+  tableau: typeof routes['tableau']
   designSystem: typeof routes['design_system']
   scheduler: {
     expertBoard: typeof routes['scheduler.expert_board']

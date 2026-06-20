@@ -50,11 +50,13 @@ router.get('/health', '#controllers/health_controller.index')
 */
 router
   .group(() => {
+    // Tableau — page d'accueil par défaut (landing post-login, issue #26).
+    // Overview KPI à venir (issue dédiée) ; pour l'heure un placeholder thémé.
     router
       .get('/', async ({ inertia }) => {
-        return inertia.render('home', { message: 'Infra SolidJS + Inertia opérationnelle.' })
+        return inertia.render('tableau', {})
       })
-      .as('home')
+      .as('tableau')
 
     // Design system « Papier » — showcase des vrais composants ui/* thémés.
     router
