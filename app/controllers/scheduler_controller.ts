@@ -11,6 +11,7 @@ import { loadOrderImpacts } from '#services/order_impacts_loader'
 import { buildShortageRows, type ShortageRow } from '#app/domain/shortages'
 import { loadReceptionsByArticle } from '#repositories/reception_repository'
 import type { Flow } from '#app/domain/models/flow'
+import type { NomenclatureEntry } from '#app/domain/models/nomenclature'
 
 function defaultPoolFrom(): string {
   const d = new Date()
@@ -924,6 +925,7 @@ export default class SchedulerController {
     // pour ne pas pénaliser les OF standards (issue #30).
     let mos: ManufacturingOrder[] = []
     let gammeOps: GammeOperation[] = []
+    let ofSupplyFlows: Flow[] = []
     let suggestionFlow: Flow | undefined
     try {
       const [ref, ord] = await Promise.all([
@@ -932,6 +934,7 @@ export default class SchedulerController {
       ])
       gammeOps = ref.gamme
       mos = ord.mos
+      ofSupplyFlows = ord.supply
     } catch {
       // serve empty detail
     }
@@ -944,7 +947,12 @@ export default class SchedulerController {
           const id = (f.origin as { id?: string }).id
           return id === num
         })
-        if (suggestionFlow) mo = suggestionToMo(suggestionFlow)
+        if (suggestionFlow) {
+          mo = suggestionToMo(suggestionFlow)
+          // Inclure les suggestions dans les flows supply pour la
+          // descente récursive BOMD (un sous-ensemble peut être suggéré).
+          ofSupplyFlows = [...ofSupplyFlows, ...live.suggestion]
+        }
       } catch {
         // pas de suggestions — mo reste undefined
       }
@@ -994,7 +1002,7 @@ export default class SchedulerController {
 
       if (materials.length === 0 && mo) {
         // OF sans MFGMAT (suggéré / non éclaté) → nomenclature théorique.
-        bom = await this.loadBomFromNomenclature(mo.article, mo.quantity, status === 1)
+        bom = await this.loadBomFromNomenclature(mo.article, mo.quantity, status === 1, ofSupplyFlows)
         bomCount = bom.length
       } else {
         // Stock availability per component.
@@ -1096,24 +1104,49 @@ export default class SchedulerController {
 
   /**
    * Fallback BOMD — nomenclature théorique pour les OF sans MFGMAT (suggérés,
-   * non éclatés). Miroir de ofMaterialsFromBom() dans PlanningBoardController,
-   * adapté au format BomRow[] du panneau de détail OF (issue #30).
+   * non éclatés). Descend récursivement les composants FABRIQUÉS sans OF pour
+   * atteindre les vrais composants achetés, comme le fait checkFeasibility()
+   * côté badge (issue #30 — alignement badge/détail).
    */
   private async loadBomFromNomenclature(
     article: string,
     parentQty: number,
     isFirm: boolean,
+    ofSupplyFlows: Flow[],
   ): Promise<BomRow[]> {
     const nomEntries = await boardDataset.getNomenclature().catch(() => [])
-    const bomComponents = nomEntries.filter((e) => e.parentArticle === article)
-    if (!bomComponents.length) return []
 
-    // Stock pour tous les composants.
-    const compArticles = [...new Set(bomComponents.map((c) => c.componentArticle))]
-    const stockFlows = await boardDataset.getStock(compArticles).catch(() => [])
-    const stockByArticle = buildStrictQcStock(stockFlows)
+    // Index : Map<parentArticle, Nomenclature>
+    const nomenclatures = new Map<string, { description: string; components: NomenclatureEntry[] }>()
+    for (const e of nomEntries) {
+      const existing = nomenclatures.get(e.parentArticle)
+      if (existing) {
+        existing.components.push(e)
+      } else {
+        nomenclatures.set(e.parentArticle, { description: e.parentDescription, components: [e] })
+      }
+    }
 
-    // Réceptions attendues déjà arrivées (consommées dans le disponible).
+    // Collecte tous les articles atteignables → chargement stock en 1 round-trip.
+    const reachable = new Set<string>([article])
+    const collectReachable = (art: string, seen: Set<string>) => {
+      if (seen.has(art)) return
+      seen.add(art)
+      const bom = nomenclatures.get(art)
+      if (!bom) return
+      for (const c of bom.components) {
+        reachable.add(c.componentArticle)
+        // Toujours descendre pour charger le stock de tous les niveaux
+        if (c.componentType === 'FABRIQUE') collectReachable(c.componentArticle, seen)
+      }
+    }
+    collectReachable(article, new Set())
+
+    const compArticles = [...reachable]
+    const rawStockFlows = await boardDataset.getStock(compArticles).catch(() => [])
+    const stockByArticle = buildStrictQcStock(rawStockFlows)
+
+    // Réceptions déjà arrivées.
     const receptionFlows = await new X3ReceptionRepository().getReceptionFlows().catch(() => [])
     const receptionByArticle = new Map<string, number>()
     const now = new Date()
@@ -1123,23 +1156,66 @@ export default class SchedulerController {
       }
     }
 
-    const nFr = (n: number) => Math.round(n * 100) / 100
+    // Vérifie si un composant fabriqué a un OF de couverture dans le pool.
+    const hasSupplyOf = (compArticle: string): boolean =>
+      ofSupplyFlows.some((f) => f.article === compArticle && f.quantity > 0)
 
-    return bomComponents.map((comp) => {
-      const remaining = comp.linkQuantity * parentQty
-      let stockTotal = stockByArticle.get(comp.componentArticle) ?? 0
-      stockTotal += receptionByArticle.get(comp.componentArticle) ?? 0
-      const stockFeasible = stockTotal >= remaining
-      const feasible = isFirm ? true : stockFeasible
-      return {
-        id: comp.componentArticle,
-        name: comp.componentDescription || comp.componentArticle,
-        stock: nFr(stockTotal).toFixed(0),
-        need: remaining.toFixed(remaining % 1 === 0 ? 0 : 2),
-        unit: '',
-        ok: feasible !== false,
-        shortage: !feasible ? `−${nFr(remaining - stockTotal).toFixed(0)}` : null,
+    const nFr = (n: number) => Math.round(n * 100) / 100
+    const rows: BomRow[] = []
+
+    // Descente récursive alignée sur checkFeasibility() :
+    // - ACHETE → vérifié contre stock + réceptions
+    // - FABRIQUE avec OF → faisable (couvert par son OF)
+    // - FABRIQUE sans OF → descente récursive dans sa nomenclature
+    const descend = (
+      art: string,
+      qty: number,
+      visited: Set<string>,
+      level: number,
+    ) => {
+      if (visited.has(art)) return
+      visited.add(art)
+      const bom = nomenclatures.get(art)
+      if (!bom || bom.components.length === 0) return
+
+      for (const comp of bom.components) {
+        const needed = comp.consumptionNature === 'FORFAIT' ? comp.linkQuantity : comp.linkQuantity * qty
+
+        if (comp.componentType === 'ACHETE') {
+          let stockTotal = stockByArticle.get(comp.componentArticle) ?? 0
+          stockTotal += receptionByArticle.get(comp.componentArticle) ?? 0
+          const feasible = isFirm ? true : stockTotal >= needed
+          rows.push({
+            id: comp.componentArticle,
+            name: comp.componentDescription || comp.componentArticle,
+            stock: nFr(stockTotal).toFixed(0),
+            need: needed.toFixed(needed % 1 === 0 ? 0 : 2),
+            unit: '',
+            ok: feasible,
+            shortage: !feasible ? `−${nFr(needed - stockTotal).toFixed(0)}` : null,
+          })
+        } else {
+          // FABRIQUE
+          if (hasSupplyOf(comp.componentArticle)) {
+            // Couvert par son propre OF → faisable.
+            rows.push({
+              id: comp.componentArticle,
+              name: comp.componentDescription || comp.componentArticle,
+              stock: 'OF',
+              need: needed.toFixed(needed % 1 === 0 ? 0 : 2),
+              unit: '',
+              ok: true,
+              shortage: null,
+            })
+          } else {
+            // Pas d'OF → descendre dans la nomenclature du sous-ensemble.
+            descend(comp.componentArticle, needed, new Set(visited), level + 1)
+          }
+        }
       }
-    })
+    }
+
+    descend(article, parentQty, new Set(), 0)
+    return rows
   }
 }
