@@ -46,7 +46,10 @@ export const Masthead: Component<{
 }> = (props) => {
   return (
     <header class="flex-none border-b border-rule bg-background">
-      <div class="flex items-end justify-between gap-5 px-7 pb-2 pt-3.5">
+      {/* Hauteur fixe : toutes les pages alignent le bandeau titre, même sans
+          `meta` (ex. Tableau). Calée sur la hauteur naturelle du meta 2 lignes
+          (≈60px) → plus de décalage vertical entre pages à la navigation. */}
+      <div class="flex min-h-[60px] items-end justify-between gap-5 px-7 pb-2 pt-3.5">
         <div class="flex items-baseline gap-3.5">
           <div class="font-fraunces text-[28px] font-black leading-[0.9] tracking-tight">
             Factory<span class="font-medium italic text-terra">OS</span>
@@ -62,7 +65,9 @@ export const Masthead: Component<{
         </Show>
       </div>
 
-      <nav class="flex items-center gap-1 border-t border-rule px-7">
+      {/* Hauteur fixe aussi sur la rangée nav : pages à actions (recherche
+          h-[30px]) vs Tableau (UserMenu 28px seul) donnaient ~2px d'écart. */}
+      <nav class="flex min-h-[44px] items-center gap-1 border-t border-rule px-7">
         <For each={TABS}>
           {(t) => (
             <Link href={t.href} class={tabCls(t.key === props.active)}>
