@@ -2,7 +2,7 @@
  * AUTO-GÉNÉRÉ par scripts/gen-routes-manifest.mjs — NE PAS ÉDITER À LA MAIN.
  * Source : `start/routes.ts` → `node ace list:routes --jsonl`.
  * Régénérer : `npm run routes:gen` · Vérifier la fraîcheur : `npm run routes:check`.
- * 51 routes nommées.
+ * 52 routes nommées.
  */
 
 export const MANIFEST = {
@@ -13,6 +13,7 @@ export const MANIFEST = {
   "auth.logout": { method: "POST", pattern: "/logout" },
   "data.load": { method: "POST", pattern: "/api/v1/data/load" },
   "design_system": { method: "GET", pattern: "/design-system" },
+  "diagnostic_test": { method: "GET", pattern: "/diagnostic-test" },
   "health.index": { method: "GET", pattern: "/health" },
   "order_planning.board": { method: "GET", pattern: "/planification" },
   "order_planning.index": { method: "GET", pattern: "/api/v1/planning/order-lines" },
@@ -73,6 +74,7 @@ export type RouteParams = {
   "auth.logout": void,
   "data.load": void,
   "design_system": void,
+  "diagnostic_test": void,
   "health.index": void,
   "order_planning.board": void,
   "order_planning.index": void,

@@ -39,12 +39,17 @@ export interface FeasibilityLoaderInput extends LoaderInput {
 export function stockRecordFromFlows(
   flows: Array<{ origin: { subType?: string }; quantity: number }>,
 ): StockRecord | undefined {
-  let phys = 0
+  let strict = 0
+  let qc = 0
   for (const f of flows) {
     const sub = (f.origin as { subType?: string }).subType
-    if (sub === 'strict' || sub === 'qc') phys += f.quantity
+    if (sub === 'strict') strict += f.quantity
+    else if (sub === 'qc') qc += f.quantity
   }
-  return phys > 0 ? { stockPhysique: phys, stockAlloue: 0 } : undefined
+  // stockPhysique = strict + qc (inchangé pour les consommateurs board, #11).
+  // stockQc tracé À PART : permet au diagnostic de distinguer le dispo réel (strict)
+  // du stock bloqué en contrôle qualité, sans changer la sémantique partagée.
+  return strict > 0 || qc > 0 ? { stockPhysique: strict + qc, stockAlloue: 0, stockQc: qc } : undefined
 }
 
 /**

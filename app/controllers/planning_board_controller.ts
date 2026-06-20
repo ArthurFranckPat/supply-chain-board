@@ -2,7 +2,7 @@ import { HttpContext } from '@adonisjs/core/http'
 import { OverrideStore } from '#services/override_store'
 import { FeasibilityLoaderAdapter, buildStocksMap, buildReceptionsMap, buildNomenclatureMap } from '#services/feasibility-loader-adapter'
 import { whatifOrder } from '#app/domain/planning-board-feasibility'
-import type { OfRecord } from '#app/domain/recursive-checker'
+import type { OfRecord, StockRecord, ReceptionRecord } from '#app/domain/recursive-checker'
 import boardDataset from '#services/board_dataset'
 import { mergeOfWithOverride, type OfFromErp } from '#app/domain/planning_board'
 import { FeasibilityService } from '#app/domain/feasibility-service'
@@ -22,6 +22,20 @@ import { X3MfgmatRepository } from '#repositories/mfgmat_repository'
 import type { Article } from '#app/domain/models/article'
 import type { Nomenclature } from '#app/domain/models/nomenclature'
 
+/** Borne basse par défaut pour la fenêtre de suggestions CBN (CBNDET) : aujourd'hui - 30 j. */
+function defaultPoolFrom(): string {
+  const d = new Date()
+  d.setDate(d.getDate() - 30)
+  return d.toISOString().split('T')[0]
+}
+
+/** Borne haute par défaut pour la fenêtre de suggestions CBN (CBNDET) : aujourd'hui + 1 an. */
+function defaultPoolTo(): string {
+  const d = new Date()
+  d.setFullYear(d.getFullYear() + 1)
+  return d.toISOString().split('T')[0]
+}
+
 export default class PlanningBoardController {
   private get store() {
     return new OverrideStore()
@@ -29,18 +43,24 @@ export default class PlanningBoardController {
 
 
   async index(ctx: HttpContext) {
-    const windowStart = ctx.request.input('windowStart')
-    const windowEnd = ctx.request.input('windowEnd')
+    const windowStart = ctx.request.input('windowStart') as string | undefined
+    const windowEnd = ctx.request.input('windowEnd') as string | undefined
 
-    const ofFlows = await new X3OfRepository().getSupplyFlows()
+    const poolFrom = windowStart ?? defaultPoolFrom()
+    const poolTo = windowEnd ?? defaultPoolTo()
 
-    const overrides = await this.store.getAll()
+    const [pool, overrides] = await Promise.all([
+      boardDataset.getPool(poolFrom, poolTo),
+      this.store.getAll(),
+    ])
     const overrideMap = new Map(overrides.map((o) => [o.numOf, o]))
 
-    const erpOfs: OfFromErp[] = ofFlows.map((f) => ({
+    // Pool unifié : supply (1/2) + suggestions (3) — même forme Flow, conversion identique.
+    const allFlows: Flow[] = [...pool.supply, ...pool.suggestions]
+    const erpOfs: OfFromErp[] = allFlows.map((f) => ({
       numOf: (f.origin as any).id,
       article: f.article,
-      description: '',
+      description: (f.origin as any).designation ?? '',
       statutNum: (f.origin as any).status ?? 3,
       dateDebut: new Date(f.date ?? Date.now()),
       dateFin: f.date ?? new Date(),
@@ -49,12 +69,13 @@ export default class PlanningBoardController {
 
     const merged = erpOfs.map((of) => mergeOfWithOverride(of, overrideMap.get(of.numOf) ?? null))
 
-    const filtered = windowStart && windowEnd
-      ? merged.filter((of) => {
-          const end = new Date(of.dateFin)
-          return end >= new Date(windowStart) && end <= new Date(windowEnd)
-        })
-      : merged
+    const filtered =
+      windowStart && windowEnd
+        ? merged.filter((of) => {
+            const end = new Date(of.dateFin)
+            return end >= new Date(windowStart) && end <= new Date(windowEnd)
+          })
+        : merged
 
     return { ofs: filtered, total: filtered.length }
   }
@@ -67,9 +88,9 @@ export default class PlanningBoardController {
   }
 
   async show(ctx: HttpContext) {
-    const ofFlows = await new X3OfRepository().getSupplyFlows()
-
-    const match = ofFlows.find((f) => (f.origin as any).id === ctx.params.of)
+    const pool = await boardDataset.getPool(defaultPoolFrom(), defaultPoolTo())
+    const allFlows: Flow[] = [...pool.supply, ...pool.suggestions]
+    const match = allFlows.find((f) => (f.origin as any).id === ctx.params.of)
     if (!match) {
       return ctx.response.notFound({ message: `OF ${ctx.params.of} not found` })
     }
@@ -77,7 +98,7 @@ export default class PlanningBoardController {
     const erpOf: OfFromErp = {
       numOf: ctx.params.of,
       article: match.article,
-      description: '',
+      description: (match.origin as any).designation ?? '',
       statutNum: (match.origin as any).status ?? 3,
       dateDebut: new Date(match.date ?? Date.now()),
       dateFin: match.date ?? new Date(),
@@ -296,15 +317,20 @@ export default class PlanningBoardController {
   }
 
   async listEvents(ctx: HttpContext) {
-    const windowStart = ctx.request.input('windowStart')
-    const windowEnd = ctx.request.input('windowEnd')
+    const windowStart = ctx.request.input('windowStart') as string | undefined
+    const windowEnd = ctx.request.input('windowEnd') as string | undefined
 
-    const ofFlows = await new X3OfRepository().getSupplyFlows()
+    const poolFrom = windowStart ?? defaultPoolFrom()
+    const poolTo = windowEnd ?? defaultPoolTo()
 
-    const overrides = await this.store.getAll()
+    const [pool, overrides] = await Promise.all([
+      boardDataset.getPool(poolFrom, poolTo),
+      this.store.getAll(),
+    ])
     const overrideMap = new Map(overrides.map((o) => [o.numOf, o]))
+    const allFlows: Flow[] = [...pool.supply, ...pool.suggestions]
 
-    const events = ofFlows
+    const events = allFlows
       .map((f) => {
         const override = overrideMap.get((f.origin as any).id)
         const dateStr = override?.dateFin ?? f.date?.toISOString().slice(0, 10) ?? null
@@ -432,38 +458,19 @@ export default class PlanningBoardController {
    * (OF fermes/planifiés éclatés), repli nomenclature théorique pour les OF suggérés sans
    * MFGMAT — pour désigner le VRAI composant bloquant, ou conclure qu'il n'y a qu'un OF de
    * sous-ensemble à lancer. Distinct du mode direct (ofMaterials, MFGMAT 1 niveau).
-   *
-   * Pool d'OF unifié : orders (statut 1/2, MFGHEAD) + suggestions CBN (statut 3, CBNDET).
-   * En attendant #27 (pool unifié canonique), assemblé inline ici.
    */
   async ofMaterialsDiagnostic(ctx: HttpContext) {
     const numOf = ctx.params.of
     if (!numOf) return ctx.response.badRequest({ error: 'numOf requis' })
 
-    // Fenêtre large pour capter les suggestions (CBNDET) couvrantes autour de l'OF.
-    const from = new Date()
-    from.setDate(from.getDate() - 30)
-    const to = new Date()
-    to.setFullYear(to.getFullYear() + 1)
-    const fromIso = from.toISOString().split('T')[0]
-    const toIso = to.toISOString().split('T')[0]
-
-    const [orders, live, nomEntries, articlesList] = await Promise.all([
-      boardDataset.getOrders(),
-      boardDataset.getLive(fromIso, toIso).catch(
-        (): { demand: Flow[]; reception: Flow[]; suggestion: Flow[]; at: number } => ({
-          demand: [],
-          reception: [],
-          suggestion: [],
-          at: 0,
-        }),
-      ),
+    const [poolData, nomEntries, articlesList] = await Promise.all([
+      boardDataset.getPool(defaultPoolFrom(), defaultPoolTo()),
       boardDataset.getNomenclature().catch(() => []),
       boardDataset.getArticles().catch(() => []),
     ])
 
-    // Pool unifié : OF affermis/planifiés (1/2) + suggestions CBN (3).
-    const pool: OfRecord[] = ([...orders.supply, ...live.suggestion] as Flow[]).map((f) => {
+    // Pool unifié : supply (1/2) + suggestions CBN (3).
+    const pool: OfRecord[] = ([...poolData.supply, ...poolData.suggestions] as Flow[]).map((f) => {
       const o = f.origin as { id?: string; status?: number }
       return {
         numOf: o.id ?? '',
@@ -477,12 +484,23 @@ export default class PlanningBoardController {
     const head = pool.find((o) => o.numOf === numOf)
     if (!head) return ctx.response.notFound({ error: `OF ${numOf} introuvable dans le pool` })
 
-    // MFGMAT de tous les OF du pool (batch) → source réelle de descente par OF.
-    const mfgmatByOf = await new X3MfgmatRepository().getMaterialsForOfs(pool.map((o) => o.numOf))
-    const mfgmatMap = new Map<string, MfgMaterialInput[]>()
-    for (const [n, mats] of mfgmatByOf) {
-      mfgmatMap.set(
-        n,
+    const articlesMap = new Map<string, Article>(articlesList.map((a) => [a.code, a]))
+    const nomenclaturesMap = buildNomenclatureMap(nomEntries)
+
+    // Chargements X3 vivants PARESSEUX + memoïsés : on ne touche que les OF/articles
+    // réellement visités par la descente (la naïve « tout le pool » lisait 14k+ OF).
+    const mfgmatRepo = new X3MfgmatRepository()
+    const stockRepo = boardDataset
+    const receptionRepo = new X3ReceptionRepository()
+
+    const mfgmatCache = new Map<string, Promise<MfgMaterialInput[]>>()
+    const stockCache = new Map<string, Promise<StockRecord | undefined>>()
+    const receptionCache = new Map<string, Promise<ReceptionRecord[]>>()
+
+    const loadMfgmat = (n: string): Promise<MfgMaterialInput[]> => {
+      const hit = mfgmatCache.get(n)
+      if (hit) return hit
+      const p = mfgmatRepo.getMaterials(n).then((mats) =>
         mats.map((m) => ({
           article: m.article,
           description: m.description,
@@ -491,42 +509,64 @@ export default class PlanningBoardController {
           allocated: m.allocated,
         })),
       )
+      mfgmatCache.set(n, p)
+      return p
     }
-
-    const articlesMap = new Map<string, Article>(articlesList.map((a) => [a.code, a]))
-    const nomenclaturesMap = buildNomenclatureMap(nomEntries)
-
-    // Stock pour tous les articles du pool + composants de nomenclature.
-    const stockArticles = new Set<string>(pool.map((o) => o.article))
-    for (const e of nomEntries) {
-      stockArticles.add(e.parentArticle)
-      stockArticles.add(e.componentArticle)
+    const loadStock = (a: string): Promise<StockRecord | undefined> => {
+      const hit = stockCache.get(a)
+      if (hit) return hit
+      const p = loadStocks([a]).then((m) => m.get(a))
+      stockCache.set(a, p)
+      return p
     }
-    const stockFlows = await boardDataset.getStock([...stockArticles]).catch(() => [])
-    const stocksMap = buildStocksMap(
-      stockFlows.map((f) => ({ article: f.article, origin: f.origin as { subType?: string }, quantity: f.quantity })),
-    )
-
-    const receptionFlows = await new X3ReceptionRepository().getReceptionFlows().catch(() => [])
-    const receptionsMap = buildReceptionsMap(
-      receptionFlows.map((f) => ({
-        article: f.article,
-        id: (f.origin as { id?: string }).id,
-        supplier: (f.origin as { supplier?: string }).supplier,
-        quantity: f.quantity,
-        date: f.date,
-      })),
-    )
+    // Stock par LOT : une requête X3 pour tous les articles d'un nœud (clé perf).
+    const loadStocks = async (articles: string[]): Promise<Map<string, StockRecord | undefined>> => {
+      const flows = await stockRepo.getStock(articles).catch(() => [])
+      const built = buildStocksMap(
+        flows.map((f) => ({ article: f.article, origin: f.origin as { subType?: string }, quantity: f.quantity })),
+      )
+      const out = new Map<string, StockRecord | undefined>()
+      for (const a of articles) out.set(a, built.get(a))
+      return out
+    }
+    const loadReceptions = (a: string): Promise<ReceptionRecord[]> => {
+      const hit = receptionCache.get(a)
+      if (hit) return hit
+      // Le repo réception n'est pas scopé par article ; on charge tout une fois puis filtre.
+      const p = allReceptions().then((map) => map.get(a) ?? [])
+      receptionCache.set(a, p)
+      return p
+    }
+    let allReceptionsPromise: Promise<Map<string, ReceptionRecord[]>> | null = null
+    const allReceptions = (): Promise<Map<string, ReceptionRecord[]>> => {
+      if (allReceptionsPromise) return allReceptionsPromise
+      allReceptionsPromise = receptionRepo
+        .getReceptionFlows()
+        .then((flows) =>
+          buildReceptionsMap(
+            flows.map((f) => ({
+              article: f.article,
+              id: (f.origin as { id?: string }).id,
+              supplier: (f.origin as { supplier?: string }).supplier,
+              quantity: f.quantity,
+              date: f.date,
+            })),
+          ),
+        )
+        .catch(() => new Map<string, ReceptionRecord[]>())
+      return allReceptionsPromise
+    }
 
     const loader: DiagnosticLoader = {
       getArticle: (a) => articlesMap.get(a),
       getNomenclature: (a) => nomenclaturesMap.get(a),
-      getStock: (a) => stocksMap.get(a),
-      getReceptions: (a) => receptionsMap.get(a) ?? [],
       // Allocations ERP non chargées en v1 : la MFGMAT reflète déjà l'alloué (ALLQTY),
       // et evaluateMfgFeasibility en tient compte.
       getAllocationsOf: () => [],
-      getMfgmat: (n) => mfgmatMap.get(n) ?? [],
+      getStock: loadStock,
+      getStocks: loadStocks,
+      getReceptions: loadReceptions,
+      getMfgmat: loadMfgmat,
       getOfsByArticle: (article, statut, dateBesoin) => {
         let f = pool.filter((o) => o.article === article)
         if (statut !== undefined) f = f.filter((o) => o.statutNum === statut)
@@ -536,15 +576,42 @@ export default class PlanningBoardController {
     }
 
     const checker = new RecursiveDiagnosticChecker(loader, { checkDate: new Date(), useReceptions: true })
-    return checker.diagnoseOf(head)
+    const result = await checker.diagnoseOf(head)
+
+    // Debug (page de test #25) : confronte le verdict récursif au mode DIRECT classique
+    // (ofMaterials : MFGMAT 1 niveau, stock strict/qc) sur l'OF de tête.
+    const headMat = await loadMfgmat(head.numOf)
+    const directStockArticles = [...new Set(headMat.map((m) => m.article).filter(Boolean))]
+    const directStockFlows = await boardDataset.getStock(directStockArticles).catch(() => [])
+    const directVerdict = evaluateMfgFeasibility(headMat, buildStrictQcStock(directStockFlows), head.statutNum === 1)
+    return {
+      ...result,
+      _debug: {
+        poolSize: pool.length,
+        headStatut: head.statutNum,
+        headSource: headMat.length > 0 ? 'MFGMAT' : 'NOMENCLATURE',
+        headMaterialsCount: headMat.length,
+        ofsVisited: mfgmatCache.size,
+        direct: {
+          feasible: directVerdict.feasible,
+          blockedCount: directVerdict.blockedCount,
+          shorts: directVerdict.materials
+            .filter((m) => m.feasible === false)
+            .map((m) => ({ article: m.article, remaining: m.remaining, available: m.available, missing: m.missing })),
+          unknownStock: directVerdict.materials.filter((m) => m.available === null).map((m) => m.article),
+        },
+      },
+    }
   }
 
   /**
-   * Fallback BOM — utilisé quand MFGMAT n'a pas de données pour cet OF.
+   * Fallback BOM — utilisé quand MFGMAT n'a pas de données pour cet OF (notamment les
+   * suggestions CBN statut 3 qui n'ont jamais de MFGMAT avant affermissement).
    */
   private async ofMaterialsFromBom(numOf: string, isFirm?: boolean) {
-    const ofFlows = await new X3OfRepository().getSupplyFlows().catch(() => [])
-    const targetFlow = ofFlows.find((f) => {
+    const pool = await boardDataset.getPool(defaultPoolFrom(), defaultPoolTo())
+    const allFlows: Flow[] = [...pool.supply, ...pool.suggestions]
+    const targetFlow = allFlows.find((f) => {
       const id = (f.origin as { id?: string }).id
       return id === numOf
     })

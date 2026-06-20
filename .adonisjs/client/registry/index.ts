@@ -54,6 +54,12 @@ const routes = {
     tokens: [{"old":"/design-system","type":0,"val":"design-system","end":""}],
     types: placeholder as Registry['design_system']['types'],
   },
+  'diagnostic_test': {
+    methods: ["GET","HEAD"],
+    pattern: '/diagnostic-test',
+    tokens: [{"old":"/diagnostic-test","type":0,"val":"diagnostic-test","end":""}],
+    types: placeholder as Registry['diagnostic_test']['types'],
+  },
   'scheduler.expert_board': {
     methods: ["GET","HEAD"],
     pattern: '/ordonnancement',
@@ -215,6 +221,12 @@ const routes = {
     pattern: '/api/v1/planning/of-materials/:of',
     tokens: [{"old":"/api/v1/planning/of-materials/:of","type":0,"val":"api","end":""},{"old":"/api/v1/planning/of-materials/:of","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/of-materials/:of","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/of-materials/:of","type":0,"val":"of-materials","end":""},{"old":"/api/v1/planning/of-materials/:of","type":1,"val":"of","end":""}],
     types: placeholder as Registry['planning_board.of_materials']['types'],
+  },
+  'planning_board.of_materials_diagnostic': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/planning/of-materials/:of/diagnostic',
+    tokens: [{"old":"/api/v1/planning/of-materials/:of/diagnostic","type":0,"val":"api","end":""},{"old":"/api/v1/planning/of-materials/:of/diagnostic","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/of-materials/:of/diagnostic","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/of-materials/:of/diagnostic","type":0,"val":"of-materials","end":""},{"old":"/api/v1/planning/of-materials/:of/diagnostic","type":1,"val":"of","end":""},{"old":"/api/v1/planning/of-materials/:of/diagnostic","type":0,"val":"diagnostic","end":""}],
+    types: placeholder as Registry['planning_board.of_materials_diagnostic']['types'],
   },
   'planning_board.reload_data': {
     methods: ["POST"],

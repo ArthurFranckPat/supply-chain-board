@@ -143,6 +143,22 @@ class BoardDataset {
     this.liveWindows.clear()
   }
 
+  /**
+   * Pool unifié : OF affermis/planifiés (statut 1/2, MFGHEAD) + suggestions CBN (statut 3,
+   * CBNDET) sur la fenêtre [from, to]. Les deux sources sont déjà cachées séparément ;
+   * getPool() ne crée pas de cache propre — il assemble depuis les caches existants.
+   *
+   * Utilisation : toute action qui doit voir la totalité des OF opérationnels (board index,
+   * show, diagnostic). Remplace l'assemblage inline « en attendant #27 ».
+   */
+  async getPool(from: string, to: string): Promise<{ supply: Flow[]; suggestions: Flow[]; mos: ManufacturingOrder[] }> {
+    const [orders, live] = await Promise.all([
+      this.getOrders(),
+      this.getLive(from, to).catch(() => ({ demand: [], reception: [], suggestion: [], at: 0 } as Live)),
+    ])
+    return { supply: orders.supply, suggestions: live.suggestion, mos: orders.mos }
+  }
+
   /** Articles (lecture SQLite). Utilisé pour la classification ACHAT/FABRICATION dans la faisabilité. */
   async getArticles(): Promise<import('#app/domain/models/article').Article[]> {
     return staticSync.readArticles().catch(() => [])

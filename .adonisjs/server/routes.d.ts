@@ -12,6 +12,7 @@ export type ScannedRoutes = {
     'health.index': { paramsTuple?: []; params?: {} }
     'tableau': { paramsTuple?: []; params?: {} }
     'design_system': { paramsTuple?: []; params?: {} }
+    'diagnostic_test': { paramsTuple?: []; params?: {} }
     'scheduler.expert_board': { paramsTuple?: []; params?: {} }
     'order_planning.board': { paramsTuple?: []; params?: {} }
     'scheduler.shortage_tracker': { paramsTuple?: []; params?: {} }
@@ -39,6 +40,7 @@ export type ScannedRoutes = {
     'planning_board.search_of': { paramsTuple?: []; params?: {} }
     'planning_board.search_pf': { paramsTuple?: []; params?: {} }
     'planning_board.of_materials': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
+    'planning_board.of_materials_diagnostic': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
     'planning_board.reload_data': { paramsTuple?: []; params?: {} }
     'scheduler.of_detail': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
     'scheduler.shortage_rows': { paramsTuple?: []; params?: {} }
@@ -62,6 +64,7 @@ export type ScannedRoutes = {
     'health.index': { paramsTuple?: []; params?: {} }
     'tableau': { paramsTuple?: []; params?: {} }
     'design_system': { paramsTuple?: []; params?: {} }
+    'diagnostic_test': { paramsTuple?: []; params?: {} }
     'scheduler.expert_board': { paramsTuple?: []; params?: {} }
     'order_planning.board': { paramsTuple?: []; params?: {} }
     'scheduler.shortage_tracker': { paramsTuple?: []; params?: {} }
@@ -80,6 +83,7 @@ export type ScannedRoutes = {
     'planning_board.search_of': { paramsTuple?: []; params?: {} }
     'planning_board.search_pf': { paramsTuple?: []; params?: {} }
     'planning_board.of_materials': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
+    'planning_board.of_materials_diagnostic': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
     'scheduler.of_detail': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
     'scheduler.shortage_rows': { paramsTuple?: []; params?: {} }
     'suivi.status_detail': { paramsTuple: [ParamValue]; params: {'order': ParamValue} }
@@ -94,6 +98,7 @@ export type ScannedRoutes = {
     'health.index': { paramsTuple?: []; params?: {} }
     'tableau': { paramsTuple?: []; params?: {} }
     'design_system': { paramsTuple?: []; params?: {} }
+    'diagnostic_test': { paramsTuple?: []; params?: {} }
     'scheduler.expert_board': { paramsTuple?: []; params?: {} }
     'order_planning.board': { paramsTuple?: []; params?: {} }
     'scheduler.shortage_tracker': { paramsTuple?: []; params?: {} }
@@ -112,6 +117,7 @@ export type ScannedRoutes = {
     'planning_board.search_of': { paramsTuple?: []; params?: {} }
     'planning_board.search_pf': { paramsTuple?: []; params?: {} }
     'planning_board.of_materials': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
+    'planning_board.of_materials_diagnostic': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
     'scheduler.of_detail': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
     'scheduler.shortage_rows': { paramsTuple?: []; params?: {} }
     'suivi.status_detail': { paramsTuple: [ParamValue]; params: {'order': ParamValue} }

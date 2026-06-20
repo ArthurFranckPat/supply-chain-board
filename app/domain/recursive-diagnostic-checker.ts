@@ -26,48 +26,81 @@ import type { Nomenclature } from './models/nomenclature.js'
 import { requiredQuantity } from './models/nomenclature.js'
 import type { ErpAllocation } from './allocation.js'
 
-export interface ChainStep {
-  article: string
-  quantityNeeded: number
-  /** numOf de l'OF couvrant qui fabrique cet article (présent si on a recursé via un OF). */
-  coveringOf?: string
-  /** Source du verdict à cette étape : réel (MFGMAT) vs théorique (nomenclature). */
-  source: 'MFGMAT' | 'NOMENCLATURE'
-}
-
-export type BlockerKind =
-  | 'rupture_matiere' // composant acheté/feuille réellement manquant
-  | 'of_sous_ensemble_a_lancer' // aucun blocage matière en dessous, juste un OF à lancer
+export type NodeStatus =
+  | 'ok' // pas de manque
+  | 'qc_a_controler' // stock présent en site mais sous contrôle qualité → faisable dès CQ levé
+  | 'rupture_matiere' // un composant acheté/feuille réellement manquant (ici ou en dessous)
+  | 'sous_ensemble_a_lancer' // manque couvert uniquement par un sous-ensemble fabriqué à produire
   | 'indetermine' // garde déclenchée (profondeur/cycle) : non classable
 
-export interface BlockingItem {
-  kind: BlockerKind
+/** Source du verdict d'un nœud : réel (MFGMAT éclatée) vs théorique (nomenclature). */
+export type NodeSource = 'MFGMAT' | 'NOMENCLATURE'
+
+/** OF/suggestion qui couvre un composant fabriqué manquant — descendu récursivement. */
+export interface CoveringOf {
+  numOf: string
+  statut: number // 1 ferme/lancé, 2 planifié, 3 suggéré
+  quantity: number // qteRestante de l'OF couvrant
+  node: DiagnosticNode
+}
+
+/** Un composant en manque sous un OF. */
+export interface ShortComponentNode {
   article: string
+  description: string
+  quantityNeeded: number
+  /** Stock disponible (strict uniquement, hors QC). null = inconnu. */
+  available: number | null
+  /** Stock sous contrôle qualité (non utilisable tant que le CQ n'est pas levé). */
+  stockQc?: number
   quantityMissing: number
-  /** Pour rupture_matiere : réception couvrante au plus tôt ; null sinon. */
   earliestReception: string | null
-  chain: ChainStep[]
+  fabricated: boolean
+  /** Pour un composant fabriqué : les OF/suggestions couvrants, descendus. */
+  covering: CoveringOf[]
+  status: NodeStatus
+}
+
+/** Un nœud de l'arbre = un OF (de tête ou couvrant). */
+export interface DiagnosticNode {
+  numOf: string
+  article: string
+  description: string
+  statut: number
+  quantityNeeded: number
+  source: NodeSource
+  feasible: boolean // lançable maintenant = aucun composant en manque
+  status: NodeStatus
+  shorts: ShortComponentNode[]
+  alerts: string[]
 }
 
 export interface RecursiveDiagnosticResult {
   numOf: string
   article: string
-  feasible: boolean // = blockers.length === 0
-  blockers: BlockingItem[]
+  feasible: boolean // = arbre racine sans manque
+  /** Diagnostic global : le vrai blocage (rupture matière vs sous-ensemble à lancer). */
+  rootCause: NodeStatus
+  tree: DiagnosticNode
   componentsChecked: number
   maxDepthReached: number
   alerts: string[]
 }
 
 export interface DiagnosticLoader {
+  // Données statiques (référentiel), déjà en cache → synchrones et bon marché.
   getArticle(article: string): Article | undefined
   getNomenclature(article: string): Nomenclature | undefined
-  getStock(article: string): StockRecord | undefined
-  getReceptions(article: string): ReceptionRecord[]
   getAllocationsOf(numDoc: string): ErpAllocation[]
   getOfsByArticle(article: string, statut?: number, dateBesoin?: Date): OfRecord[]
+  // Données X3 vivantes (coûteuses) → asynchrones et chargées paresseusement
+  // (seulement pour les nœuds réellement visités, memoïsées côté adapter).
+  getStock(article: string): Promise<StockRecord | undefined>
+  /** Stock de PLUSIEURS articles en une requête (batch) — clé perf : 1 requête/nœud. */
+  getStocks(articles: string[]): Promise<Map<string, StockRecord | undefined>>
+  getReceptions(article: string): Promise<ReceptionRecord[]>
   /** Matières réelles (MFGMAT) d'un OF — source réelle de descente. */
-  getMfgmat(numOf: string): MfgMaterialInput[]
+  getMfgmat(numOf: string): Promise<MfgMaterialInput[]>
 }
 
 export interface DiagnosticOptions {
@@ -76,20 +109,23 @@ export interface DiagnosticOptions {
   useReceptions?: boolean
 }
 
-interface ShortComponent {
+interface RawShort {
   article: string
+  description: string
+  quantityNeeded: number
+  available: number | null // strict uniquement (hors QC)
+  qcAvailable: number // stock sous CQ (non dispo immédiatement)
   qtyMissing: number
   earliestReception: string | null
 }
 
-interface NodeResult {
-  blockers: BlockingItem[]
-  componentsChecked: number
-  maxDepthReached: number
-  alerts: string[]
-}
-
 const DEFAULT_MAX_DEPTH = 10
+/**
+ * Marge amont pour les réceptions « en retard » : une ligne attendue jusqu'à 7 jours
+ * dans le passé est encore considérée comme la prochaine arrivée (retards transporteur,
+ * réceptions non pointées). En deçà, on l'ignore (info trop ancienne, peu fiable).
+ */
+const RECEPTION_GRACE_DAYS = 7
 const PHANTOM_DEPTH_CAP = 5
 
 function formatDate(d: Date): string {
@@ -99,147 +135,195 @@ function formatDate(d: Date): string {
 export class RecursiveDiagnosticChecker {
   private maxDepth: number
   private checkDate: Date
-  private useReceptions: boolean
 
   constructor(private loader: DiagnosticLoader, options: DiagnosticOptions = {}) {
     this.maxDepth = options.maxDepth ?? DEFAULT_MAX_DEPTH
     this.checkDate = options.checkDate ?? new Date()
-    this.useReceptions = options.useReceptions ?? true
   }
 
-  /** Point d'entrée : diagnostic complet d'un OF. */
-  diagnoseOf(of: OfRecord): RecursiveDiagnosticResult {
-    const res = this.diagnoseNode(of, [], new Set(), 0)
+  private nodeCount = 0
+  private maxDepthSeen = 0
+  /** Cache stock inter-nœuds : un article n'est lu qu'une fois sur tout le diagnostic. */
+  private stockCache = new Map<string, StockRecord | undefined>()
+
+  /** Pré-charge en UNE requête le stock des articles non encore en cache. */
+  private async prefetchStocks(articles: string[]): Promise<void> {
+    const missing = [...new Set(articles)].filter((a) => a && !this.stockCache.has(a))
+    if (missing.length === 0) return
+    const fetched = await this.loader.getStocks(missing)
+    for (const a of missing) this.stockCache.set(a, fetched.get(a))
+  }
+
+  /** Point d'entrée : diagnostic complet d'un OF (arbre). */
+  async diagnoseOf(of: OfRecord): Promise<RecursiveDiagnosticResult> {
+    this.nodeCount = 0
+    this.maxDepthSeen = 0
+    const tree = await this.diagnoseNode(of, new Set(), 0)
+    const allAlerts = this.collectAlerts(tree)
     return {
       numOf: of.numOf,
       article: of.article,
-      feasible: res.blockers.length === 0,
-      blockers: res.blockers,
-      componentsChecked: res.componentsChecked,
-      maxDepthReached: res.maxDepthReached,
-      alerts: res.alerts,
+      feasible: tree.status === 'ok',
+      rootCause: tree.status,
+      tree,
+      componentsChecked: this.nodeCount,
+      maxDepthReached: this.maxDepthSeen,
+      alerts: allAlerts,
     }
   }
 
-  private diagnoseNode(of: OfRecord, chain: ChainStep[], ancestors: Set<string>, depth: number): NodeResult {
-    // Garde : cycle (article déjà présent dans le chemin courant).
-    if (ancestors.has(of.article)) {
-      return this.indetermine(of.article, chain, `Cycle detecte: ${of.article}`, depth)
+  private async diagnoseNode(of: OfRecord, ancestors: Set<string>, depth: number): Promise<DiagnosticNode> {
+    this.maxDepthSeen = Math.max(this.maxDepthSeen, depth)
+    const article = of.article
+    const description = this.loader.getArticle(article)?.description ?? ''
+    const base = {
+      numOf: of.numOf,
+      article,
+      description,
+      statut: of.statutNum,
+      quantityNeeded: of.qteRestante,
+    }
+
+    // Garde : cycle.
+    if (ancestors.has(article)) {
+      return { ...base, source: 'NOMENCLATURE', feasible: false, status: 'indetermine', shorts: [], alerts: [`Cycle detecte: ${article}`] }
     }
     // Garde : profondeur max.
     if (depth > this.maxDepth) {
-      return this.indetermine(of.article, chain, `Profondeur max atteinte sur ${of.article}`, depth)
+      return { ...base, source: 'NOMENCLATURE', feasible: false, status: 'indetermine', shorts: [], alerts: [`Profondeur max atteinte sur ${article}`] }
     }
 
     const date = this.dateBesoin(of)
-    const materials = this.loader.getMfgmat(of.numOf)
+    const materials = await this.loader.getMfgmat(of.numOf)
     const useMfgmat = materials.length > 0
-    const source: ChainStep['source'] = useMfgmat ? 'MFGMAT' : 'NOMENCLATURE'
-    const myChain: ChainStep[] = [
-      ...chain,
-      { article: of.article, quantityNeeded: of.qteRestante, source },
-    ]
+    const source: NodeSource = useMfgmat ? 'MFGMAT' : 'NOMENCLATURE'
 
-    const shorts = useMfgmat
-      ? this.shortsFromMfgmat(materials, date)
-      : this.collectNomenclatureShorts(of.article, of.qteRestante, date, 0)
+    // Perf : pré-charge le stock de tous les composants de ce nœud en UNE requête
+    // (au lieu d'une requête X3 par article — 34 matières = 34 allers-retours).
+    await this.prefetchStocks(useMfgmat ? materials.map((m) => m.article) : this.nomenclatureArticles(article))
 
-    const blockers: BlockingItem[] = []
+    const rawShorts = useMfgmat
+      ? await this.shortsFromMfgmat(materials)
+      : await this.collectNomenclatureShorts(article, of.qteRestante, 0)
+
     const alerts: string[] = []
-    let componentsChecked = shorts.length
-    let maxDepthReached = depth
+    const childAncestors = new Set(ancestors).add(article)
+    const shorts: ShortComponentNode[] = []
 
-    for (const s of shorts) {
-      const compStep: ChainStep = { article: s.article, quantityNeeded: s.qtyMissing, source }
-
-      // Déjà alloué en ERP sur cet OF → on ne recompte pas (MFGMAT le reflète déjà ; sécurité).
+    for (const s of rawShorts) {
+      this.nodeCount++
       if (this.isAlreadyAllocated(s.article, of.numOf)) {
         alerts.push(`${s.article} deja alloue a ${of.numOf}, ignore`)
         continue
       }
 
-      if (!this.isFabricated(s.article)) {
-        // Composant acheté / feuille → rupture matière réelle.
-        blockers.push({
-          kind: 'rupture_matiere',
+      const fabricated = this.isFabricated(s.article)
+      if (!fabricated) {
+        // Feuille / acheté :
+        //  - stock strict insuffisant ET stock CQ couvre le besoin → qc_a_controler
+        //  - sinon → rupture matière réelle
+        const strictAvailable = s.available ?? 0
+        const coveredByQc = s.qcAvailable > 0 && strictAvailable + s.qcAvailable >= s.quantityNeeded
+        const status: NodeStatus = coveredByQc ? 'qc_a_controler' : 'rupture_matiere'
+        shorts.push({
           article: s.article,
+          description: s.description,
+          quantityNeeded: s.quantityNeeded,
+          available: s.available,
+          ...(s.qcAvailable > 0 ? { stockQc: s.qcAvailable } : {}),
           quantityMissing: s.qtyMissing,
           earliestReception: s.earliestReception,
-          chain: [...myChain, compStep],
+          fabricated: false,
+          covering: [],
+          status,
         })
         continue
       }
 
-      // Composant fabriqué → on cherche l'OF couvrant et on le re-vérifie récursivement.
+      // Composant fabriqué → on liste les OF/suggestions couvrants et on les descend.
       const coveringOfs = this.loader.getOfsByArticle(s.article, undefined, date)
-      if (coveringOfs.length === 0) {
-        blockers.push({
-          kind: 'of_sous_ensemble_a_lancer',
-          article: s.article,
-          quantityMissing: s.qtyMissing,
-          earliestReception: null,
-          chain: [...myChain, compStep],
-        })
-        alerts.push(`Sous-ensemble ${s.article}: aucun OF couvrant — a lancer`)
-        continue
-      }
-
-      const childAncestors = new Set(ancestors).add(of.article)
-      let feasibleCover = 0
-      const subBlockers: BlockingItem[] = []
+      const covering: CoveringOf[] = []
       for (const covOf of coveringOfs) {
-        const covChain: ChainStep[] = [
-          ...myChain,
-          { ...compStep, coveringOf: covOf.numOf },
-        ]
-        const sub = this.diagnoseNode(covOf, covChain, childAncestors, depth + 1)
-        componentsChecked += sub.componentsChecked
-        maxDepthReached = Math.max(maxDepthReached, sub.maxDepthReached)
-        alerts.push(...sub.alerts)
-        if (sub.blockers.length === 0) feasibleCover += covOf.qteRestante
-        else subBlockers.push(...sub.blockers)
+        const node = await this.diagnoseNode(covOf, childAncestors, depth + 1)
+        covering.push({ numOf: covOf.numOf, statut: covOf.statutNum, quantity: covOf.qteRestante, node })
       }
 
-      if (feasibleCover >= s.qtyMissing) continue // couvert par les OF faisables
-
-      const shortfall = s.qtyMissing - feasibleCover
-      const hasMaterialRupture = subBlockers.some((b) => b.kind === 'rupture_matiere')
-      const hasIndetermine = subBlockers.some((b) => b.kind === 'indetermine')
-      if (hasMaterialRupture) {
-        // On bulle les feuilles réellement bloquantes trouvées en dessous.
-        blockers.push(...subBlockers.filter((b) => b.kind === 'rupture_matiere'))
-        alerts.push(`Sous-ensemble ${s.article}: rupture matiere en dessous`)
-      } else if (hasIndetermine) {
-        // Garde déclenchée en dessous (profondeur/cycle) → on ne masque pas en « OF à lancer ».
-        blockers.push(...subBlockers.filter((b) => b.kind === 'indetermine'))
-        alerts.push(`Sous-ensemble ${s.article}: non resolu (garde) en dessous`)
-      } else {
-        // Rien ne bloque en matière en dessous → OF du sous-ensemble à lancer/compléter.
-        blockers.push({
-          kind: 'of_sous_ensemble_a_lancer',
-          article: s.article,
-          quantityMissing: shortfall,
-          earliestReception: null,
-          chain: [...myChain, compStep],
-        })
-      }
+      shorts.push({
+        article: s.article,
+        description: s.description,
+        quantityNeeded: s.quantityNeeded,
+        available: s.available,
+        quantityMissing: s.qtyMissing,
+        earliestReception: s.earliestReception,
+        fabricated: true,
+        covering,
+        status: this.classifyFabricated(s, covering),
+      })
     }
 
-    return { blockers, componentsChecked, maxDepthReached, alerts }
+    const status = this.rollUp(shorts)
+    return { ...base, source, feasible: status === 'ok', status, shorts, alerts }
+  }
+
+  /**
+   * Statut d'un composant fabriqué en manque, selon ses OF couvrants :
+   *  - aucun couvrant → sous_ensemble_a_lancer (rien de prévu).
+   *  - un couvrant FERME/LANCÉ (statut 1) & faisable → ok (sera produit, matière OK).
+   *  - couvrants présents mais tous suggérés/planifiés non lancés → on regarde DESSOUS :
+   *      rupture matière en dessous → rupture_matiere (vrai blocage profond) ;
+   *      tous bloqués sur CQ → qc_a_controler (déblocable dès CQ levé) ;
+   *      sinon → sous_ensemble_a_lancer (il suffit de lancer la suggestion).
+   */
+  private classifyFabricated(s: RawShort, covering: CoveringOf[]): NodeStatus {
+    if (covering.length === 0) return 'sous_ensemble_a_lancer'
+
+    // Couverture réelle = OF déjà lancé (statut 1) ET faisable, en quantité suffisante.
+    const firmFeasible = covering
+      .filter((c) => c.statut === 1 && c.node.status === 'ok')
+      .reduce((sum, c) => sum + c.quantity, 0)
+    if (firmFeasible >= s.qtyMissing) return 'ok'
+
+    // Sinon, le vrai blocage est ce qui empêche de lancer les couvrants.
+    if (covering.some((c) => c.node.status === 'rupture_matiere')) return 'rupture_matiere'
+    if (covering.some((c) => c.node.status === 'indetermine')) return 'indetermine'
+    if (covering.some((c) => c.node.status === 'qc_a_controler')) return 'qc_a_controler'
+    return 'sous_ensemble_a_lancer'
+  }
+
+  /** Roll-up d'un nœud : ok si aucun manque non couvert, sinon rupture > indetermine > à lancer > qc. */
+  private rollUp(shorts: ShortComponentNode[]): NodeStatus {
+    const unmet = shorts.filter((s) => s.status !== 'ok')
+    if (unmet.length === 0) return 'ok'
+    if (unmet.some((s) => s.status === 'rupture_matiere')) return 'rupture_matiere'
+    if (unmet.some((s) => s.status === 'indetermine')) return 'indetermine'
+    if (unmet.some((s) => s.status === 'sous_ensemble_a_lancer')) return 'sous_ensemble_a_lancer'
+    return 'qc_a_controler'
+  }
+
+  private collectAlerts(node: DiagnosticNode): string[] {
+    const out = [...node.alerts]
+    for (const s of node.shorts) for (const c of s.covering) out.push(...this.collectAlerts(c.node))
+    return out
   }
 
   /** Shortages d'un OF éclaté, via la MFGMAT réelle (moteur partagé du mode direct). */
-  private shortsFromMfgmat(materials: MfgMaterialInput[], date: Date): ShortComponent[] {
+  private async shortsFromMfgmat(materials: MfgMaterialInput[]): Promise<RawShort[]> {
     const stockByArticle = new Map<string, number>()
-    for (const m of materials) stockByArticle.set(m.article, this.availableStock(m.article, date))
+    for (const m of materials) stockByArticle.set(m.article, this.availableStock(m.article))
     const verdict = evaluateMfgFeasibility(materials, stockByArticle, false)
-    return verdict.materials
-      .filter((m) => m.feasible === false)
-      .map((m) => ({
+    const out: RawShort[] = []
+    for (const m of verdict.materials.filter((x) => x.feasible === false)) {
+      out.push({
         article: m.article,
+        description: m.description,
+        quantityNeeded: m.remaining,
+        available: m.available,
+        qcAvailable: this.qcForArticle(m.article),
         qtyMissing: m.missing,
-        earliestReception: this.earliestReception(m.article, date),
-      }))
+        earliestReception: await this.earliestReception(m.article),
+      })
+    }
+    return out
   }
 
   /**
@@ -247,40 +331,52 @@ export class RecursiveDiagnosticChecker {
    * avec aplatissement des fantômes (AFANT). On n'explose pas les sous-ensembles fabriqués
    * ici : ils seront routés vers leur OF couvrant par diagnoseNode (repli = 1 niveau).
    */
-  private collectNomenclatureShorts(
+  private async collectNomenclatureShorts(
     article: string,
     qteBesoin: number,
-    date: Date,
     phantomDepth: number,
-  ): ShortComponent[] {
+  ): Promise<RawShort[]> {
     const bom = this.loader.getNomenclature(article)
     if (!bom || bom.components.length === 0) {
       // Feuille (achat) → son propre besoin est le shortage.
+      const available = this.availableStock(article)
       return [
         {
           article,
-          qtyMissing: qteBesoin,
-          earliestReception: this.earliestReception(article, date),
+          description: this.loader.getArticle(article)?.description ?? '',
+          quantityNeeded: qteBesoin,
+          available,
+          qcAvailable: this.qcForArticle(article),
+          qtyMissing: Math.max(0, qteBesoin - available),
+          earliestReception: await this.earliestReception(article),
         },
       ]
     }
-    const out: ShortComponent[] = []
+    // Pré-charge le stock des composants de ce sous-niveau en une requête.
+    await this.prefetchStocks(bom.components.map((c) => c.componentArticle))
+    const out: RawShort[] = []
     for (const entry of bom.components) {
       const besoin = requiredQuantity(entry, qteBesoin)
       const info = this.loader.getArticle(entry.componentArticle)
 
       if (isPhantom(info) && phantomDepth < PHANTOM_DEPTH_CAP) {
-        out.push(...this.collectNomenclatureShorts(entry.componentArticle, besoin, date, phantomDepth + 1))
+        out.push(...(await this.collectNomenclatureShorts(entry.componentArticle, besoin, phantomDepth + 1)))
         continue
       }
 
-      const available = this.availableStock(entry.componentArticle, date)
+      const available = this.availableStock(entry.componentArticle)
+      const qcAvailable = this.qcForArticle(entry.componentArticle)
       const missing = Math.max(0, besoin - available)
+      // Inclure aussi les articles dont seul le stock CQ couvre le besoin (qc_a_controler).
       if (missing > 0) {
         out.push({
           article: entry.componentArticle,
+          description: info?.description ?? '',
+          quantityNeeded: besoin,
+          available,
+          qcAvailable,
           qtyMissing: missing,
-          earliestReception: this.earliestReception(entry.componentArticle, date),
+          earliestReception: await this.earliestReception(entry.componentArticle),
         })
       }
     }
@@ -298,37 +394,44 @@ export class RecursiveDiagnosticChecker {
     return this.loader.getAllocationsOf(numOf).some((a) => a.article === article && a.qteAllouee > 0)
   }
 
-  private availableStock(article: string, date: Date): number {
-    const stock = this.loader.getStock(article)
-    let available = stock ? stock.stockPhysique - stock.stockAlloue : 0
-    if (this.useReceptions) {
-      for (const rec of this.loader.getReceptions(article)) {
-        if (rec.date <= date) available += rec.quantity
-      }
-    }
-    return available
+  /** Articles directs de la nomenclature d'un parent (pour pré-charger leur stock). */
+  private nomenclatureArticles(article: string): string[] {
+    return this.loader.getNomenclature(article)?.components.map((c) => c.componentArticle) ?? []
   }
 
-  private earliestReception(article: string, date: Date): string | null {
-    const future = this.loader
-      .getReceptions(article)
-      .filter((r) => r.date > date)
+  /**
+   * Stock DISPONIBLE pour décider de la faisabilité « maintenant » : strict uniquement
+   * (hors CQ), moins l'alloué. Le stock sous contrôle qualité n'est PAS comptabilisé ici
+   * car il n'est pas utilisable tant que le CQ n'est pas levé (cf. qcForArticle).
+   * Lit le cache pré-chargé par lot (prefetchStocks) — pas de requête par article.
+   */
+  private availableStock(article: string): number {
+    const stock = this.stockCache.get(article)
+    if (!stock) return 0
+    const qc = stock.stockQc ?? 0
+    return stock.stockPhysique - qc - stock.stockAlloue
+  }
+
+  /** Quantité sous contrôle qualité pour un article (non disponible immédiatement). */
+  private qcForArticle(article: string): number {
+    return this.stockCache.get(article)?.stockQc ?? 0
+  }
+
+  /**
+   * Réception au plus tôt pertinente. On ne se limite PAS aux réceptions strictement
+   * futures : une réception attendue il y a peu (transporteur en retard, réception non
+   * pointée) reste la prochaine arrivée réelle. Fenêtre = [aujourd'hui − GRACE_DAYS, +∞[.
+   */
+  private async earliestReception(article: string): Promise<string | null> {
+    const floor = new Date(this.checkDate)
+    floor.setDate(floor.getDate() - RECEPTION_GRACE_DAYS)
+    const candidates = (await this.loader.getReceptions(article))
+      .filter((r) => r.date >= floor)
       .sort((a, b) => a.date.getTime() - b.date.getTime())
-    return future[0] ? formatDate(future[0].date) : null
+    return candidates[0] ? formatDate(candidates[0].date) : null
   }
 
   private dateBesoin(of: OfRecord): Date {
     return of.dateDebut ?? of.dateFin ?? this.checkDate
-  }
-
-  private indetermine(article: string, chain: ChainStep[], alert: string, depth: number): NodeResult {
-    return {
-      blockers: [
-        { kind: 'indetermine', article, quantityMissing: 0, earliestReception: null, chain },
-      ],
-      componentsChecked: 0,
-      maxDepthReached: depth,
-      alerts: [alert],
-    }
   }
 }

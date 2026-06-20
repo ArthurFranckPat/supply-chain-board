@@ -25,6 +25,8 @@ export interface RecursiveCheckerResult {
 export interface StockRecord {
   stockPhysique: number
   stockAlloue: number
+  /** Stock sous contrôle qualité (non disponible tant que le CQ n'est pas levé). Optionnel. */
+  stockQc?: number
 }
 
 export interface ReceptionRecord {

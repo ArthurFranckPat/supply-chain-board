@@ -65,6 +65,15 @@ router
       })
       .as('design_system')
 
+    // Diagnostic récursif (issue #25) — page de TEST provisoire pour valider
+    // l'endpoint /api/v1/planning/of-materials/:of/diagnostic avant intégration
+    // au design. À retirer une fois intégré dans le panneau de détail OF.
+    router
+      .get('/diagnostic-test', async ({ inertia }) => {
+        return inertia.render('diagnostic-test', {})
+      })
+      .as('diagnostic_test')
+
     // Pages Inertia (HTML, sans param de path) — URLs françaises (app pour public FR).
     // Les endpoints JSON associés vivent sous /api/v1/planning (P3, #18).
     //   /ordonnancement : board OF, vue experte haute densité

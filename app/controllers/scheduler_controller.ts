@@ -9,6 +9,38 @@ import type { GammeOperation } from '#app/domain/models/gamme'
 import { loadOrderImpacts } from '#services/order_impacts_loader'
 import { buildShortageRows, type ShortageRow } from '#app/domain/shortages'
 import { loadReceptionsByArticle } from '#repositories/reception_repository'
+import type { Flow } from '#app/domain/models/flow'
+
+function defaultPoolFrom(): string {
+  const d = new Date()
+  d.setDate(d.getDate() - 30)
+  return d.toISOString().split('T')[0]
+}
+function defaultPoolTo(): string {
+  const d = new Date()
+  d.setFullYear(d.getFullYear() + 1)
+  return d.toISOString().split('T')[0]
+}
+
+/** Convertit un flux suggestion CBN (Flow statut 3) en ManufacturingOrder pour le board. */
+function suggestionToMo(f: Flow): ManufacturingOrder {
+  const o = f.origin as { id?: string; designation?: string | null }
+  return {
+    numOf: o.id ?? '',
+    article: f.article,
+    designation: o.designation ?? null,
+    status: 3,
+    statutLabel: 'Suggéré',
+    typeOfLabel: null,
+    quantity: f.quantity,
+    quantityLaunched: 0,
+    quantityDone: 0,
+    unit: null,
+    // CBNDET n'a que ENDDAT : on l'utilise comme date de début de planification.
+    startDate: f.date ?? null,
+    endDate: f.date ?? null,
+  }
+}
 
 // ---------------------------------------------------------------------------
 type CardStatus = 'termine' | 'ferme' | 'cours' | 'planifie' | 'suggere' | 'bloque'
@@ -662,12 +694,16 @@ export default class SchedulerController {
     let x3Error: string | null = null
 
     try {
-      const [ref, ord] = await Promise.all([
+      const [ref, ord, live] = await Promise.all([
         boardDataset.getReferential(force),
         boardDataset.getOrders(force),
+        boardDataset.getLive(defaultPoolFrom(), defaultPoolTo(), force).catch(
+          () => ({ demand: [], reception: [], suggestion: [] as Flow[], at: 0 }),
+        ),
       ])
       gammeOps = ref.gamme
-      mos = ord.mos
+      // Pool unifié : OF affermis/planifiés (1/2) + suggestions CBN (3, issue #27).
+      mos = [...ord.mos, ...live.suggestion.map(suggestionToMo)]
     } catch (e) {
       x3Error = (e as Error).message
     }

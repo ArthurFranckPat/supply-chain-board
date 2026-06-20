@@ -44,10 +44,15 @@ class MemLoader implements DiagnosticLoader {
   getNomenclature(a: string) {
     return this.nomenclatures.get(a)
   }
-  getStock(a: string) {
+  async getStock(a: string) {
     return this.stocks.get(a)
   }
-  getReceptions(a: string) {
+  async getStocks(articles: string[]) {
+    const out = new Map<string, StockRecord | undefined>()
+    for (const a of articles) out.set(a, this.stocks.get(a))
+    return out
+  }
+  async getReceptions(a: string) {
     return this.receptions.get(a) ?? []
   }
   getAllocationsOf(n: string) {
@@ -59,7 +64,7 @@ class MemLoader implements DiagnosticLoader {
     if (dateBesoin) f = f.filter((o) => !o.dateFin || o.dateFin <= dateBesoin)
     return f
   }
-  getMfgmat(numOf: string) {
+  async getMfgmat(numOf: string) {
     return this.mfgmat.get(numOf) ?? []
   }
 }
@@ -81,62 +86,77 @@ const ofRecord = (numOf: string, article: string, qteRestante: number, statut = 
   dateDebut: DATE,
 })
 
-function diagnose(loader: MemLoader, head: OfRecord, maxDepth?: number): RecursiveDiagnosticResult {
+function diagnose(loader: MemLoader, head: OfRecord, maxDepth?: number): Promise<RecursiveDiagnosticResult> {
   return new RecursiveDiagnosticChecker(loader, { checkDate: DATE, maxDepth }).diagnoseOf(head)
 }
 
 test.group('RecursiveDiagnosticChecker', () => {
-  test('composant acheté en rupture → rupture_matiere (feuille)', ({ assert }) => {
+  test('composant acheté en rupture → rupture_matiere (feuille)', async ({ assert }) => {
     const loader = new MemLoader()
     loader.stocks.set('C1', { stockPhysique: 20, stockAlloue: 0 })
     loader.mfgmat.set('OF1', [mat('C1', 60)])
 
-    const r = diagnose(loader, ofRecord('OF1', 'PF', 10))
+    const r = await diagnose(loader, ofRecord('OF1', 'PF', 10))
 
     assert.isFalse(r.feasible)
-    assert.equal(r.blockers.length, 1)
-    assert.equal(r.blockers[0].kind, 'rupture_matiere')
-    assert.equal(r.blockers[0].article, 'C1')
-    assert.equal(r.blockers[0].quantityMissing, 40)
-    assert.equal(r.blockers[0].chain.length, 2) // PF → C1
+    assert.equal(r.rootCause, 'rupture_matiere')
+    assert.equal(r.tree.shorts.length, 1)
+    const c1 = r.tree.shorts[0]
+    assert.equal(c1.article, 'C1')
+    assert.equal(c1.status, 'rupture_matiere')
+    assert.equal(c1.quantityMissing, 40)
+    assert.isFalse(c1.fabricated)
+    assert.equal(c1.covering.length, 0)
   })
 
-  test('sous-ensemble couvert par un OF ferme faisable → aucun blocker', ({ assert }) => {
+  test('sous-ensemble couvert par un OF ferme faisable → faisable', async ({ assert }) => {
     const loader = new MemLoader()
     loader.nomenclatures.set('SE', mkBom('SE', [{ article: 'C1', qty: 1 }])) // SE = fabriqué
     loader.mfgmat.set('OF1', [mat('SE', 5)]) // OF1 consomme SE, stock 0 → short
-    // OF2 fabrique SE, ferme (statut 1) → toujours faisable, qte 10 >= 5
+    // OF2 fabrique SE, ferme/lancé (statut 1), faisable, qte 10 >= 5
     loader.ofs.push(ofRecord('OF2', 'SE', 10, 1))
     loader.mfgmat.set('OF2', [mat('C1', 2)])
     loader.stocks.set('C1', { stockPhysique: 100, stockAlloue: 0 })
 
-    const r = diagnose(loader, ofRecord('OF1', 'PF', 10))
+    const r = await diagnose(loader, ofRecord('OF1', 'PF', 10))
 
     assert.isTrue(r.feasible)
-    assert.equal(r.blockers.length, 0)
+    assert.equal(r.rootCause, 'ok')
+    // Le composant SE est en manque mais couvert par OF2 ferme → status ok, OF couvrant exposé.
+    const se = r.tree.shorts[0]
+    assert.equal(se.article, 'SE')
+    assert.equal(se.status, 'ok')
+    assert.equal(se.covering.length, 1)
+    assert.equal(se.covering[0].numOf, 'OF2')
+    assert.equal(se.covering[0].statut, 1)
+    assert.isTrue(se.covering[0].node.feasible)
   })
 
-  test('sous-ensemble dont l\'OF couvrant est bloqué par un acheté → bulle la feuille', ({ assert }) => {
+  test('sous-ensemble dont l\'OF couvrant (planifié) est bloqué par un acheté → rupture_matiere', async ({ assert }) => {
     const loader = new MemLoader()
     loader.nomenclatures.set('SE', mkBom('SE', [{ article: 'C1', qty: 1 }]))
     loader.mfgmat.set('OF1', [mat('SE', 5)])
-    // OF2 fabrique SE, MFGMAT C1, stock insuffisant
+    // OF2 fabrique SE, planifié (2), MFGMAT C1, stock insuffisant
     loader.ofs.push(ofRecord('OF2', 'SE', 10, 2))
     loader.mfgmat.set('OF2', [mat('C1', 60)])
     loader.stocks.set('C1', { stockPhysique: 20, stockAlloue: 0 })
 
-    const r = diagnose(loader, ofRecord('OF1', 'PF', 10))
+    const r = await diagnose(loader, ofRecord('OF1', 'PF', 10))
 
     assert.isFalse(r.feasible)
-    assert.equal(r.blockers.length, 1)
-    assert.equal(r.blockers[0].kind, 'rupture_matiere')
-    assert.equal(r.blockers[0].article, 'C1')
-    assert.equal(r.blockers[0].quantityMissing, 40)
-    const chainArticles = r.blockers[0].chain.map((s) => s.article)
-    assert.deepEqual(chainArticles, ['PF', 'SE', 'SE', 'C1'])
+    assert.equal(r.rootCause, 'rupture_matiere')
+    const se = r.tree.shorts[0]
+    assert.equal(se.article, 'SE')
+    assert.equal(se.status, 'rupture_matiere')
+    assert.equal(se.covering[0].numOf, 'OF2')
+    // La rupture réelle est sur C1, exposée sous l'OF couvrant.
+    const c1 = se.covering[0].node.shorts[0]
+    assert.equal(c1.article, 'C1')
+    assert.equal(c1.status, 'rupture_matiere')
+    assert.equal(c1.quantityMissing, 40)
   })
 
-  test('sous-ensemble couvert par une suggestion (théorique) → descend et bulle la feuille', ({ assert }) => {
+  test('sous-ensemble couvert par une suggestion (théorique) → descend et expose la feuille', async ({ assert }) => {
     const loader = new MemLoader()
     loader.nomenclatures.set('SE', mkBom('SE', [{ article: 'C1', qty: 1 }]))
     loader.mfgmat.set('OF1', [mat('SE', 5)])
@@ -144,29 +164,73 @@ test.group('RecursiveDiagnosticChecker', () => {
     loader.ofs.push(ofRecord('OF3', 'SE', 10, 3))
     loader.stocks.set('C1', { stockPhysique: 0, stockAlloue: 0 })
 
-    const r = diagnose(loader, ofRecord('OF1', 'PF', 10))
+    const r = await diagnose(loader, ofRecord('OF1', 'PF', 10))
 
     assert.isFalse(r.feasible)
-    assert.equal(r.blockers[0].kind, 'rupture_matiere')
-    assert.equal(r.blockers[0].article, 'C1')
-    assert.isTrue(r.blockers[0].chain.some((s) => s.source === 'NOMENCLATURE'))
+    assert.equal(r.rootCause, 'rupture_matiere')
+    const se = r.tree.shorts[0]
+    assert.equal(se.covering[0].numOf, 'OF3')
+    assert.equal(se.covering[0].statut, 3)
+    const seNode = se.covering[0].node
+    assert.equal(seNode.source, 'NOMENCLATURE') // suggestion → repli théorique
+    assert.equal(seNode.shorts[0].article, 'C1')
+    assert.equal(seNode.shorts[0].status, 'rupture_matiere')
   })
 
-  test('sous-ensemble sans OF couvrant → of_sous_ensemble_a_lancer', ({ assert }) => {
+  test('sous-ensemble sans OF couvrant → sous_ensemble_a_lancer', async ({ assert }) => {
     const loader = new MemLoader()
     loader.nomenclatures.set('SE', mkBom('SE', [{ article: 'C1', qty: 1 }]))
     loader.mfgmat.set('OF1', [mat('SE', 5)])
 
-    const r = diagnose(loader, ofRecord('OF1', 'PF', 10))
+    const r = await diagnose(loader, ofRecord('OF1', 'PF', 10))
 
     assert.isFalse(r.feasible)
-    assert.equal(r.blockers.length, 1)
-    assert.equal(r.blockers[0].kind, 'of_sous_ensemble_a_lancer')
-    assert.equal(r.blockers[0].article, 'SE')
-    assert.equal(r.blockers[0].quantityMissing, 5)
+    assert.equal(r.rootCause, 'sous_ensemble_a_lancer')
+    const se = r.tree.shorts[0]
+    assert.equal(se.article, 'SE')
+    assert.equal(se.status, 'sous_ensemble_a_lancer')
+    assert.equal(se.quantityMissing, 5)
+    assert.equal(se.covering.length, 0)
   })
 
-  test('cycle A→B→A → bloqué + alerte cycle (pas de boucle infinie)', ({ assert }) => {
+  test('sous-ensemble couvert seulement par une suggestion faisable → à lancer (pas ok)', async ({ assert }) => {
+    const loader = new MemLoader()
+    loader.nomenclatures.set('SE', mkBom('SE', [{ article: 'C1', qty: 1 }]))
+    loader.mfgmat.set('OF1', [mat('SE', 5)])
+    // OF3 = suggestion (statut 3), composants en stock → faisable MAIS pas encore lancée
+    loader.ofs.push(ofRecord('OF3', 'SE', 10, 3))
+    loader.stocks.set('C1', { stockPhysique: 100, stockAlloue: 0 })
+
+    const r = await diagnose(loader, ofRecord('OF1', 'PF', 10))
+
+    // Bug corrigé : une suggestion faisable ne « couvre » pas — c'est l'action à faire.
+    assert.isFalse(r.feasible)
+    assert.equal(r.rootCause, 'sous_ensemble_a_lancer')
+    const se = r.tree.shorts[0]
+    assert.equal(se.status, 'sous_ensemble_a_lancer')
+    assert.equal(se.covering[0].numOf, 'OF3')
+    assert.isTrue(se.covering[0].node.feasible) // la suggestion elle-même est faisable
+  })
+
+  test('composant en stock CQ uniquement → qc_a_controler (pas rupture_matiere)', async ({ assert }) => {
+    const loader = new MemLoader()
+    // stockPhysique = strict + qc (convention adapter), stockQc tracé séparément
+    loader.stocks.set('C1', { stockPhysique: 50, stockAlloue: 0, stockQc: 50 }) // 50 en CQ, 0 strict
+    loader.mfgmat.set('OF1', [mat('C1', 30)])
+
+    const r = await diagnose(loader, ofRecord('OF1', 'PF', 10))
+
+    assert.isFalse(r.feasible)
+    assert.equal(r.rootCause, 'qc_a_controler')
+    const c1 = r.tree.shorts[0]
+    assert.equal(c1.article, 'C1')
+    assert.equal(c1.status, 'qc_a_controler')
+    assert.equal(c1.stockQc, 50)
+    // Stock strict = physique - qc = 0, donc quantityMissing = 30
+    assert.equal(c1.quantityMissing, 30)
+  })
+
+  test('cycle A→B→A → bloqué + alerte cycle (pas de boucle infinie)', async ({ assert }) => {
     const loader = new MemLoader()
     loader.nomenclatures.set('A', mkBom('A', [{ article: 'B', qty: 1, type: 'FABRIQUE' }]))
     loader.nomenclatures.set('B', mkBom('B', [{ article: 'A', qty: 1, type: 'FABRIQUE' }]))
@@ -174,13 +238,13 @@ test.group('RecursiveDiagnosticChecker', () => {
     loader.ofs.push(ofRecord('OF1', 'A', 1, 2), ofRecord('OF2', 'B', 1, 2))
     loader.mfgmat.set('OF2', [mat('A', 1)]) // B consomme A → remonte vers A (OF1)
 
-    const r = diagnose(loader, ofRecord('OF1', 'A', 1))
+    const r = await diagnose(loader, ofRecord('OF1', 'A', 1))
 
     assert.isFalse(r.feasible)
     assert.isTrue(r.alerts.some((a) => a.includes('Cycle detecte')))
   })
 
-  test('profondeur max dépassée → bloqué + alerte profondeur', ({ assert }) => {
+  test('profondeur max dépassée → bloqué + alerte profondeur', async ({ assert }) => {
     const loader = new MemLoader()
     loader.nomenclatures.set('SE', mkBom('SE', [{ article: 'C1', qty: 1 }]))
     loader.mfgmat.set('OF1', [mat('SE', 5)])
@@ -189,7 +253,7 @@ test.group('RecursiveDiagnosticChecker', () => {
     loader.stocks.set('C1', { stockPhysique: 100, stockAlloue: 0 })
 
     // maxDepth = 0 : OF2 (profondeur 1) → garde profondeur déclenchée.
-    const r = diagnose(loader, ofRecord('OF1', 'PF', 10), 0)
+    const r = await diagnose(loader, ofRecord('OF1', 'PF', 10), 0)
 
     assert.isFalse(r.feasible)
     assert.isTrue(r.alerts.some((a) => a.includes('Profondeur max')))

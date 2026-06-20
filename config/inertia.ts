@@ -37,6 +37,7 @@ declare module '@adonisjs/inertia/types' {
       error: string | null
     }
     'design_system': Record<string, never>
+    'diagnostic-test': Record<string, never>
     'scheduler/expert-board': {
       board: BoardProp
       windowFrom: string

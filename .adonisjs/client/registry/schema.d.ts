@@ -103,6 +103,18 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'diagnostic_test': {
+    methods: ["GET","HEAD"]
+    pattern: '/diagnostic-test'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'scheduler.expert_board': {
     methods: ["GET","HEAD"]
     pattern: '/ordonnancement'
@@ -418,6 +430,18 @@ export interface Registry {
   'planning_board.of_materials': {
     methods: ["GET","HEAD"]
     pattern: '/api/v1/planning/of-materials/:of'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { of: ParamValue }
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'planning_board.of_materials_diagnostic': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/planning/of-materials/:of/diagnostic'
     types: {
       body: {}
       paramsTuple: [ParamValue]

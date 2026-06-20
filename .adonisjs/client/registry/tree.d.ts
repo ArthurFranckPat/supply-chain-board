@@ -16,6 +16,7 @@ export interface ApiDefinition {
   }
   tableau: typeof routes['tableau']
   designSystem: typeof routes['design_system']
+  diagnosticTest: typeof routes['diagnostic_test']
   scheduler: {
     expertBoard: typeof routes['scheduler.expert_board']
     shortageTracker: typeof routes['scheduler.shortage_tracker']
@@ -59,6 +60,7 @@ export interface ApiDefinition {
     searchOf: typeof routes['planning_board.search_of']
     searchPf: typeof routes['planning_board.search_pf']
     ofMaterials: typeof routes['planning_board.of_materials']
+    ofMaterialsDiagnostic: typeof routes['planning_board.of_materials_diagnostic']
     reloadData: typeof routes['planning_board.reload_data']
   }
   pipeline: {
