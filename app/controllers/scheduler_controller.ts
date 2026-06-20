@@ -3,6 +3,7 @@ import cache from '@adonisjs/cache/services/main'
 import boardDataset from '#services/board_dataset'
 import { OverrideStore } from '#services/override_store'
 import { X3MfgmatRepository } from '#repositories/mfgmat_repository'
+import { X3ReceptionRepository } from '#repositories/reception_repository'
 import { evaluateMfgFeasibility, buildStrictQcStock } from '#app/domain/of-feasibility'
 import { type ManufacturingOrder } from '#repositories/of_repository'
 import type { GammeOperation } from '#app/domain/models/gamme'
@@ -918,9 +919,12 @@ export default class SchedulerController {
   // -------------------------------------------------------------------------
 
   private async loadOfDetail(num: string): Promise<DetailPayload> {
-    // Find the MO.
+    // Find the MO — fast path via getOrders (MFGITM). Si l'OF n'existe pas
+    // dans les OF réels, on cherche dans les suggestions CBN (getLive) en lazy
+    // pour ne pas pénaliser les OF standards (issue #30).
     let mos: ManufacturingOrder[] = []
     let gammeOps: GammeOperation[] = []
+    let suggestionFlow: Flow | undefined
     try {
       const [ref, ord] = await Promise.all([
         boardDataset.getReferential(),
@@ -932,7 +936,19 @@ export default class SchedulerController {
       // serve empty detail
     }
 
-    const mo = mos.find((m) => m.numOf === num)
+    let mo = mos.find((m) => m.numOf === num)
+    if (!mo) {
+      try {
+        const live = await boardDataset.getLive(defaultPoolFrom(), defaultPoolTo())
+        suggestionFlow = live.suggestion.find((f) => {
+          const id = (f.origin as { id?: string }).id
+          return id === num
+        })
+        if (suggestionFlow) mo = suggestionToMo(suggestionFlow)
+      } catch {
+        // pas de suggestions — mo reste undefined
+      }
+    }
     const gammeMap = new Map(gammeOps.map((g) => [g.article, g]))
     const overrides = await this.store.getAll()
     const ov = overrides.find((o) => o.numOf === num) ?? null
@@ -941,7 +957,7 @@ export default class SchedulerController {
       ? (gammeOps.find((g) => g.workstation === wst)?.workstationLabel ?? wst)
       : null
 
-    const status = ov?.status ?? mo?.status ?? 1
+    const status = ov?.status ?? mo?.status ?? (suggestionFlow ? 3 : 1)
     const statusLabel =
       mo?.statutLabel ??
       (status === 1 ? 'Ferme' : status === 2 ? 'Planifié' : status === 3 ? 'Suggéré' : 'Planifié')
@@ -969,29 +985,37 @@ export default class SchedulerController {
     const startDate = ov?.dateDebut ? new Date(ov.dateDebut) : (mo?.startDate ?? null)
     const endDate = ov?.dateFin ? new Date(ov.dateFin) : (mo?.endDate ?? null)
 
-    // Load BOM from MFGMAT (real OF data).
+    // Load BOM from MFGMAT (real OF data), fallback to nomenclature for
+    // suggestions without MFGMAT (issue #30).
     let bom: BomRow[] = []
     let bomCount = 0
     try {
       const materials = await new X3MfgmatRepository().getMaterials(num)
-      // Stock availability per component.
-      const articles = [...new Set(materials.map((m) => m.article).filter(Boolean))]
-      const stockFlows =
-        articles.length > 0 ? await boardDataset.getStock(articles).catch(() => []) : []
-      const stockByArticle = buildStrictQcStock(stockFlows)
 
-      // Faisabilité via le calcul partagé — même source/verdict que le board (issue #11).
-      const verdict = evaluateMfgFeasibility(materials, stockByArticle, status === 1)
-      bomCount = verdict.materials.length
-      bom = verdict.materials.map((m) => ({
-        id: m.article,
-        name: m.description || m.article,
-        stock: m.available !== null ? m.available.toFixed(0) : '—',
-        need: m.remaining.toFixed(m.remaining % 1 === 0 ? 0 : 2),
-        unit: m.unit ?? '',
-        ok: m.feasible !== false,
-        shortage: m.feasible === false && m.missing > 0 ? `−${m.missing.toFixed(0)}` : null,
-      }))
+      if (materials.length === 0 && mo) {
+        // OF sans MFGMAT (suggéré / non éclaté) → nomenclature théorique.
+        bom = await this.loadBomFromNomenclature(mo.article, mo.quantity, status === 1)
+        bomCount = bom.length
+      } else {
+        // Stock availability per component.
+        const articles = [...new Set(materials.map((m) => m.article).filter(Boolean))]
+        const stockFlows =
+          articles.length > 0 ? await boardDataset.getStock(articles).catch(() => []) : []
+        const stockByArticle = buildStrictQcStock(stockFlows)
+
+        // Faisabilité via le calcul partagé — même source/verdict que le board (issue #11).
+        const verdict = evaluateMfgFeasibility(materials, stockByArticle, status === 1)
+        bomCount = verdict.materials.length
+        bom = verdict.materials.map((m) => ({
+          id: m.article,
+          name: m.description || m.article,
+          stock: m.available !== null ? m.available.toFixed(0) : '—',
+          need: m.remaining.toFixed(m.remaining % 1 === 0 ? 0 : 2),
+          unit: m.unit ?? '',
+          ok: m.feasible !== false,
+          shortage: m.feasible === false && m.missing > 0 ? `−${m.missing.toFixed(0)}` : null,
+        }))
+      }
     } catch {
       // BOM unavailable — empty table
     }
@@ -1068,5 +1092,54 @@ export default class SchedulerController {
           ? events
           : [{ label: 'Aucun événement', time: '', desc: null, dot: 'bg-gray-300' }],
     }
+  }
+
+  /**
+   * Fallback BOMD — nomenclature théorique pour les OF sans MFGMAT (suggérés,
+   * non éclatés). Miroir de ofMaterialsFromBom() dans PlanningBoardController,
+   * adapté au format BomRow[] du panneau de détail OF (issue #30).
+   */
+  private async loadBomFromNomenclature(
+    article: string,
+    parentQty: number,
+    isFirm: boolean,
+  ): Promise<BomRow[]> {
+    const nomEntries = await boardDataset.getNomenclature().catch(() => [])
+    const bomComponents = nomEntries.filter((e) => e.parentArticle === article)
+    if (!bomComponents.length) return []
+
+    // Stock pour tous les composants.
+    const compArticles = [...new Set(bomComponents.map((c) => c.componentArticle))]
+    const stockFlows = await boardDataset.getStock(compArticles).catch(() => [])
+    const stockByArticle = buildStrictQcStock(stockFlows)
+
+    // Réceptions attendues déjà arrivées (consommées dans le disponible).
+    const receptionFlows = await new X3ReceptionRepository().getReceptionFlows().catch(() => [])
+    const receptionByArticle = new Map<string, number>()
+    const now = new Date()
+    for (const rec of receptionFlows) {
+      if (rec.date && rec.date <= now) {
+        receptionByArticle.set(rec.article, (receptionByArticle.get(rec.article) ?? 0) + rec.quantity)
+      }
+    }
+
+    const nFr = (n: number) => Math.round(n * 100) / 100
+
+    return bomComponents.map((comp) => {
+      const remaining = comp.linkQuantity * parentQty
+      let stockTotal = stockByArticle.get(comp.componentArticle) ?? 0
+      stockTotal += receptionByArticle.get(comp.componentArticle) ?? 0
+      const stockFeasible = stockTotal >= remaining
+      const feasible = isFirm ? true : stockFeasible
+      return {
+        id: comp.componentArticle,
+        name: comp.componentDescription || comp.componentArticle,
+        stock: nFr(stockTotal).toFixed(0),
+        need: remaining.toFixed(remaining % 1 === 0 ? 0 : 2),
+        unit: '',
+        ok: feasible !== false,
+        shortage: !feasible ? `−${nFr(remaining - stockTotal).toFixed(0)}` : null,
+      }
+    })
   }
 }
