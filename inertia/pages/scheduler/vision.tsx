@@ -18,6 +18,7 @@ import { cx } from '@/libs/cva'
 import BoardGrid from '@/components/board/board-grid'
 import OfDetailSheet from '@/components/of/of-detail-sheet'
 import { Masthead } from '@/components/masthead'
+import { Button } from '@/components/ui/button'
 import { TextField, TextFieldInput } from '@/components/ui/text-field'
 import {
   Select,
@@ -433,6 +434,56 @@ const Vision: Component<VisionProps> = (props) => {
               <Calendar mode="range" range={range()} onRangeChange={applyRange} />
             </div>
           </Show>
+        </div>
+
+        {/* Faisabilité — déclencheur + mode (réutilise store.runFeasibility / feasOf,
+            aucune logique de calcul dupliquée). Les badges par OF s'affichent via
+            BoardGrid.CardView qui lit déjà store.feasOf. Issue #24. */}
+        <div class="flex items-center gap-2.5">
+          {/* Mode d'allocation stock — choix exclusif (segment, parité /ordonnancement) */}
+          <div class="inline-flex items-center gap-1 rounded-md border border-rule bg-card p-0.5">
+            <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+              Stock
+            </span>
+            <button
+              type="button"
+              title="Stock vu en intégralité par chaque OF"
+              onClick={() => store.setMode('immediate')}
+              class={cx(
+                'rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
+                store.mode() === 'immediate'
+                  ? 'bg-terra-soft text-terra'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              Instantanée
+            </button>
+            <button
+              type="button"
+              title="Stock consommé OF par OF selon priorité"
+              onClick={() => store.setMode('sequential')}
+              class={cx(
+                'rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
+                store.mode() === 'sequential'
+                  ? 'bg-terra-soft text-terra'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              Projetée
+            </button>
+          </div>
+
+          <Button
+            size="sm"
+            disabled={store.feasLoading()}
+            onClick={() => store.runFeasibility(props.windowFrom, props.windowTo)}
+            class="gap-1.5"
+          >
+            <span class="material-symbols-outlined text-[15px]">
+              {store.feasLoading() ? 'progress_activity' : 'fact_check'}
+            </span>
+            {store.feasLoading() ? 'Calcul…' : 'Faisabilité'}
+          </Button>
         </div>
 
         {/* Légende liens (spécifique vision) */}

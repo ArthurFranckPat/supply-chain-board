@@ -214,6 +214,11 @@ export function createBoardStore(initial: BoardData) {
       })
     )
 
+    // Un OF déplacé change de date/poste → ses badges de faisabilité (calculés
+    // sur l'ancienne position) deviennent potentiellement faux. On invalide le
+    // cache de faisabilité, comme pour un changement de fenêtre (reset()).
+    setFeasibility({})
+
     fetch(route('planning_board.update', { of: numOf }), {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
