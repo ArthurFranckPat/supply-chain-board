@@ -2,7 +2,7 @@
  * AUTO-GÉNÉRÉ par scripts/gen-routes-manifest.mjs — NE PAS ÉDITER À LA MAIN.
  * Source : `start/routes.ts` → `node ace list:routes --jsonl`.
  * Régénérer : `npm run routes:gen` · Vérifier la fraîcheur : `npm run routes:check`.
- * 52 routes nommées.
+ * 62 routes nommées.
  */
 
 export const MANIFEST = {
@@ -42,6 +42,8 @@ export const MANIFEST = {
   "planning_board.show": { method: "GET", pattern: "/api/v1/planning/ofs/:of" },
   "planning_board.update": { method: "PATCH", pattern: "/api/v1/planning/ofs/:of" },
   "planning_board.whatif": { method: "POST", pattern: "/api/v1/planning/whatif" },
+  "planning.order_firm": { method: "POST", pattern: "/api/v1/planning/orders/:orderNum/firm" },
+  "planning.suggestion_firm": { method: "POST", pattern: "/api/v1/planning/suggestions/:sugNum/firm" },
   "scheduler.expert_board": { method: "GET", pattern: "/ordonnancement" },
   "scheduler.of_detail": { method: "GET", pattern: "/api/v1/planning/ofs/:of/detail" },
   "scheduler.shortage_rows": { method: "GET", pattern: "/api/v1/planning/shortages/rows" },
@@ -58,6 +60,14 @@ export const MANIFEST = {
   "suivi.rows": { method: "GET", pattern: "/api/v1/status/rows" },
   "suivi.status_detail": { method: "GET", pattern: "/api/v1/status/status/:order" },
   "tableau": { method: "GET", pattern: "/" },
+  "x3_writeback_test": { method: "GET", pattern: "/writeback-test" },
+  "x3_writeback.delete": { method: "GET", pattern: "/api/v1/x3/writeback/delete" },
+  "x3_writeback.describe": { method: "GET", pattern: "/api/v1/x3/writeback/describe" },
+  "x3_writeback.list": { method: "GET", pattern: "/api/v1/x3/writeback/list" },
+  "x3_writeback.modify": { method: "POST", pattern: "/api/v1/x3/writeback/modify" },
+  "x3_writeback.read": { method: "GET", pattern: "/api/v1/x3/writeback/read" },
+  "x3_writeback.run": { method: "POST", pattern: "/api/v1/x3/writeback/run" },
+  "x3_writeback.save": { method: "POST", pattern: "/api/v1/x3/writeback/save" },
 } as const satisfies Record<string, { method: string; pattern: string }>
 
 export type RouteName = keyof typeof MANIFEST
@@ -103,6 +113,8 @@ export type RouteParams = {
   "planning_board.show": { "of": string | number },
   "planning_board.update": { "of": string | number },
   "planning_board.whatif": void,
+  "planning.order_firm": { "orderNum": string | number },
+  "planning.suggestion_firm": { "sugNum": string | number },
   "scheduler.expert_board": void,
   "scheduler.of_detail": { "of": string | number },
   "scheduler.shortage_rows": void,
@@ -118,5 +130,13 @@ export type RouteParams = {
   "suivi.retard_charge": void,
   "suivi.rows": void,
   "suivi.status_detail": { "order": string | number },
-  "tableau": void
+  "tableau": void,
+  "x3_writeback_test": void,
+  "x3_writeback.delete": void,
+  "x3_writeback.describe": void,
+  "x3_writeback.list": void,
+  "x3_writeback.modify": void,
+  "x3_writeback.read": void,
+  "x3_writeback.run": void,
+  "x3_writeback.save": void
 }

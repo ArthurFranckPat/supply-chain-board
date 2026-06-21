@@ -17,6 +17,7 @@ export interface ApiDefinition {
   tableau: typeof routes['tableau']
   designSystem: typeof routes['design_system']
   diagnosticTest: typeof routes['diagnostic_test']
+  x3WritebackTest: typeof routes['x3_writeback_test']
   scheduler: {
     expertBoard: typeof routes['scheduler.expert_board']
     shortageTracker: typeof routes['scheduler.shortage_tracker']
@@ -63,6 +64,10 @@ export interface ApiDefinition {
     ofMaterialsDiagnostic: typeof routes['planning_board.of_materials_diagnostic']
     reloadData: typeof routes['planning_board.reload_data']
   }
+  planning: {
+    suggestionFirm: typeof routes['planning.suggestion_firm']
+    orderFirm: typeof routes['planning.order_firm']
+  }
   pipeline: {
     supplyBoard: typeof routes['pipeline.supply_board']
     suiviStatus: typeof routes['pipeline.suivi_status']
@@ -73,5 +78,14 @@ export interface ApiDefinition {
   staticSync: {
     status: typeof routes['static_sync.status']
     sync: typeof routes['static_sync.sync']
+  }
+  x3Writeback: {
+    describe: typeof routes['x3_writeback.describe']
+    read: typeof routes['x3_writeback.read']
+    save: typeof routes['x3_writeback.save']
+    modify: typeof routes['x3_writeback.modify']
+    delete: typeof routes['x3_writeback.delete']
+    list: typeof routes['x3_writeback.list']
+    run: typeof routes['x3_writeback.run']
   }
 }

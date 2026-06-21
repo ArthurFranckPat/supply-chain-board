@@ -60,6 +60,12 @@ const routes = {
     tokens: [{"old":"/diagnostic-test","type":0,"val":"diagnostic-test","end":""}],
     types: placeholder as Registry['diagnostic_test']['types'],
   },
+  'x3_writeback_test': {
+    methods: ["GET","HEAD"],
+    pattern: '/writeback-test',
+    tokens: [{"old":"/writeback-test","type":0,"val":"writeback-test","end":""}],
+    types: placeholder as Registry['x3_writeback_test']['types'],
+  },
   'scheduler.expert_board': {
     methods: ["GET","HEAD"],
     pattern: '/ordonnancement',
@@ -234,6 +240,18 @@ const routes = {
     tokens: [{"old":"/api/v1/planning/reload","type":0,"val":"api","end":""},{"old":"/api/v1/planning/reload","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/reload","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/reload","type":0,"val":"reload","end":""}],
     types: placeholder as Registry['planning_board.reload_data']['types'],
   },
+  'planning.suggestion_firm': {
+    methods: ["POST"],
+    pattern: '/api/v1/planning/suggestions/:sugNum/firm',
+    tokens: [{"old":"/api/v1/planning/suggestions/:sugNum/firm","type":0,"val":"api","end":""},{"old":"/api/v1/planning/suggestions/:sugNum/firm","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/suggestions/:sugNum/firm","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/suggestions/:sugNum/firm","type":0,"val":"suggestions","end":""},{"old":"/api/v1/planning/suggestions/:sugNum/firm","type":1,"val":"sugNum","end":""},{"old":"/api/v1/planning/suggestions/:sugNum/firm","type":0,"val":"firm","end":""}],
+    types: placeholder as Registry['planning.suggestion_firm']['types'],
+  },
+  'planning.order_firm': {
+    methods: ["POST"],
+    pattern: '/api/v1/planning/orders/:orderNum/firm',
+    tokens: [{"old":"/api/v1/planning/orders/:orderNum/firm","type":0,"val":"api","end":""},{"old":"/api/v1/planning/orders/:orderNum/firm","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/orders/:orderNum/firm","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/orders/:orderNum/firm","type":0,"val":"orders","end":""},{"old":"/api/v1/planning/orders/:orderNum/firm","type":1,"val":"orderNum","end":""},{"old":"/api/v1/planning/orders/:orderNum/firm","type":0,"val":"firm","end":""}],
+    types: placeholder as Registry['planning.order_firm']['types'],
+  },
   'scheduler.of_detail': {
     methods: ["GET","HEAD"],
     pattern: '/api/v1/planning/ofs/:of/detail',
@@ -317,6 +335,48 @@ const routes = {
     pattern: '/api/v1/static/sync',
     tokens: [{"old":"/api/v1/static/sync","type":0,"val":"api","end":""},{"old":"/api/v1/static/sync","type":0,"val":"v1","end":""},{"old":"/api/v1/static/sync","type":0,"val":"static","end":""},{"old":"/api/v1/static/sync","type":0,"val":"sync","end":""}],
     types: placeholder as Registry['static_sync.sync']['types'],
+  },
+  'x3_writeback.describe': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/x3/writeback/describe',
+    tokens: [{"old":"/api/v1/x3/writeback/describe","type":0,"val":"api","end":""},{"old":"/api/v1/x3/writeback/describe","type":0,"val":"v1","end":""},{"old":"/api/v1/x3/writeback/describe","type":0,"val":"x3","end":""},{"old":"/api/v1/x3/writeback/describe","type":0,"val":"writeback","end":""},{"old":"/api/v1/x3/writeback/describe","type":0,"val":"describe","end":""}],
+    types: placeholder as Registry['x3_writeback.describe']['types'],
+  },
+  'x3_writeback.read': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/x3/writeback/read',
+    tokens: [{"old":"/api/v1/x3/writeback/read","type":0,"val":"api","end":""},{"old":"/api/v1/x3/writeback/read","type":0,"val":"v1","end":""},{"old":"/api/v1/x3/writeback/read","type":0,"val":"x3","end":""},{"old":"/api/v1/x3/writeback/read","type":0,"val":"writeback","end":""},{"old":"/api/v1/x3/writeback/read","type":0,"val":"read","end":""}],
+    types: placeholder as Registry['x3_writeback.read']['types'],
+  },
+  'x3_writeback.save': {
+    methods: ["POST"],
+    pattern: '/api/v1/x3/writeback/save',
+    tokens: [{"old":"/api/v1/x3/writeback/save","type":0,"val":"api","end":""},{"old":"/api/v1/x3/writeback/save","type":0,"val":"v1","end":""},{"old":"/api/v1/x3/writeback/save","type":0,"val":"x3","end":""},{"old":"/api/v1/x3/writeback/save","type":0,"val":"writeback","end":""},{"old":"/api/v1/x3/writeback/save","type":0,"val":"save","end":""}],
+    types: placeholder as Registry['x3_writeback.save']['types'],
+  },
+  'x3_writeback.modify': {
+    methods: ["POST"],
+    pattern: '/api/v1/x3/writeback/modify',
+    tokens: [{"old":"/api/v1/x3/writeback/modify","type":0,"val":"api","end":""},{"old":"/api/v1/x3/writeback/modify","type":0,"val":"v1","end":""},{"old":"/api/v1/x3/writeback/modify","type":0,"val":"x3","end":""},{"old":"/api/v1/x3/writeback/modify","type":0,"val":"writeback","end":""},{"old":"/api/v1/x3/writeback/modify","type":0,"val":"modify","end":""}],
+    types: placeholder as Registry['x3_writeback.modify']['types'],
+  },
+  'x3_writeback.delete': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/x3/writeback/delete',
+    tokens: [{"old":"/api/v1/x3/writeback/delete","type":0,"val":"api","end":""},{"old":"/api/v1/x3/writeback/delete","type":0,"val":"v1","end":""},{"old":"/api/v1/x3/writeback/delete","type":0,"val":"x3","end":""},{"old":"/api/v1/x3/writeback/delete","type":0,"val":"writeback","end":""},{"old":"/api/v1/x3/writeback/delete","type":0,"val":"delete","end":""}],
+    types: placeholder as Registry['x3_writeback.delete']['types'],
+  },
+  'x3_writeback.list': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/x3/writeback/list',
+    tokens: [{"old":"/api/v1/x3/writeback/list","type":0,"val":"api","end":""},{"old":"/api/v1/x3/writeback/list","type":0,"val":"v1","end":""},{"old":"/api/v1/x3/writeback/list","type":0,"val":"x3","end":""},{"old":"/api/v1/x3/writeback/list","type":0,"val":"writeback","end":""},{"old":"/api/v1/x3/writeback/list","type":0,"val":"list","end":""}],
+    types: placeholder as Registry['x3_writeback.list']['types'],
+  },
+  'x3_writeback.run': {
+    methods: ["POST"],
+    pattern: '/api/v1/x3/writeback/run',
+    tokens: [{"old":"/api/v1/x3/writeback/run","type":0,"val":"api","end":""},{"old":"/api/v1/x3/writeback/run","type":0,"val":"v1","end":""},{"old":"/api/v1/x3/writeback/run","type":0,"val":"x3","end":""},{"old":"/api/v1/x3/writeback/run","type":0,"val":"writeback","end":""},{"old":"/api/v1/x3/writeback/run","type":0,"val":"run","end":""}],
+    types: placeholder as Registry['x3_writeback.run']['types'],
   },
 } as const satisfies Record<string, AdonisEndpoint>
 

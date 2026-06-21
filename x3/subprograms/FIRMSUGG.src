@@ -1,0 +1,102 @@
+##############################################################################
+# FIRMSUGG — Affermir une suggestion (3) OU un OF planifié (2) en OF ferme (issue #31)
+#
+# Pilote le moteur de la fonction standard FUNMAUTR (« Lancement automatique »),
+# scopé sur UN ordre, headless. Crée l'OF ferme (explose nomenclature/gamme
+# via transaction MFGMTSNUM=OF6) ET consomme/transforme l'ordre d'origine.
+#
+# Le statut source est AUTO-DÉTECTÉ depuis ORDERS (WIPSTA) : pas de param à passer.
+#   WIPSTA=3 (suggéré) → AVSTA=1 → création d'un nouvel OF.
+#   WIPSTA=2 (planifié) → AVSTA=2 → modification de l'OF existant vers Ferme.
+#
+# Signature (tous Char) : (WSUGNUM, WSTOFCY, WITMREF, WMFGNUM, WRETERMSG)
+#   WSUGNUM = n° ordre. Pour une suggestion = WIPNUM (SGAE…). Pour un planifié =
+#             MFGNUM (F…). Dans les deux cas c'est le VCRNUM dans ORDERS (clé filtre).
+#   Sorties : WMFGNUM (No OF, "" = échec) · WRETERMSG (message si erreur).
+#
+# /!\ Params WSTOFCY/WITMREF entrent en COLLISION avec des Local de FUNMAUTR
+#     ($OUVRE déclare Local WSTOFCY/WITMREF) → au Gosub … From FUNMAUTR elles sont
+#     ré-initialisées. On copie tout de suite les entrées en ZFIRM* (avant Gosub).
+##############################################################################
+Subprog FIRMSUGG(WSUGNUM, WSTOFCY, WITMREF, WMFGNUM, WRETERMSG)
+Value    Char    WSUGNUM()      # [IN]  N° ordre (SGAE… suggestion ou F… planifié)
+Value    Char    WSTOFCY()      # [IN]  Site production
+Value    Char    WITMREF()      # [IN]  Article (non utilisé — filtre sur N° ordre)
+Variable Char    WMFGNUM()      # [OUT] No OF créé/modifié ("" si échec)
+Variable Char    WRETERMSG()    # [OUT] Message d'erreur ("" si OK)
+
+# Copies à l'abri des collisions de noms FUNMAUTR (AVANT tout Gosub).
+Local Char    ZFIRMFCY(10) : ZFIRMFCY = WSTOFCY
+Local Char    ZFIRMSUG(20) : ZFIRMSUG = WSUGNUM
+Local Integer ZAVSTA
+
+# --- Sorties par défaut ---------------------------------------------------
+WMFGNUM   = ""
+WRETERMSG = ""
+
+# Capture TOUTE erreur runtime → message en sortie.
+Onerrgo ERRFIRM
+
+If ZFIRMFCY = "" Or ZFIRMSUG = ""
+    WRETERMSG = "Paramètres incomplets (WSTOFCY/WSUGNUM requis)."
+    End
+Endif
+
+# Masque de sélection de FUNMAUTR (écran MAUTREL), chargé en runtime.
+Local Mask MAUTREL [DIA]
+
+# Sélecteur du moteur GPAO partagé (variable fonction GFONC1).
+GFONC1 = "FUNMAUT"
+
+# Ouvre fichiers + masques du traitement (script FUNMAUTR ; TRTAUTOF = GACTION).
+Gosub OUVRE From FUNMAUTR
+
+# --- Auto-détection du statut source (ORDERS.WIPSTA) ----------------------
+ZAVSTA = 0
+For [ORD] Where [F:ORD]VCRNUM = ZFIRMSUG And [F:ORD]STOFCY = ZFIRMFCY
+&               And [F:ORD]WIPTYP = 5
+    Case [F:ORD]WIPSTA
+        When 3 : ZAVSTA = 1            # suggéré
+        When 2 : ZAVSTA = 2            # planifié
+        When Default : ZAVSTA = 0      # déjà ferme (1) ou autre
+    Endcase
+    Break
+Next
+If ZAVSTA = 0
+    WRETERMSG = "Ordre " - ZFIRMSUG - " introuvable, déjà ferme, ou non affermissable."
+    End
+Endif
+
+# --- Sélection (sur les COPIES Z) -----------------------------------------
+Raz [M:DIA]
+[M:DIA]MFGFCY    = ZFIRMFCY
+[M:DIA]AVSTA     = ZAVSTA          # 1 = suggéré / 2 = planifié
+[M:DIA]APSTA     = 2               # nouveau statut : Ferme (→ MFGSTA=1)
+[M:DIA]MFGNUMDEB = ZFIRMSUG        # borne N° ordre fab = l'ordre ciblé
+[M:DIA]MFGNUMFIN = ZFIRMSUG
+[M:DIA]TRTAUTO   = 1
+[M:DIA]IMPFLG    = 1               # pas d'édition dossier
+
+# Contexte GPAO + transaction OF auto.
+GFCY = ZFIRMFCY
+Gosub CONTEXTE From FUNMAUTR
+
+# --- Moteur : filtre + lancement (saute la trace de $EXEC) ----------------
+Gosub SEL_OF From FUNMAUTR
+Gosub TRT_OF From FUNMAUTR
+
+# --- Récupération du n° d'OF créé/modifié ---------------------------------
+WMFGNUM = [M:MFGK]MFGNUM
+If WMFGNUM = ""
+    WRETERMSG = "Aucun OF créé pour l'ordre " - ZFIRMSUG -
+&              " (hors filtre ou refusé par le lancement)."
+Endif
+
+End
+
+##############################################################################
+# $ERRFIRM — capture d'erreur runtime du moteur de lancement.
+##############################################################################
+$ERRFIRM
+    WRETERMSG = "Erreur lancement FUNMAUTR : " - errmes$(errn) - " (l." - num$(errl) - ")"
+End

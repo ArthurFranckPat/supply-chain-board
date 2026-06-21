@@ -115,6 +115,18 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'x3_writeback_test': {
+    methods: ["GET","HEAD"]
+    pattern: '/writeback-test'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'scheduler.expert_board': {
     methods: ["GET","HEAD"]
     pattern: '/ordonnancement'
@@ -463,6 +475,30 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'planning.suggestion_firm': {
+    methods: ["POST"]
+    pattern: '/api/v1/planning/suggestions/:sugNum/firm'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { sugNum: ParamValue }
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'planning.order_firm': {
+    methods: ["POST"]
+    pattern: '/api/v1/planning/orders/:orderNum/firm'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { orderNum: ParamValue }
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'scheduler.of_detail': {
     methods: ["GET","HEAD"]
     pattern: '/api/v1/planning/ofs/:of/detail'
@@ -622,6 +658,90 @@ export interface Registry {
   'static_sync.sync': {
     methods: ["POST"]
     pattern: '/api/v1/static/sync'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'x3_writeback.describe': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/x3/writeback/describe'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'x3_writeback.read': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/x3/writeback/read'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'x3_writeback.save': {
+    methods: ["POST"]
+    pattern: '/api/v1/x3/writeback/save'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'x3_writeback.modify': {
+    methods: ["POST"]
+    pattern: '/api/v1/x3/writeback/modify'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'x3_writeback.delete': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/x3/writeback/delete'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'x3_writeback.list': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/x3/writeback/list'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'x3_writeback.run': {
+    methods: ["POST"]
+    pattern: '/api/v1/x3/writeback/run'
     types: {
       body: {}
       paramsTuple: []

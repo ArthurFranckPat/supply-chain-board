@@ -74,6 +74,15 @@ router
       })
       .as('diagnostic_test')
 
+    // Write-back X3 (issue #29) — terrain de test read/save/modify sur objets
+    // publiés du stub CAdxWebServiceXmlCC. Cible TEST (login env=test). À
+    // verrouiller/retirer une fois le write-back fiabilisé.
+    router
+      .get('/writeback-test', async ({ inertia }) => {
+        return inertia.render('writeback-test', {})
+      })
+      .as('x3_writeback_test')
+
     // Pages Inertia (HTML, sans param de path) — URLs françaises (app pour public FR).
     // Les endpoints JSON associés vivent sous /api/v1/planning (P3, #18).
     //   /ordonnancement : board OF, vue experte haute densité
@@ -129,6 +138,16 @@ router
           '#controllers/planning_board_controller.ofMaterialsDiagnostic',
         )
         router.post('/reload', '#controllers/planning_board_controller.reloadData')
+        // Affermissement d'un ordre en OF ferme (write-back X3, #31).
+        // suggestions/:sugNum = suggestion CBN (SGAE…) ; orders/:orderNum = OF planifié (F…).
+        router.post(
+          '/suggestions/:sugNum/firm',
+          '#controllers/suggestion_firm_controller.firm'
+        ).as('planning.suggestion_firm')
+        router.post(
+          '/orders/:orderNum/firm',
+          '#controllers/suggestion_firm_controller.firm'
+        ).as('planning.order_firm')
       })
       .prefix('/api/v1/planning')
 
@@ -172,5 +191,20 @@ router
         router.post('/sync', '#controllers/static_sync_controller.sync')
       })
       .prefix('/api/v1/static')
+
+    // Write-back X3 (issue #29) — CRUD objet CAdxWebServiceXmlCC (terrain de test).
+    router
+      .group(() => {
+        router
+          .get('/describe', '#controllers/x3_writeback_controller.describe')
+          .as('x3_writeback.describe')
+        router.get('/read', '#controllers/x3_writeback_controller.read').as('x3_writeback.read')
+        router.post('/save', '#controllers/x3_writeback_controller.save').as('x3_writeback.save')
+        router.post('/modify', '#controllers/x3_writeback_controller.modify').as('x3_writeback.modify')
+        router.get('/delete', '#controllers/x3_writeback_controller.delete').as('x3_writeback.delete')
+        router.get('/list', '#controllers/x3_writeback_controller.list').as('x3_writeback.list')
+        router.post('/run', '#controllers/x3_writeback_controller.runSubprog').as('x3_writeback.run')
+      })
+      .prefix('/api/v1/x3/writeback')
   })
   .use([middleware.auth(), middleware.x3Context()])

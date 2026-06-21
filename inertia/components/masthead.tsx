@@ -1,5 +1,5 @@
-import { For, Show, type Component, type JSX } from 'solid-js'
-import { Link } from '@/lib/inertia-solid'
+import { For, Show, createEffect, createMemo, type Component, type JSX } from 'solid-js'
+import { Link, usePage } from '@/lib/inertia-solid'
 import { route } from '@/lib/routes'
 import UserMenu from '@/components/user-menu'
 
@@ -44,19 +44,55 @@ export const Masthead: Component<{
   meta?: JSX.Element
   actions?: JSX.Element
 }> = (props) => {
+  const page = usePage<{ authUser: { env: 'test' | 'prod' } | null }>()
+  const env = createMemo(() => page.props.authUser?.env)
+
+  // Marque l'environnement X3 courant sur <html> : un seul CSS peut alors
+  // rethémer toutes les pages d'un coup. Posé ici car le Masthead est présent
+  // sur chaque page authentifiée (le sélecteur [data-env] fait la déclinaison
+  // test dans resources/css/app.css).
+  createEffect(() => {
+    const e = env()
+    if (e) document.documentElement.dataset.env = e
+    else delete document.documentElement.dataset.env
+  })
+
   return (
-    <header class="flex-none border-b border-rule bg-background">
+    <header class="relative flex-none border-b border-rule bg-background">
+      {/* Bandeau d'alerte — uniquement en test, superposé pour ne pas impacter
+          la hauteur fixe calibrée ci-dessous. */}
+      <Show when={env() === 'test'}>
+        <div class="absolute inset-x-0 top-0 z-10 h-[3px] bg-terra" aria-hidden="true" />
+      </Show>
       {/* Hauteur fixe : toutes les pages alignent le bandeau titre, même sans
           `meta` (ex. Tableau). Calée sur la hauteur naturelle du meta 2 lignes
           (≈60px) → plus de décalage vertical entre pages à la navigation. */}
       <div class="flex min-h-[60px] items-end justify-between gap-5 px-7 pb-2 pt-3.5">
-        <div class="flex items-baseline gap-3.5">
+        <div class="flex items-center gap-3.5">
           <div class="font-fraunces text-[28px] font-black leading-[0.9] tracking-tight">
             Factory<span class="font-medium italic text-terra">OS</span>
           </div>
           <div class="pb-1 font-mono text-[10px] font-medium tracking-[0.12em] text-muted-foreground">
             {props.subtitle}
           </div>
+          {/* Pastille d'environnement — voyante en test (remplie, accent test),
+              discrète en prod (contour neutre). Toujours visible pour lever
+              l'ambiguïté prod/test sur les données Sage X3. */}
+          <Show when={env()}>
+            {(e) => (
+              <span
+                title={`Environnement Sage X3 : ${e()}`}
+                class={`inline-flex items-center gap-1 rounded-full border px-2 py-[3px] font-mono text-[10px] font-bold uppercase tracking-[0.08em] ${
+                  e() === 'test'
+                    ? 'border-transparent bg-terra text-card'
+                    : 'border-border bg-muted text-muted-foreground'
+                }`}
+              >
+                <span class="size-[5px] rounded-full bg-current" />
+                {e() === 'test' ? 'Test' : 'Prod'}
+              </span>
+            )}
+          </Show>
         </div>
         <Show when={props.meta}>
           <div class="text-right font-mono text-[11px] font-medium leading-relaxed text-muted-foreground">

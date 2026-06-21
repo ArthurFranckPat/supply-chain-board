@@ -636,3 +636,43 @@ up-drawer-dismiss { display: none; }
   background-color: var(--color-background);
 }
 .theme-papier ::selection { background: var(--color-terra-soft); }
+
+/* ════════════════════════════════════════════════════════════
+   Environnement — distinction visuelle test vs prod.
+
+   `data-env` est posé sur <html> par le Masthead (présent sur chaque
+   page authentifiée). La prod garde la signature Papier (terra + crème).
+   L'environnement de test bascule sur une déclinaison violet froid +
+   fond lavande, suffisamment éloignée du terracotta pour qu'aucune page
+   test ne puisse être confondue avec la prod au premier coup d'œil.
+
+   Les statuts (fermé/planifié/suggéré) ne sont PAS retouchés : ils
+   codent du sens métier et doivent rester identiques partout.
+   ──────────────────────────────────────────────────────────── */
+:root[data-env="test"] {
+  --color-terra: #6d4bb0;
+  --color-terra-soft: rgba(109, 75, 176, .12);
+}
+/* Le scope .theme-papier redéfinit lui-même primary/ring/background… il faut
+   donc re-surmonter ces tokens sous test, sinon la déclinaison ne s'applique
+   qu'au Masthead (qui consomme --color-terra directement). */
+:root[data-env="test"] .theme-papier {
+  --color-primary: #6d4bb0;
+  --color-primary-foreground: #fbf8ef;
+  --color-ring: #6d4bb0;
+  --color-background: #eceaf3;
+  --color-card: #faf9fd;
+  --color-card-foreground: #1f1a13;
+  --color-popover: #faf9fd;
+  --color-popover-foreground: #1f1a13;
+  --color-secondary: #e4e0ef;
+  --color-secondary-foreground: #4a4135;
+  --color-muted: #e4e0ef;
+  --color-muted-bg: #e4e0ef;
+  --color-muted-foreground: #6b618f;
+  --color-accent: #e4e0ef;
+  --color-accent-foreground: #1f1a13;
+  --color-border: #cbc2dd;
+  --color-input: #cbc2dd;
+}
+:root[data-env="test"] .theme-papier ::selection { background: var(--color-terra-soft); }
