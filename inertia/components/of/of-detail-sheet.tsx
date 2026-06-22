@@ -257,6 +257,7 @@ export const OfDetailSheet: Component<{
     setTab('composants')
     setDiagRequested(false)
     setFirmMsg(null)
+    setConfirmRupture(false)
   })
 
   const [detail, { refetch: refetchDetail }] = createResource(
@@ -272,17 +273,33 @@ export const OfDetailSheet: Component<{
   // Affermissement (write-back X3 FUNMAUTR, #31). ~13s : spinner + message.
   const [firming, setFirming] = createSignal(false)
   const [firmMsg, setFirmMsg] = createSignal<{ ok: boolean; text: string } | null>(null)
+  // Confirmation requise pour affermir un OF en rupture (défaut : interdit).
+  const [confirmRupture, setConfirmRupture] = createSignal(false)
 
   const isSuggestion = () => (detail()?.statusLabel ?? '').toLowerCase().includes('sugg')
+  /** Composants en rupture (table Composants) — pilote le warning d'affermissement. */
+  const rupturedComponents = () => (detail()?.bom ?? []).filter((r) => !r.ok)
+  const hasRuptures = () => rupturedComponents().length > 0
   const canFirm = () => {
     if (firmMsg()?.ok) return false          // déjà affermi ce tour → on masque le bouton
     const s = (detail()?.statusLabel ?? '').toLowerCase()
     return s.includes('sugg') || s.includes('plan')
   }
 
-  const firm = async () => {
+  /** Gate : par défaut l'affermissement d'un OF en rupture est interdit — il faut
+   *  confirmer explicitement. Sans rupture, on affermit directement. */
+  const firm = () => {
+    if (hasRuptures() && !confirmRupture()) {
+      setConfirmRupture(true)
+      return
+    }
+    void doFirm()
+  }
+
+  const doFirm = async () => {
     const d = detail()
     if (!d) return
+    setConfirmRupture(false)
     setFirming(true)
     setFirmMsg(null)
     try {
@@ -387,7 +404,32 @@ export const OfDetailSheet: Component<{
                     </span>
                   )}
                 </Show>
-                <Show when={canFirm()}>
+                <Show when={canFirm() && confirmRupture()}>
+                  {/* Warning ruptures : l'affermissement est interdit par défaut.
+                      L'utilisateur doit confirmer explicitement pour outrepasser. */}
+                  <div class="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-1.5">
+                    <span class="material-symbols-outlined text-[16px] text-destructive">warning</span>
+                    <span class="font-mono text-[11px] font-semibold text-destructive">
+                      {rupturedComponents().length} composant{rupturedComponents().length > 1 ? 's' : ''} en rupture
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      class="h-7 px-2 text-[11px]"
+                      onClick={() => setConfirmRupture(false)}
+                      disabled={firming()}
+                    >
+                      Annuler
+                    </Button>
+                    <Button size="sm" variant="destructive" class="h-7 gap-1 text-[11px]" onClick={doFirm} disabled={firming()}>
+                      <span class={`material-symbols-outlined text-[14px] ${firming() ? 'animate-spin' : ''}`}>
+                        {firming() ? 'progress_activity' : 'gpp_maybe'}
+                      </span>
+                      Affermir malgré les ruptures
+                    </Button>
+                  </div>
+                </Show>
+                <Show when={canFirm() && !confirmRupture()}>
                   <Button size="sm" variant="default" class="gap-1.5" onClick={firm} disabled={firming()}>
                     <span class={`material-symbols-outlined text-[15px] ${firming() ? 'animate-spin' : ''}`}>
                       {firming() ? 'progress_activity' : 'check_circle'}
