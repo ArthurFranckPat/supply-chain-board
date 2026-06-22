@@ -409,13 +409,26 @@ export const OfDetailSheet: Component<{
                       du header). Par défaut l'affermissement d'un OF en rupture est
                       interdit ; l'utilisateur doit confirmer explicitement. */}
                   <div class="relative">
-                    <Button size="sm" variant="default" class="gap-1.5" onClick={firm} disabled={firming()}>
+                    <Button
+                      size="sm"
+                      variant="default"
+                      class="gap-1.5"
+                      onClick={firm}
+                      disabled={firming() || confirmRupture()}
+                    >
                       <span class={`material-symbols-outlined text-[15px] ${firming() ? 'animate-spin' : ''}`}>
                         {firming() ? 'progress_activity' : 'check_circle'}
                       </span>
                       {firming() ? 'Affermissement…' : isSuggestion() ? 'Affermir' : 'Passer en ferme'}
                     </Button>
                     <Show when={confirmRupture()}>
+                      {/* Backdrop plein écran : bloque toute interaction (dont le
+                          bouton Affermir) et annule au clic dehors. */}
+                      <div
+                        class="fixed inset-0 z-40"
+                        onClick={() => setConfirmRupture(false)}
+                        aria-hidden="true"
+                      />
                       <div class="absolute bottom-full right-0 z-50 mb-2 w-[20rem] rounded-lg border border-destructive/40 bg-background p-3 shadow-xl">
                         <div class="flex items-start gap-2">
                           <span class="material-symbols-outlined mt-0.5 text-[18px] text-destructive">warning</span>
