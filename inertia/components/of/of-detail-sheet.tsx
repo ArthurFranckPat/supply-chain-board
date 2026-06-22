@@ -404,38 +404,58 @@ export const OfDetailSheet: Component<{
                     </span>
                   )}
                 </Show>
-                <Show when={canFirm() && confirmRupture()}>
-                  {/* Warning ruptures : l'affermissement est interdit par défaut.
-                      L'utilisateur doit confirmer explicitement pour outrepasser. */}
-                  <div class="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-1.5">
-                    <span class="material-symbols-outlined text-[16px] text-destructive">warning</span>
-                    <span class="font-mono text-[11px] font-semibold text-destructive">
-                      {rupturedComponents().length} composant{rupturedComponents().length > 1 ? 's' : ''} en rupture
-                    </span>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      class="h-7 px-2 text-[11px]"
-                      onClick={() => setConfirmRupture(false)}
-                      disabled={firming()}
-                    >
-                      Annuler
-                    </Button>
-                    <Button size="sm" variant="destructive" class="h-7 gap-1 text-[11px]" onClick={doFirm} disabled={firming()}>
-                      <span class={`material-symbols-outlined text-[14px] ${firming() ? 'animate-spin' : ''}`}>
-                        {firming() ? 'progress_activity' : 'gpp_maybe'}
+                <Show when={canFirm()}>
+                  {/* Bouton fixe + popover de confirmation (absolu → aucun décalage
+                      du header). Par défaut l'affermissement d'un OF en rupture est
+                      interdit ; l'utilisateur doit confirmer explicitement. */}
+                  <div class="relative">
+                    <Button size="sm" variant="default" class="gap-1.5" onClick={firm} disabled={firming()}>
+                      <span class={`material-symbols-outlined text-[15px] ${firming() ? 'animate-spin' : ''}`}>
+                        {firming() ? 'progress_activity' : 'check_circle'}
                       </span>
-                      Affermir malgré les ruptures
+                      {firming() ? 'Affermissement…' : isSuggestion() ? 'Affermir' : 'Passer en ferme'}
                     </Button>
+                    <Show when={confirmRupture()}>
+                      <div class="absolute bottom-full right-0 z-50 mb-2 w-[20rem] rounded-lg border border-destructive/40 bg-background p-3 shadow-xl">
+                        <div class="flex items-start gap-2">
+                          <span class="material-symbols-outlined mt-0.5 text-[18px] text-destructive">warning</span>
+                          <div class="min-w-0 flex-1">
+                            <div class="font-mono text-[12px] font-bold text-destructive">
+                              {rupturedComponents().length} composant{rupturedComponents().length > 1 ? 's' : ''} en rupture
+                            </div>
+                            <div class="mt-0.5 text-[11px] leading-snug text-muted-foreground">
+                              L'OF créé ne pourrait pas être produit immédiatement. Affermir malgré tout ?
+                            </div>
+                            <For each={rupturedComponents().slice(0, 3)}>
+                              {(r) => (
+                                <div class="mt-1 flex items-center gap-1.5 font-mono text-[10px]">
+                                  <span class="font-bold text-foreground">{r.id}</span>
+                                  <span class="text-destructive">{r.shortage}</span>
+                                </div>
+                              )}
+                            </For>
+                          </div>
+                        </div>
+                        <div class="mt-2.5 flex justify-end gap-2">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            class="h-7 px-2 text-[11px]"
+                            onClick={() => setConfirmRupture(false)}
+                            disabled={firming()}
+                          >
+                            Annuler
+                          </Button>
+                          <Button size="sm" variant="destructive" class="h-7 gap-1 text-[11px]" onClick={doFirm} disabled={firming()}>
+                            <span class={`material-symbols-outlined text-[14px] ${firming() ? 'animate-spin' : ''}`}>
+                              {firming() ? 'progress_activity' : 'gpp_maybe'}
+                            </span>
+                            Affermir malgré les ruptures
+                          </Button>
+                        </div>
+                      </div>
+                    </Show>
                   </div>
-                </Show>
-                <Show when={canFirm() && !confirmRupture()}>
-                  <Button size="sm" variant="default" class="gap-1.5" onClick={firm} disabled={firming()}>
-                    <span class={`material-symbols-outlined text-[15px] ${firming() ? 'animate-spin' : ''}`}>
-                      {firming() ? 'progress_activity' : 'check_circle'}
-                    </span>
-                    {firming() ? 'Affermissement…' : isSuggestion() ? 'Affermir' : 'Passer en ferme'}
-                  </Button>
                 </Show>
                 <Button size="sm" variant="outline" class="gap-1.5">
                   <span class="material-symbols-outlined text-[15px]">swap_horiz</span>
