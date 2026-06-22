@@ -3,7 +3,6 @@ import cache from '@adonisjs/cache/services/main'
 import boardDataset from '#services/board_dataset'
 import { OverrideStore } from '#services/override_store'
 import { X3MfgmatRepository } from '#repositories/mfgmat_repository'
-import { X3ReceptionRepository } from '#repositories/reception_repository'
 import { evaluateMfgFeasibility, buildStrictQcStock } from '#app/domain/of-feasibility'
 import { type ManufacturingOrder } from '#repositories/of_repository'
 import type { GammeOperation } from '#app/domain/models/gamme'
@@ -1111,15 +1110,12 @@ export default class SchedulerController {
     const rawStockFlows = await boardDataset.getStock([...reachable]).catch(() => [])
     const stockByArticle = buildStrictQcStock(rawStockFlows)
 
-    // Réceptions déjà arrivées.
-    const receptionFlows = await new X3ReceptionRepository().getReceptionFlows().catch(() => [])
-    const receptionByArticle = new Map<string, number>()
-    const now = new Date()
-    for (const rec of receptionFlows) {
-      if (rec.date && rec.date <= now) {
-        receptionByArticle.set(rec.article, (receptionByArticle.get(rec.article) ?? 0) + rec.quantity)
-      }
-    }
+    // NB : on n'additionne PAS les réceptions fournisseurs au stock affiché.
+    // Avant, ce code sommait les BA non reçues datées dans le passé (donc EN RETARD)
+    // comme du stock dispo → CE2204 affichait 61 (BA CG2501715 en retard de 3 mois,
+    // jamais reçue) tandis que la faisabilité disait rupture (stock strict 0).
+    // Source de vérité unique : stock strict seul (aligné sur RecursiveDiagnosticChecker
+    // et evaluateMfgFeasibility). Les réceptions restent visibles dans l'onglet Diagnostic.
 
     const hasSupplyOf = (compArticle: string): boolean =>
       ofSupplyFlows.some((f) => f.article === compArticle && f.quantity > 0)
@@ -1138,8 +1134,7 @@ export default class SchedulerController {
         const needed = comp.consumptionNature === 'FORFAIT' ? comp.linkQuantity : comp.linkQuantity * qty
 
         if (comp.componentType === 'ACHETE') {
-          const stockTotal = (stockByArticle.get(comp.componentArticle) ?? 0) +
-            (receptionByArticle.get(comp.componentArticle) ?? 0)
+          const stockTotal = stockByArticle.get(comp.componentArticle) ?? 0
           const ok = isFirm || stockTotal >= needed
           rows.push({
             id: comp.componentArticle,
