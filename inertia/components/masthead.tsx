@@ -17,18 +17,14 @@ import UserMenu from '@/components/user-menu'
 
 export type MastheadTab =
   | 'dashboard'
-  | 'planification'
-  | 'ordonnancement'
-  | 'vision'
+  | 'programme'
   | 'ruptures'
   | 'tracking'
 
 /** Onglets canoniques (ordre + cibles uniques). */
 const TABS: { key: MastheadTab; label: string; href: string }[] = [
   { key: 'dashboard', label: 'Tableau', href: route('dashboard') },
-  { key: 'planification', label: 'Planification', href: route('planning') },
-  { key: 'ordonnancement', label: 'Ordonnancement', href: route('scheduling') },
-  { key: 'vision', label: 'Vision', href: route('scheduler.vision') },
+  { key: 'programme', label: 'Programme', href: route('scheduler.programme') },
   { key: 'ruptures', label: 'Ruptures', href: route('scheduler.shortage_tracker') },
   { key: 'tracking', label: 'Suivi', href: route('suivi.board') },
 ]

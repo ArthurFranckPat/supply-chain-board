@@ -9,7 +9,7 @@ async function bustBoardCaches(userId: number | string | undefined) {
   const ns = userId ? `user_${userId}` : ''
   await Promise.all([
     cache.namespace(ns ? `board:${ns}` : 'board').clear(),
-    cache.namespace(ns ? `vision:${ns}` : 'vision').clear(),
+    cache.namespace(ns ? `programme:${ns}` : 'programme').clear(),
   ])
 }
 

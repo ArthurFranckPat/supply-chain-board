@@ -82,12 +82,32 @@ declare module '@adonisjs/inertia/types' {
       rowsHref: string
       proactiveRowsHref: string
     }
-    'scheduler/vision': {
-      // Board IDENTIQUE à /ordonnancement (réutilise <BoardGrid>) + commandes/liens
-      // en overlay. Miroirs client : BoardData + VisionCommande/VisionLink.
-      board: BoardProp
+    'scheduler/programme': {
+      mode: 'combined' | 'ordonnancement' | 'planification'
+      // OF board — null en mode planification
+      board: BoardProp | null
       commandes: any[]
       links: any[]
+      // Order board — null en mode combined/ordonnancement
+      orderBoard: {
+        days: any[]
+        lines: any[]
+        weekSpans: { week: number; span: number }[]
+        cols: number
+        colWeek: number[]
+        weekCaps: Record<string, number>
+        totalLines: number
+        lineCount: number
+        x3Error: string | null
+        horizon: number
+        windowFrom: string
+        windowTo: string
+        weekLabel: string
+        dateRange: string
+        prevHref: string
+        nextHref: string
+        todayHref: string
+      } | null
       windowFrom: string
       windowTo: string
       horizon: number

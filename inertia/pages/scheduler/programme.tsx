@@ -13,10 +13,14 @@ import { router } from '@/lib/inertia-solid'
 import { route } from '@/lib/routes'
 import { createBoardStore } from '@/lib/board/store'
 import type { BoardData, SearchScope } from '@/lib/board/types'
+import { createOrderBoardStore } from '@/lib/orders/store'
+import type { OrderBoardData } from '@/lib/orders/types'
 import type { VisionCommande, VisionLink } from '@/lib/vision/types'
 import { cx } from '@/libs/cva'
 import BoardGrid from '@/components/board/board-grid'
+import OrderGrid from '@/components/board/order-grid'
 import OfDetailSheet from '@/components/of/of-detail-sheet'
+import OrderDetailSheet from '@/components/orders/order-detail-sheet'
 import { Masthead } from '@/components/masthead'
 import { Button } from '@/components/ui/button'
 import { TextField, TextFieldInput } from '@/components/ui/text-field'
@@ -41,10 +45,14 @@ import { Calendar, type DateRange } from '@/components/ui/calendar'
  *    via data-num-of / data-link-cmd).
  */
 
+type VisionMode = 'combined' | 'ordonnancement' | 'planification'
+
 type VisionProps = {
-  board: BoardData
+  mode: VisionMode
+  board: BoardData | null
   commandes: VisionCommande[]
   links: VisionLink[]
+  orderBoard: OrderBoardData | null
   windowFrom: string
   windowTo: string
   horizon: number
@@ -59,12 +67,24 @@ type VisionProps = {
   cached: string | null
 }
 
-const SCOPES = [
+const EMPTY_BOARD: BoardData = { days: [], lines: [], weekSpans: [], cols: 0, colWeek: [], weekCaps: {} }
+const EMPTY_ORDER_BOARD: OrderBoardData = { days: [], lines: [], weekSpans: [], cols: 0, colWeek: [], weekCaps: {} }
+
+const OF_SCOPES = [
   { v: 'poste', label: 'Poste' },
   { v: 'of', label: 'OF' },
   { v: 'pf', label: 'PF' },
   { v: 'composant', label: 'Composant' },
-] as const
+] as const satisfies { v: SearchScope; label: string }[]
+
+
+const MODE_LABELS: Record<VisionMode, string> = {
+  ordonnancement: 'OF',
+  combined: 'Combiné',
+  planification: 'Cmdes',
+}
+
+// SCOPES moved to OF_SCOPES / ORDER_SCOPES above
 
 const STATUS_FILTER_CHIPS: { k: 'ferme' | 'planifie' | 'suggere'; label: string }[] = [
   { k: 'ferme', label: 'Ferme' },
@@ -101,19 +121,41 @@ interface PathSpec {
   commandeId: string
 }
 
-const Vision: Component<VisionProps> = (props) => {
-  const store = createBoardStore(props.board)
+const Programme: Component<VisionProps> = (props) => {
+  const store = createBoardStore(props.board ?? EMPTY_BOARD)
+  const orderStore = createOrderBoardStore(props.orderBoard ?? EMPTY_ORDER_BOARD)
 
-  // Re-sync du store après navigation Inertia (prev/next/today/calendrier).
+  // Re-sync stores après navigation Inertia.
   createEffect(
     on(
       () => props.board,
       (next, prev) => {
-        if (prev !== undefined && next !== prev) store.reset(next)
+        if (prev !== undefined && next !== prev) store.reset(next ?? EMPTY_BOARD)
       },
       { defer: true }
     )
   )
+  createEffect(
+    on(
+      () => props.orderBoard,
+      (next, prev) => {
+        if (prev !== undefined && next !== prev) orderStore.reset(next ?? EMPTY_ORDER_BOARD)
+      },
+      { defer: true }
+    )
+  )
+
+  // Switch de mode → Inertia visit avec ?mode=
+  const switchMode = (newMode: VisionMode) => {
+    router.visit(route('scheduler.programme'), {
+      data: {
+        start: props.windowFrom,
+        days: String(props.horizon),
+        mode: newMode === 'combined' ? undefined : newMode,
+      },
+      preserveScroll: false,
+    })
+  }
 
   // Drawer détail OF (parité /ordonnancement).
   const [selectedOf, setSelectedOf] = createSignal<string | null>(null)
@@ -121,6 +163,14 @@ const Vision: Component<VisionProps> = (props) => {
   const onSelectOf = (num: string) => {
     setSelectedOf(num)
     setDetailOpen(true)
+  }
+
+  // Drawer détail ligne de commande (mode planification).
+  const [selectedOrderLine, setSelectedOrderLine] = createSignal<string | null>(null)
+  const [orderDetailOpen, setOrderDetailOpen] = createSignal(false)
+  const onSelectOrderLine = (key: string) => {
+    setSelectedOrderLine(key)
+    setOrderDetailOpen(true)
   }
 
   // Calendrier de fenêtre (identique /ordonnancement).
@@ -135,8 +185,12 @@ const Vision: Component<VisionProps> = (props) => {
       setCalOpen(false)
       const days =
         Math.round((startOfDay(r.end).getTime() - startOfDay(r.start).getTime()) / DAY_MS) + 1
-      router.visit(route('scheduler.vision'), {
-        data: { start: toIso(r.start), days: String(days) },
+      router.visit(route('scheduler.programme'), {
+        data: {
+          start: toIso(r.start),
+          days: String(days),
+          ...(props.mode !== 'combined' && { mode: props.mode }),
+        },
         preserveScroll: true,
       })
     }
@@ -322,8 +376,8 @@ const Vision: Component<VisionProps> = (props) => {
   return (
     <div class="theme-papier flex h-screen flex-col overflow-hidden bg-background text-foreground">
       <Masthead
-        subtitle="Vision · Flux OF ↔ commandes"
-        active="vision"
+        subtitle="Programme · Flux OF ↔ commandes"
+        active="programme"
         meta={
           <>
             <div class="font-fraunces text-[12px] font-bold not-italic text-terra">
@@ -358,12 +412,12 @@ const Vision: Component<VisionProps> = (props) => {
               title="Portée de la recherche"
               value={store.scope()}
               onChange={(v) => v && store.onScopeChange(v as SearchScope)}
-              options={SCOPES.map((s) => s.v)}
+              options={OF_SCOPES.map((s) => s.v)}
               disallowEmptySelection
-              optionTextValue={(o) => SCOPES.find((s) => s.v === o)?.label ?? o}
+              optionTextValue={(o) => OF_SCOPES.find((s) => s.v === o)?.label ?? o}
               itemComponent={(itemProps) => (
                 <SelectItem item={itemProps.item}>
-                  {SCOPES.find((s) => s.v === itemProps.item.rawValue)?.label ??
+                  {OF_SCOPES.find((s) => s.v === itemProps.item.rawValue)?.label ??
                     itemProps.item.rawValue}
                 </SelectItem>
               )}
@@ -373,7 +427,7 @@ const Vision: Component<VisionProps> = (props) => {
                 aria-label="Portée de la recherche"
               >
                 <SelectValue<string>>
-                  {(state) => SCOPES.find((s) => s.v === state.selectedOption())?.label ?? 'Portée'}
+                  {(state) => OF_SCOPES.find((s) => s.v === state.selectedOption())?.label ?? 'Portée'}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent />
@@ -384,7 +438,28 @@ const Vision: Component<VisionProps> = (props) => {
 
       {/* ═══ Toolbar (alignée /ordonnancement) ═══ */}
       <div class="flex flex-none flex-wrap items-center justify-between gap-3 border-b border-rule px-7 py-2">
-        {/* Filtre statut d'OF */}
+        {/* Sélecteur de mode */}
+        <div class="inline-flex items-center gap-0.5 rounded-md border border-rule bg-card p-0.5">
+          <For each={(['ordonnancement', 'combined', 'planification'] as const)}>
+            {(m) => (
+              <button
+                type="button"
+                class={cx(
+                  'rounded-[5px] px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
+                  props.mode === m
+                    ? 'bg-terra-soft text-terra'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+                onClick={() => switchMode(m)}
+              >
+                {MODE_LABELS[m]}
+              </button>
+            )}
+          </For>
+        </div>
+
+        {/* Filtre statut d'OF — masqué en mode planification */}
+        <Show when={props.mode !== 'planification'}>
         <div class="inline-flex items-center gap-1 rounded-md border border-rule bg-card p-0.5">
           <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
             Statut
@@ -406,6 +481,7 @@ const Vision: Component<VisionProps> = (props) => {
             )}
           </For>
         </div>
+        </Show>
 
         {/* Calendrier */}
         <div class="relative">
@@ -495,7 +571,31 @@ const Vision: Component<VisionProps> = (props) => {
         </div>
       </Show>
 
-      {/* ═══ Board (BoardGrid d'ordonnancement) + overlays vision ═══ */}
+      {/* ═══ Board : OrderGrid (planification) ou BoardGrid (combined/ordonnancement) ═══ */}
+      <Show when={props.mode === 'planification'}>
+        <Show
+          when={props.lineCount > 0}
+          fallback={
+            <div class="flex flex-1 items-center justify-center p-10 font-fraunces text-[14px] italic text-muted-foreground">
+              Aucune ligne de commande dans l'horizon.
+            </div>
+          }
+        >
+          <div class="flex-1 overflow-hidden">
+            <OrderGrid
+              store={orderStore}
+              onSelectCard={onSelectOrderLine}
+            />
+          </div>
+        </Show>
+        <OrderDetailSheet
+          lineId={selectedOrderLine()}
+          open={orderDetailOpen()}
+          onOpenChange={setOrderDetailOpen}
+        />
+      </Show>
+
+      <Show when={props.mode !== 'planification'}>
       <Show
         when={props.lineCount > 0}
         fallback={
@@ -511,12 +611,12 @@ const Vision: Component<VisionProps> = (props) => {
             onCardHover={(num) => setActiveId(num)}
             onCellDrop={onCommandeDrop}
             contentRef={setContentEl}
-            cellExtra={(lineCode, col) => (
+            cellExtra={props.mode === 'combined' ? (lineCode, col) => (
               <For each={cmdCells().get(lineCode)?.[col] ?? []}>
                 {(cmd) => commandeMarker(lineCode, cmd)}
               </For>
-            )}
-            overlay={
+            ) : undefined}
+            overlay={props.mode === 'combined' ? (
               <svg
                 class="pointer-events-none absolute inset-0 z-[5]"
                 style={{ width: '100%', height: '100%' }}
@@ -541,14 +641,15 @@ const Vision: Component<VisionProps> = (props) => {
                   }}
                 </For>
               </svg>
-            }
+            ) : undefined}
           />
         </div>
       </Show>
 
       <OfDetailSheet num={selectedOf()} open={detailOpen()} onOpenChange={setDetailOpen} onFirmed={(oldId, newId) => store.transformCard(oldId, newId)} />
+      </Show>
     </div>
   )
 }
 
-export default Vision
+export default Programme

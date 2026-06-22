@@ -25,7 +25,7 @@ export interface ApiDefinition {
   }
   scheduler: {
     shortageTracker: typeof routes['scheduler.shortage_tracker']
-    vision: typeof routes['scheduler.vision']
+    programme: typeof routes['scheduler.programme']
     ofDetail: typeof routes['scheduler.of_detail']
     shortageRows: typeof routes['scheduler.shortage_rows']
   }
@@ -85,5 +85,8 @@ export interface ApiDefinition {
     delete: typeof routes['x3_writeback.delete']
     list: typeof routes['x3_writeback.list']
     run: typeof routes['x3_writeback.run']
+  }
+  perf: {
+    index: typeof routes['perf.index']
   }
 }

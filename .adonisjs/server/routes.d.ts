@@ -18,7 +18,7 @@ export type ScannedRoutes = {
     'planning': { paramsTuple?: []; params?: {} }
     'scheduler.shortage_tracker': { paramsTuple?: []; params?: {} }
     'suivi.board': { paramsTuple?: []; params?: {} }
-    'scheduler.vision': { paramsTuple?: []; params?: {} }
+    'scheduler.programme': { paramsTuple?: []; params?: {} }
     'order_planning.index': { paramsTuple?: []; params?: {} }
     'order_planning.line_detail': { paramsTuple: [ParamValue,ParamValue]; params: {'order': ParamValue,'line': ParamValue} }
     'order_planning.update': { paramsTuple: [ParamValue,ParamValue]; params: {'order': ParamValue,'line': ParamValue} }
@@ -65,6 +65,7 @@ export type ScannedRoutes = {
     'x3_writeback.delete': { paramsTuple?: []; params?: {} }
     'x3_writeback.list': { paramsTuple?: []; params?: {} }
     'x3_writeback.run': { paramsTuple?: []; params?: {} }
+    'perf.index': { paramsTuple?: []; params?: {} }
   }
   GET: {
     'auth.login': { paramsTuple?: []; params?: {} }
@@ -79,7 +80,7 @@ export type ScannedRoutes = {
     'planning': { paramsTuple?: []; params?: {} }
     'scheduler.shortage_tracker': { paramsTuple?: []; params?: {} }
     'suivi.board': { paramsTuple?: []; params?: {} }
-    'scheduler.vision': { paramsTuple?: []; params?: {} }
+    'scheduler.programme': { paramsTuple?: []; params?: {} }
     'order_planning.index': { paramsTuple?: []; params?: {} }
     'order_planning.line_detail': { paramsTuple: [ParamValue,ParamValue]; params: {'order': ParamValue,'line': ParamValue} }
     'planning_board.index': { paramsTuple?: []; params?: {} }
@@ -103,6 +104,7 @@ export type ScannedRoutes = {
     'x3_writeback.read': { paramsTuple?: []; params?: {} }
     'x3_writeback.delete': { paramsTuple?: []; params?: {} }
     'x3_writeback.list': { paramsTuple?: []; params?: {} }
+    'perf.index': { paramsTuple?: []; params?: {} }
   }
   HEAD: {
     'auth.login': { paramsTuple?: []; params?: {} }
@@ -117,7 +119,7 @@ export type ScannedRoutes = {
     'planning': { paramsTuple?: []; params?: {} }
     'scheduler.shortage_tracker': { paramsTuple?: []; params?: {} }
     'suivi.board': { paramsTuple?: []; params?: {} }
-    'scheduler.vision': { paramsTuple?: []; params?: {} }
+    'scheduler.programme': { paramsTuple?: []; params?: {} }
     'order_planning.index': { paramsTuple?: []; params?: {} }
     'order_planning.line_detail': { paramsTuple: [ParamValue,ParamValue]; params: {'order': ParamValue,'line': ParamValue} }
     'planning_board.index': { paramsTuple?: []; params?: {} }
@@ -141,6 +143,7 @@ export type ScannedRoutes = {
     'x3_writeback.read': { paramsTuple?: []; params?: {} }
     'x3_writeback.delete': { paramsTuple?: []; params?: {} }
     'x3_writeback.list': { paramsTuple?: []; params?: {} }
+    'perf.index': { paramsTuple?: []; params?: {} }
   }
   POST: {
     'auth.attempt': { paramsTuple?: []; params?: {} }

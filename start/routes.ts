@@ -89,11 +89,11 @@ router
     //   /planification  : lignes de commande ouvertes (#10)
     //   /ruptures       : suivi des ruptures (issue #15)
     //   /vision         : vue unifiée OF ↔ commandes (issue #21)
-    router.get('/ordonnancement', '#controllers/scheduler_controller.expertBoard').as('scheduling')
-    router.get('/planification', '#controllers/order_planning_controller.board').as('planning')
+    router.get('/ordonnancement', ({ response }) => response.redirect('/programme')).as('scheduling')
+    router.get('/planification', ({ response }) => response.redirect('/vision?mode=planification')).as('planning')
     router.get('/ruptures', '#controllers/scheduler_controller.shortageTracker')
     router.get('/suivi', '#controllers/suivi_controller.board')
-    router.get('/vision', '#controllers/scheduler_controller.vision')
+    router.get('/programme', '#controllers/scheduler_controller.programme')
 
     // Planning — API JSON (fusion order-planning + planning-board sous un seul préfixe, #18 P7).
     //   order-lines/* : OrderPlanningController (overrides de date sur lignes de commande)
@@ -205,5 +205,8 @@ router
         router.post('/run', '#controllers/x3_writeback_controller.runSubprog').as('x3_writeback.run')
       })
       .prefix('/api/v1/x3/writeback')
+
+    // Baseline perf (issue #33) — P50/P95 par route, collectés par timing_middleware.
+    router.get('/api/v1/_perf', '#controllers/perf_controller.index').as('perf.index')
   })
   .use([middleware.auth(), middleware.x3Context()])

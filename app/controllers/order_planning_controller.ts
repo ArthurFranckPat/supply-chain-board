@@ -149,7 +149,7 @@ export default class OrderPlanningController {
     const force = !!ctx.request.input('refresh')
     const windowStart = startParam ? atMidnight(new Date(startParam)) : atMidnight(new Date())
 
-    // Cache du payload calculé, namespacé par utilisateur comme board/vision/suivi
+    // Cache du payload calculé, namespacé par utilisateur comme board/programme/suivi
     // (issue #20). Sans cela, getOpenOrderLines interroge X3 à CHAQUE visite du
     // board. TTL court (sources X3 vivantes) ; ?refresh=1 invalide la clé.
     // Sérialisable via superjson (cf. config/cache.ts).
@@ -162,7 +162,7 @@ export default class OrderPlanningController {
     const data = await planCache().getOrSet({
       key: cacheKey,
       ttl: 2 * 60 * 1000,
-      factory: () => this.loadBoardData(ctx),
+      factory: () => loadOrderBoardData(ctx),
     })
     return ctx.inertia.render('scheduler/planning', {
       board: {
@@ -317,205 +317,208 @@ export default class OrderPlanningController {
     }
   }
 
-  // -------------------------------------------------------------------------
-  // Board data
-  // -------------------------------------------------------------------------
+}
 
-  private async loadBoardData(ctx: HttpContext): Promise<OrderBoardData> {
-    const startParam = ctx.request.input('start') as string | undefined
-    const daysParam = Number.parseInt(ctx.request.input('days', '14'), 10)
-    const horizon = Number.isFinite(daysParam) && daysParam > 0 && daysParam <= 90 ? daysParam : 14
-    const force = !!ctx.request.input('refresh')
+/**
+ * Charge le board planification (lignes de commande ouvertes).
+ * Extrait de OrderPlanningController pour être réutilisé par SchedulerController
+ * en mode planification de la vue unifiée (/programme?mode=planification, #22).
+ *
+ * @param base   Base URL pour les liens de navigation (prevHref/nextHref/todayHref).
+ * @param modeParam  Param supplémentaire à injecter dans le navQuery (ex. "mode=planification").
+ */
+export async function loadOrderBoardData(
+  ctx: HttpContext,
+  base = '/planification',
+  modeParam = ''
+): Promise<OrderBoardData> {
+  const startParam = ctx.request.input('start') as string | undefined
+  const daysParam = Number.parseInt(ctx.request.input('days', '14'), 10)
+  const horizon = Number.isFinite(daysParam) && daysParam > 0 && daysParam <= 90 ? daysParam : 14
+  const force = !!ctx.request.input('refresh')
 
-    const today = atMidnight(new Date())
-    const windowStart = startParam ? atMidnight(new Date(startParam)) : today
+  const today = atMidnight(new Date())
+  const windowStart = startParam ? atMidnight(new Date(startParam)) : today
 
-    // --- Jours ouvrés (Lun–Ven) dans l'horizon. ---
-    const colDates: Date[] = []
-    for (let i = 0; i < horizon; i++) {
-      const d = atMidnight(windowStart)
-      d.setDate(windowStart.getDate() + i)
-      const dow = d.getDay()
-      if (dow !== 0 && dow !== 6) colDates.push(d)
-    }
-    const colIdx = new Map<string, number>()
-    colDates.forEach((d, i) => colIdx.set(isoDay(d), i))
-    const windowEnd = colDates.length ? colDates[colDates.length - 1] : windowStart
+  // --- Jours ouvrés (Lun–Ven) dans l'horizon. ---
+  const colDates: Date[] = []
+  for (let i = 0; i < horizon; i++) {
+    const d = atMidnight(windowStart)
+    d.setDate(windowStart.getDate() + i)
+    const dow = d.getDay()
+    if (dow !== 0 && dow !== 6) colDates.push(d)
+  }
+  const colIdx = new Map<string, number>()
+  colDates.forEach((d, i) => colIdx.set(isoDay(d), i))
+  const windowEnd = colDates.length ? colDates[colDates.length - 1] : windowStart
 
-    let ordreLignes: OrderLineRow[] = []
-    let gammeOps: GammeOperation[] = []
-    let x3Error: string | null = null
+  let ordreLignes: OrderLineRow[] = []
+  let gammeOps: GammeOperation[] = []
+  let x3Error: string | null = null
 
-    try {
-      const [ref, lines] = await Promise.all([
-        boardDataset.getReferential(force),
-        new X3OrderLineRepository().getOpenOrderLines({
-          from: isoDay(windowStart),
-          to: isoDay(windowEnd),
-        }),
-      ])
-      gammeOps = ref.gamme
-      ordreLignes = lines
-    } catch (e) {
-      x3Error = (e as Error).message
-    }
+  try {
+    const [ref, lines] = await Promise.all([
+      boardDataset.getReferential(force),
+      new X3OrderLineRepository().getOpenOrderLines({
+        from: isoDay(windowStart),
+        to: isoDay(windowEnd),
+      }),
+    ])
+    gammeOps = ref.gamme
+    ordreLignes = lines
+  } catch (e) {
+    x3Error = (e as Error).message
+  }
 
-    const overrideMap = await this.overrideStore.getMap()
-    const gammeMap = new Map(gammeOps.map((g) => [g.article, g]))
-    const wstLabels = new Map<string, string>()
-    for (const g of gammeOps) {
-      if (g.workstation) wstLabels.set(g.workstation, g.workstationLabel || g.workstation)
-    }
+  const overrideMap = await new OrderLineOverrideStore().getMap()
+  const gammeMap = new Map(gammeOps.map((g) => [g.article, g]))
+  const wstLabels = new Map<string, string>()
+  for (const g of gammeOps) {
+    if (g.workstation) wstLabels.set(g.workstation, g.workstationLabel || g.workstation)
+  }
 
-    // --- Colonne → ISO week + jours ouvrés par semaine (pour capacité hebdo). ---
-    const colWeek = colDates.map((d) => isoWeek(d))
-    const weekOrder: number[] = []
-    const weekDayCount = new Map<number, number>()
-    colWeek.forEach((wk) => {
-      if (!weekOrder.includes(wk)) weekOrder.push(wk)
-      weekDayCount.set(wk, (weekDayCount.get(wk) ?? 0) + 1)
-    })
-    const weekSpans = weekOrder.map((wk) => ({ week: wk, span: weekDayCount.get(wk) ?? 0 }))
-    const weekCaps: Record<string, number> = Object.fromEntries(
-      weekOrder.map((wk) => [wk, (weekDayCount.get(wk) ?? 0) * 8])
-    )
+  // --- Colonne → ISO week + jours ouvrés par semaine (pour capacité hebdo). ---
+  const colWeek = colDates.map((d) => isoWeek(d))
+  const weekOrder: number[] = []
+  const weekDayCount = new Map<number, number>()
+  colWeek.forEach((wk) => {
+    if (!weekOrder.includes(wk)) weekOrder.push(wk)
+    weekDayCount.set(wk, (weekDayCount.get(wk) ?? 0) + 1)
+  })
+  const weekSpans = weekOrder.map((wk) => ({ week: wk, span: weekDayCount.get(wk) ?? 0 }))
+  const weekCaps: Record<string, number> = Object.fromEntries(
+    weekOrder.map((wk) => [wk, (weekDayCount.get(wk) ?? 0) * 8])
+  )
 
-    // --- Grouping : une carte par ligne, rangée = poste (gamme figé),
-    //     colonne = JOUR d'échéance (override > X3). ---
-    interface Bucket {
-      dayCards: Card[][]
-      totalHours: number
-      dayHours: number[]
-      lineCount: number
-    }
-    const buckets = new Map<string, Bucket>()
+  interface Bucket {
+    dayCards: Card[][]
+    totalHours: number
+    dayHours: number[]
+    lineCount: number
+  }
+  const buckets = new Map<string, Bucket>()
 
-    for (const line of ordreLignes) {
-      const op = gammeMap.get(line.article)
-      const workstation = op?.workstation ?? null
-      if (!workstation) continue
-      if (!wstLabels.has(workstation)) wstLabels.set(workstation, workstation)
+  for (const line of ordreLignes) {
+    const op = gammeMap.get(line.article)
+    const workstation = op?.workstation ?? null
+    if (!workstation) continue
+    if (!wstLabels.has(workstation)) wstLabels.set(workstation, workstation)
 
-      const rate = op?.rate ?? 0
-      const hours = rate > 0 ? line.quantite / rate : 0
-      const overrideKey = `${line.numCommande}#${line.ligne}`
-      const dateStr = overrideMap.get(overrideKey) ?? isoDay(line.dateLivraison)
-      const idx = colIdx.get(dateStr)
-      if (idx === undefined) continue // hors fenêtre / week-end
+    const rate = op?.rate ?? 0
+    const hours = rate > 0 ? line.quantite / rate : 0
+    const overrideKey = `${line.numCommande}#${line.ligne}`
+    const dateStr = overrideMap.get(overrideKey) ?? isoDay(line.dateLivraison)
+    const idx = colIdx.get(dateStr)
+    if (idx === undefined) continue
 
-      const card = makeOrderCard({
-        numCommande: line.numCommande,
-        ligne: line.ligne,
-        article: line.article,
-        designation: line.designation,
-        client: line.client,
-        quantite: line.quantite,
-        hours,
-        hasOverride: overrideMap.has(overrideKey),
-        orderType: line.orderType,
-        nature: line.nature,
-      })
-
-      if (!buckets.has(workstation)) {
-        buckets.set(workstation, {
-          dayCards: Array.from({ length: colDates.length }, () => []),
-          totalHours: 0,
-          dayHours: new Array<number>(colDates.length).fill(0),
-          lineCount: 0,
-        })
-      }
-      const b = buckets.get(workstation)!
-      b.dayCards[idx].push(card)
-      b.totalHours += hours
-      b.dayHours[idx] += hours
-      b.lineCount++
-    }
-
-    // --- Colonnes jour. ---
-    const now = atMidnight(new Date())
-    const days: DayCol[] = colDates.map((d, i) => {
-      const wd = d.toLocaleDateString('fr-FR', { weekday: 'short' })
-      const dn = d.toLocaleDateString('fr-FR', { day: '2-digit' })
-      const isToday = d.getTime() === now.getTime()
-      return {
-        short: `${wd} ${dn}`,
-        iso: isoDay(d),
-        today: isToday,
-        headerTone: isToday ? 'bg-blue-50/30' : i % 2 === 0 ? 'bg-white/50' : '',
-      }
+    const card = makeOrderCard({
+      numCommande: line.numCommande,
+      ligne: line.ligne,
+      article: line.article,
+      designation: line.designation,
+      client: line.client,
+      quantite: line.quantite,
+      hours,
+      hasOverride: overrideMap.has(overrideKey),
+      orderType: line.orderType,
+      nature: line.nature,
     })
 
-    // --- Histogramme hebdo par ligne (somme dayHours par semaine vs jours×8h). ---
-    const buildWeekLoads = (lineDayHours: number[]) =>
-      weekOrder.map((week) => {
-        let hours = 0
-        colWeek.forEach((wk, i) => {
-          if (wk === week) hours += lineDayHours[i]
-        })
-        const cap = (weekDayCount.get(week) ?? 0) * 8
-        const pct = cap > 0 ? Math.round((hours / cap) * 100) : 0
-        return {
-          week,
-          hours: Math.round(hours * 10) / 10,
-          pct,
-          barClass: pct > 100 ? 'bg-error' : pct >= 90 ? 'bg-blue-500' : 'bg-emerald-500',
-        }
+    if (!buckets.has(workstation)) {
+      buckets.set(workstation, {
+        dayCards: Array.from({ length: colDates.length }, () => []),
+        totalHours: 0,
+        dayHours: new Array<number>(colDates.length).fill(0),
+        lineCount: 0,
       })
-
-    const lines: LineRow[] = [...buckets.entries()]
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([code, bucket]) => ({
-        name: wstLabels.get(code) ?? code,
-        code,
-        dot: 'bg-primary',
-        meta: [
-          { k: 'LIGNES', v: String(bucket.lineCount) },
-          { k: 'CHG', v: `${Math.round(bucket.totalHours)}h` },
-          { k: 'WST', v: code },
-        ],
-        dayCells: bucket.dayCards.map((cards, i) => ({
-          cellClass: days[i].today ? 'bg-blue-50/10' : '',
-          cards,
-          iso: isoDay(colDates[i]),
-        })),
-        weekLoads: buildWeekLoads(bucket.dayHours),
-      }))
-
-    // --- Nav horizon (Préc./Suiv./Aujourd'hui), pas = horizon jours. ---
-    const fmtFr = (d: Date) =>
-      d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase()
-    const firstDay = colDates[0] ?? windowStart
-    const lastDay = colDates[colDates.length - 1] ?? windowStart
-    const navIso = (deltaDays: number) => {
-      const d = atMidnight(windowStart)
-      d.setDate(d.getDate() + deltaDays)
-      return isoDay(d)
     }
-    const navQuery = (start: string) =>
-      `?start=${start}&days=${horizon}` + (force ? '&refresh=1' : '')
-    const base = '/planification'
-    const prevHref = `${base}${navQuery(navIso(-horizon))}`
-    const nextHref = `${base}${navQuery(navIso(horizon))}`
-    const todayHref = `${base}${navQuery(isoDay(now))}`
+    const b = buckets.get(workstation)!
+    b.dayCards[idx].push(card)
+    b.totalHours += hours
+    b.dayHours[idx] += hours
+    b.lineCount++
+  }
 
+  const now = atMidnight(new Date())
+  const days: DayCol[] = colDates.map((d, i) => {
+    const wd = d.toLocaleDateString('fr-FR', { weekday: 'short' })
+    const dn = d.toLocaleDateString('fr-FR', { day: '2-digit' })
+    const isToday = d.getTime() === now.getTime()
     return {
-      days,
-      lines,
-      weekSpans,
-      cols: days.length,
-      colWeek,
-      weekCaps,
-      totalLines: ordreLignes.length,
-      lineCount: lines.length,
-      x3Error,
-      horizon,
-      windowFrom: colDates.length ? isoDay(firstDay) : '',
-      windowTo: colDates.length ? isoDay(lastDay) : '',
-      weekLabel: colDates.length ? `S${isoWeek(firstDay)}` : '',
-      dateRange: `${fmtFr(firstDay)} — ${fmtFr(lastDay)}`,
-      prevHref,
-      nextHref,
-      todayHref,
+      short: `${wd} ${dn}`,
+      iso: isoDay(d),
+      today: isToday,
+      headerTone: isToday ? 'bg-blue-50/30' : i % 2 === 0 ? 'bg-white/50' : '',
     }
+  })
+
+  const buildWeekLoads = (lineDayHours: number[]) =>
+    weekOrder.map((week) => {
+      let hours = 0
+      colWeek.forEach((wk, i) => {
+        if (wk === week) hours += lineDayHours[i]
+      })
+      const cap = (weekDayCount.get(week) ?? 0) * 8
+      const pct = cap > 0 ? Math.round((hours / cap) * 100) : 0
+      return {
+        week,
+        hours: Math.round(hours * 10) / 10,
+        pct,
+        barClass: pct > 100 ? 'bg-error' : pct >= 90 ? 'bg-blue-500' : 'bg-emerald-500',
+      }
+    })
+
+  const lines: LineRow[] = [...buckets.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([code, bucket]) => ({
+      name: wstLabels.get(code) ?? code,
+      code,
+      dot: 'bg-primary',
+      meta: [
+        { k: 'LIGNES', v: String(bucket.lineCount) },
+        { k: 'CHG', v: `${Math.round(bucket.totalHours)}h` },
+        { k: 'WST', v: code },
+      ],
+      dayCells: bucket.dayCards.map((cards, i) => ({
+        cellClass: days[i].today ? 'bg-blue-50/10' : '',
+        cards,
+        iso: isoDay(colDates[i]),
+      })),
+      weekLoads: buildWeekLoads(bucket.dayHours),
+    }))
+
+  const fmtFr = (d: Date) =>
+    d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase()
+  const firstDay = colDates[0] ?? windowStart
+  const lastDay = colDates[colDates.length - 1] ?? windowStart
+  const navIso = (deltaDays: number) => {
+    const d = atMidnight(windowStart)
+    d.setDate(d.getDate() + deltaDays)
+    return isoDay(d)
+  }
+  const navQuery = (start: string) =>
+    `?start=${start}&days=${horizon}${force ? '&refresh=1' : ''}${modeParam ? `&${modeParam}` : ''}`
+  const prevHref = `${base}${navQuery(navIso(-horizon))}`
+  const nextHref = `${base}${navQuery(navIso(horizon))}`
+  const todayHref = `${base}${navQuery(isoDay(now))}`
+
+  return {
+    days,
+    lines,
+    weekSpans,
+    cols: days.length,
+    colWeek,
+    weekCaps,
+    totalLines: ordreLignes.length,
+    lineCount: lines.length,
+    x3Error,
+    horizon,
+    windowFrom: colDates.length ? isoDay(firstDay) : '',
+    windowTo: colDates.length ? isoDay(lastDay) : '',
+    weekLabel: colDates.length ? `S${isoWeek(firstDay)}` : '',
+    dateRange: `${fmtFr(firstDay)} — ${fmtFr(lastDay)}`,
+    prevHref,
+    nextHref,
+    todayHref,
   }
 }

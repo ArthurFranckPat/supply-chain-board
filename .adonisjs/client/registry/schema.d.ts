@@ -175,9 +175,9 @@ export interface Registry {
       errorResponse: unknown
     }
   }
-  'scheduler.vision': {
+  'scheduler.programme': {
     methods: ["GET","HEAD"]
-    pattern: '/vision'
+    pattern: '/programme'
     types: {
       body: {}
       paramsTuple: []
@@ -730,6 +730,18 @@ export interface Registry {
   'x3_writeback.run': {
     methods: ["POST"]
     pattern: '/api/v1/x3/writeback/run'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'perf.index': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/_perf'
     types: {
       body: {}
       paramsTuple: []

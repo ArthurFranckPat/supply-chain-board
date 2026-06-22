@@ -98,7 +98,7 @@ const Scheduling: Component<SchedulingProps> = (props) => {
     <div class="theme-papier flex h-screen flex-col overflow-hidden bg-background text-foreground">
       <Masthead
         subtitle="Ordonnancement · Édition quotidienne"
-        active="ordonnancement"
+        active="programme"
         meta={
           <>
             <div class="font-fraunces text-[12px] font-bold not-italic text-terra">{props.weekLabel}</div>

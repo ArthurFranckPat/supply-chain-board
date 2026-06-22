@@ -7,6 +7,7 @@ import { evaluateMfgFeasibility, buildStrictQcStock } from '#app/domain/of-feasi
 import { type ManufacturingOrder } from '#repositories/of_repository'
 import type { GammeOperation } from '#app/domain/models/gamme'
 import { loadOrderImpacts } from '#services/order_impacts_loader'
+import { loadOrderBoardData } from '#controllers/order_planning_controller'
 import { buildShortageRows, type ShortageRow } from '#app/domain/shortages'
 import { loadReceptionsByArticle } from '#repositories/reception_repository'
 import type { Flow } from '#app/domain/models/flow'
@@ -288,13 +289,44 @@ export default class SchedulerController {
     })
   }
 
-  /** GET /vision — vue unifiée OF ↔ commandes (issue #21). */
-  async vision(ctx: HttpContext) {
-    const data = await this.loadVisionData(ctx)
-    return ctx.inertia.render('scheduler/vision', {
+  /** GET /programme — vue unifiée OF ↔ commandes (issue #21, #22). */
+  async programme(ctx: HttpContext) {
+    const rawMode = ctx.request.input('mode') as string | undefined
+    const mode: 'combined' | 'ordonnancement' | 'planification' =
+      rawMode === 'ordonnancement' ? 'ordonnancement'
+      : rawMode === 'planification' ? 'planification'
+      : 'combined'
+
+    if (mode === 'planification') {
+      const orderBoard = await loadOrderBoardData(ctx, '/programme', 'mode=planification')
+      return ctx.inertia.render('scheduler/programme', {
+        mode,
+        board: null,
+        commandes: [],
+        links: [],
+        orderBoard,
+        windowFrom: orderBoard.windowFrom,
+        windowTo: orderBoard.windowTo,
+        horizon: orderBoard.horizon,
+        dateRange: orderBoard.dateRange,
+        weekLabel: orderBoard.weekLabel,
+        prevHref: orderBoard.prevHref,
+        nextHref: orderBoard.nextHref,
+        todayHref: orderBoard.todayHref,
+        totalOf: 0,
+        lineCount: orderBoard.lineCount,
+        x3Error: orderBoard.x3Error,
+        cached: null,
+      })
+    }
+
+    const data = await this.loadProgrammeData(ctx, '/programme', mode)
+    return ctx.inertia.render('scheduler/programme', {
+      mode,
       board: data.board,
       commandes: data.commandes,
       links: data.links,
+      orderBoard: null,
       windowFrom: data.windowFrom,
       windowTo: data.windowTo,
       horizon: data.horizon,
@@ -320,7 +352,7 @@ export default class SchedulerController {
    * rangée du poste de l'OF qui la couvre, à sa date d'expédition ; un lien
    * horizontal matérialise le rattachement. Échec non-fatal (board sans liens).
    */
-  private async loadVisionData(ctx: HttpContext, basePath = '/vision') {
+  private async loadProgrammeData(ctx: HttpContext, basePath = '/programme', mode: 'combined' | 'ordonnancement' = 'combined') {
     const startParam = ctx.request.input('start') as string | undefined
     const daysParam = Number.parseInt(ctx.request.input('days', '14'), 10)
     const horizon = Number.isFinite(daysParam) && daysParam > 0 && daysParam <= 90 ? daysParam : 14
@@ -332,14 +364,14 @@ export default class SchedulerController {
     // Cache du payload calculé (matcher + faisabilité = partie coûteuse), namespacé
     // par utilisateur comme board/suivi (issue #20). TTL court : sources X3 vivantes.
     // ?refresh=1 invalide la clé → recalcul. Sérialisable (superjson) : ISO partout.
-    const visionCache = () => {
+    const programmeCache = () => {
       const userId = ctx.auth?.user?.id
-      return cache.namespace(userId ? `vision:user_${userId}` : 'vision')
+      return cache.namespace(userId ? `programme:user_${userId}` : 'vision')
     }
     const cacheKey = `payload:${basePath}:${isoDay(windowStart)}:${horizon}`
-    if (force) await visionCache().delete({ key: cacheKey })
+    if (force) await programmeCache().delete({ key: cacheKey })
 
-    return visionCache().getOrSet({
+    return programmeCache().getOrSet({
       key: cacheKey,
       ttl: 2 * 60 * 1000,
       factory: async () => {
@@ -422,9 +454,9 @@ export default class SchedulerController {
           windowTo: data.windowTo,
           weekLabel: data.weekLabel,
           dateRange: data.dateRange,
-          prevHref: data.prevHref,
-          nextHref: data.nextHref,
-          todayHref: data.todayHref,
+          prevHref: data.prevHref + (mode === 'ordonnancement' ? '&mode=ordonnancement' : ''),
+          nextHref: data.nextHref + (mode === 'ordonnancement' ? '&mode=ordonnancement' : ''),
+          todayHref: data.todayHref + (mode === 'ordonnancement' ? '&mode=ordonnancement' : ''),
           totalOf: data.totalOf,
           lineCount: data.lineCount,
           x3Error,

@@ -90,11 +90,11 @@ const routes = {
     tokens: [{"old":"/suivi","type":0,"val":"suivi","end":""}],
     types: placeholder as Registry['suivi.board']['types'],
   },
-  'scheduler.vision': {
+  'scheduler.programme': {
     methods: ["GET","HEAD"],
-    pattern: '/vision',
-    tokens: [{"old":"/vision","type":0,"val":"vision","end":""}],
-    types: placeholder as Registry['scheduler.vision']['types'],
+    pattern: '/programme',
+    tokens: [{"old":"/programme","type":0,"val":"programme","end":""}],
+    types: placeholder as Registry['scheduler.programme']['types'],
   },
   'order_planning.index': {
     methods: ["GET","HEAD"],
@@ -371,6 +371,12 @@ const routes = {
     pattern: '/api/v1/x3/writeback/run',
     tokens: [{"old":"/api/v1/x3/writeback/run","type":0,"val":"api","end":""},{"old":"/api/v1/x3/writeback/run","type":0,"val":"v1","end":""},{"old":"/api/v1/x3/writeback/run","type":0,"val":"x3","end":""},{"old":"/api/v1/x3/writeback/run","type":0,"val":"writeback","end":""},{"old":"/api/v1/x3/writeback/run","type":0,"val":"run","end":""}],
     types: placeholder as Registry['x3_writeback.run']['types'],
+  },
+  'perf.index': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/_perf',
+    tokens: [{"old":"/api/v1/_perf","type":0,"val":"api","end":""},{"old":"/api/v1/_perf","type":0,"val":"v1","end":""},{"old":"/api/v1/_perf","type":0,"val":"_perf","end":""}],
+    types: placeholder as Registry['perf.index']['types'],
   },
 } as const satisfies Record<string, AdonisEndpoint>
 

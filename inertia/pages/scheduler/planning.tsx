@@ -53,7 +53,7 @@ const startOfDay = (d: Date): Date => {
   return x
 }
 
-const Planning: Component<OrderBoardProps> = (props) => {
+const Planning: Component<PlanningProps> = (props) => {
   const store = createOrderBoardStore(props.board)
 
   // Détail ligne de commande : drawer contextuel au clic sur une carte.
@@ -102,7 +102,7 @@ const Planning: Component<OrderBoardProps> = (props) => {
     <div class="theme-papier flex h-screen flex-col overflow-hidden bg-background text-foreground">
       <Masthead
         subtitle="Planification · Lignes de commande ouvertes"
-        active="planification"
+        active="programme"
         meta={
           <>
             <div class="font-fraunces text-[12px] font-bold not-italic text-terra">{props.weekLabel}</div>
