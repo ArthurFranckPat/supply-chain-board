@@ -310,6 +310,9 @@ export class SuiviService {
     const raw = await suiviCache().getOrSet({
       key: 'context',
       ttl: CONTEXT_TTL,
+      // SWR (issue #33) : même stratégie que /programme — au-delà du soft timeout, sert le
+      // snapshot en grace et rafraîchit en arrière-plan (contexte requête → creds X3 via ALS).
+      timeout: 1000,
       factory: () => this.loadRaw(),
     })
     return this.assembleContext(raw)

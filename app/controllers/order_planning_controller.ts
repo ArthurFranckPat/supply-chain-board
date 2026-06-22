@@ -162,6 +162,9 @@ export default class OrderPlanningController {
     const data = await planCache().getOrSet({
       key: cacheKey,
       ttl: 2 * 60 * 1000,
+      // SWR (issue #33) : au-delà du soft timeout, sert la valeur en grace et rafraîchit en
+      // arrière-plan (contexte requête → creds X3 via ALS). Aligne /planification sur /programme.
+      timeout: 1000,
       factory: () => loadOrderBoardData(ctx),
     })
     return ctx.inertia.render('scheduler/planning', {
