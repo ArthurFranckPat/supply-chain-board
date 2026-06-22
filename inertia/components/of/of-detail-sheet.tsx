@@ -321,8 +321,11 @@ export const OfDetailSheet: Component<{
           // Planifié→ferme : même n°, on rafraîchit le détail (statut → Ferme).
           await refetchDetail()
         }
-        // Reload partiel (only:board) — réconcilie poste/charge/styling du nouvel OF.
-        router.reload(props.onFirmed ? { only: ['board'] } : undefined)
+        // Reload FULL et retardé : FUNMAUTR consomme la suggestion dans ORDERS, mais
+        // ORDERS propage avec un léger delta. Un reload immédiat/lecture-cachée
+        // ramenait la suggestion stale (le transformCard était écrasé). On laisse
+        // ~2s à ORDERS, puis reload full (le transformCard assure le visuel meantime).
+        setTimeout(() => router.reload(), 2000)
       } else {
         setFirmMsg({ ok: false, text: data.error ?? 'Affermissement refusé par X3.' })
       }
