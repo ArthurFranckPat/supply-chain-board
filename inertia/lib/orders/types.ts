@@ -14,11 +14,6 @@ export interface OrderCard {
   title: string
   article: string | null
   href: string
-  accentClass: string
-  cardClass: string
-  textTone: string
-  idTone: string
-  fieldValTone: string
   fields: Field[]
   metric: string | null
   hours: number

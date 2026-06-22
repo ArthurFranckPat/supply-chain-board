@@ -21,11 +21,6 @@ interface Card {
   title: string
   article: string | null
   href: string
-  accentClass: string
-  cardClass: string
-  textTone: string
-  idTone: string
-  fieldValTone: string
   fields: { icon: string; val: string }[]
   metric: string | null
   hours: number
@@ -129,11 +124,6 @@ function makeOrderCard(p: {
     title: p.designation ?? p.article,
     article: p.article,
     href: `/api/v1/planning/ofs/${p.numCommande}/detail`,
-    accentClass: p.hasOverride ? 'border-l-amber-500' : 'border-l-primary',
-    cardClass: p.hasOverride ? 'bg-amber-50/40' : '',
-    textTone: 'text-gray-800',
-    idTone: p.hasOverride ? 'text-amber-700' : 'text-gray-500',
-    fieldValTone: 'text-gray-600',
     fields,
     metric: `${p.numCommande} · L${p.ligne}`,
     hours: p.hours,
