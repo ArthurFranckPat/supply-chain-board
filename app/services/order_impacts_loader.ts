@@ -78,7 +78,7 @@ export async function loadOrderImpacts(
   // scopées à l'horizon, stock scopé aux articles concernés.
   const [
     { supply: ofFlows },
-    { demand: demandFlows, reception: receptionFlows, suggestion: suggestionFlows },
+    { demand: demandFlows, reception: receptionFlows },
     { gamme },
     nomenclatureEntries,
     articlesList,
@@ -95,7 +95,8 @@ export async function loadOrderImpacts(
   // OF affermis/planifiés (MFGHEAD) + suggestions CBN (WOS), tous scopés à l'horizon.
   // Les suggestions couvrent les commandes MTO/NOR non encore affermies — sans elles, ces
   // commandes n'ont aucun supply à matcher. Statut « suggéré » → priorité basse dans le matcher.
-  const filteredOfFlows = [...ofFlows, ...suggestionFlows].filter((f) => {
+  // ofFlows contient déjà les suggestions (statut 3) depuis ORDERS (#32).
+  const filteredOfFlows = ofFlows.filter((f) => {
     if (!f.date) return true
     return f.date >= windowFrom && f.date <= windowTo
   })

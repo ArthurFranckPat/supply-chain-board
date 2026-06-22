@@ -24,25 +24,6 @@ function defaultPoolTo(): string {
   return d.toISOString().split('T')[0]
 }
 
-/** Convertit un flux suggestion CBN (Flow statut 3) en ManufacturingOrder pour le board. */
-function suggestionToMo(f: Flow): ManufacturingOrder {
-  const o = f.origin as { id?: string; designation?: string | null }
-  return {
-    numOf: o.id ?? '',
-    article: f.article,
-    designation: o.designation ?? null,
-    status: 3,
-    statutLabel: 'Suggéré',
-    typeOfLabel: null,
-    quantity: f.quantity,
-    quantityLaunched: 0,
-    quantityDone: 0,
-    unit: null,
-    // CBNDET n'a que ENDDAT : on l'utilise comme date de début de planification.
-    startDate: f.date ?? null,
-    endDate: f.date ?? null,
-  }
-}
 
 // ---------------------------------------------------------------------------
 type CardStatus = 'termine' | 'ferme' | 'cours' | 'planifie' | 'suggere' | 'bloque'
@@ -700,12 +681,14 @@ export default class SchedulerController {
         boardDataset.getReferential(force),
         boardDataset.getOrders(force),
         boardDataset.getLive(defaultPoolFrom(), defaultPoolTo(), force).catch(
-          () => ({ demand: [], reception: [], suggestion: [] as Flow[], at: 0 }),
+          () => ({ demand: [], reception: [], at: 0 }),
         ),
       ])
       gammeOps = ref.gamme
-      // Pool unifié : OF affermis/planifiés (1/2) + suggestions CBN (3, issue #27).
-      mos = [...ord.mos, ...live.suggestion.map(suggestionToMo)]
+      // Pool unifié : tous les OF (1/2/3) lus depuis ORDERS via ord.mos (#32).
+      // Les suggestions (statut 3) sont des ManufacturingOrder natives maintenant.
+      mos = [...ord.mos]
+      void live
     } catch (e) {
       x3Error = (e as Error).message
     }
@@ -920,13 +903,11 @@ export default class SchedulerController {
   // -------------------------------------------------------------------------
 
   private async loadOfDetail(num: string): Promise<DetailPayload> {
-    // Find the MO — fast path via getOrders (MFGITM). Si l'OF n'existe pas
-    // dans les OF réels, on cherche dans les suggestions CBN (getLive) en lazy
-    // pour ne pas pénaliser les OF standards (issue #30).
+    // Find the MO — getOrders lit désormais ORDERS (tous statuts 1/2/3, #32) :
+    // fermes, planifiés ET suggestions sont des ManufacturingOrder natives.
     let mos: ManufacturingOrder[] = []
     let gammeOps: GammeOperation[] = []
     let ofSupplyFlows: Flow[] = []
-    let suggestionFlow: Flow | undefined
     try {
       const [ref, ord] = await Promise.all([
         boardDataset.getReferential(),
@@ -939,24 +920,7 @@ export default class SchedulerController {
       // serve empty detail
     }
 
-    let mo = mos.find((m) => m.numOf === num)
-    if (!mo) {
-      try {
-        const live = await boardDataset.getLive(defaultPoolFrom(), defaultPoolTo())
-        suggestionFlow = live.suggestion.find((f) => {
-          const id = (f.origin as { id?: string }).id
-          return id === num
-        })
-        if (suggestionFlow) {
-          mo = suggestionToMo(suggestionFlow)
-          // Inclure les suggestions dans les flows supply pour la
-          // descente récursive BOMD (un sous-ensemble peut être suggéré).
-          ofSupplyFlows = [...ofSupplyFlows, ...live.suggestion]
-        }
-      } catch {
-        // pas de suggestions — mo reste undefined
-      }
-    }
+    const mo = mos.find((m) => m.numOf === num)
     const gammeMap = new Map(gammeOps.map((g) => [g.article, g]))
     const overrides = await this.store.getAll()
     const ov = overrides.find((o) => o.numOf === num) ?? null
@@ -965,7 +929,7 @@ export default class SchedulerController {
       ? (gammeOps.find((g) => g.workstation === wst)?.workstationLabel ?? wst)
       : null
 
-    const status = ov?.status ?? mo?.status ?? (suggestionFlow ? 3 : 1)
+    const status = ov?.status ?? mo?.status ?? 1
     const statusLabel =
       mo?.statutLabel ??
       (status === 1 ? 'Ferme' : status === 2 ? 'Planifié' : status === 3 ? 'Suggéré' : 'Planifié')

@@ -56,7 +56,7 @@ export default class PlanningBoardController {
     const overrideMap = new Map(overrides.map((o) => [o.numOf, o]))
 
     // Pool unifié : supply (1/2) + suggestions (3) — même forme Flow, conversion identique.
-    const allFlows: Flow[] = [...pool.supply, ...pool.suggestions]
+    const allFlows: Flow[] = [...pool.supply]
     const erpOfs: OfFromErp[] = allFlows.map((f) => ({
       numOf: (f.origin as any).id,
       article: f.article,
@@ -89,7 +89,7 @@ export default class PlanningBoardController {
 
   async show(ctx: HttpContext) {
     const pool = await boardDataset.getPool(defaultPoolFrom(), defaultPoolTo())
-    const allFlows: Flow[] = [...pool.supply, ...pool.suggestions]
+    const allFlows: Flow[] = [...pool.supply]
     const match = allFlows.find((f) => (f.origin as any).id === ctx.params.of)
     if (!match) {
       return ctx.response.notFound({ message: `OF ${ctx.params.of} not found` })
@@ -328,7 +328,7 @@ export default class PlanningBoardController {
       this.store.getAll(),
     ])
     const overrideMap = new Map(overrides.map((o) => [o.numOf, o]))
-    const allFlows: Flow[] = [...pool.supply, ...pool.suggestions]
+    const allFlows: Flow[] = [...pool.supply]
 
     const events = allFlows
       .map((f) => {
@@ -469,8 +469,8 @@ export default class PlanningBoardController {
       boardDataset.getArticles().catch(() => []),
     ])
 
-    // Pool unifié : supply (1/2) + suggestions CBN (3).
-    const pool: OfRecord[] = ([...poolData.supply, ...poolData.suggestions] as Flow[]).map((f) => {
+    // Pool unifié : tous les OF (1/2/3) depuis ORDERS via supply (#32).
+    const pool: OfRecord[] = (poolData.supply as Flow[]).map((f) => {
       const o = f.origin as { id?: string; status?: number }
       return {
         numOf: o.id ?? '',
@@ -610,7 +610,7 @@ export default class PlanningBoardController {
    */
   private async ofMaterialsFromBom(numOf: string, isFirm?: boolean) {
     const pool = await boardDataset.getPool(defaultPoolFrom(), defaultPoolTo())
-    const allFlows: Flow[] = [...pool.supply, ...pool.suggestions]
+    const allFlows: Flow[] = [...pool.supply]
     const targetFlow = allFlows.find((f) => {
       const id = (f.origin as { id?: string }).id
       return id === numOf

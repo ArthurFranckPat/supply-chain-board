@@ -4,23 +4,6 @@ import { getX3EnvConfig } from '#config/x3'
 import { callRunSubprog } from '#app/x3/run-client'
 import { X3SuggestionRepository } from '#app/repositories/suggestion_repository'
 
-const FIRMED_NS = 'planning'
-const FIRMED_KEY = 'firmed_suggestions'
-const FIRMED_TTL = 30 * 24 * 60 * 60 * 1000 // 30 jours — survit jusqu'au prochain CBN
-
-/**
- * Enregistre une suggestion affermie pour exclusion immédiate du board.
- * CBNDET n'est pas mis à jour par FUNMAUTR → filtrage local nécessaire.
- * Clé globale (pas per-user) : l'affermissement X3 est visible pour tous.
- */
-async function markSuggestionFirmed(sugNum: string): Promise<void> {
-  const ns = cache.namespace(FIRMED_NS)
-  const prev: string[] = ((await ns.get({ key: FIRMED_KEY })) as string[] | null) ?? []
-  if (!prev.includes(sugNum)) {
-    await ns.set({ key: FIRMED_KEY, value: [...prev, sugNum], ttl: FIRMED_TTL })
-  }
-}
-
 /** Invalide les caches board + vision de l'utilisateur (issue #20) après un write-back. */
 async function bustBoardCaches(userId: number | string | undefined) {
   const ns = userId ? `user_${userId}` : ''
@@ -37,16 +20,17 @@ async function bustBoardCaches(userId: number | string | undefined) {
  * `ZSOAPFIRM`, qui pilote la fonction standard X3 **FUNMAUTR** (« Lancement
  * automatique ») scopée sur un ordre, headless.
  *
- * Fonctionne pour les DEUX sources (le sous-programme X3 auto-détecte le statut) :
- *   - suggestion CBNDET (WIPSTA=3, n° SGAE…) → crée un nouvel OF ferme + consomme
- *     la suggestion (explosion nomenclature/gamme via transaction MFGMTSNUM=OF6).
- *   - OF planifié MFGHEAD (MFGSTA=2, n° F…) → modifie l'OF existant vers Ferme.
+ * Fonctionne pour les DEUX statuts sources (le sous-programme X3 auto-détecte) :
+ *   - suggestion (WIPSTA=3, n° SGAE…) → crée un nouvel OF ferme + consomme la
+ *     suggestion (explosion nomenclature/gamme via transaction MFGMTSNUM=OF6).
+ *   - OF planifié (WIPSTA=2, n° F…) → modifie l'OF existant vers Ferme.
  *
  * Pas de double appro (FUNMAUTR consomme/transforme nativement), pas de delete
  * séparé, batch-safe (pas de fenêtre IVISUGHOST contrairement à un `save` GESMFG).
  *
- * Le board ne porte que l'id de l'ordre ; on relit CBNDET puis MFGHEAD pour le
- * site (clé exigée par FUNMAUTR).
+ * Le board ne porte que l'id de l'ordre ; on relit ORDERS (vue planning temps réel,
+ * #32) pour le site (clé exigée par FUNMAUTR). Depuis #32, FUNMAUTR consommant la
+ * suggestion dans ORDERS lui-même, aucune blacklist n'est plus nécessaire.
  */
 export default class SuggestionFirmController {
   async firm(ctx: HttpContext) {
@@ -107,12 +91,9 @@ export default class SuggestionFirmController {
 
     // Write-back réussi : l'ordre a changé (statut/n°). On invalide les caches
     // board + vision de l'utilisateur pour que le prochain reload soit à jour.
+    // Inutile de blacklister la suggestion : depuis #32, la supply vient d'ORDERS
+    // (temps réel) → FUNMAUTR y consomme la suggestion, elle disparaît d'elle-même.
     await bustBoardCaches(ctx.auth.user?.id)
-
-    // FUNMAUTR crée l'OF mais ne met pas à jour CBNDET.WIPSTA — la suggestion
-    // reste visible jusqu'au prochain CBN. On la blackliste localement pour
-    // qu'elle disparaisse immédiatement du board (filtrage dans getLive).
-    await markSuggestionFirmed(keys.sugNum)
 
     return {
       ok: true,

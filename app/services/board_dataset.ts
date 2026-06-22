@@ -5,7 +5,6 @@ import { X3OfRepository, type ManufacturingOrder } from '#repositories/of_reposi
 import { X3StockRepository } from '#repositories/stock_repository'
 import { X3ReceptionRepository } from '#repositories/reception_repository'
 import { X3BesoinClientRepository } from '#repositories/besoin_client_repository'
-import { X3SuggestionRepository } from '#repositories/suggestion_repository'
 import staticSync from '#services/static_sync_service'
 import cache from '@adonisjs/cache/services/main'
 import { HttpContext } from '@adonisjs/core/http'
@@ -32,7 +31,7 @@ const LIVE_TTL = 2 * 60 * 1000 // 2 min — demande/réception par fenêtre
 type Referential = { gamme: GammeOperation[]; at: number }
 type BomCache = { entries: NomenclatureEntry[]; at: number }
 type Orders = { mos: ManufacturingOrder[]; supply: Flow[]; at: number }
-type Live = { demand: Flow[]; reception: Flow[]; suggestion: Flow[]; at: number }
+type Live = { demand: Flow[]; reception: Flow[]; at: number }
 
 /** Cache namespacé `board:*` par utilisateur (cf. config/cache.ts). */
 const board = () => {
@@ -91,7 +90,9 @@ class BoardDataset {
     })
   }
 
-  /** Demande + réceptions scopées à l'horizon [from,to]. Cache par fenêtre. */
+  /** Demande + réceptions scopées à l'horizon [from,to]. Cache par fenêtre.
+   * Les suggestions ne sont plus lues ici depuis #32 : elles viennent d'ORDERS via
+   * getOrders() (statut 3), temps réel → plus de source CBNDET ni de blacklist. */
   async getLive(from: string, to: string, force = false): Promise<Live> {
     const key = `live:${from}:${to}`
     if (force) await board().delete({ key })
@@ -100,23 +101,11 @@ class BoardDataset {
       key,
       ttl: LIVE_TTL,
       factory: async () => {
-        // Suggestions affermies localement : CBNDET non mis à jour par FUNMAUTR
-        // avant le prochain CBN → on filtre pour éviter le doublon suggestion+OF.
-        const firmedIds = new Set<string>(
-          ((await cache.namespace('planning').get({ key: 'firmed_suggestions' })) as string[] | null) ?? []
-        )
-        const [demand, reception, rawSuggestions] = await Promise.all([
+        const [demand, reception] = await Promise.all([
           new X3BesoinClientRepository().getDemandFlows({ from, to }),
           new X3ReceptionRepository().getReceptionFlows({ to }),
-          // Suggestions CBN (WOS) : supply fab couvrant les MTO/NOR non encore affermies.
-          new X3SuggestionRepository().getSuggestionFlows({ from, to }),
         ])
-        const suggestion = firmedIds.size
-          ? rawSuggestions.filter(
-              (s) => s.origin.type !== 'of' || !firmedIds.has(s.origin.id)
-            )
-          : rawSuggestions
-        return { demand, reception, suggestion, at: Date.now() } satisfies Live
+        return { demand, reception, at: Date.now() } satisfies Live
       },
     })
   }
@@ -154,19 +143,17 @@ class BoardDataset {
   }
 
   /**
-   * Pool unifié : OF affermis/planifiés (statut 1/2, MFGHEAD) + suggestions CBN (statut 3,
-   * CBNDET) sur la fenêtre [from, to]. Les deux sources sont déjà cachées séparément ;
-   * getPool() ne crée pas de cache propre — il assemble depuis les caches existants.
+   * Pool unifié : tous les ordres de fabrication (statut 1/2/3) lus depuis ORDERS
+   * (vue planning temps réel, #32). `supply` contient déjà les suggestions (statut 3)
+   * — plus de source CBNDET séparée ni de suggestion à fusionner. getPool() assemble
+   * depuis les caches existants (orders + live) sans cache propre.
    *
-   * Utilisation : toute action qui doit voir la totalité des OF opérationnels (board index,
-   * show, diagnostic). Remplace l'assemblage inline « en attendant #27 ».
+   * Utilisation : toute action qui doit voir la totalité des OF opérationnels (board
+   * index, show, diagnostic).
    */
-  async getPool(from: string, to: string): Promise<{ supply: Flow[]; suggestions: Flow[]; mos: ManufacturingOrder[] }> {
-    const [orders, live] = await Promise.all([
-      this.getOrders(),
-      this.getLive(from, to).catch(() => ({ demand: [], reception: [], suggestion: [], at: 0 } as Live)),
-    ])
-    return { supply: orders.supply, suggestions: live.suggestion, mos: orders.mos }
+  async getPool(from: string, to: string): Promise<{ supply: Flow[]; mos: ManufacturingOrder[] }> {
+    const [orders] = await Promise.all([this.getOrders(), this.getLive(from, to)])
+    return { supply: orders.supply, mos: orders.mos }
   }
 
   /** Articles (lecture SQLite). Utilisé pour la classification ACHAT/FABRICATION dans la faisabilité. */

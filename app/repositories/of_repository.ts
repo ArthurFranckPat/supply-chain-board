@@ -1,10 +1,15 @@
 import type { Flow } from '#app/domain/models/flow'
-import MfgItem from '#models/x3/mfgitm'
-import MfgHead from '#models/x3/mfghead'
 import LocalMenu from '#models/local_menu'
+import { X3Database } from '#app/x3/client/x3_database'
 import { parseX3Date } from '#app/x3/utils/parse_date'
 
-/** Ordre de fabrication non clos, avec dates début + fin (pour le tableau d'ordonnancement). */
+/**
+ * Ordre de fabrication (ferme / planifié / suggéré), lu dans la vue planning
+ * temps réel ORDERS (issue #32). Source unique : remplace MFGITM/MFGHEAD pour
+ * les fermes/planifiés ET CBNDET pour les suggestions. ORDERS est mis à jour
+ * immédiatement par FUNMAUTR/FUNGBENCH → une suggestion affermie y disparaît,
+ * pas de drift ni de blacklist.
+ */
 export interface ManufacturingOrder {
   numOf: string
   article: string
@@ -20,105 +25,118 @@ export interface ManufacturingOrder {
   endDate: Date | null
 }
 
-export class X3OfRepository {
-  private async fetch() {
-    const [rows, menuRows] = await Promise.all([
-      MfgItem.query()
-        .select(
-          'MFGITM.MFGNUM_0',
-          'MFGITM.ITMREF_0',
-          'MFGITM.MFGSTA_0',
-          'MFGITM.EXTQTY_0',
-          'MFGITM.CPLQTY_0',
-          'MFGITM.RMNEXTQTY_0',
-          'MFGITM.STU_0',
-          'MFGITM.STRDAT_0 AS STRDAT_RAW',
-          'MFGITM.ENDDAT_0 AS ENDDAT_RAW',
-          'MFGHEAD.XTYPOF_0',
-          'ITMMASTER.ITMDES1_0'
-        )
-        .leftJoin('MFGHEAD', 'MFGHEAD.MFGNUM_0', 'MFGITM.MFGNUM_0')
-        .leftJoin('ITMMASTER', 'ITMMASTER.ITMREF_0', 'MFGITM.ITMREF_0')
-        .where('MFGITM.RMNEXTQTY_0', '>', 0)
-        .whereIn('MFGITM.MFGSTA_0', ['1', '2', '3']),
-      LocalMenu.query().whereIn('chapter', [317, 1026]),
-    ])
+type RawRow = Record<string, string | null>
 
+/** WIPTYP=5 = fabrication. WIPSTA 1/2/3 = Ferme/Planifié/Suggéré. */
+const SQL = `
+SELECT
+  O.VCRNUM_0   AS NUM,
+  O.ITMREF_0   AS ARTICLE,
+  O.WIPSTA_0   AS STA,
+  O.EXTQTY_0   AS LAUNCHED,
+  O.CPLQTY_0   AS DONE,
+  O.RMNEXTQTY_0 AS REMAIN,
+  O.STRDAT_0   AS STRDAT,
+  O.ENDDAT_0   AS ENDDAT,
+  O.CREDAT_0   AS CREDAT,
+  I.ITMDES1_0  AS DESIGNATION,
+  I.STU_0      AS UNIT
+FROM ORDERS O
+JOIN ITMMASTER I ON I.ITMREF_0 = O.ITMREF_0
+WHERE O.WIPTYP_0 = 5
+  AND O.WIPSTA_0 IN (1, 2, 3)
+  AND O.RMNEXTQTY_0 > 0
+  AND I.ITMSTA_0 = 1
+`
+
+function toNum(v: string | null | undefined): number {
+  return parseFloat(v ?? '0') || 0
+}
+
+export class X3OfRepository {
+  /** Lit les ordres de fabrication depuis ORDERS (vue planning temps réel, #32). */
+  private async fetch(): Promise<{ rows: RawRow[]; label: (chapter: number, value: number | null) => string | null }> {
+    const [rows, menuRows] = await Promise.all([
+      new X3Database().raw(SQL) as unknown as RawRow[],
+      LocalMenu.query().whereIn('chapter', [317]),
+    ])
     const label = (chapter: number, value: number | null) =>
       menuRows.find((m) => m.chapter === chapter && m.value === value)?.label ?? null
-
-    return { rows: rows.filter((row) => parseFloat(row.quantiteRestante ?? '0') > 0), label }
+    return { rows, label }
   }
 
   async getSupplyFlows(): Promise<Flow[]> {
     const { rows, label } = await this.fetch()
 
     return rows.map((row) => {
-      const status = parseInt(row.statutOrdreDeFabrication ?? '0') as 1 | 2 | 3
-      const typeOf = parseInt((row.$extras.XTYPOF_0 as string | null) ?? '0') || null
+      const status = parseInt(row.STA ?? '0') as 1 | 2 | 3
       return {
-        article: row.article?.trim() ?? '',
-        quantity: parseFloat(row.quantiteRestante ?? '0'),
+        article: row.ARTICLE?.trim() ?? '',
+        quantity: toNum(row.REMAIN),
         direction: 'supply' as const,
-        date: parseX3Date(row.$extras.ENDDAT_RAW),
+        date: parseX3Date(row.ENDDAT),
         origin: {
           type: 'of' as const,
-          id: row.numeroOrdreDeFabrication?.trim() ?? '',
+          id: row.NUM?.trim() ?? '',
           status,
           statutLabel: label(317, status),
-          typeOf,
-          typeOfLabel: label(1026, typeOf),
-          designation: (row.$extras.ITMDES1_0 as string | null) ?? null,
+          typeOf: null,
+          typeOfLabel: null,
+          designation: row.DESIGNATION?.trim() ?? null,
         },
       }
     })
   }
 
   /**
-   * Date d'affermissement (= création de l'OF ferme) par numéro d'OF, lue dans l'en-tête
-   * MFGHEAD.CREDAT_0. Quand une suggestion CBN est affermie, X3 crée une nouvelle ligne MFGHEAD :
-   * cette date matérialise le « lancement » réel de l'OF. Batch (chunk IN 1000). Les OF absents
-   * (suggestions non affermies, sans MFGHEAD) ne figurent simplement pas dans la map.
+   * Date d'affermissement (= création de l'OF ferme) par numéro d'OF, lue dans
+   * ORDERS.CREDAT_0 (vue planning, #32). Quand une suggestion est affermie, elle
+   * devient une ligne ORDERS WIPSTA=1 avec sa CREDAT → cette date matérialise le
+   * lancement réel. Les numéros absents (pas dans ORDERS) ne figurent pas dans la map.
    */
   async getFirmDates(numOfs: string[]): Promise<Map<string, Date>> {
     const unique = [...new Set(numOfs.map((n) => n.trim()).filter(Boolean))]
     const out = new Map<string, Date>()
     if (unique.length === 0) return out
 
-    const CHUNK = 1000
-    for (let i = 0; i < unique.length; i += CHUNK) {
-      const chunk = unique.slice(i, i + CHUNK)
-      const rows = await MfgHead.query()
-        .select('MFGHEAD.MFGNUM_0 AS MFGNUM_0', 'MFGHEAD.CREDAT_0 AS CREDAT_RAW')
-        .whereIn('MFGHEAD.MFGNUM_0', chunk)
+    const db = new X3Database()
+    try {
+      // Alphanumérique VCRNUM : whitelist avant interpolation (pas de quote → pas d'injection).
+      const safe = unique.filter((n) => /^[A-Za-z0-9_-]+$/.test(n))
+      if (safe.length === 0) return out
+      const inList = safe.map((n) => `'${n}'`).join(',')
+      const rows = (await db.raw(
+        `SELECT VCRNUM_0 AS NUM, CREDAT_0 AS CREDAT FROM ORDERS WHERE WIPTYP_0 = 5 AND VCRNUM_0 IN (${inList})`,
+      )) as unknown as RawRow[]
       for (const row of rows) {
-        const numOf = (row.$extras.MFGNUM_0 as string | null)?.trim() ?? ''
-        const date = parseX3Date(row.$extras.CREDAT_RAW)
+        const numOf = row.NUM?.trim() ?? ''
+        const date = parseX3Date(row.CREDAT)
         if (numOf && date) out.set(numOf, date)
       }
+      return out
+    } finally {
+      await db.destroy()
     }
-    return out
   }
 
   async getManufacturingOrders(): Promise<ManufacturingOrder[]> {
     const { rows, label } = await this.fetch()
 
     return rows.map((row) => {
-      const status = parseInt(row.statutOrdreDeFabrication ?? '0') as 1 | 2 | 3
-      const typeOf = parseInt((row.$extras.XTYPOF_0 as string | null) ?? '0') || null
+      const status = parseInt(row.STA ?? '0') as 1 | 2 | 3
       return {
-        numOf: row.numeroOrdreDeFabrication?.trim() ?? '',
-        article: row.article?.trim() ?? '',
-        designation: (row.$extras.ITMDES1_0 as string | null) ?? null,
+        numOf: row.NUM?.trim() ?? '',
+        article: row.ARTICLE?.trim() ?? '',
+        designation: row.DESIGNATION?.trim() ?? null,
         status,
         statutLabel: label(317, status),
-        typeOfLabel: label(1026, typeOf),
-        quantity: parseFloat(row.quantiteRestante ?? '0'),
-        quantityLaunched: parseFloat(row.quantitePrevue ?? '0'),
-        quantityDone: parseFloat(row.quantiteRealiseeTotale ?? '0'),
-        unit: row.uniteStock?.trim() ?? null,
-        startDate: parseX3Date(row.$extras.STRDAT_RAW),
-        endDate: parseX3Date(row.$extras.ENDDAT_RAW),
+        typeOfLabel: null,
+        quantity: toNum(row.REMAIN),
+        quantityLaunched: toNum(row.LAUNCHED),
+        quantityDone: toNum(row.DONE),
+        unit: row.UNIT?.trim() ?? null,
+        startDate: parseX3Date(row.STRDAT),
+        endDate: parseX3Date(row.ENDDAT),
       }
     })
   }
