@@ -185,7 +185,7 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
               {({ vi: virtualRow, row }) => (
                 <tr
                   data-index={virtualRow.index}
-                  ref={(el) => rowVirtualizer.measureElement(el)}
+                  ref={(el) => queueMicrotask(() => rowVirtualizer.measureElement(el))}
                   class={local.getRowClass?.(row, virtualRow.index)}
                 >
                   <Show when={local.indexColumn}>
