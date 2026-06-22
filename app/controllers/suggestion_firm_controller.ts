@@ -1,7 +1,17 @@
 import { HttpContext } from '@adonisjs/core/http'
+import cache from '@adonisjs/cache/services/main'
 import { getX3EnvConfig } from '#config/x3'
 import { callRunSubprog } from '#app/x3/run-client'
 import { X3SuggestionRepository } from '#app/repositories/suggestion_repository'
+
+/** Invalide les caches board + vision de l'utilisateur (issue #20) après un write-back. */
+async function bustBoardCaches(userId: number | string | undefined) {
+  const ns = userId ? `user_${userId}` : ''
+  await Promise.all([
+    cache.namespace(ns ? `board:${ns}` : 'board').clear(),
+    cache.namespace(ns ? `vision:${ns}` : 'vision').clear(),
+  ])
+}
 
 /**
  * Affermissement d'un ordre X3 en OF ferme (issue #31).
@@ -77,6 +87,10 @@ export default class SuggestionFirmController {
         env: config.pool,
       })
     }
+
+    // Write-back réussi : l'ordre a changé (statut/n°). On invalide les caches
+    // board + vision de l'utilisateur pour que le prochain reload soit à jour.
+    await bustBoardCaches(ctx.auth.user?.id)
 
     return {
       ok: true,

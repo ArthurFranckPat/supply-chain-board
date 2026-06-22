@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { cx } from '@/libs/cva'
 import type { OfDetail } from '@/lib/of/types'
 import { route } from '@/lib/routes'
+import { router } from '@/lib/inertia-solid'
 
 // ---------------------------------------------------------------------------
 // Types diagnostic (miroir de RecursiveDiagnosticResult côté serveur)
@@ -251,9 +252,10 @@ export const OfDetailSheet: Component<{
     props.num // track
     setTab('composants')
     setDiagRequested(false)
+    setFirmMsg(null)
   })
 
-  const [detail] = createResource(
+  const [detail, { refetch: refetchDetail }] = createResource(
     () => (props.open ? props.num : null),
     async (num) => {
       if (!num) return null
@@ -262,6 +264,50 @@ export const OfDetailSheet: Component<{
       return (await res.json()) as OfDetail
     },
   )
+
+  // Affermissement (write-back X3 FUNMAUTR, #31). ~13s : spinner + message.
+  const [firming, setFirming] = createSignal(false)
+  const [firmMsg, setFirmMsg] = createSignal<{ ok: boolean; text: string } | null>(null)
+
+  const isSuggestion = () => (detail()?.statusLabel ?? '').toLowerCase().includes('sugg')
+  const canFirm = () => {
+    if (firmMsg()?.ok) return false          // déjà affermi ce tour → on masque le bouton
+    const s = (detail()?.statusLabel ?? '').toLowerCase()
+    return s.includes('sugg') || s.includes('plan')
+  }
+
+  const firm = async () => {
+    const d = detail()
+    if (!d) return
+    setFirming(true)
+    setFirmMsg(null)
+    try {
+      const suggestion = isSuggestion()
+      const url = suggestion
+        ? route('planning.suggestion_firm', { sugNum: d.num })
+        : route('planning.order_firm', { orderNum: d.num })
+      const res = await fetch(url, { method: 'POST' })
+      const data = (await res.json()) as { ok: boolean; mfgNum?: string; error?: string }
+      if (data.ok && data.mfgNum) {
+        setFirmMsg({ ok: true, text: `OF ${data.mfgNum} affermi` })
+        // Board rafraîchi (la suggestion part, l'OF ferme apparaît).
+        router.reload()
+        if (data.mfgNum !== d.num) {
+          // Suggestion→OF : le n° d'origine (SGAE…) n'existe plus → on ferme le sheet.
+          props.onOpenChange(false)
+        } else {
+          // Planifié→ferme : même n°, on rafraîchit le détail (statut → Ferme).
+          await refetchDetail()
+        }
+      } else {
+        setFirmMsg({ ok: false, text: data.error ?? 'Affermissement refusé par X3.' })
+      }
+    } catch (e) {
+      setFirmMsg({ ok: false, text: (e as Error).message })
+    } finally {
+      setFirming(false)
+    }
+  }
 
   // Diagnostic : lazy (diagRequested) + memoïsé pour la durée d'ouverture du sheet.
   const [diag] = createResource(
@@ -325,6 +371,23 @@ export const OfDetailSheet: Component<{
                   <Badge variant="destructive">{d().bomBlocked} rupture(s)</Badge>
                 </Show>
                 <span class="flex-1" />
+                <Show when={firmMsg()}>
+                  {(m) => (
+                    <span
+                      class={`font-mono text-[11px] font-semibold ${m().ok ? 'text-ferme' : 'text-destructive'}`}
+                    >
+                      {m().ok ? '✓ ' : '⚠ '}{m().text}
+                    </span>
+                  )}
+                </Show>
+                <Show when={canFirm()}>
+                  <Button size="sm" variant="default" class="gap-1.5" onClick={firm} disabled={firming()}>
+                    <span class="material-symbols-outlined text-[15px]">
+                      {firming() ? 'progress_activity' : 'check_circle'}
+                    </span>
+                    {firming() ? 'Affermissement…' : isSuggestion() ? 'Affermir' : 'Passer en ferme'}
+                  </Button>
+                </Show>
                 <Button size="sm" variant="outline" class="gap-1.5">
                   <span class="material-symbols-outlined text-[15px]">swap_horiz</span>
                   Replanifier
