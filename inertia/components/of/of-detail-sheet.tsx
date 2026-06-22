@@ -242,10 +242,10 @@ export const OfDetailSheet: Component<{
   num: string | null
   open: boolean
   onOpenChange: (v: boolean) => void
-  /** Appelé après affermissement réussi (n° de l'ordre d'origine) pour permettre
-   *  une mise à jour optimiste du board (retrait de la carte suggestion). Si
-   *  fourni, le sheet déclenche aussi un reload partiel `only:['board']`. */
-  onFirmed?: (oldNum: string) => void
+  /** Appelé après affermissement réussi (n° origine + n° OF créé) pour une mise
+   *  à jour optimiste du board (transformation de la carte en place). Si fourni,
+   *  le sheet déclenche aussi un reload partiel `only:['board']` pour réconcilier. */
+  onFirmed?: (oldNum: string, newMfgNum: string) => void
 }> = (props) => {
   const [tab, setTab] = createSignal<'composants' | 'diagnostic'>('composants')
   // Devient true au premier clic sur "Diagnostic récursif" — déclenche le fetch une seule fois.
@@ -294,19 +294,18 @@ export const OfDetailSheet: Component<{
       const data = (await res.json()) as { ok: boolean; mfgNum?: string; error?: string }
       if (data.ok && data.mfgNum) {
         setFirmMsg({ ok: true, text: `OF ${data.mfgNum} affermi` })
-        // Mise à jour optimiste : retire la carte suggestion du board tout de
-        // suite (sans attendre le reload). Le nouvel OF apparaît au reload partiel.
-        props.onFirmed?.(d.num)
-        // Reload partiel (only:board) — plus rapide qu'un reload complet.
+        // Mise à jour optimiste : la carte se transforme en place (id → nouvel OF)
+        // au lieu de disparaître puis réapparaître lentement. Le reload réconcilie.
+        props.onFirmed?.(d.num, data.mfgNum)
         if (data.mfgNum !== d.num) {
           // Suggestion→OF : le n° d'origine (SGAE…) n'existe plus → on ferme le sheet.
           props.onOpenChange(false)
-          router.reload(props.onFirmed ? { only: ['board'] } : undefined)
         } else {
-          // Planifié→ferme : même n°, on rafraîchit le détail (statut → Ferme) + board.
+          // Planifié→ferme : même n°, on rafraîchit le détail (statut → Ferme).
           await refetchDetail()
-          router.reload(props.onFirmed ? { only: ['board'] } : undefined)
         }
+        // Reload partiel (only:board) — réconcilie poste/charge/styling du nouvel OF.
+        router.reload(props.onFirmed ? { only: ['board'] } : undefined)
       } else {
         setFirmMsg({ ok: false, text: data.error ?? 'Affermissement refusé par X3.' })
       }

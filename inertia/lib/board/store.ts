@@ -301,16 +301,21 @@ export function createBoardStore(initial: BoardData) {
     clearSearch,
     reset,
     moveCard,
-    /** Retire une carte du board (ex. suggestion affermie → disparaît, #31/#32).
-     *  Mise à jour optimiste : le nouvel OF apparaît au reload partiel suivant. */
-    removeCard(numOf: string) {
+    /** Transforme une carte en place : change son id (ex. suggestion SGAE… → OF
+     *  ferme F… après affermissement, #31/#32). La carte reste visible à sa
+     *  position pendant que le reload réconcilie les détails (poste, charge,
+     *  styling). Évite le trou visuel d'un removeCard + réapparition lente, et
+     *  sidestep un éventuel lag de propagation ORDERS. */
+    transformCard(oldId: string, newId: string) {
+      if (oldId === newId) return
       setBoard(
         produce((b) => {
           for (const line of b.lines) {
             for (const cell of line.dayCells) {
-              const idx = cell.cards.findIndex((c) => c.id === numOf)
-              if (idx !== -1) {
-                cell.cards.splice(idx, 1)
+              const c = cell.cards.find((x) => x.id === oldId)
+              if (c) {
+                c.id = newId
+                c.href = c.href.replace(oldId, newId)
                 return
               }
             }

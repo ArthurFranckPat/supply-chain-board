@@ -546,7 +546,7 @@ const Vision: Component<VisionProps> = (props) => {
         </div>
       </Show>
 
-      <OfDetailSheet num={selectedOf()} open={detailOpen()} onOpenChange={setDetailOpen} onFirmed={(id) => store.removeCard(id)} />
+      <OfDetailSheet num={selectedOf()} open={detailOpen()} onOpenChange={setDetailOpen} onFirmed={(oldId, newId) => store.transformCard(oldId, newId)} />
     </div>
   )
 }
