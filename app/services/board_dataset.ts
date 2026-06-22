@@ -87,7 +87,7 @@ class BoardDataset {
     const [demand, reception, suggestion] = await Promise.all([
       new X3BesoinClientRepository().getDemandFlows({ from, to }),
       new X3ReceptionRepository().getReceptionFlows({ to }),
-      // Suggestions CBN (WOS) : supply fab couvrant les MTO/NOR non encore affermies.
+      // Suggestions fab (ORDERS, temps réel) : supply couvrant les MTO/NOR non encore affermies.
       new X3SuggestionRepository().getSuggestionFlows({ from, to }),
     ])
     const fresh: Live = { demand, reception, suggestion, at: Date.now() }
