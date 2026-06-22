@@ -491,11 +491,14 @@ export function assignStatuses(
     }
 
     // RÈGLE 1 — Date d'expédition passée.
-    //  - Si déjà alloué/en zone/besoin ≤ 0 (prêt à expédier) → A_EXPEDIER
-    //  - Sinon → RETARD_PROD (vrai problème de production)
+    //  - besoin <= 0 (alloué)          → A_EXPEDIER
+    //  - besoin > 0 + en zone d'expé   → ALLOCATION_A_FAIRE (stock présent, allocation ERP manquante)
+    //  - besoin > 0 + hors zone        → RETARD_PROD
     if (line.dateExpedition && line.dateExpedition < referenceDate) {
-      if (besoin <= 0 || enZoneExpedition(line)) {
+      if (besoin <= 0) {
         assignments.push(emptyAssignment(line, 'A_EXPEDIER', besoin, alerteCqStatut))
+      } else if (enZoneExpedition(line)) {
+        assignments.push(emptyAssignment(line, 'ALLOCATION_A_FAIRE', besoin, alerteCqStatut))
       } else {
         assignments.push(emptyAssignment(line, 'RETARD_PROD', besoin, alerteCqStatut))
       }
@@ -508,7 +511,8 @@ export function assignStatuses(
     }
 
     // MTS fabriqué : pas d'allocation virtuelle. Si allocation X3 > 0 → prêt à
-    // expédier (même partiel). Sinon → RAS (rien de prêt).
+    // expédier (même partiel, expéditions partielles autorisées + auto-allocation X3).
+    // Sinon → RAS (rien de prêt).
     if (line.typeCommande === 'MTS' && line.isFabrique) {
       const status: SuiviStatus = (line.qteAllouee > 0) ? 'A_EXPEDIER' : 'RAS'
       assignments.push(emptyAssignment(line, status, besoin, alerteCqStatut))
