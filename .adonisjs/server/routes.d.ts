@@ -40,7 +40,6 @@ export type ScannedRoutes = {
     'planning_board.search_poste': { paramsTuple?: []; params?: {} }
     'planning_board.search_of': { paramsTuple?: []; params?: {} }
     'planning_board.search_pf': { paramsTuple?: []; params?: {} }
-    'planning_board.of_materials': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
     'planning_board.of_materials_diagnostic': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
     'planning_board.reload_data': { paramsTuple?: []; params?: {} }
     'planning.suggestion_firm': { paramsTuple: [ParamValue]; params: {'sugNum': ParamValue} }
@@ -93,7 +92,6 @@ export type ScannedRoutes = {
     'planning_board.search_poste': { paramsTuple?: []; params?: {} }
     'planning_board.search_of': { paramsTuple?: []; params?: {} }
     'planning_board.search_pf': { paramsTuple?: []; params?: {} }
-    'planning_board.of_materials': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
     'planning_board.of_materials_diagnostic': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
     'scheduler.of_detail': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
     'scheduler.shortage_rows': { paramsTuple?: []; params?: {} }
@@ -132,7 +130,6 @@ export type ScannedRoutes = {
     'planning_board.search_poste': { paramsTuple?: []; params?: {} }
     'planning_board.search_of': { paramsTuple?: []; params?: {} }
     'planning_board.search_pf': { paramsTuple?: []; params?: {} }
-    'planning_board.of_materials': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
     'planning_board.of_materials_diagnostic': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
     'scheduler.of_detail': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
     'scheduler.shortage_rows': { paramsTuple?: []; params?: {} }

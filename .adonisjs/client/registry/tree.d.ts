@@ -60,7 +60,6 @@ export interface ApiDefinition {
     searchPoste: typeof routes['planning_board.search_poste']
     searchOf: typeof routes['planning_board.search_of']
     searchPf: typeof routes['planning_board.search_pf']
-    ofMaterials: typeof routes['planning_board.of_materials']
     ofMaterialsDiagnostic: typeof routes['planning_board.of_materials_diagnostic']
     reloadData: typeof routes['planning_board.reload_data']
   }

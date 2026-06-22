@@ -2,7 +2,7 @@
  * AUTO-GÉNÉRÉ par scripts/gen-routes-manifest.mjs — NE PAS ÉDITER À LA MAIN.
  * Source : `start/routes.ts` → `node ace list:routes --jsonl`.
  * Régénérer : `npm run routes:gen` · Vérifier la fraîcheur : `npm run routes:check`.
- * 62 routes nommées.
+ * 61 routes nommées.
  */
 
 export const MANIFEST = {
@@ -29,7 +29,6 @@ export const MANIFEST = {
   "planning_board.list_events": { method: "GET", pattern: "/api/v1/planning/events" },
   "planning_board.list_overrides": { method: "GET", pattern: "/api/v1/planning/overrides" },
   "planning_board.nomenclature": { method: "GET", pattern: "/api/v1/planning/nomenclature/:article" },
-  "planning_board.of_materials": { method: "GET", pattern: "/api/v1/planning/of-materials/:of" },
   "planning_board.of_materials_diagnostic": { method: "GET", pattern: "/api/v1/planning/of-materials/:of/diagnostic" },
   "planning_board.order_impacts": { method: "POST", pattern: "/api/v1/planning/order-impacts" },
   "planning_board.reload_data": { method: "POST", pattern: "/api/v1/planning/reload" },
@@ -100,7 +99,6 @@ export type RouteParams = {
   "planning_board.list_events": void,
   "planning_board.list_overrides": void,
   "planning_board.nomenclature": { "article": string | number },
-  "planning_board.of_materials": { "of": string | number },
   "planning_board.of_materials_diagnostic": { "of": string | number },
   "planning_board.order_impacts": void,
   "planning_board.reload_data": void,

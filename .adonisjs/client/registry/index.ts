@@ -222,12 +222,6 @@ const routes = {
     tokens: [{"old":"/api/v1/planning/search/pf","type":0,"val":"api","end":""},{"old":"/api/v1/planning/search/pf","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/search/pf","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/search/pf","type":0,"val":"search","end":""},{"old":"/api/v1/planning/search/pf","type":0,"val":"pf","end":""}],
     types: placeholder as Registry['planning_board.search_pf']['types'],
   },
-  'planning_board.of_materials': {
-    methods: ["GET","HEAD"],
-    pattern: '/api/v1/planning/of-materials/:of',
-    tokens: [{"old":"/api/v1/planning/of-materials/:of","type":0,"val":"api","end":""},{"old":"/api/v1/planning/of-materials/:of","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/of-materials/:of","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/of-materials/:of","type":0,"val":"of-materials","end":""},{"old":"/api/v1/planning/of-materials/:of","type":1,"val":"of","end":""}],
-    types: placeholder as Registry['planning_board.of_materials']['types'],
-  },
   'planning_board.of_materials_diagnostic': {
     methods: ["GET","HEAD"],
     pattern: '/api/v1/planning/of-materials/:of/diagnostic',

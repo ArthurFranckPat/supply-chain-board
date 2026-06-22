@@ -427,32 +427,6 @@ export default class PlanningBoardController {
     return { rows, stats, window: result.window }
   }
 
-  async ofMaterials(ctx: HttpContext) {
-    const numOf = ctx.params.of
-    if (!numOf) return ctx.response.badRequest({ error: 'numOf requis' })
-
-    // Déterminer le statut de l'OF (ferme = pas de calcul faisabilité)
-    const ofFlows = await new X3OfRepository().getSupplyFlows().catch(() => [])
-    const targetFlow = ofFlows.find((f) => (f.origin as { id?: string }).id === numOf)
-    const isFirm = (targetFlow?.origin as { status?: number }).status === 1
-
-    // 1. MFGMAT (X3) — données réelles de l'OF
-    const materials = await new X3MfgmatRepository().getMaterials(numOf)
-    if (materials.length === 0) {
-      return this.ofMaterialsFromBom(numOf, isFirm)
-    }
-
-    // MFGMAT → ajoute disponibilité stock par composant
-    const articles = [...new Set(materials.map((m) => m.article).filter(Boolean))]
-    const stockFlows = await boardDataset.getStock(articles).catch(() => [])
-
-    const stockByArticle = buildStrictQcStock(stockFlows)
-
-    // Faisabilité via le calcul partagé (même source que le badge du board, issue #11).
-    const verdict = evaluateMfgFeasibility(materials, stockByArticle, !!isFirm)
-    return { numOf, materials: verdict.materials, feasible: verdict.feasible, blockedCount: verdict.blockedCount }
-  }
-
   /**
    * Diagnostic récursif d'un OF (issue #25). Descend la chaîne des OF — MFGMAT d'abord
    * (OF fermes/planifiés éclatés), repli nomenclature théorique pour les OF suggérés sans
@@ -602,70 +576,6 @@ export default class PlanningBoardController {
         },
       },
     }
-  }
-
-  /**
-   * Fallback BOM — utilisé quand MFGMAT n'a pas de données pour cet OF (notamment les
-   * suggestions CBN statut 3 qui n'ont jamais de MFGMAT avant affermissement).
-   */
-  private async ofMaterialsFromBom(numOf: string, isFirm?: boolean) {
-    const pool = await boardDataset.getPool(defaultPoolFrom(), defaultPoolTo())
-    const allFlows: Flow[] = [...pool.supply]
-    const targetFlow = allFlows.find((f) => {
-      const id = (f.origin as { id?: string }).id
-      return id === numOf
-    })
-    if (!targetFlow) {
-      return { numOf, materials: [], message: "OF introuvable — impossible de déterminer l'article" }
-    }
-    const article = targetFlow.article
-
-    // Récupérer la nomenclature
-    const nomEntries = await new X3NomenclatureRepository().getNomenclatureEntries().catch(() => [])
-    const bomComponents = nomEntries.filter((e) => e.parentArticle === article)
-    if (!bomComponents.length) {
-      return { numOf, article, materials: [], message: `Aucune nomenclature trouvée pour ${article}` }
-    }
-
-    // Stock pour tous les composants
-    const compArticles = [...new Set(bomComponents.map((c) => c.componentArticle))]
-    const stockFlows = await boardDataset.getStock(compArticles).catch(() => [])
-
-    const stockByArticle = new Map<string, number>()
-    for (const f of stockFlows) {
-      const sub = (f.origin as any)?.subType
-      if (sub === 'strict' || sub === 'qc') {
-        stockByArticle.set(f.article, (stockByArticle.get(f.article) ?? 0) + f.quantity)
-      }
-    }
-
-    const receptionFlows = await new X3ReceptionRepository().getReceptionFlows().catch(() => [])
-    const now = new Date()
-    const nFr = (n: number) => Math.round(n * 100) / 100
-
-    const materials = bomComponents.map((comp) => {
-      const remaining = comp.linkQuantity * targetFlow.quantity
-      let stockTotal = stockByArticle.get(comp.componentArticle) ?? 0
-      for (const rec of receptionFlows) {
-        if (rec.article === comp.componentArticle && rec.date && rec.date <= now) {
-          stockTotal += rec.quantity
-        }
-      }
-      const stockFeasible = stockTotal >= remaining
-      const feasible = isFirm ? true : stockFeasible
-      return {
-        article: comp.componentArticle,
-        description: comp.componentDescription,
-        remaining: nFr(remaining),
-        unit: '',
-        available: nFr(stockTotal),
-        feasible,
-        missing: feasible ? 0 : nFr(remaining - stockTotal),
-      }
-    })
-
-    const blocked = materials.filter((m) => !m.feasible).length
-    return { numOf, article, materials, feasible: blocked === 0, blockedCount: blocked }
   }
 
   async nomenclature(ctx: HttpContext) {

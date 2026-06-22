@@ -132,7 +132,6 @@ router
         router.get('/search/poste', '#controllers/planning_board_controller.searchPoste')
         router.get('/search/of', '#controllers/planning_board_controller.searchOf')
         router.get('/search/pf', '#controllers/planning_board_controller.searchPf')
-        router.get('/of-materials/:of', '#controllers/planning_board_controller.ofMaterials')
         router.get(
           '/of-materials/:of/diagnostic',
           '#controllers/planning_board_controller.ofMaterialsDiagnostic',
