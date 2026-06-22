@@ -100,12 +100,22 @@ class BoardDataset {
       key,
       ttl: LIVE_TTL,
       factory: async () => {
-        const [demand, reception, suggestion] = await Promise.all([
+        // Suggestions affermies localement : CBNDET non mis à jour par FUNMAUTR
+        // avant le prochain CBN → on filtre pour éviter le doublon suggestion+OF.
+        const firmedIds = new Set<string>(
+          ((await cache.namespace('planning').get({ key: 'firmed_suggestions' })) as string[] | null) ?? []
+        )
+        const [demand, reception, rawSuggestions] = await Promise.all([
           new X3BesoinClientRepository().getDemandFlows({ from, to }),
           new X3ReceptionRepository().getReceptionFlows({ to }),
           // Suggestions CBN (WOS) : supply fab couvrant les MTO/NOR non encore affermies.
           new X3SuggestionRepository().getSuggestionFlows({ from, to }),
         ])
+        const suggestion = firmedIds.size
+          ? rawSuggestions.filter(
+              (s) => s.origin.type !== 'of' || !firmedIds.has(s.origin.id)
+            )
+          : rawSuggestions
         return { demand, reception, suggestion, at: Date.now() } satisfies Live
       },
     })

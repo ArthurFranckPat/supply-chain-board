@@ -4,6 +4,23 @@ import { getX3EnvConfig } from '#config/x3'
 import { callRunSubprog } from '#app/x3/run-client'
 import { X3SuggestionRepository } from '#app/repositories/suggestion_repository'
 
+const FIRMED_NS = 'planning'
+const FIRMED_KEY = 'firmed_suggestions'
+const FIRMED_TTL = 30 * 24 * 60 * 60 * 1000 // 30 jours — survit jusqu'au prochain CBN
+
+/**
+ * Enregistre une suggestion affermie pour exclusion immédiate du board.
+ * CBNDET n'est pas mis à jour par FUNMAUTR → filtrage local nécessaire.
+ * Clé globale (pas per-user) : l'affermissement X3 est visible pour tous.
+ */
+async function markSuggestionFirmed(sugNum: string): Promise<void> {
+  const ns = cache.namespace(FIRMED_NS)
+  const prev: string[] = ((await ns.get({ key: FIRMED_KEY })) as string[] | null) ?? []
+  if (!prev.includes(sugNum)) {
+    await ns.set({ key: FIRMED_KEY, value: [...prev, sugNum], ttl: FIRMED_TTL })
+  }
+}
+
 /** Invalide les caches board + vision de l'utilisateur (issue #20) après un write-back. */
 async function bustBoardCaches(userId: number | string | undefined) {
   const ns = userId ? `user_${userId}` : ''
@@ -91,6 +108,11 @@ export default class SuggestionFirmController {
     // Write-back réussi : l'ordre a changé (statut/n°). On invalide les caches
     // board + vision de l'utilisateur pour que le prochain reload soit à jour.
     await bustBoardCaches(ctx.auth.user?.id)
+
+    // FUNMAUTR crée l'OF mais ne met pas à jour CBNDET.WIPSTA — la suggestion
+    // reste visible jusqu'au prochain CBN. On la blackliste localement pour
+    // qu'elle disparaisse immédiatement du board (filtrage dans getLive).
+    await markSuggestionFirmed(keys.sugNum)
 
     return {
       ok: true,
