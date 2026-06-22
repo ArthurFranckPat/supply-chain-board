@@ -242,6 +242,10 @@ export const OfDetailSheet: Component<{
   num: string | null
   open: boolean
   onOpenChange: (v: boolean) => void
+  /** Appelé après affermissement réussi (n° de l'ordre d'origine) pour permettre
+   *  une mise à jour optimiste du board (retrait de la carte suggestion). Si
+   *  fourni, le sheet déclenche aussi un reload partiel `only:['board']`. */
+  onFirmed?: (oldNum: string) => void
 }> = (props) => {
   const [tab, setTab] = createSignal<'composants' | 'diagnostic'>('composants')
   // Devient true au premier clic sur "Diagnostic récursif" — déclenche le fetch une seule fois.
@@ -290,14 +294,18 @@ export const OfDetailSheet: Component<{
       const data = (await res.json()) as { ok: boolean; mfgNum?: string; error?: string }
       if (data.ok && data.mfgNum) {
         setFirmMsg({ ok: true, text: `OF ${data.mfgNum} affermi` })
-        // Board rafraîchi (la suggestion part, l'OF ferme apparaît).
-        router.reload()
+        // Mise à jour optimiste : retire la carte suggestion du board tout de
+        // suite (sans attendre le reload). Le nouvel OF apparaît au reload partiel.
+        props.onFirmed?.(d.num)
+        // Reload partiel (only:board) — plus rapide qu'un reload complet.
         if (data.mfgNum !== d.num) {
           // Suggestion→OF : le n° d'origine (SGAE…) n'existe plus → on ferme le sheet.
           props.onOpenChange(false)
+          router.reload(props.onFirmed ? { only: ['board'] } : undefined)
         } else {
-          // Planifié→ferme : même n°, on rafraîchit le détail (statut → Ferme).
+          // Planifié→ferme : même n°, on rafraîchit le détail (statut → Ferme) + board.
           await refetchDetail()
+          router.reload(props.onFirmed ? { only: ['board'] } : undefined)
         }
       } else {
         setFirmMsg({ ok: false, text: data.error ?? 'Affermissement refusé par X3.' })

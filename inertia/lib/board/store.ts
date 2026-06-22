@@ -301,6 +301,23 @@ export function createBoardStore(initial: BoardData) {
     clearSearch,
     reset,
     moveCard,
+    /** Retire une carte du board (ex. suggestion affermie → disparaît, #31/#32).
+     *  Mise à jour optimiste : le nouvel OF apparaît au reload partiel suivant. */
+    removeCard(numOf: string) {
+      setBoard(
+        produce((b) => {
+          for (const line of b.lines) {
+            for (const cell of line.dayCells) {
+              const idx = cell.cards.findIndex((c) => c.id === numOf)
+              if (idx !== -1) {
+                cell.cards.splice(idx, 1)
+                return
+              }
+            }
+          }
+        }),
+      )
+    },
     runFeasibility,
   }
 }
