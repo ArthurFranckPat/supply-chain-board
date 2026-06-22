@@ -5,12 +5,18 @@ import { parseX3Date } from '#app/x3/utils/parse_date'
 /**
  * Suggestions de fabrication — table ORDERS (fichier [ORD] en 4GL X3).
  *
- * ORDERS est la vue temps réel des ordres planifiés : mise à jour immédiatement par FUNMAUTR
- * (affermissement), FUNGBENCH et toute action X3 standard — sans attendre un recalcul CBN.
- * On lit la table snapshot CBNDET auparavant : quand FUNMAUTR affermissait une suggestion,
- * CBNDET.WIPSTA_0 restait à 3 jusqu'au prochain CBN, la suggestion fantôme persistait dans le
- * board en double de l'OF ferme. ORDERS fait basculer WIPSTA_0 3→1 à l'affermissement → la
- * suggestion disparaît d'office de cette query (le ferme étant servi par X3OfRepository/MFGHEAD).
+ * ORDERS est la vue temps réel des ordres planifiés (plus fraîche que la table snapshot CBNDET,
+ * lue auparavant). ATTENTION : l'affermissement ne fait PAS basculer la suggestion 3→1. FUNMAUTR
+ * CRÉE un nouvel OF ferme (WIPTYP_0 = 5, WIPSTA_0 = 1, VCRTYP_0 = 10, VCRNUM_0 = « F… ») qui porte
+ * VCRNUMORI_0 = le VCRNUM_0 de la suggestion d'origine — mais la ligne suggestion (VCRTYP_0 = 11,
+ * WIPSTA_0 = 3) reste vivante jusqu'au prochain CBN. Sans filtre, la suggestion fantôme s'affiche
+ * en double de l'OF ferme (le ferme étant servi par X3OfRepository/MFGHEAD).
+ *
+ * → On exclut donc toute suggestion dont le VCRNUM_0 apparaît comme VCRNUMORI_0 d'un OF ferme ou
+ * planifié (anti-join temps réel sur ORDERS, sans cache/blacklist). Guard LIKE 'SGAE%' : Oracle
+ * traite VCRNUMORI_0 = '' comme NULL, et un NULL dans la sous-requête casserait NOT IN.
+ * Affermissement partiel : la suggestion entière sort dès qu'un OF ferme en dérive — le reliquat
+ * réel est re-suggéré au prochain CBN ; mieux que de double-compter le ferme + la suggestion.
  *
  * Les suggestions de fabrication n'existent PAS dans MFGHEAD (qui ne contient que les OF
  * affermis/planifiés). Les commandes MTO/NOR sont couvertes par ces suggestions tant qu'elles
@@ -42,6 +48,10 @@ WHERE D.WIPSTA_0 = 3
   AND D.WIPTYP_0 = 5
   AND D.RMNEXTQTY_0 > 0
   AND I.ITMSTA_0 = 1
+  AND D.VCRNUM_0 NOT IN (
+    SELECT F.VCRNUMORI_0 FROM ORDERS F
+    WHERE F.WIPTYP_0 = 5 AND F.WIPSTA_0 IN (1, 2) AND F.VCRNUMORI_0 LIKE 'SGAE%'
+  )
 `
 
 type RawRow = Record<string, string | null>
