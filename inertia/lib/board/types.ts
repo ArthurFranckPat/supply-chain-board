@@ -1,10 +1,8 @@
 /**
- * Board data contract — mirrors the presentation-baked shapes emitted by
- * SchedulerController.loadBoardData() and passed as Inertia props.
- *
- * Cards arrive fully styled from the server (cardClass, accentClass, tones…),
- * so the client only renders + reacts; it computes no presentation from raw
- * domain data.
+ * Board data contract — mirrors les shapes émis par SchedulerController.loadBoardData()
+ * et passés en props Inertia. Le backend envoie de la DATA (statut, article, qté…) ;
+ * le client (board-card) dérive toute la présentation du `status` (TONE_BORDER/TONE_FILL).
+ * Plus de classes CSS baked côté serveur.
  */
 
 export interface Field {
@@ -18,11 +16,6 @@ export interface Card {
   article: string | null
   status: string
   href: string
-  accentClass: string
-  cardClass: string
-  textTone: string
-  idTone: string
-  fieldValTone: string
   fields: Field[]
   metric: string | null
   hours: number

@@ -44,15 +44,6 @@ interface Card {
   article: string | null
   status: CardStatus
   href: string
-  badgeLabel: string
-  badgeIcon: string | null
-  badgeClass: string
-  accentClass: string
-  cardClass: string
-  textTone: string
-  idTone: string
-  fieldIconTone: string
-  fieldValTone: string
   fields: Field[]
   alert: string | null
   progress: number | null
@@ -111,8 +102,6 @@ interface DetailPayload {
   title: string
   article: string
   statusLabel: string
-  statusIcon: string
-  statusClass: string
   context: string
   stats: StatItem[]
   progressPct: number
@@ -128,50 +117,6 @@ interface DetailPayload {
 // Presentation presets (status → CSS classes)
 // ---------------------------------------------------------------------------
 
-const PRESETS: Record<CardStatus, Partial<Card>> = {
-  termine: {
-    badgeLabel: 'Terminé',
-    badgeIcon: 'check_circle',
-    badgeClass: 'text-emerald-700 bg-emerald-50 border-emerald-100',
-    accentClass: 'border-l-emerald-500',
-  },
-  ferme: {
-    badgeLabel: 'Ferme',
-    badgeIcon: null,
-    badgeClass: 'text-emerald-700 bg-emerald-50 border-emerald-100',
-    accentClass: 'border-l-emerald-500',
-  },
-  cours: {
-    badgeLabel: 'En Cours',
-    badgeIcon: 'schedule',
-    badgeClass: 'text-blue-700 bg-blue-50 border-blue-100',
-    accentClass: 'border-l-blue-500',
-  },
-  planifie: {
-    badgeLabel: 'Planifié',
-    badgeIcon: 'schedule',
-    badgeClass: 'text-blue-700 bg-blue-50 border-blue-100',
-    accentClass: 'border-l-blue-500',
-  },
-  suggere: {
-    badgeLabel: 'Suggéré',
-    badgeIcon: 'lightbulb',
-    badgeClass: 'text-amber-700 bg-amber-50 border-amber-100',
-    accentClass: 'border-l-amber-500',
-  },
-  bloque: {
-    badgeLabel: 'Bloqué',
-    badgeIcon: 'warning',
-    badgeClass: 'text-white bg-error',
-    accentClass: 'border-l-error',
-    cardClass: 'bg-red-50/50 border-red-200',
-    textTone: 'text-gray-900',
-    idTone: 'text-error',
-    fieldIconTone: 'text-red-300',
-    fieldValTone: 'text-red-700',
-  },
-}
-
 function makeCard(p: {
   id: string
   title: string
@@ -184,21 +129,15 @@ function makeCard(p: {
   metric?: string | null
   hours?: number
 }): Card {
-  const base: Card = {
+  // Présentation = data seule (statut, article, qté…) — le frontend (board-card)
+  // dérive tout le styling du `status` (TONE_BORDER/TONE_FILL). Plus de classes
+  // CSS baked côté serveur : màj optimiste = changer status → recoloration directe.
+  return {
     id: p.id,
     title: p.title,
     article: p.article ?? null,
     status: p.status,
     href: `/api/v1/planning/ofs/${p.id.replace('#', '')}/detail`,
-    badgeLabel: '',
-    badgeIcon: null,
-    badgeClass: '',
-    accentClass: '',
-    cardClass: '',
-    textTone: 'text-gray-800',
-    idTone: 'text-gray-400',
-    fieldIconTone: 'text-gray-400',
-    fieldValTone: 'text-gray-600',
     fields: p.fields ?? [],
     alert: p.alert ?? null,
     progress: p.progress ?? null,
@@ -206,7 +145,6 @@ function makeCard(p: {
     metric: p.metric ?? null,
     hours: p.hours ?? 0,
   }
-  return { ...base, ...PRESETS[p.status] } as Card
 }
 
 // ---------------------------------------------------------------------------
@@ -933,10 +871,6 @@ export default class SchedulerController {
       mo?.statutLabel ??
       (status === 1 ? 'Ferme' : status === 2 ? 'Planifié' : status === 3 ? 'Suggéré' : 'Planifié')
 
-    const cardStatus = moStatusToCard(status)
-    const preset = PRESETS[cardStatus]
-    const statusIcon = preset.badgeIcon ?? 'circle'
-
     const rate = mo ? (gammeMap.get(mo.article)?.rate ?? 0) : 0
     const hours = mo && rate > 0 ? Math.round((mo.quantity / rate) * 10) / 10 : 0
 
@@ -1023,8 +957,6 @@ export default class SchedulerController {
       title: mo?.designation ?? mo?.article ?? num,
       article: mo?.article ?? '',
       statusLabel,
-      statusIcon,
-      statusClass: preset.badgeClass ?? '',
       context: [wstLabel, status === 2 ? 'En cours' : ''].filter(Boolean).join(' • '),
       progressPct: Math.max(0, Math.min(100, perf ?? 0)),
       stats: [
