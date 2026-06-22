@@ -538,34 +538,56 @@ export default class SchedulerController {
     windowTo.setDate(windowTo.getDate() + horizon)
     windowTo.setHours(23, 59, 59, 999)
 
-    let rows: ShortageRow[] = []
-    let stats = { nbRuptures: 0, nbCouvertes: 0, nbSansCouverture: 0 }
-    let x3Error: string | null = null
-
-    try {
-      const { result, articles, ofPegs } = await loadOrderImpacts({
-        from: windowFrom,
-        to: windowTo,
-        force,
-      })
-      // OfCommandePeg (Date) → ShortageOfPeg (ISO) pour le pivot pur.
-      const pegsIso = new Map(
-        [...ofPegs].map(([ofNum, p]) => [
-          ofNum,
-          {
-            numCommande: p.numCommande,
-            client: p.client,
-            dateExpedition: p.dateExpedition?.toISOString().slice(0, 10) ?? null,
-          },
-        ])
-      )
-      const receptionsByArticle = await loadReceptionsByArticle(windowFrom)
-      const built = buildShortageRows(result, receptionsByArticle, articles, pegsIso)
-      rows = built.rows
-      stats = built.stats
-    } catch (e) {
-      x3Error = (e as Error).message
+    // Cache du payload (calcul lourd : faisabilité + réceptions + pivot), namespacé par
+    // utilisateur + SWR (soft timeout 1 s) comme /programme et /suivi (issue #33). Le mur X3
+    // (~18 s) était déjà masqué par boardDataset ; ce cache supprime aussi le résidu de calcul
+    // au premier plan. ?refresh=1 invalide la clé.
+    const ruptCache = () => {
+      const userId = ctx.auth?.user?.id
+      return cache.namespace(userId ? `ruptures:user_${userId}` : 'ruptures')
     }
+    const cacheKey = `payload:${isoDay(windowFrom)}:${horizon}`
+    if (force) await ruptCache().delete({ key: cacheKey })
+
+    const cached = await ruptCache().getOrSet({
+      key: cacheKey,
+      ttl: 2 * 60 * 1000,
+      timeout: 1000,
+      factory: async () => {
+        let rows: ShortageRow[] = []
+        let stats = { nbRuptures: 0, nbCouvertes: 0, nbSansCouverture: 0 }
+        let x3Error: string | null = null
+
+        try {
+          const { result, articles, ofPegs } = await loadOrderImpacts({
+            from: windowFrom,
+            to: windowTo,
+            force,
+          })
+          // OfCommandePeg (Date) → ShortageOfPeg (ISO) pour le pivot pur.
+          const pegsIso = new Map(
+            [...ofPegs].map(([ofNum, p]) => [
+              ofNum,
+              {
+                numCommande: p.numCommande,
+                client: p.client,
+                dateExpedition: p.dateExpedition?.toISOString().slice(0, 10) ?? null,
+              },
+            ])
+          )
+          const receptionsByArticle = await loadReceptionsByArticle(windowFrom)
+          const built = buildShortageRows(result, receptionsByArticle, articles, pegsIso)
+          rows = built.rows
+          stats = built.stats
+        } catch (e) {
+          x3Error = (e as Error).message
+        }
+
+        return { rows, stats, x3Error }
+      },
+    })
+
+    const { rows, stats, x3Error } = cached
 
     // Présentation (badges verdict + dates FR). Lecture seule, pas de Solid.
     const VERDICT_PRESET: Record<
