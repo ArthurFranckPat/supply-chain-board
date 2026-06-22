@@ -13,9 +13,12 @@
  *   service.check(article, qty, date)
  */
 import type { Article } from '#app/domain/models/article'
+import type { Flow } from '#app/domain/models/flow'
 import type { Nomenclature, NomenclatureEntry } from '#app/domain/models/nomenclature'
 import type { ErpAllocation } from '#app/domain/allocation'
 import type { StockRecord, ReceptionRecord, OfRecord } from '#app/domain/recursive-checker'
+import type { MfgMaterialInput } from '#app/domain/of-feasibility'
+import type { DiagnosticLoader } from '#app/domain/recursive-diagnostic-checker'
 import type { FeasibilityServiceLoader } from '#app/domain/feasibility-service'
 import type { PlanningBoardFeasibilityLoader } from '#app/domain/planning-board-feasibility'
 
@@ -163,5 +166,103 @@ export class FeasibilityLoaderAdapter implements FeasibilityServiceLoader, Plann
       filtered = filtered.filter((o) => o.statutNum === statut)
     }
     return filtered
+  }
+}
+
+/**
+ * Dépendances pour `createDiagnosticLoader` : sources de données X3 vivantes
+ * (stock/MFGMAT/réceptions) + référentiel (articles/nomenclature) + pool d'OF.
+ */
+export interface DiagnosticLoaderDeps {
+  articlesMap: Map<string, Article>
+  nomenclaturesMap: Map<string, Nomenclature>
+  pool: OfRecord[]
+  getStockFlows(articles: string[]): Promise<Flow[]>
+  getMfgmat(numOf: string): Promise<MfgMaterialInput[]>
+  getReceptionFlows(): Promise<Flow[]>
+}
+
+/**
+ * Construit un `DiagnosticLoader` (source de vérité unique pour le
+ * `RecursiveDiagnosticChecker`) à partir de sources X3 + référentiel, avec caches
+ * paresseux memoïsés par article/OF (1 requête/nœud). Factory partagée entre le
+ * badge board (`boardFeasibility`) et le détail OF (`of_detail`) → un seul moteur,
+ * un seul verdict, zéro divergence.
+ */
+export function createDiagnosticLoader(deps: DiagnosticLoaderDeps): DiagnosticLoader {
+  const stockCache = new Map<string[], Promise<Map<string, StockRecord | undefined>>>()
+  const mfgmatCache = new Map<string, Promise<MfgMaterialInput[]>>()
+  const receptionCache = new Map<string, Promise<ReceptionRecord[]>>()
+  let allReceptions: Promise<Map<string, ReceptionRecord[]>> | null = null
+
+  const loadAllReceptions = (): Promise<Map<string, ReceptionRecord[]>> => {
+    if (allReceptions) return allReceptions
+    allReceptions = deps
+      .getReceptionFlows()
+      .then((flows) =>
+        buildReceptionsMap(
+          flows.map((f) => ({
+            article: f.article,
+            id: (f.origin as { id?: string }).id,
+            supplier: (f.origin as { supplier?: string }).supplier,
+            quantity: f.quantity,
+            date: f.date,
+          })),
+        ),
+      )
+      .catch(() => new Map<string, ReceptionRecord[]>())
+    return allReceptions
+  }
+
+  const getStocks = (articles: string[]): Promise<Map<string, StockRecord | undefined>> => {
+    const key = [...articles].sort()
+    const cacheKey = key.join('|')
+    const hit = [...stockCache.keys()].find((k) => k.join('|') === cacheKey)
+    if (hit) return stockCache.get(hit)!
+    const p = deps
+      .getStockFlows(key)
+      .catch(() => [] as Flow[])
+      .then((flows) => {
+        const built = buildStocksMap(
+          flows.map((f) => ({
+            article: f.article,
+            origin: f.origin as { subType?: string },
+            quantity: f.quantity,
+          })),
+        )
+        const out = new Map<string, StockRecord | undefined>()
+        for (const a of articles) out.set(a, built.get(a))
+        return out
+      })
+    stockCache.set(key, p)
+    return p
+  }
+
+  return {
+    getArticle: (a) => deps.articlesMap.get(a),
+    getNomenclature: (a) => deps.nomenclaturesMap.get(a),
+    getAllocationsOf: () => [],
+    getStock: (a) => getStocks([a]).then((m) => m.get(a)),
+    getStocks,
+    getReceptions: (a) => {
+      const hit = receptionCache.get(a)
+      if (hit) return hit
+      const p = loadAllReceptions().then((map) => map.get(a) ?? [])
+      receptionCache.set(a, p)
+      return p
+    },
+    getMfgmat: (n) => {
+      const hit = mfgmatCache.get(n)
+      if (hit) return hit
+      const p = deps.getMfgmat(n).catch(() => [])
+      mfgmatCache.set(n, p)
+      return p
+    },
+    getOfsByArticle: (article, statut, dateBesoin) => {
+      let f = deps.pool.filter((o) => o.article === article)
+      if (statut !== undefined) f = f.filter((o) => o.statutNum === statut)
+      if (dateBesoin) f = f.filter((o) => !o.dateFin || o.dateFin <= dateBesoin)
+      return f
+    },
   }
 }

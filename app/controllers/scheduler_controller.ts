@@ -3,14 +3,19 @@ import cache from '@adonisjs/cache/services/main'
 import boardDataset from '#services/board_dataset'
 import { OverrideStore } from '#services/override_store'
 import { X3MfgmatRepository } from '#repositories/mfgmat_repository'
-import { evaluateMfgFeasibility, buildStrictQcStock } from '#app/domain/of-feasibility'
+import { X3ReceptionRepository } from '#repositories/reception_repository'
 import { type ManufacturingOrder } from '#repositories/of_repository'
 import type { GammeOperation } from '#app/domain/models/gamme'
 import { loadOrderImpacts } from '#services/order_impacts_loader'
 import { buildShortageRows, type ShortageRow } from '#app/domain/shortages'
 import { loadReceptionsByArticle } from '#repositories/reception_repository'
-import type { Flow } from '#app/domain/models/flow'
-import type { NomenclatureEntry } from '#app/domain/models/nomenclature'
+import { RecursiveDiagnosticChecker } from '#app/domain/recursive-diagnostic-checker'
+import type { OfRecord } from '#app/domain/recursive-checker'
+import {
+  createDiagnosticLoader,
+  buildNomenclatureMap,
+  buildOfRecords,
+} from '#services/feasibility-loader-adapter'
 
 function defaultPoolFrom(): string {
   const d = new Date()
@@ -906,7 +911,6 @@ export default class SchedulerController {
     // fermes, planifiés ET suggestions sont des ManufacturingOrder natives.
     let mos: ManufacturingOrder[] = []
     let gammeOps: GammeOperation[] = []
-    let ofSupplyFlows: Flow[] = []
     try {
       const [ref, ord] = await Promise.all([
         boardDataset.getReferential(),
@@ -914,7 +918,6 @@ export default class SchedulerController {
       ])
       gammeOps = ref.gamme
       mos = ord.mos
-      ofSupplyFlows = ord.supply
     } catch {
       // serve empty detail
     }
@@ -961,32 +964,51 @@ export default class SchedulerController {
     let bom: BomRow[] = []
     let bomCount = 0
     try {
-      const materials = await new X3MfgmatRepository().getMaterials(num)
+      // Source de vérité unique : le RecursiveDiagnosticChecker (même moteur que le
+      // badge board + l'onglet Diagnostic). Gère MFGMAT (OF éclaté) ET nomenclature
+      // théorique (suggestion) en interne, via le loader. Plus de evaluateMfgFeasibility
+      // ni de loadBomFromNomenclature → un seul verdict, cohérent avec le badge.
+      const [articles, nomEntries] = await Promise.all([
+        boardDataset.getArticles(),
+        boardDataset.getNomenclature(),
+      ])
+      const articlesMap = new Map(articles.map((a) => [a.code, a]))
+      const nomenclaturesMap = buildNomenclatureMap(nomEntries)
+      const pool: OfRecord[] = buildOfRecords(mos)
 
-      if (materials.length === 0 && mo) {
-        // OF sans MFGMAT (suggéré / non éclaté) → nomenclature théorique.
-        bom = await this.loadBomFromNomenclature(mo.article, mo.quantity, status === 1, ofSupplyFlows)
-        bomCount = bom.length
-      } else {
-        // Stock availability per component.
-        const articles = [...new Set(materials.map((m) => m.article).filter(Boolean))]
-        const stockFlows =
-          articles.length > 0 ? await boardDataset.getStock(articles).catch(() => []) : []
-        const stockByArticle = buildStrictQcStock(stockFlows)
+      const loader = createDiagnosticLoader({
+        articlesMap,
+        nomenclaturesMap,
+        pool,
+        getStockFlows: (arts) => boardDataset.getStock(arts),
+        getMfgmat: (n) => new X3MfgmatRepository().getMaterials(n),
+        getReceptionFlows: () => new X3ReceptionRepository().getReceptionFlows(),
+      })
 
-        // Faisabilité via le calcul partagé — même source/verdict que le board (issue #11).
-        const verdict = evaluateMfgFeasibility(materials, stockByArticle, status === 1)
-        bomCount = verdict.materials.length
-        bom = verdict.materials.map((m) => ({
-          id: m.article,
-          name: m.description || m.article,
-          stock: m.available !== null ? m.available.toFixed(0) : '—',
-          need: m.remaining.toFixed(m.remaining % 1 === 0 ? 0 : 2),
-          unit: m.unit ?? '',
-          ok: m.feasible !== false,
-          shortage: m.feasible === false && m.missing > 0 ? `−${m.missing.toFixed(0)}` : null,
-        }))
+      const headOf: OfRecord = {
+        numOf: num,
+        article: mo?.article ?? num,
+        statutNum: status,
+        qteRestante: mo?.quantity ?? 0,
+        dateDebut: startDate ?? undefined,
+        dateFin: endDate ?? undefined,
       }
+      const checker = new RecursiveDiagnosticChecker(loader, {
+        checkDate: new Date(),
+        useReceptions: true,
+      })
+      const result = await checker.diagnoseOf(headOf)
+
+      bom = (result.tree.shorts ?? []).map((s) => ({
+        id: s.article,
+        name: s.description || s.article,
+        stock: (s.available ?? 0).toFixed(0),
+        need: s.quantityNeeded.toFixed(s.quantityNeeded % 1 === 0 ? 0 : 2),
+        unit: '',
+        ok: s.status === 'ok',
+        shortage: s.quantityMissing > 0 ? `−${s.quantityMissing.toFixed(0)}` : null,
+      }))
+      bomCount = bom.length
     } catch {
       // BOM unavailable — empty table
     }
@@ -1065,105 +1087,4 @@ export default class SchedulerController {
     }
   }
 
-  /**
-   * Fallback BOMD — nomenclature théorique pour les OF sans MFGMAT (suggérés,
-   * non éclatés). Même règle de faisabilité que checkFeasibility() (badge) :
-   * - ACHETE → stock + réceptions
-   * - FABRIQUE avec OF → non bloquant pour l'OF parent (traité par le sous-OF)
-   * - FABRIQUE sans OF → descente récursive jusqu'aux composants achetés
-   *
-   * Le stock affiché est le stock RÉEL (strict/qc), pas une valeur fabriquée.
-   */
-  private async loadBomFromNomenclature(
-    article: string,
-    parentQty: number,
-    isFirm: boolean,
-    ofSupplyFlows: Flow[],
-  ): Promise<BomRow[]> {
-    const nomEntries = await boardDataset.getNomenclature().catch(() => [])
-
-    // Index nomenclature
-    const nomenclatures = new Map<string, { description: string; components: NomenclatureEntry[] }>()
-    for (const e of nomEntries) {
-      const existing = nomenclatures.get(e.parentArticle)
-      if (existing) {
-        existing.components.push(e)
-      } else {
-        nomenclatures.set(e.parentArticle, { description: e.parentDescription, components: [e] })
-      }
-    }
-
-    // Collecte tous les articles atteignables par descente récursive → 1 round-trip stock.
-    const reachable = new Set<string>([article])
-    const collectReachable = (art: string, seen: Set<string>) => {
-      if (seen.has(art)) return
-      seen.add(art)
-      const bom = nomenclatures.get(art)
-      if (!bom) return
-      for (const c of bom.components) {
-        reachable.add(c.componentArticle)
-        if (c.componentType === 'FABRIQUE') collectReachable(c.componentArticle, seen)
-      }
-    }
-    collectReachable(article, new Set())
-
-    const rawStockFlows = await boardDataset.getStock([...reachable]).catch(() => [])
-    const stockByArticle = buildStrictQcStock(rawStockFlows)
-
-    // NB : on n'additionne PAS les réceptions fournisseurs au stock affiché.
-    // Avant, ce code sommait les BA non reçues datées dans le passé (donc EN RETARD)
-    // comme du stock dispo → CE2204 affichait 61 (BA CG2501715 en retard de 3 mois,
-    // jamais reçue) tandis que la faisabilité disait rupture (stock strict 0).
-    // Source de vérité unique : stock strict seul (aligné sur RecursiveDiagnosticChecker
-    // et evaluateMfgFeasibility). Les réceptions restent visibles dans l'onglet Diagnostic.
-
-    const hasSupplyOf = (compArticle: string): boolean =>
-      ofSupplyFlows.some((f) => f.article === compArticle && f.quantity > 0)
-
-    const nFr = (n: number) => Math.round(n * 100) / 100
-    const rows: BomRow[] = []
-
-    // Descente récursive alignée sur checkFeasibility().
-    const descend = (art: string, qty: number, visited: Set<string>) => {
-      if (visited.has(art)) return
-      visited.add(art)
-      const bom = nomenclatures.get(art)
-      if (!bom || bom.components.length === 0) return
-
-      for (const comp of bom.components) {
-        const needed = comp.consumptionNature === 'FORFAIT' ? comp.linkQuantity : comp.linkQuantity * qty
-
-        if (comp.componentType === 'ACHETE') {
-          const stockTotal = stockByArticle.get(comp.componentArticle) ?? 0
-          const ok = isFirm || stockTotal >= needed
-          rows.push({
-            id: comp.componentArticle,
-            name: comp.componentDescription || comp.componentArticle,
-            stock: nFr(stockTotal).toFixed(0),
-            need: needed.toFixed(needed % 1 === 0 ? 0 : 2),
-            unit: '',
-            ok,
-            shortage: !ok ? `−${nFr(needed - stockTotal).toFixed(0)}` : null,
-          })
-        } else if (hasSupplyOf(comp.componentArticle)) {
-          // FABRIQUE avec OF → non bloquant. Stock = 0 (réel, pas fabriqué).
-          rows.push({
-            id: comp.componentArticle,
-            name: comp.componentDescription || comp.componentArticle,
-            stock: nFr(stockByArticle.get(comp.componentArticle) ?? 0).toFixed(0),
-            need: needed.toFixed(needed % 1 === 0 ? 0 : 2),
-            unit: '',
-            ok: true,
-            shortage: null,
-          })
-        } else {
-          // FABRIQUE sans OF → descente récursive dans sa nomenclature.
-          descend(comp.componentArticle, needed, new Set(visited))
-        }
-      }
-    }
-
-    descend(article, parentQty, new Set())
-    return rows
-  }
 }
