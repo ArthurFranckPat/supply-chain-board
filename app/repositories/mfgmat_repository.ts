@@ -38,21 +38,31 @@ export class X3MfgmatRepository {
     if (unique.length === 0) return result
 
     const CHUNK = 1000
+    const chunks: string[][] = []
     for (let i = 0; i < unique.length; i += CHUNK) {
-      const chunk = unique.slice(i, i + CHUNK)
-      const rows = await MfgMat.query()
-        .select(
-          'MFGMAT.MFGNUM_0',
-          'MFGMAT.ITMREF_0',
-          'MFGMAT.RETQTY_0',
-          'MFGMAT.USEQTY_0',
-          'MFGMAT.ALLQTY_0',
-          'MFGMAT.STU_0',
-          'ITMMASTER.ITMDES1_0',
-        )
-        .leftJoin('ITMMASTER', 'ITMMASTER.ITMREF_0', 'MFGMAT.ITMREF_0')
-        .whereIn('MFGMAT.MFGNUM_0', chunk)
+      chunks.push(unique.slice(i, i + CHUNK))
+    }
 
+    // Chunks indépendants → requêtés en parallèle (issue #33). Sans effet à ≤ 1000 OF (1 chunk),
+    // protège les fenêtres larges où la boucle séquentielle empilait N/1000 allers-retours X3.
+    const chunkRows = await Promise.all(
+      chunks.map((chunk) =>
+        MfgMat.query()
+          .select(
+            'MFGMAT.MFGNUM_0',
+            'MFGMAT.ITMREF_0',
+            'MFGMAT.RETQTY_0',
+            'MFGMAT.USEQTY_0',
+            'MFGMAT.ALLQTY_0',
+            'MFGMAT.STU_0',
+            'ITMMASTER.ITMDES1_0',
+          )
+          .leftJoin('ITMMASTER', 'ITMMASTER.ITMREF_0', 'MFGMAT.ITMREF_0')
+          .whereIn('MFGMAT.MFGNUM_0', chunk)
+      )
+    )
+
+    for (const rows of chunkRows) {
       for (const row of rows) {
         const numOf = row.numeroOrdreDeFabrication?.trim() ?? ''
         const material = this.toMaterial(row)

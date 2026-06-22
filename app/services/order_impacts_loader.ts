@@ -165,8 +165,11 @@ export async function loadOrderImpacts(
     .filter(Boolean)
   // Reverse peg OF → commande (contremarque), pour rattacher les OF dont la commande
   // expédie hors fenêtre (le matcher ne voit que les demandes échéant dans la fenêtre).
-  const ofPegs = await new X3OrderLineRepository().getCommandesByOf(windowNumOfs)
-  const mfgByOf = await new X3MfgmatRepository().getMaterialsForOfs(windowNumOfs)
+  // Deux appels SOAP indépendants (ne dépendent que de windowNumOfs) → parallélisés (issue #33).
+  const [ofPegs, mfgByOf] = await Promise.all([
+    new X3OrderLineRepository().getCommandesByOf(windowNumOfs),
+    new X3MfgmatRepository().getMaterialsForOfs(windowNumOfs),
+  ])
   // Les composants MFGMAT peuvent différer de la BOM théorique → s'assurer que leur
   // stock est bien chargé.
   for (const materials of mfgByOf.values()) {

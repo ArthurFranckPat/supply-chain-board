@@ -14,6 +14,7 @@ router.use([
 ])
 
 server.use([
+  () => import('#middleware/timing_middleware'),
   () => import('@adonisjs/core/bodyparser_middleware'),
   () => import('@adonisjs/vite/vite_middleware'),
 ])
