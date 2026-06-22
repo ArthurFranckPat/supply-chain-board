@@ -316,6 +316,11 @@ export function createBoardStore(initial: BoardData) {
               if (c) {
                 c.id = newId
                 c.href = c.href.replace(oldId, newId)
+                // Affermissement → ferme : la couleur de la carte est dérivée de
+                // `status` (TONE_BORDER/TONE_FILL dans board-card). On la passe à
+                // 'ferme' pour que la carte vire au vert immédiatement (le reload
+                // réconcilie le reste : badge, poste, charge).
+                c.status = 'ferme'
                 return
               }
             }
