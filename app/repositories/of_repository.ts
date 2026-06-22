@@ -2,6 +2,7 @@ import type { Flow } from '#app/domain/models/flow'
 import LocalMenu from '#models/local_menu'
 import { X3Database } from '#app/x3/client/x3_database'
 import { parseX3Date } from '#app/x3/utils/parse_date'
+import staticSync from '#services/static_sync_service'
 
 /**
  * Ordre de fabrication (ferme / planifié / suggéré), lu dans la vue planning
@@ -9,6 +10,10 @@ import { parseX3Date } from '#app/x3/utils/parse_date'
  * les fermes/planifiés ET CBNDET pour les suggestions. ORDERS est mis à jour
  * immédiatement par FUNMAUTR/FUNGBENCH → une suggestion affermie y disparaît,
  * pas de drift ni de blacklist.
+ *
+ * Pas de JOIN ITMMASTER côté X3 (SOAP-06 : timeout sur jointure massive). La
+ * désignation est résolue depuis le référentiel local synchronisé (SQLite via
+ * staticSync), comme le font déjà les autres lecteurs X3.
  */
 export interface ManufacturingOrder {
   numOf: string
@@ -27,26 +32,22 @@ export interface ManufacturingOrder {
 
 type RawRow = Record<string, string | null>
 
-/** WIPTYP=5 = fabrication. WIPSTA 1/2/3 = Ferme/Planifié/Suggéré. */
+/** WIPTYP=5 = fabrication. WIPSTA 1/2/3 = Ferme/Planifié/Suggéré. ORDERS seule. */
 const SQL = `
 SELECT
-  O.VCRNUM_0   AS NUM,
-  O.ITMREF_0   AS ARTICLE,
-  O.WIPSTA_0   AS STA,
-  O.EXTQTY_0   AS LAUNCHED,
-  O.CPLQTY_0   AS DONE,
-  O.RMNEXTQTY_0 AS REMAIN,
-  O.STRDAT_0   AS STRDAT,
-  O.ENDDAT_0   AS ENDDAT,
-  O.CREDAT_0   AS CREDAT,
-  I.ITMDES1_0  AS DESIGNATION,
-  I.STU_0      AS UNIT
-FROM ORDERS O
-JOIN ITMMASTER I ON I.ITMREF_0 = O.ITMREF_0
-WHERE O.WIPTYP_0 = 5
-  AND O.WIPSTA_0 IN (1, 2, 3)
-  AND O.RMNEXTQTY_0 > 0
-  AND I.ITMSTA_0 = 1
+  VCRNUM_0    AS NUM,
+  ITMREF_0    AS ARTICLE,
+  WIPSTA_0    AS STA,
+  EXTQTY_0    AS LAUNCHED,
+  CPLQTY_0    AS DONE,
+  RMNEXTQTY_0 AS REMAIN,
+  STRDAT_0    AS STRDAT,
+  ENDDAT_0    AS ENDDAT,
+  CREDAT_0    AS CREDAT
+FROM ORDERS
+WHERE WIPTYP_0 = 5
+  AND WIPSTA_0 IN (1, 2, 3)
+  AND RMNEXTQTY_0 > 0
 `
 
 function toNum(v: string | null | undefined): number {
@@ -54,24 +55,28 @@ function toNum(v: string | null | undefined): number {
 }
 
 export class X3OfRepository {
-  /** Lit les ordres de fabrication depuis ORDERS (vue planning temps réel, #32). */
-  private async fetch(): Promise<{ rows: RawRow[]; label: (chapter: number, value: number | null) => string | null }> {
-    const [rows, menuRows] = await Promise.all([
+  /** Lit les ordres depuis ORDERS + enrichit la désignation depuis le référentiel local. */
+  private async fetch(): Promise<{ rows: RawRow[]; label: (chapter: number, value: number | null) => string | null; designations: Map<string, string> }> {
+    const [rows, menuRows, articles] = await Promise.all([
       new X3Database().raw(SQL) as unknown as RawRow[],
       LocalMenu.query().whereIn('chapter', [317]),
+      staticSync.readArticles().catch(() => []),
     ])
     const label = (chapter: number, value: number | null) =>
       menuRows.find((m) => m.chapter === chapter && m.value === value)?.label ?? null
-    return { rows, label }
+    const designations = new Map<string, string>()
+    for (const a of articles) if (a.code) designations.set(a.code, a.description)
+    return { rows, label, designations }
   }
 
   async getSupplyFlows(): Promise<Flow[]> {
-    const { rows, label } = await this.fetch()
+    const { rows, label, designations } = await this.fetch()
 
     return rows.map((row) => {
       const status = parseInt(row.STA ?? '0') as 1 | 2 | 3
+      const article = row.ARTICLE?.trim() ?? ''
       return {
-        article: row.ARTICLE?.trim() ?? '',
+        article,
         quantity: toNum(row.REMAIN),
         direction: 'supply' as const,
         date: parseX3Date(row.ENDDAT),
@@ -82,7 +87,7 @@ export class X3OfRepository {
           statutLabel: label(317, status),
           typeOf: null,
           typeOfLabel: null,
-          designation: row.DESIGNATION?.trim() ?? null,
+          designation: designations.get(article) ?? null,
         },
       }
     })
@@ -101,7 +106,6 @@ export class X3OfRepository {
 
     const db = new X3Database()
     try {
-      // Alphanumérique VCRNUM : whitelist avant interpolation (pas de quote → pas d'injection).
       const safe = unique.filter((n) => /^[A-Za-z0-9_-]+$/.test(n))
       if (safe.length === 0) return out
       const inList = safe.map((n) => `'${n}'`).join(',')
@@ -120,21 +124,22 @@ export class X3OfRepository {
   }
 
   async getManufacturingOrders(): Promise<ManufacturingOrder[]> {
-    const { rows, label } = await this.fetch()
+    const { rows, label, designations } = await this.fetch()
 
     return rows.map((row) => {
       const status = parseInt(row.STA ?? '0') as 1 | 2 | 3
+      const article = row.ARTICLE?.trim() ?? ''
       return {
         numOf: row.NUM?.trim() ?? '',
-        article: row.ARTICLE?.trim() ?? '',
-        designation: row.DESIGNATION?.trim() ?? null,
+        article,
+        designation: designations.get(article) ?? null,
         status,
         statutLabel: label(317, status),
         typeOfLabel: null,
         quantity: toNum(row.REMAIN),
         quantityLaunched: toNum(row.LAUNCHED),
         quantityDone: toNum(row.DONE),
-        unit: row.UNIT?.trim() ?? null,
+        unit: null,
         startDate: parseX3Date(row.STRDAT),
         endDate: parseX3Date(row.ENDDAT),
       }
