@@ -1,5 +1,5 @@
 import type { Component } from 'solid-js'
-import { For, Show, createMemo, createSignal } from 'solid-js'
+import { For, Show, createEffect, createMemo, createSignal, onCleanup } from 'solid-js'
 import { router } from '@/lib/inertia-solid'
 import { Button } from '@/components/ui/button'
 import { TextField, TextFieldInput, TextFieldLabel } from '@/components/ui/text-field'
@@ -31,6 +31,13 @@ const Login: Component<LoginProps> = (props) => {
   const [submitting, setSubmitting] = createSignal(false)
 
   const canSubmit = createMemo(() => username().trim().length > 0 && password().length > 0)
+
+  createEffect(() => {
+    document.documentElement.dataset.env = env()
+  })
+  onCleanup(() => {
+    delete document.documentElement.dataset.env
+  })
 
   function submit(e: Event) {
     e.preventDefault()
