@@ -77,13 +77,13 @@ export function evaluateMfgFeasibility(
   isFirm: boolean,
 ): OfFeasibilityVerdict {
   const rows: MaterialVerdict[] = materials.map((m) => {
-    const available = stockByArticle.has(m.article) ? (stockByArticle.get(m.article) ?? 0) : null
-    const feasible = isFirm
-      ? true
-      : available !== null
-        ? available + m.allocated >= m.remaining
-        : null
-    const missing = feasible === false ? Math.max(0, m.remaining - (available ?? 0)) : 0
+    // Un composant absent de la map stock (= stock strict 0 : les flows 'strict'
+    // ne sont émis que si strict > 0) est traité en RUPTURE (available 0), exactement
+    // comme le RecursiveDiagnosticChecker (available ?? 0). Avant : null = indéterminé
+    // → non bloqué → verdict faisable à tort (bug « composants dispo, badge rupture »).
+    const available = stockByArticle.get(m.article) ?? 0
+    const feasible = isFirm ? true : available + m.allocated >= m.remaining
+    const missing = feasible === false ? Math.max(0, m.remaining - available) : 0
     return {
       article: m.article,
       description: m.description ?? '',
