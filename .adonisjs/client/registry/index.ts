@@ -66,11 +66,11 @@ const routes = {
     tokens: [{"old":"/writeback-test","type":0,"val":"writeback-test","end":""}],
     types: placeholder as Registry['x3_writeback_test']['types'],
   },
-  'scheduler.expert_board': {
+  'scheduling': {
     methods: ["GET","HEAD"],
     pattern: '/ordonnancement',
     tokens: [{"old":"/ordonnancement","type":0,"val":"ordonnancement","end":""}],
-    types: placeholder as Registry['scheduler.expert_board']['types'],
+    types: placeholder as Registry['scheduling']['types'],
   },
   'order_planning.board': {
     methods: ["GET","HEAD"],

@@ -127,7 +127,7 @@ export interface Registry {
       errorResponse: unknown
     }
   }
-  'scheduler.expert_board': {
+  'scheduling': {
     methods: ["GET","HEAD"]
     pattern: '/ordonnancement'
     types: {

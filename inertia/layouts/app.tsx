@@ -13,7 +13,7 @@ interface NavItem {
 }
 
 const NAV: NavItem[] = [
-  { key: 'board', href: route('scheduler.expert_board'), icon: 'event_note', label: 'Planning Prods' },
+  { key: 'board', href: route('scheduling'), icon: 'event_note', label: 'Planning Prods' },
   { key: 'shortages', href: route('scheduler.shortage_tracker'), icon: 'report', label: 'Suivi des ruptures' },
 ]
 
@@ -28,7 +28,7 @@ export const AppLayout: Component<{ active?: NavKey; children: JSX.Element }> = 
         <nav class="flex flex-col gap-5">
           <a
             class="p-2 text-gray-400 hover:text-primary transition-colors"
-            href={route('scheduler.expert_board')}
+            href={route('scheduling')}
             title="Vue d'ensemble"
           >
             <span class="material-symbols-outlined">grid_view</span>

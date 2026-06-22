@@ -18,19 +18,19 @@ export interface ApiDefinition {
   designSystem: typeof routes['design_system']
   diagnosticTest: typeof routes['diagnostic_test']
   x3WritebackTest: typeof routes['x3_writeback_test']
-  scheduler: {
-    expertBoard: typeof routes['scheduler.expert_board']
-    shortageTracker: typeof routes['scheduler.shortage_tracker']
-    vision: typeof routes['scheduler.vision']
-    ofDetail: typeof routes['scheduler.of_detail']
-    shortageRows: typeof routes['scheduler.shortage_rows']
-  }
+  scheduling: typeof routes['scheduling']
   orderPlanning: {
     board: typeof routes['order_planning.board']
     index: typeof routes['order_planning.index']
     lineDetail: typeof routes['order_planning.line_detail']
     update: typeof routes['order_planning.update']
     resetOverride: typeof routes['order_planning.reset_override']
+  }
+  scheduler: {
+    shortageTracker: typeof routes['scheduler.shortage_tracker']
+    vision: typeof routes['scheduler.vision']
+    ofDetail: typeof routes['scheduler.of_detail']
+    shortageRows: typeof routes['scheduler.shortage_rows']
   }
   suivi: {
     board: typeof routes['suivi.board']

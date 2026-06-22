@@ -39,7 +39,7 @@ declare module '@adonisjs/inertia/types' {
     'design_system': Record<string, never>
     'diagnostic-test': Record<string, never>
     'writeback-test': Record<string, never>
-    'scheduler/expert-board': {
+    'scheduler/scheduling': {
       board: BoardProp
       windowFrom: string
       windowTo: string

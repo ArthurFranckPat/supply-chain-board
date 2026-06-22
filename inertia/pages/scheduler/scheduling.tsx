@@ -12,7 +12,7 @@ import { TextField, TextFieldInput } from '@/components/ui/text-field'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
 import { Calendar, type DateRange } from '@/components/ui/calendar'
 
-type ExpertBoardProps = {
+type SchedulingProps = {
   board: BoardData
   windowFrom: string
   windowTo: string
@@ -56,7 +56,7 @@ const startOfDay = (d: Date): Date => {
   return x
 }
 
-const ExpertBoard: Component<ExpertBoardProps> = (props) => {
+const Scheduling: Component<SchedulingProps> = (props) => {
   const store = createBoardStore(props.board)
 
   const [selectedOf, setSelectedOf] = createSignal<string | null>(null)
@@ -87,7 +87,7 @@ const ExpertBoard: Component<ExpertBoardProps> = (props) => {
     if (r.start && r.end) {
       setCalOpen(false)
       const days = Math.round((startOfDay(r.end).getTime() - startOfDay(r.start).getTime()) / DAY_MS) + 1
-      router.visit(route('scheduler.expert_board'), {
+      router.visit(route('scheduling'), {
         data: { start: toIso(r.start), days: String(days) },
         preserveScroll: true,
       })
@@ -242,7 +242,7 @@ const ExpertBoard: Component<ExpertBoardProps> = (props) => {
         <div class="flex flex-none items-center gap-2 border-b border-terra/30 bg-terra-soft px-7 py-2 text-[12px] text-foreground">
           <span class="material-symbols-outlined text-[16px] text-terra">warning</span>
           X3 injoignable — données {props.cached ? `du cache (${props.cached})` : 'indisponibles'}.
-          <Link href={`${route('scheduler.expert_board')}?refresh=1`} class="font-bold underline">
+          <Link href={`${route('scheduling')}?refresh=1`} class="font-bold underline">
             Réessayer
           </Link>
         </div>
@@ -267,4 +267,4 @@ const ExpertBoard: Component<ExpertBoardProps> = (props) => {
   )
 }
 
-export default ExpertBoard
+export default Scheduling

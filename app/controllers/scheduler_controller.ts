@@ -271,7 +271,7 @@ export default class SchedulerController {
   /** GET /ordonnancement — board d'ordonnancement OF, vue experte haute densité. */
   async expertBoard(ctx: HttpContext) {
     const data = await this.loadBoardData(ctx)
-    return ctx.inertia.render('scheduler/expert-board', {
+    return ctx.inertia.render('scheduler/scheduling', {
       board: data.board,
       windowFrom: data.windowFrom,
       windowTo: data.windowTo,

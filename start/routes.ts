@@ -89,7 +89,7 @@ router
     //   /planification  : lignes de commande ouvertes (#10)
     //   /ruptures       : suivi des ruptures (issue #15)
     //   /vision         : vue unifiée OF ↔ commandes (issue #21)
-    router.get('/ordonnancement', '#controllers/scheduler_controller.expertBoard')
+    router.get('/ordonnancement', '#controllers/scheduler_controller.expertBoard').as('scheduling')
     router.get('/planification', '#controllers/order_planning_controller.board')
     router.get('/ruptures', '#controllers/scheduler_controller.shortageTracker')
     router.get('/suivi', '#controllers/suivi_controller.board')

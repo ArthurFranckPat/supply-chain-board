@@ -14,7 +14,7 @@ export type ScannedRoutes = {
     'design_system': { paramsTuple?: []; params?: {} }
     'diagnostic_test': { paramsTuple?: []; params?: {} }
     'x3_writeback_test': { paramsTuple?: []; params?: {} }
-    'scheduler.expert_board': { paramsTuple?: []; params?: {} }
+    'scheduling': { paramsTuple?: []; params?: {} }
     'order_planning.board': { paramsTuple?: []; params?: {} }
     'scheduler.shortage_tracker': { paramsTuple?: []; params?: {} }
     'suivi.board': { paramsTuple?: []; params?: {} }
@@ -75,7 +75,7 @@ export type ScannedRoutes = {
     'design_system': { paramsTuple?: []; params?: {} }
     'diagnostic_test': { paramsTuple?: []; params?: {} }
     'x3_writeback_test': { paramsTuple?: []; params?: {} }
-    'scheduler.expert_board': { paramsTuple?: []; params?: {} }
+    'scheduling': { paramsTuple?: []; params?: {} }
     'order_planning.board': { paramsTuple?: []; params?: {} }
     'scheduler.shortage_tracker': { paramsTuple?: []; params?: {} }
     'suivi.board': { paramsTuple?: []; params?: {} }
@@ -113,7 +113,7 @@ export type ScannedRoutes = {
     'design_system': { paramsTuple?: []; params?: {} }
     'diagnostic_test': { paramsTuple?: []; params?: {} }
     'x3_writeback_test': { paramsTuple?: []; params?: {} }
-    'scheduler.expert_board': { paramsTuple?: []; params?: {} }
+    'scheduling': { paramsTuple?: []; params?: {} }
     'order_planning.board': { paramsTuple?: []; params?: {} }
     'scheduler.shortage_tracker': { paramsTuple?: []; params?: {} }
     'suivi.board': { paramsTuple?: []; params?: {} }
