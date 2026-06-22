@@ -10,12 +10,12 @@ export type ScannedRoutes = {
     'assets.css': { paramsTuple?: []; params?: {} }
     'assets.js': { paramsTuple?: []; params?: {} }
     'health.index': { paramsTuple?: []; params?: {} }
-    'tableau': { paramsTuple?: []; params?: {} }
+    'dashboard': { paramsTuple?: []; params?: {} }
     'design_system': { paramsTuple?: []; params?: {} }
     'diagnostic_test': { paramsTuple?: []; params?: {} }
     'x3_writeback_test': { paramsTuple?: []; params?: {} }
     'scheduling': { paramsTuple?: []; params?: {} }
-    'order_planning.board': { paramsTuple?: []; params?: {} }
+    'planning': { paramsTuple?: []; params?: {} }
     'scheduler.shortage_tracker': { paramsTuple?: []; params?: {} }
     'suivi.board': { paramsTuple?: []; params?: {} }
     'scheduler.vision': { paramsTuple?: []; params?: {} }
@@ -71,12 +71,12 @@ export type ScannedRoutes = {
     'assets.css': { paramsTuple?: []; params?: {} }
     'assets.js': { paramsTuple?: []; params?: {} }
     'health.index': { paramsTuple?: []; params?: {} }
-    'tableau': { paramsTuple?: []; params?: {} }
+    'dashboard': { paramsTuple?: []; params?: {} }
     'design_system': { paramsTuple?: []; params?: {} }
     'diagnostic_test': { paramsTuple?: []; params?: {} }
     'x3_writeback_test': { paramsTuple?: []; params?: {} }
     'scheduling': { paramsTuple?: []; params?: {} }
-    'order_planning.board': { paramsTuple?: []; params?: {} }
+    'planning': { paramsTuple?: []; params?: {} }
     'scheduler.shortage_tracker': { paramsTuple?: []; params?: {} }
     'suivi.board': { paramsTuple?: []; params?: {} }
     'scheduler.vision': { paramsTuple?: []; params?: {} }
@@ -109,12 +109,12 @@ export type ScannedRoutes = {
     'assets.css': { paramsTuple?: []; params?: {} }
     'assets.js': { paramsTuple?: []; params?: {} }
     'health.index': { paramsTuple?: []; params?: {} }
-    'tableau': { paramsTuple?: []; params?: {} }
+    'dashboard': { paramsTuple?: []; params?: {} }
     'design_system': { paramsTuple?: []; params?: {} }
     'diagnostic_test': { paramsTuple?: []; params?: {} }
     'x3_writeback_test': { paramsTuple?: []; params?: {} }
     'scheduling': { paramsTuple?: []; params?: {} }
-    'order_planning.board': { paramsTuple?: []; params?: {} }
+    'planning': { paramsTuple?: []; params?: {} }
     'scheduler.shortage_tracker': { paramsTuple?: []; params?: {} }
     'suivi.board': { paramsTuple?: []; params?: {} }
     'scheduler.vision': { paramsTuple?: []; params?: {} }

@@ -164,7 +164,7 @@ export default class OrderPlanningController {
       ttl: 2 * 60 * 1000,
       factory: () => this.loadBoardData(ctx),
     })
-    return ctx.inertia.render('scheduler/order-board', {
+    return ctx.inertia.render('scheduler/planning', {
       board: {
         days: data.days,
         lines: data.lines,

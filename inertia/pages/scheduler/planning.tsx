@@ -11,7 +11,7 @@ import { TextField, TextFieldInput } from '@/components/ui/text-field'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
 import { Calendar, type DateRange } from '@/components/ui/calendar'
 
-type OrderBoardProps = {
+type PlanningProps = {
   board: OrderBoardData
   totalLines: number
   lineCount: number
@@ -53,7 +53,7 @@ const startOfDay = (d: Date): Date => {
   return x
 }
 
-const OrderBoard: Component<OrderBoardProps> = (props) => {
+const Planning: Component<OrderBoardProps> = (props) => {
   const store = createOrderBoardStore(props.board)
 
   // Détail ligne de commande : drawer contextuel au clic sur une carte.
@@ -85,7 +85,7 @@ const OrderBoard: Component<OrderBoardProps> = (props) => {
     if (r.start && r.end) {
       setCalOpen(false)
       const days = Math.round((startOfDay(r.end).getTime() - startOfDay(r.start).getTime()) / DAY_MS) + 1
-      router.visit(route('order_planning.board'), {
+      router.visit(route('planning'), {
         data: { start: toIso(r.start), days: String(days) },
         preserveScroll: true,
       })
@@ -243,4 +243,4 @@ const OrderBoard: Component<OrderBoardProps> = (props) => {
   )
 }
 
-export default OrderBoard
+export default Planning

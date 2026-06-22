@@ -60,7 +60,7 @@ const VERDICT_TONE: Record<ProactiveVerdictKey, string> = {
   uncov: 'bg-destructive/10 text-destructive',
 }
 
-const Suivi: Component<SuiviPageProps> = (props) => {
+const Tracking: Component<SuiviPageProps> = (props) => {
   // Calcul lourd différé : fetch client-side, relancé à chaque changement de date
   // ou de bust (bouton refresh → ?refresh=N invalide le cache serveur).
   const [bust, setBust] = createSignal(0)
@@ -546,7 +546,7 @@ const Suivi: Component<SuiviPageProps> = (props) => {
     <div class="theme-papier flex h-screen flex-col overflow-hidden bg-background text-foreground">
       <Masthead
         subtitle="Suivi · Allocation & expédition"
-        active="suivi"
+        active="tracking"
         meta={
           <>
             <div class="font-fraunces text-[12px] font-bold capitalize not-italic text-terra">{refLabel()}</div>
@@ -823,4 +823,4 @@ const Kpi: Component<{
   </div>
 )
 
-export default Suivi
+export default Tracking

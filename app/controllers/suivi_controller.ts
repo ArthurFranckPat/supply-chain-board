@@ -145,7 +145,7 @@ export default class SuiviController {
   async board(ctx: HttpContext) {
     const referenceDate =
       (ctx.request.input('referenceDate') as string | undefined) || new Date().toISOString().slice(0, 10)
-    return ctx.inertia.render('scheduler/suivi', {
+    return ctx.inertia.render('scheduler/tracking', {
       referenceDate,
       rowsHref: `/api/v1/status/rows?referenceDate=${encodeURIComponent(referenceDate)}`,
       proactiveRowsHref: `/api/v1/status/proactive-rows?referenceDate=${encodeURIComponent(referenceDate)}`,

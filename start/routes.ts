@@ -54,9 +54,9 @@ router
     // Overview KPI à venir (issue dédiée) ; pour l'heure un placeholder thémé.
     router
       .get('/', async ({ inertia }) => {
-        return inertia.render('tableau', {})
+        return inertia.render('dashboard', {})
       })
-      .as('tableau')
+      .as('dashboard')
 
     // Design system « Papier » — showcase des vrais composants ui/* thémés.
     router
@@ -90,7 +90,7 @@ router
     //   /ruptures       : suivi des ruptures (issue #15)
     //   /vision         : vue unifiée OF ↔ commandes (issue #21)
     router.get('/ordonnancement', '#controllers/scheduler_controller.expertBoard').as('scheduling')
-    router.get('/planification', '#controllers/order_planning_controller.board')
+    router.get('/planification', '#controllers/order_planning_controller.board').as('planning')
     router.get('/ruptures', '#controllers/scheduler_controller.shortageTracker')
     router.get('/suivi', '#controllers/suivi_controller.board')
     router.get('/vision', '#controllers/scheduler_controller.vision')

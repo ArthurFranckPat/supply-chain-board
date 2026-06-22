@@ -30,7 +30,7 @@ declare module '@adonisjs/inertia/types' {
   }
 
   interface InertiaPages {
-    'tableau': Record<string, never>
+    'dashboard': Record<string, never>
     'auth/login': {
       lastUsername: string
       lastEnv: 'test' | 'prod'
@@ -54,7 +54,7 @@ declare module '@adonisjs/inertia/types' {
       x3Error: string | null
       cached: string | null
     }
-    'scheduler/order-board': {
+    'scheduler/planning': {
       board: BoardProp
       totalLines: number
       lineCount: number
@@ -77,7 +77,7 @@ declare module '@adonisjs/inertia/types' {
       todayHref: string
       rowsHref: string
     }
-    'scheduler/suivi': {
+    'scheduler/tracking': {
       referenceDate: string
       rowsHref: string
       proactiveRowsHref: string

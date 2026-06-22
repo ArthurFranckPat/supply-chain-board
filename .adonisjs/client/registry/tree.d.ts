@@ -14,17 +14,14 @@ export interface ApiDefinition {
   health: {
     index: typeof routes['health.index']
   }
-  tableau: typeof routes['tableau']
+  dashboard: typeof routes['dashboard']
   designSystem: typeof routes['design_system']
   diagnosticTest: typeof routes['diagnostic_test']
   x3WritebackTest: typeof routes['x3_writeback_test']
   scheduling: typeof routes['scheduling']
-  orderPlanning: {
-    board: typeof routes['order_planning.board']
-    index: typeof routes['order_planning.index']
-    lineDetail: typeof routes['order_planning.line_detail']
-    update: typeof routes['order_planning.update']
-    resetOverride: typeof routes['order_planning.reset_override']
+  planning: typeof routes['planning'] & {
+    suggestionFirm: typeof routes['planning.suggestion_firm']
+    orderFirm: typeof routes['planning.order_firm']
   }
   scheduler: {
     shortageTracker: typeof routes['scheduler.shortage_tracker']
@@ -41,6 +38,12 @@ export interface ApiDefinition {
     retardCharge: typeof routes['suivi.retard_charge']
     rows: typeof routes['suivi.rows']
     proactiveRows: typeof routes['suivi.proactive_rows']
+  }
+  orderPlanning: {
+    index: typeof routes['order_planning.index']
+    lineDetail: typeof routes['order_planning.line_detail']
+    update: typeof routes['order_planning.update']
+    resetOverride: typeof routes['order_planning.reset_override']
   }
   planningBoard: {
     index: typeof routes['planning_board.index']
@@ -62,10 +65,6 @@ export interface ApiDefinition {
     searchPf: typeof routes['planning_board.search_pf']
     ofMaterialsDiagnostic: typeof routes['planning_board.of_materials_diagnostic']
     reloadData: typeof routes['planning_board.reload_data']
-  }
-  planning: {
-    suggestionFirm: typeof routes['planning.suggestion_firm']
-    orderFirm: typeof routes['planning.order_firm']
   }
   pipeline: {
     supplyBoard: typeof routes['pipeline.supply_board']

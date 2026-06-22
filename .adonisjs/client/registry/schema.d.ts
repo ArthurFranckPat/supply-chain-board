@@ -79,7 +79,7 @@ export interface Registry {
       errorResponse: unknown
     }
   }
-  'tableau': {
+  'dashboard': {
     methods: ["GET","HEAD"]
     pattern: '/'
     types: {
@@ -139,7 +139,7 @@ export interface Registry {
       errorResponse: unknown
     }
   }
-  'order_planning.board': {
+  'planning': {
     methods: ["GET","HEAD"]
     pattern: '/planification'
     types: {

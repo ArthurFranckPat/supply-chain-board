@@ -42,11 +42,11 @@ const routes = {
     tokens: [{"old":"/health","type":0,"val":"health","end":""}],
     types: placeholder as Registry['health.index']['types'],
   },
-  'tableau': {
+  'dashboard': {
     methods: ["GET","HEAD"],
     pattern: '/',
     tokens: [{"old":"/","type":0,"val":"/","end":""}],
-    types: placeholder as Registry['tableau']['types'],
+    types: placeholder as Registry['dashboard']['types'],
   },
   'design_system': {
     methods: ["GET","HEAD"],
@@ -72,11 +72,11 @@ const routes = {
     tokens: [{"old":"/ordonnancement","type":0,"val":"ordonnancement","end":""}],
     types: placeholder as Registry['scheduling']['types'],
   },
-  'order_planning.board': {
+  'planning': {
     methods: ["GET","HEAD"],
     pattern: '/planification',
     tokens: [{"old":"/planification","type":0,"val":"planification","end":""}],
-    types: placeholder as Registry['order_planning.board']['types'],
+    types: placeholder as Registry['planning']['types'],
   },
   'scheduler.shortage_tracker': {
     methods: ["GET","HEAD"],

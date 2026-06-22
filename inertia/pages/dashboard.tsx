@@ -9,10 +9,10 @@ import { Masthead } from '@/components/masthead'
  * Pour l'heure c'est un placeholder thémé ; l'overview avec KPI sera construit
  * dans une issue dédiée.
  */
-const Tableau: Component = () => {
+const Dashboard: Component = () => {
   return (
     <div class="theme-papier flex h-screen flex-col overflow-hidden bg-background text-foreground">
-      <Masthead subtitle="Tableau de bord · Overview" active="tableau" />
+      <Masthead subtitle="Tableau de bord · Overview" active="dashboard" />
       <div class="flex flex-1 flex-col items-center justify-center gap-3 p-10 text-center">
         <span class="material-symbols-outlined text-[40px] text-muted-foreground/60">dashboard</span>
         <h1 class="font-fraunces text-[20px] font-black tracking-tight text-foreground">
@@ -26,4 +26,4 @@ const Tableau: Component = () => {
   )
 }
 
-export default Tableau
+export default Dashboard
