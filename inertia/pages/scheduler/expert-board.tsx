@@ -229,7 +229,7 @@ const ExpertBoard: Component<ExpertBoardProps> = (props) => {
             onClick={() => store.runFeasibility(props.windowFrom, props.windowTo)}
             class="gap-1.5"
           >
-            <span class="material-symbols-outlined text-[15px]">
+            <span class={`material-symbols-outlined text-[15px] ${store.feasLoading() ? 'animate-spin' : ''}`}>
               {store.feasLoading() ? 'progress_activity' : 'fact_check'}
             </span>
             {store.feasLoading() ? 'Calcul…' : 'Faisabilité'}

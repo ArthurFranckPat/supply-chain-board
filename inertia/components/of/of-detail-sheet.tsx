@@ -389,7 +389,7 @@ export const OfDetailSheet: Component<{
                 </Show>
                 <Show when={canFirm()}>
                   <Button size="sm" variant="default" class="gap-1.5" onClick={firm} disabled={firming()}>
-                    <span class="material-symbols-outlined text-[15px]">
+                    <span class={`material-symbols-outlined text-[15px] ${firming() ? 'animate-spin' : ''}`}>
                       {firming() ? 'progress_activity' : 'check_circle'}
                     </span>
                     {firming() ? 'Affermissement…' : isSuggestion() ? 'Affermir' : 'Passer en ferme'}
