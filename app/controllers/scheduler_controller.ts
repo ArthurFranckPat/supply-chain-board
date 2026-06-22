@@ -7,6 +7,7 @@ import { evaluateMfgFeasibility, buildStrictQcStock } from '#app/domain/of-feasi
 import { type ManufacturingOrder } from '#repositories/of_repository'
 import type { GammeOperation } from '#app/domain/models/gamme'
 import { loadOrderImpacts } from '#services/order_impacts_loader'
+import { timeStage } from '#services/perf_metrics'
 import { loadOrderBoardData } from '#controllers/order_planning_controller'
 import { buildShortageRows, type ShortageRow } from '#app/domain/shortages'
 import { loadReceptionsByArticle } from '#repositories/reception_repository'
@@ -374,12 +375,18 @@ export default class SchedulerController {
     return programmeCache().getOrSet({
       key: cacheKey,
       ttl: 2 * 60 * 1000,
+      // SWR (issue #33) : le payload programme (board + matching) coûte ~20 s cold. Au-delà du
+      // soft timeout, on sert la valeur en grace pendant que le recalcul finit en arrière-plan
+      // (contexte requête → creds X3 via ALS). Mur froid limité au tout premier chargement.
+      timeout: 1000,
       factory: async () => {
         // Board IDENTIQUE à /ordonnancement : on réutilise loadBoardData tel quel
         // (côté front, le MÊME composant <BoardGrid> → charge/jour, histogramme
         // hebdo, recherche, drag&drop). Seul ajout vision : commandes + liens en
         // overlay, dérivés du même board (aucune grille réécrite).
-        const data = await this.loadBoardData(ctx, basePath)
+        const data = await timeStage('programme.loadBoardData', () =>
+          this.loadBoardData(ctx, basePath)
+        )
         let x3Error = data.x3Error
 
         // numOf → poste/colonne et iso → colonne, reconstruits depuis le board bâti.
@@ -406,7 +413,9 @@ export default class SchedulerController {
         const commandeByLine = new Map<string, VisionCommande>()
         const links: VisionLink[] = []
         try {
-          const { result } = await loadOrderImpacts({ from: windowStart, to: windowTo, force })
+          const { result } = await timeStage('programme.loadOrderImpacts', () =>
+            loadOrderImpacts({ from: windowStart, to: windowTo, force })
+          )
           result.orders.forEach((order, i) => {
             const col = colIdx.get(order.dateExpedition)
             if (col === undefined) return
@@ -646,13 +655,19 @@ export default class SchedulerController {
     let x3Error: string | null = null
 
     try {
-      const [ref, ord, live] = await Promise.all([
-        boardDataset.getReferential(force),
-        boardDataset.getOrders(force),
-        boardDataset.getLive(defaultPoolFrom(), defaultPoolTo(), force).catch(
-          () => ({ demand: [], reception: [], at: 0 }),
-        ),
-      ])
+      const [ref, ord, live] = await timeStage('loadBoardData.datasets', () =>
+        Promise.all([
+          timeStage('loadBoardData.referential', () => boardDataset.getReferential(force)),
+          timeStage('loadBoardData.orders', () => boardDataset.getOrders(force)),
+          timeStage('loadBoardData.live', () =>
+            boardDataset.getLive(defaultPoolFrom(), defaultPoolTo(), force).catch(() => ({
+              demand: [],
+              reception: [],
+              at: 0,
+            }))
+          ),
+        ])
+      )
       gammeOps = ref.gamme
       // Pool unifié : tous les OF (1/2/3) lus depuis ORDERS via ord.mos (#32).
       // Les suggestions (statut 3) sont des ManufacturingOrder natives maintenant.

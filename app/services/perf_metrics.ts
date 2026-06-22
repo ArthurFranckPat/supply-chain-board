@@ -6,6 +6,8 @@
  * léger — un ring buffer borné par route, pas de persistance (reset au redémarrage du process).
  */
 
+import { performance } from 'node:perf_hooks'
+
 /** Nombre d'échantillons conservés par route (fenêtre glissante). */
 const MAX_SAMPLES = 200
 
@@ -64,3 +66,21 @@ class PerfMetrics {
 /** Singleton partagé par le middleware et le contrôleur perf. */
 const perfMetrics = new PerfMetrics()
 export default perfMetrics
+
+/**
+ * Chronomètre un étage de calcul et log sa durée — UNIQUEMENT si `PERF_TRACE=1` (issue #33).
+ *
+ * Sert à décomposer un endpoint lent (ex. les 20 s du chemin froid de `/programme`) en sous-étages
+ * X3, pour cibler le levier. Désactivé par défaut → zéro coût ni bruit en prod. La promesse est
+ * retournée telle quelle, l'erreur propagée.
+ */
+export async function timeStage<T>(label: string, fn: () => Promise<T>): Promise<T> {
+  if (process.env.PERF_TRACE !== '1') return fn()
+  const { default: logger } = await import('@adonisjs/core/services/logger')
+  const start = performance.now()
+  try {
+    return await fn()
+  } finally {
+    logger.info({ perfStage: label, ms: Math.round(performance.now() - start) })
+  }
+}

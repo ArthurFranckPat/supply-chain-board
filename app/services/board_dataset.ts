@@ -27,6 +27,9 @@ import { HttpContext } from '@adonisjs/core/http'
 const REF_TTL = 2 * 60 * 60 * 1000 // 2 h — référentiel quasi statique
 const ORDERS_TTL = 5 * 60 * 1000 // 5 min — OF
 const LIVE_TTL = 2 * 60 * 1000 // 2 min — demande/réception par fenêtre
+// Soft timeout SWR : au-delà, on sert la valeur en grace pendant que la factory X3 finit
+// en arrière-plan (issue #33). Couvre le calcul JS ; tout appel X3 lent bascule sur la stale.
+const SWR_TIMEOUT = 1000 // 1 s
 
 type Referential = { gamme: GammeOperation[]; at: number }
 type BomCache = { entries: NomenclatureEntry[]; at: number }
@@ -66,6 +69,11 @@ class BoardDataset {
     return board().getOrSet({
       key: 'orders',
       ttl: ORDERS_TTL,
+      // SWR (issue #33) : la vue ORDERS X3 est lente (~18 s cold). Si une valeur en grace
+      // existe et que la factory dépasse SWR_TIMEOUT, on rend la stale instantanément et le
+      // refresh X3 finit en arrière-plan (contexte requête → creds X3 via ALS). L'utilisateur
+      // ne paie le mur froid qu'au tout premier chargement (aucune valeur en grace).
+      timeout: SWR_TIMEOUT,
       factory: async () => {
         // Throw si X3 KO → le grace period sert la valeur périmée si disponible.
         const mos = await new X3OfRepository().getManufacturingOrders()
@@ -100,6 +108,8 @@ class BoardDataset {
     return board().getOrSet({
       key,
       ttl: LIVE_TTL,
+      // SWR (issue #33) : demande+réception X3 lent (~13 s cold). Cf. getOrders.
+      timeout: SWR_TIMEOUT,
       factory: async () => {
         const [demand, reception] = await Promise.all([
           new X3BesoinClientRepository().getDemandFlows({ from, to }),

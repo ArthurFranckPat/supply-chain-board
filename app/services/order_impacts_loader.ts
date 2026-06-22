@@ -11,6 +11,7 @@
  */
 
 import boardDataset from '#services/board_dataset'
+import { timeStage } from '#services/perf_metrics'
 import { OverrideStore } from '#services/override_store'
 import { OrderLineOverrideStore } from '#services/order_line_override_store'
 import { evaluateOrderImpacts, type OrderImpactResult } from '#app/domain/order-impacts'
@@ -82,13 +83,15 @@ export async function loadOrderImpacts(
     { gamme },
     nomenclatureEntries,
     articlesList,
-  ] = await Promise.all([
-    boardDataset.getOrders(force),
-    boardDataset.getLive(fromIso, toIso, force),
-    boardDataset.getReferential(force),
-    boardDataset.getNomenclature(force),
-    boardDataset.getArticles(),
-  ])
+  ] = await timeStage('loadOrderImpacts.datasets', () =>
+    Promise.all([
+      boardDataset.getOrders(force),
+      boardDataset.getLive(fromIso, toIso, force),
+      boardDataset.getReferential(force),
+      boardDataset.getNomenclature(force),
+      boardDataset.getArticles(),
+    ])
+  )
 
   const overrides = await new OverrideStore().getAll()
 
@@ -166,10 +169,12 @@ export async function loadOrderImpacts(
   // Reverse peg OF → commande (contremarque), pour rattacher les OF dont la commande
   // expédie hors fenêtre (le matcher ne voit que les demandes échéant dans la fenêtre).
   // Deux appels SOAP indépendants (ne dépendent que de windowNumOfs) → parallélisés (issue #33).
-  const [ofPegs, mfgByOf] = await Promise.all([
-    new X3OrderLineRepository().getCommandesByOf(windowNumOfs),
-    new X3MfgmatRepository().getMaterialsForOfs(windowNumOfs),
-  ])
+  const [ofPegs, mfgByOf] = await timeStage('loadOrderImpacts.pegs+mfg', () =>
+    Promise.all([
+      new X3OrderLineRepository().getCommandesByOf(windowNumOfs),
+      new X3MfgmatRepository().getMaterialsForOfs(windowNumOfs),
+    ])
+  )
   // Les composants MFGMAT peuvent différer de la BOM théorique → s'assurer que leur
   // stock est bien chargé.
   for (const materials of mfgByOf.values()) {
@@ -192,7 +197,9 @@ export async function loadOrderImpacts(
   // Périmètre stock aligné sur le détail OF (issue #11) : seul le stock strict/qc
   // est consommable. Le stock 'rejected' (rebut) ne doit jamais compter comme dispo,
   // sinon le badge sur-évalue la faisabilité vs le panneau de détail.
-  const rawStockFlows = await boardDataset.getStock([...articleSet])
+  const rawStockFlows = await timeStage('loadOrderImpacts.stock', () =>
+    boardDataset.getStock([...articleSet])
+  )
   const stockFlows = rawStockFlows.filter((f) => {
     if (f.origin.type !== 'stock') return true
     const sub = (f.origin as { subType?: string }).subType
