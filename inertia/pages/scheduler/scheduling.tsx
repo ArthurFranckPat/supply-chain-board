@@ -5,6 +5,7 @@ import type { BoardData } from '@/lib/board/types'
 import { cx } from '@/libs/cva'
 import { route } from '@/lib/routes'
 import BoardGrid from '@/components/board/board-grid'
+import BatchFirmBar from '@/components/board/batch-firm-bar'
 import OfDetailSheet from '@/components/of/of-detail-sheet'
 import { Masthead } from '@/components/masthead'
 import { Button } from '@/components/ui/button'
@@ -234,6 +235,17 @@ const Scheduling: Component<SchedulingProps> = (props) => {
             </span>
             {store.feasLoading() ? 'Calcul…' : 'Faisabilité'}
           </Button>
+
+          {/* Sélection multi-OF → affermissement en batch (#34) */}
+          <Button
+            size="sm"
+            variant={store.selectMode() ? 'default' : 'outline'}
+            onClick={() => (store.selectMode() ? store.exitSelect() : store.enterSelect())}
+            class="gap-1.5"
+          >
+            <span class="material-symbols-outlined text-[15px]">checklist</span>
+            Sélection
+          </Button>
         </div>
       </div>
 
@@ -263,6 +275,7 @@ const Scheduling: Component<SchedulingProps> = (props) => {
       </Show>
 
       <OfDetailSheet num={selectedOf()} open={detailOpen()} onOpenChange={setDetailOpen} onFirmed={(oldId, newId) => store.transformCard(oldId, newId)} />
+      <BatchFirmBar store={store} />
     </div>
   )
 }

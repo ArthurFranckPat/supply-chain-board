@@ -18,6 +18,7 @@ import type { OrderBoardData } from '@/lib/orders/types'
 import type { VisionCommande, VisionLink } from '@/lib/vision/types'
 import { cx } from '@/libs/cva'
 import BoardGrid from '@/components/board/board-grid'
+import BatchFirmBar from '@/components/board/batch-firm-bar'
 import OrderGrid from '@/components/board/order-grid'
 import OfDetailSheet from '@/components/of/of-detail-sheet'
 import OrderDetailSheet from '@/components/orders/order-detail-sheet'
@@ -560,6 +561,19 @@ const Programme: Component<VisionProps> = (props) => {
             </span>
             {store.feasLoading() ? 'Calcul…' : 'Faisabilité'}
           </Button>
+
+          {/* Sélection multi-OF → affermissement en batch (#34, vue OF uniquement) */}
+          <Show when={props.mode !== 'planification'}>
+            <Button
+              size="sm"
+              variant={store.selectMode() ? 'default' : 'outline'}
+              onClick={() => (store.selectMode() ? store.exitSelect() : store.enterSelect())}
+              class="gap-1.5"
+            >
+              <span class="material-symbols-outlined text-[15px]">checklist</span>
+              Sélection
+            </Button>
+          </Show>
         </div>
       </div>
 
@@ -647,6 +661,7 @@ const Programme: Component<VisionProps> = (props) => {
       </Show>
 
       <OfDetailSheet num={selectedOf()} open={detailOpen()} onOpenChange={setDetailOpen} onFirmed={(oldId, newId) => store.transformCard(oldId, newId)} />
+      <BatchFirmBar store={store} />
       </Show>
     </div>
   )

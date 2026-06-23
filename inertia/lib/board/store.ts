@@ -2,6 +2,7 @@ import { createSignal, createMemo } from 'solid-js'
 import { createStore, produce, reconcile } from 'solid-js/store'
 import type { BoardData, Card, SearchScope, FeasibilityMode, FeasStatus } from './types'
 import { route } from '@/lib/routes'
+import { router } from '@/lib/inertia-solid'
 
 /** One backend route per scope. Each returns the FULL matched set (not just the
  *  visible window) → robust vs volume and out-of-window OFs (#7). */
@@ -281,6 +282,117 @@ export function createBoardStore(initial: BoardData) {
       .finally(() => setFeasLoading(false))
   }
 
+  // ── Sélection multi-OF + affermissement en batch (issue #34) ──
+  // FIRMSUGG/ZSOAPFIRM n'est pas thread-safe → on séquence (file série). Échec
+  // partiel non bloquant : on collecte par OF et on poursuit. Cache invalidé une
+  // seule fois en fin de batch (un seul router.reload, comme l'unitaire #31).
+  type BatchItem = { st: 'running' | 'ok' | 'error'; msg?: string }
+  const [selectMode, setSelectMode] = createSignal(false)
+  const [selected, setSelected] = createSignal<Set<string>>(new Set())
+  const [batch, setBatch] = createStore<Record<string, BatchItem>>({})
+  const [batchRunning, setBatchRunning] = createSignal(false)
+
+  const isSelected = (id: string) => selected().has(id)
+  const selectedIds = () => Array.from(selected())
+  const selectedCount = () => selected().size
+  const clearSelection = () => setSelected(new Set<string>())
+  const toggleSelect = (id: string) =>
+    setSelected((prev) => {
+      const n = new Set<string>(prev)
+      n.has(id) ? n.delete(id) : n.add(id)
+      return n
+    })
+
+  /** Transforme une carte en place : change son id (ex. suggestion SGAE… → OF
+   *  ferme F… après affermissement, #31/#32). La carte reste visible à sa
+   *  position pendant que le reload réconcilie les détails (poste, charge,
+   *  styling). Évite le trou visuel d'un removeCard + réapparition lente, et
+   *  sidestep un éventuel lag de propagation ORDERS. */
+  function transformCard(oldId: string, newId: string) {
+    if (oldId === newId) return
+    setBoard(
+      produce((b) => {
+        for (const line of b.lines) {
+          for (const cell of line.dayCells) {
+            const c = cell.cards.find((x) => x.id === oldId)
+            if (c) {
+              c.id = newId
+              c.href = c.href.replace(oldId, newId)
+              // Affermissement → ferme : la couleur de la carte est dérivée de
+              // `status` (TONE_BORDER/TONE_FILL dans board-card). On la passe à
+              // 'ferme' pour que la carte vire au vert immédiatement (le reload
+              // réconcilie le reste : badge, poste, charge).
+              c.status = 'ferme'
+              return
+            }
+          }
+        }
+      }),
+    )
+  }
+  const enterSelect = () => setSelectMode(true)
+  const exitSelect = () => {
+    setSelectMode(false)
+    clearSelection()
+    setBatch(reconcile({}))
+  }
+  const batchItemOf = (id: string): BatchItem | undefined => batch[id]
+  const batchCounts = createMemo(() => {
+    let ok = 0
+    let err = 0
+    let run = 0
+    for (const k in batch) {
+      const s = batch[k].st
+      if (s === 'ok') ok++
+      else if (s === 'error') err++
+      else run++
+    }
+    return { ok, err, run, total: ok + err + run }
+  })
+
+  async function batchFirm(ids: string[]) {
+    if (batchRunning() || ids.length === 0) return
+    setBatchRunning(true)
+    setBatch(reconcile(Object.fromEntries(ids.map((id) => [id, { st: 'running' } as BatchItem]))))
+    let nbOk = 0
+    let nbErr = 0
+    const firmed: string[] = []
+    for (const id of ids) {
+      try {
+        // Les deux routes (suggestion_firm/order_firm) pointent sur le même
+        // contrôleur qui auto-détecte le statut source → order_firm suffit ici.
+        const res = await fetch(route('planning.order_firm', { orderNum: id }), { method: 'POST' })
+        const data = (await res.json()) as { ok: boolean; mfgNum?: string; error?: string }
+        if (data.ok && data.mfgNum) {
+          // Statut batch gardé sous l'id d'origine (batchCounts reste juste) ; le
+          // visuel de succès passe par transformCard (carte → vert « ferme »). Pour
+          // un OF planifié (mfgNum === id) le badge ✓ reste visible sur la carte.
+          setBatch(id, { st: 'ok', msg: data.mfgNum })
+          transformCard(id, data.mfgNum)
+          firmed.push(id)
+          nbOk++
+        } else {
+          setBatch(id, { st: 'error', msg: data.error ?? 'Refusé par X3' })
+          nbErr++
+        }
+      } catch (e) {
+        setBatch(id, { st: 'error', msg: (e as Error).message })
+        nbErr++
+      }
+    }
+    setBatchRunning(false)
+    toast(nbErr === 0 ? `${nbOk} OF affermi(s)` : `${nbOk} affermi(s) · ${nbErr} échec(s)`)
+    // On déselectionne les succès, on garde les échecs sélectionnés pour réessai.
+    setSelected((prev) => {
+      const n = new Set(prev)
+      for (const oldId of firmed) n.delete(oldId)
+      return n
+    })
+    // Invalidation unique : un seul reload différé en fin de batch (ORDERS propage
+    // avec un léger delta, cf. unitaire). transformCard tient le visuel meantime.
+    if (nbOk > 0) setTimeout(() => router.reload(), 2000)
+  }
+
   return {
     board,
     query,
@@ -301,34 +413,21 @@ export function createBoardStore(initial: BoardData) {
     clearSearch,
     reset,
     moveCard,
-    /** Transforme une carte en place : change son id (ex. suggestion SGAE… → OF
-     *  ferme F… après affermissement, #31/#32). La carte reste visible à sa
-     *  position pendant que le reload réconcilie les détails (poste, charge,
-     *  styling). Évite le trou visuel d'un removeCard + réapparition lente, et
-     *  sidestep un éventuel lag de propagation ORDERS. */
-    transformCard(oldId: string, newId: string) {
-      if (oldId === newId) return
-      setBoard(
-        produce((b) => {
-          for (const line of b.lines) {
-            for (const cell of line.dayCells) {
-              const c = cell.cards.find((x) => x.id === oldId)
-              if (c) {
-                c.id = newId
-                c.href = c.href.replace(oldId, newId)
-                // Affermissement → ferme : la couleur de la carte est dérivée de
-                // `status` (TONE_BORDER/TONE_FILL dans board-card). On la passe à
-                // 'ferme' pour que la carte vire au vert immédiatement (le reload
-                // réconcilie le reste : badge, poste, charge).
-                c.status = 'ferme'
-                return
-              }
-            }
-          }
-        }),
-      )
-    },
+    transformCard,
     runFeasibility,
+    // Sélection multi-OF + batch firming (#34)
+    selectMode,
+    enterSelect,
+    exitSelect,
+    isSelected,
+    toggleSelect,
+    selectedIds,
+    selectedCount,
+    clearSelection,
+    batchItemOf,
+    batchCounts,
+    batchRunning,
+    batchFirm,
   }
 }
 

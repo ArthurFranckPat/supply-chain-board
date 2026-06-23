@@ -318,20 +318,28 @@ function CardView(props: {
       ? `Rupture ${f.missing.join(', ')}`
       : undefined
   }
+  // Sélection multi-OF + batch firming (#34).
+  const selecting = () => store.selectMode()
+  const picked = () => store.isSelected(card.id)
+  const batchItem = () => store.batchItemOf(card.id)
   return (
     <div
       role="button"
       tabindex={matches() ? 0 : -1}
-      draggable={matches()}
+      draggable={matches() && !selecting()}
       data-num-of={card.id}
       class={cx(
-        'cursor-pointer transition-opacity',
-        !matches() && 'pointer-events-none opacity-15'
+        'relative cursor-pointer transition-opacity',
+        !matches() && 'pointer-events-none opacity-15',
+        selecting() && picked() && 'rounded-md ring-2 ring-terra ring-offset-1'
       )}
       onMouseEnter={() => props.onCardHover?.(card.id)}
       onMouseLeave={() => props.onCardHover?.(null)}
       onClick={() => {
-        if (matches() && props.onSelectOf) props.onSelectOf(card.id)
+        if (!matches()) return
+        // En mode sélection, le clic (dé)sélectionne au lieu d'ouvrir le détail.
+        if (selecting()) store.toggleSelect(card.id)
+        else props.onSelectOf?.(card.id)
       }}
       onDragStart={(e: DragEvent) => {
         props.setDraggedNumOf(card.id)
@@ -345,6 +353,38 @@ function CardView(props: {
         props.setDropCol(null)
       }}
     >
+      {/* Case à cocher (mode sélection) */}
+      <Show when={selecting()}>
+        <span
+          class={cx(
+            'absolute left-1 top-1 z-10 flex size-4 items-center justify-center rounded border bg-card',
+            picked() ? 'border-terra bg-terra text-card' : 'border-rule text-transparent'
+          )}
+        >
+          <span class="material-symbols-outlined text-[13px] font-bold">check</span>
+        </span>
+      </Show>
+      {/* Badge d'état batch (spinner / ✓ / ✗) par OF */}
+      <Show when={batchItem()}>
+        {(b) => (
+          <span
+            class={cx(
+              'absolute right-1 top-1 z-10 flex size-4 items-center justify-center rounded-full text-card',
+              b().st === 'ok' ? 'bg-ferme' : b().st === 'error' ? 'bg-destructive' : 'bg-terra'
+            )}
+            title={b().msg}
+          >
+            <span
+              class={cx(
+                'material-symbols-outlined text-[12px] font-bold',
+                b().st === 'running' && 'animate-spin'
+              )}
+            >
+              {b().st === 'ok' ? 'check' : b().st === 'error' ? 'priority_high' : 'progress_activity'}
+            </span>
+          </span>
+        )}
+      </Show>
       <BoardCard
         variant="of"
         status={toStatus(card.status)}
