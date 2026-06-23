@@ -473,10 +473,6 @@ export const OfDetailSheet: Component<{
                     </Show>
                   </div>
                 </Show>
-                <Button size="sm" variant="outline" class="gap-1.5">
-                  <span class="material-symbols-outlined text-[15px]">swap_horiz</span>
-                  Replanifier
-                </Button>
               </div>
 
               {/* Méta + avancement */}
