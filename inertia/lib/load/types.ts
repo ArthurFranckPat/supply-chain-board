@@ -15,6 +15,15 @@ export interface LoadPeriod {
   s: number
 }
 
+/** Capacité nette (heures) par bucket, alignée sur `monthly` / `weekly` (issue #35). */
+export interface LoadCapacity {
+  monthly: number[]
+  weekly: number[]
+}
+
+/** Catégorie d'atelier dérivée de STOLOC (issue #36). */
+export type AtelierCategory = 'montage' | 'fabrication'
+
 /** Série de charge d'un poste de charge sur l'horizon. */
 export interface LoadLine {
   /** Code workstation (WST). */
@@ -29,6 +38,23 @@ export interface LoadLine {
   monthly: LoadPeriod[]
   /** Charge par semaine ISO (longueur = `weeks`). */
   weekly: LoadPeriod[]
+  /** Capacité nette (heures), mêmes mailles que `monthly` / `weekly`. */
+  capacity: LoadCapacity
+  /** Atelier (STOLOC) du poste. */
+  atelier: string
+  /** Libellé lisible de l'atelier. */
+  atelierLabel: string
+  /** Centre de charge (WCR). */
+  workCenter: string
+  /** Montage (commandes clients) ou fabrication (sous-ensembles). */
+  category: AtelierCategory
+}
+
+/** Atelier présent dans la fenêtre, pour le filtre (issue #36). */
+export interface AtelierOption {
+  code: string
+  label: string
+  category: AtelierCategory
 }
 
 /** Vue de charge : OF (ordres) ou Commande (demande). */
@@ -45,5 +71,7 @@ export interface LoadPageProps {
   ofLines: LoadLine[]
   /** Charge demande, segments Commande(f) / Prévision(s) — `p` toujours 0. */
   cmdLines: LoadLine[]
+  /** Ateliers présents (postes avec charge), pour le filtre transverse. */
+  ateliers: AtelierOption[]
   x3Error: string | null
 }

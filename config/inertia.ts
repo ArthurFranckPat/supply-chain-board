@@ -17,6 +17,23 @@ export default defineConfig({
  */
 declare module '@adonisjs/inertia/types' {
   /**
+   * Forme d'une ligne de charge /charge (miroir : inertia/lib/load/types.ts → LoadLine).
+   */
+  type LoadLineProp = {
+    code: string
+    name: string
+    color: string
+    articles: string[]
+    monthly: { f: number; p: number; s: number }[]
+    weekly: { f: number; p: number; s: number }[]
+    capacity: { monthly: number[]; weekly: number[] }
+    atelier: string
+    atelierLabel: string
+    workCenter: string
+    category: 'montage' | 'fabrication'
+  }
+
+  /**
    * Forme du payload `board` (cartes pré-stylées côté serveur).
    * Le miroir client précis vit dans `inertia/lib/board/types.ts` (BoardData).
    */
@@ -86,24 +103,12 @@ declare module '@adonisjs/inertia/types' {
       rangeLabel: string
       months: string[]
       weeks: string[]
-      // Miroir client précis : inertia/lib/load/types.ts (ForecastLine).
+      // Miroir client précis : inertia/lib/load/types.ts (LoadLine).
       // ofLines = charge OF (Ferme/Planifié/Suggéré) ; cmdLines = charge demande (Commande/Prévision).
-      ofLines: {
-        code: string
-        name: string
-        color: string
-        articles: string[]
-        monthly: { f: number; p: number; s: number }[]
-        weekly: { f: number; p: number; s: number }[]
-      }[]
-      cmdLines: {
-        code: string
-        name: string
-        color: string
-        articles: string[]
-        monthly: { f: number; p: number; s: number }[]
-        weekly: { f: number; p: number; s: number }[]
-      }[]
+      // capacity (#35) = capacité nette par bucket ; atelier/category (#36) = rattachement atelier.
+      ofLines: LoadLineProp[]
+      cmdLines: LoadLineProp[]
+      ateliers: { code: string; label: string; category: 'montage' | 'fabrication' }[]
       x3Error: string | null
     }
     'scheduler/programme': {

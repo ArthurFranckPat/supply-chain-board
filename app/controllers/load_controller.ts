@@ -3,6 +3,9 @@ import boardDataset from '#services/board_dataset'
 import type { ManufacturingOrder } from '#repositories/of_repository'
 import { X3OrderLineRepository, type OrderLineRow } from '#repositories/order_line_repository'
 import type { GammeOperation } from '#app/domain/models/gamme'
+import type { Workstation } from '#app/domain/models/workstation'
+import { capDay } from '#app/domain/capacity'
+import { atelierLabel, atelierCategory, type AtelierCategory } from '#app/domain/atelier'
 
 /**
  * Shapes émis vers la page Inertia. Miroir côté client : inertia/lib/load/types.ts
@@ -21,6 +24,13 @@ interface LoadLine {
   articles: string[]
   monthly: LoadPeriod[]
   weekly: LoadPeriod[]
+  /** Capacité nette (heures) par bucket, alignée sur monthly/weekly (issue #35). */
+  capacity: { monthly: number[]; weekly: number[] }
+  /** Atelier (STOLOC) du poste + métadonnées de filtre (issue #36). */
+  atelier: string
+  atelierLabel: string
+  workCenter: string
+  category: AtelierCategory
 }
 
 /**
@@ -119,6 +129,7 @@ export default class LoadController {
     let mos: ManufacturingOrder[] = []
     let orderLines: OrderLineRow[] = []
     let gammeOps: GammeOperation[] = []
+    let workstations: Workstation[] = []
     let x3Error: string | null = null
     // OF (board) + référentiel via boardDataset (cache SWR partagé) ; lignes de commande
     // sur l'horizon (X3 direct). Chaque source dans son try → l'une n'empêche pas l'autre.
@@ -128,6 +139,7 @@ export default class LoadController {
         boardDataset.getOrders(force),
       ])
       gammeOps = ref.gamme
+      workstations = ref.workstations
       mos = ord.mos
     } catch (e) {
       x3Error = (e as Error).message
@@ -146,6 +158,26 @@ export default class LoadController {
     for (const g of gammeOps) {
       if (g.workstation) wstLabels.set(g.workstation, g.workstationLabel || g.workstation)
     }
+
+    // Capacité nette par poste × bucket (issue #35). Une passe jour par poste, ventilée
+    // dans les mêmes buckets mensuels/hebdo que la charge → overlay directement alignable.
+    const wstByCode = new Map(workstations.map((w) => [w.code, w]))
+    const capacityByWst = new Map<string, { monthly: number[]; weekly: number[] }>()
+    for (const w of workstations) {
+      const monthly = monthBuckets.map(() => 0)
+      const weekly = weekBuckets.map(() => 0)
+      for (let t = monthStart.getTime(); t <= horizonEnd.getTime(); t += DAY_MS) {
+        const d = new Date(t)
+        const c = capDay(w, d)
+        if (c <= 0) continue
+        const mi = monthIdxByKey.get(monthKey(d))
+        if (mi !== undefined) monthly[mi] += c
+        const wi = weekIdxByKey.get(isoDay(mondayOf(d)))
+        if (wi !== undefined) weekly[wi] += c
+      }
+      capacityByWst.set(w.code, { monthly: monthly.map(Math.round), weekly: weekly.map(Math.round) })
+    }
+    const emptyCap = () => ({ monthly: monthBuckets.map(() => 0), weekly: weekBuckets.map(() => 0) })
 
     // Enregistrement unitaire d'agrégation : un poste, une date, des heures, un segment.
     type AggRecord = { wst: string; date: Date; hours: number; field: keyof LoadPeriod; article: string }
@@ -170,14 +202,23 @@ export default class LoadController {
       }
       return [...byLine.entries()]
         .sort((a, b) => a[0].localeCompare(b[0]))
-        .map(([code, acc], i) => ({
-          code,
-          name: wstLabels.get(code) ?? code,
-          color: PALETTE[i % PALETTE.length],
-          articles: [...acc.articles].sort(),
-          monthly: acc.monthly.map(round),
-          weekly: acc.weekly.map(round),
-        }))
+        .map(([code, acc], i) => {
+          const w = wstByCode.get(code)
+          const stoloc = w?.stockLocation ?? ''
+          return {
+            code,
+            name: wstLabels.get(code) ?? w?.description ?? code,
+            color: PALETTE[i % PALETTE.length],
+            articles: [...acc.articles].sort(),
+            monthly: acc.monthly.map(round),
+            weekly: acc.weekly.map(round),
+            capacity: capacityByWst.get(code) ?? emptyCap(),
+            atelier: stoloc,
+            atelierLabel: atelierLabel(stoloc),
+            workCenter: w?.workCenter ?? '',
+            category: atelierCategory(stoloc),
+          }
+        })
     }
 
     // Vue OF : charge des ordres, segments Ferme(1)/Planifié(2)/Suggéré(3).
@@ -224,12 +265,21 @@ export default class LoadController {
     lastMonth.setMonth(monthStart.getMonth() + NB_MONTHS - 1)
     const rangeLabel = `${fmtLong(monthStart)} → ${fmtLong(lastMonth)} ${lastMonth.getFullYear()} · ${NB_MONTHS} mois`
 
+    // Ateliers présents (postes ayant de la charge), pour le filtre transverse (issue #36).
+    const ateliers = new Map<string, { code: string; label: string; category: AtelierCategory }>()
+    for (const l of [...ofLines, ...cmdLines]) {
+      if (l.atelier && !ateliers.has(l.atelier)) {
+        ateliers.set(l.atelier, { code: l.atelier, label: l.atelierLabel, category: l.category })
+      }
+    }
+
     return ctx.inertia.render('scheduler/load', {
       rangeLabel,
       months: monthBuckets.map((m) => m.label),
       weeks: weekBuckets.map((w) => w.label),
       ofLines,
       cmdLines,
+      ateliers: [...ateliers.values()].sort((a, b) => a.label.localeCompare(b.label)),
       x3Error,
     })
   }

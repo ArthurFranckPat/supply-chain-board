@@ -6,6 +6,7 @@
 export const controllers = {
   Auth: () => import('#controllers/auth_controller'),
   Health: () => import('#controllers/health_controller'),
+  Load: () => import('#controllers/load_controller'),
   OrderPlanning: () => import('#controllers/order_planning_controller'),
   Perf: () => import('#controllers/perf_controller'),
   Pipeline: () => import('#controllers/pipeline_controller'),
@@ -16,5 +17,4 @@ export const controllers = {
   Suivi: () => import('#controllers/suivi_controller'),
   X3Data: () => import('#controllers/x3_data_controller'),
   X3Writeback: () => import('#controllers/x3_writeback_controller'),
-  Load: () => import('#controllers/load_controller'),
 }

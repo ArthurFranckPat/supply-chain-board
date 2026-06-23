@@ -117,6 +117,51 @@ export class StaticNomenclatureSchema extends BaseModel {
   declare syncedAt: number
 }
 
+export class StaticWorkstationSchema extends BaseModel {
+  static $columns = ['code', 'daycap0', 'daycap1', 'daycap2', 'daycap3', 'daycap4', 'daycap5', 'daycap6', 'description', 'eff', 'id', 'shr', 'stoloc', 'syncedAt', 'twd', 'usePct', 'wcr', 'wcrfcy', 'wstnbr', 'wsttyp'] as const
+  $columns = StaticWorkstationSchema.$columns
+  @column()
+  declare code: string
+  @column()
+  declare daycap0: number
+  @column()
+  declare daycap1: number
+  @column()
+  declare daycap2: number
+  @column()
+  declare daycap3: number
+  @column()
+  declare daycap4: number
+  @column()
+  declare daycap5: number
+  @column()
+  declare daycap6: number
+  @column()
+  declare description: string
+  @column()
+  declare eff: number
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare shr: number
+  @column()
+  declare stoloc: string
+  @column()
+  declare syncedAt: number
+  @column()
+  declare twd: string
+  @column()
+  declare usePct: number
+  @column()
+  declare wcr: string
+  @column()
+  declare wcrfcy: string
+  @column()
+  declare wstnbr: number
+  @column()
+  declare wsttyp: number
+}
+
 export class UserSchema extends BaseModel {
   static $columns = ['createdAt', 'id', 'lastEnv', 'lastLoginAt', 'updatedAt', 'username', 'x3PasswordEncrypted'] as const
   $columns = UserSchema.$columns

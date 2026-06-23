@@ -2,11 +2,14 @@ import db from '@adonisjs/lucid/services/db'
 import StaticArticle from '#models/static_article'
 import StaticGamme from '#models/static_gamme'
 import StaticNomenclature from '#models/static_nomenclature'
+import StaticWorkstation from '#models/static_workstation'
 import { X3GammeRepository } from '#repositories/gamme_repository'
+import { X3WorkstationRepository } from '#repositories/workstation_repository'
 import { X3Database } from '#app/x3/client/x3_database'
 import type { GammeOperation } from '#app/domain/models/gamme'
 import type { NomenclatureEntry } from '#app/domain/models/nomenclature'
 import type { Article } from '#app/domain/models/article'
+import type { Workstation } from '#app/domain/models/workstation'
 
 // Page size for SOAP keyset pagination (large datasets)
 const PAGE_SIZE_ARTICLES = 300
@@ -18,6 +21,7 @@ export interface SyncResult {
   articles: number
   gammes: number
   nomenclatures: number
+  workstations: number
   durationMs: number
   errors: string[]
 }
@@ -26,12 +30,13 @@ export class StaticSyncService {
   async syncAll(): Promise<SyncResult> {
     const start = Date.now()
     const errors: string[] = []
-    let articles = 0, gammes = 0, nomenclatures = 0
+    let articles = 0, gammes = 0, nomenclatures = 0, workstations = 0
 
-    const [artResult, gammeResult, nomResult] = await Promise.allSettled([
+    const [artResult, gammeResult, nomResult, wstResult] = await Promise.allSettled([
       this.syncArticles(),
       this.syncGammes(),
       this.syncNomenclatures(),
+      this.syncWorkstations(),
     ])
 
     if (artResult.status === 'fulfilled') articles = artResult.value
@@ -43,7 +48,42 @@ export class StaticSyncService {
     if (nomResult.status === 'fulfilled') nomenclatures = nomResult.value
     else errors.push('nomenclatures: ' + (nomResult.reason as Error).message)
 
-    return { articles, gammes, nomenclatures, durationMs: Date.now() - start, errors }
+    if (wstResult.status === 'fulfilled') workstations = wstResult.value
+    else errors.push('workstations: ' + (wstResult.reason as Error).message)
+
+    return { articles, gammes, nomenclatures, workstations, durationMs: Date.now() - start, errors }
+  }
+
+  private async syncWorkstations(): Promise<number> {
+    const entries: Workstation[] = await new X3WorkstationRepository().getAll()
+    const now = Date.now()
+    const data = entries.map((w) => ({
+      code: w.code,
+      description: w.description,
+      wsttyp: w.type,
+      wstnbr: w.parallelUnits,
+      eff: w.efficiency,
+      use_pct: w.utilization,
+      shr: w.scrap,
+      twd: w.scheduleCode,
+      daycap_0: w.dailyCapacity[0] ?? 0,
+      daycap_1: w.dailyCapacity[1] ?? 0,
+      daycap_2: w.dailyCapacity[2] ?? 0,
+      daycap_3: w.dailyCapacity[3] ?? 0,
+      daycap_4: w.dailyCapacity[4] ?? 0,
+      daycap_5: w.dailyCapacity[5] ?? 0,
+      daycap_6: w.dailyCapacity[6] ?? 0,
+      stoloc: w.stockLocation,
+      wcr: w.workCenter,
+      wcrfcy: w.facility,
+      synced_at: now,
+    })).filter((r) => r.code)
+
+    await db.from('static_workstations').delete()
+    for (let i = 0; i < data.length; i += 500) {
+      await db.table('static_workstations').insert(data.slice(i, i + 500))
+    }
+    return data.length
   }
 
   private async syncArticles(): Promise<number> {
@@ -242,17 +282,38 @@ FROM (
     }))
   }
 
-  async counts(): Promise<{ articles: number; gammes: number; nomenclatures: number; lastSync: number | null }> {
-    const [a, g, n] = await Promise.all([
+  /** Lecture locale postes de charge (SQLite) */
+  async readWorkstations(): Promise<Workstation[]> {
+    const rows = await StaticWorkstation.all()
+    return rows.map((r) => ({
+      code: r.code,
+      description: r.description,
+      type: r.wsttyp,
+      parallelUnits: r.wstnbr,
+      efficiency: r.eff,
+      utilization: r.usePct,
+      scrap: r.shr,
+      scheduleCode: r.twd,
+      dailyCapacity: [r.daycap0, r.daycap1, r.daycap2, r.daycap3, r.daycap4, r.daycap5, r.daycap6],
+      stockLocation: r.stoloc,
+      workCenter: r.wcr,
+      facility: r.wcrfcy,
+    }))
+  }
+
+  async counts(): Promise<{ articles: number; gammes: number; nomenclatures: number; workstations: number; lastSync: number | null }> {
+    const [a, g, n, w] = await Promise.all([
       db.from('static_articles').count('* as total').first(),
       db.from('static_gammes').count('* as total').first(),
       db.from('static_nomenclatures').count('* as total').first(),
+      db.from('static_workstations').count('* as total').first(),
     ])
     const lastSync = await db.from('static_nomenclatures').max('synced_at as ts').first()
     return {
       articles: Number((a as any)?.total ?? 0),
       gammes: Number((g as any)?.total ?? 0),
       nomenclatures: Number((n as any)?.total ?? 0),
+      workstations: Number((w as any)?.total ?? 0),
       lastSync: (lastSync as any)?.ts ? Number((lastSync as any).ts) : null,
     }
   }

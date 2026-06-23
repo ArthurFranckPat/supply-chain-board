@@ -1,6 +1,7 @@
 import type { Flow } from '#app/domain/models/flow'
 import type { GammeOperation } from '#app/domain/models/gamme'
 import type { NomenclatureEntry } from '#app/domain/models/nomenclature'
+import type { Workstation } from '#app/domain/models/workstation'
 import { X3OfRepository, type ManufacturingOrder } from '#repositories/of_repository'
 import { X3StockRepository } from '#repositories/stock_repository'
 import { X3ReceptionRepository } from '#repositories/reception_repository'
@@ -33,7 +34,7 @@ const LIVE_TTL = 2 * 60 * 1000 // 2 min — demande/réception par fenêtre
 // background ; à son rejet la promesse orpheline → unhandled rejection → crash serveur.
 const SWR_TIMEOUT = 0
 
-type Referential = { gamme: GammeOperation[]; at: number }
+type Referential = { gamme: GammeOperation[]; workstations: Workstation[]; at: number }
 type BomCache = { entries: NomenclatureEntry[]; at: number }
 type Orders = { mos: ManufacturingOrder[]; supply: Flow[]; at: number }
 type Live = { demand: Flow[]; reception: Flow[]; at: number }
@@ -58,9 +59,12 @@ class BoardDataset {
       key: 'referential',
       ttl: REF_TTL,
       factory: async () => {
-        const gamme = await staticSync.readGammes().catch(() => [] as GammeOperation[])
+        const [gamme, workstations] = await Promise.all([
+          staticSync.readGammes().catch(() => [] as GammeOperation[]),
+          staticSync.readWorkstations().catch(() => [] as Workstation[]),
+        ])
         this.lastReferentialAt = Date.now()
-        return { gamme, at: this.lastReferentialAt } satisfies Referential
+        return { gamme, workstations, at: this.lastReferentialAt } satisfies Referential
       },
     })
   }
