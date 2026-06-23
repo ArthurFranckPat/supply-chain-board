@@ -19,7 +19,7 @@ export type ScannedRoutes = {
     'scheduler.shortage_tracker': { paramsTuple?: []; params?: {} }
     'suivi.board': { paramsTuple?: []; params?: {} }
     'scheduler.programme': { paramsTuple?: []; params?: {} }
-    'forecast.index': { paramsTuple?: []; params?: {} }
+    'load.index': { paramsTuple?: []; params?: {} }
     'order_planning.index': { paramsTuple?: []; params?: {} }
     'order_planning.line_detail': { paramsTuple: [ParamValue,ParamValue]; params: {'order': ParamValue,'line': ParamValue} }
     'order_planning.update': { paramsTuple: [ParamValue,ParamValue]; params: {'order': ParamValue,'line': ParamValue} }
@@ -82,7 +82,7 @@ export type ScannedRoutes = {
     'scheduler.shortage_tracker': { paramsTuple?: []; params?: {} }
     'suivi.board': { paramsTuple?: []; params?: {} }
     'scheduler.programme': { paramsTuple?: []; params?: {} }
-    'forecast.index': { paramsTuple?: []; params?: {} }
+    'load.index': { paramsTuple?: []; params?: {} }
     'order_planning.index': { paramsTuple?: []; params?: {} }
     'order_planning.line_detail': { paramsTuple: [ParamValue,ParamValue]; params: {'order': ParamValue,'line': ParamValue} }
     'planning_board.index': { paramsTuple?: []; params?: {} }
@@ -122,7 +122,7 @@ export type ScannedRoutes = {
     'scheduler.shortage_tracker': { paramsTuple?: []; params?: {} }
     'suivi.board': { paramsTuple?: []; params?: {} }
     'scheduler.programme': { paramsTuple?: []; params?: {} }
-    'forecast.index': { paramsTuple?: []; params?: {} }
+    'load.index': { paramsTuple?: []; params?: {} }
     'order_planning.index': { paramsTuple?: []; params?: {} }
     'order_planning.line_detail': { paramsTuple: [ParamValue,ParamValue]; params: {'order': ParamValue,'line': ParamValue} }
     'planning_board.index': { paramsTuple?: []; params?: {} }

@@ -2,7 +2,7 @@
  * AUTO-GÉNÉRÉ par scripts/gen-routes-manifest.mjs — NE PAS ÉDITER À LA MAIN.
  * Source : `start/routes.ts` → `node ace list:routes --jsonl`.
  * Régénérer : `npm run routes:gen` · Vérifier la fraîcheur : `npm run routes:check`.
- * 62 routes nommées.
+ * 63 routes nommées.
  */
 
 export const MANIFEST = {
@@ -15,12 +15,13 @@ export const MANIFEST = {
   "data.load": { method: "POST", pattern: "/api/v1/data/load" },
   "design_system": { method: "GET", pattern: "/design-system" },
   "diagnostic_test": { method: "GET", pattern: "/diagnostic-test" },
-  "forecast.index": { method: "GET", pattern: "/charge" },
   "health.index": { method: "GET", pattern: "/health" },
+  "load.index": { method: "GET", pattern: "/charge" },
   "order_planning.index": { method: "GET", pattern: "/api/v1/planning/order-lines" },
   "order_planning.line_detail": { method: "GET", pattern: "/api/v1/planning/order-lines/:order/:line" },
   "order_planning.reset_override": { method: "DELETE", pattern: "/api/v1/planning/order-lines/:order/:line/override" },
   "order_planning.update": { method: "PATCH", pattern: "/api/v1/planning/order-lines/:order/:line" },
+  "perf.index": { method: "GET", pattern: "/api/v1/_perf" },
   "pipeline.suivi_status": { method: "POST", pattern: "/api/v1/pipeline/suivi-status" },
   "pipeline.supply_board": { method: "POST", pattern: "/api/v1/pipeline/supply-board" },
   "planning": { method: "GET", pattern: "/planification" },
@@ -86,12 +87,13 @@ export type RouteParams = {
   "data.load": void,
   "design_system": void,
   "diagnostic_test": void,
-  "forecast.index": void,
   "health.index": void,
+  "load.index": void,
   "order_planning.index": void,
   "order_planning.line_detail": { "order": string | number; "line": string | number },
   "order_planning.reset_override": { "order": string | number; "line": string | number },
   "order_planning.update": { "order": string | number; "line": string | number },
+  "perf.index": void,
   "pipeline.suivi_status": void,
   "pipeline.supply_board": void,
   "planning": void,

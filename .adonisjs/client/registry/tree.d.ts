@@ -39,8 +39,8 @@ export interface ApiDefinition {
     rows: typeof routes['suivi.rows']
     proactiveRows: typeof routes['suivi.proactive_rows']
   }
-  forecast: {
-    index: typeof routes['forecast.index']
+  load: {
+    index: typeof routes['load.index']
   }
   orderPlanning: {
     index: typeof routes['order_planning.index']

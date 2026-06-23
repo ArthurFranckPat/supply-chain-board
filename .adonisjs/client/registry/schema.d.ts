@@ -187,7 +187,7 @@ export interface Registry {
       errorResponse: unknown
     }
   }
-  'forecast.index': {
+  'load.index': {
     methods: ["GET","HEAD"]
     pattern: '/charge'
     types: {

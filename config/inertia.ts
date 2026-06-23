@@ -82,11 +82,11 @@ declare module '@adonisjs/inertia/types' {
       rowsHref: string
       proactiveRowsHref: string
     }
-    'scheduler/forecast': {
+    'scheduler/load': {
       rangeLabel: string
       months: string[]
       weeks: string[]
-      // Miroir client précis : inertia/lib/forecast/types.ts (ForecastLine).
+      // Miroir client précis : inertia/lib/load/types.ts (ForecastLine).
       // ofLines = charge OF (Ferme/Planifié/Suggéré) ; cmdLines = charge demande (Commande/Prévision).
       ofLines: {
         code: string

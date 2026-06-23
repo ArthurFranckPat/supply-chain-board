@@ -2,7 +2,7 @@ import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount, 
 import { cx } from '@/libs/cva'
 import { Masthead } from '@/components/masthead'
 import { TextField, TextFieldInput } from '@/components/ui/text-field'
-import type { ForecastPageProps, ForecastLine, ForecastPeriod, ForecastView } from '@/lib/forecast/types'
+import type { LoadPageProps, LoadLine, LoadPeriod, LoadView } from '@/lib/load/types'
 
 /**
  * Page « Projection de charge » — vision long terme, variante 3 « Charge par ligne »
@@ -11,7 +11,7 @@ import type { ForecastPageProps, ForecastLine, ForecastPeriod, ForecastView } fr
  * Grille de mini-graphes (un par poste de charge) pour comparer d'un coup d'œil, +
  * panneau de détail (histogramme empilé Ferme/Planifié/Suggéré, moyenne mobile, pic)
  * sur le poste sélectionné, avec bascule de maille Mois ↔ Semaine. Données calculées
- * serveur (ForecastController) ; ici, pure présentation SVG réactive.
+ * serveur (LoadController) ; ici, pure présentation SVG réactive.
  */
 
 type Gran = 'month' | 'week'
@@ -25,10 +25,10 @@ const FG = 'var(--color-foreground)'
 const RULE_SOFT = 'var(--color-rule-soft)'
 const CARD = 'var(--color-card)'
 
-const total = (p: ForecastPeriod) => p.f + p.p + p.s
+const total = (p: LoadPeriod) => p.f + p.p + p.s
 
 /** Libellé d'un segment selon la vue (OF : Ferme/Planifié/Suggéré ; Commande : Commande/Prévision). */
-const segLabel = (view: ForecastView, key: keyof ForecastPeriod): string =>
+const segLabel = (view: LoadView, key: keyof LoadPeriod): string =>
   view === 'commande'
     ? key === 's'
       ? 'Prévision'
@@ -67,7 +67,7 @@ function mobileAvg(totals: number[], win: number): number[] {
 }
 
 /** Segments empilés bas→haut d'une période : Suggéré (base), Planifié, Ferme (sommet). */
-const segsOf = (d: ForecastPeriod): [keyof ForecastPeriod, number, string][] => [
+const segsOf = (d: LoadPeriod): [keyof LoadPeriod, number, string][] => [
   ['s', d.s, SUGGERE],
   ['p', d.p, PLANIFIE],
   ['f', d.f, FERME],
@@ -76,7 +76,7 @@ const segsOf = (d: ForecastPeriod): [keyof ForecastPeriod, number, string][] => 
 /* ─────────────────────────── Mini-graphe (carte poste) ─────────────────────────── */
 
 const MiniCard: Component<{
-  line: ForecastLine
+  line: LoadLine
   months: string[]
   selected: boolean
   onSelect: () => void
@@ -160,9 +160,9 @@ const MiniCard: Component<{
 /* ─────────────────────────── Histogramme détail ─────────────────────────── */
 
 const DetailChart: Component<{
-  items: () => { label: string; d: ForecastPeriod }[]
+  items: () => { label: string; d: LoadPeriod }[]
   gran: () => Gran
-  view: () => ForecastView
+  view: () => LoadView
 }> = (props) => {
   const padL = 46
   const padR = 16
@@ -362,8 +362,8 @@ const DetailChart: Component<{
 
 /* ─────────────────────────── Page ─────────────────────────── */
 
-const Forecast: Component<ForecastPageProps> = (props) => {
-  const [view, setView] = createSignal<ForecastView>('of')
+const Load: Component<LoadPageProps> = (props) => {
+  const [view, setView] = createSignal<LoadView>('of')
   const [selected, setSelected] = createSignal(props.ofLines[0]?.code ?? '')
   const [gran, setGran] = createSignal<Gran>('month')
   const [query, setQuery] = createSignal('')
@@ -460,7 +460,7 @@ const Forecast: Component<ForecastPageProps> = (props) => {
     <div class="theme-papier flex h-screen flex-col overflow-hidden bg-background text-foreground">
       <Masthead
         subtitle="Charge · vision long terme"
-        active="forecast"
+        active="load"
         meta={
           <>
             <div class="font-fraunces text-[12px] font-bold italic text-terra">{props.rangeLabel}</div>
@@ -638,4 +638,4 @@ const Forecast: Component<ForecastPageProps> = (props) => {
   )
 }
 
-export default Forecast
+export default Load

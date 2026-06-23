@@ -5,22 +5,22 @@ import { X3OrderLineRepository, type OrderLineRow } from '#repositories/order_li
 import type { GammeOperation } from '#app/domain/models/gamme'
 
 /**
- * Shapes émis vers la page Inertia. Miroir côté client : inertia/lib/forecast/types.ts
+ * Shapes émis vers la page Inertia. Miroir côté client : inertia/lib/load/types.ts
  * (même convention que SuiviController ↔ inertia/lib/suivi/types.ts).
  */
-interface ForecastPeriod {
+interface LoadPeriod {
   f: number
   p: number
   s: number
 }
-interface ForecastLine {
+interface LoadLine {
   code: string
   name: string
   color: string
   /** Articles produits sur le poste (« CODE désignation »), pour la recherche client. */
   articles: string[]
-  monthly: ForecastPeriod[]
-  weekly: ForecastPeriod[]
+  monthly: LoadPeriod[]
+  weekly: LoadPeriod[]
 }
 
 /**
@@ -73,14 +73,14 @@ const PALETTE = ['#5b7d4e', '#2f4858', '#b8862c', '#8b5cf6', '#8c7d66', '#a8431f
 
 const NB_MONTHS = 6
 
-const emptyPeriod = (): ForecastPeriod => ({ f: 0, p: 0, s: 0 })
-const round = (p: ForecastPeriod): ForecastPeriod => ({
+const emptyPeriod = (): LoadPeriod => ({ f: 0, p: 0, s: 0 })
+const round = (p: LoadPeriod): LoadPeriod => ({
   f: Math.round(p.f),
   p: Math.round(p.p),
   s: Math.round(p.s),
 })
 
-export default class ForecastController {
+export default class LoadController {
   /** GET /charge — page Inertia de projection de charge long terme. */
   async index(ctx: HttpContext) {
     const startParam = ctx.request.input('start') as string | undefined
@@ -148,11 +148,11 @@ export default class ForecastController {
     }
 
     // Enregistrement unitaire d'agrégation : un poste, une date, des heures, un segment.
-    type AggRecord = { wst: string; date: Date; hours: number; field: keyof ForecastPeriod; article: string }
-    type Acc = { monthly: ForecastPeriod[]; weekly: ForecastPeriod[]; articles: Set<string> }
+    type AggRecord = { wst: string; date: Date; hours: number; field: keyof LoadPeriod; article: string }
+    type Acc = { monthly: LoadPeriod[]; weekly: LoadPeriod[]; articles: Set<string> }
 
     /** Agrège des enregistrements en séries par poste de charge (mensuel + hebdo). */
-    const buildLines = (records: AggRecord[]): ForecastLine[] => {
+    const buildLines = (records: AggRecord[]): LoadLine[] => {
       const byLine = new Map<string, Acc>()
       for (const r of records) {
         if (r.hours <= 0 || r.date < monthStart || r.date > horizonEnd) continue
@@ -191,7 +191,7 @@ export default class ForecastController {
             wst: gamme.workstation,
             date: atMidnight(mo.startDate),
             hours: rate > 0 ? mo.quantity / rate : 0,
-            field: (mo.status === 1 ? 'f' : mo.status === 2 ? 'p' : 's') as keyof ForecastPeriod,
+            field: (mo.status === 1 ? 'f' : mo.status === 2 ? 'p' : 's') as keyof LoadPeriod,
             article: `${mo.article} ${mo.designation ?? ''}`.trim(),
           },
         ]
@@ -209,7 +209,7 @@ export default class ForecastController {
             wst: gamme.workstation,
             date: atMidnight(l.dateLivraison),
             hours: rate > 0 ? l.quantite / rate : 0,
-            field: (l.nature === 'PREVISION' ? 's' : 'f') as keyof ForecastPeriod,
+            field: (l.nature === 'PREVISION' ? 's' : 'f') as keyof LoadPeriod,
             article: `${l.article} ${l.designation ?? ''}`.trim(),
           },
         ]
@@ -224,7 +224,7 @@ export default class ForecastController {
     lastMonth.setMonth(monthStart.getMonth() + NB_MONTHS - 1)
     const rangeLabel = `${fmtLong(monthStart)} → ${fmtLong(lastMonth)} ${lastMonth.getFullYear()} · ${NB_MONTHS} mois`
 
-    return ctx.inertia.render('scheduler/forecast', {
+    return ctx.inertia.render('scheduler/load', {
       rangeLabel,
       months: monthBuckets.map((m) => m.label),
       weeks: weekBuckets.map((w) => w.label),
