@@ -193,8 +193,8 @@ const Calendrier: Component<Props> = (props) => {
               </For>
             </section>
 
-            {/* Fermetures par ligne */}
-            <section class="overflow-hidden rounded-2xl border border-rule bg-card">
+            {/* Fermetures par ligne — pas d'overflow-hidden : le popover calendrier doit déborder. */}
+            <section class="rounded-2xl border border-rule bg-card">
               <header class="flex items-center gap-2 border-b border-rule-soft px-4 py-3.5">
                 <span class="material-symbols-outlined text-[18px] text-suggere">engineering</span>
                 <span class="font-fraunces text-[15px] font-bold">Fermetures par ligne de production</span>
@@ -401,7 +401,7 @@ const ClosureForm: Component<{
   }
 
   return (
-    <div class="flex flex-wrap items-end gap-x-5 gap-y-3.5 border-t border-rule-soft bg-secondary px-4 py-4">
+    <div class="flex flex-wrap items-end gap-x-5 gap-y-3.5 rounded-b-2xl border-t border-rule-soft bg-secondary px-4 py-4">
       <Field label="Portée">
         <Pills
           value={scope}
