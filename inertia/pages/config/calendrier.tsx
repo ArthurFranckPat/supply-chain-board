@@ -5,7 +5,7 @@ import { Masthead } from '@/components/masthead'
 import { route } from '@/lib/routes'
 import { Button } from '@/components/ui/button'
 import { Calendar, type DateRange } from '@/components/ui/calendar'
-import { Combobox } from '@/components/ui/combobox'
+import { MultiCombobox } from '@/components/ui/combobox'
 
 /**
  * Configuration du calendrier usine (issue #37) — design « Registre » (V2).
@@ -353,7 +353,7 @@ const ClosureForm: Component<{
   onCreated: (c: Closure) => void
 }> = (props) => {
   const [scope, setScope] = createSignal<'global' | 'wst' | 'stoloc'>('wst')
-  const [code, setCode] = createSignal(props.postes[0]?.code ?? '')
+  const [codes, setCodes] = createSignal<string[]>([])
   const [range, setRange] = createSignal<DateRange>({ start: null, end: null })
   const [motif, setMotif] = createSignal('maintenance')
   const [factor, setFactor] = createSignal('0')
@@ -374,26 +374,28 @@ const ClosureForm: Component<{
     return `${frNum(toIso(r.start))} → ${frNum(toIso(end))}`
   })
 
+  const post = async (body: Omit<Closure, 'id'>) => {
+    const res = await fetch(route('calendar_config.create_closure'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    const json = await res.json()
+    props.onCreated({ id: json.id, ...body })
+  }
+
   const submit = async () => {
     const r = range()
     if (!r.start) return
+    const base = { from: toIso(r.start), to: toIso(r.end ?? r.start), motif: motif(), factor: Number(factor()) }
     setBusy(true)
-    const body = {
-      scope: scope(),
-      code: scope() === 'global' ? '' : code(),
-      from: toIso(r.start),
-      to: toIso(r.end ?? r.start),
-      motif: motif(),
-      factor: Number(factor()),
-    }
     try {
-      const res = await fetch(route('calendar_config.create_closure'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      })
-      const json = await res.json()
-      props.onCreated({ id: json.id, ...body })
+      if (scope() === 'global') {
+        await post({ scope: 'global', code: '', ...base })
+      } else {
+        // Une fermeture par code sélectionné (multi).
+        for (const code of codes()) await post({ scope: scope(), code, ...base })
+      }
     } finally {
       setBusy(false)
     }
@@ -404,7 +406,10 @@ const ClosureForm: Component<{
       <Field label="Portée">
         <Pills
           value={scope}
-          onChange={(v) => setScope(v)}
+          onChange={(v) => {
+            setScope(v)
+            setCodes([]) // namespaces distincts entre poste/atelier
+          }}
           options={[
             { v: 'wst', label: 'Poste' },
             { v: 'stoloc', label: 'Atelier' },
@@ -414,12 +419,12 @@ const ClosureForm: Component<{
       </Field>
 
       <Show when={scope() !== 'global'}>
-        <Field label={scope() === 'wst' ? 'Poste' : 'Atelier'}>
-          <Combobox
-            class="w-[170px]"
-            value={code()}
-            onChange={setCode}
-            placeholder={scope() === 'wst' ? 'Chercher un poste…' : 'Chercher un atelier…'}
+        <Field label={scope() === 'wst' ? 'Postes' : 'Ateliers'}>
+          <MultiCombobox
+            class="min-w-[220px] max-w-[360px]"
+            value={codes()}
+            onChange={setCodes}
+            placeholder={scope() === 'wst' ? 'Ajouter des postes…' : 'Ajouter des ateliers…'}
             options={codeOptions().map((o) => ({ value: o.v, label: o.label }))}
           />
         </Field>
@@ -479,7 +484,10 @@ const ClosureForm: Component<{
         <Button variant="ghost" onClick={props.onCancel} class="text-muted-foreground">
           Annuler
         </Button>
-        <Button onClick={submit} disabled={busy() || !range().start}>
+        <Button
+          onClick={submit}
+          disabled={busy() || !range().start || (scope() !== 'global' && codes().length === 0)}
+        >
           <span class="material-symbols-outlined mr-1 text-[16px]">add</span>Ajouter
         </Button>
       </div>
