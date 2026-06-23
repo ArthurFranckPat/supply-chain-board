@@ -122,7 +122,7 @@ const MiniCard: Component<{
     const yy = (v: number) => H - pad - (v / max) * (H - 2 * pad)
     const out: { kind: 'rect' | 'path'; x: number; y: number; w: number; h: number; fill: string }[] = []
     const peakDots: { cx: number; cy: number }[] = []
-    const capLines: { x1: number; x2: number; y: number; over: boolean }[] = []
+    const overRects: { x: number; y: number; w: number; h: number }[] = []
     p.line.monthly.forEach((d, i) => {
       const cx = pad + slot * i + slot / 2
       const x = cx - bw / 2
@@ -135,10 +135,11 @@ const MiniCard: Component<{
         out.push({ kind: idx === topIdx ? 'path' : 'rect', x, y: yTop, w: bw, h, fill: col })
         acc += v
       })
-      if (c[i] > 0) capLines.push({ x1: x - 1, x2: x + bw + 1, y: yy(c[i]), over: t[i] > c[i] })
+      // Surcharge : part au-dessus du plafond, en rouge translucide (pas de tiret flottant).
+      if (c[i] > 0 && t[i] > c[i]) overRects.push({ x, y: yy(t[i]), w: bw, h: yy(c[i]) - yy(t[i]) })
       if (i === peakIdx()) peakDots.push({ cx, cy: yy(t[i]) })
     })
-    return { out, peakDots, capLines }
+    return { out, peakDots, overRects }
   })
 
   return (
@@ -169,19 +170,9 @@ const MiniCard: Component<{
             )
           }
         </For>
-        {/* Lignes de capacité par mois (rouge = mois en surcharge). */}
-        <For each={bars().capLines}>
-          {(c) => (
-            <line
-              x1={c.x1}
-              x2={c.x2}
-              y1={c.y}
-              y2={c.y}
-              stroke={c.over ? DANGER : MUTED}
-              stroke-width={c.over ? 1.5 : 1}
-              stroke-dasharray="3 2"
-            />
-          )}
+        {/* Surcharge : part au-dessus du plafond, rouge translucide. */}
+        <For each={bars().overRects}>
+          {(r) => <rect x={r.x} y={r.y} width={r.w} height={r.h} fill={DANGER} opacity="0.22" />}
         </For>
         <For each={bars().peakDots}>{(pk) => <circle cx={pk.cx} cy={pk.cy} r="2.5" fill={TERRA} />}</For>
       </svg>
@@ -254,7 +245,10 @@ const DetailChart: Component<{
     const inLabels: Lbl[] = []
     const totals: { x: number; y: number; text: number; fill: string }[] = []
     const xLabels: { x: number; y: number; text: string }[] = []
-    const capLines: { x1: number; x2: number; y: number; over: boolean }[] = []
+    // Plafond de capacité : un palier par bucket (pleine largeur de créneau) +
+    // surépaisseur rouge translucide sur la part de charge au-dessus du plafond.
+    const capSegs: { x1: number; x2: number; y: number; over: boolean }[] = []
+    const overRects: { x: number; y: number; w: number; h: number }[] = []
 
     items.forEach((it, i) => {
       const cx = x(i)
@@ -280,7 +274,11 @@ const DetailChart: Component<{
       })
       const over = C[i] > 0 && T[i] > C[i]
       totals.push({ x: cx, y: y(T[i]) - 6, text: T[i], fill: over ? DANGER : FG })
-      if (C[i] > 0) capLines.push({ x1: xx - 4, x2: xx + bw + 4, y: y(C[i]), over })
+      if (C[i] > 0) {
+        const half = Math.min(slot / 2 - 5, bw / 2 + 16)
+        capSegs.push({ x1: cx - half, x2: cx + half, y: y(C[i]), over })
+        if (over) overRects.push({ x: xx, y: y(T[i]), w: bw, h: y(C[i]) - y(T[i]) })
+      }
       xLabels.push({ x: cx, y: H - padB + 18, text: it.label })
     })
 
@@ -292,7 +290,8 @@ const DetailChart: Component<{
     const pi = T.length ? T.indexOf(Math.max(...T)) : 0
     const peak = T.length ? { cx: x(pi), cy: y(T[pi]) } : null
 
-    return { grid, segments, inLabels, totals, xLabels, capLines, avgPath, peak, week: props.gran() === 'week' }
+    const capLabel = capSegs.length ? { x: capSegs[capSegs.length - 1].x2, y: capSegs[capSegs.length - 1].y } : null
+    return { grid, segments, inLabels, totals, xLabels, capSegs, overRects, capLabel, avgPath, peak, week: props.gran() === 'week' }
   })
 
   // Tooltip au survol d'une section : suit le curseur dans le conteneur.
@@ -347,21 +346,32 @@ const DetailChart: Component<{
           </text>
         )}
       </For>
-      {/* Capacité nette par bucket (issue #35) — rouge sur les buckets en surcharge. */}
-      <For each={geom().capLines}>
+      {/* Surcharge : part de charge au-dessus du plafond, rouge translucide. */}
+      <For each={geom().overRects}>
+        {(r) => <rect x={r.x} y={r.y} width={r.w} height={r.h} fill={DANGER} opacity="0.18" />}
+      </For>
+      {/* Plafond de capacité (issue #35) — palier plein par bucket, rouge si dépassé. */}
+      <For each={geom().capSegs}>
         {(c) => (
           <line
             x1={c.x1}
             x2={c.x2}
             y1={c.y}
             y2={c.y}
-            stroke={c.over ? DANGER : MUTED}
+            stroke={c.over ? DANGER : FG}
+            stroke-opacity={c.over ? 0.9 : 0.45}
             stroke-width={c.over ? 2.5 : 1.5}
-            stroke-dasharray="6 3"
             stroke-linecap="round"
           />
         )}
       </For>
+      <Show when={geom().capLabel}>
+        {(l) => (
+          <text x={l().x} y={l().y - 5} text-anchor="end" font-size="9" font-weight="700" fill={FG} opacity="0.5" class="font-mono uppercase tracking-wider">
+            capacité
+          </text>
+        )}
+      </Show>
       {/* Totaux au sommet (rouge si > capacité) */}
       <For each={geom().totals}>
         {(t) => (
@@ -480,45 +490,23 @@ const Load: Component<LoadPageProps> = (props) => {
     setAtEnd(el.scrollLeft + el.clientWidth >= el.scrollWidth - 1)
   }
 
-  // Animation : on glisse `scrollLeft` vers `targetX` (lerp) plutôt que de sauter
-  // d'un cran à chaque tick de molette → défilé fluide façon carrousel.
-  let targetX = 0
-  let raf = 0
-  const step = () => {
-    const el = sliderEl
-    if (!el) {
-      raf = 0
-      return
-    }
-    const cur = el.scrollLeft
-    const diff = targetX - cur
-    if (Math.abs(diff) < 0.5) {
-      el.scrollLeft = targetX
-      raf = 0
-      return
-    }
-    el.scrollLeft = cur + diff * 0.18
-    raf = requestAnimationFrame(step)
-  }
+  // Molette verticale → défilé horizontal natif (le navigateur lisse via
+  // scroll-behavior). Pas de machine à états rAF : elle réintroduisait des
+  // retours au début (targetX périmé qui rappelait le scroll vers 0).
   const onSliderWheel = (e: WheelEvent) => {
     const el = sliderEl
-    // Laisse passer les gestes déjà horizontaux (trackpad / shift+molette).
-    if (!el || e.deltaY === 0 || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return
+    if (!el || el.scrollWidth <= el.clientWidth) return
+    // Geste déjà horizontal (trackpad / shift+molette) → laisse le natif faire.
+    if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return
     e.preventDefault()
-    const max = el.scrollWidth - el.clientWidth
-    const base = raf ? targetX : el.scrollLeft
-    targetX = Math.max(0, Math.min(max, base + e.deltaY * 1.1))
-    if (!raf) raf = requestAnimationFrame(step)
+    el.scrollLeft += e.deltaY
   }
 
   onMount(() => {
     requestAnimationFrame(updateEdges)
     const onResize = () => updateEdges()
     window.addEventListener('resize', onResize)
-    onCleanup(() => {
-      window.removeEventListener('resize', onResize)
-      if (raf) cancelAnimationFrame(raf)
-    })
+    onCleanup(() => window.removeEventListener('resize', onResize))
   })
   // Recalcule les ombres de bord après un changement de liste filtrée.
   createEffect(() => {
@@ -632,7 +620,14 @@ const Load: Component<LoadPageProps> = (props) => {
           <i class="inline-block w-[18px] border-t-[1.5px] border-dashed border-terra" />Moyenne mobile
         </span>
         <span class="flex items-center gap-1.5">
-          <i class="inline-block w-[18px] border-t-[1.5px] border-dashed border-muted-foreground" />Capacité
+          <i class="inline-block w-[18px] border-t-[1.5px] border-foreground/45" />Capacité
+        </span>
+        <span class="flex items-center gap-1.5">
+          <i
+            class="inline-block h-2.5 w-3.5 rounded-[2px]"
+            style={{ background: 'color-mix(in srgb, var(--color-danger) 20%, transparent)', 'box-shadow': 'inset 0 0 0 1px var(--color-danger)' }}
+          />
+          Surcharge
         </span>
         <span class="ml-auto font-fraunces text-[11px] italic text-muted-foreground">
           Mini-graphes : {props.months.length} mois · clic = détail
