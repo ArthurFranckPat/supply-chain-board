@@ -5,7 +5,7 @@ import { Masthead } from '@/components/masthead'
 import { route } from '@/lib/routes'
 import { Button } from '@/components/ui/button'
 import { Calendar, type DateRange } from '@/components/ui/calendar'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Combobox } from '@/components/ui/combobox'
 
 /**
  * Configuration du calendrier usine (issue #37) — design « Registre » (V2).
@@ -360,13 +360,12 @@ const ClosureForm: Component<{
   const [busy, setBusy] = createSignal(false)
   const [calOpen, setCalOpen] = createSignal(false)
 
-  // Options du Select selon la portée.
+  // Options du combobox selon la portée.
   const codeOptions = createMemo(() =>
     scope() === 'stoloc'
       ? props.ateliers.map((a) => ({ v: a.code, label: a.label }))
       : props.postes.map((p) => ({ v: p.code, label: p.code })),
   )
-  const codeLabel = (v: string) => codeOptions().find((o) => o.v === v)?.label ?? v
 
   const rangeLabel = createMemo(() => {
     const r = range()
@@ -416,19 +415,13 @@ const ClosureForm: Component<{
 
       <Show when={scope() !== 'global'}>
         <Field label={scope() === 'wst' ? 'Poste' : 'Atelier'}>
-          <Select<string>
+          <Combobox
+            class="w-[170px]"
             value={code()}
-            onChange={(v) => v && setCode(v)}
-            options={codeOptions().map((o) => o.v)}
-            disallowEmptySelection
-            optionTextValue={codeLabel}
-            itemComponent={(ip) => <SelectItem item={ip.item}>{codeLabel(ip.item.rawValue)}</SelectItem>}
-          >
-            <SelectTrigger class="h-[34px] w-[150px] rounded-lg border border-rule bg-card px-3 text-[12.5px] font-semibold">
-              <SelectValue<string>>{(s) => codeLabel(s.selectedOption())}</SelectValue>
-            </SelectTrigger>
-            <SelectContent class="max-h-[300px]" />
-          </Select>
+            onChange={setCode}
+            placeholder={scope() === 'wst' ? 'Chercher un poste…' : 'Chercher un atelier…'}
+            options={codeOptions().map((o) => ({ value: o.v, label: o.label }))}
+          />
         </Field>
       </Show>
 
