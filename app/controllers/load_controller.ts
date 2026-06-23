@@ -139,7 +139,7 @@ export default class LoadController {
         boardDataset.getOrders(force),
       ])
       gammeOps = ref.gamme
-      workstations = ref.workstations
+      workstations = ref.workstations ?? [] // garde : un payload caché d'avant #35 n'a pas ce champ
       mos = ord.mos
     } catch (e) {
       x3Error = (e as Error).message
