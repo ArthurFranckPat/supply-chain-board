@@ -82,6 +82,30 @@ declare module '@adonisjs/inertia/types' {
       rowsHref: string
       proactiveRowsHref: string
     }
+    'scheduler/forecast': {
+      rangeLabel: string
+      months: string[]
+      weeks: string[]
+      // Miroir client précis : inertia/lib/forecast/types.ts (ForecastLine).
+      // ofLines = charge OF (Ferme/Planifié/Suggéré) ; cmdLines = charge demande (Commande/Prévision).
+      ofLines: {
+        code: string
+        name: string
+        color: string
+        articles: string[]
+        monthly: { f: number; p: number; s: number }[]
+        weekly: { f: number; p: number; s: number }[]
+      }[]
+      cmdLines: {
+        code: string
+        name: string
+        color: string
+        articles: string[]
+        monthly: { f: number; p: number; s: number }[]
+        weekly: { f: number; p: number; s: number }[]
+      }[]
+      x3Error: string | null
+    }
     'scheduler/programme': {
       mode: 'combined' | 'ordonnancement' | 'planification'
       // OF board — null en mode planification

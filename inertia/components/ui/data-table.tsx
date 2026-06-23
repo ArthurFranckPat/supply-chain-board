@@ -91,19 +91,6 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
   const bottomPad = () =>
     virtualItems().length > 0 ? totalSize() - virtualItems()[virtualItems().length - 1]!.end : 0
 
-  /**
-   * Lignes visibles = (item virtuel × ligne). On dépend explicitement de `rows()`
-   * ET de `virtualItems()` : le virtualizer mémoïse son tableau tant que le scroll
-   * et le `count` ne bougent pas, donc un tri (ou un filtre à count constant) ne
-   * re-déclencherait pas le `<For>`. Ce memo force le re-rendu sur changement d'ordre.
-   */
-  const visibleRows = () => {
-    const rows = local.rows()
-    return virtualItems()
-      .map((vi) => ({ vi, row: rows[vi.index] }))
-      .filter((x): x is { vi: (typeof x)['vi']; row: TRow } => x.row != null)
-  }
-
   /** id effectif d'une colonne : `id` explicite (display) ou `accessorKey` (accessor). */
   const colId = (col: ColumnDef<TRow>): string => col.id ?? (col.accessorKey as string)
 
@@ -181,32 +168,47 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
                 <td style={{ height: `${topPad()}px` }} />
               </tr>
             </Show>
-            <For each={visibleRows()}>
-              {({ vi: virtualRow, row }) => (
-                <tr
-                  data-index={virtualRow.index}
-                  ref={(el) => queueMicrotask(() => rowVirtualizer.measureElement(el))}
-                  class={local.getRowClass?.(row, virtualRow.index)}
-                >
-                  <Show when={local.indexColumn}>
-                    <td class={local.indexColumn!.tdClass(row, virtualRow.index)}>
-                      {String(virtualRow.index + 1).padStart(2, '0')}
-                    </td>
+            {/*
+              On itère sur le tableau STABLE du virtualizer (`getVirtualItems()`), pas sur des
+              wrappers ré-alloués : sinon le `<For>` (clé = identité) reconstruit toutes les
+              lignes à chaque tick, ce qui re-déclenche `measureElement` → mesure → re-render…
+              boucle infinie (CPU à fond, fuite de nœuds, crash navigateur). Le tri/filtre reste
+              réactif via `row()` (lu dans les cellules) : les `<tr>` sont réutilisés, seul le
+              contenu se recalcule sur changement d'ordre.
+            */}
+            <For each={virtualItems()}>
+              {(virtualRow) => {
+                const row = () => local.rows()[virtualRow.index]
+                return (
+                  <Show when={row()}>
+                    {(r) => (
+                      <tr
+                        data-index={virtualRow.index}
+                        ref={(el) => queueMicrotask(() => rowVirtualizer.measureElement(el))}
+                        class={local.getRowClass?.(r(), virtualRow.index)}
+                      >
+                        <Show when={local.indexColumn}>
+                          <td class={local.indexColumn!.tdClass(r(), virtualRow.index)}>
+                            {String(virtualRow.index + 1).padStart(2, '0')}
+                          </td>
+                        </Show>
+                        <For each={local.columns}>
+                          {(col) => {
+                            const value = () => getValue(r(), col)
+                            return (
+                              <td class={col.meta?.tdClass}>
+                                {col.cell
+                                  ? col.cell({ row: { original: r() } as any, getValue: value, column: { columnDef: col } as any } as any)
+                                  : (value() as any)}
+                              </td>
+                            )
+                          }}
+                        </For>
+                      </tr>
+                    )}
                   </Show>
-                  <For each={local.columns}>
-                    {(col) => {
-                      const value = () => getValue(row, col)
-                      return (
-                        <td class={col.meta?.tdClass}>
-                          {col.cell
-                            ? col.cell({ row: { original: row } as any, getValue: value, column: { columnDef: col } as any } as any)
-                            : (value() as any)}
-                        </td>
-                      )
-                    }}
-                  </For>
-                </tr>
-              )}
+                )
+              }}
             </For>
             <Show when={bottomPad() > 0}>
               <tr>

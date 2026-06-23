@@ -310,9 +310,12 @@ export class SuiviService {
     const raw = await suiviCache().getOrSet({
       key: 'context',
       ttl: CONTEXT_TTL,
-      // SWR (issue #33) : même stratégie que /programme — au-delà du soft timeout, sert le
-      // snapshot en grace et rafraîchit en arrière-plan (contexte requête → creds X3 via ALS).
-      timeout: 1000,
+      // SWR (issue #33) : on laisse le timeout par défaut de bentocache (0) = vrai stale-while-revalidate.
+      // À 0, si une valeur en grace existe, elle est servie INSTANTANÉMENT et le refresh part en
+      // arrière-plan (isBackground → les erreurs de la factory sont avalées, cf. bentocache). NE PAS
+      // remettre `timeout: 1000` : avec un timeout > 0, le refresh tourne hors mode background ; quand
+      // il rejette (loadRaw échoue en tâche de fond) la promesse orpheline → unhandled rejection →
+      // crash du serveur → la page /suivi tourne dans le vide. Cold start : pas de grace → attend la factory.
       factory: () => this.loadRaw(),
     })
     return this.assembleContext(raw)

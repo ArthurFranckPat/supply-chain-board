@@ -124,6 +124,12 @@ export const ChargeHistogram: Component<ChargeHistogramProps> = (props) => {
             >
               S{w.week}
               <Show when={!line()}> · {fmt(w.ferme + w.planifie + w.suggere)}h</Show>
+              {/* En-tête de poste (line) : charge hebdo sous le n° de semaine. */}
+              <Show when={line()}>
+                <span class="block text-[9px] font-bold tabular-nums text-foreground">
+                  {fmt(w.ferme + w.planifie + w.suggere)} h
+                </span>
+              </Show>
             </span>
           )}
         </For>

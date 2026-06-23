@@ -27,9 +27,11 @@ import { HttpContext } from '@adonisjs/core/http'
 const REF_TTL = 2 * 60 * 60 * 1000 // 2 h — référentiel quasi statique
 const ORDERS_TTL = 5 * 60 * 1000 // 5 min — OF
 const LIVE_TTL = 2 * 60 * 1000 // 2 min — demande/réception par fenêtre
-// Soft timeout SWR : au-delà, on sert la valeur en grace pendant que la factory X3 finit
-// en arrière-plan (issue #33). Couvre le calcul JS ; tout appel X3 lent bascule sur la stale.
-const SWR_TIMEOUT = 1000 // 1 s
+// SWR (issue #33) : timeout 0 = vrai stale-while-revalidate de bentocache. Si une valeur en grace
+// existe, elle est servie INSTANTANÉMENT et le refresh X3 part en arrière-plan (isBackground → les
+// erreurs de la factory sont avalées). NE PAS mettre > 0 : un timeout positif sort le refresh du mode
+// background ; à son rejet la promesse orpheline → unhandled rejection → crash serveur.
+const SWR_TIMEOUT = 0
 
 type Referential = { gamme: GammeOperation[]; at: number }
 type BomCache = { entries: NomenclatureEntry[]; at: number }

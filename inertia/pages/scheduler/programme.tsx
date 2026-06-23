@@ -14,7 +14,7 @@ import { route } from '@/lib/routes'
 import { createBoardStore } from '@/lib/board/store'
 import type { BoardData, SearchScope } from '@/lib/board/types'
 import { createOrderBoardStore } from '@/lib/orders/store'
-import type { OrderBoardData } from '@/lib/orders/types'
+import type { OrderBoardData, OrderSearchScope } from '@/lib/orders/types'
 import type { VisionCommande, VisionLink } from '@/lib/vision/types'
 import { cx } from '@/libs/cva'
 import BoardGrid from '@/components/board/board-grid'
@@ -77,6 +77,13 @@ const OF_SCOPES = [
   { v: 'pf', label: 'PF' },
   { v: 'composant', label: 'Composant' },
 ] as const satisfies { v: SearchScope; label: string }[]
+
+const ORDER_SCOPES = [
+  { v: 'poste', label: 'Poste' },
+  { v: 'commande', label: 'Commande' },
+  { v: 'article', label: 'Article' },
+  { v: 'client', label: 'Client' },
+] as const satisfies { v: OrderSearchScope; label: string }[]
 
 
 const MODE_LABELS: Record<VisionMode, string> = {
@@ -399,40 +406,78 @@ const Programme: Component<VisionProps> = (props) => {
                 <span class="material-symbols-outlined text-[17px] text-muted-foreground">
                   search
                 </span>
+                {/* Recherche : pilote le store du board affiché — orderStore en mode
+                    « Cmdes » (planification), sinon le store OF (ordonnancement/combiné). */}
                 <TextFieldInput
                   class="w-[180px] border-0 bg-transparent px-0 text-[12px] font-medium shadow-none focus-visible:ring-0"
-                  placeholder="OF, article, poste…"
+                  placeholder={
+                    props.mode === 'planification' ? 'Commande, article, client…' : 'OF, article, poste…'
+                  }
                   type="text"
                   autocomplete="off"
-                  value={store.query()}
-                  onInput={(e) => store.onQueryInput(e.currentTarget.value)}
+                  value={props.mode === 'planification' ? orderStore.query() : store.query()}
+                  onInput={(e) =>
+                    props.mode === 'planification'
+                      ? orderStore.onQueryInput(e.currentTarget.value)
+                      : store.onQueryInput(e.currentTarget.value)
+                  }
                 />
               </div>
             </TextField>
-            <Select<string>
-              title="Portée de la recherche"
-              value={store.scope()}
-              onChange={(v) => v && store.onScopeChange(v as SearchScope)}
-              options={OF_SCOPES.map((s) => s.v)}
-              disallowEmptySelection
-              optionTextValue={(o) => OF_SCOPES.find((s) => s.v === o)?.label ?? o}
-              itemComponent={(itemProps) => (
-                <SelectItem item={itemProps.item}>
-                  {OF_SCOPES.find((s) => s.v === itemProps.item.rawValue)?.label ??
-                    itemProps.item.rawValue}
-                </SelectItem>
-              )}
+            <Show
+              when={props.mode === 'planification'}
+              fallback={
+                <Select<string>
+                  title="Portée de la recherche"
+                  value={store.scope()}
+                  onChange={(v) => v && store.onScopeChange(v as SearchScope)}
+                  options={OF_SCOPES.map((s) => s.v)}
+                  disallowEmptySelection
+                  optionTextValue={(o) => OF_SCOPES.find((s) => s.v === o)?.label ?? o}
+                  itemComponent={(itemProps) => (
+                    <SelectItem item={itemProps.item}>
+                      {OF_SCOPES.find((s) => s.v === itemProps.item.rawValue)?.label ??
+                        itemProps.item.rawValue}
+                    </SelectItem>
+                  )}
+                >
+                  <SelectTrigger
+                    class="h-[30px] w-[92px] rounded-full border border-rule bg-card px-3 text-[11px] font-semibold"
+                    aria-label="Portée de la recherche"
+                  >
+                    <SelectValue<string>>
+                      {(state) => OF_SCOPES.find((s) => s.v === state.selectedOption())?.label ?? 'Portée'}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent />
+                </Select>
+              }
             >
-              <SelectTrigger
-                class="h-[30px] w-[92px] rounded-full border border-rule bg-card px-3 text-[11px] font-semibold"
-                aria-label="Portée de la recherche"
+              <Select<string>
+                title="Portée de la recherche"
+                value={orderStore.scope()}
+                onChange={(v) => v && orderStore.onScopeChange(v as OrderSearchScope)}
+                options={ORDER_SCOPES.map((s) => s.v)}
+                disallowEmptySelection
+                optionTextValue={(o) => ORDER_SCOPES.find((s) => s.v === o)?.label ?? o}
+                itemComponent={(itemProps) => (
+                  <SelectItem item={itemProps.item}>
+                    {ORDER_SCOPES.find((s) => s.v === itemProps.item.rawValue)?.label ??
+                      itemProps.item.rawValue}
+                  </SelectItem>
+                )}
               >
-                <SelectValue<string>>
-                  {(state) => OF_SCOPES.find((s) => s.v === state.selectedOption())?.label ?? 'Portée'}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent />
-            </Select>
+                <SelectTrigger
+                  class="h-[30px] w-[110px] rounded-full border border-rule bg-card px-3 text-[11px] font-semibold"
+                  aria-label="Portée de la recherche"
+                >
+                  <SelectValue<string>>
+                    {(state) => ORDER_SCOPES.find((s) => s.v === state.selectedOption())?.label ?? 'Portée'}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent />
+              </Select>
+            </Show>
           </>
         }
       />

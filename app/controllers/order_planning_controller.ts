@@ -162,9 +162,10 @@ export default class OrderPlanningController {
     const data = await planCache().getOrSet({
       key: cacheKey,
       ttl: 2 * 60 * 1000,
-      // SWR (issue #33) : au-delà du soft timeout, sert la valeur en grace et rafraîchit en
-      // arrière-plan (contexte requête → creds X3 via ALS). Aligne /planification sur /programme.
-      timeout: 1000,
+      // SWR (issue #33) : timeout par défaut (0) = vrai stale-while-revalidate — valeur en grace
+      // servie instantanément, refresh en arrière-plan (isBackground → erreurs avalées). NE PAS
+      // mettre > 0 → refresh hors background, rejet orphelin → unhandled rejection → crash serveur
+      // (cf. board_dataset / suivi / programme). Aligne /planification sur /programme.
       factory: () => loadOrderBoardData(ctx),
     })
     return ctx.inertia.render('scheduler/planning', {

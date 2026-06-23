@@ -94,6 +94,7 @@ router
     router.get('/ruptures', '#controllers/scheduler_controller.shortageTracker')
     router.get('/suivi', '#controllers/suivi_controller.board')
     router.get('/programme', '#controllers/scheduler_controller.programme')
+    router.get('/charge', '#controllers/forecast_controller.index')
 
     // Planning — API JSON (fusion order-planning + planning-board sous un seul préfixe, #18 P7).
     //   order-lines/* : OrderPlanningController (overrides de date sur lignes de commande)

@@ -375,10 +375,11 @@ export default class SchedulerController {
     return programmeCache().getOrSet({
       key: cacheKey,
       ttl: 2 * 60 * 1000,
-      // SWR (issue #33) : le payload programme (board + matching) coûte ~20 s cold. Au-delà du
-      // soft timeout, on sert la valeur en grace pendant que le recalcul finit en arrière-plan
-      // (contexte requête → creds X3 via ALS). Mur froid limité au tout premier chargement.
-      timeout: 1000,
+      // SWR (issue #33) : le payload programme (board + matching) coûte ~20 s cold. Timeout par
+      // défaut (0) = vrai stale-while-revalidate : si une valeur en grace existe elle est servie
+      // INSTANTANÉMENT, le recalcul part en arrière-plan (isBackground → erreurs avalées). Mur froid
+      // limité au tout premier chargement. NE PAS mettre > 0 : refresh hors background → à son rejet
+      // la promesse orpheline → unhandled rejection → crash serveur (cf. board_dataset / suivi).
       factory: async () => {
         // Board IDENTIQUE à /ordonnancement : on réutilise loadBoardData tel quel
         // (côté front, le MÊME composant <BoardGrid> → charge/jour, histogramme
@@ -552,7 +553,8 @@ export default class SchedulerController {
     const cached = await ruptCache().getOrSet({
       key: cacheKey,
       ttl: 2 * 60 * 1000,
-      timeout: 1000,
+      // SWR : timeout par défaut (0) = vrai stale-while-revalidate (cf. board_dataset / suivi).
+      // NE PAS mettre > 0 → refresh hors background, rejet orphelin → unhandled rejection → crash.
       factory: async () => {
         let rows: ShortageRow[] = []
         let stats = { nbRuptures: 0, nbCouvertes: 0, nbSansCouverture: 0 }

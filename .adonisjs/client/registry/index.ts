@@ -96,6 +96,12 @@ const routes = {
     tokens: [{"old":"/programme","type":0,"val":"programme","end":""}],
     types: placeholder as Registry['scheduler.programme']['types'],
   },
+  'forecast.index': {
+    methods: ["GET","HEAD"],
+    pattern: '/charge',
+    tokens: [{"old":"/charge","type":0,"val":"charge","end":""}],
+    types: placeholder as Registry['forecast.index']['types'],
+  },
   'order_planning.index': {
     methods: ["GET","HEAD"],
     pattern: '/api/v1/planning/order-lines',

@@ -187,6 +187,18 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'forecast.index': {
+    methods: ["GET","HEAD"]
+    pattern: '/charge'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'order_planning.index': {
     methods: ["GET","HEAD"]
     pattern: '/api/v1/planning/order-lines'

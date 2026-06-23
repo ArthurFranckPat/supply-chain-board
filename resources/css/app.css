@@ -110,6 +110,11 @@
   *::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 }
 
+/* Conteneur scrollable SANS barre visible (scroll molette → horizontal en JS).
+   Plus spécifique que les règles `*::-webkit-scrollbar` globales → les masque. */
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-scrollbar::-webkit-scrollbar { width: 0; height: 0; display: none; }
+
 /* ────────────────────────────────────────────────────────────
    Gantt-specific CSS — calc()-based positioning that cannot be
    expressed with Tailwind utilities. Kept as custom layer.
