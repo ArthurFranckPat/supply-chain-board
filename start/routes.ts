@@ -95,6 +95,16 @@ router
     router.get('/suivi', '#controllers/suivi_controller.board')
     router.get('/programme', '#controllers/scheduler_controller.programme')
     router.get('/charge', '#controllers/load_controller.index')
+    router.get('/configuration/calendrier', '#controllers/calendar_config_controller.index')
+
+    // Configuration calendrier usine — API JSON (issue #37).
+    router
+      .group(() => {
+        router.post('/holidays/toggle', '#controllers/calendar_config_controller.toggleHoliday')
+        router.post('/closures', '#controllers/calendar_config_controller.createClosure')
+        router.delete('/closures/:id', '#controllers/calendar_config_controller.deleteClosure')
+      })
+      .prefix('/api/v1/config')
 
     // Planning — API JSON (fusion order-planning + planning-board sous un seul préfixe, #18 P7).
     //   order-lines/* : OrderPlanningController (overrides de date sur lignes de commande)

@@ -199,6 +199,54 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'calendar_config.index': {
+    methods: ["GET","HEAD"]
+    pattern: '/configuration/calendrier'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'calendar_config.toggle_holiday': {
+    methods: ["POST"]
+    pattern: '/api/v1/config/holidays/toggle'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'calendar_config.create_closure': {
+    methods: ["POST"]
+    pattern: '/api/v1/config/closures'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'calendar_config.delete_closure': {
+    methods: ["DELETE"]
+    pattern: '/api/v1/config/closures/:id'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'order_planning.index': {
     methods: ["GET","HEAD"]
     pattern: '/api/v1/planning/order-lines'

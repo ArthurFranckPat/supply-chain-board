@@ -102,6 +102,30 @@ const routes = {
     tokens: [{"old":"/charge","type":0,"val":"charge","end":""}],
     types: placeholder as Registry['load.index']['types'],
   },
+  'calendar_config.index': {
+    methods: ["GET","HEAD"],
+    pattern: '/configuration/calendrier',
+    tokens: [{"old":"/configuration/calendrier","type":0,"val":"configuration","end":""},{"old":"/configuration/calendrier","type":0,"val":"calendrier","end":""}],
+    types: placeholder as Registry['calendar_config.index']['types'],
+  },
+  'calendar_config.toggle_holiday': {
+    methods: ["POST"],
+    pattern: '/api/v1/config/holidays/toggle',
+    tokens: [{"old":"/api/v1/config/holidays/toggle","type":0,"val":"api","end":""},{"old":"/api/v1/config/holidays/toggle","type":0,"val":"v1","end":""},{"old":"/api/v1/config/holidays/toggle","type":0,"val":"config","end":""},{"old":"/api/v1/config/holidays/toggle","type":0,"val":"holidays","end":""},{"old":"/api/v1/config/holidays/toggle","type":0,"val":"toggle","end":""}],
+    types: placeholder as Registry['calendar_config.toggle_holiday']['types'],
+  },
+  'calendar_config.create_closure': {
+    methods: ["POST"],
+    pattern: '/api/v1/config/closures',
+    tokens: [{"old":"/api/v1/config/closures","type":0,"val":"api","end":""},{"old":"/api/v1/config/closures","type":0,"val":"v1","end":""},{"old":"/api/v1/config/closures","type":0,"val":"config","end":""},{"old":"/api/v1/config/closures","type":0,"val":"closures","end":""}],
+    types: placeholder as Registry['calendar_config.create_closure']['types'],
+  },
+  'calendar_config.delete_closure': {
+    methods: ["DELETE"],
+    pattern: '/api/v1/config/closures/:id',
+    tokens: [{"old":"/api/v1/config/closures/:id","type":0,"val":"api","end":""},{"old":"/api/v1/config/closures/:id","type":0,"val":"v1","end":""},{"old":"/api/v1/config/closures/:id","type":0,"val":"config","end":""},{"old":"/api/v1/config/closures/:id","type":0,"val":"closures","end":""},{"old":"/api/v1/config/closures/:id","type":1,"val":"id","end":""}],
+    types: placeholder as Registry['calendar_config.delete_closure']['types'],
+  },
   'order_planning.index': {
     methods: ["GET","HEAD"],
     pattern: '/api/v1/planning/order-lines',

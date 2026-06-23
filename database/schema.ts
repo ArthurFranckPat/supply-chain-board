@@ -7,6 +7,38 @@
 import { BaseModel, column } from '@adonisjs/lucid/orm'
 import { DateTime } from 'luxon'
 
+export class CapacityClosureSchema extends BaseModel {
+  static $columns = ['code', 'createdAt', 'dateFrom', 'dateTo', 'factor', 'id', 'motif', 'scope'] as const
+  $columns = CapacityClosureSchema.$columns
+  @column()
+  declare code: string
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare dateFrom: string
+  @column()
+  declare dateTo: string
+  @column()
+  declare factor: number
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare motif: string
+  @column()
+  declare scope: string
+}
+
+export class CapacityHolidayOverrideSchema extends BaseModel {
+  static $columns = ['active', 'date', 'id'] as const
+  $columns = CapacityHolidayOverrideSchema.$columns
+  @column()
+  declare active: boolean
+  @column()
+  declare date: string
+  @column({ isPrimary: true })
+  declare id: number
+}
+
 export class LocalMenuSchema extends BaseModel {
   static $columns = ['chapter', 'label', 'name', 'value'] as const
   $columns = LocalMenuSchema.$columns

@@ -111,6 +111,14 @@ declare module '@adonisjs/inertia/types' {
       ateliers: { code: string; label: string; category: 'montage' | 'fabrication' }[]
       x3Error: string | null
     }
+    // Config calendrier usine (issue #37, design Registre V2).
+    'config/calendrier': {
+      year: number
+      holidays: { date: string; name: string; active: boolean }[]
+      closures: { id: number; scope: 'global' | 'wst' | 'stoloc'; code: string; from: string; to: string; factor: number; motif: string }[]
+      postes: { code: string; label: string; atelier: string }[]
+      ateliers: { code: string; label: string }[]
+    }
     'scheduler/programme': {
       mode: 'combined' | 'ordonnancement' | 'planification'
       // OF board — null en mode planification

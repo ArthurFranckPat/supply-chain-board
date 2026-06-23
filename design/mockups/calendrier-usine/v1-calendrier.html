@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Calendrier usine · V1 Calendrier</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,400,0,0" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#f3ece0; --fg:#1f1a13; --card:#fbf8ef; --terra:#a8431f; --terra-soft:rgba(168,67,31,.10);
+    --ferme:#5b7d4e; --planifie:#2f4858; --suggere:#b8862c; --rule:#cdbfa0; --rule-soft:#e3d9c1;
+    --muted:#8c7d66; --secondary:#efe7d6; --danger:#9a3320;
+    --fr:"Fraunces",Georgia,serif; --sans:"Inter",system-ui,sans-serif; --mono:"JetBrains Mono",monospace;
+  }
+  *{box-sizing:border-box} html,body{margin:0}
+  body{background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:14px;-webkit-font-smoothing:antialiased}
+  .ms{font-family:"Material Symbols Outlined";font-weight:normal;font-style:normal;line-height:1;vertical-align:middle}
+  .mono{font-family:var(--mono)} .fr{font-family:var(--fr)}
+  /* Masthead */
+  header.mh{display:flex;align-items:center;gap:18px;padding:14px 28px;border-bottom:1px solid var(--rule);background:var(--card)}
+  .mh .brand{font-family:var(--fr);font-weight:800;font-size:19px;letter-spacing:-.01em}
+  .mh .sub{font-family:var(--fr);font-style:italic;color:var(--terra);font-size:12px;font-weight:600}
+  .mh .tabs{display:flex;gap:2px;margin-left:8px}
+  .mh .tab{font-family:var(--mono);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);padding:6px 11px;border-radius:7px;text-decoration:none}
+  .mh .tab.on{background:var(--terra-soft);color:var(--terra)}
+  .mh .right{margin-left:auto;display:flex;align-items:center;gap:10px}
+  .yr{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--rule);border-radius:999px;background:var(--card);padding:5px 12px;font-family:var(--mono);font-weight:700;font-size:13px}
+  .yr button{border:0;background:none;cursor:pointer;color:var(--muted);font-size:18px;display:flex}
+  .save{display:inline-flex;align-items:center;gap:6px;background:var(--terra);color:#fbf8ef;border:0;border-radius:8px;padding:8px 14px;font-weight:700;font-size:12.5px;cursor:pointer}
+  /* layout */
+  .wrap{display:grid;grid-template-columns:248px 1fr;gap:0;height:calc(100vh - 59px)}
+  aside{border-right:1px solid var(--rule);padding:18px 16px;overflow:auto}
+  .lbl{font-family:var(--mono);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin:2px 0 10px}
+  .poste{display:flex;align-items:center;gap:9px;width:100%;text-align:left;border:1px solid transparent;border-radius:9px;padding:8px 9px;background:none;cursor:pointer;margin-bottom:3px}
+  .poste:hover{background:var(--secondary)}
+  .poste.on{background:var(--card);border-color:var(--terra);box-shadow:0 0 0 2px var(--terra-soft)}
+  .poste .code{font-family:var(--fr);font-weight:800;font-size:14px}
+  .poste .meta{font-size:10.5px;color:var(--muted)}
+  .dot{width:8px;height:8px;border-radius:2px;flex:none}
+  .legend{margin-top:18px;padding-top:14px;border-top:1px solid var(--rule-soft);display:flex;flex-direction:column;gap:9px;font-size:12px;color:#4a4135}
+  .legend i{display:inline-block;width:14px;height:11px;border-radius:3px;margin-right:7px;vertical-align:-1px}
+  main{padding:20px 26px;overflow:auto}
+  .h1{font-family:var(--fr);font-weight:800;font-size:22px;letter-spacing:-.01em;margin:0 0 2px}
+  .lead{color:var(--muted);font-size:13px;margin:0 0 18px}
+  .cal-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+  .mo{background:var(--card);border:1px solid var(--rule);border-radius:13px;padding:12px 12px 10px}
+  .mo h3{font-family:var(--fr);font-weight:700;font-size:14px;margin:0 0 8px;display:flex;justify-content:space-between;align-items:baseline}
+  .mo h3 small{font-family:var(--mono);font-weight:700;font-size:10px;color:var(--muted)}
+  .dow{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;font-family:var(--mono);font-size:9px;color:var(--muted);text-align:center;margin-bottom:3px}
+  .days{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+  .day{aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:11px;border-radius:6px;color:#4a4135;position:relative;cursor:pointer}
+  .day.out{color:transparent;cursor:default}
+  .day.we{color:#b3a78c}
+  .day:hover:not(.out){outline:1.5px solid var(--rule)}
+  .day.ferie{background:var(--terra);color:#fbf8ef;font-weight:700}
+  .day.ferie.off{background:repeating-linear-gradient(45deg,var(--terra-soft),var(--terra-soft) 3px,transparent 3px,transparent 6px);color:var(--terra)}
+  .day.ferm{background:color-mix(in srgb,var(--suggere) 26%,transparent);font-weight:700;color:#5a4410}
+  .day.ferm::after{content:"";position:absolute;bottom:3px;width:4px;height:4px;border-radius:50%;background:var(--suggere)}
+</style>
+</head>
+<body>
+<header class="mh">
+  <span class="brand">Supply Board</span>
+  <span class="sub">Calendrier usine</span>
+  <nav class="tabs">
+    <a class="tab">Tableau</a><a class="tab">Programme</a><a class="tab">Charge</a>
+    <a class="tab on">Config</a>
+  </nav>
+  <div class="right">
+    <div class="yr"><button class="ms">chevron_left</button>2026<button class="ms">chevron_right</button></div>
+    <button class="save"><span class="ms" style="font-size:17px">save</span>Enregistrer</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <aside>
+    <div class="lbl">Ligne de production</div>
+    <button class="poste on"><span class="dot" style="background:var(--planifie)"></span><span><span class="code">Toutes</span><div class="meta">vue globale · fériés</div></span></button>
+    <button class="poste"><span class="dot" style="background:#5b7d4e"></span><span><span class="code">PP_830</span><div class="meta">atelier S9P · CFA</div></span></button>
+    <button class="poste"><span class="dot" style="background:#b8862c"></span><span><span class="code">PP_091</span><div class="meta">atelier S3P · CFA</div></span></button>
+    <button class="poste"><span class="dot" style="background:#8b5cf6"></span><span><span class="code">PP_137</span><div class="meta">atelier CLP · 2/8</div></span></button>
+
+    <div class="legend">
+      <div class="lbl" style="margin:0 0 2px">Légende</div>
+      <span><i style="background:var(--terra)"></i>Férié (chômé)</span>
+      <span><i style="background:repeating-linear-gradient(45deg,var(--terra-soft),var(--terra-soft) 3px,transparent 3px,transparent 6px);box-shadow:inset 0 0 0 1px var(--terra)"></i>Férié désactivé</span>
+      <span><i style="background:color-mix(in srgb,var(--suggere) 26%,transparent)"></i>Fermeture (maint./congés)</span>
+      <span><i style="background:#fff;box-shadow:inset 0 0 0 1px var(--rule)"></i>Week-end / ouvré</span>
+    </div>
+  </aside>
+
+  <main>
+    <h1 class="h1">Vue annuelle — Toutes lignes</h1>
+    <p class="lead">Clic sur un jour pour basculer un férié ou poser une fermeture. <b style="color:var(--terra)">11 fériés</b> · <b style="color:#5a4410">2 fermetures</b> saisies sur 2026.</p>
+    <div class="cal-grid" id="cal"></div>
+  </main>
+</div>
+
+<script>
+  // Données réelles 2026
+  const MONTHS=["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
+  const FERIES={ "0-1":"Jour de l'An","3-6":"Lundi de Pâques","4-1":"Fête du Travail","4-8":"Victoire 1945","4-14":"Ascension","4-25":"Lundi de Pentecôte","6-14":"Fête nationale","7-15":"Assomption","10-1":"Toussaint","10-11":"Armistice","11-25":"Noël" };
+  const FERIES_OFF=new Set([]); // aucun désactivé par défaut
+  // Fermetures démo (poste « Toutes » montre l'agrégat)
+  const FERM=new Set(["7-3","7-4","7-5","7-6","7-7","7-8","7-9","7-10"].map(s=>s)); // congés août (sem 32) p.ex.
+  const cal=document.getElementById('cal');
+  for(let m=0;m<12;m++){
+    const first=new Date(2026,m,1), start=(first.getDay()+6)%7, dim=new Date(2026,m+1,0).getDate();
+    let cells="";
+    for(let i=0;i<start;i++) cells+='<div class="day out">0</div>';
+    for(let d=1;d<=dim;d++){
+      const key=m+"-"+d, dow=new Date(2026,m,d).getDay(), we=(dow===0||dow===6);
+      let cls="day"+(we?" we":""), title="";
+      if(FERIES[key]){ cls+=" ferie"+(FERIES_OFF.has(key)?" off":""); title=FERIES[key]; }
+      else if(FERM.has(key)){ cls+=" ferm"; title="Fermeture"; }
+      cells+=`<div class="${cls}" title="${title}">${d}</div>`;
+    }
+    cal.insertAdjacentHTML('beforeend',
+      `<div class="mo"><h3>${MONTHS[m]}<small>${Object.keys(FERIES).filter(k=>+k.split('-')[0]===m).length} fériés</small></h3>
+       <div class="dow"><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span></div>
+       <div class="days">${cells}</div></div>`);
+  }
+</script>
+</body>
+</html>

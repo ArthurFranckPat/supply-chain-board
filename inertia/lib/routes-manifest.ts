@@ -2,7 +2,7 @@
  * AUTO-GÉNÉRÉ par scripts/gen-routes-manifest.mjs — NE PAS ÉDITER À LA MAIN.
  * Source : `start/routes.ts` → `node ace list:routes --jsonl`.
  * Régénérer : `npm run routes:gen` · Vérifier la fraîcheur : `npm run routes:check`.
- * 63 routes nommées.
+ * 67 routes nommées.
  */
 
 export const MANIFEST = {
@@ -11,6 +11,10 @@ export const MANIFEST = {
   "auth.attempt": { method: "POST", pattern: "/login" },
   "auth.login": { method: "GET", pattern: "/login" },
   "auth.logout": { method: "POST", pattern: "/logout" },
+  "calendar_config.create_closure": { method: "POST", pattern: "/api/v1/config/closures" },
+  "calendar_config.delete_closure": { method: "DELETE", pattern: "/api/v1/config/closures/:id" },
+  "calendar_config.index": { method: "GET", pattern: "/configuration/calendrier" },
+  "calendar_config.toggle_holiday": { method: "POST", pattern: "/api/v1/config/holidays/toggle" },
   "dashboard": { method: "GET", pattern: "/" },
   "data.load": { method: "POST", pattern: "/api/v1/data/load" },
   "design_system": { method: "GET", pattern: "/design-system" },
@@ -83,6 +87,10 @@ export type RouteParams = {
   "auth.attempt": void,
   "auth.login": void,
   "auth.logout": void,
+  "calendar_config.create_closure": void,
+  "calendar_config.delete_closure": { "id": string | number },
+  "calendar_config.index": void,
+  "calendar_config.toggle_holiday": void,
   "dashboard": void,
   "data.load": void,
   "design_system": void,

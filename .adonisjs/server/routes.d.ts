@@ -20,6 +20,10 @@ export type ScannedRoutes = {
     'suivi.board': { paramsTuple?: []; params?: {} }
     'scheduler.programme': { paramsTuple?: []; params?: {} }
     'load.index': { paramsTuple?: []; params?: {} }
+    'calendar_config.index': { paramsTuple?: []; params?: {} }
+    'calendar_config.toggle_holiday': { paramsTuple?: []; params?: {} }
+    'calendar_config.create_closure': { paramsTuple?: []; params?: {} }
+    'calendar_config.delete_closure': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'order_planning.index': { paramsTuple?: []; params?: {} }
     'order_planning.line_detail': { paramsTuple: [ParamValue,ParamValue]; params: {'order': ParamValue,'line': ParamValue} }
     'order_planning.update': { paramsTuple: [ParamValue,ParamValue]; params: {'order': ParamValue,'line': ParamValue} }
@@ -83,6 +87,7 @@ export type ScannedRoutes = {
     'suivi.board': { paramsTuple?: []; params?: {} }
     'scheduler.programme': { paramsTuple?: []; params?: {} }
     'load.index': { paramsTuple?: []; params?: {} }
+    'calendar_config.index': { paramsTuple?: []; params?: {} }
     'order_planning.index': { paramsTuple?: []; params?: {} }
     'order_planning.line_detail': { paramsTuple: [ParamValue,ParamValue]; params: {'order': ParamValue,'line': ParamValue} }
     'planning_board.index': { paramsTuple?: []; params?: {} }
@@ -123,6 +128,7 @@ export type ScannedRoutes = {
     'suivi.board': { paramsTuple?: []; params?: {} }
     'scheduler.programme': { paramsTuple?: []; params?: {} }
     'load.index': { paramsTuple?: []; params?: {} }
+    'calendar_config.index': { paramsTuple?: []; params?: {} }
     'order_planning.index': { paramsTuple?: []; params?: {} }
     'order_planning.line_detail': { paramsTuple: [ParamValue,ParamValue]; params: {'order': ParamValue,'line': ParamValue} }
     'planning_board.index': { paramsTuple?: []; params?: {} }
@@ -151,6 +157,8 @@ export type ScannedRoutes = {
   POST: {
     'auth.attempt': { paramsTuple?: []; params?: {} }
     'auth.logout': { paramsTuple?: []; params?: {} }
+    'calendar_config.toggle_holiday': { paramsTuple?: []; params?: {} }
+    'calendar_config.create_closure': { paramsTuple?: []; params?: {} }
     'planning_board.feasibility': { paramsTuple?: []; params?: {} }
     'planning_board.whatif': { paramsTuple?: []; params?: {} }
     'planning_board.order_impacts': { paramsTuple?: []; params?: {} }
@@ -170,14 +178,15 @@ export type ScannedRoutes = {
     'x3_writeback.modify': { paramsTuple?: []; params?: {} }
     'x3_writeback.run': { paramsTuple?: []; params?: {} }
   }
-  PATCH: {
-    'order_planning.update': { paramsTuple: [ParamValue,ParamValue]; params: {'order': ParamValue,'line': ParamValue} }
-    'planning_board.update': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
-  }
   DELETE: {
+    'calendar_config.delete_closure': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'order_planning.reset_override': { paramsTuple: [ParamValue,ParamValue]; params: {'order': ParamValue,'line': ParamValue} }
     'planning_board.reset_override': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
     'planning_board.reset_all': { paramsTuple?: []; params?: {} }
+  }
+  PATCH: {
+    'order_planning.update': { paramsTuple: [ParamValue,ParamValue]; params: {'order': ParamValue,'line': ParamValue} }
+    'planning_board.update': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
   }
 }
 declare module '@adonisjs/core/types/http' {

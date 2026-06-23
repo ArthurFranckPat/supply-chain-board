@@ -6,6 +6,7 @@ import type { GammeOperation } from '#app/domain/models/gamme'
 import type { Workstation } from '#app/domain/models/workstation'
 import { capDay } from '#app/domain/capacity'
 import { atelierLabel, atelierCategory, type AtelierCategory } from '#app/domain/atelier'
+import capacityCalendar from '#services/capacity_calendar_service'
 
 /**
  * Shapes émis vers la page Inertia. Miroir côté client : inertia/lib/load/types.ts
@@ -159,8 +160,14 @@ export default class LoadController {
       if (g.workstation) wstLabels.set(g.workstation, g.workstationLabel || g.workstation)
     }
 
+    // Calendrier d'ouverture (#37) : fériés actifs + fermetures → facteur [0..1] par jour.
+    const calendar = await capacityCalendar
+      .buildCalendar(monthStart.getFullYear(), horizonEnd.getFullYear())
+      .catch(() => null)
+
     // Capacité nette par poste × bucket (issue #35). Une passe jour par poste, ventilée
     // dans les mêmes buckets mensuels/hebdo que la charge → overlay directement alignable.
+    // Chaque jour est pondéré par le facteur d'ouverture du calendrier (#37).
     const wstByCode = new Map(workstations.map((w) => [w.code, w]))
     const capacityByWst = new Map<string, { monthly: number[]; weekly: number[] }>()
     for (const w of workstations) {
@@ -168,7 +175,9 @@ export default class LoadController {
       const weekly = weekBuckets.map(() => 0)
       for (let t = monthStart.getTime(); t <= horizonEnd.getTime(); t += DAY_MS) {
         const d = new Date(t)
-        const c = capDay(w, d)
+        const factor = calendar ? calendar.factor(w, isoDay(d)) : 1
+        if (factor <= 0) continue
+        const c = capDay(w, d) * factor
         if (c <= 0) continue
         const mi = monthIdxByKey.get(monthKey(d))
         if (mi !== undefined) monthly[mi] += c
