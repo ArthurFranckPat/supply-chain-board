@@ -2,7 +2,7 @@ import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount, 
 import { cx } from '@/libs/cva'
 import { Masthead } from '@/components/masthead'
 import { TextField, TextFieldInput } from '@/components/ui/text-field'
-import type { LoadPageProps, LoadLine, LoadPeriod, LoadView, AtelierCategory } from '@/lib/load/types'
+import type { LoadPageProps, LoadLine, LoadPeriod, LoadView } from '@/lib/load/types'
 
 /**
  * Page « Projection de charge » — vision long terme, variante 3 « Charge par ligne »
@@ -123,6 +123,7 @@ const MiniCard: Component<{
     const out: { kind: 'rect' | 'path'; x: number; y: number; w: number; h: number; fill: string }[] = []
     const peakDots: { cx: number; cy: number }[] = []
     const overRects: { x: number; y: number; w: number; h: number }[] = []
+    const capPts: { x: number; y: number }[] = []
     p.line.monthly.forEach((d, i) => {
       const cx = pad + slot * i + slot / 2
       const x = cx - bw / 2
@@ -135,11 +136,13 @@ const MiniCard: Component<{
         out.push({ kind: idx === topIdx ? 'path' : 'rect', x, y: yTop, w: bw, h, fill: col })
         acc += v
       })
-      // Surcharge : part au-dessus du plafond, en rouge translucide (pas de tiret flottant).
+      // Surcharge : part au-dessus du plafond, en rouge translucide.
       if (c[i] > 0 && t[i] > c[i]) overRects.push({ x, y: yy(t[i]), w: bw, h: yy(c[i]) - yy(t[i]) })
+      if (c[i] > 0) capPts.push({ x: cx, y: yy(c[i]) })
       if (i === peakIdx()) peakDots.push({ cx, cy: yy(t[i]) })
     })
-    return { out, peakDots, overRects }
+    const capPath = capPts.map((pt, i) => `${i ? 'L' : 'M'}${pt.x} ${pt.y}`).join(' ')
+    return { out, peakDots, overRects, capPath }
   })
 
   return (
@@ -174,6 +177,8 @@ const MiniCard: Component<{
         <For each={bars().overRects}>
           {(r) => <rect x={r.x} y={r.y} width={r.w} height={r.h} fill={DANGER} opacity="0.22" />}
         </For>
+        {/* Plafond de capacité — courbe continue. */}
+        <path d={bars().capPath} fill="none" stroke={FG} stroke-opacity="0.4" stroke-width="1" stroke-linejoin="round" />
         <For each={bars().peakDots}>{(pk) => <circle cx={pk.cx} cy={pk.cy} r="2.5" fill={TERRA} />}</For>
       </svg>
       <div class="mt-1.5 flex items-baseline justify-between">
@@ -238,16 +243,16 @@ const DetailChart: Component<{
       return { y: y(val), label: Math.round(val) }
     })
 
-    type SegInfo = { period: string; label: string; value: number; total: number; color: string }
+    type SegInfo = { period: string; label: string; value: number; total: number; cap: number; color: string }
     type Seg = { kind: 'rect' | 'path'; x: number; y: number; w: number; h: number; fill: string; info: SegInfo }
     type Lbl = { x: number; y: number; text: number; fill: string }
     const segments: Seg[] = []
     const inLabels: Lbl[] = []
     const totals: { x: number; y: number; text: number; fill: string }[] = []
     const xLabels: { x: number; y: number; text: string }[] = []
-    // Plafond de capacité : un palier par bucket (pleine largeur de créneau) +
-    // surépaisseur rouge translucide sur la part de charge au-dessus du plafond.
-    const capSegs: { x1: number; x2: number; y: number; over: boolean }[] = []
+    // Plafond de capacité : courbe continue (un point par bucket) + surépaisseur
+    // rouge translucide sur la part de charge au-dessus du plafond.
+    const capPts: { x: number; y: number; v: number; over: boolean }[] = []
     const overRects: { x: number; y: number; w: number; h: number }[] = []
 
     items.forEach((it, i) => {
@@ -267,7 +272,7 @@ const DetailChart: Component<{
           w: bw,
           h,
           fill: col,
-          info: { period: it.label, label, value: v, total: T[i], color: col },
+          info: { period: it.label, label, value: v, total: T[i], cap: C[i], color: col },
         })
         if (h > 16) inLabels.push({ x: cx, y: (yTop + y(acc)) / 2 + 3, text: v, fill: k === 's' ? '#3a2a0e' : CARD })
         acc += v
@@ -275,12 +280,14 @@ const DetailChart: Component<{
       const over = C[i] > 0 && T[i] > C[i]
       totals.push({ x: cx, y: y(T[i]) - 6, text: T[i], fill: over ? DANGER : FG })
       if (C[i] > 0) {
-        const half = Math.min(slot / 2 - 5, bw / 2 + 16)
-        capSegs.push({ x1: cx - half, x2: cx + half, y: y(C[i]), over })
+        capPts.push({ x: cx, y: y(C[i]), v: C[i], over })
         if (over) overRects.push({ x: xx, y: y(T[i]), w: bw, h: y(C[i]) - y(T[i]) })
       }
       xLabels.push({ x: cx, y: H - padB + 18, text: it.label })
     })
+
+    // Courbe de capacité continue (polyligne par centre de bucket).
+    const capPath = capPts.map((p2, i) => `${i ? 'L' : 'M'}${p2.x} ${p2.y}`).join(' ')
 
     // Moyenne mobile.
     const win = props.gran() === 'week' ? 8 : 2
@@ -290,12 +297,12 @@ const DetailChart: Component<{
     const pi = T.length ? T.indexOf(Math.max(...T)) : 0
     const peak = T.length ? { cx: x(pi), cy: y(T[pi]) } : null
 
-    const capLabel = capSegs.length ? { x: capSegs[capSegs.length - 1].x2, y: capSegs[capSegs.length - 1].y } : null
-    return { grid, segments, inLabels, totals, xLabels, capSegs, overRects, capLabel, avgPath, peak, week: props.gran() === 'week' }
+    const capLabel = capPts.length ? { x: capPts[capPts.length - 1].x, y: capPts[capPts.length - 1].y } : null
+    return { grid, segments, inLabels, totals, xLabels, capPath, capPts, overRects, capLabel, avgPath, peak, week: props.gran() === 'week' }
   })
 
   // Tooltip au survol d'une section : suit le curseur dans le conteneur.
-  type SegInfo = { period: string; label: string; value: number; total: number; color: string }
+  type SegInfo = { period: string; label: string; value: number; total: number; cap: number; color: string }
   const [hover, setHover] = createSignal<SegInfo | null>(null)
   const [pos, setPos] = createSignal({ x: 0, y: 0 })
   const onMove = (e: MouseEvent) => {
@@ -350,24 +357,33 @@ const DetailChart: Component<{
       <For each={geom().overRects}>
         {(r) => <rect x={r.x} y={r.y} width={r.w} height={r.h} fill={DANGER} opacity="0.18" />}
       </For>
-      {/* Plafond de capacité (issue #35) — palier plein par bucket, rouge si dépassé. */}
-      <For each={geom().capSegs}>
+      {/* Plafond de capacité (issue #35) — courbe continue + points (rouge si dépassé). */}
+      <path
+        d={geom().capPath}
+        fill="none"
+        stroke={FG}
+        stroke-opacity="0.5"
+        stroke-width="1.75"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+      <For each={geom().capPts}>
         {(c) => (
-          <line
-            x1={c.x1}
-            x2={c.x2}
-            y1={c.y}
-            y2={c.y}
-            stroke={c.over ? DANGER : FG}
-            stroke-opacity={c.over ? 0.9 : 0.45}
-            stroke-width={c.over ? 2.5 : 1.5}
-            stroke-linecap="round"
+          <circle
+            cx={c.x}
+            cy={c.y}
+            r={c.over ? 3 : 2}
+            fill={c.over ? DANGER : FG}
+            fill-opacity={c.over ? 1 : 0.5}
+            class="cursor-pointer"
+            onMouseEnter={() => setHover({ period: '', label: 'Capacité', value: c.v, total: 0, cap: c.v, color: FG })}
+            onMouseLeave={() => setHover(null)}
           />
         )}
       </For>
       <Show when={geom().capLabel}>
         {(l) => (
-          <text x={l().x} y={l().y - 5} text-anchor="end" font-size="9" font-weight="700" fill={FG} opacity="0.5" class="font-mono uppercase tracking-wider">
+          <text x={l().x + 4} y={l().y - 5} text-anchor="end" font-size="9" font-weight="700" fill={FG} opacity="0.5" class="font-mono uppercase tracking-wider">
             capacité
           </text>
         )}
@@ -415,17 +431,27 @@ const DetailChart: Component<{
             class="pointer-events-none absolute z-10 whitespace-nowrap rounded-lg border border-rule bg-card px-3 py-2 shadow-[0_4px_14px_-4px_rgba(31,26,19,.35)]"
             style={{ left: `${pos().x}px`, top: `${pos().y}px`, transform: 'translate(-50%, calc(-100% - 12px))' }}
           >
-            <div class="font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-              {h().period}
-            </div>
+            <Show when={h().period}>
+              <div class="font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                {h().period}
+              </div>
+            </Show>
             <div class="mt-1 flex items-center gap-2">
               <span class="size-2.5 flex-none rounded-[2px]" style={{ background: h().color }} />
               <span class="font-sans text-[12px] font-semibold">{h().label}</span>
               <span class="ml-3 font-fraunces text-[15px] font-extrabold tabular-nums">{h().value} h</span>
             </div>
-            <div class="mt-0.5 font-mono text-[10px] text-muted-foreground">
-              {h().total > 0 ? Math.round((h().value / h().total) * 100) : 0}% du total · {h().total} h
-            </div>
+            {/* Survol d'un segment de charge : part du total + plafond + saturation. */}
+            <Show when={h().total > 0}>
+              <div class="mt-0.5 font-mono text-[10px] text-muted-foreground">
+                {Math.round((h().value / h().total) * 100)}% du total · {h().total} h
+              </div>
+              <Show when={h().cap > 0}>
+                <div class="mt-0.5 font-mono text-[10px]" style={{ color: satColor(h().total, h().cap) }}>
+                  capacité {h().cap} h · saturation {Math.round(satRate(h().total, h().cap))}%
+                </div>
+              </Show>
+            </Show>
           </div>
         )}
       </Show>
@@ -440,32 +466,17 @@ const Load: Component<LoadPageProps> = (props) => {
   const [selected, setSelected] = createSignal(props.ofLines[0]?.code ?? '')
   const [gran, setGran] = createSignal<Gran>('month')
   const [query, setQuery] = createSignal('')
-  // Filtre atelier (#36) : ensemble de STOLOC retenus (vide = tous) + bascule montage/fabrication.
-  const [atelierFilter, setAtelierFilter] = createSignal<Set<string>>(new Set())
-  const [catFilter, setCatFilter] = createSignal<'all' | AtelierCategory>('all')
-
-  const toggleAtelier = (code: string) =>
-    setAtelierFilter((prev) => {
-      const next = new Set(prev)
-      next.has(code) ? next.delete(code) : next.add(code)
-      return next
-    })
 
   // Jeu de lignes de la vue active : OF (charge ordres) ou Commande (charge demande).
   const lines = createMemo(() => (view() === 'of' ? props.ofLines : props.cmdLines))
 
-  // Filtre client : atelier (STOLOC) + catégorie montage/fabrication + recherche
-  // poste (code/libellé) OU article (code/désignation).
+  // Filtre client : recherche poste (code/libellé) OU article (code/désignation).
   const filteredLines = createMemo(() => {
     const q = query().trim().toLowerCase()
-    const ats = atelierFilter()
-    const cat = catFilter()
-    return lines().filter((l) => {
-      if (ats.size && !ats.has(l.atelier)) return false
-      if (cat !== 'all' && l.category !== cat) return false
-      if (q && !`${l.code} ${l.name} ${l.articles.join(' ')}`.toLowerCase().includes(q)) return false
-      return true
-    })
+    if (!q) return lines()
+    return lines().filter((l) =>
+      `${l.code} ${l.name} ${l.articles.join(' ')}`.toLowerCase().includes(q),
+    )
   })
 
   // Si la sélection sort du filtre, bascule sur le premier poste visible.
@@ -633,59 +644,6 @@ const Load: Component<LoadPageProps> = (props) => {
           Mini-graphes : {props.months.length} mois · clic = détail
         </span>
       </div>
-
-      {/* Filtre atelier (#36) — apparaît dès qu'un poste porte un atelier (STOLOC). */}
-      <Show when={props.ateliers.length > 0}>
-        <div class="flex flex-none flex-wrap items-center gap-2 border-b border-rule px-7 py-2 text-[12px]">
-          <span class="font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Atelier</span>
-          {/* Bascule catégorie : provisoire tant que la règle montage/fabrication n'est pas validée métier. */}
-          <div class="inline-flex items-center gap-0.5 rounded-md border border-rule bg-card p-0.5">
-            <For each={(['all', 'montage', 'fabrication'] as const)}>
-              {(c) => (
-                <button
-                  type="button"
-                  onClick={() => setCatFilter(c)}
-                  class={cx(
-                    'rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
-                    catFilter() === c ? 'bg-terra-soft text-terra' : 'text-muted-foreground hover:text-foreground',
-                  )}
-                >
-                  {c === 'all' ? 'Tous' : c === 'montage' ? 'Montage' : 'Fabrication'}
-                </button>
-              )}
-            </For>
-          </div>
-          <span class="h-3.5 w-px bg-rule-soft" />
-          <div class="flex flex-wrap items-center gap-1.5">
-            <For each={props.ateliers}>
-              {(a) => (
-                <button
-                  type="button"
-                  onClick={() => toggleAtelier(a.code)}
-                  class={cx(
-                    'rounded-full border px-2.5 py-1 font-sans text-[11px] font-semibold transition-colors',
-                    atelierFilter().has(a.code)
-                      ? 'border-terra bg-terra-soft text-terra'
-                      : 'border-rule bg-card text-muted-foreground hover:border-[#b3a47e] hover:text-foreground',
-                  )}
-                  title={`${a.code} · ${a.category}`}
-                >
-                  {a.label}
-                </button>
-              )}
-            </For>
-            <Show when={atelierFilter().size > 0}>
-              <button
-                type="button"
-                onClick={() => setAtelierFilter(new Set())}
-                class="ml-1 font-mono text-[10px] font-bold uppercase tracking-wider text-terra hover:underline"
-              >
-                Réinitialiser
-              </button>
-            </Show>
-          </div>
-        </div>
-      </Show>
 
       <Show
         when={lines().length > 0}
