@@ -3,6 +3,9 @@ import { createStore, produce } from 'solid-js/store'
 import { cx } from '@/libs/cva'
 import { Masthead } from '@/components/masthead'
 import { route } from '@/lib/routes'
+import { Button } from '@/components/ui/button'
+import { Calendar, type DateRange } from '@/components/ui/calendar'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 /**
  * Configuration du calendrier usine (issue #37) — design « Registre » (V2).
@@ -305,7 +308,43 @@ const Calendrier: Component<Props> = (props) => {
   )
 }
 
-/* ── Formulaire d'ajout de fermeture ─────────────────────────────────────── */
+/* ── Toggle « pilule » (réutilise le langage visuel des onglets) ──────────── */
+
+function Pills<T extends string>(p: {
+  value: () => T
+  onChange: (v: T) => void
+  options: { v: T; label: string }[]
+}) {
+  return (
+    <div class="inline-flex items-center gap-0.5 rounded-md border border-rule bg-card p-0.5">
+      <For each={p.options}>
+        {(o) => (
+          <button
+            type="button"
+            onClick={() => p.onChange(o.v)}
+            class={cx(
+              'rounded-[5px] px-3 py-1.5 text-[12px] font-semibold transition-colors',
+              p.value() === o.v ? 'bg-terra-soft text-terra' : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            {o.label}
+          </button>
+        )}
+      </For>
+    </div>
+  )
+}
+
+const pad = (n: number) => String(n).padStart(2, '0')
+const toIso = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+const Field: Component<{ label: string; children: any }> = (p) => (
+  <label class="flex flex-col gap-1.5">
+    <span class="font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">{p.label}</span>
+    {p.children}
+  </label>
+)
+
+/* ── Formulaire d'ajout de fermeture (composants stylés, aucun natif) ─────── */
 
 const ClosureForm: Component<{
   postes: Poste[]
@@ -315,22 +354,38 @@ const ClosureForm: Component<{
 }> = (props) => {
   const [scope, setScope] = createSignal<'global' | 'wst' | 'stoloc'>('wst')
   const [code, setCode] = createSignal(props.postes[0]?.code ?? '')
-  const [from, setFrom] = createSignal('')
-  const [to, setTo] = createSignal('')
+  const [range, setRange] = createSignal<DateRange>({ start: null, end: null })
   const [motif, setMotif] = createSignal('maintenance')
-  const [factor, setFactor] = createSignal(0)
+  const [factor, setFactor] = createSignal('0')
   const [busy, setBusy] = createSignal(false)
+  const [calOpen, setCalOpen] = createSignal(false)
+
+  // Options du Select selon la portée.
+  const codeOptions = createMemo(() =>
+    scope() === 'stoloc'
+      ? props.ateliers.map((a) => ({ v: a.code, label: a.label }))
+      : props.postes.map((p) => ({ v: p.code, label: p.code })),
+  )
+  const codeLabel = (v: string) => codeOptions().find((o) => o.v === v)?.label ?? v
+
+  const rangeLabel = createMemo(() => {
+    const r = range()
+    if (!r.start) return 'Choisir la période'
+    const end = r.end ?? r.start
+    return `${frNum(toIso(r.start))} → ${frNum(toIso(end))}`
+  })
 
   const submit = async () => {
-    if (!from()) return
+    const r = range()
+    if (!r.start) return
     setBusy(true)
     const body = {
       scope: scope(),
       code: scope() === 'global' ? '' : code(),
-      from: from(),
-      to: to() || from(),
+      from: toIso(r.start),
+      to: toIso(r.end ?? r.start),
       motif: motif(),
-      factor: factor(),
+      factor: Number(factor()),
     }
     try {
       const res = await fetch(route('calendar_config.create_closure'), {
@@ -345,67 +400,95 @@ const ClosureForm: Component<{
     }
   }
 
-  const field = 'rounded-lg border border-rule bg-card px-2.5 py-1.5 text-[12.5px]'
   return (
-    <div class="flex flex-wrap items-end gap-2.5 border-t border-rule-soft bg-secondary px-4 py-3.5">
-      <label class="flex flex-col gap-1">
-        <span class="font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Portée</span>
-        <select class={field} value={scope()} onChange={(e) => setScope(e.currentTarget.value as any)}>
-          <option value="wst">Poste</option>
-          <option value="stoloc">Atelier</option>
-          <option value="global">Toute l'usine</option>
-        </select>
-      </label>
+    <div class="flex flex-wrap items-end gap-x-5 gap-y-3.5 border-t border-rule-soft bg-secondary px-4 py-4">
+      <Field label="Portée">
+        <Pills
+          value={scope}
+          onChange={(v) => setScope(v)}
+          options={[
+            { v: 'wst', label: 'Poste' },
+            { v: 'stoloc', label: 'Atelier' },
+            { v: 'global', label: "Toute l'usine" },
+          ]}
+        />
+      </Field>
+
       <Show when={scope() !== 'global'}>
-        <label class="flex flex-col gap-1">
-          <span class="font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
-            {scope() === 'wst' ? 'Poste' : 'Atelier'}
-          </span>
-          <select class={field} value={code()} onChange={(e) => setCode(e.currentTarget.value)}>
-            <Show
-              when={scope() === 'wst'}
-              fallback={<For each={props.ateliers}>{(a) => <option value={a.code}>{a.label}</option>}</For>}
-            >
-              <For each={props.postes}>{(p) => <option value={p.code}>{p.code}</option>}</For>
-            </Show>
-          </select>
-        </label>
+        <Field label={scope() === 'wst' ? 'Poste' : 'Atelier'}>
+          <Select<string>
+            value={code()}
+            onChange={(v) => v && setCode(v)}
+            options={codeOptions().map((o) => o.v)}
+            disallowEmptySelection
+            optionTextValue={codeLabel}
+            itemComponent={(ip) => <SelectItem item={ip.item}>{codeLabel(ip.item.rawValue)}</SelectItem>}
+          >
+            <SelectTrigger class="h-[34px] w-[150px] rounded-lg border border-rule bg-card px-3 text-[12.5px] font-semibold">
+              <SelectValue<string>>{(s) => codeLabel(s.selectedOption())}</SelectValue>
+            </SelectTrigger>
+            <SelectContent />
+          </Select>
+        </Field>
       </Show>
-      <label class="flex flex-col gap-1">
-        <span class="font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Du</span>
-        <input type="date" class={field} value={from()} onInput={(e) => setFrom(e.currentTarget.value)} />
-      </label>
-      <label class="flex flex-col gap-1">
-        <span class="font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Au</span>
-        <input type="date" class={field} value={to()} onInput={(e) => setTo(e.currentTarget.value)} />
-      </label>
-      <label class="flex flex-col gap-1">
-        <span class="font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Motif</span>
-        <select class={field} value={motif()} onChange={(e) => setMotif(e.currentTarget.value)}>
-          <option value="maintenance">Maintenance</option>
-          <option value="conges">Congés</option>
-          <option value="autre">Autre</option>
-        </select>
-      </label>
-      <label class="flex flex-col gap-1">
-        <span class="font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Capacité</span>
-        <select class={field} value={String(factor())} onChange={(e) => setFactor(Number(e.currentTarget.value))}>
-          <option value="0">Fermé (0 %)</option>
-          <option value="0.5">Demi-journée (50 %)</option>
-        </select>
-      </label>
-      <div class="ml-auto flex gap-2">
-        <button type="button" onClick={props.onCancel} class="rounded-lg px-3 py-2 text-[12.5px] font-semibold text-muted-foreground">
+
+      <Field label="Période">
+        <div class="relative">
+          <button
+            type="button"
+            onClick={() => setCalOpen((o) => !o)}
+            class="flex h-[34px] min-w-[170px] items-center gap-2 rounded-lg border border-rule bg-card px-3 text-[12.5px] font-semibold transition-colors hover:border-terra"
+          >
+            <span class="material-symbols-outlined text-[15px] text-muted-foreground">calendar_month</span>
+            <span classList={{ 'text-muted-foreground': !range().start }}>{rangeLabel()}</span>
+            <span class="material-symbols-outlined ml-auto text-[16px] text-muted-foreground">expand_more</span>
+          </button>
+          <Show when={calOpen()}>
+            <button type="button" tabIndex={-1} aria-hidden="true" class="fixed inset-0 z-40 cursor-default" onClick={() => setCalOpen(false)} />
+            <div class="absolute left-0 top-full z-50 mt-2">
+              <Calendar
+                mode="range"
+                range={range()}
+                onRangeChange={(r) => {
+                  setRange(r)
+                  if (r.start && r.end) setCalOpen(false)
+                }}
+              />
+            </div>
+          </Show>
+        </div>
+      </Field>
+
+      <Field label="Motif">
+        <Pills
+          value={motif}
+          onChange={(v) => setMotif(v)}
+          options={[
+            { v: 'maintenance', label: 'Maintenance' },
+            { v: 'conges', label: 'Congés' },
+            { v: 'autre', label: 'Autre' },
+          ]}
+        />
+      </Field>
+
+      <Field label="Capacité">
+        <Pills
+          value={factor}
+          onChange={(v) => setFactor(v)}
+          options={[
+            { v: '0', label: 'Fermé' },
+            { v: '0.5', label: 'Demi-journée' },
+          ]}
+        />
+      </Field>
+
+      <div class="ml-auto flex items-center gap-2 self-end">
+        <Button variant="ghost" onClick={props.onCancel} class="text-muted-foreground">
           Annuler
-        </button>
-        <button
-          type="button"
-          onClick={submit}
-          disabled={busy() || !from()}
-          class="rounded-lg bg-terra px-4 py-2 text-[12.5px] font-bold text-[#fbf8ef] disabled:opacity-50"
-        >
-          Ajouter
-        </button>
+        </Button>
+        <Button onClick={submit} disabled={busy() || !range().start}>
+          <span class="material-symbols-outlined mr-1 text-[16px]">add</span>Ajouter
+        </Button>
       </div>
     </div>
   )
