@@ -466,17 +466,28 @@ const Load: Component<LoadPageProps> = (props) => {
   const [selected, setSelected] = createSignal(props.ofLines[0]?.code ?? '')
   const [gran, setGran] = createSignal<Gran>('month')
   const [query, setQuery] = createSignal('')
+  // Filtre atelier (#36) : ensemble de STOLOC retenus (vide = tous).
+  const [atelierFilter, setAtelierFilter] = createSignal<Set<string>>(new Set())
+
+  const toggleAtelier = (code: string) =>
+    setAtelierFilter((prev) => {
+      const next = new Set(prev)
+      next.has(code) ? next.delete(code) : next.add(code)
+      return next
+    })
 
   // Jeu de lignes de la vue active : OF (charge ordres) ou Commande (charge demande).
   const lines = createMemo(() => (view() === 'of' ? props.ofLines : props.cmdLines))
 
-  // Filtre client : recherche poste (code/libellé) OU article (code/désignation).
+  // Filtre client : atelier (STOLOC) + recherche poste (code/libellé) OU article.
   const filteredLines = createMemo(() => {
     const q = query().trim().toLowerCase()
-    if (!q) return lines()
-    return lines().filter((l) =>
-      `${l.code} ${l.name} ${l.articles.join(' ')}`.toLowerCase().includes(q),
-    )
+    const ats = atelierFilter()
+    return lines().filter((l) => {
+      if (ats.size && !ats.has(l.atelier)) return false
+      if (q && !`${l.code} ${l.name} ${l.articles.join(' ')}`.toLowerCase().includes(q)) return false
+      return true
+    })
   })
 
   // Si la sélection sort du filtre, bascule sur le premier poste visible.
@@ -644,6 +655,39 @@ const Load: Component<LoadPageProps> = (props) => {
           Mini-graphes : {props.months.length} mois · clic = détail
         </span>
       </div>
+
+      {/* Filtre atelier (#36) — chips STOLOC, apparaît dès qu'un poste porte un atelier. */}
+      <Show when={props.ateliers.length > 0}>
+        <div class="flex flex-none flex-wrap items-center gap-1.5 border-b border-rule px-7 py-2 text-[12px]">
+          <span class="mr-1 font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Atelier</span>
+          <For each={props.ateliers}>
+            {(a) => (
+              <button
+                type="button"
+                onClick={() => toggleAtelier(a.code)}
+                class={cx(
+                  'rounded-full border px-2.5 py-1 font-sans text-[11px] font-semibold transition-colors',
+                  atelierFilter().has(a.code)
+                    ? 'border-terra bg-terra-soft text-terra'
+                    : 'border-rule bg-card text-muted-foreground hover:border-[#b3a47e] hover:text-foreground',
+                )}
+                title={a.code}
+              >
+                {a.label}
+              </button>
+            )}
+          </For>
+          <Show when={atelierFilter().size > 0}>
+            <button
+              type="button"
+              onClick={() => setAtelierFilter(new Set())}
+              class="ml-1 font-mono text-[10px] font-bold uppercase tracking-wider text-terra hover:underline"
+            >
+              Réinitialiser
+            </button>
+          </Show>
+        </div>
+      </Show>
 
       <Show
         when={lines().length > 0}
