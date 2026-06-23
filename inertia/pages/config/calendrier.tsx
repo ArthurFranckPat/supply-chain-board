@@ -427,7 +427,7 @@ const ClosureForm: Component<{
             <SelectTrigger class="h-[34px] w-[150px] rounded-lg border border-rule bg-card px-3 text-[12.5px] font-semibold">
               <SelectValue<string>>{(s) => codeLabel(s.selectedOption())}</SelectValue>
             </SelectTrigger>
-            <SelectContent />
+            <SelectContent class="max-h-[300px]" />
           </Select>
         </Field>
       </Show>
