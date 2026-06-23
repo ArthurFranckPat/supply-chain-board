@@ -66,7 +66,8 @@ const Calendrier: Component<Props> = (props) => {
   const [view, setView] = createSignal<View>('registre')
   const [holidays, setHolidays] = createStore<Holiday[]>(props.holidays)
   const [closures, setClosures] = createStore<Closure[]>(props.closures)
-  const [adding, setAdding] = createSignal(false)
+  // null = formulaire fermé ; sinon ajout ou édition d'une fermeture existante.
+  const [formState, setFormState] = createSignal<{ mode: 'add' } | { mode: 'edit'; closure: Closure } | null>(null)
   const [warn, setWarn] = createSignal('')
 
   const activeCount = createMemo(() => holidays.filter((h) => h.active).length)
@@ -286,14 +287,24 @@ const Calendrier: Component<Props> = (props) => {
                               {factorLabel(c.factor)}
                             </td>
                             <td class="border-b border-rule-soft px-3.5 py-2.5">
-                              <button
-                                type="button"
-                                onClick={() => removeClosure(c.id)}
-                                class="text-muted-foreground transition-colors hover:text-danger"
-                                title="Supprimer"
-                              >
-                                <span class="material-symbols-outlined text-[18px]">delete</span>
-                              </button>
+                              <div class="flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => setFormState({ mode: 'edit', closure: c })}
+                                  class="text-muted-foreground transition-colors hover:text-terra"
+                                  title="Éditer"
+                                >
+                                  <span class="material-symbols-outlined text-[18px]">edit</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => removeClosure(c.id)}
+                                  class="text-muted-foreground transition-colors hover:text-danger"
+                                  title="Supprimer"
+                                >
+                                  <span class="material-symbols-outlined text-[18px]">delete</span>
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         )
@@ -304,12 +315,13 @@ const Calendrier: Component<Props> = (props) => {
               </Show>
 
               <Show
-                when={adding()}
+                when={formState()}
+                keyed
                 fallback={
                   <div class="flex items-center justify-between px-4 py-3">
                     <button
                       type="button"
-                      onClick={() => setAdding(true)}
+                      onClick={() => setFormState({ mode: 'add' })}
                       class="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-terra px-3 py-2 font-sans text-[12.5px] font-bold text-terra"
                     >
                       <span class="material-symbols-outlined text-[16px]">add</span>Nouvelle fermeture
@@ -320,13 +332,16 @@ const Calendrier: Component<Props> = (props) => {
                   </div>
                 }
               >
-                <ClosureForm
-                  postes={props.postes}
-                  ateliers={props.ateliers}
-                  onCancel={() => setAdding(false)}
-                  onResult={applyResult}
-                  onDone={() => setAdding(false)}
-                />
+                {(state) => (
+                  <ClosureForm
+                    postes={props.postes}
+                    ateliers={props.ateliers}
+                    edit={state.mode === 'edit' ? state.closure : undefined}
+                    onCancel={() => setFormState(null)}
+                    onResult={applyResult}
+                    onDone={() => setFormState(null)}
+                  />
+                )}
               </Show>
             </section>
           </div>
@@ -365,6 +380,9 @@ function Pills<T extends string>(p: {
 
 const pad = (n: number) => String(n).padStart(2, '0')
 const toIso = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+const isoToDate = (iso: string) => new Date(`${iso}T00:00:00`)
+const targetLabel = (c: Closure) =>
+  c.scope === 'global' ? "Toute l'usine" : c.scope === 'stoloc' ? `Atelier ${c.code}` : c.code
 const Field: Component<{ label: string; children: any }> = (p) => (
   <label class="flex flex-col gap-1.5">
     <span class="font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">{p.label}</span>
@@ -377,15 +395,19 @@ const Field: Component<{ label: string; children: any }> = (p) => (
 const ClosureForm: Component<{
   postes: Poste[]
   ateliers: Atelier[]
+  edit?: Closure
   onCancel: () => void
   onResult: (res: { closure: Closure; removedIds: number[]; warn: boolean }) => void
   onDone: () => void
 }> = (props) => {
-  const [scope, setScope] = createSignal<'global' | 'wst' | 'stoloc'>('wst')
-  const [codes, setCodes] = createSignal<string[]>([])
-  const [range, setRange] = createSignal<DateRange>({ start: null, end: null })
-  const [motif, setMotif] = createSignal('maintenance')
-  const [factor, setFactor] = createSignal('0')
+  const ed = props.edit
+  const [scope, setScope] = createSignal<'global' | 'wst' | 'stoloc'>(ed?.scope ?? 'wst')
+  const [codes, setCodes] = createSignal<string[]>(ed && ed.scope !== 'global' ? [ed.code] : [])
+  const [range, setRange] = createSignal<DateRange>(
+    ed ? { start: isoToDate(ed.from), end: isoToDate(ed.to) } : { start: null, end: null },
+  )
+  const [motif, setMotif] = createSignal(ed?.motif || 'maintenance')
+  const [factor, setFactor] = createSignal(ed ? String(ed.factor) : '0')
   const [busy, setBusy] = createSignal(false)
   const [calOpen, setCalOpen] = createSignal(false)
 
@@ -418,7 +440,15 @@ const ClosureForm: Component<{
     const base = { from: toIso(r.start), to: toIso(r.end ?? r.start), motif: motif(), factor: Number(factor()) }
     setBusy(true)
     try {
-      if (scope() === 'global') {
+      if (props.edit) {
+        // Édition : poste fixe, PATCH.
+        const res = await fetch(route('calendar_config.update_closure', { id: props.edit.id }), {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(base),
+        })
+        props.onResult(await res.json())
+      } else if (scope() === 'global') {
         await post({ scope: 'global', code: '', ...base })
       } else {
         // Une fermeture par code sélectionné (multi) ; la fusion est gérée serveur.
@@ -432,31 +462,43 @@ const ClosureForm: Component<{
 
   return (
     <div class="flex flex-wrap items-end gap-x-5 gap-y-3.5 rounded-b-2xl border-t border-rule-soft bg-secondary px-4 py-4">
-      <Field label="Portée">
-        <Pills
-          value={scope}
-          onChange={(v) => {
-            setScope(v)
-            setCodes([]) // namespaces distincts entre poste/atelier
-          }}
-          options={[
-            { v: 'wst', label: 'Poste' },
-            { v: 'stoloc', label: 'Atelier' },
-            { v: 'global', label: "Toute l'usine" },
-          ]}
-        />
-      </Field>
-
-      <Show when={scope() !== 'global'}>
-        <Field label={scope() === 'wst' ? 'Postes' : 'Ateliers'}>
-          <MultiCombobox
-            class="w-[280px]"
-            value={codes()}
-            onChange={setCodes}
-            placeholder={scope() === 'wst' ? 'Ajouter des postes…' : 'Ajouter des ateliers…'}
-            options={codeOptions().map((o) => ({ value: o.v, label: o.label }))}
+      <Show
+        when={!props.edit}
+        fallback={
+          <Field label="Ligne">
+            <span class="inline-flex h-[34px] items-center gap-1.5 rounded-lg border border-rule bg-card px-3 font-mono text-[12.5px] font-bold">
+              <span class="size-[7px] rounded-[2px]" style={{ background: props.edit!.scope === 'wst' ? 'var(--color-ferme)' : 'var(--color-planifie)' }} />
+              {targetLabel(props.edit!)}
+            </span>
+          </Field>
+        }
+      >
+        <Field label="Portée">
+          <Pills
+            value={scope}
+            onChange={(v) => {
+              setScope(v)
+              setCodes([]) // namespaces distincts entre poste/atelier
+            }}
+            options={[
+              { v: 'wst', label: 'Poste' },
+              { v: 'stoloc', label: 'Atelier' },
+              { v: 'global', label: "Toute l'usine" },
+            ]}
           />
         </Field>
+
+        <Show when={scope() !== 'global'}>
+          <Field label={scope() === 'wst' ? 'Postes' : 'Ateliers'}>
+            <MultiCombobox
+              class="w-[280px]"
+              value={codes()}
+              onChange={setCodes}
+              placeholder={scope() === 'wst' ? 'Ajouter des postes…' : 'Ajouter des ateliers…'}
+              options={codeOptions().map((o) => ({ value: o.v, label: o.label }))}
+            />
+          </Field>
+        </Show>
       </Show>
 
       <Field label="Période">
@@ -515,9 +557,10 @@ const ClosureForm: Component<{
         </Button>
         <Button
           onClick={submit}
-          disabled={busy() || !range().start || (scope() !== 'global' && codes().length === 0)}
+          disabled={busy() || !range().start || (!props.edit && scope() !== 'global' && codes().length === 0)}
         >
-          <span class="material-symbols-outlined mr-1 text-[16px]">add</span>Ajouter
+          <span class="material-symbols-outlined mr-1 text-[16px]">{props.edit ? 'check' : 'add'}</span>
+          {props.edit ? 'Enregistrer' : 'Ajouter'}
         </Button>
       </div>
     </div>

@@ -120,6 +120,12 @@ const routes = {
     tokens: [{"old":"/api/v1/config/closures","type":0,"val":"api","end":""},{"old":"/api/v1/config/closures","type":0,"val":"v1","end":""},{"old":"/api/v1/config/closures","type":0,"val":"config","end":""},{"old":"/api/v1/config/closures","type":0,"val":"closures","end":""}],
     types: placeholder as Registry['calendar_config.create_closure']['types'],
   },
+  'calendar_config.update_closure': {
+    methods: ["PATCH"],
+    pattern: '/api/v1/config/closures/:id',
+    tokens: [{"old":"/api/v1/config/closures/:id","type":0,"val":"api","end":""},{"old":"/api/v1/config/closures/:id","type":0,"val":"v1","end":""},{"old":"/api/v1/config/closures/:id","type":0,"val":"config","end":""},{"old":"/api/v1/config/closures/:id","type":0,"val":"closures","end":""},{"old":"/api/v1/config/closures/:id","type":1,"val":"id","end":""}],
+    types: placeholder as Registry['calendar_config.update_closure']['types'],
+  },
   'calendar_config.delete_closure': {
     methods: ["DELETE"],
     pattern: '/api/v1/config/closures/:id',

@@ -18,6 +18,15 @@ const rangesOverlap = (aFrom: string, aTo: string, bFrom: string, bTo: string): 
 const rangesTouch = (aFrom: string, aTo: string, bFrom: string, bTo: string): boolean =>
   rangesOverlap(aFrom, aTo, bFrom, bTo) || nextDay(aTo) === bFrom || nextDay(bTo) === aFrom
 
+/** Réordonne une paire de dates ISO. */
+const order = (a: string, b: string): { from: string; to: string } => (a <= b ? { from: a, to: b } : { from: b, to: a })
+
+/** Borne le facteur de capacité dans [0,1] (défaut 0). */
+const clampFactor = (v: unknown): number => {
+  const n = Number(v ?? 0)
+  return Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : 0
+}
+
 /**
  * Page de configuration du calendrier usine (issue #37, design « Registre » V2).
  * Gère les jours fériés (activer/désactiver) et les fermetures par ligne.
@@ -74,43 +83,74 @@ export default class CalendarConfigController {
     const rawFrom = String(r.input('from') ?? '').trim()
     const rawTo = String(r.input('to') ?? rawFrom).trim()
     const motif = String(r.input('motif') ?? '').trim()
-    const rawFactor = Number(r.input('factor') ?? 0)
+    const factor = clampFactor(r.input('factor'))
     if (!rawFrom || !rawTo) return ctx.response.badRequest({ error: 'dates requises' })
     if (scope !== 'global' && !inCode) return ctx.response.badRequest({ error: 'code requis pour ce scope' })
 
     const code = scope === 'global' ? '' : inCode
-    const factor = Number.isFinite(rawFactor) ? Math.max(0, Math.min(1, rawFactor)) : 0
-    let from = rawFrom <= rawTo ? rawFrom : rawTo
-    let to = rawFrom <= rawTo ? rawTo : rawFrom
+    const m = await this.mergeAndWarn(scope, code, motif, factor, order(rawFrom, rawTo))
+    const row = await CapacityClosure.create({ scope, code, dateFrom: m.from, dateTo: m.to, motif, factor, createdAt: Date.now() })
+    return { ok: true, closure: { id: row.id, scope, code, from: m.from, to: m.to, motif, factor }, removedIds: m.removedIds, warn: m.warn }
+  }
 
-    // Fermetures du même poste (mêmes scope+code) déjà saisies.
-    const siblings = await CapacityClosure.query().where('scope', scope).where('code', code)
+  /** PATCH /api/v1/config/closures/:id — édite une fermeture (dates/motif/capacité ; poste fixe). */
+  async updateClosure(ctx: HttpContext) {
+    const row = await CapacityClosure.find(Number(ctx.params.id))
+    if (!row) return ctx.response.notFound({ error: 'introuvable' })
+    const r = ctx.request
+    const rawFrom = String(r.input('from') ?? '').trim()
+    const rawTo = String(r.input('to') ?? rawFrom).trim()
+    const motif = String(r.input('motif') ?? row.motif).trim()
+    const factor = clampFactor(r.input('factor'))
+    if (!rawFrom || !rawTo) return ctx.response.badRequest({ error: 'dates requises' })
 
-    // Fusion : mêmes motif+capacité ET plages qui se chevauchent ou se jouxtent.
-    const mergeable = siblings.filter(
-      (c) => c.motif === motif && c.factor === factor && rangesTouch(c.dateFrom, c.dateTo, from, to),
-    )
-    const removedIds: number[] = []
-    for (const c of mergeable) {
-      if (c.dateFrom < from) from = c.dateFrom
-      if (c.dateTo > to) to = c.dateTo
-      removedIds.push(c.id)
-      await c.delete()
-    }
-
-    const row = await CapacityClosure.create({ scope, code, dateFrom: from, dateTo: to, motif, factor, createdAt: Date.now() })
-
-    // Avertissement : chevauchement résiduel avec une fermeture de motif/capacité différents.
-    const warn = siblings.some(
-      (c) => !removedIds.includes(c.id) && rangesOverlap(c.dateFrom, c.dateTo, from, to) && (c.motif !== motif || c.factor !== factor),
-    )
-
+    const m = await this.mergeAndWarn(row.scope, row.code, motif, factor, order(rawFrom, rawTo), row.id)
+    row.dateFrom = m.from
+    row.dateTo = m.to
+    row.motif = motif
+    row.factor = factor
+    await row.save()
     return {
       ok: true,
-      closure: { id: row.id, scope, code, from, to, motif, factor },
-      removedIds,
-      warn,
+      closure: { id: row.id, scope: row.scope, code: row.code, from: m.from, to: m.to, motif, factor },
+      removedIds: m.removedIds,
+      warn: m.warn,
     }
+  }
+
+  /**
+   * Fusionne les fermetures voisines (mêmes scope+code+motif+capacité qui se
+   * chevauchent/jouxtent) dans la plage, et calcule l'avertissement de chevauchement
+   * résiduel (motif/capacité différents). `excludeId` exclut la fermeture éditée.
+   */
+  private async mergeAndWarn(
+    scope: string,
+    code: string,
+    motif: string,
+    factor: number,
+    range: { from: string; to: string },
+    excludeId?: number,
+  ): Promise<{ from: string; to: string; removedIds: number[]; warn: boolean }> {
+    let { from, to } = range
+    const siblings = await CapacityClosure.query().where('scope', scope).where('code', code)
+    const removedIds: number[] = []
+    for (const c of siblings) {
+      if (c.id === excludeId) continue
+      if (c.motif === motif && c.factor === factor && rangesTouch(c.dateFrom, c.dateTo, from, to)) {
+        if (c.dateFrom < from) from = c.dateFrom
+        if (c.dateTo > to) to = c.dateTo
+        removedIds.push(c.id)
+        await c.delete()
+      }
+    }
+    const warn = siblings.some(
+      (c) =>
+        c.id !== excludeId &&
+        !removedIds.includes(c.id) &&
+        rangesOverlap(c.dateFrom, c.dateTo, from, to) &&
+        (c.motif !== motif || c.factor !== factor),
+    )
+    return { from, to, removedIds, warn }
   }
 
   /** DELETE /api/v1/config/closures/:id — supprime une fermeture. */

@@ -235,6 +235,18 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'calendar_config.update_closure': {
+    methods: ["PATCH"]
+    pattern: '/api/v1/config/closures/:id'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'calendar_config.delete_closure': {
     methods: ["DELETE"]
     pattern: '/api/v1/config/closures/:id'

@@ -23,6 +23,7 @@ export type ScannedRoutes = {
     'calendar_config.index': { paramsTuple?: []; params?: {} }
     'calendar_config.toggle_holiday': { paramsTuple?: []; params?: {} }
     'calendar_config.create_closure': { paramsTuple?: []; params?: {} }
+    'calendar_config.update_closure': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'calendar_config.delete_closure': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'order_planning.index': { paramsTuple?: []; params?: {} }
     'order_planning.line_detail': { paramsTuple: [ParamValue,ParamValue]; params: {'order': ParamValue,'line': ParamValue} }
@@ -178,15 +179,16 @@ export type ScannedRoutes = {
     'x3_writeback.modify': { paramsTuple?: []; params?: {} }
     'x3_writeback.run': { paramsTuple?: []; params?: {} }
   }
+  PATCH: {
+    'calendar_config.update_closure': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'order_planning.update': { paramsTuple: [ParamValue,ParamValue]; params: {'order': ParamValue,'line': ParamValue} }
+    'planning_board.update': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
+  }
   DELETE: {
     'calendar_config.delete_closure': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'order_planning.reset_override': { paramsTuple: [ParamValue,ParamValue]; params: {'order': ParamValue,'line': ParamValue} }
     'planning_board.reset_override': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
     'planning_board.reset_all': { paramsTuple?: []; params?: {} }
-  }
-  PATCH: {
-    'order_planning.update': { paramsTuple: [ParamValue,ParamValue]; params: {'order': ParamValue,'line': ParamValue} }
-    'planning_board.update': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
   }
 }
 declare module '@adonisjs/core/types/http' {

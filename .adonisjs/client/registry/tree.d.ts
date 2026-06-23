@@ -46,6 +46,7 @@ export interface ApiDefinition {
     index: typeof routes['calendar_config.index']
     toggleHoliday: typeof routes['calendar_config.toggle_holiday']
     createClosure: typeof routes['calendar_config.create_closure']
+    updateClosure: typeof routes['calendar_config.update_closure']
     deleteClosure: typeof routes['calendar_config.delete_closure']
   }
   orderPlanning: {

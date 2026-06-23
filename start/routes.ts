@@ -102,6 +102,7 @@ router
       .group(() => {
         router.post('/holidays/toggle', '#controllers/calendar_config_controller.toggleHoliday')
         router.post('/closures', '#controllers/calendar_config_controller.createClosure')
+        router.patch('/closures/:id', '#controllers/calendar_config_controller.updateClosure')
         router.delete('/closures/:id', '#controllers/calendar_config_controller.deleteClosure')
       })
       .prefix('/api/v1/config')
