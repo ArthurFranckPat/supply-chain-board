@@ -421,7 +421,7 @@ const ClosureForm: Component<{
       <Show when={scope() !== 'global'}>
         <Field label={scope() === 'wst' ? 'Postes' : 'Ateliers'}>
           <MultiCombobox
-            class="min-w-[220px] max-w-[360px]"
+            class="w-[280px]"
             value={codes()}
             onChange={setCodes}
             placeholder={scope() === 'wst' ? 'Ajouter des postes…' : 'Ajouter des ateliers…'}

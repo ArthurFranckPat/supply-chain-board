@@ -102,7 +102,7 @@ export function MultiCombobox(props: {
         </Cb.Item>
       )}
     >
-      <Cb.Control<ComboOption> class="border-input focus-within:border-ring focus-within:ring-ring/50 flex min-h-[34px] flex-wrap items-center gap-1 rounded-md border bg-card px-2 py-1 shadow-xs focus-within:ring-[3px]">
+      <Cb.Control<ComboOption> class="border-input focus-within:border-ring focus-within:ring-ring/50 flex max-h-[84px] w-full flex-wrap items-center gap-1 overflow-y-auto rounded-md border bg-card px-2 py-1 shadow-xs focus-within:ring-[3px]">
         {(state) => (
           <>
             {state.selectedOptions().map((opt) => (
