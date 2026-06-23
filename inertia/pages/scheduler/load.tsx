@@ -92,6 +92,7 @@ const MiniCard: Component<{
   line: LoadLine
   months: string[]
   selected: boolean
+  showCapacity: () => boolean
   onSelect: () => void
 }> = (p) => {
   const totals = createMemo(() => p.line.monthly.map(total))
@@ -173,12 +174,13 @@ const MiniCard: Component<{
             )
           }
         </For>
-        {/* Surcharge : part au-dessus du plafond, rouge translucide. */}
-        <For each={bars().overRects}>
-          {(r) => <rect x={r.x} y={r.y} width={r.w} height={r.h} fill={DANGER} opacity="0.22" />}
-        </For>
-        {/* Plafond de capacité — courbe continue. */}
-        <path d={bars().capPath} fill="none" stroke={FG} stroke-opacity="0.4" stroke-width="1" stroke-linejoin="round" />
+        {/* Plafond de capacité — courbe continue + surcharge rouge. */}
+        <Show when={p.showCapacity()}>
+          <For each={bars().overRects}>
+            {(r) => <rect x={r.x} y={r.y} width={r.w} height={r.h} fill={DANGER} opacity="0.22" />}
+          </For>
+          <path d={bars().capPath} fill="none" stroke={FG} stroke-opacity="0.6" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" />
+        </Show>
         <For each={bars().peakDots}>{(pk) => <circle cx={pk.cx} cy={pk.cy} r="2.5" fill={TERRA} />}</For>
       </svg>
       <div class="mt-1.5 flex items-baseline justify-between">
@@ -202,6 +204,8 @@ const DetailChart: Component<{
   items: () => { label: string; d: LoadPeriod; cap: number }[]
   gran: () => Gran
   view: () => LoadView
+  showCapacity: () => boolean
+  showAvg: () => boolean
 }> = (props) => {
   const padL = 46
   const padR = 16
@@ -353,40 +357,45 @@ const DetailChart: Component<{
           </text>
         )}
       </For>
-      {/* Surcharge : part de charge au-dessus du plafond, rouge translucide. */}
-      <For each={geom().overRects}>
-        {(r) => <rect x={r.x} y={r.y} width={r.w} height={r.h} fill={DANGER} opacity="0.18" />}
-      </For>
       {/* Plafond de capacité (issue #35) — courbe continue + points (rouge si dépassé). */}
-      <path
-        d={geom().capPath}
-        fill="none"
-        stroke={FG}
-        stroke-opacity="0.5"
-        stroke-width="1.75"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-      />
-      <For each={geom().capPts}>
-        {(c) => (
-          <circle
-            cx={c.x}
-            cy={c.y}
-            r={c.over ? 3 : 2}
-            fill={c.over ? DANGER : FG}
-            fill-opacity={c.over ? 1 : 0.5}
-            class="cursor-pointer"
-            onMouseEnter={() => setHover({ period: '', label: 'Capacité', value: c.v, total: 0, cap: c.v, color: FG })}
-            onMouseLeave={() => setHover(null)}
-          />
-        )}
-      </For>
-      <Show when={geom().capLabel}>
-        {(l) => (
-          <text x={l().x + 4} y={l().y - 5} text-anchor="end" font-size="9" font-weight="700" fill={FG} opacity="0.5" class="font-mono uppercase tracking-wider">
-            capacité
-          </text>
-        )}
+      <Show when={props.showCapacity()}>
+        {/* Surcharge : part de charge au-dessus du plafond, rouge translucide. */}
+        <For each={geom().overRects}>
+          {(r) => <rect x={r.x} y={r.y} width={r.w} height={r.h} fill={DANGER} opacity="0.2" />}
+        </For>
+        {/* Liseré clair sous la courbe pour la détacher des barres. */}
+        <path d={geom().capPath} fill="none" stroke={CARD} stroke-opacity="0.85" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+        <path
+          d={geom().capPath}
+          fill="none"
+          stroke={FG}
+          stroke-opacity="0.75"
+          stroke-width="3"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+        <For each={geom().capPts}>
+          {(c) => (
+            <circle
+              cx={c.x}
+              cy={c.y}
+              r={c.over ? 5 : 3.5}
+              fill={c.over ? DANGER : FG}
+              stroke={CARD}
+              stroke-width="1.5"
+              class="cursor-pointer"
+              onMouseEnter={() => setHover({ period: '', label: 'Capacité', value: c.v, total: 0, cap: c.v, color: c.over ? DANGER : FG })}
+              onMouseLeave={() => setHover(null)}
+            />
+          )}
+        </For>
+        <Show when={geom().capLabel}>
+          {(l) => (
+            <text x={l().x - 8} y={l().y - 9} text-anchor="end" font-size="10" font-weight="800" fill={FG} opacity="0.65" class="font-mono uppercase tracking-wider">
+              capacité
+            </text>
+          )}
+        </Show>
       </Show>
       {/* Totaux au sommet (rouge si > capacité) */}
       <For each={geom().totals}>
@@ -419,7 +428,9 @@ const DetailChart: Component<{
         )}
       </For>
       {/* Moyenne mobile */}
-      <path d={geom().avgPath} fill="none" stroke={TERRA} stroke-width="2" stroke-dasharray="5 4" stroke-linecap="round" />
+      <Show when={props.showAvg()}>
+        <path d={geom().avgPath} fill="none" stroke={TERRA} stroke-width="2" stroke-dasharray="5 4" stroke-linecap="round" />
+      </Show>
       {/* Pic */}
       <Show when={geom().peak}>{(pk) => <circle cx={pk().cx} cy={pk().cy} r="4" fill={TERRA} />}</Show>
     </svg>
@@ -466,6 +477,9 @@ const Load: Component<LoadPageProps> = (props) => {
   const [selected, setSelected] = createSignal(props.ofLines[0]?.code ?? '')
   const [gran, setGran] = createSignal<Gran>('month')
   const [query, setQuery] = createSignal('')
+  // Couches optionnelles du graphe.
+  const [showCapacity, setShowCapacity] = createSignal(true)
+  const [showAvg, setShowAvg] = createSignal(true)
   // Filtre atelier (#36) : ensemble de STOLOC retenus (vide = tous).
   const [atelierFilter, setAtelierFilter] = createSignal<Set<string>>(new Set())
 
@@ -638,12 +652,29 @@ const Load: Component<LoadPageProps> = (props) => {
           </span>
         </Show>
         <span class="h-3.5 w-px bg-rule-soft" />
-        <span class="flex items-center gap-1.5">
+        {/* Couches optionnelles : cliquer = afficher/masquer. */}
+        <button
+          type="button"
+          onClick={() => setShowCapacity((v) => !v)}
+          class="flex items-center gap-1.5 transition-opacity"
+          classList={{ 'opacity-40': !showCapacity() }}
+        >
+          <span class="material-symbols-outlined text-[16px] text-terra">
+            {showCapacity() ? 'check_box' : 'check_box_outline_blank'}
+          </span>
+          <i class="inline-block w-[18px] border-t-[3px] border-foreground/70" />Capacité
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowAvg((v) => !v)}
+          class="flex items-center gap-1.5 transition-opacity"
+          classList={{ 'opacity-40': !showAvg() }}
+        >
+          <span class="material-symbols-outlined text-[16px] text-terra">
+            {showAvg() ? 'check_box' : 'check_box_outline_blank'}
+          </span>
           <i class="inline-block w-[18px] border-t-[1.5px] border-dashed border-terra" />Moyenne mobile
-        </span>
-        <span class="flex items-center gap-1.5">
-          <i class="inline-block w-[18px] border-t-[1.5px] border-foreground/45" />Capacité
-        </span>
+        </button>
         <span class="flex items-center gap-1.5">
           <i
             class="inline-block h-2.5 w-3.5 rounded-[2px]"
@@ -720,6 +751,7 @@ const Load: Component<LoadPageProps> = (props) => {
                       line={line}
                       months={props.months}
                       selected={selected() === line.code}
+                      showCapacity={showCapacity}
                       onSelect={() => setSelected(line.code)}
                     />
                   )}
@@ -793,7 +825,7 @@ const Load: Component<LoadPageProps> = (props) => {
                     </button>
                   </div>
                 </div>
-                <DetailChart items={detailItems} gran={gran} view={view} />
+                <DetailChart items={detailItems} gran={gran} view={view} showCapacity={showCapacity} showAvg={showAvg} />
               </div>
             )}
           </Show>
