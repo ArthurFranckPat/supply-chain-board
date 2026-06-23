@@ -67,8 +67,28 @@ const Calendrier: Component<Props> = (props) => {
   const [holidays, setHolidays] = createStore<Holiday[]>(props.holidays)
   const [closures, setClosures] = createStore<Closure[]>(props.closures)
   const [adding, setAdding] = createSignal(false)
+  const [warn, setWarn] = createSignal('')
 
   const activeCount = createMemo(() => holidays.filter((h) => h.active).length)
+
+  // Applique le résultat d'une création (fusion #37) : retire les fermetures
+  // fusionnées, insère/remplace la fusionnée, signale un chevauchement résiduel.
+  const applyResult = (res: { closure: Closure; removedIds: number[]; warn: boolean }) => {
+    setClosures(
+      produce((cs) => {
+        for (const id of res.removedIds) {
+          const i = cs.findIndex((c) => c.id === id)
+          if (i >= 0) cs.splice(i, 1)
+        }
+        const i = cs.findIndex((c) => c.id === res.closure.id)
+        if (i >= 0) cs[i] = res.closure
+        else cs.push(res.closure)
+      }),
+    )
+    if (res.warn) {
+      setWarn('Chevauchement avec une fermeture de motif/capacité différents — le plus restrictif s’applique.')
+    }
+  }
 
   // ── Fériés ───────────────────────────────────────────────────────────────
   const toggleHoliday = (date: string) => {
@@ -141,6 +161,16 @@ const Calendrier: Component<Props> = (props) => {
           Jours ouvrés = calendrier français (fériés) moins les fermetures saisies par ligne. La capacité de{' '}
           <b class="text-foreground">/charge</b> en découle directement.
         </p>
+
+        <Show when={warn()}>
+          <div class="mb-4 flex items-center gap-2 rounded-lg border border-suggere/40 bg-[color-mix(in_srgb,var(--color-suggere)_12%,transparent)] px-3.5 py-2 text-[12.5px]">
+            <span class="material-symbols-outlined text-[17px] text-suggere">warning</span>
+            <span class="flex-1">{warn()}</span>
+            <button type="button" onClick={() => setWarn('')} class="text-muted-foreground hover:text-foreground">
+              <span class="material-symbols-outlined text-[16px]">close</span>
+            </button>
+          </div>
+        </Show>
 
         <Show
           when={view() === 'registre'}
@@ -294,10 +324,8 @@ const Calendrier: Component<Props> = (props) => {
                   postes={props.postes}
                   ateliers={props.ateliers}
                   onCancel={() => setAdding(false)}
-                  onCreated={(c) => {
-                    setClosures(produce((cs) => cs.push(c)))
-                    setAdding(false)
-                  }}
+                  onResult={applyResult}
+                  onDone={() => setAdding(false)}
                 />
               </Show>
             </section>
@@ -350,7 +378,8 @@ const ClosureForm: Component<{
   postes: Poste[]
   ateliers: Atelier[]
   onCancel: () => void
-  onCreated: (c: Closure) => void
+  onResult: (res: { closure: Closure; removedIds: number[]; warn: boolean }) => void
+  onDone: () => void
 }> = (props) => {
   const [scope, setScope] = createSignal<'global' | 'wst' | 'stoloc'>('wst')
   const [codes, setCodes] = createSignal<string[]>([])
@@ -380,8 +409,7 @@ const ClosureForm: Component<{
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     })
-    const json = await res.json()
-    props.onCreated({ id: json.id, ...body })
+    props.onResult(await res.json())
   }
 
   const submit = async () => {
@@ -393,9 +421,10 @@ const ClosureForm: Component<{
       if (scope() === 'global') {
         await post({ scope: 'global', code: '', ...base })
       } else {
-        // Une fermeture par code sélectionné (multi).
+        // Une fermeture par code sélectionné (multi) ; la fusion est gérée serveur.
         for (const code of codes()) await post({ scope: scope(), code, ...base })
       }
+      props.onDone()
     } finally {
       setBusy(false)
     }
