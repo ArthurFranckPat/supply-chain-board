@@ -149,14 +149,11 @@ export default class OrderPlanningController {
     const force = !!ctx.request.input('refresh')
     const windowStart = startParam ? atMidnight(new Date(startParam)) : atMidnight(new Date())
 
-    // Cache du payload calculé, namespacé par utilisateur comme board/programme/suivi
-    // (issue #20). Sans cela, getOpenOrderLines interroge X3 à CHAQUE visite du
-    // board. TTL court (sources X3 vivantes) ; ?refresh=1 invalide la clé.
-    // Sérialisable via superjson (cf. config/cache.ts).
-    const planCache = () => {
-      const userId = ctx.auth?.user?.id
-      return cache.namespace(userId ? `planification:user_${userId}` : 'planification')
-    }
+    // Cache du payload calculé. Clé GLOBALE, pas par utilisateur (issue #39, C2) :
+    // getOpenOrderLines renvoie des données usine identiques pour tous → un namespace
+    // par user faisait réinterroger X3 à chaque nouvel utilisateur. TTL court (sources
+    // X3 vivantes) ; ?refresh=1 invalide la clé. Sérialisable via superjson.
+    const planCache = () => cache.namespace('planification')
     const cacheKey = `payload:${isoDay(windowStart)}:${horizon}`
     if (force) await planCache().delete({ key: cacheKey })
     const data = await planCache().getOrSet({

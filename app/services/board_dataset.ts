@@ -8,7 +8,6 @@ import { X3ReceptionRepository } from '#repositories/reception_repository'
 import { X3BesoinClientRepository } from '#repositories/besoin_client_repository'
 import staticSync from '#services/static_sync_service'
 import cache from '@adonisjs/cache/services/main'
-import { HttpContext } from '@adonisjs/core/http'
 
 /**
  * Loader des données X3, stratégie en 4 tiers (cf. décision projet) :
@@ -39,11 +38,15 @@ type BomCache = { entries: NomenclatureEntry[]; at: number }
 type Orders = { mos: ManufacturingOrder[]; supply: Flow[]; at: number }
 type Live = { demand: Flow[]; reception: Flow[]; at: number }
 
-/** Cache namespacé `board:*` par utilisateur (cf. config/cache.ts). */
-const board = () => {
-  const userId = HttpContext.get()?.auth?.user?.id
-  return cache.namespace(userId ? `board:user_${userId}` : 'board')
-}
+/**
+ * Cache namespacé `board:*` — clé GLOBALE, pas par utilisateur (issue #39, C2).
+ * referential/orders/live/bom sont des données usine identiques pour tous les
+ * users (vues ERP read-only). Un namespace par user faisait repayer le cold start
+ * X3 (~18 s) à chaque nouvel utilisateur. Avec une clé partagée, le premier user
+ * réchauffe pour tous. Les creds X3 (via ALS) ne changent que la session, pas la
+ * donnée renvoyée → aucun risque de cloisonnement.
+ */
+const board = () => cache.namespace('board')
 
 class BoardDataset {
   // Horodatages du dernier peuplement (in-memory, pour status() / affichage UI).

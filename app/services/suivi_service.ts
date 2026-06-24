@@ -52,7 +52,6 @@ import staticSync from '#services/static_sync_service'
 import boardDataset from '#services/board_dataset'
 import type { GammeOperation } from '#app/domain/models/gamme'
 import cache from '@adonisjs/cache/services/main'
-import { HttpContext } from '@adonisjs/core/http'
 import { RecursiveChecker, type OfRecord, type StockRecord, type ReceptionRecord } from '#app/domain/recursive-checker'
 import type { Nomenclature, NomenclatureEntry } from '#app/domain/models/nomenclature'
 import type { Article } from '#app/domain/models/article'
@@ -385,10 +384,20 @@ interface RawSuiviData {
 // live (demande/OF/stock) sont vivantes → TTL court. Persistant cross-reboot via Redis :
 // après redémarrage, tant que la clé est valide, pas de cold start X3 (~14 s).
 const CONTEXT_TTL = 2 * 60 * 1000 // 2 min
-const suiviCache = () => {
-  const userId = HttpContext.get()?.auth?.user?.id
-  return cache.namespace(userId ? `suivi:user_${userId}` : 'suivi')
-}
+
+/**
+ * Fenêtre arrière (jours) du moteur de causes/faisabilité (issue #39).
+ * Couvre l'ancienneté des retards d'expédition. -365 j était absurde : il forçait un scan
+ * d'un an de la table ORDERS (filtre date non indexé — ENDDAT/SHIDAT jamais en tête d'index),
+ * gonflant la requête demande à ~12k lignes / ~25 s. 90 j (un trimestre) couvre les retards
+ * réels ; surcharge possible via `RETARD_LOOKBACK_DAYS`. Partagé par /suivi et /dashboard.
+ */
+export const RETARD_LOOKBACK_DAYS = Number(process.env.RETARD_LOOKBACK_DAYS) || 90
+// Clé GLOBALE, pas par utilisateur (issue #39, C2) : le contexte suivi (lignes +
+// stock + OF + BOM) est identique pour tous les users → un namespace par user
+// faisait repayer le cold start X3 (~14 s) à chacun. Clé partagée = le premier
+// réchauffe pour tous.
+const suiviCache = () => cache.namespace('suivi')
 
 /** Invalide le cache de contexte → prochain buildContext() recharge depuis X3. */
 export async function reloadSuiviContext() {
@@ -782,15 +791,15 @@ function stockProviderToMap(ctx: SuiviContext): Map<string, StockBreakdown> {
  * le pipeline PARTAGÉ avec le board/ruptures (loadOrderImpacts + buildShortageRows — cf.
  * scheduler_controller.shortageRows) → cohérence garantie suivi ↔ planification.
  *
- * Fenêtre large (-365 j → +14 j) : un RETARD_PROD a une date d'expédition passée, parfois de
- * plusieurs mois ; le moteur doit la couvrir pour fournir le statut (sinon fallback heuristique).
- * Le coût est masqué par les caches boardDataset. Dégrade en map vide si X3 KO (la cause moteur
- * est non-bloquante → fallback heuristique, la page reste fonctionnelle).
+ * Fenêtre arrière = `RETARD_LOOKBACK_DAYS` (un RETARD_PROD a une date d'expédition passée,
+ * parfois de plusieurs mois) ; le moteur doit la couvrir pour fournir le statut (sinon fallback
+ * heuristique). Dégrade en map vide si X3 KO (la cause moteur est non-bloquante → fallback
+ * heuristique, la page reste fonctionnelle).
  */
 async function buildOrderCauses(): Promise<Map<string, OrderCauseInfo>> {
   const now = new Date()
   const from = new Date(now)
-  from.setDate(now.getDate() - 365)
+  from.setDate(now.getDate() - RETARD_LOOKBACK_DAYS)
   from.setHours(0, 0, 0, 0)
   const to = new Date(now)
   to.setDate(now.getDate() + 14)

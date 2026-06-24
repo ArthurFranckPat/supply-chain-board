@@ -362,13 +362,11 @@ export default class SchedulerController {
     const windowStart = startParam ? new Date(startParam) : new Date()
     windowStart.setHours(0, 0, 0, 0)
 
-    // Cache du payload calculé (matcher + faisabilité = partie coûteuse), namespacé
-    // par utilisateur comme board/suivi (issue #20). TTL court : sources X3 vivantes.
-    // ?refresh=1 invalide la clé → recalcul. Sérialisable (superjson) : ISO partout.
-    const programmeCache = () => {
-      const userId = ctx.auth?.user?.id
-      return cache.namespace(userId ? `programme:user_${userId}` : 'vision')
-    }
+    // Cache du payload calculé (matcher + faisabilité = partie coûteuse). Clé GLOBALE,
+    // pas par utilisateur (issue #39, C2) : le payload dépend des données usine (ORDERS
+    // + matching), identiques pour tous → un namespace par user faisait repayer le cold
+    // start (~20 s) à chacun. TTL court : sources X3 vivantes. ?refresh=1 invalide la clé.
+    const programmeCache = () => cache.namespace('programme')
     const cacheKey = `payload:${basePath}:${isoDay(windowStart)}:${horizon}`
     if (force) await programmeCache().delete({ key: cacheKey })
 
@@ -539,14 +537,11 @@ export default class SchedulerController {
     windowTo.setDate(windowTo.getDate() + horizon)
     windowTo.setHours(23, 59, 59, 999)
 
-    // Cache du payload (calcul lourd : faisabilité + réceptions + pivot), namespacé par
-    // utilisateur + SWR (soft timeout 1 s) comme /programme et /suivi (issue #33). Le mur X3
-    // (~18 s) était déjà masqué par boardDataset ; ce cache supprime aussi le résidu de calcul
-    // au premier plan. ?refresh=1 invalide la clé.
-    const ruptCache = () => {
-      const userId = ctx.auth?.user?.id
-      return cache.namespace(userId ? `ruptures:user_${userId}` : 'ruptures')
-    }
+    // Cache du payload (calcul lourd : faisabilité + réceptions + pivot) + SWR (soft
+    // timeout 1 s) comme /programme et /suivi (issue #33). Clé GLOBALE, pas par
+    // utilisateur (issue #39, C2) : payload dérivé des données usine, identique pour
+    // tous → plus de cold start (~18 s) répété par user. ?refresh=1 invalide la clé.
+    const ruptCache = () => cache.namespace('ruptures')
     const cacheKey = `payload:${isoDay(windowFrom)}:${horizon}`
     if (force) await ruptCache().delete({ key: cacheKey })
 
