@@ -61,6 +61,8 @@ export async function sendSoap(sql: string, config: X3SoapConfig): Promise<SoapR
     `http://${config.host}:${config.port}/soap-generic/syracuse/collaboration/syracuse/CAdxWebServiceXmlCC`,
   ];
 
+  const startedAt = Date.now();
+
   return new Promise((resolve) => {
     execFile("curl", args, { timeout: 125_000 }, (error, stdout, stderr) => {
       try { unlinkSync(tmpFile) } catch {}
@@ -72,6 +74,18 @@ export async function sendSoap(sql: string, config: X3SoapConfig): Promise<SoapR
       }
 
       const result = parseResponse(stdout, config.grpRes, config.grpCount);
+      // Diagnostic par appel (issue #39, WI-1) : transport mesuré côté app vs breakdown
+      // serveur (technicalInfos). `transport - srv` ≈ réseau + spawn curl ; `load` élevé
+      // = cold init du pool ; `wait` = contention ; `exec` = SQL réel.
+      if (process.env.PERF_TRACE === "1") {
+        const transportMs = Date.now() - startedAt;
+        const t = result.tech;
+        const breakdown = t
+          ? `srv=${t.total ?? "?"} load=${t.loadWebs ?? "?"} wait=${t.poolWait ?? "?"} distrib=${t.poolDistrib ?? "?"} exec=${t.poolExec ?? "?"} entry=${t.poolEntryIdx ?? "?"}`
+          : "no-tech";
+        // eslint-disable-next-line no-console
+        console.log(`[x3.soap] transport=${transportMs}ms ${breakdown} rows=${result.data.length}`);
+      }
       resolve(result);
     });
   });

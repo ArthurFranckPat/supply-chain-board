@@ -8,6 +8,49 @@ export interface SoapResponse {
   data: string[];
   count: number;
   error: string;
+  /** Diagnostic X3 par appel (issue #39, WI-1) — présent si l'enveloppe le renvoie. */
+  tech?: TechnicalInfos;
+}
+
+/**
+ * Décomposition de latence renvoyée par X3 dans `<technicalInfos>` (CAdxTechnicalInfos).
+ * Durées en millisecondes côté serveur X3. Attribue le temps d'un appel SOAP à sa vraie
+ * cause (issue #39) :
+ *  - loadWebs   : init/chargement du client web service → cold start du pool.
+ *  - poolWait   : attente d'un client libre → contention.
+ *  - poolDistrib: sélection du client par le distributeur.
+ *  - poolExec   : exécution réelle (le SQL).
+ *  - total      : total serveur (hors réseau/transport, mesuré côté app).
+ * `poolEntryIdx` = index du client qui a servi → réutilisable en `poolId` (WI-3).
+ */
+export interface TechnicalInfos {
+  poolEntryIdx: number | null;
+  loadWebs: number | null;
+  poolWait: number | null;
+  poolDistrib: number | null;
+  poolExec: number | null;
+  poolRequest: number | null;
+  total: number | null;
+}
+
+/** Extrait un entier d'un champ `<name ...>123</name>` du XML brut (null si absent). */
+function intField(raw: string, name: string): number | null {
+  const m = raw.match(new RegExp(`<${name}[^>]*>(-?\\d+)</${name}>`));
+  return m ? parseInt(m[1], 10) : null;
+}
+
+/** Parse le bloc `<technicalInfos>` du SOAP brut. Undefined si absent. */
+export function parseTechnicalInfos(raw: string): TechnicalInfos | undefined {
+  if (!/<technicalInfos/.test(raw)) return undefined;
+  return {
+    poolEntryIdx: intField(raw, "poolEntryIdx"),
+    loadWebs: intField(raw, "loadWebsDuration"),
+    poolWait: intField(raw, "poolWaitDuration"),
+    poolDistrib: intField(raw, "poolDistribDuration"),
+    poolExec: intField(raw, "poolExecDuration"),
+    poolRequest: intField(raw, "poolRequestDuration"),
+    total: intField(raw, "totalDuration"),
+  };
 }
 
 const SEP = "|#|";
@@ -15,6 +58,10 @@ const SEP = "|#|";
 /** Parse SOAP XML response from Syracuse. */
 export function parseResponse(raw: string, grpRes: string, grpCount: string): SoapResponse {
   const resp: SoapResponse = { status: null, data: [], count: 0, error: "" };
+
+  // Diagnostic par appel (issue #39, WI-1) — attaché quel que soit le chemin de retour,
+  // y compris resultXml nil (cas où le cold init du client est le plus visible).
+  resp.tech = parseTechnicalInfos(raw);
 
   const statusMatch = raw.match(/<status[^>]*>(\d+)<\/status>/);
   if (statusMatch) resp.status = parseInt(statusMatch[1], 10);
