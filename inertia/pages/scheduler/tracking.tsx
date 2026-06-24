@@ -30,6 +30,7 @@ const EMPTY: SuiviRowsResponse = {
   total: 0,
   statusCounts: { A_EXPEDIER: 0, ALLOCATION_A_FAIRE: 0, RETARD_PROD: 0, RAS: 0 },
   cqCount: 0,
+  ateliers: [],
   rows: [],
   x3Error: null,
   referenceDate: '',
@@ -38,6 +39,7 @@ const EMPTY: SuiviRowsResponse = {
 const PROACTIVE_EMPTY: ProactiveRowsResponse = {
   total: 0,
   verdictCounts: { time: 0, stock: 0, late: 0, blocked: 0, uncov: 0 },
+  ateliers: [],
   rows: [],
   x3Error: null,
   referenceDate: '',
@@ -49,6 +51,18 @@ const BADGE_TONE: Record<SuiviStatusKey, string> = {
   alc: 'bg-suggere/15 text-suggere',
   ret: 'bg-destructive/10 text-destructive',
   ras: 'bg-secondary text-muted-foreground',
+}
+
+/**
+ * Statut X3 d'un OF (WIPSTA / statutNum) → tag court WOF/WOP/WOS + couleur.
+ *  - 1 = Ferme     → WOF (Work Order Firm)
+ *  - 2 = Planifié  → WOP (Work Order Planned)
+ *  - 3 = Suggéré   → WOS (Work Order Suggested)
+ */
+const OF_STATUT: Record<number, { tag: string; tone: string }> = {
+  1: { tag: 'WOF', tone: 'bg-ferme/15 text-ferme' },
+  2: { tag: 'WOP', tone: 'bg-planifie/15 text-planifie' },
+  3: { tag: 'WOS', tone: 'bg-suggere/15 text-suggere' },
 }
 
 /** Couleur du badge verdict (vue proactive). */
@@ -95,6 +109,8 @@ const Tracking: Component<SuiviPageProps> = (props) => {
   const [query, setQuery] = createSignal('')
   const [statusFilter, setStatusFilter] = createSignal<SuiviStatusKey | 'all'>('all')
   const [typeFilter, setTypeFilter] = createSignal<Set<string>>(new Set(['MTS', 'MTO', 'NOR']))
+  // Filtre atelier (#36) : ensemble de STOLOC retenus (vide = tous). Transverse aux 2 vues.
+  const [atelierFilter, setAtelierFilter] = createSignal<Set<string>>(new Set())
 
   const toggleType = (t: string) =>
     setTypeFilter((prev) => {
@@ -102,6 +118,16 @@ const Tracking: Component<SuiviPageProps> = (props) => {
       next.has(t) ? next.delete(t) : next.add(t)
       return next
     })
+
+  const toggleAtelier = (code: string) =>
+    setAtelierFilter((prev) => {
+      const next = new Set(prev)
+      next.has(code) ? next.delete(code) : next.add(code)
+      return next
+    })
+
+  // Ateliers de la vue active (réactif/proactif), pour les chips de filtre.
+  const ateliers = createMemo(() => (mode() === 'proactif' ? proView().ateliers : view().ateliers))
 
   // Filtrage + tri manuels (TanStack Table ne tracke pas les signaux extérieurs).
   const [verdictFilter, setVerdictFilter] = createSignal<ProactiveVerdictKey | 'all'>('all')
@@ -165,7 +191,10 @@ const Tracking: Component<SuiviPageProps> = (props) => {
     const q = query().trim().toLowerCase()
     const sf = statusFilter()
     const tf = typeFilter()
-    let r = all.filter((row) => (sf === 'all' || row.statusKey === sf) && tf.has(row.type))
+    const af = atelierFilter()
+    let r = all.filter(
+      (row) => (sf === 'all' || row.statusKey === sf) && tf.has(row.type) && (af.size === 0 || af.has(row.atelier)),
+    )
     if (q) r = r.filter((row) => row.filter.includes(q))
     return sortRows(r, reactiveSorting())
   })
@@ -174,7 +203,10 @@ const Tracking: Component<SuiviPageProps> = (props) => {
     const q = query().trim().toLowerCase()
     const vf = verdictFilter()
     const tf = typeFilter()
-    let r = all.filter((row) => (vf === 'all' || row.verdictKey === vf) && tf.has(row.type))
+    const af = atelierFilter()
+    let r = all.filter(
+      (row) => (vf === 'all' || row.verdictKey === vf) && tf.has(row.type) && (af.size === 0 || af.has(row.atelier)),
+    )
     if (q) r = r.filter((row) => row.filter.includes(q))
     return sortRows(r, proSorting())
   })
@@ -239,7 +271,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
           <div class="mt-0.5 font-sans text-[12px] font-medium leading-snug text-secondary-foreground">{info.row.original.designation || '—'}</div>
         </>
       ),
-      meta: { thClass: 'px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft', tdClass: 'px-4 py-[13px] align-middle border-r border-rule-soft' },
+      meta: { thClass: 'w-[240px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft', tdClass: 'px-4 py-[13px] align-middle border-r border-rule-soft' },
     }),
     reHelper.accessor('type', {
       header: () => 'Type',
@@ -289,7 +321,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
               {(e) => (
                 <span
                   class={cx(
-                    'flex w-full items-center justify-between gap-1 rounded border px-1.5 py-px font-mono text-[10.5px] leading-[1.4]',
+                    'flex w-full items-center justify-between gap-1 overflow-hidden rounded border px-1.5 py-px font-mono text-[10.5px] leading-[1.4]',
                     e.source === 'STOALL'
                       ? 'border-ferme/30 bg-ferme/15 text-ferme'
                       : 'border-rule bg-card text-secondary-foreground',
@@ -297,7 +329,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
                   )}
                   title={e.source === 'STOALL' ? 'STOALL — déjà alloué à la commande' : (e.alreadyAllocated ? 'Déjà alloué à une autre commande' : 'STOCK — en stock libre, allocation à faire')}
                 >
-                  <span class="flex items-center gap-1 whitespace-nowrap">
+                  <span class="flex shrink-0 items-center gap-1 whitespace-nowrap">
                     <span
                       class={cx(
                         'material-symbols-outlined text-[11px] leading-none',
@@ -308,11 +340,11 @@ const Tracking: Component<SuiviPageProps> = (props) => {
                     </span>
                     <span class="font-semibold">{e.nom}</span>
                   </span>
-                  <span class="flex items-center gap-1">
+                  <span class="flex min-w-0 items-center gap-1">
                     <Show when={e.hum}>
-                      <span class="rounded bg-card px-1.5 font-mono text-[10.5px] font-bold text-foreground">{e.hum}</span>
+                      <span class="truncate rounded bg-card px-1.5 font-mono text-[10.5px] font-bold text-foreground" title={e.hum ?? undefined}>{e.hum}</span>
                     </Show>
-                    <span class="font-bold tabular-nums">
+                    <span class="shrink-0 font-bold tabular-nums">
                       {e.qte > 0 ? Math.round(e.qte) : '·'}
                     </span>
                   </span>
@@ -322,7 +354,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
           </div>
         )
       },
-      meta: { thClass: 'w-[140px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft', tdClass: 'border-r border-rule-soft px-4 py-[13px] align-middle' },
+      meta: { thClass: 'w-[190px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft', tdClass: 'border-r border-rule-soft px-4 py-[13px] align-middle' },
     }),
     reHelper.display({
       id: 'statusKey',
@@ -415,7 +447,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
           <div class="mt-0.5 font-sans text-[12px] font-medium leading-snug text-secondary-foreground">{info.row.original.designation || '—'}</div>
         </>
       ),
-      meta: { thClass: 'px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft', tdClass: 'px-4 py-[13px] align-middle border-r border-rule-soft' },
+      meta: { thClass: 'w-[240px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft', tdClass: 'px-4 py-[13px] align-middle border-r border-rule-soft' },
     }),
     proHelper.accessor('type', {
       header: () => 'Type',
@@ -449,6 +481,34 @@ const Tracking: Component<SuiviPageProps> = (props) => {
       header: () => 'Couverture',
       cell: (info) => {
         const v = info.getValue()
+        const ofs = info.row.original.ofs
+        // Couverture par OF : un n° + son statut X3 (WOF/WOP/WOS) par ordre.
+        if (ofs.length > 0) {
+          return (
+            <div class="flex flex-col gap-1">
+              <For each={ofs}>
+                {(of) => {
+                  const st = OF_STATUT[of.statutNum]
+                  return (
+                    <div class="flex items-center gap-1.5">
+                      <span class="font-mono text-[11px] font-semibold leading-snug text-secondary-foreground break-all">
+                        {of.numOf}
+                      </span>
+                      <Show when={st}>
+                        <span
+                          class={cx('shrink-0 rounded px-1 py-px font-mono text-[9px] font-bold leading-none', st.tone)}
+                          title={`OF ${st.tag === 'WOF' ? 'ferme' : st.tag === 'WOP' ? 'planifié' : 'suggéré'}`}
+                        >
+                          {st.tag}
+                        </span>
+                      </Show>
+                    </div>
+                  )
+                }}
+              </For>
+            </div>
+          )
+        }
         const isGood = v === 'Stock' || v === 'Achat'
         return isGood ? (
           <span class="inline-flex items-center gap-1 rounded-md border border-transparent bg-ferme/15 px-2 py-0.5 font-mono text-[11px] font-bold text-ferme">
@@ -526,7 +586,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
           </div>
         )
       },
-      meta: { thClass: 'px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule', tdClass: 'px-4 py-[13px] align-middle' },
+      meta: { thClass: 'w-[300px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule', tdClass: 'px-4 py-[13px] align-middle' },
     }),
   ]
 
@@ -652,6 +712,36 @@ const Tracking: Component<SuiviPageProps> = (props) => {
             )}
           </For>
         </div>
+        {/* Filtre atelier (#36) — chips STOLOC, apparaît dès qu'un atelier est connu. Transverse aux 2 vues. */}
+        <Show when={ateliers().length > 0}>
+          <div class="inline-flex flex-wrap items-center gap-1 rounded-md border border-rule bg-card p-0.5">
+            <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Atelier</span>
+            <For each={ateliers()}>
+              {(a) => (
+                <button
+                  type="button"
+                  class={`rounded-[5px] px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                    atelierFilter().has(a.code) ? 'bg-terra-soft text-terra' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                  onClick={() => toggleAtelier(a.code)}
+                  title={a.label}
+                >
+                  {a.label}
+                </button>
+              )}
+            </For>
+            <Show when={atelierFilter().size > 0}>
+              <button
+                type="button"
+                class="rounded-[5px] px-1.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+                onClick={() => setAtelierFilter(new Set())}
+                title="Réinitialiser le filtre atelier"
+              >
+                ✕
+              </button>
+            </Show>
+          </div>
+        </Show>
         <div class="ml-auto flex items-center gap-2">
           <button
             type="button"
@@ -724,7 +814,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
                       const late = k === 'late' || k === 'blocked' || k === 'uncov'
                       return cx('border-t border-rule-soft transition-colors', late ? 'bg-destructive/10 hover:bg-destructive/[0.18]' : 'hover:bg-foreground/[0.04]')
                     }}
-                    tableClass="min-w-[1230px]"
+                    tableClass="min-w-[1320px] table-fixed"
                     scrollContainerClass="h-full border-0 rounded-none shadow-none"
                     theadRowClass="sticky top-0 z-10 bg-secondary"
                     emptyState={
@@ -780,7 +870,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
               onSortingChange={setReactiveSorting}
               indexColumn={reactiveIndexCol}
               getRowClass={(row) => cx('border-t border-rule-soft transition-colors', row.late ? 'bg-destructive/10 hover:bg-destructive/[0.18]' : 'hover:bg-foreground/[0.04]')}
-              tableClass="min-w-[1076px]"
+              tableClass="min-w-[1300px] table-fixed"
               scrollContainerClass="h-full border-0 rounded-none shadow-none"
               theadRowClass="sticky top-0 z-10 bg-secondary"
               emptyState={

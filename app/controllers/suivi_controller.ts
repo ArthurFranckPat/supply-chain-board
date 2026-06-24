@@ -24,6 +24,45 @@ import { X3BesoinClientRepository } from '#repositories/besoin_client_repository
 import { resolveCoveringReception } from '#app/domain/shortages'
 import type { ReceptionRecord } from '#app/domain/recursive-checker'
 import type { Flow } from '#app/domain/models/flow'
+import boardDataset from '#services/board_dataset'
+import { atelierLabel } from '#app/domain/atelier'
+
+/** Une option de filtre atelier (STOLOC) : code X3 + libellé lisible. */
+export interface AtelierOption {
+  code: string
+  label: string
+}
+
+/**
+ * Map article → atelier (STOLOC du poste de sa gamme), via le référentiel partagé
+ * (boardDataset, cache SWR commun avec /charge). Miroir exact de load_controller :
+ * un article a un poste de gamme (dernière opération gagne), dont le STOLOC est l'atelier.
+ * Dégrade en map vide si le référentiel est indisponible → pas de filtre atelier, page OK.
+ */
+async function buildAtelierByArticle(): Promise<Map<string, AtelierOption>> {
+  const out = new Map<string, AtelierOption>()
+  try {
+    const ref = await boardDataset.getReferential()
+    const stolocByWst = new Map((ref.workstations ?? []).map((w) => [w.code, w.stockLocation]))
+    const gammeByArticle = new Map(ref.gamme.map((g) => [g.article, g]))
+    for (const [article, g] of gammeByArticle) {
+      const stoloc = (stolocByWst.get(g.workstation) ?? '').trim()
+      if (article && stoloc) out.set(article, { code: stoloc, label: atelierLabel(stoloc) })
+    }
+  } catch {
+    /* référentiel indispo → filtre atelier absent (dégradation silencieuse) */
+  }
+  return out
+}
+
+/** Ateliers distincts présents dans un lot de lignes, triés par libellé (pour les chips). */
+function distinctAteliers(rows: { atelier: string; atelierLabel: string }[]): AtelierOption[] {
+  const m = new Map<string, AtelierOption>()
+  for (const r of rows) {
+    if (r.atelier && !m.has(r.atelier)) m.set(r.atelier, { code: r.atelier, label: r.atelierLabel })
+  }
+  return [...m.values()].sort((a, b) => a.label.localeCompare(b.label))
+}
 
 /**
  * Endpoints minces « suivi des commandes » : délèguent au domaine (#app/domain/suivi)
@@ -172,13 +211,18 @@ export default class SuiviController {
       RETARD_PROD: 0,
       RAS: 0,
     }
+    let ateliers: AtelierOption[] = []
     let x3Error: string | null = null
 
     try {
-      const assignments = await new SuiviService().assignFromLatest(refDate)
-      const built = buildSuiviDisplay(assignments, refDate)
+      const [assignments, atelierByArticle] = await Promise.all([
+        new SuiviService().assignFromLatest(refDate),
+        buildAtelierByArticle(),
+      ])
+      const built = buildSuiviDisplay(assignments, refDate, atelierByArticle)
       rows = built.rows
       statusCounts = built.statusCounts
+      ateliers = distinctAteliers(rows)
     } catch (e) {
       // Log serveur complet (debug) ; on ne renvoie JAMAIS le message brut au client :
       // l'erreur X3 (SOAP via curl) contient les identifiants basic-auth (`-u user:pass`).
@@ -190,6 +234,7 @@ export default class SuiviController {
       total: rows.length,
       statusCounts,
       cqCount: rows.filter((r) => r.cq).length,
+      ateliers,
       rows,
       x3Error,
       referenceDate: refDate.toISOString().slice(0, 10),
@@ -212,6 +257,7 @@ export default class SuiviController {
 
     let rows: ProactiveDisplayRow[] = []
     let verdictCounts: Record<ProactiveVerdictKey, number> = { time: 0, stock: 0, late: 0, blocked: 0, uncov: 0 }
+    let ateliers: AtelierOption[] = []
     let x3Error: string | null = null
 
     try {
@@ -219,15 +265,19 @@ export default class SuiviController {
       from.setDate(from.getDate() - 365)
       const to = new Date(refDate)
       to.setDate(to.getDate() + 90)
-      const { result, articles } = await loadOrderImpacts({ from, to, mode: 'sequential', preferEngineFeasibility: true })
+      const [{ result, articles }, atelierByArticle] = await Promise.all([
+        loadOrderImpacts({ from, to, mode: 'sequential', preferEngineFeasibility: true }),
+        buildAtelierByArticle(),
+      ])
       // Réceptions encore à venir (≥ réf.) pour l'ETA des goulots — exclut celles déjà
       // arrivées (consommées dans le stock).
       const recFrom = new Date(refDate)
       recFrom.setHours(0, 0, 0, 0)
       const receptionsByArticle = await loadReceptionsByArticle(recFrom)
-      const built = buildProactiveDisplay(result, articles, receptionsByArticle)
+      const built = buildProactiveDisplay(result, articles, receptionsByArticle, atelierByArticle)
       rows = built.rows
       verdictCounts = built.verdictCounts
+      ateliers = distinctAteliers(rows)
     } catch (e) {
       logger.error({ err: e }, '[suivi] proactiveRows — échec chargement X3')
       x3Error = sanitizeX3Error((e as Error).message ?? String(e))
@@ -236,6 +286,7 @@ export default class SuiviController {
     return {
       total: rows.length,
       verdictCounts,
+      ateliers,
       rows,
       x3Error,
       referenceDate: refDate.toISOString().slice(0, 10),
@@ -323,6 +374,9 @@ export interface SuiviDisplayRow {
   enZoneExpe: boolean
   cause: SuiviCauseDisplay | null
   action: { severity: 'info' | 'warning' | 'critical'; label: string }
+  /** Atelier (STOLOC du poste de gamme) de l'article — '' si inconnu (issue #36). */
+  atelier: string
+  atelierLabel: string
   /** Champ texte pré-concaténé pour le filtre client (lowercase). */
   filter: string
 }
@@ -373,6 +427,9 @@ export interface ProactiveDisplayRow {
     reception: { eta: string; po: string; supplier: string } | null
   }[]
   ofs: ProactiveOf[]
+  /** Atelier (STOLOC du poste de gamme) de l'article — '' si inconnu (issue #36). */
+  atelier: string
+  atelierLabel: string
   filter: string
 }
 
@@ -425,7 +482,11 @@ function sanitizeX3Error(msg: string): string {
  * (statut court + icône, cause + composants triés, action + severity, allocation
  * strict/CQ, date FR, champ `filter` pré-concaténé pour la recherche client).
  */
-export function buildSuiviDisplay(assignments: StatusAssignment[], refDate?: Date): {
+export function buildSuiviDisplay(
+  assignments: StatusAssignment[],
+  refDate?: Date,
+  atelierByArticle: Map<string, AtelierOption> = new Map(),
+): {
   rows: SuiviDisplayRow[]
   statusCounts: Record<SuiviStatus, number>
 } {
@@ -466,6 +527,7 @@ export function buildSuiviDisplay(assignments: StatusAssignment[], refDate?: Dat
       : null
     const rec = recommendActions(a)
     const compsTxt = cause ? cause.comps.map((c) => `${c.art} −${c.qty}`).join(' ') : ''
+    const atelier = atelierByArticle.get(a.line.article) ?? { code: '', label: '' }
     return {
       numCommande: a.line.numCommande,
       client: a.line.nomClient,
@@ -496,7 +558,9 @@ export function buildSuiviDisplay(assignments: StatusAssignment[], refDate?: Dat
       enZoneExpe: enZoneExpedition(a.line),
       cause,
       action: { severity: rec.severity, label: rec.actions[0] ?? '—' },
-      filter: `${a.line.numCommande} ${a.line.nomClient} ${a.line.article} ${a.line.designation} ${a.line.typeCommande} ${cause?.label ?? ''} ${compsTxt} ${(a.line.emplacements ?? []).map((e) => e.nom).join(' ')}`.toLowerCase(),
+      atelier: atelier.code,
+      atelierLabel: atelier.label,
+      filter: `${a.line.numCommande} ${a.line.nomClient} ${a.line.article} ${a.line.designation} ${a.line.typeCommande} ${cause?.label ?? ''} ${compsTxt} ${(a.line.emplacements ?? []).map((e) => e.nom).join(' ')} ${atelier.label}`.toLowerCase(),
     }
   })
   return { rows, statusCounts: buildStatusCounts(assignments.map((a) => a.status)) }
@@ -522,6 +586,7 @@ export function buildProactiveDisplay(
   result: OrderImpactResult,
   articles: Map<string, Article> = new Map(),
   receptionsByArticle: Map<string, ReceptionRecord[]> = new Map(),
+  atelierByArticle: Map<string, AtelierOption> = new Map(),
 ): {
   rows: ProactiveDisplayRow[]
   verdictCounts: Record<ProactiveVerdictKey, number>
@@ -586,6 +651,7 @@ export function buildProactiveDisplay(
             : o.matchingMethod === 'purchase_supply'
               ? 'Achat'
               : '—'
+      const atelier = atelierByArticle.get(o.article) ?? { code: '', label: '' }
       return {
         numCommande: o.numCommande,
         client: o.client,
@@ -603,7 +669,9 @@ export function buildProactiveDisplay(
         joursRetard: o.joursRetard,
         composants: comps,
         ofs: ofsFinal,
-        filter: `${o.numCommande} ${o.client} ${o.article} ${o.description} ${o.typeCommande} ${verdict.label} ${couverture} ${compsTxt}`.toLowerCase(),
+        atelier: atelier.code,
+        atelierLabel: atelier.label,
+        filter: `${o.numCommande} ${o.client} ${o.article} ${o.description} ${o.typeCommande} ${verdict.label} ${couverture} ${compsTxt} ${atelier.label}`.toLowerCase(),
       }
     })
 

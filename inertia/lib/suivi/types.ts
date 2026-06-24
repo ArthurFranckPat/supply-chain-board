@@ -11,6 +11,12 @@
 /** Clé courte du statut pour le badge (dérivée de SuiviStatus côté serveur). */
 export type SuiviStatusKey = 'exp' | 'alc' | 'ret' | 'ras'
 
+/** Option de filtre atelier (STOLOC) : code X3 + libellé lisible (issue #36). */
+export interface AtelierOption {
+  code: string
+  label: string
+}
+
 /** Type de cause de retard (miroir de app/domain/suivi.ts CauseType). */
 export type SuiviCauseType =
   | 'STOCK_DISPONIBLE_NON_ALLOUE'
@@ -79,6 +85,9 @@ export interface SuiviDisplayRow {
   enZoneExpe: boolean
   cause: SuiviCauseDisplay | null
   action: { severity: 'info' | 'warning' | 'critical'; label: string }
+  /** Atelier (STOLOC du poste de gamme) — '' si inconnu (issue #36). */
+  atelier: string
+  atelierLabel: string
   /** Champ texte pré-concaténé (lowercase) pour le filtre client. */
   filter: string
 }
@@ -95,6 +104,8 @@ export interface SuiviRowsResponse {
   total: number
   statusCounts: SuiviStatusCounts
   cqCount: number
+  /** Ateliers distincts présents (chips de filtre, issue #36). */
+  ateliers: AtelierOption[]
   rows: SuiviDisplayRow[]
   x3Error: string | null
   referenceDate: string
@@ -151,6 +162,9 @@ export interface ProactiveDisplayRow {
     reception: { eta: string; po: string; supplier: string } | null
   }[]
   ofs: ProactiveOf[]
+  /** Atelier (STOLOC du poste de gamme) — '' si inconnu (issue #36). */
+  atelier: string
+  atelierLabel: string
   filter: string
 }
 
@@ -166,6 +180,8 @@ export type ProactiveVerdictCounts = {
 export interface ProactiveRowsResponse {
   total: number
   verdictCounts: ProactiveVerdictCounts
+  /** Ateliers distincts présents (chips de filtre, issue #36). */
+  ateliers: AtelierOption[]
   rows: ProactiveDisplayRow[]
   x3Error: string | null
   referenceDate: string
