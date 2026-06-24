@@ -19,6 +19,7 @@ import {
   attachCauses,
   computePaletteSummary,
   computeRetardCharge,
+  causeToDisplayString,
   mapEngineCause,
   analyzeRetroCause,
   type OrderCauseInfo,
@@ -296,6 +297,30 @@ async function buildGammeChargeCalculator(): Promise<ChargeCalculatorPort> {
   }
 }
 
+/** Une ligne de commande en retard (issue #38), pour la card liste du tableau de bord. */
+export interface RetardLigne {
+  numCommande: string
+  client: string
+  article: string
+  designation: string
+  type: string
+  /** Date d'expédition JJ/MM ('' si absente). */
+  dateExp: string
+  /** ISO YYYY-MM-DD pour le tri chronologique (null si absente). */
+  dateExpIso: string | null
+  qteRestante: number
+  /** Heures de production de la ligne (charge gamme directe). */
+  heures: number
+  /** Poste(s) de charge de la ligne (codes, triés par heures décroissantes ; [] si sans gamme). */
+  postes: string[]
+  /** N° de l'OF couvrant (meilleur OF planifiable de l'article) — '' si aucun. */
+  of: string
+  /** Statut X3 de l'OF : 1 Ferme (WOF) / 2 Planifié (WOP) / 3 Suggéré (WOS) ; 0 si aucun OF. */
+  ofStatut: number
+  /** Libellé court de la cause du retard ('' si indéterminée). */
+  cause: string
+}
+
 /** KPI « charge en retard » (issue #38) : heures totales + ventilation par poste + nb de lignes. */
 export interface RetardChargeKpi {
   /** Heures totales de production portées par les lignes RETARD_PROD. */
@@ -304,6 +329,8 @@ export interface RetardChargeKpi {
   nbLignes: number
   /** Ventilation par poste de charge, triée par heures décroissantes. */
   postes: { code: string; label: string; heures: number }[]
+  /** Lignes en retard, triées par date d'expédition (plus ancienne d'abord). */
+  lignes: RetardLigne[]
 }
 
 // ---------------------------------------------------------------------------
@@ -564,8 +591,38 @@ export class SuiviService {
       .map(([code, v]) => ({ code, label: v.libelle || code, heures: v.heures }))
       .sort((a, b) => b.heures - a.heures)
     const totalHeures = Math.round(postes.reduce((s, p) => s + p.heures, 0) * 10) / 10
-    const nbLignes = assignments.filter((a) => a.status === 'RETARD_PROD').length
-    return { totalHeures, nbLignes, postes }
+
+    // Lignes en retard (détail pour la card liste), triées par date d'expé (plus ancienne d'abord).
+    const retard = assignments.filter((a) => a.status === 'RETARD_PROD')
+    const lignes: RetardLigne[] = retard
+      .map((a) => {
+        const l = a.line
+        const charge = chargeCalculator.calculateDirectCharge(l.article, l.qteRestante)
+        const heures = Math.round(Object.values(charge).reduce((s, h) => s + h, 0) * 10) / 10
+        const postes = Object.entries(charge)
+          .sort((x, y) => y[1] - x[1])
+          .map(([code]) => code)
+        const of = ctx.ofMatcher.findMatchingOf(l.numCommande, l.article, l.typeCommande)
+        const iso = l.dateExpedition?.toISOString().slice(0, 10) ?? null
+        return {
+          numCommande: l.numCommande,
+          client: l.nomClient,
+          article: l.article,
+          designation: l.designation,
+          type: l.typeCommande,
+          dateExp: iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}` : '',
+          dateExpIso: iso,
+          qteRestante: Math.round(l.qteRestante),
+          heures,
+          postes,
+          of: of?.numOf ?? '',
+          ofStatut: of?.statutNum ?? 0,
+          cause: a.cause ? causeToDisplayString(a.cause) : '',
+        }
+      })
+      .sort((a, b) => (a.dateExpIso ?? '9999').localeCompare(b.dateExpIso ?? '9999'))
+
+    return { totalHeures, nbLignes: retard.length, postes, lignes }
   }
 }
 

@@ -29,7 +29,7 @@ export default class DashboardController {
     const refDate = referenceDate ? new Date(referenceDate) : new Date()
     if (ctx.request.input('refresh')) await reloadSuiviContext()
 
-    let retardCharge: RetardChargeKpi = { totalHeures: 0, nbLignes: 0, postes: [] }
+    let retardCharge: RetardChargeKpi = { totalHeures: 0, nbLignes: 0, postes: [], lignes: [] }
     let x3Error: string | null = null
 
     try {
