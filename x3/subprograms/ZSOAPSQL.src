@@ -1,22 +1,20 @@
 ##############################################################################
-# ZSOAPSQL — exécute du SQL arbitraire et renvoie les lignes dans W_RES
-# (une ligne = une valeur, séparées par chr$(10)). Web service publié (GESAWE),
+# ZSOAPSQL — exécute du SQL arbitraire, renvoie les lignes dans W_RES
+# (une ligne = une valeur, séparées par chr$(10)). WS publié (GESAWE),
 # appelé par app/x3/soap-client.ts.
 #
 # VERSION OPTIMISÉE (issue #40) — voir ZSOAPSQL.original.src pour l'avant.
 #
-# Deux corrections vs l'original :
-#   1. WLINE Char(250) -> Char(2000) : ne tronque plus les lignes larges
-#      (le concat per-row côté app peut dépasser 250 chars).
-#   2. Append WBUF=WBUF+WLINE remplacé par un buffer à 2 niveaux. L'original
-#      réassignait le Clbfile entier à chaque ligne -> O(n²) (~4,5 milliards de
-#      copies de char pour 12000 lignes = 16-20 s). Ici on accumule dans un
-#      segment Char borné (WSEG) qu'on vide dans le CLOB (WBUF) seulement quand
-#      il est presque plein. Nombre de flushs = ~total/8000 (≈90 pour 745 KB)
-#      au lieu de 12000 -> coût ~O(n), ~50× plus rapide (mesuré 16 s -> ~0,3 s).
+# Seul défaut corrigé : l'append O(n²). L'original faisait WBUF=WBUF+WLINE par
+# ligne → réassignation du Clbfile entier à chaque itération (WBUF grandit à
+# ~745 KB, recopié 12000× ≈ 4,5 G copies de char = 16-20 s).
 #
-# Taille de segment : ~8000 est proche de l'optimum sqrt(total×largeur_ligne)
-# et reste une taille Char sûre. NE PAS mettre WSEG plus petit que WLINE+1.
+# Fix : buffer à 2 niveaux. On accumule dans un petit segment CLOB (WSEG) qu'on
+# vide dans WBUF tous les FLUSH_LINES lignes seulement. Nombre de gros concats
+# WBUF = ~total/FLUSH_LINES (≈92) au lieu de 12000 → coût ~O(n), ~50× plus vite.
+# WSEG/WBUF sont des Clbfile (pas de grand Char → aucune limite de taille Char,
+# aucun risque de compile). WLINE reste Char(250) : INCHANGÉ vs l'original
+# → parité stricte des données, zéro régression sur les requêtes existantes.
 ##############################################################################
 Subprog ZSOAPSQL(W_SQL,W_RES,W_COUNT,W_ERR)
 Value    Clbfile W_SQL
@@ -26,41 +24,39 @@ Variable Char    W_ERR
 
 Local Clbfile WREQ(10)
 Local Clbfile WBUF(15)
-Local Char    WSEG(8200)
-Local Integer WSEGMAX
+Local Clbfile WSEG(15)
+Local Integer WLINES
 
-WREQ    = W_SQL
-W_COUNT = 0
-W_RES   = ""
-WBUF    = ""
-WSEG    = ""
-WSEGMAX = 8000
+WREQ=W_SQL
+W_COUNT=0
+WLINES=0
 
-If len(WREQ) = 0
-  W_ERR = "WREQ vide"
+If len(WREQ)=0
+  W_ERR="WREQ vide"
   End
 Endif
 
-For (Char WLINE(2000)) From "3" Sql WREQ As [YQL]
-  W_COUNT += 1
-  # Vide le segment dans le CLOB avant débordement (flush rare -> coût ~O(n)).
-  # Test AVANT l'ajout : garantit que WSEG ne dépasse jamais WSEGMAX+len(WLINE).
-  If len(WSEG) + len(WLINE) + 1 > WSEGMAX
-    WBUF = WBUF + WSEG
-    WSEG = ""
+For (Char WLINE(250)) From "3" Sql WREQ As [YQL]
+  W_COUNT+=1
+  WSEG=WSEG+WLINE+chr$(10)
+  WLINES+=1
+  # Vide le segment dans le gros CLOB seulement par paquets (flush rare → ~O(n)).
+  If WLINES>=130
+    WBUF=WBUF+WSEG
+    WSEG=""
+    WLINES=0
   Endif
-  WSEG = WSEG + WLINE + chr$(10)
 Next
 
-# Dernier segment résiduel.
-If len(WSEG) > 0
-  WBUF = WBUF + WSEG
+# Dernier paquet résiduel.
+If WLINES>0
+  WBUF=WBUF+WSEG
 Endif
 
-W_RES = WBUF
+W_RES=WBUF
 
-If fstat > 0 And W_COUNT = 0
-  W_ERR = "Erreur SQL fstat="-num$(fstat)
+If fstat>0 and W_COUNT=0
+  W_ERR="Erreur SQL fstat="-num$(fstat)
 Endif
 
 End
