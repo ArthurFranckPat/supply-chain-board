@@ -1,37 +1,13 @@
-##############################################################################
-# ZSOAPSQL — exécute du SQL arbitraire, renvoie les lignes dans W_RES
-# (une ligne = une valeur, séparées par chr$(10)). WS publié (GESAWE),
-# appelé par app/x3/soap-client.ts.
-#
-# VERSION OPTIMISÉE (issue #40) — voir ZSOAPSQL.original.src pour l'avant.
-#
-# Défaut corrigé : l'append O(n²). L'original faisait WBUF=WBUF+WLINE par ligne
-# → réassignation du Clbfile entier à chaque itération (WBUF → ~745 KB, recopié
-# 12000× ≈ 4,5 G copies de char = 16-20 s).
-#
-# Fix : buffer à 2 niveaux. On accumule dans un petit segment Char(1000) (WSEG),
-# vidé dans le gros CLOB (WBUF) seulement quand il est plein. Le gros concat WBUF
-# n'a plus lieu que ~1×/750 octets au lieu de chaque ligne → coût ~O(n).
-#
-# IMPORTANT — n'utilise QUE des opérations prouvées de l'original :
-#   - WSEG est un Char (PAS un grand Char : 1000 est une taille sûre), pas un Clbfile.
-#   - Le flush WBUF=WBUF+WSEG est donc Clbfile+Char (exactement comme l'original
-#     WBUF+WLINE) — PAS de Clbfile+Clbfile (qui faisait planter le runtime).
-#   - WLINE reste Char(250), inchangé → parité stricte des données.
-##############################################################################
 Subprog ZSOAPSQL(W_SQL,W_RES,W_COUNT,W_ERR)
-Value    Clbfile W_SQL
+Value  Clbfile  W_SQL
 Variable Clbfile W_RES
 Variable Integer W_COUNT
-Variable Char    W_ERR
+Variable Char W_ERR
 
 Local Clbfile WREQ(10)
 Local Clbfile WBUF(15)
-Local Char    WSEG(1000)
-
 WREQ=W_SQL
 W_COUNT=0
-WSEG=""
 
 If len(WREQ)=0
   W_ERR="WREQ vide"
@@ -40,19 +16,8 @@ Endif
 
 For (Char WLINE(250)) From "3" Sql WREQ As [YQL]
   W_COUNT+=1
-  # Vide le segment dans le CLOB avant débordement (WLINE<=250, WSEG<=1000).
-  # Flush = Clbfile+Char (prouvé), pas Clbfile+Clbfile.
-  If len(WSEG)+len(WLINE)+1 > 1000
-    WBUF=WBUF+WSEG
-    WSEG=""
-  Endif
-  WSEG=WSEG+WLINE+chr$(10)
+  WBUF=WBUF+WLINE+chr$(10)
 Next
-
-# Dernier segment résiduel.
-If len(WSEG)>0
-  WBUF=WBUF+WSEG
-Endif
 
 W_RES=WBUF
 
