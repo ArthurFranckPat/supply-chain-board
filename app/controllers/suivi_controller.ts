@@ -13,7 +13,7 @@ import {
   type SuiviStatus,
   type CauseType,
 } from '#app/domain/suivi'
-import { SuiviService, reloadSuiviContext } from '#services/suivi_service'
+import { SuiviService, reloadSuiviContext, RETARD_LOOKBACK_DAYS } from '#services/suivi_service'
 import { loadOrderImpacts } from '#services/order_impacts_loader'
 import type { OrderImpactResult } from '#app/domain/order-impacts'
 import type { Article } from '#app/domain/models/article'
@@ -262,7 +262,7 @@ export default class SuiviController {
 
     try {
       const from = new Date(refDate)
-      from.setDate(from.getDate() - 365)
+      from.setDate(from.getDate() - RETARD_LOOKBACK_DAYS)
       const to = new Date(refDate)
       to.setDate(to.getDate() + 90)
       const [{ result, articles }, atelierByArticle] = await Promise.all([
