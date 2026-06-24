@@ -51,12 +51,8 @@ router.get('/health', '#controllers/health_controller.index')
 router
   .group(() => {
     // Tableau — page d'accueil par défaut (landing post-login, issue #26).
-    // Overview KPI à venir (issue dédiée) ; pour l'heure un placeholder thémé.
-    router
-      .get('/', async ({ inertia }) => {
-        return inertia.render('dashboard', {})
-      })
-      .as('dashboard')
+    // KPI #1 « charge en retard » (issue #38) ; coquille instantanée + fetch différé.
+    router.get('/', '#controllers/dashboard_controller.index').as('dashboard')
 
     // Design system « Papier » — showcase des vrais composants ui/* thémés.
     router
@@ -178,6 +174,9 @@ router
         router.get('/proactive-rows', '#controllers/suivi_controller.proactiveRows')
       })
       .prefix('/api/v1/status')
+
+    // Tableau de bord — KPI (issue #38), calcul lourd différé.
+    router.get('/api/v1/dashboard/kpis', '#controllers/dashboard_controller.kpis')
 
     // Pipeline (remplace integration-hub)
     router

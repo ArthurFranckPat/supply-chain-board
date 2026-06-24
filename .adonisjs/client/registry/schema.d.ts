@@ -667,6 +667,18 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'dashboard.kpis': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/dashboard/kpis'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'pipeline.supply_board': {
     methods: ["POST"]
     pattern: '/api/v1/pipeline/supply-board'

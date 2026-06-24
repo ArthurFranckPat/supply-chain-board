@@ -48,6 +48,8 @@ import { X3EmplacementRepository } from '#repositories/emplacement_repository'
 import { X3MfgmatRepository } from '#repositories/mfgmat_repository'
 import { X3StockAvailabilityRepository } from '#repositories/stock_availability_repository'
 import staticSync from '#services/static_sync_service'
+import boardDataset from '#services/board_dataset'
+import type { GammeOperation } from '#app/domain/models/gamme'
 import cache from '@adonisjs/cache/services/main'
 import { HttpContext } from '@adonisjs/core/http'
 import { RecursiveChecker, type OfRecord, type StockRecord, type ReceptionRecord } from '#app/domain/recursive-checker'
@@ -235,6 +237,73 @@ class StubChargeCalculator implements ChargeCalculatorPort {
   isValidPoste(_poste: string): boolean {
     return true
   }
+}
+
+/**
+ * ChargeCalculator réel branché sur la gamme (issue #38). Heures = qté / rate (unités/h)
+ * par poste de charge (workstation), source = référentiel partagé `boardDataset` (cache SWR,
+ * même source que /charge). Remplace le stub pour le KPI « charge en retard ».
+ *
+ * v1 : `calculateRecursiveCharge` = `calculateDirectCharge` — seule la charge du PF (gamme
+ * directe) est comptée ; les sous-ensembles fabriqués ne sont PAS encore sommés (à itérer).
+ */
+class GammeChargeCalculator implements ChargeCalculatorPort {
+  constructor(
+    private opsByArticle: Map<string, GammeOperation[]>,
+    private labels: Map<string, string>,
+  ) {}
+
+  calculateDirectCharge(article: string, quantity: number): Record<string, number> {
+    const out: Record<string, number> = {}
+    for (const op of this.opsByArticle.get(article) ?? []) {
+      if (op.rate > 0 && op.workstation) {
+        out[op.workstation] = (out[op.workstation] ?? 0) + quantity / op.rate
+      }
+    }
+    return out
+  }
+  calculateRecursiveCharge(article: string, quantity: number): Record<string, number> {
+    return this.calculateDirectCharge(article, quantity)
+  }
+  getPosteLibelle(poste: string): string {
+    return this.labels.get(poste) ?? poste
+  }
+  isValidPoste(poste: string): boolean {
+    return this.labels.has(poste)
+  }
+}
+
+/**
+ * Construit le ChargeCalculator gamme depuis le référentiel (boardDataset). Dégrade en stub
+ * (charge vide) si le référentiel est indisponible → KPI à 0, jamais de crash.
+ */
+async function buildGammeChargeCalculator(): Promise<ChargeCalculatorPort> {
+  try {
+    const ref = await boardDataset.getReferential()
+    const opsByArticle = new Map<string, GammeOperation[]>()
+    const labels = new Map<string, string>()
+    for (const g of ref.gamme) {
+      const arr = opsByArticle.get(g.article) ?? []
+      arr.push(g)
+      opsByArticle.set(g.article, arr)
+      if (g.workstation && !labels.has(g.workstation)) {
+        labels.set(g.workstation, g.workstationLabel || g.workstation)
+      }
+    }
+    return new GammeChargeCalculator(opsByArticle, labels)
+  } catch {
+    return new StubChargeCalculator()
+  }
+}
+
+/** KPI « charge en retard » (issue #38) : heures totales + ventilation par poste + nb de lignes. */
+export interface RetardChargeKpi {
+  /** Heures totales de production portées par les lignes RETARD_PROD. */
+  totalHeures: number
+  /** Nombre de lignes de commande au statut RETARD_PROD. */
+  nbLignes: number
+  /** Ventilation par poste de charge, triée par heures décroissantes. */
+  postes: { code: string; label: string; heures: number }[]
 }
 
 // ---------------------------------------------------------------------------
@@ -478,7 +547,25 @@ export class SuiviService {
   async retardCharge(referenceDate: Date) {
     const ctx = await this.buildContext()
     const assignments = this.assign(ctx, referenceDate)
-    return computeRetardCharge(assignments, ctx.bomNavigator, ctx.chargeCalculator)
+    const chargeCalculator = await buildGammeChargeCalculator()
+    return computeRetardCharge(assignments, ctx.bomNavigator, chargeCalculator)
+  }
+
+  /**
+   * KPI #1 du tableau de bord (issue #38) : charge (heures) des lignes en RETARD_PROD,
+   * ventilée par poste de charge. Branche le ChargeCalculator gamme réel (pas le stub).
+   */
+  async retardChargeKpi(referenceDate: Date): Promise<RetardChargeKpi> {
+    const ctx = await this.buildContext()
+    const assignments = this.assign(ctx, referenceDate)
+    const chargeCalculator = await buildGammeChargeCalculator()
+    const byPoste = computeRetardCharge(assignments, ctx.bomNavigator, chargeCalculator)
+    const postes = Object.entries(byPoste)
+      .map(([code, v]) => ({ code, label: v.libelle || code, heures: v.heures }))
+      .sort((a, b) => b.heures - a.heures)
+    const totalHeures = Math.round(postes.reduce((s, p) => s + p.heures, 0) * 10) / 10
+    const nbLignes = assignments.filter((a) => a.status === 'RETARD_PROD').length
+    return { totalHeures, nbLignes, postes }
   }
 }
 

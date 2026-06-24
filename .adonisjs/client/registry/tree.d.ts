@@ -14,7 +14,9 @@ export interface ApiDefinition {
   health: {
     index: typeof routes['health.index']
   }
-  dashboard: typeof routes['dashboard']
+  dashboard: typeof routes['dashboard'] & {
+    kpis: typeof routes['dashboard.kpis']
+  }
   designSystem: typeof routes['design_system']
   diagnosticTest: typeof routes['diagnostic_test']
   x3WritebackTest: typeof routes['x3_writeback_test']

@@ -47,7 +47,11 @@ declare module '@adonisjs/inertia/types' {
   }
 
   interface InertiaPages {
-    'dashboard': Record<string, never>
+    // Tableau de bord (issue #26 shell + #38 KPI). Coquille + fetch différé du KPI.
+    'dashboard': {
+      referenceDate: string
+      kpisHref: string
+    }
     'auth/login': {
       lastUsername: string
       lastEnv: 'test' | 'prod'
