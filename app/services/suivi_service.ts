@@ -20,7 +20,6 @@ import {
   computePaletteSummary,
   computeRetardCharge,
   type OrderLine,
-  type Emplacement,
   type StockBreakdown,
   type StockProvider,
   type OfMatcherPort,
@@ -32,11 +31,9 @@ import {
   type StatusAssignment,
   type TypeCommande,
 } from '#app/domain/suivi'
-import { X3BesoinClientRepository } from '#repositories/besoin_client_repository'
 import { X3StockRepository } from '#repositories/stock_repository'
-import { X3OfRepository } from '#repositories/of_repository'
+import { CombinedOrdersRepository } from '#repositories/combined_orders_repository'
 import { buildNomenclatureMap, buildOfRecords } from '#services/feasibility-loader-adapter'
-import { X3EmplacementRepository } from '#repositories/emplacement_repository'
 import staticSync from '#services/static_sync_service'
 import boardDataset from '#services/board_dataset'
 import type { GammeOperation } from '#app/domain/models/gamme'
@@ -311,8 +308,6 @@ interface RawSuiviData {
   nomenclatureEntries: NomenclatureEntry[]
   articleList: Article[]
   stockFlows: Flow[]
-  detailedByOrderLine: Map<string, Emplacement[]>
-  stockByArticle: Map<string, Emplacement[]>
 }
 
 // Cache distribué du contexte (cf. boardDataset, issue #20), namespace `suivi:*`.
@@ -372,20 +367,20 @@ export class SuiviService {
    * sert ces mêmes données depuis le local. Demande / OF / stock restent live (vivants).
    */
   private async loadRaw(): Promise<RawSuiviData> {
-    const [demandFlows, ofFlows, nomenclatureEntries, articleList] = await Promise.all([
-      new X3BesoinClientRepository().getDemandFlows(),
-      new X3OfRepository().getSupplyFlows(),
+    const from = new Date()
+    from.setDate(from.getDate() - RETARD_LOOKBACK_DAYS)
+
+    const [ordersResult, nomenclatureEntries, articleList] = await Promise.all([
+      new CombinedOrdersRepository().fetch(from),
       staticSync.readNomenclatures().catch(() => [] as NomenclatureEntry[]),
       staticSync.readArticles().catch(() => [] as Article[]),
     ])
 
-    const nomenclatures = buildNomenclatureMap(nomenclatureEntries)
-    const articles = new Map<string, Article>(articleList.map((a) => [a.code, a]))
+    const { demandFlows, ofFlows } = ordersResult
 
-    // Articles dont on a besoin du stock : PF commandés + articles OF + tout l'arbre BOM
-    // (parents + composants) pour le calcul de rupture récursif.
+    // Stock scopé : PF commandés + articles OF + arbre BOM pour calcul rupture récursif.
     const scopeArticles = new Set<string>()
-    for (const f of demandFlows) if (f.direction === 'demand' && f.origin.type === 'order') scopeArticles.add(f.article)
+    for (const f of demandFlows) if (f.direction === 'demand') scopeArticles.add(f.article)
     for (const f of ofFlows) if (f.origin.type === 'of') scopeArticles.add(f.article)
     for (const e of nomenclatureEntries) {
       scopeArticles.add(e.parentArticle)
@@ -394,27 +389,7 @@ export class SuiviService {
 
     const stockFlows = await new X3StockRepository().getStockFlows([...scopeArticles])
 
-    // Emplacements par ligne (détection zone d'expé) : STOALL si allocation détaillée
-    // présente (MTS/contre-marque), sinon STOCK physique (MTO/normal pré-allocation).
-    // Lignes reconstruites localement pour dériver les clés de requête (cheap).
-    const linesForScope = buildOrderLines(demandFlows, nomenclatures, articles)
-    const numCommandes = [...new Set(linesForScope.map((l) => l.numCommande).filter(Boolean))]
-    const lineArticles = [...new Set(linesForScope.map((l) => l.article).filter(Boolean))]
-    const emplRepo = new X3EmplacementRepository()
-    const [detailedByOrderLine, stockByArticle] = await Promise.all([
-      emplRepo.getDetailedByOrderLine(numCommandes),
-      emplRepo.getStockLocations(lineArticles),
-    ])
-
-    return {
-      demandFlows,
-      ofFlows,
-      nomenclatureEntries,
-      articleList,
-      stockFlows,
-      detailedByOrderLine,
-      stockByArticle,
-    }
+    return { demandFlows, ofFlows, nomenclatureEntries, articleList, stockFlows }
   }
 
   /**
@@ -437,7 +412,6 @@ export class SuiviService {
     )
 
     const lines = buildOrderLines(raw.demandFlows, nomenclatures, articles)
-    applyEmplacements(lines, raw.detailedByOrderLine, raw.stockByArticle)
 
     return {
       lines,
@@ -553,70 +527,6 @@ export function buildOrderLines(
   return lines
 }
 
-/**
- * Attache les emplacements à chaque ligne. Deux cas :
- *  - STOALL (allocation) → pastille verte. Résout le stock physique via
- *    STOCOU (chrono stock X3, lien canonique entre STOALL et STOCK) pour
- *    obtenir le vrai emplacement, le PALNUM et la qty réelle.
- *  - sinon → stock physique STOCK (pré-allocation / MTO / normal).
- */
-export function applyEmplacements(
-  lines: OrderLine[],
-  detailedByOrderLine: Map<string, Emplacement[]>,
-  stockByArticle: Map<string, Emplacement[]>,
-): void {
-  // Index STOCOU → STOCK pour le lien canonique entre allocation et stock physique.
-  const stockByStoCou = new Map<string, Emplacement>()
-  for (const entries of stockByArticle.values()) {
-    for (const e of entries) {
-      if (e.stoCou) stockByStoCou.set(e.stoCou, e)
-    }
-  }
-
-  // Collecte tous les STOCOU alloués (toutes lignes confondues) → le stock
-  // correspondant n'est pas libre pour les lignes sans allocation.
-  const alloues = new Set<string>()
-  for (const entries of detailedByOrderLine.values()) {
-    for (const e of entries) {
-      if (e.stoCou) alloues.add(e.stoCou)
-    }
-  }
-
-  for (const line of lines) {
-    const fromStoall = detailedByOrderLine.get(`${line.numCommande}#${line.ligne}`)
-    if (fromStoall && fromStoall.length) {
-      // STOALL trouvé → pastille verte. On résout le STOCK physique via
-      // STOCOU pour avoir le vrai LOC, PALNUM et la qty réelle à l'emplacement.
-      let hasQc = false
-      line.emplacements = fromStoall.map((e) => {
-        const stockLoc = e.stoCou ? stockByStoCou.get(e.stoCou) : undefined
-        if (stockLoc) {
-          if (stockLoc.isQc) hasQc = true
-          return {
-            ...e,
-            nom: stockLoc.nom,
-            qtePalette: stockLoc.qtePalette,
-            hum: stockLoc.hum,
-            stoCou: e.stoCou,
-            isQc: stockLoc.isQc,
-          }
-        }
-        return e
-      })
-      line.allocationQc = hasQc
-    } else {
-      // Pas d'allocation → stock libre, mais on signale visuellement les
-      // emplacements déjà alloués à d'autres lignes (flag alreadyAllocated).
-      const fromStock = stockByArticle.get(line.article)
-      if (fromStock && fromStock.length) {
-        line.emplacements = fromStock.map((s) => ({
-          ...s,
-          alreadyAllocated: s.stoCou ? alloues.has(s.stoCou) : false,
-        }))
-      }
-    }
-  }
-}
 
 /** Reconstruit une map breakdown depuis le StockProvider du contexte (pour assignStatuses). */
 function stockProviderToMap(ctx: SuiviContext): Map<string, StockBreakdown> {
