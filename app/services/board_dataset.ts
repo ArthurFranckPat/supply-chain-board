@@ -4,6 +4,8 @@ import type { NomenclatureEntry } from '#app/domain/models/nomenclature'
 import type { Workstation } from '#app/domain/models/workstation'
 import { X3OfRepository, type ManufacturingOrder } from '#repositories/of_repository'
 import { X3StockRepository } from '#repositories/stock_repository'
+import { X3MfgmatRepository, type OfMaterial } from '#repositories/mfgmat_repository'
+import { X3OrderLineRepository, type OfCommandePeg } from '#repositories/order_line_repository'
 import { CombinedOrdersRepository } from '#repositories/combined_orders_repository'
 import { createHash } from 'node:crypto'
 import staticSync from '#services/static_sync_service'
@@ -28,6 +30,8 @@ const REF_TTL = 2 * 60 * 60 * 1000 // 2 h — référentiel quasi statique
 const ORDERS_TTL = 5 * 60 * 1000 // 5 min — OF
 const LIVE_TTL = 2 * 60 * 1000 // 2 min — demande/réception par fenêtre
 const STOCK_TTL = 2 * 60 * 1000 // 2 min — stock (vivant mais acceptable pour planning)
+const MFGMAT_TTL = 2 * 60 * 1000 // 2 min — matières OF (consommation lente en planning)
+const PEG_TTL = 5 * 60 * 1000 // 5 min — peg OF→commande (liens stables)
 // SWR (issue #33) : timeout 0 = vrai stale-while-revalidate de bentocache. Si une valeur en grace
 // existe, elle est servie INSTANTANÉMENT et le refresh X3 part en arrière-plan (isBackground → les
 // erreurs de la factory sont avalées). NE PAS mettre > 0 : un timeout positif sort le refresh du mode
@@ -143,6 +147,38 @@ class BoardDataset {
       },
     })
     return entries
+  }
+
+  /** Matières MFGMAT des OFs fournis. SWR 2min — évite l'épuisement du pool Knex X3 (max 4). */
+  async getMfgMaterials(numOfs: string[]): Promise<Map<string, OfMaterial[]>> {
+    if (!numOfs.length) return new Map()
+    const key = `mfgmat:${createHash('md5').update([...numOfs].sort().join(',')).digest('hex')}`
+    const entries = await board().getOrSet({
+      key,
+      ttl: MFGMAT_TTL,
+      timeout: SWR_TIMEOUT,
+      factory: async () => {
+        const map = await new X3MfgmatRepository().getMaterialsForOfs(numOfs)
+        return [...map.entries()]
+      },
+    })
+    return new Map(entries)
+  }
+
+  /** Reverse peg OF→commande. SWR 5min — liens stables entre refreshs. */
+  async getOfPegs(numOfs: string[]): Promise<Map<string, OfCommandePeg>> {
+    if (!numOfs.length) return new Map()
+    const key = `ofpegs:${createHash('md5').update([...numOfs].sort().join(',')).digest('hex')}`
+    const entries = await board().getOrSet({
+      key,
+      ttl: PEG_TTL,
+      timeout: SWR_TIMEOUT,
+      factory: async () => {
+        const map = await new X3OrderLineRepository().getCommandesByOf(numOfs)
+        return [...map.entries()]
+      },
+    })
+    return new Map(entries)
   }
 
   /** Stock scopé aux articles fournis. SWR 2min — suffisant pour un outil de planning. */

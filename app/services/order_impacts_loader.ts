@@ -16,8 +16,7 @@ import { OverrideStore } from '#services/override_store'
 import { OrderLineOverrideStore } from '#services/order_line_override_store'
 import { evaluateOrderImpacts, type OrderImpactResult } from '#app/domain/order-impacts'
 import { evaluateMfgFeasibility, buildStrictQcStock } from '#app/domain/of-feasibility'
-import { X3MfgmatRepository } from '#repositories/mfgmat_repository'
-import { X3OrderLineRepository, type OfCommandePeg } from '#repositories/order_line_repository'
+import type { OfCommandePeg } from '#repositories/order_line_repository'
 import type { Article } from '#app/domain/models/article'
 import type { Nomenclature } from '#app/domain/models/nomenclature'
 import type { Flow } from '#app/domain/models/flow'
@@ -174,8 +173,8 @@ export async function loadOrderImpacts(
   // Deux appels SOAP indépendants (ne dépendent que de windowNumOfs) → parallélisés (issue #33).
   const [ofPegs, mfgByOf] = await timeStage('loadOrderImpacts.pegs+mfg', () =>
     Promise.all([
-      new X3OrderLineRepository().getCommandesByOf(windowNumOfs),
-      new X3MfgmatRepository().getMaterialsForOfs(windowNumOfs),
+      boardDataset.getOfPegs(windowNumOfs),
+      boardDataset.getMfgMaterials(windowNumOfs),
     ])
   )
   // Les composants MFGMAT peuvent différer de la BOM théorique → s'assurer que leur
