@@ -32,8 +32,16 @@ export interface ManufacturingOrder {
 
 type RawRow = Record<string, string | null>
 
+// Lookback pour les OF (via env RETARD_LOOKBACK_DAYS, même variable que la vue retards).
+// Élimine les OF très en retard (anomalies ERP) → réduit drastiquement les lignes ZSOAPSQL O(n²).
+const OF_LOOKBACK_DAYS = parseInt(process.env.RETARD_LOOKBACK_DAYS ?? '90', 10)
+
+function toYYYYMMDD(d: Date): string {
+  return d.toISOString().slice(0, 10).replace(/-/g, '')
+}
+
 /** WIPTYP=5 = fabrication. WIPSTA 1/2/3 = Ferme/Planifié/Suggéré. ORDERS seule. */
-const SQL = `
+const buildSql = (fromStr: string) => `
 SELECT
   VCRNUM_0    AS NUM,
   ITMREF_0    AS ARTICLE,
@@ -47,6 +55,7 @@ FROM ORDERS
 WHERE WIPTYP_0 = 5
   AND WIPSTA_0 IN (1, 2, 3)
   AND RMNEXTQTY_0 > 0
+  AND ENDDAT_0 >= TO_DATE('${fromStr}', 'YYYYMMDD')
 `
 
 function toNum(v: string | null | undefined): number {
@@ -56,8 +65,10 @@ function toNum(v: string | null | undefined): number {
 export class X3OfRepository {
   /** Lit les ordres depuis ORDERS + enrichit la désignation depuis le référentiel local. */
   private async fetch(): Promise<{ rows: RawRow[]; label: (chapter: number, value: number | null) => string | null; designations: Map<string, string> }> {
+    const from = new Date()
+    from.setDate(from.getDate() - OF_LOOKBACK_DAYS)
     const [rows, menuRows, articles] = await Promise.all([
-      new X3Database().raw(SQL) as unknown as RawRow[],
+      new X3Database().raw(buildSql(toYYYYMMDD(from))) as unknown as RawRow[],
       LocalMenu.query().whereIn('chapter', [317]),
       staticSync.readArticles().catch(() => []),
     ])
