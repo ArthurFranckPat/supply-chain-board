@@ -88,10 +88,21 @@ const Dashboard: Component<DashboardProps> = (props) => {
   )
 
   return (
-    <div class="theme-papier flex h-screen flex-col overflow-hidden bg-background text-foreground">
+    <div class="theme-papier flex h-screen flex-col overflow-hidden bg-background text-foreground print:h-auto print:overflow-visible">
       <Masthead subtitle="Tableau de bord · Overview" active="dashboard" />
 
-      <div class="flex-1 overflow-auto px-7 py-6">
+      <div class="flex-1 overflow-auto px-7 py-6 print:overflow-visible">
+        {/* En-tête imprimable — masquée à l'écran, visible uniquement à l'impression */}
+        <div class="mb-5 hidden items-baseline justify-between border-b border-rule pb-3 print:flex">
+          <span class="font-fraunces text-[20px] font-semibold tracking-tight text-foreground">
+            Supply Chain <span class="font-medium italic text-terra">AERECO</span>
+            <span class="ml-3 font-mono text-[13px] font-normal text-muted-foreground">Tableau de bord</span>
+          </span>
+          <span class="font-mono text-[12px] text-muted-foreground">
+            {new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long' }).format(new Date(props.referenceDate))}
+          </span>
+        </div>
+
         <div class="grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
 
           {/* KPI #1 — Charge en retard par poste (issue #38) */}
@@ -125,12 +136,14 @@ const Dashboard: Component<DashboardProps> = (props) => {
                             <span class="font-mono text-[11.5px] font-bold text-foreground" title={poste.label}>{poste.code}</span>
                             <span class="font-mono text-[11.5px] font-bold tabular-nums text-muted-foreground">{poste.heures} h</span>
                           </div>
-                          <div class="h-2 overflow-hidden rounded-full bg-secondary">
+                          <div class="h-2 overflow-hidden rounded-full bg-secondary" style={{ '-webkit-print-color-adjust': 'exact', 'print-color-adjust': 'exact' }}>
                             <div
                               class="h-full rounded-full"
                               style={{
                                 width: `${Math.max(3, (poste.heures / maxHeures()) * 100)}%`,
                                 background: BAR_PALETTE[Math.min(i(), BAR_PALETTE.length - 1)],
+                                '-webkit-print-color-adjust': 'exact',
+                                'print-color-adjust': 'exact',
                               }}
                             ></div>
                           </div>
@@ -144,7 +157,7 @@ const Dashboard: Component<DashboardProps> = (props) => {
           </article>
 
           {/* KPI — Lignes en retard (détail) */}
-          <article class="flex max-h-[calc(100vh-9rem)] flex-col rounded border border-rule bg-card p-6 shadow-[0_14px_30px_-26px_rgba(42,38,34,0.45)] lg:col-span-2">
+          <article class="flex max-h-[calc(100vh-9rem)] flex-col rounded border border-rule bg-card p-6 shadow-[0_14px_30px_-26px_rgba(42,38,34,0.45)] lg:col-span-2 print:max-h-none print:overflow-visible print:shadow-none">
             <CardHeader title="Lignes en retard" suffix={`${kpi().nbLignes} commande${kpi().nbLignes > 1 ? 's' : ''}`} />
             <Show when={!data.loading} fallback={<Spinner />}>
               <Show
@@ -155,7 +168,7 @@ const Dashboard: Component<DashboardProps> = (props) => {
                   when={kpi().lignes.length > 0}
                   fallback={<p class="font-fraunces text-[13px] italic text-muted-foreground">Aucune ligne en retard.</p>}
                 >
-                  <div class="-mx-2 overflow-auto">
+                  <div class="-mx-2 overflow-auto print:overflow-visible">
                     <table class="w-full border-collapse text-left">
                       <thead>
                         <tr class="sticky top-0 bg-card">

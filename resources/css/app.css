@@ -681,3 +681,15 @@ up-drawer-dismiss { display: none; }
   --color-input: #cbc2dd;
 }
 :root[data-env="test"] .theme-papier ::selection { background: var(--color-terra-soft); }
+
+/* ════════════════════════════════════════════════════════════
+   Impression — tableau de bord en A3 paysage.
+   Les utilitaires Tailwind print:* gèrent le masquage des
+   éléments ; seule la règle @page nécessite du CSS natif.
+   ──────────────────────────────────────────────────────────── */
+@media print {
+  @page {
+    size: A3 landscape;
+    margin: 10mm 12mm;
+  }
+}

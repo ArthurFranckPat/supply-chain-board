@@ -58,7 +58,7 @@ export const Masthead: Component<{
   })
 
   return (
-    <header class="relative flex-none border-b border-rule bg-background">
+    <header class="relative flex-none border-b border-rule bg-background print:hidden">
       {/* Bandeau d'alerte — uniquement en test, superposé pour ne pas impacter
           la hauteur fixe calibrée ci-dessous. */}
       <Show when={env() === 'test'}>
