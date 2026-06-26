@@ -12,7 +12,8 @@ SELECT
   O.ITMREF_0    AS ARTICLE,
   I.ITMDES1_0   AS DESIGNATION,
   O.ENDDAT_0    AS DATE_EXP,
-  O.RMNEXTQTY_0 AS QTE_RESTANTE
+  O.RMNEXTQTY_0 AS QTE_RESTANTE,
+  O.ALLQTY_0    AS QTE_ALLOUEE
 FROM ORDERS O
 INNER JOIN ITMMASTER I ON I.ITMREF_0 = O.ITMREF_0
 LEFT JOIN BPARTNER P ON P.BPRNUM_0 = O.BPRNUM_0
@@ -80,17 +81,23 @@ export class RetardRepository {
     for (const row of rows) {
       const article = row.ARTICLE?.trim() ?? ''
       const qty = parseFloat(row.QTE_RESTANTE ?? '0') || 0
+      const allqty = parseFloat(row.QTE_ALLOUEE ?? '0') || 0
       const date = parseX3Date(row.DATE_EXP)
       const iso = date?.toISOString().slice(0, 10) ?? null
 
+      // Pas un retard de production : article sans gamme (acheté/sous-traité)
+      // ou entièrement couvert par allocation stock (pas bloqué en prod).
+      const ops = opsByArticle.get(article) ?? []
+      if (ops.length === 0) continue
+      if (allqty >= qty) continue
+
       const byPoste: Record<string, number> = {}
-      for (const op of opsByArticle.get(article) ?? []) {
+      for (const op of ops) {
         byPoste[op.workstation] = (byPoste[op.workstation] ?? 0) + qty / op.rate
       }
 
       for (const [ws, h] of Object.entries(byPoste)) {
-        const ops = opsByArticle.get(article)
-        const label = ops?.find((o) => o.workstation === ws)?.label ?? ws
+        const label = ops.find((o) => o.workstation === ws)?.label ?? ws
         const prev = posteAccum.get(ws) ?? { label, heures: 0 }
         prev.heures += h
         posteAccum.set(ws, prev)
