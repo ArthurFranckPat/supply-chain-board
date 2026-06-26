@@ -53,7 +53,7 @@ export async function sendSoap(sql: string, config: X3SoapConfig): Promise<SoapR
   writeFileSync(tmpFile, envelope, "utf-8");
 
   const args = [
-    "-s", "--max-time", "120",
+    "-sS", "--max-time", "120",
     "-H", "Content-Type: text/xml; charset=utf-8",
     "-H", 'SOAPAction: ""',
     "-u", `${config.user}:${config.password}`,
