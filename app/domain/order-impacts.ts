@@ -198,6 +198,9 @@ export function evaluateOrderImpacts(
     let joursRetard = 0
     if (latestFin && demand.date && latestFin > demand.date) {
       joursRetard = Math.round((latestFin.getTime() - demand.date.getTime()) / 86400000)
+    } else if (demand.date && demand.date < today) {
+      // date d'expé dépassée sans retard OF → retard calendaire depuis aujourd'hui
+      joursRetard = Math.round((today.getTime() - demand.date.getTime()) / 86400000)
     }
 
     let statut: OrderImpactRow['statut']
@@ -208,7 +211,7 @@ export function evaluateOrderImpacts(
       statut = 'sans_couverture'
     } else if (blocked) {
       statut = 'bloquee'
-    } else if (joursRetard > 0) {
+    } else if (joursRetard > 0 || (demand.date !== null && demand.date < today)) {
       statut = 'retard'
     } else if (result.ofAllocations.length === 0) {
       statut = 'stock'

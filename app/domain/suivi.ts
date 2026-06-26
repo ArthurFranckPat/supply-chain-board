@@ -366,7 +366,9 @@ export function besoinNet(line: OrderLine): number {
  * retourne false → is_retard se comporte comme avant l'enrichissement.
  */
 export function enZoneExpedition(line: OrderLine, pattern: RegExp = ZONE_EXPEDITION_PATTERN): boolean {
-  return (line.emplacements ?? []).some((e) => pattern.test(e.nom))
+  return (line.emplacements ?? [])
+    .filter((e) => !e.alreadyAllocated)
+    .some((e) => pattern.test(e.nom))
 }
 
 /**
