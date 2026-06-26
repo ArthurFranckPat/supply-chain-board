@@ -370,13 +370,14 @@ export class SuiviService {
     const from = new Date()
     from.setDate(from.getDate() - RETARD_LOOKBACK_DAYS)
 
-    const [ordersResult, nomenclatureEntries, articleList] = await Promise.all([
-      new CombinedOrdersRepository().fetch(from),
+    // fetch() (WIPTYP=1+5) timeout sur grands volumes ZSOAPSQL O(n²).
+    // Demand borné seul → petit ; OF via boardDataset.getOrders() (cache SWR 5min).
+    const [demandFlows, { supply: ofFlows }, nomenclatureEntries, articleList] = await Promise.all([
+      new CombinedOrdersRepository().fetchDemandOnly(from),
+      boardDataset.getOrders(),
       staticSync.readNomenclatures().catch(() => [] as NomenclatureEntry[]),
       staticSync.readArticles().catch(() => [] as Article[]),
     ])
-
-    const { demandFlows, ofFlows } = ordersResult
 
     // Stock scopé : PF commandés + articles OF + arbre BOM pour calcul rupture récursif.
     const scopeArticles = new Set<string>()

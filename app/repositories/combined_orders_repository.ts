@@ -2,10 +2,42 @@ import { X3Database } from '#app/x3/client/x3_database'
 import { parseX3Date } from '#app/x3/utils/parse_date'
 import type { Flow, NeedNature, OrderType } from '#app/domain/models/flow'
 
+// ORDERS WIPTYP_0=1 seulement (commandes ventes), borné par date.
+// Utilisé par SuiviService.loadRaw() qui récupère les OF via boardDataset.getOrders() (cache SWR).
+// Séparation intentionnelle : WIPTYP=5 sans borne = des milliers de lignes → O(n²) ZSOAPSQL.
+const buildDemandOnlySql = (fromStr: string) => `
+SELECT
+  O.WIPTYP_0,
+  O.WIPSTA_0,
+  O.VCRNUM_0,
+  O.VCRLIN_0,
+  O.ITMREF_0,
+  I.ITMDES1_0   AS DESIGNATION,
+  O.ENDDAT_0,
+  O.RMNEXTQTY_0,
+  O.EXTQTY_0,
+  O.ALLQTY_0,
+  P.BPRNAM_0    AS PARTNER_NOM,
+  P.CRY_0       AS PAYS,
+  CASE
+    WHEN O.WIPSTA_0 = 1 THEN H.SOHTYP_0
+    WHEN O.WIPSTA_0 = 3 AND P.CRY_0 IS NOT NULL AND P.CRY_0 <> 'FR' THEN 'NOR'
+    ELSE NULL
+  END           AS SOHTYP
+FROM ORDERS O
+INNER JOIN ITMMASTER I ON I.ITMREF_0 = O.ITMREF_0
+LEFT JOIN BPARTNER P ON P.BPRNUM_0 = O.BPRNUM_0
+LEFT JOIN SORDER H ON H.SOHNUM_0 = O.VCRNUM_0
+WHERE O.WIPTYP_0 = 1
+  AND O.WIPSTA_0 IN (1, 3)
+  AND I.ITMSTA_0 = 1
+  AND O.RMNEXTQTY_0 > 0
+  AND O.ENDDAT_0 >= TO_DATE('${fromStr}', 'YYYYMMDD')
+`
+
 // ORDERS WIPTYP_0=1 (commandes ventes) + WIPTYP_0=5 (OF fabrication) en 1 SQL.
-// Remplace getDemandFlows() + getSupplyFlows() (2 SOAP) → 1 SOAP.
-// Date bound sur WIPTYP=1 : réduit le scan ZSOAPSQL (issue #40 non fixé → O(n²)).
-// WIPTYP=5 : pas de borne → tous les OF actifs requis pour la couverture BOM.
+// Gardé pour rétrocompatibilité — NE PAS utiliser sur des chemins chauds :
+// WIPTYP=5 sans borne = O(n²) ZSOAPSQL → timeout 120s sur grandes fenêtres.
 const buildSql = (fromStr: string) => `
 SELECT
   O.WIPTYP_0,
@@ -99,6 +131,60 @@ export interface LiveOrdersResult {
 }
 
 export class CombinedOrdersRepository {
+  /** SOAP demand-only (WIPTYP=1, borné). Utilisé par SuiviService.loadRaw(). */
+  async fetchDemandOnly(from: Date): Promise<Flow[]> {
+    const db = new X3Database()
+    let rows: RawRow[] = []
+    try {
+      rows = await db.raw(buildDemandOnlySql(toYYYYMMDD(from)))
+    } finally {
+      await db.destroy()
+    }
+
+    const demandFlows: Flow[] = []
+    for (const row of rows) {
+      const wipsta = parseInt(row.WIPSTA_0 ?? '0')
+      const article = row.ITMREF_0?.trim() ?? ''
+      const qty = toNum(row.RMNEXTQTY_0)
+      const date = parseX3Date(row.ENDDAT_0)
+      const nature: NeedNature = wipsta === 3 ? 'PREVISION' : 'COMMANDE'
+      const rawType = row.SOHTYP?.trim() || null
+      const orderType = rawType as OrderType | null
+
+      if (nature === 'COMMANDE') {
+        demandFlows.push({
+          article, quantity: qty, direction: 'demand', date,
+          origin: {
+            type: 'order',
+            id: row.VCRNUM_0?.trim() ?? '',
+            customer: row.PARTNER_NOM?.trim() ?? '',
+            pays: row.PAYS?.trim() ?? null,
+            orderType, nature,
+            contremarque: null,
+            qteCommandee: toNum(row.EXTQTY_0),
+            qteAllouee: toNum(row.ALLQTY_0),
+            ligne: row.VCRLIN_0?.trim() ?? null,
+          },
+        })
+      } else {
+        demandFlows.push({
+          article, quantity: qty, direction: 'demand', date,
+          origin: {
+            type: 'forecast',
+            id: row.VCRNUM_0?.trim() ?? '',
+            customer: row.PARTNER_NOM?.trim() || null,
+            pays: row.PAYS?.trim() ?? null,
+            orderType,
+            contremarque: null,
+            qteCommandee: toNum(row.EXTQTY_0),
+            qteAllouee: toNum(row.ALLQTY_0),
+          },
+        })
+      }
+    }
+    return demandFlows
+  }
+
   async fetch(from: Date): Promise<CombinedOrdersResult> {
     const db = new X3Database()
     let rows: RawRow[] = []

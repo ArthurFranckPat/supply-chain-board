@@ -5,6 +5,7 @@ import type { Workstation } from '#app/domain/models/workstation'
 import { X3OfRepository, type ManufacturingOrder } from '#repositories/of_repository'
 import { X3StockRepository } from '#repositories/stock_repository'
 import { CombinedOrdersRepository } from '#repositories/combined_orders_repository'
+import { createHash } from 'node:crypto'
 import staticSync from '#services/static_sync_service'
 import cache from '@adonisjs/cache/services/main'
 
@@ -26,6 +27,7 @@ import cache from '@adonisjs/cache/services/main'
 const REF_TTL = 2 * 60 * 60 * 1000 // 2 h — référentiel quasi statique
 const ORDERS_TTL = 5 * 60 * 1000 // 5 min — OF
 const LIVE_TTL = 2 * 60 * 1000 // 2 min — demande/réception par fenêtre
+const STOCK_TTL = 2 * 60 * 1000 // 2 min — stock (vivant mais acceptable pour planning)
 // SWR (issue #33) : timeout 0 = vrai stale-while-revalidate de bentocache. Si une valeur en grace
 // existe, elle est servie INSTANTANÉMENT et le refresh X3 part en arrière-plan (isBackground → les
 // erreurs de la factory sont avalées). NE PAS mettre > 0 : un timeout positif sort le refresh du mode
@@ -143,10 +145,16 @@ class BoardDataset {
     return entries
   }
 
-  /** Stock vivant, scopé aux articles fournis. Toujours frais (pas de cache). */
+  /** Stock scopé aux articles fournis. SWR 2min — suffisant pour un outil de planning. */
   async getStock(articles: string[]): Promise<Flow[]> {
     if (!articles.length) return []
-    return new X3StockRepository().getStockFlows(articles)
+    const key = `stock:${createHash('md5').update([...articles].sort().join(',')).digest('hex')}`
+    return board().getOrSet({
+      key,
+      ttl: STOCK_TTL,
+      timeout: SWR_TIMEOUT,
+      factory: () => new X3StockRepository().getStockFlows(articles),
+    })
   }
 
   /** Vide tous les caches `board:*` → prochain accès recharge depuis X3. */
