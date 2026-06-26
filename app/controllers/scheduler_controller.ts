@@ -1,6 +1,7 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import cache from '@adonisjs/cache/services/main'
 import boardDataset from '#services/board_dataset'
+import staticSync from '#services/static_sync_service'
 import { OverrideStore } from '#services/override_store'
 import { X3MfgmatRepository } from '#repositories/mfgmat_repository'
 import { evaluateMfgFeasibility, buildStrictQcStock } from '#app/domain/of-feasibility'
@@ -52,6 +53,7 @@ interface Card {
   footer: CardFooter | null
   metric: string | null
   hours: number
+  consommeBouche?: boolean
 }
 
 interface DayCol {
@@ -130,6 +132,7 @@ function makeCard(p: {
   footer?: CardFooter | null
   metric?: string | null
   hours?: number
+  consommeBouche?: boolean
 }): Card {
   // Présentation = data seule (statut, article, qté…) — le frontend (board-card)
   // dérive tout le styling du `status` (TONE_BORDER/TONE_FILL). Plus de classes
@@ -146,6 +149,7 @@ function makeCard(p: {
     footer: p.footer ?? null,
     metric: p.metric ?? null,
     hours: p.hours ?? 0,
+    consommeBouche: p.consommeBouche,
   }
 }
 
@@ -205,7 +209,7 @@ function moStatusToCard(status: number): CardStatus {
 }
 
 /** Build a Card from a ManufacturingOrder + optional progress info. */
-function moToCard(mo: ManufacturingOrder, rate: number, workstationLabel: string | null): Card {
+function moToCard(mo: ManufacturingOrder, rate: number, workstationLabel: string | null, bdhParents: Set<string>): Card {
   const status = moStatusToCard(mo.status)
   const hours = rate > 0 ? Math.round((mo.quantity / rate) * 10) / 10 : 0
   const progress =
@@ -226,6 +230,7 @@ function moToCard(mo: ManufacturingOrder, rate: number, workstationLabel: string
     progress,
     metric: `${mo.quantityDone}/${mo.quantityLaunched}`,
     hours,
+    consommeBouche: bdhParents.has(mo.article),
   })
 }
 
@@ -672,9 +677,10 @@ export default class SchedulerController {
     let mos: ManufacturingOrder[] = []
     let gammeOps: GammeOperation[] = []
     let x3Error: string | null = null
+    let bdhParents: Set<string> = new Set()
 
     try {
-      const [ref, ord, live] = await timeStage('loadBoardData.datasets', () =>
+      const [ref, ord, live, bdh] = await timeStage('loadBoardData.datasets', () =>
         Promise.all([
           timeStage('loadBoardData.referential', () => boardDataset.getReferential(force)),
           timeStage('loadBoardData.orders', () => boardDataset.getOrders(force)),
@@ -685,12 +691,14 @@ export default class SchedulerController {
               at: 0,
             }))
           ),
+          staticSync.readBdhParents().catch(() => new Set<string>()),
         ])
       )
       gammeOps = ref.gamme
       // Pool unifié : tous les OF (1/2/3) lus depuis ORDERS via ord.mos (#32).
       // Les suggestions (statut 3) sont des ManufacturingOrder natives maintenant.
       mos = [...ord.mos]
+      bdhParents = bdh
       void live
     } catch (e) {
       x3Error = (e as Error).message
@@ -757,7 +765,7 @@ export default class SchedulerController {
       dayHours[idx] += hours
 
       const wstLabel = wstLabels.get(wst) ?? wst
-      const cardObj = moToCard(mo, rate, wstLabel)
+      const cardObj = moToCard(mo, rate, wstLabel, bdhParents)
 
       if (!cardsByLineDay.has(wst)) {
         cardsByLineDay.set(

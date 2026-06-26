@@ -342,6 +342,12 @@ const routes = {
     tokens: [{"old":"/api/v1/dashboard/kpis","type":0,"val":"api","end":""},{"old":"/api/v1/dashboard/kpis","type":0,"val":"v1","end":""},{"old":"/api/v1/dashboard/kpis","type":0,"val":"dashboard","end":""},{"old":"/api/v1/dashboard/kpis","type":0,"val":"kpis","end":""}],
     types: placeholder as Registry['dashboard.kpis']['types'],
   },
+  'dashboard.otd': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/dashboard/otd',
+    tokens: [{"old":"/api/v1/dashboard/otd","type":0,"val":"api","end":""},{"old":"/api/v1/dashboard/otd","type":0,"val":"v1","end":""},{"old":"/api/v1/dashboard/otd","type":0,"val":"dashboard","end":""},{"old":"/api/v1/dashboard/otd","type":0,"val":"otd","end":""}],
+    types: placeholder as Registry['dashboard.otd']['types'],
+  },
   'pipeline.supply_board': {
     methods: ["POST"],
     pattern: '/api/v1/pipeline/supply-board',

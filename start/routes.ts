@@ -177,6 +177,7 @@ router
 
     // Tableau de bord — KPI (issue #38), calcul lourd différé.
     router.get('/api/v1/dashboard/kpis', '#controllers/dashboard_controller.kpis')
+    router.get('/api/v1/dashboard/otd', '#controllers/dashboard_controller.otd')
 
     // Pipeline (remplace integration-hub)
     router

@@ -23,22 +23,30 @@ export default class TimingMiddleware {
       return await next()
     } finally {
       const durationMs = performance.now() - start
-      const route = ctx.route?.pattern ?? ctx.request.url()
-      const key = `${ctx.request.method()} ${route}`
 
-      perfMetrics.record(key, durationMs)
+      // Ne tracer que les routes applicatives. Les assets servis par Vite en dev
+      // (/node_modules, /@fs, /@id, /@vite, /inertia, /.vite…) n'ont pas de route
+      // Adonis → bruit de log + explosion de cardinalité perfMetrics. On les ignore.
+      // NB : pas de `return` ici — un return dans un finally avalerait une exception
+      // remontée par next(). On garde un simple garde-fou conditionnel.
+      if (ctx.route) {
+        const route = ctx.route.pattern
+        const key = `${ctx.request.method()} ${route}`
 
-      // En-tête perçu côté navigateur (ignoré si la réponse est déjà partie en streaming).
-      try {
-        ctx.response.header('Server-Timing', `total;dur=${durationMs.toFixed(1)}`)
-      } catch {}
+        perfMetrics.record(key, durationMs)
 
-      logger.info({
-        method: ctx.request.method(),
-        route,
-        status: ctx.response.getStatus(),
-        durationMs: Math.round(durationMs),
-      })
+        // En-tête perçu côté navigateur (ignoré si la réponse est déjà partie en streaming).
+        try {
+          ctx.response.header('Server-Timing', `total;dur=${durationMs.toFixed(1)}`)
+        } catch {}
+
+        logger.info({
+          method: ctx.request.method(),
+          route,
+          status: ctx.response.getStatus(),
+          durationMs: Math.round(durationMs),
+        })
+      }
     }
   }
 }

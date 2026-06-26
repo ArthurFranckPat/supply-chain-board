@@ -61,6 +61,8 @@ export type CommandeCardProps = Common & {
   type?: string
   /** Flag « modifié » (override local). */
   mod?: boolean
+  /** Article dont la nomenclature contient un composant BDH (issue #28). */
+  consommeBouche?: boolean
 }
 
 export type OfCardProps = Common & {
@@ -73,6 +75,8 @@ export type OfCardProps = Common & {
   progress?: { done: number; total: number }
   /** Alerte rupture (ligne, statut bloqué). */
   alert?: string
+  /** OF dont la nomenclature contient un composant BDH (issue #28). */
+  consommeBouche?: boolean
 }
 
 export type BoardCardProps = CommandeCardProps | OfCardProps
@@ -90,6 +94,7 @@ export const BoardCard: Component<BoardCardProps> = (props) => {
         type={props.type}
         mod={props.mod}
         hours={props.hours}
+        consommeBouche={props.consommeBouche}
       />
     ) : (
       <OfBody
@@ -101,6 +106,7 @@ export const BoardCard: Component<BoardCardProps> = (props) => {
         progress={props.progress}
         alert={props.alert}
         hours={props.hours}
+        consommeBouche={props.consommeBouche}
       />
     )
 
@@ -146,6 +152,7 @@ const CommandeBody: Component<{
   type?: string
   mod?: boolean
   hours: string
+  consommeBouche?: boolean
 }> = (p) => (
   <>
     {/* Réf. commande·ligne — clé, une seule ligne (tooltip = valeur complète) */}
@@ -172,6 +179,11 @@ const CommandeBody: Component<{
           <span class="material-symbols-outlined text-[11px]">edit</span>Mod.
         </span>
       </Show>
+      <Show when={p.consommeBouche}>
+        <span class="rounded bg-blue-100 px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-blue-700">
+          hygro
+        </span>
+      </Show>
       <Show when={p.type}>
         <span class="rounded bg-terra-soft px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-terra">
           {p.type}
@@ -195,6 +207,7 @@ const OfBody: Component<{
   progress?: { done: number; total: number }
   alert?: string
   hours: string
+  consommeBouche?: boolean
 }> = (p) => {
   const pct = () =>
     p.progress && p.progress.total > 0
@@ -228,6 +241,11 @@ const OfBody: Component<{
         </div>
       </Show>
       <div class="mt-2 flex items-center gap-2 border-t border-rule-soft pt-1.5">
+        <Show when={p.consommeBouche}>
+          <span class="rounded bg-blue-100 px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-blue-700">
+            hygro
+          </span>
+        </Show>
         <Show when={p.poste}>
           <span class="inline-flex items-center gap-1.5 font-mono text-[10px] font-semibold text-secondary-foreground">
             <span class={cx('size-[7px] rounded-[2px]', TONE_FILL[p.status])} />
@@ -235,9 +253,9 @@ const OfBody: Component<{
           </span>
         </Show>
         <span class="ml-auto font-fraunces text-[14px] font-bold tabular-nums">
-        {p.hours}
-        <span class="ml-0.5 text-[10px] font-medium text-muted-foreground">h</span>
-      </span>
+          {p.hours}
+          <span class="ml-0.5 text-[10px] font-medium text-muted-foreground">h</span>
+        </span>
       </div>
     </>
   )

@@ -248,6 +248,15 @@ FROM (
     }))
   }
 
+  /** Articles dont la nomenclature contient ≥1 composant BDH (issue #28). */
+  async readBdhParents(): Promise<Set<string>> {
+    const rows = await db
+      .from('static_nomenclatures')
+      .distinct('parent_article')
+      .whereLike('component_article', 'BDH%')
+    return new Set(rows.map((r: { parent_article: string }) => r.parent_article))
+  }
+
   /** Lecture locale nomenclatures (SQLite) */
   async readNomenclatures(): Promise<NomenclatureEntry[]> {
     const rows = await StaticNomenclature.all()

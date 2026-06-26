@@ -1,5 +1,6 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import boardDataset from '#services/board_dataset'
+import staticSync from '#services/static_sync_service'
 import cache from '@adonisjs/cache/services/main'
 import { OrderLineOverrideStore } from '#services/order_line_override_store'
 import { X3OrderLineRepository, type OrderLineRow } from '#repositories/order_line_repository'
@@ -31,6 +32,8 @@ interface Card {
   nature: string
   /** Client pour recherche scope. */
   customer: string | null
+  /** Article dont la nomenclature contient un composant BDH (issue #28). */
+  consommeBouche?: boolean
 }
 
 interface DayCol {
@@ -111,6 +114,7 @@ function makeOrderCard(p: {
   hasOverride: boolean
   orderType: string | null
   nature: string
+  consommeBouche: boolean
 }): Card {
   const id = `${p.numCommande}#${p.ligne}`
   const fields = [
@@ -131,6 +135,7 @@ function makeOrderCard(p: {
     orderType: p.orderType,
     nature: p.nature,
     customer: p.client,
+    consommeBouche: p.consommeBouche,
   }
 }
 
@@ -356,17 +361,20 @@ export async function loadOrderBoardData(
   let ordreLignes: OrderLineRow[] = []
   let gammeOps: GammeOperation[] = []
   let x3Error: string | null = null
+  let bdhParents: Set<string> = new Set()
 
   try {
-    const [ref, lines] = await Promise.all([
+    const [ref, lines, bdh] = await Promise.all([
       boardDataset.getReferential(force),
       new X3OrderLineRepository().getOpenOrderLines({
         from: isoDay(windowStart),
         to: isoDay(windowEnd),
       }),
+      staticSync.readBdhParents().catch(() => new Set<string>()),
     ])
     gammeOps = ref.gamme
     ordreLignes = lines
+    bdhParents = bdh
   } catch (e) {
     x3Error = (e as Error).message
   }
@@ -423,6 +431,7 @@ export async function loadOrderBoardData(
       hasOverride: overrideMap.has(overrideKey),
       orderType: line.orderType,
       nature: line.nature,
+      consommeBouche: bdhParents.has(line.article),
     })
 
     if (!buckets.has(workstation)) {

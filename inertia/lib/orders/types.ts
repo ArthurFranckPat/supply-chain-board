@@ -24,6 +24,8 @@ export interface OrderCard {
   nature: string
   /** Client — recherche scope. */
   customer: string | null
+  /** Article dont la nomenclature contient un composant BDH (issue #28). */
+  consommeBouche?: boolean
 }
 
 /** Portée de la recherche live. */

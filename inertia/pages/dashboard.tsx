@@ -1,5 +1,6 @@
-import { createResource, createMemo, For, Show, type Component } from 'solid-js'
+import { createResource, createMemo, createSignal, For, Show, type Component } from 'solid-js'
 import { Masthead } from '@/components/masthead'
+import { Calendar, type DateRange } from '@/components/ui/calendar'
 
 /**
  * Tableau de bord (issue #26 shell + #38 KPI). Landing par défaut post-login.
@@ -30,21 +31,47 @@ interface RetardChargeKpi {
   postes: { code: string; label: string; heures: number }[]
   lignes: RetardLigne[]
 }
+interface OtdLigneDtl {
+  numCommande: string
+  client: string
+  article: string
+  posteDeCharge: string | null
+  dateExpHisto: string
+  qteCmde: number
+  qteLivree: number
+  estComplet: boolean
+  estPonctuel: boolean
+}
+type OtdMode = 'demandee' | 'acceptee'
+interface OtdKpi {
+  label: string
+  mode: OtdMode
+  nbTotal: number
+  nbOtif: number
+  tauxOtif: number
+  lignesNon: OtdLigneDtl[]
+}
 interface DashboardKpisResponse {
   retardCharge: RetardChargeKpi
   x3Error: string | null
   referenceDate: string
 }
+interface DashboardOtdResponse {
+  otd: OtdKpi[]
+  x3Error: string | null
+}
 interface DashboardProps {
   referenceDate: string
   kpisHref: string
+  otdHref: string
 }
 
-const EMPTY: DashboardKpisResponse = {
+const EMPTY_KPIS: DashboardKpisResponse = {
   retardCharge: { totalHeures: 0, nbLignes: 0, postes: [], lignes: [] },
   x3Error: null,
   referenceDate: '',
 }
+const EMPTY_OTD: DashboardOtdResponse = { otd: [], x3Error: null }
 
 /** Palette des barres par rang de poste (du plus chargé au moins chargé). */
 const BAR_PALETTE = ['#b23b2e', '#cf6a3f', '#b8862c', '#cdb079', '#a8a18c']
@@ -68,7 +95,31 @@ const CardHeader: Component<{ title: string; suffix?: string; tone?: string }> =
 )
 
 const Dashboard: Component<DashboardProps> = (props) => {
-  const [data] = createResource(
+  const [otdMode, setOtdMode] = createSignal<OtdMode>('demandee')
+  const [otdRange, setOtdRange] = createSignal<DateRange | null>(null)
+  const [calendarOpen, setCalendarOpen] = createSignal(false)
+
+  const otdUrl = createMemo(() => {
+    let url = `${props.otdHref}&otdMode=${otdMode()}`
+    const r = otdRange()
+    if (r?.start) {
+      const fmt = (d: Date) => d.toISOString().slice(0, 10)
+      url += `&otdFrom=${fmt(r.start)}&otdTo=${fmt(r.end ?? r.start)}`
+    }
+    return url
+  })
+
+  const fmtDay = (d: Date) =>
+    `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`
+
+  const otdRangeLabel = createMemo(() => {
+    const r = otdRange()
+    if (!r?.start) return null
+    if (!r.end || r.start.toDateString() === r.end.toDateString()) return fmtDay(r.start)
+    return `${fmtDay(r.start)} → ${fmtDay(r.end)}`
+  })
+
+  const [kpisData] = createResource(
     () => props.kpisHref,
     async (url): Promise<DashboardKpisResponse> => {
       const res = await fetch(url, { headers: { accept: 'application/json' } })
@@ -77,9 +128,27 @@ const Dashboard: Component<DashboardProps> = (props) => {
     },
   )
 
-  const kpi = createMemo(() => (data() ?? EMPTY).retardCharge)
-  const x3Error = createMemo(() => (data() ?? EMPTY).x3Error)
+  const [otdData] = createResource(
+    otdUrl,
+    async (url): Promise<DashboardOtdResponse> => {
+      const res = await fetch(url, { headers: { accept: 'application/json' } })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      return (await res.json()) as DashboardOtdResponse
+    },
+  )
+
+  const kpi = createMemo(() => (kpisData() ?? EMPTY_KPIS).retardCharge)
+  const otd = createMemo(() => (otdData() ?? EMPTY_OTD).otd)
+  const x3Error = createMemo(() => (kpisData() ?? EMPTY_KPIS).x3Error)
+  const otdError = createMemo(() => (otdData() ?? EMPTY_OTD).x3Error)
   const maxHeures = createMemo(() => Math.max(1, ...kpi().postes.map((p) => p.heures)))
+
+  function otdColor(taux: number, nbTotal: number): string {
+    if (nbTotal === 0) return '#a8a18c'
+    if (taux >= 90) return '#2d7a4f'
+    if (taux >= 70) return '#b8862c'
+    return '#b23b2e'
+  }
 
   const Spinner = () => (
     <div class="flex h-[180px] items-center justify-center">
@@ -105,61 +174,211 @@ const Dashboard: Component<DashboardProps> = (props) => {
 
         <div class="grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
 
-          {/* KPI #1 — Charge en retard par poste (issue #38) */}
-          <article class="rounded border border-rule bg-card p-6 shadow-[0_14px_30px_-26px_rgba(42,38,34,0.45)] lg:col-span-1">
-            <CardHeader title="Charge en retard" suffix="par poste" />
-            <Show when={!data.loading} fallback={<Spinner />}>
-              <Show
-                when={!x3Error()}
-                fallback={<p class="font-fraunces text-[13px] italic leading-snug text-destructive/80">{x3Error()}</p>}
-              >
-                <div class="flex items-end justify-between gap-3">
-                  <div class="font-fraunces text-[56px] font-semibold leading-none tracking-tight tabular-nums text-foreground">
-                    {kpi().totalHeures}
-                    <span class="ml-1 font-mono text-[18px] font-bold text-muted-foreground">h</span>
+          {/* Colonne gauche : KPI #1 Charge en retard + KPI #2 OTD */}
+          <div class="flex flex-col gap-6 lg:col-span-1">
+
+            {/* KPI #1 — Charge en retard par poste (issue #38) */}
+            <article class="rounded border border-rule bg-card p-6 shadow-[0_14px_30px_-26px_rgba(42,38,34,0.45)]">
+              <CardHeader title="Charge en retard" suffix="par poste" />
+              <Show when={!kpisData.loading} fallback={<Spinner />}>
+                <Show
+                  when={!x3Error()}
+                  fallback={<p class="font-fraunces text-[13px] italic leading-snug text-destructive/80">{x3Error()}</p>}
+                >
+                  <div class="flex items-end justify-between gap-3">
+                    <div class="font-fraunces text-[56px] font-semibold leading-none tracking-tight tabular-nums text-foreground">
+                      {kpi().totalHeures}
+                      <span class="ml-1 font-mono text-[18px] font-bold text-muted-foreground">h</span>
+                    </div>
+                    <div class="pb-1.5 text-right font-mono text-[10.5px] leading-tight text-muted-foreground">
+                      <b class="text-[13px] text-foreground">{kpi().nbLignes}</b> ligne{kpi().nbLignes > 1 ? 's' : ''}
+                      <br />en retard
+                    </div>
                   </div>
-                  <div class="pb-1.5 text-right font-mono text-[10.5px] leading-tight text-muted-foreground">
-                    <b class="text-[13px] text-foreground">{kpi().nbLignes}</b> ligne{kpi().nbLignes > 1 ? 's' : ''}
-                    <br />en retard
-                  </div>
+
+                  <Show
+                    when={kpi().postes.length > 0}
+                    fallback={<p class="mt-6 font-fraunces text-[13px] italic text-muted-foreground">Aucune charge en retard — rien à rattraper.</p>}
+                  >
+                    <div class="mt-6 flex flex-col gap-3.5">
+                      <For each={kpi().postes}>
+                        {(poste, i) => (
+                          <div>
+                            <div class="mb-[5px] flex items-baseline justify-between gap-2">
+                              <span class="min-w-0 truncate font-mono text-[11.5px] font-bold text-foreground" title={poste.label}>
+                                {poste.code}{poste.label ? ` · ${poste.label}` : ''}
+                              </span>
+                              <span class="shrink-0 font-mono text-[11.5px] font-bold tabular-nums text-muted-foreground">{poste.heures} h</span>
+                            </div>
+                            <div class="h-2 overflow-hidden rounded-full bg-secondary" style={{ '-webkit-print-color-adjust': 'exact', 'print-color-adjust': 'exact' }}>
+                              <div
+                                class="h-full rounded-full"
+                                style={{
+                                  width: `${Math.max(3, (poste.heures / maxHeures()) * 100)}%`,
+                                  background: BAR_PALETTE[Math.min(i(), BAR_PALETTE.length - 1)],
+                                  '-webkit-print-color-adjust': 'exact',
+                                  'print-color-adjust': 'exact',
+                                }}
+                              ></div>
+                            </div>
+                          </div>
+                        )}
+                      </For>
+                    </div>
+                  </Show>
+                </Show>
+              </Show>
+            </article>
+
+            {/* KPI #2 — OTD (On-Time Delivery) — 1 ou 2 périodes selon le jour */}
+            <article class="rounded border border-rule bg-card p-6 shadow-[0_14px_30px_-26px_rgba(42,38,34,0.45)]">
+              <div class="mb-4 flex items-center gap-2.5 border-b border-rule-soft pb-3">
+                <span class="size-2 shrink-0 rounded-full bg-foreground/30"></span>
+                <h2 class="font-fraunces text-[16px] font-semibold leading-none tracking-tight text-foreground">OTD</h2>
+                {/* Sélecteur de plage — popover calendrier */}
+              <div class="relative ml-auto">
+                <div class="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setCalendarOpen((v) => !v)}
+                    class="flex items-center gap-1.5 rounded border border-rule bg-secondary px-2 py-1 font-mono text-[10px] text-foreground transition-colors hover:bg-secondary/80"
+                  >
+                    <span class="material-symbols-outlined text-[13px] text-muted-foreground">calendar_today</span>
+                    <span>{otdRangeLabel() ?? 'Auto'}</span>
+                  </button>
+                  <Show when={otdRange()?.start}>
+                    <button
+                      type="button"
+                      onClick={() => { setOtdRange(null); setCalendarOpen(false) }}
+                      class="flex size-6 items-center justify-center rounded text-muted-foreground hover:text-foreground"
+                      title="Réinitialiser"
+                    >
+                      <span class="material-symbols-outlined text-[14px]">close</span>
+                    </button>
+                  </Show>
                 </div>
 
+                <Show when={calendarOpen()}>
+                  <div class="fixed inset-0 z-10" onClick={() => setCalendarOpen(false)} />
+                  <div class="absolute right-0 top-full z-20 mt-1">
+                    <Calendar
+                      mode="range"
+                      range={otdRange() ?? { start: null, end: null }}
+                      onRangeChange={(r) => {
+                        setOtdRange(r)
+                        if (r.start && r.end) setCalendarOpen(false)
+                      }}
+                      max={new Date()}
+                    />
+                  </div>
+                </Show>
+              </div>
+              <div class="flex items-center rounded border border-rule bg-secondary p-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.12em]">
+                  <button
+                    onClick={() => setOtdMode('demandee')}
+                    class="rounded px-2 py-1 transition-colors"
+                    classList={{
+                      'bg-card text-foreground shadow-sm': otdMode() === 'demandee',
+                      'text-muted-foreground hover:text-foreground': otdMode() !== 'demandee',
+                    }}
+                  >
+                    Demandée
+                  </button>
+                  <button
+                    onClick={() => setOtdMode('acceptee')}
+                    class="rounded px-2 py-1 transition-colors"
+                    classList={{
+                      'bg-card text-foreground shadow-sm': otdMode() === 'acceptee',
+                      'text-muted-foreground hover:text-foreground': otdMode() !== 'acceptee',
+                    }}
+                  >
+                    Acceptée
+                  </button>
+                </div>
+              </div>
+              <Show when={!otdData.loading} fallback={<Spinner />}>
                 <Show
-                  when={kpi().postes.length > 0}
-                  fallback={<p class="mt-6 font-fraunces text-[13px] italic text-muted-foreground">Aucune charge en retard — rien à rattraper.</p>}
+                  when={!otdError()}
+                  fallback={<p class="font-fraunces text-[13px] italic leading-snug text-destructive/80">{otdError()}</p>}
                 >
-                  <div class="mt-6 flex flex-col gap-3.5">
-                    <For each={kpi().postes}>
-                      {(poste, i) => (
-                        <div>
-                          <div class="mb-[5px] flex items-baseline justify-between">
-                            <span class="font-mono text-[11.5px] font-bold text-foreground" title={poste.label}>{poste.code}</span>
-                            <span class="font-mono text-[11.5px] font-bold tabular-nums text-muted-foreground">{poste.heures} h</span>
-                          </div>
-                          <div class="h-2 overflow-hidden rounded-full bg-secondary" style={{ '-webkit-print-color-adjust': 'exact', 'print-color-adjust': 'exact' }}>
-                            <div
-                              class="h-full rounded-full"
-                              style={{
-                                width: `${Math.max(3, (poste.heures / maxHeures()) * 100)}%`,
-                                background: BAR_PALETTE[Math.min(i(), BAR_PALETTE.length - 1)],
-                                '-webkit-print-color-adjust': 'exact',
-                                'print-color-adjust': 'exact',
-                              }}
-                            ></div>
-                          </div>
+                  <Show
+                    when={otd().length > 0}
+                    fallback={<p class="font-fraunces text-[13px] italic text-muted-foreground">Aucune donnée OTD.</p>}
+                  >
+                    <For each={otd()}>
+                      {(p, i) => (
+                        <div classList={{ 'mt-5 border-t border-rule-soft pt-5': i() > 0 }}>
+                          {/* Label période */}
+                          <div class="mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">{p.label}</div>
+
+                          <Show
+                            when={p.nbTotal > 0}
+                            fallback={<p class="font-fraunces text-[12px] italic text-muted-foreground">Aucune ligne à expédier.</p>}
+                          >
+                            <div class="flex items-end justify-between gap-3">
+                              <div class="font-fraunces text-[48px] font-semibold leading-none tracking-tight tabular-nums" style={{ color: otdColor(p.tauxOtif, p.nbTotal) }}>
+                                {p.tauxOtif}
+                                <span class="ml-0.5 font-mono text-[16px] font-bold text-muted-foreground">%</span>
+                              </div>
+                              <div class="pb-1 text-right font-mono text-[10.5px] leading-tight text-muted-foreground">
+                                <b class="text-[13px] text-foreground">{p.nbOtif}</b>/{p.nbTotal}
+                                <br />lignes OTIF
+                              </div>
+                            </div>
+
+                            <Show when={p.lignesNon.length > 0}>
+                              <div class="-mx-2 mt-4 max-h-[160px] overflow-auto">
+                                <table class="w-full border-collapse text-left">
+                                  <thead>
+                                    <tr class="sticky top-0 bg-card">
+                                      <th class="border-b border-rule px-2 py-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Commande</th>
+                                      <th class="border-b border-rule px-2 py-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Article</th>
+                                      <th class="border-b border-rule px-2 py-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Poste</th>
+                                      <th class="border-b border-rule px-2 py-1.5 text-right font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Livré/Cmde</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    <For each={p.lignesNon}>
+                                      {(l) => (
+                                        <tr class="border-b border-rule-soft last:border-0 hover:bg-secondary/40">
+                                          <td class="px-2 py-1.5 align-top">
+                                            <div class="font-mono text-[11px] font-bold text-foreground">{l.numCommande}</div>
+                                            <div class="font-sans text-[10px] text-muted-foreground">{l.client}</div>
+                                          </td>
+                                          <td class="px-2 py-1.5 align-top font-mono text-[11px] font-semibold text-terra">{l.article}</td>
+                                          <td class="px-2 py-1.5 align-top">
+                                            <Show
+                                              when={l.posteDeCharge}
+                                              fallback={<span class="font-sans text-[10px] text-muted-foreground/70">—</span>}
+                                            >
+                                              <span class="rounded bg-secondary px-1.5 py-0.5 font-mono text-[10px] font-bold tracking-wide text-secondary-foreground">{l.posteDeCharge}</span>
+                                            </Show>
+                                          </td>
+                                          <td class="whitespace-nowrap px-2 py-1.5 text-right align-top font-mono text-[11px] tabular-nums text-muted-foreground">
+                                            {l.qteLivree}/{l.qteCmde}
+                                          </td>
+                                        </tr>
+                                      )}
+                                    </For>
+                                  </tbody>
+                                </table>
+                              </div>
+                            </Show>
+                          </Show>
                         </div>
                       )}
                     </For>
-                  </div>
+                  </Show>
                 </Show>
               </Show>
-            </Show>
-          </article>
+            </article>
+
+          </div>{/* fin colonne gauche */}
 
           {/* KPI — Lignes en retard (détail) */}
           <article class="flex max-h-[calc(100vh-9rem)] flex-col rounded border border-rule bg-card p-6 shadow-[0_14px_30px_-26px_rgba(42,38,34,0.45)] lg:col-span-2 print:max-h-none print:overflow-visible print:shadow-none">
             <CardHeader title="Lignes en retard" suffix={`${kpi().nbLignes} commande${kpi().nbLignes > 1 ? 's' : ''}`} />
-            <Show when={!data.loading} fallback={<Spinner />}>
+            <Show when={!kpisData.loading} fallback={<Spinner />}>
               <Show
                 when={!x3Error()}
                 fallback={<p class="font-fraunces text-[13px] italic leading-snug text-destructive/80">{x3Error()}</p>}

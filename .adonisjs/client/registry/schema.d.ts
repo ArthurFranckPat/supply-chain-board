@@ -679,6 +679,18 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'dashboard.otd': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/dashboard/otd'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'pipeline.supply_board': {
     methods: ["POST"]
     pattern: '/api/v1/pipeline/supply-board'

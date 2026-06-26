@@ -51,6 +51,7 @@ declare module '@adonisjs/inertia/types' {
     'dashboard': {
       referenceDate: string
       kpisHref: string
+      otdHref: string
     }
     'auth/login': {
       lastUsername: string

@@ -19,6 +19,7 @@ export interface Card {
   fields: Field[]
   metric: string | null
   hours: number
+  consommeBouche?: boolean
 }
 
 export interface DayCol {

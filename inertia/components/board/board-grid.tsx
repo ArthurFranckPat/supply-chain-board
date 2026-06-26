@@ -395,6 +395,7 @@ function CardView(props: {
         progress={parseProgress(card.metric)}
         feas={feas()}
         alert={alert()}
+        consommeBouche={card.consommeBouche}
       />
     </div>
   )

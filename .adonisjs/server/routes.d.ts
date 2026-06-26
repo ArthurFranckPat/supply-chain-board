@@ -60,6 +60,7 @@ export type ScannedRoutes = {
     'suivi.rows': { paramsTuple?: []; params?: {} }
     'suivi.proactive_rows': { paramsTuple?: []; params?: {} }
     'dashboard.kpis': { paramsTuple?: []; params?: {} }
+    'dashboard.otd': { paramsTuple?: []; params?: {} }
     'pipeline.supply_board': { paramsTuple?: []; params?: {} }
     'pipeline.suivi_status': { paramsTuple?: []; params?: {} }
     'data.load': { paramsTuple?: []; params?: {} }
@@ -109,6 +110,7 @@ export type ScannedRoutes = {
     'suivi.rows': { paramsTuple?: []; params?: {} }
     'suivi.proactive_rows': { paramsTuple?: []; params?: {} }
     'dashboard.kpis': { paramsTuple?: []; params?: {} }
+    'dashboard.otd': { paramsTuple?: []; params?: {} }
     'static_sync.status': { paramsTuple?: []; params?: {} }
     'x3_writeback.describe': { paramsTuple?: []; params?: {} }
     'x3_writeback.read': { paramsTuple?: []; params?: {} }
@@ -151,6 +153,7 @@ export type ScannedRoutes = {
     'suivi.rows': { paramsTuple?: []; params?: {} }
     'suivi.proactive_rows': { paramsTuple?: []; params?: {} }
     'dashboard.kpis': { paramsTuple?: []; params?: {} }
+    'dashboard.otd': { paramsTuple?: []; params?: {} }
     'static_sync.status': { paramsTuple?: []; params?: {} }
     'x3_writeback.describe': { paramsTuple?: []; params?: {} }
     'x3_writeback.read': { paramsTuple?: []; params?: {} }
