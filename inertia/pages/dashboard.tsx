@@ -21,8 +21,6 @@ interface RetardLigne {
   qteRestante: number
   heures: number
   postes: string[]
-  of: string
-  ofStatut: number
 }
 interface RetardChargeKpi {
   totalHeures: number
@@ -74,13 +72,6 @@ const EMPTY_OTD: DashboardOtdResponse = { otd: [], x3Error: null }
 
 /** Palette des barres par rang de poste (du plus chargé au moins chargé). */
 const BAR_PALETTE = ['#b23b2e', '#cf6a3f', '#b8862c', '#cdb079', '#a8a18c']
-
-/** Statut X3 d'un OF → tag WOF/WOP/WOS + couleur (1 Ferme / 2 Planifié / 3 Suggéré). */
-const OF_STATUT: Record<number, { tag: string; tone: string }> = {
-  1: { tag: 'WOF', tone: 'bg-ferme/15 text-ferme' },
-  2: { tag: 'WOP', tone: 'bg-planifie/15 text-planifie' },
-  3: { tag: 'WOS', tone: 'bg-suggere/15 text-suggere' },
-}
 
 /** En-tête de card lisible : pastille d'accent + titre Fraunces + suffixe mono optionnel. */
 const CardHeader: Component<{ title: string; suffix?: string; tone?: string }> = (p) => (
@@ -393,7 +384,6 @@ const Dashboard: Component<DashboardProps> = (props) => {
                           <th class="border-b border-rule px-2 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Expé</th>
                           <th class="border-b border-rule px-2 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Commande · Client</th>
                           <th class="border-b border-rule px-2 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Article · Désignation</th>
-                          <th class="border-b border-rule px-2 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">OF</th>
                           <th class="border-b border-rule px-2 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Poste</th>
                           <th class="border-b border-rule px-2 py-2 text-right font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Reste</th>
                           <th class="border-b border-rule px-2 py-2 text-right font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Charge</th>
@@ -411,18 +401,6 @@ const Dashboard: Component<DashboardProps> = (props) => {
                               <td class="px-2 py-2.5 align-top">
                                 <div class="font-mono text-[12px] font-semibold text-terra">{l.article}</div>
                                 <div class="font-sans text-[11px] leading-snug text-secondary-foreground">{l.designation || '—'}</div>
-                              </td>
-                              <td class="whitespace-nowrap px-2 py-2.5 align-top">
-                                <Show when={l.of} fallback={<span class="font-sans text-[11px] text-muted-foreground/70">—</span>}>
-                                  <div class="flex items-center gap-1.5">
-                                    <span class="font-mono text-[12px] font-semibold text-foreground">{l.of}</span>
-                                    <Show when={OF_STATUT[l.ofStatut]}>
-                                      {(st) => (
-                                        <span class={`shrink-0 rounded px-1 py-px font-mono text-[9px] font-bold leading-none ${st().tone}`}>{st().tag}</span>
-                                      )}
-                                    </Show>
-                                  </div>
-                                </Show>
                               </td>
                               <td class="px-2 py-2.5 align-top">
                                 <Show

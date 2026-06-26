@@ -1,7 +1,8 @@
 import { HttpContext } from '@adonisjs/core/http'
 import logger from '@adonisjs/core/services/logger'
-import { SuiviService, reloadSuiviContext, type RetardChargeKpi } from '#services/suivi_service'
+import { RetardRepository, type RetardChargeKpi } from '#repositories/retard_repository'
 import { OtdRepository, resolveOtdPeriods, type OtdKpi, type OtdMode } from '#repositories/otd_repository'
+import { RETARD_LOOKBACK_DAYS } from '#services/suivi_service'
 
 /**
  * Tableau de bord (issue #26 shell + #38 KPI). Page d'accueil par défaut post-login.
@@ -23,17 +24,16 @@ export default class DashboardController {
     })
   }
 
-  /** GET /api/v1/dashboard/kpis — charge en retard uniquement (calcul lourd, peu volatile). */
+  /** GET /api/v1/dashboard/kpis — charge en retard (1 SQL ORDERS + gamme SQLite). */
   async kpis(ctx: HttpContext) {
     const referenceDate = ctx.request.input('referenceDate')
     const refDate = referenceDate ? new Date(referenceDate) : new Date()
-    if (ctx.request.input('refresh')) await reloadSuiviContext()
 
     let retardCharge: RetardChargeKpi = { totalHeures: 0, nbLignes: 0, postes: [], lignes: [] }
     let x3Error: string | null = null
 
     try {
-      retardCharge = await new SuiviService().retardChargeKpi(refDate)
+      retardCharge = await new RetardRepository().getRetardKpi(refDate, RETARD_LOOKBACK_DAYS)
     } catch (e) {
       logger.error({ err: e }, '[dashboard] kpis — échec chargement retard X3')
       x3Error = 'Données X3 indisponibles — KPI momentanément incalculable.'
