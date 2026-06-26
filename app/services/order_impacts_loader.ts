@@ -20,6 +20,7 @@ import { X3MfgmatRepository } from '#repositories/mfgmat_repository'
 import { X3OrderLineRepository, type OfCommandePeg } from '#repositories/order_line_repository'
 import type { Article } from '#app/domain/models/article'
 import type { Nomenclature } from '#app/domain/models/nomenclature'
+import type { Flow } from '#app/domain/models/flow'
 
 export interface LoadOrderImpactsOptions {
   from: Date
@@ -44,6 +45,8 @@ export interface OrderImpactsContext {
   nomenclatures: Map<string, Nomenclature>
   /** Reverse peg OF → commande (contremarque), pour les OF dont la commande sort de la fenêtre. */
   ofPegs: Map<string, OfCommandePeg>
+  /** Réceptions d'achat de la fenêtre (déjà fetchées par getLive — évite un SOAP dupliqué). */
+  receptionFlows: Flow[]
 }
 
 /**
@@ -299,5 +302,5 @@ export async function loadOrderImpacts(
     mfgFeasibility
   )
 
-  return { result, articles, nomenclatures, ofPegs }
+  return { result, articles, nomenclatures, ofPegs, receptionFlows }
 }

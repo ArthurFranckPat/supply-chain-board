@@ -4,8 +4,7 @@ import type { NomenclatureEntry } from '#app/domain/models/nomenclature'
 import type { Workstation } from '#app/domain/models/workstation'
 import { X3OfRepository, type ManufacturingOrder } from '#repositories/of_repository'
 import { X3StockRepository } from '#repositories/stock_repository'
-import { X3ReceptionRepository } from '#repositories/reception_repository'
-import { X3BesoinClientRepository } from '#repositories/besoin_client_repository'
+import { CombinedOrdersRepository } from '#repositories/combined_orders_repository'
 import staticSync from '#services/static_sync_service'
 import cache from '@adonisjs/cache/services/main'
 
@@ -120,11 +119,8 @@ class BoardDataset {
       // SWR (issue #33) : demande+réception X3 lent (~13 s cold). Cf. getOrders.
       timeout: SWR_TIMEOUT,
       factory: async () => {
-        const [demand, reception] = await Promise.all([
-          new X3BesoinClientRepository().getDemandFlows({ from, to }),
-          new X3ReceptionRepository().getReceptionFlows({ to }),
-        ])
-        return { demand, reception, at: Date.now() } satisfies Live
+        const { demandFlows, receptionFlows } = await new CombinedOrdersRepository().fetchLive(from, to)
+        return { demand: demandFlows, reception: receptionFlows, at: Date.now() } satisfies Live
       },
     })
   }

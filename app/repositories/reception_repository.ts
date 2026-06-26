@@ -62,10 +62,11 @@ export class X3ReceptionRepository {
  * fausseraient la couverture) ; sans borne haute (une réception au-delà de la
  * fenêtre reste utile pour détecter un retard d'arrivée).
  */
-export async function loadReceptionsByArticle(from?: Date): Promise<Map<string, ReceptionRecord[]>> {
-  const flows = await new X3ReceptionRepository().getReceptionFlows()
+/** Pivote des Flow réceptions déjà fetchés → Map article → ReceptionRecord[]. */
+export function groupReceptionsByArticle(flows: Flow[], from?: Date): Map<string, ReceptionRecord[]> {
   const byArticle = new Map<string, ReceptionRecord[]>()
   for (const f of flows) {
+    if (f.origin.type !== 'reception') continue
     if (f.date === null) continue
     if (from && f.date < from) continue
     const origin = f.origin as { id?: string; supplier?: string }
@@ -80,4 +81,9 @@ export async function loadReceptionsByArticle(from?: Date): Promise<Map<string, 
     byArticle.set(f.article, arr)
   }
   return byArticle
+}
+
+export async function loadReceptionsByArticle(from?: Date): Promise<Map<string, ReceptionRecord[]>> {
+  const flows = await new X3ReceptionRepository().getReceptionFlows()
+  return groupReceptionsByArticle(flows, from)
 }

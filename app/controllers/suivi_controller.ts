@@ -19,7 +19,7 @@ import type { OrderImpactResult } from '#app/domain/order-impacts'
 import type { Article } from '#app/domain/models/article'
 import { X3OfRepository } from '#repositories/of_repository'
 import { X3StockRepository } from '#repositories/stock_repository'
-import { X3ReceptionRepository, loadReceptionsByArticle } from '#repositories/reception_repository'
+import { X3ReceptionRepository, groupReceptionsByArticle } from '#repositories/reception_repository'
 import { X3BesoinClientRepository } from '#repositories/besoin_client_repository'
 import { resolveCoveringReception } from '#app/domain/shortages'
 import type { ReceptionRecord } from '#app/domain/recursive-checker'
@@ -265,15 +265,15 @@ export default class SuiviController {
       from.setDate(from.getDate() - RETARD_LOOKBACK_DAYS)
       const to = new Date(refDate)
       to.setDate(to.getDate() + 90)
-      const [{ result, articles }, atelierByArticle] = await Promise.all([
+      const [{ result, articles, receptionFlows }, atelierByArticle] = await Promise.all([
         loadOrderImpacts({ from, to, mode: 'sequential', preferEngineFeasibility: true }),
         buildAtelierByArticle(),
       ])
-      // Réceptions encore à venir (≥ réf.) pour l'ETA des goulots — exclut celles déjà
-      // arrivées (consommées dans le stock).
+      // Réceptions encore à venir (≥ réf.) — réutilise les flows déjà fetchés par loadOrderImpacts
+      // via getLive (évite un SOAP dupliqué vers PORDERQ).
       const recFrom = new Date(refDate)
       recFrom.setHours(0, 0, 0, 0)
-      const receptionsByArticle = await loadReceptionsByArticle(recFrom)
+      const receptionsByArticle = groupReceptionsByArticle(receptionFlows, recFrom)
       const built = buildProactiveDisplay(result, articles, receptionsByArticle, atelierByArticle)
       rows = built.rows
       verdictCounts = built.verdictCounts
