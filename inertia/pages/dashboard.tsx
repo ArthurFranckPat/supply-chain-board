@@ -23,7 +23,6 @@ interface RetardLigne {
   postes: string[]
   of: string
   ofStatut: number
-  cause: string
 }
 interface RetardChargeKpi {
   totalHeures: number
@@ -398,7 +397,6 @@ const Dashboard: Component<DashboardProps> = (props) => {
                           <th class="border-b border-rule px-2 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Poste</th>
                           <th class="border-b border-rule px-2 py-2 text-right font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Reste</th>
                           <th class="border-b border-rule px-2 py-2 text-right font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Charge</th>
-                          <th class="border-b border-rule px-2 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Cause</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -442,7 +440,6 @@ const Dashboard: Component<DashboardProps> = (props) => {
                               </td>
                               <td class="whitespace-nowrap px-2 py-2.5 text-right align-top font-mono text-[12px] font-semibold tabular-nums text-foreground">{l.qteRestante}</td>
                               <td class="whitespace-nowrap px-2 py-2.5 text-right align-top font-mono text-[12px] font-bold tabular-nums text-foreground">{l.heures > 0 ? `${l.heures} h` : '—'}</td>
-                              <td class="px-2 py-2.5 align-top font-sans text-[11px] leading-snug text-muted-foreground">{l.cause || '—'}</td>
                             </tr>
                           )}
                         </For>
