@@ -161,24 +161,28 @@ export async function loadOrderImpacts(
   for (const f of filteredDemands) if (f.article) articleSet.add(f.article)
   for (const f of receptionFlows) if (f.article) articleSet.add(f.article)
 
-  // Matières RÉELLES des OF (MFGMAT) — source de vérité de la faisabilité, partagée
-  // avec le détail OF (issue #11). Chargées en batch pour tous les OF de la fenêtre.
-  const windowNumOfs = finalOfFlows
-    .map((f) => (f.origin as { id?: string }).id?.trim() ?? '')
-    .filter(Boolean)
-  // Reverse peg OF → commande (contremarque), pour rattacher les OF dont la commande
-  // expédie hors fenêtre (le matcher ne voit que les demandes échéant dans la fenêtre).
-  // Deux appels SOAP indépendants (ne dépendent que de windowNumOfs) → parallélisés (issue #33).
-  const [ofPegs, mfgByOf] = await timeStage('loadOrderImpacts.pegs+mfg', () =>
-    Promise.all([
-      boardDataset.getOfPegs(windowNumOfs),
-      boardDataset.getMfgMaterials(windowNumOfs),
-    ])
-  )
-  // Les composants MFGMAT peuvent différer de la BOM théorique → s'assurer que leur
-  // stock est bien chargé.
-  for (const materials of mfgByOf.values()) {
-    for (const m of materials) if (m.article) articleSet.add(m.article)
+  // Mode proactif (preferEngineFeasibility) : MFGMAT et peg sont inutiles.
+  // - MFGMAT : mfgFeasibility = undefined → verdict ignoré ; articleSet déjà couvert par BOM SQLite.
+  // - Peg (SORDERQ) : non utilisé par proactiveRows (destructuré mais pas consommé).
+  // → on saute Phase 2 entière ; stock démarre immédiatement après Phase 1.
+  let ofPegs = new Map<string, OfCommandePeg>()
+  let mfgByOf = new Map<string, import('#repositories/mfgmat_repository').OfMaterial[]>()
+
+  if (!preferEngineFeasibility) {
+    const windowNumOfs = finalOfFlows
+      .map((f) => (f.origin as { id?: string }).id?.trim() ?? '')
+      .filter(Boolean)
+    const [pegs, mfg] = await timeStage('loadOrderImpacts.pegs+mfg', () =>
+      Promise.all([
+        boardDataset.getOfPegs(windowNumOfs),
+        boardDataset.getMfgMaterials(windowNumOfs),
+      ])
+    )
+    ofPegs = pegs
+    mfgByOf = mfg
+    for (const materials of mfgByOf.values()) {
+      for (const m of materials) if (m.article) articleSet.add(m.article)
+    }
   }
 
   // Expand récursivement à TOUS les composants (ACHETE + FABRIQUE) de tous les niveaux BOM.
