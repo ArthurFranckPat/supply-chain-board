@@ -80,7 +80,7 @@ export async function loadOrderImpacts(
   // Données via le loader : OF (supply) + référentiel cachés, demande/réception
   // scopées à l'horizon, stock scopé aux articles concernés.
   const [
-    { demand: demandFlows, reception: receptionFlows, supply: ofFlows },
+    { demand: demandFlows, reception: receptionFlows, supply: ofFlows = [] },
     { gamme },
     nomenclatureEntries,
     articlesList,
