@@ -35,6 +35,13 @@ export interface LoadOrderImpactsOptions {
    * écraserait le verdict séquentiel pour tout OF ayant des matières réelles.
    */
   preferEngineFeasibility?: boolean
+  /**
+   * Si vrai (/programme), charge getOrdersForWindow (STRDAT, ~25× moins de lignes) +
+   * getDemandAndReception (WIPTYP=1+2 seuls, ~2-3× moins) au lieu de getLive (WIPTYP=1+2+5).
+   * getOrdersForWindow est coalescé avec loadBoardData → 1 seul SOAP pour les deux.
+   * Filtre ENDDAT sauté : OFs déjà scopés par STRDAT dans la fenêtre board.
+   */
+  useWindowOfs?: boolean
 }
 
 export interface OrderImpactsContext {
@@ -64,6 +71,7 @@ export async function loadOrderImpacts(
     mode,
     force = false,
     preferEngineFeasibility = false,
+    useWindowOfs = false,
   } = opts
 
   // ISO sur les composantes LOCALES (pas toISOString, qui repasse en UTC et recule d'un jour
@@ -79,19 +87,30 @@ export async function loadOrderImpacts(
 
   // Données via le loader : OF (supply) + référentiel cachés, demande/réception
   // scopées à l'horizon, stock scopé aux articles concernés.
-  const [
-    { demand: demandFlows, reception: receptionFlows, supply: ofFlows = [] },
-    { gamme },
-    nomenclatureEntries,
-    articlesList,
-  ] = await timeStage('loadOrderImpacts.datasets', () =>
-    Promise.all([
-      boardDataset.getLive(fromIso, toIso, force),
-      boardDataset.getReferential(force),
-      boardDataset.getNomenclature(force),
-      boardDataset.getArticles(),
-    ])
+  // useWindowOfs=true (/programme) : OFs via STRDAT (fenêtre courte, ~25× moins de lignes) +
+  // demande/réceptions sans OFs (WIPTYP=1+2). getOrdersForWindow coalescé avec loadBoardData.
+  const [rawLive, { gamme }, nomenclatureEntries, articlesList] = await timeStage(
+    'loadOrderImpacts.datasets',
+    () =>
+      Promise.all([
+        useWindowOfs
+          ? Promise.all([
+              boardDataset.getOrdersForWindow(windowFrom, windowTo, force),
+              boardDataset.getDemandAndReception(fromIso, toIso, force),
+            ]).then(([ordWindow, demandRecep]) => ({
+              demand: demandRecep.demand,
+              reception: demandRecep.reception,
+              supply: ordWindow.supply,
+            }))
+          : boardDataset.getLive(fromIso, toIso, force),
+        boardDataset.getReferential(force),
+        boardDataset.getNomenclature(force),
+        boardDataset.getArticles(),
+      ])
   )
+  const demandFlows = rawLive.demand
+  const receptionFlows = rawLive.reception ?? []
+  const ofFlows = rawLive.supply ?? []
 
   const overrides = await new OverrideStore().getAll()
 
@@ -99,10 +118,13 @@ export async function loadOrderImpacts(
   // Les suggestions couvrent les commandes MTO/NOR non encore affermies — sans elles, ces
   // commandes n'ont aucun supply à matcher. Statut « suggéré » → priorité basse dans le matcher.
   // ofFlows contient déjà les suggestions (statut 3) depuis ORDERS (#32).
-  const filteredOfFlows = ofFlows.filter((f) => {
-    if (!f.date) return true
-    return f.date >= windowFrom && f.date <= windowTo
-  })
+  // useWindowOfs : OFs déjà scopés par STRDAT → filtre ENDDAT inutile et contre-productif.
+  const filteredOfFlows = useWindowOfs
+    ? ofFlows
+    : ofFlows.filter((f) => {
+        if (!f.date) return true
+        return f.date >= windowFrom && f.date <= windowTo
+      })
 
   // Filtrer par workstation si demandé (gammes du référentiel caché)
   let finalOfFlows = filteredOfFlows

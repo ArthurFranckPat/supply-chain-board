@@ -383,7 +383,15 @@ export default class SchedulerController {
         const [data, impactsCtx] = await Promise.all([
           timeStage('programme.loadBoardData', () => this.loadBoardData(ctx, basePath)),
           timeStage('programme.loadOrderImpacts', () =>
-            loadOrderImpacts({ from: windowStart, to: windowTo, force, preferEngineFeasibility: true }).catch(() => null)
+            loadOrderImpacts({
+              from: windowStart,
+              to: windowTo,
+              force,
+              preferEngineFeasibility: true,
+              // OFs scopés par STRDAT (fenêtre board) + demande WIPTYP=1+2 sans OFs.
+              // getOrdersForWindow coalescé avec loadBoardData → 1 SOAP pour les deux.
+              useWindowOfs: true,
+            }).catch(() => null)
           ),
         ])
         let x3Error = data.x3Error
@@ -655,6 +663,10 @@ export default class SchedulerController {
 
     const windowStart = startParam ? new Date(startParam) : new Date()
     windowStart.setHours(0, 0, 0, 0)
+    // Borne haute de la fenêtre board (utilisée par getOrdersForWindow + loadOrderImpacts).
+    const windowEnd = new Date(windowStart)
+    windowEnd.setDate(windowEnd.getDate() + horizon)
+    windowEnd.setHours(23, 59, 59, 999)
 
     let mos: ManufacturingOrder[] = []
     let gammeOps: GammeOperation[] = []
@@ -665,7 +677,9 @@ export default class SchedulerController {
       const [ref, ord, bdh] = await timeStage('loadBoardData.datasets', () =>
         Promise.all([
           timeStage('loadBoardData.referential', () => boardDataset.getReferential(force)),
-          timeStage('loadBoardData.orders', () => boardDataset.getOrders(force)),
+          // Filtre STRDAT (fenêtre courte) au lieu de lookback 90j ENDDAT → ~25× moins de lignes ZSOAPSQL O(n²).
+          // Coalescé avec getOrdersForWindow dans loadOrderImpacts → 1 seul SOAP pour les deux.
+          timeStage('loadBoardData.orders', () => boardDataset.getOrdersForWindow(windowStart, windowEnd, force)),
           staticSync.readBdhParents().catch(() => new Set<string>()),
         ])
       )

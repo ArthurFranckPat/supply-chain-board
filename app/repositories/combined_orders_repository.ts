@@ -71,6 +71,44 @@ WHERE O.WIPTYP_0 IN (1, 5)
   )
 `
 
+// Demande (WIPTYP=1) + réceptions (WIPTYP=2) seulement — sans les OFs (WIPTYP=5).
+// Remplace getLive() quand les OFs sont déjà chargés via getOrdersForWindow().
+// ZSOAPSQL O(n²) : ~2-3× moins de lignes → requête ~4-9× plus rapide.
+const buildDemandReceptionSql = (fromStr: string, toStr: string) => `
+SELECT
+  O.WIPTYP_0,
+  O.WIPSTA_0,
+  O.VCRNUM_0,
+  O.VCRLIN_0,
+  O.ITMREF_0,
+  I.ITMDES1_0   AS DESIGNATION,
+  O.ENDDAT_0,
+  O.RMNEXTQTY_0,
+  O.EXTQTY_0,
+  O.ALLQTY_0,
+  P.BPRNAM_0    AS PARTNER_NOM,
+  P.CRY_0       AS PAYS,
+  CASE
+    WHEN O.WIPSTA_0 = 1 AND O.WIPTYP_0 = 1 THEN H.SOHTYP_0
+    WHEN O.WIPSTA_0 = 3 AND P.CRY_0 IS NOT NULL AND P.CRY_0 <> 'FR' THEN 'NOR'
+    ELSE NULL
+  END           AS SOHTYP
+FROM ORDERS O
+INNER JOIN ITMMASTER I ON I.ITMREF_0 = O.ITMREF_0
+LEFT JOIN BPARTNER P ON P.BPRNUM_0 = O.BPRNUM_0
+LEFT JOIN SORDER H ON H.SOHNUM_0 = O.VCRNUM_0 AND O.WIPTYP_0 = 1
+WHERE O.WIPTYP_0 IN (1, 2)
+  AND I.ITMSTA_0 = 1
+  AND O.RMNEXTQTY_0 > 0
+  AND (
+    (O.WIPTYP_0 = 1 AND O.WIPSTA_0 IN (1, 3)
+      AND O.ENDDAT_0 >= TO_DATE('${fromStr}', 'YYYYMMDD')
+      AND O.ENDDAT_0 <= TO_DATE('${toStr}', 'YYYYMMDD'))
+    OR (O.WIPTYP_0 = 2 AND O.WIPSTA_0 IN (1, 2)
+      AND O.ENDDAT_0 <= TO_DATE('${toStr}', 'YYYYMMDD'))
+  )
+`
+
 // WIPTYP=1 (demande) + WIPTYP=2 (réceptions) + WIPTYP=5 (OFs fenêtre) en 1 SOAP.
 // Remplace getOrders() + getLive() (2 SOAP) pour la vue proactive et loadOrderImpacts.
 // OFs bornés par [from, to] : seuls les OF de la fenêtre sont nécessaires (loadOrderImpacts
@@ -273,6 +311,79 @@ export class CombinedOrdersRepository {
     }
 
     return { demandFlows, ofFlows }
+  }
+
+  /** Demande + réceptions sans OFs. 1 SOAP WIPTYP=1+2 — ~2-3× moins de lignes que fetchLive(). */
+  async fetchDemandAndReception(fromIso: string, toIso: string): Promise<{ demandFlows: Flow[]; receptionFlows: Flow[] }> {
+    const db = new X3Database()
+    let rows: RawRow[] = []
+    try {
+      rows = await db.raw(buildDemandReceptionSql(fromIso.replace(/-/g, ''), toIso.replace(/-/g, '')))
+    } finally {
+      await db.destroy()
+    }
+
+    const demandFlows: Flow[] = []
+    const receptionFlows: Flow[] = []
+
+    for (const row of rows) {
+      const wiptyp = parseInt(row.WIPTYP_0 ?? '0')
+      const wipsta = parseInt(row.WIPSTA_0 ?? '0')
+      const article = row.ITMREF_0?.trim() ?? ''
+      const qty = toNum(row.RMNEXTQTY_0)
+      const date = parseX3Date(row.ENDDAT_0)
+
+      if (wiptyp === 1) {
+        const nature: NeedNature = wipsta === 3 ? 'PREVISION' : 'COMMANDE'
+        const rawType = row.SOHTYP?.trim() || null
+        const orderType = rawType as OrderType | null
+        if (nature === 'COMMANDE') {
+          demandFlows.push({
+            article, quantity: qty, direction: 'demand', date,
+            origin: {
+              type: 'order',
+              id: row.VCRNUM_0?.trim() ?? '',
+              customer: row.PARTNER_NOM?.trim() ?? '',
+              pays: row.PAYS?.trim() ?? null,
+              orderType, nature,
+              contremarque: null,
+              qteCommandee: toNum(row.EXTQTY_0),
+              qteAllouee: toNum(row.ALLQTY_0),
+              ligne: row.VCRLIN_0?.trim() ?? null,
+            },
+          })
+        } else {
+          demandFlows.push({
+            article, quantity: qty, direction: 'demand', date,
+            origin: {
+              type: 'forecast',
+              id: row.VCRNUM_0?.trim() ?? '',
+              customer: row.PARTNER_NOM?.trim() || null,
+              pays: row.PAYS?.trim() ?? null,
+              orderType,
+              contremarque: null,
+              qteCommandee: toNum(row.EXTQTY_0),
+              qteAllouee: toNum(row.ALLQTY_0),
+            },
+          })
+        }
+      } else if (wiptyp === 2) {
+        receptionFlows.push({
+          article, quantity: qty, direction: 'supply', date,
+          origin: {
+            type: 'reception',
+            id: row.VCRNUM_0?.trim() ?? '',
+            supplier: row.PARTNER_NOM?.trim() ?? '',
+            designation: row.DESIGNATION?.trim() ?? null,
+            categorie: null,
+            dateCommande: null,
+            qteCommandee: toNum(row.EXTQTY_0),
+          },
+        })
+      }
+    }
+
+    return { demandFlows, receptionFlows }
   }
 
   /** 1 SOAP (ORDERS WIPTYP=1+2) → demande scopée [from,to] + réceptions attendues ≤ to.

@@ -112,6 +112,61 @@ class BoardDataset {
     })
   }
 
+  /** OFs dont STRDAT ∈ [from, to] — fenêtre courte, ~25× moins de lignes que getOrders().
+   * Cache par fenêtre (clé orders-window:from:to). Utilisé par /ordonnancement et /programme
+   * pour ne charger que les OFs visibles sur le board, au lieu du lookback 90j ENDDAT. */
+  async getOrdersForWindow(from: Date, to: Date, force = false): Promise<Orders> {
+    const isoL = (d: Date) => {
+      const y = d.getFullYear()
+      const m = String(d.getMonth() + 1).padStart(2, '0')
+      const da = String(d.getDate()).padStart(2, '0')
+      return `${y}-${m}-${da}`
+    }
+    const key = `orders-window:${isoL(from)}:${isoL(to)}`
+    if (force) await board().delete({ key })
+    return board().getOrSet({
+      key,
+      ttl: ORDERS_TTL,
+      timeout: SWR_TIMEOUT,
+      factory: async () => {
+        const mos = await new X3OfRepository().getManufacturingOrdersForWindow(from, to)
+        const supply: Flow[] = mos.map((mo) => ({
+          article: mo.article,
+          quantity: mo.quantity,
+          direction: 'supply',
+          date: mo.endDate,
+          origin: {
+            type: 'of',
+            id: mo.numOf,
+            status: mo.status,
+            statutLabel: mo.statutLabel,
+            typeOf: null,
+            typeOfLabel: mo.typeOfLabel,
+            designation: mo.designation,
+          },
+        }))
+        return { mos, supply, at: Date.now() } satisfies Orders
+      },
+    })
+  }
+
+  /** Demande (WIPTYP=1) + réceptions (WIPTYP=2) scopées à [from, to], sans OFs.
+   * Remplace getLive() quand les OFs sont fournis par getOrdersForWindow().
+   * ZSOAPSQL O(n²) ~2-3× moins de lignes → requête ~4-9× plus rapide. */
+  async getDemandAndReception(from: string, to: string, force = false): Promise<{ demand: Flow[]; reception: Flow[] }> {
+    const key = `demand-recep:${from}:${to}`
+    if (force) await board().delete({ key })
+    return board().getOrSet({
+      key,
+      ttl: LIVE_TTL,
+      timeout: SWR_TIMEOUT,
+      factory: async () => {
+        const { demandFlows, receptionFlows } = await new CombinedOrdersRepository().fetchDemandAndReception(from, to)
+        return { demand: demandFlows, reception: receptionFlows }
+      },
+    })
+  }
+
   /** Demande + réceptions scopées à l'horizon [from,to]. Cache par fenêtre.
    * Les suggestions ne sont plus lues ici depuis #32 : elles viennent d'ORDERS via
    * getOrders() (statut 3), temps réel → plus de source CBNDET ni de blacklist. */

@@ -40,6 +40,14 @@ function toYYYYMMDD(d: Date): string {
   return d.toISOString().slice(0, 10).replace(/-/g, '')
 }
 
+// Évite le décalage UTC+1/+2 : `toISOString()` à minuit local donne hier UTC.
+function toLocalYYYYMMDD(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const da = String(d.getDate()).padStart(2, '0')
+  return `${y}${m}${da}`
+}
+
 /** WIPTYP=5 = fabrication. WIPSTA 1/2/3 = Ferme/Planifié/Suggéré. ORDERS seule. */
 const buildSql = (fromStr: string) => `
 SELECT
@@ -56,6 +64,25 @@ WHERE WIPTYP_0 = 5
   AND WIPSTA_0 IN (1, 2, 3)
   AND RMNEXTQTY_0 > 0
   AND ENDDAT_0 >= TO_DATE('${fromStr}', 'YYYYMMDD')
+`
+
+/** STRDAT in [from,to] — fenêtre courte → ZSOAPSQL O(n²) ×N+ plus rapide que lookback 90j ENDDAT. */
+const buildWindowSql = (fromStr: string, toStr: string) => `
+SELECT
+  VCRNUM_0    AS NUM,
+  ITMREF_0    AS ARTICLE,
+  WIPSTA_0    AS STA,
+  EXTQTY_0    AS LAUNCHED,
+  CPLQTY_0    AS DONE,
+  RMNEXTQTY_0 AS REMAIN,
+  STRDAT_0    AS STRDAT,
+  ENDDAT_0    AS ENDDAT
+FROM ORDERS
+WHERE WIPTYP_0 = 5
+  AND WIPSTA_0 IN (1, 2, 3)
+  AND RMNEXTQTY_0 > 0
+  AND STRDAT_0 >= TO_DATE('${fromStr}', 'YYYYMMDD')
+  AND STRDAT_0 <= TO_DATE('${toStr}', 'YYYYMMDD')
 `
 
 function toNum(v: string | null | undefined): number {
@@ -135,6 +162,38 @@ export class X3OfRepository {
 
   async getManufacturingOrders(): Promise<ManufacturingOrder[]> {
     const { rows, label, designations } = await this.fetch()
+
+    return rows.map((row) => {
+      const status = parseInt(row.STA ?? '0') as 1 | 2 | 3
+      const article = row.ARTICLE?.trim() ?? ''
+      return {
+        numOf: row.NUM?.trim() ?? '',
+        article,
+        designation: designations.get(article) ?? null,
+        status,
+        statutLabel: label(317, status),
+        typeOfLabel: null,
+        quantity: toNum(row.REMAIN),
+        quantityLaunched: toNum(row.LAUNCHED),
+        quantityDone: toNum(row.DONE),
+        unit: null,
+        startDate: parseX3Date(row.STRDAT),
+        endDate: parseX3Date(row.ENDDAT),
+      }
+    })
+  }
+
+  /** OFs dont le STRDAT est dans [from, to] — fenêtre courte, ~25× moins de lignes que getManufacturingOrders(). */
+  async getManufacturingOrdersForWindow(from: Date, to: Date): Promise<ManufacturingOrder[]> {
+    const [rows, menuRows, articles] = await Promise.all([
+      new X3Database().raw(buildWindowSql(toLocalYYYYMMDD(from), toLocalYYYYMMDD(to))) as unknown as RawRow[],
+      LocalMenu.query().whereIn('chapter', [317]),
+      staticSync.readArticles().catch(() => []),
+    ])
+    const label = (chapter: number, value: number | null) =>
+      menuRows.find((m) => m.chapter === chapter && m.value === value)?.label ?? null
+    const designations = new Map<string, string>()
+    for (const a of articles) if (a.code) designations.set(a.code, a.description)
 
     return rows.map((row) => {
       const status = parseInt(row.STA ?? '0') as 1 | 2 | 3
