@@ -162,6 +162,50 @@ export class X3OrderLineRepository {
   }
 
   /**
+   * Charge /charge uniquement : 5 cols, 1 JOIN (ITMMASTER) au lieu de 11 cols + 5 JOINs.
+   * Supprime BPARTNER×2, SORDER, SORDERQ, ITMBPC sous-requête — tous inutiles pour la vue charge.
+   * Utilise ENDDAT_0 pour ECHEANCE (vs CASE WHEN SHIDAT_0/ENDDAT_0) : delta négligeable
+   * sur un horizon 6 mois en mailles hebdo/mensuel.
+   */
+  async getOrderLinesForLoad(fromStr: string, toStr: string): Promise<Pick<OrderLineRow, 'article' | 'designation' | 'quantite' | 'dateLivraison' | 'nature'>[]> {
+    const sql = `
+SELECT
+  O.ITMREF_0    AS ARTICLE,
+  I.ITMDES1_0   AS DESIGNATION,
+  O.WIPSTA_0    AS WIPSTA,
+  O.ENDDAT_0    AS ECHEANCE,
+  O.RMNEXTQTY_0 AS RESTE_LIVRER
+FROM ORDERS O
+JOIN ITMMASTER I ON I.ITMREF_0 = O.ITMREF_0
+WHERE O.WIPTYP_0 = 1
+  AND I.ITMSTA_0 = 1
+  AND O.RMNEXTQTY_0 > 0
+  AND O.WIPSTA_0 IN (1, 3)
+  AND O.ENDDAT_0 >= TO_DATE('${fromStr}', 'YYYYMMDD')
+  AND O.ENDDAT_0 <= TO_DATE('${toStr}', 'YYYYMMDD')
+`
+    const db = new X3Database()
+    try {
+      const rows: RawRow[] = await db.raw(sql)
+      return rows
+        .map((row) => {
+          const date = parseX3Date(row.ECHEANCE)
+          if (!date) return null
+          return {
+            article: row.ARTICLE?.trim() ?? '',
+            designation: row.DESIGNATION?.trim() || null,
+            quantite: parseFloat(row.RESTE_LIVRER ?? '0') || 0,
+            dateLivraison: date,
+            nature: (row.WIPSTA?.trim() === '1' ? 'COMMANDE' : 'PREVISION') as NeedNature,
+          }
+        })
+        .filter((r): r is NonNullable<typeof r> => r !== null)
+    } finally {
+      await db.destroy()
+    }
+  }
+
+  /**
    * Lignes de commande ouvertes (RESTE_LIVRER > 0), niveau ligne.
    * `from`/`to` optionnels : borne par ECHEANCE (SHIDAT_0 firmes / ENDDAT_0 prévisions).
    */

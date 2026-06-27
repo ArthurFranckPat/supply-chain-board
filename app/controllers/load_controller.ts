@@ -128,7 +128,7 @@ export default class LoadController {
     }
 
     let mos: ManufacturingOrder[] = []
-    let orderLines: OrderLineRow[] = []
+    let orderLines: Pick<OrderLineRow, 'article' | 'designation' | 'quantite' | 'dateLivraison' | 'nature'>[] = []
     let gammeOps: GammeOperation[] = []
     let workstations: Workstation[] = []
     let x3Error: string | null = null
@@ -137,13 +137,19 @@ export default class LoadController {
     // + getOpenOrderLines → 3 SOAP indépendants → parallèles.
     // getOrdersForWindow : seuls les OFs dont STRDAT ∈ [monthStart, horizonEnd] sont retournés ;
     // buildLines filtre déjà `date < monthStart` donc aucun OF valide n'est perdu.
+    // Dates au format YYYYMMDD pour getOrderLinesForLoad (TO_DATE Oracle).
+    const toYYYYMMDD = (d: Date) => {
+      const y = d.getFullYear()
+      const m = String(d.getMonth() + 1).padStart(2, '0')
+      const da = String(d.getDate()).padStart(2, '0')
+      return `${y}${m}${da}`
+    }
+
     const [refR, ordR, olR] = await Promise.allSettled([
       boardDataset.getReferential(force),
       boardDataset.getOrdersForWindow(monthStart, horizonEnd, force),
-      new X3OrderLineRepository().getOpenOrderLines({
-        from: isoDay(monthStart),
-        to: isoDay(horizonEnd),
-      }),
+      // 5 cols + 1 JOIN au lieu de 11 cols + 5 JOINs (BPARTNER×2, SORDER, SORDERQ, ITMBPC).
+      new X3OrderLineRepository().getOrderLinesForLoad(toYYYYMMDD(monthStart), toYYYYMMDD(horizonEnd)),
     ])
     if (refR.status === 'fulfilled') {
       gammeOps = refR.value.gamme
