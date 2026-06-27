@@ -307,30 +307,6 @@ export interface Registry {
       errorResponse: unknown
     }
   }
-  'planning_board.index': {
-    methods: ["GET","HEAD"]
-    pattern: '/api/v1/planning/ofs'
-    types: {
-      body: {}
-      paramsTuple: []
-      params: {}
-      query: {}
-      response: unknown
-      errorResponse: unknown
-    }
-  }
-  'planning_board.show': {
-    methods: ["GET","HEAD"]
-    pattern: '/api/v1/planning/ofs/:of'
-    types: {
-      body: {}
-      paramsTuple: [ParamValue]
-      params: { of: ParamValue }
-      query: {}
-      response: unknown
-      errorResponse: unknown
-    }
-  }
   'planning_board.update': {
     methods: ["PATCH"]
     pattern: '/api/v1/planning/ofs/:of'
@@ -343,90 +319,6 @@ export interface Registry {
       errorResponse: unknown
     }
   }
-  'planning_board.reset_override': {
-    methods: ["DELETE"]
-    pattern: '/api/v1/planning/ofs/:of/override'
-    types: {
-      body: {}
-      paramsTuple: [ParamValue]
-      params: { of: ParamValue }
-      query: {}
-      response: unknown
-      errorResponse: unknown
-    }
-  }
-  'planning_board.list_overrides': {
-    methods: ["GET","HEAD"]
-    pattern: '/api/v1/planning/overrides'
-    types: {
-      body: {}
-      paramsTuple: []
-      params: {}
-      query: {}
-      response: unknown
-      errorResponse: unknown
-    }
-  }
-  'planning_board.reset_all': {
-    methods: ["DELETE"]
-    pattern: '/api/v1/planning/overrides'
-    types: {
-      body: {}
-      paramsTuple: []
-      params: {}
-      query: {}
-      response: unknown
-      errorResponse: unknown
-    }
-  }
-  'planning_board.feasibility': {
-    methods: ["POST"]
-    pattern: '/api/v1/planning/feasibility'
-    types: {
-      body: {}
-      paramsTuple: []
-      params: {}
-      query: {}
-      response: unknown
-      errorResponse: unknown
-    }
-  }
-  'planning_board.whatif': {
-    methods: ["POST"]
-    pattern: '/api/v1/planning/whatif'
-    types: {
-      body: {}
-      paramsTuple: []
-      params: {}
-      query: {}
-      response: unknown
-      errorResponse: unknown
-    }
-  }
-  'planning_board.order_impacts': {
-    methods: ["POST"]
-    pattern: '/api/v1/planning/order-impacts'
-    types: {
-      body: {}
-      paramsTuple: []
-      params: {}
-      query: {}
-      response: unknown
-      errorResponse: unknown
-    }
-  }
-  'planning_board.list_events': {
-    methods: ["GET","HEAD"]
-    pattern: '/api/v1/planning/events'
-    types: {
-      body: {}
-      paramsTuple: []
-      params: {}
-      query: {}
-      response: unknown
-      errorResponse: unknown
-    }
-  }
   'planning_board.board_feasibility': {
     methods: ["POST"]
     pattern: '/api/v1/planning/board-feasibility'
@@ -434,30 +326,6 @@ export interface Registry {
       body: {}
       paramsTuple: []
       params: {}
-      query: {}
-      response: unknown
-      errorResponse: unknown
-    }
-  }
-  'planning_board.shortages': {
-    methods: ["GET","HEAD"]
-    pattern: '/api/v1/planning/shortages'
-    types: {
-      body: {}
-      paramsTuple: []
-      params: {}
-      query: {}
-      response: unknown
-      errorResponse: unknown
-    }
-  }
-  'planning_board.nomenclature': {
-    methods: ["GET","HEAD"]
-    pattern: '/api/v1/planning/nomenclature/:article'
-    types: {
-      body: {}
-      paramsTuple: [ParamValue]
-      params: { article: ParamValue }
       query: {}
       response: unknown
       errorResponse: unknown
@@ -518,18 +386,6 @@ export interface Registry {
       body: {}
       paramsTuple: [ParamValue]
       params: { of: ParamValue }
-      query: {}
-      response: unknown
-      errorResponse: unknown
-    }
-  }
-  'planning_board.reload_data': {
-    methods: ["POST"]
-    pattern: '/api/v1/planning/reload'
-    types: {
-      body: {}
-      paramsTuple: []
-      params: {}
       query: {}
       response: unknown
       errorResponse: unknown
@@ -607,18 +463,6 @@ export interface Registry {
       errorResponse: unknown
     }
   }
-  'suivi.status_detail': {
-    methods: ["GET","HEAD"]
-    pattern: '/api/v1/status/status/:order'
-    types: {
-      body: {}
-      paramsTuple: [ParamValue]
-      params: { order: ParamValue }
-      query: {}
-      response: unknown
-      errorResponse: unknown
-    }
-  }
   'suivi.palette': {
     methods: ["POST"]
     pattern: '/api/v1/status/palette'
@@ -682,30 +526,6 @@ export interface Registry {
   'dashboard.otd': {
     methods: ["GET","HEAD"]
     pattern: '/api/v1/dashboard/otd'
-    types: {
-      body: {}
-      paramsTuple: []
-      params: {}
-      query: {}
-      response: unknown
-      errorResponse: unknown
-    }
-  }
-  'pipeline.supply_board': {
-    methods: ["POST"]
-    pattern: '/api/v1/pipeline/supply-board'
-    types: {
-      body: {}
-      paramsTuple: []
-      params: {}
-      query: {}
-      response: unknown
-      errorResponse: unknown
-    }
-  }
-  'pipeline.suivi_status': {
-    methods: ["POST"]
-    pattern: '/api/v1/pipeline/suivi-status'
     types: {
       body: {}
       paramsTuple: []

@@ -118,21 +118,14 @@ router
       .prefix('/api/v1/planning')
 
     //   ofs/overrides/feasibility/... : PlanningBoardController
+    //   Endpoints legacy (index/show/whatif/orderImpacts/shortages/events/overrides/
+    //   feasibility/nomenclature/reload/resetOverride) supprimés : non appelés par le front
+    //   (board unifié sur /programme). Conservés : update, board-feasibility, search/*,
+    //   articles-by-component, of-materials/diagnostic, firm.
     router
       .group(() => {
-        router.get('/ofs', '#controllers/planning_board_controller.index')
-        router.get('/ofs/:of', '#controllers/planning_board_controller.show')
         router.patch('/ofs/:of', '#controllers/planning_board_controller.update')
-        router.delete('/ofs/:of/override', '#controllers/planning_board_controller.resetOverride')
-        router.get('/overrides', '#controllers/planning_board_controller.listOverrides')
-        router.delete('/overrides', '#controllers/planning_board_controller.resetAll')
-        router.post('/feasibility', '#controllers/planning_board_controller.feasibility')
-        router.post('/whatif', '#controllers/planning_board_controller.whatif')
-        router.post('/order-impacts', '#controllers/planning_board_controller.orderImpacts')
-        router.get('/events', '#controllers/planning_board_controller.listEvents')
         router.post('/board-feasibility', '#controllers/planning_board_controller.boardFeasibility')
-        router.get('/shortages', '#controllers/planning_board_controller.shortages')
-        router.get('/nomenclature/:article', '#controllers/planning_board_controller.nomenclature')
         router.get(
           '/articles-by-component/:component',
           '#controllers/planning_board_controller.articlesByComponent'
@@ -144,7 +137,6 @@ router
           '/of-materials/:of/diagnostic',
           '#controllers/planning_board_controller.ofMaterialsDiagnostic',
         )
-        router.post('/reload', '#controllers/planning_board_controller.reloadData')
         // Affermissement d'un ordre en OF ferme (write-back X3, #31).
         // suggestions/:sugNum = suggestion CBN (SGAE…) ; orders/:orderNum = OF planifié (F…).
         router.post(
@@ -167,7 +159,6 @@ router
       .group(() => {
         router.post('/assign', '#controllers/suivi_controller.assign')
         router.post('/from-latest-export', '#controllers/suivi_controller.fromLatestExport')
-        router.get('/status/:order', '#controllers/suivi_controller.statusDetail')
         router.post('/palette', '#controllers/suivi_controller.palette')
         router.post('/retard-charge', '#controllers/suivi_controller.retardCharge')
         router.get('/rows', '#controllers/suivi_controller.rows')
@@ -178,14 +169,6 @@ router
     // Tableau de bord — KPI (issue #38), calcul lourd différé.
     router.get('/api/v1/dashboard/kpis', '#controllers/dashboard_controller.kpis')
     router.get('/api/v1/dashboard/otd', '#controllers/dashboard_controller.otd')
-
-    // Pipeline (remplace integration-hub)
-    router
-      .group(() => {
-        router.post('/supply-board', '#controllers/pipeline_controller.supplyBoard')
-        router.post('/suivi-status', '#controllers/pipeline_controller.suiviStatus')
-      })
-      .prefix('/api/v1/pipeline')
 
     // X3 Data (raw SQL debug) — `.as('data.load')` pour éviter le nom auto
     // `x_3_data.load` généré depuis X3DataController (issue #18).

@@ -156,83 +156,17 @@ const routes = {
     tokens: [{"old":"/api/v1/planning/order-lines/:order/:line/override","type":0,"val":"api","end":""},{"old":"/api/v1/planning/order-lines/:order/:line/override","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/order-lines/:order/:line/override","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/order-lines/:order/:line/override","type":0,"val":"order-lines","end":""},{"old":"/api/v1/planning/order-lines/:order/:line/override","type":1,"val":"order","end":""},{"old":"/api/v1/planning/order-lines/:order/:line/override","type":1,"val":"line","end":""},{"old":"/api/v1/planning/order-lines/:order/:line/override","type":0,"val":"override","end":""}],
     types: placeholder as Registry['order_planning.reset_override']['types'],
   },
-  'planning_board.index': {
-    methods: ["GET","HEAD"],
-    pattern: '/api/v1/planning/ofs',
-    tokens: [{"old":"/api/v1/planning/ofs","type":0,"val":"api","end":""},{"old":"/api/v1/planning/ofs","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/ofs","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/ofs","type":0,"val":"ofs","end":""}],
-    types: placeholder as Registry['planning_board.index']['types'],
-  },
-  'planning_board.show': {
-    methods: ["GET","HEAD"],
-    pattern: '/api/v1/planning/ofs/:of',
-    tokens: [{"old":"/api/v1/planning/ofs/:of","type":0,"val":"api","end":""},{"old":"/api/v1/planning/ofs/:of","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/ofs/:of","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/ofs/:of","type":0,"val":"ofs","end":""},{"old":"/api/v1/planning/ofs/:of","type":1,"val":"of","end":""}],
-    types: placeholder as Registry['planning_board.show']['types'],
-  },
   'planning_board.update': {
     methods: ["PATCH"],
     pattern: '/api/v1/planning/ofs/:of',
     tokens: [{"old":"/api/v1/planning/ofs/:of","type":0,"val":"api","end":""},{"old":"/api/v1/planning/ofs/:of","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/ofs/:of","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/ofs/:of","type":0,"val":"ofs","end":""},{"old":"/api/v1/planning/ofs/:of","type":1,"val":"of","end":""}],
     types: placeholder as Registry['planning_board.update']['types'],
   },
-  'planning_board.reset_override': {
-    methods: ["DELETE"],
-    pattern: '/api/v1/planning/ofs/:of/override',
-    tokens: [{"old":"/api/v1/planning/ofs/:of/override","type":0,"val":"api","end":""},{"old":"/api/v1/planning/ofs/:of/override","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/ofs/:of/override","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/ofs/:of/override","type":0,"val":"ofs","end":""},{"old":"/api/v1/planning/ofs/:of/override","type":1,"val":"of","end":""},{"old":"/api/v1/planning/ofs/:of/override","type":0,"val":"override","end":""}],
-    types: placeholder as Registry['planning_board.reset_override']['types'],
-  },
-  'planning_board.list_overrides': {
-    methods: ["GET","HEAD"],
-    pattern: '/api/v1/planning/overrides',
-    tokens: [{"old":"/api/v1/planning/overrides","type":0,"val":"api","end":""},{"old":"/api/v1/planning/overrides","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/overrides","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/overrides","type":0,"val":"overrides","end":""}],
-    types: placeholder as Registry['planning_board.list_overrides']['types'],
-  },
-  'planning_board.reset_all': {
-    methods: ["DELETE"],
-    pattern: '/api/v1/planning/overrides',
-    tokens: [{"old":"/api/v1/planning/overrides","type":0,"val":"api","end":""},{"old":"/api/v1/planning/overrides","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/overrides","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/overrides","type":0,"val":"overrides","end":""}],
-    types: placeholder as Registry['planning_board.reset_all']['types'],
-  },
-  'planning_board.feasibility': {
-    methods: ["POST"],
-    pattern: '/api/v1/planning/feasibility',
-    tokens: [{"old":"/api/v1/planning/feasibility","type":0,"val":"api","end":""},{"old":"/api/v1/planning/feasibility","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/feasibility","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/feasibility","type":0,"val":"feasibility","end":""}],
-    types: placeholder as Registry['planning_board.feasibility']['types'],
-  },
-  'planning_board.whatif': {
-    methods: ["POST"],
-    pattern: '/api/v1/planning/whatif',
-    tokens: [{"old":"/api/v1/planning/whatif","type":0,"val":"api","end":""},{"old":"/api/v1/planning/whatif","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/whatif","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/whatif","type":0,"val":"whatif","end":""}],
-    types: placeholder as Registry['planning_board.whatif']['types'],
-  },
-  'planning_board.order_impacts': {
-    methods: ["POST"],
-    pattern: '/api/v1/planning/order-impacts',
-    tokens: [{"old":"/api/v1/planning/order-impacts","type":0,"val":"api","end":""},{"old":"/api/v1/planning/order-impacts","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/order-impacts","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/order-impacts","type":0,"val":"order-impacts","end":""}],
-    types: placeholder as Registry['planning_board.order_impacts']['types'],
-  },
-  'planning_board.list_events': {
-    methods: ["GET","HEAD"],
-    pattern: '/api/v1/planning/events',
-    tokens: [{"old":"/api/v1/planning/events","type":0,"val":"api","end":""},{"old":"/api/v1/planning/events","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/events","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/events","type":0,"val":"events","end":""}],
-    types: placeholder as Registry['planning_board.list_events']['types'],
-  },
   'planning_board.board_feasibility': {
     methods: ["POST"],
     pattern: '/api/v1/planning/board-feasibility',
     tokens: [{"old":"/api/v1/planning/board-feasibility","type":0,"val":"api","end":""},{"old":"/api/v1/planning/board-feasibility","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/board-feasibility","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/board-feasibility","type":0,"val":"board-feasibility","end":""}],
     types: placeholder as Registry['planning_board.board_feasibility']['types'],
-  },
-  'planning_board.shortages': {
-    methods: ["GET","HEAD"],
-    pattern: '/api/v1/planning/shortages',
-    tokens: [{"old":"/api/v1/planning/shortages","type":0,"val":"api","end":""},{"old":"/api/v1/planning/shortages","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/shortages","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/shortages","type":0,"val":"shortages","end":""}],
-    types: placeholder as Registry['planning_board.shortages']['types'],
-  },
-  'planning_board.nomenclature': {
-    methods: ["GET","HEAD"],
-    pattern: '/api/v1/planning/nomenclature/:article',
-    tokens: [{"old":"/api/v1/planning/nomenclature/:article","type":0,"val":"api","end":""},{"old":"/api/v1/planning/nomenclature/:article","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/nomenclature/:article","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/nomenclature/:article","type":0,"val":"nomenclature","end":""},{"old":"/api/v1/planning/nomenclature/:article","type":1,"val":"article","end":""}],
-    types: placeholder as Registry['planning_board.nomenclature']['types'],
   },
   'planning_board.articles_by_component': {
     methods: ["GET","HEAD"],
@@ -263,12 +197,6 @@ const routes = {
     pattern: '/api/v1/planning/of-materials/:of/diagnostic',
     tokens: [{"old":"/api/v1/planning/of-materials/:of/diagnostic","type":0,"val":"api","end":""},{"old":"/api/v1/planning/of-materials/:of/diagnostic","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/of-materials/:of/diagnostic","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/of-materials/:of/diagnostic","type":0,"val":"of-materials","end":""},{"old":"/api/v1/planning/of-materials/:of/diagnostic","type":1,"val":"of","end":""},{"old":"/api/v1/planning/of-materials/:of/diagnostic","type":0,"val":"diagnostic","end":""}],
     types: placeholder as Registry['planning_board.of_materials_diagnostic']['types'],
-  },
-  'planning_board.reload_data': {
-    methods: ["POST"],
-    pattern: '/api/v1/planning/reload',
-    tokens: [{"old":"/api/v1/planning/reload","type":0,"val":"api","end":""},{"old":"/api/v1/planning/reload","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/reload","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/reload","type":0,"val":"reload","end":""}],
-    types: placeholder as Registry['planning_board.reload_data']['types'],
   },
   'planning.suggestion_firm': {
     methods: ["POST"],
@@ -306,12 +234,6 @@ const routes = {
     tokens: [{"old":"/api/v1/status/from-latest-export","type":0,"val":"api","end":""},{"old":"/api/v1/status/from-latest-export","type":0,"val":"v1","end":""},{"old":"/api/v1/status/from-latest-export","type":0,"val":"status","end":""},{"old":"/api/v1/status/from-latest-export","type":0,"val":"from-latest-export","end":""}],
     types: placeholder as Registry['suivi.from_latest_export']['types'],
   },
-  'suivi.status_detail': {
-    methods: ["GET","HEAD"],
-    pattern: '/api/v1/status/status/:order',
-    tokens: [{"old":"/api/v1/status/status/:order","type":0,"val":"api","end":""},{"old":"/api/v1/status/status/:order","type":0,"val":"v1","end":""},{"old":"/api/v1/status/status/:order","type":0,"val":"status","end":""},{"old":"/api/v1/status/status/:order","type":0,"val":"status","end":""},{"old":"/api/v1/status/status/:order","type":1,"val":"order","end":""}],
-    types: placeholder as Registry['suivi.status_detail']['types'],
-  },
   'suivi.palette': {
     methods: ["POST"],
     pattern: '/api/v1/status/palette',
@@ -347,18 +269,6 @@ const routes = {
     pattern: '/api/v1/dashboard/otd',
     tokens: [{"old":"/api/v1/dashboard/otd","type":0,"val":"api","end":""},{"old":"/api/v1/dashboard/otd","type":0,"val":"v1","end":""},{"old":"/api/v1/dashboard/otd","type":0,"val":"dashboard","end":""},{"old":"/api/v1/dashboard/otd","type":0,"val":"otd","end":""}],
     types: placeholder as Registry['dashboard.otd']['types'],
-  },
-  'pipeline.supply_board': {
-    methods: ["POST"],
-    pattern: '/api/v1/pipeline/supply-board',
-    tokens: [{"old":"/api/v1/pipeline/supply-board","type":0,"val":"api","end":""},{"old":"/api/v1/pipeline/supply-board","type":0,"val":"v1","end":""},{"old":"/api/v1/pipeline/supply-board","type":0,"val":"pipeline","end":""},{"old":"/api/v1/pipeline/supply-board","type":0,"val":"supply-board","end":""}],
-    types: placeholder as Registry['pipeline.supply_board']['types'],
-  },
-  'pipeline.suivi_status': {
-    methods: ["POST"],
-    pattern: '/api/v1/pipeline/suivi-status',
-    tokens: [{"old":"/api/v1/pipeline/suivi-status","type":0,"val":"api","end":""},{"old":"/api/v1/pipeline/suivi-status","type":0,"val":"v1","end":""},{"old":"/api/v1/pipeline/suivi-status","type":0,"val":"pipeline","end":""},{"old":"/api/v1/pipeline/suivi-status","type":0,"val":"suivi-status","end":""}],
-    types: placeholder as Registry['pipeline.suivi_status']['types'],
   },
   'data.load': {
     methods: ["POST"],

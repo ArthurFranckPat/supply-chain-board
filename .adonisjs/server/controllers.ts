@@ -11,7 +11,6 @@ export const controllers = {
   Load: () => import('#controllers/load_controller'),
   OrderPlanning: () => import('#controllers/order_planning_controller'),
   Perf: () => import('#controllers/perf_controller'),
-  Pipeline: () => import('#controllers/pipeline_controller'),
   PlanningBoard: () => import('#controllers/planning_board_controller'),
   Scheduler: () => import('#controllers/scheduler_controller'),
   StaticSync: () => import('#controllers/static_sync_controller'),

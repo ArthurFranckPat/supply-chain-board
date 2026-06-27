@@ -17,13 +17,9 @@ import { SuiviService, reloadSuiviContext, RETARD_LOOKBACK_DAYS, SUIVI_FORWARD_D
 import { loadOrderImpacts } from '#services/order_impacts_loader'
 import type { OrderImpactResult } from '#app/domain/order-impacts'
 import type { Article } from '#app/domain/models/article'
-import { X3OfRepository } from '#repositories/of_repository'
-import { X3StockRepository } from '#repositories/stock_repository'
 import { groupReceptionsByArticle } from '#repositories/reception_repository'
-import { X3BesoinClientRepository } from '#repositories/besoin_client_repository'
 import { resolveCoveringReception } from '#app/domain/shortages'
 import type { ReceptionRecord } from '#app/domain/recursive-checker'
-import type { Flow } from '#app/domain/models/flow'
 import boardDataset from '#services/board_dataset'
 import { atelierLabel } from '#app/domain/atelier'
 
@@ -108,52 +104,6 @@ export default class SuiviController {
 
     const assignments = await new SuiviService().assignFromLatest(refDate)
     return serializeAssignments(assignments)
-  }
-
-  /**
-   * GET /api/v1/status/status/:order
-   * Détail commande + flux d'approvisionnement correspondants depuis X3.
-   */
-  async statusDetail(ctx: HttpContext) {
-    const demandFlows = await new X3BesoinClientRepository().getDemandFlows()
-
-    const orderLines = demandFlows.filter(
-      (f) => f.origin.type === 'order' && (f.origin as any).id === ctx.params.order,
-    )
-
-    if (orderLines.length === 0) {
-      return ctx.response.notFound({ message: `Commande ${ctx.params.order} non trouvee` })
-    }
-
-    const [stockFlows, receptionFlows, ofFlows] = await Promise.all([
-      new X3StockRepository().getStockFlows(),
-      boardDataset.getReceptions(),
-      new X3OfRepository().getSupplyFlows(),
-    ])
-
-    const allSupplyFlows = [...stockFlows, ...receptionFlows, ...ofFlows]
-    const details = orderLines.map((demand) => {
-      const origin = demand.origin as Extract<Flow['origin'], { type: 'order' }>
-      const supplyFlows = allSupplyFlows.filter(
-        (s) => s.article === demand.article && s.direction === 'supply',
-      )
-
-      return {
-        article: demand.article,
-        quantity: demand.quantity,
-        dateExpedition: demand.date?.toISOString().slice(0, 10) ?? null,
-        customer: origin.customer,
-        orderType: origin.orderType,
-        supply: supplyFlows.map((s) => ({
-          type: s.origin.type,
-          quantity: s.quantity,
-          date: s.date?.toISOString().slice(0, 10) ?? null,
-          id: (s.origin as any).id ?? '',
-        })),
-      }
-    })
-
-    return { no_commande: ctx.params.order, lines: details }
   }
 
   /**
