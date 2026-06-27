@@ -292,36 +292,16 @@ export default class SchedulerController {
       : rawMode === 'planification' ? 'planification'
       : 'combined'
 
-    if (mode === 'planification') {
-      const orderBoard = await loadOrderBoardData(ctx, '/programme', 'mode=planification')
-      return ctx.inertia.render('scheduler/programme', {
-        mode,
-        board: null,
-        commandes: [],
-        links: [],
-        orderBoard,
-        windowFrom: orderBoard.windowFrom,
-        windowTo: orderBoard.windowTo,
-        horizon: orderBoard.horizon,
-        dateRange: orderBoard.dateRange,
-        weekLabel: orderBoard.weekLabel,
-        prevHref: orderBoard.prevHref,
-        nextHref: orderBoard.nextHref,
-        todayHref: orderBoard.todayHref,
-        totalOf: 0,
-        lineCount: orderBoard.lineCount,
-        x3Error: orderBoard.x3Error,
-        cached: null,
-      })
-    }
-
+    // Les 3 modes (Combiné / OF / Cmdes) dérivent du MÊME payload (board OF + orderBoard
+    // lignes) → le switch se fait côté client (toggle UI, zéro round-trip). `mode` n'est lu
+    // qu'au chargement initial (deep-link / redirection /planification) pour le mode d'affichage.
     const data = await this.loadProgrammeData(ctx, '/programme', mode)
     return ctx.inertia.render('scheduler/programme', {
       mode,
       board: data.board,
       commandes: data.commandes,
       links: data.links,
-      orderBoard: null,
+      orderBoard: data.orderBoard,
       windowFrom: data.windowFrom,
       windowTo: data.windowTo,
       horizon: data.horizon,
@@ -347,7 +327,7 @@ export default class SchedulerController {
    * rangée du poste de l'OF qui la couvre, à sa date d'expédition ; un lien
    * horizontal matérialise le rattachement. Échec non-fatal (board sans liens).
    */
-  private async loadProgrammeData(ctx: HttpContext, basePath = '/programme', mode: 'combined' | 'ordonnancement' = 'combined') {
+  private async loadProgrammeData(ctx: HttpContext, basePath = '/programme', mode: 'combined' | 'ordonnancement' | 'planification' = 'combined') {
     const startParam = ctx.request.input('start') as string | undefined
     const daysParam = Number.parseInt(ctx.request.input('days', '14'), 10)
     const horizon = Number.isFinite(daysParam) && daysParam > 0 && daysParam <= 90 ? daysParam : 14
@@ -380,7 +360,7 @@ export default class SchedulerController {
         windowTo.setDate(windowTo.getDate() + horizon)
         windowTo.setHours(23, 59, 59, 999)
 
-        const [data, impactsCtx] = await Promise.all([
+        const [data, impactsCtx, orderBoardData] = await Promise.all([
           timeStage('programme.loadBoardData', () => this.loadBoardData(ctx, basePath)),
           timeStage('programme.loadOrderImpacts', () =>
             loadOrderImpacts({
@@ -392,6 +372,12 @@ export default class SchedulerController {
               // getOrdersForWindow coalescé avec loadBoardData → 1 SOAP pour les deux.
               useWindowOfs: true,
             }).catch(() => null)
+          ),
+          // orderBoard (vue Cmdes) dérivé des MÊMES demands (getDemandAndReception coalescé
+          // avec loadOrderImpacts) + référentiel (coalescé avec loadBoardData) → 0 SOAP
+          // supplémentaire. Les 2 boards vivent dans le payload → switch client instantané.
+          timeStage('programme.loadOrderBoardData', () =>
+            loadOrderBoardData(ctx, basePath).catch(() => null)
           ),
         ])
         let x3Error = data.x3Error
@@ -452,6 +438,27 @@ export default class SchedulerController {
           board: data.board,
           commandes,
           links,
+          orderBoard: orderBoardData
+            ? {
+                days: orderBoardData.days,
+                lines: orderBoardData.lines,
+                weekSpans: orderBoardData.weekSpans,
+                cols: orderBoardData.cols,
+                colWeek: orderBoardData.colWeek,
+                weekCaps: orderBoardData.weekCaps,
+                totalLines: orderBoardData.totalLines,
+                lineCount: orderBoardData.lineCount,
+                x3Error: orderBoardData.x3Error,
+                horizon: orderBoardData.horizon,
+                windowFrom: orderBoardData.windowFrom,
+                windowTo: orderBoardData.windowTo,
+                dateRange: orderBoardData.dateRange,
+                weekLabel: orderBoardData.weekLabel,
+                prevHref: orderBoardData.prevHref,
+                nextHref: orderBoardData.nextHref,
+                todayHref: orderBoardData.todayHref,
+              }
+            : null,
           horizon: data.horizon,
           windowFrom: data.windowFrom,
           windowTo: data.windowTo,

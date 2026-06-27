@@ -133,6 +133,12 @@ const Programme: Component<VisionProps> = (props) => {
   const store = createBoardStore(props.board ?? EMPTY_BOARD)
   const orderStore = createOrderBoardStore(props.orderBoard ?? EMPTY_ORDER_BOARD)
 
+  // Mode = signal LOCAL (plus de round-trip serveur au switch). Les 2 boards (OF + Cmdes)
+  // sont toujours dans le payload → toggle purement client, instantané, zéro cold-start.
+  // Initialisé depuis props.mode (deep-link / redirection /planification). L'URL est mise à
+  // jour via history.replaceState (sans fetch) pour préserver deep-link + back/forward.
+  const [mode, setMode] = createSignal<VisionMode>(props.mode)
+
   // Re-sync stores après navigation Inertia (switch mode OU changement de fenêtre).
   // On clé le reset sur des PRIMITIFS fiables (mode + windowFrom) plutôt que sur les objets
   // board/orderBoard : `reconcile` (adapter inertia-solid) met à jour le contenu nested mais
@@ -143,7 +149,7 @@ const Programme: Component<VisionProps> = (props) => {
   const page = usePage<VisionProps>()
   createEffect(
     on(
-      () => [page.props.mode, page.props.windowFrom] as const,
+      () => page.props.windowFrom,
       () => {
         store.reset(page.props.board ?? EMPTY_BOARD)
         orderStore.reset(page.props.orderBoard ?? EMPTY_ORDER_BOARD)
@@ -152,16 +158,14 @@ const Programme: Component<VisionProps> = (props) => {
     )
   )
 
-  // Switch de mode → Inertia visit avec ?mode=
+  // Switch de mode → toggle local + URL (replaceState, zéro fetch).
   const switchMode = (newMode: VisionMode) => {
-    router.visit(route('scheduler.programme'), {
-      data: {
-        start: props.windowFrom,
-        days: String(props.horizon),
-        mode: newMode === 'combined' ? undefined : newMode,
-      },
-      preserveScroll: false,
-    })
+    if (newMode === mode()) return
+    setMode(newMode)
+    const url = new URL(window.location.href)
+    if (newMode === 'combined') url.searchParams.delete('mode')
+    else url.searchParams.set('mode', newMode)
+    window.history.replaceState({}, '', url)
   }
 
   // Drawer détail OF (parité /ordonnancement).
@@ -196,7 +200,7 @@ const Programme: Component<VisionProps> = (props) => {
         data: {
           start: toIso(r.start),
           days: String(days),
-          ...(props.mode !== 'combined' && { mode: props.mode }),
+          ...(mode() !== 'combined' && { mode: mode() }),
         },
         preserveScroll: true,
       })
@@ -410,13 +414,13 @@ const Programme: Component<VisionProps> = (props) => {
                 <TextFieldInput
                   class="w-[180px] border-0 bg-transparent px-0 text-[12px] font-medium shadow-none focus-visible:ring-0"
                   placeholder={
-                    props.mode === 'planification' ? 'Commande, article, client…' : 'OF, article, poste…'
+                    mode() === 'planification' ? 'Commande, article, client…' : 'OF, article, poste…'
                   }
                   type="text"
                   autocomplete="off"
-                  value={props.mode === 'planification' ? orderStore.query() : store.query()}
+                  value={mode() === 'planification' ? orderStore.query() : store.query()}
                   onInput={(e) =>
-                    props.mode === 'planification'
+                    mode() === 'planification'
                       ? orderStore.onQueryInput(e.currentTarget.value)
                       : store.onQueryInput(e.currentTarget.value)
                   }
@@ -424,7 +428,7 @@ const Programme: Component<VisionProps> = (props) => {
               </div>
             </TextField>
             <Show
-              when={props.mode === 'planification'}
+              when={mode() === 'planification'}
               fallback={
                 <Select<string>
                   title="Portée de la recherche"
@@ -491,7 +495,7 @@ const Programme: Component<VisionProps> = (props) => {
                 type="button"
                 class={cx(
                   'rounded-[5px] px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
-                  props.mode === m
+                  mode() === m
                     ? 'bg-terra-soft text-terra'
                     : 'text-muted-foreground hover:text-foreground'
                 )}
@@ -504,7 +508,7 @@ const Programme: Component<VisionProps> = (props) => {
         </div>
 
         {/* Filtre statut d'OF — masqué en mode planification */}
-        <Show when={props.mode !== 'planification'}>
+        <Show when={mode() !== 'planification'}>
         <div class="inline-flex items-center gap-1 rounded-md border border-rule bg-card p-0.5">
           <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
             Statut
@@ -607,7 +611,7 @@ const Programme: Component<VisionProps> = (props) => {
           </Button>
 
           {/* Sélection multi-OF → affermissement en batch (#34, vue OF uniquement) */}
-          <Show when={props.mode !== 'planification'}>
+          <Show when={mode() !== 'planification'}>
             <Button
               size="sm"
               variant={store.selectMode() ? 'default' : 'outline'}
@@ -630,7 +634,7 @@ const Programme: Component<VisionProps> = (props) => {
       </Show>
 
       {/* ═══ Board : OrderGrid (planification) ou BoardGrid (combined/ordonnancement) ═══ */}
-      <Show when={props.mode === 'planification'}>
+      <Show when={mode() === 'planification'}>
         <Show
           when={props.lineCount > 0}
           fallback={
@@ -653,7 +657,7 @@ const Programme: Component<VisionProps> = (props) => {
         />
       </Show>
 
-      <Show when={props.mode !== 'planification'}>
+      <Show when={mode() !== 'planification'}>
       <Show
         when={props.lineCount > 0}
         fallback={
@@ -669,12 +673,12 @@ const Programme: Component<VisionProps> = (props) => {
             onCardHover={(num) => setActiveId(num)}
             onCellDrop={onCommandeDrop}
             contentRef={setContentEl}
-            cellExtra={props.mode === 'combined' ? (lineCode, col) => (
+            cellExtra={mode() === 'combined' ? (lineCode, col) => (
               <For each={cmdCells().get(lineCode)?.[col] ?? []}>
                 {(cmd) => commandeMarker(lineCode, cmd)}
               </For>
             ) : undefined}
-            overlay={props.mode === 'combined' ? (
+            overlay={mode() === 'combined' ? (
               <svg
                 class="pointer-events-none absolute inset-0 z-[5]"
                 style={{ width: '100%', height: '100%' }}

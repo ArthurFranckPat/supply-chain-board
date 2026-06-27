@@ -3,8 +3,9 @@ import boardDataset from '#services/board_dataset'
 import staticSync from '#services/static_sync_service'
 import cache from '@adonisjs/cache/services/main'
 import { OrderLineOverrideStore } from '#services/order_line_override_store'
-import { X3OrderLineRepository, type OrderLineRow } from '#repositories/order_line_repository'
+import { X3OrderLineRepository } from '#repositories/order_line_repository'
 import { hoursForQuantity, type GammeOperation } from '#app/domain/models/gamme'
+import type { Flow } from '#app/domain/models/flow'
 
 // ---------------------------------------------------------------------------
 // Issue #10 — Mode planification (lignes de commande ouvertes).
@@ -357,20 +358,54 @@ export async function loadOrderBoardData(
   colDates.forEach((d, i) => colIdx.set(isoDay(d), i))
   const windowEnd = colDates.length ? colDates[colDates.length - 1] : windowStart
 
-  let ordreLignes: OrderLineRow[] = []
+  // Ligne de commande pour le board planification. Dérivée des demands (ORDERS WIPTYP=1,
+  // déjà chargées+cachées via getDemandAndReception, partagées avec loadOrderImpacts) —
+  // remplace le SOAP fat getOpenOrderLines (même donnée, source unique ORDERS).
+  type BoardOrderLine = {
+    numCommande: string
+    ligne: string
+    article: string
+    designation: string | null
+    client: string | null
+    quantite: number
+    dateLivraison: Date
+    orderType: string | null
+    nature: string
+  }
+  let ordreLignes: BoardOrderLine[] = []
   let gammeOps: GammeOperation[] = []
   let x3Error: string | null = null
   let bdhParents: Set<string> = new Set()
 
   try {
-    const [ref, lines, bdh] = await Promise.all([
+    const [ref, demandRecep, bdh] = await Promise.all([
       boardDataset.getReferential(force),
-      boardDataset.getOpenOrderLines(isoDay(windowStart), isoDay(windowEnd), force),
+      boardDataset.getDemandAndReception(isoDay(windowStart), isoDay(windowEnd), force),
       staticSync.readBdhParents().catch(() => new Set<string>()),
     ])
     gammeOps = ref.gamme
-    ordreLignes = lines
     bdhParents = bdh
+    ordreLignes = demandRecep.demand
+      .filter((f): f is Flow & { date: Date } => {
+        if (f.date === null) return false
+        const t = f.origin.type
+        return t === 'order' || t === 'forecast'
+      })
+      .map((f) => {
+        const o = f.origin as Extract<Flow['origin'], { type: 'order' | 'forecast' }>
+        const isOrder = o.type === 'order'
+        return {
+          numCommande: o.id,
+          ligne: isOrder ? ((o as { ligne?: string | null }).ligne ?? '') : '',
+          article: f.article,
+          designation: o.designation ?? null,
+          client: o.customer || null,
+          quantite: f.quantity,
+          dateLivraison: f.date,
+          orderType: o.orderType,
+          nature: isOrder ? 'COMMANDE' : 'PREVISION',
+        }
+      })
   } catch (e) {
     x3Error = (e as Error).message
   }

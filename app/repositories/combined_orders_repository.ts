@@ -350,6 +350,7 @@ export class CombinedOrdersRepository {
               qteCommandee: toNum(row.EXTQTY_0),
               qteAllouee: toNum(row.ALLQTY_0),
               ligne: row.VCRLIN_0?.trim() ?? null,
+              designation: row.DESIGNATION?.trim() ?? null,
             },
           })
         } else {
@@ -364,6 +365,7 @@ export class CombinedOrdersRepository {
               contremarque: null,
               qteCommandee: toNum(row.EXTQTY_0),
               qteAllouee: toNum(row.ALLQTY_0),
+              designation: row.DESIGNATION?.trim() ?? null,
             },
           })
         }
