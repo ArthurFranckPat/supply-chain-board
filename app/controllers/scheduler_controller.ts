@@ -5,7 +5,7 @@ import staticSync from '#services/static_sync_service'
 import { OverrideStore } from '#services/override_store'
 import { X3MfgmatRepository } from '#repositories/mfgmat_repository'
 import { evaluateMfgFeasibility, buildStrictQcStock } from '#app/domain/of-feasibility'
-import { type ManufacturingOrder } from '#repositories/of_repository'
+import { X3OfRepository, type ManufacturingOrder } from '#repositories/of_repository'
 import type { GammeOperation } from '#app/domain/models/gamme'
 import { loadOrderImpacts } from '#services/order_impacts_loader'
 import { timeStage } from '#services/perf_metrics'
@@ -900,26 +900,27 @@ export default class SchedulerController {
   // -------------------------------------------------------------------------
 
   private async loadOfDetail(num: string): Promise<DetailPayload> {
-    // Find the MO — getOrders lit désormais ORDERS (tous statuts 1/2/3, #32) :
-    // fermes, planifiés ET suggestions sont des ManufacturingOrder natives.
-    let mos: ManufacturingOrder[] = []
+    // getReferential (cachée) + getManufacturingOrderByNum (1 ligne ZSOAPSQL) +
+    // getMaterials (MFGMAT filtrée par 1 OF) + overrides (SQLite) → tous indépendants → parallèle.
+    // Remplace getOrders() (500-2000 lignes, 90j lookback) qui était le goulot d'étranglement.
+    let mo: ManufacturingOrder | null = null
     let gammeOps: GammeOperation[] = []
-    let ofSupplyFlows: Flow[] = []
+    const ofSupplyFlows: Flow[] = [] // non utilisé dans le chemin MFGMAT ; vide pour fallback BOM
+    let materials: import('#repositories/mfgmat_repository').OfMaterial[] = []
+    let overrides: Awaited<ReturnType<typeof this.store.getAll>> = []
+
     try {
-      const [ref, ord] = await Promise.all([
+      ;[{ gamme: gammeOps }, mo, materials, overrides] = await Promise.all([
         boardDataset.getReferential(),
-        boardDataset.getOrders(),
+        new X3OfRepository().getManufacturingOrderByNum(num),
+        new X3MfgmatRepository().getMaterials(num),
+        this.store.getAll(),
       ])
-      gammeOps = ref.gamme
-      mos = ord.mos
-      ofSupplyFlows = ord.supply
     } catch {
       // serve empty detail
     }
 
-    const mo = mos.find((m) => m.numOf === num)
     const gammeMap = new Map(gammeOps.map((g) => [g.article, g]))
-    const overrides = await this.store.getAll()
     const ov = overrides.find((o) => o.numOf === num) ?? null
     const wst = ov?.workstation ?? (mo ? (gammeMap.get(mo.article)?.workstation ?? null) : null)
     const wstLabel = wst
@@ -955,7 +956,7 @@ export default class SchedulerController {
     let bom: BomRow[] = []
     let bomCount = 0
     try {
-      const materials = await new X3MfgmatRepository().getMaterials(num)
+      // materials déjà chargés en parallèle ci-dessus
 
       if (materials.length === 0 && mo) {
         // OF sans MFGMAT (suggéré / non éclaté) → nomenclature théorique.

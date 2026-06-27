@@ -183,6 +183,54 @@ export class X3OfRepository {
     })
   }
 
+  /** Charge 1 OF par numéro — 1 ligne ZSOAPSQL, évite le lookback 90j de getManufacturingOrders(). */
+  async getManufacturingOrderByNum(numOf: string): Promise<ManufacturingOrder | null> {
+    const safe = numOf.replace(/'/g, "''")
+    const sql = `
+SELECT
+  VCRNUM_0    AS NUM,
+  ITMREF_0    AS ARTICLE,
+  WIPSTA_0    AS STA,
+  EXTQTY_0    AS LAUNCHED,
+  CPLQTY_0    AS DONE,
+  RMNEXTQTY_0 AS REMAIN,
+  STRDAT_0    AS STRDAT,
+  ENDDAT_0    AS ENDDAT
+FROM ORDERS
+WHERE WIPTYP_0 = 5
+  AND VCRNUM_0 = '${safe}'
+`
+    const [rows, menuRows, articles] = await Promise.all([
+      new X3Database().raw(sql) as unknown as RawRow[],
+      LocalMenu.query().whereIn('chapter', [317]),
+      staticSync.readArticles().catch(() => []),
+    ])
+    if (rows.length === 0) return null
+
+    const label = (chapter: number, value: number | null) =>
+      menuRows.find((m) => m.chapter === chapter && m.value === value)?.label ?? null
+    const designations = new Map<string, string>()
+    for (const a of articles) if (a.code) designations.set(a.code, a.description)
+
+    const row = rows[0]
+    const status = parseInt(row.STA ?? '0') as 1 | 2 | 3
+    const article = row.ARTICLE?.trim() ?? ''
+    return {
+      numOf: row.NUM?.trim() ?? '',
+      article,
+      designation: designations.get(article) ?? null,
+      status,
+      statutLabel: label(317, status),
+      typeOfLabel: null,
+      quantity: toNum(row.REMAIN),
+      quantityLaunched: toNum(row.LAUNCHED),
+      quantityDone: toNum(row.DONE),
+      unit: null,
+      startDate: parseX3Date(row.STRDAT),
+      endDate: parseX3Date(row.ENDDAT),
+    }
+  }
+
   /** OFs dont le STRDAT est dans [from, to] — fenêtre courte, ~25× moins de lignes que getManufacturingOrders(). */
   async getManufacturingOrdersForWindow(from: Date, to: Date): Promise<ManufacturingOrder[]> {
     const [rows, menuRows, articles] = await Promise.all([
