@@ -71,8 +71,10 @@ WHERE O.WIPTYP_0 IN (1, 5)
   )
 `
 
-// Remplace getDemandFlows() (WIPTYP=1) + getReceptionFlows() (PORDERQ) → 1 SOAP.
-// Utilisé par boardDataset.getLive(). Borne double sur demande, borne haute seule sur réceptions.
+// WIPTYP=1 (demande) + WIPTYP=2 (réceptions) + WIPTYP=5 (OFs fenêtre) en 1 SOAP.
+// Remplace getOrders() + getLive() (2 SOAP) pour la vue proactive et loadOrderImpacts.
+// OFs bornés par [from, to] : seuls les OF de la fenêtre sont nécessaires (loadOrderImpacts
+// filtre déjà en mémoire f.date >= windowFrom && f.date <= windowTo).
 const buildLiveSql = (fromStr: string, toStr: string) => `
 SELECT
   O.WIPTYP_0,
@@ -96,7 +98,7 @@ FROM ORDERS O
 INNER JOIN ITMMASTER I ON I.ITMREF_0 = O.ITMREF_0
 LEFT JOIN BPARTNER P ON P.BPRNUM_0 = O.BPRNUM_0
 LEFT JOIN SORDER H ON H.SOHNUM_0 = O.VCRNUM_0 AND O.WIPTYP_0 = 1
-WHERE O.WIPTYP_0 IN (1, 2)
+WHERE O.WIPTYP_0 IN (1, 2, 5)
   AND I.ITMSTA_0 = 1
   AND O.RMNEXTQTY_0 > 0
   AND (
@@ -104,6 +106,9 @@ WHERE O.WIPTYP_0 IN (1, 2)
       AND O.ENDDAT_0 >= TO_DATE('${fromStr}', 'YYYYMMDD')
       AND O.ENDDAT_0 <= TO_DATE('${toStr}', 'YYYYMMDD'))
     OR (O.WIPTYP_0 = 2 AND O.WIPSTA_0 IN (1, 2)
+      AND O.ENDDAT_0 <= TO_DATE('${toStr}', 'YYYYMMDD'))
+    OR (O.WIPTYP_0 = 5 AND O.WIPSTA_0 IN (1, 2, 3)
+      AND O.ENDDAT_0 >= TO_DATE('${fromStr}', 'YYYYMMDD')
       AND O.ENDDAT_0 <= TO_DATE('${toStr}', 'YYYYMMDD'))
   )
 `
@@ -128,6 +133,7 @@ export interface CombinedOrdersResult {
 export interface LiveOrdersResult {
   demandFlows: Flow[]
   receptionFlows: Flow[]
+  ofFlows: Flow[]
 }
 
 export class CombinedOrdersRepository {
@@ -282,6 +288,7 @@ export class CombinedOrdersRepository {
 
     const demandFlows: Flow[] = []
     const receptionFlows: Flow[] = []
+    const ofFlows: Flow[] = []
 
     for (const row of rows) {
       const wiptyp = parseInt(row.WIPTYP_0 ?? '0')
@@ -290,7 +297,21 @@ export class CombinedOrdersRepository {
       const qty = toNum(row.RMNEXTQTY_0)
       const date = parseX3Date(row.ENDDAT_0)
 
-      if (wiptyp === 1) {
+      if (wiptyp === 5) {
+        const status = wipsta as 1 | 2 | 3
+        ofFlows.push({
+          article, quantity: qty, direction: 'supply', date,
+          origin: {
+            type: 'of',
+            id: row.VCRNUM_0?.trim() ?? '',
+            status,
+            statutLabel: OF_STATUS_LABELS[status] ?? null,
+            typeOf: null,
+            typeOfLabel: null,
+            designation: row.DESIGNATION?.trim() ?? null,
+          },
+        })
+      } else if (wiptyp === 1) {
         const nature: NeedNature = wipsta === 3 ? 'PREVISION' : 'COMMANDE'
         const rawType = row.SOHTYP?.trim() || null
         const orderType = rawType as OrderType | null
@@ -351,6 +372,6 @@ export class CombinedOrdersRepository {
       }
     }
 
-    return { demandFlows, receptionFlows }
+    return { demandFlows, receptionFlows, ofFlows }
   }
 }

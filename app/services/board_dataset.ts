@@ -41,7 +41,7 @@ const SWR_TIMEOUT = 0
 type Referential = { gamme: GammeOperation[]; workstations: Workstation[]; at: number }
 type BomCache = { entries: NomenclatureEntry[]; at: number }
 type Orders = { mos: ManufacturingOrder[]; supply: Flow[]; at: number }
-type Live = { demand: Flow[]; reception: Flow[]; at: number }
+type Live = { demand: Flow[]; reception: Flow[]; supply: Flow[]; at: number }
 
 /**
  * Cache namespacé `board:*` — clé GLOBALE, pas par utilisateur (issue #39, C2).
@@ -125,8 +125,8 @@ class BoardDataset {
       // SWR (issue #33) : demande+réception X3 lent (~13 s cold). Cf. getOrders.
       timeout: SWR_TIMEOUT,
       factory: async () => {
-        const { demandFlows, receptionFlows } = await new CombinedOrdersRepository().fetchLive(from, to)
-        return { demand: demandFlows, reception: receptionFlows, at: Date.now() } satisfies Live
+        const { demandFlows, receptionFlows, ofFlows } = await new CombinedOrdersRepository().fetchLive(from, to)
+        return { demand: demandFlows, reception: receptionFlows, supply: ofFlows, at: Date.now() } satisfies Live
       },
     })
   }
