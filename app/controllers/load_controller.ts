@@ -1,7 +1,7 @@
 import { HttpContext } from '@adonisjs/core/http'
 import boardDataset from '#services/board_dataset'
 import type { ManufacturingOrder } from '#repositories/of_repository'
-import { X3OrderLineRepository, type OrderLineRow } from '#repositories/order_line_repository'
+import type { OrderLineRow } from '#repositories/order_line_repository'
 import type { GammeOperation } from '#app/domain/models/gamme'
 import type { Workstation } from '#app/domain/models/workstation'
 import { capDay } from '#app/domain/capacity'
@@ -148,8 +148,8 @@ export default class LoadController {
     const [refR, ordR, olR] = await Promise.allSettled([
       boardDataset.getReferential(force),
       boardDataset.getOrdersForWindow(monthStart, horizonEnd, force),
-      // 5 cols + 1 JOIN au lieu de 11 cols + 5 JOINs (BPARTNER×2, SORDER, SORDERQ, ITMBPC).
-      new X3OrderLineRepository().getOrderLinesForLoad(toYYYYMMDD(monthStart), toYYYYMMDD(horizonEnd)),
+      // 5 cols + 1 JOIN au lieu de 11 cols + 5 JOINs — résultat mis en cache SWR (LIVE_TTL).
+      boardDataset.getOrderLinesForLoad(toYYYYMMDD(monthStart), toYYYYMMDD(horizonEnd), force),
     ])
     if (refR.status === 'fulfilled') {
       gammeOps = refR.value.gamme

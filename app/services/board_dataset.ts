@@ -167,6 +167,23 @@ class BoardDataset {
     })
   }
 
+  /** Lignes de commande allégées pour /charge (5 cols, 1 JOIN). Cache SWR partagé.
+   * fromStr/toStr au format YYYYMMDD. */
+  async getOrderLinesForLoad(
+    fromStr: string,
+    toStr: string,
+    force = false,
+  ): Promise<Pick<import('#repositories/order_line_repository').OrderLineRow, 'article' | 'designation' | 'quantite' | 'dateLivraison' | 'nature'>[]> {
+    const key = `order-lines-load:${fromStr}:${toStr}`
+    if (force) await board().delete({ key })
+    return board().getOrSet({
+      key,
+      ttl: LIVE_TTL,
+      timeout: SWR_TIMEOUT,
+      factory: () => new X3OrderLineRepository().getOrderLinesForLoad(fromStr, toStr),
+    })
+  }
+
   /** Demande + réceptions scopées à l'horizon [from,to]. Cache par fenêtre.
    * Les suggestions ne sont plus lues ici depuis #32 : elles viennent d'ORDERS via
    * getOrders() (statut 3), temps réel → plus de source CBNDET ni de blacklist. */
