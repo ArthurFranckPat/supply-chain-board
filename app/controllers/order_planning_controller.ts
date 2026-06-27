@@ -4,7 +4,6 @@ import staticSync from '#services/static_sync_service'
 import cache from '@adonisjs/cache/services/main'
 import { OrderLineOverrideStore } from '#services/order_line_override_store'
 import { X3OrderLineRepository, type OrderLineRow } from '#repositories/order_line_repository'
-import { X3ReceptionRepository } from '#repositories/reception_repository'
 import { hoursForQuantity, type GammeOperation } from '#app/domain/models/gamme'
 
 // ---------------------------------------------------------------------------
@@ -275,7 +274,7 @@ export default class OrderPlanningController {
           stockByArticle.set(f.article, (stockByArticle.get(f.article) ?? 0) + f.quantity)
         }
       }
-      const receptionFlows = await new X3ReceptionRepository().getReceptionFlows().catch(() => [])
+      const receptionFlows = await boardDataset.getReceptions().catch(() => [])
       const now = new Date()
 
       const bom = components.map((comp) => {

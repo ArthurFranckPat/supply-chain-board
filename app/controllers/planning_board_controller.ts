@@ -15,7 +15,6 @@ import type { Flow } from '#app/domain/models/flow'
 import { X3OfRepository, type ManufacturingOrder } from '#repositories/of_repository'
 import type { GammeOperation } from '#app/domain/models/gamme'
 import { X3StockRepository } from '#repositories/stock_repository'
-import { X3ReceptionRepository } from '#repositories/reception_repository'
 import { X3BesoinClientRepository } from '#repositories/besoin_client_repository'
 import { X3NomenclatureRepository } from '#repositories/nomenclature_repository'
 import { X3MfgmatRepository } from '#repositories/mfgmat_repository'
@@ -150,7 +149,7 @@ export default class PlanningBoardController {
     const [ofFlows, stockFlows, receptionFlows] = await Promise.all([
       new X3OfRepository().getSupplyFlows(),
       new X3StockRepository().getStockFlows(),
-      new X3ReceptionRepository().getReceptionFlows(),
+      boardDataset.getReceptions(),
     ])
 
     const articles = new Map<string, Article>(
@@ -219,7 +218,7 @@ export default class PlanningBoardController {
     const [ofFlows, stockFlows, receptionFlows] = await Promise.all([
       new X3OfRepository().getSupplyFlows(),
       new X3StockRepository().getStockFlows(),
-      new X3ReceptionRepository().getReceptionFlows(),
+      boardDataset.getReceptions(),
     ])
 
     const articles = new Map<string, Article>(
@@ -278,7 +277,7 @@ export default class PlanningBoardController {
     const [ofFlows, stockFlows, receptionFlows, demandFlows] = await Promise.all([
       new X3OfRepository().getSupplyFlows(),
       new X3StockRepository().getStockFlows(),
-      new X3ReceptionRepository().getReceptionFlows(),
+      boardDataset.getReceptions(),
       new X3BesoinClientRepository().getDemandFlows(),
     ])
 
@@ -412,7 +411,7 @@ export default class PlanningBoardController {
 
     // Réceptions d'achat PLEIN HORIZON (pas seulement la fenêtre board) — l'anticipation
     // suppose des arrivées au-delà de la fenêtre affichée.
-    const receptionFlows = await new X3ReceptionRepository().getReceptionFlows()
+    const receptionFlows = await boardDataset.getReceptions()
     const receptionsByArticle = buildReceptionsMap(
       receptionFlows.map((f) => ({
         article: f.article,
@@ -465,7 +464,6 @@ export default class PlanningBoardController {
     // réellement visités par la descente (la naïve « tout le pool » lisait 14k+ OF).
     const mfgmatRepo = new X3MfgmatRepository()
     const stockRepo = boardDataset
-    const receptionRepo = new X3ReceptionRepository()
 
     const mfgmatCache = new Map<string, Promise<MfgMaterialInput[]>>()
     const stockCache = new Map<string, Promise<StockRecord | undefined>>()
@@ -514,9 +512,9 @@ export default class PlanningBoardController {
     let allReceptionsPromise: Promise<Map<string, ReceptionRecord[]>> | null = null
     const allReceptions = (): Promise<Map<string, ReceptionRecord[]>> => {
       if (allReceptionsPromise) return allReceptionsPromise
-      allReceptionsPromise = receptionRepo
-        .getReceptionFlows()
-        .then((flows) =>
+      allReceptionsPromise = boardDataset
+        .getReceptions()
+        .then((flows: Flow[]) =>
           buildReceptionsMap(
             flows.map((f) => ({
               article: f.article,

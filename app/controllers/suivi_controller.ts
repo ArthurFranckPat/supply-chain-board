@@ -19,7 +19,7 @@ import type { OrderImpactResult } from '#app/domain/order-impacts'
 import type { Article } from '#app/domain/models/article'
 import { X3OfRepository } from '#repositories/of_repository'
 import { X3StockRepository } from '#repositories/stock_repository'
-import { X3ReceptionRepository, groupReceptionsByArticle } from '#repositories/reception_repository'
+import { groupReceptionsByArticle } from '#repositories/reception_repository'
 import { X3BesoinClientRepository } from '#repositories/besoin_client_repository'
 import { resolveCoveringReception } from '#app/domain/shortages'
 import type { ReceptionRecord } from '#app/domain/recursive-checker'
@@ -125,9 +125,11 @@ export default class SuiviController {
       return ctx.response.notFound({ message: `Commande ${ctx.params.order} non trouvee` })
     }
 
-    const stockFlows = await new X3StockRepository().getStockFlows()
-    const receptionFlows = await new X3ReceptionRepository().getReceptionFlows()
-    const ofFlows = await new X3OfRepository().getSupplyFlows()
+    const [stockFlows, receptionFlows, ofFlows] = await Promise.all([
+      new X3StockRepository().getStockFlows(),
+      boardDataset.getReceptions(),
+      new X3OfRepository().getSupplyFlows(),
+    ])
 
     const allSupplyFlows = [...stockFlows, ...receptionFlows, ...ofFlows]
     const details = orderLines.map((demand) => {

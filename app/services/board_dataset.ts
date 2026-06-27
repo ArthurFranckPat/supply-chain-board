@@ -6,6 +6,7 @@ import { X3OfRepository, type ManufacturingOrder } from '#repositories/of_reposi
 import { X3StockRepository } from '#repositories/stock_repository'
 import { X3MfgmatRepository, type OfMaterial } from '#repositories/mfgmat_repository'
 import { X3OrderLineRepository, type OfCommandePeg } from '#repositories/order_line_repository'
+import { X3ReceptionRepository } from '#repositories/reception_repository'
 import { CombinedOrdersRepository } from '#repositories/combined_orders_repository'
 import { createHash } from 'node:crypto'
 import staticSync from '#services/static_sync_service'
@@ -251,6 +252,24 @@ class BoardDataset {
       },
     })
     return new Map(entries)
+  }
+
+  /**
+   * Réceptions d'achat attendues (PORDERQ ouvertes) — cache SWR GLOBAL partagé.
+   * Avant : `new X3ReceptionRepository().getReceptionFlows()` était appelé en direct
+   * par 8+ controllers (suivi, board, ruptures, pipeline, planning…) → 8 SOAP ZSOAPSQL
+   * O(n²) indépendants pour la MÊME donnée (lignes de commande d'achat ouvertes,
+   * changement lent). Maintenant 1 SOAP/2min pour toute l'app. Bornage `from`/`to`
+   * fait côté appelant (groupReceptionsByArticle) sur le sur-ensemble caché.
+   */
+  async getReceptions(force = false): Promise<Flow[]> {
+    if (force) await board().delete({ key: 'receptions' })
+    return board().getOrSet({
+      key: 'receptions',
+      ttl: LIVE_TTL,
+      timeout: SWR_TIMEOUT,
+      factory: () => new X3ReceptionRepository().getReceptionFlows(),
+    })
   }
 
   /** Stock scopé aux articles fournis. SWR 2min — suffisant pour un outil de planning. */

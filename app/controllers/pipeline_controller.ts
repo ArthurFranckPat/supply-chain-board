@@ -1,8 +1,8 @@
 import { HttpContext } from '@adonisjs/core/http'
 import { X3OfRepository } from '#repositories/of_repository'
 import { X3StockRepository } from '#repositories/stock_repository'
-import { X3ReceptionRepository } from '#repositories/reception_repository'
 import { X3BesoinClientRepository } from '#repositories/besoin_client_repository'
+import boardDataset from '#services/board_dataset'
 import { matchOrders } from '#app/domain/orders'
 import { assignStatuses, type OrderLine, type StockBreakdown, type SuiviStatus, type TypeCommande } from '#app/domain/suivi'
 import { snapshot } from '#app/domain/availability'
@@ -18,7 +18,7 @@ export default class PipelineController {
     const [ofFlows, stockFlows, receptionFlows, demandFlows] = await Promise.all([
       new X3OfRepository().getSupplyFlows(),
       new X3StockRepository().getStockFlows(),
-      new X3ReceptionRepository().getReceptionFlows(),
+      boardDataset.getReceptions(),
       new X3BesoinClientRepository().getDemandFlows(),
     ])
 

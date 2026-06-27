@@ -11,7 +11,7 @@ import { loadOrderImpacts } from '#services/order_impacts_loader'
 import { timeStage } from '#services/perf_metrics'
 import { loadOrderBoardData } from '#controllers/order_planning_controller'
 import { buildShortageRows, type ShortageRow } from '#app/domain/shortages'
-import { loadReceptionsByArticle } from '#repositories/reception_repository'
+import { groupReceptionsByArticle } from '#repositories/reception_repository'
 import type { Flow } from '#app/domain/models/flow'
 import type { NomenclatureEntry } from '#app/domain/models/nomenclature'
 
@@ -551,11 +551,17 @@ export default class SchedulerController {
         let x3Error: string | null = null
 
         try {
-          const { result, articles, ofPegs } = await loadOrderImpacts({
-            from: windowFrom,
-            to: windowTo,
-            force,
-          })
+          // loadOrderImpacts (ORDERS WIPTYP=2 pour réceptions planning) ET getReceptions
+          // (PORDERQ — richer, avec fournisseur) sont indépendants → parallèles.
+          // getReceptions : cache SWR global partagé avec /suivi, /board, pipeline.
+          const [{ result, articles, ofPegs }, receptionFlows] = await Promise.all([
+            loadOrderImpacts({
+              from: windowFrom,
+              to: windowTo,
+              force,
+            }),
+            boardDataset.getReceptions(force),
+          ])
           // OfCommandePeg (Date) → ShortageOfPeg (ISO) pour le pivot pur.
           const pegsIso = new Map(
             [...ofPegs].map(([ofNum, p]) => [
@@ -567,7 +573,7 @@ export default class SchedulerController {
               },
             ])
           )
-          const receptionsByArticle = await loadReceptionsByArticle(windowFrom)
+          const receptionsByArticle = groupReceptionsByArticle(receptionFlows, windowFrom)
           const built = buildShortageRows(result, receptionsByArticle, articles, pegsIso)
           rows = built.rows
           stats = built.stats
