@@ -32,7 +32,6 @@ import {
   type TypeCommande,
 } from '#app/domain/suivi'
 import { X3StockRepository } from '#repositories/stock_repository'
-import { CombinedOrdersRepository } from '#repositories/combined_orders_repository'
 import { buildNomenclatureMap, buildOfRecords } from '#services/feasibility-loader-adapter'
 import staticSync from '#services/static_sync_service'
 import boardDataset from '#services/board_dataset'
@@ -369,12 +368,16 @@ export class SuiviService {
   private async loadRaw(): Promise<RawSuiviData> {
     const from = new Date()
     from.setDate(from.getDate() - RETARD_LOOKBACK_DAYS)
+    const to = new Date()
+    to.setDate(to.getDate() + RETARD_LOOKBACK_DAYS)
+    const fromIso = from.toISOString().slice(0, 10)
+    const toIso = to.toISOString().slice(0, 10)
 
-    // fetch() (WIPTYP=1+5) timeout sur grands volumes ZSOAPSQL O(n²).
-    // Demand borné seul → petit ; OF via boardDataset.getOrders() (cache SWR 5min).
-    const [demandFlows, { supply: ofFlows }, nomenclatureEntries, articleList] = await Promise.all([
-      new CombinedOrdersRepository().fetchDemandOnly(from),
-      boardDataset.getOrders(),
+    // 1 SOAP (getLive WIPTYP=1+2+5, borné [today-90, today+90]) — même clé cache que proactive-rows
+    // → les deux requêtes partagent board:live:*:* et ne payent qu'un seul cold start.
+    // Avant : fetchDemandOnly (borne basse seule, toute la demande future) + getOrders = 2 SOAP.
+    const [{ demand: demandFlows, supply: ofFlows }, nomenclatureEntries, articleList] = await Promise.all([
+      boardDataset.getLive(fromIso, toIso),
       staticSync.readNomenclatures().catch(() => [] as NomenclatureEntry[]),
       staticSync.readArticles().catch(() => [] as Article[]),
     ])
