@@ -383,7 +383,7 @@ export default class SchedulerController {
         const [data, impactsCtx] = await Promise.all([
           timeStage('programme.loadBoardData', () => this.loadBoardData(ctx, basePath)),
           timeStage('programme.loadOrderImpacts', () =>
-            loadOrderImpacts({ from: windowStart, to: windowTo, force }).catch(() => null)
+            loadOrderImpacts({ from: windowStart, to: windowTo, force, preferEngineFeasibility: true }).catch(() => null)
           ),
         ])
         let x3Error = data.x3Error
