@@ -9,7 +9,7 @@ import {
   onMount,
   type Component,
 } from 'solid-js'
-import { router } from '@/lib/inertia-solid'
+import { router, usePage } from '@/lib/inertia-solid'
 import { route } from '@/lib/routes'
 import { createBoardStore } from '@/lib/board/store'
 import type { BoardData, SearchScope } from '@/lib/board/types'
@@ -133,21 +133,20 @@ const Programme: Component<VisionProps> = (props) => {
   const store = createBoardStore(props.board ?? EMPTY_BOARD)
   const orderStore = createOrderBoardStore(props.orderBoard ?? EMPTY_ORDER_BOARD)
 
-  // Re-sync stores après navigation Inertia.
+  // Re-sync stores après navigation Inertia (switch mode OU changement de fenêtre).
+  // On clé le reset sur des PRIMITIFS fiables (mode + windowFrom) plutôt que sur les objets
+  // board/orderBoard : `reconcile` (adapter inertia-solid) met à jour le contenu nested mais
+  // garde la référence des objets stable → `on(() => props.board)` ne se déclenche pas (===),
+  // le store ne se reset pas → board vide au cold start jusqu'au reload. Les primitifs, eux,
+  // changent toujours de valeur → fire garanti. Le contenu à jour est lu via usePage().props
+  // (store réactif, pas le spread snapshot).
+  const page = usePage<VisionProps>()
   createEffect(
     on(
-      () => props.board,
-      (next, prev) => {
-        if (prev !== undefined && next !== prev) store.reset(next ?? EMPTY_BOARD)
-      },
-      { defer: true }
-    )
-  )
-  createEffect(
-    on(
-      () => props.orderBoard,
-      (next, prev) => {
-        if (prev !== undefined && next !== prev) orderStore.reset(next ?? EMPTY_ORDER_BOARD)
+      () => [page.props.mode, page.props.windowFrom] as const,
+      () => {
+        store.reset(page.props.board ?? EMPTY_BOARD)
+        orderStore.reset(page.props.orderBoard ?? EMPTY_ORDER_BOARD)
       },
       { defer: true }
     )
