@@ -132,27 +132,27 @@ export default class LoadController {
     let gammeOps: GammeOperation[] = []
     let workstations: Workstation[] = []
     let x3Error: string | null = null
-    // OF (board) + référentiel via boardDataset (cache SWR partagé) ; lignes de commande
-    // sur l'horizon (X3 direct). Chaque source dans son try → l'une n'empêche pas l'autre.
-    try {
-      const [ref, ord] = await Promise.all([
-        boardDataset.getReferential(force),
-        boardDataset.getOrders(force),
-      ])
-      gammeOps = ref.gamme
-      workstations = ref.workstations ?? [] // garde : un payload caché d'avant #35 n'a pas ce champ
-      mos = ord.mos
-    } catch (e) {
-      x3Error = (e as Error).message
-    }
-    try {
-      orderLines = await new X3OrderLineRepository().getOpenOrderLines({
+
+    // getReferential (cachée) + getOrdersForWindow (STRDAT 6 mois, vs lookback 90j ENDDAT)
+    // + getOpenOrderLines → 3 SOAP indépendants → parallèles.
+    // getOrdersForWindow : seuls les OFs dont STRDAT ∈ [monthStart, horizonEnd] sont retournés ;
+    // buildLines filtre déjà `date < monthStart` donc aucun OF valide n'est perdu.
+    const [refR, ordR, olR] = await Promise.allSettled([
+      boardDataset.getReferential(force),
+      boardDataset.getOrdersForWindow(monthStart, horizonEnd, force),
+      new X3OrderLineRepository().getOpenOrderLines({
         from: isoDay(monthStart),
         to: isoDay(horizonEnd),
-      })
-    } catch (e) {
-      x3Error = x3Error ?? (e as Error).message
-    }
+      }),
+    ])
+    if (refR.status === 'fulfilled') {
+      gammeOps = refR.value.gamme
+      workstations = refR.value.workstations ?? []
+    } else { x3Error = (refR.reason as Error).message }
+    if (ordR.status === 'fulfilled') { mos = ordR.value.mos }
+    else { x3Error = x3Error ?? (ordR.reason as Error).message }
+    if (olR.status === 'fulfilled') { orderLines = olR.value }
+    else { x3Error = x3Error ?? (olR.reason as Error).message }
 
     const gammeMap = new Map(gammeOps.map((g) => [g.article, g]))
     const wstLabels = new Map<string, string>()
