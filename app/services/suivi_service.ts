@@ -31,7 +31,6 @@ import {
   type StatusAssignment,
   type TypeCommande,
 } from '#app/domain/suivi'
-import { X3StockRepository } from '#repositories/stock_repository'
 import { buildNomenclatureMap, buildOfRecords } from '#services/feasibility-loader-adapter'
 import staticSync from '#services/static_sync_service'
 import boardDataset from '#services/board_dataset'
@@ -393,7 +392,7 @@ export class SuiviService {
       scopeArticles.add(e.componentArticle)
     }
 
-    const stockFlows = await new X3StockRepository().getStockFlows([...scopeArticles])
+    const stockFlows = await boardDataset.getStock([...scopeArticles])
 
     return { demandFlows, ofFlows, nomenclatureEntries, articleList, stockFlows }
   }
