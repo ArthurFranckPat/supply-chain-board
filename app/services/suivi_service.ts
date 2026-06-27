@@ -377,19 +377,27 @@ export class SuiviService {
 
     // 1 SOAP getLive WIPTYP=1+2+5, fenêtre [today-90, today+30].
     // Lead time commercial ~21j → +30j couvre le backlog opérationnel. Commandes au-delà = non actionnables.
-    const [{ demand: demandFlows, supply: ofFlows }, nomenclatureEntries, articleList] = await Promise.all([
+    const [{ demand: demandFlows, reception: receptionFlows, supply: ofFlows }, nomenclatureEntries, articleList] = await Promise.all([
       boardDataset.getLive(fromIso, toIso),
       staticSync.readNomenclatures().catch(() => [] as NomenclatureEntry[]),
       staticSync.readArticles().catch(() => [] as Article[]),
     ])
 
-    // Stock scopé : PF commandés + articles OF + arbre BOM pour calcul rupture récursif.
+    // Même construction que loadOrderImpacts : seed OFs+demand+réceptions, expansion BOM récursive.
+    // → articleSet identique → même md5 → cache stock partagé entre rows et proactive-rows.
     const scopeArticles = new Set<string>()
-    for (const f of demandFlows) if (f.direction === 'demand') scopeArticles.add(f.article)
-    for (const f of ofFlows) if (f.origin.type === 'of') scopeArticles.add(f.article)
-    for (const e of nomenclatureEntries) {
-      scopeArticles.add(e.parentArticle)
-      scopeArticles.add(e.componentArticle)
+    for (const f of ofFlows) if (f.article) scopeArticles.add(f.article)
+    for (const f of demandFlows) if (f.article) scopeArticles.add(f.article)
+    for (const f of receptionFlows) if (f.article) scopeArticles.add(f.article)
+    let added = true
+    while (added) {
+      added = false
+      for (const e of nomenclatureEntries) {
+        if (scopeArticles.has(e.parentArticle) && !scopeArticles.has(e.componentArticle)) {
+          scopeArticles.add(e.componentArticle)
+          added = true
+        }
+      }
     }
 
     const stockFlows = await boardDataset.getStock([...scopeArticles])
