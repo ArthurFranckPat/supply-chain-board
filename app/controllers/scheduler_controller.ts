@@ -551,14 +551,20 @@ export default class SchedulerController {
         let x3Error: string | null = null
 
         try {
-          // loadOrderImpacts (ORDERS WIPTYP=2 pour réceptions planning) ET getReceptions
-          // (PORDERQ — richer, avec fournisseur) sont indépendants → parallèles.
+          // useWindowOfs : OFs scopés par STRDAT (date de DÉBUT). Métier : « on ne peut
+          // pas COMMENCER un OF si un composant est en rupture » → l'OF actionnable est
+          // celui qui va démarrer dans la fenêtre, pas celui qui finit (déjà lancé =
+          // trop tard). En bonus : fenêtre STRDAT courte (~25× moins de lignes que le
+          // lookback ENDDAT) + getDemandAndReception sans WIPTYP=5 (cf. /programme).
+          //
+          // loadOrderImpacts ET getReceptions (PORDERQ — fournisseur) indépendants → parallèles.
           // getReceptions : cache SWR global partagé avec /suivi, /board, pipeline.
           const [{ result, articles, ofPegs }, receptionFlows] = await Promise.all([
             loadOrderImpacts({
               from: windowFrom,
               to: windowTo,
               force,
+              useWindowOfs: true,
             }),
             boardDataset.getReceptions(force),
           ])
