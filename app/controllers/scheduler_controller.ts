@@ -15,17 +15,6 @@ import { loadReceptionsByArticle } from '#repositories/reception_repository'
 import type { Flow } from '#app/domain/models/flow'
 import type { NomenclatureEntry } from '#app/domain/models/nomenclature'
 
-function defaultPoolFrom(): string {
-  const d = new Date()
-  d.setDate(d.getDate() - 30)
-  return d.toISOString().split('T')[0]
-}
-function defaultPoolTo(): string {
-  const d = new Date()
-  d.setFullYear(d.getFullYear() + 1)
-  return d.toISOString().split('T')[0]
-}
-
 
 // ---------------------------------------------------------------------------
 type CardStatus = 'termine' | 'ferme' | 'cours' | 'planifie' | 'suggere' | 'bloque'
@@ -680,26 +669,16 @@ export default class SchedulerController {
     let bdhParents: Set<string> = new Set()
 
     try {
-      const [ref, ord, live, bdh] = await timeStage('loadBoardData.datasets', () =>
+      const [ref, ord, bdh] = await timeStage('loadBoardData.datasets', () =>
         Promise.all([
           timeStage('loadBoardData.referential', () => boardDataset.getReferential(force)),
           timeStage('loadBoardData.orders', () => boardDataset.getOrders(force)),
-          timeStage('loadBoardData.live', () =>
-            boardDataset.getLive(defaultPoolFrom(), defaultPoolTo(), force).catch(() => ({
-              demand: [],
-              reception: [],
-              at: 0,
-            }))
-          ),
           staticSync.readBdhParents().catch(() => new Set<string>()),
         ])
       )
       gammeOps = ref.gamme
-      // Pool unifié : tous les OF (1/2/3) lus depuis ORDERS via ord.mos (#32).
-      // Les suggestions (statut 3) sont des ManufacturingOrder natives maintenant.
       mos = [...ord.mos]
       bdhParents = bdh
-      void live
     } catch (e) {
       x3Error = (e as Error).message
     }
