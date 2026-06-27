@@ -557,17 +557,18 @@ export default class SchedulerController {
           // trop tard). En bonus : fenêtre STRDAT courte (~25× moins de lignes que le
           // lookback ENDDAT) + getDemandAndReception sans WIPTYP=5 (cf. /programme).
           //
-          // loadOrderImpacts ET getReceptions (PORDERQ — fournisseur) indépendants → parallèles.
-          // getReceptions : cache SWR global partagé avec /suivi, /board, pipeline.
-          const [{ result, articles, ofPegs }, receptionFlows] = await Promise.all([
-            loadOrderImpacts({
-              from: windowFrom,
-              to: windowTo,
-              force,
-              useWindowOfs: true,
-            }),
-            boardDataset.getReceptions(force),
-          ])
+          // Réceptions couvrantes = ORDERS WIPTYP=2 WIPSTA=1 (POs fermes) déjà chargées
+          // par loadOrderImpacts (receptionFlows). On ne GARDE que les fermes (origin.firm)
+          // → fini le SOAP PORDERQ séparé (même donnée, source unique = ORDERS).
+          // Limit : réceptions au-delà de windowTo non incluses (getDemandAndReception
+          // borne WIPTYP=2 à ENDDAT <= to) → un PO très en retard peut apparaître
+          // « sans couverture » au lieu de « retard » (acceptable sur fenêtre 14j action).
+          const { result, articles, ofPegs, receptionFlows } = await loadOrderImpacts({
+            from: windowFrom,
+            to: windowTo,
+            force,
+            useWindowOfs: true,
+          })
           // OfCommandePeg (Date) → ShortageOfPeg (ISO) pour le pivot pur.
           const pegsIso = new Map(
             [...ofPegs].map(([ofNum, p]) => [
@@ -579,7 +580,10 @@ export default class SchedulerController {
               },
             ])
           )
-          const receptionsByArticle = groupReceptionsByArticle(receptionFlows, windowFrom)
+          const firmReceptions = receptionFlows.filter(
+            (f) => f.origin.type === 'reception' && (f.origin as { firm?: boolean }).firm,
+          )
+          const receptionsByArticle = groupReceptionsByArticle(firmReceptions, windowFrom)
           const built = buildShortageRows(result, receptionsByArticle, articles, pegsIso)
           rows = built.rows
           stats = built.stats

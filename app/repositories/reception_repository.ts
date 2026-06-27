@@ -47,6 +47,8 @@ export class X3ReceptionRepository {
           categorie: null,
           dateCommande: parseX3Date(row.$extras.ORDDAT_RAW),
           qteCommandee,
+          // PORDERQ filtré sur PORDER.CLEFLG=1 → POs confirmées → toujours fermes.
+          firm: true,
         },
       }
     })

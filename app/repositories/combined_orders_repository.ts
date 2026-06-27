@@ -378,6 +378,7 @@ export class CombinedOrdersRepository {
             categorie: null,
             dateCommande: null,
             qteCommandee: toNum(row.EXTQTY_0),
+            firm: wipsta === 1,
           },
         })
       }
@@ -478,6 +479,7 @@ export class CombinedOrdersRepository {
             categorie: null,
             dateCommande: null,
             qteCommandee: toNum(row.EXTQTY_0),
+            firm: wipsta === 1,
           },
         })
       }
