@@ -373,16 +373,21 @@ export default class SchedulerController {
       // limité au tout premier chargement. NE PAS mettre > 0 : refresh hors background → à son rejet
       // la promesse orpheline → unhandled rejection → crash serveur (cf. board_dataset / suivi).
       factory: async () => {
-        // Board IDENTIQUE à /ordonnancement : on réutilise loadBoardData tel quel
-        // (côté front, le MÊME composant <BoardGrid> → charge/jour, histogramme
-        // hebdo, recherche, drag&drop). Seul ajout vision : commandes + liens en
-        // overlay, dérivés du même board (aucune grille réécrite).
-        const data = await timeStage('programme.loadBoardData', () =>
-          this.loadBoardData(ctx, basePath)
-        )
+        // loadBoardData (getOrders + référentiel) et loadOrderImpacts (getLive + MFGMAT + stock)
+        // sont indépendants → parallélisés. Les maps placedByOf/colIdx sont construites APRÈS
+        // les deux, depuis les résultats assemblés.
+        const windowTo = new Date(windowStart)
+        windowTo.setDate(windowTo.getDate() + horizon)
+        windowTo.setHours(23, 59, 59, 999)
+
+        const [data, impactsCtx] = await Promise.all([
+          timeStage('programme.loadBoardData', () => this.loadBoardData(ctx, basePath)),
+          timeStage('programme.loadOrderImpacts', () =>
+            loadOrderImpacts({ from: windowStart, to: windowTo, force }).catch(() => null)
+          ),
+        ])
         let x3Error = data.x3Error
 
-        // numOf → poste/colonne et iso → colonne, reconstruits depuis le board bâti.
         const placedByOf = new Map<string, { posteCode: string; col: number }>()
         const colIdx = new Map<string, number>()
         data.board.lines[0]?.dayCells.forEach((dc, i) => colIdx.set(dc.iso, i))
@@ -392,23 +397,11 @@ export default class SchedulerController {
           })
         }
 
-        // Matching OF ↔ commande via l'algorithme existant (CommandeOFMatcher), exposé
-        // par loadOrderImpacts : chaque commande de la fenêtre porte ses OF alloués
-        // (MTS/MTO/NOR). Non-fatal : board sans liens si X3 indisponible.
-        const windowTo = new Date(windowStart)
-        windowTo.setDate(windowTo.getDate() + horizon)
-        windowTo.setHours(23, 59, 59, 999)
-
-        // Identité au niveau LIGNE de commande (pas commande) : un OrderImpactRow =
-        // une ligne (un demand flow / VCRLIN_0) avec ses propres OF. Deux lignes
-        // d'une même commande (même article possible) restent distinctes → un OF
-        // n'est rattaché qu'au marqueur de SA ligne, jamais à une autre.
         const commandeByLine = new Map<string, VisionCommande>()
         const links: VisionLink[] = []
         try {
-          const { result } = await timeStage('programme.loadOrderImpacts', () =>
-            loadOrderImpacts({ from: windowStart, to: windowTo, force })
-          )
+          if (!impactsCtx) throw new Error('loadOrderImpacts failed')
+          const { result } = impactsCtx
           result.orders.forEach((order, i) => {
             const col = colIdx.get(order.dateExpedition)
             if (col === undefined) return
