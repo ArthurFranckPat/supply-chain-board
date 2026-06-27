@@ -324,6 +324,9 @@ const CONTEXT_TTL = 2 * 60 * 1000 // 2 min
  * réels ; surcharge possible via `RETARD_LOOKBACK_DAYS`. Partagé par /suivi et /dashboard.
  */
 export const RETARD_LOOKBACK_DAYS = Number(process.env.RETARD_LOOKBACK_DAYS) || 90
+// Lead time commercial ~21j → commandes à +30j sont déjà hors scope opérationnel.
+// Surcharge via SUIVI_FORWARD_DAYS si nécessaire.
+export const SUIVI_FORWARD_DAYS = Number(process.env.SUIVI_FORWARD_DAYS) || 30
 // Clé GLOBALE, pas par utilisateur (issue #39, C2) : le contexte suivi (lignes +
 // stock + OF + BOM) est identique pour tous les users → un namespace par user
 // faisait repayer le cold start X3 (~14 s) à chacun. Clé partagée = le premier
@@ -369,13 +372,12 @@ export class SuiviService {
     const from = new Date()
     from.setDate(from.getDate() - RETARD_LOOKBACK_DAYS)
     const to = new Date()
-    to.setDate(to.getDate() + RETARD_LOOKBACK_DAYS)
+    to.setDate(to.getDate() + SUIVI_FORWARD_DAYS)
     const fromIso = from.toISOString().slice(0, 10)
     const toIso = to.toISOString().slice(0, 10)
 
-    // 1 SOAP (getLive WIPTYP=1+2+5, borné [today-90, today+90]) — même clé cache que proactive-rows
-    // → les deux requêtes partagent board:live:*:* et ne payent qu'un seul cold start.
-    // Avant : fetchDemandOnly (borne basse seule, toute la demande future) + getOrders = 2 SOAP.
+    // 1 SOAP getLive WIPTYP=1+2+5, fenêtre [today-90, today+30].
+    // Lead time commercial ~21j → +30j couvre le backlog opérationnel. Commandes au-delà = non actionnables.
     const [{ demand: demandFlows, supply: ofFlows }, nomenclatureEntries, articleList] = await Promise.all([
       boardDataset.getLive(fromIso, toIso),
       staticSync.readNomenclatures().catch(() => [] as NomenclatureEntry[]),
