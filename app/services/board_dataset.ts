@@ -168,6 +168,25 @@ class BoardDataset {
     })
   }
 
+  /** Lignes de commande ouvertes (OrderLineRow complet, fat query) pour la vue
+   * planification (loadOrderBoardData). Cache SWR partagé — avant, /programme?mode=planification
+   * appellait getOpenOrderLines en DIRECT à chaque load (SOAP fat 11 cols + 5 JOINs, non caché).
+   * from/to au format ISO 'YYYY-MM-DD'. */
+  async getOpenOrderLines(
+    from: string,
+    to: string,
+    force = false,
+  ): Promise<import('#repositories/order_line_repository').OrderLineRow[]> {
+    const key = `order-lines:${from}:${to}`
+    if (force) await board().delete({ key })
+    return board().getOrSet({
+      key,
+      ttl: LIVE_TTL,
+      timeout: SWR_TIMEOUT,
+      factory: () => new X3OrderLineRepository().getOpenOrderLines({ from, to }),
+    })
+  }
+
   /** Lignes de commande allégées pour /charge (5 cols, 1 JOIN). Cache SWR partagé.
    * fromStr/toStr au format YYYYMMDD. */
   async getOrderLinesForLoad(

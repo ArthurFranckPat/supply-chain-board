@@ -197,7 +197,7 @@ export default class OrderPlanningController {
     const from = (ctx.request.input('from') as string | undefined) ?? undefined
     const to = (ctx.request.input('to') as string | undefined) ?? undefined
     try {
-      const rows = await new X3OrderLineRepository().getOpenOrderLines({ from, to })
+      const rows = await boardDataset.getOpenOrderLines(from as string, to as string)
       return ctx.response.ok({ orderLines: rows })
     } catch (e) {
       return ctx.response.status(502).json({ error: (e as Error).message })
@@ -365,10 +365,7 @@ export async function loadOrderBoardData(
   try {
     const [ref, lines, bdh] = await Promise.all([
       boardDataset.getReferential(force),
-      new X3OrderLineRepository().getOpenOrderLines({
-        from: isoDay(windowStart),
-        to: isoDay(windowEnd),
-      }),
+      boardDataset.getOpenOrderLines(isoDay(windowStart), isoDay(windowEnd), force),
       staticSync.readBdhParents().catch(() => new Set<string>()),
     ])
     gammeOps = ref.gamme
