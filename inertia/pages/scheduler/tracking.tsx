@@ -1,4 +1,4 @@
-import { createMemo, createResource, createSignal, For, Show, type Component } from 'solid-js'
+import { createEffect, createMemo, createResource, createSignal, For, onCleanup, Show, type Component } from 'solid-js'
 import { Link } from '@/lib/inertia-solid'
 import { route } from '@/lib/routes'
 import { cx } from '@/libs/cva'
@@ -78,32 +78,57 @@ const Tracking: Component<SuiviPageProps> = (props) => {
   // Calcul lourd différé : fetch client-side, relancé à chaque changement de date
   // ou de bust (bouton refresh → ?refresh=N invalide le cache serveur).
   const [bust, setBust] = createSignal(0)
+  const [rowsMs, setRowsMs] = createSignal<number | null>(null)
+  const [proMs, setProMs] = createSignal<number | null>(null)
+  const [elapsed, setElapsed] = createSignal(0)
+  const [proElapsed, setProElapsed] = createSignal(0)
+
   const [data] = createResource(
     () => `${props.rowsHref}${bust() ? `&refresh=${bust()}` : ''}`,
     async (url): Promise<SuiviRowsResponse> => {
+      const start = Date.now()
       const res = await fetch(url, { headers: { accept: 'application/json' } })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      return (await res.json()) as SuiviRowsResponse
+      const json = (await res.json()) as SuiviRowsResponse
+      setRowsMs(Date.now() - start)
+      return json
     },
   )
+
+  createEffect(() => {
+    if (!data.loading) { setElapsed(0); return }
+    const t0 = Date.now()
+    const id = setInterval(() => setElapsed(Date.now() - t0), 200)
+    onCleanup(() => clearInterval(id))
+  })
 
   // Vue courante avec fallback vide (évite de répéter `data() ?? EMPTY` partout).
   const view = createMemo(() => data() ?? EMPTY)
 
   // ── Vue proactive (réalisabilité des commandes via le moteur séquentiel) ──
-  // Mode 'reactif' (suivi as-is, causes de retard) ou 'proactif' (faisabilité projetée,
-  // consommation séquentielle des composants entre OFs). Le fetch proactif n'est lancé
-  // qu'en mode proactif (source dépend de mode()).
   const [mode, setMode] = createSignal<'reactif' | 'proactif'>('reactif')
   const [proData] = createResource(
     () => `${props.proactiveRowsHref}${bust() ? `&refresh=${bust()}` : ''}`,
     async (url): Promise<ProactiveRowsResponse> => {
+      const start = Date.now()
       const res = await fetch(url, { headers: { accept: 'application/json' } })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      return (await res.json()) as ProactiveRowsResponse
+      const json = (await res.json()) as ProactiveRowsResponse
+      setProMs(Date.now() - start)
+      return json
     },
   )
+
+  createEffect(() => {
+    if (!proData.loading) { setProElapsed(0); return }
+    const t0 = Date.now()
+    const id = setInterval(() => setProElapsed(Date.now() - t0), 200)
+    onCleanup(() => clearInterval(id))
+  })
+
   const proView = createMemo(() => proData() ?? PROACTIVE_EMPTY)
+
+  const fmtMs = (ms: number) => ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`
 
   // Filtres + tri côté client.
   const [query, setQuery] = createSignal('')
@@ -743,6 +768,17 @@ const Tracking: Component<SuiviPageProps> = (props) => {
           </div>
         </Show>
         <div class="ml-auto flex items-center gap-2">
+          {/* Durée de chargement X3 */}
+          <Show when={mode() === 'reactif' ? data.loading : proData.loading}>
+            <span class="font-mono text-[11px] tabular-nums text-muted-foreground">
+              {fmtMs(mode() === 'reactif' ? elapsed() : proElapsed())}
+            </span>
+          </Show>
+          <Show when={mode() === 'reactif' ? (!data.loading && rowsMs() !== null) : (!proData.loading && proMs() !== null)}>
+            <span class="font-mono text-[11px] tabular-nums text-muted-foreground/60" title="Durée dernier chargement X3">
+              {fmtMs((mode() === 'reactif' ? rowsMs() : proMs())!)}
+            </span>
+          </Show>
           <button
             type="button"
             onClick={() => setBust((b) => b + 1)}
