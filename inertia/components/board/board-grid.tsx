@@ -231,6 +231,19 @@ export default function BoardGrid(props: {
                   maxHours={maxLineHours()}
                   variant="line"
                 />
+                {/* Meta : charge par typologie + stock bouches hygro sur PP_830 (issue #42). */}
+                <Show when={line.meta.length > 0}>
+                  <div class="flex flex-wrap gap-1">
+                    <For each={line.meta}>
+                      {(m) => (
+                        <span class="inline-flex items-center gap-1 rounded bg-rule-soft px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-secondary-foreground">
+                          <span class="text-muted-foreground">{m.k}</span>
+                          <span class="tabular-nums text-foreground">{m.v}</span>
+                        </span>
+                      )}
+                    </For>
+                  </div>
+                </Show>
               </div>
 
               {/* Cellules */}

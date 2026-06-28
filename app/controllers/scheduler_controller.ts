@@ -156,6 +156,11 @@ function makeCard(p: {
 
 const DAY_MS = 86_400_000
 
+/** TSICOD_4 → libellé court pour le header de ligne PP_830 (issue #42). */
+const PP_TYPO_SHORT: Record<string, string> = {
+  ESH10: 'AUTO', ESH20: 'DHU', ESH30: 'HYGRO', ESH40: 'PURAIR', ESH60: 'AUTOSENS',
+}
+
 const isoDay = (d: Date) => {
   const y = d.getFullYear()
   const m = String(d.getMonth() + 1).padStart(2, '0')
@@ -719,9 +724,10 @@ export default class SchedulerController {
     let x3Error: string | null = null
     let bdhParents: Set<string> = new Set()
     let typologieByArticle = new Map<string, string>()
+    let stockBouchesHygro: number | null = null
 
     try {
-      const [ref, ord, bdh, articlesList] = await timeStage('loadBoardData.datasets', () =>
+      const [ref, ord, bdh, articlesList, bouchesHygro] = await timeStage('loadBoardData.datasets', () =>
         Promise.all([
           timeStage('loadBoardData.referential', () => boardDataset.getReferential(force)),
           // Filtre STRDAT (fenêtre courte) au lieu de lookback 90j ENDDAT → ~25× moins de lignes ZSOAPSQL O(n²).
@@ -730,12 +736,25 @@ export default class SchedulerController {
           staticSync.readBdhParents().catch(() => new Set<string>()),
           // Typologie (TSICOD_4) par article — expose ESH10-60 sur les cartes OF (issue #42).
           boardDataset.getArticles(),
+          // Bouches hygro (BDH60 équipées module) — stock affiché dans le header PP_830 (issue #42).
+          staticSync.readBouchesHygroSet().catch(() => new Set<string>()),
         ])
       )
       gammeOps = ref.gamme
       mos = [...ord.mos]
       bdhParents = bdh
       for (const a of articlesList) if (a.typologie) typologieByArticle.set(a.code, a.typologie)
+      // Stock (strict+qc) des bouches hygro — 1 SOAP scopé, caché 2 min. Null si indispo.
+      const bouches = [...bouchesHygro]
+      if (bouches.length > 0) {
+        stockBouchesHygro = 0
+        const flows = await boardDataset.getStock(bouches).catch(() => [] as Flow[])
+        for (const f of flows) {
+          if (f.origin.type !== 'stock') continue
+          const sub = (f.origin as { subType?: string }).subType
+          if (sub === 'strict' || sub === 'qc') stockBouchesHygro += f.quantity
+        }
+      }
     } catch (e) {
       x3Error = (e as Error).message
     }
@@ -782,7 +801,7 @@ export default class SchedulerController {
 
     // Group MOs by workstation, place cards on start-day cells.
     const cardsByLineDay = new Map<string, Card[][]>()
-    const lineMeta = new Map<string, { ofCount: number; totalHours: number; dayHours: number[] }>()
+    const lineMeta = new Map<string, { ofCount: number; totalHours: number; dayHours: number[]; byTypo: Map<string, number> }>()
 
     for (const mo of mos) {
       const ov = overrideMap.get(mo.numOf) ?? null
@@ -812,6 +831,7 @@ export default class SchedulerController {
           ofCount: 0,
           totalHours: 0,
           dayHours: new Array<number>(colDates.length).fill(0),
+          byTypo: new Map<string, number>(),
         })
       }
       cardsByLineDay.get(wst)![idx].push(cardObj)
@@ -819,6 +839,9 @@ export default class SchedulerController {
       m.ofCount++
       m.totalHours += hours
       m.dayHours[idx] += hours
+      // Charge par typologie (TSICOD_4) — sert au header de ligne PP_830 (issue #42).
+      const typo = typologieByArticle.get(mo.article)
+      if (typo) m.byTypo.set(typo, (m.byTypo.get(typo) ?? 0) + hours)
     }
 
     // Finalize day columns with hours/pct.
@@ -883,11 +906,22 @@ export default class SchedulerController {
           name: wstLabels.get(code) ?? code,
           code,
           dot: 'bg-emerald-500',
-          meta: [
-            { k: 'OF', v: String(meta.ofCount) },
-            { k: 'CHG', v: `${Math.round(meta.totalHours)}h` },
-            { k: 'WST', v: code },
-          ],
+          meta:
+            code === 'PP_830'
+              ? [
+                  // Header PP_830 (issue #42) : charge par typologie + stock bouches hygro (goulot).
+                  ...[...meta.byTypo.entries()]
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([typo, h]) => ({ k: PP_TYPO_SHORT[typo] ?? typo, v: `${Math.round(h)}h` })),
+                  ...(stockBouchesHygro !== null
+                    ? [{ k: 'bouches', v: String(stockBouchesHygro) }]
+                    : []),
+                ]
+              : [
+                  { k: 'OF', v: String(meta.ofCount) },
+                  { k: 'CHG', v: `${Math.round(meta.totalHours)}h` },
+                  { k: 'WST', v: code },
+                ],
           dayCells: dayCardArrays.map((cards, i) => ({
             cellClass: days[i].today ? 'bg-blue-50/10' : '',
             cards,
