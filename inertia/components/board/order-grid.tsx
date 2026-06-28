@@ -31,7 +31,14 @@ const natureStatus = (card: OrderCard): CardStatus =>
   card.nature === 'PREVISION' ? 'suggere' : 'ferme'
 
 /** `numCommande#ligne` → `numCommande·ligne`. */
-const fmtRef = (id: string) => id.replace('#', '·')
+/** "AR2602608#1000" → "AR2602608·L1" (VCRLIN_0 est en milliers : 1000=ligne 1). */
+const fmtRef = (id: string) => {
+  const [cmd, ligne] = id.split('#')
+  if (ligne === undefined) return cmd
+  const n = parseInt(ligne, 10)
+  const ligneNb = !isNaN(n) && n >= 1000 && n % 1000 === 0 ? n / 1000 : ligne
+  return `${cmd}·L${ligneNb}`
+}
 
 export default function OrderGrid(props: {
   store: OrderBoardStore

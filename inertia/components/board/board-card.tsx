@@ -198,8 +198,9 @@ const CommandeBody: Component<{
           {p.client}
         </div>
       </Show>
-      {/* Footer V1 (issue #42) : pastille typo pleine + type + qté + heures. */}
-      <div class="mt-2 flex items-center gap-1 border-t border-rule-soft pt-1.5">
+      {/* Footer V1 (issue #42) : pastille typo pleine + type (gauche), qté mise en
+          avant + heures (droite). flex-wrap pour éviter l'overflow horizontal. */}
+      <div class="mt-2 flex flex-wrap items-center gap-1 border-t border-rule-soft pt-1.5">
         <Show when={p.mod}>
           <span class="inline-flex items-center gap-0.5 font-mono text-[8px] font-semibold uppercase tracking-wider text-suggere">
             <span class="material-symbols-outlined text-[11px]">edit</span>
@@ -220,12 +221,11 @@ const CommandeBody: Component<{
             {p.type}
           </span>
         </Show>
-        <Show when={p.qty !== undefined}>
-          <span class="font-mono text-[10px] font-semibold text-muted-foreground">×{p.qty}</span>
-        </Show>
-        <span class="ml-auto font-fraunces text-[14px] font-bold tabular-nums">
-          {p.hours}
-          <span class="ml-0.5 text-[10px] font-medium text-muted-foreground">h</span>
+        <span class="ml-auto flex items-baseline gap-1">
+          <Show when={p.qty !== undefined}>
+            <span class="font-fraunces text-[16px] font-bold leading-none tabular-nums text-foreground">{p.qty}</span>
+          </Show>
+          <span class="text-[10px] font-medium tabular-nums text-muted-foreground">{p.hours}h</span>
         </span>
       </div>
     </>
