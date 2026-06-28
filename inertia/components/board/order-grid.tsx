@@ -1,5 +1,6 @@
 import { For, Show, createMemo, createSignal } from 'solid-js'
 import { cx } from '@/libs/cva'
+import { TYPO_META } from '@/lib/board/types'
 import type { OrderBoardStore } from '@/lib/orders/store'
 import type { OrderCard, OrderLineRow } from '@/lib/orders/types'
 import { BoardCard, type CardStatus } from './board-card'
@@ -182,6 +183,56 @@ export default function OrderGrid(props: {
                 </div>
                 <span class="text-[11px] leading-tight text-muted-foreground">{line.name}</span>
                 <ChargeHistogram weeks={lineCharge(line)} maxHours={maxLineHours()} variant="line" />
+                {/* PP_830 — équilibrage (issue #42, header M1) : barre empilée typo
+                    (plein = sans bouche, clair = consomme bouche) + stock bouches hygro. */}
+                <Show when={line.pp830}>
+                  {(pp) => {
+                    const total = () =>
+                      pp().chargeByTypo.reduce((s, t) => s + t.sans + t.bouche, 0) || 1
+                    const seg = (h: number) => `${(h / total()) * 100}%`
+                    return (
+                      <div class="mt-1.5">
+                        <div class="flex h-[6px] overflow-hidden rounded-full bg-rule-soft">
+                          <For each={pp().chargeByTypo}>
+                            {(t) => (
+                              <>
+                                <span class="block h-full" style={{ width: seg(t.sans), background: TYPO_META[t.typo]?.color ?? '#94a3b8' }} />
+                                <Show when={t.bouche > 0}>
+                                  <span class="block h-full" style={{ width: seg(t.bouche), background: TYPO_META[t.typo]?.light ?? '#cbd5e1' }} />
+                                </Show>
+                              </>
+                            )}
+                          </For>
+                        </div>
+                        <div class="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 font-mono text-[9px] font-bold uppercase tracking-wider">
+                          <For each={pp().chargeByTypo}>
+                            {(t) => (
+                              <span class="inline-flex items-center gap-1">
+                                <span class="inline-flex items-center gap-0.5">
+                                  <span class="size-[7px] rounded-[1px]" style={{ background: TYPO_META[t.typo]?.color ?? '#94a3b8' }} />
+                                  {t.bouche > 0 && (
+                                    <span class="size-[7px] rounded-[1px]" style={{ background: TYPO_META[t.typo]?.light ?? '#cbd5e1' }} />
+                                  )}
+                                </span>
+                                <span class="text-muted-foreground">{TYPO_META[t.typo]?.label ?? t.typo}</span>
+                                <span class="tabular-nums text-foreground">{t.sans + t.bouche}h</span>
+                              </span>
+                            )}
+                          </For>
+                        </div>
+                        <Show when={pp().stockBouchesHygro !== null}>
+                          <div class="mt-1 flex items-baseline gap-1 text-[10px] text-muted-foreground">
+                            <span>Bouches hygro</span>
+                            <span class="font-fraunces text-[14px] font-bold tabular-nums" style={{ color: 'var(--color-terra)' }}>
+                              {pp().stockBouchesHygro}
+                            </span>
+                            <span>pcs</span>
+                          </div>
+                        </Show>
+                      </div>
+                    )
+                  }}
+                </Show>
               </div>
 
               {/* Cellules */}

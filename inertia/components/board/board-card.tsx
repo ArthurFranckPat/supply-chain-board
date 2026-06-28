@@ -166,24 +166,23 @@ const CommandeBody: Component<{
   const typo = () => (p.typologie ? TYPO_META[p.typologie] : undefined)
   return (
     <>
-      {/* Réf. commande·ligne — clé, une seule ligne (tooltip = valeur complète) */}
+      {/* Tampon « BDH » si l'article consomme une bouche (issue #42). Absolu, fond carte. */}
+      <Show when={p.consommeBouche}>
+        <span
+          class="absolute right-1.5 top-1.5 rotate-[-7deg] rounded border bg-card px-1.5 py-0.5 font-mono text-[11px] font-black uppercase tracking-wider opacity-70"
+          style={{ color: 'var(--color-terra)', 'border-color': 'var(--color-terra)', 'text-shadow': '0 0 1px rgba(168,67,31,.35)' }}
+        >
+          BDH
+        </span>
+      </Show>
+      {/* Réf. commande·ligne — clé, pleine largeur (tooltip = valeur complète) */}
       <div class="truncate font-mono text-[12px] font-bold leading-tight text-foreground" title={p.article}>
         {p.article}
       </div>
-      {/* Article (PF) + tampon « BDH » si consomme bouche (issue #42). */}
+      {/* Article (PF) */}
       <Show when={p.ord}>
-        <div class="mt-1 flex items-center justify-between gap-1.5">
-          <div class="truncate font-mono text-[11px] font-semibold leading-tight text-terra" title={p.ord}>
-            {p.ord}
-          </div>
-          <Show when={p.consommeBouche}>
-            <span
-              class="shrink-0 rotate-[-7deg] rounded border px-1.5 py-0.5 font-mono text-[11px] font-bold uppercase tracking-wider opacity-60"
-              style={{ color: 'var(--color-terra)', 'border-color': 'var(--color-terra)' }}
-            >
-              BDH
-            </span>
-          </Show>
+        <div class="mt-1 truncate font-mono text-[11px] font-semibold leading-tight text-terra" title={p.ord}>
+          {p.ord}
         </div>
       </Show>
       <div class="truncate text-[11px] font-medium leading-tight text-muted-foreground" title={p.title}>
@@ -242,19 +241,18 @@ const OfBody: Component<{
       : 0
   return (
     <>
-      {/* N° OF + tampon « BDH » (consomme bouche, issue #42) sur la même ligne :
-          flex → pas de chevauchement, pas de troncature du n°. */}
-      <div class="flex items-center justify-between gap-1.5">
-        <div class="truncate font-mono text-[12px] font-bold leading-tight text-foreground">{p.article}</div>
-        <Show when={p.consommeBouche}>
-          <span
-            class="shrink-0 rotate-[-7deg] rounded border px-1.5 py-0.5 font-mono text-[11px] font-bold uppercase tracking-wider opacity-60"
-            style={{ color: 'var(--color-terra)', 'border-color': 'var(--color-terra)' }}
-          >
-            BDH
-          </span>
-        </Show>
-      </div>
+      {/* Tampon « BDH » = consomme une bouche (issue #42). Absolu, fond carte pour
+          masquer proprement — le n° OF garde toute la largeur (pas de troncature). */}
+      <Show when={p.consommeBouche}>
+        <span
+          class="absolute right-1.5 top-1.5 rotate-[-7deg] rounded border bg-card px-1.5 py-0.5 font-mono text-[11px] font-black uppercase tracking-wider opacity-70"
+          style={{ color: 'var(--color-terra)', 'border-color': 'var(--color-terra)', 'text-shadow': '0 0 1px rgba(168,67,31,.35)' }}
+        >
+          BDH
+        </span>
+      </Show>
+      {/* N° OF — pleine largeur (truncate seulement si réellement trop long). */}
+      <div class="truncate font-mono text-[12px] font-bold leading-tight text-foreground">{p.article}</div>
       <Show when={p.articleRef}>
         <div class="truncate font-mono text-[11px] font-semibold leading-tight text-terra">{p.articleRef}</div>
       </Show>

@@ -65,6 +65,11 @@ export interface OrderLineRow {
   meta: { k: string; v: string }[]
   dayCells: DayCell[]
   weekLoads: WeekLoad[]
+  /** Présent seulement sur la ligne PP_830 — header d'équilibrage (issue #42). */
+  pp830?: {
+    chargeByTypo: { typo: string; sans: number; bouche: number }[]
+    stockBouchesHygro: number | null
+  }
 }
 
 /** Composant BOM d'une ligne (miroir de lineDetail.bom). */

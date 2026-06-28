@@ -58,6 +58,10 @@ interface LineRow {
   meta: { k: string; v: string }[]
   dayCells: DayCell[]
   weekLoads: { week: number; hours: number; pct: number; barClass: string }[]
+  pp830?: {
+    chargeByTypo: { typo: string; sans: number; bouche: number }[]
+    stockBouchesHygro: number | null
+  }
 }
 
 interface OrderBoardData {
@@ -381,17 +385,30 @@ export async function loadOrderBoardData(
   let x3Error: string | null = null
   let bdhParents: Set<string> = new Set()
   let typologieByArticle = new Map<string, string>()
+  let stockBouchesHygro: number | null = null
 
   try {
-    const [ref, demandRecep, bdh, articlesList] = await Promise.all([
+    const [ref, demandRecep, bdh, articlesList, bouchesHygro] = await Promise.all([
       boardDataset.getReferential(force),
       boardDataset.getDemandAndReception(isoDay(windowStart), isoDay(windowEnd), force),
       staticSync.readBdhParents().catch(() => new Set<string>()),
       boardDataset.getArticles(),
+      staticSync.readBouchesHygroSet().catch(() => new Set<string>()),
     ])
     gammeOps = ref.gamme
     bdhParents = bdh
     for (const a of articlesList) if (a.typologie) typologieByArticle.set(a.code, a.typologie)
+    // Stock des bouches hygro (strict+qc) pour le header PP_830 (issue #42).
+    const bouches = [...bouchesHygro]
+    if (bouches.length > 0) {
+      stockBouchesHygro = 0
+      const flows = await boardDataset.getStock(bouches).catch(() => [] as Flow[])
+      for (const f of flows) {
+        if (f.origin.type !== 'stock') continue
+        const sub = (f.origin as { subType?: string }).subType
+        if (sub === 'strict' || sub === 'qc') stockBouchesHygro += f.quantity
+      }
+    }
     ordreLignes = demandRecep.demand
       .filter((f): f is Flow & { date: Date } => {
         if (f.date === null) return false
@@ -442,6 +459,7 @@ export async function loadOrderBoardData(
     totalHours: number
     dayHours: number[]
     lineCount: number
+    byTypo: Map<string, { sans: number; bouche: number }>
   }
   const buckets = new Map<string, Bucket>()
 
@@ -479,6 +497,7 @@ export async function loadOrderBoardData(
         totalHours: 0,
         dayHours: new Array<number>(colDates.length).fill(0),
         lineCount: 0,
+        byTypo: new Map<string, { sans: number; bouche: number }>(),
       })
     }
     const b = buckets.get(workstation)!
@@ -486,6 +505,14 @@ export async function loadOrderBoardData(
     b.totalHours += hours
     b.dayHours[idx] += hours
     b.lineCount++
+    // Charge par typo (split bouche) — header PP_830 (issue #42).
+    const typo = typologieByArticle.get(line.article)
+    if (typo) {
+      const cur = b.byTypo.get(typo) ?? { sans: 0, bouche: 0 }
+      if (bdhParents.has(line.article)) cur.bouche += hours
+      else cur.sans += hours
+      b.byTypo.set(typo, cur)
+    }
   }
 
   const now = atMidnight(new Date())
@@ -528,6 +555,17 @@ export async function loadOrderBoardData(
         { k: 'CHG', v: `${Math.round(bucket.totalHours)}h` },
         { k: 'WST', v: code },
       ],
+      // Header PP_830 (issue #42) : charge par typo (split bouche) + stock bouches hygro.
+      ...(code === 'PP_830'
+        ? {
+            pp830: {
+              chargeByTypo: [...bucket.byTypo.entries()]
+                .map(([typo, v]) => ({ typo, sans: Math.round(v.sans), bouche: Math.round(v.bouche) }))
+                .sort((a, b) => (b.sans + b.bouche) - (a.sans + a.bouche)),
+              stockBouchesHygro,
+            },
+          }
+        : {}),
       dayCells: bucket.dayCards.map((cards, i) => ({
         cellClass: days[i].today ? 'bg-blue-50/10' : '',
         cards,
