@@ -252,7 +252,7 @@ const OfBody: Component<{
           {p.alert}
         </div>
       </Show>
-      <div class="mt-2 flex items-center gap-2 border-t border-rule-soft pt-1.5">
+      <div class="mt-2 flex flex-wrap items-center gap-1 border-t border-rule-soft pt-1.5">
         <Show when={p.consommeBouche}>
           <span class="rounded bg-blue-100 px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-blue-700">
             bouche

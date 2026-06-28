@@ -917,11 +917,7 @@ export default class SchedulerController {
                     ? [{ k: 'bouches', v: String(stockBouchesHygro) }]
                     : []),
                 ]
-              : [
-                  { k: 'OF', v: String(meta.ofCount) },
-                  { k: 'CHG', v: `${Math.round(meta.totalHours)}h` },
-                  { k: 'WST', v: code },
-                ],
+              : [],
           dayCells: dayCardArrays.map((cards, i) => ({
             cellClass: days[i].today ? 'bg-blue-50/10' : '',
             cards,

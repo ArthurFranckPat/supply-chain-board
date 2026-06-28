@@ -231,17 +231,22 @@ export default function BoardGrid(props: {
                   maxHours={maxLineHours()}
                   variant="line"
                 />
-                {/* Meta : charge par typologie + stock bouches hygro sur PP_830 (issue #42). */}
+                {/* PP_830 — équilibrage (issue #42) : charge par typo + stock bouches hygro. */}
                 <Show when={line.meta.length > 0}>
-                  <div class="flex flex-wrap gap-1">
-                    <For each={line.meta}>
-                      {(m) => (
-                        <span class="inline-flex items-center gap-1 rounded bg-rule-soft px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-secondary-foreground">
-                          <span class="text-muted-foreground">{m.k}</span>
-                          <span class="tabular-nums text-foreground">{m.v}</span>
-                        </span>
-                      )}
-                    </For>
+                  <div class="mt-0.5 rounded bg-blue-50/60 px-2 py-1">
+                    <div class="font-mono text-[8px] font-bold uppercase tracking-wider text-blue-700">
+                      Équilibrage
+                    </div>
+                    <div class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-[10px] font-semibold tabular-nums text-foreground">
+                      <For each={line.meta}>
+                        {(m) => (
+                          <span class="inline-flex items-center gap-0.5">
+                            <span class="text-muted-foreground">{m.k}</span>
+                            <span>{m.v}</span>
+                          </span>
+                        )}
+                      </For>
+                    </div>
                   </div>
                 </Show>
               </div>
