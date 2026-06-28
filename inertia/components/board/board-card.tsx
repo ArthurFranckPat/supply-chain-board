@@ -177,13 +177,13 @@ const CommandeBody: Component<{
     <>
       {/* Type (MTS/MTO/NOR) à gauche + n° commande en gras + ligne plus claire.
           Pleine largeur (le tampon BDH est sur la ligne de l'article, pas ici). */}
-      <div class="flex items-center gap-1.5" title={p.article}>
+      <div class="flex items-center gap-1.5 overflow-hidden" title={p.article}>
         <Show when={p.type}>
           <span class="shrink-0 rounded bg-secondary px-1 py-0.5 font-mono text-[8px] font-bold uppercase tracking-wider text-secondary-foreground">
             {p.type}
           </span>
         </Show>
-        <span class="truncate font-mono text-[12px] font-bold leading-tight text-foreground">{cmd()}</span>
+        <span class="shrink-0 whitespace-nowrap font-mono text-[12px] font-bold leading-tight text-foreground">{cmd()}</span>
         <Show when={ligne()}>
           <span class="shrink-0 font-mono text-[10px] font-medium leading-tight text-muted-foreground">·{ligne()}</span>
         </Show>
