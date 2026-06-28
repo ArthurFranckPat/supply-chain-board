@@ -55,6 +55,23 @@ export interface LineRow {
   meta: { k: string; v: string }[]
   dayCells: DayCell[]
   weekLoads: WeekLoad[]
+  /** Présent seulement sur la ligne PP_830 — header d'équilibrage (issue #42). */
+  pp830?: {
+    chargeByTypo: { typo: string; hours: number }[]
+    stockBouchesHygro: number | null
+  }
+}
+
+/**
+ * Map typo X3 (TSICOD_4) → {label, couleur}. Décision user (issue #42) :
+ * HYGRO=bleu, DHU=orange, AUTO=jaune, PURAIR=vert, AUTOSENS=violet.
+ */
+export const TYPO_META: Record<string, { label: string; color: string }> = {
+  ESH10: { label: 'AUTO', color: '#eab308' },
+  ESH20: { label: 'DHU', color: '#ea580c' },
+  ESH30: { label: 'HYGRO', color: '#2563eb' },
+  ESH40: { label: 'PURAIR', color: '#5b7d4e' },
+  ESH60: { label: 'AUTOSENS', color: '#6d4bb0' },
 }
 
 export interface WeekSpan {

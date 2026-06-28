@@ -156,11 +156,6 @@ function makeCard(p: {
 
 const DAY_MS = 86_400_000
 
-/** TSICOD_4 → libellé court pour le header de ligne PP_830 (issue #42). */
-const PP_TYPO_SHORT: Record<string, string> = {
-  ESH10: 'AUTO', ESH20: 'DHU', ESH30: 'HYGRO', ESH40: 'PURAIR', ESH60: 'AUTOSENS',
-}
-
 const isoDay = (d: Date) => {
   const y = d.getFullYear()
   const m = String(d.getMonth() + 1).padStart(2, '0')
@@ -906,18 +901,18 @@ export default class SchedulerController {
           name: wstLabels.get(code) ?? code,
           code,
           dot: 'bg-emerald-500',
-          meta:
-            code === 'PP_830'
-              ? [
-                  // Header PP_830 (issue #42) : charge par typologie + stock bouches hygro (goulot).
-                  ...[...meta.byTypo.entries()]
+          meta: [],
+          // Header PP_830 (issue #42) : charge par typologie + stock bouches hygro (goulot).
+          ...(code === 'PP_830'
+            ? {
+                pp830: {
+                  chargeByTypo: [...meta.byTypo.entries()]
                     .sort((a, b) => b[1] - a[1])
-                    .map(([typo, h]) => ({ k: PP_TYPO_SHORT[typo] ?? typo, v: `${Math.round(h)}h` })),
-                  ...(stockBouchesHygro !== null
-                    ? [{ k: 'bouches', v: String(stockBouchesHygro) }]
-                    : []),
-                ]
-              : [],
+                    .map(([typo, hours]) => ({ typo, hours: Math.round(hours) })),
+                  stockBouchesHygro,
+                },
+              }
+            : {}),
           dayCells: dayCardArrays.map((cards, i) => ({
             cellClass: days[i].today ? 'bg-blue-50/10' : '',
             cards,

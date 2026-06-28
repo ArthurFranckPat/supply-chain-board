@@ -1,5 +1,6 @@
 import { Show, type Component, type JSX } from 'solid-js'
 import { cx } from '@/libs/cva'
+import { TYPO_META } from '@/lib/board/types'
 
 /**
  * BoardCard « Papier » — carte unifiée du board.
@@ -112,7 +113,6 @@ export const BoardCard: Component<BoardCardProps> = (props) => {
         hours={props.hours}
         consommeBouche={props.consommeBouche}
         typologie={props.typologie}
-        kitGpe={props.kitGpe}
       />
     )
 
@@ -215,20 +215,25 @@ const OfBody: Component<{
   hours: string
   consommeBouche?: boolean
   typologie?: string
-  kitGpe?: 'KIT' | 'GPE'
 }> = (p) => {
-  // TSICOD_4 → libellé court lisible (issue #42). Inconnu → on garde le code brut.
-  const TYPO_LABEL: Record<string, string> = {
-    ESH10: 'AUTO', ESH20: 'DHU', ESH30: 'HYGRO', ESH40: 'PURAIR', ESH60: 'AUTOSENS',
-  }
+  const typo = () => (p.typologie ? TYPO_META[p.typologie] : undefined)
   const pct = () =>
     p.progress && p.progress.total > 0
       ? Math.min(100, Math.round((p.progress.done / p.progress.total) * 100))
       : 0
   return (
     <>
-      {/* Couple OF / article */}
-      <div class="truncate font-mono text-[12px] font-bold leading-tight text-foreground">{p.article}</div>
+      {/* Tampon « BDH » = consomme une bouche (issue #42). Absolu → positionné au card root. */}
+      <Show when={p.consommeBouche}>
+        <span
+          class="pointer-events-none absolute right-1.5 top-1.5 rotate-[-7deg] rounded border px-1 py-px font-mono text-[9px] font-bold uppercase tracking-wider opacity-50"
+          style={{ color: 'var(--color-terra)', 'border-color': 'var(--color-terra)' }}
+        >
+          BDH
+        </span>
+      </Show>
+      {/* Couple OF / article — pr margin-right pour laisser le tampon respirer. */}
+      <div class="truncate pr-9 font-mono text-[12px] font-bold leading-tight text-foreground">{p.article}</div>
       <Show when={p.articleRef}>
         <div class="truncate font-mono text-[11px] font-semibold leading-tight text-terra">{p.articleRef}</div>
       </Show>
@@ -252,27 +257,15 @@ const OfBody: Component<{
           {p.alert}
         </div>
       </Show>
-      <div class="mt-2 flex flex-wrap items-center gap-1 border-t border-rule-soft pt-1.5">
-        <Show when={p.consommeBouche}>
-          <span class="rounded bg-blue-100 px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-blue-700">
-            bouche
-          </span>
-        </Show>
-        <Show when={p.typologie}>
-          <span class="rounded bg-terra-soft px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-terra">
-            {TYPO_LABEL[p.typologie!] ?? p.typologie}
-          </span>
-        </Show>
-        <Show when={p.kitGpe}>
-          <span class="rounded bg-rule-soft px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-secondary-foreground">
-            {p.kitGpe}
-          </span>
-        </Show>
-        <Show when={p.poste}>
-          <span class="inline-flex items-center gap-1.5 font-mono text-[10px] font-semibold text-secondary-foreground">
-            <span class={cx('size-[7px] rounded-[2px]', TONE_FILL[p.status])} />
-            {p.poste}
-          </span>
+      {/* Footer mono-ligne (hauteur fixe) : point couleur typo + label · heures. */}
+      <div class="mt-2 flex items-center gap-1.5 border-t border-rule-soft pt-1.5">
+        <Show when={typo()}>
+          {(t) => (
+            <span class="inline-flex items-center gap-1 font-mono text-[9px] font-bold uppercase tracking-wider text-secondary-foreground">
+              <span class="size-[8px] rounded-[2px]" style={{ background: t().color }} />
+              {t().label}
+            </span>
+          )}
         </Show>
         <span class="ml-auto font-fraunces text-[14px] font-bold tabular-nums">
           {p.hours}

@@ -2,6 +2,7 @@ import { For, Show, createMemo, createSignal, type JSX } from 'solid-js'
 import { cx } from '@/libs/cva'
 import type { BoardStore } from '@/lib/board/store'
 import type { Card, LineRow } from '@/lib/board/types'
+import { TYPO_META } from '@/lib/board/types'
 import { BoardCard, type CardStatus } from './board-card'
 import { ChargeHistogram, type ChargeWeek } from './charge-histogram'
 
@@ -231,23 +232,51 @@ export default function BoardGrid(props: {
                   maxHours={maxLineHours()}
                   variant="line"
                 />
-                {/* PP_830 — équilibrage (issue #42) : charge par typo + stock bouches hygro. */}
-                <Show when={line.meta.length > 0}>
-                  <div class="mt-0.5 rounded bg-blue-50/60 px-2 py-1">
-                    <div class="font-mono text-[8px] font-bold uppercase tracking-wider text-blue-700">
-                      Équilibrage
-                    </div>
-                    <div class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-[10px] font-semibold tabular-nums text-foreground">
-                      <For each={line.meta}>
-                        {(m) => (
-                          <span class="inline-flex items-center gap-0.5">
-                            <span class="text-muted-foreground">{m.k}</span>
-                            <span>{m.v}</span>
-                          </span>
-                        )}
-                      </For>
-                    </div>
-                  </div>
+                {/* PP_830 — équilibrage (issue #42, header M1) : barre empilée typo + stock bouches hygro. */}
+                <Show when={line.pp830}>
+                  {(pp) => {
+                    const total = () => pp().chargeByTypo.reduce((s, t) => s + t.hours, 0) || 1
+                    return (
+                      <div class="mt-1.5">
+                        <div class="flex h-[6px] overflow-hidden rounded-full bg-rule-soft">
+                          <For each={pp().chargeByTypo}>
+                            {(t) => (
+                              <span
+                                class="block h-full"
+                                style={{
+                                  width: `${(t.hours / total()) * 100}%`,
+                                  background: TYPO_META[t.typo]?.color ?? 'var(--color-muted-foreground)',
+                                }}
+                              />
+                            )}
+                          </For>
+                        </div>
+                        <div class="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 font-mono text-[9px] font-bold uppercase tracking-wider">
+                          <For each={pp().chargeByTypo}>
+                            {(t) => (
+                              <span class="inline-flex items-center gap-1">
+                                <span
+                                  class="size-[7px] rounded-[1px]"
+                                  style={{ background: TYPO_META[t.typo]?.color ?? 'var(--color-muted-foreground)' }}
+                                />
+                                <span class="text-muted-foreground">{TYPO_META[t.typo]?.label ?? t.typo}</span>
+                                <span class="tabular-nums text-foreground">{t.hours}h</span>
+                              </span>
+                            )}
+                          </For>
+                        </div>
+                        <Show when={pp().stockBouchesHygro !== null}>
+                          <div class="mt-1 flex items-baseline gap-1 text-[10px] text-muted-foreground">
+                            <span>Bouches hygro</span>
+                            <span class="font-fraunces text-[14px] font-bold tabular-nums" style={{ color: 'var(--color-terra)' }}>
+                              {pp().stockBouchesHygro}
+                            </span>
+                            <span>pcs</span>
+                          </div>
+                        </Show>
+                      </div>
+                    )
+                  }}
                 </Show>
               </div>
 
