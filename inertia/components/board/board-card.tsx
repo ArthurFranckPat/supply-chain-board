@@ -175,16 +175,8 @@ const CommandeBody: Component<{
   const ligne = () => refParts()[1]
   return (
     <>
-      {/* Tampon « BDH » si l'article consomme une bouche (issue #42). Absolu, fond carte. */}
-      <Show when={p.consommeBouche}>
-        <span
-          class="absolute right-1.5 top-1.5 rotate-[-7deg] rounded border bg-card px-1.5 py-0.5 font-mono text-[11px] font-black uppercase tracking-wider opacity-70"
-          style={{ color: 'var(--color-terra)', 'border-color': 'var(--color-terra)', 'text-shadow': '0 0 1px rgba(168,67,31,.35)' }}
-        >
-          BDH
-        </span>
-      </Show>
-      {/* Type (MTS/MTO/NOR) à gauche + n° commande en gras + ligne plus claire. */}
+      {/* Type (MTS/MTO/NOR) à gauche + n° commande en gras + ligne plus claire.
+          Pleine largeur (le tampon BDH est sur la ligne de l'article, pas ici). */}
       <div class="flex items-center gap-1.5" title={p.article}>
         <Show when={p.type}>
           <span class="shrink-0 rounded bg-secondary px-1 py-0.5 font-mono text-[8px] font-bold uppercase tracking-wider text-secondary-foreground">
@@ -196,10 +188,20 @@ const CommandeBody: Component<{
           <span class="shrink-0 font-mono text-[10px] font-medium leading-tight text-muted-foreground">·{ligne()}</span>
         </Show>
       </div>
-      {/* Article (PF) */}
-      <Show when={p.ord}>
-        <div class="mt-1 truncate font-mono text-[11px] font-semibold leading-tight text-terra" title={p.ord}>
-          {p.ord}
+      {/* Article (PF) + tampon « BDH » (consomme bouche, issue #42) sur la même ligne. */}
+      <Show when={p.ord || p.consommeBouche}>
+        <div class="mt-1 flex items-center justify-between gap-1.5">
+          <div class="truncate font-mono text-[11px] font-semibold leading-tight text-terra" title={p.ord}>
+            {p.ord}
+          </div>
+          <Show when={p.consommeBouche}>
+            <span
+              class="shrink-0 rotate-[-7deg] rounded border bg-card px-1.5 py-0.5 font-mono text-[11px] font-black uppercase tracking-wider opacity-70"
+              style={{ color: 'var(--color-terra)', 'border-color': 'var(--color-terra)', 'text-shadow': '0 0 1px rgba(168,67,31,.35)' }}
+            >
+              BDH
+            </span>
+          </Show>
         </div>
       </Show>
       <div class="truncate text-[11px] font-medium leading-tight text-muted-foreground" title={p.title}>
