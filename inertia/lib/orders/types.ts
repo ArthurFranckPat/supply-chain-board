@@ -28,6 +28,8 @@ export interface OrderCard {
   consommeBouche?: boolean
   /** Typologie X3 (TSICOD_4) du PF — ex: ESH10=AUTO, ESH30=HYGRO (issue #42). */
   typologie?: string
+  /** Quantité (reste à livrer) — footer (issue #42). */
+  qty?: number
 }
 
 /** Portée de la recherche live. */

@@ -66,6 +66,8 @@ export type CommandeCardProps = Common & {
   consommeBouche?: boolean
   /** Typologie X3 (TSICOD_4) du PF (issue #42). */
   typologie?: string
+  /** Quantité (reste à livrer) — footer. */
+  qty?: number
 }
 
 export type OfCardProps = Common & {
@@ -102,6 +104,8 @@ export const BoardCard: Component<BoardCardProps> = (props) => {
         mod={props.mod}
         hours={props.hours}
         consommeBouche={props.consommeBouche}
+        typologie={props.typologie}
+        qty={props.qty}
       />
     ) : (
       <OfBody
@@ -162,6 +166,7 @@ const CommandeBody: Component<{
   hours: string
   consommeBouche?: boolean
   typologie?: string
+  qty?: number
 }> = (p) => {
   const typo = () => (p.typologie ? TYPO_META[p.typologie] : undefined)
   return (
@@ -193,24 +198,30 @@ const CommandeBody: Component<{
           {p.client}
         </div>
       </Show>
-      <div class="mt-2 flex items-center gap-1.5 border-t border-rule-soft pt-1.5">
+      {/* Footer V1 (issue #42) : pastille typo pleine + type + qté + heures. */}
+      <div class="mt-2 flex items-center gap-1 border-t border-rule-soft pt-1.5">
         <Show when={p.mod}>
           <span class="inline-flex items-center gap-0.5 font-mono text-[8px] font-semibold uppercase tracking-wider text-suggere">
-            <span class="material-symbols-outlined text-[11px]">edit</span>Mod.
+            <span class="material-symbols-outlined text-[11px]">edit</span>
           </span>
         </Show>
         <Show when={typo()}>
           {(t) => (
-            <span class="inline-flex items-center gap-1 font-mono text-[9px] font-bold uppercase tracking-wider text-secondary-foreground">
-              <span class="size-[8px] rounded-[2px]" style={{ background: t().color }} />
+            <span
+              class="rounded px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider"
+              style={{ background: t().color, color: t().text }}
+            >
               {t().label}
             </span>
           )}
         </Show>
         <Show when={p.type}>
-          <span class="rounded bg-terra-soft px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-terra">
+          <span class="rounded bg-secondary px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-secondary-foreground">
             {p.type}
           </span>
+        </Show>
+        <Show when={p.qty !== undefined}>
+          <span class="font-mono text-[10px] font-semibold text-muted-foreground">×{p.qty}</span>
         </Show>
         <span class="ml-auto font-fraunces text-[14px] font-bold tabular-nums">
           {p.hours}

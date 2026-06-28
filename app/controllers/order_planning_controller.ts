@@ -36,6 +36,8 @@ interface Card {
   consommeBouche?: boolean
   /** Typologie X3 (TSICOD_4) du PF (issue #42). */
   typologie?: string
+  /** Quantité (reste à livrer). */
+  qty?: number
 }
 
 interface DayCol {
@@ -144,6 +146,7 @@ function makeOrderCard(p: {
     customer: p.client,
     consommeBouche: p.consommeBouche,
     typologie: p.typologie,
+    qty: p.quantite,
   }
 }
 
