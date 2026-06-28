@@ -169,6 +169,10 @@ const CommandeBody: Component<{
   qty?: number
 }> = (p) => {
   const typo = () => (p.typologie ? TYPO_META[p.typologie] : undefined)
+  // p.article au format « numCommande·Ligne » (fmtRef) → on sépare pour bolder le n°.
+  const refParts = () => p.article.split('·')
+  const cmd = () => refParts()[0] ?? p.article
+  const ligne = () => refParts()[1]
   return (
     <>
       {/* Tampon « BDH » si l'article consomme une bouche (issue #42). Absolu, fond carte. */}
@@ -180,9 +184,17 @@ const CommandeBody: Component<{
           BDH
         </span>
       </Show>
-      {/* Réf. commande·ligne — clé, pleine largeur (tooltip = valeur complète) */}
-      <div class="truncate font-mono text-[12px] font-bold leading-tight text-foreground" title={p.article}>
-        {p.article}
+      {/* Type (MTS/MTO/NOR) à gauche + n° commande en gras + ligne plus claire. */}
+      <div class="flex items-center gap-1.5" title={p.article}>
+        <Show when={p.type}>
+          <span class="shrink-0 rounded bg-secondary px-1 py-0.5 font-mono text-[8px] font-bold uppercase tracking-wider text-secondary-foreground">
+            {p.type}
+          </span>
+        </Show>
+        <span class="truncate font-mono text-[12px] font-bold leading-tight text-foreground">{cmd()}</span>
+        <Show when={ligne()}>
+          <span class="shrink-0 font-mono text-[10px] font-medium leading-tight text-muted-foreground">·{ligne()}</span>
+        </Show>
       </div>
       {/* Article (PF) */}
       <Show when={p.ord}>
@@ -215,11 +227,6 @@ const CommandeBody: Component<{
               {t().label}
             </span>
           )}
-        </Show>
-        <Show when={p.type}>
-          <span class="rounded bg-secondary px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-secondary-foreground">
-            {p.type}
-          </span>
         </Show>
         <span class="ml-auto flex items-baseline gap-1">
           <Show when={p.qty !== undefined}>
