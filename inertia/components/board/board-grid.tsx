@@ -396,6 +396,8 @@ function CardView(props: {
         feas={feas()}
         alert={alert()}
         consommeBouche={card.consommeBouche}
+        typologie={card.typologie}
+        kitGpe={card.kitGpe}
       />
     </div>
   )

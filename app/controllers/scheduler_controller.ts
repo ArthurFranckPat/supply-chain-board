@@ -43,6 +43,10 @@ interface Card {
   metric: string | null
   hours: number
   consommeBouche?: boolean
+  /** Typologie fine X3 (TSICOD_4) du PF — ex: ESH10=AUTO, ESH30=HYGRO. Issue #42. */
+  typologie?: string
+  /** Forme produit : KIT (consomme accessoires/bouches) vs GPE (équipement seul). Issue #42. */
+  kitGpe?: 'KIT' | 'GPE'
 }
 
 interface DayCol {
@@ -122,6 +126,8 @@ function makeCard(p: {
   metric?: string | null
   hours?: number
   consommeBouche?: boolean
+  typologie?: string
+  kitGpe?: 'KIT' | 'GPE'
 }): Card {
   // Présentation = data seule (statut, article, qté…) — le frontend (board-card)
   // dérive tout le styling du `status` (TONE_BORDER/TONE_FILL). Plus de classes
@@ -139,6 +145,8 @@ function makeCard(p: {
     metric: p.metric ?? null,
     hours: p.hours ?? 0,
     consommeBouche: p.consommeBouche,
+    typologie: p.typologie,
+    kitGpe: p.kitGpe,
   }
 }
 
@@ -197,8 +205,21 @@ function moStatusToCard(status: number): CardStatus {
   }
 }
 
+/** Détecte la forme produit (KIT vs GPE) depuis la désignation X3 — ex: « ESHKIT … », « ESHGPE … ». */
+function detectKitGpe(designation: string | null): 'KIT' | 'GPE' | undefined {
+  if (!designation) return undefined
+  const m = /^(ESH)?(KIT|GPE)\b/i.exec(designation.trim())
+  return m ? (m[2].toUpperCase() as 'KIT' | 'GPE') : undefined
+}
+
 /** Build a Card from a ManufacturingOrder + optional progress info. */
-function moToCard(mo: ManufacturingOrder, rate: number, workstationLabel: string | null, bdhParents: Set<string>): Card {
+function moToCard(
+  mo: ManufacturingOrder,
+  rate: number,
+  workstationLabel: string | null,
+  bdhParents: Set<string>,
+  typologieByArticle: Map<string, string>,
+): Card {
   const status = moStatusToCard(mo.status)
   const hours = rate > 0 ? Math.round((mo.quantity / rate) * 10) / 10 : 0
   const progress =
@@ -220,6 +241,8 @@ function moToCard(mo: ManufacturingOrder, rate: number, workstationLabel: string
     metric: `${mo.quantityDone}/${mo.quantityLaunched}`,
     hours,
     consommeBouche: bdhParents.has(mo.article),
+    typologie: typologieByArticle.get(mo.article),
+    kitGpe: detectKitGpe(mo.designation),
   })
 }
 
@@ -695,20 +718,24 @@ export default class SchedulerController {
     let gammeOps: GammeOperation[] = []
     let x3Error: string | null = null
     let bdhParents: Set<string> = new Set()
+    let typologieByArticle = new Map<string, string>()
 
     try {
-      const [ref, ord, bdh] = await timeStage('loadBoardData.datasets', () =>
+      const [ref, ord, bdh, articlesList] = await timeStage('loadBoardData.datasets', () =>
         Promise.all([
           timeStage('loadBoardData.referential', () => boardDataset.getReferential(force)),
           // Filtre STRDAT (fenêtre courte) au lieu de lookback 90j ENDDAT → ~25× moins de lignes ZSOAPSQL O(n²).
           // Coalescé avec getOrdersForWindow dans loadOrderImpacts → 1 seul SOAP pour les deux.
           timeStage('loadBoardData.orders', () => boardDataset.getOrdersForWindow(windowStart, windowEnd, force)),
           staticSync.readBdhParents().catch(() => new Set<string>()),
+          // Typologie (TSICOD_4) par article — expose ESH10-60 sur les cartes OF (issue #42).
+          boardDataset.getArticles(),
         ])
       )
       gammeOps = ref.gamme
       mos = [...ord.mos]
       bdhParents = bdh
+      for (const a of articlesList) if (a.typologie) typologieByArticle.set(a.code, a.typologie)
     } catch (e) {
       x3Error = (e as Error).message
     }
@@ -774,7 +801,7 @@ export default class SchedulerController {
       dayHours[idx] += hours
 
       const wstLabel = wstLabels.get(wst) ?? wst
-      const cardObj = moToCard(mo, rate, wstLabel, bdhParents)
+      const cardObj = moToCard(mo, rate, wstLabel, bdhParents, typologieByArticle)
 
       if (!cardsByLineDay.has(wst)) {
         cardsByLineDay.set(

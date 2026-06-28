@@ -20,6 +20,8 @@ export interface Card {
   metric: string | null
   hours: number
   consommeBouche?: boolean
+  typologie?: string
+  kitGpe?: 'KIT' | 'GPE'
 }
 
 export interface DayCol {

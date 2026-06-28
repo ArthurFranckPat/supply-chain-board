@@ -77,6 +77,10 @@ export type OfCardProps = Common & {
   alert?: string
   /** OF dont la nomenclature contient un composant BDH (issue #28). */
   consommeBouche?: boolean
+  /** Typologie fine X3 (TSICOD_4) du PF — ex: ESH10, ESH30 (issue #42). */
+  typologie?: string
+  /** Forme produit : KIT vs GPE (issue #42). */
+  kitGpe?: 'KIT' | 'GPE'
 }
 
 export type BoardCardProps = CommandeCardProps | OfCardProps
@@ -107,6 +111,8 @@ export const BoardCard: Component<BoardCardProps> = (props) => {
         alert={props.alert}
         hours={props.hours}
         consommeBouche={props.consommeBouche}
+        typologie={props.typologie}
+        kitGpe={props.kitGpe}
       />
     )
 
@@ -181,7 +187,7 @@ const CommandeBody: Component<{
       </Show>
       <Show when={p.consommeBouche}>
         <span class="rounded bg-blue-100 px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-blue-700">
-          hygro
+          bouche
         </span>
       </Show>
       <Show when={p.type}>
@@ -208,7 +214,13 @@ const OfBody: Component<{
   alert?: string
   hours: string
   consommeBouche?: boolean
+  typologie?: string
+  kitGpe?: 'KIT' | 'GPE'
 }> = (p) => {
+  // TSICOD_4 → libellé court lisible (issue #42). Inconnu → on garde le code brut.
+  const TYPO_LABEL: Record<string, string> = {
+    ESH10: 'AUTO', ESH20: 'DHU', ESH30: 'HYGRO', ESH40: 'PURAIR', ESH60: 'AUTOSENS',
+  }
   const pct = () =>
     p.progress && p.progress.total > 0
       ? Math.min(100, Math.round((p.progress.done / p.progress.total) * 100))
@@ -243,7 +255,17 @@ const OfBody: Component<{
       <div class="mt-2 flex items-center gap-2 border-t border-rule-soft pt-1.5">
         <Show when={p.consommeBouche}>
           <span class="rounded bg-blue-100 px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-blue-700">
-            hygro
+            bouche
+          </span>
+        </Show>
+        <Show when={p.typologie}>
+          <span class="rounded bg-terra-soft px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-terra">
+            {TYPO_LABEL[p.typologie!] ?? p.typologie}
+          </span>
+        </Show>
+        <Show when={p.kitGpe}>
+          <span class="rounded bg-rule-soft px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-secondary-foreground">
+            {p.kitGpe}
           </span>
         </Show>
         <Show when={p.poste}>
