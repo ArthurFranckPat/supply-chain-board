@@ -3,6 +3,7 @@ import { cx } from '@/libs/cva'
 import type { BoardStore } from '@/lib/board/store'
 import type { Card, LineRow } from '@/lib/board/types'
 import { TYPO_META } from '@/lib/board/types'
+import { usePrintFit } from '@/lib/board/use-print-fit'
 import { BoardCard, type CardStatus } from './board-card'
 import { ChargeHistogram, type ChargeWeek } from './charge-histogram'
 
@@ -69,6 +70,8 @@ export default function BoardGrid(props: {
   onCellDrop?: (lineCode: string, col: number, iso: string, e: DragEvent) => void
 }) {
   const { store } = props
+  let rootEl: HTMLDivElement | undefined
+  usePrintFit(() => rootEl)
   const [draggedNumOf, setDraggedNumOf] = createSignal<string | null>(null)
   const [dropCol, setDropCol] = createSignal<string | null>(null)
 
@@ -114,7 +117,7 @@ export default function BoardGrid(props: {
     })
     return line.weekLoads.map((wl) => {
       const b = byWeek[wl.week] ?? { ferme: 0, planifie: 0, suggere: 0 }
-      return { week: wl.week, ferme: r1(b.ferme), planifie: r1(b.planifie), suggere: r1(b.suggere) }
+      return { week: wl.week, ferme: r1(b.ferme), planifie: r1(b.planifie), suggere: r1(b.suggere), induit: 0 }
     })
   }
 
@@ -137,7 +140,7 @@ export default function BoardGrid(props: {
   }
 
   return (
-    <div class="h-full overflow-auto bg-background">
+    <div ref={rootEl} data-board-root class="h-full overflow-auto bg-background">
       <div ref={props.contentRef} class="relative" style={{ 'min-width': minWidth() }}>
         {/* ═══ En-tête collant (semaines + jours) ═══ */}
         <div class="sticky top-0 z-30 bg-background shadow-[0_2px_10px_-4px_rgba(31,26,19,.18)]">

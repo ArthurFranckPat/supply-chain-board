@@ -683,13 +683,59 @@ up-drawer-dismiss { display: none; }
 :root[data-env="test"] .theme-papier ::selection { background: var(--color-terra-soft); }
 
 /* ════════════════════════════════════════════════════════════
-   Impression — tableau de bord en A3 paysage.
-   Les utilitaires Tailwind print:* gèrent le masquage des
-   éléments ; seule la règle @page nécessite du CSS natif.
+   Impression — boards & tableau de bord en A3 paysage.
+   1. les navigateurs stripent les fonds colorés par défaut → on
+      force la restitution exacte (badges MTS/MTO/NOR, pastilles
+      typo, liserés de statut, tampons BDH, barres de charge) ;
+   2. le board est normalement clippé par h-screen + overflow-auto
+      → on déroule tout pour imprimer la pleine page et on neutralise
+      le positionnement collant qui se superposerait aux sauts de page.
+      L'ajustement à la largeur A3 (zoom) est géré en JS : usePrintFit.
+   Les utilitaires Tailwind print:* gèrent le masquage des éléments
+   (ex. Masthead). @page reste du CSS natif.
    ──────────────────────────────────────────────────────────── */
 @media print {
   @page {
     size: A3 landscape;
     margin: 10mm 12mm;
+  }
+  /* Force la restitution exacte des couleurs de fond et bordures. */
+  *,
+  *::before,
+  *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  /* Déroule la page : annule h-screen / overflow-hidden qui clippent
+     le board à la seule zone visible à l'écran. */
+  html,
+  body {
+    height: auto !important;
+    overflow: visible !important;
+  }
+  .theme-papier,
+  .theme-papier .flex-1 {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+  /* Le conteneur du board (data-board-root) et son inner min-width :
+     on libère overflow et hauteur pour que tout ressorte. */
+  [data-board-root],
+  [data-board-root] > * {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+  /* En-têtes collants (jours, colonne poste) → statiques à l'impression
+     pour éviter les chevauchements entre pages. */
+  [data-board-root] .sticky {
+    position: static !important;
+  }
+  /* Barre d'outils du board : à l'impression on ne garde que le sélecteur de
+     dates (data-print-keep) — le reste (mode, statut, faisabilité, recherche…)
+     est masqué. Le Masthead l'est déjà via print:hidden. */
+  [data-print-toolbar] > *:not([data-print-keep]) {
+    display: none !important;
   }
 }

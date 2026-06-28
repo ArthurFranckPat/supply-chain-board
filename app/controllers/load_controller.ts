@@ -7,6 +7,12 @@ import type { Workstation } from '#app/domain/models/workstation'
 import { capDay } from '#app/domain/capacity'
 import { atelierLabel, atelierCategory, type AtelierCategory } from '#app/domain/atelier'
 import capacityCalendar from '#services/capacity_calendar_service'
+import staticSync from '#services/static_sync_service'
+import {
+  isManufactured,
+  requiredQuantity,
+  type NomenclatureEntry,
+} from '#app/domain/models/nomenclature'
 import cache from '@adonisjs/cache/services/main'
 
 /**
@@ -17,6 +23,10 @@ interface LoadPeriod {
   f: number
   p: number
   s: number
+  /** Charge induite (besoin brut depth-1) depuis des commandes fermes — vue commande. */
+  fi: number
+  /** Charge induite (besoin brut depth-1) depuis des prévisions — vue commande. */
+  si: number
 }
 interface LoadLine {
   code: string
@@ -85,11 +95,13 @@ const PALETTE = ['#5b7d4e', '#2f4858', '#b8862c', '#8b5cf6', '#8c7d66', '#a8431f
 
 const NB_MONTHS = 6
 
-const emptyPeriod = (): LoadPeriod => ({ f: 0, p: 0, s: 0 })
+const emptyPeriod = (): LoadPeriod => ({ f: 0, p: 0, s: 0, fi: 0, si: 0 })
 const round = (p: LoadPeriod): LoadPeriod => ({
   f: Math.round(p.f),
   p: Math.round(p.p),
   s: Math.round(p.s),
+  fi: Math.round(p.fi),
+  si: Math.round(p.si),
 })
 
 export default class LoadController {
@@ -148,12 +160,14 @@ export default class LoadController {
         let orderLines: Pick<OrderLineRow, 'article' | 'designation' | 'quantite' | 'dateLivraison' | 'nature'>[] = []
         let gammeOps: GammeOperation[] = []
         let workstations: Workstation[] = []
+        let bomByParent = new Map<string, NomenclatureEntry[]>()
         let x3Error: string | null = null
 
-        const [refR, ordR, olR] = await Promise.allSettled([
+        const [refR, ordR, olR, nomR] = await Promise.allSettled([
           boardDataset.getReferential(force),
           boardDataset.getOrdersForWindow(monthStart, horizonEnd, force),
           boardDataset.getOrderLinesForLoad(toYYYYMMDD(monthStart), toYYYYMMDD(horizonEnd), force),
+          staticSync.readNomenclatures(),
         ])
         if (refR.status === 'fulfilled') {
           gammeOps = refR.value.gamme
@@ -163,6 +177,15 @@ export default class LoadController {
         else { x3Error = x3Error ?? (ordR.reason as Error).message }
         if (olR.status === 'fulfilled') { orderLines = olR.value }
         else { x3Error = x3Error ?? (olR.reason as Error).message }
+        // BOM depth-1 (composants FABRIQUÉS) pour la charge induite (vue commande).
+        if (nomR.status === 'fulfilled') {
+          for (const e of nomR.value) {
+            if (!isManufactured(e)) continue
+            const arr = bomByParent.get(e.parentArticle)
+            if (arr) arr.push(e)
+            else bomByParent.set(e.parentArticle, [e])
+          }
+        }
 
         const gammeMap = new Map(gammeOps.map((g) => [g.article, g]))
         const wstLabels = new Map<string, string>()
@@ -250,17 +273,43 @@ export default class LoadController {
         )
 
         const cmdLines = buildLines(
-          orderLines.flatMap((l) => {
+          orderLines.flatMap((l): AggRecord[] => {
             const gamme = gammeMap.get(l.article)
             if (!gamme?.workstation) return []
             const rate = gamme.rate ?? 0
-            return [{
+            const recs: AggRecord[] = [{
               wst: gamme.workstation,
               date: atMidnight(l.dateLivraison),
               hours: rate > 0 ? l.quantite / rate : 0,
               field: (l.nature === 'PREVISION' ? 's' : 'f') as keyof LoadPeriod,
               article: `${l.article} ${l.designation ?? ''}`.trim(),
             }]
+            // Charge induite (besoin brut depth-1, issue #42) : pour chaque composant
+            // FABRIQUÉ du PF, charge sur le poste DU COMPOSANT, à la date de la
+            // commande. Brut (ni netting ni offset). Non appliqué aux OF (déjà
+            // dépendants via le CBN — sinon double-compte).
+            const bom = bomByParent.get(l.article)
+            if (bom) {
+              for (const entry of bom) {
+                const compGamme = gammeMap.get(entry.componentArticle)
+                const compPoste = compGamme?.workstation
+                if (!compPoste) continue
+                const compRate = compGamme!.rate ?? 0
+                const compQty = requiredQuantity(entry, l.quantite)
+                const compHours = compRate > 0 ? compQty / compRate : 0
+                if (compHours <= 0) continue
+                recs.push({
+                  wst: compPoste,
+                  date: atMidnight(l.dateLivraison),
+                  hours: compHours,
+                  // Induit ventilé par la nature de la commande parente :
+                  // prévision → si (suggéré), ferme → fi.
+                  field: l.nature === 'PREVISION' ? 'si' : 'fi',
+                  article: entry.componentArticle,
+                })
+              }
+            }
+            return recs
           }),
         )
 

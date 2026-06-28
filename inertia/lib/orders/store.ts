@@ -24,9 +24,13 @@ export function createOrderBoardStore(initial: OrderBoardData) {
   // Sélection des filtres : un Set vide ⇒ aucun masquage (tout visible).
   const [typeFilter, setTypeFilter] = createSignal<Set<string>>(new Set(ALL_TYPES))
   const [natureFilter, setNatureFilter] = createSignal<Set<string>>(new Set(ALL_NATURES))
+  // Filtre atelier (STOLOC, issue #36) : vide ⇒ tous les ateliers visibles.
+  const [atelierFilter, setAtelierFilter] = createSignal<Set<string>>(new Set())
 
   /** Passe le filtre type/nature (cases à cocher). */
   function passesFilters(card: OrderCard): boolean {
+    // Carte induite (ghost) : charge structurelle, toujours visible, hors filtres.
+    if (card.induit) return true
     const tf = typeFilter()
     // orderType null ⇒ visible seulement si NOR coché (fallback historique).
     const t = card.orderType ?? 'NOR'
@@ -59,6 +63,9 @@ export function createOrderBoardStore(initial: OrderBoardData) {
   function lineVisible(lineCode: string): boolean {
     const line = board.lines.find((l) => l.code === lineCode)
     if (!line) return false
+    // Filtre atelier : si des ateliers sont sélectionnés, masque les autres lignes.
+    const af = atelierFilter()
+    if (af.size > 0 && !(line.atelier && af.has(line.atelier))) return false
     return line.dayCells.some((dc) => dc.cards.some((c) => cardMatches(c, lineCode)))
   }
 
@@ -86,37 +93,65 @@ export function createOrderBoardStore(initial: OrderBoardData) {
       return next
     })
   }
+  function toggleAtelier(code: string) {
+    setAtelierFilter((prev) => {
+      const next = new Set(prev)
+      next.has(code) ? next.delete(code) : next.add(code)
+      return next
+    })
+  }
+  function clearAtelier() {
+    setAtelierFilter(new Set<string>())
+  }
 
   // ── Charge/jour live (somme des heures des cartes visibles par colonne). ──
-  const dayLoad = createMemo<number[]>(() => {
-    const sums = new Array<number>(board.cols).fill(0)
+  // Les cartes induites (card.induit) sont toujours visibles (passesFilters) →
+  // leur charge est sommeée ici comme celle des commandes directes. Split
+  // direct (commandes PF) vs amont (composants/sous-ensembles induits).
+  const dayLoadSplit = createMemo<{ direct: number[]; amont: number[] }>(() => {
+    const direct = new Array<number>(board.cols).fill(0)
+    const amont = new Array<number>(board.cols).fill(0)
     for (const line of board.lines) {
       if (!lineVisible(line.code)) continue
       line.dayCells.forEach((dc, col) => {
         for (const card of dc.cards) {
-          if (cardMatches(card, line.code)) sums[col] += card.hours
+          if (!cardMatches(card, line.code)) continue
+          if (card.induit) amont[col] += card.hours
+          else direct[col] += card.hours
         }
       })
     }
-    return sums
+    return { direct, amont }
+  })
+  const dayLoad = createMemo<number[]>(() => {
+    const { direct, amont } = dayLoadSplit()
+    return direct.map((d, i) => d + amont[i])
   })
 
-  /** Histogramme hebdo par ligne, recalculé live depuis les positions des cartes. */
+  /** Histogramme hebdo par ligne, recalculé live depuis les positions des cartes.
+   *  `direct` = cartes commandes, `induit` = cartes ghost (besoin brut depth-1),
+   *  `hours` = total (direct + induit) pour le calcul de saturation. */
   function lineWeekLoads(lineCode: string) {
     const line = board.lines.find((l) => l.code === lineCode)
     if (!line) return []
-    const byWeek: Record<number, number> = {}
+    const directByWeek: Record<number, number> = {}
+    const induitByWeek: Record<number, number> = {}
     line.dayCells.forEach((dc, col) => {
       const wk = board.colWeek[col]
       if (wk === undefined) return
-      for (const card of dc.cards) byWeek[wk] = (byWeek[wk] ?? 0) + card.hours
+      for (const card of dc.cards) {
+        if (card.induit) induitByWeek[wk] = (induitByWeek[wk] ?? 0) + card.hours
+        else directByWeek[wk] = (directByWeek[wk] ?? 0) + card.hours
+      }
     })
     return line.weekLoads.map((wl) => {
-      const hours = Math.round((byWeek[wl.week] ?? 0) * 10) / 10
+      const direct = Math.round((directByWeek[wl.week] ?? 0) * 10) / 10
+      const induit = Math.round((induitByWeek[wl.week] ?? 0) * 10) / 10
+      const total = direct + induit
       const cap = board.weekCaps[String(wl.week)] ?? 0
-      const pct = cap > 0 ? Math.round((hours / cap) * 100) : 0
+      const pct = cap > 0 ? Math.round((total / cap) * 100) : 0
       const barClass = pct > 100 ? 'bg-error' : pct >= 90 ? 'bg-blue-500' : 'bg-emerald-500'
-      return { week: wl.week, hours, pct, barClass }
+      return { week: wl.week, direct, induit, hours: total, pct, barClass }
     })
   }
 
@@ -215,15 +250,20 @@ export function createOrderBoardStore(initial: OrderBoardData) {
     scope,
     typeFilter,
     natureFilter,
+    atelierFilter,
+    ateliers: () => board.ateliers ?? [],
     cardMatches,
     lineVisible,
     dayLoad,
+    dayLoadSplit,
     lineWeekLoads,
     onQueryInput,
     onScopeChange,
     clearSearch,
     toggleType,
     toggleNature,
+    toggleAtelier,
+    clearAtelier,
     moveCard,
     resetOverride,
     reset,

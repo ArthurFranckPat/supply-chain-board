@@ -13,6 +13,10 @@ export interface LoadPeriod {
   f: number
   p: number
   s: number
+  /** Charge induite (besoin brut depth-1) depuis des commandes fermes — vue commande. */
+  fi: number
+  /** Charge induite (besoin brut depth-1) depuis des prévisions — vue commande. */
+  si: number
 }
 
 /** Capacité nette (heures) par bucket, alignée sur `monthly` / `weekly` (issue #35). */

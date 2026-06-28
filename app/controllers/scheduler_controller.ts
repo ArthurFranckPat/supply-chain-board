@@ -465,6 +465,7 @@ export default class SchedulerController {
             ? {
                 days: orderBoardData.days,
                 lines: orderBoardData.lines,
+                ateliers: orderBoardData.ateliers,
                 weekSpans: orderBoardData.weekSpans,
                 cols: orderBoardData.cols,
                 colWeek: orderBoardData.colWeek,

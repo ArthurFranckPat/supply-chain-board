@@ -6,6 +6,13 @@ import { OrderLineOverrideStore } from '#services/order_line_override_store'
 import { X3OrderLineRepository } from '#repositories/order_line_repository'
 import { hoursForQuantity, type GammeOperation } from '#app/domain/models/gamme'
 import type { Flow } from '#app/domain/models/flow'
+import {
+  isManufactured,
+  requiredQuantity,
+  type NomenclatureEntry,
+} from '#app/domain/models/nomenclature'
+import type { Workstation } from '#app/domain/models/workstation'
+import { atelierLabel } from '#app/domain/atelier'
 
 // ---------------------------------------------------------------------------
 // Issue #10 — Mode planification (lignes de commande ouvertes).
@@ -28,7 +35,7 @@ interface Card {
   hasOverride: boolean
   /** Type commande (MTS/MTO/NOR) — pour filtre. */
   orderType: string | null
-  /** Nature besoin : COMMANDE (ARxxxx) ou PREVISION (SGAxxxx) — pour filtre. */
+  /** Nature besoin : COMMANDE (ARxxxx) / PREVISION (SGAxxxx) / INDUIT (ghost). */
   nature: string
   /** Client pour recherche scope. */
   customer: string | null
@@ -38,6 +45,8 @@ interface Card {
   typologie?: string
   /** Quantité (reste à livrer). */
   qty?: number
+  /** Carte induite (besoin brut depth-1) : ghost, non-draggable, hors filtres. */
+  induit?: boolean
 }
 
 interface DayCol {
@@ -57,6 +66,8 @@ interface LineRow {
   name: string
   code: string
   dot: string
+  /** Atelier (STOLOC du poste) — filtre atelier (#36). */
+  atelier: string
   meta: { k: string; v: string }[]
   dayCells: DayCell[]
   weekLoads: { week: number; hours: number; pct: number; barClass: string }[]
@@ -69,6 +80,8 @@ interface LineRow {
 interface OrderBoardData {
   days: DayCol[]
   lines: LineRow[]
+  /** Options du filtre atelier (STOLOC distincts), issue #36. */
+  ateliers: { code: string; label: string }[]
   weekSpans: { week: number; span: number }[]
   cols: number
   colWeek: number[]
@@ -150,7 +163,43 @@ function makeOrderCard(p: {
   }
 }
 
-// --- Controller ---
+/**
+ * Carte induite (ghost) — besoin brut depth-1, REGROUPÉE par poste × jour ×
+ * composant : un composant FABRIQUÉ (ex. BDH) à produire sur son poste, agrégeant
+ * tous les besoins induits par les commandes du jour. Non-draggable, toujours
+ * visible (exclue des filtres via le flag `induit`).
+ *
+ * • header (card.article, via CardView) = code composant (le BDH à produire).
+ * • customer = libellé de source : « pour {PF} » (1 parent) ou « pour N commandes ».
+ * • footer = qté + heures (sommées sur le groupe).
+ */
+function makeInduitCard(p: {
+  id: string
+  componentArticle: string
+  componentDesignation: string | null
+  quantite: number
+  hours: number
+  typologie?: string
+  sourceLabel: string
+}): Card {
+  return {
+    id: p.id,
+    title: p.componentDesignation ?? p.componentArticle,
+    article: p.componentArticle,
+    href: '',
+    fields: [],
+    metric: null,
+    hours: p.hours,
+    hasOverride: false,
+    orderType: null,
+    nature: 'INDUIT',
+    customer: p.sourceLabel,
+    consommeBouche: false,
+    typologie: p.typologie,
+    qty: p.quantite,
+    induit: true,
+  }
+}
 
 export default class OrderPlanningController {
   private get overrideStore() {
@@ -385,21 +434,33 @@ export async function loadOrderBoardData(
   }
   let ordreLignes: BoardOrderLine[] = []
   let gammeOps: GammeOperation[] = []
+  let workstations: Workstation[] = []
   let x3Error: string | null = null
   let bdhParents: Set<string> = new Set()
   let typologieByArticle = new Map<string, string>()
   let stockBouchesHygro: number | null = null
+  // BOM depth-1 (composants FABRIQUÉS uniquement) pour la charge induite.
+  // Les composants ACHETÉS n'ont pas de gamme/poste → pas de charge induite.
+  let bomByParent = new Map<string, NomenclatureEntry[]>()
 
   try {
-    const [ref, demandRecep, bdh, articlesList, bouchesHygro] = await Promise.all([
+    const [ref, demandRecep, bdh, articlesList, bouchesHygro, nomEntries] = await Promise.all([
       boardDataset.getReferential(force),
       boardDataset.getDemandAndReception(isoDay(windowStart), isoDay(windowEnd), force),
       staticSync.readBdhParents().catch(() => new Set<string>()),
       boardDataset.getArticles(),
       staticSync.readBouchesHygroSet().catch(() => new Set<string>()),
+      staticSync.readNomenclatures().catch(() => [] as NomenclatureEntry[]),
     ])
     gammeOps = ref.gamme
+    workstations = ref.workstations
     bdhParents = bdh
+    for (const e of nomEntries) {
+      if (!isManufactured(e)) continue // acheté → pas de poste, pas de charge induite
+      const arr = bomByParent.get(e.parentArticle)
+      if (arr) arr.push(e)
+      else bomByParent.set(e.parentArticle, [e])
+    }
     for (const a of articlesList) if (a.typologie) typologieByArticle.set(a.code, a.typologie)
     // Stock des bouches hygro (strict+qc) pour le header PP_830 (issue #42).
     const bouches = [...bouchesHygro]
@@ -439,6 +500,7 @@ export async function loadOrderBoardData(
 
   const overrideMap = await new OrderLineOverrideStore().getMap()
   const gammeMap = new Map(gammeOps.map((g) => [g.article, g]))
+  const wstByCode = new Map(workstations.map((w) => [w.code, w]))
   const wstLabels = new Map<string, string>()
   for (const g of gammeOps) {
     if (g.workstation) wstLabels.set(g.workstation, g.workstationLabel || g.workstation)
@@ -465,6 +527,28 @@ export async function loadOrderBoardData(
     byTypo: Map<string, { sans: number; bouche: number }>
   }
   const buckets = new Map<string, Bucket>()
+  const newBucket = (): Bucket => ({
+    dayCards: Array.from({ length: colDates.length }, () => []),
+    totalHours: 0,
+    dayHours: new Array<number>(colDates.length).fill(0),
+    lineCount: 0,
+    byTypo: new Map<string, { sans: number; bouche: number }>(),
+  })
+
+  // Regroupement des cartes induites par (poste, jour, composant) : si le même
+  // composant est induit par plusieurs commandes le même jour, on fusionne en
+  // une seule carte (qté/heures sommées) pour ne pas surcharger le board.
+  interface InduitGroup {
+    poste: string
+    idx: number
+    componentArticle: string
+    componentDesignation: string | null
+    totalQty: number
+    totalHours: number
+    /** commande#ligne → parentArticle (pour le compte + libellé de source). */
+    parents: Map<string, string>
+  }
+  const induitGroups = new Map<string, InduitGroup>()
 
   for (const line of ordreLignes) {
     const op = gammeMap.get(line.article)
@@ -494,15 +578,7 @@ export async function loadOrderBoardData(
       typologie: typologieByArticle.get(line.article),
     })
 
-    if (!buckets.has(workstation)) {
-      buckets.set(workstation, {
-        dayCards: Array.from({ length: colDates.length }, () => []),
-        totalHours: 0,
-        dayHours: new Array<number>(colDates.length).fill(0),
-        lineCount: 0,
-        byTypo: new Map<string, { sans: number; bouche: number }>(),
-      })
-    }
+    if (!buckets.has(workstation)) buckets.set(workstation, newBucket())
     const b = buckets.get(workstation)!
     b.dayCards[idx].push(card)
     b.totalHours += hours
@@ -516,6 +592,69 @@ export async function loadOrderBoardData(
       else cur.sans += hours
       b.byTypo.set(typo, cur)
     }
+
+    // ── Charge induite (besoin brut depth-1, issue #42) ──
+    // Pour chaque composant FABRIQUÉ du PF : on calcule la charge sur le poste
+    // DU COMPOSANT (ex. BDH → PP_153), à la même date que la commande parente.
+    // On accumule par (poste, jour, composant) — les cartes fusionnées sont
+    // émises après la boucle. Brut : ni netting (stock/OF) ni offset de lead time.
+    const bom = bomByParent.get(line.article)
+    if (bom) {
+      for (const entry of bom) {
+        const compGamme = gammeMap.get(entry.componentArticle)
+        const compPoste = compGamme?.workstation
+        if (!compPoste) continue // composant non routé sur un poste → ignoré
+        const compRate = compGamme!.rate ?? 0
+        const compQty = requiredQuantity(entry, line.quantite)
+        const compHours = compRate > 0 ? compQty / compRate : 0
+        if (compHours <= 0) continue
+        if (!wstLabels.has(compPoste)) {
+          wstLabels.set(compPoste, compGamme!.workstationLabel || compPoste)
+        }
+        const key = `${compPoste}|${idx}|${entry.componentArticle}`
+        let g = induitGroups.get(key)
+        if (!g) {
+          g = {
+            poste: compPoste,
+            idx,
+            componentArticle: entry.componentArticle,
+            componentDesignation: entry.componentDescription ?? null,
+            totalQty: 0,
+            totalHours: 0,
+            parents: new Map(),
+          }
+          induitGroups.set(key, g)
+        }
+        g.totalQty += compQty
+        g.totalHours += compHours
+        g.parents.set(`${line.numCommande}#${line.ligne}`, line.article)
+      }
+    }
+  }
+
+  // Émission des cartes induites regroupées : une par poste × jour × composant.
+  for (const g of induitGroups.values()) {
+    let cb = buckets.get(g.poste)
+    if (!cb) {
+      cb = newBucket()
+      buckets.set(g.poste, cb)
+    }
+    const parentCount = g.parents.size
+    const sourceLabel =
+      parentCount <= 1 ? `pour ${[...g.parents.values()][0] ?? ''}` : `pour ${parentCount} commandes`
+    cb.dayCards[g.idx].push(
+      makeInduitCard({
+        id: `INDUIT~${g.poste}~${g.idx}~${g.componentArticle}`,
+        componentArticle: g.componentArticle,
+        componentDesignation: g.componentDesignation,
+        quantite: g.totalQty,
+        hours: g.totalHours,
+        typologie: typologieByArticle.get(g.componentArticle),
+        sourceLabel,
+      }),
+    )
+    cb.totalHours += g.totalHours
+    cb.dayHours[g.idx] += g.totalHours
   }
 
   const now = atMidnight(new Date())
@@ -549,10 +688,14 @@ export async function loadOrderBoardData(
 
   const lines: LineRow[] = [...buckets.entries()]
     .sort((a, b) => a[0].localeCompare(b[0]))
-    .map(([code, bucket]) => ({
+    .map(([code, bucket]) => {
+      const stoloc = wstByCode.get(code)?.stockLocation ?? ''
+      return {
       name: wstLabels.get(code) ?? code,
       code,
       dot: 'bg-primary',
+      // Atelier (STOLOC du poste) — filtre atelier (#36), parité /charge.
+      atelier: stoloc,
       meta: [
         { k: 'LIGNES', v: String(bucket.lineCount) },
         { k: 'CHG', v: `${Math.round(bucket.totalHours)}h` },
@@ -575,7 +718,12 @@ export async function loadOrderBoardData(
         iso: isoDay(colDates[i]),
       })),
       weekLoads: buildWeekLoads(bucket.dayHours),
-    }))
+    }})
+
+  // Liste des ateliers (STOLOC distincts parmi les lignes) — filtre atelier (#36).
+  const ateliers = [...new Set(lines.map((l) => l.atelier).filter(Boolean))]
+    .map((code) => ({ code, label: atelierLabel(code) }))
+    .sort((a, b) => a.label.localeCompare(b.label))
 
   const fmtFr = (d: Date) =>
     d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase()
@@ -595,6 +743,7 @@ export async function loadOrderBoardData(
   return {
     days,
     lines,
+    ateliers,
     weekSpans,
     cols: days.length,
     colWeek,

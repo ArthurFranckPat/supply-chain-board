@@ -1,6 +1,7 @@
 import { For, Show, createMemo, createSignal } from 'solid-js'
 import { cx } from '@/libs/cva'
 import { TYPO_META } from '@/lib/board/types'
+import { usePrintFit } from '@/lib/board/use-print-fit'
 import type { OrderBoardStore } from '@/lib/orders/store'
 import type { OrderCard, OrderLineRow } from '@/lib/orders/types'
 import { BoardCard, type CardStatus } from './board-card'
@@ -28,7 +29,11 @@ const r1 = (n: number) => Math.round(n * 100) / 100
 
 /** Nature du besoin → ton BoardCard. */
 const natureStatus = (card: OrderCard): CardStatus =>
-  card.nature === 'PREVISION' ? 'suggere' : 'ferme'
+  card.induit
+    ? 'planifie' // ghost induit : ton neutre (pas 'ferme' — ce n'est pas une commande ferme)
+    : card.nature === 'PREVISION'
+      ? 'suggere'
+      : 'ferme'
 
 /** `numCommande#ligne` → `numCommande·ligne`. */
 /** "AR2602608#1000" → "AR2602608·L1" (VCRLIN_0 est en milliers : 1000=ligne 1). */
@@ -47,6 +52,8 @@ export default function OrderGrid(props: {
   const { store } = props
   const [draggedId, setDraggedId] = createSignal<string | null>(null)
   const [dropCol, setDropCol] = createSignal<string | null>(null)
+  let rootEl: HTMLDivElement | undefined
+  usePrintFit(() => rootEl)
 
   const cols = () => store.board.cols
   // Planification : cartes plus riches (commande + article + désignation) → colonnes plus larges.
@@ -73,13 +80,15 @@ export default function OrderGrid(props: {
     })
   })
 
-  /** Histogramme hebdo d'une ligne (planifié seul → ton unique). */
+  /** Histogramme hebdo d'une ligne : planifié = commandes directes, induit =
+   *  besoin brut depth-1 (pas une carte), segment distinct. */
   function lineCharge(line: OrderLineRow): ChargeWeek[] {
     return store.lineWeekLoads(line.code).map((wl) => ({
       week: wl.week,
       ferme: 0,
-      planifie: r1(wl.hours),
+      planifie: r1(wl.direct),
       suggere: 0,
+      induit: r1(wl.induit),
     }))
   }
 
@@ -88,7 +97,7 @@ export default function OrderGrid(props: {
     let m = 0
     for (const line of store.board.lines) {
       for (const cw of lineCharge(line)) {
-        const t = cw.ferme + cw.planifie + cw.suggere
+        const t = cw.ferme + cw.planifie + cw.suggere + cw.induit
         if (t > m) m = t
       }
     }
@@ -102,7 +111,7 @@ export default function OrderGrid(props: {
   }
 
   return (
-    <div class="h-full overflow-auto bg-background">
+    <div ref={rootEl} data-board-root class="h-full overflow-auto bg-background">
       <div style={{ 'min-width': minWidth() }}>
         {/* ═══ En-tête collant (semaines + jours) ═══ */}
         <div class="sticky top-0 z-30 bg-background shadow-[0_2px_10px_-4px_rgba(31,26,19,.18)]">
@@ -132,8 +141,26 @@ export default function OrderGrid(props: {
 
           {/* En-tête jours */}
           <div class="grid" style={{ 'grid-template-columns': gridTpl() }}>
-            <div class="sticky left-0 z-40 border-b border-r border-rule bg-card px-3.5 py-2 font-mono text-[9px] font-bold tracking-[0.12em] text-muted-foreground">
-              Poste de charge
+            <div class="sticky left-0 z-40 flex flex-col gap-1 border-b border-r border-rule bg-card px-3.5 py-2">
+              <span class="font-mono text-[9px] font-bold tracking-[0.12em] text-muted-foreground">
+                Poste de charge
+              </span>
+              {/* Légende charge/jour : directe (commandes PF) vs amont (induit). */}
+              <span class="flex items-center gap-2 font-mono text-[8px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <span class="inline-flex items-center gap-0.5">
+                  <span class="size-[7px] rounded-[1px] bg-foreground" /> directe
+                </span>
+                <span class="inline-flex items-center gap-0.5">
+                  <span
+                    class="size-[7px] rounded-[1px]"
+                    style={{
+                      'background-color': 'rgba(168,67,31,.18)',
+                      'background-image': 'repeating-linear-gradient(45deg, rgba(168,67,31,.5) 0 1px, transparent 1px 3px)',
+                    }}
+                  />
+                  amont
+                </span>
+              </span>
             </div>
             <For each={store.board.days}>
               {(day, di) => (
@@ -159,10 +186,43 @@ export default function OrderGrid(props: {
                   >
                     {dayNum(di())}
                   </div>
-                  <div class="mt-0.5 font-mono text-[11px] font-bold tabular-nums text-terra">
-                    {fmt(store.dayLoad()[di()] ?? 0)}
-                    <span class="text-[8px] font-medium opacity-60"> h</span>
-                  </div>
+                  {/* Charge du jour : total (gras) + détail directe / amont + barre
+                      empilée (proportions). amont masqué s'il n'y en a pas. */}
+                  {(() => {
+                    const directe = store.dayLoadSplit().direct[di()] ?? 0
+                    const amont = store.dayLoadSplit().amont[di()] ?? 0
+                    const total = directe + amont
+                    return (
+                      <div class="mt-1">
+                        <div class="text-center font-fraunces text-[13px] font-bold leading-none tabular-nums text-foreground">
+                          {fmt(total)}
+                          <span class="ml-0.5 font-mono text-[8px] font-medium opacity-50">h</span>
+                        </div>
+                        <div class="flex items-baseline justify-center gap-1 font-mono tabular-nums">
+                          <span class="text-[9px] font-semibold text-foreground/70">{fmt(directe)}</span>
+                          <Show when={amont > 0}>
+                            <span class="text-[9px] font-bold text-terra">+{fmt(amont)}</span>
+                          </Show>
+                        </div>
+                        <Show when={total > 0}>
+                          <div class="mt-0.5 flex h-[5px] overflow-hidden rounded-full bg-rule-soft">
+                            <span class="block h-full bg-foreground" style={{ width: `${(directe / total) * 100}%` }} />
+                            <Show when={amont > 0}>
+                              <span
+                                class="block h-full"
+                                style={{
+                                  width: `${(amont / total) * 100}%`,
+                                  'background-color': 'rgba(168,67,31,.45)',
+                                  'background-image':
+                                    'repeating-linear-gradient(45deg, rgba(168,67,31,.55) 0 1.5px, transparent 1.5px 4px)',
+                                }}
+                              />
+                            </Show>
+                          </div>
+                        </Show>
+                      </div>
+                    )
+                  })()}
                 </div>
               )}
             </For>
@@ -303,18 +363,25 @@ function CardView(props: {
 }) {
   const { store, card } = props
   const matches = () => store.cardMatches(card, props.line.code)
+  // Carte induite : ghost non-draggable (pilotée par la commande parente) et non
+  // cliquable (pas un détail commande).
+  const ghost = !!card.induit
   return (
     <div
       role="button"
-      tabindex={matches() ? 0 : -1}
-      draggable={matches() && !card.hasOverride}
+      tabindex={matches() && !ghost ? 0 : -1}
+      draggable={matches() && !card.hasOverride && !ghost}
       data-order-id={card.id}
-      class={cx('relative cursor-pointer transition-opacity', !matches() && 'pointer-events-none opacity-15')}
+      class={cx(
+        'relative transition-opacity',
+        ghost ? 'cursor-default' : 'cursor-pointer',
+        !matches() && 'pointer-events-none opacity-15',
+      )}
       onClick={() => {
-        if (matches()) props.onSelectCard(card.id)
+        if (matches() && !ghost) props.onSelectCard(card.id)
       }}
       onDragStart={(e: DragEvent) => {
-        if (card.hasOverride) {
+        if (card.hasOverride || ghost) {
           e.preventDefault()
           return
         }
@@ -332,8 +399,10 @@ function CardView(props: {
       <BoardCard
         variant="commande"
         status={natureStatus(card)}
-        article={fmtRef(card.id)}
-        ord={card.article ?? undefined}
+        // Induite : header = code composant (le BDH à produire). Sinon : n° commande.
+        article={ghost ? (card.article ?? '') : fmtRef(card.id)}
+        // Induite : pas de 2e ligne article (le composant est déjà le header).
+        ord={ghost ? undefined : (card.article ?? undefined)}
         title={card.title}
         client={card.customer ?? undefined}
         type={card.orderType ?? undefined}
@@ -342,6 +411,7 @@ function CardView(props: {
         consommeBouche={card.consommeBouche}
         typologie={card.typologie}
         qty={card.qty}
+        induit={ghost}
       />
       {/* Override : bouton réinitialiser (date X3 d'origine) */}
       <Show when={card.hasOverride}>

@@ -69,7 +69,7 @@ type VisionProps = {
 }
 
 const EMPTY_BOARD: BoardData = { days: [], lines: [], weekSpans: [], cols: 0, colWeek: [], weekCaps: {} }
-const EMPTY_ORDER_BOARD: OrderBoardData = { days: [], lines: [], weekSpans: [], cols: 0, colWeek: [], weekCaps: {} }
+const EMPTY_ORDER_BOARD: OrderBoardData = { days: [], lines: [], ateliers: [], weekSpans: [], cols: 0, colWeek: [], weekCaps: {} }
 
 const OF_SCOPES = [
   { v: 'poste', label: 'Poste' },
@@ -486,7 +486,7 @@ const Programme: Component<VisionProps> = (props) => {
       />
 
       {/* ═══ Toolbar (alignée /ordonnancement) ═══ */}
-      <div class="flex flex-none flex-wrap items-center justify-between gap-3 border-b border-rule px-7 py-2">
+      <div data-print-toolbar class="flex flex-none flex-wrap items-center justify-between gap-3 border-b border-rule px-7 py-2">
         {/* Sélecteur de mode */}
         <div class="inline-flex items-center gap-0.5 rounded-md border border-rule bg-card p-0.5">
           <For each={(['ordonnancement', 'combined', 'planification'] as const)}>
@@ -532,8 +532,69 @@ const Programme: Component<VisionProps> = (props) => {
         </div>
         </Show>
 
-        {/* Calendrier */}
-        <div class="relative">
+        {/* Filtre atelier (STOLOC, #36) — mode planification seulement.
+            Parité visuelle avec /charge ; pilote orderStore.lineVisible. */}
+        <Show when={mode() === 'planification' && orderStore.ateliers().length > 0}>
+          <div class="inline-flex flex-wrap items-center gap-1 rounded-md border border-rule bg-card p-0.5">
+            <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+              Atelier
+            </span>
+            <For each={orderStore.ateliers()}>
+              {(a) => (
+                <button
+                  type="button"
+                  title={a.code}
+                  onClick={() => orderStore.toggleAtelier(a.code)}
+                  class={cx(
+                    'rounded-[5px] px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
+                    orderStore.atelierFilter().has(a.code)
+                      ? 'bg-terra-soft text-terra'
+                      : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  {a.code}
+                </button>
+              )}
+            </For>
+            <Show when={orderStore.atelierFilter().size > 0}>
+              <button
+                type="button"
+                onClick={() => orderStore.clearAtelier()}
+                class="ml-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-terra hover:underline"
+              >
+                ✕
+              </button>
+            </Show>
+          </div>
+        </Show>
+
+        {/* Filtre type de besoin (COMMANDE / PRÉVISION) — mode planification. */}
+        <Show when={mode() === 'planification'}>
+          <div class="inline-flex items-center gap-1 rounded-md border border-rule bg-card p-0.5">
+            <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+              Besoin
+            </span>
+            <For each={[{ k: 'COMMANDE', label: 'Cmde' }, { k: 'PREVISION', label: 'Prév' }]}>
+              {(n) => (
+                <button
+                  type="button"
+                  onClick={() => orderStore.toggleNature(n.k)}
+                  class={cx(
+                    'rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
+                    orderStore.natureFilter().has(n.k)
+                      ? 'bg-terra-soft text-terra'
+                      : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  {n.label}
+                </button>
+              )}
+            </For>
+          </div>
+        </Show>
+
+        {/* Calendrier — conservé seul à l'impression (data-print-keep). */}
+        <div data-print-keep class="relative">
           <button
             type="button"
             onClick={() => setCalOpen((o) => !o)}
@@ -626,7 +687,7 @@ const Programme: Component<VisionProps> = (props) => {
       </div>
 
       <Show when={props.x3Error}>
-        <div class="flex flex-none items-center gap-2 border-b border-terra/30 bg-terra-soft px-7 py-2 text-[12px] text-foreground">
+        <div class="flex flex-none items-center gap-2 border-b border-terra/30 bg-terra-soft px-7 py-2 text-[12px] text-foreground print:hidden">
           <span class="material-symbols-outlined text-[16px] text-terra">warning</span>
           <span class="font-bold">Erreur chargement :</span>
           <span class="font-mono">{props.x3Error}</span>

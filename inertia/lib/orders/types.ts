@@ -20,7 +20,7 @@ export interface OrderCard {
   hasOverride: boolean
   /** Type commande MTS/MTO/NOR — filtre. */
   orderType: string | null
-  /** COMMANDE (ARxxxx) ou PREVISION (SGAxxxx) — filtre. */
+  /** COMMANDE (ARxxxx) / PREVISION (SGAxxxx) / INDUIT (ghost depth-1) — filtre. */
   nature: string
   /** Client — recherche scope. */
   customer: string | null
@@ -30,6 +30,8 @@ export interface OrderCard {
   typologie?: string
   /** Quantité (reste à livrer) — footer (issue #42). */
   qty?: number
+  /** Carte induite (besoin brut depth-1) : ghost, non-draggable, hors filtres. */
+  induit?: boolean
 }
 
 /** Portée de la recherche live. */
@@ -64,6 +66,8 @@ export interface OrderLineRow {
   name: string
   code: string
   dot: string
+  /** Atelier (STOLOC du poste) — filtre atelier (#36). */
+  atelier: string
   meta: { k: string; v: string }[]
   dayCells: DayCell[]
   weekLoads: WeekLoad[]
@@ -111,6 +115,8 @@ export interface OrderLineDetail {
 export interface OrderBoardData {
   days: DayCol[]
   lines: OrderLineRow[]
+  /** Options du filtre atelier (STOLOC distincts), issue #36. */
+  ateliers: { code: string; label: string }[]
   weekSpans: WeekSpan[]
   cols: number
   /** Index colonne → ISO week (pour histogramme live). */

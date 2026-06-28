@@ -39,6 +39,19 @@ const TONE_FILL: Record<CardStatus, string> = {
   bloque: 'bg-destructive',
 }
 
+/**
+ * Type commande → couleur (MTS/MTO/NOR). Tons puisés dans le thème Papier :
+ *  • MTS (Make To Stock)   → vert ferme   (production sur stock, stable)
+ *  • MTO (Make To Order)   → terra        (production sur commande spécifique)
+ *  • NOR (standard)        → bleu planifié (mode normal)
+ * Type inconnu → pastille neutre (secondary) par défaut.
+ */
+const TYPE_META: Record<string, { background: string; color: string }> = {
+  MTS: { background: '#5b7d4e', color: '#ffffff' },
+  MTO: { background: '#a8431f', color: '#ffffff' },
+  NOR: { background: '#2f4858', color: '#ffffff' },
+}
+
 type Common = {
   status: CardStatus
   /** En-tête mono (numOf ou code article). */
@@ -68,6 +81,8 @@ export type CommandeCardProps = Common & {
   typologie?: string
   /** Quantité (reste à livrer) — footer. */
   qty?: number
+  /** Carte induite (besoin brut depth-1) : ghost hachuré, non-draggable. */
+  induit?: boolean
 }
 
 export type OfCardProps = Common & {
@@ -93,6 +108,8 @@ export type BoardCardProps = CommandeCardProps | OfCardProps
 export const BoardCard: Component<BoardCardProps> = (props) => {
   // commande modifiée (override local) → liseré terra autour de la carte
   const ring = props.variant === 'commande' && props.mod
+  // carte induite (ghost) → fond hachuré terra
+  const ghost = props.variant === 'commande' && props.induit
   const body: JSX.Element =
     props.variant === 'commande' ? (
       <CommandeBody
@@ -106,6 +123,7 @@ export const BoardCard: Component<BoardCardProps> = (props) => {
         consommeBouche={props.consommeBouche}
         typologie={props.typologie}
         qty={props.qty}
+        induit={props.induit}
       />
     ) : (
       <OfBody
@@ -133,7 +151,13 @@ export const BoardCard: Component<BoardCardProps> = (props) => {
       style={
         ring
           ? { 'box-shadow': '0 0 0 1.5px var(--color-terra), 0 1px 2px rgba(31,26,19,.05)' }
-          : undefined
+          : ghost
+            ? {
+                'background-color': 'rgba(168,67,31,.07)',
+                'background-image':
+                  'repeating-linear-gradient(45deg, rgba(168,67,31,.12) 0 2px, transparent 2px 8px)',
+              }
+            : undefined
       }
     >
       {/* coin haut-droit : faisabilité, ou coche terminé */}
@@ -167,8 +191,10 @@ const CommandeBody: Component<{
   consommeBouche?: boolean
   typologie?: string
   qty?: number
+  induit?: boolean
 }> = (p) => {
   const typo = () => (p.typologie ? TYPO_META[p.typologie] : undefined)
+  const typeMeta = () => (p.type ? TYPE_META[p.type.toUpperCase()] : undefined)
   // p.article au format « numCommande·Ligne » (fmtRef) → on sépare pour bolder le n°.
   const refParts = () => p.article.split('·')
   const cmd = () => refParts()[0] ?? p.article
@@ -179,7 +205,10 @@ const CommandeBody: Component<{
           Pleine largeur (le tampon BDH est sur la ligne de l'article, pas ici). */}
       <div class="flex items-center gap-1.5 overflow-hidden" title={p.article}>
         <Show when={p.type}>
-          <span class="shrink-0 rounded bg-secondary px-1 py-0.5 font-mono text-[8px] font-bold uppercase tracking-wider text-secondary-foreground">
+          <span
+            class="shrink-0 rounded px-1 py-0.5 font-mono text-[8px] font-bold uppercase tracking-wider"
+            style={typeMeta() ?? { background: 'var(--color-secondary)', color: 'var(--color-secondary-foreground)' }}
+          >
             {p.type}
           </span>
         </Show>

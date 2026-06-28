@@ -26,8 +26,11 @@ const RULE_SOFT = 'var(--color-rule-soft)'
 const CARD = 'var(--color-card)'
 const DANGER = 'var(--color-danger)'
 const WARN = 'var(--color-warn)'
+/** Hachures SVG (motifs définis dans <HatchDefs>) : induit dans la couleur du parent. */
+const HATCH_FERME = 'url(#load-hatch-ferme)'
+const HATCH_SUGGERE = 'url(#load-hatch-suggere)'
 
-const total = (p: LoadPeriod) => p.f + p.p + p.s
+const total = (p: LoadPeriod) => p.f + p.p + p.s + p.fi + p.si
 
 /** Taux de saturation charge/capacité, en % (0 si capacité nulle). */
 const satRate = (charge: number, cap: number): number => (cap > 0 ? (charge / cap) * 100 : 0)
@@ -40,9 +43,12 @@ const satColor = (charge: number, cap: number): string => {
   return MUTED
 }
 
-/** Libellé d'un segment selon la vue (OF : Ferme/Planifié/Suggéré ; Commande : Commande/Prévision). */
-const segLabel = (view: LoadView, key: keyof LoadPeriod): string =>
-  view === 'commande'
+/** Libellé d'un segment selon la vue
+ * (OF : Ferme/Planifié/Suggéré ; Commande : Commande/Prévision + induits). */
+const segLabel = (view: LoadView, key: keyof LoadPeriod): string => {
+  if (key === 'fi') return 'Induit (ferme)'
+  if (key === 'si') return 'Induit (prévision)'
+  return view === 'commande'
     ? key === 's'
       ? 'Prévision'
       : 'Commande'
@@ -51,6 +57,7 @@ const segLabel = (view: LoadView, key: keyof LoadPeriod): string =>
       : key === 'p'
         ? 'Planifié'
         : 'Suggéré'
+}
 
 /** Chemin d'un rectangle à coins supérieurs arrondis (sommet de barre empilée). */
 function rtop(x: number, y: number, w: number, h: number, r: number): string {
@@ -79,12 +86,36 @@ function mobileAvg(totals: number[], win: number): number[] {
   return r
 }
 
-/** Segments empilés bas→haut d'une période : Suggéré (base), Planifié, Ferme (sommet). */
+/** Segments empilés bas→haut d'une période.
+ *  OF (si/fi=0) : Suggéré, Planifié, Ferme.
+ *  Commande (p=0) : Prévision + induit prévision (hachuré), Commande + induit ferme (hachuré). */
 const segsOf = (d: LoadPeriod): [keyof LoadPeriod, number, string][] => [
   ['s', d.s, SUGGERE],
+  ['si', d.si, HATCH_SUGGERE],
   ['p', d.p, PLANIFIE],
   ['f', d.f, FERME],
+  ['fi', d.fi, HATCH_FERME],
 ]
+
+/**
+ * Motifs de hachure SVG partagés (document-global via url(#id)) : induit dans la
+ * couleur du parent (ferme vert / prévision ambre). Définis une fois, référencés
+ * par le mini-graphe et le graphe de détail. SVG 0×0 invisible.
+ */
+const HatchDefs: Component = () => (
+  <svg width="0" height="0" class="absolute" aria-hidden="true">
+    <defs>
+      <pattern id="load-hatch-ferme" patternUnits="userSpaceOnUse" width="5" height="5" patternTransform="rotate(45)">
+        <rect width="5" height="5" fill={FERME} fill-opacity="0.22" />
+        <line x1="0" y1="0" x2="0" y2="5" stroke={FERME} stroke-width="1.6" />
+      </pattern>
+      <pattern id="load-hatch-suggere" patternUnits="userSpaceOnUse" width="5" height="5" patternTransform="rotate(45)">
+        <rect width="5" height="5" fill={SUGGERE} fill-opacity="0.22" />
+        <line x1="0" y1="0" x2="0" y2="5" stroke={SUGGERE} stroke-width="1.6" />
+      </pattern>
+    </defs>
+  </svg>
+)
 
 /* ─────────────────────────── Mini-graphe (carte poste) ─────────────────────────── */
 
@@ -278,7 +309,7 @@ const DetailChart: Component<{
           fill: col,
           info: { period: it.label, label, value: v, total: T[i], cap: C[i], color: col },
         })
-        if (h > 16) inLabels.push({ x: cx, y: (yTop + y(acc)) / 2 + 3, text: v, fill: k === 's' ? '#3a2a0e' : CARD })
+        if (h > 16) inLabels.push({ x: cx, y: (yTop + y(acc)) / 2 + 3, text: v, fill: k === 's' || k === 'si' ? '#3a2a0e' : CARD })
         acc += v
       })
       const over = C[i] > 0 && T[i] > C[i]
@@ -479,7 +510,7 @@ const Load: Component<LoadPageProps> = (props) => {
   const [query, setQuery] = createSignal('')
   // Couches optionnelles du graphe.
   const [showCapacity, setShowCapacity] = createSignal(true)
-  const [showAvg, setShowAvg] = createSignal(true)
+  const [showAvg, setShowAvg] = createSignal(false)
   // Filtre atelier (#36) : ensemble de STOLOC retenus (vide = tous).
   const [atelierFilter, setAtelierFilter] = createSignal<Set<string>>(new Set())
 
@@ -571,6 +602,7 @@ const Load: Component<LoadPageProps> = (props) => {
 
   return (
     <div class="theme-papier flex h-screen flex-col overflow-hidden bg-background text-foreground">
+      <HatchDefs />
       <Masthead
         subtitle="Charge · vision long terme"
         active="load"
