@@ -97,9 +97,9 @@ export class StaticSyncService {
           ? `AND ITMREF_0 > '${lastCode.replace(/'/g, "''")}'`
           : ''
         const pageQuery = `
-SELECT ITMREF_0, ITMDES1_0, TCLCOD_0, MFGFLG_0
+SELECT ITMREF_0, ITMDES1_0, TCLCOD_0, MFGFLG_0, YFAMSTAT7_0, TSICOD_4
 FROM (
-  SELECT ITMREF_0, ITMDES1_0, TCLCOD_0, MFGFLG_0
+  SELECT ITMREF_0, ITMDES1_0, TCLCOD_0, MFGFLG_0, YFAMSTAT7_0, TSICOD_4
   FROM ITMMASTER
   WHERE ITMSTA_0 = 1 ${keysetClause}
   ORDER BY ITMREF_0
@@ -124,6 +124,8 @@ FROM (
         category: String(r.TCLCOD_0 ?? '').trim(),
         // MFGFLG_0: 2=Fabrication propre, 1=Achat, 3=Sous-traitance
         supply_type: String(r.MFGFLG_0 ?? '1') === '2' ? 'FABRICATION' : 'ACHAT',
+        famille: String(r.YFAMSTAT7_0 ?? '').trim(),
+        typologie: String(r.TSICOD_4 ?? '').trim(),
         synced_at: now,
       }))
       .filter((r) => r.code)
@@ -248,12 +250,46 @@ FROM (
     }))
   }
 
-  /** Articles dont la nomenclature contient ≥1 composant BDH (issue #28). */
+  /**
+   * Articles (PF) dont la nomenclature contient ≥1 BOUCHE (TSICOD_4='BDH60').
+   * Sert au marquage `consommeBouche` des cartes OF PP_830 (issue #28/#42).
+   * Rework 2026-06-28 : l'ancien critère `component LIKE 'BDH%'` était FAUX (rate les
+   * bouches non-préfixées DP2397-2400 + mélange la famille BDH qui inclut cartons et
+   * sous-ensembles). La source de vérité = la typologie du composant.
+   */
   async readBdhParents(): Promise<Set<string>> {
     const rows = await db
-      .from('static_nomenclatures')
-      .distinct('parent_article')
-      .whereLike('component_article', 'BDH%')
+      .from('static_nomenclatures as n')
+      .join('static_articles as c', 'c.code', 'n.component_article')
+      .distinct('n.parent_article as parent_article')
+      .where('c.typologie', 'BDH60')
+    return new Set(rows.map((r: { parent_article: string }) => r.parent_article))
+  }
+
+  /** Bouches = articles TSICOD_4='BDH60' (produits sur PP_153/PP_128). */
+  async readBoucheSet(): Promise<Set<string>> {
+    const rows = await db.from('static_articles').select('code').where('typologie', 'BDH60')
+    return new Set(rows.map((r: { code: string }) => r.code))
+  }
+
+  /** Modules hygro = articles TSICOD_4='BDH10' (MH…, produits sur PP_146). */
+  async readModulesHygroSet(): Promise<Set<string>> {
+    const rows = await db.from('static_articles').select('code').where('typologie', 'BDH10')
+    return new Set(rows.map((r: { code: string }) => r.code))
+  }
+
+  /**
+   * Bouches « avec module hygro » (le vrai goulot) = bouches BDH60 dont la nomenclature
+   * contient ≥1 module BDH10. Dépendent de PP_146 (ligne contrainte). Issue #42.
+   */
+  async readBouchesHygroSet(): Promise<Set<string>> {
+    const rows = await db
+      .from('static_nomenclatures as n')
+      .join('static_articles as c', 'c.code', 'n.component_article')
+      .join('static_articles as p', 'p.code', 'n.parent_article')
+      .distinct('n.parent_article as parent_article')
+      .where('c.typologie', 'BDH10')
+      .where('p.typologie', 'BDH60')
     return new Set(rows.map((r: { parent_article: string }) => r.parent_article))
   }
 
@@ -280,6 +316,8 @@ FROM (
       description: r.description,
       category: r.category,
       supplyType: r.supplyType as 'ACHAT' | 'FABRICATION',
+      famille: r.famille ?? '',
+      typologie: r.typologie ?? '',
       reorderDelay: 0,
       productFamily: null,
       pmp: null,

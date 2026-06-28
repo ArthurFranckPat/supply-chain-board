@@ -93,7 +93,7 @@ export class OrderLineOverrideSchema extends BaseModel {
 }
 
 export class StaticArticleSchema extends BaseModel {
-  static $columns = ['category', 'code', 'description', 'supplyType', 'syncedAt'] as const
+  static $columns = ['category', 'code', 'description', 'famille', 'supplyType', 'syncedAt', 'typologie'] as const
   $columns = StaticArticleSchema.$columns
   @column()
   declare category: string
@@ -102,9 +102,13 @@ export class StaticArticleSchema extends BaseModel {
   @column()
   declare description: string
   @column()
+  declare famille: string
+  @column()
   declare supplyType: string
   @column()
   declare syncedAt: number
+  @column()
+  declare typologie: string
 }
 
 export class StaticGammeSchema extends BaseModel {

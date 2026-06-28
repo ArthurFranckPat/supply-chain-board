@@ -9,6 +9,10 @@ export interface Article {
   description: string
   category: string
   supplyType: SupplyType
+  /** Grande famille X3 (YFAMSTAT7_0) — ex: ESH, BDH. Optionnel (synthétiques BOM). */
+  famille?: string
+  /** Typologie fine X3 (TSICOD_4) — ex: ESH10-60, BDH60 (bouche), BDH10 (module hygro). Optionnel. */
+  typologie?: string
   reorderDelay: number
   productFamily: string | null
   pmp: number | null
