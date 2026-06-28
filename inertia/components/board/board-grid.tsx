@@ -232,22 +232,30 @@ export default function BoardGrid(props: {
                   maxHours={maxLineHours()}
                   variant="line"
                 />
-                {/* PP_830 — équilibrage (issue #42, header M1) : barre empilée typo + stock bouches hygro. */}
+                {/* PP_830 — équilibrage (issue #42, header M1) : barre empilée typo
+                    (plein = sans bouche, clair = consomme bouche) + stock bouches hygro. */}
                 <Show when={line.pp830}>
                   {(pp) => {
-                    const total = () => pp().chargeByTypo.reduce((s, t) => s + t.hours, 0) || 1
+                    const total = () =>
+                      pp().chargeByTypo.reduce((s, t) => s + t.sans + t.bouche, 0) || 1
+                    const seg = (h: number) => `${(h / total()) * 100}%`
                     return (
                       <div class="mt-1.5">
                         <div class="flex h-[6px] overflow-hidden rounded-full bg-rule-soft">
                           <For each={pp().chargeByTypo}>
                             {(t) => (
-                              <span
-                                class="block h-full"
-                                style={{
-                                  width: `${(t.hours / total()) * 100}%`,
-                                  background: TYPO_META[t.typo]?.color ?? 'var(--color-muted-foreground)',
-                                }}
-                              />
+                              <>
+                                <span
+                                  class="block h-full"
+                                  style={{ width: seg(t.sans), background: TYPO_META[t.typo]?.color ?? '#94a3b8' }}
+                                />
+                                <Show when={t.bouche > 0}>
+                                  <span
+                                    class="block h-full"
+                                    style={{ width: seg(t.bouche), background: TYPO_META[t.typo]?.light ?? '#cbd5e1' }}
+                                  />
+                                </Show>
+                              </>
                             )}
                           </For>
                         </div>
@@ -255,12 +263,14 @@ export default function BoardGrid(props: {
                           <For each={pp().chargeByTypo}>
                             {(t) => (
                               <span class="inline-flex items-center gap-1">
-                                <span
-                                  class="size-[7px] rounded-[1px]"
-                                  style={{ background: TYPO_META[t.typo]?.color ?? 'var(--color-muted-foreground)' }}
-                                />
+                                <span class="inline-flex items-center gap-0.5">
+                                  <span class="size-[7px] rounded-[1px]" style={{ background: TYPO_META[t.typo]?.color ?? '#94a3b8' }} />
+                                  {t.bouche > 0 && (
+                                    <span class="size-[7px] rounded-[1px]" style={{ background: TYPO_META[t.typo]?.light ?? '#cbd5e1' }} />
+                                  )}
+                                </span>
                                 <span class="text-muted-foreground">{TYPO_META[t.typo]?.label ?? t.typo}</span>
-                                <span class="tabular-nums text-foreground">{t.hours}h</span>
+                                <span class="tabular-nums text-foreground">{t.sans + t.bouche}h</span>
                               </span>
                             )}
                           </For>

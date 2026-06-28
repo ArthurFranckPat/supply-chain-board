@@ -26,6 +26,8 @@ export interface OrderCard {
   customer: string | null
   /** Article dont la nomenclature contient un composant BDH (issue #28). */
   consommeBouche?: boolean
+  /** Typologie X3 (TSICOD_4) du PF — ex: ESH10=AUTO, ESH30=HYGRO (issue #42). */
+  typologie?: string
 }
 
 /** Portée de la recherche live. */

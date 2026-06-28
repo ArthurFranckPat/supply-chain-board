@@ -64,6 +64,8 @@ export type CommandeCardProps = Common & {
   mod?: boolean
   /** Article dont la nomenclature contient un composant BDH (issue #28). */
   consommeBouche?: boolean
+  /** Typologie X3 (TSICOD_4) du PF (issue #42). */
+  typologie?: string
 }
 
 export type OfCardProps = Common & {
@@ -159,49 +161,66 @@ const CommandeBody: Component<{
   mod?: boolean
   hours: string
   consommeBouche?: boolean
-}> = (p) => (
-  <>
-    {/* Réf. commande·ligne — clé, une seule ligne (tooltip = valeur complète) */}
-    <div class="truncate font-mono text-[12px] font-bold leading-tight text-foreground" title={p.article}>
-      {p.article}
-    </div>
-    {/* Article + désignation = le produit */}
-    <Show when={p.ord}>
-      <div class="mt-1 truncate font-mono text-[11px] font-semibold leading-tight text-terra" title={p.ord}>
-        {p.ord}
+  typologie?: string
+}> = (p) => {
+  const typo = () => (p.typologie ? TYPO_META[p.typologie] : undefined)
+  return (
+    <>
+      {/* Réf. commande·ligne — clé, une seule ligne (tooltip = valeur complète) */}
+      <div class="truncate font-mono text-[12px] font-bold leading-tight text-foreground" title={p.article}>
+        {p.article}
       </div>
-    </Show>
-    <div class="truncate text-[11px] font-medium leading-tight text-muted-foreground" title={p.title}>
-      {p.title}
-    </div>
-    <Show when={p.client}>
-      <div class="mt-0.5 truncate font-fraunces text-[11px] italic text-muted-foreground">
-        {p.client}
+      {/* Article (PF) + tampon « BDH » si consomme bouche (issue #42). */}
+      <Show when={p.ord}>
+        <div class="mt-1 flex items-center justify-between gap-1.5">
+          <div class="truncate font-mono text-[11px] font-semibold leading-tight text-terra" title={p.ord}>
+            {p.ord}
+          </div>
+          <Show when={p.consommeBouche}>
+            <span
+              class="shrink-0 rotate-[-7deg] rounded border px-1.5 py-0.5 font-mono text-[11px] font-bold uppercase tracking-wider opacity-60"
+              style={{ color: 'var(--color-terra)', 'border-color': 'var(--color-terra)' }}
+            >
+              BDH
+            </span>
+          </Show>
+        </div>
+      </Show>
+      <div class="truncate text-[11px] font-medium leading-tight text-muted-foreground" title={p.title}>
+        {p.title}
       </div>
-    </Show>
-    <div class="mt-2 flex items-center gap-2 border-t border-rule-soft pt-1.5">
-      <Show when={p.mod}>
-        <span class="inline-flex items-center gap-0.5 font-mono text-[8px] font-semibold uppercase tracking-wider text-suggere">
-          <span class="material-symbols-outlined text-[11px]">edit</span>Mod.
-        </span>
+      <Show when={p.client}>
+        <div class="mt-0.5 truncate font-fraunces text-[11px] italic text-muted-foreground">
+          {p.client}
+        </div>
       </Show>
-      <Show when={p.consommeBouche}>
-        <span class="rounded bg-blue-100 px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-blue-700">
-          bouche
+      <div class="mt-2 flex items-center gap-1.5 border-t border-rule-soft pt-1.5">
+        <Show when={p.mod}>
+          <span class="inline-flex items-center gap-0.5 font-mono text-[8px] font-semibold uppercase tracking-wider text-suggere">
+            <span class="material-symbols-outlined text-[11px]">edit</span>Mod.
+          </span>
+        </Show>
+        <Show when={typo()}>
+          {(t) => (
+            <span class="inline-flex items-center gap-1 font-mono text-[9px] font-bold uppercase tracking-wider text-secondary-foreground">
+              <span class="size-[8px] rounded-[2px]" style={{ background: t().color }} />
+              {t().label}
+            </span>
+          )}
+        </Show>
+        <Show when={p.type}>
+          <span class="rounded bg-terra-soft px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-terra">
+            {p.type}
+          </span>
+        </Show>
+        <span class="ml-auto font-fraunces text-[14px] font-bold tabular-nums">
+          {p.hours}
+          <span class="ml-0.5 text-[10px] font-medium text-muted-foreground">h</span>
         </span>
-      </Show>
-      <Show when={p.type}>
-        <span class="rounded bg-terra-soft px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-terra">
-          {p.type}
-        </span>
-      </Show>
-      <span class="ml-auto font-fraunces text-[14px] font-bold tabular-nums">
-        {p.hours}
-        <span class="ml-0.5 text-[10px] font-medium text-muted-foreground">h</span>
-      </span>
-    </div>
-  </>
-)
+      </div>
+    </>
+  )
+}
 
 /* ── Variante OF (approche B : progression + alerte) ── */
 const OfBody: Component<{
@@ -223,17 +242,19 @@ const OfBody: Component<{
       : 0
   return (
     <>
-      {/* Tampon « BDH » = consomme une bouche (issue #42). Absolu → positionné au card root. */}
-      <Show when={p.consommeBouche}>
-        <span
-          class="pointer-events-none absolute right-1.5 top-1.5 rotate-[-7deg] rounded border px-1 py-px font-mono text-[9px] font-bold uppercase tracking-wider opacity-50"
-          style={{ color: 'var(--color-terra)', 'border-color': 'var(--color-terra)' }}
-        >
-          BDH
-        </span>
-      </Show>
-      {/* Couple OF / article — pr margin-right pour laisser le tampon respirer. */}
-      <div class="truncate pr-9 font-mono text-[12px] font-bold leading-tight text-foreground">{p.article}</div>
+      {/* N° OF + tampon « BDH » (consomme bouche, issue #42) sur la même ligne :
+          flex → pas de chevauchement, pas de troncature du n°. */}
+      <div class="flex items-center justify-between gap-1.5">
+        <div class="truncate font-mono text-[12px] font-bold leading-tight text-foreground">{p.article}</div>
+        <Show when={p.consommeBouche}>
+          <span
+            class="shrink-0 rotate-[-7deg] rounded border px-1.5 py-0.5 font-mono text-[11px] font-bold uppercase tracking-wider opacity-60"
+            style={{ color: 'var(--color-terra)', 'border-color': 'var(--color-terra)' }}
+          >
+            BDH
+          </span>
+        </Show>
+      </div>
       <Show when={p.articleRef}>
         <div class="truncate font-mono text-[11px] font-semibold leading-tight text-terra">{p.articleRef}</div>
       </Show>

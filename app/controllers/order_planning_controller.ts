@@ -34,6 +34,8 @@ interface Card {
   customer: string | null
   /** Article dont la nomenclature contient un composant BDH (issue #28). */
   consommeBouche?: boolean
+  /** Typologie X3 (TSICOD_4) du PF (issue #42). */
+  typologie?: string
 }
 
 interface DayCol {
@@ -115,6 +117,7 @@ function makeOrderCard(p: {
   orderType: string | null
   nature: string
   consommeBouche: boolean
+  typologie?: string
 }): Card {
   const id = `${p.numCommande}#${p.ligne}`
   const fields = [
@@ -136,6 +139,7 @@ function makeOrderCard(p: {
     nature: p.nature,
     customer: p.client,
     consommeBouche: p.consommeBouche,
+    typologie: p.typologie,
   }
 }
 
@@ -376,15 +380,18 @@ export async function loadOrderBoardData(
   let gammeOps: GammeOperation[] = []
   let x3Error: string | null = null
   let bdhParents: Set<string> = new Set()
+  let typologieByArticle = new Map<string, string>()
 
   try {
-    const [ref, demandRecep, bdh] = await Promise.all([
+    const [ref, demandRecep, bdh, articlesList] = await Promise.all([
       boardDataset.getReferential(force),
       boardDataset.getDemandAndReception(isoDay(windowStart), isoDay(windowEnd), force),
       staticSync.readBdhParents().catch(() => new Set<string>()),
+      boardDataset.getArticles(),
     ])
     gammeOps = ref.gamme
     bdhParents = bdh
+    for (const a of articlesList) if (a.typologie) typologieByArticle.set(a.code, a.typologie)
     ordreLignes = demandRecep.demand
       .filter((f): f is Flow & { date: Date } => {
         if (f.date === null) return false
@@ -463,6 +470,7 @@ export async function loadOrderBoardData(
       orderType: line.orderType,
       nature: line.nature,
       consommeBouche: bdhParents.has(line.article),
+      typologie: typologieByArticle.get(line.article),
     })
 
     if (!buckets.has(workstation)) {

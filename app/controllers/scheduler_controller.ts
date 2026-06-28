@@ -796,7 +796,7 @@ export default class SchedulerController {
 
     // Group MOs by workstation, place cards on start-day cells.
     const cardsByLineDay = new Map<string, Card[][]>()
-    const lineMeta = new Map<string, { ofCount: number; totalHours: number; dayHours: number[]; byTypo: Map<string, number> }>()
+    const lineMeta = new Map<string, { ofCount: number; totalHours: number; dayHours: number[]; byTypo: Map<string, { sans: number; bouche: number }> }>()
 
     for (const mo of mos) {
       const ov = overrideMap.get(mo.numOf) ?? null
@@ -826,7 +826,7 @@ export default class SchedulerController {
           ofCount: 0,
           totalHours: 0,
           dayHours: new Array<number>(colDates.length).fill(0),
-          byTypo: new Map<string, number>(),
+          byTypo: new Map<string, { sans: number; bouche: number }>(),
         })
       }
       cardsByLineDay.get(wst)![idx].push(cardObj)
@@ -834,9 +834,15 @@ export default class SchedulerController {
       m.ofCount++
       m.totalHours += hours
       m.dayHours[idx] += hours
-      // Charge par typologie (TSICOD_4) — sert au header de ligne PP_830 (issue #42).
+      // Charge par typologie (TSICOD_4), splittée bouche-consommatrice vs non — header PP_830 (#42).
       const typo = typologieByArticle.get(mo.article)
-      if (typo) m.byTypo.set(typo, (m.byTypo.get(typo) ?? 0) + hours)
+      if (typo) {
+        const cur = m.byTypo.get(typo) ?? { sans: 0, bouche: 0 }
+        const isBouche = bdhParents.has(mo.article)
+        if (isBouche) cur.bouche += hours
+        else cur.sans += hours
+        m.byTypo.set(typo, cur)
+      }
     }
 
     // Finalize day columns with hours/pct.
@@ -907,8 +913,12 @@ export default class SchedulerController {
             ? {
                 pp830: {
                   chargeByTypo: [...meta.byTypo.entries()]
-                    .sort((a, b) => b[1] - a[1])
-                    .map(([typo, hours]) => ({ typo, hours: Math.round(hours) })),
+                    .map(([typo, v]) => ({
+                      typo,
+                      sans: Math.round(v.sans),
+                      bouche: Math.round(v.bouche),
+                    }))
+                    .sort((a, b) => (b.sans + b.bouche) - (a.sans + a.bouche)),
                   stockBouchesHygro,
                 },
               }

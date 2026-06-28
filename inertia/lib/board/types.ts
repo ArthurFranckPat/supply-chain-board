@@ -57,21 +57,23 @@ export interface LineRow {
   weekLoads: WeekLoad[]
   /** Présent seulement sur la ligne PP_830 — header d'équilibrage (issue #42). */
   pp830?: {
-    chargeByTypo: { typo: string; hours: number }[]
+    /** Charge (heures) par typo, splittée bouche-consommatrice vs non. */
+    chargeByTypo: { typo: string; sans: number; bouche: number }[]
     stockBouchesHygro: number | null
   }
 }
 
 /**
- * Map typo X3 (TSICOD_4) → {label, couleur}. Décision user (issue #42) :
+ * Map typo X3 (TSICOD_4) → {label, color, light}. Décision user (issue #42) :
  * HYGRO=bleu, DHU=orange, AUTO=jaune, PURAIR=vert, AUTOSENS=violet.
+ * `light` = teinte claire pour la part bouche-consommatrice (ex: HYGRO-BDH vs HYGRO-BAH).
  */
-export const TYPO_META: Record<string, { label: string; color: string }> = {
-  ESH10: { label: 'AUTO', color: '#eab308' },
-  ESH20: { label: 'DHU', color: '#ea580c' },
-  ESH30: { label: 'HYGRO', color: '#2563eb' },
-  ESH40: { label: 'PURAIR', color: '#5b7d4e' },
-  ESH60: { label: 'AUTOSENS', color: '#6d4bb0' },
+export const TYPO_META: Record<string, { label: string; color: string; light: string }> = {
+  ESH10: { label: 'AUTO', color: '#eab308', light: '#fde68a' },
+  ESH20: { label: 'DHU', color: '#ea580c', light: '#fdba74' },
+  ESH30: { label: 'HYGRO', color: '#2563eb', light: '#93c5fd' },
+  ESH40: { label: 'PURAIR', color: '#5b7d4e', light: '#a7c4a0' },
+  ESH60: { label: 'AUTOSENS', color: '#6d4bb0', light: '#c4b5fd' },
 }
 
 export interface WeekSpan {

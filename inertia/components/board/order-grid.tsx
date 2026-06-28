@@ -282,6 +282,7 @@ function CardView(props: {
         hours={fmt(card.hours)}
         mod={card.hasOverride}
         consommeBouche={card.consommeBouche}
+        typologie={card.typologie}
       />
       {/* Override : bouton réinitialiser (date X3 d'origine) */}
       <Show when={card.hasOverride}>
