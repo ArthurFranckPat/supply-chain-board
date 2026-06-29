@@ -42,6 +42,9 @@ export interface LoadLine {
   monthly: LoadPeriod[]
   /** Charge par semaine ISO (longueur = `weeks`). */
   weekly: LoadPeriod[]
+  /** Charge NETTE (besoin − stock strict/CQ), parallèle à monthly/weekly — toggle brut/net. */
+  monthlyNet: LoadPeriod[]
+  weeklyNet: LoadPeriod[]
   /** Capacité nette (heures), mêmes mailles que `monthly` / `weekly`. */
   capacity: LoadCapacity
   /** Atelier (STOLOC) du poste. */

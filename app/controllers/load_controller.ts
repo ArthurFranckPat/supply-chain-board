@@ -8,11 +8,9 @@ import { capDay } from '#app/domain/capacity'
 import { atelierLabel, atelierCategory, type AtelierCategory } from '#app/domain/atelier'
 import capacityCalendar from '#services/capacity_calendar_service'
 import staticSync from '#services/static_sync_service'
-import {
-  isManufactured,
-  requiredQuantity,
-  type NomenclatureEntry,
-} from '#app/domain/models/nomenclature'
+import { isManufactured, type NomenclatureEntry } from '#app/domain/models/nomenclature'
+import { explodeCharge, netCharge } from '#app/domain/charge-explosion'
+import type { Flow } from '#app/domain/models/flow'
 import cache from '@adonisjs/cache/services/main'
 
 /**
@@ -36,6 +34,9 @@ interface LoadLine {
   articles: string[]
   monthly: LoadPeriod[]
   weekly: LoadPeriod[]
+  /** Charge NETTE (besoin − stock strict/CQ), parallèle à monthly/weekly — toggle brut/net. */
+  monthlyNet: LoadPeriod[]
+  weeklyNet: LoadPeriod[]
   /** Capacité nette (heures) par bucket, alignée sur monthly/weekly (issue #35). */
   capacity: { monthly: number[]; weekly: number[] }
   /** Atelier (STOLOC) du poste + métadonnées de filtre (issue #36). */
@@ -217,23 +218,33 @@ export default class LoadController {
         }
         const emptyCap = () => ({ monthly: monthBuckets.map(() => 0), weekly: weekBuckets.map(() => 0) })
 
-        type AggRecord = { wst: string; date: Date; hours: number; field: keyof LoadPeriod; article: string }
-        type Acc = { monthly: LoadPeriod[]; weekly: LoadPeriod[]; articles: Set<string> }
+        type AggRecord = { wst: string; date: Date; brutHours: number; netHours: number; field: keyof LoadPeriod; article: string }
+        type Acc = { monthly: LoadPeriod[]; monthlyNet: LoadPeriod[]; weekly: LoadPeriod[]; weeklyNet: LoadPeriod[]; articles: Set<string> }
 
         const buildLines = (records: AggRecord[]): LoadLine[] => {
           const byLine = new Map<string, Acc>()
           for (const r of records) {
-            if (r.hours <= 0 || r.date < monthStart || r.date > horizonEnd) continue
+            if (r.brutHours <= 0 || r.date < monthStart || r.date > horizonEnd) continue
             const mi = monthIdxByKey.get(monthKey(r.date))
             if (mi === undefined) continue
             const wi = weekIdxByKey.get(isoDay(mondayOf(r.date)))
             let acc = byLine.get(r.wst)
             if (!acc) {
-              acc = { monthly: monthBuckets.map(emptyPeriod), weekly: weekBuckets.map(emptyPeriod), articles: new Set() }
+              acc = {
+                monthly: monthBuckets.map(emptyPeriod),
+                monthlyNet: monthBuckets.map(emptyPeriod),
+                weekly: weekBuckets.map(emptyPeriod),
+                weeklyNet: weekBuckets.map(emptyPeriod),
+                articles: new Set(),
+              }
               byLine.set(r.wst, acc)
             }
-            acc.monthly[mi][r.field] += r.hours
-            if (wi !== undefined) acc.weekly[wi][r.field] += r.hours
+            acc.monthly[mi][r.field] += r.brutHours
+            acc.monthlyNet[mi][r.field] += r.netHours
+            if (wi !== undefined) {
+              acc.weekly[wi][r.field] += r.brutHours
+              acc.weeklyNet[wi][r.field] += r.netHours
+            }
             if (r.article) acc.articles.add(r.article)
           }
           return [...byLine.entries()]
@@ -248,6 +259,8 @@ export default class LoadController {
                 articles: [...acc.articles].sort(),
                 monthly: acc.monthly.map(round),
                 weekly: acc.weekly.map(round),
+                monthlyNet: acc.monthlyNet.map(round),
+                weeklyNet: acc.weeklyNet.map(round),
                 capacity: capacityByWst.get(code) ?? emptyCap(),
                 atelier: stoloc,
                 atelierLabel: atelierLabel(stoloc),
@@ -257,15 +270,44 @@ export default class LoadController {
             })
         }
 
+        // ── Charge commande : explosion depth-4 + netting stock (suite issue #42).
+        // ponytail: snapshot stock « maintenant » étalé sur l'horizon, FIFO/article.
+        // Pas de réceptions/OF en cours, pas d'offset lead time (choix métier).
+        const chargeRaws = explodeCharge(
+          orderLines.map((l) => ({
+            article: l.article,
+            quantite: l.quantite,
+            date: atMidnight(l.dateLivraison),
+            nature: (l.nature === 'PREVISION' ? 'prevision' : 'ferme') as 'prevision' | 'ferme',
+          })),
+          bomByParent,
+          gammeMap,
+        )
+        const chargeArticles = [...new Set(chargeRaws.map((r) => r.article))]
+        const stockByArticle = new Map<string, number>()
+        if (chargeArticles.length > 0) {
+          const flows = await boardDataset.getStock(chargeArticles).catch(() => [] as Flow[])
+          for (const f of flows) {
+            if (f.origin.type !== 'stock') continue
+            if (f.origin.subType === 'strict' || f.origin.subType === 'qc') {
+              stockByArticle.set(f.article, (stockByArticle.get(f.article) ?? 0) + f.quantity)
+            }
+          }
+        }
+        const chargeNeeds = netCharge(chargeRaws, stockByArticle)
+
         const ofLines = buildLines(
           mos.flatMap((mo) => {
             const gamme = gammeMap.get(mo.article)
             if (!gamme?.workstation || !mo.startDate) return []
             const rate = gamme.rate ?? 0
+            const hours = rate > 0 ? mo.quantity / rate : 0
+            // OF réels : déjà nets via le CBN → brut = net (pas de toggle sur la vue OF).
             return [{
               wst: gamme.workstation,
               date: atMidnight(mo.startDate),
-              hours: rate > 0 ? mo.quantity / rate : 0,
+              brutHours: hours,
+              netHours: hours,
               field: (mo.status === 1 ? 'f' : mo.status === 2 ? 'p' : 's') as keyof LoadPeriod,
               article: `${mo.article} ${mo.designation ?? ''}`.trim(),
             }]
@@ -273,44 +315,17 @@ export default class LoadController {
         )
 
         const cmdLines = buildLines(
-          orderLines.flatMap((l): AggRecord[] => {
-            const gamme = gammeMap.get(l.article)
-            if (!gamme?.workstation) return []
-            const rate = gamme.rate ?? 0
-            const recs: AggRecord[] = [{
-              wst: gamme.workstation,
-              date: atMidnight(l.dateLivraison),
-              hours: rate > 0 ? l.quantite / rate : 0,
-              field: (l.nature === 'PREVISION' ? 's' : 'f') as keyof LoadPeriod,
-              article: `${l.article} ${l.designation ?? ''}`.trim(),
-            }]
-            // Charge induite (besoin brut depth-1, issue #42) : pour chaque composant
-            // FABRIQUÉ du PF, charge sur le poste DU COMPOSANT, à la date de la
-            // commande. Brut (ni netting ni offset). Non appliqué aux OF (déjà
-            // dépendants via le CBN — sinon double-compte).
-            const bom = bomByParent.get(l.article)
-            if (bom) {
-              for (const entry of bom) {
-                const compGamme = gammeMap.get(entry.componentArticle)
-                const compPoste = compGamme?.workstation
-                if (!compPoste) continue
-                const compRate = compGamme!.rate ?? 0
-                const compQty = requiredQuantity(entry, l.quantite)
-                const compHours = compRate > 0 ? compQty / compRate : 0
-                if (compHours <= 0) continue
-                recs.push({
-                  wst: compPoste,
-                  date: atMidnight(l.dateLivraison),
-                  hours: compHours,
-                  // Induit ventilé par la nature de la commande parente :
-                  // prévision → si (suggéré), ferme → fi.
-                  field: l.nature === 'PREVISION' ? 'si' : 'fi',
-                  article: entry.componentArticle,
-                })
-              }
-            }
-            return recs
-          }),
+          // Besoin PF (depth 0) → f/s ; composants induits (depth >0) → fi/si.
+          chargeNeeds.map((n): AggRecord => ({
+            wst: n.wst,
+            date: n.date,
+            brutHours: n.brutHours,
+            netHours: n.netHours,
+            field: (n.depth === 0
+              ? n.nature === 'prevision' ? 's' : 'f'
+              : n.nature === 'prevision' ? 'si' : 'fi') as keyof LoadPeriod,
+            article: n.article,
+          })),
         )
 
         const fmtLong = (d: Date) => {

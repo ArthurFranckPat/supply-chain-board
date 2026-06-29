@@ -521,8 +521,16 @@ const Load: Component<LoadPageProps> = (props) => {
       return next
     })
 
+  // Bascule Brut ↔ Net (vue commande) : substitue les tableaux nets (besoin − stock
+  // strict/CQ) aux bruts. Les OF sont déjà nets via le CBN — toggle sans effet en vue OF.
+  const [net, setNet] = createSignal(false)
+  const viewNet = (l: LoadLine): LoadLine =>
+    net() ? { ...l, monthly: l.monthlyNet, weekly: l.weeklyNet } : l
+
   // Jeu de lignes de la vue active : OF (charge ordres) ou Commande (charge demande).
-  const lines = createMemo(() => (view() === 'of' ? props.ofLines : props.cmdLines))
+  const lines = createMemo(() =>
+    (view() === 'of' ? props.ofLines : props.cmdLines).map(viewNet),
+  )
 
   // Filtre client : atelier (STOLOC) + recherche poste (code/libellé) OU article.
   const filteredLines = createMemo(() => {
@@ -659,6 +667,30 @@ const Load: Component<LoadPageProps> = (props) => {
             )}
           </For>
         </div>
+        {/* Bascule Brut ↔ Net (vue commande) : déduit le stock disponible (physique + CQ). */}
+        <Show when={view() === 'commande'}>
+          <div
+            class="inline-flex items-center gap-0.5 rounded-md border border-rule bg-card p-0.5"
+            title="Net = besoin − stock disponible (physique + CQ), consommé FIFO sur l'horizon"
+          >
+            <For each={['brut', 'net'] as const}>
+              {(m) => (
+                <button
+                  type="button"
+                  onClick={() => setNet(m === 'net')}
+                  class={cx(
+                    'rounded-[5px] px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
+                    (net() ? 'net' : 'brut') === m
+                      ? 'bg-terra-soft text-terra'
+                      : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  {m === 'brut' ? 'Brut' : 'Net'}
+                </button>
+              )}
+            </For>
+          </div>
+        </Show>
         <span class="h-3.5 w-px bg-rule-soft" />
         <Show
           when={view() === 'of'}
