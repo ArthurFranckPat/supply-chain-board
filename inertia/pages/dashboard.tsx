@@ -73,6 +73,9 @@ const EMPTY_OTD: DashboardOtdResponse = { otd: [], x3Error: null }
 /** Palette des barres par rang de poste (du plus chargé au moins chargé). */
 const BAR_PALETTE = ['#b23b2e', '#cf6a3f', '#b8862c', '#cdb079', '#a8a18c']
 
+/** Normalise une chaîne pour la recherche : sans accents ni casse. */
+const fold = (s: string): string => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+
 /** En-tête de card lisible : pastille d'accent + titre Fraunces + suffixe mono optionnel. */
 const CardHeader: Component<{ title: string; suffix?: string; tone?: string }> = (p) => (
   <div class="mb-4 flex items-center gap-2.5 border-b border-rule-soft pb-3">
@@ -88,6 +91,8 @@ const Dashboard: Component<DashboardProps> = (props) => {
   const [otdMode, setOtdMode] = createSignal<OtdMode>('demandee')
   const [otdRange, setOtdRange] = createSignal<DateRange | null>(null)
   const [calendarOpen, setCalendarOpen] = createSignal(false)
+  const [clientFilter, setClientFilter] = createSignal('')
+  const [detailsOpen, setDetailsOpen] = createSignal(true)
 
   const otdUrl = createMemo(() => {
     let url = `${props.otdHref}&otdMode=${otdMode()}`
@@ -129,6 +134,16 @@ const Dashboard: Component<DashboardProps> = (props) => {
 
   const kpi = createMemo(() => (kpisData() ?? EMPTY_KPIS).retardCharge)
   const otd = createMemo(() => (otdData() ?? EMPTY_OTD).otd)
+  const normClient = createMemo(() => fold(clientFilter()))
+  /** Périodes OTD avec `lignesNon` restreintes au filtre client (KPI période inchangés). */
+  const otdFiltered = createMemo(() => {
+    const q = normClient()
+    const base = otd()
+    if (!q) return base
+    return base.map((p) => ({ ...p, lignesNon: p.lignesNon.filter((l) => fold(l.client).includes(q)) }))
+  })
+  const nbLignesFiltrees = createMemo(() => otdFiltered().reduce((n, p) => n + p.lignesNon.length, 0))
+  const nbLignesTotal = createMemo(() => otd().reduce((n, p) => n + p.lignesNon.length, 0))
   const x3Error = createMemo(() => (kpisData() ?? EMPTY_KPIS).x3Error)
   const otdError = createMemo(() => (otdData() ?? EMPTY_OTD).x3Error)
   const maxHeures = createMemo(() => Math.max(1, ...kpi().postes.map((p) => p.heures)))
@@ -295,7 +310,44 @@ const Dashboard: Component<DashboardProps> = (props) => {
                     when={otd().length > 0}
                     fallback={<p class="font-fraunces text-[13px] italic text-muted-foreground">Aucune donnée OTD.</p>}
                   >
-                    <For each={otd()}>
+                    {/* Filtre par client + bascule afficher/masquer les détails */}
+                    <div class="mb-3 flex items-center gap-1.5">
+                      <div class="relative min-w-0 flex-1">
+                        <span class="material-symbols-outlined pointer-events-none absolute left-1.5 top-1/2 -translate-y-1/2 text-[13px] text-muted-foreground">search</span>
+                        <input
+                          type="text"
+                          value={clientFilter()}
+                          onInput={(e) => setClientFilter(e.currentTarget.value)}
+                          placeholder="Filtrer par client"
+                          aria-label="Filtrer les lignes par client"
+                          class="w-full rounded border border-rule bg-secondary py-[5px] pl-7 pr-6 font-sans text-[11px] text-foreground placeholder:text-muted-foreground/60 focus:border-foreground/30 focus:outline-none"
+                        />
+                        <Show when={clientFilter()}>
+                          <button
+                            type="button"
+                            onClick={() => setClientFilter('')}
+                            class="absolute right-1 top-1/2 flex size-4 -translate-y-1/2 items-center justify-center text-muted-foreground hover:text-foreground"
+                            title="Effacer le filtre"
+                            aria-label="Effacer le filtre"
+                          >
+                            <span class="material-symbols-outlined text-[13px]">close</span>
+                          </button>
+                        </Show>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setDetailsOpen((v) => !v)}
+                        class="flex shrink-0 items-center gap-1 rounded border border-rule bg-secondary px-2 py-[5px] font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-foreground transition-colors hover:bg-secondary/80"
+                        title={detailsOpen() ? 'Masquer les détails' : 'Afficher les détails'}
+                      >
+                        <span class="material-symbols-outlined text-[13px] text-muted-foreground">{detailsOpen() ? 'expand_more' : 'chevron_right'}</span>
+                        <span>Détails</span>
+                      </button>
+                      <Show when={normClient()}>
+                        <span class="shrink-0 font-mono text-[9px] tabular-nums text-muted-foreground">{nbLignesFiltrees()}/{nbLignesTotal()}</span>
+                      </Show>
+                    </div>
+                    <For each={otdFiltered()}>
                       {(p, i) => (
                         <div classList={{ 'mt-5 border-t border-rule-soft pt-5': i() > 0 }}>
                           {/* Label période */}
@@ -316,7 +368,15 @@ const Dashboard: Component<DashboardProps> = (props) => {
                               </div>
                             </div>
 
-                            <Show when={p.lignesNon.length > 0}>
+                            <Show when={detailsOpen()}>
+                              <Show
+                                when={p.lignesNon.length > 0}
+                                fallback={
+                                  <Show when={normClient()}>
+                                    <p class="mt-4 font-fraunces text-[12px] italic text-muted-foreground">Aucune ligne pour « {clientFilter().trim()} ».</p>
+                                  </Show>
+                                }
+                              >
                               <div class="-mx-2 mt-4 max-h-[160px] overflow-auto">
                                 <table class="w-full border-collapse text-left">
                                   <thead>
@@ -353,6 +413,7 @@ const Dashboard: Component<DashboardProps> = (props) => {
                                   </tbody>
                                 </table>
                               </div>
+                              </Show>
                             </Show>
                           </Show>
                         </div>
