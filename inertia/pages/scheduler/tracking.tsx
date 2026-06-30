@@ -597,8 +597,14 @@ const Tracking: Component<SuiviPageProps> = (props) => {
                     }
                   >
                     {(r) => (
-                      <span class="font-mono text-[9.5px] font-medium leading-tight text-muted-foreground" title={r().supplier}>
-                        arrive {r().eta} · {r().po}
+                      <span
+                        classList={{
+                          'font-mono text-[9.5px] font-bold leading-tight text-destructive': r().overdue,
+                          'font-mono text-[9.5px] font-medium leading-tight text-muted-foreground': !r().overdue,
+                        }}
+                        title={r().supplier}
+                      >
+                        {r().overdue ? `en retard +${r().retardJ} j · ${r().eta}` : `arrive ${r().eta} · ${r().po}`}
                       </span>
                     )}
                   </Show>

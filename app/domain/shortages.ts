@@ -50,8 +50,13 @@ export interface ShortageRow {
    * Retard imputable à la réception : nb de jours entre la date d'expédition commande
    * et la date d'arrivée de la réception couvrante, si celle-ci arrive APRÈS l'expédition.
    * 0 si à temps, sans réception, ou sans date d'expédition (OF non rattaché).
+   *
+   * Pour une réception EN RETARD (overdue : attendue dans le passé, non reçue), vaut
+   * aujourd'hui − date attendue (jours de retard déjà cumulés).
    */
   joursRetardReception: number
+  /** Vrai si la réception couvrante est en retard de livraison (attendue dans le passé, non reçue). */
+  overdue: boolean
   /** Première réception qui couvre la qté manquante — null si aucune couverture prévue. */
   reception: ShortageReception | null
   couverte: boolean
@@ -88,7 +93,7 @@ export interface ShortageOfPeg {
 }
 
 /** Nb de jours calendaires entre deux dates ISO (YYYY-MM-DD), en UTC pour éviter tout décalage. */
-function daysBetweenIso(fromIso: string, toIso: string): number {
+export function daysBetweenIso(fromIso: string, toIso: string): number {
   const a = Date.parse(`${fromIso}T00:00:00Z`)
   const b = Date.parse(`${toIso}T00:00:00Z`)
   if (Number.isNaN(a) || Number.isNaN(b)) return 0
@@ -136,6 +141,7 @@ export function buildShortageRows(
   articles: Map<string, Article>,
   ofPegs: Map<string, ShortageOfPeg> = new Map(),
 ): ShortageResult {
+  const todayIso = new Date().toISOString().slice(0, 10)
   // Map inverse OF → commande (un OF rattaché à une commande porte son statut/retard).
   // On ne rattache QUE les vraies commandes clientes : une prévision ne constitue pas un
   // engagement client → parler de « rupture commande » pour une prévision n'a pas de sens.
@@ -182,17 +188,26 @@ export function buildShortageRows(
         qteManquante,
       )
 
-      // Retard imputable à la réception : la couvrante arrive-t-elle APRÈS l'expédition ?
-      // Sans date d'expédition (OF non rattaché), pas de référence → 0.
+      // Retard imputable à la réception. Deux cas :
+      //  - EN RETARD (overdue) : la couvrante était attendue dans le passé (retard de
+      //    livraison, PO non reçue). Lateness = aujourd'hui − date attendue (retard déjà
+      //    cumulé). Cas le plus urgent — la pièce aurait dû être là.
+      //  - À VENIR TARD : la couvrante arrive après l'expé commande (référence temporelle).
       let joursRetardReception = 0
-      if (reception && dateExpedition && reception.dateArrivee > dateExpedition) {
-        joursRetardReception = daysBetweenIso(dateExpedition, reception.dateArrivee)
+      let overdue = false
+      if (reception) {
+        if (reception.dateArrivee < todayIso) {
+          overdue = true
+          joursRetardReception = daysBetweenIso(reception.dateArrivee, todayIso)
+        } else if (dateExpedition && reception.dateArrivee > dateExpedition) {
+          joursRetardReception = daysBetweenIso(dateExpedition, reception.dateArrivee)
+        }
       }
 
       let verdict: ShortageRow['verdict']
       if (!reception) verdict = 'sans_couverture'
-      // Retard si la commande est déjà en retard (stock) OU si la réception arrive trop tard.
-      else if (joursRetard > 0 || joursRetardReception > 0) verdict = 'retard'
+      // Retard si commande en retard (stock), réception en retard (overdue) ou arrivée tardive.
+      else if (overdue || joursRetard > 0 || joursRetardReception > 0) verdict = 'retard'
       else verdict = 'couvert'
 
       rows.push({
@@ -208,6 +223,7 @@ export function buildShortageRows(
         statutCommande: rollup?.statut ?? null,
         joursRetard,
         joursRetardReception,
+        overdue,
         reception,
         couverte: reception !== null,
         verdict,

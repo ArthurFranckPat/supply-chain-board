@@ -153,9 +153,12 @@ export const ShortageRegistre: Component<{
               classList={{ 'font-bold text-destructive': row.arriveeLate, 'text-secondary-foreground': !row.arriveeLate }}
             >
               <Show when={row.arriveeLate}>
-                <span class="material-symbols-outlined text-[13px]">warning</span>
+                <span class="material-symbols-outlined text-[13px]">{row.overdue ? 'priority_high' : 'warning'}</span>
               </Show>
               {row.dateArrivee}
+              <Show when={row.overdue}>
+                <span class="rounded bg-destructive/15 px-1 font-mono text-[9px] font-bold uppercase text-destructive">en retard</span>
+              </Show>
             </span>
           </Show>
         )
@@ -345,7 +348,7 @@ export const ShortageTimeline: Component<{
                       <Marker
                         pct={recPct()!}
                         tone={row.arriveeLate ? 'bad' : 'ok'}
-                        cap={`arr. ${row.dateArrivee}`}
+                        cap={row.overdue ? `en retard ${row.dateArrivee}` : `arr. ${row.dateArrivee}`}
                         sub={row.arriveeLate ? `+${row.joursRetardReception} j · ${row.reception?.id ?? ''}` : (row.reception?.id ?? '')}
                       />
                     </Show>

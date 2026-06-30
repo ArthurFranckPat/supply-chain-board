@@ -11,7 +11,7 @@ import { loadOrderImpacts } from '#services/order_impacts_loader'
 import { timeStage } from '#services/perf_metrics'
 import { loadOrderBoardData } from '#controllers/order_planning_controller'
 import { buildShortageRows, type ShortageRow } from '#app/domain/shortages'
-import { groupReceptionsByArticle } from '#repositories/reception_repository'
+import { groupReceptionsByArticle, RECEPTION_LOOKBACK_DAYS } from '#repositories/reception_repository'
 import type { Flow } from '#app/domain/models/flow'
 import type { NomenclatureEntry } from '#app/domain/models/nomenclature'
 
@@ -614,7 +614,12 @@ export default class SchedulerController {
           const firmReceptions = receptionFlows.filter(
             (f) => f.origin.type === 'reception' && (f.origin as { firm?: boolean }).firm,
           )
-          const receptionsByArticle = groupReceptionsByArticle(firmReceptions, windowFrom)
+          // Lookback des retards de livraison : on garde les PO en retard (attendues dans le
+          // passé) jusqu'à RECEPTION_LOOKBACK_DAYS pour capter les livraisons en retard.
+          const receptionFrom = new Date()
+          receptionFrom.setDate(receptionFrom.getDate() - RECEPTION_LOOKBACK_DAYS)
+          receptionFrom.setHours(0, 0, 0, 0)
+          const receptionsByArticle = groupReceptionsByArticle(firmReceptions, receptionFrom)
           const built = buildShortageRows(result, receptionsByArticle, articles, pegsIso)
           rows = built.rows
           stats = built.stats
@@ -675,6 +680,7 @@ export default class SchedulerController {
         // Colonne dédiée date d'arrivée (rouge si la réception arrive après l'expédition).
         dateArrivee: r.reception ? fmtFrShort(r.reception.dateArrivee) : '',
         arriveeLate: r.joursRetardReception > 0,
+        overdue: r.overdue,
         verdictKey: r.verdict,
         verdictLabel: (() => {
           // Affiche le pire retard : commande (stock) vs arrivée réception trop tardive.

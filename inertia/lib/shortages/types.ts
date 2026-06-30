@@ -26,6 +26,8 @@ export interface ShortageDisplayRow {
   reception: ShortageReceptionDisplay | null
   dateArrivee: string
   arriveeLate: boolean
+  /** Vrai si la réception couvrante est en retard de livraison (attendue dans le passé). */
+  overdue: boolean
   /** Clé courte du verdict pour les filtres + le tri (miroir de ShortageRow.verdict). */
   verdictKey: ShortageVerdictKey
   verdictLabel: string

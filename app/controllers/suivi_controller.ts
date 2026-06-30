@@ -17,8 +17,8 @@ import { SuiviService, reloadSuiviContext, RETARD_LOOKBACK_DAYS, SUIVI_FORWARD_D
 import { loadOrderImpacts } from '#services/order_impacts_loader'
 import type { OrderImpactResult } from '#app/domain/order-impacts'
 import type { Article } from '#app/domain/models/article'
-import { groupReceptionsByArticle } from '#repositories/reception_repository'
-import { resolveCoveringReception } from '#app/domain/shortages'
+import { groupReceptionsByArticle, RECEPTION_LOOKBACK_DAYS } from '#repositories/reception_repository'
+import { resolveCoveringReception, daysBetweenIso } from '#app/domain/shortages'
 import type { ReceptionRecord } from '#app/domain/recursive-checker'
 import boardDataset from '#services/board_dataset'
 import { atelierLabel } from '#app/domain/atelier'
@@ -221,9 +221,10 @@ export default class SuiviController {
         loadOrderImpacts({ from, to, mode: 'sequential', preferEngineFeasibility: true }),
         buildAtelierByArticle(),
       ])
-      // Réceptions encore à venir (≥ réf.) — réutilise les flows déjà fetchés par loadOrderImpacts
-      // via getLive (évite un SOAP dupliqué vers PORDERQ).
+      // Réceptions à venir + retards de livraison (lookback RECEPTION_LOOKBACK_DAYS) — réutilise
+      // les flows déjà fetchés par loadOrderImpacts via getLive (évite un SOAP PORDERQ dupliqué).
       const recFrom = new Date(refDate)
+      recFrom.setDate(recFrom.getDate() - RECEPTION_LOOKBACK_DAYS)
       recFrom.setHours(0, 0, 0, 0)
       const receptionsByArticle = groupReceptionsByArticle(receptionFlows, recFrom)
       const built = buildProactiveDisplay(result, articles, receptionsByArticle, atelierByArticle)
@@ -549,6 +550,7 @@ export function buildProactiveDisplay(
   const horizonIso = new Date()
   horizonIso.setHours(0, 0, 0, 0)
   horizonIso.setDate(horizonIso.getDate() + PROACTIVE_HORIZON_FUTURE_DAYS)
+  const todayIso = new Date().toISOString().slice(0, 10)
 
   const rows: ProactiveDisplayRow[] = result.orders
     .filter((o) => o.nature === 'commande')
@@ -566,12 +568,17 @@ export function buildProactiveDisplay(
           const qtyR = Math.round(qty * 100) / 100
           // Réception couvrante (même résolution que la table Ruptures) : 1ère réception
           // d'achat dont le cumul atteint la qté manquante → ETA + n° commande d'achat.
+          // Overdue = attendue dans le passé (retard de livraison) → lateness = today − attendue.
           const rec = resolveCoveringReception(receptionsByArticle.get(art) ?? [], qtyR)
+          const overdue = !!rec && rec.dateArrivee < todayIso
+          const retardJ = overdue ? daysBetweenIso(rec!.dateArrivee, todayIso) : 0
           return {
             art,
             desc: articles.get(art)?.description ?? '',
             qty: qtyR,
-            reception: rec ? { eta: fmtFrDay(rec.dateArrivee), po: rec.id, supplier: rec.supplier } : null,
+            reception: rec
+              ? { eta: fmtFrDay(rec.dateArrivee), po: rec.id, supplier: rec.supplier, overdue, retardJ }
+              : null,
           }
         })
 

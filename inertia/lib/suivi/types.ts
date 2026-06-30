@@ -159,7 +159,7 @@ export interface ProactiveDisplayRow {
     art: string
     desc: string
     qty: number
-    reception: { eta: string; po: string; supplier: string } | null
+    reception: { eta: string; po: string; supplier: string; overdue: boolean; retardJ: number } | null
   }[]
   ofs: ProactiveOf[]
   /** Atelier (STOLOC du poste de gamme) — '' si inconnu (issue #36). */

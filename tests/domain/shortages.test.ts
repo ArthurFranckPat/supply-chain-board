@@ -87,19 +87,25 @@ test.group('buildShortageRows', () => {
   })
 
   test('verdict "couvert" si réception disponible et pas de retard sur commande', ({ assert }) => {
+    // Réception couvrante à J+2 ; expédition à J+5 → arrive à temps → couvert.
+    const exp = new Date()
+    exp.setHours(12, 0, 0, 0)
+    exp.setDate(exp.getDate() + 5)
+    const expIso = `${exp.getFullYear()}-${String(exp.getMonth() + 1).padStart(2, '0')}-${String(exp.getDate()).padStart(2, '0')}`
     const result = buildResult(
       [{ numOf: 'OF-A', article: 'PF1', feasible: false, statutNum: 3, missingComponents: { C1: 10 } }],
       [{
         numCommande: 'CMD-1', client: 'ACME', article: 'PF1', description: '',
-        qteRestante: 100, dateExpedition: '2026-07-01', dejaEnRetard: false,
+        qteRestante: 100, dateExpedition: expIso, dejaEnRetard: false,
         nature: 'commande', typeCommande: 'NOR', matchingMethod: 'of', reliquat: 0,
         statut: 'bloquee', joursRetard: 0,
-        ofs: [{ numOf: 'OF-A', article: 'PF1', qteAllouee: 100, dateFin: '2026-06-30', feasible: false, missingComponents: { C1: 10 }, modified: false, statutNum: 3 }],
+        ofs: [{ numOf: 'OF-A', article: 'PF1', qteAllouee: 100, dateFin: expIso, feasible: false, missingComponents: { C1: 10 }, modified: false, statutNum: 3 }],
       }],
     )
     const rows = buildShortageRows(result, new Map([['C1', [reception('PO-1', 'C1', 'FX', 10, 2)]]]), new Map()).rows
     assert.equal(rows[0].verdict, 'couvert')
     assert.equal(rows[0].couverte, true)
+    assert.equal(rows[0].overdue, false)
   })
 
   test('verdict "retard" si la réception couvre mais arrive APRÈS la date d\'expédition', ({ assert }) => {

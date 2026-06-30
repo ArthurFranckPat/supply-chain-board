@@ -3,6 +3,14 @@ import type { ReceptionRecord } from '#app/domain/recursive-checker'
 import PurchaseOrderLine from '#models/x3/porderq'
 import { parseX3Date } from '#app/x3/utils/parse_date'
 
+/**
+ * Fenêtre arrière (jours) pour les réceptions en retard de livraison. Une PO dont la date
+ * d'arrivée prévue est dans le passé mais non reçue (retard fournisseur) reste une couverture
+ * potentielle — on l'inclut jusqu'à N jours en arrière pour capter ces retards. Au-delà, une
+ * PO toujours ouverte est considérée comme un reliquat fantôme (visserie, etc.) à ignorer.
+ */
+export const RECEPTION_LOOKBACK_DAYS = Number(process.env.RECEPTION_LOOKBACK_DAYS) || 90
+
 export class X3ReceptionRepository {
   /** Réceptions attendues ; si `to` fourni, bornées à `EXTRCPDAT_0 <= to`. */
   async getReceptionFlows(opts?: { to?: string }): Promise<Flow[]> {
@@ -56,15 +64,15 @@ export class X3ReceptionRepository {
 }
 
 /**
- * Charge les réceptions d'achat attendues, regroupées par article composant.
+ * Pivote des Flow réceptions déjà fetchés → Map article → ReceptionRecord[].
  *
- * Factorise le motif fetch + filtre + pivot dupliqué entre la table Ruptures
- * (scheduler), le suivi réactif (causes de retard) et la vue proactive (goulots).
- * `from` exclut les réceptions déjà arrivées (consommées dans le stock, elles
- * fausseraient la couverture) ; sans borne haute (une réception au-delà de la
- * fenêtre reste utile pour détecter un retard d'arrivée).
+ * Factorise le motif fetch + filtre + pivot entre la table Ruptures, le suivi réactif
+ * (causes de retard) et la vue proactive (goulots). `from` borne le lookback des retards
+ * de livraison : on garde les réceptions attendues dans le passé (PO en retard, non reçue)
+ * jusqu'à N jours (cf. RECEPTION_LOOKBACK_DAYS). Les PO déjà reçues sont exclues en amont
+ * par la requête (WIPTYP=2 WIPSTA IN (1,2), RMNEXTQTY_0 > 0) — le filtre date ne sert PAS
+ * à les écarter.
  */
-/** Pivote des Flow réceptions déjà fetchés → Map article → ReceptionRecord[]. */
 export function groupReceptionsByArticle(flows: Flow[], from?: Date): Map<string, ReceptionRecord[]> {
   const byArticle = new Map<string, ReceptionRecord[]>()
   for (const f of flows) {
