@@ -277,6 +277,13 @@ export interface StatusAssignment {
   alerteCqStatut: boolean
   /** Cause du retard — renseignée par analyzeRetardCause() après coup (null sinon). */
   cause: RetardCause | null
+  /**
+   * Signal « Attente lignes » : la ligne est A_EXPEDIER mais appartient à une commande
+   * MTO incomplète (au moins une autre ligne n'est pas prête). L'expédition partielle
+   * étant interdite en MTO, la ligne est bloquée tant que la commande n'est pas complète.
+   * Le statut (A_EXPEDIER) est CONSERVÉ — ce signal pilote uniquement le badge secondaire.
+   */
+  attenteLignesMto?: boolean
 }
 
 export interface StockBreakdown {
@@ -560,6 +567,22 @@ export function assignStatuses(
       alerteCqStatut,
       cause: null,
     })
+  }
+
+  // ── Règle MTO : pas d'expédition partielle ───────────────────────────────
+  // Une commande MTO n'est expédiable que si TOUTES ses lignes sont prêtes. On
+  // CONSERVE le statut de base (A_EXPEDIER…) mais on lève un signal secondaire sur les
+  // lignes A_EXPEDIER dont la commande est incomplète (≥ 1 ligne avec besoin net > 0) —
+  // rendu « Attente lignes » côté front (badge, miroir du signal CQ).
+  const ordersIncompletes = new Set<string>()
+  for (const a of assignments) {
+    if (a.besoinNet > 0) ordersIncompletes.add(a.line.numCommande)
+  }
+  for (const a of assignments) {
+    a.attenteLignesMto =
+      a.line.typeCommande === 'MTO' &&
+      ordersIncompletes.has(a.line.numCommande) &&
+      a.status === 'A_EXPEDIER'
   }
 
   // Restitue l'ordre original.

@@ -259,6 +259,7 @@ function serializeAssignments(assignments: StatusAssignment[]) {
       qteAlloueeVirtuelle: a.qteAlloueeVirtuelle,
       utiliseStockSousCq: a.utiliseStockSousCq,
       alerteCqStatut: a.alerteCqStatut,
+      attenteLignesMto: a.attenteLignesMto ?? false,
       cause: a.cause
         ? { type: a.cause.typeCause, composants: a.cause.composants, label: causeToDisplayString(a.cause) }
         : null,
@@ -317,6 +318,8 @@ export interface SuiviDisplayRow {
   allocStrict: number
   allocCq: number
   cq: boolean
+  /** Ligne A_EXPEDIER d'une commande MTO incomplète (expédition partielle bloquée). */
+  attenteLignes: boolean
   dateExp: string
   /** ISO YYYY-MM-DD pour le tri chronologique (null si absente). */
   dateExpIso: string | null
@@ -481,6 +484,7 @@ export function buildSuiviDisplay(
     const rec = recommendActions(a)
     const compsTxt = cause ? cause.comps.map((c) => `${c.art} −${c.qty}`).join(' ') : ''
     const atelier = atelierByArticle.get(a.line.article) ?? { code: '', label: '' }
+    const attente = !!a.attenteLignesMto
     return {
       numCommande: a.line.numCommande,
       client: a.line.nomClient,
@@ -495,6 +499,7 @@ export function buildSuiviDisplay(
       allocStrict: Math.round(a.qteAlloueeVirtuelleStricte),
       allocCq: Math.round(a.qteAlloueeVirtuelleCq),
       cq: !!a.alerteCqStatut,
+      attenteLignes: attente,
       dateExp: fmtFrDay(a.line.dateExpedition?.toISOString().slice(0, 10)),
       dateExpIso: a.line.dateExpedition?.toISOString().slice(0, 10) ?? null,
       late: a.line.dateExpedition !== null && a.line.dateExpedition < now,
@@ -513,7 +518,7 @@ export function buildSuiviDisplay(
       action: { severity: rec.severity, label: rec.actions[0] ?? '—' },
       atelier: atelier.code,
       atelierLabel: atelier.label,
-      filter: `${a.line.numCommande} ${a.line.nomClient} ${a.line.article} ${a.line.designation} ${a.line.typeCommande} ${cause?.label ?? ''} ${compsTxt} ${(a.line.emplacements ?? []).map((e) => e.nom).join(' ')} ${atelier.label}`.toLowerCase(),
+      filter: `${a.line.numCommande} ${a.line.nomClient} ${a.line.article} ${a.line.designation} ${a.line.typeCommande} ${cause?.label ?? ''} ${compsTxt} ${(a.line.emplacements ?? []).map((e) => e.nom).join(' ')} ${atelier.label}${attente ? ' attente lignes mto' : ''}`.toLowerCase(),
     }
   })
   return { rows, statusCounts: buildStatusCounts(assignments.map((a) => a.status)) }

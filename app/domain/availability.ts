@@ -6,6 +6,17 @@ export function currentStock(flows: Flow[], article: string): number {
     .reduce((sum, f) => sum + (f.direction === 'supply' ? f.quantity : -f.quantity), 0)
 }
 
+/**
+ * Quantité disponible d'un article à une date donnée.
+ *
+ * Invariant faisabilité (issue #43, point 2) : avec `useReceptions=false`, le 3ᵉ filtre
+ * (`useReceptions || f.date === null`) ne conserve QUE les flux à date nulle (= stock réel).
+ * Toutes les réceptions datées sont exclues — y compris les PO overdue (date dans le passé,
+ * non reçues). C'est ce qui garantit qu'une overdue ne gonfle JAMAIS la faisabilité d'un OF :
+ * le verdict (`checkFeasibility` / `evaluateSequentialFeasibility`) est toujours appelé avec
+ * `useReceptions=false`, donc un composant en retard de livraison reste manquant → l'OF bloqué
+ * apparaît bien en Ruptures (aucun masquage).
+ */
 export function availableAt(
   flows: Flow[],
   article: string,

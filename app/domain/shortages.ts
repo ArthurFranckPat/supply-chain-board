@@ -101,9 +101,21 @@ export function daysBetweenIso(fromIso: string, toIso: string): number {
 }
 
 /**
- * Cumule les réceptions futures d'un composant par date croissante jusqu'à couvrir
- * `qteManquante`. Retourne la réception DÉTERMINANTE (celle qui atteint le seuil) avec
- * la qté cumulée à ce point. `null` si aucune réception ou cumul insuffisant.
+ * Cumule les réceptions d'un composant par date croissante (futures ET overdue via le
+ * lookback 90j) jusqu'à couvrir `qteManquante`. Retourne la réception DÉTERMINANTE (celle
+ * qui atteint le seuil) avec la qté cumulée à ce point. `null` si aucune réception ou cumul
+ * insuffisant.
+ *
+ * PARTAGÉE par les deux vues : table Ruptures (buildShortageRows ci-dessous) + ETA goulots
+ * proactif (suivi_controller.ts buildProactiveDisplay). Tout durcissement ici corrige les deux.
+ *
+ * Limite connue (issue #43, point 1 — « reliquat fantôme ») : le cumul inclut les réceptions
+ * overdue, donc des reliquats morts (visserie/petites pièces) peuvent s'empiler et couvrir un
+ * PETIT manque → la ligne passe de « sans_couverture » à « retard » alors que ces pièces
+ * n'arriveront jamais. Non corrigé : risque marginal (sur vrais composants BOM, les plus petits
+ * reliquats overdue réels sont ≥ 6 ; les qty 1-3 sont sur des articles YY-* hors BOM). Pivot si
+ * un faux positif concret remonte : seuil absolu env `RECEPTION_OVERDUE_MIN_QTY` — une overdue
+ * n'intervient dans la couverture que si sa qté ≥ plancher (les futures comptent toujours).
  */
 export function resolveCoveringReception(
   receptions: ReceptionRecord[],

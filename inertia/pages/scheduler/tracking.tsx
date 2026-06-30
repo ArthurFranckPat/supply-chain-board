@@ -398,6 +398,14 @@ const Tracking: Component<SuiviPageProps> = (props) => {
                 <span class="material-symbols-outlined grid size-[14px] place-items-center text-[14px] leading-none">science</span>CQ
               </span>
             </Show>
+            <Show when={o.attenteLignes}>
+              <span
+                class="inline-flex items-center gap-1 rounded-md border border-transparent bg-suggere/15 px-2 py-0.5 text-[11px] font-medium text-suggere whitespace-nowrap"
+                title="Commande MTO — expédition partielle non autorisée, en attente des autres lignes"
+              >
+                <span class="material-symbols-outlined grid size-[14px] place-items-center text-[14px] leading-none">pending</span>Attente lignes
+              </span>
+            </Show>
           </div>
         )
       },

@@ -73,6 +73,8 @@ export interface SuiviDisplayRow {
   allocCq: number
   /** Signal CQ : du stock sous contrôle qualité a été consommé pour cette ligne. */
   cq: boolean
+  /** Ligne A_EXPEDIER d'une commande MTO incomplète (expédition partielle bloquée). */
+  attenteLignes: boolean
   /** Date d'expédition (JJ/MM) — '' si absente. */
   dateExp: string
   /** ISO YYYY-MM-DD pour le tri chronologique (null si absente). */
