@@ -6,12 +6,11 @@
  *
  * Champs ERP manquants (cf. ENRICHMENT_TODO sur master, décision issue #19 =
  * « porter l'algo, champs vides pour l'instant ») :
- *  - emplacements → [] (zone d'expédition non détectable tant que la source n'est pas tranchée)
+ *  - emplacements → chargés (STOALL allocation + STOCK physique via X3EmplacementRepository)
  *  - dateLivPrevu → null
  *  - infos palette / postes de charge → providers stubbés (résultats vides mais structure réelle)
  * Les algorithmes sont entièrement portés : dès que ces sources existeront, il suffira de
- * remplacer les adapters stub ci-dessous (StubPaletteProvider / StubChargeCalculator) et de
- * peupler `emplacements`.
+ * remplacer les adapters stub ci-dessous (StubPaletteProvider / StubChargeCalculator).
  */
 
 import {
@@ -19,6 +18,7 @@ import {
   attachCauses,
   computePaletteSummary,
   computeRetardCharge,
+  type Emplacement,
   type OrderLine,
   type StockBreakdown,
   type StockProvider,
@@ -31,6 +31,7 @@ import {
   type StatusAssignment,
   type TypeCommande,
 } from '#app/domain/suivi'
+import { X3EmplacementRepository } from '#repositories/emplacement_repository'
 import { buildNomenclatureMap, buildOfRecords } from '#services/feasibility-loader-adapter'
 import staticSync from '#services/static_sync_service'
 import boardDataset from '#services/board_dataset'
@@ -306,6 +307,8 @@ interface RawSuiviData {
   nomenclatureEntries: NomenclatureEntry[]
   articleList: Article[]
   stockFlows: Flow[]
+  detailedByOrderLine: Map<string, Emplacement[]>
+  stockByArticle: Map<string, Emplacement[]>
 }
 
 // Cache distribué du contexte (cf. boardDataset, issue #20), namespace `suivi:*`.
@@ -402,7 +405,23 @@ export class SuiviService {
 
     const stockFlows = await boardDataset.getStock([...scopeArticles])
 
-    return { demandFlows, ofFlows, nomenclatureEntries, articleList, stockFlows }
+    // Emplacements par ligne (détection zone d'expédition). STOALL = allocation détaillée
+    // (ligne réservée), sinon STOCK physique (pré-allocation, cas MTO/normal). Remis dans le
+    // cold path : les emplacements alimentent la colonne « Emplacement » ET le statut retard
+    // via enZoneExpedition() — une ligne dont le stock est déjà au quai n'est pas en retard.
+    // Le commit perf bc4a911 les avait retirés en attente d'un endpoint lazy, mais la zone
+    // d'expé doit être connue AU cold path pour un statut correct. Les 2 SOAP sont dans le
+    // cache SWR suivi:context (TTL 2 min + grace) → chaud = instantané.
+    const orderDemand = demandFlows.filter((f) => f.direction === 'demand' && f.origin.type === 'order')
+    const numCommandes = [...new Set(orderDemand.map((f) => (f.origin as Extract<Flow['origin'], { type: 'order' }>).id).filter(Boolean))]
+    const lineArticles = [...new Set(orderDemand.map((f) => f.article).filter(Boolean))]
+    const emplRepo = new X3EmplacementRepository()
+    const [detailedByOrderLine, stockByArticle] = await Promise.all([
+      emplRepo.getDetailedByOrderLine(numCommandes),
+      emplRepo.getStockLocations(lineArticles),
+    ])
+
+    return { demandFlows, ofFlows, nomenclatureEntries, articleList, stockFlows, detailedByOrderLine, stockByArticle }
   }
 
   /**
@@ -425,6 +444,7 @@ export class SuiviService {
     )
 
     const lines = buildOrderLines(raw.demandFlows, nomenclatures, articles)
+    applyEmplacements(lines, raw.detailedByOrderLine, raw.stockByArticle)
 
     return {
       lines,
@@ -538,6 +558,72 @@ export function buildOrderLines(
     })
   }
   return lines
+}
+
+/**
+ * Attache les emplacements à chaque ligne. Deux cas :
+ *  - STOALL (allocation) → pastille verte. Résout le stock physique via
+ *    STOCOU (chrono stock X3, lien canonique entre STOALL et STOCK) pour
+ *    obtenir le vrai emplacement, le PALNUM et la qty réelle.
+ *  - sinon → stock physique STOCK (pré-allocation / MTO / normal), en
+ *    marquant barré les emplacements déjà alloués à d'autres lignes.
+ */
+export function applyEmplacements(
+  lines: OrderLine[],
+  detailedByOrderLine: Map<string, Emplacement[]>,
+  stockByArticle: Map<string, Emplacement[]>,
+): void {
+  // Index STOCOU → STOCK pour le lien canonique entre allocation et stock physique.
+  const stockByStoCou = new Map<string, Emplacement>()
+  for (const entries of stockByArticle.values()) {
+    for (const e of entries) {
+      if (e.stoCou) stockByStoCou.set(e.stoCou, e)
+    }
+  }
+
+  // Collecte tous les STOCOU alloués (toutes lignes confondues) → le stock
+  // correspondant n'est pas libre pour les lignes sans allocation.
+  const alloues = new Set<string>()
+  for (const entries of detailedByOrderLine.values()) {
+    for (const e of entries) {
+      if (e.stoCou) alloues.add(e.stoCou)
+    }
+  }
+
+  for (const line of lines) {
+    const fromStoall = detailedByOrderLine.get(`${line.numCommande}#${line.ligne}`)
+    if (fromStoall && fromStoall.length) {
+      // STOALL trouvé → pastille verte. On résout le STOCK physique via
+      // STOCOU pour avoir le vrai LOC, PALNUM et la qty réelle à l'emplacement.
+      let hasQc = false
+      line.emplacements = fromStoall.map((e) => {
+        const stockLoc = e.stoCou ? stockByStoCou.get(e.stoCou) : undefined
+        if (stockLoc) {
+          if (stockLoc.isQc) hasQc = true
+          return {
+            ...e,
+            nom: stockLoc.nom,
+            qtePalette: stockLoc.qtePalette,
+            hum: stockLoc.hum,
+            stoCou: e.stoCou,
+            isQc: stockLoc.isQc,
+          }
+        }
+        return e
+      })
+      line.allocationQc = hasQc
+    } else {
+      // Pas d'allocation → stock libre, mais on signale visuellement les
+      // emplacements déjà alloués à d'autres lignes (flag alreadyAllocated).
+      const fromStock = stockByArticle.get(line.article)
+      if (fromStock && fromStock.length) {
+        line.emplacements = fromStock.map((s) => ({
+          ...s,
+          alreadyAllocated: s.stoCou ? alloues.has(s.stoCou) : false,
+        }))
+      }
+    }
+  }
 }
 
 
