@@ -55,6 +55,8 @@ export interface DataTableProps<TRow> {
   scrollContainerClass?: string
   theadRowClass?: string
   getRowClass?: (row: TRow, virtualIndex: number) => string | undefined
+  /** Clic sur une ligne (ex. ouverture d'un drawer de détail). Non défini = lignes non cliquables. */
+  onRowClick?: (row: TRow) => void
   emptyState?: JSX.Element
 }
 
@@ -72,6 +74,7 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
     'scrollContainerClass',
     'theadRowClass',
     'getRowClass',
+    'onRowClick',
     'emptyState',
   ])
 
@@ -186,6 +189,8 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
                         data-index={virtualRow.index}
                         ref={(el) => queueMicrotask(() => rowVirtualizer.measureElement(el))}
                         class={local.getRowClass?.(r(), virtualRow.index)}
+                        style={local.onRowClick ? { cursor: 'pointer' } : undefined}
+                        onClick={local.onRowClick ? () => local.onRowClick!(r()) : undefined}
                       >
                         <Show when={local.indexColumn}>
                           <td class={local.indexColumn!.tdClass(r(), virtualRow.index)}>

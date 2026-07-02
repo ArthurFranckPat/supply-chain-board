@@ -3,6 +3,7 @@ import { cx } from '@/libs/cva'
 import { DataTable, type ColumnDef, type SortingState } from '@/components/ui/data-table'
 import { Masthead } from '@/components/masthead'
 import { Calendar, type DateRange } from '@/components/ui/calendar'
+import { CamionDetailSheet, type CamionDtl } from '@/components/expeditions/camion-detail-sheet'
 
 /**
  * Page « Expéditions » (issue #44) — onglet dédié à la gestion des expéditions client
@@ -14,17 +15,6 @@ import { Calendar, type DateRange } from '@/components/ui/calendar'
  * différé via fetch JSON sur `rowsHref`. Même motif que /suivi (scheduler/tracking).
  */
 
-interface CamionDtl {
-  client: string
-  bprnum: string
-  debut: string
-  fin: string
-  qteUc: number
-  nbPalettes: number
-  nbContenants: number
-  nbLignes: number
-  anomalie: boolean
-}
 interface ExpeditionKpi {
   label: string
   totalUc: number
@@ -119,6 +109,8 @@ const Expeditions: Component<ExpeditionsPageProps> = (props) => {
   const nbAnomalies = createMemo(() => exp().camions.filter((c) => c.anomalie).length)
 
   const [sorting, setSorting] = createSignal<SortingState[]>([{ id: 'debut', desc: false }])
+  const [selectedCamion, setSelectedCamion] = createSignal<CamionDtl | null>(null)
+  const [detailOpen, setDetailOpen] = createSignal(false)
 
   const filteredRows = createMemo(() => {
     const q = fold(query())
@@ -126,9 +118,16 @@ const Expeditions: Component<ExpeditionsPageProps> = (props) => {
     if (q) rows = rows.filter((c) => fold(c.client).includes(q) || fold(c.bprnum).includes(q))
     if (anomalyOnly()) rows = rows.filter((c) => c.anomalie)
     const s = sorting()[0]
+    // Sans tri explicite : on conserve l'ordre backend (navettes d'abord, puis
+    // heuristiques), lui-même trié par heure de début au sein de chaque groupe.
     if (!s) return rows
     const sorted = [...rows]
+    // Tiebreaker primaire : les navettes (source de vérité) précèdent toujours les
+    // clusters heuristiques, quel que soit le tri colonne choisi (issue #44 affinage).
+    const srcRank = (c: CamionDtl) => (c.source === 'navette' ? 0 : 1)
     sorted.sort((a, b) => {
+      const src = srcRank(a) - srcRank(b)
+      if (src !== 0) return src
       let va: string | number
       let vb: string | number
       switch (s.id) {
@@ -155,7 +154,21 @@ const Expeditions: Component<ExpeditionsPageProps> = (props) => {
         const c = info.row.original
         return (
           <>
-            <div class="font-sans text-[12.5px] font-semibold text-foreground">{c.client || '—'}</div>
+            <div class="flex items-center gap-1.5">
+              <span class="font-sans text-[12.5px] font-semibold text-foreground">{c.client || '—'}</span>
+              <Show
+                when={c.source === 'navette'}
+                fallback={
+                  <span class="font-mono text-[8px] uppercase tracking-wider text-muted-foreground/50" title="Palette sans navette rattachée (regroupement heuristique)">
+                    hors-navette
+                  </span>
+                }
+              >
+                <span class="inline-flex items-center gap-0.5 rounded bg-terra/10 px-1 font-mono text-[8px] font-bold uppercase tracking-wider text-terra" title={`Navette ${c.navetteNum}`}>
+                  {c.navetteNum}
+                </span>
+              </Show>
+            </div>
             <div class="font-mono text-[10px] text-muted-foreground">{c.bprnum}</div>
           </>
         )
@@ -426,6 +439,7 @@ const Expeditions: Component<ExpeditionsPageProps> = (props) => {
               sorting={sorting}
               onSortingChange={setSorting}
               indexColumn={indexCol}
+              onRowClick={(row) => { setSelectedCamion({ ...row, maxPalettesCamion: exp().maxPalettesCamion }); setDetailOpen(true) }}
               getRowClass={(row) => cx('border-t border-rule-soft transition-colors', row.anomalie ? 'bg-destructive/10 hover:bg-destructive/[0.18]' : 'hover:bg-foreground/[0.04]')}
               tableClass="min-w-[900px] table-fixed"
               scrollContainerClass="h-full border-0 rounded-none shadow-none"
@@ -444,6 +458,8 @@ const Expeditions: Component<ExpeditionsPageProps> = (props) => {
           </div>
         </Show>
       </Show>
+
+      <CamionDetailSheet camion={selectedCamion()} open={detailOpen()} onOpenChange={setDetailOpen} />
     </div>
   )
 }

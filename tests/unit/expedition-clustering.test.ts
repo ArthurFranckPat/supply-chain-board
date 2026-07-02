@@ -1,5 +1,5 @@
 import { test } from '@japa/runner'
-import { clusterCamions, type StojouLine } from '#repositories/expedition_repository'
+import { clusterCamions, groupCamionsByNavette, type StojouLine } from '#repositories/expedition_repository'
 
 // Timestamps de référence (ms) — 2026-07-01, écarts en minutes entre points.
 const T0 = Date.UTC(2026, 6, 1, 8, 0, 0)
@@ -12,6 +12,11 @@ const line = (over: Partial<StojouLine>): StojouLine => ({
   qteUc: 1,
   palnum: null,
   lpnnum: null,
+  itmref: 'ART1',
+  designation: 'Article 1',
+  vcrnum: 'BL001',
+  vcrlin: 1000,
+  sohnum: null,
   ...over,
 })
 
@@ -109,5 +114,120 @@ test.group('clusterCamions (issue #44)', () => {
     const few = Array.from({ length: 10 }, (_, i) => line({ tsMs: T0 + i * MIN, palnum: `PAL${i}` }))
     const camions = clusterCamions(few, 60, 35)
     assert.isFalse(camions[0].anomalie)
+  })
+
+  test('le détail des lignes est porté par chaque camion avec article, BL et heure', ({ assert }) => {
+    const lines = [
+      line({ tsMs: T0, qteUc: -10, itmref: 'ART1', designation: 'Article 1', vcrnum: 'BL001', vcrlin: 1000, palnum: 'PAL1' }),
+      line({ tsMs: T0 + MIN, qteUc: -5, itmref: 'ART2', designation: 'Article 2', vcrnum: 'BL002', vcrlin: 2000, palnum: 'PAL2' }),
+    ]
+    const camions = clusterCamions(lines, 5)
+    assert.lengthOf(camions, 1)
+    assert.lengthOf(camions[0].lignes, 2)
+    assert.equal(camions[0].lignes[0].itmref, 'ART1')
+    assert.equal(camions[0].lignes[0].designation, 'Article 1')
+    assert.equal(camions[0].lignes[0].vcrnum, 'BL001')
+    assert.equal(camions[0].lignes[0].vcrlin, 1000)
+    // qteUc en valeur absolue, même côté détail ligne.
+    assert.equal(camions[0].lignes[0].qteUc, 10)
+    assert.equal(camions[0].lignes[1].qteUc, 5)
+    // ts formaté HH:mm:ss.
+    assert.equal(camions[0].lignes[0].ts, '08:00:00')
+    assert.equal(camions[0].lignes[1].ts, '08:01:00')
+  })
+
+  test('les lignes de détail sont isolées entre deux camions séparés par un trou', ({ assert }) => {
+    const lines = [
+      line({ tsMs: T0, qteUc: 10, itmref: 'ART1', vcrnum: 'BL001', palnum: 'PAL1' }),
+      line({ tsMs: T0 + 10 * MIN, qteUc: 8, itmref: 'ART2', vcrnum: 'BL002', palnum: 'PAL2' }),
+    ]
+    const camions = clusterCamions(lines, 5)
+    assert.lengthOf(camions, 2)
+    assert.lengthOf(camions[0].lignes, 1)
+    assert.lengthOf(camions[1].lignes, 1)
+    assert.equal(camions[0].lignes[0].vcrnum, 'BL001')
+    assert.equal(camions[1].lignes[0].vcrnum, 'BL002')
+  })
+
+  test('une ligne sans article ni BL expose des valeurs nulles propres (pas d’undefined)', ({ assert }) => {
+    const lines = [
+      line({ tsMs: T0, itmref: null, designation: null, vcrnum: null, vcrlin: null }),
+    ]
+    const camions = clusterCamions(lines, 5)
+    assert.lengthOf(camions[0].lignes, 1)
+    const l = camions[0].lignes[0]
+    assert.equal(l.itmref, '')
+    assert.equal(l.designation, '')
+    assert.equal(l.vcrnum, '')
+    assert.equal(l.vcrlin, 0)
+  })
+})
+
+test.group('groupCamionsByNavette (issue #44 affinage)', () => {
+  /** Ligne avec une navette rattachée (propriété transitoire `navetteNum`). */
+  const navLine = (over: Partial<StojouLine> & { navetteNum?: string }): StojouLine =>
+    line({ ...over }) as StojouLine
+
+  test('regroupe les lignes par NAVETTE_0, multi-commandes mais un seul camion', ({ assert }) => {
+    const lines = [
+      navLine({ tsMs: T0, palnum: 'PAL1', sohnum: 'CMD1', navetteNum: 'NAV001' }),
+      navLine({ tsMs: T0 + MIN, palnum: 'PAL2', sohnum: 'CMD2', navetteNum: 'NAV001' }),
+      navLine({ tsMs: T0 + 2 * MIN, palnum: 'PAL3', sohnum: 'CMD1', navetteNum: 'NAV001' }),
+    ]
+    const camions = groupCamionsByNavette(lines)
+    assert.lengthOf(camions, 1)
+    assert.equal(camions[0].source, 'navette')
+    assert.equal(camions[0].navetteNum, 'NAV001')
+    assert.equal(camions[0].nbPalettes, 3)
+    assert.lengthOf(camions[0].lignes, 3)
+  })
+
+  test('les camions navette ne sont jamais marqués anomalie même > 35 palettes', ({ assert }) => {
+    const lines = Array.from({ length: 40 }, (_, i) =>
+      navLine({ tsMs: T0 + i * MIN, palnum: `PAL${i}`, navetteNum: 'NAV_BIG' }),
+    )
+    const camions = groupCamionsByNavette(lines)
+    assert.lengthOf(camions, 1)
+    assert.equal(camions[0].nbPalettes, 40)
+    assert.isFalse(camions[0].anomalie)
+  })
+
+  test('sépare deux navettes distinctes en deux camions', ({ assert }) => {
+    const lines = [
+      navLine({ tsMs: T0, palnum: 'PAL1', navetteNum: 'NAV_A' }),
+      navLine({ tsMs: T0, palnum: 'PAL2', navetteNum: 'NAV_B' }),
+    ]
+    const camions = groupCamionsByNavette(lines)
+    assert.lengthOf(camions, 2)
+    assert.equal(camions[0].navetteNum, 'NAV_A')
+    assert.equal(camions[1].navetteNum, 'NAV_B')
+  })
+
+  test('ignore les lignes sans navetteNum (filet heuristique géré à part)', ({ assert }) => {
+    const lines = [
+      navLine({ tsMs: T0, palnum: 'PAL1', navetteNum: 'NAV001' }),
+      navLine({ tsMs: T0, palnum: 'PAL2' }), // sans navetteNum
+    ]
+    const camions = groupCamionsByNavette(lines)
+    assert.lengthOf(camions, 1)
+    assert.equal(camions[0].navetteNum, 'NAV001')
+    assert.lengthOf(camions[0].lignes, 1)
+  })
+
+  test('la commande client (SOHNUM) est portée dans chaque ligne de détail', ({ assert }) => {
+    const lines = [
+      navLine({ tsMs: T0, palnum: 'PAL1', sohnum: 'AR2503001', navetteNum: 'NAV001' }),
+      navLine({ tsMs: T0 + MIN, palnum: 'PAL2', sohnum: 'AR2503002', navetteNum: 'NAV001' }),
+    ]
+    const camions = groupCamionsByNavette(lines)
+    assert.equal(camions[0].lignes[0].sohnum, 'AR2503001')
+    assert.equal(camions[0].lignes[1].sohnum, 'AR2503002')
+  })
+
+  test('clusterCamions marque bien ses camions comme heuristique (sans navette)', ({ assert }) => {
+    const lines = [line({ tsMs: T0, palnum: 'PAL1' })]
+    const camions = clusterCamions(lines, 5)
+    assert.equal(camions[0].source, 'heuristique')
+    assert.isNull(camions[0].navetteNum)
   })
 })

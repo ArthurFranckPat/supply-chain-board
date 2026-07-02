@@ -41,12 +41,29 @@ SELECT
   ${CREDATTIM_FMT} AS CREDATTIM_FMT,
   S.QTYPCU_0  AS QTE_UC,
   S.PALNUM_0  AS PALNUM,
-  S.LPNNUM_0  AS LPNNUM
+  S.LPNNUM_0  AS LPNNUM,
+  S.ITMREF_0  AS ITMREF,
+  I.ITMDES1_0 AS DESIGNATION,
+  S.VCRNUM_0  AS VCRNUM,
+  S.VCRLIN_0  AS VCRLIN
 FROM STOJOU S
 LEFT JOIN BPARTNER P ON P.BPRNUM_0 = S.BPRNUM_0
+LEFT JOIN ITMMASTER I ON I.ITMREF_0 = S.ITMREF_0
 WHERE S.TRSTYP_0 = ${TRSTYP_LIVRAISON_CLIENT}
 AND S.CREDAT_0 BETWEEN TO_DATE('${fromStr}','YYYYMMDD') AND TO_DATE('${toStr}','YYYYMMDD')
 ORDER BY S.BPRNUM_0, ${CREDATTIM_FMT}
+`
+
+/**
+ * Mapping palette → navette (YNAVETTE, table custom AERECO). Une navette = un
+ * regroupement réel de palettes saisi au préparation/expédition (source de vérité
+ * terrain, cf. issue #44 affinage). On récupère l'ensemble {PALNUM, NAVETTE, SOHNUM}
+ * sur la période pour rapprocher les lignes STOJOU sans heuristique.
+ */
+const buildNavetteSql = (fromStr: string, toStr: string) => `
+SELECT NAVETTE_0 AS NAVETTE, PALNUM_0 AS PALNUM, SOHNUM_0 AS SOHNUM
+FROM YNAVETTE
+WHERE DAT_0 BETWEEN TO_DATE('${fromStr}','YYYYMMDD') AND TO_DATE('${toStr}','YYYYMMDD')
 `
 
 type RawRow = Record<string, string | null>
@@ -65,9 +82,48 @@ export interface StojouLine {
   qteUc: number
   palnum: string | null
   lpnnum: string | null
+  /** Article (ITMREF_0) + désignation (ITMMASTER.ITMDES1_0) — détail camion. */
+  itmref: string | null
+  designation: string | null
+  /** N° de pièce liée = bon de livraison pour TRSTYP_0=4 (VCRNUM_0 / VCRLIN_0). */
+  vcrnum: string | null
+  vcrlin: number | null
+  /** Commande client (YNAVETTE.SOHNUM_0) — renseignée post-fetch par rapprochement
+   *  PALNUM_0 → navette. `null` tant que le mapping navette n'a pas été appliqué. */
+  sohnum: string | null
 }
 
+/**
+ * Ligne de détail d'un camion (= une ligne STOJOU). Qté en valeur absolue, ts formaté.
+ * Sert uniquement à l'affichage dans le drawer de détail camion (cf. issue #44).
+ */
+export interface CamionLigne {
+  itmref: string
+  designation: string
+  vcrnum: string
+  vcrlin: number
+  client: string
+  palnum: string
+  lpnnum: string
+  /** Quantité en valeur absolue (UC). */
+  qteUc: number
+  /** Heure du mouvement (HH:mm:ss). */
+  ts: string
+  /** Commande client (YNAVETTE.SOHNUM_0) — uniquement pour les lignes rattachées à une navette. */
+  sohnum: string
+}
+
+/**
+ * Origine du regroupement d'un camion (issue #44, affinage navette).
+ * - `'navette'`     : regroupement réel saisi dans YNAVETTE (source de vérité terrain).
+ * - `'heuristique'` : palette sans navette → clusterCamions (client + trou < gap), filet de sécurité.
+ */
+export type CamionSource = 'navette' | 'heuristique'
+
 export interface CamionDtl {
+  source: CamionSource
+  /** N° de navette (NAV…), uniquement si `source === 'navette'`. */
+  navetteNum: string | null
   client: string
   bprnum: string
   /** Heure du premier mouvement du camion (HH:mm). */
@@ -80,8 +136,11 @@ export interface CamionDtl {
   /** Nombre de lignes STOJOU fusionnées dans ce camion. */
   nbLignes: number
   /** Nb de palettes au-delà de `MAX_PALETTES_CAMION` — cluster probablement composé de
-   *  plusieurs camions réels fusionnés à tort (tolérance à resserrer). */
+   *  plusieurs camions réels fusionnés à tort (tolérance à resserrer). Concerne
+   *  uniquement les camions `source === 'heuristique'` (les navettes sont fiables). */
   anomalie: boolean
+  /** Détail des lignes STOJOU composant le camion (article, BL, palette…). */
+  lignes: CamionLigne[]
 }
 
 export interface ExpeditionKpi {
@@ -103,6 +162,10 @@ function toYYYYMMDD(d: Date): string {
 
 function fmtHeure(tsMs: number): string {
   return DateTime.fromMillis(tsMs, { zone: 'UTC' }).toFormat('HH:mm')
+}
+
+function fmtHeureSec(tsMs: number): string {
+  return DateTime.fromMillis(tsMs, { zone: 'UTC' }).toFormat('HH:mm:ss')
 }
 
 /**
@@ -132,9 +195,23 @@ export function clusterCamions(
     palettes: Set<string>
     contenants: Set<string>
     nbLignes: number
+    lignes: CamionLigne[]
   }
 
   const clusters: Cluster[] = []
+
+  const toLigne = (l: StojouLine): CamionLigne => ({
+    itmref: l.itmref ?? '',
+    designation: l.designation ?? '',
+    vcrnum: l.vcrnum ?? '',
+    vcrlin: l.vcrlin ?? 0,
+    client: l.client,
+    palnum: l.palnum ?? '',
+    lpnnum: l.lpnnum ?? '',
+    qteUc: Math.abs(l.qteUc),
+    ts: fmtHeureSec(l.tsMs),
+    sohnum: l.sohnum ?? '',
+  })
 
   for (const l of sorted) {
     const current = clusters[clusters.length - 1]
@@ -144,6 +221,7 @@ export function clusterCamions(
       if (l.lpnnum) current.contenants.add(l.lpnnum)
       current.nbLignes += 1
       current.finMs = l.tsMs
+      current.lignes.push(toLigne(l))
     } else {
       const c: Cluster = {
         client: l.client,
@@ -154,12 +232,15 @@ export function clusterCamions(
         palettes: new Set(l.palnum ? [l.palnum] : []),
         contenants: new Set(l.lpnnum ? [l.lpnnum] : []),
         nbLignes: 1,
+        lignes: [toLigne(l)],
       }
       clusters.push(c)
     }
   }
 
   return clusters.map((c) => ({
+    source: 'heuristique' as const,
+    navetteNum: null,
     client: c.client,
     bprnum: c.bprnum,
     debut: fmtHeure(c.debutMs),
@@ -169,44 +250,164 @@ export function clusterCamions(
     nbContenants: c.contenants.size,
     nbLignes: c.nbLignes,
     anomalie: c.palettes.size > maxPalettesCamion,
+    lignes: c.lignes,
   }))
 }
 
+/**
+ * Regroupe les lignes STOJOU rattachées à une navette YNAVETTE en camions réels.
+ * Contrairement à `clusterCamions` (heuristique par client + trou), ici le
+ * regroupement est explicite (NAVETTE_0) — pas de seuil de tolérance, pas de flag
+ * anomalie : la source est fiable (saisie terrain).
+ *
+ * Une navette peut être multi-commandes / multi-articles ; on agrège UC par somme
+ * (valeur absolue) et palettes/contenants par déduplication (Set), comme pour
+ * l'heuristique. Le `debut`/`fin` = timestamps min/max des mouvements du groupe.
+ *
+ * Le n° de navette de chaque ligne est lu via la propriété transitoire
+ * `line.navetteNum` (posée par `getExpeditions` après rapprochement PALNUM → NAVETTE).
+ * Les lignes sans navette sont ignorées.
+ */
+export function groupCamionsByNavette(lines: StojouLine[]): CamionDtl[] {
+  interface NavetteGroup {
+    navetteNum: string
+    lignes: StojouLine[]
+  }
+  const groups = new Map<string, NavetteGroup>()
+  for (const l of lines) {
+    const nav = (l as StojouLine & { navetteNum?: string }).navetteNum
+    if (!nav) continue
+    let g = groups.get(nav)
+    if (!g) {
+      g = { navetteNum: nav, lignes: [] }
+      groups.set(nav, g)
+    }
+    g.lignes.push(l)
+  }
+
+  const result: CamionDtl[] = []
+  for (const g of groups.values()) {
+    const sorted = [...g.lignes].sort((a, b) => a.tsMs - b.tsMs)
+    const palettes = new Set<string>()
+    const contenants = new Set<string>()
+    let qteUc = 0
+    const lignesDetail: CamionLigne[] = []
+    for (const l of sorted) {
+      qteUc += Math.abs(l.qteUc)
+      if (l.palnum) palettes.add(l.palnum)
+      if (l.lpnnum) contenants.add(l.lpnnum)
+      lignesDetail.push({
+        itmref: l.itmref ?? '',
+        designation: l.designation ?? '',
+        vcrnum: l.vcrnum ?? '',
+        vcrlin: l.vcrlin ?? 0,
+        client: l.client,
+        palnum: l.palnum ?? '',
+        lpnnum: l.lpnnum ?? '',
+        qteUc: Math.abs(l.qteUc),
+        ts: fmtHeureSec(l.tsMs),
+        sohnum: l.sohnum ?? '',
+      })
+    }
+    const clientName = sorted[0]?.client ?? ''
+    const bprnum = sorted[0]?.bprnum ?? ''
+    result.push({
+      source: 'navette',
+      navetteNum: g.navetteNum,
+      client: clientName,
+      bprnum,
+      debut: fmtHeure(sorted[0]!.tsMs),
+      fin: fmtHeure(sorted[sorted.length - 1]!.tsMs),
+      qteUc,
+      nbPalettes: palettes.size,
+      nbContenants: contenants.size,
+      nbLignes: sorted.length,
+      anomalie: false, // Les navettes sont fiables — pas de flag anomalie.
+      lignes: lignesDetail,
+    })
+  }
+  return result
+}
+
+/**
+ * Expéditions (livraisons client) sur `[from, to]`. Un « camion » est :
+ *  - **navette** (source de vérité) : palette rattachée à YNAVETTE → camion = NAVETTE_0,
+ *    regroupement réel saisi terrain (pas d'heuristique, pas d'anomalie).
+ *  - **heuristique** (filet) : palette sans navette → `clusterCamions` (client + trou
+ *    < gap), avec détection d'anomalie (MAX_PALETTES_CAMION).
+ *
+ * Stratégie hybride (issue #44 affinage navette) : les navettes apparaissent en
+ * premier dans la liste, les clusters heuristiques ensuite.
+ */
 export class ExpeditionRepository {
-  /**
-   * Expéditions (livraisons client) sur `[from, to]`. Un « camion » = un cluster de lignes
-   * STOJOU du même client dont les `CREDATTIM_0` se suivent à moins de `gapMinutes` d'écart
-   * — cf. issue #44 pour la logique métier de validation groupée des bordereaux.
-   */
   async getExpeditions(
     from: Date,
     to: Date,
     label: string,
     gapMinutes: number = CAMION_GAP_MINUTES,
   ): Promise<ExpeditionKpi> {
+    const fromStr = toYYYYMMDD(from)
+    const toStr = toYYYYMMDD(to)
+
     const db = new X3Database()
     let rows: RawRow[] = []
+    let navetteRows: RawRow[] = []
     try {
-      rows = await db.raw(buildSql(toYYYYMMDD(from), toYYYYMMDD(to)))
+      ;[rows, navetteRows] = await Promise.all([
+        db.raw(buildSql(fromStr, toStr)),
+        db.raw(buildNavetteSql(fromStr, toStr)),
+      ])
     } finally {
       await db.destroy()
+    }
+
+    // Mapping PALNUM → { navette, commande } sur la période.
+    const navetteMap = new Map<string, { navette: string; sohnum: string }>()
+    for (const row of navetteRows) {
+      const pal = row.PALNUM?.trim()
+      const nav = row.NAVETTE?.trim()
+      if (pal && nav && !navetteMap.has(pal)) {
+        navetteMap.set(pal, { navette: nav, sohnum: row.SOHNUM?.trim() ?? '' })
+      }
     }
 
     const lines: StojouLine[] = []
     for (const row of rows) {
       const dt = DateTime.fromFormat((row.CREDATTIM_FMT ?? '').trim(), 'yyyy-MM-dd HH:mm:ss', { zone: 'UTC' })
       if (!dt.isValid) continue
+      const palnum = row.PALNUM?.trim() || null
+      const matched = palnum ? navetteMap.get(palnum) : undefined
       lines.push({
         bprnum: row.BPRNUM_0?.trim() ?? '',
         client: row.BPRNAM_0?.trim() ?? row.BPRNUM_0?.trim() ?? '',
         tsMs: dt.toMillis(),
         qteUc: toNum(row.QTE_UC),
-        palnum: row.PALNUM?.trim() || null,
+        palnum,
         lpnnum: row.LPNNUM?.trim() || null,
-      })
+        itmref: row.ITMREF?.trim() || null,
+        designation: row.DESIGNATION?.trim() || null,
+        vcrnum: row.VCRNUM?.trim() || null,
+        vcrlin: row.VCRLIN ? parseInt(row.VCRLIN, 10) || null : null,
+        sohnum: matched?.sohnum ?? null,
+        // Propriété transitoire lue par groupCamionsByNavette.
+        ...(matched ? { navetteNum: matched.navette } : {}),
+      } as StojouLine)
     }
 
-    const camions = clusterCamions(lines, gapMinutes, MAX_PALETTES_CAMION)
+    // Partition : lignes rattachées à une navette vs lignes hors navette.
+    const withNavette = lines.filter((l) => !!(l as StojouLine & { navetteNum?: string }).navetteNum)
+    const withoutNavette = lines.filter((l) => !(l as StojouLine & { navetteNum?: string }).navetteNum)
+
+    const navetteCamions = groupCamionsByNavette(withNavette)
+    const heuristiqueCamions = clusterCamions(withoutNavette, gapMinutes, MAX_PALETTES_CAMION)
+
+    // Tri intra-groupe par heure de début (le plus tôt d'abord).
+    const byDebut = (a: CamionDtl, b: CamionDtl) => a.debut.localeCompare(b.debut)
+    navetteCamions.sort(byDebut)
+    heuristiqueCamions.sort(byDebut)
+
+    // Navettes d'abord, puis clusters heuristiques (choix UX, issue #44 affinage).
+    const camions = [...navetteCamions, ...heuristiqueCamions]
     const totalUc = camions.reduce((sum, c) => sum + c.qteUc, 0)
 
     return { label, totalUc, nbCamions: camions.length, gapMinutes, maxPalettesCamion: MAX_PALETTES_CAMION, camions }
