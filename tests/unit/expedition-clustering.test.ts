@@ -17,6 +17,10 @@ const line = (over: Partial<StojouLine>): StojouLine => ({
   vcrnum: 'BL001',
   vcrlin: 1000,
   sohnum: null,
+  pcu: 'CAR',
+  pcuStuCoe: 1,
+  ucParPal: 16,
+  yfamstat7: null,
   ...over,
 })
 
@@ -229,5 +233,110 @@ test.group('groupCamionsByNavette (issue #44 affinage)', () => {
     const camions = clusterCamions(lines, 5)
     assert.equal(camions[0].source, 'heuristique')
     assert.isNull(camions[0].navetteNum)
+  })
+})
+
+test.group('Équivalent-palettes & taux de remplissage (issue #44 affinage volumes)', () => {
+  test('palTheo est calculé depuis UC / ucParPal (PCUSTUCOE_1)', ({ assert }) => {
+    // 16 UC / 16 UC-par-palette = 1 palette théorique.
+    const lines = [
+      line({ tsMs: T0, qteUc: 16, ucParPal: 16, palnum: 'PAL1' }),
+    ]
+    const camions = clusterCamions(lines, 5)
+    assert.isAtLeast(camions[0].palTheo, 0.99)
+    assert.isAtMost(camions[0].palTheo, 1.01)
+  })
+
+  test('palTheo agrège plusieurs lignes avec des palettisations différentes', ({ assert }) => {
+    // Ligne 1 : 16 UC / 16 = 1 pal. Ligne 2 : 40 UC / 20 = 2 pal. Total = 3 pal.
+    const lines = [
+      line({ tsMs: T0, qteUc: 16, ucParPal: 16, palnum: 'PAL1' }),
+      line({ tsMs: T0 + MIN, qteUc: 40, ucParPal: 20, palnum: 'PAL2' }),
+    ]
+    const camions = clusterCamions(lines, 5)
+    assert.isAtLeast(camions[0].palTheo, 2.99)
+    assert.isAtMost(camions[0].palTheo, 3.01)
+  })
+
+  test('palTheo = -1 (N/A) quand aucun ucParPal exploitable', ({ assert }) => {
+    const lines = [
+      line({ tsMs: T0, qteUc: 100, ucParPal: 0, palnum: 'PAL1' }),
+      line({ tsMs: T0 + MIN, qteUc: 50, ucParPal: null, palnum: 'PAL2' }),
+    ]
+    const camions = clusterCamions(lines, 5)
+    assert.equal(camions[0].palTheo, -1)
+    assert.equal(camions[0].tauxRemplissage, -1)
+    assert.equal(camions[0].ecartPalettes, -1)
+  })
+
+  test('tauxRemplissage = palTheo / capacité (33 pal)', ({ assert }) => {
+    // 33 palettes théoriques = 100% de remplissage. 33 × 16 UC = 528 UC.
+    const lines = [
+      line({ tsMs: T0, qteUc: 33 * 16, ucParPal: 16, palnum: 'PAL1' }),
+    ]
+    const camions = clusterCamions(lines, 5)
+    assert.isAtLeast(camions[0].tauxRemplissage, 0.99)
+    assert.isAtMost(camions[0].tauxRemplissage, 1.01)
+  })
+
+  test('ecartPalettes = 0 quand palettes comptées = palettes théoriques', ({ assert }) => {
+    // 1 palette scannée (PAL1), volume = 1 palette théorique (16 UC / 16).
+    const lines = [
+      line({ tsMs: T0, qteUc: 16, ucParPal: 16, palnum: 'PAL1' }),
+    ]
+    const camions = clusterCamions(lines, 5)
+    assert.equal(camions[0].nbPalettes, 1)
+    assert.isAtMost(camions[0].ecartPalettes, 0.01)
+  })
+
+  test('ecartPalettes détecte une divergence (scan incomplet)', ({ assert }) => {
+    // 1 palette scannée mais volume = 10 palettes théoriques → écart ~90%.
+    const lines = [
+      line({ tsMs: T0, qteUc: 160, ucParPal: 16, palnum: 'PAL1' }),
+    ]
+    const camions = clusterCamions(lines, 5)
+    assert.equal(camions[0].nbPalettes, 1)
+    assert.isAbove(camions[0].ecartPalettes, 0.8)
+  })
+
+  test('palTheo est aussi calculé pour les camions navette', ({ assert }) => {
+    const lines = [
+      line({ tsMs: T0, qteUc: 16, ucParPal: 16, palnum: 'PAL1' }),
+    ]
+    // Pose la propriété transitoire navetteNum comme le ferait getExpeditions.
+    ;(lines[0] as StojouLine & { navetteNum?: string }).navetteNum = 'NAV001'
+    const camions = groupCamionsByNavette(lines)
+    assert.isAtLeast(camions[0].palTheo, 0.99)
+    assert.isAtMost(camions[0].palTheo, 1.01)
+  })
+
+  test('une palette ESH (YFAMSTAT7=ESH) pèse 1,25 équivalent-standard', ({ assert }) => {
+    // 16 UC / 16 = 1 palette. Famille ESH → facteur 1,25 → palTheo = 1,25.
+    const lines = [
+      line({ tsMs: T0, qteUc: 16, ucParPal: 16, palnum: 'PAL1', yfamstat7: 'ESH' }),
+    ]
+    const camions = clusterCamions(lines, 5)
+    assert.isAtLeast(camions[0].palTheo, 1.24)
+    assert.isAtMost(camions[0].palTheo, 1.26)
+  })
+
+  test('mélange standard + ESH dans un camion : somme pondérée correcte', ({ assert }) => {
+    // 1 palette standard (1,0) + 1 palette ESH (1,25) = 2,25 éq. standard.
+    const lines = [
+      line({ tsMs: T0, qteUc: 16, ucParPal: 16, palnum: 'PAL1', yfamstat7: 'BDC' }),
+      line({ tsMs: T0 + MIN, qteUc: 16, ucParPal: 16, palnum: 'PAL2', yfamstat7: 'ESH' }),
+    ]
+    const camions = clusterCamions(lines, 5)
+    assert.isAtLeast(camions[0].palTheo, 2.24)
+    assert.isAtMost(camions[0].palTheo, 2.26)
+  })
+
+  test('article non-ESH = facteur de surface 1 (inchangé vs sans yfamstat7)', ({ assert }) => {
+    const lines = [
+      line({ tsMs: T0, qteUc: 16, ucParPal: 16, palnum: 'PAL1', yfamstat7: 'VAM' }),
+    ]
+    const camions = clusterCamions(lines, 5)
+    assert.isAtLeast(camions[0].palTheo, 0.99)
+    assert.isAtMost(camions[0].palTheo, 1.01)
   })
 })

@@ -4,6 +4,7 @@ import {
   ExpeditionRepository,
   CAMION_GAP_MINUTES,
   MAX_PALETTES_CAMION,
+  CAMION_CAPACITE_PALETTES,
   type ExpeditionKpi,
 } from '#repositories/expedition_repository'
 
@@ -66,6 +67,7 @@ export default class ExpeditionsController {
       nbCamions: 0,
       gapMinutes,
       maxPalettesCamion: MAX_PALETTES_CAMION,
+      camionCapacitePalettes: CAMION_CAPACITE_PALETTES,
       camions: [],
     }
     let x3Error: string | null = null

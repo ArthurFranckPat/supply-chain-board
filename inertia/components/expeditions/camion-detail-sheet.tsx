@@ -32,6 +32,10 @@ export interface CamionLigne {
   qteUc: number
   ts: string
   sohnum: string
+  pcu: string
+  pcuStuCoe: number
+  ucParPal: number
+  yfamstat7: string
 }
 
 export interface CamionDtl {
@@ -46,6 +50,9 @@ export interface CamionDtl {
   nbContenants: number
   nbLignes: number
   anomalie: boolean
+  palTheo: number
+  tauxRemplissage: number
+  ecartPalettes: number
   maxPalettesCamion: number
   lignes: CamionLigne[]
 }
@@ -65,6 +72,17 @@ export const CamionDetailSheet: Component<{
     return [...c.lignes].sort((a, b) =>
       a.palnum === b.palnum ? a.ts.localeCompare(b.ts) : a.palnum.localeCompare(b.palnum),
     )
+  })
+
+  // Palettes ESH distinctes (1000×1200) présentes dans le camion — pour info header.
+  const nbPalEsh = createMemo(() => {
+    const c = props.camion
+    if (!c) return 0
+    const eshPals = new Set<string>()
+    for (const l of c.lignes) {
+      if (l.yfamstat7 === 'ESH' && l.palnum) eshPals.add(l.palnum)
+    }
+    return eshPals.size
   })
 
   return (
@@ -105,6 +123,42 @@ export const CamionDetailSheet: Component<{
                   {c().bprnum} · {c().nbLignes} ligne{c().nbLignes > 1 ? 's' : ''} ·{' '}
                   {c().nbPalettes} palette{c().nbPalettes > 1 ? 's' : ''} · {c().qteUc} UC
                 </SheetDescription>
+                {/* Métriques volumes (issue #44 affinage) : équivalent-palettes théorique,
+                    taux de remplissage, et écart vs palettes comptées. -1 = N/A (pas de coef). */}
+                <Show when={c().palTheo >= 0}>
+                  <div class="flex flex-wrap gap-1.5 pt-1">
+                    <span class="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] font-semibold text-foreground">
+                      <span class="text-muted-foreground">Pal. théo.</span>
+                      {c().palTheo.toFixed(1)}
+                    </span>
+                    <span class="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] font-semibold text-foreground">
+                      <span class="text-muted-foreground">Remplissage</span>
+                      {(c().tauxRemplissage * 100).toFixed(0)}%
+                    </span>
+                    <Show when={c().ecartPalettes >= 0}>
+                      <span
+                        class={cx(
+                          'inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[10px] font-bold',
+                          c().ecartPalettes > 0.3
+                            ? 'bg-destructive/10 text-destructive'
+                            : 'bg-emerald-500/10 text-emerald-600',
+                        )}
+                        title="Écart entre palettes scannées et palettes théoriques (calcul UC)"
+                      >
+                        Δ {(c().ecartPalettes * 100).toFixed(0)}%
+                      </span>
+                    </Show>
+                    <Show when={nbPalEsh() > 0}>
+                      <span
+                        class="inline-flex items-center gap-1 rounded bg-terra/10 px-1.5 py-0.5 font-mono text-[10px] font-bold text-terra"
+                        title="Palettes 1000×1200 (famille ESH) — comptées pour 1,25 éq. standard dans le remplissage"
+                      >
+                        <span class="material-symbols-outlined text-[11px]">straighten</span>
+                        {nbPalEsh()} pal. ESH
+                      </span>
+                    </Show>
+                  </div>
+                </Show>
               </SheetHeader>
 
               {/* ATTENTION : SheetBody fait `<div class="..." {...props} />` — le spread
@@ -119,6 +173,8 @@ export const CamionDetailSheet: Component<{
                       <th class={cx(TH, 'w-[90px]')}>BL</th>
                       <th class={cx(TH, 'w-[95px]')}>Commande</th>
                       <th class={cx(TH, 'w-[70px] text-right')}>Palette</th>
+                      <th class={cx(TH, 'w-[50px] text-right')}>PCU</th>
+                      <th class={cx(TH, 'w-[60px] text-right')}>UC/Pal</th>
                       <th class={cx(TH, 'w-[70px] text-right')}>UC</th>
                       <th class={cx(TH, 'w-[80px] text-right')}>Heure</th>
                     </tr>
@@ -152,6 +208,15 @@ export const CamionDetailSheet: Component<{
                           </td>
                           <td class="px-3 py-[9px] text-right align-middle font-mono text-[11px] tabular-nums text-muted-foreground">
                             {l.palnum || '—'}
+                          </td>
+                          <td class="px-3 py-[9px] text-right align-middle font-mono text-[10px] text-muted-foreground" title={`Unité de conditionnement : ${l.pcu || '—'}${l.yfamstat7 === 'ESH' ? ' · Palette 1000×1200' : ''}`}>
+                            <span>{l.pcu || '—'}</span>
+                            <Show when={l.yfamstat7 === 'ESH'}>
+                              <span class="ml-1 inline-block rounded bg-terra/10 px-1 text-[8px] font-bold text-terra">ESH</span>
+                            </Show>
+                          </td>
+                          <td class="px-3 py-[9px] text-right align-middle font-mono text-[10px] tabular-nums text-muted-foreground" title="UC par palette (PCUSTUCOE_1 — palettisation article)">
+                            {l.ucParPal > 0 ? l.ucParPal : '—'}
                           </td>
                           <td class="px-3 py-[9px] text-right align-middle font-mono text-[11px] font-bold tabular-nums text-foreground">
                             {l.qteUc}

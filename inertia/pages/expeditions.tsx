@@ -1,19 +1,24 @@
 import { createEffect, createMemo, createResource, createSignal, onCleanup, Show, type Component } from 'solid-js'
 import { cx } from '@/libs/cva'
-import { DataTable, type ColumnDef, type SortingState } from '@/components/ui/data-table'
 import { Masthead } from '@/components/masthead'
 import { Calendar, type DateRange } from '@/components/ui/calendar'
 import { CamionDetailSheet, type CamionDtl } from '@/components/expeditions/camion-detail-sheet'
+import { ManifesteView, type ManifesteSort } from '@/components/expeditions/manifeste-view'
+import { FriseView } from '@/components/expeditions/frise-view'
 
 /**
  * Page « Expéditions » (issue #44) — onglet dédié à la gestion des expéditions client
- * (livraisons STOJOU TRSTYP_0=4). Remplace la carte dashboard initiale : un résumé ne
- * suffisait pas à l'usage opérationnel (vérifier/filtrer les camions un par un, repérer
- * les regroupements suspects).
+ * (livraisons STOJOU TRSTYP_0=4).
+ *
+ * Deux vues commutables au lieu d'un tableau unique :
+ *  - **Manifeste** : cartes camion, la charge visualisée comme une grille de palettes.
+ *  - **Frise**     : timeline (Gantt), barres positionnées sur l'axe temps + densité quai.
  *
  * Coquille Inertia instantanée ; le calcul lourd (X3 + clustering camion) est chargé en
  * différé via fetch JSON sur `rowsHref`. Même motif que /suivi (scheduler/tracking).
  */
+
+type ViewMode = 'manifeste' | 'frise'
 
 interface ExpeditionKpi {
   label: string
@@ -21,6 +26,7 @@ interface ExpeditionKpi {
   nbCamions: number
   gapMinutes: number
   maxPalettesCamion: number
+  camionCapacitePalettes: number
   camions: CamionDtl[]
 }
 interface ExpeditionsRowsResponse {
@@ -35,11 +41,28 @@ interface ExpeditionsPageProps {
 }
 
 const EMPTY = (defaultGapMinutes: number, maxPalettesCamion: number): ExpeditionsRowsResponse => ({
-  expeditions: { label: '', totalUc: 0, nbCamions: 0, gapMinutes: defaultGapMinutes, maxPalettesCamion, camions: [] },
+  expeditions: { label: '', totalUc: 0, nbCamions: 0, gapMinutes: defaultGapMinutes, maxPalettesCamion, camionCapacitePalettes: 33, camions: [] },
   x3Error: null,
 })
 
-const fold = (s: string): string => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+const fold = (s: string): string => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+
+/** Tiebreaker primaire : les navettes (source de vérité) précèdent toujours les
+ *  clusters heuristiques, quel que soit le tri choisi (issue #44 affinage). */
+const srcRank = (c: CamionDtl) => (c.source === 'navette' ? 0 : 1)
+
+/** Tri applicable à la vue manifeste (la frise reste triée par heure). */
+function sortRows(rows: CamionDtl[], sort: ManifesteSort): CamionDtl[] {
+  const out = [...rows]
+  if (sort === 'time') {
+    out.sort((a, b) => srcRank(a) - srcRank(b) || a.debut.localeCompare(b.debut))
+  } else if (sort === 'load') {
+    out.sort((a, b) => srcRank(a) - srcRank(b) || b.nbPalettes - a.nbPalettes)
+  } else {
+    out.sort((a, b) => srcRank(a) - srcRank(b) || a.client.localeCompare(b.client))
+  }
+  return out
+}
 
 const Expeditions: Component<ExpeditionsPageProps> = (props) => {
   const empty = EMPTY(props.defaultGapMinutes, props.maxPalettesCamion)
@@ -52,6 +75,10 @@ const Expeditions: Component<ExpeditionsPageProps> = (props) => {
   const [bust, setBust] = createSignal(0)
   const [loadMs, setLoadMs] = createSignal<number | null>(null)
   const [elapsed, setElapsed] = createSignal(0)
+
+  // ── Toggle vue + tri manifeste ───────────────────────────────────
+  const [view, setView] = createSignal<ViewMode>('manifeste')
+  const [mSort, setMSort] = createSignal<ManifesteSort>('time')
 
   const fmtDay = (d: Date) =>
     `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`
@@ -97,9 +124,9 @@ const Expeditions: Component<ExpeditionsPageProps> = (props) => {
 
   const fmtMs = (ms: number) => (ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`)
 
-  const view = createMemo(() => data() ?? empty)
-  const exp = createMemo(() => view().expeditions)
-  const x3Error = createMemo(() => view().x3Error)
+  const viewData = createMemo(() => data() ?? empty)
+  const exp = createMemo(() => viewData().expeditions)
+  const x3Error = createMemo(() => viewData().x3Error)
 
   const totalPalettes = createMemo(() => exp().camions.reduce((s, c) => s + c.nbPalettes, 0))
   const avgPalettes = createMemo(() => {
@@ -108,156 +135,32 @@ const Expeditions: Component<ExpeditionsPageProps> = (props) => {
   })
   const nbAnomalies = createMemo(() => exp().camions.filter((c) => c.anomalie).length)
 
-  const [sorting, setSorting] = createSignal<SortingState[]>([{ id: 'debut', desc: false }])
+  // Volumes théoriques (issue #44 affinage) — agrégats depuis palTheo calculé.
+  const camionsAvecPalTheo = createMemo(() => exp().camions.filter((c) => c.palTheo >= 0))
+  const totalPalTheo = createMemo(() => camionsAvecPalTheo().reduce((s, c) => s + c.palTheo, 0))
+  const avgRemplissage = createMemo(() => {
+    const n = camionsAvecPalTheo().length
+    return n > 0 ? camionsAvecPalTheo().reduce((s, c) => s + c.tauxRemplissage, 0) / n : -1
+  })
+
   const [selectedCamion, setSelectedCamion] = createSignal<CamionDtl | null>(null)
   const [detailOpen, setDetailOpen] = createSignal(false)
 
-  const filteredRows = createMemo(() => {
+  // Filtrage commun aux deux vues (recherche + anomalies).
+  const baseRows = createMemo(() => {
     const q = fold(query())
     let rows = exp().camions
     if (q) rows = rows.filter((c) => fold(c.client).includes(q) || fold(c.bprnum).includes(q))
     if (anomalyOnly()) rows = rows.filter((c) => c.anomalie)
-    const s = sorting()[0]
-    // Sans tri explicite : on conserve l'ordre backend (navettes d'abord, puis
-    // heuristiques), lui-même trié par heure de début au sein de chaque groupe.
-    if (!s) return rows
-    const sorted = [...rows]
-    // Tiebreaker primaire : les navettes (source de vérité) précèdent toujours les
-    // clusters heuristiques, quel que soit le tri colonne choisi (issue #44 affinage).
-    const srcRank = (c: CamionDtl) => (c.source === 'navette' ? 0 : 1)
-    sorted.sort((a, b) => {
-      const src = srcRank(a) - srcRank(b)
-      if (src !== 0) return src
-      let va: string | number
-      let vb: string | number
-      switch (s.id) {
-        case 'client': va = a.client; vb = b.client; break
-        case 'debut': va = a.debut; vb = b.debut; break
-        case 'nbPalettes': va = a.nbPalettes; vb = b.nbPalettes; break
-        case 'nbContenants': va = a.nbContenants; vb = b.nbContenants; break
-        case 'qteUc': va = a.qteUc; vb = b.qteUc; break
-        case 'nbLignes': va = a.nbLignes; vb = b.nbLignes; break
-        default: return 0
-      }
-      const cmp = typeof va === 'number' && typeof vb === 'number' ? va - vb : String(va).localeCompare(String(vb))
-      return s.desc ? -cmp : cmp
-    })
-    return sorted
+    return rows
   })
+  // La frise est toujours triée par heure ; le manifeste suit le tri choisi.
+  const manifesteRows = createMemo(() => sortRows(baseRows(), mSort()))
+  const friseRows = createMemo(() => sortRows(baseRows(), 'time'))
 
-  const columns: ColumnDef<CamionDtl>[] = [
-    {
-      id: 'client',
-      header: () => 'Client',
-      accessorKey: 'client',
-      cell: (info: { row: { original: CamionDtl } }) => {
-        const c = info.row.original
-        return (
-          <>
-            <div class="flex items-center gap-1.5">
-              <span class="font-sans text-[12.5px] font-semibold text-foreground">{c.client || '—'}</span>
-              <Show
-                when={c.source === 'navette'}
-                fallback={
-                  <span class="font-mono text-[8px] uppercase tracking-wider text-muted-foreground/50" title="Palette sans navette rattachée (regroupement heuristique)">
-                    hors-navette
-                  </span>
-                }
-              >
-                <span class="inline-flex items-center gap-0.5 rounded bg-terra/10 px-1 font-mono text-[8px] font-bold uppercase tracking-wider text-terra" title={`Navette ${c.navetteNum}`}>
-                  {c.navetteNum}
-                </span>
-              </Show>
-            </div>
-            <div class="font-mono text-[10px] text-muted-foreground">{c.bprnum}</div>
-          </>
-        )
-      },
-      meta: {
-        thClass: 'w-[220px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft',
-        tdClass: 'px-4 py-[13px] align-middle border-r border-rule-soft',
-      },
-    },
-    {
-      id: 'debut',
-      header: () => 'Créneau',
-      accessorKey: 'debut',
-      cell: (info: { row: { original: CamionDtl } }) => {
-        const c = info.row.original
-        return (
-          <span class="font-mono text-[12px] font-semibold text-foreground">
-            {c.debut}{c.fin !== c.debut ? ` → ${c.fin}` : ''}
-          </span>
-        )
-      },
-      meta: {
-        thClass: 'w-[130px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft',
-        tdClass: 'whitespace-nowrap px-4 py-[13px] align-middle border-r border-rule-soft',
-      },
-    },
-    {
-      id: 'nbPalettes',
-      header: () => 'Palettes',
-      accessorKey: 'nbPalettes',
-      cell: (info: { row: { original: CamionDtl } }) => {
-        const c = info.row.original
-        return (
-          <span
-            class={cx(
-              'inline-flex items-center gap-1 font-mono text-[13px] font-bold tabular-nums',
-              c.anomalie ? 'text-destructive' : 'text-foreground',
-            )}
-            title={c.anomalie ? `Anomalie : au-delà de ${exp().maxPalettesCamion} palettes plausibles pour un camion — tolérance de regroupement probablement trop large` : undefined}
-          >
-            {c.nbPalettes}
-            <Show when={c.anomalie}>
-              <span class="material-symbols-outlined text-[14px] leading-none">warning</span>
-            </Show>
-          </span>
-        )
-      },
-      meta: {
-        thClass: 'w-[90px] px-4 py-[11px] text-right font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft',
-        tdClass: 'whitespace-nowrap px-4 py-[13px] text-right align-middle border-r border-rule-soft',
-      },
-    },
-    {
-      id: 'nbContenants',
-      header: () => 'Contenants',
-      accessorKey: 'nbContenants',
-      meta: {
-        thClass: 'w-[90px] px-4 py-[11px] text-right font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft',
-        tdClass: 'whitespace-nowrap px-4 py-[13px] text-right align-middle font-mono text-[12px] tabular-nums text-muted-foreground border-r border-rule-soft',
-      },
-    },
-    {
-      id: 'qteUc',
-      header: () => 'UC',
-      accessorKey: 'qteUc',
-      meta: {
-        thClass: 'w-[90px] px-4 py-[11px] text-right font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft',
-        tdClass: 'whitespace-nowrap px-4 py-[13px] text-right align-middle font-mono text-[13px] font-bold tabular-nums text-foreground border-r border-rule-soft',
-      },
-    },
-    {
-      id: 'nbLignes',
-      header: () => 'Lignes',
-      accessorKey: 'nbLignes',
-      meta: {
-        thClass: 'w-[80px] px-4 py-[11px] text-right font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule',
-        tdClass: 'whitespace-nowrap px-4 py-[13px] text-right align-middle font-mono text-[12px] tabular-nums text-muted-foreground/80',
-      },
-    },
-  ]
-
-  const indexCol = {
-    headerLabel: 'N°',
-    thClass: 'w-[38px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft',
-    tdClass: (row: CamionDtl) =>
-      cx(
-        'px-4 py-[13px] align-middle font-fraunces text-[14px] leading-none text-muted-foreground/80 border-r border-rule-soft',
-        row.anomalie && '[box-shadow:inset_3px_0_var(--color-destructive)]',
-      ),
+  const openCamion = (c: CamionDtl) => {
+    setSelectedCamion({ ...c, maxPalettesCamion: exp().maxPalettesCamion })
+    setDetailOpen(true)
   }
 
   return (
@@ -276,11 +179,18 @@ const Expeditions: Component<ExpeditionsPageProps> = (props) => {
       />
 
       {/* ═══ Bandeau KPI ═══ */}
-      <section class="flex-none grid grid-cols-5 border-b border-rule">
+      <section class="flex-none grid grid-cols-6 border-b border-rule">
         <Kpi label="UC expédiées" value={exp().totalUc} sub="somme absolue" dot="var(--color-ferme)" valClass="text-ferme" />
         <Kpi label="Camions" value={exp().nbCamions} sub={`regroupement ± ${exp().gapMinutes} min`} dot="var(--color-terra)" valClass="text-terra" />
-        <Kpi label="Palettes" value={totalPalettes()} sub="toutes expéditions" dot="var(--color-planifie)" valClass="text-planifie" />
-        <Kpi label="Moy. palettes/camion" value={avgPalettes()} sub={`plausible ≤ ${exp().maxPalettesCamion}`} dot="var(--color-suggere)" valClass="text-suggere" />
+        <Kpi label="Palettes" value={totalPalettes()} sub={totalPalTheo() > 0 ? `${totalPalTheo().toFixed(0)} théoriques` : 'toutes expéditions'} dot="var(--color-planifie)" valClass="text-planifie" />
+        <Kpi label="Moy. palettes/camion" value={avgPalettes()} sub={`capacité ${exp().camionCapacitePalettes} pal.`} dot="var(--color-suggere)" valClass="text-suggere" />
+        <Kpi
+          label="Remplissage moy."
+          value={avgRemplissage() >= 0 ? `${Math.round(avgRemplissage() * 100)}%` : '—'}
+          sub={`capacité ${exp().camionCapacitePalettes} pal`}
+          dot="var(--color-ferme)"
+          valClass={avgRemplissage() > 1 ? 'text-destructive' : 'text-ferme'}
+        />
         <Kpi
           label="Anomalies"
           value={nbAnomalies()}
@@ -362,10 +272,11 @@ const Expeditions: Component<ExpeditionsPageProps> = (props) => {
           type="button"
           onClick={() => setAnomalyOnly((v) => !v)}
           class={cx(
-            'rounded-md border px-2.5 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
+            'flex items-center gap-1 rounded-md border px-2.5 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
             anomalyOnly() ? 'border-destructive/40 bg-destructive/10 text-destructive' : 'border-rule bg-card text-muted-foreground hover:text-foreground',
           )}
         >
+          <span class="material-symbols-outlined text-[13px]">warning</span>
           Anomalies seules
         </button>
 
@@ -373,7 +284,7 @@ const Expeditions: Component<ExpeditionsPageProps> = (props) => {
         <div class="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-terra focus-within:ring-2 focus-within:ring-terra/25">
           <span class="material-symbols-outlined text-[17px] text-muted-foreground">search</span>
           <input
-            class="w-[180px] border-0 bg-transparent px-0 text-[12px] font-medium text-foreground shadow-none outline-none"
+            class="w-[160px] border-0 bg-transparent px-0 text-[12px] font-medium text-foreground shadow-none outline-none"
             placeholder="Client…"
             type="text"
             autocomplete="off"
@@ -404,6 +315,37 @@ const Expeditions: Component<ExpeditionsPageProps> = (props) => {
         </div>
       </div>
 
+      {/* ═══ Toggle vue + tri manifeste ═══ */}
+      <div class="flex flex-none items-center gap-2.5 border-b border-rule-soft px-7 py-1.5">
+        <div class="flex items-center overflow-hidden rounded-md border border-rule bg-card">
+          <ViewTab active={view() === 'manifeste'} onClick={() => setView('manifeste')} icon="grid_view" label="Manifestes" />
+          <ViewTab active={view() === 'frise'} onClick={() => setView('frise')} icon="timeline" label="Frise de charge" />
+        </div>
+
+        {/* Tri segmenté — propre au manifeste */}
+        <Show when={view() === 'manifeste'}>
+          <div class="flex items-center overflow-hidden rounded-md border border-rule bg-card">
+            <SegTab active={mSort() === 'time'} onClick={() => setMSort('time')} label="Par heure" />
+            <SegTab active={mSort() === 'load'} onClick={() => setMSort('load')} label="Par charge" />
+            <SegTab active={mSort() === 'client'} onClick={() => setMSort('client')} label="Par client" />
+          </div>
+        </Show>
+
+        {/* Légende (frise) — paliers de taux de remplissage (capacité {camionCapacitePalettes} pal. éq.) */}
+        <Show when={view() === 'frise'}>
+          <div class="flex flex-wrap items-center gap-4 font-mono text-[10px] text-muted-foreground">
+            <Legend sw="bg-ferme" label="Léger (&lt;45%)" />
+            <Legend sw="bg-planifie" label="Normal (45–90%)" />
+            <Legend sw="bg-suggere" label="Proche du max (90–100%)" />
+            <Legend sw="bg-destructive" label="Débord (&gt;100%)" />
+          </div>
+        </Show>
+
+        <span class="ml-auto font-mono text-[11px] text-muted-foreground">
+          {baseRows().length} camion{baseRows().length > 1 ? 's' : ''}
+        </span>
+      </div>
+
       {/* ═══ X3 injoignable ═══ */}
       <Show when={x3Error()}>
         <div class="flex flex-none items-center gap-2 border-b border-destructive/30 bg-destructive/10 px-7 py-2 text-[12px] text-foreground">
@@ -413,7 +355,7 @@ const Expeditions: Component<ExpeditionsPageProps> = (props) => {
         </div>
       </Show>
 
-      {/* ═══ Table ═══ */}
+      {/* ═══ Vue ═══ */}
       <Show
         when={!data.loading}
         fallback={
@@ -432,30 +374,40 @@ const Expeditions: Component<ExpeditionsPageProps> = (props) => {
             </div>
           }
         >
-          <div class="flex-1 overflow-hidden p-5">
-            <DataTable
-              columns={columns}
-              rows={filteredRows}
-              sorting={sorting}
-              onSortingChange={setSorting}
-              indexColumn={indexCol}
-              onRowClick={(row) => { setSelectedCamion({ ...row, maxPalettesCamion: exp().maxPalettesCamion }); setDetailOpen(true) }}
-              getRowClass={(row) => cx('border-t border-rule-soft transition-colors', row.anomalie ? 'bg-destructive/10 hover:bg-destructive/[0.18]' : 'hover:bg-foreground/[0.04]')}
-              tableClass="min-w-[900px] table-fixed"
-              scrollContainerClass="h-full border-0 rounded-none shadow-none"
-              theadRowClass="sticky top-0 z-10 bg-secondary"
-              emptyState={
-                <div class="flex flex-1 items-center justify-center p-10 text-center font-fraunces text-[14px] italic text-muted-foreground">
-                  <div class="flex flex-col items-center gap-2">
-                    <span class="material-symbols-outlined text-[32px] text-muted-foreground/50">
-                      {x3Error() ? 'cloud_off' : 'local_shipping'}
-                    </span>
-                    {x3Error() ? 'Données indisponibles (X3 injoignable).' : 'Aucune expédition sur la période.'}
-                  </div>
-                </div>
+          <Show
+            when={baseRows().length > 0 || x3Error()}
+            fallback={
+              <div class="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-center">
+                <span class="material-symbols-outlined text-[32px] text-muted-foreground/50">
+                  {x3Error() ? 'cloud_off' : 'local_shipping'}
+                </span>
+                <span class="font-fraunces text-[14px] italic text-muted-foreground">
+                  {x3Error() ? 'Données indisponibles (X3 injoignable).' : 'Aucune expédition sur la période.'}
+                </span>
+              </div>
+            }
+          >
+            <Show
+              when={view() === 'manifeste'}
+              fallback={
+                <FriseView
+                  rows={friseRows()}
+                  maxPalettesCamion={exp().maxPalettesCamion}
+                  camionCapacitePalettes={exp().camionCapacitePalettes}
+                  selectedCamion={selectedCamion()}
+                  onSelect={openCamion}
+                />
               }
-            />
-          </div>
+            >
+              <ManifesteView
+                rows={manifesteRows()}
+                maxPalettesCamion={exp().maxPalettesCamion}
+                camionCapacitePalettes={exp().camionCapacitePalettes}
+                selectedCamion={selectedCamion()}
+                onSelect={openCamion}
+              />
+            </Show>
+          </Show>
         </Show>
       </Show>
 
@@ -467,7 +419,7 @@ const Expeditions: Component<ExpeditionsPageProps> = (props) => {
 /** Tuile KPI (bandeau supérieur). */
 const Kpi: Component<{
   label: string
-  value: number
+  value: number | string
   sub: string
   dot: string
   valClass: string
@@ -478,9 +430,48 @@ const Kpi: Component<{
       <span class="size-2 rounded-[2px]" style={{ background: p.dot }} />
       {p.label}
     </span>
-    <span class={cx('font-fraunces text-[34px] font-black leading-none tracking-tight', p.valClass)}>{p.value}</span>
+    <span class={cx('font-fraunces text-[34px] font-black leading-none tracking-tight tabular-nums', p.valClass)}>
+      {typeof p.value === 'number' ? p.value.toLocaleString('fr-FR') : p.value}
+    </span>
     <span class="font-mono text-[11px] font-medium text-muted-foreground">{p.sub}</span>
   </div>
+)
+
+/** Onglet de bascule de vue (manifeste / frise). */
+const ViewTab: Component<{ active: boolean; onClick: () => void; icon: string; label: string }> = (p) => (
+  <button
+    type="button"
+    onClick={p.onClick}
+    class={cx(
+      'flex items-center gap-1.5 px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
+      p.active ? 'bg-terra/10 text-terra' : 'text-muted-foreground hover:text-foreground',
+    )}
+  >
+    <span class="material-symbols-outlined text-[14px]">{p.icon}</span>
+    {p.label}
+  </button>
+)
+
+/** Onglet segmenté (tri manifeste). */
+const SegTab: Component<{ active: boolean; onClick: () => void; label: string }> = (p) => (
+  <button
+    type="button"
+    onClick={p.onClick}
+    class={cx(
+      'border-r border-rule-soft px-2.5 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors last:border-r-0',
+      p.active ? 'bg-terra/10 text-terra' : 'text-muted-foreground hover:text-foreground',
+    )}
+  >
+    {p.label}
+  </button>
+)
+
+/** Pastille légende (frise). */
+const Legend: Component<{ sw: string; label: string }> = (p) => (
+  <span class="flex items-center gap-1.5">
+    <span class={cx('h-[9px] w-5 rounded-[2px]', p.sw)} />
+    {p.label}
+  </span>
 )
 
 export default Expeditions

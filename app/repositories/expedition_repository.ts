@@ -22,6 +22,30 @@ export const CAMION_GAP_MINUTES = Number(process.env.EXPEDITION_CAMION_GAP_MINUT
 export const MAX_PALETTES_CAMION = Number(process.env.EXPEDITION_MAX_PALETTES_CAMION) || 35
 
 /**
+ * Capacité de référence d'un camion (en palettes) pour le calcul du taux de remplissage.
+ * Un camion standard europe = 33 palettes. Calibrable via env. Sert de dénominateur au
+ * `tauxRemplissage` (équivalent-palettes / capacité). Indépendant du seuil d'anomalie
+ * `MAX_PALETTES_CAMION` qui lui détecte les clusters heuristiques mal regroupés.
+ */
+export const CAMION_CAPACITE_PALETTES = Number(process.env.EXPEDITION_CAMION_CAPACITE) || 33
+
+/**
+ * Seuil de divergence entre palettes comptées (PALNUM) et palettes théoriques (calcul UC).
+ * Au-delà, on considère que la saisie terrain est suspecte (scan incomplet ou palette
+ * éclatée en plusieurs PALNUM). Exprimé en ratio (0.3 = ±30% de tolérance).
+ */
+export const SEUIL_ECART_PALETTES = Number(process.env.EXPEDITION_SEUIL_ECART_PAL) || 0.3
+
+/**
+ * Facteur de surface d'une palette ESH (1000×1200) vs palette standard (800×1200).
+ * 1,20 m² / 0,96 m² = 1,25. Les palettes de la famille YFAMSTAT7 = 'ESH' occupent 25%
+ * plus de place au sol qu'une palette standard ; on les compte pour 1,25 équivalent-
+ * palettes dans le `palTheo` pour que le taux de remplissage reste homogène.
+ * Calibrable via env. Extensible à d'autres familles plus tard.
+ */
+export const ESH_SURFACE_RATIO = Number(process.env.EXPEDITION_ESH_SURFACE_RATIO) || 1.25
+
+/**
  * Filtre sur `CREDAT_0` (date, colonne Oracle DATE fiable — cf. modèle StockJournal)
  * plutôt que sur `CREDATTIM_0` pour la clause WHERE. `CREDATTIM_0` est en revanche
  * explicitement formaté via TO_CHAR (indépendant du NLS_DATE_FORMAT de session, qui
@@ -45,7 +69,11 @@ SELECT
   S.ITMREF_0  AS ITMREF,
   I.ITMDES1_0 AS DESIGNATION,
   S.VCRNUM_0  AS VCRNUM,
-  S.VCRLIN_0  AS VCRLIN
+  S.VCRLIN_0  AS VCRLIN,
+  I.PCU_0     AS PCU,
+  I.PCUSTUCOE_0 AS PCU_STU_COE,
+  I.PCUSTUCOE_1 AS UC_PAR_PAL,
+  I.YFAMSTAT7_0 AS YFAMSTAT7
 FROM STOJOU S
 LEFT JOIN BPARTNER P ON P.BPRNUM_0 = S.BPRNUM_0
 LEFT JOIN ITMMASTER I ON I.ITMREF_0 = S.ITMREF_0
@@ -91,6 +119,16 @@ export interface StojouLine {
   /** Commande client (YNAVETTE.SOHNUM_0) — renseignée post-fetch par rapprochement
    *  PALNUM_0 → navette. `null` tant que le mapping navette n'a pas été appliqué. */
   sohnum: string | null
+  /** Unité de conditionnement (ITMMASTER.PCU_0) — ex. CAR (carton), PAL (palette). */
+  pcu: string | null
+  /** Coefficient UC→US niveau 0 (ITMMASTER.PCUSTUCOE_0) — nb d'US par UC (colisage). */
+  pcuStuCoe: number | null
+  /** UC par palette (ITMMASTER.PCUSTUCOE_1) — palettisation de l'article. Sert au
+   *  calcul de l'équivalent-palettes théorique : palTheo = Σ UC / ucParPal. */
+  ucParPal: number | null
+  /** Famille statistique 7 (ITMMASTER.YFAMSTAT7_0). 'ESH' = palette 1000×1200
+   *  (vs 800×1200 standard) — impacte le facteur de surface (cf. calcVolumes). */
+  yfamstat7: string | null
 }
 
 /**
@@ -111,6 +149,14 @@ export interface CamionLigne {
   ts: string
   /** Commande client (YNAVETTE.SOHNUM_0) — uniquement pour les lignes rattachées à une navette. */
   sohnum: string
+  /** Unité de conditionnement (ITMMASTER.PCU_0) — ex. CAR, PAL, BO. */
+  pcu: string
+  /** Coefficient UC→US niveau 0 (ITMMASTER.PCUSTUCOE_0) — nb d'US par UC. */
+  pcuStuCoe: number
+  /** UC par palette (ITMMASTER.PCUSTUCOE_1) — palettisation de l'article. */
+  ucParPal: number
+  /** Famille statistique 7. 'ESH' = palette 1000×1200 (facteur surface 1,25). */
+  yfamstat7: string
 }
 
 /**
@@ -139,6 +185,21 @@ export interface CamionDtl {
    *  plusieurs camions réels fusionnés à tort (tolérance à resserrer). Concerne
    *  uniquement les camions `source === 'heuristique'` (les navettes sont fiables). */
   anomalie: boolean
+  /**
+   * Équivalent-palettes théorique (calculé depuis les UC + coefficients PCUSTUCOE).
+   * Indicateur de volume indépendant du scan PALNUM. Sert à fiabiliser la détection
+   * d'anomalies (cf. `ecartPalettes`) et le taux de remplissage (issue #44 affinage).
+   * -1 si aucun coef disponible (impossible à calculer).
+   */
+  palTheo: number
+  /** Taux de remplissage du camion = palTheo / CAMION_CAPACITE_PALETTES (0-1+). -1 si N/A. */
+  tauxRemplissage: number
+  /**
+   * Écart relatif entre palettes comptées (PALNUM) et palettes théoriques (UC÷coef).
+   * > SEUIL_ECART_PALETTES → saisie suspecte (scan incomplet ou palette éclatée).
+   * -1 si palTheo non calculable.
+   */
+  ecartPalettes: number
   /** Détail des lignes STOJOU composant le camion (article, BL, palette…). */
   lignes: CamionLigne[]
 }
@@ -149,6 +210,8 @@ export interface ExpeditionKpi {
   nbCamions: number
   gapMinutes: number
   maxPalettesCamion: number
+  /** Capacité camion de référence (palettes) — dénominateur du taux de remplissage. */
+  camionCapacitePalettes: number
   camions: CamionDtl[]
 }
 
@@ -166,6 +229,43 @@ function fmtHeure(tsMs: number): string {
 
 function fmtHeureSec(tsMs: number): string {
   return DateTime.fromMillis(tsMs, { zone: 'UTC' }).toFormat('HH:mm:ss')
+}
+
+/**
+ * Métriques volumes d'un ensemble de lignes : équivalent-palettes théorique (calcul UC),
+ * taux de remplissage, et écart vs palettes comptées (PALNUM).
+ *
+ * `palTheo` = Σ (UC / ucParPal × facteurSurface), où `ucParPal` = PCUSTUCOE_1 (nombre
+ * d'UC par palette pour l'article, cf. ITMMASTER). Le facteur de surface vaut
+ * `ESH_SURFACE_RATIO` (1,25) pour les palettes ESH (1000×1200, famille YFAMSTAT7='ESH'),
+ * 1,0 sinon (palette standard 800×1200) — afin que le taux de remplissage reste homogène
+ * quel que soit le format mélangé dans le camion.
+ *
+ * Si aucune ligne n'a de `ucParPal` exploitable (>0), retourne -1 (impossible à calculer).
+ */
+function calcVolumes(
+  lignes: { qteUc: number; ucParPal: number | null; yfamstat7?: string | null }[],
+  nbPalettesComptees: number,
+): { palTheo: number; tauxRemplissage: number; ecartPalettes: number } {
+  let palTheoBrut = 0
+  let hasCoef = false
+  for (const l of lignes) {
+    if (l.ucParPal && l.ucParPal > 0) {
+      const palLigne = Math.abs(l.qteUc) / l.ucParPal
+      const facteur = l.yfamstat7 === 'ESH' ? ESH_SURFACE_RATIO : 1
+      palTheoBrut += palLigne * facteur
+      hasCoef = true
+    }
+  }
+  if (!hasCoef) {
+    return { palTheo: -1, tauxRemplissage: -1, ecartPalettes: -1 }
+  }
+  const palTheo = palTheoBrut
+  const tauxRemplissage = CAMION_CAPACITE_PALETTES > 0 ? palTheo / CAMION_CAPACITE_PALETTES : -1
+  // Écart relatif entre compté et théorique (symétrique). 0 = parfait.
+  const ecartPalettes =
+    palTheo > 0 ? Math.abs(nbPalettesComptees - palTheo) / palTheo : -1
+  return { palTheo, tauxRemplissage, ecartPalettes }
 }
 
 /**
@@ -211,6 +311,10 @@ export function clusterCamions(
     qteUc: Math.abs(l.qteUc),
     ts: fmtHeureSec(l.tsMs),
     sohnum: l.sohnum ?? '',
+    pcu: l.pcu ?? '',
+    pcuStuCoe: l.pcuStuCoe ?? 0,
+    ucParPal: l.ucParPal ?? 0,
+    yfamstat7: l.yfamstat7 ?? '',
   })
 
   for (const l of sorted) {
@@ -238,20 +342,27 @@ export function clusterCamions(
     }
   }
 
-  return clusters.map((c) => ({
-    source: 'heuristique' as const,
-    navetteNum: null,
-    client: c.client,
-    bprnum: c.bprnum,
-    debut: fmtHeure(c.debutMs),
-    fin: fmtHeure(c.finMs),
-    qteUc: c.qteUc,
-    nbPalettes: c.palettes.size,
-    nbContenants: c.contenants.size,
-    nbLignes: c.nbLignes,
-    anomalie: c.palettes.size > maxPalettesCamion,
-    lignes: c.lignes,
-  }))
+  return clusters.map((c) => {
+    const nbPalettes = c.palettes.size
+    const { palTheo, tauxRemplissage, ecartPalettes } = calcVolumes(c.lignes, nbPalettes)
+    return {
+      source: 'heuristique' as const,
+      navetteNum: null,
+      client: c.client,
+      bprnum: c.bprnum,
+      debut: fmtHeure(c.debutMs),
+      fin: fmtHeure(c.finMs),
+      qteUc: c.qteUc,
+      nbPalettes,
+      nbContenants: c.contenants.size,
+      nbLignes: c.nbLignes,
+      anomalie: nbPalettes > maxPalettesCamion,
+      palTheo,
+      tauxRemplissage,
+      ecartPalettes,
+      lignes: c.lignes,
+    }
+  })
 }
 
 /**
@@ -307,10 +418,16 @@ export function groupCamionsByNavette(lines: StojouLine[]): CamionDtl[] {
         qteUc: Math.abs(l.qteUc),
         ts: fmtHeureSec(l.tsMs),
         sohnum: l.sohnum ?? '',
+        pcu: l.pcu ?? '',
+        pcuStuCoe: l.pcuStuCoe ?? 0,
+        ucParPal: l.ucParPal ?? 0,
+        yfamstat7: l.yfamstat7 ?? '',
       })
     }
     const clientName = sorted[0]?.client ?? ''
     const bprnum = sorted[0]?.bprnum ?? ''
+    const nbPalettes = palettes.size
+    const { palTheo, tauxRemplissage, ecartPalettes } = calcVolumes(lignesDetail, nbPalettes)
     result.push({
       source: 'navette',
       navetteNum: g.navetteNum,
@@ -319,10 +436,13 @@ export function groupCamionsByNavette(lines: StojouLine[]): CamionDtl[] {
       debut: fmtHeure(sorted[0]!.tsMs),
       fin: fmtHeure(sorted[sorted.length - 1]!.tsMs),
       qteUc,
-      nbPalettes: palettes.size,
+      nbPalettes,
       nbContenants: contenants.size,
       nbLignes: sorted.length,
       anomalie: false, // Les navettes sont fiables — pas de flag anomalie.
+      palTheo,
+      tauxRemplissage,
+      ecartPalettes,
       lignes: lignesDetail,
     })
   }
@@ -389,6 +509,10 @@ export class ExpeditionRepository {
         vcrnum: row.VCRNUM?.trim() || null,
         vcrlin: row.VCRLIN ? parseInt(row.VCRLIN, 10) || null : null,
         sohnum: matched?.sohnum ?? null,
+        pcu: row.PCU?.trim() || null,
+        pcuStuCoe: row.PCU_STU_COE ? toNum(row.PCU_STU_COE) : null,
+        ucParPal: row.UC_PAR_PAL ? toNum(row.UC_PAR_PAL) : null,
+        yfamstat7: row.YFAMSTAT7?.trim() || null,
         // Propriété transitoire lue par groupCamionsByNavette.
         ...(matched ? { navetteNum: matched.navette } : {}),
       } as StojouLine)
@@ -410,6 +534,6 @@ export class ExpeditionRepository {
     const camions = [...navetteCamions, ...heuristiqueCamions]
     const totalUc = camions.reduce((sum, c) => sum + c.qteUc, 0)
 
-    return { label, totalUc, nbCamions: camions.length, gapMinutes, maxPalettesCamion: MAX_PALETTES_CAMION, camions }
+    return { label, totalUc, nbCamions: camions.length, gapMinutes, maxPalettesCamion: MAX_PALETTES_CAMION, camionCapacitePalettes: CAMION_CAPACITE_PALETTES, camions }
   }
 }
