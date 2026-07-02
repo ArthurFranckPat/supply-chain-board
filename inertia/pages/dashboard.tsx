@@ -60,15 +60,18 @@ interface DashboardOtdResponse {
 interface CamionDtl {
   client: string
   bprnum: string
-  dateHeure: string
+  debut: string
+  fin: string
   qteUc: number
   nbPalettes: number
   nbContenants: number
+  nbLignes: number
 }
 interface ExpeditionKpi {
   label: string
   totalUc: number
   nbCamions: number
+  gapMinutes: number
   camions: CamionDtl[]
 }
 interface DashboardExpeditionsResponse {
@@ -89,9 +92,11 @@ const EMPTY_KPIS: DashboardKpisResponse = {
 }
 const EMPTY_OTD: DashboardOtdResponse = { otd: [], x3Error: null }
 const EMPTY_EXPEDITIONS: DashboardExpeditionsResponse = {
-  expeditions: { label: '', totalUc: 0, nbCamions: 0, camions: [] },
+  expeditions: { label: '', totalUc: 0, nbCamions: 0, gapMinutes: 5, camions: [] },
   x3Error: null,
 }
+/** Défaut miroir de CAMION_GAP_MINUTES (expedition_repository.ts) — recalé au 1er chargement serveur. */
+const DEFAULT_GAP_MINUTES = 5
 
 /** Palette des barres par rang de poste (du plus chargé au moins chargé). */
 const BAR_PALETTE = ['#b23b2e', '#cf6a3f', '#b8862c', '#cdb079', '#a8a18c']
@@ -118,6 +123,7 @@ const Dashboard: Component<DashboardProps> = (props) => {
   const [detailsOpen, setDetailsOpen] = createSignal(true)
   const [expRange, setExpRange] = createSignal<DateRange | null>(null)
   const [expCalendarOpen, setExpCalendarOpen] = createSignal(false)
+  const [expGapMin, setExpGapMin] = createSignal<number | null>(null)
 
   const otdUrl = createMemo(() => {
     let url = `${props.otdHref}&otdMode=${otdMode()}`
@@ -146,6 +152,8 @@ const Dashboard: Component<DashboardProps> = (props) => {
       const fmt = (d: Date) => d.toISOString().slice(0, 10)
       url += `&expFrom=${fmt(r.start)}&expTo=${fmt(r.end ?? r.start)}`
     }
+    const gap = expGapMin()
+    if (gap !== null) url += `&expGapMin=${gap}`
     return url
   })
 
@@ -521,6 +529,34 @@ const Dashboard: Component<DashboardProps> = (props) => {
                 </div>
               </div>
 
+              {/* Tolérance de regroupement « camion » — calibrable (issue #44) */}
+              <div class="mb-4 flex items-center justify-between gap-2">
+                <span class="font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Regroupement camion</span>
+                <div class="flex items-center gap-1 rounded border border-rule bg-secondary px-1 py-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setExpGapMin((v) => Math.max(0, (v ?? expeditions().gapMinutes ?? DEFAULT_GAP_MINUTES) - 1))}
+                    class="flex size-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-card hover:text-foreground"
+                    title="Diminuer la tolérance"
+                    aria-label="Diminuer la tolérance"
+                  >
+                    <span class="material-symbols-outlined text-[13px]">remove</span>
+                  </button>
+                  <span class="min-w-[52px] text-center font-mono text-[10px] font-bold tabular-nums text-foreground">
+                    ± {expGapMin() ?? expeditions().gapMinutes ?? DEFAULT_GAP_MINUTES} min
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setExpGapMin((v) => (v ?? expeditions().gapMinutes ?? DEFAULT_GAP_MINUTES) + 1)}
+                    class="flex size-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-card hover:text-foreground"
+                    title="Augmenter la tolérance"
+                    aria-label="Augmenter la tolérance"
+                  >
+                    <span class="material-symbols-outlined text-[13px]">add</span>
+                  </button>
+                </div>
+              </div>
+
               <Show when={!expeditionsData.loading} fallback={<Spinner />}>
                 <Show
                   when={!expError()}
@@ -556,7 +592,9 @@ const Dashboard: Component<DashboardProps> = (props) => {
                               <tr class="border-b border-rule-soft last:border-0 hover:bg-secondary/40">
                                 <td class="px-2 py-1.5 align-top">
                                   <div class="font-sans text-[11px] font-semibold text-foreground">{c.client || '—'}</div>
-                                  <div class="font-mono text-[9.5px] text-muted-foreground">{c.dateHeure || '—'}</div>
+                                  <div class="font-mono text-[9.5px] text-muted-foreground">
+                                    {c.debut || '—'}{c.fin && c.fin !== c.debut ? ` → ${c.fin}` : ''}
+                                  </div>
                                 </td>
                                 <td class="whitespace-nowrap px-2 py-1.5 text-right align-top font-mono text-[11px] tabular-nums text-muted-foreground">
                                   {c.nbPalettes}

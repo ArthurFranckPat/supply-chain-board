@@ -2,7 +2,11 @@ import { HttpContext } from '@adonisjs/core/http'
 import logger from '@adonisjs/core/services/logger'
 import { RetardRepository, type RetardChargeKpi } from '#repositories/retard_repository'
 import { OtdRepository, resolveOtdPeriods, type OtdKpi, type OtdMode } from '#repositories/otd_repository'
-import { ExpeditionRepository, type ExpeditionKpi } from '#repositories/expedition_repository'
+import {
+  ExpeditionRepository,
+  CAMION_GAP_MINUTES,
+  type ExpeditionKpi,
+} from '#repositories/expedition_repository'
 import { RETARD_LOOKBACK_DAYS } from '#services/suivi_service'
 
 /**
@@ -115,11 +119,15 @@ export default class DashboardController {
       label = 'J-1'
     }
 
-    let expeditions: ExpeditionKpi = { label, totalUc: 0, nbCamions: 0, camions: [] }
+    // Tolérance de regroupement « camion » surchargeable par requête (calibration VPN, #44).
+    const gapMinParam = Number.parseInt(ctx.request.input('expGapMin'), 10)
+    const gapMinutes = Number.isFinite(gapMinParam) && gapMinParam > 0 ? gapMinParam : CAMION_GAP_MINUTES
+
+    let expeditions: ExpeditionKpi = { label, totalUc: 0, nbCamions: 0, gapMinutes, camions: [] }
     let x3Error: string | null = null
 
     try {
-      expeditions = await new ExpeditionRepository().getExpeditions(from, to, label)
+      expeditions = await new ExpeditionRepository().getExpeditions(from, to, label, gapMinutes)
     } catch (e) {
       logger.error({ err: e }, '[dashboard] expeditions — échec chargement X3')
       x3Error = 'Données X3 indisponibles — expéditions momentanément incalculables.'
