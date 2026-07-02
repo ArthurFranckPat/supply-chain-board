@@ -57,10 +57,29 @@ interface DashboardOtdResponse {
   otd: OtdKpi[]
   x3Error: string | null
 }
+interface CamionDtl {
+  client: string
+  bprnum: string
+  dateHeure: string
+  qteUc: number
+  nbPalettes: number
+  nbContenants: number
+}
+interface ExpeditionKpi {
+  label: string
+  totalUc: number
+  nbCamions: number
+  camions: CamionDtl[]
+}
+interface DashboardExpeditionsResponse {
+  expeditions: ExpeditionKpi
+  x3Error: string | null
+}
 interface DashboardProps {
   referenceDate: string
   kpisHref: string
   otdHref: string
+  expeditionsHref: string
 }
 
 const EMPTY_KPIS: DashboardKpisResponse = {
@@ -69,6 +88,10 @@ const EMPTY_KPIS: DashboardKpisResponse = {
   referenceDate: '',
 }
 const EMPTY_OTD: DashboardOtdResponse = { otd: [], x3Error: null }
+const EMPTY_EXPEDITIONS: DashboardExpeditionsResponse = {
+  expeditions: { label: '', totalUc: 0, nbCamions: 0, camions: [] },
+  x3Error: null,
+}
 
 /** Palette des barres par rang de poste (du plus chargé au moins chargé). */
 const BAR_PALETTE = ['#b23b2e', '#cf6a3f', '#b8862c', '#cdb079', '#a8a18c']
@@ -93,6 +116,8 @@ const Dashboard: Component<DashboardProps> = (props) => {
   const [calendarOpen, setCalendarOpen] = createSignal(false)
   const [clientFilter, setClientFilter] = createSignal('')
   const [detailsOpen, setDetailsOpen] = createSignal(true)
+  const [expRange, setExpRange] = createSignal<DateRange | null>(null)
+  const [expCalendarOpen, setExpCalendarOpen] = createSignal(false)
 
   const otdUrl = createMemo(() => {
     let url = `${props.otdHref}&otdMode=${otdMode()}`
@@ -109,6 +134,23 @@ const Dashboard: Component<DashboardProps> = (props) => {
 
   const otdRangeLabel = createMemo(() => {
     const r = otdRange()
+    if (!r?.start) return null
+    if (!r.end || r.start.toDateString() === r.end.toDateString()) return fmtDay(r.start)
+    return `${fmtDay(r.start)} → ${fmtDay(r.end)}`
+  })
+
+  const expUrl = createMemo(() => {
+    let url = props.expeditionsHref
+    const r = expRange()
+    if (r?.start) {
+      const fmt = (d: Date) => d.toISOString().slice(0, 10)
+      url += `&expFrom=${fmt(r.start)}&expTo=${fmt(r.end ?? r.start)}`
+    }
+    return url
+  })
+
+  const expRangeLabel = createMemo(() => {
+    const r = expRange()
     if (!r?.start) return null
     if (!r.end || r.start.toDateString() === r.end.toDateString()) return fmtDay(r.start)
     return `${fmtDay(r.start)} → ${fmtDay(r.end)}`
@@ -132,6 +174,15 @@ const Dashboard: Component<DashboardProps> = (props) => {
     },
   )
 
+  const [expeditionsData] = createResource(
+    expUrl,
+    async (url): Promise<DashboardExpeditionsResponse> => {
+      const res = await fetch(url, { headers: { accept: 'application/json' } })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      return (await res.json()) as DashboardExpeditionsResponse
+    },
+  )
+
   const kpi = createMemo(() => (kpisData() ?? EMPTY_KPIS).retardCharge)
   const otd = createMemo(() => (otdData() ?? EMPTY_OTD).otd)
   const normClient = createMemo(() => fold(clientFilter()))
@@ -146,6 +197,8 @@ const Dashboard: Component<DashboardProps> = (props) => {
   const nbLignesTotal = createMemo(() => otd().reduce((n, p) => n + p.lignesNon.length, 0))
   const x3Error = createMemo(() => (kpisData() ?? EMPTY_KPIS).x3Error)
   const otdError = createMemo(() => (otdData() ?? EMPTY_OTD).x3Error)
+  const expeditions = createMemo(() => (expeditionsData() ?? EMPTY_EXPEDITIONS).expeditions)
+  const expError = createMemo(() => (expeditionsData() ?? EMPTY_EXPEDITIONS).x3Error)
   const maxHeures = createMemo(() => Math.max(1, ...kpi().postes.map((p) => p.heures)))
 
   function otdColor(taux: number, nbTotal: number): string {
@@ -419,6 +472,104 @@ const Dashboard: Component<DashboardProps> = (props) => {
                         </div>
                       )}
                     </For>
+                  </Show>
+                </Show>
+              </Show>
+            </article>
+
+            {/* KPI #3 — Expéditions client (issue #44) : UC expédiées + nb camions */}
+            <article class="rounded border border-rule bg-card p-6 shadow-[0_14px_30px_-26px_rgba(42,38,34,0.45)]">
+              <div class="mb-4 flex items-center gap-2.5 border-b border-rule-soft pb-3">
+                <span class="size-2 shrink-0 rounded-full bg-foreground/30"></span>
+                <h2 class="font-fraunces text-[16px] font-semibold leading-none tracking-tight text-foreground">Expéditions</h2>
+                <div class="relative ml-auto">
+                  <div class="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setExpCalendarOpen((v) => !v)}
+                      class="flex items-center gap-1.5 rounded border border-rule bg-secondary px-2 py-1 font-mono text-[10px] text-foreground transition-colors hover:bg-secondary/80"
+                    >
+                      <span class="material-symbols-outlined text-[13px] text-muted-foreground">calendar_today</span>
+                      <span>{expRangeLabel() ?? 'J-1'}</span>
+                    </button>
+                    <Show when={expRange()?.start}>
+                      <button
+                        type="button"
+                        onClick={() => { setExpRange(null); setExpCalendarOpen(false) }}
+                        class="flex size-6 items-center justify-center rounded text-muted-foreground hover:text-foreground"
+                        title="Réinitialiser"
+                      >
+                        <span class="material-symbols-outlined text-[14px]">close</span>
+                      </button>
+                    </Show>
+                  </div>
+
+                  <Show when={expCalendarOpen()}>
+                    <div class="fixed inset-0 z-10" onClick={() => setExpCalendarOpen(false)} />
+                    <div class="absolute right-0 top-full z-20 mt-1">
+                      <Calendar
+                        mode="range"
+                        range={expRange() ?? { start: null, end: null }}
+                        onRangeChange={(r) => {
+                          setExpRange(r)
+                          if (r.start && r.end) setExpCalendarOpen(false)
+                        }}
+                        max={new Date()}
+                      />
+                    </div>
+                  </Show>
+                </div>
+              </div>
+
+              <Show when={!expeditionsData.loading} fallback={<Spinner />}>
+                <Show
+                  when={!expError()}
+                  fallback={<p class="font-fraunces text-[13px] italic leading-snug text-destructive/80">{expError()}</p>}
+                >
+                  <div class="flex items-end justify-between gap-3">
+                    <div class="font-fraunces text-[48px] font-semibold leading-none tracking-tight tabular-nums text-foreground">
+                      {expeditions().totalUc}
+                      <span class="ml-1 font-mono text-[16px] font-bold text-muted-foreground">UC</span>
+                    </div>
+                    <div class="pb-1 text-right font-mono text-[10.5px] leading-tight text-muted-foreground">
+                      <b class="text-[13px] text-foreground">{expeditions().nbCamions}</b> camion{expeditions().nbCamions > 1 ? 's' : ''}
+                      <br />expédiés
+                    </div>
+                  </div>
+
+                  <Show
+                    when={expeditions().camions.length > 0}
+                    fallback={<p class="mt-4 font-fraunces text-[13px] italic text-muted-foreground">Aucune expédition sur la période.</p>}
+                  >
+                    <div class="-mx-2 mt-4 max-h-[160px] overflow-auto">
+                      <table class="w-full border-collapse text-left">
+                        <thead>
+                          <tr class="sticky top-0 bg-card">
+                            <th class="border-b border-rule px-2 py-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Client</th>
+                            <th class="border-b border-rule px-2 py-1.5 text-right font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Palettes</th>
+                            <th class="border-b border-rule px-2 py-1.5 text-right font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">UC</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <For each={expeditions().camions}>
+                            {(c) => (
+                              <tr class="border-b border-rule-soft last:border-0 hover:bg-secondary/40">
+                                <td class="px-2 py-1.5 align-top">
+                                  <div class="font-sans text-[11px] font-semibold text-foreground">{c.client || '—'}</div>
+                                  <div class="font-mono text-[9.5px] text-muted-foreground">{c.dateHeure || '—'}</div>
+                                </td>
+                                <td class="whitespace-nowrap px-2 py-1.5 text-right align-top font-mono text-[11px] tabular-nums text-muted-foreground">
+                                  {c.nbPalettes}
+                                </td>
+                                <td class="whitespace-nowrap px-2 py-1.5 text-right align-top font-mono text-[11px] font-bold tabular-nums text-foreground">
+                                  {c.qteUc}
+                                </td>
+                              </tr>
+                            )}
+                          </For>
+                        </tbody>
+                      </table>
+                    </div>
                   </Show>
                 </Show>
               </Show>

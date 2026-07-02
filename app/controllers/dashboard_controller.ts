@@ -2,6 +2,7 @@ import { HttpContext } from '@adonisjs/core/http'
 import logger from '@adonisjs/core/services/logger'
 import { RetardRepository, type RetardChargeKpi } from '#repositories/retard_repository'
 import { OtdRepository, resolveOtdPeriods, type OtdKpi, type OtdMode } from '#repositories/otd_repository'
+import { ExpeditionRepository, type ExpeditionKpi } from '#repositories/expedition_repository'
 import { RETARD_LOOKBACK_DAYS } from '#services/suivi_service'
 
 /**
@@ -9,8 +10,9 @@ import { RETARD_LOOKBACK_DAYS } from '#services/suivi_service'
  *
  * Même motif que /suivi : la coquille Inertia est rendue instantanément (aucun calcul X3),
  * les KPI (calcul lourd) sont chargés en différé via deux endpoints séparés :
- *   - /api/v1/dashboard/kpis  → charge en retard (stable, rechargé uniquement au refresh)
- *   - /api/v1/dashboard/otd   → OTD (volatile : mode + plage date changent côté client)
+ *   - /api/v1/dashboard/kpis        → charge en retard (stable, rechargé uniquement au refresh)
+ *   - /api/v1/dashboard/otd         → OTD (volatile : mode + plage date changent côté client)
+ *   - /api/v1/dashboard/expeditions → expéditions (volatile : plage date change côté client, #44)
  */
 export default class DashboardController {
   /** GET / — coquille du tableau de bord. */
@@ -21,6 +23,7 @@ export default class DashboardController {
       referenceDate,
       kpisHref: `/api/v1/dashboard/kpis?referenceDate=${encodeURIComponent(referenceDate)}`,
       otdHref: `/api/v1/dashboard/otd?referenceDate=${encodeURIComponent(referenceDate)}`,
+      expeditionsHref: `/api/v1/dashboard/expeditions?referenceDate=${encodeURIComponent(referenceDate)}`,
     })
   }
 
@@ -83,5 +86,45 @@ export default class DashboardController {
     }
 
     return { otd, x3Error }
+  }
+
+  /** GET /api/v1/dashboard/expeditions — expéditions client (issue #44). Défaut : J-1. */
+  async expeditions(ctx: HttpContext) {
+    const referenceDate = ctx.request.input('referenceDate')
+    const refDate = referenceDate ? new Date(referenceDate) : new Date()
+
+    const expFromParam = ctx.request.input('expFrom')
+    const expToParam = ctx.request.input('expTo')
+    const fmtD = (d: Date) =>
+      `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}`
+
+    let from: Date
+    let to: Date
+    let label: string
+
+    if (expFromParam && expToParam) {
+      from = new Date(expFromParam)
+      to = new Date(expToParam)
+      label = expFromParam === expToParam ? fmtD(from) : `${fmtD(from)} → ${fmtD(to)}`
+    } else {
+      const y = refDate.getUTCFullYear()
+      const m = refDate.getUTCMonth()
+      const dom = refDate.getUTCDate()
+      from = new Date(Date.UTC(y, m, dom - 1))
+      to = from
+      label = 'J-1'
+    }
+
+    let expeditions: ExpeditionKpi = { label, totalUc: 0, nbCamions: 0, camions: [] }
+    let x3Error: string | null = null
+
+    try {
+      expeditions = await new ExpeditionRepository().getExpeditions(from, to, label)
+    } catch (e) {
+      logger.error({ err: e }, '[dashboard] expeditions — échec chargement X3')
+      x3Error = 'Données X3 indisponibles — expéditions momentanément incalculables.'
+    }
+
+    return { expeditions, x3Error }
   }
 }
