@@ -52,6 +52,7 @@ declare module '@adonisjs/inertia/types' {
       referenceDate: string
       kpisHref: string
       otdHref: string
+      expeditionsHref: string
     }
     'auth/login': {
       lastUsername: string

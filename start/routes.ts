@@ -169,6 +169,7 @@ router
     // Tableau de bord — KPI (issue #38), calcul lourd différé.
     router.get('/api/v1/dashboard/kpis', '#controllers/dashboard_controller.kpis')
     router.get('/api/v1/dashboard/otd', '#controllers/dashboard_controller.otd')
+    router.get('/api/v1/dashboard/expeditions', '#controllers/dashboard_controller.expeditions')
 
     // X3 Data (raw SQL debug) — `.as('data.load')` pour éviter le nom auto
     // `x_3_data.load` généré depuis X3DataController (issue #18).
