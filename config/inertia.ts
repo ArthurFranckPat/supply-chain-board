@@ -52,7 +52,13 @@ declare module '@adonisjs/inertia/types' {
       referenceDate: string
       kpisHref: string
       otdHref: string
-      expeditionsHref: string
+    }
+    // Expéditions (issue #44) — onglet dédié à la gestion des expéditions client.
+    'expeditions': {
+      referenceDate: string
+      rowsHref: string
+      defaultGapMinutes: number
+      maxPalettesCamion: number
     }
     'auth/login': {
       lastUsername: string

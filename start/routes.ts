@@ -91,6 +91,7 @@ router
     router.get('/suivi', '#controllers/suivi_controller.board')
     router.get('/programme', '#controllers/scheduler_controller.programme')
     router.get('/charge', '#controllers/load_controller.index')
+    router.get('/expeditions', '#controllers/expeditions_controller.index')
     router.get('/configuration/calendrier', '#controllers/calendar_config_controller.index')
 
     // Configuration calendrier usine — API JSON (issue #37).
@@ -169,7 +170,9 @@ router
     // Tableau de bord — KPI (issue #38), calcul lourd différé.
     router.get('/api/v1/dashboard/kpis', '#controllers/dashboard_controller.kpis')
     router.get('/api/v1/dashboard/otd', '#controllers/dashboard_controller.otd')
-    router.get('/api/v1/dashboard/expeditions', '#controllers/dashboard_controller.expeditions')
+
+    // Expéditions (issue #44) — onglet dédié, calcul lourd différé.
+    router.get('/api/v1/expeditions/rows', '#controllers/expeditions_controller.rows')
 
     // X3 Data (raw SQL debug) — `.as('data.load')` pour éviter le nom auto
     // `x_3_data.load` généré depuis X3DataController (issue #18).

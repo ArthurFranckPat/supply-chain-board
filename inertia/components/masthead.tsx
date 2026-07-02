@@ -21,6 +21,7 @@ export type MastheadTab =
   | 'load'
   | 'ruptures'
   | 'tracking'
+  | 'expeditions'
   | 'config'
 
 /** Onglets canoniques (ordre + cibles uniques). */
@@ -30,6 +31,7 @@ const TABS: { key: MastheadTab; label: string; href: string }[] = [
   { key: 'load', label: 'Charge', href: route('load.index') },
   { key: 'ruptures', label: 'Ruptures', href: route('scheduler.shortage_tracker') },
   { key: 'tracking', label: 'Suivi', href: route('suivi.board') },
+  { key: 'expeditions', label: 'Expéditions', href: route('expeditions.index') },
   { key: 'config', label: 'Config', href: route('calendar_config.index') },
 ]
 
