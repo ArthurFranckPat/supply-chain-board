@@ -269,12 +269,193 @@ function calcVolumes(
 }
 
 /**
+ * Cluster interne (avant mapping vers CamionDtl). C'est l'unité de fusion : les merges
+ * BL et navette opèrent sur ces clusters avant le calcul final des volumes.
+ */
+interface Cluster {
+  client: string
+  bprnum: string
+  debutMs: number
+  finMs: number
+  qteUc: number
+  palettes: Set<string>
+  contenants: Set<string>
+  nbLignes: number
+  lignes: CamionLigne[]
+  /** N° de navette si au moins une ligne du cluster est rattachée à YNAVETTE.
+   *  Permet à mergeClustersByNavette de fusionner les clusters d'une même navette,
+   *  et à clusterToCamion de déterminer la source ('navette' vs 'heuristique'). */
+  navetteNum: string | null
+}
+
+/** Lit le n° de navette transitoire posé par getExpeditions (ou null si non rattaché). */
+const navetteOf = (l: StojouLine): string | null =>
+  (l as StojouLine & { navetteNum?: string }).navetteNum ?? null
+
+const stojouLineToCamionLigne = (l: StojouLine): CamionLigne => ({
+  itmref: l.itmref ?? '',
+  designation: l.designation ?? '',
+  vcrnum: l.vcrnum ?? '',
+  vcrlin: l.vcrlin ?? 0,
+  client: l.client,
+  palnum: l.palnum ?? '',
+  lpnnum: l.lpnnum ?? '',
+  qteUc: Math.abs(l.qteUc),
+  ts: fmtHeureSec(l.tsMs),
+  sohnum: l.sohnum ?? '',
+  pcu: l.pcu ?? '',
+  pcuStuCoe: l.pcuStuCoe ?? 0,
+  ucParPal: l.ucParPal ?? 0,
+  yfamstat7: l.yfamstat7 ?? '',
+})
+
+/**
+ * Fusionne les clusters partageant une même clé (union-find transitif). Cœur commun
+ * pour la fusion BL (`vcrnum` des lignes) et la fusion navette (`navetteNum` du cluster).
+ *
+ * La fusion est transitive : si A partage clé-x avec B, et B partage clé-y avec C,
+ * alors A, B, C fusionnent. Les clusters sans clé (ou dont la clé est unique) restent
+ * inchangés. La reconstruction re-déduplique palettes/contenants, prend le client du
+ * cluster au début le plus précoce, et propage le premier navetteNum non-null trouvé.
+ */
+function mergeClustersByKey(
+  clusters: Cluster[],
+  /** Extrait les clés de fusion d'un cluster (clés vides/null ignorées). */
+  keysOf: (c: Cluster) => string[],
+): Cluster[] {
+  if (clusters.length <= 1) return clusters
+
+  // clé → indices des clusters qui la portent.
+  const keyToClusters = new Map<string, Set<number>>()
+  for (let i = 0; i < clusters.length; i++) {
+    for (const key of keysOf(clusters[i]!)) {
+      let set = keyToClusters.get(key)
+      if (!set) {
+        set = new Set()
+        keyToClusters.set(key, set)
+      }
+      set.add(i)
+    }
+  }
+
+  // Union-find sur les indices de clusters.
+  const parent = clusters.map((_, i) => i)
+  const find = (x: number): number => {
+    while (parent[x] !== x) {
+      parent[x] = parent[parent[x]]!
+      x = parent[x]!
+    }
+    return x
+  }
+  const union = (a: number, b: number) => {
+    parent[find(a)] = find(b)
+  }
+  for (const indices of keyToClusters.values()) {
+    const arr = [...indices]
+    for (let k = 1; k < arr.length; k++) union(arr[0]!, arr[k]!)
+  }
+
+  // Regroupe les clusters par racine.
+  const groups = new Map<number, number[]>()
+  for (let i = 0; i < clusters.length; i++) {
+    const root = find(i)
+    let g = groups.get(root)
+    if (!g) {
+      g = []
+      groups.set(root, g)
+    }
+    g.push(i)
+  }
+
+  // Reconstruit chaque cluster fusionné.
+  return [...groups.values()].map((indices) => {
+    if (indices.length === 1) return clusters[indices[0]!]!
+    const parts = indices.map((i) => clusters[i]!)
+    const debutMs = Math.min(...parts.map((c) => c.debutMs))
+    const finMs = Math.max(...parts.map((c) => c.finMs))
+    const palettes = new Set<string>()
+    const contenants = new Set<string>()
+    let qteUc = 0
+    let nbLignes = 0
+    const lignes: CamionLigne[] = []
+    for (const c of parts) {
+      for (const p of c.palettes) palettes.add(p)
+      for (const ct of c.contenants) contenants.add(ct)
+      qteUc += c.qteUc
+      nbLignes += c.nbLignes
+      lignes.push(...c.lignes)
+    }
+    const earliest = parts.reduce((min, c) => (c.debutMs < min.debutMs ? c : min))
+    return {
+      client: earliest.client,
+      bprnum: earliest.bprnum,
+      debutMs,
+      finMs,
+      qteUc,
+      palettes,
+      contenants,
+      nbLignes,
+      lignes,
+      navetteNum: parts.map((c) => c.navetteNum).find((n) => n !== null) ?? null,
+    }
+  })
+}
+
+/** Fusionne les clusters partageant un même BL (VCRNUM_0) — un BL ne s'éclate jamais. */
+function mergeClustersByBl(clusters: Cluster[]): Cluster[] {
+  return mergeClustersByKey(clusters, (c) => {
+    const bls = new Set<string>()
+    for (const l of c.lignes) if (l.vcrnum) bls.add(l.vcrnum)
+    return [...bls]
+  })
+}
+
+/** Fusionne les clusters partageant une même navette — une navette ne s'éclate jamais. */
+function mergeClustersByNavette(clusters: Cluster[]): Cluster[] {
+  return mergeClustersByKey(clusters, (c) => (c.navetteNum ? [c.navetteNum] : []))
+}
+
+/** Mappe un cluster interne vers le CamionDtl final (volumes + source déduites ici).
+ *
+ * Si au moins une ligne du cluster porte un n° de navette → source 'navette' (le camion
+ * contient au moins une palette saisie dans YNAVETTE, potentiellement rattrapée avec des
+ * palettes orphelines). Les navettes sont fiables → jamais d'anomalie.
+ * Sinon → source 'heuristique', anomalie selon MAX_PALETTES_CAMION. */
+function clusterToCamion(c: Cluster, maxPalettesCamion: number): CamionDtl {
+  const nbPalettes = c.palettes.size
+  const { palTheo, tauxRemplissage, ecartPalettes } = calcVolumes(c.lignes, nbPalettes)
+  const isNavette = c.navetteNum !== null
+  return {
+    source: isNavette ? 'navette' : 'heuristique',
+    navetteNum: c.navetteNum,
+    client: c.client,
+    bprnum: c.bprnum,
+    debut: fmtHeure(c.debutMs),
+    fin: fmtHeure(c.finMs),
+    qteUc: c.qteUc,
+    nbPalettes,
+    nbContenants: c.contenants.size,
+    nbLignes: c.nbLignes,
+    anomalie: isNavette ? false : nbPalettes > maxPalettesCamion,
+    palTheo,
+    tauxRemplissage,
+    ecartPalettes,
+    lignes: c.lignes,
+  }
+}
+
+/**
  * Regroupe des lignes STOJOU en « camions » par trou < `gapMinutes` (gaps-and-islands) :
  * au sein d'un même client, deux lignes consécutives (triées) appartiennent au même camion
  * tant que l'écart avec la dernière ligne du cluster reste sous le seuil (chaînage). Les
  * palettes/contenants sont dédupliqués sur l'ensemble du cluster (Set), pas sommés par
  * sous-groupe — sinon une même palette répartie sur plusieurs timestamps est comptée
  * plusieurs fois.
+ *
+ * Pipeline en 3 phases :
+ *   1. Walk gap (client + trou < gap) → Cluster[] internes.
+ *   2. mergeClustersByBl → fusionne les clusters partageant un BL (règle non-éclatement).
+ *   3. clusterToCamion → calcule volumes + anomalie, mappe vers CamionDtl.
  */
 export function clusterCamions(
   lines: StojouLine[],
@@ -286,37 +467,8 @@ export function clusterCamions(
     a.bprnum === b.bprnum ? a.tsMs - b.tsMs : a.bprnum.localeCompare(b.bprnum),
   )
 
-  interface Cluster {
-    client: string
-    bprnum: string
-    debutMs: number
-    finMs: number
-    qteUc: number
-    palettes: Set<string>
-    contenants: Set<string>
-    nbLignes: number
-    lignes: CamionLigne[]
-  }
-
+  // Phase 1 — walk gap.
   const clusters: Cluster[] = []
-
-  const toLigne = (l: StojouLine): CamionLigne => ({
-    itmref: l.itmref ?? '',
-    designation: l.designation ?? '',
-    vcrnum: l.vcrnum ?? '',
-    vcrlin: l.vcrlin ?? 0,
-    client: l.client,
-    palnum: l.palnum ?? '',
-    lpnnum: l.lpnnum ?? '',
-    qteUc: Math.abs(l.qteUc),
-    ts: fmtHeureSec(l.tsMs),
-    sohnum: l.sohnum ?? '',
-    pcu: l.pcu ?? '',
-    pcuStuCoe: l.pcuStuCoe ?? 0,
-    ucParPal: l.ucParPal ?? 0,
-    yfamstat7: l.yfamstat7 ?? '',
-  })
-
   for (const l of sorted) {
     const current = clusters[clusters.length - 1]
     if (current && current.bprnum === l.bprnum && l.tsMs - current.finMs <= gapMs) {
@@ -325,9 +477,10 @@ export function clusterCamions(
       if (l.lpnnum) current.contenants.add(l.lpnnum)
       current.nbLignes += 1
       current.finMs = l.tsMs
-      current.lignes.push(toLigne(l))
+      current.lignes.push(stojouLineToCamionLigne(l))
+      if (navetteOf(l)) current.navetteNum = navetteOf(l)
     } else {
-      const c: Cluster = {
+      clusters.push({
         client: l.client,
         bprnum: l.bprnum,
         debutMs: l.tsMs,
@@ -336,128 +489,32 @@ export function clusterCamions(
         palettes: new Set(l.palnum ? [l.palnum] : []),
         contenants: new Set(l.lpnnum ? [l.lpnnum] : []),
         nbLignes: 1,
-        lignes: [toLigne(l)],
-      }
-      clusters.push(c)
-    }
-  }
-
-  return clusters.map((c) => {
-    const nbPalettes = c.palettes.size
-    const { palTheo, tauxRemplissage, ecartPalettes } = calcVolumes(c.lignes, nbPalettes)
-    return {
-      source: 'heuristique' as const,
-      navetteNum: null,
-      client: c.client,
-      bprnum: c.bprnum,
-      debut: fmtHeure(c.debutMs),
-      fin: fmtHeure(c.finMs),
-      qteUc: c.qteUc,
-      nbPalettes,
-      nbContenants: c.contenants.size,
-      nbLignes: c.nbLignes,
-      anomalie: nbPalettes > maxPalettesCamion,
-      palTheo,
-      tauxRemplissage,
-      ecartPalettes,
-      lignes: c.lignes,
-    }
-  })
-}
-
-/**
- * Regroupe les lignes STOJOU rattachées à une navette YNAVETTE en camions réels.
- * Contrairement à `clusterCamions` (heuristique par client + trou), ici le
- * regroupement est explicite (NAVETTE_0) — pas de seuil de tolérance, pas de flag
- * anomalie : la source est fiable (saisie terrain).
- *
- * Une navette peut être multi-commandes / multi-articles ; on agrège UC par somme
- * (valeur absolue) et palettes/contenants par déduplication (Set), comme pour
- * l'heuristique. Le `debut`/`fin` = timestamps min/max des mouvements du groupe.
- *
- * Le n° de navette de chaque ligne est lu via la propriété transitoire
- * `line.navetteNum` (posée par `getExpeditions` après rapprochement PALNUM → NAVETTE).
- * Les lignes sans navette sont ignorées.
- */
-export function groupCamionsByNavette(lines: StojouLine[]): CamionDtl[] {
-  interface NavetteGroup {
-    navetteNum: string
-    lignes: StojouLine[]
-  }
-  const groups = new Map<string, NavetteGroup>()
-  for (const l of lines) {
-    const nav = (l as StojouLine & { navetteNum?: string }).navetteNum
-    if (!nav) continue
-    let g = groups.get(nav)
-    if (!g) {
-      g = { navetteNum: nav, lignes: [] }
-      groups.set(nav, g)
-    }
-    g.lignes.push(l)
-  }
-
-  const result: CamionDtl[] = []
-  for (const g of groups.values()) {
-    const sorted = [...g.lignes].sort((a, b) => a.tsMs - b.tsMs)
-    const palettes = new Set<string>()
-    const contenants = new Set<string>()
-    let qteUc = 0
-    const lignesDetail: CamionLigne[] = []
-    for (const l of sorted) {
-      qteUc += Math.abs(l.qteUc)
-      if (l.palnum) palettes.add(l.palnum)
-      if (l.lpnnum) contenants.add(l.lpnnum)
-      lignesDetail.push({
-        itmref: l.itmref ?? '',
-        designation: l.designation ?? '',
-        vcrnum: l.vcrnum ?? '',
-        vcrlin: l.vcrlin ?? 0,
-        client: l.client,
-        palnum: l.palnum ?? '',
-        lpnnum: l.lpnnum ?? '',
-        qteUc: Math.abs(l.qteUc),
-        ts: fmtHeureSec(l.tsMs),
-        sohnum: l.sohnum ?? '',
-        pcu: l.pcu ?? '',
-        pcuStuCoe: l.pcuStuCoe ?? 0,
-        ucParPal: l.ucParPal ?? 0,
-        yfamstat7: l.yfamstat7 ?? '',
+        lignes: [stojouLineToCamionLigne(l)],
+        navetteNum: navetteOf(l),
       })
     }
-    const clientName = sorted[0]?.client ?? ''
-    const bprnum = sorted[0]?.bprnum ?? ''
-    const nbPalettes = palettes.size
-    const { palTheo, tauxRemplissage, ecartPalettes } = calcVolumes(lignesDetail, nbPalettes)
-    result.push({
-      source: 'navette',
-      navetteNum: g.navetteNum,
-      client: clientName,
-      bprnum,
-      debut: fmtHeure(sorted[0]!.tsMs),
-      fin: fmtHeure(sorted[sorted.length - 1]!.tsMs),
-      qteUc,
-      nbPalettes,
-      nbContenants: contenants.size,
-      nbLignes: sorted.length,
-      anomalie: false, // Les navettes sont fiables — pas de flag anomalie.
-      palTheo,
-      tauxRemplissage,
-      ecartPalettes,
-      lignes: lignesDetail,
-    })
   }
-  return result
+
+  // Phase 2 — fusion BL (un BL ne doit pas être éclaté sur plusieurs camions).
+  const mergedBl = mergeClustersByBl(clusters)
+
+  // Phase 3 — fusion navette (une navette ne doit pas être éclatée non plus).
+  const merged = mergeClustersByNavette(mergedBl)
+
+  // Phase 4 — mapping final (volumes + source/navette déduites du cluster).
+  return merged.map((c) => clusterToCamion(c, maxPalettesCamion))
 }
 
 /**
- * Expéditions (livraisons client) sur `[from, to]`. Un « camion » est :
- *  - **navette** (source de vérité) : palette rattachée à YNAVETTE → camion = NAVETTE_0,
- *    regroupement réel saisi terrain (pas d'heuristique, pas d'anomalie).
- *  - **heuristique** (filet) : palette sans navette → `clusterCamions` (client + trou
- *    < gap), avec détection d'anomalie (MAX_PALETTES_CAMION).
+ * Expéditions (livraisons client) sur `[from, to]`. Le pipeline unifié `clusterCamions`
+ * regroupe TOUTES les lignes ensemble (client + gap), puis applique 3 contraintes de
+ * fusion successives : BL (un BL ne s'éclate pas), navette (une navette ne s'éclate pas).
  *
- * Stratégie hybride (issue #44 affinage navette) : les navettes apparaissent en
- * premier dans la liste, les clusters heuristiques ensuite.
+ * Ainsi une palette orpheline (non saisie dans YNAVETTE) mais partie dans le même camion
+ * (même client + créneau) est rattrapée naturellement par le walk gap, puis absorbée dans
+ * le camion navette lors de la fusion. La source du camion ('navette' vs 'heuristique')
+ * est déduite a posteriori : si au moins une palette porte un n° de navette, le camion
+ * est marqué 'navette' et n'est jamais signalé en anomalie (source fiable terrain).
  */
 export class ExpeditionRepository {
   async getExpeditions(
@@ -518,20 +575,11 @@ export class ExpeditionRepository {
       } as StojouLine)
     }
 
-    // Partition : lignes rattachées à une navette vs lignes hors navette.
-    const withNavette = lines.filter((l) => !!(l as StojouLine & { navetteNum?: string }).navetteNum)
-    const withoutNavette = lines.filter((l) => !(l as StojouLine & { navetteNum?: string }).navetteNum)
-
-    const navetteCamions = groupCamionsByNavette(withNavette)
-    const heuristiqueCamions = clusterCamions(withoutNavette, gapMinutes, MAX_PALETTES_CAMION)
-
-    // Tri intra-groupe par heure de début (le plus tôt d'abord).
-    const byDebut = (a: CamionDtl, b: CamionDtl) => a.debut.localeCompare(b.debut)
-    navetteCamions.sort(byDebut)
-    heuristiqueCamions.sort(byDebut)
-
-    // Navettes d'abord, puis clusters heuristiques (choix UX, issue #44 affinage).
-    const camions = [...navetteCamions, ...heuristiqueCamions]
+    // Pipeline unifié : toutes les lignes passent par clusterCamions (walk gap → fusion
+    // BL → fusion navette). Fini la partition navette/heuristique : les palettes
+    // orphelines sont rattrapées par le walk gap puis absorbées par la fusion navette.
+    const camions = clusterCamions(lines, gapMinutes, MAX_PALETTES_CAMION)
+    camions.sort((a, b) => a.debut.localeCompare(b.debut))
     const totalUc = camions.reduce((sum, c) => sum + c.qteUc, 0)
 
     return { label, totalUc, nbCamions: camions.length, gapMinutes, maxPalettesCamion: MAX_PALETTES_CAMION, camionCapacitePalettes: CAMION_CAPACITE_PALETTES, camions }

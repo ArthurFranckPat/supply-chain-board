@@ -1,5 +1,5 @@
 import { test } from '@japa/runner'
-import { clusterCamions, groupCamionsByNavette, type StojouLine } from '#repositories/expedition_repository'
+import { clusterCamions, type StojouLine } from '#repositories/expedition_repository'
 
 // Timestamps de référence (ms) — 2026-07-01, écarts en minutes entre points.
 const T0 = Date.UTC(2026, 6, 1, 8, 0, 0)
@@ -14,8 +14,8 @@ const line = (over: Partial<StojouLine>): StojouLine => ({
   lpnnum: null,
   itmref: 'ART1',
   designation: 'Article 1',
-  vcrnum: 'BL001',
-  vcrlin: 1000,
+  vcrnum: null,
+  vcrlin: null,
   sohnum: null,
   pcu: 'CAR',
   pcuStuCoe: 1,
@@ -167,18 +167,20 @@ test.group('clusterCamions (issue #44)', () => {
   })
 })
 
-test.group('groupCamionsByNavette (issue #44 affinage)', () => {
-  /** Ligne avec une navette rattachée (propriété transitoire `navetteNum`). */
-  const navLine = (over: Partial<StojouLine> & { navetteNum?: string }): StojouLine =>
-    line({ ...over }) as StojouLine
+test.group('Navettes & rattrapage orpheline (pipeline unifié, issue #44)', () => {
+  /** Pose la propriété transitoire navetteNum sur une StojouLine (comme getExpeditions). */
+  const withNav = (l: StojouLine, navetteNum: string): StojouLine => {
+    ;(l as StojouLine & { navetteNum?: string }).navetteNum = navetteNum
+    return l
+  }
 
-  test('regroupe les lignes par NAVETTE_0, multi-commandes mais un seul camion', ({ assert }) => {
+  test('les lignes d\'une même navette → 1 camion source=navette', ({ assert }) => {
     const lines = [
-      navLine({ tsMs: T0, palnum: 'PAL1', sohnum: 'CMD1', navetteNum: 'NAV001' }),
-      navLine({ tsMs: T0 + MIN, palnum: 'PAL2', sohnum: 'CMD2', navetteNum: 'NAV001' }),
-      navLine({ tsMs: T0 + 2 * MIN, palnum: 'PAL3', sohnum: 'CMD1', navetteNum: 'NAV001' }),
+      withNav(line({ tsMs: T0, palnum: 'PAL1', sohnum: 'CMD1' }), 'NAV001'),
+      withNav(line({ tsMs: T0 + MIN, palnum: 'PAL2', sohnum: 'CMD2' }), 'NAV001'),
+      withNav(line({ tsMs: T0 + 2 * MIN, palnum: 'PAL3', sohnum: 'CMD1' }), 'NAV001'),
     ]
-    const camions = groupCamionsByNavette(lines)
+    const camions = clusterCamions(lines, 5)
     assert.lengthOf(camions, 1)
     assert.equal(camions[0].source, 'navette')
     assert.equal(camions[0].navetteNum, 'NAV001')
@@ -188,42 +190,58 @@ test.group('groupCamionsByNavette (issue #44 affinage)', () => {
 
   test('les camions navette ne sont jamais marqués anomalie même > 35 palettes', ({ assert }) => {
     const lines = Array.from({ length: 40 }, (_, i) =>
-      navLine({ tsMs: T0 + i * MIN, palnum: `PAL${i}`, navetteNum: 'NAV_BIG' }),
+      withNav(line({ tsMs: T0 + i * MIN, palnum: `PAL${i}` }), 'NAV_BIG'),
     )
-    const camions = groupCamionsByNavette(lines)
+    const camions = clusterCamions(lines, 5)
     assert.lengthOf(camions, 1)
     assert.equal(camions[0].nbPalettes, 40)
     assert.isFalse(camions[0].anomalie)
   })
 
-  test('sépare deux navettes distinctes en deux camions', ({ assert }) => {
+  test('deux navettes distinctes (clients différents) → 2 camions', ({ assert }) => {
     const lines = [
-      navLine({ tsMs: T0, palnum: 'PAL1', navetteNum: 'NAV_A' }),
-      navLine({ tsMs: T0, palnum: 'PAL2', navetteNum: 'NAV_B' }),
+      withNav(line({ bprnum: 'CA', client: 'Client A', tsMs: T0, palnum: 'PAL1' }), 'NAV_A'),
+      withNav(line({ bprnum: 'CB', client: 'Client B', tsMs: T0, palnum: 'PAL2' }), 'NAV_B'),
     ]
-    const camions = groupCamionsByNavette(lines)
+    const camions = clusterCamions(lines, 5)
     assert.lengthOf(camions, 2)
     assert.equal(camions[0].navetteNum, 'NAV_A')
     assert.equal(camions[1].navetteNum, 'NAV_B')
   })
 
-  test('ignore les lignes sans navetteNum (filet heuristique géré à part)', ({ assert }) => {
+  test('palette orpheline (sans navette) rattrapée si même client + créneau', ({ assert }) => {
+    // PAL1 a une navette, PAL2 n'en a pas mais même client + créneau contigu.
+    // Le walk gap les met dans le même cluster → fusion navette → camion source=navette.
     const lines = [
-      navLine({ tsMs: T0, palnum: 'PAL1', navetteNum: 'NAV001' }),
-      navLine({ tsMs: T0, palnum: 'PAL2' }), // sans navetteNum
+      withNav(line({ tsMs: T0, palnum: 'PAL1' }), 'NAV001'),
+      line({ tsMs: T0 + MIN, palnum: 'PAL2' }), // orpheline
     ]
-    const camions = groupCamionsByNavette(lines)
+    const camions = clusterCamions(lines, 5)
     assert.lengthOf(camions, 1)
+    assert.equal(camions[0].source, 'navette')
     assert.equal(camions[0].navetteNum, 'NAV001')
-    assert.lengthOf(camions[0].lignes, 1)
+    assert.equal(camions[0].nbPalettes, 2)
+    assert.lengthOf(camions[0].lignes, 2)
+  })
+
+  test('orpheline éloignée (hors gap) → camion heuristique séparé', ({ assert }) => {
+    // L'orpheline est trop éloignée temporellement → walk gap la sépare → heuristique.
+    const lines = [
+      withNav(line({ tsMs: T0, palnum: 'PAL1' }), 'NAV001'),
+      line({ tsMs: T0 + 60 * MIN, palnum: 'PAL2' }), // orpheline éloignée
+    ]
+    const camions = clusterCamions(lines, 5)
+    assert.lengthOf(camions, 2)
+    assert.equal(camions[0].source, 'navette')
+    assert.equal(camions[1].source, 'heuristique')
   })
 
   test('la commande client (SOHNUM) est portée dans chaque ligne de détail', ({ assert }) => {
     const lines = [
-      navLine({ tsMs: T0, palnum: 'PAL1', sohnum: 'AR2503001', navetteNum: 'NAV001' }),
-      navLine({ tsMs: T0 + MIN, palnum: 'PAL2', sohnum: 'AR2503002', navetteNum: 'NAV001' }),
+      withNav(line({ tsMs: T0, palnum: 'PAL1', sohnum: 'AR2503001' }), 'NAV001'),
+      withNav(line({ tsMs: T0 + MIN, palnum: 'PAL2', sohnum: 'AR2503002' }), 'NAV001'),
     ]
-    const camions = groupCamionsByNavette(lines)
+    const camions = clusterCamions(lines, 5)
     assert.equal(camions[0].lignes[0].sohnum, 'AR2503001')
     assert.equal(camions[0].lignes[1].sohnum, 'AR2503002')
   })
@@ -305,7 +323,8 @@ test.group('Équivalent-palettes & taux de remplissage (issue #44 affinage volum
     ]
     // Pose la propriété transitoire navetteNum comme le ferait getExpeditions.
     ;(lines[0] as StojouLine & { navetteNum?: string }).navetteNum = 'NAV001'
-    const camions = groupCamionsByNavette(lines)
+    const camions = clusterCamions(lines, 5)
+    assert.equal(camions[0].source, 'navette')
     assert.isAtLeast(camions[0].palTheo, 0.99)
     assert.isAtMost(camions[0].palTheo, 1.01)
   })
@@ -338,5 +357,75 @@ test.group('Équivalent-palettes & taux de remplissage (issue #44 affinage volum
     const camions = clusterCamions(lines, 5)
     assert.isAtLeast(camions[0].palTheo, 0.99)
     assert.isAtMost(camions[0].palTheo, 1.01)
+  })
+})
+
+test.group('Fusion BL — non-éclatement des bons de livraison (VCRNUM_0)', () => {
+  test('deux lignes même BL mais timestamps éloignés → 1 camion fusionné', ({ assert }) => {
+    // Sans la règle BL : trou > seuil → 2 camions. Avec : même BL → fusion.
+    const lines = [
+      line({ tsMs: T0, vcrnum: 'BL999', palnum: 'PAL1' }),
+      line({ tsMs: T0 + 60 * MIN, vcrnum: 'BL999', palnum: 'PAL2' }),
+    ]
+    const camions = clusterCamions(lines, 5)
+    assert.lengthOf(camions, 1)
+    assert.lengthOf(camions[0].lignes, 2)
+  })
+
+  test('deux BL distincts non reliés → 2 camions séparés', ({ assert }) => {
+    const lines = [
+      line({ tsMs: T0, vcrnum: 'BL-A', palnum: 'PAL1' }),
+      line({ tsMs: T0 + 60 * MIN, vcrnum: 'BL-B', palnum: 'PAL2' }),
+    ]
+    const camions = clusterCamions(lines, 5)
+    assert.lengthOf(camions, 2)
+  })
+
+  test('fusion transitive (camion1↔BL-x↔camion2↔BL-y↔camion3) → 1 camion', ({ assert }) => {
+    // C1 a BL-x, C2 a BL-x ET BL-y, C3 a BL-y. Transitivité → tous fusionnés.
+    const lines = [
+      line({ bprnum: 'C1', tsMs: T0, vcrnum: 'BL-x', palnum: 'PAL1' }),
+      line({ bprnum: 'C2', tsMs: T0 + 60 * MIN, vcrnum: 'BL-x', palnum: 'PAL2' }),
+      line({ bprnum: 'C2', tsMs: T0 + 61 * MIN, vcrnum: 'BL-y', palnum: 'PAL3' }),
+      line({ bprnum: 'C3', tsMs: T0 + 120 * MIN, vcrnum: 'BL-y', palnum: 'PAL4' }),
+    ]
+    const camions = clusterCamions(lines, 5)
+    assert.lengthOf(camions, 1)
+    assert.lengthOf(camions[0].lignes, 4)
+  })
+
+  test('lignes sans VCRNUM ne sont jamais fusionnées', ({ assert }) => {
+    // Lignes sans BL, timestamps éloignés → comportement heuristique normal (2 camions).
+    const lines = [
+      line({ tsMs: T0, vcrnum: null, palnum: 'PAL1' }),
+      line({ tsMs: T0 + 60 * MIN, vcrnum: null, palnum: 'PAL2' }),
+    ]
+    const camions = clusterCamions(lines, 5)
+    assert.lengthOf(camions, 2)
+  })
+
+  test('volumes (palTheo/anomalie) recalculés après fusion', ({ assert }) => {
+    // 2 lignes même BL, chacune 16 UC / 16 ucParPal = 1 palette théo.
+    // Fusion → 32 UC → 2 palettes théo. Compté : 2 palettes (PAL1+PAL2).
+    const lines = [
+      line({ tsMs: T0, qteUc: 16, ucParPal: 16, vcrnum: 'BL1', palnum: 'PAL1' }),
+      line({ tsMs: T0 + 60 * MIN, qteUc: 16, ucParPal: 16, vcrnum: 'BL1', palnum: 'PAL2' }),
+    ]
+    const camions = clusterCamions(lines, 5)
+    assert.lengthOf(camions, 1)
+    assert.equal(camions[0].nbPalettes, 2)
+    assert.isAtLeast(camions[0].palTheo, 1.99)
+    assert.isAtMost(camions[0].palTheo, 2.01)
+  })
+
+  test('client du camion fusionné = celui au début le plus précoce', ({ assert }) => {
+    const lines = [
+      line({ bprnum: 'C2', client: 'Client 2', tsMs: T0 + 60 * MIN, vcrnum: 'BL1' }),
+      line({ bprnum: 'C1', client: 'Client 1', tsMs: T0, vcrnum: 'BL1' }),
+    ]
+    const camions = clusterCamions(lines, 5)
+    assert.lengthOf(camions, 1)
+    assert.equal(camions[0].client, 'Client 1')
+    assert.equal(camions[0].bprnum, 'C1')
   })
 })
