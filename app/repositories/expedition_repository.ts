@@ -468,17 +468,32 @@ export function clusterCamions(
   )
 
   // Phase 1 — walk gap.
+  // Frontière navette (hard stop) : deux navettes distinctes ne doivent jamais être
+  // fusionnées, même si validées dans la foulée (même client + créneau contigu). C'est
+  // la protection contre la sur-fusion de camions réels distincts (ex. cas 61 palettes).
+  // Les lignes orphelines (sans navette) restent absorbables par n'importe quel cluster.
   const clusters: Cluster[] = []
   for (const l of sorted) {
     const current = clusters[clusters.length - 1]
-    if (current && current.bprnum === l.bprnum && l.tsMs - current.finMs <= gapMs) {
+    const ln = navetteOf(l)
+    const conflitNavette =
+      current !== undefined &&
+      current.navetteNum !== null &&
+      ln !== null &&
+      current.navetteNum !== ln
+    if (
+      current &&
+      !conflitNavette &&
+      current.bprnum === l.bprnum &&
+      l.tsMs - current.finMs <= gapMs
+    ) {
       current.qteUc += Math.abs(l.qteUc)
       if (l.palnum) current.palettes.add(l.palnum)
       if (l.lpnnum) current.contenants.add(l.lpnnum)
       current.nbLignes += 1
       current.finMs = l.tsMs
       current.lignes.push(stojouLineToCamionLigne(l))
-      if (navetteOf(l)) current.navetteNum = navetteOf(l)
+      if (ln) current.navetteNum = ln
     } else {
       clusters.push({
         client: l.client,

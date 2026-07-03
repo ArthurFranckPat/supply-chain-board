@@ -236,6 +236,39 @@ test.group('Navettes & rattrapage orpheline (pipeline unifié, issue #44)', () =
     assert.equal(camions[1].source, 'heuristique')
   })
 
+  test('deux navettes distinctes validées dans la foulée → 2 camions (frontière navette)', ({ assert }) => {
+    // Même client, créneaux contigus (1 min) : le walk gap sur-fusionnerait sans frontière.
+    // Cas réel : deux camions validés l'un après l'autre par l'opérateur (ex. 61 palettes).
+    const lines = [
+      withNav(line({ tsMs: T0, palnum: 'PAL1' }), 'NAV_A'),
+      withNav(line({ tsMs: T0 + MIN, palnum: 'PAL2' }), 'NAV_B'),
+    ]
+    const camions = clusterCamions(lines, 5)
+    assert.lengthOf(camions, 2)
+    assert.equal(camions[0].source, 'navette')
+    assert.equal(camions[0].navetteNum, 'NAV_A')
+    assert.equal(camions[1].source, 'navette')
+    assert.equal(camions[1].navetteNum, 'NAV_B')
+  })
+
+  test('orpheline entre deux navettes distinctes → absorbée par la navette la plus proche', ({ assert }) => {
+    // NAV_A à T0, orpheline à T0+MIN, NAV_B à T0+2*MIN. L'orpheline va avec NAV_A (cluster contigu).
+    const lines = [
+      withNav(line({ tsMs: T0, palnum: 'PAL1' }), 'NAV_A'),
+      line({ tsMs: T0 + MIN, palnum: 'PAL2' }), // orpheline
+      withNav(line({ tsMs: T0 + 2 * MIN, palnum: 'PAL3' }), 'NAV_B'),
+    ]
+    const camions = clusterCamions(lines, 5)
+    assert.lengthOf(camions, 2)
+    // Camion NAV_A contient PAL1 + l'orpheline PAL2.
+    const navA = camions.find((c) => c.navetteNum === 'NAV_A')!
+    assert.equal(navA.nbPalettes, 2)
+    assert.lengthOf(navA.lignes, 2)
+    // Camion NAV_B contient PAL3 seul.
+    const navB = camions.find((c) => c.navetteNum === 'NAV_B')!
+    assert.equal(navB.nbPalettes, 1)
+  })
+
   test('la commande client (SOHNUM) est portée dans chaque ligne de détail', ({ assert }) => {
     const lines = [
       withNav(line({ tsMs: T0, palnum: 'PAL1', sohnum: 'AR2503001' }), 'NAV001'),
