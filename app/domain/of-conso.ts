@@ -178,7 +178,7 @@ export class CommandeOFMatcher {
     }
   }
 
-  private matchMts(demand: Flow): MatchingResult {
+  private matchMts(demand: Flow, stockState: StockState): MatchingResult {
     const numCommande = isOrderOrForecastOrigin(demand.origin) ? demand.origin.id : ''
 
     // Contremarque = lien direct commande↔OF dans X3 (FMINUM_0), prioritaire même en MTS.
@@ -222,10 +222,30 @@ export class CommandeOFMatcher {
     })
 
     if (linkedOfs.length === 0) {
+      // Pas d'OF lié pour cet article MTS. Soit l'article est acheté (couverture
+      // par stock/réception, ex. A2178/AR2601357), soit c'est un vrai trou de
+      // planification. On replie sur le stock avant de déclarer la commande non
+      // couverte — sinon un article acheté sans OF apparaît faussement en
+      // « sans couverture » alors que le stock libre couvre la demande.
+      const allocation = this.allocateStock(demand, stockState)
+      if (allocation.besoinNet === 0) {
+        return {
+          demandFlow: demand, of: null, matchingMethod: 'stock_complete',
+          alerts: [], stockAllocation: allocation, ofAllocations: [], remainingUncoveredQty: 0,
+        }
+      }
+      const article = this.articles.get(demand.article)
+      if (article && isPurchaseArticle(article)) {
+        return {
+          demandFlow: demand, of: null, matchingMethod: 'purchase_supply',
+          alerts: [`Article achat (MTS sans OF): ${allocation.qteAllouee} stock, ${allocation.besoinNet} manquant`],
+          stockAllocation: allocation, ofAllocations: [], remainingUncoveredQty: allocation.besoinNet,
+        }
+      }
       return {
         demandFlow: demand, of: null, matchingMethod: 'mts_hard_pegging',
-        alerts: [`MTS: aucun OF lie pour ${demand.article}`],
-        stockAllocation: null, ofAllocations: [], remainingUncoveredQty: demand.quantity,
+        alerts: [`MTS: aucun OF lie pour ${demand.article}, ${allocation.besoinNet} non couvert`],
+        stockAllocation: allocation, ofAllocations: [], remainingUncoveredQty: allocation.besoinNet,
       }
     }
 
@@ -406,10 +426,11 @@ export class CommandeOFMatcher {
 
   matchCommande(demand: Flow, stockState?: StockState): MatchingResult {
     const origin = demand.origin
+    const ss = stockState ?? this.createStockState()
     if (isOrderOrForecastOrigin(origin) && origin.orderType === 'MTS') {
-      return this.matchMts(demand)
+      return this.matchMts(demand, ss)
     }
-    return this.matchNorMto(demand, stockState ?? this.createStockState())
+    return this.matchNorMto(demand, ss)
   }
 
   matchCommandes(demands: Flow[]): MatchingResult[] {
