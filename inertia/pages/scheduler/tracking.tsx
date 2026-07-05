@@ -151,6 +151,17 @@ const Tracking: Component<SuiviPageProps> = (props) => {
       return next
     })
 
+  // Fold/unfold des emplacements : 1 seul affiché par défaut, les suivants
+  // derrière un toggle "+N". Clé stable (numCommande::article) — résiste au tri.
+  const [expandedEmps, setExpandedEmps] = createSignal<Set<string>>(new Set())
+  const empKey = (r: SuiviDisplayRow) => `${r.numCommande}::${r.article}`
+  const toggleEmp = (key: string) =>
+    setExpandedEmps((prev) => {
+      const next = new Set(prev)
+      next.has(key) ? next.delete(key) : next.add(key)
+      return next
+    })
+
   // Ateliers de la vue active (réactif/proactif), pour les chips de filtre.
   const ateliers = createMemo(() => (mode() === 'proactif' ? proView().ateliers : view().ateliers))
 
@@ -282,7 +293,12 @@ const Tracking: Component<SuiviPageProps> = (props) => {
       header: () => 'Commande · Client',
       cell: (info) => (
         <>
-          <div class="font-mono text-[13px] font-bold tracking-tight text-foreground">{info.getValue()}</div>
+          <div class="font-mono text-[13px] font-bold tracking-tight text-foreground">
+            {info.getValue()}
+            <Show when={info.row.original.refCommandeClient}>
+              <span class="font-medium text-muted-foreground/70">/{info.row.original.refCommandeClient}</span>
+            </Show>
+          </div>
           <div class="mt-0.5 font-sans text-[12px] font-medium leading-snug text-secondary-foreground">{info.row.original.client || '—'}</div>
         </>
       ),
@@ -292,7 +308,12 @@ const Tracking: Component<SuiviPageProps> = (props) => {
       header: () => 'Article · Désignation',
       cell: (info) => (
         <>
-          <div class="font-mono text-[13px] font-semibold text-terra">{info.getValue()}</div>
+          <div class="font-mono text-[13px] font-semibold text-terra">
+            {info.getValue()}
+            <Show when={info.row.original.refArticleClient && info.row.original.refArticleClient !== info.getValue()}>
+              <span class="font-medium text-muted-foreground/70">/{info.row.original.refArticleClient}</span>
+            </Show>
+          </div>
           <div class="mt-0.5 font-sans text-[12px] font-medium leading-snug text-secondary-foreground">{info.row.original.designation || '—'}</div>
         </>
       ),
@@ -338,15 +359,21 @@ const Tracking: Component<SuiviPageProps> = (props) => {
       enableSorting: false,
       header: () => 'Emplacement',
       cell: (info) => {
-        const emps = info.row.original.emplacements
+        const r = info.row.original
+        const emps = r.emplacements
         if (emps.length === 0) return <span class="font-sans text-[12px] font-medium leading-snug text-muted-foreground/70">—</span>
+        const key = empKey(r)
+        const expanded = createMemo(() => expandedEmps().has(key))
+        // 1 pill visible par défaut ; les autres apparaissent au dépliage.
+        const visible = () => (expanded() ? emps : emps.slice(0, 1))
+        const hidden = () => emps.length - 1
         return (
           <div class="flex flex-col gap-[3px]">
-            <For each={emps}>
+            <For each={visible()}>
               {(e) => (
                 <span
                   class={cx(
-                    'flex w-full items-center justify-between gap-1 overflow-hidden rounded border px-1.5 py-px font-mono text-[10.5px] leading-[1.4]',
+                    'flex w-full items-center gap-1.5 whitespace-nowrap rounded border px-2 py-1 font-mono text-[10.5px] leading-[1.4]',
                     e.source === 'STOALL'
                       ? 'border-ferme/30 bg-ferme/15 text-ferme'
                       : 'border-rule bg-card text-secondary-foreground',
@@ -354,10 +381,14 @@ const Tracking: Component<SuiviPageProps> = (props) => {
                   )}
                   title={e.source === 'STOALL' ? 'STOALL — déjà alloué à la commande' : (e.alreadyAllocated ? 'Déjà alloué à une autre commande' : 'STOCK — en stock libre, allocation à faire')}
                 >
-                  <span class="flex shrink-0 items-center gap-1 whitespace-nowrap">
+                  {/* Pill w-full = même largeur sur toutes les lignes (cellule fixe
+                      300px). 3 zones : label (shrink-0, à gauche), spacer flex-1
+                      (ressort), palette + qté (shrink-0, groupées à droite). Le spacer
+                      garantit que la qté reste collée à droite même sans palette. */}
+                  <span class="flex min-w-[52px] shrink-0 items-center gap-1">
                     <span
                       class={cx(
-                        'material-symbols-outlined text-[11px] leading-none',
+                        'material-symbols-outlined text-[13px] leading-none',
                         e.source === 'STOALL' ? 'text-ferme' : 'text-muted-foreground/70',
                       )}
                     >
@@ -365,21 +396,37 @@ const Tracking: Component<SuiviPageProps> = (props) => {
                     </span>
                     <span class="font-semibold">{e.nom}</span>
                   </span>
-                  <span class="flex min-w-0 items-center gap-1">
-                    <Show when={e.hum}>
-                      <span class="truncate rounded bg-card px-1.5 font-mono text-[10.5px] font-bold text-foreground" title={e.hum ?? undefined}>{e.hum}</span>
-                    </Show>
-                    <span class="shrink-0 font-bold tabular-nums">
-                      {e.qte > 0 ? Math.round(e.qte) : '·'}
+                  <span class="flex-1" />
+                  <Show when={e.hum}>
+                    <span class="shrink-0 rounded bg-card px-1.5 py-px font-bold text-foreground">
+                      {e.hum}
                     </span>
+                  </Show>
+                  <span class="w-[20px] shrink-0 text-right font-bold tabular-nums">
+                    {e.qte > 0 ? Math.round(e.qte) : '·'}
                   </span>
                 </span>
               )}
             </For>
+            {/* Toggle fold/unfold — n'apparaît que pour les lignes > 1 emplacement. */}
+            <Show when={hidden() > 0}>
+              <button
+                type="button"
+                class="flex w-full items-center gap-1 rounded border border-dashed border-rule px-2 py-0.5 font-mono text-[10px] font-bold text-muted-foreground transition-colors hover:border-terra hover:text-terra"
+                onClick={() => toggleEmp(key)}
+              >
+                <span class="material-symbols-outlined text-[13px] leading-none">
+                  {expanded() ? 'expand_less' : 'expand_more'}
+                </span>
+                {expanded() ? 'Réduire' : `+${hidden()} emplacement${hidden()! > 1 ? 's' : ''}`}
+              </button>
+            </Show>
           </div>
         )
       },
-      meta: { thClass: 'w-[190px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft', tdClass: 'border-r border-rule-soft px-4 py-[13px] align-middle' },
+      // Élargie (190→300px) pour loger le PALNUM complet sur une seule ligne,
+      // sans troncature ni retour à la ligne (le tableau scrolle horizontalement).
+      meta: { thClass: 'w-[300px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft', tdClass: 'border-r border-rule-soft px-4 py-[13px] align-middle' },
     }),
     reHelper.display({
       id: 'statusKey',
@@ -466,7 +513,12 @@ const Tracking: Component<SuiviPageProps> = (props) => {
       header: () => 'Commande · Client',
       cell: (info) => (
         <>
-          <div class="font-mono text-[13px] font-bold tracking-tight text-foreground">{info.getValue()}</div>
+          <div class="font-mono text-[13px] font-bold tracking-tight text-foreground">
+            {info.getValue()}
+            <Show when={info.row.original.refCommandeClient}>
+              <span class="font-medium text-muted-foreground/70">/{info.row.original.refCommandeClient}</span>
+            </Show>
+          </div>
           <div class="mt-0.5 font-sans text-[12px] font-medium leading-snug text-secondary-foreground">{info.row.original.client || '—'}</div>
         </>
       ),
@@ -476,7 +528,12 @@ const Tracking: Component<SuiviPageProps> = (props) => {
       header: () => 'Article · Désignation',
       cell: (info) => (
         <>
-          <div class="font-mono text-[13px] font-semibold text-terra">{info.getValue()}</div>
+          <div class="font-mono text-[13px] font-semibold text-terra">
+            {info.getValue()}
+            <Show when={info.row.original.refArticleClient && info.row.original.refArticleClient !== info.getValue()}>
+              <span class="font-medium text-muted-foreground/70">/{info.row.original.refArticleClient}</span>
+            </Show>
+          </div>
           <div class="mt-0.5 font-sans text-[12px] font-medium leading-snug text-secondary-foreground">{info.row.original.designation || '—'}</div>
         </>
       ),
@@ -642,7 +699,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
   }
 
   return (
-    <div class="theme-papier flex h-screen flex-col overflow-hidden bg-background text-foreground">
+    <div class="theme-navy flex h-screen flex-col overflow-hidden bg-background text-foreground">
       <Masthead
         subtitle="Suivi · Allocation & expédition"
         active="tracking"
@@ -669,28 +726,6 @@ const Tracking: Component<SuiviPageProps> = (props) => {
           </div>
         }
       />
-
-      {/* ═══ Bandeau KPI ═══ */}
-      <Show
-        when={mode() === 'reactif'}
-        fallback={
-          <section class="flex-none grid grid-cols-5 border-b border-rule">
-            <Kpi label="À temps" value={proView().verdictCounts.time} sub="réalisables" dot="var(--color-ferme)" valClass="text-ferme" />
-            <Kpi label="En stock" value={proView().verdictCounts.stock} sub="couvertes par stock" dot="var(--color-ferme)" valClass="text-ferme" />
-            <Kpi label="En retard" value={proView().verdictCounts.late} sub="OF après l'expé" dot="var(--color-suggere)" valClass="text-suggere" />
-            <Kpi label="Bloquées" value={proView().verdictCounts.blocked} sub="composant manquant" dot="var(--color-destructive)" valClass="text-destructive" />
-            <Kpi label="Sans couverture" value={proView().verdictCounts.uncov} sub="aucun OF/supply" dot="var(--color-destructive)" valClass="text-destructive" last />
-          </section>
-        }
-      >
-        <section class="flex-none grid grid-cols-5 border-b border-rule">
-          <Kpi label="À expédier" value={counts().A_EXPEDIER} sub="besoin net ≤ 0 · prêtes" dot="var(--color-ferme)" valClass="text-ferme" />
-          <Kpi label="Allocation à faire" value={counts().ALLOCATION_A_FAIRE} sub="couvertes par stock virtuel" dot="var(--color-suggere)" valClass="text-suggere" />
-          <Kpi label="Retard" value={counts().RETARD_PROD} sub="date expé dépassée" dot="var(--color-destructive)" valClass="text-destructive" />
-          <Kpi label="Signal CQ" value={view().cqCount} sub="stock sous contrôle qualité" dot="var(--color-terra)" valClass="text-terra" />
-          <Kpi label="RAS" value={counts().RAS} sub="sous contrôle" dot="var(--color-muted-foreground)" valClass="text-planifie" last />
-        </section>
-      </Show>
 
       {/* ═══ Toolbar ═══ */}
       <div class="flex flex-none flex-wrap items-center gap-2.5 border-b border-rule px-7 py-2">
@@ -920,7 +955,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
               onSortingChange={setReactiveSorting}
               indexColumn={reactiveIndexCol}
               getRowClass={(row) => cx('border-t border-rule-soft transition-colors', row.late ? 'bg-destructive/10 hover:bg-destructive/[0.18]' : 'hover:bg-foreground/[0.04]')}
-              tableClass="min-w-[1300px] table-fixed"
+              tableClass="min-w-[1410px] table-fixed"
               scrollContainerClass="h-full border-0 rounded-none shadow-none"
               theadRowClass="sticky top-0 z-10 bg-secondary"
               emptyState={
@@ -943,24 +978,5 @@ const Tracking: Component<SuiviPageProps> = (props) => {
     </div>
   )
 }
-
-/** Tuile KPI (status_counts). */
-const Kpi: Component<{
-  label: string
-  value: number
-  sub: string
-  dot: string
-  valClass: string
-  last?: boolean
-}> = (p) => (
-  <div class={cx('flex flex-col gap-[3px] px-[22px] py-[13px]', !p.last && 'border-r border-rule-soft')}>
-    <span class="flex items-center gap-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.13em] text-muted-foreground">
-      <span class="size-2 rounded-[2px]" style={{ background: p.dot }} />
-      {p.label}
-    </span>
-    <span class={cx('font-fraunces text-[34px] font-black leading-none tracking-tight', p.valClass)}>{p.value}</span>
-    <span class="font-mono text-[11px] font-medium text-muted-foreground">{p.sub}</span>
-  </div>
-)
 
 export default Tracking
