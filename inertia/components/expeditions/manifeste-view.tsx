@@ -40,6 +40,16 @@ export const ManifesteView: Component<{
             const over = () => Math.max(taux() - 1, 0)
             const fillPct = () => Math.min(taux() * 100, 100)
             const isSel = () => props.selectedCamion === c
+            // Chiffre principal adaptatif : nbPalettes si scanné (>0), sinon palTheo si
+            // calculable (PALNUM absent mais coef article dispo), sinon '—'.
+            const hasScan = () => c.nbPalettes > 0
+            const hasTheo = () => c.palTheo >= 0
+            const mainValue = () =>
+              hasScan() ? String(c.nbPalettes)
+              : hasTheo() ? c.palTheo.toFixed(1)
+              : '—'
+            const mainSuffix = () =>
+              hasScan() ? '' : hasTheo() ? ' théo.' : ''
             return (
               <button
                 type="button"
@@ -78,13 +88,15 @@ export const ManifesteView: Component<{
                 <div class="flex flex-col gap-1.5">
                   <div class="flex items-baseline justify-between gap-2">
                     <span class={cx('flex items-baseline gap-1 font-fraunces text-[26px] font-black leading-none tracking-tight tabular-nums', chargeText(tier()))}>
-                      {c.nbPalettes}
+                      {mainValue()}
+                      <span class="font-mono text-[10px] font-semibold tracking-normal text-muted-foreground">{mainSuffix()}</span>
                       <Show when={over() > 0}>
                         <span class="font-mono text-[12px] font-bold text-destructive" title={`${Math.round(over() * 100)}% au-delà de la capacité`}>+{Math.round(over() * 100)}%</span>
                       </Show>
                       <span class="font-mono text-[10px] font-semibold tracking-normal text-muted-foreground">/ {props.camionCapacitePalettes} pal.</span>
                     </span>
-                    <Show when={c.palTheo >= 0}>
+                    {/* palTheo en sous-texte seulement quand le scan existe (sinon déjà en principal) */}
+                    <Show when={hasScan() && hasTheo()}>
                       <span class="font-mono text-[9px] text-muted-foreground/70" title="Équivalent-palettes théorique (calcul UC, pondéré ESH)">
                         ≈ {c.palTheo.toFixed(1)} théo.
                       </span>
@@ -108,10 +120,11 @@ export const ManifesteView: Component<{
                   </div>
                 </div>
 
-                {/* Pied : UC / Contenants / Lignes + flag anomalie */}
+                {/* Pied : décomposition contenants (pal/cart) + lignes + flag anomalie */}
                 <div class="flex items-center gap-4 border-t border-rule-soft pt-2.5">
-                  <Stat label="UC" value={c.qteUc.toLocaleString('fr-FR')} />
-                  <Stat label="Contenants" value={String(c.nbContenants)} />
+                  <Stat label="Palettes" value={String(c.contenants.pal)} />
+                  <Stat label="Cartons" value={String(c.contenants.cart)} />
+                  <Stat label="Volantes" value={String(c.contenants.unites)} />
                   <Stat label="Lignes" value={String(c.nbLignes)} />
                   <Show when={c.anomalie}>
                     <span class="ml-auto flex items-center gap-1 font-mono text-[9px] font-bold tracking-[0.06em] text-destructive uppercase">

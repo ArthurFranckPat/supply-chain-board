@@ -21,6 +21,12 @@ import { cx } from '@/libs/cva'
 
 export type CamionSource = 'navette' | 'heuristique'
 
+export interface Contenants {
+  pal: number
+  cart: number
+  unites: number
+}
+
 export interface CamionLigne {
   itmref: string
   designation: string
@@ -36,6 +42,9 @@ export interface CamionLigne {
   pcuStuCoe: number
   ucParPal: number
   yfamstat7: string
+  pal: number
+  cart: number
+  unites: number
 }
 
 export interface CamionDtl {
@@ -53,8 +62,18 @@ export interface CamionDtl {
   palTheo: number
   tauxRemplissage: number
   ecartPalettes: number
+  contenants: Contenants
   maxPalettesCamion: number
   lignes: CamionLigne[]
+}
+
+/** Formate une décomposition contenants en chaîne compacte : « 1 pal + 2 cart + 5 u. ». */
+export function fmtContenants(c: Contenants): string {
+  const parts: string[] = []
+  if (c.pal > 0) parts.push(`${c.pal} pal`)
+  if (c.cart > 0) parts.push(`${c.cart} cart`)
+  if (c.unites > 0) parts.push(`${c.unites} u`)
+  return parts.length > 0 ? parts.join(' + ') : '—'
 }
 
 const TH =
@@ -175,7 +194,7 @@ export const CamionDetailSheet: Component<{
                       <th class={cx(TH, 'w-[70px] text-right')}>Palette</th>
                       <th class={cx(TH, 'w-[50px] text-right')}>PCU</th>
                       <th class={cx(TH, 'w-[60px] text-right')}>UC/Pal</th>
-                      <th class={cx(TH, 'w-[70px] text-right')}>UC</th>
+                      <th class={cx(TH, 'w-[110px] text-right')}>Contenants</th>
                       <th class={cx(TH, 'w-[80px] text-right')}>Heure</th>
                     </tr>
                   </thead>
@@ -218,8 +237,8 @@ export const CamionDetailSheet: Component<{
                           <td class="px-3 py-[9px] text-right align-middle font-mono text-[10px] tabular-nums text-muted-foreground" title="UC par palette (PCUSTUCOE_1 — palettisation article)">
                             {l.ucParPal > 0 ? l.ucParPal : '—'}
                           </td>
-                          <td class="px-3 py-[9px] text-right align-middle font-mono text-[11px] font-bold tabular-nums text-foreground">
-                            {l.qteUc}
+                          <td class="px-3 py-[9px] text-right align-middle font-mono text-[10px] font-semibold tabular-nums text-foreground whitespace-nowrap" title={`${l.qteUc} UC décomposées`}>
+                            {fmtContenants(l)}
                           </td>
                           <td class="px-3 py-[9px] text-right align-middle font-mono text-[11px] tabular-nums text-muted-foreground">
                             {l.ts}

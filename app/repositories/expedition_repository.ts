@@ -157,6 +157,60 @@ export interface CamionLigne {
   ucParPal: number
   /** Famille statistique 7. 'ESH' = palette 1000×1200 (facteur surface 1,25). */
   yfamstat7: string
+  /** Décomposition en contenants : palettes / cartons / unités volantes (cf. decompose). */
+  pal: number
+  cart: number
+  unites: number
+}
+
+/**
+ * Décomposition d'une quantité UC en contenants hiérarchiques (palette → carton → unités).
+ * - `pal`   = nombre de palettes pleines (UC ÷ PCUSTUCOE_1).
+ * - `cart`  = cartons/boîtes pleins sur le reste (reste ÷ PCUSTUCOE_0, le contenant PCU).
+ * - `unites`= unités volantes non conditionnées (le reste final).
+ *
+ * Exemple : 1200 UC, PCUSTUCOE_0=100 (UC/boîte), PCUSTUCOE_1=1000 (UC/palette)
+ * → 1 palette, 2 boîtes, 0 unité volante.
+ *
+ * Si un coef est absent (0/null), le niveau correspondant est ignoré (tout passe au suivant).
+ */
+export interface Contenants {
+  pal: number
+  cart: number
+  unites: number
+}
+
+/**
+ * Articles non conditionnés (PF familles YFAMSTAT7 commençant par 'VB' : VBP, VB2…).
+ * Ces produits n'ont ni carton ni coef palettisation, mais occupent physiquement
+ * l'équivalent d'une palette entière par UC livrée. Règle métier issue #44.
+ */
+export function estNonConditionne(yfamstat7: string | null | undefined): boolean {
+  return !!yfamstat7 && yfamstat7.startsWith('VB')
+}
+
+export function decompose(
+  qteUc: number,
+  ucParCarton: number | null,
+  ucParPalette: number | null,
+  yfamstat7?: string | null,
+): Contenants {
+  // Non conditionné (VB) : 1 UC = 1 palette entière, pas de carton.
+  if (estNonConditionne(yfamstat7)) {
+    return { pal: Math.floor(Math.abs(qteUc)), cart: 0, unites: 0 }
+  }
+  let reste = Math.abs(qteUc)
+  let pal = 0
+  if (ucParPalette && ucParPalette > 0) {
+    pal = Math.floor(reste / ucParPalette)
+    reste = reste % ucParPalette
+  }
+  let cart = 0
+  if (ucParCarton && ucParCarton > 0) {
+    cart = Math.floor(reste / ucParCarton)
+    reste = reste % ucParCarton
+  }
+  return { pal, cart, unites: reste }
 }
 
 /**
@@ -200,6 +254,8 @@ export interface CamionDtl {
    * -1 si palTheo non calculable.
    */
   ecartPalettes: number
+  /** Décomposition agrégée en contenants (somme des décompositions ligne par ligne). */
+  contenants: Contenants
   /** Détail des lignes STOJOU composant le camion (article, BL, palette…). */
   lignes: CamionLigne[]
 }
@@ -250,6 +306,12 @@ function calcVolumes(
   let palTheoBrut = 0
   let hasCoef = false
   for (const l of lignes) {
+    // Non conditionné (VB) : 1 UC = 1 palette entière (pas de coef palettisation).
+    if (estNonConditionne(l.yfamstat7)) {
+      palTheoBrut += Math.abs(l.qteUc)
+      hasCoef = true
+      continue
+    }
     if (l.ucParPal && l.ucParPal > 0) {
       const palLigne = Math.abs(l.qteUc) / l.ucParPal
       const facteur = l.yfamstat7 === 'ESH' ? ESH_SURFACE_RATIO : 1
@@ -292,22 +354,28 @@ interface Cluster {
 const navetteOf = (l: StojouLine): string | null =>
   (l as StojouLine & { navetteNum?: string }).navetteNum ?? null
 
-const stojouLineToCamionLigne = (l: StojouLine): CamionLigne => ({
-  itmref: l.itmref ?? '',
-  designation: l.designation ?? '',
-  vcrnum: l.vcrnum ?? '',
-  vcrlin: l.vcrlin ?? 0,
-  client: l.client,
-  palnum: l.palnum ?? '',
-  lpnnum: l.lpnnum ?? '',
-  qteUc: Math.abs(l.qteUc),
-  ts: fmtHeureSec(l.tsMs),
-  sohnum: l.sohnum ?? '',
-  pcu: l.pcu ?? '',
-  pcuStuCoe: l.pcuStuCoe ?? 0,
-  ucParPal: l.ucParPal ?? 0,
-  yfamstat7: l.yfamstat7 ?? '',
-})
+const stojouLineToCamionLigne = (l: StojouLine): CamionLigne => {
+  const { pal, cart, unites } = decompose(l.qteUc, l.pcuStuCoe, l.ucParPal, l.yfamstat7)
+  return {
+    itmref: l.itmref ?? '',
+    designation: l.designation ?? '',
+    vcrnum: l.vcrnum ?? '',
+    vcrlin: l.vcrlin ?? 0,
+    client: l.client,
+    palnum: l.palnum ?? '',
+    lpnnum: l.lpnnum ?? '',
+    qteUc: Math.abs(l.qteUc),
+    ts: fmtHeureSec(l.tsMs),
+    sohnum: l.sohnum ?? '',
+    pcu: l.pcu ?? '',
+    pcuStuCoe: l.pcuStuCoe ?? 0,
+    ucParPal: l.ucParPal ?? 0,
+    yfamstat7: l.yfamstat7 ?? '',
+    pal,
+    cart,
+    unites,
+  }
+}
 
 /**
  * Fusionne les clusters partageant une même clé (union-find transitif). Cœur commun
@@ -425,6 +493,11 @@ function clusterToCamion(c: Cluster, maxPalettesCamion: number): CamionDtl {
   const nbPalettes = c.palettes.size
   const { palTheo, tauxRemplissage, ecartPalettes } = calcVolumes(c.lignes, nbPalettes)
   const isNavette = c.navetteNum !== null
+  // Agrégat contenants = somme des décompositions de chaque ligne.
+  const contenants = c.lignes.reduce<Contenants>(
+    (acc, l) => ({ pal: acc.pal + l.pal, cart: acc.cart + l.cart, unites: acc.unites + l.unites }),
+    { pal: 0, cart: 0, unites: 0 },
+  )
   return {
     source: isNavette ? 'navette' : 'heuristique',
     navetteNum: c.navetteNum,
@@ -440,6 +513,7 @@ function clusterToCamion(c: Cluster, maxPalettesCamion: number): CamionDtl {
     palTheo,
     tauxRemplissage,
     ecartPalettes,
+    contenants,
     lignes: c.lignes,
   }
 }

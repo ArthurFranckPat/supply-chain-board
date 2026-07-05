@@ -1,5 +1,5 @@
 import { test } from '@japa/runner'
-import { clusterCamions, type StojouLine } from '#repositories/expedition_repository'
+import { clusterCamions, decompose, type StojouLine } from '#repositories/expedition_repository'
 
 // Timestamps de référence (ms) — 2026-07-01, écarts en minutes entre points.
 const T0 = Date.UTC(2026, 6, 1, 8, 0, 0)
@@ -460,5 +460,126 @@ test.group('Fusion BL — non-éclatement des bons de livraison (VCRNUM_0)', () 
     assert.lengthOf(camions, 1)
     assert.equal(camions[0].client, 'Client 1')
     assert.equal(camions[0].bprnum, 'C1')
+  })
+})
+
+test.group('Décomposition contenants (palette → carton → unités)', () => {
+  test('exemple canonique : 1200 UC, 100/boîte, 1000/palette → 1 pal + 2 cart', ({ assert }) => {
+    const c = decompose(1200, 100, 1000)
+    assert.equal(c.pal, 1)
+    assert.equal(c.cart, 2)
+    assert.equal(c.unites, 0)
+  })
+
+  test('quantité < 1 palette → que des cartons', ({ assert }) => {
+    const c = decompose(250, 100, 1000)
+    assert.equal(c.pal, 0)
+    assert.equal(c.cart, 2)
+    assert.equal(c.unites, 50)
+  })
+
+  test('reste volant non conditionné', ({ assert }) => {
+    // 1205 UC → 1 pal (1000), reste 205 → 2 cart (200), reste 5 unités.
+    const c = decompose(1205, 100, 1000)
+    assert.equal(c.pal, 1)
+    assert.equal(c.cart, 2)
+    assert.equal(c.unites, 5)
+  })
+
+  test('sans coef palette (0) → tout en cartons', ({ assert }) => {
+    const c = decompose(350, 100, 0)
+    assert.equal(c.pal, 0)
+    assert.equal(c.cart, 3)
+    assert.equal(c.unites, 50)
+  })
+
+  test('sans aucun coef → tout en unités volantes', ({ assert }) => {
+    const c = decompose(350, 0, 0)
+    assert.equal(c.pal, 0)
+    assert.equal(c.cart, 0)
+    assert.equal(c.unites, 350)
+  })
+
+  test('quantité négative (sortie de stock) → valeur absolue', ({ assert }) => {
+    const c = decompose(-1200, 100, 1000)
+    assert.equal(c.pal, 1)
+    assert.equal(c.cart, 2)
+  })
+
+  test('la décomposition est agrégée sur le camion', ({ assert }) => {
+    // 2 lignes même cluster : 1200 UC (1 pal + 2 cart) + 1200 UC (1 pal + 2 cart).
+    const lines = [
+      line({ tsMs: T0, qteUc: 1200, pcuStuCoe: 100, ucParPal: 1000, palnum: 'PAL1' }),
+      line({ tsMs: T0 + MIN, qteUc: 1200, pcuStuCoe: 100, ucParPal: 1000, palnum: 'PAL2' }),
+    ]
+    const camions = clusterCamions(lines, 5)
+    assert.lengthOf(camions, 1)
+    assert.equal(camions[0].contenants.pal, 2)
+    assert.equal(camions[0].contenants.cart, 4)
+    assert.equal(camions[0].contenants.unites, 0)
+  })
+
+  test('la décomposition est portée par chaque ligne de détail', ({ assert }) => {
+    const lines = [
+      line({ tsMs: T0, qteUc: 1200, pcuStuCoe: 100, ucParPal: 1000, palnum: 'PAL1' }),
+    ]
+    const camions = clusterCamions(lines, 5)
+    assert.equal(camions[0].lignes[0].pal, 1)
+    assert.equal(camions[0].lignes[0].cart, 2)
+    assert.equal(camions[0].lignes[0].unites, 0)
+  })
+
+  test('VB (non conditionné) : 1 UC = 1 palette, pas de carton', ({ assert }) => {
+    // 3 UC livrées d'un article VBP → 3 palettes, 0 carton, 0 unité volante.
+    const c = decompose(3, 0, 0, 'VBP')
+    assert.equal(c.pal, 3)
+    assert.equal(c.cart, 0)
+    assert.equal(c.unites, 0)
+  })
+
+  test('VB2 : même règle (préfixe VB)', ({ assert }) => {
+    const c = decompose(5, 0, 0, 'VB2')
+    assert.equal(c.pal, 5)
+    assert.equal(c.cart, 0)
+  })
+
+  test('VB : les coefs éventuels sont ignorés (règle métier prioritaire)', ({ assert }) => {
+    // Même si l'article avait des coefs saisis par erreur, VB force 1 UC = 1 palette.
+    const c = decompose(3, 100, 1000, 'VBP')
+    assert.equal(c.pal, 3)
+    assert.equal(c.cart, 0)
+    assert.equal(c.unites, 0)
+  })
+})
+
+test.group('palTheo & taux remplissage — articles non conditionnés VB', () => {
+  test('palTheo compte 1 palette par UC pour les articles VB', ({ assert }) => {
+    // 3 UC VBP → 3 palettes théoriques (sans coef palettisation).
+    const lines = [
+      line({ tsMs: T0, qteUc: 3, ucParPal: 0, yfamstat7: 'VBP', palnum: 'PAL1' }),
+    ]
+    const camions = clusterCamions(lines, 5)
+    assert.isAtLeast(camions[0].palTheo, 2.99)
+    assert.isAtMost(camions[0].palTheo, 3.01)
+  })
+
+  test('VB seul (sans coef) → palTheo calculable (plus de N/A)', ({ assert }) => {
+    // Avant la règle VB : palTheo = -1 (aucun coef). Maintenant : calculé.
+    const lines = [
+      line({ tsMs: T0, qteUc: 2, ucParPal: 0, pcuStuCoe: 0, yfamstat7: 'VB2', palnum: 'PAL1' }),
+    ]
+    const camions = clusterCamions(lines, 5)
+    assert.isAtLeast(camions[0].palTheo, 1.99)
+  })
+
+  test('mélange VB + article conditionné normal → palTheo somme correcte', ({ assert }) => {
+    // 2 UC VBP (2 pal) + 16 UC d'un article à 16 UC/pal (1 pal) = 3 pal théo.
+    const lines = [
+      line({ tsMs: T0, qteUc: 2, ucParPal: 0, yfamstat7: 'VBP', palnum: 'PAL1' }),
+      line({ tsMs: T0 + MIN, qteUc: 16, ucParPal: 16, yfamstat7: 'BDC', palnum: 'PAL2' }),
+    ]
+    const camions = clusterCamions(lines, 5)
+    assert.isAtLeast(camions[0].palTheo, 2.99)
+    assert.isAtMost(camions[0].palTheo, 3.01)
   })
 })
