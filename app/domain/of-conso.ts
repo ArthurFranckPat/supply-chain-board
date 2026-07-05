@@ -198,6 +198,20 @@ export class CommandeOFMatcher {
           stockAllocation: null, ofAllocations: [ofAlloc], remainingUncoveredQty: remaining,
         }
       }
+      // Contremarque présente mais l'OF pointé n'est pas dans supplyFlows : il est
+      // clôturé/terminé (RMNEXTQTY_0 = 0 → exclu de getOrders). La commande est déjà
+      // servie par son OF fermé — on NE replie PAS sur l'heuristique article+date,
+      // sinon on attribue faussement la commande à un autre OF ouvert du même article
+      // (ex. AR2603003 ↔ F426-33894 clôturé → se rabattait sur F126-47104, #46).
+      return {
+        demandFlow: demand,
+        of: null,
+        matchingMethod: 'mts_hard_pegging',
+        alerts: [`MTS: contremarque ${contremarque} hors supply (OF clôturé)`],
+        stockAllocation: null,
+        ofAllocations: [],
+        remainingUncoveredQty: 0,
+      }
     }
 
     const linkedOfs = this.supplyFlows.filter((f) => {
@@ -315,6 +329,25 @@ export class CommandeOFMatcher {
           alerts: remaining > 0 ? [`Contremarque: couverture partielle (${demand.quantity - remaining}/${demand.quantity})`] : [],
           stockAllocation: allocation, ofAllocations: [ofAlloc], remainingUncoveredQty: remaining,
         }
+      }
+      // Contremarque présente mais l'OF pointé n'est pas dans supplyFlows : il est
+      // clôturé/terminé (RMNEXTQTY_0 = 0 → exclu de getOrders). La commande est déjà
+      // servie par son OF fermé — on NE replie PAS sur l'heuristique OF cumulée.
+      // Différence avec MTS : on tente d'abord le stock (NOR/MTO = mode réactif
+      // sur-stock) ; le reste éventuel est déclaré non couvert sans attribuer la
+      // commande à un autre OF (cf. fix équivalent dans matchMts, #46).
+      const stockAlloc = this.allocateStock(demand, stockState)
+      return {
+        demandFlow: demand,
+        of: null,
+        matchingMethod: stockAlloc.besoinNet === 0 ? 'stock_complete' : 'mts_hard_pegging',
+        alerts:
+          stockAlloc.besoinNet === 0
+            ? []
+            : [`Contremarque ${contremarque} hors supply (OF clôturé), ${stockAlloc.besoinNet} non couvert`],
+        stockAllocation: stockAlloc,
+        ofAllocations: [],
+        remainingUncoveredQty: stockAlloc.besoinNet,
       }
     }
 
