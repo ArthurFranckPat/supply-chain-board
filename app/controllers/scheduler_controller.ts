@@ -8,6 +8,7 @@ import { evaluateMfgFeasibility, buildStrictQcStock } from '#app/domain/of-feasi
 import { X3OfRepository, type ManufacturingOrder } from '#repositories/of_repository'
 import type { GammeOperation } from '#app/domain/models/gamme'
 import { loadOrderImpacts } from '#services/order_impacts_loader'
+import { loadPosteEngagement } from '#services/poste_engagement_loader'
 import { timeStage } from '#services/perf_metrics'
 import { loadOrderBoardData } from '#controllers/order_planning_controller'
 import { buildShortageRows, type ShortageRow } from '#app/domain/shortages'
@@ -508,6 +509,18 @@ export default class SchedulerController {
   async ofDetail(ctx: HttpContext) {
     const num = ctx.params.of as string
     return ctx.response.send(await this.loadOfDetail(num))
+  }
+
+  /**
+   * GET /api/v1/planning/postes/:poste/engagement — panneau « Engagement » (#46).
+   * TOUS les OF fermes du poste (hors limite fenêtre board) + commandes liées via
+   * le MÊME matching que le board (CommandeOFMatcher + repli peg contremarque).
+   * Cf. loadPosteEngagement.
+   */
+  async posteEngagement(ctx: HttpContext) {
+    const poste = (ctx.params.poste as string).trim()
+    const force = !!ctx.request.input('refresh')
+    return ctx.response.send(await loadPosteEngagement(poste, force))
   }
 
   /**

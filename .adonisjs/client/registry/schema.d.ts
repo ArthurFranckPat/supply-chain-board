@@ -439,6 +439,18 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'scheduler.poste_engagement': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/planning/postes/:poste/engagement'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { poste: ParamValue }
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'scheduler.shortage_rows': {
     methods: ["GET","HEAD"]
     pattern: '/api/v1/planning/shortages/rows'

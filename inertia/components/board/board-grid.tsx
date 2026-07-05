@@ -68,6 +68,9 @@ export default function BoardGrid(props: {
   /** Drop d'un élément externe (non-OF) dans une cellule — ex. marqueur commande
    *  Vision déplacé à une autre date. L'élément se lit dans `e.dataTransfer`. */
   onCellDrop?: (lineCode: string, col: number, iso: string, e: DragEvent) => void
+  /** Bouton « Engagement » dans le header de chaque poste (issue #46).
+   *  Optionnel → board /ordonnancement inchangé. */
+  onLineEngagement?: (lineCode: string) => void
 }) {
   const { store } = props
   let rootEl: HTMLDivElement | undefined
@@ -217,15 +220,25 @@ export default function BoardGrid(props: {
                 'display': store.lineVisible(line.code) ? 'grid' : 'none',
               }}
             >
-              {/* En-tête de poste (collant à gauche) */}
+              {/* En-tête de poste (collant à gauche). L'identité (dot+code+nom) est
+                  cliquable → panneau « Engagement » par poste (#46). Pas de bouton
+                  dédié : le header est déjà dense (histogramme + PP_830). */}
               <div class="sticky left-0 z-20 flex flex-col gap-1.5 overflow-hidden border-r border-rule bg-card px-3.5 py-3">
-                <div class="flex items-center gap-2">
+                <div
+                  class="flex items-center gap-2"
+                  classList={{
+                    'cursor-pointer transition-colors': !!props.onLineEngagement,
+                    'hover:[&_.line-code]:text-terra': !!props.onLineEngagement,
+                  }}
+                  onClick={() => props.onLineEngagement?.(line.code)}
+                  title={props.onLineEngagement ? 'Engagement — OF fermes du poste' : undefined}
+                >
                   <span
                     class="size-2.5 rounded-[2px]"
                     style={{ background: line.dot ? undefined : 'var(--color-planifie)' }}
                     classList={{ [line.dot]: !!line.dot }}
                   />
-                  <span class="font-mono text-[13px] font-bold tracking-tight text-foreground">
+                  <span class="line-code font-mono text-[13px] font-bold tracking-tight text-foreground transition-colors">
                     {line.code}
                   </span>
                 </div>

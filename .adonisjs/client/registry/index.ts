@@ -222,6 +222,12 @@ const routes = {
     tokens: [{"old":"/api/v1/planning/ofs/:of/detail","type":0,"val":"api","end":""},{"old":"/api/v1/planning/ofs/:of/detail","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/ofs/:of/detail","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/ofs/:of/detail","type":0,"val":"ofs","end":""},{"old":"/api/v1/planning/ofs/:of/detail","type":1,"val":"of","end":""},{"old":"/api/v1/planning/ofs/:of/detail","type":0,"val":"detail","end":""}],
     types: placeholder as Registry['scheduler.of_detail']['types'],
   },
+  'scheduler.poste_engagement': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/planning/postes/:poste/engagement',
+    tokens: [{"old":"/api/v1/planning/postes/:poste/engagement","type":0,"val":"api","end":""},{"old":"/api/v1/planning/postes/:poste/engagement","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/postes/:poste/engagement","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/postes/:poste/engagement","type":0,"val":"postes","end":""},{"old":"/api/v1/planning/postes/:poste/engagement","type":1,"val":"poste","end":""},{"old":"/api/v1/planning/postes/:poste/engagement","type":0,"val":"engagement","end":""}],
+    types: placeholder as Registry['scheduler.poste_engagement']['types'],
+  },
   'scheduler.shortage_rows': {
     methods: ["GET","HEAD"],
     pattern: '/api/v1/planning/shortages/rows',

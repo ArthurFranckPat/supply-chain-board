@@ -30,6 +30,7 @@ export interface ApiDefinition {
     shortageTracker: typeof routes['scheduler.shortage_tracker']
     programme: typeof routes['scheduler.programme']
     ofDetail: typeof routes['scheduler.of_detail']
+    posteEngagement: typeof routes['scheduler.poste_engagement']
     shortageRows: typeof routes['scheduler.shortage_rows']
   }
   suivi: {
