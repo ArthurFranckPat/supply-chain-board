@@ -366,6 +366,15 @@ function CardView(props: {
   // Carte induite : ghost non-draggable (pilotée par la commande parente) et non
   // cliquable (pas un détail commande).
   const ghost = !!card.induit
+  // Faisabilité (issue #21) : badge dérivé des OF rattachés à la ligne (agrégation
+  // pessimiste dans le store). Miroir de BoardGrid.CardView — les ghosts ne sont pas
+  // badgés (besoin amont, pas de commande client rattachée).
+  const feas = () => {
+    if (ghost) return undefined
+    const f = store.feasOf(card.id)
+    if (!f) return undefined
+    return f.st === 'blocked' ? ('bad' as const) : ('ok' as const)
+  }
   return (
     <div
       role="button"
@@ -412,6 +421,7 @@ function CardView(props: {
         typologie={card.typologie}
         qty={card.qty}
         induit={ghost}
+        feas={feas()}
       />
       {/* Override : bouton réinitialiser (date X3 d'origine) */}
       <Show when={card.hasOverride}>

@@ -155,6 +155,11 @@ export function createBoardStore(initial: BoardData) {
     cache.clear()
   }
 
+  /** Rafraîchit le contenu (bouton Actualiser) SANS toucher recherche/scope/statut/sélection. */
+  function updateData(next: BoardData) {
+    setBoard(reconcile(next))
+  }
+
   // ── Derived load — day columns (sum visible cards' hours per column) ──
   const dayLoad = createMemo<number[]>(() => {
     const sums = new Array<number>(board.cols).fill(0)
@@ -412,6 +417,7 @@ export function createBoardStore(initial: BoardData) {
     onScopeChange,
     clearSearch,
     reset,
+    updateData,
     moveCard,
     transformCard,
     runFeasibility,

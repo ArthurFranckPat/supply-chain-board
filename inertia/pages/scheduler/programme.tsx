@@ -21,7 +21,6 @@ import BoardGrid from '@/components/board/board-grid'
 import BatchFirmBar from '@/components/board/batch-firm-bar'
 import OrderGrid from '@/components/board/order-grid'
 import OfDetailSheet from '@/components/of/of-detail-sheet'
-import OrderDetailSheet from '@/components/orders/order-detail-sheet'
 import { Masthead } from '@/components/masthead'
 import { Button } from '@/components/ui/button'
 import { TextField, TextFieldInput } from '@/components/ui/text-field'
@@ -168,7 +167,25 @@ const Programme: Component<VisionProps> = (props) => {
     window.history.replaceState({}, '', url)
   }
 
-  // Drawer détail OF (parité /ordonnancement).
+  // Store « actif » selon le mode : orderStore en planification (commandes), sinon
+  // store OF. Centralise la bascule pour la toolbar Faisabilité / Stock afin que les
+  // badges, le sélecteur de mode d'allocation et le bouton de calcul pilotent le
+  // bon board — sans dupliquer les ternaires dans le JSX (issue #21).
+  const isOrderMode = () => mode() === 'planification'
+  const feasLoading = () => (isOrderMode() ? orderStore.feasLoading() : store.feasLoading())
+  const runFeasibility = () =>
+    isOrderMode()
+      ? orderStore.runFeasibility(props.windowFrom, props.windowTo)
+      : store.runFeasibility(props.windowFrom, props.windowTo)
+  const feasMode = () => (isOrderMode() ? orderStore.mode() : store.mode())
+  const setFeasMode = (m: 'immediate' | 'sequential') =>
+    isOrderMode() ? orderStore.setMode(m) : store.setMode(m)
+
+  // Drawer détail OF (parité /ordonnancement). RÉUTILISÉ en mode planification :
+  // au clic sur une carte commande (lineId = numCommande#ligne), on résout la
+  // contremarque (FMINUM_0 = n° OF rattaché via le matcher hard-peg) depuis le
+  // détail ligne, puis on ouvre le même <OfDetailSheet> — composant unique pour
+  // les deux vues (OF direct OU commande → OF via contremarque).
   const [selectedOf, setSelectedOf] = createSignal<string | null>(null)
   const [detailOpen, setDetailOpen] = createSignal(false)
   const onSelectOf = (num: string) => {
@@ -176,15 +193,59 @@ const Programme: Component<VisionProps> = (props) => {
     setDetailOpen(true)
   }
 
-  // Drawer détail ligne de commande (mode planification).
-  const [selectedOrderLine, setSelectedOrderLine] = createSignal<string | null>(null)
-  const [orderDetailOpen, setOrderDetailOpen] = createSignal(false)
+  // Résolution commande → OF : la carte porte déjà la contremarque (FMINUM_0 = n° OF
+  // rattaché via le matcher hard-peg), propagée depuis le flow jusqu'au payload board.
+  // Lecture synchrone dans orderStore → zéro fetch, zéro 404. Au clic, on retrouve la
+  // carte par son id (numCommande#ligne) puis on ouvre le même <OfDetailSheet>.
+  const findOrderCard = (cardId: string) => {
+    for (const line of orderStore.board.lines) {
+      for (const dc of line.dayCells) {
+        const c = dc.cards.find((x) => x.id === cardId)
+        if (c) return c
+      }
+    }
+    return undefined
+  }
   const onSelectOrderLine = (key: string) => {
-    setSelectedOrderLine(key)
-    setOrderDetailOpen(true)
+    const card = findOrderCard(key)
+    const ofNum = card?.contremarque?.trim() || null
+    if (ofNum) {
+      setSelectedOf(ofNum)
+      setDetailOpen(true)
+    } else {
+      window.dispatchEvent(
+        new CustomEvent('sch-toast', { detail: 'Aucun OF rattaché à cette ligne de commande.' }),
+      )
+    }
   }
 
   // Calendrier de fenêtre (identique /ordonnancement).
+  // Actualisation données (bouton refresh /programme) : rechargement PARTIEL des props via
+  // router.reload({ only }), pas de navigation ni de re-render de page complète. windowFrom ne
+  // change pas → l'effet de reset (keyé sur windowFrom) ne se redéclenche pas ; on met donc à
+  // jour les stores nous-mêmes via updateData() (contenu seul, garde recherche/scope/filtres/
+  // statut/sélection actifs — contrairement à reset() utilisé au changement de fenêtre).
+  const [refreshing, setRefreshing] = createSignal(false)
+  const doRefresh = () => {
+    if (refreshing()) return
+    setRefreshing(true)
+    router.reload({
+      data: {
+        start: props.windowFrom,
+        days: props.horizon,
+        refresh: '1',
+        ...(mode() !== 'combined' && { mode: mode() }),
+      },
+      only: ['board', 'orderBoard', 'commandes', 'links', 'x3Error', 'cached', 'totalOf', 'lineCount', 'weekLabel'],
+      onSuccess: () => {
+        store.updateData(page.props.board ?? EMPTY_BOARD)
+        orderStore.updateData(page.props.orderBoard ?? EMPTY_ORDER_BOARD)
+        requestAnimationFrame(measure)
+      },
+      onFinish: () => setRefreshing(false),
+    })
+  }
+
   const [calOpen, setCalOpen] = createSignal(false)
   const [range, setRange] = createSignal<DateRange>({
     start: parseIso(props.windowFrom),
@@ -385,7 +446,7 @@ const Programme: Component<VisionProps> = (props) => {
   )
 
   return (
-    <div class="theme-papier flex h-screen flex-col overflow-hidden bg-background text-foreground">
+    <div class="theme-navy flex h-screen flex-col overflow-hidden bg-background text-foreground">
       <Masthead
         subtitle="Programme · Flux OF ↔ commandes"
         active="programme"
@@ -622,9 +683,10 @@ const Programme: Component<VisionProps> = (props) => {
           </Show>
         </div>
 
-        {/* Faisabilité — déclencheur + mode (réutilise store.runFeasibility / feasOf,
-            aucune logique de calcul dupliquée). Les badges par OF s'affichent via
-            BoardGrid.CardView qui lit déjà store.feasOf. Issue #24. */}
+        {/* Faisabilité — déclencheur + mode. Pilote le store ACTIF : orderStore en mode
+            planification (badges par ligne de commande, dérivés des OF rattachés via
+            /board-feasibility orders[]), store OF sinon (badges par OF). Aucune logique
+            de calcul dupliquée — même endpoint, parsé différemment. Issues #24, #21. */}
         <div class="flex items-center gap-2.5">
           {/* Mode d'allocation stock — choix exclusif (segment, parité /ordonnancement) */}
           <div class="inline-flex items-center gap-1 rounded-md border border-rule bg-card p-0.5">
@@ -634,10 +696,10 @@ const Programme: Component<VisionProps> = (props) => {
             <button
               type="button"
               title="Stock vu en intégralité par chaque OF"
-              onClick={() => store.setMode('immediate')}
+              onClick={() => setFeasMode('immediate')}
               class={cx(
                 'rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
-                store.mode() === 'immediate'
+                feasMode() === 'immediate'
                   ? 'bg-terra-soft text-terra'
                   : 'text-muted-foreground hover:text-foreground',
               )}
@@ -647,10 +709,10 @@ const Programme: Component<VisionProps> = (props) => {
             <button
               type="button"
               title="Stock consommé OF par OF selon priorité"
-              onClick={() => store.setMode('sequential')}
+              onClick={() => setFeasMode('sequential')}
               class={cx(
                 'rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
-                store.mode() === 'sequential'
+                feasMode() === 'sequential'
                   ? 'bg-terra-soft text-terra'
                   : 'text-muted-foreground hover:text-foreground',
               )}
@@ -659,16 +721,29 @@ const Programme: Component<VisionProps> = (props) => {
             </button>
           </div>
 
+          <button
+            type="button"
+            disabled={refreshing()}
+            onClick={doRefresh}
+            class="inline-flex items-center gap-1 rounded-full border border-rule bg-card px-3 py-1 text-[11px] font-semibold transition-colors hover:border-terra disabled:opacity-60"
+            title="Recharger les données X3 (cache → re-fetch live), sans recharger la page"
+          >
+            <span class={`material-symbols-outlined text-[14px] text-muted-foreground ${refreshing() ? 'animate-spin' : ''}`}>
+              refresh
+            </span>
+            {refreshing() ? 'Actualisation…' : 'Actualiser'}
+          </button>
+
           <Button
             size="sm"
-            disabled={store.feasLoading()}
-            onClick={() => store.runFeasibility(props.windowFrom, props.windowTo)}
+            disabled={feasLoading()}
+            onClick={runFeasibility}
             class="gap-1.5"
           >
-            <span class={`material-symbols-outlined text-[15px] ${store.feasLoading() ? 'animate-spin' : ''}`}>
-              {store.feasLoading() ? 'progress_activity' : 'fact_check'}
+            <span class={`material-symbols-outlined text-[15px] ${feasLoading() ? 'animate-spin' : ''}`}>
+              {feasLoading() ? 'progress_activity' : 'fact_check'}
             </span>
-            {store.feasLoading() ? 'Calcul…' : 'Faisabilité'}
+            {feasLoading() ? 'Calcul…' : 'Faisabilité'}
           </Button>
 
           {/* Sélection multi-OF → affermissement en batch (#34, vue OF uniquement) */}
@@ -711,11 +786,6 @@ const Programme: Component<VisionProps> = (props) => {
             />
           </div>
         </Show>
-        <OrderDetailSheet
-          lineId={selectedOrderLine()}
-          open={orderDetailOpen()}
-          onOpenChange={setOrderDetailOpen}
-        />
       </Show>
 
       <Show when={mode() !== 'planification'}>
@@ -769,9 +839,21 @@ const Programme: Component<VisionProps> = (props) => {
         </div>
       </Show>
 
-      <OfDetailSheet num={selectedOf()} open={detailOpen()} onOpenChange={setDetailOpen} onFirmed={(oldId, newId) => store.transformCard(oldId, newId)} />
       <BatchFirmBar store={store} />
       </Show>
+
+      {/* Drawer détail OF — RÉUTILISÉ dans les deux modes :
+          • ordonnancement/combined : clic carte OF → selectedOf direct ;
+          • planification : clic carte commande → résolution contremarque (FMINUM_0)
+            via ofFromOrder, puis selectedOf. Composant unique, comportement identique.
+          onFirmed (affermissement) : store.transformCard ne fait rien si l'OF n'est
+          pas dans le board OF (cas planification) — le reload réconcilie. */}
+      <OfDetailSheet
+        num={selectedOf()}
+        open={detailOpen()}
+        onOpenChange={setDetailOpen}
+        onFirmed={(oldId, newId) => store.transformCard(oldId, newId)}
+      />
     </div>
   )
 }

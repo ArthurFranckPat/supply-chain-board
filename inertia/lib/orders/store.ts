@@ -1,6 +1,7 @@
 import { createMemo, createSignal } from 'solid-js'
 import { createStore, produce, reconcile } from 'solid-js/store'
 import type { OrderBoardData, OrderCard, OrderSearchScope } from './types'
+import type { FeasibilityMode, FeasStatus } from '@/lib/board/types'
 import { router } from '@/lib/inertia-solid'
 import { route } from '@/lib/routes'
 
@@ -26,6 +27,16 @@ export function createOrderBoardStore(initial: OrderBoardData) {
   const [natureFilter, setNatureFilter] = createSignal<Set<string>>(new Set(ALL_NATURES))
   // Filtre atelier (STOLOC, issue #36) : vide ⇒ tous les ateliers visibles.
   const [atelierFilter, setAtelierFilter] = createSignal<Set<string>>(new Set())
+
+  // ── Faisabilité (issue #21) ──
+  // Miroir du store OF : le même endpoint /board-feasibility renvoie `orders[]` avec,
+  // par ligne de commande (clé `${numCommande}#${ligne}` = id carte), les OF rattachés
+  // et leur verdict faisable. On agrège par ligne (pessimiste) : bloquée si ≥ 1 OF en
+  // rupture, OK sinon. Les badges s'affichent via OrderGrid.CardView → BoardCard.feas.
+  const [mode, setMode] = createSignal<FeasibilityMode>('immediate')
+  const [feasibility, setFeasibility] = createSignal<Record<string, FeasStatus>>({})
+  const [feasLoading, setFeasLoading] = createSignal(false)
+  const feasOf = (cardId: string): FeasStatus | undefined => feasibility()[cardId]
 
   /** Passe le filtre type/nature (cases à cocher). */
   function passesFilters(card: OrderCard): boolean {
@@ -155,6 +166,58 @@ export function createOrderBoardStore(initial: OrderBoardData) {
     })
   }
 
+  // ── Faisabilité : POST /board-feasibility → agrégation par ligne de commande ──
+  // Le même endpoint que le store OF renvoie `orders[]`. Chaque ligne porte `ligne`
+  // (VCRLIN_0) → clé `${numCommande}#${ligne}` = id carte. On agrège ses OF :
+  // bloquée si au moins 1 OF en rupture (feasible === false), missing = union des
+  // composants manquants des OF bloqués. Parité visuelle avec la vue OF (badges ✓/!).
+  function runFeasibility(from: string, to: string) {
+    if (!from || !to || feasLoading()) return
+    setFeasLoading(true)
+    fetch(route('planning_board.board_feasibility'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from, to, mode: mode() }),
+    })
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        return r.json() as Promise<{
+          orders?: Array<{
+            numCommande: string
+            ligne?: string | null
+            ofs?: Array<{ feasible?: boolean | null; missingComponents?: Record<string, number> }>
+          }>
+        }>
+      })
+      .then((data) => {
+        const map: Record<string, FeasStatus> = {}
+        let nbOk = 0
+        let nbBlocked = 0
+        for (const o of data.orders ?? []) {
+          // Ligne sans n° (prévision sans VCRLIN) → pas de carte rattachable, on saute.
+          if (!o.ligne) continue
+          const cardId = `${o.numCommande}#${o.ligne}`
+          const blockedOfs = (o.ofs ?? []).filter((of) => of.feasible === false)
+          if (blockedOfs.length > 0) {
+            // Union des composants manquants des OF bloqués de cette ligne.
+            const missing = new Set<string>()
+            for (const of of blockedOfs) {
+              for (const comp of Object.keys(of.missingComponents ?? {})) missing.add(comp)
+            }
+            map[cardId] = { st: 'blocked', missing: Array.from(missing) }
+            nbBlocked++
+          } else {
+            map[cardId] = { st: 'ok', missing: [] }
+            nbOk++
+          }
+        }
+        setFeasibility(map)
+        toast(nbBlocked > 0 ? `${nbBlocked} bloquée(s) · ${nbOk} OK` : `${nbOk} ligne(s) réalisables`)
+      })
+      .catch((err) => toast(`Échec : ${err.message}`))
+      .finally(() => setFeasLoading(false))
+  }
+
   // ── Drag : PATCH override + optimistic + rollback ──
   function moveCard(id: string, fromLineCode: string, toCol: number, toIso: string) {
     const [numCommande, ligne] = id.split('#')
@@ -196,6 +259,9 @@ export function createOrderBoardStore(initial: OrderBoardData) {
         })
       })
     )
+    // Un déplacement de date change le verdict de faisabilité (calculé sur l'ancienne
+    // date) → on invalide le cache, comme dans le store OF.
+    setFeasibility({})
 
     fetch(route('order_planning.update', { order: numCommande, line: ligne }), {
       method: 'PATCH',
@@ -238,6 +304,13 @@ export function createOrderBoardStore(initial: OrderBoardData) {
   function reset(next: OrderBoardData) {
     setBoard(reconcile(next))
     setQuery('')
+    // Les badges de faisabilité dépendent des cartes (changent avec la fenêtre).
+    setFeasibility({})
+  }
+
+  /** Rafraîchit le contenu (bouton Actualiser) SANS toucher recherche/scope/filtres. */
+  function updateData(next: OrderBoardData) {
+    setBoard(reconcile(next))
   }
 
   function toast(detail: string) {
@@ -267,6 +340,13 @@ export function createOrderBoardStore(initial: OrderBoardData) {
     moveCard,
     resetOverride,
     reset,
+    updateData,
+    // Faisabilité (issue #21) — miroir du store OF, badges dérivés par ligne de commande.
+    mode,
+    setMode,
+    feasOf,
+    feasLoading,
+    runFeasibility,
   }
 }
 
