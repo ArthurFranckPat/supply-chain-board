@@ -164,7 +164,7 @@ const Expeditions: Component<ExpeditionsPageProps> = (props) => {
   }
 
   return (
-    <div class="theme-papier flex h-screen flex-col overflow-hidden bg-background text-foreground">
+    <div class="theme-navy flex h-screen flex-col overflow-hidden bg-background text-foreground">
       <Masthead
         subtitle="Expéditions · Livraisons client"
         active="expeditions"
@@ -177,29 +177,6 @@ const Expeditions: Component<ExpeditionsPageProps> = (props) => {
           </>
         }
       />
-
-      {/* ═══ Bandeau KPI ═══ */}
-      <section class="flex-none grid grid-cols-6 border-b border-rule">
-        <Kpi label="UC expédiées" value={exp().totalUc} sub="somme absolue" dot="var(--color-ferme)" valClass="text-ferme" />
-        <Kpi label="Camions" value={exp().nbCamions} sub={`regroupement ± ${exp().gapMinutes} min`} dot="var(--color-terra)" valClass="text-terra" />
-        <Kpi label="Palettes" value={totalPalettes()} sub={totalPalTheo() > 0 ? `${totalPalTheo().toFixed(0)} théoriques` : 'toutes expéditions'} dot="var(--color-planifie)" valClass="text-planifie" />
-        <Kpi label="Moy. palettes/camion" value={avgPalettes()} sub={`capacité ${exp().camionCapacitePalettes} pal.`} dot="var(--color-suggere)" valClass="text-suggere" />
-        <Kpi
-          label="Remplissage moy."
-          value={avgRemplissage() >= 0 ? `${Math.round(avgRemplissage() * 100)}%` : '—'}
-          sub={`capacité ${exp().camionCapacitePalettes} pal`}
-          dot="var(--color-ferme)"
-          valClass={avgRemplissage() > 1 ? 'text-destructive' : 'text-ferme'}
-        />
-        <Kpi
-          label="Anomalies"
-          value={nbAnomalies()}
-          sub="camions suspects (> max)"
-          dot="var(--color-destructive)"
-          valClass="text-destructive"
-          last
-        />
-      </section>
 
       {/* ═══ Toolbar ═══ */}
       <div class="flex flex-none flex-wrap items-center gap-2.5 border-b border-rule px-7 py-2">
@@ -415,27 +392,6 @@ const Expeditions: Component<ExpeditionsPageProps> = (props) => {
     </div>
   )
 }
-
-/** Tuile KPI (bandeau supérieur). */
-const Kpi: Component<{
-  label: string
-  value: number | string
-  sub: string
-  dot: string
-  valClass: string
-  last?: boolean
-}> = (p) => (
-  <div class={cx('flex flex-col gap-[3px] px-[22px] py-[13px]', !p.last && 'border-r border-rule-soft')}>
-    <span class="flex items-center gap-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.13em] text-muted-foreground">
-      <span class="size-2 rounded-[2px]" style={{ background: p.dot }} />
-      {p.label}
-    </span>
-    <span class={cx('font-fraunces text-[34px] font-black leading-none tracking-tight tabular-nums', p.valClass)}>
-      {typeof p.value === 'number' ? p.value.toLocaleString('fr-FR') : p.value}
-    </span>
-    <span class="font-mono text-[11px] font-medium text-muted-foreground">{p.sub}</span>
-  </div>
-)
 
 /** Onglet de bascule de vue (manifeste / frise). */
 const ViewTab: Component<{ active: boolean; onClick: () => void; icon: string; label: string }> = (p) => (

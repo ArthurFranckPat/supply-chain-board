@@ -123,7 +123,7 @@ const Calendrier: Component<Props> = (props) => {
   }
 
   return (
-    <div class="theme-papier flex min-h-screen flex-col bg-background text-foreground">
+    <div class="theme-navy flex min-h-screen flex-col bg-background text-foreground">
       <Masthead
         subtitle="Calendrier usine"
         active="config"

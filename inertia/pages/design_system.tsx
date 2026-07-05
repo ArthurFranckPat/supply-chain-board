@@ -38,6 +38,27 @@ const BRAND = [
   { name: 'Danger', hex: '#9a3320', tok: 'destructive', use: 'sans couverture', cls: 'text-destructive' },
 ]
 
+/* ── Palette Navy (exploration, palette officielle Aereco/Aldes) ── */
+const SURFACES_NAVY = [
+  { name: 'Light', hex: '#f0f0ed', tok: 'background', use: 'fond de l’app' },
+  { name: 'Card', hex: '#ffffff', tok: 'card', use: 'cartes, surfaces' },
+  { name: 'Muted', hex: '#e7e5de', tok: 'secondary / muted', use: 'surfaces recces.' },
+  { name: 'Border', hex: '#d9d6cb', tok: 'border', use: 'bordure par défaut' },
+]
+const INKS_NAVY = [
+  { name: 'Ink', hex: '#12142c', tok: 'foreground', use: 'texte primaire' },
+  { name: 'Ink-2', hex: '#202d09', tok: 'secondary-foreground', use: 'texte secondaire (sur lime)' },
+  { name: 'Gray', hex: '#6c757d', tok: 'muted-foreground', use: 'texte atténué' },
+]
+const BRAND_NAVY = [
+  { name: 'Navy', hex: '#081061', tok: 'primary', use: 'accent primaire (marque)', cls: 'text-terra' },
+  { name: 'Ferme', hex: '#28a745', tok: 'ferme', use: 'statut ferme (--success)', cls: 'text-ferme' },
+  { name: 'Planifié', hex: '#17a2b8', tok: 'planifie', use: 'statut planifié (--info, réassigné)', cls: 'text-planifie' },
+  { name: 'Suggéré', hex: '#ffc107', tok: 'suggere', use: 'statut suggéré (--warning)', cls: 'text-suggere' },
+  { name: 'Lime', hex: '#b0d138', tok: 'secondary', use: 'CTA / actif — ponctuel', cls: '' },
+  { name: 'Danger', hex: '#dc3545', tok: 'destructive', use: 'sans couverture (--danger)', cls: 'text-destructive' },
+]
+
 const NAV = [
   { id: 'couleurs', n: '01', label: 'Couleurs' },
   { id: 'typo', n: '02', label: 'Typographie' },
@@ -86,7 +107,13 @@ const FORECAST_LINES: ForecastLine[] = [
   { id: 'ctl', code: 'CTL-05', name: 'Contrôlage Final', color: '#8c7d66', months: [[85, 30, 15], [65, 25, 10], [95, 40, 25], [85, 55, 35], [65, 55, 30], [45, 45, 25]] },
 ]
 
+type ThemeName = 'papier' | 'navy'
+
 const DesignSystem: Component = () => {
+  // Toggle Papier ↔ Navy — les DEUX scopes coexistent dans app.css (.theme-papier
+  // n'est pas touché). Bascule purement client, aucun composant n'est dupliqué :
+  // seule la classe racine change, tous les composants ui/* réagissent au scope.
+  const [theme, setTheme] = createSignal<ThemeName>('papier')
   const [scope, setScope] = createSignal('poste')
   const [range, setRange] = createSignal<{ start: Date | null; end: Date | null }>({
     start: new Date(2026, 5, 16),
@@ -101,14 +128,38 @@ const DesignSystem: Component = () => {
   const [exclu, setExclu] = createSignal<'immediate' | 'sequential'>('immediate')
 
   return (
-    <div class="theme-papier min-h-screen">
+    <div class={theme() === 'navy' ? 'theme-navy min-h-screen' : 'theme-papier min-h-screen'}>
       <div class="mx-auto grid max-w-[1280px] grid-cols-[210px_1fr] gap-0">
         {/* ═══ TOC ═══ */}
         <aside class="sticky top-0 h-screen overflow-auto border-r border-rule-soft px-4 py-8 pl-8">
           <div class="font-fraunces text-[19px] font-black leading-none tracking-tight">
             Design <span class="italic font-medium text-terra">System</span>
           </div>
-          <div class="mt-1 font-mono text-[10px] text-muted-foreground">Papier · v1.0</div>
+          <div class="mt-1 font-mono text-[10px] text-muted-foreground">
+            {theme() === 'navy' ? 'Navy · v0.1 (exploration)' : 'Papier · v1.0'}
+          </div>
+          {/* Toggle thème — les composants ui/* ci-dessous sont réels, seul le
+              scope racine change. */}
+          <div class="mt-4 inline-flex rounded-md border border-border bg-card p-0.5">
+            <button
+              type="button"
+              onClick={() => setTheme('papier')}
+              class={`rounded-[5px] px-2.5 py-1 text-[11px] font-bold transition-colors ${
+                theme() === 'papier' ? 'bg-terra-soft text-terra' : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Papier
+            </button>
+            <button
+              type="button"
+              onClick={() => setTheme('navy')}
+              class={`rounded-[5px] px-2.5 py-1 text-[11px] font-bold transition-colors ${
+                theme() === 'navy' ? 'bg-terra-soft text-terra' : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Navy
+            </button>
+          </div>
           <nav class="mt-6 flex flex-col gap-0.5">
             <For each={NAV}>
               {(item) => (
@@ -124,7 +175,7 @@ const DesignSystem: Component = () => {
           </nav>
           <div class="mt-8 rounded-md border border-border bg-card p-3 text-[11px] leading-relaxed text-muted-foreground">
             Composants <span class="font-mono text-foreground">ui/*</span> réels du projet, thémés via{' '}
-            <span class="font-mono text-foreground">.theme-papier</span>.
+            <span class="font-mono text-foreground">{theme() === 'navy' ? '.theme-navy' : '.theme-papier'}</span>.
           </div>
         </aside>
 
@@ -136,21 +187,35 @@ const DesignSystem: Component = () => {
               Supply Chain Board
             </div>
             <h1 class="mt-2 font-fraunces text-[40px] font-black leading-none tracking-tight">
-              Design System <span class="font-medium italic text-terra">Papier</span>
+              Design System{' '}
+              <span class="font-medium italic text-terra">
+                {theme() === 'navy' ? 'Navy' : 'Papier'}
+              </span>
             </h1>
             <p class="mt-3 max-w-[620px] text-[14.5px] leading-relaxed text-foreground/80">
               Les vrais composants du projet, thémés avec le nouveau design system. Chaque primitive
               ci-dessous est un <code class="rounded bg-secondary px-1.5 py-0.5 font-mono text-[12px]">ui/*</code>{' '}
               réel — la couleur vient du scope{' '}
-              <code class="rounded bg-secondary px-1.5 py-0.5 font-mono text-[12px]">.theme-papier</code>.
+              <code class="rounded bg-secondary px-1.5 py-0.5 font-mono text-[12px]">
+                {theme() === 'navy' ? '.theme-navy' : '.theme-papier'}
+              </code>
+              {theme() === 'navy' && (
+                <>
+                  {' '}· palette officielle Aereco/Aldes (exploration, cf.{' '}
+                  <code class="rounded bg-secondary px-1.5 py-0.5 font-mono text-[12px]">
+                    design/mockups/theme-aereco-navy.html
+                  </code>
+                  ).
+                </>
+              )}
             </p>
           </div>
 
           {/* ═══ 01 Couleurs ═══ */}
           <Section id="couleurs" n="01" title="Couleurs">
-            <SwatchGroup label="Surfaces" items={SURFACES} />
-            <SwatchGroup label="Encre" items={INKS} />
-            <SwatchGroup label="Brand & statuts" items={BRAND} />
+            <SwatchGroup label="Surfaces" items={theme() === 'navy' ? SURFACES_NAVY : SURFACES} />
+            <SwatchGroup label="Encre" items={theme() === 'navy' ? INKS_NAVY : INKS} />
+            <SwatchGroup label="Brand & statuts" items={theme() === 'navy' ? BRAND_NAVY : BRAND} />
           </Section>
 
           {/* ═══ 02 Typographie ═══ */}
@@ -503,10 +568,10 @@ const DesignSystem: Component = () => {
 
           <div class="mt-12 flex justify-between border-t border-rule-soft pt-5 font-fraunces text-[12px] italic text-muted-foreground">
             <span>
-              Design System Papier · composants réels{' '}
+              Design System {theme() === 'navy' ? 'Navy' : 'Papier'} · composants réels{' '}
               <code class="font-mono not-italic">inertia/components/ui/*</code>
             </span>
-            <span>v1.0 · /design-system</span>
+            <span>{theme() === 'navy' ? 'v0.1' : 'v1.0'} · /design-system</span>
           </div>
         </main>
       </div>

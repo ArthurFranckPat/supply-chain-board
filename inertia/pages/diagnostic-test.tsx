@@ -161,7 +161,7 @@ const DiagnosticTest: Component = () => {
   }
 
   return (
-    <div class="theme-papier flex h-screen flex-col overflow-hidden bg-background text-foreground">
+    <div class="theme-navy flex h-screen flex-col overflow-hidden bg-background text-foreground">
       <Masthead subtitle="Diagnostic récursif · page de test (#25)" active="ordonnancement" />
       <div class="flex-1 overflow-auto px-7 py-6">
         <div class="mx-auto flex max-w-4xl flex-col gap-5">

@@ -56,7 +56,7 @@ const Login: Component<LoginProps> = (props) => {
   }
 
   return (
-    <main class="theme-papier min-h-screen bg-background text-foreground">
+    <main class="theme-navy min-h-screen bg-background text-foreground">
       <div class="mx-auto grid min-h-screen w-full max-w-5xl items-stretch md:grid-cols-[1.05fr_.95fr]">
         {/* ═══ Panneau marque ═══ */}
         <aside

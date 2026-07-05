@@ -99,7 +99,7 @@ const Planning: Component<PlanningProps> = (props) => {
     )
 
   return (
-    <div class="theme-papier flex h-screen flex-col overflow-hidden bg-background text-foreground">
+    <div class="theme-navy flex h-screen flex-col overflow-hidden bg-background text-foreground">
       <Masthead
         subtitle="Planification · Lignes de commande ouvertes"
         active="programme"

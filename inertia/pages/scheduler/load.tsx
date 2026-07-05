@@ -609,7 +609,7 @@ const Load: Component<LoadPageProps> = (props) => {
   })
 
   return (
-    <div class="theme-papier flex h-screen flex-col overflow-hidden bg-background text-foreground">
+    <div class="theme-navy flex h-screen flex-col overflow-hidden bg-background text-foreground">
       <HatchDefs />
       <Masthead
         subtitle="Charge · vision long terme"

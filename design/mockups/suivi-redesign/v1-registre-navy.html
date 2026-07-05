@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<title>Suivi — V1 « Registre Navy »</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700;9..144,900&family=Inter:wght@400;500;600;700;900&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,400,0,0&display=swap"
+  rel="stylesheet"
+/>
+<style>
+  /* ════════════════════════════════════════════════════════════
+     V1 « Registre Navy » — le registre actuel transposé Navy, avec
+     une simplification UX : les tuiles KPI SONT les filtres de statut
+     (clic = filtre), la rangée de chips statut disparaît.
+     Tokens : theme-aereco-navy.html (marine #081061, lime CTA, cyan info).
+     ──────────────────────────────────────────────────────────── */
+  :root {
+    --primary: #081061;
+    --primary-soft: rgba(8, 16, 97, .07);
+    --secondary: #b0d138;
+    --success: #28a745;
+    --info: #17a2b8;
+    --warning: #b8860b;
+    --warning-bright: #ffc107;
+    --danger: #dc3545;
+    --light: #f0f0ed;
+    --gray: #6c757d;
+
+    --color-background: var(--light);
+    --color-foreground: #12142c;
+    --color-card: #ffffff;
+    --color-muted: #e7e5de;
+    --color-muted-foreground: var(--gray);
+    --color-border: #d9d6cb;
+    --color-rule: #d9d6cb;
+    --color-rule-soft: #eae8e0;
+
+    --font-fraunces: "Fraunces", Georgia, serif;
+    --font-sans: "Inter", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    font-family: var(--font-sans);
+    background: var(--color-background);
+    color: var(--color-foreground);
+    -webkit-font-smoothing: antialiased;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+  .material-symbols-outlined {
+    font-family: "Material Symbols Outlined";
+    font-weight: normal; font-style: normal; line-height: 1;
+    display: inline-block; vertical-align: middle;
+  }
+
+  /* ── Masthead ── */
+  header.masthead { flex: none; background: var(--color-card); border-bottom: 1px solid var(--color-rule); }
+  .masthead-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; padding: 13px 28px 8px; }
+  .brand { display: flex; align-items: center; gap: 14px; }
+  .wordmark { font-family: var(--font-fraunces); font-size: 24px; font-weight: 900; line-height: .9; letter-spacing: -.01em; }
+  .wordmark em { font-style: italic; font-weight: 500; color: var(--primary); }
+  .subtitle { font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--color-muted-foreground); padding-bottom: 2px; }
+  .env-pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    border: 1px solid var(--color-border); background: var(--color-muted); color: var(--color-muted-foreground);
+    border-radius: 999px; padding: 3px 9px;
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em;
+  }
+  .env-pill .dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+  .meta { text-align: right; font-size: 11px; font-weight: 500; line-height: 1.6; color: var(--color-muted-foreground); }
+  .meta b { color: var(--color-foreground); font-weight: 700; }
+  .meta .week { font-family: var(--font-fraunces); font-weight: 700; font-size: 12px; color: var(--primary); text-transform: capitalize; }
+  nav.tabs { display: flex; align-items: center; gap: 4px; border-top: 1px solid var(--color-rule-soft); padding: 0 28px; min-height: 42px; }
+  nav.tabs a {
+    text-decoration: none; font-size: 12px; font-weight: 600; color: var(--color-muted-foreground);
+    padding: 11px 14px 9px; border-bottom: 2px solid transparent; transition: color .15s, border-color .15s;
+  }
+  nav.tabs a:hover { color: var(--primary); }
+  nav.tabs a.active { color: var(--primary); border-color: var(--primary); }
+  .user-chip { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; }
+  .avatar { width: 26px; height: 26px; border-radius: 50%; background: var(--primary); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; }
+
+  /* ── Bandeau KPI = filtres ── */
+  .kpis { flex: none; display: grid; grid-template-columns: repeat(5, 1fr); border-bottom: 1px solid var(--color-rule); background: var(--color-card); }
+  .kpi {
+    appearance: none; border: 0; background: transparent; cursor: pointer; text-align: left;
+    display: flex; flex-direction: column; gap: 3px;
+    padding: 12px 22px 10px; border-right: 1px solid var(--color-rule-soft);
+    border-bottom: 3px solid transparent;
+    font-family: inherit; color: inherit;
+    transition: background .15s, border-color .15s;
+  }
+  .kpi:last-child { border-right: 0; }
+  .kpi:hover { background: var(--primary-soft); }
+  .kpi.on { border-bottom-color: var(--primary); background: var(--primary-soft); }
+  .kpi .lbl { display: flex; align-items: center; gap: 6px; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .12em; color: var(--color-muted-foreground); }
+  .kpi .lbl .sw { width: 8px; height: 8px; border-radius: 2px; }
+  .kpi .val { font-family: var(--font-fraunces); font-size: 32px; font-weight: 900; line-height: 1; letter-spacing: -.01em; }
+  .kpi .sub { font-size: 10.5px; font-weight: 500; color: var(--color-muted-foreground); }
+  .kpi .filter-hint { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--primary); opacity: 0; transition: opacity .15s; }
+  .kpi:hover .filter-hint, .kpi.on .filter-hint { opacity: .8; }
+
+  /* ── Toolbar ── */
+  .toolbar { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 9px 28px; border-bottom: 1px solid var(--color-rule); }
+  .segmented { display: inline-flex; align-items: center; gap: 2px; border: 1px solid var(--color-border); background: var(--color-card); border-radius: 8px; padding: 3px; }
+  .segmented .label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--color-muted-foreground); padding: 0 6px; }
+  .chip {
+    border: 0; background: transparent; cursor: pointer; font-family: inherit;
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em;
+    color: var(--color-muted-foreground); padding: 5px 10px; border-radius: 6px;
+    transition: background .15s, color .15s;
+  }
+  .chip.on { background: var(--primary-soft); color: var(--primary); }
+  .chip:hover:not(.on) { color: var(--color-foreground); }
+  .search {
+    display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px;
+    border-radius: 999px; border: 1px solid var(--color-border); background: var(--color-card);
+    font-size: 12px; color: var(--color-muted-foreground);
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .search:focus-within { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); }
+  .search .material-symbols-outlined { font-size: 16px; }
+  .search input { border: 0; outline: 0; background: transparent; font: inherit; font-weight: 500; color: var(--color-foreground); width: 180px; }
+  .toolbar-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+  .load-ms { font-size: 11px; font-weight: 500; color: var(--color-muted-foreground); font-variant-numeric: tabular-nums; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 6px 13px;
+    font-family: inherit; font-size: 11px; font-weight: 700;
+    border: 1px solid var(--color-border); background: var(--color-card); color: var(--color-foreground);
+    cursor: pointer; transition: border-color .15s, background .15s;
+  }
+  .btn:hover { border-color: var(--primary); }
+  .btn .material-symbols-outlined { font-size: 15px; color: var(--color-muted-foreground); }
+
+  /* ── Table ── */
+  .table-zone { flex: 1; overflow: hidden; padding: 16px 28px 20px; display: flex; flex-direction: column; }
+  .table-card { flex: 1; overflow: auto; background: var(--color-card); border: 1px solid var(--color-rule); border-radius: 10px; box-shadow: 0 1px 3px rgba(18,20,44,.05); }
+  table { width: 100%; min-width: 1280px; border-collapse: collapse; table-layout: fixed; }
+  thead th {
+    position: sticky; top: 0; z-index: 2; background: var(--color-card);
+    padding: 10px 14px; text-align: left;
+    font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .13em;
+    color: var(--color-muted-foreground);
+    border-bottom: 2px solid var(--primary);
+  }
+  thead th.num { text-align: right; }
+  tbody td { padding: 12px 14px; vertical-align: middle; border-top: 1px solid var(--color-rule-soft); font-size: 12px; }
+  tbody tr { transition: background .12s; }
+  tbody tr:hover { background: var(--primary-soft); }
+  tbody tr.late { background: rgba(220,53,69,.05); }
+  tbody tr.late:hover { background: rgba(220,53,69,.1); }
+  td.idx { font-family: var(--font-fraunces); font-size: 13px; color: var(--color-muted-foreground); }
+  tr.late td.idx { box-shadow: inset 3px 0 var(--danger); }
+  .cell-main { font-size: 13px; font-weight: 700; letter-spacing: -.01em; }
+  .cell-main .ref2 { font-weight: 500; color: var(--color-muted-foreground); }
+  .cell-sub { margin-top: 2px; font-size: 11.5px; font-weight: 500; line-height: 1.35; color: var(--gray); }
+  .art { color: var(--primary); font-weight: 700; font-size: 13px; }
+  .type-tag { display: inline-block; background: var(--primary-soft); color: var(--primary); border-radius: 4px; padding: 2px 7px; font-size: 10px; font-weight: 700; letter-spacing: .05em; }
+  td.qty { text-align: right; white-space: nowrap; }
+  .qty-big { font-family: var(--font-fraunces); font-size: 20px; font-weight: 900; letter-spacing: -.02em; line-height: 1; }
+  .qty-u { font-size: 10px; font-weight: 500; color: var(--color-muted-foreground); margin-left: 2px; }
+  td.date { white-space: nowrap; font-weight: 600; font-variant-numeric: tabular-nums; }
+  td.date.late-d { color: var(--danger); font-weight: 800; }
+
+  .emp { display: flex; flex-direction: column; gap: 3px; }
+  .emp-pill {
+    display: flex; align-items: center; justify-content: space-between; gap: 6px;
+    border: 1px solid var(--color-border); border-radius: 5px; padding: 2px 7px;
+    font-size: 10.5px; font-weight: 600; line-height: 1.5; background: var(--color-card);
+  }
+  .emp-pill.alloc { border-color: rgba(40,167,69,.35); background: rgba(40,167,69,.08); color: #1d7a33; }
+  .emp-pill .nm { display: flex; align-items: center; gap: 4px; }
+  .emp-pill .material-symbols-outlined { font-size: 12px; }
+  .emp-pill .q { font-weight: 800; font-variant-numeric: tabular-nums; }
+  .emp-pill .pal { background: var(--color-muted); border-radius: 3px; padding: 0 5px; font-size: 9.5px; font-weight: 700; color: var(--color-foreground); }
+
+  .badge {
+    display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;
+    border-radius: 999px; padding: 3px 9px; font-size: 10px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase;
+  }
+  .badge .material-symbols-outlined { font-size: 13px; }
+  .b-exp { background: rgba(40,167,69,.12); color: var(--success); }
+  .b-alc { background: rgba(255,193,7,.18); color: var(--warning); }
+  .b-ret { background: rgba(220,53,69,.11); color: var(--danger); }
+  .b-ras { background: var(--color-muted); color: var(--color-muted-foreground); }
+  .b-cq { background: rgba(23,162,184,.12); color: var(--info); }
+  .badge-stack { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+
+  .cause-l { font-size: 12px; font-weight: 500; line-height: 1.4; }
+  .cause-comps { margin-top: 3px; font-size: 10.5px; font-weight: 800; color: var(--danger); font-variant-numeric: tabular-nums; }
+  .cause-eta { margin-top: 2px; display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 600; color: var(--info); }
+  .cause-eta .material-symbols-outlined { font-size: 12px; }
+  .cause-retro { margin-top: 2px; font-size: 10px; font-weight: 500; color: var(--color-muted-foreground); }
+  .dash { color: var(--color-muted-foreground); opacity: .6; }
+
+  /* Couverture (proactif) */
+  .of-line { display: flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600; }
+  .of-tag { border-radius: 4px; padding: 1px 5px; font-size: 9px; font-weight: 800; letter-spacing: .04em; }
+  .t-wof { background: rgba(40,167,69,.14); color: var(--success); }
+  .t-wop { background: rgba(23,162,184,.14); color: var(--info); }
+  .t-wos { background: rgba(255,193,7,.2); color: var(--warning); }
+  .cover-ok { display: inline-flex; border-radius: 999px; padding: 3px 10px; font-size: 10.5px; font-weight: 800; background: rgba(40,167,69,.12); color: var(--success); }
+  .goulot { display: flex; flex-direction: column; gap: 1px; margin-bottom: 6px; }
+  .goulot:last-child { margin-bottom: 0; }
+  .goulot .top { display: flex; align-items: center; gap: 6px; }
+  .goulot .c-art { font-size: 11px; font-weight: 800; color: var(--danger); }
+  .goulot .c-desc { font-size: 10px; color: var(--color-muted-foreground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .goulot .c-qty { margin-left: auto; background: rgba(220,53,69,.1); color: var(--danger); border-radius: 4px; padding: 0 5px; font-size: 10px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .goulot .c-eta { font-size: 9.5px; font-weight: 600; color: var(--color-muted-foreground); }
+  .goulot .c-eta.overdue { color: var(--danger); font-weight: 800; }
+
+  /* Footer résumé */
+  .foot { flex: none; display: flex; align-items: center; gap: 18px; padding: 8px 28px; border-top: 1px solid var(--color-rule); background: var(--color-card); font-size: 11px; font-weight: 600; color: var(--color-muted-foreground); }
+  .foot b { color: var(--color-foreground); }
+  .foot .item { display: flex; align-items: center; gap: 6px; }
+  .foot .sw { width: 9px; height: 9px; border-radius: 2px; }
+</style>
+</head>
+<body>
+
+  <header class="masthead">
+    <div class="masthead-top">
+      <div class="brand">
+        <div class="wordmark">Supply Chain <em>AERECO</em></div>
+        <div class="subtitle">Suivi · Allocation &amp; expédition</div>
+        <span class="env-pill"><span class="dot"></span>Prod</span>
+      </div>
+      <div class="meta">
+        <div class="week">Jeudi 3 juillet</div>
+        <div><b id="meta-total">12</b> lignes ouvertes · réf. <b>2026-07-03</b></div>
+      </div>
+    </div>
+    <nav class="tabs">
+      <a href="#">Tableau</a>
+      <a href="#">Programme</a>
+      <a href="#">Charge</a>
+      <a href="#">Ruptures</a>
+      <a href="#" class="active">Suivi</a>
+      <a href="#">Expéditions</a>
+      <a href="#">Config</a>
+      <div class="user-chip"><span class="avatar">AB</span></div>
+    </nav>
+  </header>
+
+  <!-- KPI = filtres (clic pour filtrer, re-clic pour tout afficher) -->
+  <section class="kpis" id="kpis"></section>
+
+  <div class="toolbar">
+    <div class="segmented" role="tablist">
+      <button class="chip on" id="m-reactif">Réactif</button>
+      <button class="chip" id="m-proactif">Proactif</button>
+    </div>
+    <div class="search">
+      <span class="material-symbols-outlined">search</span>
+      <input id="q" placeholder="Commande, article, client…" />
+    </div>
+    <div class="segmented" id="types">
+      <span class="label">Type</span>
+      <button class="chip on" data-t="MTS">MTS</button>
+      <button class="chip on" data-t="MTO">MTO</button>
+      <button class="chip on" data-t="NOR">NOR</button>
+    </div>
+    <div class="segmented" id="ateliers">
+      <span class="label">Atelier</span>
+      <button class="chip" data-a="BDH">Montage BDH</button>
+      <button class="chip" data-a="KIT">Kits VMC</button>
+      <button class="chip" data-a="VAM">Ventilateurs</button>
+      <button class="chip" data-a="EAH">Entrées d'air</button>
+    </div>
+    <div class="toolbar-right">
+      <span class="load-ms" title="Durée dernier chargement X3">2.4s</span>
+      <button class="btn"><span class="material-symbols-outlined">refresh</span>Actualiser</button>
+      <button class="btn"><span class="material-symbols-outlined">calendar_month</span>Aujourd'hui</button>
+    </div>
+  </div>
+
+  <div class="table-zone">
+    <div class="table-card">
+      <table id="tbl">
+        <thead id="thead"></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="foot" id="foot"></div>
+
+<script>
+/* ── Données mock (réalistes Aereco) ─────────────────────────── */
+const ROWS = [
+  { n:'F24-08096', refC:'4501128834', client:'Aereco GmbH', art:'VAM-T4-µW', refA:'', des:'Ventilateur VAM T4 MicroWatt', type:'MTO', at:'VAM', st:'ret', reste:6, exp:'27/06', late:true,
+    emp:[], cause:{ l:'Composant arrivé tard après affermissement OF', comps:[], eta:null, retro:'CARTE-EC-24V dispo 01/07 (CQ) · OF240218 affermi 24/06' } },
+  { n:'F24-08101', refC:'', client:'Téréva Mâcon', art:'MH10-EXPORT', refA:'', des:'Module hygro export (colisage vrac)', type:'MTO', at:'BDH', st:'ret', reste:500, exp:'26/06', late:true,
+    emp:[], cause:{ l:'Attente réception fournisseur', comps:[{a:'MEMB-HYG-STD',q:500}], eta:{d:'04/07', po:'PO24-1174', f:'Wistro'}, retro:null } },
+  { n:'F24-08112', refC:'CDE-77123', client:'CEDEO Paris Est', art:'BDH60-ESH30', refA:'', des:'Bouche hygro cuisine ESH30', type:'MTO', at:'BDH', st:'ret', reste:120, exp:'30/06', late:true,
+    emp:[{nm:'MAG1', q:40, alloc:false}], cause:{ l:'Rupture composants sur l’OF de couverture', comps:[{a:'MH10-GRS',q:80}], eta:{d:'07/07', po:'PO24-1180', f:'Sanhua'}, retro:null } },
+  { n:'F24-08120', refC:'', client:'POINT.P Lyon Gerland', art:'KHY10-EAH', refA:'K-EAH-STD', des:'Kit VMC hygro + entrées d’air', type:'NOR', at:'KIT', st:'ret', reste:45, exp:'01/07', late:true,
+    emp:[], cause:{ l:'Aucun OF planifié pour couvrir le besoin', comps:[], eta:null, retro:null } },
+  { n:'F24-08150', refC:'', client:'REXEL Nantes', art:'EAH20-BLC', refA:'', des:'Entrée d’air hygro 20 blanc', type:'MTS', at:'EAH', st:'alc', reste:300, exp:'04/07', late:false,
+    emp:[{nm:'MAG1', q:300, alloc:false}], cause:{ l:'Stock disponible non alloué', comps:[], eta:null, retro:null } },
+  { n:'F24-08155', refC:'', client:'Aereco Polska', art:'EAH20-NOIR', refA:'', des:'Entrée d’air hygro 20 noir', type:'MTS', at:'EAH', st:'alc', reste:180, exp:'08/07', late:false,
+    emp:[{nm:'MAG1', q:120, alloc:false},{nm:'MAG3', q:60, alloc:false}], cause:{ l:'Stock disponible non alloué', comps:[], eta:null, retro:null } },
+  { n:'F24-08161', refC:'', client:'Brossette IdF', art:'BDH60-ESH10', refA:'', des:'Bouche hygro SDB ESH10', type:'MTS', at:'BDH', st:'alc', reste:90, exp:'06/07', late:false, cq:true,
+    emp:[{nm:'MAG2', q:90, alloc:false}], cause:{ l:'Stock disponible non alloué (30 u sous CQ)', comps:[], eta:null, retro:null } },
+  { n:'F24-08133', refC:'UK-20441', client:'Aereco UK Ltd', art:'BXC-BOOST', refA:'', des:'Bouche extraction boost', type:'MTO', at:'BDH', st:'exp', reste:240, exp:'03/07', late:false,
+    emp:[{nm:'EXPE01', q:240, alloc:true, pal:'P240611'}], cause:null },
+  { n:'F24-08141', refC:'', client:'SIDER Bordeaux', art:'KHY10-VMC', refA:'', des:'Kit VMC hygro complet', type:'MTO', at:'KIT', st:'exp', reste:12, exp:'03/07', late:false, att:true,
+    emp:[{nm:'MAG1', q:12, alloc:true}], cause:null },
+  { n:'F24-08170', refC:'', client:'DSC Toulouse', art:'EAH30-GRS', refA:'', des:'Entrée d’air hygro 30 gris', type:'MTS', at:'EAH', st:'exp', reste:150, exp:'02/07', late:false,
+    emp:[{nm:'EXPE01', q:150, alloc:true, pal:'P240598'}], cause:null },
+  { n:'F24-08188', refC:'', client:'Yesss Électrique', art:'VAM-T3', refA:'', des:'Ventilateur VAM T3', type:'NOR', at:'VAM', st:'ras', reste:20, exp:'11/07', late:false, emp:[], cause:null },
+  { n:'F24-08192', refC:'', client:'CGED Strasbourg', art:'BDH60-ESH60', refA:'', des:'Bouche hygro WC ESH60', type:'MTS', at:'BDH', st:'ras', reste:60, exp:'15/07', late:false, emp:[], cause:null },
+];
+
+const PRO = [
+  { n:'F24-08133', client:'Aereco UK Ltd', art:'BXC-BOOST', des:'Bouche extraction boost', type:'MTO', at:'BDH', v:'stock', cover:'Stock', ofs:[], jr:0, g:[] },
+  { n:'F24-08170', client:'DSC Toulouse', art:'EAH30-GRS', des:'Entrée d’air hygro 30 gris', type:'MTS', at:'EAH', v:'stock', cover:'Stock', ofs:[], jr:0, g:[] },
+  { n:'F24-08150', client:'REXEL Nantes', art:'EAH20-BLC', des:'Entrée d’air hygro 20 blanc', type:'MTS', at:'EAH', v:'stock', cover:'Stock', ofs:[], jr:0, g:[] },
+  { n:'F24-08161', client:'Brossette IdF', art:'BDH60-ESH10', des:'Bouche hygro SDB ESH10', type:'MTS', at:'BDH', v:'time', cover:'', ofs:[{o:'OF240230', s:1}], jr:0, g:[] },
+  { n:'F24-08155', client:'Aereco Polska', art:'EAH20-NOIR', des:'Entrée d’air hygro 20 noir', type:'MTS', at:'EAH', v:'time', cover:'', ofs:[{o:'OF240234', s:2}], jr:0, g:[] },
+  { n:'F24-08188', client:'Yesss Électrique', art:'VAM-T3', des:'Ventilateur VAM T3', type:'NOR', at:'VAM', v:'time', cover:'', ofs:[{o:'OF240244', s:3}], jr:0, g:[] },
+  { n:'F24-08096', client:'Aereco GmbH', art:'VAM-T4-µW', des:'Ventilateur VAM T4 MicroWatt', type:'MTO', at:'VAM', v:'late', cover:'', ofs:[{o:'OF240218', s:1}], jr:4,
+    g:[{a:'CARTE-EC-24V', d:'Carte électronique 24 V', q:6, eta:'arrive 01/07 · PO24-1166', od:false}] },
+  { n:'F24-08112', client:'CEDEO Paris Est', art:'BDH60-ESH30', des:'Bouche hygro cuisine ESH30', type:'MTO', at:'BDH', v:'blocked', cover:'', ofs:[{o:'OF240226', s:1}], jr:3,
+    g:[{a:'MH10-GRS', d:'Module hygro gris', q:80, eta:'arrive 07/07 · PO24-1180', od:false}] },
+  { n:'F24-08101', client:'Téréva Mâcon', art:'MH10-EXPORT', des:'Module hygro export', type:'MTO', at:'BDH', v:'blocked', cover:'', ofs:[{o:'OF240221', s:2}], jr:7,
+    g:[{a:'MEMB-HYG-STD', d:'Membrane hygro standard', q:500, eta:'en retard +3 j · 04/07', od:true}] },
+  { n:'F24-08120', client:'POINT.P Lyon Gerland', art:'KHY10-EAH', des:'Kit VMC hygro + entrées d’air', type:'NOR', at:'KIT', v:'uncov', cover:'—', ofs:[], jr:2,
+    g:[{a:'BDH60-ESH10', d:'Bouche SDB (compo kit)', q:45, eta:'aucune couverture prévue', od:true}] },
+];
+
+/* ── État ── */
+const S = { mode:'reactif', kpi:'all', types:new Set(['MTS','MTO','NOR']), at:new Set(), q:'' };
+
+const KPI_RE = [
+  { k:'ret', lbl:'Retard', sub:'date expé dépassée', c:'var(--danger)' },
+  { k:'alc', lbl:'Allocation à faire', sub:'couvertes par stock virtuel', c:'var(--warning-bright)' },
+  { k:'exp', lbl:'À expédier', sub:'besoin net ≤ 0 · prêtes', c:'var(--success)' },
+  { k:'cq',  lbl:'Signal CQ', sub:'stock sous contrôle qualité', c:'var(--info)' },
+  { k:'ras', lbl:'RAS', sub:'sous contrôle', c:'var(--gray)' },
+];
+const KPI_PRO = [
+  { k:'blocked', lbl:'Bloquées', sub:'composant manquant', c:'var(--danger)' },
+  { k:'uncov', lbl:'Sans couverture', sub:'aucun OF / supply', c:'var(--danger)' },
+  { k:'late', lbl:'En retard', sub:'OF après l’expé', c:'var(--warning-bright)' },
+  { k:'time', lbl:'À temps', sub:'réalisables', c:'var(--success)' },
+  { k:'stock', lbl:'En stock', sub:'couvertes par stock', c:'var(--success)' },
+];
+const ST = {
+  exp:{ lbl:'À expédier', ic:'local_shipping', cls:'b-exp' },
+  alc:{ lbl:'À allouer', ic:'move_to_inbox', cls:'b-alc' },
+  ret:{ lbl:'Retard', ic:'error', cls:'b-ret' },
+  ras:{ lbl:'RAS', ic:'check', cls:'b-ras' },
+};
+const VD = {
+  time:{ lbl:'À temps', cls:'b-exp' }, stock:{ lbl:'En stock', cls:'b-exp' },
+  late:{ lbl:'En retard', cls:'b-alc' }, blocked:{ lbl:'Bloquée', cls:'b-ret' }, uncov:{ lbl:'Sans couverture', cls:'b-ret' },
+};
+const OFT = { 1:['WOF','t-wof'], 2:['WOP','t-wop'], 3:['WOS','t-wos'] };
+
+/* ── Rendu KPI ── */
+function renderKpis() {
+  const defs = S.mode === 'reactif' ? KPI_RE : KPI_PRO;
+  const counts = {};
+  if (S.mode === 'reactif') {
+    for (const r of ROWS) counts[r.st] = (counts[r.st]||0)+1;
+    counts.cq = ROWS.filter(r=>r.cq).length;
+  } else {
+    for (const r of PRO) counts[r.v] = (counts[r.v]||0)+1;
+  }
+  document.getElementById('kpis').innerHTML = defs.map(d => `
+    <button class="kpi ${S.kpi===d.k?'on':''}" data-k="${d.k}">
+      <span class="lbl"><span class="sw" style="background:${d.c}"></span>${d.lbl}</span>
+      <span class="val" style="color:${d.c === 'var(--warning-bright)' ? 'var(--warning)' : d.c}">${counts[d.k]||0}</span>
+      <span class="sub">${d.sub}</span>
+      <span class="filter-hint">${S.kpi===d.k?'✕ retirer le filtre':'filtrer'}</span>
+    </button>`).join('');
+  document.querySelectorAll('.kpi').forEach(b => b.onclick = () => { S.kpi = S.kpi===b.dataset.k ? 'all' : b.dataset.k; render(); });
+}
+
+/* ── Rendu table ── */
+const TH_RE = ['N°','Commande · Client','Article · Désignation','Type','Reste','Expé','Emplacement','Statut','Cause du retard'];
+const W_RE  = ['38px','170px','215px','56px','86px','72px','185px','128px',''];
+const TH_PRO = ['N°','Commande · Client','Article · Désignation','Type','Expé','Couverture','Verdict','J. retard','Goulots'];
+const W_PRO = ['38px','170px','215px','56px','72px','150px','128px','66px',''];
+
+function empPill(e) {
+  return `<span class="emp-pill ${e.alloc?'alloc':''}" title="${e.alloc?'STOALL — déjà alloué':'STOCK libre, allocation à faire'}">
+    <span class="nm"><span class="material-symbols-outlined">${e.alloc?'check_circle':'radio_button_unchecked'}</span><b>${e.nm}</b></span>
+    <span class="nm">${e.pal?`<span class="pal">${e.pal}</span>`:''}<span class="q">${e.q}</span></span>
+  </span>`;
+}
+
+function renderTable() {
+  const thead = document.getElementById('thead');
+  const tbody = document.getElementById('tbody');
+  const q = S.q.toLowerCase();
+
+  if (S.mode === 'reactif') {
+    thead.innerHTML = '<tr>' + TH_RE.map((h,i)=>`<th style="width:${W_RE[i]}" class="${h==='Reste'?'num':''}">${h}</th>`).join('') + '</tr>';
+    let rows = ROWS.filter(r =>
+      (S.kpi==='all' || (S.kpi==='cq' ? r.cq : r.st===S.kpi)) &&
+      S.types.has(r.type) && (S.at.size===0 || S.at.has(r.at)) &&
+      (!q || (r.n+r.client+r.art+r.des).toLowerCase().includes(q)));
+    tbody.innerHTML = rows.map((r,i) => {
+      const st = ST[r.st];
+      return `<tr class="${r.late?'late':''}">
+        <td class="idx">${i+1}</td>
+        <td><div class="cell-main">${r.n}${r.refC?`<span class="ref2">/${r.refC}</span>`:''}</div><div class="cell-sub">${r.client}</div></td>
+        <td><div class="art">${r.art}${r.refA?`<span class="ref2">/${r.refA}</span>`:''}</div><div class="cell-sub">${r.des}</div></td>
+        <td><span class="type-tag">${r.type}</span></td>
+        <td class="qty"><span class="qty-big">${r.reste}</span><span class="qty-u">u</span></td>
+        <td class="date ${r.late?'late-d':''}">${r.exp}</td>
+        <td>${r.emp.length ? `<div class="emp">${r.emp.map(empPill).join('')}</div>` : '<span class="dash">—</span>'}</td>
+        <td><div class="badge-stack">
+          <span class="badge ${st.cls}"><span class="material-symbols-outlined">${st.ic}</span>${st.lbl}</span>
+          ${r.cq?'<span class="badge b-cq"><span class="material-symbols-outlined">science</span>CQ</span>':''}
+          ${r.att?'<span class="badge b-alc"><span class="material-symbols-outlined">pending</span>Attente lignes</span>':''}
+        </div></td>
+        <td>${r.cause ? `<div class="cause-l">${r.cause.l}</div>
+          ${r.cause.comps.length?`<div class="cause-comps">${r.cause.comps.map(c=>`${c.a} −${c.q}`).join(' · ')}</div>`:''}
+          ${r.cause.eta?`<div class="cause-eta"><span class="material-symbols-outlined">local_shipping</span>arrive ${r.cause.eta.d} · ${r.cause.eta.po} (${r.cause.eta.f})</div>`:''}
+          ${r.cause.retro?`<div class="cause-retro">${r.cause.retro}</div>`:''}` : '<span class="dash">—</span>'}</td>
+      </tr>`;
+    }).join('');
+    document.getElementById('meta-total').textContent = ROWS.length;
+    document.getElementById('foot').innerHTML =
+      `<span class="item"><b>${rows.length}</b>&nbsp;lignes affichées</span>` +
+      KPI_RE.slice(0,3).map(d=>`<span class="item"><span class="sw" style="background:${d.c}"></span>${d.lbl}</span>`).join('') +
+      `<span class="item" style="margin-left:auto">Source X3 · ORDERS + STOALL/STOCK · cache 2 min</span>`;
+  } else {
+    thead.innerHTML = '<tr>' + TH_PRO.map((h,i)=>`<th style="width:${W_PRO[i]}" class="${h==='J. retard'?'num':''}">${h}</th>`).join('') + '</tr>';
+    let rows = PRO.filter(r =>
+      (S.kpi==='all' || r.v===S.kpi) &&
+      S.types.has(r.type) && (S.at.size===0 || S.at.has(r.at)) &&
+      (!q || (r.n+r.client+r.art+r.des).toLowerCase().includes(q)));
+    tbody.innerHTML = rows.map((r,i) => {
+      const late = r.v==='late'||r.v==='blocked'||r.v==='uncov';
+      const src = ROWS.find(x=>x.n===r.n);
+      return `<tr class="${late?'late':''}">
+        <td class="idx">${i+1}</td>
+        <td><div class="cell-main">${r.n}</div><div class="cell-sub">${r.client}</div></td>
+        <td><div class="art">${r.art}</div><div class="cell-sub">${r.des}</div></td>
+        <td><span class="type-tag">${r.type}</span></td>
+        <td class="date">${src?src.exp:''}</td>
+        <td>${r.cover==='Stock'?'<span class="cover-ok">Stock</span>': r.cover==='—'?'<span class="dash">—</span>':
+          r.ofs.map(o=>`<div class="of-line">${o.o}<span class="of-tag ${OFT[o.s][1]}">${OFT[o.s][0]}</span></div>`).join('')}</td>
+        <td><span class="badge ${VD[r.v].cls}">${VD[r.v].lbl}</span></td>
+        <td class="qty" style="font-weight:700">${r.jr>0?r.jr:'<span class="dash">—</span>'}</td>
+        <td>${r.g.length ? r.g.map(g=>`<div class="goulot">
+            <div class="top"><span class="c-art">${g.a}</span><span class="c-desc">${g.d}</span><span class="c-qty">−${g.q}</span></div>
+            <div class="c-eta ${g.od?'overdue':''}">${g.eta}</div>
+          </div>`).join('') : '<span class="dash">—</span>'}</td>
+      </tr>`;
+    }).join('');
+    document.getElementById('meta-total').textContent = PRO.length;
+    document.getElementById('foot').innerHTML =
+      `<span class="item"><b>${rows.length}</b>&nbsp;lignes affichées</span>` +
+      `<span class="item"><span class="sw" style="background:var(--danger)"></span>Action requise</span>` +
+      `<span class="item"><span class="sw" style="background:var(--success)"></span>Réalisable</span>` +
+      `<span class="item" style="margin-left:auto">Moteur séquentiel · consommation composants inter-OF</span>`;
+  }
+}
+
+function render() { renderKpis(); renderTable(); }
+
+/* ── Wiring ── */
+document.getElementById('m-reactif').onclick = () => { S.mode='reactif'; S.kpi='all';
+  document.getElementById('m-reactif').classList.add('on'); document.getElementById('m-proactif').classList.remove('on'); render(); };
+document.getElementById('m-proactif').onclick = () => { S.mode='proactif'; S.kpi='all';
+  document.getElementById('m-proactif').classList.add('on'); document.getElementById('m-reactif').classList.remove('on'); render(); };
+document.querySelectorAll('#types .chip').forEach(b => b.onclick = () => {
+  b.classList.toggle('on'); S.types.has(b.dataset.t) ? S.types.delete(b.dataset.t) : S.types.add(b.dataset.t); render(); });
+document.querySelectorAll('#ateliers .chip').forEach(b => b.onclick = () => {
+  b.classList.toggle('on'); S.at.has(b.dataset.a) ? S.at.delete(b.dataset.a) : S.at.add(b.dataset.a); render(); });
+document.getElementById('q').oninput = (e) => { S.q = e.target.value; render(); };
+
+render();
+</script>
+</body>
+</html>

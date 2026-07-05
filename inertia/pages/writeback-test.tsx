@@ -188,7 +188,7 @@ const WritebackTest: Component = () => {
   }
 
   return (
-    <div class="theme-papier flex h-screen flex-col overflow-hidden bg-background text-foreground">
+    <div class="theme-navy flex h-screen flex-col overflow-hidden bg-background text-foreground">
       <Masthead subtitle="Write-back X3 · terrain de test (#29)" active="ordonnancement" />
 
       <div class="flex-1 overflow-auto px-7 py-6">

@@ -111,7 +111,7 @@ const Shortages: Component<ShortagesProps> = (props) => {
   )
 
   return (
-    <div class="theme-papier flex h-screen flex-col overflow-hidden bg-background text-foreground">
+    <div class="theme-navy flex h-screen flex-col overflow-hidden bg-background text-foreground">
       <Masthead
         subtitle="Ruptures · Couverture composants"
         active="ruptures"
@@ -138,14 +138,6 @@ const Shortages: Component<ShortagesProps> = (props) => {
           </div>
         }
       />
-
-      {/* ═══ Bandeau KPI ═══ */}
-      <section class="flex-none grid grid-cols-4 border-b border-rule">
-        <Kpi label="Ruptures" value={view().stats.nbRuptures} sub="composants × OF bloqués" dot="var(--color-muted-foreground)" valClass="text-foreground" />
-        <Kpi label="Sans couverture" value={counts().sans_couverture} sub="aucune réception prévue" dot="var(--color-destructive)" valClass="text-destructive" />
-        <Kpi label="Retard" value={counts().retard} sub="réception après l'expé" dot="var(--color-suggere)" valClass="text-suggere" />
-        <Kpi label="Couvert" value={counts().couvert} sub="réception à temps" dot="var(--color-ferme)" valClass="text-ferme" last />
-      </section>
 
       {/* ═══ Toolbar ═══ */}
       <div class="flex flex-none flex-wrap items-center gap-2.5 border-b border-rule px-7 py-2">
@@ -254,17 +246,5 @@ const Shortages: Component<ShortagesProps> = (props) => {
     </div>
   )
 }
-
-/** Tuile KPI (miroir de la page /suivi). */
-const Kpi: Component<{ label: string; value: number; sub: string; dot: string; valClass: string; last?: boolean }> = (p) => (
-  <div class={cx('flex flex-col gap-[3px] px-[22px] py-[13px]', !p.last && 'border-r border-rule-soft')}>
-    <span class="flex items-center gap-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.13em] text-muted-foreground">
-      <span class="size-2 rounded-[2px]" style={{ background: p.dot }} />
-      {p.label}
-    </span>
-    <span class={cx('font-fraunces text-[34px] font-black leading-none tracking-tight', p.valClass)}>{p.value}</span>
-    <span class="font-mono text-[11px] font-medium text-muted-foreground">{p.sub}</span>
-  </div>
-)
 
 export default Shortages

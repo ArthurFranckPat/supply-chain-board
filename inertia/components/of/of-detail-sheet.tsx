@@ -359,7 +359,7 @@ export const OfDetailSheet: Component<{
     <Sheet open={props.open} onOpenChange={props.onOpenChange}>
       <SheetContent
         side="bottom"
-        class="theme-papier gap-0 flex h-[72vh] w-full max-w-none flex-col rounded-t-xl p-0"
+        class="theme-navy gap-0 flex h-[72vh] w-full max-w-none flex-col rounded-t-xl p-0"
       >
         <Show
           when={detail()}

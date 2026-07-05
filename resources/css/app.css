@@ -424,8 +424,8 @@
   /* Material 3 type families (loaded via Google Fonts in the scheduler layout) */
   --font-body-md: "Inter", system-ui, sans-serif;
   --font-headline-sm: "Hanken Grotesk", system-ui, sans-serif;
-  --font-label-sm: "JetBrains Mono", ui-monospace, monospace;
-  --font-label-md: "JetBrains Mono", ui-monospace, monospace;
+  --font-label-sm: "Inter", system-ui, sans-serif;
+  --font-label-md: "Inter", system-ui, sans-serif;
 }
 
 /* Retarget the colliding semantic tokens only inside scheduler pages. */
@@ -434,7 +434,7 @@
   --color-primary-foreground: #ffffff;
   --color-background: #fbf8ff;
   --color-secondary: #526600;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-mono: "Inter", system-ui, sans-serif;
 }
 
 /* Google Material Symbols icon font (Ligatures on → use the glyph name as text). */
@@ -635,12 +635,80 @@ up-drawer-dismiss { display: none; }
   --color-destructive-foreground: #fbf8ef;
   --color-danger: #9a3320;
   --font-sans: "Inter", system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-mono: "Inter", system-ui, sans-serif;
   font-family: var(--font-sans);
   color: var(--color-foreground);
   background-color: var(--color-background);
 }
 .theme-papier ::selection { background: var(--color-terra-soft); }
+
+/* ════════════════════════════════════════════════════════════
+   Design system « Navy » (v0.1, exploration) — palette officielle
+   Aereco/Aldes. Coexiste avec .theme-papier (ne le remplace pas) : à
+   poser sur un scope (page/racine) exactement comme .theme-papier.
+   Mockup de référence : design/mockups/theme-aereco-navy.html.
+
+   Contrairement à .theme-papier (qui ne retargete QUE les tokens
+   sémantiques bg/fg/card/primary…), ce scope redéfinit AUSSI les
+   tokens marque + statuts (--color-terra/rule/ferme/planifie/suggere)
+   normalement globaux (@theme static, valeurs Papier) — sinon les
+   classes bg-terra/bg-ferme/bg-planifie/bg-suggere/border-rule (utilisées
+   partout dans board-card.tsx, masthead.tsx, etc.) resteraient sur les
+   teintes Papier même sous ce scope.
+
+   Statut « planifié » réassigné vers un cyan/info (#17a2b8) plutôt que
+   de garder un bleu-ardoise : sous Navy, --color-terra (l'accent marque,
+   réutilisé tel quel — pas de renommage pour rester compatible avec
+   toutes les classes bg-terra/text-terra existantes) est le marine
+   #081061 lui-même, donc un « planifié » bleu-ardoise entrerait en
+   collision visuelle directe avec la marque.
+   ──────────────────────────────────────────────────────────── */
+.theme-navy {
+  /* Marque + statuts (normalement globaux, ici surchargés par scope) */
+  --color-terra: #081061;
+  --color-terra-soft: rgba(8, 16, 97, .08);
+  --color-ferme: #28a745;
+  --color-planifie: #17a2b8;
+  --color-suggere: #ffc107;
+  --color-rule: #d9d6cb;
+  --color-rule-soft: #eae8e0;
+
+  /* Tokens sémantiques */
+  --color-background: #f0f0ed;
+  --color-foreground: #12142c;
+  --color-card: #ffffff;
+  --color-card-foreground: #12142c;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #12142c;
+  --color-primary: #081061;
+  --color-primary-foreground: #ffffff;
+  /* --color-secondary EST le token shadcn de surface NEUTRE (bg-secondary,
+     Badge variant=secondary, hovers, chips…) — utilisé partout dans l'app,
+     pas réservé aux CTA. Le lime officiel (#b0d138) n'y va PAS : câblé ici il
+     inonde toute l'UI de vert (cf. retour utilisateur). Le lime reste
+     disponible en --color-lime pour un usage ponctuel et volontaire
+     (ex. un futur badge « actif » explicite), jamais via un token cascadé. */
+  --color-secondary: #e7e5de;
+  --color-secondary-foreground: #12142c;
+  --color-muted: #e7e5de;
+  --color-muted-bg: #e7e5de;
+  --color-muted-foreground: #6c757d;
+  --color-accent: #e7e5de;
+  --color-accent-foreground: #12142c;
+  --color-border: #d9d6cb;
+  --color-input: #d9d6cb;
+  --color-ring: #007bff;
+  --color-destructive: #dc3545;
+  --color-destructive-foreground: #ffffff;
+  --color-danger: #dc3545;
+  --color-lime: #b0d138;
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-mono: "Inter", system-ui, sans-serif;
+  font-family: var(--font-sans);
+  color: var(--color-foreground);
+  background-color: var(--color-background);
+}
+.theme-navy ::selection { background: var(--color-terra-soft); }
 
 /* ════════════════════════════════════════════════════════════
    Environnement — distinction visuelle test vs prod.
@@ -681,6 +749,32 @@ up-drawer-dismiss { display: none; }
   --color-input: #cbc2dd;
 }
 :root[data-env="test"] .theme-papier ::selection { background: var(--color-terra-soft); }
+
+/* .theme-navy redéfinit lui-même --color-terra/primary/ring/background (comme
+   .theme-papier) → même resurcharge requise sous test, sinon les pages passées
+   en Navy perdraient la distinction visuelle test/prod. */
+:root[data-env="test"] .theme-navy {
+  --color-terra: #6d4bb0;
+  --color-terra-soft: rgba(109, 75, 176, .12);
+  --color-primary: #6d4bb0;
+  --color-primary-foreground: #ffffff;
+  --color-ring: #6d4bb0;
+  --color-background: #eceaf3;
+  --color-card: #faf9fd;
+  --color-card-foreground: #12142c;
+  --color-popover: #faf9fd;
+  --color-popover-foreground: #12142c;
+  --color-secondary: #e4e0ef;
+  --color-secondary-foreground: #12142c;
+  --color-muted: #e4e0ef;
+  --color-muted-bg: #e4e0ef;
+  --color-muted-foreground: #6b618f;
+  --color-accent: #e4e0ef;
+  --color-accent-foreground: #12142c;
+  --color-border: #cbc2dd;
+  --color-input: #cbc2dd;
+}
+:root[data-env="test"] .theme-navy ::selection { background: var(--color-terra-soft); }
 
 /* ════════════════════════════════════════════════════════════
    Impression — boards & tableau de bord en A3 paysage.

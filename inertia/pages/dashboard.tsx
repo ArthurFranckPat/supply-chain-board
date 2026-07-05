@@ -162,7 +162,7 @@ const Dashboard: Component<DashboardProps> = (props) => {
   )
 
   return (
-    <div class="theme-papier flex h-screen flex-col overflow-hidden bg-background text-foreground print:h-auto print:overflow-visible">
+    <div class="theme-navy flex h-screen flex-col overflow-hidden bg-background text-foreground print:h-auto print:overflow-visible">
       <Masthead subtitle="Tableau de bord · Overview" active="dashboard" />
 
       <div class="flex-1 overflow-auto px-7 py-6 print:overflow-visible">
