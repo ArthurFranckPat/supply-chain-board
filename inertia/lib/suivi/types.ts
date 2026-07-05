@@ -63,6 +63,10 @@ export interface SuiviDisplayRow {
   designation: string
   /** MTS / MTO / NOR. */
   type: string
+  /** Référence commande client (SORDER.CUSORDREF_0) — null si absente. */
+  refCommandeClient?: string | null
+  /** Référence article client (ITMBPC.ITMREFBPC_0) — null si absente / identique à l'article. */
+  refArticleClient?: string | null
   statusKey: SuiviStatusKey
   statusLabel: string
   statusIcon: string
@@ -145,6 +149,10 @@ export interface ProactiveDisplayRow {
   article: string
   designation: string
   type: string
+  /** Référence commande client (SORDER.CUSORDREF_0) — null si absente. */
+  refCommandeClient?: string | null
+  /** Référence article client (ITMBPC.ITMREFBPC_0) — null si absente / identique à l'article. */
+  refArticleClient?: string | null
   qteRestante: number
   qteAllouee: number
   reliquat: number

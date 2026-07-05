@@ -555,6 +555,8 @@ export function buildOrderLines(
       isHardPegged: origin.contremarque != null,
       ofPegue: origin.contremarque?.trim() || null,
       emplacements: [],
+      refCommandeClient: origin.refCommandeClient ?? null,
+      refArticleClient: origin.refArticleClient ?? null,
     })
   }
   return lines

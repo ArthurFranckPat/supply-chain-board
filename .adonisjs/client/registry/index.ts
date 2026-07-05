@@ -102,6 +102,12 @@ const routes = {
     tokens: [{"old":"/charge","type":0,"val":"charge","end":""}],
     types: placeholder as Registry['load.index']['types'],
   },
+  'expeditions.index': {
+    methods: ["GET","HEAD"],
+    pattern: '/expeditions',
+    tokens: [{"old":"/expeditions","type":0,"val":"expeditions","end":""}],
+    types: placeholder as Registry['expeditions.index']['types'],
+  },
   'calendar_config.index': {
     methods: ["GET","HEAD"],
     pattern: '/configuration/calendrier',
@@ -269,6 +275,12 @@ const routes = {
     pattern: '/api/v1/dashboard/otd',
     tokens: [{"old":"/api/v1/dashboard/otd","type":0,"val":"api","end":""},{"old":"/api/v1/dashboard/otd","type":0,"val":"v1","end":""},{"old":"/api/v1/dashboard/otd","type":0,"val":"dashboard","end":""},{"old":"/api/v1/dashboard/otd","type":0,"val":"otd","end":""}],
     types: placeholder as Registry['dashboard.otd']['types'],
+  },
+  'expeditions.rows': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/expeditions/rows',
+    tokens: [{"old":"/api/v1/expeditions/rows","type":0,"val":"api","end":""},{"old":"/api/v1/expeditions/rows","type":0,"val":"v1","end":""},{"old":"/api/v1/expeditions/rows","type":0,"val":"expeditions","end":""},{"old":"/api/v1/expeditions/rows","type":0,"val":"rows","end":""}],
+    types: placeholder as Registry['expeditions.rows']['types'],
   },
   'data.load': {
     methods: ["POST"],

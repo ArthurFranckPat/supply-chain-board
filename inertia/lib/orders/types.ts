@@ -32,6 +32,8 @@ export interface OrderCard {
   qty?: number
   /** Carte induite (besoin brut depth-1) : ghost, non-draggable, hors filtres. */
   induit?: boolean
+  /** Contremarque X3 (FMINUM_0 = n° OF rattaché) — ouvre le drawer OF au clic carte. */
+  contremarque?: string | null
 }
 
 /** Portée de la recherche live. */

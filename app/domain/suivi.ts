@@ -263,6 +263,10 @@ export interface OrderLine {
   emplacements?: Emplacement[]
   /** True si les allocations X3 (MTS) portent sur du stock sous CQ. */
   allocationQc?: boolean
+  /** Référence commande client (SORDER.CUSORDREF_0) — null si absente. */
+  refCommandeClient?: string | null
+  /** Référence article client (ITMBPC.ITMREFBPC_0) — null si absente / identique à l'article. */
+  refArticleClient?: string | null
 }
 
 export interface StatusAssignment {

@@ -34,6 +34,10 @@ export interface OrderImpactRow {
   dejaEnRetard: boolean
   nature: 'commande' | 'prevision'
   typeCommande: string
+  /** Référence commande client (SORDER.CUSORDREF_0) — null si absente. */
+  refCommandeClient?: string | null
+  /** Référence article client (ITMBPC.ITMREFBPC_0) — null si absente / identique à l'article. */
+  refArticleClient?: string | null
   matchingMethod: string
   reliquat: number
   statut: 'on_time' | 'stock' | 'retard' | 'bloquee' | 'sans_couverture'
@@ -231,6 +235,8 @@ export function evaluateOrderImpacts(
       dejaEnRetard: demand.date ? demand.date < today : false,
       nature: origin.type === 'order' ? 'commande' : 'prevision',
       typeCommande: origin.orderType ?? 'NOR',
+      refCommandeClient: origin.refCommandeClient ?? null,
+      refArticleClient: origin.refArticleClient ?? null,
       matchingMethod: result.matchingMethod,
       reliquat: result.remainingUncoveredQty,
       statut,

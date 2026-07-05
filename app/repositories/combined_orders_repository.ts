@@ -88,6 +88,7 @@ SELECT
   O.ALLQTY_0,
   P.BPRNAM_0    AS PARTNER_NOM,
   P.CRY_0       AS PAYS,
+  SQ.FMINUM_0   AS CONTREMARQUE,
   CASE
     WHEN O.WIPSTA_0 = 1 AND O.WIPTYP_0 = 1 THEN H.SOHTYP_0
     WHEN O.WIPSTA_0 = 3 AND P.CRY_0 IS NOT NULL AND P.CRY_0 <> 'FR' THEN 'NOR'
@@ -97,6 +98,7 @@ FROM ORDERS O
 INNER JOIN ITMMASTER I ON I.ITMREF_0 = O.ITMREF_0
 LEFT JOIN BPARTNER P ON P.BPRNUM_0 = O.BPRNUM_0
 LEFT JOIN SORDER H ON H.SOHNUM_0 = O.VCRNUM_0 AND O.WIPTYP_0 = 1
+LEFT JOIN SORDERQ SQ ON SQ.SOHNUM_0 = O.VCRNUM_0 AND SQ.SOPLIN_0 = O.VCRLIN_0
 WHERE O.WIPTYP_0 IN (1, 2)
   AND I.ITMSTA_0 = 1
   AND O.RMNEXTQTY_0 > 0
@@ -127,6 +129,9 @@ SELECT
   O.ALLQTY_0,
   P.BPRNAM_0    AS PARTNER_NOM,
   P.CRY_0       AS PAYS,
+  H.BPCORD_0    AS BPCORD,
+  H.CUSORDREF_0 AS CUSORDREF,
+  IB.ITMREFBPC_0 AS ITMREFBPC,
   CASE
     WHEN O.WIPSTA_0 = 1 AND O.WIPTYP_0 = 1 THEN H.SOHTYP_0
     WHEN O.WIPSTA_0 = 3 AND P.CRY_0 IS NOT NULL AND P.CRY_0 <> 'FR' THEN 'NOR'
@@ -136,6 +141,7 @@ FROM ORDERS O
 INNER JOIN ITMMASTER I ON I.ITMREF_0 = O.ITMREF_0
 LEFT JOIN BPARTNER P ON P.BPRNUM_0 = O.BPRNUM_0
 LEFT JOIN SORDER H ON H.SOHNUM_0 = O.VCRNUM_0 AND O.WIPTYP_0 = 1
+LEFT JOIN ITMBPC IB ON IB.ITMREF_0 = O.ITMREF_0 AND IB.BPCNUM_0 = H.BPCORD_0
 WHERE O.WIPTYP_0 IN (1, 2, 5)
   AND I.ITMSTA_0 = 1
   AND O.RMNEXTQTY_0 > 0
@@ -154,6 +160,13 @@ WHERE O.WIPTYP_0 IN (1, 2, 5)
 type RawRow = Record<string, string | null>
 
 const OF_STATUS_LABELS: Record<number, string> = { 1: 'Ferme', 2: 'Planifié', 3: 'Suggéré' }
+
+/**
+ * Client pour lequel on expose les références client (CUSORDREF + ITMREFBPC).
+ * Les autres clients : les refs remontent null (non pertinent / bruit sur la table).
+ * Scopé à ALDES S.A. (BPCORD 80001) — seul cas où la réf interne ≠ réf client.
+ */
+const CLIENTS_AVEC_REF_CLIENT = new Set(['80001'])
 
 function toNum(v: string | null | undefined): number {
   return parseFloat(v ?? '0') || 0
@@ -346,7 +359,7 @@ export class CombinedOrdersRepository {
               customer: row.PARTNER_NOM?.trim() ?? '',
               pays: row.PAYS?.trim() ?? null,
               orderType, nature,
-              contremarque: null,
+              contremarque: row.CONTREMARQUE?.trim() || null,
               qteCommandee: toNum(row.EXTQTY_0),
               qteAllouee: toNum(row.ALLQTY_0),
               ligne: row.VCRLIN_0?.trim() ?? null,
@@ -362,7 +375,7 @@ export class CombinedOrdersRepository {
               customer: row.PARTNER_NOM?.trim() || null,
               pays: row.PAYS?.trim() ?? null,
               orderType,
-              contremarque: null,
+              contremarque: row.CONTREMARQUE?.trim() || null,
               qteCommandee: toNum(row.EXTQTY_0),
               qteAllouee: toNum(row.ALLQTY_0),
               designation: row.DESIGNATION?.trim() ?? null,
@@ -431,6 +444,8 @@ export class CombinedOrdersRepository {
         const orderType = rawType as OrderType | null
 
         if (nature === 'COMMANDE') {
+          // Références client scopées à ALDES S.A. (80001) — null pour les autres clients.
+          const exposeRef = CLIENTS_AVEC_REF_CLIENT.has((row.BPCORD ?? '').trim())
           demandFlows.push({
             article,
             quantity: qty,
@@ -447,6 +462,8 @@ export class CombinedOrdersRepository {
               qteCommandee: toNum(row.EXTQTY_0),
               qteAllouee: toNum(row.ALLQTY_0),
               ligne: row.VCRLIN_0?.trim() ?? null,
+              refCommandeClient: exposeRef ? (row.CUSORDREF?.trim() || null) : null,
+              refArticleClient: exposeRef ? (row.ITMREFBPC?.trim() || null) : null,
             },
           })
         } else {

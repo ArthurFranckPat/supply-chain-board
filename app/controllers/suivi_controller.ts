@@ -310,6 +310,10 @@ export interface SuiviDisplayRow {
   article: string
   designation: string
   type: string
+  /** Référence commande client (SORDER.CUSORDREF_0) — null si absente. */
+  refCommandeClient?: string | null
+  /** Référence article client (ITMBPC.ITMREFBPC_0) — null si absente / identique à l'article. */
+  refArticleClient?: string | null
   statusKey: SuiviStatusKey
   statusLabel: string
   statusIcon: string
@@ -360,6 +364,10 @@ export interface ProactiveDisplayRow {
   article: string
   designation: string
   type: string
+  /** Référence commande client (SORDER.CUSORDREF_0) — null si absente. */
+  refCommandeClient?: string | null
+  /** Référence article client (ITMBPC.ITMREFBPC_0) — null si absente / identique à l'article. */
+  refArticleClient?: string | null
   qteRestante: number
   qteAllouee: number
   reliquat: number
@@ -491,6 +499,8 @@ export function buildSuiviDisplay(
       article: a.line.article,
       designation: a.line.designation,
       type: a.line.typeCommande,
+      refCommandeClient: a.line.refCommandeClient ?? null,
+      refArticleClient: a.line.refArticleClient ?? null,
       statusKey: STATUS_DISPLAY[a.status].key,
       statusLabel: STATUS_DISPLAY[a.status].short,
       statusIcon: STATUS_DISPLAY[a.status].icon,
@@ -518,7 +528,7 @@ export function buildSuiviDisplay(
       action: { severity: rec.severity, label: rec.actions[0] ?? '—' },
       atelier: atelier.code,
       atelierLabel: atelier.label,
-      filter: `${a.line.numCommande} ${a.line.nomClient} ${a.line.article} ${a.line.designation} ${a.line.typeCommande} ${cause?.label ?? ''} ${compsTxt} ${(a.line.emplacements ?? []).map((e) => e.nom).join(' ')} ${atelier.label}${attente ? ' attente lignes mto' : ''}`.toLowerCase(),
+      filter: `${a.line.numCommande} ${a.line.nomClient} ${a.line.article} ${a.line.designation} ${a.line.typeCommande} ${a.line.refCommandeClient ?? ''} ${a.line.refArticleClient ?? ''} ${cause?.label ?? ''} ${compsTxt} ${(a.line.emplacements ?? []).map((e) => e.nom).join(' ')} ${atelier.label}${attente ? ' attente lignes mto' : ''}`.toLowerCase(),
     }
   })
   return { rows, statusCounts: buildStatusCounts(assignments.map((a) => a.status)) }
@@ -622,6 +632,8 @@ export function buildProactiveDisplay(
         article: o.article,
         designation: o.description,
         type: o.typeCommande,
+        refCommandeClient: o.refCommandeClient ?? null,
+        refArticleClient: o.refArticleClient ?? null,
         qteRestante: Math.round(o.qteRestante),
         qteAllouee: Math.round(o.qteAllouee ?? 0),
         reliquat: Math.round(o.reliquat),
@@ -635,7 +647,7 @@ export function buildProactiveDisplay(
         ofs: ofsFinal,
         atelier: atelier.code,
         atelierLabel: atelier.label,
-        filter: `${o.numCommande} ${o.client} ${o.article} ${o.description} ${o.typeCommande} ${verdict.label} ${couverture} ${compsTxt} ${atelier.label}`.toLowerCase(),
+        filter: `${o.numCommande} ${o.client} ${o.article} ${o.description} ${o.typeCommande} ${o.refCommandeClient ?? ''} ${o.refArticleClient ?? ''} ${verdict.label} ${couverture} ${compsTxt} ${atelier.label}`.toLowerCase(),
       }
     })
 

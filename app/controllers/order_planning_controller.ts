@@ -47,6 +47,8 @@ interface Card {
   qty?: number
   /** Carte induite (besoin brut depth-1) : ghost, non-draggable, hors filtres. */
   induit?: boolean
+  /** Contremarque X3 (FMINUM_0 = n° OF rattaché) — ouvre le drawer OF au clic carte. */
+  contremarque?: string | null
 }
 
 interface DayCol {
@@ -137,6 +139,7 @@ function makeOrderCard(p: {
   nature: string
   consommeBouche: boolean
   typologie?: string
+  contremarque?: string | null
 }): Card {
   const id = `${p.numCommande}#${p.ligne}`
   const fields = [
@@ -160,6 +163,7 @@ function makeOrderCard(p: {
     consommeBouche: p.consommeBouche,
     typologie: p.typologie,
     qty: p.quantite,
+    contremarque: p.contremarque ?? null,
   }
 }
 
@@ -431,6 +435,8 @@ export async function loadOrderBoardData(
     dateLivraison: Date
     orderType: string | null
     nature: string
+    /** Contremarque X3 (FMINUM_0 = n° OF rattaché) — ouvre le drawer OF au clic carte. */
+    contremarque: string | null
   }
   let ordreLignes: BoardOrderLine[] = []
   let gammeOps: GammeOperation[] = []
@@ -482,18 +488,28 @@ export async function loadOrderBoardData(
       .map((f) => {
         const o = f.origin as Extract<Flow['origin'], { type: 'order' | 'forecast' }>
         const isOrder = o.type === 'order'
+        // Besoin net = reste à livrer − déjà alloué (réservé en stock). Une commande
+        // entièrement allouée (besoinNet = 0) est A_EXPEDIER — plus rien à fabriquer →
+        // elle n'a pas sa place sur le board planification (qui montre la charge à
+        // produire). On calcule donc la quantité réellement à fabriquer ici.
+        const besoinNet = Math.max(0, f.quantity - o.qteAllouee)
         return {
           numCommande: o.id,
           ligne: isOrder ? ((o as { ligne?: string | null }).ligne ?? '') : '',
           article: f.article,
           designation: o.designation ?? null,
           client: o.customer || null,
-          quantite: f.quantity,
+          quantite: besoinNet,
           dateLivraison: f.date,
           orderType: o.orderType,
           nature: isOrder ? 'COMMANDE' : 'PREVISION',
+          contremarque: o.contremarque ?? null,
         }
       })
+      // Filtre post-map : ne garde que les lignes avec un reste à fabriquer > 0.
+      // Les A_EXPEDIER (besoinNet = 0, entièrement alloués) sont exclus du board —
+      // parité avec la vision commande_a_fabriquer du suivi (issue #21).
+      .filter((l) => l.quantite > 0)
   } catch (e) {
     x3Error = (e as Error).message
   }
@@ -576,6 +592,7 @@ export async function loadOrderBoardData(
       nature: line.nature,
       consommeBouche: bdhParents.has(line.article),
       typologie: typologieByArticle.get(line.article),
+      contremarque: line.contremarque,
     })
 
     if (!buckets.has(workstation)) buckets.set(workstation, newBucket())
