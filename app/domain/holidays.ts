@@ -68,3 +68,31 @@ export function frenchHolidaysRange(fromYear: number, toYear: number): Holiday[]
   for (let y = fromYear; y <= toYear; y++) out.push(...frenchHolidays(y))
   return out
 }
+
+/**
+ * Nombre de jours OUVRÉS entre deux dates ISO (inclusives pour `from`, exclusives
+ * pour `to` — i.e. compte les jours ouvrés strictement après `from` et avant `to`).
+ *
+ * Utile pour calculer le retard « réel » d'une ligne : 1 jour calendaire friday→monday
+ * = 0 jour ouvré (le week-end ne compte pas). Les jours fériés FR sont exclus.
+ *
+ * @param fromIso Date de référence (ex. : date d'expédition demandée).
+ * @param toIso   Date cible (ex. : aujourd'hui). Si antérieure à `from`, retourne 0.
+ */
+export function workingDaysBetween(fromIso: string, toIso: string): number {
+  if (toIso <= fromIso) return 0
+  const fromYear = Number(fromIso.slice(0, 4))
+  const toYear = Number(toIso.slice(0, 4))
+  const closed = new Set(frenchHolidaysRange(fromYear, toYear + 1).map((h) => h.date))
+
+  let count = 0
+  const cur = new Date(fromIso + 'T00:00:00Z')
+  const end = new Date(toIso + 'T00:00:00Z')
+  while (cur < end) {
+    const day = cur.getUTCDay() // 0 = dimanche, 6 = samedi
+    const iso = cur.toISOString().slice(0, 10)
+    if (day !== 0 && day !== 6 && !closed.has(iso)) count++
+    cur.setUTCDate(cur.getUTCDate() + 1)
+  }
+  return count
+}

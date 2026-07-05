@@ -74,6 +74,39 @@ const VERDICT_TONE: Record<ProactiveVerdictKey, string> = {
   uncov: 'bg-destructive/10 text-destructive',
 }
 
+/**
+ * Teinte du background de ligne quand la commande est en retard.
+ *
+ * Principe : NEUTRE par défaut, couleur UNIQUEMENT sur retard. Sinon la moitié
+ * du tableau (lignes en retard) se retrouve colorée et la hiérarchie s'effondre
+ * — la tolérance doit trancher sur du neutre pour être visible.
+ *
+ *  - 'tolerance' (≤ 1 jour ouvré) : orange doux (12%) + barre ambre
+ *  - 'critical' (au-delà)         : rouge doux  (10%) + barre rouge
+ *  - null (pas en retard)         : neutre + hover
+ *
+ * Opacités volontairement faibles (10-12%) : la couleur signale, le contraste
+ * avec le neutre fait le travail. Inutile de saturer — la barre latérale porte
+ * la moitié du signal.
+ *
+ * `bg()`  → background de ligne (getRowClass)
+ * `bar()` → barre latérale gauche (index column tdClass)
+ */
+const LATE_TONE = {
+  bg: (s: 'tolerance' | 'critical' | null) =>
+    s === 'critical'
+      ? '[background-color:rgba(220,38,38,0.10)] hover:[background-color:rgba(220,38,38,0.18)]'
+      : s === 'tolerance'
+        ? '[background-color:rgba(251,191,36,0.12)] hover:[background-color:rgba(251,191,36,0.20)]'
+        : 'hover:bg-foreground/[0.04]',
+  bar: (s: 'tolerance' | 'critical' | null) =>
+    s === 'critical'
+      ? '[box-shadow:inset_3px_0_#dc2626]'
+      : s === 'tolerance'
+        ? '[box-shadow:inset_3px_0_#f59e0b]'
+        : '',
+}
+
 const Tracking: Component<SuiviPageProps> = (props) => {
   // Calcul lourd différé : fetch client-side, relancé à chaque changement de date
   // ou de bust (bouton refresh → ?refresh=N invalide le cache serveur).
@@ -133,7 +166,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
   // Filtres + tri côté client.
   const [query, setQuery] = createSignal('')
   const [statusFilter, setStatusFilter] = createSignal<SuiviStatusKey | 'all'>('all')
-  const [typeFilter, setTypeFilter] = createSignal<Set<string>>(new Set(['MTS', 'MTO', 'NOR']))
+  const [typeFilter, setTypeFilter] = createSignal<Set<string>>(new Set(['MTS', 'MTO']))
   // Filtre atelier (#36) : ensemble de STOLOC retenus (vide = tous). Transverse aux 2 vues.
   const [atelierFilter, setAtelierFilter] = createSignal<Set<string>>(new Set())
 
@@ -302,7 +335,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
           <div class="mt-0.5 font-sans text-[12px] font-medium leading-snug text-secondary-foreground">{info.row.original.client || '—'}</div>
         </>
       ),
-      meta: { thClass: 'w-[178px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft', tdClass: 'px-4 py-[13px] align-middle border-r border-rule-soft' },
+      meta: { thClass: 'w-[178px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'px-4 py-[9px] align-middle' },
     }),
     reHelper.accessor('article', {
       header: () => 'Article · Désignation',
@@ -317,14 +350,14 @@ const Tracking: Component<SuiviPageProps> = (props) => {
           <div class="mt-0.5 font-sans text-[12px] font-medium leading-snug text-secondary-foreground">{info.row.original.designation || '—'}</div>
         </>
       ),
-      meta: { thClass: 'w-[240px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft', tdClass: 'px-4 py-[13px] align-middle border-r border-rule-soft' },
+      meta: { thClass: 'w-[240px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'px-4 py-[9px] align-middle' },
     }),
     reHelper.accessor('type', {
       header: () => 'Type',
       cell: (info) => (
         <span class="rounded bg-terra-soft px-[7px] py-0.5 font-mono text-[10px] font-bold uppercase tracking-wide text-terra">{info.getValue()}</span>
       ),
-      meta: { thClass: 'w-[56px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft', tdClass: 'px-4 py-[13px] align-middle border-r border-rule-soft' },
+      meta: { thClass: 'w-[56px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'px-4 py-[9px] align-middle' },
     }),
     reHelper.accessor('qteRestante', {
       header: () => 'Reste',
@@ -335,7 +368,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
         </>
       ),
       sortingFn: 'basic',
-      meta: { thClass: 'w-[92px] px-4 py-[11px] text-right font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft', tdClass: 'whitespace-nowrap border-r border-rule-soft px-4 py-[13px] text-right align-middle' },
+      meta: { thClass: 'w-[92px] px-4 py-[8px] text-right font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'whitespace-nowrap px-4 py-[9px] text-right align-middle' },
     }),
     reHelper.accessor('dateExp', {
       header: () => 'Expé',
@@ -352,7 +385,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
         const db = b.original.dateExpIso ?? '9999-12-31'
         return da < db ? -1 : da > db ? 1 : 0
       },
-      meta: { thClass: 'w-[76px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft', tdClass: 'whitespace-nowrap border-r border-rule-soft px-4 py-[13px] align-middle font-mono text-[12.5px] font-semibold' },
+      meta: { thClass: 'w-[76px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'whitespace-nowrap px-4 py-[9px] align-middle font-mono text-[12.5px] font-semibold' },
     }),
     reHelper.display({
       id: 'emplacements',
@@ -426,7 +459,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
       },
       // Élargie (190→300px) pour loger le PALNUM complet sur une seule ligne,
       // sans troncature ni retour à la ligne (le tableau scrolle horizontalement).
-      meta: { thClass: 'w-[300px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft', tdClass: 'border-r border-rule-soft px-4 py-[13px] align-middle' },
+      meta: { thClass: 'w-[300px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'px-4 py-[9px] align-middle' },
     }),
     reHelper.display({
       id: 'statusKey',
@@ -456,7 +489,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
           </div>
         )
       },
-      meta: { thClass: 'w-[130px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft', tdClass: 'border-r border-rule-soft px-4 py-[13px] align-middle' },
+      meta: { thClass: 'w-[130px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'px-4 py-[9px] align-middle' },
     }),
     reHelper.display({
       id: 'cause',
@@ -492,18 +525,18 @@ const Tracking: Component<SuiviPageProps> = (props) => {
           </>
         )
       },
-      meta: { thClass: 'w-[280px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule', tdClass: 'px-4 py-[13px] align-middle' },
+      meta: { thClass: 'w-[280px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'px-4 py-[9px] align-middle' },
     }),
   ]
 
   // Index column partagée (N°) pour la table réactive.
   const reactiveIndexCol = {
     headerLabel: 'N°',
-    thClass: 'w-[38px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft',
+    thClass: 'w-[38px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule',
     tdClass: (row: SuiviDisplayRow) =>
       cx(
-        'px-4 py-[13px] align-middle font-fraunces text-[14px] leading-none text-muted-foreground/80 border-r border-rule-soft',
-        row.late && '[box-shadow:inset_3px_0_var(--color-destructive)]',
+        'px-4 py-[9px] align-middle font-fraunces text-[14px] leading-none text-muted-foreground/80',
+        LATE_TONE.bar(row.lateSeverity),
       ),
   }
 
@@ -522,7 +555,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
           <div class="mt-0.5 font-sans text-[12px] font-medium leading-snug text-secondary-foreground">{info.row.original.client || '—'}</div>
         </>
       ),
-      meta: { thClass: 'w-[178px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft', tdClass: 'px-4 py-[13px] align-middle border-r border-rule-soft' },
+      meta: { thClass: 'w-[178px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'px-4 py-[9px] align-middle' },
     }),
     proHelper.accessor('article', {
       header: () => 'Article · Désignation',
@@ -537,14 +570,14 @@ const Tracking: Component<SuiviPageProps> = (props) => {
           <div class="mt-0.5 font-sans text-[12px] font-medium leading-snug text-secondary-foreground">{info.row.original.designation || '—'}</div>
         </>
       ),
-      meta: { thClass: 'w-[240px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft', tdClass: 'px-4 py-[13px] align-middle border-r border-rule-soft' },
+      meta: { thClass: 'w-[240px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'px-4 py-[9px] align-middle' },
     }),
     proHelper.accessor('type', {
       header: () => 'Type',
       cell: (info) => (
         <span class="rounded bg-terra-soft px-[7px] py-0.5 font-mono text-[10px] font-bold uppercase tracking-wide text-terra">{info.getValue()}</span>
       ),
-      meta: { thClass: 'w-[56px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft', tdClass: 'px-4 py-[13px] align-middle border-r border-rule-soft' },
+      meta: { thClass: 'w-[56px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'px-4 py-[9px] align-middle' },
     }),
     proHelper.accessor('qteRestante', {
       header: () => 'Reste',
@@ -555,7 +588,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
         </>
       ),
       sortingFn: 'basic',
-      meta: { thClass: 'w-[92px] px-4 py-[11px] text-right font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft', tdClass: 'whitespace-nowrap border-r border-rule-soft px-4 py-[13px] text-right align-middle' },
+      meta: { thClass: 'w-[92px] px-4 py-[8px] text-right font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'whitespace-nowrap px-4 py-[9px] text-right align-middle' },
     }),
     proHelper.accessor('dateExp', {
       header: () => 'Expé',
@@ -565,7 +598,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
         const db = b.original.dateExpIso ?? '9999-12-31'
         return da < db ? -1 : da > db ? 1 : 0
       },
-      meta: { thClass: 'w-[76px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft', tdClass: 'whitespace-nowrap border-r border-rule-soft px-4 py-[13px] align-middle font-mono text-[12.5px] font-semibold text-foreground' },
+      meta: { thClass: 'w-[76px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'whitespace-nowrap px-4 py-[9px] align-middle font-mono text-[12.5px] font-semibold text-foreground' },
     }),
     proHelper.accessor('couverture', {
       header: () => 'Couverture',
@@ -610,7 +643,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
           </span>
         )
       },
-      meta: { thClass: 'w-[150px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft', tdClass: 'border-r border-rule-soft px-4 py-[13px] align-middle' },
+      meta: { thClass: 'w-[150px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'px-4 py-[9px] align-middle' },
     }),
     proHelper.display({
       id: 'verdictKey',
@@ -624,7 +657,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
           </span>
         )
       },
-      meta: { thClass: 'w-[120px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft', tdClass: 'border-r border-rule-soft px-4 py-[13px] align-middle' },
+      meta: { thClass: 'w-[120px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'px-4 py-[9px] align-middle' },
     }),
     proHelper.accessor('joursRetard', {
       header: () => 'J. retard',
@@ -633,7 +666,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
         return <>{v > 0 ? v : '—'}</>
       },
       sortingFn: 'basic',
-      meta: { thClass: 'w-[70px] px-4 py-[11px] text-right font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft', tdClass: 'whitespace-nowrap border-r border-rule-soft px-4 py-[13px] text-right align-middle font-mono text-[12.5px] font-semibold text-secondary-foreground' },
+      meta: { thClass: 'w-[70px] px-4 py-[8px] text-right font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'whitespace-nowrap px-4 py-[9px] text-right align-middle font-mono text-[12.5px] font-semibold text-secondary-foreground' },
     }),
     proHelper.display({
       id: 'composants',
@@ -682,18 +715,23 @@ const Tracking: Component<SuiviPageProps> = (props) => {
           </div>
         )
       },
-      meta: { thClass: 'w-[300px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule', tdClass: 'px-4 py-[13px] align-middle' },
+      meta: { thClass: 'w-[300px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'px-4 py-[9px] align-middle' },
     }),
   ]
 
   const proIndexCol = {
     headerLabel: 'N°',
-    thClass: 'w-[38px] px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft',
+    thClass: 'w-[38px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule',
     tdClass: (row: ProactiveDisplayRow) => {
-      const late = row.verdictKey === 'late' || row.verdictKey === 'blocked' || row.verdictKey === 'uncov'
+      // blocked / uncov : pas un retard calendaire mais un vrai problème → rouge foncé.
+      // late : utilise la gravité (tolerance/critical).
+      const s =
+        row.verdictKey === 'blocked' || row.verdictKey === 'uncov'
+          ? ('critical' as const)
+          : row.lateSeverity
       return cx(
-        'px-4 py-[13px] align-middle font-fraunces text-[14px] leading-none text-muted-foreground/80 border-r border-rule-soft',
-        late && '[box-shadow:inset_3px_0_var(--color-destructive)]',
+        'px-4 py-[9px] align-middle font-fraunces text-[14px] leading-none text-muted-foreground/80',
+        LATE_TONE.bar(s),
       )
     },
   }
@@ -896,8 +934,11 @@ const Tracking: Component<SuiviPageProps> = (props) => {
                     indexColumn={proIndexCol}
                     getRowClass={(row) => {
                       const k = row.verdictKey
-                      const late = k === 'late' || k === 'blocked' || k === 'uncov'
-                      return cx('border-t border-rule-soft transition-colors', late ? 'bg-destructive/10 hover:bg-destructive/[0.18]' : 'hover:bg-foreground/[0.04]')
+                      const s =
+                        k === 'blocked' || k === 'uncov'
+                          ? ('critical' as const)
+                          : row.lateSeverity
+                      return cx('border-t border-rule-soft transition-colors', LATE_TONE.bg(s))
                     }}
                     tableClass="min-w-[1320px] table-fixed"
                     scrollContainerClass="h-full border-0 rounded-none shadow-none"
@@ -954,7 +995,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
               sorting={reactiveSorting}
               onSortingChange={setReactiveSorting}
               indexColumn={reactiveIndexCol}
-              getRowClass={(row) => cx('border-t border-rule-soft transition-colors', row.late ? 'bg-destructive/10 hover:bg-destructive/[0.18]' : 'hover:bg-foreground/[0.04]')}
+              getRowClass={(row) => cx('border-t border-rule-soft transition-colors', LATE_TONE.bg(row.lateSeverity))}
               tableClass="min-w-[1410px] table-fixed"
               scrollContainerClass="h-full border-0 rounded-none shadow-none"
               theadRowClass="sticky top-0 z-10 bg-secondary"

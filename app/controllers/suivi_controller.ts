@@ -22,6 +22,15 @@ import { resolveCoveringReception, daysBetweenIso } from '#app/domain/shortages'
 import type { ReceptionRecord } from '#app/domain/recursive-checker'
 import boardDataset from '#services/board_dataset'
 import { atelierLabel } from '#app/domain/atelier'
+import { workingDaysBetween } from '#app/domain/holidays'
+
+/** Seuil de tolérance (jours ouvrés) pour le badge « retard récent ». */
+export const LATE_TOLERANCE_DAYS = 1
+
+/** Classe le retard selon qu'on est dans la tolérance (≤ 1 jour ouvré) ou au-delà. */
+function lateSeverity(lateDays: number): 'tolerance' | 'critical' {
+  return lateDays <= LATE_TOLERANCE_DAYS ? 'tolerance' : 'critical'
+}
 
 /** Une option de filtre atelier (STOLOC) : code X3 + libellé lisible. */
 export interface AtelierOption {
@@ -328,6 +337,10 @@ export interface SuiviDisplayRow {
   /** ISO YYYY-MM-DD pour le tri chronologique (null si absente). */
   dateExpIso: string | null
   late: boolean
+  /** Jours ouvrés de retard (0 si pas en retard). Exclut week-ends + fériés FR. */
+  lateDays: number
+  /** Gravité du retard : 'tolerance' (≤ 1 j ouvré) | 'critical' (au-delà) | null. */
+  lateSeverity: 'tolerance' | 'critical' | null
   /** Emplacements (LOC) rattachés à la ligne (STOALL si allouée, sinon STOCK). */
   emplacements: SuiviEmplacementDisplay[]
   /** True si au moins un emplacement est en zone d'expédition (QUAI|SM|EXP|S9C|S3C). */
@@ -375,6 +388,8 @@ export interface ProactiveDisplayRow {
   dateExpIso: string | null
   verdictKey: ProactiveVerdictKey
   verdictLabel: string
+  /** Gravité du retard : 'tolerance' (≤ 1 j ouvré) | 'critical' (au-delà) | null. */
+  lateSeverity: 'tolerance' | 'critical' | null
   /** Mode de couverture : « Stock » | n° OF (« · »-séparés) | « Achat » | « — ». */
   couverture: string
   joursRetard: number
@@ -455,6 +470,7 @@ export function buildSuiviDisplay(
   statusCounts: Record<SuiviStatus, number>
 } {
   const now = refDate ?? new Date()
+  const nowIso = now.toISOString().slice(0, 10)
   const rows: SuiviDisplayRow[] = assignments.map((a) => {
     const cause: SuiviCauseDisplay | null = a.cause
       ? {
@@ -513,6 +529,16 @@ export function buildSuiviDisplay(
       dateExp: fmtFrDay(a.line.dateExpedition?.toISOString().slice(0, 10)),
       dateExpIso: a.line.dateExpedition?.toISOString().slice(0, 10) ?? null,
       late: a.line.dateExpedition !== null && a.line.dateExpedition < now,
+      lateDays:
+        a.line.dateExpedition !== null && a.line.dateExpedition < now
+          ? workingDaysBetween(a.line.dateExpedition.toISOString().slice(0, 10), nowIso)
+          : 0,
+      lateSeverity:
+        a.line.dateExpedition !== null && a.line.dateExpedition < now
+          ? lateSeverity(
+              workingDaysBetween(a.line.dateExpedition.toISOString().slice(0, 10), nowIso),
+            )
+          : null,
       emplacements: (a.line.emplacements ?? [])
         .filter((e) => Boolean(e.nom))
         .map((e) => ({
@@ -641,6 +667,10 @@ export function buildProactiveDisplay(
         dateExpIso: o.dateExpedition || null,
         verdictKey: verdict.key,
         verdictLabel: verdict.label,
+        lateSeverity:
+          verdict.key === 'late' && o.dateExpedition
+            ? lateSeverity(workingDaysBetween(o.dateExpedition, todayIso))
+            : null,
         couverture,
         joursRetard: o.joursRetard,
         composants: comps,
