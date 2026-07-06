@@ -551,6 +551,12 @@ export default class SchedulerController {
    * GET /api/v1/planning/shortages/rows — endpoint JSON (calcul lourd).
    * Charge le pipeline de faisabilité + réceptions, pivote en lignes, renvoie les lignes
    * pré-formatées + stats + erreur X3 (consommé en fetch par la page Solid `scheduler/shortages`).
+   *
+   * Limite assumée : le verdict de faisabilité par OF vient de l'override MFGMAT (snapshot
+   * PLAT, sans consommation virtuelle entre OFs — contrat badge==détail, issue #11). Deux OF
+   * partageant le stock d'un même composant peuvent donc être jugés faisables chacun → rupture
+   * de contention invisible ici. La vue proactive /suivi (preferEngineFeasibility, moteur
+   * séquentiel) couvre ce cas. Ne pas « corriger » ici sans casser la parité badge board.
    */
   async shortageRows(ctx: HttpContext) {
     const startParam = ctx.request.input('start') as string | undefined
