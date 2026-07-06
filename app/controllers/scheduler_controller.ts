@@ -591,12 +591,6 @@ export default class SchedulerController {
           // trop tard). En bonus : fenêtre STRDAT courte (~25× moins de lignes que le
           // lookback ENDDAT) + getDemandAndReception sans WIPTYP=5 (cf. /programme).
           //
-          // Réceptions couvrantes = ORDERS WIPTYP=2 WIPSTA=1 (POs fermes) déjà chargées
-          // par loadOrderImpacts (receptionFlows). On ne GARDE que les fermes (origin.firm)
-          // → fini le SOAP PORDERQ séparé (même donnée, source unique = ORDERS).
-          // Limit : réceptions au-delà de windowTo non incluses (getDemandAndReception
-          // borne WIPTYP=2 à ENDDAT <= to) → un PO très en retard peut apparaître
-          // « sans couverture » au lieu de « retard » (acceptable sur fenêtre 14j action).
           const { result, articles, ofPegs, receptionFlows } = await loadOrderImpacts({
             from: windowFrom,
             to: windowTo,
@@ -614,15 +608,26 @@ export default class SchedulerController {
               },
             ])
           )
-          const firmReceptions = receptionFlows.filter(
-            (f) => f.origin.type === 'reception' && (f.origin as { firm?: boolean }).firm,
-          )
+          // Réceptions COUVRANTES = PORDERQ complet (getReceptions, cache SWR global déjà
+          // partagé avec le détail OF / diagnostic), NON borné à windowTo : un PO arrivant
+          // après la fenêtre doit donner « retard », pas un faux « sans couverture » qui
+          // fait commander en double. Le MOTEUR de faisabilité garde ses receptionFlows
+          // bornés (loadOrderImpacts) — le matcher les compte comme stock sans regarder la
+          // date, élargir sa fenêtre fausserait les statuts commande.
+          // Repli si le SOAP échoue : fermes ORDERS de la fenêtre (couverture partielle).
+          const coverageReceptions = await boardDataset
+            .getReceptions()
+            .catch(() =>
+              receptionFlows.filter(
+                (f) => f.origin.type === 'reception' && (f.origin as { firm?: boolean }).firm,
+              ),
+            )
           // Lookback des retards de livraison : on garde les PO en retard (attendues dans le
           // passé) jusqu'à RECEPTION_LOOKBACK_DAYS pour capter les livraisons en retard.
           const receptionFrom = new Date()
           receptionFrom.setDate(receptionFrom.getDate() - RECEPTION_LOOKBACK_DAYS)
           receptionFrom.setHours(0, 0, 0, 0)
-          const receptionsByArticle = groupReceptionsByArticle(firmReceptions, receptionFrom)
+          const receptionsByArticle = groupReceptionsByArticle(coverageReceptions, receptionFrom)
           return buildShortageRows(result, receptionsByArticle, articles, pegsIso, {
             overdueMinQty: RECEPTION_OVERDUE_MIN_QTY,
           })
