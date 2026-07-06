@@ -1,7 +1,6 @@
 import { createMemo, createResource, createSignal, Show, type Component } from 'solid-js'
 import { Link } from '@/lib/inertia-solid'
 import { route } from '@/lib/routes'
-import { cx } from '@/libs/cva'
 import { ShortageRegistre, ShortageTimeline } from '@/components/shortages/shortage-table'
 import OfDetailSheet from '@/components/of/of-detail-sheet'
 import { Masthead } from '@/components/masthead'
@@ -83,16 +82,20 @@ const Shortages: Component<ShortagesProps> = (props) => {
   }
 
   const verdictChip = (k: ShortageVerdictKey | 'all', label: string) => {
-    const on = verdictFilter() === k
+    const on = () => verdictFilter() === k
+    const count = () => (k === 'all' ? view().rows.length : counts()[k])
     return (
       <button
         type="button"
         class={`rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors ${
-          on ? 'bg-terra-soft text-terra' : 'text-muted-foreground hover:text-foreground'
+          on() ? 'bg-terra-soft text-terra' : 'text-muted-foreground hover:text-foreground'
         }`}
-        onClick={() => setVerdictFilter(on ? 'all' : k)}
+        onClick={() => setVerdictFilter(on() ? 'all' : k)}
       >
         {label}
+        <Show when={count() > 0}>
+          <span class="ml-1 opacity-60">{count()}</span>
+        </Show>
       </button>
     )
   }

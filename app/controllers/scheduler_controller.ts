@@ -531,14 +531,15 @@ export default class SchedulerController {
     }
     const startIso = isoDay(windowFrom)
     const now = atMidnight(new Date())
-    const navQuery = (start: string) =>
-      `?start=${start}&days=${horizon}` + (force ? '&refresh=1' : '')
+    // refresh=1 volontairement ABSENT des liens de navigation : sinon un clic « Actualiser »
+    // le propage à chaque Préc./Suiv. → purge du cache global à chaque navigation.
+    const navQuery = (start: string) => `?start=${start}&days=${horizon}`
 
     return ctx.inertia.render('scheduler/shortages', {
       horizon,
       windowStart: startIso,
-      // URL du fragment différé (calcul lourd côté serveur).
-      rowsHref: `/api/v1/planning/shortages/rows${navQuery(startIso)}`,
+      // URL du fragment différé (calcul lourd côté serveur). Seul endroit où refresh survit.
+      rowsHref: `/api/v1/planning/shortages/rows${navQuery(startIso)}${force ? '&refresh=1' : ''}`,
       dateRange: `${fmtFrShort(startIso)} — ${fmtFrShort(navIso(horizon))}`,
       prevHref: `/ruptures${navQuery(navIso(-horizon))}`,
       nextHref: `/ruptures${navQuery(navIso(horizon))}`,
@@ -571,17 +572,19 @@ export default class SchedulerController {
     const cacheKey = `payload:${isoDay(windowFrom)}:${horizon}`
     if (force) await ruptCache().delete({ key: cacheKey })
 
-    const cached = await ruptCache().getOrSet({
-      key: cacheKey,
-      ttl: 2 * 60 * 1000,
-      // SWR : timeout par défaut (0) = vrai stale-while-revalidate (cf. board_dataset / suivi).
-      // NE PAS mettre > 0 → refresh hors background, rejet orphelin → unhandled rejection → crash.
-      factory: async () => {
-        let rows: ShortageRow[] = []
-        let stats = { nbRuptures: 0, nbCouvertes: 0, nbSansCouverture: 0 }
-        let x3Error: string | null = null
-
-        try {
+    // Le catch est AUTOUR du getOrSet, pas dans la factory : une erreur X3 transiente ne
+    // doit jamais être mise en cache (sinon payload vide servi à tous pendant le TTL).
+    // Factory qui throw → bentocache sert le stale s'il existe, sinon l'erreur remonte ici.
+    let rows: ShortageRow[] = []
+    let stats = { nbRuptures: 0, nbCouvertes: 0, nbSansCouverture: 0 }
+    let x3Error: string | null = null
+    try {
+      const cached = await ruptCache().getOrSet({
+        key: cacheKey,
+        ttl: 2 * 60 * 1000,
+        // SWR : timeout par défaut (0) = vrai stale-while-revalidate (cf. board_dataset / suivi).
+        // NE PAS mettre > 0 → refresh hors background, rejet orphelin → unhandled rejection → crash.
+        factory: async () => {
           // useWindowOfs : OFs scopés par STRDAT (date de DÉBUT). Métier : « on ne peut
           // pas COMMENCER un OF si un composant est en rupture » → l'OF actionnable est
           // celui qui va démarrer dans la fenêtre, pas celui qui finit (déjà lancé =
@@ -620,18 +623,14 @@ export default class SchedulerController {
           receptionFrom.setDate(receptionFrom.getDate() - RECEPTION_LOOKBACK_DAYS)
           receptionFrom.setHours(0, 0, 0, 0)
           const receptionsByArticle = groupReceptionsByArticle(firmReceptions, receptionFrom)
-          const built = buildShortageRows(result, receptionsByArticle, articles, pegsIso)
-          rows = built.rows
-          stats = built.stats
-        } catch (e) {
-          x3Error = (e as Error).message
-        }
-
-        return { rows, stats, x3Error }
-      },
-    })
-
-    const { rows, stats, x3Error } = cached
+          return buildShortageRows(result, receptionsByArticle, articles, pegsIso)
+        },
+      })
+      rows = cached.rows
+      stats = cached.stats
+    } catch (e) {
+      x3Error = (e as Error).message
+    }
 
     // Présentation (badges verdict + dates FR). Lecture seule, pas de Solid.
     const VERDICT_PRESET: Record<
