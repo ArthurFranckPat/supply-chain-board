@@ -15,6 +15,8 @@ export interface ShortageDisplayRow {
   component: string
   componentDesc: string
   qteManquante: string
+  /** Qté manquante brute (numérique) — sert aux agrégations de la vue « Par composant ». */
+  qteManquanteNum: number
   numOf: string
   ofHref: string
   articleParent: string
@@ -22,6 +24,8 @@ export interface ShortageDisplayRow {
   numCommande: string
   client: string
   hasCommande: boolean
+  /** Autres commandes allouées au même OF (au-delà de la plus urgente affichée). */
+  autresCommandes: string[]
   dateExpedition: string
   reception: ShortageReceptionDisplay | null
   dateArrivee: string

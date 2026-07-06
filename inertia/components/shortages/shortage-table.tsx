@@ -8,6 +8,8 @@ import { cx } from '@/libs/cva'
  *
  * - `ShortageRegistre` : table éditoriale dense (R1) — une ligne par couple
  *   composant × OF bloqué, colonnes triables via le DataTable maison.
+ * - `ShortageComposants` : agrégation par composant (R2) — « quel composant fait le
+ *   plus de dégâts ? » (nb OFs bloqués, qté totale, commande la plus urgente).
  * - `ShortageTimeline` : frise temporelle (R3) — réception couvrante ↔ date
  *   d'expédition, pour lire d'un coup le retard d'arrivée (gap hachuré) ou la marge.
  *
@@ -90,7 +92,17 @@ export const ShortageRegistre: Component<{
         const row = info.row.original
         return (
           <Show when={row.hasCommande} fallback={<span class="font-sans text-[12px] italic text-muted-foreground/60">— OF orphelin</span>}>
-            <div class="font-mono text-[13px] font-bold text-foreground">{row.numCommande}</div>
+            <div class="flex items-baseline gap-1.5 font-mono text-[13px] font-bold text-foreground">
+              {row.numCommande}
+              <Show when={row.autresCommandes.length > 0}>
+                <span
+                  class="rounded bg-terra-soft px-1 font-mono text-[9px] font-bold text-terra"
+                  title={`OF aussi alloué à : ${row.autresCommandes.join(', ')}`}
+                >
+                  +{row.autresCommandes.length}
+                </span>
+              </Show>
+            </div>
             <div class="mt-0.5 truncate max-w-[11rem] font-sans text-[12px] font-medium leading-snug text-secondary-foreground">{row.client}</div>
           </Show>
         )
@@ -219,6 +231,193 @@ export const ShortageRegistre: Component<{
       }
       emptyState={props.emptyState}
     />
+  )
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// R2 · Par composant (agrégation « quel composant fait le plus de dégâts ? »)
+// ───────────────────────────────────────────────────────────────────────────
+
+interface ComponentGroup {
+  component: string
+  componentDesc: string
+  totalManquant: number
+  /** Lignes sources (une par OF bloqué), déjà triées par urgence. */
+  lines: ShortageDisplayRow[]
+  nbSansCouverture: number
+  /** Pire verdict du groupe (sans_couverture > retard > couvert). */
+  worstVerdict: ShortageDisplayRow['verdictKey']
+  /** Ligne la plus urgente AVEC commande (première du tri parent) — null si toutes orphelines. */
+  urgent: ShortageDisplayRow | null
+}
+
+const VERDICT_RANK: Record<ShortageDisplayRow['verdictKey'], number> = {
+  sans_couverture: 2,
+  retard: 1,
+  couvert: 0,
+}
+
+/** Agrège les lignes par composant. `rows` arrive trié par urgence (expé asc) du parent. */
+const groupByComponent = (rows: ShortageDisplayRow[]): ComponentGroup[] => {
+  const map = new Map<string, ComponentGroup>()
+  for (const r of rows) {
+    let g = map.get(r.component)
+    if (!g) {
+      g = {
+        component: r.component,
+        componentDesc: r.componentDesc,
+        totalManquant: 0,
+        lines: [],
+        nbSansCouverture: 0,
+        worstVerdict: 'couvert',
+        urgent: null,
+      }
+      map.set(r.component, g)
+    }
+    g.lines.push(r)
+    g.totalManquant += r.qteManquanteNum
+    if (r.verdictKey === 'sans_couverture') g.nbSansCouverture++
+    if (VERDICT_RANK[r.verdictKey] > VERDICT_RANK[g.worstVerdict]) g.worstVerdict = r.verdictKey
+    if (!g.urgent && r.hasCommande) g.urgent = r
+  }
+  // « Dégâts » : nb d'OF bloqués desc, puis qté totale manquante desc.
+  return [...map.values()].sort(
+    (a, b) => b.lines.length - a.lines.length || b.totalManquant - a.totalManquant,
+  )
+}
+
+export const ShortageComposants: Component<{
+  rows: Accessor<ShortageDisplayRow[]>
+  onSelectOf: (numOf: string) => void
+  emptyState: import('solid-js').JSX.Element
+}> = (props) => {
+  const groups = () => groupByComponent(props.rows())
+  const fmtTotal = (n: number) => {
+    const r = Math.round(n * 100) / 100
+    return Number.isInteger(r) ? String(r) : r.toLocaleString('fr-FR')
+  }
+
+  return (
+    <div class="h-full overflow-auto bg-card">
+      <Show when={groups().length > 0} fallback={props.emptyState}>
+        <table class="min-w-[1080px] w-full text-xs">
+          <thead>
+            <tr class="sticky top-0 z-10 bg-secondary">
+              <th class={`w-[38px] ${TH}`}>N°</th>
+              <th class={TH}>Composant · Désignation</th>
+              <th class={`w-[110px] ${TH_R}`}>Qté manq. totale</th>
+              <th class={`w-[90px] ${TH_R}`}>OFs bloqués</th>
+              <th class={TH}>OFs</th>
+              <th class={`w-[210px] ${TH}`}>Commande la plus urgente</th>
+              <th class={`w-[150px] ${TH.replace('border-r border-rule-soft', '')}`}>Couverture</th>
+            </tr>
+          </thead>
+          <tbody>
+            <For each={groups()}>
+              {(g, i) => {
+                const late = g.worstVerdict !== 'couvert'
+                return (
+                  <tr
+                    class={cx(
+                      'border-t border-rule-soft transition-colors',
+                      late ? 'bg-destructive/10 hover:bg-destructive/[0.18]' : 'hover:bg-foreground/[0.04]',
+                    )}
+                  >
+                    <td
+                      class={cx(
+                        'px-4 py-[13px] align-middle font-fraunces text-[14px] leading-none text-muted-foreground/80 border-r border-rule-soft',
+                        late && '[box-shadow:inset_3px_0_var(--color-destructive)]',
+                      )}
+                    >
+                      {i() + 1}
+                    </td>
+                    <td class={TD}>
+                      <div class="font-mono text-[13px] font-bold tracking-tight text-foreground">{g.component}</div>
+                      <div class="mt-0.5 truncate max-w-[18rem] font-sans text-[12px] font-medium leading-snug text-secondary-foreground">
+                        {g.componentDesc}
+                      </div>
+                    </td>
+                    <td class={`whitespace-nowrap text-right ${TD}`}>
+                      <span class="font-fraunces text-[19px] font-black leading-none tracking-tight text-destructive">
+                        {fmtTotal(g.totalManquant)}
+                      </span>
+                      <span class="ml-0.5 font-mono text-[10px] font-medium text-muted-foreground/80">u</span>
+                    </td>
+                    <td class={`whitespace-nowrap text-right ${TD}`}>
+                      <span class="font-fraunces text-[17px] font-black leading-none text-foreground">{g.lines.length}</span>
+                    </td>
+                    <td class={TD}>
+                      <div class="flex flex-wrap gap-1">
+                        <For each={g.lines}>
+                          {(l) => (
+                            <button
+                              type="button"
+                              onClick={() => props.onSelectOf(l.numOf)}
+                              title={`${l.articleParent} · ${l.articleParentDesc} — manque ${l.qteManquante} u`}
+                              class={cx(
+                                'cursor-pointer rounded border px-1.5 py-0.5 font-mono text-[10.5px] font-bold transition-colors hover:border-terra hover:text-terra',
+                                l.verdictKey === 'sans_couverture'
+                                  ? 'border-destructive/30 text-destructive'
+                                  : 'border-rule text-secondary-foreground',
+                              )}
+                            >
+                              {l.numOf}
+                            </button>
+                          )}
+                        </For>
+                      </div>
+                    </td>
+                    <td class={TD}>
+                      <Show
+                        when={g.urgent}
+                        fallback={<span class="font-sans text-[12px] italic text-muted-foreground/60">— OF orphelins</span>}
+                      >
+                        {(u) => (
+                          <>
+                            <div class="font-mono text-[13px] font-bold text-foreground">
+                              {u().numCommande}
+                              <span class={cx('ml-2 font-mono text-[11px] font-semibold', late ? 'text-destructive' : 'text-muted-foreground')}>
+                                {u().dateExpedition}
+                              </span>
+                            </div>
+                            <div class="mt-0.5 truncate max-w-[13rem] font-sans text-[12px] font-medium leading-snug text-secondary-foreground">
+                              {u().client}
+                            </div>
+                          </>
+                        )}
+                      </Show>
+                    </td>
+                    <td class="w-[150px] px-4 py-[13px] align-middle">
+                      <Show
+                        when={g.nbSansCouverture > 0}
+                        fallback={
+                          <span
+                            class={cx(
+                              'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium whitespace-nowrap',
+                              g.worstVerdict === 'retard' ? 'bg-suggere/15 text-suggere' : 'bg-ferme/15 text-ferme',
+                            )}
+                          >
+                            <span class="material-symbols-outlined text-[13px]">
+                              {g.worstVerdict === 'retard' ? 'schedule' : 'check_circle'}
+                            </span>
+                            {g.worstVerdict === 'retard' ? 'Retard' : 'Couvert'}
+                          </span>
+                        }
+                      >
+                        <span class="inline-flex items-center gap-1 rounded-md bg-destructive/10 px-2 py-0.5 text-[11px] font-medium whitespace-nowrap text-destructive">
+                          <span class="material-symbols-outlined text-[13px]">error</span>
+                          {g.nbSansCouverture}/{g.lines.length} sans couv.
+                        </span>
+                      </Show>
+                    </td>
+                  </tr>
+                )
+              }}
+            </For>
+          </tbody>
+        </table>
+      </Show>
+    </div>
   )
 }
 

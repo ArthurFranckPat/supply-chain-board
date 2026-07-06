@@ -1,7 +1,7 @@
-import { createMemo, createResource, createSignal, Show, type Component } from 'solid-js'
+import { createMemo, createResource, createSignal, Match, Show, Switch, type Component } from 'solid-js'
 import { Link } from '@/lib/inertia-solid'
 import { route } from '@/lib/routes'
-import { ShortageRegistre, ShortageTimeline } from '@/components/shortages/shortage-table'
+import { ShortageComposants, ShortageRegistre, ShortageTimeline } from '@/components/shortages/shortage-table'
 import OfDetailSheet from '@/components/of/of-detail-sheet'
 import { Masthead } from '@/components/masthead'
 import type { ShortageRowsResponse, ShortageVerdictKey } from '@/lib/shortages/types'
@@ -12,8 +12,8 @@ import type { ShortageRowsResponse, ShortageVerdictKey } from '@/lib/shortages/t
  *
  * Shell Inertia instantané (SchedulerController.shortageTracker) ; les lignes (calcul
  * lourd : faisabilité + réceptions) chargées en différé par fetch JSON (shortageRows).
- * Deux vues d'une même donnée : « Registre » (table éditoriale) et « Couverture »
- * (frise réception ↔ expédition).
+ * Trois vues d'une même donnée : « Registre » (table éditoriale), « Par composant »
+ * (agrégation dégâts) et « Couverture » (frise réception ↔ expédition).
  */
 
 type ShortagesProps = {
@@ -44,7 +44,7 @@ const Shortages: Component<ShortagesProps> = (props) => {
   const view = createMemo(() => data() ?? EMPTY)
 
   // Bascule de vue + filtres client.
-  const [mode, setMode] = createSignal<'registre' | 'couverture'>('registre')
+  const [mode, setMode] = createSignal<'registre' | 'composants' | 'couverture'>('registre')
   const [query, setQuery] = createSignal('')
   const [verdictFilter, setVerdictFilter] = createSignal<ShortageVerdictKey | 'all'>('all')
 
@@ -144,28 +144,26 @@ const Shortages: Component<ShortagesProps> = (props) => {
 
       {/* ═══ Toolbar ═══ */}
       <div class="flex flex-none flex-wrap items-center gap-2.5 border-b border-rule px-7 py-2">
-        {/* Bascule Registre / Couverture */}
+        {/* Bascule Registre / Par composant / Couverture */}
         <div class="inline-flex items-center rounded-md border border-rule bg-card p-0.5">
-          <button
-            type="button"
-            class={`rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors ${
-              mode() === 'registre' ? 'bg-terra-soft text-terra' : 'text-muted-foreground hover:text-foreground'
-            }`}
-            onClick={() => setMode('registre')}
-            title="Table éditoriale : une ligne par composant × OF bloqué"
-          >
-            Registre
-          </button>
-          <button
-            type="button"
-            class={`rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors ${
-              mode() === 'couverture' ? 'bg-terra-soft text-terra' : 'text-muted-foreground hover:text-foreground'
-            }`}
-            onClick={() => setMode('couverture')}
-            title="Frise temporelle : réception couvrante ↔ date d'expédition"
-          >
-            Couverture
-          </button>
+          {(
+            [
+              ['registre', 'Registre', 'Table éditoriale : une ligne par composant × OF bloqué'],
+              ['composants', 'Par composant', 'Agrégation : quel composant bloque le plus d’OF ?'],
+              ['couverture', 'Couverture', 'Frise temporelle : réception couvrante ↔ date d’expédition'],
+            ] as const
+          ).map(([key, label, title]) => (
+            <button
+              type="button"
+              class={`rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                mode() === key ? 'bg-terra-soft text-terra' : 'text-muted-foreground hover:text-foreground'
+              }`}
+              onClick={() => setMode(key)}
+              title={title}
+            >
+              {label}
+            </button>
+          ))}
         </div>
 
         {/* Filtre verdict */}
@@ -227,9 +225,14 @@ const Shortages: Component<ShortagesProps> = (props) => {
           }
         >
           <div class="flex-1 overflow-hidden p-5">
-            <Show
-              when={mode() === 'registre'}
-              fallback={
+            <Switch>
+              <Match when={mode() === 'registre'}>
+                <ShortageRegistre rows={filteredRows} onSelectOf={onSelectOf} emptyState={emptyState} />
+              </Match>
+              <Match when={mode() === 'composants'}>
+                <ShortageComposants rows={filteredRows} onSelectOf={onSelectOf} emptyState={emptyState} />
+              </Match>
+              <Match when={mode() === 'couverture'}>
                 <ShortageTimeline
                   rows={timelineRows()}
                   windowStartIso={props.windowStart}
@@ -237,10 +240,8 @@ const Shortages: Component<ShortagesProps> = (props) => {
                   onSelectOf={onSelectOf}
                   emptyState={emptyState}
                 />
-              }
-            >
-              <ShortageRegistre rows={filteredRows} onSelectOf={onSelectOf} emptyState={emptyState} />
-            </Show>
+              </Match>
+            </Switch>
           </div>
         </Show>
       </Show>

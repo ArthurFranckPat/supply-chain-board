@@ -44,6 +44,8 @@ export interface ShortageRow {
   numCommande: string | null
   client: string | null
   dateExpedition: string | null
+  /** Autres commandes clientes allouées au même OF (au-delà de la plus urgente affichée). */
+  autresCommandes: string[]
   statutCommande: OrderImpactResult['orders'][number]['statut'] | null
   /** Retard commande (stock strict/qc) issu du moteur de faisabilité. */
   joursRetard: number
@@ -197,25 +199,30 @@ export function buildShortageRows(
 ): ShortageResult {
   const todayIso = opts.todayIso ?? isoLocalDay()
   const overdueMinQty = opts.overdueMinQty ?? 0
-  // Map inverse OF → commande (un OF rattaché à une commande porte son statut/retard).
+  // Map inverse OF → commandes (un OF rattaché à une commande porte son statut/retard).
   // On ne rattache QUE les vraies commandes clientes : une prévision ne constitue pas un
   // engagement client → parler de « rupture commande » pour une prévision n'a pas de sens.
-  const ofToOrder = new Map<string, OrderRollup>()
+  // Un OF peut être alloué à PLUSIEURS commandes : la plus urgente (date d'expédition la
+  // plus tôt) porte la ligne, les autres sont exposées dans `autresCommandes`.
+  const ofToOrders = new Map<string, OrderRollup[]>()
   for (const order of result.orders) {
     if (order.nature !== 'commande') continue
     for (const of of order.ofs) {
-      // Un OF peut être alloué à plusieurs commandes : on garde la plus urgente
-      // (date d'expédition la plus tôt) pour l'affichage de la ligne.
-      const existing = ofToOrder.get(of.numOf)
-      if (existing && existing.dateExpedition <= order.dateExpedition) continue
-      ofToOrder.set(of.numOf, {
-        numCommande: order.numCommande,
-        client: order.client,
-        dateExpedition: order.dateExpedition,
-        statut: order.statut,
-        joursRetard: order.joursRetard,
-      })
+      const list = ofToOrders.get(of.numOf) ?? []
+      if (!list.some((o) => o.numCommande === order.numCommande)) {
+        list.push({
+          numCommande: order.numCommande,
+          client: order.client,
+          dateExpedition: order.dateExpedition,
+          statut: order.statut,
+          joursRetard: order.joursRetard,
+        })
+      }
+      ofToOrders.set(of.numOf, list)
     }
+  }
+  for (const list of ofToOrders.values()) {
+    list.sort((a, b) => (a.dateExpedition < b.dateExpedition ? -1 : a.dateExpedition > b.dateExpedition ? 1 : 0))
   }
 
   const descOf = (code: string) => articles.get(code)?.description ?? ''
@@ -231,11 +238,13 @@ export function buildShortageRows(
     client: string | null
     dateExpedition: string | null
     joursRetard: number
+    autresCommandes: string[]
   }
   const pending: PendingRow[] = []
   for (const of of result.ofs) {
     if (of.feasible !== false) continue
-    const rollup = ofToOrder.get(of.numOf) ?? null
+    const rollups = ofToOrders.get(of.numOf) ?? []
+    const rollup = rollups[0] ?? null
     // Fallback contremarque quand le matcher n'a pas alloué l'OF (commande hors fenêtre).
     const peg = !rollup ? (ofPegs.get(of.numOf) ?? null) : null
     const numCommande = rollup?.numCommande ?? peg?.numCommande ?? null
@@ -257,6 +266,7 @@ export function buildShortageRows(
         client: rollup?.client ?? peg?.client ?? null,
         dateExpedition: rollup?.dateExpedition ?? peg?.dateExpedition ?? null,
         joursRetard: rollup?.joursRetard ?? 0,
+        autresCommandes: rollups.slice(1).map((o) => o.numCommande),
       })
     }
   }
@@ -322,6 +332,7 @@ export function buildShortageRows(
       numCommande: p.numCommande,
       client: p.client,
       dateExpedition: p.dateExpedition,
+      autresCommandes: p.autresCommandes,
       statutCommande: p.rollup?.statut ?? null,
       joursRetard: p.joursRetard,
       joursRetardReception,

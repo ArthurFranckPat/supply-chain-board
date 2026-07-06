@@ -450,3 +450,40 @@ test.group('buildShortageRows — consommation séquentielle entre lignes', () =
     assert.equal(rows[0].verdict, 'retard')
   })
 })
+
+test.group('buildShortageRows — OF multi-commandes', () => {
+  test('la plus urgente porte la ligne, les autres dans autresCommandes', ({ assert }) => {
+    const mkOrder = (num: string, dateExpedition: string): OrderImpactResult['orders'][number] => ({
+      numCommande: num, client: `Client ${num}`, article: 'PF1', description: '',
+      qteRestante: 50, dateExpedition, dejaEnRetard: false,
+      nature: 'commande', typeCommande: 'NOR', matchingMethod: 'of', reliquat: 0,
+      statut: 'bloquee', joursRetard: 0,
+      ofs: [{ numOf: 'OF-A', article: 'PF1', qteAllouee: 50, dateFin: dateExpedition, feasible: false, missingComponents: { C1: 10 }, modified: false, statutNum: 1 }],
+    })
+    const result = buildResult(
+      [{ numOf: 'OF-A', article: 'PF1', feasible: false, statutNum: 1, missingComponents: { C1: 10 } }],
+      // Volontairement dans le désordre : la plus urgente (07-01) doit gagner.
+      [mkOrder('CMD-TARD', '2026-07-20'), mkOrder('CMD-URGENTE', '2026-07-01'), mkOrder('CMD-MI', '2026-07-10')],
+    )
+    const { rows } = buildShortageRows(result, new Map(), new Map())
+
+    assert.equal(rows.length, 1)
+    assert.equal(rows[0].numCommande, 'CMD-URGENTE')
+    assert.deepEqual(rows[0].autresCommandes, ['CMD-MI', 'CMD-TARD'])
+  })
+
+  test('OF mono-commande → autresCommandes vide', ({ assert }) => {
+    const result = buildResult(
+      [{ numOf: 'OF-A', article: 'PF1', feasible: false, statutNum: 1, missingComponents: { C1: 10 } }],
+      [{
+        numCommande: 'CMD-1', client: 'ACME', article: 'PF1', description: '',
+        qteRestante: 50, dateExpedition: '2026-07-01', dejaEnRetard: false,
+        nature: 'commande', typeCommande: 'NOR', matchingMethod: 'of', reliquat: 0,
+        statut: 'bloquee', joursRetard: 0,
+        ofs: [{ numOf: 'OF-A', article: 'PF1', qteAllouee: 50, dateFin: '2026-07-01', feasible: false, missingComponents: { C1: 10 }, modified: false, statutNum: 1 }],
+      }],
+    )
+    const { rows } = buildShortageRows(result, new Map(), new Map())
+    assert.deepEqual(rows[0].autresCommandes, [])
+  })
+})

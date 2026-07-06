@@ -673,6 +673,8 @@ export default class SchedulerController {
         component: r.component,
         componentDesc: r.componentDesc,
         qteManquante: fmtQty(r.qteManquante),
+        // Brut numérique pour les agrégations client (vue « Par composant »).
+        qteManquanteNum: r.qteManquante,
         numOf: r.numOf,
         ofHref: `/api/v1/planning/ofs/${r.numOf}/detail`,
         articleParent: r.articleParent,
@@ -680,6 +682,8 @@ export default class SchedulerController {
         numCommande: r.numCommande ?? '—',
         client: r.client ?? '',
         hasCommande: r.numCommande !== null,
+        // Autres commandes allouées au même OF (au-delà de la plus urgente affichée).
+        autresCommandes: r.autresCommandes,
         dateExpedition: fmtFrShort(r.dateExpedition),
         reception: r.reception
           ? {
@@ -695,9 +699,15 @@ export default class SchedulerController {
         overdue: r.overdue,
         verdictKey: r.verdict,
         verdictLabel: (() => {
-          // Affiche le pire retard : commande (stock) vs arrivée réception trop tardive.
-          const j = Math.max(r.joursRetard, r.joursRetardReception)
-          return r.verdict === 'retard' && j > 0 ? `Retard +${j}j` : preset.label
+          if (r.verdict !== 'retard') return preset.label
+          // Trois natures de retard, désambiguïsées (avant : « Retard +Nj » ambigu) :
+          //  - overdue : réception attendue dans le passé → retard DÉJÀ CUMULÉ (le plus urgent) ;
+          //  - arrivée tardive : réception future mais APRÈS l'expé → retard PRÉVISIONNEL ;
+          //  - retard commande seul (stock) : porté par la commande, pas par la réception.
+          if (r.overdue) return `Retard +${r.joursRetardReception}j`
+          if (r.joursRetardReception > 0) return `Arrivée +${r.joursRetardReception}j`
+          if (r.joursRetard > 0) return `Cmd +${r.joursRetard}j`
+          return preset.label
         })(),
         verdictCls: preset.cls,
         verdictIcon: preset.icon,
