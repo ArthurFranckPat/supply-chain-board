@@ -11,6 +11,14 @@ import { parseX3Date } from '#app/x3/utils/parse_date'
  */
 export const RECEPTION_LOOKBACK_DAYS = Number(process.env.RECEPTION_LOOKBACK_DAYS) || 90
 
+/**
+ * Plancher anti « reliquat fantôme » (issue #43, point 1) : une réception OVERDUE (attendue
+ * dans le passé, non reçue) ne compte dans la couverture d'une rupture que si sa qté ≥ ce
+ * plancher — les reliquats morts (visserie, petites pièces) ne couvrent plus faussement un
+ * petit manque. Les réceptions futures comptent toujours. 0 = désactivé (comportement legacy).
+ */
+export const RECEPTION_OVERDUE_MIN_QTY = Number(process.env.RECEPTION_OVERDUE_MIN_QTY) || 0
+
 export class X3ReceptionRepository {
   /** Réceptions attendues ; si `to` fourni, bornées à `EXTRCPDAT_0 <= to`. */
   async getReceptionFlows(opts?: { to?: string }): Promise<Flow[]> {

@@ -11,7 +11,7 @@ import { loadOrderImpacts } from '#services/order_impacts_loader'
 import { timeStage } from '#services/perf_metrics'
 import { loadOrderBoardData } from '#controllers/order_planning_controller'
 import { buildShortageRows, type ShortageRow } from '#app/domain/shortages'
-import { groupReceptionsByArticle, RECEPTION_LOOKBACK_DAYS } from '#repositories/reception_repository'
+import { groupReceptionsByArticle, RECEPTION_LOOKBACK_DAYS, RECEPTION_OVERDUE_MIN_QTY } from '#repositories/reception_repository'
 import type { Flow } from '#app/domain/models/flow'
 import type { NomenclatureEntry } from '#app/domain/models/nomenclature'
 
@@ -623,7 +623,9 @@ export default class SchedulerController {
           receptionFrom.setDate(receptionFrom.getDate() - RECEPTION_LOOKBACK_DAYS)
           receptionFrom.setHours(0, 0, 0, 0)
           const receptionsByArticle = groupReceptionsByArticle(firmReceptions, receptionFrom)
-          return buildShortageRows(result, receptionsByArticle, articles, pegsIso)
+          return buildShortageRows(result, receptionsByArticle, articles, pegsIso, {
+            overdueMinQty: RECEPTION_OVERDUE_MIN_QTY,
+          })
         },
       })
       rows = cached.rows

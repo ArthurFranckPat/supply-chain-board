@@ -25,7 +25,8 @@ export interface ShortageReception {
   qty: number
   /** Date d'arrivée prévue de la réception déterminante (celle qui couvre le besoin). */
   dateArrivee: string
-  /** Qté cumulée des réceptions jusqu'à (et incluant) la déterminante. */
+  /** Qté cumulée des réceptions jusqu'à (et incluant) la déterminante, nette de la part
+   *  déjà réservée par des lignes plus urgentes (consommation séquentielle). */
   qteCumulee: number
 }
 
@@ -101,39 +102,75 @@ export function daysBetweenIso(fromIso: string, toIso: string): number {
 }
 
 /**
+ * ISO (YYYY-MM-DD) du jour en composantes LOCALES — pas toISOString(), qui repasse en UTC
+ * et recule d'un jour entre minuit et 1-2h en fuseau UTC+1/+2 (même piège que le scoping
+ * getLive, cf. order_impacts_loader.isoLocal). Sert de référence « aujourd'hui » pour les
+ * verdicts overdue.
+ */
+export function isoLocalDay(d: Date = new Date()): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const da = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${da}`
+}
+
+export interface CoveringReceptionOptions {
+  /**
+   * Qté du composant déjà « réservée » par des lignes plus urgentes (consommation
+   * séquentielle des réceptions entre lignes). Le cumul doit atteindre
+   * alreadyConsumed + qteManquante pour couvrir CETTE ligne.
+   */
+  alreadyConsumed?: number
+  /**
+   * Plancher anti « reliquat fantôme » (issue #43, point 1) : une réception OVERDUE
+   * (attendue dans le passé, non reçue) ne compte dans le cumul que si sa qté ≥ plancher —
+   * les reliquats morts (visserie, petites pièces) ne couvrent plus faussement un petit
+   * manque. Les réceptions FUTURES comptent toujours. 0 = désactivé.
+   */
+  overdueMinQty?: number
+  /** Référence « aujourd'hui » (ISO local) pour qualifier l'overdue. Défaut : isoLocalDay(). */
+  todayIso?: string
+}
+
+/**
  * Cumule les réceptions d'un composant par date croissante (futures ET overdue via le
- * lookback 90j) jusqu'à couvrir `qteManquante`. Retourne la réception DÉTERMINANTE (celle
- * qui atteint le seuil) avec la qté cumulée à ce point. `null` si aucune réception ou cumul
- * insuffisant.
+ * lookback 90j) jusqu'à couvrir `qteManquante` (au-delà de `alreadyConsumed`). Retourne la
+ * réception DÉTERMINANTE (celle qui atteint le seuil) avec la qté cumulée NETTE (part
+ * restant à cette ligne après les lignes plus urgentes). `null` si aucune réception ou
+ * cumul insuffisant.
  *
  * PARTAGÉE par les deux vues : table Ruptures (buildShortageRows ci-dessous) + ETA goulots
  * proactif (suivi_controller.ts buildProactiveDisplay). Tout durcissement ici corrige les deux.
- *
- * Limite connue (issue #43, point 1 — « reliquat fantôme ») : le cumul inclut les réceptions
- * overdue, donc des reliquats morts (visserie/petites pièces) peuvent s'empiler et couvrir un
- * PETIT manque → la ligne passe de « sans_couverture » à « retard » alors que ces pièces
- * n'arriveront jamais. Non corrigé : risque marginal (sur vrais composants BOM, les plus petits
- * reliquats overdue réels sont ≥ 6 ; les qty 1-3 sont sur des articles YY-* hors BOM). Pivot si
- * un faux positif concret remonte : seuil absolu env `RECEPTION_OVERDUE_MIN_QTY` — une overdue
- * n'intervient dans la couverture que si sa qté ≥ plancher (les futures comptent toujours).
  */
 export function resolveCoveringReception(
   receptions: ReceptionRecord[],
   qteManquante: number,
+  opts: CoveringReceptionOptions = {},
 ): ShortageReception | null {
   if (qteManquante <= 0 || receptions.length === 0) return null
+  const { alreadyConsumed = 0, overdueMinQty = 0 } = opts
+  const todayIso = opts.todayIso ?? isoLocalDay()
 
-  const sorted = [...receptions].sort((a, b) => a.date.getTime() - b.date.getTime())
+  const eligible =
+    overdueMinQty > 0
+      ? receptions.filter(
+          (r) => r.date.toISOString().slice(0, 10) >= todayIso || r.quantity >= overdueMinQty,
+        )
+      : receptions
+  if (eligible.length === 0) return null
+
+  const seuil = alreadyConsumed + qteManquante
+  const sorted = [...eligible].sort((a, b) => a.date.getTime() - b.date.getTime())
   let cumul = 0
   for (const rec of sorted) {
     cumul += rec.quantity
-    if (cumul >= qteManquante) {
+    if (cumul >= seuil) {
       return {
         id: rec.id,
         supplier: rec.supplier,
         qty: rec.quantity,
         dateArrivee: rec.date.toISOString().slice(0, 10),
-        qteCumulee: Math.round(cumul * 100) / 100,
+        qteCumulee: Math.round((cumul - alreadyConsumed) * 100) / 100,
       }
     }
   }
@@ -146,14 +183,20 @@ export function resolveCoveringReception(
  *
  * Périmètre : TOUS les OF bloqués de la fenêtre (`result.ofs` avec `feasible === false`),
  * y compris ceux sans commande cliente rattachée (numCommande = null).
+ *
+ * Les réceptions sont consommées SÉQUENTIELLEMENT entre lignes, dans l'ordre d'urgence
+ * (date d'expédition asc) : deux OF manquant le même composant ne peuvent pas être
+ * « couverts » par la même réception — la 2e ligne ne voit que le reste.
  */
 export function buildShortageRows(
   result: OrderImpactResult,
   receptionsByArticle: Map<string, ReceptionRecord[]>,
   articles: Map<string, Article>,
   ofPegs: Map<string, ShortageOfPeg> = new Map(),
+  opts: { todayIso?: string; overdueMinQty?: number } = {},
 ): ShortageResult {
-  const todayIso = new Date().toISOString().slice(0, 10)
+  const todayIso = opts.todayIso ?? isoLocalDay()
+  const overdueMinQty = opts.overdueMinQty ?? 0
   // Map inverse OF → commande (un OF rattaché à une commande porte son statut/retard).
   // On ne rattache QUE les vraies commandes clientes : une prévision ne constitue pas un
   // engagement client → parler de « rupture commande » pour une prévision n'a pas de sens.
@@ -177,16 +220,25 @@ export function buildShortageRows(
 
   const descOf = (code: string) => articles.get(code)?.description ?? ''
 
-  const rows: ShortageRow[] = []
+  // ── Passe 1 : squelettes de lignes (sans réception) ──
+  interface PendingRow {
+    component: string
+    qteManquante: number
+    numOf: string
+    articleParent: string
+    rollup: OrderRollup | null
+    numCommande: string | null
+    client: string | null
+    dateExpedition: string | null
+    joursRetard: number
+  }
+  const pending: PendingRow[] = []
   for (const of of result.ofs) {
     if (of.feasible !== false) continue
     const rollup = ofToOrder.get(of.numOf) ?? null
     // Fallback contremarque quand le matcher n'a pas alloué l'OF (commande hors fenêtre).
     const peg = !rollup ? (ofPegs.get(of.numOf) ?? null) : null
     const numCommande = rollup?.numCommande ?? peg?.numCommande ?? null
-    const client = rollup?.client ?? peg?.client ?? null
-    const dateExpedition = rollup?.dateExpedition ?? peg?.dateExpedition ?? null
-    const joursRetard = rollup?.joursRetard ?? 0
 
     // Une SUGGESTION (statut suggéré = 3) non rattachée à une commande = proposition MRP
     // spéculative, pas un engagement client → pas une rupture à suivre. Les OF affermis
@@ -195,56 +247,24 @@ export function buildShortageRows(
 
     for (const [component, qteManquante] of Object.entries(of.missingComponents)) {
       if (qteManquante <= 0) continue
-      const reception = resolveCoveringReception(
-        receptionsByArticle.get(component) ?? [],
-        qteManquante,
-      )
-
-      // Retard imputable à la réception. Deux cas :
-      //  - EN RETARD (overdue) : la couvrante était attendue dans le passé (retard de
-      //    livraison, PO non reçue). Lateness = aujourd'hui − date attendue (retard déjà
-      //    cumulé). Cas le plus urgent — la pièce aurait dû être là.
-      //  - À VENIR TARD : la couvrante arrive après l'expé commande (référence temporelle).
-      let joursRetardReception = 0
-      let overdue = false
-      if (reception) {
-        if (reception.dateArrivee < todayIso) {
-          overdue = true
-          joursRetardReception = daysBetweenIso(reception.dateArrivee, todayIso)
-        } else if (dateExpedition && reception.dateArrivee > dateExpedition) {
-          joursRetardReception = daysBetweenIso(dateExpedition, reception.dateArrivee)
-        }
-      }
-
-      let verdict: ShortageRow['verdict']
-      if (!reception) verdict = 'sans_couverture'
-      // Retard si commande en retard (stock), réception en retard (overdue) ou arrivée tardive.
-      else if (overdue || joursRetard > 0 || joursRetardReception > 0) verdict = 'retard'
-      else verdict = 'couvert'
-
-      rows.push({
+      pending.push({
         component,
-        componentDesc: descOf(component),
-        qteManquante: Math.round(qteManquante * 100) / 100,
+        qteManquante,
         numOf: of.numOf,
         articleParent: of.article,
-        articleParentDesc: descOf(of.article),
+        rollup,
         numCommande,
-        client,
-        dateExpedition,
-        statutCommande: rollup?.statut ?? null,
-        joursRetard,
-        joursRetardReception,
-        overdue,
-        reception,
-        couverte: reception !== null,
-        verdict,
+        client: rollup?.client ?? peg?.client ?? null,
+        dateExpedition: rollup?.dateExpedition ?? peg?.dateExpedition ?? null,
+        joursRetard: rollup?.joursRetard ?? 0,
       })
     }
   }
 
-  // Tri par urgence : date d'expédition commande asc (nulls en fin), puis commande, composant.
-  rows.sort((a, b) => {
+  // Tri par urgence AVANT l'allocation des réceptions : date d'expédition commande asc
+  // (nulls en fin), puis commande, composant. C'est cet ordre qui détermine quelle ligne
+  // consomme les réceptions en premier — et c'est aussi l'ordre d'affichage.
+  pending.sort((a, b) => {
     if (a.dateExpedition !== b.dateExpedition) {
       if (!a.dateExpedition) return 1
       if (!b.dateExpedition) return -1
@@ -255,6 +275,62 @@ export function buildShortageRows(
     if (ca !== cb) return ca.localeCompare(cb)
     return a.component.localeCompare(b.component)
   })
+
+  // ── Passe 2 : allocation séquentielle des réceptions + verdict ──
+  // Chaque ligne réserve sa qté manquante sur le composant, couverte ou non : les
+  // réceptions vont d'abord aux lignes les plus urgentes.
+  const consumedByComponent = new Map<string, number>()
+  const rows: ShortageRow[] = []
+  for (const p of pending) {
+    const alreadyConsumed = consumedByComponent.get(p.component) ?? 0
+    const reception = resolveCoveringReception(
+      receptionsByArticle.get(p.component) ?? [],
+      p.qteManquante,
+      { alreadyConsumed, overdueMinQty, todayIso },
+    )
+    consumedByComponent.set(p.component, alreadyConsumed + p.qteManquante)
+
+    // Retard imputable à la réception. Deux cas :
+    //  - EN RETARD (overdue) : la couvrante était attendue dans le passé (retard de
+    //    livraison, PO non reçue). Lateness = aujourd'hui − date attendue (retard déjà
+    //    cumulé). Cas le plus urgent — la pièce aurait dû être là.
+    //  - À VENIR TARD : la couvrante arrive après l'expé commande (référence temporelle).
+    let joursRetardReception = 0
+    let overdue = false
+    if (reception) {
+      if (reception.dateArrivee < todayIso) {
+        overdue = true
+        joursRetardReception = daysBetweenIso(reception.dateArrivee, todayIso)
+      } else if (p.dateExpedition && reception.dateArrivee > p.dateExpedition) {
+        joursRetardReception = daysBetweenIso(p.dateExpedition, reception.dateArrivee)
+      }
+    }
+
+    let verdict: ShortageRow['verdict']
+    if (!reception) verdict = 'sans_couverture'
+    // Retard si commande en retard (stock), réception en retard (overdue) ou arrivée tardive.
+    else if (overdue || p.joursRetard > 0 || joursRetardReception > 0) verdict = 'retard'
+    else verdict = 'couvert'
+
+    rows.push({
+      component: p.component,
+      componentDesc: descOf(p.component),
+      qteManquante: Math.round(p.qteManquante * 100) / 100,
+      numOf: p.numOf,
+      articleParent: p.articleParent,
+      articleParentDesc: descOf(p.articleParent),
+      numCommande: p.numCommande,
+      client: p.client,
+      dateExpedition: p.dateExpedition,
+      statutCommande: p.rollup?.statut ?? null,
+      joursRetard: p.joursRetard,
+      joursRetardReception,
+      overdue,
+      reception,
+      couverte: reception !== null,
+      verdict,
+    })
+  }
 
   let nbSansCouverture = 0
   for (const r of rows) if (!r.couverte) nbSansCouverture++

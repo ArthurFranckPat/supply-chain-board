@@ -260,7 +260,12 @@ export const ShortageTimeline: Component<{
     return ticks
   }
 
-  const todayPct = () => offsetPct(new Date().toISOString().slice(0, 10), props.windowStartIso, props.horizon)
+  // ISO local (pas toISOString : UTC recule d'un jour entre minuit et 1-2h en UTC+1/+2).
+  const todayPct = () => {
+    const d = new Date()
+    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    return offsetPct(iso, props.windowStartIso, props.horizon)
+  }
 
   return (
     <div class="h-full overflow-auto rounded-none border-0 bg-card">

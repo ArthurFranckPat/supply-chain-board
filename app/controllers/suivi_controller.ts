@@ -17,8 +17,8 @@ import { SuiviService, reloadSuiviContext, RETARD_LOOKBACK_DAYS, SUIVI_FORWARD_D
 import { loadOrderImpacts } from '#services/order_impacts_loader'
 import type { OrderImpactResult } from '#app/domain/order-impacts'
 import type { Article } from '#app/domain/models/article'
-import { groupReceptionsByArticle, RECEPTION_LOOKBACK_DAYS } from '#repositories/reception_repository'
-import { resolveCoveringReception, daysBetweenIso } from '#app/domain/shortages'
+import { groupReceptionsByArticle, RECEPTION_LOOKBACK_DAYS, RECEPTION_OVERDUE_MIN_QTY } from '#repositories/reception_repository'
+import { resolveCoveringReception, daysBetweenIso, isoLocalDay } from '#app/domain/shortages'
 import type { ReceptionRecord } from '#app/domain/recursive-checker'
 import boardDataset from '#services/board_dataset'
 import { atelierLabel } from '#app/domain/atelier'
@@ -565,7 +565,7 @@ export function buildProactiveDisplay(
   const horizonIso = new Date()
   horizonIso.setHours(0, 0, 0, 0)
   horizonIso.setDate(horizonIso.getDate() + PROACTIVE_HORIZON_FUTURE_DAYS)
-  const todayIso = new Date().toISOString().slice(0, 10)
+  const todayIso = isoLocalDay()
 
   const rows: ProactiveDisplayRow[] = result.orders
     .filter((o) => o.nature === 'commande')
@@ -584,7 +584,10 @@ export function buildProactiveDisplay(
           // Réception couvrante (même résolution que la table Ruptures) : 1ère réception
           // d'achat dont le cumul atteint la qté manquante → ETA + n° commande d'achat.
           // Overdue = attendue dans le passé (retard de livraison) → lateness = today − attendue.
-          const rec = resolveCoveringReception(receptionsByArticle.get(art) ?? [], qtyR)
+          const rec = resolveCoveringReception(receptionsByArticle.get(art) ?? [], qtyR, {
+            overdueMinQty: RECEPTION_OVERDUE_MIN_QTY,
+            todayIso,
+          })
           const overdue = !!rec && rec.dateArrivee < todayIso
           const retardJ = overdue ? daysBetweenIso(rec!.dateArrivee, todayIso) : 0
           return {

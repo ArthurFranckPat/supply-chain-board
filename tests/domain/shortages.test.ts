@@ -2,7 +2,7 @@ import { test } from '@japa/runner'
 import type { Article } from '#app/domain/models/article'
 import type { ReceptionRecord } from '#app/domain/recursive-checker'
 import type { OrderImpactResult } from '#app/domain/order-impacts'
-import { buildShortageRows, resolveCoveringReception } from '#app/domain/shortages'
+import { buildShortageRows, resolveCoveringReception, isoLocalDay } from '#app/domain/shortages'
 
 function article(code: string, desc: string): Article {
   return {
@@ -353,5 +353,100 @@ test.group('resolveCoveringReception', () => {
     // early (2) + mid (5) = 7 >= 6 → déterminante = mid
     assert.equal(r!.id, 'PO-mid')
     assert.equal(r!.qteCumulee, 7)
+  })
+})
+
+test.group('resolveCoveringReception — consommation séquentielle & plancher overdue', () => {
+  test('alreadyConsumed décale le seuil et rend la qté cumulée NETTE', ({ assert }) => {
+    const recs = [reception('PO-1', 'C1', 'F', 10, 1), reception('PO-2', 'C1', 'F', 10, 2)]
+    // 1ère ligne (10) couverte par PO-1 ; 2e ligne (10) doit atteindre 20 → PO-2.
+    const r = resolveCoveringReception(recs, 10, { alreadyConsumed: 10 })
+    assert.equal(r!.id, 'PO-2')
+    assert.equal(r!.qteCumulee, 10)
+  })
+
+  test('alreadyConsumed : cumul insuffisant au-delà de la part réservée → null', ({ assert }) => {
+    const recs = [reception('PO-1', 'C1', 'F', 10, 1)]
+    assert.isNull(resolveCoveringReception(recs, 5, { alreadyConsumed: 10 }))
+  })
+
+  test('overdueMinQty : une overdue sous le plancher est ignorée', ({ assert }) => {
+    const recs = [reception('PO-ghost', 'C1', 'F', 2, -30)]
+    assert.isNull(resolveCoveringReception(recs, 2, { overdueMinQty: 5 }))
+  })
+
+  test('overdueMinQty : une overdue AU-DESSUS du plancher compte', ({ assert }) => {
+    const recs = [reception('PO-late', 'C1', 'F', 8, -10)]
+    const r = resolveCoveringReception(recs, 5, { overdueMinQty: 5 })
+    assert.equal(r!.id, 'PO-late')
+  })
+
+  test('overdueMinQty : les réceptions FUTURES comptent toujours, même petites', ({ assert }) => {
+    const recs = [reception('PO-future', 'C1', 'F', 2, 3)]
+    const r = resolveCoveringReception(recs, 2, { overdueMinQty: 5 })
+    assert.equal(r!.id, 'PO-future')
+  })
+})
+
+test.group('buildShortageRows — consommation séquentielle entre lignes', () => {
+  const order = (num: string, dateExpedition: string, numOf: string): OrderImpactResult['orders'][number] => ({
+    numCommande: num, client: 'ACME', article: 'PF1', description: '',
+    qteRestante: 100, dateExpedition, dejaEnRetard: false,
+    nature: 'commande', typeCommande: 'NOR', matchingMethod: 'of', reliquat: 0,
+    statut: 'bloquee', joursRetard: 0,
+    ofs: [{ numOf, article: 'PF1', qteAllouee: 100, dateFin: dateExpedition, feasible: false, missingComponents: { C1: 10 }, modified: false, statutNum: 1 }],
+  })
+
+  test('deux OF manquant le même composant ne partagent pas la même réception', ({ assert }) => {
+    const result = buildResult(
+      [
+        { numOf: 'OF-A', article: 'PF1', feasible: false, statutNum: 1, missingComponents: { C1: 10 } },
+        { numOf: 'OF-B', article: 'PF1', feasible: false, statutNum: 1, missingComponents: { C1: 10 } },
+      ],
+      [order('CMD-1', '2026-07-01', 'OF-A'), order('CMD-2', '2026-07-15', 'OF-B')],
+    )
+    // Une seule réception de 10 : couvre l'OF de la commande la plus urgente SEULEMENT.
+    const receptions = new Map([['C1', [reception('PO-1', 'C1', 'F', 10, 2)]]])
+    const { rows } = buildShortageRows(result, receptions, new Map())
+
+    const rowA = rows.find((r) => r.numOf === 'OF-A')!
+    const rowB = rows.find((r) => r.numOf === 'OF-B')!
+    assert.equal(rowA.reception?.id, 'PO-1')
+    assert.notEqual(rowA.verdict, 'sans_couverture')
+    assert.isNull(rowB.reception)
+    assert.equal(rowB.verdict, 'sans_couverture')
+  })
+
+  test('réception assez grande pour deux lignes → les deux couvertes, cumul net', ({ assert }) => {
+    const result = buildResult(
+      [
+        { numOf: 'OF-A', article: 'PF1', feasible: false, statutNum: 1, missingComponents: { C1: 10 } },
+        { numOf: 'OF-B', article: 'PF1', feasible: false, statutNum: 1, missingComponents: { C1: 10 } },
+      ],
+      [order('CMD-1', '2026-07-01', 'OF-A'), order('CMD-2', '2026-07-15', 'OF-B')],
+    )
+    const receptions = new Map([['C1', [reception('PO-1', 'C1', 'F', 25, 2)]]])
+    const { rows } = buildShortageRows(result, receptions, new Map())
+
+    const rowA = rows.find((r) => r.numOf === 'OF-A')!
+    const rowB = rows.find((r) => r.numOf === 'OF-B')!
+    assert.equal(rowA.reception?.id, 'PO-1')
+    assert.equal(rowA.reception?.qteCumulee, 25)
+    assert.equal(rowB.reception?.id, 'PO-1')
+    assert.equal(rowB.reception?.qteCumulee, 15)
+  })
+
+  test('todayIso injectable : verdict overdue déterministe', ({ assert }) => {
+    const result = buildResult(
+      [{ numOf: 'OF-A', article: 'PF1', feasible: false, statutNum: 1, missingComponents: { C1: 5 } }],
+      [order('CMD-1', '2026-07-01', 'OF-A')],
+    )
+    const receptions = new Map([['C1', [reception('PO-1', 'C1', 'F', 10, -5)]]])
+    const { rows } = buildShortageRows(result, receptions, new Map(), new Map(), {
+      todayIso: isoLocalDay(),
+    })
+    assert.isTrue(rows[0].overdue)
+    assert.equal(rows[0].joursRetardReception, 5)
+    assert.equal(rows[0].verdict, 'retard')
   })
 })
