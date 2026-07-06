@@ -23,7 +23,9 @@ const TH_R = TH.replace('text-left', 'text-right')
 const TD = 'px-4 py-[13px] align-middle border-r border-rule-soft'
 
 /** True si la ligne traduit un risque (sans couverture, ou réception après l'expé). */
-const isLate = (r: ShortageDisplayRow) => r.verdictKey !== 'couvert'
+// Teinte « alerte » (rouge) : retard / sans couverture. Le verdict sous_ensemble est une
+// action interne (lancer l'OF fils), signalée par son chip planifie — pas par le rouge.
+const isLate = (r: ShortageDisplayRow) => r.verdictKey === 'retard' || r.verdictKey === 'sans_couverture'
 
 // ───────────────────────────────────────────────────────────────────────────
 // R1 · Registre
@@ -130,14 +132,46 @@ export const ShortageRegistre: Component<{
       enableSorting: false,
       header: () => 'Réception attendue',
       cell: (info: { row: { original: ShortageDisplayRow } }) => {
-        const rec = info.row.original.reception
+        const row = info.row.original
+        const rec = row.reception
         return (
           <Show
             when={rec}
             fallback={
-              <span class="inline-flex items-center gap-1 font-mono text-[11px] font-bold text-destructive">
-                <span class="material-symbols-outlined text-[13px]">block</span> Aucune réception
-              </span>
+              <Show
+                when={row.verdictKey === 'sous_ensemble'}
+                fallback={
+                  <span class="inline-flex items-center gap-1 font-mono text-[11px] font-bold text-destructive">
+                    <span class="material-symbols-outlined text-[13px]">block</span> Aucune réception
+                  </span>
+                }
+              >
+                <Show
+                  when={row.sousEnsembleOfs.length > 0}
+                  fallback={
+                    <span class="inline-flex items-center gap-1 font-mono text-[11px] font-bold text-planifie">
+                      <span class="material-symbols-outlined text-[13px]">account_tree</span> OF fils à lancer
+                    </span>
+                  }
+                >
+                  <div class="flex flex-wrap items-center gap-1">
+                    <For each={row.sousEnsembleOfs.slice(0, 3)}>
+                      {(numOf) => (
+                        <button
+                          type="button"
+                          onClick={() => props.onSelectOf(numOf)}
+                          class="cursor-pointer rounded border border-planifie/30 px-1.5 py-0.5 font-mono text-[10.5px] font-bold text-planifie transition-colors hover:border-terra hover:text-terra"
+                        >
+                          {numOf}
+                        </button>
+                      )}
+                    </For>
+                    <Show when={row.sousEnsembleOfs.length > 3}>
+                      <span class="font-mono text-[10px] text-muted-foreground">+{row.sousEnsembleOfs.length - 3}</span>
+                    </Show>
+                  </div>
+                </Show>
+              </Show>
             }
           >
             {(r) => (
@@ -191,7 +225,9 @@ export const ShortageRegistre: Component<{
             ? 'bg-ferme/15 text-ferme'
             : row.verdictKey === 'retard'
               ? 'bg-suggere/15 text-suggere'
-              : 'bg-destructive/10 text-destructive'
+              : row.verdictKey === 'sous_ensemble'
+                ? 'bg-planifie/15 text-planifie'
+                : 'bg-destructive/10 text-destructive'
         return (
           <span class={cx('inline-flex items-center gap-1 rounded-md border border-transparent px-2 py-0.5 text-[11px] font-medium whitespace-nowrap', tone)}>
             <span class="material-symbols-outlined text-[13px]">{row.verdictIcon}</span>
@@ -252,7 +288,8 @@ interface ComponentGroup {
 }
 
 const VERDICT_RANK: Record<ShortageDisplayRow['verdictKey'], number> = {
-  sans_couverture: 2,
+  sans_couverture: 3,
+  sous_ensemble: 2,
   retard: 1,
   couvert: 0,
 }
@@ -315,7 +352,7 @@ export const ShortageComposants: Component<{
           <tbody>
             <For each={groups()}>
               {(g, i) => {
-                const late = g.worstVerdict !== 'couvert'
+                const late = g.worstVerdict === 'retard' || g.worstVerdict === 'sans_couverture'
                 return (
                   <tr
                     class={cx(
@@ -394,13 +431,21 @@ export const ShortageComposants: Component<{
                           <span
                             class={cx(
                               'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium whitespace-nowrap',
-                              g.worstVerdict === 'retard' ? 'bg-suggere/15 text-suggere' : 'bg-ferme/15 text-ferme',
+                              g.worstVerdict === 'retard'
+                                ? 'bg-suggere/15 text-suggere'
+                                : g.worstVerdict === 'sous_ensemble'
+                                  ? 'bg-planifie/15 text-planifie'
+                                  : 'bg-ferme/15 text-ferme',
                             )}
                           >
                             <span class="material-symbols-outlined text-[13px]">
-                              {g.worstVerdict === 'retard' ? 'schedule' : 'check_circle'}
+                              {g.worstVerdict === 'retard'
+                                ? 'schedule'
+                                : g.worstVerdict === 'sous_ensemble'
+                                  ? 'account_tree'
+                                  : 'check_circle'}
                             </span>
-                            {g.worstVerdict === 'retard' ? 'Retard' : 'Couvert'}
+                            {g.worstVerdict === 'retard' ? 'Retard' : g.worstVerdict === 'sous_ensemble' ? 'S/E à lancer' : 'Couvert'}
                           </span>
                         }
                       >
@@ -547,7 +592,19 @@ export const ShortageTimeline: Component<{
                     {/* Marqueur réception (ou absence) */}
                     <Show
                       when={row.receptionIso}
-                      fallback={<Marker pct={88} tone="none" cap="aucune réception" sub="à commander" dashed />}
+                      fallback={
+                        row.verdictKey === 'sous_ensemble' ? (
+                          <Marker
+                            pct={88}
+                            tone="se"
+                            cap="sous-ensemble"
+                            sub={row.sousEnsembleOfs.length > 0 ? `OF fils ${row.sousEnsembleOfs[0]}` : 'OF fils à lancer'}
+                            dashed
+                          />
+                        ) : (
+                          <Marker pct={88} tone="none" cap="aucune réception" sub="à commander" dashed />
+                        )
+                      }
                     >
                       <Marker
                         pct={recPct()!}
@@ -568,6 +625,7 @@ export const ShortageTimeline: Component<{
             <span class="inline-flex items-center gap-1.5"><span class="size-2.5 rounded-full bg-ferme" /> Réception à temps</span>
             <span class="inline-flex items-center gap-1.5"><span class="size-2.5 rounded-full bg-destructive" /> Réception en retard</span>
             <span class="inline-flex items-center gap-1.5"><span class="size-2.5 rounded-full border-2 border-dashed border-destructive" /> Aucune réception</span>
+            <span class="inline-flex items-center gap-1.5"><span class="size-2.5 rounded-full border-2 border-dashed border-planifie" /> Sous-ensemble (OF fils)</span>
           </div>
         </div>
       </Show>
@@ -576,7 +634,7 @@ export const ShortageTimeline: Component<{
 }
 
 /** Marqueur de frise (pastille + libellé + sous-libellé), positionné en %. */
-const Marker: Component<{ pct: number; tone: 'exp' | 'ok' | 'bad' | 'none'; cap: string; sub?: string; dashed?: boolean }> = (
+const Marker: Component<{ pct: number; tone: 'exp' | 'ok' | 'bad' | 'none' | 'se'; cap: string; sub?: string; dashed?: boolean }> = (
   p,
 ) => {
   const pinCls =
@@ -586,8 +644,11 @@ const Marker: Component<{ pct: number; tone: 'exp' | 'ok' | 'bad' | 'none'; cap:
         ? 'bg-ferme'
         : p.tone === 'bad'
           ? 'bg-destructive'
-          : 'border-2 border-dashed border-destructive'
-  const capCls = p.tone === 'exp' ? 'text-terra' : p.tone === 'ok' ? 'text-ferme' : 'text-destructive'
+          : p.tone === 'se'
+            ? 'border-2 border-dashed border-planifie'
+            : 'border-2 border-dashed border-destructive'
+  const capCls =
+    p.tone === 'exp' ? 'text-terra' : p.tone === 'ok' ? 'text-ferme' : p.tone === 'se' ? 'text-planifie' : 'text-destructive'
   return (
     <div class="absolute top-3.5 flex -translate-x-1/2 flex-col items-center gap-0.5" style={{ left: `${p.pct}%` }}>
       <span class={cx('size-[13px] rounded-full border-2 border-card', pinCls)} />

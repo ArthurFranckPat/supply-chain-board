@@ -63,7 +63,24 @@ export interface ShortageRow {
   /** Première réception qui couvre la qté manquante — null si aucune couverture prévue. */
   reception: ShortageReception | null
   couverte: boolean
-  verdict: 'couvert' | 'retard' | 'sans_couverture'
+  /**
+   * Date de BESOIN du composant = date d'expédition − buffer fabrication (défaut 2 j).
+   * Référence de ponctualité de la réception : les dates de jalonnement OF (STRDAT/ENDDAT)
+   * sont jugées non fiables (décision métier 2026-07-06) — on remonte depuis l'engagement
+   * client. Null si OF non rattaché à une commande.
+   */
+  dateBesoin: string | null
+  /**
+   * OFs du pool produisant ce composant (composant FABRIQUÉ couvert par un OF fils
+   * potentiel). Vide si aucun OF fils dans la fenêtre.
+   */
+  sousEnsembleOfs: string[]
+  /**
+   * `sous_ensemble` : composant FABRIQUÉ sans réception d'achat — la couverture passe
+   * par un OF fils (à lancer, ou déjà présent dans sousEnsembleOfs), pas par un PO.
+   * Avant : faux « sans_couverture » systématique (la couverture ne lit que PORDERQ).
+   */
+  verdict: 'couvert' | 'retard' | 'sans_couverture' | 'sous_ensemble'
 }
 
 export interface ShortageResult {
@@ -93,6 +110,20 @@ export interface ShortageOfPeg {
   client: string | null
   /** Date d'expédition ISO (YYYY-MM-DD) ou null. */
   dateExpedition: string | null
+}
+
+/**
+ * Buffer fabrication par défaut : temps maxi jugé nécessaire pour produire l'OF une fois
+ * les composants reçus (décision métier : « max 2 jours de fabrication »). La réception
+ * doit arriver au plus tard à expédition − buffer pour être « à temps ».
+ */
+export const DEFAULT_FABRICATION_BUFFER_DAYS = 2
+
+/** Décale une date ISO (YYYY-MM-DD) de `days` jours calendaires (UTC, sans dérive TZ). */
+export function addDaysIso(iso: string, days: number): string {
+  const t = Date.parse(`${iso}T00:00:00Z`)
+  if (Number.isNaN(t)) return iso
+  return new Date(t + days * 86_400_000).toISOString().slice(0, 10)
 }
 
 /** Nb de jours calendaires entre deux dates ISO (YYYY-MM-DD), en UTC pour éviter tout décalage. */
@@ -195,10 +226,20 @@ export function buildShortageRows(
   receptionsByArticle: Map<string, ReceptionRecord[]>,
   articles: Map<string, Article>,
   ofPegs: Map<string, ShortageOfPeg> = new Map(),
-  opts: { todayIso?: string; overdueMinQty?: number } = {},
+  opts: { todayIso?: string; overdueMinQty?: number; fabricationBufferDays?: number } = {},
 ): ShortageResult {
   const todayIso = opts.todayIso ?? isoLocalDay()
   const overdueMinQty = opts.overdueMinQty ?? 0
+  const fabricationBufferDays = opts.fabricationBufferDays ?? DEFAULT_FABRICATION_BUFFER_DAYS
+
+  // OFs du pool par article produit — sert à repérer l'OF fils d'un composant FABRIQUÉ.
+  const ofsByArticle = new Map<string, string[]>()
+  for (const of of result.ofs) {
+    if (!of.article) continue
+    const list = ofsByArticle.get(of.article) ?? []
+    list.push(of.numOf)
+    ofsByArticle.set(of.article, list)
+  }
   // Map inverse OF → commandes (un OF rattaché à une commande porte son statut/retard).
   // On ne rattache QUE les vraies commandes clientes : une prévision ne constitue pas un
   // engagement client → parler de « rupture commande » pour une prévision n'a pas de sens.
@@ -300,26 +341,38 @@ export function buildShortageRows(
     )
     consumedByComponent.set(p.component, alreadyConsumed + p.qteManquante)
 
+    // Date de BESOIN = expédition − buffer fabrication : la réception doit laisser le
+    // temps de produire. On ne se réfère PAS aux dates de jalonnement OF (STRDAT/ENDDAT,
+    // non fiables — décision métier), mais à l'engagement client remonté du buffer.
+    const dateBesoin = p.dateExpedition ? addDaysIso(p.dateExpedition, -fabricationBufferDays) : null
+
     // Retard imputable à la réception. Deux cas :
     //  - EN RETARD (overdue) : la couvrante était attendue dans le passé (retard de
     //    livraison, PO non reçue). Lateness = aujourd'hui − date attendue (retard déjà
     //    cumulé). Cas le plus urgent — la pièce aurait dû être là.
-    //  - À VENIR TARD : la couvrante arrive après l'expé commande (référence temporelle).
+    //  - À VENIR TARD : la couvrante arrive après la date de BESOIN (expé − buffer).
     let joursRetardReception = 0
     let overdue = false
     if (reception) {
       if (reception.dateArrivee < todayIso) {
         overdue = true
         joursRetardReception = daysBetweenIso(reception.dateArrivee, todayIso)
-      } else if (p.dateExpedition && reception.dateArrivee > p.dateExpedition) {
-        joursRetardReception = daysBetweenIso(p.dateExpedition, reception.dateArrivee)
+      } else if (dateBesoin && reception.dateArrivee > dateBesoin) {
+        joursRetardReception = daysBetweenIso(dateBesoin, reception.dateArrivee)
       }
     }
 
+    // Composant FABRIQUÉ sans réception : la couverture passe par un OF fils, pas par un
+    // PO — verdict dédié au lieu d'un faux « sans_couverture » (PORDERQ ne peut pas couvrir).
+    const isFabrique = articles.get(p.component)?.supplyType === 'FABRICATION'
+    const sousEnsembleOfs = isFabrique ? (ofsByArticle.get(p.component) ?? []) : []
+
+    // Le retard COMMANDE (p.joursRetard, moteur stock) ne pollue plus le verdict ligne :
+    // cause potentiellement sans rapport avec la réception de CE composant. Il reste
+    // exposé sur la ligne comme contexte commande.
     let verdict: ShortageRow['verdict']
-    if (!reception) verdict = 'sans_couverture'
-    // Retard si commande en retard (stock), réception en retard (overdue) ou arrivée tardive.
-    else if (overdue || p.joursRetard > 0 || joursRetardReception > 0) verdict = 'retard'
+    if (!reception) verdict = isFabrique ? 'sous_ensemble' : 'sans_couverture'
+    else if (overdue || joursRetardReception > 0) verdict = 'retard'
     else verdict = 'couvert'
 
     rows.push({
@@ -339,6 +392,8 @@ export function buildShortageRows(
       overdue,
       reception,
       couverte: reception !== null,
+      dateBesoin,
+      sousEnsembleOfs,
       verdict,
     })
   }

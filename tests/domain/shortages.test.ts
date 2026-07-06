@@ -62,22 +62,29 @@ test.group('buildShortageRows', () => {
     }
   })
 
-  test('verdict "retard" si OF rattaché à une commande avec joursRetard > 0', ({ assert }) => {
+  test('le retard COMMANDE (joursRetard) ne pollue plus le verdict ligne — réception à temps → couvert', ({ assert }) => {
+    // Commande en retard stock (+3j, cause sans rapport) mais réception à J+1 pour un
+    // besoin à J+8 (expé J+10 − buffer 2) → la LIGNE composant est couverte à temps.
+    const exp = new Date()
+    exp.setHours(12, 0, 0, 0)
+    exp.setDate(exp.getDate() + 10)
+    const expIso = `${exp.getFullYear()}-${String(exp.getMonth() + 1).padStart(2, '0')}-${String(exp.getDate()).padStart(2, '0')}`
     const result = buildResult(
       [{ numOf: 'OF-A', article: 'PF1', feasible: false, statutNum: 3, missingComponents: { C1: 10 } }],
       [{
         numCommande: 'CMD-1', client: 'ACME', article: 'PF1', description: '',
-        qteRestante: 100, dateExpedition: '2026-07-01', dejaEnRetard: false,
+        qteRestante: 100, dateExpedition: expIso, dejaEnRetard: false,
         nature: 'commande', typeCommande: 'NOR', matchingMethod: 'of', reliquat: 0,
         statut: 'bloquee', joursRetard: 3,
-        ofs: [{ numOf: 'OF-A', article: 'PF1', qteAllouee: 100, dateFin: '2026-07-04', feasible: false, missingComponents: { C1: 10 }, modified: false, statutNum: 3 }],
+        ofs: [{ numOf: 'OF-A', article: 'PF1', qteAllouee: 100, dateFin: expIso, feasible: false, missingComponents: { C1: 10 }, modified: false, statutNum: 3 }],
       }],
     )
     const receptions = new Map([['C1', [reception('PO-1', 'C1', 'FournisseurX', 10, 1)]]])
     const rows = buildShortageRows(result, receptions, new Map([['C1', article('C1', 'C1')]])).rows
 
     assert.equal(rows.length, 1)
-    assert.equal(rows[0].verdict, 'retard')
+    assert.equal(rows[0].verdict, 'couvert')
+    // Le retard commande reste exposé comme contexte, sans piloter le verdict.
     assert.equal(rows[0].joursRetard, 3)
     assert.equal(rows[0].couverte, true)
     // On recrée la date d'arrivée attendue en local, à partir d'une "reception()" équivalente.
@@ -108,8 +115,9 @@ test.group('buildShortageRows', () => {
     assert.equal(rows[0].overdue, false)
   })
 
-  test('verdict "retard" si la réception couvre mais arrive APRÈS la date d\'expédition', ({ assert }) => {
-    // Expédition à J+2 ; réception couvrante à J+9 → arrive trop tard → retard de 7j.
+  test('verdict "retard" si la réception couvre mais arrive APRÈS la date de besoin (expé − buffer)', ({ assert }) => {
+    // Expédition à J+2 → besoin à J+0 (buffer fabrication 2 j) ; réception couvrante à
+    // J+9 → arrive 9 j après le besoin → retard de 9j (avant : 7j vs expé seule).
     const exp = new Date()
     exp.setHours(12, 0, 0, 0)
     exp.setDate(exp.getDate() + 2)
@@ -127,7 +135,82 @@ test.group('buildShortageRows', () => {
     const rows = buildShortageRows(result, new Map([['C1', [reception('PO-1', 'C1', 'FX', 10, 9)]]]), new Map()).rows
     assert.equal(rows[0].verdict, 'retard')
     assert.equal(rows[0].couverte, true)
-    assert.equal(rows[0].joursRetardReception, 7)
+    assert.equal(rows[0].joursRetardReception, 9)
+  })
+
+  test('buffer fabrication : réception ENTRE besoin et expédition → retard (pas le temps de produire)', ({ assert }) => {
+    // Expédition à J+10 → besoin à J+8 ; réception à J+9 : avant l'expé mais après le
+    // besoin → retard prévisionnel de 1j. Avant le buffer, ce cas passait « couvert ».
+    const exp = new Date()
+    exp.setHours(12, 0, 0, 0)
+    exp.setDate(exp.getDate() + 10)
+    const expIso = `${exp.getFullYear()}-${String(exp.getMonth() + 1).padStart(2, '0')}-${String(exp.getDate()).padStart(2, '0')}`
+    const result = buildResult(
+      [{ numOf: 'OF-A', article: 'PF1', feasible: false, statutNum: 3, missingComponents: { C1: 10 } }],
+      [{
+        numCommande: 'CMD-1', client: 'ACME', article: 'PF1', description: '',
+        qteRestante: 100, dateExpedition: expIso, dejaEnRetard: false,
+        nature: 'commande', typeCommande: 'NOR', matchingMethod: 'of', reliquat: 0,
+        statut: 'bloquee', joursRetard: 0,
+        ofs: [{ numOf: 'OF-A', article: 'PF1', qteAllouee: 100, dateFin: expIso, feasible: false, missingComponents: { C1: 10 }, modified: false, statutNum: 3 }],
+      }],
+    )
+    const rows = buildShortageRows(result, new Map([['C1', [reception('PO-1', 'C1', 'FX', 10, 9)]]]), new Map()).rows
+    assert.equal(rows[0].verdict, 'retard')
+    assert.equal(rows[0].joursRetardReception, 1)
+
+    // Buffer configurable : à 0, la même réception redevient à temps.
+    const rows0 = buildShortageRows(result, new Map([['C1', [reception('PO-1', 'C1', 'FX', 10, 9)]]]), new Map(), new Map(), {
+      fabricationBufferDays: 0,
+    }).rows
+    assert.equal(rows0[0].verdict, 'couvert')
+  })
+
+  test('verdict "sous_ensemble" : composant FABRIQUÉ sans réception, OF fils listés', ({ assert }) => {
+    const fab: Article = { ...article('SE1', 'Sous-ensemble 1'), supplyType: 'FABRICATION' }
+    const result = buildResult(
+      [
+        { numOf: 'OF-A', article: 'PF1', feasible: false, statutNum: 3, missingComponents: { SE1: 10 } },
+        // OF fils produisant le composant manquant (présent dans le pool de la fenêtre).
+        { numOf: 'OF-FILS', article: 'SE1', feasible: true, statutNum: 2, missingComponents: {} },
+      ],
+      [{
+        numCommande: 'CMD-1', client: 'ACME', article: 'PF1', description: '',
+        qteRestante: 100, dateExpedition: '2026-09-01', dejaEnRetard: false,
+        nature: 'commande', typeCommande: 'NOR', matchingMethod: 'of', reliquat: 0,
+        statut: 'bloquee', joursRetard: 0,
+        ofs: [{ numOf: 'OF-A', article: 'PF1', qteAllouee: 100, dateFin: '2026-08-30', feasible: false, missingComponents: { SE1: 10 }, modified: false, statutNum: 3 }],
+      }],
+    )
+    const rows = buildShortageRows(result, new Map(), new Map([['SE1', fab]])).rows
+    assert.equal(rows.length, 1)
+    assert.equal(rows[0].verdict, 'sous_ensemble')
+    assert.deepEqual(rows[0].sousEnsembleOfs, ['OF-FILS'])
+
+    // Composant ACHAT sans réception : verdict sans_couverture inchangé.
+    const rowsAchat = buildShortageRows(result, new Map(), new Map([['SE1', article('SE1', 'Acheté')]])).rows
+    assert.equal(rowsAchat[0].verdict, 'sans_couverture')
+    assert.deepEqual(rowsAchat[0].sousEnsembleOfs, [])
+  })
+
+  test('composant FABRIQUÉ avec réception (sous-traitance) → chemin réception normal', ({ assert }) => {
+    const fab: Article = { ...article('SE1', 'Sous-ensemble 1'), supplyType: 'FABRICATION' }
+    const exp = new Date()
+    exp.setHours(12, 0, 0, 0)
+    exp.setDate(exp.getDate() + 20)
+    const expIso = `${exp.getFullYear()}-${String(exp.getMonth() + 1).padStart(2, '0')}-${String(exp.getDate()).padStart(2, '0')}`
+    const result = buildResult(
+      [{ numOf: 'OF-A', article: 'PF1', feasible: false, statutNum: 3, missingComponents: { SE1: 10 } }],
+      [{
+        numCommande: 'CMD-1', client: 'ACME', article: 'PF1', description: '',
+        qteRestante: 100, dateExpedition: expIso, dejaEnRetard: false,
+        nature: 'commande', typeCommande: 'NOR', matchingMethod: 'of', reliquat: 0,
+        statut: 'bloquee', joursRetard: 0,
+        ofs: [{ numOf: 'OF-A', article: 'PF1', qteAllouee: 100, dateFin: expIso, feasible: false, missingComponents: { SE1: 10 }, modified: false, statutNum: 3 }],
+      }],
+    )
+    const rows = buildShortageRows(result, new Map([['SE1', [reception('PO-1', 'SE1', 'ST-X', 10, 3)]]]), new Map([['SE1', fab]])).rows
+    assert.equal(rows[0].verdict, 'couvert')
   })
 
   test('verdict "couvert" si la réception arrive AVANT la date d\'expédition (pas de retard réception)', ({ assert }) => {

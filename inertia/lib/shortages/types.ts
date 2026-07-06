@@ -32,6 +32,8 @@ export interface ShortageDisplayRow {
   arriveeLate: boolean
   /** Vrai si la réception couvrante est en retard de livraison (attendue dans le passé). */
   overdue: boolean
+  /** OFs fils produisant le composant (verdict `sous_ensemble` — composant FABRIQUÉ). */
+  sousEnsembleOfs: string[]
   /** Clé courte du verdict pour les filtres + le tri (miroir de ShortageRow.verdict). */
   verdictKey: ShortageVerdictKey
   verdictLabel: string
@@ -48,7 +50,8 @@ export interface ShortageDisplayRow {
   filter: string
 }
 
-export type ShortageVerdictKey = 'couvert' | 'retard' | 'sans_couverture'
+/** `sous_ensemble` : composant FABRIQUÉ — couverture par OF fils, pas par réception d'achat. */
+export type ShortageVerdictKey = 'couvert' | 'retard' | 'sans_couverture' | 'sous_ensemble'
 
 export interface ShortageStats {
   nbRuptures: number

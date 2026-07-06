@@ -68,7 +68,7 @@ const Shortages: Component<ShortagesProps> = (props) => {
 
   // Compteurs KPI (dérivés des lignes, indépendants des filtres).
   const counts = createMemo(() => {
-    const c = { couvert: 0, retard: 0, sans_couverture: 0 }
+    const c = { couvert: 0, retard: 0, sans_couverture: 0, sous_ensemble: 0 }
     for (const r of view().rows) c[r.verdictKey]++
     return c
   })
@@ -171,6 +171,7 @@ const Shortages: Component<ShortagesProps> = (props) => {
           <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Verdict</span>
           {verdictChip('all', 'Tous')}
           {verdictChip('sans_couverture', 'Sans couv.')}
+          {verdictChip('sous_ensemble', 'S/E')}
           {verdictChip('retard', 'Retard')}
           {verdictChip('couvert', 'Couvert')}
         </div>

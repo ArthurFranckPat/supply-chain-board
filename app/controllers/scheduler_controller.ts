@@ -636,6 +636,11 @@ export default class SchedulerController {
           const receptionsByArticle = groupReceptionsByArticle(coverageReceptions, receptionFrom)
           return buildShortageRows(result, receptionsByArticle, articles, pegsIso, {
             overdueMinQty: RECEPTION_OVERDUE_MIN_QTY,
+            // Ponctualité réception jugée vs expédition − buffer fabrication (« max 2 jours
+            // de fabrication », décision métier — jalonnement OF non fiable). Env :
+            // RUPTURES_FABRICATION_BUFFER_DAYS, défaut DEFAULT_FABRICATION_BUFFER_DAYS.
+            fabricationBufferDays:
+              Number(process.env.RUPTURES_FABRICATION_BUFFER_DAYS) || undefined,
           })
         },
       })
@@ -664,6 +669,11 @@ export default class SchedulerController {
         label: 'Sans couverture',
         cls: 'text-error bg-error/10 border-error/20',
         icon: 'error',
+      },
+      sous_ensemble: {
+        label: 'S/E à lancer',
+        cls: 'text-planifie bg-planifie/10 border-planifie/20',
+        icon: 'account_tree',
       },
     }
 
@@ -697,16 +707,19 @@ export default class SchedulerController {
         dateArrivee: r.reception ? fmtFrShort(r.reception.dateArrivee) : '',
         arriveeLate: r.joursRetardReception > 0,
         overdue: r.overdue,
+        // OFs fils produisant le composant (verdict sous_ensemble) — pour la colonne Réception.
+        sousEnsembleOfs: r.sousEnsembleOfs,
         verdictKey: r.verdict,
         verdictLabel: (() => {
+          // Sous-ensemble : distinguer « OF fils déjà présent » de « à lancer ».
+          if (r.verdict === 'sous_ensemble')
+            return r.sousEnsembleOfs.length > 0 ? 'S/E — OF fils existant' : 'S/E à lancer'
           if (r.verdict !== 'retard') return preset.label
-          // Trois natures de retard, désambiguïsées (avant : « Retard +Nj » ambigu) :
+          // Deux natures de retard réception (le retard COMMANDE ne pilote plus le verdict) :
           //  - overdue : réception attendue dans le passé → retard DÉJÀ CUMULÉ (le plus urgent) ;
-          //  - arrivée tardive : réception future mais APRÈS l'expé → retard PRÉVISIONNEL ;
-          //  - retard commande seul (stock) : porté par la commande, pas par la réception.
+          //  - arrivée tardive : réception future mais APRÈS la date de besoin (expé − buffer).
           if (r.overdue) return `Retard +${r.joursRetardReception}j`
           if (r.joursRetardReception > 0) return `Arrivée +${r.joursRetardReception}j`
-          if (r.joursRetard > 0) return `Cmd +${r.joursRetard}j`
           return preset.label
         })(),
         verdictCls: preset.cls,
