@@ -235,6 +235,59 @@ test.group('CommandeOFMatcher', () => {
     assert.isAbove(result.alerts.length, 0)
   })
 
+  test('MTS article acheté couvert par stock → stock_complete (régression A2178/AR2601357)', ({ assert }) => {
+    // Article acheté sans OF ni contremarque : avant le fix, tombait à tort en
+    // « sans couverture » car matchMts ne regardait pas le stock. Le stock libre
+    // (160) couvre la demande (77) → couverture par stock.
+    const stockFlow: Flow = {
+      article: 'A2178', quantity: 160, direction: 'supply', date: null,
+      origin: { type: 'stock', pmp: null },
+    }
+    const demand = makeDemandFlow('AR2601357', 'A2178', 77, new Date('2026-06-26'), 'MTS')
+
+    const articles = new Map([['A2178', makeArticle('A2178', 'ACHAT')]])
+    const matcher = new CommandeOFMatcher([stockFlow], articles, new Map())
+    const result = matcher.matchCommande(demand)
+
+    assert.equal(result.matchingMethod, 'stock_complete')
+    assert.isNull(result.of)
+    assert.equal(result.stockAllocation!.qteAllouee, 77)
+    assert.equal(result.remainingUncoveredQty, 0)
+  })
+
+  test('MTS article acheté partiellement couvert → purchase_supply', ({ assert }) => {
+    // Stock insuffisant + article acheté : ce qui n'est pas couvert par le stock
+    // relève d'un approvisionnement achat (matchingMethod purchase_supply).
+    const stockFlow: Flow = {
+      article: 'COMP1', quantity: 20, direction: 'supply', date: null,
+      origin: { type: 'stock', pmp: null },
+    }
+    const demand = makeDemandFlow('CMD-MTS-ACHAT', 'COMP1', 50, new Date('2026-04-12'), 'MTS')
+
+    const articles = new Map([['COMP1', makeArticle('COMP1', 'ACHAT')]])
+    const matcher = new CommandeOFMatcher([stockFlow], articles, new Map())
+    const result = matcher.matchCommande(demand)
+
+    assert.equal(result.matchingMethod, 'purchase_supply')
+    assert.equal(result.stockAllocation!.qteAllouee, 20)
+    assert.equal(result.remainingUncoveredQty, 30)
+  })
+
+  test('MTS article fabriqué sans OF ni stock reste uncov (trou de planif)', ({ assert }) => {
+    // Article fabriqué sans OF lié ni stock : vrai trou de planification, on
+    // conserve l'alerte « aucun OF » sans masquer le problème sous purchase_supply.
+    const demand = makeDemandFlow('CMD-MTS-FAB', 'ART1', 100, new Date('2026-04-12'), 'MTS')
+
+    const articles = new Map([['ART1', makeArticle('ART1')]]) // FABRICATION
+    const matcher = new CommandeOFMatcher([], articles, new Map())
+    const result = matcher.matchCommande(demand)
+
+    assert.equal(result.matchingMethod, 'mts_hard_pegging')
+    assert.isNull(result.of)
+    assert.equal(result.remainingUncoveredQty, 100)
+    assert.isTrue(result.alerts.some((a) => a.includes('aucun OF')))
+  })
+
   test('NOR MTO can use multiple OFs sorted by status and date', ({ assert }) => {
     const ofFerme = makeOfFlow('OF-FERME', 'ART1', 1, 50, new Date('2026-04-10'))
     const ofPlan = makeOfFlow('OF-PLAN', 'ART1', 2, 20, new Date('2026-04-11'))

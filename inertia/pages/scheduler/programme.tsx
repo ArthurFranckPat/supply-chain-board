@@ -21,6 +21,7 @@ import BoardGrid from '@/components/board/board-grid'
 import BatchFirmBar from '@/components/board/batch-firm-bar'
 import OrderGrid from '@/components/board/order-grid'
 import OfDetailSheet from '@/components/of/of-detail-sheet'
+import PosteEngagementSheet from '@/components/board/poste-engagement-sheet'
 import { Masthead } from '@/components/masthead'
 import { Button } from '@/components/ui/button'
 import { TextField, TextFieldInput } from '@/components/ui/text-field'
@@ -191,6 +192,15 @@ const Programme: Component<VisionProps> = (props) => {
   const onSelectOf = (num: string) => {
     setSelectedOf(num)
     setDetailOpen(true)
+  }
+
+  // Panneau « Engagement » par poste (#46) : tous les OF fermes de la ligne +
+  // commandes liées, via l'endpoint dédié (hors limite de fenêtre board).
+  const [engagementPoste, setEngagementPoste] = createSignal<string | null>(null)
+  const [engagementOpen, setEngagementOpen] = createSignal(false)
+  const onLineEngagement = (lineCode: string) => {
+    setEngagementPoste(lineCode)
+    setEngagementOpen(true)
   }
 
   // Résolution commande → OF : la carte porte déjà la contremarque (FMINUM_0 = n° OF
@@ -803,6 +813,7 @@ const Programme: Component<VisionProps> = (props) => {
             onSelectOf={onSelectOf}
             onCardHover={(num) => setActiveId(num)}
             onCellDrop={onCommandeDrop}
+            onLineEngagement={onLineEngagement}
             contentRef={setContentEl}
             cellExtra={mode() === 'combined' ? (lineCode, col) => (
               <For each={cmdCells().get(lineCode)?.[col] ?? []}>
@@ -853,6 +864,14 @@ const Programme: Component<VisionProps> = (props) => {
         open={detailOpen()}
         onOpenChange={setDetailOpen}
         onFirmed={(oldId, newId) => store.transformCard(oldId, newId)}
+      />
+
+      {/* Panneau « Engagement » par poste (#46) — endpoint dédié (tous les OF
+          fermes du poste, sans limite de fenêtre board). */}
+      <PosteEngagementSheet
+        posteCode={engagementPoste()}
+        open={engagementOpen()}
+        onOpenChange={setEngagementOpen}
       />
     </div>
   )

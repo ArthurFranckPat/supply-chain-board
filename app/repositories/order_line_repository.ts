@@ -83,8 +83,20 @@ export class X3OrderLineRepository {
    * (cf. F426-32355 ↔ AR2601963). Un OF peut peg plusieurs lignes : on garde la plus urgente.
    */
   async getCommandesByOf(ofNums: string[]): Promise<Map<string, OfCommandePeg>> {
-    const unique = [...new Set(ofNums.map((n) => n.trim()).filter(Boolean))]
+    const all = await this.getAllCommandesByOf(ofNums)
     const out = new Map<string, OfCommandePeg>()
+    for (const [ofNum, pegs] of all) if (pegs[0]) out.set(ofNum, pegs[0])
+    return out
+  }
+
+  /**
+   * Variante N-N du reverse peg : TOUTES les commandes rattachées à chaque OF,
+   * triées par urgence (date d'expédition la plus tôt d'abord, nulls en dernier).
+   * Panneau « Engagement » par poste (#46) — un OF peut alimenter plusieurs lignes.
+   */
+  async getAllCommandesByOf(ofNums: string[]): Promise<Map<string, OfCommandePeg[]>> {
+    const unique = [...new Set(ofNums.map((n) => n.trim()).filter(Boolean))]
+    const out = new Map<string, OfCommandePeg[]>()
     if (unique.length === 0) return out
 
     const db = new X3Database()
@@ -98,16 +110,26 @@ export class X3OrderLineRepository {
           const ofNum = row.OF_NUM?.trim()
           const numCommande = row.NO_COMMANDE?.trim()
           if (!ofNum || !numCommande) continue
+          const list = out.get(ofNum) ?? []
           const dateExpedition = parseX3Date(row.ECHEANCE)
-          const existing = out.get(ofNum)
-          // Plus urgente = date d'expédition la plus tôt (nulls en dernier).
+          // Dédoublonne : plusieurs lignes SORDERQ d'une même commande → 1 entrée,
+          // date d'expédition la plus tôt conservée.
+          const existing = list.find((p) => p.numCommande === numCommande)
           if (existing) {
             const a = existing.dateExpedition?.getTime() ?? Infinity
             const b = dateExpedition?.getTime() ?? Infinity
-            if (a <= b) continue
+            if (b < a) existing.dateExpedition = dateExpedition
+          } else {
+            list.push({ numCommande, client: row.CLIENT?.trim() || null, dateExpedition })
           }
-          out.set(ofNum, { numCommande, client: row.CLIENT?.trim() || null, dateExpedition })
+          out.set(ofNum, list)
         }
+      }
+      for (const list of out.values()) {
+        list.sort(
+          (a, b) =>
+            (a.dateExpedition?.getTime() ?? Infinity) - (b.dateExpedition?.getTime() ?? Infinity)
+        )
       }
       return out
     } finally {

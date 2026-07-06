@@ -153,6 +153,11 @@ router
 
     // Endpoints JSON relocalisés depuis /scheduler (P3, #18) : du JSON, pas des pages Inertia.
     router.get('/api/v1/planning/ofs/:of/detail', '#controllers/scheduler_controller.ofDetail')
+    // Engagement par poste (#46) : tous les OF fermes du poste + commandes liées.
+    router.get(
+      '/api/v1/planning/postes/:poste/engagement',
+      '#controllers/scheduler_controller.posteEngagement'
+    )
     router.get('/api/v1/planning/shortages/rows', '#controllers/scheduler_controller.shortageRows')
 
     // Suivi Commandes

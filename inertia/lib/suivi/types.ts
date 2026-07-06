@@ -85,6 +85,10 @@ export interface SuiviDisplayRow {
   dateExpIso: string | null
   /** True si en retard de production (date expé dépassée, hors zone expé). */
   late: boolean
+  /** Jours ouvrés de retard (0 si pas en retard). Exclut week-ends + fériés FR. */
+  lateDays: number
+  /** Gravité du retard : 'tolerance' (≤ 1 j ouvré, rouge clair) | 'critical' (au-delà, rouge foncé) | null. */
+  lateSeverity: 'tolerance' | 'critical' | null
   /** Emplacements rattachés à la ligne (source + qté + zone). */
   emplacements: SuiviEmplacement[]
   /** True si au moins un emplacement est en zone d'expédition. */
@@ -160,6 +164,8 @@ export interface ProactiveDisplayRow {
   dateExpIso: string | null
   verdictKey: ProactiveVerdictKey
   verdictLabel: string
+  /** Gravité du retard : 'tolerance' (≤ 1 j ouvré, rouge clair) | 'critical' (au-delà, rouge foncé) | null. */
+  lateSeverity: 'tolerance' | 'critical' | null
   /** Mode de couverture : « Stock » | n° OF (« · »-séparés) | « Achat » | « — ». */
   couverture: string
   joursRetard: number
