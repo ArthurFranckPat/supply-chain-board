@@ -77,6 +77,27 @@ export interface OrderImpactResult {
   }
 }
 
+/**
+ * Nette la demande de son allocation ERP propre (origin.qteAllouee = stock déjà réservé
+ * en X3 pour CETTE commande). Quantité à couvrir par le matching = reste à livrer − alloué ;
+ * une commande entièrement allouée n'a rien à faire produire et sort de la demande.
+ *
+ * Sans ce nettage, le matcher ne voit que le stock LIBRE (PHYSTO − PHYALL) — la part
+ * réservée de la commande lui est invisible → il accroche un OF/suggestion destiné à un
+ * autre besoin et déclare une fausse rupture (cas AR2602595/AEA833XX : 104 alloués à 100 %,
+ * matchée sur la suggestion SGAE10649392338 du besoin d'août). Appliqué à TOUTES les vues
+ * depuis fix/ruptures-fiabilite — d'abord gated au proactif (commit 4005f7e), généralisé
+ * après validation X3 du cas ruptures.
+ */
+export function netDemandsByAllocation(demands: Flow[]): Flow[] {
+  return demands
+    .map((f) => {
+      const alloc = (f.origin as { qteAllouee?: number }).qteAllouee ?? 0
+      return alloc > 0 ? { ...f, quantity: Math.max(0, f.quantity - alloc) } : f
+    })
+    .filter((f) => f.quantity > 0)
+}
+
 function safeDate(value: string | null | undefined): Date | null {
   if (!value) return null
   const d = new Date(value)
