@@ -10,7 +10,12 @@ import type { GammeOperation } from '#app/domain/models/gamme'
 import { loadOrderImpacts } from '#services/order_impacts_loader'
 import { timeStage } from '#services/perf_metrics'
 import { loadOrderBoardData } from '#controllers/order_planning_controller'
-import { buildShortageRows, type ShortageRow } from '#app/domain/shortages'
+import {
+  buildShortageRows,
+  fabricationDaysFromHours,
+  DEFAULT_HOURS_PER_DAY,
+  type ShortageRow,
+} from '#app/domain/shortages'
 import { groupReceptionsByArticle, RECEPTION_LOOKBACK_DAYS, RECEPTION_OVERDUE_MIN_QTY } from '#repositories/reception_repository'
 import type { Flow } from '#app/domain/models/flow'
 import type { NomenclatureEntry } from '#app/domain/models/nomenclature'
@@ -634,13 +639,41 @@ export default class SchedulerController {
           receptionFrom.setDate(receptionFrom.getDate() - RECEPTION_LOOKBACK_DAYS)
           receptionFrom.setHours(0, 0, 0, 0)
           const receptionsByArticle = groupReceptionsByArticle(coverageReceptions, receptionFrom)
+
+          // Jours de fabrication par OF depuis la charge gamme : Σ (qté restante / cadence)
+          // sur toutes les opérations de l'article, convertie en jours (7,5 h/j, plancher
+          // 1 j — décision métier : « charge < 1 journée → 1 journée »). Gamme absente ou
+          // référentiel indisponible → plancher 1 j (map vide/entrée manquante).
+          const hoursPerDay =
+            Number(process.env.RUPTURES_HOURS_PER_DAY) || DEFAULT_HOURS_PER_DAY
+          const fabricationDaysByOf = new Map<string, number>()
+          try {
+            const { gamme } = await boardDataset.getReferential()
+            const opsByArticle = new Map<string, { rate: number }[]>()
+            for (const g of gamme) {
+              if (!g.article || g.rate <= 0) continue
+              const arr = opsByArticle.get(g.article) ?? []
+              arr.push(g)
+              opsByArticle.set(g.article, arr)
+            }
+            for (const of of result.ofs) {
+              const ops = opsByArticle.get(of.article)
+              if (!ops || !of.qteRestante) continue
+              let hours = 0
+              for (const op of ops) hours += of.qteRestante / op.rate
+              fabricationDaysByOf.set(of.numOf, fabricationDaysFromHours(hours, hoursPerDay))
+            }
+          } catch {
+            // Référentiel injoignable → tous les OF au plancher 1 j de fabrication.
+          }
+
           return buildShortageRows(result, receptionsByArticle, articles, pegsIso, {
             overdueMinQty: RECEPTION_OVERDUE_MIN_QTY,
-            // Ponctualité réception jugée vs expédition − buffer fabrication (« max 2 jours
-            // de fabrication », décision métier — jalonnement OF non fiable). Env :
-            // RUPTURES_FABRICATION_BUFFER_DAYS, défaut DEFAULT_FABRICATION_BUFFER_DAYS.
-            fabricationBufferDays:
-              Number(process.env.RUPTURES_FABRICATION_BUFFER_DAYS) || undefined,
+            // Date de besoin = expédition − logistique (2 j) − fabrication (charge gamme).
+            // Jalonnement OF (STRDAT/ENDDAT) jamais consulté : jugé non fiable (métier).
+            logisticsBufferDays:
+              Number(process.env.RUPTURES_LOGISTICS_BUFFER_DAYS) || undefined,
+            fabricationDaysByOf,
           })
         },
       })

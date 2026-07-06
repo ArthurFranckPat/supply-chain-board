@@ -2,7 +2,12 @@ import { test } from '@japa/runner'
 import type { Article } from '#app/domain/models/article'
 import type { ReceptionRecord } from '#app/domain/recursive-checker'
 import type { OrderImpactResult } from '#app/domain/order-impacts'
-import { buildShortageRows, resolveCoveringReception, isoLocalDay } from '#app/domain/shortages'
+import {
+  buildShortageRows,
+  fabricationDaysFromHours,
+  resolveCoveringReception,
+  isoLocalDay,
+} from '#app/domain/shortages'
 
 function article(code: string, desc: string): Article {
   return {
@@ -115,9 +120,9 @@ test.group('buildShortageRows', () => {
     assert.equal(rows[0].overdue, false)
   })
 
-  test('verdict "retard" si la réception couvre mais arrive APRÈS la date de besoin (expé − buffer)', ({ assert }) => {
-    // Expédition à J+2 → besoin à J+0 (buffer fabrication 2 j) ; réception couvrante à
-    // J+9 → arrive 9 j après le besoin → retard de 9j (avant : 7j vs expé seule).
+  test('verdict "retard" si la réception couvre mais arrive APRÈS la date de besoin (expé − buffers)', ({ assert }) => {
+    // Expédition à J+2 → besoin à J−1 (2 j logistique + 1 j fabrication plancher) ;
+    // réception couvrante à J+9 → 10 j après le besoin (avant : 7j vs expé seule).
     const exp = new Date()
     exp.setHours(12, 0, 0, 0)
     exp.setDate(exp.getDate() + 2)
@@ -135,12 +140,13 @@ test.group('buildShortageRows', () => {
     const rows = buildShortageRows(result, new Map([['C1', [reception('PO-1', 'C1', 'FX', 10, 9)]]]), new Map()).rows
     assert.equal(rows[0].verdict, 'retard')
     assert.equal(rows[0].couverte, true)
-    assert.equal(rows[0].joursRetardReception, 9)
+    assert.equal(rows[0].joursRetardReception, 10)
   })
 
-  test('buffer fabrication : réception ENTRE besoin et expédition → retard (pas le temps de produire)', ({ assert }) => {
-    // Expédition à J+10 → besoin à J+8 ; réception à J+9 : avant l'expé mais après le
-    // besoin → retard prévisionnel de 1j. Avant le buffer, ce cas passait « couvert ».
+  test('buffers : réception ENTRE besoin et expédition → retard (pas le temps de produire + expédier)', ({ assert }) => {
+    // Expédition à J+10 → besoin à J+7 (2 j logistique + 1 j fabrication plancher) ;
+    // réception à J+9 : avant l'expé mais après le besoin → retard prévisionnel de 2j.
+    // Avant les buffers, ce cas passait « couvert ».
     const exp = new Date()
     exp.setHours(12, 0, 0, 0)
     exp.setDate(exp.getDate() + 10)
@@ -157,13 +163,29 @@ test.group('buildShortageRows', () => {
     )
     const rows = buildShortageRows(result, new Map([['C1', [reception('PO-1', 'C1', 'FX', 10, 9)]]]), new Map()).rows
     assert.equal(rows[0].verdict, 'retard')
-    assert.equal(rows[0].joursRetardReception, 1)
+    assert.equal(rows[0].joursRetardReception, 2)
 
-    // Buffer configurable : à 0, la même réception redevient à temps.
+    // Charge gamme : OF à 3 j de fabrication → besoin à J+5, le retard grandit d'autant.
+    const rowsFab3 = buildShortageRows(result, new Map([['C1', [reception('PO-1', 'C1', 'FX', 10, 9)]]]), new Map(), new Map(), {
+      fabricationDaysByOf: new Map([['OF-A', 3]]),
+    }).rows
+    assert.equal(rowsFab3[0].verdict, 'retard')
+    assert.equal(rowsFab3[0].joursRetardReception, 4)
+
+    // Buffers neutralisés (logistique 0, fab plancher 1) → besoin à J+9 = arrivée → couvert.
     const rows0 = buildShortageRows(result, new Map([['C1', [reception('PO-1', 'C1', 'FX', 10, 9)]]]), new Map(), new Map(), {
-      fabricationBufferDays: 0,
+      logisticsBufferDays: 0,
     }).rows
     assert.equal(rows0[0].verdict, 'couvert')
+  })
+
+  test('fabricationDaysFromHours : plancher 1 j, arrondi supérieur, charge inconnue → 1', ({ assert }) => {
+    assert.equal(fabricationDaysFromHours(0), 1) // charge inconnue / gamme absente
+    assert.equal(fabricationDaysFromHours(3), 1) // < 1 journée (7,5 h) → 1 j
+    assert.equal(fabricationDaysFromHours(7.5), 1) // exactement 1 journée
+    assert.equal(fabricationDaysFromHours(8), 2) // entamée → arrondi sup
+    assert.equal(fabricationDaysFromHours(30), 4) // 30 h / 7,5 = 4 j
+    assert.equal(fabricationDaysFromHours(6, 3), 2) // heures/jour paramétrable
   })
 
   test('verdict "sous_ensemble" : composant FABRIQUÉ sans réception, OF fils listés', ({ assert }) => {

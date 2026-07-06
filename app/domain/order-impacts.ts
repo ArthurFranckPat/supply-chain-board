@@ -63,6 +63,9 @@ export interface OrderImpactResult {
   ofs: Array<{
     numOf: string
     article: string
+    /** Qté restant à produire — sert au calcul de charge (buffer fabrication ruptures).
+     *  Optionnel (fixtures) : absent → charge inconnue → plancher 1 j de fabrication. */
+    qteRestante?: number
     feasible: boolean | null
     statutNum: number
     missingComponents: Record<string, number>
@@ -283,6 +286,7 @@ export function evaluateOrderImpacts(
       return {
         numOf: e.numOf,
         article: e.article,
+        qteRestante: e.qteRestante,
         feasible: resolved.feasible,
         statutNum: e.statutNum,
         missingComponents: resolved.missingComponents,

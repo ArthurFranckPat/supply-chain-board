@@ -113,11 +113,29 @@ export interface ShortageOfPeg {
 }
 
 /**
- * Buffer fabrication par défaut : temps maxi jugé nécessaire pour produire l'OF une fois
- * les composants reçus (décision métier : « max 2 jours de fabrication »). La réception
- * doit arriver au plus tard à expédition − buffer pour être « à temps ».
+ * Buffer LOGISTIQUE fixe : jours entre la fin de fabrication et l'expédition (contrôle,
+ * conditionnement, quai). Décision métier : « l'OF doit être terminé 2 jours avant la
+ * date d'expédition ».
  */
-export const DEFAULT_FABRICATION_BUFFER_DAYS = 2
+export const DEFAULT_LOGISTICS_BUFFER_DAYS = 2
+
+/**
+ * Heures d'atelier par jour, pour convertir la charge gamme d'un OF en jours de
+ * fabrication (aligné sur la base DAYCAP X3, ex. PP_830 = 7,5 h/j).
+ */
+export const DEFAULT_HOURS_PER_DAY = 7.5
+
+/**
+ * Jours de fabrication d'un OF depuis sa charge gamme (heures). Décision métier :
+ * charge < 1 journée → 1 journée (plancher). Charge inconnue (0, gamme absente) → plancher.
+ */
+export function fabricationDaysFromHours(
+  hours: number,
+  hoursPerDay: number = DEFAULT_HOURS_PER_DAY,
+): number {
+  if (!Number.isFinite(hours) || hours <= 0 || hoursPerDay <= 0) return 1
+  return Math.max(1, Math.ceil(hours / hoursPerDay))
+}
 
 /** Décale une date ISO (YYYY-MM-DD) de `days` jours calendaires (UTC, sans dérive TZ). */
 export function addDaysIso(iso: string, days: number): string {
@@ -226,11 +244,22 @@ export function buildShortageRows(
   receptionsByArticle: Map<string, ReceptionRecord[]>,
   articles: Map<string, Article>,
   ofPegs: Map<string, ShortageOfPeg> = new Map(),
-  opts: { todayIso?: string; overdueMinQty?: number; fabricationBufferDays?: number } = {},
+  opts: {
+    todayIso?: string
+    overdueMinQty?: number
+    /** Jours logistiques fixes entre fin de fabrication et expédition (défaut 2). */
+    logisticsBufferDays?: number
+    /**
+     * Jours de fabrication par OF (charge gamme convertie, cf. fabricationDaysFromHours).
+     * OF absent de la map → plancher 1 j. Buffer total ligne = logistique + fabrication.
+     */
+    fabricationDaysByOf?: Map<string, number>
+  } = {},
 ): ShortageResult {
   const todayIso = opts.todayIso ?? isoLocalDay()
   const overdueMinQty = opts.overdueMinQty ?? 0
-  const fabricationBufferDays = opts.fabricationBufferDays ?? DEFAULT_FABRICATION_BUFFER_DAYS
+  const logisticsBufferDays = opts.logisticsBufferDays ?? DEFAULT_LOGISTICS_BUFFER_DAYS
+  const fabricationDaysByOf = opts.fabricationDaysByOf ?? new Map<string, number>()
 
   // OFs du pool par article produit — sert à repérer l'OF fils d'un composant FABRIQUÉ.
   const ofsByArticle = new Map<string, string[]>()
@@ -341,10 +370,14 @@ export function buildShortageRows(
     )
     consumedByComponent.set(p.component, alreadyConsumed + p.qteManquante)
 
-    // Date de BESOIN = expédition − buffer fabrication : la réception doit laisser le
-    // temps de produire. On ne se réfère PAS aux dates de jalonnement OF (STRDAT/ENDDAT,
-    // non fiables — décision métier), mais à l'engagement client remonté du buffer.
-    const dateBesoin = p.dateExpedition ? addDaysIso(p.dateExpedition, -fabricationBufferDays) : null
+    // Date de BESOIN = expédition − logistique (2 j) − fabrication (charge gamme de l'OF,
+    // plancher 1 j) : la réception doit laisser le temps de produire PUIS d'expédier.
+    // On ne se réfère PAS aux dates de jalonnement OF (STRDAT/ENDDAT, non fiables —
+    // décision métier), mais à l'engagement client remonté des buffers.
+    const fabDays = Math.max(1, fabricationDaysByOf.get(p.numOf) ?? 1)
+    const dateBesoin = p.dateExpedition
+      ? addDaysIso(p.dateExpedition, -(logisticsBufferDays + fabDays))
+      : null
 
     // Retard imputable à la réception. Deux cas :
     //  - EN RETARD (overdue) : la couvrante était attendue dans le passé (retard de
