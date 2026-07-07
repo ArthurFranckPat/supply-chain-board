@@ -38,20 +38,33 @@ export interface ShortageDisplayRow {
   verdictKey: ShortageVerdictKey
   verdictLabel: string
   verdictCls: string
-  verdictIcon: string
   // ── Vue « Couverture » (frise temporelle) ──
   /** Date d'expédition commande ISO (YYYY-MM-DD) — null si OF non rattaché. */
   dateExpeditionIso: string | null
   /** Date d'arrivée de la réception couvrante ISO — null si aucune couverture. */
   receptionIso: string | null
-  /** Jours de retard d'arrivée (réception après expé) — 0 si à temps / sans réception. */
+  /** Jours de retard d'arrivée vs date de besoin (expé − buffers) — dépassement buffer fab. */
   joursRetardReception: number
+  /**
+   * Marge logistique signée (j) entre la réception et la deadline client (expédition).
+   * > 0 : marge restante avant expé ; ≤ 0 : retard client projeté. 0 si pas de réception
+   * ou OF orphelin. Sert au badge « Marge +Nj » et au gap de la frise.
+   */
+  joursMarge: number
   /** Texte concaténé (composant / commande / fournisseur / OF / PF) pour le filtre client. */
   filter: string
 }
 
-/** `sous_ensemble` : composant FABRIQUÉ — couverture par OF fils, pas par réception d'achat. */
-export type ShortageVerdictKey = 'couvert' | 'retard' | 'sans_couverture' | 'sous_ensemble'
+/**
+ * Continuum de ponctualité (cf. ShortageRow.verdict) :
+ *  - `couvert`        : réception ≤ dateBesoin (production + logistique tranquilles)
+ *  - `a_risque`       : réception entre dateBesoin et expédition (buffers entamés,
+ *                       PAS un retard client — tension logistique seulement)
+ *  - `retard`         : réception ≥ expédition (retard client réel projeté)
+ *  - `sous_ensemble`  : composant FABRIQUÉ couvert par un OF fils (pas par PO)
+ *  - `sans_couverture`: aucune réception prévue.
+ */
+export type ShortageVerdictKey = 'couvert' | 'a_risque' | 'retard' | 'sans_couverture' | 'sous_ensemble'
 
 export interface ShortageStats {
   nbRuptures: number

@@ -22,10 +22,13 @@ const TH =
 const TH_R = TH.replace('text-left', 'text-right')
 const TD = 'px-4 py-[13px] align-middle border-r border-rule-soft'
 
-/** True si la ligne traduit un risque (sans couverture, ou réception après l'expé). */
-// Teinte « alerte » (rouge) : retard / sans couverture. Le verdict sous_ensemble est une
-// action interne (lancer l'OF fils), signalée par son chip planifie — pas par le rouge.
+/** True si la ligne traduit un risque grave (sans couverture, ou retard client réel).
+ *  Pilote le fond de ligne rouge + la bordure gauche — l'unique signal « alerte forte ». */
 const isLate = (r: ShortageDisplayRow) => r.verdictKey === 'retard' || r.verdictKey === 'sans_couverture'
+/** True si la ligne est une tension logistique (réception entre besoin et expé).
+ *  Sert uniquement au marqueur + gap de la frise (R3) — le Registre porte le signal
+ *  par le badge verdict seul, sans teinte de ligne. */
+const isAtRisk = (r: ShortageDisplayRow) => r.verdictKey === 'a_risque'
 
 // ───────────────────────────────────────────────────────────────────────────
 // R1 · Registre
@@ -36,38 +39,47 @@ export const ShortageRegistre: Component<{
   onSelectOf: (numOf: string) => void
   emptyState: import('solid-js').JSX.Element
 }> = (props) => {
-  const [sorting, setSorting] = createSignal<SortingState[]>([{ id: 'dateExpedition', desc: false }])
+  // Tri par défaut : composant alphabétique. L'ordre par urgence (expé asc) vient déjà
+  // du serveur ; l'utilisateur peut retrier en cliquant les en-têtes triables.
+  const [sorting, setSorting] = createSignal<SortingState[]>([{ id: 'component', desc: false }])
 
   const columns = [
     {
       accessorKey: 'component',
-      header: () => 'Composant · Désignation',
-      cell: (info: { row: { original: ShortageDisplayRow } }) => (
-        <>
-          <div class="font-mono text-[13px] font-bold tracking-tight text-foreground">{info.row.original.component}</div>
-          <div class="mt-0.5 truncate max-w-[18rem] font-sans text-[12px] font-medium leading-snug text-secondary-foreground">
-            {info.row.original.componentDesc}
-          </div>
-        </>
-      ),
+      header: () => 'Composant',
+      cell: (info: { row: { original: ShortageDisplayRow } }) => {
+        const row = info.row.original
+        return (
+          <>
+            <div class="font-mono text-[14px] font-bold tracking-tight text-foreground">{row.component}</div>
+            <div class="mt-0.5 truncate max-w-[18rem] font-sans text-[11px] leading-snug text-muted-foreground">
+              {row.componentDesc}
+            </div>
+          </>
+        )
+      },
       meta: { thClass: TH, tdClass: TD },
     },
     {
       accessorKey: 'qteManquante',
       header: () => 'Qté manq.',
-      cell: (info: { row: { original: ShortageDisplayRow } }) => (
-        <>
-          <span class="font-fraunces text-[19px] font-black leading-none tracking-tight text-destructive">
-            {info.row.original.qteManquante}
+      // Ne crie pas « alerte » par défaut : la gravité est portée par le VERDICT, pas par
+      // l'ampleur (2 pcs sans couverture > 1000 pcs couvertes). Taille réduite, neutre ;
+      // rouge uniquement sur les lignes en alerte.
+      cell: (info: { row: { original: ShortageDisplayRow } }) => {
+        const row = info.row.original
+        return (
+          <span class={cx('font-fraunces text-[14px] font-bold tabular-nums leading-none', isLate(row) ? 'text-destructive' : 'text-foreground')}>
+            {row.qteManquante}
+            <span class="ml-0.5 font-mono text-[9px] font-medium text-muted-foreground/70">u</span>
           </span>
-          <span class="ml-0.5 font-mono text-[10px] font-medium text-muted-foreground/80">u</span>
-        </>
-      ),
-      meta: { thClass: `w-[96px] ${TH_R}`, tdClass: `w-[96px] whitespace-nowrap text-right ${TD}` },
+        )
+      },
+      meta: { thClass: `w-[80px] ${TH_R}`, tdClass: `w-[80px] whitespace-nowrap text-right ${TD}` },
     },
     {
       accessorKey: 'numOf',
-      header: () => 'OF bloqué · PF',
+      header: () => 'OF bloqué',
       cell: (info: { row: { original: ShortageDisplayRow } }) => {
         const row = info.row.original
         return (
@@ -75,57 +87,45 @@ export const ShortageRegistre: Component<{
             <button
               type="button"
               onClick={() => props.onSelectOf(row.numOf)}
-              class="cursor-pointer font-mono text-[13px] font-bold text-terra hover:underline"
+              class="cursor-pointer font-mono text-[12px] font-semibold text-terra hover:underline"
             >
               {row.numOf}
             </button>
-            <div class="mt-0.5 truncate max-w-[11rem] font-mono text-[10.5px] font-medium text-muted-foreground">
-              {row.articleParent} · {row.articleParentDesc}
+            <div class="mt-0.5 truncate max-w-[11rem] font-sans text-[11px] leading-snug text-muted-foreground">
+              {row.articleParentDesc}
             </div>
           </>
         )
       },
-      meta: { thClass: `w-[180px] ${TH}`, tdClass: `w-[180px] ${TD}` },
+      meta: { thClass: `w-[170px] ${TH}`, tdClass: `w-[170px] ${TD}` },
     },
     {
       accessorKey: 'numCommande',
-      header: () => 'Commande · Client',
+      header: () => 'Commande',
+      // N° + expé (relative) sur la 1re ligne ; client en sous-titre. Les +N commandes
+      // restent en chip discret — l'essentiel est « pour qui, quand ».
       cell: (info: { row: { original: ShortageDisplayRow } }) => {
         const row = info.row.original
         return (
-          <Show when={row.hasCommande} fallback={<span class="font-sans text-[12px] italic text-muted-foreground/60">— OF orphelin</span>}>
-            <div class="flex items-baseline gap-1.5 font-mono text-[13px] font-bold text-foreground">
-              {row.numCommande}
+          <Show when={row.hasCommande} fallback={<span class="font-sans text-[11px] italic text-muted-foreground/50">— orphelin</span>}>
+            <div class="flex items-baseline gap-1.5">
+              <span class="font-mono text-[12px] font-semibold text-secondary-foreground">{row.numCommande}</span>
+              <Show when={row.dateExpedition}>
+                <span class={cx('font-mono text-[11px] font-bold', isLate(row) ? 'text-destructive' : 'text-muted-foreground')} title={`Expé : ${row.dateExpeditionIso ?? ''}`}>
+                  {row.dateExpedition}
+                </span>
+              </Show>
               <Show when={row.autresCommandes.length > 0}>
-                <span
-                  class="rounded bg-terra-soft px-1 font-mono text-[9px] font-bold text-terra"
-                  title={`OF aussi alloué à : ${row.autresCommandes.join(', ')}`}
-                >
+                <span class="rounded bg-terra-soft px-1 font-mono text-[9px] font-bold text-terra" title={`Aussi : ${row.autresCommandes.join(', ')}`}>
                   +{row.autresCommandes.length}
                 </span>
               </Show>
             </div>
-            <div class="mt-0.5 truncate max-w-[11rem] font-sans text-[12px] font-medium leading-snug text-secondary-foreground">{row.client}</div>
+            <div class="mt-0.5 truncate max-w-[11rem] font-sans text-[11px] leading-snug text-muted-foreground">{row.client}</div>
           </Show>
         )
       },
-      meta: { thClass: `w-[185px] ${TH}`, tdClass: `w-[185px] ${TD}` },
-    },
-    {
-      accessorKey: 'dateExpedition',
-      header: () => 'Expé',
-      cell: (info: { row: { original: ShortageDisplayRow } }) => {
-        const row = info.row.original
-        return (
-          <span classList={{ 'font-bold text-destructive': isLate(row), 'text-foreground': !isLate(row) }}>
-            {row.dateExpedition || '—'}
-          </span>
-        )
-      },
-      meta: {
-        thClass: `w-[80px] ${TH}`,
-        tdClass: `w-[80px] whitespace-nowrap font-mono text-[12.5px] font-semibold ${TD}`,
-      },
+      meta: { thClass: `w-[180px] ${TH}`, tdClass: `w-[180px] ${TD}` },
     },
     {
       id: 'reception',
@@ -141,17 +141,15 @@ export const ShortageRegistre: Component<{
               <Show
                 when={row.verdictKey === 'sous_ensemble'}
                 fallback={
-                  <span class="inline-flex items-center gap-1 font-mono text-[11px] font-bold text-destructive">
-                    <span class="material-symbols-outlined text-[13px]">block</span> Aucune réception
-                  </span>
+                  // Le verdict « Sans couverture » porte déjà l'alerte — la cellule reste
+                  // neutre, pas la peine de répéter « aucune réception » en rouge.
+                  <span class="text-muted-foreground/50">—</span>
                 }
               >
                 <Show
                   when={row.sousEnsembleOfs.length > 0}
                   fallback={
-                    <span class="inline-flex items-center gap-1 font-mono text-[11px] font-bold text-planifie">
-                      <span class="material-symbols-outlined text-[13px]">account_tree</span> OF fils à lancer
-                    </span>
+                    <span class="text-muted-foreground/50">—</span>
                   }
                 >
                   <div class="flex flex-wrap items-center gap-1">
@@ -176,9 +174,9 @@ export const ShortageRegistre: Component<{
           >
             {(r) => (
               <>
-                <div class="font-mono text-[12.5px] font-bold text-foreground">{r().id}</div>
-                <div class="mt-0.5 truncate max-w-[16rem] font-mono text-[10.5px] font-medium text-muted-foreground">
-                  {r().supplier} · {r().qty} u
+                <div class="font-mono text-[11px] font-semibold text-muted-foreground">{r().id}</div>
+                <div class="mt-0.5 truncate max-w-[14rem] font-sans text-[11px] leading-snug text-muted-foreground">
+                  {r().supplier} · {r().qty}u · {r().dateArrivee}
                 </div>
               </>
             )}
@@ -188,49 +186,13 @@ export const ShortageRegistre: Component<{
       meta: { thClass: TH, tdClass: TD },
     },
     {
-      accessorKey: 'dateArrivee',
-      header: () => 'Arrivée',
-      cell: (info: { row: { original: ShortageDisplayRow } }) => {
-        const row = info.row.original
-        return (
-          <Show when={row.dateArrivee} fallback={<span class="text-muted-foreground/60">—</span>}>
-            <span
-              class="inline-flex items-center gap-1"
-              classList={{ 'font-bold text-destructive': row.arriveeLate, 'text-secondary-foreground': !row.arriveeLate }}
-            >
-              <Show when={row.arriveeLate}>
-                <span class="material-symbols-outlined text-[13px]">{row.overdue ? 'priority_high' : 'warning'}</span>
-              </Show>
-              {row.dateArrivee}
-              <Show when={row.overdue}>
-                <span class="rounded bg-destructive/15 px-1 font-mono text-[9px] font-bold uppercase text-destructive">en retard</span>
-              </Show>
-            </span>
-          </Show>
-        )
-      },
-      meta: {
-        thClass: `w-[92px] ${TH}`,
-        tdClass: `w-[92px] whitespace-nowrap font-mono text-[12.5px] font-semibold ${TD}`,
-      },
-    },
-    {
       id: 'verdict',
       enableSorting: false,
       header: () => 'Verdict',
       cell: (info: { row: { original: ShortageDisplayRow } }) => {
         const row = info.row.original
-        const tone =
-          row.verdictKey === 'couvert'
-            ? 'bg-ferme/15 text-ferme'
-            : row.verdictKey === 'retard'
-              ? 'bg-suggere/15 text-suggere'
-              : row.verdictKey === 'sous_ensemble'
-                ? 'bg-planifie/15 text-planifie'
-                : 'bg-destructive/10 text-destructive'
         return (
-          <span class={cx('inline-flex items-center gap-1 rounded-md border border-transparent px-2 py-0.5 text-[11px] font-medium whitespace-nowrap', tone)}>
-            <span class="material-symbols-outlined text-[13px]">{row.verdictIcon}</span>
+          <span class={cx('inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap', row.verdictCls)}>
             {row.verdictLabel}
           </span>
         )
@@ -256,13 +218,15 @@ export const ShortageRegistre: Component<{
       sorting={sorting}
       onSortingChange={setSorting}
       indexColumn={indexColumn}
-      tableClass="min-w-[1180px] text-xs"
+      tableClass="min-w-[880px] text-xs"
       scrollContainerClass="h-full border-0 rounded-none shadow-none"
       theadRowClass="sticky top-0 z-10 bg-secondary"
       getRowClass={(row) =>
         cx(
           'border-t border-rule-soft transition-colors',
-          isLate(row) ? 'bg-destructive/10 hover:bg-destructive/[0.18]' : 'hover:bg-foreground/[0.04]',
+          isLate(row)
+            ? 'bg-destructive/10 hover:bg-destructive/[0.18]'
+            : 'hover:bg-foreground/[0.04]',
         )
       }
       emptyState={props.emptyState}
@@ -288,10 +252,21 @@ interface ComponentGroup {
 }
 
 const VERDICT_RANK: Record<ShortageDisplayRow['verdictKey'], number> = {
-  sans_couverture: 3,
-  sous_ensemble: 2,
-  retard: 1,
+  sans_couverture: 4,
+  sous_ensemble: 3,
+  retard: 2,
+  a_risque: 1,
   couvert: 0,
+}
+
+/** Badge couverture de la vue « Par composant » (pire verdict du groupe). Teintes du
+ *  design system — miroir du VERDICT_PRESET serveur, sans les icônes (libellé seul). */
+const VERDICT_BADGE: Record<ShortageDisplayRow['verdictKey'], { cls: string; label: string }> = {
+  couvert: { cls: 'bg-ferme/15 text-ferme', label: 'Couvert' },
+  a_risque: { cls: 'bg-suggere/15 text-suggere', label: 'À risque' },
+  retard: { cls: 'bg-destructive/10 text-destructive', label: 'Retard' },
+  sous_ensemble: { cls: 'bg-planifie/15 text-planifie', label: 'S/E à lancer' },
+  sans_couverture: { cls: 'bg-destructive/10 text-destructive', label: 'Sans couv.' },
 }
 
 /** Agrège les lignes par composant. `rows` arrive trié par urgence (expé asc) du parent. */
@@ -357,7 +332,9 @@ export const ShortageComposants: Component<{
                   <tr
                     class={cx(
                       'border-t border-rule-soft transition-colors',
-                      late ? 'bg-destructive/10 hover:bg-destructive/[0.18]' : 'hover:bg-foreground/[0.04]',
+                      late
+                        ? 'bg-destructive/10 hover:bg-destructive/[0.18]'
+                        : 'hover:bg-foreground/[0.04]',
                     )}
                   >
                     <td
@@ -369,19 +346,19 @@ export const ShortageComposants: Component<{
                       {i() + 1}
                     </td>
                     <td class={TD}>
-                      <div class="font-mono text-[13px] font-bold tracking-tight text-foreground">{g.component}</div>
-                      <div class="mt-0.5 truncate max-w-[18rem] font-sans text-[12px] font-medium leading-snug text-secondary-foreground">
+                      <div class="font-mono text-[14px] font-bold tracking-tight text-foreground">{g.component}</div>
+                      <div class="mt-0.5 truncate max-w-[18rem] font-sans text-[11px] leading-snug text-muted-foreground">
                         {g.componentDesc}
                       </div>
                     </td>
                     <td class={`whitespace-nowrap text-right ${TD}`}>
-                      <span class="font-fraunces text-[19px] font-black leading-none tracking-tight text-destructive">
+                      <span class={cx('font-fraunces text-[14px] font-bold tabular-nums leading-none', late ? 'text-destructive' : 'text-foreground')}>
                         {fmtTotal(g.totalManquant)}
+                        <span class="ml-0.5 font-mono text-[9px] font-medium text-muted-foreground/70">u</span>
                       </span>
-                      <span class="ml-0.5 font-mono text-[10px] font-medium text-muted-foreground/80">u</span>
                     </td>
                     <td class={`whitespace-nowrap text-right ${TD}`}>
-                      <span class="font-fraunces text-[17px] font-black leading-none text-foreground">{g.lines.length}</span>
+                      <span class="font-fraunces text-[14px] font-bold tabular-nums leading-none text-foreground">{g.lines.length}</span>
                     </td>
                     <td class={TD}>
                       <div class="flex flex-wrap gap-1">
@@ -407,17 +384,17 @@ export const ShortageComposants: Component<{
                     <td class={TD}>
                       <Show
                         when={g.urgent}
-                        fallback={<span class="font-sans text-[12px] italic text-muted-foreground/60">— OF orphelins</span>}
+                        fallback={<span class="font-sans text-[11px] italic text-muted-foreground/50">— orphelins</span>}
                       >
                         {(u) => (
                           <>
-                            <div class="font-mono text-[13px] font-bold text-foreground">
-                              {u().numCommande}
-                              <span class={cx('ml-2 font-mono text-[11px] font-semibold', late ? 'text-destructive' : 'text-muted-foreground')}>
+                            <div class="flex items-baseline gap-1.5">
+                              <span class="font-mono text-[12px] font-semibold text-secondary-foreground">{u().numCommande}</span>
+                              <span class={cx('font-mono text-[11px] font-bold', late ? 'text-destructive' : 'text-muted-foreground')}>
                                 {u().dateExpedition}
                               </span>
                             </div>
-                            <div class="mt-0.5 truncate max-w-[13rem] font-sans text-[12px] font-medium leading-snug text-secondary-foreground">
+                            <div class="mt-0.5 truncate max-w-[13rem] font-sans text-[11px] leading-snug text-muted-foreground">
                               {u().client}
                             </div>
                           </>
@@ -428,29 +405,12 @@ export const ShortageComposants: Component<{
                       <Show
                         when={g.nbSansCouverture > 0}
                         fallback={
-                          <span
-                            class={cx(
-                              'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium whitespace-nowrap',
-                              g.worstVerdict === 'retard'
-                                ? 'bg-suggere/15 text-suggere'
-                                : g.worstVerdict === 'sous_ensemble'
-                                  ? 'bg-planifie/15 text-planifie'
-                                  : 'bg-ferme/15 text-ferme',
-                            )}
-                          >
-                            <span class="material-symbols-outlined text-[13px]">
-                              {g.worstVerdict === 'retard'
-                                ? 'schedule'
-                                : g.worstVerdict === 'sous_ensemble'
-                                  ? 'account_tree'
-                                  : 'check_circle'}
-                            </span>
-                            {g.worstVerdict === 'retard' ? 'Retard' : g.worstVerdict === 'sous_ensemble' ? 'S/E à lancer' : 'Couvert'}
+                          <span class={cx('inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap', VERDICT_BADGE[g.worstVerdict].cls)}>
+                            {VERDICT_BADGE[g.worstVerdict].label}
                           </span>
                         }
                       >
-                        <span class="inline-flex items-center gap-1 rounded-md bg-destructive/10 px-2 py-0.5 text-[11px] font-medium whitespace-nowrap text-destructive">
-                          <span class="material-symbols-outlined text-[13px]">error</span>
+                        <span class="inline-flex items-center rounded-md bg-destructive/10 px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap text-destructive">
                           {g.nbSansCouverture}/{g.lines.length} sans couv.
                         </span>
                       </Show>
@@ -523,13 +483,17 @@ export const ShortageTimeline: Component<{
                 const e = expPct()
                 const r = recPct()
                 if (e === null || r === null) return null
-                return { left: Math.min(e, r), width: Math.abs(r - e), bad: row.arriveeLate }
+                // bad = retard client (rouge hachuré) ; warn = à risque (ambre uni) ; ok = couvert.
+                const state = row.arriveeLate ? 'bad' : isAtRisk(row) ? 'warn' : 'ok'
+                return { left: Math.min(e, r), width: Math.abs(r - e), state }
               }
               return (
                 <div
                   class={cx(
                     'grid grid-cols-[330px_1fr] border-b border-rule-soft transition-colors',
-                    isLate(row) ? 'bg-destructive/10 hover:bg-destructive/[0.18]' : 'hover:bg-foreground/[0.04]',
+                    isLate(row)
+                      ? 'bg-destructive/10 hover:bg-destructive/[0.18]'
+                      : 'hover:bg-foreground/[0.04]',
                   )}
                 >
                   {/* Contexte */}
@@ -540,16 +504,18 @@ export const ShortageTimeline: Component<{
                     )}
                   >
                     <div class="flex items-baseline gap-2">
-                      <span class="font-mono text-[13px] font-bold text-foreground">{row.component}</span>
-                      <span class="ml-auto font-mono text-[11px] font-bold text-destructive">−{row.qteManquante} u</span>
+                      <span class="font-mono text-[14px] font-bold text-foreground">{row.component}</span>
+                      <span class={cx('ml-auto font-mono text-[11px] font-semibold', isLate(row) ? 'text-destructive' : 'text-muted-foreground')}>
+                        −{row.qteManquante} u
+                      </span>
                     </div>
-                    <div class="truncate font-sans text-[11.5px] font-medium text-secondary-foreground">{row.componentDesc}</div>
-                    <div class="mt-0.5 font-mono text-[11px] font-medium text-muted-foreground">
-                      <button type="button" onClick={() => props.onSelectOf(row.numOf)} class="cursor-pointer font-bold text-terra hover:underline">
+                    <div class="truncate font-sans text-[11px] text-muted-foreground">{row.componentDesc}</div>
+                    <div class="mt-0.5 font-mono text-[10px] text-muted-foreground">
+                      <button type="button" onClick={() => props.onSelectOf(row.numOf)} class="cursor-pointer font-semibold text-terra hover:underline">
                         {row.numOf}
                       </button>
                       {' · '}
-                      {row.hasCommande ? `${row.numCommande} · ${row.client}` : 'OF orphelin'}
+                      {row.hasCommande ? `${row.numCommande} · ${row.client}` : 'orphelin'}
                     </div>
                   </div>
 
@@ -577,9 +543,11 @@ export const ShortageTimeline: Component<{
                         <div
                           class={cx(
                             'absolute top-[21px] h-2 rounded-full border',
-                            g().bad
+                            g().state === 'bad'
                               ? 'border-destructive/35 [background:repeating-linear-gradient(45deg,var(--color-destructive)/10,var(--color-destructive)/10_5px,transparent_5px,transparent_10px)]'
-                              : 'border-ferme/30 bg-ferme/15',
+                              : g().state === 'warn'
+                                ? 'border-suggere/40 bg-suggere/15'
+                                : 'border-ferme/30 bg-ferme/15',
                           )}
                           style={{ left: `${g().left}%`, width: `${g().width}%` }}
                         />
@@ -608,9 +576,9 @@ export const ShortageTimeline: Component<{
                     >
                       <Marker
                         pct={recPct()!}
-                        tone={row.arriveeLate ? 'bad' : 'ok'}
-                        cap={row.overdue ? `en retard ${row.dateArrivee}` : `arr. ${row.dateArrivee}`}
-                        sub={row.arriveeLate ? `+${row.joursRetardReception} j · ${row.reception?.id ?? ''}` : (row.reception?.id ?? '')}
+                        tone={row.arriveeLate ? 'bad' : isAtRisk(row) ? 'warn' : 'ok'}
+                        cap={row.dateArrivee}
+                        sub={row.verdictKey === 'retard' ? `retard +${row.joursRetardReception}j` : row.verdictKey === 'a_risque' ? `marge ${row.joursMarge}j` : undefined}
                       />
                     </Show>
                   </div>
@@ -623,7 +591,8 @@ export const ShortageTimeline: Component<{
           <div class="flex flex-wrap gap-4 border-t border-rule-soft bg-card px-4 py-2.5 font-mono text-[10px] font-semibold text-muted-foreground">
             <span class="inline-flex items-center gap-1.5"><span class="size-2.5 rounded-full bg-terra" /> Date d'expédition (cible)</span>
             <span class="inline-flex items-center gap-1.5"><span class="size-2.5 rounded-full bg-ferme" /> Réception à temps</span>
-            <span class="inline-flex items-center gap-1.5"><span class="size-2.5 rounded-full bg-destructive" /> Réception en retard</span>
+            <span class="inline-flex items-center gap-1.5"><span class="size-2.5 rounded-full bg-suggere" /> À risque (buffers entamés)</span>
+            <span class="inline-flex items-center gap-1.5"><span class="size-2.5 rounded-full bg-destructive" /> Retard client</span>
             <span class="inline-flex items-center gap-1.5"><span class="size-2.5 rounded-full border-2 border-dashed border-destructive" /> Aucune réception</span>
             <span class="inline-flex items-center gap-1.5"><span class="size-2.5 rounded-full border-2 border-dashed border-planifie" /> Sous-ensemble (OF fils)</span>
           </div>
@@ -634,7 +603,7 @@ export const ShortageTimeline: Component<{
 }
 
 /** Marqueur de frise (pastille + libellé + sous-libellé), positionné en %. */
-const Marker: Component<{ pct: number; tone: 'exp' | 'ok' | 'bad' | 'none' | 'se'; cap: string; sub?: string; dashed?: boolean }> = (
+const Marker: Component<{ pct: number; tone: 'exp' | 'ok' | 'bad' | 'warn' | 'none' | 'se'; cap: string; sub?: string; dashed?: boolean }> = (
   p,
 ) => {
   const pinCls =
@@ -644,11 +613,21 @@ const Marker: Component<{ pct: number; tone: 'exp' | 'ok' | 'bad' | 'none' | 'se
         ? 'bg-ferme'
         : p.tone === 'bad'
           ? 'bg-destructive'
-          : p.tone === 'se'
-            ? 'border-2 border-dashed border-planifie'
-            : 'border-2 border-dashed border-destructive'
+          : p.tone === 'warn'
+            ? 'bg-suggere'
+            : p.tone === 'se'
+              ? 'border-2 border-dashed border-planifie'
+              : 'border-2 border-dashed border-destructive'
   const capCls =
-    p.tone === 'exp' ? 'text-terra' : p.tone === 'ok' ? 'text-ferme' : p.tone === 'se' ? 'text-planifie' : 'text-destructive'
+    p.tone === 'exp'
+      ? 'text-terra'
+      : p.tone === 'ok'
+        ? 'text-ferme'
+        : p.tone === 'warn'
+          ? 'text-suggere'
+          : p.tone === 'se'
+            ? 'text-planifie'
+            : 'text-destructive'
   return (
     <div class="absolute top-3.5 flex -translate-x-1/2 flex-col items-center gap-0.5" style={{ left: `${p.pct}%` }}>
       <span class={cx('size-[13px] rounded-full border-2 border-card', pinCls)} />

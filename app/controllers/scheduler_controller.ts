@@ -196,6 +196,25 @@ function fmtFrShort(iso: string | null | undefined): string {
   return `${m[3]}/${m[2]}/${m[1].slice(2)}`
 }
 
+/**
+ * Date ISO → relatif actionnable : « auj. », « demain », « +5j », « −3j ».
+ * Le planificateur n'a pas à soustraire mentalement la date du jour. '' si absente.
+ * Utilisé dans les colonnes Expé/Commande et les libellés de frise.
+ */
+function fmtRelatif(iso: string | null | undefined): string {
+  if (!iso) return ''
+  const today = new Date()
+  const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+  const a = Date.parse(`${todayIso}T00:00:00Z`)
+  const b = Date.parse(`${iso}T00:00:00Z`)
+  if (Number.isNaN(b)) return ''
+  const days = Math.round((b - a) / 86_400_000)
+  if (days === 0) return 'auj.'
+  if (days === 1) return 'demain'
+  if (days === -1) return 'hier'
+  return days > 0 ? `+${days}j` : `${days}j`
+}
+
 /** Map OF planning status (1=Ferme, 2=Planifié, 3=Suggéré) → scheduler CardStatus. */
 function moStatusToCard(status: number): CardStatus {
   switch (status) {
@@ -684,29 +703,37 @@ export default class SchedulerController {
     }
 
     // Présentation (badges verdict + dates FR). Lecture seule, pas de Solid.
+    // Teintes alignées sur les tokens du design system (suggere = ambre, ferme = vert,
+    // planifie = bleu, destructive = rouge). Une seule source de vérité pour le cls,
+    // consommée telle quelle par le Registre (pas de recalcul côté composant).
     const VERDICT_PRESET: Record<
       ShortageRow['verdict'],
-      { label: string; cls: string; icon: string }
+      { label: string; cls: string }
     > = {
       couvert: {
         label: 'Couvert',
-        cls: 'text-emerald-700 bg-emerald-50 border-emerald-100',
-        icon: 'check_circle',
+        // Effacé par intention : « couvert » = rien à faire, passe ton chemin. Pas de
+        // badge vert voyant — juste un texte gris qui se fond, pour que l'œil aille aux
+        // vraies alertes (retard / sans couverture).
+        cls: 'text-muted-foreground/50',
+      },
+      a_risque: {
+        label: 'À risque',
+        cls: 'text-suggere bg-suggere/15',
       },
       retard: {
         label: 'Retard',
-        cls: 'text-amber-700 bg-amber-50 border-amber-100',
-        icon: 'schedule',
+        cls: 'text-destructive bg-destructive/10',
       },
       sans_couverture: {
         label: 'Sans couverture',
-        cls: 'text-error bg-error/10 border-error/20',
-        icon: 'error',
+        // Rouge PLEIN (pas /10) : impasse totale, aucune action en cours — l'alerte la
+        // plus forte, au-dessus du retard (qui a au moins une réception en route).
+        cls: 'text-destructive bg-destructive/20',
       },
       sous_ensemble: {
         label: 'S/E à lancer',
-        cls: 'text-planifie bg-planifie/10 border-planifie/20',
-        icon: 'account_tree',
+        cls: 'text-planifie bg-planifie/15',
       },
     }
 
@@ -727,18 +754,20 @@ export default class SchedulerController {
         hasCommande: r.numCommande !== null,
         // Autres commandes allouées au même OF (au-delà de la plus urgente affichée).
         autresCommandes: r.autresCommandes,
-        dateExpedition: fmtFrShort(r.dateExpedition),
+        // Expé en relatif actionnable (« +5j », « auj. ») — l'ISO absolu reste dans
+        // dateExpeditionIso pour le tooltip et la frise.
+        dateExpedition: fmtRelatif(r.dateExpedition),
         reception: r.reception
           ? {
               id: r.reception.id,
               supplier: r.reception.supplier,
               qty: fmtQty(r.reception.qty),
-              dateArrivee: fmtFrShort(r.reception.dateArrivee),
+              dateArrivee: fmtRelatif(r.reception.dateArrivee),
             }
           : null,
-        // Colonne dédiée date d'arrivée (rouge si la réception arrive après l'expédition).
-        dateArrivee: r.reception ? fmtFrShort(r.reception.dateArrivee) : '',
-        arriveeLate: r.joursRetardReception > 0,
+        // Arrivée en relatif — sert uniquement à la frise (le badge verdict porte la lateness).
+        dateArrivee: r.reception ? fmtRelatif(r.reception.dateArrivee) : '',
+        arriveeLate: r.verdict === 'retard',
         overdue: r.overdue,
         // OFs fils produisant le composant (verdict sous_ensemble) — pour la colonne Réception.
         sousEnsembleOfs: r.sousEnsembleOfs,
@@ -747,22 +776,29 @@ export default class SchedulerController {
           // Sous-ensemble : distinguer « OF fils déjà présent » de « à lancer ».
           if (r.verdict === 'sous_ensemble')
             return r.sousEnsembleOfs.length > 0 ? 'S/E — OF fils existant' : 'S/E à lancer'
-          if (r.verdict !== 'retard') return preset.label
-          // Deux natures de retard réception (le retard COMMANDE ne pilote plus le verdict) :
-          //  - overdue : réception attendue dans le passé → retard DÉJÀ CUMULÉ (le plus urgent) ;
-          //  - arrivée tardive : réception future mais APRÈS la date de besoin (expé − buffer).
-          if (r.overdue) return `Retard +${r.joursRetardReception}j`
-          if (r.joursRetardReception > 0) return `Arrivée +${r.joursRetardReception}j`
+          if (r.verdict === 'sans_couverture') return preset.label
+          // a_risque : pas un retard client. Deux lectures :
+          //  - non-overdue : « Marge +Nj » = expé − arrivée (marge logistique restante).
+          //  - overdue     : « Fourn. +Nj » = aujourd'hui − attendue (retard fournisseur,
+          //    client encore tenable). Le planificateur sait que le fournisseur a manqué.
+          if (r.verdict === 'a_risque')
+            return r.overdue ? `Fourn. +${r.joursRetardReception}j` : `Marge +${r.joursMarge}j`
+          // retard : vrai retard client projeté. overdue = retard déjà cumulé (le plus
+          // urgent) ; non-overdue = arrivée après expé, retard projeté.
+          if (r.verdict === 'retard') {
+            if (r.overdue) return `Retard +${r.joursRetardReception}j`
+            return `Retard ${r.joursMarge}j` // joursMarge ≤ 0 (« Retard −Nj »)
+          }
           return preset.label
         })(),
         verdictCls: preset.cls,
-        verdictIcon: preset.icon,
         // ── Données pour la vue « Couverture » (frise temporelle R3) ──
         // ISO (YYYY-MM-DD) pour positionner les marqueurs ; jours de retard d'arrivée
         // pour le sous-libellé « +N j » du marqueur réception.
         dateExpeditionIso: r.dateExpedition,
         receptionIso: r.reception?.dateArrivee ?? null,
         joursRetardReception: r.joursRetardReception,
+        joursMarge: r.joursMarge,
         // Champ texte concaténé pour le filtre client (composant / commande / fournisseur).
         filter:
           `${r.component} ${r.componentDesc} ${r.numCommande ?? ''} ${r.client ?? ''} ${r.reception?.supplier ?? ''} ${r.numOf} ${r.articleParent}`.toLowerCase(),

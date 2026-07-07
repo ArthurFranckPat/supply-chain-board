@@ -76,11 +76,27 @@ export interface ShortageRow {
    */
   sousEnsembleOfs: string[]
   /**
-   * `sous_ensemble` : composant FABRIQUÉ sans réception d'achat — la couverture passe
-   * par un OF fils (à lancer, ou déjà présent dans sousEnsembleOfs), pas par un PO.
-   * Avant : faux « sans_couverture » systématique (la couverture ne lit que PORDERQ).
+   * Marge logistique signée (j) entre la réception et la deadline client (expédition).
+   *  > 0 : la réception arrive N j AVANT l'expé (marge restante).
+   *  ≤ 0 : la réception arrive le jour de l'expé ou après (retard client projeté).
+   * En overdue (date réelle inconnue), la référence est « aujourd'hui » au lieu de
+   * l'arrivée prévue. 0 si pas de réception ou OF orphelin (pas d'expédition).
+   * Sert au badge « Marge +Nj » / « Retard +Nj » et au gap de la frise.
    */
-  verdict: 'couvert' | 'retard' | 'sans_couverture' | 'sous_ensemble'
+  joursMarge: number
+  /**
+   * Continuum de ponctualité (cf. bloc verdict dans buildShortageRows) :
+   *  - `couvert`        : arrivée ≤ dateBesoin (production + logistique tranquilles)
+   *  - `a_risque`       : arrivée entre dateBesoin et expédition (buffers entamés,
+   *                       PAS un retard client — tension logistique seulement)
+   *  - `retard`         : arrivée ≥ expédition (retard client réel projeté)
+   *  - `sous_ensemble`  : composant FABRIQUÉ sans réception d'achat — la couverture
+   *                       passe par un OF fils (à lancer, ou déjà présent dans
+   *                       sousEnsembleOfs), pas par un PO. Avant : faux
+   *                       « sans_couverture » systématique (PORDERQ ne peut couvrir).
+   *  - `sans_couverture`: aucune réception prévue pour le composant.
+   */
+  verdict: 'couvert' | 'a_risque' | 'retard' | 'sans_couverture' | 'sous_ensemble'
 }
 
 export interface ShortageResult {
@@ -379,11 +395,12 @@ export function buildShortageRows(
       ? addDaysIso(p.dateExpedition, -(logisticsBufferDays + fabDays))
       : null
 
-    // Retard imputable à la réception. Deux cas :
-    //  - EN RETARD (overdue) : la couvrante était attendue dans le passé (retard de
-    //    livraison, PO non reçue). Lateness = aujourd'hui − date attendue (retard déjà
-    //    cumulé). Cas le plus urgent — la pièce aurait dû être là.
-    //  - À VENIR TARD : la couvrante arrive après la date de BESOIN (expé − buffer).
+    // Retard de la réception vs la date de BESOIN (expé − buffers fab+log). Mesure le
+    // dépassement du buffer fabrication — utilisée pour le badge et la priorité.
+    // Deux cas :
+    //  - overdue : la couvrante était attendue dans le passé (PO non reçue). Lateness =
+    //    aujourd'hui − date attendue (retard de livraison déjà cumulé).
+    //  - à venir tard : la couvrante arrive après la date de besoin → arrival − besoin.
     let joursRetardReception = 0
     let overdue = false
     if (reception) {
@@ -395,18 +412,41 @@ export function buildShortageRows(
       }
     }
 
+    // Marge logistique signée vs la DEADLINE CLIENT (expédition). Sert au badge et à la
+    // frise. En overdue (date réelle inconnue), on juge contre « aujourd'hui » : si la
+    // réception n'est toujours pas là le jour J client, la marge est négative.
+    // 0 si pas de réception, ou OF orphelin (pas d'expédition → pas de deadline).
+    const margeRef = reception ? (overdue ? todayIso : reception.dateArrivee) : null
+    const joursMarge =
+      margeRef && p.dateExpedition ? daysBetweenIso(margeRef, p.dateExpedition) : 0
+
     // Composant FABRIQUÉ sans réception : la couverture passe par un OF fils, pas par un
     // PO — verdict dédié au lieu d'un faux « sans_couverture » (PORDERQ ne peut pas couvrir).
     const isFabrique = articles.get(p.component)?.supplyType === 'FABRICATION'
     const sousEnsembleOfs = isFabrique ? (ofsByArticle.get(p.component) ?? []) : []
 
-    // Le retard COMMANDE (p.joursRetard, moteur stock) ne pollue plus le verdict ligne :
-    // cause potentiellement sans rapport avec la réception de CE composant. Il reste
-    // exposé sur la ligne comme contexte commande.
+    // Continuum de ponctualité en 3 tiers (réception présente). On juge la réception à
+    // une DATE DE RÉFÉRENCE qui tient compte de l'overdue (date réelle inconnue) :
+    //   refDate = overdue ? aujourd'hui : arrivée prévue
+    // puis on compare aux deux bornes :
+    //   - dateBesoin (expé − logistique − fabrication) : frontière couvert / à risque.
+    //     NB : un OVERDUE (fournisseur a manqué, pièce absente du stock) ne peut JAMAIS
+    //     être « couvert » → planché à `a_risque` minimum, même si aujourd'hui ≤ besoin.
+    //   - dateExpedition (deadline client) : frontière à risque / retard client.
+    // Le retard COMMANDE (p.joursRetard) ne pollue plus le verdict ligne (cause
+    // potentiellement sans rapport) — il reste exposé comme contexte commande.
     let verdict: ShortageRow['verdict']
-    if (!reception) verdict = isFabrique ? 'sous_ensemble' : 'sans_couverture'
-    else if (overdue || joursRetardReception > 0) verdict = 'retard'
-    else verdict = 'couvert'
+    if (!reception) {
+      verdict = isFabrique ? 'sous_ensemble' : 'sans_couverture'
+    } else {
+      const refDate = overdue ? todayIso : reception.dateArrivee
+      // refDate est une chaîne ISO (YYYY-MM-DD) ; la comparaison lexicographique =
+      // comparaison chronologique (format fixe, pas de TZ).
+      const apresExpe = p.dateExpedition ? refDate >= p.dateExpedition : false
+      if (apresExpe) verdict = 'retard'
+      else if (overdue) verdict = 'a_risque'
+      else verdict = dateBesoin ? (refDate > dateBesoin ? 'a_risque' : 'couvert') : 'couvert'
+    }
 
     rows.push({
       component: p.component,
@@ -422,6 +462,7 @@ export function buildShortageRows(
       statutCommande: p.rollup?.statut ?? null,
       joursRetard: p.joursRetard,
       joursRetardReception,
+      joursMarge,
       overdue,
       reception,
       couverte: reception !== null,
