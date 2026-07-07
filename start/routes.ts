@@ -92,6 +92,7 @@ router
     router.get('/programme', '#controllers/scheduler_controller.programme')
     router.get('/charge', '#controllers/load_controller.index')
     router.get('/expeditions', '#controllers/expeditions_controller.index')
+    router.get('/receptions', '#controllers/receptions_controller.index').as('receptions.index')
     router.get('/configuration/calendrier', '#controllers/calendar_config_controller.index')
 
     // Configuration calendrier usine — API JSON (issue #37).
@@ -173,6 +174,9 @@ router
 
     // Expéditions (issue #44) — onglet dédié, calcul lourd différé.
     router.get('/api/v1/expeditions/rows', '#controllers/expeditions_controller.rows')
+
+    // Réceptions fournisseurs — planning réceptions attendues + charge palettes par jour.
+    router.get('/api/v1/receptions/rows', '#controllers/receptions_controller.rows').as('receptions.rows')
 
     // X3 Data (raw SQL debug) — `.as('data.load')` pour éviter le nom auto
     // `x_3_data.load` généré depuis X3DataController (issue #18).

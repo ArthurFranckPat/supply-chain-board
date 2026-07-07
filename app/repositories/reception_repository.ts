@@ -1,7 +1,29 @@
 import type { Flow } from '#app/domain/models/flow'
+import type { ReceptionInput } from '#app/domain/receptions'
 import type { ReceptionRecord } from '#app/domain/recursive-checker'
 import PurchaseOrderLine from '#models/x3/porderq'
 import { parseX3Date } from '#app/x3/utils/parse_date'
+
+/**
+ * Borne date pour la requête planning réceptions : on filtre sur la date retenue
+ * (ZDATCOF si renseignée, sinon EXTRCPDAT) — COALESCE côté Oracle évite de rater les
+ * lignes dont seule la date prévue est renseignée. Accepte `YYYY-MM-DD`.
+ */
+function dateRangeClause(from?: string, to?: string): string {
+  const clauses: string[] = []
+  // COALESCE : date confirmée fournisseur (ZDATCOF) sinon date prévue (EXTRCPDAT).
+  if (from && /^\d{4}-\d{2}-\d{2}$/.test(from)) {
+    clauses.push(
+      `COALESCE(PORDERQ.ZDATCOF_0, PORDERQ.EXTRCPDAT_0) >= TO_DATE('${from}', 'YYYY-MM-DD')`
+    )
+  }
+  if (to && /^\d{4}-\d{2}-\d{2}$/.test(to)) {
+    clauses.push(
+      `COALESCE(PORDERQ.ZDATCOF_0, PORDERQ.EXTRCPDAT_0) <= TO_DATE('${to}', 'YYYY-MM-DD')`
+    )
+  }
+  return clauses.length ? clauses.join(' AND ') : ''
+}
 
 /**
  * Fenêtre arrière (jours) pour les réceptions en retard de livraison. Une PO dont la date
@@ -32,7 +54,7 @@ export class X3ReceptionRepository {
         'PORDERQ.EXTRCPDAT_0 AS EXTRCPDAT_RAW',
         'PORDERQ.ORDDAT_0 AS ORDDAT_RAW',
         'BPSUPPLIER.BPSNAM_0',
-        'ITMMASTER.ITMDES1_0',
+        'ITMMASTER.ITMDES1_0'
       )
       .innerJoin('PORDER', 'PORDER.POHNUM_0', 'PORDERQ.POHNUM_0')
       .innerJoin('ITMMASTER', 'ITMMASTER.ITMREF_0', 'PORDERQ.ITMREF_0')
@@ -47,9 +69,9 @@ export class X3ReceptionRepository {
 
     const rows = await q
 
-    return rows.map(row => {
-      const qteCommandee = parseFloat(row.quantiteUs ?? '0') || 0
-      const qteRecue = parseFloat(row.quantiteReceptionneeUs ?? '0') || 0
+    return rows.map((row) => {
+      const qteCommandee = Number.parseFloat(row.quantiteUs ?? '0') || 0
+      const qteRecue = Number.parseFloat(row.quantiteReceptionneeUs ?? '0') || 0
       return {
         article: row.article?.trim() ?? '',
         quantity: qteCommandee - qteRecue,
@@ -58,7 +80,8 @@ export class X3ReceptionRepository {
         origin: {
           type: 'reception' as const,
           id: row.noCommande?.trim() ?? '',
-          supplier: (row.$extras.BPSNAM_0 as string | null)?.trim() ?? row.fournisseur?.trim() ?? '',
+          supplier:
+            (row.$extras.BPSNAM_0 as string | null)?.trim() ?? row.fournisseur?.trim() ?? '',
           designation: (row.$extras.ITMDES1_0 as string | null) ?? null,
           categorie: null,
           dateCommande: parseX3Date(row.$extras.ORDDAT_RAW),
@@ -66,6 +89,66 @@ export class X3ReceptionRepository {
           // PORDERQ filtré sur PORDER.CLEFLG=1 → POs confirmées → toujours fermes.
           firm: true,
         },
+      }
+    })
+  }
+
+  /**
+   * Planning des réceptions attendues (vue « Réceptions ») : une ligne par ligne de
+   * commande non soldée, enrichie des coeffs de conditionnement (PCUSTUCOE_0/1) pour le
+   * calcul du nombre de palettes côté domaine (cf. app/domain/receptions.ts).
+   *
+   * Mêmes filtres que getReceptionFlows (CLEFLG=1, ITMSTA=1, reste à recevoir > 0), plus
+   * une borne optionnelle sur la date retenue (ZDATCOF si renseignée, sinon EXTRCPDAT).
+   * Les lignes hors plage ne sont pas renvoyées (contrairement à getReceptionFlows qui
+   * ne borne pas, car appelé par la couverture ruptures avec un lookback spécifique).
+   */
+  async getReceptionPlanning(opts?: { from?: string; to?: string }): Promise<ReceptionInput[]> {
+    const q = PurchaseOrderLine.query()
+      .select(
+        'PORDERQ.POHNUM_0',
+        'PORDERQ.ITMREF_0',
+        'PORDERQ.BPSNUM_0',
+        'PORDERQ.QTYSTU_0',
+        'PORDERQ.RCPQTYSTU_0',
+        'PORDERQ.EXTRCPDAT_0 AS EXTRCPDAT_RAW',
+        'PORDERQ.ZDATCOF_0 AS ZDATCOF_RAW',
+        'BPSUPPLIER.BPSNAM_0',
+        'ITMMASTER.ITMDES1_0',
+        'ITMMASTER.PCUSTUCOE_0 AS PCU_STU_COE',
+        'ITMMASTER.PCUSTUCOE_1 AS UC_PAR_PAL'
+      )
+      .innerJoin('PORDER', 'PORDER.POHNUM_0', 'PORDERQ.POHNUM_0')
+      .innerJoin('ITMMASTER', 'ITMMASTER.ITMREF_0', 'PORDERQ.ITMREF_0')
+      .innerJoin('BPSUPPLIER', 'BPSUPPLIER.BPSNUM_0', 'PORDERQ.BPSNUM_0')
+      .where('PORDER.CLEFLG_0', '1')
+      .where('ITMMASTER.ITMSTA_0', '1')
+      .whereRaw('PORDERQ.QTYSTU_0 > PORDERQ.RCPQTYSTU_0')
+
+    const rangeClause = dateRangeClause(opts?.from, opts?.to)
+    if (rangeClause) q.whereRaw(rangeClause)
+
+    const rows = await q
+
+    return rows.map((row) => {
+      const qteCommandee = Number.parseFloat(row.quantiteUs ?? '0') || 0
+      const qteRecue = Number.parseFloat(row.quantiteReceptionneeUs ?? '0') || 0
+      const toNum = (v: unknown): number | null => {
+        const n = Number.parseFloat(String(v ?? ''))
+        return Number.isFinite(n) ? n : null
+      }
+      return {
+        noCommande: row.noCommande?.trim() ?? '',
+        article: row.article?.trim() ?? '',
+        designation: (row.$extras.ITMDES1_0 as string | null)?.trim() ?? null,
+        fournisseur: row.fournisseur?.trim() ?? '',
+        fournisseurNom:
+          (row.$extras.BPSNAM_0 as string | null)?.trim() ?? row.fournisseur?.trim() ?? '',
+        qteUs: qteCommandee - qteRecue,
+        datePrevue: parseX3Date(row.$extras.EXTRCPDAT_RAW),
+        dateConfirmee: parseX3Date(row.$extras.ZDATCOF_RAW),
+        pcuStuCoe: toNum(row.$extras.PCU_STU_COE),
+        ucParPal: toNum(row.$extras.UC_PAR_PAL),
       }
     })
   }
@@ -81,7 +164,10 @@ export class X3ReceptionRepository {
  * par la requête (WIPTYP=2 WIPSTA IN (1,2), RMNEXTQTY_0 > 0) — le filtre date ne sert PAS
  * à les écarter.
  */
-export function groupReceptionsByArticle(flows: Flow[], from?: Date): Map<string, ReceptionRecord[]> {
+export function groupReceptionsByArticle(
+  flows: Flow[],
+  from?: Date
+): Map<string, ReceptionRecord[]> {
   const byArticle = new Map<string, ReceptionRecord[]>()
   for (const f of flows) {
     if (f.origin.type !== 'reception') continue
@@ -101,7 +187,9 @@ export function groupReceptionsByArticle(flows: Flow[], from?: Date): Map<string
   return byArticle
 }
 
-export async function loadReceptionsByArticle(from?: Date): Promise<Map<string, ReceptionRecord[]>> {
+export async function loadReceptionsByArticle(
+  from?: Date
+): Promise<Map<string, ReceptionRecord[]>> {
   const flows = await new X3ReceptionRepository().getReceptionFlows()
   return groupReceptionsByArticle(flows, from)
 }

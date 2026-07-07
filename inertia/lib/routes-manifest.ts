@@ -2,7 +2,7 @@
  * AUTO-GÉNÉRÉ par scripts/gen-routes-manifest.mjs — NE PAS ÉDITER À LA MAIN.
  * Source : `start/routes.ts` → `node ace list:routes --jsonl`.
  * Régénérer : `npm run routes:gen` · Vérifier la fraîcheur : `npm run routes:check`.
- * 57 routes nommées.
+ * 59 routes nommées.
  */
 
 export const MANIFEST = {
@@ -41,6 +41,8 @@ export const MANIFEST = {
   "planning_board.update": { method: "PATCH", pattern: "/api/v1/planning/ofs/:of" },
   "planning.order_firm": { method: "POST", pattern: "/api/v1/planning/orders/:orderNum/firm" },
   "planning.suggestion_firm": { method: "POST", pattern: "/api/v1/planning/suggestions/:sugNum/firm" },
+  "receptions.index": { method: "GET", pattern: "/receptions" },
+  "receptions.rows": { method: "GET", pattern: "/api/v1/receptions/rows" },
   "scheduler.of_detail": { method: "GET", pattern: "/api/v1/planning/ofs/:of/detail" },
   "scheduler.programme": { method: "GET", pattern: "/programme" },
   "scheduler.shortage_rows": { method: "GET", pattern: "/api/v1/planning/shortages/rows" },
@@ -107,6 +109,8 @@ export type RouteParams = {
   "planning_board.update": { "of": string | number },
   "planning.order_firm": { "orderNum": string | number },
   "planning.suggestion_firm": { "sugNum": string | number },
+  "receptions.index": void,
+  "receptions.rows": void,
   "scheduler.of_detail": { "of": string | number },
   "scheduler.programme": void,
   "scheduler.shortage_rows": void,

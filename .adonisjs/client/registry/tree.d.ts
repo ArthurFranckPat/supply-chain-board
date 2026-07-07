@@ -48,6 +48,10 @@ export interface ApiDefinition {
     index: typeof routes['expeditions.index']
     rows: typeof routes['expeditions.rows']
   }
+  receptions: {
+    index: typeof routes['receptions.index']
+    rows: typeof routes['receptions.rows']
+  }
   calendarConfig: {
     index: typeof routes['calendar_config.index']
     toggleHoliday: typeof routes['calendar_config.toggle_holiday']

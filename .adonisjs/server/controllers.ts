@@ -13,6 +13,7 @@ export const controllers = {
   OrderPlanning: () => import('#controllers/order_planning_controller'),
   Perf: () => import('#controllers/perf_controller'),
   PlanningBoard: () => import('#controllers/planning_board_controller'),
+  Receptions: () => import('#controllers/receptions_controller'),
   Scheduler: () => import('#controllers/scheduler_controller'),
   StaticSync: () => import('#controllers/static_sync_controller'),
   SuggestionFirm: () => import('#controllers/suggestion_firm_controller'),

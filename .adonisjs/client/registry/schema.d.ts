@@ -211,6 +211,18 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'receptions.index': {
+    methods: ["GET","HEAD"]
+    pattern: '/receptions'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'calendar_config.index': {
     methods: ["GET","HEAD"]
     pattern: '/configuration/calendrier'
@@ -550,6 +562,18 @@ export interface Registry {
   'expeditions.rows': {
     methods: ["GET","HEAD"]
     pattern: '/api/v1/expeditions/rows'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'receptions.rows': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/receptions/rows'
     types: {
       body: {}
       paramsTuple: []

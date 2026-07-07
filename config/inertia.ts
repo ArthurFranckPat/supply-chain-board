@@ -60,6 +60,15 @@ declare module '@adonisjs/inertia/types' {
       defaultGapMinutes: number
       maxPalettesCamion: number
     }
+    // Réceptions fournisseurs — planning réceptions attendues + charge palettes par jour.
+    'receptions': {
+      from: string
+      to: string
+      horizon: number
+      rowsHref: string
+      todayHref: string
+      defaultHorizon: number
+    }
     'auth/login': {
       lastUsername: string
       lastEnv: 'test' | 'prod'
