@@ -91,8 +91,11 @@ export const ShortageRegistre: Component<{
             >
               {row.numOf}
             </button>
-            <div class="mt-0.5 truncate max-w-[11rem] font-sans text-[11px] leading-snug text-muted-foreground">
-              {row.articleParentDesc}
+            <div class="mt-0.5 truncate max-w-[11rem] font-mono text-[10.5px] text-muted-foreground">
+              <span class="font-semibold">{row.articleParent}</span>
+              <Show when={row.articleParentDesc}>
+                <span class="font-sans font-normal"> · {row.articleParentDesc}</span>
+              </Show>
             </div>
           </>
         )
@@ -514,6 +517,8 @@ export const ShortageTimeline: Component<{
                       <button type="button" onClick={() => props.onSelectOf(row.numOf)} class="cursor-pointer font-semibold text-terra hover:underline">
                         {row.numOf}
                       </button>
+                      {' · '}
+                      <span class="font-semibold">{row.articleParent}</span>
                       {' · '}
                       {row.hasCommande ? `${row.numCommande} · ${row.client}` : 'orphelin'}
                     </div>
