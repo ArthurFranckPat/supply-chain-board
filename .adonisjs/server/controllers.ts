@@ -6,6 +6,7 @@
 export const controllers = {
   Auth: () => import('#controllers/auth_controller'),
   CalendarConfig: () => import('#controllers/calendar_config_controller'),
+  Conditionnements: () => import('#controllers/conditionnements_controller'),
   Dashboard: () => import('#controllers/dashboard_controller'),
   Expeditions: () => import('#controllers/expeditions_controller'),
   Health: () => import('#controllers/health_controller'),

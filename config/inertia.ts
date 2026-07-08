@@ -69,6 +69,10 @@ declare module '@adonisjs/inertia/types' {
       todayHref: string
       defaultHorizon: number
     }
+    // Conditionnements — identification des coefs manquants + estimation.
+    'conditionnements': {
+      rowsHref: string
+    }
     'auth/login': {
       lastUsername: string
       lastEnv: 'test' | 'prod'

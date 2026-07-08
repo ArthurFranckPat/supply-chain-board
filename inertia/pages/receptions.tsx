@@ -23,7 +23,7 @@ const fold = (s: string): string =>
 const EMPTY: ReceptionsRowsResponse = {
   rows: [],
   chargeByDay: [],
-  stats: { totalPalettes: 0, totalLignes: 0, totalFournisseurs: 0, picPalettes: 0, picJour: null, lignesSansCoef: 0 },
+  stats: { totalPalettes: 0, totalLignes: 0, totalFournisseurs: 0, picPalettes: 0, picJour: null, lignesEstimees: 0, lignesSansCoef: 0 },
   range: { from: '', to: '', horizonDays: 0 },
   x3Error: null,
 }
@@ -224,8 +224,17 @@ const Receptions: Component<ReceptionsPageProps> = (props) => {
         </Show>
 
         <div class="ml-auto flex items-center gap-3 font-mono text-[11px] text-muted-foreground">
+          <Show when={stats().lignesEstimees > 0}>
+            <span
+              class="flex items-center gap-1 text-planifie"
+              title="Lignes dont le coef palette a été estimé (stock actuel SM* ou historique STOJOU)"
+            >
+              <span class="material-symbols-outlined text-[13px]">insights</span>
+              {stats().lignesEstimees} estimé{stats().lignesEstimees > 1 ? 's' : ''}
+            </span>
+          </Show>
           <Show when={stats().lignesSansCoef > 0}>
-            <span class="flex items-center gap-1 text-suggere" title="Lignes au conditionnement incomplet — charge palette sous-estimée">
+            <span class="flex items-center gap-1 text-destructive" title="Lignes sans coef palette ni estimation — charge réellement sous-estimée">
               <span class="material-symbols-outlined text-[13px]">warning</span>
               {stats().lignesSansCoef} coef manquant{stats().lignesSansCoef > 1 ? 's' : ''}
             </span>

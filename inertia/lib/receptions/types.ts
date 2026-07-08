@@ -24,8 +24,12 @@ export interface ReceptionDisplayRow {
   nbPalettes: number
   /** Palettes pré-formatées (« 3 », « — » si coef manquant). */
   nbPalettesFmt: string
-  /** Vrai si un des coefs PCUSTUCOE est manquant → palette incalculable. */
+  /** Vrai si le coef PCUSTUCOE est manquant ET qu'aucune estimation n'a été trouvée. */
   coefManquant: boolean
+  /** Vrai si le coef a été estimé (STOCK/STOJOU) — nbPalettes calculé depuis l'estimé. */
+  coefEstime: boolean
+  /** Source de l'estimation quand `coefEstime`. null sinon. */
+  coefSource: 'STOCK' | 'STOJOU' | null
   /** Nb d'US par UC (ITMMASTER.PCUSTUCOE_0). null si non renseigné. */
   pcuStuCoe: number | null
   /** Nb d'UC par palette (ITMMASTER.PCUSTUCOE_1). null si non renseigné. */
@@ -64,7 +68,9 @@ export interface ReceptionsStats {
   picPalettes: number
   /** Jour du pic (ISO), null si vide. */
   picJour: string | null
-  /** Nb de lignes sans coef palette (charge sous-estimée). */
+  /** Nb de lignes dont le coef a pu être estimé (STOCK/STOJOU). */
+  lignesEstimees: number
+  /** Nb de lignes sans coef palette ni estimation (charge sous-estimée). */
   lignesSansCoef: number
 }
 

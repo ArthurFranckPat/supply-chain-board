@@ -158,6 +158,15 @@ export const ReceptionTableau: Component<{
                 Coef manquant
               </span>
             </Show>
+            <Show when={row.coefEstime}>
+              <span
+                class="inline-flex w-fit items-center gap-1 rounded bg-planifie/10 px-1 py-px font-mono text-[8.5px] font-bold uppercase tracking-wider text-planifie"
+                title={`US/palette estimé par ${row.coefSource === 'STOCK' ? 'le stock actuel sur emplacements SM*' : "l'historique des rangements STOJOU (6 mois)"} — coef ITMMASTER absent`}
+              >
+                <span class="material-symbols-outlined text-[10px]">insights</span>
+                Estimé ({row.coefSource})
+              </span>
+            </Show>
           </div>
         )
       },
@@ -169,13 +178,24 @@ export const ReceptionTableau: Component<{
       cell: (info: { row: { original: ReceptionDisplayRow } }) => {
         const row = info.row.original
         const sansCoef = row.coefManquant
+        const estime = row.coefEstime
         return (
           <span
             class={cx(
               'font-fraunces text-[15px] font-bold tabular-nums leading-none',
-              sansCoef ? 'text-destructive/50' : chargeText(chargeTier(row.nbPalettes)),
+              sansCoef
+                ? 'text-destructive/50'
+                : estime
+                  ? 'text-planifie'
+                  : chargeText(chargeTier(row.nbPalettes)),
             )}
-            title={sansCoef ? 'Palette non calculée — conditionnement incomplet (cf. colonne Conditionnement)' : `${row.nbPalettes} palette(s)`}
+            title={
+              sansCoef
+                ? 'Palette non calculée — conditionnement incomplet (cf. colonne Conditionnement)'
+                : estime
+                  ? `${row.nbPalettes} palette(s) — coef estimé (${row.coefSource})`
+                  : `${row.nbPalettes} palette(s)`
+            }
           >
             {row.nbPalettesFmt}
           </span>
@@ -196,10 +216,14 @@ export const ReceptionTableau: Component<{
           'border-t border-rule-soft hover:bg-foreground/[0.04]',
           // Surligne doucement les journées fortement chargées (> 20 pal.).
           row.nbPalettes >= 20 ? 'bg-destructive/[0.04]' : '',
-          // Bordure gauche ambre sur les lignes au conditionnement incomplet : la palette
-          // n'est pas calculable → la charge est sous-estimée. Signal doux, distinct de
-          // la teinte rouge réservée aux pics de charge.
-          row.coefManquant ? 'bg-suggere/[0.04] [box-shadow:inset_3px_0_var(--color-suggere)]' : '',
+          // Bordure gauche sur les lignes au conditionnement non référencé :
+          //  - rouge (destructive) si AUCUNE estimation → charge réellement sous-estimée.
+          //  - bleu (planifie) si coef estimé → charge calculée mais à fiabiliser.
+          row.coefManquant
+            ? 'bg-destructive/[0.04] [box-shadow:inset_3px_0_var(--color-destructive)]'
+            : row.coefEstime
+              ? 'bg-planifie/[0.04] [box-shadow:inset_3px_0_var(--color-planifie)]'
+              : '',
         )
       }
       emptyState={props.emptyState}

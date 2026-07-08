@@ -85,14 +85,21 @@ router
     //   /planification  : lignes de commande ouvertes (#10)
     //   /ruptures       : suivi des ruptures (issue #15)
     //   /vision         : vue unifiée OF ↔ commandes (issue #21)
-    router.get('/ordonnancement', ({ response }) => response.redirect('/programme')).as('scheduling')
-    router.get('/planification', ({ response }) => response.redirect('/vision?mode=planification')).as('planning')
+    router
+      .get('/ordonnancement', ({ response }) => response.redirect('/programme'))
+      .as('scheduling')
+    router
+      .get('/planification', ({ response }) => response.redirect('/vision?mode=planification'))
+      .as('planning')
     router.get('/ruptures', '#controllers/scheduler_controller.shortageTracker')
     router.get('/suivi', '#controllers/suivi_controller.board')
     router.get('/programme', '#controllers/scheduler_controller.programme')
     router.get('/charge', '#controllers/load_controller.index')
     router.get('/expeditions', '#controllers/expeditions_controller.index')
     router.get('/receptions', '#controllers/receptions_controller.index').as('receptions.index')
+    router
+      .get('/conditionnements', '#controllers/conditionnements_controller.index')
+      .as('conditionnements.index')
     router.get('/configuration/calendrier', '#controllers/calendar_config_controller.index')
 
     // Configuration calendrier usine — API JSON (issue #37).
@@ -137,18 +144,16 @@ router
         router.get('/search/pf', '#controllers/planning_board_controller.searchPf')
         router.get(
           '/of-materials/:of/diagnostic',
-          '#controllers/planning_board_controller.ofMaterialsDiagnostic',
+          '#controllers/planning_board_controller.ofMaterialsDiagnostic'
         )
         // Affermissement d'un ordre en OF ferme (write-back X3, #31).
         // suggestions/:sugNum = suggestion CBN (SGAE…) ; orders/:orderNum = OF planifié (F…).
-        router.post(
-          '/suggestions/:sugNum/firm',
-          '#controllers/suggestion_firm_controller.firm'
-        ).as('planning.suggestion_firm')
-        router.post(
-          '/orders/:orderNum/firm',
-          '#controllers/suggestion_firm_controller.firm'
-        ).as('planning.order_firm')
+        router
+          .post('/suggestions/:sugNum/firm', '#controllers/suggestion_firm_controller.firm')
+          .as('planning.suggestion_firm')
+        router
+          .post('/orders/:orderNum/firm', '#controllers/suggestion_firm_controller.firm')
+          .as('planning.order_firm')
       })
       .prefix('/api/v1/planning')
 
@@ -176,7 +181,20 @@ router
     router.get('/api/v1/expeditions/rows', '#controllers/expeditions_controller.rows')
 
     // Réceptions fournisseurs — planning réceptions attendues + charge palettes par jour.
-    router.get('/api/v1/receptions/rows', '#controllers/receptions_controller.rows').as('receptions.rows')
+    router
+      .get('/api/v1/receptions/rows', '#controllers/receptions_controller.rows')
+      .as('receptions.rows')
+
+    // Conditionnements — identification des coefs manquants + estimation (STOCK/STOJOU).
+    router
+      .get('/api/v1/conditionnements/rows', '#controllers/conditionnements_controller.rows')
+      .as('conditionnements.rows')
+    router
+      .get(
+        '/api/v1/conditionnements/estimations',
+        '#controllers/conditionnements_controller.estimations'
+      )
+      .as('conditionnements.estimations')
 
     // X3 Data (raw SQL debug) — `.as('data.load')` pour éviter le nom auto
     // `x_3_data.load` généré depuis X3DataController (issue #18).
@@ -202,10 +220,16 @@ router
           .as('x3_writeback.describe')
         router.get('/read', '#controllers/x3_writeback_controller.read').as('x3_writeback.read')
         router.post('/save', '#controllers/x3_writeback_controller.save').as('x3_writeback.save')
-        router.post('/modify', '#controllers/x3_writeback_controller.modify').as('x3_writeback.modify')
-        router.get('/delete', '#controllers/x3_writeback_controller.delete').as('x3_writeback.delete')
+        router
+          .post('/modify', '#controllers/x3_writeback_controller.modify')
+          .as('x3_writeback.modify')
+        router
+          .get('/delete', '#controllers/x3_writeback_controller.delete')
+          .as('x3_writeback.delete')
         router.get('/list', '#controllers/x3_writeback_controller.list').as('x3_writeback.list')
-        router.post('/run', '#controllers/x3_writeback_controller.runSubprog').as('x3_writeback.run')
+        router
+          .post('/run', '#controllers/x3_writeback_controller.runSubprog')
+          .as('x3_writeback.run')
       })
       .prefix('/api/v1/x3/writeback')
 

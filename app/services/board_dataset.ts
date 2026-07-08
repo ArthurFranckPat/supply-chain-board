@@ -7,6 +7,8 @@ import { X3StockRepository } from '#repositories/stock_repository'
 import { X3MfgmatRepository, type OfMaterial } from '#repositories/mfgmat_repository'
 import { X3OrderLineRepository, type OfCommandePeg } from '#repositories/order_line_repository'
 import { X3ReceptionRepository } from '#repositories/reception_repository'
+import { ConditionnementRepository } from '#repositories/conditionnement_repository'
+import { estimerDepuisStock, type EstimationsPaire } from '#app/domain/conditionnement_estimator'
 import { CombinedOrdersRepository } from '#repositories/combined_orders_repository'
 import { createHash } from 'node:crypto'
 import staticSync from '#services/static_sync_service'
@@ -154,7 +156,11 @@ class BoardDataset {
   /** Demande (WIPTYP=1) + réceptions (WIPTYP=2) scopées à [from, to], sans OFs.
    * Remplace getLive() quand les OFs sont fournis par getOrdersForWindow().
    * ZSOAPSQL O(n²) ~2-3× moins de lignes → requête ~4-9× plus rapide. */
-  async getDemandAndReception(from: string, to: string, force = false): Promise<{ demand: Flow[]; reception: Flow[] }> {
+  async getDemandAndReception(
+    from: string,
+    to: string,
+    force = false
+  ): Promise<{ demand: Flow[]; reception: Flow[] }> {
     const key = `demand-recep:${from}:${to}`
     if (force) await board().delete({ key })
     return board().getOrSet({
@@ -162,7 +168,8 @@ class BoardDataset {
       ttl: LIVE_TTL,
       timeout: SWR_TIMEOUT,
       factory: async () => {
-        const { demandFlows, receptionFlows } = await new CombinedOrdersRepository().fetchDemandAndReception(from, to)
+        const { demandFlows, receptionFlows } =
+          await new CombinedOrdersRepository().fetchDemandAndReception(from, to)
         return { demand: demandFlows, reception: receptionFlows }
       },
     })
@@ -175,7 +182,7 @@ class BoardDataset {
   async getOpenOrderLines(
     from: string,
     to: string,
-    force = false,
+    force = false
   ): Promise<import('#repositories/order_line_repository').OrderLineRow[]> {
     const key = `order-lines:${from}:${to}`
     if (force) await board().delete({ key })
@@ -192,8 +199,13 @@ class BoardDataset {
   async getOrderLinesForLoad(
     fromStr: string,
     toStr: string,
-    force = false,
-  ): Promise<Pick<import('#repositories/order_line_repository').OrderLineRow, 'article' | 'designation' | 'quantite' | 'dateLivraison' | 'nature'>[]> {
+    force = false
+  ): Promise<
+    Pick<
+      import('#repositories/order_line_repository').OrderLineRow,
+      'article' | 'designation' | 'quantite' | 'dateLivraison' | 'nature'
+    >[]
+  > {
     const key = `order-lines-load:${fromStr}:${toStr}`
     if (force) await board().delete({ key })
     return board().getOrSet({
@@ -217,8 +229,14 @@ class BoardDataset {
       // SWR (issue #33) : demande+réception X3 lent (~13 s cold). Cf. getOrders.
       timeout: SWR_TIMEOUT,
       factory: async () => {
-        const { demandFlows, receptionFlows, ofFlows } = await new CombinedOrdersRepository().fetchLive(from, to)
-        return { demand: demandFlows, reception: receptionFlows, supply: ofFlows, at: Date.now() } satisfies Live
+        const { demandFlows, receptionFlows, ofFlows } =
+          await new CombinedOrdersRepository().fetchLive(from, to)
+        return {
+          demand: demandFlows,
+          reception: receptionFlows,
+          supply: ofFlows,
+          at: Date.now(),
+        } satisfies Live
       },
     })
   }
@@ -244,7 +262,9 @@ class BoardDataset {
   /** Matières MFGMAT des OFs fournis. SWR 2min — évite l'épuisement du pool Knex X3 (max 4). */
   async getMfgMaterials(numOfs: string[]): Promise<Map<string, OfMaterial[]>> {
     if (!numOfs.length) return new Map()
-    const key = `mfgmat:${createHash('md5').update([...numOfs].sort().join(',')).digest('hex')}`
+    const key = `mfgmat:${createHash('md5')
+      .update([...numOfs].sort().join(','))
+      .digest('hex')}`
     const entries = await board().getOrSet({
       key,
       ttl: MFGMAT_TTL,
@@ -260,7 +280,9 @@ class BoardDataset {
   /** Reverse peg OF→commande. SWR 5min — liens stables entre refreshs. */
   async getOfPegs(numOfs: string[]): Promise<Map<string, OfCommandePeg>> {
     if (!numOfs.length) return new Map()
-    const key = `ofpegs:${createHash('md5').update([...numOfs].sort().join(',')).digest('hex')}`
+    const key = `ofpegs:${createHash('md5')
+      .update([...numOfs].sort().join(','))
+      .digest('hex')}`
     const entries = await board().getOrSet({
       key,
       ttl: PEG_TTL,
@@ -294,12 +316,49 @@ class BoardDataset {
   /** Stock scopé aux articles fournis. SWR 2min — suffisant pour un outil de planning. */
   async getStock(articles: string[]): Promise<Flow[]> {
     if (!articles.length) return []
-    const key = `stock:${createHash('md5').update([...articles].sort().join(',')).digest('hex')}`
+    const key = `stock:${createHash('md5')
+      .update([...articles].sort().join(','))
+      .digest('hex')}`
     return board().getOrSet({
       key,
       ttl: STOCK_TTL,
       timeout: SWR_TIMEOUT,
       factory: () => new X3StockRepository().getStockFlows(articles),
+    })
+  }
+
+  /**
+   * Estimateur de US/palette pour les articles au coef de palettisation manquant.
+   * Retourne les DEUX estimations (STOCK + STOJOU) indépendamment pour comparaison
+   * croisée — l'appelant choisit la stratégie (priorité STOCK pour la page Réceptions,
+   * affichage côte à côte pour la page Conditionnements).
+   *
+   * Clé GLOBALE : l'estimation ne dépend pas de l'utilisateur (données usine).
+   * TTL long (REF_TTL = 2h) : le conditionnement change rarement et l'historique
+   * STOJOU est quasi-immuable. SWR background (2 appels SOAP agrégeant beaucoup
+   * de lignes).
+   */
+  async getConditionnementEstimator(force = false): Promise<Map<string, EstimationsPaire>> {
+    if (force) await board().delete({ key: 'cond-estimator' })
+    return board().getOrSet({
+      key: 'cond-estimator',
+      ttl: REF_TTL,
+      timeout: SWR_TIMEOUT,
+      factory: async () => {
+        const { stock, stojou } = await new ConditionnementRepository().getObservations()
+        const articles = new Set([...stock.keys(), ...stojou.keys()])
+        const out = new Map<string, EstimationsPaire>()
+        for (const article of articles) {
+          // STOCK : consensus SM* calculé côté domaine depuis les observations brutes.
+          const stockEstim = estimerDepuisStock(stock.get(article) ?? [])
+          // STOJOU : déjà agrégé par Oracle (STATS_MODE) — directement utilisable.
+          const stojouEstim = stojou.get(article) ?? null
+          if (stockEstim || stojouEstim) {
+            out.set(article, { stock: stockEstim, stojou: stojouEstim })
+          }
+        }
+        return out
+      },
     })
   }
 

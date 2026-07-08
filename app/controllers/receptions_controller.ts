@@ -2,8 +2,16 @@ import { type HttpContext } from '@adonisjs/core/http'
 import cache from '@adonisjs/cache/services/main'
 import logger from '@adonisjs/core/services/logger'
 import { X3ReceptionRepository } from '#repositories/reception_repository'
-import { buildReceptionRow, groupReceptionsByDay, type ReceptionRow } from '#app/domain/receptions'
+import {
+  buildReceptionRow,
+  calcPalettes,
+  groupReceptionsByDay,
+  type ReceptionInput,
+  type ReceptionRow,
+} from '#app/domain/receptions'
 import { isoLocalDay } from '#app/domain/shortages'
+import boardDataset from '#services/board_dataset'
+import type { EstimationResult, EstimationsPaire } from '#app/domain/conditionnement_estimator'
 
 /**
  * Page « Réceptions fournisseurs » : planning des réceptions attendues + charge palettes
@@ -80,11 +88,19 @@ export interface ReceptionDisplayRow {
   nbPalettes: number
   nbPalettesFmt: string
   /**
-   * Vrai si le calcul palette est impossible (un des coefs PCUSTUCOE manquant/nul) —
-   * la ligne est conservée mais n'alimente pas la charge. Marquée visuellement dans le
-   * tableau (badge « Coef manquant ») pour orienter le rattrapage référentiel.
+   * Vrai si le calcul palette est impossible (un des coefs PCUSTUCOE manquant/nul)
+   * ET qu'aucune estimation n'a pu être produite. La ligne est conservée mais
+   * n'alimente pas la charge. Marquée visuellement (badge « Coef manquant »).
    */
   coefManquant: boolean
+  /**
+   * Vrai si le coef a été estimé (STOCK ou STOJOU) faute de coef ITMMASTER. Le
+   * nbPalettes est alors calculé depuis l'estimation — la ligne alimente la charge,
+   * mais reste marquée pour transparence (badge « Estimé (STOCK/STOJOU) »).
+   */
+  coefEstime: boolean
+  /** Source de l'estimation quand `coefEstime` = true. null sinon. */
+  coefSource: 'STOCK' | 'STOJOU' | null
   /** Nb d'US par UC (ITMMASTER.PCUSTUCOE_0). null si non renseigné. */
   pcuStuCoe: number | null
   /** Nb d'UC par palette (ITMMASTER.PCUSTUCOE_1). null si non renseigné. */
@@ -118,7 +134,9 @@ export interface ReceptionsRowsResponse {
     totalFournisseurs: number
     picPalettes: number
     picJour: string | null
-    /** Nb de lignes sans coef palette (charge palette sous-estimée). */
+    /** Nb de lignes dont le coef a pu être estimé (STOCK/STOJOU). */
+    lignesEstimees: number
+    /** Nb de lignes sans coef palette ni estimation (charge palette sous-estimée). */
     lignesSansCoef: number
   }
   range: { from: string; to: string; horizonDays: number }
@@ -186,6 +204,7 @@ export default class ReceptionsController {
       totalFournisseurs: 0,
       picPalettes: 0,
       picJour: null,
+      lignesEstimees: 0,
       lignesSansCoef: 0,
     }
     let x3Error: string | null = null
@@ -223,12 +242,56 @@ export default class ReceptionsController {
     to: string
   ): Promise<Omit<ReceptionsRowsResponse, 'range' | 'x3Error'>> {
     const inputs = await new X3ReceptionRepository().getReceptionPlanning({ from, to })
-    const receptionRows: ReceptionRow[] = inputs.map(buildReceptionRow)
 
-    // Lignes pré-formatées (date FR + relatif + créneau + palettes + conditionnement).
-    const rows: ReceptionDisplayRow[] = receptionRows.map((r) => {
-      // coefManquant = un des coefs absent/non positif → palette incalculable.
+    // Estimateur de US/palette (cache global 2h) pour les articles au coef manquant.
+    // Récupéré une fois pour toute la fenêtre ; un échec X3 sur l'estimateur ne doit
+    // pas faire planter la page → repli sur Map vide (lignes restent « coef manquant »).
+    let estimator: Map<string, EstimationsPaire> = new Map()
+    try {
+      estimator = await boardDataset.getConditionnementEstimator()
+    } catch (e) {
+      logger.warn({ err: e }, '[receptions] estimateur indisponible — repli sans estimation')
+    }
+
+    // Enrichit les lignes au coef manquant avec une estimation US/palette, puis calcule
+    // le nbPalettes via calcPalettes (cas réel) ou directement (cas estimé, coef direct).
+    // Priorité STOCK > STOJOU depuis la paire pré-calculée par l'estimateur (la page
+    // Conditionnements affiche les deux pour comparaison, ici on n'en garde qu'une).
+    const enriched: { input: ReceptionInput; estimation: EstimationResult | null }[] = inputs.map(
+      (input) => {
+        const coefManquant = !(
+          input.pcuStuCoe &&
+          input.pcuStuCoe > 0 &&
+          input.ucParPal &&
+          input.ucParPal > 0
+        )
+        const paire = coefManquant ? (estimator.get(input.article) ?? null) : null
+        const estimation: EstimationResult | null = paire
+          ? (paire.stock ?? paire.stojou ?? null)
+          : null
+        return { input, estimation }
+      }
+    )
+
+    const receptionRows: ReceptionRow[] = enriched.map(({ input, estimation }) => {
+      const base = buildReceptionRow(input)
+      if (estimation && estimation.usParPalette > 0 && base.nbPalettes === 0) {
+        // Coef estimé direct (US/palette) → calcPalettes avec pcuStuCoe=1 équivaut à
+        // ceil(qteUs / usParPalette). On évite de muter le pcuStuCoe réel (affiché tel
+        // quel dans la colonne Conditionnement, marqué « estimé » séparément).
+        return {
+          ...base,
+          nbPalettes: calcPalettes(input.qteUs, 1, estimation.usParPalette),
+        }
+      }
+      return base
+    })
+
+    // Lignes pré-formatées (date FR + relatif + palettes + conditionnement + estimation).
+    const rows: ReceptionDisplayRow[] = receptionRows.map((r, i) => {
+      const estimation = enriched[i]!.estimation
       const coefManquant = !(r.pcuStuCoe && r.pcuStuCoe > 0 && r.ucParPal && r.ucParPal > 0)
+      const coefEstime = !!estimation && r.nbPalettes > 0
       return {
         noCommande: r.noCommande,
         article: r.article,
@@ -239,7 +302,9 @@ export default class ReceptionsController {
         qteUsFmt: fmtQty(r.qteUs),
         nbPalettes: r.nbPalettes,
         nbPalettesFmt: r.nbPalettes > 0 ? fmtQty(r.nbPalettes) : '—',
-        coefManquant,
+        coefManquant: coefManquant && !coefEstime,
+        coefEstime,
+        coefSource: coefEstime ? estimation!.source : null,
         pcuStuCoe: r.pcuStuCoe,
         ucParPal: r.ucParPal,
         conditionnement: fmtConditionnement(r.pcuStuCoe, r.ucParPal),
@@ -273,7 +338,8 @@ export default class ReceptionsController {
       (m, c) => (c.palettes > m.palettes ? c : m),
       charge[0] ?? { day: null, palettes: 0 }
     )
-    const lignesSansCoef = receptionRows.filter((r) => r.nbPalettes === 0 && r.qteUs > 0).length
+    const lignesSansCoef = rows.filter((r) => r.coefManquant).length
+    const lignesEstimees = rows.filter((r) => r.coefEstime).length
     const fournisseurs = new Set(receptionRows.map((r) => r.fournisseur))
 
     const stats = {
@@ -282,7 +348,8 @@ export default class ReceptionsController {
       totalFournisseurs: fournisseurs.size,
       picPalettes: pic?.palettes ?? 0,
       picJour: pic?.day ?? null,
-      lignesSansCoef: lignesSansCoef,
+      lignesEstimees,
+      lignesSansCoef,
     }
 
     return { rows, chargeByDay, stats }

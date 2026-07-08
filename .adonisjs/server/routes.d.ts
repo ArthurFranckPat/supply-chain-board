@@ -22,6 +22,7 @@ export type ScannedRoutes = {
     'load.index': { paramsTuple?: []; params?: {} }
     'expeditions.index': { paramsTuple?: []; params?: {} }
     'receptions.index': { paramsTuple?: []; params?: {} }
+    'conditionnements.index': { paramsTuple?: []; params?: {} }
     'calendar_config.index': { paramsTuple?: []; params?: {} }
     'calendar_config.toggle_holiday': { paramsTuple?: []; params?: {} }
     'calendar_config.create_closure': { paramsTuple?: []; params?: {} }
@@ -52,6 +53,8 @@ export type ScannedRoutes = {
     'dashboard.otd': { paramsTuple?: []; params?: {} }
     'expeditions.rows': { paramsTuple?: []; params?: {} }
     'receptions.rows': { paramsTuple?: []; params?: {} }
+    'conditionnements.rows': { paramsTuple?: []; params?: {} }
+    'conditionnements.estimations': { paramsTuple?: []; params?: {} }
     'data.load': { paramsTuple?: []; params?: {} }
     'static_sync.status': { paramsTuple?: []; params?: {} }
     'static_sync.sync': { paramsTuple?: []; params?: {} }
@@ -81,6 +84,7 @@ export type ScannedRoutes = {
     'load.index': { paramsTuple?: []; params?: {} }
     'expeditions.index': { paramsTuple?: []; params?: {} }
     'receptions.index': { paramsTuple?: []; params?: {} }
+    'conditionnements.index': { paramsTuple?: []; params?: {} }
     'calendar_config.index': { paramsTuple?: []; params?: {} }
     'order_planning.index': { paramsTuple?: []; params?: {} }
     'order_planning.line_detail': { paramsTuple: [ParamValue,ParamValue]; params: {'order': ParamValue,'line': ParamValue} }
@@ -97,6 +101,8 @@ export type ScannedRoutes = {
     'dashboard.otd': { paramsTuple?: []; params?: {} }
     'expeditions.rows': { paramsTuple?: []; params?: {} }
     'receptions.rows': { paramsTuple?: []; params?: {} }
+    'conditionnements.rows': { paramsTuple?: []; params?: {} }
+    'conditionnements.estimations': { paramsTuple?: []; params?: {} }
     'static_sync.status': { paramsTuple?: []; params?: {} }
     'x3_writeback.describe': { paramsTuple?: []; params?: {} }
     'x3_writeback.read': { paramsTuple?: []; params?: {} }
@@ -121,6 +127,7 @@ export type ScannedRoutes = {
     'load.index': { paramsTuple?: []; params?: {} }
     'expeditions.index': { paramsTuple?: []; params?: {} }
     'receptions.index': { paramsTuple?: []; params?: {} }
+    'conditionnements.index': { paramsTuple?: []; params?: {} }
     'calendar_config.index': { paramsTuple?: []; params?: {} }
     'order_planning.index': { paramsTuple?: []; params?: {} }
     'order_planning.line_detail': { paramsTuple: [ParamValue,ParamValue]; params: {'order': ParamValue,'line': ParamValue} }
@@ -137,6 +144,8 @@ export type ScannedRoutes = {
     'dashboard.otd': { paramsTuple?: []; params?: {} }
     'expeditions.rows': { paramsTuple?: []; params?: {} }
     'receptions.rows': { paramsTuple?: []; params?: {} }
+    'conditionnements.rows': { paramsTuple?: []; params?: {} }
+    'conditionnements.estimations': { paramsTuple?: []; params?: {} }
     'static_sync.status': { paramsTuple?: []; params?: {} }
     'x3_writeback.describe': { paramsTuple?: []; params?: {} }
     'x3_writeback.read': { paramsTuple?: []; params?: {} }
