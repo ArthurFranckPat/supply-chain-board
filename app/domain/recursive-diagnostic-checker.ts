@@ -110,7 +110,6 @@ export interface DiagnosticLoader {
 export interface DiagnosticOptions {
   maxDepth?: number
   checkDate?: Date
-  useReceptions?: boolean
   /**
    * Budget dur : nombre max d'OF réellement diagnostiqués (appels SOAP MFGMAT/stock).
    * Garde-fou anti « tourne dans le vide » : un composant très partagé peut avoir des

@@ -45,7 +45,7 @@ export class AllocationManager {
   sortOfsByPriority(ofs: OfRecord[], stockState: StockState): OfRecord[] {
     const feasibility = new Map<string, boolean>()
     const tempChecker = new RecursiveChecker(this.dataLoader, {
-      useReceptions: this.checker.useReceptions,
+      dispoPolicy: this.checker.dispoPolicy,
       checkDate: this.checker.checkDate,
       stockState,
     })

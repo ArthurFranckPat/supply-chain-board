@@ -34,7 +34,7 @@ test.group('checkFeasibility', () => {
     ]
     const nomenclatures = new Map<string, Nomenclature>()
     const articles = new Map<string, Article>([['ART1', makeArticle()]])
-    const result = checkFeasibility('ART1', 50, flows, nomenclatures, articles)
+    const result = checkFeasibility('ART1', 50, flows, nomenclatures, articles, undefined, 'stock_strict')
     assert.isTrue(result.feasible)
     assert.equal(result.blockingComponents.length, 0)
   })
@@ -55,7 +55,7 @@ test.group('checkFeasibility', () => {
       ['ART1', makeArticle()],
       ['COMP1', makeArticle({ code: 'COMP1', supplyType: 'ACHAT' })],
     ])
-    const result = checkFeasibility('ART1', 50, flows, nomenclatures, articles)
+    const result = checkFeasibility('ART1', 50, flows, nomenclatures, articles, undefined, 'stock_strict')
     assert.isTrue(result.feasible)
   })
 
@@ -76,7 +76,7 @@ test.group('checkFeasibility', () => {
       ['COMP1', makeArticle({ code: 'COMP1', supplyType: 'ACHAT' })],
     ])
     // Need 100 units of ART1 → 100 * 2 = 200 units of COMP1, but only 30 available
-    const result = checkFeasibility('ART1', 100, flows, nomenclatures, articles)
+    const result = checkFeasibility('ART1', 100, flows, nomenclatures, articles, undefined, 'stock_strict')
     assert.isFalse(result.feasible)
     assert.isTrue(result.blockingComponents.some((c) => c.article === 'COMP1'))
     assert.equal(result.blockingComponents.find((c) => c.article === 'COMP1')!.shortage, 170)
@@ -97,7 +97,7 @@ test.group('checkFeasibility', () => {
       ['ART1', makeArticle()],
       ['COMP1', makeArticle({ code: 'COMP1', supplyType: 'ACHAT' })],
     ])
-    const result = checkFeasibility('ART1', 10, flows, nomenclatures, articles)
+    const result = checkFeasibility('ART1', 10, flows, nomenclatures, articles, undefined, 'stock_strict')
     assert.isFalse(result.feasible)
     assert.equal(result.blockingComponents[0].article, 'COMP1')
   })
@@ -120,7 +120,7 @@ test.group('checkFeasibility', () => {
       ['COMP1', makeArticle({ code: 'COMP1', supplyType: 'ACHAT' })],
     ])
     // Need 100 units ART1 → 200 COMP1. Stock=50 + recv=150 = 200 → feasible
-      const result = checkFeasibility('ART1', 100, flows, nomenclatures, articles, recvDate, true)
+      const result = checkFeasibility('ART1', 100, flows, nomenclatures, articles, recvDate, 'stock_plus_receptions')
     assert.isTrue(result.feasible)
   })
 
@@ -147,7 +147,7 @@ test.group('checkFeasibility', () => {
       ['COMP1', makeArticle({ code: 'COMP1', supplyType: 'ACHAT' })],
     ])
     // ART1: 10 units → SUB1: 10*2=20 → COMP1: 20*3=60. Stock COMP1=500 → feasible
-    const result = checkFeasibility('ART1', 10, flows, nomenclatures, articles)
+    const result = checkFeasibility('ART1', 10, flows, nomenclatures, articles, undefined, 'stock_strict')
     assert.isTrue(result.feasible)
   })
 
@@ -173,7 +173,7 @@ test.group('checkFeasibility', () => {
       ['COMP1', makeArticle({ code: 'COMP1', supplyType: 'ACHAT' })],
     ])
     // ART1: 10 → SUB1: 20 → COMP1: 100 needed, 10 available → shortage 90
-    const result = checkFeasibility('ART1', 10, flows, nomenclatures, articles)
+    const result = checkFeasibility('ART1', 10, flows, nomenclatures, articles, undefined, 'stock_strict')
     assert.isFalse(result.feasible)
     assert.equal(result.blockingComponents[0].article, 'COMP1')
     assert.equal(result.blockingComponents[0].shortage, 90)
@@ -197,7 +197,7 @@ test.group('checkFeasibility', () => {
       ['COMP1', makeArticle({ code: 'COMP1', supplyType: 'ACHAT' })],
     ])
     // Should not hang — circular ref detected, COMP1 is feasible
-    const result = checkFeasibility('ART1', 10, flows, nomenclatures, articles)
+    const result = checkFeasibility('ART1', 10, flows, nomenclatures, articles, undefined, 'stock_strict')
     assert.isTrue(result.feasible)
   })
 })

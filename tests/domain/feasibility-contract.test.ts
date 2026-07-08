@@ -81,7 +81,7 @@ test.group('Contrat faisabilité — source unique', () => {
 
     // 1) Moteur badge/diagnostic (RecursiveDiagnosticChecker).
     const checker = new RecursiveDiagnosticChecker(loader, {
-      checkDate: CHECK_DATE, useReceptions: true,
+      checkDate: CHECK_DATE,
     })
     const result = await checker.diagnoseOf(of)
 

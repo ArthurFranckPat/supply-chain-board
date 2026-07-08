@@ -14,6 +14,7 @@ import type { Nomenclature } from './models/nomenclature.js'
 import { requiredQuantity } from './models/nomenclature.js'
 import { StockState } from './stock-state.js'
 import type { ErpAllocation } from './allocation.js'
+import { type DispoPolicy, includesReceptions } from './dispo-policy.js'
 
 export interface RecursiveCheckerResult {
   feasible: boolean
@@ -47,7 +48,7 @@ export interface OfRecord {
 }
 
 export interface RecursiveCheckerOptions {
-  useReceptions?: boolean
+  dispoPolicy: DispoPolicy
   stockState?: StockState
   checkDate?: Date
 }
@@ -70,15 +71,19 @@ export function isPhantom(article: Article | undefined): boolean {
 
 export class RecursiveChecker {
   dataLoader: RecursiveCheckerLoader
-  useReceptions: boolean
+  dispoPolicy: DispoPolicy
   checkDate?: Date
   stockState?: StockState
 
-  constructor(loader: RecursiveCheckerLoader, options: RecursiveCheckerOptions = {}) {
+  constructor(loader: RecursiveCheckerLoader, options: RecursiveCheckerOptions) {
     this.dataLoader = loader
-    this.useReceptions = options.useReceptions ?? false
+    this.dispoPolicy = options.dispoPolicy
     this.checkDate = options.checkDate
     this.stockState = options.stockState
+  }
+
+  private get useReceptions(): boolean {
+    return includesReceptions(this.dispoPolicy)
   }
 
   private erpAllocationsFor(numDoc: string): Map<string, number> {

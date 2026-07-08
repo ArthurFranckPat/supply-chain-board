@@ -51,8 +51,8 @@ test.group('availableAt', () => {
       makeFlow({ article: 'A', direction: 'supply', quantity: 30, date: day1, origin: { type: 'reception', id: 'R1', supplier: 'S', designation: null, categorie: null, dateCommande: null, qteCommandee: 0 } }),
       makeFlow({ article: 'A', direction: 'supply', quantity: 20, date: day2, origin: { type: 'reception', id: 'R2', supplier: 'S', designation: null, categorie: null, dateCommande: null, qteCommandee: 0 } }),
     ]
-    assert.equal(availableAt(flows, 'A', day1), 80)
-    assert.equal(availableAt(flows, 'A', day2), 100)
+    assert.equal(availableAt(flows, 'A', day1, 'stock_plus_receptions'), 80)
+    assert.equal(availableAt(flows, 'A', day2, 'stock_plus_receptions'), 100)
   })
 
   test('accounts for demand', ({ assert }) => {
@@ -60,7 +60,7 @@ test.group('availableAt', () => {
       makeFlow({ article: 'A', direction: 'supply', quantity: 100, date: null }),
       makeFlow({ article: 'A', direction: 'demand', quantity: 40, date: day1, origin: { type: 'order', id: 'C1', customer: 'X', pays: null, orderType: 'MTO', nature: 'COMMANDE', contremarque: null, qteCommandee: 0, qteAllouee: 0 } }),
     ]
-    assert.equal(availableAt(flows, 'A', day1), 60)
+    assert.equal(availableAt(flows, 'A', day1, 'stock_plus_receptions'), 60)
   })
 })
 
@@ -96,7 +96,7 @@ test.group('availableAt with virtual stock state', () => {
     ]
     const stockState = { getAvailable: () => 12.5 }
 
-    assert.equal(availableAt(flows, 'A', d1, false, stockState), 12.5)
+    assert.equal(availableAt(flows, 'A', d1, 'stock_strict', stockState), 12.5)
   })
 })
 
@@ -171,7 +171,7 @@ test.group('snapshot', () => {
       makeFlow({ article: 'A', direction: 'supply', quantity: 50, date: null }),
       makeFlow({ article: 'A', direction: 'supply', quantity: 30, date: d1, origin: { type: 'reception', id: 'R1', supplier: 'S', designation: null, categorie: null, dateCommande: null, qteCommandee: 0 } }),
     ]
-    const snap = snapshot(flows, 'A', d1, 100)
+    const snap = snapshot(flows, 'A', d1, 100, 'stock_plus_receptions')
     assert.equal(snap.currentStock, 50)
     assert.equal(snap.receptionsUntilDate, 30)
     assert.equal(snap.availableAtDate, 80)
@@ -185,7 +185,7 @@ test.group('snapshot', () => {
       makeFlow({ article: 'A', direction: 'supply', quantity: 50, date: null }),
       makeFlow({ article: 'A', direction: 'supply', quantity: 30, date: d1, origin: { type: 'reception', id: 'R1', supplier: 'S', designation: null, categorie: null, dateCommande: null, qteCommandee: 0 } }),
     ]
-    const snap = snapshot(flows, 'A', d1, undefined, false)
+    const snap = snapshot(flows, 'A', d1, undefined, 'stock_strict')
     assert.equal(snap.currentStock, 50)
     assert.equal(snap.receptionsUntilDate, 0)
     assert.equal(snap.availableAtDate, 50)

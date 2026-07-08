@@ -82,7 +82,7 @@ test.group('RecursiveChecker skips ERP-allocated components', () => {
     }
     const checker = new RecursiveChecker(makeRcLoader(articles, nomenclatures, stocks, {
       OF_A: [{ article: 'COMP_B', qteAllouee: 10 }],
-    }))
+    }), { dispoPolicy: 'stock_strict' })
 
     const result = checker.checkArticleRecursive('PF', 5, new Date('2026-04-20'), 0, true, 'OF_A')
 
@@ -105,7 +105,7 @@ test.group('RecursiveChecker skips ERP-allocated components', () => {
     }
     const checker = new RecursiveChecker(makeRcLoader(articles, nomenclatures, stocks, {
       OF_X: [{ article: 'COMP_A', qteAllouee: 10 }],
-    }))
+    }), { dispoPolicy: 'stock_strict' })
 
     const result = checker.checkArticleRecursive('PF', 10, new Date('2026-04-20'), 0, true, 'OF_X')
 

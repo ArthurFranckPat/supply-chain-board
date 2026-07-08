@@ -213,7 +213,10 @@ export default class PlanningBoardController {
       },
     }
 
-    const checker = new RecursiveDiagnosticChecker(loader, { checkDate: new Date(), useReceptions: true })
+    // useReceptions retiré (issue #51) : option jamais lue par RecursiveDiagnosticChecker —
+    // les réceptions sont déjà remontées séparément en métadonnée (receptionFields), le
+    // verdict de la descente reste toujours stock strict (parité badge/détail, issue #11).
+    const checker = new RecursiveDiagnosticChecker(loader, { checkDate: new Date() })
     const tDesc = Date.now()
     const result = await checker.diagnoseOf(head)
     ctx.logger.info(

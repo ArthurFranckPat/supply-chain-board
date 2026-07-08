@@ -53,20 +53,20 @@ function makeLoader(opts: {
 
 test.group('RecursiveChecker init', () => {
   test('init without stock state', ({ assert }) => {
-    const checker = new RecursiveChecker(makeLoader({}))
-    assert.equal(checker.useReceptions, false)
+    const checker = new RecursiveChecker(makeLoader({}), { dispoPolicy: 'stock_strict' })
+    assert.equal(checker.dispoPolicy, 'stock_strict')
     assert.isUndefined(checker.stockState)
   })
 
   test('init with stock state', ({ assert }) => {
     const state = new StockState(new Map([['A1953', 100]]))
-    const checker = new RecursiveChecker(makeLoader({}), { stockState: state })
+    const checker = new RecursiveChecker(makeLoader({}), { dispoPolicy: 'stock_strict', stockState: state })
     assert.equal(checker.stockState, state)
   })
 
   test('init with receptions', ({ assert }) => {
-    const checker = new RecursiveChecker(makeLoader({}), { useReceptions: true })
-    assert.equal(checker.useReceptions, true)
+    const checker = new RecursiveChecker(makeLoader({}), { dispoPolicy: 'stock_plus_receptions' })
+    assert.equal(checker.dispoPolicy, 'stock_plus_receptions')
   })
 })
 
@@ -84,7 +84,7 @@ test.group('RecursiveChecker checkOf', () => {
         COMP_B: { stockPhysique: 5, stockAlloue: 0 },
       },
       allocations: { OF_FERME_1: [{ article: 'COMP_A', qteAllouee: 10 }] },
-    }))
+    }), { dispoPolicy: 'stock_strict' })
 
     const result = checker.checkOf(makeOf('OF_FERME_1', 'PF', 1, new Date('2026-04-20'), 10))
 
@@ -100,7 +100,7 @@ test.group('RecursiveChecker checkOf', () => {
       },
       nomenclatures: { PF: makeNomenclature('PF', [['COMP_A', 1, 'ACHETE']]) },
       stocks: { COMP_A: { stockPhysique: 100, stockAlloue: 0 } },
-    }))
+    }), { dispoPolicy: 'stock_strict' })
 
     const result = checker.checkOf(makeOf('OF_SUGG_1', 'PF', 3, new Date('2026-04-20'), 10))
 
@@ -113,34 +113,34 @@ test.group('RecursiveChecker checkStock', () => {
   test('real stock covers need', ({ assert }) => {
     const checker = new RecursiveChecker(makeLoader({
       stocks: { A1953: { stockPhysique: 150, stockAlloue: 0 } },
-    }))
+    }), { dispoPolicy: 'stock_strict' })
     const result = checker['checkStock']('A1953', 10, new Date())
     assert.isTrue(result.feasible)
   })
 
   test('virtual stock sufficient', ({ assert }) => {
-    const checker = new RecursiveChecker(makeLoader({}), { stockState: new StockState(new Map([['A1953', 100]])) })
+    const checker = new RecursiveChecker(makeLoader({}), { dispoPolicy: 'stock_strict', stockState: new StockState(new Map([['A1953', 100]])) })
     const result = checker['checkStock']('A1953', 50, new Date())
     assert.isTrue(result.feasible)
     assert.deepEqual(result.missingComponents, {})
   })
 
   test('virtual stock insufficient reports shortage', ({ assert }) => {
-    const checker = new RecursiveChecker(makeLoader({}), { stockState: new StockState(new Map([['A1953', 100]])) })
+    const checker = new RecursiveChecker(makeLoader({}), { dispoPolicy: 'stock_strict', stockState: new StockState(new Map([['A1953', 100]])) })
     const result = checker['checkStock']('A1953', 150, new Date())
     assert.isFalse(result.feasible)
     assert.equal(result.missingComponents['A1953'], 50)
   })
 
   test('virtual stock zero reports full shortage', ({ assert }) => {
-    const checker = new RecursiveChecker(makeLoader({}), { stockState: new StockState(new Map([['A1953', 0]])) })
+    const checker = new RecursiveChecker(makeLoader({}), { dispoPolicy: 'stock_strict', stockState: new StockState(new Map([['A1953', 0]])) })
     const result = checker['checkStock']('A1953', 50, new Date())
     assert.isFalse(result.feasible)
     assert.equal(result.missingComponents['A1953'], 50)
   })
 
   test('article not in stock state reports full shortage', ({ assert }) => {
-    const checker = new RecursiveChecker(makeLoader({}), { stockState: new StockState(new Map()) })
+    const checker = new RecursiveChecker(makeLoader({}), { dispoPolicy: 'stock_strict', stockState: new StockState(new Map()) })
     const result = checker['checkStock']('A1953', 50, new Date())
     assert.isFalse(result.feasible)
     assert.equal(result.missingComponents['A1953'], 50)
@@ -153,7 +153,7 @@ test.group('RecursiveChecker checkStock', () => {
       receptions: {
         A1953: [{ id: 'PO-1', article: 'A1953', supplier: 'F1', quantity: 10, date: needDay }],
       },
-    }), { useReceptions: true })
+    }), { dispoPolicy: 'stock_plus_receptions' })
 
     const result = checker['checkStock']('A1953', 5, needDay)
     assert.isTrue(result.feasible)
@@ -162,13 +162,13 @@ test.group('RecursiveChecker checkStock', () => {
 
 test.group('RecursiveChecker getDateBesoinCommande', () => {
   test('uses DATE_DEBUT in priority', ({ assert }) => {
-    const checker = new RecursiveChecker(makeLoader({}))
+    const checker = new RecursiveChecker(makeLoader({}), { dispoPolicy: 'stock_strict' })
     const d = checker.getDateBesoinCommande(makeOf('OF1', 'ART1', 3, new Date('2026-04-18'), 10, new Date('2026-04-15')))
     assert.deepEqual(d, new Date('2026-04-15'))
   })
 
   test('falls back to DATE_FIN minus two days', ({ assert }) => {
-    const checker = new RecursiveChecker(makeLoader({}))
+    const checker = new RecursiveChecker(makeLoader({}), { dispoPolicy: 'stock_strict' })
     const d = checker.getDateBesoinCommande(makeOf('OF1', 'ART1', 3, new Date('2026-04-18'), 10))
     assert.deepEqual(d, new Date('2026-04-16'))
   })
@@ -190,7 +190,7 @@ test.group('RecursiveChecker fabricated components', () => {
         SE_FAB: { stockPhysique: 0, stockAlloue: 0 },
         ACH_MISS: { stockPhysique: 0, stockAlloue: 0 },
       },
-    }))
+    }), { dispoPolicy: 'stock_strict' })
 
     const result = checker.checkArticleRecursive('PF_PARENT', 1, new Date('2026-04-01'))
 
@@ -211,7 +211,7 @@ test.group('RecursiveChecker fabricated components', () => {
       },
       stocks: { ST_COMP: { stockPhysique: 0, stockAlloue: 0 } },
       ofs: [],
-    }))
+    }), { dispoPolicy: 'stock_strict' })
 
     const result = checker.checkArticleRecursive('PF_PARENT', 1, new Date('2026-04-01'))
     assert.isFalse(result.feasible)
@@ -228,7 +228,7 @@ test.group('RecursiveChecker fabricated components', () => {
         PF_PARENT: makeNomenclature('PF_PARENT', [['ST_COMP', 2, 'FABRIQUE']]),
       },
       stocks: { ST_COMP: { stockPhysique: 10, stockAlloue: 0 } },
-    }))
+    }), { dispoPolicy: 'stock_strict' })
 
     const result = checker.checkArticleRecursive('PF_PARENT', 3, new Date('2026-04-01'))
     assert.isTrue(result.feasible)
@@ -249,7 +249,7 @@ test.group('RecursiveChecker phantom articles', () => {
         PHANTOM: makeNomenclature('PHANTOM', [['REAL_A', 1, 'ACHETE']]),
       },
       stocks: { REAL_A: { stockPhysique: 10, stockAlloue: 0 } },
-    }))
+    }), { dispoPolicy: 'stock_strict' })
 
     const result = checker.checkArticleRecursive('PF_PARENT', 2, new Date('2026-04-01'))
 
@@ -273,7 +273,7 @@ test.group('RecursiveChecker phantom articles', () => {
         PHANTOM: { stockPhysique: 10, stockAlloue: 0 },
         NEW_REF: { stockPhysique: 0, stockAlloue: 0 },
       },
-    }))
+    }), { dispoPolicy: 'stock_strict' })
 
     const result = checker.checkArticleRecursive('PF_PARENT', 5, new Date('2026-04-01'))
 
@@ -298,7 +298,7 @@ test.group('RecursiveChecker phantom articles', () => {
         OLD_REF: { stockPhysique: 3, stockAlloue: 0 },
         NEW_REF: { stockPhysique: 3, stockAlloue: 0 },
       },
-    }))
+    }), { dispoPolicy: 'stock_strict' })
 
     const result = checker.checkArticleRecursive('PF_PARENT', 5, new Date('2026-04-01'))
 
@@ -322,7 +322,7 @@ test.group('RecursiveChecker phantom articles', () => {
         PHANTOM: { stockPhysique: 10, stockAlloue: 0 },
         REAL_A: { stockPhysique: 0, stockAlloue: 0 },
       },
-    }))
+    }), { dispoPolicy: 'stock_strict' })
 
     const result = checker.checkArticleRecursive('PF_PARENT', 5, new Date('2026-04-01'))
 
@@ -349,7 +349,7 @@ test.group('RecursiveChecker ERP allocation awareness', () => {
       allocations: {
         OF_A: [{ article: 'COMP_B', qteAllouee: 10 }],
       },
-    }))
+    }), { dispoPolicy: 'stock_strict' })
 
     const result = checker.checkArticleRecursive('PF', 5, new Date('2026-04-20'), 0, true, 'OF_A')
 
@@ -374,7 +374,7 @@ test.group('RecursiveChecker ERP allocation awareness', () => {
       allocations: {
         OF_X: [{ article: 'COMP_A', qteAllouee: 10 }],
       },
-    }))
+    }), { dispoPolicy: 'stock_strict' })
 
     const result = checker.checkArticleRecursive('PF', 10, new Date('2026-04-20'), 0, true, 'OF_X')
 

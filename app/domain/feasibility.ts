@@ -10,6 +10,7 @@ import type { Flow } from './models/flow.js'
 import type { Article } from './models/article.js'
 import type { Nomenclature, NomenclatureEntry } from './models/nomenclature.js'
 import { availableAt } from './availability.js'
+import type { DispoPolicy } from './dispo-policy.js'
 
 export interface BlockingComponent {
   article: string
@@ -32,7 +33,8 @@ export interface FeasibilityResult {
  * @param nomenclatures - BOM par article
  * @param articles - Catalogue articles (utilisé pour classification)
  * @param upToDate - Date limite pour les réceptions (optionnel)
- * @param useReceptions - Si false, seul le stock immédiat est pris en compte. Defaut: false.
+ * @param dispoPolicy - 'stock_strict' (dispo instantanée) ou 'stock_plus_receptions'. Pas de
+ *   défaut — choix forcé à la frontière (issue #51).
  * @param visited - Set anti-boucle circulaire (interne)
  * @param allocations - Quantités déjà allouées en ERP par article (ignorées dans le calcul)
  * @param treatFabricatedAsStock - Si vrai (mode proactif/séquentiel), les composants FABRIQUÉS sont
@@ -47,8 +49,8 @@ export function checkFeasibility(
   flows: Flow[],
   nomenclatures: Map<string, Nomenclature>,
   articles: Map<string, Article>,
-  upToDate?: Date,
-  useReceptions: boolean = false,
+  upToDate: Date | undefined,
+  dispoPolicy: DispoPolicy,
   visited?: Set<string>,
   allocations?: Map<string, number>,
   treatFabricatedAsStock: boolean = false,
@@ -79,8 +81,8 @@ export function checkFeasibility(
 
       // Composant acheté : vérifier stock + réceptions (paramétrable)
       const avail = upToDate
-        ? availableAt(flows, entry.componentArticle, upToDate, useReceptions)
-        : availableAt(flows, entry.componentArticle, new Date('2099-12-31'), useReceptions)
+        ? availableAt(flows, entry.componentArticle, upToDate, dispoPolicy)
+        : availableAt(flows, entry.componentArticle, new Date('2099-12-31'), dispoPolicy)
 
       if (avail < remainingNeed) {
         blocking.push({
@@ -101,7 +103,7 @@ export function checkFeasibility(
         nomenclatures,
         articles,
         upToDate,
-        useReceptions,
+        dispoPolicy,
         new Set(seen),
         allocations,
       )

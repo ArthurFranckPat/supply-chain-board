@@ -85,7 +85,7 @@ function makeChecker(
     getAllocationsOf: (numDoc) => loader.getAllocationsOf?.(numDoc) ?? [],
     getOfsByArticle: (article, statut, dateBesoin) => loader.getOfsByArticle(article, statut, dateBesoin),
   }
-  return new RecursiveChecker(rcLoader, { useReceptions: true, checkDate: horizonEnd, stockState })
+  return new RecursiveChecker(rcLoader, { dispoPolicy: 'stock_plus_receptions', checkDate: horizonEnd, stockState })
 }
 
 function collectArticles(ofs: OfRecord[], loader: PlanningBoardFeasibilityLoader): Set<string> {

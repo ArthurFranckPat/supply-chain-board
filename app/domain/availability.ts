@@ -1,4 +1,5 @@
 import type { Flow } from './models/flow.js'
+import { type DispoPolicy, includesReceptions } from './dispo-policy.js'
 
 export function currentStock(flows: Flow[], article: string): number {
   return flows
@@ -9,21 +10,21 @@ export function currentStock(flows: Flow[], article: string): number {
 /**
  * Quantité disponible d'un article à une date donnée.
  *
- * Invariant faisabilité (issue #43, point 2) : avec `useReceptions=false`, le 3ᵉ filtre
- * (`useReceptions || f.date === null`) ne conserve QUE les flux à date nulle (= stock réel).
- * Toutes les réceptions datées sont exclues — y compris les PO overdue (date dans le passé,
- * non reçues). C'est ce qui garantit qu'une overdue ne gonfle JAMAIS la faisabilité d'un OF :
- * le verdict (`checkFeasibility` / `evaluateSequentialFeasibility`) est toujours appelé avec
- * `useReceptions=false`, donc un composant en retard de livraison reste manquant → l'OF bloqué
- * apparaît bien en Ruptures (aucun masquage).
+ * Invariant faisabilité (issue #43, point 2) : avec `dispoPolicy='stock_strict'`, le 3ᵉ filtre
+ * ne conserve QUE les flux à date nulle (= stock réel). Toutes les réceptions datées sont
+ * exclues — y compris les PO overdue (date dans le passé, non reçues). C'est ce qui garantit
+ * qu'une overdue ne gonfle JAMAIS la faisabilité d'un OF : le verdict (`checkFeasibility` /
+ * `evaluateSequentialFeasibility`) est toujours appelé en 'stock_strict', donc un composant en
+ * retard de livraison reste manquant → l'OF bloqué apparaît bien en Ruptures (aucun masquage).
  */
 export function availableAt(
   flows: Flow[],
   article: string,
   date: Date,
-  useReceptions: boolean = true,
+  dispoPolicy: DispoPolicy,
   stockState?: { getAvailable(article: string): number },
 ): number {
+  const useReceptions = includesReceptions(dispoPolicy)
   if (!useReceptions && stockState) {
     return stockState.getAvailable(article)
   }
@@ -41,7 +42,7 @@ export function shortageAt(
   date: Date,
   reservedQuantity: number = 0,
 ): number {
-  return Math.max(0, quantityNeeded - reservedQuantity - availableAt(flows, article, date))
+  return Math.max(0, quantityNeeded - reservedQuantity - availableAt(flows, article, date, 'stock_strict'))
 }
 
 
@@ -121,9 +122,10 @@ export function snapshot(
   flows: Flow[],
   article: string,
   date: Date,
-  quantityNeeded?: number,
-  useReceptions: boolean = true,
+  quantityNeeded: number | undefined,
+  dispoPolicy: DispoPolicy,
 ): AvailabilitySnapshot {
+  const useReceptions = includesReceptions(dispoPolicy)
   const stock = currentStock(flows, article)
   const recvQty = useReceptions
     ? flows
@@ -149,7 +151,7 @@ export function snapshot(
     )
     .sort((a, b) => (a.date as Date).getTime() - (b.date as Date).getTime())
 
-  const available = availableAt(flows, article, date, useReceptions)
+  const available = availableAt(flows, article, date, dispoPolicy)
 
   return {
     article,

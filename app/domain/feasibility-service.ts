@@ -51,7 +51,7 @@ export class FeasibilityService {
       getAllocationsOf: (numDoc) => this.loader.getAllocationsOf?.(numDoc) ?? [],
       getOfsByArticle: (article, statut, dateBesoin) => this.loader.getOfsByArticle?.(article, statut, dateBesoin) ?? [],
     }
-    return new RecursiveChecker(loader, { useReceptions, checkDate })
+    return new RecursiveChecker(loader, { dispoPolicy: useReceptions ? 'stock_plus_receptions' : 'stock_strict', checkDate })
   }
 
   /**

@@ -15,7 +15,6 @@ import { isFirm } from './rules.js'
 
 
 export interface FeasibilityOptions {
-  useReceptions?: boolean
   mode?: 'immediate' | 'sequential'
   /** Allocations ERP par numéro d'OF : Map<numOf, Map<article, qteAllouee>> */
   allocations?: Map<string, Map<string, number>>
@@ -77,7 +76,6 @@ function classifyFeasibility(result: { feasible: boolean; blockingComponents: Ar
  * @param mode — 'immediate' : chaque OF vérifié indépendamment (pas de consommation).
  *                'sequential' : OFs triés par priorité, chaque allocation consomme le stock
  *                et impacte la faisabilité des suivants (par défaut).
- * @param options.useReceptions — prend en compte les réceptions (par défaut true).
  */
 export function evaluateSequentialFeasibility(
   ofs: OfInput[],
@@ -107,7 +105,7 @@ export function evaluateSequentialFeasibility(
       // Mode "dispo instantanée" : seul le stock présent compte, PAS les réceptions
       // à venir. Aligne le badge sur le détail OF (cf. issue #11) — les deux verdicts
       // doivent répondre à la même question (dispo maintenant), sans réceptions futures.
-      const result = checkFeasibility(ofInput.article, ofInput.qteRestante, flows, nomenclatures, articles, horizonEnd, false, undefined, ofAllocs)
+      const result = checkFeasibility(ofInput.article, ofInput.qteRestante, flows, nomenclatures, articles, horizonEnd, 'stock_strict', undefined, ofAllocs)
       const missingComponents: Record<string, number> = {}
       for (const bc of result.blockingComponents) {
         missingComponents[bc.article] = bc.shortage
@@ -124,7 +122,7 @@ export function evaluateSequentialFeasibility(
     for (const ofInput of ofs) {
       if (isFirm(ofInput.statutNum)) continue
       const ofAllocs = options?.allocations?.get(ofInput.numOf)
-      const result = checkFeasibility(ofInput.article, ofInput.qteRestante, flows, nomenclatures, articles, horizonEnd, true, undefined, ofAllocs, true)
+      const result = checkFeasibility(ofInput.article, ofInput.qteRestante, flows, nomenclatures, articles, horizonEnd, 'stock_plus_receptions', undefined, ofAllocs, true)
       preFeasible.set(ofInput.numOf, result.feasible)
     }
     // OF fermes : toujours faisables, pas de calcul, pas d'allocation virtuelle
@@ -154,14 +152,17 @@ export function evaluateSequentialFeasibility(
     // (stock + supply) comme les achats — faisabilité réelle + consommation séquentielle.
     const mutableFlows = flows.map((f) => ({ ...f }))
     for (const ofInput of sorted) {
-      const result = checkFeasibility(ofInput.article, ofInput.qteRestante, mutableFlows, nomenclatures, articles, horizonEnd, false, undefined, undefined, true)
+      const result = checkFeasibility(ofInput.article, ofInput.qteRestante, mutableFlows, nomenclatures, articles, horizonEnd, 'stock_strict', undefined, undefined, true)
       const allocated: Record<string, number> = {}
       if (result.feasible) {
         const requirements = directComponentRequirements(ofInput.article, ofInput.qteRestante, nomenclatures)
         for (const [article, besoin] of Object.entries(requirements)) {
           // Cap = quantité réellement disponible (stock + supply) sur les flows mutés, pour
           // réserver aussi les sous-ensembles fabriqués et réduire la couverture des OF suivants.
-          const qte = Math.min(besoin, availableAt(mutableFlows, article, horizonEnd))
+          // N'entre ici que pour un OF déjà jugé faisable en 'stock_strict' (ligne ci-dessus) —
+          // 'stock_plus_receptions' ici ne fait que dimensionner la RÉSERVATION virtuelle, pas
+          // le verdict. Valeur historique (ex-défaut implicite d'availableAt) préservée telle quelle.
+          const qte = Math.min(besoin, availableAt(mutableFlows, article, horizonEnd, 'stock_plus_receptions'))
           if (qte > 0) allocated[article] = qte
         }
         if (Object.keys(allocated).length > 0) {

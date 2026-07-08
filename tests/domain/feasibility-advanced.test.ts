@@ -71,11 +71,11 @@ test.group('checkFeasibility - advanced cases', () => {
     ])
 
     // Need 200 COMP1 (link qty 2 x 100). Stock=50 + recv=150 = 200 -> feasible with receptions
-    const withReceptions = checkFeasibility('ART1', 100, flows, nomenclatures, articles, recvDate, true)
+    const withReceptions = checkFeasibility('ART1', 100, flows, nomenclatures, articles, recvDate, 'stock_plus_receptions')
     assert.isTrue(withReceptions.feasible)
 
     // Same scenario, but ignoring receptions: only 50 stock -> shortage 150
-    const withoutReceptions = checkFeasibility('ART1', 100, flows, nomenclatures, articles, recvDate, false)
+    const withoutReceptions = checkFeasibility('ART1', 100, flows, nomenclatures, articles, recvDate, 'stock_strict')
     assert.isFalse(withoutReceptions.feasible)
     assert.equal(withoutReceptions.blockingComponents[0].shortage, 150)
   })
@@ -99,7 +99,7 @@ test.group('checkFeasibility - advanced cases', () => {
       ['COMP1', makeArticle('COMP1', 'ACHAT')],
     ])
 
-    const result = checkFeasibility('ART1', 10, flows, nomenclatures, articles)
+    const result = checkFeasibility('ART1', 10, flows, nomenclatures, articles, undefined, 'stock_strict')
 
     // This assertion documents the current TS behavior.
     // In Python, the missing article would be SUB1 (no OF found).

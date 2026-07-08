@@ -61,7 +61,7 @@ function makeLoader(options: {
 test.group('AllocationManager', () => {
   test('initializes with loader and checker', ({ assert }) => {
     const loader = makeLoader({})
-    const checker = new RecursiveChecker(loader)
+    const checker = new RecursiveChecker(loader, { dispoPolicy: 'stock_strict' })
     const manager = new AllocationManager(loader, checker)
 
     assert.equal(manager.dataLoader, loader)
@@ -76,7 +76,7 @@ test.group('AllocationManager', () => {
       nomenclatures: { PF_A: makeNomenclature('PF_A', [makeEntry('PF_A', 'COMP_X', 2)]) },
       allocations: { 'OF-FERME-1': [{ article: 'COMP_X', qteAllouee: 50 }] },
     })
-    const checker = new RecursiveChecker(loader)
+    const checker = new RecursiveChecker(loader, { dispoPolicy: 'stock_strict' })
     const manager = new AllocationManager(loader, checker)
 
     const results = manager.allocateStock([of])
@@ -91,7 +91,7 @@ test.group('AllocationManager', () => {
       stocks: { COMP_X: { stockPhysique: 200, stockAlloue: 50 } },
       nomenclatures: { PF_A: makeNomenclature('PF_A', [makeEntry('PF_A', 'COMP_X', 2)]) },
     })
-    const checker = new RecursiveChecker(loader)
+    const checker = new RecursiveChecker(loader, { dispoPolicy: 'stock_strict' })
     const manager = new AllocationManager(loader, checker)
     const stockState = new StockState(new Map([['COMP_X', 100]]))
 
@@ -106,7 +106,7 @@ test.group('AllocationManager', () => {
       stocks: { COMP_X: { stockPhysique: 200, stockAlloue: 50 } },
       nomenclatures: { PF_A: makeNomenclature('PF_A', [makeEntry('PF_A', 'COMP_X', 2)]) },
     })
-    const checker = new RecursiveChecker(loader)
+    const checker = new RecursiveChecker(loader, { dispoPolicy: 'stock_strict' })
     const manager = new AllocationManager(loader, checker)
     const stockState = new StockState(new Map([['COMP_X', 100]]))
 
@@ -125,7 +125,7 @@ test.group('AllocationManager', () => {
       stocks: { COMP_X: { stockPhysique: 1000, stockAlloue: 0 } },
       nomenclatures: { PF_A: makeNomenclature('PF_A', [makeEntry('PF_A', 'COMP_X', 2)]) },
     })
-    const checker = new RecursiveChecker(loader)
+    const checker = new RecursiveChecker(loader, { dispoPolicy: 'stock_strict' })
     const manager = new AllocationManager(loader, checker)
 
     const results = manager.allocateStock(ofs)
@@ -145,7 +145,7 @@ test.group('AllocationManager', () => {
       stocks: { COMP_X: { stockPhysique: 1000, stockAlloue: 0 } },
       nomenclatures: { PF_A: makeNomenclature('PF_A', [makeEntry('PF_A', 'COMP_X', 2)]) },
     })
-    const checker = new RecursiveChecker(loader)
+    const checker = new RecursiveChecker(loader, { dispoPolicy: 'stock_strict' })
     const manager = new AllocationManager(loader, checker)
 
     const sorted = manager.sortOfsByPriority(ofs, new StockState(new Map([['COMP_X', 1000]])))
@@ -162,7 +162,7 @@ test.group('AllocationManager', () => {
       stocks: { COMP_X: { stockPhysique: 1000, stockAlloue: 0 } },
       nomenclatures: { PF_A: makeNomenclature('PF_A', [makeEntry('PF_A', 'COMP_X', 2)]) },
     })
-    const checker = new RecursiveChecker(loader)
+    const checker = new RecursiveChecker(loader, { dispoPolicy: 'stock_strict' })
     const manager = new AllocationManager(loader, checker)
 
     const stockState = new StockState(new Map([['COMP_X', 1000]]))
@@ -180,7 +180,7 @@ test.group('AllocationManager', () => {
       stocks: { COMP_X: { stockPhysique: 100, stockAlloue: 0 } },
       nomenclatures: { PF_A: makeNomenclature('PF_A', [makeEntry('PF_A', 'COMP_X', 2)]) },
     })
-    const checker = new RecursiveChecker(loader)
+    const checker = new RecursiveChecker(loader, { dispoPolicy: 'stock_strict' })
     const manager = new AllocationManager(loader, checker)
 
     const stockState = new StockState(new Map([['COMP_X', 100]]))

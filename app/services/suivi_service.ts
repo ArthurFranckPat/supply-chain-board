@@ -162,7 +162,7 @@ class NomenclatureBomNavigator implements BomNavigator {
       qteAllouee: qty,
     }))
     const loader = new SuiviBomLoader(this.nomenclatures, this.stocks, this.ofs, this.articles, allocs)
-    const checker = new RecursiveChecker(loader, { useReceptions: false })
+    const checker = new RecursiveChecker(loader, { dispoPolicy: 'stock_strict' })
     // numOfParent synthétique → RecursiveChecker applique ownAllocations via getAllocationsOf.
     const result = checker.checkArticleRecursive(article, quantity, new Date(), 0, false, '__suivi__')
     return result.missingComponents

@@ -43,7 +43,7 @@ export function promiseDate(
     const testDate = new Date(startDate)
     testDate.setDate(testDate.getDate() + dayOffset)
 
-    const result = checkFeasibility(article, quantity, flows, nomenclatures, articles, testDate, true)
+    const result = checkFeasibility(article, quantity, flows, nomenclatures, articles, testDate, 'stock_plus_receptions')
     lastResult = result
 
     if (result.feasible) {
