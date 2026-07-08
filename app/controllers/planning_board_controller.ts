@@ -12,20 +12,6 @@ import type { GammeOperation } from '#app/domain/models/gamme'
 import { X3MfgmatRepository } from '#repositories/mfgmat_repository'
 import type { Article } from '#app/domain/models/article'
 
-/** Borne basse par défaut pour la fenêtre du pool OF : aujourd'hui - 30 j. */
-function defaultPoolFrom(): string {
-  const d = new Date()
-  d.setDate(d.getDate() - 30)
-  return d.toISOString().split('T')[0]
-}
-
-/** Borne haute par défaut pour la fenêtre du pool OF : aujourd'hui + 1 an. */
-function defaultPoolTo(): string {
-  const d = new Date()
-  d.setFullYear(d.getFullYear() + 1)
-  return d.toISOString().split('T')[0]
-}
-
 /**
  * PlanningBoardController — endpoints OF LIVE consommés par le board unifié (/programme) :
  *   - PATCH /ofs/:of           : override d'OF (date/statut/poste/note)
@@ -104,8 +90,10 @@ export default class PlanningBoardController {
     const numOf = ctx.params.of
     if (!numOf) return ctx.response.badRequest({ error: 'numOf requis' })
 
+    // getPool() = getOrders() seul (cache global SWR). Surtout ne pas rajouter de
+    // fenêtre getLive ici : cf. BoardDataset.getPool (#55, fetchLive 13 mois jeté).
     const [poolData, nomEntries, articlesList] = await Promise.all([
-      boardDataset.getPool(defaultPoolFrom(), defaultPoolTo()),
+      boardDataset.getPool(),
       boardDataset.getNomenclature().catch(() => []),
       boardDataset.getArticles().catch(() => []),
     ])
@@ -137,18 +125,23 @@ export default class PlanningBoardController {
     const stockCache = new Map<string, Promise<StockRecord | undefined>>()
     const receptionCache = new Map<string, Promise<ReceptionRecord[]>>()
 
+    let mfgmatCalls = 0
+    let mfgmatMs = 0
     const loadMfgmat = (n: string): Promise<MfgMaterialInput[]> => {
       const hit = mfgmatCache.get(n)
       if (hit) return hit
-      const p = mfgmatRepo.getMaterials(n).then((mats) =>
-        mats.map((m) => ({
+      const started = Date.now()
+      const p = mfgmatRepo.getMaterials(n).then((mats) => {
+        mfgmatCalls++
+        mfgmatMs += Date.now() - started
+        return mats.map((m) => ({
           article: m.article,
           description: m.description,
           unit: m.unit,
           remaining: m.remaining,
           allocated: m.allocated,
-        })),
-      )
+        }))
+      })
       mfgmatCache.set(n, p)
       return p
     }
@@ -160,8 +153,13 @@ export default class PlanningBoardController {
       return p
     }
     // Stock par LOT : une requête X3 pour tous les articles d'un nœud (clé perf).
+    let stockCalls = 0
+    let stockMs = 0
     const loadStocks = async (articles: string[]): Promise<Map<string, StockRecord | undefined>> => {
+      const startedStock = Date.now()
       const flows = await stockRepo.getStock(articles).catch(() => [])
+      stockCalls++
+      stockMs += Date.now() - startedStock
       const built = buildStocksMap(
         flows.map((f) => ({ article: f.article, origin: f.origin as { subType?: string }, quantity: f.quantity })),
       )
@@ -216,7 +214,11 @@ export default class PlanningBoardController {
     }
 
     const checker = new RecursiveDiagnosticChecker(loader, { checkDate: new Date(), useReceptions: true })
+    const tDesc = Date.now()
     const result = await checker.diagnoseOf(head)
+    ctx.logger.info(
+      `[diagnostic #55] ${head.numOf}: descente=${Date.now() - tDesc}ms mfgmat=${mfgmatCalls}×/${mfgmatMs}ms stock=${stockCalls}×/${stockMs}ms nodes=${result.componentsChecked} depth=${result.maxDepthReached}`,
+    )
 
     // Debug (page de test #25) : confronte le verdict récursif au mode DIRECT classique
     // (ofMaterials : MFGMAT 1 niveau, stock strict/qc) sur l'OF de tête.

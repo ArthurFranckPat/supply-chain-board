@@ -111,6 +111,13 @@ export interface DiagnosticOptions {
   maxDepth?: number
   checkDate?: Date
   useReceptions?: boolean
+  /**
+   * Budget dur : nombre max d'OF réellement diagnostiqués (appels SOAP MFGMAT/stock).
+   * Garde-fou anti « tourne dans le vide » : un composant très partagé peut avoir des
+   * centaines d'OF couvrants sur une fenêtre d'un an, chacun coûtant un appel SOAP
+   * séquentiel. Au-delà du budget, la descente s'arrête (sentinelle `indetermine`).
+   */
+  maxNodes?: number
 }
 
 interface RawShort {
@@ -125,7 +132,21 @@ interface RawShort {
   receptionOrderId?: string
 }
 
-const DEFAULT_MAX_DEPTH = 10
+/**
+ * Profondeur max de descente. La nomenclature réelle Aldes ne dépasse pas ~4 niveaux
+ * (PF → sous-ensemble → sous-sous-ensemble → composant acheté). On garde une marge à 6
+ * pour absorber un fantôme ou un maillon inattendu, sans laisser filer une descente folle.
+ */
+const DEFAULT_MAX_DEPTH = 6
+/** Budget d'OF diagnostiqués par défaut (borne les appels SOAP séquentiels). */
+const DEFAULT_MAX_NODES = 300
+/**
+ * Nombre max d'OF couvrants descendus par composant fabriqué en manque. On trie
+ * ferme→planifié→suggéré (puis date au plus tôt) et on s'arrête dès que la quantité
+ * manquante est couverte ; ce cap borne le cas pathologique (composant partagé avec des
+ * centaines de suggestions) même quand la quantité n'est jamais atteinte.
+ */
+const MAX_COVERING_PER_COMPONENT = 6
 /**
  * Marge amont pour les réceptions « en retard » : une ligne attendue jusqu'à 7 jours
  * dans le passé est encore considérée comme la prochaine arrivée (retards transporteur,
@@ -140,12 +161,18 @@ function formatDate(d: Date): string {
 
 export class RecursiveDiagnosticChecker {
   private maxDepth: number
+  private maxNodes: number
   private checkDate: Date
 
   constructor(private loader: DiagnosticLoader, options: DiagnosticOptions = {}) {
     this.maxDepth = options.maxDepth ?? DEFAULT_MAX_DEPTH
+    this.maxNodes = options.maxNodes ?? DEFAULT_MAX_NODES
     this.checkDate = options.checkDate ?? new Date()
   }
+
+  /** Nombre d'OF réellement diagnostiqués (computeNode) — borné par maxNodes. */
+  private diagnosedOfs = 0
+  private budgetHit = false
 
   private nodeCount = 0
   private maxDepthSeen = 0
@@ -175,10 +202,15 @@ export class RecursiveDiagnosticChecker {
   async diagnoseOf(of: OfRecord): Promise<RecursiveDiagnosticResult> {
     this.nodeCount = 0
     this.maxDepthSeen = 0
+    this.diagnosedOfs = 0
+    this.budgetHit = false
     this.nodeMemo.clear()
     this.inProgress.clear()
     const tree = await this.diagnoseNode(of, new Set(), 0)
     const allAlerts = this.collectAlerts(tree)
+    if (this.budgetHit) {
+      allAlerts.unshift(`Diagnostic partiel : budget de ${this.maxNodes} OF atteint (arbre tronqué).`)
+    }
     return {
       numOf: of.numOf,
       article: of.article,
@@ -227,6 +259,14 @@ export class RecursiveDiagnosticChecker {
     const cached = this.nodeMemo.get(of.numOf)
     if (cached) return cached
 
+    // Budget dur : au-delà de maxNodes OF diagnostiqués, on arrête la descente (sentinelle
+    // non mémoïsée). Empêche le « tourne dans le vide » sur un composant à fan-out énorme.
+    if (this.diagnosedOfs >= this.maxNodes) {
+      this.budgetHit = true
+      return { ...base, source: 'NOMENCLATURE', feasible: false, status: 'indetermine', shorts: [], alerts: [`Budget de nœuds atteint (${this.maxNodes}) sur ${of.numOf}`] }
+    }
+
+    this.diagnosedOfs++
     this.inProgress.add(of.numOf)
     const node = await this.computeNode(of, ancestors, depth)
     this.inProgress.delete(of.numOf)
@@ -294,8 +334,12 @@ export class RecursiveDiagnosticChecker {
         continue
       }
 
-      // Composant fabriqué → on liste les OF/suggestions couvrants et on les descend.
-      const coveringOfs = this.loader.getOfsByArticle(s.article, undefined, date)
+      // Composant fabriqué → on descend les OF couvrants PERTINENTS uniquement.
+      // Un composant très partagé peut avoir des centaines d'OF couvrants (surtout des
+      // suggestions statut 3 sur la fenêtre +1 an) : les descendre TOUS explose la largeur
+      // (la nomenclature réelle ne fait pourtant que ≤ 4 niveaux). On sélectionne le
+      // sous-ensemble minimal qui couvre la quantité manquante, ferme→planifié→suggéré.
+      const coveringOfs = this.selectCovering(this.loader.getOfsByArticle(s.article, undefined, date), s.qtyMissing)
       const covering: CoveringOf[] = []
       for (const covOf of coveringOfs) {
         const node = await this.diagnoseNode(covOf, childAncestors, depth + 1)
@@ -319,6 +363,31 @@ export class RecursiveDiagnosticChecker {
 
     const status = this.rollUp(shorts)
     return { ...base, source, feasible: status === 'ok', status, shorts, alerts }
+  }
+
+  /**
+   * Sélectionne les OF couvrants à descendre pour un composant fabriqué en manque.
+   * Priorité ferme (1) → planifié (2) → suggéré (3), puis date de fin au plus tôt.
+   * On accumule jusqu'à couvrir `qtyMissing`, borné par MAX_COVERING_PER_COMPONENT.
+   * Objectif : décision de faisabilité fiable sans exploser la largeur (un composant
+   * partagé peut avoir des centaines d'OF couvrants sur la fenêtre d'un an).
+   */
+  private selectCovering(ofs: OfRecord[], qtyMissing: number): OfRecord[] {
+    const sorted = [...ofs].sort((a, b) => {
+      if (a.statutNum !== b.statutNum) return a.statutNum - b.statutNum
+      const da = (a.dateFin ?? a.dateDebut)?.getTime() ?? Number.POSITIVE_INFINITY
+      const db = (b.dateFin ?? b.dateDebut)?.getTime() ?? Number.POSITIVE_INFINITY
+      return da - db
+    })
+    const picked: OfRecord[] = []
+    let covered = 0
+    for (const of of sorted) {
+      if (picked.length >= MAX_COVERING_PER_COMPONENT) break
+      picked.push(of)
+      covered += of.qteRestante
+      if (covered >= qtyMissing) break
+    }
+    return picked
   }
 
   /**

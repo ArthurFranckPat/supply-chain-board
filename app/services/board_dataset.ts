@@ -390,14 +390,18 @@ class BoardDataset {
   /**
    * Pool unifié : tous les ordres de fabrication (statut 1/2/3) lus depuis ORDERS
    * (vue planning temps réel, #32). `supply` contient déjà les suggestions (statut 3)
-   * — plus de source CBNDET séparée ni de suggestion à fusionner. getPool() assemble
-   * depuis les caches existants (orders + live) sans cache propre.
+   * — plus de source CBNDET séparée ni de suggestion à fusionner.
+   *
+   * NE PAS rebrancher getLive() ici (#55) : son résultat était jeté (le pool vient
+   * à 100 % de getOrders) mais l'appel forçait un fetchLive FROID sur une fenêtre
+   * de 13 mois (clé `live:from:to` que personne d'autre ne réchauffe) → ZSOAPSQL
+   * O(n²) sur des dizaines de milliers de lignes → le diagnostic pendait sans fin.
    *
    * Utilisation : toute action qui doit voir la totalité des OF opérationnels (board
    * index, show, diagnostic).
    */
-  async getPool(from: string, to: string): Promise<{ supply: Flow[]; mos: ManufacturingOrder[] }> {
-    const [orders] = await Promise.all([this.getOrders(), this.getLive(from, to)])
+  async getPool(): Promise<{ supply: Flow[]; mos: ManufacturingOrder[] }> {
+    const orders = await this.getOrders()
     return { supply: orders.supply, mos: orders.mos }
   }
 
