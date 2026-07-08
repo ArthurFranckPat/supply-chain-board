@@ -1,20 +1,14 @@
-import { createEffect, createMemo, createResource, createSignal, For, onCleanup, Show, type Component } from 'solid-js'
+import { createMemo, createSignal, For, Show, type Component } from 'solid-js'
 import { Link } from '@/lib/inertia-solid'
 import { route } from '@/lib/routes'
-import { cx } from '@/libs/cva'
-import { createColumnHelper } from '@tanstack/solid-table'
-import { DataTable, type SortingState } from '@/components/ui/data-table'
 
-import type {
-  SuiviPageProps,
-  SuiviRowsResponse,
-  SuiviStatusKey,
-  SuiviDisplayRow,
-  ProactiveRowsResponse,
-  ProactiveVerdictKey,
-  ProactiveDisplayRow,
-} from '@/lib/suivi/types'
+import type { SuiviPageProps, SuiviStatusKey, ProactiveVerdictKey } from '@/lib/suivi/types'
 import { Masthead } from '@/components/masthead'
+import { EMPTY, PROACTIVE_EMPTY, fmtMs } from '@/lib/suivi/tracking-shared'
+import { useTimedFetch } from '@/lib/suivi/use-timed-fetch'
+import { ReactiveView } from '@/components/tracking/reactive-view'
+import { ProactiveView } from '@/components/tracking/proactive-view'
+import type { SuiviRowsResponse, ProactiveRowsResponse } from '@/lib/suivi/types'
 
 /**
  * Page « Suivi des commandes » (issue #19) — axe allocation / expédition.
@@ -24,148 +18,33 @@ import { Masthead } from '@/components/masthead'
  * en différé par fetch JSON (SuiviController.rows). Même motif que la page
  * ruptures (scheduler/shortages). Registre Papier harmonisé avec shortage-table
  * + Rangée rupture (design_system §07).
+ *
+ * Shell (fetch + toolbar + switch) — le rendu de chaque mode (réactif/proactif)
+ * vit dans components/tracking/*-view.tsx (issue #52).
  */
-
-const EMPTY: SuiviRowsResponse = {
-  total: 0,
-  statusCounts: { A_EXPEDIER: 0, ALLOCATION_A_FAIRE: 0, RETARD_PROD: 0, RAS: 0 },
-  cqCount: 0,
-  ateliers: [],
-  rows: [],
-  x3Error: null,
-  referenceDate: '',
-}
-
-const PROACTIVE_EMPTY: ProactiveRowsResponse = {
-  total: 0,
-  verdictCounts: { time: 0, stock: 0, late: 0, blocked: 0, uncov: 0 },
-  ateliers: [],
-  rows: [],
-  x3Error: null,
-  referenceDate: '',
-}
-
-/** Couleur du badge par statut (grammar uniforme ui/badge — un seul shape). */
-const BADGE_TONE: Record<SuiviStatusKey, string> = {
-  exp: 'bg-ferme/15 text-ferme',
-  alc: 'bg-suggere/15 text-suggere',
-  ret: 'bg-destructive/10 text-destructive',
-  ras: 'bg-secondary text-muted-foreground',
-}
-
-/**
- * Statut X3 d'un OF (WIPSTA / statutNum) → tag court WOF/WOP/WOS + couleur.
- *  - 1 = Ferme     → WOF (Work Order Firm)
- *  - 2 = Planifié  → WOP (Work Order Planned)
- *  - 3 = Suggéré   → WOS (Work Order Suggested)
- */
-const OF_STATUT: Record<number, { tag: string; tone: string }> = {
-  1: { tag: 'WOF', tone: 'bg-ferme/15 text-ferme' },
-  2: { tag: 'WOP', tone: 'bg-planifie/15 text-planifie' },
-  3: { tag: 'WOS', tone: 'bg-suggere/15 text-suggere' },
-}
-
-/** Couleur du badge verdict (vue proactive). */
-const VERDICT_TONE: Record<ProactiveVerdictKey, string> = {
-  time: 'bg-ferme/15 text-ferme',
-  stock: 'bg-ferme/15 text-ferme',
-  late: 'bg-suggere/15 text-suggere',
-  blocked: 'bg-destructive/10 text-destructive',
-  uncov: 'bg-destructive/10 text-destructive',
-}
-
-/**
- * Teinte du background de ligne quand la commande est en retard.
- *
- * Principe : NEUTRE par défaut, couleur UNIQUEMENT sur retard. Sinon la moitié
- * du tableau (lignes en retard) se retrouve colorée et la hiérarchie s'effondre
- * — la tolérance doit trancher sur du neutre pour être visible.
- *
- *  - 'tolerance' (≤ 1 jour ouvré) : orange doux (12%) + barre ambre
- *  - 'critical' (au-delà)         : rouge doux  (10%) + barre rouge
- *  - null (pas en retard)         : neutre + hover
- *
- * Opacités volontairement faibles (10-12%) : la couleur signale, le contraste
- * avec le neutre fait le travail. Inutile de saturer — la barre latérale porte
- * la moitié du signal.
- *
- * `bg()`  → background de ligne (getRowClass)
- * `bar()` → barre latérale gauche (index column tdClass)
- */
-const LATE_TONE = {
-  bg: (s: 'tolerance' | 'critical' | null) =>
-    s === 'critical'
-      ? '[background-color:rgba(220,38,38,0.10)] hover:[background-color:rgba(220,38,38,0.18)]'
-      : s === 'tolerance'
-        ? '[background-color:rgba(251,191,36,0.12)] hover:[background-color:rgba(251,191,36,0.20)]'
-        : 'hover:bg-foreground/[0.04]',
-  bar: (s: 'tolerance' | 'critical' | null) =>
-    s === 'critical'
-      ? '[box-shadow:inset_3px_0_#dc2626]'
-      : s === 'tolerance'
-        ? '[box-shadow:inset_3px_0_#f59e0b]'
-        : '',
-}
 
 const Tracking: Component<SuiviPageProps> = (props) => {
   // Calcul lourd différé : fetch client-side, relancé à chaque changement de date
   // ou de bust (bouton refresh → ?refresh=N invalide le cache serveur).
   const [bust, setBust] = createSignal(0)
-  const [rowsMs, setRowsMs] = createSignal<number | null>(null)
-  const [proMs, setProMs] = createSignal<number | null>(null)
-  const [elapsed, setElapsed] = createSignal(0)
-  const [proElapsed, setProElapsed] = createSignal(0)
 
-  const [data] = createResource(
+  const { data, ms: rowsMs, elapsed } = useTimedFetch<SuiviRowsResponse>(
     () => `${props.rowsHref}${bust() ? `&refresh=${bust()}` : ''}`,
-    async (url): Promise<SuiviRowsResponse> => {
-      const start = Date.now()
-      const res = await fetch(url, { headers: { accept: 'application/json' } })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const json = (await res.json()) as SuiviRowsResponse
-      setRowsMs(Date.now() - start)
-      return json
-    },
   )
-
-  createEffect(() => {
-    if (!data.loading) { setElapsed(0); return }
-    const t0 = Date.now()
-    const id = setInterval(() => setElapsed(Date.now() - t0), 200)
-    onCleanup(() => clearInterval(id))
-  })
-
-  // Vue courante avec fallback vide (évite de répéter `data() ?? EMPTY` partout).
   const view = createMemo(() => data() ?? EMPTY)
 
   // ── Vue proactive (réalisabilité des commandes via le moteur séquentiel) ──
   const [mode, setMode] = createSignal<'reactif' | 'proactif'>('reactif')
-  const [proData] = createResource(
+  const { data: proData, ms: proMs, elapsed: proElapsed } = useTimedFetch<ProactiveRowsResponse>(
     () => `${props.proactiveRowsHref}${bust() ? `&refresh=${bust()}` : ''}`,
-    async (url): Promise<ProactiveRowsResponse> => {
-      const start = Date.now()
-      const res = await fetch(url, { headers: { accept: 'application/json' } })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const json = (await res.json()) as ProactiveRowsResponse
-      setProMs(Date.now() - start)
-      return json
-    },
   )
-
-  createEffect(() => {
-    if (!proData.loading) { setProElapsed(0); return }
-    const t0 = Date.now()
-    const id = setInterval(() => setProElapsed(Date.now() - t0), 200)
-    onCleanup(() => clearInterval(id))
-  })
-
   const proView = createMemo(() => proData() ?? PROACTIVE_EMPTY)
 
-  const fmtMs = (ms: number) => ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`
-
-  // Filtres + tri côté client.
+  // Filtres côté client. Recherche/type/atelier transverses aux 2 vues ;
+  // statut/verdict spécifiques à leur mode.
   const [query, setQuery] = createSignal('')
   const [statusFilter, setStatusFilter] = createSignal<SuiviStatusKey | 'all'>('all')
+  const [verdictFilter, setVerdictFilter] = createSignal<ProactiveVerdictKey | 'all'>('all')
   const [typeFilter, setTypeFilter] = createSignal<Set<string>>(new Set(['MTS', 'MTO']))
   // Filtre atelier (#36) : ensemble de STOLOC retenus (vide = tous). Transverse aux 2 vues.
   const [atelierFilter, setAtelierFilter] = createSignal<Set<string>>(new Set())
@@ -184,78 +63,11 @@ const Tracking: Component<SuiviPageProps> = (props) => {
       return next
     })
 
-  // Fold/unfold des emplacements : 1 seul affiché par défaut, les suivants
-  // derrière un toggle "+N". Clé stable (numCommande::article) — résiste au tri.
-  const [expandedEmps, setExpandedEmps] = createSignal<Set<string>>(new Set())
-  const empKey = (r: SuiviDisplayRow) => `${r.numCommande}::${r.article}`
-  const toggleEmp = (key: string) =>
-    setExpandedEmps((prev) => {
-      const next = new Set(prev)
-      next.has(key) ? next.delete(key) : next.add(key)
-      return next
-    })
-
   // Ateliers de la vue active (réactif/proactif), pour les chips de filtre.
   const ateliers = createMemo(() => (mode() === 'proactif' ? proView().ateliers : view().ateliers))
 
-  // Filtrage + tri manuels (TanStack Table ne tracke pas les signaux extérieurs).
-  const [verdictFilter, setVerdictFilter] = createSignal<ProactiveVerdictKey | 'all'>('all')
-  const [reactiveSorting, setReactiveSorting] = createSignal<SortingState[]>([{ id: 'dateExp', desc: false }])
-  const [proSorting, setProSorting] = createSignal<SortingState[]>([{ id: 'dateExp', desc: false }])
-
-  const sortRows = <T extends { numCommande: string; dateExpIso: string | null }>(rows: T[], sorting: SortingState[]): T[] => {
-    if (sorting.length === 0) return rows
-    const { id, desc } = sorting[0]
-    const sorted = [...rows]
-    sorted.sort((a, b) => {
-      let va: string | number
-      let vb: string | number
-      switch (id) {
-        case 'numCommande':
-          va = a.numCommande
-          vb = b.numCommande
-          break
-        case 'article':
-          va = (a as any).article
-          vb = (b as any).article
-          break
-        case 'type':
-          va = (a as any).type
-          vb = (b as any).type
-          break
-        case 'qteRestante':
-          va = (a as any).qteRestante
-          vb = (b as any).qteRestante
-          break
-        case 'dateExp':
-          va = a.dateExpIso ?? '9999-12-31'
-          vb = b.dateExpIso ?? '9999-12-31'
-          break
-        case 'couverture':
-          va = (a as any).couverture
-          vb = (b as any).couverture
-          break
-        case 'joursRetard':
-          va = (a as any).joursRetard
-          vb = (b as any).joursRetard
-          break
-        default:
-          return 0
-      }
-      let cmp = 0
-      if (typeof va === 'number' && typeof vb === 'number') {
-        cmp = va < vb ? -1 : va > vb ? 1 : 0
-      } else {
-        cmp = String(va).localeCompare(String(vb))
-      }
-      if (cmp !== 0) return cmp
-      // Tiebreak identique à l'ancien tri manuel.
-      return a.numCommande.localeCompare(b.numCommande)
-    })
-    return desc ? sorted.reverse() : sorted
-  }
-
-  const reactiveRows = createMemo(() => {
+  // Filtrage (le tri est de la responsabilité de chaque vue — cf reactive-view/proactive-view).
+  const reactiveFilteredRows = createMemo(() => {
     const all = view().rows
     const q = query().trim().toLowerCase()
     const sf = statusFilter()
@@ -265,9 +77,9 @@ const Tracking: Component<SuiviPageProps> = (props) => {
       (row) => (sf === 'all' || row.statusKey === sf) && tf.has(row.type) && (af.size === 0 || af.has(row.atelier)),
     )
     if (q) r = r.filter((row) => row.filter.includes(q))
-    return sortRows(r, reactiveSorting())
+    return r
   })
-  const proRows = createMemo(() => {
+  const proFilteredRows = createMemo(() => {
     const all = proView().rows
     const q = query().trim().toLowerCase()
     const vf = verdictFilter()
@@ -277,10 +89,9 @@ const Tracking: Component<SuiviPageProps> = (props) => {
       (row) => (vf === 'all' || row.verdictKey === vf) && tf.has(row.type) && (af.size === 0 || af.has(row.atelier)),
     )
     if (q) r = r.filter((row) => row.filter.includes(q))
-    return sortRows(r, proSorting())
+    return r
   })
 
-  const counts = () => view().statusCounts
   const refLabel = () =>
     new Date(props.referenceDate + 'T00:00:00').toLocaleDateString('fr-FR', {
       weekday: 'long',
@@ -316,424 +127,6 @@ const Tracking: Component<SuiviPageProps> = (props) => {
         {label}
       </button>
     )
-  }
-
-  // ── Définitions de colonnes (TanStack) ──────────────────────────────────
-  // Chaque cellule retourne le même JSX qu'avant pour préserver pixel-perfect.
-  const reHelper = createColumnHelper<SuiviDisplayRow>()
-  const reactiveColumns = [
-    reHelper.accessor('numCommande', {
-      header: () => 'Commande · Client',
-      cell: (info) => (
-        <>
-          <div class="font-mono text-[13px] font-bold tracking-tight text-foreground">
-            {info.getValue()}
-            <Show when={info.row.original.refCommandeClient}>
-              <span class="font-medium text-muted-foreground/70">/{info.row.original.refCommandeClient}</span>
-            </Show>
-          </div>
-          <div class="mt-0.5 font-sans text-[12px] font-medium leading-snug text-secondary-foreground">{info.row.original.client || '—'}</div>
-        </>
-      ),
-      meta: { thClass: 'w-[178px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'px-4 py-[9px] align-middle' },
-    }),
-    reHelper.accessor('article', {
-      header: () => 'Article · Désignation',
-      cell: (info) => (
-        <>
-          <div class="font-mono text-[13px] font-semibold text-terra">
-            {info.getValue()}
-            <Show when={info.row.original.refArticleClient && info.row.original.refArticleClient !== info.getValue()}>
-              <span class="font-medium text-muted-foreground/70">/{info.row.original.refArticleClient}</span>
-            </Show>
-          </div>
-          <div class="mt-0.5 font-sans text-[12px] font-medium leading-snug text-secondary-foreground">{info.row.original.designation || '—'}</div>
-        </>
-      ),
-      meta: { thClass: 'w-[240px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'px-4 py-[9px] align-middle' },
-    }),
-    reHelper.accessor('type', {
-      header: () => 'Type',
-      cell: (info) => (
-        <span class="rounded bg-terra-soft px-[7px] py-0.5 font-mono text-[10px] font-bold uppercase tracking-wide text-terra">{info.getValue()}</span>
-      ),
-      meta: { thClass: 'w-[56px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'px-4 py-[9px] align-middle' },
-    }),
-    reHelper.accessor('qteRestante', {
-      header: () => 'Reste',
-      cell: (info) => (
-        <>
-          <span class="font-fraunces text-[21px] font-black leading-none tracking-tight text-foreground">{info.getValue()}</span>
-          <span class="ml-0.5 font-mono text-[10px] font-medium text-muted-foreground/80">u</span>
-        </>
-      ),
-      sortingFn: 'basic',
-      meta: { thClass: 'w-[92px] px-4 py-[8px] text-right font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'whitespace-nowrap px-4 py-[9px] text-right align-middle' },
-    }),
-    reHelper.accessor('dateExp', {
-      header: () => 'Expé',
-      cell: (info) => {
-        const late = info.row.original.late
-        return (
-          <span classList={{ 'font-bold text-destructive': late, 'text-foreground': !late }}>
-            {info.getValue() || '—'}
-          </span>
-        )
-      },
-      sortingFn: (a, b) => {
-        const da = a.original.dateExpIso ?? '9999-12-31'
-        const db = b.original.dateExpIso ?? '9999-12-31'
-        return da < db ? -1 : da > db ? 1 : 0
-      },
-      meta: { thClass: 'w-[76px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'whitespace-nowrap px-4 py-[9px] align-middle font-mono text-[12.5px] font-semibold' },
-    }),
-    reHelper.display({
-      id: 'emplacements',
-      enableSorting: false,
-      header: () => 'Emplacement',
-      cell: (info) => {
-        const r = info.row.original
-        const emps = r.emplacements
-        if (emps.length === 0) return <span class="font-sans text-[12px] font-medium leading-snug text-muted-foreground/70">—</span>
-        const key = empKey(r)
-        const expanded = createMemo(() => expandedEmps().has(key))
-        // 1 pill visible par défaut ; les autres apparaissent au dépliage.
-        const visible = () => (expanded() ? emps : emps.slice(0, 1))
-        const hidden = () => emps.length - 1
-        return (
-          <div class="flex flex-col gap-[3px]">
-            <For each={visible()}>
-              {(e) => (
-                <span
-                  class={cx(
-                    'flex w-full items-center gap-1.5 whitespace-nowrap rounded border px-2 py-1 font-mono text-[10.5px] leading-[1.4]',
-                    e.source === 'STOALL'
-                      ? 'border-ferme/30 bg-ferme/15 text-ferme'
-                      : 'border-rule bg-card text-secondary-foreground',
-                    e.alreadyAllocated && 'line-through opacity-60',
-                  )}
-                  title={e.source === 'STOALL' ? 'STOALL — déjà alloué à la commande' : (e.alreadyAllocated ? 'Déjà alloué à une autre commande' : 'STOCK — en stock libre, allocation à faire')}
-                >
-                  {/* Pill w-full = même largeur sur toutes les lignes (cellule fixe
-                      300px). 3 zones : label (shrink-0, à gauche), spacer flex-1
-                      (ressort), palette + qté (shrink-0, groupées à droite). Le spacer
-                      garantit que la qté reste collée à droite même sans palette. */}
-                  <span class="flex min-w-[52px] shrink-0 items-center gap-1">
-                    <span
-                      class={cx(
-                        'material-symbols-outlined text-[13px] leading-none',
-                        e.source === 'STOALL' ? 'text-ferme' : 'text-muted-foreground/70',
-                      )}
-                    >
-                      {e.source === 'STOALL' ? 'check_circle' : 'radio_button_unchecked'}
-                    </span>
-                    <span class="font-semibold">{e.nom}</span>
-                  </span>
-                  <span class="flex-1" />
-                  <Show when={e.hum}>
-                    <span class="shrink-0 rounded bg-card px-1.5 py-px font-bold text-foreground">
-                      {e.hum}
-                    </span>
-                  </Show>
-                  <span class="w-[20px] shrink-0 text-right font-bold tabular-nums">
-                    {e.qte > 0 ? Math.round(e.qte) : '·'}
-                  </span>
-                </span>
-              )}
-            </For>
-            {/* Toggle fold/unfold — n'apparaît que pour les lignes > 1 emplacement. */}
-            <Show when={hidden() > 0}>
-              <button
-                type="button"
-                class="flex w-full items-center gap-1 rounded border border-dashed border-rule px-2 py-0.5 font-mono text-[10px] font-bold text-muted-foreground transition-colors hover:border-terra hover:text-terra"
-                onClick={() => toggleEmp(key)}
-              >
-                <span class="material-symbols-outlined text-[13px] leading-none">
-                  {expanded() ? 'expand_less' : 'expand_more'}
-                </span>
-                {expanded() ? 'Réduire' : `+${hidden()} emplacement${hidden()! > 1 ? 's' : ''}`}
-              </button>
-            </Show>
-          </div>
-        )
-      },
-      // Élargie (190→300px) pour loger le PALNUM complet sur une seule ligne,
-      // sans troncature ni retour à la ligne (le tableau scrolle horizontalement).
-      meta: { thClass: 'w-[300px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'px-4 py-[9px] align-middle' },
-    }),
-    reHelper.display({
-      id: 'statusKey',
-      enableSorting: false,
-      header: () => 'Statut',
-      cell: (info) => {
-        const o = info.row.original
-        return (
-          <div class="flex flex-col items-start gap-1">
-            <span class={cx('inline-flex items-center gap-1 rounded-md border border-transparent px-2 py-0.5 text-[11px] font-medium whitespace-nowrap', BADGE_TONE[o.statusKey])}>
-              <span class="material-symbols-outlined grid size-[14px] place-items-center overflow-hidden text-[14px] leading-none">{o.statusIcon}</span>
-              {o.statusLabel}
-            </span>
-            <Show when={o.cq}>
-              <span class="inline-flex items-center gap-1 rounded-md border border-transparent bg-terra-soft px-2 py-0.5 text-[11px] font-medium text-terra whitespace-nowrap">
-                <span class="material-symbols-outlined grid size-[14px] place-items-center text-[14px] leading-none">science</span>CQ
-              </span>
-            </Show>
-            <Show when={o.attenteLignes}>
-              <span
-                class="inline-flex items-center gap-1 rounded-md border border-transparent bg-suggere/15 px-2 py-0.5 text-[11px] font-medium text-suggere whitespace-nowrap"
-                title="Commande MTO — expédition partielle non autorisée, en attente des autres lignes"
-              >
-                <span class="material-symbols-outlined grid size-[14px] place-items-center text-[14px] leading-none">pending</span>Attente lignes
-              </span>
-            </Show>
-          </div>
-        )
-      },
-      meta: { thClass: 'w-[130px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'px-4 py-[9px] align-middle' },
-    }),
-    reHelper.display({
-      id: 'cause',
-      enableSorting: false,
-      header: () => 'Cause du retard',
-      cell: (info) => {
-        const cause = info.row.original.cause
-        if (!cause) return <span class="font-sans text-[12px] font-medium leading-snug text-muted-foreground/70">—</span>
-        return (
-          <>
-            <div class="text-[12px] leading-snug text-secondary-foreground">{cause.label}</div>
-            <Show when={cause.comps.length > 0}>
-              <span class="mt-[3px] block font-mono text-[10px] font-bold text-destructive">
-                {cause.comps.map((c) => `${c.art} −${c.qty}`).join(' · ')}
-              </span>
-            </Show>
-            <Show when={cause.reception}>
-              <span class="mt-[2px] block font-mono text-[10px] font-medium text-muted-foreground">
-                arrive {cause.reception!.eta} · {cause.reception!.po}
-              </span>
-            </Show>
-            <Show when={cause.retro?.composant}>
-              <span class="mt-[2px] block font-mono text-[10px] font-medium text-muted-foreground">
-                {cause.retro!.composant!.art} dispo {cause.retro!.composant!.dispoA}
-                <Show when={cause.retro!.composant!.cq}> (CQ)</Show>
-              </span>
-            </Show>
-            <Show when={cause.retro?.affermissement}>
-              <span class="mt-[1px] block font-mono text-[10px] text-muted-foreground/70">
-                OF {cause.retro!.ofPegue} affermi {cause.retro!.affermissement}
-              </span>
-            </Show>
-          </>
-        )
-      },
-      meta: { thClass: 'w-[280px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'px-4 py-[9px] align-middle' },
-    }),
-  ]
-
-  // Index column partagée (N°) pour la table réactive.
-  const reactiveIndexCol = {
-    headerLabel: 'N°',
-    thClass: 'w-[38px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule',
-    tdClass: (row: SuiviDisplayRow) =>
-      cx(
-        'px-4 py-[9px] align-middle font-fraunces text-[14px] leading-none text-muted-foreground/80',
-        LATE_TONE.bar(row.lateSeverity),
-      ),
-  }
-
-  const proHelper = createColumnHelper<ProactiveDisplayRow>()
-  const proactiveColumns = [
-    proHelper.accessor('numCommande', {
-      header: () => 'Commande · Client',
-      cell: (info) => (
-        <>
-          <div class="font-mono text-[13px] font-bold tracking-tight text-foreground">
-            {info.getValue()}
-            <Show when={info.row.original.refCommandeClient}>
-              <span class="font-medium text-muted-foreground/70">/{info.row.original.refCommandeClient}</span>
-            </Show>
-          </div>
-          <div class="mt-0.5 font-sans text-[12px] font-medium leading-snug text-secondary-foreground">{info.row.original.client || '—'}</div>
-        </>
-      ),
-      meta: { thClass: 'w-[178px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'px-4 py-[9px] align-middle' },
-    }),
-    proHelper.accessor('article', {
-      header: () => 'Article · Désignation',
-      cell: (info) => (
-        <>
-          <div class="font-mono text-[13px] font-semibold text-terra">
-            {info.getValue()}
-            <Show when={info.row.original.refArticleClient && info.row.original.refArticleClient !== info.getValue()}>
-              <span class="font-medium text-muted-foreground/70">/{info.row.original.refArticleClient}</span>
-            </Show>
-          </div>
-          <div class="mt-0.5 font-sans text-[12px] font-medium leading-snug text-secondary-foreground">{info.row.original.designation || '—'}</div>
-        </>
-      ),
-      meta: { thClass: 'w-[240px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'px-4 py-[9px] align-middle' },
-    }),
-    proHelper.accessor('type', {
-      header: () => 'Type',
-      cell: (info) => (
-        <span class="rounded bg-terra-soft px-[7px] py-0.5 font-mono text-[10px] font-bold uppercase tracking-wide text-terra">{info.getValue()}</span>
-      ),
-      meta: { thClass: 'w-[56px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'px-4 py-[9px] align-middle' },
-    }),
-    proHelper.accessor('qteRestante', {
-      header: () => 'Reste',
-      cell: (info) => (
-        <>
-          <span class="font-fraunces text-[21px] font-black leading-none tracking-tight text-foreground">{info.getValue()}</span>
-          <span class="ml-0.5 font-mono text-[10px] font-medium text-muted-foreground/80">u</span>
-        </>
-      ),
-      sortingFn: 'basic',
-      meta: { thClass: 'w-[92px] px-4 py-[8px] text-right font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'whitespace-nowrap px-4 py-[9px] text-right align-middle' },
-    }),
-    proHelper.accessor('dateExp', {
-      header: () => 'Expé',
-      cell: (info) => info.getValue() || '—',
-      sortingFn: (a, b) => {
-        const da = a.original.dateExpIso ?? '9999-12-31'
-        const db = b.original.dateExpIso ?? '9999-12-31'
-        return da < db ? -1 : da > db ? 1 : 0
-      },
-      meta: { thClass: 'w-[76px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'whitespace-nowrap px-4 py-[9px] align-middle font-mono text-[12.5px] font-semibold text-foreground' },
-    }),
-    proHelper.accessor('couverture', {
-      header: () => 'Couverture',
-      cell: (info) => {
-        const v = info.getValue()
-        const ofs = info.row.original.ofs
-        // Couverture par OF : un n° + son statut X3 (WOF/WOP/WOS) par ordre.
-        if (ofs.length > 0) {
-          return (
-            <div class="flex flex-col gap-1">
-              <For each={ofs}>
-                {(of) => {
-                  const st = OF_STATUT[of.statutNum]
-                  return (
-                    <div class="flex items-center gap-1.5">
-                      <span class="font-mono text-[11px] font-semibold leading-snug text-secondary-foreground break-all">
-                        {of.numOf}
-                      </span>
-                      <Show when={st}>
-                        <span
-                          class={cx('shrink-0 rounded px-1 py-px font-mono text-[9px] font-bold leading-none', st.tone)}
-                          title={`OF ${st.tag === 'WOF' ? 'ferme' : st.tag === 'WOP' ? 'planifié' : 'suggéré'}`}
-                        >
-                          {st.tag}
-                        </span>
-                      </Show>
-                    </div>
-                  )
-                }}
-              </For>
-            </div>
-          )
-        }
-        const isGood = v === 'Stock' || v === 'Achat'
-        return isGood ? (
-          <span class="inline-flex items-center gap-1 rounded-md border border-transparent bg-ferme/15 px-2 py-0.5 font-mono text-[11px] font-bold text-ferme">
-            {v}
-          </span>
-        ) : (
-          <span class="font-mono text-[11px] font-semibold leading-snug text-secondary-foreground break-all">
-            {v}
-          </span>
-        )
-      },
-      meta: { thClass: 'w-[150px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'px-4 py-[9px] align-middle' },
-    }),
-    proHelper.display({
-      id: 'verdictKey',
-      enableSorting: false,
-      header: () => 'Verdict',
-      cell: (info) => {
-        const o = info.row.original
-        return (
-          <span class={cx('inline-flex items-center gap-1 rounded-md border border-transparent px-2 py-0.5 text-[11px] font-medium whitespace-nowrap', VERDICT_TONE[o.verdictKey])}>
-            {o.verdictLabel}
-          </span>
-        )
-      },
-      meta: { thClass: 'w-[120px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'px-4 py-[9px] align-middle' },
-    }),
-    proHelper.accessor('joursRetard', {
-      header: () => 'J. retard',
-      cell: (info) => {
-        const v = info.getValue()
-        return <>{v > 0 ? v : '—'}</>
-      },
-      sortingFn: 'basic',
-      meta: { thClass: 'w-[70px] px-4 py-[8px] text-right font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'whitespace-nowrap px-4 py-[9px] text-right align-middle font-mono text-[12.5px] font-semibold text-secondary-foreground' },
-    }),
-    proHelper.display({
-      id: 'composants',
-      enableSorting: false,
-      header: () => 'Goulots',
-      cell: (info) => {
-        const comps = info.row.original.composants
-        if (comps.length === 0) return <span class="font-sans text-[12px] font-medium leading-snug text-muted-foreground/70">—</span>
-        return (
-          <div class="flex flex-col gap-1">
-            <For each={comps.slice(0, 4)}>
-              {(c) => (
-                <div class="flex flex-col gap-px">
-                  <div class="flex items-center gap-1.5">
-                    <span class="shrink-0 font-mono text-[10.5px] font-bold text-destructive">{c.art}</span>
-                    <Show when={c.desc}>
-                      <span class="truncate font-sans text-[10px] leading-tight text-muted-foreground" title={c.desc}>{c.desc}</span>
-                    </Show>
-                    <span class="ml-auto shrink-0 rounded bg-destructive/10 px-1 font-mono text-[10px] font-bold tabular-nums text-destructive">−{c.qty}</span>
-                  </div>
-                  {/* Réception couvrante (lentille appro rapatriée des Ruptures). */}
-                  <Show
-                    when={c.reception}
-                    fallback={
-                      <span class="font-mono text-[9.5px] font-medium leading-tight text-destructive/70">aucune couverture prévue</span>
-                    }
-                  >
-                    {(r) => (
-                      <span
-                        classList={{
-                          'font-mono text-[9.5px] font-bold leading-tight text-destructive': r().overdue,
-                          'font-mono text-[9.5px] font-medium leading-tight text-muted-foreground': !r().overdue,
-                        }}
-                        title={r().supplier}
-                      >
-                        {r().overdue ? `en retard +${r().retardJ} j · ${r().eta}` : `arrive ${r().eta} · ${r().po}`}
-                      </span>
-                    )}
-                  </Show>
-                </div>
-              )}
-            </For>
-            <Show when={comps.length > 4}>
-              <span class="font-mono text-[10px] font-medium text-muted-foreground/70">+{comps.length - 4} autre(s)</span>
-            </Show>
-          </div>
-        )
-      },
-      meta: { thClass: 'w-[300px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'px-4 py-[9px] align-middle' },
-    }),
-  ]
-
-  const proIndexCol = {
-    headerLabel: 'N°',
-    thClass: 'w-[38px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule',
-    tdClass: (row: ProactiveDisplayRow) => {
-      // blocked / uncov : pas un retard calendaire mais un vrai problème → rouge foncé.
-      // late : utilise la gravité (tolerance/critical).
-      const s =
-        row.verdictKey === 'blocked' || row.verdictKey === 'uncov'
-          ? ('critical' as const)
-          : row.lateSeverity
-      return cx(
-        'px-4 py-[9px] align-middle font-fraunces text-[14px] leading-none text-muted-foreground/80',
-        LATE_TONE.bar(s),
-      )
-    },
   }
 
   return (
@@ -896,125 +289,20 @@ const Tracking: Component<SuiviPageProps> = (props) => {
       <Show
         when={mode() === 'reactif'}
         fallback={
-          <>
-            {/* ═══ Proactif : X3 injoignable ═══ */}
-            <Show when={proView().x3Error}>
-              <div class="flex flex-none items-center gap-2 border-b border-destructive/30 bg-destructive/10 px-7 py-2 text-[12px] text-foreground">
-                <span class="material-symbols-outlined text-[16px] text-destructive">warning</span>
-                <span class="font-bold">Erreur chargement réalisabilité :</span>
-                <span class="font-mono">{proView().x3Error}</span>
-              </div>
-            </Show>
-
-            {/* ═══ Proactif : table ═══ */}
-            <Show
-              when={!proData.loading}
-              fallback={
-                <div class="flex flex-1 items-center justify-center gap-2 text-muted-foreground">
-                  <span class="material-symbols-outlined animate-spin text-[20px]">progress_activity</span>
-                  <span class="text-[13px] font-medium">Calcul de la réalisabilité…</span>
-                </div>
-              }
-            >
-              <Show
-                when={!proData.error}
-                fallback={
-                  <div class="flex flex-1 items-center justify-center gap-2 text-[13px] text-destructive">
-                    <span class="material-symbols-outlined text-[20px]">error</span>
-                    Échec du calcul de réalisabilité.
-                  </div>
-                }
-              >
-                <div class="flex-1 overflow-hidden p-5">
-                  <DataTable
-                    columns={proactiveColumns}
-                    rows={proRows}
-                    sorting={proSorting}
-                    onSortingChange={setProSorting}
-                    indexColumn={proIndexCol}
-                    getRowClass={(row) => {
-                      const k = row.verdictKey
-                      const s =
-                        k === 'blocked' || k === 'uncov'
-                          ? ('critical' as const)
-                          : row.lateSeverity
-                      return cx('border-t border-rule-soft transition-colors', LATE_TONE.bg(s))
-                    }}
-                    tableClass="min-w-[1320px] table-fixed"
-                    scrollContainerClass="h-full border-0 rounded-none shadow-none"
-                    theadRowClass="sticky top-0 z-10 bg-secondary"
-                    emptyState={
-                      <div class="flex flex-1 items-center justify-center p-10 text-center font-fraunces text-[14px] italic text-muted-foreground">
-                        <div class="flex flex-col items-center gap-2">
-                          <span class="material-symbols-outlined text-[32px] text-muted-foreground/50">
-                            {proView().x3Error ? 'cloud_off' : 'task_alt'}
-                          </span>
-                          {proView().x3Error ? 'Données indisponibles (X3 injoignable).' : 'Toutes les commandes ouvertes sont couvertes.'}
-                        </div>
-                      </div>
-                    }
-                  />
-                </div>
-              </Show>
-            </Show>
-          </>
+          <ProactiveView
+            view={proView}
+            filteredRows={proFilteredRows}
+            loading={() => proData.loading}
+            error={() => !!proData.error}
+          />
         }
       >
-      {/* ═══ X3 injoignable ═══ */}
-      <Show when={view().x3Error}>
-        <div class="flex flex-none items-center gap-2 border-b border-destructive/30 bg-destructive/10 px-7 py-2 text-[12px] text-foreground">
-          <span class="material-symbols-outlined text-[16px] text-destructive">warning</span>
-          <span class="font-bold">Erreur chargement suivi :</span>
-          <span class="font-mono">{view().x3Error}</span>
-        </div>
-      </Show>
-
-      {/* ═══ Table ═══ */}
-      <Show
-        when={!data.loading}
-        fallback={
-          <div class="flex flex-1 items-center justify-center gap-2 text-muted-foreground">
-            <span class="material-symbols-outlined animate-spin text-[20px]">progress_activity</span>
-            <span class="text-[13px] font-medium">Calcul du suivi…</span>
-          </div>
-        }
-      >
-        <Show
-          when={!data.error}
-          fallback={
-            <div class="flex flex-1 items-center justify-center gap-2 text-[13px] text-destructive">
-              <span class="material-symbols-outlined text-[20px]">error</span>
-              Échec du calcul du suivi.
-            </div>
-          }
-        >
-          <div class="flex-1 overflow-hidden p-5">
-            <DataTable
-              columns={reactiveColumns}
-              rows={reactiveRows}
-              sorting={reactiveSorting}
-              onSortingChange={setReactiveSorting}
-              indexColumn={reactiveIndexCol}
-              getRowClass={(row) => cx('border-t border-rule-soft transition-colors', LATE_TONE.bg(row.lateSeverity))}
-              tableClass="min-w-[1410px] table-fixed"
-              scrollContainerClass="h-full border-0 rounded-none shadow-none"
-              theadRowClass="sticky top-0 z-10 bg-secondary"
-              emptyState={
-                <div class="flex flex-1 items-center justify-center p-10 text-center font-fraunces text-[14px] italic text-muted-foreground">
-                  <div class="flex flex-col items-center gap-2">
-                    <span class="material-symbols-outlined text-[32px] text-muted-foreground/50">
-                      {view().x3Error ? 'cloud_off' : 'inbox'}
-                    </span>
-                    {view().x3Error
-                      ? 'Données de suivi indisponibles (X3 injoignable).'
-                      : 'Aucune ligne de commande à suivre à cette date.'}
-                  </div>
-                </div>
-              }
-            />
-          </div>
-        </Show>
-      </Show>
+        <ReactiveView
+          view={view}
+          filteredRows={reactiveFilteredRows}
+          loading={() => data.loading}
+          error={() => !!data.error}
+        />
       </Show>
     </div>
   )
