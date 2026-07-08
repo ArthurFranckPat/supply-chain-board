@@ -2,7 +2,7 @@
  * AUTO-GÉNÉRÉ par scripts/gen-routes-manifest.mjs — NE PAS ÉDITER À LA MAIN.
  * Source : `start/routes.ts` → `node ace list:routes --jsonl`.
  * Régénérer : `npm run routes:gen` · Vérifier la fraîcheur : `npm run routes:check`.
- * 58 routes nommées.
+ * 63 routes nommées.
  */
 
 export const MANIFEST = {
@@ -16,6 +16,9 @@ export const MANIFEST = {
   "calendar_config.index": { method: "GET", pattern: "/configuration/calendrier" },
   "calendar_config.toggle_holiday": { method: "POST", pattern: "/api/v1/config/holidays/toggle" },
   "calendar_config.update_closure": { method: "PATCH", pattern: "/api/v1/config/closures/:id" },
+  "conditionnements.estimations": { method: "GET", pattern: "/api/v1/conditionnements/estimations" },
+  "conditionnements.index": { method: "GET", pattern: "/conditionnements" },
+  "conditionnements.rows": { method: "GET", pattern: "/api/v1/conditionnements/rows" },
   "dashboard": { method: "GET", pattern: "/" },
   "dashboard.kpis": { method: "GET", pattern: "/api/v1/dashboard/kpis" },
   "dashboard.otd": { method: "GET", pattern: "/api/v1/dashboard/otd" },
@@ -41,6 +44,8 @@ export const MANIFEST = {
   "planning_board.update": { method: "PATCH", pattern: "/api/v1/planning/ofs/:of" },
   "planning.order_firm": { method: "POST", pattern: "/api/v1/planning/orders/:orderNum/firm" },
   "planning.suggestion_firm": { method: "POST", pattern: "/api/v1/planning/suggestions/:sugNum/firm" },
+  "receptions.index": { method: "GET", pattern: "/receptions" },
+  "receptions.rows": { method: "GET", pattern: "/api/v1/receptions/rows" },
   "scheduler.of_detail": { method: "GET", pattern: "/api/v1/planning/ofs/:of/detail" },
   "scheduler.poste_engagement": { method: "GET", pattern: "/api/v1/planning/postes/:poste/engagement" },
   "scheduler.programme": { method: "GET", pattern: "/programme" },
@@ -83,6 +88,9 @@ export type RouteParams = {
   "calendar_config.index": void,
   "calendar_config.toggle_holiday": void,
   "calendar_config.update_closure": { "id": string | number },
+  "conditionnements.estimations": void,
+  "conditionnements.index": void,
+  "conditionnements.rows": void,
   "dashboard": void,
   "dashboard.kpis": void,
   "dashboard.otd": void,
@@ -108,6 +116,8 @@ export type RouteParams = {
   "planning_board.update": { "of": string | number },
   "planning.order_firm": { "orderNum": string | number },
   "planning.suggestion_firm": { "sugNum": string | number },
+  "receptions.index": void,
+  "receptions.rows": void,
   "scheduler.of_detail": { "of": string | number },
   "scheduler.poste_engagement": { "poste": string | number },
   "scheduler.programme": void,

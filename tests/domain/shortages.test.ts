@@ -2,7 +2,12 @@ import { test } from '@japa/runner'
 import type { Article } from '#app/domain/models/article'
 import type { ReceptionRecord } from '#app/domain/recursive-checker'
 import type { OrderImpactResult } from '#app/domain/order-impacts'
-import { buildShortageRows, resolveCoveringReception } from '#app/domain/shortages'
+import {
+  buildShortageRows,
+  fabricationDaysFromHours,
+  resolveCoveringReception,
+  isoLocalDay,
+} from '#app/domain/shortages'
 
 function article(code: string, desc: string): Article {
   return {
@@ -62,22 +67,29 @@ test.group('buildShortageRows', () => {
     }
   })
 
-  test('verdict "retard" si OF rattaché à une commande avec joursRetard > 0', ({ assert }) => {
+  test('le retard COMMANDE (joursRetard) ne pollue plus le verdict ligne — réception à temps → couvert', ({ assert }) => {
+    // Commande en retard stock (+3j, cause sans rapport) mais réception à J+1 pour un
+    // besoin à J+8 (expé J+10 − buffer 2) → la LIGNE composant est couverte à temps.
+    const exp = new Date()
+    exp.setHours(12, 0, 0, 0)
+    exp.setDate(exp.getDate() + 10)
+    const expIso = `${exp.getFullYear()}-${String(exp.getMonth() + 1).padStart(2, '0')}-${String(exp.getDate()).padStart(2, '0')}`
     const result = buildResult(
       [{ numOf: 'OF-A', article: 'PF1', feasible: false, statutNum: 3, missingComponents: { C1: 10 } }],
       [{
         numCommande: 'CMD-1', client: 'ACME', article: 'PF1', description: '',
-        qteRestante: 100, dateExpedition: '2026-07-01', dejaEnRetard: false,
+        qteRestante: 100, dateExpedition: expIso, dejaEnRetard: false,
         nature: 'commande', typeCommande: 'NOR', matchingMethod: 'of', reliquat: 0,
         statut: 'bloquee', joursRetard: 3,
-        ofs: [{ numOf: 'OF-A', article: 'PF1', qteAllouee: 100, dateFin: '2026-07-04', feasible: false, missingComponents: { C1: 10 }, modified: false, statutNum: 3 }],
+        ofs: [{ numOf: 'OF-A', article: 'PF1', qteAllouee: 100, dateFin: expIso, feasible: false, missingComponents: { C1: 10 }, modified: false, statutNum: 3 }],
       }],
     )
     const receptions = new Map([['C1', [reception('PO-1', 'C1', 'FournisseurX', 10, 1)]]])
     const rows = buildShortageRows(result, receptions, new Map([['C1', article('C1', 'C1')]])).rows
 
     assert.equal(rows.length, 1)
-    assert.equal(rows[0].verdict, 'retard')
+    assert.equal(rows[0].verdict, 'couvert')
+    // Le retard commande reste exposé comme contexte, sans piloter le verdict.
     assert.equal(rows[0].joursRetard, 3)
     assert.equal(rows[0].couverte, true)
     // On recrée la date d'arrivée attendue en local, à partir d'une "reception()" équivalente.
@@ -108,8 +120,9 @@ test.group('buildShortageRows', () => {
     assert.equal(rows[0].overdue, false)
   })
 
-  test('verdict "retard" si la réception couvre mais arrive APRÈS la date d\'expédition', ({ assert }) => {
-    // Expédition à J+2 ; réception couvrante à J+9 → arrive trop tard → retard de 7j.
+  test('verdict "retard" si la réception couvre mais arrive APRÈS la date de besoin (expé − buffers)', ({ assert }) => {
+    // Expédition à J+2 → besoin à J−1 (2 j logistique + 1 j fabrication plancher) ;
+    // réception couvrante à J+9 → 10 j après le besoin (avant : 7j vs expé seule).
     const exp = new Date()
     exp.setHours(12, 0, 0, 0)
     exp.setDate(exp.getDate() + 2)
@@ -127,7 +140,187 @@ test.group('buildShortageRows', () => {
     const rows = buildShortageRows(result, new Map([['C1', [reception('PO-1', 'C1', 'FX', 10, 9)]]]), new Map()).rows
     assert.equal(rows[0].verdict, 'retard')
     assert.equal(rows[0].couverte, true)
-    assert.equal(rows[0].joursRetardReception, 7)
+    assert.equal(rows[0].joursRetardReception, 10)
+  })
+
+  test('buffers : réception ENTRE besoin et expédition → À RISQUE (buffers entamés, pas un retard client)', ({ assert }) => {
+    // Expédition à J+10 → besoin à J+7 (2 j logistique + 1 j fabrication plancher) ;
+    // réception à J+9 : avant l'expé mais après le besoin → À RISQUE (marge +1 j vs client).
+    // Avant : « retard ». La nuance : le client est encore livrable, la logistique est serrée.
+    const exp = new Date()
+    exp.setHours(12, 0, 0, 0)
+    exp.setDate(exp.getDate() + 10)
+    const expIso = `${exp.getFullYear()}-${String(exp.getMonth() + 1).padStart(2, '0')}-${String(exp.getDate()).padStart(2, '0')}`
+    const result = buildResult(
+      [{ numOf: 'OF-A', article: 'PF1', feasible: false, statutNum: 3, missingComponents: { C1: 10 } }],
+      [{
+        numCommande: 'CMD-1', client: 'ACME', article: 'PF1', description: '',
+        qteRestante: 100, dateExpedition: expIso, dejaEnRetard: false,
+        nature: 'commande', typeCommande: 'NOR', matchingMethod: 'of', reliquat: 0,
+        statut: 'bloquee', joursRetard: 0,
+        ofs: [{ numOf: 'OF-A', article: 'PF1', qteAllouee: 100, dateFin: expIso, feasible: false, missingComponents: { C1: 10 }, modified: false, statutNum: 3 }],
+      }],
+    )
+    const rows = buildShortageRows(result, new Map([['C1', [reception('PO-1', 'C1', 'FX', 10, 9)]]]), new Map()).rows
+    assert.equal(rows[0].verdict, 'a_risque')
+    assert.equal(rows[0].joursRetardReception, 2) // dépassement du buffer fabrication (besoin J+7)
+    assert.equal(rows[0].joursMarge, 1) // marge logistique restante (expé J+10 − arr J+9)
+
+    // Charge gamme : OF à 3 j de fabrication → besoin à J+5, toujours À RISQUE (arr J+9 < expé J+10).
+    const rowsFab3 = buildShortageRows(result, new Map([['C1', [reception('PO-1', 'C1', 'FX', 10, 9)]]]), new Map(), new Map(), {
+      fabricationDaysByOf: new Map([['OF-A', 3]]),
+    }).rows
+    assert.equal(rowsFab3[0].verdict, 'a_risque')
+    assert.equal(rowsFab3[0].joursRetardReception, 4) // besoin J+5, arr J+9 → +4 j de buffer fab bouffé
+    assert.equal(rowsFab3[0].joursMarge, 1)
+
+    // Buffers neutralisés (logistique 0, fab plancher 1) → besoin à J+9 = arrivée → couvert.
+    const rows0 = buildShortageRows(result, new Map([['C1', [reception('PO-1', 'C1', 'FX', 10, 9)]]]), new Map(), new Map(), {
+      logisticsBufferDays: 0,
+    }).rows
+    assert.equal(rows0[0].verdict, 'couvert')
+  })
+
+  test('a_risque : joursMarge = expé − arrivée (marge logistique restante)', ({ assert }) => {
+    // Expé J+20, besoin J+17 (2+1), réception J+18 → À RISQUE, marge +2 j.
+    const exp = new Date()
+    exp.setHours(12, 0, 0, 0)
+    exp.setDate(exp.getDate() + 20)
+    const expIso = `${exp.getFullYear()}-${String(exp.getMonth() + 1).padStart(2, '0')}-${String(exp.getDate()).padStart(2, '0')}`
+    const result = buildResult(
+      [{ numOf: 'OF-A', article: 'PF1', feasible: false, statutNum: 3, missingComponents: { C1: 10 } }],
+      [{
+        numCommande: 'CMD-1', client: 'ACME', article: 'PF1', description: '',
+        qteRestante: 100, dateExpedition: expIso, dejaEnRetard: false,
+        nature: 'commande', typeCommande: 'NOR', matchingMethod: 'of', reliquat: 0,
+        statut: 'bloquee', joursRetard: 0,
+        ofs: [{ numOf: 'OF-A', article: 'PF1', qteAllouee: 100, dateFin: expIso, feasible: false, missingComponents: { C1: 10 }, modified: false, statutNum: 3 }],
+      }],
+    )
+    const rows = buildShortageRows(result, new Map([['C1', [reception('PO-1', 'C1', 'FX', 10, 18)]]]), new Map()).rows
+    assert.equal(rows[0].verdict, 'a_risque')
+    assert.equal(rows[0].joursMarge, 2)
+  })
+
+  test('retard : arrivée APRÈS expédition → retard client + joursMarge négatif', ({ assert }) => {
+    // Expé J+10, besoin J+7, réception J+13 → RETARD client (3 j), joursMarge = −3.
+    const exp = new Date()
+    exp.setHours(12, 0, 0, 0)
+    exp.setDate(exp.getDate() + 10)
+    const expIso = `${exp.getFullYear()}-${String(exp.getMonth() + 1).padStart(2, '0')}-${String(exp.getDate()).padStart(2, '0')}`
+    const result = buildResult(
+      [{ numOf: 'OF-A', article: 'PF1', feasible: false, statutNum: 3, missingComponents: { C1: 10 } }],
+      [{
+        numCommande: 'CMD-1', client: 'ACME', article: 'PF1', description: '',
+        qteRestante: 100, dateExpedition: expIso, dejaEnRetard: false,
+        nature: 'commande', typeCommande: 'NOR', matchingMethod: 'of', reliquat: 0,
+        statut: 'bloquee', joursRetard: 0,
+        ofs: [{ numOf: 'OF-A', article: 'PF1', qteAllouee: 100, dateFin: expIso, feasible: false, missingComponents: { C1: 10 }, modified: false, statutNum: 3 }],
+      }],
+    )
+    const rows = buildShortageRows(result, new Map([['C1', [reception('PO-1', 'C1', 'FX', 10, 13)]]]), new Map()).rows
+    assert.equal(rows[0].verdict, 'retard')
+    assert.equal(rows[0].joursMarge, -3)
+    assert.equal(rows[0].joursRetardReception, 6) // arr J+13 − besoin J+7
+  })
+
+  test('overdue + aujourd\'hui ≤ expédition → À RISQUE (fournisseur en retard, client tenable)', ({ assert }) => {
+    // Expé J+5, réception attendue J−3 (overdue), aujourd'hui = J0 → client encore tenable.
+    const exp = new Date()
+    exp.setHours(12, 0, 0, 0)
+    exp.setDate(exp.getDate() + 5)
+    const expIso = `${exp.getFullYear()}-${String(exp.getMonth() + 1).padStart(2, '0')}-${String(exp.getDate()).padStart(2, '0')}`
+    const result = buildResult(
+      [{ numOf: 'OF-A', article: 'PF1', feasible: false, statutNum: 3, missingComponents: { C1: 10 } }],
+      [{
+        numCommande: 'CMD-1', client: 'ACME', article: 'PF1', description: '',
+        qteRestante: 100, dateExpedition: expIso, dejaEnRetard: false,
+        nature: 'commande', typeCommande: 'NOR', matchingMethod: 'of', reliquat: 0,
+        statut: 'bloquee', joursRetard: 0,
+        ofs: [{ numOf: 'OF-A', article: 'PF1', qteAllouee: 100, dateFin: expIso, feasible: false, missingComponents: { C1: 10 }, modified: false, statutNum: 3 }],
+      }],
+    )
+    const rows = buildShortageRows(result, new Map([['C1', [reception('PO-1', 'C1', 'FX', 10, -3)]]]), new Map()).rows
+    assert.isTrue(rows[0].overdue)
+    assert.equal(rows[0].verdict, 'a_risque')
+    assert.equal(rows[0].joursRetardReception, 3) // aujourd'hui J0 − attendue J−3
+  })
+
+  test('overdue + aujourd\'hui > expédition → RETARD client', ({ assert }) => {
+    // Expé J−1 (déjà passée), réception attendue J−3 (overdue), aujourd'hui = J0.
+    const exp = new Date()
+    exp.setHours(12, 0, 0, 0)
+    exp.setDate(exp.getDate() - 1)
+    const expIso = `${exp.getFullYear()}-${String(exp.getMonth() + 1).padStart(2, '0')}-${String(exp.getDate()).padStart(2, '0')}`
+    const result = buildResult(
+      [{ numOf: 'OF-A', article: 'PF1', feasible: false, statutNum: 3, missingComponents: { C1: 10 } }],
+      [{
+        numCommande: 'CMD-1', client: 'ACME', article: 'PF1', description: '',
+        qteRestante: 100, dateExpedition: expIso, dejaEnRetard: false,
+        nature: 'commande', typeCommande: 'NOR', matchingMethod: 'of', reliquat: 0,
+        statut: 'bloquee', joursRetard: 0,
+        ofs: [{ numOf: 'OF-A', article: 'PF1', qteAllouee: 100, dateFin: expIso, feasible: false, missingComponents: { C1: 10 }, modified: false, statutNum: 3 }],
+      }],
+    )
+    const rows = buildShortageRows(result, new Map([['C1', [reception('PO-1', 'C1', 'FX', 10, -3)]]]), new Map()).rows
+    assert.isTrue(rows[0].overdue)
+    assert.equal(rows[0].verdict, 'retard')
+  })
+
+  test('fabricationDaysFromHours : plancher 1 j, arrondi supérieur, charge inconnue → 1', ({ assert }) => {
+    assert.equal(fabricationDaysFromHours(0), 1) // charge inconnue / gamme absente
+    assert.equal(fabricationDaysFromHours(3), 1) // < 1 journée (7,5 h) → 1 j
+    assert.equal(fabricationDaysFromHours(7.5), 1) // exactement 1 journée
+    assert.equal(fabricationDaysFromHours(8), 2) // entamée → arrondi sup
+    assert.equal(fabricationDaysFromHours(30), 4) // 30 h / 7,5 = 4 j
+    assert.equal(fabricationDaysFromHours(6, 3), 2) // heures/jour paramétrable
+  })
+
+  test('verdict "sous_ensemble" : composant FABRIQUÉ sans réception, OF fils listés', ({ assert }) => {
+    const fab: Article = { ...article('SE1', 'Sous-ensemble 1'), supplyType: 'FABRICATION' }
+    const result = buildResult(
+      [
+        { numOf: 'OF-A', article: 'PF1', feasible: false, statutNum: 3, missingComponents: { SE1: 10 } },
+        // OF fils produisant le composant manquant (présent dans le pool de la fenêtre).
+        { numOf: 'OF-FILS', article: 'SE1', feasible: true, statutNum: 2, missingComponents: {} },
+      ],
+      [{
+        numCommande: 'CMD-1', client: 'ACME', article: 'PF1', description: '',
+        qteRestante: 100, dateExpedition: '2026-09-01', dejaEnRetard: false,
+        nature: 'commande', typeCommande: 'NOR', matchingMethod: 'of', reliquat: 0,
+        statut: 'bloquee', joursRetard: 0,
+        ofs: [{ numOf: 'OF-A', article: 'PF1', qteAllouee: 100, dateFin: '2026-08-30', feasible: false, missingComponents: { SE1: 10 }, modified: false, statutNum: 3 }],
+      }],
+    )
+    const rows = buildShortageRows(result, new Map(), new Map([['SE1', fab]])).rows
+    assert.equal(rows.length, 1)
+    assert.equal(rows[0].verdict, 'sous_ensemble')
+    assert.deepEqual(rows[0].sousEnsembleOfs, ['OF-FILS'])
+
+    // Composant ACHAT sans réception : verdict sans_couverture inchangé.
+    const rowsAchat = buildShortageRows(result, new Map(), new Map([['SE1', article('SE1', 'Acheté')]])).rows
+    assert.equal(rowsAchat[0].verdict, 'sans_couverture')
+    assert.deepEqual(rowsAchat[0].sousEnsembleOfs, [])
+  })
+
+  test('composant FABRIQUÉ avec réception (sous-traitance) → chemin réception normal', ({ assert }) => {
+    const fab: Article = { ...article('SE1', 'Sous-ensemble 1'), supplyType: 'FABRICATION' }
+    const exp = new Date()
+    exp.setHours(12, 0, 0, 0)
+    exp.setDate(exp.getDate() + 20)
+    const expIso = `${exp.getFullYear()}-${String(exp.getMonth() + 1).padStart(2, '0')}-${String(exp.getDate()).padStart(2, '0')}`
+    const result = buildResult(
+      [{ numOf: 'OF-A', article: 'PF1', feasible: false, statutNum: 3, missingComponents: { SE1: 10 } }],
+      [{
+        numCommande: 'CMD-1', client: 'ACME', article: 'PF1', description: '',
+        qteRestante: 100, dateExpedition: expIso, dejaEnRetard: false,
+        nature: 'commande', typeCommande: 'NOR', matchingMethod: 'of', reliquat: 0,
+        statut: 'bloquee', joursRetard: 0,
+        ofs: [{ numOf: 'OF-A', article: 'PF1', qteAllouee: 100, dateFin: expIso, feasible: false, missingComponents: { SE1: 10 }, modified: false, statutNum: 3 }],
+      }],
+    )
+    const rows = buildShortageRows(result, new Map([['SE1', [reception('PO-1', 'SE1', 'ST-X', 10, 3)]]]), new Map([['SE1', fab]])).rows
+    assert.equal(rows[0].verdict, 'couvert')
   })
 
   test('verdict "couvert" si la réception arrive AVANT la date d\'expédition (pas de retard réception)', ({ assert }) => {
@@ -353,5 +546,137 @@ test.group('resolveCoveringReception', () => {
     // early (2) + mid (5) = 7 >= 6 → déterminante = mid
     assert.equal(r!.id, 'PO-mid')
     assert.equal(r!.qteCumulee, 7)
+  })
+})
+
+test.group('resolveCoveringReception — consommation séquentielle & plancher overdue', () => {
+  test('alreadyConsumed décale le seuil et rend la qté cumulée NETTE', ({ assert }) => {
+    const recs = [reception('PO-1', 'C1', 'F', 10, 1), reception('PO-2', 'C1', 'F', 10, 2)]
+    // 1ère ligne (10) couverte par PO-1 ; 2e ligne (10) doit atteindre 20 → PO-2.
+    const r = resolveCoveringReception(recs, 10, { alreadyConsumed: 10 })
+    assert.equal(r!.id, 'PO-2')
+    assert.equal(r!.qteCumulee, 10)
+  })
+
+  test('alreadyConsumed : cumul insuffisant au-delà de la part réservée → null', ({ assert }) => {
+    const recs = [reception('PO-1', 'C1', 'F', 10, 1)]
+    assert.isNull(resolveCoveringReception(recs, 5, { alreadyConsumed: 10 }))
+  })
+
+  test('overdueMinQty : une overdue sous le plancher est ignorée', ({ assert }) => {
+    const recs = [reception('PO-ghost', 'C1', 'F', 2, -30)]
+    assert.isNull(resolveCoveringReception(recs, 2, { overdueMinQty: 5 }))
+  })
+
+  test('overdueMinQty : une overdue AU-DESSUS du plancher compte', ({ assert }) => {
+    const recs = [reception('PO-late', 'C1', 'F', 8, -10)]
+    const r = resolveCoveringReception(recs, 5, { overdueMinQty: 5 })
+    assert.equal(r!.id, 'PO-late')
+  })
+
+  test('overdueMinQty : les réceptions FUTURES comptent toujours, même petites', ({ assert }) => {
+    const recs = [reception('PO-future', 'C1', 'F', 2, 3)]
+    const r = resolveCoveringReception(recs, 2, { overdueMinQty: 5 })
+    assert.equal(r!.id, 'PO-future')
+  })
+})
+
+test.group('buildShortageRows — consommation séquentielle entre lignes', () => {
+  const order = (num: string, dateExpedition: string, numOf: string): OrderImpactResult['orders'][number] => ({
+    numCommande: num, client: 'ACME', article: 'PF1', description: '',
+    qteRestante: 100, dateExpedition, dejaEnRetard: false,
+    nature: 'commande', typeCommande: 'NOR', matchingMethod: 'of', reliquat: 0,
+    statut: 'bloquee', joursRetard: 0,
+    ofs: [{ numOf, article: 'PF1', qteAllouee: 100, dateFin: dateExpedition, feasible: false, missingComponents: { C1: 10 }, modified: false, statutNum: 1 }],
+  })
+
+  test('deux OF manquant le même composant ne partagent pas la même réception', ({ assert }) => {
+    const result = buildResult(
+      [
+        { numOf: 'OF-A', article: 'PF1', feasible: false, statutNum: 1, missingComponents: { C1: 10 } },
+        { numOf: 'OF-B', article: 'PF1', feasible: false, statutNum: 1, missingComponents: { C1: 10 } },
+      ],
+      [order('CMD-1', '2026-07-01', 'OF-A'), order('CMD-2', '2026-07-15', 'OF-B')],
+    )
+    // Une seule réception de 10 : couvre l'OF de la commande la plus urgente SEULEMENT.
+    const receptions = new Map([['C1', [reception('PO-1', 'C1', 'F', 10, 2)]]])
+    const { rows } = buildShortageRows(result, receptions, new Map())
+
+    const rowA = rows.find((r) => r.numOf === 'OF-A')!
+    const rowB = rows.find((r) => r.numOf === 'OF-B')!
+    assert.equal(rowA.reception?.id, 'PO-1')
+    assert.notEqual(rowA.verdict, 'sans_couverture')
+    assert.isNull(rowB.reception)
+    assert.equal(rowB.verdict, 'sans_couverture')
+  })
+
+  test('réception assez grande pour deux lignes → les deux couvertes, cumul net', ({ assert }) => {
+    const result = buildResult(
+      [
+        { numOf: 'OF-A', article: 'PF1', feasible: false, statutNum: 1, missingComponents: { C1: 10 } },
+        { numOf: 'OF-B', article: 'PF1', feasible: false, statutNum: 1, missingComponents: { C1: 10 } },
+      ],
+      [order('CMD-1', '2026-07-01', 'OF-A'), order('CMD-2', '2026-07-15', 'OF-B')],
+    )
+    const receptions = new Map([['C1', [reception('PO-1', 'C1', 'F', 25, 2)]]])
+    const { rows } = buildShortageRows(result, receptions, new Map())
+
+    const rowA = rows.find((r) => r.numOf === 'OF-A')!
+    const rowB = rows.find((r) => r.numOf === 'OF-B')!
+    assert.equal(rowA.reception?.id, 'PO-1')
+    assert.equal(rowA.reception?.qteCumulee, 25)
+    assert.equal(rowB.reception?.id, 'PO-1')
+    assert.equal(rowB.reception?.qteCumulee, 15)
+  })
+
+  test('todayIso injectable : verdict overdue déterministe', ({ assert }) => {
+    const result = buildResult(
+      [{ numOf: 'OF-A', article: 'PF1', feasible: false, statutNum: 1, missingComponents: { C1: 5 } }],
+      [order('CMD-1', '2026-07-01', 'OF-A')],
+    )
+    const receptions = new Map([['C1', [reception('PO-1', 'C1', 'F', 10, -5)]]])
+    const { rows } = buildShortageRows(result, receptions, new Map(), new Map(), {
+      todayIso: isoLocalDay(),
+    })
+    assert.isTrue(rows[0].overdue)
+    assert.equal(rows[0].joursRetardReception, 5)
+    assert.equal(rows[0].verdict, 'retard')
+  })
+})
+
+test.group('buildShortageRows — OF multi-commandes', () => {
+  test('la plus urgente porte la ligne, les autres dans autresCommandes', ({ assert }) => {
+    const mkOrder = (num: string, dateExpedition: string): OrderImpactResult['orders'][number] => ({
+      numCommande: num, client: `Client ${num}`, article: 'PF1', description: '',
+      qteRestante: 50, dateExpedition, dejaEnRetard: false,
+      nature: 'commande', typeCommande: 'NOR', matchingMethod: 'of', reliquat: 0,
+      statut: 'bloquee', joursRetard: 0,
+      ofs: [{ numOf: 'OF-A', article: 'PF1', qteAllouee: 50, dateFin: dateExpedition, feasible: false, missingComponents: { C1: 10 }, modified: false, statutNum: 1 }],
+    })
+    const result = buildResult(
+      [{ numOf: 'OF-A', article: 'PF1', feasible: false, statutNum: 1, missingComponents: { C1: 10 } }],
+      // Volontairement dans le désordre : la plus urgente (07-01) doit gagner.
+      [mkOrder('CMD-TARD', '2026-07-20'), mkOrder('CMD-URGENTE', '2026-07-01'), mkOrder('CMD-MI', '2026-07-10')],
+    )
+    const { rows } = buildShortageRows(result, new Map(), new Map())
+
+    assert.equal(rows.length, 1)
+    assert.equal(rows[0].numCommande, 'CMD-URGENTE')
+    assert.deepEqual(rows[0].autresCommandes, ['CMD-MI', 'CMD-TARD'])
+  })
+
+  test('OF mono-commande → autresCommandes vide', ({ assert }) => {
+    const result = buildResult(
+      [{ numOf: 'OF-A', article: 'PF1', feasible: false, statutNum: 1, missingComponents: { C1: 10 } }],
+      [{
+        numCommande: 'CMD-1', client: 'ACME', article: 'PF1', description: '',
+        qteRestante: 50, dateExpedition: '2026-07-01', dejaEnRetard: false,
+        nature: 'commande', typeCommande: 'NOR', matchingMethod: 'of', reliquat: 0,
+        statut: 'bloquee', joursRetard: 0,
+        ofs: [{ numOf: 'OF-A', article: 'PF1', qteAllouee: 50, dateFin: '2026-07-01', feasible: false, missingComponents: { C1: 10 }, modified: false, statutNum: 1 }],
+      }],
+    )
+    const { rows } = buildShortageRows(result, new Map(), new Map())
+    assert.deepEqual(rows[0].autresCommandes, [])
   })
 })

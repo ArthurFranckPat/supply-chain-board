@@ -14,7 +14,11 @@ import boardDataset from '#services/board_dataset'
 import { timeStage } from '#services/perf_metrics'
 import { OverrideStore } from '#services/override_store'
 import { OrderLineOverrideStore } from '#services/order_line_override_store'
-import { evaluateOrderImpacts, type OrderImpactResult } from '#app/domain/order-impacts'
+import {
+  evaluateOrderImpacts,
+  netDemandsByAllocation,
+  type OrderImpactResult,
+} from '#app/domain/order-impacts'
 import { evaluateMfgFeasibility, buildStrictQcStock } from '#app/domain/of-feasibility'
 import type { OfCommandePeg } from '#repositories/order_line_repository'
 import type { Article } from '#app/domain/models/article'
@@ -161,21 +165,12 @@ export async function loadOrderImpacts(
     return f.date >= windowFrom && f.date <= windowTo
   })
 
-  // Vue proactive : nettoye la demande par l'allocation ERP propre de la commande
-  // (origin.qteAllouee = stock déjà réservé pour cette commande). La quantité à RÉALISER
-  // = reste à livrer − déjà alloué. Sans ça, une commande partiellement/allouée couverte
-  // (allocation + OF) apparaît à tort en sans_couverture/bloquée : le moteur ne voit que
-  // le stock libre (PHYSTO − PHYALL), pas la réservation propre de la commande.
-  // (ex. 11033025/AR2602608 : 56 − 28 alloués = 28, couverts par l'OF contremarque ferme).
-  // Gated au proactif : board/ruptures et cause réactive gardent la demande brute.
-  if (preferEngineFeasibility) {
-    filteredDemands = filteredDemands
-      .map((f) => {
-        const alloc = (f.origin as { qteAllouee?: number }).qteAllouee ?? 0
-        return alloc > 0 ? { ...f, quantity: Math.max(0, f.quantity - alloc) } : f
-      })
-      .filter((f) => f.quantity > 0)
-  }
+  // Nettage demande − allocation ERP propre (origin.qteAllouee), TOUTES vues : la quantité
+  // à RÉALISER = reste à livrer − déjà alloué. Historique : d'abord gated au proactif
+  // (commit 4005f7e, ex. 11033025/AR2602608), généralisé après validation X3 du faux positif
+  // /ruptures (AR2602595/AEA833XX allouée à 100 % matchée sur une suggestion d'août).
+  // Une commande entièrement allouée disparaît de la demande (rien à produire).
+  filteredDemands = netDemandsByAllocation(filteredDemands)
 
   // Stock vivant, scopé aux articles de la fenêtre + composants BOM ACHAT (tous niveaux).
   const articleSet = new Set<string>()

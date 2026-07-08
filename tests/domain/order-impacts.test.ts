@@ -3,7 +3,7 @@ import type { Flow } from '#app/domain/models/flow'
 import type { Article } from '#app/domain/models/article'
 import type { Nomenclature } from '#app/domain/models/nomenclature'
 import type { OfOverride } from '#app/domain/planning_board'
-import { evaluateOrderImpacts } from '#app/domain/order-impacts'
+import { evaluateOrderImpacts, netDemandsByAllocation } from '#app/domain/order-impacts'
 
 const TODAY = new Date()
 TODAY.setHours(0, 0, 0, 0)
@@ -233,5 +233,52 @@ test.group('evaluateOrderImpacts', () => {
     assert.equal(result.orders[0].ofs[0].missingComponents['BDH2231AL'], 40)
     const ofEntry = result.ofs.find((o) => o.numOf === 'OF-A')
     assert.equal(ofEntry?.feasible, false)
+  })
+})
+
+test.group('netDemandsByAllocation', () => {
+  const withAlloc = (flow: Flow, qteAllouee: number): Flow => ({
+    ...flow,
+    origin: { ...flow.origin, qteAllouee } as any,
+  })
+
+  test('commande entièrement allouée disparaît de la demande', ({ assert }) => {
+    const demands = [withAlloc(makeDemand('AR2602595', 'AEA833XX', 104, daysFromNow(1)), 104)]
+    assert.lengthOf(netDemandsByAllocation(demands), 0)
+  })
+
+  test('allocation partielle réduit la quantité à couvrir', ({ assert }) => {
+    const demands = [withAlloc(makeDemand('AR2602608', '11033025', 56, daysFromNow(3)), 28)]
+    const net = netDemandsByAllocation(demands)
+    assert.lengthOf(net, 1)
+    assert.equal(net[0].quantity, 28)
+  })
+
+  test('demande sans allocation inchangée', ({ assert }) => {
+    const demands = [makeDemand('CMD-1', 'PF1', 60, daysFromNow(10))]
+    const net = netDemandsByAllocation(demands)
+    assert.lengthOf(net, 1)
+    assert.equal(net[0].quantity, 60)
+  })
+
+  test('régression AR2602595 : commande allouée ne capture plus la suggestion d’un autre besoin', ({ assert }) => {
+    // Suggestion CBN (statut 3) créée pour la demande future — infaisable (composant manquant).
+    const suggestion = makeOfFlow('SGAE10649392338', 'AEA833XX', 3, 2880, daysFromNow(11))
+    const demands = [withAlloc(makeDemand('AR2602595', 'AEA833XX', 104, daysFromNow(1)), 104)]
+    const nomenclatures = new Map<string, Nomenclature>()
+    const articles = new Map([['AEA833XX', makeArticle('AEA833XX')]])
+    const overrides = new Map<string, OfOverride>()
+    const precomputed = new Map([
+      ['SGAE10649392338', { feasible: false, missingComponents: { COMP1: 500 } }],
+    ])
+    const window = { from: daysFromNow(-7), to: daysFromNow(42) }
+
+    // Demande brute (comportement d'avant) : la commande accroche la suggestion → bloquée.
+    const brute = evaluateOrderImpacts(demands, [suggestion], nomenclatures, articles, overrides, window, undefined, precomputed)
+    assert.equal(brute.orders[0]?.statut, 'bloquee')
+
+    // Demande nette (pipeline actuel) : plus de demande → suggestion orpheline, zéro commande impactée.
+    const net = evaluateOrderImpacts(netDemandsByAllocation(demands), [suggestion], nomenclatures, articles, overrides, window, undefined, precomputed)
+    assert.lengthOf(net.orders, 0)
   })
 })

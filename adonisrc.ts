@@ -58,6 +58,7 @@ export default defineConfig({
     () => import('@adonisjs/auth/auth_provider'),
     () => import('#providers/api_provider'),
     () => import('#providers/x3_provider'),
+    () => import('#providers/cache_preheat_provider'),
     () => import('@adonisjs/core/providers/edge_provider'),
     () => import('@adonisjs/vite/vite_provider'),
     () => import('@adonisjs/inertia/inertia_provider')

@@ -23,6 +23,8 @@ export interface FeasibilityOptions {
 export interface FeasibilityEntry {
   numOf: string
   article: string
+  /** Qté restant à produire (reprise de l'OfInput) — sert au calcul de charge aval. */
+  qteRestante: number
   feasible: boolean
   status: 'ok' | 'blocked' | 'no_bom'
   missingComponents: Record<string, number>
@@ -95,7 +97,7 @@ export function evaluateSequentialFeasibility(
     for (const ofInput of ofs) {
       if (isFirm(ofInput.statutNum)) {
         entries.set(ofInput.numOf, {
-          numOf: ofInput.numOf, article: ofInput.article, feasible: true,
+          numOf: ofInput.numOf, article: ofInput.article, qteRestante: ofInput.qteRestante, feasible: true,
           status: 'ok' as const, missingComponents: {}, alerts: [], allocated: {},
           dateBesoin: dateBesoin(ofInput) || null, statutNum: ofInput.statutNum,
         })
@@ -111,7 +113,7 @@ export function evaluateSequentialFeasibility(
         missingComponents[bc.article] = bc.shortage
       }
       entries.set(ofInput.numOf, {
-        numOf: ofInput.numOf, article: ofInput.article, feasible: result.feasible,
+        numOf: ofInput.numOf, article: ofInput.article, qteRestante: ofInput.qteRestante, feasible: result.feasible,
         status: classifyFeasibility(result), missingComponents, alerts: [], allocated: {},
         dateBesoin: dateBesoin(ofInput) || null, statutNum: ofInput.statutNum,
       })
@@ -129,7 +131,7 @@ export function evaluateSequentialFeasibility(
     for (const ofInput of ofs) {
       if (!isFirm(ofInput.statutNum)) continue
       entries.set(ofInput.numOf, {
-        numOf: ofInput.numOf, article: ofInput.article, feasible: true,
+        numOf: ofInput.numOf, article: ofInput.article, qteRestante: ofInput.qteRestante, feasible: true,
         status: 'ok' as const, missingComponents: {}, alerts: [], allocated: {},
         dateBesoin: dateBesoin(ofInput) || null, statutNum: ofInput.statutNum,
       })
@@ -181,7 +183,7 @@ export function evaluateSequentialFeasibility(
         missingComponents[bc.article] = bc.shortage
       }
       entries.set(ofInput.numOf, {
-        numOf: ofInput.numOf, article: ofInput.article, feasible: result.feasible,
+        numOf: ofInput.numOf, article: ofInput.article, qteRestante: ofInput.qteRestante, feasible: result.feasible,
         status: classifyFeasibility(result), missingComponents, alerts: [], allocated,
         dateBesoin: dateBesoin(ofInput) || null, statutNum: ofInput.statutNum,
       })
