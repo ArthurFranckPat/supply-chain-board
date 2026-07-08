@@ -3,8 +3,8 @@ import boardDataset from '#services/board_dataset'
 import staticSync from '#services/static_sync_service'
 import cache from '@adonisjs/cache/services/main'
 import { OrderLineOverrideStore } from '#services/order_line_override_store'
-import { X3OrderLineRepository } from '#repositories/order_line_repository'
-import { hoursForQuantity, type GammeOperation } from '#app/domain/models/gamme'
+import { loadOrderLineDetail } from '#services/order_line_detail_loader'
+import type { GammeOperation } from '#app/domain/models/gamme'
 import type { Flow } from '#app/domain/models/flow'
 import {
   isManufactured,
@@ -279,7 +279,11 @@ export default class OrderPlanningController {
     }
     try {
       const row = await this.overrideStore.save(num, ligne, { dateLivraison })
-      return ctx.response.ok({ numCommande: row.numCommande, ligne: row.ligne, dateLivraison: row.dateLivraison })
+      return ctx.response.ok({
+        numCommande: row.numCommande,
+        ligne: row.ligne,
+        dateLivraison: row.dateLivraison,
+      })
     } catch (e) {
       return ctx.response.status(500).json({ error: (e as Error).message })
     }
@@ -300,93 +304,20 @@ export default class OrderPlanningController {
   }
 
   /**
-   * GET /api/v1/planning/order-lines/:order/:line — détail d'une ligne de commande
-   * (panneau au clic dans la vue planification) : infos commande/ligne + poste/charge +
-   * override + faisabilité BOM direct (composants × qté, stock strict/qc + réceptions arrivées).
+   * GET /api/v1/planning/order-lines/:order/:line — détail d'une ligne de commande.
+   * Cf. loadOrderLineDetail.
    */
   async lineDetail(ctx: HttpContext) {
     const num = ctx.params.order as string
     const ligne = ctx.params.line as string
-    const nFr = (n: number) => Math.round(n * 100) / 100
-    const fmtFr = (d: Date) =>
-      d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
-
     try {
-      const line = await new X3OrderLineRepository().getOrderLine(num, ligne)
-      if (!line) return ctx.response.notFound({ error: 'Ligne de commande introuvable' })
-
-      // Poste + charge (gamme figée par article).
-      const ref = await boardDataset.getReferential()
-      const op = ref.gamme.find((g) => g.article === line.article)
-      const workstation = op?.workstation ?? null
-      const workstationLabel = op?.workstationLabel || workstation
-      const hours = op ? hoursForQuantity(op, line.quantite) : 0
-
-      // Override local (date X3 surchargée).
-      const overrideMap = await this.overrideStore.getMap()
-      const overrideKey = `${line.numCommande}#${line.ligne}`
-      const overrideDate = overrideMap.get(overrideKey) ?? null
-
-      // BOM direct + faisabilité (composants × qté ligne, stock + réceptions arrivées).
-      const nomEntries = await boardDataset.getNomenclature().catch(() => [])
-      const components = nomEntries.filter((e) => e.parentArticle === line.article)
-      const compArticles = [...new Set(components.map((c) => c.componentArticle))]
-      const stockFlows = compArticles.length ? await boardDataset.getStock(compArticles).catch(() => []) : []
-      const stockByArticle = new Map<string, number>()
-      for (const f of stockFlows) {
-        const sub = (f.origin as { subType?: string })?.subType
-        if (sub === 'strict' || sub === 'qc') {
-          stockByArticle.set(f.article, (stockByArticle.get(f.article) ?? 0) + f.quantity)
-        }
-      }
-      const receptionFlows = await boardDataset.getReceptions().catch(() => [])
-      const now = new Date()
-
-      const bom = components.map((comp) => {
-        const need = comp.linkQuantity * line.quantite
-        let available = stockByArticle.get(comp.componentArticle) ?? 0
-        for (const rec of receptionFlows) {
-          if (rec.article === comp.componentArticle && rec.date && rec.date <= now) available += rec.quantity
-        }
-        const ok = available >= need
-        return {
-          article: comp.componentArticle,
-          description: comp.componentDescription,
-          need: String(nFr(need)),
-          available: String(nFr(available)),
-          unit: '',
-          ok,
-          shortage: ok ? null : String(nFr(need - available)),
-        }
-      })
-      const bomBlocked = bom.filter((b) => !b.ok).length
-
-      return {
-        numCommande: line.numCommande,
-        ligne: line.ligne,
-        article: line.article,
-        designation: line.designation,
-        client: line.client,
-        quantite: nFr(line.quantite),
-        unite: line.unite,
-        dateLivraison: fmtFr(overrideDate ? new Date(overrideDate) : line.dateLivraison),
-        contremarque: line.contremarque,
-        orderType: line.orderType,
-        nature: line.nature,
-        hasOverride: overrideMap.has(overrideKey),
-        workstation,
-        workstationLabel,
-        hours: nFr(hours),
-        bom,
-        bomCount: bom.length,
-        bomBlocked,
-        x3Error: null as string | null,
-      }
+      const detail = await loadOrderLineDetail(num, ligne)
+      if (!detail) return ctx.response.notFound({ error: 'Ligne de commande introuvable' })
+      return detail
     } catch (e) {
       return ctx.response.status(502).json({ error: (e as Error).message })
     }
   }
-
 }
 
 /**
@@ -658,7 +589,9 @@ export async function loadOrderBoardData(
     }
     const parentCount = g.parents.size
     const sourceLabel =
-      parentCount <= 1 ? `pour ${[...g.parents.values()][0] ?? ''}` : `pour ${parentCount} commandes`
+      parentCount <= 1
+        ? `pour ${[...g.parents.values()][0] ?? ''}`
+        : `pour ${parentCount} commandes`
     cb.dayCards[g.idx].push(
       makeInduitCard({
         id: `INDUIT~${g.poste}~${g.idx}~${g.componentArticle}`,
@@ -668,7 +601,7 @@ export async function loadOrderBoardData(
         hours: g.totalHours,
         typologie: typologieByArticle.get(g.componentArticle),
         sourceLabel,
-      }),
+      })
     )
     cb.totalHours += g.totalHours
     cb.dayHours[g.idx] += g.totalHours
@@ -708,34 +641,39 @@ export async function loadOrderBoardData(
     .map(([code, bucket]) => {
       const stoloc = wstByCode.get(code)?.stockLocation ?? ''
       return {
-      name: wstLabels.get(code) ?? code,
-      code,
-      dot: 'bg-primary',
-      // Atelier (STOLOC du poste) — filtre atelier (#36), parité /charge.
-      atelier: stoloc,
-      meta: [
-        { k: 'LIGNES', v: String(bucket.lineCount) },
-        { k: 'CHG', v: `${Math.round(bucket.totalHours)}h` },
-        { k: 'WST', v: code },
-      ],
-      // Header PP_830 (issue #42) : charge par typo (split bouche) + stock bouches hygro.
-      ...(code === 'PP_830'
-        ? {
-            pp830: {
-              chargeByTypo: [...bucket.byTypo.entries()]
-                .map(([typo, v]) => ({ typo, sans: Math.round(v.sans), bouche: Math.round(v.bouche) }))
-                .sort((a, b) => (b.sans + b.bouche) - (a.sans + a.bouche)),
-              stockBouchesHygro,
-            },
-          }
-        : {}),
-      dayCells: bucket.dayCards.map((cards, i) => ({
-        cellClass: days[i].today ? 'bg-blue-50/10' : '',
-        cards,
-        iso: isoDay(colDates[i]),
-      })),
-      weekLoads: buildWeekLoads(bucket.dayHours),
-    }})
+        name: wstLabels.get(code) ?? code,
+        code,
+        dot: 'bg-primary',
+        // Atelier (STOLOC du poste) — filtre atelier (#36), parité /charge.
+        atelier: stoloc,
+        meta: [
+          { k: 'LIGNES', v: String(bucket.lineCount) },
+          { k: 'CHG', v: `${Math.round(bucket.totalHours)}h` },
+          { k: 'WST', v: code },
+        ],
+        // Header PP_830 (issue #42) : charge par typo (split bouche) + stock bouches hygro.
+        ...(code === 'PP_830'
+          ? {
+              pp830: {
+                chargeByTypo: [...bucket.byTypo.entries()]
+                  .map(([typo, v]) => ({
+                    typo,
+                    sans: Math.round(v.sans),
+                    bouche: Math.round(v.bouche),
+                  }))
+                  .sort((a, b) => b.sans + b.bouche - (a.sans + a.bouche)),
+                stockBouchesHygro,
+              },
+            }
+          : {}),
+        dayCells: bucket.dayCards.map((cards, i) => ({
+          cellClass: days[i].today ? 'bg-blue-50/10' : '',
+          cards,
+          iso: isoDay(colDates[i]),
+        })),
+        weekLoads: buildWeekLoads(bucket.dayHours),
+      }
+    })
 
   // Liste des ateliers (STOLOC distincts parmi les lignes) — filtre atelier (#36).
   const ateliers = [...new Set(lines.map((l) => l.atelier).filter(Boolean))]
