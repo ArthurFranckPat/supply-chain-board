@@ -244,6 +244,39 @@ test.group('RecursiveDiagnosticChecker', () => {
     assert.isTrue(r.alerts.some((a) => a.includes('Cycle detecte')))
   })
 
+  test('DAG diamant : un OF partagé par 2 branches n’est diagnostiqué qu’une fois (#55)', async ({ assert }) => {
+    // PF consomme SE1 et SE2, qui consomment tous deux le même sous-ensemble SUB.
+    // Sans mémo par OF, OF_SUB serait re-descendu par CHAQUE branche → explosion
+    // (branching^depth) → « tourne dans le vide ». Le mémo doit le diagnostiquer 1×.
+    const loader = new MemLoader()
+    loader.nomenclatures.set('SE1', mkBom('SE1', [{ article: 'SUB', qty: 1, type: 'FABRIQUE' }]))
+    loader.nomenclatures.set('SE2', mkBom('SE2', [{ article: 'SUB', qty: 1, type: 'FABRIQUE' }]))
+    loader.nomenclatures.set('SUB', mkBom('SUB', [{ article: 'LEAF', qty: 1 }]))
+    loader.mfgmat.set('OF1', [mat('SE1', 1), mat('SE2', 1)])
+    loader.mfgmat.set('OF_SE1', [mat('SUB', 1)])
+    loader.mfgmat.set('OF_SE2', [mat('SUB', 1)])
+    loader.mfgmat.set('OF_SUB', [mat('LEAF', 1)])
+    loader.ofs.push(
+      ofRecord('OF_SE1', 'SE1', 1),
+      ofRecord('OF_SE2', 'SE2', 1),
+      ofRecord('OF_SUB', 'SUB', 1),
+    )
+    // Tous à 0 de stock → tout manque, LEAF acheté = rupture matière au fond.
+
+    const calls = new Map<string, number>()
+    const orig = loader.getMfgmat.bind(loader)
+    loader.getMfgmat = async (n: string) => {
+      calls.set(n, (calls.get(n) ?? 0) + 1)
+      return orig(n)
+    }
+
+    const r = await diagnose(loader, ofRecord('OF1', 'PF', 1))
+
+    // OF_SUB atteint par les 2 branches (SE1 et SE2) mais diagnostiqué une seule fois.
+    assert.equal(calls.get('OF_SUB'), 1)
+    assert.equal(r.rootCause, 'rupture_matiere')
+  })
+
   test('profondeur max dépassée → bloqué + alerte profondeur', async ({ assert }) => {
     const loader = new MemLoader()
     loader.nomenclatures.set('SE', mkBom('SE', [{ article: 'C1', qty: 1 }]))

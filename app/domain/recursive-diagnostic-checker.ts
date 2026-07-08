@@ -151,6 +151,17 @@ export class RecursiveDiagnosticChecker {
   private maxDepthSeen = 0
   /** Cache stock inter-nœuds : un article n'est lu qu'une fois sur tout le diagnostic. */
   private stockCache = new Map<string, StockRecord | undefined>()
+  /**
+   * Mémo diagnostic par OF (collapse du DAG). Sans lui, un composant fabriqué partagé
+   * par plusieurs parents — ou couvert par de nombreux OF suggérés (pool #32) — est
+   * re-descendu à chaque rencontre : le nombre de nœuds explose en `branching^depth`,
+   * chacun coûtant des appels SOAP → le diagnostic « tourne dans le vide ». Avec le mémo,
+   * chaque OF est diagnostiqué UNE fois (la dispo d'un OF ne dépend pas de qui le demande).
+   * Le résultat résolu est stocké (pas la promesse) : la descente est séquentielle, donc
+   * pas de course ; et un OF encore `inProgress` re-rencontré = vrai cycle → sentinelle.
+   */
+  private nodeMemo = new Map<string, DiagnosticNode>()
+  private inProgress = new Set<string>()
 
   /** Pré-charge en UNE requête le stock des articles non encore en cache. */
   private async prefetchStocks(articles: string[]): Promise<void> {
@@ -164,6 +175,8 @@ export class RecursiveDiagnosticChecker {
   async diagnoseOf(of: OfRecord): Promise<RecursiveDiagnosticResult> {
     this.nodeCount = 0
     this.maxDepthSeen = 0
+    this.nodeMemo.clear()
+    this.inProgress.clear()
     const tree = await this.diagnoseNode(of, new Set(), 0)
     const allAlerts = this.collectAlerts(tree)
     return {
@@ -178,8 +191,50 @@ export class RecursiveDiagnosticChecker {
     }
   }
 
+  /**
+   * Enveloppe mémoïsée : chaque OF n'est diagnostiqué qu'une fois (collapse du DAG,
+   * cf. {@link nodeMemo}). Un OF déjà `inProgress` re-rencontré = cycle par la chaîne
+   * des OF → sentinelle `indetermine` (non mémoïsée : dépend du contexte d'appel).
+   */
   private async diagnoseNode(of: OfRecord, ancestors: Set<string>, depth: number): Promise<DiagnosticNode> {
     this.maxDepthSeen = Math.max(this.maxDepthSeen, depth)
+    const article = of.article
+    const base = {
+      numOf: of.numOf,
+      article,
+      description: this.loader.getArticle(article)?.description ?? '',
+      statut: of.statutNum,
+      quantityNeeded: of.qteRestante,
+    }
+
+    // Gardes DÉPENDANTES DU CONTEXTE (ancestors/depth) → jamais mémoïsées, sinon la
+    // première rencontre (profonde) figerait un verdict faux pour une rencontre ultérieure
+    // plus haute dans l'arbre.
+    // Garde : cycle par article.
+    if (ancestors.has(article)) {
+      return { ...base, source: 'NOMENCLATURE', feasible: false, status: 'indetermine', shorts: [], alerts: [`Cycle detecte: ${article}`] }
+    }
+    // Garde : profondeur max.
+    if (depth > this.maxDepth) {
+      return { ...base, source: 'NOMENCLATURE', feasible: false, status: 'indetermine', shorts: [], alerts: [`Profondeur max atteinte sur ${article}`] }
+    }
+    // Garde : cycle par chaîne d'OF (OF déjà en cours de calcul plus haut) → non mémoïsé.
+    if (this.inProgress.has(of.numOf)) {
+      return { ...base, source: 'NOMENCLATURE', feasible: false, status: 'indetermine', shorts: [], alerts: [`Cycle detecte (OF): ${of.numOf}`] }
+    }
+
+    // Mémo : la dispo d'un OF ne dépend pas de qui le demande → 1 calcul par OF (collapse DAG).
+    const cached = this.nodeMemo.get(of.numOf)
+    if (cached) return cached
+
+    this.inProgress.add(of.numOf)
+    const node = await this.computeNode(of, ancestors, depth)
+    this.inProgress.delete(of.numOf)
+    this.nodeMemo.set(of.numOf, node)
+    return node
+  }
+
+  private async computeNode(of: OfRecord, ancestors: Set<string>, depth: number): Promise<DiagnosticNode> {
     const article = of.article
     const description = this.loader.getArticle(article)?.description ?? ''
     const base = {
@@ -188,15 +243,6 @@ export class RecursiveDiagnosticChecker {
       description,
       statut: of.statutNum,
       quantityNeeded: of.qteRestante,
-    }
-
-    // Garde : cycle.
-    if (ancestors.has(article)) {
-      return { ...base, source: 'NOMENCLATURE', feasible: false, status: 'indetermine', shorts: [], alerts: [`Cycle detecte: ${article}`] }
-    }
-    // Garde : profondeur max.
-    if (depth > this.maxDepth) {
-      return { ...base, source: 'NOMENCLATURE', feasible: false, status: 'indetermine', shorts: [], alerts: [`Profondeur max atteinte sur ${article}`] }
     }
 
     const date = this.dateBesoin(of)
