@@ -16,14 +16,18 @@ import type { BoardData, SearchScope } from '@/lib/board/types'
 import { createOrderBoardStore } from '@/lib/orders/store'
 import type { OrderBoardData, OrderSearchScope } from '@/lib/orders/types'
 import type { VisionCommande, VisionLink } from '@/lib/vision/types'
-import { cx } from '@/libs/cva'
+import { parseIso, toIso, startOfDay, DAY_MS } from '@/lib/vision/date-utils'
+import { buildLinkPath, type PathSpec } from '@/lib/vision/link-overlay'
+import { buildCmdCells } from '@/lib/vision/cmd-cells'
 import BoardGrid from '@/components/board/board-grid'
 import BatchFirmBar from '@/components/board/batch-firm-bar'
 import OrderGrid from '@/components/board/order-grid'
 import OfDetailSheet from '@/components/of/of-detail-sheet'
 import PosteEngagementSheet from '@/components/board/poste-engagement-sheet'
+import { CommandeMarker } from '@/components/vision/commande-marker'
+import { LinksOverlay } from '@/components/vision/links-overlay'
+import { ProgrammeToolbar, type VisionMode } from '@/components/vision/programme-toolbar'
 import { Masthead } from '@/components/masthead'
-import { Button } from '@/components/ui/button'
 import { TextField, TextFieldInput } from '@/components/ui/text-field'
 import {
   Select,
@@ -32,7 +36,7 @@ import {
   SelectContent,
   SelectItem,
 } from '@/components/ui/select'
-import { Calendar, type DateRange } from '@/components/ui/calendar'
+import { type DateRange } from '@/components/ui/calendar'
 
 /**
  * Issue #21 — Vue unifiée OF ↔ commandes.
@@ -44,9 +48,11 @@ import { Calendar, type DateRange } from '@/components/ui/calendar'
  *    d'expédition (slot cellExtra) ;
  *  • un overlay SVG reliant chaque OF à sa commande à l'horizontale (mesuré au DOM
  *    via data-num-of / data-link-cmd).
+ *
+ * Shell (état + composition) — toolbar, marqueur commande et overlay de liens
+ * vivent dans components/vision/*.tsx ; la géométrie pure dans lib/vision/
+ * (issue #52).
  */
-
-type VisionMode = 'combined' | 'ordonnancement' | 'planification'
 
 type VisionProps = {
   mode: VisionMode
@@ -84,50 +90,6 @@ const ORDER_SCOPES = [
   { v: 'article', label: 'Article' },
   { v: 'client', label: 'Client' },
 ] as const satisfies { v: OrderSearchScope; label: string }[]
-
-
-const MODE_LABELS: Record<VisionMode, string> = {
-  ordonnancement: 'OF',
-  combined: 'Combiné',
-  planification: 'Cmdes',
-}
-
-// SCOPES moved to OF_SCOPES / ORDER_SCOPES above
-
-const STATUS_FILTER_CHIPS: { k: 'ferme' | 'planifie' | 'suggere'; label: string }[] = [
-  { k: 'ferme', label: 'Ferme' },
-  { k: 'planifie', label: 'Planifié' },
-  { k: 'suggere', label: 'Suggéré' },
-]
-
-const DAY_MS = 86_400_000
-const parseIso = (s: string): Date | null => {
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s ?? '')
-  return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null
-}
-const toIso = (d: Date): string =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-const startOfDay = (d: Date): Date => {
-  const x = new Date(d)
-  x.setHours(0, 0, 0, 0)
-  return x
-}
-
-/** ISO YYYY-MM-DD → JJ/MM. */
-const fmtDay = (iso: string | null): string => {
-  if (!iso) return '—'
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso)
-  return m ? `${m[3]}/${m[2]}` : iso
-}
-
-const r1 = (n: number) => Math.round(n)
-
-interface PathSpec {
-  d: string
-  suggere: boolean
-  ofId: string
-  commandeId: string
-}
 
 const Programme: Component<VisionProps> = (props) => {
   const store = createBoardStore(props.board ?? EMPTY_BOARD)
@@ -286,25 +248,7 @@ const Programme: Component<VisionProps> = (props) => {
   const cmdIso = (cmd: VisionCommande) => cmdMoved().get(cmd.id)?.iso ?? cmd.dateExpeditionIso
 
   // Commandes regroupées par poste (= rangée du board) × colonne d'expédition.
-  // Une même ligne de commande peut figurer sur plusieurs postes (alimentée par
-  // des OF de postes différents) → dédoublonnage par posteCode:lineId.
-  const cmdCells = createMemo(() => {
-    const cmdById = new Map(props.commandes.map((c) => [c.id, c]))
-    const grids = new Map<string, VisionCommande[][]>()
-    const seen = new Set<string>()
-    for (const l of props.links) {
-      const cmd = cmdById.get(l.commandeId)
-      if (!cmd) continue
-      const key = `${l.posteCode}:${l.commandeId}`
-      if (seen.has(key)) continue
-      seen.add(key)
-      if (!grids.has(l.posteCode)) grids.set(l.posteCode, [])
-      const grid = grids.get(l.posteCode)!
-      const col = cmdCol(l)
-      ;(grid[col] ||= []).push(cmd)
-    }
-    return grids
-  })
+  const cmdCells = createMemo(() => buildCmdCells(props.commandes, props.links, cmdCol))
 
   // Drop d'un marqueur commande dans une cellule → nouvelle date d'expédition.
   const onCommandeDrop = (_lineCode: string, col: number, iso: string, e: DragEvent) => {
@@ -360,22 +304,9 @@ const Programme: Component<VisionProps> = (props) => {
       if (!ofEl || !cmdEl) continue
       const or = (ofEl as HTMLElement).getBoundingClientRect()
       const cr = (cmdEl as HTMLElement).getBoundingClientRect()
-      // Rangée masquée (recherche → display:none) → rect nul : on saute le lien.
-      if (or.width === 0 || cr.width === 0) continue
-      const ofMidX = or.left - cRect.left + or.width / 2
-      const cmdMidX = cr.left - cRect.left + cr.width / 2
-      const ofFromLeft = ofMidX <= cmdMidX
-      const sx = ofFromLeft ? or.right - cRect.left : or.left - cRect.left
-      const sy = or.top - cRect.top + or.height / 2
-      const tx = ofFromLeft ? cr.left - cRect.left : cr.right - cRect.left
-      const ty = cr.top - cRect.top + cr.height / 2
-      const mx = (sx + tx) / 2
-      out.push({
-        d: `M${r1(sx)},${r1(sy)} C${r1(mx)},${r1(sy)} ${r1(mx)},${r1(ty)} ${r1(tx)},${r1(ty)}`,
-        suggere: link.suggere,
-        ofId: link.ofId,
-        commandeId: link.commandeId,
-      })
+      const d = buildLinkPath(cRect, or, cr)
+      if (!d) continue
+      out.push({ d, suggere: link.suggere, ofId: link.ofId, commandeId: link.commandeId })
     }
     setPaths(out)
   }
@@ -402,57 +333,6 @@ const Programme: Component<VisionProps> = (props) => {
       () => requestAnimationFrame(measure),
       { defer: true }
     )
-  )
-
-  /** Marqueur commande rendu dans une cellule (slot cellExtra de BoardGrid). */
-  const commandeMarker = (lineCode: string, cmd: VisionCommande) => (
-    <div
-      data-link-cmd={`${lineCode}:${cmd.id}`}
-      draggable={!!cmd.ligne}
-      onDragStart={(e) => {
-        if (!cmd.ligne) return
-        e.dataTransfer?.setData(
-          'application/x-cmd',
-          JSON.stringify({ id: cmd.id, numCommande: cmd.numCommande, ligne: cmd.ligne })
-        )
-        if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'
-      }}
-      onMouseEnter={() => setActiveId(cmd.id)}
-      onMouseLeave={() => setActiveId(null)}
-      class={cx(
-        'relative overflow-hidden rounded-[6px] border border-rule border-l-[3px] border-l-terra bg-terra-soft px-1.5 py-1.5 leading-tight shadow-[0_1px_2px_rgba(31,26,19,.06)] transition-shadow duration-150',
-        cmd.ligne ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer',
-        activeId() === cmd.id && 'shadow-[0_2px_10px_rgba(168,67,31,.22)] ring-1 ring-terra/50'
-      )}
-    >
-      {/* Numéro complet (+ ligne) sur sa propre ligne, police réduite pour rentrer. */}
-      <div class="flex items-baseline gap-1 whitespace-nowrap font-mono text-[9.5px] font-bold text-terra">
-        <span class="material-symbols-outlined flex-none self-center text-[11px] text-terra">
-          local_shipping
-        </span>
-        <span>
-          {cmd.numCommande}
-          <Show when={cmd.ligne}>
-            <span class="text-terra/70">·L{cmd.ligne}</span>
-          </Show>
-        </span>
-      </div>
-      <div class="mt-1 flex items-center gap-1">
-        <Show when={cmd.type}>
-          <span class="flex-none rounded bg-terra-soft px-1 py-px font-mono text-[8px] font-bold uppercase tracking-wider text-terra">
-            {cmd.type}
-          </span>
-        </Show>
-        <span class="flex-none font-fraunces text-[10px] font-bold tabular-nums text-secondary-foreground">
-          {fmtDay(cmdIso(cmd))}
-        </span>
-        <Show when={cmd.client}>
-          <span class="truncate font-fraunces text-[9.5px] italic text-muted-foreground">
-            {cmd.client}
-          </span>
-        </Show>
-      </div>
-    </div>
   )
 
   return (
@@ -556,220 +436,23 @@ const Programme: Component<VisionProps> = (props) => {
         }
       />
 
-      {/* ═══ Toolbar (alignée /ordonnancement) ═══ */}
-      <div data-print-toolbar class="flex flex-none flex-wrap items-center justify-between gap-3 border-b border-rule px-7 py-2">
-        {/* Sélecteur de mode */}
-        <div class="inline-flex items-center gap-0.5 rounded-md border border-rule bg-card p-0.5">
-          <For each={(['ordonnancement', 'combined', 'planification'] as const)}>
-            {(m) => (
-              <button
-                type="button"
-                class={cx(
-                  'rounded-[5px] px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
-                  mode() === m
-                    ? 'bg-terra-soft text-terra'
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-                onClick={() => switchMode(m)}
-              >
-                {MODE_LABELS[m]}
-              </button>
-            )}
-          </For>
-        </div>
-
-        {/* Filtre statut d'OF — masqué en mode planification */}
-        <Show when={mode() !== 'planification'}>
-        <div class="inline-flex items-center gap-1 rounded-md border border-rule bg-card p-0.5">
-          <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
-            Statut
-          </span>
-          <For each={STATUS_FILTER_CHIPS}>
-            {({ k, label }) => (
-              <button
-                type="button"
-                class={cx(
-                  'rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
-                  store.statusActive(k)
-                    ? 'bg-terra-soft text-terra'
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-                onClick={() => store.toggleStatus(k)}
-              >
-                {label}
-              </button>
-            )}
-          </For>
-        </div>
-        </Show>
-
-        {/* Filtre atelier (STOLOC, #36) — mode planification seulement.
-            Parité visuelle avec /charge ; pilote orderStore.lineVisible. */}
-        <Show when={mode() === 'planification' && orderStore.ateliers().length > 0}>
-          <div class="inline-flex flex-wrap items-center gap-1 rounded-md border border-rule bg-card p-0.5">
-            <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
-              Atelier
-            </span>
-            <For each={orderStore.ateliers()}>
-              {(a) => (
-                <button
-                  type="button"
-                  title={a.code}
-                  onClick={() => orderStore.toggleAtelier(a.code)}
-                  class={cx(
-                    'rounded-[5px] px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
-                    orderStore.atelierFilter().has(a.code)
-                      ? 'bg-terra-soft text-terra'
-                      : 'text-muted-foreground hover:text-foreground',
-                  )}
-                >
-                  {a.code}
-                </button>
-              )}
-            </For>
-            <Show when={orderStore.atelierFilter().size > 0}>
-              <button
-                type="button"
-                onClick={() => orderStore.clearAtelier()}
-                class="ml-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-terra hover:underline"
-              >
-                ✕
-              </button>
-            </Show>
-          </div>
-        </Show>
-
-        {/* Filtre type de besoin (COMMANDE / PRÉVISION) — mode planification. */}
-        <Show when={mode() === 'planification'}>
-          <div class="inline-flex items-center gap-1 rounded-md border border-rule bg-card p-0.5">
-            <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
-              Besoin
-            </span>
-            <For each={[{ k: 'COMMANDE', label: 'Cmde' }, { k: 'PREVISION', label: 'Prév' }]}>
-              {(n) => (
-                <button
-                  type="button"
-                  onClick={() => orderStore.toggleNature(n.k)}
-                  class={cx(
-                    'rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
-                    orderStore.natureFilter().has(n.k)
-                      ? 'bg-terra-soft text-terra'
-                      : 'text-muted-foreground hover:text-foreground',
-                  )}
-                >
-                  {n.label}
-                </button>
-              )}
-            </For>
-          </div>
-        </Show>
-
-        {/* Calendrier — conservé seul à l'impression (data-print-keep). */}
-        <div data-print-keep class="relative">
-          <button
-            type="button"
-            onClick={() => setCalOpen((o) => !o)}
-            class="flex items-center gap-1.5 rounded-full border border-rule bg-card px-2.5 py-1 text-[11px] font-semibold text-foreground transition-colors hover:border-terra"
-          >
-            <span class="material-symbols-outlined text-[14px] text-muted-foreground">
-              calendar_month
-            </span>
-            {props.dateRange}
-            <span class="material-symbols-outlined text-[16px] text-muted-foreground">
-              expand_more
-            </span>
-          </button>
-          <Show when={calOpen()}>
-            <button
-              type="button"
-              tabIndex={-1}
-              aria-hidden="true"
-              class="fixed inset-0 z-40 cursor-default"
-              onClick={() => setCalOpen(false)}
-            />
-            <div class="absolute left-0 top-full z-50 mt-2">
-              <Calendar mode="range" range={range()} onRangeChange={applyRange} />
-            </div>
-          </Show>
-        </div>
-
-        {/* Faisabilité — déclencheur + mode. Pilote le store ACTIF : orderStore en mode
-            planification (badges par ligne de commande, dérivés des OF rattachés via
-            /board-feasibility orders[]), store OF sinon (badges par OF). Aucune logique
-            de calcul dupliquée — même endpoint, parsé différemment. Issues #24, #21. */}
-        <div class="flex items-center gap-2.5">
-          {/* Mode d'allocation stock — choix exclusif (segment, parité /ordonnancement) */}
-          <div class="inline-flex items-center gap-1 rounded-md border border-rule bg-card p-0.5">
-            <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
-              Stock
-            </span>
-            <button
-              type="button"
-              title="Stock vu en intégralité par chaque OF"
-              onClick={() => setFeasMode('immediate')}
-              class={cx(
-                'rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
-                feasMode() === 'immediate'
-                  ? 'bg-terra-soft text-terra'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              Instantanée
-            </button>
-            <button
-              type="button"
-              title="Stock consommé OF par OF selon priorité"
-              onClick={() => setFeasMode('sequential')}
-              class={cx(
-                'rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
-                feasMode() === 'sequential'
-                  ? 'bg-terra-soft text-terra'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              Projetée
-            </button>
-          </div>
-
-          <button
-            type="button"
-            disabled={refreshing()}
-            onClick={doRefresh}
-            class="inline-flex items-center gap-1 rounded-full border border-rule bg-card px-3 py-1 text-[11px] font-semibold transition-colors hover:border-terra disabled:opacity-60"
-            title="Recharger les données X3 (cache → re-fetch live), sans recharger la page"
-          >
-            <span class={`material-symbols-outlined text-[14px] text-muted-foreground ${refreshing() ? 'animate-spin' : ''}`}>
-              refresh
-            </span>
-            {refreshing() ? 'Actualisation…' : 'Actualiser'}
-          </button>
-
-          <Button
-            size="sm"
-            disabled={feasLoading()}
-            onClick={runFeasibility}
-            class="gap-1.5"
-          >
-            <span class={`material-symbols-outlined text-[15px] ${feasLoading() ? 'animate-spin' : ''}`}>
-              {feasLoading() ? 'progress_activity' : 'fact_check'}
-            </span>
-            {feasLoading() ? 'Calcul…' : 'Faisabilité'}
-          </Button>
-
-          {/* Sélection multi-OF → affermissement en batch (#34, vue OF uniquement) */}
-          <Show when={mode() !== 'planification'}>
-            <Button
-              size="sm"
-              variant={store.selectMode() ? 'default' : 'outline'}
-              onClick={() => (store.selectMode() ? store.exitSelect() : store.enterSelect())}
-              class="gap-1.5"
-            >
-              <span class="material-symbols-outlined text-[15px]">checklist</span>
-              Sélection
-            </Button>
-          </Show>
-        </div>
-      </div>
+      <ProgrammeToolbar
+        mode={mode}
+        switchMode={switchMode}
+        store={store}
+        orderStore={orderStore}
+        feasMode={feasMode}
+        setFeasMode={setFeasMode}
+        feasLoading={feasLoading}
+        runFeasibility={runFeasibility}
+        refreshing={refreshing}
+        doRefresh={doRefresh}
+        dateRange={props.dateRange}
+        calOpen={calOpen}
+        setCalOpen={setCalOpen}
+        range={range}
+        applyRange={applyRange}
+      />
 
       <Show when={props.x3Error}>
         <div class="flex flex-none items-center gap-2 border-b border-terra/30 bg-terra-soft px-7 py-2 text-[12px] text-foreground print:hidden">
@@ -817,35 +500,18 @@ const Programme: Component<VisionProps> = (props) => {
             contentRef={setContentEl}
             cellExtra={mode() === 'combined' ? (lineCode, col) => (
               <For each={cmdCells().get(lineCode)?.[col] ?? []}>
-                {(cmd) => commandeMarker(lineCode, cmd)}
+                {(cmd) => (
+                  <CommandeMarker
+                    lineCode={lineCode}
+                    cmd={cmd}
+                    cmdIso={cmdIso}
+                    activeId={activeId}
+                    onActivate={setActiveId}
+                  />
+                )}
               </For>
             ) : undefined}
-            overlay={mode() === 'combined' ? (
-              <svg
-                class="pointer-events-none absolute inset-0 z-[5]"
-                style={{ width: '100%', height: '100%' }}
-                aria-hidden="true"
-              >
-                <For each={paths()}>
-                  {(p) => {
-                    const on = () => isActive(p)
-                    // Liens masqués par défaut : ne s'affichent qu'au survol d'un OF
-                    // ou d'une commande (sinon board trop fouillis).
-                    return (
-                      <path
-                        d={p.d}
-                        fill="none"
-                        stroke="var(--color-terra)"
-                        stroke-width={p.suggere ? 1.8 : 2.2}
-                        stroke-dasharray={p.suggere ? '5 4' : undefined}
-                        opacity={on() ? (p.suggere ? 0.8 : 0.95) : 0}
-                        style={{ transition: 'opacity .15s' }}
-                      />
-                    )
-                  }}
-                </For>
-              </svg>
-            ) : undefined}
+            overlay={mode() === 'combined' ? <LinksOverlay paths={paths} isActive={isActive} /> : undefined}
           />
         </div>
       </Show>
