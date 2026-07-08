@@ -74,7 +74,7 @@ export default class PlanningBoardController {
       workstation: workstationFilter,
       mode: mode as 'immediate' | 'sequential' | undefined,
       force: !!ctx.request.input('refresh'),
-      useWindowOfs: true,
+      pipeline: 'board-badges',
     })
 
     return result

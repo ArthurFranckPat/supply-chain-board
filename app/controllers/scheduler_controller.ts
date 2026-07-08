@@ -415,10 +415,9 @@ export default class SchedulerController {
               from: windowStart,
               to: windowTo,
               force,
-              preferEngineFeasibility: true,
               // OFs scopés par STRDAT (fenêtre board) + demande WIPTYP=1+2 sans OFs.
               // getOrdersForWindow coalescé avec loadBoardData → 1 SOAP pour les deux.
-              useWindowOfs: true,
+              pipeline: 'programme',
             }).catch(() => null)
           ),
           // orderBoard (vue Cmdes) dérivé des MÊMES demands (getDemandAndReception coalescé
@@ -638,7 +637,7 @@ export default class SchedulerController {
             from: windowFrom,
             to: windowTo,
             force,
-            useWindowOfs: true,
+            pipeline: 'ruptures',
           })
           // OfCommandePeg (Date) → ShortageOfPeg (ISO) pour le pivot pur.
           const pegsIso = new Map(

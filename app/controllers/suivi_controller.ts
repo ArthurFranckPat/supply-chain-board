@@ -227,7 +227,7 @@ export default class SuiviController {
       const to = new Date(refDate)
       to.setDate(to.getDate() + SUIVI_FORWARD_DAYS)
       const [{ result, articles, receptionFlows }, atelierByArticle] = await Promise.all([
-        loadOrderImpacts({ from, to, mode: 'sequential', preferEngineFeasibility: true }),
+        loadOrderImpacts({ from, to, mode: 'sequential', pipeline: 'proactive' }),
         buildAtelierByArticle(),
       ])
       // Réceptions à venir + retards de livraison (lookback RECEPTION_LOOKBACK_DAYS) — réutilise

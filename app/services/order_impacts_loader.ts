@@ -19,11 +19,51 @@ import {
   netDemandsByAllocation,
   type OrderImpactResult,
 } from '#app/domain/order-impacts'
-import { evaluateMfgFeasibility, buildStrictQcStock } from '#app/domain/of-feasibility'
+import { buildStrictQcStock } from '#app/domain/of-feasibility'
+import {
+  remapDemandDates,
+  expandArticleSetWithBom,
+  buildArticleCatalog,
+  precomputeMfgFeasibility,
+} from '#app/domain/order-impacts-assembly'
 import type { OfCommandePeg } from '#repositories/order_line_repository'
 import type { Article } from '#app/domain/models/article'
 import type { Nomenclature } from '#app/domain/models/nomenclature'
 import type { Flow } from '#app/domain/models/flow'
+
+/**
+ * Déclare QUI appelle `loadOrderImpacts`, pas la mécanique (issue #48 — OCP). Résolu en
+ * interne vers les options mécaniques (useWindowOfs/preferEngineFeasibility) par
+ * PIPELINE_MECHANICS ci-dessous.
+ *
+ * 'board-badges' et 'ruptures' partagent aujourd'hui la même mécanique (STRDAT + verdict
+ * MFGMAT) mais restent des points de divergence futurs distincts — ne pas les fusionner
+ * en un seul nom par souci de brièveté : ce sont deux features, pas un flag.
+ */
+export type OrderImpactsPipeline = 'programme' | 'board-badges' | 'ruptures' | 'proactive'
+
+interface PipelineMechanics {
+  /**
+   * OFs via getOrdersForWindow (STRDAT, ~25× moins de lignes) + demande via
+   * getDemandAndReception (WIPTYP=1+2, ~2-3× moins) au lieu de getLive (WIPTYP=1+2+5).
+   * Filtre ENDDAT sauté : OFs déjà scopés par STRDAT dans la fenêtre board.
+   */
+  useWindowOfs: boolean
+  /**
+   * Si vrai, ignore le verdict MFGMAT précalculé (snapshot plat, sans consommation) au profit
+   * du verdict du moteur séquentiel — sinon la consommation virtuelle des composants partagés
+   * (achat ET sous-ensembles) entre OFs resterait invisible : l'override MFGMAT écraserait le
+   * verdict séquentiel pour tout OF ayant des matières réelles.
+   */
+  preferEngineFeasibility: boolean
+}
+
+const PIPELINE_MECHANICS: Record<OrderImpactsPipeline, PipelineMechanics> = {
+  programme: { useWindowOfs: true, preferEngineFeasibility: true },
+  'board-badges': { useWindowOfs: true, preferEngineFeasibility: false },
+  ruptures: { useWindowOfs: true, preferEngineFeasibility: false },
+  proactive: { useWindowOfs: false, preferEngineFeasibility: true },
+}
 
 export interface LoadOrderImpactsOptions {
   from: Date
@@ -32,20 +72,8 @@ export interface LoadOrderImpactsOptions {
   workstation?: string
   mode?: 'immediate' | 'sequential'
   force?: boolean
-  /**
-   * Si vrai (vue proactive), ignore le verdict MFGMAT précalculé (snapshot plat, sans consommation)
-   * au profit du verdict du moteur séquentiel — sinon la consommation virtuelle des composants
-   * partagés (achat ET sous-ensembles) entre OFs resterait invisible : l'override MFGMAT
-   * écraserait le verdict séquentiel pour tout OF ayant des matières réelles.
-   */
-  preferEngineFeasibility?: boolean
-  /**
-   * Si vrai (/programme), charge getOrdersForWindow (STRDAT, ~25× moins de lignes) +
-   * getDemandAndReception (WIPTYP=1+2 seuls, ~2-3× moins) au lieu de getLive (WIPTYP=1+2+5).
-   * getOrdersForWindow est coalescé avec loadBoardData → 1 seul SOAP pour les deux.
-   * Filtre ENDDAT sauté : OFs déjà scopés par STRDAT dans la fenêtre board.
-   */
-  useWindowOfs?: boolean
+  /** Qui appelle — pas de défaut, choix forcé à la frontière (cf. #51). */
+  pipeline: OrderImpactsPipeline
 }
 
 export interface OrderImpactsContext {
@@ -74,9 +102,9 @@ export async function loadOrderImpacts(
     workstation: workstationFilter,
     mode,
     force = false,
-    preferEngineFeasibility = false,
-    useWindowOfs = false,
+    pipeline,
   } = opts
+  const { useWindowOfs, preferEngineFeasibility } = PIPELINE_MECHANICS[pipeline]
 
   // ISO sur les composantes LOCALES (pas toISOString, qui repasse en UTC et recule d'un jour
   // en fuseau UTC+1/+2 quand l'heure locale est minuit → scoping getLive décalé).
@@ -147,16 +175,7 @@ export async function loadOrderImpacts(
   // une ligne re-datée à la main décale sa demande → repositionne la commande
   // partout (vision DnD, ruptures). Clé composite numCommande#ligne.
   const lineDateOverrides = await new OrderLineOverrideStore().getMap()
-  const remappedDemands =
-    lineDateOverrides.size === 0
-      ? demandFlows
-      : demandFlows.map((f) => {
-          const o = f.origin as { type?: string; id?: string; ligne?: string | null }
-          if (o.type !== 'order') return f
-          const ov = lineDateOverrides.get(`${o.id}#${o.ligne ?? ''}`)
-          if (!ov || !/^\d{4}-\d{2}-\d{2}$/.test(ov)) return f
-          return { ...f, date: new Date(ov) }
-        })
+  const remappedDemands = remapDemandDates(demandFlows, lineDateOverrides)
 
   // Demandes déjà scopées par X3 ; re-filtre défensif sur l'horizon exact (après
   // remap : une commande re-datée peut entrer/sortir de la fenêtre).
@@ -205,21 +224,12 @@ export async function loadOrderImpacts(
   // Expand récursivement à TOUS les composants (ACHETE + FABRIQUE) de tous les niveaux BOM.
   // Sans ça, checkFeasibility descend dans un sous-ensemble fabriqué sans OF et trouve 0 stock
   // pour ses composants ACHETE car ils n'ont pas été chargés.
-  let added = true
-  while (added) {
-    added = false
-    for (const entry of nomenclatureEntries) {
-      if (articleSet.has(entry.parentArticle) && !articleSet.has(entry.componentArticle)) {
-        articleSet.add(entry.componentArticle)
-        added = true
-      }
-    }
-  }
+  const expandedArticleSet = expandArticleSetWithBom(articleSet, nomenclatureEntries)
   // Périmètre stock aligné sur le détail OF (issue #11) : seul le stock strict/qc
   // est consommable. Le stock 'rejected' (rebut) ne doit jamais compter comme dispo,
   // sinon le badge sur-évalue la faisabilité vs le panneau de détail.
   const rawStockFlows = await timeStage('loadOrderImpacts.stock', () =>
-    boardDataset.getStock([...articleSet])
+    boardDataset.getStock([...expandedArticleSet])
   )
   const stockFlows = rawStockFlows.filter((f) => {
     if (f.origin.type !== 'stock') return true
@@ -243,45 +253,7 @@ export async function loadOrderImpacts(
     }
   }
 
-  const articles = new Map<string, Article>(articlesList.map((a) => [a.code, a]))
-  for (const entry of nomenclatureEntries) {
-    if (!articles.has(entry.parentArticle)) {
-      articles.set(entry.parentArticle, {
-        code: entry.parentArticle,
-        description: entry.parentDescription,
-        category: '',
-        supplyType: 'FABRICATION',
-        famille: '',
-        typologie: '',
-        reorderDelay: 0,
-        productFamily: null,
-        pmp: null,
-        economicLot: null,
-        unitStock: null,
-        unitPurchase: null,
-        purchaseToStockRatio: 1,
-        packagings: [],
-      })
-    }
-    if (!articles.has(entry.componentArticle)) {
-      articles.set(entry.componentArticle, {
-        code: entry.componentArticle,
-        description: entry.componentDescription,
-        category: '',
-        supplyType: entry.componentType === 'ACHETE' ? 'ACHAT' : 'FABRICATION',
-        famille: '',
-        typologie: '',
-        reorderDelay: 0,
-        productFamily: null,
-        pmp: null,
-        economicLot: null,
-        unitStock: null,
-        unitPurchase: null,
-        purchaseToStockRatio: 1,
-        packagings: [],
-      })
-    }
-  }
+  const articles = buildArticleCatalog(articlesList, nomenclatureEntries)
 
   const overrideMap = new Map(overrides.map((o) => [o.numOf, o]))
 
@@ -297,21 +269,7 @@ export async function loadOrderImpacts(
   const stockByArticle = buildStrictQcStock(stockFlows)
   const mfgFeasibility = preferEngineFeasibility
     ? undefined
-    : new Map<string, { feasible: boolean | null; missingComponents: Record<string, number> }>()
-  if (mfgFeasibility) {
-    for (const f of finalOfFlows) {
-      const numOf = (f.origin as { id?: string }).id?.trim() ?? ''
-      if (!numOf) continue
-      const materials = mfgByOf.get(numOf)
-      if (!materials || materials.length === 0) continue
-      const status = overrideMap.get(numOf)?.status ?? (f.origin as { status?: number }).status ?? 3
-      const verdict = evaluateMfgFeasibility(materials, stockByArticle, status === 1)
-      mfgFeasibility.set(numOf, {
-        feasible: verdict.feasible,
-        missingComponents: verdict.missingComponents,
-      })
-    }
-  }
+    : precomputeMfgFeasibility(finalOfFlows, mfgByOf, stockByArticle, overrideMap)
 
   const result = evaluateOrderImpacts(
     filteredDemands,
