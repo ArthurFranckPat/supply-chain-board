@@ -31,6 +31,7 @@ import { ProgrammeToolbar, type VisionMode } from '@/components/vision/programme
 import { createScenarioStore } from '@/lib/scenarios/store'
 import { ScenarioBar } from '@/components/scenario/scenario-bar'
 import { ScenarioDiffSheet } from '@/components/scenario/scenario-diff-sheet'
+import { virtualOrdersFrom, type PlanMutation } from '@/lib/scenarios/types'
 import { Masthead } from '@/components/masthead'
 import { TextField, TextFieldInput } from '@/components/ui/text-field'
 import {
@@ -484,6 +485,57 @@ const Programme: Component<VisionProps> = (props) => {
   const colOfIso = (iso: string): number =>
     store.board.lines[0]?.dayCells.findIndex((dc) => dc.iso === iso) ?? -1
 
+  // #58 — articles connus dans la fenêtre affichée (suggestion, pas de validation
+  // stricte : le moteur d'impact tolère un article hors catalogue, sans BOM à charger).
+  const articleOptions = createMemo(() => {
+    const set = new Set<string>()
+    for (const line of store.board.lines) {
+      for (const dc of line.dayCells) {
+        for (const c of dc.cards) if (c.article) set.add(c.article)
+      }
+    }
+    return [...set].sort()
+  })
+
+  // #58 — commandes virtuelles courantes (mutations inject_demand) + verdict de
+  // servabilité résolu dans le dernier diff calculé. Regroupées par colonne pour
+  // la rangée dédiée du board (VirtualCell).
+  const virtualOrders = createMemo(() => virtualOrdersFrom(scenario.current.mutations, scenario.diff()))
+  const virtualOrdersByCol = createMemo(() => {
+    const map = new Map<number, ReturnType<typeof virtualOrdersFrom>>()
+    for (const o of virtualOrders()) {
+      const col = colOfIso(o.date)
+      if (col === -1) continue
+      const arr = map.get(col) ?? []
+      arr.push(o)
+      map.set(col, arr)
+    }
+    return map
+  })
+
+  // #58 — ajout d'une commande virtuelle : empile la mutation inject_demand puis
+  // réévalue immédiatement le diff (le verdict de servabilité est le but premier).
+  const injectVirtualOrder = (m: Extract<PlanMutation, { type: 'inject_demand' }>) => {
+    scenario.upsertMutation(m)
+    scenario.computeDiff(props.windowFrom, props.windowTo)
+  }
+
+  // #58 — drop d'un chip virtuel sur une autre colonne → nouvelle date de besoin.
+  const moveVirtualOrder = (id: string, _col: number, iso: string) => {
+    const existing = scenario.current.mutations.find(
+      (m): m is Extract<PlanMutation, { type: 'inject_demand' }> => m.type === 'inject_demand' && m.id === id
+    )
+    if (!existing) return
+    scenario.upsertMutation({ ...existing, date: iso })
+    scenario.computeDiff(props.windowFrom, props.windowTo)
+  }
+
+  // #58 — retire une commande virtuelle du scénario.
+  const removeVirtualOrder = (id: string) => {
+    scenario.removeMutation(`inject:${id}`)
+    scenario.computeDiff(props.windowFrom, props.windowTo)
+  }
+
   // #57 — activer/désactiver le mode scénario. À l'extinction sans « Jeter » explicite,
   // on garde l'état visuel courant (le toggle est un simple régime de capture).
   const toggleScenario = () => scenario.setActive(!scenario.active())
@@ -802,10 +854,12 @@ const Programme: Component<VisionProps> = (props) => {
           windowFrom={props.windowFrom}
           windowTo={props.windowTo}
           applying={applying}
+          articleOptions={articleOptions()}
           onApply={applyScenario}
           onDiscard={discardScenario}
           onOpenScenario={openScenario}
           onShowDiff={() => setDiffOpen(true)}
+          onInjectDemand={injectVirtualOrder}
         />
       </Show>
 
@@ -858,6 +912,9 @@ const Programme: Component<VisionProps> = (props) => {
             onOfDropped={mode() === 'combined' ? onOfDropped : undefined}
             onOfDragCancelled={mode() === 'combined' ? onOfDragCancelled : undefined}
             translateOfDateFin={mode() === 'combined' ? translateOfDateFin : undefined}
+            virtualOrdersByCol={mode() === 'combined' && scenario.active() ? virtualOrdersByCol() : undefined}
+            onVirtualDrop={moveVirtualOrder}
+            onVirtualRemove={removeVirtualOrder}
             cellExtra={mode() === 'combined' ? (lineCode, col) => (
               <For each={cmdCells().get(lineCode)?.[col] ?? []}>
                 {(cmd) => (

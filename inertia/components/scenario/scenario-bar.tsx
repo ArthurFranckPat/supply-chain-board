@@ -2,6 +2,7 @@ import { For, Show, createSignal, onMount, type Accessor, type Component } from 
 import { cx } from '@/libs/cva'
 import { Button } from '@/components/ui/button'
 import type { ScenarioStore } from '@/lib/scenarios/store'
+import type { PlanMutation } from '@/lib/scenarios/types'
 
 /**
  * Bandeau du mode scénario (issue #57) : « Scénario ‹nom› — N mutations — Impacts
@@ -10,23 +11,53 @@ import type { ScenarioStore } from '@/lib/scenarios/store'
  *
  * Le bandeau ne touche pas au board : Appliquer/Jeter/Rouvrir délèguent à
  * programme.tsx (seul détenteur des board stores) via callbacks.
+ *
+ * Issue #58 : bouton « + Commande virtuelle » — formulaire (article, qté, date de
+ * besoin, client libre) qui empile une mutation `inject_demand`. Rien n'est écrit
+ * en X3 ; la carte n'existe que dans le scénario (cf. VirtualCell sur le board).
  */
 export const ScenarioBar: Component<{
   scenario: ScenarioStore
   windowFrom: string
   windowTo: string
   applying: Accessor<boolean>
+  articleOptions: string[]
   onApply: () => void
   onDiscard: () => void
   onOpenScenario: (id: number) => void
   onShowDiff: () => void
+  onInjectDemand: (m: Extract<PlanMutation, { type: 'inject_demand' }>) => void
 }> = (props) => {
   const s = props.scenario
   const [listOpen, setListOpen] = createSignal(false)
+  const [formOpen, setFormOpen] = createSignal(false)
+  const [article, setArticle] = createSignal('')
+  const [quantity, setQuantity] = createSignal('1')
+  const [date, setDate] = createSignal(props.windowFrom)
+  const [client, setClient] = createSignal('')
 
   onMount(() => {
     s.loadList()
   })
+
+  const submitInject = (e: SubmitEvent) => {
+    e.preventDefault()
+    const art = article().trim()
+    const qty = Number(quantity())
+    if (!art || !Number.isFinite(qty) || qty <= 0 || !date()) return
+    props.onInjectDemand({
+      type: 'inject_demand',
+      id: `VIRT-${Date.now().toString(36)}`,
+      article: art,
+      quantity: qty,
+      date: date(),
+      client: client().trim() || undefined,
+    })
+    setArticle('')
+    setQuantity('1')
+    setClient('')
+    setFormOpen(false)
+  }
 
   const openDiff = () => {
     s.computeDiff(props.windowFrom, props.windowTo)
@@ -92,6 +123,68 @@ export const ScenarioBar: Component<{
           <span class="material-symbols-outlined text-[15px]">delete</span>
           Jeter
         </Button>
+
+        {/* #58 — commande virtuelle (mutation inject_demand, what-if) */}
+        <div class="relative">
+          <Button size="sm" variant="outline" onClick={() => setFormOpen((o) => !o)} class="gap-1.5">
+            <span class="material-symbols-outlined text-[15px]">add_circle</span>
+            Commande virtuelle
+          </Button>
+          <Show when={formOpen()}>
+            <button
+              type="button"
+              tabIndex={-1}
+              aria-hidden="true"
+              class="fixed inset-0 z-40 cursor-default"
+              onClick={() => setFormOpen(false)}
+            />
+            <form
+              onSubmit={submitInject}
+              class="absolute right-0 top-full z-50 mt-2 w-[280px] space-y-2 rounded-lg border border-terra/40 bg-card p-3 shadow-lg"
+            >
+              <p class="font-fraunces text-[12px] font-bold text-terra">+ Commande virtuelle</p>
+              <input
+                list="scenario-article-options"
+                required
+                value={article()}
+                onInput={(e) => setArticle(e.currentTarget.value)}
+                placeholder="Article"
+                class="h-[28px] w-full rounded-md border border-rule bg-background px-2 text-[12px] focus:border-terra focus:outline-none"
+              />
+              <datalist id="scenario-article-options">
+                <For each={props.articleOptions}>{(a) => <option value={a} />}</For>
+              </datalist>
+              <div class="flex gap-2">
+                <input
+                  type="number"
+                  min="1"
+                  required
+                  value={quantity()}
+                  onInput={(e) => setQuantity(e.currentTarget.value)}
+                  placeholder="Qté"
+                  class="h-[28px] w-[80px] rounded-md border border-rule bg-background px-2 text-[12px] focus:border-terra focus:outline-none"
+                />
+                <input
+                  type="date"
+                  required
+                  value={date()}
+                  onInput={(e) => setDate(e.currentTarget.value)}
+                  class="h-[28px] flex-1 rounded-md border border-rule bg-background px-2 text-[12px] focus:border-terra focus:outline-none"
+                />
+              </div>
+              <input
+                value={client()}
+                onInput={(e) => setClient(e.currentTarget.value)}
+                placeholder="Client (libre, optionnel)"
+                class="h-[28px] w-full rounded-md border border-rule bg-background px-2 text-[12px] focus:border-terra focus:outline-none"
+              />
+              <Button type="submit" size="sm" class="w-full gap-1.5">
+                <span class="material-symbols-outlined text-[15px]">add</span>
+                Ajouter au scénario
+              </Button>
+            </form>
+          </Show>
+        </div>
 
         {/* Liste des scénarios enregistrés */}
         <div class="relative">

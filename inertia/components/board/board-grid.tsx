@@ -4,6 +4,8 @@ import type { BoardStore } from '@/lib/board/store'
 import type { Card, LineRow } from '@/lib/board/types'
 import { TYPO_META } from '@/lib/board/types'
 import { usePrintFit } from '@/lib/board/use-print-fit'
+import type { VirtualOrderVm } from '@/lib/scenarios/types'
+import { fmtDay } from '@/lib/vision/date-utils'
 import { BoardCard, type CardStatus } from './board-card'
 import { ChargeHistogram, type ChargeWeek } from './charge-histogram'
 
@@ -85,6 +87,13 @@ export default function BoardGrid(props: {
   /** #23 : résout la date de fin translatée d'un OF droppé vers une cellule (toIso).
    *  Retournée à moveCard → PATCH dateFin → verdict serveur cohérent. Optionnel. */
   translateOfDateFin?: (ofId: string, toIso: string) => string | null | undefined
+  /** #58 : commandes virtuelles (mutations `inject_demand` du scénario courant) à
+   *  afficher sur une rangée dédiée, groupées par colonne. Optionnel → board inchangé. */
+  virtualOrdersByCol?: Map<number, VirtualOrderVm[]>
+  /** #58 : drop d'un marqueur virtuel dans une cellule → nouvelle date de besoin. */
+  onVirtualDrop?: (id: string, col: number, iso: string) => void
+  /** #58 : suppression d'une commande virtuelle du scénario. */
+  onVirtualRemove?: (id: string) => void
 }) {
   const { store } = props
   let rootEl: HTMLDivElement | undefined
@@ -223,6 +232,29 @@ export default function BoardGrid(props: {
             </For>
           </div>
         </div>
+
+        {/* ═══ Rangée « Commandes virtuelles » (issue #58, mode scénario) ═══ */}
+        <Show when={props.virtualOrdersByCol}>
+          {(byCol) => (
+            <div class="grid border-b-2 border-dashed border-terra/50 bg-terra-soft/40" style={{ 'grid-template-columns': gridTpl() }}>
+              <div class="sticky left-0 z-20 flex items-center gap-1.5 border-r border-rule bg-terra-soft/60 px-3.5 py-3">
+                <span class="material-symbols-outlined text-[15px] text-terra">science</span>
+                <span class="font-mono text-[10px] font-bold uppercase tracking-wider text-terra">Virtuelles</span>
+              </div>
+              <For each={store.board.days}>
+                {(_day, ci) => (
+                  <VirtualCell
+                    col={ci()}
+                    orders={byCol().get(ci()) ?? []}
+                    iso={store.board.lines[0]?.dayCells[ci()]?.iso ?? ''}
+                    onDrop={props.onVirtualDrop}
+                    onRemove={props.onVirtualRemove}
+                  />
+                )}
+              </For>
+            </div>
+          )}
+        </Show>
 
         {/* ═══ Rangées de postes ═══ */}
         <For each={store.board.lines}>
@@ -502,6 +534,94 @@ function CardView(props: {
         kitGpe={card.kitGpe}
         retardJours={props.retardJours}
       />
+    </div>
+  )
+}
+
+/** Verdict de servabilité → ton visuel (issue #58, réutilise la palette #23). */
+const VERDICT_TONE: Record<string, { border: string; text: string; label: string }> = {
+  on_time: { border: 'border-l-terra', text: 'text-terra', label: 'à temps' },
+  stock: { border: 'border-l-terra', text: 'text-terra', label: 'à temps' },
+  retard: { border: 'border-l-error', text: 'text-error', label: 'retard' },
+  bloquee: { border: 'border-l-error', text: 'text-error', label: 'bloquée' },
+  sans_couverture: { border: 'border-l-amber-500', text: 'text-amber-600', label: 'sans couverture' },
+}
+
+/** Cellule de la rangée « Commandes virtuelles » — reçoit le drop d'un chip
+ *  déplacé vers une autre colonne (nouvelle date de besoin). */
+function VirtualCell(props: {
+  col: number
+  orders: VirtualOrderVm[]
+  iso: string
+  onDrop?: (id: string, col: number, iso: string) => void
+  onRemove?: (id: string) => void
+}) {
+  const [over, setOver] = createSignal(false)
+  return (
+    <div
+      class={cx('flex min-h-[52px] flex-col gap-1 border-r border-dashed border-terra/30 p-1.5', over() && 'bg-terra-soft')}
+      onDragOver={(e) => {
+        if (!props.onDrop) return
+        e.preventDefault()
+        if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
+        setOver(true)
+      }}
+      onDragLeave={() => setOver(false)}
+      onDrop={(e) => {
+        setOver(false)
+        const id = e.dataTransfer?.getData('application/x-virtual-cmd')
+        if (id && props.iso) props.onDrop?.(id, props.col, props.iso)
+      }}
+    >
+      <For each={props.orders}>
+        {(o) => <VirtualOrderChip order={o} onRemove={props.onRemove} />}
+      </For>
+    </div>
+  )
+}
+
+function VirtualOrderChip(props: { order: VirtualOrderVm; onRemove?: (id: string) => void }) {
+  const tone = () => (props.order.statut ? VERDICT_TONE[props.order.statut] : undefined)
+  return (
+    <div
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer?.setData('application/x-virtual-cmd', props.order.id)
+        if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'
+      }}
+      class={cx(
+        'group relative overflow-hidden rounded-[6px] border border-dashed border-terra/60 border-l-[3px] bg-card/80 px-1.5 py-1 leading-tight shadow-sm',
+        'cursor-grab active:cursor-grabbing',
+        tone()?.border ?? 'border-l-terra/60'
+      )}
+      title="Commande virtuelle — n'existe que dans le scénario"
+    >
+      <button
+        type="button"
+        class="absolute right-0.5 top-0.5 hidden size-3.5 items-center justify-center rounded-full text-muted-foreground hover:text-error group-hover:flex"
+        onClick={() => props.onRemove?.(props.order.id)}
+        title="Retirer du scénario"
+      >
+        <span class="material-symbols-outlined text-[12px]">close</span>
+      </button>
+      <div class="flex items-baseline gap-1 whitespace-nowrap pr-3 font-mono text-[9.5px] font-bold text-terra">
+        <span class="material-symbols-outlined flex-none self-center text-[11px]">science</span>
+        <span>{props.order.article} × {props.order.quantity}</span>
+      </div>
+      <div class="mt-0.5 flex items-center gap-1">
+        <span class="flex-none font-fraunces text-[10px] font-bold tabular-nums text-secondary-foreground">
+          {fmtDay(props.order.date)}
+        </span>
+        <Show when={props.order.client}>
+          <span class="truncate font-fraunces text-[9.5px] italic text-muted-foreground">{props.order.client}</span>
+        </Show>
+        <Show when={tone()}>
+          <span class={cx('ml-auto rounded-full bg-card px-1 py-px font-mono text-[8px] font-bold uppercase tracking-wider', tone()!.text)}>
+            {tone()!.label}
+            <Show when={props.order.joursRetard}> +{props.order.joursRetard}j</Show>
+          </span>
+        </Show>
+      </div>
     </div>
   )
 }

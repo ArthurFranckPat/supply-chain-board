@@ -89,3 +89,37 @@ export function mutationKey(m: PlanMutation): string {
       return `suspend:${m.article}:${m.sourceId ?? ''}`
   }
 }
+
+/** Vue d'une commande virtuelle (issue #58) — mutation `inject_demand` + verdict de
+ *  servabilité résolu depuis le dernier diff calculé (null tant que non évalué). */
+export interface VirtualOrderVm {
+  id: string
+  article: string
+  quantity: number
+  client: string | null
+  date: string
+  statut: ClientDiffEntry['statutApres'] | null
+  joursRetard: number | null
+}
+
+/** Reconstruit les commandes virtuelles courantes (mutations `inject_demand`) et
+ *  résout leur verdict de servabilité dans le dernier diff calculé (issue #58). */
+export function virtualOrdersFrom(mutations: PlanMutation[], diff: PlanDiff | null): VirtualOrderVm[] {
+  const clientByKey = new Map(
+    (diff?.client ?? []).filter((e) => e.nouvelle).map((e) => [`${e.numCommande}#${e.ligne ?? ''}`, e])
+  )
+  return mutations
+    .filter((m): m is Extract<PlanMutation, { type: 'inject_demand' }> => m.type === 'inject_demand')
+    .map((m) => {
+      const entry = clientByKey.get(`${m.id}#${m.ligne ?? ''}`)
+      return {
+        id: m.id,
+        article: m.article,
+        quantity: m.quantity,
+        client: m.client ?? null,
+        date: m.date,
+        statut: entry?.statutApres ?? null,
+        joursRetard: entry?.joursRetardApres ?? null,
+      }
+    })
+}
