@@ -89,7 +89,7 @@ router
       .get('/ordonnancement', ({ response }) => response.redirect('/programme'))
       .as('scheduling')
     router
-      .get('/planification', ({ response }) => response.redirect('/vision?mode=planification'))
+      .get('/planification', ({ response }) => response.redirect('/programme?mode=planification'))
       .as('planning')
     router.get('/ruptures', '#controllers/scheduler_controller.shortageTracker')
     router.get('/suivi', '#controllers/suivi_controller.board')
