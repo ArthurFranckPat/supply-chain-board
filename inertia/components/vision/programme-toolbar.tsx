@@ -45,6 +45,11 @@ export function ProgrammeToolbar(props: {
   setCalOpen: (fn: (o: boolean) => boolean) => void
   range: Accessor<DateRange>
   applyRange: (r: DateRange) => void
+  /** #23 : nombre de commandes en retard (mode combiné) — bouton/compteur. */
+  nbCmdRetard?: Accessor<number>
+  /** #23 : highlight forcé des liens en retard (toggle depuis le compteur). */
+  highlightRetards?: Accessor<boolean>
+  onToggleHighlight?: () => void
 }) {
   const { store, orderStore } = props
   return (
@@ -149,6 +154,25 @@ export function ProgrammeToolbar(props: {
             )}
           </For>
         </div>
+      </Show>
+
+      {/* #23 — compteur commandes en retard (mode combiné). Clic → met en évidence
+          tous les liens retard. Masqué hors combiné (aucun lien). */}
+      <Show when={props.mode() === 'combined' && props.nbCmdRetard && props.nbCmdRetard() > 0}>
+        <button
+          type="button"
+          title="Mettre en évidence tous les liens en retard"
+          onClick={() => props.onToggleHighlight?.()}
+          class={cx(
+            'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-bold transition-colors',
+            props.highlightRetards?.()
+              ? 'border-error bg-error/10 text-error'
+              : 'border-rule bg-card text-foreground hover:border-error hover:text-error',
+          )}
+        >
+          <span class="material-symbols-outlined text-[14px]">schedule_send</span>
+          {props.nbCmdRetard!()} en retard
+        </button>
       </Show>
 
       {/* Calendrier — conservé seul à l'impression (data-print-keep). */}

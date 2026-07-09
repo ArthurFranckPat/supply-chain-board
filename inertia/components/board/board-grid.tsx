@@ -71,6 +71,20 @@ export default function BoardGrid(props: {
   /** Bouton « Engagement » dans le header de chaque poste (issue #46).
    *  Optionnel → board /ordonnancement inchangé. */
   onLineEngagement?: (lineCode: string) => void
+  /** Issue #23 : résout l'écart (jours) au besoin pour une carte OF — badge retard
+   *  « +N j ». undefined → badge absent (board /ordonnancement inchangé). */
+  cardRetard?: (ofId: string) => number | null | undefined
+  /** #23 : drag OF en cours survol d'une cellule → recalcul d'impact live.
+   *  (ofId, lineCode cible, col cible, iso cible). Optionnel → board inchangé. */
+  onOfDragProgress?: (ofId: string, toLineCode: string, toCol: number, toIso: string) => void
+  /** #23 : drop réussi → fige l'override optimiste (dateFin traduite si connue). */
+  onOfDropped?: (ofId: string, toIso: string, dateFinIso?: string) => void
+  /** #23 : drag OF annulé (relâché hors grille) → clear le shift/tooltip live sans
+   *  toucher l'override de date déjà figé par un drop précédent. */
+  onOfDragCancelled?: () => void
+  /** #23 : résout la date de fin translatée d'un OF droppé vers une cellule (toIso).
+   *  Retournée à moveCard → PATCH dateFin → verdict serveur cohérent. Optionnel. */
+  translateOfDateFin?: (ofId: string, toIso: string) => string | null | undefined
 }) {
   const { store } = props
   let rootEl: HTMLDivElement | undefined
@@ -328,13 +342,17 @@ export default function BoardGrid(props: {
                         e.preventDefault()
                         if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
                         setDropCol(cellKey)
+                        // #23 : notification de progression du drag OF → recalcul d'impact live.
+                        if (draggedNumOf()) props.onOfDragProgress?.(draggedNumOf()!, line.code, ci(), dc.iso)
                       }}
                       onDrop={(e) => {
                         const num = draggedNumOf()
                         setDropCol(null)
                         e.preventDefault()
                         if (num) {
-                          store.moveCard(num, line.code, ci(), dc.iso)
+                          const dateFin = props.translateOfDateFin?.(num, dc.iso)
+                          store.moveCard(num, line.code, ci(), dc.iso, dateFin ?? undefined)
+                          props.onOfDropped?.(num, dc.iso, dateFin ?? undefined)
                         } else {
                           props.onCellDrop?.(line.code, ci(), dc.iso, e)
                         }
@@ -351,6 +369,8 @@ export default function BoardGrid(props: {
                             draggedNumOf={draggedNumOf}
                             setDraggedNumOf={setDraggedNumOf}
                             setDropCol={setDropCol}
+                            onDragCancelled={props.onOfDragCancelled}
+                            retardJours={props.cardRetard?.(card.id)}
                           />
                         )}
                       </For>
@@ -377,6 +397,11 @@ function CardView(props: {
   draggedNumOf: () => string | null
   setDraggedNumOf: (v: string | null) => void
   setDropCol: (v: string | null) => void
+  /** #23 : drag OF annulé (relâché hors grille, dropEffect==='none') → clear le
+   *  shift/tooltip live. Optionnel → board /ordonnancement inchangé. */
+  onDragCancelled?: () => void
+  /** #23 : écart (jours) au besoin — badge retard sur la carte. */
+  retardJours?: number | null
 }) {
   const { store, card } = props
   const matches = () => store.cardMatches(card, props.line.code)
@@ -421,9 +446,13 @@ function CardView(props: {
           e.dataTransfer.setData('text/plain', card.id)
         }
       }}
-      onDragEnd={() => {
+      onDragEnd={(e: DragEvent) => {
         props.setDraggedNumOf(null)
         props.setDropCol(null)
+        // #23 : dropEffect==='none' → aucun `drop` n'a capté ce drag (relâché hors
+        // grille) ; onDrop n'a donc pas appelé onOfDropped → clear nous-mêmes le
+        // shift/tooltip live pour éviter un état fantôme (badge/tooltip figés).
+        if (e.dataTransfer?.dropEffect === 'none') props.onDragCancelled?.()
       }}
     >
       {/* Case à cocher (mode sélection) */}
@@ -471,6 +500,7 @@ function CardView(props: {
         consommeBouche={card.consommeBouche}
         typologie={card.typologie}
         kitGpe={card.kitGpe}
+        retardJours={props.retardJours}
       />
     </div>
   )

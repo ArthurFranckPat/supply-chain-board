@@ -16,9 +16,10 @@ import type { BoardData, SearchScope } from '@/lib/board/types'
 import { createOrderBoardStore } from '@/lib/orders/store'
 import type { OrderBoardData, OrderSearchScope } from '@/lib/orders/types'
 import type { VisionCommande, VisionLink } from '@/lib/vision/types'
-import { parseIso, toIso, startOfDay, DAY_MS } from '@/lib/vision/date-utils'
-import { buildLinkPath, type PathSpec } from '@/lib/vision/link-overlay'
+import { parseIso, toIso, startOfDay, DAY_MS, fmtDay } from '@/lib/vision/date-utils'
+import { buildLinkPath, pathMid, type PathSpec } from '@/lib/vision/link-overlay'
 import { buildCmdCells } from '@/lib/vision/cmd-cells'
+import { computeImpacts, worstVerdict, deltaLabel, linkKey, type ImpactVerdict } from '@/lib/vision/impact'
 import BoardGrid from '@/components/board/board-grid'
 import BatchFirmBar from '@/components/board/batch-firm-bar'
 import OrderGrid from '@/components/board/order-grid'
@@ -247,6 +248,208 @@ const Programme: Component<VisionProps> = (props) => {
   const cmdCol = (l: VisionLink) => cmdMoved().get(l.commandeId)?.col ?? l.cmdCol
   const cmdIso = (cmd: VisionCommande) => cmdMoved().get(cmd.id)?.iso ?? cmd.dateExpeditionIso
 
+  // ── Issue #23 — couche d'impact ──
+  // ofShift : décalage en jours appliqué à un OF pendant/après un drag (optimiste).
+  // Alimenté par le drag OF (col cible − col origine) ; durée de l'OF préservée →
+  // dateFin translatée du même écart dans computeImpacts.
+  const [ofShift, setOfShift] = createSignal<Map<string, number>>(new Map())
+
+  // Besoin commande provisoire pendant un drag commande = la map cmdMoved (iso).
+  const cmdBesoinOverride = () => {
+    const m = new Map<string, string>()
+    cmdMoved().forEach((v, k) => m.set(k, v.iso))
+    return m
+  }
+
+  // #23 : override client de la date de fin d'un OF, posé après un drop réussi —
+  // évite que le badge/lien reviennent à l'ancien verdict tant que le payload
+  // serveur (props.links) n'a pas été rafraîchi (reload manuel). Clé = ofId.
+  const [ofDateFinOverride, setOfDateFinOverride] = createSignal<Map<string, string>>(new Map())
+
+  // Liens effectifs = props.links, dateFin substituée par l'override post-drop s'il
+  // existe. Dérivation unique, réutilisée par impacts() et par les lookups par OF.
+  const effectiveLinks = createMemo(() =>
+    ofDateFinOverride().size === 0
+      ? props.links
+      : props.links.map((l) => {
+          const override = ofDateFinOverride().get(l.ofId)
+          return override ? { ...l, ofDateFinIso: override } : l
+        }),
+  )
+  // Index ofId → lien, construit une fois par changement de links — remplace les
+  // scans linéaires répétés (ofColOrigine/ofDateFinOrigine) à chaque dragover.
+  const linksByOf = createMemo(() => {
+    const m = new Map<string, VisionLink>()
+    for (const l of effectiveLinks()) m.set(l.ofId, l)
+    return m
+  })
+
+  // Impacts (delta + verdict par lien) — dérivés des dates effectives + overrides drag.
+  const impacts = createMemo(() =>
+    computeImpacts(effectiveLinks(), ofShift(), cmdBesoinOverride()),
+  )
+  // Verdict le plus grave par OF et par commande (pour badge carte + marqueur).
+  const verdictByOf = createMemo(() => {
+    const byOf = new Map<string, ImpactVerdict[]>()
+    for (const [, imp] of impacts()) {
+      if (imp.verdict === null) continue
+      const arr = byOf.get(imp.ofId) ?? []
+      arr.push(imp.verdict)
+      byOf.set(imp.ofId, arr)
+    }
+    const out = new Map<string, ImpactVerdict | null>()
+    for (const [ofId, vs] of byOf) out.set(ofId, worstVerdict(vs))
+    return out
+  })
+  const verdictByCmd = createMemo(() => {
+    const byCmd = new Map<string, { verdicts: ImpactVerdict[]; delta: number | null }>()
+    for (const [, imp] of impacts()) {
+      if (imp.verdict === null) continue
+      const e = byCmd.get(imp.commandeId) ?? { verdicts: [], delta: null }
+      e.verdicts.push(imp.verdict)
+      // delta du pire lien (le plus grand) pour le badge marqueur.
+      if (imp.delta !== null && (e.delta === null || imp.delta > e.delta)) e.delta = imp.delta
+      byCmd.set(imp.commandeId, e)
+    }
+    const out = new Map<string, { verdict: ImpactVerdict | null; delta: number | null }>()
+    for (const [cmdId, e] of byCmd) out.set(cmdId, { verdict: worstVerdict(e.verdicts), delta: e.delta })
+    return out
+  })
+  // Delta max par OF en retard (badge carte) — un seul passage O(links), comme
+  // verdictByCmd, au lieu d'un scan par carte rendue.
+  const retardByOf = createMemo(() => {
+    const m = new Map<string, number>()
+    for (const [, imp] of impacts()) {
+      if (imp.verdict !== 'retard' || imp.delta === null) continue
+      const cur = m.get(imp.ofId)
+      if (cur === undefined || imp.delta > cur) m.set(imp.ofId, imp.delta)
+    }
+    return m
+  })
+  const retardJoursOf = (ofId: string): number | null => retardByOf().get(ofId) ?? null
+
+  // Compteur toolbar — nombre de COMMANDES en retard (une commande = 1 même si 2 liens).
+  const nbCmdRetard = createMemo(() => {
+    let n = 0
+    for (const [, e] of verdictByCmd()) if (e.verdict === 'retard') n++
+    return n
+  })
+  // Highlight forcé de tous les liens en retard (clic compteur toolbar).
+  const [highlightRetards, setHighlightRetards] = createSignal(false)
+
+  // ── Issue #23 — recalcul d'impact LIVE pendant le drag OF ──
+  // ofShift (ofId → delta jours) alimenté au dragover ; les impacts se recalculent
+  // (dateFin translatée = durée préservée), les liens/cartes se recolorent.
+  // Position courante de l'OF sur le board (store.board — pas props.links, payload
+  // serveur figé) : un 2e drag du même OF dans la session doit repartir de sa
+  // position réelle, pas de l'origine périmée du dernier chargement.
+  const ofPositions = createMemo(() => {
+    const m = new Map<string, number>()
+    for (const line of store.board.lines) {
+      line.dayCells.forEach((dc, col) => {
+        for (const c of dc.cards) m.set(c.id, col)
+      })
+    }
+    return m
+  })
+  const ofColOrigine = (ofId: string): number | null =>
+    ofPositions().get(ofId) ?? linksByOf().get(ofId)?.ofCol ?? null
+
+  // Écart calendaire réel entre la colonne d'origine et `targetIso`, calculé depuis
+  // les dates effectives des colonnes — PAS un delta de colonnes : les colonnes du
+  // board sont des jours OUVRÉS (week-ends exclus), un delta de colonnes ne vaut donc
+  // pas un delta de jours calendaires dès qu'un drag traverse un week-end. Même
+  // formule utilisée en live (onOfDragProgress) et au drop (translateOfDateFin) →
+  // zéro divergence entre l'aperçu et la valeur persistée.
+  const dayShiftFor = (ofId: string, targetIso: string): number | null => {
+    const origine = ofColOrigine(ofId)
+    if (origine === null) return null
+    const fromIso = store.board.lines[0]?.dayCells[origine]?.iso
+    if (!fromIso) return null
+    const fromD = parseIso(fromIso)
+    const toD = parseIso(targetIso)
+    if (!fromD || !toD) return null
+    return Math.round((toD.getTime() - fromD.getTime()) / DAY_MS)
+  }
+
+  const onOfDragProgress = (ofId: string, _toLineCode: string, _toCol: number, targetIso: string) => {
+    const shift = dayShiftFor(ofId, targetIso)
+    if (shift === null) return
+    setOfShift((m) => {
+      if (shift === 0) {
+        if (!m.has(ofId)) return m
+        const n = new Map(m)
+        n.delete(ofId)
+        return n
+      }
+      // Shift inchangé depuis le tick précédent → même Map (évite de redéclencher
+      // impacts()/verdictByOf()/verdictByCmd() + la remesure DOM des liens à chaque
+      // pixel de dragover natif).
+      if (m.get(ofId) === shift) return m
+      return new Map(m).set(ofId, shift)
+    })
+    // #23 : tooltip prévisionnel — verdict du pire lien de cet OF après translation.
+    updateDragTooltip(ofId)
+  }
+
+  // Tooltip flottant pendant le drag OF (verdict prévisionnel de la mise à dispo).
+  const [dragTooltip, setDragTooltip] = createSignal<string | null>(null)
+  const updateDragTooltip = (ofId: string) => {
+    const v = verdictByOf().get(ofId)
+    if (v === 'retard') {
+      const finOrigine = ofDateFinOrigine(ofId)
+      const finD = finOrigine ? parseIso(finOrigine) : null
+      if (finD) {
+        const shift = ofShift().get(ofId) ?? 0
+        const shifted = new Date(finD)
+        shifted.setDate(shifted.getDate() + shift)
+        const delta = retardJoursOf(ofId)
+        setDragTooltip(
+          `Dispo estimée le ${fmtDay(toIso(shifted))} · ${delta ? deltaLabel(delta) : 'en retard'}`,
+        )
+        return
+      }
+      setDragTooltip('OF en retard sur sa commande')
+    } else if (v === 'limite') {
+      setDragTooltip('OF limite (J)')
+    } else if (v === 'ok') {
+      setDragTooltip('OF à l\'heure')
+    } else {
+      setDragTooltip(null)
+    }
+  }
+  // Drag annulé (relâché hors grille, aucun `drop` n'a capté l'évènement) → clear le
+  // shift/tooltip live SANS toucher l'override de date (rien n'a été déposé).
+  const onOfDragCancelled = () => {
+    setOfShift(new Map())
+    setDragTooltip(null)
+  }
+  const onOfDropped = (ofId: string, _toIso: string, dateFinIso?: string) => {
+    // Le store.moveCard a déjà déplacé la carte + lancé le PATCH. On fige la dateFin
+    // traduite dans l'override : sans ça, impacts() retombe sur l'ancienne dateFin de
+    // props.links dès que ofShift est vidé → le badge/lien reviendrait au verdict
+    // pré-drag jusqu'au prochain reload. L'override sera rejoint/remplacé par la
+    // valeur serveur confirmée au reload suivant.
+    if (dateFinIso) setOfDateFinOverride((m) => new Map(m).set(ofId, dateFinIso))
+    setOfShift(new Map())
+    setDragTooltip(null)
+  }
+
+  // #23 (gap n°4) : date de fin translatée d'un OF droppé. La durée de l'OF est
+  // préservée → dateFin = ofDateFinOrigine + dayShiftFor(targetIso). Calculée depuis
+  // les dates effectives (+ override), indépendamment de l'ofShift (déjà cleared au drop).
+  const ofDateFinOrigine = (ofId: string): string | null =>
+    ofDateFinOverride().get(ofId) ?? linksByOf().get(ofId)?.ofDateFinIso ?? null
+  const translateOfDateFin = (ofId: string, targetIso: string): string | null => {
+    const finOrigine = ofDateFinOrigine(ofId)
+    const finD = finOrigine ? parseIso(finOrigine) : null
+    const shift = dayShiftFor(ofId, targetIso)
+    if (!finD || shift === null) return null
+    const shifted = new Date(finD)
+    shifted.setDate(shifted.getDate() + shift)
+    return toIso(shifted)
+  }
+
   // Commandes regroupées par poste (= rangée du board) × colonne d'expédition.
   const cmdCells = createMemo(() => buildCmdCells(props.commandes, props.links, cmdCol))
 
@@ -297,6 +500,7 @@ const Programme: Component<VisionProps> = (props) => {
     const content = contentEl()
     if (!content) return
     const cRect = content.getBoundingClientRect()
+    const imps = impacts()
     const out: PathSpec[] = []
     for (const link of props.links) {
       const ofEl = content.querySelector(`[data-num-of="${link.ofId}"]`)
@@ -306,7 +510,17 @@ const Programme: Component<VisionProps> = (props) => {
       const cr = (cmdEl as HTMLElement).getBoundingClientRect()
       const d = buildLinkPath(cRect, or, cr)
       if (!d) continue
-      out.push({ d, suggere: link.suggere, ofId: link.ofId, commandeId: link.commandeId })
+      // #23 : verdict + delta + point médian pour le badge « +N j ».
+      const imp = imps.get(linkKey(link.ofId, link.commandeId))
+      out.push({
+        d,
+        suggere: link.suggere,
+        ofId: link.ofId,
+        commandeId: link.commandeId,
+        verdict: imp?.verdict ?? null,
+        deltaJours: imp?.delta ?? null,
+        mid: pathMid(cRect, or, cr),
+      })
     }
     setPaths(out)
   }
@@ -329,7 +543,7 @@ const Programme: Component<VisionProps> = (props) => {
   })
   createEffect(
     on(
-      () => [props.board, cmdMoved()] as const,
+      () => [props.board, cmdMoved(), ofShift()] as const,
       () => requestAnimationFrame(measure),
       { defer: true }
     )
@@ -452,6 +666,9 @@ const Programme: Component<VisionProps> = (props) => {
         setCalOpen={setCalOpen}
         range={range}
         applyRange={applyRange}
+        nbCmdRetard={nbCmdRetard}
+        highlightRetards={highlightRetards}
+        onToggleHighlight={() => setHighlightRetards((v) => !v)}
       />
 
       <Show when={props.x3Error}>
@@ -498,6 +715,11 @@ const Programme: Component<VisionProps> = (props) => {
             onCellDrop={onCommandeDrop}
             onLineEngagement={onLineEngagement}
             contentRef={setContentEl}
+            cardRetard={mode() === 'combined' ? retardJoursOf : undefined}
+            onOfDragProgress={mode() === 'combined' ? onOfDragProgress : undefined}
+            onOfDropped={mode() === 'combined' ? onOfDropped : undefined}
+            onOfDragCancelled={mode() === 'combined' ? onOfDragCancelled : undefined}
+            translateOfDateFin={mode() === 'combined' ? translateOfDateFin : undefined}
             cellExtra={mode() === 'combined' ? (lineCode, col) => (
               <For each={cmdCells().get(lineCode)?.[col] ?? []}>
                 {(cmd) => (
@@ -507,16 +729,28 @@ const Programme: Component<VisionProps> = (props) => {
                     cmdIso={cmdIso}
                     activeId={activeId}
                     onActivate={setActiveId}
+                    verdict={verdictByCmd().get(cmd.id)?.verdict ?? null}
+                    deltaJours={verdictByCmd().get(cmd.id)?.delta ?? null}
                   />
                 )}
               </For>
             ) : undefined}
-            overlay={mode() === 'combined' ? <LinksOverlay paths={paths} isActive={isActive} /> : undefined}
+            overlay={mode() === 'combined' ? (
+              <LinksOverlay paths={paths} isActive={isActive} highlightRetards={highlightRetards} />
+            ) : undefined}
           />
         </div>
       </Show>
 
       <BatchFirmBar store={store} />
+      </Show>
+
+      {/* #23 — tooltip flottant pendant le drag OF : verdict prévisionnel de la
+          mise à dispo. Positionné en bas-centre, disparaît au drop. */}
+      <Show when={mode() === 'combined' && dragTooltip()}>
+        <div class="pointer-events-none fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-full border border-rule bg-card px-4 py-1.5 font-mono text-[11px] font-bold text-foreground shadow-lg">
+          {dragTooltip()}
+        </div>
       </Show>
 
       {/* Drawer détail OF — RÉUTILISÉ dans les deux modes :

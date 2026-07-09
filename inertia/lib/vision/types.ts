@@ -60,6 +60,10 @@ export interface VisionLink {
   cmdCol: number
   /** OF suggéré (CBN non affermi) → lien en pointillé. */
   suggere: boolean
+  /** Date de fin EFFECTIVE de l'OF (override incluse), ISO — null si inconnue (issue #23). */
+  ofDateFinIso: string | null
+  /** Date de besoin EFFECTIVE de la ligne (= dateExpedition), ISO — null si inconnue (issue #23). */
+  cmdDateBesoinIso: string | null
 }
 
 export interface VisionDayCol {

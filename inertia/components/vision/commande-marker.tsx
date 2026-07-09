@@ -2,19 +2,46 @@ import { Show, type Accessor } from 'solid-js'
 import { cx } from '@/libs/cva'
 import type { VisionCommande } from '@/lib/vision/types'
 import { fmtDay } from '@/lib/vision/date-utils'
+import type { ImpactVerdict } from '@/lib/vision/impact'
+import { deltaLabel } from '@/lib/vision/impact'
 
 /**
  * Marqueur commande rendu dans une cellule du board (slot cellExtra de
  * BoardGrid), mode « combiné » (issue #52 — extrait de scheduler/programme.tsx).
+ *
+ * Issue #23 : la bordure gauche + icône passent à la couleur du verdict le plus
+ * grave des liens rattachés (retard = rouge, limite = ambre) ; badge « +N j » à
+ * côté de la date quand le delta est chiffré.
  */
+const BORDER_BY_VERDICT: Record<ImpactVerdict, string> = {
+  retard: 'border-l-error',
+  limite: 'border-l-amber-500',
+  ok: 'border-l-terra',
+}
+const ICON_BY_VERDICT: Record<ImpactVerdict, string> = {
+  retard: 'text-error',
+  limite: 'text-amber-600',
+  ok: 'text-terra',
+}
+
 export function CommandeMarker(props: {
   lineCode: string
   cmd: VisionCommande
   cmdIso: (cmd: VisionCommande) => string | null
   activeId: Accessor<string | null>
   onActivate: (id: string | null) => void
+  /** #23 : verdict le plus grave des liens de cette commande (null = pas de verdict). */
+  verdict?: ImpactVerdict | null
+  /** #23 : delta (jours) du pire lien — alimente le badge « +N j ». */
+  deltaJours?: number | null
 }) {
   const cmd = props.cmd
+  const verdict = () => props.verdict ?? null
+  const borderClass = () =>
+    verdict() ? BORDER_BY_VERDICT[verdict()!] : 'border-l-terra'
+  const iconClass = () => (verdict() ? ICON_BY_VERDICT[verdict()!] : 'text-terra')
+  const iconName = () =>
+    verdict() === 'retard' ? 'schedule_send' : verdict() === 'limite' ? 'schedule' : 'local_shipping'
   return (
     <div
       data-link-cmd={`${props.lineCode}:${cmd.id}`}
@@ -30,15 +57,16 @@ export function CommandeMarker(props: {
       onMouseEnter={() => props.onActivate(cmd.id)}
       onMouseLeave={() => props.onActivate(null)}
       class={cx(
-        'relative overflow-hidden rounded-[6px] border border-rule border-l-[3px] border-l-terra bg-terra-soft px-1.5 py-1.5 leading-tight shadow-[0_1px_2px_rgba(31,26,19,.06)] transition-shadow duration-150',
+        'relative overflow-hidden rounded-[6px] border border-rule border-l-[3px] bg-terra-soft px-1.5 py-1.5 leading-tight shadow-[0_1px_2px_rgba(31,26,19,.06)] transition-shadow duration-150',
+        borderClass(),
         cmd.ligne ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer',
         props.activeId() === cmd.id && 'shadow-[0_2px_10px_rgba(168,67,31,.22)] ring-1 ring-terra/50',
       )}
     >
       {/* Numéro complet (+ ligne) sur sa propre ligne, police réduite pour rentrer. */}
       <div class="flex items-baseline gap-1 whitespace-nowrap font-mono text-[9.5px] font-bold text-terra">
-        <span class="material-symbols-outlined flex-none self-center text-[11px] text-terra">
-          local_shipping
+        <span class={cx('material-symbols-outlined flex-none self-center text-[11px]', iconClass())}>
+          {iconName()}
         </span>
         <span>
           {cmd.numCommande}
@@ -46,6 +74,19 @@ export function CommandeMarker(props: {
             <span class="text-terra/70">·L{cmd.ligne}</span>
           </Show>
         </span>
+        {/* #23 : badge retard « +N j » */}
+        <Show when={verdict() !== null && props.deltaJours !== null && props.deltaJours !== undefined}>
+          <span
+            class={cx(
+              'ml-auto rounded-full px-1 py-px font-mono text-[8.5px] font-bold tabular-nums',
+              verdict() === 'retard'
+                ? 'bg-error/10 text-error'
+                : 'bg-amber-500/10 text-amber-600',
+            )}
+          >
+            {deltaLabel(props.deltaJours!)}
+          </span>
+        </Show>
       </div>
       <div class="mt-1 flex items-center gap-1">
         <Show when={cmd.type}>

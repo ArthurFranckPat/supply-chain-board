@@ -194,7 +194,16 @@ export function createBoardStore(initial: BoardData) {
   }
 
   // ── Drag: optimistic move + PATCH + rollback ──
-  function moveCard(numOf: string, toLineCode: string, toCol: number, toIso: string) {
+  // dateFinIso (issue #23, gap n°4) : date de fin translatée lors d'un drag OF.
+  // Optionnel → comportement inchangé pour les callsites qui ne la passent pas
+  // (board /ordonnancement). Le PATCH planning_board.update accepte déjà dateFin.
+  function moveCard(
+    numOf: string,
+    toLineCode: string,
+    toCol: number,
+    toIso: string,
+    dateFinIso?: string,
+  ) {
     // Locate the card and its current position (returning narrows the type).
     const findPos = () => {
       for (let li = 0; li < board.lines.length; li++) {
@@ -228,7 +237,14 @@ export function createBoardStore(initial: BoardData) {
     fetch(route('planning_board.update', { of: numOf }), {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ workstation: toLineCode, dateDebut: toIso }),
+      // #23 : dateFin translatée (durée préservée) → le verdict serveur concorde
+      // avec le verdict optimiste au prochain chargement (effectiveDateFin lit
+      // override.dateFin). Absente si non fournie (comportement inchangé).
+      body: JSON.stringify({
+        workstation: toLineCode,
+        dateDebut: toIso,
+        ...(dateFinIso ? { dateFin: dateFinIso } : {}),
+      }),
     })
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`)
