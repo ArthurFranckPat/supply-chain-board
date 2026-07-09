@@ -150,15 +150,15 @@ de sortie.
 
 ## 8. Découpage en étages
 
-| # | Étage | Contenu | Dépend de |
-|---|---|---|---|
-| 1 | **#23 — couche d'impact** | Verdict par lien, états visuels, drag live (PRD dédié) | — |
-| 2 | **Moteur diff** | évaluer(plan) vs évaluer(plan + mutations), sortie 3 axes | — |
-| 3 | **Scénarios** | Mode scénario in situ, persistance, CRUD, bandeau | 2 |
-| 4 | **Commande virtuelle** | Mutation `inject_demand`, étude d'impact avant enregistrement | 2, 3 |
-| 5 | **Axe appro** | Délais fournisseur, verdicts induits (inévitable / re-calable / dormant) | 2 |
-| 6 | **Allocation paramétrique** | Stratégie pluggable dans `CommandeOFMatcher`, testée via scénarios | 2, 3 |
-| 7 | **Comparaison de scénarios** | Tableau comparatif multi-scénarios (réunion charge-capa) | 3 |
+| # | Étage | Issue | Contenu | Dépend de |
+|---|---|---|---|---|
+| 1 | **Couche d'impact** | #23 | Verdict par lien, états visuels, drag live (PRD dédié) | — |
+| 2 | **Moteur diff** | #56 | évaluer(plan) vs évaluer(plan + mutations), sortie 3 axes | — |
+| 3 | **Scénarios** | #57 | Mode scénario in situ, persistance, CRUD, bandeau | 2 |
+| 4 | **Commande virtuelle** | #58 | Mutation `inject_demand`, étude d'impact avant enregistrement | 2, 3 |
+| 5 | **Axe appro** | #59 | Délais fournisseur, verdicts induits (inévitable / re-calable / dormant) | 2 |
+| 6 | **Allocation paramétrique** | #60 | Stratégie pluggable dans `CommandeOFMatcher`, testée via scénarios | 2, 3 |
+| 7 | **Comparaison de scénarios** | #61 | Tableau comparatif multi-scénarios (réunion charge-capa) | 3 |
 
 Ordre recommandé : 1 → 2 → 3 → 4 → 7 → 5 → 6.
 (4 et 7 sont de la valeur visible rapide une fois 3 posé ; 5 dépend d'une donnée X3 ;
