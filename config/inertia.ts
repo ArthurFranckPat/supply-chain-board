@@ -114,9 +114,6 @@ declare module '@adonisjs/inertia/types' {
       horizon: number
       windowStart: string
       dateRange: string
-      prevHref: string
-      nextHref: string
-      todayHref: string
       rowsHref: string
     }
     'scheduler/tracking': {

@@ -67,12 +67,6 @@ const isoDay = (d: Date) => {
   return `${y}-${m}-${da}`
 }
 
-const atMidnight = (d: Date) => {
-  const x = new Date(d)
-  x.setHours(0, 0, 0, 0)
-  return x
-}
-
 /** Formatte une date ISO (YYYY-MM-DD) en JJ/MM/AA — '' si absente. */
 function fmtFrShort(iso: string | null | undefined): string {
   if (!iso) return ''
@@ -382,20 +376,14 @@ export default class SchedulerController {
       return isoDay(d)
     }
     const startIso = isoDay(windowFrom)
-    const now = atMidnight(new Date())
-    // refresh=1 volontairement ABSENT des liens de navigation : sinon un clic « Actualiser »
-    // le propage à chaque Préc./Suiv. → purge du cache global à chaque navigation.
-    const navQuery = (start: string) => `?start=${start}&days=${horizon}`
-
+    // refresh=1 volontairement ABSENT du choix de fenêtre : sinon un clic « Actualiser »
+    // se propagerait à chaque changement de plage → purge du cache global à chaque navigation.
     return ctx.inertia.render('scheduler/shortages', {
       horizon,
       windowStart: startIso,
       // URL du fragment différé (calcul lourd côté serveur). Seul endroit où refresh survit.
-      rowsHref: `/api/v1/planning/shortages/rows${navQuery(startIso)}${force ? '&refresh=1' : ''}`,
+      rowsHref: `/api/v1/planning/shortages/rows?start=${startIso}&days=${horizon}${force ? '&refresh=1' : ''}`,
       dateRange: `${fmtFrShort(startIso)} — ${fmtFrShort(navIso(horizon))}`,
-      prevHref: `/ruptures${navQuery(navIso(-horizon))}`,
-      nextHref: `/ruptures${navQuery(navIso(horizon))}`,
-      todayHref: `/ruptures${navQuery(isoDay(now))}`,
     })
   }
 

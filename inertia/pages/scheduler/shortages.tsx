@@ -1,9 +1,11 @@
 import { createMemo, createResource, createSignal, Match, Show, Switch, type Component } from 'solid-js'
-import { Link } from '@/lib/inertia-solid'
+import { Link, router } from '@/lib/inertia-solid'
 import { route } from '@/lib/routes'
 import { ShortageComposants, ShortageRegistre, ShortageTimeline } from '@/components/shortages/shortage-table'
 import OfDetailSheet from '@/components/of/of-detail-sheet'
 import { Masthead } from '@/components/masthead'
+import { Calendar, type DateRange } from '@/components/ui/calendar'
+import { parseIso, toIso, startOfDay, DAY_MS } from '@/lib/vision/date-utils'
 import type { ShortageRowsResponse, ShortageVerdictKey } from '@/lib/shortages/types'
 
 /**
@@ -20,11 +22,12 @@ type ShortagesProps = {
   horizon: number
   windowStart: string
   dateRange: string
-  prevHref: string
-  nextHref: string
-  todayHref: string
   rowsHref: string
 }
+
+/** Bornes serveur du paramètre `days` (cf. SchedulerController.shortageTracker). */
+const MIN_HORIZON = 1
+const MAX_HORIZON = 90
 
 const EMPTY: ShortageRowsResponse = {
   rows: [],
@@ -72,6 +75,30 @@ const Shortages: Component<ShortagesProps> = (props) => {
     for (const r of view().rows) c[r.verdictKey]++
     return c
   })
+
+  // Fenêtre d'analyse : sélecteur de plage (même motif que /programme). La borne haute
+  // affichée est `start + horizon` — donc days = end − start, sans +1.
+  const windowEnd = () => {
+    const d = parseIso(props.windowStart)
+    d.setDate(d.getDate() + props.horizon)
+    return d
+  }
+  const [calOpen, setCalOpen] = createSignal(false)
+  const [range, setRange] = createSignal<DateRange>({
+    start: parseIso(props.windowStart),
+    end: windowEnd(),
+  })
+  const applyRange = (r: DateRange) => {
+    setRange(r)
+    if (!r.start || !r.end) return
+    setCalOpen(false)
+    const span = Math.round((startOfDay(r.end).getTime() - startOfDay(r.start).getTime()) / DAY_MS)
+    const days = Math.min(MAX_HORIZON, Math.max(MIN_HORIZON, span))
+    router.visit(route('scheduler.shortage_tracker'), {
+      data: { start: toIso(r.start), days: String(days) },
+      preserveScroll: true,
+    })
+  }
 
   // Détail OF : drawer contextuel (même composant que le board).
   const [selectedOf, setSelectedOf] = createSignal<string | null>(null)
@@ -177,12 +204,30 @@ const Shortages: Component<ShortagesProps> = (props) => {
           {verdictChip('couvert', 'Couvert')}
         </div>
 
-        {/* Fenêtre */}
-        <div class="inline-flex items-center gap-1 rounded-md border border-rule bg-card p-0.5">
-          <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Fenêtre</span>
-          <Link href={props.prevHref} preserveScroll class="rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground">Préc.</Link>
-          <Link href={props.todayHref} preserveScroll class="rounded-[5px] bg-terra-soft px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-terra">Auj.</Link>
-          <Link href={props.nextHref} preserveScroll class="rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground">Suiv.</Link>
+        {/* Fenêtre — sélecteur de plage (OF démarrant entre les deux bornes) */}
+        <div class="relative">
+          <button
+            type="button"
+            onClick={() => setCalOpen((o) => !o)}
+            class="flex items-center gap-1.5 rounded-full border border-rule bg-card px-2.5 py-1 text-[11px] font-semibold text-foreground transition-colors hover:border-terra"
+            title="Fenêtre d'analyse : OF dont le démarrage tombe dans la plage"
+          >
+            <span class="material-symbols-outlined text-[14px] text-muted-foreground">calendar_month</span>
+            {props.dateRange}
+            <span class="material-symbols-outlined text-[16px] text-muted-foreground">expand_more</span>
+          </button>
+          <Show when={calOpen()}>
+            <button
+              type="button"
+              tabIndex={-1}
+              aria-hidden="true"
+              class="fixed inset-0 z-40 cursor-default"
+              onClick={() => setCalOpen(false)}
+            />
+            <div class="absolute left-0 top-full z-50 mt-2">
+              <Calendar mode="range" range={range()} onRangeChange={applyRange} />
+            </div>
+          </Show>
         </div>
 
         <div class="ml-auto flex items-center gap-2">
