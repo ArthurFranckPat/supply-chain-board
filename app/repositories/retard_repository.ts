@@ -26,6 +26,18 @@ WHERE O.WIPTYP_0 = 1
 ORDER BY O.ENDDAT_0
 `
 
+// Stock disponible non alloué (PHYSTO - PHYALL - GLOALL), tous sites, par article.
+// Sert à exclure du retard de PRODUCTION les lignes déjà couvertes par du stock
+// fabriqué mais pas encore alloué à la commande (cf. issue stock non alloué).
+const buildStockSql = (articles: string[]) => `
+SELECT
+  ITMREF_0 AS ARTICLE,
+  SUM(PHYSTO_0 - PHYALL_0 - GLOALL_0) AS QTE_DISPO
+FROM ITMMVT
+WHERE ITMREF_0 IN (${articles.map((a) => `'${a.replace(/'/g, "''")}'`).join(',')})
+GROUP BY ITMREF_0
+`
+
 type RawRow = Record<string, string | null>
 
 export interface RetardLigne {
@@ -75,6 +87,34 @@ export class RetardRepository {
       opsByArticle.set(g.article, arr)
     }
 
+    // Stock disponible non alloué, consommé au fil de l'eau (FIFO sur ENDDAT_0, déjà
+    // trié par la requête) : une ligne couverte par du stock fabriqué mais pas encore
+    // affecté à SA commande n'est pas un retard de production.
+    const candidateArticles = [
+      ...new Set(
+        rows
+          .map((r) => r.ARTICLE?.trim() ?? '')
+          .filter((a) => a && (opsByArticle.get(a)?.length ?? 0) > 0),
+      ),
+    ]
+    const stockDispo = new Map<string, number>()
+    if (candidateArticles.length > 0) {
+      const stockDb = new X3Database()
+      try {
+        for (let i = 0; i < candidateArticles.length; i += 1000) {
+          const chunk = candidateArticles.slice(i, i + 1000)
+          const stockRows: RawRow[] = await stockDb.raw(buildStockSql(chunk))
+          for (const sr of stockRows) {
+            const art = sr.ARTICLE?.trim()
+            if (!art) continue
+            stockDispo.set(art, Math.max(0, parseFloat(sr.QTE_DISPO ?? '0') || 0))
+          }
+        }
+      } finally {
+        await stockDb.destroy()
+      }
+    }
+
     const posteAccum = new Map<string, { label: string; heures: number }>()
     const lignes: RetardLigne[] = []
 
@@ -91,9 +131,20 @@ export class RetardRepository {
       if (ops.length === 0) continue
       if (allqty >= qty) continue
 
+      // Le reste non alloué à la commande peut être couvert par du stock disponible
+      // non affecté (produit mais pas encore alloué) : ce n'est pas bloqué en prod.
+      let qteAProduire = qty - allqty
+      const dispo = stockDispo.get(article) ?? 0
+      if (dispo > 0) {
+        const couvert = Math.min(dispo, qteAProduire)
+        stockDispo.set(article, dispo - couvert)
+        qteAProduire -= couvert
+      }
+      if (qteAProduire <= 0) continue
+
       const byPoste: Record<string, number> = {}
       for (const op of ops) {
-        byPoste[op.workstation] = (byPoste[op.workstation] ?? 0) + qty / op.rate
+        byPoste[op.workstation] = (byPoste[op.workstation] ?? 0) + qteAProduire / op.rate
       }
 
       for (const [ws, h] of Object.entries(byPoste)) {
