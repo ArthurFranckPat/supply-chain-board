@@ -113,9 +113,10 @@ export const BoardCard: Component<BoardCardProps> = (props) => {
   const ring = props.variant === 'commande' && props.mod
   // carte induite (ghost) → fond hachuré terra
   const ghost = props.variant === 'commande' && props.induit
-  // #23 : badge retard — explicite (le narrowing de variant sur un Show inline ne
-  // passe pas le type union BoardCardProps).
-  const retardJours = props.variant === 'of' ? props.retardJours : undefined
+  // #23 : badge retard — accessor (pas une const figée) pour rester réactif au drag
+  // live ; le narrowing de variant sur un Show inline ne passe pas le type union
+  // BoardCardProps, d'où le detour par une fonction plutôt qu'un JSX inline direct.
+  const retardJours = () => (props.variant === 'of' ? props.retardJours : undefined)
   const body: JSX.Element =
     props.variant === 'commande' ? (
       <CommandeBody
@@ -183,9 +184,9 @@ export const BoardCard: Component<BoardCardProps> = (props) => {
       {/* Issue #23 : badge retard coin haut-gauche (« +N j ») — OF finissant après le
           besoin de sa commande. Disjoint du badge faisabilité (haut-droite) et de la
           sélection (haut-gauche, uniquement en selectMode). */}
-      <Show when={(retardJours ?? null) !== null && retardJours! > 0}>
+      <Show when={(retardJours() ?? null) !== null && retardJours()! > 0}>
         <span class="absolute -top-1.5 left-2 flex h-4 items-center justify-center rounded-full border-2 border-card bg-error px-1 font-mono text-[8.5px] font-bold tabular-nums text-card">
-          +{retardJours}j
+          +{retardJours()}j
         </span>
       </Show>
       {body}

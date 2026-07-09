@@ -261,14 +261,37 @@ const Programme: Component<VisionProps> = (props) => {
     return m
   }
 
+  // #23 : override client de la date de fin d'un OF, posé après un drop réussi —
+  // évite que le badge/lien reviennent à l'ancien verdict tant que le payload
+  // serveur (props.links) n'a pas été rafraîchi (reload manuel). Clé = ofId.
+  const [ofDateFinOverride, setOfDateFinOverride] = createSignal<Map<string, string>>(new Map())
+
+  // Liens effectifs = props.links, dateFin substituée par l'override post-drop s'il
+  // existe. Dérivation unique, réutilisée par impacts() et par les lookups par OF.
+  const effectiveLinks = createMemo(() =>
+    ofDateFinOverride().size === 0
+      ? props.links
+      : props.links.map((l) => {
+          const override = ofDateFinOverride().get(l.ofId)
+          return override ? { ...l, ofDateFinIso: override } : l
+        }),
+  )
+  // Index ofId → lien, construit une fois par changement de links — remplace les
+  // scans linéaires répétés (ofColOrigine/ofDateFinOrigine) à chaque dragover.
+  const linksByOf = createMemo(() => {
+    const m = new Map<string, VisionLink>()
+    for (const l of effectiveLinks()) m.set(l.ofId, l)
+    return m
+  })
+
   // Impacts (delta + verdict par lien) — dérivés des dates effectives + overrides drag.
   const impacts = createMemo(() =>
-    computeImpacts(props.links, ofShift(), cmdBesoinOverride()),
+    computeImpacts(effectiveLinks(), ofShift(), cmdBesoinOverride()),
   )
   // Verdict le plus grave par OF et par commande (pour badge carte + marqueur).
   const verdictByOf = createMemo(() => {
     const byOf = new Map<string, ImpactVerdict[]>()
-    for (const [key, imp] of impacts()) {
+    for (const [, imp] of impacts()) {
       if (imp.verdict === null) continue
       const arr = byOf.get(imp.ofId) ?? []
       arr.push(imp.verdict)
@@ -292,18 +315,18 @@ const Programme: Component<VisionProps> = (props) => {
     for (const [cmdId, e] of byCmd) out.set(cmdId, { verdict: worstVerdict(e.verdicts), delta: e.delta })
     return out
   })
-  const retardJoursOf = (ofId: string): number | null => {
-    const v = verdictByOf().get(ofId)
-    if (v !== 'retard') return null
-    // delta max parmi les liens retard de cet OF.
-    let max = -Infinity
+  // Delta max par OF en retard (badge carte) — un seul passage O(links), comme
+  // verdictByCmd, au lieu d'un scan par carte rendue.
+  const retardByOf = createMemo(() => {
+    const m = new Map<string, number>()
     for (const [, imp] of impacts()) {
-      if (imp.ofId === ofId && imp.verdict === 'retard' && imp.delta !== null && imp.delta > max) {
-        max = imp.delta
-      }
+      if (imp.verdict !== 'retard' || imp.delta === null) continue
+      const cur = m.get(imp.ofId)
+      if (cur === undefined || imp.delta > cur) m.set(imp.ofId, imp.delta)
     }
-    return max === -Infinity ? null : max
-  }
+    return m
+  })
+  const retardJoursOf = (ofId: string): number | null => retardByOf().get(ofId) ?? null
 
   // Compteur toolbar — nombre de COMMANDES en retard (une commande = 1 même si 2 liens).
   const nbCmdRetard = createMemo(() => {
@@ -316,16 +339,42 @@ const Programme: Component<VisionProps> = (props) => {
 
   // ── Issue #23 — recalcul d'impact LIVE pendant le drag OF ──
   // ofShift (ofId → delta jours) alimenté au dragover ; les impacts se recalculent
-  // (dateFin translatée = dureé préservée), les liens/cartes se recolorent.
-  // Recherche de la col d'origine de l'OF dans props.links (ofCol).
-  const ofColOrigine = (ofId: string): number | null => {
-    for (const l of props.links) if (l.ofId === ofId) return l.ofCol
-    return null
-  }
-  const onOfDragProgress = (ofId: string, _toLineCode: string, toCol: number) => {
+  // (dateFin translatée = durée préservée), les liens/cartes se recolorent.
+  // Position courante de l'OF sur le board (store.board — pas props.links, payload
+  // serveur figé) : un 2e drag du même OF dans la session doit repartir de sa
+  // position réelle, pas de l'origine périmée du dernier chargement.
+  const ofPositions = createMemo(() => {
+    const m = new Map<string, number>()
+    for (const line of store.board.lines) {
+      line.dayCells.forEach((dc, col) => {
+        for (const c of dc.cards) m.set(c.id, col)
+      })
+    }
+    return m
+  })
+  const ofColOrigine = (ofId: string): number | null =>
+    ofPositions().get(ofId) ?? linksByOf().get(ofId)?.ofCol ?? null
+
+  // Écart calendaire réel entre la colonne d'origine et `targetIso`, calculé depuis
+  // les dates effectives des colonnes — PAS un delta de colonnes : les colonnes du
+  // board sont des jours OUVRÉS (week-ends exclus), un delta de colonnes ne vaut donc
+  // pas un delta de jours calendaires dès qu'un drag traverse un week-end. Même
+  // formule utilisée en live (onOfDragProgress) et au drop (translateOfDateFin) →
+  // zéro divergence entre l'aperçu et la valeur persistée.
+  const dayShiftFor = (ofId: string, targetIso: string): number | null => {
     const origine = ofColOrigine(ofId)
-    if (origine === null) return
-    const shift = toCol - origine
+    if (origine === null) return null
+    const fromIso = store.board.lines[0]?.dayCells[origine]?.iso
+    if (!fromIso) return null
+    const fromD = parseIso(fromIso)
+    const toD = parseIso(targetIso)
+    if (!fromD || !toD) return null
+    return Math.round((toD.getTime() - fromD.getTime()) / DAY_MS)
+  }
+
+  const onOfDragProgress = (ofId: string, _toLineCode: string, _toCol: number, targetIso: string) => {
+    const shift = dayShiftFor(ofId, targetIso)
+    if (shift === null) return
     setOfShift((m) => {
       if (shift === 0) {
         if (!m.has(ofId)) return m
@@ -333,6 +382,10 @@ const Programme: Component<VisionProps> = (props) => {
         n.delete(ofId)
         return n
       }
+      // Shift inchangé depuis le tick précédent → même Map (évite de redéclencher
+      // impacts()/verdictByOf()/verdictByCmd() + la remesure DOM des liens à chaque
+      // pixel de dragover natif).
+      if (m.get(ofId) === shift) return m
       return new Map(m).set(ofId, shift)
     })
     // #23 : tooltip prévisionnel — verdict du pire lien de cet OF après translation.
@@ -345,19 +398,16 @@ const Programme: Component<VisionProps> = (props) => {
     const v = verdictByOf().get(ofId)
     if (v === 'retard') {
       const finOrigine = ofDateFinOrigine(ofId)
-      const shift = ofShift().get(ofId) ?? 0
-      if (finOrigine) {
-        const finD = parseIso(finOrigine)
-        if (finD) {
-          const shifted = new Date(finD)
-          shifted.setDate(shifted.getDate() + shift)
-          const shiftedIso = `${shifted.getFullYear()}-${String(shifted.getMonth() + 1).padStart(2, '0')}-${String(shifted.getDate()).padStart(2, '0')}`
-          const delta = retardJoursOf(ofId)
-          setDragTooltip(
-            `Dispo estimée le ${fmtDay(shiftedIso)} · ${delta ? deltaLabel(delta) : 'en retard'}`,
-          )
-          return
-        }
+      const finD = finOrigine ? parseIso(finOrigine) : null
+      if (finD) {
+        const shift = ofShift().get(ofId) ?? 0
+        const shifted = new Date(finD)
+        shifted.setDate(shifted.getDate() + shift)
+        const delta = retardJoursOf(ofId)
+        setDragTooltip(
+          `Dispo estimée le ${fmtDay(toIso(shifted))} · ${delta ? deltaLabel(delta) : 'en retard'}`,
+        )
+        return
       }
       setDragTooltip('OF en retard sur sa commande')
     } else if (v === 'limite') {
@@ -368,43 +418,36 @@ const Programme: Component<VisionProps> = (props) => {
       setDragTooltip(null)
     }
   }
-  const onOfDropped = () => {
-    // Le store.moveCard a déjà déplacé la carte + lancé le PATCH. On clear l'override
-    // optimiste : les impacts repassent sur les dates effectives du payload, qui
-    // seront rafraîchies au reload. (moveCard traduit maintenant dateFin → verdict
-    // serveur cohérent au prochain chargement.)
+  // Drag annulé (relâché hors grille, aucun `drop` n'a capté l'évènement) → clear le
+  // shift/tooltip live SANS toucher l'override de date (rien n'a été déposé).
+  const onOfDragCancelled = () => {
+    setOfShift(new Map())
+    setDragTooltip(null)
+  }
+  const onOfDropped = (ofId: string, _toIso: string, dateFinIso?: string) => {
+    // Le store.moveCard a déjà déplacé la carte + lancé le PATCH. On fige la dateFin
+    // traduite dans l'override : sans ça, impacts() retombe sur l'ancienne dateFin de
+    // props.links dès que ofShift est vidé → le badge/lien reviendrait au verdict
+    // pré-drag jusqu'au prochain reload. L'override sera rejoint/remplacé par la
+    // valeur serveur confirmée au reload suivant.
+    if (dateFinIso) setOfDateFinOverride((m) => new Map(m).set(ofId, dateFinIso))
     setOfShift(new Map())
     setDragTooltip(null)
   }
 
   // #23 (gap n°4) : date de fin translatée d'un OF droppé. La durée de l'OF est
-  // préservée → dateFin = ofDateFinOrigine + (toIso − colOrigine). Calculée depuis
-  // les dates effectives du payload, indépendamment de l'ofShift (déjà cleared au drop).
-  const ofDateFinOrigine = (ofId: string): string | null => {
-    for (const l of props.links) if (l.ofId === ofId) return l.ofDateFinIso
-    return null
-  }
-  const translateOfDateFin = (ofId: string, toIso: string): string | null => {
+  // préservée → dateFin = ofDateFinOrigine + dayShiftFor(targetIso). Calculée depuis
+  // les dates effectives (+ override), indépendamment de l'ofShift (déjà cleared au drop).
+  const ofDateFinOrigine = (ofId: string): string | null =>
+    ofDateFinOverride().get(ofId) ?? linksByOf().get(ofId)?.ofDateFinIso ?? null
+  const translateOfDateFin = (ofId: string, targetIso: string): string | null => {
     const finOrigine = ofDateFinOrigine(ofId)
-    if (!finOrigine) return null
-    // toIso est la date de début cible ; la col d'origine porte la date de début d'origine.
-    // delta jours = toIso − fromIso (dates de début). On translate la date de fin du même écart.
-    const origine = ofColOrigine(ofId)
-    if (origine === null) return null
-    const fromIso = store.board.lines[0]?.dayCells[origine]?.iso
-    if (!fromIso) return null
-    const fromD = parseIso(fromIso)
-    const toD = parseIso(toIso)
-    const finD = parseIso(finOrigine)
-    if (!fromD || !toD || !finD) return null
-    const shift = Math.round((toD.getTime() - fromD.getTime()) / DAY_MS)
+    const finD = finOrigine ? parseIso(finOrigine) : null
+    const shift = dayShiftFor(ofId, targetIso)
+    if (!finD || shift === null) return null
     const shifted = new Date(finD)
     shifted.setDate(shifted.getDate() + shift)
-    // Format local YYYY-MM-DD (pas toISOString → décalage UTC).
-    const y = shifted.getFullYear()
-    const m = String(shifted.getMonth() + 1).padStart(2, '0')
-    const d = String(shifted.getDate()).padStart(2, '0')
-    return `${y}-${m}-${d}`
+    return toIso(shifted)
   }
 
   // Commandes regroupées par poste (= rangée du board) × colonne d'expédition.
@@ -675,23 +718,21 @@ const Programme: Component<VisionProps> = (props) => {
             cardRetard={mode() === 'combined' ? retardJoursOf : undefined}
             onOfDragProgress={mode() === 'combined' ? onOfDragProgress : undefined}
             onOfDropped={mode() === 'combined' ? onOfDropped : undefined}
+            onOfDragCancelled={mode() === 'combined' ? onOfDragCancelled : undefined}
             translateOfDateFin={mode() === 'combined' ? translateOfDateFin : undefined}
             cellExtra={mode() === 'combined' ? (lineCode, col) => (
               <For each={cmdCells().get(lineCode)?.[col] ?? []}>
-                {(cmd) => {
-                  const v = verdictByCmd().get(cmd.id)
-                  return (
-                    <CommandeMarker
-                      lineCode={lineCode}
-                      cmd={cmd}
-                      cmdIso={cmdIso}
-                      activeId={activeId}
-                      onActivate={setActiveId}
-                      verdict={v?.verdict ?? null}
-                      deltaJours={v?.delta ?? null}
-                    />
-                  )
-                }}
+                {(cmd) => (
+                  <CommandeMarker
+                    lineCode={lineCode}
+                    cmd={cmd}
+                    cmdIso={cmdIso}
+                    activeId={activeId}
+                    onActivate={setActiveId}
+                    verdict={verdictByCmd().get(cmd.id)?.verdict ?? null}
+                    deltaJours={verdictByCmd().get(cmd.id)?.delta ?? null}
+                  />
+                )}
               </For>
             ) : undefined}
             overlay={mode() === 'combined' ? (
