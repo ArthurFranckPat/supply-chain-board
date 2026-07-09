@@ -28,6 +28,9 @@ import PosteEngagementSheet from '@/components/board/poste-engagement-sheet'
 import { CommandeMarker } from '@/components/vision/commande-marker'
 import { LinksOverlay } from '@/components/vision/links-overlay'
 import { ProgrammeToolbar, type VisionMode } from '@/components/vision/programme-toolbar'
+import { createScenarioStore } from '@/lib/scenarios/store'
+import { ScenarioBar } from '@/components/scenario/scenario-bar'
+import { ScenarioDiffSheet } from '@/components/scenario/scenario-diff-sheet'
 import { Masthead } from '@/components/masthead'
 import { TextField, TextFieldInput } from '@/components/ui/text-field'
 import {
@@ -95,6 +98,14 @@ const ORDER_SCOPES = [
 const Programme: Component<VisionProps> = (props) => {
   const store = createBoardStore(props.board ?? EMPTY_BOARD)
   const orderStore = createOrderBoardStore(props.orderBoard ?? EMPTY_ORDER_BOARD)
+
+  // ── Issue #57 — mode scénario ──
+  // État data + I/O (mutations, CRUD, diff) dans le store dédié ; le couplage visuel
+  // (intercepteur PATCH, rejeu au drop, retour à l'état réel) est orchestré ici, seul
+  // détenteur des board stores.
+  const scenario = createScenarioStore()
+  const [diffOpen, setDiffOpen] = createSignal(false)
+  const [applying, setApplying] = createSignal(false)
 
   // Mode = signal LOCAL (plus de round-trip serveur au switch). Les 2 boards (OF + Cmdes)
   // sont toujours dans le payload → toggle purement client, instantané, zéro cold-start.
@@ -450,6 +461,104 @@ const Programme: Component<VisionProps> = (props) => {
     return toIso(shifted)
   }
 
+  // #57 — intercepteur de PATCH OF : en mode scénario, le drop d'un OF empile une
+  // mutation shift_of au lieu de PATCHer (le déplacement optimiste est déjà appliqué
+  // à l'écran par store.moveCard). Bascule pilotée par scenario.active().
+  createEffect(() => {
+    if (scenario.active()) {
+      store.setMoveInterceptor(({ numOf, toLineCode, toIso, dateFinIso }) => {
+        scenario.upsertMutation({
+          type: 'shift_of',
+          numOf,
+          dateDebut: toIso,
+          dateFin: dateFinIso ?? null,
+          poste: toLineCode,
+        })
+      })
+    } else {
+      store.setMoveInterceptor(null)
+    }
+  })
+
+  // Colonne du board (jour ouvré) correspondant à une date ISO — pour rejeu commande.
+  const colOfIso = (iso: string): number =>
+    store.board.lines[0]?.dayCells.findIndex((dc) => dc.iso === iso) ?? -1
+
+  // #57 — activer/désactiver le mode scénario. À l'extinction sans « Jeter » explicite,
+  // on garde l'état visuel courant (le toggle est un simple régime de capture).
+  const toggleScenario = () => scenario.setActive(!scenario.active())
+
+  // #57 — Appliquer : rejoue les mutations en PATCHs réels (mécanisme unitaire existant),
+  // marque le scénario appliqué, puis recharge pour réconcilier board ↔ serveur.
+  const applyScenario = async () => {
+    if (applying()) return
+    setApplying(true)
+    try {
+      for (const m of scenario.current.mutations) {
+        if (m.type === 'shift_of') {
+          await fetch(route('planning_board.update', { of: m.numOf }), {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              workstation: m.poste ?? undefined,
+              dateDebut: m.dateDebut ?? undefined,
+              ...(m.dateFin ? { dateFin: m.dateFin } : {}),
+            }),
+          })
+        } else if (m.type === 'shift_demand' && m.ligne) {
+          await fetch(route('order_planning.update', { order: m.numCommande, line: m.ligne }), {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dateLivraison: m.date }),
+          })
+        }
+      }
+      await scenario.markApplied()
+      scenario.setActive(false)
+      window.dispatchEvent(new CustomEvent('sch-toast', { detail: 'Scénario appliqué.' }))
+      router.reload()
+    } catch (err) {
+      window.dispatchEvent(
+        new CustomEvent('sch-toast', { detail: `Application échouée : ${(err as Error).message}` }),
+      )
+    } finally {
+      setApplying(false)
+    }
+  }
+
+  // #57 — Jeter : retour à l'état réel SANS reload complet. Aucun PATCH n'est parti en
+  // mode scénario → le payload serveur (props) est encore l'état réel : on y réaligne
+  // les board stores (reconcile) et on vide tous les overrides visuels.
+  const discardScenario = () => {
+    store.updateData(page.props.board ?? EMPTY_BOARD)
+    orderStore.updateData(page.props.orderBoard ?? EMPTY_ORDER_BOARD)
+    setCmdMoved(new Map())
+    setOfShift(new Map())
+    setOfDateFinOverride(new Map())
+    scenario.reset()
+    scenario.setActive(false)
+    requestAnimationFrame(measure)
+  }
+
+  // #57 — Rouvrir un scénario : charge ses mutations puis les rejoue VISUELLEMENT sur
+  // les données fraîches (le diff exact reste réévalué côté serveur via « Impacts »).
+  const openScenario = async (id: number) => {
+    scenario.setActive(true)
+    const mutations = await scenario.open(id)
+    for (const m of mutations) {
+      if (m.type === 'shift_of' && m.dateDebut && m.poste) {
+        store.moveCardToIso(m.numOf, m.poste, m.dateDebut)
+        if (m.dateFin) setOfDateFinOverride((mm) => new Map(mm).set(m.numOf, m.dateFin!))
+      } else if (m.type === 'shift_demand') {
+        const col = colOfIso(m.date)
+        if (col !== -1) {
+          setCmdMoved((mm) => new Map(mm).set(`${m.numCommande}#${m.ligne ?? ''}`, { col, iso: m.date }))
+        }
+      }
+    }
+    requestAnimationFrame(measure)
+  }
+
   // Commandes regroupées par poste (= rangée du board) × colonne d'expédition.
   const cmdCells = createMemo(() => buildCmdCells(props.commandes, props.links, cmdCol))
 
@@ -466,6 +575,18 @@ const Programme: Component<VisionProps> = (props) => {
     if (!parsed.ligne) return // prévision sans n° de ligne → non persistable
     setCmdMoved((m) => new Map(m).set(parsed.id, { col, iso }))
     requestAnimationFrame(measure)
+
+    // #57 — mode scénario : empile une mutation shift_demand, aucun PATCH réel.
+    if (scenario.active()) {
+      scenario.upsertMutation({
+        type: 'shift_demand',
+        numCommande: parsed.numCommande,
+        ligne: parsed.ligne,
+        date: iso,
+      })
+      return
+    }
+
     fetch(route('order_planning.update', { order: parsed.numCommande, line: parsed.ligne }), {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -669,7 +790,24 @@ const Programme: Component<VisionProps> = (props) => {
         nbCmdRetard={nbCmdRetard}
         highlightRetards={highlightRetards}
         onToggleHighlight={() => setHighlightRetards((v) => !v)}
+        scenarioActive={scenario.active}
+        onToggleScenario={toggleScenario}
       />
+
+      {/* #57 — bandeau du mode scénario (combiné) : nom, N mutations, Impacts /
+          Enregistrer / Appliquer / Jeter, liste des scénarios enregistrés. */}
+      <Show when={mode() === 'combined' && scenario.active()}>
+        <ScenarioBar
+          scenario={scenario}
+          windowFrom={props.windowFrom}
+          windowTo={props.windowTo}
+          applying={applying}
+          onApply={applyScenario}
+          onDiscard={discardScenario}
+          onOpenScenario={openScenario}
+          onShowDiff={() => setDiffOpen(true)}
+        />
+      </Show>
 
       <Show when={props.x3Error}>
         <div class="flex flex-none items-center gap-2 border-b border-terra/30 bg-terra-soft px-7 py-2 text-[12px] text-foreground print:hidden">
@@ -772,6 +910,16 @@ const Programme: Component<VisionProps> = (props) => {
         posteCode={engagementPoste()}
         open={engagementOpen()}
         onOpenChange={setEngagementOpen}
+      />
+
+      {/* #57 — constat d'impact du scénario courant (moteur étage 2, 3 axes). */}
+      <ScenarioDiffSheet
+        diff={scenario.diff()}
+        open={diffOpen()}
+        onOpenChange={setDiffOpen}
+        loading={scenario.diffLoading()}
+        evaluatedAt={scenario.current.evaluatedAt}
+        dataAt={scenario.current.dataAt}
       />
     </div>
   )

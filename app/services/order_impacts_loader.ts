@@ -27,6 +27,7 @@ import {
   precomputeMfgFeasibility,
 } from '#app/domain/order-impacts-assembly'
 import type { OfCommandePeg } from '#repositories/order_line_repository'
+import type { OfOverrideRow } from '#app/domain/planning_board'
 import type { Article } from '#app/domain/models/article'
 import type { Nomenclature } from '#app/domain/models/nomenclature'
 import type { Flow } from '#app/domain/models/flow'
@@ -85,6 +86,12 @@ export interface OrderImpactsContext {
   ofPegs: Map<string, OfCommandePeg>
   /** Réceptions d'achat de la fenêtre (déjà fetchées par getLive — évite un SOAP dupliqué). */
   receptionFlows: Flow[]
+  /**
+   * Entrées brutes du moteur (demandes nettées, supply combinée, overrides), telles
+   * qu'injectées dans `evaluateOrderImpacts`. Exposées pour le diff de scénario
+   * (issue #57) : `evaluatePlanDiff` réévalue le plan muté sur ces mêmes entrées.
+   */
+  planInputs: { demands: Flow[]; supplyFlows: Flow[]; overrides: Map<string, OfOverrideRow> }
 }
 
 /**
@@ -282,5 +289,12 @@ export async function loadOrderImpacts(
     mfgFeasibility
   )
 
-  return { result, articles, nomenclatures, ofPegs, receptionFlows }
+  return {
+    result,
+    articles,
+    nomenclatures,
+    ofPegs,
+    receptionFlows,
+    planInputs: { demands: filteredDemands, supplyFlows: allSupply, overrides: overrideMap },
+  }
 }

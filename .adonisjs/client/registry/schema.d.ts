@@ -451,6 +451,78 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'scenarios.index': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/planning/scenarios'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'scenarios.store': {
+    methods: ["POST"]
+    pattern: '/api/v1/planning/scenarios'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'scenarios.diff': {
+    methods: ["POST"]
+    pattern: '/api/v1/planning/scenarios/diff'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'scenarios.show': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/planning/scenarios/:id'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'scenarios.update': {
+    methods: ["PATCH"]
+    pattern: '/api/v1/planning/scenarios/:id'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'scenarios.destroy': {
+    methods: ["DELETE"]
+    pattern: '/api/v1/planning/scenarios/:id'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'scheduler.of_detail': {
     methods: ["GET","HEAD"]
     pattern: '/api/v1/planning/ofs/:of/detail'

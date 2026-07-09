@@ -2,7 +2,7 @@
  * AUTO-GÉNÉRÉ par scripts/gen-routes-manifest.mjs — NE PAS ÉDITER À LA MAIN.
  * Source : `start/routes.ts` → `node ace list:routes --jsonl`.
  * Régénérer : `npm run routes:gen` · Vérifier la fraîcheur : `npm run routes:check`.
- * 63 routes nommées.
+ * 69 routes nommées.
  */
 
 export const MANIFEST = {
@@ -46,6 +46,12 @@ export const MANIFEST = {
   "planning.suggestion_firm": { method: "POST", pattern: "/api/v1/planning/suggestions/:sugNum/firm" },
   "receptions.index": { method: "GET", pattern: "/receptions" },
   "receptions.rows": { method: "GET", pattern: "/api/v1/receptions/rows" },
+  "scenarios.destroy": { method: "DELETE", pattern: "/api/v1/planning/scenarios/:id" },
+  "scenarios.diff": { method: "POST", pattern: "/api/v1/planning/scenarios/diff" },
+  "scenarios.index": { method: "GET", pattern: "/api/v1/planning/scenarios" },
+  "scenarios.show": { method: "GET", pattern: "/api/v1/planning/scenarios/:id" },
+  "scenarios.store": { method: "POST", pattern: "/api/v1/planning/scenarios" },
+  "scenarios.update": { method: "PATCH", pattern: "/api/v1/planning/scenarios/:id" },
   "scheduler.of_detail": { method: "GET", pattern: "/api/v1/planning/ofs/:of/detail" },
   "scheduler.poste_engagement": { method: "GET", pattern: "/api/v1/planning/postes/:poste/engagement" },
   "scheduler.programme": { method: "GET", pattern: "/programme" },
@@ -118,6 +124,12 @@ export type RouteParams = {
   "planning.suggestion_firm": { "sugNum": string | number },
   "receptions.index": void,
   "receptions.rows": void,
+  "scenarios.destroy": { "id": string | number },
+  "scenarios.diff": void,
+  "scenarios.index": void,
+  "scenarios.show": { "id": string | number },
+  "scenarios.store": void,
+  "scenarios.update": { "id": string | number },
   "scheduler.of_detail": { "of": string | number },
   "scheduler.poste_engagement": { "poste": string | number },
   "scheduler.programme": void,

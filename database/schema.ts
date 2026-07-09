@@ -92,6 +92,31 @@ export class OrderLineOverrideSchema extends BaseModel {
   declare updatedAt: DateTime | null
 }
 
+export class ScenarioSchema extends BaseModel {
+  static $columns = ['auteur', 'createdAt', 'dataAt', 'description', 'evaluatedAt', 'id', 'mutations', 'nom', 'statut', 'updatedAt'] as const
+  $columns = ScenarioSchema.$columns
+  @column()
+  declare auteur: string | null
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime | null
+  @column()
+  declare dataAt: string | null
+  @column()
+  declare description: string | null
+  @column()
+  declare evaluatedAt: string | null
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare mutations: string
+  @column()
+  declare nom: string
+  @column()
+  declare statut: string
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+}
+
 export class StaticArticleSchema extends BaseModel {
   static $columns = ['category', 'code', 'description', 'famille', 'supplyType', 'syncedAt', 'typologie'] as const
   $columns = StaticArticleSchema.$columns

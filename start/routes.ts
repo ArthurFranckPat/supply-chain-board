@@ -154,6 +154,22 @@ router
         router
           .post('/orders/:orderNum/firm', '#controllers/suggestion_firm_controller.firm')
           .as('planning.order_firm')
+
+        // Scénarios de plan (issue #57, vision étage 3) : persistance des mutations
+        // + diff sur données fraîches (moteur étage 2). L'application (rejeu en PATCHs
+        // réels) reste côté client via update/order_planning.update, puis statut=applique.
+        router.get('/scenarios', '#controllers/scenario_controller.index').as('scenarios.index')
+        router.post('/scenarios', '#controllers/scenario_controller.store_').as('scenarios.store')
+        router
+          .post('/scenarios/diff', '#controllers/scenario_controller.diff')
+          .as('scenarios.diff')
+        router.get('/scenarios/:id', '#controllers/scenario_controller.show').as('scenarios.show')
+        router
+          .patch('/scenarios/:id', '#controllers/scenario_controller.update')
+          .as('scenarios.update')
+        router
+          .delete('/scenarios/:id', '#controllers/scenario_controller.destroy')
+          .as('scenarios.destroy')
       })
       .prefix('/api/v1/planning')
 

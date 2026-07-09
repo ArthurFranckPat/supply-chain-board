@@ -50,6 +50,9 @@ export function ProgrammeToolbar(props: {
   /** #23 : highlight forcé des liens en retard (toggle depuis le compteur). */
   highlightRetards?: Accessor<boolean>
   onToggleHighlight?: () => void
+  /** #57 : mode scénario (capture des gestes, aucun PATCH). Mode combiné seulement. */
+  scenarioActive?: Accessor<boolean>
+  onToggleScenario?: () => void
 }) {
   const { store, orderStore } = props
   return (
@@ -172,6 +175,25 @@ export function ProgrammeToolbar(props: {
         >
           <span class="material-symbols-outlined text-[14px]">schedule_send</span>
           {props.nbCmdRetard!()} en retard
+        </button>
+      </Show>
+
+      {/* #57 — bascule mode scénario (combiné seulement) : les gestes alimentent
+          un scénario au lieu de PATCHer en direct. */}
+      <Show when={props.mode() === 'combined' && props.onToggleScenario}>
+        <button
+          type="button"
+          title="Mode scénario : les déplacements alimentent un scénario (aucun envoi X3)"
+          onClick={() => props.onToggleScenario?.()}
+          class={cx(
+            'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-bold transition-colors',
+            props.scenarioActive?.()
+              ? 'border-terra bg-terra text-white'
+              : 'border-rule bg-card text-foreground hover:border-terra hover:text-terra',
+          )}
+        >
+          <span class="material-symbols-outlined text-[14px]">science</span>
+          Scénario
         </button>
       </Show>
 

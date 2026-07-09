@@ -41,6 +41,12 @@ export type ScannedRoutes = {
     'planning_board.of_materials_diagnostic': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
     'planning.suggestion_firm': { paramsTuple: [ParamValue]; params: {'sugNum': ParamValue} }
     'planning.order_firm': { paramsTuple: [ParamValue]; params: {'orderNum': ParamValue} }
+    'scenarios.index': { paramsTuple?: []; params?: {} }
+    'scenarios.store': { paramsTuple?: []; params?: {} }
+    'scenarios.diff': { paramsTuple?: []; params?: {} }
+    'scenarios.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'scenarios.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'scenarios.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'scheduler.of_detail': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
     'scheduler.poste_engagement': { paramsTuple: [ParamValue]; params: {'poste': ParamValue} }
     'scheduler.shortage_rows': { paramsTuple?: []; params?: {} }
@@ -94,6 +100,8 @@ export type ScannedRoutes = {
     'planning_board.search_of': { paramsTuple?: []; params?: {} }
     'planning_board.search_pf': { paramsTuple?: []; params?: {} }
     'planning_board.of_materials_diagnostic': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
+    'scenarios.index': { paramsTuple?: []; params?: {} }
+    'scenarios.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'scheduler.of_detail': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
     'scheduler.poste_engagement': { paramsTuple: [ParamValue]; params: {'poste': ParamValue} }
     'scheduler.shortage_rows': { paramsTuple?: []; params?: {} }
@@ -138,6 +146,8 @@ export type ScannedRoutes = {
     'planning_board.search_of': { paramsTuple?: []; params?: {} }
     'planning_board.search_pf': { paramsTuple?: []; params?: {} }
     'planning_board.of_materials_diagnostic': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
+    'scenarios.index': { paramsTuple?: []; params?: {} }
+    'scenarios.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'scheduler.of_detail': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
     'scheduler.poste_engagement': { paramsTuple: [ParamValue]; params: {'poste': ParamValue} }
     'scheduler.shortage_rows': { paramsTuple?: []; params?: {} }
@@ -164,6 +174,8 @@ export type ScannedRoutes = {
     'planning_board.board_feasibility': { paramsTuple?: []; params?: {} }
     'planning.suggestion_firm': { paramsTuple: [ParamValue]; params: {'sugNum': ParamValue} }
     'planning.order_firm': { paramsTuple: [ParamValue]; params: {'orderNum': ParamValue} }
+    'scenarios.store': { paramsTuple?: []; params?: {} }
+    'scenarios.diff': { paramsTuple?: []; params?: {} }
     'suivi.assign': { paramsTuple?: []; params?: {} }
     'suivi.from_latest_export': { paramsTuple?: []; params?: {} }
     'suivi.palette': { paramsTuple?: []; params?: {} }
@@ -178,10 +190,12 @@ export type ScannedRoutes = {
     'calendar_config.update_closure': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'order_planning.update': { paramsTuple: [ParamValue,ParamValue]; params: {'order': ParamValue,'line': ParamValue} }
     'planning_board.update': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
+    'scenarios.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
   DELETE: {
     'calendar_config.delete_closure': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'order_planning.reset_override': { paramsTuple: [ParamValue,ParamValue]; params: {'order': ParamValue,'line': ParamValue} }
+    'scenarios.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
 }
 declare module '@adonisjs/core/types/http' {

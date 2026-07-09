@@ -80,6 +80,14 @@ export interface ApiDefinition {
     searchPf: typeof routes['planning_board.search_pf']
     ofMaterialsDiagnostic: typeof routes['planning_board.of_materials_diagnostic']
   }
+  scenarios: {
+    index: typeof routes['scenarios.index']
+    store: typeof routes['scenarios.store']
+    diff: typeof routes['scenarios.diff']
+    show: typeof routes['scenarios.show']
+    update: typeof routes['scenarios.update']
+    destroy: typeof routes['scenarios.destroy']
+  }
   data: {
     load: typeof routes['data.load']
   }

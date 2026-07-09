@@ -193,6 +193,50 @@ export function createBoardStore(initial: BoardData) {
     })
   }
 
+  // ── Mode scénario (issue #57) : intercepteur de PATCH ──
+  // En mode scénario, moveCard applique le déplacement optimiste à l'écran mais
+  // REMPLACE le PATCH réseau par un append de mutation (via cet intercepteur). null
+  // = mode direct (PATCH immédiat, comportement inchangé).
+  type MoveIntercept = (m: {
+    numOf: string
+    toLineCode: string
+    toCol: number
+    toIso: string
+    dateFinIso?: string
+  }) => void
+  let moveInterceptor: MoveIntercept | null = null
+  const setMoveInterceptor = (fn: MoveIntercept | null) => {
+    moveInterceptor = fn
+  }
+
+  /** Déplace une carte vers une date ISO donnée (colonne dérivée du board), sans
+   *  PATCH ni intercepteur — pour le rejeu visuel d'un scénario rouvert. */
+  function moveCardToIso(numOf: string, toLineCode: string, toIso: string) {
+    const toCol = board.lines[0]?.dayCells.findIndex((dc) => dc.iso === toIso) ?? -1
+    const toLine = board.lines.findIndex((l) => l.code === toLineCode)
+    if (toCol === -1 || toLine === -1) return
+    let found: { line: number; col: number; idx: number } | null = null
+    for (let li = 0; li < board.lines.length && !found; li++) {
+      const cells = board.lines[li].dayCells
+      for (let ci = 0; ci < cells.length; ci++) {
+        const idx = cells[ci].cards.findIndex((c) => c.id === numOf)
+        if (idx !== -1) {
+          found = { line: li, col: ci, idx }
+          break
+        }
+      }
+    }
+    if (!found) return
+    const card = board.lines[found.line].dayCells[found.col].cards[found.idx]
+    setBoard(
+      produce((b) => {
+        b.lines[found!.line].dayCells[found!.col].cards.splice(found!.idx, 1)
+        b.lines[toLine].dayCells[toCol].cards.push(card)
+      })
+    )
+    setFeasibility({})
+  }
+
   // ── Drag: optimistic move + PATCH + rollback ──
   // dateFinIso (issue #23, gap n°4) : date de fin translatée lors d'un drag OF.
   // Optionnel → comportement inchangé pour les callsites qui ne la passent pas
@@ -233,6 +277,13 @@ export function createBoardStore(initial: BoardData) {
     // sur l'ancienne position) deviennent potentiellement faux. On invalide le
     // cache de faisabilité, comme pour un changement de fenêtre (reset()).
     setFeasibility({})
+
+    // Mode scénario (#57) : capture la mutation au lieu de PATCHer. Le déplacement
+    // optimiste est déjà appliqué à l'écran ; rien ne part vers X3/overrides.
+    if (moveInterceptor) {
+      moveInterceptor({ numOf, toLineCode, toCol, toIso, dateFinIso })
+      return
+    }
 
     fetch(route('planning_board.update', { of: numOf }), {
       method: 'PATCH',
@@ -435,6 +486,8 @@ export function createBoardStore(initial: BoardData) {
     reset,
     updateData,
     moveCard,
+    moveCardToIso,
+    setMoveInterceptor,
     transformCard,
     runFeasibility,
     // Sélection multi-OF + batch firming (#34)
