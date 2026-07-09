@@ -105,6 +105,12 @@ interface VisionLink {
   cmdCol: number
   /** OF suggéré (CBN non affermi) → lien en pointillé côté client. */
   suggere: boolean
+  /** Date de fin EFFECTIVE de l'OF (override incluse), ISO — null si inconnue.
+   *  Issue #23 : le client en dérive le verdict d'impact (delta vs date de besoin). */
+  ofDateFinIso: string | null
+  /** Date de besoin EFFECTIVE de la ligne (= dateExpedition), ISO — null si inconnue.
+   *  Issue #23 : borne aval du verdict d'impact. */
+  cmdDateBesoinIso: string | null
 }
 
 // ---------------------------------------------------------------------------
@@ -270,6 +276,10 @@ export default class SchedulerController {
                 commandeId: lineId,
                 cmdCol: col,
                 suggere: of.statutNum === 3,
+                // #23 : dates effectives (overrides inclus côté moteur) — le client en
+                // dérive le verdict d'impact (of.dateFin vient d'effectiveDateFin).
+                ofDateFinIso: of.dateFin || null,
+                cmdDateBesoinIso: order.dateExpedition || null,
               })
               linked = true
             }
