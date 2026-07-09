@@ -95,6 +95,11 @@ function toInt(v: string | null): number {
   return parseInt(v ?? '0', 10) || 0
 }
 
+/** Normalise comme le front (fold) : sans accents ni casse, pour un filtre client cohérent. */
+function fold(s: string): string {
+  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+}
+
 function fmtDate(raw: string | null): string {
   const d = parseX3Date(raw)
   if (!d) return '—'
@@ -150,7 +155,7 @@ export function resolveOtdPeriods(ref: Date): Array<{ from: Date; to: Date; labe
 }
 
 export class OtdRepository {
-  async getOtd(from: Date, to: Date, label: string, mode: OtdMode): Promise<OtdKpi> {
+  async getOtd(from: Date, to: Date, label: string, mode: OtdMode, client?: string): Promise<OtdKpi> {
     const db = new X3Database()
     let rows: RawRow[] = []
     try {
@@ -159,10 +164,15 @@ export class OtdRepository {
       await db.destroy()
     }
 
+    // Filtre client optionnel : on restreint les lignes AVANT le calcul du KPI
+    // (taux, nbOtif, nbTotal) pour que le chiffre OTD reflète le client filtré.
+    const needle = client ? fold(client.trim()) : ''
+    const scoped = needle ? rows.filter((r) => fold(String(r.BPCNAM_0 ?? '')).includes(needle)) : rows
+
     let nbOtif = 0
     const lignesNon: OtdLigneDtl[] = []
 
-    for (const row of rows) {
+    for (const row of scoped) {
       if (row.EST_OTIF === 'OUI') {
         nbOtif++
       } else {
@@ -180,7 +190,7 @@ export class OtdRepository {
       }
     }
 
-    const nbTotal = rows.length
+    const nbTotal = scoped.length
     const tauxOtif = nbTotal > 0 ? Math.round((nbOtif / nbTotal) * 1000) / 10 : 0
 
     return { label, mode, nbTotal, nbOtif, tauxOtif, lignesNon }

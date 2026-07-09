@@ -1,6 +1,7 @@
-import { createResource, createMemo, createSignal, For, Show, type Component } from 'solid-js'
+import { createResource, createMemo, createSignal, onCleanup, For, Show, type Component } from 'solid-js'
 import { Masthead } from '@/components/masthead'
 import { Calendar, type DateRange } from '@/components/ui/calendar'
+import { usePrintFitPage } from '@/lib/board/use-print-fit'
 
 /**
  * Tableau de bord (issue #26 shell + #38 KPI). Landing par défaut post-login.
@@ -73,17 +74,46 @@ const EMPTY_OTD: DashboardOtdResponse = { otd: [], x3Error: null }
 /** Palette des barres par rang de poste (du plus chargé au moins chargé). */
 const BAR_PALETTE = ['#b23b2e', '#cf6a3f', '#b8862c', '#cdb079', '#a8a18c']
 
-/** Normalise une chaîne pour la recherche : sans accents ni casse. */
-const fold = (s: string): string => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
-
 /** En-tête de card lisible : pastille d'accent + titre Fraunces + suffixe mono optionnel. */
-const CardHeader: Component<{ title: string; suffix?: string; tone?: string }> = (p) => (
+const CardHeader: Component<{ title: string; suffix?: string; tone?: string; onHide?: () => void }> = (p) => (
   <div class="mb-4 flex items-center gap-2.5 border-b border-rule-soft pb-3">
     <span class="size-2 shrink-0 rounded-full" style={{ background: p.tone ?? 'var(--color-destructive, #b23b2e)' }}></span>
     <h2 class="font-fraunces text-[16px] font-semibold leading-none tracking-tight text-foreground">{p.title}</h2>
-    <Show when={p.suffix}>
-      <span class="ml-auto font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">{p.suffix}</span>
-    </Show>
+    <div class="ml-auto flex items-center gap-2.5">
+      <Show when={p.suffix}>
+        <span class="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">{p.suffix}</span>
+      </Show>
+      <Show when={p.onHide}>
+        <button
+          type="button"
+          onClick={() => p.onHide?.()}
+          class="flex size-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground print:hidden"
+          title="Masquer ce KPI"
+          aria-label={`Masquer le KPI ${p.title}`}
+        >
+          <span class="material-symbols-outlined text-[15px]">visibility</span>
+        </button>
+      </Show>
+    </div>
+  </div>
+)
+
+/** Placeholder compact pour un KPI masqué : visible à l'écran (pour le ré-afficher), invisible à l'impression. */
+const HiddenCard: Component<{ title: string; onShow: () => void; class?: string }> = (p) => (
+  <div class={`flex items-center gap-2 rounded border border-dashed border-rule bg-secondary/30 px-4 py-2.5 print:hidden ${p.class ?? ''}`}>
+    <span class="material-symbols-outlined text-[15px] text-muted-foreground">visibility_off</span>
+    <span class="font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">{p.title}</span>
+    <span class="font-fraunces text-[12px] italic text-muted-foreground/70">— masqué</span>
+    <button
+      type="button"
+      onClick={p.onShow}
+      class="ml-auto flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+      title={`Afficher le KPI ${p.title}`}
+      aria-label={`Afficher le KPI ${p.title}`}
+    >
+      <span class="material-symbols-outlined text-[13px]">visibility</span>
+      <span>Afficher</span>
+    </button>
   </div>
 )
 
@@ -94,8 +124,35 @@ const Dashboard: Component<DashboardProps> = (props) => {
   const [clientFilter, setClientFilter] = createSignal('')
   const [detailsOpen, setDetailsOpen] = createSignal(true)
 
+  // Visibilité de chaque KPI pour modulariser la page (notamment à l'impression).
+  const [hideCharge, setHideCharge] = createSignal(false)
+  const [hideOtd, setHideOtd] = createSignal(false)
+  const [hideLignes, setHideLignes] = createSignal(false)
+
+  // Conteneur du contenu imprimable (hors Masthead) — mesuré pour le fit A3.
+  let contentEl: HTMLDivElement | undefined
+  usePrintFitPage(() => contentEl)
+
+  /** Filtre client debouncé : le champ est réactif, mais la requête OTD ne part
+   *  qu'après ~350 ms sans frappe (sinon un fetch X3 à chaque touche). */
+  const [debouncedClient, setDebouncedClient] = createSignal('')
+  let clientTimer: ReturnType<typeof setTimeout> | undefined
+  const onClientInput = (v: string) => {
+    setClientFilter(v)
+    if (clientTimer) clearTimeout(clientTimer)
+    clientTimer = setTimeout(() => setDebouncedClient(v), 350)
+  }
+  const clearClient = () => {
+    setClientFilter('')
+    if (clientTimer) { clearTimeout(clientTimer); clientTimer = undefined }
+    setDebouncedClient('')
+  }
+  onCleanup(() => { if (clientTimer) clearTimeout(clientTimer) })
+
   const otdUrl = createMemo(() => {
     let url = `${props.otdHref}&otdMode=${otdMode()}`
+    const c = debouncedClient().trim()
+    if (c) url += `&client=${encodeURIComponent(c)}`
     const r = otdRange()
     if (r?.start) {
       const fmt = (d: Date) => d.toISOString().slice(0, 10)
@@ -134,16 +191,6 @@ const Dashboard: Component<DashboardProps> = (props) => {
 
   const kpi = createMemo(() => (kpisData() ?? EMPTY_KPIS).retardCharge)
   const otd = createMemo(() => (otdData() ?? EMPTY_OTD).otd)
-  const normClient = createMemo(() => fold(clientFilter()))
-  /** Périodes OTD avec `lignesNon` restreintes au filtre client (KPI période inchangés). */
-  const otdFiltered = createMemo(() => {
-    const q = normClient()
-    const base = otd()
-    if (!q) return base
-    return base.map((p) => ({ ...p, lignesNon: p.lignesNon.filter((l) => fold(l.client).includes(q)) }))
-  })
-  const nbLignesFiltrees = createMemo(() => otdFiltered().reduce((n, p) => n + p.lignesNon.length, 0))
-  const nbLignesTotal = createMemo(() => otd().reduce((n, p) => n + p.lignesNon.length, 0))
   const x3Error = createMemo(() => (kpisData() ?? EMPTY_KPIS).x3Error)
   const otdError = createMemo(() => (otdData() ?? EMPTY_OTD).x3Error)
   const maxHeures = createMemo(() => Math.max(1, ...kpi().postes.map((p) => p.heures)))
@@ -165,9 +212,9 @@ const Dashboard: Component<DashboardProps> = (props) => {
     <div class="theme-navy flex h-screen flex-col overflow-hidden bg-background text-foreground print:h-auto print:overflow-visible">
       <Masthead subtitle="Tableau de bord · Overview" active="dashboard" />
 
-      <div class="flex-1 overflow-auto px-7 py-6 print:overflow-visible">
+      <div ref={contentEl} class="flex-1 overflow-auto px-7 py-6 print:overflow-visible">
         {/* En-tête imprimable — masquée à l'écran, visible uniquement à l'impression */}
-        <div class="mb-5 hidden items-baseline justify-between border-b border-rule pb-3 print:flex">
+        <div data-print-header class="mb-5 hidden items-baseline justify-between border-b border-rule pb-3 print:flex">
           <span class="font-fraunces text-[20px] font-semibold tracking-tight text-foreground">
             Supply Chain <span class="font-medium italic text-terra">AERECO</span>
             <span class="ml-3 font-mono text-[13px] font-normal text-muted-foreground">Tableau de bord</span>
@@ -183,8 +230,9 @@ const Dashboard: Component<DashboardProps> = (props) => {
           <div class="flex flex-col gap-6 lg:col-span-1">
 
             {/* KPI #1 — Charge en retard par poste (issue #38) */}
+            <Show when={!hideCharge()} fallback={<HiddenCard title="Charge en retard" onShow={() => setHideCharge(false)} />}>
             <article class="rounded border border-rule bg-card p-6 shadow-[0_14px_30px_-26px_rgba(42,38,34,0.45)]">
-              <CardHeader title="Charge en retard" suffix="par poste" />
+              <CardHeader title="Charge en retard" suffix="par poste" onHide={() => setHideCharge(true)} />
               <Show when={!kpisData.loading} fallback={<Spinner />}>
                 <Show
                   when={!x3Error()}
@@ -234,8 +282,10 @@ const Dashboard: Component<DashboardProps> = (props) => {
                 </Show>
               </Show>
             </article>
+            </Show>
 
             {/* KPI #2 — OTD (On-Time Delivery) — 1 ou 2 périodes selon le jour */}
+            <Show when={!hideOtd()} fallback={<HiddenCard title="OTD" onShow={() => setHideOtd(false)} />}>
             <article class="rounded border border-rule bg-card p-6 shadow-[0_14px_30px_-26px_rgba(42,38,34,0.45)]">
               <div class="mb-4 flex items-center gap-2.5 border-b border-rule-soft pb-3">
                 <span class="size-2 shrink-0 rounded-full bg-foreground/30"></span>
@@ -300,6 +350,15 @@ const Dashboard: Component<DashboardProps> = (props) => {
                     Acceptée
                   </button>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setHideOtd(true)}
+                  class="flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground print:hidden"
+                  title="Masquer ce KPI"
+                  aria-label="Masquer le KPI OTD"
+                >
+                  <span class="material-symbols-outlined text-[15px]">visibility</span>
+                </button>
               </div>
               <Show when={!otdData.loading} fallback={<Spinner />}>
                 <Show
@@ -317,7 +376,7 @@ const Dashboard: Component<DashboardProps> = (props) => {
                         <input
                           type="text"
                           value={clientFilter()}
-                          onInput={(e) => setClientFilter(e.currentTarget.value)}
+                          onInput={(e) => onClientInput(e.currentTarget.value)}
                           placeholder="Filtrer par client"
                           aria-label="Filtrer les lignes par client"
                           class="w-full rounded border border-rule bg-secondary py-[5px] pl-7 pr-6 font-sans text-[11px] text-foreground placeholder:text-muted-foreground/60 focus:border-foreground/30 focus:outline-none"
@@ -325,7 +384,7 @@ const Dashboard: Component<DashboardProps> = (props) => {
                         <Show when={clientFilter()}>
                           <button
                             type="button"
-                            onClick={() => setClientFilter('')}
+                            onClick={clearClient}
                             class="absolute right-1 top-1/2 flex size-4 -translate-y-1/2 items-center justify-center text-muted-foreground hover:text-foreground"
                             title="Effacer le filtre"
                             aria-label="Effacer le filtre"
@@ -343,11 +402,8 @@ const Dashboard: Component<DashboardProps> = (props) => {
                         <span class="material-symbols-outlined text-[13px] text-muted-foreground">{detailsOpen() ? 'expand_more' : 'chevron_right'}</span>
                         <span>Détails</span>
                       </button>
-                      <Show when={normClient()}>
-                        <span class="shrink-0 font-mono text-[9px] tabular-nums text-muted-foreground">{nbLignesFiltrees()}/{nbLignesTotal()}</span>
-                      </Show>
                     </div>
-                    <For each={otdFiltered()}>
+                    <For each={otd()}>
                       {(p, i) => (
                         <div classList={{ 'mt-5 border-t border-rule-soft pt-5': i() > 0 }}>
                           {/* Label période */}
@@ -371,11 +427,7 @@ const Dashboard: Component<DashboardProps> = (props) => {
                             <Show when={detailsOpen()}>
                               <Show
                                 when={p.lignesNon.length > 0}
-                                fallback={
-                                  <Show when={normClient()}>
-                                    <p class="mt-4 font-fraunces text-[12px] italic text-muted-foreground">Aucune ligne pour « {clientFilter().trim()} ».</p>
-                                  </Show>
-                                }
+                                fallback={<p class="mt-4 font-fraunces text-[12px] italic text-muted-foreground">Toutes les lignes sont OTIF.</p>}
                               >
                               <div class="-mx-2 mt-4 max-h-[160px] overflow-auto">
                                 <table class="w-full border-collapse text-left">
@@ -423,12 +475,14 @@ const Dashboard: Component<DashboardProps> = (props) => {
                 </Show>
               </Show>
             </article>
+            </Show>
 
           </div>{/* fin colonne gauche */}
 
           {/* KPI — Lignes en retard (détail) */}
+          <Show when={!hideLignes()} fallback={<HiddenCard class="lg:col-span-2" title="Lignes en retard" onShow={() => setHideLignes(false)} />}>
           <article class="flex max-h-[calc(100vh-9rem)] flex-col rounded border border-rule bg-card p-6 shadow-[0_14px_30px_-26px_rgba(42,38,34,0.45)] lg:col-span-2 print:max-h-none print:overflow-visible print:shadow-none">
-            <CardHeader title="Lignes en retard" suffix={`${kpi().nbLignes} commande${kpi().nbLignes > 1 ? 's' : ''}`} />
+            <CardHeader title="Lignes en retard" suffix={`${kpi().nbLignes} commande${kpi().nbLignes > 1 ? 's' : ''}`} onHide={() => setHideLignes(true)} />
             <Show when={!kpisData.loading} fallback={<Spinner />}>
               <Show
                 when={!x3Error()}
@@ -489,6 +543,7 @@ const Dashboard: Component<DashboardProps> = (props) => {
               </Show>
             </Show>
           </article>
+          </Show>
 
         </div>
       </div>

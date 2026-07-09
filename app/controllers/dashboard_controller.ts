@@ -54,6 +54,8 @@ export default class DashboardController {
     const rawMode = ctx.request.input('otdMode')
     const otdMode: OtdMode = rawMode === 'acceptee' ? 'acceptee' : 'demandee'
 
+    const client = (ctx.request.input('client') as string | undefined)?.trim() || ''
+
     const otdFromParam = ctx.request.input('otdFrom')
     const otdToParam = ctx.request.input('otdTo')
     let periods: Array<{ from: Date; to: Date; label: string }>
@@ -74,7 +76,7 @@ export default class DashboardController {
     const repo = new OtdRepository()
 
     const results = await Promise.allSettled(
-      periods.map((p) => repo.getOtd(p.from, p.to, p.label, otdMode)),
+      periods.map((p) => repo.getOtd(p.from, p.to, p.label, otdMode, client || undefined)),
     )
 
     for (const r of results) {

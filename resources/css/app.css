@@ -788,17 +788,34 @@ up-drawer-dismiss { display: none; }
    Les utilitaires Tailwind print:* gèrent le masquage des éléments
    (ex. Masthead). @page reste du CSS natif.
    ──────────────────────────────────────────────────────────── */
+/* ════════════════════════════════════════════════════════════
+   Mesure « fit une page » (usePrintFitPage) — tableau de bord.
+   Activée transitoirement sur <html> (classe `print-fit-measure`) au moment
+   d'imprimer pour mesurer la hauteur NATURELLE déroulée du contenu (à l'écran
+   les cartes scrollables sont clippées par max-h/overflow). On reproduit donc
+   l'état d'impression : cartes déroulées + en-tête imprimable visible.
+   ──────────────────────────────────────────────────────────── */
+.print-fit-measure .theme-papier,
+.print-fit-measure .theme-papier .flex-1,
+.print-fit-measure .theme-papier article { max-height: none !important; overflow: visible !important; }
+.print-fit-measure .theme-papier [data-print-header] { display: flex !important; }
+
 @media print {
   @page {
     size: A3 landscape;
     margin: 10mm 12mm;
   }
-  /* Force la restitution exacte des couleurs de fond et bordures. */
-  *,
-  *::before,
-  *::after {
+  /* Fond de page seul : on force la restitution exacte du papier (.theme-papier)
+     et on repasse tout le reste en mode économique — le navigateur stripe alors
+     les fonds des cartes / pistes / badges / pastilles, laissant transparaître
+     le papier. Bordures, texte et couleurs inline (barres de charge) inchangés. */
+  .theme-papier {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+  }
+  .theme-papier * {
+    -webkit-print-color-adjust: economy;
+    print-color-adjust: economy;
   }
   /* Déroule la page : annule h-screen / overflow-hidden qui clippent
      le board à la seule zone visible à l'écran. */
