@@ -82,7 +82,8 @@ test.group('evaluateOrderImpacts', () => {
     })
 
     assert.equal(result.orders[0].statut, 'retard')
-    assert.equal(result.orders[0].joursRetard, 10)
+    // Buffer J-2 (issue #41) : retard = (fin OF) - (expé - 2j) = 20 - 8 = 12
+    assert.equal(result.orders[0].joursRetard, 12)
   })
 
   test('bloquee when OF component has no stock', ({ assert }) => {
@@ -168,7 +169,8 @@ test.group('evaluateOrderImpacts', () => {
     })
 
     assert.equal(result.orders[0].statut, 'retard')
-    assert.equal(result.orders[0].joursRetard, 10)
+    // Buffer J-2 (issue #41) : retard mesuré depuis (expé - 2j)
+    assert.isAtLeast(result.orders[0].joursRetard, 11)
     assert.isTrue(result.orders[0].ofs[0].modified)
   })
 
@@ -233,6 +235,100 @@ test.group('evaluateOrderImpacts', () => {
     assert.equal(result.orders[0].ofs[0].missingComponents['BDH2231AL'], 40)
     const ofEntry = result.ofs.find((o) => o.numOf === 'OF-A')
     assert.equal(ofEntry?.feasible, false)
+  })
+
+  // ── Buffer J-2 (issue #41, problème 1) ──────────────────────────────────
+
+  test('buffer J-2 : OF finissant le jour J de l\'expé → retard (pas on_time)', ({ assert }) => {
+    const supplyFlows: Flow[] = [
+      makeOfFlow('OF-A', 'PF1', 3, 60, daysFromNow(10)),
+    ]
+    const demands: Flow[] = [
+      makeDemand('CMD-1', 'PF1', 60, daysFromNow(10)),
+    ]
+    const result = evaluateOrderImpacts(demands, supplyFlows, new Map(), new Map([['PF1', makeArticle('PF1')]]), new Map(), {
+      from: daysFromNow(-7), to: daysFromNow(42),
+    })
+    assert.equal(result.orders[0].statut, 'retard')
+    assert.isAtLeast(result.orders[0].joursRetard, 2) // au moins le buffer
+  })
+
+  test('buffer J-2 : OF finissant J-2 → on_time (dans le buffer)', ({ assert }) => {
+    const supplyFlows: Flow[] = [
+      makeOfFlow('OF-A', 'PF1', 3, 60, daysFromNow(8)),
+    ]
+    const demands: Flow[] = [
+      makeDemand('CMD-1', 'PF1', 60, daysFromNow(10)),
+    ]
+    const result = evaluateOrderImpacts(demands, supplyFlows, new Map(), new Map([['PF1', makeArticle('PF1')]]), new Map(), {
+      from: daysFromNow(-7), to: daysFromNow(42),
+    })
+    assert.equal(result.orders[0].statut, 'on_time')
+  })
+
+  test('buffer J-2 : commande en stock expédiant demain → stock (PAS retard)', ({ assert }) => {
+    // Régression signalée par la revue Claude Opus : expedBornee ne doit pas
+    // fuiter dans le fallback calendaire ni le gate de statut.
+    const supplyFlows: Flow[] = [
+      makeStockFlow('PF1', 100),
+    ]
+    const demands: Flow[] = [
+      makeDemand('CMD-1', 'PF1', 60, daysFromNow(1)),
+    ]
+    const result = evaluateOrderImpacts(demands, supplyFlows, new Map(), new Map([['PF1', makeArticle('PF1')]]), new Map(), {
+      from: daysFromNow(-7), to: daysFromNow(42),
+    })
+    assert.equal(result.orders[0].statut, 'stock')
+    assert.equal(result.orders[0].joursRetard, 0)
+  })
+
+  test('buffer J-2 : commande en stock expédiant aujourd\'hui → stock (PAS retard)', ({ assert }) => {
+    const supplyFlows: Flow[] = [
+      makeStockFlow('PF1', 100),
+    ]
+    const demands: Flow[] = [
+      makeDemand('CMD-1', 'PF1', 60, daysFromNow(0)),
+    ]
+    const result = evaluateOrderImpacts(demands, supplyFlows, new Map(), new Map([['PF1', makeArticle('PF1')]]), new Map(), {
+      from: daysFromNow(-7), to: daysFromNow(42),
+    })
+    assert.equal(result.orders[0].statut, 'stock')
+  })
+
+  // ── estDebuté (issue #41, problème 2) ───────────────────────────────────
+
+  test('estDebuté propagé sur les OFs de commande et le tableau ofs', ({ assert }) => {
+    const supplyFlows: Flow[] = [
+      makeOfFlow('OF-A', 'PF1', 3, 60, daysFromNow(8)),
+    ]
+    const demands: Flow[] = [
+      makeDemand('CMD-1', 'PF1', 60, daysFromNow(10)),
+    ]
+    const avancementByOf = new Map([['OF-A', { estDebuté: true }]])
+
+    const result = evaluateOrderImpacts(
+      demands, supplyFlows, new Map(), new Map([['PF1', makeArticle('PF1')]]), new Map(),
+      { from: daysFromNow(-7), to: daysFromNow(42) },
+      undefined, undefined, avancementByOf,
+    )
+
+    assert.isTrue(result.orders[0].ofs[0].estDebuté)
+    const ofEntry = result.ofs.find((o) => o.numOf === 'OF-A')
+    assert.isTrue(ofEntry?.estDebuté)
+  })
+
+  test('estDebuté absent quand avancementByOf non fourni', ({ assert }) => {
+    const supplyFlows: Flow[] = [
+      makeOfFlow('OF-A', 'PF1', 3, 60, daysFromNow(8)),
+    ]
+    const demands: Flow[] = [
+      makeDemand('CMD-1', 'PF1', 60, daysFromNow(10)),
+    ]
+    const result = evaluateOrderImpacts(
+      demands, supplyFlows, new Map(), new Map([['PF1', makeArticle('PF1')]]), new Map(),
+      { from: daysFromNow(-7), to: daysFromNow(42) },
+    )
+    assert.isUndefined(result.orders[0].ofs[0].estDebuté)
   })
 })
 
