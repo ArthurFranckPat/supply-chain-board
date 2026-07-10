@@ -230,7 +230,7 @@ const Programme: Component<VisionProps> = (props) => {
         setOfDateFinOverride(new Map())
         store.updateData(page.props.board ?? EMPTY_BOARD)
         orderStore.updateData(page.props.orderBoard ?? EMPTY_ORDER_BOARD)
-        requestAnimationFrame(measure)
+        requestMeasure()
       },
       onFinish: () => setRefreshing(false),
     })
@@ -609,7 +609,7 @@ const Programme: Component<VisionProps> = (props) => {
     setOfDateFinOverride(new Map())
     scenario.reset()
     scenario.setActive(false)
-    requestAnimationFrame(measure)
+    requestMeasure()
   }
 
   // #57 — Rouvrir un scénario : charge ses mutations puis les rejoue VISUELLEMENT sur
@@ -628,7 +628,7 @@ const Programme: Component<VisionProps> = (props) => {
         }
       }
     }
-    requestAnimationFrame(measure)
+    requestMeasure()
   }
 
   // Commandes regroupées par poste (= rangée du board) × colonne d'expédition.
@@ -646,7 +646,7 @@ const Programme: Component<VisionProps> = (props) => {
     }
     if (!parsed.ligne) return // prévision sans n° de ligne → non persistable
     setCmdMoved((m) => new Map(m).set(parsed.id, { col, iso }))
-    requestAnimationFrame(measure)
+    requestMeasure()
 
     // #57 — mode scénario : empile une mutation shift_demand, aucun PATCH réel.
     if (scenario.active()) {
@@ -673,7 +673,7 @@ const Programme: Component<VisionProps> = (props) => {
           n.delete(parsed.id)
           return n
         })
-        requestAnimationFrame(measure)
+        requestMeasure()
         toast.error(`Déplacement commande échoué : ${err.message}`)
       })
   }
@@ -716,6 +716,21 @@ const Programme: Component<VisionProps> = (props) => {
     setPaths(out)
   }
 
+  // #62 (lot 7) — coalescing des rAF de remesure. Les 5 sites qui déclenchent
+  // une remesure (refresh, discardScenario, openScenario, onCommandeDrop x2)
+  // passent tous par requestMeasure() au lieu de requestMeasure()
+  // direct. Un flag évite de programmer plusieurs rAF dans le même cycle → une
+  // seule passe de mesure (2×N querySelector) au lieu de jusqu'à 5.
+  let measureScheduled = false
+  const requestMeasure = () => {
+    if (measureScheduled) return
+    measureScheduled = true
+    requestAnimationFrame(() => {
+      measureScheduled = false
+      measure()
+    })
+  }
+
   // #62 (lot 1) — raccourcis clavier. Ignore les champs de saisie et les
   // modificateurs (Ctrl/Meta/Alt). Échap ferme le calendrier puis les drawers.
   useShortcuts(
@@ -756,7 +771,7 @@ const Programme: Component<VisionProps> = (props) => {
   createEffect(
     on(
       () => [props.board, cmdMoved(), ofShift()] as const,
-      () => requestAnimationFrame(measure),
+      () => requestMeasure(),
       { defer: true }
     )
   )
