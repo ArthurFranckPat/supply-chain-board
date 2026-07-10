@@ -608,7 +608,7 @@ function VirtualOrderChip(props: { order: VirtualOrderVm; onRemove?: (id: string
     >
       <button
         type="button"
-        class="absolute right-0.5 top-0.5 hidden size-3.5 items-center justify-center rounded-full text-muted-foreground hover:text-error group-hover:flex"
+        class="absolute right-0.5 top-0.5 flex size-3.5 items-center justify-center rounded-full text-muted-foreground opacity-50 hover:text-error hover:opacity-100"
         onClick={() => props.onRemove?.(props.order.id)}
         title="Retirer du scénario"
       >
