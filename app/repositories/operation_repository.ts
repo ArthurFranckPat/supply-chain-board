@@ -57,18 +57,19 @@ export class X3OperationRepository {
 
     const db = new X3Database()
     try {
-      // Chunks parallèles (aligné sur mfgmat_repository.ts, issue #33).
-      const chunkRows = await Promise.all(
-        chunks.map(async (chunk) => {
-          const ofsList = chunk.map((n) => `'${n}'`).join(',')
-          const sql = SQL.replace('{ofs}', ofsList)
-          return db.raw(sql) as Promise<RawRow[]>
-        }),
-      )
-
+      // Chunks SÉQUENTIELS (et non Promise.all). Le pool X3 est `max: 1` (une
+      // seule connexion) → les chunks parallèles ne gagnaient rien (ils se
+      // sérialisaient sur l'unique connexion) et introduisaient une condition de
+      // course fatale : si un chunk échouait, Promise.all rejetait immédiatement,
+      // le `finally` appelait destroy() pendant que les autres chunks tenaient
+      // encore la connexion → « Acquire connection error: aborted ». Aligné sur
+      // order_line_repository.ts (boucle for/await, même pool max:1).
       const rows: OperationRecord[] = []
-      for (const chunkResult of chunkRows) {
-        for (const row of chunkResult) {
+      for (const chunk of chunks) {
+        const ofsList = chunk.map((n) => `'${n}'`).join(',')
+        const sql = SQL.replace('{ofs}', ofsList)
+        const chunkRows = (await db.raw(sql)) as RawRow[]
+        for (const row of chunkRows) {
           rows.push({
             mfgnum: (row.MFGNUM ?? '').trim(),
             openum: parseFloat(row.OPENUM ?? '0') || 0,
