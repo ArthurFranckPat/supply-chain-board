@@ -7,9 +7,12 @@
  *
  * Usage :
  *   <Tooltip>
- *     <TooltipTrigger asChild><button>…</button></TooltipTrigger>
+ *     <TooltipTrigger class="…" onClick={…}>Label</TooltipTrigger>
  *     <TooltipContent>Texte</TooltipContent>
  *   </Tooltip>
+ *
+ * NB : Kobalte ne supporte PAS `asChild` (modèle Radix). Le Trigger est
+ * lui-même un <button> polymorphe — on passe class/props/children directement.
  */
 import type { ComponentProps, ValidComponent } from 'solid-js'
 import { splitProps } from 'solid-js'

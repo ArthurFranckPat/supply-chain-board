@@ -76,19 +76,17 @@ export function ProgrammeToolbar(props: {
         <For each={(['ordonnancement', 'combined', 'planification'] as const)}>
           {(m) => (
             <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={props.mode() === m}
-                  class={cx(
-                    'min-h-[28px] rounded-[5px] px-3 py-1 font-mono text-2xs font-bold uppercase tracking-wider transition-colors',
-                    props.mode() === m ? 'bg-brand-soft text-brand' : 'text-muted-foreground hover:text-foreground',
-                  )}
-                  onClick={() => props.switchMode(m)}
-                >
-                  {MODE_LABELS[m]}
-                </button>
+              <TooltipTrigger
+                type="button"
+                role="radio"
+                aria-checked={props.mode() === m}
+                class={cx(
+                  'min-h-[28px] rounded-[5px] px-3 py-1 font-mono text-2xs font-bold uppercase tracking-wider transition-colors',
+                  props.mode() === m ? 'bg-brand-soft text-brand' : 'text-muted-foreground hover:text-foreground',
+                )}
+                onClick={() => props.switchMode(m)}
+              >
+                {MODE_LABELS[m]}
               </TooltipTrigger>
               <TooltipContent>{MODE_TITLES[m]}</TooltipContent>
             </Tooltip>
@@ -218,22 +216,20 @@ export function ProgrammeToolbar(props: {
           #62 (lot 3) : disabled + tooltip hors mode Combiné plutôt que caché. */}
       <Show when={props.onToggleScenario}>
         <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              disabled={props.mode() !== 'combined'}
-              aria-pressed={props.scenarioActive?.() ?? false}
-              onClick={() => props.onToggleScenario?.()}
-              class={cx(
-                'inline-flex min-h-[28px] items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40',
-                props.scenarioActive?.()
-                  ? 'border-brand bg-brand text-white'
-                  : 'border-rule bg-card text-foreground hover:border-brand hover:text-brand',
-              )}
-            >
-              <span class="material-symbols-outlined text-sm">science</span>
-              Scénario
-            </button>
+          <TooltipTrigger
+            type="button"
+            disabled={props.mode() !== 'combined'}
+            aria-pressed={props.scenarioActive?.() ?? false}
+            onClick={() => props.onToggleScenario?.()}
+            class={cx(
+              'inline-flex min-h-[28px] items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40',
+              props.scenarioActive?.()
+                ? 'border-brand bg-brand text-white'
+                : 'border-rule bg-card text-foreground hover:border-brand hover:text-brand',
+            )}
+          >
+            <span class="material-symbols-outlined text-sm">science</span>
+            Scénario
           </TooltipTrigger>
           <TooltipContent>
             {props.mode() === 'combined'
