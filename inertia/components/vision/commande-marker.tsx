@@ -48,10 +48,25 @@ export function CommandeMarker(props: {
   const iconClass = () => (verdict() ? ICON_BY_VERDICT[verdict()!] : ICON_UNKNOWN)
   const iconName = () =>
     verdict() === 'retard' ? 'schedule_send' : verdict() === 'limite' ? 'schedule' : 'local_shipping'
+  // #62 (lot 1) : libellé accessible complet — n°, ligne, date, verdict.
+  const ariaLabel = () => {
+    const parts = [`Commande ${cmd.numCommande}`]
+    if (cmd.ligne) parts.push(`ligne ${cmd.ligne}`)
+    const iso = props.cmdIso(cmd)
+    if (iso) parts.push(`expédition ${fmtDay(iso)}`)
+    const v = verdict()
+    if (v === 'retard') parts.push('en retard')
+    else if (v === 'limite') parts.push('limite')
+    else if (v === 'ok') parts.push("à l'heure")
+    else parts.push('non évaluée')
+    return parts.join(', ')
+  }
   return (
     <div
       data-link-cmd={`${props.lineCode}:${cmd.id}`}
       draggable={!!cmd.ligne}
+      tabindex={0}
+      aria-label={ariaLabel()}
       onDragStart={(e) => {
         if (!cmd.ligne) return
         e.dataTransfer?.setData(
@@ -62,8 +77,10 @@ export function CommandeMarker(props: {
       }}
       onMouseEnter={() => props.onActivate(cmd.id)}
       onMouseLeave={() => props.onActivate(null)}
+      onFocus={() => props.onActivate(cmd.id)}
+      onBlur={() => props.onActivate(null)}
       class={cx(
-        'relative overflow-hidden rounded-[6px] border border-rule border-l-[3px] bg-terra-soft px-1.5 py-1.5 leading-tight shadow-[0_1px_2px_rgba(31,26,19,.06)] transition-shadow duration-150',
+        'relative overflow-hidden rounded-[6px] border border-rule border-l-[3px] bg-terra-soft px-1.5 py-1.5 leading-tight shadow-[0_1px_2px_rgba(31,26,19,.06)] transition-shadow duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terra/60',
         borderClass(),
         cmd.ligne ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer',
         props.activeId() === cmd.id && 'shadow-[0_2px_10px_rgba(168,67,31,.22)] ring-1 ring-terra/50',

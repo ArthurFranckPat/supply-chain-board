@@ -13,6 +13,13 @@ const MODE_LABELS: Record<VisionMode, string> = {
   planification: 'Cmdes',
 }
 
+/** #62 (lot 1/3) : formes explicites des modes — tooltip + aria-label. */
+const MODE_TITLES: Record<VisionMode, string> = {
+  ordonnancement: 'Ordres de fabrication seuls',
+  combined: 'Vue combinée OF + commandes (liens et impacts)',
+  planification: 'Commandes clients seules',
+}
+
 const STATUS_FILTER_CHIPS: { k: 'ferme' | 'planifie' | 'suggere'; label: string }[] = [
   { k: 'ferme', label: 'Ferme' },
   { k: 'planifie', label: 'Planifié' },
@@ -55,14 +62,25 @@ export function ProgrammeToolbar(props: {
   onToggleScenario?: () => void
 }) {
   const { store, orderStore } = props
+  // #62 (lot 1) : déclencheur du calendrier — le focus y revient à la fermeture Échap.
+  let calTriggerEl: HTMLButtonElement | undefined
   return (
     <div data-print-toolbar class="flex flex-none flex-wrap items-center justify-between gap-3 border-b border-rule px-7 py-2">
-      {/* Sélecteur de mode */}
-      <div class="inline-flex items-center gap-0.5 rounded-md border border-rule bg-card p-0.5">
+      {/* Sélecteur de mode — #62 (lot 1) : radiogroup (choix exclusif) + libellés
+          explicites en aria-label/tooltip, les libellés courts restant visuels. */}
+      <div
+        role="radiogroup"
+        aria-label="Mode d'affichage du board"
+        class="inline-flex items-center gap-0.5 rounded-md border border-rule bg-card p-0.5"
+      >
         <For each={(['ordonnancement', 'combined', 'planification'] as const)}>
           {(m) => (
             <button
               type="button"
+              role="radio"
+              aria-checked={props.mode() === m}
+              aria-label={MODE_TITLES[m]}
+              title={MODE_TITLES[m]}
               class={cx(
                 'rounded-[5px] px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
                 props.mode() === m ? 'bg-terra-soft text-terra' : 'text-muted-foreground hover:text-foreground',
@@ -85,6 +103,7 @@ export function ProgrammeToolbar(props: {
             {({ k, label }) => (
               <button
                 type="button"
+                aria-pressed={store.statusActive(k)}
                 class={cx(
                   'rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
                   store.statusActive(k) ? 'bg-terra-soft text-terra' : 'text-muted-foreground hover:text-foreground',
@@ -110,6 +129,7 @@ export function ProgrammeToolbar(props: {
               <button
                 type="button"
                 title={a.code}
+                aria-pressed={orderStore.atelierFilter().has(a.code)}
                 onClick={() => orderStore.toggleAtelier(a.code)}
                 class={cx(
                   'rounded-[5px] px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
@@ -125,6 +145,8 @@ export function ProgrammeToolbar(props: {
           <Show when={orderStore.atelierFilter().size > 0}>
             <button
               type="button"
+              aria-label="Effacer le filtre atelier"
+              title="Effacer le filtre atelier"
               onClick={() => orderStore.clearAtelier()}
               class="ml-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-terra hover:underline"
             >
@@ -144,6 +166,7 @@ export function ProgrammeToolbar(props: {
             {(n) => (
               <button
                 type="button"
+                aria-pressed={orderStore.natureFilter().has(n.k)}
                 onClick={() => orderStore.toggleNature(n.k)}
                 class={cx(
                   'rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
@@ -164,7 +187,8 @@ export function ProgrammeToolbar(props: {
       <Show when={props.mode() === 'combined' && props.nbCmdRetard && props.nbCmdRetard() > 0}>
         <button
           type="button"
-          title="Mettre en évidence tous les liens en retard"
+          title="Mettre en évidence les liens en retard et limite"
+          aria-pressed={props.highlightRetards?.() ?? false}
           onClick={() => props.onToggleHighlight?.()}
           class={cx(
             'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-bold transition-colors',
@@ -184,6 +208,7 @@ export function ProgrammeToolbar(props: {
         <button
           type="button"
           title="Mode scénario : les déplacements alimentent un scénario (aucun envoi X3)"
+          aria-pressed={props.scenarioActive?.() ?? false}
           onClick={() => props.onToggleScenario?.()}
           class={cx(
             'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-bold transition-colors',
@@ -197,10 +222,16 @@ export function ProgrammeToolbar(props: {
         </button>
       </Show>
 
-      {/* Calendrier — conservé seul à l'impression (data-print-keep). */}
+      {/* Calendrier — conservé seul à l'impression (data-print-keep).
+          #62 (lot 1) : popover fermable à Échap (focus rendu au déclencheur) +
+          focus piégé à l'intérieur tant qu'il est ouvert. */}
       <div data-print-keep class="relative">
         <button
           type="button"
+          ref={(el) => (calTriggerEl = el)}
+          aria-haspopup="dialog"
+          aria-expanded={props.calOpen()}
+          aria-label={`Fenêtre de dates : ${props.dateRange}`}
           onClick={() => props.setCalOpen((o) => !o)}
           class="flex items-center gap-1.5 rounded-full border border-rule bg-card px-2.5 py-1 text-[11px] font-semibold text-foreground transition-colors hover:border-terra"
         >
@@ -216,7 +247,37 @@ export function ProgrammeToolbar(props: {
             class="fixed inset-0 z-40 cursor-default"
             onClick={() => props.setCalOpen(() => false)}
           />
-          <div class="absolute left-0 top-full z-50 mt-2">
+          <div
+            class="absolute left-0 top-full z-50 mt-2"
+            role="dialog"
+            aria-label="Choisir la fenêtre de dates"
+            tabindex={-1}
+            ref={(el) => requestAnimationFrame(() => el.focus())}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                e.stopPropagation()
+                props.setCalOpen(() => false)
+                calTriggerEl?.focus()
+                return
+              }
+              if (e.key !== 'Tab') return
+              // Focus trap minimal : Tab boucle sur les éléments focusables du popover.
+              const root = e.currentTarget as HTMLElement
+              const focusables = root.querySelectorAll<HTMLElement>(
+                'button:not([disabled]), [href], input, [tabindex]:not([tabindex="-1"])',
+              )
+              if (focusables.length === 0) return
+              const first = focusables[0]
+              const last = focusables[focusables.length - 1]
+              if (e.shiftKey && (document.activeElement === first || document.activeElement === root)) {
+                e.preventDefault()
+                last.focus()
+              } else if (!e.shiftKey && document.activeElement === last) {
+                e.preventDefault()
+                first.focus()
+              }
+            }}
+          >
             <Calendar mode="range" range={props.range()} onRangeChange={props.applyRange} />
           </div>
         </Show>
@@ -234,7 +295,8 @@ export function ProgrammeToolbar(props: {
           </span>
           <button
             type="button"
-            title="Stock vu en intégralité par chaque OF"
+            title="Allocation instantanée : stock vu en intégralité par chaque OF"
+            aria-pressed={props.feasMode() === 'immediate'}
             onClick={() => props.setFeasMode('immediate')}
             class={cx(
               'rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
@@ -245,7 +307,8 @@ export function ProgrammeToolbar(props: {
           </button>
           <button
             type="button"
-            title="Stock consommé OF par OF selon priorité"
+            title="Allocation projetée : stock consommé OF par OF selon priorité"
+            aria-pressed={props.feasMode() === 'sequential'}
             onClick={() => props.setFeasMode('sequential')}
             class={cx(
               'rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',

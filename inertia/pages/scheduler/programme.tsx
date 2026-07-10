@@ -722,6 +722,47 @@ const Programme: Component<VisionProps> = (props) => {
     setPaths(out)
   }
 
+  // #62 (lot 1) — raccourcis clavier de la page : R actualiser, F faisabilité,
+  // 1/2/3 mode, S scénario (combiné), Échap ferme le calendrier. Inertes quand le
+  // focus est dans un champ de saisie ou qu'un modificateur est enfoncé.
+  onMount(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return
+      const t = e.target as HTMLElement | null
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return
+      switch (e.key) {
+        case 'r':
+        case 'R':
+          e.preventDefault()
+          doRefresh()
+          break
+        case 'f':
+        case 'F':
+          e.preventDefault()
+          runFeasibility()
+          break
+        case '1':
+          switchMode('ordonnancement')
+          break
+        case '2':
+          switchMode('combined')
+          break
+        case '3':
+          switchMode('planification')
+          break
+        case 's':
+        case 'S':
+          if (mode() === 'combined') toggleScenario()
+          break
+        case 'Escape':
+          if (calOpen()) setCalOpen(false)
+          break
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    onCleanup(() => window.removeEventListener('keydown', onKey))
+  })
+
   let ro: ResizeObserver | null = null
   onMount(() => {
     measure()
@@ -778,6 +819,7 @@ const Programme: Component<VisionProps> = (props) => {
                   placeholder={
                     mode() === 'planification' ? 'Commande, article, client…' : 'OF, article, poste…'
                   }
+                  aria-label="Rechercher sur le board"
                   type="text"
                   autocomplete="off"
                   value={mode() === 'planification' ? orderStore.query() : store.query()}

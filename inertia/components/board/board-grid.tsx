@@ -458,16 +458,27 @@ function CardView(props: {
       tabindex={matches() ? 0 : -1}
       draggable={matches() && !selecting()}
       data-num-of={card.id}
+      aria-label={`OF ${card.id} — ${card.title}`}
       class={cx(
-        'relative cursor-pointer transition-opacity',
+        'relative cursor-pointer transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terra/70 focus-visible:ring-offset-1',
         !matches() && 'pointer-events-none opacity-15',
         selecting() && picked() && 'rounded-md ring-2 ring-terra ring-offset-1'
       )}
       onMouseEnter={() => props.onCardHover?.(card.id)}
       onMouseLeave={() => props.onCardHover?.(null)}
+      onFocus={() => props.onCardHover?.(card.id)}
+      onBlur={() => props.onCardHover?.(null)}
       onClick={() => {
         if (!matches()) return
         // En mode sélection, le clic (dé)sélectionne au lieu d'ouvrir le détail.
+        if (selecting()) store.toggleSelect(card.id)
+        else props.onSelectOf?.(card.id)
+      }}
+      onKeyDown={(e: KeyboardEvent) => {
+        // #62 (lot 1) : Enter/Espace = même action que le clic (role="button" honoré).
+        if (e.key !== 'Enter' && e.key !== ' ') return
+        if (!matches()) return
+        e.preventDefault()
         if (selecting()) store.toggleSelect(card.id)
         else props.onSelectOf?.(card.id)
       }}
