@@ -38,6 +38,33 @@ WHERE ITMREF_0 IN (${articles.map((a) => `'${a.replace(/'/g, "''")}'`).join(',')
 GROUP BY ITMREF_0
 `
 
+// OF ouverts (fermes/planifiés/suggérés, encore à produire) pour les articles en retard.
+// ORDERS.CPLQTY_0 (qté déclarée) ne bouge qu'à la dernière opération (déclaration
+// entrée stock) — sur un OF long, des opérations intermédiaires peuvent déjà être
+// avancées sans que CPLQTY_0 ne bouge. On va chercher l'avancement réel dans MFGOPE.
+const buildOpenOfSql = (articles: string[]) => `
+SELECT
+  VCRNUM_0 AS MFGNUM,
+  ITMREF_0 AS ARTICLE
+FROM ORDERS
+WHERE WIPTYP_0 = 5
+  AND WIPSTA_0 IN (1, 2, 3)
+  AND RMNEXTQTY_0 > 0
+  AND ITMREF_0 IN (${articles.map((a) => `'${a.replace(/'/g, "''")}'`).join(',')})
+`
+
+// Temps opératoire réellement déclaré par OF (réglage + opératoire, en heures — TIMUOMCOD_0
+// "Heures" sur ce site). Se met à jour à chaque déclaration d'opération, contrairement à
+// CPLQTY_0 qui n'avance qu'à la déclaration finale — capte l'avancement réel des OF longs.
+const buildOpTimeSql = (mfgnums: string[]) => `
+SELECT
+  MFGNUM_0 AS MFGNUM,
+  SUM(CPLOPETIM_0 + CPLSETTIM_0) AS HEURES_REALISEES
+FROM MFGOPE
+WHERE MFGNUM_0 IN (${mfgnums.map((n) => `'${n.replace(/'/g, "''")}'`).join(',')})
+GROUP BY MFGNUM_0
+`
+
 type RawRow = Record<string, string | null>
 
 export interface RetardLigne {
@@ -115,6 +142,41 @@ export class RetardRepository {
       }
     }
 
+    // Avancement réel des OF ouverts par article (heures déjà réalisées, cf. buildOpTimeSql) —
+    // consommé au fil de l'eau comme stockDispo, pour créditer les OF longs déjà en cours.
+    const heuresRealisees = new Map<string, number>()
+    if (candidateArticles.length > 0) {
+      const ofDb = new X3Database()
+      try {
+        const ofRows: RawRow[] = []
+        for (let i = 0; i < candidateArticles.length; i += 1000) {
+          const chunk = candidateArticles.slice(i, i + 1000)
+          ofRows.push(...(await ofDb.raw(buildOpenOfSql(chunk))))
+        }
+        const mfgnumToArticle = new Map<string, string>()
+        for (const r of ofRows) {
+          const mfgnum = r.MFGNUM?.trim()
+          const article = r.ARTICLE?.trim()
+          if (mfgnum && article) mfgnumToArticle.set(mfgnum, article)
+        }
+        const mfgnums = [...mfgnumToArticle.keys()]
+        for (let i = 0; i < mfgnums.length; i += 1000) {
+          const chunk = mfgnums.slice(i, i + 1000)
+          const timeRows: RawRow[] = await ofDb.raw(buildOpTimeSql(chunk))
+          for (const tr of timeRows) {
+            const mfgnum = tr.MFGNUM?.trim()
+            if (!mfgnum) continue
+            const article = mfgnumToArticle.get(mfgnum)
+            if (!article) continue
+            const heures = Math.max(0, parseFloat(tr.HEURES_REALISEES ?? '0') || 0)
+            heuresRealisees.set(article, (heuresRealisees.get(article) ?? 0) + heures)
+          }
+        }
+      } finally {
+        await ofDb.destroy()
+      }
+    }
+
     const posteAccum = new Map<string, { label: string; heures: number }>()
     const lignes: RetardLigne[] = []
 
@@ -146,6 +208,22 @@ export class RetardRepository {
       for (const op of ops) {
         byPoste[op.workstation] = (byPoste[op.workstation] ?? 0) + qteAProduire / op.rate
       }
+
+      // Crédite l'avancement réel des OF ouverts (heures déjà réalisées, MFGOPE) — au fil de
+      // l'eau comme le stock dispo, réparti au prorata entre postes de la ligne.
+      const creditDispo = heuresRealisees.get(article) ?? 0
+      if (creditDispo > 0) {
+        const totalLigne = Object.values(byPoste).reduce((s, h) => s + h, 0)
+        if (totalLigne > 0) {
+          const creditUse = Math.min(creditDispo, totalLigne)
+          const ratio = creditUse / totalLigne
+          for (const ws of Object.keys(byPoste)) byPoste[ws] *= 1 - ratio
+          heuresRealisees.set(article, creditDispo - creditUse)
+        }
+      }
+
+      const totalLigneApresCredit = Object.values(byPoste).reduce((s, h) => s + h, 0)
+      if (Math.round(totalLigneApresCredit * 10) / 10 <= 0) continue
 
       for (const [ws, h] of Object.entries(byPoste)) {
         const label = ops.find((o) => o.workstation === ws)?.label ?? ws
