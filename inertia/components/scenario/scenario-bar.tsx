@@ -1,6 +1,15 @@
 import { For, Show, createSignal, onMount, type Accessor, type Component } from 'solid-js'
 import { cx } from '@/libs/cva'
 import { Button } from '@/components/ui/button'
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogPortal,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import type { ScenarioStore } from '@/lib/scenarios/store'
 import type { PlanMutation } from '@/lib/scenarios/types'
 
@@ -31,6 +40,17 @@ export const ScenarioBar: Component<{
   const s = props.scenario
   const [listOpen, setListOpen] = createSignal(false)
   const [formOpen, setFormOpen] = createSignal(false)
+  // #62 (lot 0) : « Jeter » détruit N mutations sans retour possible → confirmation
+  // explicite dès qu'il y a quelque chose à perdre (scénario vide : jet direct).
+  const [confirmDiscardOpen, setConfirmDiscardOpen] = createSignal(false)
+  const requestDiscard = () => {
+    if (s.mutationCount() === 0) props.onDiscard()
+    else setConfirmDiscardOpen(true)
+  }
+  const confirmDiscard = () => {
+    setConfirmDiscardOpen(false)
+    props.onDiscard()
+  }
   const [article, setArticle] = createSignal('')
   const [quantity, setQuantity] = createSignal('1')
   const [date, setDate] = createSignal(props.windowFrom)
@@ -119,10 +139,35 @@ export const ScenarioBar: Component<{
           {props.applying() ? 'Application…' : 'Appliquer'}
         </Button>
 
-        <Button size="sm" variant="ghost" onClick={props.onDiscard} class="gap-1.5">
+        <Button size="sm" variant="ghost" onClick={requestDiscard} class="gap-1.5">
           <span class="material-symbols-outlined text-[15px]">delete</span>
           Jeter
         </Button>
+
+        <AlertDialog open={confirmDiscardOpen()} onOpenChange={setConfirmDiscardOpen}>
+          <AlertDialogPortal>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Jeter le scénario ?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  {s.mutationCount()} mutation{s.mutationCount() > 1 ? 's' : ''} non appliquée
+                  {s.mutationCount() > 1 ? 's' : ''} ser{s.mutationCount() > 1 ? 'ont' : 'a'}{' '}
+                  perdue{s.mutationCount() > 1 ? 's' : ''} et le board reviendra à l'état réel.
+                  Cette action est irréversible.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <Button size="sm" variant="outline" onClick={() => setConfirmDiscardOpen(false)}>
+                  Annuler
+                </Button>
+                <Button size="sm" variant="destructive" onClick={confirmDiscard} class="gap-1.5">
+                  <span class="material-symbols-outlined text-[15px]">delete</span>
+                  Jeter le scénario
+                </Button>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialogPortal>
+        </AlertDialog>
 
         {/* #58 — commande virtuelle (mutation inject_demand, what-if) */}
         <div class="relative">
