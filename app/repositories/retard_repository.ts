@@ -5,18 +5,25 @@ import boardDataset from '#services/board_dataset'
 // ORDERS WIPTYP=1 (commandes vente) WIPSTA=1 (confirmées).
 // ENDDAT_0 = date expé = SHIDAT_0 pour les commandes confirmées.
 // RMNEXTQTY_0 = EXTQTY_0 - DLVQTY_0 calculé par X3.
+// CONTREMARQUE (SORDERQ.FMINUM_0) : peg exact ligne commande → OF, quand X3 a
+// créé l'OF spécifiquement pour cette ligne (cf. CommandeOFMatcher, of-conso.ts).
+// Absent (NULL) pour du MTS/stock non pégué : la ligne est couverte par le pool
+// d'OF de l'article, pas par un OF dédié.
 const buildSql = (fromStr: string, toStr: string) => `
 SELECT
   O.VCRNUM_0    AS SOHNUM,
+  O.VCRLIN_0    AS LIGNE,
   P.BPRNAM_0    AS CLIENT,
   O.ITMREF_0    AS ARTICLE,
   I.ITMDES1_0   AS DESIGNATION,
   O.ENDDAT_0    AS DATE_EXP,
   O.RMNEXTQTY_0 AS QTE_RESTANTE,
-  O.ALLQTY_0    AS QTE_ALLOUEE
+  O.ALLQTY_0    AS QTE_ALLOUEE,
+  Q.FMINUM_0    AS CONTREMARQUE
 FROM ORDERS O
 INNER JOIN ITMMASTER I ON I.ITMREF_0 = O.ITMREF_0
 LEFT JOIN BPARTNER P ON P.BPRNUM_0 = O.BPRNUM_0
+LEFT JOIN SORDERQ Q ON Q.SOHNUM_0 = O.VCRNUM_0 AND Q.SOPLIN_0 = O.VCRLIN_0
 WHERE O.WIPTYP_0 = 1
   AND O.WIPSTA_0 = 1
   AND I.ITMSTA_0 = 1
@@ -38,7 +45,9 @@ WHERE ITMREF_0 IN (${articles.map((a) => `'${a.replace(/'/g, "''")}'`).join(',')
 GROUP BY ITMREF_0
 `
 
-// OF ouverts (fermes/planifiés/suggérés, encore à produire) pour les articles en retard.
+// OF ouverts (fermes/planifiés/suggérés, encore à produire) pour les articles en retard,
+// SANS peg exact (contremarque) — pool partagé par article, fallback quand X3 n'a pas
+// dédié un OF à la ligne (cf. CommandeOFMatcher.matchMts, of-conso.ts, heuristique MTS).
 // ORDERS.CPLQTY_0 (qté déclarée) ne bouge qu'à la dernière opération (déclaration
 // entrée stock) — sur un OF long, des opérations intermédiaires peuvent déjà être
 // avancées sans que CPLQTY_0 ne bouge. On va chercher l'avancement réel dans MFGOPE.
@@ -142,10 +151,21 @@ export class RetardRepository {
       }
     }
 
-    // Avancement réel des OF ouverts par article (heures déjà réalisées, cf. buildOpTimeSql) —
-    // consommé au fil de l'eau comme stockDispo, pour créditer les OF longs déjà en cours.
+    // Peg exact ligne commande → OF (SORDERQ.FMINUM_0, cf. buildSql) : quand présent, l'OF
+    // a été créé/réservé spécifiquement pour cette ligne — le crédit d'heures s'impute
+    // dessus en direct, pas de partage par article.
+    const peggedOfNums = new Set(
+      rows.map((r) => r.CONTREMARQUE?.trim() ?? '').filter((n) => n.length > 0),
+    )
+
+    // Avancement réel des OF ouverts (heures déjà réalisées, cf. buildOpTimeSql) — consommé
+    // au fil de l'eau comme stockDispo, pour créditer les OF longs déjà en cours. Les OF
+    // pégués (contremarque) sont crédités en direct sur leur ligne ; le reste (MTS/pool
+    // partagé, sans peg) est crédité par article, en excluant les OF déjà dédiés à un peg
+    // pour ne pas compter les mêmes heures deux fois.
+    const heuresByOf = new Map<string, number>()
     const heuresRealisees = new Map<string, number>()
-    if (candidateArticles.length > 0) {
+    if (candidateArticles.length > 0 || peggedOfNums.size > 0) {
       const ofDb = new X3Database()
       try {
         const ofRows: RawRow[] = []
@@ -157,19 +177,19 @@ export class RetardRepository {
         for (const r of ofRows) {
           const mfgnum = r.MFGNUM?.trim()
           const article = r.ARTICLE?.trim()
-          if (mfgnum && article) mfgnumToArticle.set(mfgnum, article)
+          if (mfgnum && article && !peggedOfNums.has(mfgnum)) mfgnumToArticle.set(mfgnum, article)
         }
-        const mfgnums = [...mfgnumToArticle.keys()]
+        const mfgnums = [...new Set([...mfgnumToArticle.keys(), ...peggedOfNums])]
         for (let i = 0; i < mfgnums.length; i += 1000) {
           const chunk = mfgnums.slice(i, i + 1000)
           const timeRows: RawRow[] = await ofDb.raw(buildOpTimeSql(chunk))
           for (const tr of timeRows) {
             const mfgnum = tr.MFGNUM?.trim()
             if (!mfgnum) continue
-            const article = mfgnumToArticle.get(mfgnum)
-            if (!article) continue
             const heures = Math.max(0, parseFloat(tr.HEURES_REALISEES ?? '0') || 0)
-            heuresRealisees.set(article, (heuresRealisees.get(article) ?? 0) + heures)
+            heuresByOf.set(mfgnum, heures)
+            const article = mfgnumToArticle.get(mfgnum)
+            if (article) heuresRealisees.set(article, (heuresRealisees.get(article) ?? 0) + heures)
           }
         }
       } finally {
@@ -182,6 +202,7 @@ export class RetardRepository {
 
     for (const row of rows) {
       const article = row.ARTICLE?.trim() ?? ''
+      const contremarque = row.CONTREMARQUE?.trim() ?? ''
       const qty = parseFloat(row.QTE_RESTANTE ?? '0') || 0
       const allqty = parseFloat(row.QTE_ALLOUEE ?? '0') || 0
       const date = parseX3Date(row.DATE_EXP)
@@ -209,16 +230,17 @@ export class RetardRepository {
         byPoste[op.workstation] = (byPoste[op.workstation] ?? 0) + qteAProduire / op.rate
       }
 
-      // Crédite l'avancement réel des OF ouverts (heures déjà réalisées, MFGOPE) — au fil de
-      // l'eau comme le stock dispo, réparti au prorata entre postes de la ligne.
-      const creditDispo = heuresRealisees.get(article) ?? 0
+      // Crédite l'avancement réel de l'OF (heures déjà réalisées, MFGOPE) — en direct sur
+      // l'OF pégué (contremarque) si connu, sinon au fil de l'eau sur le pool par article.
+      const creditDispo = contremarque ? heuresByOf.get(contremarque) ?? 0 : heuresRealisees.get(article) ?? 0
       if (creditDispo > 0) {
         const totalLigne = Object.values(byPoste).reduce((s, h) => s + h, 0)
         if (totalLigne > 0) {
           const creditUse = Math.min(creditDispo, totalLigne)
           const ratio = creditUse / totalLigne
           for (const ws of Object.keys(byPoste)) byPoste[ws] *= 1 - ratio
-          heuresRealisees.set(article, creditDispo - creditUse)
+          if (contremarque) heuresByOf.set(contremarque, creditDispo - creditUse)
+          else heuresRealisees.set(article, creditDispo - creditUse)
         }
       }
 
