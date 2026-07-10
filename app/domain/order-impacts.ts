@@ -233,12 +233,18 @@ export function evaluateOrderImpacts(
       })
     }
 
+    // Buffer logistique J-2 (issue #41) : l'OF doit être terminé 2 jours avant
+    // l'expédition (contrôle, conditionnement, quai). On décale la date d'expé
+    // vers l'arrière pour le calcul du retard.
+    const LOGISTICS_BUFFER_MS = 2 * 86_400_000
+    const expedBornee = demand.date ? new Date(demand.date.getTime() - LOGISTICS_BUFFER_MS) : null
+
     let joursRetard = 0
-    if (latestFin && demand.date && latestFin > demand.date) {
-      joursRetard = Math.round((latestFin.getTime() - demand.date.getTime()) / 86400000)
-    } else if (demand.date && demand.date < today) {
-      // date d'expé dépassée sans retard OF → retard calendaire depuis aujourd'hui
-      joursRetard = Math.round((today.getTime() - demand.date.getTime()) / 86400000)
+    if (latestFin && expedBornee && latestFin > expedBornee) {
+      joursRetard = Math.round((latestFin.getTime() - expedBornee.getTime()) / 86400000)
+    } else if (expedBornee && expedBornee < today) {
+      // date d'expé dépassée (borne J-2) sans retard OF → retard calendaire depuis aujourd'hui
+      joursRetard = Math.round((today.getTime() - expedBornee.getTime()) / 86400000)
     }
 
     let statut: OrderImpactRow['statut']
@@ -249,7 +255,7 @@ export function evaluateOrderImpacts(
       statut = 'sans_couverture'
     } else if (blocked) {
       statut = 'bloquee'
-    } else if (joursRetard > 0 || (demand.date !== null && demand.date < today)) {
+    } else if (joursRetard > 0 || (expedBornee !== null && expedBornee < today)) {
       statut = 'retard'
     } else if (result.ofAllocations.length === 0) {
       statut = 'stock'
