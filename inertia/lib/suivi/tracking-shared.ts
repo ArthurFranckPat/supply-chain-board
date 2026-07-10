@@ -22,7 +22,7 @@ export const EMPTY: SuiviRowsResponse = {
 
 export const PROACTIVE_EMPTY: ProactiveRowsResponse = {
   total: 0,
-  verdictCounts: { time: 0, stock: 0, late: 0, blocked: 0, uncov: 0 },
+  verdictCounts: { time: 0, stock: 0, late: 0, blocked: 0, uncov: 0, risk: 0 },
   ateliers: [],
   rows: [],
   x3Error: null,
@@ -56,6 +56,7 @@ export const VERDICT_TONE: Record<ProactiveVerdictKey, string> = {
   late: 'bg-suggere/15 text-suggere',
   blocked: 'bg-destructive/10 text-destructive',
   uncov: 'bg-destructive/10 text-destructive',
+  risk: 'bg-suggere/15 text-suggere',
 }
 
 /**

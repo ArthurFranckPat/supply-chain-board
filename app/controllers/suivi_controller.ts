@@ -217,7 +217,7 @@ export default class SuiviController {
     if (ctx.request.input('refresh')) await reloadSuiviContext()
 
     let rows: ProactiveDisplayRow[] = []
-    let verdictCounts: Record<ProactiveVerdictKey, number> = { time: 0, stock: 0, late: 0, blocked: 0, uncov: 0 }
+    let verdictCounts: Record<ProactiveVerdictKey, number> = { time: 0, stock: 0, late: 0, blocked: 0, uncov: 0, risk: 0 }
     let ateliers: AtelierOption[] = []
     let x3Error: string | null = null
 
@@ -359,7 +359,7 @@ export interface SuiviDisplayRow {
 // ---------------------------------------------------------------------------
 
 /** Clé courte du verdict moteur pour le badge de la vue proactive. */
-export type ProactiveVerdictKey = 'time' | 'stock' | 'late' | 'blocked' | 'uncov'
+export type ProactiveVerdictKey = 'time' | 'stock' | 'late' | 'blocked' | 'uncov' | 'risk'
 
 export interface ProactiveOf {
   numOf: string
@@ -369,6 +369,8 @@ export interface ProactiveOf {
   feasible: boolean | null
   statutNum: number
   missingComponents: { art: string; qty: number }[]
+  /** Vrai si l'OF a des pointages d'opérations intermédiaires (issue #41). */
+  estDebuté?: boolean
 }
 
 export interface ProactiveDisplayRow {
@@ -630,6 +632,24 @@ export function buildProactiveDisplay(
       // = reste à RÉALISER (reste à livrer − alloué). Le verdict moteur porte donc sur la part
       // réellement à produire/couvrir.
       const verdict = VERDICT_DISPLAY[o.statut]
+
+      // Issue #41 : une commande "À temps" dont au moins un OF couvrant est ferme
+      // mais NON débuté (pas de pointage opérations intermédiaires) ET dont la date
+      // de fin est dans ≤ 2 jours (buffer logistique) → "À risque".
+      const J2_MS = 2 * 86_400_000
+      const isAtRisk =
+        verdict.key === 'time' &&
+        o.ofs.some((of) => {
+          if (of.estDebuté) return false
+          if (of.statutNum !== 1 && of.statutNum !== 2) return false // seulement OF affermis/planifiés
+          if (!of.dateFin) return false
+          const fin = new Date(of.dateFin).getTime()
+          if (isNaN(fin)) return false
+          return fin - Date.now() <= J2_MS
+        })
+      const finalVerdictKey: ProactiveVerdictKey = isAtRisk ? 'risk' : verdict.key
+      const finalVerdictLabel = isAtRisk ? 'À risque' : verdict.label
+
       const ofsFinal = o.ofs.map((of) => ({
         numOf: of.numOf,
         article: of.article,
@@ -641,6 +661,7 @@ export function buildProactiveDisplay(
           .filter(([, q]) => q > 0)
           .sort(([a], [b]) => a.localeCompare(b))
           .map(([art, qty]) => ({ art, qty: Math.round(qty * 100) / 100 })),
+        estDebuté: of.estDebuté,
       }))
       const compsTxt = comps.map((c) => `${c.art} -${c.qty}`).join(' ')
       // Mode de couverture : Stock (stock_complete) | OF contremarque/cumulatif (n° OF) |
@@ -668,10 +689,10 @@ export function buildProactiveDisplay(
         reliquat: Math.round(o.reliquat),
         dateExp: fmtFrDay(o.dateExpedition),
         dateExpIso: o.dateExpedition || null,
-        verdictKey: verdict.key,
-        verdictLabel: verdict.label,
+        verdictKey: finalVerdictKey,
+        verdictLabel: finalVerdictLabel,
         lateSeverity:
-          verdict.key === 'late' && o.dateExpedition
+          finalVerdictKey === 'late' && o.dateExpedition
             ? lateSeverity(workingDaysBetween(o.dateExpedition, todayIso))
             : null,
         couverture,
@@ -680,11 +701,11 @@ export function buildProactiveDisplay(
         ofs: ofsFinal,
         atelier: atelier.code,
         atelierLabel: atelier.label,
-        filter: `${o.numCommande} ${o.client} ${o.article} ${o.description} ${o.typeCommande} ${o.refCommandeClient ?? ''} ${o.refArticleClient ?? ''} ${verdict.label} ${couverture} ${compsTxt} ${atelier.label}`.toLowerCase(),
+        filter: `${o.numCommande} ${o.client} ${o.article} ${o.description} ${o.typeCommande} ${o.refCommandeClient ?? ''} ${o.refArticleClient ?? ''} ${finalVerdictLabel} ${couverture} ${compsTxt} ${atelier.label}`.toLowerCase(),
       }
     })
 
-  const verdictCounts: Record<ProactiveVerdictKey, number> = { time: 0, stock: 0, late: 0, blocked: 0, uncov: 0 }
+  const verdictCounts: Record<ProactiveVerdictKey, number> = { time: 0, stock: 0, late: 0, blocked: 0, uncov: 0, risk: 0 }
   for (const r of rows) verdictCounts[r.verdictKey]++
 
   return { rows, verdictCounts }

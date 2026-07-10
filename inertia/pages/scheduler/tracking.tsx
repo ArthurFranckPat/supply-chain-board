@@ -199,6 +199,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
             {verdictChip('blocked', 'Bloquée')}
             {verdictChip('uncov', 'Sans couverture')}
             {verdictChip('late', 'Retard')}
+            {verdictChip('risk', 'À risque')}
           </div>
         </Show>
         <div class="inline-flex items-center gap-1 rounded-md border border-rule bg-card p-0.5">

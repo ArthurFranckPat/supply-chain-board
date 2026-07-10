@@ -19,6 +19,8 @@ import {
   netDemandsByAllocation,
   type OrderImpactResult,
 } from '#app/domain/order-impacts'
+import { computeAvancement } from '#app/domain/of-avancement'
+import { X3OperationRepository } from '#repositories/operation_repository'
 import { buildStrictQcStock } from '#app/domain/of-feasibility'
 import {
   remapDemandDates,
@@ -278,6 +280,16 @@ export async function loadOrderImpacts(
     ? undefined
     : precomputeMfgFeasibility(finalOfFlows, mfgByOf, stockByArticle, overrideMap)
 
+  // Avancement des OFs via pointages MFGOPE (issue #41) : détermine si chaque OF
+  // est réellement débuté en atelier (opérations intermédiaires pointées).
+  const windowNumOfs = finalOfFlows
+    .map((f) => (f.origin as { id?: string }).id?.trim() ?? '')
+    .filter(Boolean)
+  const operations = await timeStage('loadOrderImpacts.operations', () =>
+    new X3OperationRepository().getOperations(windowNumOfs),
+  )
+  const avancementByOf = computeAvancement(operations)
+
   const result = evaluateOrderImpacts(
     filteredDemands,
     allSupply,
@@ -286,7 +298,8 @@ export async function loadOrderImpacts(
     overrideMap,
     { from: windowFrom, to: windowTo },
     mode,
-    mfgFeasibility
+    mfgFeasibility,
+    avancementByOf,
   )
 
   return {

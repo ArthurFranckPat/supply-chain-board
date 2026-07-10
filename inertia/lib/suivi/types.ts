@@ -135,7 +135,7 @@ export interface SuiviPageProps {
 // ---------------------------------------------------------------------------
 
 /** Clé courte du verdict moteur pour le badge proactif. */
-export type ProactiveVerdictKey = 'time' | 'stock' | 'late' | 'blocked' | 'uncov'
+export type ProactiveVerdictKey = 'time' | 'stock' | 'late' | 'blocked' | 'uncov' | 'risk'
 
 export interface ProactiveOf {
   numOf: string
@@ -145,6 +145,8 @@ export interface ProactiveOf {
   feasible: boolean | null
   statutNum: number
   missingComponents: { art: string; qty: number }[]
+  /** Vrai si l'OF a des pointages d'opérations intermédiaires (issue #41). */
+  estDebuté?: boolean
 }
 
 export interface ProactiveDisplayRow {

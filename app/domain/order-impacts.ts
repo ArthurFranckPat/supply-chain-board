@@ -51,6 +51,8 @@ export interface OrderImpactRow {
     missingComponents: Record<string, number>
     modified: boolean
     statutNum: number
+    /** Vrai si au moins une opération intermédiaire a un pointage > 0 (issue #41). */
+    estDebuté?: boolean
   }>
 }
 
@@ -69,6 +71,8 @@ export interface OrderImpactResult {
     feasible: boolean | null
     statutNum: number
     missingComponents: Record<string, number>
+    /** Vrai si au moins une opération intermédiaire a un pointage > 0 (issue #41). */
+    estDebuté?: boolean
   }>
   window: { from: string; to: string }
   stats: {
@@ -142,7 +146,12 @@ export function evaluateOrderImpacts(
   precomputedFeasibility?: Map<
     string,
     { feasible: boolean | null; missingComponents: Record<string, number> }
-  >
+  >,
+  /**
+   * Avancement des OFs via pointages MFGOPE (issue #41). Permet d'enrichir chaque OF
+   * avec `estDebuté` et de qualifier le verdict proactif. Optionnel (fixtures/tests).
+   */
+  avancementByOf?: Map<string, { estDebuté: boolean }>,
 ): OrderImpactResult {
   // 1. Filter demands in window
   const windowDemands = demands.filter((d) => {
@@ -220,6 +229,7 @@ export function evaluateOrderImpacts(
         missingComponents: resolved.missingComponents,
         modified: overrides.has(ofId),
         statutNum: overrides.get(ofId)?.status ?? (alloc.ofFlow.origin as any).status ?? 3,
+        estDebuté: avancementByOf?.get(ofId)?.estDebuté,
       })
     }
 
@@ -290,6 +300,7 @@ export function evaluateOrderImpacts(
         feasible: resolved.feasible,
         statutNum: e.statutNum,
         missingComponents: resolved.missingComponents,
+        estDebuté: avancementByOf?.get(e.numOf)?.estDebuté,
       }
     }),
     window: {
