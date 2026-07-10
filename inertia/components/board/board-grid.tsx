@@ -5,6 +5,7 @@ import type { Card, LineRow } from '@/lib/board/types'
 import { TYPO_META } from '@/lib/board/types'
 import { usePrintFit } from '@/lib/board/use-print-fit'
 import type { VirtualOrderVm } from '@/lib/scenarios/types'
+import { onActivation } from '@/lib/a11y/activation'
 import { fmtDay } from '@/lib/vision/date-utils'
 import { BoardCard, type CardStatus } from './board-card'
 import { ChargeHistogram, type ChargeWeek } from './charge-histogram'
@@ -471,6 +472,15 @@ function CardView(props: {
         if (selecting()) store.toggleSelect(card.id)
         else props.onSelectOf?.(card.id)
       }}
+      onKeyDown={
+        // #62 (lot 1) : activation clavier (Enter/Espace) — parité avec un <button>.
+        matches()
+          ? onActivation(() => {
+              if (selecting()) store.toggleSelect(card.id)
+              else props.onSelectOf?.(card.id)
+            })
+          : undefined
+      }
       onDragStart={(e: DragEvent) => {
         props.setDraggedNumOf(card.id)
         if (e.dataTransfer) {

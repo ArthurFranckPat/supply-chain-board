@@ -5,6 +5,13 @@ import { fmtDay } from '@/lib/vision/date-utils'
 import type { ImpactVerdict } from '@/lib/vision/impact'
 import { deltaLabel } from '@/lib/vision/impact'
 
+/** #62 (lot 1) : libellé verbal du verdict pour le aria-label du marqueur. */
+const VERDICT_SAY: Record<ImpactVerdict, string> = {
+  ok: 'à l\u2019heure',
+  limite: 'limite',
+  retard: 'en retard',
+}
+
 /**
  * Marqueur commande rendu dans une cellule du board (slot cellExtra de
  * BoardGrid), mode « combiné » (issue #52 — extrait de scheduler/programme.tsx).
@@ -48,10 +55,17 @@ export function CommandeMarker(props: {
   const iconClass = () => (verdict() ? ICON_BY_VERDICT[verdict()!] : ICON_UNKNOWN)
   const iconName = () =>
     verdict() === 'retard' ? 'schedule_send' : verdict() === 'limite' ? 'schedule' : 'local_shipping'
+  // #62 (lot 1) : libellé accessible — numéro + ligne + verdict verbalisé.
+  const ariaLabel = () =>
+    `Commande ${cmd.numCommande}${cmd.ligne ? `, ligne ${cmd.ligne}` : ''}${
+      verdict() ? `, ${VERDICT_SAY[verdict()!]}` : ', non évaluée'
+    }`
   return (
     <div
       data-link-cmd={`${props.lineCode}:${cmd.id}`}
       draggable={!!cmd.ligne}
+      tabindex={0}
+      aria-label={ariaLabel()}
       onDragStart={(e) => {
         if (!cmd.ligne) return
         e.dataTransfer?.setData(
@@ -62,6 +76,8 @@ export function CommandeMarker(props: {
       }}
       onMouseEnter={() => props.onActivate(cmd.id)}
       onMouseLeave={() => props.onActivate(null)}
+      onFocus={() => props.onActivate(cmd.id)}
+      onBlur={() => props.onActivate(null)}
       class={cx(
         'relative overflow-hidden rounded-[6px] border border-rule border-l-[3px] bg-terra-soft px-1.5 py-1.5 leading-tight shadow-[0_1px_2px_rgba(31,26,19,.06)] transition-shadow duration-150',
         borderClass(),

@@ -2,6 +2,7 @@ import { For, Show, type Accessor } from 'solid-js'
 import { cx } from '@/libs/cva'
 import type { BoardStore } from '@/lib/board/store'
 import type { OrderBoardStore } from '@/lib/orders/store'
+import { onEscapeClose } from '@/lib/a11y/activation'
 import { Button } from '@/components/ui/button'
 import { Calendar, type DateRange } from '@/components/ui/calendar'
 
@@ -57,12 +58,18 @@ export function ProgrammeToolbar(props: {
   const { store, orderStore } = props
   return (
     <div data-print-toolbar class="flex flex-none flex-wrap items-center justify-between gap-3 border-b border-rule px-7 py-2">
-      {/* Sélecteur de mode */}
-      <div class="inline-flex items-center gap-0.5 rounded-md border border-rule bg-card p-0.5">
+      {/* Sélecteur de mode — #62 (lot 1) : radiogroup sémantique pour les lecteurs d'écran. */}
+      <div
+        class="inline-flex items-center gap-0.5 rounded-md border border-rule bg-card p-0.5"
+        role="radiogroup"
+        aria-label="Mode d'affichage"
+      >
         <For each={(['ordonnancement', 'combined', 'planification'] as const)}>
           {(m) => (
             <button
               type="button"
+              role="radio"
+              aria-checked={props.mode() === m}
               class={cx(
                 'rounded-[5px] px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
                 props.mode() === m ? 'bg-terra-soft text-terra' : 'text-muted-foreground hover:text-foreground',
@@ -85,6 +92,7 @@ export function ProgrammeToolbar(props: {
             {({ k, label }) => (
               <button
                 type="button"
+                aria-pressed={store.statusActive(k)}
                 class={cx(
                   'rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
                   store.statusActive(k) ? 'bg-terra-soft text-terra' : 'text-muted-foreground hover:text-foreground',
@@ -109,6 +117,7 @@ export function ProgrammeToolbar(props: {
             {(a) => (
               <button
                 type="button"
+                aria-pressed={orderStore.atelierFilter().has(a.code)}
                 title={a.code}
                 onClick={() => orderStore.toggleAtelier(a.code)}
                 class={cx(
@@ -125,6 +134,7 @@ export function ProgrammeToolbar(props: {
           <Show when={orderStore.atelierFilter().size > 0}>
             <button
               type="button"
+              aria-label="Effacer le filtre atelier"
               onClick={() => orderStore.clearAtelier()}
               class="ml-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-terra hover:underline"
             >
@@ -144,6 +154,7 @@ export function ProgrammeToolbar(props: {
             {(n) => (
               <button
                 type="button"
+                aria-pressed={orderStore.natureFilter().has(n.k)}
                 onClick={() => orderStore.toggleNature(n.k)}
                 class={cx(
                   'rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
@@ -164,6 +175,7 @@ export function ProgrammeToolbar(props: {
       <Show when={props.mode() === 'combined' && props.nbCmdRetard && props.nbCmdRetard() > 0}>
         <button
           type="button"
+          aria-pressed={props.highlightRetards?.() ?? false}
           title="Mettre en évidence tous les liens en retard"
           onClick={() => props.onToggleHighlight?.()}
           class={cx(
@@ -183,6 +195,7 @@ export function ProgrammeToolbar(props: {
       <Show when={props.mode() === 'combined' && props.onToggleScenario}>
         <button
           type="button"
+          aria-pressed={props.scenarioActive?.() ?? false}
           title="Mode scénario : les déplacements alimentent un scénario (aucun envoi X3)"
           onClick={() => props.onToggleScenario?.()}
           class={cx(
@@ -201,6 +214,8 @@ export function ProgrammeToolbar(props: {
       <div data-print-keep class="relative">
         <button
           type="button"
+          aria-label={`Fenêtre : ${props.dateRange}${props.calOpen() ? ' — fermer' : ' — ouvrir'}`}
+          aria-expanded={props.calOpen()}
           onClick={() => props.setCalOpen((o) => !o)}
           class="flex items-center gap-1.5 rounded-full border border-rule bg-card px-2.5 py-1 text-[11px] font-semibold text-foreground transition-colors hover:border-terra"
         >
@@ -216,7 +231,10 @@ export function ProgrammeToolbar(props: {
             class="fixed inset-0 z-40 cursor-default"
             onClick={() => props.setCalOpen(() => false)}
           />
-          <div class="absolute left-0 top-full z-50 mt-2">
+          <div
+            class="absolute left-0 top-full z-50 mt-2"
+            onKeyDown={onEscapeClose(() => props.setCalOpen(() => false))}
+          >
             <Calendar mode="range" range={props.range()} onRangeChange={props.applyRange} />
           </div>
         </Show>
@@ -227,13 +245,20 @@ export function ProgrammeToolbar(props: {
           /board-feasibility orders[]), store OF sinon (badges par OF). Aucune logique
           de calcul dupliquée — même endpoint, parsé différemment. Issues #24, #21. */}
       <div class="flex items-center gap-2.5">
-        {/* Mode d'allocation stock — choix exclusif (segment, parité /ordonnancement) */}
-        <div class="inline-flex items-center gap-1 rounded-md border border-rule bg-card p-0.5">
+        {/* Mode d'allocation stock — choix exclusif (segment, parité /ordonnancement).
+            #62 (lot 1) : radiogroup sémantique. */}
+        <div
+          class="inline-flex items-center gap-1 rounded-md border border-rule bg-card p-0.5"
+          role="radiogroup"
+          aria-label="Mode d'allocation du stock"
+        >
           <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
             Stock
           </span>
           <button
             type="button"
+            role="radio"
+            aria-checked={props.feasMode() === 'immediate'}
             title="Stock vu en intégralité par chaque OF"
             onClick={() => props.setFeasMode('immediate')}
             class={cx(
@@ -245,6 +270,8 @@ export function ProgrammeToolbar(props: {
           </button>
           <button
             type="button"
+            role="radio"
+            aria-checked={props.feasMode() === 'sequential'}
             title="Stock consommé OF par OF selon priorité"
             onClick={() => props.setFeasMode('sequential')}
             class={cx(
