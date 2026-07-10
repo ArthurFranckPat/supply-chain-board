@@ -124,6 +124,8 @@ export class X3ReceptionRepository {
       .where('PORDER.CLEFLG_0', '1')
       .where('ITMMASTER.ITMSTA_0', '1')
       .whereRaw('PORDERQ.QTYSTU_0 > PORDERQ.RCPQTYSTU_0')
+      // Onglet Réceptions : ne garder que les commandes fournisseurs "CG" (préfixe métier).
+      .whereRaw("PORDERQ.POHNUM_0 LIKE 'CG%'")
 
     const rangeClause = dateRangeClause(opts?.from, opts?.to)
     if (rangeClause) q.whereRaw(rangeClause)
