@@ -36,10 +36,11 @@ export function LinksOverlay(props: {
           const badgeLabel = deltaLabel(p.deltaJours)
           const badgeW = Math.max(24, Math.round(badgeLabel.length * 5.8) + 12)
           // #23 : visibilité par verdict. retard = visible d'emblée (ou si highlight
-          // toolbar activé) ; limite/ok = masqués hors survol (comportement inchangé).
+          // toolbar activé) ; limite = présence atténuée (#62 lot 5 — auparavant
+          // invisible hors highlight) ; ok = masqué hors survol.
           const baseOpacity = () => {
             if (p.verdict === 'retard') return 0.55
-            if (p.verdict === 'limite' && highlight()) return 0.55
+            if (p.verdict === 'limite') return highlight() ? 0.55 : 0.15
             return 0
           }
           const opacity = () => {
