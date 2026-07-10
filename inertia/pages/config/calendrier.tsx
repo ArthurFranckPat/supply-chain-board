@@ -129,7 +129,7 @@ const Calendrier: Component<Props> = (props) => {
         active="config"
         meta={
           <>
-            <div class="font-fraunces text-[12px] font-bold italic text-terra">Année {props.year}</div>
+            <div class="font-fraunces text-[12px] font-bold italic text-brand">Année {props.year}</div>
             <div>
               <b class="font-bold text-foreground">{activeCount()}</b> fériés actifs ·{' '}
               <b class="font-bold text-foreground">{closures.length}</b> fermetures
@@ -145,7 +145,7 @@ const Calendrier: Component<Props> = (props) => {
                   onClick={() => setView(v)}
                   class={cx(
                     'rounded-[5px] px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
-                    view() === v ? 'bg-terra-soft text-terra' : 'text-muted-foreground hover:text-foreground',
+                    view() === v ? 'bg-brand-soft text-brand' : 'text-muted-foreground hover:text-foreground',
                   )}
                 >
                   {v === 'registre' ? 'Registre' : 'Frise'}
@@ -177,7 +177,7 @@ const Calendrier: Component<Props> = (props) => {
           when={view() === 'registre'}
           fallback={
             <div class="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-rule bg-card px-6 py-20 text-center">
-              <span class="material-symbols-outlined text-[34px] text-terra/60">view_timeline</span>
+              <span class="material-symbols-outlined text-[34px] text-brand/60">view_timeline</span>
               <div class="font-fraunces text-[16px] font-bold">Vue Frise — bientôt</div>
               <p class="max-w-md text-[12.5px] text-muted-foreground">
                 Timeline par poste sur l'année (fériés + fermetures déplaçables). Conçue, pas encore câblée — la
@@ -190,14 +190,14 @@ const Calendrier: Component<Props> = (props) => {
             {/* Jours fériés */}
             <section class="overflow-hidden rounded-2xl border border-rule bg-card">
               <header class="flex items-center gap-2 border-b border-rule-soft px-4 py-3.5">
-                <span class="material-symbols-outlined text-[18px] text-terra">event</span>
+                <span class="material-symbols-outlined text-[18px] text-brand">event</span>
                 <span class="font-fraunces text-[15px] font-bold">Jours fériés France</span>
                 <span class="ml-auto font-mono text-[11px] font-bold text-muted-foreground">{activeCount()} actifs</span>
               </header>
               <For each={holidays}>
                 {(h) => (
                   <div class="flex items-center gap-3 border-b border-rule-soft px-4 py-2.5 last:border-0">
-                    <span class="w-[58px] flex-none font-mono text-[12px] font-bold text-terra">{frShort(h.date)}</span>
+                    <span class="w-[58px] flex-none font-mono text-[12px] font-bold text-brand">{frShort(h.date)}</span>
                     <span class="text-[13px] font-medium">
                       {h.name}
                       <span class="block text-[10.5px] font-normal text-muted-foreground">
@@ -291,7 +291,7 @@ const Calendrier: Component<Props> = (props) => {
                                 <button
                                   type="button"
                                   onClick={() => setFormState({ mode: 'edit', closure: c })}
-                                  class="text-muted-foreground transition-colors hover:text-terra"
+                                  class="text-muted-foreground transition-colors hover:text-brand"
                                   title="Éditer"
                                 >
                                   <span class="material-symbols-outlined text-[18px]">edit</span>
@@ -322,7 +322,7 @@ const Calendrier: Component<Props> = (props) => {
                     <button
                       type="button"
                       onClick={() => setFormState({ mode: 'add' })}
-                      class="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-terra px-3 py-2 font-sans text-[12.5px] font-bold text-terra"
+                      class="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-brand px-3 py-2 font-sans text-[12.5px] font-bold text-brand"
                     >
                       <span class="material-symbols-outlined text-[16px]">add</span>Nouvelle fermeture
                     </button>
@@ -367,7 +367,7 @@ function Pills<T extends string>(p: {
             onClick={() => p.onChange(o.v)}
             class={cx(
               'rounded-[5px] px-3 py-1.5 text-[12px] font-semibold transition-colors',
-              p.value() === o.v ? 'bg-terra-soft text-terra' : 'text-muted-foreground hover:text-foreground',
+              p.value() === o.v ? 'bg-brand-soft text-brand' : 'text-muted-foreground hover:text-foreground',
             )}
           >
             {o.label}
@@ -506,7 +506,7 @@ const ClosureForm: Component<{
           <button
             type="button"
             onClick={() => setCalOpen((o) => !o)}
-            class="flex h-[34px] min-w-[170px] items-center gap-2 rounded-lg border border-rule bg-card px-3 text-[12.5px] font-semibold transition-colors hover:border-terra"
+            class="flex h-[34px] min-w-[170px] items-center gap-2 rounded-lg border border-rule bg-card px-3 text-[12.5px] font-semibold transition-colors hover:border-brand"
           >
             <span class="material-symbols-outlined text-[15px] text-muted-foreground">calendar_month</span>
             <span classList={{ 'text-muted-foreground': !range().start }}>{rangeLabel()}</span>

@@ -42,7 +42,7 @@ export const BatchFirmBar: Component<{ store: BoardStore }> = (props) => {
           >
             <span class="flex items-center gap-2 font-mono text-[12px] font-bold">
               <Show when={store.batchRunning()}>
-                <span class="material-symbols-outlined animate-spin text-[16px] text-terra">progress_activity</span>
+                <span class="material-symbols-outlined animate-spin text-[16px] text-brand">progress_activity</span>
               </Show>
               <span class="text-ferme">✓ {store.batchCounts().ok}</span>
               <Show when={store.batchCounts().err > 0}>

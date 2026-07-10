@@ -105,7 +105,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
       <button
         type="button"
         class={`rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors ${
-          on ? 'bg-terra-soft text-terra' : 'text-muted-foreground hover:text-foreground'
+          on ? 'bg-brand-soft text-brand' : 'text-muted-foreground hover:text-foreground'
         }`}
         onClick={() => setStatusFilter(on ? 'all' : k)}
       >
@@ -120,7 +120,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
       <button
         type="button"
         class={`rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors ${
-          on ? 'bg-terra-soft text-terra' : 'text-muted-foreground hover:text-foreground'
+          on ? 'bg-brand-soft text-brand' : 'text-muted-foreground hover:text-foreground'
         }`}
         onClick={() => setVerdictFilter(on ? 'all' : k)}
       >
@@ -136,7 +136,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
         active="tracking"
         meta={
           <>
-            <div class="font-fraunces text-[12px] font-bold capitalize not-italic text-terra">{refLabel()}</div>
+            <div class="font-fraunces text-[12px] font-bold capitalize not-italic text-brand">{refLabel()}</div>
             <div>
               <b class="font-bold text-foreground">{mode() === 'reactif' ? view().total : proView().total}</b> lignes ouvertes
               <Show when={view().referenceDate}> · réf. <b class="font-bold text-foreground">{view().referenceDate}</b></Show>
@@ -144,7 +144,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
           </>
         }
         actions={
-          <div class="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-terra focus-within:ring-2 focus-within:ring-terra/25">
+          <div class="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/25">
             <span class="material-symbols-outlined text-[17px] text-muted-foreground">search</span>
             <input
               class="w-[200px] border-0 bg-transparent px-0 text-[12px] font-medium text-foreground shadow-none outline-none"
@@ -165,7 +165,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
           <button
             type="button"
             class={`rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors ${
-              mode() === 'reactif' ? 'bg-terra-soft text-terra' : 'text-muted-foreground hover:text-foreground'
+              mode() === 'reactif' ? 'bg-brand-soft text-brand' : 'text-muted-foreground hover:text-foreground'
             }`}
             onClick={() => setMode('reactif')}
             title="Suivi as-is : statuts allocation/expédition + causes de retard"
@@ -175,7 +175,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
           <button
             type="button"
             class={`rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors ${
-              mode() === 'proactif' ? 'bg-terra-soft text-terra' : 'text-muted-foreground hover:text-foreground'
+              mode() === 'proactif' ? 'bg-brand-soft text-brand' : 'text-muted-foreground hover:text-foreground'
             }`}
             onClick={() => setMode('proactif')}
             title="Réalisabilité projetée : consommation séquentielle des composants entre OFs"
@@ -209,7 +209,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
               <button
                 type="button"
                 class={`rounded-[5px] px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors ${
-                  typeFilter().has(t) ? 'bg-terra-soft text-terra' : 'text-muted-foreground hover:text-foreground'
+                  typeFilter().has(t) ? 'bg-brand-soft text-brand' : 'text-muted-foreground hover:text-foreground'
                 }`}
                 onClick={() => toggleType(t)}
               >
@@ -227,7 +227,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
                 <button
                   type="button"
                   class={`rounded-[5px] px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors ${
-                    atelierFilter().has(a.code) ? 'bg-terra-soft text-terra' : 'text-muted-foreground hover:text-foreground'
+                    atelierFilter().has(a.code) ? 'bg-brand-soft text-brand' : 'text-muted-foreground hover:text-foreground'
                   }`}
                   onClick={() => toggleAtelier(a.code)}
                   title={a.label}
@@ -264,7 +264,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
             type="button"
             onClick={() => setBust((b) => b + 1)}
             disabled={mode() === 'reactif' ? data.loading : proData.loading}
-            class="inline-flex items-center gap-1 rounded-full border border-rule bg-card px-3 py-1 text-[11px] font-semibold transition-colors hover:border-terra disabled:opacity-50"
+            class="inline-flex items-center gap-1 rounded-full border border-rule bg-card px-3 py-1 text-[11px] font-semibold transition-colors hover:border-brand disabled:opacity-50"
             title="Recharger les données X3 (cache → re-fetch live)"
           >
             <span
@@ -278,7 +278,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
           <Link
             href={`${route('suivi.board')}?referenceDate=${encodeURIComponent(new Date().toISOString().slice(0, 10))}`}
             preserveScroll
-            class="inline-flex items-center gap-1 rounded-full border border-rule bg-card px-3 py-1 text-[11px] font-semibold transition-colors hover:border-terra"
+            class="inline-flex items-center gap-1 rounded-full border border-rule bg-card px-3 py-1 text-[11px] font-semibold transition-colors hover:border-brand"
             title="Recharger à aujourd'hui"
           >
             <span class="material-symbols-outlined text-[14px] text-muted-foreground">calendar_month</span>

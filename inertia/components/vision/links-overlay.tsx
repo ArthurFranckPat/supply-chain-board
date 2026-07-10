@@ -1,6 +1,6 @@
 import { For, Show, type Accessor } from 'solid-js'
-import type { ImpactVerdict } from '@/lib/vision/impact'
 import { deltaLabel } from '@/lib/vision/impact'
+import { VERDICT_STROKE } from '@/lib/vision/verdict-tones'
 import type { PathSpec } from '@/lib/vision/link-overlay'
 
 /**
@@ -8,16 +8,12 @@ import type { PathSpec } from '@/lib/vision/link-overlay'
  * scheduler/programme.tsx). Issue #23 : couche d'impact —
  *  • lien `retard` → rouge, VISIBLE D'EMBLÉE (opacité de base), badge « +N j » ;
  *  • lien `limite` → ambre, visible au survol ;
- *  • lien `ok` / null → terra, masqué hors survol (comportement inchangé).
+ *  • lien `ok` / null → brand, masqué hors survol (comportement inchangé).
  *
  * Un retard présent à l'ouverture est ainsi détectable sans interaction (cas 1
  * de l'issue), contrairement à l'état antérieur (tous liens masqués par défaut).
+ * #62 (lot 2) : tons extraits vers lib/vision/verdict-tones.ts (source unique).
  */
-const STROKE: Record<ImpactVerdict, string> = {
-  retard: 'var(--color-error)',
-  limite: '#d97706', // amber-600
-  ok: 'var(--color-terra)',
-}
 
 export function LinksOverlay(props: {
   paths: Accessor<PathSpec[]>
@@ -50,7 +46,7 @@ export function LinksOverlay(props: {
             if (on()) return p.suggere ? 0.8 : 0.95
             return baseOpacity()
           }
-          const stroke = () => (p.verdict ? STROKE[p.verdict] : 'var(--color-terra)')
+          const stroke = () => (p.verdict ? VERDICT_STROKE[p.verdict] : 'var(--color-brand)')
           return (
             <>
               <path

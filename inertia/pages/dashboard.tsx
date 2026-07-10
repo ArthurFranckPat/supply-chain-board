@@ -216,7 +216,7 @@ const Dashboard: Component<DashboardProps> = (props) => {
         {/* En-tête imprimable — masquée à l'écran, visible uniquement à l'impression */}
         <div data-print-header class="mb-5 hidden items-baseline justify-between border-b border-rule pb-3 print:flex">
           <span class="font-fraunces text-[20px] font-semibold tracking-tight text-foreground">
-            Supply Chain <span class="font-medium italic text-terra">AERECO</span>
+            Supply Chain <span class="font-medium italic text-brand">AERECO</span>
             <span class="ml-3 font-mono text-[13px] font-normal text-muted-foreground">Tableau de bord</span>
           </span>
           <span class="font-mono text-[12px] text-muted-foreground">
@@ -447,7 +447,7 @@ const Dashboard: Component<DashboardProps> = (props) => {
                                             <div class="font-mono text-[11px] font-bold text-foreground">{l.numCommande}</div>
                                             <div class="font-sans text-[10px] text-muted-foreground">{l.client}</div>
                                           </td>
-                                          <td class="px-2 py-1.5 align-top font-mono text-[11px] font-semibold text-terra">{l.article}</td>
+                                          <td class="px-2 py-1.5 align-top font-mono text-[11px] font-semibold text-brand">{l.article}</td>
                                           <td class="px-2 py-1.5 align-top">
                                             <Show
                                               when={l.posteDeCharge}
@@ -514,7 +514,7 @@ const Dashboard: Component<DashboardProps> = (props) => {
                                 <div class="font-sans text-[11px] text-muted-foreground">{l.client}</div>
                               </td>
                               <td class="px-2 py-2.5 align-top">
-                                <div class="font-mono text-[12px] font-semibold text-terra">{l.article}</div>
+                                <div class="font-mono text-[12px] font-semibold text-brand">{l.article}</div>
                                 <div class="font-sans text-[11px] leading-snug text-secondary-foreground">{l.designation || '—'}</div>
                               </td>
                               <td class="px-2 py-2.5 align-top">

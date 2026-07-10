@@ -79,7 +79,7 @@ const DiagRow: Component<{ short: DiagShort }> = (p) => (
               <span class="text-[9px] font-mono">{p.short.receptionOrderId}</span>
               <span class="text-border">·</span>
             </Show>
-            <span class="text-terra">réc. {fmtDateFr(p.short.earliestReception)}</span>
+            <span class="text-brand">réc. {fmtDateFr(p.short.earliestReception)}</span>
           </div>
         </div>
       </Show>

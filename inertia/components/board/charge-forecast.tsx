@@ -276,7 +276,7 @@ export const ChargeForecast: Component<ChargeForecastProps> = (props) => {
                 class={cx(
                   'rounded-full px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-wide transition-colors',
                   gran() === g
-                    ? 'bg-card text-terra shadow-[0_1px_2px_rgba(0,0,0,.08)]'
+                    ? 'bg-card text-brand shadow-[0_1px_2px_rgba(0,0,0,.08)]'
                     : 'text-muted-foreground hover:text-foreground',
                 )}
                 onClick={() => setGran(g)}
@@ -299,7 +299,7 @@ export const ChargeForecast: Component<ChargeForecastProps> = (props) => {
           </span>
           <span class="mx-0.5 h-3.5 w-px bg-rule-soft" />
           <span class="flex items-center gap-1.5">
-            <i class="w-4 border-t-[1.5px] border-dashed border-terra" />
+            <i class="w-4 border-t-[1.5px] border-dashed border-brand" />
             Moyenne mobile
           </span>
         </div>
@@ -335,7 +335,7 @@ export const ChargeForecast: Component<ChargeForecastProps> = (props) => {
           lab="Tendance"
           v={`${summary().up ? '▲' : '▼'} ${summary().diff}`}
           unit="h"
-          tone="text-terra"
+          tone="text-brand"
           sub={`du 1er au dernier ${summary().month ? 'mois' : 'trimestre'}`}
         />
       </div>
@@ -438,13 +438,13 @@ export const ChargeForecast: Component<ChargeForecastProps> = (props) => {
           <path
             d={chart().avgPath}
             fill="none"
-            stroke="var(--color-terra)"
+            stroke="var(--color-brand)"
             stroke-width={2}
             stroke-dasharray="5 4"
             stroke-linecap="round"
           />
           {/* pic */}
-          <circle cx={chart().peak.cx} cy={chart().peak.y} r={4} fill="var(--color-terra)" />
+          <circle cx={chart().peak.cx} cy={chart().peak.y} r={4} fill="var(--color-brand)" />
         </svg>
       </div>
 

@@ -271,7 +271,7 @@ export const ReceptionCalendrier: Component<{
               <button
                 type="button"
                 onClick={() => props.onSelectDay(null)}
-                class="ml-2 rounded border border-rule px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-terra hover:bg-terra/10"
+                class="ml-2 rounded border border-rule px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-brand hover:bg-brand/10"
               >
                 Tout afficher
               </button>
@@ -293,7 +293,7 @@ export const ReceptionCalendrier: Component<{
                     onClick={() => props.onSelectDay(selected ? null : c.day)}
                     class={cx(
                       'group flex min-w-[48px] flex-1 flex-col items-center justify-end rounded-md border transition-colors',
-                      selected ? 'border-terra bg-terra/5' : 'border-rule-soft hover:border-rule hover:bg-secondary/30',
+                      selected ? 'border-brand bg-brand/5' : 'border-rule-soft hover:border-rule hover:bg-secondary/30',
                     )}
                     style={{ height: '220px' }}
                     title={`${c.dayFmt} · ${c.palettes} palette(s) · ${c.lignes} réception(s) · ${c.fournisseurs} fournisseur(s)`}
@@ -309,7 +309,7 @@ export const ReceptionCalendrier: Component<{
                     />
                     {/* Jour (relatif + JJ/MM) */}
                     <div class="mt-1.5 px-1 text-center">
-                      <div class={cx('font-mono text-[10px] font-bold', selected ? 'text-terra' : 'text-foreground')}>
+                      <div class={cx('font-mono text-[10px] font-bold', selected ? 'text-brand' : 'text-foreground')}>
                         {c.dayRelatif}
                       </div>
                       <div class="font-mono text-[9px] text-muted-foreground">{c.dayFmt}</div>

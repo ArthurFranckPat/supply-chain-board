@@ -143,7 +143,7 @@ export const FriseView: Component<{
                       {c.client || '—'}
                     </span>
                     <Show when={c.source === 'navette'}>
-                      <span class="font-mono text-[8px] font-bold tracking-wider text-terra uppercase">{c.navetteNum}</span>
+                      <span class="font-mono text-[8px] font-bold tracking-wider text-brand uppercase">{c.navetteNum}</span>
                     </Show>
                   </div>
                   <span class="font-mono text-[9.5px] text-muted-foreground tabular-nums">
@@ -173,8 +173,8 @@ export const FriseView: Component<{
                   />
                   {/* Ligne MAINTENANT */}
                   <Show when={nowPct() !== null}>
-                    <div class="pointer-events-none absolute inset-y-0 z-[5] w-px bg-terra" style={{ left: `${nowPct()}%` }}>
-                      <span class="absolute -top-[7px] left-1/2 -translate-x-1/2 whitespace-nowrap rounded-sm border border-terra bg-card px-1 py-px font-mono text-[8px] font-bold tracking-[0.1em] text-terra">
+                    <div class="pointer-events-none absolute inset-y-0 z-[5] w-px bg-brand" style={{ left: `${nowPct()}%` }}>
+                      <span class="absolute -top-[7px] left-1/2 -translate-x-1/2 whitespace-nowrap rounded-sm border border-brand bg-card px-1 py-px font-mono text-[8px] font-bold tracking-[0.1em] text-brand">
                         MAINTENANT
                       </span>
                     </div>
@@ -186,8 +186,8 @@ export const FriseView: Component<{
                     aria-label={`${c.client} — ${c.debut} à ${c.fin}, ${c.nbPalettes} palettes`}
                     class={cx(
                       'absolute flex cursor-pointer items-center overflow-hidden rounded-[5px] px-2 transition-[filter,box-shadow] duration-150',
-                      'hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-terra',
-                      isSel() && 'ring-2 ring-terra ring-offset-1',
+                      'hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand',
+                      isSel() && 'ring-2 ring-brand ring-offset-1',
                       chargeBgClass(tier()),
                     )}
                     style={{
@@ -226,7 +226,7 @@ export const FriseView: Component<{
           </div>
           <div class="relative" style={{ height: '64px' }}>
             <Show when={nowPct() !== null}>
-              <div class="pointer-events-none absolute inset-y-0 z-[5] w-px bg-terra" style={{ left: `${nowPct()}%` }} />
+              <div class="pointer-events-none absolute inset-y-0 z-[5] w-px bg-brand" style={{ left: `${nowPct()}%` }} />
             </Show>
             <For each={density()}>
               {(d) => {

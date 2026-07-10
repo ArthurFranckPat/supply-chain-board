@@ -775,7 +775,7 @@ const Programme: Component<VisionProps> = (props) => {
         active="programme"
         meta={
           <>
-            <div class="font-fraunces text-[12px] font-bold not-italic text-terra">
+            <div class="font-fraunces text-[12px] font-bold not-italic text-brand">
               {props.weekLabel}
             </div>
             <div>
@@ -789,7 +789,7 @@ const Programme: Component<VisionProps> = (props) => {
         actions={
           <>
             <TextField class="contents">
-              <div class="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-terra focus-within:ring-2 focus-within:ring-terra/25">
+              <div class="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/25">
                 <span class="material-symbols-outlined text-[17px] text-muted-foreground">
                   search
                 </span>
@@ -911,8 +911,8 @@ const Programme: Component<VisionProps> = (props) => {
       </Show>
 
       <Show when={props.x3Error}>
-        <div class="flex flex-none items-center gap-2 border-b border-terra/30 bg-terra-soft px-7 py-2 text-[12px] text-foreground print:hidden">
-          <span class="material-symbols-outlined text-[16px] text-terra">warning</span>
+        <div class="flex flex-none items-center gap-2 border-b border-brand/30 bg-brand-soft px-7 py-2 text-[12px] text-foreground print:hidden">
+          <span class="material-symbols-outlined text-[16px] text-brand">warning</span>
           <span class="font-bold">Erreur chargement :</span>
           <span class="font-mono">{props.x3Error}</span>
         </div>

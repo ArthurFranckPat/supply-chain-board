@@ -134,7 +134,7 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
       )
     }
     return (
-      <span class="material-symbols-outlined text-[12px] leading-none text-terra">
+      <span class="material-symbols-outlined text-[12px] leading-none text-brand">
         {sorted.desc ? 'arrow_downward' : 'arrow_upward'}
       </span>
     )

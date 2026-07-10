@@ -25,7 +25,7 @@ const TONE_BORDER: Record<CardStatus, string> = {
   ferme: 'border-t-ferme',
   planifie: 'border-t-planifie',
   suggere: 'border-t-suggere',
-  cours: 'border-t-terra',
+  cours: 'border-t-brand',
   termine: 'border-t-muted-foreground',
   bloque: 'border-t-destructive',
 }
@@ -34,7 +34,7 @@ const TONE_FILL: Record<CardStatus, string> = {
   ferme: 'bg-ferme',
   planifie: 'bg-planifie',
   suggere: 'bg-suggere',
-  cours: 'bg-terra',
+  cours: 'bg-brand',
   termine: 'bg-muted-foreground',
   bloque: 'bg-destructive',
 }
@@ -157,7 +157,7 @@ export const BoardCard: Component<BoardCardProps> = (props) => {
       )}
       style={
         ring
-          ? { 'box-shadow': '0 0 0 1.5px var(--color-terra), 0 1px 2px rgba(31,26,19,.05)' }
+          ? { 'box-shadow': '0 0 0 1.5px var(--color-brand), 0 1px 2px rgba(31,26,19,.05)' }
           : ghost
             ? {
                 'background-color': 'rgba(168,67,31,.07)',
@@ -179,7 +179,7 @@ export const BoardCard: Component<BoardCardProps> = (props) => {
       </Show>
       {/* cours : point terra pulsant (intérieur) */}
       <Show when={props.status === 'cours'}>
-        <span class="absolute right-2.5 top-2.5 size-[7px] animate-pulse rounded-full bg-terra" />
+        <span class="absolute right-2.5 top-2.5 size-[7px] animate-pulse rounded-full bg-brand" />
       </Show>
       {/* Issue #23 : badge retard coin haut-gauche (« +N j ») — OF finissant après le
           besoin de sa commande. Disjoint du badge faisabilité (haut-droite) et de la
@@ -235,13 +235,13 @@ const CommandeBody: Component<{
       {/* Article (PF) + tampon « BDH » (consomme bouche, issue #42) sur la même ligne. */}
       <Show when={p.ord || p.consommeBouche}>
         <div class="mt-1 flex items-center justify-between gap-1.5">
-          <div class="truncate font-mono text-[11px] font-semibold leading-tight text-terra" title={p.ord}>
+          <div class="truncate font-mono text-[11px] font-semibold leading-tight text-brand" title={p.ord}>
             {p.ord}
           </div>
           <Show when={p.consommeBouche}>
             <span
               class="shrink-0 rotate-[-7deg] rounded border bg-card px-1.5 py-0.5 font-mono text-[11px] font-black uppercase tracking-wider opacity-70"
-              style={{ color: 'var(--color-terra)', 'border-color': 'var(--color-terra)', 'text-shadow': '0 0 1px rgba(168,67,31,.35)' }}
+              style={{ color: 'var(--color-brand)', 'border-color': 'var(--color-brand)', 'text-shadow': '0 0 1px rgba(168,67,31,.35)' }}
             >
               BDH
             </span>
@@ -310,7 +310,7 @@ const OfBody: Component<{
       <Show when={p.consommeBouche}>
         <span
           class="absolute right-1.5 top-1.5 rotate-[-7deg] rounded border bg-card px-1.5 py-0.5 font-mono text-[11px] font-black uppercase tracking-wider opacity-70"
-          style={{ color: 'var(--color-terra)', 'border-color': 'var(--color-terra)', 'text-shadow': '0 0 1px rgba(168,67,31,.35)' }}
+          style={{ color: 'var(--color-brand)', 'border-color': 'var(--color-brand)', 'text-shadow': '0 0 1px rgba(168,67,31,.35)' }}
         >
           BDH
         </span>
@@ -318,7 +318,7 @@ const OfBody: Component<{
       {/* N° OF — pleine largeur (truncate seulement si réellement trop long). */}
       <div class="truncate font-mono text-[12px] font-bold leading-tight text-foreground">{p.article}</div>
       <Show when={p.articleRef}>
-        <div class="truncate font-mono text-[11px] font-semibold leading-tight text-terra">{p.articleRef}</div>
+        <div class="truncate font-mono text-[11px] font-semibold leading-tight text-brand">{p.articleRef}</div>
       </Show>
       <div class="mt-1 truncate text-[11px] font-semibold text-foreground">{p.title}</div>
       <Show when={p.progress}>

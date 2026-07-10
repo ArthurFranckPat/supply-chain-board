@@ -6,7 +6,7 @@ import {
   FG,
   MUTED,
   RULE_SOFT,
-  TERRA,
+  BRAND,
   type Gran,
   mobileAvg,
   rtop,
@@ -250,10 +250,10 @@ export const DetailChart: Component<{
       </For>
       {/* Moyenne mobile */}
       <Show when={props.showAvg()}>
-        <path d={geom().avgPath} fill="none" stroke={TERRA} stroke-width="2" stroke-dasharray="5 4" stroke-linecap="round" />
+        <path d={geom().avgPath} fill="none" stroke={BRAND} stroke-width="2" stroke-dasharray="5 4" stroke-linecap="round" />
       </Show>
       {/* Pic */}
-      <Show when={geom().peak}>{(pk) => <circle cx={pk().cx} cy={pk().cy} r="4" fill={TERRA} />}</Show>
+      <Show when={geom().peak}>{(pk) => <circle cx={pk().cx} cy={pk().cy} r="4" fill={BRAND} />}</Show>
     </svg>
 
       {/* Tooltip détail de section */}

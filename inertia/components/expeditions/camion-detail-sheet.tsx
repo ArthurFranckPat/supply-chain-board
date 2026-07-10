@@ -125,7 +125,7 @@ export const CamionDetailSheet: Component<{
                       </Badge>
                     }
                   >
-                    <Badge class="uppercase tracking-wider text-[10px] gap-1 bg-terra text-card">
+                    <Badge class="uppercase tracking-wider text-[10px] gap-1 bg-brand text-card">
                       <span class="material-symbols-outlined text-[12px]">local_shipping</span>
                       {c().navetteNum}
                     </Badge>
@@ -169,7 +169,7 @@ export const CamionDetailSheet: Component<{
                     </Show>
                     <Show when={nbPalEsh() > 0}>
                       <span
-                        class="inline-flex items-center gap-1 rounded bg-terra/10 px-1.5 py-0.5 font-mono text-[10px] font-bold text-terra"
+                        class="inline-flex items-center gap-1 rounded bg-brand/10 px-1.5 py-0.5 font-mono text-[10px] font-bold text-brand"
                         title="Palettes 1000×1200 (famille ESH) — comptées pour 1,25 éq. standard dans le remplissage"
                       >
                         <span class="material-symbols-outlined text-[11px]">straighten</span>
@@ -222,7 +222,7 @@ export const CamionDetailSheet: Component<{
                           <td class="px-3 py-[9px] align-middle font-mono text-[11px] text-foreground">
                             {l.vcrnum || '—'}
                           </td>
-                          <td class="px-3 py-[9px] align-middle font-mono text-[11px] text-terra">
+                          <td class="px-3 py-[9px] align-middle font-mono text-[11px] text-brand">
                             {l.sohnum || '—'}
                           </td>
                           <td class="px-3 py-[9px] text-right align-middle font-mono text-[11px] tabular-nums text-muted-foreground">
@@ -231,7 +231,7 @@ export const CamionDetailSheet: Component<{
                           <td class="px-3 py-[9px] text-right align-middle font-mono text-[10px] text-muted-foreground" title={`Unité de conditionnement : ${l.pcu || '—'}${l.yfamstat7 === 'ESH' ? ' · Palette 1000×1200' : ''}`}>
                             <span>{l.pcu || '—'}</span>
                             <Show when={l.yfamstat7 === 'ESH'}>
-                              <span class="ml-1 inline-block rounded bg-terra/10 px-1 text-[8px] font-bold text-terra">ESH</span>
+                              <span class="ml-1 inline-block rounded bg-brand/10 px-1 text-[8px] font-bold text-brand">ESH</span>
                             </Show>
                           </td>
                           <td class="px-3 py-[9px] text-right align-middle font-mono text-[10px] tabular-nums text-muted-foreground" title="UC par palette (PCUSTUCOE_1 — palettisation article)">

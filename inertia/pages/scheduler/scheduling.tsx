@@ -102,7 +102,7 @@ const Scheduling: Component<SchedulingProps> = (props) => {
         active="programme"
         meta={
           <>
-            <div class="font-fraunces text-[12px] font-bold not-italic text-terra">{props.weekLabel}</div>
+            <div class="font-fraunces text-[12px] font-bold not-italic text-brand">{props.weekLabel}</div>
             <div>
               Fenêtre <b class="font-bold text-foreground">{props.horizon} j</b> ·{' '}
               <b class="font-bold text-foreground">{props.totalOf}</b> OF ·{' '}
@@ -113,7 +113,7 @@ const Scheduling: Component<SchedulingProps> = (props) => {
         actions={
           <>
             <TextField class="contents">
-              <div class="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-terra focus-within:ring-2 focus-within:ring-terra/25">
+              <div class="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/25">
                 <span class="material-symbols-outlined text-[17px] text-muted-foreground">search</span>
                 <TextFieldInput
                   class="w-[180px] border-0 bg-transparent px-0 text-[12px] font-medium shadow-none focus-visible:ring-0"
@@ -162,7 +162,7 @@ const Scheduling: Component<SchedulingProps> = (props) => {
               <button
                 type="button"
                 class={`rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors ${
-                  store.statusActive(k) ? 'bg-terra-soft text-terra' : 'text-muted-foreground hover:text-foreground'
+                  store.statusActive(k) ? 'bg-brand-soft text-brand' : 'text-muted-foreground hover:text-foreground'
                 }`}
                 onClick={() => store.toggleStatus(k)}
               >
@@ -177,7 +177,7 @@ const Scheduling: Component<SchedulingProps> = (props) => {
           <button
             type="button"
             onClick={() => setCalOpen((o) => !o)}
-            class="flex items-center gap-1.5 rounded-full border border-rule bg-card px-2.5 py-1 text-[11px] font-semibold text-foreground transition-colors hover:border-terra"
+            class="flex items-center gap-1.5 rounded-full border border-rule bg-card px-2.5 py-1 text-[11px] font-semibold text-foreground transition-colors hover:border-brand"
           >
             <span class="material-symbols-outlined text-[14px] text-muted-foreground">calendar_month</span>
             {props.dateRange}
@@ -206,7 +206,7 @@ const Scheduling: Component<SchedulingProps> = (props) => {
               onClick={() => store.setMode('immediate')}
               class={cx(
                 'rounded-[5px] px-3 py-1 text-[12px] font-semibold transition-colors',
-                store.mode() === 'immediate' ? 'bg-terra-soft text-terra' : 'text-muted-foreground hover:text-foreground',
+                store.mode() === 'immediate' ? 'bg-brand-soft text-brand' : 'text-muted-foreground hover:text-foreground',
               )}
             >
               Instantanée
@@ -217,7 +217,7 @@ const Scheduling: Component<SchedulingProps> = (props) => {
               onClick={() => store.setMode('sequential')}
               class={cx(
                 'rounded-[5px] px-3 py-1 text-[12px] font-semibold transition-colors',
-                store.mode() === 'sequential' ? 'bg-terra-soft text-terra' : 'text-muted-foreground hover:text-foreground',
+                store.mode() === 'sequential' ? 'bg-brand-soft text-brand' : 'text-muted-foreground hover:text-foreground',
               )}
             >
               Projetée
@@ -251,8 +251,8 @@ const Scheduling: Component<SchedulingProps> = (props) => {
 
       {/* X3 injoignable */}
       <Show when={props.x3Error}>
-        <div class="flex flex-none items-center gap-2 border-b border-terra/30 bg-terra-soft px-7 py-2 text-[12px] text-foreground">
-          <span class="material-symbols-outlined text-[16px] text-terra">warning</span>
+        <div class="flex flex-none items-center gap-2 border-b border-brand/30 bg-brand-soft px-7 py-2 text-[12px] text-foreground">
+          <span class="material-symbols-outlined text-[16px] text-brand">warning</span>
           X3 injoignable — données {props.cached ? `du cache (${props.cached})` : 'indisponibles'}.
           <Link href={`${route('scheduling')}?refresh=1`} class="font-bold underline">
             Réessayer

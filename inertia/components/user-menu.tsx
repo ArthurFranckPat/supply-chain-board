@@ -41,7 +41,7 @@ export const UserMenu: Component<{ tone?: 'terra' | 'primary' }> = (props) => {
   }
 
   const avatarTone = () =>
-    props.tone === 'primary' ? 'bg-primary text-primary-foreground' : 'bg-terra text-card'
+    props.tone === 'primary' ? 'bg-primary text-primary-foreground' : 'bg-brand text-card'
 
   return (
     <Show when={user()}>

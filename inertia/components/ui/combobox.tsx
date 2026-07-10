@@ -106,7 +106,7 @@ export function MultiCombobox(props: {
         {(state) => (
           <>
             {state.selectedOptions().map((opt) => (
-              <span class="inline-flex items-center gap-1 rounded-full border border-rule bg-terra-soft px-2 py-0.5 text-[11px] font-semibold text-terra">
+              <span class="inline-flex items-center gap-1 rounded-full border border-rule bg-brand-soft px-2 py-0.5 text-[11px] font-semibold text-brand">
                 {opt.label}
                 <button type="button" onClick={() => state.remove(opt)} class="leading-none opacity-70 hover:opacity-100">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="size-3">

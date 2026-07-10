@@ -81,7 +81,7 @@ const urgencyOf = (livraisonIso: string | null): Urgency => {
 
 /** Couleur de la date de livraison selon l'urgence. */
 const urgencyColor = (u: Urgency): string =>
-  u === 'overdue' ? 'text-danger' : u === 'week' ? 'text-terra' : 'text-muted-foreground'
+  u === 'overdue' ? 'text-danger' : u === 'week' ? 'text-brand' : 'text-muted-foreground'
 
 /** Saturation charge/capacité — renvoie % et sévérité visuelle pour la jauge. */
 const saturation = (
@@ -145,7 +145,7 @@ export const PosteEngagementSheet: Component<{
             <>
               {/* Barre d'identité poste + saturation charge/capacité. */}
               <div class="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border bg-secondary px-5 py-3 pr-14">
-                <span class="material-symbols-outlined self-center text-[18px] text-terra">
+                <span class="material-symbols-outlined self-center text-[18px] text-brand">
                   inventory_2
                 </span>
                 <div class="flex items-baseline gap-2">
@@ -204,8 +204,8 @@ export const PosteEngagementSheet: Component<{
               </div>
 
               <Show when={d().x3Error}>
-                <div class="flex flex-none items-start gap-2 border-b border-terra/30 bg-terra-soft px-5 py-2 text-[12px] text-foreground">
-                  <span class="material-symbols-outlined mt-px text-[16px] text-terra">warning</span>
+                <div class="flex flex-none items-start gap-2 border-b border-brand/30 bg-brand-soft px-5 py-2 text-[12px] text-foreground">
+                  <span class="material-symbols-outlined mt-px text-[16px] text-brand">warning</span>
                   <span class="flex-none font-bold">Matching partiel :</span>
                   <span class="font-mono break-all">{d().x3Error}</span>
                 </div>
@@ -259,7 +259,7 @@ export const PosteEngagementSheet: Component<{
                               class="flex items-center gap-2 px-5 pt-3 pb-1.5 font-mono text-[9px] font-bold uppercase tracking-wider"
                               classList={{
                                 'text-danger': u() === 'overdue',
-                                'text-terra': u() === 'week',
+                                'text-brand': u() === 'week',
                                 'text-muted-foreground': u() === 'later',
                               }}
                             >
@@ -267,7 +267,7 @@ export const PosteEngagementSheet: Component<{
                                 class="inline-block h-px flex-none w-4"
                                 classList={{
                                   'bg-danger': u() === 'overdue',
-                                  'bg-terra': u() === 'week',
+                                  'bg-brand': u() === 'week',
                                   'bg-rule': u() === 'later',
                                 }}
                               />
@@ -278,7 +278,7 @@ export const PosteEngagementSheet: Component<{
                             <span class="truncate font-mono text-[12px] font-bold text-foreground">
                               {r.numOf}
                             </span>
-                            <span class="truncate font-mono text-[11px] font-bold text-terra">
+                            <span class="truncate font-mono text-[11px] font-bold text-brand">
                               {r.article}
                             </span>
                             <span

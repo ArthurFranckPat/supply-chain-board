@@ -169,7 +169,7 @@ export const OfDetailSheet: Component<{
               <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-border bg-secondary px-5 py-3 pr-14">
                 <span class="font-mono text-[13px] font-bold text-foreground">{d().num}</span>
                 <Show when={d().article}>
-                  <span class="font-mono text-[12px] font-bold text-terra">{d().article}</span>
+                  <span class="font-mono text-[12px] font-bold text-brand">{d().article}</span>
                 </Show>
                 <SheetTitle class="font-fraunces text-[14px] font-medium italic text-muted-foreground">
                   {d().title}
@@ -215,7 +215,7 @@ export const OfDetailSheet: Component<{
                 <div class="ml-auto flex items-center gap-2">
                   <span class="font-mono text-[10px] font-semibold text-muted-foreground">Avancement</span>
                   <span class="h-1.5 w-28 overflow-hidden rounded-full bg-secondary">
-                    <span class="block h-full rounded-full bg-terra" style={{ width: `${d().progressPct}%` }} />
+                    <span class="block h-full rounded-full bg-brand" style={{ width: `${d().progressPct}%` }} />
                   </span>
                   <span class="font-mono text-[11px] font-bold text-foreground">{d().progressPct}%</span>
                 </div>
@@ -363,7 +363,7 @@ const TabBtn: Component<{ active: boolean; onClick: () => void; children: any }>
     class={cx(
       'flex items-center gap-1.5 border-b-2 px-5 py-2.5 font-mono text-[11px] font-semibold transition-colors',
       p.active
-        ? 'border-terra text-terra'
+        ? 'border-brand text-brand'
         : 'border-transparent text-muted-foreground hover:text-foreground',
     )}
   >

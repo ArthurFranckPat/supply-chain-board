@@ -121,7 +121,7 @@ const Receptions: Component<ReceptionsPageProps> = (props) => {
         active="receptions"
         meta={
           <>
-            <div class="font-fraunces text-[12px] font-bold capitalize not-italic text-terra">{rangeLabel()}</div>
+            <div class="font-fraunces text-[12px] font-bold capitalize not-italic text-brand">{rangeLabel()}</div>
             <div>
               <b class="font-bold text-foreground">{stats().totalPalettes}</b> palette{stats().totalPalettes > 1 ? 's' : ''}
               {' · '}
@@ -171,7 +171,7 @@ const Receptions: Component<ReceptionsPageProps> = (props) => {
         </div>
 
         {/* Recherche */}
-        <div class="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-terra focus-within:ring-2 focus-within:ring-terra/25">
+        <div class="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/25">
           <span class="material-symbols-outlined text-[17px] text-muted-foreground">search</span>
           <input
             class="w-[180px] border-0 bg-transparent px-0 text-[12px] font-medium text-foreground shadow-none outline-none"
@@ -196,7 +196,7 @@ const Receptions: Component<ReceptionsPageProps> = (props) => {
             type="button"
             onClick={() => setBust((b) => b + 1)}
             disabled={data.loading}
-            class="inline-flex items-center gap-1 rounded-full border border-rule bg-card px-3 py-1 text-[11px] font-semibold transition-colors hover:border-terra disabled:opacity-50"
+            class="inline-flex items-center gap-1 rounded-full border border-rule bg-card px-3 py-1 text-[11px] font-semibold transition-colors hover:border-brand disabled:opacity-50"
             title="Recharger les données X3"
           >
             <span class="material-symbols-outlined text-[14px] text-muted-foreground" classList={{ 'animate-spin': data.loading }}>refresh</span>
@@ -214,7 +214,7 @@ const Receptions: Component<ReceptionsPageProps> = (props) => {
 
         {/* Filtre jour actif (drill-down) */}
         <Show when={selectedDay()}>
-          <span class="flex items-center gap-1.5 rounded-md border border-terra/30 bg-terra/5 px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-terra">
+          <span class="flex items-center gap-1.5 rounded-md border border-brand/30 bg-brand/5 px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-brand">
             <span class="material-symbols-outlined text-[13px]">filter_alt</span>
             {charge().find((c) => c.day === selectedDay())?.dayFmt ?? selectedDay()}
             <button type="button" onClick={() => setSelectedDay(null)} class="hover:opacity-70">
@@ -323,7 +323,7 @@ const ViewTab: Component<{ active: boolean; onClick: () => void; icon: string; l
     onClick={p.onClick}
     class={cx(
       'flex items-center gap-1.5 px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
-      p.active ? 'bg-terra/10 text-terra' : 'text-muted-foreground hover:text-foreground',
+      p.active ? 'bg-brand/10 text-brand' : 'text-muted-foreground hover:text-foreground',
     )}
   >
     <span class="material-symbols-outlined text-[14px]">{p.icon}</span>

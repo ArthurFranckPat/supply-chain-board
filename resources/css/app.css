@@ -79,6 +79,14 @@
   --shadow-lg: 0 12px 28px -6px rgb(16 24 40 / 0.16), 0 6px 12px -6px rgb(16 24 40 / 0.10);
 
   --font-sans: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+
+  /* #62 (lot 2) : font-mono défini globalement (était seulement dans les scopes
+     .theme-papier/.theme-navy → undefined hors scope). « mono » est trompeur :
+     il vaut Inter, pas une police à chasse fixe. Conservé ainsi car l'app
+     utilise font-mono (~465 usages) comme police d'affichage tabulaire pour les
+     numéros OF/commandes, dates, quantités — pas pour du code. Inter fournit
+     de bonnes chiffres tabulaires (tabular-nums). */
+  --font-mono: "Inter", system-ui, sans-serif;
 }
 
 /* ────────────────────────────────────────────────────────────
@@ -390,15 +398,12 @@
 .toast-in { animation: toast-in .2s cubic-bezier(.32,.72,0,1) both; }
 
 /* ════════════════════════════════════════════════════════════
-   Scheduler pages — Material 3 scoped theme + components.
+   Scheduler pages — tokens Material 3 (legacy, partiellement consommés).
 
-   The Stitch "Tableau d'Ordonnancement (Expert)" and "Détail OF
-   (Focus Productivité)" screens ship their own Material 3 palette.
-   It collides with the slate/Aldes tokens above (primary, background…),
-   so it is isolated under a `.theme-m3` wrapper: the colliding tokens
-   are retargeted only inside that subtree while every other page keeps
-   the Aldes look. New (non-colliding) tokens are registered in their
-   own @theme block so Tailwind emits the matching utilities.
+   Le scope .theme-m3 a été supprimé (#62 lot 2 — unification vers Navy) :
+   aucune page ne l'appliquait. Les tokens M3 non-collidants ci-dessous
+   restent définis car --color-error et --color-m3-primary sont encore
+   consommés (links-overlay, order-detail-sheet, app layout).
    ──────────────────────────────────────────────────────────── */
 @theme static {
   /* Material 3 surfaces & text */
@@ -426,15 +431,6 @@
   --font-headline-sm: "Hanken Grotesk", system-ui, sans-serif;
   --font-label-sm: "Inter", system-ui, sans-serif;
   --font-label-md: "Inter", system-ui, sans-serif;
-}
-
-/* Retarget the colliding semantic tokens only inside scheduler pages. */
-.theme-m3 {
-  --color-primary: #000122;
-  --color-primary-foreground: #ffffff;
-  --color-background: #fbf8ff;
-  --color-secondary: #526600;
-  --font-mono: "Inter", system-ui, sans-serif;
 }
 
 /* Google Material Symbols icon font (Ligatures on → use the glyph name as text). */
@@ -599,9 +595,11 @@ up-drawer-dismiss { display: none; }
    Page de démonstration : GET /design-system.
    ──────────────────────────────────────────────────────────── */
 @theme static {
-  /* Palette Papier — accents brand + statuts (noms sans collision) */
-  --color-terra: #a8431f;
-  --color-terra-soft: rgba(168, 67, 31, .10);
+  /* Palette Papier — accents brand + statuts (noms sans collision).
+     #62 (lot 2) : terra → brand (le token vaut navy sous .theme-navy, le nom
+     « terra » était mensonger). */
+  --color-brand: #a8431f;
+  --color-brand-soft: rgba(168, 67, 31, .10);
   --color-ferme: #5b7d4e;
   --color-planifie: #2f4858;
   --color-suggere: #b8862c;
@@ -640,7 +638,7 @@ up-drawer-dismiss { display: none; }
   color: var(--color-foreground);
   background-color: var(--color-background);
 }
-.theme-papier ::selection { background: var(--color-terra-soft); }
+.theme-papier ::selection { background: var(--color-brand-soft); }
 
 /* ════════════════════════════════════════════════════════════
    Design system « Navy » (v0.1, exploration) — palette officielle
@@ -665,8 +663,8 @@ up-drawer-dismiss { display: none; }
    ──────────────────────────────────────────────────────────── */
 .theme-navy {
   /* Marque + statuts (normalement globaux, ici surchargés par scope) */
-  --color-terra: #081061;
-  --color-terra-soft: rgba(8, 16, 97, .08);
+  --color-brand: #081061;
+  --color-brand-soft: rgba(8, 16, 97, .08);
   --color-ferme: #28a745;
   --color-planifie: #17a2b8;
   --color-suggere: #ffc107;
@@ -708,7 +706,7 @@ up-drawer-dismiss { display: none; }
   color: var(--color-foreground);
   background-color: var(--color-background);
 }
-.theme-navy ::selection { background: var(--color-terra-soft); }
+.theme-navy ::selection { background: var(--color-brand-soft); }
 
 /* ════════════════════════════════════════════════════════════
    Environnement — distinction visuelle test vs prod.
@@ -723,8 +721,8 @@ up-drawer-dismiss { display: none; }
    codent du sens métier et doivent rester identiques partout.
    ──────────────────────────────────────────────────────────── */
 :root[data-env="test"] {
-  --color-terra: #6d4bb0;
-  --color-terra-soft: rgba(109, 75, 176, .12);
+  --color-brand: #6d4bb0;
+  --color-brand-soft: rgba(109, 75, 176, .12);
 }
 /* Le scope .theme-papier redéfinit lui-même primary/ring/background… il faut
    donc re-surmonter ces tokens sous test, sinon la déclinaison ne s'applique
@@ -748,14 +746,14 @@ up-drawer-dismiss { display: none; }
   --color-border: #cbc2dd;
   --color-input: #cbc2dd;
 }
-:root[data-env="test"] .theme-papier ::selection { background: var(--color-terra-soft); }
+:root[data-env="test"] .theme-papier ::selection { background: var(--color-brand-soft); }
 
 /* .theme-navy redéfinit lui-même --color-terra/primary/ring/background (comme
    .theme-papier) → même resurcharge requise sous test, sinon les pages passées
    en Navy perdraient la distinction visuelle test/prod. */
 :root[data-env="test"] .theme-navy {
-  --color-terra: #6d4bb0;
-  --color-terra-soft: rgba(109, 75, 176, .12);
+  --color-brand: #6d4bb0;
+  --color-brand-soft: rgba(109, 75, 176, .12);
   --color-primary: #6d4bb0;
   --color-primary-foreground: #ffffff;
   --color-ring: #6d4bb0;
@@ -774,7 +772,7 @@ up-drawer-dismiss { display: none; }
   --color-border: #cbc2dd;
   --color-input: #cbc2dd;
 }
-:root[data-env="test"] .theme-navy ::selection { background: var(--color-terra-soft); }
+:root[data-env="test"] .theme-navy ::selection { background: var(--color-brand-soft); }
 
 /* ════════════════════════════════════════════════════════════
    Impression — boards & tableau de bord en A3 paysage.

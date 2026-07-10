@@ -94,7 +94,7 @@ const ShortRow: Component<{ short: ShortComponentNode; depth: number }> = (props
           <span class="font-bold text-destructive">{props.short.quantityMissing}</span>
         </span>
         <Show when={props.short.earliestReception}>
-          <span class="font-mono text-[11px] text-terra">récep. {props.short.earliestReception}</span>
+          <span class="font-mono text-[11px] text-brand">récep. {props.short.earliestReception}</span>
         </Show>
         <Show when={props.short.fabricated}>
           <Badge variant="secondary" class="text-[9px]">fabriqué</Badge>
@@ -169,7 +169,7 @@ const DiagnosticTest: Component = () => {
             <label class="flex flex-col gap-1">
               <span class="font-mono text-[10px] font-semibold tracking-wider text-muted-foreground">OF</span>
               <input
-                class="w-72 rounded-md border border-border bg-background px-3 py-2 font-mono text-[13px] outline-none focus:border-terra"
+                class="w-72 rounded-md border border-border bg-background px-3 py-2 font-mono text-[13px] outline-none focus:border-brand"
                 placeholder="ex. F426-34030"
                 value={input()}
                 onInput={(e) => setInput(e.currentTarget.value)}
@@ -243,7 +243,7 @@ const DiagnosticTest: Component = () => {
                 {/* JSON brut */}
                 <div>
                   <button
-                    class="font-mono text-[11px] font-semibold text-terra hover:underline"
+                    class="font-mono text-[11px] font-semibold text-brand hover:underline"
                     onClick={() => setShowRaw(!showRaw())}
                   >
                     {showRaw() ? '▾ masquer le JSON brut' : '▸ afficher le JSON brut'}

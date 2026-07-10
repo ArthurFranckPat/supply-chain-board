@@ -124,7 +124,7 @@ export default function OrderGrid(props: {
                   class="flex items-baseline gap-2.5 border-b border-r border-rule bg-secondary px-3.5 py-1.5"
                   style={{ 'grid-column': `span ${wr.to - wr.from}` }}
                 >
-                  <span class="font-fraunces text-[13px] font-black italic tracking-tight text-terra">
+                  <span class="font-fraunces text-[13px] font-black italic tracking-tight text-brand">
                     Semaine {wr.week}
                   </span>
                   <Show when={weekTotals()[i()]}>
@@ -167,13 +167,13 @@ export default function OrderGrid(props: {
                 <div
                   class={cx(
                     'border-b border-r border-rule-soft bg-card px-2.5 py-1.5 text-center',
-                    day.today && 'bg-terra-soft',
+                    day.today && 'bg-brand-soft',
                   )}
                 >
                   <div
                     class={cx(
                       'font-mono text-[9px] font-bold tracking-[0.1em]',
-                      day.today ? 'text-terra' : 'text-muted-foreground',
+                      day.today ? 'text-brand' : 'text-muted-foreground',
                     )}
                   >
                     {day.short.replace(/\s*\d+\s*$/, '')}
@@ -181,7 +181,7 @@ export default function OrderGrid(props: {
                   <div
                     class={cx(
                       'font-fraunces text-[19px] font-bold leading-none tracking-tight',
-                      day.today ? 'text-terra italic' : 'text-foreground',
+                      day.today ? 'text-brand italic' : 'text-foreground',
                     )}
                   >
                     {dayNum(di())}
@@ -201,7 +201,7 @@ export default function OrderGrid(props: {
                         <div class="flex items-baseline justify-center gap-1 font-mono tabular-nums">
                           <span class="text-[9px] font-semibold text-foreground/70">{fmt(directe)}</span>
                           <Show when={amont > 0}>
-                            <span class="text-[9px] font-bold text-terra">+{fmt(amont)}</span>
+                            <span class="text-[9px] font-bold text-brand">+{fmt(amont)}</span>
                           </Show>
                         </div>
                         <Show when={total > 0}>
@@ -290,7 +290,7 @@ export default function OrderGrid(props: {
                         <Show when={pp().stockBouchesHygro !== null}>
                           <div class="mt-1 flex items-baseline gap-1 text-[10px] text-muted-foreground">
                             <span>Bouches hygro</span>
-                            <span class="font-fraunces text-[14px] font-bold tabular-nums" style={{ color: 'var(--color-terra)' }}>
+                            <span class="font-fraunces text-[14px] font-bold tabular-nums" style={{ color: 'var(--color-brand)' }}>
                               {pp().stockBouchesHygro}
                             </span>
                             <span>pcs</span>
@@ -311,10 +311,10 @@ export default function OrderGrid(props: {
                     <div
                       class={cx(
                         'relative flex min-h-[96px] flex-col gap-2 border-r border-rule-soft bg-card p-2',
-                        isToday && 'bg-terra-soft',
+                        isToday && 'bg-brand-soft',
                       )}
                       style={{ 'background-image': isToday ? undefined : GRAPH_PAPER, 'background-size': '22px 22px' }}
-                      classList={{ 'ring-2 ring-terra/70 ring-inset': dropCol() === cellKey }}
+                      classList={{ 'ring-2 ring-brand/70 ring-inset': dropCol() === cellKey }}
                       onDragOver={(e) => {
                         if (!draggedId()) return
                         e.preventDefault()

@@ -4,13 +4,13 @@ import type { VisionCommande } from '@/lib/vision/types'
 import { fmtDay } from '@/lib/vision/date-utils'
 import type { ImpactVerdict } from '@/lib/vision/impact'
 import { deltaLabel } from '@/lib/vision/impact'
-
-/** #62 (lot 1) : libellé verbal du verdict pour le aria-label du marqueur. */
-const VERDICT_SAY: Record<ImpactVerdict, string> = {
-  ok: 'à l\u2019heure',
-  limite: 'limite',
-  retard: 'en retard',
-}
+import {
+  VERDICT_BORDER,
+  VERDICT_ICON,
+  VERDICT_LABEL,
+  UNKNOWN_BORDER,
+  UNKNOWN_ICON,
+} from '@/lib/vision/verdict-tones'
 
 /**
  * Marqueur commande rendu dans une cellule du board (slot cellExtra de
@@ -23,19 +23,8 @@ const VERDICT_SAY: Record<ImpactVerdict, string> = {
  * #62 (lot 0) : verdict null (non évalué — aucun lien, impact incalculable) ≠ ok.
  * Le marqueur passe en ton NEUTRE (gris) au lieu d'emprunter la teinte du « ok » :
  * afficher « à l'heure » ce qu'on n'a pas évalué est un signal mensonger.
+ * #62 (lot 2) : tons extraits vers lib/vision/verdict-tones.ts (source unique).
  */
-const BORDER_BY_VERDICT: Record<ImpactVerdict, string> = {
-  retard: 'border-l-error',
-  limite: 'border-l-amber-500',
-  ok: 'border-l-terra',
-}
-const ICON_BY_VERDICT: Record<ImpactVerdict, string> = {
-  retard: 'text-error',
-  limite: 'text-amber-600',
-  ok: 'text-terra',
-}
-const BORDER_UNKNOWN = 'border-l-muted-foreground/45'
-const ICON_UNKNOWN = 'text-muted-foreground'
 
 export function CommandeMarker(props: {
   lineCode: string
@@ -51,14 +40,14 @@ export function CommandeMarker(props: {
   const cmd = props.cmd
   const verdict = () => props.verdict ?? null
   const borderClass = () =>
-    verdict() ? BORDER_BY_VERDICT[verdict()!] : BORDER_UNKNOWN
-  const iconClass = () => (verdict() ? ICON_BY_VERDICT[verdict()!] : ICON_UNKNOWN)
+    verdict() ? VERDICT_BORDER[verdict()!] : UNKNOWN_BORDER
+  const iconClass = () => (verdict() ? VERDICT_ICON[verdict()!] : UNKNOWN_ICON)
   const iconName = () =>
     verdict() === 'retard' ? 'schedule_send' : verdict() === 'limite' ? 'schedule' : 'local_shipping'
   // #62 (lot 1) : libellé accessible — numéro + ligne + verdict verbalisé.
   const ariaLabel = () =>
     `Commande ${cmd.numCommande}${cmd.ligne ? `, ligne ${cmd.ligne}` : ''}${
-      verdict() ? `, ${VERDICT_SAY[verdict()!]}` : ', non évaluée'
+      verdict() ? `, ${VERDICT_LABEL[verdict()!]}` : ', non évaluée'
     }`
   return (
     <div
@@ -79,21 +68,21 @@ export function CommandeMarker(props: {
       onFocus={() => props.onActivate(cmd.id)}
       onBlur={() => props.onActivate(null)}
       class={cx(
-        'relative overflow-hidden rounded-[6px] border border-rule border-l-[3px] bg-terra-soft px-1.5 py-1.5 leading-tight shadow-[0_1px_2px_rgba(31,26,19,.06)] transition-shadow duration-150',
+        'relative overflow-hidden rounded-[6px] border border-rule border-l-[3px] bg-brand-soft px-1.5 py-1.5 leading-tight shadow-[0_1px_2px_rgba(31,26,19,.06)] transition-shadow duration-150',
         borderClass(),
         cmd.ligne ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer',
-        props.activeId() === cmd.id && 'shadow-[0_2px_10px_rgba(168,67,31,.22)] ring-1 ring-terra/50',
+        props.activeId() === cmd.id && 'shadow-[0_2px_10px_rgba(168,67,31,.22)] ring-1 ring-brand/50',
       )}
     >
       {/* Numéro complet (+ ligne) sur sa propre ligne, police réduite pour rentrer. */}
-      <div class="flex items-baseline gap-1 whitespace-nowrap font-mono text-[9.5px] font-bold text-terra">
+      <div class="flex items-baseline gap-1 whitespace-nowrap font-mono text-[9.5px] font-bold text-brand">
         <span class={cx('material-symbols-outlined flex-none self-center text-[11px]', iconClass())}>
           {iconName()}
         </span>
         <span>
           {cmd.numCommande}
           <Show when={cmd.ligne}>
-            <span class="text-terra/70">·L{cmd.ligne}</span>
+            <span class="text-brand/70">·L{cmd.ligne}</span>
           </Show>
         </span>
         {/* #23 : badge retard « +N j » */}
@@ -112,7 +101,7 @@ export function CommandeMarker(props: {
       </div>
       <div class="mt-1 flex items-center gap-1">
         <Show when={cmd.type}>
-          <span class="flex-none rounded bg-terra-soft px-1 py-px font-mono text-[8px] font-bold uppercase tracking-wider text-terra">
+          <span class="flex-none rounded bg-brand-soft px-1 py-px font-mono text-[8px] font-bold uppercase tracking-wider text-brand">
             {cmd.type}
           </span>
         </Show>

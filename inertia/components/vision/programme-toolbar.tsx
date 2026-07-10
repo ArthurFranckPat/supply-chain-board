@@ -72,7 +72,7 @@ export function ProgrammeToolbar(props: {
               aria-checked={props.mode() === m}
               class={cx(
                 'rounded-[5px] px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
-                props.mode() === m ? 'bg-terra-soft text-terra' : 'text-muted-foreground hover:text-foreground',
+                props.mode() === m ? 'bg-brand-soft text-brand' : 'text-muted-foreground hover:text-foreground',
               )}
               onClick={() => props.switchMode(m)}
             >
@@ -95,7 +95,7 @@ export function ProgrammeToolbar(props: {
                 aria-pressed={store.statusActive(k)}
                 class={cx(
                   'rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
-                  store.statusActive(k) ? 'bg-terra-soft text-terra' : 'text-muted-foreground hover:text-foreground',
+                  store.statusActive(k) ? 'bg-brand-soft text-brand' : 'text-muted-foreground hover:text-foreground',
                 )}
                 onClick={() => store.toggleStatus(k)}
               >
@@ -123,7 +123,7 @@ export function ProgrammeToolbar(props: {
                 class={cx(
                   'rounded-[5px] px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
                   orderStore.atelierFilter().has(a.code)
-                    ? 'bg-terra-soft text-terra'
+                    ? 'bg-brand-soft text-brand'
                     : 'text-muted-foreground hover:text-foreground',
                 )}
               >
@@ -136,7 +136,7 @@ export function ProgrammeToolbar(props: {
               type="button"
               aria-label="Effacer le filtre atelier"
               onClick={() => orderStore.clearAtelier()}
-              class="ml-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-terra hover:underline"
+              class="ml-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-brand hover:underline"
             >
               ✕
             </button>
@@ -159,7 +159,7 @@ export function ProgrammeToolbar(props: {
                 class={cx(
                   'rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
                   orderStore.natureFilter().has(n.k)
-                    ? 'bg-terra-soft text-terra'
+                    ? 'bg-brand-soft text-brand'
                     : 'text-muted-foreground hover:text-foreground',
                 )}
               >
@@ -201,8 +201,8 @@ export function ProgrammeToolbar(props: {
           class={cx(
             'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-bold transition-colors',
             props.scenarioActive?.()
-              ? 'border-terra bg-terra text-white'
-              : 'border-rule bg-card text-foreground hover:border-terra hover:text-terra',
+              ? 'border-brand bg-brand text-white'
+              : 'border-rule bg-card text-foreground hover:border-brand hover:text-brand',
           )}
         >
           <span class="material-symbols-outlined text-[14px]">science</span>
@@ -217,7 +217,7 @@ export function ProgrammeToolbar(props: {
           aria-label={`Fenêtre : ${props.dateRange}${props.calOpen() ? ' — fermer' : ' — ouvrir'}`}
           aria-expanded={props.calOpen()}
           onClick={() => props.setCalOpen((o) => !o)}
-          class="flex items-center gap-1.5 rounded-full border border-rule bg-card px-2.5 py-1 text-[11px] font-semibold text-foreground transition-colors hover:border-terra"
+          class="flex items-center gap-1.5 rounded-full border border-rule bg-card px-2.5 py-1 text-[11px] font-semibold text-foreground transition-colors hover:border-brand"
         >
           <span class="material-symbols-outlined text-[14px] text-muted-foreground">calendar_month</span>
           {props.dateRange}
@@ -263,7 +263,7 @@ export function ProgrammeToolbar(props: {
             onClick={() => props.setFeasMode('immediate')}
             class={cx(
               'rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
-              props.feasMode() === 'immediate' ? 'bg-terra-soft text-terra' : 'text-muted-foreground hover:text-foreground',
+              props.feasMode() === 'immediate' ? 'bg-brand-soft text-brand' : 'text-muted-foreground hover:text-foreground',
             )}
           >
             Instantanée
@@ -276,7 +276,7 @@ export function ProgrammeToolbar(props: {
             onClick={() => props.setFeasMode('sequential')}
             class={cx(
               'rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
-              props.feasMode() === 'sequential' ? 'bg-terra-soft text-terra' : 'text-muted-foreground hover:text-foreground',
+              props.feasMode() === 'sequential' ? 'bg-brand-soft text-brand' : 'text-muted-foreground hover:text-foreground',
             )}
           >
             Projetée
@@ -287,7 +287,7 @@ export function ProgrammeToolbar(props: {
           type="button"
           disabled={props.refreshing()}
           onClick={props.doRefresh}
-          class="inline-flex items-center gap-1 rounded-full border border-rule bg-card px-3 py-1 text-[11px] font-semibold transition-colors hover:border-terra disabled:opacity-60"
+          class="inline-flex items-center gap-1 rounded-full border border-rule bg-card px-3 py-1 text-[11px] font-semibold transition-colors hover:border-brand disabled:opacity-60"
           title="Recharger les données X3 (cache → re-fetch live), sans recharger la page"
         >
           <span class={`material-symbols-outlined text-[14px] text-muted-foreground ${props.refreshing() ? 'animate-spin' : ''}`}>
