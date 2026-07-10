@@ -82,7 +82,7 @@ export function ProgrammeToolbar(props: {
                   role="radio"
                   aria-checked={props.mode() === m}
                   class={cx(
-                    'min-h-[28px] rounded-[5px] px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
+                    'min-h-[28px] rounded-[5px] px-3 py-1 font-mono text-2xs font-bold uppercase tracking-wider transition-colors',
                     props.mode() === m ? 'bg-brand-soft text-brand' : 'text-muted-foreground hover:text-foreground',
                   )}
                   onClick={() => props.switchMode(m)}
@@ -99,7 +99,7 @@ export function ProgrammeToolbar(props: {
       {/* Filtre statut d'OF — masqué en mode planification */}
       <Show when={props.mode() !== 'planification'}>
         <div class="inline-flex items-center gap-1 rounded-md border border-rule bg-card p-0.5">
-          <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+          <span class="px-1.5 font-mono text-2xs font-bold uppercase tracking-wider text-muted-foreground">
             Statut
           </span>
           <For each={STATUS_FILTER_CHIPS}>
@@ -108,7 +108,7 @@ export function ProgrammeToolbar(props: {
                 type="button"
                 aria-pressed={store.statusActive(k)}
                 class={cx(
-                  'min-h-[28px] rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
+                  'min-h-[28px] rounded-[5px] px-2.5 py-1 font-mono text-2xs font-bold uppercase tracking-wider transition-colors',
                   store.statusActive(k) ? 'bg-brand-soft text-brand' : 'text-muted-foreground hover:text-foreground',
                 )}
                 onClick={() => store.toggleStatus(k)}
@@ -124,7 +124,7 @@ export function ProgrammeToolbar(props: {
           Parité visuelle avec /charge ; pilote orderStore.lineVisible. */}
       <Show when={props.mode() === 'planification' && orderStore.ateliers().length > 0}>
         <div class="inline-flex flex-wrap items-center gap-1 rounded-md border border-rule bg-card p-0.5">
-          <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+          <span class="px-1.5 font-mono text-2xs font-bold uppercase tracking-wider text-muted-foreground">
             Atelier
           </span>
           <For each={orderStore.ateliers()}>
@@ -135,7 +135,7 @@ export function ProgrammeToolbar(props: {
                 title={a.code}
                 onClick={() => orderStore.toggleAtelier(a.code)}
                 class={cx(
-                  'min-h-[28px] rounded-[5px] px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
+                  'min-h-[28px] rounded-[5px] px-2 py-1 font-mono text-2xs font-bold uppercase tracking-wider transition-colors',
                   orderStore.atelierFilter().has(a.code)
                     ? 'bg-brand-soft text-brand'
                     : 'text-muted-foreground hover:text-foreground',
@@ -150,7 +150,7 @@ export function ProgrammeToolbar(props: {
               type="button"
               aria-label="Effacer le filtre atelier"
               onClick={() => orderStore.clearAtelier()}
-              class="ml-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-brand hover:underline"
+              class="ml-0.5 font-mono text-2xs font-bold uppercase tracking-wider text-brand hover:underline"
             >
               ✕
             </button>
@@ -161,7 +161,7 @@ export function ProgrammeToolbar(props: {
       {/* Filtre type de besoin (COMMANDE / PRÉVISION) — mode planification. */}
       <Show when={props.mode() === 'planification'}>
         <div class="inline-flex items-center gap-1 rounded-md border border-rule bg-card p-0.5">
-          <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+          <span class="px-1.5 font-mono text-2xs font-bold uppercase tracking-wider text-muted-foreground">
             Besoin
           </span>
           <For each={BESOIN_CHIPS}>
@@ -171,7 +171,7 @@ export function ProgrammeToolbar(props: {
                 aria-pressed={orderStore.natureFilter().has(n.k)}
                 onClick={() => orderStore.toggleNature(n.k)}
                 class={cx(
-                  'min-h-[28px] rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
+                  'min-h-[28px] rounded-[5px] px-2.5 py-1 font-mono text-2xs font-bold uppercase tracking-wider transition-colors',
                   orderStore.natureFilter().has(n.k)
                     ? 'bg-brand-soft text-brand'
                     : 'text-muted-foreground hover:text-foreground',
@@ -196,7 +196,7 @@ export function ProgrammeToolbar(props: {
           title="Mettre en évidence tous les liens en retard"
           onClick={() => props.onToggleHighlight?.()}
           class={cx(
-            'inline-flex min-h-[28px] items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-bold transition-colors',
+            'inline-flex min-h-[28px] items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold transition-colors',
             !props.nbCmdRetard || props.nbCmdRetard() === 0
               ? 'border-rule bg-card text-muted-foreground/50'
               : props.highlightRetards?.()
@@ -204,7 +204,7 @@ export function ProgrammeToolbar(props: {
                 : 'border-rule bg-card text-foreground hover:border-error hover:text-error',
           )}
         >
-          <span class="material-symbols-outlined text-[14px]">
+          <span class="material-symbols-outlined text-sm">
             {(!props.nbCmdRetard || props.nbCmdRetard() === 0) ? 'check_circle' : 'schedule_send'}
           </span>
           {(!props.nbCmdRetard || props.nbCmdRetard() === 0)
@@ -225,13 +225,13 @@ export function ProgrammeToolbar(props: {
               aria-pressed={props.scenarioActive?.() ?? false}
               onClick={() => props.onToggleScenario?.()}
               class={cx(
-                'inline-flex min-h-[28px] items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40',
+                'inline-flex min-h-[28px] items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40',
                 props.scenarioActive?.()
                   ? 'border-brand bg-brand text-white'
                   : 'border-rule bg-card text-foreground hover:border-brand hover:text-brand',
               )}
             >
-              <span class="material-symbols-outlined text-[14px]">science</span>
+              <span class="material-symbols-outlined text-sm">science</span>
               Scénario
             </button>
           </TooltipTrigger>
@@ -250,9 +250,9 @@ export function ProgrammeToolbar(props: {
           aria-label={`Fenêtre : ${props.dateRange}${props.calOpen() ? ' — fermer' : ' — ouvrir'}`}
           aria-expanded={props.calOpen()}
           onClick={() => props.setCalOpen((o) => !o)}
-          class="flex items-center gap-1.5 rounded-full border border-rule bg-card px-2.5 py-1 text-[11px] font-semibold text-foreground transition-colors hover:border-brand"
+          class="flex items-center gap-1.5 rounded-full border border-rule bg-card px-2.5 py-1 text-xs font-semibold text-foreground transition-colors hover:border-brand"
         >
-          <span class="material-symbols-outlined text-[14px] text-muted-foreground">calendar_month</span>
+          <span class="material-symbols-outlined text-sm text-muted-foreground">calendar_month</span>
           {props.dateRange}
           <span class="material-symbols-outlined text-[16px] text-muted-foreground">expand_more</span>
         </button>
@@ -285,7 +285,7 @@ export function ProgrammeToolbar(props: {
           role="radiogroup"
           aria-label="Mode d'allocation du stock"
         >
-          <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+          <span class="px-1.5 font-mono text-2xs font-bold uppercase tracking-wider text-muted-foreground">
             Stock
           </span>
           <button
@@ -295,7 +295,7 @@ export function ProgrammeToolbar(props: {
             title="Stock vu en intégralité par chaque OF"
             onClick={() => props.setFeasMode('immediate')}
             class={cx(
-              'rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
+              'rounded-[5px] px-2.5 py-1 font-mono text-2xs font-bold uppercase tracking-wider transition-colors',
               props.feasMode() === 'immediate' ? 'bg-brand-soft text-brand' : 'text-muted-foreground hover:text-foreground',
             )}
           >
@@ -308,7 +308,7 @@ export function ProgrammeToolbar(props: {
             title="Stock consommé OF par OF selon priorité"
             onClick={() => props.setFeasMode('sequential')}
             class={cx(
-              'rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
+              'rounded-[5px] px-2.5 py-1 font-mono text-2xs font-bold uppercase tracking-wider transition-colors',
               props.feasMode() === 'sequential' ? 'bg-brand-soft text-brand' : 'text-muted-foreground hover:text-foreground',
             )}
           >
@@ -320,10 +320,10 @@ export function ProgrammeToolbar(props: {
           type="button"
           disabled={props.refreshing()}
           onClick={props.doRefresh}
-          class="inline-flex items-center gap-1 rounded-full border border-rule bg-card px-3 py-1 text-[11px] font-semibold transition-colors hover:border-brand disabled:opacity-60"
+          class="inline-flex items-center gap-1 rounded-full border border-rule bg-card px-3 py-1 text-xs font-semibold transition-colors hover:border-brand disabled:opacity-60"
           title="Recharger les données X3 (cache → re-fetch live), sans recharger la page"
         >
-          <span class={`material-symbols-outlined text-[14px] text-muted-foreground ${props.refreshing() ? 'animate-spin' : ''}`}>
+          <span class={`material-symbols-outlined text-sm text-muted-foreground ${props.refreshing() ? 'animate-spin' : ''}`}>
             refresh
           </span>
           {props.refreshing() ? 'Actualisation…' : 'Actualiser'}

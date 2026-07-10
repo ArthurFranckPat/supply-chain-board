@@ -775,7 +775,7 @@ const Programme: Component<VisionProps> = (props) => {
         active="programme"
         meta={
           <>
-            <div class="font-fraunces text-[12px] font-bold not-italic text-brand">
+            <div class="font-fraunces text-xs font-bold not-italic text-brand">
               {props.weekLabel}
             </div>
             <div>
@@ -796,7 +796,7 @@ const Programme: Component<VisionProps> = (props) => {
                 {/* Recherche : pilote le store du board affiché — orderStore en mode
                     « Cmdes » (planification), sinon le store OF (ordonnancement/combiné). */}
                 <TextFieldInput
-                  class="w-[180px] border-0 bg-transparent px-0 text-[12px] font-medium shadow-none focus-visible:ring-0"
+                  class="w-[180px] border-0 bg-transparent px-0 text-xs font-medium shadow-none focus-visible:ring-0"
                   placeholder={
                     mode() === 'planification' ? 'Commande, article, client…' : 'OF, article, poste…'
                   }
@@ -830,7 +830,7 @@ const Programme: Component<VisionProps> = (props) => {
                   )}
                 >
                   <SelectTrigger
-                    class="h-[30px] w-[92px] rounded-full border border-rule bg-card px-3 text-[11px] font-semibold"
+                    class="h-[30px] w-[92px] rounded-full border border-rule bg-card px-3 text-xs font-semibold"
                     aria-label="Portée de la recherche"
                   >
                     <SelectValue<string>>
@@ -856,7 +856,7 @@ const Programme: Component<VisionProps> = (props) => {
                 )}
               >
                 <SelectTrigger
-                  class="h-[30px] w-[110px] rounded-full border border-rule bg-card px-3 text-[11px] font-semibold"
+                  class="h-[30px] w-[110px] rounded-full border border-rule bg-card px-3 text-xs font-semibold"
                   aria-label="Portée de la recherche"
                 >
                   <SelectValue<string>>
@@ -911,7 +911,7 @@ const Programme: Component<VisionProps> = (props) => {
       </Show>
 
       <Show when={props.x3Error}>
-        <div class="flex flex-none items-center gap-2 border-b border-brand/30 bg-brand-soft px-7 py-2 text-[12px] text-foreground print:hidden">
+        <div class="flex flex-none items-center gap-2 border-b border-brand/30 bg-brand-soft px-7 py-2 text-xs text-foreground print:hidden">
           <span class="material-symbols-outlined text-[16px] text-brand">warning</span>
           <span class="font-bold">Erreur chargement :</span>
           <span class="font-mono">{props.x3Error}</span>
@@ -925,7 +925,7 @@ const Programme: Component<VisionProps> = (props) => {
         <Show
           when={orderStore.board.lines.length > 0}
           fallback={
-            <div class="flex flex-1 items-center justify-center p-10 font-fraunces text-[14px] italic text-muted-foreground">
+            <div class="flex flex-1 items-center justify-center p-10 font-fraunces text-sm italic text-muted-foreground">
               Aucune ligne de commande dans l'horizon.
             </div>
           }
@@ -943,7 +943,7 @@ const Programme: Component<VisionProps> = (props) => {
       <Show
         when={props.lineCount > 0}
         fallback={
-          <div class="flex flex-1 items-center justify-center p-10 font-fraunces text-[14px] italic text-muted-foreground">
+          <div class="flex flex-1 items-center justify-center p-10 font-fraunces text-sm italic text-muted-foreground">
             Aucun OF dans l'horizon.
           </div>
         }
@@ -994,7 +994,7 @@ const Programme: Component<VisionProps> = (props) => {
       {/* #23 — tooltip flottant pendant le drag OF : verdict prévisionnel de la
           mise à dispo. Positionné en bas-centre, disparaît au drop. */}
       <Show when={mode() === 'combined' && dragTooltip()}>
-        <div class="pointer-events-none fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-full border border-rule bg-card px-4 py-1.5 font-mono text-[11px] font-bold text-foreground shadow-lg">
+        <div class="pointer-events-none fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-full border border-rule bg-card px-4 py-1.5 font-mono text-xs font-bold text-foreground shadow-lg">
           {dragTooltip()}
         </div>
       </Show>

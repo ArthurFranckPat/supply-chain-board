@@ -180,12 +180,12 @@ export default function BoardGrid(props: {
                   class="flex items-baseline gap-2.5 border-b border-r border-rule bg-secondary px-3.5 py-1.5"
                   style={{ 'grid-column': `span ${wr.to - wr.from}` }}
                 >
-                  <span class="font-fraunces text-[13px] font-black italic tracking-tight text-brand">
+                  <span class="font-fraunces text-sm font-black italic tracking-tight text-brand">
                     Semaine {wr.week}
                   </span>
                   <Show when={weekTotals()[i()]}>
                     {(wt) => (
-                      <span class="ml-auto font-fraunces text-[12px] font-bold tabular-nums text-foreground">
+                      <span class="ml-auto font-fraunces text-xs font-bold tabular-nums text-foreground">
                         {fmt(wt().hours)} h
                       </span>
                     )}
@@ -197,7 +197,7 @@ export default function BoardGrid(props: {
 
           {/* En-tête jours */}
           <div class="grid" style={{ 'grid-template-columns': gridTpl() }}>
-            <div class="sticky left-0 z-40 border-b border-r border-rule bg-card px-3.5 py-2 font-mono text-[9px] font-bold tracking-[0.12em] text-muted-foreground">
+            <div class="sticky left-0 z-40 border-b border-r border-rule bg-card px-3.5 py-2 font-mono text-2xs font-bold tracking-[0.12em] text-muted-foreground">
               Poste de production
             </div>
             <For each={store.board.days}>
@@ -210,7 +210,7 @@ export default function BoardGrid(props: {
                 >
                   <div
                     class={cx(
-                      'font-mono text-[9px] font-bold tracking-[0.1em]',
+                      'font-mono text-2xs font-bold tracking-[0.1em]',
                       day.today ? 'text-brand' : 'text-muted-foreground'
                     )}
                   >
@@ -218,15 +218,15 @@ export default function BoardGrid(props: {
                   </div>
                   <div
                     class={cx(
-                      'font-fraunces text-[19px] font-bold leading-none tracking-tight',
+                      'font-fraunces text-lg font-bold leading-none tracking-tight',
                       day.today ? 'text-brand italic' : 'text-foreground'
                     )}
                   >
                     {dayNum(di())}
                   </div>
-                  <div class="mt-0.5 font-mono text-[11px] font-bold tabular-nums text-brand">
+                  <div class="mt-0.5 font-mono text-xs font-bold tabular-nums text-brand">
                     {fmt(store.dayLoad()[di()] ?? 0)}
-                    <span class="text-[8px] font-medium opacity-60"> h</span>
+                    <span class="text-3xs font-medium opacity-60"> h</span>
                   </div>
                 </div>
               )}
@@ -240,7 +240,7 @@ export default function BoardGrid(props: {
             <div class="grid border-b-2 border-dashed border-brand/50 bg-brand-soft/40" style={{ 'grid-template-columns': gridTpl() }}>
               <div class="sticky left-0 z-20 flex items-center gap-1.5 border-r border-rule bg-brand-soft/60 px-3.5 py-3">
                 <span class="material-symbols-outlined text-[15px] text-brand">science</span>
-                <span class="font-mono text-[10px] font-bold uppercase tracking-wider text-brand">Virtuelles</span>
+                <span class="font-mono text-2xs font-bold uppercase tracking-wider text-brand">Virtuelles</span>
               </div>
               <For each={store.board.days}>
                 {(_day, ci) => (
@@ -285,11 +285,11 @@ export default function BoardGrid(props: {
                     style={{ background: line.dot ? undefined : 'var(--color-planifie)' }}
                     classList={{ [line.dot]: !!line.dot }}
                   />
-                  <span class="line-code font-mono text-[13px] font-bold tracking-tight text-foreground transition-colors">
+                  <span class="line-code font-mono text-sm font-bold tracking-tight text-foreground transition-colors">
                     {line.code}
                   </span>
                 </div>
-                <span class="text-[11px] leading-tight text-muted-foreground">{line.name}</span>
+                <span class="text-xs leading-tight text-muted-foreground">{line.name}</span>
                 <ChargeHistogram
                   weeks={lineCharge(line)}
                   maxHours={maxLineHours()}
@@ -322,7 +322,7 @@ export default function BoardGrid(props: {
                             )}
                           </For>
                         </div>
-                        <div class="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 font-mono text-[9px] font-bold uppercase tracking-wider">
+                        <div class="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 font-mono text-2xs font-bold uppercase tracking-wider">
                           <For each={pp().chargeByTypo}>
                             {(t) => (
                               <span class="inline-flex items-center gap-1">
@@ -339,9 +339,9 @@ export default function BoardGrid(props: {
                           </For>
                         </div>
                         <Show when={pp().stockBouchesHygro !== null}>
-                          <div class="mt-1 flex items-baseline gap-1 text-[10px] text-muted-foreground">
+                          <div class="mt-1 flex items-baseline gap-1 text-2xs text-muted-foreground">
                             <span>Bouches hygro</span>
-                            <span class="font-fraunces text-[14px] font-bold tabular-nums" style={{ color: 'var(--color-brand)' }}>
+                            <span class="font-fraunces text-sm font-bold tabular-nums" style={{ color: 'var(--color-brand)' }}>
                               {pp().stockBouchesHygro}
                             </span>
                             <span>pcs</span>
@@ -505,7 +505,7 @@ function CardView(props: {
             picked() ? 'border-brand bg-brand text-card' : 'border-rule text-transparent'
           )}
         >
-          <span class="material-symbols-outlined text-[13px] font-bold">check</span>
+          <span class="material-symbols-outlined text-sm font-bold">check</span>
         </span>
       </Show>
       {/* Badge d'état batch (spinner / ✓ / ✗) par OF */}
@@ -520,7 +520,7 @@ function CardView(props: {
           >
             <span
               class={cx(
-                'material-symbols-outlined text-[12px] font-bold',
+                'material-symbols-outlined text-xs font-bold',
                 b().st === 'running' && 'animate-spin'
               )}
             >
@@ -612,21 +612,21 @@ function VirtualOrderChip(props: { order: VirtualOrderVm; onRemove?: (id: string
         onClick={() => props.onRemove?.(props.order.id)}
         title="Retirer du scénario"
       >
-        <span class="material-symbols-outlined text-[12px]">close</span>
+        <span class="material-symbols-outlined text-xs">close</span>
       </button>
-      <div class="flex items-baseline gap-1 whitespace-nowrap pr-3 font-mono text-[9.5px] font-bold text-brand">
-        <span class="material-symbols-outlined flex-none self-center text-[11px]">science</span>
+      <div class="flex items-baseline gap-1 whitespace-nowrap pr-3 font-mono text-2xs font-bold text-brand">
+        <span class="material-symbols-outlined flex-none self-center text-xs">science</span>
         <span>{props.order.article} × {props.order.quantity}</span>
       </div>
       <div class="mt-0.5 flex items-center gap-1">
-        <span class="flex-none font-fraunces text-[10px] font-bold tabular-nums text-secondary-foreground">
+        <span class="flex-none font-fraunces text-2xs font-bold tabular-nums text-secondary-foreground">
           {fmtDay(props.order.date)}
         </span>
         <Show when={props.order.client}>
-          <span class="truncate font-fraunces text-[9.5px] italic text-muted-foreground">{props.order.client}</span>
+          <span class="truncate font-fraunces text-2xs italic text-muted-foreground">{props.order.client}</span>
         </Show>
         <Show when={tone()}>
-          <span class={cx('ml-auto rounded-full bg-card px-1 py-px font-mono text-[8px] font-bold uppercase tracking-wider', tone()!.text)}>
+          <span class={cx('ml-auto rounded-full bg-card px-1 py-px font-mono text-3xs font-bold uppercase tracking-wider', tone()!.text)}>
             {tone()!.label}
             <Show when={props.order.joursRetard}> +{props.order.joursRetard}j</Show>
           </span>
