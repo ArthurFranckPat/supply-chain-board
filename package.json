@@ -98,6 +98,7 @@
     "luxon": "^3.7.2",
     "reflect-metadata": "^0.2.2",
     "solid-js": "^1.9.14",
+    "solid-sonner": "^0.3.1",
     "sqlite3": "^6.0.1",
     "superjson": "^2.2.6",
     "tailwind-merge": "^3.6.0",

@@ -1,5 +1,6 @@
 import { createSignal, createMemo } from 'solid-js'
 import { createStore, produce, reconcile } from 'solid-js/store'
+import { toast as sonnerToast } from 'solid-sonner'
 import type { BoardData, Card, SearchScope, FeasibilityMode, FeasStatus } from './types'
 import { route } from '@/lib/routes'
 import { router } from '@/lib/inertia-solid'
@@ -309,14 +310,12 @@ export function createBoardStore(initial: BoardData) {
             b.lines[snapshot.line].dayCells[snapshot.col].cards.splice(snapshot.idx, 0, card)
           })
         )
-        window.dispatchEvent(
-          new CustomEvent('sch-toast', { detail: `Déplacement échoué : ${err.message}` })
-        )
+        sonnerToast.error(`Déplacement échoué : ${err.message}`)
       })
   }
 
   function toast(detail: string) {
-    window.dispatchEvent(new CustomEvent('sch-toast', { detail }))
+    sonnerToast(detail)
   }
 
   // ── Feasibility: POST board-feasibility → per-OF status map (badges) ──

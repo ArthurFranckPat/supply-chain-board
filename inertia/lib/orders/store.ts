@@ -1,5 +1,6 @@
 import { createMemo, createSignal } from 'solid-js'
 import { createStore, produce, reconcile } from 'solid-js/store'
+import { toast as sonnerToast } from 'solid-sonner'
 import type { OrderBoardData, OrderCard, OrderSearchScope } from './types'
 import type { FeasibilityMode, FeasStatus } from '@/lib/board/types'
 import { router } from '@/lib/inertia-solid'
@@ -279,9 +280,7 @@ export function createOrderBoardStore(initial: OrderBoardData) {
             b.lines[snapshot.line].dayCells[snapshot.col].cards.splice(snapshot.idx, 0, card)
           })
         )
-        window.dispatchEvent(
-          new CustomEvent('sch-toast', { detail: `Déplacement échoué : ${err.message}` })
-        )
+        sonnerToast.error(`Déplacement échoué : ${err.message}`)
       })
   }
 
@@ -314,7 +313,7 @@ export function createOrderBoardStore(initial: OrderBoardData) {
   }
 
   function toast(detail: string) {
-    window.dispatchEvent(new CustomEvent('sch-toast', { detail }))
+    sonnerToast(detail)
   }
 
   return {

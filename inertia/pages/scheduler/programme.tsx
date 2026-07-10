@@ -32,6 +32,7 @@ import { createScenarioStore } from '@/lib/scenarios/store'
 import { ScenarioBar } from '@/components/scenario/scenario-bar'
 import { ScenarioDiffSheet } from '@/components/scenario/scenario-diff-sheet'
 import { useShortcuts } from '@/lib/a11y/shortcuts'
+import { toast } from 'solid-sonner'
 import { virtualOrdersFrom, type PlanMutation } from '@/lib/scenarios/types'
 import { Masthead } from '@/components/masthead'
 import { TextField, TextFieldInput } from '@/components/ui/text-field'
@@ -199,9 +200,7 @@ const Programme: Component<VisionProps> = (props) => {
       setSelectedOf(ofNum)
       setDetailOpen(true)
     } else {
-      window.dispatchEvent(
-        new CustomEvent('sch-toast', { detail: 'Aucun OF rattaché à cette ligne de commande.' }),
-      )
+      toast.error('Aucun OF rattaché à cette ligne de commande.')
     }
   }
 
@@ -583,21 +582,17 @@ const Programme: Component<VisionProps> = (props) => {
         if (!r?.ok) failed++
       }
       if (failed > 0) {
-        window.dispatchEvent(
-          new CustomEvent('sch-toast', {
-            detail: `${total - failed}/${total} mutation${total > 1 ? 's' : ''} appliquée${total - failed > 1 ? 's' : ''} — ${failed} échec${failed > 1 ? 's' : ''}. Scénario conservé.`,
-          }),
+        toast.warning(
+          `${total - failed}/${total} mutation${total > 1 ? 's' : ''} appliquée${total - failed > 1 ? 's' : ''} — ${failed} échec${failed > 1 ? 's' : ''}. Scénario conservé.`,
         )
         return
       }
       await scenario.markApplied()
       scenario.setActive(false)
-      window.dispatchEvent(new CustomEvent('sch-toast', { detail: 'Scénario appliqué.' }))
+      toast.success('Scénario appliqué.')
       router.reload()
     } catch (err) {
-      window.dispatchEvent(
-        new CustomEvent('sch-toast', { detail: `Application échouée : ${(err as Error).message}` }),
-      )
+      toast.error(`Application échouée : ${(err as Error).message}`)
     } finally {
       setApplying(false)
     }
@@ -679,9 +674,7 @@ const Programme: Component<VisionProps> = (props) => {
           return n
         })
         requestAnimationFrame(measure)
-        window.dispatchEvent(
-          new CustomEvent('sch-toast', { detail: `Déplacement commande échoué : ${err.message}` })
-        )
+        toast.error(`Déplacement commande échoué : ${err.message}`)
       })
   }
 
