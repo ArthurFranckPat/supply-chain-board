@@ -636,6 +636,8 @@ export function buildProactiveDisplay(
       // Issue #41 : une commande "À temps" dont au moins un OF couvrant est ferme
       // mais NON débuté (pas de pointage opérations intermédiaires) ET dont la date
       // de fin est dans ≤ 2 jours (buffer logistique) → "À risque".
+      // Utilise todayIso (référence déterministe) plutôt que Date.now().
+      const todayMs = Date.parse(`${todayIso}T00:00:00Z`)
       const J2_MS = 2 * 86_400_000
       const isAtRisk =
         verdict.key === 'time' &&
@@ -645,7 +647,7 @@ export function buildProactiveDisplay(
           if (!of.dateFin) return false
           const fin = new Date(of.dateFin).getTime()
           if (isNaN(fin)) return false
-          return fin - Date.now() <= J2_MS
+          return fin - todayMs <= J2_MS
         })
       const finalVerdictKey: ProactiveVerdictKey = isAtRisk ? 'risk' : verdict.key
       const finalVerdictLabel = isAtRisk ? 'À risque' : verdict.label
