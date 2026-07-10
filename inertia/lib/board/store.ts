@@ -128,9 +128,17 @@ export function createBoardStore(initial: BoardData) {
       })
   }
 
+  // #62 (lot 7) — debounce de la recherche (180 ms). Sans ça, un fetch partait
+  // à chaque frappe → flicker (toutes cartes grisées pendant la requête) + charge
+  // serveur. setQuery() reste synchrone (champ réactif), seul runSearch est debounce.
+  let searchTimer: ReturnType<typeof setTimeout> | null = null
   function onQueryInput(value: string) {
     setQuery(value)
-    runSearch(scope(), value)
+    if (searchTimer) clearTimeout(searchTimer)
+    searchTimer = setTimeout(() => {
+      searchTimer = null
+      runSearch(scope(), value)
+    }, 180)
   }
   function onScopeChange(value: SearchScope) {
     setScope(value)
