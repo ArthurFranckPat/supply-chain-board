@@ -1,0 +1,125 @@
+========================================================================
+REVUE DE CODE — ISSUE #41
+feat(suivi-proactif): buffer J-2, statut OF débuté/non débuté,
+proxy avancement opérations
+========================================================================
+
+Date de revue : 2026-07-10
+Branche       : claude/issue-41-review-uqkqcy
+Commits revus : 19b50ae + fe86d2b
+Issue         : #41 (fermée « completed » le 2026-07-10)
+
+------------------------------------------------------------------------
+VERDICT GLOBAL
+------------------------------------------------------------------------
+Bon travail, cohérent de bout en bout — MAIS 2 défauts à corriger avant
+de considérer l'issue vraiment close.
+
+Les 3 problèmes sont traités et le câblage back -> front est propre
+(domaine -> loader -> controller -> types -> tone -> chip de filtre).
+Les blockers de l'issue (table MFGOPE, buffer tous types, libellé
+« À risque ») sont bien résolus.
+
+L'issue a néanmoins été fermée un cran trop tôt : le point 1 est une
+régression fonctionnelle visible, le point 2 est une bombe à retardement
+sur les fenêtres chargées.
+
+------------------------------------------------------------------------
+[ROUGE] 1. Buffer J-2 sur-appliqué -> faux « En retard » sur commandes prêtes
+------------------------------------------------------------------------
+Fichier : app/domain/order-impacts.ts (lignes ~245 et ~258)
+
+Le fix a remplacé `demand.date < today` par `expedBornee < today` AUSSI
+dans le fallback calendaire ET dans le gate de statut, pas seulement dans
+la comparaison `latestFin`.
+
+Conséquence concrète : une commande ENTIÈREMENT EN STOCK (ou dont l'OF est
+DÉJÀ TERMINÉ) qui expédie DEMAIN a `expedBornee = today - 1 < today` ->
+elle bascule en `retard` (joursRetard 1), alors qu'avant #41 elle
+affichait « En stock » / « À temps ». Les pièces sont physiquement
+disponibles, rien n'est en retard.
+
+Le buffer J-2 (fabrication/conditionnement) n'a de sens que dans la
+branche `latestFin > expedBornee`. Le fallback « date d'expé dépassée »
+devrait rester sur `demand.date < today`. En l'état, TOUTE commande servie
+sous 2 jours est faussement rougie.
+
+Cas de reproduction :
+  - Commande stock_complete, ofAllocations.length === 0, expédition demain
+    (demand.date = today+1).
+  - expedBornee = today - 1 < today
+  - Avant #41 : statut = 'stock' (« En stock »)
+  - Après #41 : statut = 'retard', joursRetard = 1 (« En retard »)  [FAUX]
+
+Correctif suggéré : ne conserver le buffer que dans la comparaison
+`latestFin > expedBornee` ; le fallback calendaire et le gate de statut
+doivent repartir de `demand.date < today`.
+
+------------------------------------------------------------------------
+[ORANGE] 2. Requête MFGOPE non chunkée -> risque ORA-01795
+------------------------------------------------------------------------
+Fichier : app/repositories/operation_repository.ts (ligne ~43)
+
+`getOperations` construit un unique `IN (...)` avec TOUS les
+`windowNumOfs`. Or la vue proactive tourne sur une fenêtre de
+90 j (RETARD_LOOKBACK_DAYS) + 30 j (SUIVI_FORWARD_DAYS) = 120 j, et
+`mfgmat_repository.ts` chunke ce MÊME jeu d'OF à 1000, en commentant
+explicitement « Chunké pour rester sous la limite IN d'Oracle ».
+
+Sur une fenêtre chargée (> 1000 OF), la requête MFGOPE échoue ->
+`proactiveRows` tombe dans le catch -> la vue affiche l'erreur X3.
+
+À aligner sur le pattern mfgmat : chunk 1000 + Promise.all (chunks
+parallèles).
+
+Accessoirement :
+  - pas de déduplication des OF (mfgmat fait `[...new Set(...)]`) ;
+  - échappement de quotes (`n.replace(/'/g, "''")`) au lieu de
+    l'allowlist regex `/^[A-Za-z0-9_-]+$/` utilisée dans
+    of_repository.ts:146.
+
+------------------------------------------------------------------------
+[JAUNE] Points mineurs
+------------------------------------------------------------------------
+- Gammes mono-opération : app/domain/of-avancement.ts — computeAvancement
+  exclut la dernière opération. Un OF à une seule opération a donc
+  `estDebuté` toujours false -> il peut être faussement flaggé « À risque ».
+  Angle mort acceptable pour un proxy, mais à documenter.
+
+- Aucun test ne couvre le buffer J-2, `estDebuté`, ni le verdict `risk`,
+  alors que tests/domain/order-impacts.test.ts existe déjà.
+
+- Nit : `isAtRisk` utilise `Date.now()` (suivi_controller.ts:648) au lieu
+  de `refDate` -> léger décalage de déterminisme avec le reste du pipeline.
+
+------------------------------------------------------------------------
+CE QUI EST BIEN FAIT
+------------------------------------------------------------------------
+- Problème 1 (buffer J-2) : borne expédition - 2j cohérente avec le
+  dateBesoin des ruptures.
+- Problème 2 (OF débuté/non débuté) : flag `estDebuté` propagé sur
+  OrderImpactRow.ofs ET OrderImpactResult.ofs.
+- Problème 3 (proxy avancement) : repository MFGOPE + computeAvancement
+  qui exclut la dernière op (= déclaration stock, non représentative).
+- Nouveau verdict « À risque » correctement dérivé (commande à temps dont
+  un OF ferme/planifié non débuté finit dans <= 2 j).
+- Câblage front complet et cohérent : ProactiveVerdictKey + risk dans
+  types.ts, VERDICT_TONE, PROACTIVE_EMPTY.verdictCounts, chip de filtre
+  dans tracking.tsx.
+- Typecheck : seules des erreurs d'environnement (deps non installées :
+  @japa/runner, vite, @adonisjs/tsconfig) — AUCUNE ne touche les
+  fichiers #41.
+
+------------------------------------------------------------------------
+FICHIERS CONCERNÉS PAR LA REVUE
+------------------------------------------------------------------------
+- app/domain/order-impacts.ts
+- app/domain/of-avancement.ts
+- app/repositories/operation_repository.ts
+- app/services/order_impacts_loader.ts
+- app/controllers/suivi_controller.ts
+- inertia/lib/suivi/tracking-shared.ts
+- inertia/lib/suivi/types.ts
+- inertia/pages/scheduler/tracking.tsx
+
+========================================================================
