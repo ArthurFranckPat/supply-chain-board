@@ -6,10 +6,15 @@
  * pointage intermédiaire (> 0 sur une opération hors la dernière) prouve que
  * l'OF est réellement en cours atelier, même si aucune entrée stock n'a encore
  * été déclarée (cas palette 720 pcs déclarée en bloc à la fin).
+ *
+ * Migré vers le modèle Lucid MfgOpe (pool partagé `x3`, max:4) au lieu d'un pool
+ * éphémère `new X3Database()` max:1 + destroy(). Le pattern éphémère était la
+ * cause racine de l'erreur « Acquire connection error: aborted » : destroy() sur
+ * un pool max:1 aborte toute acquisition encore en attente (tarn). Le pool Lucid
+ * partagé gère lui-même le cycle de vie des connexions — jamais de destroy()
+ * manuel. Aligné sur mfgmat_repository.ts (même table, même pool, jamais crashé).
  */
-import { X3Database } from '#app/x3/client/x3_database'
-
-type RawRow = Record<string, string | null>
+import MfgOpe from '#models/x3/mfgope'
 
 export interface OperationRecord {
   /** N° OF (MFGNUM_0). */
@@ -24,29 +29,16 @@ export interface OperationRecord {
   extqty: number
 }
 
-const SQL = `
-SELECT
-  MFGNUM_0 AS MFGNUM,
-  OPENUM_0 AS OPENUM,
-  NVL(CPLQTY_0, 0) AS CPLQTY,
-  NVL(OPESTA_0, ' ') AS OPESTA,
-  NVL(EXTQTY_0, 0) AS EXTQTY
-FROM MFGOPE
-WHERE MFGNUM_0 IN ({ofs})
-`
-
-/** Allowlist pour les n° d'OF (alphanumérique + _ + -). */
-const OF_PATTERN = /^[A-Za-z0-9_-]+$/
-
 export class X3OperationRepository {
   /**
    * Récupère les opérations de pointage pour un ensemble d'OFs.
    * Retourne une ligne par opération (plusieurs lignes par OF).
    * Chunké à 1000 pour rester sous la limite IN d'Oracle (cf. mfgmat_repository).
+   * Chunks séquentiels : Lucid .whereIn() gère la connexion via le pool partagé,
+   * mais on évite de fan-out Promise.all pour ne pas saturer le pool (max:4).
    */
   async getOperations(numOfs: string[]): Promise<OperationRecord[]> {
-    // Déduplication + filtrage (allowlist, pas d'échappement ad hoc)
-    const unique = [...new Set(numOfs.filter((n) => n && OF_PATTERN.test(n)))]
+    const unique = [...new Set(numOfs.filter((n) => n && n.trim()))]
     if (unique.length === 0) return []
 
     const CHUNK = 1000
@@ -55,33 +47,21 @@ export class X3OperationRepository {
       chunks.push(unique.slice(i, i + CHUNK))
     }
 
-    const db = new X3Database()
-    try {
-      // Chunks SÉQUENTIELS (et non Promise.all). Le pool X3 est `max: 1` (une
-      // seule connexion) → les chunks parallèles ne gagnaient rien (ils se
-      // sérialisaient sur l'unique connexion) et introduisaient une condition de
-      // course fatale : si un chunk échouait, Promise.all rejetait immédiatement,
-      // le `finally` appelait destroy() pendant que les autres chunks tenaient
-      // encore la connexion → « Acquire connection error: aborted ». Aligné sur
-      // order_line_repository.ts (boucle for/await, même pool max:1).
-      const rows: OperationRecord[] = []
-      for (const chunk of chunks) {
-        const ofsList = chunk.map((n) => `'${n}'`).join(',')
-        const sql = SQL.replace('{ofs}', ofsList)
-        const chunkRows = (await db.raw(sql)) as RawRow[]
-        for (const row of chunkRows) {
-          rows.push({
-            mfgnum: (row.MFGNUM ?? '').trim(),
-            openum: parseFloat(row.OPENUM ?? '0') || 0,
-            cplqty: parseFloat(row.CPLQTY ?? '0') || 0,
-            opesta: (row.OPESTA ?? '').trim(),
-            extqty: parseFloat(row.EXTQTY ?? '0') || 0,
-          })
-        }
+    const rows: OperationRecord[] = []
+    for (const chunk of chunks) {
+      const models = await MfgOpe.query()
+        .select('MFGNUM_0', 'OPENUM_0', 'CPLQTY_0', 'OPESTA_0', 'EXTQTY_0')
+        .whereIn('MFGNUM_0', chunk)
+      for (const row of models) {
+        rows.push({
+          mfgnum: (row.numeroOrdreDeFabrication ?? '').trim(),
+          openum: parseFloat(row.numeroOperation ?? '0') || 0,
+          cplqty: parseFloat(row.quantiteRealiseeTotale ?? '0') || 0,
+          opesta: (row.statutOperation ?? '').trim(),
+          extqty: parseFloat(row.quantitePrevue ?? '0') || 0,
+        })
       }
-      return rows
-    } finally {
-      await db.destroy()
     }
+    return rows
   }
 }
