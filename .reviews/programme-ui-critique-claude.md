@@ -151,6 +151,36 @@ affiche la position locale périmée après un refresh censé « recharger le li
 
 ---
 
+## Croisement avec l'analyse initiale (`programme-ui-critique.md`, master)
+
+**Convergences** (trouvées indépendamment par les deux revues) : toolbar surchargée + CLS
+au wrap, absence d'échelle typographique, `aria-pressed` absent des toggles, labels de
+mode cryptiques, calendrier sans Échap/focus, compteur retards disparaissant à 0, états
+vides pauvres.
+
+**Ce que l'analyse initiale apporte en plus** : monolithe 985 lignes à découper ;
+**3 thèmes CSS coexistants** — sous `.theme-navy`, `--color-terra` vaut `#081061` (navy),
+tout le vocabulaire `terra` de cette page est donc doublement trompeur (le §1 ci-dessus
+parle de « terra » alors que la page rend du navy — la collision sémantique reste valable,
+le nom du token aggrave le cas) ; tokens legacy dupliqués ; `--font-mono` redéfini en
+Inter ; mix `<Button>` shadcn / `<button>` raw ; touch targets < 44 px ; pas de skeleton
+au montage (TTL cache 5 min → 5-10 s au premier chargement) ; `BatchFirmBar` visible sous
+l'empty state ; « Jeter » sans confirmation ; toasts `CustomEvent` fragiles ; perf de
+`measure()` (2×N `querySelector`) ; pas de debounce recherche ; raccourcis clavier absents.
+
+**Ce que cette revue apporte en plus** : `applyScenario` sans check `r.ok` (§5),
+verdict `null` = verdict `ok` (§1), overrides non purgés au refresh (§8), cartes
+`role="button"` sans `onKeyDown` (§7), palette verdict dupliquée ×3 + collisions
+sémantiques (§1), 6 zones de badges par carte (§2), liens « limite » invisibles et
+affordances hover-only (§6), marqueur fondu dans la colonne « aujourd'hui », empty-state
+planification sur le mauvais compteur, badge SVG 32 px fixe (§9).
+
+**Nuance** : l'analyse initiale mesure ~4.8:1 de contraste sur les micro-labels — AA
+passe de justesse ; le problème dominant est la taille, plus que le contraste.
+
+Le plan fusionné (7 lots + hors périmètre) vit dans l'issue
+[#62](https://github.com/ArthurFranckPat/supply-chain-board/issues/62).
+
 ## Priorités proposées
 
 | # | Sujet | Sévérité | Effort |
