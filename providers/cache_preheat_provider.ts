@@ -19,14 +19,15 @@ import boardDataset from '#services/board_dataset'
  * En environnement `repl`/`test`, on ne préchauffe pas (inutile et ralentit les
  * tests).
  *
- * NB : le logger et boardDataset sont résolus via le conteneur dans `boot()`
- * (pas d'import statique de service) — pendant le boot, les services ne sont pas
- * encore disponibles via les imports de module.
+ * NB : le hook `ready()` (pas `boot()`) est utilisé car `cache` (@adonisjs/cache
+ * services/main) n'est assigné qu'après les hooks `app.booted()`, exécutés
+ * après le `boot()` de tous les providers — l'appeler depuis `boot()` lève
+ * "Cannot read properties of undefined (reading 'namespace')".
  */
 export default class CachePreheatProvider {
   constructor(protected app: ApplicationService) {}
 
-  async boot() {
+  async ready() {
     // Pas de préchauffage en repl/test.
     if (!this.app.getEnvironment().startsWith('web')) return
 
