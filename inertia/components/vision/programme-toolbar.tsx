@@ -4,6 +4,7 @@ import type { BoardStore } from '@/lib/board/store'
 import type { OrderBoardStore } from '@/lib/orders/store'
 import { onEscapeClose } from '@/lib/a11y/activation'
 import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 import { Calendar, type DateRange } from '@/components/ui/calendar'
 
 export type VisionMode = 'combined' | 'ordonnancement' | 'planification'
@@ -12,6 +13,13 @@ const MODE_LABELS: Record<VisionMode, string> = {
   ordonnancement: 'OF',
   combined: 'Combiné',
   planification: 'Cmdes',
+}
+
+/** #62 (lot 3) : libellés complets pour les tooltips du sélecteur de mode. */
+const MODE_TITLES: Record<VisionMode, string> = {
+  ordonnancement: 'Mode Ordonnancement — OF seuls',
+  combined: 'Mode Combiné — OF + liens commandes + impacts',
+  planification: 'Mode Commandes — planification par ligne de commande',
 }
 
 const STATUS_FILTER_CHIPS: { k: 'ferme' | 'planifie' | 'suggere'; label: string }[] = [
@@ -57,8 +65,9 @@ export function ProgrammeToolbar(props: {
 }) {
   const { store, orderStore } = props
   return (
-    <div data-print-toolbar class="flex flex-none flex-wrap items-center justify-between gap-3 border-b border-rule px-7 py-2">
-      {/* Sélecteur de mode — #62 (lot 1) : radiogroup sémantique pour les lecteurs d'écran. */}
+    <div data-print-toolbar class="flex flex-none flex-wrap items-center justify-between gap-3 border-b border-rule px-7 py-2 min-h-[52px]">
+      {/* Sélecteur de mode — #62 (lot 1) : radiogroup sémantique.
+          #62 (lot 3) : tooltips avec libellés complets. */}
       <div
         class="inline-flex items-center gap-0.5 rounded-md border border-rule bg-card p-0.5"
         role="radiogroup"
@@ -66,18 +75,23 @@ export function ProgrammeToolbar(props: {
       >
         <For each={(['ordonnancement', 'combined', 'planification'] as const)}>
           {(m) => (
-            <button
-              type="button"
-              role="radio"
-              aria-checked={props.mode() === m}
-              class={cx(
-                'rounded-[5px] px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
-                props.mode() === m ? 'bg-brand-soft text-brand' : 'text-muted-foreground hover:text-foreground',
-              )}
-              onClick={() => props.switchMode(m)}
-            >
-              {MODE_LABELS[m]}
-            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={props.mode() === m}
+                  class={cx(
+                    'min-h-[28px] rounded-[5px] px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
+                    props.mode() === m ? 'bg-brand-soft text-brand' : 'text-muted-foreground hover:text-foreground',
+                  )}
+                  onClick={() => props.switchMode(m)}
+                >
+                  {MODE_LABELS[m]}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>{MODE_TITLES[m]}</TooltipContent>
+            </Tooltip>
           )}
         </For>
       </div>
@@ -94,7 +108,7 @@ export function ProgrammeToolbar(props: {
                 type="button"
                 aria-pressed={store.statusActive(k)}
                 class={cx(
-                  'rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
+                  'min-h-[28px] rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
                   store.statusActive(k) ? 'bg-brand-soft text-brand' : 'text-muted-foreground hover:text-foreground',
                 )}
                 onClick={() => store.toggleStatus(k)}
@@ -121,7 +135,7 @@ export function ProgrammeToolbar(props: {
                 title={a.code}
                 onClick={() => orderStore.toggleAtelier(a.code)}
                 class={cx(
-                  'rounded-[5px] px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
+                  'min-h-[28px] rounded-[5px] px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
                   orderStore.atelierFilter().has(a.code)
                     ? 'bg-brand-soft text-brand'
                     : 'text-muted-foreground hover:text-foreground',
@@ -157,7 +171,7 @@ export function ProgrammeToolbar(props: {
                 aria-pressed={orderStore.natureFilter().has(n.k)}
                 onClick={() => orderStore.toggleNature(n.k)}
                 class={cx(
-                  'rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
+                  'min-h-[28px] rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
                   orderStore.natureFilter().has(n.k)
                     ? 'bg-brand-soft text-brand'
                     : 'text-muted-foreground hover:text-foreground',
@@ -171,43 +185,62 @@ export function ProgrammeToolbar(props: {
       </Show>
 
       {/* #23 — compteur commandes en retard (mode combiné). Clic → met en évidence
-          tous les liens retard. Masqué hors combiné (aucun lien). */}
-      <Show when={props.mode() === 'combined' && props.nbCmdRetard && props.nbCmdRetard() > 0}>
+          tous les liens retard.
+          #62 (lot 3) : emplacement réservé — « ✓ 0 retard » grisé plutôt qu'absent,
+          pour éviter le saut de layout quand le compte passe à 0. */}
+      <Show when={props.mode() === 'combined'}>
         <button
           type="button"
+          disabled={!props.nbCmdRetard || props.nbCmdRetard() === 0}
           aria-pressed={props.highlightRetards?.() ?? false}
           title="Mettre en évidence tous les liens en retard"
           onClick={() => props.onToggleHighlight?.()}
           class={cx(
-            'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-bold transition-colors',
-            props.highlightRetards?.()
-              ? 'border-error bg-error/10 text-error'
-              : 'border-rule bg-card text-foreground hover:border-error hover:text-error',
+            'inline-flex min-h-[28px] items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-bold transition-colors',
+            !props.nbCmdRetard || props.nbCmdRetard() === 0
+              ? 'border-rule bg-card text-muted-foreground/50'
+              : props.highlightRetards?.()
+                ? 'border-error bg-error/10 text-error'
+                : 'border-rule bg-card text-foreground hover:border-error hover:text-error',
           )}
         >
-          <span class="material-symbols-outlined text-[14px]">schedule_send</span>
-          {props.nbCmdRetard!()} en retard
+          <span class="material-symbols-outlined text-[14px]">
+            {(!props.nbCmdRetard || props.nbCmdRetard() === 0) ? 'check_circle' : 'schedule_send'}
+          </span>
+          {(!props.nbCmdRetard || props.nbCmdRetard() === 0)
+            ? '0 retard'
+            : `${props.nbCmdRetard!()} en retard`}
         </button>
       </Show>
 
       {/* #57 — bascule mode scénario (combiné seulement) : les gestes alimentent
-          un scénario au lieu de PATCHer en direct. */}
-      <Show when={props.mode() === 'combined' && props.onToggleScenario}>
-        <button
-          type="button"
-          aria-pressed={props.scenarioActive?.() ?? false}
-          title="Mode scénario : les déplacements alimentent un scénario (aucun envoi X3)"
-          onClick={() => props.onToggleScenario?.()}
-          class={cx(
-            'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-bold transition-colors',
-            props.scenarioActive?.()
-              ? 'border-brand bg-brand text-white'
-              : 'border-rule bg-card text-foreground hover:border-brand hover:text-brand',
-          )}
-        >
-          <span class="material-symbols-outlined text-[14px]">science</span>
-          Scénario
-        </button>
+          un scénario au lieu de PATCHer en direct.
+          #62 (lot 3) : disabled + tooltip hors mode Combiné plutôt que caché. */}
+      <Show when={props.onToggleScenario}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              disabled={props.mode() !== 'combined'}
+              aria-pressed={props.scenarioActive?.() ?? false}
+              onClick={() => props.onToggleScenario?.()}
+              class={cx(
+                'inline-flex min-h-[28px] items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40',
+                props.scenarioActive?.()
+                  ? 'border-brand bg-brand text-white'
+                  : 'border-rule bg-card text-foreground hover:border-brand hover:text-brand',
+              )}
+            >
+              <span class="material-symbols-outlined text-[14px]">science</span>
+              Scénario
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>
+            {props.mode() === 'combined'
+              ? 'Mode scénario : les déplacements alimentent un scénario (aucun envoi X3)'
+              : 'Disponible en mode Combiné uniquement'}
+          </TooltipContent>
+        </Tooltip>
       </Show>
 
       {/* Calendrier — conservé seul à l'impression (data-print-keep). */}
