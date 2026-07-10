@@ -35,6 +35,10 @@ export function LinksOverlay(props: {
       <For each={props.paths()}>
         {(p) => {
           const on = () => props.isActive(p)
+          // #62 (lot 0) : largeur du badge dérivée du label (≈5.8 px/caractère en
+          // mono 9.5 px + marges) — un « +12 j » ne déborde plus des 32 px fixes.
+          const badgeLabel = deltaLabel(p.deltaJours)
+          const badgeW = Math.max(24, Math.round(badgeLabel.length * 5.8) + 12)
           // #23 : visibilité par verdict. retard = visible d'emblée (ou si highlight
           // toolbar activé) ; limite/ok = masqués hors survol (comportement inchangé).
           const baseOpacity = () => {
@@ -62,9 +66,9 @@ export function LinksOverlay(props: {
               <Show when={(p.verdict === 'retard' || (p.verdict === 'limite' && highlight())) && p.deltaJours !== null}>
                 <g opacity={on() || p.verdict === 'retard' ? 1 : 0.7} style={{ transition: 'opacity .15s' }}>
                   <rect
-                    x={p.mid.x - 16}
+                    x={p.mid.x - badgeW / 2}
                     y={p.mid.y - 8}
-                    width={32}
+                    width={badgeW}
                     height={16}
                     rx={8}
                     fill="var(--color-card, #fffdf8)"
@@ -78,7 +82,7 @@ export function LinksOverlay(props: {
                     class="font-mono"
                     style={{ 'font-size': '9.5px', 'font-weight': 700, fill: stroke() }}
                   >
-                    {deltaLabel(p.deltaJours)}
+                    {badgeLabel}
                   </text>
                 </g>
               </Show>

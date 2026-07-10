@@ -223,6 +223,11 @@ const Programme: Component<VisionProps> = (props) => {
       },
       only: ['board', 'orderBoard', 'commandes', 'links', 'x3Error', 'cached', 'totalOf', 'lineCount', 'weekLabel'],
       onSuccess: () => {
+        // #62 (lot 0) : le payload frais fait foi — purge des overrides optimistes
+        // (déplacements/dates locaux), sinon ils continueraient de masquer l'état serveur.
+        setCmdMoved(new Map())
+        setOfShift(new Map())
+        setOfDateFinOverride(new Map())
         store.updateData(page.props.board ?? EMPTY_BOARD)
         orderStore.updateData(page.props.orderBoard ?? EMPTY_ORDER_BOARD)
         requestAnimationFrame(measure)
@@ -542,13 +547,20 @@ const Programme: Component<VisionProps> = (props) => {
 
   // #57 — Appliquer : rejoue les mutations en PATCHs réels (mécanisme unitaire existant),
   // marque le scénario appliqué, puis recharge pour réconcilier board ↔ serveur.
+  // #62 (lot 0) : chaque PATCH est vérifié (r.ok) — un 422/500 ne doit plus produire un
+  // faux « Scénario appliqué ». Sur échec (même partiel) : pas de markApplied(), le
+  // scénario reste ouvert pour retenter, et le toast détaille appliquées vs échecs.
   const applyScenario = async () => {
     if (applying()) return
     setApplying(true)
     try {
+      let total = 0
+      let failed = 0
       for (const m of scenario.current.mutations) {
+        let r: Response | null = null
         if (m.type === 'shift_of') {
-          await fetch(route('planning_board.update', { of: m.numOf }), {
+          total++
+          r = await fetch(route('planning_board.update', { of: m.numOf }), {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -556,14 +568,26 @@ const Programme: Component<VisionProps> = (props) => {
               dateDebut: m.dateDebut ?? undefined,
               ...(m.dateFin ? { dateFin: m.dateFin } : {}),
             }),
-          })
+          }).catch(() => null)
         } else if (m.type === 'shift_demand' && m.ligne) {
-          await fetch(route('order_planning.update', { order: m.numCommande, line: m.ligne }), {
+          total++
+          r = await fetch(route('order_planning.update', { order: m.numCommande, line: m.ligne }), {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ dateLivraison: m.date }),
-          })
+          }).catch(() => null)
+        } else {
+          continue
         }
+        if (!r?.ok) failed++
+      }
+      if (failed > 0) {
+        window.dispatchEvent(
+          new CustomEvent('sch-toast', {
+            detail: `${total - failed}/${total} mutation${total > 1 ? 's' : ''} appliquée${total - failed > 1 ? 's' : ''} — ${failed} échec${failed > 1 ? 's' : ''}. Scénario conservé.`,
+          }),
+        )
+        return
       }
       await scenario.markApplied()
       scenario.setActive(false)
@@ -872,9 +896,11 @@ const Programme: Component<VisionProps> = (props) => {
       </Show>
 
       {/* ═══ Board : OrderGrid (planification) ou BoardGrid (combined/ordonnancement) ═══ */}
+      {/* #62 (lot 0) : l'empty state planification se juge sur les rangées du board
+          commandes — props.lineCount compte les postes du board OF, pas les commandes. */}
       <Show when={mode() === 'planification'}>
         <Show
-          when={props.lineCount > 0}
+          when={orderStore.board.lines.length > 0}
           fallback={
             <div class="flex flex-1 items-center justify-center p-10 font-fraunces text-[14px] italic text-muted-foreground">
               Aucune ligne de commande dans l'horizon.
@@ -935,9 +961,11 @@ const Programme: Component<VisionProps> = (props) => {
             ) : undefined}
           />
         </div>
-      </Show>
 
-      <BatchFirmBar store={store} />
+        {/* #62 (lot 0) : dans le <Show lineCount> — la barre d'affermissement n'a pas
+            à flotter sous l'empty state « Aucun OF dans l'horizon ». */}
+        <BatchFirmBar store={store} />
+      </Show>
       </Show>
 
       {/* #23 — tooltip flottant pendant le drag OF : verdict prévisionnel de la

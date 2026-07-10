@@ -12,6 +12,10 @@ import { deltaLabel } from '@/lib/vision/impact'
  * Issue #23 : la bordure gauche + icône passent à la couleur du verdict le plus
  * grave des liens rattachés (retard = rouge, limite = ambre) ; badge « +N j » à
  * côté de la date quand le delta est chiffré.
+ *
+ * #62 (lot 0) : verdict null (non évalué — aucun lien, impact incalculable) ≠ ok.
+ * Le marqueur passe en ton NEUTRE (gris) au lieu d'emprunter la teinte du « ok » :
+ * afficher « à l'heure » ce qu'on n'a pas évalué est un signal mensonger.
  */
 const BORDER_BY_VERDICT: Record<ImpactVerdict, string> = {
   retard: 'border-l-error',
@@ -23,6 +27,8 @@ const ICON_BY_VERDICT: Record<ImpactVerdict, string> = {
   limite: 'text-amber-600',
   ok: 'text-terra',
 }
+const BORDER_UNKNOWN = 'border-l-muted-foreground/45'
+const ICON_UNKNOWN = 'text-muted-foreground'
 
 export function CommandeMarker(props: {
   lineCode: string
@@ -38,8 +44,8 @@ export function CommandeMarker(props: {
   const cmd = props.cmd
   const verdict = () => props.verdict ?? null
   const borderClass = () =>
-    verdict() ? BORDER_BY_VERDICT[verdict()!] : 'border-l-terra'
-  const iconClass = () => (verdict() ? ICON_BY_VERDICT[verdict()!] : 'text-terra')
+    verdict() ? BORDER_BY_VERDICT[verdict()!] : BORDER_UNKNOWN
+  const iconClass = () => (verdict() ? ICON_BY_VERDICT[verdict()!] : ICON_UNKNOWN)
   const iconName = () =>
     verdict() === 'retard' ? 'schedule_send' : verdict() === 'limite' ? 'schedule' : 'local_shipping'
   return (
