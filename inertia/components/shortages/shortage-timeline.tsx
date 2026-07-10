@@ -84,7 +84,7 @@ export const ShortageTimeline: Component<{
                     </div>
                     <div class="truncate font-sans text-[11px] text-muted-foreground">{row.componentDesc}</div>
                     <div class="mt-0.5 font-mono text-[10px] text-muted-foreground">
-                      <button type="button" onClick={() => props.onSelectOf(row.numOf)} class="cursor-pointer font-semibold text-terra hover:underline">
+                      <button type="button" onClick={() => props.onSelectOf(row.numOf)} class="cursor-pointer font-semibold text-brand hover:underline">
                         {row.numOf}
                       </button>
                       {' · '}
@@ -108,8 +108,8 @@ export const ShortageTimeline: Component<{
                     <div class="absolute left-0 right-0 top-6 h-0.5 bg-rule-soft" />
                     {/* Aujourd'hui */}
                     <Show when={todayPct() !== null}>
-                      <div class="absolute bottom-3.5 top-0 w-0.5 bg-terra/50" style={{ left: `${todayPct()}%` }}>
-                        <span class="absolute -top-0.5 left-1 font-mono text-[8px] font-bold text-terra">auj.</span>
+                      <div class="absolute bottom-3.5 top-0 w-0.5 bg-brand/50" style={{ left: `${todayPct()}%` }}>
+                        <span class="absolute -top-0.5 left-1 font-mono text-[8px] font-bold text-brand">auj.</span>
                       </div>
                     </Show>
                     {/* Gap réception ↔ expé */}
@@ -164,7 +164,7 @@ export const ShortageTimeline: Component<{
 
           {/* Légende */}
           <div class="flex flex-wrap gap-4 border-t border-rule-soft bg-card px-4 py-2.5 font-mono text-[10px] font-semibold text-muted-foreground">
-            <span class="inline-flex items-center gap-1.5"><span class="size-2.5 rounded-full bg-terra" /> Date d'expédition (cible)</span>
+            <span class="inline-flex items-center gap-1.5"><span class="size-2.5 rounded-full bg-brand" /> Date d'expédition (cible)</span>
             <span class="inline-flex items-center gap-1.5"><span class="size-2.5 rounded-full bg-ferme" /> Réception à temps</span>
             <span class="inline-flex items-center gap-1.5"><span class="size-2.5 rounded-full bg-suggere" /> À risque (buffers entamés)</span>
             <span class="inline-flex items-center gap-1.5"><span class="size-2.5 rounded-full bg-destructive" /> Retard client</span>
@@ -183,7 +183,7 @@ const Marker: Component<{ pct: number; tone: 'exp' | 'ok' | 'bad' | 'warn' | 'no
 ) => {
   const pinCls =
     p.tone === 'exp'
-      ? 'bg-terra'
+      ? 'bg-brand'
       : p.tone === 'ok'
         ? 'bg-ferme'
         : p.tone === 'bad'
@@ -195,7 +195,7 @@ const Marker: Component<{ pct: number; tone: 'exp' | 'ok' | 'bad' | 'warn' | 'no
               : 'border-2 border-dashed border-destructive'
   const capCls =
     p.tone === 'exp'
-      ? 'text-terra'
+      ? 'text-brand'
       : p.tone === 'ok'
         ? 'text-ferme'
         : p.tone === 'warn'

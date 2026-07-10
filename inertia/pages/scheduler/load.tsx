@@ -134,7 +134,7 @@ const Load: Component<LoadPageProps> = (props) => {
         active="load"
         meta={
           <>
-            <div class="font-fraunces text-[12px] font-bold italic text-terra">{props.rangeLabel}</div>
+            <div class="font-fraunces text-[12px] font-bold italic text-brand">{props.rangeLabel}</div>
             <div>
               <b class="font-bold text-foreground">{lines().length}</b> postes de charge ·{' '}
               {view() === 'of' ? 'charge OF' : 'charge commandes'}
@@ -143,7 +143,7 @@ const Load: Component<LoadPageProps> = (props) => {
         }
         actions={
           <TextField class="contents">
-            <div class="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-terra focus-within:ring-2 focus-within:ring-terra/25">
+            <div class="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/25">
               <span class="material-symbols-outlined text-[17px] text-muted-foreground">search</span>
               <TextFieldInput
                 class="w-[190px] border-0 bg-transparent px-0 text-[12px] font-medium shadow-none focus-visible:ring-0"
@@ -159,8 +159,8 @@ const Load: Component<LoadPageProps> = (props) => {
       />
 
       <Show when={props.x3Error}>
-        <div class="flex flex-none items-center gap-2 border-b border-terra/30 bg-terra-soft px-7 py-2 text-[12px] text-foreground">
-          <span class="material-symbols-outlined text-[16px] text-terra">warning</span>
+        <div class="flex flex-none items-center gap-2 border-b border-brand/30 bg-brand-soft px-7 py-2 text-[12px] text-foreground">
+          <span class="material-symbols-outlined text-[16px] text-brand">warning</span>
           <span class="font-bold">Erreur chargement :</span>
           <span class="font-mono">{props.x3Error}</span>
         </div>
@@ -177,7 +177,7 @@ const Load: Component<LoadPageProps> = (props) => {
                 onClick={() => setView(v)}
                 class={cx(
                   'rounded-[5px] px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
-                  view() === v ? 'bg-terra-soft text-terra' : 'text-muted-foreground hover:text-foreground',
+                  view() === v ? 'bg-brand-soft text-brand' : 'text-muted-foreground hover:text-foreground',
                 )}
               >
                 {v === 'of' ? 'OF' : 'Commande'}
@@ -199,7 +199,7 @@ const Load: Component<LoadPageProps> = (props) => {
                   class={cx(
                     'rounded-[5px] px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
                     (net() ? 'net' : 'brut') === m
-                      ? 'bg-terra-soft text-terra'
+                      ? 'bg-brand-soft text-brand'
                       : 'text-muted-foreground hover:text-foreground',
                   )}
                 >
@@ -241,7 +241,7 @@ const Load: Component<LoadPageProps> = (props) => {
           class="flex items-center gap-1.5 transition-opacity"
           classList={{ 'opacity-40': !showCapacity() }}
         >
-          <span class="material-symbols-outlined text-[16px] text-terra">
+          <span class="material-symbols-outlined text-[16px] text-brand">
             {showCapacity() ? 'check_box' : 'check_box_outline_blank'}
           </span>
           <i class="inline-block w-[18px] border-t-[3px] border-foreground/70" />Capacité
@@ -252,10 +252,10 @@ const Load: Component<LoadPageProps> = (props) => {
           class="flex items-center gap-1.5 transition-opacity"
           classList={{ 'opacity-40': !showAvg() }}
         >
-          <span class="material-symbols-outlined text-[16px] text-terra">
+          <span class="material-symbols-outlined text-[16px] text-brand">
             {showAvg() ? 'check_box' : 'check_box_outline_blank'}
           </span>
-          <i class="inline-block w-[18px] border-t-[1.5px] border-dashed border-terra" />Moyenne mobile
+          <i class="inline-block w-[18px] border-t-[1.5px] border-dashed border-brand" />Moyenne mobile
         </button>
         <span class="flex items-center gap-1.5">
           <i
@@ -281,7 +281,7 @@ const Load: Component<LoadPageProps> = (props) => {
                 class={cx(
                   'rounded-full border px-2.5 py-1 font-sans text-[11px] font-semibold transition-colors',
                   atelierFilter().has(a.code)
-                    ? 'border-terra bg-terra-soft text-terra'
+                    ? 'border-brand bg-brand-soft text-brand'
                     : 'border-rule bg-card text-muted-foreground hover:border-[#b3a47e] hover:text-foreground',
                 )}
                 title={a.code}
@@ -294,7 +294,7 @@ const Load: Component<LoadPageProps> = (props) => {
             <button
               type="button"
               onClick={() => setAtelierFilter(new Set())}
-              class="ml-1 font-mono text-[10px] font-bold uppercase tracking-wider text-terra hover:underline"
+              class="ml-1 font-mono text-[10px] font-bold uppercase tracking-wider text-brand hover:underline"
             >
               Réinitialiser
             </button>
@@ -390,7 +390,7 @@ const Load: Component<LoadPageProps> = (props) => {
                       onClick={() => setGran('month')}
                       class={cx(
                         'rounded-full px-3.5 py-1.5 font-sans text-[11px] font-bold uppercase tracking-wide transition-colors',
-                        gran() === 'month' ? 'bg-card text-terra shadow-[0_1px_2px_rgba(0,0,0,.08)]' : 'text-muted-foreground',
+                        gran() === 'month' ? 'bg-card text-brand shadow-[0_1px_2px_rgba(0,0,0,.08)]' : 'text-muted-foreground',
                       )}
                     >
                       Mois
@@ -400,7 +400,7 @@ const Load: Component<LoadPageProps> = (props) => {
                       onClick={() => setGran('week')}
                       class={cx(
                         'rounded-full px-3.5 py-1.5 font-sans text-[11px] font-bold uppercase tracking-wide transition-colors',
-                        gran() === 'week' ? 'bg-card text-terra shadow-[0_1px_2px_rgba(0,0,0,.08)]' : 'text-muted-foreground',
+                        gran() === 'week' ? 'bg-card text-brand shadow-[0_1px_2px_rgba(0,0,0,.08)]' : 'text-muted-foreground',
                       )}
                     >
                       Semaine

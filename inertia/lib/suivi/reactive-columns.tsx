@@ -37,7 +37,7 @@ export function createReactiveColumns({ expandedEmps, toggleEmp }: ReactiveColum
       header: () => 'Article · Désignation',
       cell: (info) => (
         <>
-          <div class="font-mono text-[13px] font-semibold text-terra">
+          <div class="font-mono text-[13px] font-semibold text-brand">
             {info.getValue()}
             <Show when={info.row.original.refArticleClient && info.row.original.refArticleClient !== info.getValue()}>
               <span class="font-medium text-muted-foreground/70">/{info.row.original.refArticleClient}</span>
@@ -51,7 +51,7 @@ export function createReactiveColumns({ expandedEmps, toggleEmp }: ReactiveColum
     reHelper.accessor('type', {
       header: () => 'Type',
       cell: (info) => (
-        <span class="rounded bg-terra-soft px-[7px] py-0.5 font-mono text-[10px] font-bold uppercase tracking-wide text-terra">{info.getValue()}</span>
+        <span class="rounded bg-brand-soft px-[7px] py-0.5 font-mono text-[10px] font-bold uppercase tracking-wide text-brand">{info.getValue()}</span>
       ),
       meta: { thClass: 'w-[56px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'px-4 py-[9px] align-middle' },
     }),
@@ -141,7 +141,7 @@ export function createReactiveColumns({ expandedEmps, toggleEmp }: ReactiveColum
             <Show when={hidden() > 0}>
               <button
                 type="button"
-                class="flex w-full items-center gap-1 rounded border border-dashed border-rule px-2 py-0.5 font-mono text-[10px] font-bold text-muted-foreground transition-colors hover:border-terra hover:text-terra"
+                class="flex w-full items-center gap-1 rounded border border-dashed border-rule px-2 py-0.5 font-mono text-[10px] font-bold text-muted-foreground transition-colors hover:border-brand hover:text-brand"
                 onClick={() => toggleEmp(key)}
               >
                 <span class="material-symbols-outlined text-[13px] leading-none">
@@ -170,7 +170,7 @@ export function createReactiveColumns({ expandedEmps, toggleEmp }: ReactiveColum
               {o.statusLabel}
             </span>
             <Show when={o.cq}>
-              <span class="inline-flex items-center gap-1 rounded-md border border-transparent bg-terra-soft px-2 py-0.5 text-[11px] font-medium text-terra whitespace-nowrap">
+              <span class="inline-flex items-center gap-1 rounded-md border border-transparent bg-brand-soft px-2 py-0.5 text-[11px] font-medium text-brand whitespace-nowrap">
                 <span class="material-symbols-outlined grid size-[14px] place-items-center text-[14px] leading-none">science</span>CQ
               </span>
             </Show>

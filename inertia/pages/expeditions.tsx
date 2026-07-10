@@ -170,7 +170,7 @@ const Expeditions: Component<ExpeditionsPageProps> = (props) => {
         active="expeditions"
         meta={
           <>
-            <div class="font-fraunces text-[12px] font-bold capitalize not-italic text-terra">{exp().label || '—'}</div>
+            <div class="font-fraunces text-[12px] font-bold capitalize not-italic text-brand">{exp().label || '—'}</div>
             <div>
               <b class="font-bold text-foreground">{exp().nbCamions}</b> camion{exp().nbCamions > 1 ? 's' : ''}
             </div>
@@ -258,7 +258,7 @@ const Expeditions: Component<ExpeditionsPageProps> = (props) => {
         </button>
 
         {/* Recherche client */}
-        <div class="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-terra focus-within:ring-2 focus-within:ring-terra/25">
+        <div class="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/25">
           <span class="material-symbols-outlined text-[17px] text-muted-foreground">search</span>
           <input
             class="w-[160px] border-0 bg-transparent px-0 text-[12px] font-medium text-foreground shadow-none outline-none"
@@ -283,7 +283,7 @@ const Expeditions: Component<ExpeditionsPageProps> = (props) => {
             type="button"
             onClick={() => setBust((b) => b + 1)}
             disabled={data.loading}
-            class="inline-flex items-center gap-1 rounded-full border border-rule bg-card px-3 py-1 text-[11px] font-semibold transition-colors hover:border-terra disabled:opacity-50"
+            class="inline-flex items-center gap-1 rounded-full border border-rule bg-card px-3 py-1 text-[11px] font-semibold transition-colors hover:border-brand disabled:opacity-50"
             title="Recharger les données X3"
           >
             <span class="material-symbols-outlined text-[14px] text-muted-foreground" classList={{ 'animate-spin': data.loading }}>refresh</span>
@@ -400,7 +400,7 @@ const ViewTab: Component<{ active: boolean; onClick: () => void; icon: string; l
     onClick={p.onClick}
     class={cx(
       'flex items-center gap-1.5 px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
-      p.active ? 'bg-terra/10 text-terra' : 'text-muted-foreground hover:text-foreground',
+      p.active ? 'bg-brand/10 text-brand' : 'text-muted-foreground hover:text-foreground',
     )}
   >
     <span class="material-symbols-outlined text-[14px]">{p.icon}</span>
@@ -415,7 +415,7 @@ const SegTab: Component<{ active: boolean; onClick: () => void; label: string }>
     onClick={p.onClick}
     class={cx(
       'border-r border-rule-soft px-2.5 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors last:border-r-0',
-      p.active ? 'bg-terra/10 text-terra' : 'text-muted-foreground hover:text-foreground',
+      p.active ? 'bg-brand/10 text-brand' : 'text-muted-foreground hover:text-foreground',
     )}
   >
     {p.label}

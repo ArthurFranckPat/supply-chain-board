@@ -221,7 +221,7 @@ const Conditionnements: Component<ConditionnementsPageProps> = (props) => {
         active="conditionnements"
         meta={
           <>
-            <div class="font-fraunces text-[12px] font-bold capitalize not-italic text-terra">
+            <div class="font-fraunces text-[12px] font-bold capitalize not-italic text-brand">
               {stats().totalArticles} article{stats().totalArticles > 1 ? 's' : ''}
             </div>
             <div>
@@ -285,7 +285,7 @@ const Conditionnements: Component<ConditionnementsPageProps> = (props) => {
         </Show>
 
         {/* Recherche */}
-        <div class="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-terra focus-within:ring-2 focus-within:ring-terra/25">
+        <div class="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/25">
           <span class="material-symbols-outlined text-[17px] text-muted-foreground">search</span>
           <input
             class="w-[200px] border-0 bg-transparent px-0 text-[12px] font-medium text-foreground shadow-none outline-none"
@@ -303,7 +303,7 @@ const Conditionnements: Component<ConditionnementsPageProps> = (props) => {
             <button
               type="button"
               onClick={() => setEnrichTrigger((t) => t + 1)}
-              class="inline-flex items-center gap-1 rounded-full border border-terra/40 bg-terra/10 px-3 py-1 text-[11px] font-semibold text-terra transition-colors hover:bg-terra/20"
+              class="inline-flex items-center gap-1 rounded-full border border-brand/40 bg-brand/10 px-3 py-1 text-[11px] font-semibold text-brand transition-colors hover:bg-brand/20"
               title="Charger les estimations STOCK/STOJOU + mouvements (coûteux)"
             >
               <span class="material-symbols-outlined text-[14px]">insights</span>
@@ -324,7 +324,7 @@ const Conditionnements: Component<ConditionnementsPageProps> = (props) => {
             type="button"
             onClick={() => setBust((b) => b + 1)}
             disabled={data.loading}
-            class="inline-flex items-center gap-1 rounded-full border border-rule bg-card px-3 py-1 text-[11px] font-semibold transition-colors hover:border-terra disabled:opacity-50"
+            class="inline-flex items-center gap-1 rounded-full border border-rule bg-card px-3 py-1 text-[11px] font-semibold transition-colors hover:border-brand disabled:opacity-50"
             title="Recharger les données X3"
           >
             <span class="material-symbols-outlined text-[14px] text-muted-foreground" classList={{ 'animate-spin': data.loading }}>refresh</span>
@@ -531,13 +531,13 @@ const FacetteDropdown: Component<{
         class={cx(
           'flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
           nbSelectionnees() > 0
-            ? 'border-terra/40 bg-terra/10 text-terra'
+            ? 'border-brand/40 bg-brand/10 text-brand'
             : 'border-rule bg-card text-muted-foreground hover:text-foreground',
         )}
       >
         {p.label}
         <Show when={nbSelectionnees() > 0}>
-          <span class="rounded bg-terra/20 px-1 text-[9px] tabular-nums">{nbSelectionnees()}</span>
+          <span class="rounded bg-brand/20 px-1 text-[9px] tabular-nums">{nbSelectionnees()}</span>
         </Show>
         <span class="material-symbols-outlined text-[12px]">{p.open ? 'expand_less' : 'expand_more'}</span>
       </button>
@@ -552,7 +552,7 @@ const FacetteDropdown: Component<{
               <button
                 type="button"
                 onClick={p.onClear}
-                class="font-mono text-[9px] font-bold uppercase tracking-wider text-terra hover:underline"
+                class="font-mono text-[9px] font-bold uppercase tracking-wider text-brand hover:underline"
               >
                 Effacer
               </button>
@@ -563,7 +563,7 @@ const FacetteDropdown: Component<{
               <label class="flex cursor-pointer items-center gap-2 border-b border-rule-soft px-2 py-1.5 last:border-b-0 hover:bg-secondary/40">
                 <input
                   type="checkbox"
-                  class="accent-terra"
+                  class="accent-brand"
                   checked={p.selection.has(f.cle)}
                   onChange={() => p.onToggle(f.cle)}
                 />

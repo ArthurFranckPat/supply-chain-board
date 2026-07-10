@@ -79,7 +79,7 @@ export const ChargeHistogram: Component<ChargeHistogramProps> = (props) => {
         </Show>
         <Show when={line() && induitTotal() > 0}>
           <span
-            class="ml-auto inline-flex items-center gap-1 rounded-[5px] px-1.5 py-0.5 font-mono text-[10px] font-bold text-terra"
+            class="ml-auto inline-flex items-center gap-1 rounded-[5px] px-1.5 py-0.5 font-mono text-[10px] font-bold text-brand"
             style={{ 'background-color': 'rgba(168,67,31,.10)' }}
           >
             <span
@@ -93,7 +93,7 @@ export const ChargeHistogram: Component<ChargeHistogramProps> = (props) => {
           </span>
         </Show>
         <Show when={!line()}>
-          <span class="ml-auto rounded-[5px] bg-terra-soft px-1.5 py-0.5 font-mono text-[10px] font-bold text-terra">
+          <span class="ml-auto rounded-[5px] bg-brand-soft px-1.5 py-0.5 font-mono text-[10px] font-bold text-brand">
             moy. {fmt(moyenne())} h/sem
           </span>
         </Show>
@@ -103,10 +103,10 @@ export const ChargeHistogram: Component<ChargeHistogramProps> = (props) => {
       <div class={cx('relative flex items-end justify-center border-b border-rule-soft px-1', barH(), gap())}>
         <Show when={!line()}>
           <div
-            class="pointer-events-none absolute bottom-0 left-1 right-1 border-t-[1.5px] border-dashed border-terra"
+            class="pointer-events-none absolute bottom-0 left-1 right-1 border-t-[1.5px] border-dashed border-brand"
             style={{ bottom: `${moyH()}%` }}
           >
-            <span class="absolute right-0 -top-[7px] bg-card px-1 font-mono text-[7px] font-bold text-terra">
+            <span class="absolute right-0 -top-[7px] bg-card px-1 font-mono text-[7px] font-bold text-brand">
               {fmt(moyenne())} h
             </span>
           </div>
@@ -132,7 +132,7 @@ export const ChargeHistogram: Component<ChargeHistogramProps> = (props) => {
                     }}
                   >
                     <Show when={lab(w.induit, t)}>
-                      <span class="font-mono text-[8px] font-bold leading-none text-terra">{lab(w.induit, t)}</span>
+                      <span class="font-mono text-[8px] font-bold leading-none text-brand">{lab(w.induit, t)}</span>
                     </Show>
                   </span>
                 </Show>

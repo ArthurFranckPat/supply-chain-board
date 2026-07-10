@@ -31,7 +31,7 @@ const INKS = [
   { name: 'Muted', hex: '#8c7d66', tok: 'muted-foreground', use: 'texte atténué' },
 ]
 const BRAND = [
-  { name: 'Terra', hex: '#a8431f', tok: 'primary', use: 'accent primaire', cls: 'text-terra' },
+  { name: 'Terra', hex: '#a8431f', tok: 'primary', use: 'accent primaire', cls: 'text-brand' },
   { name: 'Ferme', hex: '#5b7d4e', tok: 'ferme', use: 'statut ferme', cls: 'text-ferme' },
   { name: 'Planifié', hex: '#2f4858', tok: 'planifie', use: 'statut planifié', cls: 'text-planifie' },
   { name: 'Suggéré', hex: '#b8862c', tok: 'suggere', use: 'statut suggéré', cls: 'text-suggere' },
@@ -51,7 +51,7 @@ const INKS_NAVY = [
   { name: 'Gray', hex: '#6c757d', tok: 'muted-foreground', use: 'texte atténué' },
 ]
 const BRAND_NAVY = [
-  { name: 'Navy', hex: '#081061', tok: 'primary', use: 'accent primaire (marque)', cls: 'text-terra' },
+  { name: 'Navy', hex: '#081061', tok: 'primary', use: 'accent primaire (marque)', cls: 'text-brand' },
   { name: 'Ferme', hex: '#28a745', tok: 'ferme', use: 'statut ferme (--success)', cls: 'text-ferme' },
   { name: 'Planifié', hex: '#17a2b8', tok: 'planifie', use: 'statut planifié (--info, réassigné)', cls: 'text-planifie' },
   { name: 'Suggéré', hex: '#ffc107', tok: 'suggere', use: 'statut suggéré (--warning)', cls: 'text-suggere' },
@@ -133,7 +133,7 @@ const DesignSystem: Component = () => {
         {/* ═══ TOC ═══ */}
         <aside class="sticky top-0 h-screen overflow-auto border-r border-rule-soft px-4 py-8 pl-8">
           <div class="font-fraunces text-[19px] font-black leading-none tracking-tight">
-            Design <span class="italic font-medium text-terra">System</span>
+            Design <span class="italic font-medium text-brand">System</span>
           </div>
           <div class="mt-1 font-mono text-[10px] text-muted-foreground">
             {theme() === 'navy' ? 'Navy · v0.1 (exploration)' : 'Papier · v1.0'}
@@ -145,7 +145,7 @@ const DesignSystem: Component = () => {
               type="button"
               onClick={() => setTheme('papier')}
               class={`rounded-[5px] px-2.5 py-1 text-[11px] font-bold transition-colors ${
-                theme() === 'papier' ? 'bg-terra-soft text-terra' : 'text-muted-foreground hover:text-foreground'
+                theme() === 'papier' ? 'bg-brand-soft text-brand' : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               Papier
@@ -154,7 +154,7 @@ const DesignSystem: Component = () => {
               type="button"
               onClick={() => setTheme('navy')}
               class={`rounded-[5px] px-2.5 py-1 text-[11px] font-bold transition-colors ${
-                theme() === 'navy' ? 'bg-terra-soft text-terra' : 'text-muted-foreground hover:text-foreground'
+                theme() === 'navy' ? 'bg-brand-soft text-brand' : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               Navy
@@ -183,12 +183,12 @@ const DesignSystem: Component = () => {
         <main class="min-w-0 px-12 pb-24 pt-10">
           {/* intro */}
           <div class="pb-4">
-            <div class="font-mono text-[11px] uppercase tracking-[0.18em] text-terra">
+            <div class="font-mono text-[11px] uppercase tracking-[0.18em] text-brand">
               Supply Chain Board
             </div>
             <h1 class="mt-2 font-fraunces text-[40px] font-black leading-none tracking-tight">
               Design System{' '}
-              <span class="font-medium italic text-terra">
+              <span class="font-medium italic text-brand">
                 {theme() === 'navy' ? 'Navy' : 'Papier'}
               </span>
             </h1>
@@ -334,7 +334,7 @@ const DesignSystem: Component = () => {
                       onClick={() => setExclu('immediate')}
                       class={`rounded-[5px] px-3 py-1 text-[12px] font-bold transition-colors ${
                         exclu() === 'immediate'
-                          ? 'bg-terra-soft text-terra'
+                          ? 'bg-brand-soft text-brand'
                           : 'text-muted-foreground hover:text-foreground'
                       }`}
                     >
@@ -345,7 +345,7 @@ const DesignSystem: Component = () => {
                       onClick={() => setExclu('sequential')}
                       class={`rounded-[5px] px-3 py-1 text-[12px] font-medium transition-colors ${
                         exclu() === 'sequential'
-                          ? 'bg-terra-soft text-terra'
+                          ? 'bg-brand-soft text-brand'
                           : 'text-muted-foreground hover:text-foreground'
                       }`}
                     >
@@ -362,7 +362,7 @@ const DesignSystem: Component = () => {
                           type="button"
                           class={`rounded-md border px-2.5 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors ${
                             flt().includes(t)
-                              ? 'border-terra/40 bg-terra-soft text-terra'
+                              ? 'border-brand/40 bg-brand-soft text-brand'
                               : 'border-border bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground'
                           }`}
                           onClick={() => toggleFlt(t)}
@@ -410,7 +410,7 @@ const DesignSystem: Component = () => {
 
               <FieldLabel class="mt-6">Type · override · faisabilité</FieldLabel>
               <div class="flex flex-wrap items-center gap-4">
-                <span class="rounded bg-terra-soft px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-terra">
+                <span class="rounded bg-brand-soft px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-brand">
                   MTS
                 </span>
                 <span class="inline-flex items-center gap-1 font-mono text-[9px] font-semibold uppercase tracking-wider text-suggere">
@@ -464,7 +464,7 @@ const DesignSystem: Component = () => {
             <div class="overflow-hidden rounded-xl border-2 border-foreground bg-card shadow-md">
               <div class="flex items-center gap-3 border-b border-border bg-secondary px-4 py-2.5">
                 <span class="font-fraunces text-[16px] font-bold">AR24490 · L4</span>
-                <span class="font-mono text-[12px] font-bold text-terra">XTR106540</span>
+                <span class="font-mono text-[12px] font-bold text-brand">XTR106540</span>
                 <span class="font-fraunces text-[12px] italic text-muted-foreground">Caisse VMC D200</span>
                 <Badge variant="destructive" class="ml-1">
                   <span class="material-symbols-outlined text-[13px]">block</span>Bloquée · MOT-33012 −42
@@ -540,7 +540,7 @@ const DesignSystem: Component = () => {
                 </div>
                 <p class="mt-4 max-w-[240px] text-[13px] leading-relaxed text-foreground/70">
                   Mode plage : 1er clic = début, survol = aperçu, 2e clic = fin (ordre auto). Barre
-                  terra-soft continue entre les bornes, qui sont remplies terra. Existe aussi en mode
+                  brand-soft continue entre les bornes, qui sont remplies terra. Existe aussi en mode
                   date unique (<code class="font-mono">mode=&quot;single&quot;</code>).
                 </p>
               </div>
@@ -588,7 +588,7 @@ const Section: Component<{ id: string; n: string; title: string; last?: boolean;
     class={`scroll-mt-6 ${props.last ? '' : 'border-t border-rule-soft'} py-9`}
   >
     <div class="mb-2 flex items-baseline gap-3">
-      <span class="rounded-md bg-terra-soft px-2 py-0.5 font-mono text-[11px] font-semibold text-terra">
+      <span class="rounded-md bg-brand-soft px-2 py-0.5 font-mono text-[11px] font-semibold text-brand">
         {props.n}
       </span>
       <h2 class="font-fraunces text-[24px] font-bold tracking-tight">{props.title}</h2>
@@ -656,7 +656,7 @@ const RuptureRow: Component<{
 }> = (props) => {
   const vcls = { ok: 'text-ferme', warn: 'text-suggere', bad: 'text-destructive' }[props.verdict]
   return (
-    <div class="grid grid-cols-[28px_1.6fr_70px_1.3fr_90px_1.5fr_120px] items-center gap-4 border-t border-rule-soft px-4 py-3 transition-colors hover:bg-terra-soft">
+    <div class="grid grid-cols-[28px_1.6fr_70px_1.3fr_90px_1.5fr_120px] items-center gap-4 border-t border-rule-soft px-4 py-3 transition-colors hover:bg-brand-soft">
       <span class="font-fraunces text-[13px] text-muted-foreground/70">{props.rk}</span>
       <div>
         <div class="font-mono text-[14px] font-semibold">{props.comp}</div>
@@ -664,7 +664,7 @@ const RuptureRow: Component<{
       </div>
       <div class="text-right font-fraunces text-[22px] font-bold text-destructive tabular-nums">{props.qty}</div>
       <div>
-        <span class="cursor-pointer font-mono text-[13px] font-semibold text-terra hover:underline">{props.of}</span>
+        <span class="cursor-pointer font-mono text-[13px] font-semibold text-brand hover:underline">{props.of}</span>
         <div class="font-fraunces text-[11px] italic text-muted-foreground">{props.art}</div>
       </div>
       <div>
@@ -709,7 +709,7 @@ const StatePane: Component<{ tone: string; icon?: string; spin?: boolean; title:
   return (
     <div class="flex flex-col items-center gap-3 rounded-xl border border-border bg-card px-5 py-9 text-center">
       {props.spin ? (
-        <div class="size-7 animate-spin rounded-full border-[3px] border-border border-t-terra" />
+        <div class="size-7 animate-spin rounded-full border-[3px] border-border border-t-brand" />
       ) : (
         <div class={`flex size-11 items-center justify-center rounded-full ${toneCls[props.tone]}`}>
           <span class="material-symbols-outlined text-[26px]">{props.icon}</span>

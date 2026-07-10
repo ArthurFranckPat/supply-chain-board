@@ -85,9 +85,9 @@ export const ScenarioBar: Component<{
   }
 
   return (
-    <div class="flex flex-none flex-wrap items-center gap-3 border-b border-terra/40 bg-terra-soft px-7 py-2">
-      <span class="material-symbols-outlined text-[18px] text-terra">science</span>
-      <span class="font-fraunces text-[13px] font-bold text-terra">Scénario</span>
+    <div class="flex flex-none flex-wrap items-center gap-3 border-b border-brand/40 bg-brand-soft px-7 py-2">
+      <span class="material-symbols-outlined text-[18px] text-brand">science</span>
+      <span class="font-fraunces text-[13px] font-bold text-brand">Scénario</span>
 
       {/* Nom éditable */}
       <input
@@ -95,7 +95,7 @@ export const ScenarioBar: Component<{
         value={s.current.nom}
         placeholder="Nommer le scénario…"
         onInput={(e) => s.setNom(e.currentTarget.value)}
-        class="h-[28px] w-[200px] rounded-full border border-terra/30 bg-card px-3 text-[12px] font-semibold text-foreground focus:border-terra focus:outline-none focus:ring-2 focus:ring-terra/25"
+        class="h-[28px] w-[200px] rounded-full border border-brand/30 bg-card px-3 text-[12px] font-semibold text-foreground focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/25"
       />
 
       <span class="rounded-full bg-card px-2.5 py-1 font-mono text-[11px] font-bold text-foreground">
@@ -185,16 +185,16 @@ export const ScenarioBar: Component<{
             />
             <form
               onSubmit={submitInject}
-              class="absolute right-0 top-full z-50 mt-2 w-[280px] space-y-2 rounded-lg border border-terra/40 bg-card p-3 shadow-lg"
+              class="absolute right-0 top-full z-50 mt-2 w-[280px] space-y-2 rounded-lg border border-brand/40 bg-card p-3 shadow-lg"
             >
-              <p class="font-fraunces text-[12px] font-bold text-terra">+ Commande virtuelle</p>
+              <p class="font-fraunces text-[12px] font-bold text-brand">+ Commande virtuelle</p>
               <input
                 list="scenario-article-options"
                 required
                 value={article()}
                 onInput={(e) => setArticle(e.currentTarget.value)}
                 placeholder="Article"
-                class="h-[28px] w-full rounded-md border border-rule bg-background px-2 text-[12px] focus:border-terra focus:outline-none"
+                class="h-[28px] w-full rounded-md border border-rule bg-background px-2 text-[12px] focus:border-brand focus:outline-none"
               />
               <datalist id="scenario-article-options">
                 <For each={props.articleOptions}>{(a) => <option value={a} />}</For>
@@ -207,21 +207,21 @@ export const ScenarioBar: Component<{
                   value={quantity()}
                   onInput={(e) => setQuantity(e.currentTarget.value)}
                   placeholder="Qté"
-                  class="h-[28px] w-[80px] rounded-md border border-rule bg-background px-2 text-[12px] focus:border-terra focus:outline-none"
+                  class="h-[28px] w-[80px] rounded-md border border-rule bg-background px-2 text-[12px] focus:border-brand focus:outline-none"
                 />
                 <input
                   type="date"
                   required
                   value={date()}
                   onInput={(e) => setDate(e.currentTarget.value)}
-                  class="h-[28px] flex-1 rounded-md border border-rule bg-background px-2 text-[12px] focus:border-terra focus:outline-none"
+                  class="h-[28px] flex-1 rounded-md border border-rule bg-background px-2 text-[12px] focus:border-brand focus:outline-none"
                 />
               </div>
               <input
                 value={client()}
                 onInput={(e) => setClient(e.currentTarget.value)}
                 placeholder="Client (libre, optionnel)"
-                class="h-[28px] w-full rounded-md border border-rule bg-background px-2 text-[12px] focus:border-terra focus:outline-none"
+                class="h-[28px] w-full rounded-md border border-rule bg-background px-2 text-[12px] focus:border-brand focus:outline-none"
               />
               <Button type="submit" size="sm" class="w-full gap-1.5">
                 <span class="material-symbols-outlined text-[15px]">add</span>

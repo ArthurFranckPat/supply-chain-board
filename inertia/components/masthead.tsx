@@ -41,7 +41,7 @@ const TABS: { key: MastheadTab; label: string; href: string }[] = [
 
 const tabCls = (active: boolean) =>
   `border-b-2 px-3.5 py-2.5 text-[12px] font-semibold transition-colors ${
-    active ? 'border-terra text-terra' : 'border-transparent text-secondary-foreground hover:text-terra'
+    active ? 'border-brand text-brand' : 'border-transparent text-secondary-foreground hover:text-brand'
   }`
 
 export const Masthead: Component<{
@@ -68,7 +68,7 @@ export const Masthead: Component<{
       {/* Bandeau d'alerte — uniquement en test, superposé pour ne pas impacter
           la hauteur fixe calibrée ci-dessous. */}
       <Show when={env() === 'test'}>
-        <div class="absolute inset-x-0 top-0 z-10 h-[3px] bg-terra" aria-hidden="true" />
+        <div class="absolute inset-x-0 top-0 z-10 h-[3px] bg-brand" aria-hidden="true" />
       </Show>
       {/* Hauteur fixe : toutes les pages alignent le bandeau titre, même sans
           `meta` (ex. Tableau). Calée sur la hauteur naturelle du meta 2 lignes
@@ -76,7 +76,7 @@ export const Masthead: Component<{
       <div class="flex min-h-[60px] items-end justify-between gap-5 px-7 pb-2 pt-3.5">
         <div class="flex items-center gap-3.5">
           <div class="font-fraunces text-[28px] font-black leading-[0.9] tracking-tight">
-            Supply Chain <span class="font-medium italic text-terra">AERECO</span>
+            Supply Chain <span class="font-medium italic text-brand">AERECO</span>
           </div>
           <div class="pb-1 font-mono text-[10px] font-medium tracking-[0.12em] text-muted-foreground">
             {props.subtitle}
@@ -90,7 +90,7 @@ export const Masthead: Component<{
                 title={`Environnement Sage X3 : ${e()}`}
                 class={`inline-flex items-center gap-1 rounded-full border px-2 py-[3px] font-mono text-[10px] font-bold uppercase tracking-[0.08em] ${
                   e() === 'test'
-                    ? 'border-transparent bg-terra text-card'
+                    ? 'border-transparent bg-brand text-card'
                     : 'border-border bg-muted text-muted-foreground'
                 }`}
               >

@@ -89,7 +89,7 @@ export const ShortageComposants: Component<{
                               onClick={() => props.onSelectOf(l.numOf)}
                               title={`${l.articleParent} · ${l.articleParentDesc} — manque ${l.qteManquante} u`}
                               class={cx(
-                                'cursor-pointer rounded border px-1.5 py-0.5 font-mono text-[10.5px] font-bold transition-colors hover:border-terra hover:text-terra',
+                                'cursor-pointer rounded border px-1.5 py-0.5 font-mono text-[10.5px] font-bold transition-colors hover:border-brand hover:text-brand',
                                 l.verdictKey === 'sans_couverture'
                                   ? 'border-destructive/30 text-destructive'
                                   : 'border-rule text-secondary-foreground',

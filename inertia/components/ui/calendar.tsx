@@ -6,7 +6,7 @@ import { cx } from '@/libs/cva'
  *
  *  • mode="single" (défaut) : `value` / `onValueChange` — un clic sélectionne.
  *  • mode="range"           : `range` / `onRangeChange` — 1er clic = début,
- *    survol = aperçu, 2e clic = fin (ordre auto). Barre terra-soft continue
+ *    survol = aperçu, 2e clic = fin (ordre auto). Barre brand-soft continue
  *    entre les deux bornes (remplies terra).
  *
  * Mois en Fraunces, numéros de semaine ISO en colonne gauche (alignés sur le
@@ -229,7 +229,7 @@ export const Calendar: Component<CalendarProps> = (props) => {
                       {hasSpan() && (between() || isRStart() || isREnd()) && (
                         <span
                           class={cx(
-                            'pointer-events-none absolute inset-y-1.5 bg-terra/20',
+                            'pointer-events-none absolute inset-y-1.5 bg-brand/20',
                             between() && 'left-0 right-0',
                             isRStart() && 'left-1/2 right-0',
                             isREnd() && 'left-0 right-1/2',
@@ -241,13 +241,13 @@ export const Calendar: Component<CalendarProps> = (props) => {
                         class={cx(
                           'relative z-[1] flex size-8 items-center justify-center rounded-full text-[12px] tabular-nums transition-colors',
                           filled()
-                            ? 'bg-terra font-bold text-card'
+                            ? 'bg-brand font-bold text-card'
                             : isToday
-                              ? 'border border-terra font-bold text-terra'
+                              ? 'border border-brand font-bold text-brand'
                               : inMonth
                                 ? isWeekend
-                                  ? 'text-muted-foreground hover:bg-terra-soft hover:text-foreground'
-                                  : 'text-foreground hover:bg-terra-soft'
+                                  ? 'text-muted-foreground hover:bg-brand-soft hover:text-foreground'
+                                  : 'text-foreground hover:bg-brand-soft'
                                 : 'text-muted-foreground/40',
                           dis && 'opacity-40',
                         )}
@@ -271,7 +271,7 @@ export const Calendar: Component<CalendarProps> = (props) => {
         <button
           type="button"
           onClick={goToday}
-          class="font-mono text-[10px] font-bold tracking-wider text-terra transition-colors hover:text-foreground"
+          class="font-mono text-[10px] font-bold tracking-wider text-brand transition-colors hover:text-foreground"
         >
           Aujourd'hui
         </button>

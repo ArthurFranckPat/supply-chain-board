@@ -32,7 +32,7 @@ export function createProactiveColumns() {
       header: () => 'Article · Désignation',
       cell: (info) => (
         <>
-          <div class="font-mono text-[13px] font-semibold text-terra">
+          <div class="font-mono text-[13px] font-semibold text-brand">
             {info.getValue()}
             <Show when={info.row.original.refArticleClient && info.row.original.refArticleClient !== info.getValue()}>
               <span class="font-medium text-muted-foreground/70">/{info.row.original.refArticleClient}</span>
@@ -46,7 +46,7 @@ export function createProactiveColumns() {
     proHelper.accessor('type', {
       header: () => 'Type',
       cell: (info) => (
-        <span class="rounded bg-terra-soft px-[7px] py-0.5 font-mono text-[10px] font-bold uppercase tracking-wide text-terra">{info.getValue()}</span>
+        <span class="rounded bg-brand-soft px-[7px] py-0.5 font-mono text-[10px] font-bold uppercase tracking-wide text-brand">{info.getValue()}</span>
       ),
       meta: { thClass: 'w-[56px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'px-4 py-[9px] align-middle' },
     }),

@@ -65,7 +65,7 @@ export const ShortageRegistre: Component<{
             <button
               type="button"
               onClick={() => props.onSelectOf(row.numOf)}
-              class="cursor-pointer font-mono text-[12px] font-semibold text-terra hover:underline"
+              class="cursor-pointer font-mono text-[12px] font-semibold text-brand hover:underline"
             >
               {row.numOf}
             </button>
@@ -97,7 +97,7 @@ export const ShortageRegistre: Component<{
                 </span>
               </Show>
               <Show when={row.autresCommandes.length > 0}>
-                <span class="rounded bg-terra-soft px-1 font-mono text-[9px] font-bold text-terra" title={`Aussi : ${row.autresCommandes.join(', ')}`}>
+                <span class="rounded bg-brand-soft px-1 font-mono text-[9px] font-bold text-brand" title={`Aussi : ${row.autresCommandes.join(', ')}`}>
                   +{row.autresCommandes.length}
                 </span>
               </Show>
@@ -139,7 +139,7 @@ export const ShortageRegistre: Component<{
                         <button
                           type="button"
                           onClick={() => props.onSelectOf(numOf)}
-                          class="cursor-pointer rounded border border-planifie/30 px-1.5 py-0.5 font-mono text-[10.5px] font-bold text-planifie transition-colors hover:border-terra hover:text-terra"
+                          class="cursor-pointer rounded border border-planifie/30 px-1.5 py-0.5 font-mono text-[10.5px] font-bold text-planifie transition-colors hover:border-brand hover:text-brand"
                         >
                           {numOf}
                         </button>

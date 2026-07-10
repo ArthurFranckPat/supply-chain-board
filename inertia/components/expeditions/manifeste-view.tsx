@@ -55,8 +55,8 @@ export const ManifesteView: Component<{
                 type="button"
                 class={cx(
                   'relative flex flex-col gap-3 overflow-hidden rounded-xl border bg-card p-4 text-left transition-[border-color,box-shadow] duration-150',
-                  'border-rule hover:border-terra',
-                  isSel() && 'border-terra ring-2 ring-terra/20',
+                  'border-rule hover:border-brand',
+                  isSel() && 'border-brand ring-2 ring-brand/20',
                   c.anomalie && 'border-destructive/45',
                   c.anomalie && 'before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-destructive',
                 )}
@@ -68,7 +68,7 @@ export const ManifesteView: Component<{
                     <div class="flex items-center gap-1.5">
                       <span class="truncate text-[12.5px] font-bold text-foreground">{c.client || '—'}</span>
                       <Show when={c.source === 'navette'}>
-                        <span class="inline-flex items-center gap-0.5 rounded bg-terra/10 px-1 font-mono text-[8px] font-bold tracking-wider text-terra uppercase" title={`Navette ${c.navetteNum}`}>
+                        <span class="inline-flex items-center gap-0.5 rounded bg-brand/10 px-1 font-mono text-[8px] font-bold tracking-wider text-brand uppercase" title={`Navette ${c.navetteNum}`}>
                           {c.navetteNum}
                         </span>
                       </Show>

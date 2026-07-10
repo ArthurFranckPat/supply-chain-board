@@ -95,7 +95,7 @@ const Planning: Component<PlanningProps> = (props) => {
   const chipCls = (active: boolean) =>
     cx(
       'rounded-[5px] px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
-      active ? 'bg-terra-soft text-terra' : 'text-muted-foreground hover:text-foreground',
+      active ? 'bg-brand-soft text-brand' : 'text-muted-foreground hover:text-foreground',
     )
 
   return (
@@ -105,7 +105,7 @@ const Planning: Component<PlanningProps> = (props) => {
         active="programme"
         meta={
           <>
-            <div class="font-fraunces text-[12px] font-bold not-italic text-terra">{props.weekLabel}</div>
+            <div class="font-fraunces text-[12px] font-bold not-italic text-brand">{props.weekLabel}</div>
             <div>
               Fenêtre <b class="font-bold text-foreground">{props.horizon} j</b> ·{' '}
               <b class="font-bold text-foreground">{props.totalLines}</b> ligne
@@ -117,7 +117,7 @@ const Planning: Component<PlanningProps> = (props) => {
         actions={
           <>
             <TextField class="contents">
-              <div class="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-terra focus-within:ring-2 focus-within:ring-terra/25">
+              <div class="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/25">
                 <span class="material-symbols-outlined text-[17px] text-muted-foreground">search</span>
                 <TextFieldInput
                   class="w-[180px] border-0 bg-transparent px-0 text-[12px] font-medium shadow-none focus-visible:ring-0"
@@ -163,7 +163,7 @@ const Planning: Component<PlanningProps> = (props) => {
           <button
             type="button"
             onClick={() => setCalOpen((o) => !o)}
-            class="flex items-center gap-1.5 rounded-full border border-rule bg-card px-2.5 py-1 text-[11px] font-semibold text-foreground transition-colors hover:border-terra"
+            class="flex items-center gap-1.5 rounded-full border border-rule bg-card px-2.5 py-1 text-[11px] font-semibold text-foreground transition-colors hover:border-brand"
           >
             <span class="material-symbols-outlined text-[14px] text-muted-foreground">calendar_month</span>
             {props.dateRange}
@@ -217,8 +217,8 @@ const Planning: Component<PlanningProps> = (props) => {
 
       {/* X3 injoignable */}
       <Show when={props.x3Error}>
-        <div class="flex flex-none items-center gap-2 border-b border-terra/30 bg-terra-soft px-7 py-2 text-[12px] text-foreground">
-          <span class="material-symbols-outlined text-[16px] text-terra">warning</span>
+        <div class="flex flex-none items-center gap-2 border-b border-brand/30 bg-brand-soft px-7 py-2 text-[12px] text-foreground">
+          <span class="material-symbols-outlined text-[16px] text-brand">warning</span>
           <span class="font-bold">Erreur chargement planification :</span>
           <span class="font-mono">{props.x3Error}</span>
         </div>

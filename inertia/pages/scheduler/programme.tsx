@@ -31,6 +31,7 @@ import { ProgrammeToolbar, type VisionMode } from '@/components/vision/programme
 import { createScenarioStore } from '@/lib/scenarios/store'
 import { ScenarioBar } from '@/components/scenario/scenario-bar'
 import { ScenarioDiffSheet } from '@/components/scenario/scenario-diff-sheet'
+import { useShortcuts } from '@/lib/a11y/shortcuts'
 import { virtualOrdersFrom, type PlanMutation } from '@/lib/scenarios/types'
 import { Masthead } from '@/components/masthead'
 import { TextField, TextFieldInput } from '@/components/ui/text-field'
@@ -722,6 +723,27 @@ const Programme: Component<VisionProps> = (props) => {
     setPaths(out)
   }
 
+  // #62 (lot 1) — raccourcis clavier. Ignore les champs de saisie et les
+  // modificateurs (Ctrl/Meta/Alt). Échap ferme le calendrier puis les drawers.
+  useShortcuts(
+    {
+      r: () => doRefresh(),
+      f: () => runFeasibility(),
+      '1': () => switchMode('ordonnancement'),
+      '2': () => switchMode('combined'),
+      '3': () => switchMode('planification'),
+      s: () => {
+        if (mode() === 'combined') toggleScenario()
+      },
+    },
+    () => {
+      if (calOpen()) setCalOpen(() => false)
+      else if (detailOpen()) setDetailOpen(false)
+      else if (engagementOpen()) setEngagementOpen(false)
+      else if (diffOpen()) setDiffOpen(false)
+    },
+  )
+
   let ro: ResizeObserver | null = null
   onMount(() => {
     measure()
@@ -753,7 +775,7 @@ const Programme: Component<VisionProps> = (props) => {
         active="programme"
         meta={
           <>
-            <div class="font-fraunces text-[12px] font-bold not-italic text-terra">
+            <div class="font-fraunces text-[12px] font-bold not-italic text-brand">
               {props.weekLabel}
             </div>
             <div>
@@ -767,7 +789,7 @@ const Programme: Component<VisionProps> = (props) => {
         actions={
           <>
             <TextField class="contents">
-              <div class="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-terra focus-within:ring-2 focus-within:ring-terra/25">
+              <div class="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/25">
                 <span class="material-symbols-outlined text-[17px] text-muted-foreground">
                   search
                 </span>
@@ -778,6 +800,7 @@ const Programme: Component<VisionProps> = (props) => {
                   placeholder={
                     mode() === 'planification' ? 'Commande, article, client…' : 'OF, article, poste…'
                   }
+                  aria-label="Rechercher"
                   type="text"
                   autocomplete="off"
                   value={mode() === 'planification' ? orderStore.query() : store.query()}
@@ -888,8 +911,8 @@ const Programme: Component<VisionProps> = (props) => {
       </Show>
 
       <Show when={props.x3Error}>
-        <div class="flex flex-none items-center gap-2 border-b border-terra/30 bg-terra-soft px-7 py-2 text-[12px] text-foreground print:hidden">
-          <span class="material-symbols-outlined text-[16px] text-terra">warning</span>
+        <div class="flex flex-none items-center gap-2 border-b border-brand/30 bg-brand-soft px-7 py-2 text-[12px] text-foreground print:hidden">
+          <span class="material-symbols-outlined text-[16px] text-brand">warning</span>
           <span class="font-bold">Erreur chargement :</span>
           <span class="font-mono">{props.x3Error}</span>
         </div>
