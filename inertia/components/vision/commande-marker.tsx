@@ -75,8 +75,8 @@ export function CommandeMarker(props: {
       )}
     >
       {/* Numéro complet (+ ligne) sur sa propre ligne, police réduite pour rentrer. */}
-      <div class="flex items-baseline gap-1 whitespace-nowrap font-mono text-[9.5px] font-bold text-brand">
-        <span class={cx('material-symbols-outlined flex-none self-center text-[11px]', iconClass())}>
+      <div class="flex items-baseline gap-1 whitespace-nowrap font-mono text-2xs font-bold text-brand">
+        <span class={cx('material-symbols-outlined flex-none self-center text-xs', iconClass())}>
           {iconName()}
         </span>
         <span>
@@ -89,7 +89,7 @@ export function CommandeMarker(props: {
         <Show when={verdict() !== null && props.deltaJours !== null && props.deltaJours !== undefined}>
           <span
             class={cx(
-              'ml-auto rounded-full px-1 py-px font-mono text-[8.5px] font-bold tabular-nums',
+              'ml-auto rounded-full px-1 py-px font-mono text-3xs font-bold tabular-nums',
               verdict() === 'retard'
                 ? 'bg-error/10 text-error'
                 : 'bg-amber-500/10 text-amber-600',
@@ -101,15 +101,15 @@ export function CommandeMarker(props: {
       </div>
       <div class="mt-1 flex items-center gap-1">
         <Show when={cmd.type}>
-          <span class="flex-none rounded bg-brand-soft px-1 py-px font-mono text-[8px] font-bold uppercase tracking-wider text-brand">
+          <span class="flex-none rounded bg-brand-soft px-1 py-px font-mono text-3xs font-bold uppercase tracking-wider text-brand">
             {cmd.type}
           </span>
         </Show>
-        <span class="flex-none font-fraunces text-[10px] font-bold tabular-nums text-secondary-foreground">
+        <span class="flex-none font-fraunces text-2xs font-bold tabular-nums text-secondary-foreground">
           {fmtDay(props.cmdIso(cmd))}
         </span>
         <Show when={cmd.client}>
-          <span class="truncate font-fraunces text-[9.5px] italic text-muted-foreground">
+          <span class="truncate font-fraunces text-2xs italic text-muted-foreground">
             {cmd.client}
           </span>
         </Show>

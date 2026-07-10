@@ -80,6 +80,13 @@
 
   --font-sans: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
 
+  /* #62 (lot 4) : échelle typographique — text-2xs (10px) pour les micro-labels
+     décoratifs. Plancher text-xs (12px) pour toute info décisionnelle. */
+  --text-2xs: 0.625rem;       /* 10px */
+  --text-2xs--line-height: 1.2;
+  --text-3xs: 0.5625rem;      /* 9px — décoratif uniquement (badges type) */
+  --text-3xs--line-height: 1.1;
+
   /* #62 (lot 2) : font-mono défini globalement (était seulement dans les scopes
      .theme-papier/.theme-navy → undefined hors scope). « mono » est trompeur :
      il vaut Inter, pas une police à chasse fixe. Conservé ainsi car l'app
