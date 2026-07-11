@@ -27,6 +27,8 @@ import OfDetailSheet from '@/components/of/of-detail-sheet'
 import PosteEngagementSheet from '@/components/board/poste-engagement-sheet'
 import { CommandeMarker } from '@/components/vision/commande-marker'
 import { LinksOverlay } from '@/components/vision/links-overlay'
+import { PlanHealth, type HealthCategory } from '@/components/vision/plan-health'
+import { TriageRail, type TriageItem } from '@/components/vision/triage-rail'
 import { ProgrammeToolbar, type VisionMode } from '@/components/vision/programme-toolbar'
 import { createScenarioStore } from '@/lib/scenarios/store'
 import { ScenarioBar } from '@/components/scenario/scenario-bar'
@@ -351,8 +353,41 @@ const Programme: Component<VisionProps> = (props) => {
     for (const [, e] of verdictByCmd()) if (e.verdict === 'retard') n++
     return n
   })
-  // Highlight forcé de tous les liens en retard (clic compteur toolbar).
-  const [highlightRetards, setHighlightRetards] = createSignal(false)
+  // Programme v2 — santé du plan. 4 compteurs toujours rendus (zéro CLS) :
+  // retards, limites, sans-lien commandes, sans-lien OF. Les ruptures restent
+  // opt-in (feasibility doit tourner d'abord).
+  const nbCmdLimite = createMemo(() => {
+    let n = 0
+    for (const [, e] of verdictByCmd()) if (e.verdict === 'limite') n++
+    return n
+  })
+  const nbCmdSansLien = createMemo(() => {
+    let n = 0
+    for (const cmd of props.commandes) {
+      const v = verdictByCmd().get(cmd.id)
+      if (!v || v.verdict === null) n++
+    }
+    return n
+  })
+  const nbOfSansLien = createMemo(() => {
+    const linked = linksByOf()
+    let n = 0
+    for (const line of store.board.lines) {
+      for (const dc of line.dayCells) {
+        for (const c of dc.cards) if (!linked.has(c.id)) n++
+      }
+    }
+    return n
+  })
+
+  // Programme v2 — segment « Liens » (Aucun / Problèmes / Tous) remplace le
+  // toggle binaire highlightRetards. 'problems' = défaut (retard + limite visibles).
+  const [linkMode, setLinkMode] = createSignal<'none' | 'problems' | 'all'>('problems')
+
+  // Programme v2 — rail de triage repliable (mode Combiné seulement).
+  const [railOpen, setRailOpen] = createSignal(false)
+  const [railTab, setRailTab] = createSignal<'retards' | 'limites' | 'sanslien'>('retards')
+  const [railSelected, setRailSelected] = createSignal<string | null>(null)
 
   // ── Issue #23 — recalcul d'impact LIVE pendant le drag OF ──
   // ofShift (ofId → delta jours) alimenté au dragover ; les impacts se recalculent
@@ -743,6 +778,9 @@ const Programme: Component<VisionProps> = (props) => {
       s: () => {
         if (mode() === 'combined') toggleScenario()
       },
+      t: () => {
+        if (mode() === 'combined') setRailOpen((v) => !v)
+      },
     },
     () => {
       if (calOpen()) setCalOpen(() => false)
@@ -894,12 +932,67 @@ const Programme: Component<VisionProps> = (props) => {
         setCalOpen={setCalOpen}
         range={range}
         applyRange={applyRange}
-        nbCmdRetard={nbCmdRetard}
-        highlightRetards={highlightRetards}
-        onToggleHighlight={() => setHighlightRetards((v) => !v)}
         scenarioActive={scenario.active}
         onToggleScenario={toggleScenario}
       />
+
+      {/* Programme v2 — rangée contexte (40 px fixe) : segment Liens + santé du plan
+          + bouton rail. Mode Combiné seulement (les liens n'existent qu'en Combiné). */}
+      <Show when={mode() === 'combined'}>
+        <div class="flex flex-none items-center gap-2.5 border-b border-rule bg-muted/30 px-7 py-1.5 min-h-[40px]">
+          {/* Segment Liens : Aucun / Problèmes / Tous */}
+          <span class="font-mono text-3xs font-bold uppercase tracking-wider text-muted-foreground">Liens</span>
+          <div class="inline-flex items-center gap-0.5 rounded-md border border-rule bg-card p-0.5" role="radiogroup" aria-label="Visibilité des liens">
+            <For each={['none', 'problems', 'all'] as const}>
+              {(lm) => (
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={linkMode() === lm}
+                  class={cx(
+                    'min-h-[24px] rounded-[4px] px-2 py-0.5 font-mono text-2xs font-bold uppercase tracking-wider transition-colors',
+                    linkMode() === lm ? 'bg-brand-soft text-brand' : 'text-muted-foreground hover:text-foreground',
+                  )}
+                  onClick={() => setLinkMode(lm)}
+                >
+                  {lm === 'none' ? 'Aucun' : lm === 'problems' ? 'Problèmes' : 'Tous'}
+                </button>
+              )}
+            </For>
+          </div>
+          <div class="w-px h-5 bg-rule" />
+          {/* Santé du plan : 4 badges toujours rendus */}
+          <PlanHealth
+            nbRetards={nbCmdRetard}
+            nbLimites={nbCmdLimite}
+            nbRuptures={() => {
+              let n = 0
+              for (const [, f] of store.feasibility()) if (f.st === 'blocked') n++
+              return n
+            }}
+            rupturesAvailable={() => store.feasibility().size > 0}
+            nbSansLien={nbCmdSansLien}
+            onSelect={(cat: HealthCategory) => {
+              setRailTab(cat === 'ruptures' ? 'retards' : cat)
+              setRailOpen(true)
+            }}
+          />
+          <div class="flex-1" />
+          {/* Bouton rail de triage */}
+          <button
+            type="button"
+            onClick={() => setRailOpen((v) => !v)}
+            aria-pressed={railOpen()}
+            class={cx(
+              'inline-flex min-h-[24px] items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-2xs font-bold transition-colors',
+              railOpen() ? 'border-brand bg-brand-soft text-brand' : 'border-rule bg-card text-muted-foreground hover:text-foreground',
+            )}
+          >
+            <span class="material-symbols-outlined text-sm">queue</span>
+            Rail <span class="kbd ml-0.5">T</span>
+          </button>
+        </div>
+      </Show>
 
       {/* #57 — bandeau du mode scénario (combiné) : nom, N mutations, Impacts /
           Enregistrer / Appliquer / Jeter, liste des scénarios enregistrés. */}
@@ -956,6 +1049,7 @@ const Programme: Component<VisionProps> = (props) => {
           </div>
         }
       >
+        <div class="flex flex-1 overflow-hidden">
         <div class="flex-1 overflow-hidden">
           <BoardGrid
             store={store}
@@ -988,9 +1082,38 @@ const Programme: Component<VisionProps> = (props) => {
               </For>
             ) : undefined}
             overlay={mode() === 'combined' ? (
-              <LinksOverlay paths={paths} isActive={isActive} highlightRetards={highlightRetards} />
+              <LinksOverlay paths={paths} isActive={isActive} linkMode={linkMode} />
             ) : undefined}
           />
+        </div>
+
+        {/* Programme v2 — rail de triage repliable (mode Combiné seulement) */}
+        <Show when={mode() === 'combined' && railOpen()}>
+          <TriageRail
+            commandes={props.commandes}
+            links={props.links}
+            verdictByCmd={verdictByCmd}
+            activeTab={railTab}
+            setActiveTab={setRailTab}
+            selectedId={railSelected}
+            onSelect={(item: TriageItem) => {
+              setRailSelected(item.commandeId)
+              setActiveId(item.commandeId)
+              // Scroll vers l'OF sur le board
+              if (item.ofId) {
+                const el = document.querySelector(`[data-num-of="${item.ofId}"]`)
+                el?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' })
+              }
+            }}
+            onDetailOf={(ofId) => onSelectOf(ofId)}
+            onClose={() => setRailOpen(false)}
+            counts={() => ({
+              retards: nbCmdRetard(),
+              limites: nbCmdLimite(),
+              sanslien: nbCmdSansLien(),
+            })}
+          />
+        </Show>
         </div>
 
         {/* #62 (lot 0) : dans le <Show lineCount> — la barre d'affermissement n'a pas

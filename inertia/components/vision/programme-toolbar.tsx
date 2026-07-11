@@ -53,11 +53,6 @@ export function ProgrammeToolbar(props: {
   setCalOpen: (fn: (o: boolean) => boolean) => void
   range: Accessor<DateRange>
   applyRange: (r: DateRange) => void
-  /** #23 : nombre de commandes en retard (mode combiné) — bouton/compteur. */
-  nbCmdRetard?: Accessor<number>
-  /** #23 : highlight forcé des liens en retard (toggle depuis le compteur). */
-  highlightRetards?: Accessor<boolean>
-  onToggleHighlight?: () => void
   /** #57 : mode scénario (capture des gestes, aucun PATCH). Mode combiné seulement. */
   scenarioActive?: Accessor<boolean>
   onToggleScenario?: () => void
@@ -177,35 +172,6 @@ export function ProgrammeToolbar(props: {
             )}
           </For>
         </div>
-      </Show>
-
-      {/* #23 — compteur commandes en retard (mode combiné). Clic → met en évidence
-          tous les liens retard.
-          #62 (lot 3) : emplacement réservé — « ✓ 0 retard » grisé plutôt qu'absent,
-          pour éviter le saut de layout quand le compte passe à 0. */}
-      <Show when={props.mode() === 'combined'}>
-        <button
-          type="button"
-          disabled={!props.nbCmdRetard || props.nbCmdRetard() === 0}
-          aria-pressed={props.highlightRetards?.() ?? false}
-          title="Mettre en évidence tous les liens en retard"
-          onClick={() => props.onToggleHighlight?.()}
-          class={cx(
-            'inline-flex min-h-[28px] items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold transition-colors',
-            !props.nbCmdRetard || props.nbCmdRetard() === 0
-              ? 'border-rule bg-card text-muted-foreground/50'
-              : props.highlightRetards?.()
-                ? 'border-error bg-error/10 text-error'
-                : 'border-rule bg-card text-foreground hover:border-error hover:text-error',
-          )}
-        >
-          <span class="material-symbols-outlined text-sm">
-            {(!props.nbCmdRetard || props.nbCmdRetard() === 0) ? 'check_circle' : 'schedule_send'}
-          </span>
-          {(!props.nbCmdRetard || props.nbCmdRetard() === 0)
-            ? '0 retard'
-            : `${props.nbCmdRetard!()} en retard`}
-        </button>
       </Show>
 
       {/* #57 — bascule mode scénario (combiné seulement) : les gestes alimentent

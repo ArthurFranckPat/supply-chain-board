@@ -7,21 +7,25 @@ import type { PathSpec } from '@/lib/vision/link-overlay'
  * Overlay SVG des liens OF↔commande, mode « combiné » (issue #52 — extrait de
  * scheduler/programme.tsx). Issue #23 : couche d'impact —
  *  • lien `retard` → rouge, VISIBLE D'EMBLÉE (opacité de base), badge « +N j » ;
- *  • lien `limite` → ambre, visible au survol ;
+ *  • lien `limite` → ambre, présence atténuée d'emblée ;
  *  • lien `ok` / null → brand, masqué hors survol (comportement inchangé).
  *
  * Un retard présent à l'ouverture est ainsi détectable sans interaction (cas 1
  * de l'issue), contrairement à l'état antérieur (tous liens masqués par défaut).
  * #62 (lot 2) : tons extraits vers lib/vision/verdict-tones.ts (source unique).
+ * Programme v2 : segment « Liens » 3 états (Aucun / Problèmes / Tous) remplace
+ * le toggle binaire highlightRetards.
  */
+
+export type LinkMode = 'none' | 'problems' | 'all'
 
 export function LinksOverlay(props: {
   paths: Accessor<PathSpec[]>
   isActive: (p: PathSpec) => boolean
-  /** #23 : highlight forcé de tous les liens en retard (clic compteur toolbar). */
-  highlightRetards?: Accessor<boolean>
+  /** Programme v2 : segment Liens (Aucun / Problèmes / Tous). Défaut 'problems'. */
+  linkMode?: Accessor<LinkMode>
 }) {
-  const highlight = () => props.highlightRetards?.() ?? false
+  const mode = () => props.linkMode?.() ?? 'problems'
   return (
     <svg
       class="pointer-events-none absolute inset-0 z-[5]"
@@ -35,19 +39,27 @@ export function LinksOverlay(props: {
           // mono 9.5 px + marges) — un « +12 j » ne déborde plus des 32 px fixes.
           const badgeLabel = deltaLabel(p.deltaJours)
           const badgeW = Math.max(24, Math.round(badgeLabel.length * 5.8) + 12)
-          // #23 : visibilité par verdict. retard = visible d'emblée (ou si highlight
-          // toolbar activé) ; limite = présence atténuée (#62 lot 5 — auparavant
-          // invisible hors highlight) ; ok = masqué hors survol.
+          // Programme v2 — opacité de base par verdict × mode du segment :
+          //   none     → tout masqué (sauf survol)
+          //   problems → retard 0.55, limite 0.3, ok 0
+          //   all      → retard 0.55, limite 0.3, ok 0.25
           const baseOpacity = () => {
+            if (mode() === 'none') return 0
             if (p.verdict === 'retard') return 0.55
-            if (p.verdict === 'limite') return highlight() ? 0.55 : 0.15
-            return 0
+            if (p.verdict === 'limite') return 0.3
+            return mode() === 'all' ? 0.25 : 0
           }
           const opacity = () => {
             if (on()) return p.suggere ? 0.8 : 0.95
             return baseOpacity()
           }
           const stroke = () => (p.verdict ? VERDICT_STROKE[p.verdict] : 'var(--color-brand)')
+          // Badge visible pour retard (toujours), limite (si mode ≠ none), ok (si all)
+          const badgeVisible = () =>
+            p.deltaJours !== null &&
+            ((p.verdict === 'retard') ||
+              (p.verdict === 'limite' && mode() !== 'none') ||
+              (mode() === 'all'))
           return (
             <>
               <path
@@ -60,7 +72,7 @@ export function LinksOverlay(props: {
                 style={{ transition: 'opacity .15s' }}
               />
               {/* Étiquette « +N j » au milieu du path (retard / limite seulement). */}
-              <Show when={(p.verdict === 'retard' || (p.verdict === 'limite' && highlight())) && p.deltaJours !== null}>
+              <Show when={badgeVisible()}>
                 <g opacity={on() || p.verdict === 'retard' ? 1 : 0.7} style={{ transition: 'opacity .15s' }}>
                   <rect
                     x={p.mid.x - badgeW / 2}
