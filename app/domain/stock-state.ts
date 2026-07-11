@@ -7,6 +7,7 @@
 
 import type { Flow } from './models/flow.js'
 import type { Article } from './models/article.js'
+import { isPhantom } from './models/article.js'
 import type { Nomenclature } from './models/nomenclature.js'
 import { requiredQuantity } from './models/nomenclature.js'
 import { checkFeasibility } from './feasibility.js'
@@ -51,18 +52,50 @@ export interface OfInput {
  * composant manquant », achat ou fabriqué. (Les fantômes/sous-traitance sont résolus plus bas
  * dans checkFeasibility, pas au niveau direct du BOM.)
  */
+/** Garde-fou anti-descente infinie sur fantômes imbriqués (aligné diagnostic checker). */
+const PHANTOM_DEPTH_CAP = 5
+
 function directComponentRequirements(
   article: string,
   quantity: number,
   nomenclatures: Map<string, Nomenclature>,
+  articles: Map<string, Article>,
+  flows: Flow[],
+  horizonEnd: Date,
 ): Record<string, number> {
   const requirements: Record<string, number> = {}
-  const bom = nomenclatures.get(article)
-  if (!bom) return requirements
-  for (const comp of bom.components) {
-    const qty = requiredQuantity(comp, quantity)
-    requirements[comp.componentArticle] = (requirements[comp.componentArticle] ?? 0) + qty
+  const add = (art: string, qty: number) => {
+    requirements[art] = (requirements[art] ?? 0) + qty
   }
+  // Fantôme (AFANT) : réserver d'abord son stock disponible, puis reporter le reliquat
+  // sur SES composants — même sémantique que le verdict (checkFeasibility). Sans ça, la
+  // réservation s'arrêterait au fantôme (capée à son stock) et les composants réels
+  // (ex. E2623 derrière 11085385) ne seraient jamais consommés virtuellement.
+  const walk = (art: string, qty: number, depth: number) => {
+    const bom = nomenclatures.get(art)
+    if (!bom) return
+    for (const comp of bom.components) {
+      const needed = requiredQuantity(comp, qty)
+      const info = articles.get(comp.componentArticle)
+      if (
+        info &&
+        isPhantom(info) &&
+        nomenclatures.has(comp.componentArticle) &&
+        depth < PHANTOM_DEPTH_CAP
+      ) {
+        const avail = Math.max(
+          0,
+          availableAt(flows, comp.componentArticle, horizonEnd, 'stock_plus_receptions')
+        )
+        const fromStock = Math.min(needed, avail)
+        if (fromStock > 0) add(comp.componentArticle, fromStock)
+        if (needed - fromStock > 0) walk(comp.componentArticle, needed - fromStock, depth + 1)
+      } else {
+        add(comp.componentArticle, needed)
+      }
+    }
+  }
+  walk(article, quantity, 0)
   return requirements
 }
 
@@ -155,7 +188,7 @@ export function evaluateSequentialFeasibility(
       const result = checkFeasibility(ofInput.article, ofInput.qteRestante, mutableFlows, nomenclatures, articles, horizonEnd, 'stock_strict', undefined, undefined, true)
       const allocated: Record<string, number> = {}
       if (result.feasible) {
-        const requirements = directComponentRequirements(ofInput.article, ofInput.qteRestante, nomenclatures)
+        const requirements = directComponentRequirements(ofInput.article, ofInput.qteRestante, nomenclatures, articles, mutableFlows, horizonEnd)
         for (const [article, besoin] of Object.entries(requirements)) {
           // Cap = quantité réellement disponible (stock + supply) sur les flows mutés, pour
           // réserver aussi les sous-ensembles fabriqués et réduire la couverture des OF suivants.

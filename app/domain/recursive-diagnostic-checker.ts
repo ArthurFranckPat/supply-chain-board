@@ -484,7 +484,13 @@ export class RecursiveDiagnosticChecker {
       const info = this.loader.getArticle(entry.componentArticle)
 
       if (isPhantom(info) && phantomDepth < PHANTOM_DEPTH_CAP) {
-        out.push(...(await this.collectNomenclatureShorts(entry.componentArticle, besoin, phantomDepth + 1)))
+        // Stock du fantôme d'abord (prédécoupes/legacy) ; descente pour le RELIQUAT
+        // seulement — même sémantique que checkFeasibility (MRP).
+        const availPhantom = Math.max(0, this.availableStock(entry.componentArticle))
+        const remainder = besoin - availPhantom
+        if (remainder > 0) {
+          out.push(...(await this.collectNomenclatureShorts(entry.componentArticle, remainder, phantomDepth + 1)))
+        }
         continue
       }
 

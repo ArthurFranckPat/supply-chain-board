@@ -201,3 +201,68 @@ test.group('checkFeasibility', () => {
     assert.isTrue(result.feasible)
   })
 })
+
+// ---------------------------------------------------------------------------
+// Fantômes (catégorie AFANT) : stock du fantôme d'abord, descente BOM pour le
+// reliquat seulement (sémantique MRP). Cas réel : 11085385 (INTERCALAIRE,
+// stock prédécoupé) → E2623 (carton brut).
+// ---------------------------------------------------------------------------
+
+test.group('checkFeasibility — fantômes AFANT', () => {
+  const phantomFixtures = (phantomStock: number, leafStock: number) => {
+    const flows: Flow[] = [
+      makeFlow({ article: 'PHAN', direction: 'supply', quantity: phantomStock }),
+      makeFlow({ article: 'E1', direction: 'supply', quantity: leafStock }),
+    ]
+    const nomenclatures = new Map<string, Nomenclature>([
+      ['KIT', {
+        article: 'KIT', description: '', components: [
+          makeEntry({ parentArticle: 'KIT', componentArticle: 'PHAN', linkQuantity: 0.5, componentType: 'FABRIQUE' }),
+        ],
+      }],
+      ['PHAN', {
+        article: 'PHAN', description: '', components: [
+          makeEntry({ parentArticle: 'PHAN', componentArticle: 'E1', linkQuantity: 1, componentType: 'ACHETE' }),
+        ],
+      }],
+    ])
+    const articles = new Map<string, Article>([
+      ['KIT', makeArticle({ code: 'KIT' })],
+      ['PHAN', makeArticle({ code: 'PHAN', category: 'AFANT' })],
+      ['E1', makeArticle({ code: 'E1', supplyType: 'ACHAT' })],
+    ])
+    return { flows, nomenclatures, articles }
+  }
+
+  test('stock du fantôme suffisant → faisable sans descente', ({ assert }) => {
+    const { flows, nomenclatures, articles } = phantomFixtures(6, 0)
+    // 10 KIT × 0.5 = besoin 5 ≤ stock fantôme 6 → couvert, E1 jamais consulté
+    const result = checkFeasibility('KIT', 10, flows, nomenclatures, articles, undefined, 'stock_strict')
+    assert.isTrue(result.feasible)
+  })
+
+  test('stock du fantôme insuffisant → descente pour le reliquat seulement', ({ assert }) => {
+    const { flows, nomenclatures, articles } = phantomFixtures(6, 10)
+    // 40 KIT × 0.5 = besoin 20 ; fantôme couvre 6 → reliquat 14 sur E1 (stock 10) → manque 4
+    const result = checkFeasibility('KIT', 40, flows, nomenclatures, articles, undefined, 'stock_strict')
+    assert.isFalse(result.feasible)
+    assert.equal(result.blockingComponents.length, 1)
+    assert.equal(result.blockingComponents[0].article, 'E1')
+    assert.equal(result.blockingComponents[0].shortage, 4)
+  })
+
+  test('mode séquentiel (treatFabricatedAsStock) : le fantôme est éclaté, pas affiché lui-même', ({ assert }) => {
+    const { flows, nomenclatures, articles } = phantomFixtures(0, 10)
+    // Sans la branche AFANT, le mode séquentiel afficherait PHAN en rupture sans descendre.
+    const result = checkFeasibility('KIT', 40, flows, nomenclatures, articles, undefined, 'stock_strict', undefined, undefined, true)
+    assert.isFalse(result.feasible)
+    assert.equal(result.blockingComponents[0].article, 'E1')
+    assert.equal(result.blockingComponents[0].shortage, 10)
+  })
+
+  test('reliquat entièrement couvert par le composant réel → faisable', ({ assert }) => {
+    const { flows, nomenclatures, articles } = phantomFixtures(6, 5000)
+    const result = checkFeasibility('KIT', 40, flows, nomenclatures, articles, undefined, 'stock_strict')
+    assert.isTrue(result.feasible)
+  })
+})

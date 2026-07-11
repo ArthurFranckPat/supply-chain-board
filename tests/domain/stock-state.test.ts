@@ -314,3 +314,76 @@ test.group('evaluateSequentialFeasibility — vue proactive (sous-ensemble fabri
     assert.isTrue(result.get('OF-B')!.feasible)
   })
 })
+
+// ---------------------------------------------------------------------------
+// Fantômes AFANT en séquentiel : verdict par descente (reliquat) + consommation
+// virtuelle qui réserve le stock du fantôme PUIS ses composants réels.
+// ---------------------------------------------------------------------------
+
+test.group('evaluateSequentialFeasibility — fantômes AFANT', () => {
+  const phantomSetup = (phantomStock: number, leafStock: number) => {
+    const flows: Flow[] = [
+      makeFlow({ article: 'PHAN', quantity: phantomStock }),
+      makeFlow({ article: 'E1', quantity: leafStock }),
+    ]
+    const nomenclatures = new Map<string, Nomenclature>([
+      ['KIT', {
+        article: 'KIT', description: '', components: [
+          { parentArticle: 'KIT', parentDescription: '', level: 5, componentArticle: 'PHAN', componentDescription: '', linkQuantity: 1, componentType: 'FABRIQUE', consumptionNature: 'PROPORTIONNEL' },
+        ],
+      }],
+      ['PHAN', {
+        article: 'PHAN', description: '', components: [
+          { parentArticle: 'PHAN', parentDescription: '', level: 5, componentArticle: 'E1', componentDescription: '', linkQuantity: 1, componentType: 'ACHETE', consumptionNature: 'PROPORTIONNEL' },
+        ],
+      }],
+    ])
+    const phantomArticle: Article = { ...makeArticle('PHAN'), category: 'AFANT' }
+    const articles = new Map([
+      ['KIT', makeArticle('KIT')],
+      ['PHAN', phantomArticle],
+      ['E1', makeArticle('E1', 'ACHAT')],
+    ])
+    return { flows, nomenclatures, articles }
+  }
+
+  test('verdict : fantôme sans stock éclaté vers le composant réel', ({ assert }) => {
+    const { flows, nomenclatures, articles } = phantomSetup(0, 100)
+    const ofs: OfInput[] = [
+      { numOf: 'OF-A', article: 'KIT', qteRestante: 60, dateDebut: null, dateFin: '2026-06-20', statutNum: 3 },
+    ]
+    const result = evaluateSequentialFeasibility(ofs, flows, nomenclatures, articles, new Date('2026-07-01'), { mode: 'sequential' })
+    const entry = result.get('OF-A')!
+    assert.isTrue(entry.feasible)
+    // Consommation : 0 sur le fantôme, 60 sur E1
+    assert.isUndefined(entry.allocated['PHAN'])
+    assert.equal(entry.allocated['E1'], 60)
+  })
+
+  test("consommation : stock du fantôme réservé d'abord, reliquat sur le composant réel", ({ assert }) => {
+    const { flows, nomenclatures, articles } = phantomSetup(10, 100)
+    const ofs: OfInput[] = [
+      { numOf: 'OF-A', article: 'KIT', qteRestante: 60, dateDebut: null, dateFin: '2026-06-20', statutNum: 3 },
+    ]
+    const result = evaluateSequentialFeasibility(ofs, flows, nomenclatures, articles, new Date('2026-07-01'), { mode: 'sequential' })
+    const entry = result.get('OF-A')!
+    assert.isTrue(entry.feasible)
+    assert.equal(entry.allocated['PHAN'], 10)
+    assert.equal(entry.allocated['E1'], 50)
+  })
+
+  test('contention : le 2e OF hérite de la consommation du fantôme et de ses composants', ({ assert }) => {
+    const { flows, nomenclatures, articles } = phantomSetup(10, 55)
+    const ofs: OfInput[] = [
+      { numOf: 'OF-A', article: 'KIT', qteRestante: 60, dateDebut: null, dateFin: '2026-06-20', statutNum: 3 },
+      { numOf: 'OF-B', article: 'KIT', qteRestante: 10, dateDebut: null, dateFin: '2026-06-25', statutNum: 3 },
+    ]
+    const result = evaluateSequentialFeasibility(ofs, flows, nomenclatures, articles, new Date('2026-07-01'), { mode: 'sequential' })
+    // OF-A : 10 fantôme + 50 E1 → reste E1 = 5 → OF-B (besoin 10) bloqué sur E1, pas sur PHAN
+    assert.isTrue(result.get('OF-A')!.feasible)
+    const b = result.get('OF-B')!
+    assert.isFalse(b.feasible)
+    assert.deepEqual(Object.keys(b.missingComponents), ['E1'])
+    assert.equal(b.missingComponents['E1'], 5)
+  })
+})

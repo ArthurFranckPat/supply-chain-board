@@ -8,6 +8,7 @@
 
 import type { Flow } from './models/flow.js'
 import type { Article } from './models/article.js'
+import { isPhantom } from './models/article.js'
 import type { Nomenclature, NomenclatureEntry } from './models/nomenclature.js'
 import { availableAt } from './availability.js'
 import type { DispoPolicy } from './dispo-policy.js'
@@ -71,6 +72,41 @@ export function checkFeasibility(
 
   for (const entry of bom.components) {
     const needed = requiredQty(entry, quantity)
+    const compInfo = articles.get(entry.componentArticle)
+
+    // Fantôme (catégorie AFANT) : le stock du fantôme couvre d'abord (prédécoupes/legacy),
+    // puis descente dans SA nomenclature pour le RELIQUAT seulement — sémantique MRP.
+    // Sans cette branche, le fantôme est traité comme un FABRIQUE ordinaire : en mode
+    // séquentiel il s'affiche lui-même en rupture sans jamais être éclaté ; en mode
+    // immédiat il est éclaté sans que son stock soit crédité.
+    if (compInfo && isPhantom(compInfo) && nomenclatures.has(entry.componentArticle)) {
+      if (seen.has(entry.componentArticle)) continue
+      const alreadyAllocated = allocations?.get(entry.componentArticle) ?? 0
+      const availPhantom = availableAt(
+        flows,
+        entry.componentArticle,
+        upToDate ?? new Date('2099-12-31'),
+        dispoPolicy
+      )
+      const remainder = needed - alreadyAllocated - Math.max(0, availPhantom)
+      if (remainder > 0) {
+        const subResult = checkFeasibility(
+          entry.componentArticle,
+          remainder,
+          flows,
+          nomenclatures,
+          articles,
+          upToDate,
+          dispoPolicy,
+          new Set(seen),
+          allocations,
+          treatFabricatedAsStock,
+        )
+        blocking.push(...subResult.blockingComponents)
+      }
+      continue
+    }
+
     if (entry.componentType === 'ACHETE' || treatFabricatedAsStock) {
       // Composant vérifié contre la quantité disponible (stock + supply) : achat, ou fabriqué
       // en mode proactif (faisabilité réelle — un sous-ensemble manquant est un composant manquant).
