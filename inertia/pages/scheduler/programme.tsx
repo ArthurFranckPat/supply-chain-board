@@ -30,7 +30,7 @@ import { CommandeMarker } from '@/components/vision/commande-marker'
 import { LinksOverlay } from '@/components/vision/links-overlay'
 import { PlanHealth, type HealthCategory } from '@/components/vision/plan-health'
 import { TriageRail, type TriageItem } from '@/components/vision/triage-rail'
-import { ProgrammeToolbar, type VisionMode } from '@/components/vision/programme-toolbar'
+import { ProgrammeToolbar, ProgrammeContextBar, type VisionMode } from '@/components/vision/programme-toolbar'
 import { createScenarioStore } from '@/lib/scenarios/store'
 import { ScenarioBar } from '@/components/scenario/scenario-bar'
 import { ScenarioDiffSheet } from '@/components/scenario/scenario-diff-sheet'
@@ -937,13 +937,20 @@ const Programme: Component<VisionProps> = (props) => {
         onToggleScenario={toggleScenario}
       />
 
-      {/* Programme v2 — rangée contexte (40 px fixe) : segment Liens + santé du plan
-          + bouton rail. Mode Combiné seulement (les liens n'existent qu'en Combiné). */}
-      <Show when={mode() === 'combined'}>
-        <div class="flex flex-none items-center gap-2.5 border-b border-rule bg-muted/30 px-7 py-1.5 min-h-[40px]">
-          {/* Segment Liens : Aucun / Problèmes / Tous */}
-          <span class="font-mono text-3xs font-bold uppercase tracking-wider text-muted-foreground">Liens</span>
-          <div class="inline-flex items-center gap-0.5 rounded-md border border-rule bg-card p-0.5" role="radiogroup" aria-label="Visibilité des liens">
+      {/* Programme v2 — rangée contexte (40px fixe) : filtres du mode courant +
+          segment Liens + santé du plan + bouton rail. Tous modes (les filtres
+          Statut/Atelier/Besoin/Stock y vivent). Liens/PlanHealth/Rail = Combiné. */}
+      <ProgrammeContextBar
+        mode={mode}
+        store={store}
+        orderStore={orderStore}
+        feasMode={feasMode}
+        setFeasMode={setFeasMode}
+      >
+        {/* Combiné seulement : segment Liens + santé + rail */}
+        <Show when={mode() === 'combined'}>
+          <div class="inline-flex items-center gap-0.5 rounded-lg border border-rule bg-card p-0.5" role="radiogroup" aria-label="Visibilité des liens">
+            <span class="px-1.5 font-mono text-3xs font-bold uppercase tracking-wider text-muted-foreground">Liens</span>
             <For each={['none', 'problems', 'all'] as const}>
               {(lm) => (
                 <button
@@ -951,7 +958,7 @@ const Programme: Component<VisionProps> = (props) => {
                   role="radio"
                   aria-checked={linkMode() === lm}
                   class={cx(
-                    'min-h-[24px] rounded-[4px] px-2 py-0.5 font-mono text-2xs font-bold uppercase tracking-wider transition-colors',
+                    'min-h-[28px] rounded-md px-2.5 py-1 font-mono text-2xs font-bold uppercase tracking-wider transition-colors',
                     linkMode() === lm ? 'bg-brand-soft text-brand' : 'text-muted-foreground hover:text-foreground',
                   )}
                   onClick={() => setLinkMode(lm)}
@@ -961,8 +968,6 @@ const Programme: Component<VisionProps> = (props) => {
               )}
             </For>
           </div>
-          <div class="w-px h-5 bg-rule" />
-          {/* Santé du plan : 4 badges toujours rendus */}
           <PlanHealth
             nbRetards={nbCmdRetard}
             nbLimites={nbCmdLimite}
@@ -979,21 +984,20 @@ const Programme: Component<VisionProps> = (props) => {
             }}
           />
           <div class="flex-1" />
-          {/* Bouton rail de triage */}
           <button
             type="button"
             onClick={() => setRailOpen((v) => !v)}
             aria-pressed={railOpen()}
             class={cx(
-              'inline-flex min-h-[24px] items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-2xs font-bold transition-colors',
+              'inline-flex min-h-[28px] items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors',
               railOpen() ? 'border-brand bg-brand-soft text-brand' : 'border-rule bg-card text-muted-foreground hover:text-foreground',
             )}
           >
             <span class="material-symbols-outlined text-sm">queue</span>
-            Rail <span class="kbd ml-0.5">T</span>
+            Rail
           </button>
-        </div>
-      </Show>
+        </Show>
+      </ProgrammeContextBar>
 
       {/* #57 — bandeau du mode scénario (combiné) : nom, N mutations, Impacts /
           Enregistrer / Appliquer / Jeter, liste des scénarios enregistrés. */}
