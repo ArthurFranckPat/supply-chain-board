@@ -968,10 +968,10 @@ const Programme: Component<VisionProps> = (props) => {
             nbLimites={nbCmdLimite}
             nbRuptures={() => {
               let n = 0
-              for (const [, f] of store.feasibility()) if (f.st === 'blocked') n++
+              for (const f of Object.values(store.feasibility())) if (f.st === 'blocked') n++
               return n
             }}
-            rupturesAvailable={() => store.feasibility().size > 0}
+            rupturesAvailable={() => Object.keys(store.feasibility()).length > 0}
             nbSansLien={nbCmdSansLien}
             onSelect={(cat: HealthCategory) => {
               setRailTab(cat === 'ruptures' ? 'retards' : cat)

@@ -482,6 +482,7 @@ export function createBoardStore(initial: BoardData) {
     statusActive,
     toggleStatus,
     feasOf,
+    feasibility,
     feasLoading,
     cardMatches,
     lineVisible,
