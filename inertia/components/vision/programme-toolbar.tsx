@@ -4,7 +4,6 @@ import type { BoardStore } from '@/lib/board/store'
 import type { OrderBoardStore } from '@/lib/orders/store'
 import { onEscapeClose } from '@/lib/a11y/activation'
 import { Button } from '@/components/ui/button'
-import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 import { Calendar, type DateRange } from '@/components/ui/calendar'
 
 export type VisionMode = 'combined' | 'ordonnancement' | 'planification'
@@ -75,21 +74,19 @@ export function ProgrammeToolbar(props: {
       >
         <For each={(['ordonnancement', 'combined', 'planification'] as const)}>
           {(m) => (
-            <Tooltip>
-              <TooltipTrigger
-                type="button"
-                role="radio"
-                aria-checked={props.mode() === m}
-                class={cx(
-                  'min-h-[28px] rounded-[5px] px-3 py-1 font-mono text-2xs font-bold uppercase tracking-wider transition-colors',
-                  props.mode() === m ? 'bg-brand-soft text-brand' : 'text-muted-foreground hover:text-foreground',
-                )}
-                onClick={() => props.switchMode(m)}
-              >
-                {MODE_LABELS[m]}
-              </TooltipTrigger>
-              <TooltipContent>{MODE_TITLES[m]}</TooltipContent>
-            </Tooltip>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={props.mode() === m}
+              title={MODE_TITLES[m]}
+              class={cx(
+                'min-h-[28px] rounded-[5px] px-3 py-1 font-mono text-2xs font-bold uppercase tracking-wider transition-colors',
+                props.mode() === m ? 'bg-brand-soft text-brand' : 'text-muted-foreground hover:text-foreground',
+              )}
+              onClick={() => props.switchMode(m)}
+            >
+              {MODE_LABELS[m]}
+            </button>
           )}
         </For>
       </div>
@@ -215,28 +212,26 @@ export function ProgrammeToolbar(props: {
           un scénario au lieu de PATCHer en direct.
           #62 (lot 3) : disabled + tooltip hors mode Combiné plutôt que caché. */}
       <Show when={props.onToggleScenario}>
-        <Tooltip>
-          <TooltipTrigger
-            type="button"
-            disabled={props.mode() !== 'combined'}
-            aria-pressed={props.scenarioActive?.() ?? false}
-            onClick={() => props.onToggleScenario?.()}
-            class={cx(
-              'inline-flex min-h-[28px] items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40',
-              props.scenarioActive?.()
-                ? 'border-brand bg-brand text-white'
-                : 'border-rule bg-card text-foreground hover:border-brand hover:text-brand',
-            )}
-          >
-            <span class="material-symbols-outlined text-sm">science</span>
-            Scénario
-          </TooltipTrigger>
-          <TooltipContent>
-            {props.mode() === 'combined'
+        <button
+          type="button"
+          disabled={props.mode() !== 'combined'}
+          aria-pressed={props.scenarioActive?.() ?? false}
+          title={
+            props.mode() === 'combined'
               ? 'Mode scénario : les déplacements alimentent un scénario (aucun envoi X3)'
-              : 'Disponible en mode Combiné uniquement'}
-          </TooltipContent>
-        </Tooltip>
+              : 'Disponible en mode Combiné uniquement'
+          }
+          onClick={() => props.onToggleScenario?.()}
+          class={cx(
+            'inline-flex min-h-[28px] items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40',
+            props.scenarioActive?.()
+              ? 'border-brand bg-brand text-white'
+              : 'border-rule bg-card text-foreground hover:border-brand hover:text-brand',
+          )}
+        >
+          <span class="material-symbols-outlined text-sm">science</span>
+          Scénario
+        </button>
       </Show>
 
       {/* Calendrier — conservé seul à l'impression (data-print-keep). */}
