@@ -11,6 +11,7 @@ import {
 } from 'solid-js'
 import { router, usePage } from '@/lib/inertia-solid'
 import { route } from '@/lib/routes'
+import { cx } from '@/libs/cva'
 import { createBoardStore } from '@/lib/board/store'
 import type { BoardData, SearchScope } from '@/lib/board/types'
 import { createOrderBoardStore } from '@/lib/orders/store'
