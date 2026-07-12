@@ -9,6 +9,9 @@ import { useTimedFetch } from '@/lib/suivi/use-timed-fetch'
 import { ReactiveView } from '@/components/tracking/reactive-view'
 import { ProactiveView } from '@/components/tracking/proactive-view'
 import type { SuiviRowsResponse, ProactiveRowsResponse } from '@/lib/suivi/types'
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetBody } from '@/components/ui/sheet'
+import { SuiviDetailSheet } from '@/components/tracking/suivi-detail-sheet'
+import type { SuiviDisplayRow, ProactiveDisplayRow } from '@/lib/suivi/types'
 
 /**
  * Page « Suivi des commandes » (issue #19) — axe allocation / expédition.
@@ -57,6 +60,11 @@ const Tracking: Component<SuiviPageProps> = (props) => {
   // Filtre atelier (#36) : ensemble de STOLOC retenus (vide = tous). Transverse aux 2 vues.
   const [atelierFilter, setAtelierFilter] = createSignal<Set<string>>(new Set())
 
+  const [selectedRow, setSelectedRow] = createSignal<{
+    type: 'reactif' | 'proactif'
+    row: SuiviDisplayRow | ProactiveDisplayRow
+  } | null>(null)
+
   const toggleType = (t: string) =>
     setTypeFilter((prev) => {
       const next = new Set(prev)
@@ -87,7 +95,10 @@ const Tracking: Component<SuiviPageProps> = (props) => {
         tf.has(row.type) &&
         (af.size === 0 || af.has(row.atelier))
     )
-    if (q) r = r.filter((row) => row.filter.includes(q))
+    if (q) {
+      const terms = q.split(/\s+/)
+      r = r.filter((row) => terms.every((t) => row.filter.includes(t)))
+    }
     return r
   })
   const proFilteredRows = createMemo(() => {
@@ -102,7 +113,10 @@ const Tracking: Component<SuiviPageProps> = (props) => {
         tf.has(row.type) &&
         (af.size === 0 || af.has(row.atelier))
     )
-    if (q) r = r.filter((row) => row.filter.includes(q))
+    if (q) {
+      const terms = q.split(/\s+/)
+      r = r.filter((row) => terms.every((t) => row.filter.includes(t)))
+    }
     return r
   })
 
@@ -351,6 +365,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
               setTypeFilter(new Set(['MTS', 'MTO']))
               setAtelierFilter(new Set())
             }}
+            onRowClick={(row) => setSelectedRow({ type: 'proactif', row })}
           />
         }
       >
@@ -366,8 +381,28 @@ const Tracking: Component<SuiviPageProps> = (props) => {
             setTypeFilter(new Set(['MTS', 'MTO']))
             setAtelierFilter(new Set())
           }}
+          onRowClick={(row) => setSelectedRow({ type: 'reactif', row })}
         />
       </Show>
+
+      {/* Drawer diagnostic de ligne */}
+      <Sheet open={selectedRow() !== null} onOpenChange={(open) => !open && setSelectedRow(null)}>
+        <Show when={selectedRow()}>
+          {(sel) => (
+            <SheetContent class="sm:max-w-xl overflow-y-auto no-scrollbar">
+              <SheetHeader>
+                <SheetTitle>Diagnostic de la ligne</SheetTitle>
+                <SheetDescription>
+                  Détails opérationnels et goulets d'étranglement de la commande client.
+                </SheetDescription>
+              </SheetHeader>
+              <SheetBody>
+                <SuiviDetailSheet type={sel().type} row={sel().row} />
+              </SheetBody>
+            </SheetContent>
+          )}
+        </Show>
+      </Sheet>
     </div>
   )
 }

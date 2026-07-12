@@ -215,7 +215,10 @@ export function createReactiveColumns({ expandedEmps, toggleEmp, referenceDate }
               <button
                 type="button"
                 class="flex w-full items-center justify-between rounded bg-secondary/50 px-2.5 py-1 font-sans text-[10px] font-bold tracking-wide text-muted-foreground hover:text-foreground transition-all hover:bg-secondary border border-rule-soft"
-                onClick={() => toggleEmp(key)}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  toggleEmp(key)
+                }}
               >
                 <span>
                   {expanded() ? 'Réduire' : `Voir +${hidden()} emplacement${hidden() > 1 ? 's' : ''}`}
