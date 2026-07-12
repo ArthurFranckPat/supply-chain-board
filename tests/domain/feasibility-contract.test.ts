@@ -13,6 +13,11 @@ import type { Flow } from '#app/domain/models/flow'
 import { checkFeasibility } from '#app/domain/feasibility'
 import { evaluateSequentialFeasibility, type OfInput } from '#app/domain/stock-state'
 import type { ErpAllocation } from '#app/domain/allocation'
+import {
+  evaluateRuptures,
+  type RuptureDataset,
+  type RuptureOfInput,
+} from '#app/domain/rupture-engine'
 
 /**
  * Contrat d'unicité de la source de vérité faisabilité (#32 suivi) :
@@ -302,6 +307,50 @@ test.group('Contrat #73 — parité photo/contention (F426-402081)', () => {
     const seqOk = evaluateSequentialFeasibility([covered.ofInput], covered.flows, covered.nomenclatures, covered.articles, new Date('2026-07-31'), { mode: 'sequential' })
     assert.isTrue(photoOk.feasible)
     assert.isTrue(seqOk.get(covered.of.numOf)?.feasible)
+  })
+})
+
+test.group('Contrat #73 — moteur unique (rupture-engine) sur les fixtures gelées', () => {
+  const datasetFromLoader = (loader: MemLoader): RuptureDataset => {
+    const stockNet = new Map<string, number>()
+    for (const [article, s] of loader.stocks) {
+      stockNet.set(article, s.stockPhysique - s.stockAlloue - (s.stockQc ?? 0))
+    }
+    return { articles: loader.articles, nomenclatures: loader.nomenclatures, stockNet }
+  }
+
+  test('fantôme AFANT stock partiel : verdicts identiques aux moteurs historiques, 2 modes', ({ assert }) => {
+    for (const mode of ['photo', 'contention'] as const) {
+      const covered = buildPhantomFixture(10, 45)
+      const engineOf: RuptureOfInput = {
+        numOf: covered.of.numOf, article: covered.of.article, qteRestante: 50,
+        statutNum: 2, dateBesoin: CHECK_73,
+      }
+      const ok = evaluateRuptures([engineOf], datasetFromLoader(covered.loader), mode).get(engineOf.numOf)!
+      assert.isTrue(ok.feasible, `${mode} : ${JSON.stringify(ok.missing)}`)
+
+      const blocked = buildPhantomFixture(10, 0)
+      const ko = evaluateRuptures([engineOf], datasetFromLoader(blocked.loader), mode).get(engineOf.numOf)!
+      assert.isFalse(ko.feasible)
+      assert.deepEqual(ko.missing, { E2623: 40 }, `${mode} : le fantôme ne doit jamais être le manquant`)
+    }
+  })
+
+  test('allocation ERP partielle OF ferme : faisable, manque résiduel 159 visible', ({ assert }) => {
+    const { loader } = buildAllocationFixture(1)
+    const dataset = datasetFromLoader(loader)
+    dataset.allocationsByOf = new Map([['F426-39386', new Map([['11016785', 41]])]])
+    const engineOf: RuptureOfInput = {
+      numOf: 'F426-39386', article: '11016312', qteRestante: 200, statutNum: 1, dateBesoin: CHECK_73,
+    }
+
+    const firm = evaluateRuptures([engineOf], dataset, 'photo').get(engineOf.numOf)!
+    assert.isTrue(firm.feasible)
+    assert.deepEqual(firm.missing, { '11016785': 159 })
+
+    const planned = evaluateRuptures([{ ...engineOf, statutNum: 2 }], dataset, 'photo').get(engineOf.numOf)!
+    assert.isFalse(planned.feasible)
+    assert.deepEqual(planned.missing, { '11016785': 159 })
   })
 })
 
