@@ -118,7 +118,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
     return (
       <button
         type="button"
-        class={`rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors ${
+        class={`rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold tracking-wider transition-colors ${
           on ? 'bg-brand-soft text-brand' : 'text-muted-foreground hover:text-foreground'
         }`}
         onClick={() => setStatusFilter(on ? 'all' : k)}
@@ -133,7 +133,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
     return (
       <button
         type="button"
-        class={`rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors ${
+        class={`rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold tracking-wider transition-colors ${
           on ? 'bg-brand-soft text-brand' : 'text-muted-foreground hover:text-foreground'
         }`}
         onClick={() => setVerdictFilter(on ? 'all' : k)}
@@ -186,7 +186,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
         <div class="inline-flex shrink-0 items-center rounded-md border border-rule bg-card p-0.5">
           <button
             type="button"
-            class={`rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors ${
+            class={`rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold tracking-wider transition-colors ${
               mode() === 'reactif'
                 ? 'bg-brand-soft text-brand'
                 : 'text-muted-foreground hover:text-foreground'
@@ -198,7 +198,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
           </button>
           <button
             type="button"
-            class={`rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors ${
+            class={`rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold tracking-wider transition-colors ${
               mode() === 'proactif'
                 ? 'bg-brand-soft text-brand'
                 : 'text-muted-foreground hover:text-foreground'
@@ -211,7 +211,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
         </div>
         <Show when={mode() === 'reactif'}>
           <div class="inline-flex shrink-0 items-center gap-1 rounded-md border border-rule bg-card p-0.5">
-            <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+            <span class="px-1.5 font-mono text-[9px] font-bold tracking-wider text-muted-foreground">
               Statut
             </span>
             {statusChip('all', 'Tous')}
@@ -222,7 +222,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
         </Show>
         <Show when={mode() === 'proactif'}>
           <div class="inline-flex shrink-0 items-center gap-1 rounded-md border border-rule bg-card p-0.5">
-            <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+            <span class="px-1.5 font-mono text-[9px] font-bold tracking-wider text-muted-foreground">
               Verdict
             </span>
             {verdictChip('all', 'Tous')}
@@ -233,14 +233,14 @@ const Tracking: Component<SuiviPageProps> = (props) => {
           </div>
         </Show>
         <div class="inline-flex shrink-0 items-center gap-1 rounded-md border border-rule bg-card p-0.5">
-          <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+          <span class="px-1.5 font-mono text-[9px] font-bold tracking-wider text-muted-foreground">
             Type
           </span>
           <For each={['MTS', 'MTO', 'NOR']}>
             {(t) => (
               <button
                 type="button"
-                class={`rounded-[5px] px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                class={`rounded-[5px] px-2 py-1 font-mono text-[10px] font-bold tracking-wider transition-colors ${
                   typeFilter().has(t)
                     ? 'bg-brand-soft text-brand'
                     : 'text-muted-foreground hover:text-foreground'
@@ -255,14 +255,14 @@ const Tracking: Component<SuiviPageProps> = (props) => {
         {/* Filtre atelier (#36) — chips STOLOC, apparaît dès qu'un atelier est connu. Transverse aux 2 vues. */}
         <Show when={ateliers().length > 0}>
           <div class="inline-flex shrink-0 flex-nowrap items-center gap-1 rounded-md border border-rule bg-card p-0.5">
-            <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+            <span class="px-1.5 font-mono text-[9px] font-bold tracking-wider text-muted-foreground">
               Atelier
             </span>
             <For each={ateliers()}>
               {(a) => (
                 <button
                   type="button"
-                  class={`rounded-[5px] px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                  class={`rounded-[5px] px-2 py-1 font-mono text-[10px] font-bold tracking-wider transition-colors ${
                     atelierFilter().has(a.code)
                       ? 'bg-brand-soft text-brand'
                       : 'text-muted-foreground hover:text-foreground'
@@ -277,7 +277,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
             <Show when={atelierFilter().size > 0}>
               <button
                 type="button"
-                class="rounded-[5px] px-1.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+                class="rounded-[5px] px-1.5 py-1 font-mono text-[10px] font-bold tracking-wider text-muted-foreground transition-colors hover:text-foreground"
                 onClick={() => setAtelierFilter(new Set())}
                 title="Réinitialiser le filtre atelier"
               >
