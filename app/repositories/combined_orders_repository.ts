@@ -219,14 +219,20 @@ export class CombinedOrdersRepository {
   }
 
   /** 1 SOAP (ORDERS WIPTYP=1+2+5) → demande scopée [from,to] + réceptions attendues ≤ to + OFs fenêtre.
-   * Remplace X3BesoinClientRepository.getDemandFlows() + X3ReceptionRepository.getReceptionFlows(). */
+   * Remplace X3BesoinClientRepository.getDemandFlows() + X3ReceptionRepository.getReceptionFlows().
+   *
+   * Contremarque INCLUSE (pas lean) : sans elle, le matcher (proactif + suivi réactif, qui
+   * passent par getLive) perd tous les pegs commande↔OF et retombe sur l'heuristique
+   * article+date → deux commandes peggées chacune sur SON OF se disputent le même
+   * (racing, faux « sans couverture » — cas AR2603112/AR2603144 ↔ F426-40274/40278).
+   * Coût : 1 colonne + 1 LEFT JOIN SORDERQ qui ne matche que les lignes WIPTYP=1. */
   async fetchLive(fromIso: string, toIso: string): Promise<LiveOrdersResult> {
     const from = fromIso.replace(/-/g, '')
     const to = toIso.replace(/-/g, '')
     const db = new X3Database()
     let rows: RawRow[] = []
     try {
-      rows = await db.raw(buildOrdersSql({ from, to, includeOf: true, includeContremarque: false, includeCustomerRef: true }))
+      rows = await db.raw(buildOrdersSql({ from, to, includeOf: true, includeContremarque: true, includeCustomerRef: true }))
     } finally {
       await db.destroy()
     }
@@ -234,7 +240,7 @@ export class CombinedOrdersRepository {
     const demandFlows: Flow[] = []
     const receptionFlows: Flow[] = []
     const ofFlows: Flow[] = []
-    const mapOpts: DemandMapOptions = { contremarque: false, designation: false, customerRef: true }
+    const mapOpts: DemandMapOptions = { contremarque: true, designation: false, customerRef: true }
 
     for (const row of rows) {
       const wiptyp = parseInt(row.WIPTYP_0 ?? '0')
