@@ -153,18 +153,25 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
                 <th class={local.indexColumn!.thClass}>{local.indexColumn!.headerLabel}</th>
               </Show>
               <For each={local.columns}>
-                {(col) => (
-                  <th
-                    class={col.meta?.thClass}
-                    style={{ cursor: col.enableSorting !== false ? 'pointer' : 'default' }}
-                    onClick={() => col.enableSorting !== false && toggleSorting(colId(col))}
-                  >
-                    <span class="inline-flex items-center gap-1">
-                      <span>{renderHeader(col)}</span>
-                      {sortIndicator(col)}
-                    </span>
-                  </th>
-                )}
+                {(col) => {
+                  const isSorted = () => local.sorting().some((s) => s.id === colId(col))
+                  return (
+                    <th
+                      class={cx(
+                        col.meta?.thClass,
+                        col.enableSorting !== false && 'hover:text-foreground transition-colors',
+                        isSorted() && 'text-foreground font-bold'
+                      )}
+                      style={{ cursor: col.enableSorting !== false ? 'pointer' : 'default' }}
+                      onClick={() => col.enableSorting !== false && toggleSorting(colId(col))}
+                    >
+                      <span class="inline-flex items-center gap-1">
+                        <span>{renderHeader(col)}</span>
+                        {sortIndicator(col)}
+                      </span>
+                    </th>
+                  )
+                }}
               </For>
             </tr>
           </thead>

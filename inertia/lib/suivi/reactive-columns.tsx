@@ -37,7 +37,7 @@ export function createReactiveColumns({ expandedEmps, toggleEmp }: ReactiveColum
       ),
       meta: {
         thClass:
-          'w-[178px] px-4 py-[8px] text-left font-mono text-[11px] font-bold tracking-wider text-muted-foreground border-b border-rule',
+          'w-[178px] px-4 py-[8px] text-left font-sans text-[11px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
         tdClass: 'px-4 py-[9px] align-middle',
       },
     }),
@@ -65,7 +65,7 @@ export function createReactiveColumns({ expandedEmps, toggleEmp }: ReactiveColum
       ),
       meta: {
         thClass:
-          'w-[240px] px-4 py-[8px] text-left font-mono text-[11px] font-bold tracking-wider text-muted-foreground border-b border-rule',
+          'w-[240px] px-4 py-[8px] text-left font-sans text-[11px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
         tdClass: 'px-4 py-[9px] align-middle',
       },
     }),
@@ -78,7 +78,7 @@ export function createReactiveColumns({ expandedEmps, toggleEmp }: ReactiveColum
       ),
       meta: {
         thClass:
-          'w-[56px] px-4 py-[8px] text-left font-mono text-[11px] font-bold tracking-wider text-muted-foreground border-b border-rule',
+          'w-[56px] px-4 py-[8px] text-left font-sans text-[11px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
         tdClass: 'px-4 py-[9px] align-middle',
       },
     }),
@@ -95,7 +95,7 @@ export function createReactiveColumns({ expandedEmps, toggleEmp }: ReactiveColum
       sortingFn: 'basic',
       meta: {
         thClass:
-          'w-[92px] px-4 py-[8px] text-right font-mono text-[11px] font-bold tracking-wider text-muted-foreground border-b border-rule',
+          'w-[92px] px-4 py-[8px] text-right font-sans text-[11px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
         tdClass: 'whitespace-nowrap px-4 py-[9px] text-right align-middle',
       },
     }),
@@ -116,7 +116,7 @@ export function createReactiveColumns({ expandedEmps, toggleEmp }: ReactiveColum
       },
       meta: {
         thClass:
-          'w-[76px] px-4 py-[8px] text-left font-mono text-[11px] font-bold tracking-wider text-muted-foreground border-b border-rule',
+          'w-[76px] px-4 py-[8px] text-left font-sans text-[11px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
         tdClass:
           'whitespace-nowrap px-4 py-[9px] align-middle font-mono text-[12.5px] font-semibold',
       },
@@ -209,7 +209,7 @@ export function createReactiveColumns({ expandedEmps, toggleEmp }: ReactiveColum
       // sans troncature ni retour à la ligne (le tableau scrolle horizontalement).
       meta: {
         thClass:
-          'w-[300px] px-4 py-[8px] text-left font-mono text-[11px] font-bold tracking-wider text-muted-foreground border-b border-rule',
+          'w-[300px] px-4 py-[8px] text-left font-sans text-[11px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
         tdClass: 'px-4 py-[9px] align-middle',
       },
     }),
@@ -256,7 +256,7 @@ export function createReactiveColumns({ expandedEmps, toggleEmp }: ReactiveColum
       },
       meta: {
         thClass:
-          'w-[130px] px-4 py-[8px] text-left font-mono text-[11px] font-bold tracking-wider text-muted-foreground border-b border-rule',
+          'w-[130px] px-4 py-[8px] text-left font-sans text-[11px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
         tdClass: 'px-4 py-[9px] align-middle',
       },
     }),
@@ -301,7 +301,7 @@ export function createReactiveColumns({ expandedEmps, toggleEmp }: ReactiveColum
       },
       meta: {
         thClass:
-          'w-[280px] px-4 py-[8px] text-left font-mono text-[11px] font-bold tracking-wider text-muted-foreground border-b border-rule',
+          'w-[280px] px-4 py-[8px] text-left font-sans text-[11px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
         tdClass: 'px-4 py-[9px] align-middle',
       },
     }),
