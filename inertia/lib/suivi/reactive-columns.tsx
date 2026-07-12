@@ -8,14 +8,15 @@ import { createColumnHelper } from '@tanstack/solid-table'
 import { cx } from '@/libs/cva'
 import type { DataTableIndexColumn } from '@/components/ui/data-table'
 import type { SuiviDisplayRow } from '@/lib/suivi/types'
-import { BADGE_TONE, LATE_TONE, empKey } from '@/lib/suivi/tracking-shared'
+import { BADGE_TONE, LATE_TONE, empKey, getRelativeDateLabel } from '@/lib/suivi/tracking-shared'
 
 export interface ReactiveColumnsDeps {
   expandedEmps: () => Set<string>
   toggleEmp: (key: string) => void
+  referenceDate: () => string
 }
 
-export function createReactiveColumns({ expandedEmps, toggleEmp }: ReactiveColumnsDeps) {
+export function createReactiveColumns({ expandedEmps, toggleEmp, referenceDate }: ReactiveColumnsDeps) {
   const reHelper = createColumnHelper<SuiviDisplayRow>()
   return [
     reHelper.accessor('numCommande', {
@@ -71,11 +72,23 @@ export function createReactiveColumns({ expandedEmps, toggleEmp }: ReactiveColum
     }),
     reHelper.accessor('type', {
       header: () => 'Type',
-      cell: (info) => (
-        <span class="rounded bg-brand-soft px-[7px] py-0.5 font-mono text-[10px] font-bold uppercase tracking-wide text-brand">
-          {info.getValue()}
-        </span>
-      ),
+      cell: (info) => {
+        const val = info.getValue()
+        const title =
+          val === 'MTS'
+            ? 'Make To Stock — Fabriqué pour le stock'
+            : val === 'MTO'
+              ? 'Make To Order — Fabriqué à la commande client'
+              : 'Normal — Ligne standard'
+        return (
+          <span
+            class="rounded bg-brand-soft px-[7px] py-0.5 font-mono text-[10px] font-bold uppercase tracking-wide text-brand cursor-help"
+            title={title}
+          >
+            {val}
+          </span>
+        )
+      },
       meta: {
         thClass:
           'w-[56px] px-4 py-[8px] text-left font-sans text-[11px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
@@ -103,10 +116,18 @@ export function createReactiveColumns({ expandedEmps, toggleEmp }: ReactiveColum
       header: () => 'Expé',
       cell: (info) => {
         const late = info.row.original.late
+        const rel = getRelativeDateLabel(info.row.original.dateExpIso, referenceDate())
         return (
-          <span classList={{ 'font-bold text-destructive': late, 'text-foreground': !late }}>
-            {info.getValue() || '—'}
-          </span>
+          <div class="flex flex-col items-start gap-0.5">
+            <span classList={{ 'font-bold text-destructive': late, 'text-foreground': !late }}>
+              {info.getValue() || '—'}
+            </span>
+            <Show when={rel}>
+              <span class={cx("rounded-[3px] px-1 py-[1px] text-[8.5px] font-sans leading-none tracking-normal font-semibold", rel!.tone)}>
+                {rel!.label}
+              </span>
+            </Show>
+          </div>
         )
       },
       sortingFn: (a, b) => {
@@ -153,10 +174,10 @@ export function createReactiveColumns({ expandedEmps, toggleEmp }: ReactiveColum
                   )}
                   title={
                     e.source === 'STOALL'
-                      ? 'STOALL — déjà alloué à la commande'
+                      ? 'Stock déjà alloué à cette ligne de commande (Sécurisé)'
                       : e.alreadyAllocated
-                        ? 'Déjà alloué à une autre commande'
-                        : 'STOCK — en stock libre, allocation à faire'
+                        ? 'Stock existant mais déjà réservé pour une autre commande'
+                        : 'Stock libre en entrepôt, prêt à être alloué'
                   }
                 >
                   {/* Pill w-full = même largeur sur toutes les lignes (cellule fixe
@@ -193,13 +214,15 @@ export function createReactiveColumns({ expandedEmps, toggleEmp }: ReactiveColum
             <Show when={hidden() > 0}>
               <button
                 type="button"
-                class="flex w-full items-center gap-1 rounded border border-dashed border-rule px-2 py-0.5 font-mono text-[10px] font-bold text-muted-foreground transition-colors hover:border-brand hover:text-brand"
+                class="flex w-full items-center justify-between rounded bg-secondary/50 px-2.5 py-1 font-sans text-[10px] font-bold tracking-wide text-muted-foreground hover:text-foreground transition-all hover:bg-secondary border border-rule-soft"
                 onClick={() => toggleEmp(key)}
               >
-                <span class="material-symbols-outlined text-[13px] leading-none">
+                <span>
+                  {expanded() ? 'Réduire' : `Voir +${hidden()} emplacement${hidden() > 1 ? 's' : ''}`}
+                </span>
+                <span class="material-symbols-outlined text-[14px] leading-none transition-transform duration-200">
                   {expanded() ? 'expand_less' : 'expand_more'}
                 </span>
-                {expanded() ? 'Réduire' : `+${hidden()} emplacement${hidden()! > 1 ? 's' : ''}`}
               </button>
             </Show>
           </div>
@@ -233,7 +256,10 @@ export function createReactiveColumns({ expandedEmps, toggleEmp }: ReactiveColum
               {o.statusLabel}
             </span>
             <Show when={o.cq}>
-              <span class="inline-flex items-center gap-1 rounded-md border border-transparent bg-brand-soft px-2 py-0.5 text-[11px] font-medium text-brand whitespace-nowrap">
+              <span
+                class="inline-flex items-center gap-1 rounded-md border border-transparent bg-brand-soft px-2 py-0.5 text-[11px] font-medium text-brand whitespace-nowrap cursor-help"
+                title="Contrôle Qualité — Nécessite une validation du laboratoire de contrôle"
+              >
                 <span class="material-symbols-outlined grid size-[14px] place-items-center text-[14px] leading-none">
                   science
                 </span>

@@ -344,6 +344,13 @@ const Tracking: Component<SuiviPageProps> = (props) => {
             filteredRows={proFilteredRows}
             loading={() => proData.loading}
             error={() => !!proData.error}
+            onResetFilters={() => {
+              setQuery('')
+              setStatusFilter('all')
+              setVerdictFilter('all')
+              setTypeFilter(new Set(['MTS', 'MTO']))
+              setAtelierFilter(new Set())
+            }}
           />
         }
       >
@@ -352,6 +359,13 @@ const Tracking: Component<SuiviPageProps> = (props) => {
           filteredRows={reactiveFilteredRows}
           loading={() => data.loading}
           error={() => !!data.error}
+          onResetFilters={() => {
+            setQuery('')
+            setStatusFilter('all')
+            setVerdictFilter('all')
+            setTypeFilter(new Set(['MTS', 'MTO']))
+            setAtelierFilter(new Set())
+          }}
         />
       </Show>
     </div>

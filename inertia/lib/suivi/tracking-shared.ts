@@ -89,6 +89,38 @@ export const LATE_TONE = {
 
 export const fmtMs = (ms: number) => (ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`)
 
+/** Calcule le libellé temporel relatif d'une date d'expédition par rapport à la date de référence. */
+export function getRelativeDateLabel(
+  dateExpIso: string | null,
+  referenceDateStr: string
+): { label: string; tone: string } | null {
+  if (!dateExpIso || !referenceDateStr) return null
+  try {
+    const refDate = new Date(referenceDateStr + 'T00:00:00')
+    const expDate = new Date(dateExpIso + 'T00:00:00')
+    if (isNaN(refDate.getTime()) || isNaN(expDate.getTime())) return null
+    const diffTime = expDate.getTime() - refDate.getTime()
+    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24))
+
+    if (diffDays === 0) {
+      return {
+        label: "Aujourd'hui",
+        tone: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+      }
+    } else if (diffDays === 1) {
+      return { label: 'Demain', tone: 'bg-blue-500/10 text-blue-600 dark:text-blue-400' }
+    } else if (diffDays === -1) {
+      return { label: 'Hier', tone: 'bg-destructive/10 text-destructive' }
+    } else if (diffDays < -1) {
+      return { label: `Retard ${diffDays} j`, tone: 'bg-destructive/10 text-destructive font-bold' }
+    } else {
+      return { label: `J+${diffDays}`, tone: 'bg-secondary text-muted-foreground' }
+    }
+  } catch (e) {
+    return null
+  }
+}
+
 /** Clé stable d'une ligne pour le fold/unfold des emplacements (résiste au tri). */
 export const empKey = (r: SuiviDisplayRow) => `${r.numCommande}::${r.article}`
 

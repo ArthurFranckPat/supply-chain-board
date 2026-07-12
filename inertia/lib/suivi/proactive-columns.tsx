@@ -8,9 +8,13 @@ import { createColumnHelper } from '@tanstack/solid-table'
 import { cx } from '@/libs/cva'
 import type { DataTableIndexColumn } from '@/components/ui/data-table'
 import type { ProactiveDisplayRow } from '@/lib/suivi/types'
-import { OF_STATUT, VERDICT_TONE, LATE_TONE } from '@/lib/suivi/tracking-shared'
+import { OF_STATUT, VERDICT_TONE, LATE_TONE, getRelativeDateLabel } from '@/lib/suivi/tracking-shared'
 
-export function createProactiveColumns() {
+export interface ProactiveColumnsDeps {
+  referenceDate: () => string
+}
+
+export function createProactiveColumns({ referenceDate }: ProactiveColumnsDeps) {
   const proHelper = createColumnHelper<ProactiveDisplayRow>()
   return [
     proHelper.accessor('numCommande', {
@@ -66,11 +70,23 @@ export function createProactiveColumns() {
     }),
     proHelper.accessor('type', {
       header: () => 'Type',
-      cell: (info) => (
-        <span class="rounded bg-brand-soft px-[7px] py-0.5 font-mono text-[10px] font-bold uppercase tracking-wide text-brand">
-          {info.getValue()}
-        </span>
-      ),
+      cell: (info) => {
+        const val = info.getValue()
+        const title =
+          val === 'MTS'
+            ? 'Make To Stock — Fabriqué pour le stock'
+            : val === 'MTO'
+              ? 'Make To Order — Fabriqué à la commande client'
+              : 'Normal — Ligne standard'
+        return (
+          <span
+            class="rounded bg-brand-soft px-[7px] py-0.5 font-mono text-[10px] font-bold uppercase tracking-wide text-brand cursor-help"
+            title={title}
+          >
+            {val}
+          </span>
+        )
+      },
       meta: {
         thClass:
           'w-[56px] px-4 py-[8px] text-left font-sans text-[11px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
@@ -96,7 +112,22 @@ export function createProactiveColumns() {
     }),
     proHelper.accessor('dateExp', {
       header: () => 'Expé',
-      cell: (info) => info.getValue() || '—',
+      cell: (info) => {
+        const late = info.row.original.late
+        const rel = getRelativeDateLabel(info.row.original.dateExpIso, referenceDate())
+        return (
+          <div class="flex flex-col items-start gap-0.5">
+            <span classList={{ 'font-bold text-destructive': late, 'text-foreground': !late }}>
+              {info.getValue() || '—'}
+            </span>
+            <Show when={rel}>
+              <span class={cx("rounded-[3px] px-1 py-[1px] text-[8.5px] font-sans leading-none tracking-normal font-semibold", rel!.tone)}>
+                {rel!.label}
+              </span>
+            </Show>
+          </div>
+        )
+      },
       sortingFn: (a, b) => {
         const da = a.original.dateExpIso ?? '9999-12-31'
         const db = b.original.dateExpIso ?? '9999-12-31'
@@ -129,10 +160,16 @@ export function createProactiveColumns() {
                       <Show when={st}>
                         <span
                           class={cx(
-                            'shrink-0 rounded px-1 py-px font-mono text-[9px] font-bold leading-none',
+                            'shrink-0 rounded px-1 py-px font-mono text-[9px] font-bold leading-none cursor-help',
                             st.tone
                           )}
-                          title={`OF ${st.tag === 'WOF' ? 'ferme' : st.tag === 'WOP' ? 'planifié' : 'suggéré'}`}
+                          title={
+                            st.tag === 'WOF'
+                              ? 'Work Order Firm (OF Ferme) — Validé et verrouillé'
+                              : st.tag === 'WOP'
+                                ? 'Work Order Planned (OF Planifié) — Planifié en production'
+                                : 'Work Order Suggested (OF Suggéré) — Proposition du calcul des besoins'
+                          }
                         >
                           {st.tag}
                         </span>
@@ -146,7 +183,10 @@ export function createProactiveColumns() {
         }
         const isGood = v === 'Stock' || v === 'Achat'
         return isGood ? (
-          <span class="inline-flex items-center gap-1 rounded-md border border-transparent bg-ferme/15 px-2 py-0.5 font-mono text-[11px] font-bold text-ferme">
+          <span
+            class="inline-flex items-center gap-1 rounded-md border border-transparent bg-ferme/15 px-2 py-0.5 font-mono text-[11px] font-bold text-ferme cursor-help"
+            title={v === 'Stock' ? 'Couvert par le stock disponible' : "Couvert par une commande d'achat fournisseur"}
+          >
             {v}
           </span>
         ) : (
