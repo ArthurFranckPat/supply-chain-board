@@ -16,30 +16,61 @@ export const SuiviDetailSheet: Component<SuiviDetailSheetProps> = (props) => {
   const reactiveRow = () => r() as SuiviDisplayRow
   const proactiveRow = () => r() as ProactiveDisplayRow
 
-  // Stepper calculations
-  const step1 = () => true // Commande toujours enregistrée
-  const step2 = () => isReactif() ? true : (proactiveRow().ofs.length > 0 || proactiveRow().couverture === 'Stock' || proactiveRow().couverture === 'Achat')
-  
-  // Green: Fully allocated
-  const step3Green = () => {
-    const allocVal = isReactif() 
-      ? (reactiveRow().allocStrict + reactiveRow().allocCq) 
-      : proactiveRow().qteAllouee
-    return allocVal >= r().qteRestante
-  }
-
-  // Amber: Stock is available in the warehouse to allocate (ALLOCATION_A_FAIRE) OR partially allocated
-  const step3Amber = () => {
-    if (step3Green()) return false
+  // Stepper calculations (Physical Supply Chain Lifecycle)
+  const stepApproState = () => {
     if (isReactif()) {
-      return reactiveRow().statusKey === 'alc' || (reactiveRow().allocStrict + reactiveRow().allocCq > 0)
+      const causeType = reactiveRow().cause?.type
+      if (causeType === 'AUCUN_OF_PLANIFIE') return 'gray'
+      if (causeType === 'ATTENTE_RECEPTION_FOURNISSEUR') return 'amber'
+      return 'green'
     } else {
-      return proactiveRow().verdictKey === 'stock' || proactiveRow().qteAllouee > 0
+      const v = proactiveRow().verdictKey
+      if (v === 'uncov') return 'gray'
+      if (v === 'blocked') return 'amber'
+      return 'green'
     }
   }
 
-  const step4 = () => isReactif() ? !reactiveRow().cq : true // Si pas de signal CQ, alors c'est vert
-  const step5 = () => r().enZoneExpe
+  const stepDispoState = () => {
+    if (stepApproState() === 'gray') return 'gray'
+    if (isReactif()) {
+      const status = reactiveRow().statusKey
+      const causeType = reactiveRow().cause?.type
+      if (status === 'ret' && (causeType === 'RUPTURE_COMPOSANTS' || causeType === 'RETARD_ORDONNANCEMENT')) {
+        return 'gray'
+      }
+      return 'green'
+    } else {
+      const v = proactiveRow().verdictKey
+      if (v === 'late' || v === 'blocked' || v === 'uncov') return 'gray'
+      if (v === 'risk') return 'amber'
+      return 'green'
+    }
+  }
+
+  const stepAllocState = () => {
+    if (stepDispoState() === 'gray') return 'gray'
+    if (isReactif()) {
+      const status = reactiveRow().statusKey
+      if (status === 'exp') return 'green'
+      if (status === 'alc') return 'amber'
+      return 'gray'
+    } else {
+      const v = proactiveRow().verdictKey
+      const fullyAllocated = proactiveRow().qteAllouee >= total()
+      if (v === 'stock' || fullyAllocated) return 'green'
+      if (proactiveRow().qteAllouee > 0) return 'amber'
+      return 'gray'
+    }
+  }
+
+  const stepExpState = () => {
+    if (stepAllocState() === 'gray') return 'gray'
+    if (isReactif() && reactiveRow().cq) return 'purple'
+    if (r().enZoneExpe) return 'green'
+    if (r().statusKey === 'exp') return 'amber'
+    return 'gray'
+  }
 
   // Quantity bar calculations
   const total = () => r().qteRestante || 1
@@ -59,65 +90,68 @@ export const SuiviDetailSheet: Component<SuiviDetailSheetProps> = (props) => {
         
         {/* Etape 1: Commande */}
         <div class="flex flex-col items-center gap-1.5 z-10 w-16">
-          <div class="size-8 rounded-full flex items-center justify-center font-bold text-[12px] transition-all"
-               classList={{
-                 'bg-emerald-500 text-white shadow-[0_0_12px_rgba(16,185,129,0.3)]': step1(),
-                 'bg-secondary text-muted-foreground': !step1()
-               }}>
+          <div class="size-8 rounded-full flex items-center justify-center font-bold text-[12px] transition-all bg-emerald-500 text-white shadow-[0_0_12px_rgba(16,185,129,0.3)] border border-emerald-400"
+               title="Commande enregistrée et validée dans l'ERP.">
             <span class="material-symbols-outlined text-[16px]">receipt_long</span>
           </div>
-          <span class="text-[8.5px] font-extrabold uppercase tracking-wider text-muted-foreground text-center">Enregistré</span>
+          <span class="text-[8.5px] font-extrabold uppercase tracking-wider text-muted-foreground text-center">Saisie</span>
         </div>
 
-        {/* Etape 2: OF Planifié */}
+        {/* Etape 2: Planifié / Couvert */}
         <div class="flex flex-col items-center gap-1.5 z-10 w-16">
           <div class="size-8 rounded-full flex items-center justify-center font-bold text-[12px] transition-all"
                classList={{
-                 'bg-emerald-500 text-white shadow-[0_0_12px_rgba(16,185,129,0.3)]': step2(),
-                 'bg-secondary text-muted-foreground': !step2()
-               }}>
+                 'bg-emerald-500 text-white shadow-[0_0_12px_rgba(16,185,129,0.3)] border border-emerald-400': stepApproState() === 'green',
+                 'bg-amber-500 text-white animate-pulse shadow-[0_0_12px_rgba(245,158,11,0.3)] border border-amber-400': stepApproState() === 'amber',
+                 'bg-secondary text-muted-foreground border border-rule': stepApproState() === 'gray'
+               }}
+               title={stepApproState() === 'green' ? 'Ligne d\'approvisionnement planifiée (OF, Stock ou PO)' : stepApproState() === 'amber' ? 'Approvisionnement fournisseur tardif' : 'Aucune couverture d\'approvisionnement planifiée'}>
             <span class="material-symbols-outlined text-[16px]">precision_manufacturing</span>
           </div>
-          <span class="text-[8.5px] font-extrabold uppercase tracking-wider text-muted-foreground text-center">OF Planifié</span>
+          <span class="text-[8.5px] font-extrabold uppercase tracking-wider text-muted-foreground text-center">Couverture</span>
         </div>
 
-        {/* Etape 3: Stock Alloué */}
+        {/* Etape 3: Produit / Disponible */}
         <div class="flex flex-col items-center gap-1.5 z-10 w-16">
           <div class="size-8 rounded-full flex items-center justify-center font-bold text-[12px] transition-all"
                classList={{
-                 'bg-emerald-500 text-white shadow-[0_0_12px_rgba(16,185,129,0.3)] border border-emerald-400': step3Green(),
-                 'bg-amber-500 text-white animate-pulse shadow-[0_0_12px_rgba(245,158,11,0.3)] border border-amber-400': step3Amber(),
-                 'bg-secondary text-muted-foreground border border-rule': !step3Green() && !step3Amber()
+                 'bg-emerald-500 text-white shadow-[0_0_12px_rgba(16,185,129,0.3)] border border-emerald-400': stepDispoState() === 'green',
+                 'bg-amber-500 text-white animate-pulse shadow-[0_0_12px_rgba(245,158,11,0.3)] border border-amber-400': stepDispoState() === 'amber',
+                 'bg-secondary text-muted-foreground border border-rule': stepDispoState() === 'gray'
                }}
-               title={step3Green() ? 'Stock entièrement alloué' : step3Amber() ? 'Stock disponible ou partiel — action requise' : 'Aucun stock disponible'}>
+               title={stepDispoState() === 'green' ? 'Produit fini disponible en stock' : stepDispoState() === 'amber' ? 'Fabrication en cours à risque' : 'Rupture composant ou retard de fabrication'}>
             <span class="material-symbols-outlined text-[16px]">inventory_2</span>
+          </div>
+          <span class="text-[8.5px] font-extrabold uppercase tracking-wider text-muted-foreground text-center">Disponible</span>
+        </div>
+
+        {/* Etape 4: Réservé / Alloué */}
+        <div class="flex flex-col items-center gap-1.5 z-10 w-16">
+          <div class="size-8 rounded-full flex items-center justify-center font-bold text-[12px] transition-all"
+               classList={{
+                 'bg-emerald-500 text-white shadow-[0_0_12px_rgba(16,185,129,0.3)] border border-emerald-400': stepAllocState() === 'green',
+                 'bg-amber-500 text-white animate-pulse shadow-[0_0_12px_rgba(245,158,11,0.3)] border border-amber-400': stepAllocState() === 'amber',
+                 'bg-secondary text-muted-foreground border border-rule': stepAllocState() === 'gray'
+               }}
+               title={stepAllocState() === 'green' ? 'Stock alloué et réservé dans X3' : stepAllocState() === 'amber' ? 'Stock disponible mais allocation informatique à faire' : 'En attente d\'entrée en stock'}>
+            <span class="material-symbols-outlined text-[16px]">bookmark_added</span>
           </div>
           <span class="text-[8.5px] font-extrabold uppercase tracking-wider text-muted-foreground text-center">Alloué</span>
         </div>
 
-        {/* Etape 4: Labo (CQ) */}
+        {/* Etape 5: Expédié */}
         <div class="flex flex-col items-center gap-1.5 z-10 w-16">
           <div class="size-8 rounded-full flex items-center justify-center font-bold text-[12px] transition-all"
                classList={{
-                 'bg-emerald-500 text-white shadow-[0_0_12px_rgba(16,185,129,0.3)] border border-emerald-400': step4(),
-                 'bg-purple-500 text-white animate-pulse shadow-[0_0_12px_rgba(168,85,247,0.3)] border border-purple-400': !step4()
+                 'bg-emerald-500 text-white shadow-[0_0_12px_rgba(16,185,129,0.3)] border border-emerald-400': stepExpState() === 'green',
+                 'bg-amber-500 text-white animate-pulse shadow-[0_0_12px_rgba(245,158,11,0.3)] border border-amber-400': stepExpState() === 'amber',
+                 'bg-purple-500 text-white animate-pulse shadow-[0_0_12px_rgba(168,85,247,0.3)] border border-purple-400': stepExpState() === 'purple',
+                 'bg-secondary text-muted-foreground border border-rule': stepExpState() === 'gray'
                }}
-               title={step4() ? 'Aucun blocage qualité' : 'Matières sous Contrôle Qualité (CQ) consommées'}>
-            <span class="material-symbols-outlined text-[16px]">science</span>
-          </div>
-          <span class="text-[8.5px] font-extrabold uppercase tracking-wider text-muted-foreground text-center">Labo (CQ)</span>
-        </div>
-
-        {/* Etape 5: Zone Expé */}
-        <div class="flex flex-col items-center gap-1.5 z-10 w-16">
-          <div class="size-8 rounded-full flex items-center justify-center font-bold text-[12px] transition-all"
-               classList={{
-                 'bg-emerald-500 text-white shadow-[0_0_12px_rgba(16,185,129,0.3)]': step5(),
-                 'bg-secondary text-muted-foreground': !step5()
-               }}>
+               title={stepExpState() === 'green' ? 'Palette présente en zone d\'expédition' : stepExpState() === 'amber' ? 'Prêt à être déplacé en zone d\'expédition' : stepExpState() === 'purple' ? 'Bloqué en attente du contrôle qualité (CQ)' : 'En attente d\'allocation'}>
             <span class="material-symbols-outlined text-[16px]">local_shipping</span>
           </div>
-          <span class="text-[8.5px] font-extrabold uppercase tracking-wider text-muted-foreground text-center">Zone Expé</span>
+          <span class="text-[8.5px] font-extrabold uppercase tracking-wider text-muted-foreground text-center">Expédié</span>
         </div>
       </div>
 
