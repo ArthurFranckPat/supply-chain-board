@@ -128,7 +128,7 @@ export const ReceptionTableau: Component<{
           </>
         )
       },
-      meta: { thClass: TH, tdClass: TD },
+      meta: { thClass: `w-[280px] ${TH}`, tdClass: `w-[280px] ${TD}` },
     },
     {
       accessorKey: 'article',
@@ -148,7 +148,7 @@ export const ReceptionTableau: Component<{
           </>
         )
       },
-      meta: { thClass: TH, tdClass: TD },
+      meta: { thClass: `w-[280px] ${TH}`, tdClass: `w-[280px] ${TD}` },
     },
     {
       accessorKey: 'noCommande',
@@ -251,6 +251,7 @@ export const ReceptionTableau: Component<{
       rows={sortedRows}
       sorting={sorting}
       onSortingChange={setSorting}
+      tableClass="table-fixed"
       getRowClass={(row) =>
         cx(
           'border-t border-rule-soft hover:bg-foreground/[0.04]',
