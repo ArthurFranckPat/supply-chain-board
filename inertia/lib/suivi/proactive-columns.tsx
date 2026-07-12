@@ -19,12 +19,12 @@ export function createProactiveColumns() {
         <>
           <div class="font-mono text-[13px] font-bold tracking-tight text-foreground">
             {info.getValue()}
-            <Show when={info.row.original.refCommandeClient}>
-              <span class="font-medium text-muted-foreground/70">
-                /{info.row.original.refCommandeClient}
-              </span>
-            </Show>
           </div>
+          <Show when={info.row.original.refCommandeClient}>
+            <div class="mt-0.5 font-mono text-[10px] font-medium text-muted-foreground">
+              Réf: {info.row.original.refCommandeClient}
+            </div>
+          </Show>
           <div class="mt-0.5 font-sans text-[12px] font-medium leading-snug text-secondary-foreground">
             {info.row.original.client || '—'}
           </div>
@@ -42,17 +42,17 @@ export function createProactiveColumns() {
         <>
           <div class="font-mono text-[13px] font-semibold text-brand">
             {info.getValue()}
-            <Show
-              when={
-                info.row.original.refArticleClient &&
-                info.row.original.refArticleClient !== info.getValue()
-              }
-            >
-              <span class="font-medium text-muted-foreground/70">
-                /{info.row.original.refArticleClient}
-              </span>
-            </Show>
           </div>
+          <Show
+            when={
+              info.row.original.refArticleClient &&
+              info.row.original.refArticleClient !== info.getValue()
+            }
+          >
+            <div class="mt-0.5 font-mono text-[10px] font-medium text-muted-foreground">
+              Réf: {info.row.original.refArticleClient}
+            </div>
+          </Show>
           <div class="mt-0.5 font-sans text-[12px] font-medium leading-snug text-secondary-foreground">
             {info.row.original.designation || '—'}
           </div>
@@ -81,7 +81,7 @@ export function createProactiveColumns() {
       header: () => 'Reste',
       cell: (info) => (
         <>
-          <span class="font-fraunces text-[21px] font-black leading-none tracking-tight text-foreground">
+          <span class="font-sans text-[18px] font-extrabold leading-none tracking-tight text-foreground tabular-nums">
             {info.getValue()}
           </span>
           <span class="ml-0.5 font-mono text-[10px] font-medium text-muted-foreground/80">u</span>
@@ -241,25 +241,30 @@ export function createProactiveColumns() {
                       <Show
                         when={c.reception}
                         fallback={
-                          <span class="font-mono text-[9.5px] font-medium leading-tight text-destructive/70">
-                            aucune couverture prévue
-                          </span>
+                          <div class="mt-0.5 flex items-center gap-1 font-mono text-[9px] font-medium text-destructive/60">
+                            <span class="material-symbols-outlined text-[11px] leading-none text-destructive/50">event_busy</span>
+                            Aucune couverture prévue
+                          </div>
                         }
                       >
                         {(r) => (
-                          <span
+                          <div
+                            class="mt-0.5 flex items-center gap-1 font-mono text-[9px] leading-none"
                             classList={{
-                              'font-mono text-[9.5px] font-bold leading-tight text-destructive':
-                                r().overdue,
-                              'font-mono text-[9.5px] font-medium leading-tight text-muted-foreground':
-                                !r().overdue,
+                              'font-bold text-destructive': r().overdue,
+                              'font-medium text-muted-foreground': !r().overdue,
                             }}
-                            title={r().supplier}
+                            title={`Fournisseur: ${r().supplier}`}
                           >
-                            {r().overdue
-                              ? `en retard +${r().retardJ} j · ${r().eta}`
-                              : `arrive ${r().eta} · ${r().po}`}
-                          </span>
+                            <span class="material-symbols-outlined text-[11px] leading-none opacity-80">
+                              {r().overdue ? 'warning' : 'local_shipping'}
+                            </span>
+                            <span>
+                              {r().overdue
+                                ? `En retard +${r().retardJ} j (${r().eta})`
+                                : `Arrivée ${r().eta} · ${r().po}`}
+                            </span>
+                          </div>
                         )}
                       </Show>
                     }
@@ -268,32 +273,59 @@ export function createProactiveColumns() {
                       <Show
                         when={d().statut === 'bloque'}
                         fallback={
-                          <span class="font-mono text-[9.5px] font-semibold leading-tight text-emerald-700">
-                            ↳ composants dispo — OF SE à lancer
-                          </span>
+                          <div class="mt-0.5 flex items-center gap-1 font-mono text-[9px] font-semibold text-emerald-700 leading-none">
+                            <span class="material-symbols-outlined text-[11px] leading-none text-emerald-600">subdirectory_arrow_right</span>
+                            ↳ SE à lancer (composants dispo)
+                          </div>
                         }
                       >
-                        <div class="flex flex-col gap-px pl-2">
+                        <div class="flex flex-col gap-px pl-2 mt-0.5 border-l border-rule-soft">
                           <For each={d().par.slice(0, 3)}>
                             {(p) => (
-                              <span
-                                class="font-mono text-[9.5px] leading-tight text-muted-foreground"
+                              <div
+                                class="flex flex-col gap-px font-mono text-[9px] leading-snug text-muted-foreground"
                                 title={p.desc}
                               >
-                                ↳ bloqué par <span class="font-bold text-destructive">{p.art}</span>
-                                <span class="font-bold text-destructive"> −{p.manque}</span>
-                                {p.reception
-                                  ? p.reception.overdue
-                                    ? ` · en retard +${p.reception.retardJ} j`
-                                    : ` · arrive ${p.reception.eta} · ${p.reception.po}`
-                                  : ' · aucune couverture prévue'}
-                              </span>
+                                <div class="flex items-center gap-1">
+                                  <span class="material-symbols-outlined text-[10px] leading-none text-muted-foreground/60">subdirectory_arrow_right</span>
+                                  <span>Bloqué par <span class="font-bold text-destructive">{p.art}</span> <span class="font-bold text-destructive">−{p.manque}</span></span>
+                                </div>
+                                <Show
+                                  when={p.reception}
+                                  fallback={
+                                    <div class="pl-3.5 flex items-center gap-0.5 text-[8.5px] text-destructive/60 font-medium">
+                                      <span class="material-symbols-outlined text-[10px] leading-none text-destructive/50">event_busy</span>
+                                      Aucune couverture prévue
+                                    </div>
+                                  }
+                                >
+                                  {(pr) => (
+                                    <div
+                                      class="pl-3.5 flex items-center gap-0.5 text-[8.5px] font-medium"
+                                      classList={{
+                                        'text-destructive font-bold': pr().overdue,
+                                        'text-muted-foreground/80': !pr().overdue,
+                                      }}
+                                      title={pr().supplier}
+                                    >
+                                      <span class="material-symbols-outlined text-[10px] leading-none opacity-80">
+                                        {pr().overdue ? 'warning' : 'local_shipping'}
+                                      </span>
+                                      <span>
+                                        {pr().overdue
+                                          ? `En retard +${pr().retardJ} j (${pr().eta})`
+                                          : `Arrivée ${pr().eta} · ${pr().po}`}
+                                      </span>
+                                    </div>
+                                  )}
+                                </Show>
+                              </div>
                             )}
                           </For>
                           <Show when={d().par.length > 3}>
-                            <span class="pl-2 font-mono text-[9px] font-medium text-muted-foreground/70">
+                            <div class="pl-3.5 font-mono text-[8.5px] font-medium text-muted-foreground/70">
                               +{d().par.length - 3} autre(s)
-                            </span>
+                            </div>
                           </Show>
                         </div>
                       </Show>
@@ -333,7 +365,7 @@ export function createProactiveIndexCol(): DataTableIndexColumn<ProactiveDisplay
           ? ('critical' as const)
           : row.lateSeverity
       return cx(
-        'px-4 py-[9px] align-middle font-fraunces text-[14px] leading-none text-muted-foreground/80',
+        'px-4 py-[9px] align-middle font-sans text-[12px] font-bold leading-none tracking-tight text-muted-foreground/80 tabular-nums',
         LATE_TONE.bar(s)
       )
     },

@@ -24,12 +24,12 @@ export function createReactiveColumns({ expandedEmps, toggleEmp }: ReactiveColum
         <>
           <div class="font-mono text-[13px] font-bold tracking-tight text-foreground">
             {info.getValue()}
-            <Show when={info.row.original.refCommandeClient}>
-              <span class="font-medium text-muted-foreground/70">
-                /{info.row.original.refCommandeClient}
-              </span>
-            </Show>
           </div>
+          <Show when={info.row.original.refCommandeClient}>
+            <div class="mt-0.5 font-mono text-[10px] font-medium text-muted-foreground">
+              Réf: {info.row.original.refCommandeClient}
+            </div>
+          </Show>
           <div class="mt-0.5 font-sans text-[12px] font-medium leading-snug text-secondary-foreground">
             {info.row.original.client || '—'}
           </div>
@@ -47,17 +47,17 @@ export function createReactiveColumns({ expandedEmps, toggleEmp }: ReactiveColum
         <>
           <div class="font-mono text-[13px] font-semibold text-brand">
             {info.getValue()}
-            <Show
-              when={
-                info.row.original.refArticleClient &&
-                info.row.original.refArticleClient !== info.getValue()
-              }
-            >
-              <span class="font-medium text-muted-foreground/70">
-                /{info.row.original.refArticleClient}
-              </span>
-            </Show>
           </div>
+          <Show
+            when={
+              info.row.original.refArticleClient &&
+              info.row.original.refArticleClient !== info.getValue()
+            }
+          >
+            <div class="mt-0.5 font-mono text-[10px] font-medium text-muted-foreground">
+              Réf: {info.row.original.refArticleClient}
+            </div>
+          </Show>
           <div class="mt-0.5 font-sans text-[12px] font-medium leading-snug text-secondary-foreground">
             {info.row.original.designation || '—'}
           </div>
@@ -86,7 +86,7 @@ export function createReactiveColumns({ expandedEmps, toggleEmp }: ReactiveColum
       header: () => 'Reste',
       cell: (info) => (
         <>
-          <span class="font-fraunces text-[21px] font-black leading-none tracking-tight text-foreground">
+          <span class="font-sans text-[18px] font-extrabold leading-none tracking-tight text-foreground tabular-nums">
             {info.getValue()}
           </span>
           <span class="ml-0.5 font-mono text-[10px] font-medium text-muted-foreground/80">u</span>
@@ -148,7 +148,7 @@ export function createReactiveColumns({ expandedEmps, toggleEmp }: ReactiveColum
                     'flex w-full items-center gap-1.5 whitespace-nowrap rounded border px-2 py-1 font-mono text-[10.5px] leading-[1.4]',
                     e.source === 'STOALL'
                       ? 'border-ferme/30 bg-ferme/15 text-ferme'
-                      : 'border-rule bg-card text-secondary-foreground',
+                      : 'border-transparent bg-secondary text-secondary-foreground',
                     e.alreadyAllocated && 'line-through opacity-60'
                   )}
                   title={
@@ -176,8 +176,11 @@ export function createReactiveColumns({ expandedEmps, toggleEmp }: ReactiveColum
                   </span>
                   <span class="flex-1" />
                   <Show when={e.hum}>
-                    <span class="shrink-0 rounded bg-card px-1.5 py-px font-bold text-foreground">
-                      {e.hum}
+                    <span
+                      class="shrink-0 rounded bg-card/60 px-1.5 py-px font-mono text-[9.5px] font-bold text-foreground"
+                      title={`Numéro de palette : ${e.hum}`}
+                    >
+                      {e.hum.length > 8 ? `...${e.hum.slice(-6)}` : e.hum}
                     </span>
                   </Show>
                   <span class="w-[20px] shrink-0 text-right font-bold tabular-nums">
@@ -313,7 +316,7 @@ export function createReactiveIndexCol(): DataTableIndexColumn<SuiviDisplayRow> 
       'w-[38px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule',
     tdClass: (row: SuiviDisplayRow) =>
       cx(
-        'px-4 py-[9px] align-middle font-fraunces text-[14px] leading-none text-muted-foreground/80',
+        'px-4 py-[9px] align-middle font-sans text-[12px] font-bold leading-none tracking-tight text-muted-foreground/80 tabular-nums',
         LATE_TONE.bar(row.lateSeverity)
       ),
   }

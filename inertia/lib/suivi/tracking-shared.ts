@@ -78,12 +78,7 @@ export const VERDICT_TONE: Record<ProactiveVerdictKey, string> = {
  * `bar()` → barre latérale gauche (index column tdClass)
  */
 export const LATE_TONE = {
-  bg: (s: 'tolerance' | 'critical' | null) =>
-    s === 'critical'
-      ? '[background-color:rgba(220,38,38,0.10)] hover:[background-color:rgba(220,38,38,0.18)]'
-      : s === 'tolerance'
-        ? '[background-color:rgba(251,191,36,0.12)] hover:[background-color:rgba(251,191,36,0.20)]'
-        : 'hover:bg-foreground/[0.04]',
+  bg: (s: 'tolerance' | 'critical' | null) => 'hover:bg-foreground/[0.04]',
   bar: (s: 'tolerance' | 'critical' | null) =>
     s === 'critical'
       ? '[box-shadow:inset_3px_0_#dc2626]'

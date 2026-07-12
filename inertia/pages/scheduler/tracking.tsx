@@ -181,9 +181,9 @@ const Tracking: Component<SuiviPageProps> = (props) => {
       />
 
       {/* ═══ Toolbar ═══ */}
-      <div class="flex flex-none flex-wrap items-center gap-2.5 border-b border-rule px-7 py-2">
+      <div class="flex flex-none items-center gap-2.5 border-b border-rule px-7 py-2 overflow-x-auto no-scrollbar select-none">
         {/* Bascule Réactif / Proactif */}
-        <div class="inline-flex items-center rounded-md border border-rule bg-card p-0.5">
+        <div class="inline-flex shrink-0 items-center rounded-md border border-rule bg-card p-0.5">
           <button
             type="button"
             class={`rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors ${
@@ -210,7 +210,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
           </button>
         </div>
         <Show when={mode() === 'reactif'}>
-          <div class="inline-flex items-center gap-1 rounded-md border border-rule bg-card p-0.5">
+          <div class="inline-flex shrink-0 items-center gap-1 rounded-md border border-rule bg-card p-0.5">
             <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
               Statut
             </span>
@@ -221,7 +221,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
           </div>
         </Show>
         <Show when={mode() === 'proactif'}>
-          <div class="inline-flex items-center gap-1 rounded-md border border-rule bg-card p-0.5">
+          <div class="inline-flex shrink-0 items-center gap-1 rounded-md border border-rule bg-card p-0.5">
             <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
               Verdict
             </span>
@@ -232,7 +232,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
             {verdictChip('risk', 'À risque')}
           </div>
         </Show>
-        <div class="inline-flex items-center gap-1 rounded-md border border-rule bg-card p-0.5">
+        <div class="inline-flex shrink-0 items-center gap-1 rounded-md border border-rule bg-card p-0.5">
           <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
             Type
           </span>
@@ -254,7 +254,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
         </div>
         {/* Filtre atelier (#36) — chips STOLOC, apparaît dès qu'un atelier est connu. Transverse aux 2 vues. */}
         <Show when={ateliers().length > 0}>
-          <div class="inline-flex flex-wrap items-center gap-1 rounded-md border border-rule bg-card p-0.5">
+          <div class="inline-flex shrink-0 flex-nowrap items-center gap-1 rounded-md border border-rule bg-card p-0.5">
             <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
               Atelier
             </span>
@@ -270,7 +270,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
                   onClick={() => toggleAtelier(a.code)}
                   title={a.label}
                 >
-                  {a.label}
+                  {a.label.replace(/^ATELIER\s+/i, '')}
                 </button>
               )}
             </For>
@@ -286,7 +286,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
             </Show>
           </div>
         </Show>
-        <div class="ml-auto flex items-center gap-2">
+        <div class="ml-auto shrink-0 flex items-center gap-2">
           {/* Durée de chargement X3 */}
           <Show when={mode() === 'reactif' ? data.loading : proData.loading}>
             <span class="font-mono text-[11px] tabular-nums text-muted-foreground">

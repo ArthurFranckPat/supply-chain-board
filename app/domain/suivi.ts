@@ -524,7 +524,11 @@ export function assignStatuses(
       if (besoin <= 0) {
         assignments.push(emptyAssignment(line, 'A_EXPEDIER', besoin, alerteCqStatut))
       } else if (enZoneExpedition(line)) {
-        assignments.push(emptyAssignment(line, 'ALLOCATION_A_FAIRE', besoin, alerteCqStatut))
+        if (line.typeCommande === 'MTS' && line.isFabrique) {
+          assignments.push(emptyAssignment(line, 'RAS', besoin, alerteCqStatut))
+        } else {
+          assignments.push(emptyAssignment(line, 'ALLOCATION_A_FAIRE', besoin, alerteCqStatut))
+        }
       } else {
         assignments.push(emptyAssignment(line, 'RETARD_PROD', besoin, alerteCqStatut))
       }
@@ -673,6 +677,20 @@ export function analyzeRetardCause(
 
   if (Object.keys(shortages).length > 0) {
     return { typeCause: 'RUPTURE_COMPOSANTS', composants: shortages, message: '' }
+  }
+
+  // Si l'OF est planifié en retard par rapport à l'expédition demandée :
+  if (of.dateFin && line.dateExpedition && of.dateFin > line.dateExpedition) {
+    const joursRetard = Math.max(
+      0,
+      Math.round((of.dateFin.getTime() - line.dateExpedition.getTime()) / 86_400_000)
+    )
+    return {
+      typeCause: 'RETARD_ORDONNANCEMENT',
+      composants: {},
+      message: 'OF planifié en retard',
+      joursRetard,
+    }
   }
 
   return null

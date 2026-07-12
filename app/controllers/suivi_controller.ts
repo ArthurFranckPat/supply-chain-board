@@ -558,7 +558,15 @@ export function buildSuiviDisplay(
               }
             : null,
         }
-      : null
+      : a.status === 'RETARD_PROD'
+        ? {
+            type: 'INCONNUE',
+            label: CAUSE_LABEL['INCONNUE'],
+            comps: [],
+            reception: null,
+            retro: null,
+          }
+        : null
     const rec = recommendActions(a)
     const compsTxt = cause ? cause.comps.map((c) => `${c.art} −${c.qty}`).join(' ') : ''
     const atelier = atelierByArticle.get(a.line.article) ?? { code: '', label: '' }
