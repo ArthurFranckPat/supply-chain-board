@@ -16,9 +16,97 @@ export const SuiviDetailSheet: Component<SuiviDetailSheetProps> = (props) => {
   const reactiveRow = () => r() as SuiviDisplayRow
   const proactiveRow = () => r() as ProactiveDisplayRow
 
+  // Stepper calculations
+  const step1 = () => true // Commande toujours enregistrée
+  const step2 = () => isReactif() ? true : (proactiveRow().ofs.length > 0 || proactiveRow().couverture === 'Stock' || proactiveRow().couverture === 'Achat')
+  const step3 = () => {
+    const allocVal = isReactif() 
+      ? (reactiveRow().allocStrict + reactiveRow().allocCq) 
+      : proactiveRow().qteAllouee
+    return allocVal >= r().qteRestante
+  }
+  const step4 = () => isReactif() ? !reactiveRow().cq : true // Si pas de signal CQ, alors c'est vert
+  const step5 = () => r().enZoneExpe
+
+  // Quantity bar calculations
+  const total = () => r().qteRestante || 1
+  const strictVal = () => isReactif() ? reactiveRow().allocStrict : proactiveRow().qteAllouee
+  const cqVal = () => isReactif() ? reactiveRow().allocCq : 0
+  const reliquatVal = () => isReactif() ? Math.max(0, total() - strictVal() - cqVal()) : proactiveRow().reliquat
+
+  const pctStrict = () => Math.round((strictVal() / total()) * 100)
+  const pctCq = () => Math.round((cqVal() / total()) * 100)
+  const pctReliquat = () => Math.round((reliquatVal() / total()) * 100)
+
   return (
     <div class="flex flex-col gap-6 text-sans pb-8">
-      {/* 1. Header Card (Fiche Commande) */}
+      {/* 1. Stepper de Cycle de Commande */}
+      <div class="flex items-center justify-between px-3 py-4 bg-secondary/15 rounded-2xl border border-rule-soft/60 relative overflow-hidden shadow-[inset_0_2px_4px_rgba(0,0,0,0.01)]">
+        <div class="absolute left-10 right-10 top-[2.25rem] h-0.5 bg-secondary border-t border-rule-soft z-0" />
+        
+        {/* Etape 1: Commande */}
+        <div class="flex flex-col items-center gap-1.5 z-10 w-16">
+          <div class="size-8 rounded-full flex items-center justify-center font-bold text-[12px] transition-all"
+               classList={{
+                 'bg-emerald-500 text-white shadow-[0_0_12px_rgba(16,185,129,0.3)]': step1(),
+                 'bg-secondary text-muted-foreground': !step1()
+               }}>
+            <span class="material-symbols-outlined text-[16px]">receipt_long</span>
+          </div>
+          <span class="text-[8.5px] font-extrabold uppercase tracking-wider text-muted-foreground text-center">Enregistré</span>
+        </div>
+
+        {/* Etape 2: OF Planifié */}
+        <div class="flex flex-col items-center gap-1.5 z-10 w-16">
+          <div class="size-8 rounded-full flex items-center justify-center font-bold text-[12px] transition-all"
+               classList={{
+                 'bg-emerald-500 text-white shadow-[0_0_12px_rgba(16,185,129,0.3)]': step2(),
+                 'bg-secondary text-muted-foreground': !step2()
+               }}>
+            <span class="material-symbols-outlined text-[16px]">precision_manufacturing</span>
+          </div>
+          <span class="text-[8.5px] font-extrabold uppercase tracking-wider text-muted-foreground text-center">OF Planifié</span>
+        </div>
+
+        {/* Etape 3: Stock Alloué */}
+        <div class="flex flex-col items-center gap-1.5 z-10 w-16">
+          <div class="size-8 rounded-full flex items-center justify-center font-bold text-[12px] transition-all"
+               classList={{
+                 'bg-emerald-500 text-white shadow-[0_0_12px_rgba(16,185,129,0.3)]': step3(),
+                 'bg-amber-500 text-white animate-pulse shadow-[0_0_12px_rgba(245,158,11,0.3)]': !step3() && (strictVal() + cqVal() > 0),
+                 'bg-secondary text-muted-foreground': !step3() && !(strictVal() + cqVal() > 0)
+               }}>
+            <span class="material-symbols-outlined text-[16px]">inventory_2</span>
+          </div>
+          <span class="text-[8.5px] font-extrabold uppercase tracking-wider text-muted-foreground text-center">Alloué</span>
+        </div>
+
+        {/* Etape 4: Labo (CQ) */}
+        <div class="flex flex-col items-center gap-1.5 z-10 w-16">
+          <div class="size-8 rounded-full flex items-center justify-center font-bold text-[12px] transition-all"
+               classList={{
+                 'bg-emerald-500 text-white shadow-[0_0_12px_rgba(16,185,129,0.3)]': step4(),
+                 'bg-purple-500 text-white animate-pulse shadow-[0_0_12px_rgba(168,85,247,0.3)]': !step4()
+               }}>
+            <span class="material-symbols-outlined text-[16px]">science</span>
+          </div>
+          <span class="text-[8.5px] font-extrabold uppercase tracking-wider text-muted-foreground text-center">Labo (CQ)</span>
+        </div>
+
+        {/* Etape 5: Zone Expé */}
+        <div class="flex flex-col items-center gap-1.5 z-10 w-16">
+          <div class="size-8 rounded-full flex items-center justify-center font-bold text-[12px] transition-all"
+               classList={{
+                 'bg-emerald-500 text-white shadow-[0_0_12px_rgba(16,185,129,0.3)]': step5(),
+                 'bg-secondary text-muted-foreground': !step5()
+               }}>
+            <span class="material-symbols-outlined text-[16px]">local_shipping</span>
+          </div>
+          <span class="text-[8.5px] font-extrabold uppercase tracking-wider text-muted-foreground text-center">Zone Expé</span>
+        </div>
+      </div>
+
+      {/* 2. Header Card (Fiche Commande) */}
       <div class="relative overflow-hidden rounded-2xl border border-rule bg-gradient-to-br from-secondary/30 via-secondary/10 to-transparent p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] backdrop-blur-sm">
         <div class="absolute -right-6 -top-6 size-24 rounded-full bg-brand/5 opacity-[0.03] blur-xl" />
         <div class="flex items-start justify-between gap-4">
@@ -67,7 +155,7 @@ export const SuiviDetailSheet: Component<SuiviDetailSheetProps> = (props) => {
         </div>
       </div>
 
-      {/* 2. Alert Notification (Recommandation) */}
+      {/* 3. Alert Notification (Recommandation) */}
       <div class="relative overflow-hidden rounded-2xl border p-5 flex flex-col gap-2.5 transition-all shadow-[0_4px_20px_-6px_rgba(0,0,0,0.02)] border-rule"
            classList={{
              'bg-brand/5 border-brand/20 text-brand': r().action.severity === 'info',
@@ -92,7 +180,7 @@ export const SuiviDetailSheet: Component<SuiviDetailSheetProps> = (props) => {
         </p>
       </div>
 
-      {/* 3. Expé & Délais */}
+      {/* 4. Expé & Délais */}
       <div class="grid grid-cols-2 gap-4">
         <div class="rounded-2xl border border-rule p-4 bg-card shadow-[0_2px_10px_rgba(0,0,0,0.02)] flex flex-col justify-between h-20">
           <span class="text-[9.5px] font-bold uppercase tracking-wider text-muted-foreground/80">Date d'Expédition</span>
@@ -120,41 +208,55 @@ export const SuiviDetailSheet: Component<SuiviDetailSheetProps> = (props) => {
         </div>
       </div>
 
-      {/* 4. Répartition des Quantités */}
-      <div class="rounded-2xl border border-rule p-4 bg-card shadow-[0_2px_10px_rgba(0,0,0,0.02)] flex flex-col gap-4">
+      {/* 5. Gauge Visuelle & Répartition des Quantités */}
+      <div class="rounded-2xl border border-rule p-5 bg-card shadow-[0_2px_10px_rgba(0,0,0,0.02)] flex flex-col gap-4">
         <h4 class="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground/80 border-b border-rule-soft pb-2">
           Répartition des Quantités
         </h4>
-        <div class="grid grid-cols-3 gap-2.5 text-center">
+        
+        {/* Stacked Progress Bar */}
+        <div class="flex flex-col gap-2">
+          <div class="flex items-center justify-between text-[11px] font-semibold text-foreground/85">
+            <span>Rapport d'allocation</span>
+            <span>{strictVal() + cqVal()} / {total()} u ({pctStrict() + pctCq()}%)</span>
+          </div>
+          <div class="relative h-3 w-full bg-secondary/50 rounded-full overflow-hidden flex border border-rule-soft">
+            <div class="bg-emerald-500 h-full transition-all duration-500" style={{ width: `${pctStrict()}%` }} />
+            <div class="bg-purple-500 h-full transition-all duration-500" style={{ width: `${pctCq()}%` }} />
+            <div class="bg-secondary h-full transition-all duration-500" style={{ width: `${pctReliquat()}%` }} />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2 text-center mt-2">
           <div class="bg-secondary/15 p-2.5 rounded-xl border border-rule-soft/40">
             <div class="text-[9.5px] font-semibold text-muted-foreground">Reste à livrer</div>
-            <div class="font-mono text-[18px] font-black text-foreground mt-0.5">{r().qteRestante}</div>
+            <div class="font-mono text-[16px] font-black text-foreground mt-0.5">{total()}</div>
           </div>
           <Show when={isReactif()} fallback={
             <>
               <div class="bg-secondary/15 p-2.5 rounded-xl border border-rule-soft/40">
-                <div class="text-[9.5px] font-semibold text-muted-foreground">Quantité allouée</div>
-                <div class="font-mono text-[18px] font-black text-foreground mt-0.5">{proactiveRow().qteAllouee}</div>
+                <div class="text-[9.5px] font-semibold text-emerald-600">Alloué</div>
+                <div class="font-mono text-[16px] font-black text-emerald-600 mt-0.5">{proactiveRow().qteAllouee}</div>
               </div>
               <div class="bg-secondary/15 p-2.5 rounded-xl border border-rule-soft/40">
-                <div class="text-[9.5px] font-semibold text-muted-foreground">Reliquat projeté</div>
-                <div class="font-mono text-[18px] font-black text-foreground mt-0.5">{proactiveRow().reliquat}</div>
+                <div class="text-[9.5px] font-semibold text-muted-foreground">Reliquat</div>
+                <div class="font-mono text-[16px] font-black text-foreground mt-0.5">{proactiveRow().reliquat}</div>
               </div>
             </>
           }>
             <div class="bg-secondary/15 p-2.5 rounded-xl border border-rule-soft/40">
-              <div class="text-[9.5px] font-semibold text-muted-foreground">Allocation strict</div>
-              <div class="font-mono text-[18px] font-black text-foreground mt-0.5">{reactiveRow().allocStrict}</div>
+              <div class="text-[9.5px] font-semibold text-emerald-600">Strict</div>
+              <div class="font-mono text-[16px] font-black text-emerald-600 mt-0.5">{reactiveRow().allocStrict}</div>
             </div>
             <div class="bg-secondary/15 p-2.5 rounded-xl border border-rule-soft/40">
-              <div class="text-[9.5px] font-semibold text-muted-foreground">Allocation CQ</div>
-              <div class="font-mono text-[18px] font-black text-foreground mt-0.5">{reactiveRow().allocCq}</div>
+              <div class="text-[9.5px] font-semibold text-purple-600">Sous CQ</div>
+              <div class="font-mono text-[16px] font-black text-purple-600 mt-0.5">{reactiveRow().allocCq}</div>
             </div>
           </Show>
         </div>
       </div>
 
-      {/* 5. Goulots & Approvisionnements */}
+      {/* 6. Goulots & Approvisionnements (BOM) */}
       <Show when={!isReactif() && proactiveRow().composants.length > 0}>
         <div class="rounded-2xl border border-rule p-4 bg-card shadow-[0_2px_10px_rgba(0,0,0,0.02)] flex flex-col gap-4">
           <h4 class="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground/80 border-b border-rule-soft pb-2">
@@ -172,7 +274,7 @@ export const SuiviDetailSheet: Component<SuiviDetailSheetProps> = (props) => {
                   </div>
                   <div class="text-[12px] font-medium text-secondary-foreground leading-normal">{c.desc}</div>
 
-                  {/* Reception Directe */}
+                  {/* Reception Directe (Acheminement) */}
                   <Show when={c.reception} fallback={
                     <Show when={!c.descente}>
                       <div class="flex items-center gap-1 font-mono text-[10px] text-destructive/80 font-bold bg-destructive/5 px-2.5 py-1 rounded-lg w-fit border border-destructive/10">
@@ -182,28 +284,47 @@ export const SuiviDetailSheet: Component<SuiviDetailSheetProps> = (props) => {
                     </Show>
                   }>
                     {(rcpt) => (
-                      <div class="rounded-xl border border-rule-soft bg-secondary/10 p-3 flex flex-col gap-1.5">
-                        <div class="flex items-center gap-1.5 text-[11px] font-bold"
-                             classList={{ 'text-destructive': rcpt().overdue, 'text-muted-foreground/90': !rcpt().overdue }}>
-                          <span class="material-symbols-outlined text-[14px]">
-                            {rcpt().overdue ? 'warning' : 'local_shipping'}
-                          </span>
-                          <span>
-                            {rcpt().overdue
-                              ? `En retard fournisseur de +${rcpt().retardJ} jours`
-                              : 'Commande d\'achat fournisseur en cours'}
+                      <div class="rounded-xl border border-rule-soft bg-gradient-to-r from-secondary/15 to-transparent p-4 flex flex-col gap-3">
+                        <div class="flex items-center justify-between">
+                          <div class="flex items-center gap-1.5 text-[11px] font-bold"
+                               classList={{ 'text-destructive': rcpt().overdue, 'text-brand': !rcpt().overdue }}>
+                            <span class="material-symbols-outlined text-[16px]">
+                              {rcpt().overdue ? 'warning' : 'local_shipping'}
+                            </span>
+                            <span>{rcpt().overdue ? `Retard d'approvisionnement (+${rcpt().retardJ}j)` : 'Acheminement en cours'}</span>
+                          </div>
+                          <span class="font-mono text-[10px] text-muted-foreground bg-secondary px-2 py-0.5 rounded border border-rule-soft">
+                            PO: {rcpt().po}
                           </span>
                         </div>
-                        <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[10.5px] mt-1 text-muted-foreground border-t border-rule-soft/60 pt-2">
-                          <div><span class="font-semibold text-foreground/80">Date d'arrivée :</span> {rcpt().eta}</div>
-                          <div><span class="font-semibold text-foreground/80">Commande PO :</span> {rcpt().po}</div>
-                          <div class="col-span-2"><span class="font-semibold text-foreground/80">Fournisseur :</span> {rcpt().supplier}</div>
+
+                        {/* Delivery Timeline Track */}
+                        <div class="flex items-center gap-2 mt-1 px-1">
+                          {/* Sourced */}
+                          <div class="flex-1 flex flex-col gap-1">
+                            <div class="h-1.5 bg-emerald-500 rounded-full" />
+                            <span class="text-[8px] font-extrabold text-emerald-600 uppercase">Commandé</span>
+                          </div>
+                          {/* In transit */}
+                          <div class="flex-1 flex flex-col gap-1">
+                            <div class="h-1.5 rounded-full" classList={{ 'bg-destructive/40': rcpt().overdue, 'bg-emerald-500': !rcpt().overdue }} />
+                            <span class="text-[8px] font-extrabold uppercase" classList={{ 'text-destructive font-bold': rcpt().overdue, 'text-emerald-600': !rcpt().overdue }}>Transit</span>
+                          </div>
+                          {/* ETA */}
+                          <div class="flex-1 flex flex-col gap-1">
+                            <div class="h-1.5 rounded-full" classList={{ 'bg-destructive': rcpt().overdue, 'bg-secondary': !rcpt().overdue }} />
+                            <span class="text-[8px] font-extrabold uppercase" classList={{ 'text-destructive font-bold': rcpt().overdue, 'text-muted-foreground': !rcpt().overdue }}>Arrivée ({rcpt().eta})</span>
+                          </div>
+                        </div>
+
+                        <div class="text-[11px] mt-1 border-t border-rule-soft/60 pt-2 text-muted-foreground flex flex-col gap-0.5">
+                          <div><span class="font-semibold text-foreground/80">Fournisseur :</span> {rcpt().supplier}</div>
                         </div>
                       </div>
                     )}
                   </Show>
 
-                  {/* Descente de Nomenclature */}
+                  {/* Descente de Nomenclature (Niveau Cascade) */}
                   <Show when={c.descente}>
                     {(d) => (
                       <div class="rounded-xl border border-rule-soft bg-secondary/15 p-3 flex flex-col gap-2">
@@ -263,7 +384,7 @@ export const SuiviDetailSheet: Component<SuiviDetailSheetProps> = (props) => {
         </div>
       </Show>
 
-      {/* 6. Ordres de Fabrication Associés */}
+      {/* 7. Ordres de Fabrication Associés */}
       <Show when={!isReactif() && proactiveRow().ofs.length > 0}>
         <div class="rounded-2xl border border-rule p-4 bg-card shadow-[0_2px_10px_rgba(0,0,0,0.02)] flex flex-col gap-4">
           <h4 class="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground/80 border-b border-rule-soft pb-2">
@@ -350,7 +471,7 @@ export const SuiviDetailSheet: Component<SuiviDetailSheetProps> = (props) => {
         </div>
       </Show>
 
-      {/* 7. Emplacements de Stock */}
+      {/* 8. Emplacements de Stock */}
       <Show when={isReactif() && reactiveRow().emplacements.length > 0}>
         <div class="rounded-2xl border border-rule p-4 bg-card shadow-[0_2px_10px_rgba(0,0,0,0.02)] flex flex-col gap-4">
           <h4 class="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground/80 border-b border-rule-soft pb-2">
@@ -359,27 +480,30 @@ export const SuiviDetailSheet: Component<SuiviDetailSheetProps> = (props) => {
           <div class="flex flex-col gap-2.5">
             <For each={reactiveRow().emplacements}>
               {(e) => (
-                <div class="flex items-center justify-between border-b border-rule-soft last:border-0 pb-2.5 last:pb-0">
-                  <div class="flex items-center gap-2">
-                    <span class="material-symbols-outlined text-[16px] text-muted-foreground/75">
-                      {e.source === 'STOALL' ? 'check_circle' : 'radio_button_unchecked'}
-                    </span>
-                    <span class="font-mono text-[12px] font-semibold text-foreground">{e.nom}</span>
-                    <span class="text-[9px] rounded-full px-2 py-0.5 font-bold uppercase tracking-wider"
-                          classList={{
-                            'bg-ferme/15 text-ferme': e.source === 'STOALL',
-                            'bg-secondary text-secondary-foreground': e.source === 'STOCK'
-                          }}>
-                      {e.source === 'STOALL' ? 'Alloué' : 'Libre'}
-                    </span>
+                <div class="flex items-center justify-between border border-rule-soft/60 rounded-xl p-3 bg-secondary/5 hover:bg-secondary/15 transition-all">
+                  <div class="flex items-center gap-3">
+                    <div class="size-8 rounded-lg bg-secondary flex items-center justify-center text-muted-foreground/75 border border-rule-soft">
+                      <span class="material-symbols-outlined text-[18px]">
+                        {e.source === 'STOALL' ? 'inventory' : 'shelves'}
+                      </span>
+                    </div>
+                    <div>
+                      <div class="font-mono text-[12px] font-bold text-foreground">{e.nom}</div>
+                      <div class="text-[9px] text-muted-foreground uppercase font-extrabold tracking-wider mt-0.5"
+                           classList={{ 'text-emerald-600': e.source === 'STOALL', 'text-amber-600': e.source === 'STOCK' }}>
+                        {e.source === 'STOALL' ? 'Stock Alloué' : 'Stock Libre'}
+                      </div>
+                    </div>
                   </div>
                   <div class="flex items-center gap-3">
                     <Show when={e.hum}>
-                      <span class="font-mono text-[10px] text-muted-foreground bg-secondary/50 px-2 py-0.5 rounded-lg border border-rule-soft">
-                        Palette {e.hum}
+                      <span class="font-mono text-[10px] text-muted-foreground bg-secondary/55 px-2 py-0.5 rounded-lg border border-rule-soft">
+                        HU: {e.hum}
                       </span>
                     </Show>
-                    <span class="font-mono text-[12.5px] font-bold text-foreground">{Math.round(e.qte)} u</span>
+                    <span class="font-mono text-[12.5px] font-extrabold text-foreground bg-secondary/30 px-2 py-1 rounded border border-rule-soft">
+                      {Math.round(e.qte)} u
+                    </span>
                   </div>
                 </div>
               )}
