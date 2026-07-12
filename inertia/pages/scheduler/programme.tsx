@@ -20,7 +20,13 @@ import type { VisionCommande, VisionLink } from '@/lib/vision/types'
 import { parseIso, toIso, startOfDay, DAY_MS, fmtDay } from '@/lib/vision/date-utils'
 import { buildLinkPath, pathMid, type PathSpec } from '@/lib/vision/link-overlay'
 import { buildCmdCells } from '@/lib/vision/cmd-cells'
-import { computeImpacts, worstVerdict, deltaLabel, linkKey, type ImpactVerdict } from '@/lib/vision/impact'
+import {
+  computeImpacts,
+  worstVerdict,
+  deltaLabel,
+  linkKey,
+  type ImpactVerdict,
+} from '@/lib/vision/impact'
 import BoardGrid from '@/components/board/board-grid'
 import BatchFirmBar from '@/components/board/batch-firm-bar'
 import OrderGrid from '@/components/board/order-grid'
@@ -30,7 +36,11 @@ import { CommandeMarker } from '@/components/vision/commande-marker'
 import { LinksOverlay } from '@/components/vision/links-overlay'
 import { PlanHealth, type HealthCategory } from '@/components/vision/plan-health'
 import { TriageRail, type TriageItem } from '@/components/vision/triage-rail'
-import { ProgrammeToolbar, ProgrammeContextBar, type VisionMode } from '@/components/vision/programme-toolbar'
+import {
+  ProgrammeToolbar,
+  ProgrammeContextBar,
+  type VisionMode,
+} from '@/components/vision/programme-toolbar'
 import { createScenarioStore } from '@/lib/scenarios/store'
 import { ScenarioBar } from '@/components/scenario/scenario-bar'
 import { ScenarioDiffSheet } from '@/components/scenario/scenario-diff-sheet'
@@ -84,8 +94,23 @@ type VisionProps = {
   cached: string | null
 }
 
-const EMPTY_BOARD: BoardData = { days: [], lines: [], weekSpans: [], cols: 0, colWeek: [], weekCaps: {} }
-const EMPTY_ORDER_BOARD: OrderBoardData = { days: [], lines: [], ateliers: [], weekSpans: [], cols: 0, colWeek: [], weekCaps: {} }
+const EMPTY_BOARD: BoardData = {
+  days: [],
+  lines: [],
+  weekSpans: [],
+  cols: 0,
+  colWeek: [],
+  weekCaps: {},
+}
+const EMPTY_ORDER_BOARD: OrderBoardData = {
+  days: [],
+  lines: [],
+  ateliers: [],
+  weekSpans: [],
+  cols: 0,
+  colWeek: [],
+  weekCaps: {},
+}
 
 const OF_SCOPES = [
   { v: 'poste', label: 'Poste' },
@@ -224,7 +249,17 @@ const Programme: Component<VisionProps> = (props) => {
         refresh: '1',
         ...(mode() !== 'combined' && { mode: mode() }),
       },
-      only: ['board', 'orderBoard', 'commandes', 'links', 'x3Error', 'cached', 'totalOf', 'lineCount', 'weekLabel'],
+      only: [
+        'board',
+        'orderBoard',
+        'commandes',
+        'links',
+        'x3Error',
+        'cached',
+        'totalOf',
+        'lineCount',
+        'weekLabel',
+      ],
       onSuccess: () => {
         // #62 (lot 0) : le payload frais fait foi — purge des overrides optimistes
         // (déplacements/dates locaux), sinon ils continueraient de masquer l'état serveur.
@@ -294,7 +329,7 @@ const Programme: Component<VisionProps> = (props) => {
       : props.links.map((l) => {
           const override = ofDateFinOverride().get(l.ofId)
           return override ? { ...l, ofDateFinIso: override } : l
-        }),
+        })
   )
   // Index ofId → lien, construit une fois par changement de links — remplace les
   // scans linéaires répétés (ofColOrigine/ofDateFinOrigine) à chaque dragover.
@@ -305,9 +340,7 @@ const Programme: Component<VisionProps> = (props) => {
   })
 
   // Impacts (delta + verdict par lien) — dérivés des dates effectives + overrides drag.
-  const impacts = createMemo(() =>
-    computeImpacts(effectiveLinks(), ofShift(), cmdBesoinOverride()),
-  )
+  const impacts = createMemo(() => computeImpacts(effectiveLinks(), ofShift(), cmdBesoinOverride()))
   // Verdict le plus grave par OF et par commande (pour badge carte + marqueur).
   const verdictByOf = createMemo(() => {
     const byOf = new Map<string, ImpactVerdict[]>()
@@ -332,7 +365,8 @@ const Programme: Component<VisionProps> = (props) => {
       byCmd.set(imp.commandeId, e)
     }
     const out = new Map<string, { verdict: ImpactVerdict | null; delta: number | null }>()
-    for (const [cmdId, e] of byCmd) out.set(cmdId, { verdict: worstVerdict(e.verdicts), delta: e.delta })
+    for (const [cmdId, e] of byCmd)
+      out.set(cmdId, { verdict: worstVerdict(e.verdicts), delta: e.delta })
     return out
   })
   // Delta max par OF en retard (badge carte) — un seul passage O(links), comme
@@ -425,7 +459,12 @@ const Programme: Component<VisionProps> = (props) => {
     return Math.round((toD.getTime() - fromD.getTime()) / DAY_MS)
   }
 
-  const onOfDragProgress = (ofId: string, _toLineCode: string, _toCol: number, targetIso: string) => {
+  const onOfDragProgress = (
+    ofId: string,
+    _toLineCode: string,
+    _toCol: number,
+    targetIso: string
+  ) => {
     const shift = dayShiftFor(ofId, targetIso)
     if (shift === null) return
     setOfShift((m) => {
@@ -458,7 +497,7 @@ const Programme: Component<VisionProps> = (props) => {
         shifted.setDate(shifted.getDate() + shift)
         const delta = retardJoursOf(ofId)
         setDragTooltip(
-          `Dispo estimée le ${fmtDay(toIso(shifted))} · ${delta ? deltaLabel(delta) : 'en retard'}`,
+          `Dispo estimée le ${fmtDay(toIso(shifted))} · ${delta ? deltaLabel(delta) : 'en retard'}`
         )
         return
       }
@@ -466,7 +505,7 @@ const Programme: Component<VisionProps> = (props) => {
     } else if (v === 'limite') {
       setDragTooltip('OF limite (J)')
     } else if (v === 'ok') {
-      setDragTooltip('OF à l\'heure')
+      setDragTooltip("OF à l'heure")
     } else {
       setDragTooltip(null)
     }
@@ -541,7 +580,9 @@ const Programme: Component<VisionProps> = (props) => {
   // #58 — commandes virtuelles courantes (mutations inject_demand) + verdict de
   // servabilité résolu dans le dernier diff calculé. Regroupées par colonne pour
   // la rangée dédiée du board (VirtualCell).
-  const virtualOrders = createMemo(() => virtualOrdersFrom(scenario.current.mutations, scenario.diff()))
+  const virtualOrders = createMemo(() =>
+    virtualOrdersFrom(scenario.current.mutations, scenario.diff())
+  )
   const virtualOrdersByCol = createMemo(() => {
     const map = new Map<number, ReturnType<typeof virtualOrdersFrom>>()
     for (const o of virtualOrders()) {
@@ -564,7 +605,8 @@ const Programme: Component<VisionProps> = (props) => {
   // #58 — drop d'un chip virtuel sur une autre colonne → nouvelle date de besoin.
   const moveVirtualOrder = (id: string, _col: number, iso: string) => {
     const existing = scenario.current.mutations.find(
-      (m): m is Extract<PlanMutation, { type: 'inject_demand' }> => m.type === 'inject_demand' && m.id === id
+      (m): m is Extract<PlanMutation, { type: 'inject_demand' }> =>
+        m.type === 'inject_demand' && m.id === id
     )
     if (!existing) return
     scenario.upsertMutation({ ...existing, date: iso })
@@ -619,7 +661,7 @@ const Programme: Component<VisionProps> = (props) => {
       }
       if (failed > 0) {
         toast.warning(
-          `${total - failed}/${total} mutation${total > 1 ? 's' : ''} appliquée${total - failed > 1 ? 's' : ''} — ${failed} échec${failed > 1 ? 's' : ''}. Scénario conservé.`,
+          `${total - failed}/${total} mutation${total > 1 ? 's' : ''} appliquée${total - failed > 1 ? 's' : ''} — ${failed} échec${failed > 1 ? 's' : ''}. Scénario conservé.`
         )
         return
       }
@@ -660,7 +702,9 @@ const Programme: Component<VisionProps> = (props) => {
       } else if (m.type === 'shift_demand') {
         const col = colOfIso(m.date)
         if (col !== -1) {
-          setCmdMoved((mm) => new Map(mm).set(`${m.numCommande}#${m.ligne ?? ''}`, { col, iso: m.date }))
+          setCmdMoved((mm) =>
+            new Map(mm).set(`${m.numCommande}#${m.ligne ?? ''}`, { col, iso: m.date })
+          )
         }
       }
     }
@@ -771,15 +815,15 @@ const Programme: Component<VisionProps> = (props) => {
   // modificateurs (Ctrl/Meta/Alt). Échap ferme le calendrier puis les drawers.
   useShortcuts(
     {
-      r: () => doRefresh(),
-      f: () => runFeasibility(),
+      'r': () => doRefresh(),
+      'f': () => runFeasibility(),
       '1': () => switchMode('ordonnancement'),
       '2': () => switchMode('combined'),
       '3': () => switchMode('planification'),
-      s: () => {
+      's': () => {
         if (mode() === 'combined') toggleScenario()
       },
-      t: () => {
+      't': () => {
         if (mode() === 'combined') setRailOpen((v) => !v)
       },
     },
@@ -788,7 +832,7 @@ const Programme: Component<VisionProps> = (props) => {
       else if (detailOpen()) setDetailOpen(false)
       else if (engagementOpen()) setEngagementOpen(false)
       else if (diffOpen()) setDiffOpen(false)
-    },
+    }
   )
 
   let ro: ResizeObserver | null = null
@@ -845,7 +889,9 @@ const Programme: Component<VisionProps> = (props) => {
                 <TextFieldInput
                   class="w-[180px] border-0 bg-transparent px-0 text-xs font-medium shadow-none focus-visible:ring-0"
                   placeholder={
-                    mode() === 'planification' ? 'Commande, article, client…' : 'OF, article, poste…'
+                    mode() === 'planification'
+                      ? 'Commande, article, client…'
+                      : 'OF, article, poste…'
                   }
                   aria-label="Rechercher"
                   type="text"
@@ -881,7 +927,9 @@ const Programme: Component<VisionProps> = (props) => {
                     aria-label="Portée de la recherche"
                   >
                     <SelectValue<string>>
-                      {(state) => OF_SCOPES.find((s) => s.v === state.selectedOption())?.label ?? 'Portée'}
+                      {(state) =>
+                        OF_SCOPES.find((s) => s.v === state.selectedOption())?.label ?? 'Portée'
+                      }
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent />
@@ -907,7 +955,9 @@ const Programme: Component<VisionProps> = (props) => {
                   aria-label="Portée de la recherche"
                 >
                   <SelectValue<string>>
-                    {(state) => ORDER_SCOPES.find((s) => s.v === state.selectedOption())?.label ?? 'Portée'}
+                    {(state) =>
+                      ORDER_SCOPES.find((s) => s.v === state.selectedOption())?.label ?? 'Portée'
+                    }
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent />
@@ -949,8 +999,14 @@ const Programme: Component<VisionProps> = (props) => {
       >
         {/* Combiné seulement : segment Liens + santé + rail */}
         <Show when={mode() === 'combined'}>
-          <div class="inline-flex items-center gap-0.5 rounded-lg border border-rule bg-card p-0.5" role="radiogroup" aria-label="Visibilité des liens">
-            <span class="px-1.5 font-mono text-3xs font-bold uppercase tracking-wider text-muted-foreground">Liens</span>
+          <div
+            class="inline-flex items-center gap-0.5 rounded-lg border border-rule bg-card p-0.5"
+            role="radiogroup"
+            aria-label="Visibilité des liens"
+          >
+            <span class="px-1.5 font-mono text-3xs font-bold uppercase tracking-wider text-muted-foreground">
+              Liens
+            </span>
             <For each={['none', 'problems', 'all'] as const}>
               {(lm) => (
                 <button
@@ -959,7 +1015,9 @@ const Programme: Component<VisionProps> = (props) => {
                   aria-checked={linkMode() === lm}
                   class={cx(
                     'min-h-[28px] rounded-md px-2.5 py-1 font-mono text-2xs font-bold uppercase tracking-wider transition-colors',
-                    linkMode() === lm ? 'bg-brand-soft text-brand' : 'text-muted-foreground hover:text-foreground',
+                    linkMode() === lm
+                      ? 'bg-brand-soft text-brand'
+                      : 'text-muted-foreground hover:text-foreground'
                   )}
                   onClick={() => setLinkMode(lm)}
                 >
@@ -990,7 +1048,9 @@ const Programme: Component<VisionProps> = (props) => {
             aria-pressed={railOpen()}
             class={cx(
               'inline-flex min-h-[28px] items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors',
-              railOpen() ? 'border-brand bg-brand-soft text-brand' : 'border-rule bg-card text-muted-foreground hover:text-foreground',
+              railOpen()
+                ? 'border-brand bg-brand-soft text-brand'
+                : 'border-rule bg-card text-muted-foreground hover:text-foreground'
             )}
           >
             <span class="material-symbols-outlined text-sm">queue</span>
@@ -1037,94 +1097,99 @@ const Programme: Component<VisionProps> = (props) => {
           }
         >
           <div class="flex-1 overflow-hidden">
-            <OrderGrid
-              store={orderStore}
-              onSelectCard={onSelectOrderLine}
-            />
+            <OrderGrid store={orderStore} onSelectCard={onSelectOrderLine} />
           </div>
         </Show>
       </Show>
 
       <Show when={mode() !== 'planification'}>
-      <Show
-        when={props.lineCount > 0}
-        fallback={
-          <div class="flex flex-1 items-center justify-center p-10 font-fraunces text-sm italic text-muted-foreground">
-            Aucun OF dans l'horizon.
+        <Show
+          when={props.lineCount > 0}
+          fallback={
+            <div class="flex flex-1 items-center justify-center p-10 font-fraunces text-sm italic text-muted-foreground">
+              Aucun OF dans l'horizon.
+            </div>
+          }
+        >
+          <div class="flex flex-1 overflow-hidden">
+            <div class="flex-1 overflow-hidden">
+              <BoardGrid
+                store={store}
+                onSelectOf={onSelectOf}
+                onCardHover={(num) => setActiveId(num)}
+                onCellDrop={onCommandeDrop}
+                onLineEngagement={onLineEngagement}
+                contentRef={setContentEl}
+                cardRetard={mode() === 'combined' ? retardJoursOf : undefined}
+                onOfDragProgress={mode() === 'combined' ? onOfDragProgress : undefined}
+                onOfDropped={mode() === 'combined' ? onOfDropped : undefined}
+                onOfDragCancelled={mode() === 'combined' ? onOfDragCancelled : undefined}
+                translateOfDateFin={mode() === 'combined' ? translateOfDateFin : undefined}
+                virtualOrdersByCol={
+                  mode() === 'combined' && scenario.active() ? virtualOrdersByCol() : undefined
+                }
+                onVirtualDrop={moveVirtualOrder}
+                onVirtualRemove={removeVirtualOrder}
+                cellExtra={
+                  mode() === 'combined'
+                    ? (lineCode, col) => (
+                        <For each={cmdCells().get(lineCode)?.[col] ?? []}>
+                          {(cmd) => (
+                            <CommandeMarker
+                              lineCode={lineCode}
+                              cmd={cmd}
+                              cmdIso={cmdIso}
+                              activeId={activeId}
+                              onActivate={setActiveId}
+                              verdict={verdictByCmd().get(cmd.id)?.verdict ?? null}
+                              deltaJours={verdictByCmd().get(cmd.id)?.delta ?? null}
+                            />
+                          )}
+                        </For>
+                      )
+                    : undefined
+                }
+                overlay={
+                  mode() === 'combined' ? (
+                    <LinksOverlay paths={paths} isActive={isActive} linkMode={linkMode} />
+                  ) : undefined
+                }
+              />
+            </div>
+
+            {/* Programme v2 — rail de triage repliable (mode Combiné seulement) */}
+            <Show when={mode() === 'combined' && railOpen()}>
+              <TriageRail
+                commandes={props.commandes}
+                links={props.links}
+                verdictByCmd={verdictByCmd}
+                activeTab={railTab}
+                setActiveTab={setRailTab}
+                selectedId={railSelected}
+                onSelect={(item: TriageItem) => {
+                  setRailSelected(item.commandeId)
+                  setActiveId(item.commandeId)
+                  // Scroll vers l'OF sur le board
+                  if (item.ofId) {
+                    const el = document.querySelector(`[data-num-of="${item.ofId}"]`)
+                    el?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' })
+                  }
+                }}
+                onDetailOf={(ofId) => onSelectOf(ofId)}
+                onClose={() => setRailOpen(false)}
+                counts={() => ({
+                  retards: nbCmdRetard(),
+                  limites: nbCmdLimite(),
+                  sanslien: nbCmdSansLien(),
+                })}
+              />
+            </Show>
           </div>
-        }
-      >
-        <div class="flex flex-1 overflow-hidden">
-        <div class="flex-1 overflow-hidden">
-          <BoardGrid
-            store={store}
-            onSelectOf={onSelectOf}
-            onCardHover={(num) => setActiveId(num)}
-            onCellDrop={onCommandeDrop}
-            onLineEngagement={onLineEngagement}
-            contentRef={setContentEl}
-            cardRetard={mode() === 'combined' ? retardJoursOf : undefined}
-            onOfDragProgress={mode() === 'combined' ? onOfDragProgress : undefined}
-            onOfDropped={mode() === 'combined' ? onOfDropped : undefined}
-            onOfDragCancelled={mode() === 'combined' ? onOfDragCancelled : undefined}
-            translateOfDateFin={mode() === 'combined' ? translateOfDateFin : undefined}
-            virtualOrdersByCol={mode() === 'combined' && scenario.active() ? virtualOrdersByCol() : undefined}
-            onVirtualDrop={moveVirtualOrder}
-            onVirtualRemove={removeVirtualOrder}
-            cellExtra={mode() === 'combined' ? (lineCode, col) => (
-              <For each={cmdCells().get(lineCode)?.[col] ?? []}>
-                {(cmd) => (
-                  <CommandeMarker
-                    lineCode={lineCode}
-                    cmd={cmd}
-                    cmdIso={cmdIso}
-                    activeId={activeId}
-                    onActivate={setActiveId}
-                    verdict={verdictByCmd().get(cmd.id)?.verdict ?? null}
-                    deltaJours={verdictByCmd().get(cmd.id)?.delta ?? null}
-                  />
-                )}
-              </For>
-            ) : undefined}
-            overlay={mode() === 'combined' ? (
-              <LinksOverlay paths={paths} isActive={isActive} linkMode={linkMode} />
-            ) : undefined}
-          />
-        </div>
 
-        {/* Programme v2 — rail de triage repliable (mode Combiné seulement) */}
-        <Show when={mode() === 'combined' && railOpen()}>
-          <TriageRail
-            commandes={props.commandes}
-            links={props.links}
-            verdictByCmd={verdictByCmd}
-            activeTab={railTab}
-            setActiveTab={setRailTab}
-            selectedId={railSelected}
-            onSelect={(item: TriageItem) => {
-              setRailSelected(item.commandeId)
-              setActiveId(item.commandeId)
-              // Scroll vers l'OF sur le board
-              if (item.ofId) {
-                const el = document.querySelector(`[data-num-of="${item.ofId}"]`)
-                el?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' })
-              }
-            }}
-            onDetailOf={(ofId) => onSelectOf(ofId)}
-            onClose={() => setRailOpen(false)}
-            counts={() => ({
-              retards: nbCmdRetard(),
-              limites: nbCmdLimite(),
-              sanslien: nbCmdSansLien(),
-            })}
-          />
-        </Show>
-        </div>
-
-        {/* #62 (lot 0) : dans le <Show lineCount> — la barre d'affermissement n'a pas
+          {/* #62 (lot 0) : dans le <Show lineCount> — la barre d'affermissement n'a pas
             à flotter sous l'empty state « Aucun OF dans l'horizon ». */}
-        <BatchFirmBar store={store} />
-      </Show>
+          <BatchFirmBar store={store} />
+        </Show>
       </Show>
 
       {/* #23 — tooltip flottant pendant le drag OF : verdict prévisionnel de la

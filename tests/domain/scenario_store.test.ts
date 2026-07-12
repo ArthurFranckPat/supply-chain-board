@@ -4,7 +4,13 @@ import { ScenarioStore } from '#services/scenario_store'
 import type { PlanMutation } from '#app/domain/plan-diff'
 
 const M: PlanMutation[] = [
-  { type: 'shift_of', numOf: 'F0001', dateDebut: '2026-07-10', dateFin: '2026-07-12', poste: 'MONT01' },
+  {
+    type: 'shift_of',
+    numOf: 'F0001',
+    dateDebut: '2026-07-10',
+    dateFin: '2026-07-12',
+    poste: 'MONT01',
+  },
   { type: 'shift_demand', numCommande: 'AR2600001', ligne: '1000', date: '2026-07-15' },
 ]
 

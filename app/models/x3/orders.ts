@@ -194,5 +194,4 @@ export default class Orders extends BaseModel {
   // WIPTYP_0 = 6 → ligne matière OF (VCRNUM → MFGNUM)
   @belongsTo(() => MfgMat, { foreignKey: 'daOrdreSst', localKey: 'numeroOrdreDeFabrication' })
   declare ligneFabricationMatiere: BelongsTo<typeof MfgMat>
-
 }

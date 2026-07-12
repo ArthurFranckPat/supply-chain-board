@@ -485,16 +485,18 @@ export default class SchedulerController {
         const stockByArticle = buildStrictQcStock(stockFlows)
 
         const verdicts = evaluateRuptures(
-          [{
-            numOf: num,
-            article: mo?.article ?? '',
-            qteRestante: mo?.quantity ?? 0,
-            statutNum: status,
-            dateBesoin: null,
-            materials,
-          }],
+          [
+            {
+              numOf: num,
+              article: mo?.article ?? '',
+              qteRestante: mo?.quantity ?? 0,
+              statutNum: status,
+              dateBesoin: null,
+              materials,
+            },
+          ],
           { articles: new Map(), nomenclatures: new Map(), stockNet: stockByArticle },
-          'photo',
+          'photo'
         )
         const missing = verdicts.get(num) ? directMissing(verdicts.get(num)!) : {}
         bom = materials.map((m) => {

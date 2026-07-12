@@ -36,7 +36,11 @@ function buildOrdersSql(opts: OrdersSqlOptions): string {
   ]
   if (includeContremarque) columns.push('SQ.FMINUM_0   AS CONTREMARQUE')
   if (includeCustomerRef) {
-    columns.push('H.BPCORD_0    AS BPCORD', 'H.CUSORDREF_0 AS CUSORDREF', 'IB.ITMREFBPC_0 AS ITMREFBPC')
+    columns.push(
+      'H.BPCORD_0    AS BPCORD',
+      'H.CUSORDREF_0 AS CUSORDREF',
+      'IB.ITMREFBPC_0 AS ITMREFBPC'
+    )
   }
   columns.push(`CASE
     WHEN O.WIPSTA_0 = 1 AND O.WIPTYP_0 = 1 THEN H.SOHTYP_0
@@ -49,8 +53,10 @@ function buildOrdersSql(opts: OrdersSqlOptions): string {
     'LEFT JOIN BPARTNER P ON P.BPRNUM_0 = O.BPRNUM_0',
     'LEFT JOIN SORDER H ON H.SOHNUM_0 = O.VCRNUM_0 AND O.WIPTYP_0 = 1',
   ]
-  if (includeContremarque) joins.push('LEFT JOIN SORDERQ SQ ON SQ.SOHNUM_0 = O.VCRNUM_0 AND SQ.SOPLIN_0 = O.VCRLIN_0')
-  if (includeCustomerRef) joins.push('LEFT JOIN ITMBPC IB ON IB.ITMREF_0 = O.ITMREF_0 AND IB.BPCNUM_0 = H.BPCORD_0')
+  if (includeContremarque)
+    joins.push('LEFT JOIN SORDERQ SQ ON SQ.SOHNUM_0 = O.VCRNUM_0 AND SQ.SOPLIN_0 = O.VCRLIN_0')
+  if (includeCustomerRef)
+    joins.push('LEFT JOIN ITMBPC IB ON IB.ITMREF_0 = O.ITMREF_0 AND IB.BPCNUM_0 = H.BPCORD_0')
 
   const conditions = [
     `(O.WIPTYP_0 = 1 AND O.WIPSTA_0 IN (1, 3)
@@ -91,7 +97,7 @@ const OF_STATUS_LABELS: Record<number, string> = { 1: 'Ferme', 2: 'Planifié', 3
 const CLIENTS_AVEC_REF_CLIENT = new Set(['80001'])
 
 function toNum(v: string | null | undefined): number {
-  return parseFloat(v ?? '0') || 0
+  return Number.parseFloat(v ?? '0') || 0
 }
 
 interface DemandMapOptions {
@@ -104,42 +110,59 @@ interface DemandMapOptions {
 }
 
 function mapDemandRow(row: RawRow, opts: DemandMapOptions): Flow {
-  const wipsta = parseInt(row.WIPSTA_0 ?? '0')
+  const wipsta = Number.parseInt(row.WIPSTA_0 ?? '0')
   const article = row.ITMREF_0?.trim() ?? ''
   const quantity = toNum(row.RMNEXTQTY_0)
   const date = parseX3Date(row.ENDDAT_0)
   const nature: NeedNature = wipsta === 3 ? 'PREVISION' : 'COMMANDE'
   const orderType = (row.SOHTYP?.trim() || null) as OrderType | null
   const contremarque = opts.contremarque ? row.CONTREMARQUE?.trim() || null : null
-  const designation = opts.designation ? row.DESIGNATION?.trim() ?? null : undefined
+  const designation = opts.designation ? (row.DESIGNATION?.trim() ?? null) : undefined
   const exposeRef = opts.customerRef && CLIENTS_AVEC_REF_CLIENT.has((row.BPCORD ?? '').trim())
 
   if (nature === 'COMMANDE') {
     return {
-      article, quantity, direction: 'demand', date,
+      article,
+      quantity,
+      direction: 'demand',
+      date,
       origin: {
         type: 'order',
         id: row.VCRNUM_0?.trim() ?? '',
         customer: row.PARTNER_NOM?.trim() ?? '',
         pays: row.PAYS?.trim() ?? null,
-        orderType, nature, contremarque,
+        orderType,
+        nature,
+        contremarque,
         qteCommandee: toNum(row.EXTQTY_0),
         qteAllouee: toNum(row.ALLQTY_0),
         ligne: row.VCRLIN_0?.trim() ?? null,
         designation,
-        refCommandeClient: opts.customerRef ? (exposeRef ? row.CUSORDREF?.trim() || null : null) : undefined,
-        refArticleClient: opts.customerRef ? (exposeRef ? row.ITMREFBPC?.trim() || null : null) : undefined,
+        refCommandeClient: opts.customerRef
+          ? exposeRef
+            ? row.CUSORDREF?.trim() || null
+            : null
+          : undefined,
+        refArticleClient: opts.customerRef
+          ? exposeRef
+            ? row.ITMREFBPC?.trim() || null
+            : null
+          : undefined,
       },
     }
   }
   return {
-    article, quantity, direction: 'demand', date,
+    article,
+    quantity,
+    direction: 'demand',
+    date,
     origin: {
       type: 'forecast',
       id: row.VCRNUM_0?.trim() ?? '',
       customer: row.PARTNER_NOM?.trim() || null,
       pays: row.PAYS?.trim() ?? null,
-      orderType, contremarque,
+      orderType,
+      contremarque,
       qteCommandee: toNum(row.EXTQTY_0),
       qteAllouee: toNum(row.ALLQTY_0),
       designation,
@@ -148,7 +171,7 @@ function mapDemandRow(row: RawRow, opts: DemandMapOptions): Flow {
 }
 
 function mapReceptionRow(row: RawRow): Flow {
-  const wipsta = parseInt(row.WIPSTA_0 ?? '0')
+  const wipsta = Number.parseInt(row.WIPSTA_0 ?? '0')
   return {
     article: row.ITMREF_0?.trim() ?? '',
     quantity: toNum(row.RMNEXTQTY_0),
@@ -168,7 +191,7 @@ function mapReceptionRow(row: RawRow): Flow {
 }
 
 function mapOfRow(row: RawRow): Flow {
-  const status = (parseInt(row.WIPSTA_0 ?? '0') || 1) as 1 | 2 | 3
+  const status = (Number.parseInt(row.WIPSTA_0 ?? '0') || 1) as 1 | 2 | 3
   return {
     article: row.ITMREF_0?.trim() ?? '',
     quantity: toNum(row.RMNEXTQTY_0),
@@ -194,13 +217,24 @@ export interface LiveOrdersResult {
 
 export class CombinedOrdersRepository {
   /** Demande + réceptions sans OFs. 1 SOAP WIPTYP=1+2 — ~2-3× moins de lignes que fetchLive(). */
-  async fetchDemandAndReception(fromIso: string, toIso: string): Promise<{ demandFlows: Flow[]; receptionFlows: Flow[] }> {
+  async fetchDemandAndReception(
+    fromIso: string,
+    toIso: string
+  ): Promise<{ demandFlows: Flow[]; receptionFlows: Flow[] }> {
     const from = fromIso.replace(/-/g, '')
     const to = toIso.replace(/-/g, '')
     const db = new X3Database()
     let rows: RawRow[] = []
     try {
-      rows = await db.raw(buildOrdersSql({ from, to, includeOf: false, includeContremarque: true, includeCustomerRef: false }))
+      rows = await db.raw(
+        buildOrdersSql({
+          from,
+          to,
+          includeOf: false,
+          includeContremarque: true,
+          includeCustomerRef: false,
+        })
+      )
     } finally {
       await db.destroy()
     }
@@ -210,7 +244,7 @@ export class CombinedOrdersRepository {
     const mapOpts: DemandMapOptions = { contremarque: true, designation: true, customerRef: false }
 
     for (const row of rows) {
-      const wiptyp = parseInt(row.WIPTYP_0 ?? '0')
+      const wiptyp = Number.parseInt(row.WIPTYP_0 ?? '0')
       if (wiptyp === 1) demandFlows.push(mapDemandRow(row, mapOpts))
       else if (wiptyp === 2) receptionFlows.push(mapReceptionRow(row))
     }
@@ -232,7 +266,15 @@ export class CombinedOrdersRepository {
     const db = new X3Database()
     let rows: RawRow[] = []
     try {
-      rows = await db.raw(buildOrdersSql({ from, to, includeOf: true, includeContremarque: true, includeCustomerRef: true }))
+      rows = await db.raw(
+        buildOrdersSql({
+          from,
+          to,
+          includeOf: true,
+          includeContremarque: true,
+          includeCustomerRef: true,
+        })
+      )
     } finally {
       await db.destroy()
     }
@@ -243,7 +285,7 @@ export class CombinedOrdersRepository {
     const mapOpts: DemandMapOptions = { contremarque: true, designation: false, customerRef: true }
 
     for (const row of rows) {
-      const wiptyp = parseInt(row.WIPTYP_0 ?? '0')
+      const wiptyp = Number.parseInt(row.WIPTYP_0 ?? '0')
       if (wiptyp === 5) ofFlows.push(mapOfRow(row))
       else if (wiptyp === 1) demandFlows.push(mapDemandRow(row, mapOpts))
       else if (wiptyp === 2) receptionFlows.push(mapReceptionRow(row))

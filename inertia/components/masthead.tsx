@@ -41,7 +41,9 @@ const TABS: { key: MastheadTab; label: string; href: string }[] = [
 
 const tabCls = (active: boolean) =>
   `border-b-2 px-3.5 py-2.5 text-[12px] font-semibold transition-colors ${
-    active ? 'border-brand text-brand' : 'border-transparent text-secondary-foreground hover:text-brand'
+    active
+      ? 'border-brand text-brand'
+      : 'border-transparent text-secondary-foreground hover:text-brand'
   }`
 
 export const Masthead: Component<{

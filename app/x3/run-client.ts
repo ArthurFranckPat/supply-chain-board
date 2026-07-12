@@ -78,7 +78,7 @@ function buildEnvelope(config: X3SoapConfig, publicName: string, inputXml: strin
 export async function callRunSubprog(
   publicName: string,
   config: X3SoapConfig,
-  inputXml: string,
+  inputXml: string
 ): Promise<RunResult> {
   const envelope = buildEnvelope(config, publicName, inputXml)
 

@@ -1,4 +1,4 @@
-import { HttpContext } from '@adonisjs/core/http'
+import { type HttpContext } from '@adonisjs/core/http'
 import staticSync from '#services/static_sync_service'
 import boardDataset from '#services/board_dataset'
 

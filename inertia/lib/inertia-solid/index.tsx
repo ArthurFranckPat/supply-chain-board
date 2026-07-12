@@ -72,9 +72,9 @@ export function usePage<T extends PageProps = PageProps>(): Page<T> {
 
 function unwrap(mod: unknown): InertiaPage {
   const result = mod as ResolveResult
-  return (result && typeof result === 'object' && 'default' in result
-    ? result.default
-    : result) as InertiaPage
+  return (
+    result && typeof result === 'object' && 'default' in result ? result.default : result
+  ) as InertiaPage
 }
 
 export async function createInertiaApp(options: CreateInertiaAppOptions): Promise<void> {
@@ -114,7 +114,11 @@ function WithLayouts(props: {
   children: JSX.Element
 }): JSX.Element {
   return props.layouts.reduceRight(
-    (children, Layout) => <Dynamic component={Layout} {...(props.pageProps as Record<string, unknown>)}>{children}</Dynamic>,
+    (children, Layout) => (
+      <Dynamic component={Layout} {...(props.pageProps as Record<string, unknown>)}>
+        {children}
+      </Dynamic>
+    ),
     props.children
   )
 }
@@ -164,8 +168,7 @@ function App(props: SetupProps): JSX.Element {
 /* <Link>                                                                      */
 /* -------------------------------------------------------------------------- */
 
-export interface LinkProps
-  extends Omit<JSX.AnchorHTMLAttributes<HTMLAnchorElement>, 'onClick'> {
+export interface LinkProps extends Omit<JSX.AnchorHTMLAttributes<HTMLAnchorElement>, 'onClick'> {
   href: string
   method?: Method
   data?: VisitOptions['data']

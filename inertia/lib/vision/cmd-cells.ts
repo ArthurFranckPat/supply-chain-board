@@ -9,7 +9,7 @@ import type { VisionCommande, VisionLink } from '@/lib/vision/types'
 export function buildCmdCells(
   commandes: VisionCommande[],
   links: VisionLink[],
-  cmdCol: (l: VisionLink) => number,
+  cmdCol: (l: VisionLink) => number
 ): Map<string, VisionCommande[][]> {
   const cmdById = new Map(commandes.map((c) => [c.id, c]))
   const grids = new Map<string, VisionCommande[][]>()

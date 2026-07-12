@@ -23,7 +23,7 @@ Each note file:
 
 ```markdown
 ---
-date: "YYYY-MM-DD HH:mm"
+date: 'YYYY-MM-DD HH:mm'
 promoted: false
 ---
 
@@ -61,6 +61,7 @@ promoted: false
    - Where `{scope}` is "project" or "global"
 
 **Constraints:**
+
 - **Never modify the note text** - capture verbatim, including typos
 - **Never ask questions** - just write and confirm
 - **Timestamp format**: Use local time, `YYYY-MM-DD HH:mm` (24-hour, no seconds)
@@ -137,6 +138,7 @@ Promoted from quick note captured on {original date}.
 </process>
 
 <edge_cases>
+
 1. **"list" as note text**: `/gsd-note list of things` saves note "list of things" (subcommand only when `list` is the entire arg)
 2. **No `.planning/`**: Falls back to global `.agent/notes/` - works in any directory
 3. **Promote without project**: Warns that todos require `.planning/`, suggests `/gsd-new-project`
@@ -145,9 +147,10 @@ Promoted from quick note captured on {original date}.
 6. **`--global` position**: Stripped from anywhere - `--global my idea` and `my idea --global` both save "my idea" globally
 7. **Promote already-promoted**: Tell user "Note {N} is already promoted" and stop
 8. **Empty note text after stripping flags**: Treat as `list` subcommand
-</edge_cases>
+   </edge_cases>
 
 <success_criteria>
+
 - [ ] Append: Note file written with correct frontmatter and verbatim text
 - [ ] Append: No questions asked - instant capture
 - [ ] List: Both scopes shown with sequential numbering
@@ -155,4 +158,4 @@ Promoted from quick note captured on {original date}.
 - [ ] Promote: Todo created with correct format
 - [ ] Promote: Source note marked as promoted
 - [ ] Global fallback: Works when no `.planning/` exists
-</success_criteria>
+      </success_criteria>

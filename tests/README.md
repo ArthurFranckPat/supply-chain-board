@@ -48,13 +48,13 @@ node ace test --tags="@critical"
 Les filtres peuvent être combinés :
 
 ```bash
-node ace test --files=feasibility.test.ts --groups="checkFeasibility"
+node ace test --files=rupture-engine.test.ts --groups="rupture-engine"
 ```
 
 ## Afficher le détail des tests exécutés
 
 ```bash
-node ace test --files=feasibility.test.ts --reporters=spec
+node ace test --files=rupture-engine.test.ts --reporters=spec
 ```
 
 ## Exemples fréquents
@@ -63,9 +63,8 @@ node ace test --files=feasibility.test.ts --reporters=spec
 # Domaine
 node ace test --files=analyse-rupture.test.ts
 node ace test --files=analyse-rupture-bug.test.ts
-node ace test --files=feasibility.test.ts
-node ace test --files=feasibility-advanced.test.ts
-node ace test --files=feasibility-service.test.ts
+node ace test --files=rupture-engine.test.ts
+node ace test --files=feasibility-contract.test.ts
 node ace test --files=feasibility-diagnostics.test.ts
 node ace test --files=of-conso.test.ts
 node ace test --files=matching-edge-cases.test.ts

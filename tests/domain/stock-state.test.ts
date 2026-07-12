@@ -26,7 +26,12 @@ test.group('StockState', () => {
   })
 
   test('allocate different articles independently', ({ assert }) => {
-    const state = new StockState(new Map([['ART1', 100], ['ART2', 50]]))
+    const state = new StockState(
+      new Map([
+        ['ART1', 100],
+        ['ART2', 50],
+      ])
+    )
     state.allocate('OF1', { ART1: 30, ART2: 10 })
     assert.equal(state.getAvailable('ART1'), 70)
     assert.equal(state.getAvailable('ART2'), 40)

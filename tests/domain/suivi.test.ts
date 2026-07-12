@@ -2,13 +2,21 @@ import { test } from '@japa/runner'
 import { assignStatuses } from '#app/domain/suivi'
 import type { OrderLine } from '#app/domain/suivi'
 
-function makeLine(overrides: Partial<OrderLine> & { numCommande: string; article: string }): OrderLine {
+function makeLine(
+  overrides: Partial<OrderLine> & { numCommande: string; article: string }
+): OrderLine {
   return {
     ligne: '1000',
-    designation: '', nomClient: '', typeCommande: 'MTO',
-    dateExpedition: null, dateLivPrevu: null,
-    qteCommandee: 100, qteAllouee: 0, qteRestante: 100,
-    isFabrique: false, isHardPegged: false,
+    designation: '',
+    nomClient: '',
+    typeCommande: 'MTO',
+    dateExpedition: null,
+    dateLivPrevu: null,
+    qteCommandee: 100,
+    qteAllouee: 0,
+    qteRestante: 100,
+    isFabrique: false,
+    isHardPegged: false,
     ...overrides,
   }
 }
@@ -30,8 +38,12 @@ test.group('assignStatuses', () => {
   test('MTS fabrique with passed date and not in zone → RETARD_PROD', ({ assert }) => {
     const lines: OrderLine[] = [
       makeLine({
-        numCommande: 'C1', article: 'A', typeCommande: 'MTS', isFabrique: true,
-        dateExpedition: new Date('2026-06-05'), qteRestante: 50,
+        numCommande: 'C1',
+        article: 'A',
+        typeCommande: 'MTS',
+        isFabrique: true,
+        dateExpedition: new Date('2026-06-05'),
+        qteRestante: 50,
       }),
     ]
     const stock = new Map<string, { strict: number; qc: number; total: number }>([
@@ -44,8 +56,12 @@ test.group('assignStatuses', () => {
   test('MTS fabrique not in retard → RAS', ({ assert }) => {
     const lines: OrderLine[] = [
       makeLine({
-        numCommande: 'C1', article: 'A', typeCommande: 'MTS', isFabrique: true,
-        dateExpedition: new Date('2026-06-15'), qteRestante: 50,
+        numCommande: 'C1',
+        article: 'A',
+        typeCommande: 'MTS',
+        isFabrique: true,
+        dateExpedition: new Date('2026-06-15'),
+        qteRestante: 50,
       }),
     ]
     const stock = new Map<string, { strict: number; qc: number; total: number }>([
@@ -56,9 +72,7 @@ test.group('assignStatuses', () => {
   })
 
   test('demand covered by stock → ALLOCATION_A_FAIRE', ({ assert }) => {
-    const lines: OrderLine[] = [
-      makeLine({ numCommande: 'C1', article: 'A', qteRestante: 50 }),
-    ]
+    const lines: OrderLine[] = [makeLine({ numCommande: 'C1', article: 'A', qteRestante: 50 })]
     const stock = new Map<string, { strict: number; qc: number; total: number }>([
       ['A', { strict: 100, qc: 0, total: 100 }],
     ])
@@ -70,7 +84,9 @@ test.group('assignStatuses', () => {
   test('stock covers partially, date passed, not in zone → RETARD_PROD', ({ assert }) => {
     const lines: OrderLine[] = [
       makeLine({
-        numCommande: 'C1', article: 'A', qteRestante: 100,
+        numCommande: 'C1',
+        article: 'A',
+        qteRestante: 100,
         dateExpedition: new Date('2026-06-05'),
       }),
     ]
@@ -84,7 +100,9 @@ test.group('assignStatuses', () => {
   test('stock covers partially, date not passed → RAS', ({ assert }) => {
     const lines: OrderLine[] = [
       makeLine({
-        numCommande: 'C1', article: 'A', qteRestante: 100,
+        numCommande: 'C1',
+        article: 'A',
+        qteRestante: 100,
         dateExpedition: new Date('2026-06-20'),
       }),
     ]
@@ -96,9 +114,7 @@ test.group('assignStatuses', () => {
   })
 
   test('uses QC stock when strict is insufficient', ({ assert }) => {
-    const lines: OrderLine[] = [
-      makeLine({ numCommande: 'C1', article: 'A', qteRestante: 50 }),
-    ]
+    const lines: OrderLine[] = [makeLine({ numCommande: 'C1', article: 'A', qteRestante: 50 })]
     const stock = new Map<string, { strict: number; qc: number; total: number }>([
       ['A', { strict: 20, qc: 30, total: 50 }],
     ])

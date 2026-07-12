@@ -28,29 +28,70 @@ function isoDaysFromNow(n: number): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
-function makeOfFlow(id: string, article: string, status: number, quantity: number, date: Date): Flow {
+function makeOfFlow(
+  id: string,
+  article: string,
+  status: number,
+  quantity: number,
+  date: Date
+): Flow {
   return {
-    article, quantity, direction: 'supply', date,
+    article,
+    quantity,
+    direction: 'supply',
+    date,
     origin: { type: 'of', id, status, designation: '', typeOfLabel: '', statutLabel: '' } as any,
   }
 }
 
 function makeStockFlow(article: string, quantity: number): Flow {
-  return { article, quantity, direction: 'supply', date: null, origin: { type: 'stock', pmp: null } }
+  return {
+    article,
+    quantity,
+    direction: 'supply',
+    date: null,
+    origin: { type: 'stock', pmp: null },
+  }
 }
 
-function makeDemand(id: string, article: string, quantity: number, date: Date, customer = 'ACME'): Flow {
+function makeDemand(
+  id: string,
+  article: string,
+  quantity: number,
+  date: Date,
+  customer = 'ACME'
+): Flow {
   return {
-    article, quantity, direction: 'demand', date,
-    origin: { type: 'order', id, orderType: 'NOR', customer, nature: 'COMMANDE', qteCommandee: quantity, qteAllouee: 0 } as any,
+    article,
+    quantity,
+    direction: 'demand',
+    date,
+    origin: {
+      type: 'order',
+      id,
+      orderType: 'NOR',
+      customer,
+      nature: 'COMMANDE',
+      qteCommandee: quantity,
+      qteAllouee: 0,
+    } as any,
   }
 }
 
 function makeArticle(code: string, supplyType: 'ACHAT' | 'FABRICATION' = 'FABRICATION'): Article {
   return {
-    code, description: `Desc ${code}`, category: 'PF3', supplyType,
-    reorderDelay: 0, productFamily: null, pmp: null, economicLot: null,
-    unitStock: null, unitPurchase: null, purchaseToStockRatio: 1, packagings: [],
+    code,
+    description: `Desc ${code}`,
+    category: 'PF3',
+    supplyType,
+    reorderDelay: 0,
+    productFamily: null,
+    pmp: null,
+    economicLot: null,
+    unitStock: null,
+    unitPurchase: null,
+    purchaseToStockRatio: 1,
+    packagings: [],
   }
 }
 
@@ -122,17 +163,34 @@ test.group('evaluatePlanDiff', () => {
 
   test('suspend_supply : couverture composant qui casse (axe appro)', ({ assert }) => {
     const nomenclatures = new Map<string, Nomenclature>([
-      ['PF1', {
-        article: 'PF1', description: '', components: [
-          { parentArticle: 'PF1', parentDescription: '', level: 5, componentArticle: 'C1', componentDescription: '', linkQuantity: 1, componentType: 'ACHETE', consumptionNature: 'PROPORTIONNEL' },
-        ],
-      }],
+      [
+        'PF1',
+        {
+          article: 'PF1',
+          description: '',
+          components: [
+            {
+              parentArticle: 'PF1',
+              parentDescription: '',
+              level: 5,
+              componentArticle: 'C1',
+              componentDescription: '',
+              linkQuantity: 1,
+              componentType: 'ACHETE',
+              consumptionNature: 'PROPORTIONNEL',
+            },
+          ],
+        },
+      ],
     ])
     const inputs = makeInputs({
       demands: [makeDemand('CMD-1', 'PF1', 60, daysFromNow(10))],
       supplyFlows: [makeOfFlow('OF-A', 'PF1', 3, 60, daysFromNow(8)), makeStockFlow('C1', 60)],
       nomenclatures,
-      articles: new Map([['PF1', makeArticle('PF1')], ['C1', makeArticle('C1', 'ACHAT')]]),
+      articles: new Map([
+        ['PF1', makeArticle('PF1')],
+        ['C1', makeArticle('C1', 'ACHAT')],
+      ]),
     })
 
     const diff = evaluatePlanDiff(inputs, [{ type: 'suspend_supply', article: 'C1' }])
@@ -167,14 +225,23 @@ test.group('evaluatePlanDiff', () => {
     assert.equal(diff.client[0].deltaJours, 10)
   })
 
-  test('inject_demand : commande virtuelle capte la couverture (axes client + allocation)', ({ assert }) => {
+  test('inject_demand : commande virtuelle capte la couverture (axes client + allocation)', ({
+    assert,
+  }) => {
     const inputs = makeInputs({
       demands: [makeDemand('CMD-1', 'PF1', 60, daysFromNow(10))],
       supplyFlows: [makeOfFlow('OF-A', 'PF1', 3, 60, daysFromNow(8))],
     })
 
     const diff = evaluatePlanDiff(inputs, [
-      { type: 'inject_demand', id: 'VIRT-1', article: 'PF1', quantity: 60, date: isoDaysFromNow(5), client: 'PROSPECT' },
+      {
+        type: 'inject_demand',
+        id: 'VIRT-1',
+        article: 'PF1',
+        quantity: 60,
+        date: isoDaysFromNow(5),
+        client: 'PROSPECT',
+      },
     ])
 
     // La virtuelle apparaît, marquée nouvelle ; CMD-1 perd sa couverture.
@@ -198,7 +265,9 @@ test.group('evaluatePlanDiff', () => {
     assert.equal(alloc!.sens, 'degradation')
   })
 
-  test('shift_demand : la demande avancée capte l\'OF de l\'autre (bénéficiaire identifié)', ({ assert }) => {
+  test("shift_demand : la demande avancée capte l'OF de l'autre (bénéficiaire identifié)", ({
+    assert,
+  }) => {
     const inputs = makeInputs({
       demands: [
         makeDemand('CMD-A', 'PF1', 60, daysFromNow(10)),
@@ -234,7 +303,14 @@ test.group('evaluatePlanDiff', () => {
 
     const diff = evaluatePlanDiff(inputs, [
       { type: 'shift_of', numOf: 'OF-A', dateFin: isoDaysFromNow(25) },
-      { type: 'inject_demand', id: 'VIRT-1', article: 'PF1', quantity: 40, date: isoDaysFromNow(11), client: 'X' },
+      {
+        type: 'inject_demand',
+        id: 'VIRT-1',
+        article: 'PF1',
+        quantity: 40,
+        date: isoDaysFromNow(11),
+        client: 'X',
+      },
     ])
 
     // Les deux mutations produisent chacune leur effet dans le même diff.
@@ -263,9 +339,22 @@ test.group('applyMutations', () => {
     assert.lengthOf(out.supplyFlows, 0)
   })
 
-  test('shift_of fusionne avec un override existant sans écraser les autres champs', ({ assert }) => {
+  test('shift_of fusionne avec un override existant sans écraser les autres champs', ({
+    assert,
+  }) => {
     const overrides = new Map<string, OfOverride>([
-      ['OF-A', { numOf: 'OF-A', dateDebut: '2026-07-01', dateFin: '2026-07-03', status: 2, workstation: 'P1', note: 'n', updatedAt: 't' }],
+      [
+        'OF-A',
+        {
+          numOf: 'OF-A',
+          dateDebut: '2026-07-01',
+          dateFin: '2026-07-03',
+          status: 2,
+          workstation: 'P1',
+          note: 'n',
+          updatedAt: 't',
+        },
+      ],
     ])
 
     const out = applyMutations({ demands: [], supplyFlows: [], overrides }, [
@@ -308,7 +397,9 @@ test.group('diffCharge', () => {
     assert.equal(mondayOf('2026-07-13'), '2026-07-13') // lundi suivant
   })
 
-  test('shift_of date+poste : heures retirées du bucket source, ajoutées au bucket cible', ({ assert }) => {
+  test('shift_of date+poste : heures retirées du bucket source, ajoutées au bucket cible', ({
+    assert,
+  }) => {
     const mutations: PlanMutation[] = [
       { type: 'shift_of', numOf: 'OF-A', dateFin: '2026-07-15', poste: 'P2' },
     ]
@@ -316,8 +407,18 @@ test.group('diffCharge', () => {
     const entries = diffCharge(charges, mutations)
 
     assert.lengthOf(entries, 2)
-    assert.deepEqual(entries[0], { poste: 'P1', semaine: '2026-07-06', deltaHeures: -5, deltaPct: null })
-    assert.deepEqual(entries[1], { poste: 'P2', semaine: '2026-07-13', deltaHeures: 5, deltaPct: null })
+    assert.deepEqual(entries[0], {
+      poste: 'P1',
+      semaine: '2026-07-06',
+      deltaHeures: -5,
+      deltaPct: null,
+    })
+    assert.deepEqual(entries[1], {
+      poste: 'P2',
+      semaine: '2026-07-13',
+      deltaHeures: 5,
+      deltaPct: null,
+    })
   })
 
   test('déplacement dans la même semaine et le même poste → pas de delta', ({ assert }) => {
@@ -341,11 +442,23 @@ test.group('diffCharge', () => {
       ['P1|2026-07-13', 50],
     ])
 
-    const entries = diffCharge(charges, [
-      { type: 'shift_of', numOf: 'OF-A', dateFin: '2026-07-15' },
-    ], capacites)
+    const entries = diffCharge(
+      charges,
+      [{ type: 'shift_of', numOf: 'OF-A', dateFin: '2026-07-15' }],
+      capacites
+    )
 
-    assert.deepEqual(entries[0], { poste: 'P1', semaine: '2026-07-06', deltaHeures: -5, deltaPct: -12.5 })
-    assert.deepEqual(entries[1], { poste: 'P1', semaine: '2026-07-13', deltaHeures: 5, deltaPct: 10 })
+    assert.deepEqual(entries[0], {
+      poste: 'P1',
+      semaine: '2026-07-06',
+      deltaHeures: -5,
+      deltaPct: -12.5,
+    })
+    assert.deepEqual(entries[1], {
+      poste: 'P1',
+      semaine: '2026-07-13',
+      deltaHeures: 5,
+      deltaPct: 10,
+    })
   })
 })

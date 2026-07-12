@@ -42,7 +42,9 @@ export const BatchFirmBar: Component<{ store: BoardStore }> = (props) => {
           >
             <span class="flex items-center gap-2 font-mono text-[12px] font-bold">
               <Show when={store.batchRunning()}>
-                <span class="material-symbols-outlined animate-spin text-[16px] text-brand">progress_activity</span>
+                <span class="material-symbols-outlined animate-spin text-[16px] text-brand">
+                  progress_activity
+                </span>
               </Show>
               <span class="text-ferme">✓ {store.batchCounts().ok}</span>
               <Show when={store.batchCounts().err > 0}>
@@ -70,7 +72,9 @@ export const BatchFirmBar: Component<{ store: BoardStore }> = (props) => {
               onClick={run}
               disabled={store.batchRunning() || store.selectedCount() === 0}
             >
-              <span class={`material-symbols-outlined text-[15px] ${store.batchRunning() ? 'animate-spin' : ''}`}>
+              <span
+                class={`material-symbols-outlined text-[15px] ${store.batchRunning() ? 'animate-spin' : ''}`}
+              >
                 {store.batchRunning() ? 'progress_activity' : 'check_circle'}
               </span>
               {store.batchRunning() ? 'Affermissement…' : 'Affermir la sélection'}
@@ -78,10 +82,16 @@ export const BatchFirmBar: Component<{ store: BoardStore }> = (props) => {
 
             {/* Popover de confirmation groupée (≥1 OF en rupture) */}
             <Show when={confirm()}>
-              <div class="fixed inset-0 z-40" onClick={() => setConfirm(false)} aria-hidden="true" />
+              <div
+                class="fixed inset-0 z-40"
+                onClick={() => setConfirm(false)}
+                aria-hidden="true"
+              />
               <div class="absolute bottom-full left-1/2 z-50 mb-2 w-[22rem] -translate-x-1/2 rounded-lg border border-destructive/40 bg-background p-3 shadow-xl">
                 <div class="flex items-start gap-2">
-                  <span class="material-symbols-outlined mt-0.5 text-[18px] text-destructive">warning</span>
+                  <span class="material-symbols-outlined mt-0.5 text-[18px] text-destructive">
+                    warning
+                  </span>
                   <div class="min-w-0 flex-1">
                     <div class="font-mono text-[12px] font-bold text-destructive">
                       {blocked().length} OF en rupture dans la sélection

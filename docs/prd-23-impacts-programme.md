@@ -1,6 +1,6 @@
 # PRD — Issue #23 : couche d'impact sur `/programme` (OF en retard / mise à dispo pénalisée)
 
-*Rédigé le 2026-07-09 — état du repo : branche `feat/inertia-solid`, HEAD `faacf15`.*
+_Rédigé le 2026-07-09 — état du repo : branche `feat/inertia-solid`, HEAD `faacf15`._
 
 ## 1. Résumé
 
@@ -19,16 +19,16 @@ faisabilité composant (couvert ailleurs), pas de modification du moteur CBN/MRP
 L'issue référence `inertia/pages/scheduler/vision.tsx` ; la page a été **renommée et
 restructurée** depuis :
 
-| Issue #23 (rédaction) | Repo actuel |
-|---|---|
-| Page `/vision`, fichier `vision.tsx` | Page **`/programme`**, `inertia/pages/scheduler/programme.tsx` (shell, ~550 l. après refacto SOLID #52) |
-| — | 3 modes **client-side** : `combined` / `ordonnancement` / `planification` (toggle sans round-trip, URL via `replaceState`) |
-| Overlay SVG des liens | Extrait dans `inertia/components/vision/links-overlay.tsx` + géométrie pure `inertia/lib/vision/link-overlay.ts` |
-| Marqueurs commande | Extraits dans `inertia/components/vision/commande-marker.tsx`, posés via slot `cellExtra` de `<BoardGrid>` |
-| Drag OF (`store.moveCard`) | En place — optimiste + rollback, PATCH `planning_board.update` (`workstation`, `dateDebut`) |
-| Drag commande (`cmdMoved`) | En place — optimiste, PATCH `order_planning.update` (`dateLivraison`), remesure overlay au drop |
-| `loadOrderImpacts` avec overrides | En place (presets nommés, transforms purs — commit `09b85a1`) ; `evaluateOrderImpacts` calcule déjà `joursRetard`, `statut`, `ofs[].dateFin` **avec overrides** (`effectiveDateFin`) |
-| — | Payload `/programme` en cache **global** SWR 2 min (`loadProgrammeData`, issue #33/#39) |
+| Issue #23 (rédaction)                | Repo actuel                                                                                                                                                                          |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Page `/vision`, fichier `vision.tsx` | Page **`/programme`**, `inertia/pages/scheduler/programme.tsx` (shell, ~550 l. après refacto SOLID #52)                                                                              |
+| —                                    | 3 modes **client-side** : `combined` / `ordonnancement` / `planification` (toggle sans round-trip, URL via `replaceState`)                                                           |
+| Overlay SVG des liens                | Extrait dans `inertia/components/vision/links-overlay.tsx` + géométrie pure `inertia/lib/vision/link-overlay.ts`                                                                     |
+| Marqueurs commande                   | Extraits dans `inertia/components/vision/commande-marker.tsx`, posés via slot `cellExtra` de `<BoardGrid>`                                                                           |
+| Drag OF (`store.moveCard`)           | En place — optimiste + rollback, PATCH `planning_board.update` (`workstation`, `dateDebut`)                                                                                          |
+| Drag commande (`cmdMoved`)           | En place — optimiste, PATCH `order_planning.update` (`dateLivraison`), remesure overlay au drop                                                                                      |
+| `loadOrderImpacts` avec overrides    | En place (presets nommés, transforms purs — commit `09b85a1`) ; `evaluateOrderImpacts` calcule déjà `joursRetard`, `statut`, `ofs[].dateFin` **avec overrides** (`effectiveDateFin`) |
+| —                                    | Payload `/programme` en cache **global** SWR 2 min (`loadProgrammeData`, issue #33/#39)                                                                                              |
 
 ### Ce qui manque (les gaps que cette feature comble)
 
@@ -85,11 +85,11 @@ Pour chaque lien OF ↔ ligne de commande :
 delta = dateFinOf − dateBesoinCommande   (jours calendaires)
 ```
 
-| Verdict | Condition | Rendu |
-|---|---|---|
-| `retard` | `delta > 0` | Lien rouge (`--color-error`) **visible d'emblée**, marqueur + carte en alerte, badge « +N j » |
-| `limite` | `−margeJours ≤ delta ≤ 0` | Lien ambre, visible au survol, badge « J−N » |
-| `ok` | `delta < −margeJours` | Comportement actuel (lien terra, masqué hors survol) |
+| Verdict  | Condition                 | Rendu                                                                                         |
+| -------- | ------------------------- | --------------------------------------------------------------------------------------------- |
+| `retard` | `delta > 0`               | Lien rouge (`--color-error`) **visible d'emblée**, marqueur + carte en alerte, badge « +N j » |
+| `limite` | `−margeJours ≤ delta ≤ 0` | Lien ambre, visible au survol, badge « J−N »                                                  |
+| `ok`     | `delta < −margeJours`     | Comportement actuel (lien terra, masqué hors survol)                                          |
 
 `margeJours` : constante front `2` en v1 (pas d'UI de réglage) — extraite dans
 `lib/vision/impact.ts` pour être configurable plus tard.
@@ -170,8 +170,8 @@ export function verdictOf(delta: number | null): ImpactVerdict | null
 /** Verdicts par lien, dates surchargées par l'état de drag en cours. */
 export function computeImpacts(
   links: VisionLink[],
-  ofShift: Map<string, number>,      // ofId → décalage jours (drag OF, optimiste)
-  cmdBesoin: Map<string, string>,    // commandeId → date besoin provisoire (drag cmd)
+  ofShift: Map<string, number>, // ofId → décalage jours (drag OF, optimiste)
+  cmdBesoin: Map<string, string> // commandeId → date besoin provisoire (drag cmd)
 ): Map<linkKey, { delta: number; verdict: ImpactVerdict }>
 ```
 
@@ -201,11 +201,11 @@ pour `/ordonnancement` (le callsite board seul ne passe pas l'info).
 
 ### 5.5 Découpage en livraisons
 
-1. **Serveur** — dates sur `VisionLink` + miroir types front. *(petit, sans risque)*
+1. **Serveur** — dates sur `VisionLink` + miroir types front. _(petit, sans risque)_
 2. **Client statique** — `impact.ts` + états visuels initiaux (liens/marqueurs/cartes,
-   badges, compteur toolbar) + tests unitaires. *(cœur de la valeur — G1, G4, G5)*
+   badges, compteur toolbar) + tests unitaires. _(cœur de la valeur — G1, G4, G5)_
 3. **Client live** — recalcul pendant drag OF + drag commande, tooltip, translation
-   `dateFin` dans `moveCard`. *(G2, G3 + fix gap n°4)*
+   `dateFin` dans `moveCard`. _(G2, G3 + fix gap n°4)_
 
 Chaque étape est shippable seule ; l'étape 2 délivre déjà le cas 1 de l'issue.
 

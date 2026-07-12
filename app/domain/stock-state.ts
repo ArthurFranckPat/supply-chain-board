@@ -6,7 +6,6 @@
  * remplacé par le moteur de rupture unique (#73, étape 3) — cf. rupture-engine.ts.
  */
 
-
 export interface FeasibilityOptions {
   mode?: 'immediate' | 'sequential'
   /** Allocations ERP par numéro d'OF : Map<numOf, Map<article, qteAllouee>> */

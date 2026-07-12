@@ -1,8 +1,8 @@
 # Diagnostic UI — page `/programme` (Vue unifiée OF ↔ commandes)
 
-*Revue de code UI (sans rendu navigateur), basée sur `inertia/pages/scheduler/programme.tsx`,
+_Revue de code UI (sans rendu navigateur), basée sur `inertia/pages/scheduler/programme.tsx`,
 `components/vision/*` (toolbar, marqueur commande, overlay liens) et
-`components/board/*` (board-grid, board-card).*
+`components/board/*` (board-grid, board-card)._
 
 ## Verdict global
 
@@ -183,14 +183,14 @@ Le plan fusionné (7 lots + hors périmètre) vit dans l'issue
 
 ## Priorités proposées
 
-| # | Sujet | Sévérité | Effort |
-|---|-------|----------|--------|
-| 1 | `applyScenario` sans check `r.ok` (faux « appliqué ») | Critique | XS |
-| 2 | Verdict `null` = verdict `ok` sur les marqueurs | Majeur | XS |
-| 3 | Purge des overrides au refresh | Majeur | XS |
-| 4 | Clavier : `onKeyDown` sur cartes, Échap calendrier | Majeur | S |
-| 5 | Palette verdict/statut unifiée (1 module, terra ≠ ok) | Majeur | M |
-| 6 | Toolbar : 2 rangées, `aria-pressed`, libellés complets | Majeur | M |
-| 7 | Plancher typo 11 px sur les infos décisionnelles | Majeur | M |
-| 8 | Priorité des badges carte (1 signal critique max) | Important | M |
-| 9 | Affordances hover-only (croix, limite, drag) | Important | M |
+| #   | Sujet                                                  | Sévérité  | Effort |
+| --- | ------------------------------------------------------ | --------- | ------ |
+| 1   | `applyScenario` sans check `r.ok` (faux « appliqué »)  | Critique  | XS     |
+| 2   | Verdict `null` = verdict `ok` sur les marqueurs        | Majeur    | XS     |
+| 3   | Purge des overrides au refresh                         | Majeur    | XS     |
+| 4   | Clavier : `onKeyDown` sur cartes, Échap calendrier     | Majeur    | S      |
+| 5   | Palette verdict/statut unifiée (1 module, terra ≠ ok)  | Majeur    | M      |
+| 6   | Toolbar : 2 rangées, `aria-pressed`, libellés complets | Majeur    | M      |
+| 7   | Plancher typo 11 px sur les infos décisionnelles       | Majeur    | M      |
+| 8   | Priorité des badges carte (1 signal critique max)      | Important | M      |
+| 9   | Affordances hover-only (croix, limite, drag)           | Important | M      |

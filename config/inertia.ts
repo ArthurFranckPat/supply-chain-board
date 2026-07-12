@@ -137,7 +137,15 @@ declare module '@adonisjs/inertia/types' {
     'config/calendrier': {
       year: number
       holidays: { date: string; name: string; active: boolean }[]
-      closures: { id: number; scope: 'global' | 'wst' | 'stoloc'; code: string; from: string; to: string; factor: number; motif: string }[]
+      closures: {
+        id: number
+        scope: 'global' | 'wst' | 'stoloc'
+        code: string
+        from: string
+        to: string
+        factor: number
+        motif: string
+      }[]
       postes: { code: string; label: string; atelier: string }[]
       ateliers: { code: string; label: string }[]
     }

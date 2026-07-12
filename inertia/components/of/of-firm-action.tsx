@@ -37,7 +37,9 @@ export const OfFirmAction: Component<OfFirmActionProps> = (props) => (
       onClick={() => props.onFirm()}
       disabled={props.firming() || props.confirmRupture()}
     >
-      <span class={`material-symbols-outlined text-[15px] ${props.firming() ? 'animate-spin' : ''}`}>
+      <span
+        class={`material-symbols-outlined text-[15px] ${props.firming() ? 'animate-spin' : ''}`}
+      >
         {props.firming() ? 'progress_activity' : 'check_circle'}
       </span>
       {props.firming() ? 'Affermissement…' : props.isSuggestion() ? 'Affermir' : 'Passer en ferme'}
@@ -45,17 +47,14 @@ export const OfFirmAction: Component<OfFirmActionProps> = (props) => (
     <Show when={props.confirmRupture()}>
       {/* Backdrop plein écran : bloque toute interaction (dont le
           bouton Affermir) et annule au clic dehors. */}
-      <div
-        class="fixed inset-0 z-40"
-        onClick={() => props.onCancelConfirm()}
-        aria-hidden="true"
-      />
+      <div class="fixed inset-0 z-40" onClick={() => props.onCancelConfirm()} aria-hidden="true" />
       <div class="absolute bottom-full right-0 z-50 mb-2 w-[20rem] rounded-lg border border-destructive/40 bg-background p-3 shadow-xl">
         <div class="flex items-start gap-2">
           <span class="material-symbols-outlined mt-0.5 text-[18px] text-destructive">warning</span>
           <div class="min-w-0 flex-1">
             <div class="font-mono text-[12px] font-bold text-destructive">
-              {props.rupturedComponents().length} composant{props.rupturedComponents().length > 1 ? 's' : ''} en rupture
+              {props.rupturedComponents().length} composant
+              {props.rupturedComponents().length > 1 ? 's' : ''} en rupture
             </div>
             <div class="mt-0.5 text-[11px] leading-snug text-muted-foreground">
               L'OF créé ne pourrait pas être produit immédiatement. Affermir malgré tout ?
@@ -80,8 +79,16 @@ export const OfFirmAction: Component<OfFirmActionProps> = (props) => (
           >
             Annuler
           </Button>
-          <Button size="sm" variant="destructive" class="h-7 gap-1 text-[11px]" onClick={() => props.onDoFirm()} disabled={props.firming()}>
-            <span class={`material-symbols-outlined text-[14px] ${props.firming() ? 'animate-spin' : ''}`}>
+          <Button
+            size="sm"
+            variant="destructive"
+            class="h-7 gap-1 text-[11px]"
+            onClick={() => props.onDoFirm()}
+            disabled={props.firming()}
+          >
+            <span
+              class={`material-symbols-outlined text-[14px] ${props.firming() ? 'animate-spin' : ''}`}
+            >
               {props.firming() ? 'progress_activity' : 'gpp_maybe'}
             </span>
             Affermir malgré les ruptures

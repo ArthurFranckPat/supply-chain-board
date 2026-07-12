@@ -367,6 +367,7 @@ This handles cases where:
 
 <quick_resume>
 If user says "continue" or "go":
+
 - Load state silently
 - Determine primary action
 - Execute immediately without presenting options

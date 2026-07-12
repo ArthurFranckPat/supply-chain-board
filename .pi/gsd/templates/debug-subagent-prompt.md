@@ -35,23 +35,24 @@ Create: .planning/debug/{slug}.md
 
 ## Placeholders
 
-| Placeholder | Source | Example |
-|-------------|--------|---------|
-| `{issue_id}` | Orchestrator-assigned | `auth-screen-dark` |
-| `{issue_summary}` | User description | `Auth screen is too dark` |
-| `{expected}` | From symptoms | `See logo clearly` |
-| `{actual}` | From symptoms | `Screen is dark` |
-| `{errors}` | From symptoms | `None in console` |
-| `{reproduction}` | From symptoms | `Open /auth page` |
-| `{timeline}` | From symptoms | `After recent deploy` |
-| `{goal}` | Orchestrator sets | `find_and_fix` |
-| `{slug}` | Generated | `auth-screen-dark` |
+| Placeholder       | Source                | Example                   |
+| ----------------- | --------------------- | ------------------------- |
+| `{issue_id}`      | Orchestrator-assigned | `auth-screen-dark`        |
+| `{issue_summary}` | User description      | `Auth screen is too dark` |
+| `{expected}`      | From symptoms         | `See logo clearly`        |
+| `{actual}`        | From symptoms         | `Screen is dark`          |
+| `{errors}`        | From symptoms         | `None in console`         |
+| `{reproduction}`  | From symptoms         | `Open /auth page`         |
+| `{timeline}`      | From symptoms         | `After recent deploy`     |
+| `{goal}`          | Orchestrator sets     | `find_and_fix`            |
+| `{slug}`          | Generated             | `auth-screen-dark`        |
 
 ---
 
 ## Usage
 
 **From /gsd-debug:**
+
 ```python
 Task(
   prompt=filled_template,
@@ -61,6 +62,7 @@ Task(
 ```
 
 **From diagnose-issues (UAT):**
+
 ```python
 Task(prompt=template, subagent_type="gsd-debugger", description="Debug UAT-001")
 ```

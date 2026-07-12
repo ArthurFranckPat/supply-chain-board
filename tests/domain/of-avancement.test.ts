@@ -2,23 +2,29 @@ import { test } from '@japa/runner'
 import type { OperationRecord } from '#repositories/operation_repository'
 import { computeAvancement } from '#app/domain/of-avancement'
 
-function op(mfgnum: string, openum: number, cplqty: number, opesta = ' ', extqty = 100): OperationRecord {
+function op(
+  mfgnum: string,
+  openum: number,
+  cplqty: number,
+  opesta = ' ',
+  extqty = 100
+): OperationRecord {
   return { mfgnum, openum, cplqty, opesta, extqty }
 }
 
 test.group('computeAvancement', () => {
   test('OF avec pointages intermédiaires → estDebuté true', ({ assert }) => {
     const records: OperationRecord[] = [
-      op('OF-1', 10, 720),  // intermédiaire pointée
-      op('OF-1', 20, 0),    // intermédiaire non pointée
-      op('OF-1', 30, 0),    // dernière op (déclaration stock) — exclue
+      op('OF-1', 10, 720), // intermédiaire pointée
+      op('OF-1', 20, 0), // intermédiaire non pointée
+      op('OF-1', 30, 0), // dernière op (déclaration stock) — exclue
     ]
     const result = computeAvancement(records)
     const avancement = result.get('OF-1')!
     assert.isTrue(avancement.estDebuté)
     assert.equal(avancement.derniereOpPointée, 10)
     assert.equal(avancement.derniereOpGamme, 30)
-    assert.equal(avancement.nbOperations, 2)   // 2 intermédiaires
+    assert.equal(avancement.nbOperations, 2) // 2 intermédiaires
     assert.equal(avancement.nbOperationsPointées, 1)
   })
 
@@ -26,7 +32,7 @@ test.group('computeAvancement', () => {
     const records: OperationRecord[] = [
       op('OF-2', 10, 0),
       op('OF-2', 20, 0),
-      op('OF-2', 30, 720),  // seule la dernière a un pointage (entrée stock)
+      op('OF-2', 30, 720), // seule la dernière a un pointage (entrée stock)
     ]
     const result = computeAvancement(records)
     const avancement = result.get('OF-2')!
@@ -38,7 +44,7 @@ test.group('computeAvancement', () => {
     const records: OperationRecord[] = [
       op('OF-3', 10, 0),
       op('OF-3', 20, 0),
-      op('OF-3', 30, 720),  // dernière — déclarée mais pas un avancement réel
+      op('OF-3', 30, 720), // dernière — déclarée mais pas un avancement réel
     ]
     const result = computeAvancement(records)
     assert.isFalse(result.get('OF-3')!.estDebuté)
@@ -46,7 +52,7 @@ test.group('computeAvancement', () => {
 
   test('gammes mono-opération → estDebuté false (angle mort documenté)', ({ assert }) => {
     const records: OperationRecord[] = [
-      op('OF-4', 10, 720),  // seule op = dernière = déclaration stock
+      op('OF-4', 10, 720), // seule op = dernière = déclaration stock
     ]
     const result = computeAvancement(records)
     assert.isFalse(result.get('OF-4')!.estDebuté)
@@ -75,7 +81,7 @@ test.group('computeAvancement', () => {
       op('OF-5', 10, 720),
       op('OF-5', 20, 500),
       op('OF-5', 30, 300),
-      op('OF-5', 40, 0),   // dernière non pointée
+      op('OF-5', 40, 0), // dernière non pointée
     ]
     const result = computeAvancement(records)
     const a = result.get('OF-5')!

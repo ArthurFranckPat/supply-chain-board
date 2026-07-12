@@ -54,31 +54,42 @@ export const ShortageComposants: Component<{
                       'border-t border-rule-soft transition-colors',
                       late
                         ? 'bg-destructive/10 hover:bg-destructive/[0.18]'
-                        : 'hover:bg-foreground/[0.04]',
+                        : 'hover:bg-foreground/[0.04]'
                     )}
                   >
                     <td
                       class={cx(
                         'px-4 py-[13px] align-middle font-fraunces text-[14px] leading-none text-muted-foreground/80 border-r border-rule-soft',
-                        late && '[box-shadow:inset_3px_0_var(--color-destructive)]',
+                        late && '[box-shadow:inset_3px_0_var(--color-destructive)]'
                       )}
                     >
                       {i() + 1}
                     </td>
                     <td class={TD}>
-                      <div class="font-mono text-[14px] font-bold tracking-tight text-foreground">{g.component}</div>
+                      <div class="font-mono text-[14px] font-bold tracking-tight text-foreground">
+                        {g.component}
+                      </div>
                       <div class="mt-0.5 truncate max-w-[18rem] font-sans text-[11px] leading-snug text-muted-foreground">
                         {g.componentDesc}
                       </div>
                     </td>
                     <td class={`whitespace-nowrap text-right ${TD}`}>
-                      <span class={cx('font-fraunces text-[14px] font-bold tabular-nums leading-none', late ? 'text-destructive' : 'text-foreground')}>
+                      <span
+                        class={cx(
+                          'font-fraunces text-[14px] font-bold tabular-nums leading-none',
+                          late ? 'text-destructive' : 'text-foreground'
+                        )}
+                      >
                         {fmtTotal(g.totalManquant)}
-                        <span class="ml-0.5 font-mono text-[9px] font-medium text-muted-foreground/70">u</span>
+                        <span class="ml-0.5 font-mono text-[9px] font-medium text-muted-foreground/70">
+                          u
+                        </span>
                       </span>
                     </td>
                     <td class={`whitespace-nowrap text-right ${TD}`}>
-                      <span class="font-fraunces text-[14px] font-bold tabular-nums leading-none text-foreground">{g.lines.length}</span>
+                      <span class="font-fraunces text-[14px] font-bold tabular-nums leading-none text-foreground">
+                        {g.lines.length}
+                      </span>
                     </td>
                     <td class={TD}>
                       <div class="flex flex-wrap gap-1">
@@ -92,7 +103,7 @@ export const ShortageComposants: Component<{
                                 'cursor-pointer rounded border px-1.5 py-0.5 font-mono text-[10.5px] font-bold transition-colors hover:border-brand hover:text-brand',
                                 l.verdictKey === 'sans_couverture'
                                   ? 'border-destructive/30 text-destructive'
-                                  : 'border-rule text-secondary-foreground',
+                                  : 'border-rule text-secondary-foreground'
                               )}
                             >
                               {l.numOf}
@@ -104,13 +115,24 @@ export const ShortageComposants: Component<{
                     <td class={TD}>
                       <Show
                         when={g.urgent}
-                        fallback={<span class="font-sans text-[11px] italic text-muted-foreground/50">— orphelins</span>}
+                        fallback={
+                          <span class="font-sans text-[11px] italic text-muted-foreground/50">
+                            — orphelins
+                          </span>
+                        }
                       >
                         {(u) => (
                           <>
                             <div class="flex items-baseline gap-1.5">
-                              <span class="font-mono text-[12px] font-semibold text-secondary-foreground">{u().numCommande}</span>
-                              <span class={cx('font-mono text-[11px] font-bold', late ? 'text-destructive' : 'text-muted-foreground')}>
+                              <span class="font-mono text-[12px] font-semibold text-secondary-foreground">
+                                {u().numCommande}
+                              </span>
+                              <span
+                                class={cx(
+                                  'font-mono text-[11px] font-bold',
+                                  late ? 'text-destructive' : 'text-muted-foreground'
+                                )}
+                              >
                                 {u().dateExpedition}
                               </span>
                             </div>
@@ -125,7 +147,12 @@ export const ShortageComposants: Component<{
                       <Show
                         when={g.nbSansCouverture > 0}
                         fallback={
-                          <span class={cx('inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap', VERDICT_BADGE[g.worstVerdict].cls)}>
+                          <span
+                            class={cx(
+                              'inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap',
+                              VERDICT_BADGE[g.worstVerdict].cls
+                            )}
+                          >
                             {VERDICT_BADGE[g.worstVerdict].label}
                           </span>
                         }

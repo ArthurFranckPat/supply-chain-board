@@ -38,7 +38,14 @@ export function Combobox(props: {
           <Cb.ItemLabel>{ip.item.rawValue.label}</Cb.ItemLabel>
           <Cb.ItemIndicator>
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="size-4">
-              <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m5 12l5 5L20 7" />
+              <path
+                fill="none"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="m5 12l5 5L20 7"
+              />
             </svg>
           </Cb.ItemIndicator>
         </Cb.Item>
@@ -49,7 +56,14 @@ export function Combobox(props: {
         <Cb.Trigger class="shrink-0 opacity-50">
           <Cb.Icon>
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="size-4">
-              <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9l6 6l6-6" />
+              <path
+                fill="none"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="m6 9l6 6l6-6"
+              />
             </svg>
           </Cb.Icon>
         </Cb.Trigger>
@@ -96,7 +110,14 @@ export function MultiCombobox(props: {
           <Cb.ItemLabel>{ip.item.rawValue.label}</Cb.ItemLabel>
           <Cb.ItemIndicator>
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="size-4">
-              <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m5 12l5 5L20 7" />
+              <path
+                fill="none"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="m5 12l5 5L20 7"
+              />
             </svg>
           </Cb.ItemIndicator>
         </Cb.Item>
@@ -108,9 +129,19 @@ export function MultiCombobox(props: {
             {state.selectedOptions().map((opt) => (
               <span class="inline-flex items-center gap-1 rounded-full border border-rule bg-brand-soft px-2 py-0.5 text-[11px] font-semibold text-brand">
                 {opt.label}
-                <button type="button" onClick={() => state.remove(opt)} class="leading-none opacity-70 hover:opacity-100">
+                <button
+                  type="button"
+                  onClick={() => state.remove(opt)}
+                  class="leading-none opacity-70 hover:opacity-100"
+                >
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="size-3">
-                    <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="2.5" d="M6 6l12 12M18 6L6 18" />
+                    <path
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-linecap="round"
+                      stroke-width="2.5"
+                      d="M6 6l12 12M18 6L6 18"
+                    />
                   </svg>
                 </button>
               </span>
@@ -119,7 +150,14 @@ export function MultiCombobox(props: {
             <Cb.Trigger class="shrink-0 opacity-50">
               <Cb.Icon>
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="size-4">
-                  <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9l6 6l6-6" />
+                  <path
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="m6 9l6 6l6-6"
+                  />
                 </svg>
               </Cb.Icon>
             </Cb.Trigger>

@@ -169,7 +169,10 @@ export class RecursiveDiagnosticChecker {
   private maxNodes: number
   private checkDate: Date
 
-  constructor(private loader: DiagnosticLoader, options: DiagnosticOptions = {}) {
+  constructor(
+    private loader: DiagnosticLoader,
+    options: DiagnosticOptions = {}
+  ) {
     this.maxDepth = options.maxDepth ?? DEFAULT_MAX_DEPTH
     this.maxNodes = options.maxNodes ?? DEFAULT_MAX_NODES
     this.checkDate = options.checkDate ?? new Date()
@@ -214,7 +217,9 @@ export class RecursiveDiagnosticChecker {
     const tree = await this.diagnoseNode(of, new Set(), 0)
     const allAlerts = this.collectAlerts(tree)
     if (this.budgetHit) {
-      allAlerts.unshift(`Diagnostic partiel : budget de ${this.maxNodes} OF atteint (arbre tronqué).`)
+      allAlerts.unshift(
+        `Diagnostic partiel : budget de ${this.maxNodes} OF atteint (arbre tronqué).`
+      )
     }
     return {
       numOf: of.numOf,
@@ -233,7 +238,11 @@ export class RecursiveDiagnosticChecker {
    * cf. {@link nodeMemo}). Un OF déjà `inProgress` re-rencontré = cycle par la chaîne
    * des OF → sentinelle `indetermine` (non mémoïsée : dépend du contexte d'appel).
    */
-  private async diagnoseNode(of: OfRecord, ancestors: Set<string>, depth: number): Promise<DiagnosticNode> {
+  private async diagnoseNode(
+    of: OfRecord,
+    ancestors: Set<string>,
+    depth: number
+  ): Promise<DiagnosticNode> {
     this.maxDepthSeen = Math.max(this.maxDepthSeen, depth)
     const article = of.article
     const base = {
@@ -249,15 +258,36 @@ export class RecursiveDiagnosticChecker {
     // plus haute dans l'arbre.
     // Garde : cycle par article.
     if (ancestors.has(article)) {
-      return { ...base, source: 'NOMENCLATURE', feasible: false, status: 'indetermine', shorts: [], alerts: [`Cycle detecte: ${article}`] }
+      return {
+        ...base,
+        source: 'NOMENCLATURE',
+        feasible: false,
+        status: 'indetermine',
+        shorts: [],
+        alerts: [`Cycle detecte: ${article}`],
+      }
     }
     // Garde : profondeur max.
     if (depth > this.maxDepth) {
-      return { ...base, source: 'NOMENCLATURE', feasible: false, status: 'indetermine', shorts: [], alerts: [`Profondeur max atteinte sur ${article}`] }
+      return {
+        ...base,
+        source: 'NOMENCLATURE',
+        feasible: false,
+        status: 'indetermine',
+        shorts: [],
+        alerts: [`Profondeur max atteinte sur ${article}`],
+      }
     }
     // Garde : cycle par chaîne d'OF (OF déjà en cours de calcul plus haut) → non mémoïsé.
     if (this.inProgress.has(of.numOf)) {
-      return { ...base, source: 'NOMENCLATURE', feasible: false, status: 'indetermine', shorts: [], alerts: [`Cycle detecte (OF): ${of.numOf}`] }
+      return {
+        ...base,
+        source: 'NOMENCLATURE',
+        feasible: false,
+        status: 'indetermine',
+        shorts: [],
+        alerts: [`Cycle detecte (OF): ${of.numOf}`],
+      }
     }
 
     // Mémo : la dispo d'un OF ne dépend pas de qui le demande → 1 calcul par OF (collapse DAG).
@@ -268,7 +298,14 @@ export class RecursiveDiagnosticChecker {
     // non mémoïsée). Empêche le « tourne dans le vide » sur un composant à fan-out énorme.
     if (this.diagnosedOfs >= this.maxNodes) {
       this.budgetHit = true
-      return { ...base, source: 'NOMENCLATURE', feasible: false, status: 'indetermine', shorts: [], alerts: [`Budget de nœuds atteint (${this.maxNodes}) sur ${of.numOf}`] }
+      return {
+        ...base,
+        source: 'NOMENCLATURE',
+        feasible: false,
+        status: 'indetermine',
+        shorts: [],
+        alerts: [`Budget de nœuds atteint (${this.maxNodes}) sur ${of.numOf}`],
+      }
     }
 
     this.diagnosedOfs++
@@ -279,7 +316,11 @@ export class RecursiveDiagnosticChecker {
     return node
   }
 
-  private async computeNode(of: OfRecord, ancestors: Set<string>, depth: number): Promise<DiagnosticNode> {
+  private async computeNode(
+    of: OfRecord,
+    ancestors: Set<string>,
+    depth: number
+  ): Promise<DiagnosticNode> {
     const article = of.article
     const description = this.loader.getArticle(article)?.description ?? ''
     const base = {
@@ -337,11 +378,19 @@ export class RecursiveDiagnosticChecker {
       // suggestions statut 3 sur la fenêtre +1 an) : les descendre TOUS explose la largeur
       // (la nomenclature réelle ne fait pourtant que ≤ 4 niveaux). On sélectionne le
       // sous-ensemble minimal qui couvre la quantité manquante, ferme→planifié→suggéré.
-      const coveringOfs = this.selectCovering(this.loader.getOfsByArticle(s.article, undefined, date), s.qtyMissing)
+      const coveringOfs = this.selectCovering(
+        this.loader.getOfsByArticle(s.article, undefined, date),
+        s.qtyMissing
+      )
       const covering: CoveringOf[] = []
       for (const covOf of coveringOfs) {
         const node = await this.diagnoseNode(covOf, childAncestors, depth + 1)
-        covering.push({ numOf: covOf.numOf, statut: covOf.statutNum, quantity: covOf.qteRestante, node })
+        covering.push({
+          numOf: covOf.numOf,
+          statut: covOf.statutNum,
+          quantity: covOf.qteRestante,
+          node,
+        })
       }
 
       shorts.push({
@@ -448,10 +497,12 @@ export class RecursiveDiagnosticChecker {
         nomenclatures: { get: () => undefined },
         stockNet,
       },
-      'photo',
+      'photo'
     ).get(of.numOf)
     const describe = (a: string) =>
-      materials.find((m) => m.article === a)?.description ?? this.loader.getArticle(a)?.description ?? ''
+      materials.find((m) => m.article === a)?.description ??
+      this.loader.getArticle(a)?.description ??
+      ''
     return this.shortsFromVerdict(verdict, describe)
   }
 
@@ -515,7 +566,7 @@ export class RecursiveDiagnosticChecker {
   /** RawShorts depuis les manquants DIRECTS (depth 0) d'un verdict moteur. */
   private async shortsFromVerdict(
     verdict: RuptureVerdict | undefined,
-    describe: (article: string) => string,
+    describe: (article: string) => string
   ): Promise<RawShort[]> {
     if (!verdict) return []
     const out: RawShort[] = []
@@ -582,9 +633,11 @@ export class RecursiveDiagnosticChecker {
    * futures : une réception attendue il y a peu (transporteur en retard, réception non
    * pointée) reste la prochaine arrivée réelle. Fenêtre = [aujourd'hui − GRACE_DAYS, +∞[.
    */
-  private async receptionFields(
-    article: string,
-  ): Promise<{ earliestReception: string | null; receptionSupplier?: string; receptionOrderId?: string }> {
+  private async receptionFields(article: string): Promise<{
+    earliestReception: string | null
+    receptionSupplier?: string
+    receptionOrderId?: string
+  }> {
     const floor = new Date(this.checkDate)
     floor.setDate(floor.getDate() - RECEPTION_GRACE_DAYS)
     const candidates = (await this.loader.getReceptions(article))

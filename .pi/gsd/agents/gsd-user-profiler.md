@@ -19,6 +19,7 @@ CRITICAL: You must apply the rubric defined in the reference document. Do not in
 You receive extracted session messages as JSONL content (from the profile-sample output).
 
 Each message has the following structure:
+
 ```json
 {
   "sessionId": "string",
@@ -30,6 +31,7 @@ Each message has the following structure:
 ```
 
 Key characteristics of the input:
+
 - Messages are already filtered to genuine user messages only (system messages, tool results, and Claude responses are excluded)
 - Each message is truncated to 500 characters for profiling purposes
 - Messages are project-proportionally sampled -- no single project dominates
@@ -41,6 +43,7 @@ Key characteristics of the input:
 @get-shit-done/references/user-profiling.md
 
 This is the detection heuristics rubric. Read it in full before analyzing any messages. It defines:
+
 - The 8 dimensions and their rating spectrums
 - Signal patterns to look for in messages
 - Detection heuristics for classifying ratings
@@ -66,6 +69,7 @@ Read the user-profiling reference document at `get-shit-done/references/user-pro
 Read all provided session messages from the input JSONL content.
 
 While reading, build a mental index:
+
 - Group messages by project for cross-project consistency assessment
 - Note message timestamps for recency weighting
 - Flag messages that are log pastes, session context dumps, or large code blocks (deprioritize for evidence)
@@ -103,7 +107,7 @@ For each of the 8 dimensions defined in the reference document:
    - MUST be actionable: Claude should be able to follow this instruction directly
    - For LOW confidence dimensions: include a hedging instruction: "Try X -- ask if this matches their preference"
    - For UNSCORED dimensions: use a neutral fallback: "No strong preference detected. Ask the developer when this dimension is relevant."
-</step>
+   </step>
 
 <step name="filter_sensitive">
 After selecting all evidence quotes, perform a final pass checking for sensitive content patterns:
@@ -117,6 +121,7 @@ After selecting all evidence quotes, perform a final pass checking for sensitive
 - Full absolute file paths containing usernames (e.g., `/Users/john/`, `/home/john/`)
 
 If any selected quote contains these patterns:
+
 1. Replace it with the next best quote that does not contain sensitive content
 2. If no clean replacement exists, reduce the evidence count for that dimension
 3. Record the exclusion in the `sensitive_excluded` metadata array
@@ -126,6 +131,7 @@ If any selected quote contains these patterns:
 Construct the complete analysis JSON matching the exact schema defined in the reference document's Output Schema section.
 
 Verify before returning:
+
 - All 8 dimensions are present in the output
 - Each dimension has all required fields (rating, confidence, evidence_count, cross_project_consistent, evidence_quotes, summary, claude_instruction)
 - Rating values match the defined spectrums (no invented ratings)
@@ -143,6 +149,7 @@ Wrap the JSON in `<analysis>` tags for reliable extraction by the orchestrator.
 Return the complete analysis JSON wrapped in `<analysis>` tags.
 
 Format:
+
 ```
 <analysis>
 {

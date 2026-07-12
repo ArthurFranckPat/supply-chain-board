@@ -36,39 +36,42 @@ Template for spawning gsd-planner agent. The agent contains all planning experti
 <downstream_consumer>
 Output consumed by /gsd-execute-phase
 Plans must be executable prompts with:
+
 - Frontmatter (wave, depends_on, files_modified, autonomous)
 - Tasks in XML format
 - Verification criteria
 - must_haves for goal-backward verification
-</downstream_consumer>
+  </downstream_consumer>
 
 <quality_gate>
 Before returning PLANNING COMPLETE:
+
 - [ ] PLAN.md files created in phase directory
 - [ ] Each plan has valid frontmatter
 - [ ] Tasks are specific and actionable
 - [ ] Dependencies correctly identified
 - [ ] Waves assigned for parallel execution
 - [ ] must_haves derived from phase goal
-</quality_gate>
+      </quality_gate>
 ```
 
 ---
 
 ## Placeholders
 
-| Placeholder | Source | Example |
-|-------------|--------|---------|
-| `{phase_number}` | From roadmap/arguments | `5` or `2.1` |
-| `{phase_dir}` | Phase directory name | `05-user-profiles` |
-| `{phase}` | Phase prefix | `05` |
-| `{standard \| gap_closure}` | Mode flag | `standard` |
+| Placeholder                 | Source                 | Example            |
+| --------------------------- | ---------------------- | ------------------ |
+| `{phase_number}`            | From roadmap/arguments | `5` or `2.1`       |
+| `{phase_dir}`               | Phase directory name   | `05-user-profiles` |
+| `{phase}`                   | Phase prefix           | `05`               |
+| `{standard \| gap_closure}` | Mode flag              | `standard`         |
 
 ---
 
 ## Usage
 
 **From /gsd-plan-phase (standard mode):**
+
 ```python
 Task(
   prompt=filled_template,
@@ -78,6 +81,7 @@ Task(
 ```
 
 **From /gsd-plan-phase --gaps (gap closure mode):**
+
 ```python
 Task(
   prompt=filled_template,  # with mode: gap_closure

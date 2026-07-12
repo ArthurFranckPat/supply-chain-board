@@ -410,5 +410,4 @@ export default class PurchaseOrder extends BaseModel {
     onQuery: (query) => query.where('typePiece', 14),
   })
   declare encoursList: HasMany<typeof Orders>
-
 }

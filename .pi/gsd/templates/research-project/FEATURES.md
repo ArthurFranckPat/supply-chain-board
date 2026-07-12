@@ -43,15 +43,16 @@ Features that seem good but create problems.
 | [feature] | [surface appeal] | [actual problems] | [better approach] |
 
 ## Feature Dependencies
-
 ```
+
 [Feature A]
-    └──requires──> [Feature B]
-                       └──requires──> [Feature C]
+└──requires──> [Feature B]
+└──requires──> [Feature C]
 
 [Feature D] ──enhances──> [Feature A]
 
 [Feature E] ──conflicts──> [Feature F]
+
 ```
 
 ### Dependency Notes
@@ -120,26 +121,31 @@ Features to defer until product-market fit is established.
 <guidelines>
 
 **Table Stakes:**
+
 - These are non-negotiable for launch
 - Users don't give credit for having them, but penalize for missing them
 - Example: A community platform without user profiles is broken
 
 **Differentiators:**
+
 - These are where you compete
 - Should align with the Core Value from PROJECT.md
 - Don't try to differentiate on everything
 
 **Anti-Features:**
+
 - Prevent scope creep by documenting what seems good but isn't
 - Include the alternative approach
 - Example: "Real-time everything" often creates complexity without value
 
 **Feature Dependencies:**
+
 - Critical for roadmap phase ordering
 - If A requires B, B must be in an earlier phase
 - Conflicts inform what NOT to combine in same phase
 
 **MVP Definition:**
+
 - Be ruthless about what's truly minimum
 - "Nice to have" is not MVP
 - Launch with less, validate, then expand

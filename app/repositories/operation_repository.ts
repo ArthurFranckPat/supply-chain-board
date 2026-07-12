@@ -55,10 +55,10 @@ export class X3OperationRepository {
       for (const row of models) {
         rows.push({
           mfgnum: (row.numeroOrdreDeFabrication ?? '').trim(),
-          openum: parseFloat(row.numeroOperation ?? '0') || 0,
-          cplqty: parseFloat(row.quantiteRealiseeTotale ?? '0') || 0,
+          openum: Number.parseFloat(row.numeroOperation ?? '0') || 0,
+          cplqty: Number.parseFloat(row.quantiteRealiseeTotale ?? '0') || 0,
           opesta: (row.statutOperation ?? '').trim(),
-          extqty: parseFloat(row.quantitePrevue ?? '0') || 0,
+          extqty: Number.parseFloat(row.quantitePrevue ?? '0') || 0,
         })
       }
     }

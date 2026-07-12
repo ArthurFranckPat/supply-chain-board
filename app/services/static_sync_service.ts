@@ -30,7 +30,10 @@ export class StaticSyncService {
   async syncAll(): Promise<SyncResult> {
     const start = Date.now()
     const errors: string[] = []
-    let articles = 0, gammes = 0, nomenclatures = 0, workstations = 0
+    let articles = 0
+    let gammes = 0
+    let nomenclatures = 0
+    let workstations = 0
 
     const [artResult, gammeResult, nomResult, wstResult] = await Promise.allSettled([
       this.syncArticles(),
@@ -57,27 +60,29 @@ export class StaticSyncService {
   private async syncWorkstations(): Promise<number> {
     const entries: Workstation[] = await new X3WorkstationRepository().getAll()
     const now = Date.now()
-    const data = entries.map((w) => ({
-      code: w.code,
-      description: w.description,
-      wsttyp: w.type,
-      wstnbr: w.parallelUnits,
-      eff: w.efficiency,
-      use_pct: w.utilization,
-      shr: w.scrap,
-      twd: w.scheduleCode,
-      daycap_0: w.dailyCapacity[0] ?? 0,
-      daycap_1: w.dailyCapacity[1] ?? 0,
-      daycap_2: w.dailyCapacity[2] ?? 0,
-      daycap_3: w.dailyCapacity[3] ?? 0,
-      daycap_4: w.dailyCapacity[4] ?? 0,
-      daycap_5: w.dailyCapacity[5] ?? 0,
-      daycap_6: w.dailyCapacity[6] ?? 0,
-      stoloc: w.stockLocation,
-      wcr: w.workCenter,
-      wcrfcy: w.facility,
-      synced_at: now,
-    })).filter((r) => r.code)
+    const data = entries
+      .map((w) => ({
+        code: w.code,
+        description: w.description,
+        wsttyp: w.type,
+        wstnbr: w.parallelUnits,
+        eff: w.efficiency,
+        use_pct: w.utilization,
+        shr: w.scrap,
+        twd: w.scheduleCode,
+        daycap_0: w.dailyCapacity[0] ?? 0,
+        daycap_1: w.dailyCapacity[1] ?? 0,
+        daycap_2: w.dailyCapacity[2] ?? 0,
+        daycap_3: w.dailyCapacity[3] ?? 0,
+        daycap_4: w.dailyCapacity[4] ?? 0,
+        daycap_5: w.dailyCapacity[5] ?? 0,
+        daycap_6: w.dailyCapacity[6] ?? 0,
+        stoloc: w.stockLocation,
+        wcr: w.workCenter,
+        wcrfcy: w.facility,
+        synced_at: now,
+      }))
+      .filter((r) => r.code)
 
     await db.from('static_workstations').delete()
     for (let i = 0; i < data.length; i += 500) {
@@ -93,9 +98,7 @@ export class StaticSyncService {
 
     try {
       while (true) {
-        const keysetClause = lastCode
-          ? `AND ITMREF_0 > '${lastCode.replace(/'/g, "''")}'`
-          : ''
+        const keysetClause = lastCode ? `AND ITMREF_0 > '${lastCode.replace(/'/g, "''")}'` : ''
         const pageQuery = `
 SELECT ITMREF_0, ITMDES1_0, TCLCOD_0, MFGFLG_0, YFAMSTAT7_0, TSICOD_4
 FROM (
@@ -106,7 +109,7 @@ FROM (
 ) WHERE ROWNUM <= ${PAGE_SIZE_ARTICLES}`
 
         const result = await x3.raw(pageQuery)
-        const rows: RawRow[] = Array.isArray(result) ? result : (result as any)?.rows ?? []
+        const rows: RawRow[] = Array.isArray(result) ? result : ((result as any)?.rows ?? [])
         if (!rows.length) break
         all.push(...rows)
         lastCode = String(rows[rows.length - 1].ITMREF_0 ?? '').trim()
@@ -140,13 +143,15 @@ FROM (
   private async syncGammes(): Promise<number> {
     const entries: GammeOperation[] = await new X3GammeRepository().getFirstOperations()
     const now = Date.now()
-    const data = entries.map((g) => ({
-      article: g.article,
-      workstation: g.workstation ?? '',
-      workstation_label: g.workstationLabel ?? '',
-      rate: g.rate ?? 0,
-      synced_at: now,
-    })).filter((r) => r.article && r.workstation)
+    const data = entries
+      .map((g) => ({
+        article: g.article,
+        workstation: g.workstation ?? '',
+        workstation_label: g.workstationLabel ?? '',
+        rate: g.rate ?? 0,
+        synced_at: now,
+      }))
+      .filter((r) => r.article && r.workstation)
 
     await db.from('static_gammes').delete()
     for (let i = 0; i < data.length; i += 500) {
@@ -165,7 +170,9 @@ FROM (
       const fabResult = await x3.raw(
         `SELECT ITMREF_0 FROM BOM WHERE BOMALT_0 = 1 AND ROWNUM <= 5000`
       )
-      const fabRows: RawRow[] = Array.isArray(fabResult) ? fabResult : (fabResult as any)?.rows ?? []
+      const fabRows: RawRow[] = Array.isArray(fabResult)
+        ? fabResult
+        : ((fabResult as any)?.rows ?? [])
       fabricated = new Set(fabRows.map((r) => String(r.ITMREF_0 ?? '').trim()))
 
       // 2. BOM lines — composite keyset (ART_PARENT, NIVEAU) to avoid splitting a parent's lines
@@ -201,12 +208,12 @@ FROM (
 ) WHERE ROWNUM <= ${PAGE_SIZE_BOM}`
 
         const result = await x3.raw(pageQuery)
-        const rows: RawRow[] = Array.isArray(result) ? result : (result as any)?.rows ?? []
+        const rows: RawRow[] = Array.isArray(result) ? result : ((result as any)?.rows ?? [])
         if (!rows.length) break
         allBom.push(...rows)
         const lastRow = rows[rows.length - 1]
         lastParent = String(lastRow.ART_PARENT ?? '').trim()
-        lastSeq = parseInt(String(lastRow.NIVEAU ?? '-1')) || -1
+        lastSeq = Number.parseInt(String(lastRow.NIVEAU ?? '-1')) || -1
         if (rows.length < PAGE_SIZE_BOM) break
       }
     } finally {
@@ -221,10 +228,10 @@ FROM (
         return {
           parent_article: String(r.ART_PARENT ?? '').trim(),
           parent_description: String(r.DES_PARENT ?? '').trim(),
-          level: parseInt(String(r.NIVEAU ?? '0')) || 0,
+          level: Number.parseInt(String(r.NIVEAU ?? '0')) || 0,
           component_article: componentArticle,
           component_description: String(r.DES_COMPOSANT ?? '').trim(),
-          link_quantity: parseFloat(String(r.QTE_LIEN ?? '0')) || 0,
+          link_quantity: Number.parseFloat(String(r.QTE_LIEN ?? '0')) || 0,
           component_type: fabricated.has(componentArticle) ? 'FABRIQUE' : 'ACHETE',
           consumption_nature: likqtycod === '2' ? 'FORFAIT' : 'PROPORTIONNEL',
           synced_at: now,
@@ -348,7 +355,13 @@ FROM (
     }))
   }
 
-  async counts(): Promise<{ articles: number; gammes: number; nomenclatures: number; workstations: number; lastSync: number | null }> {
+  async counts(): Promise<{
+    articles: number
+    gammes: number
+    nomenclatures: number
+    workstations: number
+    lastSync: number | null
+  }> {
     const [a, g, n, w] = await Promise.all([
       db.from('static_articles').count('* as total').first(),
       db.from('static_gammes').count('* as total').first(),

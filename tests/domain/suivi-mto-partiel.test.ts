@@ -8,20 +8,28 @@ import type { OrderLine } from '#app/domain/suivi'
  * le statut de base (A_EXPEDIER…) mais on lève le signal `attenteLignesMto` sur les
  * lignes A_EXPEDIER d'une commande MTO incomplète (≥ 1 ligne avec besoin net > 0).
  */
-function makeLine(overrides: Partial<OrderLine> & { numCommande: string; article: string }): OrderLine {
+function makeLine(
+  overrides: Partial<OrderLine> & { numCommande: string; article: string }
+): OrderLine {
   return {
     ligne: '1000',
-    designation: '', nomClient: '', typeCommande: 'MTO',
-    dateExpedition: null, dateLivPrevu: null,
-    qteCommandee: 100, qteAllouee: 0, qteRestante: 100,
-    isFabrique: false, isHardPegged: false,
+    designation: '',
+    nomClient: '',
+    typeCommande: 'MTO',
+    dateExpedition: null,
+    dateLivPrevu: null,
+    qteCommandee: 100,
+    qteAllouee: 0,
+    qteRestante: 100,
+    isFabrique: false,
+    isHardPegged: false,
     ...overrides,
   }
 }
 
 const ZERO = { strict: 0, qc: 0, total: 0 }
 
-test.group('MTO — pas d\'expédition partielle', () => {
+test.group("MTO — pas d'expédition partielle", () => {
   const refDate = new Date('2026-06-10')
 
   test('commande MTO complète → aucune ligne en attente', ({ assert }) => {
@@ -65,8 +73,20 @@ test.group('MTO — pas d\'expédition partielle', () => {
 
   test('commande MTS incomplète → pas de signal (règle MTO uniquement)', ({ assert }) => {
     const lines: OrderLine[] = [
-      makeLine({ numCommande: 'C1', article: 'A', typeCommande: 'MTS', qteRestante: 50, qteAllouee: 50 }),
-      makeLine({ numCommande: 'C1', article: 'B', typeCommande: 'MTS', qteRestante: 30, qteAllouee: 0 }),
+      makeLine({
+        numCommande: 'C1',
+        article: 'A',
+        typeCommande: 'MTS',
+        qteRestante: 50,
+        qteAllouee: 50,
+      }),
+      makeLine({
+        numCommande: 'C1',
+        article: 'B',
+        typeCommande: 'MTS',
+        qteRestante: 30,
+        qteAllouee: 0,
+      }),
     ]
     const stock = new Map<string, typeof ZERO>([
       ['A', ZERO],

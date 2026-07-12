@@ -16,7 +16,7 @@ const entry = (
   parent: string,
   component: string,
   linkQuantity: number,
-  type: 'ACHETE' | 'FABRIQUE' = 'FABRIQUE',
+  type: 'ACHETE' | 'FABRIQUE' = 'FABRIQUE'
 ): NomenclatureEntry => ({
   parentArticle: parent,
   parentDescription: '',
@@ -44,7 +44,7 @@ test('explose PF + composants avec qty propagées et profondeurs correctes', ({ 
   const raws = explodeCharge(
     [{ article: 'PF1', quantite: 10, date: D1, nature: 'ferme' }],
     bomByParent,
-    gammeMap,
+    gammeMap
   )
   const byArt = new Map(raws.map((r) => [r.article, r]))
   assert.equal(raws.length, 3)
@@ -61,7 +61,7 @@ test('maxDepth coupe la descente', ({ assert }) => {
     [{ article: 'PF1', quantite: 10, date: D1, nature: 'ferme' }],
     bomByParent,
     gammeMap,
-    1, // PF (0) + C1 (1) seulement, S1 (2) exclu.
+    1 // PF (0) + C1 (1) seulement, S1 (2) exclu.
   )
   assert.equal(raws.length, 2)
   assert.isUndefined(raws.find((r) => r.article === 'S1'))
@@ -77,7 +77,7 @@ test('garde anti-cycle : A→B→A ne boucle pas', ({ assert }) => {
     [{ article: 'A', quantite: 1, date: D1, nature: 'ferme' }],
     cycBom,
     cycGamme,
-    10,
+    10
   )
   assert.equal(raws.filter((r) => r.article === 'A').length, 1)
   assert.equal(raws.filter((r) => r.article === 'B').length, 1)
@@ -91,10 +91,12 @@ test('netting FIFO : stock consommé depuis la date la plus tôt', ({ assert }) 
       { article: 'PF1', quantite: 10, date: D2, nature: 'ferme' },
     ],
     bomByParent,
-    gammeMap,
+    gammeMap
   )
   const needs = netCharge(raws, new Map([['C1', 5]]))
-  const c1 = needs.filter((n) => n.article === 'C1').sort((a, b) => a.date.getTime() - b.date.getTime())
+  const c1 = needs
+    .filter((n) => n.article === 'C1')
+    .sort((a, b) => a.date.getTime() - b.date.getTime())
   // D1 : brut 20, stock 5 consommés → net 15 → 3h (rate 5).
   assert.equal(c1[0].brutHours, 4)
   assert.equal(c1[0].netHours, 3)
@@ -107,7 +109,7 @@ test('stock couvrant totalement → net nul', ({ assert }) => {
   const raws = explodeCharge(
     [{ article: 'PF1', quantite: 10, date: D1, nature: 'ferme' }],
     bomByParent,
-    gammeMap,
+    gammeMap
   )
   const needs = netCharge(raws, new Map([['C1', 999]]))
   const c1 = needs.find((n) => n.article === 'C1')!

@@ -116,13 +116,21 @@ export const ScenarioBar: Component<{
           onClick={openDiff}
           class="gap-1.5"
         >
-          <span class={cx('material-symbols-outlined text-[15px]', s.diffLoading() && 'animate-spin')}>
+          <span
+            class={cx('material-symbols-outlined text-[15px]', s.diffLoading() && 'animate-spin')}
+          >
             {s.diffLoading() ? 'progress_activity' : 'insights'}
           </span>
           Impacts
         </Button>
 
-        <Button size="sm" variant="outline" disabled={s.saving()} onClick={() => s.save()} class="gap-1.5">
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={s.saving()}
+          onClick={() => s.save()}
+          class="gap-1.5"
+        >
           <span class="material-symbols-outlined text-[15px]">save</span>
           {s.saving() ? 'Enregistrement…' : 'Enregistrer'}
         </Button>
@@ -133,7 +141,9 @@ export const ScenarioBar: Component<{
           onClick={props.onApply}
           class="gap-1.5"
         >
-          <span class={cx('material-symbols-outlined text-[15px]', props.applying() && 'animate-spin')}>
+          <span
+            class={cx('material-symbols-outlined text-[15px]', props.applying() && 'animate-spin')}
+          >
             {props.applying() ? 'progress_activity' : 'play_arrow'}
           </span>
           {props.applying() ? 'Application…' : 'Appliquer'}
@@ -151,9 +161,9 @@ export const ScenarioBar: Component<{
                 <AlertDialogTitle>Jeter le scénario ?</AlertDialogTitle>
                 <AlertDialogDescription>
                   {s.mutationCount()} mutation{s.mutationCount() > 1 ? 's' : ''} non appliquée
-                  {s.mutationCount() > 1 ? 's' : ''} ser{s.mutationCount() > 1 ? 'ont' : 'a'}{' '}
-                  perdue{s.mutationCount() > 1 ? 's' : ''} et le board reviendra à l'état réel.
-                  Cette action est irréversible.
+                  {s.mutationCount() > 1 ? 's' : ''} ser{s.mutationCount() > 1 ? 'ont' : 'a'} perdue
+                  {s.mutationCount() > 1 ? 's' : ''} et le board reviendra à l'état réel. Cette
+                  action est irréversible.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -171,7 +181,12 @@ export const ScenarioBar: Component<{
 
         {/* #58 — commande virtuelle (mutation inject_demand, what-if) */}
         <div class="relative">
-          <Button size="sm" variant="outline" onClick={() => setFormOpen((o) => !o)} class="gap-1.5">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setFormOpen((o) => !o)}
+            class="gap-1.5"
+          >
             <span class="material-symbols-outlined text-[15px]">add_circle</span>
             Commande virtuelle
           </Button>
@@ -233,7 +248,12 @@ export const ScenarioBar: Component<{
 
         {/* Liste des scénarios enregistrés */}
         <div class="relative">
-          <Button size="sm" variant="outline" onClick={() => setListOpen((o) => !o)} class="gap-1.5">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setListOpen((o) => !o)}
+            class="gap-1.5"
+          >
             <span class="material-symbols-outlined text-[15px]">folder_open</span>
             Ouvrir
           </Button>
@@ -248,7 +268,11 @@ export const ScenarioBar: Component<{
             <div class="absolute right-0 top-full z-50 mt-2 max-h-[60vh] w-[300px] overflow-y-auto rounded-lg border border-rule bg-card p-1 shadow-lg">
               <Show
                 when={s.list.length > 0}
-                fallback={<div class="px-3 py-4 text-center text-[12px] italic text-muted-foreground">Aucun scénario enregistré.</div>}
+                fallback={
+                  <div class="px-3 py-4 text-center text-[12px] italic text-muted-foreground">
+                    Aucun scénario enregistré.
+                  </div>
+                }
               >
                 <For each={s.list}>
                   {(sc) => (
@@ -264,7 +288,9 @@ export const ScenarioBar: Component<{
                         <div class="flex items-center gap-1.5 text-[12px] font-semibold text-foreground">
                           {sc.nom}
                           <Show when={sc.statut === 'applique'}>
-                            <span class="font-mono text-[9px] font-bold uppercase text-emerald-600">appliqué</span>
+                            <span class="font-mono text-[9px] font-bold uppercase text-emerald-600">
+                              appliqué
+                            </span>
                           </Show>
                         </div>
                         <div class="font-mono text-[10px] text-muted-foreground">

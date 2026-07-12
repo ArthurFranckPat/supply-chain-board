@@ -62,10 +62,10 @@ interface PipelineMechanics {
 }
 
 const PIPELINE_MECHANICS: Record<OrderImpactsPipeline, PipelineMechanics> = {
-  programme: { useWindowOfs: true, preferEngineFeasibility: true },
+  'programme': { useWindowOfs: true, preferEngineFeasibility: true },
   'board-badges': { useWindowOfs: true, preferEngineFeasibility: false },
-  ruptures: { useWindowOfs: true, preferEngineFeasibility: false },
-  proactive: { useWindowOfs: false, preferEngineFeasibility: true },
+  'ruptures': { useWindowOfs: true, preferEngineFeasibility: false },
+  'proactive': { useWindowOfs: false, preferEngineFeasibility: true },
 }
 
 export interface LoadOrderImpactsOptions {
@@ -231,7 +231,7 @@ export async function loadOrderImpacts(
   }
 
   // Expand récursivement à TOUS les composants (ACHETE + FABRIQUE) de tous les niveaux BOM.
-  // Sans ça, checkFeasibility descend dans un sous-ensemble fabriqué sans OF et trouve 0 stock
+  // Sans ça, le moteur unique descend dans un sous-ensemble fabriqué sans OF et trouve 0 stock
   // pour ses composants ACHETE car ils n'ont pas été chargés.
   const expandedArticleSet = expandArticleSetWithBom(articleSet, nomenclatureEntries)
   // Périmètre stock aligné sur le détail OF (issue #11) : seul le stock strict/qc
@@ -286,7 +286,7 @@ export async function loadOrderImpacts(
     .map((f) => (f.origin as { id?: string }).id?.trim() ?? '')
     .filter(Boolean)
   const operations = await timeStage('loadOrderImpacts.operations', () =>
-    new X3OperationRepository().getOperations(windowNumOfs),
+    new X3OperationRepository().getOperations(windowNumOfs)
   )
   const avancementByOf = computeAvancement(operations)
 
@@ -299,7 +299,7 @@ export async function loadOrderImpacts(
     { from: windowFrom, to: windowTo },
     mode,
     mfgFeasibility,
-    avancementByOf,
+    avancementByOf
   )
 
   return {

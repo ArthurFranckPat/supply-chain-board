@@ -32,8 +32,14 @@ export type ChargeForecastProps = {
 }
 
 /** ViewBox du SVG (repère fixe, mis à l'échelle via w-full). */
-const W = 1000, H = 400, PAD_L = 46, PAD_R = 16, PAD_T = 16, PAD_B = 40
-const CW = W - PAD_L - PAD_R, CH = H - PAD_T - PAD_B
+const W = 1000,
+  H = 400,
+  PAD_L = 46,
+  PAD_R = 16,
+  PAD_T = 16,
+  PAD_B = 40
+const CW = W - PAD_L - PAD_R,
+  CH = H - PAD_T - PAD_B
 
 /** Rectangle à coins HAUTS seuls arrondis (chemin, pour le sommet de pile). */
 function rtop(x: number, y: number, w: number, h: number, r: number) {
@@ -54,8 +60,13 @@ function rtop(x: number, y: number, w: number, h: number, r: number) {
 function mobileAvg(totals: number[], win: number) {
   const r: number[] = []
   for (let i = 0; i < totals.length; i++) {
-    let s = 0, c = 0
-    for (let k = i - win + 1; k <= i; k++) if (k >= 0) { s += totals[k]; c++ }
+    let s = 0,
+      c = 0
+    for (let k = i - win + 1; k <= i; k++)
+      if (k >= 0) {
+        s += totals[k]
+        c++
+      }
     r.push(s / c)
   }
   return r
@@ -243,7 +254,7 @@ export const ChargeForecast: Component<ChargeForecastProps> = (props) => {
               'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-mono text-[11px] font-bold transition-colors',
               lineId() === 'all'
                 ? 'border-foreground bg-foreground text-card'
-                : 'border-border bg-card text-muted-foreground hover:border-foreground/40 hover:text-foreground',
+                : 'border-border bg-card text-muted-foreground hover:border-foreground/40 hover:text-foreground'
             )}
             onClick={() => setLineId('all')}
           >
@@ -257,7 +268,7 @@ export const ChargeForecast: Component<ChargeForecastProps> = (props) => {
                   'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-mono text-[11px] font-bold transition-colors',
                   lineId() === l.id
                     ? 'border-foreground bg-foreground text-card'
-                    : 'border-border bg-card text-muted-foreground hover:border-foreground/40 hover:text-foreground',
+                    : 'border-border bg-card text-muted-foreground hover:border-foreground/40 hover:text-foreground'
                 )}
                 onClick={() => setLineId(l.id)}
               >
@@ -269,7 +280,14 @@ export const ChargeForecast: Component<ChargeForecastProps> = (props) => {
         </div>
 
         <div class="inline-flex rounded-full border border-border bg-secondary p-0.5">
-          <For each={[['month', 'Mois'], ['week', 'Semaine']] as const}>
+          <For
+            each={
+              [
+                ['month', 'Mois'],
+                ['week', 'Semaine'],
+              ] as const
+            }
+          >
             {([g, lbl]) => (
               <button
                 type="button"
@@ -277,7 +295,7 @@ export const ChargeForecast: Component<ChargeForecastProps> = (props) => {
                   'rounded-full px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-wide transition-colors',
                   gran() === g
                     ? 'bg-card text-brand shadow-[0_1px_2px_rgba(0,0,0,.08)]'
-                    : 'text-muted-foreground hover:text-foreground',
+                    : 'text-muted-foreground hover:text-foreground'
                 )}
                 onClick={() => setGran(g)}
               >
@@ -289,13 +307,16 @@ export const ChargeForecast: Component<ChargeForecastProps> = (props) => {
 
         <div class="ml-auto flex items-center gap-3.5 text-[12px] font-semibold text-secondary-foreground">
           <span class="flex items-center gap-1.5">
-            <i class="h-2.5 w-3.5 rounded-[2px] bg-ferme" />Ferme
+            <i class="h-2.5 w-3.5 rounded-[2px] bg-ferme" />
+            Ferme
           </span>
           <span class="flex items-center gap-1.5">
-            <i class="h-2.5 w-3.5 rounded-[2px] bg-planifie" />Planifié
+            <i class="h-2.5 w-3.5 rounded-[2px] bg-planifie" />
+            Planifié
           </span>
           <span class="flex items-center gap-1.5">
-            <i class="h-2.5 w-3.5 rounded-[2px] bg-suggere" />Suggéré
+            <i class="h-2.5 w-3.5 rounded-[2px] bg-suggere" />
+            Suggéré
           </span>
           <span class="mx-0.5 h-3.5 w-px bg-rule-soft" />
           <span class="flex items-center gap-1.5">
@@ -475,7 +496,12 @@ const Stat: Component<{
       {p.lab}
     </div>
     <div class="mt-1 flex items-baseline gap-1">
-      <span class={cx('font-fraunces text-[28px] font-black leading-[0.95] tracking-tight', p.tone ?? 'text-foreground')}>
+      <span
+        class={cx(
+          'font-fraunces text-[28px] font-black leading-[0.95] tracking-tight',
+          p.tone ?? 'text-foreground'
+        )}
+      >
         {p.v}
       </span>
       <Show when={p.unit}>

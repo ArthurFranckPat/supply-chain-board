@@ -84,8 +84,9 @@ believe based on evidence, and ask the user only to correct what's wrong.
 
 <available_agent_types>
 Valid GSD subagent types (use exact names - do not fall back to 'general-purpose'):
+
 - gsd-assumptions-analyzer - Analyzes codebase to surface implementation assumptions
-</available_agent_types>
+  </available_agent_types>
 
 <downstream_awareness>
 **CONTEXT.md feeds into:**
@@ -126,6 +127,7 @@ Capture the idea in "Deferred Ideas". Don't lose it, don't act on it.
 <answer_validation>
 **IMPORTANT: Answer validation** - After every AskUserQuestion call, check if the response
 is empty or whitespace-only. If so:
+
 1. Retry the question once with the same parameters
 2. If still empty, present the options as a plain-text numbered list
 
@@ -146,16 +148,19 @@ Parse JSON for: `commit_docs`, `phase_found`, `phase_dir`, `phase_number`, `phas
 `plan_count`, `roadmap_exists`, `planning_exists`.
 
 **If `phase_found` is false:**
+
 ```
 Phase [X] not found in roadmap.
 
 Use /gsd-progress to see available phases.
 ```
+
 Exit workflow.
 
 **If `phase_found` is true:** Continue to check_existing.
 
 **Auto mode** - If `--auto` is present in ARGUMENTS:
+
 - In `check_existing`: auto-select "Update it" (if context exists) or continue without prompting
 - In `present_assumptions`: skip confirmation gate, proceed directly to write CONTEXT.md
 - In `correct_assumptions`: auto-select recommended option for each correction
@@ -175,6 +180,7 @@ ls ${phase_dir}/*-CONTEXT.md 2>/dev/null || true
 **If `--auto`:** Auto-select "Update it". Log: `[auto] Context exists - updating with assumption-based analysis.`
 
 **Otherwise:** Use AskUserQuestion:
+
 - header: "Context"
 - question: "Phase [X] already has context. What do you want to do?"
 - options:
@@ -193,6 +199,7 @@ Check `has_plans` and `plan_count` from init. **If `has_plans` is true:**
 **If `--auto`:** Auto-select "Continue and replan after". Log: `[auto] Plans exist - continuing with assumption analysis, will replan after.`
 
 **Otherwise:** Use AskUserQuestion:
+
 - header: "Plans exist"
 - question: "Phase [X] already has {plan_count} plan(s) created without user context. Your decisions here won't affect existing plans unless you replan."
 - options:
@@ -211,6 +218,7 @@ If "Cancel": Exit workflow.
 Read project-level and prior phase context to avoid re-asking decided questions.
 
 **Step 1: Read project-level files**
+
 ```bash
 cat .planning/PROJECT.md 2>/dev/null || true
 cat .planning/REQUIREMENTS.md 2>/dev/null || true
@@ -218,16 +226,19 @@ cat .planning/STATE.md 2>/dev/null || true
 ```
 
 Extract from these:
+
 - **PROJECT.md** - Vision, principles, non-negotiables, user preferences
 - **REQUIREMENTS.md** - Acceptance criteria, constraints
 - **STATE.md** - Current progress, any flags
 
 **Step 2: Read all prior CONTEXT.md files**
+
 ```bash
 (find .planning/phases -name "*-CONTEXT.md" 2>/dev/null || true) | sort
 ```
 
 For each CONTEXT.md where phase number < current phase:
+
 - Read the `<decisions>` section - these are locked preferences
 - Read `<specifics>` - particular references or "I want it like X" moments
 - Note patterns (e.g., "user consistently prefers minimal UI")
@@ -262,6 +273,7 @@ Parse JSON for: `todo_count`, `matches[]`.
 Lightweight scan of existing code to inform assumption generation.
 
 **Step 1: Check for existing codebase maps**
+
 ```bash
 ls .planning/codebase/*.md 2>/dev/null || true
 ```
@@ -294,11 +306,13 @@ PROFILE_PATH=".pi/gsd/USER-PROFILE.md"
 ```
 
 If file exists at PROFILE_PATH:
+
 - Priority 1: Read config.json > preferences.vendor_philosophy (project-level override)
 - Priority 2: Read USER-PROFILE.md Vendor Choices/Philosophy rating (global)
 - Priority 3: Default to "standard"
 
 Map to calibration tier:
+
 - conservative OR thorough-evaluator → full_maturity (more alternatives, detailed evidence)
 - opinionated → minimal_decisive (fewer alternatives, decisive recommendations)
 - pragmatic-fast OR any other value → standard
@@ -349,10 +363,12 @@ ${AGENT_SKILLS_ANALYZER}
 ```
 
 Parse the subagent's response. Extract:
+
 - `assumptions[]` - each with area, statement, evidence, consequence, confidence
 - `needs_research[]` - topics requiring external research (may be empty)
 
 **Initialize canonical refs accumulator:**
+
 - Source 1: Copy `Canonical refs:` from ROADMAP.md for this phase, expand to full paths
 - Source 2: Check REQUIREMENTS.md and PROJECT.md for specs/ADRs referenced
 - Source 3: Add any docs referenced in codebase scout results
@@ -381,6 +397,7 @@ Use WebSearch for ecosystem/best-practice questions.
 ```
 
 Merge findings back into assumptions:
+
 - Update confidence levels where research resolves ambiguity
 - Add source attribution to affected assumptions
 - Store research findings for DISCUSSION-LOG.md
@@ -412,6 +429,7 @@ Based on codebase analysis, here's what I'd go with:
 ```
 
 **If `--auto`:**
+
 - If all assumptions are Confident or Likely: log assumptions, skip to write_context.
   Log: `[auto] All assumptions Confident/Likely - proceeding to context capture.`
 - If any assumptions are Unclear: log a warning, auto-select recommended alternative for
@@ -419,6 +437,7 @@ Based on codebase analysis, here's what I'd go with:
   Proceed to write_context.
 
 **Otherwise:** Use AskUserQuestion:
+
 - header: "Assumptions"
 - question: "These all look right?"
 - options:
@@ -436,6 +455,7 @@ Present a multiSelect where each option's label is the assumption statement and 
 is the "If wrong" consequence:
 
 Use AskUserQuestion (multiSelect):
+
 - header: "Corrections"
 - question: "Which assumptions need correcting?"
 - options: [one per assumption, label = assumption statement, description = "If wrong: {consequence}"]
@@ -443,11 +463,13 @@ Use AskUserQuestion (multiSelect):
 For each selected correction, ask ONE focused question:
 
 Use AskUserQuestion:
+
 - header: "{Area Name}"
 - question: "What should we do instead for: {assumption statement}?"
 - options: [2-3 concrete alternatives describing user-visible outcomes, recommended option first]
 
 Record each correction:
+
 - Original assumption
 - User's chosen alternative
 - Reason (if provided via "Other" free text)
@@ -463,6 +485,7 @@ Create phase directory if needed. Write CONTEXT.md using the standard 6-section 
 **File:** `${phase_dir}/${padded_phase}-CONTEXT.md`
 
 Map assumptions to CONTEXT.md sections:
+
 - Assumptions → `<decisions>` (each assumption becomes a locked decision: D-01, D-02, etc.)
 - Corrections → override the original assumption in `<decisions>`
 - Areas where all assumptions were Confident → marked as locked decisions
@@ -485,20 +508,25 @@ Map assumptions to CONTEXT.md sections:
 ## Implementation Decisions
 
 ### {Area Name 1}
+
 - **D-01:** {Decision - from assumption or correction}
 - **D-02:** {Decision}
 
 ### {Area Name 2}
+
 - **D-03:** {Decision}
 
 ### the agent's Discretion
+
 {Any assumptions where the user confirmed "you decide" or left as-is with Likely confidence}
 
 ### Folded Todos
+
 {If any todos were folded into scope}
 </decisions>
 
 <canonical_refs>
+
 ## Canonical References
 
 **Downstream agents MUST read these before planning or implementing.**
@@ -509,15 +537,19 @@ Map assumptions to CONTEXT.md sections:
 </canonical_refs>
 
 <code_context>
+
 ## Existing Code Insights
 
 ### Reusable Assets
+
 {From codebase scout + Explore subagent findings}
 
 ### Established Patterns
+
 {Patterns that constrain/enable this phase}
 
 ### Integration Points
+
 {Where new code connects to existing system}
 </code_context>
 
@@ -535,6 +567,7 @@ Map assumptions to CONTEXT.md sections:
 {Ideas mentioned during corrections that are out of scope}
 
 ### Reviewed Todos (not folded)
+
 {Todos reviewed but not folded - with reason}
 
 [If none: "None - analysis stayed within phase scope"]
@@ -563,6 +596,7 @@ Write audit trail of assumptions and corrections.
 ## Assumptions Presented
 
 ### {Area Name}
+
 | Assumption  | Confidence                 | Evidence     |
 | ----------- | -------------------------- | ------------ |
 | {Statement} | {Confident/Likely/Unclear} | {file paths} |
@@ -574,6 +608,7 @@ Write audit trail of assumptions and corrections.
 {If corrections were made:}
 
 ### {Area Name}
+
 - **Original assumption:** {what the agent assumed}
 - **User correction:** {what the user chose instead}
 - **Reason:** {user's rationale, if provided}
@@ -583,6 +618,7 @@ Write audit trail of assumptions and corrections.
 ## Auto-Resolved
 
 {If --auto and Unclear items existed:}
+
 - {Assumption}: auto-selected {recommended option}
 
 {If not applicable: omit this section}
@@ -590,6 +626,7 @@ Write audit trail of assumptions and corrections.
 ## External Research
 
 {If research was performed:}
+
 - {Topic}: {Finding} (Source: {URL})
 
 {If no research: omit this section}
@@ -622,6 +659,7 @@ Commit STATE.md:
 ```bash
 pi-gsd-tools commit "docs(state): record phase ${PHASE} context session" --files .planning/STATE.md
 ```
+
 </step>
 
 <step name="confirm_creation">
@@ -664,6 +702,7 @@ Created: .planning/phases/${PADDED_PHASE}-${SLUG}/${PADDED_PHASE}-CONTEXT.md
 
 ---
 ```
+
 </step>
 
 <step name="auto_advance">
@@ -683,6 +722,7 @@ Check for auto-advance trigger:
    ```
 
 **If `--auto` flag present AND `AUTO_CHAIN` is not true:**
+
 ```bash
 pi-gsd-tools config-set workflow._auto_chain_active true
 ```
@@ -690,6 +730,7 @@ pi-gsd-tools config-set workflow._auto_chain_active true
 **If `--auto` flag present OR `AUTO_CHAIN` is true OR `AUTO_CFG` is true:**
 
 Display banner:
+
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  GSD ► AUTO-ADVANCING TO PLAN
@@ -710,6 +751,7 @@ Route to confirm_creation step.
 </process>
 
 <success_criteria>
+
 - Phase validated against roadmap
 - Prior context loaded (no re-asking decided questions)
 - Codebase deeply analyzed via Explore subagent (5-15 files read)
@@ -722,4 +764,4 @@ Route to confirm_creation step.
 - DISCUSSION-LOG.md records assumptions and corrections as audit trail
 - STATE.md updated with session info
 - User knows next steps
-</success_criteria>
+  </success_criteria>

@@ -1,4 +1,4 @@
-import { HttpContext } from '@adonisjs/core/http'
+import { type HttpContext } from '@adonisjs/core/http'
 import logger from '@adonisjs/core/services/logger'
 import {
   assignStatuses,
@@ -13,15 +13,25 @@ import {
   type SuiviStatus,
   type CauseType,
 } from '#app/domain/suivi'
-import { SuiviService, reloadSuiviContext, RETARD_LOOKBACK_DAYS, SUIVI_FORWARD_DAYS } from '#services/suivi_service'
+import {
+  SuiviService,
+  reloadSuiviContext,
+  RETARD_LOOKBACK_DAYS,
+  SUIVI_FORWARD_DAYS,
+} from '#services/suivi_service'
 import { loadOrderImpacts } from '#services/order_impacts_loader'
 import type { OrderImpactResult } from '#app/domain/order-impacts'
 import type { Article } from '#app/domain/models/article'
 import type { Nomenclature } from '#app/domain/models/nomenclature'
 import type { Flow } from '#app/domain/models/flow'
-import { checkFeasibility } from '#app/domain/feasibility'
+import { evaluateRuptures, buildOfSupply } from '#app/domain/rupture-engine'
+import type { RuptureOfInput, RuptureDataset } from '#app/domain/rupture-engine'
 import { isSubcontracted } from '#app/domain/rules'
-import { groupReceptionsByArticle, RECEPTION_LOOKBACK_DAYS, RECEPTION_OVERDUE_MIN_QTY } from '#repositories/reception_repository'
+import {
+  groupReceptionsByArticle,
+  RECEPTION_LOOKBACK_DAYS,
+  RECEPTION_OVERDUE_MIN_QTY,
+} from '#repositories/reception_repository'
 import { resolveCoveringReception, daysBetweenIso, isoLocalDay } from '#app/domain/shortages'
 import type { ReceptionRecord } from '#app/domain/recursive-checker'
 import boardDataset from '#services/board_dataset'
@@ -84,11 +94,11 @@ export default class SuiviController {
    * (La cause de retard n'est pas calculée ici — pas de BOM/OF dans le body.)
    */
   async assign({ request }: HttpContext) {
-    const { lines: rawLines, stock: stockRaw, referenceDate } = request.only([
-      'lines',
-      'stock',
-      'referenceDate',
-    ])
+    const {
+      lines: rawLines,
+      stock: stockRaw,
+      referenceDate,
+    } = request.only(['lines', 'stock', 'referenceDate'])
 
     const lines = ((rawLines ?? []) as any[]).map((l: any) => ({
       ...l,
@@ -98,7 +108,7 @@ export default class SuiviController {
     })) as OrderLine[]
 
     const stock = new Map<string, StockBreakdown>(
-      Object.entries(stockRaw ?? {}).map(([article, bd]) => [article, bd as StockBreakdown]),
+      Object.entries(stockRaw ?? {}).map(([article, bd]) => [article, bd as StockBreakdown])
     )
 
     const refDate = referenceDate ? new Date(referenceDate) : new Date()
@@ -148,7 +158,8 @@ export default class SuiviController {
    */
   async board(ctx: HttpContext) {
     const referenceDate =
-      (ctx.request.input('referenceDate') as string | undefined) || new Date().toISOString().slice(0, 10)
+      (ctx.request.input('referenceDate') as string | undefined) ||
+      new Date().toISOString().slice(0, 10)
     return ctx.inertia.render('scheduler/tracking', {
       referenceDate,
       rowsHref: `/api/v1/status/rows?referenceDate=${encodeURIComponent(referenceDate)}`,
@@ -221,7 +232,14 @@ export default class SuiviController {
     if (ctx.request.input('refresh')) await reloadSuiviContext()
 
     let rows: ProactiveDisplayRow[] = []
-    let verdictCounts: Record<ProactiveVerdictKey, number> = { time: 0, stock: 0, late: 0, blocked: 0, uncov: 0, risk: 0 }
+    let verdictCounts: Record<ProactiveVerdictKey, number> = {
+      time: 0,
+      stock: 0,
+      late: 0,
+      blocked: 0,
+      uncov: 0,
+      risk: 0,
+    }
     let ateliers: AtelierOption[] = []
     let x3Error: string | null = null
 
@@ -230,10 +248,11 @@ export default class SuiviController {
       from.setDate(from.getDate() - RETARD_LOOKBACK_DAYS)
       const to = new Date(refDate)
       to.setDate(to.getDate() + SUIVI_FORWARD_DAYS)
-      const [{ result, articles, receptionFlows, nomenclatures, planInputs }, atelierByArticle] = await Promise.all([
-        loadOrderImpacts({ from, to, mode: 'sequential', pipeline: 'proactive' }),
-        buildAtelierByArticle(),
-      ])
+      const [{ result, articles, receptionFlows, nomenclatures, planInputs }, atelierByArticle] =
+        await Promise.all([
+          loadOrderImpacts({ from, to, mode: 'sequential', pipeline: 'proactive' }),
+          buildAtelierByArticle(),
+        ])
       // Réceptions à venir + retards de livraison (lookback RECEPTION_LOOKBACK_DAYS) — réutilise
       // les flows déjà fetchés par loadOrderImpacts via getLive (évite un SOAP PORDERQ dupliqué).
       const recFrom = new Date(refDate)
@@ -277,7 +296,11 @@ function serializeAssignments(assignments: StatusAssignment[]) {
       alerteCqStatut: a.alerteCqStatut,
       attenteLignesMto: a.attenteLignesMto ?? false,
       cause: a.cause
-        ? { type: a.cause.typeCause, composants: a.cause.composants, label: causeToDisplayString(a.cause) }
+        ? {
+            type: a.cause.typeCause,
+            composants: a.cause.composants,
+            label: causeToDisplayString(a.cause),
+          }
         : null,
       action: recommendActions(a),
     })),
@@ -426,7 +449,13 @@ export interface ProactiveDisplayRow {
         art: string
         desc: string
         manque: number
-        reception: { eta: string; po: string; supplier: string; overdue: boolean; retardJ: number } | null
+        reception: {
+          eta: string
+          po: string
+          supplier: string
+          overdue: boolean
+          retardJ: number
+        } | null
       }[]
     } | null
   }[]
@@ -472,7 +501,7 @@ function fmtFrDay(iso: string | null | undefined): string {
 function sanitizeX3Error(msg: string): string {
   const isConn =
     /X3 query failed|curl:|Command failed|ECONNREFUSED|ETIMEDOUT|ENOTFOUND|max-time|SOAP|XML/i.test(
-      msg,
+      msg
     )
   if (isConn) return 'X3 injoignable — la connexion au serveur X3 a échoué.'
   return msg
@@ -489,7 +518,7 @@ function sanitizeX3Error(msg: string): string {
 export function buildSuiviDisplay(
   assignments: StatusAssignment[],
   refDate?: Date,
-  atelierByArticle: Map<string, AtelierOption> = new Map(),
+  atelierByArticle: Map<string, AtelierOption> = new Map()
 ): {
   rows: SuiviDisplayRow[]
   statusCounts: Record<SuiviStatus, number>
@@ -561,7 +590,7 @@ export function buildSuiviDisplay(
       lateSeverity:
         a.line.dateExpedition !== null && a.line.dateExpedition < now
           ? lateSeverity(
-              workingDaysBetween(a.line.dateExpedition.toISOString().slice(0, 10), nowIso),
+              workingDaysBetween(a.line.dateExpedition.toISOString().slice(0, 10), nowIso)
             )
           : null,
       emplacements: (a.line.emplacements ?? [])
@@ -579,13 +608,17 @@ export function buildSuiviDisplay(
       action: { severity: rec.severity, label: rec.actions[0] ?? '—' },
       atelier: atelier.code,
       atelierLabel: atelier.label,
-      filter: `${a.line.numCommande} ${a.line.nomClient} ${a.line.article} ${a.line.designation} ${a.line.typeCommande} ${a.line.refCommandeClient ?? ''} ${a.line.refArticleClient ?? ''} ${cause?.label ?? ''} ${compsTxt} ${(a.line.emplacements ?? []).map((e) => e.nom).join(' ')} ${atelier.label}${attente ? ' attente lignes mto' : ''}`.toLowerCase(),
+      filter:
+        `${a.line.numCommande} ${a.line.nomClient} ${a.line.article} ${a.line.designation} ${a.line.typeCommande} ${a.line.refCommandeClient ?? ''} ${a.line.refArticleClient ?? ''} ${cause?.label ?? ''} ${compsTxt} ${(a.line.emplacements ?? []).map((e) => e.nom).join(' ')} ${atelier.label}${attente ? ' attente lignes mto' : ''}`.toLowerCase(),
     }
   })
   return { rows, statusCounts: buildStatusCounts(assignments.map((a) => a.status)) }
 }
 
-const VERDICT_DISPLAY: Record<OrderImpactResult['orders'][number]['statut'], { key: ProactiveVerdictKey; label: string }> = {
+const VERDICT_DISPLAY: Record<
+  OrderImpactResult['orders'][number]['statut'],
+  { key: ProactiveVerdictKey; label: string }
+> = {
   on_time: { key: 'time', label: 'À temps' },
   stock: { key: 'stock', label: 'En stock' },
   retard: { key: 'late', label: 'En retard' },
@@ -610,7 +643,7 @@ export function buildProactiveDisplay(
    * Contexte BOM pour la descente d'explication des SE manquants (photo stock strict).
    * Optionnel : absent (tests/legacy) → pas de descente, `descente: null` partout.
    */
-  bomContext?: { nomenclatures: Map<string, Nomenclature>; supplyFlows: Flow[] },
+  bomContext?: { nomenclatures: Map<string, Nomenclature>; supplyFlows: Flow[] }
 ): {
   rows: ProactiveDisplayRow[]
   verdictCounts: Record<ProactiveVerdictKey, number>
@@ -622,6 +655,36 @@ export function buildProactiveDisplay(
   horizonIso.setHours(0, 0, 0, 0)
   horizonIso.setDate(horizonIso.getDate() + PROACTIVE_HORIZON_FUTURE_DAYS)
   const todayIso = isoLocalDay()
+
+  let ruptureDataset: RuptureDataset | undefined
+  if (bomContext) {
+    const stockNet = new Map<string, number>()
+    for (const f of bomContext.supplyFlows) {
+      if (f.date !== null) continue
+      const delta = f.direction === 'supply' ? f.quantity : -f.quantity
+      stockNet.set(f.article, (stockNet.get(f.article) ?? 0) + delta)
+    }
+
+    const engineOfs: RuptureOfInput[] = bomContext.supplyFlows
+      .filter((f) => f.direction === 'supply' && f.origin.type === 'of' && f.quantity > 0)
+      .map((f) => {
+        const id = (f.origin as any).id ?? ''
+        return {
+          numOf: id,
+          article: f.article,
+          qteRestante: f.quantity,
+          statutNum: (f.origin as any).status ?? 3,
+          dateBesoin: f.date ? new Date(f.date) : null,
+        }
+      })
+
+    ruptureDataset = {
+      articles,
+      nomenclatures: bomContext.nomenclatures,
+      stockNet,
+      ofSupply: buildOfSupply(engineOfs),
+    }
+  }
 
   const rows: ProactiveDisplayRow[] = result.orders
     .filter((o) => o.nature === 'commande')
@@ -666,28 +729,31 @@ export function buildProactiveDisplay(
           const info = articles.get(art)
           if (
             bomContext &&
+            ruptureDataset &&
             bomContext.nomenclatures.has(art) &&
             (!info || !isSubcontracted(info))
           ) {
-            const check = checkFeasibility(
-              art,
-              qtyR,
-              bomContext.supplyFlows,
-              bomContext.nomenclatures,
-              articles,
-              undefined,
-              'stock_strict',
-            )
-            descente = check.feasible
+            const virtualOf: RuptureOfInput = {
+              numOf: '__descente__',
+              article: art,
+              qteRestante: qtyR,
+              statutNum: 2, // Non-ferme pour propager la faisabilité réelle
+              dateBesoin: null,
+            }
+            const verdicts = evaluateRuptures([virtualOf], ruptureDataset, 'photo')
+            const v = verdicts.get('__descente__')!
+            descente = v.feasible
               ? { statut: 'se_a_lancer', par: [] }
               : {
                   statut: 'bloque',
-                  par: check.blockingComponents.map((bc) => ({
-                    art: bc.article,
-                    desc: articles.get(bc.article)?.description ?? '',
-                    manque: Math.round(bc.shortage * 100) / 100,
-                    reception: coveringReception(bc.article, Math.round(bc.shortage * 100) / 100),
-                  })),
+                  par: v.missingDetail
+                    .filter((bc) => !bc.fabricated)
+                    .map((bc) => ({
+                      art: bc.article,
+                      desc: articles.get(bc.article)?.description ?? '',
+                      manque: Math.round(bc.shortage * 100) / 100,
+                      reception: coveringReception(bc.article, Math.round(bc.shortage * 100) / 100),
+                    })),
                 }
           }
 
@@ -718,7 +784,7 @@ export function buildProactiveDisplay(
           if (of.statutNum !== 1 && of.statutNum !== 2) return false // seulement OF affermis/planifiés
           if (!of.dateFin) return false
           const fin = new Date(of.dateFin).getTime()
-          if (isNaN(fin)) return false
+          if (Number.isNaN(fin)) return false
           return fin - todayMs <= J2_MS
         })
       const finalVerdictKey: ProactiveVerdictKey = isAtRisk ? 'risk' : verdict.key
@@ -775,11 +841,19 @@ export function buildProactiveDisplay(
         ofs: ofsFinal,
         atelier: atelier.code,
         atelierLabel: atelier.label,
-        filter: `${o.numCommande} ${o.client} ${o.article} ${o.description} ${o.typeCommande} ${o.refCommandeClient ?? ''} ${o.refArticleClient ?? ''} ${finalVerdictLabel} ${couverture} ${compsTxt} ${atelier.label}`.toLowerCase(),
+        filter:
+          `${o.numCommande} ${o.client} ${o.article} ${o.description} ${o.typeCommande} ${o.refCommandeClient ?? ''} ${o.refArticleClient ?? ''} ${finalVerdictLabel} ${couverture} ${compsTxt} ${atelier.label}`.toLowerCase(),
       }
     })
 
-  const verdictCounts: Record<ProactiveVerdictKey, number> = { time: 0, stock: 0, late: 0, blocked: 0, uncov: 0, risk: 0 }
+  const verdictCounts: Record<ProactiveVerdictKey, number> = {
+    time: 0,
+    stock: 0,
+    late: 0,
+    blocked: 0,
+    uncov: 0,
+    risk: 0,
+  }
   for (const r of rows) verdictCounts[r.verdictKey]++
 
   return { rows, verdictCounts }

@@ -24,7 +24,7 @@ import Stock from '#models/x3/stock'
  */
 
 const intOrNull = (v: string | null | undefined): number | null => {
-  const n = parseInt((v ?? '').trim(), 10)
+  const n = Number.parseInt((v ?? '').trim(), 10)
   return Number.isFinite(n) ? n : null
 }
 
@@ -90,7 +90,7 @@ export class X3EmplacementRepository {
       for (const r of rows) {
         const numOf = r.noPieceNoRecNoLivOuNoOf?.trim() ?? ''
         const article = r.article?.trim() ?? ''
-        const qte = parseFloat(r.quantiteActiveUs ?? '0') || 0
+        const qte = Number.parseFloat(r.quantiteActiveUs ?? '0') || 0
         if (!numOf || !article || qte <= 0) continue
         const arr = map.get(numOf) ?? []
         arr.push({ article, qteAllouee: qte })
@@ -113,7 +113,15 @@ export class X3EmplacementRepository {
       let rows: Stock[] = []
       try {
         rows = await Stock.query()
-          .select('ITMREF_0', 'LOC_0', 'PALNUM_0', 'QTYSTUACT_0', 'STOCOU_0', 'STA_0', 'QLYCTLDEM_0')
+          .select(
+            'ITMREF_0',
+            'LOC_0',
+            'PALNUM_0',
+            'QTYSTUACT_0',
+            'STOCOU_0',
+            'STA_0',
+            'QLYCTLDEM_0'
+          )
           .whereIn('ITMREF_0', part)
           .whereNotNull('LOC_0')
           .where('QTYSTUACT_0', '>', 0)

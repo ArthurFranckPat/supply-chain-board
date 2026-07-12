@@ -12,6 +12,7 @@
 ### ROUGE — Monolithe de 985 lignes
 
 `Programme` gère en un seul fichier :
+
 - 2 board stores (OF + commandes)
 - 1 scenario store (mutations, diff, apply, discard)
 - Drag & drop OF (optimiste + intercepteur scénario)
@@ -27,6 +28,7 @@
 **Impact** : ingérable pour la maintenance, impossible à tester isolément, impossible pour un nouveau dev d'avoir une vue d'ensemble.
 
 **Recommandation** : découper en au moins 4 sous-composants :
+
 - `<ProgrammeBoard>` — board stores + drag & drop + grid rendering
 - `<ProgrammeScenario>` — scenario store + mutations + diff + apply/discard
 - `<ProgrammeImpacts>` — calcul d'impacts + overlay SVG + tooltips
@@ -35,6 +37,7 @@
 ### ROUGE — Toolbar surchargée (flex-wrap → CLS)
 
 La `ProgrammeToolbar` contient jusqu'à 11 contrôles sur une seule rangée :
+
 1. Sélecteur de mode (3 boutons)
 2. Filtre statut OF (3 chips) — mode ≠ planification
 3. Filtre atelier (variable) — mode planification
@@ -53,6 +56,7 @@ En mode `combined` avec scénario actif, on dépasse la largeur du viewport.
 **Impact** : Content Layout Shift (guideline UX #19, severity High).
 
 **Recommandation** :
+
 - Grouper les contrôles en 2 zones fixes : "Navigation/Filtres" (gauche) et "Actions" (droite)
 - Utiliser un overflow horizontal ou un menu "Plus de filtres" plutôt que flex-wrap
 - Fixer une hauteur de toolbar constante avec `min-h`
@@ -64,7 +68,7 @@ En mode `combined` avec scénario actif, on dépasse la largeur du viewport.
   <Show when={lineCount > 0} fallback={<div>Aucun OF…</div>}>
     <BoardGrid />
   </Show>
-  <BatchFirmBar />   // ← visible même si lineCount === 0
+  <BatchFirmBar /> // ← visible même si lineCount === 0
 </Show>
 ```
 
@@ -95,6 +99,7 @@ Sur écran 13" (~800px utile), reste ~656px pour le board.
 ### ROUGE — Typographie sans échelle
 
 Tailles utilisées (toutes en valeurs arbitraires `text-[Npx]`) :
+
 - `text-[9px]` — labels de section toolbar
 - `text-[10px]` — chips, toggles, mode selector
 - `text-[11px]` — boutons, calendrier, compteur
@@ -110,11 +115,11 @@ Tailles utilisées (toutes en valeurs arbitraires `text-[Npx]`) :
 
 ### ROUGE — Trois thèmes CSS coexistent
 
-| Thème | Scope | Primaire | Background |
-|-------|-------|----------|------------|
-| `.theme-papier` | Global default | `#a8431f` (terracotta) | `#f3ece0` (crème) |
-| `.theme-navy` | Programme page | `#081061` (navy) | `#f0f0ed` (gris) |
-| `.theme-m3` | Scheduler legacy | `#000122` (noir) | `#fbf8ff` (lavande) |
+| Thème           | Scope            | Primaire               | Background          |
+| --------------- | ---------------- | ---------------------- | ------------------- |
+| `.theme-papier` | Global default   | `#a8431f` (terracotta) | `#f3ece0` (crème)   |
+| `.theme-navy`   | Programme page   | `#081061` (navy)       | `#f0f0ed` (gris)    |
+| `.theme-m3`     | Scheduler legacy | `#000122` (noir)       | `#fbf8ff` (lavande) |
 
 Le token `--color-terra` (nommé "terra" pour terracotta) vaut `#081061` (navy) sous `.theme-navy`. Toutes les classes `text-terra`, `bg-terra-soft`, `border-terra` portent un nom trompeur.
 
@@ -139,6 +144,7 @@ La toolbar utilise parfois `<Button>` (shadcn) et parfois `<button class="inline
 ```
 
 Problèmes :
+
 - Toute la police Material Symbols est chargée (pas de tree-shaking)
 - Pas de type safety sur les noms de glyphs (typo = icône manquante silencieuse)
 - shadcn recommande de passer les icônes en objets component (`icon={SearchIcon}`)
@@ -149,13 +155,13 @@ Problèmes :
 
 Le CSS maintient deux couches qui pointent vers les mêmes valeurs :
 
-| Legacy | Sémantique (shadcn) | Valeur |
-|--------|---------------------|--------|
-| `--color-bg` | `--color-background` | `#f7f8fa` |
-| `--color-panel` | `--color-card` | `#ffffff` |
-| `--color-line` | `--color-border` | `#e3e8ef` |
-| `--color-txt` | `--color-foreground` | `#0f172a` |
-| `--color-muted` | `--color-muted-bg` | `#f1f5f9` |
+| Legacy          | Sémantique (shadcn)  | Valeur    |
+| --------------- | -------------------- | --------- |
+| `--color-bg`    | `--color-background` | `#f7f8fa` |
+| `--color-panel` | `--color-card`       | `#ffffff` |
+| `--color-line`  | `--color-border`     | `#e3e8ef` |
+| `--color-txt`   | `--color-foreground` | `#0f172a` |
+| `--color-muted` | `--color-muted-bg`   | `#f1f5f9` |
 
 Double surface de maintenance.
 
@@ -170,22 +176,22 @@ C'est du sans-serif, pas du monospace. Le nom du token est trompeur.
 
 ### ROUGE — Touch targets sous le minimum
 
-| Élément | Hauteur estimée | Minimum WCAG/Apple |
-|---------|----------------|-------------------|
-| Chips de filtre (statut, besoin) | ~24px | 44px |
-| Mode selector buttons | ~26px | 44px |
-| Bouton "✕" clear atelier | ~20px | 44px |
-| Labels de section "STATUT" etc. | ~16px (non-cliquables) | N/A |
+| Élément                          | Hauteur estimée        | Minimum WCAG/Apple |
+| -------------------------------- | ---------------------- | ------------------ |
+| Chips de filtre (statut, besoin) | ~24px                  | 44px               |
+| Mode selector buttons            | ~26px                  | 44px               |
+| Bouton "✕" clear atelier         | ~20px                  | 44px               |
+| Labels de section "STATUT" etc.  | ~16px (non-cliquables) | N/A                |
 
 Même en desktop avec souris, ces cibles sont petites. Sur trackpad, le taux d'erreur augmente.
 
 ### ROUGE — Labels de mode abbreviés
 
-| Label actuel | Signification | Clair ? |
-|-------------|--------------|---------|
-| OF | Ordres de Fabrication | Non pour un nouvel utilisateur |
-| Combiné | Vue combinée OF + commandes | Moyennement |
-| Cmdes | Commandes | Non — abréviation non standard |
+| Label actuel | Signification               | Clair ?                        |
+| ------------ | --------------------------- | ------------------------------ |
+| OF           | Ordres de Fabrication       | Non pour un nouvel utilisateur |
+| Combiné      | Vue combinée OF + commandes | Moyennement                    |
+| Cmdes        | Commandes                   | Non — abréviation non standard |
 
 Pas de tooltip (`title=`) sur ces boutons, contrairement aux chips de statut.
 
@@ -202,6 +208,7 @@ Le cache `board_dataset` a un TTL de 5 min pour les OF → le premier chargement
 Aucun handler `keydown`, aucun `accesskey`.
 
 Raccourcis recommandés pour un outil quotidien :
+
 - `R` — Actualiser
 - `F` — Faisabilité
 - `1` / `2` / `3` — Switch mode (OF / Combiné / Cmdes)
@@ -221,9 +228,7 @@ shadcn recommande `sonner` : `toast.success('…')`, `toast.error('…')`.
 ### ORANGE — État vide sans guidage
 
 ```tsx
-<div class="…italic text-muted-foreground">
-  Aucun OF dans l'horizon.
-</div>
+<div class="…italic text-muted-foreground">Aucun OF dans l'horizon.</div>
 ```
 
 Pas de suggestion, pas de bouton d'action, pas de contexte.
@@ -251,6 +256,7 @@ L'absence du compteur ne renseigne pas sur l'état. Un badge "✓ 0 retard" sera
 ### ROUGE — Toggles sans `aria-pressed`
 
 Boutons toggle concernés :
+
 - Statut OF (Ferme / Planifié / Suggéré) — 3 boutons
 - Atelier (variable)
 - Besoin (Cmde / Prév) — 2 boutons
@@ -355,6 +361,7 @@ shadcn a un composant dédié pour les états vides.
 ## RÉSUMÉ — PRIORITÉS
 
 ### ROUGE (cassant — corriger en premier)
+
 1. Découper le monolithe de 985 lignes
 2. Fixer le CLS du toolbar (hauteur fixe + regroupement contrôles)
 3. Établir une échelle typographique (supprimer les `text-[Npx]`)
@@ -364,6 +371,7 @@ shadcn a un composant dédié pour les états vides.
 7. Touch targets ≥ 44px sur les chips
 
 ### ORANGE (à corriger)
+
 8. Migrer les `<button>` raw vers `<Button variant="…">`
 9. Utiliser `<ToggleGroup>` pour les sélecteurs binaires
 10. Debounce sur la recherche
@@ -377,6 +385,7 @@ shadcn a un composant dédié pour les états vides.
 18. `aria-label` sur les boutons sans texte descriptif
 
 ### JAUNE (nitpick)
+
 19. Fixer le z-index calendar vs sheets
 20. Composant `<Separator>` shadcn
 21. Composant `<Card>` pour les panneaux

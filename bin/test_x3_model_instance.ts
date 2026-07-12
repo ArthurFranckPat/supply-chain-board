@@ -20,7 +20,9 @@ async function test() {
 
   new Ignitor(APP_ROOT, { importer: IMPORTER })
     .tap((a) => {
-      a.booting(async () => { await import('#start/env') })
+      a.booting(async () => {
+        await import('#start/env')
+      })
       a.listen('SIGTERM', () => a.terminate())
     })
     .createApp('console')
@@ -39,14 +41,12 @@ async function test() {
   console.log('SalesOrder connection:', (SalesOrder as any).connection)
 
   // Query via Lucid model
-  const orders = await SalesOrder.query()
-    .select('SOHNUM_0', 'BPCNAM_0', 'ORDDAT_0')
-    .limit(3)
+  const orders = await SalesOrder.query().select('SOHNUM_0', 'BPCNAM_0', 'ORDDAT_0').limit(3)
 
   console.log('\nLucid query result:')
   console.log('Count:', orders.length)
   orders.forEach((o: any, i: number) => {
-    console.log(`  ${i+1}. SOHNUM_0=${o.sohnum0} BPCNAM_0=${o.bpcnam0} ORDDAT_0=${o.orddat0}`)
+    console.log(`  ${i + 1}. SOHNUM_0=${o.sohnum0} BPCNAM_0=${o.bpcnam0} ORDDAT_0=${o.orddat0}`)
   })
 
   console.log('\nDone')

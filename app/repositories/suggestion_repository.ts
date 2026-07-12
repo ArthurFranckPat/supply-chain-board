@@ -51,7 +51,7 @@ WHERE VCRNUM_0 = '${num}'
       const stofcy = row.STOFCY?.trim() ?? ''
       const itmref = row.ARTICLE?.trim() ?? ''
       if (!stofcy || !itmref) return null
-      const qte = parseFloat(row.QTE ?? '0') || 0
+      const qte = Number.parseFloat(row.QTE ?? '0') || 0
       return { sugNum: num, stofcy, itmref, qte }
     } finally {
       await db.destroy()

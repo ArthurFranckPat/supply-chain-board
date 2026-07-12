@@ -213,7 +213,9 @@ export function createOrderBoardStore(initial: OrderBoardData) {
           }
         }
         setFeasibility(map)
-        toast(nbBlocked > 0 ? `${nbBlocked} bloquée(s) · ${nbOk} OK` : `${nbOk} ligne(s) réalisables`)
+        toast(
+          nbBlocked > 0 ? `${nbBlocked} bloquée(s) · ${nbOk} OK` : `${nbOk} ligne(s) réalisables`
+        )
       })
       .catch((err) => toast(`Échec : ${err.message}`))
       .finally(() => setFeasLoading(false))
@@ -227,9 +229,9 @@ export function createOrderBoardStore(initial: OrderBoardData) {
     const findPos = () => {
       for (let li = 0; li < board.lines.length; li++) {
         const cells = board.lines[li].dayCells
-        for (let ci = 0; ci < cells.length; ci++) {
-          const idx = cells[ci].cards.findIndex((c) => c.id === id)
-          if (idx !== -1) return { line: li, col: ci, idx, card: cells[ci].cards[idx] }
+        for (const [ci, cell] of cells.entries()) {
+          const idx = cell.cards.findIndex((c) => c.id === id)
+          if (idx !== -1) return { line: li, col: ci, idx, card: cell.cards[idx] }
         }
       }
       return null

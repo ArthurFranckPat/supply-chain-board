@@ -122,14 +122,16 @@ State updated:   .planning/STATE.md
 - `/gsd-add-phase <description>` — add another phase
 - `/gsd-plan-phase <N>` — plan any of the new phases
 ```
+
 </step>
 
 </process>
 
 <success_criteria>
+
 - [ ] `pi-gsd-tools phase add-batch` executed by WXP (not by the agent)
 - [ ] Phase directories created under `.planning/phases/`
 - [ ] ROADMAP.md updated with all new phase entries
 - [ ] STATE.md Roadmap Evolution updated (handled inside add-batch)
 - [ ] Agent presented the pre-injected result — no filesystem exploration
-</success_criteria>
+      </success_criteria>

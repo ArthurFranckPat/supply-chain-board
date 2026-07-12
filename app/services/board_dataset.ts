@@ -299,7 +299,9 @@ class BoardDataset {
    * Panneau « Engagement » par poste (#46) — un OF peut alimenter plusieurs commandes. */
   async getOfPegsAll(numOfs: string[]): Promise<Map<string, OfCommandePeg[]>> {
     if (!numOfs.length) return new Map()
-    const key = `ofpegs-all:${createHash('md5').update([...numOfs].sort().join(',')).digest('hex')}`
+    const key = `ofpegs-all:${createHash('md5')
+      .update([...numOfs].sort().join(','))
+      .digest('hex')}`
     const entries = await board().getOrSet({
       key,
       ttl: PEG_TTL,

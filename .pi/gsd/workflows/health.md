@@ -43,6 +43,7 @@ if arguments contain "--repair"; then
   REPAIR_FLAG="--repair"
 fi
 ```
+
 </step>
 
 <step name="run_health_check">
@@ -53,6 +54,7 @@ pi-gsd-tools validate health $REPAIR_FLAG
 ```
 
 Parse JSON output:
+
 - `status`: "healthy" | "degraded" | "broken"
 - `errors[]`: Critical issues (code, message, fix, repairable)
 - `warnings[]`: Non-critical issues
@@ -74,6 +76,7 @@ Errors: N | Warnings: N | Info: N
 ```
 
 **If repairs were performed:**
+
 ```
 ## Repairs Performed
 
@@ -82,6 +85,7 @@ Errors: N | Warnings: N | Info: N
 ```
 
 **If errors exist:**
+
 ```
 ## Errors
 
@@ -93,6 +97,7 @@ Errors: N | Warnings: N | Info: N
 ```
 
 **If warnings exist:**
+
 ```
 ## Warnings
 
@@ -104,6 +109,7 @@ Errors: N | Warnings: N | Info: N
 ```
 
 **If info exists:**
+
 ```
 ## Info
 
@@ -112,10 +118,12 @@ Errors: N | Warnings: N | Info: N
 ```
 
 **Footer (if repairable issues exist and --repair was NOT used):**
+
 ```
 ---
 N issues can be auto-repaired. Run: /gsd-health --repair
 ```
+
 </step>
 
 <step name="offer_repair">
@@ -176,6 +184,7 @@ Report final status.
 | addNyquistKey   | Add workflow.nyquist_validation: true to config.json      | None - matches existing default |
 
 **Not repairable (too risky):**
+
 - PROJECT.md, ROADMAP.md content
 - Phase directory renaming
 - Orphaned plan cleanup

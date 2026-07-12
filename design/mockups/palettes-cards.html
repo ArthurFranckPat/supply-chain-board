@@ -1,173 +1,751 @@
 <!doctype html>
 <html lang="fr">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Palettes · sur la carte commande</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700;9..144,900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,400,0,0" rel="stylesheet" />
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:#e7e3da;color:#1c1812;font-family:"Inter",system-ui,sans-serif;font-size:14px;-webkit-font-smoothing:antialiased;padding:40px 32px 64px}
-.material-symbols-outlined{font-family:"Material Symbols Outlined";font-weight:400;line-height:1;font-feature-settings:"liga";vertical-align:middle}
-.mono{font-family:"JetBrains Mono",monospace;font-variant-numeric:tabular-nums}
-.fd{font-family:"Fraunces",Georgia,serif}
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Palettes · sur la carte commande</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700;9..144,900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,400,0,0"
+      rel="stylesheet"
+    />
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        background: #e7e3da;
+        color: #1c1812;
+        font-family: 'Inter', system-ui, sans-serif;
+        font-size: 14px;
+        -webkit-font-smoothing: antialiased;
+        padding: 40px 32px 64px;
+      }
+      .material-symbols-outlined {
+        font-family: 'Material Symbols Outlined';
+        font-weight: 400;
+        line-height: 1;
+        font-feature-settings: 'liga';
+        vertical-align: middle;
+      }
+      .mono {
+        font-family: 'JetBrains Mono', monospace;
+        font-variant-numeric: tabular-nums;
+      }
+      .fd {
+        font-family: 'Fraunces', Georgia, serif;
+      }
 
-.hd{max-width:1180px;margin:0 auto 26px}
-.hd .k{font:700 11px "JetBrains Mono",monospace;text-transform:uppercase;letter-spacing:.16em;color:#8c7e68}
-.hd h1{font:900 28px "Fraunces",serif;letter-spacing:-.03em;margin-top:6px}
-.hd p{color:#5a5043;font-size:14px;margin-top:8px;max-width:700px;line-height:1.55}
+      .hd {
+        max-width: 1180px;
+        margin: 0 auto 26px;
+      }
+      .hd .k {
+        font:
+          700 11px 'JetBrains Mono',
+          monospace;
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+        color: #8c7e68;
+      }
+      .hd h1 {
+        font:
+          900 28px 'Fraunces',
+          serif;
+        letter-spacing: -0.03em;
+        margin-top: 6px;
+      }
+      .hd p {
+        color: #5a5043;
+        font-size: 14px;
+        margin-top: 8px;
+        max-width: 700px;
+        line-height: 1.55;
+      }
 
-.pal{max-width:1180px;margin:0 auto 22px;border-radius:18px;overflow:hidden;border:1px solid rgba(0,0,0,.08);box-shadow:0 10px 30px -16px rgba(0,0,0,.25);background:var(--p-bg);color:var(--p-ink)}
-.pal-top{padding:18px 22px 12px;display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
-.pal-top .tl .tag{display:inline-block;font:700 10px "JetBrains Mono",monospace;letter-spacing:.1em;color:var(--p-brand);background:color-mix(in srgb,var(--p-brand) 14%,transparent);padding:3px 9px;border-radius:6px;margin-bottom:7px}
-.pal-top h2{font:900 24px "Fraunces",serif;letter-spacing:-.03em;line-height:1}
-.pal-top .mood{font:500 13px "Inter",sans-serif;color:var(--p-muted);margin-top:4px}
-.pal-top .mood b{color:var(--p-ink2);font-weight:600}
-.brandchip{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex:none}
-.brandchip .sq{width:46px;height:46px;border-radius:12px;background:var(--p-brand);box-shadow:0 6px 16px -6px color-mix(in srgb,var(--p-brand) 70%,transparent);display:flex;align-items:center;justify-content:center;color:var(--p-brand-ink);font:900 16px "Fraunces",serif}
-.brandchip .hx{font:600 11px "JetBrains Mono",monospace;color:var(--p-muted)}
+      .pal {
+        max-width: 1180px;
+        margin: 0 auto 22px;
+        border-radius: 18px;
+        overflow: hidden;
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        box-shadow: 0 10px 30px -16px rgba(0, 0, 0, 0.25);
+        background: var(--p-bg);
+        color: var(--p-ink);
+      }
+      .pal-top {
+        padding: 18px 22px 12px;
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 14px;
+      }
+      .pal-top .tl .tag {
+        display: inline-block;
+        font:
+          700 10px 'JetBrains Mono',
+          monospace;
+        letter-spacing: 0.1em;
+        color: var(--p-brand);
+        background: color-mix(in srgb, var(--p-brand) 14%, transparent);
+        padding: 3px 9px;
+        border-radius: 6px;
+        margin-bottom: 7px;
+      }
+      .pal-top h2 {
+        font:
+          900 24px 'Fraunces',
+          serif;
+        letter-spacing: -0.03em;
+        line-height: 1;
+      }
+      .pal-top .mood {
+        font:
+          500 13px 'Inter',
+          sans-serif;
+        color: var(--p-muted);
+        margin-top: 4px;
+      }
+      .pal-top .mood b {
+        color: var(--p-ink2);
+        font-weight: 600;
+      }
+      .brandchip {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 5px;
+        flex: none;
+      }
+      .brandchip .sq {
+        width: 46px;
+        height: 46px;
+        border-radius: 12px;
+        background: var(--p-brand);
+        box-shadow: 0 6px 16px -6px color-mix(in srgb, var(--p-brand) 70%, transparent);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--p-brand-ink);
+        font:
+          900 16px 'Fraunces',
+          serif;
+      }
+      .brandchip .hx {
+        font:
+          600 11px 'JetBrains Mono',
+          monospace;
+        color: var(--p-muted);
+      }
 
-/* the board surface — cards float here */
-.stage{padding:18px 22px 22px;background:var(--p-bg);background-image:
-  linear-gradient(var(--p-border) 1px,transparent 1px),
-  linear-gradient(90deg,var(--p-border) 1px,transparent 1px);
-  background-size:24px 24px;background-position:-1px -1px;opacity:1}
-/* keep grid faint: overlay bg to wash it */
-.stage{position:relative}
-.stage::before{content:"";position:absolute;inset:0;background:color-mix(in srgb,var(--p-bg) 82%,transparent);pointer-events:none}
-.cards{position:relative;display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start}
+      /* the board surface — cards float here */
+      .stage {
+        padding: 18px 22px 22px;
+        background: var(--p-bg);
+        background-image:
+          linear-gradient(var(--p-border) 1px, transparent 1px),
+          linear-gradient(90deg, var(--p-border) 1px, transparent 1px);
+        background-size: 24px 24px;
+        background-position: -1px -1px;
+        opacity: 1;
+      }
+      /* keep grid faint: overlay bg to wash it */
+      .stage {
+        position: relative;
+      }
+      .stage::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: color-mix(in srgb, var(--p-bg) 82%, transparent);
+        pointer-events: none;
+      }
+      .cards {
+        position: relative;
+        display: flex;
+        gap: 16px;
+        flex-wrap: wrap;
+        align-items: flex-start;
+      }
 
-/* the order card */
-.card{position:relative;background:var(--p-panel);border:1px solid var(--p-border);border-top:3px solid var(--p-muted);border-radius:7px;padding:10px 11px 9px;width:172px;box-shadow:0 1px 2px rgba(0,0,0,.05);transition:.15s}
-.card:hover{box-shadow:0 8px 20px -8px rgba(0,0,0,.25);transform:translateY(-2px)}
-.card.ferme{border-top-color:var(--p-ok)}
-.card.planifie{border-top-color:var(--p-brand)}
-.card.suggere{border-top-color:var(--p-warn)}
-.card.mod{box-shadow:0 0 0 1.5px var(--p-brand),0 1px 2px rgba(0,0,0,.05)}
-.card .art{font:600 12px "JetBrains Mono",monospace;color:var(--p-ink);letter-spacing:-.01em;line-height:1.2}
-.card .ord{font:600 11px "Inter",sans-serif;color:var(--p-ink2);margin-top:3px}
-.card .ord b{color:var(--p-ink)}
-.card .ord .ds{font-weight:400;color:var(--p-muted)}
-.card .cli{font:400 11px "Fraunces",serif;color:var(--p-muted);font-style:italic;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.card .foot{display:flex;align-items:center;gap:7px;margin-top:8px;padding-top:7px;border-top:1px solid var(--p-border)}
-.card .typ{font:700 8px "Inter",sans-serif;text-transform:uppercase;letter-spacing:.08em;color:var(--p-brand);background:color-mix(in srgb,var(--p-brand) 12%,transparent);padding:2px 6px;border-radius:4px}
-.card .ovr{font:600 8px "Inter",sans-serif;text-transform:uppercase;letter-spacing:.06em;color:var(--p-warn);display:inline-flex;align-items:center;gap:3px}
-.card .ovr .material-symbols-outlined{font-size:11px}
-.card .h{margin-left:auto;font:700 14px "Fraunces",serif;color:var(--p-ink);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
-.card .feas{position:absolute;top:-7px;right:8px;width:15px;height:15px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:9px;font-weight:700;border:2px solid var(--p-panel)}
-.card .feas.ok{background:var(--p-ok)}
-.card .feas.bad{background:var(--p-danger)}
-.cap{position:relative;text-align:center;font:600 9px "Inter",sans-serif;text-transform:uppercase;letter-spacing:.1em;color:var(--p-muted);margin-top:8px}
-.capwrap{display:flex;flex-direction:column}
+      /* the order card */
+      .card {
+        position: relative;
+        background: var(--p-panel);
+        border: 1px solid var(--p-border);
+        border-top: 3px solid var(--p-muted);
+        border-radius: 7px;
+        padding: 10px 11px 9px;
+        width: 172px;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        transition: 0.15s;
+      }
+      .card:hover {
+        box-shadow: 0 8px 20px -8px rgba(0, 0, 0, 0.25);
+        transform: translateY(-2px);
+      }
+      .card.ferme {
+        border-top-color: var(--p-ok);
+      }
+      .card.planifie {
+        border-top-color: var(--p-brand);
+      }
+      .card.suggere {
+        border-top-color: var(--p-warn);
+      }
+      .card.mod {
+        box-shadow:
+          0 0 0 1.5px var(--p-brand),
+          0 1px 2px rgba(0, 0, 0, 0.05);
+      }
+      .card .art {
+        font:
+          600 12px 'JetBrains Mono',
+          monospace;
+        color: var(--p-ink);
+        letter-spacing: -0.01em;
+        line-height: 1.2;
+      }
+      .card .ord {
+        font:
+          600 11px 'Inter',
+          sans-serif;
+        color: var(--p-ink2);
+        margin-top: 3px;
+      }
+      .card .ord b {
+        color: var(--p-ink);
+      }
+      .card .ord .ds {
+        font-weight: 400;
+        color: var(--p-muted);
+      }
+      .card .cli {
+        font:
+          400 11px 'Fraunces',
+          serif;
+        color: var(--p-muted);
+        font-style: italic;
+        margin-top: 3px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .card .foot {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        margin-top: 8px;
+        padding-top: 7px;
+        border-top: 1px solid var(--p-border);
+      }
+      .card .typ {
+        font:
+          700 8px 'Inter',
+          sans-serif;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--p-brand);
+        background: color-mix(in srgb, var(--p-brand) 12%, transparent);
+        padding: 2px 6px;
+        border-radius: 4px;
+      }
+      .card .ovr {
+        font:
+          600 8px 'Inter',
+          sans-serif;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--p-warn);
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+      }
+      .card .ovr .material-symbols-outlined {
+        font-size: 11px;
+      }
+      .card .h {
+        margin-left: auto;
+        font:
+          700 14px 'Fraunces',
+          serif;
+        color: var(--p-ink);
+        letter-spacing: -0.02em;
+        font-variant-numeric: tabular-nums;
+      }
+      .card .feas {
+        position: absolute;
+        top: -7px;
+        right: 8px;
+        width: 15px;
+        height: 15px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-size: 9px;
+        font-weight: 700;
+        border: 2px solid var(--p-panel);
+      }
+      .card .feas.ok {
+        background: var(--p-ok);
+      }
+      .card .feas.bad {
+        background: var(--p-danger);
+      }
+      .cap {
+        position: relative;
+        text-align: center;
+        font:
+          600 9px 'Inter',
+          sans-serif;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--p-muted);
+        margin-top: 8px;
+      }
+      .capwrap {
+        display: flex;
+        flex-direction: column;
+      }
 
-.note{max-width:1180px;margin:24px auto 0;font:500 12px "Inter",sans-serif;color:#8c7e68;line-height:1.6;background:#f3efe6;border:1px solid #d8cfbb;border-radius:12px;padding:16px 20px}
-.note b{color:#1c1812}
-</style>
-</head>
-<body>
+      .note {
+        max-width: 1180px;
+        margin: 24px auto 0;
+        font:
+          500 12px 'Inter',
+          sans-serif;
+        color: #8c7e68;
+        line-height: 1.6;
+        background: #f3efe6;
+        border: 1px solid #d8cfbb;
+        border-radius: 12px;
+        padding: 16px 20px;
+      }
+      .note b {
+        color: #1c1812;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="hd">
+      <div class="k">Exploration · palette sur la carte commande</div>
+      <h1>5 palettes, sur la carte du board</h1>
+      <p>
+        La carte ligne de commande est l'élément le plus vu de l'app — c'est ici que la couleur se
+        juge vraiment. Chaque palette est appliquée aux 4 états de la carte : <b>Ferme</b> (vert),
+        <b>Planifié</b> (brand), <b>Planifié + override</b> (contour brand + faisabilité OK),
+        <b>Suggéré + rupture</b> (ambre + badge danger).
+      </p>
+    </div>
 
-<div class="hd">
-  <div class="k">Exploration · palette sur la carte commande</div>
-  <h1>5 palettes, sur la carte du board</h1>
-  <p>La carte ligne de commande est l'élément le plus vu de l'app — c'est ici que la couleur se juge vraiment. Chaque palette est appliquée aux 4 états de la carte : <b>Ferme</b> (vert), <b>Planifié</b> (brand), <b>Planifié + override</b> (contour brand + faisabilité OK), <b>Suggéré + rupture</b> (ambre + badge danger).</p>
-</div>
+    <!-- ═══ A · COBALT ═══ -->
+    <section
+      class="pal"
+      style="
+        --p-bg: #f4f6fb;
+        --p-panel: #ffffff;
+        --p-border: #dce3ef;
+        --p-ink: #0e1b2e;
+        --p-ink2: #3a4a63;
+        --p-muted: #7c8aa0;
+        --p-brand: #2f5bff;
+        --p-brand-ink: #ffffff;
+        --p-ok: #16a34a;
+        --p-warn: #e08a1e;
+        --p-danger: #e5484d;
+      "
+    >
+      <div class="pal-top">
+        <div class="tl">
+          <span class="tag">A</span>
+          <h2>Cobalt</h2>
+          <div class="mood">Frais · <b>confiant · tech moderne</b></div>
+        </div>
+        <div class="brandchip">
+          <div class="sq">A</div>
+          <div class="hx">#2F5BFF</div>
+        </div>
+      </div>
+      <div class="stage">
+        <div class="cards">
+          <div class="capwrap">
+            <div class="card ferme">
+              <div class="art">XTR107842</div>
+              <div class="ord"><b>AR24518·L2</b> <span class="ds">· Caisse D250</span></div>
+              <div class="cli">AXION GUEVIN</div>
+              <div class="foot"><span class="typ">MTS</span><span class="h">6,0</span></div>
+            </div>
+            <div class="cap">Ferme</div>
+          </div>
+          <div class="capwrap">
+            <div class="card planifie">
+              <div class="art">XTR108120</div>
+              <div class="ord"><b>AR24601·L1</b> <span class="ds">· Caisse D350</span></div>
+              <div class="cli">CDC Habitat</div>
+              <div class="foot"><span class="typ">MTO</span><span class="h">7,5</span></div>
+            </div>
+            <div class="cap">Planifié</div>
+          </div>
+          <div class="capwrap">
+            <div class="card planifie mod">
+              <span class="feas ok">✓</span>
+              <div class="art">VMC-310</div>
+              <div class="ord"><b>AR24610·L2</b> <span class="ds">· Caisson isolé</span></div>
+              <div class="cli">Bouygues</div>
+              <div class="foot">
+                <span class="ovr"><span class="material-symbols-outlined">edit</span>Mod.</span
+                ><span class="typ">MTO</span><span class="h">5,5</span>
+              </div>
+            </div>
+            <div class="cap">Planifié · override · OK</div>
+          </div>
+          <div class="capwrap">
+            <div class="card suggere mod">
+              <span class="feas bad">!</span>
+              <div class="art">XTR106540</div>
+              <div class="ord"><b>AR24490·L4</b> <span class="ds">· Caisse D200</span></div>
+              <div class="cli">Bouygues</div>
+              <div class="foot">
+                <span class="ovr"><span class="material-symbols-outlined">edit</span>Mod.</span
+                ><span class="typ">MTS</span><span class="h">3,0</span>
+              </div>
+            </div>
+            <div class="cap">Suggéré · rupture</div>
+          </div>
+        </div>
+      </div>
+    </section>
 
-<!-- ═══ A · COBALT ═══ -->
-<section class="pal" style="
-  --p-bg:#F4F6FB;--p-panel:#FFFFFF;--p-border:#DCE3EF;
-  --p-ink:#0E1B2E;--p-ink2:#3A4A63;--p-muted:#7C8AA0;
-  --p-brand:#2F5BFF;--p-brand-ink:#FFFFFF;
-  --p-ok:#16A34A;--p-warn:#E08A1E;--p-danger:#E5484D;">
-  <div class="pal-top">
-    <div class="tl"><span class="tag">A</span><h2>Cobalt</h2><div class="mood">Frais · <b>confiant · tech moderne</b></div></div>
-    <div class="brandchip"><div class="sq">A</div><div class="hx">#2F5BFF</div></div>
-  </div>
-  <div class="stage"><div class="cards">
-    <div class="capwrap"><div class="card ferme"><div class="art">XTR107842</div><div class="ord"><b>AR24518·L2</b> <span class="ds">· Caisse D250</span></div><div class="cli">AXION GUEVIN</div><div class="foot"><span class="typ">MTS</span><span class="h">6,0</span></div></div><div class="cap">Ferme</div></div>
-    <div class="capwrap"><div class="card planifie"><div class="art">XTR108120</div><div class="ord"><b>AR24601·L1</b> <span class="ds">· Caisse D350</span></div><div class="cli">CDC Habitat</div><div class="foot"><span class="typ">MTO</span><span class="h">7,5</span></div></div><div class="cap">Planifié</div></div>
-    <div class="capwrap"><div class="card planifie mod"><span class="feas ok">✓</span><div class="art">VMC-310</div><div class="ord"><b>AR24610·L2</b> <span class="ds">· Caisson isolé</span></div><div class="cli">Bouygues</div><div class="foot"><span class="ovr"><span class="material-symbols-outlined">edit</span>Mod.</span><span class="typ">MTO</span><span class="h">5,5</span></div></div><div class="cap">Planifié · override · OK</div></div>
-    <div class="capwrap"><div class="card suggere mod"><span class="feas bad">!</span><div class="art">XTR106540</div><div class="ord"><b>AR24490·L4</b> <span class="ds">· Caisse D200</span></div><div class="cli">Bouygues</div><div class="foot"><span class="ovr"><span class="material-symbols-outlined">edit</span>Mod.</span><span class="typ">MTS</span><span class="h">3,0</span></div></div><div class="cap">Suggéré · rupture</div></div>
-  </div></div>
-</section>
+    <!-- ═══ B · TANGERINE ═══ -->
+    <section
+      class="pal"
+      style="
+        --p-bg: #fbf7f1;
+        --p-panel: #ffffff;
+        --p-border: #ebdcc9;
+        --p-ink: #241a12;
+        --p-ink2: #5a4838;
+        --p-muted: #9a8870;
+        --p-brand: #ef5b21;
+        --p-brand-ink: #ffffff;
+        --p-ok: #1e9e6b;
+        --p-warn: #d98a1b;
+        --p-danger: #d63a2e;
+      "
+    >
+      <div class="pal-top">
+        <div class="tl">
+          <span class="tag">B</span>
+          <h2>Tangerine</h2>
+          <div class="mood">Chaleureux · <b>énergique · convivial</b></div>
+        </div>
+        <div class="brandchip">
+          <div class="sq">B</div>
+          <div class="hx">#EF5B21</div>
+        </div>
+      </div>
+      <div class="stage">
+        <div class="cards">
+          <div class="capwrap">
+            <div class="card ferme">
+              <div class="art">XTR107842</div>
+              <div class="ord"><b>AR24518·L2</b> <span class="ds">· Caisse D250</span></div>
+              <div class="cli">AXION GUEVIN</div>
+              <div class="foot"><span class="typ">MTS</span><span class="h">6,0</span></div>
+            </div>
+            <div class="cap">Ferme</div>
+          </div>
+          <div class="capwrap">
+            <div class="card planifie">
+              <div class="art">XTR108120</div>
+              <div class="ord"><b>AR24601·L1</b> <span class="ds">· Caisse D350</span></div>
+              <div class="cli">CDC Habitat</div>
+              <div class="foot"><span class="typ">MTO</span><span class="h">7,5</span></div>
+            </div>
+            <div class="cap">Planifié</div>
+          </div>
+          <div class="capwrap">
+            <div class="card planifie mod">
+              <span class="feas ok">✓</span>
+              <div class="art">VMC-310</div>
+              <div class="ord"><b>AR24610·L2</b> <span class="ds">· Caisson isolé</span></div>
+              <div class="cli">Bouygues</div>
+              <div class="foot">
+                <span class="ovr"><span class="material-symbols-outlined">edit</span>Mod.</span
+                ><span class="typ">MTO</span><span class="h">5,5</span>
+              </div>
+            </div>
+            <div class="cap">Planifié · override · OK</div>
+          </div>
+          <div class="capwrap">
+            <div class="card suggere mod">
+              <span class="feas bad">!</span>
+              <div class="art">XTR106540</div>
+              <div class="ord"><b>AR24490·L4</b> <span class="ds">· Caisse D200</span></div>
+              <div class="cli">Bouygues</div>
+              <div class="foot">
+                <span class="ovr"><span class="material-symbols-outlined">edit</span>Mod.</span
+                ><span class="typ">MTS</span><span class="h">3,0</span>
+              </div>
+            </div>
+            <div class="cap">Suggéré · rupture</div>
+          </div>
+        </div>
+      </div>
+    </section>
 
-<!-- ═══ B · TANGERINE ═══ -->
-<section class="pal" style="
-  --p-bg:#FBF7F1;--p-panel:#FFFFFF;--p-border:#EBDCC9;
-  --p-ink:#241A12;--p-ink2:#5A4838;--p-muted:#9A8870;
-  --p-brand:#EF5B21;--p-brand-ink:#FFFFFF;
-  --p-ok:#1E9E6B;--p-warn:#D98A1B;--p-danger:#D63A2E;">
-  <div class="pal-top">
-    <div class="tl"><span class="tag">B</span><h2>Tangerine</h2><div class="mood">Chaleureux · <b>énergique · convivial</b></div></div>
-    <div class="brandchip"><div class="sq">B</div><div class="hx">#EF5B21</div></div>
-  </div>
-  <div class="stage"><div class="cards">
-    <div class="capwrap"><div class="card ferme"><div class="art">XTR107842</div><div class="ord"><b>AR24518·L2</b> <span class="ds">· Caisse D250</span></div><div class="cli">AXION GUEVIN</div><div class="foot"><span class="typ">MTS</span><span class="h">6,0</span></div></div><div class="cap">Ferme</div></div>
-    <div class="capwrap"><div class="card planifie"><div class="art">XTR108120</div><div class="ord"><b>AR24601·L1</b> <span class="ds">· Caisse D350</span></div><div class="cli">CDC Habitat</div><div class="foot"><span class="typ">MTO</span><span class="h">7,5</span></div></div><div class="cap">Planifié</div></div>
-    <div class="capwrap"><div class="card planifie mod"><span class="feas ok">✓</span><div class="art">VMC-310</div><div class="ord"><b>AR24610·L2</b> <span class="ds">· Caisson isolé</span></div><div class="cli">Bouygues</div><div class="foot"><span class="ovr"><span class="material-symbols-outlined">edit</span>Mod.</span><span class="typ">MTO</span><span class="h">5,5</span></div></div><div class="cap">Planifié · override · OK</div></div>
-    <div class="capwrap"><div class="card suggere mod"><span class="feas bad">!</span><div class="art">XTR106540</div><div class="ord"><b>AR24490·L4</b> <span class="ds">· Caisse D200</span></div><div class="cli">Bouygues</div><div class="foot"><span class="ovr"><span class="material-symbols-outlined">edit</span>Mod.</span><span class="typ">MTS</span><span class="h">3,0</span></div></div><div class="cap">Suggéré · rupture</div></div>
-  </div></div>
-</section>
+    <!-- ═══ C · ÉMERAUDE ═══ -->
+    <section
+      class="pal"
+      style="
+        --p-bg: #f2f7f4;
+        --p-panel: #ffffff;
+        --p-border: #d6e3db;
+        --p-ink: #0f2419;
+        --p-ink2: #345046;
+        --p-muted: #7b9388;
+        --p-brand: #059669;
+        --p-brand-ink: #ffffff;
+        --p-ok: #22c55e;
+        --p-warn: #d98a1b;
+        --p-danger: #e5484d;
+      "
+    >
+      <div class="pal-top">
+        <div class="tl">
+          <span class="tag">C</span>
+          <h2>Émeraude</h2>
+          <div class="mood">
+            Frais · <b>optimiste · croissance</b> — ⚠️ vert brand voisin du vert « Ferme »
+          </div>
+        </div>
+        <div class="brandchip">
+          <div class="sq">C</div>
+          <div class="hx">#059669</div>
+        </div>
+      </div>
+      <div class="stage">
+        <div class="cards">
+          <div class="capwrap">
+            <div class="card ferme">
+              <div class="art">XTR107842</div>
+              <div class="ord"><b>AR24518·L2</b> <span class="ds">· Caisse D250</span></div>
+              <div class="cli">AXION GUEVIN</div>
+              <div class="foot"><span class="typ">MTS</span><span class="h">6,0</span></div>
+            </div>
+            <div class="cap">Ferme</div>
+          </div>
+          <div class="capwrap">
+            <div class="card planifie">
+              <div class="art">XTR108120</div>
+              <div class="ord"><b>AR24601·L1</b> <span class="ds">· Caisse D350</span></div>
+              <div class="cli">CDC Habitat</div>
+              <div class="foot"><span class="typ">MTO</span><span class="h">7,5</span></div>
+            </div>
+            <div class="cap">Planifié</div>
+          </div>
+          <div class="capwrap">
+            <div class="card planifie mod">
+              <span class="feas ok">✓</span>
+              <div class="art">VMC-310</div>
+              <div class="ord"><b>AR24610·L2</b> <span class="ds">· Caisson isolé</span></div>
+              <div class="cli">Bouygues</div>
+              <div class="foot">
+                <span class="ovr"><span class="material-symbols-outlined">edit</span>Mod.</span
+                ><span class="typ">MTO</span><span class="h">5,5</span>
+              </div>
+            </div>
+            <div class="cap">Planifié · override · OK</div>
+          </div>
+          <div class="capwrap">
+            <div class="card suggere mod">
+              <span class="feas bad">!</span>
+              <div class="art">XTR106540</div>
+              <div class="ord"><b>AR24490·L4</b> <span class="ds">· Caisse D200</span></div>
+              <div class="cli">Bouygues</div>
+              <div class="foot">
+                <span class="ovr"><span class="material-symbols-outlined">edit</span>Mod.</span
+                ><span class="typ">MTS</span><span class="h">3,0</span>
+              </div>
+            </div>
+            <div class="cap">Suggéré · rupture</div>
+          </div>
+        </div>
+      </div>
+    </section>
 
-<!-- ═══ C · ÉMERAUDE ═══ -->
-<section class="pal" style="
-  --p-bg:#F2F7F4;--p-panel:#FFFFFF;--p-border:#D6E3DB;
-  --p-ink:#0F2419;--p-ink2:#345046;--p-muted:#7B9388;
-  --p-brand:#059669;--p-brand-ink:#FFFFFF;
-  --p-ok:#22C55E;--p-warn:#D98A1B;--p-danger:#E5484D;">
-  <div class="pal-top">
-    <div class="tl"><span class="tag">C</span><h2>Émeraude</h2><div class="mood">Frais · <b>optimiste · croissance</b> — ⚠️ vert brand voisin du vert « Ferme »</div></div>
-    <div class="brandchip"><div class="sq">C</div><div class="hx">#059669</div></div>
-  </div>
-  <div class="stage"><div class="cards">
-    <div class="capwrap"><div class="card ferme"><div class="art">XTR107842</div><div class="ord"><b>AR24518·L2</b> <span class="ds">· Caisse D250</span></div><div class="cli">AXION GUEVIN</div><div class="foot"><span class="typ">MTS</span><span class="h">6,0</span></div></div><div class="cap">Ferme</div></div>
-    <div class="capwrap"><div class="card planifie"><div class="art">XTR108120</div><div class="ord"><b>AR24601·L1</b> <span class="ds">· Caisse D350</span></div><div class="cli">CDC Habitat</div><div class="foot"><span class="typ">MTO</span><span class="h">7,5</span></div></div><div class="cap">Planifié</div></div>
-    <div class="capwrap"><div class="card planifie mod"><span class="feas ok">✓</span><div class="art">VMC-310</div><div class="ord"><b>AR24610·L2</b> <span class="ds">· Caisson isolé</span></div><div class="cli">Bouygues</div><div class="foot"><span class="ovr"><span class="material-symbols-outlined">edit</span>Mod.</span><span class="typ">MTO</span><span class="h">5,5</span></div></div><div class="cap">Planifié · override · OK</div></div>
-    <div class="capwrap"><div class="card suggere mod"><span class="feas bad">!</span><div class="art">XTR106540</div><div class="ord"><b>AR24490·L4</b> <span class="ds">· Caisse D200</span></div><div class="cli">Bouygues</div><div class="foot"><span class="ovr"><span class="material-symbols-outlined">edit</span>Mod.</span><span class="typ">MTS</span><span class="h">3,0</span></div></div><div class="cap">Suggéré · rupture</div></div>
-  </div></div>
-</section>
+    <!-- ═══ D · GRENADE ═══ -->
+    <section
+      class="pal"
+      style="
+        --p-bg: #faf5f7;
+        --p-panel: #ffffff;
+        --p-border: #ead7de;
+        --p-ink: #241218;
+        --p-ink2: #5a3a47;
+        --p-muted: #9a7886;
+        --p-brand: #d11e6b;
+        --p-brand-ink: #ffffff;
+        --p-ok: #1e9e6b;
+        --p-warn: #d98a1b;
+        --p-danger: #e5484d;
+      "
+    >
+      <div class="pal-top">
+        <div class="tl">
+          <span class="tag">D</span>
+          <h2>Grenade</h2>
+          <div class="mood">Audacieux · <b>caractère · premium</b></div>
+        </div>
+        <div class="brandchip">
+          <div class="sq">D</div>
+          <div class="hx">#D11E6B</div>
+        </div>
+      </div>
+      <div class="stage">
+        <div class="cards">
+          <div class="capwrap">
+            <div class="card ferme">
+              <div class="art">XTR107842</div>
+              <div class="ord"><b>AR24518·L2</b> <span class="ds">· Caisse D250</span></div>
+              <div class="cli">AXION GUEVIN</div>
+              <div class="foot"><span class="typ">MTS</span><span class="h">6,0</span></div>
+            </div>
+            <div class="cap">Ferme</div>
+          </div>
+          <div class="capwrap">
+            <div class="card planifie">
+              <div class="art">XTR108120</div>
+              <div class="ord"><b>AR24601·L1</b> <span class="ds">· Caisse D350</span></div>
+              <div class="cli">CDC Habitat</div>
+              <div class="foot"><span class="typ">MTO</span><span class="h">7,5</span></div>
+            </div>
+            <div class="cap">Planifié</div>
+          </div>
+          <div class="capwrap">
+            <div class="card planifie mod">
+              <span class="feas ok">✓</span>
+              <div class="art">VMC-310</div>
+              <div class="ord"><b>AR24610·L2</b> <span class="ds">· Caisson isolé</span></div>
+              <div class="cli">Bouygues</div>
+              <div class="foot">
+                <span class="ovr"><span class="material-symbols-outlined">edit</span>Mod.</span
+                ><span class="typ">MTO</span><span class="h">5,5</span>
+              </div>
+            </div>
+            <div class="cap">Planifié · override · OK</div>
+          </div>
+          <div class="capwrap">
+            <div class="card suggere mod">
+              <span class="feas bad">!</span>
+              <div class="art">XTR106540</div>
+              <div class="ord"><b>AR24490·L4</b> <span class="ds">· Caisse D200</span></div>
+              <div class="cli">Bouygues</div>
+              <div class="foot">
+                <span class="ovr"><span class="material-symbols-outlined">edit</span>Mod.</span
+                ><span class="typ">MTS</span><span class="h">3,0</span>
+              </div>
+            </div>
+            <div class="cap">Suggéré · rupture</div>
+          </div>
+        </div>
+      </div>
+    </section>
 
-<!-- ═══ D · GRENADE ═══ -->
-<section class="pal" style="
-  --p-bg:#FAF5F7;--p-panel:#FFFFFF;--p-border:#EAD7DE;
-  --p-ink:#241218;--p-ink2:#5A3A47;--p-muted:#9A7886;
-  --p-brand:#D11E6B;--p-brand-ink:#FFFFFF;
-  --p-ok:#1E9E6B;--p-warn:#D98A1B;--p-danger:#E5484D;">
-  <div class="pal-top">
-    <div class="tl"><span class="tag">D</span><h2>Grenade</h2><div class="mood">Audacieux · <b>caractère · premium</b></div></div>
-    <div class="brandchip"><div class="sq">D</div><div class="hx">#D11E6B</div></div>
-  </div>
-  <div class="stage"><div class="cards">
-    <div class="capwrap"><div class="card ferme"><div class="art">XTR107842</div><div class="ord"><b>AR24518·L2</b> <span class="ds">· Caisse D250</span></div><div class="cli">AXION GUEVIN</div><div class="foot"><span class="typ">MTS</span><span class="h">6,0</span></div></div><div class="cap">Ferme</div></div>
-    <div class="capwrap"><div class="card planifie"><div class="art">XTR108120</div><div class="ord"><b>AR24601·L1</b> <span class="ds">· Caisse D350</span></div><div class="cli">CDC Habitat</div><div class="foot"><span class="typ">MTO</span><span class="h">7,5</span></div></div><div class="cap">Planifié</div></div>
-    <div class="capwrap"><div class="card planifie mod"><span class="feas ok">✓</span><div class="art">VMC-310</div><div class="ord"><b>AR24610·L2</b> <span class="ds">· Caisson isolé</span></div><div class="cli">Bouygues</div><div class="foot"><span class="ovr"><span class="material-symbols-outlined">edit</span>Mod.</span><span class="typ">MTO</span><span class="h">5,5</span></div></div><div class="cap">Planifié · override · OK</div></div>
-    <div class="capwrap"><div class="card suggere mod"><span class="feas bad">!</span><div class="art">XTR106540</div><div class="ord"><b>AR24490·L4</b> <span class="ds">· Caisse D200</span></div><div class="cli">Bouygues</div><div class="foot"><span class="ovr"><span class="material-symbols-outlined">edit</span>Mod.</span><span class="typ">MTS</span><span class="h">3,0</span></div></div><div class="cap">Suggéré · rupture</div></div>
-  </div></div>
-</section>
+    <!-- ═══ E · MINUIT (dark) ═══ -->
+    <section
+      class="pal"
+      style="
+        --p-bg: #0e1320;
+        --p-panel: #171e2f;
+        --p-border: #2b3550;
+        --p-ink: #e9eef9;
+        --p-ink2: #aeb8d0;
+        --p-muted: #7c89a8;
+        --p-brand: #5b8bff;
+        --p-brand-ink: #0e1320;
+        --p-ok: #34d27b;
+        --p-warn: #f0b848;
+        --p-danger: #ff6b6b;
+      "
+    >
+      <div class="pal-top">
+        <div class="tl">
+          <span class="tag">E</span>
+          <h2>Minuit</h2>
+          <div class="mood">Premium · <b>cockpit · l'accent qui brille</b> (sombre)</div>
+        </div>
+        <div class="brandchip">
+          <div class="sq">E</div>
+          <div class="hx">#5B8BFF</div>
+        </div>
+      </div>
+      <div class="stage">
+        <div class="cards">
+          <div class="capwrap">
+            <div class="card ferme">
+              <div class="art">XTR107842</div>
+              <div class="ord"><b>AR24518·L2</b> <span class="ds">· Caisse D250</span></div>
+              <div class="cli">AXION GUEVIN</div>
+              <div class="foot"><span class="typ">MTS</span><span class="h">6,0</span></div>
+            </div>
+            <div class="cap">Ferme</div>
+          </div>
+          <div class="capwrap">
+            <div class="card planifie">
+              <div class="art">XTR108120</div>
+              <div class="ord"><b>AR24601·L1</b> <span class="ds">· Caisse D350</span></div>
+              <div class="cli">CDC Habitat</div>
+              <div class="foot"><span class="typ">MTO</span><span class="h">7,5</span></div>
+            </div>
+            <div class="cap">Planifié</div>
+          </div>
+          <div class="capwrap">
+            <div class="card planifie mod">
+              <span class="feas ok">✓</span>
+              <div class="art">VMC-310</div>
+              <div class="ord"><b>AR24610·L2</b> <span class="ds">· Caisson isolé</span></div>
+              <div class="cli">Bouygues</div>
+              <div class="foot">
+                <span class="ovr"><span class="material-symbols-outlined">edit</span>Mod.</span
+                ><span class="typ">MTO</span><span class="h">5,5</span>
+              </div>
+            </div>
+            <div class="cap">Planifié · override · OK</div>
+          </div>
+          <div class="capwrap">
+            <div class="card suggere mod">
+              <span class="feas bad">!</span>
+              <div class="art">XTR106540</div>
+              <div class="ord"><b>AR24490·L4</b> <span class="ds">· Caisse D200</span></div>
+              <div class="cli">Bouygues</div>
+              <div class="foot">
+                <span class="ovr"><span class="material-symbols-outlined">edit</span>Mod.</span
+                ><span class="typ">MTS</span><span class="h">3,0</span>
+              </div>
+            </div>
+            <div class="cap">Suggéré · rupture</div>
+          </div>
+        </div>
+      </div>
+    </section>
 
-<!-- ═══ E · MINUIT (dark) ═══ -->
-<section class="pal" style="
-  --p-bg:#0E1320;--p-panel:#171E2F;--p-border:#2B3550;
-  --p-ink:#E9EEF9;--p-ink2:#AEB8D0;--p-muted:#7C89A8;
-  --p-brand:#5B8BFF;--p-brand-ink:#0E1320;
-  --p-ok:#34D27B;--p-warn:#F0B848;--p-danger:#FF6B6B;">
-  <div class="pal-top">
-    <div class="tl"><span class="tag">E</span><h2>Minuit</h2><div class="mood">Premium · <b>cockpit · l'accent qui brille</b> (sombre)</div></div>
-    <div class="brandchip"><div class="sq">E</div><div class="hx">#5B8BFF</div></div>
-  </div>
-  <div class="stage"><div class="cards">
-    <div class="capwrap"><div class="card ferme"><div class="art">XTR107842</div><div class="ord"><b>AR24518·L2</b> <span class="ds">· Caisse D250</span></div><div class="cli">AXION GUEVIN</div><div class="foot"><span class="typ">MTS</span><span class="h">6,0</span></div></div><div class="cap">Ferme</div></div>
-    <div class="capwrap"><div class="card planifie"><div class="art">XTR108120</div><div class="ord"><b>AR24601·L1</b> <span class="ds">· Caisse D350</span></div><div class="cli">CDC Habitat</div><div class="foot"><span class="typ">MTO</span><span class="h">7,5</span></div></div><div class="cap">Planifié</div></div>
-    <div class="capwrap"><div class="card planifie mod"><span class="feas ok">✓</span><div class="art">VMC-310</div><div class="ord"><b>AR24610·L2</b> <span class="ds">· Caisson isolé</span></div><div class="cli">Bouygues</div><div class="foot"><span class="ovr"><span class="material-symbols-outlined">edit</span>Mod.</span><span class="typ">MTO</span><span class="h">5,5</span></div></div><div class="cap">Planifié · override · OK</div></div>
-    <div class="capwrap"><div class="card suggere mod"><span class="feas bad">!</span><div class="art">XTR106540</div><div class="ord"><b>AR24490·L4</b> <span class="ds">· Caisse D200</span></div><div class="cli">Bouygues</div><div class="foot"><span class="ovr"><span class="material-symbols-outlined">edit</span>Mod.</span><span class="typ">MTS</span><span class="h">3,0</span></div></div><div class="cap">Suggéré · rupture</div></div>
-  </div></div>
-</section>
-
-<div class="note">
-  <b>À observer sur la carte :</b> le <b>filet supérieur</b> (statut : vert Ferme / brand Planifié / ambre Suggéré), le <b>contour brand</b> sur l'override, les <b>badges</b> (✓ vert / ! rouge), le <b>chip type</b> (brand) et les <b>heures</b> (serif). Vérifiez que les 3 statuts restent bien distincts — notamment sur <b>C Émeraude</b> où le vert brand et le vert Ferme se ressemblent. Dites-moi la palette retenue, je la décline sur le board B1 + ruptures R1a + détail D3.
-</div>
-
-</body>
+    <div class="note">
+      <b>À observer sur la carte :</b> le <b>filet supérieur</b> (statut : vert Ferme / brand
+      Planifié / ambre Suggéré), le <b>contour brand</b> sur l'override, les <b>badges</b> (✓ vert /
+      ! rouge), le <b>chip type</b> (brand) et les <b>heures</b> (serif). Vérifiez que les 3 statuts
+      restent bien distincts — notamment sur <b>C Émeraude</b> où le vert brand et le vert Ferme se
+      ressemblent. Dites-moi la palette retenue, je la décline sur le board B1 + ruptures R1a +
+      détail D3.
+    </div>
+  </body>
 </html>

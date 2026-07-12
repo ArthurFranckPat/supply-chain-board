@@ -66,19 +66,23 @@ pi-gsd-tools state json 2>/dev/null || echo "{}"
 ```
 
 Also read:
+
 - `.planning/STATE.md` - current phase, progress, plan counts
 - `.planning/ROADMAP.md` - milestone structure and phase list
 
 Extract:
+
 - `current_phase` - which phase is active
 - `plan_of` / `plans_total` - plan execution progress
 - `progress` - overall percentage
 - `status` - active, paused, etc.
 
 If no `.planning/` directory exists:
+
 ```
 No GSD project detected. Run `/gsd-new-project` to get started.
 ```
+
 Exit.
 </step>
 
@@ -138,8 +142,9 @@ Do not ask for confirmation - the whole point of `/gsd-next` is zero-friction ad
 </process>
 
 <success_criteria>
+
 - [ ] Project state correctly detected
 - [ ] Next action correctly determined from routing rules
 - [ ] Command invoked immediately without user confirmation
 - [ ] Clear status shown before invoking
-</success_criteria>
+      </success_criteria>

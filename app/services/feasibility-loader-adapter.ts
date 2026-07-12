@@ -16,7 +16,7 @@ import type { DiagnosticLoader } from '#app/domain/recursive-diagnostic-checker'
  * strict + qc = available stock; rejected is excluded.
  */
 export function stockRecordFromFlows(
-  flows: Array<{ origin: { subType?: string }; quantity: number }>,
+  flows: Array<{ origin: { subType?: string }; quantity: number }>
 ): StockRecord | undefined {
   let strict = 0
   let qc = 0
@@ -28,7 +28,9 @@ export function stockRecordFromFlows(
   // stockPhysique = strict + qc (inchangé pour les consommateurs board, #11).
   // stockQc tracé À PART : permet au diagnostic de distinguer le dispo réel (strict)
   // du stock bloqué en contrôle qualité, sans changer la sémantique partagée.
-  return strict > 0 || qc > 0 ? { stockPhysique: strict + qc, stockAlloue: 0, stockQc: qc } : undefined
+  return strict > 0 || qc > 0
+    ? { stockPhysique: strict + qc, stockAlloue: 0, stockQc: qc }
+    : undefined
 }
 
 /**
@@ -55,7 +57,7 @@ export function buildNomenclatureMap(entries: NomenclatureEntry[]): Map<string, 
  * Build StockRecord map from stock flows per article.
  */
 export function buildStocksMap(
-  stockFlows: Array<{ article: string; origin: { subType?: string }; quantity: number }>,
+  stockFlows: Array<{ article: string; origin: { subType?: string }; quantity: number }>
 ): Map<string, StockRecord> {
   const byArticle = new Map<string, Array<{ origin: { subType?: string }; quantity: number }>>()
   for (const f of stockFlows) {
@@ -75,13 +77,25 @@ export function buildStocksMap(
  * Build receptions map from reception flows per article.
  */
 export function buildReceptionsMap(
-  receptionFlows: Array<{ article: string; id?: string; supplier?: string; quantity: number; date: Date | null }>,
+  receptionFlows: Array<{
+    article: string
+    id?: string
+    supplier?: string
+    quantity: number
+    date: Date | null
+  }>
 ): Map<string, ReceptionRecord[]> {
   const byArticle = new Map<string, ReceptionRecord[]>()
   for (const f of receptionFlows) {
     if (!f.date) continue
     const arr = byArticle.get(f.article) ?? []
-    arr.push({ id: f.id ?? '', article: f.article, supplier: f.supplier ?? '', quantity: f.quantity, date: f.date })
+    arr.push({
+      id: f.id ?? '',
+      article: f.article,
+      supplier: f.supplier ?? '',
+      quantity: f.quantity,
+      date: f.date,
+    })
     byArticle.set(f.article, arr)
   }
   return byArticle
@@ -91,7 +105,14 @@ export function buildReceptionsMap(
  * Convert ManufacturingOrder-like objects → OfRecord[].
  */
 export function buildOfRecords(
-  mos: Array<{ numOf: string; article: string; status: number; quantity: number; startDate?: Date | null; endDate?: Date | null }>,
+  mos: Array<{
+    numOf: string
+    article: string
+    status: number
+    quantity: number
+    startDate?: Date | null
+    endDate?: Date | null
+  }>
 ): OfRecord[] {
   return mos.map((mo) => ({
     numOf: mo.numOf,
@@ -141,8 +162,8 @@ export function createDiagnosticLoader(deps: DiagnosticLoaderDeps): DiagnosticLo
             supplier: (f.origin as { supplier?: string }).supplier,
             quantity: f.quantity,
             date: f.date,
-          })),
-        ),
+          }))
+        )
       )
       .catch(() => new Map<string, ReceptionRecord[]>())
     return allReceptions
@@ -162,7 +183,7 @@ export function createDiagnosticLoader(deps: DiagnosticLoaderDeps): DiagnosticLo
             article: f.article,
             origin: f.origin as { subType?: string },
             quantity: f.quantity,
-          })),
+          }))
         )
         const out = new Map<string, StockRecord | undefined>()
         for (const a of articles) out.set(a, built.get(a))

@@ -40,7 +40,16 @@ export function createScenarioStore() {
   const mutationCount = () => current.mutations.length
 
   function reset() {
-    setCurrent(reconcile({ id: null, nom: '', statut: 'brouillon', mutations: [], evaluatedAt: null, dataAt: null }))
+    setCurrent(
+      reconcile({
+        id: null,
+        nom: '',
+        statut: 'brouillon',
+        mutations: [],
+        evaluatedAt: null,
+        dataAt: null,
+      })
+    )
     setDiff(null)
   }
 
@@ -141,7 +150,12 @@ export function createScenarioStore() {
       const r = await fetch(route('scenarios.diff'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from, to, mutations: current.mutations, id: current.id ?? undefined }),
+        body: JSON.stringify({
+          from,
+          to,
+          mutations: current.mutations,
+          id: current.id ?? undefined,
+        }),
       })
       if (!r.ok) throw new Error(`HTTP ${r.status}`)
       const data = (await r.json()) as { diff: PlanDiff; evaluatedAt: string; dataAt: string }

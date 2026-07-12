@@ -40,18 +40,19 @@ test.group('clusterCamions (issue #44)', () => {
     assert.equal(camions[0].fin, '08:04')
   })
 
-  test('valeur absolue : une quantité négative (sortie de stock côté X3) ne rend jamais le total négatif', ({ assert }) => {
-    const lines = [
-      line({ tsMs: T0, qteUc: -12 }),
-      line({ tsMs: T0 + MIN, qteUc: -8 }),
-    ]
+  test('valeur absolue : une quantité négative (sortie de stock côté X3) ne rend jamais le total négatif', ({
+    assert,
+  }) => {
+    const lines = [line({ tsMs: T0, qteUc: -12 }), line({ tsMs: T0 + MIN, qteUc: -8 })]
     const camions = clusterCamions(lines, 5)
     assert.lengthOf(camions, 1)
     assert.equal(camions[0].qteUc, 20)
     assert.isAbove(camions[0].qteUc, 0)
   })
 
-  test('une palette répartie sur plusieurs timestamps du même cluster est comptée une seule fois', ({ assert }) => {
+  test('une palette répartie sur plusieurs timestamps du même cluster est comptée une seule fois', ({
+    assert,
+  }) => {
     // Bug réel : compter COUNT(DISTINCT PALNUM) par timestamp puis sommer entre
     // timestamps recomptait les palettes vues à plusieurs instants → 68 palettes
     // pour un seul camion. Le comptage doit être dédupliqué sur tout le cluster.
@@ -68,10 +69,7 @@ test.group('clusterCamions (issue #44)', () => {
   })
 
   test('sépare en deux camions si le trou dépasse le seuil', ({ assert }) => {
-    const lines = [
-      line({ tsMs: T0, qteUc: 10 }),
-      line({ tsMs: T0 + 10 * MIN, qteUc: 8 }),
-    ]
+    const lines = [line({ tsMs: T0, qteUc: 10 }), line({ tsMs: T0 + 10 * MIN, qteUc: 8 })]
     const camions = clusterCamions(lines, 5)
     assert.lengthOf(camions, 2)
     assert.equal(camions[0].qteUc, 10)
@@ -87,7 +85,9 @@ test.group('clusterCamions (issue #44)', () => {
     assert.lengthOf(camions, 2)
   })
 
-  test('clustering en chaîne : le seuil se mesure depuis le dernier point du cluster, pas le premier', ({ assert }) => {
+  test('clustering en chaîne : le seuil se mesure depuis le dernier point du cluster, pas le premier', ({
+    assert,
+  }) => {
     // Écarts de 4 min entre points consécutifs (< seuil 5) mais 12 min entre le 1er et le dernier (> seuil).
     const lines = [
       line({ tsMs: T0 }),
@@ -100,14 +100,20 @@ test.group('clusterCamions (issue #44)', () => {
     assert.equal(camions[0].nbLignes, 4)
   })
 
-  test('seuil à 0 → aucun regroupement au-delà des timestamps strictement identiques', ({ assert }) => {
+  test('seuil à 0 → aucun regroupement au-delà des timestamps strictement identiques', ({
+    assert,
+  }) => {
     const lines = [line({ tsMs: T0 }), line({ tsMs: T0 + MIN })]
     const camions = clusterCamions(lines, 0)
     assert.lengthOf(camions, 2)
   })
 
-  test('signale une anomalie quand le nombre de palettes dépasse la capacité plausible d’un camion', ({ assert }) => {
-    const many = Array.from({ length: 40 }, (_, i) => line({ tsMs: T0 + i * MIN, palnum: `PAL${i}` }))
+  test('signale une anomalie quand le nombre de palettes dépasse la capacité plausible d’un camion', ({
+    assert,
+  }) => {
+    const many = Array.from({ length: 40 }, (_, i) =>
+      line({ tsMs: T0 + i * MIN, palnum: `PAL${i}` })
+    )
     const camions = clusterCamions(many, 60, 35)
     assert.lengthOf(camions, 1)
     assert.equal(camions[0].nbPalettes, 40)
@@ -115,15 +121,35 @@ test.group('clusterCamions (issue #44)', () => {
   })
 
   test('pas d’anomalie sous la capacité plausible', ({ assert }) => {
-    const few = Array.from({ length: 10 }, (_, i) => line({ tsMs: T0 + i * MIN, palnum: `PAL${i}` }))
+    const few = Array.from({ length: 10 }, (_, i) =>
+      line({ tsMs: T0 + i * MIN, palnum: `PAL${i}` })
+    )
     const camions = clusterCamions(few, 60, 35)
     assert.isFalse(camions[0].anomalie)
   })
 
-  test('le détail des lignes est porté par chaque camion avec article, BL et heure', ({ assert }) => {
+  test('le détail des lignes est porté par chaque camion avec article, BL et heure', ({
+    assert,
+  }) => {
     const lines = [
-      line({ tsMs: T0, qteUc: -10, itmref: 'ART1', designation: 'Article 1', vcrnum: 'BL001', vcrlin: 1000, palnum: 'PAL1' }),
-      line({ tsMs: T0 + MIN, qteUc: -5, itmref: 'ART2', designation: 'Article 2', vcrnum: 'BL002', vcrlin: 2000, palnum: 'PAL2' }),
+      line({
+        tsMs: T0,
+        qteUc: -10,
+        itmref: 'ART1',
+        designation: 'Article 1',
+        vcrnum: 'BL001',
+        vcrlin: 1000,
+        palnum: 'PAL1',
+      }),
+      line({
+        tsMs: T0 + MIN,
+        qteUc: -5,
+        itmref: 'ART2',
+        designation: 'Article 2',
+        vcrnum: 'BL002',
+        vcrlin: 2000,
+        palnum: 'PAL2',
+      }),
     ]
     const camions = clusterCamions(lines, 5)
     assert.lengthOf(camions, 1)
@@ -153,10 +179,10 @@ test.group('clusterCamions (issue #44)', () => {
     assert.equal(camions[1].lignes[0].vcrnum, 'BL002')
   })
 
-  test('une ligne sans article ni BL expose des valeurs nulles propres (pas d’undefined)', ({ assert }) => {
-    const lines = [
-      line({ tsMs: T0, itmref: null, designation: null, vcrnum: null, vcrlin: null }),
-    ]
+  test('une ligne sans article ni BL expose des valeurs nulles propres (pas d’undefined)', ({
+    assert,
+  }) => {
+    const lines = [line({ tsMs: T0, itmref: null, designation: null, vcrnum: null, vcrlin: null })]
     const camions = clusterCamions(lines, 5)
     assert.lengthOf(camions[0].lignes, 1)
     const l = camions[0].lignes[0]
@@ -174,7 +200,7 @@ test.group('Navettes & rattrapage orpheline (pipeline unifié, issue #44)', () =
     return l
   }
 
-  test('les lignes d\'une même navette → 1 camion source=navette', ({ assert }) => {
+  test("les lignes d'une même navette → 1 camion source=navette", ({ assert }) => {
     const lines = [
       withNav(line({ tsMs: T0, palnum: 'PAL1', sohnum: 'CMD1' }), 'NAV001'),
       withNav(line({ tsMs: T0 + MIN, palnum: 'PAL2', sohnum: 'CMD2' }), 'NAV001'),
@@ -190,7 +216,7 @@ test.group('Navettes & rattrapage orpheline (pipeline unifié, issue #44)', () =
 
   test('les camions navette ne sont jamais marqués anomalie même > 35 palettes', ({ assert }) => {
     const lines = Array.from({ length: 40 }, (_, i) =>
-      withNav(line({ tsMs: T0 + i * MIN, palnum: `PAL${i}` }), 'NAV_BIG'),
+      withNav(line({ tsMs: T0 + i * MIN, palnum: `PAL${i}` }), 'NAV_BIG')
     )
     const camions = clusterCamions(lines, 5)
     assert.lengthOf(camions, 1)
@@ -236,7 +262,9 @@ test.group('Navettes & rattrapage orpheline (pipeline unifié, issue #44)', () =
     assert.equal(camions[1].source, 'heuristique')
   })
 
-  test('deux navettes distinctes validées dans la foulée → 2 camions (frontière navette)', ({ assert }) => {
+  test('deux navettes distinctes validées dans la foulée → 2 camions (frontière navette)', ({
+    assert,
+  }) => {
     // Même client, créneaux contigus (1 min) : le walk gap sur-fusionnerait sans frontière.
     // Cas réel : deux camions validés l'un après l'autre par l'opérateur (ex. 61 palettes).
     const lines = [
@@ -251,7 +279,9 @@ test.group('Navettes & rattrapage orpheline (pipeline unifié, issue #44)', () =
     assert.equal(camions[1].navetteNum, 'NAV_B')
   })
 
-  test('orpheline entre deux navettes distinctes → absorbée par la navette la plus proche', ({ assert }) => {
+  test('orpheline entre deux navettes distinctes → absorbée par la navette la plus proche', ({
+    assert,
+  }) => {
     // NAV_A à T0, orpheline à T0+MIN, NAV_B à T0+2*MIN. L'orpheline va avec NAV_A (cluster contigu).
     const lines = [
       withNav(line({ tsMs: T0, palnum: 'PAL1' }), 'NAV_A'),
@@ -290,9 +320,7 @@ test.group('Navettes & rattrapage orpheline (pipeline unifié, issue #44)', () =
 test.group('Équivalent-palettes & taux de remplissage (issue #44 affinage volumes)', () => {
   test('palTheo est calculé depuis UC / ucParPal (PCUSTUCOE_1)', ({ assert }) => {
     // 16 UC / 16 UC-par-palette = 1 palette théorique.
-    const lines = [
-      line({ tsMs: T0, qteUc: 16, ucParPal: 16, palnum: 'PAL1' }),
-    ]
+    const lines = [line({ tsMs: T0, qteUc: 16, ucParPal: 16, palnum: 'PAL1' })]
     const camions = clusterCamions(lines, 5)
     assert.isAtLeast(camions[0].palTheo, 0.99)
     assert.isAtMost(camions[0].palTheo, 1.01)
@@ -322,9 +350,7 @@ test.group('Équivalent-palettes & taux de remplissage (issue #44 affinage volum
 
   test('tauxRemplissage = palTheo / capacité (33 pal)', ({ assert }) => {
     // 33 palettes théoriques = 100% de remplissage. 33 × 16 UC = 528 UC.
-    const lines = [
-      line({ tsMs: T0, qteUc: 33 * 16, ucParPal: 16, palnum: 'PAL1' }),
-    ]
+    const lines = [line({ tsMs: T0, qteUc: 33 * 16, ucParPal: 16, palnum: 'PAL1' })]
     const camions = clusterCamions(lines, 5)
     assert.isAtLeast(camions[0].tauxRemplissage, 0.99)
     assert.isAtMost(camions[0].tauxRemplissage, 1.01)
@@ -332,9 +358,7 @@ test.group('Équivalent-palettes & taux de remplissage (issue #44 affinage volum
 
   test('ecartPalettes = 0 quand palettes comptées = palettes théoriques', ({ assert }) => {
     // 1 palette scannée (PAL1), volume = 1 palette théorique (16 UC / 16).
-    const lines = [
-      line({ tsMs: T0, qteUc: 16, ucParPal: 16, palnum: 'PAL1' }),
-    ]
+    const lines = [line({ tsMs: T0, qteUc: 16, ucParPal: 16, palnum: 'PAL1' })]
     const camions = clusterCamions(lines, 5)
     assert.equal(camions[0].nbPalettes, 1)
     assert.isAtMost(camions[0].ecartPalettes, 0.01)
@@ -342,18 +366,14 @@ test.group('Équivalent-palettes & taux de remplissage (issue #44 affinage volum
 
   test('ecartPalettes détecte une divergence (scan incomplet)', ({ assert }) => {
     // 1 palette scannée mais volume = 10 palettes théoriques → écart ~90%.
-    const lines = [
-      line({ tsMs: T0, qteUc: 160, ucParPal: 16, palnum: 'PAL1' }),
-    ]
+    const lines = [line({ tsMs: T0, qteUc: 160, ucParPal: 16, palnum: 'PAL1' })]
     const camions = clusterCamions(lines, 5)
     assert.equal(camions[0].nbPalettes, 1)
     assert.isAbove(camions[0].ecartPalettes, 0.8)
   })
 
   test('palTheo est aussi calculé pour les camions navette', ({ assert }) => {
-    const lines = [
-      line({ tsMs: T0, qteUc: 16, ucParPal: 16, palnum: 'PAL1' }),
-    ]
+    const lines = [line({ tsMs: T0, qteUc: 16, ucParPal: 16, palnum: 'PAL1' })]
     // Pose la propriété transitoire navetteNum comme le ferait getExpeditions.
     ;(lines[0] as StojouLine & { navetteNum?: string }).navetteNum = 'NAV001'
     const camions = clusterCamions(lines, 5)
@@ -364,9 +384,7 @@ test.group('Équivalent-palettes & taux de remplissage (issue #44 affinage volum
 
   test('une palette ESH (YFAMSTAT7=ESH) pèse 1,25 équivalent-standard', ({ assert }) => {
     // 16 UC / 16 = 1 palette. Famille ESH → facteur 1,25 → palTheo = 1,25.
-    const lines = [
-      line({ tsMs: T0, qteUc: 16, ucParPal: 16, palnum: 'PAL1', yfamstat7: 'ESH' }),
-    ]
+    const lines = [line({ tsMs: T0, qteUc: 16, ucParPal: 16, palnum: 'PAL1', yfamstat7: 'ESH' })]
     const camions = clusterCamions(lines, 5)
     assert.isAtLeast(camions[0].palTheo, 1.24)
     assert.isAtMost(camions[0].palTheo, 1.26)
@@ -384,9 +402,7 @@ test.group('Équivalent-palettes & taux de remplissage (issue #44 affinage volum
   })
 
   test('article non-ESH = facteur de surface 1 (inchangé vs sans yfamstat7)', ({ assert }) => {
-    const lines = [
-      line({ tsMs: T0, qteUc: 16, ucParPal: 16, palnum: 'PAL1', yfamstat7: 'VAM' }),
-    ]
+    const lines = [line({ tsMs: T0, qteUc: 16, ucParPal: 16, palnum: 'PAL1', yfamstat7: 'VAM' })]
     const camions = clusterCamions(lines, 5)
     assert.isAtLeast(camions[0].palTheo, 0.99)
     assert.isAtMost(camions[0].palTheo, 1.01)
@@ -520,9 +536,7 @@ test.group('Décomposition contenants (palette → carton → unités)', () => {
   })
 
   test('la décomposition est portée par chaque ligne de détail', ({ assert }) => {
-    const lines = [
-      line({ tsMs: T0, qteUc: 1200, pcuStuCoe: 100, ucParPal: 1000, palnum: 'PAL1' }),
-    ]
+    const lines = [line({ tsMs: T0, qteUc: 1200, pcuStuCoe: 100, ucParPal: 1000, palnum: 'PAL1' })]
     const camions = clusterCamions(lines, 5)
     assert.equal(camions[0].lignes[0].pal, 1)
     assert.equal(camions[0].lignes[0].cart, 2)
@@ -555,9 +569,7 @@ test.group('Décomposition contenants (palette → carton → unités)', () => {
 test.group('palTheo & taux remplissage — articles non conditionnés VB', () => {
   test('palTheo compte 1 palette par UC pour les articles VB', ({ assert }) => {
     // 3 UC VBP → 3 palettes théoriques (sans coef palettisation).
-    const lines = [
-      line({ tsMs: T0, qteUc: 3, ucParPal: 0, yfamstat7: 'VBP', palnum: 'PAL1' }),
-    ]
+    const lines = [line({ tsMs: T0, qteUc: 3, ucParPal: 0, yfamstat7: 'VBP', palnum: 'PAL1' })]
     const camions = clusterCamions(lines, 5)
     assert.isAtLeast(camions[0].palTheo, 2.99)
     assert.isAtMost(camions[0].palTheo, 3.01)

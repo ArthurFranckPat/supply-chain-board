@@ -103,30 +103,37 @@ Load phase operation context:
 Extract from init JSON: `phase_dir`, `phase_number`, `phase_name`.
 
 Verify the phase directory exists. If not:
+
 ```
 ERROR: Phase directory not found for phase ${PHASE_ARG}
 Ensure the phase exists in .planning/phases/
 ```
+
 Exit.
 
 Read the phase artifacts (in order of priority):
+
 1. `${phase_dir}/*-SUMMARY.md` - what was implemented, files changed
 2. `${phase_dir}/CONTEXT.md` - acceptance criteria, decisions
 3. `${phase_dir}/*-VERIFICATION.md` - user-verified scenarios (if UAT was done)
 
 If no SUMMARY.md exists:
+
 ```
 ERROR: No SUMMARY.md found for phase ${PHASE_ARG}
 This command works on completed phases. Run /gsd-execute-phase first.
 ```
+
 Exit.
 
 Present banner:
+
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  GSD ► ADD TESTS - Phase ${phase_number}: ${phase_name}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
+
 </step>
 
 <step name="analyze_implementation">
@@ -141,6 +148,7 @@ For each file, classify into one of three categories:
 | **Skip** | Not meaningfully testable or already covered                      | None                 |
 
 **TDD classification - apply when:**
+
 - Business logic: calculations, pricing, tax rules, validation
 - Data transformations: mapping, filtering, aggregation, formatting
 - Parsers: CSV, JSON, XML, custom format parsing
@@ -149,6 +157,7 @@ For each file, classify into one of three categories:
 - Utilities: string manipulation, date handling, number formatting
 
 **E2E classification - apply when:**
+
 - Keyboard shortcuts: key bindings, modifier keys, chord sequences
 - Navigation: page transitions, routing, breadcrumbs, back/forward
 - Form interactions: submit, validation errors, field focus, autocomplete
@@ -158,6 +167,7 @@ For each file, classify into one of three categories:
 - Data grids: sorting, filtering, inline editing, column resize
 
 **Skip classification - apply when:**
+
 - UI layout/styling: CSS classes, visual appearance, responsive breakpoints
 - Configuration: config files, environment variables, feature flags
 - Glue code: dependency injection setup, middleware registration, routing tables
@@ -213,12 +223,14 @@ ls package.json *.sln 2>/dev/null || true
 ```
 
 Identify:
+
 - Test directory structure (where unit tests live, where E2E tests live)
 - Naming conventions (`.test.ts`, `.spec.ts`, `*Tests.fs`, etc.)
 - Test runner commands (how to execute unit tests, how to execute E2E tests)
 - Test framework (xUnit, NUnit, Jest, Playwright, etc.)
 
 If test structure is ambiguous, ask the user:
+
 ```
 AskUserQuestion(
   header: "Test Structure",
@@ -226,17 +238,20 @@ AskUserQuestion(
   options: [list discovered locations]
 )
 ```
+
 </step>
 
 <step name="generate_test_plan">
 For each approved file, create a detailed test plan.
 
 **For TDD files**, plan tests following RED-GREEN-REFACTOR:
+
 1. Identify testable functions/methods in the file
 2. For each function: list input scenarios, expected outputs, edge cases
 3. Note: since code already exists, tests may pass immediately - that's OK, but verify they test the RIGHT behavior
 
 **For E2E files**, plan tests following RED-GREEN gates:
+
 1. Identify user scenarios from CONTEXT.md/VERIFICATION.md
 2. For each scenario: describe the user action, expected outcome, assertions
 3. Note: RED gate means confirming the test would fail if the feature were broken
@@ -277,6 +292,7 @@ For each approved TDD test:
 1. **Create test file** following discovered project conventions (directory, naming, imports)
 
 2. **Write test** with clear arrange/act/assert structure:
+
    ```
    // Arrange - set up inputs and expected outputs
    // Act - call the function under test
@@ -284,6 +300,7 @@ For each approved TDD test:
    ```
 
 3. **Run the test**:
+
    ```bash
    {discovered test command}
    ```
@@ -299,20 +316,23 @@ For each approved TDD test:
      ```
      Do NOT fix the implementation - this is a test-generation command, not a fix command. Record the finding.
    - **Test fails with error (import, syntax, etc.)**: This is a test error. Fix the test and re-run.
-</step>
+   </step>
 
 <step name="execute_e2e_generation">
 For each approved E2E test:
 
 1. **Check for existing tests** covering the same scenario:
+
    ```bash
    grep -r "{scenario keyword}" {e2e test directory} 2>/dev/null || true
    ```
+
    If found, extend rather than duplicate.
 
 2. **Create test file** targeting the user scenario from CONTEXT.md/VERIFICATION.md
 
 3. **Run the E2E test**:
+
    ```bash
    {discovered e2e command}
    ```
@@ -359,6 +379,7 @@ Create a test coverage report and present to user:
 ```
 
 Record test generation in project state:
+
 ```bash
 pi-gsd-tools state-snapshot
 ```
@@ -394,11 +415,13 @@ Present next steps:
 
 ---
 ```
+
 </step>
 
 </process>
 
 <success_criteria>
+
 - [ ] Phase artifacts loaded (SUMMARY.md, CONTEXT.md, optionally VERIFICATION.md)
 - [ ] All changed files classified into TDD/E2E/Skip categories
 - [ ] Classification presented to user and approved
@@ -411,4 +434,4 @@ Present next steps:
 - [ ] Test files committed with proper message
 - [ ] Coverage gaps documented
 - [ ] Next steps presented to user
-</success_criteria>
+      </success_criteria>

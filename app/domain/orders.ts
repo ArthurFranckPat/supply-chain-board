@@ -4,11 +4,7 @@ import { allocateFromSupply } from './availability.js'
 import type { Article } from './models/article.js'
 
 export type MatchMethod =
-  | 'mts_hard_pegging'
-  | 'stock_complete'
-  | 'nor_mto_cumulative'
-  | 'purchase_supply'
-  | 'none'
+  'mts_hard_pegging' | 'stock_complete' | 'nor_mto_cumulative' | 'purchase_supply' | 'none'
 
 export interface OrderMatchResult {
   demandFlow: Flow
@@ -31,18 +27,22 @@ function isOfProduction(f: Flow): boolean {
 
 function matchMts(demand: Flow, supplyFlows: Flow[]): OrderMatchResult {
   const linkedOfs = supplyFlows.filter(
-    (f) => isOfProduction(f) && f.article === demand.article && f.quantity > 0,
+    (f) => isOfProduction(f) && f.article === demand.article && f.quantity > 0
   )
 
   if (linkedOfs.length === 0) {
     return {
-      demandFlow: demand, method: 'mts_hard_pegging', coveredByStock: 0, coveredByOf: [],
-      uncovered: demand.quantity, alerts: [`MTS: aucun OF lie pour ${demand.article}`],
+      demandFlow: demand,
+      method: 'mts_hard_pegging',
+      coveredByStock: 0,
+      coveredByOf: [],
+      uncovered: demand.quantity,
+      alerts: [`MTS: aucun OF lie pour ${demand.article}`],
     }
   }
 
   const sorted = [...linkedOfs].sort((a, b) => {
-    const prio = (o: FlowOrigin) => (o.type === 'of' ? (o as any).status ?? 3 : 3)
+    const prio = (o: FlowOrigin) => (o.type === 'of' ? ((o as any).status ?? 3) : 3)
     return prio(a.origin) - prio(b.origin)
   })
 
@@ -51,14 +51,20 @@ function matchMts(demand: Flow, supplyFlows: Flow[]): OrderMatchResult {
   const uncovered = demand.quantity - allocated
 
   return {
-    demandFlow: demand, method: 'mts_hard_pegging', coveredByStock: 0,
+    demandFlow: demand,
+    method: 'mts_hard_pegging',
+    coveredByStock: 0,
     coveredByOf: [{ ofId: (selected.origin as any).id, quantity: allocated }],
     uncovered,
     alerts: uncovered > 0 ? [`MTS: couverture partielle (${allocated}/${demand.quantity})`] : [],
   }
 }
 
-function matchNorMto(demand: Flow, supplyFlows: Flow[], article: Article | undefined): OrderMatchResult {
+function matchNorMto(
+  demand: Flow,
+  supplyFlows: Flow[],
+  article: Article | undefined
+): OrderMatchResult {
   const targetDate = demand.date ?? new Date()
 
   // 1. Allocate from stock/receptions only (NOT from OF production)
@@ -67,15 +73,22 @@ function matchNorMto(demand: Flow, supplyFlows: Flow[], article: Article | undef
 
   if (stockAlloc.remaining === 0) {
     return {
-      demandFlow: demand, method: 'stock_complete', coveredByStock: stockAlloc.allocated,
-      coveredByOf: [], uncovered: 0, alerts: [],
+      demandFlow: demand,
+      method: 'stock_complete',
+      coveredByStock: stockAlloc.allocated,
+      coveredByOf: [],
+      uncovered: 0,
+      alerts: [],
     }
   }
 
   if (article && isPurchaseArticle(article)) {
     return {
-      demandFlow: demand, method: 'purchase_supply', coveredByStock: stockAlloc.allocated,
-      coveredByOf: [], uncovered: stockAlloc.remaining,
+      demandFlow: demand,
+      method: 'purchase_supply',
+      coveredByStock: stockAlloc.allocated,
+      coveredByOf: [],
+      uncovered: stockAlloc.remaining,
       alerts: [`Article achat: ${stockAlloc.allocated} stock, ${stockAlloc.remaining} manquant`],
     }
   }
@@ -85,7 +98,7 @@ function matchNorMto(demand: Flow, supplyFlows: Flow[], article: Article | undef
   const ofCandidates = supplyFlows
     .filter((f) => isOfProduction(f) && f.article === demand.article && f.quantity > 0)
     .sort((a, b) => {
-      const prio = (o: FlowOrigin) => (o.type === 'of' ? (o as any).status ?? 3 : 3)
+      const prio = (o: FlowOrigin) => (o.type === 'of' ? ((o as any).status ?? 3) : 3)
       return prio(a.origin) - prio(b.origin)
     })
 
@@ -101,20 +114,31 @@ function matchNorMto(demand: Flow, supplyFlows: Flow[], article: Article | undef
 
   if (ofCovers.length === 0) {
     return {
-      demandFlow: demand, method: 'none', coveredByStock: stockAlloc.allocated,
-      coveredByOf: [], uncovered: remaining,
+      demandFlow: demand,
+      method: 'none',
+      coveredByStock: stockAlloc.allocated,
+      coveredByOf: [],
+      uncovered: remaining,
       alerts: [`Aucun OF pour ${demand.article}, ${remaining} non couvert`],
     }
   }
 
   return {
-    demandFlow: demand, method: 'nor_mto_cumulative', coveredByStock: stockAlloc.allocated,
-    coveredByOf: ofCovers, uncovered: stillNeeded,
-    alerts: stillNeeded > 0 ? [`Couverture partielle OF: ${remaining - stillNeeded}/${remaining}`] : [],
+    demandFlow: demand,
+    method: 'nor_mto_cumulative',
+    coveredByStock: stockAlloc.allocated,
+    coveredByOf: ofCovers,
+    uncovered: stillNeeded,
+    alerts:
+      stillNeeded > 0 ? [`Couverture partielle OF: ${remaining - stillNeeded}/${remaining}`] : [],
   }
 }
 
-export function matchOrder(demand: Flow, supplyFlows: Flow[], articles: Map<string, Article>): OrderMatchResult {
+export function matchOrder(
+  demand: Flow,
+  supplyFlows: Flow[],
+  articles: Map<string, Article>
+): OrderMatchResult {
   const { origin } = demand
   const article = articles.get(demand.article)
 
@@ -124,7 +148,11 @@ export function matchOrder(demand: Flow, supplyFlows: Flow[], articles: Map<stri
   return matchNorMto(demand, supplyFlows, article)
 }
 
-export function matchOrders(demands: Flow[], supplyFlows: Flow[], articles: Map<string, Article>): OrderMatchResult[] {
+export function matchOrders(
+  demands: Flow[],
+  supplyFlows: Flow[],
+  articles: Map<string, Article>
+): OrderMatchResult[] {
   const sorted = [...demands].sort((a, b) => {
     const pa = a.origin.type === 'order' ? 0 : 1
     const pb = b.origin.type === 'order' ? 0 : 1
@@ -141,7 +169,7 @@ export function matchOrders(demands: Flow[], supplyFlows: Flow[], articles: Map<
 
     for (const ofCover of result.coveredByOf) {
       const flow = mutableSupply.find(
-        (f) => isOfProduction(f) && (f.origin as any).id === ofCover.ofId,
+        (f) => isOfProduction(f) && (f.origin as any).id === ofCover.ofId
       )
       if (flow) flow.quantity -= ofCover.quantity
     }

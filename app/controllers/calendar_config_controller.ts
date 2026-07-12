@@ -1,4 +1,4 @@
-import { HttpContext } from '@adonisjs/core/http'
+import { type HttpContext } from '@adonisjs/core/http'
 import CapacityClosure from '#models/capacity_closure'
 import CapacityHolidayOverride from '#models/capacity_holiday_override'
 import capacityCalendar from '#services/capacity_calendar_service'
@@ -19,7 +19,8 @@ const rangesTouch = (aFrom: string, aTo: string, bFrom: string, bTo: string): bo
   rangesOverlap(aFrom, aTo, bFrom, bTo) || nextDay(aTo) === bFrom || nextDay(bTo) === aFrom
 
 /** Réordonne une paire de dates ISO. */
-const order = (a: string, b: string): { from: string; to: string } => (a <= b ? { from: a, to: b } : { from: b, to: a })
+const order = (a: string, b: string): { from: string; to: string } =>
+  a <= b ? { from: a, to: b } : { from: b, to: a }
 
 /** Borne le facteur de capacité dans [0,1] (défaut 0). */
 const clampFactor = (v: unknown): number => {
@@ -35,7 +36,7 @@ const clampFactor = (v: unknown): number => {
 export default class CalendarConfigController {
   /** GET /configuration/calendrier — page Inertia. */
   async index(ctx: HttpContext) {
-    const yearParam = parseInt(ctx.request.input('year') ?? '') || new Date().getFullYear()
+    const yearParam = Number.parseInt(ctx.request.input('year') ?? '') || new Date().getFullYear()
 
     const [holidays, closures, workstations] = await Promise.all([
       capacityCalendar.holidays(yearParam, yearParam),
@@ -85,12 +86,26 @@ export default class CalendarConfigController {
     const motif = String(r.input('motif') ?? '').trim()
     const factor = clampFactor(r.input('factor'))
     if (!rawFrom || !rawTo) return ctx.response.badRequest({ error: 'dates requises' })
-    if (scope !== 'global' && !inCode) return ctx.response.badRequest({ error: 'code requis pour ce scope' })
+    if (scope !== 'global' && !inCode)
+      return ctx.response.badRequest({ error: 'code requis pour ce scope' })
 
     const code = scope === 'global' ? '' : inCode
     const m = await this.mergeAndWarn(scope, code, motif, factor, order(rawFrom, rawTo))
-    const row = await CapacityClosure.create({ scope, code, dateFrom: m.from, dateTo: m.to, motif, factor, createdAt: Date.now() })
-    return { ok: true, closure: { id: row.id, scope, code, from: m.from, to: m.to, motif, factor }, removedIds: m.removedIds, warn: m.warn }
+    const row = await CapacityClosure.create({
+      scope,
+      code,
+      dateFrom: m.from,
+      dateTo: m.to,
+      motif,
+      factor,
+      createdAt: Date.now(),
+    })
+    return {
+      ok: true,
+      closure: { id: row.id, scope, code, from: m.from, to: m.to, motif, factor },
+      removedIds: m.removedIds,
+      warn: m.warn,
+    }
   }
 
   /** PATCH /api/v1/config/closures/:id — édite une fermeture (dates/motif/capacité ; poste fixe). */
@@ -104,7 +119,14 @@ export default class CalendarConfigController {
     const factor = clampFactor(r.input('factor'))
     if (!rawFrom || !rawTo) return ctx.response.badRequest({ error: 'dates requises' })
 
-    const m = await this.mergeAndWarn(row.scope, row.code, motif, factor, order(rawFrom, rawTo), row.id)
+    const m = await this.mergeAndWarn(
+      row.scope,
+      row.code,
+      motif,
+      factor,
+      order(rawFrom, rawTo),
+      row.id
+    )
     row.dateFrom = m.from
     row.dateTo = m.to
     row.motif = motif
@@ -112,7 +134,15 @@ export default class CalendarConfigController {
     await row.save()
     return {
       ok: true,
-      closure: { id: row.id, scope: row.scope, code: row.code, from: m.from, to: m.to, motif, factor },
+      closure: {
+        id: row.id,
+        scope: row.scope,
+        code: row.code,
+        from: m.from,
+        to: m.to,
+        motif,
+        factor,
+      },
       removedIds: m.removedIds,
       warn: m.warn,
     }
@@ -129,7 +159,7 @@ export default class CalendarConfigController {
     motif: string,
     factor: number,
     range: { from: string; to: string },
-    excludeId?: number,
+    excludeId?: number
   ): Promise<{ from: string; to: string; removedIds: number[]; warn: boolean }> {
     let { from, to } = range
     const siblings = await CapacityClosure.query().where('scope', scope).where('code', code)
@@ -148,7 +178,7 @@ export default class CalendarConfigController {
         c.id !== excludeId &&
         !removedIds.includes(c.id) &&
         rangesOverlap(c.dateFrom, c.dateTo, from, to) &&
-        (c.motif !== motif || c.factor !== factor),
+        (c.motif !== motif || c.factor !== factor)
     )
     return { from, to, removedIds, warn }
   }

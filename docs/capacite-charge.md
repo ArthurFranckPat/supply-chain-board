@@ -8,16 +8,16 @@ table `static_workstations`), pas en SOAP live à chaque requête.
 
 `WORKSTATIO` — poste de charge (clé `WST_0` = `gamme.workstation`, ex. `PP_830`)
 
-| champ | usage |
-|---|---|
-| `WST_0` | code poste |
-| `WSTDES_0` | libellé |
-| `WSTTYP_0` | type (1 machine, 2 main d'œuvre, 3 sous-traitance) — **tous** synchronisés |
-| `WSTNBR_0` | nombre d'exemplaires (shifts / ressources parallèles) |
-| `EFF_0` / `USE_0` / `SHR_0` | efficience % / utilisation % / perte % |
-| `TWD_0` | → schéma horaire (`TABWEEDIA.TWD_0`) |
-| `STOLOC_0` | emplacement / **atelier** (#36) |
-| `WCR_0` / `WCRFCY_0` | centre de charge / site |
+| champ                       | usage                                                                      |
+| --------------------------- | -------------------------------------------------------------------------- |
+| `WST_0`                     | code poste                                                                 |
+| `WSTDES_0`                  | libellé                                                                    |
+| `WSTTYP_0`                  | type (1 machine, 2 main d'œuvre, 3 sous-traitance) — **tous** synchronisés |
+| `WSTNBR_0`                  | nombre d'exemplaires (shifts / ressources parallèles)                      |
+| `EFF_0` / `USE_0` / `SHR_0` | efficience % / utilisation % / perte %                                     |
+| `TWD_0`                     | → schéma horaire (`TABWEEDIA.TWD_0`)                                       |
+| `STOLOC_0`                  | emplacement / **atelier** (#36)                                            |
+| `WCR_0` / `WCRFCY_0`        | centre de charge / site                                                    |
 
 `TABWEEDIA` — schéma horaire hebdo (clé `TWD_0`), `DAYCAP_0..6` = capacité (h) par
 jour **Lun→Dim** (index 0 = Lundi). Dénormalisé sur la ligne poste au sync.
@@ -46,6 +46,7 @@ Données live conformes (CFA = 7,5 h Lun-Ven, ~0 week-end).
 
 `LoadController` joint, par poste et par bucket (mensuel + hebdo), la capacité nette
 à la charge (`LoadLine.capacity`). Front (`scheduler/load.tsx`) :
+
 - ligne de capacité (pointillés) sur le détail + mini-cartes ;
 - totaux et lignes de capacité **rouges** quand charge > capacité ;
 - badge **taux de saturation** (charge / capacité) sur le poste sélectionné.

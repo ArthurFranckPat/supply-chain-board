@@ -155,7 +155,8 @@ export default function OrderGrid(props: {
                     class="size-[7px] rounded-[1px]"
                     style={{
                       'background-color': 'rgba(168,67,31,.18)',
-                      'background-image': 'repeating-linear-gradient(45deg, rgba(168,67,31,.5) 0 1px, transparent 1px 3px)',
+                      'background-image':
+                        'repeating-linear-gradient(45deg, rgba(168,67,31,.5) 0 1px, transparent 1px 3px)',
                     }}
                   />
                   amont
@@ -167,13 +168,13 @@ export default function OrderGrid(props: {
                 <div
                   class={cx(
                     'border-b border-r border-rule-soft bg-card px-2.5 py-1.5 text-center',
-                    day.today && 'bg-brand-soft',
+                    day.today && 'bg-brand-soft'
                   )}
                 >
                   <div
                     class={cx(
                       'font-mono text-[9px] font-bold tracking-[0.1em]',
-                      day.today ? 'text-brand' : 'text-muted-foreground',
+                      day.today ? 'text-brand' : 'text-muted-foreground'
                     )}
                   >
                     {day.short.replace(/\s*\d+\s*$/, '')}
@@ -181,7 +182,7 @@ export default function OrderGrid(props: {
                   <div
                     class={cx(
                       'font-fraunces text-[19px] font-bold leading-none tracking-tight',
-                      day.today ? 'text-brand italic' : 'text-foreground',
+                      day.today ? 'text-brand italic' : 'text-foreground'
                     )}
                   >
                     {dayNum(di())}
@@ -199,19 +200,24 @@ export default function OrderGrid(props: {
                           <span class="ml-0.5 font-mono text-[8px] font-medium opacity-50">h</span>
                         </div>
                         <div class="flex items-baseline justify-center gap-1 font-mono tabular-nums">
-                          <span class="text-[9px] font-semibold text-foreground/70">{fmt(directe)}</span>
+                          <span class="text-[9px] font-semibold text-foreground/70">
+                            {fmt(directe)}
+                          </span>
                           <Show when={amont > 0}>
                             <span class="text-[9px] font-bold text-brand">+{fmt(amont)}</span>
                           </Show>
                         </div>
                         <Show when={total > 0}>
                           <div class="mt-0.5 flex h-[5px] overflow-hidden rounded-full bg-rule-soft">
-                            <span class="block h-full bg-foreground" style={{ width: `${(directe / total) * 100}%` }} />
+                            <span
+                              class="block h-full bg-foreground"
+                              style={{ width: `${(directe / total) * 100}%` }}
+                            />
                             <Show when={amont > 0}>
                               <span
                                 class="block h-full"
                                 style={{
-                                  width: `${(amont / total) * 100}%`,
+                                  'width': `${(amont / total) * 100}%`,
                                   'background-color': 'rgba(168,67,31,.45)',
                                   'background-image':
                                     'repeating-linear-gradient(45deg, rgba(168,67,31,.55) 0 1.5px, transparent 1.5px 4px)',
@@ -234,7 +240,10 @@ export default function OrderGrid(props: {
           {(line) => (
             <div
               class="grid border-b border-rule-soft"
-              style={{ 'grid-template-columns': gridTpl(), display: store.lineVisible(line.code) ? 'grid' : 'none' }}
+              style={{
+                'grid-template-columns': gridTpl(),
+                'display': store.lineVisible(line.code) ? 'grid' : 'none',
+              }}
             >
               {/* En-tête de poste (collant à gauche) */}
               <div class="sticky left-0 z-20 flex flex-col gap-1.5 overflow-hidden border-r border-rule bg-card px-3.5 py-3">
@@ -249,7 +258,11 @@ export default function OrderGrid(props: {
                   </span>
                 </div>
                 <span class="text-[11px] leading-tight text-muted-foreground">{line.name}</span>
-                <ChargeHistogram weeks={lineCharge(line)} maxHours={maxLineHours()} variant="line" />
+                <ChargeHistogram
+                  weeks={lineCharge(line)}
+                  maxHours={maxLineHours()}
+                  variant="line"
+                />
                 {/* PP_830 — équilibrage (issue #42, header M1) : barre empilée typo
                     (plein = sans bouche, clair = consomme bouche) + stock bouches hygro. */}
                 <Show when={line.pp830}>
@@ -263,9 +276,21 @@ export default function OrderGrid(props: {
                           <For each={pp().chargeByTypo}>
                             {(t) => (
                               <>
-                                <span class="block h-full" style={{ width: seg(t.sans), background: TYPO_META[t.typo]?.color ?? '#94a3b8' }} />
+                                <span
+                                  class="block h-full"
+                                  style={{
+                                    width: seg(t.sans),
+                                    background: TYPO_META[t.typo]?.color ?? '#94a3b8',
+                                  }}
+                                />
                                 <Show when={t.bouche > 0}>
-                                  <span class="block h-full" style={{ width: seg(t.bouche), background: TYPO_META[t.typo]?.light ?? '#cbd5e1' }} />
+                                  <span
+                                    class="block h-full"
+                                    style={{
+                                      width: seg(t.bouche),
+                                      background: TYPO_META[t.typo]?.light ?? '#cbd5e1',
+                                    }}
+                                  />
                                 </Show>
                               </>
                             )}
@@ -276,13 +301,23 @@ export default function OrderGrid(props: {
                             {(t) => (
                               <span class="inline-flex items-center gap-1">
                                 <span class="inline-flex items-center gap-0.5">
-                                  <span class="size-[7px] rounded-[1px]" style={{ background: TYPO_META[t.typo]?.color ?? '#94a3b8' }} />
+                                  <span
+                                    class="size-[7px] rounded-[1px]"
+                                    style={{ background: TYPO_META[t.typo]?.color ?? '#94a3b8' }}
+                                  />
                                   {t.bouche > 0 && (
-                                    <span class="size-[7px] rounded-[1px]" style={{ background: TYPO_META[t.typo]?.light ?? '#cbd5e1' }} />
+                                    <span
+                                      class="size-[7px] rounded-[1px]"
+                                      style={{ background: TYPO_META[t.typo]?.light ?? '#cbd5e1' }}
+                                    />
                                   )}
                                 </span>
-                                <span class="text-muted-foreground">{TYPO_META[t.typo]?.label ?? t.typo}</span>
-                                <span class="tabular-nums text-foreground">{t.sans + t.bouche}h</span>
+                                <span class="text-muted-foreground">
+                                  {TYPO_META[t.typo]?.label ?? t.typo}
+                                </span>
+                                <span class="tabular-nums text-foreground">
+                                  {t.sans + t.bouche}h
+                                </span>
                               </span>
                             )}
                           </For>
@@ -290,7 +325,10 @@ export default function OrderGrid(props: {
                         <Show when={pp().stockBouchesHygro !== null}>
                           <div class="mt-1 flex items-baseline gap-1 text-[10px] text-muted-foreground">
                             <span>Bouches hygro</span>
-                            <span class="font-fraunces text-[14px] font-bold tabular-nums" style={{ color: 'var(--color-brand)' }}>
+                            <span
+                              class="font-fraunces text-[14px] font-bold tabular-nums"
+                              style={{ color: 'var(--color-brand)' }}
+                            >
                               {pp().stockBouchesHygro}
                             </span>
                             <span>pcs</span>
@@ -311,9 +349,12 @@ export default function OrderGrid(props: {
                     <div
                       class={cx(
                         'relative flex min-h-[96px] flex-col gap-2 border-r border-rule-soft bg-card p-2',
-                        isToday && 'bg-brand-soft',
+                        isToday && 'bg-brand-soft'
                       )}
-                      style={{ 'background-image': isToday ? undefined : GRAPH_PAPER, 'background-size': '22px 22px' }}
+                      style={{
+                        'background-image': isToday ? undefined : GRAPH_PAPER,
+                        'background-size': '22px 22px',
+                      }}
                       classList={{ 'ring-2 ring-brand/70 ring-inset': dropCol() === cellKey }}
                       onDragOver={(e) => {
                         if (!draggedId()) return
@@ -384,7 +425,7 @@ function CardView(props: {
       class={cx(
         'relative transition-opacity',
         ghost ? 'cursor-default' : 'cursor-pointer',
-        !matches() && 'pointer-events-none opacity-15',
+        !matches() && 'pointer-events-none opacity-15'
       )}
       onClick={() => {
         if (matches() && !ghost) props.onSelectCard(card.id)

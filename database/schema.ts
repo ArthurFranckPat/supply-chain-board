@@ -8,7 +8,16 @@ import { BaseModel, column } from '@adonisjs/lucid/orm'
 import { DateTime } from 'luxon'
 
 export class CapacityClosureSchema extends BaseModel {
-  static $columns = ['code', 'createdAt', 'dateFrom', 'dateTo', 'factor', 'id', 'motif', 'scope'] as const
+  static $columns = [
+    'code',
+    'createdAt',
+    'dateFrom',
+    'dateTo',
+    'factor',
+    'id',
+    'motif',
+    'scope',
+  ] as const
   $columns = CapacityClosureSchema.$columns
   @column()
   declare code: string
@@ -53,7 +62,17 @@ export class LocalMenuSchema extends BaseModel {
 }
 
 export class OfOverrideSchema extends BaseModel {
-  static $columns = ['createdAt', 'dateDebut', 'dateFin', 'id', 'note', 'numOf', 'status', 'updatedAt', 'workstation'] as const
+  static $columns = [
+    'createdAt',
+    'dateDebut',
+    'dateFin',
+    'id',
+    'note',
+    'numOf',
+    'status',
+    'updatedAt',
+    'workstation',
+  ] as const
   $columns = OfOverrideSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime | null
@@ -76,7 +95,14 @@ export class OfOverrideSchema extends BaseModel {
 }
 
 export class OrderLineOverrideSchema extends BaseModel {
-  static $columns = ['createdAt', 'dateLivraison', 'id', 'ligne', 'numCommande', 'updatedAt'] as const
+  static $columns = [
+    'createdAt',
+    'dateLivraison',
+    'id',
+    'ligne',
+    'numCommande',
+    'updatedAt',
+  ] as const
   $columns = OrderLineOverrideSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime | null
@@ -93,7 +119,18 @@ export class OrderLineOverrideSchema extends BaseModel {
 }
 
 export class ScenarioSchema extends BaseModel {
-  static $columns = ['auteur', 'createdAt', 'dataAt', 'description', 'evaluatedAt', 'id', 'mutations', 'nom', 'statut', 'updatedAt'] as const
+  static $columns = [
+    'auteur',
+    'createdAt',
+    'dataAt',
+    'description',
+    'evaluatedAt',
+    'id',
+    'mutations',
+    'nom',
+    'statut',
+    'updatedAt',
+  ] as const
   $columns = ScenarioSchema.$columns
   @column()
   declare auteur: string | null
@@ -118,7 +155,15 @@ export class ScenarioSchema extends BaseModel {
 }
 
 export class StaticArticleSchema extends BaseModel {
-  static $columns = ['category', 'code', 'description', 'famille', 'supplyType', 'syncedAt', 'typologie'] as const
+  static $columns = [
+    'category',
+    'code',
+    'description',
+    'famille',
+    'supplyType',
+    'syncedAt',
+    'typologie',
+  ] as const
   $columns = StaticArticleSchema.$columns
   @column()
   declare category: string
@@ -137,7 +182,14 @@ export class StaticArticleSchema extends BaseModel {
 }
 
 export class StaticGammeSchema extends BaseModel {
-  static $columns = ['article', 'id', 'rate', 'syncedAt', 'workstation', 'workstationLabel'] as const
+  static $columns = [
+    'article',
+    'id',
+    'rate',
+    'syncedAt',
+    'workstation',
+    'workstationLabel',
+  ] as const
   $columns = StaticGammeSchema.$columns
   @column()
   declare article: string
@@ -154,7 +206,18 @@ export class StaticGammeSchema extends BaseModel {
 }
 
 export class StaticNomenclatureSchema extends BaseModel {
-  static $columns = ['componentArticle', 'componentDescription', 'componentType', 'consumptionNature', 'id', 'level', 'linkQuantity', 'parentArticle', 'parentDescription', 'syncedAt'] as const
+  static $columns = [
+    'componentArticle',
+    'componentDescription',
+    'componentType',
+    'consumptionNature',
+    'id',
+    'level',
+    'linkQuantity',
+    'parentArticle',
+    'parentDescription',
+    'syncedAt',
+  ] as const
   $columns = StaticNomenclatureSchema.$columns
   @column()
   declare componentArticle: string
@@ -179,7 +242,28 @@ export class StaticNomenclatureSchema extends BaseModel {
 }
 
 export class StaticWorkstationSchema extends BaseModel {
-  static $columns = ['code', 'daycap0', 'daycap1', 'daycap2', 'daycap3', 'daycap4', 'daycap5', 'daycap6', 'description', 'eff', 'id', 'shr', 'stoloc', 'syncedAt', 'twd', 'usePct', 'wcr', 'wcrfcy', 'wstnbr', 'wsttyp'] as const
+  static $columns = [
+    'code',
+    'daycap0',
+    'daycap1',
+    'daycap2',
+    'daycap3',
+    'daycap4',
+    'daycap5',
+    'daycap6',
+    'description',
+    'eff',
+    'id',
+    'shr',
+    'stoloc',
+    'syncedAt',
+    'twd',
+    'usePct',
+    'wcr',
+    'wcrfcy',
+    'wstnbr',
+    'wsttyp',
+  ] as const
   $columns = StaticWorkstationSchema.$columns
   @column()
   declare code: string
@@ -224,7 +308,15 @@ export class StaticWorkstationSchema extends BaseModel {
 }
 
 export class UserSchema extends BaseModel {
-  static $columns = ['createdAt', 'id', 'lastEnv', 'lastLoginAt', 'updatedAt', 'username', 'x3PasswordEncrypted'] as const
+  static $columns = [
+    'createdAt',
+    'id',
+    'lastEnv',
+    'lastLoginAt',
+    'updatedAt',
+    'username',
+    'x3PasswordEncrypted',
+  ] as const
   $columns = UserSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime

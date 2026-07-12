@@ -55,7 +55,10 @@ export const VERDICT_RANK: Record<ShortageDisplayRow['verdictKey'], number> = {
 
 /** Badge couverture de la vue « Par composant » (pire verdict du groupe). Teintes du
  *  design system — miroir du VERDICT_PRESET serveur, sans les icônes (libellé seul). */
-export const VERDICT_BADGE: Record<ShortageDisplayRow['verdictKey'], { cls: string; label: string }> = {
+export const VERDICT_BADGE: Record<
+  ShortageDisplayRow['verdictKey'],
+  { cls: string; label: string }
+> = {
   couvert: { cls: 'bg-ferme/15 text-ferme', label: 'Couvert' },
   a_risque: { cls: 'bg-suggere/15 text-suggere', label: 'À risque' },
   retard: { cls: 'bg-destructive/10 text-destructive', label: 'Retard' },
@@ -88,7 +91,7 @@ export const groupByComponent = (rows: ShortageDisplayRow[]): ComponentGroup[] =
   }
   // « Dégâts » : nb d'OF bloqués desc, puis qté totale manquante desc.
   return [...map.values()].sort(
-    (a, b) => b.lines.length - a.lines.length || b.totalManquant - a.totalManquant,
+    (a, b) => b.lines.length - a.lines.length || b.totalManquant - a.totalManquant
   )
 }
 

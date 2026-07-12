@@ -39,14 +39,24 @@ test.group('buildNomenclatureMap', () => {
   test('groups entries by parent article', ({ assert }) => {
     const entries: NomenclatureEntry[] = [
       {
-        parentArticle: 'PF1', parentDescription: 'Produit 1', level: 10,
-        componentArticle: 'C1', componentDescription: 'Comp 1', linkQuantity: 2,
-        componentType: 'ACHETE', consumptionNature: 'PROPORTIONNEL',
+        parentArticle: 'PF1',
+        parentDescription: 'Produit 1',
+        level: 10,
+        componentArticle: 'C1',
+        componentDescription: 'Comp 1',
+        linkQuantity: 2,
+        componentType: 'ACHETE',
+        consumptionNature: 'PROPORTIONNEL',
       },
       {
-        parentArticle: 'PF1', parentDescription: 'Produit 1', level: 10,
-        componentArticle: 'C2', componentDescription: 'Comp 2', linkQuantity: 1,
-        componentType: 'ACHETE', consumptionNature: 'PROPORTIONNEL',
+        parentArticle: 'PF1',
+        parentDescription: 'Produit 1',
+        level: 10,
+        componentArticle: 'C2',
+        componentDescription: 'Comp 2',
+        linkQuantity: 1,
+        componentType: 'ACHETE',
+        consumptionNature: 'PROPORTIONNEL',
       },
     ]
     const map = buildNomenclatureMap(entries)
@@ -81,9 +91,7 @@ test.group('buildReceptionsMap', () => {
   })
 
   test('skips receptions without date', ({ assert }) => {
-    const flows = [
-      { article: 'C1', id: 'PO1', supplier: 'S1', quantity: 10, date: null },
-    ]
+    const flows = [{ article: 'C1', id: 'PO1', supplier: 'S1', quantity: 10, date: null }]
     const map = buildReceptionsMap(flows)
     assert.isUndefined(map.get('C1'))
   })
@@ -92,7 +100,14 @@ test.group('buildReceptionsMap', () => {
 test.group('buildOfRecords', () => {
   test('converts ManufacturingOrder-like objects', ({ assert }) => {
     const mos = [
-      { numOf: 'OF001', article: 'PF1', status: 1, quantity: 100, startDate: new Date('2026-04-10'), endDate: new Date('2026-04-15') },
+      {
+        numOf: 'OF001',
+        article: 'PF1',
+        status: 1,
+        quantity: 100,
+        startDate: new Date('2026-04-10'),
+        endDate: new Date('2026-04-15'),
+      },
     ]
     const ofs = buildOfRecords(mos)
     assert.lengthOf(ofs, 1)

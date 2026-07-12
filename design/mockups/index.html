@@ -1,104 +1,355 @@
 <!doctype html>
 <html lang="fr">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Planning Board · Redesign — 3 layouts + 3 cartes</title>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet" />
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,400,0,0" rel="stylesheet" />
-<style>
-:root{
-  --bg:#0b0e13; --panel:#141921; --line:#262d38; --txt:#e6edf3; --muted:#8b96a5;
-  --font-d:"Space Grotesk",system-ui,sans-serif; --font-s:"Inter",system-ui,sans-serif; --font-m:"JetBrains Mono",monospace;
-  --a:#a3e635; --b:#b8472a; --c:#0e7c72; --orange:#e8602c;
-}
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:var(--txt);font-family:var(--font-s);padding:32px}
-.material-symbols-outlined{font-family:"Material Symbols Outlined";font-weight:400;line-height:1;font-feature-settings:"liga";vertical-align:middle}
-.hd{max-width:1240px;margin:0 auto 30px}
-.hd h1{font:700 28px var(--font-d);letter-spacing:-.02em;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.hd .p{font:700 10px var(--font-m);text-transform:uppercase;letter-spacing:.14em;color:var(--a);background:rgba(163,230,53,.12);border:1px solid rgba(163,230,53,.3);padding:5px 11px;border-radius:7px}
-.hd .sub{color:var(--muted);font-size:13px;margin-top:10px;max-width:820px;line-height:1.55}
-.hd .sub b{color:var(--txt)}
-.sect{max-width:1240px;margin:0 auto 14px;font:700 11px var(--font-m);text-transform:uppercase;letter-spacing:.16em;color:var(--muted);display:flex;align-items:center;gap:10px}
-.sect::after{content:"";flex:1;height:1px;background:var(--line)}
-.grid{max-width:1240px;margin:0 auto 16px;display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
-.col{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;display:flex;flex-direction:column;transition:.18s}
-.col:hover{border-color:#3a434f;transform:translateY(-2px)}
-.ch{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;gap:13px;align-items:flex-start}
-.ch .ico{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex:none;color:#0b0e13}
-.ch .ico .material-symbols-outlined{font-size:21px}
-.ch .n{font:700 10px var(--font-m);letter-spacing:.1em;opacity:.7}
-.ch h2{font:700 18px var(--font-d);letter-spacing:-.02em;margin-top:2px}
-.ch .desc{font:500 12px var(--font-s);color:var(--muted);margin-top:6px;line-height:1.5}
-.swatch{display:flex;gap:5px;margin-top:9px}
-.swatch i{width:16px;height:16px;border-radius:4px;border:1px solid rgba(255,255,255,.1)}
-.swatch .l{font:600 9px var(--font-m);color:var(--muted);align-self:center;margin-left:4px}
-.cf{padding:13px 18px;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:8px}
-.cf a{display:inline-flex;align-items:center;gap:7px;font:600 12px var(--font-s);text-decoration:none;color:#0b0e13;padding:8px 13px;border-radius:8px;transition:.15s}
-.cf a .material-symbols-outlined{font-size:16px}
-.cf .meta{font:600 10px var(--font-m);color:var(--muted)}
-.note{max-width:1240px;margin:22px auto 0;font-size:12px;color:var(--muted);line-height:1.6;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 20px}
-.note b{color:var(--txt)}
-</style>
-</head>
-<body>
-<div class="hd">
-  <h1><span class="p"><span class="material-symbols-outlined" style="font-family:'Material Symbols Outlined';font-size:13px">design_services</span>Redesign</span> Planning Board — 3 layouts + 3 cartes</h1>
-  <div class="sub">Trois directions de layout qui <b>sortent du design system actuel</b> (slate + bleu Aldes), chacune dans une école visuelle distincte — palette, typographie et philosophie propres. Le <b>contexte métier est conservé</b> : postes en rangées, jours en colonnes, cartes = lignes de commande. Ouvrez chaque rendu plein écran, dites-moi ce qui va et ce qui ne va pas.</div>
-</div>
-
-<div class="sect">Layouts · page planning-board</div>
-<div class="grid">
-
-  <div class="col">
-    <div class="ch">
-      <div class="ico" style="background:var(--a)"><span class="material-symbols-outlined">satellite_alt</span></div>
-      <div><div class="n">A</div><h2>Mission</h2><div class="desc">Salle de contrôle sombre. Lime + cyan, data monospace, statuts qui brillent. Densité pro, ambiance terminal ops.</div>
-        <div class="swatch"><i style="background:#0a0d12"></i><i style="background:#11161d"></i><i style="background:#a3e635"></i><i style="background:#22d3ee"></i><span class="l">Space Grotesk · JetBrains Mono</span></div>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Planning Board · Redesign — 3 layouts + 3 cartes</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,400,0,0"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #0b0e13;
+        --panel: #141921;
+        --line: #262d38;
+        --txt: #e6edf3;
+        --muted: #8b96a5;
+        --font-d: 'Space Grotesk', system-ui, sans-serif;
+        --font-s: 'Inter', system-ui, sans-serif;
+        --font-m: 'JetBrains Mono', monospace;
+        --a: #a3e635;
+        --b: #b8472a;
+        --c: #0e7c72;
+        --orange: #e8602c;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        background: var(--bg);
+        color: var(--txt);
+        font-family: var(--font-s);
+        padding: 32px;
+      }
+      .material-symbols-outlined {
+        font-family: 'Material Symbols Outlined';
+        font-weight: 400;
+        line-height: 1;
+        font-feature-settings: 'liga';
+        vertical-align: middle;
+      }
+      .hd {
+        max-width: 1240px;
+        margin: 0 auto 30px;
+      }
+      .hd h1 {
+        font: 700 28px var(--font-d);
+        letter-spacing: -0.02em;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .hd .p {
+        font: 700 10px var(--font-m);
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: var(--a);
+        background: rgba(163, 230, 53, 0.12);
+        border: 1px solid rgba(163, 230, 53, 0.3);
+        padding: 5px 11px;
+        border-radius: 7px;
+      }
+      .hd .sub {
+        color: var(--muted);
+        font-size: 13px;
+        margin-top: 10px;
+        max-width: 820px;
+        line-height: 1.55;
+      }
+      .hd .sub b {
+        color: var(--txt);
+      }
+      .sect {
+        max-width: 1240px;
+        margin: 0 auto 14px;
+        font: 700 11px var(--font-m);
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+        color: var(--muted);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .sect::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: var(--line);
+      }
+      .grid {
+        max-width: 1240px;
+        margin: 0 auto 16px;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 18px;
+      }
+      .col {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        transition: 0.18s;
+      }
+      .col:hover {
+        border-color: #3a434f;
+        transform: translateY(-2px);
+      }
+      .ch {
+        padding: 16px 18px;
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        gap: 13px;
+        align-items: flex-start;
+      }
+      .ch .ico {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex: none;
+        color: #0b0e13;
+      }
+      .ch .ico .material-symbols-outlined {
+        font-size: 21px;
+      }
+      .ch .n {
+        font: 700 10px var(--font-m);
+        letter-spacing: 0.1em;
+        opacity: 0.7;
+      }
+      .ch h2 {
+        font: 700 18px var(--font-d);
+        letter-spacing: -0.02em;
+        margin-top: 2px;
+      }
+      .ch .desc {
+        font: 500 12px var(--font-s);
+        color: var(--muted);
+        margin-top: 6px;
+        line-height: 1.5;
+      }
+      .swatch {
+        display: flex;
+        gap: 5px;
+        margin-top: 9px;
+      }
+      .swatch i {
+        width: 16px;
+        height: 16px;
+        border-radius: 4px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+      .swatch .l {
+        font: 600 9px var(--font-m);
+        color: var(--muted);
+        align-self: center;
+        margin-left: 4px;
+      }
+      .cf {
+        padding: 13px 18px;
+        border-top: 1px solid var(--line);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      .cf a {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        font: 600 12px var(--font-s);
+        text-decoration: none;
+        color: #0b0e13;
+        padding: 8px 13px;
+        border-radius: 8px;
+        transition: 0.15s;
+      }
+      .cf a .material-symbols-outlined {
+        font-size: 16px;
+      }
+      .cf .meta {
+        font: 600 10px var(--font-m);
+        color: var(--muted);
+      }
+      .note {
+        max-width: 1240px;
+        margin: 22px auto 0;
+        font-size: 12px;
+        color: var(--muted);
+        line-height: 1.6;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 16px 20px;
+      }
+      .note b {
+        color: var(--txt);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="hd">
+      <h1>
+        <span class="p"
+          ><span
+            class="material-symbols-outlined"
+            style="font-family: 'Material Symbols Outlined'; font-size: 13px"
+            >design_services</span
+          >Redesign</span
+        >
+        Planning Board — 3 layouts + 3 cartes
+      </h1>
+      <div class="sub">
+        Trois directions de layout qui <b>sortent du design system actuel</b> (slate + bleu Aldes),
+        chacune dans une école visuelle distincte — palette, typographie et philosophie propres. Le
+        <b>contexte métier est conservé</b> : postes en rangées, jours en colonnes, cartes = lignes
+        de commande. Ouvrez chaque rendu plein écran, dites-moi ce qui va et ce qui ne va pas.
       </div>
     </div>
-    <div style="flex:1"></div>
-    <div class="cf"><a style="background:var(--a)" href="01-mission.html" target="_blank"><span class="material-symbols-outlined">open_in_new</span>Ouvrir plein écran</a><span class="meta">1440 × 900</span></div>
-  </div>
 
-  <div class="col">
-    <div class="ch">
-      <div class="ico" style="background:var(--b);color:#fff"><span class="material-symbols-outlined">menu_book</span></div>
-      <div><div class="n">B</div><h2>Papier</h2><div class="desc">Éditorial chaleureux type quotidien imprimé. Papier crème + terre cuite, serif Fraunces, calme et premium.</div>
-        <div class="swatch"><i style="background:#f1ebdf"></i><i style="background:#fbf7ee"></i><i style="background:#b8472a"></i><i style="background:#211c17"></i><span class="l">Fraunces · Inter</span></div>
+    <div class="sect">Layouts · page planning-board</div>
+    <div class="grid">
+      <div class="col">
+        <div class="ch">
+          <div class="ico" style="background: var(--a)">
+            <span class="material-symbols-outlined">satellite_alt</span>
+          </div>
+          <div>
+            <div class="n">A</div>
+            <h2>Mission</h2>
+            <div class="desc">
+              Salle de contrôle sombre. Lime + cyan, data monospace, statuts qui brillent. Densité
+              pro, ambiance terminal ops.
+            </div>
+            <div class="swatch">
+              <i style="background: #0a0d12"></i><i style="background: #11161d"></i
+              ><i style="background: #a3e635"></i><i style="background: #22d3ee"></i
+              ><span class="l">Space Grotesk · JetBrains Mono</span>
+            </div>
+          </div>
+        </div>
+        <div style="flex: 1"></div>
+        <div class="cf">
+          <a style="background: var(--a)" href="01-mission.html" target="_blank"
+            ><span class="material-symbols-outlined">open_in_new</span>Ouvrir plein écran</a
+          ><span class="meta">1440 × 900</span>
+        </div>
+      </div>
+
+      <div class="col">
+        <div class="ch">
+          <div class="ico" style="background: var(--b); color: #fff">
+            <span class="material-symbols-outlined">menu_book</span>
+          </div>
+          <div>
+            <div class="n">B</div>
+            <h2>Papier</h2>
+            <div class="desc">
+              Éditorial chaleureux type quotidien imprimé. Papier crème + terre cuite, serif
+              Fraunces, calme et premium.
+            </div>
+            <div class="swatch">
+              <i style="background: #f1ebdf"></i><i style="background: #fbf7ee"></i
+              ><i style="background: #b8472a"></i><i style="background: #211c17"></i
+              ><span class="l">Fraunces · Inter</span>
+            </div>
+          </div>
+        </div>
+        <div style="flex: 1"></div>
+        <div class="cf">
+          <a style="background: var(--b); color: #fff" href="02-papier.html" target="_blank"
+            ><span class="material-symbols-outlined">open_in_new</span>Ouvrir plein écran</a
+          ><span class="meta">1440 × 900</span>
+        </div>
+      </div>
+
+      <div class="col">
+        <div class="ch">
+          <div class="ico" style="background: var(--c); color: #fff">
+            <span class="material-symbols-outlined">dashboard</span>
+          </div>
+          <div>
+            <div class="n">C</div>
+            <h2>Bento</h2>
+            <div class="desc">
+              Tableau modulaire audacieux. Teal + orange sécurité, panneaux bento en colonne gauche,
+              géométrie forte.
+            </div>
+            <div class="swatch">
+              <i style="background: #e6eceb"></i><i style="background: #0e7c72"></i
+              ><i style="background: #e8602c"></i><i style="background: #fbfaf4"></i
+              ><span class="l">Bricolage Grotesque</span>
+            </div>
+          </div>
+        </div>
+        <div style="flex: 1"></div>
+        <div class="cf">
+          <a style="background: var(--c); color: #fff" href="03-bento.html" target="_blank"
+            ><span class="material-symbols-outlined">open_in_new</span>Ouvrir plein écran</a
+          ><span class="meta">1440 × 900</span>
+        </div>
       </div>
     </div>
-    <div style="flex:1"></div>
-    <div class="cf"><a style="background:var(--b);color:#fff" href="02-papier.html" target="_blank"><span class="material-symbols-outlined">open_in_new</span>Ouvrir plein écran</a><span class="meta">1440 × 900</span></div>
-  </div>
 
-  <div class="col">
-    <div class="ch">
-      <div class="ico" style="background:var(--c);color:#fff"><span class="material-symbols-outlined">dashboard</span></div>
-      <div><div class="n">C</div><h2>Bento</h2><div class="desc">Tableau modulaire audacieux. Teal + orange sécurité, panneaux bento en colonne gauche, géométrie forte.</div>
-        <div class="swatch"><i style="background:#e6eceb"></i><i style="background:#0e7c72"></i><i style="background:#e8602c"></i><i style="background:#fbfaf4"></i><span class="l">Bricolage Grotesque</span></div>
+    <div class="sect">Cartes · composant « ligne de commande »</div>
+    <div class="grid" style="grid-template-columns: 1fr">
+      <div class="col">
+        <div class="ch">
+          <div
+            class="ico"
+            style="background: linear-gradient(90deg, var(--a), var(--b), var(--c)); color: #fff"
+          >
+            <span class="material-symbols-outlined">style</span>
+          </div>
+          <div>
+            <div class="n">3 variantes</div>
+            <h2>Ticket · Bloc · Data</h2>
+            <div class="desc">
+              L'unité atomique du board déclinée en trois traitements — métaphore physique, minimal
+              radical, densité data — avec le même jeu de données pour comparer. Chacune s'accorde
+              naturellement avec un layout ci-dessus.
+            </div>
+          </div>
+        </div>
+        <div class="cf">
+          <a
+            style="background: linear-gradient(90deg, var(--a), var(--c)); color: #0b0e13"
+            href="cartes.html"
+            target="_blank"
+            ><span class="material-symbols-outlined">open_in_new</span>Voir la galerie de cartes</a
+          ><span class="meta">3 cartes + comparatif</span>
+        </div>
       </div>
     </div>
-    <div style="flex:1"></div>
-    <div class="cf"><a style="background:var(--c);color:#fff" href="03-bento.html" target="_blank"><span class="material-symbols-outlined">open_in_new</span>Ouvrir plein écran</a><span class="meta">1440 × 900</span></div>
-  </div>
 
-</div>
-
-<div class="sect">Cartes · composant « ligne de commande »</div>
-<div class="grid" style="grid-template-columns:1fr">
-  <div class="col">
-    <div class="ch">
-      <div class="ico" style="background:linear-gradient(90deg,var(--a),var(--b),var(--c));color:#fff"><span class="material-symbols-outlined">style</span></div>
-      <div><div class="n">3 variantes</div><h2>Ticket · Bloc · Data</h2><div class="desc">L'unité atomique du board déclinée en trois traitements — métaphore physique, minimal radical, densité data — avec le même jeu de données pour comparer. Chacune s'accorde naturellement avec un layout ci-dessus.</div></div>
+    <div class="note">
+      <b>Pour avancer :</b> ouvrez l'index, parcourez les 3 layouts plein écran, puis la galerie de
+      cartes. Dites-moi simplement <b>quelle direction vous parle</b> (A/B/C) et
+      <b>quelle carte</b> (Ticket/Bloc/Data) — on peut mixer (ex. layout B + carte Data). Je
+      peaufine ensuite le choix : densité, couleurs, typos, et on l'appliquera au vrai composant
+      Solid (<code>inertia/components/board/order-grid.tsx</code>).
     </div>
-    <div class="cf"><a style="background:linear-gradient(90deg,var(--a),var(--c));color:#0b0e13" href="cartes.html" target="_blank"><span class="material-symbols-outlined">open_in_new</span>Voir la galerie de cartes</a><span class="meta">3 cartes + comparatif</span></div>
-  </div>
-</div>
-
-<div class="note">
-  <b>Pour avancer :</b> ouvrez l'index, parcourez les 3 layouts plein écran, puis la galerie de cartes. Dites-moi simplement <b>quelle direction vous parle</b> (A/B/C) et <b>quelle carte</b> (Ticket/Bloc/Data) — on peut mixer (ex. layout B + carte Data). Je peaufine ensuite le choix : densité, couleurs, typos, et on l'appliquera au vrai composant Solid (<code>inertia/components/board/order-grid.tsx</code>).
-</div>
-</body>
+  </body>
 </html>

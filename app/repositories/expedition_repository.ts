@@ -193,7 +193,7 @@ export function decompose(
   qteUc: number,
   ucParCarton: number | null,
   ucParPalette: number | null,
-  yfamstat7?: string | null,
+  yfamstat7?: string | null
 ): Contenants {
   // Non conditionné (VB) : 1 UC = 1 palette entière, pas de carton.
   if (estNonConditionne(yfamstat7)) {
@@ -272,7 +272,7 @@ export interface ExpeditionKpi {
 }
 
 function toNum(v: string | null): number {
-  return parseFloat(v ?? '0') || 0
+  return Number.parseFloat(v ?? '0') || 0
 }
 
 function toYYYYMMDD(d: Date): string {
@@ -301,7 +301,7 @@ function fmtHeureSec(tsMs: number): string {
  */
 function calcVolumes(
   lignes: { qteUc: number; ucParPal: number | null; yfamstat7?: string | null }[],
-  nbPalettesComptees: number,
+  nbPalettesComptees: number
 ): { palTheo: number; tauxRemplissage: number; ecartPalettes: number } {
   let palTheoBrut = 0
   let hasCoef = false
@@ -325,8 +325,7 @@ function calcVolumes(
   const palTheo = palTheoBrut
   const tauxRemplissage = CAMION_CAPACITE_PALETTES > 0 ? palTheo / CAMION_CAPACITE_PALETTES : -1
   // Écart relatif entre compté et théorique (symétrique). 0 = parfait.
-  const ecartPalettes =
-    palTheo > 0 ? Math.abs(nbPalettesComptees - palTheo) / palTheo : -1
+  const ecartPalettes = palTheo > 0 ? Math.abs(nbPalettesComptees - palTheo) / palTheo : -1
   return { palTheo, tauxRemplissage, ecartPalettes }
 }
 
@@ -389,14 +388,14 @@ const stojouLineToCamionLigne = (l: StojouLine): CamionLigne => {
 function mergeClustersByKey(
   clusters: Cluster[],
   /** Extrait les clés de fusion d'un cluster (clés vides/null ignorées). */
-  keysOf: (c: Cluster) => string[],
+  keysOf: (c: Cluster) => string[]
 ): Cluster[] {
   if (clusters.length <= 1) return clusters
 
   // clé → indices des clusters qui la portent.
   const keyToClusters = new Map<string, Set<number>>()
-  for (let i = 0; i < clusters.length; i++) {
-    for (const key of keysOf(clusters[i]!)) {
+  for (const [i, cluster] of clusters.entries()) {
+    for (const key of keysOf(cluster!)) {
       let set = keyToClusters.get(key)
       if (!set) {
         set = new Set()
@@ -496,7 +495,7 @@ function clusterToCamion(c: Cluster, maxPalettesCamion: number): CamionDtl {
   // Agrégat contenants = somme des décompositions de chaque ligne.
   const contenants = c.lignes.reduce<Contenants>(
     (acc, l) => ({ pal: acc.pal + l.pal, cart: acc.cart + l.cart, unites: acc.unites + l.unites }),
-    { pal: 0, cart: 0, unites: 0 },
+    { pal: 0, cart: 0, unites: 0 }
   )
   return {
     source: isNavette ? 'navette' : 'heuristique',
@@ -534,11 +533,11 @@ function clusterToCamion(c: Cluster, maxPalettesCamion: number): CamionDtl {
 export function clusterCamions(
   lines: StojouLine[],
   gapMinutes: number,
-  maxPalettesCamion: number = MAX_PALETTES_CAMION,
+  maxPalettesCamion: number = MAX_PALETTES_CAMION
 ): CamionDtl[] {
   const gapMs = gapMinutes * 60_000
   const sorted = [...lines].sort((a, b) =>
-    a.bprnum === b.bprnum ? a.tsMs - b.tsMs : a.bprnum.localeCompare(b.bprnum),
+    a.bprnum === b.bprnum ? a.tsMs - b.tsMs : a.bprnum.localeCompare(b.bprnum)
   )
 
   // Phase 1 — walk gap.
@@ -610,7 +609,7 @@ export class ExpeditionRepository {
     from: Date,
     to: Date,
     label: string,
-    gapMinutes: number = CAMION_GAP_MINUTES,
+    gapMinutes: number = CAMION_GAP_MINUTES
   ): Promise<ExpeditionKpi> {
     const fromStr = toYYYYMMDD(from)
     const toStr = toYYYYMMDD(to)
@@ -639,7 +638,9 @@ export class ExpeditionRepository {
 
     const lines: StojouLine[] = []
     for (const row of rows) {
-      const dt = DateTime.fromFormat((row.CREDATTIM_FMT ?? '').trim(), 'yyyy-MM-dd HH:mm:ss', { zone: 'UTC' })
+      const dt = DateTime.fromFormat((row.CREDATTIM_FMT ?? '').trim(), 'yyyy-MM-dd HH:mm:ss', {
+        zone: 'UTC',
+      })
       if (!dt.isValid) continue
       const palnum = row.PALNUM?.trim() || null
       const matched = palnum ? navetteMap.get(palnum) : undefined
@@ -653,7 +654,7 @@ export class ExpeditionRepository {
         itmref: row.ITMREF?.trim() || null,
         designation: row.DESIGNATION?.trim() || null,
         vcrnum: row.VCRNUM?.trim() || null,
-        vcrlin: row.VCRLIN ? parseInt(row.VCRLIN, 10) || null : null,
+        vcrlin: row.VCRLIN ? Number.parseInt(row.VCRLIN, 10) || null : null,
         sohnum: matched?.sohnum ?? null,
         pcu: row.PCU?.trim() || null,
         pcuStuCoe: row.PCU_STU_COE ? toNum(row.PCU_STU_COE) : null,
@@ -671,6 +672,14 @@ export class ExpeditionRepository {
     camions.sort((a, b) => a.debut.localeCompare(b.debut))
     const totalUc = camions.reduce((sum, c) => sum + c.qteUc, 0)
 
-    return { label, totalUc, nbCamions: camions.length, gapMinutes, maxPalettesCamion: MAX_PALETTES_CAMION, camionCapacitePalettes: CAMION_CAPACITE_PALETTES, camions }
+    return {
+      label,
+      totalUc,
+      nbCamions: camions.length,
+      gapMinutes,
+      maxPalettesCamion: MAX_PALETTES_CAMION,
+      camionCapacitePalettes: CAMION_CAPACITE_PALETTES,
+      camions,
+    }
   }
 }

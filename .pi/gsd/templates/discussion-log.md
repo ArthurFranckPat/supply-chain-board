@@ -49,8 +49,8 @@ Template for `.planning/phases/XX-name/{phase_num}-DISCUSSION-LOG.md` - audit tr
 
 ---
 
-*Phase: XX-name*
-*Discussion log generated: [date]*
+_Phase: XX-name_
+_Discussion log generated: [date]_
 ```
 
 ## Rules

@@ -3,14 +3,32 @@ import type { Flow, FlowOrigin } from '#app/domain/models/flow'
 import type { Article } from '#app/domain/models/article'
 import { OFConso, CommandeOFMatcher } from '#app/domain/of-conso'
 
-function makeOfFlow(id: string, article: string, status: number, quantity: number, date?: Date): Flow {
+function makeOfFlow(
+  id: string,
+  article: string,
+  status: number,
+  quantity: number,
+  date?: Date
+): Flow {
   const origin: Extract<FlowOrigin, { type: 'of' }> = {
-    type: 'of', id, status: status as 1 | 2 | 3, designation: '', typeOfLabel: '', statutLabel: '', typeOf: null,
+    type: 'of',
+    id,
+    status: status as 1 | 2 | 3,
+    designation: '',
+    typeOfLabel: '',
+    statutLabel: '',
+    typeOf: null,
   }
   return { article, quantity, direction: 'supply', date: date ?? null, origin }
 }
 
-function makeDemandFlow(id: string, article: string, quantity: number, date: Date, orderType?: string): Flow {
+function makeDemandFlow(
+  id: string,
+  article: string,
+  quantity: number,
+  date: Date,
+  orderType?: string
+): Flow {
   const origin: Extract<FlowOrigin, { type: 'order' }> = {
     type: 'order',
     id,
@@ -27,9 +45,18 @@ function makeDemandFlow(id: string, article: string, quantity: number, date: Dat
 
 function makeArticle(code: string, supplyType: 'ACHAT' | 'FABRICATION' = 'FABRICATION'): Article {
   return {
-    code, description: '', category: 'PROD', supplyType,
-    reorderDelay: 0, productFamily: null, pmp: null, economicLot: null,
-    unitStock: null, unitPurchase: null, purchaseToStockRatio: 1, packagings: [],
+    code,
+    description: '',
+    category: 'PROD',
+    supplyType,
+    reorderDelay: 0,
+    productFamily: null,
+    pmp: null,
+    economicLot: null,
+    unitStock: null,
+    unitPurchase: null,
+    purchaseToStockRatio: 1,
+    packagings: [],
   }
 }
 
@@ -91,7 +118,10 @@ test.group('CommandeOFMatcher', () => {
 
   test('NOR stock complete when stock covers fully', ({ assert }) => {
     const stockFlow: Flow = {
-      article: 'ART1', quantity: 100, direction: 'supply', date: null,
+      article: 'ART1',
+      quantity: 100,
+      direction: 'supply',
+      date: null,
       origin: { type: 'stock', pmp: null },
     }
     const demand = makeDemandFlow('CMD1', 'ART1', 50, new Date('2026-04-10'))
@@ -137,7 +167,10 @@ test.group('CommandeOFMatcher', () => {
 
   test('purchase article returns purchase_supply method', ({ assert }) => {
     const stockFlow: Flow = {
-      article: 'COMP1', quantity: 20, direction: 'supply', date: null,
+      article: 'COMP1',
+      quantity: 20,
+      direction: 'supply',
+      date: null,
       origin: { type: 'stock', pmp: null },
     }
     const demand = makeDemandFlow('CMD1', 'COMP1', 50, new Date('2026-04-10'))
@@ -191,7 +224,13 @@ test.group('CommandeOFMatcher', () => {
       qteCommandee: 100,
       qteAllouee: 0,
     }
-    const demand: Flow = { article: 'ART1', quantity: 100, direction: 'demand', date: new Date('2026-04-10'), origin }
+    const demand: Flow = {
+      article: 'ART1',
+      quantity: 100,
+      direction: 'demand',
+      date: new Date('2026-04-10'),
+      origin,
+    }
 
     const matcher = new CommandeOFMatcher([ofLinked], new Map(), new Map())
     const result = matcher.matchCommande(demand)
@@ -204,16 +243,31 @@ test.group('CommandeOFMatcher', () => {
     assert.isAbove(result.alerts.length, 0)
   })
 
-  test('MTS contremarque cible un OF non-prioritaire (sinon orphelin) — régression AR2602600/F426-32503', ({ assert }) => {
+  test('MTS contremarque cible un OF non-prioritaire (sinon orphelin) — régression AR2602600/F426-32503', ({
+    assert,
+  }) => {
     // Plusieurs OF même article : le match par article+date sélectionnerait l'OF ferme proche.
     // La contremarque doit forcer l'OF explicitement peggé (statut 2, plus lointain).
     const ofFermeProche = makeOfFlow('OF-FERME', 'ART1', 1, 2520, new Date('2026-06-16'))
     const ofPegge = makeOfFlow('OF-PEGGE', 'ART1', 2, 2520, new Date('2026-06-25'))
     const origin: Extract<FlowOrigin, { type: 'order' }> = {
-      type: 'order', id: 'CMD-MTS-PEG', orderType: 'MTS', customer: 'Test', pays: null,
-      nature: 'COMMANDE', contremarque: 'OF-PEGGE', qteCommandee: 2520, qteAllouee: 0,
+      type: 'order',
+      id: 'CMD-MTS-PEG',
+      orderType: 'MTS',
+      customer: 'Test',
+      pays: null,
+      nature: 'COMMANDE',
+      contremarque: 'OF-PEGGE',
+      qteCommandee: 2520,
+      qteAllouee: 0,
     }
-    const demand: Flow = { article: 'ART1', quantity: 2520, direction: 'demand', date: new Date('2026-06-25'), origin }
+    const demand: Flow = {
+      article: 'ART1',
+      quantity: 2520,
+      direction: 'demand',
+      date: new Date('2026-06-25'),
+      origin,
+    }
 
     const matcher = new CommandeOFMatcher([ofFermeProche, ofPegge], new Map(), new Map())
     const result = matcher.matchCommande(demand)
@@ -235,12 +289,17 @@ test.group('CommandeOFMatcher', () => {
     assert.isAbove(result.alerts.length, 0)
   })
 
-  test('MTS article acheté couvert par stock → stock_complete (régression A2178/AR2601357)', ({ assert }) => {
+  test('MTS article acheté couvert par stock → stock_complete (régression A2178/AR2601357)', ({
+    assert,
+  }) => {
     // Article acheté sans OF ni contremarque : avant le fix, tombait à tort en
     // « sans couverture » car matchMts ne regardait pas le stock. Le stock libre
     // (160) couvre la demande (77) → couverture par stock.
     const stockFlow: Flow = {
-      article: 'A2178', quantity: 160, direction: 'supply', date: null,
+      article: 'A2178',
+      quantity: 160,
+      direction: 'supply',
+      date: null,
       origin: { type: 'stock', pmp: null },
     }
     const demand = makeDemandFlow('AR2601357', 'A2178', 77, new Date('2026-06-26'), 'MTS')
@@ -259,7 +318,10 @@ test.group('CommandeOFMatcher', () => {
     // Stock insuffisant + article acheté : ce qui n'est pas couvert par le stock
     // relève d'un approvisionnement achat (matchingMethod purchase_supply).
     const stockFlow: Flow = {
-      article: 'COMP1', quantity: 20, direction: 'supply', date: null,
+      article: 'COMP1',
+      quantity: 20,
+      direction: 'supply',
+      date: null,
       origin: { type: 'stock', pmp: null },
     }
     const demand = makeDemandFlow('CMD-MTS-ACHAT', 'COMP1', 50, new Date('2026-04-12'), 'MTS')
@@ -310,7 +372,13 @@ test.group('CommandeOFMatcher', () => {
   test('NOR MTO partial multi OF keeps remaining qty and alerts', ({ assert }) => {
     const ofFerme = makeOfFlow('OF-FERME', 'ART1', 1, 30, new Date('2026-04-10'))
     const ofSugg = makeOfFlow('OF-SUGG', 'ART1', 3, 40, new Date('2026-04-12'))
-    const stockFlow: Flow = { article: 'ART1', quantity: 10, direction: 'supply', date: null, origin: { type: 'stock', pmp: null } }
+    const stockFlow: Flow = {
+      article: 'ART1',
+      quantity: 10,
+      direction: 'supply',
+      date: null,
+      origin: { type: 'stock', pmp: null },
+    }
     const demand = makeDemandFlow('CMD-NOR-PARTIAL', 'ART1', 100, new Date('2026-04-11'))
 
     const articles = new Map([['ART1', makeArticle('ART1')]])

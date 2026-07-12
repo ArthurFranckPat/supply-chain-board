@@ -11,11 +11,9 @@ import type { PlanDiff, DiffSens } from '@/lib/scenarios/types'
  * Principe acté (vision §5) : CONSTAT, pas prescription — on liste, l'humain décide.
  */
 
-const sensClass = (s: DiffSens) =>
-  s === 'degradation' ? 'text-error' : 'text-emerald-600'
+const sensClass = (s: DiffSens) => (s === 'degradation' ? 'text-error' : 'text-emerald-600')
 
-const fmtDelta = (n: number, unit: string) =>
-  `${n > 0 ? '+' : ''}${n}${unit}`
+const fmtDelta = (n: number, unit: string) => `${n > 0 ? '+' : ''}${n}${unit}`
 
 export const ScenarioDiffSheet: Component<{
   diff: PlanDiff | null
@@ -38,11 +36,17 @@ export const ScenarioDiffSheet: Component<{
 
         <Show
           when={!props.loading}
-          fallback={<div class="py-10 text-center text-[13px] text-muted-foreground">Évaluation…</div>}
+          fallback={
+            <div class="py-10 text-center text-[13px] text-muted-foreground">Évaluation…</div>
+          }
         >
           <Show
             when={props.diff}
-            fallback={<div class="py-10 text-center text-[13px] italic text-muted-foreground">Aucun impact calculé.</div>}
+            fallback={
+              <div class="py-10 text-center text-[13px] italic text-muted-foreground">
+                Aucun impact calculé.
+              </div>
+            }
           >
             {(diff) => (
               <div class="mt-4 space-y-6">
@@ -57,8 +61,13 @@ export const ScenarioDiffSheet: Component<{
                   <For each={diff().client}>
                     {(e) => (
                       <Row sens={e.sens}>
-                        <span class="font-mono text-[11px]">{e.numCommande}{e.ligne ? `#${e.ligne}` : ''}</span>
-                        <span class="text-muted-foreground">{e.article} · {e.client}</span>
+                        <span class="font-mono text-[11px]">
+                          {e.numCommande}
+                          {e.ligne ? `#${e.ligne}` : ''}
+                        </span>
+                        <span class="text-muted-foreground">
+                          {e.article} · {e.client}
+                        </span>
                         <span class={cx('ml-auto font-bold', sensClass(e.sens))}>
                           <Show when={e.nouvelle}>nouvelle · </Show>
                           <Show when={e.disparue}>hors plan · </Show>
@@ -90,12 +99,18 @@ export const ScenarioDiffSheet: Component<{
                   <For each={diff().allocation}>
                     {(e) => (
                       <Row sens={e.sens}>
-                        <span class="font-mono text-[11px]">{e.numCommande}{e.ligne ? `#${e.ligne}` : ''}</span>
+                        <span class="font-mono text-[11px]">
+                          {e.numCommande}
+                          {e.ligne ? `#${e.ligne}` : ''}
+                        </span>
                         <span class="text-muted-foreground">{e.article}</span>
                         <span class={cx('ml-auto text-right font-bold', sensClass(e.sens))}>
                           <Show when={e.perd.length > 0}>perd {e.perd.join(', ')} </Show>
                           <Show when={e.gagne.length > 0}>· gagne {e.gagne.join(', ')}</Show>
-                          <Show when={e.deltaReliquat !== 0}> ({fmtDelta(e.deltaReliquat, ' u')})</Show>
+                          <Show when={e.deltaReliquat !== 0}>
+                            {' '}
+                            ({fmtDelta(e.deltaReliquat, ' u')})
+                          </Show>
                         </span>
                       </Row>
                     )}

@@ -61,7 +61,7 @@ export default defineConfig({
     () => import('#providers/cache_preheat_provider'),
     () => import('@adonisjs/core/providers/edge_provider'),
     () => import('@adonisjs/vite/vite_provider'),
-    () => import('@adonisjs/inertia/inertia_provider')
+    () => import('@adonisjs/inertia/inertia_provider'),
   ],
 
   /*
@@ -119,7 +119,7 @@ export default defineConfig({
     {
       pattern: 'public/**',
       reloadServer: false,
-    }
+    },
   ],
 
   hooks: {
@@ -129,6 +129,6 @@ export default defineConfig({
       }),
       generateRegistry(),
     ],
-    buildStarting: [() => import('@adonisjs/vite/build_hook')]
+    buildStarting: [() => import('@adonisjs/vite/build_hook')],
   },
 })

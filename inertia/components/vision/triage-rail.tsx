@@ -135,7 +135,7 @@ export function TriageRail(props: {
                     : t === 'limites'
                       ? 'border-amber-500 text-amber-600'
                       : 'border-muted-foreground text-muted-foreground'
-                  : 'border-rule text-muted-foreground hover:text-foreground',
+                  : 'border-rule text-muted-foreground hover:text-foreground'
               )}
             >
               {TAB_LABELS[t]} {props.counts()[t]}
@@ -165,12 +165,18 @@ export function TriageRail(props: {
                 onClick={() => props.onSelect(item)}
                 class={cx(
                   'block w-full border-b border-rule-soft px-3.5 py-2.5 text-left transition-colors hover:bg-accent',
-                  props.selectedId() === item.commandeId && 'bg-brand-soft/50 shadow-[inset_3px_0_0_var(--color-brand)]',
+                  props.selectedId() === item.commandeId &&
+                    'bg-brand-soft/50 shadow-[inset_3px_0_0_var(--color-brand)]'
                 )}
               >
                 {/* Ligne 1 : dot + id + delta */}
                 <div class="flex items-center gap-2">
-                  <span class={cx('size-2 flex-none rounded-full', item.verdict ? VERDICT_DOT[item.verdict] : 'bg-muted-foreground')} />
+                  <span
+                    class={cx(
+                      'size-2 flex-none rounded-full',
+                      item.verdict ? VERDICT_DOT[item.verdict] : 'bg-muted-foreground'
+                    )}
+                  />
                   <span class="font-mono text-xs font-bold text-foreground">
                     {item.numCommande}
                     <Show when={item.ligne}>
@@ -179,7 +185,12 @@ export function TriageRail(props: {
                   </span>
                   <div class="flex-1" />
                   <Show when={item.verdict && item.delta !== null}>
-                    <span class={cx('rounded-full px-1.5 py-px font-mono text-2xs font-bold tabular-nums', item.verdict && VERDICT_DELTA_TONE[item.verdict])}>
+                    <span
+                      class={cx(
+                        'rounded-full px-1.5 py-px font-mono text-2xs font-bold tabular-nums',
+                        item.verdict && VERDICT_DELTA_TONE[item.verdict]
+                      )}
+                    >
                       {deltaLabel(item.delta)}
                     </span>
                   </Show>
@@ -192,7 +203,8 @@ export function TriageRail(props: {
                   <Show when={item.client}>{item.client} · </Show>
                   <Show when={item.besoinIso}>besoin {fmtDayShort(item.besoinIso)}</Show>
                   <Show when={item.ofId && item.ofDateFinIso}>
-                    {' '}· {item.ofId} finit {fmtDayShort(item.ofDateFinIso!)}
+                    {' '}
+                    · {item.ofId} finit {fmtDayShort(item.ofDateFinIso!)}
                   </Show>
                 </div>
                 {/* Ligne 3 : actions */}

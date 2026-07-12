@@ -12,9 +12,9 @@ persistante cross-reboot et partageable entre instances (scale-out).
 
 ### Stores
 
-| Store    | Couches              | Usage                                  |
-| -------- | -------------------- | -------------------------------------- |
-| `memory` | L1 mémoire           | dev local (sans Redis), tests          |
+| Store    | Couches               | Usage                                 |
+| -------- | --------------------- | ------------------------------------- |
+| `memory` | L1 mémoire            | dev local (sans Redis), tests         |
 | `redis`  | L1 mémoire + L2 Redis | prod (persistant, partagé, scale-out) |
 
 `CACHE_STORE` choisit le store par défaut. **Le store `redis` n'est déclaré que si
@@ -39,13 +39,13 @@ Clés namespacées **par utilisateur** (`<domaine>:user_<id>`) : chaque user se 
 ses propres creds X3 + son env (test/prod, issue #13) → les données diffèrent → isolation
 obligatoire. Fallback `<domaine>` (sans user) hors contexte HTTP (CLI, boot).
 
-| Namespace          | Clé                  | TTL    | Source                          |
-| ------------------ | -------------------- | ------ | ------------------------------- |
-| `board:user_<id>`  | `referential`        | 2 h    | gammes (SQLite)                 |
-| `board:user_<id>`  | `orders`             | 5 min  | OF ouverts (X3)                 |
-| `board:user_<id>`  | `live:<from>:<to>`   | 2 min  | demande + réception + suggestion (X3) |
-| `board:user_<id>`  | `bom`                | 2 h    | nomenclatures (SQLite)          |
-| `suivi:user_<id>`  | `context`            | 2 min  | snapshot brut suivi (X3 + SQLite) |
+| Namespace         | Clé                | TTL   | Source                                |
+| ----------------- | ------------------ | ----- | ------------------------------------- |
+| `board:user_<id>` | `referential`      | 2 h   | gammes (SQLite)                       |
+| `board:user_<id>` | `orders`           | 5 min | OF ouverts (X3)                       |
+| `board:user_<id>` | `live:<from>:<to>` | 2 min | demande + réception + suggestion (X3) |
+| `board:user_<id>` | `bom`              | 2 h   | nomenclatures (SQLite)                |
+| `suivi:user_<id>` | `context`          | 2 min | snapshot brut suivi (X3 + SQLite)     |
 
 ### Invalidation
 

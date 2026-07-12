@@ -13,19 +13,42 @@ import {
 import type { StockRecord } from '#app/domain/recursive-checker'
 import { evaluateRuptures, type RuptureDataset } from '#app/domain/rupture-engine'
 
-function makeArticle(code: string, category: string = 'AP', supplyType: 'ACHAT' | 'FABRICATION' = 'ACHAT'): Article {
+function makeArticle(
+  code: string,
+  category: string = 'AP',
+  supplyType: 'ACHAT' | 'FABRICATION' = 'ACHAT'
+): Article {
   return {
-    code, description: code, category, supplyType,
-    reorderDelay: 0, productFamily: null, pmp: null, economicLot: null,
-    unitStock: null, unitPurchase: null, purchaseToStockRatio: 1, packagings: [],
+    code,
+    description: code,
+    category,
+    supplyType,
+    reorderDelay: 0,
+    productFamily: null,
+    pmp: null,
+    economicLot: null,
+    unitStock: null,
+    unitPurchase: null,
+    purchaseToStockRatio: 1,
+    packagings: [],
   }
 }
 
-function makeEntry(parent: string, component: string, type: 'ACHETE' | 'FABRIQUE', qte: number = 1): NomenclatureEntry {
+function makeEntry(
+  parent: string,
+  component: string,
+  type: 'ACHETE' | 'FABRIQUE',
+  qte: number = 1
+): NomenclatureEntry {
   return {
-    parentArticle: parent, parentDescription: parent, level: 10,
-    componentArticle: component, componentDescription: component,
-    linkQuantity: qte, componentType: type, consumptionNature: 'PROPORTIONNEL',
+    parentArticle: parent,
+    parentDescription: parent,
+    level: 10,
+    componentArticle: component,
+    componentDescription: component,
+    linkQuantity: qte,
+    componentType: type,
+    consumptionNature: 'PROPORTIONNEL',
   }
 }
 
@@ -35,7 +58,7 @@ function makeNomenclature(parent: string, components: NomenclatureEntry[]): Nome
 
 function makeLoader(
   nomenclatures: Record<string, Nomenclature>,
-  allocationsByOf: Record<string, ErpAllocation[]> = {},
+  allocationsByOf: Record<string, ErpAllocation[]> = {}
 ): AllocationLoader {
   return {
     getNomenclature: (article: string) => nomenclatures[article],
@@ -47,7 +70,7 @@ function makeDataset(
   articles: Record<string, Article>,
   nomenclatures: Record<string, Nomenclature>,
   stocks: Record<string, StockRecord>,
-  allocations: Record<string, ErpAllocation[]> = {},
+  allocations: Record<string, ErpAllocation[]> = {}
 ): RuptureDataset {
   const stockNet = new Map<string, number>()
   for (const [a, s] of Object.entries(stocks)) stockNet.set(a, s.stockPhysique - s.stockAlloue)
@@ -74,14 +97,19 @@ function makeCandidate(numOf: string, article: string, quantity: number): Candid
 // ===========================================================================
 
 test.group('Moteur de rupture : crédit des allocations ERP (règle 3 #73)', () => {
-  test('composant entièrement alloué → jamais en manque, les autres restent vérifiés', ({ assert }) => {
+  test('composant entièrement alloué → jamais en manque, les autres restent vérifiés', ({
+    assert,
+  }) => {
     const articles = {
       PF: makeArticle('PF', 'PF', 'FABRICATION'),
       COMP_A: makeArticle('COMP_A', 'AP', 'ACHAT'),
       COMP_B: makeArticle('COMP_B', 'AP', 'ACHAT'),
     }
     const nomenclatures = {
-      PF: makeNomenclature('PF', [makeEntry('PF', 'COMP_A', 'ACHETE', 1), makeEntry('PF', 'COMP_B', 'ACHETE', 2)]),
+      PF: makeNomenclature('PF', [
+        makeEntry('PF', 'COMP_A', 'ACHETE', 1),
+        makeEntry('PF', 'COMP_B', 'ACHETE', 2),
+      ]),
     }
     const stocks = {
       COMP_A: { stockPhysique: 0, stockAlloue: 0 },
@@ -93,7 +121,7 @@ test.group('Moteur de rupture : crédit des allocations ERP (règle 3 #73)', () 
     const verdict = evaluateRuptures(
       [{ numOf: 'OF_A', article: 'PF', qteRestante: 5, statutNum: 1, dateBesoin: null }],
       dataset,
-      'photo',
+      'photo'
     ).get('OF_A')!
 
     assert.isTrue(verdict.feasible, 'OF ferme : affermi malgré le manque')
@@ -108,7 +136,10 @@ test.group('Moteur de rupture : crédit des allocations ERP (règle 3 #73)', () 
       COMP_B: makeArticle('COMP_B', 'AP', 'ACHAT'),
     }
     const nomenclatures = {
-      PF: makeNomenclature('PF', [makeEntry('PF', 'COMP_A', 'ACHETE', 1), makeEntry('PF', 'COMP_B', 'ACHETE', 3)]),
+      PF: makeNomenclature('PF', [
+        makeEntry('PF', 'COMP_A', 'ACHETE', 1),
+        makeEntry('PF', 'COMP_B', 'ACHETE', 3),
+      ]),
     }
     const stocks = {
       COMP_A: { stockPhysique: 10, stockAlloue: 10 },
@@ -120,7 +151,7 @@ test.group('Moteur de rupture : crédit des allocations ERP (règle 3 #73)', () 
     const verdict = evaluateRuptures(
       [{ numOf: 'OF_X', article: 'PF', qteRestante: 10, statutNum: 1, dateBesoin: null }],
       dataset,
-      'photo',
+      'photo'
     ).get('OF_X')!
 
     assert.notProperty(verdict.missing, 'COMP_A')
@@ -135,12 +166,20 @@ test.group('Moteur de rupture : crédit des allocations ERP (règle 3 #73)', () 
 test.group('Virtual reservation skips ERP-allocated components', () => {
   test('does not virtual-reserve a component already allocated in ERP', ({ assert }) => {
     const nomenclatures = {
-      PF: makeNomenclature('PF', [makeEntry('PF', 'COMP_A', 'ACHETE', 1), makeEntry('PF', 'COMP_B', 'ACHETE', 2)]),
+      PF: makeNomenclature('PF', [
+        makeEntry('PF', 'COMP_A', 'ACHETE', 1),
+        makeEntry('PF', 'COMP_B', 'ACHETE', 2),
+      ]),
     }
     const loader = makeLoader(nomenclatures, {
       OF_A: [{ article: 'COMP_A', qteAllouee: 50 }],
     })
-    const materialState = new StockState(new Map([['COMP_A', 50], ['COMP_B', 100]]))
+    const materialState = new StockState(
+      new Map([
+        ['COMP_A', 50],
+        ['COMP_B', 100],
+      ])
+    )
 
     reserveCandidateComponents(loader, makeCandidate('OF_A', 'PF', 50), materialState)
 
@@ -150,12 +189,20 @@ test.group('Virtual reservation skips ERP-allocated components', () => {
 
   test('still reserves unallocated components when others are ERP-allocated', ({ assert }) => {
     const nomenclatures = {
-      PF: makeNomenclature('PF', [makeEntry('PF', 'COMP_A', 'ACHETE', 1), makeEntry('PF', 'COMP_B', 'ACHETE', 2)]),
+      PF: makeNomenclature('PF', [
+        makeEntry('PF', 'COMP_A', 'ACHETE', 1),
+        makeEntry('PF', 'COMP_B', 'ACHETE', 2),
+      ]),
     }
     const loader = makeLoader(nomenclatures, {
       OF_A: [{ article: 'COMP_A', qteAllouee: 50 }],
     })
-    const materialState = new StockState(new Map([['COMP_A', 50], ['COMP_B', 80]]))
+    const materialState = new StockState(
+      new Map([
+        ['COMP_A', 50],
+        ['COMP_B', 80],
+      ])
+    )
 
     reserveCandidateComponents(loader, makeCandidate('OF_A', 'PF', 50), materialState)
 
@@ -209,7 +256,11 @@ test.group('Direct component shortages respect ERP allocations', () => {
     })
     const materialState = new StockState(new Map([['COMP_A', 0]]))
 
-    const result = computeDirectComponentShortages(loader, makeCandidate('OF_A', 'PF', 10), materialState)
+    const result = computeDirectComponentShortages(
+      loader,
+      makeCandidate('OF_A', 'PF', 10),
+      materialState
+    )
 
     assert.equal(result, '')
   })
@@ -223,7 +274,11 @@ test.group('Direct component shortages respect ERP allocations', () => {
     })
     const materialState = new StockState(new Map([['COMP_A', 90]]))
 
-    const result = computeDirectComponentShortages(loader, makeCandidate('OF_A', 'PF', 20), materialState)
+    const result = computeDirectComponentShortages(
+      loader,
+      makeCandidate('OF_A', 'PF', 20),
+      materialState
+    )
 
     assert.equal(result, '')
   })
@@ -245,7 +300,7 @@ test.group('Firm OF is never blocked by component shortage', () => {
       makeCandidate('OF_FERME', 'PF', 50),
       1,
       loader,
-      materialState,
+      materialState
     )
 
     assert.equal(status, 'comfortable')
@@ -263,7 +318,7 @@ test.group('Firm OF is never blocked by component shortage', () => {
       makeCandidate('OF_SUGG', 'PF', 50),
       3,
       loader,
-      materialState,
+      materialState
     )
 
     assert.equal(status, 'blocked')

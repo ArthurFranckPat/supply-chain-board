@@ -66,12 +66,14 @@ Optional step — /gsd-new-milestone works without it. The value is separating t
 **User = product owner. Agent = PM/advisor.**
 
 The user knows:
+
 - What users are struggling with
 - What the next logical product step is
 - What MUST ship vs nice-to-have
 - Any hard constraints (tech, team, timeline)
 
 The user doesn't need to define:
+
 - How to structure phases (that's the roadmapper)
 - Implementation approach (that's research + discuss-phase)
 - Which requirements to write (that's new-milestone)
@@ -83,25 +85,30 @@ Your job: help the user articulate a clear, scoped milestone intent that new-mil
 **Product-level only.** This discussion is about WHAT the milestone delivers, not HOW.
 
 **Allowed:**
+
 - "Should we tackle X or defer it?"
 - "What's the must-have vs nice-to-have split?"
 - "Any hard constraints for this cycle?"
 - "How will we know this milestone is done?"
 
 **Not here:**
+
 - "Should we use Redis or Postgres for this?"
 - "Which architecture pattern?"
 - "How should we structure the phases?"
 
 If the user goes implementation-level, redirect:
+
 ```
 "That's a planning question — /gsd-new-milestone and /gsd-discuss-phase will handle it.
 For now: do you want [capability] in scope for this milestone?"
 ```
+
 </scope_guardrail>
 
 <answer_validation>
 After every AskUserQuestion call, check if the response is empty or whitespace-only. If so:
+
 1. Retry once with the same parameters
 2. If still empty, present options as a plain-text numbered list
 
@@ -119,14 +126,17 @@ Required for Claude Code remote sessions where TUI menus don't forward.
 Parse init JSON for: `commit_docs`, `context_window`, `milestone_version`, `milestone_name`, `last_completed_milestone`, `roadmap_exists`, `state_exists`.
 
 **If `state_exists` is false:**
+
 ```
 No .planning/ directory found. Set up a project first:
 
 /gsd-new-project
 ```
+
 Exit workflow.
 
 Read project files:
+
 ```bash
 cat .planning/PROJECT.md 2>/dev/null || true
 cat .planning/MILESTONES.md 2>/dev/null || true
@@ -136,9 +146,11 @@ Extract from PROJECT.md: project name, core value, non-negotiables, target users
 Extract from MILESTONES.md: what shipped in completed milestones (summaries, not full detail).
 
 **Read text mode config:**
+
 ```bash
 TEXT_MODE=$(pi-gsd-tools config-get workflow.text_mode 2>/dev/null || echo "false")
 ```
+
 Enable text mode if `--text` in $ARGUMENTS OR `TEXT_MODE` is `true`.
 
 ## 2. Check Existing MILESTONE-CONTEXT.md
@@ -152,6 +164,7 @@ test -f .planning/MILESTONE-CONTEXT.md && echo "exists" || echo "absent"
 **If `--auto`:** Load existing content, continue to step 3 to refresh it. Log: `[auto] Existing MILESTONE-CONTEXT.md found — refreshing.`
 
 **Otherwise,** use AskUserQuestion:
+
 - header: "Context exists"
 - question: "MILESTONE-CONTEXT.md already exists. What do you want to do?"
 - options:
@@ -174,6 +187,7 @@ Sets the context for "what's next" based on what shipped.
 Read the matching section in `.planning/MILESTONES.md` for `last_completed_milestone.version`.
 
 Display (no user input needed):
+
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  Last milestone: [version] — [name]
@@ -200,12 +214,14 @@ Ask (plain text, NOT AskUserQuestion):
 > "What do you want this milestone to deliver? Give me the rough picture — we'll tighten the scope next."
 
 Wait for response. Parse it for:
+
 - Feature/capability mentions → candidates for scope-in
 - Exclusions or "not yet" signals → candidates for scope-out
 - Urgency or priority cues
 - Any constraints mentioned in passing
 
 Reflect back in 2-3 sentences:
+
 ```
 "So the core of this milestone is [X]. You also mentioned [Y],
 and [Z] sounds like a natural boundary. Is that the right picture?"
@@ -221,6 +237,7 @@ If they adjust: incorporate and reflect again. Max 2 loops, then proceed.
 Turn the rough intent into a clear in/out split.
 
 **Build candidate list** from:
+
 - Step 4's response (feature/capability mentions)
 - STATE.md accumulated context (pending items, blockers noted)
 - MILESTONES.md "Future Requirements" or deferred items from last milestone
@@ -232,11 +249,13 @@ Group related candidates into clusters (2-4 features per cluster). Present one c
 
 If text mode: present as numbered list with multi-select.
 Otherwise use AskUserQuestion (multiSelect: true):
+
 - header: "Scope: [cluster]" (max 12 chars)
 - question: "Which of these belong in this milestone?"
 - options: each candidate with a 1-line description
 
 After all clusters, show a running tally:
+
 ```
 Scoped in:  [N] capabilities
 Deferred:   [M] capabilities
@@ -246,6 +265,7 @@ Deferred:   [M] capabilities
 
 If text mode: ask as plain-text.
 Otherwise use AskUserQuestion:
+
 - header: "Out of scope"
 - question: "Anything to explicitly exclude — even if it seems related?"
 - options:
@@ -262,6 +282,7 @@ Anything that bounds how this milestone must be shaped.
 
 If text mode: present as numbered multi-select list.
 Otherwise use AskUserQuestion (multiSelect: true):
+
 - header: "Constraints"
 - question: "Any hard constraints for this milestone?"
 - options:
@@ -318,6 +339,7 @@ Write to `.planning/MILESTONE-CONTEXT.md`:
 **Status:** Ready for /gsd-new-milestone
 
 <milestone_goal>
+
 ## Goal
 
 [One sentence distilled from step 4 — what this milestone delivers for users]
@@ -330,11 +352,13 @@ Write to `.planning/MILESTONE-CONTEXT.md`:
 ### In this milestone
 
 [For each scoped-in capability, in priority order:]
+
 - **[Capability name]**: [1-line description of what it means for users]
 
 ### Explicitly out of scope
 
 [For each explicit exclusion:]
+
 - **[Capability name]**: [reason — "deferred to next milestone", "separate product area", etc.]
 
 [If no explicit exclusions: "No explicit exclusions — boundary is the in-scope list above"]
@@ -345,6 +369,7 @@ Write to `.planning/MILESTONE-CONTEXT.md`:
 ## Constraints
 
 [For each constraint from step 6:]
+
 - [Constraint statement]
 
 [If none: "None — unconstrained milestone"]
@@ -355,16 +380,19 @@ Write to `.planning/MILESTONE-CONTEXT.md`:
 ## Success Definition
 
 This milestone is successful when:
+
 - [Observable user outcome 1]
 - [Observable user outcome 2]
-[- [Observable user outcome 3] — only if genuinely distinct]
+  [- [Observable user outcome 3] — only if genuinely distinct]
 
 </success>
 
 <open_questions>
+
 ## Open Questions for Planning
 
 [Questions from step 8 that new-milestone or early research should address:]
+
 - [Question]
 
 [If none: "None — scope is clear"]
@@ -373,8 +401,8 @@ This milestone is successful when:
 
 ---
 
-*Milestone context gathered: [date]*
-*Run /gsd-new-milestone to start planning*
+_Milestone context gathered: [date]_
+_Run /gsd-new-milestone to start planning_
 ```
 
 ## 10. Commit
@@ -431,6 +459,7 @@ If `commit_docs` is false: skip commit silently.
 **If `--auto` OR `AUTO_CHAIN` is true OR `AUTO_CFG` is true:**
 
 Display:
+
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  GSD ► AUTO-ADVANCING TO NEW-MILESTONE
@@ -440,11 +469,13 @@ Context captured. Launching new-milestone...
 ```
 
 Launch:
+
 ```
 Skill(skill="gsd-new-milestone", args="--auto ${GSD_WS}")
 ```
 
 Handle return:
+
 - **MILESTONE INITIALIZED** → Display success banner, done.
 - **CHECKPOINT / BLOCKED** → Stop chain, show: `Continue: /gsd-new-milestone ${GSD_WS}`
 
@@ -453,6 +484,7 @@ Handle return:
 </process>
 
 <success_criteria>
+
 - [ ] .planning/ exists (state_exists check)
 - [ ] Existing MILESTONE-CONTEXT.md handled (update/view/skip)
 - [ ] Last completed milestone surfaced for retrospective framing
@@ -464,4 +496,4 @@ Handle return:
 - [ ] MILESTONE-CONTEXT.md written to .planning/
 - [ ] Committed (if commit_docs)
 - [ ] User knows next step: /gsd-new-milestone
-</success_criteria>
+      </success_criteria>

@@ -1,4 +1,12 @@
-import { createResource, createMemo, createSignal, onCleanup, For, Show, type Component } from 'solid-js'
+import {
+  createResource,
+  createMemo,
+  createSignal,
+  onCleanup,
+  For,
+  Show,
+  type Component,
+} from 'solid-js'
 import { Masthead } from '@/components/masthead'
 import { Calendar, type DateRange } from '@/components/ui/calendar'
 import { usePrintFitPage } from '@/lib/board/use-print-fit'
@@ -75,13 +83,25 @@ const EMPTY_OTD: DashboardOtdResponse = { otd: [], x3Error: null }
 const BAR_PALETTE = ['#b23b2e', '#cf6a3f', '#b8862c', '#cdb079', '#a8a18c']
 
 /** En-tête de card lisible : pastille d'accent + titre Fraunces + suffixe mono optionnel. */
-const CardHeader: Component<{ title: string; suffix?: string; tone?: string; onHide?: () => void }> = (p) => (
+const CardHeader: Component<{
+  title: string
+  suffix?: string
+  tone?: string
+  onHide?: () => void
+}> = (p) => (
   <div class="mb-4 flex items-center gap-2.5 border-b border-rule-soft pb-3">
-    <span class="size-2 shrink-0 rounded-full" style={{ background: p.tone ?? 'var(--color-destructive, #b23b2e)' }}></span>
-    <h2 class="font-fraunces text-[16px] font-semibold leading-none tracking-tight text-foreground">{p.title}</h2>
+    <span
+      class="size-2 shrink-0 rounded-full"
+      style={{ background: p.tone ?? 'var(--color-destructive, #b23b2e)' }}
+    ></span>
+    <h2 class="font-fraunces text-[16px] font-semibold leading-none tracking-tight text-foreground">
+      {p.title}
+    </h2>
     <div class="ml-auto flex items-center gap-2.5">
       <Show when={p.suffix}>
-        <span class="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">{p.suffix}</span>
+        <span class="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+          {p.suffix}
+        </span>
       </Show>
       <Show when={p.onHide}>
         <button
@@ -100,9 +120,13 @@ const CardHeader: Component<{ title: string; suffix?: string; tone?: string; onH
 
 /** Placeholder compact pour un KPI masqué : visible à l'écran (pour le ré-afficher), invisible à l'impression. */
 const HiddenCard: Component<{ title: string; onShow: () => void; class?: string }> = (p) => (
-  <div class={`flex items-center gap-2 rounded border border-dashed border-rule bg-secondary/30 px-4 py-2.5 print:hidden ${p.class ?? ''}`}>
+  <div
+    class={`flex items-center gap-2 rounded border border-dashed border-rule bg-secondary/30 px-4 py-2.5 print:hidden ${p.class ?? ''}`}
+  >
     <span class="material-symbols-outlined text-[15px] text-muted-foreground">visibility_off</span>
-    <span class="font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">{p.title}</span>
+    <span class="font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+      {p.title}
+    </span>
     <span class="font-fraunces text-[12px] italic text-muted-foreground/70">— masqué</span>
     <button
       type="button"
@@ -144,10 +168,15 @@ const Dashboard: Component<DashboardProps> = (props) => {
   }
   const clearClient = () => {
     setClientFilter('')
-    if (clientTimer) { clearTimeout(clientTimer); clientTimer = undefined }
+    if (clientTimer) {
+      clearTimeout(clientTimer)
+      clientTimer = undefined
+    }
     setDebouncedClient('')
   }
-  onCleanup(() => { if (clientTimer) clearTimeout(clientTimer) })
+  onCleanup(() => {
+    if (clientTimer) clearTimeout(clientTimer)
+  })
 
   const otdUrl = createMemo(() => {
     let url = `${props.otdHref}&otdMode=${otdMode()}`
@@ -177,17 +206,14 @@ const Dashboard: Component<DashboardProps> = (props) => {
       const res = await fetch(url, { headers: { accept: 'application/json' } })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       return (await res.json()) as DashboardKpisResponse
-    },
+    }
   )
 
-  const [otdData] = createResource(
-    otdUrl,
-    async (url): Promise<DashboardOtdResponse> => {
-      const res = await fetch(url, { headers: { accept: 'application/json' } })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      return (await res.json()) as DashboardOtdResponse
-    },
-  )
+  const [otdData] = createResource(otdUrl, async (url): Promise<DashboardOtdResponse> => {
+    const res = await fetch(url, { headers: { accept: 'application/json' } })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    return (await res.json()) as DashboardOtdResponse
+  })
 
   const kpi = createMemo(() => (kpisData() ?? EMPTY_KPIS).retardCharge)
   const otd = createMemo(() => (otdData() ?? EMPTY_OTD).otd)
@@ -204,7 +230,9 @@ const Dashboard: Component<DashboardProps> = (props) => {
 
   const Spinner = () => (
     <div class="flex h-[180px] items-center justify-center">
-      <span class="material-symbols-outlined animate-spin text-[22px] text-muted-foreground/50">progress_activity</span>
+      <span class="material-symbols-outlined animate-spin text-[22px] text-muted-foreground/50">
+        progress_activity
+      </span>
     </div>
   )
 
@@ -214,337 +242,484 @@ const Dashboard: Component<DashboardProps> = (props) => {
 
       <div ref={contentEl} class="flex-1 overflow-auto px-7 py-6 print:overflow-visible">
         {/* En-tête imprimable — masquée à l'écran, visible uniquement à l'impression */}
-        <div data-print-header class="mb-5 hidden items-baseline justify-between border-b border-rule pb-3 print:flex">
+        <div
+          data-print-header
+          class="mb-5 hidden items-baseline justify-between border-b border-rule pb-3 print:flex"
+        >
           <span class="font-fraunces text-[20px] font-semibold tracking-tight text-foreground">
             Supply Chain <span class="font-medium italic text-brand">AERECO</span>
-            <span class="ml-3 font-mono text-[13px] font-normal text-muted-foreground">Tableau de bord</span>
+            <span class="ml-3 font-mono text-[13px] font-normal text-muted-foreground">
+              Tableau de bord
+            </span>
           </span>
           <span class="font-mono text-[12px] text-muted-foreground">
-            {new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long' }).format(new Date(props.referenceDate))}
+            {new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long' }).format(
+              new Date(props.referenceDate)
+            )}
           </span>
         </div>
 
         <div class="grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
-
           {/* Colonne gauche : KPI #1 Charge en retard + KPI #2 OTD */}
           <div class="flex flex-col gap-6 lg:col-span-1">
-
             {/* KPI #1 — Charge en retard par poste (issue #38) */}
-            <Show when={!hideCharge()} fallback={<HiddenCard title="Charge en retard" onShow={() => setHideCharge(false)} />}>
-            <article class="rounded border border-rule bg-card p-6 shadow-[0_14px_30px_-26px_rgba(42,38,34,0.45)]">
-              <CardHeader title="Charge en retard" suffix="par poste" onHide={() => setHideCharge(true)} />
-              <Show when={!kpisData.loading} fallback={<Spinner />}>
-                <Show
-                  when={!x3Error()}
-                  fallback={<p class="font-fraunces text-[13px] italic leading-snug text-destructive/80">{x3Error()}</p>}
-                >
-                  <div class="flex items-end justify-between gap-3">
-                    <div class="font-fraunces text-[56px] font-semibold leading-none tracking-tight tabular-nums text-foreground">
-                      {kpi().totalHeures}
-                      <span class="ml-1 font-mono text-[18px] font-bold text-muted-foreground">h</span>
-                    </div>
-                    <div class="pb-1.5 text-right font-mono text-[10.5px] leading-tight text-muted-foreground">
-                      <b class="text-[13px] text-foreground">{kpi().nbLignes}</b> ligne{kpi().nbLignes > 1 ? 's' : ''}
-                      <br />en retard
-                    </div>
-                  </div>
-
+            <Show
+              when={!hideCharge()}
+              fallback={<HiddenCard title="Charge en retard" onShow={() => setHideCharge(false)} />}
+            >
+              <article class="rounded border border-rule bg-card p-6 shadow-[0_14px_30px_-26px_rgba(42,38,34,0.45)]">
+                <CardHeader
+                  title="Charge en retard"
+                  suffix="par poste"
+                  onHide={() => setHideCharge(true)}
+                />
+                <Show when={!kpisData.loading} fallback={<Spinner />}>
                   <Show
-                    when={kpi().postes.length > 0}
-                    fallback={<p class="mt-6 font-fraunces text-[13px] italic text-muted-foreground">Aucune charge en retard — rien à rattraper.</p>}
+                    when={!x3Error()}
+                    fallback={
+                      <p class="font-fraunces text-[13px] italic leading-snug text-destructive/80">
+                        {x3Error()}
+                      </p>
+                    }
                   >
-                    <div class="mt-6 flex flex-col gap-3.5">
-                      <For each={kpi().postes}>
-                        {(poste, i) => (
-                          <div>
-                            <div class="mb-[5px] flex items-baseline justify-between gap-2">
-                              <span class="min-w-0 truncate font-mono text-[11.5px] font-bold text-foreground" title={poste.label}>
-                                {poste.code}{poste.label ? ` · ${poste.label}` : ''}
-                              </span>
-                              <span class="shrink-0 font-mono text-[11.5px] font-bold tabular-nums text-muted-foreground">{poste.heures} h</span>
-                            </div>
-                            <div class="h-2 overflow-hidden rounded-full bg-secondary" style={{ '-webkit-print-color-adjust': 'exact', 'print-color-adjust': 'exact' }}>
+                    <div class="flex items-end justify-between gap-3">
+                      <div class="font-fraunces text-[56px] font-semibold leading-none tracking-tight tabular-nums text-foreground">
+                        {kpi().totalHeures}
+                        <span class="ml-1 font-mono text-[18px] font-bold text-muted-foreground">
+                          h
+                        </span>
+                      </div>
+                      <div class="pb-1.5 text-right font-mono text-[10.5px] leading-tight text-muted-foreground">
+                        <b class="text-[13px] text-foreground">{kpi().nbLignes}</b> ligne
+                        {kpi().nbLignes > 1 ? 's' : ''}
+                        <br />
+                        en retard
+                      </div>
+                    </div>
+
+                    <Show
+                      when={kpi().postes.length > 0}
+                      fallback={
+                        <p class="mt-6 font-fraunces text-[13px] italic text-muted-foreground">
+                          Aucune charge en retard — rien à rattraper.
+                        </p>
+                      }
+                    >
+                      <div class="mt-6 flex flex-col gap-3.5">
+                        <For each={kpi().postes}>
+                          {(poste, i) => (
+                            <div>
+                              <div class="mb-[5px] flex items-baseline justify-between gap-2">
+                                <span
+                                  class="min-w-0 truncate font-mono text-[11.5px] font-bold text-foreground"
+                                  title={poste.label}
+                                >
+                                  {poste.code}
+                                  {poste.label ? ` · ${poste.label}` : ''}
+                                </span>
+                                <span class="shrink-0 font-mono text-[11.5px] font-bold tabular-nums text-muted-foreground">
+                                  {poste.heures} h
+                                </span>
+                              </div>
                               <div
-                                class="h-full rounded-full"
+                                class="h-2 overflow-hidden rounded-full bg-secondary"
                                 style={{
-                                  width: `${Math.max(3, (poste.heures / maxHeures()) * 100)}%`,
-                                  background: BAR_PALETTE[Math.min(i(), BAR_PALETTE.length - 1)],
                                   '-webkit-print-color-adjust': 'exact',
                                   'print-color-adjust': 'exact',
                                 }}
-                              ></div>
+                              >
+                                <div
+                                  class="h-full rounded-full"
+                                  style={{
+                                    'width': `${Math.max(3, (poste.heures / maxHeures()) * 100)}%`,
+                                    'background':
+                                      BAR_PALETTE[Math.min(i(), BAR_PALETTE.length - 1)],
+                                    '-webkit-print-color-adjust': 'exact',
+                                    'print-color-adjust': 'exact',
+                                  }}
+                                ></div>
+                              </div>
                             </div>
-                          </div>
-                        )}
-                      </For>
-                    </div>
+                          )}
+                        </For>
+                      </div>
+                    </Show>
                   </Show>
                 </Show>
-              </Show>
-            </article>
+              </article>
             </Show>
 
             {/* KPI #2 — OTD (On-Time Delivery) — 1 ou 2 périodes selon le jour */}
-            <Show when={!hideOtd()} fallback={<HiddenCard title="OTD" onShow={() => setHideOtd(false)} />}>
-            <article class="rounded border border-rule bg-card p-6 shadow-[0_14px_30px_-26px_rgba(42,38,34,0.45)]">
-              <div class="mb-4 flex items-center gap-2.5 border-b border-rule-soft pb-3">
-                <span class="size-2 shrink-0 rounded-full bg-foreground/30"></span>
-                <h2 class="font-fraunces text-[16px] font-semibold leading-none tracking-tight text-foreground">OTD</h2>
-                {/* Sélecteur de plage — popover calendrier */}
-              <div class="relative ml-auto">
-                <div class="flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setCalendarOpen((v) => !v)}
-                    class="flex items-center gap-1.5 rounded border border-rule bg-secondary px-2 py-1 font-mono text-[10px] text-foreground transition-colors hover:bg-secondary/80"
-                  >
-                    <span class="material-symbols-outlined text-[13px] text-muted-foreground">calendar_today</span>
-                    <span>{otdRangeLabel() ?? 'Auto'}</span>
-                  </button>
-                  <Show when={otdRange()?.start}>
-                    <button
-                      type="button"
-                      onClick={() => { setOtdRange(null); setCalendarOpen(false) }}
-                      class="flex size-6 items-center justify-center rounded text-muted-foreground hover:text-foreground"
-                      title="Réinitialiser"
-                    >
-                      <span class="material-symbols-outlined text-[14px]">close</span>
-                    </button>
-                  </Show>
-                </div>
-
-                <Show when={calendarOpen()}>
-                  <div class="fixed inset-0 z-10" onClick={() => setCalendarOpen(false)} />
-                  <div class="absolute right-0 top-full z-20 mt-1">
-                    <Calendar
-                      mode="range"
-                      range={otdRange() ?? { start: null, end: null }}
-                      onRangeChange={(r) => {
-                        setOtdRange(r)
-                        if (r.start && r.end) setCalendarOpen(false)
-                      }}
-                      max={new Date()}
-                    />
-                  </div>
-                </Show>
-              </div>
-              <div class="flex items-center rounded border border-rule bg-secondary p-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.12em]">
-                  <button
-                    onClick={() => setOtdMode('demandee')}
-                    class="rounded px-2 py-1 transition-colors"
-                    classList={{
-                      'bg-card text-foreground shadow-sm': otdMode() === 'demandee',
-                      'text-muted-foreground hover:text-foreground': otdMode() !== 'demandee',
-                    }}
-                  >
-                    Demandée
-                  </button>
-                  <button
-                    onClick={() => setOtdMode('acceptee')}
-                    class="rounded px-2 py-1 transition-colors"
-                    classList={{
-                      'bg-card text-foreground shadow-sm': otdMode() === 'acceptee',
-                      'text-muted-foreground hover:text-foreground': otdMode() !== 'acceptee',
-                    }}
-                  >
-                    Acceptée
-                  </button>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setHideOtd(true)}
-                  class="flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground print:hidden"
-                  title="Masquer ce KPI"
-                  aria-label="Masquer le KPI OTD"
-                >
-                  <span class="material-symbols-outlined text-[15px]">visibility</span>
-                </button>
-              </div>
-              <Show when={!otdData.loading} fallback={<Spinner />}>
-                <Show
-                  when={!otdError()}
-                  fallback={<p class="font-fraunces text-[13px] italic leading-snug text-destructive/80">{otdError()}</p>}
-                >
-                  <Show
-                    when={otd().length > 0}
-                    fallback={<p class="font-fraunces text-[13px] italic text-muted-foreground">Aucune donnée OTD.</p>}
-                  >
-                    {/* Filtre par client + bascule afficher/masquer les détails */}
-                    <div class="mb-3 flex items-center gap-1.5">
-                      <div class="relative min-w-0 flex-1">
-                        <span class="material-symbols-outlined pointer-events-none absolute left-1.5 top-1/2 -translate-y-1/2 text-[13px] text-muted-foreground">search</span>
-                        <input
-                          type="text"
-                          value={clientFilter()}
-                          onInput={(e) => onClientInput(e.currentTarget.value)}
-                          placeholder="Filtrer par client"
-                          aria-label="Filtrer les lignes par client"
-                          class="w-full rounded border border-rule bg-secondary py-[5px] pl-7 pr-6 font-sans text-[11px] text-foreground placeholder:text-muted-foreground/60 focus:border-foreground/30 focus:outline-none"
-                        />
-                        <Show when={clientFilter()}>
-                          <button
-                            type="button"
-                            onClick={clearClient}
-                            class="absolute right-1 top-1/2 flex size-4 -translate-y-1/2 items-center justify-center text-muted-foreground hover:text-foreground"
-                            title="Effacer le filtre"
-                            aria-label="Effacer le filtre"
-                          >
-                            <span class="material-symbols-outlined text-[13px]">close</span>
-                          </button>
-                        </Show>
-                      </div>
+            <Show
+              when={!hideOtd()}
+              fallback={<HiddenCard title="OTD" onShow={() => setHideOtd(false)} />}
+            >
+              <article class="rounded border border-rule bg-card p-6 shadow-[0_14px_30px_-26px_rgba(42,38,34,0.45)]">
+                <div class="mb-4 flex items-center gap-2.5 border-b border-rule-soft pb-3">
+                  <span class="size-2 shrink-0 rounded-full bg-foreground/30"></span>
+                  <h2 class="font-fraunces text-[16px] font-semibold leading-none tracking-tight text-foreground">
+                    OTD
+                  </h2>
+                  {/* Sélecteur de plage — popover calendrier */}
+                  <div class="relative ml-auto">
+                    <div class="flex items-center gap-1">
                       <button
                         type="button"
-                        onClick={() => setDetailsOpen((v) => !v)}
-                        class="flex shrink-0 items-center gap-1 rounded border border-rule bg-secondary px-2 py-[5px] font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-foreground transition-colors hover:bg-secondary/80"
-                        title={detailsOpen() ? 'Masquer les détails' : 'Afficher les détails'}
+                        onClick={() => setCalendarOpen((v) => !v)}
+                        class="flex items-center gap-1.5 rounded border border-rule bg-secondary px-2 py-1 font-mono text-[10px] text-foreground transition-colors hover:bg-secondary/80"
                       >
-                        <span class="material-symbols-outlined text-[13px] text-muted-foreground">{detailsOpen() ? 'expand_more' : 'chevron_right'}</span>
-                        <span>Détails</span>
+                        <span class="material-symbols-outlined text-[13px] text-muted-foreground">
+                          calendar_today
+                        </span>
+                        <span>{otdRangeLabel() ?? 'Auto'}</span>
                       </button>
+                      <Show when={otdRange()?.start}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOtdRange(null)
+                            setCalendarOpen(false)
+                          }}
+                          class="flex size-6 items-center justify-center rounded text-muted-foreground hover:text-foreground"
+                          title="Réinitialiser"
+                        >
+                          <span class="material-symbols-outlined text-[14px]">close</span>
+                        </button>
+                      </Show>
                     </div>
-                    <For each={otd()}>
-                      {(p, i) => (
-                        <div classList={{ 'mt-5 border-t border-rule-soft pt-5': i() > 0 }}>
-                          {/* Label période */}
-                          <div class="mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">{p.label}</div>
 
-                          <Show
-                            when={p.nbTotal > 0}
-                            fallback={<p class="font-fraunces text-[12px] italic text-muted-foreground">Aucune ligne à expédier.</p>}
-                          >
-                            <div class="flex items-end justify-between gap-3">
-                              <div class="font-fraunces text-[48px] font-semibold leading-none tracking-tight tabular-nums" style={{ color: otdColor(p.tauxOtif, p.nbTotal) }}>
-                                {p.tauxOtif}
-                                <span class="ml-0.5 font-mono text-[16px] font-bold text-muted-foreground">%</span>
-                              </div>
-                              <div class="pb-1 text-right font-mono text-[10.5px] leading-tight text-muted-foreground">
-                                <b class="text-[13px] text-foreground">{p.nbOtif}</b>/{p.nbTotal}
-                                <br />lignes OTIF
-                              </div>
-                            </div>
-
-                            <Show when={detailsOpen()}>
-                              <Show
-                                when={p.lignesNon.length > 0}
-                                fallback={<p class="mt-4 font-fraunces text-[12px] italic text-muted-foreground">Toutes les lignes sont OTIF.</p>}
-                              >
-                              <div class="-mx-2 mt-4 max-h-[160px] overflow-auto">
-                                <table class="w-full border-collapse text-left">
-                                  <thead>
-                                    <tr class="sticky top-0 bg-card">
-                                      <th class="border-b border-rule px-2 py-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Commande</th>
-                                      <th class="border-b border-rule px-2 py-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Article</th>
-                                      <th class="border-b border-rule px-2 py-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Poste</th>
-                                      <th class="border-b border-rule px-2 py-1.5 text-right font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Livré/Cmde</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    <For each={p.lignesNon}>
-                                      {(l) => (
-                                        <tr class="border-b border-rule-soft last:border-0 hover:bg-secondary/40">
-                                          <td class="px-2 py-1.5 align-top">
-                                            <div class="font-mono text-[11px] font-bold text-foreground">{l.numCommande}</div>
-                                            <div class="font-sans text-[10px] text-muted-foreground">{l.client}</div>
-                                          </td>
-                                          <td class="px-2 py-1.5 align-top font-mono text-[11px] font-semibold text-brand">{l.article}</td>
-                                          <td class="px-2 py-1.5 align-top">
-                                            <Show
-                                              when={l.posteDeCharge}
-                                              fallback={<span class="font-sans text-[10px] text-muted-foreground/70">—</span>}
-                                            >
-                                              <span class="rounded bg-secondary px-1.5 py-0.5 font-mono text-[10px] font-bold tracking-wide text-secondary-foreground">{l.posteDeCharge}</span>
-                                            </Show>
-                                          </td>
-                                          <td class="whitespace-nowrap px-2 py-1.5 text-right align-top font-mono text-[11px] tabular-nums text-muted-foreground">
-                                            {l.qteLivree}/{l.qteCmde}
-                                          </td>
-                                        </tr>
-                                      )}
-                                    </For>
-                                  </tbody>
-                                </table>
-                              </div>
-                              </Show>
-                            </Show>
+                    <Show when={calendarOpen()}>
+                      <div class="fixed inset-0 z-10" onClick={() => setCalendarOpen(false)} />
+                      <div class="absolute right-0 top-full z-20 mt-1">
+                        <Calendar
+                          mode="range"
+                          range={otdRange() ?? { start: null, end: null }}
+                          onRangeChange={(r) => {
+                            setOtdRange(r)
+                            if (r.start && r.end) setCalendarOpen(false)
+                          }}
+                          max={new Date()}
+                        />
+                      </div>
+                    </Show>
+                  </div>
+                  <div class="flex items-center rounded border border-rule bg-secondary p-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.12em]">
+                    <button
+                      onClick={() => setOtdMode('demandee')}
+                      class="rounded px-2 py-1 transition-colors"
+                      classList={{
+                        'bg-card text-foreground shadow-sm': otdMode() === 'demandee',
+                        'text-muted-foreground hover:text-foreground': otdMode() !== 'demandee',
+                      }}
+                    >
+                      Demandée
+                    </button>
+                    <button
+                      onClick={() => setOtdMode('acceptee')}
+                      class="rounded px-2 py-1 transition-colors"
+                      classList={{
+                        'bg-card text-foreground shadow-sm': otdMode() === 'acceptee',
+                        'text-muted-foreground hover:text-foreground': otdMode() !== 'acceptee',
+                      }}
+                    >
+                      Acceptée
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setHideOtd(true)}
+                    class="flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground print:hidden"
+                    title="Masquer ce KPI"
+                    aria-label="Masquer le KPI OTD"
+                  >
+                    <span class="material-symbols-outlined text-[15px]">visibility</span>
+                  </button>
+                </div>
+                <Show when={!otdData.loading} fallback={<Spinner />}>
+                  <Show
+                    when={!otdError()}
+                    fallback={
+                      <p class="font-fraunces text-[13px] italic leading-snug text-destructive/80">
+                        {otdError()}
+                      </p>
+                    }
+                  >
+                    <Show
+                      when={otd().length > 0}
+                      fallback={
+                        <p class="font-fraunces text-[13px] italic text-muted-foreground">
+                          Aucune donnée OTD.
+                        </p>
+                      }
+                    >
+                      {/* Filtre par client + bascule afficher/masquer les détails */}
+                      <div class="mb-3 flex items-center gap-1.5">
+                        <div class="relative min-w-0 flex-1">
+                          <span class="material-symbols-outlined pointer-events-none absolute left-1.5 top-1/2 -translate-y-1/2 text-[13px] text-muted-foreground">
+                            search
+                          </span>
+                          <input
+                            type="text"
+                            value={clientFilter()}
+                            onInput={(e) => onClientInput(e.currentTarget.value)}
+                            placeholder="Filtrer par client"
+                            aria-label="Filtrer les lignes par client"
+                            class="w-full rounded border border-rule bg-secondary py-[5px] pl-7 pr-6 font-sans text-[11px] text-foreground placeholder:text-muted-foreground/60 focus:border-foreground/30 focus:outline-none"
+                          />
+                          <Show when={clientFilter()}>
+                            <button
+                              type="button"
+                              onClick={clearClient}
+                              class="absolute right-1 top-1/2 flex size-4 -translate-y-1/2 items-center justify-center text-muted-foreground hover:text-foreground"
+                              title="Effacer le filtre"
+                              aria-label="Effacer le filtre"
+                            >
+                              <span class="material-symbols-outlined text-[13px]">close</span>
+                            </button>
                           </Show>
                         </div>
-                      )}
-                    </For>
+                        <button
+                          type="button"
+                          onClick={() => setDetailsOpen((v) => !v)}
+                          class="flex shrink-0 items-center gap-1 rounded border border-rule bg-secondary px-2 py-[5px] font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-foreground transition-colors hover:bg-secondary/80"
+                          title={detailsOpen() ? 'Masquer les détails' : 'Afficher les détails'}
+                        >
+                          <span class="material-symbols-outlined text-[13px] text-muted-foreground">
+                            {detailsOpen() ? 'expand_more' : 'chevron_right'}
+                          </span>
+                          <span>Détails</span>
+                        </button>
+                      </div>
+                      <For each={otd()}>
+                        {(p, i) => (
+                          <div classList={{ 'mt-5 border-t border-rule-soft pt-5': i() > 0 }}>
+                            {/* Label période */}
+                            <div class="mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                              {p.label}
+                            </div>
+
+                            <Show
+                              when={p.nbTotal > 0}
+                              fallback={
+                                <p class="font-fraunces text-[12px] italic text-muted-foreground">
+                                  Aucune ligne à expédier.
+                                </p>
+                              }
+                            >
+                              <div class="flex items-end justify-between gap-3">
+                                <div
+                                  class="font-fraunces text-[48px] font-semibold leading-none tracking-tight tabular-nums"
+                                  style={{ color: otdColor(p.tauxOtif, p.nbTotal) }}
+                                >
+                                  {p.tauxOtif}
+                                  <span class="ml-0.5 font-mono text-[16px] font-bold text-muted-foreground">
+                                    %
+                                  </span>
+                                </div>
+                                <div class="pb-1 text-right font-mono text-[10.5px] leading-tight text-muted-foreground">
+                                  <b class="text-[13px] text-foreground">{p.nbOtif}</b>/{p.nbTotal}
+                                  <br />
+                                  lignes OTIF
+                                </div>
+                              </div>
+
+                              <Show when={detailsOpen()}>
+                                <Show
+                                  when={p.lignesNon.length > 0}
+                                  fallback={
+                                    <p class="mt-4 font-fraunces text-[12px] italic text-muted-foreground">
+                                      Toutes les lignes sont OTIF.
+                                    </p>
+                                  }
+                                >
+                                  <div class="-mx-2 mt-4 max-h-[160px] overflow-auto">
+                                    <table class="w-full border-collapse text-left">
+                                      <thead>
+                                        <tr class="sticky top-0 bg-card">
+                                          <th class="border-b border-rule px-2 py-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                                            Commande
+                                          </th>
+                                          <th class="border-b border-rule px-2 py-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                                            Article
+                                          </th>
+                                          <th class="border-b border-rule px-2 py-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                                            Poste
+                                          </th>
+                                          <th class="border-b border-rule px-2 py-1.5 text-right font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                                            Livré/Cmde
+                                          </th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        <For each={p.lignesNon}>
+                                          {(l) => (
+                                            <tr class="border-b border-rule-soft last:border-0 hover:bg-secondary/40">
+                                              <td class="px-2 py-1.5 align-top">
+                                                <div class="font-mono text-[11px] font-bold text-foreground">
+                                                  {l.numCommande}
+                                                </div>
+                                                <div class="font-sans text-[10px] text-muted-foreground">
+                                                  {l.client}
+                                                </div>
+                                              </td>
+                                              <td class="px-2 py-1.5 align-top font-mono text-[11px] font-semibold text-brand">
+                                                {l.article}
+                                              </td>
+                                              <td class="px-2 py-1.5 align-top">
+                                                <Show
+                                                  when={l.posteDeCharge}
+                                                  fallback={
+                                                    <span class="font-sans text-[10px] text-muted-foreground/70">
+                                                      —
+                                                    </span>
+                                                  }
+                                                >
+                                                  <span class="rounded bg-secondary px-1.5 py-0.5 font-mono text-[10px] font-bold tracking-wide text-secondary-foreground">
+                                                    {l.posteDeCharge}
+                                                  </span>
+                                                </Show>
+                                              </td>
+                                              <td class="whitespace-nowrap px-2 py-1.5 text-right align-top font-mono text-[11px] tabular-nums text-muted-foreground">
+                                                {l.qteLivree}/{l.qteCmde}
+                                              </td>
+                                            </tr>
+                                          )}
+                                        </For>
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </Show>
+                              </Show>
+                            </Show>
+                          </div>
+                        )}
+                      </For>
+                    </Show>
+                  </Show>
+                </Show>
+              </article>
+            </Show>
+          </div>
+          {/* fin colonne gauche */}
+
+          {/* KPI — Lignes en retard (détail) */}
+          <Show
+            when={!hideLignes()}
+            fallback={
+              <HiddenCard
+                class="lg:col-span-2"
+                title="Lignes en retard"
+                onShow={() => setHideLignes(false)}
+              />
+            }
+          >
+            <article class="flex max-h-[calc(100vh-9rem)] flex-col rounded border border-rule bg-card p-6 shadow-[0_14px_30px_-26px_rgba(42,38,34,0.45)] lg:col-span-2 print:max-h-none print:overflow-visible print:shadow-none">
+              <CardHeader
+                title="Lignes en retard"
+                suffix={`${kpi().nbLignes} commande${kpi().nbLignes > 1 ? 's' : ''}`}
+                onHide={() => setHideLignes(true)}
+              />
+              <Show when={!kpisData.loading} fallback={<Spinner />}>
+                <Show
+                  when={!x3Error()}
+                  fallback={
+                    <p class="font-fraunces text-[13px] italic leading-snug text-destructive/80">
+                      {x3Error()}
+                    </p>
+                  }
+                >
+                  <Show
+                    when={kpi().lignes.length > 0}
+                    fallback={
+                      <p class="font-fraunces text-[13px] italic text-muted-foreground">
+                        Aucune ligne en retard.
+                      </p>
+                    }
+                  >
+                    <div class="-mx-2 overflow-auto print:overflow-visible">
+                      <table class="w-full border-collapse text-left">
+                        <thead>
+                          <tr class="sticky top-0 bg-card">
+                            <th class="border-b border-rule px-2 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                              Expé
+                            </th>
+                            <th class="border-b border-rule px-2 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                              Commande · Client
+                            </th>
+                            <th class="border-b border-rule px-2 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                              Article · Désignation
+                            </th>
+                            <th class="border-b border-rule px-2 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                              Poste
+                            </th>
+                            <th class="border-b border-rule px-2 py-2 text-right font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                              Reste
+                            </th>
+                            <th class="border-b border-rule px-2 py-2 text-right font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                              Charge
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <For each={kpi().lignes}>
+                            {(l) => (
+                              <tr class="border-b border-rule-soft last:border-0 hover:bg-secondary/40">
+                                <td class="whitespace-nowrap px-2 py-2.5 align-top font-mono text-[12px] font-semibold text-destructive">
+                                  {l.dateExp || '—'}
+                                </td>
+                                <td class="px-2 py-2.5 align-top">
+                                  <div class="font-mono text-[12px] font-bold text-foreground">
+                                    {l.numCommande}
+                                  </div>
+                                  <div class="font-sans text-[11px] text-muted-foreground">
+                                    {l.client}
+                                  </div>
+                                </td>
+                                <td class="px-2 py-2.5 align-top">
+                                  <div class="font-mono text-[12px] font-semibold text-brand">
+                                    {l.article}
+                                  </div>
+                                  <div class="font-sans text-[11px] leading-snug text-secondary-foreground">
+                                    {l.designation || '—'}
+                                  </div>
+                                </td>
+                                <td class="px-2 py-2.5 align-top">
+                                  <Show
+                                    when={l.postes.length > 0}
+                                    fallback={
+                                      <span class="font-sans text-[11px] text-muted-foreground/70">
+                                        —
+                                      </span>
+                                    }
+                                  >
+                                    <div class="flex flex-wrap gap-1">
+                                      <For each={l.postes}>
+                                        {(p) => (
+                                          <span class="rounded bg-secondary px-1.5 py-0.5 font-mono text-[10px] font-bold tracking-wide text-secondary-foreground">
+                                            {p}
+                                          </span>
+                                        )}
+                                      </For>
+                                    </div>
+                                  </Show>
+                                </td>
+                                <td class="whitespace-nowrap px-2 py-2.5 text-right align-top font-mono text-[12px] font-semibold tabular-nums text-foreground">
+                                  {l.qteRestante}
+                                </td>
+                                <td class="whitespace-nowrap px-2 py-2.5 text-right align-top font-mono text-[12px] font-bold tabular-nums text-foreground">
+                                  {l.heures > 0 ? `${l.heures} h` : '—'}
+                                </td>
+                              </tr>
+                            )}
+                          </For>
+                        </tbody>
+                      </table>
+                    </div>
                   </Show>
                 </Show>
               </Show>
             </article>
-            </Show>
-
-          </div>{/* fin colonne gauche */}
-
-          {/* KPI — Lignes en retard (détail) */}
-          <Show when={!hideLignes()} fallback={<HiddenCard class="lg:col-span-2" title="Lignes en retard" onShow={() => setHideLignes(false)} />}>
-          <article class="flex max-h-[calc(100vh-9rem)] flex-col rounded border border-rule bg-card p-6 shadow-[0_14px_30px_-26px_rgba(42,38,34,0.45)] lg:col-span-2 print:max-h-none print:overflow-visible print:shadow-none">
-            <CardHeader title="Lignes en retard" suffix={`${kpi().nbLignes} commande${kpi().nbLignes > 1 ? 's' : ''}`} onHide={() => setHideLignes(true)} />
-            <Show when={!kpisData.loading} fallback={<Spinner />}>
-              <Show
-                when={!x3Error()}
-                fallback={<p class="font-fraunces text-[13px] italic leading-snug text-destructive/80">{x3Error()}</p>}
-              >
-                <Show
-                  when={kpi().lignes.length > 0}
-                  fallback={<p class="font-fraunces text-[13px] italic text-muted-foreground">Aucune ligne en retard.</p>}
-                >
-                  <div class="-mx-2 overflow-auto print:overflow-visible">
-                    <table class="w-full border-collapse text-left">
-                      <thead>
-                        <tr class="sticky top-0 bg-card">
-                          <th class="border-b border-rule px-2 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Expé</th>
-                          <th class="border-b border-rule px-2 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Commande · Client</th>
-                          <th class="border-b border-rule px-2 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Article · Désignation</th>
-                          <th class="border-b border-rule px-2 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Poste</th>
-                          <th class="border-b border-rule px-2 py-2 text-right font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Reste</th>
-                          <th class="border-b border-rule px-2 py-2 text-right font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Charge</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <For each={kpi().lignes}>
-                          {(l) => (
-                            <tr class="border-b border-rule-soft last:border-0 hover:bg-secondary/40">
-                              <td class="whitespace-nowrap px-2 py-2.5 align-top font-mono text-[12px] font-semibold text-destructive">{l.dateExp || '—'}</td>
-                              <td class="px-2 py-2.5 align-top">
-                                <div class="font-mono text-[12px] font-bold text-foreground">{l.numCommande}</div>
-                                <div class="font-sans text-[11px] text-muted-foreground">{l.client}</div>
-                              </td>
-                              <td class="px-2 py-2.5 align-top">
-                                <div class="font-mono text-[12px] font-semibold text-brand">{l.article}</div>
-                                <div class="font-sans text-[11px] leading-snug text-secondary-foreground">{l.designation || '—'}</div>
-                              </td>
-                              <td class="px-2 py-2.5 align-top">
-                                <Show
-                                  when={l.postes.length > 0}
-                                  fallback={<span class="font-sans text-[11px] text-muted-foreground/70">—</span>}
-                                >
-                                  <div class="flex flex-wrap gap-1">
-                                    <For each={l.postes}>
-                                      {(p) => (
-                                        <span class="rounded bg-secondary px-1.5 py-0.5 font-mono text-[10px] font-bold tracking-wide text-secondary-foreground">{p}</span>
-                                      )}
-                                    </For>
-                                  </div>
-                                </Show>
-                              </td>
-                              <td class="whitespace-nowrap px-2 py-2.5 text-right align-top font-mono text-[12px] font-semibold tabular-nums text-foreground">{l.qteRestante}</td>
-                              <td class="whitespace-nowrap px-2 py-2.5 text-right align-top font-mono text-[12px] font-bold tabular-nums text-foreground">{l.heures > 0 ? `${l.heures} h` : '—'}</td>
-                            </tr>
-                          )}
-                        </For>
-                      </tbody>
-                    </table>
-                  </div>
-                </Show>
-              </Show>
-            </Show>
-          </article>
           </Show>
-
         </div>
       </div>
     </div>

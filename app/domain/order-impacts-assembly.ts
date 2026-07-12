@@ -8,11 +8,7 @@ import type { Article } from './models/article.js'
 import type { NomenclatureEntry } from './models/nomenclature.js'
 import type { OfOverride } from './planning_board.js'
 import type { MfgMaterialInput } from './of-feasibility.js'
-import {
-  evaluateRuptures,
-  directMissing,
-  type RuptureOfInput,
-} from './rupture-engine.js'
+import { evaluateRuptures, directMissing, type RuptureOfInput } from './rupture-engine.js'
 
 /**
  * Applique les overrides de date de ligne de commande (clé `id#ligne`) aux demandes.
@@ -34,7 +30,10 @@ export function remapDemandDates(demands: Flow[], dateOverrides: Map<string, str
  * ACHETE + FABRIQUE). Sans ça, un sous-ensemble fabriqué sans OF descend dans la faisabilité
  * avec 0 stock chargé pour ses composants ACHETE.
  */
-export function expandArticleSetWithBom(seed: Iterable<string>, nomenclatureEntries: NomenclatureEntry[]): Set<string> {
+export function expandArticleSetWithBom(
+  seed: Iterable<string>,
+  nomenclatureEntries: NomenclatureEntry[]
+): Set<string> {
   const articleSet = new Set(seed)
   let added = true
   while (added) {
@@ -53,10 +52,17 @@ export function expandArticleSetWithBom(seed: Iterable<string>, nomenclatureEntr
  * Complète le catalogue article (chargé depuis le référentiel) avec les entrées BOM
  * (parent/composant) absentes — cas des sous-ensembles ou composants hors catalogue actif.
  */
-export function buildArticleCatalog(articlesList: Article[], nomenclatureEntries: NomenclatureEntry[]): Map<string, Article> {
+export function buildArticleCatalog(
+  articlesList: Article[],
+  nomenclatureEntries: NomenclatureEntry[]
+): Map<string, Article> {
   const articles = new Map<string, Article>(articlesList.map((a) => [a.code, a]))
 
-  const placeholder = (code: string, description: string, supplyType: Article['supplyType']): Article => ({
+  const placeholder = (
+    code: string,
+    description: string,
+    supplyType: Article['supplyType']
+  ): Article => ({
     code,
     description,
     category: '',
@@ -75,12 +81,19 @@ export function buildArticleCatalog(articlesList: Article[], nomenclatureEntries
 
   for (const entry of nomenclatureEntries) {
     if (!articles.has(entry.parentArticle)) {
-      articles.set(entry.parentArticle, placeholder(entry.parentArticle, entry.parentDescription, 'FABRICATION'))
+      articles.set(
+        entry.parentArticle,
+        placeholder(entry.parentArticle, entry.parentDescription, 'FABRICATION')
+      )
     }
     if (!articles.has(entry.componentArticle)) {
       articles.set(
         entry.componentArticle,
-        placeholder(entry.componentArticle, entry.componentDescription, entry.componentType === 'ACHETE' ? 'ACHAT' : 'FABRICATION')
+        placeholder(
+          entry.componentArticle,
+          entry.componentDescription,
+          entry.componentType === 'ACHETE' ? 'ACHAT' : 'FABRICATION'
+        )
       )
     }
   }
@@ -122,12 +135,18 @@ export function precomputeMfgFeasibility(
   const verdicts = evaluateRuptures(
     engineOfs,
     { articles: new Map(), nomenclatures: new Map(), stockNet: stockByArticle },
-    'photo',
+    'photo'
   )
 
-  const mfgFeasibility = new Map<string, { feasible: boolean | null; missingComponents: Record<string, number> }>()
+  const mfgFeasibility = new Map<
+    string,
+    { feasible: boolean | null; missingComponents: Record<string, number> }
+  >()
   for (const [numOf, verdict] of verdicts) {
-    mfgFeasibility.set(numOf, { feasible: verdict.feasible, missingComponents: directMissing(verdict) })
+    mfgFeasibility.set(numOf, {
+      feasible: verdict.feasible,
+      missingComponents: directMissing(verdict),
+    })
   }
   return mfgFeasibility
 }

@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-*Agent profile for this project.*
+_Agent profile for this project._
 
 ## Quick Start
 
@@ -9,6 +9,7 @@ See `.planning/PROJECT.md` for project overview.
 ## Workflow obligatoire : code → commit → push
 
 **OBLIGATOIRE** : après chaque tâche terminée (feature, fix, refacto), tu DOIS :
+
 1. **Commiter** avec un message clair (français, préfixe `feat(scope):` / `fix(scope):`).
 2. **Pousser** immédiatement (`git push`).
 
@@ -26,6 +27,7 @@ This project uses GSD (Get Shit Done) for structured development. Run `/gsd-help
 ## Tests
 
 **NEVER run the full test suite** (`node ace test` sans filtre, `--suite`, `jest`, etc.).
+
 - Gate rapide : `npm run typecheck`.
 - Tests ciblés uniquement : un seul fichier ou un grep précis.
   - Ex. : `npx node ace test --files="recursive-diagnostic-checker"`.
@@ -34,7 +36,7 @@ This project uses GSD (Get Shit Done) for structured development. Run `/gsd-help
 ## Outils interdits
 
 **JAMAIS de Playwright** — ni `npx playwright`, ni `playwright install`, ni screenshot/preview via Playwright.
+
 - Règle non négociable : l'utilisateur ne veut plus de cet outil dans ce projet.
 - Pour valider un rendu visuel : passer par le navigateur du user, pas par un headless.
 - Si un skill externe (huashu-design, etc.) recommande Playwright, **ne pas suivre cette partie**.
-

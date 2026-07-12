@@ -1,7 +1,12 @@
-import { HttpContext } from '@adonisjs/core/http'
+import { type HttpContext } from '@adonisjs/core/http'
 import logger from '@adonisjs/core/services/logger'
 import { RetardRepository, type RetardChargeKpi } from '#repositories/retard_repository'
-import { OtdRepository, resolveOtdPeriods, type OtdKpi, type OtdMode } from '#repositories/otd_repository'
+import {
+  OtdRepository,
+  resolveOtdPeriods,
+  type OtdKpi,
+  type OtdMode,
+} from '#repositories/otd_repository'
 import { RETARD_LOOKBACK_DAYS } from '#services/suivi_service'
 
 /**
@@ -20,7 +25,8 @@ export default class DashboardController {
   /** GET / — coquille du tableau de bord. */
   async index(ctx: HttpContext) {
     const referenceDate =
-      (ctx.request.input('referenceDate') as string | undefined) || new Date().toISOString().slice(0, 10)
+      (ctx.request.input('referenceDate') as string | undefined) ||
+      new Date().toISOString().slice(0, 10)
     return ctx.inertia.render('dashboard', {
       referenceDate,
       kpisHref: `/api/v1/dashboard/kpis?referenceDate=${encodeURIComponent(referenceDate)}`,
@@ -76,7 +82,7 @@ export default class DashboardController {
     const repo = new OtdRepository()
 
     const results = await Promise.allSettled(
-      periods.map((p) => repo.getOtd(p.from, p.to, p.label, otdMode, client || undefined)),
+      periods.map((p) => repo.getOtd(p.from, p.to, p.label, otdMode, client || undefined))
     )
 
     for (const r of results) {

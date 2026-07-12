@@ -144,7 +144,13 @@ export default function BoardGrid(props: {
     })
     return line.weekLoads.map((wl) => {
       const b = byWeek[wl.week] ?? { ferme: 0, planifie: 0, suggere: 0 }
-      return { week: wl.week, ferme: r1(b.ferme), planifie: r1(b.planifie), suggere: r1(b.suggere), induit: 0 }
+      return {
+        week: wl.week,
+        ferme: r1(b.ferme),
+        planifie: r1(b.planifie),
+        suggere: r1(b.suggere),
+        induit: 0,
+      }
     })
   }
 
@@ -237,10 +243,15 @@ export default function BoardGrid(props: {
         {/* ═══ Rangée « Commandes virtuelles » (issue #58, mode scénario) ═══ */}
         <Show when={props.virtualOrdersByCol}>
           {(byCol) => (
-            <div class="grid border-b-2 border-dashed border-brand/50 bg-brand-soft/40" style={{ 'grid-template-columns': gridTpl() }}>
+            <div
+              class="grid border-b-2 border-dashed border-brand/50 bg-brand-soft/40"
+              style={{ 'grid-template-columns': gridTpl() }}
+            >
               <div class="sticky left-0 z-20 flex items-center gap-1.5 border-r border-rule bg-brand-soft/60 px-3.5 py-3">
                 <span class="material-symbols-outlined text-[15px] text-brand">science</span>
-                <span class="font-mono text-2xs font-bold uppercase tracking-wider text-brand">Virtuelles</span>
+                <span class="font-mono text-2xs font-bold uppercase tracking-wider text-brand">
+                  Virtuelles
+                </span>
               </div>
               <For each={store.board.days}>
                 {(_day, ci) => (
@@ -310,12 +321,18 @@ export default function BoardGrid(props: {
                               <>
                                 <span
                                   class="block h-full"
-                                  style={{ width: seg(t.sans), background: TYPO_META[t.typo]?.color ?? '#94a3b8' }}
+                                  style={{
+                                    width: seg(t.sans),
+                                    background: TYPO_META[t.typo]?.color ?? '#94a3b8',
+                                  }}
                                 />
                                 <Show when={t.bouche > 0}>
                                   <span
                                     class="block h-full"
-                                    style={{ width: seg(t.bouche), background: TYPO_META[t.typo]?.light ?? '#cbd5e1' }}
+                                    style={{
+                                      width: seg(t.bouche),
+                                      background: TYPO_META[t.typo]?.light ?? '#cbd5e1',
+                                    }}
                                   />
                                 </Show>
                               </>
@@ -327,13 +344,23 @@ export default function BoardGrid(props: {
                             {(t) => (
                               <span class="inline-flex items-center gap-1">
                                 <span class="inline-flex items-center gap-0.5">
-                                  <span class="size-[7px] rounded-[1px]" style={{ background: TYPO_META[t.typo]?.color ?? '#94a3b8' }} />
+                                  <span
+                                    class="size-[7px] rounded-[1px]"
+                                    style={{ background: TYPO_META[t.typo]?.color ?? '#94a3b8' }}
+                                  />
                                   {t.bouche > 0 && (
-                                    <span class="size-[7px] rounded-[1px]" style={{ background: TYPO_META[t.typo]?.light ?? '#cbd5e1' }} />
+                                    <span
+                                      class="size-[7px] rounded-[1px]"
+                                      style={{ background: TYPO_META[t.typo]?.light ?? '#cbd5e1' }}
+                                    />
                                   )}
                                 </span>
-                                <span class="text-muted-foreground">{TYPO_META[t.typo]?.label ?? t.typo}</span>
-                                <span class="tabular-nums text-foreground">{t.sans + t.bouche}h</span>
+                                <span class="text-muted-foreground">
+                                  {TYPO_META[t.typo]?.label ?? t.typo}
+                                </span>
+                                <span class="tabular-nums text-foreground">
+                                  {t.sans + t.bouche}h
+                                </span>
                               </span>
                             )}
                           </For>
@@ -341,7 +368,10 @@ export default function BoardGrid(props: {
                         <Show when={pp().stockBouchesHygro !== null}>
                           <div class="mt-1 flex items-baseline gap-1 text-2xs text-muted-foreground">
                             <span>Bouches hygro</span>
-                            <span class="font-fraunces text-sm font-bold tabular-nums" style={{ color: 'var(--color-brand)' }}>
+                            <span
+                              class="font-fraunces text-sm font-bold tabular-nums"
+                              style={{ color: 'var(--color-brand)' }}
+                            >
                               {pp().stockBouchesHygro}
                             </span>
                             <span>pcs</span>
@@ -376,7 +406,8 @@ export default function BoardGrid(props: {
                         if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
                         setDropCol(cellKey)
                         // #23 : notification de progression du drag OF → recalcul d'impact live.
-                        if (draggedNumOf()) props.onOfDragProgress?.(draggedNumOf()!, line.code, ci(), dc.iso)
+                        if (draggedNumOf())
+                          props.onOfDragProgress?.(draggedNumOf()!, line.code, ci(), dc.iso)
                       }}
                       onDrop={(e) => {
                         const num = draggedNumOf()
@@ -524,7 +555,11 @@ function CardView(props: {
                 b().st === 'running' && 'animate-spin'
               )}
             >
-              {b().st === 'ok' ? 'check' : b().st === 'error' ? 'priority_high' : 'progress_activity'}
+              {b().st === 'ok'
+                ? 'check'
+                : b().st === 'error'
+                  ? 'priority_high'
+                  : 'progress_activity'}
             </span>
           </span>
         )}
@@ -554,7 +589,11 @@ const VERDICT_TONE: Record<string, { border: string; text: string; label: string
   stock: { border: 'border-l-brand', text: 'text-brand', label: 'à temps' },
   retard: { border: 'border-l-error', text: 'text-error', label: 'retard' },
   bloquee: { border: 'border-l-error', text: 'text-error', label: 'bloquée' },
-  sans_couverture: { border: 'border-l-amber-500', text: 'text-amber-600', label: 'sans couverture' },
+  sans_couverture: {
+    border: 'border-l-amber-500',
+    text: 'text-amber-600',
+    label: 'sans couverture',
+  },
 }
 
 /** Cellule de la rangée « Commandes virtuelles » — reçoit le drop d'un chip
@@ -569,7 +608,10 @@ function VirtualCell(props: {
   const [over, setOver] = createSignal(false)
   return (
     <div
-      class={cx('flex min-h-[52px] flex-col gap-1 border-r border-dashed border-brand/30 p-1.5', over() && 'bg-brand-soft')}
+      class={cx(
+        'flex min-h-[52px] flex-col gap-1 border-r border-dashed border-brand/30 p-1.5',
+        over() && 'bg-brand-soft'
+      )}
       onDragOver={(e) => {
         if (!props.onDrop) return
         e.preventDefault()
@@ -616,17 +658,26 @@ function VirtualOrderChip(props: { order: VirtualOrderVm; onRemove?: (id: string
       </button>
       <div class="flex items-baseline gap-1 whitespace-nowrap pr-3 font-mono text-2xs font-bold text-brand">
         <span class="material-symbols-outlined flex-none self-center text-xs">science</span>
-        <span>{props.order.article} × {props.order.quantity}</span>
+        <span>
+          {props.order.article} × {props.order.quantity}
+        </span>
       </div>
       <div class="mt-0.5 flex items-center gap-1">
         <span class="flex-none font-fraunces text-2xs font-bold tabular-nums text-secondary-foreground">
           {fmtDay(props.order.date)}
         </span>
         <Show when={props.order.client}>
-          <span class="truncate font-fraunces text-2xs italic text-muted-foreground">{props.order.client}</span>
+          <span class="truncate font-fraunces text-2xs italic text-muted-foreground">
+            {props.order.client}
+          </span>
         </Show>
         <Show when={tone()}>
-          <span class={cx('ml-auto rounded-full bg-card px-1 py-px font-mono text-3xs font-bold uppercase tracking-wider', tone()!.text)}>
+          <span
+            class={cx(
+              'ml-auto rounded-full bg-card px-1 py-px font-mono text-3xs font-bold uppercase tracking-wider',
+              tone()!.text
+            )}
+          >
             {tone()!.label}
             <Show when={props.order.joursRetard}> +{props.order.joursRetard}j</Show>
           </span>

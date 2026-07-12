@@ -13,9 +13,7 @@ async function test() {
   const db = new X3Database()
   console.log('X3Database instantiated')
 
-  const result = await db.raw(
-    'SELECT SOHNUM_0, BPCNAM_0, ORDDAT_0 FROM SORDER WHERE ROWNUM <= 3'
-  )
+  const result = await db.raw('SELECT SOHNUM_0, BPCNAM_0, ORDDAT_0 FROM SORDER WHERE ROWNUM <= 3')
   console.log('Result:', JSON.stringify(result, null, 2))
 
   await db.destroy()

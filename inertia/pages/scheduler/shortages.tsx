@@ -1,7 +1,19 @@
-import { createMemo, createResource, createSignal, Match, Show, Switch, type Component } from 'solid-js'
+import {
+  createMemo,
+  createResource,
+  createSignal,
+  Match,
+  Show,
+  Switch,
+  type Component,
+} from 'solid-js'
 import { Link, router } from '@/lib/inertia-solid'
 import { route } from '@/lib/routes'
-import { ShortageComposants, ShortageRegistre, ShortageTimeline } from '@/components/shortages/shortage-table'
+import {
+  ShortageComposants,
+  ShortageRegistre,
+  ShortageTimeline,
+} from '@/components/shortages/shortage-table'
 import OfDetailSheet from '@/components/of/of-detail-sheet'
 import { Masthead } from '@/components/masthead'
 import { Calendar, type DateRange } from '@/components/ui/calendar'
@@ -42,7 +54,7 @@ const Shortages: Component<ShortagesProps> = (props) => {
       const res = await fetch(url, { headers: { accept: 'application/json' } })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       return (await res.json()) as ShortageRowsResponse
-    },
+    }
   )
   const view = createMemo(() => data() ?? EMPTY)
 
@@ -66,7 +78,7 @@ const Shortages: Component<ShortagesProps> = (props) => {
       const da = a.dateExpeditionIso ?? '9999-12-31'
       const db = b.dateExpeditionIso ?? '9999-12-31'
       return da < db ? -1 : da > db ? 1 : 0
-    }),
+    })
   )
 
   // Compteurs KPI (dérivés des lignes, indépendants des filtres).
@@ -147,7 +159,9 @@ const Shortages: Component<ShortagesProps> = (props) => {
         active="ruptures"
         meta={
           <>
-            <div class="font-fraunces text-[12px] font-bold capitalize not-italic text-brand">{props.dateRange}</div>
+            <div class="font-fraunces text-[12px] font-bold capitalize not-italic text-brand">
+              {props.dateRange}
+            </div>
             <div>
               <b class="font-bold text-foreground">{view().stats.nbRuptures}</b> ruptures · horizon{' '}
               <b class="font-bold text-foreground">+{props.horizon} j</b>
@@ -177,13 +191,19 @@ const Shortages: Component<ShortagesProps> = (props) => {
             [
               ['registre', 'Registre', 'Table éditoriale : une ligne par composant × OF bloqué'],
               ['composants', 'Par composant', 'Agrégation : quel composant bloque le plus d’OF ?'],
-              ['couverture', 'Couverture', 'Frise temporelle : réception couvrante ↔ date d’expédition'],
+              [
+                'couverture',
+                'Couverture',
+                'Frise temporelle : réception couvrante ↔ date d’expédition',
+              ],
             ] as const
           ).map(([key, label, title]) => (
             <button
               type="button"
               class={`rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors ${
-                mode() === key ? 'bg-brand-soft text-brand' : 'text-muted-foreground hover:text-foreground'
+                mode() === key
+                  ? 'bg-brand-soft text-brand'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
               onClick={() => setMode(key)}
               title={title}
@@ -195,7 +215,9 @@ const Shortages: Component<ShortagesProps> = (props) => {
 
         {/* Filtre verdict */}
         <div class="inline-flex items-center gap-1 rounded-md border border-rule bg-card p-0.5">
-          <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Verdict</span>
+          <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+            Verdict
+          </span>
           {verdictChip('all', 'Tous')}
           {verdictChip('sans_couverture', 'Sans couv.')}
           {verdictChip('sous_ensemble', 'S/E')}
@@ -212,9 +234,13 @@ const Shortages: Component<ShortagesProps> = (props) => {
             class="flex items-center gap-1.5 rounded-full border border-rule bg-card px-2.5 py-1 text-[11px] font-semibold text-foreground transition-colors hover:border-brand"
             title="Fenêtre d'analyse : OF dont le démarrage tombe dans la plage"
           >
-            <span class="material-symbols-outlined text-[14px] text-muted-foreground">calendar_month</span>
+            <span class="material-symbols-outlined text-[14px] text-muted-foreground">
+              calendar_month
+            </span>
             {props.dateRange}
-            <span class="material-symbols-outlined text-[16px] text-muted-foreground">expand_more</span>
+            <span class="material-symbols-outlined text-[16px] text-muted-foreground">
+              expand_more
+            </span>
           </button>
           <Show when={calOpen()}>
             <button
@@ -257,7 +283,9 @@ const Shortages: Component<ShortagesProps> = (props) => {
         when={!data.loading}
         fallback={
           <div class="flex flex-1 items-center justify-center gap-2 text-muted-foreground">
-            <span class="material-symbols-outlined animate-spin text-[20px]">progress_activity</span>
+            <span class="material-symbols-outlined animate-spin text-[20px]">
+              progress_activity
+            </span>
             <span class="text-[13px] font-medium">Calcul des ruptures…</span>
           </div>
         }
@@ -274,10 +302,18 @@ const Shortages: Component<ShortagesProps> = (props) => {
           <div class="flex-1 overflow-hidden p-5">
             <Switch>
               <Match when={mode() === 'registre'}>
-                <ShortageRegistre rows={filteredRows} onSelectOf={onSelectOf} emptyState={emptyState} />
+                <ShortageRegistre
+                  rows={filteredRows}
+                  onSelectOf={onSelectOf}
+                  emptyState={emptyState}
+                />
               </Match>
               <Match when={mode() === 'composants'}>
-                <ShortageComposants rows={filteredRows} onSelectOf={onSelectOf} emptyState={emptyState} />
+                <ShortageComposants
+                  rows={filteredRows}
+                  onSelectOf={onSelectOf}
+                  emptyState={emptyState}
+                />
               </Match>
               <Match when={mode() === 'couverture'}>
                 <ShortageTimeline

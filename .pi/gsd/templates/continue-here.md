@@ -23,7 +23,7 @@ last_updated: 2025-01-15T14:30:00Z
 - Task 1: [name] - Done
 - Task 2: [name] - Done
 - Task 3: [name] - In progress, [what's done on it]
-</completed_work>
+  </completed_work>
 
 <remaining_work>
 [What's left in this phase]
@@ -31,14 +31,14 @@ last_updated: 2025-01-15T14:30:00Z
 - Task 3: [name] - [what's left to do]
 - Task 4: [name] - Not started
 - Task 5: [name] - Not started
-</remaining_work>
+  </remaining_work>
 
 <decisions_made>
 [Key decisions and why - so next session doesn't re-debate]
 
 - Decided to use [X] because [reason]
 - Chose [approach] over [alternative] because [reason]
-</decisions_made>
+  </decisions_made>
 
 <blockers>
 [Anything stuck or waiting on external factors]
@@ -68,7 +68,7 @@ Required YAML frontmatter:
 - `total_tasks`: How many tasks in phase
 - `status`: `in_progress`, `blocked`, `almost_done`
 - `last_updated`: ISO timestamp
-</yaml_fields>
+  </yaml_fields>
 
 <guidelines>
 - Be specific enough that a fresh the agent instance understands immediately

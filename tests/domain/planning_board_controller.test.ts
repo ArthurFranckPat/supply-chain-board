@@ -13,15 +13,21 @@ function mockContext(overrides: Record<string, any> = {}): any {
       },
     },
     response: {
-      ok(data: any) { return data },
+      ok(data: any) {
+        return data
+      },
     },
     ...overrides,
   }
 }
 
 test.group('PlanningBoardController', (group) => {
-  group.setup(async () => { await db.from('of_overrides').delete() })
-  group.teardown(async () => { await db.from('of_overrides').delete() })
+  group.setup(async () => {
+    await db.from('of_overrides').delete()
+  })
+  group.teardown(async () => {
+    await db.from('of_overrides').delete()
+  })
 
   test('update creates an override', async ({ assert }) => {
     const ctrl = new PlanningBoardController()
@@ -29,7 +35,12 @@ test.group('PlanningBoardController', (group) => {
       params: { of: 'OF001' },
       body: { dateFin: '2026-06-25', status: 1, note: 'Affermi' },
     })
-    ctx.request.only = (_keys: string[]) => ({ dateFin: '2026-06-25', status: 1, note: 'Affermi', dateDebut: null })
+    ctx.request.only = (_keys: string[]) => ({
+      dateFin: '2026-06-25',
+      status: 1,
+      note: 'Affermi',
+      dateDebut: null,
+    })
 
     const result = await ctrl.update(ctx)
     assert.equal(result.numOf, 'OF001')

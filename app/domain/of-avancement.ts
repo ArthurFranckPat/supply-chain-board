@@ -33,9 +33,7 @@ export interface OfAvancement {
  * @param records - Toutes les opérations de tous les OFs (fetch plat)
  * @returns Map<MFGNUM, OfAvancement>
  */
-export function computeAvancement(
-  records: OperationRecord[],
-): Map<string, OfAvancement> {
+export function computeAvancement(records: OperationRecord[]): Map<string, OfAvancement> {
   // Grouper par OF
   const byOf = new Map<string, OperationRecord[]>()
   for (const rec of records) {
@@ -55,7 +53,7 @@ export function computeAvancement(
 
     // Opérations intermédiaires = tout sauf la dernière (par OPENUM)
     const intermediaires = sorted.filter(
-      (op) => derniereOpGamme !== null && op.openum < derniereOpGamme,
+      (op) => derniereOpGamme !== null && op.openum < derniereOpGamme
     )
 
     const pointees = intermediaires.filter((op) => op.cplqty > 0)

@@ -147,7 +147,7 @@ export const DEFAULT_HOURS_PER_DAY = 7.5
  */
 export function fabricationDaysFromHours(
   hours: number,
-  hoursPerDay: number = DEFAULT_HOURS_PER_DAY,
+  hoursPerDay: number = DEFAULT_HOURS_PER_DAY
 ): number {
   if (!Number.isFinite(hours) || hours <= 0 || hoursPerDay <= 0) return 1
   return Math.max(1, Math.ceil(hours / hoursPerDay))
@@ -212,7 +212,7 @@ export interface CoveringReceptionOptions {
 export function resolveCoveringReception(
   receptions: ReceptionRecord[],
   qteManquante: number,
-  opts: CoveringReceptionOptions = {},
+  opts: CoveringReceptionOptions = {}
 ): ShortageReception | null {
   if (qteManquante <= 0 || receptions.length === 0) return null
   const { alreadyConsumed = 0, overdueMinQty = 0 } = opts
@@ -221,7 +221,7 @@ export function resolveCoveringReception(
   const eligible =
     overdueMinQty > 0
       ? receptions.filter(
-          (r) => r.date.toISOString().slice(0, 10) >= todayIso || r.quantity >= overdueMinQty,
+          (r) => r.date.toISOString().slice(0, 10) >= todayIso || r.quantity >= overdueMinQty
         )
       : receptions
   if (eligible.length === 0) return null
@@ -270,7 +270,7 @@ export function buildShortageRows(
      * OF absent de la map → plancher 1 j. Buffer total ligne = logistique + fabrication.
      */
     fabricationDaysByOf?: Map<string, number>
-  } = {},
+  } = {}
 ): ShortageResult {
   const todayIso = opts.todayIso ?? isoLocalDay()
   const overdueMinQty = opts.overdueMinQty ?? 0
@@ -308,7 +308,9 @@ export function buildShortageRows(
     }
   }
   for (const list of ofToOrders.values()) {
-    list.sort((a, b) => (a.dateExpedition < b.dateExpedition ? -1 : a.dateExpedition > b.dateExpedition ? 1 : 0))
+    list.sort((a, b) =>
+      a.dateExpedition < b.dateExpedition ? -1 : a.dateExpedition > b.dateExpedition ? 1 : 0
+    )
   }
 
   const descOf = (code: string) => articles.get(code)?.description ?? ''
@@ -382,7 +384,7 @@ export function buildShortageRows(
     const reception = resolveCoveringReception(
       receptionsByArticle.get(p.component) ?? [],
       p.qteManquante,
-      { alreadyConsumed, overdueMinQty, todayIso },
+      { alreadyConsumed, overdueMinQty, todayIso }
     )
     consumedByComponent.set(p.component, alreadyConsumed + p.qteManquante)
 
@@ -417,8 +419,7 @@ export function buildShortageRows(
     // réception n'est toujours pas là le jour J client, la marge est négative.
     // 0 si pas de réception, ou OF orphelin (pas d'expédition → pas de deadline).
     const margeRef = reception ? (overdue ? todayIso : reception.dateArrivee) : null
-    const joursMarge =
-      margeRef && p.dateExpedition ? daysBetweenIso(margeRef, p.dateExpedition) : 0
+    const joursMarge = margeRef && p.dateExpedition ? daysBetweenIso(margeRef, p.dateExpedition) : 0
 
     // Composant FABRIQUÉ sans réception : la couverture passe par un OF fils, pas par un
     // PO — verdict dédié au lieu d'un faux « sans_couverture » (PORDERQ ne peut pas couvrir).

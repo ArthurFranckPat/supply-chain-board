@@ -105,7 +105,7 @@ export interface SortingLike {
 /** Tri manuel partagé réactif/proactif (TanStack Table ne tracke pas les signaux extérieurs). */
 export function sortRows<T extends { numCommande: string; dateExpIso: string | null }>(
   rows: T[],
-  sorting: SortingLike[],
+  sorting: SortingLike[]
 ): T[] {
   if (sorting.length === 0) return rows
   const { id, desc } = sorting[0]

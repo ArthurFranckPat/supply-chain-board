@@ -28,15 +28,23 @@ const Tracking: Component<SuiviPageProps> = (props) => {
   // ou de bust (bouton refresh → ?refresh=N invalide le cache serveur).
   const [bust, setBust] = createSignal(0)
 
-  const { data, ms: rowsMs, elapsed } = useTimedFetch<SuiviRowsResponse>(
-    () => `${props.rowsHref}${bust() ? `&refresh=${bust()}` : ''}`,
+  const {
+    data,
+    ms: rowsMs,
+    elapsed,
+  } = useTimedFetch<SuiviRowsResponse>(
+    () => `${props.rowsHref}${bust() ? `&refresh=${bust()}` : ''}`
   )
   const view = createMemo(() => data() ?? EMPTY)
 
   // ── Vue proactive (réalisabilité des commandes via le moteur séquentiel) ──
   const [mode, setMode] = createSignal<'reactif' | 'proactif'>('reactif')
-  const { data: proData, ms: proMs, elapsed: proElapsed } = useTimedFetch<ProactiveRowsResponse>(
-    () => `${props.proactiveRowsHref}${bust() ? `&refresh=${bust()}` : ''}`,
+  const {
+    data: proData,
+    ms: proMs,
+    elapsed: proElapsed,
+  } = useTimedFetch<ProactiveRowsResponse>(
+    () => `${props.proactiveRowsHref}${bust() ? `&refresh=${bust()}` : ''}`
   )
   const proView = createMemo(() => proData() ?? PROACTIVE_EMPTY)
 
@@ -74,7 +82,10 @@ const Tracking: Component<SuiviPageProps> = (props) => {
     const tf = typeFilter()
     const af = atelierFilter()
     let r = all.filter(
-      (row) => (sf === 'all' || row.statusKey === sf) && tf.has(row.type) && (af.size === 0 || af.has(row.atelier)),
+      (row) =>
+        (sf === 'all' || row.statusKey === sf) &&
+        tf.has(row.type) &&
+        (af.size === 0 || af.has(row.atelier))
     )
     if (q) r = r.filter((row) => row.filter.includes(q))
     return r
@@ -86,7 +97,10 @@ const Tracking: Component<SuiviPageProps> = (props) => {
     const tf = typeFilter()
     const af = atelierFilter()
     let r = all.filter(
-      (row) => (vf === 'all' || row.verdictKey === vf) && tf.has(row.type) && (af.size === 0 || af.has(row.atelier)),
+      (row) =>
+        (vf === 'all' || row.verdictKey === vf) &&
+        tf.has(row.type) &&
+        (af.size === 0 || af.has(row.atelier))
     )
     if (q) r = r.filter((row) => row.filter.includes(q))
     return r
@@ -136,10 +150,18 @@ const Tracking: Component<SuiviPageProps> = (props) => {
         active="tracking"
         meta={
           <>
-            <div class="font-fraunces text-[12px] font-bold capitalize not-italic text-brand">{refLabel()}</div>
+            <div class="font-fraunces text-[12px] font-bold capitalize not-italic text-brand">
+              {refLabel()}
+            </div>
             <div>
-              <b class="font-bold text-foreground">{mode() === 'reactif' ? view().total : proView().total}</b> lignes ouvertes
-              <Show when={view().referenceDate}> · réf. <b class="font-bold text-foreground">{view().referenceDate}</b></Show>
+              <b class="font-bold text-foreground">
+                {mode() === 'reactif' ? view().total : proView().total}
+              </b>{' '}
+              lignes ouvertes
+              <Show when={view().referenceDate}>
+                {' '}
+                · réf. <b class="font-bold text-foreground">{view().referenceDate}</b>
+              </Show>
             </div>
           </>
         }
@@ -165,7 +187,9 @@ const Tracking: Component<SuiviPageProps> = (props) => {
           <button
             type="button"
             class={`rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors ${
-              mode() === 'reactif' ? 'bg-brand-soft text-brand' : 'text-muted-foreground hover:text-foreground'
+              mode() === 'reactif'
+                ? 'bg-brand-soft text-brand'
+                : 'text-muted-foreground hover:text-foreground'
             }`}
             onClick={() => setMode('reactif')}
             title="Suivi as-is : statuts allocation/expédition + causes de retard"
@@ -175,7 +199,9 @@ const Tracking: Component<SuiviPageProps> = (props) => {
           <button
             type="button"
             class={`rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors ${
-              mode() === 'proactif' ? 'bg-brand-soft text-brand' : 'text-muted-foreground hover:text-foreground'
+              mode() === 'proactif'
+                ? 'bg-brand-soft text-brand'
+                : 'text-muted-foreground hover:text-foreground'
             }`}
             onClick={() => setMode('proactif')}
             title="Réalisabilité projetée : consommation séquentielle des composants entre OFs"
@@ -185,7 +211,9 @@ const Tracking: Component<SuiviPageProps> = (props) => {
         </div>
         <Show when={mode() === 'reactif'}>
           <div class="inline-flex items-center gap-1 rounded-md border border-rule bg-card p-0.5">
-            <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Statut</span>
+            <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+              Statut
+            </span>
             {statusChip('all', 'Tous')}
             {statusChip('ret', 'Retard')}
             {statusChip('alc', 'À allouer')}
@@ -194,7 +222,9 @@ const Tracking: Component<SuiviPageProps> = (props) => {
         </Show>
         <Show when={mode() === 'proactif'}>
           <div class="inline-flex items-center gap-1 rounded-md border border-rule bg-card p-0.5">
-            <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Verdict</span>
+            <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+              Verdict
+            </span>
             {verdictChip('all', 'Tous')}
             {verdictChip('blocked', 'Bloquée')}
             {verdictChip('uncov', 'Sans couverture')}
@@ -203,13 +233,17 @@ const Tracking: Component<SuiviPageProps> = (props) => {
           </div>
         </Show>
         <div class="inline-flex items-center gap-1 rounded-md border border-rule bg-card p-0.5">
-          <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Type</span>
+          <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+            Type
+          </span>
           <For each={['MTS', 'MTO', 'NOR']}>
             {(t) => (
               <button
                 type="button"
                 class={`rounded-[5px] px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors ${
-                  typeFilter().has(t) ? 'bg-brand-soft text-brand' : 'text-muted-foreground hover:text-foreground'
+                  typeFilter().has(t)
+                    ? 'bg-brand-soft text-brand'
+                    : 'text-muted-foreground hover:text-foreground'
                 }`}
                 onClick={() => toggleType(t)}
               >
@@ -221,13 +255,17 @@ const Tracking: Component<SuiviPageProps> = (props) => {
         {/* Filtre atelier (#36) — chips STOLOC, apparaît dès qu'un atelier est connu. Transverse aux 2 vues. */}
         <Show when={ateliers().length > 0}>
           <div class="inline-flex flex-wrap items-center gap-1 rounded-md border border-rule bg-card p-0.5">
-            <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Atelier</span>
+            <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+              Atelier
+            </span>
             <For each={ateliers()}>
               {(a) => (
                 <button
                   type="button"
                   class={`rounded-[5px] px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors ${
-                    atelierFilter().has(a.code) ? 'bg-brand-soft text-brand' : 'text-muted-foreground hover:text-foreground'
+                    atelierFilter().has(a.code)
+                      ? 'bg-brand-soft text-brand'
+                      : 'text-muted-foreground hover:text-foreground'
                   }`}
                   onClick={() => toggleAtelier(a.code)}
                   title={a.label}
@@ -255,8 +293,17 @@ const Tracking: Component<SuiviPageProps> = (props) => {
               {fmtMs(mode() === 'reactif' ? elapsed() : proElapsed())}
             </span>
           </Show>
-          <Show when={mode() === 'reactif' ? (!data.loading && rowsMs() !== null) : (!proData.loading && proMs() !== null)}>
-            <span class="font-mono text-[11px] tabular-nums text-muted-foreground/60" title="Durée dernier chargement X3">
+          <Show
+            when={
+              mode() === 'reactif'
+                ? !data.loading && rowsMs() !== null
+                : !proData.loading && proMs() !== null
+            }
+          >
+            <span
+              class="font-mono text-[11px] tabular-nums text-muted-foreground/60"
+              title="Durée dernier chargement X3"
+            >
               {fmtMs((mode() === 'reactif' ? rowsMs() : proMs())!)}
             </span>
           </Show>
@@ -281,7 +328,9 @@ const Tracking: Component<SuiviPageProps> = (props) => {
             class="inline-flex items-center gap-1 rounded-full border border-rule bg-card px-3 py-1 text-[11px] font-semibold transition-colors hover:border-brand"
             title="Recharger à aujourd'hui"
           >
-            <span class="material-symbols-outlined text-[14px] text-muted-foreground">calendar_month</span>
+            <span class="material-symbols-outlined text-[14px] text-muted-foreground">
+              calendar_month
+            </span>
             Aujourd'hui
           </Link>
         </div>

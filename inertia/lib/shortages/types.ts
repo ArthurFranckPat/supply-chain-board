@@ -64,7 +64,8 @@ export interface ShortageDisplayRow {
  *  - `sous_ensemble`  : composant FABRIQUÉ couvert par un OF fils (pas par PO)
  *  - `sans_couverture`: aucune réception prévue.
  */
-export type ShortageVerdictKey = 'couvert' | 'a_risque' | 'retard' | 'sans_couverture' | 'sous_ensemble'
+export type ShortageVerdictKey =
+  'couvert' | 'a_risque' | 'retard' | 'sans_couverture' | 'sous_ensemble'
 
 export interface ShortageStats {
   nbRuptures: number

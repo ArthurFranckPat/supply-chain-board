@@ -1,6 +1,11 @@
 import { test } from '@japa/runner'
 import type { Article } from '#app/domain/models/article'
-import type { Nomenclature, NomenclatureEntry, ComponentType, ConsumptionNature } from '#app/domain/models/nomenclature'
+import type {
+  Nomenclature,
+  NomenclatureEntry,
+  ComponentType,
+  ConsumptionNature,
+} from '#app/domain/models/nomenclature'
 import type { ErpAllocation } from '#app/domain/allocation'
 import type { MfgMaterialInput } from '#app/domain/of-feasibility'
 import type { OfRecord, StockRecord, ReceptionRecord } from '#app/domain/recursive-checker'
@@ -14,7 +19,7 @@ const DATE = new Date('2026-06-20')
 
 function mkBom(
   parent: string,
-  comps: Array<{ article: string; qty: number; type?: ComponentType; nature?: ConsumptionNature }>,
+  comps: Array<{ article: string; qty: number; type?: ComponentType; nature?: ConsumptionNature }>
 ): Nomenclature {
   const components: NomenclatureEntry[] = comps.map((c) => ({
     parentArticle: parent,
@@ -86,7 +91,11 @@ const ofRecord = (numOf: string, article: string, qteRestante: number, statut = 
   dateDebut: DATE,
 })
 
-function diagnose(loader: MemLoader, head: OfRecord, maxDepth?: number): Promise<RecursiveDiagnosticResult> {
+function diagnose(
+  loader: MemLoader,
+  head: OfRecord,
+  maxDepth?: number
+): Promise<RecursiveDiagnosticResult> {
   return new RecursiveDiagnosticChecker(loader, { checkDate: DATE, maxDepth }).diagnoseOf(head)
 }
 
@@ -132,7 +141,9 @@ test.group('RecursiveDiagnosticChecker', () => {
     assert.isTrue(se.covering[0].node.feasible)
   })
 
-  test('sous-ensemble dont l\'OF couvrant (planifié) est bloqué par un acheté → rupture_matiere', async ({ assert }) => {
+  test("sous-ensemble dont l'OF couvrant (planifié) est bloqué par un acheté → rupture_matiere", async ({
+    assert,
+  }) => {
     const loader = new MemLoader()
     loader.nomenclatures.set('SE', mkBom('SE', [{ article: 'C1', qty: 1 }]))
     loader.mfgmat.set('OF1', [mat('SE', 5)])
@@ -156,7 +167,9 @@ test.group('RecursiveDiagnosticChecker', () => {
     assert.equal(c1.quantityMissing, 40)
   })
 
-  test('sous-ensemble couvert par une suggestion (théorique) → descend et expose la feuille', async ({ assert }) => {
+  test('sous-ensemble couvert par une suggestion (théorique) → descend et expose la feuille', async ({
+    assert,
+  }) => {
     const loader = new MemLoader()
     loader.nomenclatures.set('SE', mkBom('SE', [{ article: 'C1', qty: 1 }]))
     loader.mfgmat.set('OF1', [mat('SE', 5)])
@@ -193,7 +206,9 @@ test.group('RecursiveDiagnosticChecker', () => {
     assert.equal(se.covering.length, 0)
   })
 
-  test('sous-ensemble couvert seulement par une suggestion faisable → à lancer (pas ok)', async ({ assert }) => {
+  test('sous-ensemble couvert seulement par une suggestion faisable → à lancer (pas ok)', async ({
+    assert,
+  }) => {
     const loader = new MemLoader()
     loader.nomenclatures.set('SE', mkBom('SE', [{ article: 'C1', qty: 1 }]))
     loader.mfgmat.set('OF1', [mat('SE', 5)])
@@ -212,7 +227,9 @@ test.group('RecursiveDiagnosticChecker', () => {
     assert.isTrue(se.covering[0].node.feasible) // la suggestion elle-même est faisable
   })
 
-  test('composant en stock CQ uniquement → qc_a_controler (pas rupture_matiere)', async ({ assert }) => {
+  test('composant en stock CQ uniquement → qc_a_controler (pas rupture_matiere)', async ({
+    assert,
+  }) => {
     const loader = new MemLoader()
     // stockPhysique = strict + qc (convention adapter), stockQc tracé séparément
     loader.stocks.set('C1', { stockPhysique: 50, stockAlloue: 0, stockQc: 50 }) // 50 en CQ, 0 strict
@@ -244,7 +261,9 @@ test.group('RecursiveDiagnosticChecker', () => {
     assert.isTrue(r.alerts.some((a) => a.includes('Cycle detecte')))
   })
 
-  test('DAG diamant : un OF partagé par 2 branches n’est diagnostiqué qu’une fois (#55)', async ({ assert }) => {
+  test('DAG diamant : un OF partagé par 2 branches n’est diagnostiqué qu’une fois (#55)', async ({
+    assert,
+  }) => {
     // PF consomme SE1 et SE2, qui consomment tous deux le même sous-ensemble SUB.
     // Sans mémo par OF, OF_SUB serait re-descendu par CHAQUE branche → explosion
     // (branching^depth) → « tourne dans le vide ». Le mémo doit le diagnostiquer 1×.
@@ -259,7 +278,7 @@ test.group('RecursiveDiagnosticChecker', () => {
     loader.ofs.push(
       ofRecord('OF_SE1', 'SE1', 1),
       ofRecord('OF_SE2', 'SE2', 1),
-      ofRecord('OF_SUB', 'SUB', 1),
+      ofRecord('OF_SUB', 'SUB', 1)
     )
     // Tous à 0 de stock → tout manque, LEAF acheté = rupture matière au fond.
 

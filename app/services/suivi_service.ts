@@ -65,7 +65,10 @@ class MapStockProvider implements StockProvider {
 class FlowOfMatcher implements OfMatcherPort {
   private byArticle = new Map<string, OFInfo[]>()
 
-  constructor(ofFlows: Flow[], private allocations: Map<string, ErpAllocation[]> = new Map()) {
+  constructor(
+    ofFlows: Flow[],
+    private allocations: Map<string, ErpAllocation[]> = new Map()
+  ) {
     for (const f of ofFlows) {
       if (f.direction !== 'supply' || f.origin.type !== 'of' || f.quantity <= 0) continue
       const origin = f.origin as Extract<Flow['origin'], { type: 'of' }>
@@ -90,7 +93,11 @@ class FlowOfMatcher implements OfMatcherPort {
     return 2
   }
 
-  findMatchingOf(_numCommande: string, article: string, _typeCommande: TypeCommande): OFInfo | null {
+  findMatchingOf(
+    _numCommande: string,
+    article: string,
+    _typeCommande: TypeCommande
+  ): OFInfo | null {
     const candidates = this.byArticle.get(article)
     if (!candidates || candidates.length === 0) return null
     return [...candidates].sort((a, b) => {
@@ -130,7 +137,7 @@ class NomenclatureBomNavigator implements BomNavigator {
     private nomenclatures: Map<string, Nomenclature>,
     stocks: Map<string, StockRecord>,
     ofs: OfRecord[],
-    articles: Map<string, Article>,
+    articles: Map<string, Article>
   ) {
     const stockNet = new Map<string, number>()
     for (const [article, s] of stocks) stockNet.set(article, s.stockPhysique - s.stockAlloue)
@@ -145,7 +152,7 @@ class NomenclatureBomNavigator implements BomNavigator {
   getComponentShortages(
     article: string,
     quantity: number,
-    ownAllocations: Record<string, number>,
+    ownAllocations: Record<string, number>
   ): Record<string, number> {
     const numOf = '__suivi__'
     const verdicts = evaluateRuptures(
@@ -154,7 +161,7 @@ class NomenclatureBomNavigator implements BomNavigator {
         ...this.dataset,
         allocationsByOf: new Map([[numOf, new Map(Object.entries(ownAllocations))]]),
       },
-      'photo',
+      'photo'
     )
     return verdicts.get(numOf)?.missing ?? {}
   }
@@ -226,7 +233,7 @@ class StubChargeCalculator implements ChargeCalculatorPort {
 class GammeChargeCalculator implements ChargeCalculatorPort {
   constructor(
     private opsByArticle: Map<string, GammeOperation[]>,
-    private labels: Map<string, string>,
+    private labels: Map<string, string>
   ) {}
 
   calculateDirectCharge(article: string, quantity: number): Record<string, number> {
@@ -378,7 +385,11 @@ export class SuiviService {
 
     // 1 SOAP getLive WIPTYP=1+2+5, fenêtre [today-90, today+30].
     // Lead time commercial ~21j → +30j couvre le backlog opérationnel. Commandes au-delà = non actionnables.
-    const [{ demand: demandFlows, reception: receptionFlows, supply: ofFlows }, nomenclatureEntries, articleList] = await Promise.all([
+    const [
+      { demand: demandFlows, reception: receptionFlows, supply: ofFlows },
+      nomenclatureEntries,
+      articleList,
+    ] = await Promise.all([
       boardDataset.getLive(fromIso, toIso),
       staticSync.readNomenclatures().catch(() => [] as NomenclatureEntry[]),
       staticSync.readArticles().catch(() => [] as Article[]),
@@ -410,24 +421,43 @@ export class SuiviService {
     // Le commit perf bc4a911 les avait retirés en attente d'un endpoint lazy, mais la zone
     // d'expé doit être connue AU cold path pour un statut correct. Les 2 SOAP sont dans le
     // cache SWR suivi:context (TTL 2 min + grace) → chaud = instantané.
-    const orderDemand = demandFlows.filter((f) => f.direction === 'demand' && f.origin.type === 'order')
-    const numCommandes = [...new Set(orderDemand.map((f) => (f.origin as Extract<Flow['origin'], { type: 'order' }>).id).filter(Boolean))]
+    const orderDemand = demandFlows.filter(
+      (f) => f.direction === 'demand' && f.origin.type === 'order'
+    )
+    const numCommandes = [
+      ...new Set(
+        orderDemand
+          .map((f) => (f.origin as Extract<Flow['origin'], { type: 'order' }>).id)
+          .filter(Boolean)
+      ),
+    ]
     const lineArticles = [...new Set(orderDemand.map((f) => f.article).filter(Boolean))]
     const emplRepo = new X3EmplacementRepository()
     // Allocations ERP des OF de la fenêtre (crédit au diagnostic de cause, cf. RawSuiviData).
-    const numOfs = [...new Set(
-      ofFlows
-        .filter((f) => f.origin.type === 'of')
-        .map((f) => ((f.origin as Extract<Flow['origin'], { type: 'of' }>).id ?? '').trim())
-        .filter(Boolean)
-    )]
+    const numOfs = [
+      ...new Set(
+        ofFlows
+          .filter((f) => f.origin.type === 'of')
+          .map((f) => ((f.origin as Extract<Flow['origin'], { type: 'of' }>).id ?? '').trim())
+          .filter(Boolean)
+      ),
+    ]
     const [detailedByOrderLine, stockByArticle, allocationsByOf] = await Promise.all([
       emplRepo.getDetailedByOrderLine(numCommandes),
       emplRepo.getStockLocations(lineArticles),
       emplRepo.getOfAllocations(numOfs),
     ])
 
-    return { demandFlows, ofFlows, nomenclatureEntries, articleList, stockFlows, detailedByOrderLine, stockByArticle, allocationsByOf }
+    return {
+      demandFlows,
+      ofFlows,
+      nomenclatureEntries,
+      articleList,
+      stockFlows,
+      detailedByOrderLine,
+      stockByArticle,
+      allocationsByOf,
+    }
   }
 
   /**
@@ -445,8 +475,14 @@ export class SuiviService {
         .filter((f) => f.origin.type === 'of')
         .map((f) => {
           const o = f.origin as Extract<Flow['origin'], { type: 'of' }>
-          return { numOf: o.id ?? '', article: f.article, status: o.status ?? 3, quantity: f.quantity, endDate: f.date }
-        }),
+          return {
+            numOf: o.id ?? '',
+            article: f.article,
+            status: o.status ?? 3,
+            quantity: f.quantity,
+            endDate: f.date,
+          }
+        })
     )
 
     const lines = buildOrderLines(raw.demandFlows, nomenclatures, articles)
@@ -488,7 +524,6 @@ export class SuiviService {
     const chargeCalculator = await buildGammeChargeCalculator()
     return computeRetardCharge(assignments, ctx.bomNavigator, chargeCalculator)
   }
-
 }
 
 // ---------------------------------------------------------------------------
@@ -538,7 +573,7 @@ function buildStockRecordMap(stockFlows: Flow[]): Map<string, StockRecord> {
 export function buildOrderLines(
   demandFlows: Flow[],
   nomenclatures: Map<string, Nomenclature>,
-  articles: Map<string, Article>,
+  articles: Map<string, Article>
 ): OrderLine[] {
   const lines: OrderLine[] = []
   for (const f of demandFlows) {
@@ -579,7 +614,7 @@ export function buildOrderLines(
 export function applyEmplacements(
   lines: OrderLine[],
   detailedByOrderLine: Map<string, Emplacement[]>,
-  stockByArticle: Map<string, Emplacement[]>,
+  stockByArticle: Map<string, Emplacement[]>
 ): void {
   // Index STOCOU → STOCK pour le lien canonique entre allocation et stock physique.
   const stockByStoCou = new Map<string, Emplacement>()
@@ -634,7 +669,6 @@ export function applyEmplacements(
   }
 }
 
-
 /** Reconstruit une map breakdown depuis le StockProvider du contexte (pour assignStatuses). */
 function stockProviderToMap(ctx: SuiviContext): Map<string, StockBreakdown> {
   const map = new Map<string, StockBreakdown>()
@@ -644,4 +678,3 @@ function stockProviderToMap(ctx: SuiviContext): Map<string, StockBreakdown> {
   }
   return map
 }
-

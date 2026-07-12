@@ -177,7 +177,13 @@ export interface ProactiveDisplayRow {
     art: string
     desc: string
     qty: number
-    reception: { eta: string; po: string; supplier: string; overdue: boolean; retardJ: number } | null
+    reception: {
+      eta: string
+      po: string
+      supplier: string
+      overdue: boolean
+      retardJ: number
+    } | null
     /** Descente BOM d'un SE manquant : 'se_a_lancer' (composants dispo) ou 'bloque' (+ feuilles bloquantes). */
     descente: {
       statut: 'se_a_lancer' | 'bloque'
@@ -185,7 +191,13 @@ export interface ProactiveDisplayRow {
         art: string
         desc: string
         manque: number
-        reception: { eta: string; po: string; supplier: string; overdue: boolean; retardJ: number } | null
+        reception: {
+          eta: string
+          po: string
+          supplier: string
+          overdue: boolean
+          retardJ: number
+        } | null
       }[]
     } | null
   }[]

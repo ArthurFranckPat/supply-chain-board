@@ -1,7 +1,7 @@
 /**
  * Moteur de rupture UNIQUE (issue #73).
  *
- * Remplace à terme les 5 calculs divergents (checkFeasibility/evaluateSequentialFeasibility,
+ * Remplace les anciens calculs divergents (checkFeasibility/evaluateSequentialFeasibility,
  * evaluateMfgFeasibility en direct, RecursiveChecker, la descente privée du contrôleur).
  * Pur : aucune I/O — les adapters chargent les données, le moteur décide.
  *
@@ -128,7 +128,7 @@ export function directMissing(verdict: RuptureVerdict): Record<string, number> {
 
 /** Σ qteRestante par article produit — helper pour construire `ofSupply` depuis le pool. */
 export function buildOfSupply(
-  ofs: Array<Pick<RuptureOfInput, 'article' | 'qteRestante'>>,
+  ofs: Array<Pick<RuptureOfInput, 'article' | 'qteRestante'>>
 ): Map<string, number> {
   const supply = new Map<string, number>()
   for (const of of ofs) {
@@ -196,7 +196,7 @@ interface ResolvedRequirement {
 export function evaluateRuptures(
   ofs: RuptureOfInput[],
   dataset: RuptureDataset,
-  mode: RuptureMode,
+  mode: RuptureMode
 ): Map<string, RuptureVerdict> {
   const verdicts = new Map<string, RuptureVerdict>()
   const vstock = new VirtualStock(dataset.stockNet, dataset.ofSupply)
@@ -235,7 +235,7 @@ export interface OfRequirement {
  */
 export function resolveOfRequirements(
   of: RuptureOfInput,
-  dataset: RuptureDataset,
+  dataset: RuptureDataset
 ): OfRequirement[] {
   const vstock = new VirtualStock(dataset.stockNet, dataset.ofSupply)
   const { requirements } = resolveRequirements(of, dataset, vstock)
@@ -250,7 +250,7 @@ export function resolveOfRequirements(
 function resolveRequirements(
   of: RuptureOfInput,
   dataset: RuptureDataset,
-  vstock: VirtualStock,
+  vstock: VirtualStock
 ): { source: RequirementSource; requirements: Map<string, ResolvedRequirement> } {
   const requirements = new Map<string, ResolvedRequirement>()
   let source: RequirementSource = 'AUCUNE'
@@ -261,7 +261,16 @@ function resolveRequirements(
   } else if ((dataset.nomenclatures.get(of.article)?.components.length ?? 0) > 0) {
     source = 'NOMENCLATURE'
     const allocations = new Map(dataset.allocationsByOf?.get(of.numOf) ?? [])
-    resolveBom(of.article, of.qteRestante, allocations, dataset, vstock, requirements, 0, new Set([of.article]))
+    resolveBom(
+      of.article,
+      of.qteRestante,
+      allocations,
+      dataset,
+      vstock,
+      requirements,
+      0,
+      new Set([of.article])
+    )
   }
   return { source, requirements }
 }
@@ -270,7 +279,7 @@ function checkOne(
   of: RuptureOfInput,
   dataset: RuptureDataset,
   vstock: VirtualStock,
-  consume: boolean,
+  consume: boolean
 ): RuptureVerdict {
   const { source, requirements } = resolveRequirements(of, dataset, vstock)
 
@@ -284,12 +293,28 @@ function checkOne(
     if (shortage <= 0) continue
 
     missing[article] = (missing[article] ?? 0) + shortage
-    missingDetail.push({ article, needed: req.checkNeed, available, shortage, fabricated: req.fabricated, depth: 0 })
+    missingDetail.push({
+      article,
+      needed: req.checkNeed,
+      available,
+      shortage,
+      fabricated: req.fabricated,
+      depth: 0,
+    })
 
     // Sous-ensemble fabriqué non couvert : descendre SA nomenclature pour le manque
     // seulement, afin d'exposer les feuilles achetées réellement manquantes.
     if (req.fabricated) {
-      descendFabricatedShortage(article, shortage, dataset, vstock, missing, missingDetail, 1, new Set([of.article, article]))
+      descendFabricatedShortage(
+        article,
+        shortage,
+        dataset,
+        vstock,
+        missing,
+        missingDetail,
+        1,
+        new Set([of.article, article])
+      )
     }
   }
 
@@ -327,7 +352,7 @@ function checkOne(
 function resolveMfgmat(
   materials: MfgMaterialInput[],
   dataset: RuptureDataset,
-  out: Map<string, ResolvedRequirement>,
+  out: Map<string, ResolvedRequirement>
 ): void {
   for (const m of materials) {
     const net = Math.max(0, m.remaining - m.allocated)
@@ -349,7 +374,7 @@ function resolveBom(
   vstock: VirtualStock,
   out: Map<string, ResolvedRequirement>,
   phantomDepth: number,
-  visited: Set<string>,
+  visited: Set<string>
 ): void {
   const bom = dataset.nomenclatures.get(article)
   if (!bom) return
@@ -378,12 +403,22 @@ function resolveBom(
       const fromStock = Math.min(net, availPhantom)
       if (fromStock > 0) addRequirement(out, component, 0, fromStock, false)
       if (net - fromStock > 0) {
-        resolveBom(component, net - fromStock, allocations, dataset, vstock, out, phantomDepth + 1, new Set(visited).add(component))
+        resolveBom(
+          component,
+          net - fromStock,
+          allocations,
+          dataset,
+          vstock,
+          out,
+          phantomDepth + 1,
+          new Set(visited).add(component)
+        )
       }
       continue
     }
 
-    const fabricated = entry.componentType === 'FABRIQUE' && !isSubcontracted(info) && !isPhantom(info)
+    const fabricated =
+      entry.componentType === 'FABRIQUE' && !isSubcontracted(info) && !isPhantom(info)
     addRequirement(out, component, net, 0, fabricated)
   }
 }
@@ -401,7 +436,7 @@ function descendFabricatedShortage(
   missing: Record<string, number>,
   missingDetail: MissingComponent[],
   depth: number,
-  visited: Set<string>,
+  visited: Set<string>
 ): void {
   if (depth > FABRICATED_DESCENT_CAP) return
   const subRequirements = new Map<string, ResolvedRequirement>()
@@ -423,7 +458,16 @@ function descendFabricatedShortage(
       depth,
     })
     if (req.fabricated && !visited.has(component)) {
-      descendFabricatedShortage(component, componentShortage, dataset, vstock, missing, missingDetail, depth + 1, new Set(visited).add(component))
+      descendFabricatedShortage(
+        component,
+        componentShortage,
+        dataset,
+        vstock,
+        missing,
+        missingDetail,
+        depth + 1,
+        new Set(visited).add(component)
+      )
     }
   }
 }
@@ -433,7 +477,7 @@ function addRequirement(
   article: string,
   checkNeed: number,
   coveredNeed: number,
-  fabricated: boolean,
+  fabricated: boolean
 ): void {
   const existing = out.get(article)
   if (existing) {

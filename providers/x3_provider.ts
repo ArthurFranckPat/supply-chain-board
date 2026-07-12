@@ -1,4 +1,4 @@
-import { ApplicationService } from '@adonisjs/core/types'
+import { type ApplicationService } from '@adonisjs/core/types'
 import { X3Database } from '#app/x3/client/x3_database'
 import { X3Connection } from '#app/x3/connection'
 import { getX3EnvConfig } from '#config/x3'

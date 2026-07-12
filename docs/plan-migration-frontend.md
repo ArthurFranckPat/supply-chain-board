@@ -79,14 +79,15 @@ navigateur 304) mais fonctionne sans config supplémentaire.
 ### 0.3 Entry points
 
 **`resources/css/app.css`** — Tailwind v4 :
+
 ```css
-@import "tailwindcss";
+@import 'tailwindcss';
 
 @theme {
-  --color-aldes: #0069B4;
-  --color-aldes-soft: rgba(0, 105, 180, 0.10);
+  --color-aldes: #0069b4;
+  --color-aldes-soft: rgba(0, 105, 180, 0.1);
   --color-st-ferme: #2e9e00;
-  --color-st-planifie: #0069B4;
+  --color-st-planifie: #0069b4;
   --color-st-suggere: #d98200;
   --color-line: #d3d8e0;
   --color-line-soft: #e7eaf0;
@@ -99,6 +100,7 @@ navigateur 304) mais fonctionne sans config supplémentaire.
 ```
 
 **`resources/js/app.ts`** — Alpine entry :
+
 ```ts
 import Alpine from 'alpinejs'
 import board from './alpine/board'
@@ -148,19 +150,19 @@ metaFiles: [
 ```edge
 <!DOCTYPE html>
 <html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>@!yield('title', 'Ordonnancement OF')</title>
-  <link rel="stylesheet" href="/css/app.css">
-  <script src="/vendor/unpoly.js" defer></script>
-  <link rel="stylesheet" href="/vendor/unpoly.css">
-  <script src="/js/app.js" defer></script>
-  @!yield('head')
-</head>
-<body>
-  @!yield('body')
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title><edge-self data-edge-id="0"></edge-self></title>
+    <link rel="stylesheet" href="/css/app.css" />
+    <script src="/vendor/unpoly.js" defer></script>
+    <link rel="stylesheet" href="/vendor/unpoly.css" />
+    <script src="/js/app.js" defer></script>
+    @!yield('head')
+  </head>
+  <body>
+    @!yield('body')
+  </body>
 </html>
 ```
 
@@ -177,10 +179,18 @@ exprimable** en utilities Tailwind. Ce CSS reste dans `app.css` sous
 
 ```css
 @layer components {
-  .gantt { /* --day-w calc, overflow auto */ }
-  .gantt .track { /* repeating-linear-gradient */ }
-  .gantt .bar { /* absolute positioning, left/width calc */ }
-  .gantt .wksep { /* absolute week separator */ }
+  .gantt {
+    /* --day-w calc, overflow auto */
+  }
+  .gantt .track {
+    /* repeating-linear-gradient */
+  }
+  .gantt .bar {
+    /* absolute positioning, left/width calc */
+  }
+  .gantt .wksep {
+    /* absolute week separator */
+  }
 }
 ```
 
@@ -195,6 +205,7 @@ passe en utilities Tailwind.
 ### 2.1 Composants UI réutilisables
 
 **`components/ui/button.edge`** :
+
 ```edge
 @props({
   variant: 'primary',    // primary | secondary | danger | ghost
@@ -222,6 +233,7 @@ passe en utilities Tailwind.
 ### 2.2 Composants board
 
 **`components/board/header.edge`** :
+
 ```edge
 @props({ totalOf, lineCount, horizon, start })
 <header class="flex flex-wrap items-center gap-4 border-b border-line bg-panel px-4 py-2.5">
@@ -242,17 +254,17 @@ passe en utilities Tailwind.
 
 ### 2.3 Tableau de correspondance extraction
 
-| Section actuelle (board.edge) | Nouveau composant | Lignes |
-|-------------------------------|-------------------|--------|
-| `<style>` L9-273 | `resources/css/app.css` + `@layer` | 265 → tokenisé |
-| `<header>` L276-290 | `board/header.edge` | 14 |
-| `.toolbar` L292-306 | `board/toolbar.edge` | 14 |
-| `#board-main` + `.gantt` L308-367 | `board/gantt/grid.edge` + sub | 59 |
-| `.bar` template L351-360 | `board/gantt/bar.edge` | 9 |
-| `#panel` L371-411 | `board/panels/detail.edge` | 40 |
-| `#backlog` L413-420 | `board/panels/backlog.edge` | 7 |
-| `#feas-panel` L422-432 | `board/panels/feasibility.edge` | 10 |
-| `<script>` L434-1073 | `resources/js/alpine/*.ts` | 640 |
+| Section actuelle (board.edge)     | Nouveau composant                  | Lignes         |
+| --------------------------------- | ---------------------------------- | -------------- |
+| `<style>` L9-273                  | `resources/css/app.css` + `@layer` | 265 → tokenisé |
+| `<header>` L276-290               | `board/header.edge`                | 14             |
+| `.toolbar` L292-306               | `board/toolbar.edge`               | 14             |
+| `#board-main` + `.gantt` L308-367 | `board/gantt/grid.edge` + sub      | 59             |
+| `.bar` template L351-360          | `board/gantt/bar.edge`             | 9              |
+| `#panel` L371-411                 | `board/panels/detail.edge`         | 40             |
+| `#backlog` L413-420               | `board/panels/backlog.edge`        | 7              |
+| `#feas-panel` L422-432            | `board/panels/feasibility.edge`    | 10             |
+| `<script>` L434-1073              | `resources/js/alpine/*.ts`         | 640            |
 
 ---
 
@@ -265,6 +277,7 @@ Le JS vanilla actuel gère ~10 morceaux d'état dispersés en variables globales
 etc.). Avec Alpine, tout converge dans un `Alpine.data('board', ...)`.
 
 **`resources/js/alpine/board.ts`** :
+
 ```ts
 export default () => ({
   // --- État ---
@@ -303,11 +316,17 @@ export default () => ({
   // au lieu de manipuler le DOM directement.
 
   // --- Faisabilité ---
-  async computeFeasibility() { /* fetch + setState */ },
+  async computeFeasibility() {
+    /* fetch + setState */
+  },
 
   // --- Panneau détail ---
-  openDetail(numOf: string) { this.selectedOf = numOf },
-  closeDetail() { this.selectedOf = null },
+  openDetail(numOf: string) {
+    this.selectedOf = numOf
+  },
+  closeDetail() {
+    this.selectedOf = null
+  },
 
   // ... etc
 })
@@ -316,16 +335,20 @@ export default () => ({
 ### 3.2 Migration du markup vers directives Alpine
 
 **Avant** (vanilla, `getElementById` + `innerHTML`) :
+
 ```html
 <dl class="p-grid">
-  <dt>Statut</dt><dd id="p-statut">—</dd>
+  <dt>Statut</dt>
+  <dd id="p-statut">—</dd>
 </dl>
 ```
+
 ```js
 setTxt('p-statut', d.statutLabel || '—')
 ```
 
 **Après** (Alpine, réactif) :
+
 ```edge
 <dl class="grid grid-cols-2 text-xs">
   <dt class="text-muted py-1.5 border-b border-line-soft">Statut</dt>
@@ -345,17 +368,26 @@ concaténation de strings dans une template literal. Avec Alpine + Edge :
 
 ```edge
 @each(o in feasResults.orders)
-  <div class="bg-white rounded border-l-[3px] p-2.5 text-xs"
-       :style="`border-left-color: ${statutColor(o.statut)}`">
+  <div
+    class="bg-white rounded border-l-[3px] p-2.5 text-xs"
+    :style="`border-left-color: ${statutColor(o.statut)}`"
+  >
     <div class="flex justify-between items-center">
       <span class="font-semibold">{{ o.numCommande }}</span>
-      <span class="text-white rounded-sm px-1.5 text-[10px]"
-            :style="`background: ${statutColor(o.statut)}`">
+      <span
+        class="text-white rounded-sm px-1.5 text-[10px]"
+        :style="`background: ${statutColor(o.statut)}`"
+      >
         {{ statutLabel(o.statut) }}
       </span>
     </div>
     <div class="text-aldes text-[11px] mt-0.5">
-      {{ o.article }} · {{ o.client }} · {{ o.qteRestante }}p · {{ o.dateExpedition }}
+      {{ o.article }}
+      ·
+      {{ o.client }}
+      ·
+      {{ o.qteRestante }}p ·
+      {{ o.dateExpedition }}
     </div>
     @if(o.joursRetard > 0)
       <div class="text-[#b42318] text-[10px] mt-0.5">+{{ o.joursRetard }}j retard</div>
@@ -375,6 +407,7 @@ Alpine dans la région remplacée doivent être réinitialisés.
 **Solution** : `up.compiler()` qui appelle `Alpine.initTree()`.
 
 Dans `resources/js/app.ts` :
+
 ```ts
 // Bridge Unpoly → Alpine
 // up.compiler s'exécute au boot ET après chaque swap de fragment
@@ -387,11 +420,19 @@ window.up?.compiler('[data-alpine-bridge]', (el: HTMLElement) => {
 ```
 
 Sur le `#board-main` :
+
 ```edge
-<div id="board-main" data-alpine-bridge x-data="board" data-start="{{ start }}" data-horizon="{{ horizon }}">
+<div
+  id="board-main"
+  data-alpine-bridge
+  x-data="board"
+  data-start="{{ start }}"
+  data-horizon="{{ horizon }}"
+></div>
 ```
 
 **Règle de coexistence** :
+
 - **Unpoly** gère : navigation entre pages, form submits qui changent le scope
   (dates, horizon), reload de données depuis X3
 - **Alpine** gère : tout l'interactif client (drag&drop, panels, search, toggle,
@@ -410,18 +451,18 @@ Sur le `#board-main` :
 
 ### 4.2 Mapping des couleurs
 
-| Variable CSS | Token Tailwind | Usage |
-|---|---|---|
-| `--bg: #eef1f5` | `bg-bg` | Background page |
-| `--panel: #fff` | `bg-panel` | Headers, panels |
-| `--txt: #1f2733` | `text-txt` | Texte principal |
-| `--muted: #6b7480` | `text-muted` | Texte secondaire |
-| `--aldes: #0069B4` | `text-aldes`, `bg-aldes` | Brand Aldes |
-| `--line: #d3d8e0` | `border-line` | Bordures |
-| `--line-soft: #e7eaf0` | `border-line-soft` | Bordures légères |
-| `--st1: #2e9e00` | `bg-st-ferme` | Statut Ferme |
-| `--st2: #0069B4` | `bg-st-planifie` | Statut Planifié |
-| `--st3: #d98200` | `bg-st-suggere` | Statut Suggéré |
+| Variable CSS           | Token Tailwind           | Usage            |
+| ---------------------- | ------------------------ | ---------------- |
+| `--bg: #eef1f5`        | `bg-bg`                  | Background page  |
+| `--panel: #fff`        | `bg-panel`               | Headers, panels  |
+| `--txt: #1f2733`       | `text-txt`               | Texte principal  |
+| `--muted: #6b7480`     | `text-muted`             | Texte secondaire |
+| `--aldes: #0069B4`     | `text-aldes`, `bg-aldes` | Brand Aldes      |
+| `--line: #d3d8e0`      | `border-line`            | Bordures         |
+| `--line-soft: #e7eaf0` | `border-line-soft`       | Bordures légères |
+| `--st1: #2e9e00`       | `bg-st-ferme`            | Statut Ferme     |
+| `--st2: #0069B4`       | `bg-st-planifie`         | Statut Planifié  |
+| `--st3: #d98200`       | `bg-st-suggere`          | Statut Suggéré   |
 
 ### 4.3 CSS qui reste custom
 
@@ -439,16 +480,21 @@ Sur le `#board-main` :
   }
   .gantt .track {
     position: relative;
-    background: repeating-linear-gradient(to right,
-      transparent 0, transparent calc(var(--day-w) - 1px),
+    background: repeating-linear-gradient(
+      to right,
+      transparent 0,
+      transparent calc(var(--day-w) - 1px),
       var(--color-line-soft) calc(var(--day-w) - 1px),
-      var(--color-line-soft) var(--day-w));
+      var(--color-line-soft) var(--day-w)
+    );
   }
   .gantt .bar {
     position: absolute;
     /* left, width, top sont set dynamiquement par JS — pas des classes */
   }
-  .gantt.compact { --lane-h: 48px; }
+  .gantt.compact {
+    --lane-h: 48px;
+  }
 }
 ```
 
@@ -459,12 +505,14 @@ Sur le `#board-main` :
 Stratégie : migration incrémentale, le board reste fonctionnel à chaque étape.
 
 ### Étape 1 : Infrastructure (Phase 0)
+
 - Installer deps, créer `public/`, configurer static serving
 - Créer `resources/css/app.css` et `resources/js/app.ts`
 - **Ne pas toucher au board.edge existant**
 - Vérifier : `npm run css:dev` compile, `public/css/app.css` est servi
 
 ### Étape 2 : Layout shell (Phase 1)
+
 - Créer `layouts/board_layout.edge`
 - Lier le CSS et JS compilés dans le `<head>`
 - `board.edge` utilise `@layout('layouts/board_layout')`
@@ -472,12 +520,14 @@ Stratégie : migration incrémentale, le board reste fonctionnel à chaque étap
 - **Vérifier** : le board s'affiche identique
 
 ### Étape 3 : Composants Edge — extraction statique (Phase 2)
+
 - Extraire header, toolbar, panels en composants Edge
 - Le board.edge devient un assemblage de `@!component()` calls
 - Le JS vanilla reste inline (dans un `<script>` du layout ou un fichier séparé)
 - **Vérifier** : toutes les interactions marchent
 
 ### Étape 4 : Alpine — migration progressive (Phase 3)
+
 - Créer `resources/js/alpine/board.ts` avec l'état Alpine
 - Migrer feature par feature :
   1. Toast (le plus simple, isolation complète)
@@ -491,6 +541,7 @@ Stratégie : migration incrémentale, le board reste fonctionnel à chaque étap
 - **Vérifier** après chaque feature
 
 ### Étape 5 : Tailwind — migration CSS (Phase 4)
+
 - Migrer les variables CSS → `@theme`
 - Remplacer les classes custom par des utilities Tailwind dans les composants
 - Garder uniquement le CSS Gantt dans `@layer components`
@@ -498,6 +549,7 @@ Stratégie : migration incrémentale, le board reste fonctionnel à chaque étap
 - **Vérifier** : rendu visuel identique
 
 ### Étape 6 : Cleanup
+
 - Supprimer les `console.log` debug (L1037-1042)
 - Supprimer les styles inline dans le HTML (`style="..."`)
 - Nettoyer les classes CSS mortes
@@ -508,6 +560,7 @@ Stratégie : migration incrémentale, le board reste fonctionnel à chaque étap
 ## Risques & décisions
 
 ### Risque 1 : Drag & drop Gantt + Alpine
+
 Le drag&drop natif HTML5 manipule le DOM directement (appendChild, style.top,
 style.left). Alpine préfère un modèle déclaratif. **Décision** : garder le
 drag&drop natif mais piloter l'état via Alpine (`@dragstart`, `@drop` sur les
@@ -515,6 +568,7 @@ drag&drop natif mais piloter l'état via Alpine (`@dragstart`, `@drop` sur les
 positions absolues.
 
 ### Risque 2 : Unpoly swap casse l'état Alpine
+
 Si Unpoly remplace une région qui contient un `x-data` Alpine, l'état est
 perdu. **Décision** : le `x-data="board"` est sur `#board-main` qui EST la
 cible des swaps Unpoly. Après un swap, `up.compiler` appelle
@@ -522,16 +576,20 @@ cible des swaps Unpoly. Après un swap, `up.compiler` appelle
 faisabilité) est explicitement reset dans `init()`.
 
 ### Risque 3 : Tailwind v4 sans config JS
+
 Tailwind v4 supprime `tailwind.config.js`. Tout se configure en CSS. Si des
 plugins tiers nécessitent une config JS, il faudra `@config`. **Vérifier** au
 moment de l'installation quelle version exacte est pull.
 
 ### Décision : JS bundler
+
 esbuild vs Vite vs CDN. **Recommandation** : esbuild (simple, un fichier
 `resources/js/app.ts` → `public/js/app.js`). Ajouter :
+
 ```bash
 npm install -D esbuild
 ```
+
 Script : `"js:build": "esbuild resources/js/app.ts --bundle --minify --format=esm --outfile=public/js/app.js"`
 Dev : `"js:dev": "esbuild resources/js/app.ts --bundle --format=esm --outfile=public/js/app.js --watch"`
 

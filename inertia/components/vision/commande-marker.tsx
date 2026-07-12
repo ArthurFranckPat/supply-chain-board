@@ -39,11 +39,14 @@ export function CommandeMarker(props: {
 }) {
   const cmd = props.cmd
   const verdict = () => props.verdict ?? null
-  const borderClass = () =>
-    verdict() ? VERDICT_BORDER[verdict()!] : UNKNOWN_BORDER
+  const borderClass = () => (verdict() ? VERDICT_BORDER[verdict()!] : UNKNOWN_BORDER)
   const iconClass = () => (verdict() ? VERDICT_ICON[verdict()!] : UNKNOWN_ICON)
   const iconName = () =>
-    verdict() === 'retard' ? 'schedule_send' : verdict() === 'limite' ? 'schedule' : 'local_shipping'
+    verdict() === 'retard'
+      ? 'schedule_send'
+      : verdict() === 'limite'
+        ? 'schedule'
+        : 'local_shipping'
   // #62 (lot 1) : libellé accessible — numéro + ligne + verdict verbalisé.
   const ariaLabel = () =>
     `Commande ${cmd.numCommande}${cmd.ligne ? `, ligne ${cmd.ligne}` : ''}${
@@ -59,7 +62,7 @@ export function CommandeMarker(props: {
         if (!cmd.ligne) return
         e.dataTransfer?.setData(
           'application/x-cmd',
-          JSON.stringify({ id: cmd.id, numCommande: cmd.numCommande, ligne: cmd.ligne }),
+          JSON.stringify({ id: cmd.id, numCommande: cmd.numCommande, ligne: cmd.ligne })
         )
         if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'
       }}
@@ -71,7 +74,8 @@ export function CommandeMarker(props: {
         'relative overflow-hidden rounded-[6px] border border-rule border-l-[3px] bg-brand-soft px-1.5 py-1.5 leading-tight shadow-[0_1px_2px_rgba(31,26,19,.06)] transition-shadow duration-150',
         borderClass(),
         cmd.ligne ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer',
-        props.activeId() === cmd.id && 'shadow-[0_2px_10px_rgba(168,67,31,.22)] ring-1 ring-brand/50',
+        props.activeId() === cmd.id &&
+          'shadow-[0_2px_10px_rgba(168,67,31,.22)] ring-1 ring-brand/50'
       )}
     >
       {/* Numéro complet (+ ligne) sur sa propre ligne, police réduite pour rentrer. */}
@@ -86,13 +90,13 @@ export function CommandeMarker(props: {
           </Show>
         </span>
         {/* #23 : badge retard « +N j » */}
-        <Show when={verdict() !== null && props.deltaJours !== null && props.deltaJours !== undefined}>
+        <Show
+          when={verdict() !== null && props.deltaJours !== null && props.deltaJours !== undefined}
+        >
           <span
             class={cx(
               'ml-auto rounded-full px-1 py-px font-mono text-3xs font-bold tabular-nums',
-              verdict() === 'retard'
-                ? 'bg-error/10 text-error'
-                : 'bg-amber-500/10 text-amber-600',
+              verdict() === 'retard' ? 'bg-error/10 text-error' : 'bg-amber-500/10 text-amber-600'
             )}
           >
             {deltaLabel(props.deltaJours!)}

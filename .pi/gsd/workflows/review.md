@@ -81,6 +81,7 @@ Check which AI CLIs are available on the system:
 Read from init: `phase_dir`, `phase_number`, `padded_phase`.
 
 Then read:
+
 1. `.planning/PROJECT.md` (first 80 lines - project context)
 2. Phase section from `.planning/ROADMAP.md`
 3. All `*-PLAN.md` files in the phase directory
@@ -99,22 +100,29 @@ You are reviewing implementation plans for a software project phase.
 Provide structured feedback on plan quality, completeness, and risks.
 
 ## Project Context
+
 {first 80 lines of PROJECT.md}
 
 ## Phase {N}: {phase name}
+
 ### Roadmap Section
+
 {roadmap phase section}
 
 ### Requirements Addressed
+
 {requirements for this phase}
 
 ### User Decisions (CONTEXT.md)
+
 {context if present}
 
 ### Research Findings
+
 {research if present}
 
 ### Plans to Review
+
 {all PLAN.md contents}
 
 ## Review Instructions
@@ -128,6 +136,7 @@ Analyze each plan and provide:
 5. **Risk Assessment** - Overall risk level (LOW/MEDIUM/HIGH) with justification
 
 Focus on:
+
 - Missing edge cases or error handling
 - Dependency ordering issues
 - Scope creep or over-engineering
@@ -145,16 +154,19 @@ Write to a temp file: `/tmp/gsd-review-prompt-{phase}.md`
 For each selected CLI, invoke in sequence (not parallel - avoid rate limits):
 
 **Gemini:**
+
 ```bash
 gemini -p "$(cat /tmp/gsd-review-prompt-{phase}.md)" 2>/dev/null > /tmp/gsd-review-gemini-{phase}.md
 ```
 
 **the agent (separate session):**
+
 ```bash
 claude -p "$(cat /tmp/gsd-review-prompt-{phase}.md)" --no-input 2>/dev/null > /tmp/gsd-review-claude-{phase}.md
 ```
 
 **Codex:**
+
 ```bash
 codex exec --skip-git-repo-check "$(cat /tmp/gsd-review-prompt-{phase}.md)" 2>/dev/null > /tmp/gsd-review-codex-{phase}.md
 ```
@@ -162,6 +174,7 @@ codex exec --skip-git-repo-check "$(cat /tmp/gsd-review-prompt-{phase}.md)" 2>/d
 If a CLI fails, log the error and continue with remaining CLIs.
 
 Display progress:
+
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  GSD ► CROSS-AI REVIEW - Phase {N}
@@ -170,6 +183,7 @@ Display progress:
 ◆ Reviewing with {CLI}... done ✓
 ◆ Reviewing with {CLI}... done ✓
 ```
+
 </step>
 
 <step name="write_reviews">
@@ -177,10 +191,10 @@ Combine all review responses into `{phase_dir}/{padded_phase}-REVIEWS.md`:
 
 ```markdown
 ---
-phase: {N}
+phase: { N }
 reviewers: [gemini, claude, codex]
-reviewed_at: {ISO timestamp}
-plans_reviewed: [{list of PLAN.md files}]
+reviewed_at: { ISO timestamp }
+plans_reviewed: [{ list of PLAN.md files }]
 ---
 
 # Cross-AI Plan Review - Phase {N}
@@ -208,19 +222,24 @@ plans_reviewed: [{list of PLAN.md files}]
 {synthesize common concerns across all reviewers}
 
 ### Agreed Strengths
+
 {strengths mentioned by 2+ reviewers}
 
 ### Agreed Concerns
+
 {concerns raised by 2+ reviewers - highest priority}
 
 ### Divergent Views
+
 {where reviewers disagreed - worth investigating}
 ```
 
 Commit:
+
 ```bash
 pi-gsd-tools commit "docs: cross-AI review for phase {N}" --files {phase_dir}/{padded_phase}-REVIEWS.md
 ```
+
 </step>
 
 <step name="present_results">
@@ -248,9 +267,10 @@ Clean up temp files.
 </process>
 
 <success_criteria>
+
 - [ ] At least one external CLI invoked successfully
 - [ ] REVIEWS.md written with structured feedback
 - [ ] Consensus summary synthesized from multiple reviewers
 - [ ] Temp files cleaned up
 - [ ] User knows how to use feedback (/gsd-plan-phase --reviews)
-</success_criteria>
+      </success_criteria>

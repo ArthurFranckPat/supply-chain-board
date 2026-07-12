@@ -141,7 +141,10 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
   }
 
   return (
-    <div class={cx(DEFAULT_SCROLL_CLASS, local.scrollContainerClass)} ref={(el) => (scrollRef = el)}>
+    <div
+      class={cx(DEFAULT_SCROLL_CLASS, local.scrollContainerClass)}
+      ref={(el) => (scrollRef = el)}
+    >
       <Show when={local.rows().length > 0} fallback={local.emptyState}>
         <table class={cx('w-full border-collapse text-left', local.tableClass)}>
           <thead>
@@ -203,7 +206,11 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
                             return (
                               <td class={col.meta?.tdClass}>
                                 {col.cell
-                                  ? col.cell({ row: { original: r() } as any, getValue: value, column: { columnDef: col } as any } as any)
+                                  ? col.cell({
+                                      row: { original: r() } as any,
+                                      getValue: value,
+                                      column: { columnDef: col } as any,
+                                    } as any)
                                   : (value() as any)}
                               </td>
                             )

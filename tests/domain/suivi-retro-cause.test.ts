@@ -21,7 +21,7 @@ test.group('analyzeRetroCause (analyse rétrospective)', () => {
         dateAffermissement: D('2026-06-17'),
         dateExpedition: D('2026-06-18'),
         composants: [{ art: '11016937', dispoA: D('2026-06-17'), rawReception: D('2026-06-16') }],
-      }),
+      })
     )
     assert.isNotNull(cause)
     assert.equal(cause!.typeCause, 'RETARD_COMPOSANT_TARDIF')
@@ -40,19 +40,21 @@ test.group('analyzeRetroCause (analyse rétrospective)', () => {
           { art: 'LATE', dispoA: D('2026-06-17'), rawReception: null },
           { art: 'MID', dispoA: D('2026-05-26'), rawReception: null },
         ],
-      }),
+      })
     )
     assert.equal(cause!.retro!.composantTardif!.art, 'LATE')
   })
 
-  test('composant à temps (dispo < expe − marge, avant affermissement) → pas imputé, RETARD_ORDONNANCEMENT', ({ assert }) => {
+  test('composant à temps (dispo < expe − marge, avant affermissement) → pas imputé, RETARD_ORDONNANCEMENT', ({
+    assert,
+  }) => {
     const cause = analyzeRetroCause(
       base({
         ofPegue: 'OF1',
         dateAffermissement: D('2026-05-01'),
         dateExpedition: D('2026-06-18'),
         composants: [{ art: 'OK', dispoA: D('2026-04-20'), rawReception: null }], // bien avant tout
-      }),
+      })
     )
     assert.equal(cause!.typeCause, 'RETARD_ORDONNANCEMENT')
     assert.isNull(cause!.retro!.composantTardif)
@@ -65,7 +67,7 @@ test.group('analyzeRetroCause (analyse rétrospective)', () => {
         dateAffermissement: D('2026-06-01'),
         dateExpedition: D('2026-06-18'),
         composants: [{ art: 'COMP', dispoA: D('2026-06-02'), rawReception: null }],
-      }),
+      })
     )
     assert.equal(cause!.typeCause, 'RETARD_COMPOSANT_TARDIF')
   })
@@ -76,7 +78,7 @@ test.group('analyzeRetroCause (analyse rétrospective)', () => {
         ofPegue: 'OF1',
         dateExpedition: D('2026-06-18'),
         composants: [{ art: 'COMP', dispoA: D('2026-06-17'), rawReception: D('2026-06-17') }],
-      }),
+      })
     )
     assert.isFalse(cause!.retro!.composantTardif!.viaControleQualite)
   })
@@ -88,7 +90,7 @@ test.group('analyzeRetroCause (analyse rétrospective)', () => {
         dateAffermissement: D('2026-06-20'),
         dateExpedition: D('2026-06-18'),
         composants: [{ art: 'X', dispoA: null, rawReception: null }],
-      }),
+      })
     )
     assert.equal(cause!.typeCause, 'RETARD_ORDONNANCEMENT')
     assert.equal(cause!.joursRetard, 2) // affermi 20 > expe 18

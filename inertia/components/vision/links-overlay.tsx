@@ -57,9 +57,9 @@ export function LinksOverlay(props: {
           // Badge visible pour retard (toujours), limite (si mode ≠ none), ok (si all)
           const badgeVisible = () =>
             p.deltaJours !== null &&
-            ((p.verdict === 'retard') ||
+            (p.verdict === 'retard' ||
               (p.verdict === 'limite' && mode() !== 'none') ||
-              (mode() === 'all'))
+              mode() === 'all')
           return (
             <>
               <path
@@ -73,7 +73,10 @@ export function LinksOverlay(props: {
               />
               {/* Étiquette « +N j » au milieu du path (retard / limite seulement). */}
               <Show when={badgeVisible()}>
-                <g opacity={on() || p.verdict === 'retard' ? 1 : 0.7} style={{ transition: 'opacity .15s' }}>
+                <g
+                  opacity={on() || p.verdict === 'retard' ? 1 : 0.7}
+                  style={{ transition: 'opacity .15s' }}
+                >
                   <rect
                     x={p.mid.x - badgeW / 2}
                     y={p.mid.y - 8}
@@ -89,7 +92,7 @@ export function LinksOverlay(props: {
                     y={p.mid.y + 3.5}
                     text-anchor="middle"
                     class="font-mono"
-                    style={{ 'font-size': '9.5px', 'font-weight': 700, fill: stroke() }}
+                    style={{ 'font-size': '9.5px', 'font-weight': 700, 'fill': stroke() }}
                   >
                     {badgeLabel}
                   </text>

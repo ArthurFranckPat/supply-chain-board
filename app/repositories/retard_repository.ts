@@ -79,11 +79,18 @@ export class RetardRepository {
 
     // Gamme depuis SQLite (boardDataset.getReferential, cache 2h — 0 SOAP).
     const ref = await boardDataset.getReferential()
-    const opsByArticle = new Map<string, Array<{ workstation: string; label: string; rate: number }>>()
+    const opsByArticle = new Map<
+      string,
+      Array<{ workstation: string; label: string; rate: number }>
+    >()
     for (const g of ref.gamme) {
       if (!g.workstation || g.rate <= 0) continue
       const arr = opsByArticle.get(g.article) ?? []
-      arr.push({ workstation: g.workstation, label: g.workstationLabel || g.workstation, rate: g.rate })
+      arr.push({
+        workstation: g.workstation,
+        label: g.workstationLabel || g.workstation,
+        rate: g.rate,
+      })
       opsByArticle.set(g.article, arr)
     }
 
@@ -94,7 +101,7 @@ export class RetardRepository {
       ...new Set(
         rows
           .map((r) => r.ARTICLE?.trim() ?? '')
-          .filter((a) => a && (opsByArticle.get(a)?.length ?? 0) > 0),
+          .filter((a) => a && (opsByArticle.get(a)?.length ?? 0) > 0)
       ),
     ]
     const stockDispo = new Map<string, number>()
@@ -107,7 +114,7 @@ export class RetardRepository {
           for (const sr of stockRows) {
             const art = sr.ARTICLE?.trim()
             if (!art) continue
-            stockDispo.set(art, Math.max(0, parseFloat(sr.QTE_DISPO ?? '0') || 0))
+            stockDispo.set(art, Math.max(0, Number.parseFloat(sr.QTE_DISPO ?? '0') || 0))
           }
         }
       } finally {
@@ -120,8 +127,8 @@ export class RetardRepository {
 
     for (const row of rows) {
       const article = row.ARTICLE?.trim() ?? ''
-      const qty = parseFloat(row.QTE_RESTANTE ?? '0') || 0
-      const allqty = parseFloat(row.QTE_ALLOUEE ?? '0') || 0
+      const qty = Number.parseFloat(row.QTE_RESTANTE ?? '0') || 0
+      const allqty = Number.parseFloat(row.QTE_ALLOUEE ?? '0') || 0
       const date = parseX3Date(row.DATE_EXP)
       const iso = date?.toISOString().slice(0, 10) ?? null
 

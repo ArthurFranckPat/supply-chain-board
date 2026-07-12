@@ -1,17 +1,17 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
-<head>
-<meta charset="UTF-8" />
-<title>Suivi — V3 « Cockpit d'action »</title>
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link
-  href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700;9..144,900&family=Inter:wght@400;500;600;700;900&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,400,0,0&display=swap"
-  rel="stylesheet"
-/>
-<style>
-  /* ════════════════════════════════════════════════════════════
+  <head>
+    <meta charset="UTF-8" />
+    <title>Suivi — V3 « Cockpit d'action »</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700;9..144,900&family=Inter:wght@400;500;600;700;900&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,400,0,0&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* ════════════════════════════════════════════════════════════
      V3 « Cockpit d'action » — rupture avec le registre : la page
      n'est plus une table mais 3 files d'action (Débloquer / Allouer /
      Expédier) ordonnées par urgence. Chaque commande = une carte avec
@@ -21,377 +21,1180 @@
      Lime = uniquement le CTA de la file Allouer (action en 1 clic).
      Tokens Navy : theme-aereco-navy.html.
      ──────────────────────────────────────────────────────────── */
-  :root {
-    --primary: #081061;
-    --primary-soft: rgba(8, 16, 97, .07);
-    --secondary: #b0d138;
-    --success: #28a745;
-    --info: #17a2b8;
-    --warning: #b8860b;
-    --warning-bright: #ffc107;
-    --danger: #dc3545;
-    --light: #f0f0ed;
-    --gray: #6c757d;
-    --color-background: var(--light);
-    --color-foreground: #12142c;
-    --color-card: #ffffff;
-    --color-muted: #e7e5de;
-    --color-muted-foreground: var(--gray);
-    --color-border: #d9d6cb;
-    --color-rule: #d9d6cb;
-    --color-rule-soft: #eae8e0;
-    --font-fraunces: "Fraunces", Georgia, serif;
-    --font-sans: "Inter", system-ui, sans-serif;
-  }
-  * { box-sizing: border-box; }
-  html, body { height: 100%; }
-  body {
-    margin: 0; font-family: var(--font-sans);
-    background: var(--color-background); color: var(--color-foreground);
-    -webkit-font-smoothing: antialiased;
-    display: flex; flex-direction: column; overflow: hidden;
-  }
-  .material-symbols-outlined { font-family: "Material Symbols Outlined"; font-weight: normal; font-style: normal; line-height: 1; display: inline-block; vertical-align: middle; }
+      :root {
+        --primary: #081061;
+        --primary-soft: rgba(8, 16, 97, 0.07);
+        --secondary: #b0d138;
+        --success: #28a745;
+        --info: #17a2b8;
+        --warning: #b8860b;
+        --warning-bright: #ffc107;
+        --danger: #dc3545;
+        --light: #f0f0ed;
+        --gray: #6c757d;
+        --color-background: var(--light);
+        --color-foreground: #12142c;
+        --color-card: #ffffff;
+        --color-muted: #e7e5de;
+        --color-muted-foreground: var(--gray);
+        --color-border: #d9d6cb;
+        --color-rule: #d9d6cb;
+        --color-rule-soft: #eae8e0;
+        --font-fraunces: 'Fraunces', Georgia, serif;
+        --font-sans: 'Inter', system-ui, sans-serif;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        margin: 0;
+        font-family: var(--font-sans);
+        background: var(--color-background);
+        color: var(--color-foreground);
+        -webkit-font-smoothing: antialiased;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .material-symbols-outlined {
+        font-family: 'Material Symbols Outlined';
+        font-weight: normal;
+        font-style: normal;
+        line-height: 1;
+        display: inline-block;
+        vertical-align: middle;
+      }
 
-  /* ── Masthead ── */
-  header.masthead { flex: none; background: var(--color-card); border-bottom: 1px solid var(--color-rule); }
-  .masthead-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; padding: 13px 28px 8px; }
-  .brand { display: flex; align-items: center; gap: 14px; }
-  .wordmark { font-family: var(--font-fraunces); font-size: 24px; font-weight: 900; line-height: .9; letter-spacing: -.01em; }
-  .wordmark em { font-style: italic; font-weight: 500; color: var(--primary); }
-  .subtitle { font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--color-muted-foreground); padding-bottom: 2px; }
-  .env-pill { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--color-border); background: var(--color-muted); color: var(--color-muted-foreground); border-radius: 999px; padding: 3px 9px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
-  .env-pill .dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
-  .meta { text-align: right; font-size: 11px; font-weight: 500; line-height: 1.6; color: var(--color-muted-foreground); }
-  .meta b { color: var(--color-foreground); font-weight: 700; }
-  .meta .week { font-family: var(--font-fraunces); font-weight: 700; font-size: 12px; color: var(--primary); text-transform: capitalize; }
-  nav.tabs { display: flex; align-items: center; gap: 4px; border-top: 1px solid var(--color-rule-soft); padding: 0 28px; min-height: 42px; }
-  nav.tabs a { text-decoration: none; font-size: 12px; font-weight: 600; color: var(--color-muted-foreground); padding: 11px 14px 9px; border-bottom: 2px solid transparent; transition: color .15s, border-color .15s; }
-  nav.tabs a:hover { color: var(--primary); }
-  nav.tabs a.active { color: var(--primary); border-color: var(--primary); }
-  .user-chip { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; }
-  .avatar { width: 26px; height: 26px; border-radius: 50%; background: var(--primary); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; }
+      /* ── Masthead ── */
+      header.masthead {
+        flex: none;
+        background: var(--color-card);
+        border-bottom: 1px solid var(--color-rule);
+      }
+      .masthead-top {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 20px;
+        padding: 13px 28px 8px;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+      .wordmark {
+        font-family: var(--font-fraunces);
+        font-size: 24px;
+        font-weight: 900;
+        line-height: 0.9;
+        letter-spacing: -0.01em;
+      }
+      .wordmark em {
+        font-style: italic;
+        font-weight: 500;
+        color: var(--primary);
+      }
+      .subtitle {
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--color-muted-foreground);
+        padding-bottom: 2px;
+      }
+      .env-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        border: 1px solid var(--color-border);
+        background: var(--color-muted);
+        color: var(--color-muted-foreground);
+        border-radius: 999px;
+        padding: 3px 9px;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+      .env-pill .dot {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: currentColor;
+      }
+      .meta {
+        text-align: right;
+        font-size: 11px;
+        font-weight: 500;
+        line-height: 1.6;
+        color: var(--color-muted-foreground);
+      }
+      .meta b {
+        color: var(--color-foreground);
+        font-weight: 700;
+      }
+      .meta .week {
+        font-family: var(--font-fraunces);
+        font-weight: 700;
+        font-size: 12px;
+        color: var(--primary);
+        text-transform: capitalize;
+      }
+      nav.tabs {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        border-top: 1px solid var(--color-rule-soft);
+        padding: 0 28px;
+        min-height: 42px;
+      }
+      nav.tabs a {
+        text-decoration: none;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--color-muted-foreground);
+        padding: 11px 14px 9px;
+        border-bottom: 2px solid transparent;
+        transition:
+          color 0.15s,
+          border-color 0.15s;
+      }
+      nav.tabs a:hover {
+        color: var(--primary);
+      }
+      nav.tabs a.active {
+        color: var(--primary);
+        border-color: var(--primary);
+      }
+      .user-chip {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .avatar {
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        background: var(--primary);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        font-weight: 700;
+      }
 
-  /* ── Frise horizon (départs sur 15 j) ── */
-  .horizon { flex: none; display: flex; align-items: stretch; gap: 24px; padding: 12px 28px 10px; background: var(--color-card); border-bottom: 1px solid var(--color-rule); }
-  .h-title { flex: none; display: flex; flex-direction: column; justify-content: center; gap: 2px; }
-  .h-title .t { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .12em; color: var(--color-muted-foreground); }
-  .h-title .v { font-family: var(--font-fraunces); font-size: 22px; font-weight: 900; line-height: 1; }
-  .h-title .v em { font-style: normal; font-size: 12px; font-weight: 600; color: var(--color-muted-foreground); }
-  .h-strip { flex: 1; display: grid; grid-template-columns: repeat(11, 1fr); gap: 4px; align-items: end; }
-  .h-day { display: flex; flex-direction: column; align-items: center; gap: 3px; }
-  .h-bars { display: flex; align-items: flex-end; gap: 2px; height: 34px; }
-  .h-bar { width: 9px; border-radius: 2px 2px 0 0; min-height: 2px; }
-  .h-lbl { font-size: 9px; font-weight: 700; color: var(--color-muted-foreground); text-transform: uppercase; }
-  .h-day.today .h-lbl { color: var(--primary); }
-  .h-day.today { position: relative; }
-  .h-day.today::after { content: ""; position: absolute; inset: -6px -2px -2px; border: 1.5px dashed var(--primary); border-radius: 6px; opacity: .35; pointer-events: none; }
-  .h-day.past .h-bar { opacity: .45; }
-  .h-legend { flex: none; display: flex; flex-direction: column; justify-content: center; gap: 4px; font-size: 10px; font-weight: 600; color: var(--color-muted-foreground); }
-  .h-legend .item { display: flex; align-items: center; gap: 6px; }
-  .h-legend .sw { width: 9px; height: 9px; border-radius: 2px; }
+      /* ── Frise horizon (départs sur 15 j) ── */
+      .horizon {
+        flex: none;
+        display: flex;
+        align-items: stretch;
+        gap: 24px;
+        padding: 12px 28px 10px;
+        background: var(--color-card);
+        border-bottom: 1px solid var(--color-rule);
+      }
+      .h-title {
+        flex: none;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 2px;
+      }
+      .h-title .t {
+        font-size: 9px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: var(--color-muted-foreground);
+      }
+      .h-title .v {
+        font-family: var(--font-fraunces);
+        font-size: 22px;
+        font-weight: 900;
+        line-height: 1;
+      }
+      .h-title .v em {
+        font-style: normal;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--color-muted-foreground);
+      }
+      .h-strip {
+        flex: 1;
+        display: grid;
+        grid-template-columns: repeat(11, 1fr);
+        gap: 4px;
+        align-items: end;
+      }
+      .h-day {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 3px;
+      }
+      .h-bars {
+        display: flex;
+        align-items: flex-end;
+        gap: 2px;
+        height: 34px;
+      }
+      .h-bar {
+        width: 9px;
+        border-radius: 2px 2px 0 0;
+        min-height: 2px;
+      }
+      .h-lbl {
+        font-size: 9px;
+        font-weight: 700;
+        color: var(--color-muted-foreground);
+        text-transform: uppercase;
+      }
+      .h-day.today .h-lbl {
+        color: var(--primary);
+      }
+      .h-day.today {
+        position: relative;
+      }
+      .h-day.today::after {
+        content: '';
+        position: absolute;
+        inset: -6px -2px -2px;
+        border: 1.5px dashed var(--primary);
+        border-radius: 6px;
+        opacity: 0.35;
+        pointer-events: none;
+      }
+      .h-day.past .h-bar {
+        opacity: 0.45;
+      }
+      .h-legend {
+        flex: none;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 4px;
+        font-size: 10px;
+        font-weight: 600;
+        color: var(--color-muted-foreground);
+      }
+      .h-legend .item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .h-legend .sw {
+        width: 9px;
+        height: 9px;
+        border-radius: 2px;
+      }
 
-  /* ── Toolbar ── */
-  .toolbar { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 9px 28px; border-bottom: 1px solid var(--color-rule); }
-  .search { display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--color-border); background: var(--color-card); font-size: 12px; color: var(--color-muted-foreground); transition: border-color .15s, box-shadow .15s; }
-  .search:focus-within { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); }
-  .search .material-symbols-outlined { font-size: 16px; }
-  .search input { border: 0; outline: 0; background: transparent; font: inherit; font-weight: 500; color: var(--color-foreground); width: 190px; }
-  .segmented { display: inline-flex; align-items: center; gap: 2px; border: 1px solid var(--color-border); background: var(--color-card); border-radius: 8px; padding: 3px; }
-  .segmented .label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--color-muted-foreground); padding: 0 6px; }
-  .chip { border: 0; background: transparent; cursor: pointer; font-family: inherit; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--color-muted-foreground); padding: 5px 10px; border-radius: 6px; transition: background .15s, color .15s; }
-  .chip.on { background: var(--primary-soft); color: var(--primary); }
-  .chip:hover:not(.on) { color: var(--color-foreground); }
-  .toolbar-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
-  .btn { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 6px 13px; font-family: inherit; font-size: 11px; font-weight: 700; border: 1px solid var(--color-border); background: var(--color-card); color: var(--color-foreground); cursor: pointer; transition: border-color .15s, background .15s, filter .15s; }
-  .btn:hover { border-color: var(--primary); }
-  .btn .material-symbols-outlined { font-size: 15px; color: var(--color-muted-foreground); }
-  .btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; }
-  .btn-primary .material-symbols-outlined { color: rgba(255,255,255,.85); }
-  .btn-cta { background: var(--secondary); border-color: var(--secondary); color: #202d09; }
-  .btn-cta .material-symbols-outlined { color: #202d09; }
-  .btn-cta:hover { filter: brightness(.96); }
-  .btn-sm { padding: 4px 11px; font-size: 10.5px; }
+      /* ── Toolbar ── */
+      .toolbar {
+        flex: none;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+        padding: 9px 28px;
+        border-bottom: 1px solid var(--color-rule);
+      }
+      .search {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        height: 30px;
+        padding: 0 12px;
+        border-radius: 999px;
+        border: 1px solid var(--color-border);
+        background: var(--color-card);
+        font-size: 12px;
+        color: var(--color-muted-foreground);
+        transition:
+          border-color 0.15s,
+          box-shadow 0.15s;
+      }
+      .search:focus-within {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px var(--primary-soft);
+      }
+      .search .material-symbols-outlined {
+        font-size: 16px;
+      }
+      .search input {
+        border: 0;
+        outline: 0;
+        background: transparent;
+        font: inherit;
+        font-weight: 500;
+        color: var(--color-foreground);
+        width: 190px;
+      }
+      .segmented {
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+        border: 1px solid var(--color-border);
+        background: var(--color-card);
+        border-radius: 8px;
+        padding: 3px;
+      }
+      .segmented .label {
+        font-size: 9px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--color-muted-foreground);
+        padding: 0 6px;
+      }
+      .chip {
+        border: 0;
+        background: transparent;
+        cursor: pointer;
+        font-family: inherit;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--color-muted-foreground);
+        padding: 5px 10px;
+        border-radius: 6px;
+        transition:
+          background 0.15s,
+          color 0.15s;
+      }
+      .chip.on {
+        background: var(--primary-soft);
+        color: var(--primary);
+      }
+      .chip:hover:not(.on) {
+        color: var(--color-foreground);
+      }
+      .toolbar-right {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border-radius: 999px;
+        padding: 6px 13px;
+        font-family: inherit;
+        font-size: 11px;
+        font-weight: 700;
+        border: 1px solid var(--color-border);
+        background: var(--color-card);
+        color: var(--color-foreground);
+        cursor: pointer;
+        transition:
+          border-color 0.15s,
+          background 0.15s,
+          filter 0.15s;
+      }
+      .btn:hover {
+        border-color: var(--primary);
+      }
+      .btn .material-symbols-outlined {
+        font-size: 15px;
+        color: var(--color-muted-foreground);
+      }
+      .btn-primary {
+        background: var(--primary);
+        border-color: var(--primary);
+        color: #fff;
+      }
+      .btn-primary .material-symbols-outlined {
+        color: rgba(255, 255, 255, 0.85);
+      }
+      .btn-cta {
+        background: var(--secondary);
+        border-color: var(--secondary);
+        color: #202d09;
+      }
+      .btn-cta .material-symbols-outlined {
+        color: #202d09;
+      }
+      .btn-cta:hover {
+        filter: brightness(0.96);
+      }
+      .btn-sm {
+        padding: 4px 11px;
+        font-size: 10.5px;
+      }
 
-  /* ── Files d'action ── */
-  .queues { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; padding: 16px 28px; overflow: hidden; }
-  .queue { display: flex; flex-direction: column; min-height: 0; border-radius: 12px; border: 1px solid var(--color-rule); background: color-mix(in srgb, var(--qc) 3%, #fafaf8); overflow: hidden; }
-  .q-head { flex: none; display: flex; align-items: center; gap: 9px; padding: 11px 14px; border-bottom: 1px solid var(--color-rule-soft); background: var(--color-card); border-top: 4px solid var(--qc); }
-  .q-head .material-symbols-outlined.qi { font-size: 19px; color: var(--qc); }
-  .q-head .t { font-size: 13px; font-weight: 800; letter-spacing: -.01em; }
-  .q-head .n { font-family: var(--font-fraunces); font-size: 19px; font-weight: 900; color: var(--qc); }
-  .q-head .d { font-size: 10px; font-weight: 500; color: var(--color-muted-foreground); }
-  .q-head .act { margin-left: auto; }
-  .q-list { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+      /* ── Files d'action ── */
+      .queues {
+        flex: 1;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+        padding: 16px 28px;
+        overflow: hidden;
+      }
+      .queue {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        border-radius: 12px;
+        border: 1px solid var(--color-rule);
+        background: color-mix(in srgb, var(--qc) 3%, #fafaf8);
+        overflow: hidden;
+      }
+      .q-head {
+        flex: none;
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 11px 14px;
+        border-bottom: 1px solid var(--color-rule-soft);
+        background: var(--color-card);
+        border-top: 4px solid var(--qc);
+      }
+      .q-head .material-symbols-outlined.qi {
+        font-size: 19px;
+        color: var(--qc);
+      }
+      .q-head .t {
+        font-size: 13px;
+        font-weight: 800;
+        letter-spacing: -0.01em;
+      }
+      .q-head .n {
+        font-family: var(--font-fraunces);
+        font-size: 19px;
+        font-weight: 900;
+        color: var(--qc);
+      }
+      .q-head .d {
+        font-size: 10px;
+        font-weight: 500;
+        color: var(--color-muted-foreground);
+      }
+      .q-head .act {
+        margin-left: auto;
+      }
+      .q-list {
+        flex: 1;
+        overflow-y: auto;
+        padding: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
 
-  /* Carte commande */
-  .card { background: var(--color-card); border: 1px solid var(--color-border); border-radius: 9px; padding: 11px 13px 10px; box-shadow: 0 1px 2px rgba(18,20,44,.06); }
-  .card.urgent { border-color: rgba(220,53,69,.4); }
-  .c-top { display: flex; align-items: baseline; gap: 8px; }
-  .c-num { font-size: 12.5px; font-weight: 800; letter-spacing: -.01em; }
-  .c-client { font-size: 11px; font-weight: 500; color: var(--gray); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .c-late { margin-left: auto; flex: none; font-size: 10px; font-weight: 800; color: var(--danger); background: rgba(220,53,69,.1); border-radius: 999px; padding: 1px 8px; }
-  .c-date { margin-left: auto; flex: none; font-size: 10.5px; font-weight: 700; color: var(--color-muted-foreground); }
-  .c-art { display: flex; align-items: baseline; gap: 6px; margin-top: 3px; }
-  .c-art .a { font-size: 12px; font-weight: 700; color: var(--primary); }
-  .c-art .d { font-size: 10.5px; font-weight: 500; color: var(--gray); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .c-art .q { margin-left: auto; flex: none; font-family: var(--font-fraunces); font-size: 15px; font-weight: 900; }
-  .c-art .q span { font-size: 9px; font-weight: 500; color: var(--color-muted-foreground); font-family: var(--font-sans); }
+      /* Carte commande */
+      .card {
+        background: var(--color-card);
+        border: 1px solid var(--color-border);
+        border-radius: 9px;
+        padding: 11px 13px 10px;
+        box-shadow: 0 1px 2px rgba(18, 20, 44, 0.06);
+      }
+      .card.urgent {
+        border-color: rgba(220, 53, 69, 0.4);
+      }
+      .c-top {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+      }
+      .c-num {
+        font-size: 12.5px;
+        font-weight: 800;
+        letter-spacing: -0.01em;
+      }
+      .c-client {
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--gray);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .c-late {
+        margin-left: auto;
+        flex: none;
+        font-size: 10px;
+        font-weight: 800;
+        color: var(--danger);
+        background: rgba(220, 53, 69, 0.1);
+        border-radius: 999px;
+        padding: 1px 8px;
+      }
+      .c-date {
+        margin-left: auto;
+        flex: none;
+        font-size: 10.5px;
+        font-weight: 700;
+        color: var(--color-muted-foreground);
+      }
+      .c-art {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+        margin-top: 3px;
+      }
+      .c-art .a {
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--primary);
+      }
+      .c-art .d {
+        font-size: 10.5px;
+        font-weight: 500;
+        color: var(--gray);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .c-art .q {
+        margin-left: auto;
+        flex: none;
+        font-family: var(--font-fraunces);
+        font-size: 15px;
+        font-weight: 900;
+      }
+      .c-art .q span {
+        font-size: 9px;
+        font-weight: 500;
+        color: var(--color-muted-foreground);
+        font-family: var(--font-sans);
+      }
 
-  /* Parcours 3 jalons */
-  .miles { display: flex; align-items: center; margin-top: 9px; }
-  .mile { display: flex; align-items: center; gap: 5px; }
-  .mile .pt { width: 17px; height: 17px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; flex: none; }
-  .mile .pt .material-symbols-outlined { font-size: 11px; }
-  .mile .lb { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
-  .mile.done .pt { background: var(--success); color: #fff; }
-  .mile.done .lb { color: var(--success); }
-  .mile.next .pt { background: var(--color-card); border: 2px dashed var(--qc); color: var(--qc); }
-  .mile.next .lb { color: var(--qc); }
-  .mile.off .pt { background: var(--color-muted); color: var(--color-muted-foreground); }
-  .mile.off .lb { color: var(--color-muted-foreground); }
-  .mile.stop .pt { background: var(--danger); color: #fff; }
-  .mile.stop .lb { color: var(--danger); }
-  .m-link { flex: 1; height: 2px; background: var(--color-rule-soft); margin: 0 6px; min-width: 10px; }
-  .m-link.done { background: var(--success); }
+      /* Parcours 3 jalons */
+      .miles {
+        display: flex;
+        align-items: center;
+        margin-top: 9px;
+      }
+      .mile {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .mile .pt {
+        width: 17px;
+        height: 17px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        flex: none;
+      }
+      .mile .pt .material-symbols-outlined {
+        font-size: 11px;
+      }
+      .mile .lb {
+        font-size: 9px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .mile.done .pt {
+        background: var(--success);
+        color: #fff;
+      }
+      .mile.done .lb {
+        color: var(--success);
+      }
+      .mile.next .pt {
+        background: var(--color-card);
+        border: 2px dashed var(--qc);
+        color: var(--qc);
+      }
+      .mile.next .lb {
+        color: var(--qc);
+      }
+      .mile.off .pt {
+        background: var(--color-muted);
+        color: var(--color-muted-foreground);
+      }
+      .mile.off .lb {
+        color: var(--color-muted-foreground);
+      }
+      .mile.stop .pt {
+        background: var(--danger);
+        color: #fff;
+      }
+      .mile.stop .lb {
+        color: var(--danger);
+      }
+      .m-link {
+        flex: 1;
+        height: 2px;
+        background: var(--color-rule-soft);
+        margin: 0 6px;
+        min-width: 10px;
+      }
+      .m-link.done {
+        background: var(--success);
+      }
 
-  /* Détail contextuel de la carte */
-  .c-why { margin-top: 9px; border-top: 1px dashed var(--color-rule-soft); padding-top: 8px; display: flex; flex-direction: column; gap: 4px; }
-  .why-line { display: flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 600; }
-  .why-line .material-symbols-outlined { font-size: 13px; flex: none; }
-  .why-line.bad { color: var(--danger); }
-  .why-line.eta { color: var(--info); }
-  .why-line.eta.overdue { color: var(--danger); }
-  .why-line.info { color: var(--color-muted-foreground); }
-  .why-line .grow { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .why-line .mono-q { font-weight: 800; font-variant-numeric: tabular-nums; }
-  .c-foot { margin-top: 9px; display: flex; align-items: center; gap: 6px; }
-  .c-foot .pal { background: var(--color-muted); border-radius: 4px; padding: 1px 7px; font-size: 9.5px; font-weight: 700; }
-  .c-foot .spacer { flex: 1; }
-  .fl-cq { display: inline-flex; align-items: center; gap: 3px; border-radius: 999px; padding: 2px 8px; font-size: 9.5px; font-weight: 700; background: rgba(23,162,184,.12); color: var(--info); }
-  .fl-cq .material-symbols-outlined { font-size: 11px; }
+      /* Détail contextuel de la carte */
+      .c-why {
+        margin-top: 9px;
+        border-top: 1px dashed var(--color-rule-soft);
+        padding-top: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .why-line {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 10.5px;
+        font-weight: 600;
+      }
+      .why-line .material-symbols-outlined {
+        font-size: 13px;
+        flex: none;
+      }
+      .why-line.bad {
+        color: var(--danger);
+      }
+      .why-line.eta {
+        color: var(--info);
+      }
+      .why-line.eta.overdue {
+        color: var(--danger);
+      }
+      .why-line.info {
+        color: var(--color-muted-foreground);
+      }
+      .why-line .grow {
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .why-line .mono-q {
+        font-weight: 800;
+        font-variant-numeric: tabular-nums;
+      }
+      .c-foot {
+        margin-top: 9px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .c-foot .pal {
+        background: var(--color-muted);
+        border-radius: 4px;
+        padding: 1px 7px;
+        font-size: 9.5px;
+        font-weight: 700;
+      }
+      .c-foot .spacer {
+        flex: 1;
+      }
+      .fl-cq {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        border-radius: 999px;
+        padding: 2px 8px;
+        font-size: 9.5px;
+        font-weight: 700;
+        background: rgba(23, 162, 184, 0.12);
+        color: var(--info);
+      }
+      .fl-cq .material-symbols-outlined {
+        font-size: 11px;
+      }
 
-  /* Pied : RAS + légende */
-  .foot { flex: none; display: flex; align-items: center; gap: 18px; padding: 8px 28px; border-top: 1px solid var(--color-rule); background: var(--color-card); font-size: 11px; font-weight: 600; color: var(--color-muted-foreground); }
-  .foot b { color: var(--color-foreground); }
-  .foot .ras-link { display: inline-flex; align-items: center; gap: 5px; color: var(--primary); cursor: pointer; font-weight: 700; }
-  .foot .ras-link .material-symbols-outlined { font-size: 15px; }
-</style>
-</head>
-<body>
-
-  <header class="masthead">
-    <div class="masthead-top">
-      <div class="brand">
-        <div class="wordmark">Supply Chain <em>AERECO</em></div>
-        <div class="subtitle">Suivi · Cockpit d'action</div>
-        <span class="env-pill"><span class="dot"></span>Prod</span>
+      /* Pied : RAS + légende */
+      .foot {
+        flex: none;
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        padding: 8px 28px;
+        border-top: 1px solid var(--color-rule);
+        background: var(--color-card);
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--color-muted-foreground);
+      }
+      .foot b {
+        color: var(--color-foreground);
+      }
+      .foot .ras-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        color: var(--primary);
+        cursor: pointer;
+        font-weight: 700;
+      }
+      .foot .ras-link .material-symbols-outlined {
+        font-size: 15px;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="masthead">
+      <div class="masthead-top">
+        <div class="brand">
+          <div class="wordmark">Supply Chain <em>AERECO</em></div>
+          <div class="subtitle">Suivi · Cockpit d'action</div>
+          <span class="env-pill"><span class="dot"></span>Prod</span>
+        </div>
+        <div class="meta">
+          <div class="week">Jeudi 3 juillet</div>
+          <div><b>12</b> lignes ouvertes · <b>10</b> à traiter · réf. <b>2026-07-03</b></div>
+        </div>
       </div>
-      <div class="meta">
-        <div class="week">Jeudi 3 juillet</div>
-        <div><b>12</b> lignes ouvertes · <b>10</b> à traiter · réf. <b>2026-07-03</b></div>
+      <nav class="tabs">
+        <a href="#">Tableau</a>
+        <a href="#">Programme</a>
+        <a href="#">Charge</a>
+        <a href="#">Ruptures</a>
+        <a href="#" class="active">Suivi</a>
+        <a href="#">Expéditions</a>
+        <a href="#">Config</a>
+        <div class="user-chip"><span class="avatar">AB</span></div>
+      </nav>
+    </header>
+
+    <!-- Frise horizon : départs planifiés sur 15 jours (barres = lignes/jour par état) -->
+    <div class="horizon">
+      <div class="h-title">
+        <span class="t">Départs 15 jours</span>
+        <span class="v">12 <em>lignes · 1 723 u</em></span>
+      </div>
+      <div class="h-strip" id="strip"></div>
+      <div class="h-legend">
+        <span class="item"
+          ><span class="sw" style="background: var(--danger)"></span>Bloqué / retard</span
+        >
+        <span class="item"
+          ><span class="sw" style="background: var(--warning-bright)"></span>À allouer</span
+        >
+        <span class="item"><span class="sw" style="background: var(--success)"></span>Prêt</span>
       </div>
     </div>
-    <nav class="tabs">
-      <a href="#">Tableau</a>
-      <a href="#">Programme</a>
-      <a href="#">Charge</a>
-      <a href="#">Ruptures</a>
-      <a href="#" class="active">Suivi</a>
-      <a href="#">Expéditions</a>
-      <a href="#">Config</a>
-      <div class="user-chip"><span class="avatar">AB</span></div>
-    </nav>
-  </header>
 
-  <!-- Frise horizon : départs planifiés sur 15 jours (barres = lignes/jour par état) -->
-  <div class="horizon">
-    <div class="h-title">
-      <span class="t">Départs 15 jours</span>
-      <span class="v">12 <em>lignes · 1 723 u</em></span>
+    <div class="toolbar">
+      <div class="search">
+        <span class="material-symbols-outlined">search</span>
+        <input id="q" placeholder="Commande, article, client…" />
+      </div>
+      <div class="segmented" id="types">
+        <span class="label">Type</span>
+        <button class="chip on" data-t="MTS">MTS</button>
+        <button class="chip on" data-t="MTO">MTO</button>
+        <button class="chip on" data-t="NOR">NOR</button>
+      </div>
+      <div class="segmented" id="ateliers">
+        <span class="label">Atelier</span>
+        <button class="chip" data-a="BDH">Montage BDH</button>
+        <button class="chip" data-a="KIT">Kits VMC</button>
+        <button class="chip" data-a="VAM">Ventilateurs</button>
+        <button class="chip" data-a="EAH">Entrées d'air</button>
+      </div>
+      <div class="toolbar-right">
+        <button class="btn">
+          <span class="material-symbols-outlined">refresh</span>Actualiser
+        </button>
+        <button class="btn">
+          <span class="material-symbols-outlined">table_rows</span>Vue registre
+        </button>
+      </div>
     </div>
-    <div class="h-strip" id="strip"></div>
-    <div class="h-legend">
-      <span class="item"><span class="sw" style="background:var(--danger)"></span>Bloqué / retard</span>
-      <span class="item"><span class="sw" style="background:var(--warning-bright)"></span>À allouer</span>
-      <span class="item"><span class="sw" style="background:var(--success)"></span>Prêt</span>
-    </div>
-  </div>
 
-  <div class="toolbar">
-    <div class="search">
-      <span class="material-symbols-outlined">search</span>
-      <input id="q" placeholder="Commande, article, client…" />
-    </div>
-    <div class="segmented" id="types">
-      <span class="label">Type</span>
-      <button class="chip on" data-t="MTS">MTS</button>
-      <button class="chip on" data-t="MTO">MTO</button>
-      <button class="chip on" data-t="NOR">NOR</button>
-    </div>
-    <div class="segmented" id="ateliers">
-      <span class="label">Atelier</span>
-      <button class="chip" data-a="BDH">Montage BDH</button>
-      <button class="chip" data-a="KIT">Kits VMC</button>
-      <button class="chip" data-a="VAM">Ventilateurs</button>
-      <button class="chip" data-a="EAH">Entrées d'air</button>
-    </div>
-    <div class="toolbar-right">
-      <button class="btn"><span class="material-symbols-outlined">refresh</span>Actualiser</button>
-      <button class="btn"><span class="material-symbols-outlined">table_rows</span>Vue registre</button>
-    </div>
-  </div>
+    <div class="queues" id="queues"></div>
 
-  <div class="queues" id="queues"></div>
+    <div class="foot">
+      <span><b id="foot-n">10</b>&nbsp;commandes à traiter</span>
+      <span class="ras-link"
+        ><span class="material-symbols-outlined">visibility</span>Afficher les 2 lignes RAS (sous
+        contrôle)</span
+      >
+      <span style="margin-left: auto"
+        >Jalons : couverture → allocation → expédition · moteur séquentiel X3</span
+      >
+    </div>
 
-  <div class="foot">
-    <span><b id="foot-n">10</b>&nbsp;commandes à traiter</span>
-    <span class="ras-link"><span class="material-symbols-outlined">visibility</span>Afficher les 2 lignes RAS (sous contrôle)</span>
-    <span style="margin-left:auto">Jalons : couverture → allocation → expédition · moteur séquentiel X3</span>
-  </div>
-
-<script>
-/* ── Frise horizon : (retard cumulés sur « J-» ) + 10 jours ouvrés ── */
-const DAYS = [
-  { l:'Rtd', past:true,  bars:[{c:'var(--danger)', h:30}] },
-  { l:'Jeu 03', today:true, bars:[{c:'var(--success)', h:24}, {c:'var(--warning-bright)', h:8}] },
-  { l:'Ven 04', bars:[{c:'var(--warning-bright)', h:18}] },
-  { l:'Lun 07', bars:[{c:'var(--danger)', h:10}, {c:'var(--success)', h:6}] },
-  { l:'Mar 08', bars:[{c:'var(--warning-bright)', h:12}] },
-  { l:'Mer 09', bars:[] },
-  { l:'Jeu 10', bars:[{c:'var(--success)', h:6}] },
-  { l:'Ven 11', bars:[{c:'var(--success)', h:10}] },
-  { l:'Lun 14', bars:[] },
-  { l:'Mar 15', bars:[{c:'var(--success)', h:8}] },
-  { l:'Mer 16', bars:[] },
-];
-document.getElementById('strip').innerHTML = DAYS.map(d => `
-  <div class="h-day ${d.today?'today':''} ${d.past?'past':''}">
-    <div class="h-bars">${d.bars.map(b=>`<span class="h-bar" style="background:${b.c};height:${b.h}px"></span>`).join('')||'<span class="h-bar" style="background:var(--color-rule-soft);height:2px"></span>'}</div>
+    <script>
+      /* ── Frise horizon : (retard cumulés sur « J-» ) + 10 jours ouvrés ── */
+      const DAYS = [
+        { l: 'Rtd', past: true, bars: [{ c: 'var(--danger)', h: 30 }] },
+        {
+          l: 'Jeu 03',
+          today: true,
+          bars: [
+            { c: 'var(--success)', h: 24 },
+            { c: 'var(--warning-bright)', h: 8 },
+          ],
+        },
+        { l: 'Ven 04', bars: [{ c: 'var(--warning-bright)', h: 18 }] },
+        {
+          l: 'Lun 07',
+          bars: [
+            { c: 'var(--danger)', h: 10 },
+            { c: 'var(--success)', h: 6 },
+          ],
+        },
+        { l: 'Mar 08', bars: [{ c: 'var(--warning-bright)', h: 12 }] },
+        { l: 'Mer 09', bars: [] },
+        { l: 'Jeu 10', bars: [{ c: 'var(--success)', h: 6 }] },
+        { l: 'Ven 11', bars: [{ c: 'var(--success)', h: 10 }] },
+        { l: 'Lun 14', bars: [] },
+        { l: 'Mar 15', bars: [{ c: 'var(--success)', h: 8 }] },
+        { l: 'Mer 16', bars: [] },
+      ]
+      document.getElementById('strip').innerHTML = DAYS.map(
+        (d) => `
+  <div class="h-day ${d.today ? 'today' : ''} ${d.past ? 'past' : ''}">
+    <div class="h-bars">${d.bars.map((b) => `<span class="h-bar" style="background:${b.c};height:${b.h}px"></span>`).join('') || '<span class="h-bar" style="background:var(--color-rule-soft);height:2px"></span>'}</div>
     <span class="h-lbl">${d.l}</span>
-  </div>`).join('');
+  </div>`
+      ).join('')
 
-/* ── Cartes ── */
-const CARDS = [
-  /* File Débloquer : miles [done|stop|off] + goulot */
-  { q:'debloquer', n:'F24-08101', client:'Téréva Mâcon', art:'MH10-EXPORT', des:'Module hygro export', type:'MTO', at:'BDH', qte:500, late:'J+7', urgent:true,
-    miles:[['stop','Couverture'],['off','Allocation'],['off','Expédition']],
-    why:[
-      { k:'bad', ic:'error', t:'MEMB-HYG-STD manquant', q:'−500' },
-      { k:'eta overdue', ic:'local_shipping', t:'réception en retard +3 j · attendue 04/07 · Wistro' },
-    ], cta:{ lbl:'Relancer', ic:'outgoing_mail', kind:'primary' } },
-  { q:'debloquer', n:'F24-08112', client:'CEDEO Paris Est', art:'BDH60-ESH30', des:'Bouche hygro cuisine', type:'MTO', at:'BDH', qte:120, late:'J+3', urgent:true,
-    miles:[['stop','Couverture'],['next','Allocation'],['off','Expédition']],
-    why:[
-      { k:'bad', ic:'error', t:'MH10-GRS manquant sur OF240226', q:'−80' },
-      { k:'eta', ic:'local_shipping', t:'arrive 07/07 · PO24-1180 (Sanhua)' },
-      { k:'info', ic:'warehouse', t:'40 u déjà disponibles en MAG1' },
-    ], cta:{ lbl:'Voir OF', ic:'visibility' } },
-  { q:'debloquer', n:'F24-08096', client:'Aereco GmbH', art:'VAM-T4-µW', des:'Ventilateur T4 MicroWatt', type:'MTO', at:'VAM', qte:6, late:'J+4', urgent:true,
-    miles:[['done','Couverture'],['stop','Allocation'],['off','Expédition']],
-    why:[
-      { k:'bad', ic:'science', t:'CARTE-EC-24V sous CQ depuis le 01/07', q:'−6' },
-      { k:'info', ic:'history', t:'OF240218 affermi le 24/06 — composant arrivé après' },
-    ], cta:{ lbl:'Prioriser CQ', ic:'science', kind:'primary' } },
-  { q:'debloquer', n:'F24-08120', client:'POINT.P Lyon Gerland', art:'KHY10-EAH', des:'Kit VMC hygro + EA', type:'NOR', at:'KIT', qte:45, late:'J+2', urgent:true,
-    miles:[['stop','Couverture'],['off','Allocation'],['off','Expédition']],
-    why:[ { k:'bad', ic:'block', t:'Aucun OF planifié — aucune couverture' } ],
-    cta:{ lbl:'Créer OF', ic:'bolt', kind:'primary' } },
+      /* ── Cartes ── */
+      const CARDS = [
+        /* File Débloquer : miles [done|stop|off] + goulot */
+        {
+          q: 'debloquer',
+          n: 'F24-08101',
+          client: 'Téréva Mâcon',
+          art: 'MH10-EXPORT',
+          des: 'Module hygro export',
+          type: 'MTO',
+          at: 'BDH',
+          qte: 500,
+          late: 'J+7',
+          urgent: true,
+          miles: [
+            ['stop', 'Couverture'],
+            ['off', 'Allocation'],
+            ['off', 'Expédition'],
+          ],
+          why: [
+            { k: 'bad', ic: 'error', t: 'MEMB-HYG-STD manquant', q: '−500' },
+            {
+              k: 'eta overdue',
+              ic: 'local_shipping',
+              t: 'réception en retard +3 j · attendue 04/07 · Wistro',
+            },
+          ],
+          cta: { lbl: 'Relancer', ic: 'outgoing_mail', kind: 'primary' },
+        },
+        {
+          q: 'debloquer',
+          n: 'F24-08112',
+          client: 'CEDEO Paris Est',
+          art: 'BDH60-ESH30',
+          des: 'Bouche hygro cuisine',
+          type: 'MTO',
+          at: 'BDH',
+          qte: 120,
+          late: 'J+3',
+          urgent: true,
+          miles: [
+            ['stop', 'Couverture'],
+            ['next', 'Allocation'],
+            ['off', 'Expédition'],
+          ],
+          why: [
+            { k: 'bad', ic: 'error', t: 'MH10-GRS manquant sur OF240226', q: '−80' },
+            { k: 'eta', ic: 'local_shipping', t: 'arrive 07/07 · PO24-1180 (Sanhua)' },
+            { k: 'info', ic: 'warehouse', t: '40 u déjà disponibles en MAG1' },
+          ],
+          cta: { lbl: 'Voir OF', ic: 'visibility' },
+        },
+        {
+          q: 'debloquer',
+          n: 'F24-08096',
+          client: 'Aereco GmbH',
+          art: 'VAM-T4-µW',
+          des: 'Ventilateur T4 MicroWatt',
+          type: 'MTO',
+          at: 'VAM',
+          qte: 6,
+          late: 'J+4',
+          urgent: true,
+          miles: [
+            ['done', 'Couverture'],
+            ['stop', 'Allocation'],
+            ['off', 'Expédition'],
+          ],
+          why: [
+            { k: 'bad', ic: 'science', t: 'CARTE-EC-24V sous CQ depuis le 01/07', q: '−6' },
+            { k: 'info', ic: 'history', t: 'OF240218 affermi le 24/06 — composant arrivé après' },
+          ],
+          cta: { lbl: 'Prioriser CQ', ic: 'science', kind: 'primary' },
+        },
+        {
+          q: 'debloquer',
+          n: 'F24-08120',
+          client: 'POINT.P Lyon Gerland',
+          art: 'KHY10-EAH',
+          des: 'Kit VMC hygro + EA',
+          type: 'NOR',
+          at: 'KIT',
+          qte: 45,
+          late: 'J+2',
+          urgent: true,
+          miles: [
+            ['stop', 'Couverture'],
+            ['off', 'Allocation'],
+            ['off', 'Expédition'],
+          ],
+          why: [{ k: 'bad', ic: 'block', t: 'Aucun OF planifié — aucune couverture' }],
+          cta: { lbl: 'Créer OF', ic: 'bolt', kind: 'primary' },
+        },
 
-  /* File Allouer : stock dispo, action 1 clic */
-  { q:'allouer', n:'F24-08150', client:'REXEL Nantes', art:'EAH20-BLC', des:'Entrée d’air 20 blanc', type:'MTS', at:'EAH', qte:300, date:'04/07',
-    miles:[['done','Couverture'],['next','Allocation'],['off','Expédition']],
-    why:[ { k:'info', ic:'warehouse', t:'MAG1 — 300 u libres, couverture totale' } ],
-    cta:{ lbl:'Allouer 300 u', ic:'move_to_inbox', kind:'cta' } },
-  { q:'allouer', n:'F24-08155', client:'Aereco Polska', art:'EAH20-NOIR', des:'Entrée d’air 20 noir', type:'MTS', at:'EAH', qte:180, date:'08/07',
-    miles:[['done','Couverture'],['next','Allocation'],['off','Expédition']],
-    why:[ { k:'info', ic:'warehouse', t:'MAG1 120 u + MAG3 60 u — 2 emplacements' } ],
-    cta:{ lbl:'Allouer 180 u', ic:'move_to_inbox', kind:'cta' } },
-  { q:'allouer', n:'F24-08161', client:'Brossette IdF', art:'BDH60-ESH10', des:'Bouche hygro SDB', type:'MTS', at:'BDH', qte:90, date:'06/07', cq:true,
-    miles:[['done','Couverture'],['next','Allocation'],['off','Expédition']],
-    why:[
-      { k:'info', ic:'warehouse', t:'MAG2 — 90 u dont 30 sous contrôle qualité' },
-      { k:'eta', ic:'science', t:'allouer 60 u strictes maintenant, 30 u après CQ' },
-    ], cta:{ lbl:'Allouer 60 u', ic:'move_to_inbox', kind:'cta' } },
+        /* File Allouer : stock dispo, action 1 clic */
+        {
+          q: 'allouer',
+          n: 'F24-08150',
+          client: 'REXEL Nantes',
+          art: 'EAH20-BLC',
+          des: 'Entrée d’air 20 blanc',
+          type: 'MTS',
+          at: 'EAH',
+          qte: 300,
+          date: '04/07',
+          miles: [
+            ['done', 'Couverture'],
+            ['next', 'Allocation'],
+            ['off', 'Expédition'],
+          ],
+          why: [{ k: 'info', ic: 'warehouse', t: 'MAG1 — 300 u libres, couverture totale' }],
+          cta: { lbl: 'Allouer 300 u', ic: 'move_to_inbox', kind: 'cta' },
+        },
+        {
+          q: 'allouer',
+          n: 'F24-08155',
+          client: 'Aereco Polska',
+          art: 'EAH20-NOIR',
+          des: 'Entrée d’air 20 noir',
+          type: 'MTS',
+          at: 'EAH',
+          qte: 180,
+          date: '08/07',
+          miles: [
+            ['done', 'Couverture'],
+            ['next', 'Allocation'],
+            ['off', 'Expédition'],
+          ],
+          why: [{ k: 'info', ic: 'warehouse', t: 'MAG1 120 u + MAG3 60 u — 2 emplacements' }],
+          cta: { lbl: 'Allouer 180 u', ic: 'move_to_inbox', kind: 'cta' },
+        },
+        {
+          q: 'allouer',
+          n: 'F24-08161',
+          client: 'Brossette IdF',
+          art: 'BDH60-ESH10',
+          des: 'Bouche hygro SDB',
+          type: 'MTS',
+          at: 'BDH',
+          qte: 90,
+          date: '06/07',
+          cq: true,
+          miles: [
+            ['done', 'Couverture'],
+            ['next', 'Allocation'],
+            ['off', 'Expédition'],
+          ],
+          why: [
+            { k: 'info', ic: 'warehouse', t: 'MAG2 — 90 u dont 30 sous contrôle qualité' },
+            { k: 'eta', ic: 'science', t: 'allouer 60 u strictes maintenant, 30 u après CQ' },
+          ],
+          cta: { lbl: 'Allouer 60 u', ic: 'move_to_inbox', kind: 'cta' },
+        },
 
-  /* File Expédier : alloué, prêt */
-  { q:'expedier', n:'F24-08133', client:'Aereco UK Ltd', art:'BXC-BOOST', des:'Bouche extraction boost', type:'MTO', at:'BDH', qte:240, date:'03/07', pal:'P240611',
-    miles:[['done','Couverture'],['done','Allocation'],['next','Expédition']],
-    why:[ { k:'info', ic:'pallet', t:'EXPE01 — palette complète en zone expé' } ],
-    cta:{ lbl:'Bon d’expé', ic:'local_shipping', kind:'primary' } },
-  { q:'expedier', n:'F24-08170', client:'DSC Toulouse', art:'EAH30-GRS', des:'Entrée d’air 30 gris', type:'MTS', at:'EAH', qte:150, date:'02/07', pal:'P240598',
-    miles:[['done','Couverture'],['done','Allocation'],['next','Expédition']],
-    why:[ { k:'info', ic:'pallet', t:'EXPE01 — palette en zone expé depuis hier' } ],
-    cta:{ lbl:'Bon d’expé', ic:'local_shipping', kind:'primary' } },
-  { q:'expedier', n:'F24-08141', client:'SIDER Bordeaux', art:'KHY10-VMC', des:'Kit VMC hygro complet', type:'MTO', at:'KIT', qte:12, date:'03/07',
-    miles:[['done','Couverture'],['done','Allocation'],['off','Expédition']],
-    why:[ { k:'eta', ic:'pending', t:'MTO — en attente de 2 autres lignes de la commande' } ],
-    cta:{ lbl:'Voir commande', ic:'visibility' } },
-];
+        /* File Expédier : alloué, prêt */
+        {
+          q: 'expedier',
+          n: 'F24-08133',
+          client: 'Aereco UK Ltd',
+          art: 'BXC-BOOST',
+          des: 'Bouche extraction boost',
+          type: 'MTO',
+          at: 'BDH',
+          qte: 240,
+          date: '03/07',
+          pal: 'P240611',
+          miles: [
+            ['done', 'Couverture'],
+            ['done', 'Allocation'],
+            ['next', 'Expédition'],
+          ],
+          why: [{ k: 'info', ic: 'pallet', t: 'EXPE01 — palette complète en zone expé' }],
+          cta: { lbl: 'Bon d’expé', ic: 'local_shipping', kind: 'primary' },
+        },
+        {
+          q: 'expedier',
+          n: 'F24-08170',
+          client: 'DSC Toulouse',
+          art: 'EAH30-GRS',
+          des: 'Entrée d’air 30 gris',
+          type: 'MTS',
+          at: 'EAH',
+          qte: 150,
+          date: '02/07',
+          pal: 'P240598',
+          miles: [
+            ['done', 'Couverture'],
+            ['done', 'Allocation'],
+            ['next', 'Expédition'],
+          ],
+          why: [{ k: 'info', ic: 'pallet', t: 'EXPE01 — palette en zone expé depuis hier' }],
+          cta: { lbl: 'Bon d’expé', ic: 'local_shipping', kind: 'primary' },
+        },
+        {
+          q: 'expedier',
+          n: 'F24-08141',
+          client: 'SIDER Bordeaux',
+          art: 'KHY10-VMC',
+          des: 'Kit VMC hygro complet',
+          type: 'MTO',
+          at: 'KIT',
+          qte: 12,
+          date: '03/07',
+          miles: [
+            ['done', 'Couverture'],
+            ['done', 'Allocation'],
+            ['off', 'Expédition'],
+          ],
+          why: [
+            { k: 'eta', ic: 'pending', t: 'MTO — en attente de 2 autres lignes de la commande' },
+          ],
+          cta: { lbl: 'Voir commande', ic: 'visibility' },
+        },
+      ]
 
-const QUEUES = [
-  { k:'debloquer', t:'Débloquer', ic:'lock_open', c:'var(--danger)', d:'goulot composant ou couverture absente',
-    head:null },
-  { k:'allouer', t:'Allouer', ic:'move_to_inbox', c:'var(--warning-bright)', d:'stock libre — réservation en 1 clic',
-    head:{ lbl:'Tout allouer', ic:'done_all', kind:'cta' } },
-  { k:'expedier', t:'Expédier', ic:'local_shipping', c:'var(--success)', d:'alloué, prêt au départ',
-    head:{ lbl:'Bons groupés', ic:'receipt_long', kind:'primary' } },
-];
+      const QUEUES = [
+        {
+          k: 'debloquer',
+          t: 'Débloquer',
+          ic: 'lock_open',
+          c: 'var(--danger)',
+          d: 'goulot composant ou couverture absente',
+          head: null,
+        },
+        {
+          k: 'allouer',
+          t: 'Allouer',
+          ic: 'move_to_inbox',
+          c: 'var(--warning-bright)',
+          d: 'stock libre — réservation en 1 clic',
+          head: { lbl: 'Tout allouer', ic: 'done_all', kind: 'cta' },
+        },
+        {
+          k: 'expedier',
+          t: 'Expédier',
+          ic: 'local_shipping',
+          c: 'var(--success)',
+          d: 'alloué, prêt au départ',
+          head: { lbl: 'Bons groupés', ic: 'receipt_long', kind: 'primary' },
+        },
+      ]
 
-const S = { q:'', types:new Set(['MTS','MTO','NOR']), at:new Set() };
+      const S = { q: '', types: new Set(['MTS', 'MTO', 'NOR']), at: new Set() }
 
-function card(c, qc) {
-  return `<div class="card ${c.urgent?'urgent':''}">
+      function card(c, qc) {
+        return `<div class="card ${c.urgent ? 'urgent' : ''}">
     <div class="c-top">
       <span class="c-num">${c.n}</span><span class="c-client">${c.client}</span>
-      ${c.late?`<span class="c-late">${c.late}</span>`:`<span class="c-date">${c.date??''}</span>`}
+      ${c.late ? `<span class="c-late">${c.late}</span>` : `<span class="c-date">${c.date ?? ''}</span>`}
     </div>
     <div class="c-art"><span class="a">${c.art}</span><span class="d">${c.des}</span><span class="q">${c.qte}<span> u</span></span></div>
-    <div class="miles" style="--qc:${qc}">${c.miles.map((m,i) =>
-      `${i?`<span class="m-link ${c.miles[i-1][0]==='done'?'done':''}"></span>`:''}
+    <div class="miles" style="--qc:${qc}">${c.miles
+      .map(
+        (m, i) =>
+          `${i ? `<span class="m-link ${c.miles[i - 1][0] === 'done' ? 'done' : ''}"></span>` : ''}
        <span class="mile ${m[0]}">
-         <span class="pt"><span class="material-symbols-outlined">${m[0]==='done'?'check':m[0]==='stop'?'priority_high':m[0]==='next'?'arrow_forward':'more_horiz'}</span></span>
+         <span class="pt"><span class="material-symbols-outlined">${m[0] === 'done' ? 'check' : m[0] === 'stop' ? 'priority_high' : m[0] === 'next' ? 'arrow_forward' : 'more_horiz'}</span></span>
          <span class="lb">${m[1]}</span>
-       </span>`).join('')}</div>
-    <div class="c-why">${c.why.map(w => `
+       </span>`
+      )
+      .join('')}</div>
+    <div class="c-why">${c.why
+      .map(
+        (w) => `
       <span class="why-line ${w.k}"><span class="material-symbols-outlined">${w.ic}</span>
-        <span class="grow">${w.t}</span>${w.q?`<span class="mono-q">${w.q}</span>`:''}</span>`).join('')}</div>
+        <span class="grow">${w.t}</span>${w.q ? `<span class="mono-q">${w.q}</span>` : ''}</span>`
+      )
+      .join('')}</div>
     <div class="c-foot">
-      ${c.pal?`<span class="pal">${c.pal}</span>`:''}
-      ${c.cq?'<span class="fl-cq"><span class="material-symbols-outlined">science</span>CQ</span>':''}
+      ${c.pal ? `<span class="pal">${c.pal}</span>` : ''}
+      ${c.cq ? '<span class="fl-cq"><span class="material-symbols-outlined">science</span>CQ</span>' : ''}
       <span class="spacer"></span>
-      ${c.cta?`<button class="btn btn-sm ${c.cta.kind==='primary'?'btn-primary':c.cta.kind==='cta'?'btn-cta':''}">
-        <span class="material-symbols-outlined">${c.cta.ic}</span>${c.cta.lbl}</button>`:''}
+      ${
+        c.cta
+          ? `<button class="btn btn-sm ${c.cta.kind === 'primary' ? 'btn-primary' : c.cta.kind === 'cta' ? 'btn-cta' : ''}">
+        <span class="material-symbols-outlined">${c.cta.ic}</span>${c.cta.lbl}</button>`
+          : ''
+      }
     </div>
-  </div>`;
-}
+  </div>`
+      }
 
-function render() {
-  const q = S.q.toLowerCase();
-  const vis = CARDS.filter(c => S.types.has(c.type) && (S.at.size===0 || S.at.has(c.at)) &&
-    (!q || (c.n+c.client+c.art+c.des).toLowerCase().includes(q)));
-  document.getElementById('queues').innerHTML = QUEUES.map(Q => {
-    const cs = vis.filter(c=>c.q===Q.k);
-    return `<section class="queue" style="--qc:${Q.c}">
+      function render() {
+        const q = S.q.toLowerCase()
+        const vis = CARDS.filter(
+          (c) =>
+            S.types.has(c.type) &&
+            (S.at.size === 0 || S.at.has(c.at)) &&
+            (!q || (c.n + c.client + c.art + c.des).toLowerCase().includes(q))
+        )
+        document.getElementById('queues').innerHTML = QUEUES.map((Q) => {
+          const cs = vis.filter((c) => c.q === Q.k)
+          return `<section class="queue" style="--qc:${Q.c}">
       <div class="q-head">
         <span class="material-symbols-outlined qi">${Q.ic}</span>
         <div><div class="t">${Q.t} <span class="n">${cs.length}</span></div><div class="d">${Q.d}</div></div>
-        ${Q.head?`<span class="act"><button class="btn btn-sm ${Q.head.kind==='cta'?'btn-cta':'btn-primary'}">
-          <span class="material-symbols-outlined">${Q.head.ic}</span>${Q.head.lbl} (${cs.length})</button></span>`:''}
+        ${
+          Q.head
+            ? `<span class="act"><button class="btn btn-sm ${Q.head.kind === 'cta' ? 'btn-cta' : 'btn-primary'}">
+          <span class="material-symbols-outlined">${Q.head.ic}</span>${Q.head.lbl} (${cs.length})</button></span>`
+            : ''
+        }
       </div>
-      <div class="q-list">${cs.map(c=>card(c, Q.c)).join('')}</div>
-    </section>`;
-  }).join('');
-  document.getElementById('foot-n').textContent = vis.length;
-}
+      <div class="q-list">${cs.map((c) => card(c, Q.c)).join('')}</div>
+    </section>`
+        }).join('')
+        document.getElementById('foot-n').textContent = vis.length
+      }
 
-document.querySelectorAll('#types .chip').forEach(b => b.onclick = () => {
-  b.classList.toggle('on'); S.types.has(b.dataset.t) ? S.types.delete(b.dataset.t) : S.types.add(b.dataset.t); render(); });
-document.querySelectorAll('#ateliers .chip').forEach(b => b.onclick = () => {
-  b.classList.toggle('on'); S.at.has(b.dataset.a) ? S.at.delete(b.dataset.a) : S.at.add(b.dataset.a); render(); });
-document.getElementById('q').oninput = (e) => { S.q = e.target.value; render(); };
+      document.querySelectorAll('#types .chip').forEach(
+        (b) =>
+          (b.onclick = () => {
+            b.classList.toggle('on')
+            S.types.has(b.dataset.t) ? S.types.delete(b.dataset.t) : S.types.add(b.dataset.t)
+            render()
+          })
+      )
+      document.querySelectorAll('#ateliers .chip').forEach(
+        (b) =>
+          (b.onclick = () => {
+            b.classList.toggle('on')
+            S.at.has(b.dataset.a) ? S.at.delete(b.dataset.a) : S.at.add(b.dataset.a)
+            render()
+          })
+      )
+      document.getElementById('q').oninput = (e) => {
+        S.q = e.target.value
+        render()
+      }
 
-render();
-</script>
-</body>
+      render()
+    </script>
+  </body>
 </html>

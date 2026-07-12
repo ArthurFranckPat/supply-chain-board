@@ -48,7 +48,11 @@ export function createBoardStore(initial: BoardData) {
   // sans masquer les lignes.
   const STATUS_FILTER_KEYS = ['ferme', 'planifie', 'suggere'] as const
   type StatusKey = (typeof STATUS_FILTER_KEYS)[number]
-  const normStatus = (s: string) => s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase()
+  const normStatus = (s: string) =>
+    s
+      .normalize('NFD')
+      .replace(/\p{Diacritic}/gu, '')
+      .toLowerCase()
   const [statusFilter, setStatusFilter] = createSignal<Set<StatusKey>>(new Set(STATUS_FILTER_KEYS))
   const statusActive = (s: StatusKey) => statusFilter().has(s)
   const toggleStatus = (s: StatusKey) =>
@@ -191,7 +195,8 @@ export function createBoardStore(initial: BoardData) {
     line.dayCells.forEach((dc, col) => {
       const wk = board.colWeek[col]
       if (wk === undefined) return
-      for (const card of dc.cards) if (cardStatusOk(card)) byWeek[wk] = (byWeek[wk] ?? 0) + card.hours
+      for (const card of dc.cards)
+        if (cardStatusOk(card)) byWeek[wk] = (byWeek[wk] ?? 0) + card.hours
     })
     return line.weekLoads.map((wl) => {
       const hours = Math.round((byWeek[wl.week] ?? 0) * 10) / 10
@@ -227,8 +232,8 @@ export function createBoardStore(initial: BoardData) {
     let found: { line: number; col: number; idx: number } | null = null
     for (let li = 0; li < board.lines.length && !found; li++) {
       const cells = board.lines[li].dayCells
-      for (let ci = 0; ci < cells.length; ci++) {
-        const idx = cells[ci].cards.findIndex((c) => c.id === numOf)
+      for (const [ci, cell] of cells.entries()) {
+        const idx = cell.cards.findIndex((c) => c.id === numOf)
         if (idx !== -1) {
           found = { line: li, col: ci, idx }
           break
@@ -255,15 +260,15 @@ export function createBoardStore(initial: BoardData) {
     toLineCode: string,
     toCol: number,
     toIso: string,
-    dateFinIso?: string,
+    dateFinIso?: string
   ) {
     // Locate the card and its current position (returning narrows the type).
     const findPos = () => {
       for (let li = 0; li < board.lines.length; li++) {
         const cells = board.lines[li].dayCells
-        for (let ci = 0; ci < cells.length; ci++) {
-          const idx = cells[ci].cards.findIndex((c) => c.id === numOf)
-          if (idx !== -1) return { line: li, col: ci, idx, card: cells[ci].cards[idx] }
+        for (const [ci, cell] of cells.entries()) {
+          const idx = cell.cards.findIndex((c) => c.id === numOf)
+          if (idx !== -1) return { line: li, col: ci, idx, card: cell.cards[idx] }
         }
       }
       return null
@@ -406,7 +411,7 @@ export function createBoardStore(initial: BoardData) {
             }
           }
         }
-      }),
+      })
     )
   }
   const enterSelect = () => setSelectMode(true)

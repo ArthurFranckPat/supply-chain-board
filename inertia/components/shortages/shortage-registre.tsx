@@ -29,7 +29,9 @@ export const ShortageRegistre: Component<{
         const row = info.row.original
         return (
           <>
-            <div class="font-mono text-[14px] font-bold tracking-tight text-foreground">{row.component}</div>
+            <div class="font-mono text-[14px] font-bold tracking-tight text-foreground">
+              {row.component}
+            </div>
             <div class="mt-0.5 truncate max-w-[18rem] font-sans text-[11px] leading-snug text-muted-foreground">
               {row.componentDesc}
             </div>
@@ -47,7 +49,12 @@ export const ShortageRegistre: Component<{
       cell: (info: { row: { original: ShortageDisplayRow } }) => {
         const row = info.row.original
         return (
-          <span class={cx('font-fraunces text-[14px] font-bold tabular-nums leading-none', isLate(row) ? 'text-destructive' : 'text-foreground')}>
+          <span
+            class={cx(
+              'font-fraunces text-[14px] font-bold tabular-nums leading-none',
+              isLate(row) ? 'text-destructive' : 'text-foreground'
+            )}
+          >
             {row.qteManquante}
             <span class="ml-0.5 font-mono text-[9px] font-medium text-muted-foreground/70">u</span>
           </span>
@@ -88,21 +95,39 @@ export const ShortageRegistre: Component<{
       cell: (info: { row: { original: ShortageDisplayRow } }) => {
         const row = info.row.original
         return (
-          <Show when={row.hasCommande} fallback={<span class="font-sans text-[11px] italic text-muted-foreground/50">— orphelin</span>}>
+          <Show
+            when={row.hasCommande}
+            fallback={
+              <span class="font-sans text-[11px] italic text-muted-foreground/50">— orphelin</span>
+            }
+          >
             <div class="flex items-baseline gap-1.5">
-              <span class="font-mono text-[12px] font-semibold text-secondary-foreground">{row.numCommande}</span>
+              <span class="font-mono text-[12px] font-semibold text-secondary-foreground">
+                {row.numCommande}
+              </span>
               <Show when={row.dateExpedition}>
-                <span class={cx('font-mono text-[11px] font-bold', isLate(row) ? 'text-destructive' : 'text-muted-foreground')} title={`Expé : ${row.dateExpeditionIso ?? ''}`}>
+                <span
+                  class={cx(
+                    'font-mono text-[11px] font-bold',
+                    isLate(row) ? 'text-destructive' : 'text-muted-foreground'
+                  )}
+                  title={`Expé : ${row.dateExpeditionIso ?? ''}`}
+                >
                   {row.dateExpedition}
                 </span>
               </Show>
               <Show when={row.autresCommandes.length > 0}>
-                <span class="rounded bg-brand-soft px-1 font-mono text-[9px] font-bold text-brand" title={`Aussi : ${row.autresCommandes.join(', ')}`}>
+                <span
+                  class="rounded bg-brand-soft px-1 font-mono text-[9px] font-bold text-brand"
+                  title={`Aussi : ${row.autresCommandes.join(', ')}`}
+                >
                   +{row.autresCommandes.length}
                 </span>
               </Show>
             </div>
-            <div class="mt-0.5 truncate max-w-[11rem] font-sans text-[11px] leading-snug text-muted-foreground">{row.client}</div>
+            <div class="mt-0.5 truncate max-w-[11rem] font-sans text-[11px] leading-snug text-muted-foreground">
+              {row.client}
+            </div>
           </Show>
         )
       },
@@ -129,9 +154,7 @@ export const ShortageRegistre: Component<{
               >
                 <Show
                   when={row.sousEnsembleOfs.length > 0}
-                  fallback={
-                    <span class="text-muted-foreground/50">—</span>
-                  }
+                  fallback={<span class="text-muted-foreground/50">—</span>}
                 >
                   <div class="flex flex-wrap items-center gap-1">
                     <For each={row.sousEnsembleOfs.slice(0, 3)}>
@@ -146,7 +169,9 @@ export const ShortageRegistre: Component<{
                       )}
                     </For>
                     <Show when={row.sousEnsembleOfs.length > 3}>
-                      <span class="font-mono text-[10px] text-muted-foreground">+{row.sousEnsembleOfs.length - 3}</span>
+                      <span class="font-mono text-[10px] text-muted-foreground">
+                        +{row.sousEnsembleOfs.length - 3}
+                      </span>
                     </Show>
                   </div>
                 </Show>
@@ -155,7 +180,9 @@ export const ShortageRegistre: Component<{
           >
             {(r) => (
               <>
-                <div class="font-mono text-[11px] font-semibold text-muted-foreground">{r().id}</div>
+                <div class="font-mono text-[11px] font-semibold text-muted-foreground">
+                  {r().id}
+                </div>
                 <div class="mt-0.5 truncate max-w-[14rem] font-sans text-[11px] leading-snug text-muted-foreground">
                   {r().supplier} · {r().qty}u · {r().dateArrivee}
                 </div>
@@ -173,12 +200,20 @@ export const ShortageRegistre: Component<{
       cell: (info: { row: { original: ShortageDisplayRow } }) => {
         const row = info.row.original
         return (
-          <span class={cx('inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap', row.verdictCls)}>
+          <span
+            class={cx(
+              'inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap',
+              row.verdictCls
+            )}
+          >
             {row.verdictLabel}
           </span>
         )
       },
-      meta: { thClass: `w-[150px] ${TH.replace('border-r border-rule-soft', '')}`, tdClass: `w-[150px] px-4 py-[13px] align-middle` },
+      meta: {
+        thClass: `w-[150px] ${TH.replace('border-r border-rule-soft', '')}`,
+        tdClass: `w-[150px] px-4 py-[13px] align-middle`,
+      },
     },
   ]
 
@@ -188,7 +223,7 @@ export const ShortageRegistre: Component<{
     tdClass: (row: ShortageDisplayRow) =>
       cx(
         'px-4 py-[13px] align-middle font-fraunces text-[14px] leading-none text-muted-foreground/80 border-r border-rule-soft',
-        isLate(row) && '[box-shadow:inset_3px_0_var(--color-destructive)]',
+        isLate(row) && '[box-shadow:inset_3px_0_var(--color-destructive)]'
       ),
   }
 
@@ -207,7 +242,7 @@ export const ShortageRegistre: Component<{
           'border-t border-rule-soft transition-colors',
           isLate(row)
             ? 'bg-destructive/10 hover:bg-destructive/[0.18]'
-            : 'hover:bg-foreground/[0.04]',
+            : 'hover:bg-foreground/[0.04]'
         )
       }
       emptyState={props.emptyState}

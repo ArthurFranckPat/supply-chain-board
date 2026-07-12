@@ -13,19 +13,36 @@ const CHECK = new Date('2026-07-07T00:00:00')
 
 function mkArticle(code: string, category: string, supplyType: 'ACHAT' | 'FABRICATION'): Article {
   return {
-    code, description: code, category, supplyType,
-    reorderDelay: 0, productFamily: null, pmp: null, economicLot: null,
-    unitStock: null, unitPurchase: null, purchaseToStockRatio: 1, packagings: [],
+    code,
+    description: code,
+    category,
+    supplyType,
+    reorderDelay: 0,
+    productFamily: null,
+    pmp: null,
+    economicLot: null,
+    unitStock: null,
+    unitPurchase: null,
+    purchaseToStockRatio: 1,
+    packagings: [],
   }
 }
 
 function mkEntry(
-  parent: string, comp: string, qty: number, type: 'ACHETE' | 'FABRIQUE',
+  parent: string,
+  comp: string,
+  qty: number,
+  type: 'ACHETE' | 'FABRIQUE'
 ): NomenclatureEntry {
   return {
-    parentArticle: parent, parentDescription: parent, level: 1,
-    componentArticle: comp, componentDescription: comp,
-    linkQuantity: qty, componentType: type, consumptionNature: 'PROPORTIONNEL',
+    parentArticle: parent,
+    parentDescription: parent,
+    level: 1,
+    componentArticle: comp,
+    componentDescription: comp,
+    linkQuantity: qty,
+    componentType: type,
+    consumptionNature: 'PROPORTIONNEL',
   }
 }
 
@@ -34,13 +51,19 @@ function mkBom(article: string, entries: NomenclatureEntry[]): [string, Nomencla
 }
 
 function mkOf(
-  numOf: string, article: string, qte: number, statutNum: number, dateBesoin: Date | null = CHECK,
+  numOf: string,
+  article: string,
+  qte: number,
+  statutNum: number,
+  dateBesoin: Date | null = CHECK
 ): RuptureOfInput {
   return { numOf, article, qteRestante: qte, statutNum, dateBesoin }
 }
 
 test.group('rupture-engine — besoins (règles 1-3)', () => {
-  test('MFGMAT prioritaire : la nomenclature est ignorée, ALLQTY créditée (règles 1+3)', ({ assert }) => {
+  test('MFGMAT prioritaire : la nomenclature est ignorée, ALLQTY créditée (règles 1+3)', ({
+    assert,
+  }) => {
     // La BOM théorique de PF réclame SE (introuvable) — si elle était lue, verdict rupture.
     const dataset: RuptureDataset = {
       articles: new Map([
@@ -72,7 +95,9 @@ test.group('rupture-engine — besoins (règles 1-3)', () => {
     assert.isTrue(verdict.feasible)
   })
 
-  test('allocation ERP créditée en déduction partielle sur la descente BOM (règle 3)', ({ assert }) => {
+  test('allocation ERP créditée en déduction partielle sur la descente BOM (règle 3)', ({
+    assert,
+  }) => {
     const dataset: RuptureDataset = {
       articles: new Map([
         ['PF', mkArticle('PF', 'PF', 'FABRICATION')],
@@ -102,7 +127,10 @@ test.group('rupture-engine — sous-ensembles fabriqués', () => {
         mkBom('PF', [mkEntry('PF', 'SE', 1, 'FABRIQUE')]),
         mkBom('SE', [mkEntry('SE', 'C', 1, 'ACHETE')]),
       ]),
-      stockNet: new Map([['SE', 5], ['C', 2]]),
+      stockNet: new Map([
+        ['SE', 5],
+        ['C', 2],
+      ]),
       ofSupply: new Map([['SE', 20]]),
     }
     const verdict = evaluateRuptures([mkOf('OF1', 'PF', 30, 2)], dataset, 'photo').get('OF1')!
@@ -127,7 +155,13 @@ test.group('rupture-engine — sous-ensembles fabriqués', () => {
       { article: 'PF', qteRestante: 3 },
       { article: 'X', qteRestante: 0 },
     ])
-    assert.deepEqual([...supply.entries()], [['SE', 20], ['PF', 3]])
+    assert.deepEqual(
+      [...supply.entries()],
+      [
+        ['SE', 20],
+        ['PF', 3],
+      ]
+    )
   })
 })
 
@@ -145,7 +179,9 @@ test.group('rupture-engine — contention (règle 5)', () => {
     stockNet: new Map([['C', 50]]),
   })
 
-  test('consommation séquentielle par date besoin : le second voit le stock réduit', ({ assert }) => {
+  test('consommation séquentielle par date besoin : le second voit le stock réduit', ({
+    assert,
+  }) => {
     const ofs = [
       mkOf('OF2', 'P2', 40, 2, new Date('2026-07-05')),
       mkOf('OF1', 'P1', 40, 2, new Date('2026-07-01')),
@@ -168,7 +204,9 @@ test.group('rupture-engine — contention (règle 5)', () => {
     assert.deepEqual(photo.get('OF1')!.consumed, {})
   })
 
-  test('OF ferme : manque visible, faisable quand même, et il CONSOMME (il va tourner)', ({ assert }) => {
+  test('OF ferme : manque visible, faisable quand même, et il CONSOMME (il va tourner)', ({
+    assert,
+  }) => {
     const dataset = contentionDataset()
     dataset.stockNet.set('C', 30)
     const ofs = [
@@ -187,7 +225,9 @@ test.group('rupture-engine — contention (règle 5)', () => {
     assert.deepEqual(second.missing, { C: 10 })
   })
 
-  test('contention fantôme : le 2e OF hérite de la consommation du stock fantôme et du réel', ({ assert }) => {
+  test('contention fantôme : le 2e OF hérite de la consommation du stock fantôme et du réel', ({
+    assert,
+  }) => {
     // P → FANT (AFANT ×1) → C (ACHETE ×1). Stock FANT 10, C 45. OF1 besoin 50 :
     // consomme FANT 10 + C 40. OF2 besoin 10 : FANT épuisé → tout sur C, reste 5 → manque 5.
     const dataset: RuptureDataset = {
@@ -200,7 +240,10 @@ test.group('rupture-engine — contention (règle 5)', () => {
         mkBom('P', [mkEntry('P', 'FANT', 1, 'FABRIQUE')]),
         mkBom('FANT', [mkEntry('FANT', 'C', 1, 'ACHETE')]),
       ]),
-      stockNet: new Map([['FANT', 10], ['C', 45]]),
+      stockNet: new Map([
+        ['FANT', 10],
+        ['C', 45],
+      ]),
     }
     const verdicts = evaluateRuptures(
       [
@@ -208,7 +251,7 @@ test.group('rupture-engine — contention (règle 5)', () => {
         mkOf('OF2', 'P', 10, 2, new Date('2026-07-05')),
       ],
       dataset,
-      'contention',
+      'contention'
     )
 
     const first = verdicts.get('OF1')!

@@ -45,8 +45,9 @@ Orchestrator stays lean: parse gaps, spawn agents, collect results, update UAT.
 
 <available_agent_types>
 Valid GSD subagent types (use exact names - do not fall back to 'general-purpose'):
+
 - gsd-debugger - Diagnoses and fixes issues
-</available_agent_types>
+  </available_agent_types>
 
 <paths>
 DEBUG_DIR=.planning/debug
@@ -69,8 +70,9 @@ With diagnosis: "Comment doesn't refresh" → "useEffect missing dependency" →
 **Extract gaps from UAT.md:**
 
 Read the "Gaps" section (YAML format):
+
 ```yaml
-- truth: "Comment appears immediately after submission"
+- truth: 'Comment appears immediately after submission'
   status: failed
   reason: "User reported: works but doesn't show until I refresh the page"
   severity: major
@@ -82,6 +84,7 @@ Read the "Gaps" section (YAML format):
 For each gap, also read the corresponding test from "Tests" section to get full context.
 
 Build gap list:
+
 ```
 gaps = [
   {truth: "Comment appears immediately...", severity: "major", test_num: 2, reason: "..."},
@@ -89,6 +92,7 @@ gaps = [
   ...
 ]
 ```
+
 </step>
 
 <step name="report_plan">
@@ -112,6 +116,7 @@ Each agent will:
 
 This runs in parallel - all gaps investigated simultaneously.
 ```
+
 </step>
 
 <step name="spawn_agents">
@@ -137,6 +142,7 @@ Task(
 **All agents spawn in single message** (parallel execution).
 
 Template placeholders:
+
 - `{truth}`: The expected behavior that failed
 - `{expected}`: From UAT test
 - `{actual}`: Verbatim user description from reason field
@@ -151,6 +157,7 @@ Template placeholders:
 **Collect root causes from agents:**
 
 Each agent returns with:
+
 ```
 ## ROOT CAUSE FOUND
 
@@ -171,12 +178,14 @@ Each agent returns with:
 ```
 
 Parse each return to extract:
+
 - root_cause: The diagnosed cause
 - files: Files involved
 - debug_path: Path to debug session file
 - suggested_fix: Hint for gap closure plan
 
 If agent returns `## INVESTIGATION INCONCLUSIVE`:
+
 - root_cause: "Investigation inconclusive - manual review needed"
 - Note which issue needs manual attention
 - Include remaining possibilities from agent return
@@ -188,33 +197,36 @@ If agent returns `## INVESTIGATION INCONCLUSIVE`:
 For each gap in the Gaps section, add artifacts and missing fields:
 
 ```yaml
-- truth: "Comment appears immediately after submission"
+- truth: 'Comment appears immediately after submission'
   status: failed
   reason: "User reported: works but doesn't show until I refresh the page"
   severity: major
   test: 2
-  root_cause: "useEffect in CommentList.tsx missing commentCount dependency"
+  root_cause: 'useEffect in CommentList.tsx missing commentCount dependency'
   artifacts:
-    - path: "src/components/CommentList.tsx"
-      issue: "useEffect missing dependency"
+    - path: 'src/components/CommentList.tsx'
+      issue: 'useEffect missing dependency'
   missing:
-    - "Add commentCount to useEffect dependency array"
-    - "Trigger re-render when new comment added"
+    - 'Add commentCount to useEffect dependency array'
+    - 'Trigger re-render when new comment added'
   debug_session: .planning/debug/comment-not-refreshing.md
 ```
 
 Update status in frontmatter to "diagnosed".
 
 Commit the updated UAT.md:
+
 ```bash
 pi-gsd-tools commit "docs({phase_num}): add root causes from diagnosis" --files ".planning/phases/XX-name/{phase_num}-UAT.md"
 ```
+
 </step>
 
 <step name="report_results">
 **Report diagnosis results and hand off:**
 
 Display:
+
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  GSD ► DIAGNOSIS COMPLETE
@@ -244,25 +256,29 @@ Agents only diagnose-plan-phase --gaps handles fixes (no fix application).
 
 <failure_handling>
 **Agent fails to find root cause:**
+
 - Mark gap as "needs manual review"
 - Continue with other gaps
 - Report incomplete diagnosis
 
 **Agent times out:**
+
 - Check DEBUG-{slug}.md for partial progress
 - Can resume with /gsd-debug
 
 **All agents fail:**
+
 - Something systemic (permissions, git, etc.)
 - Report for manual investigation
 - Fall back to plan-phase --gaps without root causes (less precise)
-</failure_handling>
+  </failure_handling>
 
 <success_criteria>
+
 - [ ] Gaps parsed from UAT.md
 - [ ] Debug agents spawned in parallel
 - [ ] Root causes collected from all agents
 - [ ] UAT.md gaps updated with artifacts and missing
 - [ ] Debug sessions saved to ${DEBUG_DIR}/
 - [ ] Hand off to verify-work for automatic planning
-</success_criteria>
+      </success_criteria>

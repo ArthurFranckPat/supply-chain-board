@@ -1,158 +1,633 @@
 <!doctype html>
 <html lang="fr">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Charge long-terme · 3 « Vue lignes »</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700;9..144,900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,300,0,0" rel="stylesheet" />
-<style>
-:root{
-  --paper:#f3ece0; --panel:#fbf8ef; --panel2:#efe7d6; --rule:#cdbfa0; --rulesoft:#e3d9c1;
-  --ink:#1f1a13; --ink2:#4a4135; --muted:#8c7d66; --muted2:#a99c84;
-  --terra:#a8431f; --terrasoft:rgba(168,67,31,.10); --ferme:#5b7d4e; --planifie:#2f4858; --suggere:#b8862c; --danger:#9a3320;
-  --fd:"Fraunces",Georgia,serif; --fs:"Inter",system-ui,sans-serif; --fm:"JetBrains Mono",monospace;
-}
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--paper);color:var(--ink);font-family:var(--fs);font-size:14px;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
-.material-symbols-outlined{font-family:"Material Symbols Outlined";font-weight:300;line-height:1;font-feature-settings:"liga";vertical-align:middle}
-.page{max-width:1180px;margin:0 auto;padding:30px 28px 56px}
-.h-top{display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap}
-.h-top .k{font:700 10px var(--fm);text-transform:uppercase;letter-spacing:.16em;color:var(--terra)}
-.h-top h1{font:900 30px var(--fd);letter-spacing:-.03em;margin-top:4px}
-.h-top .p{font:500 13px var(--fd);font-style:italic;color:var(--muted)}
-.legend{display:flex;align-items:center;gap:14px;margin:16px 0 12px;font:600 12px var(--fs);color:var(--ink2)}
-.legend span{display:flex;align-items:center;gap:6px}
-.legend i{width:14px;height:10px;border-radius:2px}
-.legend .ln{width:18px;height:0;border-top:1.5px dashed var(--terra)}
-.legend .sep{width:1px;height:14px;background:var(--rulesoft);margin:0 2px}
-.legend .hint{margin-left:auto;font:500 11px var(--fd);font-style:italic;color:var(--muted)}
-/* overview cards */
-.ov{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:18px}
-.card{background:var(--panel);border:1px solid var(--rule);border-radius:12px;padding:12px 13px;cursor:pointer;transition:.15s;position:relative}
-.card:hover{border-color:#b3a47e;transform:translateY(-1px)}
-.card.sel{border-color:var(--terra);box-shadow:0 0 0 2px var(--terrasoft),0 4px 12px -4px rgba(168,67,31,.25)}
-.card .ch{display:flex;align-items:center;gap:7px;margin-bottom:6px}
-.card .d{width:9px;height:9px;border-radius:2px;flex:none}
-.card .code{font:800 14px var(--fd);letter-spacing:-.02em;line-height:1}
-.card .nm{font:500 10px var(--fs);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.card svg{display:block;width:100%;height:44px}
-.card .ft{display:flex;align-items:baseline;justify-content:space-between;margin-top:5px}
-.card .tot{font:800 16px var(--fd);letter-spacing:-.02em}
-.card .pk{font:700 9px var(--fm);color:var(--suggere)}
-.card.sel .pk{color:var(--terra)}
-/* detail */
-.detail{background:var(--panel);border:1px solid var(--rule);border-radius:12px;padding:16px;box-shadow:0 1px 2px rgba(31,26,19,.05)}
-.d-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px}
-.d-title{font:800 20px var(--fd);letter-spacing:-.02em;display:flex;align-items:center;gap:8px}
-.d-title .d{width:12px;height:12px;border-radius:3px}
-.seg{display:inline-flex;background:var(--panel2);border:1px solid var(--rule);border-radius:999px;padding:3px;margin-left:auto}
-.seg button{border:0;background:transparent;color:var(--muted);font:700 11px var(--fs);padding:6px 14px;border-radius:999px;cursor:pointer;text-transform:uppercase;letter-spacing:.04em}
-.seg button.on{background:var(--panel);color:var(--terra);box-shadow:0 1px 2px rgba(0,0,0,.08)}
-.detail svg{display:block;width:100%;height:auto}
-.tag{position:fixed;top:14px;right:22px;z-index:60;font:700 9px var(--fm);text-transform:uppercase;letter-spacing:.14em;color:#fff;background:var(--terra);padding:5px 11px;border-radius:5px;display:flex;align-items:center;gap:6px}
-.tag .material-symbols-outlined{font-size:13px}
-</style>
-</head>
-<body>
-<div class="tag"><span class="material-symbols-outlined">grid_view</span> 3 · « Vue lignes »</div>
-<div class="page">
-  <div class="h-top">
-    <div><div class="k">Charge · vision long terme</div><h1>Charge par ligne</h1></div>
-    <div class="p">Juillet → Décembre 2026 · comparez les lignes, cliquez pour détailler</div>
-  </div>
-  <div class="legend">
-    <span><i style="background:var(--ferme)"></i>Ferme</span>
-    <span><i style="background:var(--planifie)"></i>Planifié</span>
-    <span><i style="background:var(--suggere)"></i>Suggéré</span>
-    <span class="sep"></span>
-    <span><i class="ln"></i>Moyenne mobile</span>
-    <span class="hint">Mini-graphes : 6 mois · clic = détail</span>
-  </div>
-
-  <div class="ov" id="ov"></div>
-
-  <div class="detail">
-    <div class="d-head">
-      <div class="d-title" id="dtitle"></div>
-      <div class="seg" id="gran"><button data-g="month" class="on">Mois</button><button data-g="week">Semaine</button></div>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Charge long-terme · 3 « Vue lignes »</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700;9..144,900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,300,0,0"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --paper: #f3ece0;
+        --panel: #fbf8ef;
+        --panel2: #efe7d6;
+        --rule: #cdbfa0;
+        --rulesoft: #e3d9c1;
+        --ink: #1f1a13;
+        --ink2: #4a4135;
+        --muted: #8c7d66;
+        --muted2: #a99c84;
+        --terra: #a8431f;
+        --terrasoft: rgba(168, 67, 31, 0.1);
+        --ferme: #5b7d4e;
+        --planifie: #2f4858;
+        --suggere: #b8862c;
+        --danger: #9a3320;
+        --fd: 'Fraunces', Georgia, serif;
+        --fs: 'Inter', system-ui, sans-serif;
+        --fm: 'JetBrains Mono', monospace;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        background: var(--paper);
+        color: var(--ink);
+        font-family: var(--fs);
+        font-size: 14px;
+        -webkit-font-smoothing: antialiased;
+        font-variant-numeric: tabular-nums;
+      }
+      .material-symbols-outlined {
+        font-family: 'Material Symbols Outlined';
+        font-weight: 300;
+        line-height: 1;
+        font-feature-settings: 'liga';
+        vertical-align: middle;
+      }
+      .page {
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 30px 28px 56px;
+      }
+      .h-top {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+      .h-top .k {
+        font: 700 10px var(--fm);
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+        color: var(--terra);
+      }
+      .h-top h1 {
+        font: 900 30px var(--fd);
+        letter-spacing: -0.03em;
+        margin-top: 4px;
+      }
+      .h-top .p {
+        font: 500 13px var(--fd);
+        font-style: italic;
+        color: var(--muted);
+      }
+      .legend {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin: 16px 0 12px;
+        font: 600 12px var(--fs);
+        color: var(--ink2);
+      }
+      .legend span {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .legend i {
+        width: 14px;
+        height: 10px;
+        border-radius: 2px;
+      }
+      .legend .ln {
+        width: 18px;
+        height: 0;
+        border-top: 1.5px dashed var(--terra);
+      }
+      .legend .sep {
+        width: 1px;
+        height: 14px;
+        background: var(--rulesoft);
+        margin: 0 2px;
+      }
+      .legend .hint {
+        margin-left: auto;
+        font: 500 11px var(--fd);
+        font-style: italic;
+        color: var(--muted);
+      }
+      /* overview cards */
+      .ov {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 12px;
+        margin-bottom: 18px;
+      }
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--rule);
+        border-radius: 12px;
+        padding: 12px 13px;
+        cursor: pointer;
+        transition: 0.15s;
+        position: relative;
+      }
+      .card:hover {
+        border-color: #b3a47e;
+        transform: translateY(-1px);
+      }
+      .card.sel {
+        border-color: var(--terra);
+        box-shadow:
+          0 0 0 2px var(--terrasoft),
+          0 4px 12px -4px rgba(168, 67, 31, 0.25);
+      }
+      .card .ch {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        margin-bottom: 6px;
+      }
+      .card .d {
+        width: 9px;
+        height: 9px;
+        border-radius: 2px;
+        flex: none;
+      }
+      .card .code {
+        font: 800 14px var(--fd);
+        letter-spacing: -0.02em;
+        line-height: 1;
+      }
+      .card .nm {
+        font: 500 10px var(--fs);
+        color: var(--muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .card svg {
+        display: block;
+        width: 100%;
+        height: 44px;
+      }
+      .card .ft {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        margin-top: 5px;
+      }
+      .card .tot {
+        font: 800 16px var(--fd);
+        letter-spacing: -0.02em;
+      }
+      .card .pk {
+        font: 700 9px var(--fm);
+        color: var(--suggere);
+      }
+      .card.sel .pk {
+        color: var(--terra);
+      }
+      /* detail */
+      .detail {
+        background: var(--panel);
+        border: 1px solid var(--rule);
+        border-radius: 12px;
+        padding: 16px;
+        box-shadow: 0 1px 2px rgba(31, 26, 19, 0.05);
+      }
+      .d-head {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 10px;
+      }
+      .d-title {
+        font: 800 20px var(--fd);
+        letter-spacing: -0.02em;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .d-title .d {
+        width: 12px;
+        height: 12px;
+        border-radius: 3px;
+      }
+      .seg {
+        display: inline-flex;
+        background: var(--panel2);
+        border: 1px solid var(--rule);
+        border-radius: 999px;
+        padding: 3px;
+        margin-left: auto;
+      }
+      .seg button {
+        border: 0;
+        background: transparent;
+        color: var(--muted);
+        font: 700 11px var(--fs);
+        padding: 6px 14px;
+        border-radius: 999px;
+        cursor: pointer;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .seg button.on {
+        background: var(--panel);
+        color: var(--terra);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+      }
+      .detail svg {
+        display: block;
+        width: 100%;
+        height: auto;
+      }
+      .tag {
+        position: fixed;
+        top: 14px;
+        right: 22px;
+        z-index: 60;
+        font: 700 9px var(--fm);
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: #fff;
+        background: var(--terra);
+        padding: 5px 11px;
+        border-radius: 5px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .tag .material-symbols-outlined {
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="tag">
+      <span class="material-symbols-outlined">grid_view</span> 3 · « Vue lignes »
     </div>
-    <svg id="chart" viewBox="0 0 1000 380" preserveAspectRatio="xMidYMid meet"></svg>
-  </div>
-</div>
+    <div class="page">
+      <div class="h-top">
+        <div>
+          <div class="k">Charge · vision long terme</div>
+          <h1>Charge par ligne</h1>
+        </div>
+        <div class="p">Juillet → Décembre 2026 · comparez les lignes, cliquez pour détailler</div>
+      </div>
+      <div class="legend">
+        <span><i style="background: var(--ferme)"></i>Ferme</span>
+        <span><i style="background: var(--planifie)"></i>Planifié</span>
+        <span><i style="background: var(--suggere)"></i>Suggéré</span>
+        <span class="sep"></span>
+        <span><i class="ln"></i>Moyenne mobile</span>
+        <span class="hint">Mini-graphes : 6 mois · clic = détail</span>
+      </div>
 
-<script>
-const LINES=[
-  {id:'dcp',code:'DCP-01',name:'Découpe Fan',color:'#5b7d4e'},
-  {id:'sdr',code:'SDR-02',name:'Soudure Robot',color:'#2f4858'},
-  {id:'pud',code:'PUD-03',name:'Peinture Four',color:'#b8862c'},
-  {id:'asv',code:'ASV-04',name:'Assemblage VMC',color:'#8b5cf6'},
-  {id:'ctl',code:'CTL-05',name:'Contrôlage Final',color:'#8c7d66'},
-]
-const MONTHS=['Juil','Août','Sept','Oct','Nov','Déc']
-const M={
-  dcp:[[90,30,20],[70,25,15],[100,50,25],[90,60,40],[70,55,35],[40,45,35]],
-  sdr:[[100,40,25],[80,30,20],[110,55,35],[100,70,50],[80,65,40],[50,50,40]],
-  pud:[[80,25,15],[60,20,15],[85,40,25],[75,50,40],[60,50,30],[40,40,25]],
-  asv:[[60,20,10],[45,15,10],[70,25,15],[60,35,25],[45,35,20],[30,30,15]],
-  ctl:[[85,30,15],[65,25,10],[95,40,25],[85,55,35],[65,55,30],[45,45,25]],
-}
-const NSVG='http://www.w3.org/2000/svg'
-function el(t,a){const e=document.createElementNS(NSVG,t);for(const k in a)e.setAttribute(k,a[k]);return e}
-function tot(m){return m[0]+m[1]+m[2]}
-function weeksOf(monthly){const w=[],jit=[1,.9,1.1,1];monthly.forEach((m,mi)=>{for(let k=0;k<4;k++){w.push({label:'S'+(27+mi*4+k),f:Math.round(m[0]/4*jit[k]),p:Math.round(m[1]/4*jit[k]),s:Math.round(m[2]/4*jit[k])})}});return w}
-function mobileAvg(t,win){const r=[];for(let i=0;i<t.length;i++){let s=0,c=0;for(let k=i-win+1;k<=i;k++){if(k>=0){s+=t[k];c++}}r.push(s/c)}return r}
-function rtop(x,y,w,h,r){r=Math.min(r,w/2,h/2);return 'M '+x.toFixed(1)+' '+(y+r).toFixed(1)+' Q '+x.toFixed(1)+' '+y.toFixed(1)+' '+(x+r).toFixed(1)+' '+y.toFixed(1)+' L '+(x+w-r).toFixed(1)+' '+y.toFixed(1)+' Q '+(x+w).toFixed(1)+' '+y.toFixed(1)+' '+(x+w).toFixed(1)+' '+(y+r).toFixed(1)+' V '+(y+h).toFixed(1)+' H '+x.toFixed(1)+' Z'}
-const state={line:'sdr',gran:'month'}
+      <div class="ov" id="ov"></div>
 
-// overview mini cards
-function buildOV(){
-  const c=document.getElementById('ov'); c.innerHTML=''
-  LINES.forEach(l=>{
-    const monthly=M[l.id], totals=monthly.map(tot), sum=totals.reduce((a,b)=>a+b,0)
-    const pi=totals.indexOf(Math.max(...totals))
-    const card=document.createElement('div'); card.className='card'+(state.line===l.id?' sel':'')
-    card.onclick=()=>{state.line=l.id;buildOV();renderDetail()}
-    const W=160,H=44,pad=2,n=6,slot=(W-2*pad)/n,bw=slot*.55,max=Math.max(...totals)*1.1
-    const yy=v=>H-pad-(v/max)*(H-2*pad)
-    let bars=''
-    monthly.forEach((m,i)=>{const cx=pad+slot*i+slot/2,x=cx-bw/2,peak=i===pi
-      const segs=[['s',m[2],'var(--suggere)'],['p',m[1],'var(--planifie)'],['f',m[0],'var(--ferme)']];let topIdx=0;while(topIdx<segs.length&&segs[topIdx][1]<=0)topIdx++;let acc=0
-      segs.forEach(([k,v,col],idx)=>{if(v<=0)return;const yT=yy(acc+v),h=yy(acc)-yT
-        if(idx===topIdx)bars+=`<path d="${rtop(x,yT,bw,h,Math.min(bw/3,5))}" fill="${col}"/>`;else bars+=`<rect x="${x.toFixed(1)}" y="${yT.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" fill="${col}"/>`;acc+=v})
-      if(peak)bars+=`<circle cx="${cx.toFixed(1)}" cy="${yy(totals[i]).toFixed(1)}" r="2.5" fill="var(--terra)"/>`
-    })
-    card.innerHTML=`<div class="ch"><span class="d" style="background:${l.color}"></span><div><div class="code">${l.code}</div><div class="nm">${l.name}</div></div></div><svg viewBox="0 0 ${W} ${H}">${bars}</svg><div class="ft"><span class="tot">${sum}h</span><span class="pk">pic ${MONTHS[pi]} ${totals[pi]}h</span></div>`
-    c.appendChild(card)
-  })
-}
-// detail chart (bars for selected line)
-function renderDetail(){
-  const l=LINES.find(x=>x.id===state.line), monthly=M[l.id]
-  document.getElementById('dtitle').innerHTML=`<span class="d" style="background:${l.color}"></span>${l.code} · <span style="font-weight:500;color:var(--muted)">${l.name}</span>`
-  const items = state.gran==='month' ? monthly.map((m,i)=>({label:MONTHS[i],f:m[0],p:m[1],s:m[2]})) : weeksOf(monthly).map(x=>({label:x.label,f:x.f,p:x.p,s:x.s}))
-  const W=1000,H=380,padL=46,padR=16,padT=14,padB=38,cw=W-padL-padR,ch=H-padT-padB,n=items.length
-  const T=items.map(d=>d.f+d.p+d.s), maxV=Math.max(...T)*1.18||1
-  const slot=cw/n, bw=Math.min(slot*.62,state.gran==='week'?16:64)
-  const x=i=>padL+slot*i+slot/2, y=v=>padT+ch-(v/maxV)*ch
-  const svg=document.getElementById('chart'); svg.innerHTML=''
-  for(let g=0;g<=4;g++){const val=maxV*g/4;svg.appendChild(el('line',{x1:padL,x2:W-padR,y1:y(val),y2:y(val),stroke:'var(--rulesoft)','stroke-width':1}));svg.appendChild(el('text',{x:padL-8,y:y(val)+4,'text-anchor':'end','font-size':11,'font-family':'JetBrains Mono,monospace',fill:'#8c7d66'})).textContent=Math.round(val)}
-  items.forEach((d,i)=>{const cx=padL+slot*i+slot/2,xx=cx-bw/2
-    const segs=[['s',d.s,'var(--suggere)'],['p',d.p,'var(--planifie)'],['f',d.f,'var(--ferme)']];let topIdx=0;while(topIdx<segs.length&&segs[topIdx][1]<=0)topIdx++;let acc=0
-    segs.forEach((sg,idx)=>{const[k,v,col]=sg;if(v<=0)return;const yTop=y(acc+v),h=y(acc)-yTop
-      if(idx===topIdx)svg.appendChild(el('path',{d:rtop(xx,yTop,bw,h,Math.min(bw/3,7)),fill:col}));else svg.appendChild(el('rect',{x:xx,y:yTop,width:bw,height:h,fill:col}))
-      if(h>16){const t=svg.appendChild(el('text',{x:cx,y:(yTop+y(acc))/2+3,'text-anchor':'middle','font-size':10,'font-family':'JetBrains Mono,monospace','font-weight':700,fill:k==='s'?'#3a2a0e':'#fbf8ef'}));t.textContent=v}acc+=v})
-    const tt=svg.appendChild(el('text',{x:cx,y:y(T[i])-6,'text-anchor':'middle','font-size':11,'font-family':'JetBrains Mono,monospace','font-weight':700,fill:'#1f1a13'}));tt.textContent=T[i]
-    const xl=svg.appendChild(el('text',{x:cx,y:H-padB+18,'text-anchor':'middle','font-size':state.gran==='week'?8:12,'font-family':state.gran==='week'?'JetBrains Mono,monospace':'Fraunces,serif','font-weight':state.gran==='week'?500:700,fill:'#8c7d66'}));xl.textContent=d.label
-  })
-  const win=state.gran==='week'?8:2, ma=mobileAvg(T,win);let mp='';ma.forEach((v,i)=>{mp+=(i?'L':'M')+x(i)+' '+y(v)+' '})
-  svg.appendChild(el('path',{d:mp,fill:'none',stroke:'var(--terra)','stroke-width':2,'stroke-dasharray':'5 4','stroke-linecap':'round'}))
-  const pi=T.indexOf(Math.max(...T));svg.appendChild(el('circle',{cx:x(pi),cy:y(T[pi]),r:4,fill:'var(--terra)'}))
-}
-document.getElementById('gran').querySelectorAll('button').forEach(b=>b.onclick=()=>{state.gran=b.dataset.g;document.getElementById('gran').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));renderDetail()})
-buildOV(); renderDetail()
-</script>
-</body>
+      <div class="detail">
+        <div class="d-head">
+          <div class="d-title" id="dtitle"></div>
+          <div class="seg" id="gran">
+            <button data-g="month" class="on">Mois</button><button data-g="week">Semaine</button>
+          </div>
+        </div>
+        <svg id="chart" viewBox="0 0 1000 380" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+    </div>
+
+    <script>
+      const LINES = [
+        { id: 'dcp', code: 'DCP-01', name: 'Découpe Fan', color: '#5b7d4e' },
+        { id: 'sdr', code: 'SDR-02', name: 'Soudure Robot', color: '#2f4858' },
+        { id: 'pud', code: 'PUD-03', name: 'Peinture Four', color: '#b8862c' },
+        { id: 'asv', code: 'ASV-04', name: 'Assemblage VMC', color: '#8b5cf6' },
+        { id: 'ctl', code: 'CTL-05', name: 'Contrôlage Final', color: '#8c7d66' },
+      ]
+      const MONTHS = ['Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc']
+      const M = {
+        dcp: [
+          [90, 30, 20],
+          [70, 25, 15],
+          [100, 50, 25],
+          [90, 60, 40],
+          [70, 55, 35],
+          [40, 45, 35],
+        ],
+        sdr: [
+          [100, 40, 25],
+          [80, 30, 20],
+          [110, 55, 35],
+          [100, 70, 50],
+          [80, 65, 40],
+          [50, 50, 40],
+        ],
+        pud: [
+          [80, 25, 15],
+          [60, 20, 15],
+          [85, 40, 25],
+          [75, 50, 40],
+          [60, 50, 30],
+          [40, 40, 25],
+        ],
+        asv: [
+          [60, 20, 10],
+          [45, 15, 10],
+          [70, 25, 15],
+          [60, 35, 25],
+          [45, 35, 20],
+          [30, 30, 15],
+        ],
+        ctl: [
+          [85, 30, 15],
+          [65, 25, 10],
+          [95, 40, 25],
+          [85, 55, 35],
+          [65, 55, 30],
+          [45, 45, 25],
+        ],
+      }
+      const NSVG = 'http://www.w3.org/2000/svg'
+      function el(t, a) {
+        const e = document.createElementNS(NSVG, t)
+        for (const k in a) e.setAttribute(k, a[k])
+        return e
+      }
+      function tot(m) {
+        return m[0] + m[1] + m[2]
+      }
+      function weeksOf(monthly) {
+        const w = [],
+          jit = [1, 0.9, 1.1, 1]
+        monthly.forEach((m, mi) => {
+          for (let k = 0; k < 4; k++) {
+            w.push({
+              label: 'S' + (27 + mi * 4 + k),
+              f: Math.round((m[0] / 4) * jit[k]),
+              p: Math.round((m[1] / 4) * jit[k]),
+              s: Math.round((m[2] / 4) * jit[k]),
+            })
+          }
+        })
+        return w
+      }
+      function mobileAvg(t, win) {
+        const r = []
+        for (let i = 0; i < t.length; i++) {
+          let s = 0,
+            c = 0
+          for (let k = i - win + 1; k <= i; k++) {
+            if (k >= 0) {
+              s += t[k]
+              c++
+            }
+          }
+          r.push(s / c)
+        }
+        return r
+      }
+      function rtop(x, y, w, h, r) {
+        r = Math.min(r, w / 2, h / 2)
+        return (
+          'M ' +
+          x.toFixed(1) +
+          ' ' +
+          (y + r).toFixed(1) +
+          ' Q ' +
+          x.toFixed(1) +
+          ' ' +
+          y.toFixed(1) +
+          ' ' +
+          (x + r).toFixed(1) +
+          ' ' +
+          y.toFixed(1) +
+          ' L ' +
+          (x + w - r).toFixed(1) +
+          ' ' +
+          y.toFixed(1) +
+          ' Q ' +
+          (x + w).toFixed(1) +
+          ' ' +
+          y.toFixed(1) +
+          ' ' +
+          (x + w).toFixed(1) +
+          ' ' +
+          (y + r).toFixed(1) +
+          ' V ' +
+          (y + h).toFixed(1) +
+          ' H ' +
+          x.toFixed(1) +
+          ' Z'
+        )
+      }
+      const state = { line: 'sdr', gran: 'month' }
+
+      // overview mini cards
+      function buildOV() {
+        const c = document.getElementById('ov')
+        c.innerHTML = ''
+        LINES.forEach((l) => {
+          const monthly = M[l.id],
+            totals = monthly.map(tot),
+            sum = totals.reduce((a, b) => a + b, 0)
+          const pi = totals.indexOf(Math.max(...totals))
+          const card = document.createElement('div')
+          card.className = 'card' + (state.line === l.id ? ' sel' : '')
+          card.onclick = () => {
+            state.line = l.id
+            buildOV()
+            renderDetail()
+          }
+          const W = 160,
+            H = 44,
+            pad = 2,
+            n = 6,
+            slot = (W - 2 * pad) / n,
+            bw = slot * 0.55,
+            max = Math.max(...totals) * 1.1
+          const yy = (v) => H - pad - (v / max) * (H - 2 * pad)
+          let bars = ''
+          monthly.forEach((m, i) => {
+            const cx = pad + slot * i + slot / 2,
+              x = cx - bw / 2,
+              peak = i === pi
+            const segs = [
+              ['s', m[2], 'var(--suggere)'],
+              ['p', m[1], 'var(--planifie)'],
+              ['f', m[0], 'var(--ferme)'],
+            ]
+            let topIdx = 0
+            while (topIdx < segs.length && segs[topIdx][1] <= 0) topIdx++
+            let acc = 0
+            segs.forEach(([k, v, col], idx) => {
+              if (v <= 0) return
+              const yT = yy(acc + v),
+                h = yy(acc) - yT
+              if (idx === topIdx)
+                bars += `<path d="${rtop(x, yT, bw, h, Math.min(bw / 3, 5))}" fill="${col}"/>`
+              else
+                bars += `<rect x="${x.toFixed(1)}" y="${yT.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" fill="${col}"/>`
+              acc += v
+            })
+            if (peak)
+              bars += `<circle cx="${cx.toFixed(1)}" cy="${yy(totals[i]).toFixed(1)}" r="2.5" fill="var(--terra)"/>`
+          })
+          card.innerHTML = `<div class="ch"><span class="d" style="background:${l.color}"></span><div><div class="code">${l.code}</div><div class="nm">${l.name}</div></div></div><svg viewBox="0 0 ${W} ${H}">${bars}</svg><div class="ft"><span class="tot">${sum}h</span><span class="pk">pic ${MONTHS[pi]} ${totals[pi]}h</span></div>`
+          c.appendChild(card)
+        })
+      }
+      // detail chart (bars for selected line)
+      function renderDetail() {
+        const l = LINES.find((x) => x.id === state.line),
+          monthly = M[l.id]
+        document.getElementById('dtitle').innerHTML =
+          `<span class="d" style="background:${l.color}"></span>${l.code} · <span style="font-weight:500;color:var(--muted)">${l.name}</span>`
+        const items =
+          state.gran === 'month'
+            ? monthly.map((m, i) => ({ label: MONTHS[i], f: m[0], p: m[1], s: m[2] }))
+            : weeksOf(monthly).map((x) => ({ label: x.label, f: x.f, p: x.p, s: x.s }))
+        const W = 1000,
+          H = 380,
+          padL = 46,
+          padR = 16,
+          padT = 14,
+          padB = 38,
+          cw = W - padL - padR,
+          ch = H - padT - padB,
+          n = items.length
+        const T = items.map((d) => d.f + d.p + d.s),
+          maxV = Math.max(...T) * 1.18 || 1
+        const slot = cw / n,
+          bw = Math.min(slot * 0.62, state.gran === 'week' ? 16 : 64)
+        const x = (i) => padL + slot * i + slot / 2,
+          y = (v) => padT + ch - (v / maxV) * ch
+        const svg = document.getElementById('chart')
+        svg.innerHTML = ''
+        for (let g = 0; g <= 4; g++) {
+          const val = (maxV * g) / 4
+          svg.appendChild(
+            el('line', {
+              'x1': padL,
+              'x2': W - padR,
+              'y1': y(val),
+              'y2': y(val),
+              'stroke': 'var(--rulesoft)',
+              'stroke-width': 1,
+            })
+          )
+          svg.appendChild(
+            el('text', {
+              'x': padL - 8,
+              'y': y(val) + 4,
+              'text-anchor': 'end',
+              'font-size': 11,
+              'font-family': 'JetBrains Mono,monospace',
+              'fill': '#8c7d66',
+            })
+          ).textContent = Math.round(val)
+        }
+        items.forEach((d, i) => {
+          const cx = padL + slot * i + slot / 2,
+            xx = cx - bw / 2
+          const segs = [
+            ['s', d.s, 'var(--suggere)'],
+            ['p', d.p, 'var(--planifie)'],
+            ['f', d.f, 'var(--ferme)'],
+          ]
+          let topIdx = 0
+          while (topIdx < segs.length && segs[topIdx][1] <= 0) topIdx++
+          let acc = 0
+          segs.forEach((sg, idx) => {
+            const [k, v, col] = sg
+            if (v <= 0) return
+            const yTop = y(acc + v),
+              h = y(acc) - yTop
+            if (idx === topIdx)
+              svg.appendChild(
+                el('path', { d: rtop(xx, yTop, bw, h, Math.min(bw / 3, 7)), fill: col })
+              )
+            else svg.appendChild(el('rect', { x: xx, y: yTop, width: bw, height: h, fill: col }))
+            if (h > 16) {
+              const t = svg.appendChild(
+                el('text', {
+                  'x': cx,
+                  'y': (yTop + y(acc)) / 2 + 3,
+                  'text-anchor': 'middle',
+                  'font-size': 10,
+                  'font-family': 'JetBrains Mono,monospace',
+                  'font-weight': 700,
+                  'fill': k === 's' ? '#3a2a0e' : '#fbf8ef',
+                })
+              )
+              t.textContent = v
+            }
+            acc += v
+          })
+          const tt = svg.appendChild(
+            el('text', {
+              'x': cx,
+              'y': y(T[i]) - 6,
+              'text-anchor': 'middle',
+              'font-size': 11,
+              'font-family': 'JetBrains Mono,monospace',
+              'font-weight': 700,
+              'fill': '#1f1a13',
+            })
+          )
+          tt.textContent = T[i]
+          const xl = svg.appendChild(
+            el('text', {
+              'x': cx,
+              'y': H - padB + 18,
+              'text-anchor': 'middle',
+              'font-size': state.gran === 'week' ? 8 : 12,
+              'font-family': state.gran === 'week' ? 'JetBrains Mono,monospace' : 'Fraunces,serif',
+              'font-weight': state.gran === 'week' ? 500 : 700,
+              'fill': '#8c7d66',
+            })
+          )
+          xl.textContent = d.label
+        })
+        const win = state.gran === 'week' ? 8 : 2,
+          ma = mobileAvg(T, win)
+        let mp = ''
+        ma.forEach((v, i) => {
+          mp += (i ? 'L' : 'M') + x(i) + ' ' + y(v) + ' '
+        })
+        svg.appendChild(
+          el('path', {
+            'd': mp,
+            'fill': 'none',
+            'stroke': 'var(--terra)',
+            'stroke-width': 2,
+            'stroke-dasharray': '5 4',
+            'stroke-linecap': 'round',
+          })
+        )
+        const pi = T.indexOf(Math.max(...T))
+        svg.appendChild(el('circle', { cx: x(pi), cy: y(T[pi]), r: 4, fill: 'var(--terra)' }))
+      }
+      document
+        .getElementById('gran')
+        .querySelectorAll('button')
+        .forEach(
+          (b) =>
+            (b.onclick = () => {
+              state.gran = b.dataset.g
+              document
+                .getElementById('gran')
+                .querySelectorAll('button')
+                .forEach((x) => x.classList.toggle('on', x === b))
+              renderDetail()
+            })
+        )
+      buildOV()
+      renderDetail()
+    </script>
+  </body>
 </html>

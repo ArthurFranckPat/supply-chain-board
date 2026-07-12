@@ -386,5 +386,4 @@ export default class MfgOpe extends BaseModel {
 
   @belongsTo(() => PurchaseOrder, { foreignKey: 'noCommande', localKey: 'noCommande' })
   declare commandeSousTraitance: BelongsTo<typeof PurchaseOrder>
-
 }

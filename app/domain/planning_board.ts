@@ -83,7 +83,7 @@ export function mergeOfWithOverride(base: OfFromErp, override: OfOverride | null
 export function buildEffectiveFlows(
   merged: MergedOf[],
   windowStart?: Date,
-  windowEnd?: Date,
+  windowEnd?: Date
 ): Flow[] {
   return merged
     .filter((of) => {

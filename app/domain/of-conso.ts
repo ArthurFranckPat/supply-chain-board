@@ -26,7 +26,6 @@ function isOrderOrForecastOrigin(origin: FlowOrigin): origin is OrderOrForecastO
   return origin.type === 'order' || origin.type === 'forecast'
 }
 
-
 export class OFConso {
   ofFlow: Flow
   qteDisponible: number
@@ -83,11 +82,7 @@ export interface OFMatchAllocation {
 }
 
 export type MatchMethod =
-  | 'mts_hard_pegging'
-  | 'stock_complete'
-  | 'nor_mto_cumulative'
-  | 'purchase_supply'
-  | 'none'
+  'mts_hard_pegging' | 'stock_complete' | 'nor_mto_cumulative' | 'purchase_supply' | 'none'
 
 export interface MatchingResult {
   demandFlow: Flow
@@ -124,7 +119,7 @@ export class CommandeOFMatcher {
     private supplyFlows: Flow[],
     private articles: Map<string, Article>,
     _nomenclatures: Map<string, Nomenclature>,
-    dateToleranceDays: number = 10,
+    dateToleranceDays: number = 10
   ) {
     this.dateToleranceDays = dateToleranceDays
   }
@@ -160,7 +155,12 @@ export class CommandeOFMatcher {
     return new StockState(stock)
   }
 
-  private consumeOfQuantity(ofFlow: Flow, qte: number, numCommande: string, reason: string): OFMatchAllocation {
+  private consumeOfQuantity(
+    ofFlow: Flow,
+    qte: number,
+    numCommande: string,
+    reason: string
+  ): OFMatchAllocation {
     const id = getOfId(ofFlow.origin)
     if (!this.ofConso.has(id)) {
       this.ofConso.set(id, new OFConso(ofFlow))
@@ -184,18 +184,35 @@ export class CommandeOFMatcher {
     // Contremarque = lien direct commande↔OF dans X3 (FMINUM_0), prioritaire même en MTS.
     // Sans ça, on retombe sur un match par article + date qui sélectionne UN seul OF et
     // laisse orphelin l'OF explicitement peggé (cf. AR2602600 MTS ↔ F426-32503).
-    const contremarque = isOrderOrForecastOrigin(demand.origin) ? demand.origin.contremarque ?? null : null
+    const contremarque = isOrderOrForecastOrigin(demand.origin)
+      ? (demand.origin.contremarque ?? null)
+      : null
     if (contremarque) {
       const peggedFlow = this.supplyFlows.find(
-        (f) => f.direction === 'supply' && f.origin.type === 'of' && getOfId(f.origin) === contremarque,
+        (f) =>
+          f.direction === 'supply' && f.origin.type === 'of' && getOfId(f.origin) === contremarque
       )
       if (peggedFlow) {
-        const ofAlloc = this.consumeOfQuantity(peggedFlow, demand.quantity, numCommande, 'contremarque hard peg (MTS)')
+        const ofAlloc = this.consumeOfQuantity(
+          peggedFlow,
+          demand.quantity,
+          numCommande,
+          'contremarque hard peg (MTS)'
+        )
         const remaining = Math.max(demand.quantity - ofAlloc.qteAllouee, 0)
         return {
-          demandFlow: demand, of: peggedFlow, matchingMethod: 'mts_hard_pegging',
-          alerts: remaining > 0 ? [`Contremarque MTS: couverture partielle (${ofAlloc.qteAllouee}/${demand.quantity})`] : [],
-          stockAllocation: null, ofAllocations: [ofAlloc], remainingUncoveredQty: remaining,
+          demandFlow: demand,
+          of: peggedFlow,
+          matchingMethod: 'mts_hard_pegging',
+          alerts:
+            remaining > 0
+              ? [
+                  `Contremarque MTS: couverture partielle (${ofAlloc.qteAllouee}/${demand.quantity})`,
+                ]
+              : [],
+          stockAllocation: null,
+          ofAllocations: [ofAlloc],
+          remainingUncoveredQty: remaining,
         }
       }
       // Contremarque présente mais l'OF pointé n'est pas dans supplyFlows : il est
@@ -230,22 +247,37 @@ export class CommandeOFMatcher {
       const allocation = this.allocateStock(demand, stockState)
       if (allocation.besoinNet === 0) {
         return {
-          demandFlow: demand, of: null, matchingMethod: 'stock_complete',
-          alerts: [], stockAllocation: allocation, ofAllocations: [], remainingUncoveredQty: 0,
+          demandFlow: demand,
+          of: null,
+          matchingMethod: 'stock_complete',
+          alerts: [],
+          stockAllocation: allocation,
+          ofAllocations: [],
+          remainingUncoveredQty: 0,
         }
       }
       const article = this.articles.get(demand.article)
       if (article && isPurchaseArticle(article)) {
         return {
-          demandFlow: demand, of: null, matchingMethod: 'purchase_supply',
-          alerts: [`Article achat (MTS sans OF): ${allocation.qteAllouee} stock, ${allocation.besoinNet} manquant`],
-          stockAllocation: allocation, ofAllocations: [], remainingUncoveredQty: allocation.besoinNet,
+          demandFlow: demand,
+          of: null,
+          matchingMethod: 'purchase_supply',
+          alerts: [
+            `Article achat (MTS sans OF): ${allocation.qteAllouee} stock, ${allocation.besoinNet} manquant`,
+          ],
+          stockAllocation: allocation,
+          ofAllocations: [],
+          remainingUncoveredQty: allocation.besoinNet,
         }
       }
       return {
-        demandFlow: demand, of: null, matchingMethod: 'mts_hard_pegging',
+        demandFlow: demand,
+        of: null,
+        matchingMethod: 'mts_hard_pegging',
         alerts: [`MTS: aucun OF lie pour ${demand.article}, ${allocation.besoinNet} non couvert`],
-        stockAllocation: allocation, ofAllocations: [], remainingUncoveredQty: allocation.besoinNet,
+        stockAllocation: allocation,
+        ofAllocations: [],
+        remainingUncoveredQty: allocation.besoinNet,
       }
     }
 
@@ -264,7 +296,7 @@ export class CommandeOFMatcher {
       selected,
       Math.min(demand.quantity, selected.quantity),
       numCommande,
-      'MTS hard pegging',
+      'MTS hard pegging'
     )
     const remaining = Math.max(demand.quantity - allocation.qteAllouee, 0)
     const alerts: string[] = []
@@ -276,8 +308,13 @@ export class CommandeOFMatcher {
     }
 
     return {
-      demandFlow: demand, of: selected, matchingMethod: 'mts_hard_pegging',
-      alerts, stockAllocation: null, ofAllocations: [allocation], remainingUncoveredQty: remaining,
+      demandFlow: demand,
+      of: selected,
+      matchingMethod: 'mts_hard_pegging',
+      alerts,
+      stockAllocation: null,
+      ofAllocations: [allocation],
+      remainingUncoveredQty: remaining,
     }
   }
 
@@ -287,7 +324,9 @@ export class CommandeOFMatcher {
     const besoinNet = demand.quantity - qteAllouee
 
     if (qteAllouee > 0) {
-      stockState.allocate(demand.origin.type + ':' + demand.article, { [demand.article]: qteAllouee })
+      stockState.allocate(demand.origin.type + ':' + demand.article, {
+        [demand.article]: qteAllouee,
+      })
     }
 
     return {
@@ -333,21 +372,38 @@ export class CommandeOFMatcher {
 
   private matchNorMto(demand: Flow, stockState: StockState): MatchingResult {
     const numCommande = isOrderOrForecastOrigin(demand.origin) ? demand.origin.id : demand.article
-    const contremarque: string | null = isOrderOrForecastOrigin(demand.origin) ? demand.origin.contremarque ?? null : null
+    const contremarque: string | null = isOrderOrForecastOrigin(demand.origin)
+      ? (demand.origin.contremarque ?? null)
+      : null
 
     // Contremarque = lien direct commande↔OF dans X3 (hard peg prioritaire).
     if (contremarque) {
       const peggedFlow = this.supplyFlows.find(
-        (f) => f.direction === 'supply' && f.origin.type === 'of' && getOfId(f.origin) === contremarque,
+        (f) =>
+          f.direction === 'supply' && f.origin.type === 'of' && getOfId(f.origin) === contremarque
       )
       if (peggedFlow) {
         const allocation = this.allocateStock(demand, stockState)
-        const ofAlloc = this.consumeOfQuantity(peggedFlow, demand.quantity, numCommande, 'contremarque hard peg')
+        const ofAlloc = this.consumeOfQuantity(
+          peggedFlow,
+          demand.quantity,
+          numCommande,
+          'contremarque hard peg'
+        )
         const remaining = Math.max(0, demand.quantity - ofAlloc.qteAllouee - allocation.qteAllouee)
         return {
-          demandFlow: demand, of: peggedFlow, matchingMethod: 'mts_hard_pegging',
-          alerts: remaining > 0 ? [`Contremarque: couverture partielle (${demand.quantity - remaining}/${demand.quantity})`] : [],
-          stockAllocation: allocation, ofAllocations: [ofAlloc], remainingUncoveredQty: remaining,
+          demandFlow: demand,
+          of: peggedFlow,
+          matchingMethod: 'mts_hard_pegging',
+          alerts:
+            remaining > 0
+              ? [
+                  `Contremarque: couverture partielle (${demand.quantity - remaining}/${demand.quantity})`,
+                ]
+              : [],
+          stockAllocation: allocation,
+          ofAllocations: [ofAlloc],
+          remainingUncoveredQty: remaining,
         }
       }
       // Contremarque présente mais l'OF pointé n'est pas dans supplyFlows : il est
@@ -364,7 +420,9 @@ export class CommandeOFMatcher {
         alerts:
           stockAlloc.besoinNet === 0
             ? []
-            : [`Contremarque ${contremarque} hors supply (OF clôturé), ${stockAlloc.besoinNet} non couvert`],
+            : [
+                `Contremarque ${contremarque} hors supply (OF clôturé), ${stockAlloc.besoinNet} non couvert`,
+              ],
         stockAllocation: stockAlloc,
         ofAllocations: [],
         remainingUncoveredQty: stockAlloc.besoinNet,
@@ -375,17 +433,26 @@ export class CommandeOFMatcher {
 
     if (allocation.besoinNet === 0) {
       return {
-        demandFlow: demand, of: null, matchingMethod: 'stock_complete',
-        alerts: [], stockAllocation: allocation, ofAllocations: [], remainingUncoveredQty: 0,
+        demandFlow: demand,
+        of: null,
+        matchingMethod: 'stock_complete',
+        alerts: [],
+        stockAllocation: allocation,
+        ofAllocations: [],
+        remainingUncoveredQty: 0,
       }
     }
 
     const article = this.articles.get(demand.article)
     if (article && isPurchaseArticle(article)) {
       return {
-        demandFlow: demand, of: null, matchingMethod: 'purchase_supply',
+        demandFlow: demand,
+        of: null,
+        matchingMethod: 'purchase_supply',
         alerts: [`Article achat: ${allocation.qteAllouee} stock, ${allocation.besoinNet} manquant`],
-        stockAllocation: allocation, ofAllocations: [], remainingUncoveredQty: allocation.besoinNet,
+        stockAllocation: allocation,
+        ofAllocations: [],
+        remainingUncoveredQty: allocation.besoinNet,
       }
     }
 
@@ -398,7 +465,12 @@ export class CommandeOFMatcher {
 
     for (const conso of this.iterOfCandidates(demand, demand.origin.type === 'forecast')) {
       if (remaining <= 0) break
-      const alloc = this.consumeOfQuantity(conso.ofFlow, remaining, numCommande, 'MTO/NOR couverture cumulative')
+      const alloc = this.consumeOfQuantity(
+        conso.ofFlow,
+        remaining,
+        numCommande,
+        'MTO/NOR couverture cumulative'
+      )
       if (alloc.qteAllouee <= 0) continue
       ofAllocations.push(alloc)
       remaining -= alloc.qteAllouee
@@ -406,21 +478,32 @@ export class CommandeOFMatcher {
 
     if (ofAllocations.length === 0) {
       return {
-        demandFlow: demand, of: null, matchingMethod: 'none',
+        demandFlow: demand,
+        of: null,
+        matchingMethod: 'none',
         alerts: [`Aucun OF pour ${demand.article}, ${allocation.besoinNet} non couvert`],
-        stockAllocation: allocation, ofAllocations: [], remainingUncoveredQty: allocation.besoinNet,
+        stockAllocation: allocation,
+        ofAllocations: [],
+        remainingUncoveredQty: allocation.besoinNet,
       }
     }
 
     const primaryOf = ofAllocations[0].ofFlow
     const alerts: string[] = []
     if (remaining > 0) {
-      alerts.push(`Couverture partielle OF: ${allocation.besoinNet - remaining}/${allocation.besoinNet}`)
+      alerts.push(
+        `Couverture partielle OF: ${allocation.besoinNet - remaining}/${allocation.besoinNet}`
+      )
     }
 
     return {
-      demandFlow: demand, of: primaryOf, matchingMethod: 'nor_mto_cumulative',
-      alerts, stockAllocation: allocation, ofAllocations, remainingUncoveredQty: remaining,
+      demandFlow: demand,
+      of: primaryOf,
+      matchingMethod: 'nor_mto_cumulative',
+      alerts,
+      stockAllocation: allocation,
+      ofAllocations,
+      remainingUncoveredQty: remaining,
     }
   }
 

@@ -20,13 +20,21 @@ export function createProactiveColumns() {
           <div class="font-mono text-[13px] font-bold tracking-tight text-foreground">
             {info.getValue()}
             <Show when={info.row.original.refCommandeClient}>
-              <span class="font-medium text-muted-foreground/70">/{info.row.original.refCommandeClient}</span>
+              <span class="font-medium text-muted-foreground/70">
+                /{info.row.original.refCommandeClient}
+              </span>
             </Show>
           </div>
-          <div class="mt-0.5 font-sans text-[12px] font-medium leading-snug text-secondary-foreground">{info.row.original.client || '—'}</div>
+          <div class="mt-0.5 font-sans text-[12px] font-medium leading-snug text-secondary-foreground">
+            {info.row.original.client || '—'}
+          </div>
         </>
       ),
-      meta: { thClass: 'w-[178px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'px-4 py-[9px] align-middle' },
+      meta: {
+        thClass:
+          'w-[178px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule',
+        tdClass: 'px-4 py-[9px] align-middle',
+      },
     }),
     proHelper.accessor('article', {
       header: () => 'Article · Désignation',
@@ -34,32 +42,57 @@ export function createProactiveColumns() {
         <>
           <div class="font-mono text-[13px] font-semibold text-brand">
             {info.getValue()}
-            <Show when={info.row.original.refArticleClient && info.row.original.refArticleClient !== info.getValue()}>
-              <span class="font-medium text-muted-foreground/70">/{info.row.original.refArticleClient}</span>
+            <Show
+              when={
+                info.row.original.refArticleClient &&
+                info.row.original.refArticleClient !== info.getValue()
+              }
+            >
+              <span class="font-medium text-muted-foreground/70">
+                /{info.row.original.refArticleClient}
+              </span>
             </Show>
           </div>
-          <div class="mt-0.5 font-sans text-[12px] font-medium leading-snug text-secondary-foreground">{info.row.original.designation || '—'}</div>
+          <div class="mt-0.5 font-sans text-[12px] font-medium leading-snug text-secondary-foreground">
+            {info.row.original.designation || '—'}
+          </div>
         </>
       ),
-      meta: { thClass: 'w-[240px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'px-4 py-[9px] align-middle' },
+      meta: {
+        thClass:
+          'w-[240px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule',
+        tdClass: 'px-4 py-[9px] align-middle',
+      },
     }),
     proHelper.accessor('type', {
       header: () => 'Type',
       cell: (info) => (
-        <span class="rounded bg-brand-soft px-[7px] py-0.5 font-mono text-[10px] font-bold uppercase tracking-wide text-brand">{info.getValue()}</span>
+        <span class="rounded bg-brand-soft px-[7px] py-0.5 font-mono text-[10px] font-bold uppercase tracking-wide text-brand">
+          {info.getValue()}
+        </span>
       ),
-      meta: { thClass: 'w-[56px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'px-4 py-[9px] align-middle' },
+      meta: {
+        thClass:
+          'w-[56px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule',
+        tdClass: 'px-4 py-[9px] align-middle',
+      },
     }),
     proHelper.accessor('qteRestante', {
       header: () => 'Reste',
       cell: (info) => (
         <>
-          <span class="font-fraunces text-[21px] font-black leading-none tracking-tight text-foreground">{info.getValue()}</span>
+          <span class="font-fraunces text-[21px] font-black leading-none tracking-tight text-foreground">
+            {info.getValue()}
+          </span>
           <span class="ml-0.5 font-mono text-[10px] font-medium text-muted-foreground/80">u</span>
         </>
       ),
       sortingFn: 'basic',
-      meta: { thClass: 'w-[92px] px-4 py-[8px] text-right font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'whitespace-nowrap px-4 py-[9px] text-right align-middle' },
+      meta: {
+        thClass:
+          'w-[92px] px-4 py-[8px] text-right font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule',
+        tdClass: 'whitespace-nowrap px-4 py-[9px] text-right align-middle',
+      },
     }),
     proHelper.accessor('dateExp', {
       header: () => 'Expé',
@@ -69,7 +102,12 @@ export function createProactiveColumns() {
         const db = b.original.dateExpIso ?? '9999-12-31'
         return da < db ? -1 : da > db ? 1 : 0
       },
-      meta: { thClass: 'w-[76px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'whitespace-nowrap px-4 py-[9px] align-middle font-mono text-[12.5px] font-semibold text-foreground' },
+      meta: {
+        thClass:
+          'w-[76px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule',
+        tdClass:
+          'whitespace-nowrap px-4 py-[9px] align-middle font-mono text-[12.5px] font-semibold text-foreground',
+      },
     }),
     proHelper.accessor('couverture', {
       header: () => 'Couverture',
@@ -90,7 +128,10 @@ export function createProactiveColumns() {
                       </span>
                       <Show when={st}>
                         <span
-                          class={cx('shrink-0 rounded px-1 py-px font-mono text-[9px] font-bold leading-none', st.tone)}
+                          class={cx(
+                            'shrink-0 rounded px-1 py-px font-mono text-[9px] font-bold leading-none',
+                            st.tone
+                          )}
                           title={`OF ${st.tag === 'WOF' ? 'ferme' : st.tag === 'WOP' ? 'planifié' : 'suggéré'}`}
                         >
                           {st.tag}
@@ -114,7 +155,11 @@ export function createProactiveColumns() {
           </span>
         )
       },
-      meta: { thClass: 'w-[150px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'px-4 py-[9px] align-middle' },
+      meta: {
+        thClass:
+          'w-[150px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule',
+        tdClass: 'px-4 py-[9px] align-middle',
+      },
     }),
     proHelper.display({
       id: 'verdictKey',
@@ -123,12 +168,21 @@ export function createProactiveColumns() {
       cell: (info) => {
         const o = info.row.original
         return (
-          <span class={cx('inline-flex items-center gap-1 rounded-md border border-transparent px-2 py-0.5 text-[11px] font-medium whitespace-nowrap', VERDICT_TONE[o.verdictKey])}>
+          <span
+            class={cx(
+              'inline-flex items-center gap-1 rounded-md border border-transparent px-2 py-0.5 text-[11px] font-medium whitespace-nowrap',
+              VERDICT_TONE[o.verdictKey]
+            )}
+          >
             {o.verdictLabel}
           </span>
         )
       },
-      meta: { thClass: 'w-[120px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'px-4 py-[9px] align-middle' },
+      meta: {
+        thClass:
+          'w-[120px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule',
+        tdClass: 'px-4 py-[9px] align-middle',
+      },
     }),
     proHelper.accessor('joursRetard', {
       header: () => 'J. retard',
@@ -137,7 +191,12 @@ export function createProactiveColumns() {
         return <>{v > 0 ? v : '—'}</>
       },
       sortingFn: 'basic',
-      meta: { thClass: 'w-[70px] px-4 py-[8px] text-right font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'whitespace-nowrap px-4 py-[9px] text-right align-middle font-mono text-[12.5px] font-semibold text-secondary-foreground' },
+      meta: {
+        thClass:
+          'w-[70px] px-4 py-[8px] text-right font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule',
+        tdClass:
+          'whitespace-nowrap px-4 py-[9px] text-right align-middle font-mono text-[12.5px] font-semibold text-secondary-foreground',
+      },
     }),
     proHelper.display({
       id: 'composants',
@@ -145,18 +204,32 @@ export function createProactiveColumns() {
       header: () => 'Goulots',
       cell: (info) => {
         const comps = info.row.original.composants
-        if (comps.length === 0) return <span class="font-sans text-[12px] font-medium leading-snug text-muted-foreground/70">—</span>
+        if (comps.length === 0)
+          return (
+            <span class="font-sans text-[12px] font-medium leading-snug text-muted-foreground/70">
+              —
+            </span>
+          )
         return (
           <div class="flex flex-col gap-1">
             <For each={comps.slice(0, 4)}>
               {(c) => (
                 <div class="flex flex-col gap-px">
                   <div class="flex items-center gap-1.5">
-                    <span class="shrink-0 font-mono text-[10.5px] font-bold text-destructive">{c.art}</span>
+                    <span class="shrink-0 font-mono text-[10.5px] font-bold text-destructive">
+                      {c.art}
+                    </span>
                     <Show when={c.desc}>
-                      <span class="truncate font-sans text-[10px] leading-tight text-muted-foreground" title={c.desc}>{c.desc}</span>
+                      <span
+                        class="truncate font-sans text-[10px] leading-tight text-muted-foreground"
+                        title={c.desc}
+                      >
+                        {c.desc}
+                      </span>
                     </Show>
-                    <span class="ml-auto shrink-0 rounded bg-destructive/10 px-1 font-mono text-[10px] font-bold tabular-nums text-destructive">−{c.qty}</span>
+                    <span class="ml-auto shrink-0 rounded bg-destructive/10 px-1 font-mono text-[10px] font-bold tabular-nums text-destructive">
+                      −{c.qty}
+                    </span>
                   </div>
                   {/* Descente BOM d'un SE manquant : soit « OF à lancer » (composants dispo),
                       soit les feuilles réellement bloquantes avec leur réception. La lentille
@@ -168,18 +241,24 @@ export function createProactiveColumns() {
                       <Show
                         when={c.reception}
                         fallback={
-                          <span class="font-mono text-[9.5px] font-medium leading-tight text-destructive/70">aucune couverture prévue</span>
+                          <span class="font-mono text-[9.5px] font-medium leading-tight text-destructive/70">
+                            aucune couverture prévue
+                          </span>
                         }
                       >
                         {(r) => (
                           <span
                             classList={{
-                              'font-mono text-[9.5px] font-bold leading-tight text-destructive': r().overdue,
-                              'font-mono text-[9.5px] font-medium leading-tight text-muted-foreground': !r().overdue,
+                              'font-mono text-[9.5px] font-bold leading-tight text-destructive':
+                                r().overdue,
+                              'font-mono text-[9.5px] font-medium leading-tight text-muted-foreground':
+                                !r().overdue,
                             }}
                             title={r().supplier}
                           >
-                            {r().overdue ? `en retard +${r().retardJ} j · ${r().eta}` : `arrive ${r().eta} · ${r().po}`}
+                            {r().overdue
+                              ? `en retard +${r().retardJ} j · ${r().eta}`
+                              : `arrive ${r().eta} · ${r().po}`}
                           </span>
                         )}
                       </Show>
@@ -189,13 +268,18 @@ export function createProactiveColumns() {
                       <Show
                         when={d().statut === 'bloque'}
                         fallback={
-                          <span class="font-mono text-[9.5px] font-semibold leading-tight text-emerald-700">↳ composants dispo — OF SE à lancer</span>
+                          <span class="font-mono text-[9.5px] font-semibold leading-tight text-emerald-700">
+                            ↳ composants dispo — OF SE à lancer
+                          </span>
                         }
                       >
                         <div class="flex flex-col gap-px pl-2">
                           <For each={d().par.slice(0, 3)}>
                             {(p) => (
-                              <span class="font-mono text-[9.5px] leading-tight text-muted-foreground" title={p.desc}>
+                              <span
+                                class="font-mono text-[9.5px] leading-tight text-muted-foreground"
+                                title={p.desc}
+                              >
                                 ↳ bloqué par <span class="font-bold text-destructive">{p.art}</span>
                                 <span class="font-bold text-destructive"> −{p.manque}</span>
                                 {p.reception
@@ -207,7 +291,9 @@ export function createProactiveColumns() {
                             )}
                           </For>
                           <Show when={d().par.length > 3}>
-                            <span class="pl-2 font-mono text-[9px] font-medium text-muted-foreground/70">+{d().par.length - 3} autre(s)</span>
+                            <span class="pl-2 font-mono text-[9px] font-medium text-muted-foreground/70">
+                              +{d().par.length - 3} autre(s)
+                            </span>
                           </Show>
                         </div>
                       </Show>
@@ -217,12 +303,18 @@ export function createProactiveColumns() {
               )}
             </For>
             <Show when={comps.length > 4}>
-              <span class="font-mono text-[10px] font-medium text-muted-foreground/70">+{comps.length - 4} autre(s)</span>
+              <span class="font-mono text-[10px] font-medium text-muted-foreground/70">
+                +{comps.length - 4} autre(s)
+              </span>
             </Show>
           </div>
         )
       },
-      meta: { thClass: 'w-[300px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'px-4 py-[9px] align-middle' },
+      meta: {
+        thClass:
+          'w-[300px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule',
+        tdClass: 'px-4 py-[9px] align-middle',
+      },
     }),
   ]
 }
@@ -231,7 +323,8 @@ export function createProactiveColumns() {
 export function createProactiveIndexCol(): DataTableIndexColumn<ProactiveDisplayRow> {
   return {
     headerLabel: 'N°',
-    thClass: 'w-[38px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule',
+    thClass:
+      'w-[38px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule',
     tdClass: (row: ProactiveDisplayRow) => {
       // blocked / uncov : pas un retard calendaire mais un vrai problème → rouge foncé.
       // late : utilise la gravité (tolerance/critical).
@@ -241,7 +334,7 @@ export function createProactiveIndexCol(): DataTableIndexColumn<ProactiveDisplay
           : row.lateSeverity
       return cx(
         'px-4 py-[9px] align-middle font-fraunces text-[14px] leading-none text-muted-foreground/80',
-        LATE_TONE.bar(s),
+        LATE_TONE.bar(s)
       )
     },
   }

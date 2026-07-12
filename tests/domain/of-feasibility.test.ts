@@ -1,13 +1,27 @@
 import { test } from '@japa/runner'
 import type { Flow } from '#app/domain/models/flow'
-import { evaluateMfgFeasibility, buildStrictQcStock, type MfgMaterialInput } from '#app/domain/of-feasibility'
+import {
+  evaluateMfgFeasibility,
+  buildStrictQcStock,
+  type MfgMaterialInput,
+} from '#app/domain/of-feasibility'
 
 function stockFlow(article: string, quantity: number, subType: 'strict' | 'qc' | 'rejected'): Flow {
-  return { article, quantity, direction: 'supply', date: null, origin: { type: 'stock', subType, pmp: null } }
+  return {
+    article,
+    quantity,
+    direction: 'supply',
+    date: null,
+    origin: { type: 'stock', subType, pmp: null },
+  }
 }
 
 const mat = (article: string, remaining: number, allocated = 0): MfgMaterialInput => ({
-  article, description: `Desc ${article}`, unit: 'U', remaining, allocated,
+  article,
+  description: `Desc ${article}`,
+  unit: 'U',
+  remaining,
+  allocated,
 })
 
 test.group('buildStrictQcStock', () => {

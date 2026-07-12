@@ -4,10 +4,10 @@ export interface OfMaterial {
   article: string
   description: string
   unit: string | null
-  required: number   // RETQTY_0 — besoin total
-  consumed: number   // USEQTY_0 — déjà sorti
-  remaining: number  // RETQTY_0 - USEQTY_0 — reste à sortir
-  allocated: number  // ALLQTY_0 — déjà alloué en stock
+  required: number // RETQTY_0 — besoin total
+  consumed: number // USEQTY_0 — déjà sorti
+  remaining: number // RETQTY_0 - USEQTY_0 — reste à sortir
+  allocated: number // ALLQTY_0 — déjà alloué en stock
 }
 
 export class X3MfgmatRepository {
@@ -19,7 +19,7 @@ export class X3MfgmatRepository {
         'MFGMAT.USEQTY_0',
         'MFGMAT.ALLQTY_0',
         'MFGMAT.STU_0',
-        'ITMMASTER.ITMDES1_0',
+        'ITMMASTER.ITMDES1_0'
       )
       .leftJoin('ITMMASTER', 'ITMMASTER.ITMREF_0', 'MFGMAT.ITMREF_0')
       .where('MFGMAT.MFGNUM_0', numOf)
@@ -55,7 +55,7 @@ export class X3MfgmatRepository {
             'MFGMAT.USEQTY_0',
             'MFGMAT.ALLQTY_0',
             'MFGMAT.STU_0',
-            'ITMMASTER.ITMDES1_0',
+            'ITMMASTER.ITMDES1_0'
           )
           .leftJoin('ITMMASTER', 'ITMMASTER.ITMREF_0', 'MFGMAT.ITMREF_0')
           .whereIn('MFGMAT.MFGNUM_0', chunk)
@@ -76,12 +76,13 @@ export class X3MfgmatRepository {
   }
 
   private toMaterial(row: MfgMat): OfMaterial {
-    const required = parseFloat(row.quantiteBesoin ?? '0') || 0
-    const consumed = parseFloat(row.quantiteConsommee ?? '0') || 0
-    const allocated = parseFloat(row.quantiteAllouee ?? '0') || 0
+    const required = Number.parseFloat(row.quantiteBesoin ?? '0') || 0
+    const consumed = Number.parseFloat(row.quantiteConsommee ?? '0') || 0
+    const allocated = Number.parseFloat(row.quantiteAllouee ?? '0') || 0
     return {
       article: row.article?.trim() ?? '',
-      description: ((row.$extras as Record<string, unknown>).ITMDES1_0 as string | null)?.trim() ?? '',
+      description:
+        ((row.$extras as Record<string, unknown>).ITMDES1_0 as string | null)?.trim() ?? '',
       unit: row.uniteStock?.trim() ?? null,
       required,
       consumed,

@@ -6,75 +6,102 @@
  */
 
 export const MANIFEST = {
-  "assets.css": { method: "GET", pattern: "/css/app.css" },
-  "assets.js": { method: "GET", pattern: "/js/app.js" },
-  "auth.attempt": { method: "POST", pattern: "/login" },
-  "auth.login": { method: "GET", pattern: "/login" },
-  "auth.logout": { method: "POST", pattern: "/logout" },
-  "calendar_config.create_closure": { method: "POST", pattern: "/api/v1/config/closures" },
-  "calendar_config.delete_closure": { method: "DELETE", pattern: "/api/v1/config/closures/:id" },
-  "calendar_config.index": { method: "GET", pattern: "/configuration/calendrier" },
-  "calendar_config.toggle_holiday": { method: "POST", pattern: "/api/v1/config/holidays/toggle" },
-  "calendar_config.update_closure": { method: "PATCH", pattern: "/api/v1/config/closures/:id" },
-  "conditionnements.estimations": { method: "GET", pattern: "/api/v1/conditionnements/estimations" },
-  "conditionnements.index": { method: "GET", pattern: "/conditionnements" },
-  "conditionnements.rows": { method: "GET", pattern: "/api/v1/conditionnements/rows" },
-  "dashboard": { method: "GET", pattern: "/" },
-  "dashboard.kpis": { method: "GET", pattern: "/api/v1/dashboard/kpis" },
-  "dashboard.otd": { method: "GET", pattern: "/api/v1/dashboard/otd" },
-  "data.load": { method: "POST", pattern: "/api/v1/data/load" },
-  "design_system": { method: "GET", pattern: "/design-system" },
-  "diagnostic_test": { method: "GET", pattern: "/diagnostic-test" },
-  "expeditions.index": { method: "GET", pattern: "/expeditions" },
-  "expeditions.rows": { method: "GET", pattern: "/api/v1/expeditions/rows" },
-  "health.index": { method: "GET", pattern: "/health" },
-  "load.index": { method: "GET", pattern: "/charge" },
-  "order_planning.index": { method: "GET", pattern: "/api/v1/planning/order-lines" },
-  "order_planning.line_detail": { method: "GET", pattern: "/api/v1/planning/order-lines/:order/:line" },
-  "order_planning.reset_override": { method: "DELETE", pattern: "/api/v1/planning/order-lines/:order/:line/override" },
-  "order_planning.update": { method: "PATCH", pattern: "/api/v1/planning/order-lines/:order/:line" },
-  "perf.index": { method: "GET", pattern: "/api/v1/_perf" },
-  "planning": { method: "GET", pattern: "/planification" },
-  "planning_board.articles_by_component": { method: "GET", pattern: "/api/v1/planning/articles-by-component/:component" },
-  "planning_board.board_feasibility": { method: "POST", pattern: "/api/v1/planning/board-feasibility" },
-  "planning_board.of_materials_diagnostic": { method: "GET", pattern: "/api/v1/planning/of-materials/:of/diagnostic" },
-  "planning_board.search_of": { method: "GET", pattern: "/api/v1/planning/search/of" },
-  "planning_board.search_pf": { method: "GET", pattern: "/api/v1/planning/search/pf" },
-  "planning_board.search_poste": { method: "GET", pattern: "/api/v1/planning/search/poste" },
-  "planning_board.update": { method: "PATCH", pattern: "/api/v1/planning/ofs/:of" },
-  "planning.order_firm": { method: "POST", pattern: "/api/v1/planning/orders/:orderNum/firm" },
-  "planning.suggestion_firm": { method: "POST", pattern: "/api/v1/planning/suggestions/:sugNum/firm" },
-  "receptions.index": { method: "GET", pattern: "/receptions" },
-  "receptions.rows": { method: "GET", pattern: "/api/v1/receptions/rows" },
-  "scenarios.destroy": { method: "DELETE", pattern: "/api/v1/planning/scenarios/:id" },
-  "scenarios.diff": { method: "POST", pattern: "/api/v1/planning/scenarios/diff" },
-  "scenarios.index": { method: "GET", pattern: "/api/v1/planning/scenarios" },
-  "scenarios.show": { method: "GET", pattern: "/api/v1/planning/scenarios/:id" },
-  "scenarios.store": { method: "POST", pattern: "/api/v1/planning/scenarios" },
-  "scenarios.update": { method: "PATCH", pattern: "/api/v1/planning/scenarios/:id" },
-  "scheduler.of_detail": { method: "GET", pattern: "/api/v1/planning/ofs/:of/detail" },
-  "scheduler.poste_engagement": { method: "GET", pattern: "/api/v1/planning/postes/:poste/engagement" },
-  "scheduler.programme": { method: "GET", pattern: "/programme" },
-  "scheduler.shortage_rows": { method: "GET", pattern: "/api/v1/planning/shortages/rows" },
-  "scheduler.shortage_tracker": { method: "GET", pattern: "/ruptures" },
-  "scheduling": { method: "GET", pattern: "/ordonnancement" },
-  "static_sync.status": { method: "GET", pattern: "/api/v1/static/status" },
-  "static_sync.sync": { method: "POST", pattern: "/api/v1/static/sync" },
-  "suivi.assign": { method: "POST", pattern: "/api/v1/status/assign" },
-  "suivi.board": { method: "GET", pattern: "/suivi" },
-  "suivi.from_latest_export": { method: "POST", pattern: "/api/v1/status/from-latest-export" },
-  "suivi.palette": { method: "POST", pattern: "/api/v1/status/palette" },
-  "suivi.proactive_rows": { method: "GET", pattern: "/api/v1/status/proactive-rows" },
-  "suivi.retard_charge": { method: "POST", pattern: "/api/v1/status/retard-charge" },
-  "suivi.rows": { method: "GET", pattern: "/api/v1/status/rows" },
-  "x3_writeback_test": { method: "GET", pattern: "/writeback-test" },
-  "x3_writeback.delete": { method: "GET", pattern: "/api/v1/x3/writeback/delete" },
-  "x3_writeback.describe": { method: "GET", pattern: "/api/v1/x3/writeback/describe" },
-  "x3_writeback.list": { method: "GET", pattern: "/api/v1/x3/writeback/list" },
-  "x3_writeback.modify": { method: "POST", pattern: "/api/v1/x3/writeback/modify" },
-  "x3_writeback.read": { method: "GET", pattern: "/api/v1/x3/writeback/read" },
-  "x3_writeback.run": { method: "POST", pattern: "/api/v1/x3/writeback/run" },
-  "x3_writeback.save": { method: "POST", pattern: "/api/v1/x3/writeback/save" },
+  'assets.css': { method: 'GET', pattern: '/css/app.css' },
+  'assets.js': { method: 'GET', pattern: '/js/app.js' },
+  'auth.attempt': { method: 'POST', pattern: '/login' },
+  'auth.login': { method: 'GET', pattern: '/login' },
+  'auth.logout': { method: 'POST', pattern: '/logout' },
+  'calendar_config.create_closure': { method: 'POST', pattern: '/api/v1/config/closures' },
+  'calendar_config.delete_closure': { method: 'DELETE', pattern: '/api/v1/config/closures/:id' },
+  'calendar_config.index': { method: 'GET', pattern: '/configuration/calendrier' },
+  'calendar_config.toggle_holiday': { method: 'POST', pattern: '/api/v1/config/holidays/toggle' },
+  'calendar_config.update_closure': { method: 'PATCH', pattern: '/api/v1/config/closures/:id' },
+  'conditionnements.estimations': {
+    method: 'GET',
+    pattern: '/api/v1/conditionnements/estimations',
+  },
+  'conditionnements.index': { method: 'GET', pattern: '/conditionnements' },
+  'conditionnements.rows': { method: 'GET', pattern: '/api/v1/conditionnements/rows' },
+  'dashboard': { method: 'GET', pattern: '/' },
+  'dashboard.kpis': { method: 'GET', pattern: '/api/v1/dashboard/kpis' },
+  'dashboard.otd': { method: 'GET', pattern: '/api/v1/dashboard/otd' },
+  'data.load': { method: 'POST', pattern: '/api/v1/data/load' },
+  'design_system': { method: 'GET', pattern: '/design-system' },
+  'diagnostic_test': { method: 'GET', pattern: '/diagnostic-test' },
+  'expeditions.index': { method: 'GET', pattern: '/expeditions' },
+  'expeditions.rows': { method: 'GET', pattern: '/api/v1/expeditions/rows' },
+  'health.index': { method: 'GET', pattern: '/health' },
+  'load.index': { method: 'GET', pattern: '/charge' },
+  'order_planning.index': { method: 'GET', pattern: '/api/v1/planning/order-lines' },
+  'order_planning.line_detail': {
+    method: 'GET',
+    pattern: '/api/v1/planning/order-lines/:order/:line',
+  },
+  'order_planning.reset_override': {
+    method: 'DELETE',
+    pattern: '/api/v1/planning/order-lines/:order/:line/override',
+  },
+  'order_planning.update': {
+    method: 'PATCH',
+    pattern: '/api/v1/planning/order-lines/:order/:line',
+  },
+  'perf.index': { method: 'GET', pattern: '/api/v1/_perf' },
+  'planning': { method: 'GET', pattern: '/planification' },
+  'planning_board.articles_by_component': {
+    method: 'GET',
+    pattern: '/api/v1/planning/articles-by-component/:component',
+  },
+  'planning_board.board_feasibility': {
+    method: 'POST',
+    pattern: '/api/v1/planning/board-feasibility',
+  },
+  'planning_board.of_materials_diagnostic': {
+    method: 'GET',
+    pattern: '/api/v1/planning/of-materials/:of/diagnostic',
+  },
+  'planning_board.search_of': { method: 'GET', pattern: '/api/v1/planning/search/of' },
+  'planning_board.search_pf': { method: 'GET', pattern: '/api/v1/planning/search/pf' },
+  'planning_board.search_poste': { method: 'GET', pattern: '/api/v1/planning/search/poste' },
+  'planning_board.update': { method: 'PATCH', pattern: '/api/v1/planning/ofs/:of' },
+  'planning.order_firm': { method: 'POST', pattern: '/api/v1/planning/orders/:orderNum/firm' },
+  'planning.suggestion_firm': {
+    method: 'POST',
+    pattern: '/api/v1/planning/suggestions/:sugNum/firm',
+  },
+  'receptions.index': { method: 'GET', pattern: '/receptions' },
+  'receptions.rows': { method: 'GET', pattern: '/api/v1/receptions/rows' },
+  'scenarios.destroy': { method: 'DELETE', pattern: '/api/v1/planning/scenarios/:id' },
+  'scenarios.diff': { method: 'POST', pattern: '/api/v1/planning/scenarios/diff' },
+  'scenarios.index': { method: 'GET', pattern: '/api/v1/planning/scenarios' },
+  'scenarios.show': { method: 'GET', pattern: '/api/v1/planning/scenarios/:id' },
+  'scenarios.store': { method: 'POST', pattern: '/api/v1/planning/scenarios' },
+  'scenarios.update': { method: 'PATCH', pattern: '/api/v1/planning/scenarios/:id' },
+  'scheduler.of_detail': { method: 'GET', pattern: '/api/v1/planning/ofs/:of/detail' },
+  'scheduler.poste_engagement': {
+    method: 'GET',
+    pattern: '/api/v1/planning/postes/:poste/engagement',
+  },
+  'scheduler.programme': { method: 'GET', pattern: '/programme' },
+  'scheduler.shortage_rows': { method: 'GET', pattern: '/api/v1/planning/shortages/rows' },
+  'scheduler.shortage_tracker': { method: 'GET', pattern: '/ruptures' },
+  'scheduling': { method: 'GET', pattern: '/ordonnancement' },
+  'static_sync.status': { method: 'GET', pattern: '/api/v1/static/status' },
+  'static_sync.sync': { method: 'POST', pattern: '/api/v1/static/sync' },
+  'suivi.assign': { method: 'POST', pattern: '/api/v1/status/assign' },
+  'suivi.board': { method: 'GET', pattern: '/suivi' },
+  'suivi.from_latest_export': { method: 'POST', pattern: '/api/v1/status/from-latest-export' },
+  'suivi.palette': { method: 'POST', pattern: '/api/v1/status/palette' },
+  'suivi.proactive_rows': { method: 'GET', pattern: '/api/v1/status/proactive-rows' },
+  'suivi.retard_charge': { method: 'POST', pattern: '/api/v1/status/retard-charge' },
+  'suivi.rows': { method: 'GET', pattern: '/api/v1/status/rows' },
+  'x3_writeback_test': { method: 'GET', pattern: '/writeback-test' },
+  'x3_writeback.delete': { method: 'GET', pattern: '/api/v1/x3/writeback/delete' },
+  'x3_writeback.describe': { method: 'GET', pattern: '/api/v1/x3/writeback/describe' },
+  'x3_writeback.list': { method: 'GET', pattern: '/api/v1/x3/writeback/list' },
+  'x3_writeback.modify': { method: 'POST', pattern: '/api/v1/x3/writeback/modify' },
+  'x3_writeback.read': { method: 'GET', pattern: '/api/v1/x3/writeback/read' },
+  'x3_writeback.run': { method: 'POST', pattern: '/api/v1/x3/writeback/run' },
+  'x3_writeback.save': { method: 'POST', pattern: '/api/v1/x3/writeback/save' },
 } as const satisfies Record<string, { method: string; pattern: string }>
 
 export type RouteName = keyof typeof MANIFEST
@@ -84,73 +111,73 @@ export type RouteName = keyof typeof MANIFEST
  * `void` = aucun paramètre de path ; les query strings (?start&days…) restent à l'appelant.
  */
 export type RouteParams = {
-  "assets.css": void,
-  "assets.js": void,
-  "auth.attempt": void,
-  "auth.login": void,
-  "auth.logout": void,
-  "calendar_config.create_closure": void,
-  "calendar_config.delete_closure": { "id": string | number },
-  "calendar_config.index": void,
-  "calendar_config.toggle_holiday": void,
-  "calendar_config.update_closure": { "id": string | number },
-  "conditionnements.estimations": void,
-  "conditionnements.index": void,
-  "conditionnements.rows": void,
-  "dashboard": void,
-  "dashboard.kpis": void,
-  "dashboard.otd": void,
-  "data.load": void,
-  "design_system": void,
-  "diagnostic_test": void,
-  "expeditions.index": void,
-  "expeditions.rows": void,
-  "health.index": void,
-  "load.index": void,
-  "order_planning.index": void,
-  "order_planning.line_detail": { "order": string | number; "line": string | number },
-  "order_planning.reset_override": { "order": string | number; "line": string | number },
-  "order_planning.update": { "order": string | number; "line": string | number },
-  "perf.index": void,
-  "planning": void,
-  "planning_board.articles_by_component": { "component": string | number },
-  "planning_board.board_feasibility": void,
-  "planning_board.of_materials_diagnostic": { "of": string | number },
-  "planning_board.search_of": void,
-  "planning_board.search_pf": void,
-  "planning_board.search_poste": void,
-  "planning_board.update": { "of": string | number },
-  "planning.order_firm": { "orderNum": string | number },
-  "planning.suggestion_firm": { "sugNum": string | number },
-  "receptions.index": void,
-  "receptions.rows": void,
-  "scenarios.destroy": { "id": string | number },
-  "scenarios.diff": void,
-  "scenarios.index": void,
-  "scenarios.show": { "id": string | number },
-  "scenarios.store": void,
-  "scenarios.update": { "id": string | number },
-  "scheduler.of_detail": { "of": string | number },
-  "scheduler.poste_engagement": { "poste": string | number },
-  "scheduler.programme": void,
-  "scheduler.shortage_rows": void,
-  "scheduler.shortage_tracker": void,
-  "scheduling": void,
-  "static_sync.status": void,
-  "static_sync.sync": void,
-  "suivi.assign": void,
-  "suivi.board": void,
-  "suivi.from_latest_export": void,
-  "suivi.palette": void,
-  "suivi.proactive_rows": void,
-  "suivi.retard_charge": void,
-  "suivi.rows": void,
-  "x3_writeback_test": void,
-  "x3_writeback.delete": void,
-  "x3_writeback.describe": void,
-  "x3_writeback.list": void,
-  "x3_writeback.modify": void,
-  "x3_writeback.read": void,
-  "x3_writeback.run": void,
-  "x3_writeback.save": void
+  'assets.css': void
+  'assets.js': void
+  'auth.attempt': void
+  'auth.login': void
+  'auth.logout': void
+  'calendar_config.create_closure': void
+  'calendar_config.delete_closure': { id: string | number }
+  'calendar_config.index': void
+  'calendar_config.toggle_holiday': void
+  'calendar_config.update_closure': { id: string | number }
+  'conditionnements.estimations': void
+  'conditionnements.index': void
+  'conditionnements.rows': void
+  'dashboard': void
+  'dashboard.kpis': void
+  'dashboard.otd': void
+  'data.load': void
+  'design_system': void
+  'diagnostic_test': void
+  'expeditions.index': void
+  'expeditions.rows': void
+  'health.index': void
+  'load.index': void
+  'order_planning.index': void
+  'order_planning.line_detail': { order: string | number; line: string | number }
+  'order_planning.reset_override': { order: string | number; line: string | number }
+  'order_planning.update': { order: string | number; line: string | number }
+  'perf.index': void
+  'planning': void
+  'planning_board.articles_by_component': { component: string | number }
+  'planning_board.board_feasibility': void
+  'planning_board.of_materials_diagnostic': { of: string | number }
+  'planning_board.search_of': void
+  'planning_board.search_pf': void
+  'planning_board.search_poste': void
+  'planning_board.update': { of: string | number }
+  'planning.order_firm': { orderNum: string | number }
+  'planning.suggestion_firm': { sugNum: string | number }
+  'receptions.index': void
+  'receptions.rows': void
+  'scenarios.destroy': { id: string | number }
+  'scenarios.diff': void
+  'scenarios.index': void
+  'scenarios.show': { id: string | number }
+  'scenarios.store': void
+  'scenarios.update': { id: string | number }
+  'scheduler.of_detail': { of: string | number }
+  'scheduler.poste_engagement': { poste: string | number }
+  'scheduler.programme': void
+  'scheduler.shortage_rows': void
+  'scheduler.shortage_tracker': void
+  'scheduling': void
+  'static_sync.status': void
+  'static_sync.sync': void
+  'suivi.assign': void
+  'suivi.board': void
+  'suivi.from_latest_export': void
+  'suivi.palette': void
+  'suivi.proactive_rows': void
+  'suivi.retard_charge': void
+  'suivi.rows': void
+  'x3_writeback_test': void
+  'x3_writeback.delete': void
+  'x3_writeback.describe': void
+  'x3_writeback.list': void
+  'x3_writeback.modify': void
+  'x3_writeback.read': void
+  'x3_writeback.run': void
+  'x3_writeback.save': void
 }

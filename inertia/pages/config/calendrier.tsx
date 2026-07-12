@@ -48,7 +48,20 @@ interface Props {
 
 type View = 'registre' | 'frise'
 
-const MOIS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.']
+const MOIS = [
+  'janv.',
+  'févr.',
+  'mars',
+  'avr.',
+  'mai',
+  'juin',
+  'juil.',
+  'août',
+  'sept.',
+  'oct.',
+  'nov.',
+  'déc.',
+]
 /** ISO `YYYY-MM-DD` → « 14 juil. ». */
 const frShort = (iso: string): string => {
   const [, m, d] = iso.split('-').map(Number)
@@ -60,14 +73,17 @@ const frNum = (iso: string): string => {
   return `${d}/${m}/${y.slice(2)}`
 }
 
-const factorLabel = (f: number): string => (f <= 0 ? '0 %' : f >= 1 ? '100 %' : `${Math.round(f * 100)} %`)
+const factorLabel = (f: number): string =>
+  f <= 0 ? '0 %' : f >= 1 ? '100 %' : `${Math.round(f * 100)} %`
 
 const Calendrier: Component<Props> = (props) => {
   const [view, setView] = createSignal<View>('registre')
   const [holidays, setHolidays] = createStore<Holiday[]>(props.holidays)
   const [closures, setClosures] = createStore<Closure[]>(props.closures)
   // null = formulaire fermé ; sinon ajout ou édition d'une fermeture existante.
-  const [formState, setFormState] = createSignal<{ mode: 'add' } | { mode: 'edit'; closure: Closure } | null>(null)
+  const [formState, setFormState] = createSignal<
+    { mode: 'add' } | { mode: 'edit'; closure: Closure } | null
+  >(null)
   const [warn, setWarn] = createSignal('')
 
   const activeCount = createMemo(() => holidays.filter((h) => h.active).length)
@@ -84,10 +100,12 @@ const Calendrier: Component<Props> = (props) => {
         const i = cs.findIndex((c) => c.id === res.closure.id)
         if (i >= 0) cs[i] = res.closure
         else cs.push(res.closure)
-      }),
+      })
     )
     if (res.warn) {
-      setWarn('Chevauchement avec une fermeture de motif/capacité différents — le plus restrictif s’applique.')
+      setWarn(
+        'Chevauchement avec une fermeture de motif/capacité différents — le plus restrictif s’applique.'
+      )
     }
   }
 
@@ -117,7 +135,7 @@ const Calendrier: Component<Props> = (props) => {
     m === 'maintenance' ? 'Maintenance' : m === 'conges' ? 'Congés' : m || 'Autre'
 
   const scopeChip = (c: Closure): { label: string; dot: string } => {
-    if (c.scope === 'global') return { label: 'Toute l\'usine', dot: 'var(--color-planifie)' }
+    if (c.scope === 'global') return { label: "Toute l'usine", dot: 'var(--color-planifie)' }
     if (c.scope === 'stoloc') return { label: `Atelier ${c.code}`, dot: 'var(--color-planifie)' }
     return { label: c.code, dot: 'var(--color-ferme)' }
   }
@@ -129,7 +147,9 @@ const Calendrier: Component<Props> = (props) => {
         active="config"
         meta={
           <>
-            <div class="font-fraunces text-[12px] font-bold italic text-brand">Année {props.year}</div>
+            <div class="font-fraunces text-[12px] font-bold italic text-brand">
+              Année {props.year}
+            </div>
             <div>
               <b class="font-bold text-foreground">{activeCount()}</b> fériés actifs ·{' '}
               <b class="font-bold text-foreground">{closures.length}</b> fermetures
@@ -138,14 +158,16 @@ const Calendrier: Component<Props> = (props) => {
         }
         actions={
           <div class="inline-flex items-center gap-0.5 rounded-md border border-rule bg-card p-0.5">
-            <For each={(['registre', 'frise'] as const)}>
+            <For each={['registre', 'frise'] as const}>
               {(v) => (
                 <button
                   type="button"
                   onClick={() => setView(v)}
                   class={cx(
                     'rounded-[5px] px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
-                    view() === v ? 'bg-brand-soft text-brand' : 'text-muted-foreground hover:text-foreground',
+                    view() === v
+                      ? 'bg-brand-soft text-brand'
+                      : 'text-muted-foreground hover:text-foreground'
                   )}
                 >
                   {v === 'registre' ? 'Registre' : 'Frise'}
@@ -157,17 +179,23 @@ const Calendrier: Component<Props> = (props) => {
       />
 
       <div class="mx-auto w-full max-w-[1280px] px-7 py-6">
-        <h1 class="mb-1 font-fraunces text-[24px] font-extrabold tracking-tight">Calendrier usine {props.year}</h1>
+        <h1 class="mb-1 font-fraunces text-[24px] font-extrabold tracking-tight">
+          Calendrier usine {props.year}
+        </h1>
         <p class="mb-5 text-[13px] text-muted-foreground">
-          Jours ouvrés = calendrier français (fériés) moins les fermetures saisies par ligne. La capacité de{' '}
-          <b class="text-foreground">/charge</b> en découle directement.
+          Jours ouvrés = calendrier français (fériés) moins les fermetures saisies par ligne. La
+          capacité de <b class="text-foreground">/charge</b> en découle directement.
         </p>
 
         <Show when={warn()}>
           <div class="mb-4 flex items-center gap-2 rounded-lg border border-suggere/40 bg-[color-mix(in_srgb,var(--color-suggere)_12%,transparent)] px-3.5 py-2 text-[12.5px]">
             <span class="material-symbols-outlined text-[17px] text-suggere">warning</span>
             <span class="flex-1">{warn()}</span>
-            <button type="button" onClick={() => setWarn('')} class="text-muted-foreground hover:text-foreground">
+            <button
+              type="button"
+              onClick={() => setWarn('')}
+              class="text-muted-foreground hover:text-foreground"
+            >
               <span class="material-symbols-outlined text-[16px]">close</span>
             </button>
           </div>
@@ -180,8 +208,8 @@ const Calendrier: Component<Props> = (props) => {
               <span class="material-symbols-outlined text-[34px] text-brand/60">view_timeline</span>
               <div class="font-fraunces text-[16px] font-bold">Vue Frise — bientôt</div>
               <p class="max-w-md text-[12.5px] text-muted-foreground">
-                Timeline par poste sur l'année (fériés + fermetures déplaçables). Conçue, pas encore câblée — la
-                vue Registre reste la source d'édition.
+                Timeline par poste sur l'année (fériés + fermetures déplaçables). Conçue, pas encore
+                câblée — la vue Registre reste la source d'édition.
               </p>
             </div>
           }
@@ -192,12 +220,16 @@ const Calendrier: Component<Props> = (props) => {
               <header class="flex items-center gap-2 border-b border-rule-soft px-4 py-3.5">
                 <span class="material-symbols-outlined text-[18px] text-brand">event</span>
                 <span class="font-fraunces text-[15px] font-bold">Jours fériés France</span>
-                <span class="ml-auto font-mono text-[11px] font-bold text-muted-foreground">{activeCount()} actifs</span>
+                <span class="ml-auto font-mono text-[11px] font-bold text-muted-foreground">
+                  {activeCount()} actifs
+                </span>
               </header>
               <For each={holidays}>
                 {(h) => (
                   <div class="flex items-center gap-3 border-b border-rule-soft px-4 py-2.5 last:border-0">
-                    <span class="w-[58px] flex-none font-mono text-[12px] font-bold text-brand">{frShort(h.date)}</span>
+                    <span class="w-[58px] flex-none font-mono text-[12px] font-bold text-brand">
+                      {frShort(h.date)}
+                    </span>
                     <span class="text-[13px] font-medium">
                       {h.name}
                       <span class="block text-[10.5px] font-normal text-muted-foreground">
@@ -211,7 +243,7 @@ const Calendrier: Component<Props> = (props) => {
                       onClick={() => toggleHoliday(h.date)}
                       class={cx(
                         'relative ml-auto h-[22px] w-[38px] flex-none rounded-full transition-colors',
-                        h.active ? 'bg-ferme' : 'bg-rule',
+                        h.active ? 'bg-ferme' : 'bg-rule'
                       )}
                     >
                       <span
@@ -228,8 +260,12 @@ const Calendrier: Component<Props> = (props) => {
             <section class="rounded-2xl border border-rule bg-card">
               <header class="flex items-center gap-2 border-b border-rule-soft px-4 py-3.5">
                 <span class="material-symbols-outlined text-[18px] text-suggere">engineering</span>
-                <span class="font-fraunces text-[15px] font-bold">Fermetures par ligne de production</span>
-                <span class="ml-auto font-mono text-[11px] font-bold text-muted-foreground">{closures.length} actives</span>
+                <span class="font-fraunces text-[15px] font-bold">
+                  Fermetures par ligne de production
+                </span>
+                <span class="ml-auto font-mono text-[11px] font-bold text-muted-foreground">
+                  {closures.length} actives
+                </span>
               </header>
 
               <Show
@@ -260,12 +296,19 @@ const Calendrier: Component<Props> = (props) => {
                           <tr class="hover:bg-rule/10">
                             <td class="border-b border-rule-soft px-3.5 py-2.5">
                               <span class="inline-flex items-center gap-1.5 rounded-full border border-rule bg-card px-2.5 py-0.5 font-mono text-[11px] font-bold">
-                                <span class="size-[7px] rounded-[2px]" style={{ background: chip.dot }} />
+                                <span
+                                  class="size-[7px] rounded-[2px]"
+                                  style={{ background: chip.dot }}
+                                />
                                 {chip.label}
                               </span>
                             </td>
-                            <td class="border-b border-rule-soft px-3.5 py-2.5 font-mono text-[12.5px]">{frNum(c.from)}</td>
-                            <td class="border-b border-rule-soft px-3.5 py-2.5 font-mono text-[12.5px]">{frNum(c.to)}</td>
+                            <td class="border-b border-rule-soft px-3.5 py-2.5 font-mono text-[12.5px]">
+                              {frNum(c.from)}
+                            </td>
+                            <td class="border-b border-rule-soft px-3.5 py-2.5 font-mono text-[12.5px]">
+                              {frNum(c.to)}
+                            </td>
                             <td class="border-b border-rule-soft px-3.5 py-2.5">
                               <span
                                 class="inline-block rounded-md px-2 py-0.5 text-[11px] font-semibold"
@@ -274,7 +317,8 @@ const Calendrier: Component<Props> = (props) => {
                                     c.motif === 'maintenance'
                                       ? 'color-mix(in srgb, var(--color-suggere) 18%, transparent)'
                                       : 'color-mix(in srgb, var(--color-planifie) 16%, transparent)',
-                                  color: c.motif === 'maintenance' ? '#5a4410' : 'var(--color-planifie)',
+                                  color:
+                                    c.motif === 'maintenance' ? '#5a4410' : 'var(--color-planifie)',
                                 }}
                               >
                                 {motifLabel(c.motif)}
@@ -282,7 +326,10 @@ const Calendrier: Component<Props> = (props) => {
                             </td>
                             <td
                               class="border-b border-rule-soft px-3.5 py-2.5 font-mono text-[12.5px] font-bold"
-                              style={{ color: c.factor <= 0 ? 'var(--color-danger)' : 'var(--color-suggere)' }}
+                              style={{
+                                color:
+                                  c.factor <= 0 ? 'var(--color-danger)' : 'var(--color-suggere)',
+                              }}
                             >
                               {factorLabel(c.factor)}
                             </td>
@@ -324,7 +371,8 @@ const Calendrier: Component<Props> = (props) => {
                       onClick={() => setFormState({ mode: 'add' })}
                       class="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-brand px-3 py-2 font-sans text-[12.5px] font-bold text-brand"
                     >
-                      <span class="material-symbols-outlined text-[16px]">add</span>Nouvelle fermeture
+                      <span class="material-symbols-outlined text-[16px]">add</span>Nouvelle
+                      fermeture
                     </button>
                     <span class="font-fraunces text-[11.5px] italic text-muted-foreground">
                       Portée : poste (WST) ou atelier (STOLOC). 0 % = fermé · 50 % = demi-journée.
@@ -367,7 +415,9 @@ function Pills<T extends string>(p: {
             onClick={() => p.onChange(o.v)}
             class={cx(
               'rounded-[5px] px-3 py-1.5 text-[12px] font-semibold transition-colors',
-              p.value() === o.v ? 'bg-brand-soft text-brand' : 'text-muted-foreground hover:text-foreground',
+              p.value() === o.v
+                ? 'bg-brand-soft text-brand'
+                : 'text-muted-foreground hover:text-foreground'
             )}
           >
             {o.label}
@@ -385,7 +435,9 @@ const targetLabel = (c: Closure) =>
   c.scope === 'global' ? "Toute l'usine" : c.scope === 'stoloc' ? `Atelier ${c.code}` : c.code
 const Field: Component<{ label: string; children: any }> = (p) => (
   <label class="flex flex-col gap-1.5">
-    <span class="font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">{p.label}</span>
+    <span class="font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+      {p.label}
+    </span>
     {p.children}
   </label>
 )
@@ -404,7 +456,7 @@ const ClosureForm: Component<{
   const [scope, setScope] = createSignal<'global' | 'wst' | 'stoloc'>(ed?.scope ?? 'wst')
   const [codes, setCodes] = createSignal<string[]>(ed && ed.scope !== 'global' ? [ed.code] : [])
   const [range, setRange] = createSignal<DateRange>(
-    ed ? { start: isoToDate(ed.from), end: isoToDate(ed.to) } : { start: null, end: null },
+    ed ? { start: isoToDate(ed.from), end: isoToDate(ed.to) } : { start: null, end: null }
   )
   const [motif, setMotif] = createSignal(ed?.motif || 'maintenance')
   const [factor, setFactor] = createSignal(ed ? String(ed.factor) : '0')
@@ -415,7 +467,7 @@ const ClosureForm: Component<{
   const codeOptions = createMemo(() =>
     scope() === 'stoloc'
       ? props.ateliers.map((a) => ({ v: a.code, label: a.label }))
-      : props.postes.map((p) => ({ v: p.code, label: p.code })),
+      : props.postes.map((p) => ({ v: p.code, label: p.code }))
   )
 
   const rangeLabel = createMemo(() => {
@@ -437,7 +489,12 @@ const ClosureForm: Component<{
   const submit = async () => {
     const r = range()
     if (!r.start) return
-    const base = { from: toIso(r.start), to: toIso(r.end ?? r.start), motif: motif(), factor: Number(factor()) }
+    const base = {
+      from: toIso(r.start),
+      to: toIso(r.end ?? r.start),
+      motif: motif(),
+      factor: Number(factor()),
+    }
     setBusy(true)
     try {
       if (props.edit) {
@@ -467,7 +524,13 @@ const ClosureForm: Component<{
         fallback={
           <Field label="Ligne">
             <span class="inline-flex h-[34px] items-center gap-1.5 rounded-lg border border-rule bg-card px-3 font-mono text-[12.5px] font-bold">
-              <span class="size-[7px] rounded-[2px]" style={{ background: props.edit!.scope === 'wst' ? 'var(--color-ferme)' : 'var(--color-planifie)' }} />
+              <span
+                class="size-[7px] rounded-[2px]"
+                style={{
+                  background:
+                    props.edit!.scope === 'wst' ? 'var(--color-ferme)' : 'var(--color-planifie)',
+                }}
+              />
               {targetLabel(props.edit!)}
             </span>
           </Field>
@@ -508,12 +571,22 @@ const ClosureForm: Component<{
             onClick={() => setCalOpen((o) => !o)}
             class="flex h-[34px] min-w-[170px] items-center gap-2 rounded-lg border border-rule bg-card px-3 text-[12.5px] font-semibold transition-colors hover:border-brand"
           >
-            <span class="material-symbols-outlined text-[15px] text-muted-foreground">calendar_month</span>
+            <span class="material-symbols-outlined text-[15px] text-muted-foreground">
+              calendar_month
+            </span>
             <span classList={{ 'text-muted-foreground': !range().start }}>{rangeLabel()}</span>
-            <span class="material-symbols-outlined ml-auto text-[16px] text-muted-foreground">expand_more</span>
+            <span class="material-symbols-outlined ml-auto text-[16px] text-muted-foreground">
+              expand_more
+            </span>
           </button>
           <Show when={calOpen()}>
-            <button type="button" tabIndex={-1} aria-hidden="true" class="fixed inset-0 z-40 cursor-default" onClick={() => setCalOpen(false)} />
+            <button
+              type="button"
+              tabIndex={-1}
+              aria-hidden="true"
+              class="fixed inset-0 z-40 cursor-default"
+              onClick={() => setCalOpen(false)}
+            />
             <div class="absolute left-0 top-full z-50 mt-2">
               <Calendar
                 mode="range"
@@ -557,9 +630,15 @@ const ClosureForm: Component<{
         </Button>
         <Button
           onClick={submit}
-          disabled={busy() || !range().start || (!props.edit && scope() !== 'global' && codes().length === 0)}
+          disabled={
+            busy() ||
+            !range().start ||
+            (!props.edit && scope() !== 'global' && codes().length === 0)
+          }
         >
-          <span class="material-symbols-outlined mr-1 text-[16px]">{props.edit ? 'check' : 'add'}</span>
+          <span class="material-symbols-outlined mr-1 text-[16px]">
+            {props.edit ? 'check' : 'add'}
+          </span>
           {props.edit ? 'Enregistrer' : 'Ajouter'}
         </Button>
       </div>

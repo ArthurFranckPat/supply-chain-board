@@ -21,7 +21,7 @@ createInertiaApp({
           <Toaster position="top-right" richColors closeButton duration={4000} />
         </>
       ),
-      el,
+      el
     )
   },
 })

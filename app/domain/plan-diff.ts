@@ -15,7 +15,11 @@ import type { Article } from './models/article.js'
 import type { FeasibilityOptions } from './stock-state.js'
 import type { Nomenclature } from './models/nomenclature.js'
 import type { OfOverride } from './planning_board.js'
-import { evaluateOrderImpacts, type OrderImpactResult, type OrderImpactRow } from './order-impacts.js'
+import {
+  evaluateOrderImpacts,
+  type OrderImpactResult,
+  type OrderImpactRow,
+} from './order-impacts.js'
 
 // ---------------------------------------------------------------------------
 // Mutations (primitive de la vision §3)
@@ -247,8 +251,7 @@ function diffClient(before: OrderImpactResult, after: OrderImpactResult): Client
     const b = beforeByKey.get(key)
     const a = afterByKey.get(key)
     const ref = (a ?? b)!
-    const changed =
-      !b || !a || b.statut !== a.statut || b.joursRetard !== a.joursRetard
+    const changed = !b || !a || b.statut !== a.statut || b.joursRetard !== a.joursRetard
     if (!changed) continue
 
     const base = {
@@ -270,7 +273,9 @@ function diffClient(before: OrderImpactResult, after: OrderImpactResult): Client
 }
 
 /** Manquants agrégés par composant sur tous les OFs évalués. */
-function missingByComponent(result: OrderImpactResult): Map<string, { total: number; ofs: Map<string, number> }> {
+function missingByComponent(
+  result: OrderImpactResult
+): Map<string, { total: number; ofs: Map<string, number> }> {
   const acc = new Map<string, { total: number; ofs: Map<string, number> }>()
   for (const of of result.ofs) {
     for (const [composant, qty] of Object.entries(of.missingComponents)) {
@@ -318,7 +323,10 @@ function allocatedOfs(row: OrderImpactRow): Set<string> {
   return new Set(row.ofs.map((of) => of.numOf))
 }
 
-function diffAllocation(before: OrderImpactResult, after: OrderImpactResult): AllocationDiffEntry[] {
+function diffAllocation(
+  before: OrderImpactResult,
+  after: OrderImpactResult
+): AllocationDiffEntry[] {
   const beforeByKey = new Map(before.orders.map((r) => [orderKey(r), r]))
   const afterByKey = new Map(after.orders.map((r) => [orderKey(r), r]))
 
@@ -358,9 +366,10 @@ function diffAllocation(before: OrderImpactResult, after: OrderImpactResult): Al
       gagne,
       beneficiaires,
       deltaReliquat,
-      sens: deltaReliquat > 0 || (perd.length > 0 && gagne.length === 0)
-        ? 'degradation'
-        : 'amelioration',
+      sens:
+        deltaReliquat > 0 || (perd.length > 0 && gagne.length === 0)
+          ? 'degradation'
+          : 'amelioration',
     })
   }
   return entries

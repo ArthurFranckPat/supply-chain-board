@@ -151,9 +151,6 @@ Pattern B only (verify-only checkpoints). Skip for A/C.
 
    **Known Claude Code bug (classifyHandoffIfNeeded):** If any segment agent reports "failed" with `classifyHandoffIfNeeded is not defined`, this is a Claude Code runtime bug - not a real failure. Run spot-checks; if they pass, treat as successful.
 
-
-
-
 </step>
 
 <step name="load_prompt">
@@ -183,9 +180,9 @@ Deviations are normal - handle via rules below.
    - `type="auto"`: if `tdd="true"` → TDD execution. Implement with deviation rules + auth gates. Verify done criteria. Commit (see task_commit). Track hash for Summary.
    - `type="checkpoint:*"`: STOP → checkpoint_protocol → wait for user → continue only after confirmation.
    - **MANDATORY acceptance_criteria check:** After completing each task, if it has `<acceptance_criteria>`, verify EVERY criterion before moving to the next task. Use grep, file reads, or CLI commands to confirm each criterion. If any criterion fails, fix the implementation before proceeding. Do not skip criteria or mark them as "will verify later".
-3. Run `<verification>` checks
-4. Confirm `<success_criteria>` met
-5. Document deviations in Summary
+4. Run `<verification>` checks
+5. Confirm `<success_criteria>` met
+6. Document deviations in Summary
 </step>
 
 <authentication_gates>
@@ -197,6 +194,7 @@ Auth errors during execution are NOT failures - they're expected interaction poi
 **Indicators:** "Not authenticated", "Unauthorized", 401/403, "Please run {tool} login", "Set {ENV_VAR}"
 
 **Protocol:**
+
 1. Recognize auth gate (not a bug)
 2. STOP task execution
 3. Create dynamic checkpoint:human-action with exact auth steps
@@ -225,6 +223,7 @@ You WILL discover unplanned work. Apply automatically, track all for Summary.
 | **4: Architectural**    | Structural change: new DB table, schema change, new service, switching libs, breaking API, new infra    | STOP → present decision (below) → track `[Rule 4 - Architectural]` | Ask user   |
 
 **Rule 4 format:**
+
 ```
 ⚠️ Architectural Decision Needed
 
@@ -257,6 +256,7 @@ End with: **Total deviations:** N auto-fixed (breakdown). **Impact:** assessment
 </deviation_documentation>
 
 <tdd_plan_execution>
+
 ## TDD Execution
 
 For `type: tdd` plans - RED-GREEN-REFACTOR:
@@ -272,6 +272,7 @@ See `.pi/gsd/references/tdd.md` for structure.
 </tdd_plan_execution>
 
 <precommit_failure_handling>
+
 ## Pre-commit Hook Failure Handling
 
 Your commits may trigger pre-commit hooks. Auto-fix hooks handle themselves transparently - files get fixed and re-staged automatically.
@@ -288,9 +289,10 @@ If a commit is BLOCKED by a hook:
 4. `git add` the fixed files
 5. Retry the commit
 6. Budget 1-2 retry cycles per commit
-</precommit_failure_handling>
+   </precommit_failure_handling>
 
 <task_commit>
+
 ## Task Commit Protocol
 
 After each task (verification passed, done criteria met), commit immediately.
@@ -298,6 +300,7 @@ After each task (verification passed, done criteria met), commit immediately.
 **1. Check:** `git status --short`
 
 **2. Stage individually** (NEVER `git add .` or `git add -A`):
+
 ```bash
 git add src/api/auth.ts
 git add src/types/user.ts
@@ -333,16 +336,20 @@ Record hashes from each repo in the response for SUMMARY tracking.
 </sub_repos_commit_flow>
 
 **5. Record hash:**
+
 ```bash
 TASK_COMMIT=$(git rev-parse --short HEAD)
 TASK_COMMITS+=("Task ${TASK_NUM}: ${TASK_COMMIT}")
 ```
 
 **6. Check for untracked generated files:**
+
 ```bash
 git status --short | grep '^??'
 ```
+
 If new untracked files appeared after running scripts or tools, decide for each:
+
 - **Commit it** - if it's a source file, config, or intentional artifact
 - **Add to .gitignore** - if it's a generated/runtime output (build artifacts, `.env` files, cache files, compiled output)
 - Do NOT leave generated files untracked
@@ -377,11 +384,13 @@ Orchestrator parses → presents to user → spawns fresh continuation with your
 If verification fails:
 
 **Check if node repair is enabled** (default: on):
+
 ```bash
 NODE_REPAIR=$(pi-gsd-tools config-get workflow.node_repair 2>/dev/null || echo "true")
 ```
 
 If `NODE_REPAIR` is `true`: invoke `@./.pi/gsd/workflows/node-repair.md` with:
+
 - FAILED_TASK: task number, name, done-criteria
 - ERROR: expected vs actual result
 - PLAN_CONTEXT: adjacent task names + phase goal
@@ -401,19 +410,20 @@ DURATION_SEC=$(( PLAN_END_EPOCH - PLAN_START_EPOCH ))
 DURATION_MIN=$(( DURATION_SEC / 60 ))
 
 if [[ $DURATION_MIN -ge 60 ]]; then
-  HRS=$(( DURATION_MIN / 60 ))
+HRS=$(( DURATION_MIN / 60 ))
   MIN=$(( DURATION_MIN % 60 ))
-  DURATION="${HRS}h ${MIN}m"
+DURATION="${HRS}h ${MIN}m"
 else
-  DURATION="${DURATION_MIN} min"
+DURATION="${DURATION_MIN} min"
 fi
-```
+
+````
 </step>
 
 <step name="generate_user_setup">
 ```bash
 grep -A 50 "^user_setup:" .planning/phases/XX-name/{phase}-{plan}-PLAN.md | head -50
-```
+````
 
 If user_setup exists: create `{phase}-USER-SETUP.md` using template `.pi/gsd/templates/user-setup.md`. Per service: env vars table, account setup checklist, dashboard config, local dev notes, verification commands. Status "Incomplete". Set `USER_SETUP_CREATED=true`. If empty/missing: skip.
 </step>
@@ -447,6 +457,7 @@ pi-gsd-tools state record-metric \
   --phase "${PHASE}" --plan "${PLAN}" --duration "${DURATION}" \
   --tasks "${TASK_COUNT}" --files "${FILE_COUNT}"
 ```
+
 </step>
 
 <step name="extract_decisions_and_issues">
@@ -461,6 +472,7 @@ pi-gsd-tools state add-decision \
 # Add blockers if any found
 pi-gsd-tools state add-blocker --text-file "${BLOCKER_TEXT_FILE}"
 ```
+
 </step>
 
 <step name="update_session_continuity">
@@ -502,6 +514,7 @@ Task code already committed per-task. Commit plan metadata:
 ```bash
 pi-gsd-tools commit "docs({phase}-{plan}): complete [plan-name] plan" --files .planning/phases/XX-name/{phase}-{plan}-SUMMARY.md .planning/STATE.md .planning/ROADMAP.md .planning/REQUIREMENTS.md
 ```
+
 </step>
 
 <step name="update_codebase_map">
@@ -517,6 +530,7 @@ Update only structural changes: new src/ dir → STRUCTURE.md | deps → STACK.m
 ```bash
 pi-gsd-tools commit "" --files .planning/codebase/*.md --amend
 ```
+
 </step>
 
 <step name="offer_next">
@@ -548,4 +562,4 @@ All routes: `/new` first for fresh context.
 - ROADMAP.md updated
 - If codebase map exists: map updated with execution changes (or skipped if no significant changes)
 - If USER-SETUP.md created: prominently surfaced in completion output
-</success_criteria>
+  </success_criteria>

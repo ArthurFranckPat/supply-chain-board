@@ -1,257 +1,870 @@
 <!doctype html>
 <html lang="fr">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Ruptures · R3 « Chronologie »</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700;9..144,900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,300,0,0" rel="stylesheet" />
-<style>
-:root{
-  --paper:#f1ebdf; --paper2:#ebe3d3; --panel:#fbf7ee; --panel2:#f6f0e2;
-  --rule:#d9cdb5; --rule-soft:#e6dcc6; --ink:#211c17; --ink2:#4a4138; --muted:#857967;
-  --terra:#b8472a; --terra-dim:rgba(184,71,42,.12); --ochre:#b8862c; --sage:#5b7d4e;
-  --danger:#a83a23;
-  --font-d:"Fraunces",Georgia,serif; --font-s:"Inter",system-ui,sans-serif; --font-m:"JetBrains Mono",ui-monospace,monospace;
-}
-*{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%}
-body{background:var(--paper);color:var(--ink);font-family:var(--font-s);font-size:14px;-webkit-font-smoothing:antialiased}
-.material-symbols-outlined{font-family:"Material Symbols Outlined";font-weight:300;line-height:1;font-feature-settings:"liga";-webkit-font-smoothing:antialiased;vertical-align:middle}
-.mono{font-family:var(--font-m)}
-*{scrollbar-width:thin;scrollbar-color:#cdbfa3 transparent}
-*::-webkit-scrollbar{width:10px;height:10px}
-*::-webkit-scrollbar-thumb{background:#cdbfa3;border-radius:9px;border:3px solid var(--paper)}
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ruptures · R3 « Chronologie »</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700;9..144,900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,300,0,0"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --paper: #f1ebdf;
+        --paper2: #ebe3d3;
+        --panel: #fbf7ee;
+        --panel2: #f6f0e2;
+        --rule: #d9cdb5;
+        --rule-soft: #e6dcc6;
+        --ink: #211c17;
+        --ink2: #4a4138;
+        --muted: #857967;
+        --terra: #b8472a;
+        --terra-dim: rgba(184, 71, 42, 0.12);
+        --ochre: #b8862c;
+        --sage: #5b7d4e;
+        --danger: #a83a23;
+        --font-d: 'Fraunces', Georgia, serif;
+        --font-s: 'Inter', system-ui, sans-serif;
+        --font-m: 'JetBrains Mono', ui-monospace, monospace;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        background: var(--paper);
+        color: var(--ink);
+        font-family: var(--font-s);
+        font-size: 14px;
+        -webkit-font-smoothing: antialiased;
+      }
+      .material-symbols-outlined {
+        font-family: 'Material Symbols Outlined';
+        font-weight: 300;
+        line-height: 1;
+        font-feature-settings: 'liga';
+        -webkit-font-smoothing: antialiased;
+        vertical-align: middle;
+      }
+      .mono {
+        font-family: var(--font-m);
+      }
+      * {
+        scrollbar-width: thin;
+        scrollbar-color: #cdbfa3 transparent;
+      }
+      *::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+      }
+      *::-webkit-scrollbar-thumb {
+        background: #cdbfa3;
+        border-radius: 9px;
+        border: 3px solid var(--paper);
+      }
 
-.app{height:100vh;display:flex;flex-direction:column;overflow:hidden}
-.mast{background:var(--paper);border-bottom:2px solid var(--ink);flex:none}
-.mast-top{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;padding:14px 28px 9px}
-.brand{display:flex;align-items:baseline;gap:14px}
-.brand .mk{font:900 28px var(--font-d);letter-spacing:-.03em;line-height:.9}
-.brand .mk em{font-style:italic;font-weight:500;color:var(--terra)}
-.brand .ed{font:500 10px var(--font-m);text-transform:uppercase;letter-spacing:.18em;color:var(--muted);padding-bottom:4px}
-.mast-meta{text-align:right;font:500 11px var(--font-m);color:var(--muted);line-height:1.6}
-.mast-meta b{color:var(--ink)}
-.mast-meta .vol{font:700 12px var(--font-d);color:var(--terra)}
-.nav{display:flex;align-items:center;padding:0 28px;border-top:1px solid var(--rule)}
-.nav a{font:600 12px var(--font-s);color:var(--ink2);text-decoration:none;padding:10px 15px;border-bottom:2px solid transparent;transition:.15s}
-.nav a:first-child{padding-left:0}
-.nav a:hover{color:var(--terra)}
-.nav a.active{color:var(--terra);border-bottom-color:var(--terra)}
-.nav .right{margin-left:auto;display:flex;align-items:center;gap:10px}
-.cmd{display:flex;align-items:center;background:var(--panel);border:1px solid var(--rule);border-radius:999px;height:30px;padding:0 6px 0 13px;transition:.15s}
-.cmd:focus-within{border-color:var(--terra);box-shadow:0 0 0 3px var(--terra-dim)}
-.cmd .material-symbols-outlined{font-size:17px;color:var(--muted)}
-.cmd input{border:0;outline:0;background:transparent;font:500 12px var(--font-s);width:230px;color:var(--ink)}
-.cmd input::placeholder{color:var(--muted)}
-.btn{display:inline-flex;align-items:center;gap:6px;font:600 12px var(--font-s);border-radius:999px;padding:7px 13px;cursor:pointer;border:1px solid transparent;text-decoration:none}
-.btn .material-symbols-outlined{font-size:15px}
-.btn-out{background:transparent;border-color:var(--rule);color:var(--ink)}
-.btn-out:hover{border-color:var(--ink);background:var(--panel)}
-.avatar{width:28px;height:28px;border-radius:50%;background:var(--terra);color:var(--panel);font:700 10px var(--font-m);display:flex;align-items:center;justify-content:center}
-.toolbar{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:13px 28px;border-bottom:1px solid var(--rule);flex:none}
-.toolbar-l,.toolbar-r{display:flex;align-items:center;gap:12px}
-.winnav{display:flex;align-items:center}
-.winnav a{width:30px;height:30px;border:1px solid var(--rule);background:var(--panel);display:flex;align-items:center;justify-content:center;color:var(--ink2);text-decoration:none}
-.winnav a:first-child{border-radius:999px 0 0 999px}
-.winnav a:last-child{border-radius:0 999px 999px 0;border-left:0}
-.winnav a:hover{background:var(--terra);color:var(--panel);border-color:var(--terra)}
-.winnav .material-symbols-outlined{font-size:18px}
-.period{font:700 22px var(--font-d);letter-spacing:-.02em;line-height:1}
-.period .yr{color:var(--muted);font-weight:500;font-style:italic}
-.range{font:600 12px var(--font-m);color:var(--ink2)}
-.legend{display:flex;align-items:center;gap:16px}
-.legend span{display:flex;align-items:center;gap:7px;font:500 12px var(--font-s);color:var(--ink2)}
-.legend i{width:18px;height:5px;border-radius:2px}
+      .app {
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .mast {
+        background: var(--paper);
+        border-bottom: 2px solid var(--ink);
+        flex: none;
+      }
+      .mast-top {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 20px;
+        padding: 14px 28px 9px;
+      }
+      .brand {
+        display: flex;
+        align-items: baseline;
+        gap: 14px;
+      }
+      .brand .mk {
+        font: 900 28px var(--font-d);
+        letter-spacing: -0.03em;
+        line-height: 0.9;
+      }
+      .brand .mk em {
+        font-style: italic;
+        font-weight: 500;
+        color: var(--terra);
+      }
+      .brand .ed {
+        font: 500 10px var(--font-m);
+        text-transform: uppercase;
+        letter-spacing: 0.18em;
+        color: var(--muted);
+        padding-bottom: 4px;
+      }
+      .mast-meta {
+        text-align: right;
+        font: 500 11px var(--font-m);
+        color: var(--muted);
+        line-height: 1.6;
+      }
+      .mast-meta b {
+        color: var(--ink);
+      }
+      .mast-meta .vol {
+        font: 700 12px var(--font-d);
+        color: var(--terra);
+      }
+      .nav {
+        display: flex;
+        align-items: center;
+        padding: 0 28px;
+        border-top: 1px solid var(--rule);
+      }
+      .nav a {
+        font: 600 12px var(--font-s);
+        color: var(--ink2);
+        text-decoration: none;
+        padding: 10px 15px;
+        border-bottom: 2px solid transparent;
+        transition: 0.15s;
+      }
+      .nav a:first-child {
+        padding-left: 0;
+      }
+      .nav a:hover {
+        color: var(--terra);
+      }
+      .nav a.active {
+        color: var(--terra);
+        border-bottom-color: var(--terra);
+      }
+      .nav .right {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .cmd {
+        display: flex;
+        align-items: center;
+        background: var(--panel);
+        border: 1px solid var(--rule);
+        border-radius: 999px;
+        height: 30px;
+        padding: 0 6px 0 13px;
+        transition: 0.15s;
+      }
+      .cmd:focus-within {
+        border-color: var(--terra);
+        box-shadow: 0 0 0 3px var(--terra-dim);
+      }
+      .cmd .material-symbols-outlined {
+        font-size: 17px;
+        color: var(--muted);
+      }
+      .cmd input {
+        border: 0;
+        outline: 0;
+        background: transparent;
+        font: 500 12px var(--font-s);
+        width: 230px;
+        color: var(--ink);
+      }
+      .cmd input::placeholder {
+        color: var(--muted);
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font: 600 12px var(--font-s);
+        border-radius: 999px;
+        padding: 7px 13px;
+        cursor: pointer;
+        border: 1px solid transparent;
+        text-decoration: none;
+      }
+      .btn .material-symbols-outlined {
+        font-size: 15px;
+      }
+      .btn-out {
+        background: transparent;
+        border-color: var(--rule);
+        color: var(--ink);
+      }
+      .btn-out:hover {
+        border-color: var(--ink);
+        background: var(--panel);
+      }
+      .avatar {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: var(--terra);
+        color: var(--panel);
+        font: 700 10px var(--font-m);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        padding: 13px 28px;
+        border-bottom: 1px solid var(--rule);
+        flex: none;
+      }
+      .toolbar-l,
+      .toolbar-r {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .winnav {
+        display: flex;
+        align-items: center;
+      }
+      .winnav a {
+        width: 30px;
+        height: 30px;
+        border: 1px solid var(--rule);
+        background: var(--panel);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--ink2);
+        text-decoration: none;
+      }
+      .winnav a:first-child {
+        border-radius: 999px 0 0 999px;
+      }
+      .winnav a:last-child {
+        border-radius: 0 999px 999px 0;
+        border-left: 0;
+      }
+      .winnav a:hover {
+        background: var(--terra);
+        color: var(--panel);
+        border-color: var(--terra);
+      }
+      .winnav .material-symbols-outlined {
+        font-size: 18px;
+      }
+      .period {
+        font: 700 22px var(--font-d);
+        letter-spacing: -0.02em;
+        line-height: 1;
+      }
+      .period .yr {
+        color: var(--muted);
+        font-weight: 500;
+        font-style: italic;
+      }
+      .range {
+        font: 600 12px var(--font-m);
+        color: var(--ink2);
+      }
+      .legend {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
+      .legend span {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        font: 500 12px var(--font-s);
+        color: var(--ink2);
+      }
+      .legend i {
+        width: 18px;
+        height: 5px;
+        border-radius: 2px;
+      }
 
-/* ═══ timeline board ═══ */
-.board{flex:1;overflow:auto;padding:16px 28px 28px}
-.tlwrap{background:var(--panel);border:1px solid var(--rule);border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(33,28,23,.05);min-width:1040px}
-/* axis */
-.axis{display:grid;grid-template-columns:230px repeat(11,1fr);background:var(--panel2);border-bottom:1px solid var(--rule);position:sticky;top:0;z-index:5}
-.axis .lbl{padding:10px 16px;font:700 9px var(--font-m);text-transform:uppercase;letter-spacing:.12em;color:var(--muted)}
-.axis .d{text-align:center;padding:8px 0;border-left:1px solid var(--rule-soft)}
-.axis .d .dn{font:600 8px var(--font-m);text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
-.axis .d .dd{font:700 15px var(--font-d);color:var(--ink);line-height:1.1;letter-spacing:-.02em}
-.axis .d.today{background:var(--terra-dim)}
-.axis .d.today .dn,.axis .d.today .dd{color:var(--terra)}
-/* lane */
-.lane{display:grid;grid-template-columns:230px repeat(11,1fr);align-items:stretch;border-bottom:1px solid var(--rule-soft);min-height:62px}
-.lane:last-child{border-bottom:0}
-.lane:hover{background:var(--panel2)}
-.lane .id{grid-column:1;padding:10px 16px;display:flex;flex-direction:column;justify-content:center;gap:2px;border-right:1px solid var(--rule)}
-.lane .id .top{display:flex;align-items:center;gap:7px}
-.lane .id .dot{width:8px;height:8px;border-radius:2px;flex:none}
-.lane .id .comp{font:700 13px var(--font-m);color:var(--ink);letter-spacing:-.01em}
-.lane .id .meta{font:500 11px var(--font-s);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.lane .id .meta b{color:var(--terra);font-weight:700}
-.lane .track{grid-column:2 / -1;position:relative;display:grid;grid-template-columns:repeat(11,1fr);
-  background:repeating-linear-gradient(to right,transparent 0,transparent calc(100%/11 - 1px),var(--rule-soft) calc(100%/11 - 1px),var(--rule-soft) calc(100%/11))}
-/* segment */
-.seg{align-self:center;height:14px;border-radius:7px;margin:0 2px;display:flex;align-items:center;justify-content:center;font:700 9px var(--font-m);color:#fff;white-space:nowrap;overflow:hidden;letter-spacing:.02em;z-index:1}
-.seg.late{background:var(--ochre)}
-.seg.none{background:repeating-linear-gradient(45deg,var(--danger),var(--danger) 5px,#8f2f1c 5px,#8f2f1c 10px)}
-.seg.ok{background:var(--sage)}
-/* ticks (besoin / rec) layer in same cell */
-.mk-tick{align-self:center;justify-self:center;width:2px;height:40px;background:var(--terra);border-radius:2px;z-index:2;position:relative}
-.mk-tick::before{content:"▼";position:absolute;top:-13px;left:50%;transform:translateX(-50%);color:var(--terra);font-size:11px;line-height:1}
-.mk-rec{align-self:center;justify-self:center;width:18px;height:18px;border-radius:50%;background:var(--panel);border:3px solid var(--sage);z-index:3;display:flex;align-items:center;justify-content:center;position:relative}
-.mk-rec.late{border-color:var(--ochre)}
-.mk-rec.late::after{content:"!";font:700 10px var(--font-m);color:var(--ochre)}
-.mk-rec.ok::after{content:"✓";font:700 10px var(--font-m);color:var(--sage)}
-.mk-rec .tag-l{position:absolute;top:-15px;left:50%;transform:translateX(-50%);font:700 8px var(--font-m);white-space:nowrap;color:var(--ink2);background:var(--panel);padding:1px 4px;border-radius:3px;border:1px solid var(--rule-soft)}
-/* verdict pill on lane id */
-.vp{font:700 8px var(--font-m);text-transform:uppercase;letter-spacing:.05em;padding:2px 6px;border-radius:3px;display:inline-flex;align-items:center;gap:3px;width:fit-content;margin-top:2px}
-.vp .material-symbols-outlined{font-size:11px}
-.vp.bad{background:rgba(168,58,35,.1);color:var(--danger)}
-.vp.warn{background:rgba(184,134,44,.13);color:#8a6515}
-.vp.ok{background:rgba(91,125,78,.13);color:#3f5e30}
+      /* ═══ timeline board ═══ */
+      .board {
+        flex: 1;
+        overflow: auto;
+        padding: 16px 28px 28px;
+      }
+      .tlwrap {
+        background: var(--panel);
+        border: 1px solid var(--rule);
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 1px 3px rgba(33, 28, 23, 0.05);
+        min-width: 1040px;
+      }
+      /* axis */
+      .axis {
+        display: grid;
+        grid-template-columns: 230px repeat(11, 1fr);
+        background: var(--panel2);
+        border-bottom: 1px solid var(--rule);
+        position: sticky;
+        top: 0;
+        z-index: 5;
+      }
+      .axis .lbl {
+        padding: 10px 16px;
+        font: 700 9px var(--font-m);
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: var(--muted);
+      }
+      .axis .d {
+        text-align: center;
+        padding: 8px 0;
+        border-left: 1px solid var(--rule-soft);
+      }
+      .axis .d .dn {
+        font: 600 8px var(--font-m);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--muted);
+      }
+      .axis .d .dd {
+        font: 700 15px var(--font-d);
+        color: var(--ink);
+        line-height: 1.1;
+        letter-spacing: -0.02em;
+      }
+      .axis .d.today {
+        background: var(--terra-dim);
+      }
+      .axis .d.today .dn,
+      .axis .d.today .dd {
+        color: var(--terra);
+      }
+      /* lane */
+      .lane {
+        display: grid;
+        grid-template-columns: 230px repeat(11, 1fr);
+        align-items: stretch;
+        border-bottom: 1px solid var(--rule-soft);
+        min-height: 62px;
+      }
+      .lane:last-child {
+        border-bottom: 0;
+      }
+      .lane:hover {
+        background: var(--panel2);
+      }
+      .lane .id {
+        grid-column: 1;
+        padding: 10px 16px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 2px;
+        border-right: 1px solid var(--rule);
+      }
+      .lane .id .top {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+      }
+      .lane .id .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 2px;
+        flex: none;
+      }
+      .lane .id .comp {
+        font: 700 13px var(--font-m);
+        color: var(--ink);
+        letter-spacing: -0.01em;
+      }
+      .lane .id .meta {
+        font: 500 11px var(--font-s);
+        color: var(--muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .lane .id .meta b {
+        color: var(--terra);
+        font-weight: 700;
+      }
+      .lane .track {
+        grid-column: 2 / -1;
+        position: relative;
+        display: grid;
+        grid-template-columns: repeat(11, 1fr);
+        background: repeating-linear-gradient(
+          to right,
+          transparent 0,
+          transparent calc(100% / 11 - 1px),
+          var(--rule-soft) calc(100% / 11 - 1px),
+          var(--rule-soft) calc(100% / 11)
+        );
+      }
+      /* segment */
+      .seg {
+        align-self: center;
+        height: 14px;
+        border-radius: 7px;
+        margin: 0 2px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font: 700 9px var(--font-m);
+        color: #fff;
+        white-space: nowrap;
+        overflow: hidden;
+        letter-spacing: 0.02em;
+        z-index: 1;
+      }
+      .seg.late {
+        background: var(--ochre);
+      }
+      .seg.none {
+        background: repeating-linear-gradient(
+          45deg,
+          var(--danger),
+          var(--danger) 5px,
+          #8f2f1c 5px,
+          #8f2f1c 10px
+        );
+      }
+      .seg.ok {
+        background: var(--sage);
+      }
+      /* ticks (besoin / rec) layer in same cell */
+      .mk-tick {
+        align-self: center;
+        justify-self: center;
+        width: 2px;
+        height: 40px;
+        background: var(--terra);
+        border-radius: 2px;
+        z-index: 2;
+        position: relative;
+      }
+      .mk-tick::before {
+        content: '▼';
+        position: absolute;
+        top: -13px;
+        left: 50%;
+        transform: translateX(-50%);
+        color: var(--terra);
+        font-size: 11px;
+        line-height: 1;
+      }
+      .mk-rec {
+        align-self: center;
+        justify-self: center;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: var(--panel);
+        border: 3px solid var(--sage);
+        z-index: 3;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+      }
+      .mk-rec.late {
+        border-color: var(--ochre);
+      }
+      .mk-rec.late::after {
+        content: '!';
+        font: 700 10px var(--font-m);
+        color: var(--ochre);
+      }
+      .mk-rec.ok::after {
+        content: '✓';
+        font: 700 10px var(--font-m);
+        color: var(--sage);
+      }
+      .mk-rec .tag-l {
+        position: absolute;
+        top: -15px;
+        left: 50%;
+        transform: translateX(-50%);
+        font: 700 8px var(--font-m);
+        white-space: nowrap;
+        color: var(--ink2);
+        background: var(--panel);
+        padding: 1px 4px;
+        border-radius: 3px;
+        border: 1px solid var(--rule-soft);
+      }
+      /* verdict pill on lane id */
+      .vp {
+        font: 700 8px var(--font-m);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        padding: 2px 6px;
+        border-radius: 3px;
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        width: fit-content;
+        margin-top: 2px;
+      }
+      .vp .material-symbols-outlined {
+        font-size: 11px;
+      }
+      .vp.bad {
+        background: rgba(168, 58, 35, 0.1);
+        color: var(--danger);
+      }
+      .vp.warn {
+        background: rgba(184, 134, 44, 0.13);
+        color: #8a6515;
+      }
+      .vp.ok {
+        background: rgba(91, 125, 78, 0.13);
+        color: #3f5e30;
+      }
 
-/* legend strip explainer */
-.expl{display:flex;align-items:center;gap:18px;padding:10px 20px;background:var(--panel2);border-bottom:1px solid var(--rule);font:500 11px var(--font-s);color:var(--muted)}
-.expl .item{display:flex;align-items:center;gap:6px}
-.expl .item .material-symbols-outlined{font-size:14px;color:var(--terra)}
-.expl b{color:var(--ink);font-weight:700}
+      /* legend strip explainer */
+      .expl {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        padding: 10px 20px;
+        background: var(--panel2);
+        border-bottom: 1px solid var(--rule);
+        font: 500 11px var(--font-s);
+        color: var(--muted);
+      }
+      .expl .item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .expl .item .material-symbols-outlined {
+        font-size: 14px;
+        color: var(--terra);
+      }
+      .expl b {
+        color: var(--ink);
+        font-weight: 700;
+      }
 
-.tag{position:fixed;top:14px;right:22px;z-index:60;font:700 9px var(--font-m);text-transform:uppercase;letter-spacing:.14em;color:var(--panel);background:var(--terra);padding:5px 11px;border-radius:999px;display:flex;align-items:center;gap:6px}
-.tag .material-symbols-outlined{font-size:13px}
-</style>
-</head>
-<body>
-<div class="tag"><span class="material-symbols-outlined">timeline</span> R3 · « Chronologie »</div>
-
-<div class="app">
-  <header class="mast">
-    <div class="mast-top">
-      <div class="brand"><div class="mk">Factory<em>OS</em></div><div class="ed">Suivi des Ruptures · Chronologie de couverture</div></div>
-      <div class="mast-meta"><div class="vol">N° 247 · Mercredi 17 juin 2026</div><div>Fenêtre <b>10 jours</b> · <b>8</b> ruptures · <b>5</b> sans couverture ou en retard</div></div>
+      .tag {
+        position: fixed;
+        top: 14px;
+        right: 22px;
+        z-index: 60;
+        font: 700 9px var(--font-m);
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: var(--panel);
+        background: var(--terra);
+        padding: 5px 11px;
+        border-radius: 999px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .tag .material-symbols-outlined {
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="tag">
+      <span class="material-symbols-outlined">timeline</span> R3 · « Chronologie »
     </div>
-    <nav class="nav">
-      <a href="#">Tableau</a><a href="#">Planification</a><a href="#">Ordonnancement</a><a href="#" class="active">Ruptures</a><a href="#">Ressources</a>
-      <div class="right"><div class="cmd"><span class="material-symbols-outlined">search</span><input placeholder="Composant, OF, fournisseur…" /></div><a class="btn btn-out"><span class="material-symbols-outlined">refresh</span>X3</a><div class="avatar">OP</div></div>
-    </nav>
-  </header>
 
-  <div class="toolbar">
-    <div class="toolbar-l">
-      <div class="winnav"><a href="#"><span class="material-symbols-outlined">chevron_left</span></a><a href="#"><span class="material-symbols-outlined">chevron_right</span></a></div>
-      <div class="period">Juin <span class="yr">2026</span></div>
-      <span class="range">17 → 01 juil.</span>
+    <div class="app">
+      <header class="mast">
+        <div class="mast-top">
+          <div class="brand">
+            <div class="mk">Factory<em>OS</em></div>
+            <div class="ed">Suivi des Ruptures · Chronologie de couverture</div>
+          </div>
+          <div class="mast-meta">
+            <div class="vol">N° 247 · Mercredi 17 juin 2026</div>
+            <div>
+              Fenêtre <b>10 jours</b> · <b>8</b> ruptures · <b>5</b> sans couverture ou en retard
+            </div>
+          </div>
+        </div>
+        <nav class="nav">
+          <a href="#">Tableau</a><a href="#">Planification</a><a href="#">Ordonnancement</a
+          ><a href="#" class="active">Ruptures</a><a href="#">Ressources</a>
+          <div class="right">
+            <div class="cmd">
+              <span class="material-symbols-outlined">search</span
+              ><input placeholder="Composant, OF, fournisseur…" />
+            </div>
+            <a class="btn btn-out"><span class="material-symbols-outlined">refresh</span>X3</a>
+            <div class="avatar">OP</div>
+          </div>
+        </nav>
+      </header>
+
+      <div class="toolbar">
+        <div class="toolbar-l">
+          <div class="winnav">
+            <a href="#"><span class="material-symbols-outlined">chevron_left</span></a
+            ><a href="#"><span class="material-symbols-outlined">chevron_right</span></a>
+          </div>
+          <div class="period">Juin <span class="yr">2026</span></div>
+          <span class="range">17 → 01 juil.</span>
+        </div>
+        <div class="toolbar-r">
+          <div class="legend">
+            <span><i style="background: #5b7d4e"></i>Couvert (réception avant besoin)</span>
+            <span><i style="background: #b8862c"></i>Retard (réception après besoin)</span>
+            <span
+              ><i
+                style="
+                  background: repeating-linear-gradient(
+                    45deg,
+                    #a83a23,
+                    #a83a23 3px,
+                    #8f2f1c 3px,
+                    #8f2f1c 6px
+                  );
+                "
+              ></i
+              >Sans couverture</span
+            >
+          </div>
+        </div>
+      </div>
+
+      <div class="board">
+        <div class="tlwrap">
+          <div class="expl">
+            <span class="item"
+              ><span class="material-symbols-outlined">arrow_drop_down</span><b>▼ Besoin</b> = date
+              d'expédition client</span
+            >
+            <span class="item"
+              ><span class="material-symbols-outlined" style="color: var(--sage)"
+                >radio_button_checked</span
+              ><b>Rond</b> = réception fournisseur prévue</span
+            >
+            <span class="item"
+              >Le segment coloré = la <b>période de rupture</b> (ou de couverture)</span
+            >
+          </div>
+          <!-- axis: 17,18,19,20,23,24,25,26,27,30,01 -->
+          <div class="axis">
+            <div class="lbl">Composant · OF</div>
+            <div class="d today">
+              <div class="dn">Mer</div>
+              <div class="dd">17</div>
+            </div>
+            <div class="d">
+              <div class="dn">Jeu</div>
+              <div class="dd">18</div>
+            </div>
+            <div class="d">
+              <div class="dn">Ven</div>
+              <div class="dd">19</div>
+            </div>
+            <div class="d">
+              <div class="dn">Lun</div>
+              <div class="dd">20</div>
+            </div>
+            <div class="d">
+              <div class="dn">Mar</div>
+              <div class="dd">23</div>
+            </div>
+            <div class="d">
+              <div class="dn">Mer</div>
+              <div class="dd">24</div>
+            </div>
+            <div class="d">
+              <div class="dn">Jeu</div>
+              <div class="dd">25</div>
+            </div>
+            <div class="d">
+              <div class="dn">Ven</div>
+              <div class="dd">26</div>
+            </div>
+            <div class="d">
+              <div class="dn">Lun</div>
+              <div class="dd">27</div>
+            </div>
+            <div class="d">
+              <div class="dn">Mar</div>
+              <div class="dd">30</div>
+            </div>
+            <div class="d">
+              <div class="dn">Mer</div>
+              <div class="dd">01/07</div>
+            </div>
+          </div>
+
+          <!-- ECP — sans couverture : besoin col5 (23/06), segment 5/13 -->
+          <div class="lane">
+            <div class="id">
+              <div class="top">
+                <span class="dot" style="background: var(--danger)"></span
+                ><span class="comp">ECP-55821</span>
+              </div>
+              <div class="meta">Échangeur D350 · <b>OF100288</b> · AR24588</div>
+              <span class="vp bad"
+                ><span class="material-symbols-outlined">block</span>Sans couverture · −25</span
+              >
+            </div>
+            <div class="track">
+              <div class="seg none" style="grid-column: 5/13">Pas de réception prévue</div>
+              <div class="mk-tick" style="grid-column: 5"></div>
+            </div>
+          </div>
+
+          <!-- DUC — sans couverture : besoin col9 (27/06), segment 9/13 -->
+          <div class="lane">
+            <div class="id">
+              <div class="top">
+                <span class="dot" style="background: var(--danger)"></span
+                ><span class="comp">DUC-77120</span>
+              </div>
+              <div class="meta">Gaine D125 · <b>OF100512</b> · AR24730</div>
+              <span class="vp bad"
+                ><span class="material-symbols-outlined">block</span>Sans couverture · −90</span
+              >
+            </div>
+            <div class="track">
+              <div class="seg none" style="grid-column: 9/13">Pas de réception prévue</div>
+              <div class="mk-tick" style="grid-column: 9"></div>
+            </div>
+          </div>
+
+          <!-- MOT OF100245 — retard : besoin col6 (24), rec col9 (27), segment late 6/10 -->
+          <div class="lane">
+            <div class="id">
+              <div class="top">
+                <span class="dot" style="background: var(--ochre)"></span
+                ><span class="comp">MOT-33012</span>
+              </div>
+              <div class="meta">Moteur D250 · <b>OF100245</b> · AR24490</div>
+              <span class="vp warn"
+                ><span class="material-symbols-outlined">schedule</span>Retard · −42</span
+              >
+            </div>
+            <div class="track">
+              <div class="seg late" style="grid-column: 6/10">3 j de rupture</div>
+              <div class="mk-tick" style="grid-column: 6"></div>
+              <div class="mk-rec late" style="grid-column: 9"><span class="tag-l">27/06</span></div>
+            </div>
+          </div>
+
+          <!-- MOT OF100310 — retard -->
+          <div class="lane">
+            <div class="id">
+              <div class="top">
+                <span class="dot" style="background: var(--ochre)"></span
+                ><span class="comp">MOT-33012</span>
+              </div>
+              <div class="meta">Moteur D250 · <b>OF100310</b> · AR24610</div>
+              <span class="vp warn"
+                ><span class="material-symbols-outlined">schedule</span>Retard · −18</span
+              >
+            </div>
+            <div class="track">
+              <div class="seg late" style="grid-column: 6/10">3 j de rupture</div>
+              <div class="mk-tick" style="grid-column: 6"></div>
+              <div class="mk-rec late" style="grid-column: 9"><span class="tag-l">27/06</span></div>
+            </div>
+          </div>
+
+          <!-- PCB — retard : besoin col9 (27), rec col11 (01/07), segment 9/12 -->
+          <div class="lane">
+            <div class="id">
+              <div class="top">
+                <span class="dot" style="background: var(--ochre)"></span
+                ><span class="comp">PCB-44021</span>
+              </div>
+              <div class="meta">Carte électronique · <b>OF100533</b> · AR24770</div>
+              <span class="vp warn"
+                ><span class="material-symbols-outlined">schedule</span>Retard · −12</span
+              >
+            </div>
+            <div class="track">
+              <div class="seg late" style="grid-column: 9/12">4 j de rupture</div>
+              <div class="mk-tick" style="grid-column: 9"></div>
+              <div class="mk-rec late" style="grid-column: 11">
+                <span class="tag-l">01/07</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- CAR — couvert : besoin col8 (26), rec col4 (22), segment ok 4/9 -->
+          <div class="lane">
+            <div class="id">
+              <div class="top">
+                <span class="dot" style="background: var(--sage)"></span
+                ><span class="comp">CAR-90044</span>
+              </div>
+              <div class="meta">Filtre G4 · <b>OF100401</b> · AR24712</div>
+              <span class="vp ok"
+                ><span class="material-symbols-outlined">check_circle</span>Couvert · 60</span
+              >
+            </div>
+            <div class="track">
+              <div class="seg ok" style="grid-column: 4/9">Réception 22/06 · Sofiltra 120 u</div>
+              <div class="mk-rec ok" style="grid-column: 4"></div>
+              <div class="mk-tick" style="grid-column: 8"></div>
+            </div>
+          </div>
+
+          <!-- JNT — couvert : besoin col7 (25), rec col6 (24), segment ok 6/8 -->
+          <div class="lane">
+            <div class="id">
+              <div class="top">
+                <span class="dot" style="background: var(--sage)"></span
+                ><span class="comp">JNT-90004</span>
+              </div>
+              <div class="meta">Joint D200 · <b>OF100421</b> · AR24622</div>
+              <span class="vp ok"
+                ><span class="material-symbols-outlined">check_circle</span>Couvert · 30</span
+              >
+            </div>
+            <div class="track">
+              <div class="seg ok" style="grid-column: 6/8">J-1</div>
+              <div class="mk-rec ok" style="grid-column: 6"></div>
+              <div class="mk-tick" style="grid-column: 7"></div>
+            </div>
+          </div>
+
+          <!-- SCR — couvert : besoin col9 (27), rec col8 (26), segment ok 8/10 -->
+          <div class="lane">
+            <div class="id">
+              <div class="top">
+                <span class="dot" style="background: var(--sage)"></span
+                ><span class="comp">SCR-10045</span>
+              </div>
+              <div class="meta">Vis TRCC · <b>OF100466</b> · AR24755</div>
+              <span class="vp ok"
+                ><span class="material-symbols-outlined">check_circle</span>Couvert · 500</span
+              >
+            </div>
+            <div class="track">
+              <div class="seg ok" style="grid-column: 8/10">J-1</div>
+              <div class="mk-rec ok" style="grid-column: 8"></div>
+              <div class="mk-tick" style="grid-column: 9"></div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
-    <div class="toolbar-r">
-      <div class="legend">
-        <span><i style="background:#5b7d4e"></i>Couvert (réception avant besoin)</span>
-        <span><i style="background:#b8862c"></i>Retard (réception après besoin)</span>
-        <span><i style="background:repeating-linear-gradient(45deg,#a83a23,#a83a23 3px,#8f2f1c 3px,#8f2f1c 6px)"></i>Sans couverture</span>
-      </div>
-    </div>
-  </div>
-
-  <div class="board">
-    <div class="tlwrap">
-      <div class="expl">
-        <span class="item"><span class="material-symbols-outlined">arrow_drop_down</span><b>▼ Besoin</b> = date d'expédition client</span>
-        <span class="item"><span class="material-symbols-outlined" style="color:var(--sage)">radio_button_checked</span><b>Rond</b> = réception fournisseur prévue</span>
-        <span class="item">Le segment coloré = la <b>période de rupture</b> (ou de couverture)</span>
-      </div>
-      <!-- axis: 17,18,19,20,23,24,25,26,27,30,01 -->
-      <div class="axis">
-        <div class="lbl">Composant · OF</div>
-        <div class="d today"><div class="dn">Mer</div><div class="dd">17</div></div>
-        <div class="d"><div class="dn">Jeu</div><div class="dd">18</div></div>
-        <div class="d"><div class="dn">Ven</div><div class="dd">19</div></div>
-        <div class="d"><div class="dn">Lun</div><div class="dd">20</div></div>
-        <div class="d"><div class="dn">Mar</div><div class="dd">23</div></div>
-        <div class="d"><div class="dn">Mer</div><div class="dd">24</div></div>
-        <div class="d"><div class="dn">Jeu</div><div class="dd">25</div></div>
-        <div class="d"><div class="dn">Ven</div><div class="dd">26</div></div>
-        <div class="d"><div class="dn">Lun</div><div class="dd">27</div></div>
-        <div class="d"><div class="dn">Mar</div><div class="dd">30</div></div>
-        <div class="d"><div class="dn">Mer</div><div class="dd">01/07</div></div>
-      </div>
-
-      <!-- ECP — sans couverture : besoin col5 (23/06), segment 5/13 -->
-      <div class="lane">
-        <div class="id"><div class="top"><span class="dot" style="background:var(--danger)"></span><span class="comp">ECP-55821</span></div><div class="meta">Échangeur D350 · <b>OF100288</b> · AR24588</div><span class="vp bad"><span class="material-symbols-outlined">block</span>Sans couverture · −25</span></div>
-        <div class="track">
-          <div class="seg none" style="grid-column:5/13">Pas de réception prévue</div>
-          <div class="mk-tick" style="grid-column:5"></div>
-        </div>
-      </div>
-
-      <!-- DUC — sans couverture : besoin col9 (27/06), segment 9/13 -->
-      <div class="lane">
-        <div class="id"><div class="top"><span class="dot" style="background:var(--danger)"></span><span class="comp">DUC-77120</span></div><div class="meta">Gaine D125 · <b>OF100512</b> · AR24730</div><span class="vp bad"><span class="material-symbols-outlined">block</span>Sans couverture · −90</span></div>
-        <div class="track">
-          <div class="seg none" style="grid-column:9/13">Pas de réception prévue</div>
-          <div class="mk-tick" style="grid-column:9"></div>
-        </div>
-      </div>
-
-      <!-- MOT OF100245 — retard : besoin col6 (24), rec col9 (27), segment late 6/10 -->
-      <div class="lane">
-        <div class="id"><div class="top"><span class="dot" style="background:var(--ochre)"></span><span class="comp">MOT-33012</span></div><div class="meta">Moteur D250 · <b>OF100245</b> · AR24490</div><span class="vp warn"><span class="material-symbols-outlined">schedule</span>Retard · −42</span></div>
-        <div class="track">
-          <div class="seg late" style="grid-column:6/10">3 j de rupture</div>
-          <div class="mk-tick" style="grid-column:6"></div>
-          <div class="mk-rec late" style="grid-column:9"><span class="tag-l">27/06</span></div>
-        </div>
-      </div>
-
-      <!-- MOT OF100310 — retard -->
-      <div class="lane">
-        <div class="id"><div class="top"><span class="dot" style="background:var(--ochre)"></span><span class="comp">MOT-33012</span></div><div class="meta">Moteur D250 · <b>OF100310</b> · AR24610</div><span class="vp warn"><span class="material-symbols-outlined">schedule</span>Retard · −18</span></div>
-        <div class="track">
-          <div class="seg late" style="grid-column:6/10">3 j de rupture</div>
-          <div class="mk-tick" style="grid-column:6"></div>
-          <div class="mk-rec late" style="grid-column:9"><span class="tag-l">27/06</span></div>
-        </div>
-      </div>
-
-      <!-- PCB — retard : besoin col9 (27), rec col11 (01/07), segment 9/12 -->
-      <div class="lane">
-        <div class="id"><div class="top"><span class="dot" style="background:var(--ochre)"></span><span class="comp">PCB-44021</span></div><div class="meta">Carte électronique · <b>OF100533</b> · AR24770</div><span class="vp warn"><span class="material-symbols-outlined">schedule</span>Retard · −12</span></div>
-        <div class="track">
-          <div class="seg late" style="grid-column:9/12">4 j de rupture</div>
-          <div class="mk-tick" style="grid-column:9"></div>
-          <div class="mk-rec late" style="grid-column:11"><span class="tag-l">01/07</span></div>
-        </div>
-      </div>
-
-      <!-- CAR — couvert : besoin col8 (26), rec col4 (22), segment ok 4/9 -->
-      <div class="lane">
-        <div class="id"><div class="top"><span class="dot" style="background:var(--sage)"></span><span class="comp">CAR-90044</span></div><div class="meta">Filtre G4 · <b>OF100401</b> · AR24712</div><span class="vp ok"><span class="material-symbols-outlined">check_circle</span>Couvert · 60</span></div>
-        <div class="track">
-          <div class="seg ok" style="grid-column:4/9">Réception 22/06 · Sofiltra 120 u</div>
-          <div class="mk-rec ok" style="grid-column:4"></div>
-          <div class="mk-tick" style="grid-column:8"></div>
-        </div>
-      </div>
-
-      <!-- JNT — couvert : besoin col7 (25), rec col6 (24), segment ok 6/8 -->
-      <div class="lane">
-        <div class="id"><div class="top"><span class="dot" style="background:var(--sage)"></span><span class="comp">JNT-90004</span></div><div class="meta">Joint D200 · <b>OF100421</b> · AR24622</div><span class="vp ok"><span class="material-symbols-outlined">check_circle</span>Couvert · 30</span></div>
-        <div class="track">
-          <div class="seg ok" style="grid-column:6/8">J-1</div>
-          <div class="mk-rec ok" style="grid-column:6"></div>
-          <div class="mk-tick" style="grid-column:7"></div>
-        </div>
-      </div>
-
-      <!-- SCR — couvert : besoin col9 (27), rec col8 (26), segment ok 8/10 -->
-      <div class="lane">
-        <div class="id"><div class="top"><span class="dot" style="background:var(--sage)"></span><span class="comp">SCR-10045</span></div><div class="meta">Vis TRCC · <b>OF100466</b> · AR24755</div><span class="vp ok"><span class="material-symbols-outlined">check_circle</span>Couvert · 500</span></div>
-        <div class="track">
-          <div class="seg ok" style="grid-column:8/10">J-1</div>
-          <div class="mk-rec ok" style="grid-column:8"></div>
-          <div class="mk-tick" style="grid-column:9"></div>
-        </div>
-      </div>
-
-    </div>
-  </div>
-</div>
-</body>
+  </body>
 </html>

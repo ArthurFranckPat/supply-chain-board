@@ -25,7 +25,22 @@ test.group('Flow helpers', () => {
   test('netQuantity sums supply positively and demand negatively', ({ assert }) => {
     const flows: Flow[] = [
       makeFlow({ article: 'A', direction: 'supply', quantity: 100 }),
-      makeFlow({ article: 'A', direction: 'demand', quantity: 30, origin: { type: 'order', id: 'C1', customer: 'X', pays: null, orderType: 'MTO', nature: 'COMMANDE', contremarque: null, qteCommandee: 0, qteAllouee: 0 } }),
+      makeFlow({
+        article: 'A',
+        direction: 'demand',
+        quantity: 30,
+        origin: {
+          type: 'order',
+          id: 'C1',
+          customer: 'X',
+          pays: null,
+          orderType: 'MTO',
+          nature: 'COMMANDE',
+          contremarque: null,
+          qteCommandee: 0,
+          qteAllouee: 0,
+        },
+      }),
       makeFlow({ article: 'B', direction: 'supply', quantity: 50 }),
     ]
     assert.equal(netQuantity(flows, 'A'), 70)
@@ -38,8 +53,36 @@ test.group('Flow helpers', () => {
     const d2 = new Date('2026-01-20')
     const flows: Flow[] = [
       makeFlow({ article: 'A', direction: 'supply', quantity: 50, date: null }),
-      makeFlow({ article: 'A', direction: 'supply', quantity: 30, date: d1, origin: { type: 'reception', id: 'R1', supplier: 'S', designation: null, categorie: null, dateCommande: null, qteCommandee: 0 } }),
-      makeFlow({ article: 'A', direction: 'supply', quantity: 20, date: d2, origin: { type: 'reception', id: 'R2', supplier: 'S', designation: null, categorie: null, dateCommande: null, qteCommandee: 0 } }),
+      makeFlow({
+        article: 'A',
+        direction: 'supply',
+        quantity: 30,
+        date: d1,
+        origin: {
+          type: 'reception',
+          id: 'R1',
+          supplier: 'S',
+          designation: null,
+          categorie: null,
+          dateCommande: null,
+          qteCommandee: 0,
+        },
+      }),
+      makeFlow({
+        article: 'A',
+        direction: 'supply',
+        quantity: 20,
+        date: d2,
+        origin: {
+          type: 'reception',
+          id: 'R2',
+          supplier: 'S',
+          designation: null,
+          categorie: null,
+          dateCommande: null,
+          qteCommandee: 0,
+        },
+      }),
     ]
     assert.equal(netQuantity(flows, 'A', d1), 80)
     assert.equal(netQuantity(flows, 'A', d2), 100)

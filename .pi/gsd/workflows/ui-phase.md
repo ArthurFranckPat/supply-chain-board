@@ -97,9 +97,10 @@ UI-SPEC.md locks spacing, typography, color, copywriting, and design system deci
 
 <available_agent_types>
 Valid GSD subagent types (use exact names - do not fall back to 'general-purpose'):
+
 - gsd-ui-researcher - Researches UI/UX approaches
 - gsd-ui-checker - Reviews UI implementation quality
-</available_agent_types>
+  </available_agent_types>
 
 <process>
 
@@ -125,9 +126,11 @@ UI_ENABLED=$(pi-gsd-tools config-get workflow.ui_phase 2>/dev/null || echo "true
 ```
 
 **If `UI_ENABLED` is `false`:**
+
 ```
 UI phase is disabled in config. Enable via /gsd-settings.
 ```
+
 Exit workflow.
 
 **If `planning_exists` is false:** Error - run `/gsd-new-project` first.
@@ -145,18 +148,22 @@ PHASE_INFO=$(pi-gsd-tools roadmap get-phase "${PHASE}")
 ## 3. Check Prerequisites
 
 **If `has_context` is false:**
+
 ```
 No CONTEXT.md found for Phase {N}.
 Recommended: run /gsd-discuss-phase {N} first to capture design preferences.
 Continuing without user decisions - UI researcher will ask all questions.
 ```
+
 Continue (non-blocking).
 
 **If `has_research` is false:**
+
 ```
 No RESEARCH.md found for Phase {N}.
 Note: stack decisions (component library, styling approach) will be asked during UI research.
 ```
+
 Continue (non-blocking).
 
 ## 4. Check Existing UI-SPEC
@@ -166,6 +173,7 @@ UI_SPEC_FILE=$(ls "${PHASE_DIR}"/*-UI-SPEC.md 2>/dev/null | head -1)
 ```
 
 **If exists:** Use AskUserQuestion:
+
 - header: "Existing UI-SPEC"
 - question: "UI-SPEC.md already exists for Phase {N}. What would you like to do?"
 - options:
@@ -180,6 +188,7 @@ If "Update": continue to step 5.
 ## 5. Spawn gsd-ui-researcher
 
 Display:
+
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  GSD ► UI DESIGN CONTRACT - PHASE {N}
@@ -199,12 +208,13 @@ Answer: "What visual and interaction contracts does this phase need?"
 </objective>
 
 <files_to_read>
+
 - {state_path} (Project State)
 - {roadmap_path} (Roadmap)
 - {requirements_path} (Requirements)
 - {context_path} (USER DECISIONS from /gsd-discuss-phase)
 - {research_path} (Technical Research - stack decisions)
-</files_to_read>
+  </files_to_read>
 
 ${AGENT_SKILLS_UI}
 
@@ -242,6 +252,7 @@ Display blocker details and options. Exit workflow.
 ## 7. Spawn gsd-ui-checker
 
 Display:
+
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  GSD ► VERIFYING UI-SPEC
@@ -261,10 +272,11 @@ Check all 6 dimensions. Return APPROVED or BLOCKED.
 </objective>
 
 <files_to_read>
+
 - {phase_dir}/{padded_phase}-UI-SPEC.md (UI Design Contract - PRIMARY INPUT)
 - {context_path} (USER DECISIONS - check compliance)
 - {research_path} (Technical Research - check stack alignment)
-</files_to_read>
+  </files_to_read>
 
 ${AGENT_SKILLS_UI_CHECKER}
 
@@ -295,6 +307,7 @@ Display blocking issues. Proceed to step 9.
 Track `revision_count` (starts at 0).
 
 **If `revision_count` < 2:**
+
 - Increment `revision_count`
 - Re-spawn gsd-ui-researcher with revision context:
 
@@ -303,6 +316,7 @@ Track `revision_count` (starts at 0).
 The UI checker found issues with the current UI-SPEC.md.
 
 ### Issues to Fix
+
 {paste blocking issues from checker return}
 
 Read the existing UI-SPEC.md, fix ONLY the listed issues, re-write the file.
@@ -313,6 +327,7 @@ Do NOT re-ask the user questions that are already answered.
 - After researcher returns → re-spawn checker (step 7)
 
 **If `revision_count` >= 2:**
+
 ```
 Max revision iterations reached. Remaining issues:
 
@@ -329,6 +344,7 @@ Use AskUserQuestion for the choice.
 ## 10. Present Final Status
 
 Display:
+
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  GSD ► UI-SPEC READY ✓
@@ -369,6 +385,7 @@ pi-gsd-tools state record-session \
 </process>
 
 <success_criteria>
+
 - [ ] Config checked (exit if ui_phase disabled)
 - [ ] Phase validated against roadmap
 - [ ] Prerequisites checked (CONTEXT.md, RESEARCH.md - non-blocking warnings)
@@ -381,4 +398,4 @@ pi-gsd-tools state record-session \
 - [ ] Final status displayed with next steps
 - [ ] UI-SPEC.md committed (if commit_docs enabled)
 - [ ] State updated
-</success_criteria>
+      </success_criteria>

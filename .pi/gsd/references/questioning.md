@@ -47,20 +47,24 @@ A vague PROJECT.md forces every downstream phase to guess. The cost compounds.
 Use these as inspiration, not a checklist. Pick what's relevant to the thread.
 
 **Motivation - why this exists:**
+
 - "What prompted this?"
 - "What are you doing today that this replaces?"
 - "What would you do if this existed?"
 
 **Concreteness - what it actually is:**
+
 - "Walk me through using this"
 - "You said X - what does that actually look like?"
 - "Give me an example"
 
 **Clarification - what they mean:**
+
 - "When you say Z, do you mean A or B?"
 - "You mentioned X - tell me more about that"
 
 **Success - how you'll know it's working:**
+
 - "How will you know this is working?"
 - "What does done look like?"
 
@@ -71,11 +75,13 @@ Use these as inspiration, not a checklist. Pick what's relevant to the thread.
 Use AskUserQuestion to help users think by presenting concrete options to react to.
 
 **Good options:**
+
 - Interpretations of what they might mean
 - Specific examples to confirm or deny
 - Concrete choices that reveal priorities
 
 **Bad options:**
+
 - Generic categories ("Technical", "Business", "Other")
 - Leading options that presume an answer
 - Too many options (2-4 is ideal)

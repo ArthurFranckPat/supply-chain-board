@@ -1,10 +1,10 @@
 ---
-phase: {N}
-slug: {phase-slug}
+phase: { N }
+slug: { phase-slug }
 status: draft
 nyquist_compliant: false
 wave_0_complete: false
-created: {date}
+created: { date }
 ---
 
 # Phase {N} - Validation Strategy
@@ -36,11 +36,11 @@ created: {date}
 
 ## Per-Task Verification Map
 
-| Task ID   | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status    |
-| --------- | ---- | ---- | ----------- | --------- | ----------------- | ----------- | --------- |
-| {N}-01-01 | 01   | 1    | REQ-{XX}    | unit      | `{command}`       | ✅ / ❌ W0    | ⬜ pending |
+| Task ID   | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status     |
+| --------- | ---- | ---- | ----------- | --------- | ----------------- | ----------- | ---------- |
+| {N}-01-01 | 01   | 1    | REQ-{XX}    | unit      | `{command}`       | ✅ / ❌ W0  | ⬜ pending |
 
-*Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
+_Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky_
 
 ---
 
@@ -50,7 +50,7 @@ created: {date}
 - [ ] `{tests/conftest.py}` - shared fixtures
 - [ ] `{framework install}` - if no framework detected
 
-*If none: "Existing infrastructure covers all phase requirements."*
+_If none: "Existing infrastructure covers all phase requirements."_
 
 ---
 
@@ -60,7 +60,7 @@ created: {date}
 | ---------- | ----------- | ---------- | ----------------- |
 | {behavior} | REQ-{XX}    | {reason}   | {steps}           |
 
-*If none: "All phase behaviors have automated verification."*
+_If none: "All phase behaviors have automated verification."_
 
 ---
 

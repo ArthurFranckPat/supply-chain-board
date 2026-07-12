@@ -53,7 +53,7 @@ export interface OperationRate {
  */
 export function chargeByWorkstation(
   operations: OperationRate[],
-  quantity: number,
+  quantity: number
 ): Map<string, number> {
   const result = new Map<string, number>()
   for (const op of operations) {

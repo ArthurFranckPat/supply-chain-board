@@ -9,7 +9,6 @@ import {
   type DiagnosticLoader,
 } from '#app/domain/recursive-diagnostic-checker'
 import type { Flow } from '#app/domain/models/flow'
-import { checkFeasibility } from '#app/domain/feasibility'
 import type { ErpAllocation } from '#app/domain/allocation'
 import {
   evaluateRuptures,
@@ -37,47 +36,76 @@ class MemLoader implements DiagnosticLoader {
   receptions = new Map<string, ReceptionRecord[]>()
   ofs: OfRecord[] = []
   mfgmat = new Map<string, MfgMaterialInput[]>()
-  getArticle(a: string) { return this.articles.get(a) }
-  getNomenclature(a: string) { return this.nomenclatures.get(a) }
-  async getStock(a: string) { return this.stocks.get(a) }
+  getArticle(a: string) {
+    return this.articles.get(a)
+  }
+  getNomenclature(a: string) {
+    return this.nomenclatures.get(a)
+  }
+  async getStock(a: string) {
+    return this.stocks.get(a)
+  }
   async getStocks(arts: string[]) {
     const out = new Map<string, StockRecord | undefined>()
     for (const a of arts) out.set(a, this.stocks.get(a))
     return out
   }
-  async getReceptions(a: string) { return this.receptions.get(a) ?? [] }
-  getAllocationsOf() { return [] }
+  async getReceptions(a: string) {
+    return this.receptions.get(a) ?? []
+  }
+  getAllocationsOf() {
+    return []
+  }
   getOfsByArticle(article: string, statut?: number) {
     let f = this.ofs.filter((o) => o.article === article)
     if (statut !== undefined) f = f.filter((o) => o.statutNum === statut)
     return f
   }
-  async getMfgmat(n: string) { return this.mfgmat.get(n) ?? [] }
+  async getMfgmat(n: string) {
+    return this.mfgmat.get(n) ?? []
+  }
 }
 
 function buildScenario() {
   const loader = new MemLoader()
   // BOM : SE2261 → CE2204 (×1).
   const bom: Nomenclature = {
-    article: 'SE2261', description: 'SE2261',
-    components: [{
-      parentArticle: 'SE2261', parentDescription: 'SE2261', level: 1,
-      componentArticle: 'CE2204', componentDescription: 'CE2204',
-      linkQuantity: 1, componentType: 'ACHETE', consumptionNature: 'PROPORTIONNEL',
-    } as NomenclatureEntry],
+    article: 'SE2261',
+    description: 'SE2261',
+    components: [
+      {
+        parentArticle: 'SE2261',
+        parentDescription: 'SE2261',
+        level: 1,
+        componentArticle: 'CE2204',
+        componentDescription: 'CE2204',
+        linkQuantity: 1,
+        componentType: 'ACHETE',
+        consumptionNature: 'PROPORTIONNEL',
+      } as NomenclatureEntry,
+    ],
   }
   loader.nomenclatures.set('SE2261', bom)
   // Stock CE2204 : 1 physique, 1 alloué → strict 0.
   loader.stocks.set('CE2204', { stockPhysique: 1, stockAlloue: 1, stockQc: 0 })
   // Réception en retard (02-MAR-26, ~100 j) → hors grace 7 j.
-  loader.receptions.set('CE2204', [{
-    id: 'CG2501715', article: 'CE2204', supplier: '19001',
-    quantity: 61, date: new Date('2026-03-02'),
-  }])
+  loader.receptions.set('CE2204', [
+    {
+      id: 'CG2501715',
+      article: 'CE2204',
+      supplier: '19001',
+      quantity: 61,
+      date: new Date('2026-03-02'),
+    },
+  ])
   // OF suggestion SE2261 qté 2.
   const of: OfRecord = {
-    numOf: 'SGAE10646179195', article: 'SE2261', statutNum: 3,
-    qteRestante: 2, dateDebut: undefined, dateFin: new Date('2026-06-22'),
+    numOf: 'SGAE10646179195',
+    article: 'SE2261',
+    statutNum: 3,
+    qteRestante: 2,
+    dateDebut: undefined,
+    dateFin: new Date('2026-06-22'),
   }
   return { loader, of }
 }
@@ -93,25 +121,45 @@ const CHECK_73 = new Date('2026-07-07T00:00:00')
 
 function mkArticle(code: string, category: string, supplyType: 'ACHAT' | 'FABRICATION'): Article {
   return {
-    code, description: code, category, supplyType,
-    reorderDelay: 0, productFamily: null, pmp: null, economicLot: null,
-    unitStock: null, unitPurchase: null, purchaseToStockRatio: 1, packagings: [],
+    code,
+    description: code,
+    category,
+    supplyType,
+    reorderDelay: 0,
+    productFamily: null,
+    pmp: null,
+    economicLot: null,
+    unitStock: null,
+    unitPurchase: null,
+    purchaseToStockRatio: 1,
+    packagings: [],
   }
 }
 
 function mkEntry(
-  parent: string, comp: string, qty: number, type: 'ACHETE' | 'FABRIQUE',
+  parent: string,
+  comp: string,
+  qty: number,
+  type: 'ACHETE' | 'FABRIQUE'
 ): NomenclatureEntry {
   return {
-    parentArticle: parent, parentDescription: parent, level: 1,
-    componentArticle: comp, componentDescription: comp,
-    linkQuantity: qty, componentType: type, consumptionNature: 'PROPORTIONNEL',
+    parentArticle: parent,
+    parentDescription: parent,
+    level: 1,
+    componentArticle: comp,
+    componentDescription: comp,
+    linkQuantity: qty,
+    componentType: type,
+    consumptionNature: 'PROPORTIONNEL',
   }
 }
 
 function stockFlow(article: string, qty: number): Flow {
   return {
-    article, quantity: qty, direction: 'supply', date: null,
+    article,
+    quantity: qty,
+    direction: 'supply',
+    date: null,
     origin: { type: 'stock', subType: 'strict', pmp: null },
   }
 }
@@ -128,7 +176,12 @@ function datasetOf(loader: MemLoader, allocations?: Map<string, ErpAllocation[]>
     for (const al of allocs) m.set(al.article, (m.get(al.article) ?? 0) + al.qteAllouee)
     allocationsByOf.set(numOf, m)
   }
-  return { articles: loader.articles, nomenclatures: loader.nomenclatures, stockNet, allocationsByOf }
+  return {
+    articles: loader.articles,
+    nomenclatures: loader.nomenclatures,
+    stockNet,
+    allocationsByOf,
+  }
 }
 
 /**
@@ -145,14 +198,17 @@ function buildPhantomFixture(stockPhantom: number, stockLeaf: number) {
   loader.articles.set('11085385', mkArticle('11085385', 'AFANT', 'FABRICATION'))
   loader.articles.set('E2623', mkArticle('E2623', 'MP', 'ACHAT'))
   loader.nomenclatures.set('11035401', {
-    article: '11035401', description: '11035401',
+    article: '11035401',
+    description: '11035401',
     components: [mkEntry('11035401', '11085385', 1, 'FABRIQUE')],
   })
   loader.nomenclatures.set('11085385', {
-    article: '11085385', description: '11085385',
+    article: '11085385',
+    description: '11085385',
     components: [mkEntry('11085385', 'E2623', 1, 'ACHETE')],
   })
-  if (stockPhantom > 0) loader.stocks.set('11085385', { stockPhysique: stockPhantom, stockAlloue: 0 })
+  if (stockPhantom > 0)
+    loader.stocks.set('11085385', { stockPhysique: stockPhantom, stockAlloue: 0 })
   if (stockLeaf > 0) loader.stocks.set('E2623', { stockPhysique: stockLeaf, stockAlloue: 0 })
 
   const flows: Flow[] = []
@@ -162,55 +218,63 @@ function buildPhantomFixture(stockPhantom: number, stockLeaf: number) {
   const articles = loader.articles
   const nomenclatures = loader.nomenclatures
   const of: OfRecord = {
-    numOf: 'F426-402081', article: '11035401', statutNum: 2,
-    qteRestante: 50, dateDebut: CHECK_73, dateFin: new Date('2026-07-10'),
+    numOf: 'F426-402081',
+    article: '11035401',
+    statutNum: 2,
+    qteRestante: 50,
+    dateDebut: CHECK_73,
+    dateFin: new Date('2026-07-10'),
   }
   const engineOf: RuptureOfInput = {
-    numOf: of.numOf, article: of.article, qteRestante: of.qteRestante,
-    statutNum: 2, dateBesoin: CHECK_73,
+    numOf: of.numOf,
+    article: of.article,
+    qteRestante: of.qteRestante,
+    statutNum: 2,
+    dateBesoin: CHECK_73,
   }
   return { loader, flows, articles, nomenclatures, of, engineOf }
 }
 
 test.group('Contrat #73 — fantôme AFANT stock partiel (11035401 / F426-402081)', () => {
-  test('stock fantôme crédité d’abord, reliquat couvert par la feuille → faisable (3 moteurs)', async ({ assert }) => {
+  test('stock fantôme crédité d’abord, reliquat couvert par la feuille → faisable (2 moteurs)', async ({
+    assert,
+  }) => {
     // Fantôme 10 en stock, besoin 50 → reliquat 40 ; E2623 en a 45 (≥ 40 mais < 50 :
     // discrimine la sémantique MRP actée de l'ancienne logique « variantes » qui
     // exigeait le besoin COMPLET sur la feuille sans créditer le stock du fantôme).
-    const { loader, flows, articles, nomenclatures, of, engineOf } = buildPhantomFixture(10, 45)
-
-    const photo = checkFeasibility(of.article, 50, flows, nomenclatures, articles, CHECK_73, 'stock_strict')
-    assert.isTrue(photo.feasible, `photo (checkFeasibility) : ${JSON.stringify(photo.blockingComponents)}`)
+    const { loader, of, engineOf } = buildPhantomFixture(10, 45)
 
     const contention = evaluateRuptures([engineOf], datasetOf(loader), 'contention').get(of.numOf)
-    assert.isTrue(contention?.feasible, `contention (moteur) : ${JSON.stringify(contention?.missing)}`)
+    assert.isTrue(
+      contention?.feasible,
+      `contention (moteur) : ${JSON.stringify(contention?.missing)}`
+    )
 
-    const diag = await new RecursiveDiagnosticChecker(loader, { checkDate: CHECK_73 }).diagnoseOf(of)
+    const diag = await new RecursiveDiagnosticChecker(loader, { checkDate: CHECK_73 }).diagnoseOf(
+      of
+    )
     assert.isTrue(diag.feasible, `diagnostic : ${JSON.stringify(diag.tree.shorts)}`)
   })
 
-  test('reliquat non couvert → rupture désigne la feuille réelle, jamais le fantôme', async ({ assert }) => {
+  test('reliquat non couvert → rupture désigne la feuille réelle, jamais le fantôme', async ({
+    assert,
+  }) => {
     // Fantôme 10 en stock, besoin 50, E2623 à 0 → manque 40 sur E2623.
-    const { loader, flows, articles, nomenclatures, of, engineOf } = buildPhantomFixture(10, 0)
-
-    const photo = checkFeasibility(of.article, 50, flows, nomenclatures, articles, CHECK_73, 'stock_strict')
-    assert.isFalse(photo.feasible)
-    assert.deepEqual(
-      photo.blockingComponents.map((b) => ({ article: b.article, shortage: b.shortage })),
-      [{ article: 'E2623', shortage: 40 }],
-    )
+    const { loader, of, engineOf } = buildPhantomFixture(10, 0)
 
     const contention = evaluateRuptures([engineOf], datasetOf(loader), 'contention').get(of.numOf)
     assert.isFalse(contention?.feasible)
     assert.deepEqual(contention?.missing, { E2623: 40 })
 
-    const diag = await new RecursiveDiagnosticChecker(loader, { checkDate: CHECK_73 }).diagnoseOf(of)
+    const diag = await new RecursiveDiagnosticChecker(loader, { checkDate: CHECK_73 }).diagnoseOf(
+      of
+    )
     assert.isFalse(diag.feasible)
     assert.equal(diag.rootCause, 'rupture_matiere')
     assert.deepEqual(
       diag.tree.shorts.map((s) => ({ article: s.article, missing: s.quantityMissing })),
       [{ article: 'E2623', missing: 40 }],
-      'le fantôme 11085385 ne doit JAMAIS apparaître comme composant en rupture',
+      'le fantôme 11085385 ne doit JAMAIS apparaître comme composant en rupture'
     )
   })
 })
@@ -228,7 +292,8 @@ function buildAllocationFixture(statutNum: number) {
   loader.articles.set('11016312', mkArticle('11016312', 'PF', 'FABRICATION'))
   loader.articles.set('11016785', mkArticle('11016785', 'MP', 'ACHAT'))
   loader.nomenclatures.set('11016312', {
-    article: '11016312', description: '11016312',
+    article: '11016312',
+    description: '11016312',
     components: [mkEntry('11016312', '11016785', 1, 'ACHETE')],
   })
   // Stock net 0 : tout est déjà alloué (la part GLOALL de l'OF incluse).
@@ -238,8 +303,12 @@ function buildAllocationFixture(statutNum: number) {
     ['F426-39386', [{ article: '11016785', qteAllouee: 41 }]],
   ])
   const of: OfRecord = {
-    numOf: 'F426-39386', article: '11016312', statutNum,
-    qteRestante: 200, dateDebut: CHECK_73, dateFin: new Date('2026-07-15'),
+    numOf: 'F426-39386',
+    article: '11016312',
+    statutNum,
+    qteRestante: 200,
+    dateDebut: CHECK_73,
+    dateFin: new Date('2026-07-15'),
   }
   return { loader, allocations, of }
 }
@@ -249,9 +318,17 @@ test.group('Contrat #73 — allocation ERP partielle, OF ferme (AR2602882 / 1101
     const { loader, allocations, of } = buildAllocationFixture(1)
 
     const verdict = evaluateRuptures(
-      [{ numOf: of.numOf, article: of.article, qteRestante: 200, statutNum: 1, dateBesoin: CHECK_73 }],
+      [
+        {
+          numOf: of.numOf,
+          article: of.article,
+          qteRestante: 200,
+          statutNum: 1,
+          dateBesoin: CHECK_73,
+        },
+      ],
       datasetOf(loader, allocations),
-      'photo',
+      'photo'
     ).get(of.numOf)!
 
     // Affermi malgré la rupture : verdict « faisable » (l'OF est lancé), MAIS le
@@ -260,26 +337,21 @@ test.group('Contrat #73 — allocation ERP partielle, OF ferme (AR2602882 / 1101
     assert.deepEqual(verdict.missing, { '11016785': 159 })
   })
 
-  test('checkFeasibility crédite la même allocation partielle', ({ assert }) => {
-    const { loader, of } = buildAllocationFixture(1)
-    const { articles, nomenclatures } = loader
-    const allocMap = new Map<string, number>([['11016785', 41]])
-
-    const result = checkFeasibility(of.article, 200, [], nomenclatures, articles, CHECK_73, 'stock_strict', undefined, allocMap)
-    assert.isFalse(result.feasible)
-    assert.deepEqual(
-      result.blockingComponents.map((b) => ({ article: b.article, shortage: b.shortage })),
-      [{ article: '11016785', shortage: 159 }],
-    )
-  })
-
   test('OF non ferme : même déduction, verdict rupture', ({ assert }) => {
     const { loader, allocations, of } = buildAllocationFixture(2)
 
     const verdict = evaluateRuptures(
-      [{ numOf: of.numOf, article: of.article, qteRestante: 200, statutNum: 2, dateBesoin: CHECK_73 }],
+      [
+        {
+          numOf: of.numOf,
+          article: of.article,
+          qteRestante: 200,
+          statutNum: 2,
+          dateBesoin: CHECK_73,
+        },
+      ],
       datasetOf(loader, allocations),
-      'photo',
+      'photo'
     ).get(of.numOf)!
 
     assert.isFalse(verdict.feasible)
@@ -288,21 +360,32 @@ test.group('Contrat #73 — allocation ERP partielle, OF ferme (AR2602882 / 1101
 })
 
 test.group('Contrat #73 — parité photo/contention (F426-402081)', () => {
-  test('même OF seul : photo et contention rendent le même verdict et les mêmes manquants', ({ assert }) => {
+  test('même OF seul : photo et contention rendent le même verdict et les mêmes manquants', ({
+    assert,
+  }) => {
     // Cas bloqué (E2623 à 0) : les deux modes doivent désigner E2623 −40, pas le fantôme.
     const blocked = buildPhantomFixture(10, 0)
-    const photoKo = evaluateRuptures([blocked.engineOf], datasetOf(blocked.loader), 'photo').get(blocked.of.numOf)!
-    const contentionKo = evaluateRuptures([blocked.engineOf], datasetOf(blocked.loader), 'contention').get(blocked.of.numOf)!
+    const photoKo = evaluateRuptures([blocked.engineOf], datasetOf(blocked.loader), 'photo').get(
+      blocked.of.numOf
+    )!
+    const contentionKo = evaluateRuptures(
+      [blocked.engineOf],
+      datasetOf(blocked.loader),
+      'contention'
+    ).get(blocked.of.numOf)!
     assert.deepEqual(contentionKo.missing, photoKo.missing)
     assert.equal(contentionKo.feasible, photoKo.feasible)
-    // Et le verdict photo du moteur == checkFeasibility (moteur historique photo, encore vivant).
-    const legacy = checkFeasibility(blocked.of.article, 50, blocked.flows, blocked.nomenclatures, blocked.articles, CHECK_73, 'stock_strict')
-    assert.deepEqual(photoKo.missing, Object.fromEntries(legacy.blockingComponents.map((b) => [b.article, b.shortage])))
 
     // Cas couvert (E2623 à 45) : parité aussi sur le verdict positif.
     const covered = buildPhantomFixture(10, 45)
-    const photoOk = evaluateRuptures([covered.engineOf], datasetOf(covered.loader), 'photo').get(covered.of.numOf)!
-    const contentionOk = evaluateRuptures([covered.engineOf], datasetOf(covered.loader), 'contention').get(covered.of.numOf)!
+    const photoOk = evaluateRuptures([covered.engineOf], datasetOf(covered.loader), 'photo').get(
+      covered.of.numOf
+    )!
+    const contentionOk = evaluateRuptures(
+      [covered.engineOf],
+      datasetOf(covered.loader),
+      'contention'
+    ).get(covered.of.numOf)!
     assert.isTrue(photoOk.feasible)
     assert.isTrue(contentionOk.feasible)
   })
@@ -317,36 +400,57 @@ test.group('Contrat #73 — moteur unique (rupture-engine) sur les fixtures gel�
     return { articles: loader.articles, nomenclatures: loader.nomenclatures, stockNet }
   }
 
-  test('fantôme AFANT stock partiel : verdicts identiques aux moteurs historiques, 2 modes', ({ assert }) => {
+  test('fantôme AFANT stock partiel : verdicts identiques aux moteurs historiques, 2 modes', ({
+    assert,
+  }) => {
     for (const mode of ['photo', 'contention'] as const) {
       const covered = buildPhantomFixture(10, 45)
       const engineOf: RuptureOfInput = {
-        numOf: covered.of.numOf, article: covered.of.article, qteRestante: 50,
-        statutNum: 2, dateBesoin: CHECK_73,
+        numOf: covered.of.numOf,
+        article: covered.of.article,
+        qteRestante: 50,
+        statutNum: 2,
+        dateBesoin: CHECK_73,
       }
-      const ok = evaluateRuptures([engineOf], datasetFromLoader(covered.loader), mode).get(engineOf.numOf)!
+      const ok = evaluateRuptures([engineOf], datasetFromLoader(covered.loader), mode).get(
+        engineOf.numOf
+      )!
       assert.isTrue(ok.feasible, `${mode} : ${JSON.stringify(ok.missing)}`)
 
       const blocked = buildPhantomFixture(10, 0)
-      const ko = evaluateRuptures([engineOf], datasetFromLoader(blocked.loader), mode).get(engineOf.numOf)!
+      const ko = evaluateRuptures([engineOf], datasetFromLoader(blocked.loader), mode).get(
+        engineOf.numOf
+      )!
       assert.isFalse(ko.feasible)
-      assert.deepEqual(ko.missing, { E2623: 40 }, `${mode} : le fantôme ne doit jamais être le manquant`)
+      assert.deepEqual(
+        ko.missing,
+        { E2623: 40 },
+        `${mode} : le fantôme ne doit jamais être le manquant`
+      )
     }
   })
 
-  test('allocation ERP partielle OF ferme : faisable, manque résiduel 159 visible', ({ assert }) => {
+  test('allocation ERP partielle OF ferme : faisable, manque résiduel 159 visible', ({
+    assert,
+  }) => {
     const { loader } = buildAllocationFixture(1)
     const dataset = datasetFromLoader(loader)
     dataset.allocationsByOf = new Map([['F426-39386', new Map([['11016785', 41]])]])
     const engineOf: RuptureOfInput = {
-      numOf: 'F426-39386', article: '11016312', qteRestante: 200, statutNum: 1, dateBesoin: CHECK_73,
+      numOf: 'F426-39386',
+      article: '11016312',
+      qteRestante: 200,
+      statutNum: 1,
+      dateBesoin: CHECK_73,
     }
 
     const firm = evaluateRuptures([engineOf], dataset, 'photo').get(engineOf.numOf)!
     assert.isTrue(firm.feasible)
     assert.deepEqual(firm.missing, { '11016785': 159 })
 
-    const planned = evaluateRuptures([{ ...engineOf, statutNum: 2 }], dataset, 'photo').get(engineOf.numOf)!
+    const planned = evaluateRuptures([{ ...engineOf, statutNum: 2 }], dataset, 'photo').get(
+      engineOf.numOf
+    )!
     assert.isFalse(planned.feasible)
     assert.deepEqual(planned.missing, { '11016785': 159 })
   })
@@ -374,12 +478,12 @@ test.group('Contrat faisabilité — source unique', () => {
     // Contrat : les deux moteurs rendent le même verdict (rupture, pas indéterminé).
     assert.isFalse(
       result.feasible,
-      'Le checker doit dire RUPTURE (stock strict 0, réception en retard exclue)',
+      'Le checker doit dire RUPTURE (stock strict 0, réception en retard exclue)'
     )
     assert.isFalse(
       verdict.feasible,
       `evaluateMfgFeasibility doit aussi dire RUPTURE (et non indéterminé). ` +
-      `Verdict composants : ${JSON.stringify(verdict.materials.find((m) => m.article === 'CE2204'))}`,
+        `Verdict composants : ${JSON.stringify(verdict.materials.find((m) => m.article === 'CE2204'))}`
     )
   })
 })

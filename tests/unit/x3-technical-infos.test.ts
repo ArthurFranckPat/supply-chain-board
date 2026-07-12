@@ -33,7 +33,9 @@ test.group('parseTechnicalInfos (issue #39 WI-1)', () => {
   })
 
   test('champ absent → null (pas de crash)', ({ assert }) => {
-    const t = parseTechnicalInfos('<technicalInfos><totalDuration>10</totalDuration></technicalInfos>')
+    const t = parseTechnicalInfos(
+      '<technicalInfos><totalDuration>10</totalDuration></technicalInfos>'
+    )
     assert.exists(t)
     assert.equal(t!.total, 10)
     assert.isNull(t!.loadWebs)

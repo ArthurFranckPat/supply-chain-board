@@ -69,7 +69,11 @@ export function PlanHealth(props: {
       {
         key: 'ruptures',
         count: ruptures,
-        label: !ruptOk ? 'Ruptures ?' : ruptures === 0 ? '✓ 0 rupture' : `${ruptures} rupture${ruptures > 1 ? 's' : ''}`,
+        label: !ruptOk
+          ? 'Ruptures ?'
+          : ruptures === 0
+            ? '✓ 0 rupture'
+            : `${ruptures} rupture${ruptures > 1 ? 's' : ''}`,
         tone: !ruptOk ? 'mut' : ruptures === 0 ? 'okz' : 'crit',
         clickable: ruptOk && ruptures > 0,
       },
@@ -92,7 +96,7 @@ export function PlanHealth(props: {
           class={cx(
             'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-2xs font-bold transition-colors',
             TONE_CLASS[b.tone],
-            b.clickable ? 'cursor-pointer hover:opacity-80' : 'cursor-default',
+            b.clickable ? 'cursor-pointer hover:opacity-80' : 'cursor-default'
           )}
           aria-label={b.label}
         >

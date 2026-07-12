@@ -42,7 +42,7 @@ function erpAllocationMap(allocations: ErpAllocation[]): Map<string, number> {
 export function reserveCandidateComponents(
   loader: AllocationLoader,
   candidate: CandidateOF,
-  materialState: StockState,
+  materialState: StockState
 ): void {
   const bom = loader.getNomenclature(candidate.article)
   if (!bom) return
@@ -71,7 +71,7 @@ export function reserveCandidateComponents(
 export function computeDirectComponentShortages(
   loader: AllocationLoader,
   candidate: CandidateOF,
-  materialState: StockState,
+  materialState: StockState
 ): string {
   const bom = loader.getNomenclature(candidate.article)
   if (!bom) return ''
@@ -104,12 +104,16 @@ export function availabilityStatus(
   candidate: Pick<CandidateOF, 'numOf' | 'article' | 'quantity'>,
   statutNum: number,
   loader: AllocationLoader,
-  materialState: StockState,
+  materialState: StockState
 ): { status: 'comfortable' | 'blocked'; reason: string } {
   if (statutNum === 1) {
     return { status: 'comfortable', reason: '' }
   }
 
-  const reason = computeDirectComponentShortages(loader, { ...candidate, quantity: candidate.quantity }, materialState)
+  const reason = computeDirectComponentShortages(
+    loader,
+    { ...candidate, quantity: candidate.quantity },
+    materialState
+  )
   return { status: reason ? 'blocked' : 'comfortable', reason }
 }

@@ -58,22 +58,23 @@ export class X3BesoinClientRepository {
   async getDemandFlows(opts?: { from?: string; to?: string }): Promise<Flow[]> {
     let sql = SQL
     if (opts?.from && opts?.to && ISO.test(opts.from) && ISO.test(opts.to)) {
-      sql += `\n  AND (CASE WHEN O.WIPSTA_0 = 1 THEN Q.SHIDAT_0 ELSE O.ENDDAT_0 END)`
-        + ` BETWEEN TO_DATE('${opts.from}', 'YYYY-MM-DD') AND TO_DATE('${opts.to}', 'YYYY-MM-DD')`
+      sql +=
+        `\n  AND (CASE WHEN O.WIPSTA_0 = 1 THEN Q.SHIDAT_0 ELSE O.ENDDAT_0 END)` +
+        ` BETWEEN TO_DATE('${opts.from}', 'YYYY-MM-DD') AND TO_DATE('${opts.to}', 'YYYY-MM-DD')`
     }
     const db = new X3Database()
     try {
       const rows: RawRow[] = await db.raw(sql)
       return rows
-        .filter(row => parseFloat(row.RESTE_LIVRER ?? '0') > 0)
-        .map(row => {
+        .filter((row) => Number.parseFloat(row.RESTE_LIVRER ?? '0') > 0)
+        .map((row) => {
           const statut = row.STATUT?.trim() ?? ''
           const nature: NeedNature = statut === 'COMMANDE' ? 'COMMANDE' : 'PREVISION'
           const rawType = row.SOHTYP?.trim() ?? ''
-          const orderType: OrderType | null = rawType === '' ? null : rawType as OrderType
-          const qteCommandee = parseFloat(row.QTE_PREVUE ?? '0') || 0
-          const qteAllouee = parseFloat(row.QTE_ALLOUEE ?? '0') || 0
-          const quantity = parseFloat(row.RESTE_LIVRER ?? '0')
+          const orderType: OrderType | null = rawType === '' ? null : (rawType as OrderType)
+          const qteCommandee = Number.parseFloat(row.QTE_PREVUE ?? '0') || 0
+          const qteAllouee = Number.parseFloat(row.QTE_ALLOUEE ?? '0') || 0
+          const quantity = Number.parseFloat(row.RESTE_LIVRER ?? '0')
           const article = row.ARTICLE?.trim() ?? ''
           const customer = row.CLIENT?.trim() || null
           const pays = row.PAYS?.trim() || null

@@ -1,4 +1,12 @@
-import { createEffect, createMemo, createResource, createSignal, onCleanup, Show, type Component } from 'solid-js'
+import {
+  createEffect,
+  createMemo,
+  createResource,
+  createSignal,
+  onCleanup,
+  Show,
+  type Component,
+} from 'solid-js'
 import { cx } from '@/libs/cva'
 import { Masthead } from '@/components/masthead'
 import { Calendar, type DateRange } from '@/components/ui/calendar'
@@ -41,11 +49,23 @@ interface ExpeditionsPageProps {
 }
 
 const EMPTY = (defaultGapMinutes: number, maxPalettesCamion: number): ExpeditionsRowsResponse => ({
-  expeditions: { label: '', totalUc: 0, nbCamions: 0, gapMinutes: defaultGapMinutes, maxPalettesCamion, camionCapacitePalettes: 33, camions: [] },
+  expeditions: {
+    label: '',
+    totalUc: 0,
+    nbCamions: 0,
+    gapMinutes: defaultGapMinutes,
+    maxPalettesCamion,
+    camionCapacitePalettes: 33,
+    camions: [],
+  },
   x3Error: null,
 })
 
-const fold = (s: string): string => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+const fold = (s: string): string =>
+  s
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
 
 /** Tiebreaker primaire : les navettes (source de vérité) précèdent toujours les
  *  clusters heuristiques, quel que soit le tri choisi (issue #44 affinage). */
@@ -103,20 +123,20 @@ const Expeditions: Component<ExpeditionsPageProps> = (props) => {
     return u
   })
 
-  const [data] = createResource(
-    url,
-    async (u): Promise<ExpeditionsRowsResponse> => {
-      const start = Date.now()
-      const res = await fetch(u, { headers: { accept: 'application/json' } })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const json = (await res.json()) as ExpeditionsRowsResponse
-      setLoadMs(Date.now() - start)
-      return json
-    },
-  )
+  const [data] = createResource(url, async (u): Promise<ExpeditionsRowsResponse> => {
+    const start = Date.now()
+    const res = await fetch(u, { headers: { accept: 'application/json' } })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const json = (await res.json()) as ExpeditionsRowsResponse
+    setLoadMs(Date.now() - start)
+    return json
+  })
 
   createEffect(() => {
-    if (!data.loading) { setElapsed(0); return }
+    if (!data.loading) {
+      setElapsed(0)
+      return
+    }
     const t0 = Date.now()
     const id = setInterval(() => setElapsed(Date.now() - t0), 200)
     onCleanup(() => clearInterval(id))
@@ -170,9 +190,12 @@ const Expeditions: Component<ExpeditionsPageProps> = (props) => {
         active="expeditions"
         meta={
           <>
-            <div class="font-fraunces text-[12px] font-bold capitalize not-italic text-brand">{exp().label || '—'}</div>
+            <div class="font-fraunces text-[12px] font-bold capitalize not-italic text-brand">
+              {exp().label || '—'}
+            </div>
             <div>
-              <b class="font-bold text-foreground">{exp().nbCamions}</b> camion{exp().nbCamions > 1 ? 's' : ''}
+              <b class="font-bold text-foreground">{exp().nbCamions}</b> camion
+              {exp().nbCamions > 1 ? 's' : ''}
             </div>
           </>
         }
@@ -188,13 +211,18 @@ const Expeditions: Component<ExpeditionsPageProps> = (props) => {
               onClick={() => setCalendarOpen((v) => !v)}
               class="flex items-center gap-1.5 rounded border border-rule bg-card px-2.5 py-1.5 font-mono text-[11px] text-foreground transition-colors hover:bg-secondary/60"
             >
-              <span class="material-symbols-outlined text-[14px] text-muted-foreground">calendar_today</span>
+              <span class="material-symbols-outlined text-[14px] text-muted-foreground">
+                calendar_today
+              </span>
               <span>{rangeLabel() ?? 'J-1'}</span>
             </button>
             <Show when={range()?.start}>
               <button
                 type="button"
-                onClick={() => { setRange(null); setCalendarOpen(false) }}
+                onClick={() => {
+                  setRange(null)
+                  setCalendarOpen(false)
+                }}
                 class="flex size-6 items-center justify-center rounded text-muted-foreground hover:text-foreground"
                 title="Réinitialiser"
               >
@@ -220,10 +248,14 @@ const Expeditions: Component<ExpeditionsPageProps> = (props) => {
 
         {/* Tolérance de regroupement camion (issue #44) */}
         <div class="flex items-center gap-1 rounded-md border border-rule bg-card p-0.5">
-          <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Regroupement</span>
+          <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+            Regroupement
+          </span>
           <button
             type="button"
-            onClick={() => setGapMin((v) => Math.max(0, (v ?? exp().gapMinutes ?? props.defaultGapMinutes) - 1))}
+            onClick={() =>
+              setGapMin((v) => Math.max(0, (v ?? exp().gapMinutes ?? props.defaultGapMinutes) - 1))
+            }
             class="flex size-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
             title="Diminuer la tolérance"
             aria-label="Diminuer la tolérance"
@@ -250,7 +282,9 @@ const Expeditions: Component<ExpeditionsPageProps> = (props) => {
           onClick={() => setAnomalyOnly((v) => !v)}
           class={cx(
             'flex items-center gap-1 rounded-md border px-2.5 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
-            anomalyOnly() ? 'border-destructive/40 bg-destructive/10 text-destructive' : 'border-rule bg-card text-muted-foreground hover:text-foreground',
+            anomalyOnly()
+              ? 'border-destructive/40 bg-destructive/10 text-destructive'
+              : 'border-rule bg-card text-muted-foreground hover:text-foreground'
           )}
         >
           <span class="material-symbols-outlined text-[13px]">warning</span>
@@ -272,10 +306,15 @@ const Expeditions: Component<ExpeditionsPageProps> = (props) => {
 
         <div class="ml-auto flex items-center gap-2">
           <Show when={data.loading}>
-            <span class="font-mono text-[11px] tabular-nums text-muted-foreground">{fmtMs(elapsed())}</span>
+            <span class="font-mono text-[11px] tabular-nums text-muted-foreground">
+              {fmtMs(elapsed())}
+            </span>
           </Show>
           <Show when={!data.loading && loadMs() !== null}>
-            <span class="font-mono text-[11px] tabular-nums text-muted-foreground/60" title="Durée dernier chargement X3">
+            <span
+              class="font-mono text-[11px] tabular-nums text-muted-foreground/60"
+              title="Durée dernier chargement X3"
+            >
               {fmtMs(loadMs()!)}
             </span>
           </Show>
@@ -286,7 +325,12 @@ const Expeditions: Component<ExpeditionsPageProps> = (props) => {
             class="inline-flex items-center gap-1 rounded-full border border-rule bg-card px-3 py-1 text-[11px] font-semibold transition-colors hover:border-brand disabled:opacity-50"
             title="Recharger les données X3"
           >
-            <span class="material-symbols-outlined text-[14px] text-muted-foreground" classList={{ 'animate-spin': data.loading }}>refresh</span>
+            <span
+              class="material-symbols-outlined text-[14px] text-muted-foreground"
+              classList={{ 'animate-spin': data.loading }}
+            >
+              refresh
+            </span>
             Actualiser
           </button>
         </div>
@@ -295,16 +339,38 @@ const Expeditions: Component<ExpeditionsPageProps> = (props) => {
       {/* ═══ Toggle vue + tri manifeste ═══ */}
       <div class="flex flex-none items-center gap-2.5 border-b border-rule-soft px-7 py-1.5">
         <div class="flex items-center overflow-hidden rounded-md border border-rule bg-card">
-          <ViewTab active={view() === 'manifeste'} onClick={() => setView('manifeste')} icon="grid_view" label="Manifestes" />
-          <ViewTab active={view() === 'frise'} onClick={() => setView('frise')} icon="timeline" label="Frise de charge" />
+          <ViewTab
+            active={view() === 'manifeste'}
+            onClick={() => setView('manifeste')}
+            icon="grid_view"
+            label="Manifestes"
+          />
+          <ViewTab
+            active={view() === 'frise'}
+            onClick={() => setView('frise')}
+            icon="timeline"
+            label="Frise de charge"
+          />
         </div>
 
         {/* Tri segmenté — propre au manifeste */}
         <Show when={view() === 'manifeste'}>
           <div class="flex items-center overflow-hidden rounded-md border border-rule bg-card">
-            <SegTab active={mSort() === 'time'} onClick={() => setMSort('time')} label="Par heure" />
-            <SegTab active={mSort() === 'load'} onClick={() => setMSort('load')} label="Par charge" />
-            <SegTab active={mSort() === 'client'} onClick={() => setMSort('client')} label="Par client" />
+            <SegTab
+              active={mSort() === 'time'}
+              onClick={() => setMSort('time')}
+              label="Par heure"
+            />
+            <SegTab
+              active={mSort() === 'load'}
+              onClick={() => setMSort('load')}
+              label="Par charge"
+            />
+            <SegTab
+              active={mSort() === 'client'}
+              onClick={() => setMSort('client')}
+              label="Par client"
+            />
           </div>
         </Show>
 
@@ -337,7 +403,9 @@ const Expeditions: Component<ExpeditionsPageProps> = (props) => {
         when={!data.loading}
         fallback={
           <div class="flex flex-1 items-center justify-center gap-2 text-muted-foreground">
-            <span class="material-symbols-outlined animate-spin text-[20px]">progress_activity</span>
+            <span class="material-symbols-outlined animate-spin text-[20px]">
+              progress_activity
+            </span>
             <span class="text-[13px] font-medium">Calcul des expéditions…</span>
           </div>
         }
@@ -359,7 +427,9 @@ const Expeditions: Component<ExpeditionsPageProps> = (props) => {
                   {x3Error() ? 'cloud_off' : 'local_shipping'}
                 </span>
                 <span class="font-fraunces text-[14px] italic text-muted-foreground">
-                  {x3Error() ? 'Données indisponibles (X3 injoignable).' : 'Aucune expédition sur la période.'}
+                  {x3Error()
+                    ? 'Données indisponibles (X3 injoignable).'
+                    : 'Aucune expédition sur la période.'}
                 </span>
               </div>
             }
@@ -388,19 +458,25 @@ const Expeditions: Component<ExpeditionsPageProps> = (props) => {
         </Show>
       </Show>
 
-      <CamionDetailSheet camion={selectedCamion()} open={detailOpen()} onOpenChange={setDetailOpen} />
+      <CamionDetailSheet
+        camion={selectedCamion()}
+        open={detailOpen()}
+        onOpenChange={setDetailOpen}
+      />
     </div>
   )
 }
 
 /** Onglet de bascule de vue (manifeste / frise). */
-const ViewTab: Component<{ active: boolean; onClick: () => void; icon: string; label: string }> = (p) => (
+const ViewTab: Component<{ active: boolean; onClick: () => void; icon: string; label: string }> = (
+  p
+) => (
   <button
     type="button"
     onClick={p.onClick}
     class={cx(
       'flex items-center gap-1.5 px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
-      p.active ? 'bg-brand/10 text-brand' : 'text-muted-foreground hover:text-foreground',
+      p.active ? 'bg-brand/10 text-brand' : 'text-muted-foreground hover:text-foreground'
     )}
   >
     <span class="material-symbols-outlined text-[14px]">{p.icon}</span>
@@ -415,7 +491,7 @@ const SegTab: Component<{ active: boolean; onClick: () => void; label: string }>
     onClick={p.onClick}
     class={cx(
       'border-r border-rule-soft px-2.5 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors last:border-r-0',
-      p.active ? 'bg-brand/10 text-brand' : 'text-muted-foreground hover:text-foreground',
+      p.active ? 'bg-brand/10 text-brand' : 'text-muted-foreground hover:text-foreground'
     )}
   >
     {p.label}

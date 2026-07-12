@@ -25,13 +25,21 @@ export function createReactiveColumns({ expandedEmps, toggleEmp }: ReactiveColum
           <div class="font-mono text-[13px] font-bold tracking-tight text-foreground">
             {info.getValue()}
             <Show when={info.row.original.refCommandeClient}>
-              <span class="font-medium text-muted-foreground/70">/{info.row.original.refCommandeClient}</span>
+              <span class="font-medium text-muted-foreground/70">
+                /{info.row.original.refCommandeClient}
+              </span>
             </Show>
           </div>
-          <div class="mt-0.5 font-sans text-[12px] font-medium leading-snug text-secondary-foreground">{info.row.original.client || '—'}</div>
+          <div class="mt-0.5 font-sans text-[12px] font-medium leading-snug text-secondary-foreground">
+            {info.row.original.client || '—'}
+          </div>
         </>
       ),
-      meta: { thClass: 'w-[178px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'px-4 py-[9px] align-middle' },
+      meta: {
+        thClass:
+          'w-[178px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule',
+        tdClass: 'px-4 py-[9px] align-middle',
+      },
     }),
     reHelper.accessor('article', {
       header: () => 'Article · Désignation',
@@ -39,32 +47,57 @@ export function createReactiveColumns({ expandedEmps, toggleEmp }: ReactiveColum
         <>
           <div class="font-mono text-[13px] font-semibold text-brand">
             {info.getValue()}
-            <Show when={info.row.original.refArticleClient && info.row.original.refArticleClient !== info.getValue()}>
-              <span class="font-medium text-muted-foreground/70">/{info.row.original.refArticleClient}</span>
+            <Show
+              when={
+                info.row.original.refArticleClient &&
+                info.row.original.refArticleClient !== info.getValue()
+              }
+            >
+              <span class="font-medium text-muted-foreground/70">
+                /{info.row.original.refArticleClient}
+              </span>
             </Show>
           </div>
-          <div class="mt-0.5 font-sans text-[12px] font-medium leading-snug text-secondary-foreground">{info.row.original.designation || '—'}</div>
+          <div class="mt-0.5 font-sans text-[12px] font-medium leading-snug text-secondary-foreground">
+            {info.row.original.designation || '—'}
+          </div>
         </>
       ),
-      meta: { thClass: 'w-[240px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'px-4 py-[9px] align-middle' },
+      meta: {
+        thClass:
+          'w-[240px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule',
+        tdClass: 'px-4 py-[9px] align-middle',
+      },
     }),
     reHelper.accessor('type', {
       header: () => 'Type',
       cell: (info) => (
-        <span class="rounded bg-brand-soft px-[7px] py-0.5 font-mono text-[10px] font-bold uppercase tracking-wide text-brand">{info.getValue()}</span>
+        <span class="rounded bg-brand-soft px-[7px] py-0.5 font-mono text-[10px] font-bold uppercase tracking-wide text-brand">
+          {info.getValue()}
+        </span>
       ),
-      meta: { thClass: 'w-[56px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'px-4 py-[9px] align-middle' },
+      meta: {
+        thClass:
+          'w-[56px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule',
+        tdClass: 'px-4 py-[9px] align-middle',
+      },
     }),
     reHelper.accessor('qteRestante', {
       header: () => 'Reste',
       cell: (info) => (
         <>
-          <span class="font-fraunces text-[21px] font-black leading-none tracking-tight text-foreground">{info.getValue()}</span>
+          <span class="font-fraunces text-[21px] font-black leading-none tracking-tight text-foreground">
+            {info.getValue()}
+          </span>
           <span class="ml-0.5 font-mono text-[10px] font-medium text-muted-foreground/80">u</span>
         </>
       ),
       sortingFn: 'basic',
-      meta: { thClass: 'w-[92px] px-4 py-[8px] text-right font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'whitespace-nowrap px-4 py-[9px] text-right align-middle' },
+      meta: {
+        thClass:
+          'w-[92px] px-4 py-[8px] text-right font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule',
+        tdClass: 'whitespace-nowrap px-4 py-[9px] text-right align-middle',
+      },
     }),
     reHelper.accessor('dateExp', {
       header: () => 'Expé',
@@ -81,7 +114,12 @@ export function createReactiveColumns({ expandedEmps, toggleEmp }: ReactiveColum
         const db = b.original.dateExpIso ?? '9999-12-31'
         return da < db ? -1 : da > db ? 1 : 0
       },
-      meta: { thClass: 'w-[76px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'whitespace-nowrap px-4 py-[9px] align-middle font-mono text-[12.5px] font-semibold' },
+      meta: {
+        thClass:
+          'w-[76px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule',
+        tdClass:
+          'whitespace-nowrap px-4 py-[9px] align-middle font-mono text-[12.5px] font-semibold',
+      },
     }),
     reHelper.display({
       id: 'emplacements',
@@ -90,7 +128,12 @@ export function createReactiveColumns({ expandedEmps, toggleEmp }: ReactiveColum
       cell: (info) => {
         const r = info.row.original
         const emps = r.emplacements
-        if (emps.length === 0) return <span class="font-sans text-[12px] font-medium leading-snug text-muted-foreground/70">—</span>
+        if (emps.length === 0)
+          return (
+            <span class="font-sans text-[12px] font-medium leading-snug text-muted-foreground/70">
+              —
+            </span>
+          )
         const key = empKey(r)
         const expanded = createMemo(() => expandedEmps().has(key))
         // 1 pill visible par défaut ; les autres apparaissent au dépliage.
@@ -106,9 +149,15 @@ export function createReactiveColumns({ expandedEmps, toggleEmp }: ReactiveColum
                     e.source === 'STOALL'
                       ? 'border-ferme/30 bg-ferme/15 text-ferme'
                       : 'border-rule bg-card text-secondary-foreground',
-                    e.alreadyAllocated && 'line-through opacity-60',
+                    e.alreadyAllocated && 'line-through opacity-60'
                   )}
-                  title={e.source === 'STOALL' ? 'STOALL — déjà alloué à la commande' : (e.alreadyAllocated ? 'Déjà alloué à une autre commande' : 'STOCK — en stock libre, allocation à faire')}
+                  title={
+                    e.source === 'STOALL'
+                      ? 'STOALL — déjà alloué à la commande'
+                      : e.alreadyAllocated
+                        ? 'Déjà alloué à une autre commande'
+                        : 'STOCK — en stock libre, allocation à faire'
+                  }
                 >
                   {/* Pill w-full = même largeur sur toutes les lignes (cellule fixe
                       300px). 3 zones : label (shrink-0, à gauche), spacer flex-1
@@ -118,7 +167,7 @@ export function createReactiveColumns({ expandedEmps, toggleEmp }: ReactiveColum
                     <span
                       class={cx(
                         'material-symbols-outlined text-[13px] leading-none',
-                        e.source === 'STOALL' ? 'text-ferme' : 'text-muted-foreground/70',
+                        e.source === 'STOALL' ? 'text-ferme' : 'text-muted-foreground/70'
                       )}
                     >
                       {e.source === 'STOALL' ? 'check_circle' : 'radio_button_unchecked'}
@@ -155,7 +204,11 @@ export function createReactiveColumns({ expandedEmps, toggleEmp }: ReactiveColum
       },
       // Élargie (190→300px) pour loger le PALNUM complet sur une seule ligne,
       // sans troncature ni retour à la ligne (le tableau scrolle horizontalement).
-      meta: { thClass: 'w-[300px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'px-4 py-[9px] align-middle' },
+      meta: {
+        thClass:
+          'w-[300px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule',
+        tdClass: 'px-4 py-[9px] align-middle',
+      },
     }),
     reHelper.display({
       id: 'statusKey',
@@ -165,13 +218,23 @@ export function createReactiveColumns({ expandedEmps, toggleEmp }: ReactiveColum
         const o = info.row.original
         return (
           <div class="flex flex-col items-start gap-1">
-            <span class={cx('inline-flex items-center gap-1 rounded-md border border-transparent px-2 py-0.5 text-[11px] font-medium whitespace-nowrap', BADGE_TONE[o.statusKey])}>
-              <span class="material-symbols-outlined grid size-[14px] place-items-center overflow-hidden text-[14px] leading-none">{o.statusIcon}</span>
+            <span
+              class={cx(
+                'inline-flex items-center gap-1 rounded-md border border-transparent px-2 py-0.5 text-[11px] font-medium whitespace-nowrap',
+                BADGE_TONE[o.statusKey]
+              )}
+            >
+              <span class="material-symbols-outlined grid size-[14px] place-items-center overflow-hidden text-[14px] leading-none">
+                {o.statusIcon}
+              </span>
               {o.statusLabel}
             </span>
             <Show when={o.cq}>
               <span class="inline-flex items-center gap-1 rounded-md border border-transparent bg-brand-soft px-2 py-0.5 text-[11px] font-medium text-brand whitespace-nowrap">
-                <span class="material-symbols-outlined grid size-[14px] place-items-center text-[14px] leading-none">science</span>CQ
+                <span class="material-symbols-outlined grid size-[14px] place-items-center text-[14px] leading-none">
+                  science
+                </span>
+                CQ
               </span>
             </Show>
             <Show when={o.attenteLignes}>
@@ -179,13 +242,20 @@ export function createReactiveColumns({ expandedEmps, toggleEmp }: ReactiveColum
                 class="inline-flex items-center gap-1 rounded-md border border-transparent bg-suggere/15 px-2 py-0.5 text-[11px] font-medium text-suggere whitespace-nowrap"
                 title="Commande MTO — expédition partielle non autorisée, en attente des autres lignes"
               >
-                <span class="material-symbols-outlined grid size-[14px] place-items-center text-[14px] leading-none">pending</span>Attente lignes
+                <span class="material-symbols-outlined grid size-[14px] place-items-center text-[14px] leading-none">
+                  pending
+                </span>
+                Attente lignes
               </span>
             </Show>
           </div>
         )
       },
-      meta: { thClass: 'w-[130px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'px-4 py-[9px] align-middle' },
+      meta: {
+        thClass:
+          'w-[130px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule',
+        tdClass: 'px-4 py-[9px] align-middle',
+      },
     }),
     reHelper.display({
       id: 'cause',
@@ -193,7 +263,12 @@ export function createReactiveColumns({ expandedEmps, toggleEmp }: ReactiveColum
       header: () => 'Cause du retard',
       cell: (info) => {
         const cause = info.row.original.cause
-        if (!cause) return <span class="font-sans text-[12px] font-medium leading-snug text-muted-foreground/70">—</span>
+        if (!cause)
+          return (
+            <span class="font-sans text-[12px] font-medium leading-snug text-muted-foreground/70">
+              —
+            </span>
+          )
         return (
           <>
             <div class="text-[12px] leading-snug text-secondary-foreground">{cause.label}</div>
@@ -221,7 +296,11 @@ export function createReactiveColumns({ expandedEmps, toggleEmp }: ReactiveColum
           </>
         )
       },
-      meta: { thClass: 'w-[280px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'px-4 py-[9px] align-middle' },
+      meta: {
+        thClass:
+          'w-[280px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule',
+        tdClass: 'px-4 py-[9px] align-middle',
+      },
     }),
   ]
 }
@@ -230,11 +309,12 @@ export function createReactiveColumns({ expandedEmps, toggleEmp }: ReactiveColum
 export function createReactiveIndexCol(): DataTableIndexColumn<SuiviDisplayRow> {
   return {
     headerLabel: 'N°',
-    thClass: 'w-[38px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule',
+    thClass:
+      'w-[38px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule',
     tdClass: (row: SuiviDisplayRow) =>
       cx(
         'px-4 py-[9px] align-middle font-fraunces text-[14px] leading-none text-muted-foreground/80',
-        LATE_TONE.bar(row.lateSeverity),
+        LATE_TONE.bar(row.lateSeverity)
       ),
   }
 }

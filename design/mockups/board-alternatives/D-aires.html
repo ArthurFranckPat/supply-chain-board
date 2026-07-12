@@ -1,157 +1,553 @@
 <!doctype html>
 <html lang="fr">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Board vid · D « Aires hebdo »</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700;9..144,900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,300,0,0" rel="stylesheet" />
-<style>
-:root{
-  --paper:#f3ece0; --panel:#fbf8ef; --panel2:#efe7d6; --rule:#cdbfa0; --rulesoft:#e3d9c1;
-  --ink:#1f1a13; --ink2:#4a4135; --muted:#8c7d66; --muted2:#a99c84;
-  --terra:#a8431f; --terrasoft:rgba(168,67,31,.10); --ferme:#5b7d4e; --planifie:#2f4858; --suggere:#b8862c;
-  --fd:"Fraunces",Georgia,serif; --fs:"Inter",system-ui,sans-serif; --fm:"JetBrains Mono",monospace;
-}
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--paper);color:var(--ink);font-family:var(--fs);font-size:13px;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
-.material-symbols-outlined{font-family:"Material Symbols Outlined";font-weight:300;line-height:1;font-feature-settings:"liga";vertical-align:middle}
-.mono{font-family:var(--fm)}
-.wrap{max-width:1180px;margin:0 auto;padding:32px 28px 56px}
-.hd{margin-bottom:14px}
-.hd .k{font:700 10px var(--fm);text-transform:uppercase;letter-spacing:.16em;color:var(--muted)}
-.hd h1{font:900 26px var(--fd);letter-spacing:-.03em;margin-top:5px}
-.hd p{color:var(--ink2);font-size:13px;margin-top:6px;max-width:720px;line-height:1.5}
-.legend{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:12px;font:600 11px var(--fs);color:var(--ink2)}
-.legend span{display:flex;align-items:center;gap:6px}
-.legend i{width:14px;height:10px;border-radius:2px;display:inline-block}
-.legend .ln{width:18px;height:0;border-top:1.5px dashed var(--terra)}
-.legend .sep{width:1px;height:14px;background:var(--rulesoft);margin:0 2px}
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Board vid · D « Aires hebdo »</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700;9..144,900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,300,0,0"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --paper: #f3ece0;
+        --panel: #fbf8ef;
+        --panel2: #efe7d6;
+        --rule: #cdbfa0;
+        --rulesoft: #e3d9c1;
+        --ink: #1f1a13;
+        --ink2: #4a4135;
+        --muted: #8c7d66;
+        --muted2: #a99c84;
+        --terra: #a8431f;
+        --terrasoft: rgba(168, 67, 31, 0.1);
+        --ferme: #5b7d4e;
+        --planifie: #2f4858;
+        --suggere: #b8862c;
+        --fd: 'Fraunces', Georgia, serif;
+        --fs: 'Inter', system-ui, sans-serif;
+        --fm: 'JetBrains Mono', monospace;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        background: var(--paper);
+        color: var(--ink);
+        font-family: var(--fs);
+        font-size: 13px;
+        -webkit-font-smoothing: antialiased;
+        font-variant-numeric: tabular-nums;
+      }
+      .material-symbols-outlined {
+        font-family: 'Material Symbols Outlined';
+        font-weight: 300;
+        line-height: 1;
+        font-feature-settings: 'liga';
+        vertical-align: middle;
+      }
+      .mono {
+        font-family: var(--fm);
+      }
+      .wrap {
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 32px 28px 56px;
+      }
+      .hd {
+        margin-bottom: 14px;
+      }
+      .hd .k {
+        font: 700 10px var(--fm);
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+        color: var(--muted);
+      }
+      .hd h1 {
+        font: 900 26px var(--fd);
+        letter-spacing: -0.03em;
+        margin-top: 5px;
+      }
+      .hd p {
+        color: var(--ink2);
+        font-size: 13px;
+        margin-top: 6px;
+        max-width: 720px;
+        line-height: 1.5;
+      }
+      .legend {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        flex-wrap: wrap;
+        margin-top: 12px;
+        font: 600 11px var(--fs);
+        color: var(--ink2);
+      }
+      .legend span {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .legend i {
+        width: 14px;
+        height: 10px;
+        border-radius: 2px;
+        display: inline-block;
+      }
+      .legend .ln {
+        width: 18px;
+        height: 0;
+        border-top: 1.5px dashed var(--terra);
+      }
+      .legend .sep {
+        width: 1px;
+        height: 14px;
+        background: var(--rulesoft);
+        margin: 0 2px;
+      }
 
-.board{background:var(--panel);border:1px solid var(--rule);border-radius:10px;overflow:hidden;box-shadow:0 1px 2px rgba(31,26,19,.05)}
-.sheet{display:grid;grid-template-columns:220px repeat(4,1fr);min-width:calc(220px + 4*150px)}
-.wkb{display:contents}
-.wkb .wk{grid-column:span 1;background:var(--ink);color:#e3d9c1;padding:7px 14px;display:flex;align-items:center;gap:8px;font:700 9px var(--fm);text-transform:uppercase;letter-spacing:.12em}
-.wkb .wk .chg{margin-left:auto;color:var(--muted2)}
-.wkb .corner{background:var(--ink)}
-.dh{display:contents}
-.dh .lh{background:var(--panel2);border-bottom:1.5px solid var(--ink);border-right:1px solid var(--rulesoft);padding:10px 14px;font:700 9px var(--fm);text-transform:uppercase;letter-spacing:.12em;color:var(--muted)}
-.dh .dc{background:var(--panel2);border-bottom:1.5px solid var(--ink);border-right:1px solid var(--rulesoft);padding:8px 2px;text-align:center}
-.dh .dc .nm{font:600 9px var(--fm);text-transform:uppercase;color:var(--muted)}
-.dh .dc .nn{font:800 18px var(--fd);line-height:1;letter-spacing:-.02em;margin-top:1px}
-.dh .dc .hh{font:700 9px var(--fm);color:var(--muted);margin-top:2px}
-.dh .dc.today .nn,.dh .dc.today .hh{color:var(--terra)}
-.dh .dc.today{background:var(--terrasoft)}
+      .board {
+        background: var(--panel);
+        border: 1px solid var(--rule);
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 1px 2px rgba(31, 26, 19, 0.05);
+      }
+      .sheet {
+        display: grid;
+        grid-template-columns: 220px repeat(4, 1fr);
+        min-width: calc(220px + 4 * 150px);
+      }
+      .wkb {
+        display: contents;
+      }
+      .wkb .wk {
+        grid-column: span 1;
+        background: var(--ink);
+        color: #e3d9c1;
+        padding: 7px 14px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font: 700 9px var(--fm);
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+      }
+      .wkb .wk .chg {
+        margin-left: auto;
+        color: var(--muted2);
+      }
+      .wkb .corner {
+        background: var(--ink);
+      }
+      .dh {
+        display: contents;
+      }
+      .dh .lh {
+        background: var(--panel2);
+        border-bottom: 1.5px solid var(--ink);
+        border-right: 1px solid var(--rulesoft);
+        padding: 10px 14px;
+        font: 700 9px var(--fm);
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: var(--muted);
+      }
+      .dh .dc {
+        background: var(--panel2);
+        border-bottom: 1.5px solid var(--ink);
+        border-right: 1px solid var(--rulesoft);
+        padding: 8px 2px;
+        text-align: center;
+      }
+      .dh .dc .nm {
+        font: 600 9px var(--fm);
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .dh .dc .nn {
+        font: 800 18px var(--fd);
+        line-height: 1;
+        letter-spacing: -0.02em;
+        margin-top: 1px;
+      }
+      .dh .dc .hh {
+        font: 700 9px var(--fm);
+        color: var(--muted);
+        margin-top: 2px;
+      }
+      .dh .dc.today .nn,
+      .dh .dc.today .hh {
+        color: var(--terra);
+      }
+      .dh .dc.today {
+        background: var(--terrasoft);
+      }
 
-.row{display:contents}
-.lh-r{background:var(--panel);border-right:1px solid var(--rule);border-bottom:1px solid var(--rulesoft);padding:12px 14px;display:flex;flex-direction:column;gap:6px;min-width:220px}
-.lh-r .t{display:flex;align-items:center;gap:8px}
-.lh-r .dot{width:9px;height:9px;border-radius:2px;flex:none}
-.lh-r .code{font:800 16px var(--fd);letter-spacing:-.02em;line-height:1}
-.lh-r .nm{font:500 11px var(--fs);color:var(--muted)}
-.hero{display:flex;align-items:baseline;gap:6px;margin:1px 0;flex-wrap:wrap}
-.hero .v{font:900 30px var(--fd);line-height:.9;letter-spacing:-.035em;color:var(--ink)}
-.hero .u{font:600 11px var(--fs);color:var(--muted)}
-.hero .avg{font:700 11px var(--fm);color:var(--terra);background:var(--terrasoft);padding:2px 7px;border-radius:5px}
-.chart{width:100%}
-.chart svg{display:block;width:100%;height:56px}
-.xaxis{display:flex;margin-top:1px}
-.xaxis span{flex:1;text-align:center;font:700 7px var(--fm);color:var(--muted)}
+      .row {
+        display: contents;
+      }
+      .lh-r {
+        background: var(--panel);
+        border-right: 1px solid var(--rule);
+        border-bottom: 1px solid var(--rulesoft);
+        padding: 12px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        min-width: 220px;
+      }
+      .lh-r .t {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .lh-r .dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 2px;
+        flex: none;
+      }
+      .lh-r .code {
+        font: 800 16px var(--fd);
+        letter-spacing: -0.02em;
+        line-height: 1;
+      }
+      .lh-r .nm {
+        font: 500 11px var(--fs);
+        color: var(--muted);
+      }
+      .hero {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+        margin: 1px 0;
+        flex-wrap: wrap;
+      }
+      .hero .v {
+        font: 900 30px var(--fd);
+        line-height: 0.9;
+        letter-spacing: -0.035em;
+        color: var(--ink);
+      }
+      .hero .u {
+        font: 600 11px var(--fs);
+        color: var(--muted);
+      }
+      .hero .avg {
+        font: 700 11px var(--fm);
+        color: var(--terra);
+        background: var(--terrasoft);
+        padding: 2px 7px;
+        border-radius: 5px;
+      }
+      .chart {
+        width: 100%;
+      }
+      .chart svg {
+        display: block;
+        width: 100%;
+        height: 56px;
+      }
+      .xaxis {
+        display: flex;
+        margin-top: 1px;
+      }
+      .xaxis span {
+        flex: 1;
+        text-align: center;
+        font: 700 7px var(--fm);
+        color: var(--muted);
+      }
 
-.cell{border-right:1px solid var(--rulesoft);border-bottom:1px solid var(--rulesoft);min-height:120px;background-image:linear-gradient(to right,rgba(31,26,19,.045) 1px,transparent 1px),linear-gradient(to bottom,rgba(31,26,19,.045) 1px,transparent 1px);background-size:22px 22px;background-color:var(--panel)}
-.cell.today{background-color:var(--terrasoft)}
+      .cell {
+        border-right: 1px solid var(--rulesoft);
+        border-bottom: 1px solid var(--rulesoft);
+        min-height: 120px;
+        background-image:
+          linear-gradient(to right, rgba(31, 26, 19, 0.045) 1px, transparent 1px),
+          linear-gradient(to bottom, rgba(31, 26, 19, 0.045) 1px, transparent 1px);
+        background-size: 22px 22px;
+        background-color: var(--panel);
+      }
+      .cell.today {
+        background-color: var(--terrasoft);
+      }
 
-.tag{position:fixed;top:14px;right:22px;z-index:60;font:700 9px var(--fm);text-transform:uppercase;letter-spacing:.14em;color:#fff;background:var(--terra);padding:5px 11px;border-radius:5px;display:flex;align-items:center;gap:6px}
-.tag .material-symbols-outlined{font-size:13px}
-</style>
-</head>
-<body>
-<div class="tag"><span class="material-symbols-outlined">show_chart</span> D · « Aires hebdo »</div>
-<div class="wrap">
-  <div class="hd">
-    <div class="k">Board vid · maille semaine</div>
-    <h1>D — Aires empilées par semaine (4 semaines)</h1>
-    <p>Maille hebdo : une aire empilée Ferme/Planifié/Suggéré sur 4 semaines (S25→S28). La <b>tendance</b> de la charge du poste + sa composition, avec la moyenne h/sem en pointillé terra. L'horizon du board passe à 4 semaines pour donner du corps à la courbe.</p>
-    <div class="legend">
-      <span><i style="background:var(--ferme)"></i>Ferme</span>
-      <span><i style="background:var(--planifie)"></i>Planifié</span>
-      <span><i style="background:var(--suggere)"></i>Suggéré</span>
-      <span class="sep"></span>
-      <span><i class="ln"></i>Moyenne h/sem</span>
+      .tag {
+        position: fixed;
+        top: 14px;
+        right: 22px;
+        z-index: 60;
+        font: 700 9px var(--fm);
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: #fff;
+        background: var(--terra);
+        padding: 5px 11px;
+        border-radius: 5px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .tag .material-symbols-outlined {
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="tag">
+      <span class="material-symbols-outlined">show_chart</span> D · « Aires hebdo »
     </div>
-  </div>
+    <div class="wrap">
+      <div class="hd">
+        <div class="k">Board vid · maille semaine</div>
+        <h1>D — Aires empilées par semaine (4 semaines)</h1>
+        <p>
+          Maille hebdo : une aire empilée Ferme/Planifié/Suggéré sur 4 semaines (S25→S28). La
+          <b>tendance</b> de la charge du poste + sa composition, avec la moyenne h/sem en pointillé
+          terra. L'horizon du board passe à 4 semaines pour donner du corps à la courbe.
+        </p>
+        <div class="legend">
+          <span><i style="background: var(--ferme)"></i>Ferme</span>
+          <span><i style="background: var(--planifie)"></i>Planifié</span>
+          <span><i style="background: var(--suggere)"></i>Suggéré</span>
+          <span class="sep"></span>
+          <span><i class="ln"></i>Moyenne h/sem</span>
+        </div>
+      </div>
 
-  <div class="board"><div class="sheet">
-    <div class="wkb"><div class="corner"></div><div class="wk">S25 · 16–20 juin<span class="chg">152 h</span></div><div class="wk">S26 · 23–27 juin<span class="chg">134 h</span></div><div class="wk">S27 · 30 juin–4 juil.<span class="chg">118 h</span></div><div class="wk">S28 · 7–11 juil.<span class="chg">126 h</span></div></div>
-    <div class="dh">
-      <div class="lh">Poste de charge</div>
-      <div class="dc today"><div class="nm">Sem</div><div class="nn">25</div><div class="hh">152h</div></div>
-      <div class="dc"><div class="nm">Sem</div><div class="nn">26</div><div class="hh">134h</div></div>
-      <div class="dc"><div class="nm">Sem</div><div class="nn">27</div><div class="hh">118h</div></div>
-      <div class="dc"><div class="nm">Sem</div><div class="nn">28</div><div class="hh">126h</div></div>
+      <div class="board">
+        <div class="sheet">
+          <div class="wkb">
+            <div class="corner"></div>
+            <div class="wk">S25 · 16–20 juin<span class="chg">152 h</span></div>
+            <div class="wk">S26 · 23–27 juin<span class="chg">134 h</span></div>
+            <div class="wk">S27 · 30 juin–4 juil.<span class="chg">118 h</span></div>
+            <div class="wk">S28 · 7–11 juil.<span class="chg">126 h</span></div>
+          </div>
+          <div class="dh">
+            <div class="lh">Poste de charge</div>
+            <div class="dc today">
+              <div class="nm">Sem</div>
+              <div class="nn">25</div>
+              <div class="hh">152h</div>
+            </div>
+            <div class="dc">
+              <div class="nm">Sem</div>
+              <div class="nn">26</div>
+              <div class="hh">134h</div>
+            </div>
+            <div class="dc">
+              <div class="nm">Sem</div>
+              <div class="nn">27</div>
+              <div class="hh">118h</div>
+            </div>
+            <div class="dc">
+              <div class="nm">Sem</div>
+              <div class="nn">28</div>
+              <div class="hh">126h</div>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="lh-r">
+              <div class="t">
+                <span class="dot" style="background: var(--ferme)"></span
+                ><span class="code">DCP-01</span>
+              </div>
+              <span class="nm">Découpe Fan · Caisses</span>
+              <div class="hero">
+                <span class="v">112</span><span class="u">heures</span
+                ><span class="avg">moy. 28 h/sem</span>
+              </div>
+              <div class="chart" id="area-dcp"></div>
+              <div class="xaxis">
+                <span>S25</span><span>S26</span><span>S27</span><span>S28</span>
+              </div>
+            </div>
+            <div class="cell today"></div>
+            <div class="cell"></div>
+            <div class="cell"></div>
+            <div class="cell"></div>
+          </div>
+          <div class="row">
+            <div class="lh-r">
+              <div class="t">
+                <span class="dot" style="background: var(--planifie)"></span
+                ><span class="code">SDR-02</span>
+              </div>
+              <span class="nm">Soudure Caisson · Robot</span>
+              <div class="hero">
+                <span class="v">138</span><span class="u">heures</span
+                ><span class="avg">moy. 34,5 h/sem</span>
+              </div>
+              <div class="chart" id="area-sdr"></div>
+              <div class="xaxis">
+                <span>S25</span><span>S26</span><span>S27</span><span>S28</span>
+              </div>
+            </div>
+            <div class="cell today"></div>
+            <div class="cell"></div>
+            <div class="cell"></div>
+            <div class="cell"></div>
+          </div>
+          <div class="row">
+            <div class="lh-r">
+              <div class="t">
+                <span class="dot" style="background: var(--suggere)"></span
+                ><span class="code">PUD-03</span>
+              </div>
+              <span class="nm">Peinture Poudre · Four</span>
+              <div class="hero">
+                <span class="v">100</span><span class="u">heures</span
+                ><span class="avg">moy. 25 h/sem</span>
+              </div>
+              <div class="chart" id="area-pud"></div>
+              <div class="xaxis">
+                <span>S25</span><span>S26</span><span>S27</span><span>S28</span>
+              </div>
+            </div>
+            <div class="cell today"></div>
+            <div class="cell"></div>
+            <div class="cell"></div>
+            <div class="cell"></div>
+          </div>
+          <div class="row">
+            <div class="lh-r">
+              <div class="t">
+                <span class="dot" style="background: #8b5cf6"></span
+                ><span class="code">ASV-04</span>
+              </div>
+              <span class="nm">Assemblage VMC · Manuel</span>
+              <div class="hero">
+                <span class="v">58</span><span class="u">heures</span
+                ><span class="avg">moy. 14,5 h/sem</span>
+              </div>
+              <div class="chart" id="area-asv"></div>
+              <div class="xaxis">
+                <span>S25</span><span>S26</span><span>S27</span><span>S28</span>
+              </div>
+            </div>
+            <div class="cell today"></div>
+            <div class="cell"></div>
+            <div class="cell"></div>
+            <div class="cell"></div>
+          </div>
+          <div class="row">
+            <div class="lh-r">
+              <div class="t">
+                <span class="dot" style="background: #8c7d66"></span
+                ><span class="code">CTL-05</span>
+              </div>
+              <span class="nm">Contrôlage Final · Banc</span>
+              <div class="hero">
+                <span class="v">120</span><span class="u">heures</span
+                ><span class="avg">moy. 30 h/sem</span>
+              </div>
+              <div class="chart" id="area-ctl"></div>
+              <div class="xaxis">
+                <span>S25</span><span>S26</span><span>S27</span><span>S28</span>
+              </div>
+            </div>
+            <div class="cell today"></div>
+            <div class="cell"></div>
+            <div class="cell"></div>
+            <div class="cell"></div>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <div class="row">
-      <div class="lh-r"><div class="t"><span class="dot" style="background:var(--ferme)"></span><span class="code">DCP-01</span></div><span class="nm">Découpe Fan · Caisses</span><div class="hero"><span class="v">112</span><span class="u">heures</span><span class="avg">moy. 28 h/sem</span></div><div class="chart" id="area-dcp"></div><div class="xaxis"><span>S25</span><span>S26</span><span>S27</span><span>S28</span></div></div>
-      <div class="cell today"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
-    </div>
-    <div class="row">
-      <div class="lh-r"><div class="t"><span class="dot" style="background:var(--planifie)"></span><span class="code">SDR-02</span></div><span class="nm">Soudure Caisson · Robot</span><div class="hero"><span class="v">138</span><span class="u">heures</span><span class="avg">moy. 34,5 h/sem</span></div><div class="chart" id="area-sdr"></div><div class="xaxis"><span>S25</span><span>S26</span><span>S27</span><span>S28</span></div></div>
-      <div class="cell today"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
-    </div>
-    <div class="row">
-      <div class="lh-r"><div class="t"><span class="dot" style="background:var(--suggere)"></span><span class="code">PUD-03</span></div><span class="nm">Peinture Poudre · Four</span><div class="hero"><span class="v">100</span><span class="u">heures</span><span class="avg">moy. 25 h/sem</span></div><div class="chart" id="area-pud"></div><div class="xaxis"><span>S25</span><span>S26</span><span>S27</span><span>S28</span></div></div>
-      <div class="cell today"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
-    </div>
-    <div class="row">
-      <div class="lh-r"><div class="t"><span class="dot" style="background:#8b5cf6"></span><span class="code">ASV-04</span></div><span class="nm">Assemblage VMC · Manuel</span><div class="hero"><span class="v">58</span><span class="u">heures</span><span class="avg">moy. 14,5 h/sem</span></div><div class="chart" id="area-asv"></div><div class="xaxis"><span>S25</span><span>S26</span><span>S27</span><span>S28</span></div></div>
-      <div class="cell today"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
-    </div>
-    <div class="row">
-      <div class="lh-r"><div class="t"><span class="dot" style="background:#8c7d66"></span><span class="code">CTL-05</span></div><span class="nm">Contrôlage Final · Banc</span><div class="hero"><span class="v">120</span><span class="u">heures</span><span class="avg">moy. 30 h/sem</span></div><div class="chart" id="area-ctl"></div><div class="xaxis"><span>S25</span><span>S26</span><span>S27</span><span>S28</span></div></div>
-      <div class="cell today"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
-    </div>
-  </div></div>
-</div>
-
-<script>
-// Par poste : F/P/S par semaine (S25..S28)
-const POSTES = {
-  dcp:{w:[[20,8,4],[14,8,6],[10,4,2],[12,8,4]]},      // totaux 32,28,16,24 = 112
-  sdr:{w:[[24,10,4],[20,12,4],[18,8,2],[20,8,2]]},     // 38,36,28,30 = 132... ajusté
-  pud:{w:[[12,10,8],[10,8,8],[6,4,2],[8,6,6]]},        // 30,26,12,20 = 88
-  asv:{w:[[6,4,8],[4,4,6],[2,2,2],[2,2,4]]},           // 18,14,6,8 = 46
-  ctl:{w:[[18,10,6],[14,10,6],[12,8,4],[14,8,4]]},     // 34,30,24,26 = 114
-}
-const MAXW = 38
-const W=190, H=56, pad=3, n=4
-const x=i=>pad + i*(W-2*pad)/(n-1)
-const y=v=>H-pad - v/MAXW*(H-2*pad)
-function band(lo,hi){
-  let d=`M ${x(0).toFixed(1)} ${y(hi[0]).toFixed(1)}`
-  for(let i=1;i<n;i++) d+=` L ${x(i).toFixed(1)} ${y(hi[i]).toFixed(1)}`
-  for(let i=n-1;i>=0;i--) d+=` L ${x(i).toFixed(1)} ${y(lo[i]).toFixed(1)}`
-  return d+' Z'
-}
-function render(id){
-  const w=POSTES[id].w
-  const F=w.map(a=>a[0]), P=w.map(a=>a[1]), S=w.map(a=>a[2])
-  const T=w.map(a=>a[0]+a[1]+a[2])
-  const FP=F.map((v,i)=>v+P[i])
-  const base=T.map(()=>0)
-  const total=T.reduce((a,b)=>a+b,0), avg=total/n, ay=y(avg)
-  const ferme=band(base,F), plan=band(F,FP), sugg=band(FP,T)
-  document.getElementById('area-'+id).innerHTML=
-    `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+    <script>
+      // Par poste : F/P/S par semaine (S25..S28)
+      const POSTES = {
+        dcp: {
+          w: [
+            [20, 8, 4],
+            [14, 8, 6],
+            [10, 4, 2],
+            [12, 8, 4],
+          ],
+        }, // totaux 32,28,16,24 = 112
+        sdr: {
+          w: [
+            [24, 10, 4],
+            [20, 12, 4],
+            [18, 8, 2],
+            [20, 8, 2],
+          ],
+        }, // 38,36,28,30 = 132... ajusté
+        pud: {
+          w: [
+            [12, 10, 8],
+            [10, 8, 8],
+            [6, 4, 2],
+            [8, 6, 6],
+          ],
+        }, // 30,26,12,20 = 88
+        asv: {
+          w: [
+            [6, 4, 8],
+            [4, 4, 6],
+            [2, 2, 2],
+            [2, 2, 4],
+          ],
+        }, // 18,14,6,8 = 46
+        ctl: {
+          w: [
+            [18, 10, 6],
+            [14, 10, 6],
+            [12, 8, 4],
+            [14, 8, 4],
+          ],
+        }, // 34,30,24,26 = 114
+      }
+      const MAXW = 38
+      const W = 190,
+        H = 56,
+        pad = 3,
+        n = 4
+      const x = (i) => pad + (i * (W - 2 * pad)) / (n - 1)
+      const y = (v) => H - pad - (v / MAXW) * (H - 2 * pad)
+      function band(lo, hi) {
+        let d = `M ${x(0).toFixed(1)} ${y(hi[0]).toFixed(1)}`
+        for (let i = 1; i < n; i++) d += ` L ${x(i).toFixed(1)} ${y(hi[i]).toFixed(1)}`
+        for (let i = n - 1; i >= 0; i--) d += ` L ${x(i).toFixed(1)} ${y(lo[i]).toFixed(1)}`
+        return d + ' Z'
+      }
+      function render(id) {
+        const w = POSTES[id].w
+        const F = w.map((a) => a[0]),
+          P = w.map((a) => a[1]),
+          S = w.map((a) => a[2])
+        const T = w.map((a) => a[0] + a[1] + a[2])
+        const FP = F.map((v, i) => v + P[i])
+        const base = T.map(() => 0)
+        const total = T.reduce((a, b) => a + b, 0),
+          avg = total / n,
+          ay = y(avg)
+        const ferme = band(base, F),
+          plan = band(F, FP),
+          sugg = band(FP, T)
+        document.getElementById('area-' + id).innerHTML =
+          `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
       <path d="${ferme}" fill="var(--ferme)" opacity=".9"/>
       <path d="${plan}" fill="var(--planifie)" opacity=".85"/>
       <path d="${sugg}" fill="var(--suggere)" opacity=".9"/>
-      <line x1="${pad}" y1="${ay.toFixed(1)}" x2="${W-pad}" y2="${ay.toFixed(1)}" stroke="var(--terra)" stroke-width="1.4" stroke-dasharray="3 2"/>
+      <line x1="${pad}" y1="${ay.toFixed(1)}" x2="${W - pad}" y2="${ay.toFixed(1)}" stroke="var(--terra)" stroke-width="1.4" stroke-dasharray="3 2"/>
     </svg>`
-}
-['dcp','sdr','pud','asv','ctl'].forEach(render)
-</script>
-</body>
+      }
+      ;['dcp', 'sdr', 'pud', 'asv', 'ctl'].forEach(render)
+    </script>
+  </body>
 </html>

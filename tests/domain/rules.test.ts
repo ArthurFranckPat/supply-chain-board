@@ -14,7 +14,7 @@ import {
 function makeArticle(
   code: string,
   supplyType: 'ACHAT' | 'FABRICATION' = 'FABRICATION',
-  category: string = 'SF',
+  category: string = 'SF'
 ): Article {
   return {
     code,
@@ -32,18 +32,35 @@ function makeArticle(
   }
 }
 
-function makeDemand(
-  type: 'order' | 'forecast',
-  date: Date | null = null,
-): Flow {
+function makeDemand(type: 'order' | 'forecast', date: Date | null = null): Flow {
   return {
     article: 'ART1',
     quantity: 10,
     direction: 'demand',
     date,
-    origin: type === 'order'
-      ? { type: 'order', id: 'CMD1', customer: 'ACME', pays: null, orderType: 'NOR', nature: 'COMMANDE', contremarque: null, qteCommandee: 10, qteAllouee: 0 }
-      : { type: 'forecast', id: 'PREV1', customer: null, pays: null, orderType: null, contremarque: null, qteCommandee: 10, qteAllouee: 0 },
+    origin:
+      type === 'order'
+        ? {
+            type: 'order',
+            id: 'CMD1',
+            customer: 'ACME',
+            pays: null,
+            orderType: 'NOR',
+            nature: 'COMMANDE',
+            contremarque: null,
+            qteCommandee: 10,
+            qteAllouee: 0,
+          }
+        : {
+            type: 'forecast',
+            id: 'PREV1',
+            customer: null,
+            pays: null,
+            orderType: null,
+            contremarque: null,
+            qteCommandee: 10,
+            qteAllouee: 0,
+          },
   }
 }
 
@@ -82,7 +99,9 @@ test.group('Article supply rules', () => {
     assert.isFalse(isSubcontracted(fab))
   })
 
-  test('isComponentTreatedAsPurchase respects article type, component flags and subcontracting', ({ assert }) => {
+  test('isComponentTreatedAsPurchase respects article type, component flags and subcontracting', ({
+    assert,
+  }) => {
     const achat = makeArticle('A1', 'ACHAT', 'AP')
     const fab = makeArticle('F1', 'FABRICATION', 'SF')
     const st = makeArticle('ST1', 'FABRICATION', 'STX')

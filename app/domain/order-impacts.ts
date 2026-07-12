@@ -157,7 +157,7 @@ export function evaluateOrderImpacts(
    * Avancement des OFs via pointages MFGOPE (issue #41). Permet d'enrichir chaque OF
    * avec `estDebuté` et de qualifier le verdict proactif. Optionnel (fixtures/tests).
    */
-  avancementByOf?: Map<string, { estDebuté: boolean }>,
+  avancementByOf?: Map<string, { estDebuté: boolean }>
 ): OrderImpactResult {
   // 1. Filter demands in window
   const windowDemands = demands.filter((d) => {
@@ -209,7 +209,7 @@ export function evaluateOrderImpacts(
   const verdicts = evaluateRuptures(
     engineOfs,
     { articles, nomenclatures, stockNet, ofSupply: buildOfSupply(engineOfs) },
-    mode === 'sequential' ? 'contention' : 'photo',
+    mode === 'sequential' ? 'contention' : 'photo'
   )
 
   // Résout le verdict d'un OF : MFGMAT (précalculé) s'il existe, sinon le moteur.

@@ -1,203 +1,666 @@
 <!doctype html>
 <html lang="fr">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Board vide · B « Postes » (histogramme arrondi)</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700;9..144,900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,300,0,0" rel="stylesheet" />
-<style>
-:root{
-  --paper:#f3ece0; --panel:#fbf8ef; --panel2:#efe7d6; --rule:#cdbfa0; --rulesoft:#e3d9c1;
-  --ink:#1f1a13; --ink2:#4a4135; --muted:#8c7d66; --muted2:#a99c84;
-  --terra:#a8431f; --terrasoft:rgba(168,67,31,.10); --ferme:#5b7d4e; --planifie:#2f4858; --suggere:#b8862c;
-  --fd:"Fraunces",Georgia,serif; --fs:"Inter",system-ui,sans-serif; --fm:"JetBrains Mono",monospace;
-}
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--paper);color:var(--ink);font-family:var(--fs);font-size:13px;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
-.material-symbols-outlined{font-family:"Material Symbols Outlined";font-weight:300;line-height:1;font-feature-settings:"liga";vertical-align:middle}
-.mono{font-family:var(--fm)}
-.wrap{max-width:1180px;margin:0 auto;padding:32px 28px 56px}
-.hd{margin-bottom:14px}
-.hd .k{font:700 10px var(--fm);text-transform:uppercase;letter-spacing:.16em;color:var(--muted)}
-.hd h1{font:900 26px var(--fd);letter-spacing:-.03em;margin-top:5px}
-.hd p{color:var(--ink2);font-size:13px;margin-top:6px;max-width:700px;line-height:1.5}
-.legend{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:12px;font:600 11px var(--fs);color:var(--ink2)}
-.legend span{display:flex;align-items:center;gap:6px}
-.legend i{width:14px;height:10px;border-radius:3px;display:inline-block}
-.legend .ln{width:18px;height:0;border-top:1.5px dashed var(--terra)}
-.legend .sep{width:1px;height:14px;background:var(--rulesoft);margin:0 2px}
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Board vide · B « Postes » (histogramme arrondi)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700;9..144,900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,300,0,0"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --paper: #f3ece0;
+        --panel: #fbf8ef;
+        --panel2: #efe7d6;
+        --rule: #cdbfa0;
+        --rulesoft: #e3d9c1;
+        --ink: #1f1a13;
+        --ink2: #4a4135;
+        --muted: #8c7d66;
+        --muted2: #a99c84;
+        --terra: #a8431f;
+        --terrasoft: rgba(168, 67, 31, 0.1);
+        --ferme: #5b7d4e;
+        --planifie: #2f4858;
+        --suggere: #b8862c;
+        --fd: 'Fraunces', Georgia, serif;
+        --fs: 'Inter', system-ui, sans-serif;
+        --fm: 'JetBrains Mono', monospace;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        background: var(--paper);
+        color: var(--ink);
+        font-family: var(--fs);
+        font-size: 13px;
+        -webkit-font-smoothing: antialiased;
+        font-variant-numeric: tabular-nums;
+      }
+      .material-symbols-outlined {
+        font-family: 'Material Symbols Outlined';
+        font-weight: 300;
+        line-height: 1;
+        font-feature-settings: 'liga';
+        vertical-align: middle;
+      }
+      .mono {
+        font-family: var(--fm);
+      }
+      .wrap {
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 32px 28px 56px;
+      }
+      .hd {
+        margin-bottom: 14px;
+      }
+      .hd .k {
+        font: 700 10px var(--fm);
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+        color: var(--muted);
+      }
+      .hd h1 {
+        font: 900 26px var(--fd);
+        letter-spacing: -0.03em;
+        margin-top: 5px;
+      }
+      .hd p {
+        color: var(--ink2);
+        font-size: 13px;
+        margin-top: 6px;
+        max-width: 700px;
+        line-height: 1.5;
+      }
+      .legend {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        flex-wrap: wrap;
+        margin-top: 12px;
+        font: 600 11px var(--fs);
+        color: var(--ink2);
+      }
+      .legend span {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .legend i {
+        width: 14px;
+        height: 10px;
+        border-radius: 3px;
+        display: inline-block;
+      }
+      .legend .ln {
+        width: 18px;
+        height: 0;
+        border-top: 1.5px dashed var(--terra);
+      }
+      .legend .sep {
+        width: 1px;
+        height: 14px;
+        background: var(--rulesoft);
+        margin: 0 2px;
+      }
 
-.board{background:var(--panel);border:1px solid var(--rule);border-radius:10px;overflow:hidden;box-shadow:0 1px 2px rgba(31,26,19,.05)}
-.sheet{display:grid;grid-template-columns:220px repeat(10,minmax(60px,1fr));min-width:calc(220px + 10*70px)}
-.wkb{display:contents}
-.wkb .wk{grid-column:span 5;background:var(--ink);color:#e3d9c1;padding:7px 14px;display:flex;align-items:center;gap:8px;font:700 9px var(--fm);text-transform:uppercase;letter-spacing:.12em}
-.wkb .wk .chg{margin-left:auto;color:var(--muted2)}
-.wkb .corner{background:var(--ink)}
-.dh{display:contents}
-.dh .lh{background:var(--panel2);border-bottom:1.5px solid var(--ink);border-right:1px solid var(--rulesoft);padding:10px 14px;font:700 9px var(--fm);text-transform:uppercase;letter-spacing:.12em;color:var(--muted)}
-.dh .dc{background:var(--panel2);border-bottom:1.5px solid var(--ink);border-right:1px solid var(--rulesoft);padding:8px 2px;text-align:center}
-.dh .dc .nm{font:600 9px var(--fm);text-transform:uppercase;color:var(--muted)}
-.dh .dc .nn{font:800 20px var(--fd);line-height:1;letter-spacing:-.02em;margin-top:1px}
-.dh .dc .hh{font:700 10px var(--fm);color:var(--muted);margin-top:3px}
-.dh .dc.today{background:var(--terrasoft)}
-.dh .dc.today .nn,.dh .dc.today .hh{color:var(--terra)}
+      .board {
+        background: var(--panel);
+        border: 1px solid var(--rule);
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 1px 2px rgba(31, 26, 19, 0.05);
+      }
+      .sheet {
+        display: grid;
+        grid-template-columns: 220px repeat(10, minmax(60px, 1fr));
+        min-width: calc(220px + 10 * 70px);
+      }
+      .wkb {
+        display: contents;
+      }
+      .wkb .wk {
+        grid-column: span 5;
+        background: var(--ink);
+        color: #e3d9c1;
+        padding: 7px 14px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font: 700 9px var(--fm);
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+      }
+      .wkb .wk .chg {
+        margin-left: auto;
+        color: var(--muted2);
+      }
+      .wkb .corner {
+        background: var(--ink);
+      }
+      .dh {
+        display: contents;
+      }
+      .dh .lh {
+        background: var(--panel2);
+        border-bottom: 1.5px solid var(--ink);
+        border-right: 1px solid var(--rulesoft);
+        padding: 10px 14px;
+        font: 700 9px var(--fm);
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: var(--muted);
+      }
+      .dh .dc {
+        background: var(--panel2);
+        border-bottom: 1.5px solid var(--ink);
+        border-right: 1px solid var(--rulesoft);
+        padding: 8px 2px;
+        text-align: center;
+      }
+      .dh .dc .nm {
+        font: 600 9px var(--fm);
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .dh .dc .nn {
+        font: 800 20px var(--fd);
+        line-height: 1;
+        letter-spacing: -0.02em;
+        margin-top: 1px;
+      }
+      .dh .dc .hh {
+        font: 700 10px var(--fm);
+        color: var(--muted);
+        margin-top: 3px;
+      }
+      .dh .dc.today {
+        background: var(--terrasoft);
+      }
+      .dh .dc.today .nn,
+      .dh .dc.today .hh {
+        color: var(--terra);
+      }
 
-.row{display:contents}
-.lh-r{background:var(--panel);border-right:1px solid var(--rule);border-bottom:1px solid var(--rulesoft);padding:12px 14px;display:flex;flex-direction:column;gap:7px;min-width:220px}
-.lh-r .t{display:flex;align-items:center;gap:8px}
-.lh-r .dot{width:9px;height:9px;border-radius:2px;flex:none}
-.lh-r .code{font:800 16px var(--fd);letter-spacing:-.02em;line-height:1}
-.lh-r .nm{font:500 11px var(--fs);color:var(--muted)}
-.hero{display:flex;align-items:baseline;gap:6px;margin:1px 0;flex-wrap:wrap}
-.hero .v{font:900 30px var(--fd);line-height:.9;letter-spacing:-.035em;color:var(--ink)}
-.hero .u{font:600 11px var(--fs);color:var(--muted)}
-.hero .avg{font:700 11px var(--fm);color:var(--terra);background:var(--terrasoft);padding:2px 7px;border-radius:5px}
-/* histogramme hebdo empilé — barres étroites, arrondies, charge par statut inscrite */
-.hist{margin-top:2px}
-.bars{position:relative;display:flex;align-items:flex-end;justify-content:center;gap:22px;height:56px;border-bottom:1px solid var(--rulesoft);padding:0 4px}
-.bars .b{width:34px;flex:0 0 34px;display:flex;flex-direction:column;justify-content:flex-end;overflow:hidden;border-radius:6px 6px 0 0}
-.bars .b i{width:100%;min-height:0;display:flex;align-items:center;justify-content:center}
-.bars .b i span{font:800 8px var(--fm);letter-spacing:-.02em;line-height:1;white-space:nowrap}
-.bars .b i.fr{background:var(--ferme)} .bars .b i.fr span{color:#fbf8ef}
-.bars .b i.pl{background:var(--planifie)} .bars .b i.pl span{color:#fbf8ef}
-.bars .b i.sg{background:var(--suggere)} .bars .b i.sg span{color:#3a2a0e}
-.avgline{position:absolute;left:4px;right:4px;border-top:1.5px dashed var(--terra);height:0;pointer-events:none}
-.avgline span{position:absolute;right:0;top:-7px;font:700 7px var(--fm);color:var(--terra);background:var(--panel);padding:0 3px;white-space:nowrap}
-.haxis{display:flex;justify-content:center;gap:22px;margin-top:3px;padding:0 4px}
-.haxis span{width:34px;flex:0 0 34px;text-align:center;font:700 8px var(--fm);color:var(--muted)}
+      .row {
+        display: contents;
+      }
+      .lh-r {
+        background: var(--panel);
+        border-right: 1px solid var(--rule);
+        border-bottom: 1px solid var(--rulesoft);
+        padding: 12px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+        min-width: 220px;
+      }
+      .lh-r .t {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .lh-r .dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 2px;
+        flex: none;
+      }
+      .lh-r .code {
+        font: 800 16px var(--fd);
+        letter-spacing: -0.02em;
+        line-height: 1;
+      }
+      .lh-r .nm {
+        font: 500 11px var(--fs);
+        color: var(--muted);
+      }
+      .hero {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+        margin: 1px 0;
+        flex-wrap: wrap;
+      }
+      .hero .v {
+        font: 900 30px var(--fd);
+        line-height: 0.9;
+        letter-spacing: -0.035em;
+        color: var(--ink);
+      }
+      .hero .u {
+        font: 600 11px var(--fs);
+        color: var(--muted);
+      }
+      .hero .avg {
+        font: 700 11px var(--fm);
+        color: var(--terra);
+        background: var(--terrasoft);
+        padding: 2px 7px;
+        border-radius: 5px;
+      }
+      /* histogramme hebdo empilé — barres étroites, arrondies, charge par statut inscrite */
+      .hist {
+        margin-top: 2px;
+      }
+      .bars {
+        position: relative;
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+        gap: 22px;
+        height: 56px;
+        border-bottom: 1px solid var(--rulesoft);
+        padding: 0 4px;
+      }
+      .bars .b {
+        width: 34px;
+        flex: 0 0 34px;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        overflow: hidden;
+        border-radius: 6px 6px 0 0;
+      }
+      .bars .b i {
+        width: 100%;
+        min-height: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .bars .b i span {
+        font: 800 8px var(--fm);
+        letter-spacing: -0.02em;
+        line-height: 1;
+        white-space: nowrap;
+      }
+      .bars .b i.fr {
+        background: var(--ferme);
+      }
+      .bars .b i.fr span {
+        color: #fbf8ef;
+      }
+      .bars .b i.pl {
+        background: var(--planifie);
+      }
+      .bars .b i.pl span {
+        color: #fbf8ef;
+      }
+      .bars .b i.sg {
+        background: var(--suggere);
+      }
+      .bars .b i.sg span {
+        color: #3a2a0e;
+      }
+      .avgline {
+        position: absolute;
+        left: 4px;
+        right: 4px;
+        border-top: 1.5px dashed var(--terra);
+        height: 0;
+        pointer-events: none;
+      }
+      .avgline span {
+        position: absolute;
+        right: 0;
+        top: -7px;
+        font: 700 7px var(--fm);
+        color: var(--terra);
+        background: var(--panel);
+        padding: 0 3px;
+        white-space: nowrap;
+      }
+      .haxis {
+        display: flex;
+        justify-content: center;
+        gap: 22px;
+        margin-top: 3px;
+        padding: 0 4px;
+      }
+      .haxis span {
+        width: 34px;
+        flex: 0 0 34px;
+        text-align: center;
+        font: 700 8px var(--fm);
+        color: var(--muted);
+      }
 
-.cell{border-right:1px solid var(--rulesoft);border-bottom:1px solid var(--rulesoft);min-height:132px;background-image:linear-gradient(to right,rgba(31,26,19,.045) 1px,transparent 1px),linear-gradient(to bottom,rgba(31,26,19,.045) 1px,transparent 1px);background-size:22px 22px;background-color:var(--panel)}
-.cell.today{background-color:var(--terrasoft)}
+      .cell {
+        border-right: 1px solid var(--rulesoft);
+        border-bottom: 1px solid var(--rulesoft);
+        min-height: 132px;
+        background-image:
+          linear-gradient(to right, rgba(31, 26, 19, 0.045) 1px, transparent 1px),
+          linear-gradient(to bottom, rgba(31, 26, 19, 0.045) 1px, transparent 1px);
+        background-size: 22px 22px;
+        background-color: var(--panel);
+      }
+      .cell.today {
+        background-color: var(--terrasoft);
+      }
 
-.tag{position:fixed;top:14px;right:22px;z-index:60;font:700 9px var(--fm);text-transform:uppercase;letter-spacing:.14em;color:#fff;background:var(--terra);padding:5px 11px;border-radius:5px;display:flex;align-items:center;gap:6px}
-.tag .material-symbols-outlined{font-size:13px}
-</style>
-</head>
-<body>
-<div class="tag"><span class="material-symbols-outlined">view_timeline</span> B · « Postes »</div>
-<div class="wrap">
-  <div class="hd">
-    <div class="k">Board vide · représentation de charge</div>
-    <h1>B — Postes (histogramme hebdo empilé, arrondi)</h1>
-    <p>Histogramme hebdo (S25 / S26), barres <b>étroites et arrondies</b>, empilées Ferme / Planifié / Suggéré avec la charge par statut inscrite dans chaque segment. Ligne pointillée terra = moyenne h/sem. Total hebdo sous l'axe.</p>
-    <div class="legend">
-      <span><i style="background:var(--ferme)"></i>Ferme</span>
-      <span><i style="background:var(--planifie)"></i>Planifié</span>
-      <span><i style="background:var(--suggere)"></i>Suggéré</span>
-      <span class="sep"></span>
-      <span><i class="ln"></i>Moyenne h/sem</span>
+      .tag {
+        position: fixed;
+        top: 14px;
+        right: 22px;
+        z-index: 60;
+        font: 700 9px var(--fm);
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: #fff;
+        background: var(--terra);
+        padding: 5px 11px;
+        border-radius: 5px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .tag .material-symbols-outlined {
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="tag">
+      <span class="material-symbols-outlined">view_timeline</span> B · « Postes »
     </div>
-  </div>
-
-  <div class="board"><div class="sheet">
-    <div class="wkb"><div class="corner"></div><div class="wk">Semaine XXV · 16–20 juin<span class="chg">152 h</span></div><div class="wk">Semaine XXVI · 23–27 juin<span class="chg">134 h</span></div></div>
-    <div class="dh">
-      <div class="lh">Poste de charge</div>
-      <div class="dc"><div class="nm">Lun</div><div class="nn">16</div><div class="hh">28h</div></div>
-      <div class="dc today"><div class="nm">Mar</div><div class="nn">17</div><div class="hh">34h</div></div>
-      <div class="dc"><div class="nm">Mer</div><div class="nn">18</div><div class="hh">38h</div></div>
-      <div class="dc"><div class="nm">Jeu</div><div class="nn">19</div><div class="hh">22h</div></div>
-      <div class="dc"><div class="nm">Ven</div><div class="nn">20</div><div class="hh">30h</div></div>
-      <div class="dc"><div class="nm">Lun</div><div class="nn">23</div><div class="hh">26h</div></div>
-      <div class="dc"><div class="nm">Mar</div><div class="nn">24</div><div class="hh">32h</div></div>
-      <div class="dc"><div class="nm">Mer</div><div class="nn">25</div><div class="hh">28h</div></div>
-      <div class="dc"><div class="nm">Jeu</div><div class="nn">26</div><div class="hh">24h</div></div>
-      <div class="dc"><div class="nm">Ven</div><div class="nn">27</div><div class="hh">24h</div></div>
-    </div>
-
-    <!-- DCP-01 : 60h · moy 30 -->
-    <div class="row">
-      <div class="lh-r">
-        <div class="t"><span class="dot" style="background:var(--ferme)"></span><span class="code">DCP-01</span></div>
-        <span class="nm">Découpe Fan · Caisses</span>
-        <div class="hero"><span class="v">60</span><span class="u">heures</span><span class="avg">moy. 30 h/sem</span></div>
-        <div class="hist">
-          <div class="bars">
-            <div class="avgline" style="bottom:79%"><span>30 h</span></div>
-            <div class="b" style="height:84.2%"><i class="sg" style="height:12.5%"></i><i class="pl" style="height:25%"><span>8h</span></i><i class="fr" style="height:62.5%"><span>20h</span></i></div>
-            <div class="b" style="height:73.7%"><i class="sg" style="height:21.4%"><span>6h</span></i><i class="pl" style="height:28.6%"><span>8h</span></i><i class="fr" style="height:50%"><span>14h</span></i></div>
-          </div>
-          <div class="haxis"><span>S25 · 32h</span><span>S26 · 28h</span></div>
+    <div class="wrap">
+      <div class="hd">
+        <div class="k">Board vide · représentation de charge</div>
+        <h1>B — Postes (histogramme hebdo empilé, arrondi)</h1>
+        <p>
+          Histogramme hebdo (S25 / S26), barres <b>étroites et arrondies</b>, empilées Ferme /
+          Planifié / Suggéré avec la charge par statut inscrite dans chaque segment. Ligne
+          pointillée terra = moyenne h/sem. Total hebdo sous l'axe.
+        </p>
+        <div class="legend">
+          <span><i style="background: var(--ferme)"></i>Ferme</span>
+          <span><i style="background: var(--planifie)"></i>Planifié</span>
+          <span><i style="background: var(--suggere)"></i>Suggéré</span>
+          <span class="sep"></span>
+          <span><i class="ln"></i>Moyenne h/sem</span>
         </div>
       </div>
-      <div class="cell"></div><div class="cell today"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
-    </div>
 
-    <!-- SDR-02 : 74h · moy 37 -->
-    <div class="row">
-      <div class="lh-r">
-        <div class="t"><span class="dot" style="background:var(--planifie)"></span><span class="code">SDR-02</span></div>
-        <span class="nm">Soudure Caisson · Robot</span>
-        <div class="hero"><span class="v">74</span><span class="u">heures</span><span class="avg">moy. 37 h/sem</span></div>
-        <div class="hist">
-          <div class="bars">
-            <div class="avgline" style="bottom:97%"><span>37 h</span></div>
-            <div class="b" style="height:100%"><i class="sg" style="height:10.5%"></i><i class="pl" style="height:26.3%"><span>10h</span></i><i class="fr" style="height:63.2%"><span>24h</span></i></div>
-            <div class="b" style="height:94.7%"><i class="sg" style="height:11.1%"></i><i class="pl" style="height:33.3%"><span>12h</span></i><i class="fr" style="height:55.6%"><span>20h</span></i></div>
+      <div class="board">
+        <div class="sheet">
+          <div class="wkb">
+            <div class="corner"></div>
+            <div class="wk">Semaine XXV · 16–20 juin<span class="chg">152 h</span></div>
+            <div class="wk">Semaine XXVI · 23–27 juin<span class="chg">134 h</span></div>
           </div>
-          <div class="haxis"><span>S25 · 38h</span><span>S26 · 36h</span></div>
+          <div class="dh">
+            <div class="lh">Poste de charge</div>
+            <div class="dc">
+              <div class="nm">Lun</div>
+              <div class="nn">16</div>
+              <div class="hh">28h</div>
+            </div>
+            <div class="dc today">
+              <div class="nm">Mar</div>
+              <div class="nn">17</div>
+              <div class="hh">34h</div>
+            </div>
+            <div class="dc">
+              <div class="nm">Mer</div>
+              <div class="nn">18</div>
+              <div class="hh">38h</div>
+            </div>
+            <div class="dc">
+              <div class="nm">Jeu</div>
+              <div class="nn">19</div>
+              <div class="hh">22h</div>
+            </div>
+            <div class="dc">
+              <div class="nm">Ven</div>
+              <div class="nn">20</div>
+              <div class="hh">30h</div>
+            </div>
+            <div class="dc">
+              <div class="nm">Lun</div>
+              <div class="nn">23</div>
+              <div class="hh">26h</div>
+            </div>
+            <div class="dc">
+              <div class="nm">Mar</div>
+              <div class="nn">24</div>
+              <div class="hh">32h</div>
+            </div>
+            <div class="dc">
+              <div class="nm">Mer</div>
+              <div class="nn">25</div>
+              <div class="hh">28h</div>
+            </div>
+            <div class="dc">
+              <div class="nm">Jeu</div>
+              <div class="nn">26</div>
+              <div class="hh">24h</div>
+            </div>
+            <div class="dc">
+              <div class="nm">Ven</div>
+              <div class="nn">27</div>
+              <div class="hh">24h</div>
+            </div>
+          </div>
+
+          <!-- DCP-01 : 60h · moy 30 -->
+          <div class="row">
+            <div class="lh-r">
+              <div class="t">
+                <span class="dot" style="background: var(--ferme)"></span
+                ><span class="code">DCP-01</span>
+              </div>
+              <span class="nm">Découpe Fan · Caisses</span>
+              <div class="hero">
+                <span class="v">60</span><span class="u">heures</span
+                ><span class="avg">moy. 30 h/sem</span>
+              </div>
+              <div class="hist">
+                <div class="bars">
+                  <div class="avgline" style="bottom: 79%"><span>30 h</span></div>
+                  <div class="b" style="height: 84.2%">
+                    <i class="sg" style="height: 12.5%"></i
+                    ><i class="pl" style="height: 25%"><span>8h</span></i
+                    ><i class="fr" style="height: 62.5%"><span>20h</span></i>
+                  </div>
+                  <div class="b" style="height: 73.7%">
+                    <i class="sg" style="height: 21.4%"><span>6h</span></i
+                    ><i class="pl" style="height: 28.6%"><span>8h</span></i
+                    ><i class="fr" style="height: 50%"><span>14h</span></i>
+                  </div>
+                </div>
+                <div class="haxis"><span>S25 · 32h</span><span>S26 · 28h</span></div>
+              </div>
+            </div>
+            <div class="cell"></div>
+            <div class="cell today"></div>
+            <div class="cell"></div>
+            <div class="cell"></div>
+            <div class="cell"></div>
+            <div class="cell"></div>
+            <div class="cell"></div>
+            <div class="cell"></div>
+            <div class="cell"></div>
+            <div class="cell"></div>
+          </div>
+
+          <!-- SDR-02 : 74h · moy 37 -->
+          <div class="row">
+            <div class="lh-r">
+              <div class="t">
+                <span class="dot" style="background: var(--planifie)"></span
+                ><span class="code">SDR-02</span>
+              </div>
+              <span class="nm">Soudure Caisson · Robot</span>
+              <div class="hero">
+                <span class="v">74</span><span class="u">heures</span
+                ><span class="avg">moy. 37 h/sem</span>
+              </div>
+              <div class="hist">
+                <div class="bars">
+                  <div class="avgline" style="bottom: 97%"><span>37 h</span></div>
+                  <div class="b" style="height: 100%">
+                    <i class="sg" style="height: 10.5%"></i
+                    ><i class="pl" style="height: 26.3%"><span>10h</span></i
+                    ><i class="fr" style="height: 63.2%"><span>24h</span></i>
+                  </div>
+                  <div class="b" style="height: 94.7%">
+                    <i class="sg" style="height: 11.1%"></i
+                    ><i class="pl" style="height: 33.3%"><span>12h</span></i
+                    ><i class="fr" style="height: 55.6%"><span>20h</span></i>
+                  </div>
+                </div>
+                <div class="haxis"><span>S25 · 38h</span><span>S26 · 36h</span></div>
+              </div>
+            </div>
+            <div class="cell"></div>
+            <div class="cell today"></div>
+            <div class="cell"></div>
+            <div class="cell"></div>
+            <div class="cell"></div>
+            <div class="cell"></div>
+            <div class="cell"></div>
+            <div class="cell"></div>
+            <div class="cell"></div>
+            <div class="cell"></div>
+          </div>
+
+          <!-- PUD-03 : 56h · moy 28 -->
+          <div class="row">
+            <div class="lh-r">
+              <div class="t">
+                <span class="dot" style="background: var(--suggere)"></span
+                ><span class="code">PUD-03</span>
+              </div>
+              <span class="nm">Peinture Poudre · Four</span>
+              <div class="hero">
+                <span class="v">56</span><span class="u">heures</span
+                ><span class="avg">moy. 28 h/sem</span>
+              </div>
+              <div class="hist">
+                <div class="bars">
+                  <div class="avgline" style="bottom: 74%"><span>28 h</span></div>
+                  <div class="b" style="height: 78.9%">
+                    <i class="sg" style="height: 26.7%"><span>8h</span></i
+                    ><i class="pl" style="height: 33.3%"><span>10h</span></i
+                    ><i class="fr" style="height: 40%"><span>12h</span></i>
+                  </div>
+                  <div class="b" style="height: 68.4%">
+                    <i class="sg" style="height: 30.8%"><span>8h</span></i
+                    ><i class="pl" style="height: 30.8%"><span>8h</span></i
+                    ><i class="fr" style="height: 38.5%"><span>10h</span></i>
+                  </div>
+                </div>
+                <div class="haxis"><span>S25 · 30h</span><span>S26 · 26h</span></div>
+              </div>
+            </div>
+            <div class="cell"></div>
+            <div class="cell today"></div>
+            <div class="cell"></div>
+            <div class="cell"></div>
+            <div class="cell"></div>
+            <div class="cell"></div>
+            <div class="cell"></div>
+            <div class="cell"></div>
+            <div class="cell"></div>
+            <div class="cell"></div>
+          </div>
+
+          <!-- ASV-04 : 32h · moy 16 -->
+          <div class="row">
+            <div class="lh-r">
+              <div class="t">
+                <span class="dot" style="background: #8b5cf6"></span
+                ><span class="code">ASV-04</span>
+              </div>
+              <span class="nm">Assemblage VMC · Manuel</span>
+              <div class="hero">
+                <span class="v">32</span><span class="u">heures</span
+                ><span class="avg">moy. 16 h/sem</span>
+              </div>
+              <div class="hist">
+                <div class="bars">
+                  <div class="avgline" style="bottom: 42%"><span>16 h</span></div>
+                  <div class="b" style="height: 47.4%">
+                    <i class="sg" style="height: 44.4%"><span>8h</span></i
+                    ><i class="pl" style="height: 22.2%"><span>4h</span></i
+                    ><i class="fr" style="height: 33.3%"><span>6h</span></i>
+                  </div>
+                  <div class="b" style="height: 36.8%">
+                    <i class="sg" style="height: 42.9%"><span>6h</span></i
+                    ><i class="pl" style="height: 28.6%"><span>4h</span></i
+                    ><i class="fr" style="height: 28.6%"><span>4h</span></i>
+                  </div>
+                </div>
+                <div class="haxis"><span>S25 · 18h</span><span>S26 · 14h</span></div>
+              </div>
+            </div>
+            <div class="cell"></div>
+            <div class="cell today"></div>
+            <div class="cell"></div>
+            <div class="cell"></div>
+            <div class="cell"></div>
+            <div class="cell"></div>
+            <div class="cell"></div>
+            <div class="cell"></div>
+            <div class="cell"></div>
+            <div class="cell"></div>
+          </div>
+
+          <!-- CTL-05 : 64h · moy 32 -->
+          <div class="row">
+            <div class="lh-r">
+              <div class="t">
+                <span class="dot" style="background: #8c7d66"></span
+                ><span class="code">CTL-05</span>
+              </div>
+              <span class="nm">Contrôlage Final · Banc</span>
+              <div class="hero">
+                <span class="v">64</span><span class="u">heures</span
+                ><span class="avg">moy. 32 h/sem</span>
+              </div>
+              <div class="hist">
+                <div class="bars">
+                  <div class="avgline" style="bottom: 84%"><span>32 h</span></div>
+                  <div class="b" style="height: 89.5%">
+                    <i class="sg" style="height: 17.6%"></i
+                    ><i class="pl" style="height: 29.4%"><span>10h</span></i
+                    ><i class="fr" style="height: 52.9%"><span>18h</span></i>
+                  </div>
+                  <div class="b" style="height: 78.9%">
+                    <i class="sg" style="height: 20%"><span>6h</span></i
+                    ><i class="pl" style="height: 33.3%"><span>10h</span></i
+                    ><i class="fr" style="height: 46.7%"><span>14h</span></i>
+                  </div>
+                </div>
+                <div class="haxis"><span>S25 · 34h</span><span>S26 · 30h</span></div>
+              </div>
+            </div>
+            <div class="cell"></div>
+            <div class="cell today"></div>
+            <div class="cell"></div>
+            <div class="cell"></div>
+            <div class="cell"></div>
+            <div class="cell"></div>
+            <div class="cell"></div>
+            <div class="cell"></div>
+            <div class="cell"></div>
+            <div class="cell"></div>
+          </div>
         </div>
       </div>
-      <div class="cell"></div><div class="cell today"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
     </div>
-
-    <!-- PUD-03 : 56h · moy 28 -->
-    <div class="row">
-      <div class="lh-r">
-        <div class="t"><span class="dot" style="background:var(--suggere)"></span><span class="code">PUD-03</span></div>
-        <span class="nm">Peinture Poudre · Four</span>
-        <div class="hero"><span class="v">56</span><span class="u">heures</span><span class="avg">moy. 28 h/sem</span></div>
-        <div class="hist">
-          <div class="bars">
-            <div class="avgline" style="bottom:74%"><span>28 h</span></div>
-            <div class="b" style="height:78.9%"><i class="sg" style="height:26.7%"><span>8h</span></i><i class="pl" style="height:33.3%"><span>10h</span></i><i class="fr" style="height:40%"><span>12h</span></i></div>
-            <div class="b" style="height:68.4%"><i class="sg" style="height:30.8%"><span>8h</span></i><i class="pl" style="height:30.8%"><span>8h</span></i><i class="fr" style="height:38.5%"><span>10h</span></i></div>
-          </div>
-          <div class="haxis"><span>S25 · 30h</span><span>S26 · 26h</span></div>
-        </div>
-      </div>
-      <div class="cell"></div><div class="cell today"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
-    </div>
-
-    <!-- ASV-04 : 32h · moy 16 -->
-    <div class="row">
-      <div class="lh-r">
-        <div class="t"><span class="dot" style="background:#8b5cf6"></span><span class="code">ASV-04</span></div>
-        <span class="nm">Assemblage VMC · Manuel</span>
-        <div class="hero"><span class="v">32</span><span class="u">heures</span><span class="avg">moy. 16 h/sem</span></div>
-        <div class="hist">
-          <div class="bars">
-            <div class="avgline" style="bottom:42%"><span>16 h</span></div>
-            <div class="b" style="height:47.4%"><i class="sg" style="height:44.4%"><span>8h</span></i><i class="pl" style="height:22.2%"><span>4h</span></i><i class="fr" style="height:33.3%"><span>6h</span></i></div>
-            <div class="b" style="height:36.8%"><i class="sg" style="height:42.9%"><span>6h</span></i><i class="pl" style="height:28.6%"><span>4h</span></i><i class="fr" style="height:28.6%"><span>4h</span></i></div>
-          </div>
-          <div class="haxis"><span>S25 · 18h</span><span>S26 · 14h</span></div>
-        </div>
-      </div>
-      <div class="cell"></div><div class="cell today"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
-    </div>
-
-    <!-- CTL-05 : 64h · moy 32 -->
-    <div class="row">
-      <div class="lh-r">
-        <div class="t"><span class="dot" style="background:#8c7d66"></span><span class="code">CTL-05</span></div>
-        <span class="nm">Contrôlage Final · Banc</span>
-        <div class="hero"><span class="v">64</span><span class="u">heures</span><span class="avg">moy. 32 h/sem</span></div>
-        <div class="hist">
-          <div class="bars">
-            <div class="avgline" style="bottom:84%"><span>32 h</span></div>
-            <div class="b" style="height:89.5%"><i class="sg" style="height:17.6%"></i><i class="pl" style="height:29.4%"><span>10h</span></i><i class="fr" style="height:52.9%"><span>18h</span></i></div>
-            <div class="b" style="height:78.9%"><i class="sg" style="height:20%"><span>6h</span></i><i class="pl" style="height:33.3%"><span>10h</span></i><i class="fr" style="height:46.7%"><span>14h</span></i></div>
-          </div>
-          <div class="haxis"><span>S25 · 34h</span><span>S26 · 30h</span></div>
-        </div>
-      </div>
-      <div class="cell"></div><div class="cell today"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
-    </div>
-  </div></div>
-</div>
-</body>
+  </body>
 </html>

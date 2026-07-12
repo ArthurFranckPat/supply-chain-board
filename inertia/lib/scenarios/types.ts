@@ -6,9 +6,23 @@
  */
 
 export type PlanMutation =
-  | { type: 'shift_of'; numOf: string; dateFin?: string | null; dateDebut?: string | null; poste?: string | null }
+  | {
+      type: 'shift_of'
+      numOf: string
+      dateFin?: string | null
+      dateDebut?: string | null
+      poste?: string | null
+    }
   | { type: 'shift_demand'; numCommande: string; ligne?: string | null; date: string }
-  | { type: 'inject_demand'; id: string; article: string; quantity: number; date: string; client?: string; ligne?: string | null }
+  | {
+      type: 'inject_demand'
+      id: string
+      article: string
+      quantity: number
+      date: string
+      client?: string
+      ligne?: string | null
+    }
   | { type: 'suspend_supply'; article: string; sourceId?: string; delay?: string }
 
 export type DiffSens = 'degradation' | 'amelioration'
@@ -104,12 +118,19 @@ export interface VirtualOrderVm {
 
 /** Reconstruit les commandes virtuelles courantes (mutations `inject_demand`) et
  *  résout leur verdict de servabilité dans le dernier diff calculé (issue #58). */
-export function virtualOrdersFrom(mutations: PlanMutation[], diff: PlanDiff | null): VirtualOrderVm[] {
+export function virtualOrdersFrom(
+  mutations: PlanMutation[],
+  diff: PlanDiff | null
+): VirtualOrderVm[] {
   const clientByKey = new Map(
-    (diff?.client ?? []).filter((e) => e.nouvelle).map((e) => [`${e.numCommande}#${e.ligne ?? ''}`, e])
+    (diff?.client ?? [])
+      .filter((e) => e.nouvelle)
+      .map((e) => [`${e.numCommande}#${e.ligne ?? ''}`, e])
   )
   return mutations
-    .filter((m): m is Extract<PlanMutation, { type: 'inject_demand' }> => m.type === 'inject_demand')
+    .filter(
+      (m): m is Extract<PlanMutation, { type: 'inject_demand' }> => m.type === 'inject_demand'
+    )
     .map((m) => {
       const entry = clientByKey.get(`${m.id}#${m.ligne ?? ''}`)
       return {

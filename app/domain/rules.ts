@@ -25,7 +25,7 @@ export function isSubcontracted(article: Pick<Article, 'category'>): boolean {
 export function isComponentTreatedAsPurchase(
   article: Pick<Article, 'supplyType' | 'category'> | null,
   componentIsPurchased: boolean,
-  componentIsManufactured: boolean,
+  componentIsManufactured: boolean
 ): boolean {
   if (isPurchaseArticle(article)) return true
   if (componentIsPurchased) return true

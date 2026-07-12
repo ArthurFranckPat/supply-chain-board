@@ -13,10 +13,7 @@ export class X3Dialect {
   version: string | undefined
   dateTimeFormat = 'yyyy-MM-dd HH:mm:ss'
 
-  constructor(
-    _client: any,
-    _config: any,
-  ) {
+  constructor(_client: any, _config: any) {
     this.version = undefined
   }
 

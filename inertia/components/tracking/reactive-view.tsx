@@ -52,7 +52,9 @@ export function ReactiveView(props: ReactiveViewProps) {
         when={!props.loading()}
         fallback={
           <div class="flex flex-1 items-center justify-center gap-2 text-muted-foreground">
-            <span class="material-symbols-outlined animate-spin text-[20px]">progress_activity</span>
+            <span class="material-symbols-outlined animate-spin text-[20px]">
+              progress_activity
+            </span>
             <span class="text-[13px] font-medium">Calcul du suivi…</span>
           </div>
         }
@@ -73,7 +75,9 @@ export function ReactiveView(props: ReactiveViewProps) {
               sorting={sorting}
               onSortingChange={setSorting}
               indexColumn={indexCol}
-              getRowClass={(row: SuiviDisplayRow) => cx('border-t border-rule-soft transition-colors', LATE_TONE.bg(row.lateSeverity))}
+              getRowClass={(row: SuiviDisplayRow) =>
+                cx('border-t border-rule-soft transition-colors', LATE_TONE.bg(row.lateSeverity))
+              }
               tableClass="min-w-[1410px] table-fixed"
               scrollContainerClass="h-full border-0 rounded-none shadow-none"
               theadRowClass="sticky top-0 z-10 bg-secondary"

@@ -11,10 +11,15 @@ export default class SyncLocalMenus extends BaseCommand {
   static options: CommandOptions = { startApp: true }
 
   async run() {
-    const catalogPath = env.get('X3_CATALOG_PATH', '/Users/arthurbledou/Desktop/MCP/x3-graphql-node/data/x3_catalog.db')
+    const catalogPath = env.get(
+      'X3_CATALOG_PATH',
+      '/Users/arthurbledou/Desktop/MCP/x3-graphql-node/data/x3_catalog.db'
+    )
     const catalog = new DatabaseSync(catalogPath, { readOnly: true })
 
-    const rows = catalog.prepare('SELECT chapter, name, value, label FROM menus ORDER BY chapter, value').all() as Array<{
+    const rows = catalog
+      .prepare('SELECT chapter, name, value, label FROM menus ORDER BY chapter, value')
+      .all() as Array<{
       chapter: number
       name: string
       value: number

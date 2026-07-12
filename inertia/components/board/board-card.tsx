@@ -153,7 +153,7 @@ export const BoardCard: Component<BoardCardProps> = (props) => {
         'relative w-full rounded-md border border-border border-t-[3px] bg-card px-3 pb-2 pt-2.5 shadow-[0_1px_2px_rgba(31,26,19,.05)]',
         TONE_BORDER[props.status],
         props.status === 'termine' && 'opacity-60',
-        props.class,
+        props.class
       )}
       style={
         ring
@@ -222,26 +222,42 @@ const CommandeBody: Component<{
         <Show when={p.type}>
           <span
             class="shrink-0 rounded px-1 py-0.5 font-mono text-3xs font-bold uppercase tracking-wider"
-            style={typeMeta() ?? { background: 'var(--color-secondary)', color: 'var(--color-secondary-foreground)' }}
+            style={
+              typeMeta() ?? {
+                background: 'var(--color-secondary)',
+                color: 'var(--color-secondary-foreground)',
+              }
+            }
           >
             {p.type}
           </span>
         </Show>
-        <span class="shrink-0 whitespace-nowrap font-mono text-xs font-bold leading-tight text-foreground">{cmd()}</span>
+        <span class="shrink-0 whitespace-nowrap font-mono text-xs font-bold leading-tight text-foreground">
+          {cmd()}
+        </span>
         <Show when={ligne()}>
-          <span class="shrink-0 font-mono text-2xs font-medium leading-tight text-muted-foreground">·{ligne()}</span>
+          <span class="shrink-0 font-mono text-2xs font-medium leading-tight text-muted-foreground">
+            ·{ligne()}
+          </span>
         </Show>
       </div>
       {/* Article (PF) + tampon « BDH » (consomme bouche, issue #42) sur la même ligne. */}
       <Show when={p.ord || p.consommeBouche}>
         <div class="mt-1 flex items-center justify-between gap-1.5">
-          <div class="truncate font-mono text-xs font-semibold leading-tight text-brand" title={p.ord}>
+          <div
+            class="truncate font-mono text-xs font-semibold leading-tight text-brand"
+            title={p.ord}
+          >
             {p.ord}
           </div>
           <Show when={p.consommeBouche}>
             <span
               class="shrink-0 rotate-[-7deg] rounded border bg-card px-1.5 py-0.5 font-mono text-xs font-black uppercase tracking-wider opacity-70"
-              style={{ color: 'var(--color-brand)', 'border-color': 'var(--color-brand)', 'text-shadow': '0 0 1px rgba(168,67,31,.35)' }}
+              style={{
+                'color': 'var(--color-brand)',
+                'border-color': 'var(--color-brand)',
+                'text-shadow': '0 0 1px rgba(168,67,31,.35)',
+              }}
             >
               BDH
             </span>
@@ -276,7 +292,9 @@ const CommandeBody: Component<{
         </Show>
         <span class="ml-auto flex items-baseline gap-1">
           <Show when={p.qty !== undefined}>
-            <span class="font-fraunces text-base font-bold leading-none tabular-nums text-foreground">{p.qty}</span>
+            <span class="font-fraunces text-base font-bold leading-none tabular-nums text-foreground">
+              {p.qty}
+            </span>
           </Show>
           <span class="text-2xs font-medium tabular-nums text-muted-foreground">{p.hours}h</span>
         </span>
@@ -310,15 +328,23 @@ const OfBody: Component<{
       <Show when={p.consommeBouche}>
         <span
           class="absolute right-1.5 top-1.5 rotate-[-7deg] rounded border bg-card px-1.5 py-0.5 font-mono text-xs font-black uppercase tracking-wider opacity-70"
-          style={{ color: 'var(--color-brand)', 'border-color': 'var(--color-brand)', 'text-shadow': '0 0 1px rgba(168,67,31,.35)' }}
+          style={{
+            'color': 'var(--color-brand)',
+            'border-color': 'var(--color-brand)',
+            'text-shadow': '0 0 1px rgba(168,67,31,.35)',
+          }}
         >
           BDH
         </span>
       </Show>
       {/* N° OF — pleine largeur (truncate seulement si réellement trop long). */}
-      <div class="truncate font-mono text-xs font-bold leading-tight text-foreground">{p.article}</div>
+      <div class="truncate font-mono text-xs font-bold leading-tight text-foreground">
+        {p.article}
+      </div>
       <Show when={p.articleRef}>
-        <div class="truncate font-mono text-xs font-semibold leading-tight text-brand">{p.articleRef}</div>
+        <div class="truncate font-mono text-xs font-semibold leading-tight text-brand">
+          {p.articleRef}
+        </div>
       </Show>
       <div class="mt-1 truncate text-xs font-semibold text-foreground">{p.title}</div>
       <Show when={p.progress}>
@@ -363,7 +389,7 @@ const CornerBadge: Component<{ cls: string; icon: string }> = (p) => (
   <span
     class={cx(
       'absolute -top-1.5 right-2 flex size-4 items-center justify-center rounded-full border-2 border-card text-card',
-      p.cls,
+      p.cls
     )}
   >
     <span class="material-symbols-outlined text-xs font-bold">{p.icon}</span>

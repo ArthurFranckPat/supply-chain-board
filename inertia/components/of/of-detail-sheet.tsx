@@ -50,7 +50,7 @@ export const OfDetailSheet: Component<{
       const res = await fetch(route('scheduler.of_detail', { of: num }))
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       return (await res.json()) as OfDetail
-    },
+    }
   )
 
   // Affermissement (write-back X3 FUNMAUTR, #31). ~13s : spinner + message.
@@ -64,7 +64,7 @@ export const OfDetailSheet: Component<{
   const rupturedComponents = () => (detail()?.bom ?? []).filter((r) => !r.ok)
   const hasRuptures = () => rupturedComponents().length > 0
   const canFirm = () => {
-    if (firmMsg()?.ok) return false          // déjà affermi ce tour → on masque le bouton
+    if (firmMsg()?.ok) return false // déjà affermi ce tour → on masque le bouton
     const s = (detail()?.statusLabel ?? '').toLowerCase()
     return s.includes('sugg') || s.includes('plan')
   }
@@ -127,7 +127,7 @@ export const OfDetailSheet: Component<{
       const res = await fetch(route('planning_board.of_materials_diagnostic', { of: numOf }))
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       return (await res.json()) as DiagResult
-    },
+    }
   )
 
   const openDiagTab = () => {
@@ -157,7 +157,9 @@ export const OfDetailSheet: Component<{
               }
             >
               <div class="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-muted-foreground">
-                <span class="material-symbols-outlined animate-spin text-[28px]">progress_activity</span>
+                <span class="material-symbols-outlined animate-spin text-[28px]">
+                  progress_activity
+                </span>
                 <span class="text-sm">Chargement…</span>
               </div>
             </Show>
@@ -186,7 +188,8 @@ export const OfDetailSheet: Component<{
                     <span
                       class={`font-mono text-[11px] font-semibold ${m().ok ? 'text-ferme' : 'text-destructive'}`}
                     >
-                      {m().ok ? '✓ ' : '⚠ '}{m().text}
+                      {m().ok ? '✓ ' : '⚠ '}
+                      {m().text}
                     </span>
                   )}
                 </Show>
@@ -206,18 +209,27 @@ export const OfDetailSheet: Component<{
               {/* Méta + avancement */}
               <div class="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-rule-soft px-5 py-2.5">
                 <Meta k="Début" v={d().cycle.start} mono />
-                <span class="material-symbols-outlined text-[15px] text-muted-foreground">arrow_forward</span>
+                <span class="material-symbols-outlined text-[15px] text-muted-foreground">
+                  arrow_forward
+                </span>
                 <Meta k="Fin" v={d().cycle.end} mono />
                 <Show when={d().context}>
                   <Meta k="Poste" v={d().context} />
                 </Show>
                 <For each={d().stats}>{(s) => <Meta k={s.label} v={s.value} mono />}</For>
                 <div class="ml-auto flex items-center gap-2">
-                  <span class="font-mono text-[10px] font-semibold text-muted-foreground">Avancement</span>
-                  <span class="h-1.5 w-28 overflow-hidden rounded-full bg-secondary">
-                    <span class="block h-full rounded-full bg-brand" style={{ width: `${d().progressPct}%` }} />
+                  <span class="font-mono text-[10px] font-semibold text-muted-foreground">
+                    Avancement
                   </span>
-                  <span class="font-mono text-[11px] font-bold text-foreground">{d().progressPct}%</span>
+                  <span class="h-1.5 w-28 overflow-hidden rounded-full bg-secondary">
+                    <span
+                      class="block h-full rounded-full bg-brand"
+                      style={{ width: `${d().progressPct}%` }}
+                    />
+                  </span>
+                  <span class="font-mono text-[11px] font-bold text-foreground">
+                    {d().progressPct}%
+                  </span>
                 </div>
               </div>
 
@@ -269,7 +281,9 @@ export const OfDetailSheet: Component<{
                         Tous les composants sont disponibles
                       </div>
                     </Show>
-                    <span class="ml-auto font-mono text-[11px] text-muted-foreground">{d().bomCount} articles</span>
+                    <span class="ml-auto font-mono text-[11px] text-muted-foreground">
+                      {d().bomCount} articles
+                    </span>
                   </div>
 
                   <div class="grid grid-cols-[1fr_1.7fr_72px_84px_96px] gap-3 border-b border-border bg-secondary px-3 py-1.5 font-mono text-[9px] font-bold tracking-wider text-muted-foreground">
@@ -287,18 +301,25 @@ export const OfDetailSheet: Component<{
                           'grid grid-cols-[1fr_1.7fr_72px_84px_96px] items-center gap-3 border-b px-3 py-2',
                           row.ok
                             ? 'border-rule-soft'
-                            : 'border-destructive/20 bg-destructive/10 border-l-2 border-l-destructive',
+                            : 'border-destructive/20 bg-destructive/10 border-l-2 border-l-destructive'
                         )}
                         title={`${row.id} — ${row.name}`}
                       >
-                        <span class={cx('truncate font-mono text-[12px] font-bold', row.ok ? 'text-foreground' : 'text-destructive')}>
+                        <span
+                          class={cx(
+                            'truncate font-mono text-[12px] font-bold',
+                            row.ok ? 'text-foreground' : 'text-destructive'
+                          )}
+                        >
                           {row.id}
                         </span>
                         <span class="truncate text-[12px] text-foreground/80">{row.name}</span>
                         <span class="text-right font-mono text-[12px] text-foreground">
                           {row.need} {row.unit}
                         </span>
-                        <span class="text-right font-mono text-[12px] text-muted-foreground">{row.stock}</span>
+                        <span class="text-right font-mono text-[12px] text-muted-foreground">
+                          {row.stock}
+                        </span>
                         <span class="text-right">
                           <Show
                             when={row.ok}
@@ -321,7 +342,9 @@ export const OfDetailSheet: Component<{
                     when={!diag.loading}
                     fallback={
                       <div class="flex flex-col items-center justify-center gap-2 py-10 text-muted-foreground">
-                        <span class="material-symbols-outlined animate-spin text-[24px]">progress_activity</span>
+                        <span class="material-symbols-outlined animate-spin text-[24px]">
+                          progress_activity
+                        </span>
                         <span class="text-[12px]">Diagnostic en cours…</span>
                       </div>
                     }
@@ -331,13 +354,13 @@ export const OfDetailSheet: Component<{
                       fallback={
                         <div class="flex flex-col items-center gap-2 py-8 text-destructive">
                           <span class="material-symbols-outlined text-[22px]">error</span>
-                          <span class="text-[12px] font-medium">{(diag.error as Error)?.message}</span>
+                          <span class="text-[12px] font-medium">
+                            {(diag.error as Error)?.message}
+                          </span>
                         </div>
                       }
                     >
-                      <Show when={diag()}>
-                        {(dr) => <OfDiagnosticTree result={dr()} />}
-                      </Show>
+                      <Show when={diag()}>{(dr) => <OfDiagnosticTree result={dr()} />}</Show>
                     </Show>
                   </Show>
                 </Show>
@@ -353,7 +376,9 @@ export const OfDetailSheet: Component<{
 const Meta: Component<{ k: string; v: string; mono?: boolean }> = (p) => (
   <div class="flex items-baseline gap-1.5">
     <span class="font-mono text-[10px] font-semibold text-muted-foreground">{p.k}</span>
-    <span class={cx('font-fraunces text-[13px] font-bold text-foreground', p.mono && 'font-mono')}>{p.v}</span>
+    <span class={cx('font-fraunces text-[13px] font-bold text-foreground', p.mono && 'font-mono')}>
+      {p.v}
+    </span>
   </div>
 )
 
@@ -364,7 +389,7 @@ const TabBtn: Component<{ active: boolean; onClick: () => void; children: any }>
       'flex items-center gap-1.5 border-b-2 px-5 py-2.5 font-mono text-[11px] font-semibold transition-colors',
       p.active
         ? 'border-brand text-brand'
-        : 'border-transparent text-muted-foreground hover:text-foreground',
+        : 'border-transparent text-muted-foreground hover:text-foreground'
     )}
   >
     {p.children}

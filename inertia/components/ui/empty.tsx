@@ -14,7 +14,9 @@ export function Empty(props: {
 }) {
   return (
     <div class="flex flex-col items-center gap-2 px-6 py-14 text-center">
-      <span class="material-symbols-outlined text-[28px] text-muted-foreground/60">{props.icon}</span>
+      <span class="material-symbols-outlined text-[28px] text-muted-foreground/60">
+        {props.icon}
+      </span>
       <div class="font-fraunces text-sm font-bold">{props.title}</div>
       <Show when={props.description}>
         <div class="font-fraunces text-sm italic text-muted-foreground">{props.description}</div>

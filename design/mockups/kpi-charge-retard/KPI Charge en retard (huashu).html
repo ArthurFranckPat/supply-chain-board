@@ -1,277 +1,553 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>KPI — Charge en retard · huashu · 3 directions</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
-<style>
-  :root {
-    --paper:   #faf6ee;
-    --paper-2: #f5efe2;
-    --card:    #fffdf8;
-    --ink:     #2a2622;
-    --ink-soft:#6b6258;
-    --rule:    #e4dccb;
-    --rule-soft:#efe8d8;
-    --terra:   #b5502f;
-    --terra-2: #cf6a3f;
-    --ferme:   #5b7d4e;
-    --suggere: #b8862c;
-    --retard:  #b23b2e;
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>KPI — Charge en retard · huashu · 3 directions</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Space+Mono:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --paper: #faf6ee;
+        --paper-2: #f5efe2;
+        --card: #fffdf8;
+        --ink: #2a2622;
+        --ink-soft: #6b6258;
+        --rule: #e4dccb;
+        --rule-soft: #efe8d8;
+        --terra: #b5502f;
+        --terra-2: #cf6a3f;
+        --ferme: #5b7d4e;
+        --suggere: #b8862c;
+        --retard: #b23b2e;
 
-    --serif: "Fraunces", Georgia, serif;
-    --mono:  "Space Mono", ui-monospace, Menlo, monospace;
-    --sans:  ui-sans-serif, -apple-system, "Helvetica Neue", sans-serif;
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0; background: var(--paper); color: var(--ink);
-    font-family: var(--sans); -webkit-font-smoothing: antialiased;
-    padding: 56px 40px 80px;
-  }
+        --serif: 'Fraunces', Georgia, serif;
+        --mono: 'Space Mono', ui-monospace, Menlo, monospace;
+        --sans: ui-sans-serif, -apple-system, 'Helvetica Neue', sans-serif;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--paper);
+        color: var(--ink);
+        font-family: var(--sans);
+        -webkit-font-smoothing: antialiased;
+        padding: 56px 40px 80px;
+      }
 
-  .page-head { max-width: 1280px; margin: 0 auto 46px; }
-  .page-head .eyebrow {
-    font-family: var(--mono); font-size: 10.5px; font-weight: 700;
-    text-transform: uppercase; letter-spacing: 0.22em; color: var(--terra);
-    margin: 0 0 12px;
-  }
-  .page-head h1 {
-    font-family: var(--serif); font-weight: 500; font-size: 30px;
-    letter-spacing: -0.01em; margin: 0 0 8px;
-  }
-  .page-head p {
-    margin: 0; max-width: 66ch; font-size: 14px; line-height: 1.55; color: var(--ink-soft);
-  }
-  .page-head b { color: var(--ink); }
+      .page-head {
+        max-width: 1280px;
+        margin: 0 auto 46px;
+      }
+      .page-head .eyebrow {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.22em;
+        color: var(--terra);
+        margin: 0 0 12px;
+      }
+      .page-head h1 {
+        font-family: var(--serif);
+        font-weight: 500;
+        font-size: 30px;
+        letter-spacing: -0.01em;
+        margin: 0 0 8px;
+      }
+      .page-head p {
+        margin: 0;
+        max-width: 66ch;
+        font-size: 14px;
+        line-height: 1.55;
+        color: var(--ink-soft);
+      }
+      .page-head b {
+        color: var(--ink);
+      }
 
-  .grid {
-    max-width: 1280px; margin: 0 auto;
-    display: grid; grid-template-columns: repeat(3, 1fr); gap: 30px;
-    align-items: start;
-  }
-  @media (max-width: 1120px) { .grid { grid-template-columns: 1fr; max-width: 460px; } }
+      .grid {
+        max-width: 1280px;
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 30px;
+        align-items: start;
+      }
+      @media (max-width: 1120px) {
+        .grid {
+          grid-template-columns: 1fr;
+          max-width: 460px;
+        }
+      }
 
-  .col { display: flex; flex-direction: column; gap: 14px; }
-  .col-cap { display: flex; align-items: baseline; gap: 10px; }
-  .col-cap .n {
-    font-family: var(--mono); font-size: 11px; font-weight: 700;
-    color: var(--terra); letter-spacing: 0.1em;
-  }
-  .col-cap .t {
-    font-family: var(--mono); font-size: 10px; font-weight: 700;
-    text-transform: uppercase; letter-spacing: 0.16em; color: var(--ink-soft);
-  }
+      .col {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+      .col-cap {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+      }
+      .col-cap .n {
+        font-family: var(--mono);
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--terra);
+        letter-spacing: 0.1em;
+      }
+      .col-cap .t {
+        font-family: var(--mono);
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+        color: var(--ink-soft);
+      }
 
-  .label {
-    font-family: var(--mono); font-size: 10px; font-weight: 700;
-    text-transform: uppercase; letter-spacing: 0.16em; color: var(--ink-soft);
-  }
-  .num {
-    font-family: var(--serif); font-variant-numeric: tabular-nums;
-    line-height: 0.9; letter-spacing: -0.02em; color: var(--ink);
-  }
-  .num .u { font-family: var(--mono); font-weight: 700; letter-spacing: 0; color: var(--ink-soft); }
+      .label {
+        font-family: var(--mono);
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+        color: var(--ink-soft);
+      }
+      .num {
+        font-family: var(--serif);
+        font-variant-numeric: tabular-nums;
+        line-height: 0.9;
+        letter-spacing: -0.02em;
+        color: var(--ink);
+      }
+      .num .u {
+        font-family: var(--mono);
+        font-weight: 700;
+        letter-spacing: 0;
+        color: var(--ink-soft);
+      }
 
-  /* ==========================================================
+      /* ==========================================================
      DIRECTION 1 — Tuile dense « registre » (information-architecture)
      Le chiffre à gauche, le détail poste en mini-tableau réglé à droite.
      ========================================================== */
-  .d1 {
-    background: var(--card); border: 1px solid var(--rule);
-    display: grid; grid-template-columns: auto 1fr;
-  }
-  .d1 .left {
-    padding: 20px 22px 22px; border-right: 1px solid var(--rule);
-    display: flex; flex-direction: column; justify-content: space-between;
-    min-width: 132px;
-  }
-  .d1 .left .num { font-size: 58px; font-weight: 600; margin-top: 18px; }
-  .d1 .left .num .u { font-size: 18px; margin-left: 3px; }
-  .d1 .left .meta {
-    margin-top: 16px; font-family: var(--mono); font-size: 10.5px;
-    color: var(--ink-soft); line-height: 1.5;
-  }
-  .d1 .left .meta b { color: var(--ink); }
-  .d1 .tbl { padding: 12px 0; }
-  .d1 .tr {
-    display: grid; grid-template-columns: 1fr auto auto; align-items: baseline;
-    gap: 14px; padding: 8px 20px; border-bottom: 1px solid var(--rule-soft);
-  }
-  .d1 .tr:last-child { border-bottom: 0; }
-  .d1 .tr .p { font-family: var(--mono); font-size: 11.5px; font-weight: 700; color: var(--ink); }
-  .d1 .tr .h {
-    font-family: var(--serif); font-weight: 600; font-size: 16px;
-    font-variant-numeric: tabular-nums; color: var(--ink);
-  }
-  .d1 .tr .h small { font-family: var(--mono); font-size: 9.5px; font-weight: 700; color: var(--ink-soft); margin-left: 2px; }
-  .d1 .tr .pct {
-    font-family: var(--mono); font-size: 10px; font-weight: 700; color: var(--ink-soft);
-    width: 34px; text-align: right;
-  }
-  .d1 .tr.lead .p { color: var(--terra); }
+      .d1 {
+        background: var(--card);
+        border: 1px solid var(--rule);
+        display: grid;
+        grid-template-columns: auto 1fr;
+      }
+      .d1 .left {
+        padding: 20px 22px 22px;
+        border-right: 1px solid var(--rule);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        min-width: 132px;
+      }
+      .d1 .left .num {
+        font-size: 58px;
+        font-weight: 600;
+        margin-top: 18px;
+      }
+      .d1 .left .num .u {
+        font-size: 18px;
+        margin-left: 3px;
+      }
+      .d1 .left .meta {
+        margin-top: 16px;
+        font-family: var(--mono);
+        font-size: 10.5px;
+        color: var(--ink-soft);
+        line-height: 1.5;
+      }
+      .d1 .left .meta b {
+        color: var(--ink);
+      }
+      .d1 .tbl {
+        padding: 12px 0;
+      }
+      .d1 .tr {
+        display: grid;
+        grid-template-columns: 1fr auto auto;
+        align-items: baseline;
+        gap: 14px;
+        padding: 8px 20px;
+        border-bottom: 1px solid var(--rule-soft);
+      }
+      .d1 .tr:last-child {
+        border-bottom: 0;
+      }
+      .d1 .tr .p {
+        font-family: var(--mono);
+        font-size: 11.5px;
+        font-weight: 700;
+        color: var(--ink);
+      }
+      .d1 .tr .h {
+        font-family: var(--serif);
+        font-weight: 600;
+        font-size: 16px;
+        font-variant-numeric: tabular-nums;
+        color: var(--ink);
+      }
+      .d1 .tr .h small {
+        font-family: var(--mono);
+        font-size: 9.5px;
+        font-weight: 700;
+        color: var(--ink-soft);
+        margin-left: 2px;
+      }
+      .d1 .tr .pct {
+        font-family: var(--mono);
+        font-size: 10px;
+        font-weight: 700;
+        color: var(--ink-soft);
+        width: 34px;
+        text-align: right;
+      }
+      .d1 .tr.lead .p {
+        color: var(--terra);
+      }
 
-  /* ==========================================================
+      /* ==========================================================
      DIRECTION 2 — Data-viz barres soignées
      Poste dominant en terra, baseline, valeur en bout, total ancré.
      ========================================================== */
-  .d2 {
-    background: var(--card); border: 1px solid var(--rule);
-    padding: 22px 24px 24px;
-  }
-  .d2 .crown { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
-  .d2 .crown .num { font-size: 56px; font-weight: 600; }
-  .d2 .crown .num .u { font-size: 18px; margin-left: 4px; }
-  .d2 .crown .n-lines {
-    font-family: var(--mono); font-size: 10.5px; color: var(--ink-soft);
-    text-align: right; line-height: 1.5; padding-bottom: 6px;
-  }
-  .d2 .crown .n-lines b { color: var(--ink); font-size: 13px; }
-  .d2 .chart { margin-top: 24px; display: flex; flex-direction: column; gap: 16px; }
-  .d2 .row { display: grid; grid-template-columns: 92px 1fr; gap: 12px; align-items: center; }
-  .d2 .row .p { font-family: var(--mono); font-size: 11px; font-weight: 700; color: var(--ink); }
-  .d2 .row .barwrap { display: flex; align-items: center; gap: 9px; }
-  .d2 .row .bar { height: 18px; border-radius: 2px; }
-  .d2 .row .v { font-family: var(--mono); font-size: 11px; font-weight: 700; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
-  .d2 .row.lead .p { color: var(--terra); }
-  .d2 .row.lead .v { color: var(--terra); }
-  .d2 .axis {
-    margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--rule-soft);
-    display: flex; justify-content: space-between;
-    font-family: var(--mono); font-size: 10px; color: var(--ink-soft); letter-spacing: 0.04em;
-  }
+      .d2 {
+        background: var(--card);
+        border: 1px solid var(--rule);
+        padding: 22px 24px 24px;
+      }
+      .d2 .crown {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .d2 .crown .num {
+        font-size: 56px;
+        font-weight: 600;
+      }
+      .d2 .crown .num .u {
+        font-size: 18px;
+        margin-left: 4px;
+      }
+      .d2 .crown .n-lines {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        color: var(--ink-soft);
+        text-align: right;
+        line-height: 1.5;
+        padding-bottom: 6px;
+      }
+      .d2 .crown .n-lines b {
+        color: var(--ink);
+        font-size: 13px;
+      }
+      .d2 .chart {
+        margin-top: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      .d2 .row {
+        display: grid;
+        grid-template-columns: 92px 1fr;
+        gap: 12px;
+        align-items: center;
+      }
+      .d2 .row .p {
+        font-family: var(--mono);
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--ink);
+      }
+      .d2 .row .barwrap {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+      }
+      .d2 .row .bar {
+        height: 18px;
+        border-radius: 2px;
+      }
+      .d2 .row .v {
+        font-family: var(--mono);
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--ink-soft);
+        font-variant-numeric: tabular-nums;
+      }
+      .d2 .row.lead .p {
+        color: var(--terra);
+      }
+      .d2 .row.lead .v {
+        color: var(--terra);
+      }
+      .d2 .axis {
+        margin-top: 18px;
+        padding-top: 12px;
+        border-top: 1px solid var(--rule-soft);
+        display: flex;
+        justify-content: space-between;
+        font-family: var(--mono);
+        font-size: 10px;
+        color: var(--ink-soft);
+        letter-spacing: 0.04em;
+      }
 
-  /* ==========================================================
+      /* ==========================================================
      DIRECTION 3 — Éditorial « ledger » : hero serif + colonne proportionnelle
      ========================================================== */
-  .d3 {
-    background: var(--paper-2); border: 1px solid var(--rule);
-    display: grid; grid-template-columns: 16px 1fr;
-    overflow: hidden;
-  }
-  /* épine proportionnelle verticale */
-  .d3 .spine { display: flex; flex-direction: column; }
-  .d3 .spine span { width: 100%; }
-  .d3 .body { padding: 22px 24px 24px; }
-  .d3 .kicker { display: flex; align-items: baseline; justify-content: space-between; }
-  .d3 .kicker .label { color: var(--terra); }
-  .d3 .kicker .stamp { font-family: var(--mono); font-size: 10px; color: var(--ink-soft); letter-spacing: 0.1em; }
-  .d3 .hero { margin: 12px 0 6px; }
-  .d3 .hero .num { font-size: 104px; font-weight: 900; color: var(--terra); letter-spacing: -0.04em; }
-  .d3 .hero .cap {
-    font-family: var(--serif); font-style: italic; font-weight: 400;
-    font-size: 17px; color: var(--ink); margin-top: 2px;
-  }
-  .d3 .ledger { margin-top: 20px; border-top: 1px solid var(--rule); }
-  .d3 .li {
-    display: flex; align-items: baseline; gap: 10px;
-    padding: 9px 0; border-bottom: 1px solid var(--rule-soft);
-  }
-  .d3 .li:last-child { border-bottom: 0; }
-  .d3 .li .sw { width: 8px; height: 8px; border-radius: 2px; flex: none; transform: translateY(-1px); }
-  .d3 .li .p { font-family: var(--mono); font-size: 11.5px; font-weight: 700; color: var(--ink); white-space: nowrap; }
-  .d3 .li .dots { flex: 1; border-bottom: 1px dotted var(--rule); transform: translateY(-4px); }
-  .d3 .li .h {
-    font-family: var(--serif); font-weight: 600; font-size: 17px;
-    font-variant-numeric: tabular-nums; color: var(--ink);
-  }
-  .d3 .li .h small { font-family: var(--mono); font-size: 9.5px; font-weight: 700; color: var(--ink-soft); margin-left: 2px; }
-</style>
-</head>
-<body>
+      .d3 {
+        background: var(--paper-2);
+        border: 1px solid var(--rule);
+        display: grid;
+        grid-template-columns: 16px 1fr;
+        overflow: hidden;
+      }
+      /* épine proportionnelle verticale */
+      .d3 .spine {
+        display: flex;
+        flex-direction: column;
+      }
+      .d3 .spine span {
+        width: 100%;
+      }
+      .d3 .body {
+        padding: 22px 24px 24px;
+      }
+      .d3 .kicker {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+      }
+      .d3 .kicker .label {
+        color: var(--terra);
+      }
+      .d3 .kicker .stamp {
+        font-family: var(--mono);
+        font-size: 10px;
+        color: var(--ink-soft);
+        letter-spacing: 0.1em;
+      }
+      .d3 .hero {
+        margin: 12px 0 6px;
+      }
+      .d3 .hero .num {
+        font-size: 104px;
+        font-weight: 900;
+        color: var(--terra);
+        letter-spacing: -0.04em;
+      }
+      .d3 .hero .cap {
+        font-family: var(--serif);
+        font-style: italic;
+        font-weight: 400;
+        font-size: 17px;
+        color: var(--ink);
+        margin-top: 2px;
+      }
+      .d3 .ledger {
+        margin-top: 20px;
+        border-top: 1px solid var(--rule);
+      }
+      .d3 .li {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        padding: 9px 0;
+        border-bottom: 1px solid var(--rule-soft);
+      }
+      .d3 .li:last-child {
+        border-bottom: 0;
+      }
+      .d3 .li .sw {
+        width: 8px;
+        height: 8px;
+        border-radius: 2px;
+        flex: none;
+        transform: translateY(-1px);
+      }
+      .d3 .li .p {
+        font-family: var(--mono);
+        font-size: 11.5px;
+        font-weight: 700;
+        color: var(--ink);
+        white-space: nowrap;
+      }
+      .d3 .li .dots {
+        flex: 1;
+        border-bottom: 1px dotted var(--rule);
+        transform: translateY(-4px);
+      }
+      .d3 .li .h {
+        font-family: var(--serif);
+        font-weight: 600;
+        font-size: 17px;
+        font-variant-numeric: tabular-nums;
+        color: var(--ink);
+      }
+      .d3 .li .h small {
+        font-family: var(--mono);
+        font-size: 9.5px;
+        font-weight: 700;
+        color: var(--ink-soft);
+        margin-left: 2px;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="page-head">
+      <p class="eyebrow">Tableau de bord · KPI #1 · Issue #38 · huashu-design</p>
+      <h1>Charge en retard — 3 directions</h1>
+      <p>
+        Heures de production portées par les lignes de commande au statut <b>Retard</b>, ventilées
+        par poste de charge. Données placeholder (247 h, 14 lignes, 4 postes) —
+        <b>pas de comparaison « vs S‑1 »</b> : aucun historique n'est stocké, l'afficher serait
+        faux.
+      </p>
+    </header>
 
-  <header class="page-head">
-    <p class="eyebrow">Tableau de bord · KPI #1 · Issue #38 · huashu-design</p>
-    <h1>Charge en retard — 3 directions</h1>
-    <p>Heures de production portées par les lignes de commande au statut <b>Retard</b>, ventilées par poste de charge. Données placeholder (247 h, 14 lignes, 4 postes) — <b>pas de comparaison « vs S‑1 »</b> : aucun historique n'est stocké, l'afficher serait faux.</p>
-  </header>
+    <main class="grid">
+      <!-- ========== DIRECTION 1 — tuile dense registre ========== -->
+      <section class="col" data-screen-label="Option 1">
+        <div class="col-cap">
+          <span class="n">01</span><span class="t">Dense · tuile registre</span>
+        </div>
+        <article class="d1">
+          <div class="left">
+            <span class="label">Charge<br />en retard</span>
+            <div>
+              <div class="num">247<span class="u">h</span></div>
+              <div class="meta"><b>14</b> lignes<br /><b>4</b> postes</div>
+            </div>
+          </div>
+          <div class="tbl">
+            <div class="tr lead">
+              <span class="p">PP_830</span><span class="h">84<small>h</small></span
+              ><span class="pct">34%</span>
+            </div>
+            <div class="tr">
+              <span class="p">Montage S3P</span><span class="h">71<small>h</small></span
+              ><span class="pct">29%</span>
+            </div>
+            <div class="tr">
+              <span class="p">Fabrication CLP</span><span class="h">52<small>h</small></span
+              ><span class="pct">21%</span>
+            </div>
+            <div class="tr">
+              <span class="p">PP_153</span><span class="h">40<small>h</small></span
+              ><span class="pct">16%</span>
+            </div>
+          </div>
+        </article>
+      </section>
 
-  <main class="grid">
-
-    <!-- ========== DIRECTION 1 — tuile dense registre ========== -->
-    <section class="col" data-screen-label="Option 1">
-      <div class="col-cap"><span class="n">01</span><span class="t">Dense · tuile registre</span></div>
-      <article class="d1">
-        <div class="left">
-          <span class="label">Charge<br />en retard</span>
-          <div>
+      <!-- ========== DIRECTION 2 — barres soignées ========== -->
+      <section class="col" data-screen-label="Option 2">
+        <div class="col-cap"><span class="n">02</span><span class="t">Data-viz · barres</span></div>
+        <article class="d2">
+          <span class="label">Charge en retard · par poste</span>
+          <div class="crown">
             <div class="num">247<span class="u">h</span></div>
-            <div class="meta"><b>14</b> lignes<br /><b>4</b> postes</div>
+            <div class="n-lines"><b>14</b> lignes<br />sur <b>4</b> postes</div>
           </div>
-        </div>
-        <div class="tbl">
-          <div class="tr lead"><span class="p">PP_830</span><span class="h">84<small>h</small></span><span class="pct">34%</span></div>
-          <div class="tr"><span class="p">Montage S3P</span><span class="h">71<small>h</small></span><span class="pct">29%</span></div>
-          <div class="tr"><span class="p">Fabrication CLP</span><span class="h">52<small>h</small></span><span class="pct">21%</span></div>
-          <div class="tr"><span class="p">PP_153</span><span class="h">40<small>h</small></span><span class="pct">16%</span></div>
-        </div>
-      </article>
-    </section>
+          <div class="chart">
+            <div class="row lead">
+              <span class="p">PP_830</span>
+              <span class="barwrap"
+                ><span class="bar" style="width: 100%; background: var(--terra)"></span
+                ><span class="v">84 h</span></span
+              >
+            </div>
+            <div class="row">
+              <span class="p">Montage S3P</span>
+              <span class="barwrap"
+                ><span class="bar" style="width: 84.5%; background: var(--terra-2)"></span
+                ><span class="v">71 h</span></span
+              >
+            </div>
+            <div class="row">
+              <span class="p">Fab. CLP</span>
+              <span class="barwrap"
+                ><span class="bar" style="width: 61.9%; background: var(--suggere)"></span
+                ><span class="v">52 h</span></span
+              >
+            </div>
+            <div class="row">
+              <span class="p">PP_153</span>
+              <span class="barwrap"
+                ><span class="bar" style="width: 47.6%; background: #cdb079"></span
+                ><span class="v">40 h</span></span
+              >
+            </div>
+          </div>
+          <div class="axis"><span>0 h</span><span>poste le plus chargé · 84 h</span></div>
+        </article>
+      </section>
 
-    <!-- ========== DIRECTION 2 — barres soignées ========== -->
-    <section class="col" data-screen-label="Option 2">
-      <div class="col-cap"><span class="n">02</span><span class="t">Data-viz · barres</span></div>
-      <article class="d2">
-        <span class="label">Charge en retard · par poste</span>
-        <div class="crown">
-          <div class="num">247<span class="u">h</span></div>
-          <div class="n-lines"><b>14</b> lignes<br />sur <b>4</b> postes</div>
+      <!-- ========== DIRECTION 3 — éditorial ledger ========== -->
+      <section class="col" data-screen-label="Option 3">
+        <div class="col-cap">
+          <span class="n">03</span><span class="t">Éditorial · ledger</span>
         </div>
-        <div class="chart">
-          <div class="row lead">
-            <span class="p">PP_830</span>
-            <span class="barwrap"><span class="bar" style="width:100%;background:var(--terra);"></span><span class="v">84 h</span></span>
+        <article class="d3">
+          <div class="spine" aria-hidden="true">
+            <span style="height: 34%; background: var(--terra)"></span>
+            <span style="height: 28.7%; background: var(--terra-2)"></span>
+            <span style="height: 21.1%; background: var(--suggere)"></span>
+            <span style="height: 16.2%; background: #cdb079"></span>
           </div>
-          <div class="row">
-            <span class="p">Montage S3P</span>
-            <span class="barwrap"><span class="bar" style="width:84.5%;background:var(--terra-2);"></span><span class="v">71 h</span></span>
+          <div class="body">
+            <div class="kicker">
+              <span class="label">Charge en retard</span>
+              <span class="stamp">24/06 · 08:00</span>
+            </div>
+            <div class="hero">
+              <div class="num">
+                247<span
+                  class="u"
+                  style="font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase"
+                >
+                  h</span
+                >
+              </div>
+              <div class="cap">à rattraper, sur 4 postes</div>
+            </div>
+            <div class="ledger">
+              <div class="li">
+                <span class="sw" style="background: var(--terra)"></span
+                ><span class="p">PP_830</span><span class="dots"></span
+                ><span class="h">84<small>h</small></span>
+              </div>
+              <div class="li">
+                <span class="sw" style="background: var(--terra-2)"></span
+                ><span class="p">Montage S3P</span><span class="dots"></span
+                ><span class="h">71<small>h</small></span>
+              </div>
+              <div class="li">
+                <span class="sw" style="background: var(--suggere)"></span
+                ><span class="p">Fabrication CLP</span><span class="dots"></span
+                ><span class="h">52<small>h</small></span>
+              </div>
+              <div class="li">
+                <span class="sw" style="background: #cdb079"></span><span class="p">PP_153</span
+                ><span class="dots"></span><span class="h">40<small>h</small></span>
+              </div>
+            </div>
           </div>
-          <div class="row">
-            <span class="p">Fab. CLP</span>
-            <span class="barwrap"><span class="bar" style="width:61.9%;background:var(--suggere);"></span><span class="v">52 h</span></span>
-          </div>
-          <div class="row">
-            <span class="p">PP_153</span>
-            <span class="barwrap"><span class="bar" style="width:47.6%;background:#cdb079;"></span><span class="v">40 h</span></span>
-          </div>
-        </div>
-        <div class="axis"><span>0 h</span><span>poste le plus chargé · 84 h</span></div>
-      </article>
-    </section>
-
-    <!-- ========== DIRECTION 3 — éditorial ledger ========== -->
-    <section class="col" data-screen-label="Option 3">
-      <div class="col-cap"><span class="n">03</span><span class="t">Éditorial · ledger</span></div>
-      <article class="d3">
-        <div class="spine" aria-hidden="true">
-          <span style="height:34%;background:var(--terra);"></span>
-          <span style="height:28.7%;background:var(--terra-2);"></span>
-          <span style="height:21.1%;background:var(--suggere);"></span>
-          <span style="height:16.2%;background:#cdb079;"></span>
-        </div>
-        <div class="body">
-          <div class="kicker">
-            <span class="label">Charge en retard</span>
-            <span class="stamp">24/06 · 08:00</span>
-          </div>
-          <div class="hero">
-            <div class="num">247<span class="u" style="font-size:13px;letter-spacing:.14em;text-transform:uppercase;"> h</span></div>
-            <div class="cap">à rattraper, sur 4 postes</div>
-          </div>
-          <div class="ledger">
-            <div class="li"><span class="sw" style="background:var(--terra);"></span><span class="p">PP_830</span><span class="dots"></span><span class="h">84<small>h</small></span></div>
-            <div class="li"><span class="sw" style="background:var(--terra-2);"></span><span class="p">Montage S3P</span><span class="dots"></span><span class="h">71<small>h</small></span></div>
-            <div class="li"><span class="sw" style="background:var(--suggere);"></span><span class="p">Fabrication CLP</span><span class="dots"></span><span class="h">52<small>h</small></span></div>
-            <div class="li"><span class="sw" style="background:#cdb079;"></span><span class="p">PP_153</span><span class="dots"></span><span class="h">40<small>h</small></span></div>
-          </div>
-        </div>
-      </article>
-    </section>
-
-  </main>
-
-</body>
+        </article>
+      </section>
+    </main>
+  </body>
 </html>

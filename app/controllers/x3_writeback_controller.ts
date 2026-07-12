@@ -1,4 +1,4 @@
-import { HttpContext } from '@adonisjs/core/http'
+import { type HttpContext } from '@adonisjs/core/http'
 import { getX3EnvConfig } from '#config/x3'
 import {
   callObjectOperation,
@@ -28,7 +28,7 @@ export default class X3WritebackController {
     operation: ObjectOperation,
     publicName: string,
     keys: ObjectKeyValue[],
-    objectXml: string,
+    objectXml: string
   ) {
     const config = getX3EnvConfig()
     if (!config.user || !config.password) {
@@ -91,7 +91,10 @@ export default class X3WritebackController {
   async modify(ctx: HttpContext) {
     const { object, keys, objectXml } = ctx.request.only(['object', 'keys', 'objectXml'])
     if (!object || !objectXml) {
-      return ctx.response.badRequest({ ok: false, error: 'object + objectXml requis (keys recommandées)' })
+      return ctx.response.badRequest({
+        ok: false,
+        error: 'object + objectXml requis (keys recommandées)',
+      })
     }
     return this.run(ctx, 'modify', String(object).toUpperCase(), parseKeys(keys), String(objectXml))
   }
@@ -100,13 +103,17 @@ export default class X3WritebackController {
   async list(ctx: HttpContext) {
     const object = (ctx.request.input('object') || '').toString().trim().toUpperCase()
     const queryXml = (ctx.request.input('queryXml') || '<PARAM/>').toString().trim()
-    const listSize = Math.min(parseInt(ctx.request.input('listSize') || '50', 10) || 50, 500)
+    const listSize = Math.min(Number.parseInt(ctx.request.input('listSize') || '50', 10) || 50, 500)
     if (!object) {
       return ctx.response.badRequest({ ok: false, error: 'object requis' })
     }
     const config = getX3EnvConfig()
     if (!config.user || !config.password) {
-      return ctx.response.badRequest({ ok: false, error: 'Identifiants X3 absents.', env: config.pool })
+      return ctx.response.badRequest({
+        ok: false,
+        error: 'Identifiants X3 absents.',
+        env: config.pool,
+      })
     }
     const result = await callQueryList(object, config, queryXml, listSize)
     return {
@@ -128,11 +135,18 @@ export default class X3WritebackController {
     const object = (ctx.request.input('object') || '').toString().trim()
     const inputXml = (ctx.request.input('objectXml') || '').toString().trim()
     if (!object || !inputXml) {
-      return ctx.response.badRequest({ ok: false, error: 'object (publicName) + objectXml (inputXml) requis' })
+      return ctx.response.badRequest({
+        ok: false,
+        error: 'object (publicName) + objectXml (inputXml) requis',
+      })
     }
     const config = getX3EnvConfig()
     if (!config.user || !config.password) {
-      return ctx.response.badRequest({ ok: false, error: 'Identifiants X3 absents.', env: config.pool })
+      return ctx.response.badRequest({
+        ok: false,
+        error: 'Identifiants X3 absents.',
+        env: config.pool,
+      })
     }
     const result = await callRunSubprog(object, config, inputXml)
     return {

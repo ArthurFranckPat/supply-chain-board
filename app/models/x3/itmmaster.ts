@@ -723,13 +723,24 @@ export default class ItemMaster extends BaseModel {
   @hasMany(() => RoutingOp, { foreignKey: 'gamme', localKey: 'article' })
   declare routingOpList: HasMany<typeof RoutingOp>
 
-  @belongsTo(() => LocalMenu, { foreignKey: 'statutArticle', localKey: 'value', onQuery: (q) => q.where('chapter', 246) })
+  @belongsTo(() => LocalMenu, {
+    foreignKey: 'statutArticle',
+    localKey: 'value',
+    onQuery: (q) => q.where('chapter', 246),
+  })
   declare statutArticleMenu: BelongsTo<typeof LocalMenu>
 
-  @belongsTo(() => LocalMenu, { foreignKey: 'gestionStock', localKey: 'value', onQuery: (q) => q.where('chapter', 215) })
+  @belongsTo(() => LocalMenu, {
+    foreignKey: 'gestionStock',
+    localKey: 'value',
+    onQuery: (q) => q.where('chapter', 215),
+  })
   declare gestionStockMenu: BelongsTo<typeof LocalMenu>
 
-  @belongsTo(() => LocalMenu, { foreignKey: 'modeGestion', localKey: 'value', onQuery: (q) => q.where('chapter', 297) })
+  @belongsTo(() => LocalMenu, {
+    foreignKey: 'modeGestion',
+    localKey: 'value',
+    onQuery: (q) => q.where('chapter', 297),
+  })
   declare modeGestionMenu: BelongsTo<typeof LocalMenu>
-
 }

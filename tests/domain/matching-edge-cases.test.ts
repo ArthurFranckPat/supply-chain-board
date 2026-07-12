@@ -53,12 +53,7 @@ function makeOrderDemand(
   }
 }
 
-function makeForecastDemand(
-  id: string,
-  article: string,
-  quantity: number,
-  date: Date
-): Flow {
+function makeForecastDemand(id: string, article: string, quantity: number, date: Date): Flow {
   return {
     article,
     quantity,
@@ -110,7 +105,10 @@ test.group('CommandeOFMatcher - edge cases vs Python', () => {
     assert.equal(result.matchingMethod, 'nor_mto_cumulative')
     assert.equal(result.ofAllocations.length, 1)
     assert.equal(result.ofAllocations[0].qteAllouee, 80)
-    assert.equal((result.ofAllocations[0].ofFlow.origin as Extract<FlowOrigin, { type: 'of' }>).id, 'OF-SUGG')
+    assert.equal(
+      (result.ofAllocations[0].ofFlow.origin as Extract<FlowOrigin, { type: 'of' }>).id,
+      'OF-SUGG'
+    )
   })
 
   test('MTS with multiple linked OFs emits ambiguity alert', ({ assert }) => {

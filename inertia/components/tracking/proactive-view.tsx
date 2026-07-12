@@ -44,7 +44,9 @@ export function ProactiveView(props: ProactiveViewProps) {
         when={!props.loading()}
         fallback={
           <div class="flex flex-1 items-center justify-center gap-2 text-muted-foreground">
-            <span class="material-symbols-outlined animate-spin text-[20px]">progress_activity</span>
+            <span class="material-symbols-outlined animate-spin text-[20px]">
+              progress_activity
+            </span>
             <span class="text-[13px] font-medium">Calcul de la réalisabilité…</span>
           </div>
         }
@@ -67,7 +69,8 @@ export function ProactiveView(props: ProactiveViewProps) {
               indexColumn={indexCol}
               getRowClass={(row: ProactiveDisplayRow) => {
                 const k = row.verdictKey
-                const s = k === 'blocked' || k === 'uncov' ? ('critical' as const) : row.lateSeverity
+                const s =
+                  k === 'blocked' || k === 'uncov' ? ('critical' as const) : row.lateSeverity
                 return cx('border-t border-rule-soft transition-colors', LATE_TONE.bg(s))
               }}
               tableClass="min-w-[1320px] table-fixed"
@@ -79,7 +82,9 @@ export function ProactiveView(props: ProactiveViewProps) {
                     <span class="material-symbols-outlined text-[32px] text-muted-foreground/50">
                       {props.view().x3Error ? 'cloud_off' : 'task_alt'}
                     </span>
-                    {props.view().x3Error ? 'Données indisponibles (X3 injoignable).' : 'Toutes les commandes ouvertes sont couvertes.'}
+                    {props.view().x3Error
+                      ? 'Données indisponibles (X3 injoignable).'
+                      : 'Toutes les commandes ouvertes sont couvertes.'}
                   </div>
                 </div>
               }

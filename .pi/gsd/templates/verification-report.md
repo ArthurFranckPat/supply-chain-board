@@ -64,8 +64,8 @@ score: N/M must-haves verified
 
 ## Anti-Patterns Found
 
-| File                      | Line | Pattern                         | Severity  | Impact                      |
-| ------------------------- | ---- | ------------------------------- | --------- | --------------------------- |
+| File                      | Line | Pattern                         | Severity   | Impact                      |
+| ------------------------- | ---- | ------------------------------- | ---------- | --------------------------- |
 | src/app/api/chat/route.ts | 12   | `// TODO: implement`            | ⚠️ Warning | Indicates incomplete        |
 | src/components/Chat.tsx   | 45   | `return <div>Placeholder</div>` | 🛑 Blocker | Renders no content          |
 | src/hooks/useChat.ts      | -    | File missing                    | 🛑 Blocker | Expected hook doesn't exist |
@@ -80,11 +80,13 @@ None - all verifiable items checked programmatically.
 {If human verification needed:}
 
 ### 1. {Test Name}
+
 **Test:** {What to do}
 **Expected:** {What should happen}
 **Why human:** {Why can't verify programmatically}
 
 ### 2. {Test Name}
+
 **Test:** {What to do}
 **Expected:** {What should happen}
 **Why human:** {Why can't verify programmatically}
@@ -124,6 +126,7 @@ None - all verifiable items checked programmatically.
 **Objective:** {What this fixes}
 
 **Tasks:**
+
 1. {Task to fix gap 1}
 2. {Task to fix gap 2}
 3. {Verification task}
@@ -137,6 +140,7 @@ None - all verifiable items checked programmatically.
 **Objective:** {What this fixes}
 
 **Tasks:**
+
 1. {Task}
 2. {Task}
 
@@ -153,8 +157,9 @@ None - all verifiable items checked programmatically.
 **Total verification time:** {duration}
 
 ---
-*Verified: {timestamp}*
-*Verifier: the agent (subagent)*
+
+_Verified: {timestamp}_
+_Verifier: the agent (subagent)_
 ```
 
 ---
@@ -162,22 +167,26 @@ None - all verifiable items checked programmatically.
 ## Guidelines
 
 **Status values:**
+
 - `passed` - All must-haves verified, no blockers
 - `gaps_found` - One or more critical gaps found
 - `human_needed` - Automated checks pass but human verification required
 
 **Evidence types:**
+
 - For EXISTS: "File at path, exports X"
 - For SUBSTANTIVE: "N lines, has patterns X, Y, Z"
 - For WIRED: "Line N: code that connects A to B"
 - For FAILED: "Missing because X" or "Stub because Y"
 
 **Severity levels:**
+
 - 🛑 Blocker: Prevents goal achievement, must fix
 - ⚠️ Warning: Indicates incomplete but doesn't block
 - ℹ️ Info: Notable but not problematic
 
 **Fix plan generation:**
+
 - Only generate if gaps_found
 - Group related fixes into single plans
 - Keep to 2-3 tasks per plan
@@ -249,8 +258,8 @@ score: 2/5 must-haves verified
 
 ## Anti-Patterns Found
 
-| File                      | Line | Pattern                        | Severity  | Impact            |
-| ------------------------- | ---- | ------------------------------ | --------- | ----------------- |
+| File                      | Line | Pattern                        | Severity   | Impact            |
+| ------------------------- | ---- | ------------------------------ | ---------- | ----------------- |
 | src/components/Chat.tsx   | 8    | `<div>Chat will be here</div>` | 🛑 Blocker | No actual content |
 | src/app/api/chat/route.ts | 5    | `return Response.json([])`     | 🛑 Blocker | Hardcoded empty   |
 | src/app/api/chat/route.ts | 12   | `// TODO: save to database`    | ⚠️ Warning | Incomplete        |
@@ -287,6 +296,7 @@ None needed until automated gaps are fixed.
 **Objective:** Wire API routes to database
 
 **Tasks:**
+
 1. Implement GET /api/chat with prisma.message.findMany
 2. Implement POST /api/chat with prisma.message.create
 3. Verify: API returns real data, POST creates records
@@ -300,6 +310,7 @@ None needed until automated gaps are fixed.
 **Objective:** Wire Chat component to API
 
 **Tasks:**
+
 1. Implement Chat.tsx with useEffect fetch and message rendering
 2. Wire ChatInput onSubmit to POST /api/chat
 3. Verify: Messages display, new messages appear after send
@@ -317,6 +328,7 @@ None needed until automated gaps are fixed.
 **Total verification time:** 2 min
 
 ---
-*Verified: 2025-01-15T14:30:00Z*
-*Verifier: the agent (subagent)*
+
+_Verified: 2025-01-15T14:30:00Z_
+_Verifier: the agent (subagent)_
 ```

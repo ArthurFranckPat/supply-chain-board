@@ -263,5 +263,4 @@ export default class MfgMat extends BaseModel {
     onQuery: (query) => query.where('typeOrdre', 6),
   })
   declare encoursList: HasMany<typeof Orders>
-
 }
