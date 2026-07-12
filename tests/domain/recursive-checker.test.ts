@@ -383,3 +383,44 @@ test.group('RecursiveChecker ERP allocation awareness', () => {
     assert.equal(result.missingComponents['COMP_B'], 25)
   })
 })
+
+// ---------------------------------------------------------------------------
+// Allocation ERP PARTIELLE : la part réservée est créditée, le reliquat reste
+// vérifié (un OF affermi malgré rupture porte une allocation partielle — le
+// manque résiduel doit rester visible). Cas réel : AR2602882/11016312,
+// composant 11016785 (besoin 300, alloué 175 à F426-39386, stock net 141).
+// ---------------------------------------------------------------------------
+
+test.group('RecursiveChecker — allocation partielle', () => {
+  const partialSetup = (stockNet: number) => makeLoader({
+    articles: {
+      PF: makeArticle('PF', 'PF'),
+      COMP: makeArticle('COMP', 'AP', 'ACHAT'),
+    },
+    nomenclatures: {
+      PF: makeNomenclature('PF', [['COMP', 1, 'ACHETE']]),
+    },
+    stocks: {
+      COMP: { stockPhysique: stockNet, stockAlloue: 0 },
+    },
+    allocations: {
+      OF_X: [{ article: 'COMP', qteAllouee: 175 }],
+    },
+  })
+
+  test('reliquat couvert par le stock net → aucune rupture (cas AR2602882)', ({ assert }) => {
+    const checker = new RecursiveChecker(partialSetup(141), { dispoPolicy: 'stock_strict' })
+    // besoin 300 − alloué 175 = reliquat 125 ≤ stock net 141 → servi
+    const result = checker.checkArticleRecursive('PF', 300, new Date('2026-07-12'), 0, false, 'OF_X')
+    assert.isTrue(result.feasible)
+    assert.notProperty(result.missingComponents, 'COMP')
+  })
+
+  test('reliquat non couvert → manque résiduel visible (pas de skip tout-ou-rien)', ({ assert }) => {
+    const checker = new RecursiveChecker(partialSetup(100), { dispoPolicy: 'stock_strict' })
+    // reliquat 125 > stock net 100 → manque 25 (et PAS 300−100=200 : l'allocation crédite)
+    const result = checker.checkArticleRecursive('PF', 300, new Date('2026-07-12'), 0, false, 'OF_X')
+    assert.isFalse(result.feasible)
+    assert.equal(result.missingComponents['COMP'], 25)
+  })
+})

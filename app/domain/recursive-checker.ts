@@ -217,11 +217,18 @@ export class RecursiveChecker {
       const componentInfo = this.dataLoader.getArticle(componentArticle)
       const besoin = requiredQuantity(entry, qteBesoin)
 
-      // ERP allocation for this component on the parent OF -> skip feasibility check
+      // Allocation ERP du composant sur l'OF parent : la part réservée est servie
+      // (le stock net est déjà minoré de GLOALL), seul le RELIQUAT reste à vérifier.
+      // Ne PAS ignorer dès qu'une allocation existe : un OF affermi malgré rupture
+      // porte une allocation PARTIELLE — le manque résiduel doit rester visible.
       const alreadyAllocated = erpAlloc.get(componentArticle) ?? 0
-      if (alreadyAllocated > 0) {
+      const besoinNet = besoin - alreadyAllocated
+      if (besoinNet <= 0) {
         alerts.push(`${componentArticle} deja alloue a ${numOfParent}, ignore`)
         continue
+      }
+      if (alreadyAllocated > 0) {
+        alerts.push(`${componentArticle} partiellement alloue a ${numOfParent}: ${alreadyAllocated}/${besoin}`)
       }
 
       // Phantom articles handled in first pass
@@ -238,14 +245,14 @@ export class RecursiveChecker {
       if (entry.componentType === 'FABRIQUE' && !isSubcontracted(componentInfo)) {
         const coveringOfs = this.dataLoader.getOfsByArticle(componentArticle, undefined, dateBesoin)
         const totalCover = coveringOfs.reduce((sum, of) => sum + of.qteRestante, 0)
-        if (totalCover >= besoin) {
+        if (totalCover >= besoinNet) {
           componentsChecked += coveringOfs.length
           continue
         }
 
-        const uncovered = besoin - totalCover
+        const uncovered = besoinNet - totalCover
         missingComponents[componentArticle] = uncovered
-        alerts.push(`Sous-assemblage ${componentArticle} non couvert: besoin=${besoin}, couvert=${totalCover}`)
+        alerts.push(`Sous-assemblage ${componentArticle} non couvert: besoin=${besoinNet}, couvert=${totalCover}`)
 
         // Descend into BOM to expose missing purchase parts
         const bomResult = this.checkArticleRecursive(componentArticle, uncovered, dateBesoin, depth + 1, ofParentEstFerme, numOfParent)
@@ -256,7 +263,7 @@ export class RecursiveChecker {
       }
 
       // Purchased or subcontracted component -> recurse / stock check
-      const subResult = this.checkArticleRecursive(componentArticle, besoin, dateBesoin, depth + 1, ofParentEstFerme, numOfParent)
+      const subResult = this.checkArticleRecursive(componentArticle, besoinNet, dateBesoin, depth + 1, ofParentEstFerme, numOfParent)
       Object.assign(missingComponents, subResult.missingComponents)
       alerts.push(...subResult.alerts)
       componentsChecked += subResult.componentsChecked

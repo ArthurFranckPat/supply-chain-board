@@ -309,6 +309,13 @@ interface RawSuiviData {
   stockFlows: Flow[]
   detailedByOrderLine: Map<string, Emplacement[]>
   stockByArticle: Map<string, Emplacement[]>
+  /**
+   * Allocations ERP par OF (STOALL, qté active). Créditées au diagnostic de cause :
+   * un OF qui tient une allocation sur un composant ne doit pas être accusé de la
+   * rupture que sa propre réservation crée (le stock net est déjà minoré de GLOALL).
+   * Optionnel : absent des snapshots cachés antérieurs (grace) → dégrade en Map vide.
+   */
+  allocationsByOf?: Map<string, ErpAllocation[]>
 }
 
 // Cache distribué du contexte (cf. boardDataset, issue #20), namespace `suivi:*`.
@@ -416,12 +423,20 @@ export class SuiviService {
     const numCommandes = [...new Set(orderDemand.map((f) => (f.origin as Extract<Flow['origin'], { type: 'order' }>).id).filter(Boolean))]
     const lineArticles = [...new Set(orderDemand.map((f) => f.article).filter(Boolean))]
     const emplRepo = new X3EmplacementRepository()
-    const [detailedByOrderLine, stockByArticle] = await Promise.all([
+    // Allocations ERP des OF de la fenêtre (crédit au diagnostic de cause, cf. RawSuiviData).
+    const numOfs = [...new Set(
+      ofFlows
+        .filter((f) => f.origin.type === 'of')
+        .map((f) => ((f.origin as Extract<Flow['origin'], { type: 'of' }>).id ?? '').trim())
+        .filter(Boolean)
+    )]
+    const [detailedByOrderLine, stockByArticle, allocationsByOf] = await Promise.all([
       emplRepo.getDetailedByOrderLine(numCommandes),
       emplRepo.getStockLocations(lineArticles),
+      emplRepo.getOfAllocations(numOfs),
     ])
 
-    return { demandFlows, ofFlows, nomenclatureEntries, articleList, stockFlows, detailedByOrderLine, stockByArticle }
+    return { demandFlows, ofFlows, nomenclatureEntries, articleList, stockFlows, detailedByOrderLine, stockByArticle, allocationsByOf }
   }
 
   /**
@@ -449,7 +464,7 @@ export class SuiviService {
     return {
       lines,
       stockProvider: new MapStockProvider(breakdown),
-      ofMatcher: new FlowOfMatcher(raw.ofFlows),
+      ofMatcher: new FlowOfMatcher(raw.ofFlows, raw.allocationsByOf ?? new Map()),
       bomNavigator: new NomenclatureBomNavigator(nomenclatures, stocks, ofs, articles),
       paletteProvider: new StubPaletteProvider(),
       chargeCalculator: new StubChargeCalculator(),

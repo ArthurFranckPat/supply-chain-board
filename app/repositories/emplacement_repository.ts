@@ -1,4 +1,5 @@
 import type { Emplacement } from '#app/domain/suivi'
+import type { ErpAllocation } from '#app/domain/allocation'
 import StockAlloc from '#models/x3/stoall'
 import Stock from '#models/x3/stock'
 
@@ -60,6 +61,40 @@ export class X3EmplacementRepository {
           stoCou: String(r.chronoStock ?? '') || null,
         })
         map.set(key, arr)
+      }
+    }
+    return map
+  }
+
+  /**
+   * Allocations ERP par OF (composants réservés). Source STOALL, VCRNUM = numéro d'OF.
+   * Qté = QTYSTUACT_0 : les allocations GLOBALES (ALLTYP=1, cas OF) portent leur quantité
+   * là et laissent QTYSTU_0 à 0 — vérifié en prod (11016785 : QTYSTU=0, QTYSTUACT=175).
+   * Pour les allocations détaillées, QTYSTUACT reflète aussi la part encore active.
+   */
+  async getOfAllocations(numOfs: string[]): Promise<Map<string, ErpAllocation[]>> {
+    const map = new Map<string, ErpAllocation[]>()
+    const uniq = [...new Set(numOfs.filter(Boolean))]
+    if (uniq.length === 0) return map
+    for (let i = 0; i < uniq.length; i += 1000) {
+      const part = uniq.slice(i, i + 1000)
+      let rows: StockAlloc[] = []
+      try {
+        rows = await StockAlloc.query()
+          .select('VCRNUM_0', 'ITMREF_0', 'QTYSTUACT_0')
+          .whereIn('VCRNUM_0', part)
+          .where('QTYSTUACT_0', '>', 0)
+      } catch {
+        // X3 KO → dégrade en map vide (crédit d'allocation absent, check plus sévère).
+      }
+      for (const r of rows) {
+        const numOf = r.noPieceNoRecNoLivOuNoOf?.trim() ?? ''
+        const article = r.article?.trim() ?? ''
+        const qte = parseFloat(r.quantiteActiveUs ?? '0') || 0
+        if (!numOf || !article || qte <= 0) continue
+        const arr = map.get(numOf) ?? []
+        arr.push({ article, qteAllouee: qte })
+        map.set(numOf, arr)
       }
     }
     return map
