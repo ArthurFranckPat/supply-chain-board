@@ -1,39 +1,15 @@
 /**
- * Adapter factories for building domain loader interfaces from X3 data.
- *
- * These adapters let controllers use the new domain abstractions
- * (FeasibilityService, evaluateWindow, whatifOrder) without
- * changing how data is fetched from X3.
- *
- * Usage:
- *   const adapter = new FeasibilityLoaderAdapter({
- *     articles, nomenclatures, stocks, receptions, ofs,
- *   })
- *   const service = new FeasibilityService(adapter)
- *   service.check(article, qty, date)
+ * Adapter factories : maps domaine ↔ données X3 (nomenclature, stocks, réceptions, OF)
+ * + factory du DiagnosticLoader (source de vérité du RecursiveDiagnosticChecker).
+ * L'ancienne classe FeasibilityLoaderAdapter (FeasibilityService/evaluateWindow, morts)
+ * a été supprimée à l'étape 3 de #73.
  */
 import type { Article } from '#app/domain/models/article'
 import type { Flow } from '#app/domain/models/flow'
 import type { Nomenclature, NomenclatureEntry } from '#app/domain/models/nomenclature'
-import type { ErpAllocation } from '#app/domain/allocation'
 import type { StockRecord, ReceptionRecord, OfRecord } from '#app/domain/recursive-checker'
 import type { MfgMaterialInput } from '#app/domain/of-feasibility'
 import type { DiagnosticLoader } from '#app/domain/recursive-diagnostic-checker'
-import type { FeasibilityServiceLoader } from '#app/domain/feasibility-service'
-import type { PlanningBoardFeasibilityLoader } from '#app/domain/planning-board-feasibility'
-
-export interface LoaderInput {
-  articles: Map<string, Article>
-  nomenclatures: Map<string, Nomenclature>
-  stocks: Map<string, StockRecord>
-  receptions: Map<string, ReceptionRecord[]>
-  ofs: OfRecord[]
-  allocations?: Map<string, ErpAllocation[]>
-}
-
-export interface FeasibilityLoaderInput extends LoaderInput {
-  commandesClients?: PlanningBoardFeasibilityLoader['commandesClients']
-}
 
 /**
  * Derive StockRecord from stock flows as used in the current X3 pipeline.
@@ -125,48 +101,6 @@ export function buildOfRecords(
     dateDebut: mo.startDate ?? undefined,
     dateFin: mo.endDate ?? undefined,
   }))
-}
-
-/**
- * Adapter implementing domain loader interfaces from pre-built maps.
- * No database/X3 dependency — pure transformation.
- */
-export class FeasibilityLoaderAdapter implements FeasibilityServiceLoader, PlanningBoardFeasibilityLoader {
-  public ofs: OfRecord[]
-  public commandesClients: PlanningBoardFeasibilityLoader['commandesClients']
-
-  constructor(private input: FeasibilityLoaderInput) {
-    this.ofs = input.ofs
-    this.commandesClients = input.commandesClients
-  }
-
-  getArticle(article: string): Article | undefined {
-    return this.input.articles.get(article)
-  }
-
-  getNomenclature(article: string): Nomenclature | undefined {
-    return this.input.nomenclatures.get(article)
-  }
-
-  getStock(article: string): StockRecord | undefined {
-    return this.input.stocks.get(article)
-  }
-
-  getReceptions(article: string): ReceptionRecord[] {
-    return this.input.receptions.get(article) ?? []
-  }
-
-  getAllocationsOf(numDoc: string): ErpAllocation[] {
-    return this.input.allocations?.get(numDoc) ?? []
-  }
-
-  getOfsByArticle(article: string, statut?: number): OfRecord[] {
-    let filtered = this.ofs.filter((o) => o.article === article)
-    if (statut !== undefined) {
-      filtered = filtered.filter((o) => o.statutNum === statut)
-    }
-    return filtered
-  }
 }
 
 /**

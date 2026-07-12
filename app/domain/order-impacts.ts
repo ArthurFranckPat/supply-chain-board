@@ -4,7 +4,7 @@
  * Chaîne :
  * 1. CommandeOFMatcher.matchCommandes() → OF alloués par commande
  * 2. buildEffectiveFlows() → OF avec overrides appliqués
- * 3. evaluateSequentialFeasibility() → faisabilité par OF (stock virtuel)
+ * 3. evaluateRuptures() → faisabilité par OF (moteur unique #73, photo/contention)
  * 4. Croisement → statut : on_time / stock / retard / bloquee / sans_couverture
  *
  * Port de services/planning_board_orders.py (evaluate_order_impacts).

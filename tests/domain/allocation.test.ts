@@ -10,7 +10,8 @@ import {
   type AllocationLoader,
   type ErpAllocation,
 } from '#app/domain/allocation'
-import { RecursiveChecker, type RecursiveCheckerLoader, type StockRecord } from '#app/domain/recursive-checker'
+import type { StockRecord } from '#app/domain/recursive-checker'
+import { evaluateRuptures, type RuptureDataset } from '#app/domain/rupture-engine'
 
 function makeArticle(code: string, category: string = 'AP', supplyType: 'ACHAT' | 'FABRICATION' = 'ACHAT'): Article {
   return {
@@ -42,19 +43,25 @@ function makeLoader(
   }
 }
 
-function makeRcLoader(
+function makeDataset(
   articles: Record<string, Article>,
   nomenclatures: Record<string, Nomenclature>,
   stocks: Record<string, StockRecord>,
   allocations: Record<string, ErpAllocation[]> = {},
-): RecursiveCheckerLoader {
+): RuptureDataset {
+  const stockNet = new Map<string, number>()
+  for (const [a, s] of Object.entries(stocks)) stockNet.set(a, s.stockPhysique - s.stockAlloue)
+  const allocationsByOf = new Map<string, Map<string, number>>()
+  for (const [numOf, allocs] of Object.entries(allocations)) {
+    const m = new Map<string, number>()
+    for (const al of allocs) m.set(al.article, (m.get(al.article) ?? 0) + al.qteAllouee)
+    allocationsByOf.set(numOf, m)
+  }
   return {
-    getArticle: (a) => articles[a],
-    getNomenclature: (a) => nomenclatures[a],
-    getStock: (a) => stocks[a],
-    getAllocationsOf: (numDoc) => allocations[numDoc] ?? [],
-    getOfsByArticle: () => [],
-    getReceptions: () => [],
+    articles: new Map(Object.entries(articles)),
+    nomenclatures: new Map(Object.entries(nomenclatures)),
+    stockNet,
+    allocationsByOf,
   }
 }
 
@@ -66,8 +73,8 @@ function makeCandidate(numOf: string, article: string, quantity: number): Candid
 // REGLE 1 : Checker — composant deja alloue => pas marque en rupture
 // ===========================================================================
 
-test.group('RecursiveChecker skips ERP-allocated components', () => {
-  test('allocated component is not marked missing', ({ assert }) => {
+test.group('Moteur de rupture : crédit des allocations ERP (règle 3 #73)', () => {
+  test('composant entièrement alloué → jamais en manque, les autres restent vérifiés', ({ assert }) => {
     const articles = {
       PF: makeArticle('PF', 'PF', 'FABRICATION'),
       COMP_A: makeArticle('COMP_A', 'AP', 'ACHAT'),
@@ -80,17 +87,21 @@ test.group('RecursiveChecker skips ERP-allocated components', () => {
       COMP_A: { stockPhysique: 0, stockAlloue: 0 },
       COMP_B: { stockPhysique: 1, stockAlloue: 1 },
     }
-    const checker = new RecursiveChecker(makeRcLoader(articles, nomenclatures, stocks, {
+    const dataset = makeDataset(articles, nomenclatures, stocks, {
       OF_A: [{ article: 'COMP_B', qteAllouee: 10 }],
-    }), { dispoPolicy: 'stock_strict' })
+    })
+    const verdict = evaluateRuptures(
+      [{ numOf: 'OF_A', article: 'PF', qteRestante: 5, statutNum: 1, dateBesoin: null }],
+      dataset,
+      'photo',
+    ).get('OF_A')!
 
-    const result = checker.checkArticleRecursive('PF', 5, new Date('2026-04-20'), 0, true, 'OF_A')
-
-    assert.notProperty(result.missingComponents, 'COMP_B')
-    assert.equal(result.missingComponents['COMP_A'], 5)
+    assert.isTrue(verdict.feasible, 'OF ferme : affermi malgré le manque')
+    assert.notProperty(verdict.missing, 'COMP_B')
+    assert.equal(verdict.missing['COMP_A'], 5)
   })
 
-  test('partial allocation still checks unallocated components', ({ assert }) => {
+  test('allocation partielle : déduction partielle, le reste vérifié', ({ assert }) => {
     const articles = {
       PF: makeArticle('PF', 'PF', 'FABRICATION'),
       COMP_A: makeArticle('COMP_A', 'AP', 'ACHAT'),
@@ -103,14 +114,17 @@ test.group('RecursiveChecker skips ERP-allocated components', () => {
       COMP_A: { stockPhysique: 10, stockAlloue: 10 },
       COMP_B: { stockPhysique: 5, stockAlloue: 0 },
     }
-    const checker = new RecursiveChecker(makeRcLoader(articles, nomenclatures, stocks, {
+    const dataset = makeDataset(articles, nomenclatures, stocks, {
       OF_X: [{ article: 'COMP_A', qteAllouee: 10 }],
-    }), { dispoPolicy: 'stock_strict' })
+    })
+    const verdict = evaluateRuptures(
+      [{ numOf: 'OF_X', article: 'PF', qteRestante: 10, statutNum: 1, dateBesoin: null }],
+      dataset,
+      'photo',
+    ).get('OF_X')!
 
-    const result = checker.checkArticleRecursive('PF', 10, new Date('2026-04-20'), 0, true, 'OF_X')
-
-    assert.notProperty(result.missingComponents, 'COMP_A')
-    assert.equal(result.missingComponents['COMP_B'], 25)
+    assert.notProperty(verdict.missing, 'COMP_A')
+    assert.equal(verdict.missing['COMP_B'], 25)
   })
 })
 

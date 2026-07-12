@@ -187,6 +187,39 @@ test.group('rupture-engine — contention (règle 5)', () => {
     assert.deepEqual(second.missing, { C: 10 })
   })
 
+  test('contention fantôme : le 2e OF hérite de la consommation du stock fantôme et du réel', ({ assert }) => {
+    // P → FANT (AFANT ×1) → C (ACHETE ×1). Stock FANT 10, C 45. OF1 besoin 50 :
+    // consomme FANT 10 + C 40. OF2 besoin 10 : FANT épuisé → tout sur C, reste 5 → manque 5.
+    const dataset: RuptureDataset = {
+      articles: new Map([
+        ['P', mkArticle('P', 'PF', 'FABRICATION')],
+        ['FANT', mkArticle('FANT', 'AFANT', 'FABRICATION')],
+        ['C', mkArticle('C', 'MP', 'ACHAT')],
+      ]),
+      nomenclatures: new Map([
+        mkBom('P', [mkEntry('P', 'FANT', 1, 'FABRIQUE')]),
+        mkBom('FANT', [mkEntry('FANT', 'C', 1, 'ACHETE')]),
+      ]),
+      stockNet: new Map([['FANT', 10], ['C', 45]]),
+    }
+    const verdicts = evaluateRuptures(
+      [
+        mkOf('OF1', 'P', 50, 2, new Date('2026-07-01')),
+        mkOf('OF2', 'P', 10, 2, new Date('2026-07-05')),
+      ],
+      dataset,
+      'contention',
+    )
+
+    const first = verdicts.get('OF1')!
+    assert.isTrue(first.feasible)
+    assert.deepEqual(first.consumed, { FANT: 10, C: 40 })
+
+    const second = verdicts.get('OF2')!
+    assert.isFalse(second.feasible)
+    assert.deepEqual(second.missing, { C: 5 })
+  })
+
   test('OF non ferme en rupture ne consomme rien', ({ assert }) => {
     const dataset = contentionDataset()
     dataset.stockNet.set('C', 10)

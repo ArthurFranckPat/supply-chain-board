@@ -6,8 +6,6 @@ import {
   buildStocksMap,
   buildReceptionsMap,
   buildOfRecords,
-  FeasibilityLoaderAdapter,
-  type FeasibilityLoaderInput,
 } from '#services/feasibility-loader-adapter'
 
 test.group('stockRecordFromFlows', () => {
@@ -101,61 +99,5 @@ test.group('buildOfRecords', () => {
     assert.equal(ofs[0].numOf, 'OF001')
     assert.equal(ofs[0].statutNum, 1)
     assert.equal(ofs[0].qteRestante, 100)
-  })
-})
-
-test.group('FeasibilityLoaderAdapter', () => {
-  const baseInput: FeasibilityLoaderInput = {
-    articles: new Map(),
-    nomenclatures: new Map(),
-    stocks: new Map(),
-    receptions: new Map(),
-    ofs: [],
-  }
-
-  test('getArticle returns undefined for unknown article', ({ assert }) => {
-    const adapter = new FeasibilityLoaderAdapter(baseInput)
-    assert.isUndefined(adapter.getArticle('UNKNOWN'))
-  })
-
-  test('getArticle returns known article', ({ assert }) => {
-    const article = { code: 'C1', description: 'Comp 1', category: 'ACHAT', supplyType: 'ACHAT' as const, reorderDelay: 0, productFamily: null, pmp: null, economicLot: null, unitStock: null, unitPurchase: null, purchaseToStockRatio: 1, packagings: [] }
-    const input = { ...baseInput, articles: new Map([['C1', article]]) }
-    const adapter = new FeasibilityLoaderAdapter(input)
-    assert.equal(adapter.getArticle('C1')?.code, 'C1')
-  })
-
-  test('getStock returns stock or undefined', ({ assert }) => {
-    const stock = { stockPhysique: 100, stockAlloue: 10 }
-    const input = { ...baseInput, stocks: new Map([['C1', stock]]) }
-    const adapter = new FeasibilityLoaderAdapter(input)
-    assert.equal(adapter.getStock('C1')?.stockPhysique, 100)
-    assert.isUndefined(adapter.getStock('UNKNOWN'))
-  })
-
-  test('getReceptions returns empty array for unknown article', ({ assert }) => {
-    const adapter = new FeasibilityLoaderAdapter(baseInput)
-    assert.deepEqual(adapter.getReceptions('UNKNOWN'), [])
-  })
-
-  test('getOfsByArticle filters by article', ({ assert }) => {
-    const ofs = [
-      { numOf: 'OF1', article: 'PF1', statutNum: 1, qteRestante: 100, dateDebut: new Date('2026-04-10') },
-      { numOf: 'OF2', article: 'PF2', statutNum: 2, qteRestante: 50, dateDebut: new Date('2026-04-12') },
-    ]
-    const input = { ...baseInput, ofs }
-    const adapter = new FeasibilityLoaderAdapter(input)
-    assert.lengthOf(adapter.getOfsByArticle('PF1'), 1)
-    assert.lengthOf(adapter.getOfsByArticle('PF3'), 0)
-  })
-
-  test('getOfsByArticle filters by statut', ({ assert }) => {
-    const ofs = [
-      { numOf: 'OF1', article: 'PF1', statutNum: 1, qteRestante: 100, dateDebut: new Date('2026-04-10') },
-      { numOf: 'OF2', article: 'PF1', statutNum: 3, qteRestante: 50, dateDebut: new Date('2026-04-12') },
-    ]
-    const input = { ...baseInput, ofs }
-    const adapter = new FeasibilityLoaderAdapter(input)
-    assert.lengthOf(adapter.getOfsByArticle('PF1', 3), 1)
   })
 })

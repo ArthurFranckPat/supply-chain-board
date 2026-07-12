@@ -14,7 +14,7 @@ export function currentStock(flows: Flow[], article: string): number {
  * ne conserve QUE les flux à date nulle (= stock réel). Toutes les réceptions datées sont
  * exclues — y compris les PO overdue (date dans le passé, non reçues). C'est ce qui garantit
  * qu'une overdue ne gonfle JAMAIS la faisabilité d'un OF : le verdict (`checkFeasibility` /
- * `evaluateSequentialFeasibility`) est toujours appelé en 'stock_strict', donc un composant en
+ * moteur de rupture unique) est toujours appelé en 'stock_strict', donc un composant en
  * retard de livraison reste manquant → l'OF bloqué apparaît bien en Ruptures (aucun masquage).
  */
 export function availableAt(
