@@ -37,7 +37,8 @@ import staticSync from '#services/static_sync_service'
 import boardDataset from '#services/board_dataset'
 import type { GammeOperation } from '#app/domain/models/gamme'
 import cache from '@adonisjs/cache/services/main'
-import { RecursiveChecker, type OfRecord, type StockRecord, type ReceptionRecord } from '#app/domain/recursive-checker'
+import type { OfRecord, StockRecord } from '#app/domain/recursive-checker'
+import { evaluateRuptures, buildOfSupply, type RuptureDataset } from '#app/domain/rupture-engine'
 import type { Nomenclature, NomenclatureEntry } from '#app/domain/models/nomenclature'
 import type { Article } from '#app/domain/models/article'
 import type { ErpAllocation } from '#app/domain/allocation'
@@ -111,61 +112,51 @@ class FlowOfMatcher implements OfMatcherPort {
   }
 }
 
-/** Loader minimal pour RecursiveChecker, alimenté par les maps déjà chargées. */
-class SuiviBomLoader {
-  constructor(
-    private nomenclatures: Map<string, Nomenclature>,
-    private stocks: Map<string, StockRecord>,
-    private ofs: OfRecord[],
-    private articles: Map<string, Article>,
-    private ownAllocations: ErpAllocation[] = [],
-  ) {}
-
-  getArticle(article: string): Article | undefined {
-    return this.articles.get(article)
-  }
-  getNomenclature(article: string): Nomenclature | undefined {
-    return this.nomenclatures.get(article)
-  }
-  getStock(article: string): StockRecord | undefined {
-    return this.stocks.get(article)
-  }
-  getReceptions(_article: string): ReceptionRecord[] {
-    return []
-  }
-  getAllocationsOf(_numDoc: string): ErpAllocation[] {
-    return this.ownAllocations
-  }
-  getOfsByArticle(article: string, statut?: number): OfRecord[] {
-    let f = this.ofs.filter((o) => o.article === article)
-    if (statut !== undefined) f = f.filter((o) => o.statutNum === statut)
-    return f
-  }
-}
-
-/** BomNavigator branché sur la nomenclature + RecursiveChecker existant. */
+/**
+ * BomNavigator branché sur le moteur de rupture unique (#73, étape 2.1 — remplace le
+ * RecursiveChecker). Règles actées appliquées au diagnostic de cause réactif :
+ *  - fantômes AFANT : stock crédité d'abord, descente du reliquat (fini la logique
+ *    « variantes » qui exigeait le besoin complet sur une seule branche) ;
+ *  - allocations ERP de l'OF : déduction partielle au niveau direct (fini le re-crédit
+ *    à chaque niveau de descente) ;
+ *  - sous-ensemble fabriqué : son stock compte EN PLUS des OF couvrants, plafonné à la
+ *    quantité.
+ * Dispo inchangée (contexte suivi) : strict + CQ, cf. buildStockRecordMap.
+ */
 class NomenclatureBomNavigator implements BomNavigator {
+  private dataset: RuptureDataset
+
   constructor(
     private nomenclatures: Map<string, Nomenclature>,
-    private stocks: Map<string, StockRecord>,
-    private ofs: OfRecord[],
-    private articles: Map<string, Article>,
-  ) {}
+    stocks: Map<string, StockRecord>,
+    ofs: OfRecord[],
+    articles: Map<string, Article>,
+  ) {
+    const stockNet = new Map<string, number>()
+    for (const [article, s] of stocks) stockNet.set(article, s.stockPhysique - s.stockAlloue)
+    this.dataset = {
+      articles,
+      nomenclatures,
+      stockNet,
+      ofSupply: buildOfSupply(ofs),
+    }
+  }
 
   getComponentShortages(
     article: string,
     quantity: number,
     ownAllocations: Record<string, number>,
   ): Record<string, number> {
-    const allocs: ErpAllocation[] = Object.entries(ownAllocations).map(([art, qty]) => ({
-      article: art,
-      qteAllouee: qty,
-    }))
-    const loader = new SuiviBomLoader(this.nomenclatures, this.stocks, this.ofs, this.articles, allocs)
-    const checker = new RecursiveChecker(loader, { dispoPolicy: 'stock_strict' })
-    // numOfParent synthétique → RecursiveChecker applique ownAllocations via getAllocationsOf.
-    const result = checker.checkArticleRecursive(article, quantity, new Date(), 0, false, '__suivi__')
-    return result.missingComponents
+    const numOf = '__suivi__'
+    const verdicts = evaluateRuptures(
+      [{ numOf, article, qteRestante: quantity, statutNum: 2, dateBesoin: null }],
+      {
+        ...this.dataset,
+        allocationsByOf: new Map([[numOf, new Map(Object.entries(ownAllocations))]]),
+      },
+      'photo',
+    )
+    return verdicts.get(numOf)?.missing ?? {}
   }
 
   isComponentInSubassembly(component: string, rootArticle: string): boolean {
