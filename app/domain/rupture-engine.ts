@@ -76,6 +76,12 @@ export interface MissingComponent {
   shortage: number
   /** Sous-ensemble fabriqué (à lancer) vs feuille achetée (à acheter). */
   fabricated: boolean
+  /**
+   * 0 = besoin DIRECT de l'OF (composant MFGMAT/BOM niveau 1, fantômes aplatis) ;
+   * ≥ 1 = feuille exposée en descendant un sous-ensemble fabriqué non couvert.
+   * Les vues affichent depth 0 (parité programme/proactif) ; la descente sert au drill-down.
+   */
+  depth: number
 }
 
 /** Source des besoins retenue pour un OF (règle 1). */
@@ -101,6 +107,15 @@ export interface RuptureVerdict {
   missingDetail: MissingComponent[]
   /** Consommations virtuelles par article — mode contention uniquement. */
   consumed: Record<string, number>
+}
+
+/** Manquants DIRECTS (depth 0) à plat — la forme consommée par les vues (badges, listes). */
+export function directMissing(verdict: RuptureVerdict): Record<string, number> {
+  const out: Record<string, number> = {}
+  for (const m of verdict.missingDetail) {
+    if (m.depth === 0) out[m.article] = (out[m.article] ?? 0) + m.shortage
+  }
+  return out
 }
 
 /** Σ qteRestante par article produit — helper pour construire `ofSupply` depuis le pool. */
@@ -223,7 +238,7 @@ function checkOne(
     if (shortage <= 0) continue
 
     missing[article] = (missing[article] ?? 0) + shortage
-    missingDetail.push({ article, needed: req.checkNeed, available, shortage, fabricated: req.fabricated })
+    missingDetail.push({ article, needed: req.checkNeed, available, shortage, fabricated: req.fabricated, depth: 0 })
 
     // Sous-ensemble fabriqué non couvert : descendre SA nomenclature pour le manque
     // seulement, afin d'exposer les feuilles achetées réellement manquantes.
@@ -359,6 +374,7 @@ function descendFabricatedShortage(
       available,
       shortage: componentShortage,
       fabricated: req.fabricated,
+      depth,
     })
     if (req.fabricated && !visited.has(component)) {
       descendFabricatedShortage(component, componentShortage, dataset, vstock, missing, missingDetail, depth + 1, new Set(visited).add(component))

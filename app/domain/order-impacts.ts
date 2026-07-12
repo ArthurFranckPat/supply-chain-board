@@ -16,7 +16,13 @@ import type { FeasibilityOptions } from './stock-state.js'
 import type { Nomenclature } from './models/nomenclature.js'
 import type { OfOverride } from './planning_board.js'
 import { CommandeOFMatcher } from './of-conso.js'
-import { evaluateSequentialFeasibility, type OfInput } from './stock-state.js'
+import type { OfInput } from './stock-state.js'
+import {
+  evaluateRuptures,
+  buildOfSupply,
+  directMissing,
+  type RuptureOfInput,
+} from './rupture-engine.js'
 
 export interface OrderImpactRow {
   numCommande: string
@@ -180,23 +186,44 @@ export function evaluateOrderImpacts(
       }
     })
 
-  const feasibility = evaluateSequentialFeasibility(
-    ofInputs,
-    supplyFlows,
-    nomenclatures,
-    articles,
-    window.to,
-    { mode }
+  // Moteur de rupture unique (#73, étape 2.2) : remplace evaluateSequentialFeasibility.
+  // 'immediate' → photo (chaque OF seul), 'sequential' → contention (consommation virtuelle
+  // triée par date besoin). Dispo = flux stock à date nulle (strict+qc, filtrés en amont) ;
+  // couverture des sous-ensembles fabriqués = Σ qteRestante des OF producteurs, PLAFONNÉE.
+  const stockNet = new Map<string, number>()
+  for (const f of supplyFlows) {
+    if (f.date !== null) continue
+    const delta = f.direction === 'supply' ? f.quantity : -f.quantity
+    stockNet.set(f.article, (stockNet.get(f.article) ?? 0) + delta)
+  }
+  const engineOfs: RuptureOfInput[] = ofInputs.map((o) => {
+    const iso = o.dateDebut ?? o.dateFin
+    return {
+      numOf: o.numOf,
+      article: o.article,
+      qteRestante: o.qteRestante,
+      statutNum: o.statutNum,
+      dateBesoin: iso ? new Date(iso) : null,
+    }
+  })
+  const verdicts = evaluateRuptures(
+    engineOfs,
+    { articles, nomenclatures, stockNet, ofSupply: buildOfSupply(engineOfs) },
+    mode === 'sequential' ? 'contention' : 'photo',
   )
 
-  // Résout le verdict d'un OF : MFGMAT (précalculé) s'il existe, sinon le moteur théorique.
+  // Résout le verdict d'un OF : MFGMAT (précalculé) s'il existe, sinon le moteur.
+  // Vues : manquants DIRECTS (depth 0) — même forme photo/contention (parité #73).
   const resolveFeasibility = (
     ofId: string
   ): { feasible: boolean | null; missingComponents: Record<string, number> } => {
     const pre = precomputedFeasibility?.get(ofId)
     if (pre) return { feasible: pre.feasible, missingComponents: pre.missingComponents }
-    const entry = feasibility.get(ofId)
-    return { feasible: entry?.feasible ?? null, missingComponents: entry?.missingComponents ?? {} }
+    const verdict = verdicts.get(ofId)
+    return {
+      feasible: verdict?.feasible ?? null,
+      missingComponents: verdict ? directMissing(verdict) : {},
+    }
   }
 
   // 4. Cross matching × feasibility × dates → status per commande
@@ -298,16 +325,16 @@ export function evaluateOrderImpacts(
 
   return {
     orders: rows,
-    ofs: [...feasibility.values()].map((e) => {
-      const resolved = resolveFeasibility(e.numOf)
+    ofs: ofInputs.map((o) => {
+      const resolved = resolveFeasibility(o.numOf)
       return {
-        numOf: e.numOf,
-        article: e.article,
-        qteRestante: e.qteRestante,
+        numOf: o.numOf,
+        article: o.article,
+        qteRestante: o.qteRestante,
         feasible: resolved.feasible,
-        statutNum: e.statutNum,
+        statutNum: o.statutNum,
         missingComponents: resolved.missingComponents,
-        estDebuté: avancementByOf?.get(e.numOf)?.estDebuté,
+        estDebuté: avancementByOf?.get(o.numOf)?.estDebuté,
       }
     }),
     window: {

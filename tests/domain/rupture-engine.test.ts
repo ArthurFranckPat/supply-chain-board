@@ -4,6 +4,7 @@ import type { Nomenclature, NomenclatureEntry } from '#app/domain/models/nomencl
 import {
   evaluateRuptures,
   buildOfSupply,
+  directMissing,
   type RuptureDataset,
   type RuptureOfInput,
 } from '#app/domain/rupture-engine'
@@ -112,7 +113,11 @@ test.group('rupture-engine — sous-ensembles fabriqués', () => {
     const c = verdict.missingDetail.find((m) => m.article === 'C')!
     assert.isTrue(se.fabricated)
     assert.equal(se.available, 25)
+    assert.equal(se.depth, 0)
     assert.isFalse(c.fabricated)
+    assert.equal(c.depth, 1)
+    // Forme consommée par les vues : besoins directs seulement (parité programme/proactif).
+    assert.deepEqual(directMissing(verdict), { SE: 5 })
   })
 
   test('buildOfSupply agrège les qteRestante par article produit', ({ assert }) => {
