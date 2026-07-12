@@ -210,12 +210,40 @@ export function evaluateRuptures(
   return verdicts
 }
 
-function checkOne(
+/** Besoin direct net d'un OF après résolution (règles 1-3) — forme publique. */
+export interface OfRequirement {
+  article: string
+  /** Besoin net à vérifier contre la dispo (après allocations et part fantôme). */
+  need: number
+  /** Part pré-couverte par le stock du fantôme lui-même (informative, jamais en manque). */
+  coveredByPhantomStock: number
+  fabricated: boolean
+}
+
+/**
+ * Besoins directs nets d'un OF (règles 1-3), sans verdict — pour les vues qui listent
+ * les composants (détail OF). Fantômes aplatis : la part couverte par le stock du fantôme
+ * apparaît sur le fantôme (`coveredByPhantomStock`), le reliquat sur ses composants réels.
+ */
+export function resolveOfRequirements(
+  of: RuptureOfInput,
+  dataset: RuptureDataset,
+): OfRequirement[] {
+  const vstock = new VirtualStock(dataset.stockNet, dataset.ofSupply)
+  const { requirements } = resolveRequirements(of, dataset, vstock)
+  return [...requirements].map(([article, r]) => ({
+    article,
+    need: r.checkNeed,
+    coveredByPhantomStock: r.coveredNeed,
+    fabricated: r.fabricated,
+  }))
+}
+
+function resolveRequirements(
   of: RuptureOfInput,
   dataset: RuptureDataset,
   vstock: VirtualStock,
-  consume: boolean,
-): RuptureVerdict {
+): { source: RequirementSource; requirements: Map<string, ResolvedRequirement> } {
   const requirements = new Map<string, ResolvedRequirement>()
   let source: RequirementSource = 'AUCUNE'
 
@@ -227,6 +255,16 @@ function checkOne(
     const allocations = new Map(dataset.allocationsByOf?.get(of.numOf) ?? [])
     resolveBom(of.article, of.qteRestante, allocations, dataset, vstock, requirements, 0, new Set([of.article]))
   }
+  return { source, requirements }
+}
+
+function checkOne(
+  of: RuptureOfInput,
+  dataset: RuptureDataset,
+  vstock: VirtualStock,
+  consume: boolean,
+): RuptureVerdict {
+  const { source, requirements } = resolveRequirements(of, dataset, vstock)
 
   const missing: Record<string, number> = {}
   const missingDetail: MissingComponent[] = []

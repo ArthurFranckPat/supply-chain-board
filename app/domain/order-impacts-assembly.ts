@@ -7,7 +7,12 @@ import type { Flow } from './models/flow.js'
 import type { Article } from './models/article.js'
 import type { NomenclatureEntry } from './models/nomenclature.js'
 import type { OfOverride } from './planning_board.js'
-import { evaluateMfgFeasibility, type MfgMaterialInput } from './of-feasibility.js'
+import type { MfgMaterialInput } from './of-feasibility.js'
+import {
+  evaluateRuptures,
+  directMissing,
+  type RuptureOfInput,
+} from './rupture-engine.js'
 
 /**
  * Applique les overrides de date de ligne de commande (clé `id#ligne`) aux demandes.
@@ -86,6 +91,11 @@ export function buildArticleCatalog(articlesList: Article[], nomenclatureEntries
  * Précalcule le verdict MFGMAT par OF (matières réelles) — MÊME calcul que le détail OF,
  * pour garantir badge == détail (issue #11). Les OF sans matières MFGMAT (suggérés non
  * éclatés) ne sont pas dans la map retournée : le moteur retombe sur son calcul BOM théorique.
+ *
+ * #73 étape 2.3 : verdict rendu par le moteur unique (photo, source MFGMAT). Dispo = stock
+ * strict/qc SEUL (pas d'ofSupply) : le chemin MFGMAT est un engagement réel, la couverture
+ * d'un SE par d'autres OF se lit dans le diagnostic — et le détail OF fait pareil (parité #11).
+ * OF ferme : verdict « faisable » mais manque résiduel VISIBLE (règle 3 — fini le missing {}).
  */
 export function precomputeMfgFeasibility(
   ofFlows: Flow[],
@@ -93,15 +103,31 @@ export function precomputeMfgFeasibility(
   stockByArticle: Map<string, number>,
   overrideMap: Map<string, OfOverride>
 ): Map<string, { feasible: boolean | null; missingComponents: Record<string, number> }> {
-  const mfgFeasibility = new Map<string, { feasible: boolean | null; missingComponents: Record<string, number> }>()
+  const engineOfs: RuptureOfInput[] = []
   for (const f of ofFlows) {
     const numOf = (f.origin as { id?: string }).id?.trim() ?? ''
     if (!numOf) continue
     const materials = mfgByOf.get(numOf)
     if (!materials || materials.length === 0) continue
-    const status = overrideMap.get(numOf)?.status ?? (f.origin as { status?: number }).status ?? 3
-    const verdict = evaluateMfgFeasibility(materials, stockByArticle, status === 1)
-    mfgFeasibility.set(numOf, { feasible: verdict.feasible, missingComponents: verdict.missingComponents })
+    engineOfs.push({
+      numOf,
+      article: f.article,
+      qteRestante: f.quantity,
+      statutNum: overrideMap.get(numOf)?.status ?? (f.origin as { status?: number }).status ?? 3,
+      dateBesoin: null,
+      materials,
+    })
+  }
+
+  const verdicts = evaluateRuptures(
+    engineOfs,
+    { articles: new Map(), nomenclatures: new Map(), stockNet: stockByArticle },
+    'photo',
+  )
+
+  const mfgFeasibility = new Map<string, { feasible: boolean | null; missingComponents: Record<string, number> }>()
+  for (const [numOf, verdict] of verdicts) {
+    mfgFeasibility.set(numOf, { feasible: verdict.feasible, missingComponents: directMissing(verdict) })
   }
   return mfgFeasibility
 }
