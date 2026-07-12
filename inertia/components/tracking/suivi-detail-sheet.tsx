@@ -19,12 +19,25 @@ export const SuiviDetailSheet: Component<SuiviDetailSheetProps> = (props) => {
   // Stepper calculations
   const step1 = () => true // Commande toujours enregistrée
   const step2 = () => isReactif() ? true : (proactiveRow().ofs.length > 0 || proactiveRow().couverture === 'Stock' || proactiveRow().couverture === 'Achat')
-  const step3 = () => {
+  
+  // Green: Fully allocated
+  const step3Green = () => {
     const allocVal = isReactif() 
       ? (reactiveRow().allocStrict + reactiveRow().allocCq) 
       : proactiveRow().qteAllouee
     return allocVal >= r().qteRestante
   }
+
+  // Amber: Stock is available in the warehouse to allocate (ALLOCATION_A_FAIRE) OR partially allocated
+  const step3Amber = () => {
+    if (step3Green()) return false
+    if (isReactif()) {
+      return reactiveRow().statusKey === 'alc' || (reactiveRow().allocStrict + reactiveRow().allocCq > 0)
+    } else {
+      return proactiveRow().verdictKey === 'stock' || proactiveRow().qteAllouee > 0
+    }
+  }
+
   const step4 = () => isReactif() ? !reactiveRow().cq : true // Si pas de signal CQ, alors c'est vert
   const step5 = () => r().enZoneExpe
 
@@ -72,10 +85,11 @@ export const SuiviDetailSheet: Component<SuiviDetailSheetProps> = (props) => {
         <div class="flex flex-col items-center gap-1.5 z-10 w-16">
           <div class="size-8 rounded-full flex items-center justify-center font-bold text-[12px] transition-all"
                classList={{
-                 'bg-emerald-500 text-white shadow-[0_0_12px_rgba(16,185,129,0.3)]': step3(),
-                 'bg-amber-500 text-white animate-pulse shadow-[0_0_12px_rgba(245,158,11,0.3)]': !step3() && (strictVal() + cqVal() > 0),
-                 'bg-secondary text-muted-foreground': !step3() && !(strictVal() + cqVal() > 0)
-               }}>
+                 'bg-emerald-500 text-white shadow-[0_0_12px_rgba(16,185,129,0.3)] border border-emerald-400': step3Green(),
+                 'bg-amber-500 text-white animate-pulse shadow-[0_0_12px_rgba(245,158,11,0.3)] border border-amber-400': step3Amber(),
+                 'bg-secondary text-muted-foreground border border-rule': !step3Green() && !step3Amber()
+               }}
+               title={step3Green() ? 'Stock entièrement alloué' : step3Amber() ? 'Stock disponible ou partiel — action requise' : 'Aucun stock disponible'}>
             <span class="material-symbols-outlined text-[16px]">inventory_2</span>
           </div>
           <span class="text-[8.5px] font-extrabold uppercase tracking-wider text-muted-foreground text-center">Alloué</span>
@@ -85,9 +99,10 @@ export const SuiviDetailSheet: Component<SuiviDetailSheetProps> = (props) => {
         <div class="flex flex-col items-center gap-1.5 z-10 w-16">
           <div class="size-8 rounded-full flex items-center justify-center font-bold text-[12px] transition-all"
                classList={{
-                 'bg-emerald-500 text-white shadow-[0_0_12px_rgba(16,185,129,0.3)]': step4(),
-                 'bg-purple-500 text-white animate-pulse shadow-[0_0_12px_rgba(168,85,247,0.3)]': !step4()
-               }}>
+                 'bg-emerald-500 text-white shadow-[0_0_12px_rgba(16,185,129,0.3)] border border-emerald-400': step4(),
+                 'bg-purple-500 text-white animate-pulse shadow-[0_0_12px_rgba(168,85,247,0.3)] border border-purple-400': !step4()
+               }}
+               title={step4() ? 'Aucun blocage qualité' : 'Matières sous Contrôle Qualité (CQ) consommées'}>
             <span class="material-symbols-outlined text-[16px]">science</span>
           </div>
           <span class="text-[8.5px] font-extrabold uppercase tracking-wider text-muted-foreground text-center">Labo (CQ)</span>
