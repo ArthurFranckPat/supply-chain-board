@@ -32,7 +32,7 @@ export const SuiviDetailSheet: Component<SuiviDetailSheetProps> = (props) => {
   }
 
   const stepDispoState = () => {
-    if (stepApproState() === 'gray') return 'gray'
+    if (stepApproState() !== 'green') return 'gray'
     if (isReactif()) {
       const status = reactiveRow().statusKey
       const causeType = reactiveRow().cause?.type
@@ -49,7 +49,7 @@ export const SuiviDetailSheet: Component<SuiviDetailSheetProps> = (props) => {
   }
 
   const stepAllocState = () => {
-    if (stepDispoState() === 'gray') return 'gray'
+    if (stepDispoState() !== 'green') return 'gray'
     if (isReactif()) {
       const status = reactiveRow().statusKey
       if (status === 'exp') return 'green'
@@ -65,7 +65,7 @@ export const SuiviDetailSheet: Component<SuiviDetailSheetProps> = (props) => {
   }
 
   const stepExpState = () => {
-    if (stepAllocState() === 'gray') return 'gray'
+    if (stepAllocState() !== 'green') return 'gray'
     if (isReactif() && reactiveRow().cq) return 'purple'
     if (r().enZoneExpe) return 'green'
     if (r().statusKey === 'exp') return 'amber'
