@@ -846,6 +846,16 @@ const Programme: Component<VisionProps> = (props) => {
     }
     window.addEventListener('resize', measure)
     if (document.fonts?.ready) document.fonts.ready.then(measure).catch(() => {})
+
+    const params = new URLSearchParams(window.location.search)
+    const openId = params.get('open_scenario_id')
+    if (openId) {
+      const numId = Number.parseInt(openId, 10)
+      if (!Number.isNaN(numId)) {
+        openScenario(numId)
+      }
+    }
+
     onCleanup(() => {
       ro?.disconnect()
       window.removeEventListener('resize', measure)

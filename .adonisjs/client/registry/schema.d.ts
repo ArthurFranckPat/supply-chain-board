@@ -187,6 +187,18 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'scenarios.compare': {
+    methods: ["GET","HEAD"]
+    pattern: '/programme/scenarios/comparer'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'load.index': {
     methods: ["GET","HEAD"]
     pattern: '/charge'

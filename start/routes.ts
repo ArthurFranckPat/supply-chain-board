@@ -94,6 +94,9 @@ router
     router.get('/ruptures', '#controllers/scheduler_controller.shortageTracker')
     router.get('/suivi', '#controllers/suivi_controller.board')
     router.get('/programme', '#controllers/scheduler_controller.programme')
+    router
+      .get('/programme/scenarios/comparer', '#controllers/scenario_controller.comparePage')
+      .as('scenarios.compare')
     router.get('/charge', '#controllers/load_controller.index')
     router.get('/expeditions', '#controllers/expeditions_controller.index')
     router.get('/receptions', '#controllers/receptions_controller.index').as('receptions.index')

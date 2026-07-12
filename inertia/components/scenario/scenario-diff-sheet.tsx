@@ -94,6 +94,32 @@ export const ScenarioDiffSheet: Component<{
                   </For>
                 </Section>
 
+                {/* Axe appro — Verdicts de calage */}
+                <Section title="Appro — Verdicts de calage" count={diff().approVerdicts?.length ?? 0}>
+                  <For each={diff().approVerdicts ?? []}>
+                    {(v) => {
+                      const sens: 'degradation' | 'amelioration' = v.verdict === 'recalable' ? 'amelioration' : 'degradation'
+                      const label = v.verdict === 'inevitable' ? 'Rupture inévitable' : v.verdict === 'recalable' ? 'Appro à re-caler' : 'Stock dormant'
+                      const badgeClass = v.verdict === 'inevitable' ? 'bg-red-100 text-red-700' : v.verdict === 'recalable' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-700'
+                      return (
+                        <Row sens={sens}>
+                          <div class="flex flex-col gap-0.5 w-full">
+                            <div class="flex items-center gap-1.5 w-full">
+                              <span class="font-mono text-[11px] font-bold">{v.composant}</span>
+                              <span class={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${badgeClass}`}>
+                                {label}
+                              </span>
+                            </div>
+                            <span class="text-[10px] text-muted-foreground">
+                              Sur {v.numOf} · Besoin {v.dateAvant} → {v.dateApres} · Qté {v.quantite} u (Délai {v.reorderDelay}j)
+                            </span>
+                          </div>
+                        </Row>
+                      )
+                    }}
+                  </For>
+                </Section>
+
                 {/* Axe allocation — re-matching */}
                 <Section title="Allocation — re-matching" count={diff().allocation.length}>
                   <For each={diff().allocation}>

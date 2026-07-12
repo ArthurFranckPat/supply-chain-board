@@ -110,6 +110,8 @@ function getOfId(origin: FlowOrigin): string {
   return ''
 }
 
+export type AllocationStrategy = 'date_besoin' | 'date_passation' | 'priorite_previsions'
+
 export class CommandeOFMatcher {
   private ofConso: Map<string, OFConso> = new Map()
   private ofsDejaUtilises: Set<string> = new Set()
@@ -119,7 +121,8 @@ export class CommandeOFMatcher {
     private supplyFlows: Flow[],
     private articles: Map<string, Article>,
     _nomenclatures: Map<string, Nomenclature>,
-    dateToleranceDays: number = 10
+    dateToleranceDays: number = 10,
+    private strategy: AllocationStrategy = 'date_besoin'
   ) {
     this.dateToleranceDays = dateToleranceDays
   }
@@ -524,10 +527,32 @@ export class CommandeOFMatcher {
 
     const stockState = this.createStockState()
 
+    const clientsWithForecasts = new Set<string>()
+    if (this.strategy === 'priorite_previsions') {
+      for (const d of demands) {
+        if (d.origin.type === 'forecast' && d.origin.customer) {
+          clientsWithForecasts.add(d.origin.customer)
+        }
+      }
+    }
+
     const sorted = [...demands].sort((a, b) => {
       const pa = a.origin.type === 'order' ? 0 : 1
       const pb = b.origin.type === 'order' ? 0 : 1
       if (pa !== pb) return pa - pb
+
+      if (this.strategy === 'date_passation') {
+        const dateA = (a.origin as any).dateCommande?.getTime() ?? a.date?.getTime() ?? Infinity
+        const dateB = (b.origin as any).dateCommande?.getTime() ?? b.date?.getTime() ?? Infinity
+        if (dateA !== dateB) return dateA - dateB
+      } else if (this.strategy === 'priorite_previsions') {
+        const customerA = (a.origin as any).customer ?? ''
+        const customerB = (b.origin as any).customer ?? ''
+        const priorityA = clientsWithForecasts.has(customerA) ? 0 : 1
+        const priorityB = clientsWithForecasts.has(customerB) ? 0 : 1
+        if (priorityA !== priorityB) return priorityA - priorityB
+      }
+
       const da = a.date?.getTime() ?? Infinity
       const db = b.date?.getTime() ?? Infinity
       if (da !== db) return da - db

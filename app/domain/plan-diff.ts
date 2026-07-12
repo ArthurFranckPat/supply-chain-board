@@ -14,12 +14,13 @@ import type { Flow } from './models/flow.js'
 import type { Article } from './models/article.js'
 import type { FeasibilityOptions } from './stock-state.js'
 import type { Nomenclature } from './models/nomenclature.js'
-import type { OfOverride } from './planning_board.js'
 import {
   evaluateOrderImpacts,
   type OrderImpactResult,
   type OrderImpactRow,
 } from './order-impacts.js'
+import type { OfOverride } from './planning_board.js'
+import type { AllocationStrategy } from './of-conso.js'
 
 // ---------------------------------------------------------------------------
 // Mutations (primitive de la vision §3)
@@ -109,9 +110,20 @@ export interface ChargeDiffEntry {
   deltaPct: number | null
 }
 
+export interface ApproVerdictEntry {
+  composant: string
+  numOf: string
+  verdict: 'inevitable' | 'recalable' | 'dormant'
+  dateAvant: string
+  dateApres: string
+  quantite: number
+  reorderDelay: number
+}
+
 export interface PlanDiff {
   client: ClientDiffEntry[]
   appro: ApproDiffEntry[]
+  approVerdicts: ApproVerdictEntry[]
   allocation: AllocationDiffEntry[]
   charge: ChargeDiffEntry[]
   stats: { degradations: number; ameliorations: number }
@@ -453,6 +465,21 @@ export interface PlanDiffInputs extends PlanInputs {
   ofCharges?: OfCharge[]
   /** Capacités par `${poste}|${semaine}` pour le Δ % de l'axe charge. */
   capacites?: Map<string, number>
+  strategy?: AllocationStrategy
+}
+
+function getOfDate(
+  ofId: string,
+  overrides: Map<string, OfOverride>,
+  baseDate: Date | null
+): Date | null {
+  const ov = overrides.get(ofId)
+  if (ov?.dateFin) {
+    const d = new Date(ov.dateFin)
+    d.setHours(0, 0, 0, 0)
+    return isNaN(d.getTime()) ? null : d
+  }
+  return baseDate
 }
 
 export function evaluatePlanDiff(inputs: PlanDiffInputs, mutations: PlanMutation[]): PlanDiff {
@@ -463,7 +490,10 @@ export function evaluatePlanDiff(inputs: PlanDiffInputs, mutations: PlanMutation
     inputs.articles,
     inputs.overrides,
     inputs.window,
-    inputs.mode
+    inputs.mode,
+    undefined,
+    undefined,
+    'date_besoin'
   )
   const mutated = applyMutations(inputs, mutations)
   const after = evaluateOrderImpacts(
@@ -473,12 +503,83 @@ export function evaluatePlanDiff(inputs: PlanDiffInputs, mutations: PlanMutation
     inputs.articles,
     mutated.overrides,
     inputs.window,
-    inputs.mode
+    inputs.mode,
+    undefined,
+    undefined,
+    inputs.strategy ?? 'date_besoin'
   )
+
+  const verdicts: ApproVerdictEntry[] = []
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  const ofFlows = inputs.supplyFlows.filter(
+    (f) => f.direction === 'supply' && f.origin.type === 'of'
+  )
+
+  for (const f of ofFlows) {
+    const ofId = (f.origin as any).id ?? ''
+    const dateBefore = getOfDate(ofId, inputs.overrides, f.date)
+    const dateAfter = getOfDate(ofId, mutated.overrides, f.date)
+
+    if (!dateBefore || !dateAfter || dateBefore.getTime() === dateAfter.getTime()) continue
+
+    const nom = inputs.nomenclatures.get(f.article)
+    if (!nom) continue
+
+    for (const comp of nom.components) {
+      const compArticle = comp.componentArticle
+      const articleDetail = inputs.articles.get(compArticle)
+      const leadTime = articleDetail?.reorderDelay ?? 14
+
+      const qty = comp.linkQuantity * f.quantity
+
+      if (dateAfter.getTime() < dateBefore.getTime()) {
+        const limitDate = new Date(today.getTime() + leadTime * 86400000)
+        if (dateAfter.getTime() < limitDate.getTime()) {
+          verdicts.push({
+            composant: compArticle,
+            numOf: ofId,
+            verdict: 'inevitable',
+            dateAvant: dateBefore.toISOString().slice(0, 10),
+            dateApres: dateAfter.toISOString().slice(0, 10),
+            quantite: qty,
+            reorderDelay: leadTime,
+          })
+        } else {
+          verdicts.push({
+            composant: compArticle,
+            numOf: ofId,
+            verdict: 'recalable',
+            dateAvant: dateBefore.toISOString().slice(0, 10),
+            dateApres: dateAfter.toISOString().slice(0, 10),
+            quantite: qty,
+            reorderDelay: leadTime,
+          })
+        }
+      } else if (dateAfter.getTime() > dateBefore.getTime()) {
+        const hasReception = inputs.supplyFlows.some(
+          (sf) => sf.direction === 'supply' && sf.origin.type === 'reception' && sf.article === compArticle
+        )
+        if (hasReception) {
+          verdicts.push({
+            composant: compArticle,
+            numOf: ofId,
+            verdict: 'dormant',
+            dateAvant: dateBefore.toISOString().slice(0, 10),
+            dateApres: dateAfter.toISOString().slice(0, 10),
+            quantite: qty,
+            reorderDelay: leadTime,
+          })
+        }
+      }
+    }
+  }
 
   const diff: PlanDiff = {
     client: diffClient(before, after),
     appro: diffAppro(before, after),
+    approVerdicts: verdicts,
     allocation: diffAllocation(before, after),
     charge: diffCharge(inputs.ofCharges ?? [], mutations, inputs.capacites),
     stats: { degradations: 0, ameliorations: 0 },
@@ -488,5 +589,12 @@ export function evaluatePlanDiff(inputs: PlanDiffInputs, mutations: PlanMutation
     if (entry.sens === 'degradation') diff.stats.degradations++
     else diff.stats.ameliorations++
   }
+
+  for (const v of verdicts) {
+    if (v.verdict === 'inevitable' || v.verdict === 'dormant') {
+      diff.stats.degradations++
+    }
+  }
+
   return diff
 }

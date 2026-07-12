@@ -25,6 +25,18 @@ export type PlanMutation =
     }
   | { type: 'suspend_supply'; article: string; sourceId?: string; delay?: string }
 
+export type AllocationStrategy = 'date_besoin' | 'date_passation' | 'priorite_previsions'
+
+export interface ApproVerdictEntry {
+  composant: string
+  numOf: string
+  verdict: 'inevitable' | 'recalable' | 'dormant'
+  dateAvant: string
+  dateApres: string
+  quantite: number
+  reorderDelay: number
+}
+
 export type DiffSens = 'degradation' | 'amelioration'
 
 export interface ClientDiffEntry {
@@ -72,6 +84,7 @@ export interface ChargeDiffEntry {
 export interface PlanDiff {
   client: ClientDiffEntry[]
   appro: ApproDiffEntry[]
+  approVerdicts?: ApproVerdictEntry[]
   allocation: AllocationDiffEntry[]
   charge: ChargeDiffEntry[]
   stats: { degradations: number; ameliorations: number }
@@ -84,6 +97,7 @@ export interface ScenarioRow {
   auteur: string | null
   statut: 'brouillon' | 'applique'
   mutations: PlanMutation[]
+  strategy: AllocationStrategy
   evaluatedAt: string | null
   dataAt: string | null
   createdAt: string

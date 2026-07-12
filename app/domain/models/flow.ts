@@ -47,6 +47,7 @@ export type FlowOrigin =
       designation?: string | null
       refCommandeClient?: string | null
       refArticleClient?: string | null
+      dateCommande?: Date | null
     }
   | {
       type: 'forecast'
@@ -58,6 +59,7 @@ export type FlowOrigin =
       qteCommandee: number
       qteAllouee: number
       designation?: string | null
+      dateCommande?: Date | null
     }
   | { type: 'component'; parent: string; ofId: string }
   | { type: 'allocation'; docId: string }

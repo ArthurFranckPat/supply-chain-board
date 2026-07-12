@@ -19,6 +19,7 @@ export type ScannedRoutes = {
     'scheduler.shortage_tracker': { paramsTuple?: []; params?: {} }
     'suivi.board': { paramsTuple?: []; params?: {} }
     'scheduler.programme': { paramsTuple?: []; params?: {} }
+    'scenarios.compare': { paramsTuple?: []; params?: {} }
     'load.index': { paramsTuple?: []; params?: {} }
     'expeditions.index': { paramsTuple?: []; params?: {} }
     'receptions.index': { paramsTuple?: []; params?: {} }
@@ -88,6 +89,7 @@ export type ScannedRoutes = {
     'scheduler.shortage_tracker': { paramsTuple?: []; params?: {} }
     'suivi.board': { paramsTuple?: []; params?: {} }
     'scheduler.programme': { paramsTuple?: []; params?: {} }
+    'scenarios.compare': { paramsTuple?: []; params?: {} }
     'load.index': { paramsTuple?: []; params?: {} }
     'expeditions.index': { paramsTuple?: []; params?: {} }
     'receptions.index': { paramsTuple?: []; params?: {} }
@@ -134,6 +136,7 @@ export type ScannedRoutes = {
     'scheduler.shortage_tracker': { paramsTuple?: []; params?: {} }
     'suivi.board': { paramsTuple?: []; params?: {} }
     'scheduler.programme': { paramsTuple?: []; params?: {} }
+    'scenarios.compare': { paramsTuple?: []; params?: {} }
     'load.index': { paramsTuple?: []; params?: {} }
     'expeditions.index': { paramsTuple?: []; params?: {} }
     'receptions.index': { paramsTuple?: []; params?: {} }

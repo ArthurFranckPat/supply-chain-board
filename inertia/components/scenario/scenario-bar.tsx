@@ -1,6 +1,7 @@
 import { For, Show, createSignal, onMount, type Accessor, type Component } from 'solid-js'
 import { cx } from '@/libs/cva'
 import { Button } from '@/components/ui/button'
+import { router } from '@/lib/inertia-solid'
 import {
   AlertDialog,
   AlertDialogContent,
@@ -43,6 +44,12 @@ export const ScenarioBar: Component<{
   // #62 (lot 0) : « Jeter » détruit N mutations sans retour possible → confirmation
   // explicite dès qu'il y a quelque chose à perdre (scénario vide : jet direct).
   const [confirmDiscardOpen, setConfirmDiscardOpen] = createSignal(false)
+  const [selectedIds, setSelectedIds] = createSignal<number[]>([])
+  const toggleSelect = (id: number) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    )
+  }
   const requestDiscard = () => {
     if (s.mutationCount() === 0) props.onDiscard()
     else setConfirmDiscardOpen(true)
@@ -97,6 +104,17 @@ export const ScenarioBar: Component<{
         onInput={(e) => s.setNom(e.currentTarget.value)}
         class="h-[28px] w-[200px] rounded-full border border-brand/30 bg-card px-3 text-[12px] font-semibold text-foreground focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/25"
       />
+
+      {/* Règle d'allocation */}
+      <select
+        value={s.current.strategy ?? 'date_besoin'}
+        onChange={(e) => s.setStrategy(e.currentTarget.value as any)}
+        class="h-[28px] rounded-full border border-brand/30 bg-card px-3 text-[11px] font-semibold text-foreground focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/25"
+      >
+        <option value="date_besoin">Date de besoin (défaut)</option>
+        <option value="date_passation">Date de passation (anticipation)</option>
+        <option value="priorite_previsions">Priorité clients à prévisions</option>
+      </select>
 
       <span class="rounded-full bg-card px-2.5 py-1 font-mono text-[11px] font-bold text-foreground">
         {s.mutationCount()} mutation{s.mutationCount() > 1 ? 's' : ''}
@@ -277,6 +295,12 @@ export const ScenarioBar: Component<{
                 <For each={s.list}>
                   {(sc) => (
                     <div class="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds().includes(sc.id)}
+                        onChange={() => toggleSelect(sc.id)}
+                        class="h-3.5 w-3.5 rounded border-brand/30 text-brand focus:ring-brand"
+                      />
                       <button
                         type="button"
                         class="flex-1 text-left"
@@ -294,7 +318,7 @@ export const ScenarioBar: Component<{
                           </Show>
                         </div>
                         <div class="font-mono text-[10px] text-muted-foreground">
-                          {sc.mutations.length} mut. · {sc.auteur ?? '—'}
+                          {sc.mutations.length} mut. · {sc.strategy === 'date_passation' ? 'passation' : sc.strategy === 'priorite_previsions' ? 'prévisions' : 'besoin'} · {sc.auteur ?? '—'}
                         </div>
                       </button>
                       <button
@@ -308,6 +332,20 @@ export const ScenarioBar: Component<{
                     </div>
                   )}
                 </For>
+              </Show>
+              <Show when={selectedIds().length >= 2}>
+                <div class="border-t border-brand/20 p-2">
+                  <Button
+                    size="sm"
+                    class="w-full gap-1.5"
+                    onClick={() => {
+                      router.visit(`/programme/scenarios/comparer?ids=${selectedIds().join(',')}`)
+                    }}
+                  >
+                    <span class="material-symbols-outlined text-[15px]">compare_arrows</span>
+                    Comparer ({selectedIds().length})
+                  </Button>
+                </div>
               </Show>
             </div>
           </Show>

@@ -42,6 +42,15 @@ export interface ApiDefinition {
     rows: typeof routes['suivi.rows']
     proactiveRows: typeof routes['suivi.proactive_rows']
   }
+  scenarios: {
+    compare: typeof routes['scenarios.compare']
+    index: typeof routes['scenarios.index']
+    store: typeof routes['scenarios.store']
+    diff: typeof routes['scenarios.diff']
+    show: typeof routes['scenarios.show']
+    update: typeof routes['scenarios.update']
+    destroy: typeof routes['scenarios.destroy']
+  }
   load: {
     index: typeof routes['load.index']
   }
@@ -79,14 +88,6 @@ export interface ApiDefinition {
     searchOf: typeof routes['planning_board.search_of']
     searchPf: typeof routes['planning_board.search_pf']
     ofMaterialsDiagnostic: typeof routes['planning_board.of_materials_diagnostic']
-  }
-  scenarios: {
-    index: typeof routes['scenarios.index']
-    store: typeof routes['scenarios.store']
-    diff: typeof routes['scenarios.diff']
-    show: typeof routes['scenarios.show']
-    update: typeof routes['scenarios.update']
-    destroy: typeof routes['scenarios.destroy']
   }
   data: {
     load: typeof routes['data.load']

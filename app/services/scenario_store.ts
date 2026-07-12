@@ -1,5 +1,6 @@
 import Scenario from '#models/scenario'
 import type { PlanMutation } from '#app/domain/plan-diff'
+import type { AllocationStrategy } from '#app/domain/of-conso'
 
 /** Vue applicative d'un scénario : mutations désérialisées. */
 export interface ScenarioRow {
@@ -9,6 +10,7 @@ export interface ScenarioRow {
   auteur: string | null
   statut: 'brouillon' | 'applique'
   mutations: PlanMutation[]
+  strategy: AllocationStrategy
   evaluatedAt: string | null
   dataAt: string | null
   createdAt: string
@@ -20,6 +22,7 @@ export interface ScenarioInput {
   description?: string | null
   auteur?: string | null
   mutations: PlanMutation[]
+  strategy?: AllocationStrategy
 }
 
 function toRow(m: Scenario): ScenarioRow {
@@ -37,6 +40,7 @@ function toRow(m: Scenario): ScenarioRow {
     auteur: m.auteur,
     statut: m.statut === 'applique' ? 'applique' : 'brouillon',
     mutations,
+    strategy: (m.strategy as AllocationStrategy) || 'date_besoin',
     evaluatedAt: m.evaluatedAt,
     dataAt: m.dataAt,
     createdAt: m.createdAt?.toISO() ?? '',
@@ -66,6 +70,7 @@ export class ScenarioStore {
       auteur: data.auteur ?? null,
       statut: 'brouillon',
       mutations: JSON.stringify(data.mutations ?? []),
+      strategy: data.strategy ?? 'date_besoin',
     })
     return toRow(row)
   }
@@ -81,6 +86,7 @@ export class ScenarioStore {
     if (data.auteur !== undefined) row.auteur = data.auteur
     if (data.statut !== undefined) row.statut = data.statut
     if (data.mutations !== undefined) row.mutations = JSON.stringify(data.mutations)
+    if (data.strategy !== undefined) row.strategy = data.strategy
     await row.save()
     return toRow(row)
   }

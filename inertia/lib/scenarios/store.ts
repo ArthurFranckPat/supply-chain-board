@@ -1,7 +1,7 @@
 import { createSignal } from 'solid-js'
 import { createStore, produce, reconcile } from 'solid-js/store'
 import { route } from '@/lib/routes'
-import { type PlanMutation, type PlanDiff, type ScenarioRow, mutationKey } from './types'
+import { type PlanMutation, type PlanDiff, type ScenarioRow, type AllocationStrategy, mutationKey } from './types'
 
 /**
  * État du mode scénario de `/programme` (issue #57). Purement data + I/O serveur :
@@ -23,9 +23,10 @@ export function createScenarioStore() {
     nom: string
     statut: 'brouillon' | 'applique'
     mutations: PlanMutation[]
+    strategy: AllocationStrategy
     evaluatedAt: string | null
     dataAt: string | null
-  }>({ id: null, nom: '', statut: 'brouillon', mutations: [], evaluatedAt: null, dataAt: null })
+  }>({ id: null, nom: '', statut: 'brouillon', mutations: [], strategy: 'date_besoin', evaluatedAt: null, dataAt: null })
 
   const [saving, setSaving] = createSignal(false)
 
@@ -39,17 +40,30 @@ export function createScenarioStore() {
 
   const mutationCount = () => current.mutations.length
 
-  function reset() {
+  function reconcileCurrent(next: Partial<typeof current>) {
     setCurrent(
       reconcile({
-        id: null,
-        nom: '',
-        statut: 'brouillon',
-        mutations: [],
-        evaluatedAt: null,
-        dataAt: null,
-      })
+        id: next.id ?? null,
+        nom: next.nom ?? '',
+        statut: next.statut ?? 'brouillon',
+        mutations: next.mutations ?? [],
+        strategy: next.strategy ?? 'date_besoin',
+        evaluatedAt: next.evaluatedAt ?? null,
+        dataAt: next.dataAt ?? null,
+      } as any)
     )
+  }
+
+  function reset() {
+    reconcileCurrent({
+      id: null,
+      nom: '',
+      statut: 'brouillon',
+      mutations: [],
+      strategy: 'date_besoin',
+      evaluatedAt: null,
+      dataAt: null,
+    })
     setDiff(null)
   }
 
@@ -81,6 +95,11 @@ export function createScenarioStore() {
     setCurrent('nom', nom)
   }
 
+  function setStrategy(strategy: AllocationStrategy) {
+    setCurrent('strategy', strategy)
+    setDiff(null)
+  }
+
   // ── I/O serveur ──
 
   async function loadList() {
@@ -99,7 +118,11 @@ export function createScenarioStore() {
     if (saving()) return current.id
     setSaving(true)
     try {
-      const body = JSON.stringify({ nom: current.nom || 'Scénario', mutations: current.mutations })
+      const body = JSON.stringify({
+        nom: current.nom || 'Scénario',
+        mutations: current.mutations,
+        strategy: current.strategy,
+      })
       const isNew = current.id == null
       const r = await fetch(
         isNew ? route('scenarios.store') : route('scenarios.update', { id: current.id! }),
@@ -122,16 +145,15 @@ export function createScenarioStore() {
     const r = await fetch(route('scenarios.show', { id }))
     if (!r.ok) throw new Error(`HTTP ${r.status}`)
     const row = (await r.json()) as ScenarioRow
-    setCurrent(
-      reconcile({
-        id: row.id,
-        nom: row.nom,
-        statut: row.statut,
-        mutations: row.mutations,
-        evaluatedAt: row.evaluatedAt,
-        dataAt: row.dataAt,
-      })
-    )
+    reconcileCurrent({
+      id: row.id,
+      nom: row.nom,
+      statut: row.statut,
+      mutations: row.mutations,
+      strategy: row.strategy,
+      evaluatedAt: row.evaluatedAt,
+      dataAt: row.dataAt,
+    })
     setDiff(null)
     return row.mutations
   }
@@ -155,6 +177,7 @@ export function createScenarioStore() {
           to,
           mutations: current.mutations,
           id: current.id ?? undefined,
+          strategy: current.strategy,
         }),
       })
       if (!r.ok) throw new Error(`HTTP ${r.status}`)
@@ -192,6 +215,7 @@ export function createScenarioStore() {
     upsertMutation,
     removeMutation,
     setNom,
+    setStrategy,
     reset,
     loadList,
     save,

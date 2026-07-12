@@ -15,7 +15,7 @@ import type { Article } from './models/article.js'
 import type { FeasibilityOptions } from './stock-state.js'
 import type { Nomenclature } from './models/nomenclature.js'
 import type { OfOverride } from './planning_board.js'
-import { CommandeOFMatcher } from './of-conso.js'
+import { CommandeOFMatcher, type AllocationStrategy } from './of-conso.js'
 import type { OfInput } from './stock-state.js'
 import {
   evaluateRuptures,
@@ -157,7 +157,8 @@ export function evaluateOrderImpacts(
    * Avancement des OFs via pointages MFGOPE (issue #41). Permet d'enrichir chaque OF
    * avec `estDebuté` et de qualifier le verdict proactif. Optionnel (fixtures/tests).
    */
-  avancementByOf?: Map<string, { estDebuté: boolean }>
+  avancementByOf?: Map<string, { estDebuté: boolean }>,
+  strategy?: AllocationStrategy
 ): OrderImpactResult {
   // 1. Filter demands in window
   const windowDemands = demands.filter((d) => {
@@ -167,7 +168,7 @@ export function evaluateOrderImpacts(
   })
 
   // 2. Matching commande→OF
-  const matcher = new CommandeOFMatcher(supplyFlows, articles, nomenclatures, 30)
+  const matcher = new CommandeOFMatcher(supplyFlows, articles, nomenclatures, 30, strategy)
   const matchingResults = matcher.matchCommandes(windowDemands)
 
   // 3. Build effective OFs with overrides → evaluate feasibility

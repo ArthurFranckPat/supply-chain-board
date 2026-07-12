@@ -9,7 +9,9 @@
  */
 
 import { loadOrderImpacts } from '#services/order_impacts_loader'
-import { evaluatePlanDiff, type PlanDiff, type PlanMutation } from '#app/domain/plan-diff'
+import { evaluatePlanDiff, applyMutations, type PlanDiff, type PlanMutation } from '#app/domain/plan-diff'
+import type { AllocationStrategy } from '#app/domain/of-conso'
+import { evaluateOrderImpacts, type OrderImpactResult } from '#app/domain/order-impacts'
 
 export interface ScenarioDiffResult {
   diff: PlanDiff
@@ -17,17 +19,53 @@ export interface ScenarioDiffResult {
   evaluatedAt: string
   /** Borne haute des données chargées (« sur données du … ») = fin de fenêtre. */
   dataAt: string
+  beforeStats: {
+    delayedOrders: number
+    inducedShortages: number
+  }
+  afterStats: {
+    delayedOrders: number
+    inducedShortages: number
+  }
 }
 
 export async function evaluateScenarioDiff(
   mutations: PlanMutation[],
-  window: { from: Date; to: Date }
+  window: { from: Date; to: Date },
+  strategy?: AllocationStrategy
 ): Promise<ScenarioDiffResult> {
   const ctx = await loadOrderImpacts({
     from: window.from,
     to: window.to,
     pipeline: 'programme',
   })
+
+  const before = evaluateOrderImpacts(
+    ctx.planInputs.demands,
+    ctx.planInputs.supplyFlows,
+    ctx.nomenclatures,
+    ctx.articles,
+    ctx.planInputs.overrides,
+    window,
+    undefined,
+    undefined,
+    undefined,
+    'date_besoin'
+  )
+
+  const mutated = applyMutations(ctx.planInputs, mutations)
+  const after = evaluateOrderImpacts(
+    mutated.demands,
+    mutated.supplyFlows,
+    ctx.nomenclatures,
+    ctx.articles,
+    mutated.overrides,
+    window,
+    undefined,
+    undefined,
+    undefined,
+    strategy ?? 'date_besoin'
+  )
 
   const diff = evaluatePlanDiff(
     {
@@ -37,10 +75,41 @@ export async function evaluateScenarioDiff(
       nomenclatures: ctx.nomenclatures,
       articles: ctx.articles,
       window,
+      strategy,
     },
     mutations
   )
 
+  const beforeDelayed = before.orders.filter((o) => o.statut === 'retard').length
+  const afterDelayed = after.orders.filter((o) => o.statut === 'retard').length
+
+  const getShortageCount = (impactResult: OrderImpactResult) => {
+    const componentsWithShortage = new Set<string>()
+    for (const ofInfo of impactResult.ofs) {
+      for (const [comp, qty] of Object.entries(ofInfo.missingComponents)) {
+        if (qty > 0) {
+          componentsWithShortage.add(comp)
+        }
+      }
+    }
+    return componentsWithShortage.size
+  }
+
+  const beforeShortages = getShortageCount(before)
+  const afterShortages = getShortageCount(after)
+
   const now = new Date().toISOString()
-  return { diff, evaluatedAt: now, dataAt: window.to.toISOString() }
+  return {
+    diff,
+    evaluatedAt: now,
+    dataAt: window.to.toISOString(),
+    beforeStats: {
+      delayedOrders: beforeDelayed,
+      inducedShortages: beforeShortages,
+    },
+    afterStats: {
+      delayedOrders: afterDelayed,
+      inducedShortages: afterShortages,
+    },
+  }
 }

@@ -149,6 +149,14 @@ declare module '@adonisjs/inertia/types' {
       postes: { code: string; label: string; atelier: string }[]
       ateliers: { code: string; label: string }[]
     }
+    'scheduler/comparer': {
+      scenarios: any[]
+      planActuel: any
+      windowFrom: string
+      windowTo: string
+      evaluatedAt: string
+      dataAt: string
+    }
     'scheduler/programme': {
       mode: 'combined' | 'ordonnancement' | 'planification'
       // OF board — null en mode planification

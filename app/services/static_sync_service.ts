@@ -98,14 +98,15 @@ export class StaticSyncService {
 
     try {
       while (true) {
-        const keysetClause = lastCode ? `AND ITMREF_0 > '${lastCode.replace(/'/g, "''")}'` : ''
+        const keysetClause = lastCode ? `AND ITM.ITMREF_0 > '${lastCode.replace(/'/g, "''")}'` : ''
         const pageQuery = `
-SELECT ITMREF_0, ITMDES1_0, TCLCOD_0, MFGFLG_0, YFAMSTAT7_0, TSICOD_4
+SELECT ITMREF_0, ITMDES1_0, TCLCOD_0, MFGFLG_0, YFAMSTAT7_0, TSICOD_4, PRPLTI_0, MFGLTI_0
 FROM (
-  SELECT ITMREF_0, ITMDES1_0, TCLCOD_0, MFGFLG_0, YFAMSTAT7_0, TSICOD_4
-  FROM ITMMASTER
-  WHERE ITMSTA_0 = 1 ${keysetClause}
-  ORDER BY ITMREF_0
+  SELECT ITM.ITMREF_0, ITM.ITMDES1_0, ITM.TCLCOD_0, ITM.MFGFLG_0, ITM.YFAMSTAT7_0, ITM.TSICOD_4, F.PRPLTI_0, F.MFGLTI_0
+  FROM ITMMASTER ITM
+  LEFT JOIN ITMFACILIT F ON F.ITMREF_0 = ITM.ITMREF_0 AND F.STOFCY_0 = 'AE1'
+  WHERE ITM.ITMSTA_0 = 1 ${keysetClause}
+  ORDER BY ITM.ITMREF_0
 ) WHERE ROWNUM <= ${PAGE_SIZE_ARTICLES}`
 
         const result = await x3.raw(pageQuery)
@@ -121,16 +122,30 @@ FROM (
 
     const now = Date.now()
     const data = all
-      .map((r) => ({
-        code: String(r.ITMREF_0 ?? '').trim(),
-        description: String(r.ITMDES1_0 ?? '').trim(),
-        category: String(r.TCLCOD_0 ?? '').trim(),
-        // MFGFLG_0: 2=Fabrication propre, 1=Achat, 3=Sous-traitance
-        supply_type: String(r.MFGFLG_0 ?? '1') === '2' ? 'FABRICATION' : 'ACHAT',
-        famille: String(r.YFAMSTAT7_0 ?? '').trim(),
-        typologie: String(r.TSICOD_4 ?? '').trim(),
-        synced_at: now,
-      }))
+      .map((r) => {
+        const code = String(r.ITMREF_0 ?? '').trim()
+        const description = String(r.ITMDES1_0 ?? '').trim()
+        const category = String(r.TCLCOD_0 ?? '').trim()
+        const supplyType = String(r.MFGFLG_0 ?? '1') === '2' ? 'FABRICATION' : 'ACHAT'
+        
+        let delay = 14
+        if (supplyType === 'FABRICATION') {
+          delay = Number(r.MFGLTI_0) || 10
+        } else {
+          delay = Number(r.PRPLTI_0) || 14
+        }
+
+        return {
+          code,
+          description,
+          category,
+          supply_type: supplyType,
+          famille: String(r.YFAMSTAT7_0 ?? '').trim(),
+          typologie: String(r.TSICOD_4 ?? '').trim(),
+          reorder_delay: delay,
+          synced_at: now,
+        }
+      })
       .filter((r) => r.code)
 
     await db.from('static_articles').delete()
@@ -325,7 +340,7 @@ FROM (
       supplyType: r.supplyType as 'ACHAT' | 'FABRICATION',
       famille: r.famille ?? '',
       typologie: r.typologie ?? '',
-      reorderDelay: 0,
+      reorderDelay: r.reorderDelay ?? 0,
       productFamily: null,
       pmp: null,
       economicLot: null,

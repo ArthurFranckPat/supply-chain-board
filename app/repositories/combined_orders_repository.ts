@@ -33,6 +33,7 @@ function buildOrdersSql(opts: OrdersSqlOptions): string {
     'O.ALLQTY_0',
     'P.BPRNAM_0    AS PARTNER_NOM',
     'P.CRY_0       AS PAYS',
+    'H.ORDDAT_0    AS ORDDAT',
   ]
   if (includeContremarque) columns.push('SQ.FMINUM_0   AS CONTREMARQUE')
   if (includeCustomerRef) {
@@ -148,6 +149,7 @@ function mapDemandRow(row: RawRow, opts: DemandMapOptions): Flow {
             ? row.ITMREFBPC?.trim() || null
             : null
           : undefined,
+        dateCommande: parseX3Date(row.ORDDAT),
       },
     }
   }
@@ -159,13 +161,14 @@ function mapDemandRow(row: RawRow, opts: DemandMapOptions): Flow {
     origin: {
       type: 'forecast',
       id: row.VCRNUM_0?.trim() ?? '',
-      customer: row.PARTNER_NOM?.trim() || null,
+      customer: row.PARTNER_NOM?.trim() ?? '',
       pays: row.PAYS?.trim() ?? null,
       orderType,
       contremarque,
       qteCommandee: toNum(row.EXTQTY_0),
       qteAllouee: toNum(row.ALLQTY_0),
       designation,
+      dateCommande: parseX3Date(row.ORDDAT),
     },
   }
 }

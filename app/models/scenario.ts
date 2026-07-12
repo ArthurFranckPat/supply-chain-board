@@ -28,6 +28,9 @@ export default class Scenario extends BaseModel {
   declare mutations: string
 
   @column()
+  declare strategy: string
+
+  @column()
   declare evaluatedAt: string | null
 
   @column()

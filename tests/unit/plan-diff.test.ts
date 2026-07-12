@@ -12,6 +12,7 @@ import {
   type PlanDiffInputs,
   type PlanMutation,
 } from '#app/domain/plan-diff'
+import { evaluateOrderImpacts } from '#app/domain/order-impacts'
 
 const TODAY = new Date()
 TODAY.setHours(0, 0, 0, 0)
@@ -138,7 +139,7 @@ test.group('evaluatePlanDiff', () => {
     assert.equal(entry.numCommande, 'CMD-1')
     assert.equal(entry.statutAvant, 'on_time')
     assert.equal(entry.statutApres, 'retard')
-    assert.equal(entry.deltaJours, 10)
+    assert.equal(entry.deltaJours, 12)
     assert.equal(entry.sens, 'degradation')
     assert.equal(diff.stats.degradations, 1)
   })
@@ -156,7 +157,7 @@ test.group('evaluatePlanDiff', () => {
     assert.lengthOf(diff.client, 1)
     assert.equal(diff.client[0].statutAvant, 'retard')
     assert.equal(diff.client[0].statutApres, 'on_time')
-    assert.equal(diff.client[0].deltaJours, -10)
+    assert.equal(diff.client[0].deltaJours, -12)
     assert.equal(diff.client[0].sens, 'amelioration')
     assert.equal(diff.stats.ameliorations, 1)
   })
@@ -222,7 +223,7 @@ test.group('evaluatePlanDiff', () => {
 
     assert.lengthOf(diff.client, 1)
     assert.equal(diff.client[0].statutApres, 'retard')
-    assert.equal(diff.client[0].deltaJours, 10)
+    assert.equal(diff.client[0].deltaJours, 12)
   })
 
   test('inject_demand : commande virtuelle capte la couverture (axes client + allocation)', ({
@@ -460,5 +461,135 @@ test.group('diffCharge', () => {
       deltaHeures: 5,
       deltaPct: 10,
     })
+  })
+
+  test('Axe Appro verdicts : inevitable, recalable, dormant', ({ assert }) => {
+    const nomenclatures = new Map<string, Nomenclature>([
+      [
+        'PF1',
+        {
+          article: 'PF1',
+          description: '',
+          components: [
+            {
+              parentArticle: 'PF1',
+              parentDescription: '',
+              level: 1,
+              componentArticle: 'C1',
+              componentDescription: '',
+              linkQuantity: 1,
+              componentType: 'ACHETE',
+              consumptionNature: 'PROPORTIONNEL',
+            },
+          ],
+        },
+      ],
+    ])
+
+    const c1Article = makeArticle('C1', 'ACHAT')
+    c1Article.reorderDelay = 10
+
+    const inputs = makeInputs({
+      demands: [makeDemand('CMD-1', 'PF1', 10, daysFromNow(20))],
+      supplyFlows: [
+        makeOfFlow('OF-A', 'PF1', 3, 10, daysFromNow(15)),
+        makeStockFlow('C1', 10),
+      ],
+      nomenclatures,
+      articles: new Map([
+        ['PF1', makeArticle('PF1')],
+        ['C1', c1Article],
+      ]),
+    })
+
+    const diffInevitable = evaluatePlanDiff(inputs, [
+      { type: 'shift_of', numOf: 'OF-A', dateFin: isoDaysFromNow(5) },
+    ])
+    assert.lengthOf(diffInevitable.approVerdicts, 1)
+    assert.equal(diffInevitable.approVerdicts[0].verdict, 'inevitable')
+    assert.equal(diffInevitable.approVerdicts[0].composant, 'C1')
+
+    const diffRecalable = evaluatePlanDiff(inputs, [
+      { type: 'shift_of', numOf: 'OF-A', dateFin: isoDaysFromNow(12) },
+    ])
+    assert.lengthOf(diffRecalable.approVerdicts, 1)
+    assert.equal(diffRecalable.approVerdicts[0].verdict, 'recalable')
+
+    const inputsWithRecep = makeInputs({
+      demands: [makeDemand('CMD-1', 'PF1', 10, daysFromNow(20))],
+      supplyFlows: [
+        makeOfFlow('OF-A', 'PF1', 3, 10, daysFromNow(15)),
+        {
+          article: 'C1',
+          quantity: 10,
+          direction: 'supply',
+          date: daysFromNow(12),
+          origin: { type: 'reception', id: 'R1' } as any,
+        },
+      ],
+      nomenclatures,
+      articles: new Map([
+        ['PF1', makeArticle('PF1')],
+        ['C1', c1Article],
+      ]),
+    })
+
+    const diffDormant = evaluatePlanDiff(inputsWithRecep, [
+      { type: 'shift_of', numOf: 'OF-A', dateFin: isoDaysFromNow(25) },
+    ])
+    assert.lengthOf(diffDormant.approVerdicts, 1)
+    assert.equal(diffDormant.approVerdicts[0].verdict, 'dormant')
+  })
+
+  test('Allocation strategies: date_passation prioritizes oldest order date', ({ assert }) => {
+    const cmdA = makeDemand('CMD-A', 'PF1', 10, daysFromNow(20))
+    ;(cmdA.origin as any).dateCommande = daysFromNow(-10)
+
+    const cmdB = makeDemand('CMD-B', 'PF1', 10, daysFromNow(15))
+    ;(cmdB.origin as any).dateCommande = daysFromNow(-1)
+
+    const inputs = makeInputs({
+      demands: [cmdA, cmdB],
+      supplyFlows: [makeOfFlow('OF-A', 'PF1', 3, 10, daysFromNow(12))],
+      articles: new Map([['PF1', makeArticle('PF1')]]),
+    })
+
+    const resultDefault = evaluateOrderImpacts(
+      inputs.demands,
+      inputs.supplyFlows,
+      inputs.nomenclatures,
+      inputs.articles,
+      inputs.overrides,
+      inputs.window,
+      undefined,
+      undefined,
+      undefined,
+      'date_besoin'
+    )
+    const rowBDefault = resultDefault.orders.find(o => o.numCommande === 'CMD-B')!
+    assert.lengthOf(rowBDefault.ofs, 1)
+    assert.equal(rowBDefault.ofs[0].numOf, 'OF-A')
+
+    const rowADefault = resultDefault.orders.find(o => o.numCommande === 'CMD-A')!
+    assert.lengthOf(rowADefault.ofs, 0)
+
+    const resultPassation = evaluateOrderImpacts(
+      inputs.demands,
+      inputs.supplyFlows,
+      inputs.nomenclatures,
+      inputs.articles,
+      inputs.overrides,
+      inputs.window,
+      undefined,
+      undefined,
+      undefined,
+      'date_passation'
+    )
+    const rowAPassation = resultPassation.orders.find(o => o.numCommande === 'CMD-A')!
+    assert.lengthOf(rowAPassation.ofs, 1)
+    assert.equal(rowAPassation.ofs[0].numOf, 'OF-A')
+
+    const rowBPassation = resultPassation.orders.find(o => o.numCommande === 'CMD-B')!
+    assert.lengthOf(rowBPassation.ofs, 0)
   })
 })
