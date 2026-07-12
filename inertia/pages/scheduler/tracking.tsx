@@ -127,35 +127,63 @@ const Tracking: Component<SuiviPageProps> = (props) => {
       month: 'long',
     })
 
-  const statusChip = (k: SuiviStatusKey | 'all', label: string) => {
+  const selectedRowKey = createMemo(() => {
+    const sel = selectedRow()
+    if (!sel) return null
+    return `${sel.row.numCommande}::${sel.row.article}`
+  })
+
+  const statusChip = (k: SuiviStatusKey | 'all', label: string, count?: number) => {
     const on = statusFilter() === k
     return (
       <button
         type="button"
-        class={`rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold tracking-wider transition-colors ${
+        class={`inline-flex items-center gap-1 rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold tracking-wider transition-colors ${
           on ? 'bg-brand-soft text-brand' : 'text-muted-foreground hover:text-foreground'
         }`}
         onClick={() => setStatusFilter(on ? 'all' : k)}
       >
         {label}
+        <Show when={count !== undefined && count! > 0}>
+          <span class={`rounded-full px-1.5 py-px text-[8px] font-extrabold tabular-nums leading-none ${on ? 'bg-brand/15 text-brand' : 'bg-foreground/[0.06] text-muted-foreground'}`}>
+            {count}
+          </span>
+        </Show>
       </button>
     )
   }
 
-  const verdictChip = (k: ProactiveVerdictKey | 'all', label: string) => {
+  const verdictChip = (k: ProactiveVerdictKey | 'all', label: string, count?: number) => {
     const on = verdictFilter() === k
     return (
       <button
         type="button"
-        class={`rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold tracking-wider transition-colors ${
+        class={`inline-flex items-center gap-1 rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold tracking-wider transition-colors ${
           on ? 'bg-brand-soft text-brand' : 'text-muted-foreground hover:text-foreground'
         }`}
         onClick={() => setVerdictFilter(on ? 'all' : k)}
       >
         {label}
+        <Show when={count !== undefined && count! > 0}>
+          <span class={`rounded-full px-1.5 py-px text-[8px] font-extrabold tabular-nums leading-none ${on ? 'bg-brand/15 text-brand' : 'bg-foreground/[0.06] text-muted-foreground'}`}>
+            {count}
+          </span>
+        </Show>
       </button>
     )
   }
+
+  // Filtered count helpers
+  const isFiltered = createMemo(() => {
+    if (query().trim()) return true
+    if (mode() === 'reactif' && statusFilter() !== 'all') return true
+    if (mode() === 'proactif' && verdictFilter() !== 'all') return true
+    if (!typeFilter().has('MTS') || !typeFilter().has('MTO')) return true
+    if (atelierFilter().size > 0) return true
+    return false
+  })
+  const filteredCount = createMemo(() => mode() === 'reactif' ? reactiveFilteredRows().length : proFilteredRows().length)
+  const totalCount = createMemo(() => mode() === 'reactif' ? view().total : proView().total)
 
   return (
     <div class="theme-navy flex h-screen flex-col overflow-hidden bg-background text-foreground">
@@ -228,10 +256,10 @@ const Tracking: Component<SuiviPageProps> = (props) => {
             <span class="px-1.5 font-mono text-[9px] font-bold tracking-wider text-muted-foreground">
               Statut
             </span>
-            {statusChip('all', 'Tous')}
-            {statusChip('ret', 'Retard')}
-            {statusChip('alc', 'À allouer')}
-            {statusChip('exp', 'À expédier')}
+            {statusChip('all', 'Tous', view().total)}
+            {statusChip('ret', 'Retard', view().statusCounts.RETARD_PROD)}
+            {statusChip('alc', 'À allouer', view().statusCounts.ALLOCATION_A_FAIRE)}
+            {statusChip('exp', 'À expédier', view().statusCounts.A_EXPEDIER)}
           </div>
         </Show>
         <Show when={mode() === 'proactif'}>
@@ -239,11 +267,11 @@ const Tracking: Component<SuiviPageProps> = (props) => {
             <span class="px-1.5 font-mono text-[9px] font-bold tracking-wider text-muted-foreground">
               Verdict
             </span>
-            {verdictChip('all', 'Tous')}
-            {verdictChip('blocked', 'Bloquée')}
-            {verdictChip('uncov', 'Sans couverture')}
-            {verdictChip('late', 'Retard')}
-            {verdictChip('risk', 'À risque')}
+            {verdictChip('all', 'Tous', proView().total)}
+            {verdictChip('blocked', 'Bloquée', proView().verdictCounts.blocked)}
+            {verdictChip('uncov', 'Sans couverture', proView().verdictCounts.uncov)}
+            {verdictChip('late', 'Retard', proView().verdictCounts.late)}
+            {verdictChip('risk', 'À risque', proView().verdictCounts.risk)}
           </div>
         </Show>
         <div class="inline-flex shrink-0 items-center gap-1 rounded-md border border-rule bg-card p-0.5">
@@ -301,6 +329,12 @@ const Tracking: Component<SuiviPageProps> = (props) => {
           </div>
         </Show>
         <div class="ml-auto shrink-0 flex items-center gap-2">
+          {/* Compteur filtré */}
+          <Show when={isFiltered()}>
+            <span class="font-mono text-[11px] font-bold tabular-nums text-brand">
+              {filteredCount()} <span class="text-muted-foreground font-medium">/ {totalCount()}</span>
+            </span>
+          </Show>
           {/* Durée de chargement X3 */}
           <Show when={mode() === 'reactif' ? data.loading : proData.loading}>
             <span class="font-mono text-[11px] tabular-nums text-muted-foreground">
@@ -366,6 +400,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
               setAtelierFilter(new Set())
             }}
             onRowClick={(row) => setSelectedRow({ type: 'proactif', row })}
+            selectedRowKey={selectedRowKey}
           />
         }
       >
@@ -382,6 +417,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
             setAtelierFilter(new Set())
           }}
           onRowClick={(row) => setSelectedRow({ type: 'reactif', row })}
+          selectedRowKey={selectedRowKey}
         />
       </Show>
 

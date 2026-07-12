@@ -78,7 +78,7 @@ export const VERDICT_TONE: Record<ProactiveVerdictKey, string> = {
  * `bar()` → barre latérale gauche (index column tdClass)
  */
 export const LATE_TONE = {
-  bg: (s: 'tolerance' | 'critical' | null) => 'hover:bg-foreground/[0.04]',
+  bg: (s: 'tolerance' | 'critical' | null) => 'hover:bg-foreground/[0.07]',
   bar: (s: 'tolerance' | 'critical' | null) =>
     s === 'critical'
       ? '[box-shadow:inset_3px_0_#dc2626]'

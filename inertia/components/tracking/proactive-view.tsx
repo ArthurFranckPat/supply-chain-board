@@ -20,6 +20,7 @@ export interface ProactiveViewProps {
   error: Accessor<boolean>
   onResetFilters?: () => void
   onRowClick?: (row: ProactiveDisplayRow) => void
+  selectedRowKey?: Accessor<string | null>
 }
 
 export function ProactiveView(props: ProactiveViewProps) {
@@ -79,6 +80,8 @@ export function ProactiveView(props: ProactiveViewProps) {
               scrollContainerClass="h-full border border-rule rounded-xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] bg-card"
               theadRowClass="sticky top-0 z-10 bg-secondary"
               onRowClick={props.onRowClick}
+              selectedRowKey={props.selectedRowKey}
+              getRowKey={(row: ProactiveDisplayRow) => `${row.numCommande}::${row.article}`}
               emptyState={
                 <div class="flex flex-1 items-center justify-center p-12 text-center">
                   <div class="flex flex-col items-center">
