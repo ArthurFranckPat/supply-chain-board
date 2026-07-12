@@ -69,6 +69,31 @@ export const ReceptionTableau: Component<{
   // déjà date asc puis fournisseur ; l'utilisateur peut retrier en cliquant les en-têtes.
   const [sorting, setSorting] = createSignal<SortingState[]>([{ id: 'date', desc: false }])
 
+  const sortedRows = createMemo(() => {
+    const rawRows = props.rows()
+    const sort = sorting()[0]
+    if (!sort) return rawRows
+
+    const key = sort.id as keyof ReceptionDisplayRow
+    const desc = sort.desc
+
+    return [...rawRows].sort((a, b) => {
+      const va = a[key]
+      const vb = b[key]
+
+      if (va === null || va === undefined) return desc ? -1 : 1
+      if (vb === null || vb === undefined) return desc ? 1 : -1
+
+      if (typeof va === 'string' && typeof vb === 'string') {
+        return desc ? vb.localeCompare(va) : va.localeCompare(vb)
+      }
+      if (typeof va === 'number' && typeof vb === 'number') {
+        return desc ? vb - va : va - vb
+      }
+      return 0
+    })
+  })
+
   const columns = [
     {
       accessorKey: 'date',
@@ -223,7 +248,7 @@ export const ReceptionTableau: Component<{
   return (
     <DataTable
       columns={columns}
-      rows={props.rows}
+      rows={sortedRows}
       sorting={sorting}
       onSortingChange={setSorting}
       getRowClass={(row) =>
@@ -313,7 +338,7 @@ export const ReceptionCalendrier: Component<{
                     type="button"
                     onClick={() => props.onSelectDay(selected ? null : c.day)}
                     class={cx(
-                      'group flex min-w-[48px] flex-1 flex-col items-center justify-end rounded-md border transition-colors',
+                      'group flex min-w-[48px] flex-1 flex-col items-center justify-end rounded-md border pb-1.5 transition-colors',
                       selected
                         ? 'border-brand bg-brand/5'
                         : 'border-rule-soft hover:border-rule hover:bg-secondary/30'
@@ -321,24 +346,27 @@ export const ReceptionCalendrier: Component<{
                     style={{ height: '220px' }}
                     title={`${c.dayFmt} · ${c.palettes} palette(s) · ${c.lignes} réception(s) · ${c.fournisseurs} fournisseur(s)`}
                   >
-                    {/* Nb palettes au-dessus de la barre */}
-                    <div
-                      class={cx(
-                        'mb-1 font-fraunces text-[16px] font-bold tabular-nums leading-none',
-                        chargeText(tier)
-                      )}
-                    >
-                      {c.palettes}
+                    {/* Conteneur de charge de hauteur fixe pour éviter l'overflow */}
+                    <div class="flex h-[135px] w-full flex-col justify-end items-center px-1">
+                      {/* Nb palettes au-dessus de la barre */}
+                      <div
+                        class={cx(
+                          'mb-1 font-fraunces text-[16px] font-bold tabular-nums leading-none',
+                          chargeText(tier)
+                        )}
+                      >
+                        {c.palettes}
+                      </div>
+                      {/* Barre */}
+                      <div
+                        class={cx(
+                          'w-full rounded-t-sm transition-all',
+                          chargeBg(tier),
+                          'group-hover:opacity-90'
+                        )}
+                        style={{ height: `${heightPct}%` }}
+                      />
                     </div>
-                    {/* Barre */}
-                    <div
-                      class={cx(
-                        'w-full rounded-t-sm transition-all',
-                        chargeBg(tier),
-                        'group-hover:opacity-90'
-                      )}
-                      style={{ height: `${heightPct}%` }}
-                    />
                     {/* Jour (relatif + JJ/MM) */}
                     <div class="mt-1.5 px-1 text-center">
                       <div

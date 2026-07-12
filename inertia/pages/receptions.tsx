@@ -307,7 +307,7 @@ const Receptions: Component<ReceptionsPageProps> = (props) => {
 
       {/* ═══ Vue ═══ */}
       <Show
-        when={!data.loading}
+        when={data() || !data.loading}
         fallback={
           <div class="flex flex-1 items-center justify-center gap-2 text-muted-foreground">
             <span class="material-symbols-outlined animate-spin text-[20px]">
@@ -326,51 +326,56 @@ const Receptions: Component<ReceptionsPageProps> = (props) => {
             </div>
           }
         >
-          <Show
-            when={viewData().rows.length > 0 || x3Error()}
-            fallback={
-              <div class="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-center">
-                <span class="material-symbols-outlined text-[32px] text-muted-foreground/50">
-                  {x3Error() ? 'cloud_off' : 'inventory_2'}
-                </span>
-                <span class="font-fraunces text-[14px] italic text-muted-foreground">
-                  {x3Error()
-                    ? 'Données indisponibles (X3 injoignable).'
-                    : 'Aucune réception planifiée sur la période.'}
-                </span>
-              </div>
-            }
+          <div
+            class="flex flex-1 flex-col overflow-hidden transition-opacity duration-150"
+            classList={{ 'opacity-50 pointer-events-none': data.loading }}
           >
             <Show
-              when={view() === 'tableau'}
+              when={viewData().rows.length > 0 || x3Error()}
               fallback={
-                <ReceptionCalendrier
-                  charge={charge}
-                  selectedDay={selectedDay}
-                  onSelectDay={(day) => {
-                    setSelectedDay(day)
-                    if (day) setView('tableau')
-                  }}
-                />
+                <div class="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-center">
+                  <span class="material-symbols-outlined text-[32px] text-muted-foreground/50">
+                    {x3Error() ? 'cloud_off' : 'inventory_2'}
+                  </span>
+                  <span class="font-fraunces text-[14px] italic text-muted-foreground">
+                    {x3Error()
+                      ? 'Données indisponibles (X3 injoignable).'
+                      : 'Aucune réception planifiée sur la période.'}
+                  </span>
+                </div>
               }
             >
-              <ReceptionTableau
-                rows={filteredRows}
-                emptyState={
-                  <div class="flex flex-col items-center justify-center gap-2 p-10 text-center">
-                    <span class="material-symbols-outlined text-[32px] text-muted-foreground/50">
-                      inbox
-                    </span>
-                    <span class="font-fraunces text-[14px] italic text-muted-foreground">
-                      {selectedDay()
-                        ? 'Aucune réception ce jour.'
-                        : 'Aucune réception sur la période.'}
-                    </span>
-                  </div>
+              <Show
+                when={view() === 'tableau'}
+                fallback={
+                  <ReceptionCalendrier
+                    charge={charge}
+                    selectedDay={selectedDay}
+                    onSelectDay={(day) => {
+                      setSelectedDay(day)
+                      if (day) setView('tableau')
+                    }}
+                  />
                 }
-              />
+              >
+                <ReceptionTableau
+                  rows={filteredRows}
+                  emptyState={
+                    <div class="flex flex-col items-center justify-center gap-2 p-10 text-center">
+                      <span class="material-symbols-outlined text-[32px] text-muted-foreground/50">
+                        inbox
+                      </span>
+                      <span class="font-fraunces text-[14px] italic text-muted-foreground">
+                        {selectedDay()
+                          ? 'Aucune réception ce jour.'
+                          : 'Aucune réception sur la période.'}
+                      </span>
+                    </div>
+                  }
+                />
+              </Show>
             </Show>
-          </Show>
+          </div>
         </Show>
       </Show>
     </div>

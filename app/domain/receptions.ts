@@ -68,9 +68,9 @@ export function pickReceptionDate(
 ): string | null {
   const d = dateConfirmee ?? datePrevue
   if (!d) return null
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const da = String(d.getDate()).padStart(2, '0')
+  const y = d.getUTCFullYear()
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0')
+  const da = String(d.getUTCDate()).padStart(2, '0')
   return `${y}-${m}-${da}`
 }
 
