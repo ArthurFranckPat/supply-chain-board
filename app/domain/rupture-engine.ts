@@ -54,9 +54,17 @@ export interface RuptureOfInput {
   materials?: MfgMaterialInput[] | null
 }
 
+/** Ports de lookup minimaux — une Map les satisfait, un adapter à fonctions aussi. */
+export interface ArticleLookup {
+  get(article: string): Article | undefined
+}
+export interface NomenclatureLookup {
+  get(article: string): Nomenclature | undefined
+}
+
 export interface RuptureDataset {
-  articles: Map<string, Article>
-  nomenclatures: Map<string, Nomenclature>
+  articles: ArticleLookup
+  nomenclatures: NomenclatureLookup
   /** Stock net strict par article (PHYSTO − PHYALL − GLOALL, hors CQ) — règle 4. */
   stockNet: Map<string, number>
   /** Σ qteRestante des OF par article PRODUIT — couverture des composants fabriqués. */

@@ -18,12 +18,19 @@
  * `RecursiveCheckerLoader` (étendu de `getMfgmat`). Ne touche pas au chemin rapide
  * (`evaluateWindow`, `FeasibilityService.check`).
  */
-import { evaluateMfgFeasibility, type MfgMaterialInput } from './of-feasibility.js'
+import type { MfgMaterialInput } from './of-feasibility.js'
+import {
+  evaluateRuptures,
+  resolveOfRequirements,
+  PHANTOM_DEPTH_CAP,
+  type RuptureDataset,
+  type RuptureOfInput,
+  type RuptureVerdict,
+} from './rupture-engine.js'
 import { isPhantom, isSubcontracted } from './recursive-checker.js'
 import type { OfRecord, StockRecord, ReceptionRecord } from './recursive-checker.js'
 import type { Article } from './models/article.js'
 import type { Nomenclature } from './models/nomenclature.js'
-import { requiredQuantity } from './models/nomenclature.js'
 import type { ErpAllocation } from './allocation.js'
 
 export type NodeStatus =
@@ -152,7 +159,6 @@ const MAX_COVERING_PER_COMPONENT = 6
  * réceptions non pointées). En deçà, on l'ignore (info trop ancienne, peu fiable).
  */
 const RECEPTION_GRACE_DAYS = 7
-const PHANTOM_DEPTH_CAP = 5
 
 function formatDate(d: Date): string {
   return d.toISOString().split('T')[0]
@@ -289,13 +295,11 @@ export class RecursiveDiagnosticChecker {
     const useMfgmat = materials.length > 0
     const source: NodeSource = useMfgmat ? 'MFGMAT' : 'NOMENCLATURE'
 
-    // Perf : pré-charge le stock de tous les composants de ce nœud en UNE requête
-    // (au lieu d'une requête X3 par article — 34 matières = 34 allers-retours).
-    await this.prefetchStocks(useMfgmat ? materials.map((m) => m.article) : this.nomenclatureArticles(article))
-
+    // Shortages du nœud via le moteur unique (#73, étape 2.4) — MFGMAT si éclaté, repli
+    // nomenclature sinon. La descente de la chaîne des OF (covering) reste au checker.
     const rawShorts = useMfgmat
-      ? await this.shortsFromMfgmat(materials)
-      : await this.collectNomenclatureShorts(article, of.qteRestante, 0)
+      ? await this.shortsFromMfgmat(of, materials)
+      : await this.shortsFromNomenclature(of)
 
     const alerts: string[] = []
     const childAncestors = new Set(ancestors).add(article)
@@ -303,11 +307,6 @@ export class RecursiveDiagnosticChecker {
 
     for (const s of rawShorts) {
       this.nodeCount++
-      if (this.isAlreadyAllocated(s.article, of.numOf)) {
-        alerts.push(`${s.article} deja alloue a ${of.numOf}, ignore`)
-        continue
-      }
-
       const fabricated = this.isFabricated(s.article)
       if (!fabricated) {
         // Feuille / acheté :
@@ -430,87 +429,127 @@ export class RecursiveDiagnosticChecker {
     return out
   }
 
-  /** Shortages d'un OF éclaté, via la MFGMAT réelle (moteur partagé du mode direct). */
-  private async shortsFromMfgmat(materials: MfgMaterialInput[]): Promise<RawShort[]> {
-    const stockByArticle = new Map<string, number>()
-    for (const m of materials) stockByArticle.set(m.article, this.availableStock(m.article))
-    const verdict = evaluateMfgFeasibility(materials, stockByArticle, false)
+  /**
+   * Shortages d'un OF éclaté, via la MFGMAT réelle — verdict du moteur unique (photo).
+   * Nomenclature vide : pas de descente ici, les sous-ensembles en manque sont routés vers
+   * leurs OF couvrants par diagnoseNode. ALLQTY netté par le moteur (déduction partielle,
+   * règle 3 — remplace l'ancien skip tout-ou-rien isAlreadyAllocated).
+   */
+  private async shortsFromMfgmat(of: OfRecord, materials: MfgMaterialInput[]): Promise<RawShort[]> {
+    // Perf : pré-charge le stock de toutes les matières en UNE requête.
+    await this.prefetchStocks(materials.map((m) => m.article))
+    const stockNet = new Map<string, number>()
+    for (const m of materials) stockNet.set(m.article, this.availableStock(m.article))
+
+    const verdict = evaluateRuptures(
+      [this.toEngineOf(of, materials)],
+      {
+        articles: { get: (a: string) => this.loader.getArticle(a) },
+        nomenclatures: { get: () => undefined },
+        stockNet,
+      },
+      'photo',
+    ).get(of.numOf)
+    const describe = (a: string) =>
+      materials.find((m) => m.article === a)?.description ?? this.loader.getArticle(a)?.description ?? ''
+    return this.shortsFromVerdict(verdict, describe)
+  }
+
+  /**
+   * Shortages d'un OF non éclaté (suggéré), via la nomenclature théorique — besoins DIRECTS
+   * du moteur unique : fantômes AFANT aplatis (stock d'abord, reliquat sur les composants
+   * réels), allocations ERP de l'OF créditées en déduction partielle (règle 3). Un niveau :
+   * les sous-ensembles fabriqués en manque sont routés vers leur OF couvrant par diagnoseNode.
+   */
+  private async shortsFromNomenclature(of: OfRecord): Promise<RawShort[]> {
+    // Pré-charge le stock des composants directs + fermeture des fantômes (seuls
+    // descendus à la résolution) en une requête.
+    const reachable = this.phantomReachable(of.article)
+    await this.prefetchStocks(reachable)
+    const stockNet = new Map<string, number>()
+    for (const a of reachable) stockNet.set(a, this.availableStock(a))
+
+    const allocations = new Map<string, number>()
+    for (const alloc of this.loader.getAllocationsOf(of.numOf)) {
+      allocations.set(alloc.article, (allocations.get(alloc.article) ?? 0) + alloc.qteAllouee)
+    }
+
+    const dataset: RuptureDataset = {
+      articles: { get: (a: string) => this.loader.getArticle(a) },
+      nomenclatures: { get: (a: string) => this.loader.getNomenclature(a) },
+      stockNet,
+      allocationsByOf: allocations.size > 0 ? new Map([[of.numOf, allocations]]) : undefined,
+    }
+    const requirements = resolveOfRequirements(this.toEngineOf(of), dataset)
+
     const out: RawShort[] = []
-    for (const m of verdict.materials.filter((x) => x.feasible === false)) {
+    for (const r of requirements) {
+      if (r.need <= 0) continue
+      const available = this.availableStock(r.article)
+      const missing = Math.max(0, r.need - Math.max(0, available))
+      if (missing <= 0) continue
+      out.push({
+        article: r.article,
+        description: this.loader.getArticle(r.article)?.description ?? '',
+        quantityNeeded: r.need,
+        available,
+        qcAvailable: this.qcForArticle(r.article),
+        qtyMissing: missing,
+        ...(await this.receptionFields(r.article)),
+      })
+    }
+    return out
+  }
+
+  private toEngineOf(of: OfRecord, materials?: MfgMaterialInput[]): RuptureOfInput {
+    return {
+      numOf: of.numOf,
+      article: of.article,
+      qteRestante: of.qteRestante,
+      statutNum: of.statutNum,
+      dateBesoin: null,
+      ...(materials ? { materials } : {}),
+    }
+  }
+
+  /** RawShorts depuis les manquants DIRECTS (depth 0) d'un verdict moteur. */
+  private async shortsFromVerdict(
+    verdict: RuptureVerdict | undefined,
+    describe: (article: string) => string,
+  ): Promise<RawShort[]> {
+    if (!verdict) return []
+    const out: RawShort[] = []
+    for (const m of verdict.missingDetail) {
+      if (m.depth !== 0 || m.shortage <= 0) continue
       out.push({
         article: m.article,
-        description: m.description,
-        quantityNeeded: m.remaining,
+        description: describe(m.article),
+        quantityNeeded: m.needed,
         available: m.available,
         qcAvailable: this.qcForArticle(m.article),
-        qtyMissing: m.missing,
-        ...await this.receptionFields(m.article),
+        qtyMissing: m.shortage,
+        ...(await this.receptionFields(m.article)),
       })
     }
     return out
   }
 
   /**
-   * Shortages d'un OF non éclaté (suggéré), via la nomenclature théorique — un niveau,
-   * avec aplatissement des fantômes (AFANT). On n'explose pas les sous-ensembles fabriqués
-   * ici : ils seront routés vers leur OF couvrant par diagnoseNode (repli = 1 niveau).
+   * Composants dont le stock doit être connu avant résolution : directs + fermeture des
+   * fantômes (le moteur ne descend que les fantômes au moment de résoudre les besoins).
    */
-  private async collectNomenclatureShorts(
-    article: string,
-    qteBesoin: number,
-    phantomDepth: number,
-  ): Promise<RawShort[]> {
-    const bom = this.loader.getNomenclature(article)
-    if (!bom || bom.components.length === 0) {
-      // Feuille (achat) → son propre besoin est le shortage.
-      const available = this.availableStock(article)
-      return [
-        {
-          article,
-          description: this.loader.getArticle(article)?.description ?? '',
-          quantityNeeded: qteBesoin,
-          available,
-          qcAvailable: this.qcForArticle(article),
-          qtyMissing: Math.max(0, qteBesoin - available),
-          ...await this.receptionFields(article),
-        },
-      ]
-    }
-    // Pré-charge le stock des composants de ce sous-niveau en une requête.
-    await this.prefetchStocks(bom.components.map((c) => c.componentArticle))
-    const out: RawShort[] = []
-    for (const entry of bom.components) {
-      const besoin = requiredQuantity(entry, qteBesoin)
-      const info = this.loader.getArticle(entry.componentArticle)
-
-      if (isPhantom(info) && phantomDepth < PHANTOM_DEPTH_CAP) {
-        // Stock du fantôme d'abord (prédécoupes/legacy) ; descente pour le RELIQUAT
-        // seulement — même sémantique que checkFeasibility (MRP).
-        const availPhantom = Math.max(0, this.availableStock(entry.componentArticle))
-        const remainder = besoin - availPhantom
-        if (remainder > 0) {
-          out.push(...(await this.collectNomenclatureShorts(entry.componentArticle, remainder, phantomDepth + 1)))
-        }
-        continue
-      }
-
-      const available = this.availableStock(entry.componentArticle)
-      const qcAvailable = this.qcForArticle(entry.componentArticle)
-      const missing = Math.max(0, besoin - available)
-      // Inclure aussi les articles dont seul le stock CQ couvre le besoin (qc_a_controler).
-      if (missing > 0) {
-        out.push({
-          article: entry.componentArticle,
-          description: info?.description ?? '',
-          quantityNeeded: besoin,
-          available,
-          qcAvailable,
-          qtyMissing: missing,
-          ...await this.receptionFields(entry.componentArticle),
-        })
+  private phantomReachable(article: string): string[] {
+    const out = new Set<string>()
+    const walk = (art: string, depth: number) => {
+      for (const c of this.loader.getNomenclature(art)?.components ?? []) {
+        if (out.has(c.componentArticle)) continue
+        out.add(c.componentArticle)
+        const info = this.loader.getArticle(c.componentArticle)
+        if (isPhantom(info) && depth < PHANTOM_DEPTH_CAP) walk(c.componentArticle, depth + 1)
       }
     }
-    return out
+    walk(article, 0)
+    return [...out]
   }
 
   /** Un article est « fabriqué » s'il a une nomenclature (et n'est pas sous-traité). */
@@ -518,15 +557,6 @@ export class RecursiveDiagnosticChecker {
     if (isSubcontracted(this.loader.getArticle(article))) return false
     const bom = this.loader.getNomenclature(article)
     return !!bom && bom.components.length > 0
-  }
-
-  private isAlreadyAllocated(article: string, numOf: string): boolean {
-    return this.loader.getAllocationsOf(numOf).some((a) => a.article === article && a.qteAllouee > 0)
-  }
-
-  /** Articles directs de la nomenclature d'un parent (pour pré-charger leur stock). */
-  private nomenclatureArticles(article: string): string[] {
-    return this.loader.getNomenclature(article)?.components.map((c) => c.componentArticle) ?? []
   }
 
   /**
