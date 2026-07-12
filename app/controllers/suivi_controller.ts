@@ -17,6 +17,10 @@ import { SuiviService, reloadSuiviContext, RETARD_LOOKBACK_DAYS, SUIVI_FORWARD_D
 import { loadOrderImpacts } from '#services/order_impacts_loader'
 import type { OrderImpactResult } from '#app/domain/order-impacts'
 import type { Article } from '#app/domain/models/article'
+import type { Nomenclature } from '#app/domain/models/nomenclature'
+import type { Flow } from '#app/domain/models/flow'
+import { checkFeasibility } from '#app/domain/feasibility'
+import { isSubcontracted } from '#app/domain/rules'
 import { groupReceptionsByArticle, RECEPTION_LOOKBACK_DAYS, RECEPTION_OVERDUE_MIN_QTY } from '#repositories/reception_repository'
 import { resolveCoveringReception, daysBetweenIso, isoLocalDay } from '#app/domain/shortages'
 import type { ReceptionRecord } from '#app/domain/recursive-checker'
@@ -226,7 +230,7 @@ export default class SuiviController {
       from.setDate(from.getDate() - RETARD_LOOKBACK_DAYS)
       const to = new Date(refDate)
       to.setDate(to.getDate() + SUIVI_FORWARD_DAYS)
-      const [{ result, articles, receptionFlows }, atelierByArticle] = await Promise.all([
+      const [{ result, articles, receptionFlows, nomenclatures, planInputs }, atelierByArticle] = await Promise.all([
         loadOrderImpacts({ from, to, mode: 'sequential', pipeline: 'proactive' }),
         buildAtelierByArticle(),
       ])
@@ -236,7 +240,10 @@ export default class SuiviController {
       recFrom.setDate(recFrom.getDate() - RECEPTION_LOOKBACK_DAYS)
       recFrom.setHours(0, 0, 0, 0)
       const receptionsByArticle = groupReceptionsByArticle(receptionFlows, recFrom)
-      const built = buildProactiveDisplay(result, articles, receptionsByArticle, atelierByArticle)
+      const built = buildProactiveDisplay(result, articles, receptionsByArticle, atelierByArticle, {
+        nomenclatures,
+        supplyFlows: planInputs.supplyFlows,
+      })
       rows = built.rows
       verdictCounts = built.verdictCounts
       ateliers = distinctAteliers(rows)
@@ -406,6 +413,22 @@ export interface ProactiveDisplayRow {
     desc: string
     qty: number
     reception: { eta: string; po: string; supplier: string } | null
+    /**
+     * Descente BOM du composant quand c'est un SOUS-ENSEMBLE fabriqué (lentille
+     * d'EXPLICATION, mode photo stock strict — le verdict de la ligne reste au SE) :
+     * - 'se_a_lancer' : composants internes dispo → il suffit de lancer l'OF du SE ;
+     * - 'bloque' : composants internes réellement manquants (feuilles achetées),
+     *   chacun avec sa réception couvrante. `null` : composant acheté (pas de BOM).
+     */
+    descente: {
+      statut: 'se_a_lancer' | 'bloque'
+      par: {
+        art: string
+        desc: string
+        manque: number
+        reception: { eta: string; po: string; supplier: string; overdue: boolean; retardJ: number } | null
+      }[]
+    } | null
   }[]
   ofs: ProactiveOf[]
   /** Atelier (STOLOC du poste de gamme) de l'article — '' si inconnu (issue #36). */
@@ -583,6 +606,11 @@ export function buildProactiveDisplay(
   articles: Map<string, Article> = new Map(),
   receptionsByArticle: Map<string, ReceptionRecord[]> = new Map(),
   atelierByArticle: Map<string, AtelierOption> = new Map(),
+  /**
+   * Contexte BOM pour la descente d'explication des SE manquants (photo stock strict).
+   * Optionnel : absent (tests/legacy) → pas de descente, `descente: null` partout.
+   */
+  bomContext?: { nomenclatures: Map<string, Nomenclature>; supplyFlows: Flow[] },
 ): {
   rows: ProactiveDisplayRow[]
   verdictCounts: Record<ProactiveVerdictKey, number>
@@ -605,26 +633,70 @@ export function buildProactiveDisplay(
           if (qty > 0) composants.set(art, (composants.get(art) ?? 0) + qty)
         }
       }
+      // Lentille réception partagée composant/descente : 1ère réception d'achat dont le
+      // cumul atteint la qté manquante → ETA + n° commande d'achat. Overdue = attendue
+      // dans le passé (retard de livraison) → lateness = today − attendue.
+      const coveringReception = (art: string, qty: number) => {
+        const rec = resolveCoveringReception(receptionsByArticle.get(art) ?? [], qty, {
+          overdueMinQty: RECEPTION_OVERDUE_MIN_QTY,
+          todayIso,
+        })
+        if (!rec) return null
+        const overdue = rec.dateArrivee < todayIso
+        return {
+          eta: fmtFrDay(rec.dateArrivee),
+          po: rec.id,
+          supplier: rec.supplier,
+          overdue,
+          retardJ: overdue ? daysBetweenIso(rec.dateArrivee, todayIso) : 0,
+        }
+      }
+
       const comps = [...composants.entries()]
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([art, qty]) => {
           const qtyR = Math.round(qty * 100) / 100
-          // Réception couvrante (même résolution que la table Ruptures) : 1ère réception
-          // d'achat dont le cumul atteint la qté manquante → ETA + n° commande d'achat.
-          // Overdue = attendue dans le passé (retard de livraison) → lateness = today − attendue.
-          const rec = resolveCoveringReception(receptionsByArticle.get(art) ?? [], qtyR, {
-            overdueMinQty: RECEPTION_OVERDUE_MIN_QTY,
-            todayIso,
-          })
-          const overdue = !!rec && rec.dateArrivee < todayIso
-          const retardJ = overdue ? daysBetweenIso(rec!.dateArrivee, todayIso) : 0
+
+          // Descente d'EXPLICATION pour les SE fabriqués manquants : le verdict de la
+          // ligne reste porté par le SE (contention séquentielle) ; ici on répond à
+          // « si je lance l'OF du SE maintenant, passe-t-il ? » en PHOTO (stock strict
+          // net, règles AFANT/OF-couvrant du moteur partagé). blockingComponents vide
+          // → SE à lancer ; sinon → les vraies feuilles bloquantes + leur réception.
+          let descente: ProactiveDisplayRow['composants'][number]['descente'] = null
+          const info = articles.get(art)
+          if (
+            bomContext &&
+            bomContext.nomenclatures.has(art) &&
+            (!info || !isSubcontracted(info))
+          ) {
+            const check = checkFeasibility(
+              art,
+              qtyR,
+              bomContext.supplyFlows,
+              bomContext.nomenclatures,
+              articles,
+              undefined,
+              'stock_strict',
+            )
+            descente = check.feasible
+              ? { statut: 'se_a_lancer', par: [] }
+              : {
+                  statut: 'bloque',
+                  par: check.blockingComponents.map((bc) => ({
+                    art: bc.article,
+                    desc: articles.get(bc.article)?.description ?? '',
+                    manque: Math.round(bc.shortage * 100) / 100,
+                    reception: coveringReception(bc.article, Math.round(bc.shortage * 100) / 100),
+                  })),
+                }
+          }
+
           return {
             art,
             desc: articles.get(art)?.description ?? '',
             qty: qtyR,
-            reception: rec
-              ? { eta: fmtFrDay(rec.dateArrivee), po: rec.id, supplier: rec.supplier, overdue, retardJ }
-              : null,
+            reception: coveringReception(art, qtyR),
+            descente,
           }
         })
 

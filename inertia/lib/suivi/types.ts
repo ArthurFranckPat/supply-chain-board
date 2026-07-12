@@ -178,6 +178,16 @@ export interface ProactiveDisplayRow {
     desc: string
     qty: number
     reception: { eta: string; po: string; supplier: string; overdue: boolean; retardJ: number } | null
+    /** Descente BOM d'un SE manquant : 'se_a_lancer' (composants dispo) ou 'bloque' (+ feuilles bloquantes). */
+    descente: {
+      statut: 'se_a_lancer' | 'bloque'
+      par: {
+        art: string
+        desc: string
+        manque: number
+        reception: { eta: string; po: string; supplier: string; overdue: boolean; retardJ: number } | null
+      }[]
+    } | null
   }[]
   ofs: ProactiveOf[]
   /** Atelier (STOLOC du poste de gamme) — '' si inconnu (issue #36). */

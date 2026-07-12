@@ -107,3 +107,70 @@ test.group('buildProactiveDisplay — projection du verdict', () => {
     assert.isNull(rows[0].composants[0].reception)
   })
 })
+
+// ---------------------------------------------------------------------------
+// Descente BOM d'un SE manquant (lentille d'explication, photo stock strict) :
+// 'se_a_lancer' si les composants internes sont dispo, 'bloque' + feuilles sinon.
+// ---------------------------------------------------------------------------
+
+test.group('buildProactiveDisplay — descente SE', () => {
+  const seFixtures = (leafStock: number) => {
+    const nomenclatures = new Map([
+      ['SE1', {
+        article: 'SE1', description: 'SOUS-ENSEMBLE', components: [
+          { parentArticle: 'SE1', parentDescription: '', level: 5, componentArticle: 'E1', componentDescription: 'FEUILLE', linkQuantity: 1, componentType: 'ACHETE' as const, consumptionNature: 'PROPORTIONNEL' as const },
+        ],
+      }],
+    ])
+    const supplyFlows = leafStock > 0
+      ? [{ article: 'E1', quantity: leafStock, direction: 'supply' as const, date: null, origin: { type: 'stock' as const, pmp: null } }]
+      : []
+    const articles = new Map([
+      ['SE1', { code: 'SE1', description: 'SOUS-ENSEMBLE', category: 'SFA', supplyType: 'FABRICATION' as const, reorderDelay: 0, productFamily: null, pmp: null, economicLot: null, unitStock: null, unitPurchase: null, purchaseToStockRatio: 1, packagings: [] }],
+      ['E1', { code: 'E1', description: 'FEUILLE', category: 'AP', supplyType: 'ACHAT' as const, reorderDelay: 0, productFamily: null, pmp: null, economicLot: null, unitStock: null, unitPurchase: null, purchaseToStockRatio: 1, packagings: [] }],
+    ])
+    return { nomenclatures, supplyFlows, articles }
+  }
+
+  const blockedResult = () => result({
+    statut: 'bloquee',
+    ofs: [{
+      numOf: 'F426-1', article: '11033025', qteAllouee: 28, dateFin: '2026-06-22',
+      feasible: false, missingComponents: { SE1: 10 }, modified: false, statutNum: 2,
+    }],
+  })
+
+  test('composants internes dispo → se_a_lancer', ({ assert }) => {
+    const { nomenclatures, supplyFlows, articles } = seFixtures(50)
+    const { rows } = buildProactiveDisplay(blockedResult(), articles, new Map(), new Map(), { nomenclatures, supplyFlows })
+    assert.equal(rows[0].composants[0].art, 'SE1')
+    assert.equal(rows[0].composants[0].descente?.statut, 'se_a_lancer')
+  })
+
+  test('feuille manquante → bloque + composant interne avec manque', ({ assert }) => {
+    const { nomenclatures, supplyFlows, articles } = seFixtures(4)
+    const { rows } = buildProactiveDisplay(blockedResult(), articles, new Map(), new Map(), { nomenclatures, supplyFlows })
+    const d = rows[0].composants[0].descente
+    assert.equal(d?.statut, 'bloque')
+    assert.equal(d?.par[0].art, 'E1')
+    assert.equal(d?.par[0].manque, 6)
+  })
+
+  test('composant acheté (pas de BOM) → descente null', ({ assert }) => {
+    const { nomenclatures, supplyFlows, articles } = seFixtures(50)
+    const res = result({
+      statut: 'bloquee',
+      ofs: [{
+        numOf: 'F426-1', article: '11033025', qteAllouee: 28, dateFin: '2026-06-22',
+        feasible: false, missingComponents: { E1: 10 }, modified: false, statutNum: 2,
+      }],
+    })
+    const { rows } = buildProactiveDisplay(res, articles, new Map(), new Map(), { nomenclatures, supplyFlows })
+    assert.isNull(rows[0].composants[0].descente)
+  })
+
+  test('sans bomContext → descente null (compat)', ({ assert }) => {
+    const { rows } = buildProactiveDisplay(blockedResult())
+    assert.isNull(rows[0].composants[0].descente)
+  })
+})

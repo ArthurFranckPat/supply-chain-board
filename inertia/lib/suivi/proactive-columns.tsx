@@ -158,23 +158,59 @@ export function createProactiveColumns() {
                     </Show>
                     <span class="ml-auto shrink-0 rounded bg-destructive/10 px-1 font-mono text-[10px] font-bold tabular-nums text-destructive">−{c.qty}</span>
                   </div>
-                  {/* Réception couvrante (lentille appro rapatriée des Ruptures). */}
+                  {/* Descente BOM d'un SE manquant : soit « OF à lancer » (composants dispo),
+                      soit les feuilles réellement bloquantes avec leur réception. La lentille
+                      réception directe ne s'affiche que pour les composants SANS descente
+                      (achetés) — pour un SE elle serait du bruit (pas d'achat sur un fabriqué). */}
                   <Show
-                    when={c.reception}
+                    when={c.descente}
                     fallback={
-                      <span class="font-mono text-[9.5px] font-medium leading-tight text-destructive/70">aucune couverture prévue</span>
+                      <Show
+                        when={c.reception}
+                        fallback={
+                          <span class="font-mono text-[9.5px] font-medium leading-tight text-destructive/70">aucune couverture prévue</span>
+                        }
+                      >
+                        {(r) => (
+                          <span
+                            classList={{
+                              'font-mono text-[9.5px] font-bold leading-tight text-destructive': r().overdue,
+                              'font-mono text-[9.5px] font-medium leading-tight text-muted-foreground': !r().overdue,
+                            }}
+                            title={r().supplier}
+                          >
+                            {r().overdue ? `en retard +${r().retardJ} j · ${r().eta}` : `arrive ${r().eta} · ${r().po}`}
+                          </span>
+                        )}
+                      </Show>
                     }
                   >
-                    {(r) => (
-                      <span
-                        classList={{
-                          'font-mono text-[9.5px] font-bold leading-tight text-destructive': r().overdue,
-                          'font-mono text-[9.5px] font-medium leading-tight text-muted-foreground': !r().overdue,
-                        }}
-                        title={r().supplier}
+                    {(d) => (
+                      <Show
+                        when={d().statut === 'bloque'}
+                        fallback={
+                          <span class="font-mono text-[9.5px] font-semibold leading-tight text-emerald-700">↳ composants dispo — OF SE à lancer</span>
+                        }
                       >
-                        {r().overdue ? `en retard +${r().retardJ} j · ${r().eta}` : `arrive ${r().eta} · ${r().po}`}
-                      </span>
+                        <div class="flex flex-col gap-px pl-2">
+                          <For each={d().par.slice(0, 3)}>
+                            {(p) => (
+                              <span class="font-mono text-[9.5px] leading-tight text-muted-foreground" title={p.desc}>
+                                ↳ bloqué par <span class="font-bold text-destructive">{p.art}</span>
+                                <span class="font-bold text-destructive"> −{p.manque}</span>
+                                {p.reception
+                                  ? p.reception.overdue
+                                    ? ` · en retard +${p.reception.retardJ} j`
+                                    : ` · arrive ${p.reception.eta} · ${p.reception.po}`
+                                  : ' · aucune couverture prévue'}
+                              </span>
+                            )}
+                          </For>
+                          <Show when={d().par.length > 3}>
+                            <span class="pl-2 font-mono text-[9px] font-medium text-muted-foreground/70">+{d().par.length - 3} autre(s)</span>
+                          </Show>
+                        </div>
+                      </Show>
                     )}
                   </Show>
                 </div>
