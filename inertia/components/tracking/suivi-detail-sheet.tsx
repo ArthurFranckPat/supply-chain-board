@@ -67,8 +67,8 @@ export const SuiviDetailSheet: Component<SuiviDetailSheetProps> = (props) => {
   const stepExpState = () => {
     if (stepAllocState() !== 'green') return 'gray'
     if (isReactif() && reactiveRow().cq) return 'purple'
-    if (r().enZoneExpe) return 'green'
-    if (r().statusKey === 'exp') return 'amber'
+    if (isReactif() && reactiveRow().statusKey === 'ras') return 'green'
+    if (r().enZoneExpe) return 'amber'
     return 'gray'
   }
 
@@ -139,7 +139,7 @@ export const SuiviDetailSheet: Component<SuiviDetailSheetProps> = (props) => {
           <span class="text-[8.5px] font-extrabold uppercase tracking-wider text-muted-foreground text-center">Alloué</span>
         </div>
 
-        {/* Etape 5: Expédié */}
+        {/* Etape 5: Zone Expé */}
         <div class="flex flex-col items-center gap-1.5 z-10 w-16">
           <div class="size-8 rounded-full flex items-center justify-center font-bold text-[12px] transition-all"
                classList={{
@@ -148,10 +148,10 @@ export const SuiviDetailSheet: Component<SuiviDetailSheetProps> = (props) => {
                  'bg-purple-500 text-white animate-pulse shadow-[0_0_12px_rgba(168,85,247,0.3)] border border-purple-400': stepExpState() === 'purple',
                  'bg-secondary text-muted-foreground border border-rule': stepExpState() === 'gray'
                }}
-               title={stepExpState() === 'green' ? 'Palette présente en zone d\'expédition' : stepExpState() === 'amber' ? 'Prêt à être déplacé en zone d\'expédition' : stepExpState() === 'purple' ? 'Bloqué en attente du contrôle qualité (CQ)' : 'En attente d\'allocation'}>
+               title={stepExpState() === 'green' ? 'Commande traitée (RAS)' : stepExpState() === 'amber' ? 'Stock en zone d\'expédition, en attente d\'enlèvement' : stepExpState() === 'purple' ? 'Bloqué en attente du contrôle qualité (CQ)' : 'En attente de transfert vers la zone d\'expédition'}>
             <span class="material-symbols-outlined text-[16px]">local_shipping</span>
           </div>
-          <span class="text-[8.5px] font-extrabold uppercase tracking-wider text-muted-foreground text-center">Expédié</span>
+          <span class="text-[8.5px] font-extrabold uppercase tracking-wider text-muted-foreground text-center">Zone Expé</span>
         </div>
       </div>
 
