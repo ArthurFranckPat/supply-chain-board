@@ -33,7 +33,7 @@ export function createReactiveColumns({ expandedEmps, toggleEmp, referenceDate }
       ),
       meta: {
         thClass:
-          'w-[178px] px-4 py-[8px] text-left font-sans text-[11px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
+          'w-[150px] px-4 py-[8px] text-left font-sans text-[11px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
         tdClass: 'px-4 py-[9px] align-middle',
       },
     }),
@@ -51,7 +51,7 @@ export function createReactiveColumns({ expandedEmps, toggleEmp, referenceDate }
       ),
       meta: {
         thClass:
-          'w-[240px] px-4 py-[8px] text-left font-sans text-[11px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
+          'w-[200px] px-4 py-[8px] text-left font-sans text-[11px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
         tdClass: 'px-4 py-[9px] align-middle',
       },
     }),
@@ -82,14 +82,31 @@ export function createReactiveColumns({ expandedEmps, toggleEmp, referenceDate }
     }),
     reHelper.accessor('qteRestante', {
       header: () => 'Reste',
-      cell: (info) => (
-        <>
-          <span class="font-sans text-[18px] font-extrabold leading-none tracking-tight text-foreground tabular-nums">
-            {info.getValue()}
-          </span>
-          <span class="ml-0.5 font-mono text-[10px] font-medium text-muted-foreground/80">u</span>
-        </>
-      ),
+      cell: (info) => {
+        const row = info.row.original
+        const total = info.getValue() || 1
+        const strict = row.allocStrict
+        const cq = row.allocCq
+        const pctStrict = Math.min(100, Math.round((strict / total) * 100))
+        const pctCq = Math.min(100 - pctStrict, Math.round((cq / total) * 100))
+        const hasAlloc = strict + cq > 0
+        return (
+          <div class="flex flex-col items-end gap-1">
+            <div>
+              <span class="font-sans text-[18px] font-extrabold leading-none tracking-tight text-foreground tabular-nums">
+                {info.getValue()}
+              </span>
+              <span class="ml-0.5 font-mono text-[10px] font-medium text-muted-foreground/80">u</span>
+            </div>
+            <div class="w-full h-[3px] rounded-full bg-secondary overflow-hidden" title={`Alloué ${strict}${cq > 0 ? ` + CQ ${cq}` : ''} / ${total}`}>
+              <div class="h-full flex">
+                <div class="h-full bg-emerald-500 transition-all" style={{ width: `${pctStrict}%` }} />
+                <div class="h-full bg-purple-500 transition-all" style={{ width: `${pctCq}%` }} />
+              </div>
+            </div>
+          </div>
+        )
+      },
       sortingFn: 'basic',
       meta: {
         thClass:

@@ -76,7 +76,7 @@ export function ProactiveView(props: ProactiveViewProps) {
                   k === 'blocked' || k === 'uncov' ? ('critical' as const) : row.lateSeverity
                 return cx('border-t border-rule-soft transition-colors even:bg-foreground/[0.015]', LATE_TONE.bg(s))
               }}
-              tableClass="min-w-[1320px] table-fixed"
+              tableClass="min-w-[1252px] table-fixed"
               scrollContainerClass="h-full border border-rule rounded-xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] bg-card"
               theadRowClass="sticky top-0 z-10 bg-secondary"
               onRowClick={props.onRowClick}

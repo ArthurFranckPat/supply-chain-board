@@ -31,7 +31,7 @@ export function createProactiveColumns({ referenceDate }: ProactiveColumnsDeps) 
       ),
       meta: {
         thClass:
-          'w-[178px] px-4 py-[8px] text-left font-sans text-[11px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
+          'w-[150px] px-4 py-[8px] text-left font-sans text-[11px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
         tdClass: 'px-4 py-[9px] align-middle',
       },
     }),
@@ -49,7 +49,7 @@ export function createProactiveColumns({ referenceDate }: ProactiveColumnsDeps) 
       ),
       meta: {
         thClass:
-          'w-[240px] px-4 py-[8px] text-left font-sans text-[11px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
+          'w-[200px] px-4 py-[8px] text-left font-sans text-[11px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
         tdClass: 'px-4 py-[9px] align-middle',
       },
     }),
@@ -80,14 +80,25 @@ export function createProactiveColumns({ referenceDate }: ProactiveColumnsDeps) 
     }),
     proHelper.accessor('qteRestante', {
       header: () => 'Reste',
-      cell: (info) => (
-        <>
-          <span class="font-sans text-[18px] font-extrabold leading-none tracking-tight text-foreground tabular-nums">
-            {info.getValue()}
-          </span>
-          <span class="ml-0.5 font-mono text-[10px] font-medium text-muted-foreground/80">u</span>
-        </>
-      ),
+      cell: (info) => {
+        const row = info.row.original
+        const total = info.getValue() || 1
+        const alloc = row.qteAllouee
+        const pctAlloc = Math.min(100, Math.round((alloc / total) * 100))
+        return (
+          <div class="flex flex-col items-end gap-1">
+            <div>
+              <span class="font-sans text-[18px] font-extrabold leading-none tracking-tight text-foreground tabular-nums">
+                {info.getValue()}
+              </span>
+              <span class="ml-0.5 font-mono text-[10px] font-medium text-muted-foreground/80">u</span>
+            </div>
+            <div class="w-full h-[3px] rounded-full bg-secondary overflow-hidden" title={`Alloué ${alloc} / ${total}`}>
+              <div class="h-full bg-emerald-500 transition-all" style={{ width: `${pctAlloc}%` }} />
+            </div>
+          </div>
+        )
+      },
       sortingFn: 'basic',
       meta: {
         thClass:

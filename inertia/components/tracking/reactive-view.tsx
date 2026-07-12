@@ -85,7 +85,7 @@ export function ReactiveView(props: ReactiveViewProps) {
               getRowClass={(row: SuiviDisplayRow) =>
                 cx('border-t border-rule-soft transition-colors even:bg-foreground/[0.015]', LATE_TONE.bg(row.lateSeverity))
               }
-              tableClass="min-w-[1410px] table-fixed"
+              tableClass="min-w-[1342px] table-fixed"
               scrollContainerClass="h-full border border-rule rounded-xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] bg-card"
               theadRowClass="sticky top-0 z-10 bg-secondary"
               onRowClick={props.onRowClick}
