@@ -26,11 +26,6 @@ export function createReactiveColumns({ expandedEmps, toggleEmp, referenceDate }
           <div class="font-mono text-[13px] font-bold tracking-tight text-foreground">
             {info.getValue()}
           </div>
-          <Show when={info.row.original.refCommandeClient}>
-            <div class="mt-0.5 font-mono text-[10px] font-medium text-muted-foreground">
-              Réf: {info.row.original.refCommandeClient}
-            </div>
-          </Show>
           <div class="mt-0.5 font-sans text-[12px] font-medium leading-snug text-secondary-foreground">
             {info.row.original.client || '—'}
           </div>
@@ -49,16 +44,6 @@ export function createReactiveColumns({ expandedEmps, toggleEmp, referenceDate }
           <div class="font-mono text-[13px] font-semibold text-brand">
             {info.getValue()}
           </div>
-          <Show
-            when={
-              info.row.original.refArticleClient &&
-              info.row.original.refArticleClient !== info.getValue()
-            }
-          >
-            <div class="mt-0.5 font-mono text-[10px] font-medium text-muted-foreground">
-              Réf: {info.row.original.refArticleClient}
-            </div>
-          </Show>
           <div class="mt-0.5 font-sans text-[12px] font-medium leading-snug text-secondary-foreground">
             {info.row.original.designation || '—'}
           </div>
