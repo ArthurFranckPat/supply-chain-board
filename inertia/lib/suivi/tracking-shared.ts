@@ -49,14 +49,19 @@ export const OF_STATUT: Record<number, { tag: string; tone: string }> = {
   3: { tag: 'WOS', tone: 'bg-suggere/15 text-suggere' },
 }
 
-/** Couleur du badge verdict (vue proactive). */
+/**
+ * Couleur du badge verdict (vue proactive). `late` (retard déjà constaté, calcul de date)
+ * et `risk` (préventif : OF pas démarré, échéance proche, date encore bonne) étaient
+ * confondus sous le même ambre `suggere` — 2 sémantiques différentes rendues identiques.
+ * `risk` utilise désormais `planifie` (bleu, déjà porté par le tag WOP) pour les distinguer.
+ */
 export const VERDICT_TONE: Record<ProactiveVerdictKey, string> = {
   time: 'bg-ferme/15 text-ferme',
   stock: 'bg-ferme/15 text-ferme',
   late: 'bg-suggere/15 text-suggere',
   blocked: 'bg-destructive/10 text-destructive',
   uncov: 'bg-destructive/10 text-destructive',
-  risk: 'bg-suggere/15 text-suggere',
+  risk: 'bg-planifie/15 text-planifie',
 }
 
 /**
