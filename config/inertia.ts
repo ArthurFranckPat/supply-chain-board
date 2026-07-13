@@ -117,7 +117,6 @@ declare module '@adonisjs/inertia/types' {
       rowsHref: string
     }
     'scheduler/tracking': {
-      referenceDate: string
       rowsHref: string
       proactiveRowsHref: string
     }

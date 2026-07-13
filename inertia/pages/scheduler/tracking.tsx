@@ -1,11 +1,9 @@
 import { createMemo, createSignal, For, Show, type Component } from 'solid-js'
-import { router, usePage } from '@/lib/inertia-solid'
-import { route } from '@/lib/routes'
 
 import type { SuiviPageProps, SuiviStatusKey, ProactiveVerdictKey } from '@/lib/suivi/types'
 import { Masthead } from '@/components/masthead'
-import { Calendar } from '@/components/ui/calendar'
-import { parseIso, toIso } from '@/lib/vision/date-utils'
+import { Calendar, type DateRange } from '@/components/ui/calendar'
+import { parseIso, toIso, startOfDay } from '@/lib/vision/date-utils'
 import { EMPTY, PROACTIVE_EMPTY, fmtMs } from '@/lib/suivi/tracking-shared'
 import { useTimedFetch } from '@/lib/suivi/use-timed-fetch'
 import { ReactiveView } from '@/components/tracking/reactive-view'
@@ -28,15 +26,28 @@ import type { SuiviDisplayRow, ProactiveDisplayRow } from '@/lib/suivi/types'
  * vit dans components/tracking/*-view.tsx (issue #52).
  */
 
-const Tracking: Component<SuiviPageProps> = () => {
-  // `props` (argument du composant) est un INSTANTANÉ figé au montage (adapter Inertia/Solid,
-  // cf lib/inertia-solid/index.tsx) — une navigation vers la même page (nouvelle referenceDate)
-  // ne le met PAS à jour. Seul `usePage().props` (store réactif) réagit aux visites Inertia
-  // sans remount — indispensable pour que rowsHref/proactiveRowsHref changent avec la date.
-  const page = usePage<SuiviPageProps>()
+// Fenêtre chargée côté serveur (toujours today-90j/+30j, fixe — cf SuiviController). Le filtrage
+// par plage est un filtre CLIENT sur ces données déjà chargées, pas un re-fetch.
+const LATE_LOOKBACK_DAYS = 90
+const DEFAULT_FORWARD_DAYS = 30
 
-  // Calcul lourd différé : fetch client-side, relancé à chaque changement de date
-  // ou de bust (bouton refresh → ?refresh=N invalide le cache serveur).
+const TODAY = startOfDay(new Date())
+const TODAY_ISO = toIso(TODAY)
+const LATE_FLOOR_ISO = (() => {
+  const d = new Date(TODAY)
+  d.setDate(d.getDate() - LATE_LOOKBACK_DAYS)
+  return toIso(d)
+})()
+const DEFAULT_RANGE_END = (() => {
+  const d = new Date(TODAY)
+  d.setDate(d.getDate() + DEFAULT_FORWARD_DAYS)
+  return d
+})()
+
+const Tracking: Component<SuiviPageProps> = (props) => {
+  // Calcul lourd différé : fetch client-side, relancé au bust (bouton refresh → ?refresh=N
+  // invalide le cache serveur). rowsHref/proactiveRowsHref sont statiques (plus de referenceDate
+  // serveur) — le filtrage par date est désormais un filtre client, cf dateRange plus bas.
   const [bust, setBust] = createSignal(0)
 
   const {
@@ -44,7 +55,7 @@ const Tracking: Component<SuiviPageProps> = () => {
     ms: rowsMs,
     elapsed,
   } = useTimedFetch<SuiviRowsResponse>(
-    () => `${page.props.rowsHref}${bust() ? `&refresh=${bust()}` : ''}`
+    () => `${props.rowsHref}${bust() ? `?refresh=${bust()}` : ''}`
   )
   const view = createMemo(() => data() ?? EMPTY)
 
@@ -55,9 +66,24 @@ const Tracking: Component<SuiviPageProps> = () => {
     ms: proMs,
     elapsed: proElapsed,
   } = useTimedFetch<ProactiveRowsResponse>(
-    () => `${page.props.proactiveRowsHref}${bust() ? `&refresh=${bust()}` : ''}`
+    () => `${props.proactiveRowsHref}${bust() ? `?refresh=${bust()}` : ''}`
   )
   const proView = createMemo(() => proData() ?? PROACTIVE_EMPTY)
+
+  // Plage de dates d'expédition affichée — filtre CLIENT pur (pas de re-fetch). Les lignes déjà
+  // en retard (expé < aujourd'hui) restent TOUJOURS visibles hors plage, plafonnées à -90j
+  // (LATE_LOOKBACK_DAYS) depuis aujourd'hui — jamais depuis la plage choisie.
+  const [dateRange, setDateRange] = createSignal<DateRange>({ start: TODAY, end: DEFAULT_RANGE_END })
+  const inRangeOrLate = (dateExpIso: string | null): boolean => {
+    if (!dateExpIso) return true
+    const { start, end } = dateRange()
+    if (start && end) {
+      const s = toIso(start)
+      const e = toIso(end)
+      if (dateExpIso >= s && dateExpIso <= e) return true
+    }
+    return dateExpIso < TODAY_ISO && dateExpIso >= LATE_FLOOR_ISO
+  }
 
   // Filtres côté client. Recherche/type/atelier transverses aux 2 vues ;
   // statut/verdict spécifiques à leur mode.
@@ -101,7 +127,8 @@ const Tracking: Component<SuiviPageProps> = () => {
       (row) =>
         (sf === 'all' || row.statusKey === sf) &&
         tf.has(row.type) &&
-        (af.size === 0 || af.has(row.atelier))
+        (af.size === 0 || af.has(row.atelier)) &&
+        inRangeOrLate(row.dateExpIso)
     )
     if (q) {
       const terms = q.split(/\s+/)
@@ -119,7 +146,8 @@ const Tracking: Component<SuiviPageProps> = () => {
       (row) =>
         (vf === 'all' || row.verdictKey === vf) &&
         tf.has(row.type) &&
-        (af.size === 0 || af.has(row.atelier))
+        (af.size === 0 || af.has(row.atelier)) &&
+        inRangeOrLate(row.dateExpIso)
     )
     if (q) {
       const terms = q.split(/\s+/)
@@ -128,29 +156,27 @@ const Tracking: Component<SuiviPageProps> = () => {
     return r
   })
 
+  // Toujours "aujourd'hui" réel (verdicts/statuts calculés par rapport à maintenant, jamais
+  // simulés — cf SuiviController).
   const refLabel = () =>
-    new Date(page.props.referenceDate + 'T00:00:00').toLocaleDateString('fr-FR', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-    })
+    TODAY.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
 
   // Jamais de ISO (aaaa-mm-jj) affiché à l'écran — toujours jj/mm/aaaa (règle projet).
   const fmtFrDate = (iso: string) => {
     const d = parseIso(iso)
     return d ? d.toLocaleDateString('fr-FR') : iso
   }
+  const rangeLabel = () => {
+    const { start, end } = dateRange()
+    if (!start || !end) return '—'
+    return `${fmtFrDate(toIso(start))} → ${fmtFrDate(toIso(end))}`
+  }
 
-  // Sélecteur de date de référence — navigue vers /suivi?referenceDate=YYYY-MM-DD (le serveur
-  // reconstruit rowsHref/proactiveRowsHref avec cette date, cf SuiviController.board).
+  // Sélecteur de plage — filtre client (dateRange), pas de re-fetch ni de navigation.
   const [dateOpen, setDateOpen] = createSignal(false)
-  const onPickDate = (d: Date | null) => {
-    if (!d) return
-    setDateOpen(false)
-    router.visit(route('suivi.board'), {
-      data: { referenceDate: toIso(d) },
-      preserveScroll: true,
-    })
+  const applyRange = (r: DateRange) => {
+    setDateRange(r)
+    if (r.start && r.end) setDateOpen(false)
   }
 
   const selectedRowKey = createMemo(() => {
@@ -226,10 +252,6 @@ const Tracking: Component<SuiviPageProps> = () => {
                 {mode() === 'reactif' ? view().total : proView().total}
               </b>{' '}
               lignes ouvertes
-              <Show when={view().referenceDate}>
-                {' '}
-                · réf. <b class="font-bold text-foreground">{fmtFrDate(view().referenceDate)}</b>
-              </Show>
             </div>
           </>
         }
@@ -411,12 +433,12 @@ const Tracking: Component<SuiviPageProps> = () => {
               class={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-[11px] font-semibold transition-colors hover:border-brand ${
                 dateOpen() ? 'border-brand bg-brand-soft/20 text-brand' : 'border-rule bg-card'
               }`}
-              title="Choisir la date de référence"
+              title="Filtrer par plage de dates d'expédition (les lignes en retard restent toujours visibles)"
             >
               <span class="material-symbols-outlined text-[14px] text-muted-foreground">
                 calendar_month
               </span>
-              {fmtFrDate(page.props.referenceDate)}
+              {rangeLabel()}
               <span class="material-symbols-outlined text-[16px] text-muted-foreground">
                 expand_more
               </span>
@@ -430,7 +452,7 @@ const Tracking: Component<SuiviPageProps> = () => {
                 onClick={() => setDateOpen(false)}
               />
               <div class="absolute right-0 top-full z-50 mt-2">
-                <Calendar mode="single" value={parseIso(page.props.referenceDate)} onValueChange={onPickDate} />
+                <Calendar mode="range" range={dateRange()} onRangeChange={applyRange} />
               </div>
             </Show>
           </div>

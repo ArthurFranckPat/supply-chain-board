@@ -123,13 +123,12 @@ export interface SuiviRowsResponse {
 }
 
 /**
- * Props de la page GET /suivi (shell Inertia rendu instantané).
- * `type` (pas `interface`) — requis pour satisfaire la contrainte générique de `usePage<T>()`
- * (index signature implicite, cf tracking.tsx).
+ * Props de la page GET /suivi (shell Inertia rendu instantané). Statiques (ne changent jamais
+ * après montage) — le filtrage par plage de dates est un filtre CLIENT (cf tracking.tsx), pas
+ * une re-navigation Inertia, donc pas besoin de props réactives ici.
  */
-export type SuiviPageProps = {
-  referenceDate: string
-  /** URL JSON du calcul lourd (lignes + stats). Re-fetch auto quand elle change. */
+export interface SuiviPageProps {
+  /** URL JSON du calcul lourd (lignes + stats). */
   rowsHref: string
   /** URL JSON de la vue proactive (réalisabilité séquentielle des commandes). */
   proactiveRowsHref: string

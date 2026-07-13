@@ -157,13 +157,13 @@ export default class SuiviController {
    * Solid. Même motif que scheduler_controller.shortageTracker / shortageRows.
    */
   async board(ctx: HttpContext) {
-    const referenceDate =
-      (ctx.request.input('referenceDate') as string | undefined) ||
-      new Date().toISOString().slice(0, 10)
+    // Plus de referenceDate serveur : le calcul (statuts/verdicts) est TOUJOURS fait par
+    // rapport à aujourd'hui réel (fenêtre de chargement fixe today-90j/+30j, cf loadRaw/
+    // proactiveRows). La plage affichée est un filtre CLIENT pur sur les lignes déjà
+    // chargées (cf tracking.tsx dateRange) — pas besoin de re-fetch au changement de plage.
     return ctx.inertia.render('scheduler/tracking', {
-      referenceDate,
-      rowsHref: `/api/v1/status/rows?referenceDate=${encodeURIComponent(referenceDate)}`,
-      proactiveRowsHref: `/api/v1/status/proactive-rows?referenceDate=${encodeURIComponent(referenceDate)}`,
+      rowsHref: '/api/v1/status/rows',
+      proactiveRowsHref: '/api/v1/status/proactive-rows',
     })
   }
 
@@ -175,8 +175,9 @@ export default class SuiviController {
    * page Solid `scheduler/suivi`.
    */
   async rows(ctx: HttpContext) {
-    const referenceDate = ctx.request.input('referenceDate')
-    const refDate = referenceDate ? new Date(referenceDate) : new Date()
+    // Toujours calculé par rapport à aujourd'hui réel — le filtrage par plage de dates
+    // est un filtre CLIENT pur (cf tracking.tsx), pas un « aujourd'hui simulé ».
+    const refDate = new Date()
     // ?refresh=1 → invalide le cache de contexte (force un re-fetch X3 live).
     if (ctx.request.input('refresh')) await reloadSuiviContext()
 
@@ -227,8 +228,9 @@ export default class SuiviController {
    * (loadOrderImpacts) que le board/ruptures, caches boardDataset partagés.
    */
   async proactiveRows(ctx: HttpContext) {
-    const referenceDate = ctx.request.input('referenceDate')
-    const refDate = referenceDate ? new Date(referenceDate) : new Date()
+    // Toujours calculé par rapport à aujourd'hui réel — même logique que rows() (cf plus haut) :
+    // le filtrage par plage de dates est un filtre CLIENT pur, la fenêtre de chargement reste fixe.
+    const refDate = new Date()
     if (ctx.request.input('refresh')) await reloadSuiviContext()
 
     let rows: ProactiveDisplayRow[] = []
@@ -643,9 +645,6 @@ const VERDICT_DISPLAY: Record<
   sans_couverture: { key: 'uncov', label: 'Sans couverture' },
 }
 
-/** Horizon futur d'affichage de la vue proactive (jours). Au-delà : commandes masquées. */
-const PROACTIVE_HORIZON_FUTURE_DAYS = 21
-
 /**
  * Projette le verdict du moteur séquentiel (OrderImpactResult) en lignes d'affichage
  * pour la vue proactive : verdict court + jours de retard + composants goulots agrégés +
@@ -667,12 +666,13 @@ export function buildProactiveDisplay(
   rows: ProactiveDisplayRow[]
   verdictCounts: Record<ProactiveVerdictKey, number>
 } {
-  // Horizon d'affichage : on borne à aujourd'hui + 21 j (futur proche actionnable).
-  // Les commandes expédiant au-delà sont masquées (souvent du « sans couverture » bruité
-  // car leur OF couvrant est hors tolérance de date). Les retards passés sont conservés.
+  // Horizon d'affichage : borné à la fenêtre de chargement (today + SUIVI_FORWARD_DAYS) — au-delà,
+  // pas de données de toute façon. Le filtrage fin (plage choisie + rétention des retards) est un
+  // filtre CLIENT (cf tracking.tsx) : au-delà de cette borne, souvent du « sans couverture » bruité
+  // (OF couvrant hors tolérance de date), donc pas utile de le charger plus loin.
   const horizonIso = new Date()
   horizonIso.setHours(0, 0, 0, 0)
-  horizonIso.setDate(horizonIso.getDate() + PROACTIVE_HORIZON_FUTURE_DAYS)
+  horizonIso.setDate(horizonIso.getDate() + SUIVI_FORWARD_DAYS)
   const todayIso = isoLocalDay()
 
   let ruptureDataset: RuptureDataset | undefined
