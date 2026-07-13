@@ -352,7 +352,7 @@ export class SuiviService {
    * à chaque appel à partir du snapshot. Le grace period (config/cache.ts) sert le snapshot
    * périmé si X3 échoue.
    */
-  async buildContext(): Promise<SuiviContext> {
+  async buildContext(force = false): Promise<SuiviContext> {
     const raw = await suiviCache().getOrSet({
       key: 'context',
       ttl: CONTEXT_TTL,
@@ -362,7 +362,7 @@ export class SuiviService {
       // remettre `timeout: 1000` : avec un timeout > 0, le refresh tourne hors mode background ; quand
       // il rejette (loadRaw échoue en tâche de fond) la promesse orpheline → unhandled rejection →
       // crash du serveur → la page /suivi tourne dans le vide. Cold start : pas de grace → attend la factory.
-      factory: () => this.loadRaw(),
+      factory: () => this.loadRaw(force),
     })
     return this.assembleContext(raw)
   }
@@ -375,7 +375,7 @@ export class SuiviService {
    * fait planter le suivi quand X3 est lent/injoignable, alors que le reste de l'app
    * sert ces mêmes données depuis le local. Demande / OF / stock restent live (vivants).
    */
-  private async loadRaw(): Promise<RawSuiviData> {
+  private async loadRaw(force = false): Promise<RawSuiviData> {
     const from = new Date()
     from.setDate(from.getDate() - RETARD_LOOKBACK_DAYS)
     const to = new Date()
@@ -390,7 +390,7 @@ export class SuiviService {
       nomenclatureEntries,
       articleList,
     ] = await Promise.all([
-      boardDataset.getLive(fromIso, toIso),
+      boardDataset.getLive(fromIso, toIso, force),
       staticSync.readNomenclatures().catch(() => [] as NomenclatureEntry[]),
       staticSync.readArticles().catch(() => [] as Article[]),
     ])
@@ -499,8 +499,8 @@ export class SuiviService {
   }
 
   /** Assigne les statuts + cause + signal CQ pour toutes les lignes courantes. */
-  async assignFromLatest(referenceDate: Date): Promise<StatusAssignment[]> {
-    const ctx = await this.buildContext()
+  async assignFromLatest(referenceDate: Date, force = false): Promise<StatusAssignment[]> {
+    const ctx = await this.buildContext(force)
     return this.assign(ctx, referenceDate)
   }
 

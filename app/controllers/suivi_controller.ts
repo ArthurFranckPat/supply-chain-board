@@ -178,8 +178,12 @@ export default class SuiviController {
     // Toujours calculé par rapport à aujourd'hui réel — le filtrage par plage de dates
     // est un filtre CLIENT pur (cf tracking.tsx), pas un « aujourd'hui simulé ».
     const refDate = new Date()
-    // ?refresh=1 → invalide le cache de contexte (force un re-fetch X3 live).
-    if (ctx.request.input('refresh')) await reloadSuiviContext()
+    // ?refresh=1 → invalide le cache de contexte ET force le re-fetch X3 sous-jacent
+    // (boardDataset.getLive, TTL 5 min séparé — sans `force`, reloadSuiviContext() seul
+    // ne fait que vider le cache de contexte, la relecture retombe quand même sur les
+    // données X3 encore en cache 5 min, servies stale par le SWR).
+    const forceRefresh = !!ctx.request.input('refresh')
+    if (forceRefresh) await reloadSuiviContext()
 
     let rows: SuiviDisplayRow[] = []
     let statusCounts: Record<SuiviStatus, number> = {
@@ -193,7 +197,7 @@ export default class SuiviController {
 
     try {
       const [assignments, atelierByArticle] = await Promise.all([
-        new SuiviService().assignFromLatest(refDate),
+        new SuiviService().assignFromLatest(refDate, forceRefresh),
         buildAtelierByArticle(),
       ])
       const built = buildSuiviDisplay(assignments, refDate, atelierByArticle)
@@ -231,7 +235,11 @@ export default class SuiviController {
     // Toujours calculé par rapport à aujourd'hui réel — même logique que rows() (cf plus haut) :
     // le filtrage par plage de dates est un filtre CLIENT pur, la fenêtre de chargement reste fixe.
     const refDate = new Date()
-    if (ctx.request.input('refresh')) await reloadSuiviContext()
+    // Idem rows() : reloadSuiviContext() seul ne bust pas le cache boardDataset (TTL 5 min,
+    // namespace séparé) — sans `force`, "Actualiser" peut rester bloqué sur des données stale
+    // jusqu'à 5 min (SWR sert l'ancienne valeur pendant le refresh arrière-plan).
+    const forceRefresh = !!ctx.request.input('refresh')
+    if (forceRefresh) await reloadSuiviContext()
 
     let rows: ProactiveDisplayRow[] = []
     let verdictCounts: Record<ProactiveVerdictKey, number> = {
@@ -254,7 +262,7 @@ export default class SuiviController {
         { result, articles, receptionFlows, nomenclatures, planInputs, fabricationHoursByOf },
         atelierByArticle,
       ] = await Promise.all([
-        loadOrderImpacts({ from, to, mode: 'sequential', pipeline: 'proactive' }),
+        loadOrderImpacts({ from, to, mode: 'sequential', pipeline: 'proactive', force: forceRefresh }),
         buildAtelierByArticle(),
       ])
       // Réceptions à venir + retards de livraison (lookback RECEPTION_LOOKBACK_DAYS) — réutilise
