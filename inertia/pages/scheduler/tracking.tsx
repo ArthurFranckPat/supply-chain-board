@@ -29,7 +29,7 @@ import type { SuiviDisplayRow, ProactiveDisplayRow } from '@/lib/suivi/types'
 // Fenêtre chargée côté serveur (toujours today-90j/+30j, fixe — cf SuiviController). Le filtrage
 // par plage est un filtre CLIENT sur ces données déjà chargées, pas un re-fetch.
 const LATE_LOOKBACK_DAYS = 90
-const DEFAULT_FORWARD_DAYS = 30
+const DEFAULT_FORWARD_DAYS = 7
 
 const TODAY = startOfDay(new Date())
 const TODAY_ISO = toIso(TODAY)
