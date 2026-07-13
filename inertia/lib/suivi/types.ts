@@ -148,6 +148,8 @@ export interface ProactiveOf {
   missingComponents: { art: string; qty: number }[]
   /** Vrai si l'OF a des pointages d'opérations intermédiaires (issue #41). */
   estDebuté?: boolean
+  /** Charge réelle gamme (Σ qteRestante/cadence, heures brutes) — null si gamme inconnue. */
+  chargeHeures: number | null
 }
 
 export interface ProactiveDisplayRow {

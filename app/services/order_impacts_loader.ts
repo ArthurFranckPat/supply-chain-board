@@ -95,6 +95,8 @@ export interface OrderImpactsContext {
    * (issue #57) : `evaluatePlanDiff` réévalue le plan muté sur ces mêmes entrées.
    */
   planInputs: { demands: Flow[]; supplyFlows: Flow[]; overrides: Map<string, OfOverrideRow> }
+  /** Charge réelle gamme par OF (heures brutes, arrondies au dixième) — cf calcul de retard. */
+  fabricationHoursByOf: Map<string, number>
 }
 
 /**
@@ -306,6 +308,7 @@ export async function loadOrderImpacts(
     opsByArticle.set(g.article, arr)
   }
   const fabricationDaysByOf = new Map<string, number>()
+  const fabricationHoursByOf = new Map<string, number>()
   for (const f of finalOfFlows) {
     const id = (f.origin as { id?: string }).id?.trim() ?? ''
     const ops = opsByArticle.get(f.article)
@@ -313,6 +316,7 @@ export async function loadOrderImpacts(
     let hours = 0
     for (const op of ops) hours += f.quantity / op.rate
     fabricationDaysByOf.set(id, fabricationDaysFromHours(hours, hoursPerDay))
+    fabricationHoursByOf.set(id, Math.round(hours * 10) / 10)
   }
 
   const result = evaluateOrderImpacts(
@@ -336,6 +340,7 @@ export async function loadOrderImpacts(
     nomenclatures,
     ofPegs,
     receptionFlows,
+    fabricationHoursByOf,
     planInputs: { demands: filteredDemands, supplyFlows: allSupply, overrides: overrideMap },
   }
 }

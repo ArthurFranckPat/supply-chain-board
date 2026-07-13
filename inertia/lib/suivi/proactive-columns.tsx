@@ -228,13 +228,18 @@ export function createProactiveColumns({ referenceDate }: ProactiveColumnsDeps) 
         tdClass: 'px-4 py-[9px] align-middle',
       },
     }),
-    proHelper.accessor('joursRetard', {
-      header: () => 'J. retard',
+    proHelper.display({
+      id: 'chargeHeures',
+      enableSorting: false,
+      header: () => 'Charge',
       cell: (info) => {
-        const v = info.getValue()
-        return <>{v > 0 ? v : '—'}</>
+        // Charge réelle gamme (Σ qteRestante/cadence) des OF de couverture — indépendante
+        // du jalonnement CBN. '—' si couverte par stock/achat (pas d'OF) ou gamme inconnue.
+        const known = info.row.original.ofs.filter((of) => of.chargeHeures !== null)
+        if (known.length === 0) return <>—</>
+        const total = known.reduce((sum, of) => sum + (of.chargeHeures ?? 0), 0)
+        return <>{Math.round(total * 10) / 10}h</>
       },
-      sortingFn: 'basic',
       meta: {
         thClass:
           'w-[70px] px-4 py-[8px] text-right font-sans text-[11px] font-semibold tracking-wider text-muted-foreground border-b border-rule',

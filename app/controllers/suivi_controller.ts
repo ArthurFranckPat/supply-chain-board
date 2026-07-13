@@ -248,21 +248,27 @@ export default class SuiviController {
       from.setDate(from.getDate() - RETARD_LOOKBACK_DAYS)
       const to = new Date(refDate)
       to.setDate(to.getDate() + SUIVI_FORWARD_DAYS)
-      const [{ result, articles, receptionFlows, nomenclatures, planInputs }, atelierByArticle] =
-        await Promise.all([
-          loadOrderImpacts({ from, to, mode: 'sequential', pipeline: 'proactive' }),
-          buildAtelierByArticle(),
-        ])
+      const [
+        { result, articles, receptionFlows, nomenclatures, planInputs, fabricationHoursByOf },
+        atelierByArticle,
+      ] = await Promise.all([
+        loadOrderImpacts({ from, to, mode: 'sequential', pipeline: 'proactive' }),
+        buildAtelierByArticle(),
+      ])
       // Réceptions à venir + retards de livraison (lookback RECEPTION_LOOKBACK_DAYS) — réutilise
       // les flows déjà fetchés par loadOrderImpacts via getLive (évite un SOAP PORDERQ dupliqué).
       const recFrom = new Date(refDate)
       recFrom.setDate(recFrom.getDate() - RECEPTION_LOOKBACK_DAYS)
       recFrom.setHours(0, 0, 0, 0)
       const receptionsByArticle = groupReceptionsByArticle(receptionFlows, recFrom)
-      const built = buildProactiveDisplay(result, articles, receptionsByArticle, atelierByArticle, {
-        nomenclatures,
-        supplyFlows: planInputs.supplyFlows,
-      })
+      const built = buildProactiveDisplay(
+        result,
+        articles,
+        receptionsByArticle,
+        atelierByArticle,
+        { nomenclatures, supplyFlows: planInputs.supplyFlows },
+        fabricationHoursByOf
+      )
       rows = built.rows
       verdictCounts = built.verdictCounts
       ateliers = distinctAteliers(rows)
@@ -401,6 +407,8 @@ export interface ProactiveOf {
   missingComponents: { art: string; qty: number }[]
   /** Vrai si l'OF a des pointages d'opérations intermédiaires (issue #41). */
   estDebuté?: boolean
+  /** Charge réelle gamme (Σ qteRestante/cadence, heures brutes) — null si gamme inconnue. */
+  chargeHeures: number | null
 }
 
 export interface ProactiveDisplayRow {
@@ -652,7 +660,9 @@ export function buildProactiveDisplay(
    * Contexte BOM pour la descente d'explication des SE manquants (photo stock strict).
    * Optionnel : absent (tests/legacy) → pas de descente, `descente: null` partout.
    */
-  bomContext?: { nomenclatures: Map<string, Nomenclature>; supplyFlows: Flow[] }
+  bomContext?: { nomenclatures: Map<string, Nomenclature>; supplyFlows: Flow[] },
+  /** Charge réelle gamme par OF (heures brutes) — cf order_impacts_loader.ts. */
+  fabricationHoursByOf: Map<string, number> = new Map()
 ): {
   rows: ProactiveDisplayRow[]
   verdictCounts: Record<ProactiveVerdictKey, number>
@@ -811,6 +821,7 @@ export function buildProactiveDisplay(
           .sort(([a], [b]) => a.localeCompare(b))
           .map(([art, qty]) => ({ art, qty: Math.round(qty * 100) / 100 })),
         estDebuté: of.estDebuté,
+        chargeHeures: fabricationHoursByOf.get(of.numOf) ?? null,
       }))
       const compsTxt = comps.map((c) => `${c.art} -${c.qty}`).join(' ')
       // Mode de couverture : Stock (stock_complete) | OF contremarque/cumulatif (n° OF) |
