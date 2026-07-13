@@ -563,14 +563,11 @@ export function assignStatuses(
     const allocTotal = allocStrict + allocQc
     const couvert = allocTotal >= besoin
 
-    let status: SuiviStatus
-    if (couvert) {
-      status = 'ALLOCATION_A_FAIRE'
-    } else if (isRetardProd(line, referenceDate)) {
-      status = 'RETARD_PROD'
-    } else {
-      status = 'RAS'
-    }
+    // Pas de branche RETARD_PROD ici : on n'atteint ce point QUE si la date d'expé n'est
+    // pas encore passée (sinon la RÈGLE 1 plus haut a déjà `continue`), donc `isRetardProd`
+    // (qui teste justement dateExpedition < referenceDate) y est toujours faux — c'était du
+    // code mort (branche inatteignable).
+    let status: SuiviStatus = couvert ? 'ALLOCATION_A_FAIRE' : 'RAS'
 
     // Harmonisation front : RAS + signal CQ consommé → ALLOCATION_A_FAIRE.
     if (status === 'RAS' && alerteCqStatut) {
