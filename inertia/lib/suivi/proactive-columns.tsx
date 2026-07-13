@@ -157,46 +157,48 @@ export function createProactiveColumns({ referenceDate }: ProactiveColumnsDeps) 
                 {(of) => {
                   const st = OF_STATUT[of.statutNum]
                   return (
-                    <div class="relative flex items-center gap-1.5">
-                      <Show when={of.estDebuté}>
-                        <span
-                          class="absolute -right-1.5 -top-1.5 flex size-1.5"
-                          title={
-                            of.piecesFaites != null && of.piecesTotalOf
-                              ? `OF démarré — ${of.piecesFaites}/${of.piecesTotalOf} pièces réalisées`
-                              : 'OF démarré — pointage atelier en cours'
-                          }
-                        >
-                          <span class="absolute inline-flex size-full animate-ping rounded-full bg-emerald-500 opacity-75" />
-                          <span class="relative inline-flex size-1.5 rounded-full bg-emerald-500" />
+                    <div class="flex flex-col gap-px">
+                      <div class="relative flex items-center gap-1.5">
+                        <Show when={of.estDebuté}>
+                          <span
+                            class="absolute -right-1.5 -top-1.5 flex size-1.5"
+                            title={
+                              of.piecesFaites != null && of.piecesTotalOf
+                                ? `OF démarré — ${of.piecesFaites}/${of.piecesTotalOf} pièces réalisées`
+                                : 'OF démarré — pointage atelier en cours'
+                            }
+                          >
+                            <span class="absolute inline-flex size-full animate-ping rounded-full bg-emerald-500 opacity-75" />
+                            <span class="relative inline-flex size-1.5 rounded-full bg-emerald-500" />
+                          </span>
+                        </Show>
+                        <span class="font-mono text-[11px] font-semibold leading-snug text-secondary-foreground break-all">
+                          {of.numOf}
                         </span>
-                      </Show>
-                      <span class="font-mono text-[11px] font-semibold leading-snug text-secondary-foreground break-all">
-                        {of.numOf}
-                      </span>
-                      <Show when={st}>
-                        <span
-                          class={cx(
-                            'shrink-0 rounded px-1 py-px font-mono text-[9px] font-bold leading-none cursor-help',
-                            st.tone
-                          )}
-                          title={
-                            st.tag === 'WOF'
-                              ? 'Work Order Firm (OF Ferme) — Validé et verrouillé'
-                              : st.tag === 'WOP'
-                                ? 'Work Order Planned (OF Planifié) — Planifié en production'
-                                : 'Work Order Suggested (OF Suggéré) — Proposition du calcul des besoins'
-                          }
-                        >
-                          {st.tag}
-                        </span>
-                      </Show>
+                        <Show when={st}>
+                          <span
+                            class={cx(
+                              'shrink-0 rounded px-1 py-px font-mono text-[9px] font-bold leading-none cursor-help',
+                              st.tone
+                            )}
+                            title={
+                              st.tag === 'WOF'
+                                ? 'Work Order Firm (OF Ferme) — Validé et verrouillé'
+                                : st.tag === 'WOP'
+                                  ? 'Work Order Planned (OF Planifié) — Planifié en production'
+                                  : 'Work Order Suggested (OF Suggéré) — Proposition du calcul des besoins'
+                            }
+                          >
+                            {st.tag}
+                          </span>
+                        </Show>
+                      </div>
                       <Show when={of.estDebuté && of.piecesFaites != null && of.piecesTotalOf}>
                         <span
-                          class="shrink-0 font-mono text-[9px] font-semibold tabular-nums text-emerald-600 cursor-help"
+                          class="font-mono text-[9px] font-semibold tabular-nums leading-none text-emerald-600 cursor-help"
                           title="Pièces réalisées / total OF (poste le plus avancé pointé)"
                         >
-                          {of.piecesFaites}/{of.piecesTotalOf}
+                          {of.piecesFaites}/{of.piecesTotalOf} pièces
                         </span>
                       </Show>
                     </div>
