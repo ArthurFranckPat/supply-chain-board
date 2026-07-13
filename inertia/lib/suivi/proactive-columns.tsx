@@ -157,20 +157,18 @@ export function createProactiveColumns({ referenceDate }: ProactiveColumnsDeps) 
                 {(of) => {
                   const st = OF_STATUT[of.statutNum]
                   return (
-                    <div class="flex items-center gap-1.5">
-                      <span class="relative inline-block">
-                        <Show when={of.estDebuté}>
-                          <span
-                            class="absolute -right-1 -top-1 flex size-1.5"
-                            title="OF démarré — pointage atelier en cours"
-                          >
-                            <span class="absolute inline-flex size-full animate-ping rounded-full bg-emerald-500 opacity-75" />
-                            <span class="relative inline-flex size-1.5 rounded-full bg-emerald-500" />
-                          </span>
-                        </Show>
-                        <span class="font-mono text-[11px] font-semibold leading-snug text-secondary-foreground break-all">
-                          {of.numOf}
+                    <div class="relative flex items-center gap-1.5">
+                      <Show when={of.estDebuté}>
+                        <span
+                          class="absolute -right-1.5 -top-1.5 flex size-1.5"
+                          title="OF démarré — pointage atelier en cours"
+                        >
+                          <span class="absolute inline-flex size-full animate-ping rounded-full bg-emerald-500 opacity-75" />
+                          <span class="relative inline-flex size-1.5 rounded-full bg-emerald-500" />
                         </span>
+                      </Show>
+                      <span class="font-mono text-[11px] font-semibold leading-snug text-secondary-foreground break-all">
+                        {of.numOf}
                       </span>
                       <Show when={st}>
                         <span
