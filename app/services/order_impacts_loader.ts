@@ -313,11 +313,17 @@ export async function loadOrderImpacts(
     const id = (f.origin as { id?: string }).id?.trim() ?? ''
     const ops = opsByArticle.get(f.article)
     if (!id || !ops || !f.quantity) continue
-    // Déduit les pièces déjà réalisées (poste le plus avancé pointé, cf of-avancement.ts) :
-    // RMNEXTQTY (f.quantity) ne bouge qu'à la déclaration finale de stock (souvent en bloc,
-    // cf operation_repository.ts), donc sans ça la charge resterait pleine tant qu'un OF
-    // démarré n'a pas encore soldé sa dernière opération.
-    const qtyRealisee = avancementByOf.get(id)?.qtyRealisee ?? 0
+    // Déduit les pièces déjà réalisées (poste le plus avancé pointé, cf of-avancement.ts) —
+    // MAIS seulement si RMNEXTQTY n'a encore RIEN netté (EXTQTY === RMNEXTQTY). Vérifié sur 2 OF
+    // réels au comportement différent : certains OF nettent RMNEXTQTY au fil des pointages
+    // (EXTQTY 480 / RMNEXTQTY déjà descendu à 120 pour 360 pointés — déduire encore double-
+    // compterait, chargerait 0h à tort sur du travail qui reste), d'autres ne nettent qu'à la
+    // déclaration finale de stock (EXTQTY === RMNEXTQTY malgré des pointages en cours — sans
+    // déduction la charge resterait pleine). `launched` (EXTQTY) absent → repli prudent (pas de
+    // déduction, comme si déjà netté) plutôt que de risquer un double-compte silencieux.
+    const launched = (f.origin as { launched?: number }).launched
+    const notYetNetted = launched != null && launched === f.quantity
+    const qtyRealisee = notYetNetted ? (avancementByOf.get(id)?.qtyRealisee ?? 0) : 0
     const qtyRestante = Math.max(0, f.quantity - qtyRealisee)
     if (qtyRestante <= 0) {
       fabricationDaysByOf.set(id, 0)

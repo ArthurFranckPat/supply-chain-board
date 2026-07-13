@@ -318,7 +318,13 @@ export function evaluateOrderImpacts(
         statutNum: overrides.get(ofId)?.status ?? (alloc.ofFlow.origin as any).status ?? 3,
         estDebuté: avancementByOf?.get(ofId)?.estDebuté,
         piecesFaites: avancementByOf?.get(ofId)?.qtyRealisee,
-        piecesTotalOf: Math.round(alloc.ofFlow.quantity),
+        // EXTQTY (lancée d'origine) — total STABLE, contrairement à qteRestante (RMNEXTQTY) qui
+        // se nette de façon incohérente selon l'historique de déclaration de l'OF (vérifié sur
+        // X3 : deux OF réels avec le même pattern de pointage se comportent différemment).
+        // Repli sur quantity si launched absent (anciens producteurs de flow, cf flow.ts).
+        piecesTotalOf: Math.round(
+          (alloc.ofFlow.origin as { launched?: number }).launched ?? alloc.ofFlow.quantity
+        ),
       })
     }
 

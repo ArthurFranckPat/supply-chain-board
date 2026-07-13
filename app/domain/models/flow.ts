@@ -32,6 +32,14 @@ export type FlowOrigin =
       typeOf: number | null
       typeOfLabel: string | null
       designation: string | null
+      /**
+       * Qté lancée d'origine (ORDERS.EXTQTY_0) — total STABLE de l'OF, contrairement à
+       * `quantity` (RMNEXTQTY, reste à produire) qui se nette de façon incohérente selon
+       * l'historique de déclaration de l'OF (vérifié sur X3 : parfois netté au fil des
+       * pointages d'opération, parfois seulement à la déclaration finale — cf issue avancement).
+       * Optionnel : absent → repli sur `quantity` chez le consommateur.
+       */
+      launched?: number
     }
   | {
       type: 'order'

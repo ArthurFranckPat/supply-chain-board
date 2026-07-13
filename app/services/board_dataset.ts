@@ -107,6 +107,7 @@ class BoardDataset {
             typeOf: null,
             typeOfLabel: mo.typeOfLabel,
             designation: mo.designation,
+            launched: mo.quantityLaunched,
           },
         }))
         this.lastOrdersAt = Date.now()
@@ -146,6 +147,7 @@ class BoardDataset {
             typeOf: null,
             typeOfLabel: mo.typeOfLabel,
             designation: mo.designation,
+            launched: mo.quantityLaunched,
           },
         }))
         return { mos, supply, at: Date.now() } satisfies Orders
