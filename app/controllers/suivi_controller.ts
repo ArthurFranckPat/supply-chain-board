@@ -583,6 +583,7 @@ export function buildSuiviDisplay(
       statusLabel: STATUS_DISPLAY[a.status].short,
       statusIcon: STATUS_DISPLAY[a.status].icon,
       qteRestante: Math.round(a.line.qteRestante),
+      qteCommandee: Math.round(a.line.qteCommandee),
       besoinNet: Math.max(0, Math.round(a.besoinNet)),
       allocStrict: Math.round(a.qteAlloueeVirtuelleStricte),
       allocCq: Math.round(a.qteAlloueeVirtuelleCq),

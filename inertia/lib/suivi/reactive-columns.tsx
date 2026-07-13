@@ -81,27 +81,35 @@ export function createReactiveColumns({ expandedEmps, toggleEmp, referenceDate }
       },
     }),
     reHelper.accessor('qteRestante', {
-      header: () => 'Reste',
+      header: () => 'Qté',
       cell: (info) => {
         const row = info.row.original
-        const total = info.getValue() || 1
+        const commandee = row.qteCommandee || 1
+        const restante = info.getValue()
         const strict = row.allocStrict
         const cq = row.allocCq
-        const pctStrict = Math.min(100, Math.round((strict / total) * 100))
-        const pctCq = Math.min(100 - pctStrict, Math.round((cq / total) * 100))
-        const hasAlloc = strict + cq > 0
+        const reliquat = Math.max(0, restante - strict - cq)
+        // Bar segments as % of commandée
+        const pctStrict = Math.min(100, Math.round((strict / commandee) * 100))
+        const pctCq = Math.min(100 - pctStrict, Math.round((cq / commandee) * 100))
+        const pctReliquat = Math.min(100 - pctStrict - pctCq, Math.round((reliquat / commandee) * 100))
+        const delivered = commandee - restante
         return (
           <div class="flex flex-col items-end gap-1">
-            <div>
+            <div class="flex items-baseline gap-1">
               <span class="font-sans text-[18px] font-extrabold leading-none tracking-tight text-foreground tabular-nums">
-                {info.getValue()}
+                {restante}
               </span>
-              <span class="ml-0.5 font-mono text-[10px] font-medium text-muted-foreground/80">u</span>
+              <span class="font-mono text-[10px] font-medium text-muted-foreground/60">/ {commandee}</span>
             </div>
-            <div class="w-full h-[3px] rounded-full bg-secondary overflow-hidden" title={`Alloué ${strict}${cq > 0 ? ` + CQ ${cq}` : ''} / ${total}`}>
+            <div
+              class="w-full h-[3px] rounded-full bg-secondary overflow-hidden"
+              title={`Commandé ${commandee} · Livré ${delivered} · Alloué ${strict}${cq > 0 ? ` + CQ ${cq}` : ''} · Reliquat ${reliquat}`}
+            >
               <div class="h-full flex">
                 <div class="h-full bg-emerald-500 transition-all" style={{ width: `${pctStrict}%` }} />
                 <div class="h-full bg-purple-500 transition-all" style={{ width: `${pctCq}%` }} />
+                <div class="h-full bg-amber-400 transition-all" style={{ width: `${pctReliquat}%` }} />
               </div>
             </div>
           </div>
@@ -110,7 +118,7 @@ export function createReactiveColumns({ expandedEmps, toggleEmp, referenceDate }
       sortingFn: 'basic',
       meta: {
         thClass:
-          'w-[92px] px-4 py-[8px] text-right font-sans text-[11px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
+          'w-[100px] px-4 py-[8px] text-right font-sans text-[11px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
         tdClass: 'whitespace-nowrap px-4 py-[9px] text-right align-middle',
       },
     }),

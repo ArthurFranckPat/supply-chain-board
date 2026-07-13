@@ -71,6 +71,7 @@ export interface SuiviDisplayRow {
   statusLabel: string
   statusIcon: string
   qteRestante: number
+  qteCommandee: number
   besoinNet: number
   /** Allocation virtuelle (split strict / sous contrôle qualité). */
   allocStrict: number
