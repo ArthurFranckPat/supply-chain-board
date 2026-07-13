@@ -411,6 +411,9 @@ export interface ProactiveOf {
   estDebuté?: boolean
   /** Charge réelle gamme (Σ qteRestante/cadence, heures brutes) — null si gamme inconnue. */
   chargeHeures: number | null
+  /** État d'avancement : pièces déjà réalisées / total de l'OF — null si non débuté/inconnu. */
+  piecesFaites: number | null
+  piecesTotalOf: number | null
 }
 
 export interface ProactiveDisplayRow {
@@ -822,6 +825,8 @@ export function buildProactiveDisplay(
           .map(([art, qty]) => ({ art, qty: Math.round(qty * 100) / 100 })),
         estDebuté: of.estDebuté,
         chargeHeures: fabricationHoursByOf.get(of.numOf) ?? null,
+        piecesFaites: of.piecesFaites ?? null,
+        piecesTotalOf: of.piecesTotalOf ?? null,
       }))
       const compsTxt = comps.map((c) => `${c.art} -${c.qty}`).join(' ')
       // Mode de couverture : Stock (stock_complete) | OF contremarque/cumulatif (n° OF) |

@@ -161,7 +161,11 @@ export function createProactiveColumns({ referenceDate }: ProactiveColumnsDeps) 
                       <Show when={of.estDebuté}>
                         <span
                           class="absolute -right-1.5 -top-1.5 flex size-1.5"
-                          title="OF démarré — pointage atelier en cours"
+                          title={
+                            of.piecesFaites != null && of.piecesTotalOf
+                              ? `OF démarré — ${of.piecesFaites}/${of.piecesTotalOf} pièces réalisées`
+                              : 'OF démarré — pointage atelier en cours'
+                          }
                         >
                           <span class="absolute inline-flex size-full animate-ping rounded-full bg-emerald-500 opacity-75" />
                           <span class="relative inline-flex size-1.5 rounded-full bg-emerald-500" />
@@ -185,6 +189,14 @@ export function createProactiveColumns({ referenceDate }: ProactiveColumnsDeps) 
                           }
                         >
                           {st.tag}
+                        </span>
+                      </Show>
+                      <Show when={of.estDebuté && of.piecesFaites != null && of.piecesTotalOf}>
+                        <span
+                          class="shrink-0 font-mono text-[9px] font-semibold tabular-nums text-emerald-600 cursor-help"
+                          title="Pièces réalisées / total OF (poste le plus avancé pointé)"
+                        >
+                          {of.piecesFaites}/{of.piecesTotalOf}
                         </span>
                       </Show>
                     </div>

@@ -153,6 +153,9 @@ export interface ProactiveOf {
   estDebuté?: boolean
   /** Charge réelle gamme (Σ qteRestante/cadence, heures brutes) — null si gamme inconnue. */
   chargeHeures: number | null
+  /** État d'avancement : pièces déjà réalisées / total de l'OF — null si non débuté/inconnu. */
+  piecesFaites: number | null
+  piecesTotalOf: number | null
 }
 
 export interface ProactiveDisplayRow {

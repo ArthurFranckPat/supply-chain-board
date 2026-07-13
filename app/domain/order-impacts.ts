@@ -60,6 +60,9 @@ export interface OrderImpactRow {
     statutNum: number
     /** Vrai si au moins une opération intermédiaire a un pointage > 0 (issue #41). */
     estDebuté?: boolean
+    /** Pièces déjà réalisées (poste le plus avancé pointé) / total de l'OF — état d'avancement. */
+    piecesFaites?: number
+    piecesTotalOf?: number
   }>
 }
 
@@ -158,7 +161,7 @@ export function evaluateOrderImpacts(
    * Avancement des OFs via pointages MFGOPE (issue #41). Permet d'enrichir chaque OF
    * avec `estDebuté` et de qualifier le verdict proactif. Optionnel (fixtures/tests).
    */
-  avancementByOf?: Map<string, { estDebuté: boolean }>,
+  avancementByOf?: Map<string, { estDebuté: boolean; qtyRealisee?: number }>,
   strategy?: AllocationStrategy,
   /**
    * Matières réelles MFGMAT par OF (règle 1 du moteur unique, rupture-engine.ts) — permet au
@@ -314,6 +317,8 @@ export function evaluateOrderImpacts(
         modified: overrides.has(ofId),
         statutNum: overrides.get(ofId)?.status ?? (alloc.ofFlow.origin as any).status ?? 3,
         estDebuté: avancementByOf?.get(ofId)?.estDebuté,
+        piecesFaites: avancementByOf?.get(ofId)?.qtyRealisee,
+        piecesTotalOf: Math.round(alloc.ofFlow.quantity),
       })
     }
 
