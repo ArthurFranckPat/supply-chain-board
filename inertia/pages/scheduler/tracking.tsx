@@ -1,9 +1,11 @@
 import { createMemo, createSignal, For, Show, type Component } from 'solid-js'
-import { Link } from '@/lib/inertia-solid'
+import { Link, router } from '@/lib/inertia-solid'
 import { route } from '@/lib/routes'
 
 import type { SuiviPageProps, SuiviStatusKey, ProactiveVerdictKey } from '@/lib/suivi/types'
 import { Masthead } from '@/components/masthead'
+import { Calendar } from '@/components/ui/calendar'
+import { parseIso, toIso } from '@/lib/vision/date-utils'
 import { EMPTY, PROACTIVE_EMPTY, fmtMs } from '@/lib/suivi/tracking-shared'
 import { useTimedFetch } from '@/lib/suivi/use-timed-fetch'
 import { ReactiveView } from '@/components/tracking/reactive-view'
@@ -126,6 +128,18 @@ const Tracking: Component<SuiviPageProps> = (props) => {
       day: 'numeric',
       month: 'long',
     })
+
+  // Sélecteur de date de référence — navigue vers /suivi?referenceDate=YYYY-MM-DD (le serveur
+  // reconstruit rowsHref/proactiveRowsHref avec cette date, cf SuiviController.board).
+  const [dateOpen, setDateOpen] = createSignal(false)
+  const onPickDate = (d: Date | null) => {
+    if (!d) return
+    setDateOpen(false)
+    router.visit(route('suivi.board'), {
+      data: { referenceDate: toIso(d) },
+      preserveScroll: true,
+    })
+  }
 
   const selectedRowKey = createMemo(() => {
     const sel = selectedRow()
@@ -370,15 +384,42 @@ const Tracking: Component<SuiviPageProps> = (props) => {
             </span>
             Actualiser
           </button>
+          <div class="relative">
+            <button
+              type="button"
+              onClick={() => setDateOpen((o) => !o)}
+              class={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-[11px] font-semibold transition-colors hover:border-brand ${
+                dateOpen() ? 'border-brand bg-brand-soft/20 text-brand' : 'border-rule bg-card'
+              }`}
+              title="Choisir la date de référence"
+            >
+              <span class="material-symbols-outlined text-[14px] text-muted-foreground">
+                calendar_month
+              </span>
+              {props.referenceDate}
+              <span class="material-symbols-outlined text-[16px] text-muted-foreground">
+                expand_more
+              </span>
+            </button>
+            <Show when={dateOpen()}>
+              <button
+                type="button"
+                tabIndex={-1}
+                aria-hidden="true"
+                class="fixed inset-0 z-40 cursor-default"
+                onClick={() => setDateOpen(false)}
+              />
+              <div class="absolute right-0 top-full z-50 mt-2">
+                <Calendar mode="single" value={parseIso(props.referenceDate)} onValueChange={onPickDate} />
+              </div>
+            </Show>
+          </div>
           <Link
             href={`${route('suivi.board')}?referenceDate=${encodeURIComponent(new Date().toISOString().slice(0, 10))}`}
             preserveScroll
             class="inline-flex items-center gap-1 rounded-full border border-rule bg-card px-3 py-1 text-[11px] font-semibold transition-colors hover:border-brand"
             title="Recharger à aujourd'hui"
           >
-            <span class="material-symbols-outlined text-[14px] text-muted-foreground">
-              calendar_month
-            </span>
             Aujourd'hui
           </Link>
         </div>
