@@ -825,7 +825,15 @@ export function buildProactiveDisplay(
           .map(([art, qty]) => ({ art, qty: Math.round(qty * 100) / 100 })),
         estDebuté: of.estDebuté,
         chargeHeures: fabricationHoursByOf.get(of.numOf) ?? null,
-        piecesFaites: of.piecesFaites ?? null,
+        // CPLQTY (poste pointé) est un cumul qui ne repart jamais à 0 : sur un OF déjà
+        // partiellement déclaré en stock (RMNEXTQTY déjà netté d'un lot précédent), le cumul
+        // historique peut dépasser le RESTE actuel (cas vu : 360 pointés / 120 restants) —
+        // le poste a produit plus que ce qu'il reste à faire AUJOURD'HUI. On plafonne
+        // l'affichage à piecesTotalOf pour ne jamais montrer plus que 100 %.
+        piecesFaites:
+          of.piecesFaites != null && of.piecesTotalOf != null
+            ? Math.min(of.piecesFaites, of.piecesTotalOf)
+            : (of.piecesFaites ?? null),
         piecesTotalOf: of.piecesTotalOf ?? null,
       }))
       const compsTxt = comps.map((c) => `${c.art} -${c.qty}`).join(' ')
