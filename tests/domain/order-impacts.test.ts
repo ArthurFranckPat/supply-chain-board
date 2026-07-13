@@ -114,6 +114,58 @@ test.group('evaluateOrderImpacts', () => {
     assert.equal(result.orders[0].joursRetard, 12)
   })
 
+  test('fabricationDaysByOf : la charge réelle prime sur le jalonnement CBN (ENDDAT) quand fournie', ({
+    assert,
+  }) => {
+    const nomenclatures = new Map<string, Nomenclature>()
+    const articles = new Map([['PF1', makeArticle('PF1')]])
+    const overrides = new Map<string, OfOverride>()
+    const window = { from: daysFromNow(-7), to: daysFromNow(42) }
+
+    // ENDDAT très tardif (J+20), demande à J+10 → 'retard' en repli (comme le test précédent,
+    // sans fabricationDaysByOf). Avec une charge réelle minuscule (1j), le CBN ment : la
+    // fabrication tient largement dans le délai → verdict corrigé en on_time.
+    const lateEnddat: Flow[] = [makeOfFlow('OF-A', 'PF1', 1, 60, daysFromNow(20))]
+    const demand: Flow[] = [makeDemand('CMD-1', 'PF1', 60, daysFromNow(10))]
+    const lightCharge = evaluateOrderImpacts(
+      demand,
+      lateEnddat,
+      nomenclatures,
+      articles,
+      overrides,
+      window,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      new Map([['OF-A', 1]])
+    )
+    assert.equal(lightCharge.orders[0].statut, 'on_time')
+    assert.equal(lightCharge.orders[0].joursRetard, 0)
+
+    // ENDDAT confortable (J+3, avant même le buffer) mais charge réelle énorme (15j) : le CBN
+    // ment dans l'autre sens — la fab ne peut pas tenir → verdict corrigé en retard.
+    const earlyEnddat: Flow[] = [makeOfFlow('OF-B', 'PF1', 1, 60, daysFromNow(3))]
+    const heavyCharge = evaluateOrderImpacts(
+      demand,
+      earlyEnddat,
+      nomenclatures,
+      articles,
+      overrides,
+      window,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      new Map([['OF-B', 15]])
+    )
+    assert.equal(heavyCharge.orders[0].statut, 'retard')
+    // requiredStart = expedBornee(J8) - 15j = J-7 ; aujourd'hui = J0 → retard = 7
+    assert.equal(heavyCharge.orders[0].joursRetard, 7)
+  })
+
   test('bloquee when OF component has no stock', ({ assert }) => {
     const supplyFlows: Flow[] = [
       makeOfFlow('OF-A', 'PF1', 3, 60, daysFromNow(8)),

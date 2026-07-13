@@ -170,7 +170,13 @@ export function evaluateOrderImpacts(
    * acquis réel. Optionnel : absent → repli nomenclature théorique pour tous les OF (comportement
    * historique, inchangé pour board/ruptures qui utilisent `precomputedFeasibility` à la place).
    */
-  mfgMaterialsByOf?: Map<string, MfgMaterialInput[]>
+  mfgMaterialsByOf?: Map<string, MfgMaterialInput[]>,
+  /**
+   * Jours de fabrication réels par OF (charge gamme : Σ qteRestante/cadence, plancher 1j,
+   * cf. `fabricationDaysFromHours`) — utilisé pour le calcul du retard (règle "charge réelle",
+   * indépendante du jalonnement CBN STRDAT/ENDDAT). Absent → repli 1 jour par OF.
+   */
+  fabricationDaysByOf?: Map<string, number>
 ): OrderImpactResult {
   // 1. Filter demands in window
   const windowDemands = demands.filter((d) => {
@@ -250,7 +256,13 @@ export function evaluateOrderImpacts(
 
     const ofRows: OrderImpactRow['ofs'] = []
     let blocked = false
-    let latestFin: Date | null = null
+    // Pire retard (en jours) parmi les OF alloués — cf boucle ci-dessous.
+    let ofLatenessDays = 0
+
+    // Buffer logistique J-2 (issue #41) : l'OF doit être terminé 2 jours avant l'expédition
+    // (contrôle, conditionnement, quai).
+    const LOGISTICS_BUFFER_MS = 2 * 86_400_000
+    const expedBornee = demand.date ? new Date(demand.date.getTime() - LOGISTICS_BUFFER_MS) : null
 
     for (const alloc of result.ofAllocations) {
       const ofId = (alloc.ofFlow.origin as any).id ?? ''
@@ -259,12 +271,43 @@ export function evaluateOrderImpacts(
       const ofFeasible = resolved.feasible
 
       if (ofFeasible === false) blocked = true
-      if (effFin && (!latestFin || effFin > latestFin)) latestFin = effFin
+
+      // Retard par OF : une date posée à la main sur le board/un scénario (override) est une
+      // décision humaine ou une simulation explicite, toujours respectée telle quelle.
+      // Sinon, DEUX modes selon que l'appelant fournit `fabricationDaysByOf` :
+      //  - fourni (pipelines live via order_impacts_loader.ts) : on ignore le jalonnement CBN
+      //    (STRDAT/ENDDAT — dérive facilement, cf. shortages.ts "jamais consulté, jugé non
+      //    fiable") et on calcule la charge RÉELLE (cadence gamme × reste à produire) décomptée
+      //    à rebours depuis l'expé bufferisée — si la date de démarrage requise est déjà
+      //    passée, retard.
+      //  - absent (evaluatePlanDiff / scénarios / tests appelant le moteur directement) :
+      //    repli sur l'ancien comportement, `effFin` (ENDDAT ou override) vs expé bufferisée —
+      //    ces appelants pilotent volontairement une date simulée via le flow lui-même.
+      if (expedBornee) {
+        const ov = overrides.get(ofId)
+        let lateness = 0
+        if (ov?.dateFin) {
+          const overrideDate = safeDate(ov.dateFin)
+          if (overrideDate && overrideDate > expedBornee) {
+            lateness = Math.round((overrideDate.getTime() - expedBornee.getTime()) / 86_400_000)
+          }
+        } else if (fabricationDaysByOf) {
+          const fabDays = Math.max(1, fabricationDaysByOf.get(ofId) ?? 1)
+          const requiredStart = new Date(expedBornee.getTime() - fabDays * 86_400_000)
+          if (requiredStart < today) {
+            lateness = Math.round((today.getTime() - requiredStart.getTime()) / 86_400_000)
+          }
+        } else if (effFin && effFin > expedBornee) {
+          lateness = Math.round((effFin.getTime() - expedBornee.getTime()) / 86_400_000)
+        }
+        if (lateness > ofLatenessDays) ofLatenessDays = lateness
+      }
 
       ofRows.push({
         numOf: ofId,
         article: alloc.ofFlow.article,
         qteAllouee: alloc.qteAllouee,
+        // Informatif seulement (jalonnement X3 brut) — n'entre plus dans le calcul de retard.
         dateFin: effFin?.toISOString().slice(0, 10) ?? '',
         feasible: ofFeasible,
         missingComponents: resolved.missingComponents,
@@ -274,17 +317,8 @@ export function evaluateOrderImpacts(
       })
     }
 
-    // Buffer logistique J-2 (issue #41) : l'OF doit être terminé 2 jours avant
-    // l'expédition (contrôle, conditionnement, quai). On décale la date d'expé
-    // vers l'arrière UNIQUEMENT pour la comparaison avec latestFin — le fallback
-    // calendaire (commande servie sous 2 jours sans retard OF) reste sur demand.date.
-    const LOGISTICS_BUFFER_MS = 2 * 86_400_000
-    const expedBornee = demand.date ? new Date(demand.date.getTime() - LOGISTICS_BUFFER_MS) : null
-
-    let joursRetard = 0
-    if (latestFin && expedBornee && latestFin > expedBornee) {
-      joursRetard = Math.round((latestFin.getTime() - expedBornee.getTime()) / 86400000)
-    } else if (demand.date && demand.date < today) {
+    let joursRetard = ofLatenessDays
+    if (joursRetard === 0 && demand.date && demand.date < today) {
       // date d'expé dépassée sans retard OF → retard calendaire depuis aujourd'hui
       joursRetard = Math.round((today.getTime() - demand.date.getTime()) / 86400000)
     }

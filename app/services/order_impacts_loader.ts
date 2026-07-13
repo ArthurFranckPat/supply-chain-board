@@ -22,6 +22,7 @@ import {
 import { computeAvancement } from '#app/domain/of-avancement'
 import { X3OperationRepository } from '#repositories/operation_repository'
 import { buildStrictQcStock } from '#app/domain/of-feasibility'
+import { fabricationDaysFromHours, DEFAULT_HOURS_PER_DAY } from '#app/domain/shortages'
 import {
   remapDemandDates,
   expandArticleSetWithBom,
@@ -292,6 +293,28 @@ export async function loadOrderImpacts(
   )
   const avancementByOf = computeAvancement(operations)
 
+  // Charge réelle par OF (cadence gamme × reste à produire) pour le calcul de retard —
+  // volontairement indépendant du jalonnement CBN (STRDAT/ENDDAT). Même formule que
+  // /ruptures (shortage_payload_loader.ts) : Σ qteRestante/cadence par opération, converti
+  // en jours (7,5h/j par défaut), plancher 1j.
+  const hoursPerDay = Number(process.env.RUPTURES_HOURS_PER_DAY) || DEFAULT_HOURS_PER_DAY
+  const opsByArticle = new Map<string, { rate: number }[]>()
+  for (const g of gamme) {
+    if (!g.article || g.rate <= 0) continue
+    const arr = opsByArticle.get(g.article) ?? []
+    arr.push(g)
+    opsByArticle.set(g.article, arr)
+  }
+  const fabricationDaysByOf = new Map<string, number>()
+  for (const f of finalOfFlows) {
+    const id = (f.origin as { id?: string }).id?.trim() ?? ''
+    const ops = opsByArticle.get(f.article)
+    if (!id || !ops || !f.quantity) continue
+    let hours = 0
+    for (const op of ops) hours += f.quantity / op.rate
+    fabricationDaysByOf.set(id, fabricationDaysFromHours(hours, hoursPerDay))
+  }
+
   const result = evaluateOrderImpacts(
     filteredDemands,
     allSupply,
@@ -303,7 +326,8 @@ export async function loadOrderImpacts(
     mfgFeasibility,
     avancementByOf,
     undefined,
-    mfgByOf
+    mfgByOf,
+    fabricationDaysByOf
   )
 
   return {
