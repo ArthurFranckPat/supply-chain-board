@@ -208,6 +208,7 @@ function mapOfRow(row: RawRow): Flow {
       typeOf: null,
       typeOfLabel: null,
       designation: row.DESIGNATION?.trim() ?? null,
+      launched: toNum(row.EXTQTY_0),
     },
   }
 }
