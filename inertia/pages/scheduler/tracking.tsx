@@ -135,6 +135,12 @@ const Tracking: Component<SuiviPageProps> = () => {
       month: 'long',
     })
 
+  // Jamais de ISO (aaaa-mm-jj) affiché à l'écran — toujours jj/mm/aaaa (règle projet).
+  const fmtFrDate = (iso: string) => {
+    const d = parseIso(iso)
+    return d ? d.toLocaleDateString('fr-FR') : iso
+  }
+
   // Sélecteur de date de référence — navigue vers /suivi?referenceDate=YYYY-MM-DD (le serveur
   // reconstruit rowsHref/proactiveRowsHref avec cette date, cf SuiviController.board).
   const [dateOpen, setDateOpen] = createSignal(false)
@@ -222,7 +228,7 @@ const Tracking: Component<SuiviPageProps> = () => {
               lignes ouvertes
               <Show when={view().referenceDate}>
                 {' '}
-                · réf. <b class="font-bold text-foreground">{view().referenceDate}</b>
+                · réf. <b class="font-bold text-foreground">{fmtFrDate(view().referenceDate)}</b>
               </Show>
             </div>
           </>
@@ -410,7 +416,7 @@ const Tracking: Component<SuiviPageProps> = () => {
               <span class="material-symbols-outlined text-[14px] text-muted-foreground">
                 calendar_month
               </span>
-              {page.props.referenceDate}
+              {fmtFrDate(page.props.referenceDate)}
               <span class="material-symbols-outlined text-[16px] text-muted-foreground">
                 expand_more
               </span>
