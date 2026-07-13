@@ -313,8 +313,19 @@ export async function loadOrderImpacts(
     const id = (f.origin as { id?: string }).id?.trim() ?? ''
     const ops = opsByArticle.get(f.article)
     if (!id || !ops || !f.quantity) continue
+    // Déduit les pièces déjà réalisées (poste le plus avancé pointé, cf of-avancement.ts) :
+    // RMNEXTQTY (f.quantity) ne bouge qu'à la déclaration finale de stock (souvent en bloc,
+    // cf operation_repository.ts), donc sans ça la charge resterait pleine tant qu'un OF
+    // démarré n'a pas encore soldé sa dernière opération.
+    const qtyRealisee = avancementByOf.get(id)?.qtyRealisee ?? 0
+    const qtyRestante = Math.max(0, f.quantity - qtyRealisee)
+    if (qtyRestante <= 0) {
+      fabricationDaysByOf.set(id, 0)
+      fabricationHoursByOf.set(id, 0)
+      continue
+    }
     let hours = 0
-    for (const op of ops) hours += f.quantity / op.rate
+    for (const op of ops) hours += qtyRestante / op.rate
     fabricationDaysByOf.set(id, fabricationDaysFromHours(hours, hoursPerDay))
     fabricationHoursByOf.set(id, Math.round(hours * 10) / 10)
   }

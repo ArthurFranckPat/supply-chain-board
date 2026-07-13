@@ -88,5 +88,25 @@ test.group('computeAvancement', () => {
     assert.equal(a.derniereOpPointée, 30)
     assert.equal(a.nbOperationsPointées, 3)
     assert.equal(a.nbOperations, 3)
+    // qtyRealisee = cplqty du poste le plus avancé pointé (op 30), pas op 10 ni op 20.
+    assert.equal(a.qtyRealisee, 300)
+  })
+
+  test('qtyRealisee = 0 quand non débuté', ({ assert }) => {
+    const records: OperationRecord[] = [op('OF-6', 10, 0), op('OF-6', 20, 720)]
+    const a = computeAvancement(records).get('OF-6')!
+    assert.isFalse(a.estDebuté)
+    assert.equal(a.qtyRealisee, 0)
+  })
+
+  test('qtyRealisee cumule les lignes partagant le même openum (sous-lots)', ({ assert }) => {
+    const records: OperationRecord[] = [
+      op('OF-7', 10, 200),
+      op('OF-7', 10, 150), // 2e ligne, même opération (ex. postes différents)
+      op('OF-7', 20, 0),
+    ]
+    const a = computeAvancement(records).get('OF-7')!
+    assert.equal(a.derniereOpPointée, 10)
+    assert.equal(a.qtyRealisee, 350)
   })
 })

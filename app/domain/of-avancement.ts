@@ -25,6 +25,12 @@ export interface OfAvancement {
   nbOperations: number
   /** Nb d'opérations intermédiaires avec pointage > 0. */
   nbOperationsPointées: number
+  /**
+   * Qté déjà réalisée (CPLQTY) à l'opération la plus avancée pointée — proxy « pièces déjà
+   * faites » pour déduire la charge restante (une pièce n'a franchi ce poste qu'une fois
+   * traitée). 0 si non débuté.
+   */
+  qtyRealisee: number
 }
 
 /**
@@ -59,6 +65,12 @@ export function computeAvancement(records: OperationRecord[]): Map<string, OfAva
     const pointees = intermediaires.filter((op) => op.cplqty > 0)
     const derniereOpPointée =
       pointees.length > 0 ? Math.max(...pointees.map((o) => o.openum)) : null
+    const qtyRealisee =
+      derniereOpPointée !== null
+        ? pointees
+            .filter((op) => op.openum === derniereOpPointée)
+            .reduce((sum, op) => sum + op.cplqty, 0)
+        : 0
 
     result.set(numOf, {
       numOf,
@@ -67,6 +79,7 @@ export function computeAvancement(records: OperationRecord[]): Map<string, OfAva
       derniereOpGamme,
       nbOperations: intermediaires.length,
       nbOperationsPointées: pointees.length,
+      qtyRealisee,
     })
   }
 
