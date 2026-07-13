@@ -1,5 +1,5 @@
 import { createMemo, createSignal, For, Show, type Component } from 'solid-js'
-import { Link, router } from '@/lib/inertia-solid'
+import { router, usePage } from '@/lib/inertia-solid'
 import { route } from '@/lib/routes'
 
 import type { SuiviPageProps, SuiviStatusKey, ProactiveVerdictKey } from '@/lib/suivi/types'
@@ -28,7 +28,13 @@ import type { SuiviDisplayRow, ProactiveDisplayRow } from '@/lib/suivi/types'
  * vit dans components/tracking/*-view.tsx (issue #52).
  */
 
-const Tracking: Component<SuiviPageProps> = (props) => {
+const Tracking: Component<SuiviPageProps> = () => {
+  // `props` (argument du composant) est un INSTANTANÉ figé au montage (adapter Inertia/Solid,
+  // cf lib/inertia-solid/index.tsx) — une navigation vers la même page (nouvelle referenceDate)
+  // ne le met PAS à jour. Seul `usePage().props` (store réactif) réagit aux visites Inertia
+  // sans remount — indispensable pour que rowsHref/proactiveRowsHref changent avec la date.
+  const page = usePage<SuiviPageProps>()
+
   // Calcul lourd différé : fetch client-side, relancé à chaque changement de date
   // ou de bust (bouton refresh → ?refresh=N invalide le cache serveur).
   const [bust, setBust] = createSignal(0)
@@ -38,7 +44,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
     ms: rowsMs,
     elapsed,
   } = useTimedFetch<SuiviRowsResponse>(
-    () => `${props.rowsHref}${bust() ? `&refresh=${bust()}` : ''}`
+    () => `${page.props.rowsHref}${bust() ? `&refresh=${bust()}` : ''}`
   )
   const view = createMemo(() => data() ?? EMPTY)
 
@@ -49,7 +55,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
     ms: proMs,
     elapsed: proElapsed,
   } = useTimedFetch<ProactiveRowsResponse>(
-    () => `${props.proactiveRowsHref}${bust() ? `&refresh=${bust()}` : ''}`
+    () => `${page.props.proactiveRowsHref}${bust() ? `&refresh=${bust()}` : ''}`
   )
   const proView = createMemo(() => proData() ?? PROACTIVE_EMPTY)
 
@@ -123,7 +129,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
   })
 
   const refLabel = () =>
-    new Date(props.referenceDate + 'T00:00:00').toLocaleDateString('fr-FR', {
+    new Date(page.props.referenceDate + 'T00:00:00').toLocaleDateString('fr-FR', {
       weekday: 'long',
       day: 'numeric',
       month: 'long',
@@ -396,7 +402,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
               <span class="material-symbols-outlined text-[14px] text-muted-foreground">
                 calendar_month
               </span>
-              {props.referenceDate}
+              {page.props.referenceDate}
               <span class="material-symbols-outlined text-[16px] text-muted-foreground">
                 expand_more
               </span>
@@ -410,18 +416,10 @@ const Tracking: Component<SuiviPageProps> = (props) => {
                 onClick={() => setDateOpen(false)}
               />
               <div class="absolute right-0 top-full z-50 mt-2">
-                <Calendar mode="single" value={parseIso(props.referenceDate)} onValueChange={onPickDate} />
+                <Calendar mode="single" value={parseIso(page.props.referenceDate)} onValueChange={onPickDate} />
               </div>
             </Show>
           </div>
-          <Link
-            href={`${route('suivi.board')}?referenceDate=${encodeURIComponent(new Date().toISOString().slice(0, 10))}`}
-            preserveScroll
-            class="inline-flex items-center gap-1 rounded-full border border-rule bg-card px-3 py-1 text-[11px] font-semibold transition-colors hover:border-brand"
-            title="Recharger à aujourd'hui"
-          >
-            Aujourd'hui
-          </Link>
         </div>
       </div>
 

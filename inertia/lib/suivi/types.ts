@@ -122,8 +122,12 @@ export interface SuiviRowsResponse {
   referenceDate: string
 }
 
-/** Props de la page GET /suivi (shell Inertia rendu instantané). */
-export interface SuiviPageProps {
+/**
+ * Props de la page GET /suivi (shell Inertia rendu instantané).
+ * `type` (pas `interface`) — requis pour satisfaire la contrainte générique de `usePage<T>()`
+ * (index signature implicite, cf tracking.tsx).
+ */
+export type SuiviPageProps = {
   referenceDate: string
   /** URL JSON du calcul lourd (lignes + stats). Re-fetch auto quand elle change. */
   rowsHref: string
