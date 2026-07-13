@@ -405,8 +405,8 @@ const Tracking: Component<SuiviPageProps> = (props) => {
               <button
                 type="button"
                 tabIndex={-1}
-                aria-hidden="true"
                 class="fixed inset-0 z-40 cursor-default"
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => setDateOpen(false)}
               />
               <div class="absolute right-0 top-full z-50 mt-2">

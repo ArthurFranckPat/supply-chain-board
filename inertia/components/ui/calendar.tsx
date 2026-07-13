@@ -112,7 +112,12 @@ export const Calendar: Component<CalendarProps> = (props) => {
     const d = new Date(y, m + delta, 1)
     setView({ y: d.getFullYear(), m: d.getMonth() })
   }
-  const goToday = () => setView({ y: today.getFullYear(), m: today.getMonth() })
+  const goToday = () => {
+    setView({ y: today.getFullYear(), m: today.getMonth() })
+    // Mode single : "Aujourd'hui" sélectionne réellement la date (pas juste la vue) —
+    // sinon le clic ne fait rien de visible quand le mois affiché est déjà le mois courant.
+    if (props.mode !== 'range') props.onValueChange?.(today)
+  }
 
   const isDisabled = (d: Date) =>
     (props.min != null && d < startOfDay(props.min)) || (props.max != null && d > props.max)
