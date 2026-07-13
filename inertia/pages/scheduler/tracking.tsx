@@ -243,7 +243,14 @@ const Tracking: Component<SuiviPageProps> = () => {
       />
 
       {/* ═══ Toolbar ═══ */}
-      <div class="flex flex-none items-center gap-2.5 border-b border-rule px-7 py-2 overflow-x-auto no-scrollbar select-none">
+      {/*
+        overflow-x-auto est isolé aux CHIPS (sous-div ci-dessous), pas à toute la rangée :
+        overflow-x non-visible force overflow-y à 'auto' aussi (quirk CSS) — sur toute la
+        rangée, ça coupait net le popover du sélecteur de date (absolute top-full) posé dans
+        le groupe actions à droite, qui débordait verticalement de la rangée scrollable.
+      */}
+      <div class="flex flex-none items-center gap-2.5 border-b border-rule px-7 py-2 select-none">
+        <div class="flex min-w-0 flex-1 items-center gap-2.5 overflow-x-auto no-scrollbar">
         {/* Bascule Réactif / Proactif */}
         <div class="inline-flex shrink-0 items-center rounded-md border border-rule bg-card p-0.5">
           <button
@@ -348,6 +355,7 @@ const Tracking: Component<SuiviPageProps> = () => {
             </Show>
           </div>
         </Show>
+        </div>
         <div class="ml-auto shrink-0 flex items-center gap-2">
           {/* Compteur filtré */}
           <Show when={isFiltered()}>
