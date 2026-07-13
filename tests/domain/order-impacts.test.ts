@@ -479,4 +479,92 @@ test.group('netDemandsByAllocation', () => {
     )
     assert.lengthOf(net.orders, 0)
   })
+
+  test('MFGMAT credits own ALLQTY before sequential contention (firm OF not falsely blocked)', ({
+    assert,
+  }) => {
+    // OF-B (suggéré, besoin plus tôt) consomme TOUT le stock théorique de C1 en premier
+    // dans la contention. OF-A (ferme, besoin plus tard) a pourtant déjà 60 C1 alloués
+    // (MFGMAT ALLQTY) pour son besoin de 60 (RETQTY-USEQTY) — reste net = 0, rien à
+    // vérifier contre le stock partagé. Sans matières MFGMAT injectées, le moteur ne le
+    // sait pas et redemande le besoin BOM théorique complet (60), que la contention a
+    // déjà donné à OF-B → faux blocage sur un OF ferme déjà couvert (cf conversation
+    // F426-39011 : X3 MFGMAT.SHTQTY_0 = 0, l'app affichait pourtant -17/-79).
+    const supplyFlows: Flow[] = [
+      makeStockFlow('C1', 60),
+      makeOfFlow('OF-B', 'PF1', 3, 60, daysFromNow(5)),
+      makeOfFlow('OF-A', 'PF1', 1, 60, daysFromNow(8)),
+    ]
+    const demands: Flow[] = [makeDemand('CMD-1', 'PF1', 60, daysFromNow(10))]
+    const nomenclatures = new Map<string, Nomenclature>([
+      [
+        'PF1',
+        {
+          article: 'PF1',
+          description: '',
+          components: [
+            {
+              parentArticle: 'PF1',
+              parentDescription: '',
+              level: 5,
+              componentArticle: 'C1',
+              componentDescription: '',
+              linkQuantity: 1,
+              componentType: 'ACHETE',
+              consumptionNature: 'PROPORTIONNEL',
+            },
+          ],
+        },
+      ],
+    ])
+    const articles = new Map([
+      ['PF1', makeArticle('PF1')],
+      ['C1', makeArticle('C1', 'ACHAT')],
+    ])
+    const overrides = new Map<string, OfOverride>()
+    const window = { from: daysFromNow(-7), to: daysFromNow(42) }
+
+    const withoutMfgmat = evaluateOrderImpacts(
+      demands,
+      supplyFlows,
+      nomenclatures,
+      articles,
+      overrides,
+      window,
+      'sequential'
+    )
+    // Rule 3 (rupture-engine.ts) : OF ferme → `feasible` reste true quoi qu'il arrive (il est
+    // lancé). Le faux signal remonte via `missingComponents` (colonne « Goulots » côté vue
+    // proactive) : sans MFGMAT injecté, le moteur redemande le besoin BOM théorique déjà
+    // consommé par OF-B dans la contention → C1 ressort manquant sur un OF pourtant couvert.
+    const ofA = withoutMfgmat.orders[0].ofs.find((o) => o.numOf === 'OF-A')
+    assert.isTrue(
+      Object.keys(ofA?.missingComponents ?? {}).length > 0,
+      'sans MFGMAT : OF-A affiche un composant manquant fantôme (contention théorique)'
+    )
+
+    const mfgMaterialsByOf = new Map([
+      ['OF-A', [{ article: 'C1', remaining: 60, allocated: 60 }]],
+    ])
+    const withMfgmat = evaluateOrderImpacts(
+      demands,
+      supplyFlows,
+      nomenclatures,
+      articles,
+      overrides,
+      window,
+      'sequential',
+      undefined,
+      undefined,
+      undefined,
+      mfgMaterialsByOf
+    )
+    const ofAFixed = withMfgmat.orders[0].ofs.find((o) => o.numOf === 'OF-A')
+    assert.equal(ofAFixed?.feasible, true)
+    assert.deepEqual(
+      ofAFixed?.missingComponents,
+      {},
+      'ALLQTY déjà posée (net=0) doit effacer le composant fantôme'
+    )
+  })
 })

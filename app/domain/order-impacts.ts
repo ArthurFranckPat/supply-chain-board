@@ -17,6 +17,7 @@ import type { Nomenclature } from './models/nomenclature.js'
 import type { OfOverride } from './planning_board.js'
 import { CommandeOFMatcher, type AllocationStrategy } from './of-conso.js'
 import type { OfInput } from './stock-state.js'
+import type { MfgMaterialInput } from './of-feasibility.js'
 import {
   evaluateRuptures,
   buildOfSupply,
@@ -158,7 +159,18 @@ export function evaluateOrderImpacts(
    * avec `estDebuté` et de qualifier le verdict proactif. Optionnel (fixtures/tests).
    */
   avancementByOf?: Map<string, { estDebuté: boolean }>,
-  strategy?: AllocationStrategy
+  strategy?: AllocationStrategy,
+  /**
+   * Matières réelles MFGMAT par OF (règle 1 du moteur unique, rupture-engine.ts) — permet au
+   * moteur séquentiel de créditer l'alloc déjà posée sur CET OF (ALLQTY) avant de le faire
+   * consommer/vérifier dans la contention virtuelle, plutôt que de lui redemander le besoin
+   * théorique BOM complet. Sans ça, un OF ferme déjà partiellement/totalement approvisionné
+   * (ALLQTY couvrant le reste à sortir) peut ressortir en rupture côté vue proactive alors que
+   * X3 lui-même (MFGMAT.SHTQTY_0) ne voit aucun manque — la contention théorique ignore son
+   * acquis réel. Optionnel : absent → repli nomenclature théorique pour tous les OF (comportement
+   * historique, inchangé pour board/ruptures qui utilisent `precomputedFeasibility` à la place).
+   */
+  mfgMaterialsByOf?: Map<string, MfgMaterialInput[]>
 ): OrderImpactResult {
   // 1. Filter demands in window
   const windowDemands = demands.filter((d) => {
@@ -205,6 +217,7 @@ export function evaluateOrderImpacts(
       qteRestante: o.qteRestante,
       statutNum: o.statutNum,
       dateBesoin: iso ? new Date(iso) : null,
+      materials: mfgMaterialsByOf?.get(o.numOf) ?? null,
     }
   })
   const verdicts = evaluateRuptures(

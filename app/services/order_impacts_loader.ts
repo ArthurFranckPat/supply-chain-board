@@ -206,17 +206,18 @@ export async function loadOrderImpacts(
   for (const f of filteredDemands) if (f.article) articleSet.add(f.article)
   for (const f of receptionFlows) if (f.article) articleSet.add(f.article)
 
-  // Mode proactif (preferEngineFeasibility) : MFGMAT et peg sont inutiles.
-  // - MFGMAT : mfgFeasibility = undefined → verdict ignoré ; articleSet déjà couvert par BOM SQLite.
-  // - Peg (SORDERQ) : non utilisé par proactiveRows (destructuré mais pas consommé).
-  // → on saute Phase 2 entière ; stock démarre immédiatement après Phase 1.
+  const windowNumOfs = finalOfFlows
+    .map((f) => (f.origin as { id?: string }).id?.trim() ?? '')
+    .filter(Boolean)
+
+  // Peg (SORDERQ) : non utilisé par proactiveRows (destructuré mais pas consommé) → sauté hors
+  // board/ruptures. MFGMAT en revanche est chargé pour TOUTES les vues (issue conso séquentielle
+  // ignorant l'alloc réelle d'un OF ferme) : le moteur en a besoin pour créditer l'ALLQTY déjà
+  // posée sur un OF avant de le confronter à la contention théorique (règle 1, rupture-engine.ts).
   let ofPegs = new Map<string, OfCommandePeg>()
-  let mfgByOf = new Map<string, import('#repositories/mfgmat_repository').OfMaterial[]>()
+  let mfgByOf: Map<string, import('#repositories/mfgmat_repository').OfMaterial[]>
 
   if (!preferEngineFeasibility) {
-    const windowNumOfs = finalOfFlows
-      .map((f) => (f.origin as { id?: string }).id?.trim() ?? '')
-      .filter(Boolean)
     const [pegs, mfg] = await timeStage('loadOrderImpacts.pegs+mfg', () =>
       Promise.all([
         boardDataset.getOfPegs(windowNumOfs),
@@ -225,9 +226,13 @@ export async function loadOrderImpacts(
     )
     ofPegs = pegs
     mfgByOf = mfg
-    for (const materials of mfgByOf.values()) {
-      for (const m of materials) if (m.article) articleSet.add(m.article)
-    }
+  } else {
+    mfgByOf = await timeStage('loadOrderImpacts.mfg', () =>
+      boardDataset.getMfgMaterials(windowNumOfs)
+    )
+  }
+  for (const materials of mfgByOf.values()) {
+    for (const m of materials) if (m.article) articleSet.add(m.article)
   }
 
   // Expand récursivement à TOUS les composants (ACHETE + FABRIQUE) de tous les niveaux BOM.
@@ -282,9 +287,6 @@ export async function loadOrderImpacts(
 
   // Avancement des OFs via pointages MFGOPE (issue #41) : détermine si chaque OF
   // est réellement débuté en atelier (opérations intermédiaires pointées).
-  const windowNumOfs = finalOfFlows
-    .map((f) => (f.origin as { id?: string }).id?.trim() ?? '')
-    .filter(Boolean)
   const operations = await timeStage('loadOrderImpacts.operations', () =>
     new X3OperationRepository().getOperations(windowNumOfs)
   )
@@ -299,7 +301,9 @@ export async function loadOrderImpacts(
     { from: windowFrom, to: windowTo },
     mode,
     mfgFeasibility,
-    avancementByOf
+    avancementByOf,
+    undefined,
+    mfgByOf
   )
 
   return {
