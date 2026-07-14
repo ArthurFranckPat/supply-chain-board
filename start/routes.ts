@@ -198,6 +198,7 @@ router
     // Tableau de bord — KPI (issue #38), calcul lourd différé.
     router.get('/api/v1/dashboard/kpis', '#controllers/dashboard_controller.kpis')
     router.get('/api/v1/dashboard/otd', '#controllers/dashboard_controller.otd')
+    router.get('/api/v1/dashboard/stock', '#controllers/dashboard_controller.stockValuation')
 
     // Expéditions (issue #44) — onglet dédié, calcul lourd différé.
     router.get('/api/v1/expeditions/rows', '#controllers/expeditions_controller.rows')
