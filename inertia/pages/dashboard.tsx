@@ -66,10 +66,45 @@ interface DashboardOtdResponse {
   otd: OtdKpi[]
   x3Error: string | null
 }
+interface StockValuationPoint {
+  periode: string
+  label: string
+  valeur: number
+  qte: number
+}
+interface StockCategorieRow {
+  categorie: string
+  valeur: number
+  part: number
+}
+interface StockArticleRow {
+  article: string
+  designation: string
+  categorie: string
+  stock: number
+  pmp: number
+  valeur: number
+}
+type StockGrain = 'mois' | 'semaine'
+interface StockValuationKpi {
+  grain: StockGrain
+  series: StockValuationPoint[]
+  totalActuel: number
+  totalDebut: number
+  deltaPct: number
+  categories: StockCategorieRow[]
+  articles: StockArticleRow[]
+  nbArticles: number
+}
+interface DashboardStockResponse {
+  stockValuation: StockValuationKpi
+  x3Error: string | null
+}
 interface DashboardProps {
   referenceDate: string
   kpisHref: string
   otdHref: string
+  stockHref: string
 }
 
 const EMPTY_KPIS: DashboardKpisResponse = {
@@ -78,9 +113,21 @@ const EMPTY_KPIS: DashboardKpisResponse = {
   referenceDate: '',
 }
 const EMPTY_OTD: DashboardOtdResponse = { otd: [], x3Error: null }
+const EMPTY_STOCK: StockValuationKpi = {
+  grain: 'mois',
+  series: [],
+  totalActuel: 0,
+  totalDebut: 0,
+  deltaPct: 0,
+  categories: [],
+  articles: [],
+  nbArticles: 0,
+}
 
 /** Palette des barres par rang de poste (du plus chargé au moins chargé). */
 const BAR_PALETTE = ['#b23b2e', '#cf6a3f', '#b8862c', '#cdb079', '#a8a18c']
+/** Palette des catégories de stock (bleus/verts, distincte du rouge « charge »). */
+const STOCK_PALETTE = ['#2d6a8f', '#3a8a5f', '#5b9a8f', '#8fae8f', '#a8a18c']
 
 /** En-tête de card lisible : pastille d'accent + titre Fraunces + suffixe mono optionnel. */
 const CardHeader: Component<{
@@ -141,6 +188,56 @@ const HiddenCard: Component<{ title: string; onShow: () => void; class?: string 
   </div>
 )
 
+/** Mini-graphique 12 mois en colonnes verticales (SVG inline, pas de lib).
+ *  Hauteur ∝ valeur ; dernière colonne surlignée (mois courant). */
+const StockSparkline: Component<{ series: StockValuationPoint[] }> = (p) => {
+  const W = 240
+  const H = 56
+  const PAD = 4
+  const innerH = H - PAD * 2
+  const max = createMemo(() => Math.max(1, ...p.series.map((s) => Math.abs(s.valeur))))
+  const gap = 2
+  const barW = createMemo(() => {
+    const n = p.series.length || 1
+    return (W - gap * (n - 1) - PAD * 2) / n
+  })
+  return (
+    <div class="mt-5" style={{ '-webkit-print-color-adjust': 'exact', 'print-color-adjust': 'exact' }}>
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        class="w-full"
+        preserveAspectRatio="none"
+        style={{ height: '56px' }}
+      >
+        <For each={p.series}>
+          {(pt, i) => {
+            const h = Math.max(2, (Math.abs(pt.valeur) / max()) * innerH)
+            const x = PAD + i() * (barW() + gap)
+            const y = H - PAD - h
+            const isLast = i() === p.series.length - 1
+            return (
+              <rect
+                x={x}
+                y={y}
+                width={barW()}
+                height={h}
+                rx={1.5}
+                fill={isLast ? '#2d6a8f' : '#c4d3da'}
+              >
+                <title>{`${pt.label} · ${pt.valeur.toFixed(0)} €`}</title>
+              </rect>
+            )
+          }}
+        </For>
+      </svg>
+      <div class="mt-1 flex justify-between font-mono text-[8.5px] text-muted-foreground/70">
+        <span>{p.series[0]?.label}</span>
+        <span>{p.series[p.series.length - 1]?.label}</span>
+      </div>
+    </div>
+  )
+}
+
 const Dashboard: Component<DashboardProps> = (props) => {
   const [otdMode, setOtdMode] = createSignal<OtdMode>('demandee')
   const [otdRange, setOtdRange] = createSignal<DateRange | null>(null)
@@ -151,7 +248,23 @@ const Dashboard: Component<DashboardProps> = (props) => {
   // Visibilité de chaque KPI pour modulariser la page (notamment à l'impression).
   const [hideCharge, setHideCharge] = createSignal(false)
   const [hideOtd, setHideOtd] = createSignal(false)
+  const [hideStock, setHideStock] = createSignal(false)
+  const [hideStockTable, setHideStockTable] = createSignal(false)
   const [hideLignes, setHideLignes] = createSignal(false)
+
+  // Filtres du tableau « Stock par article ».
+  const [stockSearch, setStockSearch] = createSignal('')
+  const [stockCatFilter, setStockCatFilter] = createSignal('')
+  const [stockHideZero, setStockHideZero] = createSignal(false)
+  const [stockSortBy, setStockSortBy] = createSignal<'valeur' | 'stock' | 'article' | 'categorie'>(
+    'valeur'
+  )
+  const [stockSortDir, setStockSortDir] = createSignal<'asc' | 'desc'>('desc')
+
+  // Valorisation stock : maille (mois/semaine) + plage de dates (modèle OTD).
+  const [stockGrain, setStockGrain] = createSignal<StockGrain>('mois')
+  const [stockRange, setStockRange] = createSignal<DateRange | null>(null)
+  const [stockCalendarOpen, setStockCalendarOpen] = createSignal(false)
 
   // Conteneur du contenu imprimable (hors Masthead) — mesuré pour le fit A3.
   let contentEl: HTMLDivElement | undefined
@@ -200,6 +313,23 @@ const Dashboard: Component<DashboardProps> = (props) => {
     return `${fmtDay(r.start)} → ${fmtDay(r.end)}`
   })
 
+  const stockUrl = createMemo(() => {
+    let url = `${props.stockHref}?referenceDate=${encodeURIComponent(props.referenceDate)}&stockGrain=${stockGrain()}`
+    const r = stockRange()
+    if (r?.start) {
+      const fmt = (d: Date) => d.toISOString().slice(0, 10)
+      url += `&stockFrom=${fmt(r.start)}&stockTo=${fmt(r.end ?? r.start)}`
+    }
+    return url
+  })
+
+  const stockRangeLabel = createMemo(() => {
+    const r = stockRange()
+    if (!r?.start) return null
+    if (!r.end || r.start.toDateString() === r.end.toDateString()) return fmtDay(r.start)
+    return `${fmtDay(r.start)} → ${fmtDay(r.end)}`
+  })
+
   const [kpisData] = createResource(
     () => props.kpisHref,
     async (url): Promise<DashboardKpisResponse> => {
@@ -215,11 +345,68 @@ const Dashboard: Component<DashboardProps> = (props) => {
     return (await res.json()) as DashboardOtdResponse
   })
 
+  const [stockData] = createResource(stockUrl, async (url): Promise<DashboardStockResponse> => {
+    const res = await fetch(url, { headers: { accept: 'application/json' } })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    return (await res.json()) as DashboardStockResponse
+  })
+
   const kpi = createMemo(() => (kpisData() ?? EMPTY_KPIS).retardCharge)
   const otd = createMemo(() => (otdData() ?? EMPTY_OTD).otd)
   const x3Error = createMemo(() => (kpisData() ?? EMPTY_KPIS).x3Error)
   const otdError = createMemo(() => (otdData() ?? EMPTY_OTD).x3Error)
   const maxHeures = createMemo(() => Math.max(1, ...kpi().postes.map((p) => p.heures)))
+
+  const stock = createMemo(() => (stockData() ?? { stockValuation: EMPTY_STOCK }).stockValuation)
+  const stockError = createMemo(() => (stockData() ?? { x3Error: null }).x3Error)
+  const fmtEuro = new Intl.NumberFormat('fr-FR', {
+    style: 'currency',
+    currency: 'EUR',
+    maximumFractionDigits: 0,
+  })
+  const stockMaxCat = createMemo(() =>
+    Math.max(1, ...stock().categories.map((c) => c.valeur))
+  )
+
+  /** Catégories distinctes pour le dropdown de filtre. */
+  const stockCategories = createMemo(() => {
+    const set = new Set<string>()
+    for (const a of stock().articles) set.add(a.categorie)
+    return [...set].sort()
+  })
+
+  /** Articles filtrés (recherche ∩ catégorie ∩ masque 0) puis triés. */
+  const filteredArticles = createMemo(() => {
+    const needle = stockSearch().trim().toLowerCase()
+    const cat = stockCatFilter()
+    const hideZero = stockHideZero()
+    const by = stockSortBy()
+    const dir = stockSortDir() === 'asc' ? 1 : -1
+    return stock()
+      .articles.filter((a) => {
+        if (hideZero && a.stock === 0) return false
+        if (cat && a.categorie !== cat) return false
+        if (needle && !a.article.toLowerCase().includes(needle) && !a.designation.toLowerCase().includes(needle))
+          return false
+        return true
+      })
+      .sort((a, b) => {
+        const av = a[by]
+        const bv = b[by]
+        if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir
+        return String(av).localeCompare(String(bv)) * dir
+      })
+  })
+
+  /** Bascule le tri : clic sur une colonne trie desc, re-clic bascule asc/desc. */
+  const toggleStockSort = (col: 'valeur' | 'stock' | 'article' | 'categorie') => {
+    if (stockSortBy() === col) {
+      setStockSortDir(stockSortDir() === 'asc' ? 'desc' : 'asc')
+    } else {
+      setStockSortBy(col)
+      setStockSortDir(col === 'article' || col === 'categorie' ? 'asc' : 'desc')
+    }
+  }
 
   function otdColor(taux: number, nbTotal: number): string {
     if (nbTotal === 0) return '#a8a18c'
@@ -599,21 +786,203 @@ const Dashboard: Component<DashboardProps> = (props) => {
                 </Show>
               </article>
             </Show>
+
+            {/* KPI #3 — Valorisation du stock sur 12 mois (AE1) */}
+            <Show
+              when={!hideStock()}
+              fallback={<HiddenCard title="Valorisation stock" onShow={() => setHideStock(false)} />}
+            >
+              <article class="rounded border border-rule bg-card p-6 shadow-[0_14px_30px_-26px_rgba(42,38,34,0.45)]">
+                <div class="mb-4 flex items-center gap-2.5 border-b border-rule-soft pb-3">
+                  <span class="size-2 shrink-0 rounded-full" style={{ background: '#2d6a8f' }}></span>
+                  <h2 class="font-fraunces text-[16px] font-semibold leading-none tracking-tight text-foreground">
+                    Valorisation stock
+                  </h2>
+                  {/* Sélecteur de plage — popover calendrier (modèle OTD) */}
+                  <div class="relative ml-auto">
+                    <button
+                      type="button"
+                      onClick={() => setStockCalendarOpen((v) => !v)}
+                      class="flex items-center gap-1.5 rounded border border-rule bg-secondary px-2 py-1 font-mono text-[10px] text-foreground transition-colors hover:bg-secondary/80"
+                    >
+                      <span class="material-symbols-outlined text-[13px] text-muted-foreground">
+                        calendar_today
+                      </span>
+                      <span>{stockRangeLabel() ?? '12 ' + (stockGrain() === 'semaine' ? 'sem.' : 'mois')}</span>
+                    </button>
+                    <Show when={stockRange()?.start}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setStockRange(null)
+                          setStockCalendarOpen(false)
+                        }}
+                        class="flex size-6 items-center justify-center rounded text-muted-foreground hover:text-foreground"
+                        title="Réinitialiser"
+                      >
+                        <span class="material-symbols-outlined text-[14px]">close</span>
+                      </button>
+                    </Show>
+                    <Show when={stockCalendarOpen()}>
+                      <div class="fixed inset-0 z-10" onClick={() => setStockCalendarOpen(false)} />
+                      <div class="absolute right-0 top-full z-20 mt-1">
+                        <Calendar
+                          mode="range"
+                          range={stockRange() ?? { start: null, end: null }}
+                          onRangeChange={(r) => {
+                            setStockRange(r)
+                            if (r.start && r.end) setStockCalendarOpen(false)
+                          }}
+                          max={new Date()}
+                        />
+                      </div>
+                    </Show>
+                  </div>
+                  {/* Toggle maille Mois/Semaine (segmented control, modèle OTD) */}
+                  <div class="flex items-center rounded border border-rule bg-secondary p-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.12em]">
+                    <button
+                      onClick={() => setStockGrain('mois')}
+                      class="rounded px-2 py-1 transition-colors"
+                      classList={{
+                        'bg-card text-foreground shadow-sm': stockGrain() === 'mois',
+                        'text-muted-foreground hover:text-foreground': stockGrain() !== 'mois',
+                      }}
+                    >
+                      Mois
+                    </button>
+                    <button
+                      onClick={() => setStockGrain('semaine')}
+                      class="rounded px-2 py-1 transition-colors"
+                      classList={{
+                        'bg-card text-foreground shadow-sm': stockGrain() === 'semaine',
+                        'text-muted-foreground hover:text-foreground': stockGrain() !== 'semaine',
+                      }}
+                    >
+                      Sem.
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setHideStock(true)}
+                    class="flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground print:hidden"
+                    title="Masquer ce KPI"
+                    aria-label="Masquer le KPI Valorisation stock"
+                  >
+                    <span class="material-symbols-outlined text-[15px]">visibility</span>
+                  </button>
+                </div>
+                <Show when={!stockData.loading} fallback={<Spinner />}>
+                  <Show
+                    when={!stockError()}
+                    fallback={
+                      <p class="font-fraunces text-[13px] italic leading-snug text-destructive/80">
+                        {stockError()}
+                      </p>
+                    }
+                  >
+                    <Show
+                      when={stock().series.length > 0}
+                      fallback={
+                        <p class="font-fraunces text-[13px] italic text-muted-foreground">
+                          Aucune donnée de valorisation.
+                        </p>
+                      }
+                    >
+                      {/* Valeur actuelle + delta vs il y a 12 mois */}
+                      <div class="flex items-end justify-between gap-3">
+                        <div>
+                          <div class="font-fraunces text-[40px] font-semibold leading-none tracking-tight tabular-nums text-foreground">
+                            {fmtEuro.format(stock().totalActuel)}
+                          </div>
+                          <div class="mt-1.5 flex items-center gap-1.5 font-mono text-[10.5px] text-muted-foreground">
+                            <Show when={stock().deltaPct !== 0}>
+                              <span
+                                class="font-bold tabular-nums"
+                                style={{
+                                  color: stock().deltaPct > 0 ? '#b23b2e' : '#2d7a4f',
+                                }}
+                              >
+                                {stock().deltaPct > 0 ? '+' : ''}
+                                {stock().deltaPct}%
+                              </span>
+                            </Show>
+                            <span>vs début de plage</span>
+                          </div>
+                        </div>
+                        <div class="pb-1 text-right font-mono text-[10.5px] leading-tight text-muted-foreground">
+                          <b class="text-[13px] text-foreground">{stock().nbArticles}</b> art.
+                          <br />
+                          valorisés
+                        </div>
+                      </div>
+
+                      {/* Mini-graphique — colonnes verticales SVG inline (nb points = nb périodes) */}
+                      <StockSparkline series={stock().series} />
+
+                      {/* Top 5 catégories par valeur */}
+                      <div class="mt-5">
+                        <div class="mb-3 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                          Top catégories
+                        </div>
+                        <div class="flex flex-col gap-3">
+                          <For each={stock().categories}>
+                            {(cat, i) => (
+                              <div>
+                                <div class="mb-[5px] flex items-baseline justify-between gap-2">
+                                  <span class="min-w-0 truncate font-mono text-[11.5px] font-bold text-foreground">
+                                    {cat.categorie}
+                                  </span>
+                                  <span class="shrink-0 font-mono text-[11.5px] font-bold tabular-nums text-muted-foreground">
+                                    {fmtEuro.format(cat.valeur)}
+                                    <span class="ml-1 text-[10px] text-muted-foreground/70">
+                                      {cat.part}%
+                                    </span>
+                                  </span>
+                                </div>
+                                <div
+                                  class="h-2 overflow-hidden rounded-full bg-secondary"
+                                  style={{
+                                    '-webkit-print-color-adjust': 'exact',
+                                    'print-color-adjust': 'exact',
+                                  }}
+                                >
+                                  <div
+                                    class="h-full rounded-full"
+                                    style={{
+                                      'width': `${Math.max(3, (cat.valeur / stockMaxCat()) * 100)}%`,
+                                      'background':
+                                        STOCK_PALETTE[Math.min(i(), STOCK_PALETTE.length - 1)],
+                                      '-webkit-print-color-adjust': 'exact',
+                                      'print-color-adjust': 'exact',
+                                    }}
+                                  ></div>
+                                </div>
+                              </div>
+                            )}
+                          </For>
+                        </div>
+                      </div>
+                    </Show>
+                  </Show>
+                </Show>
+              </article>
+            </Show>
           </div>
           {/* fin colonne gauche */}
 
+          {/* Colonne droite : Lignes en retard + Stock par article, empilés */}
+          <div class="flex flex-col gap-6 lg:col-span-2">
           {/* KPI — Lignes en retard (détail) */}
           <Show
             when={!hideLignes()}
             fallback={
               <HiddenCard
-                class="lg:col-span-2"
                 title="Lignes en retard"
                 onShow={() => setHideLignes(false)}
               />
             }
           >
-            <article class="flex max-h-[calc(100vh-9rem)] flex-col rounded border border-rule bg-card p-6 shadow-[0_14px_30px_-26px_rgba(42,38,34,0.45)] lg:col-span-2 print:max-h-none print:overflow-visible print:shadow-none">
+            <article class="flex max-h-[calc(100vh-9rem)] flex-col rounded border border-rule bg-card p-6 shadow-[0_14px_30px_-26px_rgba(42,38,34,0.45)] print:max-h-none print:overflow-visible print:shadow-none">
               <CardHeader
                 title="Lignes en retard"
                 suffix={`${kpi().nbLignes} commande${kpi().nbLignes > 1 ? 's' : ''}`}
@@ -720,6 +1089,165 @@ const Dashboard: Component<DashboardProps> = (props) => {
               </Show>
             </article>
           </Show>
+
+          {/* Carte — Stock par article (détail, même source que le KPI valorisation) */}
+          <Show
+            when={!hideStockTable()}
+            fallback={
+              <HiddenCard
+                title="Stock par article"
+                onShow={() => setHideStockTable(false)}
+              />
+            }
+          >
+            <article class="flex max-h-[calc(100vh-9rem)] flex-col rounded border border-rule bg-card p-6 shadow-[0_14px_30px_-26px_rgba(42,38,34,0.45)] print:max-h-none print:overflow-visible print:shadow-none">
+              <CardHeader
+                title="Stock par article"
+                suffix={`${filteredArticles().length} / ${stock().nbArticles} · AE1`}
+                tone="#2d6a8f"
+                onHide={() => setHideStockTable(true)}
+              />
+              <Show when={!stockData.loading} fallback={<Spinner />}>
+                <Show
+                  when={!stockError()}
+                  fallback={
+                    <p class="font-fraunces text-[13px] italic leading-snug text-destructive/80">
+                      {stockError()}
+                    </p>
+                  }
+                >
+                  {/* Barre de filtres : recherche + catégorie + masquer stock 0 */}
+                  <div class="mb-3 flex flex-wrap items-center gap-1.5">
+                    <div class="relative min-w-0 flex-1">
+                      <span class="material-symbols-outlined pointer-events-none absolute left-1.5 top-1/2 -translate-y-1/2 text-[13px] text-muted-foreground">
+                        search
+                      </span>
+                      <input
+                        type="text"
+                        value={stockSearch()}
+                        onInput={(e) => setStockSearch(e.currentTarget.value)}
+                        placeholder="Article ou désignation"
+                        aria-label="Filtrer les articles"
+                        class="w-full rounded border border-rule bg-secondary py-[5px] pl-7 pr-6 font-sans text-[11px] text-foreground placeholder:text-muted-foreground/60 focus:border-foreground/30 focus:outline-none"
+                      />
+                      <Show when={stockSearch()}>
+                        <button
+                          type="button"
+                          onClick={() => setStockSearch('')}
+                          class="absolute right-1 top-1/2 flex size-4 -translate-y-1/2 items-center justify-center text-muted-foreground hover:text-foreground"
+                          title="Effacer"
+                          aria-label="Effacer la recherche"
+                        >
+                          <span class="material-symbols-outlined text-[13px]">close</span>
+                        </button>
+                      </Show>
+                    </div>
+                    <select
+                      value={stockCatFilter()}
+                      onChange={(e) => setStockCatFilter(e.currentTarget.value)}
+                      aria-label="Filtrer par catégorie"
+                      class="rounded border border-rule bg-secondary py-[5px] px-2 font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-foreground focus:border-foreground/30 focus:outline-none"
+                    >
+                      <option value="">Toutes cat.</option>
+                      <For each={stockCategories()}>{(c) => <option value={c}>{c}</option>}</For>
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => setStockHideZero((v) => !v)}
+                      class="flex items-center gap-1 rounded border border-rule px-2 py-[5px] font-mono text-[9px] font-bold uppercase tracking-[0.12em] transition-colors"
+                      classList={{
+                        'bg-foreground text-background': stockHideZero(),
+                        'bg-secondary text-muted-foreground hover:text-foreground': !stockHideZero(),
+                      }}
+                      title="Masquer les articles à stock nul"
+                    >
+                      <span class="material-symbols-outlined text-[13px]">
+                        {stockHideZero() ? 'check_box' : 'check_box_outline_blank'}
+                      </span>
+                      <span>Stock ≠ 0</span>
+                    </button>
+                  </div>
+
+                  <div class="-mx-2 overflow-auto print:overflow-visible">
+                    <table class="w-full border-collapse text-left">
+                      <thead>
+                        <tr class="sticky top-0 bg-card">
+                          <th class="border-b border-rule px-2 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                            <button type="button" onClick={() => toggleStockSort('article')} class="flex items-center gap-1 hover:text-foreground">
+                              Article
+                              <Show when={stockSortBy() === 'article'}>
+                                <span class="text-[10px]">{stockSortDir() === 'asc' ? '▲' : '▼'}</span>
+                              </Show>
+                            </button>
+                          </th>
+                          <th class="border-b border-rule px-2 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                            Désignation
+                          </th>
+                          <th class="border-b border-rule px-2 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                            <button type="button" onClick={() => toggleStockSort('categorie')} class="flex items-center gap-1 hover:text-foreground">
+                              Cat.
+                              <Show when={stockSortBy() === 'categorie'}>
+                                <span class="text-[10px]">{stockSortDir() === 'asc' ? '▲' : '▼'}</span>
+                              </Show>
+                            </button>
+                          </th>
+                          <th class="border-b border-rule px-2 py-2 text-right font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                            <button type="button" onClick={() => toggleStockSort('stock')} class="ml-auto flex items-center gap-1 hover:text-foreground">
+                              Stock
+                              <Show when={stockSortBy() === 'stock'}>
+                                <span class="text-[10px]">{stockSortDir() === 'asc' ? '▲' : '▼'}</span>
+                              </Show>
+                            </button>
+                          </th>
+                          <th class="border-b border-rule px-2 py-2 text-right font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                            PMP
+                          </th>
+                          <th class="border-b border-rule px-2 py-2 text-right font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                            <button type="button" onClick={() => toggleStockSort('valeur')} class="ml-auto flex items-center gap-1 hover:text-foreground">
+                              Valeur
+                              <Show when={stockSortBy() === 'valeur'}>
+                                <span class="text-[10px]">{stockSortDir() === 'asc' ? '▲' : '▼'}</span>
+                              </Show>
+                            </button>
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <For each={filteredArticles()}>
+                          {(a) => (
+                            <tr class="border-b border-rule-soft last:border-0 hover:bg-secondary/40">
+                              <td class="px-2 py-1.5 align-top font-mono text-[12px] font-semibold text-brand">
+                                {a.article}
+                              </td>
+                              <td class="px-2 py-1.5 align-top font-sans text-[11px] leading-snug text-secondary-foreground">
+                                {a.designation || '—'}
+                              </td>
+                              <td class="px-2 py-1.5 align-top">
+                                <span class="rounded bg-secondary px-1.5 py-0.5 font-mono text-[10px] font-bold tracking-wide text-secondary-foreground">
+                                  {a.categorie}
+                                </span>
+                              </td>
+                              <td class="whitespace-nowrap px-2 py-1.5 text-right align-top font-mono text-[11px] tabular-nums text-foreground">
+                                {a.stock}
+                              </td>
+                              <td class="whitespace-nowrap px-2 py-1.5 text-right align-top font-mono text-[11px] tabular-nums text-muted-foreground">
+                                {a.pmp.toFixed(4)}
+                              </td>
+                              <td class="whitespace-nowrap px-2 py-1.5 text-right align-top font-mono text-[11px] font-bold tabular-nums text-foreground">
+                                {fmtEuro.format(a.valeur)}
+                              </td>
+                            </tr>
+                          )}
+                        </For>
+                      </tbody>
+                    </table>
+                  </div>
+                </Show>
+              </Show>
+            </article>
+          </Show>
+          </div>
+          {/* fin colonne droite */}
         </div>
       </div>
     </div>

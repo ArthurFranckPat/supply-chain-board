@@ -30,13 +30,16 @@ export default class CachePreheatProvider {
     // Pas de préchauffage en repl/test.
     if (!this.app.getEnvironment().startsWith('web')) return
 
-    // Le logger est résolu via le conteneur (les imports statiques de services
-    // ne sont pas encore disponibles pendant le boot). boardDataset est un
-    // singleton exporté (pas un binding de conteneur) → import statique OK.
-    const logger = await this.app.container.make('logger')
-
-    // Fire-and-forget : on n'attend pas (le serveur doit rester responsive).
-    void this.preheat(logger)
+    // ATTENTION au timing : `cache` (@adonisjs/cache/services/main) n'est
+    // instancié qu'à l'intérieur d'un hook `app.booted()`. L'appeler pendant
+    // boot() d'un provider (ici) → cache encore `undefined` →
+    // "Cannot read properties of undefined (reading 'namespace')".
+    // On reporte donc le préchauffage APRÈS le boot complet de l'app.
+    void this.app.booted(async () => {
+      const logger = await this.app.container.make('logger')
+      // Fire-and-forget : on n'attend pas (le serveur doit rester responsive).
+      void this.preheat(logger)
+    })
   }
 
   private async preheat(logger: LoggerService) {

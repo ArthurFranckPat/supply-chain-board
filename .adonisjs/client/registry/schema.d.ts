@@ -667,6 +667,18 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'dashboard.stock_valuation': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/dashboard/stock'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'expeditions.rows': {
     methods: ["GET","HEAD"]
     pattern: '/api/v1/expeditions/rows'

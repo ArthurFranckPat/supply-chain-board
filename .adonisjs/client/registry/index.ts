@@ -336,6 +336,12 @@ const routes = {
     tokens: [{"old":"/api/v1/dashboard/otd","type":0,"val":"api","end":""},{"old":"/api/v1/dashboard/otd","type":0,"val":"v1","end":""},{"old":"/api/v1/dashboard/otd","type":0,"val":"dashboard","end":""},{"old":"/api/v1/dashboard/otd","type":0,"val":"otd","end":""}],
     types: placeholder as Registry['dashboard.otd']['types'],
   },
+  'dashboard.stock_valuation': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/dashboard/stock',
+    tokens: [{"old":"/api/v1/dashboard/stock","type":0,"val":"api","end":""},{"old":"/api/v1/dashboard/stock","type":0,"val":"v1","end":""},{"old":"/api/v1/dashboard/stock","type":0,"val":"dashboard","end":""},{"old":"/api/v1/dashboard/stock","type":0,"val":"stock","end":""}],
+    types: placeholder as Registry['dashboard.stock_valuation']['types'],
+  },
   'expeditions.rows': {
     methods: ["GET","HEAD"],
     pattern: '/api/v1/expeditions/rows',
