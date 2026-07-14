@@ -32,7 +32,7 @@ export function ProactiveView(props: ProactiveViewProps) {
   const indexCol = createProactiveIndexCol()
 
   return (
-    <>
+    <div class="flex-1 flex flex-col overflow-hidden relative">
       {/* ═══ Proactif : X3 injoignable ═══ */}
       <Show when={props.view().x3Error}>
         <div class="flex flex-none items-center gap-2 border-b border-destructive/30 bg-destructive/10 px-7 py-2 text-[12px] text-foreground">
@@ -43,17 +43,20 @@ export function ProactiveView(props: ProactiveViewProps) {
       </Show>
 
       {/* ═══ Proactif : table ═══ */}
-      <Show
-        when={!props.loading()}
-        fallback={
-          <div class="flex flex-1 items-center justify-center gap-2 text-muted-foreground">
-            <span class="material-symbols-outlined animate-spin text-[20px]">
-              progress_activity
-            </span>
-            <span class="text-[13px] font-medium">Calcul de la réalisabilité…</span>
+      <div class="flex-1 flex flex-col overflow-hidden relative">
+        <Show when={props.loading()}>
+          <div class="absolute inset-0 z-30 flex items-center justify-center bg-background/20 backdrop-blur-[0.5px]">
+            <div class="flex items-center gap-2 rounded-full border border-rule bg-card px-4 py-2 shadow-lg text-muted-foreground">
+              <span class="material-symbols-outlined animate-spin text-[16px]">
+                progress_activity
+              </span>
+              <span class="text-[11px] font-mono font-bold uppercase tracking-wider">
+                Calcul en cours…
+              </span>
+            </div>
           </div>
-        }
-      >
+        </Show>
+
         <Show
           when={!props.error()}
           fallback={
@@ -63,7 +66,12 @@ export function ProactiveView(props: ProactiveViewProps) {
             </div>
           }
         >
-          <div class="flex-1 overflow-hidden p-5">
+          <div
+            class={cx(
+              "flex-1 overflow-hidden p-5 transition-opacity duration-200",
+              props.loading() && "opacity-50 pointer-events-none"
+            )}
+          >
             <DataTable
               columns={columns}
               rows={rows}
@@ -114,7 +122,7 @@ export function ProactiveView(props: ProactiveViewProps) {
             />
           </div>
         </Show>
-      </Show>
-    </>
+      </div>
+    </div>
   )
 }

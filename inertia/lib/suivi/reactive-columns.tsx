@@ -86,14 +86,6 @@ export function createReactiveColumns({ expandedEmps, toggleEmp, referenceDate }
         const row = info.row.original
         const commandee = row.qteCommandee || 1
         const restante = info.getValue()
-        const strict = row.allocStrict
-        const cq = row.allocCq
-        const reliquat = Math.max(0, restante - strict - cq)
-        // Bar segments as % of commandée
-        const pctStrict = Math.min(100, Math.round((strict / commandee) * 100))
-        const pctCq = Math.min(100 - pctStrict, Math.round((cq / commandee) * 100))
-        const pctReliquat = Math.min(100 - pctStrict - pctCq, Math.round((reliquat / commandee) * 100))
-        const delivered = commandee - restante
         return (
           <div class="flex flex-col items-end gap-1">
             <div class="flex items-baseline gap-1">
@@ -101,16 +93,6 @@ export function createReactiveColumns({ expandedEmps, toggleEmp, referenceDate }
                 {restante}
               </span>
               <span class="font-mono text-[10px] font-medium text-muted-foreground/60">/ {commandee}</span>
-            </div>
-            <div
-              class="w-full h-[3px] rounded-full bg-secondary overflow-hidden"
-              title={`Commandé ${commandee} · Livré ${delivered} · Alloué ${strict}${cq > 0 ? ` + CQ ${cq}` : ''} · Reliquat ${reliquat}`}
-            >
-              <div class="h-full flex">
-                <div class="h-full bg-emerald-500 transition-all" style={{ width: `${pctStrict}%` }} />
-                <div class="h-full bg-purple-500 transition-all" style={{ width: `${pctCq}%` }} />
-                <div class="h-full bg-amber-400 transition-all" style={{ width: `${pctReliquat}%` }} />
-              </div>
             </div>
           </div>
         )

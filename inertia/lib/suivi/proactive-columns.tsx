@@ -81,12 +81,6 @@ export function createProactiveColumns({ referenceDate }: ProactiveColumnsDeps) 
     proHelper.accessor('qteRestante', {
       header: () => 'Qté',
       cell: (info) => {
-        const row = info.row.original
-        const restante = info.getValue() || 1
-        const alloc = row.qteAllouee
-        const reliquat = row.reliquat
-        const pctAlloc = Math.min(100, Math.round((alloc / restante) * 100))
-        const pctReliquat = Math.min(100 - pctAlloc, Math.round((reliquat / restante) * 100))
         return (
           <div class="flex flex-col items-end gap-1">
             <div class="flex items-baseline gap-1">
@@ -94,15 +88,6 @@ export function createProactiveColumns({ referenceDate }: ProactiveColumnsDeps) 
                 {info.getValue()}
               </span>
               <span class="font-mono text-[10px] font-medium text-muted-foreground/80">u</span>
-            </div>
-            <div
-              class="w-full h-[3px] rounded-full bg-secondary overflow-hidden"
-              title={`Restant ${restante} · Alloué ${alloc} · Reliquat ${reliquat}`}
-            >
-              <div class="h-full flex">
-                <div class="h-full bg-emerald-500 transition-all" style={{ width: `${pctAlloc}%` }} />
-                <div class="h-full bg-amber-400 transition-all" style={{ width: `${pctReliquat}%` }} />
-              </div>
             </div>
           </div>
         )
