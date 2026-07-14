@@ -126,7 +126,7 @@ const Shortages: Component<ShortagesProps> = (props) => {
     return (
       <button
         type="button"
-        class={`rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors ${
+        class={`rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold tracking-wider transition-colors ${
           on() ? 'bg-brand-soft text-brand' : 'text-muted-foreground hover:text-foreground'
         }`}
         onClick={() => setVerdictFilter(on() ? 'all' : k)}
@@ -139,18 +139,41 @@ const Shortages: Component<ShortagesProps> = (props) => {
     )
   }
 
-  const emptyState = (
-    <div class="flex flex-1 items-center justify-center p-10 text-center font-fraunces text-[14px] italic text-muted-foreground">
-      <div class="flex flex-col items-center gap-2">
-        <span class="material-symbols-outlined text-[32px] text-muted-foreground/50">
-          {view().x3Error ? 'cloud_off' : 'task_alt'}
-        </span>
-        {view().x3Error
-          ? 'Données indisponibles (X3 injoignable).'
-          : 'Aucune rupture détectée dans la fenêtre.'}
+  const onResetFilters = () => {
+    setQuery('')
+    setVerdictFilter('all')
+  }
+
+  const emptyState = () => {
+    const hasData = view().rows.length > 0
+    const isFiltered = query().trim() !== '' || verdictFilter() !== 'all'
+    return (
+      <div class="flex flex-1 items-center justify-center p-10 text-center text-muted-foreground">
+        <div class="flex flex-col items-center gap-3">
+          <span class="material-symbols-outlined text-[32px] text-muted-foreground/50">
+            {view().x3Error ? 'cloud_off' : isFiltered ? 'search_off' : 'task_alt'}
+          </span>
+          <div class="font-fraunces text-[14px] italic">
+            {view().x3Error
+              ? 'Données indisponibles (X3 injoignable).'
+              : isFiltered
+                ? 'Aucune rupture ne correspond aux filtres ou à la recherche.'
+                : 'Aucune rupture détectée dans la fenêtre.'}
+          </div>
+          <Show when={!view().x3Error && isFiltered}>
+            <button
+              type="button"
+              onClick={onResetFilters}
+              class="inline-flex items-center gap-1.5 rounded-full border border-rule bg-card px-4 py-1.5 font-sans text-[11px] font-bold text-foreground transition-colors hover:border-brand hover:bg-brand-soft hover:text-brand"
+            >
+              <span class="material-symbols-outlined text-[13px] leading-none">filter_alt_off</span>
+              Réinitialiser les filtres
+            </button>
+          </Show>
+        </div>
       </div>
-    </div>
-  )
+    )
+  }
 
   return (
     <div class="theme-navy flex h-screen flex-col overflow-hidden bg-background text-foreground">
@@ -179,6 +202,15 @@ const Shortages: Component<ShortagesProps> = (props) => {
               value={query()}
               onInput={(e) => setQuery(e.currentTarget.value)}
             />
+            <Show when={query().trim() !== ''}>
+              <button
+                type="button"
+                onClick={() => setQuery('')}
+                class="text-muted-foreground hover:text-foreground focus:outline-none flex items-center"
+              >
+                <span class="material-symbols-outlined text-[14px]">close</span>
+              </button>
+            </Show>
           </div>
         }
       />
@@ -200,7 +232,7 @@ const Shortages: Component<ShortagesProps> = (props) => {
           ).map(([key, label, title]) => (
             <button
               type="button"
-              class={`rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors ${
+              class={`rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold tracking-wider transition-colors ${
                 mode() === key
                   ? 'bg-brand-soft text-brand'
                   : 'text-muted-foreground hover:text-foreground'
@@ -215,7 +247,7 @@ const Shortages: Component<ShortagesProps> = (props) => {
 
         {/* Filtre verdict */}
         <div class="inline-flex items-center gap-1 rounded-md border border-rule bg-card p-0.5">
-          <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+          <span class="px-1.5 font-mono text-[9px] font-bold tracking-wider text-muted-foreground">
             Verdict
           </span>
           {verdictChip('all', 'Tous')}
@@ -231,7 +263,9 @@ const Shortages: Component<ShortagesProps> = (props) => {
           <button
             type="button"
             onClick={() => setCalOpen((o) => !o)}
-            class="flex items-center gap-1.5 rounded-full border border-rule bg-card px-2.5 py-1 text-[11px] font-semibold text-foreground transition-colors hover:border-brand"
+            class={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold text-foreground transition-colors hover:border-brand ${
+              calOpen() ? 'border-brand bg-brand-soft/20 text-brand' : 'border-rule bg-card'
+            }`}
             title="Fenêtre d'analyse : OF dont le démarrage tombe dans la plage"
           >
             <span class="material-symbols-outlined text-[14px] text-muted-foreground">
@@ -246,8 +280,8 @@ const Shortages: Component<ShortagesProps> = (props) => {
             <button
               type="button"
               tabIndex={-1}
-              aria-hidden="true"
               class="fixed inset-0 z-40 cursor-default"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => setCalOpen(false)}
             />
             <div class="absolute left-0 top-full z-50 mt-2">
@@ -258,12 +292,16 @@ const Shortages: Component<ShortagesProps> = (props) => {
 
         <div class="ml-auto flex items-center gap-2">
           <Link
-            href={`${route('scheduler.shortage_tracker')}?start=${props.windowStart}&days=${props.horizon}&refresh=1`}
+            href={data.loading ? '#' : `${route('scheduler.shortage_tracker')}?start=${props.windowStart}&days=${props.horizon}&refresh=1`}
             preserveScroll
-            class="inline-flex items-center gap-1 rounded-full border border-rule bg-card px-3 py-1 text-[11px] font-semibold transition-colors hover:border-brand"
+            class={`inline-flex items-center gap-1 rounded-full border border-rule bg-card px-3 py-1 text-[11px] font-semibold transition-colors hover:border-brand ${
+              data.loading ? 'opacity-50 pointer-events-none' : ''
+            }`}
             title="Recharger les données X3 (cache → re-fetch live)"
           >
-            <span class="material-symbols-outlined text-[14px] text-muted-foreground">refresh</span>
+            <span class={`material-symbols-outlined text-[14px] text-muted-foreground ${data.loading ? 'animate-spin' : ''}`}>
+              refresh
+            </span>
             Actualiser
           </Link>
         </div>
@@ -279,40 +317,49 @@ const Shortages: Component<ShortagesProps> = (props) => {
       </Show>
 
       {/* ═══ Vue active ═══ */}
-      <Show
-        when={!data.loading}
-        fallback={
-          <div class="flex flex-1 items-center justify-center gap-2 text-muted-foreground">
-            <span class="material-symbols-outlined animate-spin text-[20px]">
-              progress_activity
-            </span>
-            <span class="text-[13px] font-medium">Calcul des ruptures…</span>
+      <div class="flex-1 overflow-hidden p-5 relative">
+        <Show when={data.loading}>
+          <div class="absolute inset-0 z-30 flex items-center justify-center bg-background/20 backdrop-blur-[0.5px]">
+            <div class="flex items-center gap-2 rounded-full border border-rule bg-card px-4 py-2 shadow-lg text-muted-foreground">
+              <span class="material-symbols-outlined animate-spin text-[16px]">
+                progress_activity
+              </span>
+              <span class="text-[11px] font-mono font-bold tracking-wider">
+                Calcul en cours…
+              </span>
+            </div>
           </div>
-        }
-      >
+        </Show>
+
         <Show
           when={!data.error}
           fallback={
-            <div class="flex flex-1 items-center justify-center gap-2 text-[13px] text-destructive">
+            <div class="flex h-full items-center justify-center gap-2 text-[13px] text-destructive">
               <span class="material-symbols-outlined text-[20px]">error</span>
               Échec du calcul des ruptures.
             </div>
           }
         >
-          <div class="flex-1 overflow-hidden p-5">
+          <div
+            class={`h-full transition-opacity duration-200 ${
+              data.loading ? 'opacity-50 pointer-events-none' : ''
+            }`}
+          >
             <Switch>
               <Match when={mode() === 'registre'}>
                 <ShortageRegistre
                   rows={filteredRows}
                   onSelectOf={onSelectOf}
-                  emptyState={emptyState}
+                  emptyState={emptyState()}
+                  selectedOf={selectedOf}
                 />
               </Match>
               <Match when={mode() === 'composants'}>
                 <ShortageComposants
                   rows={filteredRows}
                   onSelectOf={onSelectOf}
-                  emptyState={emptyState}
+                  emptyState={emptyState()}
+                  selectedOf={selectedOf}
                 />
               </Match>
               <Match when={mode() === 'couverture'}>
@@ -321,13 +368,14 @@ const Shortages: Component<ShortagesProps> = (props) => {
                   windowStartIso={props.windowStart}
                   horizon={props.horizon}
                   onSelectOf={onSelectOf}
-                  emptyState={emptyState}
+                  emptyState={emptyState()}
+                  selectedOf={selectedOf}
                 />
               </Match>
             </Switch>
           </div>
         </Show>
-      </Show>
+      </div>
 
       <OfDetailSheet num={selectedOf()} open={detailOpen()} onOpenChange={setDetailOpen} />
     </div>

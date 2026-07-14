@@ -6,7 +6,7 @@
  * Les lignes arrivent déjà filtrées du parent (scheduler/shortages) ; le tri
  * est géré localement par le DataTable.
  */
-import { For, Show, createSignal, type Accessor, type Component, type JSXElement } from 'solid-js'
+import { For, Show, createMemo, createSignal, type Accessor, type Component, type JSXElement } from 'solid-js'
 import { DataTable, type SortingState } from '@/components/ui/data-table'
 import type { ShortageDisplayRow } from '@/lib/shortages/types'
 import { cx } from '@/libs/cva'
@@ -16,10 +16,31 @@ export const ShortageRegistre: Component<{
   rows: Accessor<ShortageDisplayRow[]>
   onSelectOf: (numOf: string) => void
   emptyState: JSXElement
+  selectedOf: Accessor<string | null>
 }> = (props) => {
   // Tri par défaut : composant alphabétique. L'ordre par urgence (expé asc) vient déjà
   // du serveur ; l'utilisateur peut retrier en cliquant les en-têtes triables.
   const [sorting, setSorting] = createSignal<SortingState[]>([{ id: 'component', desc: false }])
+
+  const sortedRows = createMemo(() => {
+    const raw = props.rows()
+    const sort = sorting()[0]
+    if (!sort) return raw
+    const { id, desc } = sort
+
+    return [...raw].sort((a, b) => {
+      let va = a[id as keyof ShortageDisplayRow]
+      let vb = b[id as keyof ShortageDisplayRow]
+
+      if (va === undefined || va === null) return desc ? -1 : 1
+      if (vb === undefined || vb === null) return desc ? 1 : -1
+
+      if (typeof va === 'string' && typeof vb === 'string') {
+        return desc ? vb.localeCompare(va) : va.localeCompare(vb)
+      }
+      return desc ? (vb as any) - (va as any) : (va as any) - (vb as any)
+    })
+  })
 
   const columns = [
     {
@@ -38,7 +59,7 @@ export const ShortageRegistre: Component<{
           </>
         )
       },
-      meta: { thClass: TH, tdClass: TD },
+      meta: { thClass: `w-[240px] ${TH}`, tdClass: `w-[240px] ${TD}` },
     },
     {
       accessorKey: 'qteManquante',
@@ -51,7 +72,7 @@ export const ShortageRegistre: Component<{
         return (
           <span
             class={cx(
-              'font-fraunces text-[14px] font-bold tabular-nums leading-none',
+              'font-sans font-bold tabular-nums text-[12.5px] leading-none',
               isLate(row) ? 'text-destructive' : 'text-foreground'
             )}
           >
@@ -222,7 +243,7 @@ export const ShortageRegistre: Component<{
     thClass: `w-[38px] ${TH}`,
     tdClass: (row: ShortageDisplayRow) =>
       cx(
-        'px-4 py-[13px] align-middle font-fraunces text-[14px] leading-none text-muted-foreground/80 border-r border-rule-soft',
+        'px-4 py-[13px] align-middle font-mono text-[11px] font-bold leading-none text-muted-foreground/80 border-r border-rule-soft',
         isLate(row) && '[box-shadow:inset_3px_0_var(--color-destructive)]'
       ),
   }
@@ -230,21 +251,16 @@ export const ShortageRegistre: Component<{
   return (
     <DataTable
       columns={columns}
-      rows={props.rows}
+      rows={sortedRows}
       sorting={sorting}
       onSortingChange={setSorting}
       indexColumn={indexColumn}
-      tableClass="min-w-[880px] text-xs"
+      tableClass="min-w-[880px] text-xs table-fixed w-full"
       scrollContainerClass="h-full border-0 rounded-none shadow-none"
       theadRowClass="sticky top-0 z-10 bg-secondary"
-      getRowClass={(row) =>
-        cx(
-          'border-t border-rule-soft transition-colors',
-          isLate(row)
-            ? 'bg-destructive/10 hover:bg-destructive/[0.18]'
-            : 'hover:bg-foreground/[0.04]'
-        )
-      }
+      getRowClass={() => 'border-t border-rule-soft hover:bg-foreground/[0.04] transition-colors'}
+      selectedRowKey={props.selectedOf}
+      getRowKey={(row: ShortageDisplayRow) => row.numOf}
       emptyState={props.emptyState}
     />
   )
