@@ -33,6 +33,15 @@ This project uses GSD (Get Shit Done) for structured development. Run `/gsd-help
   - Ex. : `npx node ace test --files="recursive-diagnostic-checker"`.
 - Pas de `--suite="unit"` ni de run global, même pour vérifier une régression.
 
+## Pas de build en dev
+
+**JAMAIS `npx vite build` / `npm run build`** pour "vérifier que ça compile" côté front.
+
+- Le serveur dev (`localhost:3333`, Vite) tourne déjà en continu pendant les sessions.
+- `npm run typecheck` suffit pour valider du TypeScript/TSX.
+- Un build écrit dans `public/assets` (gitignoré) sans aucun bénéfice — effet de bord inutile
+  sur un environnement dev actif. Ne lancer un build que sur demande explicite (déploiement).
+
 ## Outils interdits
 
 **JAMAIS de Playwright** — ni `npx playwright`, ni `playwright install`, ni screenshot/preview via Playwright.
