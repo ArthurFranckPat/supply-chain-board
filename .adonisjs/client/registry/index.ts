@@ -66,6 +66,12 @@ const routes = {
     tokens: [{"old":"/writeback-test","type":0,"val":"writeback-test","end":""}],
     types: placeholder as Registry['x3_writeback_test']['types'],
   },
+  'react_lab': {
+    methods: ["GET","HEAD"],
+    pattern: '/react-lab',
+    tokens: [{"old":"/react-lab","type":0,"val":"react-lab","end":""}],
+    types: placeholder as Registry['react_lab']['types'],
+  },
   'scheduling': {
     methods: ["GET","HEAD"],
     pattern: '/ordonnancement',

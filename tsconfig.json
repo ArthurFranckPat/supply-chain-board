@@ -8,5 +8,5 @@
       "@/*": ["./inertia/*"]
     }
   },
-  "exclude": ["resources/js/**", "inertia/**", "node_modules/**", "build/**"]
+  "exclude": ["resources/js/**", "inertia/**", "inertia-react/**", "node_modules/**", "build/**"]
 }

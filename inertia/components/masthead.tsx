@@ -1,6 +1,7 @@
 import { For, Show, createEffect, createMemo, type Component, type JSX } from 'solid-js'
 import { Link, usePage } from '@/lib/inertia-solid'
 import { route } from '@/lib/routes'
+import { isReactRoute } from '@/lib/react-routes'
 import UserMenu from '@/components/user-menu'
 
 /**
@@ -114,9 +115,18 @@ export const Masthead: Component<{
       <nav class="flex min-h-[44px] items-center gap-1 border-t border-rule px-7">
         <For each={TABS}>
           {(t) => (
-            <Link href={t.href} class={tabCls(t.key === props.active)}>
-              {t.label}
-            </Link>
+            <Show
+              when={isReactRoute(t.href)}
+              fallback={
+                <Link href={t.href} class={tabCls(t.key === props.active)}>
+                  {t.label}
+                </Link>
+              }
+            >
+              <a href={t.href} class={tabCls(t.key === props.active)}>
+                {t.label}
+              </a>
+            </Show>
           )}
         </For>
         <div class="ml-auto flex items-center gap-2 py-1.5">

@@ -1,6 +1,12 @@
 {
   "version": 1,
   "skills": {
+    "carbon-react": {
+      "source": "Sage/carbon",
+      "sourceType": "github",
+      "skillPath": "skills/carbon-react/SKILL.md",
+      "computedHash": "0c9cafe64e8e5c52e1949b7e6e4af715cf48af76c24cea8efc529439f9fddc65"
+    },
     "cavecrew": {
       "source": "JuliusBrussee/caveman",
       "sourceType": "github",

@@ -79,6 +79,13 @@ router
       })
       .as('x3_writeback_test')
 
+    // Lab React (Phase 0) — page de validation du double-runtime React + Carbon
+    router
+      .get('/react-lab', async ({ inertia }) => {
+        return inertia.render('react_lab', {})
+      })
+      .as('react_lab')
+
     // Pages Inertia (HTML, sans param de path) — URLs françaises (app pour public FR).
     // Les endpoints JSON associés vivent sous /api/v1/planning (P3, #18).
     //   /ordonnancement : board OF, vue experte haute densité

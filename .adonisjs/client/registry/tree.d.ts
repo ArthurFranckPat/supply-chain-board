@@ -21,6 +21,7 @@ export interface ApiDefinition {
   designSystem: typeof routes['design_system']
   diagnosticTest: typeof routes['diagnostic_test']
   x3WritebackTest: typeof routes['x3_writeback_test']
+  reactLab: typeof routes['react_lab']
   scheduling: typeof routes['scheduling']
   planning: typeof routes['planning'] & {
     suggestionFirm: typeof routes['planning.suggestion_firm']

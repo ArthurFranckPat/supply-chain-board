@@ -1,4 +1,5 @@
 import { defineConfig } from '@adonisjs/inertia'
+import { REACT_ROUTES } from '../inertia/lib/react-routes.js' 
 
 /**
  * Configuration Inertia.
@@ -7,7 +8,11 @@ import { defineConfig } from '@adonisjs/inertia'
  * - SSR désactivé (SPA) : SEO interne faible, on garde le setup simple.
  */
 export default defineConfig({
-  rootView: 'inertia_layout',
+  rootView: (ctx) => {
+    const pattern = ctx.route?.pattern ?? ''
+    const path = ctx.request.url().split('?')[0]
+    return (REACT_ROUTES.has(pattern) || REACT_ROUTES.has(path)) ? 'inertia_layout_react' : 'inertia_layout'
+  },
   ssr: { enabled: false },
 })
 
@@ -81,6 +86,7 @@ declare module '@adonisjs/inertia/types' {
     'design_system': Record<string, never>
     'diagnostic-test': Record<string, never>
     'writeback-test': Record<string, never>
+    'react_lab': Record<string, never>
     'scheduler/scheduling': {
       board: BoardProp
       windowFrom: string
