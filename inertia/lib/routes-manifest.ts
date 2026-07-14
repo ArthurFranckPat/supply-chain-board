@@ -2,7 +2,7 @@
  * AUTO-GÉNÉRÉ par scripts/gen-routes-manifest.mjs — NE PAS ÉDITER À LA MAIN.
  * Source : `start/routes.ts` → `node ace list:routes --jsonl`.
  * Régénérer : `npm run routes:gen` · Vérifier la fraîcheur : `npm run routes:check`.
- * 70 routes nommées.
+ * 72 routes nommées.
  */
 
 export const MANIFEST = {
@@ -20,8 +20,10 @@ export const MANIFEST = {
   "conditionnements.index": { method: "GET", pattern: "/conditionnements" },
   "conditionnements.rows": { method: "GET", pattern: "/api/v1/conditionnements/rows" },
   "dashboard": { method: "GET", pattern: "/" },
+  "dashboard_layout.update": { method: "PATCH", pattern: "/api/v1/user/dashboard-layout" },
   "dashboard.kpis": { method: "GET", pattern: "/api/v1/dashboard/kpis" },
   "dashboard.otd": { method: "GET", pattern: "/api/v1/dashboard/otd" },
+  "dashboard.stock_valuation": { method: "GET", pattern: "/api/v1/dashboard/stock" },
   "data.load": { method: "POST", pattern: "/api/v1/data/load" },
   "design_system": { method: "GET", pattern: "/design-system" },
   "diagnostic_test": { method: "GET", pattern: "/diagnostic-test" },
@@ -99,8 +101,10 @@ export type RouteParams = {
   "conditionnements.index": void,
   "conditionnements.rows": void,
   "dashboard": void,
+  "dashboard_layout.update": void,
   "dashboard.kpis": void,
   "dashboard.otd": void,
+  "dashboard.stock_valuation": void,
   "data.load": void,
   "design_system": void,
   "diagnostic_test": void,

@@ -1270,3 +1270,16 @@ up-drawer-dismiss {
     display: none !important;
   }
 }
+
+/* KPI personnalisables : à l'écran les tiles suivent --screen-order (ordre
+   d'affichage), à l'impression elles basculent sur --print-order (ordre
+   d'impression indépendant). Déclaratif → indépendant du cycle réactif JS. */
+.kpi-tile {
+  order: var(--screen-order, 0);
+}
+
+@media print {
+  .kpi-tile {
+    order: var(--print-order, 0) !important;
+  }
+}

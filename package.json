@@ -43,7 +43,8 @@
     "#app/repositories/*": "./app/repositories/*.js",
     "#app/x3/client/*": "./app/x3/client/*.js",
     "#app/x3/*": "./app/x3/*.js",
-    "#repositories/*": "./app/repositories/*.js"
+    "#repositories/*": "./app/repositories/*.js",
+    "#types/*": "./app/types/*.js"
   },
   "devDependencies": {
     "@adonisjs/assembler": "^8.4.0",
