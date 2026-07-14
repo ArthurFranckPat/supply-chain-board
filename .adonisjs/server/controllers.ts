@@ -8,6 +8,7 @@ export const controllers = {
   CalendarConfig: () => import('#controllers/calendar_config_controller'),
   Conditionnements: () => import('#controllers/conditionnements_controller'),
   Dashboard: () => import('#controllers/dashboard_controller'),
+  DashboardLayout: () => import('#controllers/dashboard_layout_controller'),
   Expeditions: () => import('#controllers/expeditions_controller'),
   Health: () => import('#controllers/health_controller'),
   Load: () => import('#controllers/load_controller'),

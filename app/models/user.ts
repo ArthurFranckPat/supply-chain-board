@@ -2,6 +2,11 @@ import { DateTime } from 'luxon'
 import { BaseModel, column } from '@adonisjs/lucid/orm'
 import encryption from '@adonisjs/core/services/encryption'
 import type { X3EnvName } from '#config/x3'
+import {
+  DEFAULT_DASHBOARD_LAYOUT,
+  normalizeDashboardLayout,
+  type DashboardLayout,
+} from '#types/dashboard_layout'
 
 /**
  * Utilisateur applicatif (issue #13).
@@ -38,6 +43,14 @@ export default class User extends BaseModel {
   @column.dateTime()
   declare lastLoginAt: DateTime | null
 
+  /**
+   * Disposition du tableau de bord de l'utilisateur (JSON sérialisé).
+   * `null` tant que l'utilisateur n'a rien personnalisé → `getDashboardLayout()`
+   * retourne alors `DEFAULT_DASHBOARD_LAYOUT`. Toujours relire via le getter.
+   */
+  @column({ columnName: 'dashboard_layout' })
+  declare dashboardLayoutRaw: string | null
+
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
 
@@ -53,5 +66,24 @@ export default class User extends BaseModel {
   getX3Password(): string | null {
     if (!this.x3PasswordEncrypted) return null
     return encryption.decrypt<string>(this.x3PasswordEncrypted)
+  }
+
+  /**
+   * Lit le layout du tableau de bord (toujours un objet valide, jamais `null`).
+   * Robuste aux évolutions du registre des KPI : normalise et complète les
+   * entrées manquantes avec les valeurs par défaut.
+   */
+  getDashboardLayout(): DashboardLayout {
+    if (!this.dashboardLayoutRaw) return structuredClone(DEFAULT_DASHBOARD_LAYOUT)
+    try {
+      return normalizeDashboardLayout(JSON.parse(this.dashboardLayoutRaw))
+    } catch {
+      return structuredClone(DEFAULT_DASHBOARD_LAYOUT)
+    }
+  }
+
+  /** Sérialise et persiste le layout du tableau de bord. */
+  setDashboardLayout(layout: DashboardLayout): void {
+    this.dashboardLayoutRaw = JSON.stringify(normalizeDashboardLayout(layout))
   }
 }

@@ -228,10 +228,12 @@ export class StaticWorkstationSchema extends BaseModel {
 }
 
 export class UserSchema extends BaseModel {
-  static $columns = ['createdAt', 'id', 'lastEnv', 'lastLoginAt', 'updatedAt', 'username', 'x3PasswordEncrypted'] as const
+  static $columns = ['createdAt', 'dashboardLayout', 'id', 'lastEnv', 'lastLoginAt', 'updatedAt', 'username', 'x3PasswordEncrypted'] as const
   $columns = UserSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
+  @column()
+  declare dashboardLayout: string | null
   @column({ isPrimary: true })
   declare id: number
   @column()

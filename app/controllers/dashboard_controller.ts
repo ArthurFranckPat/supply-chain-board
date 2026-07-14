@@ -34,11 +34,15 @@ export default class DashboardController {
     const referenceDate =
       (ctx.request.input('referenceDate') as string | undefined) ||
       new Date().toISOString().slice(0, 10)
+    // Layout personnalisé de l'utilisateur (ordre / visibilité / largeur des KPI +
+    // ordre d'impression). `getDashboardLayout()` garantit un objet complet.
+    const layout = ctx.auth.user?.getDashboardLayout() ?? undefined
     return ctx.inertia.render('dashboard', {
       referenceDate,
       kpisHref: `/api/v1/dashboard/kpis?referenceDate=${encodeURIComponent(referenceDate)}`,
       otdHref: `/api/v1/dashboard/otd?referenceDate=${encodeURIComponent(referenceDate)}`,
       stockHref: `/api/v1/dashboard/stock`,
+      layout,
     })
   }
 
