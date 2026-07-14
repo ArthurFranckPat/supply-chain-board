@@ -186,15 +186,24 @@ export default function BoardGrid(props: {
                   class="flex items-baseline gap-2.5 border-b border-r border-rule bg-secondary px-3.5 py-1.5"
                   style={{ 'grid-column': `span ${wr.to - wr.from}` }}
                 >
-                  <span class="font-fraunces text-sm font-black italic tracking-tight text-brand">
+                  <span class="font-sans text-xs font-bold text-brand">
                     Semaine {wr.week}
                   </span>
                   <Show when={weekTotals()[i()]}>
-                    {(wt) => (
-                      <span class="ml-auto font-fraunces text-xs font-bold tabular-nums text-foreground">
-                        {fmt(wt().hours)} h
-                      </span>
-                    )}
+                    {(wt) => {
+                      const cap = store.board.weekCaps[String(wr.week)] ?? 0
+                      const overloaded = cap > 0 && wt().hours > cap
+                      return (
+                        <span
+                          class={cx(
+                            'ml-auto font-sans text-xs font-extrabold tabular-nums',
+                            overloaded ? 'text-error font-black' : 'text-foreground'
+                          )}
+                        >
+                          {fmt(wt().hours)} h
+                        </span>
+                      )
+                    }}
                   </Show>
                 </div>
               )}
@@ -224,13 +233,25 @@ export default function BoardGrid(props: {
                   </div>
                   <div
                     class={cx(
-                      'font-fraunces text-lg font-bold leading-none tracking-tight',
+                      'font-sans text-base font-extrabold leading-none tracking-tight',
                       day.today ? 'text-brand italic' : 'text-foreground'
                     )}
                   >
                     {dayNum(di())}
                   </div>
-                  <div class="mt-0.5 font-mono text-xs font-bold tabular-nums text-brand">
+                  <div
+                    class={cx(
+                      'mt-0.5 font-mono text-xs font-bold tabular-nums',
+                      (() => {
+                        const load = store.dayLoad()[di()] ?? 0
+                        const wk = store.board.colWeek[di()]
+                        const cap = store.board.weekCaps[String(wk)] ?? 0
+                        const span = store.board.weekSpans.find((s) => s.week === wk)?.span ?? 5
+                        const dailyCap = cap / span
+                        return dailyCap > 0 && load > dailyCap ? 'text-error font-extrabold' : 'text-brand'
+                      })()
+                    )}
+                  >
                     {fmt(store.dayLoad()[di()] ?? 0)}
                     <span class="text-3xs font-medium opacity-60"> h</span>
                   </div>
@@ -369,7 +390,7 @@ export default function BoardGrid(props: {
                           <div class="mt-1 flex items-baseline gap-1 text-2xs text-muted-foreground">
                             <span>Bouches hygro</span>
                             <span
-                              class="font-fraunces text-sm font-bold tabular-nums"
+                              class="font-sans text-xs font-extrabold tabular-nums"
                               style={{ color: 'var(--color-brand)' }}
                             >
                               {pp().stockBouchesHygro}
@@ -391,7 +412,7 @@ export default function BoardGrid(props: {
                   return (
                     <div
                       class={cx(
-                        'relative flex min-h-[96px] flex-col gap-2 border-r border-rule-soft bg-card p-2',
+                        'relative flex min-h-[96px] flex-col gap-2 border-r border-rule-soft bg-card px-2 pt-2 pb-5',
                         isToday && 'bg-brand-soft'
                       )}
                       style={{
@@ -439,6 +460,29 @@ export default function BoardGrid(props: {
                         )}
                       </For>
                       {props.cellExtra?.(line.code, ci())}
+                      {(() => {
+                        const load = dc.cards.reduce((sum, c) => sum + (store.cardMatches(c, line.code) ? c.hours : 0), 0)
+                        if (load === 0) return null
+                        const wk = store.board.colWeek[ci()]
+                        const cap = store.board.weekCaps[String(wk)] ?? 0
+                        const span = store.board.weekSpans.find((s) => s.week === wk)?.span ?? 5
+                        const dailyCap = cap / span
+                        const overloaded = dailyCap > 0 && load > dailyCap
+                        const fmtShort = (h: number) => (Math.round(h * 10) / 10).toString().replace('.', ',')
+                        return (
+                          <div
+                            class={cx(
+                              'absolute bottom-1 right-2 font-mono text-[9px] font-bold tabular-nums pointer-events-none select-none z-10',
+                              overloaded ? 'text-error font-extrabold' : 'text-muted-foreground/90'
+                            )}
+                          >
+                            {fmtShort(load)}h
+                            <Show when={dailyCap > 0}>
+                              <span class="font-normal text-muted-foreground/50">/{fmtShort(dailyCap)}h</span>
+                            </Show>
+                          </div>
+                        )
+                      })()}
                     </div>
                   )
                 }}
@@ -663,11 +707,11 @@ function VirtualOrderChip(props: { order: VirtualOrderVm; onRemove?: (id: string
         </span>
       </div>
       <div class="mt-0.5 flex items-center gap-1">
-        <span class="flex-none font-fraunces text-2xs font-bold tabular-nums text-secondary-foreground">
+        <span class="flex-none font-sans text-[10px] font-extrabold tabular-nums text-secondary-foreground">
           {fmtDay(props.order.date)}
         </span>
         <Show when={props.order.client}>
-          <span class="truncate font-fraunces text-2xs italic text-muted-foreground">
+          <span class="truncate font-sans text-[10px] italic text-muted-foreground">
             {props.order.client}
           </span>
         </Show>

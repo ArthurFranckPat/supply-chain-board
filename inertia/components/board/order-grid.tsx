@@ -52,6 +52,16 @@ export default function OrderGrid(props: {
   const { store } = props
   const [draggedId, setDraggedId] = createSignal<string | null>(null)
   const [dropCol, setDropCol] = createSignal<string | null>(null)
+  const draggedLineCode = createMemo(() => {
+    const id = draggedId()
+    if (!id) return null
+    for (const line of store.board.lines) {
+      for (const dc of line.dayCells) {
+        if (dc.cards.some((c) => c.id === id)) return line.code
+      }
+    }
+    return null
+  })
   let rootEl: HTMLDivElement | undefined
   usePrintFit(() => rootEl)
 
@@ -124,12 +134,12 @@ export default function OrderGrid(props: {
                   class="flex items-baseline gap-2.5 border-b border-r border-rule bg-secondary px-3.5 py-1.5"
                   style={{ 'grid-column': `span ${wr.to - wr.from}` }}
                 >
-                  <span class="font-fraunces text-[13px] font-black italic tracking-tight text-brand">
+                  <span class="font-sans text-xs font-bold text-brand">
                     Semaine {wr.week}
                   </span>
                   <Show when={weekTotals()[i()]}>
                     {(wt) => (
-                      <span class="ml-auto font-fraunces text-[12px] font-bold tabular-nums text-foreground">
+                      <span class="ml-auto font-sans text-xs font-extrabold tabular-nums text-foreground">
                         {fmt(wt().hours)} h
                       </span>
                     )}
@@ -181,7 +191,7 @@ export default function OrderGrid(props: {
                   </div>
                   <div
                     class={cx(
-                      'font-fraunces text-[19px] font-bold leading-none tracking-tight',
+                      'font-sans text-base font-extrabold leading-none tracking-tight',
                       day.today ? 'text-brand italic' : 'text-foreground'
                     )}
                   >
@@ -195,7 +205,7 @@ export default function OrderGrid(props: {
                     const total = directe + amont
                     return (
                       <div class="mt-1">
-                        <div class="text-center font-fraunces text-[13px] font-bold leading-none tabular-nums text-foreground">
+                        <div class="text-center font-sans text-xs font-extrabold leading-none tabular-nums text-foreground">
                           {fmt(total)}
                           <span class="ml-0.5 font-mono text-[8px] font-medium opacity-50">h</span>
                         </div>
@@ -326,7 +336,7 @@ export default function OrderGrid(props: {
                           <div class="mt-1 flex items-baseline gap-1 text-[10px] text-muted-foreground">
                             <span>Bouches hygro</span>
                             <span
-                              class="font-fraunces text-[14px] font-bold tabular-nums"
+                              class="font-sans text-xs font-extrabold tabular-nums"
                               style={{ color: 'var(--color-brand)' }}
                             >
                               {pp().stockBouchesHygro}
@@ -345,11 +355,16 @@ export default function OrderGrid(props: {
                 {(dc, ci) => {
                   const cellKey = `${line.code}:${ci()}`
                   const isToday = store.board.days[ci()]?.today
+                  const isBlockedLine = () => {
+                    const dl = draggedLineCode()
+                    return dl !== null && dl !== line.code
+                  }
                   return (
                     <div
                       class={cx(
-                        'relative flex min-h-[96px] flex-col gap-2 border-r border-rule-soft bg-card p-2',
-                        isToday && 'bg-brand-soft'
+                        'relative flex min-h-[96px] flex-col gap-2 border-r border-rule-soft bg-card p-2 transition-all duration-150',
+                        isToday && 'bg-brand-soft',
+                        isBlockedLine() && 'opacity-25 bg-muted/30 cursor-not-allowed'
                       )}
                       style={{
                         'background-image': isToday ? undefined : GRAPH_PAPER,
@@ -357,12 +372,13 @@ export default function OrderGrid(props: {
                       }}
                       classList={{ 'ring-2 ring-brand/70 ring-inset': dropCol() === cellKey }}
                       onDragOver={(e) => {
-                        if (!draggedId()) return
+                        if (!draggedId() || isBlockedLine()) return
                         e.preventDefault()
                         if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
                         setDropCol(cellKey)
                       }}
                       onDrop={(e) => {
+                        if (isBlockedLine()) return
                         const id = draggedId()
                         setDropCol(null)
                         if (!id) return
@@ -468,7 +484,7 @@ function CardView(props: {
       <Show when={card.hasOverride}>
         <button
           type="button"
-          class="absolute right-1.5 top-1.5 z-10 flex size-5 items-center justify-center rounded-full bg-card text-suggere shadow-[0_1px_2px_rgba(31,26,19,.15)] transition-colors hover:text-foreground"
+          class="absolute left-1.5 top-1.5 z-10 flex size-5 items-center justify-center rounded-full bg-card text-suggere shadow-[0_1px_2px_rgba(31,26,19,.15)] transition-colors hover:text-foreground"
           title="Réinitialiser l'override (date X3)"
           onClick={(e) => {
             e.preventDefault()

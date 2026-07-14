@@ -37,10 +37,12 @@ const BESOIN_CHIPS = [
  *  Plus de mix rounded-md / rounded-full / shadcn-button. */
 const SEG = 'inline-flex items-center gap-0.5 rounded-lg border border-rule bg-card p-0.5'
 const SEG_BTN_ON =
-  'min-h-[28px] rounded-md px-3 py-1 font-mono text-2xs font-bold uppercase tracking-wider bg-brand-soft text-brand transition-colors'
+  'min-h-[28px] rounded-md px-3 py-1 font-sans text-2xs font-bold bg-brand-soft text-brand transition-colors'
 const SEG_BTN_OFF =
-  'min-h-[28px] rounded-md px-3 py-1 font-mono text-2xs font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors'
-const SEG_LBL = 'px-1.5 font-mono text-3xs font-bold uppercase tracking-wider text-muted-foreground'
+  'min-h-[28px] rounded-md px-3 py-1 font-sans text-2xs font-bold text-muted-foreground hover:text-foreground transition-colors'
+const SEG_LBL = 'px-1.5 font-sans text-3xs font-bold text-muted-foreground'
+const CONTEXT_PILL =
+  'inline-flex min-h-[28px] items-center gap-1 rounded-full border px-2.5 py-0.5 font-sans text-2xs font-bold transition-colors cursor-pointer'
 const PILL =
   'inline-flex min-h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 py-1 text-xs font-semibold text-foreground transition-colors hover:border-brand'
 
@@ -211,71 +213,92 @@ export function ProgrammeContextBar(props: {
   const { store, orderStore } = props
   return (
     <div class="flex flex-none items-center gap-2.5 border-b border-rule bg-muted/30 px-7 py-1.5 min-h-[40px]">
-      {/* Statut — segment (OF / Combiné) */}
+      {/* Statut — Pills (OF / Combiné) */}
       <Show when={props.mode() !== 'planification'}>
-        <div class={SEG}>
-          <span class={SEG_LBL}>Statut</span>
-          <For each={STATUS_FILTER_CHIPS}>
-            {({ k, label }) => (
-              <button
-                type="button"
-                aria-pressed={store.statusActive(k)}
-                class={store.statusActive(k) ? SEG_BTN_ON : SEG_BTN_OFF}
-                onClick={() => store.toggleStatus(k)}
-              >
-                {label}
-              </button>
-            )}
-          </For>
+        <div class="flex items-center gap-1.5">
+          <span class="font-sans text-3xs font-bold text-muted-foreground">Statut</span>
+          <div class="flex items-center gap-1">
+            <For each={STATUS_FILTER_CHIPS}>
+              {({ k, label }) => {
+                const active = () => store.statusActive(k)
+                return (
+                  <button
+                    type="button"
+                    aria-pressed={active()}
+                    class={cx(
+                      CONTEXT_PILL,
+                      active()
+                        ? 'border-brand bg-brand-soft text-brand'
+                        : 'border-rule bg-card text-muted-foreground hover:text-foreground hover:border-muted-foreground'
+                    )}
+                    onClick={() => store.toggleStatus(k)}
+                  >
+                    {label}
+                  </button>
+                )
+              }}
+            </For>
+          </div>
         </div>
       </Show>
 
-      {/* Atelier — segment (Planification) */}
-      <Show when={props.mode() === 'planification' && orderStore.ateliers().length > 0}>
-        <div class={cx(SEG, 'flex-wrap')}>
-          <span class={SEG_LBL}>Atelier</span>
-          <For each={orderStore.ateliers()}>
-            {(a) => (
-              <button
-                type="button"
-                aria-pressed={orderStore.atelierFilter().has(a.code)}
-                title={a.code}
-                class={orderStore.atelierFilter().has(a.code) ? SEG_BTN_ON : SEG_BTN_OFF}
-                onClick={() => orderStore.toggleAtelier(a.code)}
+      {/* Atelier — select dropdown (tous modes) */}
+      {(() => {
+        const isPlan = props.mode() === 'planification'
+        const currentStore = isPlan ? props.orderStore : props.store
+        const ateliers = currentStore.ateliers()
+        const activeFilter = () => {
+          return isPlan ? props.orderStore.atelierFilter() : props.store.atelierFilter()
+        }
+        return (
+          <Show when={ateliers.length > 0}>
+            <div class="flex items-center gap-1.5">
+              <span class="font-sans text-3xs font-bold text-muted-foreground">Atelier</span>
+              <select
+                value={activeFilter()}
+                onChange={(e) => {
+                  const val = e.currentTarget.value
+                  props.store.setAtelier(val)
+                  props.orderStore.setAtelier(val)
+                }}
+                class="h-[28px] rounded-full border border-rule bg-card px-2.5 text-2xs font-bold text-foreground focus:border-brand focus:outline-none cursor-pointer"
               >
-                {a.code}
-              </button>
-            )}
-          </For>
-          <Show when={orderStore.atelierFilter().size > 0}>
-            <button
-              type="button"
-              aria-label="Effacer le filtre atelier"
-              onClick={() => orderStore.clearAtelier()}
-              class="ml-0.5 font-mono text-2xs font-bold text-brand hover:underline"
-            >
-              ✕
-            </button>
+                <option value="">Tous</option>
+                <For each={ateliers}>
+                  {(a) => <option value={a.code}>{a.label}</option>}
+                </For>
+              </select>
+            </div>
           </Show>
-        </div>
-      </Show>
+        )
+      })()}
 
-      {/* Besoin — segment (Planification) */}
+      {/* Besoin — Pills (Planification) */}
       <Show when={props.mode() === 'planification'}>
-        <div class={SEG}>
-          <span class={SEG_LBL}>Besoin</span>
-          <For each={BESOIN_CHIPS}>
-            {(n) => (
-              <button
-                type="button"
-                aria-pressed={orderStore.natureFilter().has(n.k)}
-                class={orderStore.natureFilter().has(n.k) ? SEG_BTN_ON : SEG_BTN_OFF}
-                onClick={() => orderStore.toggleNature(n.k)}
-              >
-                {n.label}
-              </button>
-            )}
-          </For>
+        <div class="flex items-center gap-1.5">
+          <span class="font-sans text-3xs font-bold text-muted-foreground">Besoin</span>
+          <div class="flex items-center gap-1">
+            <For each={BESOIN_CHIPS}>
+              {(n) => {
+                const active = () => orderStore.natureFilter().has(n.k)
+                return (
+                  <button
+                    type="button"
+                    aria-pressed={active()}
+                    class={cx(
+                      CONTEXT_PILL,
+                      active()
+                        ? 'border-brand bg-brand-soft text-brand'
+                        : 'border-rule bg-card text-muted-foreground hover:text-foreground hover:border-muted-foreground'
+                    )}
+                    onClick={() => orderStore.toggleNature(n.k)}
+                  >
+                    {n.label}
+                  </button>
+                )
+              }}
+            </For>
+          </div>
         </div>
       </Show>
 

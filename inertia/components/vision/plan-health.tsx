@@ -94,7 +94,7 @@ export function PlanHealth(props: {
           disabled={!b.clickable}
           onClick={() => b.clickable && props.onSelect(b.key as HealthCategory)}
           class={cx(
-            'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-2xs font-bold transition-colors',
+            'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-sans text-2xs font-semibold transition-colors',
             TONE_CLASS[b.tone],
             b.clickable ? 'cursor-pointer hover:opacity-80' : 'cursor-default'
           )}

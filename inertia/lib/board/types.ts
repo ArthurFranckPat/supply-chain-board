@@ -52,6 +52,7 @@ export interface LineRow {
   name: string
   code: string
   dot: string
+  atelier?: string
   meta: { k: string; v: string }[]
   dayCells: DayCell[]
   weekLoads: WeekLoad[]
@@ -88,6 +89,7 @@ export interface WeekSpan {
 export interface BoardData {
   days: DayCol[]
   lines: LineRow[]
+  ateliers?: { code: string; label: string }[]
   weekSpans: WeekSpan[]
   cols: number
   /** Column index → ISO week. */
@@ -97,7 +99,7 @@ export interface BoardData {
 }
 
 /** Search scope → backend route + matched data-attribute on cards. */
-export type SearchScope = 'poste' | 'of' | 'pf' | 'composant'
+export type SearchScope = 'poste' | 'of' | 'pf' | 'composant' | 'commande' | 'client'
 
 /** Stock-availability mode for the feasibility computation. */
 export type FeasibilityMode = 'immediate' | 'sequential'

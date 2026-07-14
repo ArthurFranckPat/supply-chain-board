@@ -212,7 +212,17 @@ export function TriageRail(props: {
                   <span class="text-2xs font-semibold text-brand">Voir sur le board</span>
                   <Show when={item.ofId}>
                     <span class="text-2xs text-muted-foreground">·</span>
-                    <span class="text-2xs font-semibold text-muted-foreground">Détail OF</span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        props.onDetailOf(item.ofId!)
+                      }}
+                      class="text-2xs font-semibold text-muted-foreground hover:text-brand hover:underline"
+                    >
+                      Détail OF
+                    </button>
                   </Show>
                 </div>
               </button>

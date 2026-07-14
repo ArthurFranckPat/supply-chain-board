@@ -17,6 +17,8 @@ import { timeStage } from '#services/perf_metrics'
 import type { GammeOperation } from '#app/domain/models/gamme'
 import type { Flow } from '#app/domain/models/flow'
 import { type ManufacturingOrder } from '#repositories/of_repository'
+import type { Workstation } from '#app/domain/models/workstation'
+import { atelierLabel } from '#app/domain/atelier'
 
 // ---------------------------------------------------------------------------
 // Display types
@@ -75,6 +77,7 @@ interface LineRow {
   name: string
   code: string
   dot: string
+  atelier: string
   meta: { k: string; v: string }[]
   dayCells: DayCell[]
   weekLoads: { week: number; hours: number; pct: number; barClass: string }[]
@@ -83,6 +86,7 @@ interface LineRow {
 export interface BoardPayload {
   days: DayCol[]
   lines: LineRow[]
+  ateliers?: { code: string; label: string }[]
   cols: number
   horizon: number
   windowFrom: string
@@ -93,6 +97,7 @@ export interface BoardPayload {
   board: {
     days: DayCol[]
     lines: LineRow[]
+    ateliers?: { code: string; label: string }[]
     weekSpans: { week: number; span: number }[]
     cols: number
     colWeek: number[]
@@ -254,6 +259,7 @@ export async function loadBoardData(
 
   let mos: ManufacturingOrder[] = []
   let gammeOps: GammeOperation[] = []
+  let wsts: Workstation[] = []
   let x3Error: string | null = null
   let bdhParents: Set<string> = new Set()
   let typologieByArticle = new Map<string, string>()
@@ -278,6 +284,7 @@ export async function loadBoardData(
         ])
     )
     gammeOps = ref.gamme
+    wsts = ref.workstations
     mos = [...ord.mos]
     bdhParents = bdh
     for (const a of articlesList) if (a.typologie) typologieByArticle.set(a.code, a.typologie)
@@ -299,6 +306,7 @@ export async function loadBoardData(
   const overrides = await new OverrideStore().getAll()
   const overrideMap = new Map(overrides.map((o) => [o.numOf, o]))
   const gammeMap = new Map(gammeOps.map((g) => [g.article, g]))
+  const wstByCode = new Map<string, Workstation>(wsts.map((w) => [w.code, w]))
 
   const wstLabels = new Map<string, string>()
   for (const g of gammeOps) {
@@ -451,10 +459,12 @@ export async function loadBoardData(
     .sort((a, b) => a[0].localeCompare(b[0]))
     .map(([code, dayCardArrays]) => {
       const meta = lineMeta.get(code)!
+      const stoloc = wstByCode.get(code)?.stockLocation ?? ''
       return {
         name: wstLabels.get(code) ?? code,
         code,
         dot: 'bg-emerald-500',
+        atelier: stoloc,
         meta: [],
         // Header PP_830 (issue #42) : charge par typologie + stock bouches hygro (goulot).
         ...(code === 'PP_830'
@@ -480,6 +490,10 @@ export async function loadBoardData(
       }
     })
 
+  const ateliers = [...new Set(lines.map((l) => l.atelier).filter(Boolean))]
+    .map((code) => ({ code, label: atelierLabel(code) }))
+    .sort((a, b) => a.label.localeCompare(b.label))
+
   const firstDay = colDates[0] ?? windowStart
   const lastDay = colDates[colDates.length - 1] ?? windowStart
   const fmtFr = (d: Date) =>
@@ -501,6 +515,7 @@ export async function loadBoardData(
   return {
     days,
     lines,
+    ateliers,
     cols: days.length,
     horizon,
     windowFrom: colDates.length ? isoDay(firstDay) : '',
@@ -511,7 +526,7 @@ export async function loadBoardData(
     colWeekJson: JSON.stringify(colWeek),
     weekCapsJson: JSON.stringify(weekCaps),
     // Objet board brut consommé par la page Inertia (props.board).
-    board: { days, lines, weekSpans, cols: days.length, colWeek, weekCaps },
+    board: { days, lines, ateliers, weekSpans, cols: days.length, colWeek, weekCaps },
     weekLabel: colDates.length ? `S${isoWeek(colDates[0])}` : '',
     dateRange: `${fmtFr(firstDay)} — ${fmtFr(lastDay)}`,
     prevHref,

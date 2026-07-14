@@ -27,7 +27,7 @@ export function createOrderBoardStore(initial: OrderBoardData) {
   const [typeFilter, setTypeFilter] = createSignal<Set<string>>(new Set(ALL_TYPES))
   const [natureFilter, setNatureFilter] = createSignal<Set<string>>(new Set(ALL_NATURES))
   // Filtre atelier (STOLOC, issue #36) : vide ⇒ tous les ateliers visibles.
-  const [atelierFilter, setAtelierFilter] = createSignal<Set<string>>(new Set())
+  const [atelierFilter, setAtelierFilter] = createSignal<string>('')
 
   // ── Faisabilité (issue #21) ──
   // Miroir du store OF : le même endpoint /board-feasibility renvoie `orders[]` avec,
@@ -77,7 +77,7 @@ export function createOrderBoardStore(initial: OrderBoardData) {
     if (!line) return false
     // Filtre atelier : si des ateliers sont sélectionnés, masque les autres lignes.
     const af = atelierFilter()
-    if (af.size > 0 && !(line.atelier && af.has(line.atelier))) return false
+    if (af && line.atelier !== af) return false
     return line.dayCells.some((dc) => dc.cards.some((c) => cardMatches(c, lineCode)))
   }
 
@@ -105,15 +105,11 @@ export function createOrderBoardStore(initial: OrderBoardData) {
       return next
     })
   }
-  function toggleAtelier(code: string) {
-    setAtelierFilter((prev) => {
-      const next = new Set(prev)
-      next.has(code) ? next.delete(code) : next.add(code)
-      return next
-    })
+  function setAtelier(code: string) {
+    setAtelierFilter(code)
   }
   function clearAtelier() {
-    setAtelierFilter(new Set<string>())
+    setAtelierFilter('')
   }
 
   // ── Charge/jour live (somme des heures des cartes visibles par colonne). ──
@@ -336,7 +332,7 @@ export function createOrderBoardStore(initial: OrderBoardData) {
     clearSearch,
     toggleType,
     toggleNature,
-    toggleAtelier,
+    setAtelier,
     clearAtelier,
     moveCard,
     resetOverride,

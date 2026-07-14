@@ -2,6 +2,7 @@ import { createSignal, createMemo } from 'solid-js'
 import { createStore, produce, reconcile } from 'solid-js/store'
 import { toast as sonnerToast } from 'solid-sonner'
 import type { BoardData, Card, SearchScope, FeasibilityMode, FeasStatus } from './types'
+import type { VisionCommande, VisionLink } from '@/lib/vision/types'
 import { route } from '@/lib/routes'
 import { router } from '@/lib/inertia-solid'
 
@@ -33,7 +34,13 @@ const SCOPE_CFG: Record<
   },
 }
 
-export function createBoardStore(initial: BoardData) {
+export function createBoardStore(
+  initial: BoardData,
+  options?: {
+    links?: () => VisionLink[]
+    commandes?: () => VisionCommande[]
+  }
+) {
   const [board, setBoard] = createStore<BoardData>(initial)
 
   const [query, setQuery] = createSignal('')
@@ -63,6 +70,9 @@ export function createBoardStore(initial: BoardData) {
     })
 
   const [mode, setMode] = createSignal<FeasibilityMode>('immediate')
+  const [atelierFilter, setAtelierFilter] = createSignal<string>('')
+  const setAtelier = (code: string) => setAtelierFilter(code)
+  const clearAtelier = () => setAtelierFilter('')
   // numOf → feasibility status (empty until "Calculer faisabilité" runs).
   const [feasibility, setFeasibility] = createSignal<Record<string, FeasStatus>>({})
   const [feasLoading, setFeasLoading] = createSignal(false)
@@ -86,11 +96,20 @@ export function createBoardStore(initial: BoardData) {
     if (!q) return true
     const set = matchSet()
     if (set === null) return false
-    return set.has(SCOPE_CFG[scope()].attr(card, lineCode).toLowerCase())
+    const s = scope()
+    if (s === 'commande' || s === 'client') {
+      return set.has(card.id.toLowerCase())
+    }
+    return set.has(SCOPE_CFG[s].attr(card, lineCode).toLowerCase())
   }
 
   /** A line stays visible if it matches (poste) or holds ≥1 matched card. */
   function lineVisible(lineCode: string): boolean {
+    const af = atelierFilter()
+    if (af) {
+      const line = board.lines.find((l) => l.code === lineCode)
+      if (!line || line.atelier !== af) return false
+    }
     const q = query().trim()
     if (!q) return true
     const set = matchSet()
@@ -106,6 +125,38 @@ export function createBoardStore(initial: BoardData) {
     const q = rawQuery.trim().toLowerCase()
     if (!q) {
       setMatchSet(new Set<string>())
+      return
+    }
+    if (s === 'commande' || s === 'client') {
+      const links = options?.links?.() ?? []
+      const commandes = options?.commandes?.() ?? []
+      const set = new Set<string>()
+      if (s === 'commande') {
+        const matchingCmdIds = new Set<string>()
+        for (const cmd of commandes) {
+          if (cmd.numCommande.toLowerCase().includes(q)) {
+            matchingCmdIds.add(cmd.id)
+          }
+        }
+        for (const link of links) {
+          if (matchingCmdIds.has(link.commandeId)) {
+            set.add(link.ofId.toLowerCase())
+          }
+        }
+      } else {
+        const matchingCmdIds = new Set<string>()
+        for (const cmd of commandes) {
+          if ((cmd.client ?? '').toLowerCase().includes(q)) {
+            matchingCmdIds.add(cmd.id)
+          }
+        }
+        for (const link of links) {
+          if (matchingCmdIds.has(link.commandeId)) {
+            set.add(link.ofId.toLowerCase())
+          }
+        }
+      }
+      setMatchSet(set)
       return
     }
     const cacheKey = `${s} ${q}`
@@ -503,6 +554,10 @@ export function createBoardStore(initial: BoardData) {
     setMoveInterceptor,
     transformCard,
     runFeasibility,
+    atelierFilter,
+    ateliers: () => board.ateliers ?? [],
+    setAtelier,
+    clearAtelier,
     // Sélection multi-OF + batch firming (#34)
     selectMode,
     enterSelect,

@@ -119,6 +119,15 @@ const OF_SCOPES = [
   { v: 'composant', label: 'Composant' },
 ] as const satisfies { v: SearchScope; label: string }[]
 
+const ALL_SCOPES = [
+  { v: 'poste', label: 'Poste' },
+  { v: 'of', label: 'OF' },
+  { v: 'pf', label: 'PF' },
+  { v: 'composant', label: 'Composant' },
+  { v: 'commande', label: 'Commande' },
+  { v: 'client', label: 'Client' },
+] as const satisfies { v: SearchScope; label: string }[]
+
 const ORDER_SCOPES = [
   { v: 'poste', label: 'Poste' },
   { v: 'commande', label: 'Commande' },
@@ -127,7 +136,10 @@ const ORDER_SCOPES = [
 ] as const satisfies { v: OrderSearchScope; label: string }[]
 
 const Programme: Component<VisionProps> = (props) => {
-  const store = createBoardStore(props.board ?? EMPTY_BOARD)
+  const store = createBoardStore(props.board ?? EMPTY_BOARD, {
+    links: () => props.links,
+    commandes: () => props.commandes,
+  })
   const orderStore = createOrderBoardStore(props.orderBoard ?? EMPTY_ORDER_BOARD)
 
   // ── Issue #57 — mode scénario ──
@@ -876,7 +888,7 @@ const Programme: Component<VisionProps> = (props) => {
         active="programme"
         meta={
           <>
-            <div class="font-fraunces text-xs font-bold not-italic text-brand">
+            <div class="font-sans text-xs font-bold text-brand">
               {props.weekLabel}
             </div>
             <div>
@@ -901,7 +913,9 @@ const Programme: Component<VisionProps> = (props) => {
                   placeholder={
                     mode() === 'planification'
                       ? 'Commande, article, client…'
-                      : 'OF, article, poste…'
+                      : mode() === 'combined'
+                        ? 'OF, commande, client…'
+                        : 'OF, article, poste…'
                   }
                   aria-label="Rechercher"
                   type="text"
@@ -922,12 +936,16 @@ const Programme: Component<VisionProps> = (props) => {
                   title="Portée de la recherche"
                   value={store.scope()}
                   onChange={(v) => v && store.onScopeChange(v as SearchScope)}
-                  options={OF_SCOPES.map((s) => s.v)}
+                  options={
+                    mode() === 'combined'
+                      ? ALL_SCOPES.map((s) => s.v)
+                      : OF_SCOPES.map((s) => s.v)
+                  }
                   disallowEmptySelection
-                  optionTextValue={(o) => OF_SCOPES.find((s) => s.v === o)?.label ?? o}
+                  optionTextValue={(o) => ALL_SCOPES.find((s) => s.v === o)?.label ?? o}
                   itemComponent={(itemProps) => (
                     <SelectItem item={itemProps.item}>
-                      {OF_SCOPES.find((s) => s.v === itemProps.item.rawValue)?.label ??
+                      {ALL_SCOPES.find((s) => s.v === itemProps.item.rawValue)?.label ??
                         itemProps.item.rawValue}
                     </SelectItem>
                   )}
@@ -938,7 +956,7 @@ const Programme: Component<VisionProps> = (props) => {
                   >
                     <SelectValue<string>>
                       {(state) =>
-                        OF_SCOPES.find((s) => s.v === state.selectedOption())?.label ?? 'Portée'
+                        ALL_SCOPES.find((s) => s.v === state.selectedOption())?.label ?? 'Portée'
                       }
                     </SelectValue>
                   </SelectTrigger>
@@ -1014,17 +1032,17 @@ const Programme: Component<VisionProps> = (props) => {
             role="radiogroup"
             aria-label="Visibilité des liens"
           >
-            <span class="px-1.5 font-mono text-3xs font-bold uppercase tracking-wider text-muted-foreground">
+            <span class="px-1.5 font-sans text-3xs font-bold text-muted-foreground">
               Liens
             </span>
             <For each={['none', 'problems', 'all'] as const}>
-              {(lm) => (
+               {(lm) => (
                 <button
                   type="button"
                   role="radio"
                   aria-checked={linkMode() === lm}
                   class={cx(
-                    'min-h-[28px] rounded-md px-2.5 py-1 font-mono text-2xs font-bold uppercase tracking-wider transition-colors',
+                    'min-h-[28px] rounded-md px-2.5 py-1 font-sans text-2xs font-bold transition-colors',
                     linkMode() === lm
                       ? 'bg-brand-soft text-brand'
                       : 'text-muted-foreground hover:text-foreground'
@@ -1101,7 +1119,7 @@ const Programme: Component<VisionProps> = (props) => {
         <Show
           when={orderStore.board.lines.length > 0}
           fallback={
-            <div class="flex flex-1 items-center justify-center p-10 font-fraunces text-sm italic text-muted-foreground">
+            <div class="flex flex-1 items-center justify-center p-10 font-sans text-xs font-semibold italic text-muted-foreground">
               Aucune ligne de commande dans l'horizon.
             </div>
           }
@@ -1116,7 +1134,7 @@ const Programme: Component<VisionProps> = (props) => {
         <Show
           when={props.lineCount > 0}
           fallback={
-            <div class="flex flex-1 items-center justify-center p-10 font-fraunces text-sm italic text-muted-foreground">
+            <div class="flex flex-1 items-center justify-center p-10 font-sans text-xs font-semibold italic text-muted-foreground">
               Aucun OF dans l'horizon.
             </div>
           }
@@ -1182,6 +1200,9 @@ const Programme: Component<VisionProps> = (props) => {
                   // Scroll vers l'OF sur le board
                   if (item.ofId) {
                     const el = document.querySelector(`[data-num-of="${item.ofId}"]`)
+                    el?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' })
+                  } else if (item.commandeId) {
+                    const el = document.querySelector(`[data-link-cmd*="${item.commandeId}"]`)
                     el?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' })
                   }
                 }}

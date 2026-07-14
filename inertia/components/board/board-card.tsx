@@ -150,7 +150,7 @@ export const BoardCard: Component<BoardCardProps> = (props) => {
   return (
     <div
       class={cx(
-        'relative w-full rounded-md border border-border border-t-[3px] bg-card px-3 pb-2 pt-2.5 shadow-[0_1px_2px_rgba(31,26,19,.05)]',
+        'relative w-full rounded-lg border border-border border-t-[3px] bg-card px-2 pb-1.5 pt-2 shadow-sm',
         TONE_BORDER[props.status],
         props.status === 'termine' && 'opacity-60',
         props.class
@@ -241,34 +241,26 @@ const CommandeBody: Component<{
           </span>
         </Show>
       </div>
-      {/* Article (PF) + tampon « BDH » (consomme bouche, issue #42) sur la même ligne. */}
-      <Show when={p.ord || p.consommeBouche}>
-        <div class="mt-1 flex items-center justify-between gap-1.5">
-          <div
-            class="truncate font-mono text-xs font-semibold leading-tight text-brand"
-            title={p.ord}
-          >
-            {p.ord}
-          </div>
-          <Show when={p.consommeBouche}>
-            <span
-              class="shrink-0 rotate-[-7deg] rounded border bg-card px-1.5 py-0.5 font-mono text-xs font-black uppercase tracking-wider opacity-70"
-              style={{
-                'color': 'var(--color-brand)',
-                'border-color': 'var(--color-brand)',
-                'text-shadow': '0 0 1px rgba(168,67,31,.35)',
-              }}
-            >
-              BDH
-            </span>
-          </Show>
+      <Show when={p.ord}>
+        <div
+          class="mt-1 truncate font-mono text-xs font-semibold leading-tight text-brand"
+          title={p.ord}
+        >
+          {p.ord}
+        </div>
+      </Show>
+      <Show when={p.consommeBouche}>
+        <div class="mt-1">
+          <span class="inline-block rounded bg-brand-soft px-1.5 py-0.5 font-sans text-[9px] font-extrabold uppercase tracking-wide text-brand">
+            BDH
+          </span>
         </div>
       </Show>
       <div class="truncate text-xs font-medium leading-tight text-muted-foreground" title={p.title}>
         {p.title}
       </div>
       <Show when={p.client}>
-        <div class="mt-0.5 truncate font-fraunces text-xs italic text-muted-foreground">
+        <div class="mt-0.5 truncate font-sans text-xs italic text-muted-foreground">
           {p.client}
         </div>
       </Show>
@@ -292,7 +284,7 @@ const CommandeBody: Component<{
         </Show>
         <span class="ml-auto flex items-baseline gap-1">
           <Show when={p.qty !== undefined}>
-            <span class="font-fraunces text-base font-bold leading-none tabular-nums text-foreground">
+            <span class="font-sans text-base font-extrabold leading-none tabular-nums text-foreground">
               {p.qty}
             </span>
           </Show>
@@ -323,26 +315,12 @@ const OfBody: Component<{
       : 0
   return (
     <>
-      {/* Tampon « BDH » = consomme une bouche (issue #42). Absolu, fond carte pour
-          masquer proprement — le n° OF garde toute la largeur (pas de troncature). */}
-      <Show when={p.consommeBouche}>
-        <span
-          class="absolute right-1.5 top-1.5 rotate-[-7deg] rounded border bg-card px-1.5 py-0.5 font-mono text-xs font-black uppercase tracking-wider opacity-70"
-          style={{
-            'color': 'var(--color-brand)',
-            'border-color': 'var(--color-brand)',
-            'text-shadow': '0 0 1px rgba(168,67,31,.35)',
-          }}
-        >
-          BDH
-        </span>
-      </Show>
-      {/* N° OF — pleine largeur (truncate seulement si réellement trop long). */}
+      {/* N° OF — pleine largeur pour éviter la troncature précoce. */}
       <div class="truncate font-mono text-xs font-bold leading-tight text-foreground">
         {p.article}
       </div>
       <Show when={p.articleRef}>
-        <div class="truncate font-mono text-xs font-semibold leading-tight text-brand">
+        <div class="mt-0.5 truncate font-mono text-xs font-semibold leading-tight text-brand" title={p.articleRef}>
           {p.articleRef}
         </div>
       </Show>
@@ -372,11 +350,11 @@ const OfBody: Component<{
           {(t) => (
             <span class="inline-flex items-center gap-1 font-mono text-2xs font-bold uppercase tracking-wider text-secondary-foreground">
               <span class="size-[8px] rounded-[2px]" style={{ background: t().color }} />
-              {t().label}
+              {p.consommeBouche ? 'BDH' : t().label}
             </span>
           )}
         </Show>
-        <span class="ml-auto font-fraunces text-sm font-bold tabular-nums">
+        <span class="ml-auto font-sans text-xs font-extrabold tabular-nums">
           {p.hours}
           <span class="ml-0.5 text-2xs font-medium text-muted-foreground">h</span>
         </span>

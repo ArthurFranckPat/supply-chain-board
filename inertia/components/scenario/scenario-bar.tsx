@@ -92,7 +92,7 @@ export const ScenarioBar: Component<{
   }
 
   return (
-    <div class="flex flex-none flex-wrap items-center gap-3 border-b border-brand/40 bg-brand-soft px-7 py-2">
+    <div class="flex flex-none flex-nowrap overflow-x-auto no-scrollbar items-center gap-3 border-b border-brand/40 bg-brand-soft px-7 py-2 min-h-[44px]">
       <span class="material-symbols-outlined text-[18px] text-brand">science</span>
       <span class="font-fraunces text-[13px] font-bold text-brand">Scénario</span>
 

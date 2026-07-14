@@ -68,7 +68,7 @@ export const ChargeHistogram: Component<ChargeHistogramProps> = (props) => {
     <div class={cx('flex flex-col gap-1.5', props.class)}>
       {/* Hero : total horizon (+ moyenne h/sem en 'full') */}
       <div class="flex flex-wrap items-baseline gap-1.5">
-        <span class="font-fraunces text-[26px] font-black leading-none tracking-tight text-foreground">
+        <span class="font-sans text-xl font-extrabold leading-none tracking-tight text-foreground">
           {fmt(total())}
         </span>
         <span class="text-[10px] font-medium text-muted-foreground">heures</span>
