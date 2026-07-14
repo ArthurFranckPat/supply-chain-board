@@ -175,6 +175,10 @@ export interface ProactiveDisplayRow {
   dateExpIso: string | null
   verdictKey: ProactiveVerdictKey
   verdictLabel: string
+  /** Recommandation d'action calculée côté serveur (SuiviController.proactiveRows).
+   *  Le moteur renvoie { severity, label } — ne pas dériver côté client (on perdrait
+   *  la vraie recommandation, cf. migration React issue #77). */
+  action: { severity: 'info' | 'warning' | 'critical'; label: string }
   /** Gravité du retard : 'tolerance' (≤ 1 j ouvré, rouge clair) | 'critical' (au-delà, rouge foncé) | null. */
   lateSeverity: 'tolerance' | 'critical' | null
   /** Mode de couverture : « Stock » | n° OF (« · »-séparés) | « Achat » | « — ». */
@@ -223,6 +227,7 @@ export type ProactiveVerdictCounts = {
   late: number
   blocked: number
   uncov: number
+  risk: number
 }
 
 /** Réponse de GET /api/v1/status/proactive-rows (vue proactive). */

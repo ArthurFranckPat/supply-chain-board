@@ -1,0 +1,159 @@
+/* ════════════════════════════════════════════════════════════
+   Feuille de style du runtime React (Carbon + Sage).
+   ────────────────────────────────────────────────────────────
+   Remplace l'import du vieux `resources/css/app.css` (thème
+   Papier/shadcn, 1272 l.) qui conflit avec les design-tokens
+   Sage. On ne garde QUE ce que le code React consomme, re-pointé
+   sur les tokens officiels @sage/design-tokens (issue #77).
+
+   Ordre d'import dans app.tsx :
+     1. ce fichier (Tailwind + tokens mappés)
+     2. @sage/design-tokens/css/base.css  (tokens bruts Sage :root)
+     3. @sage/design-tokens/css/origin.css
+     4. ./styles/sage.css                 (alias courts --color-bg…)
+   ════════════════════════════════════════════════════════════ */
+
+@import 'tailwindcss';
+@plugin "tailwindcss-animate";
+
+/* ────────────────────────────────────────────────────────────
+   Tokens sémantiques — pont Tailwind ↔ Sage design-tokens.
+   Les vars `--color-*` ci-dessous sont consommées par les
+   utilitaires Tailwind générés par `@theme static` (bg-card,
+   text-foreground, border-rule…). On les mappe sur les tokens
+   `--colors*` de @sage/design-tokens/css/base.css pour que le
+   code existant (écrit en style shadcn) hérite du look Sage sans
+   réécriture de chaque className.
+   ──────────────────────────────────────────────────────────── */
+@theme static {
+  /* Surfaces & texte (shadcn semantics → Sage utility) */
+  --color-background: var(--colorsUtilityYang100);   /* fond app : blanc Sage */
+  --color-foreground: var(--colorsUtilityYin090);    /* texte principal : noir bleuté Sage */
+  --color-card: var(--colorsUtilityYang100);         /* surface carte = fond app */
+  --color-card-foreground: var(--colorsUtilityYin090);
+  --color-popover: var(--colorsUtilityYang100);
+  --color-popover-foreground: var(--colorsUtilityYin090);
+  --color-muted: var(--colorsUtilityMajor050);       /* fond muted léger */
+  --color-muted-foreground: var(--colorsUtilityYin065); /* texte secondaire */
+  --color-accent: var(--colorsUtilityMajor100);
+  --color-accent-foreground: var(--colorsUtilityYin090);
+  --color-border: var(--colorsUtilityMajor075);
+  --color-input: var(--colorsUtilityMajor075);
+  --color-ring: var(--colorsSemanticFocus500);
+
+  /* Action — primary = vert Sage (couleur officielle de l'action majeure) */
+  --color-primary: var(--colorsActionMajor500);
+  --color-primary-foreground: var(--colorsActionMajorYang100);
+  --color-secondary: var(--colorsUtilityMajor025);
+  --color-secondary-foreground: var(--colorsUtilityYin090);
+
+  /* Sémantiques Sage pour les états critiques */
+  --color-destructive: var(--colorsSemanticNegative500);
+  --color-destructive-foreground: var(--colorsSemanticNegativeYang100);
+
+  /* Police — Inter reste la font applicative (Sage UI est portée par Carbon
+     via GlobalStyle + fonts.css, mais nos utility classes .font-sans pointent
+     sur Inter pour cohérence tabulaire des chiffres). */
+  --font-sans: 'Inter', -apple-system, system-ui, sans-serif;
+  --font-mono: 'Inter', system-ui, sans-serif;
+
+  /* Rayons / ombres — reprennent les tokens Sage */
+  --radius-sm: var(--borderRadius100);
+  --radius-md: var(--borderRadius200);
+  --radius-lg: var(--borderRadius400);
+
+  /* ── Palette de statut OF (issue #77 §4) ──────────────────
+     brand   = action majeure (vert Sage)
+     ferme   = OF fermé/confirmé → Positive (vert)
+     planifie = OF planifié → Caution (orange Sage)
+     suggere  = suggestion CBN → Caution clair
+     rule     = séparateurs neutres → Utility clair
+     On mappe sur les tokens sémantiques Sage pour cohérence. */
+  --color-brand: var(--colorsActionMajor500);
+  --color-brand-soft: var(--colorsActionMajorYang100);
+  --color-ferme: var(--colorsSemanticPositive500);
+  --color-planifie: var(--colorsSemanticCaution500);
+  --color-suggere: var(--colorsSemanticCaution400);
+  --color-rule: var(--colorsUtilityMajor100);
+  --color-rule-soft: var(--colorsUtilityMajor050);
+}
+
+/* ────────────────────────────────────────────────────────────
+   Base layer — reset minimal, focus, scrollbars.
+   Récupéré du vieux app.css, re-pointé sur tokens Sage.
+   ──────────────────────────────────────────────────────────── */
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    background: var(--color-background);
+    color: var(--color-foreground);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  /* Anneau de focus unique (clavier seulement). */
+  :focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+  ::selection {
+    background: var(--colorsActionMajor100, var(--colorsActionMajorYang100));
+  }
+
+  /* Scrollbars fines et neutres, cohérentes avec les surfaces Sage. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--colorsUtilityMajor100) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: var(--colorsUtilityMajor100);
+    border-radius: 9999px;
+    border: 2px solid var(--color-background);
+    background-clip: padding-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: var(--colorsUtilityMajor200);
+  }
+}
+
+/* Conteneur scrollable SANS barre visible (scroll molette → horizontal en JS).
+   Plus spécifique que les règles `*::-webkit-scrollbar` globales → les masque. */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+/* ────────────────────────────────────────────────────────────
+   Icônes Material Symbols — config vendor (font chargée via
+   Google Fonts dans le layout Edge). ~40 usages dans le code React.
+   ──────────────────────────────────────────────────────────── */
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-variation-settings:
+    'FILL' 0,
+    'wght' 400,
+    'GRAD' 0,
+    'opsz' 20;
+  font-size: 20px;
+  line-height: 1;
+  font-style: normal;
+  font-weight: normal;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}

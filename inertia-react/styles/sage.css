@@ -1,0 +1,17 @@
+/* ════════════════════════════════════════════════════════════
+   Alias courts — variables CSS sémantiques consommées en var()
+   direct dans le code React (ex. bg-[var(--color-bg)]).
+   Re-pointées sur les design-tokens Sage officiels.
+   Les tokens shadcn (--color-background/foreground/border…) et la
+   palette de statut (--color-brand/ferme/planifie…) vivent dans
+   ./app.css via @theme static.
+   ──────────────────────────────────────────────────────────── */
+
+:root {
+  --color-bg: var(--colorsUtilityYang100);        /* fond app = blanc Sage */
+  --color-panel: var(--colorsUtilityYang100);     /* surface carte */
+  --color-line: var(--colorsUtilityMajor075);     /* séparateur fort */
+  --color-line-soft: var(--colorsUtilityMajor050);/* séparateur léger */
+  --color-txt: var(--colorsUtilityYin090);        /* texte principal */
+  --color-muted: var(--colorsUtilityMajor050);    /* fond muted */
+}
