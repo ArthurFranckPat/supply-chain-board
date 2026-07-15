@@ -28,6 +28,11 @@ export interface ManufacturingOrder {
   unit: string | null
   startDate: Date | null
   endDate: Date | null
+  /** Date de création de l'OF (ORDERS.CREDAT_0) — seul getManufacturingOrderByNum la renseigne
+   *  (détail OF uniquement, pas les requêtes liste — évite d'alourdir le O(n²) ZSOAPSQL). */
+  createdDate?: Date | null
+  /** Opérateur créateur (ORDERS.CREUSR_0, code X3 brut — pas d'annuaire de noms complets). */
+  createdBy?: string | null
 }
 
 type RawRow = Record<string, string | null>
@@ -199,7 +204,9 @@ SELECT
   CPLQTY_0    AS DONE,
   RMNEXTQTY_0 AS REMAIN,
   STRDAT_0    AS STRDAT,
-  ENDDAT_0    AS ENDDAT
+  ENDDAT_0    AS ENDDAT,
+  CREDAT_0    AS CREDAT,
+  CREUSR_0    AS CREUSR
 FROM ORDERS
 WHERE WIPTYP_0 = 5
   AND VCRNUM_0 = '${safe}'
@@ -232,6 +239,8 @@ WHERE WIPTYP_0 = 5
       unit: null,
       startDate: parseX3Date(row.STRDAT),
       endDate: parseX3Date(row.ENDDAT),
+      createdDate: parseX3Date(row.CREDAT),
+      createdBy: row.CREUSR?.trim() || null,
     }
   }
 

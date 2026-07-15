@@ -216,6 +216,10 @@ export const OfDetailSheet: Component<{
                 <Show when={d().context}>
                   <Meta k="Poste" v={d().context} />
                 </Show>
+                <Meta k="Créé le" v={d().createdAt} mono />
+                <Show when={d().operator.name !== 'Non assigné'}>
+                  <Meta k="Par" v={d().operator.name} mono />
+                </Show>
                 <For each={d().stats}>{(s) => <Meta k={s.label} v={s.value} mono />}</For>
                 <div class="ml-auto flex items-center gap-2">
                   <span class="font-mono text-[10px] font-semibold text-muted-foreground">
