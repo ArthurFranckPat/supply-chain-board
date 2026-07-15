@@ -35,4 +35,9 @@ export default class PromiseController {
     const result = await loadPromise({ article, quantity, from })
     return ctx.response.ok(result)
   }
+
+  /** GET /promesse — page Inertia du simulateur CTP autonome. */
+  async show(ctx: HttpContext) {
+    return ctx.inertia.render('promesse', {})
+  }
 }

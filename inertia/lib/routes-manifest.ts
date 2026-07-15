@@ -2,7 +2,7 @@
  * AUTO-GÉNÉRÉ par scripts/gen-routes-manifest.mjs — NE PAS ÉDITER À LA MAIN.
  * Source : `start/routes.ts` → `node ace list:routes --jsonl`.
  * Régénérer : `npm run routes:gen` · Vérifier la fraîcheur : `npm run routes:check`.
- * 72 routes nommées.
+ * 73 routes nommées.
  */
 
 export const MANIFEST = {
@@ -20,7 +20,6 @@ export const MANIFEST = {
   "conditionnements.index": { method: "GET", pattern: "/conditionnements" },
   "conditionnements.rows": { method: "GET", pattern: "/api/v1/conditionnements/rows" },
   "dashboard": { method: "GET", pattern: "/" },
-  "dashboard_layout.update": { method: "PATCH", pattern: "/api/v1/user/dashboard-layout" },
   "dashboard.kpis": { method: "GET", pattern: "/api/v1/dashboard/kpis" },
   "dashboard.otd": { method: "GET", pattern: "/api/v1/dashboard/otd" },
   "dashboard.stock_valuation": { method: "GET", pattern: "/api/v1/dashboard/stock" },
@@ -46,6 +45,8 @@ export const MANIFEST = {
   "planning_board.update": { method: "PATCH", pattern: "/api/v1/planning/ofs/:of" },
   "planning.order_firm": { method: "POST", pattern: "/api/v1/planning/orders/:orderNum/firm" },
   "planning.suggestion_firm": { method: "POST", pattern: "/api/v1/planning/suggestions/:sugNum/firm" },
+  "promesse.index": { method: "GET", pattern: "/api/v1/promesse" },
+  "promesse.show": { method: "GET", pattern: "/promesse" },
   "receptions.index": { method: "GET", pattern: "/receptions" },
   "receptions.rows": { method: "GET", pattern: "/api/v1/receptions/rows" },
   "scenarios.compare": { method: "GET", pattern: "/programme/scenarios/comparer" },
@@ -101,7 +102,6 @@ export type RouteParams = {
   "conditionnements.index": void,
   "conditionnements.rows": void,
   "dashboard": void,
-  "dashboard_layout.update": void,
   "dashboard.kpis": void,
   "dashboard.otd": void,
   "dashboard.stock_valuation": void,
@@ -127,6 +127,8 @@ export type RouteParams = {
   "planning_board.update": { "of": string | number },
   "planning.order_firm": { "orderNum": string | number },
   "planning.suggestion_firm": { "sugNum": string | number },
+  "promesse.index": void,
+  "promesse.show": void,
   "receptions.index": void,
   "receptions.rows": void,
   "scenarios.compare": void,

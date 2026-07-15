@@ -24,6 +24,7 @@ export type MastheadTab =
   | 'expeditions'
   | 'receptions'
   | 'conditionnements'
+  | 'promesse'
   | 'config'
 
 /** Onglets canoniques (ordre + cibles uniques). */
@@ -36,6 +37,7 @@ const TABS: { key: MastheadTab; label: string; href: string }[] = [
   { key: 'expeditions', label: 'Expéditions', href: route('expeditions.index') },
   { key: 'receptions', label: 'Réceptions', href: route('receptions.index') },
   { key: 'conditionnements', label: 'Conditionnements', href: route('conditionnements.index') },
+  { key: 'promesse', label: 'Promesse', href: route('promesse.show') },
   { key: 'config', label: 'Config', href: route('calendar_config.index') },
 ]
 

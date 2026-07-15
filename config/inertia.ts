@@ -56,7 +56,11 @@ declare module '@adonisjs/inertia/types' {
       otdHref: string
       stockHref: string
       layout?: {
-        items: { id: 'charge' | 'otd' | 'stock' | 'lignes' | 'stockTable'; visible: boolean; width: 1 | 2 | 3 }[]
+        items: {
+          id: 'charge' | 'otd' | 'stock' | 'lignes' | 'stockTable'
+          visible: boolean
+          width: 1 | 2 | 3
+        }[]
         printOrder: ('charge' | 'otd' | 'stock' | 'lignes' | 'stockTable')[]
       }
     }
@@ -88,6 +92,8 @@ declare module '@adonisjs/inertia/types' {
     'design_system': Record<string, never>
     'diagnostic-test': Record<string, never>
     'writeback-test': Record<string, never>
+    // CTP — simulateur autonome « date au plus tôt » (PRD §6.2, lot 3).
+    'promesse': Record<string, never>
     'scheduler/scheduling': {
       board: BoardProp
       windowFrom: string

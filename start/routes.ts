@@ -103,6 +103,7 @@ router
     router
       .get('/conditionnements', '#controllers/conditionnements_controller.index')
       .as('conditionnements.index')
+    router.get('/promesse', '#controllers/promise_controller.show').as('promesse.show')
     router.get('/configuration/calendrier', '#controllers/calendar_config_controller.index')
 
     // Configuration calendrier usine — API JSON (issue #37).
@@ -220,9 +221,7 @@ router
       .as('conditionnements.estimations')
 
     // CTP — Capable-to-Promise : date au plus tôt (PRD §6.2, lot 2).
-    router
-      .get('/api/v1/promesse', '#controllers/promise_controller.index')
-      .as('promesse.index')
+    router.get('/api/v1/promesse', '#controllers/promise_controller.index').as('promesse.index')
 
     // X3 Data (raw SQL debug) — `.as('data.load')` pour éviter le nom auto
     // `x_3_data.load` généré depuis X3DataController (issue #18).
