@@ -12,9 +12,11 @@ import { OF_STATUT, VERDICT_TONE, LATE_TONE, getRelativeDateLabel } from '@/lib/
 
 export interface ProactiveColumnsDeps {
   referenceDate: () => string
+  /** Clic sur un n° d'OF (colonne Couverture) → ouvre le détail (faisabilité), comme /programme. */
+  onSelectOf?: (numOf: string) => void
 }
 
-export function createProactiveColumns({ referenceDate }: ProactiveColumnsDeps) {
+export function createProactiveColumns({ referenceDate, onSelectOf }: ProactiveColumnsDeps) {
   const proHelper = createColumnHelper<ProactiveDisplayRow>()
   return [
     proHelper.accessor('numCommande', {
@@ -172,9 +174,23 @@ export function createProactiveColumns({ referenceDate }: ProactiveColumnsDeps) 
                             <span class="relative inline-flex size-1.5 rounded-full bg-emerald-500" />
                           </span>
                         </Show>
-                        <span class="font-mono text-[11px] font-semibold leading-snug text-secondary-foreground break-all">
+                        <button
+                          type="button"
+                          class={cx(
+                            'font-mono text-[11px] font-semibold leading-snug break-all',
+                            onSelectOf
+                              ? 'text-brand underline decoration-dotted underline-offset-2 hover:text-brand/80'
+                              : 'text-secondary-foreground'
+                          )}
+                          disabled={!onSelectOf}
+                          title={onSelectOf ? `Détail OF ${of.numOf} (faisabilité)` : undefined}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onSelectOf?.(of.numOf)
+                          }}
+                        >
                           {of.numOf}
-                        </span>
+                        </button>
                         <Show when={st}>
                           <span
                             class={cx(

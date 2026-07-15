@@ -33,6 +33,12 @@ This project uses GSD (Get Shit Done) for structured development. Run `/gsd-help
   - Ex. : `npx node ace test --files="recursive-diagnostic-checker"`.
 - Pas de `--suite="unit"` ni de run global, même pour vérifier une régression.
 
+## Outils interdits (suite)
+
+**JAMAIS `npm run build`** (ni `vite build`) pour valider du code — dev server déjà lancé, `npm run typecheck` suffit.
+
+- Règle non négociable, répétée = signal d'agacement utilisateur.
+
 ## Outils interdits
 
 **JAMAIS de Playwright** — ni `npx playwright`, ni `playwright install`, ni screenshot/preview via Playwright.

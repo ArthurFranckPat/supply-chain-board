@@ -21,6 +21,8 @@ export interface ProactiveViewProps {
   onResetFilters?: () => void
   onRowClick?: (row: ProactiveDisplayRow) => void
   selectedRowKey?: Accessor<string | null>
+  /** Clic sur un n° d'OF (colonne Couverture) → détail OF (faisabilité), comme /programme. */
+  onSelectOf?: (numOf: string) => void
 }
 
 export function ProactiveView(props: ProactiveViewProps) {
@@ -28,7 +30,10 @@ export function ProactiveView(props: ProactiveViewProps) {
 
   const rows = createMemo(() => sortRows(props.filteredRows(), sorting()))
 
-  const columns = createProactiveColumns({ referenceDate: () => props.view().referenceDate })
+  const columns = createProactiveColumns({
+    referenceDate: () => props.view().referenceDate,
+    onSelectOf: props.onSelectOf,
+  })
   const indexCol = createProactiveIndexCol()
 
   return (

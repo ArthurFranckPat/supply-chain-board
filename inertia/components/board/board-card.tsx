@@ -83,6 +83,8 @@ export type CommandeCardProps = Common & {
   qty?: number
   /** Carte induite (besoin brut depth-1) : ghost hachuré, non-draggable. */
   induit?: boolean
+  /** Alerte rupture (composants manquants des OF rattachés, agrégés côté store). */
+  alert?: string
 }
 
 export type OfCardProps = Common & {
@@ -131,6 +133,7 @@ export const BoardCard: Component<BoardCardProps> = (props) => {
         typologie={props.typologie}
         qty={props.qty}
         induit={props.induit}
+        alert={props.alert}
       />
     ) : (
       <OfBody
@@ -207,6 +210,7 @@ const CommandeBody: Component<{
   typologie?: string
   qty?: number
   induit?: boolean
+  alert?: string
 }> = (p) => {
   const typo = () => (p.typologie ? TYPO_META[p.typologie] : undefined)
   const typeMeta = () => (p.type ? TYPE_META[p.type.toUpperCase()] : undefined)
@@ -270,6 +274,12 @@ const CommandeBody: Component<{
       <Show when={p.client}>
         <div class="mt-0.5 truncate font-fraunces text-xs italic text-muted-foreground">
           {p.client}
+        </div>
+      </Show>
+      <Show when={p.alert}>
+        <div class="mt-1.5 flex items-center gap-1 rounded bg-destructive/10 px-1.5 py-[3px] font-mono text-2xs font-bold text-destructive">
+          <span class="material-symbols-outlined text-xs">warning</span>
+          {p.alert}
         </div>
       </Show>
       {/* Footer V1 (issue #42) : pastille typo pleine + type (gauche), qté mise en

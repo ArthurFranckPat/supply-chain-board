@@ -53,6 +53,8 @@ interface DetailPayload {
   stats: StatItem[]
   progressPct: number
   operator: { initials: string; name: string }
+  /** Date de création de l'OF (ORDERS.CREDAT_0), formatée FR — '—' si absente. */
+  createdAt: string
   cycle: { start: string; end: string }
   bomCount: number
   bomBlocked: number
@@ -578,7 +580,10 @@ export default class SchedulerController {
           trendClass: '',
         },
       ],
-      operator: { initials: '—', name: 'Non assigné' },
+      operator: mo?.createdBy
+        ? { initials: mo.createdBy.slice(0, 2).toUpperCase(), name: mo.createdBy }
+        : { initials: '—', name: 'Non assigné' },
+      createdAt: fmtDate(mo?.createdDate ?? null),
       cycle: { start: fmtDate(startDate), end: fmtDate(endDate) },
       bomCount,
       bomBlocked: bom.filter((b) => !b.ok).length,
