@@ -1,396 +1,565 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>KPI — Charge en retard · 3 directions</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
-<style>
-  :root {
-    /* Thème Papier */
-    --paper:        #faf6ee;
-    --paper-2:      #f5efe2;
-    --card:         #fffdf8;
-    --ink:          #2a2622;
-    --ink-soft:     #6b6258;
-    --rule:         #e4dccb;
-    --rule-soft:    #efe8d8;
-    --terra:        #b5502f;
-    --terra-soft:   #efd9cf;
-    --ferme:        #5b7d4e;
-    --suggere:      #b8862c;
-    --destructive:  #b23b2e;
-    --destructive-soft: #f0d6d0;
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>KPI — Charge en retard · 3 directions</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Space+Mono:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        /* Thème Papier */
+        --paper: #faf6ee;
+        --paper-2: #f5efe2;
+        --card: #fffdf8;
+        --ink: #2a2622;
+        --ink-soft: #6b6258;
+        --rule: #e4dccb;
+        --rule-soft: #efe8d8;
+        --terra: #b5502f;
+        --terra-soft: #efd9cf;
+        --ferme: #5b7d4e;
+        --suggere: #b8862c;
+        --destructive: #b23b2e;
+        --destructive-soft: #f0d6d0;
 
-    --serif: "Fraunces", Georgia, serif;
-    --mono: "Space Mono", ui-monospace, Menlo, monospace;
-    --sans: ui-sans-serif, -apple-system, "Helvetica Neue", sans-serif;
-  }
+        --serif: 'Fraunces', Georgia, serif;
+        --mono: 'Space Mono', ui-monospace, Menlo, monospace;
+        --sans: ui-sans-serif, -apple-system, 'Helvetica Neue', sans-serif;
+      }
 
-  * { box-sizing: border-box; }
+      * {
+        box-sizing: border-box;
+      }
 
-  body {
-    margin: 0;
-    background: var(--paper);
-    color: var(--ink);
-    font-family: var(--sans);
-    -webkit-font-smoothing: antialiased;
-    padding: 56px 40px 80px;
-  }
+      body {
+        margin: 0;
+        background: var(--paper);
+        color: var(--ink);
+        font-family: var(--sans);
+        -webkit-font-smoothing: antialiased;
+        padding: 56px 40px 80px;
+      }
 
-  .page-head {
-    max-width: 1240px;
-    margin: 0 auto 44px;
-  }
-  .page-head .eyebrow {
-    font-family: var(--mono);
-    font-size: 10.5px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.22em;
-    color: var(--terra);
-    margin: 0 0 12px;
-  }
-  .page-head h1 {
-    font-family: var(--serif);
-    font-weight: 500;
-    font-size: 30px;
-    letter-spacing: -0.01em;
-    margin: 0 0 8px;
-  }
-  .page-head p {
-    margin: 0;
-    max-width: 60ch;
-    font-size: 14px;
-    line-height: 1.55;
-    color: var(--ink-soft);
-  }
+      .page-head {
+        max-width: 1240px;
+        margin: 0 auto 44px;
+      }
+      .page-head .eyebrow {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.22em;
+        color: var(--terra);
+        margin: 0 0 12px;
+      }
+      .page-head h1 {
+        font-family: var(--serif);
+        font-weight: 500;
+        font-size: 30px;
+        letter-spacing: -0.01em;
+        margin: 0 0 8px;
+      }
+      .page-head p {
+        margin: 0;
+        max-width: 60ch;
+        font-size: 14px;
+        line-height: 1.55;
+        color: var(--ink-soft);
+      }
 
-  .grid {
-    max-width: 1240px;
-    margin: 0 auto;
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 32px;
-  }
-  @media (max-width: 1080px) { .grid { grid-template-columns: 1fr; max-width: 440px; } }
+      .grid {
+        max-width: 1240px;
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 32px;
+      }
+      @media (max-width: 1080px) {
+        .grid {
+          grid-template-columns: 1fr;
+          max-width: 440px;
+        }
+      }
 
-  .col { display: flex; flex-direction: column; gap: 14px; }
-  .col-cap {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-  }
-  .col-cap .n {
-    font-family: var(--mono);
-    font-size: 11px;
-    font-weight: 700;
-    color: var(--terra);
-    letter-spacing: 0.1em;
-  }
-  .col-cap .t {
-    font-family: var(--mono);
-    font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.16em;
-    color: var(--ink-soft);
-  }
+      .col {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+      .col-cap {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+      }
+      .col-cap .n {
+        font-family: var(--mono);
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--terra);
+        letter-spacing: 0.1em;
+      }
+      .col-cap .t {
+        font-family: var(--mono);
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+        color: var(--ink-soft);
+      }
 
-  /* ---------- carte de base ---------- */
-  .kpi {
-    background: var(--card);
-    border: 1px solid var(--rule);
-    border-radius: 4px;
-    padding: 22px 24px 24px;
-    box-shadow: 0 1px 0 rgba(42,38,34,0.02), 0 14px 30px -26px rgba(42,38,34,0.45);
-  }
+      /* ---------- carte de base ---------- */
+      .kpi {
+        background: var(--card);
+        border: 1px solid var(--rule);
+        border-radius: 4px;
+        padding: 22px 24px 24px;
+        box-shadow:
+          0 1px 0 rgba(42, 38, 34, 0.02),
+          0 14px 30px -26px rgba(42, 38, 34, 0.45);
+      }
 
-  .label {
-    font-family: var(--mono);
-    font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.16em;
-    color: var(--ink-soft);
-  }
+      .label {
+        font-family: var(--mono);
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+        color: var(--ink-soft);
+      }
 
-  .num {
-    font-family: var(--serif);
-    font-weight: 600;
-    line-height: 0.92;
-    letter-spacing: -0.02em;
-    color: var(--ink);
-    font-variant-numeric: tabular-nums;
-  }
-  .num .u {
-    font-family: var(--mono);
-    font-weight: 700;
-    letter-spacing: 0;
-    color: var(--ink-soft);
-  }
+      .num {
+        font-family: var(--serif);
+        font-weight: 600;
+        line-height: 0.92;
+        letter-spacing: -0.02em;
+        color: var(--ink);
+        font-variant-numeric: tabular-nums;
+      }
+      .num .u {
+        font-family: var(--mono);
+        font-weight: 700;
+        letter-spacing: 0;
+        color: var(--ink-soft);
+      }
 
-  .delta {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    font-family: var(--mono);
-    font-size: 11px;
-    font-weight: 700;
-    padding: 3px 8px;
-    border-radius: 999px;
-  }
-  .delta.up   { color: var(--destructive); background: var(--destructive-soft); }
-  .delta.down { color: var(--ferme); background: #dde7d6; }
-  .delta .arr { font-size: 12px; line-height: 1; }
+      .delta {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-family: var(--mono);
+        font-size: 11px;
+        font-weight: 700;
+        padding: 3px 8px;
+        border-radius: 999px;
+      }
+      .delta.up {
+        color: var(--destructive);
+        background: var(--destructive-soft);
+      }
+      .delta.down {
+        color: var(--ferme);
+        background: #dde7d6;
+      }
+      .delta .arr {
+        font-size: 12px;
+        line-height: 1;
+      }
 
-  .muted { color: var(--ink-soft); }
+      .muted {
+        color: var(--ink-soft);
+      }
 
-  /* =========================================================
+      /* =========================================================
      DIRECTION 1 — sobre : chiffre + sparkline + delta
      ========================================================= */
-  .d1 .top { display: flex; align-items: flex-start; justify-content: space-between; }
-  .d1 .dot {
-    width: 8px; height: 8px; border-radius: 999px;
-    background: var(--destructive);
-    box-shadow: 0 0 0 4px var(--destructive-soft);
-    margin-top: 4px;
-  }
-  .d1 .num { font-size: 76px; margin: 14px 0 2px; }
-  .d1 .num .u { font-size: 26px; margin-left: 6px; }
-  .d1 .subrow { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
-  .d1 .spark { display: block; }
-  .d1 .foot {
-    margin-top: 18px;
-    padding-top: 14px;
-    border-top: 1px solid var(--rule-soft);
-    display: flex;
-    justify-content: space-between;
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--ink-soft);
-  }
-  .d1 .foot b { color: var(--ink); font-weight: 700; }
+      .d1 .top {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+      }
+      .d1 .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: var(--destructive);
+        box-shadow: 0 0 0 4px var(--destructive-soft);
+        margin-top: 4px;
+      }
+      .d1 .num {
+        font-size: 76px;
+        margin: 14px 0 2px;
+      }
+      .d1 .num .u {
+        font-size: 26px;
+        margin-left: 6px;
+      }
+      .d1 .subrow {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-top: 14px;
+      }
+      .d1 .spark {
+        display: block;
+      }
+      .d1 .foot {
+        margin-top: 18px;
+        padding-top: 14px;
+        border-top: 1px solid var(--rule-soft);
+        display: flex;
+        justify-content: space-between;
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--ink-soft);
+      }
+      .d1 .foot b {
+        color: var(--ink);
+        font-weight: 700;
+      }
 
-  /* =========================================================
+      /* =========================================================
      DIRECTION 2 — breakdown par poste en barres
      ========================================================= */
-  .d2 .head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
-  .d2 .num { font-size: 60px; }
-  .d2 .num .u { font-size: 20px; margin-left: 5px; }
-  .d2 .head .delta { margin-bottom: 8px; }
-  .d2 .bars { margin-top: 22px; display: flex; flex-direction: column; gap: 13px; }
-  .d2 .bar .bar-top {
-    display: flex; justify-content: space-between; align-items: baseline;
-    margin-bottom: 5px;
-  }
-  .d2 .bar .poste {
-    font-family: var(--mono);
-    font-size: 11.5px;
-    font-weight: 700;
-    letter-spacing: 0.02em;
-    color: var(--ink);
-  }
-  .d2 .bar .h {
-    font-family: var(--mono);
-    font-size: 11.5px;
-    font-weight: 700;
-    color: var(--ink-soft);
-    font-variant-numeric: tabular-nums;
-  }
-  .d2 .track {
-    height: 8px;
-    background: var(--paper-2);
-    border-radius: 999px;
-    overflow: hidden;
-  }
-  .d2 .fill { height: 100%; border-radius: 999px; }
-  .d2 .foot {
-    margin-top: 20px; padding-top: 14px;
-    border-top: 1px solid var(--rule-soft);
-    font-family: var(--mono); font-size: 11px; color: var(--ink-soft);
-    display: flex; justify-content: space-between;
-  }
-  .d2 .foot b { color: var(--ink); }
+      .d2 .head {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .d2 .num {
+        font-size: 60px;
+      }
+      .d2 .num .u {
+        font-size: 20px;
+        margin-left: 5px;
+      }
+      .d2 .head .delta {
+        margin-bottom: 8px;
+      }
+      .d2 .bars {
+        margin-top: 22px;
+        display: flex;
+        flex-direction: column;
+        gap: 13px;
+      }
+      .d2 .bar .bar-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        margin-bottom: 5px;
+      }
+      .d2 .bar .poste {
+        font-family: var(--mono);
+        font-size: 11.5px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        color: var(--ink);
+      }
+      .d2 .bar .h {
+        font-family: var(--mono);
+        font-size: 11.5px;
+        font-weight: 700;
+        color: var(--ink-soft);
+        font-variant-numeric: tabular-nums;
+      }
+      .d2 .track {
+        height: 8px;
+        background: var(--paper-2);
+        border-radius: 999px;
+        overflow: hidden;
+      }
+      .d2 .fill {
+        height: 100%;
+        border-radius: 999px;
+      }
+      .d2 .foot {
+        margin-top: 20px;
+        padding-top: 14px;
+        border-top: 1px solid var(--rule-soft);
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--ink-soft);
+        display: flex;
+        justify-content: space-between;
+      }
+      .d2 .foot b {
+        color: var(--ink);
+      }
 
-  /* =========================================================
+      /* =========================================================
      DIRECTION 3 — éditorial : hero typographique + stack
      ========================================================= */
-  .d3 {
-    background:
-      linear-gradient(0deg, var(--paper-2), var(--paper-2)) padding-box;
-    border: 1px solid var(--rule);
-    position: relative;
-    overflow: hidden;
-    padding: 0;
-  }
-  .d3 .band {
-    padding: 20px 24px 16px;
-    border-bottom: 1px solid var(--rule);
-    display: flex; align-items: center; justify-content: space-between;
-  }
-  .d3 .band .label { color: var(--terra); }
-  .d3 .band .tag {
-    font-family: var(--mono); font-size: 10px; font-weight: 700;
-    letter-spacing: 0.12em; text-transform: uppercase;
-    color: var(--ink-soft);
-  }
-  .d3 .hero { padding: 26px 24px 8px; position: relative; }
-  .d3 .num {
-    font-family: var(--serif);
-    font-weight: 900;
-    font-size: 118px;
-    line-height: 0.82;
-    letter-spacing: -0.035em;
-    color: var(--terra);
-  }
-  .d3 .num .u {
-    display: block;
-    font-family: var(--mono);
-    font-weight: 700;
-    font-size: 13px;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--ink-soft);
-    margin-top: 12px;
-  }
-  .d3 .annot {
-    position: absolute; top: 30px; right: 24px;
-    text-align: right; max-width: 150px;
-  }
-  .d3 .annot .delta { margin-bottom: 8px; }
-  .d3 .annot p {
-    margin: 0; font-size: 11.5px; line-height: 1.45;
-    color: var(--ink-soft); font-family: var(--sans);
-  }
-  /* barre proportionnelle empilée */
-  .d3 .stack-wrap { padding: 16px 24px 24px; }
-  .d3 .stack {
-    display: flex; height: 14px; border-radius: 999px; overflow: hidden;
-    border: 1px solid var(--rule);
-  }
-  .d3 .stack span { height: 100%; }
-  .d3 .legend {
-    margin-top: 14px;
-    display: grid; grid-template-columns: 1fr 1fr; gap: 8px 18px;
-  }
-  .d3 .leg {
-    display: flex; align-items: center; gap: 8px;
-    font-family: var(--mono); font-size: 11px;
-  }
-  .d3 .leg .sw { width: 9px; height: 9px; border-radius: 2px; flex: none; }
-  .d3 .leg .pn { font-weight: 700; color: var(--ink); }
-  .d3 .leg .hh { margin-left: auto; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
-</style>
-</head>
-<body>
+      .d3 {
+        background: linear-gradient(0deg, var(--paper-2), var(--paper-2)) padding-box;
+        border: 1px solid var(--rule);
+        position: relative;
+        overflow: hidden;
+        padding: 0;
+      }
+      .d3 .band {
+        padding: 20px 24px 16px;
+        border-bottom: 1px solid var(--rule);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .d3 .band .label {
+        color: var(--terra);
+      }
+      .d3 .band .tag {
+        font-family: var(--mono);
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--ink-soft);
+      }
+      .d3 .hero {
+        padding: 26px 24px 8px;
+        position: relative;
+      }
+      .d3 .num {
+        font-family: var(--serif);
+        font-weight: 900;
+        font-size: 118px;
+        line-height: 0.82;
+        letter-spacing: -0.035em;
+        color: var(--terra);
+      }
+      .d3 .num .u {
+        display: block;
+        font-family: var(--mono);
+        font-weight: 700;
+        font-size: 13px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--ink-soft);
+        margin-top: 12px;
+      }
+      .d3 .annot {
+        position: absolute;
+        top: 30px;
+        right: 24px;
+        text-align: right;
+        max-width: 150px;
+      }
+      .d3 .annot .delta {
+        margin-bottom: 8px;
+      }
+      .d3 .annot p {
+        margin: 0;
+        font-size: 11.5px;
+        line-height: 1.45;
+        color: var(--ink-soft);
+        font-family: var(--sans);
+      }
+      /* barre proportionnelle empilée */
+      .d3 .stack-wrap {
+        padding: 16px 24px 24px;
+      }
+      .d3 .stack {
+        display: flex;
+        height: 14px;
+        border-radius: 999px;
+        overflow: hidden;
+        border: 1px solid var(--rule);
+      }
+      .d3 .stack span {
+        height: 100%;
+      }
+      .d3 .legend {
+        margin-top: 14px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px 18px;
+      }
+      .d3 .leg {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-family: var(--mono);
+        font-size: 11px;
+      }
+      .d3 .leg .sw {
+        width: 9px;
+        height: 9px;
+        border-radius: 2px;
+        flex: none;
+      }
+      .d3 .leg .pn {
+        font-weight: 700;
+        color: var(--ink);
+      }
+      .d3 .leg .hh {
+        margin-left: auto;
+        color: var(--ink-soft);
+        font-variant-numeric: tabular-nums;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="page-head">
+      <p class="eyebrow">Tableau de bord · KPI #1 · Issue #38</p>
+      <h1>Charge en retard — 3 directions</h1>
+      <p>
+        Heures de production portées par les lignes de commande au statut <b>Retard</b>. Mêmes
+        données dans les 3 cartes (247 h, +18 % vs S‑1) — seule la mise en forme change. Thème
+        Papier.
+      </p>
+    </header>
 
-  <header class="page-head">
-    <p class="eyebrow">Tableau de bord · KPI #1 · Issue #38</p>
-    <h1>Charge en retard — 3 directions</h1>
-    <p>Heures de production portées par les lignes de commande au statut <b>Retard</b>. Mêmes données dans les 3 cartes (247 h, +18 % vs S‑1) — seule la mise en forme change. Thème Papier.</p>
-  </header>
-
-  <main class="grid">
-
-    <!-- ============ DIRECTION 1 ============ -->
-    <section class="col" data-screen-label="Option 1">
-      <div class="col-cap"><span class="n">01</span><span class="t">Sobre · chiffre + tendance</span></div>
-      <article class="kpi d1">
-        <div class="top">
-          <span class="label">Charge en retard</span>
-          <span class="dot" title="Critique"></span>
+    <main class="grid">
+      <!-- ============ DIRECTION 1 ============ -->
+      <section class="col" data-screen-label="Option 1">
+        <div class="col-cap">
+          <span class="n">01</span><span class="t">Sobre · chiffre + tendance</span>
         </div>
-        <div class="num">247<span class="u">h</span></div>
-        <div class="subrow">
-          <span class="delta up"><span class="arr">▲</span> 18 %</span>
-          <span class="muted" style="font-size:12px;">vs semaine dernière</span>
-        </div>
-        <div class="subrow" style="margin-top:16px;">
-          <!-- sparkline 6 semaines -->
-          <svg class="spark" width="190" height="44" viewBox="0 0 190 44" fill="none" aria-label="Tendance 6 semaines">
-            <polyline points="2,34 40,30 78,33 116,22 154,24 188,8"
-              fill="none" stroke="#b23b2e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-            <circle cx="188" cy="8" r="3.5" fill="#b23b2e" />
-          </svg>
-          <span class="muted" style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;">6&nbsp;SEM.</span>
-        </div>
-        <div class="foot">
-          <span><b>14</b> lignes</span>
-          <span>1<sup>er</sup> poste&nbsp; <b>PP_830</b></span>
-        </div>
-      </article>
-    </section>
-
-    <!-- ============ DIRECTION 2 ============ -->
-    <section class="col" data-screen-label="Option 2">
-      <div class="col-cap"><span class="n">02</span><span class="t">Détaillé · ventilation poste</span></div>
-      <article class="kpi d2">
-        <span class="label">Charge en retard · par poste</span>
-        <div class="head">
+        <article class="kpi d1">
+          <div class="top">
+            <span class="label">Charge en retard</span>
+            <span class="dot" title="Critique"></span>
+          </div>
           <div class="num">247<span class="u">h</span></div>
-          <span class="delta up"><span class="arr">▲</span> 18 %</span>
-        </div>
-        <div class="bars">
-          <div class="bar">
-            <div class="bar-top"><span class="poste">PP_830</span><span class="h">84 h</span></div>
-            <div class="track"><div class="fill" style="width:100%;background:#b23b2e;"></div></div>
-          </div>
-          <div class="bar">
-            <div class="bar-top"><span class="poste">Montage S3P</span><span class="h">71 h</span></div>
-            <div class="track"><div class="fill" style="width:84.5%;background:#cf6a3f;"></div></div>
-          </div>
-          <div class="bar">
-            <div class="bar-top"><span class="poste">Fabrication CLP</span><span class="h">52 h</span></div>
-            <div class="track"><div class="fill" style="width:61.9%;background:#b8862c;"></div></div>
-          </div>
-          <div class="bar">
-            <div class="bar-top"><span class="poste">PP_153</span><span class="h">40 h</span></div>
-            <div class="track"><div class="fill" style="width:47.6%;background:#c8a86a;"></div></div>
-          </div>
-        </div>
-        <div class="foot">
-          <span><b>14</b> lignes · <b>4</b> postes</span>
-          <span>vs S‑1&nbsp; <b>209 h</b></span>
-        </div>
-      </article>
-    </section>
-
-    <!-- ============ DIRECTION 3 ============ -->
-    <section class="col" data-screen-label="Option 3">
-      <div class="col-cap"><span class="n">03</span><span class="t">Éditorial · hero typographique</span></div>
-      <article class="kpi d3">
-        <div class="band">
-          <span class="label">Charge en retard</span>
-          <span class="tag">24 / 06 · 08:00</span>
-        </div>
-        <div class="hero">
-          <div class="annot">
+          <div class="subrow">
             <span class="delta up"><span class="arr">▲</span> 18 %</span>
-            <p>soit <b>+38 h</b> en une semaine, concentrées sur le PP_830.</p>
+            <span class="muted" style="font-size: 12px">vs semaine dernière</span>
           </div>
-          <div class="num">247<span class="u">heures à rattraper</span></div>
-        </div>
-        <div class="stack-wrap">
-          <div class="stack" aria-label="Répartition par poste">
-            <span style="width:34%;background:#b23b2e;"  title="PP_830 · 84 h"></span>
-            <span style="width:28.7%;background:#cf6a3f;" title="Montage S3P · 71 h"></span>
-            <span style="width:21.1%;background:#b8862c;" title="Fabrication CLP · 52 h"></span>
-            <span style="width:16.2%;background:#c8a86a;" title="PP_153 · 40 h"></span>
+          <div class="subrow" style="margin-top: 16px">
+            <!-- sparkline 6 semaines -->
+            <svg
+              class="spark"
+              width="190"
+              height="44"
+              viewBox="0 0 190 44"
+              fill="none"
+              aria-label="Tendance 6 semaines"
+            >
+              <polyline
+                points="2,34 40,30 78,33 116,22 154,24 188,8"
+                fill="none"
+                stroke="#b23b2e"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <circle cx="188" cy="8" r="3.5" fill="#b23b2e" />
+            </svg>
+            <span
+              class="muted"
+              style="font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em"
+              >6&nbsp;SEM.</span
+            >
           </div>
-          <div class="legend">
-            <span class="leg"><span class="sw" style="background:#b23b2e;"></span><span class="pn">PP_830</span><span class="hh">84 h</span></span>
-            <span class="leg"><span class="sw" style="background:#cf6a3f;"></span><span class="pn">Montage S3P</span><span class="hh">71 h</span></span>
-            <span class="leg"><span class="sw" style="background:#b8862c;"></span><span class="pn">Fab. CLP</span><span class="hh">52 h</span></span>
-            <span class="leg"><span class="sw" style="background:#c8a86a;"></span><span class="pn">PP_153</span><span class="hh">40 h</span></span>
+          <div class="foot">
+            <span><b>14</b> lignes</span>
+            <span>1<sup>er</sup> poste&nbsp; <b>PP_830</b></span>
           </div>
-        </div>
-      </article>
-    </section>
+        </article>
+      </section>
 
-  </main>
+      <!-- ============ DIRECTION 2 ============ -->
+      <section class="col" data-screen-label="Option 2">
+        <div class="col-cap">
+          <span class="n">02</span><span class="t">Détaillé · ventilation poste</span>
+        </div>
+        <article class="kpi d2">
+          <span class="label">Charge en retard · par poste</span>
+          <div class="head">
+            <div class="num">247<span class="u">h</span></div>
+            <span class="delta up"><span class="arr">▲</span> 18 %</span>
+          </div>
+          <div class="bars">
+            <div class="bar">
+              <div class="bar-top">
+                <span class="poste">PP_830</span><span class="h">84 h</span>
+              </div>
+              <div class="track">
+                <div class="fill" style="width: 100%; background: #b23b2e"></div>
+              </div>
+            </div>
+            <div class="bar">
+              <div class="bar-top">
+                <span class="poste">Montage S3P</span><span class="h">71 h</span>
+              </div>
+              <div class="track">
+                <div class="fill" style="width: 84.5%; background: #cf6a3f"></div>
+              </div>
+            </div>
+            <div class="bar">
+              <div class="bar-top">
+                <span class="poste">Fabrication CLP</span><span class="h">52 h</span>
+              </div>
+              <div class="track">
+                <div class="fill" style="width: 61.9%; background: #b8862c"></div>
+              </div>
+            </div>
+            <div class="bar">
+              <div class="bar-top">
+                <span class="poste">PP_153</span><span class="h">40 h</span>
+              </div>
+              <div class="track">
+                <div class="fill" style="width: 47.6%; background: #c8a86a"></div>
+              </div>
+            </div>
+          </div>
+          <div class="foot">
+            <span><b>14</b> lignes · <b>4</b> postes</span>
+            <span>vs S‑1&nbsp; <b>209 h</b></span>
+          </div>
+        </article>
+      </section>
 
-</body>
+      <!-- ============ DIRECTION 3 ============ -->
+      <section class="col" data-screen-label="Option 3">
+        <div class="col-cap">
+          <span class="n">03</span><span class="t">Éditorial · hero typographique</span>
+        </div>
+        <article class="kpi d3">
+          <div class="band">
+            <span class="label">Charge en retard</span>
+            <span class="tag">24 / 06 · 08:00</span>
+          </div>
+          <div class="hero">
+            <div class="annot">
+              <span class="delta up"><span class="arr">▲</span> 18 %</span>
+              <p>soit <b>+38 h</b> en une semaine, concentrées sur le PP_830.</p>
+            </div>
+            <div class="num">247<span class="u">heures à rattraper</span></div>
+          </div>
+          <div class="stack-wrap">
+            <div class="stack" aria-label="Répartition par poste">
+              <span style="width: 34%; background: #b23b2e" title="PP_830 · 84 h"></span>
+              <span style="width: 28.7%; background: #cf6a3f" title="Montage S3P · 71 h"></span>
+              <span style="width: 21.1%; background: #b8862c" title="Fabrication CLP · 52 h"></span>
+              <span style="width: 16.2%; background: #c8a86a" title="PP_153 · 40 h"></span>
+            </div>
+            <div class="legend">
+              <span class="leg"
+                ><span class="sw" style="background: #b23b2e"></span><span class="pn">PP_830</span
+                ><span class="hh">84 h</span></span
+              >
+              <span class="leg"
+                ><span class="sw" style="background: #cf6a3f"></span
+                ><span class="pn">Montage S3P</span><span class="hh">71 h</span></span
+              >
+              <span class="leg"
+                ><span class="sw" style="background: #b8862c"></span><span class="pn">Fab. CLP</span
+                ><span class="hh">52 h</span></span
+              >
+              <span class="leg"
+                ><span class="sw" style="background: #c8a86a"></span><span class="pn">PP_153</span
+                ><span class="hh">40 h</span></span
+              >
+            </div>
+          </div>
+        </article>
+      </section>
+    </main>
+  </body>
 </html>

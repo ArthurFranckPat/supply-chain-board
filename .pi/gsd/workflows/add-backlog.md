@@ -68,9 +68,11 @@ Park an idea as a backlog entry (999.x numbered phase) in ROADMAP.md. Zero frict
 Check that `.planning/ROADMAP.md` exists (from `state` JSON field `roadmap_exists`).
 
 **If roadmap missing:**
+
 ```
 Error: No ROADMAP.md found. Run /gsd-new-project or /gsd-new-milestone first.
 ```
+
 Exit.
 
 **If idea is empty (no $ARGUMENTS):**
@@ -82,6 +84,7 @@ Use the response as `idea`.
 From the roadmap analysis JSON, extract the `phases` array. Find all phases where `phase_number` starts with `999` (e.g., `999.1`, `999.2`).
 
 Compute next backlog number:
+
 - If no 999.x entries exist → use `999.1`
 - Otherwise → use `999.(max_decimal + 1)`, e.g., if `999.3` exists → `999.4`
 
@@ -114,11 +117,12 @@ pi-gsd-tools commit "docs: add backlog entry {BACKLOG_NUM} - {idea_slug}" --file
 ```
 ✓ Backlog entry added
 
-  Phase {BACKLOG_NUM}: {idea}
+Phase {BACKLOG_NUM}: {idea}
 
 ---
 
 Review and promote backlog: /gsd-review-backlog
+
 ```
 </step>
 
@@ -130,3 +134,4 @@ Review and promote backlog: /gsd-review-backlog
 - [ ] Entry committed to git
 - [ ] User sees confirmation with the assigned phase number
 </success_criteria>
+```

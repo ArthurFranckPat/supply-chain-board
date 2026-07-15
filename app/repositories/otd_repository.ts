@@ -92,7 +92,7 @@ function toYYYYMMDD(d: Date): string {
 }
 
 function toInt(v: string | null): number {
-  return parseInt(v ?? '0', 10) || 0
+  return Number.parseInt(v ?? '0', 10) || 0
 }
 
 /** Normalise comme le front (fold) : sans accents ni casse, pour un filtre client cohérent. */
@@ -155,7 +155,13 @@ export function resolveOtdPeriods(ref: Date): Array<{ from: Date; to: Date; labe
 }
 
 export class OtdRepository {
-  async getOtd(from: Date, to: Date, label: string, mode: OtdMode, client?: string): Promise<OtdKpi> {
+  async getOtd(
+    from: Date,
+    to: Date,
+    label: string,
+    mode: OtdMode,
+    client?: string
+  ): Promise<OtdKpi> {
     const db = new X3Database()
     let rows: RawRow[] = []
     try {
@@ -167,7 +173,9 @@ export class OtdRepository {
     // Filtre client optionnel : on restreint les lignes AVANT le calcul du KPI
     // (taux, nbOtif, nbTotal) pour que le chiffre OTD reflète le client filtré.
     const needle = client ? fold(client.trim()) : ''
-    const scoped = needle ? rows.filter((r) => fold(String(r.BPCNAM_0 ?? '')).includes(needle)) : rows
+    const scoped = needle
+      ? rows.filter((r) => fold(String(r.BPCNAM_0 ?? '')).includes(needle))
+      : rows
 
     let nbOtif = 0
     const lignesNon: OtdLigneDtl[] = []

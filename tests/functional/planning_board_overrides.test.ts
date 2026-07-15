@@ -19,7 +19,9 @@ test.group('Planning Board Overrides', (group) => {
 
   test('GET /overrides lists all overrides', async ({ client, assert }) => {
     await client.patch('/api/v1/planning-board/ofs/OF010').json({ dateFin: '2026-06-20' })
-    await client.patch('/api/v1/planning-board/ofs/OF011').json({ dateFin: '2026-06-22', status: 1 })
+    await client
+      .patch('/api/v1/planning-board/ofs/OF011')
+      .json({ dateFin: '2026-06-22', status: 1 })
 
     const response = await client.get('/api/v1/planning-board/overrides')
     response.assertStatus(200)

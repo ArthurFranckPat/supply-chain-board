@@ -4,7 +4,7 @@ Template for `.planning/research/STACK.md` - recommended technologies for the pr
 
 <template>
 
-```markdown
+````markdown
 # Stack Research
 
 **Domain:** [domain type]
@@ -48,6 +48,7 @@ npm install [packages]
 # Dev dependencies
 npm install -D [packages]
 ```
+````
 
 ## Alternatives Considered
 
@@ -66,10 +67,12 @@ npm install -D [packages]
 ## Stack Patterns by Variant
 
 **If [condition]:**
+
 - Use [variation]
 - Because [reason]
 
 **If [condition]:**
+
 - Use [variation]
 - Because [reason]
 
@@ -86,8 +89,10 @@ npm install -D [packages]
 - [Other source] - [confidence level]
 
 ---
-*Stack research for: [domain]*
-*Researched: [date]*
+
+_Stack research for: [domain]_
+_Researched: [date]_
+
 ```
 
 </template>
@@ -118,3 +123,4 @@ npm install -D [packages]
 - Critical for avoiding debugging time later
 
 </guidelines>
+```

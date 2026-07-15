@@ -77,10 +77,7 @@ const isoDay = (d: Date): string => {
   return `${y}-${m}-${da}`
 }
 
-export async function loadPosteEngagement(
-  poste: string,
-  force = false
-): Promise<PosteEngagement> {
+export async function loadPosteEngagement(poste: string, force = false): Promise<PosteEngagement> {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const from = new Date(today)
@@ -246,20 +243,24 @@ export async function loadPosteEngagement(
         )
 
       const wst = ref.workstations.find((w) => w.code === poste)
-      const label = wst?.description ?? ref.gamme.find((g) => g.workstation === poste)?.workstationLabel ?? poste
+      const label =
+        wst?.description ??
+        ref.gamme.find((g) => g.workstation === poste)?.workstationLabel ??
+        poste
 
       // Capacité hebdo théorique (h) = Σ daycap × unités parallèles × eff×util.
       // Méthode identique au calcul de charge (charge_service). Null si poste
       // inconnu ou schéma horaire vide → la sheet saute le comparatif.
-      const weeklyCapacityHours = wst && wst.dailyCapacity.some((c) => c > 0)
-        ? Math.round(
-            wst.dailyCapacity.reduce((s, c) => s + c, 0) *
-              wst.parallelUnits *
-              (wst.efficiency / 100) *
-              (wst.utilization / 100) *
-              100
-          ) / 100
-        : null
+      const weeklyCapacityHours =
+        wst && wst.dailyCapacity.some((c) => c > 0)
+          ? Math.round(
+              wst.dailyCapacity.reduce((s, c) => s + c, 0) *
+                wst.parallelUnits *
+                (wst.efficiency / 100) *
+                (wst.utilization / 100) *
+                100
+            ) / 100
+          : null
 
       return {
         poste: { code: poste, label },

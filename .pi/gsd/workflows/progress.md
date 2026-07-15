@@ -101,6 +101,7 @@ If missing both ROADMAP.md and PROJECT.md: suggest `/gsd-new-project`.
 **Use structured extraction from gsd-tools:**
 
 Instead of reading full files, use targeted tools to get only the data needed for the report:
+
 - `ROADMAP=$(pi-gsd-tools roadmap analyze)`
 - `STATE=$(pi-gsd-tools state-snapshot)`
 
@@ -115,6 +116,7 @@ ROADMAP=$(pi-gsd-tools roadmap analyze)
 ```
 
 This returns structured JSON with:
+
 - All phases with disk status (complete/partial/planned/empty/no_directory)
 - Goal and dependencies per phase
 - Plan and summary counts per phase
@@ -216,6 +218,7 @@ grep -l "status: diagnosed\|status: partial" .planning/phases/[current-phase-dir
 ```
 
 Track:
+
 - `uat_with_gaps`: UAT.md files with status "diagnosed" (gaps need fixing)
 - `uat_partial`: UAT.md files with status "partial" (incomplete testing)
 
@@ -410,6 +413,7 @@ UAT.md exists with `status: partial` - testing session ended before all items re
 **Step 3: Check milestone status (only when phase complete)**
 
 Read ROADMAP.md and identify:
+
 1. Current phase number
 2. All phase numbers in the current milestone section
 

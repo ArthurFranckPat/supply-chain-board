@@ -2,7 +2,7 @@
  * AUTO-GÉNÉRÉ par scripts/gen-routes-manifest.mjs — NE PAS ÉDITER À LA MAIN.
  * Source : `start/routes.ts` → `node ace list:routes --jsonl`.
  * Régénérer : `npm run routes:gen` · Vérifier la fraîcheur : `npm run routes:check`.
- * 63 routes nommées.
+ * 72 routes nommées.
  */
 
 export const MANIFEST = {
@@ -20,8 +20,10 @@ export const MANIFEST = {
   "conditionnements.index": { method: "GET", pattern: "/conditionnements" },
   "conditionnements.rows": { method: "GET", pattern: "/api/v1/conditionnements/rows" },
   "dashboard": { method: "GET", pattern: "/" },
+  "dashboard_layout.update": { method: "PATCH", pattern: "/api/v1/user/dashboard-layout" },
   "dashboard.kpis": { method: "GET", pattern: "/api/v1/dashboard/kpis" },
   "dashboard.otd": { method: "GET", pattern: "/api/v1/dashboard/otd" },
+  "dashboard.stock_valuation": { method: "GET", pattern: "/api/v1/dashboard/stock" },
   "data.load": { method: "POST", pattern: "/api/v1/data/load" },
   "design_system": { method: "GET", pattern: "/design-system" },
   "diagnostic_test": { method: "GET", pattern: "/diagnostic-test" },
@@ -46,6 +48,13 @@ export const MANIFEST = {
   "planning.suggestion_firm": { method: "POST", pattern: "/api/v1/planning/suggestions/:sugNum/firm" },
   "receptions.index": { method: "GET", pattern: "/receptions" },
   "receptions.rows": { method: "GET", pattern: "/api/v1/receptions/rows" },
+  "scenarios.compare": { method: "GET", pattern: "/programme/scenarios/comparer" },
+  "scenarios.destroy": { method: "DELETE", pattern: "/api/v1/planning/scenarios/:id" },
+  "scenarios.diff": { method: "POST", pattern: "/api/v1/planning/scenarios/diff" },
+  "scenarios.index": { method: "GET", pattern: "/api/v1/planning/scenarios" },
+  "scenarios.show": { method: "GET", pattern: "/api/v1/planning/scenarios/:id" },
+  "scenarios.store": { method: "POST", pattern: "/api/v1/planning/scenarios" },
+  "scenarios.update": { method: "PATCH", pattern: "/api/v1/planning/scenarios/:id" },
   "scheduler.of_detail": { method: "GET", pattern: "/api/v1/planning/ofs/:of/detail" },
   "scheduler.poste_engagement": { method: "GET", pattern: "/api/v1/planning/postes/:poste/engagement" },
   "scheduler.programme": { method: "GET", pattern: "/programme" },
@@ -92,8 +101,10 @@ export type RouteParams = {
   "conditionnements.index": void,
   "conditionnements.rows": void,
   "dashboard": void,
+  "dashboard_layout.update": void,
   "dashboard.kpis": void,
   "dashboard.otd": void,
+  "dashboard.stock_valuation": void,
   "data.load": void,
   "design_system": void,
   "diagnostic_test": void,
@@ -118,6 +129,13 @@ export type RouteParams = {
   "planning.suggestion_firm": { "sugNum": string | number },
   "receptions.index": void,
   "receptions.rows": void,
+  "scenarios.compare": void,
+  "scenarios.destroy": { "id": string | number },
+  "scenarios.diff": void,
+  "scenarios.index": void,
+  "scenarios.show": { "id": string | number },
+  "scenarios.store": void,
+  "scenarios.update": { "id": string | number },
   "scheduler.of_detail": { "of": string | number },
   "scheduler.poste_engagement": { "poste": string | number },
   "scheduler.programme": void,

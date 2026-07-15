@@ -1,4 +1,8 @@
-import type { NomenclatureEntry, ComponentType, ConsumptionNature } from '#app/domain/models/nomenclature'
+import type {
+  NomenclatureEntry,
+  ComponentType,
+  ConsumptionNature,
+} from '#app/domain/models/nomenclature'
 import { X3Database } from '#app/x3/client/x3_database'
 
 // LEFT JOIN BOM BC removed — self-join causes 2min+ timeout on X3 SOAP over full dataset
@@ -35,23 +39,26 @@ export class X3NomenclatureRepository {
     const db = new X3Database()
     try {
       const fabricatedRows: RawRow[] = await db.raw(SQL_FABRICATED)
-      const fabricated = new Set(fabricatedRows.map(r => r.ART?.trim() ?? ''))
+      const fabricated = new Set(fabricatedRows.map((r) => r.ART?.trim() ?? ''))
 
       const rows: RawRow[] = await db.raw(SQL_BOM)
       return rows
-        .filter(row => !row.COMP_FAM?.startsWith('Z'))
+        .filter((row) => !row.COMP_FAM?.startsWith('Z'))
         .map((row) => {
           const componentArticle = row.ART_COMPOSANT?.trim() ?? ''
-          const componentType: ComponentType = fabricated.has(componentArticle) ? 'FABRIQUE' : 'ACHETE'
+          const componentType: ComponentType = fabricated.has(componentArticle)
+            ? 'FABRIQUE'
+            : 'ACHETE'
           const likqtycod = row.LIKQTYCOD?.trim() ?? ''
-          const consumptionNature: ConsumptionNature = likqtycod === '2' ? 'FORFAIT' : 'PROPORTIONNEL'
+          const consumptionNature: ConsumptionNature =
+            likqtycod === '2' ? 'FORFAIT' : 'PROPORTIONNEL'
           return {
             parentArticle: row.ART_PARENT?.trim() ?? '',
             parentDescription: row.DES_PARENT?.trim() ?? '',
-            level: parseInt(row.NIVEAU ?? '0') || 0,
+            level: Number.parseInt(row.NIVEAU ?? '0') || 0,
             componentArticle,
             componentDescription: row.DES_COMPOSANT?.trim() ?? '',
-            linkQuantity: parseFloat(row.QTE_LIEN ?? '0') || 0,
+            linkQuantity: Number.parseFloat(row.QTE_LIEN ?? '0') || 0,
             componentType,
             consumptionNature,
           }

@@ -133,5 +133,4 @@ export default class StockAlloc extends BaseModel {
 
   @belongsTo(() => ItemMaster, { foreignKey: 'article', localKey: 'article' })
   declare ficheArticle: BelongsTo<typeof ItemMaster>
-
 }

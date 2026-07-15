@@ -1,7 +1,11 @@
 import CapacityClosure from '#models/capacity_closure'
 import CapacityHolidayOverride from '#models/capacity_holiday_override'
 import { frenchHolidaysRange, type Holiday } from '#app/domain/holidays'
-import { buildWorkingCalendar, type Closure, type WorkingCalendar } from '#app/domain/working_calendar'
+import {
+  buildWorkingCalendar,
+  type Closure,
+  type WorkingCalendar,
+} from '#app/domain/working_calendar'
 
 /** Férié enrichi de son état actif/inactif (override utilisateur). */
 export interface HolidayState extends Holiday {
@@ -38,7 +42,10 @@ class CapacityCalendarService {
 
   /** Calendrier d'ouverture prêt à l'emploi pour la plage d'années. */
   async buildCalendar(fromYear: number, toYear: number): Promise<WorkingCalendar> {
-    const [holidays, closures] = await Promise.all([this.holidays(fromYear, toYear), this.closures()])
+    const [holidays, closures] = await Promise.all([
+      this.holidays(fromYear, toYear),
+      this.closures(),
+    ])
     const closedHolidays = new Set(holidays.filter((h) => h.active).map((h) => h.date))
     return buildWorkingCalendar(closedHolidays, closures)
   }

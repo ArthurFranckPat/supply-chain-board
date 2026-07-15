@@ -1,4 +1,13 @@
-import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount, type Component } from 'solid-js'
+import {
+  For,
+  Show,
+  createEffect,
+  createMemo,
+  createSignal,
+  onCleanup,
+  onMount,
+  type Component,
+} from 'solid-js'
 import { cx } from '@/libs/cva'
 import { Masthead } from '@/components/masthead'
 import { TextField, TextFieldInput } from '@/components/ui/text-field'
@@ -46,9 +55,7 @@ const Load: Component<LoadPageProps> = (props) => {
     net() ? { ...l, monthly: l.monthlyNet, weekly: l.weeklyNet } : l
 
   // Jeu de lignes de la vue active : OF (charge ordres) ou Commande (charge demande).
-  const lines = createMemo(() =>
-    (view() === 'of' ? props.ofLines : props.cmdLines).map(viewNet),
-  )
+  const lines = createMemo(() => (view() === 'of' ? props.ofLines : props.cmdLines).map(viewNet))
 
   // Filtre client : atelier (STOLOC) + recherche poste (code/libellé) OU article.
   const filteredLines = createMemo(() => {
@@ -56,7 +63,8 @@ const Load: Component<LoadPageProps> = (props) => {
     const ats = atelierFilter()
     return lines().filter((l) => {
       if (ats.size && !ats.has(l.atelier)) return false
-      if (q && !`${l.code} ${l.name} ${l.articles.join(' ')}`.toLowerCase().includes(q)) return false
+      if (q && !`${l.code} ${l.name} ${l.articles.join(' ')}`.toLowerCase().includes(q))
+        return false
       return true
     })
   })
@@ -67,9 +75,7 @@ const Load: Component<LoadPageProps> = (props) => {
     if (fl.length && !fl.some((l) => l.code === selected())) setSelected(fl[0].code)
   })
 
-  const selLine = createMemo(
-    () => lines().find((l) => l.code === selected()) ?? filteredLines()[0],
-  )
+  const selLine = createMemo(() => lines().find((l) => l.code === selected()) ?? filteredLines()[0])
 
   // ── Slider sans barre : molette → défilé horizontal LISSÉ (inertie rAF) ──
   let sliderEl: HTMLDivElement | undefined
@@ -111,8 +117,16 @@ const Load: Component<LoadPageProps> = (props) => {
     const line = selLine()
     if (!line) return []
     return gran() === 'month'
-      ? line.monthly.map((d, i) => ({ label: props.months[i] ?? '', d, cap: line.capacity.monthly[i] ?? 0 }))
-      : line.weekly.map((d, i) => ({ label: props.weeks[i] ?? '', d, cap: line.capacity.weekly[i] ?? 0 }))
+      ? line.monthly.map((d, i) => ({
+          label: props.months[i] ?? '',
+          d,
+          cap: line.capacity.monthly[i] ?? 0,
+        }))
+      : line.weekly.map((d, i) => ({
+          label: props.weeks[i] ?? '',
+          d,
+          cap: line.capacity.weekly[i] ?? 0,
+        }))
   }
 
   // Saturation globale du poste sélectionné sur la maille courante (charge / capacité).
@@ -134,7 +148,9 @@ const Load: Component<LoadPageProps> = (props) => {
         active="load"
         meta={
           <>
-            <div class="font-fraunces text-[12px] font-bold italic text-terra">{props.rangeLabel}</div>
+            <div class="font-fraunces text-[12px] font-bold italic text-brand">
+              {props.rangeLabel}
+            </div>
             <div>
               <b class="font-bold text-foreground">{lines().length}</b> postes de charge ·{' '}
               {view() === 'of' ? 'charge OF' : 'charge commandes'}
@@ -143,8 +159,10 @@ const Load: Component<LoadPageProps> = (props) => {
         }
         actions={
           <TextField class="contents">
-            <div class="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-terra focus-within:ring-2 focus-within:ring-terra/25">
-              <span class="material-symbols-outlined text-[17px] text-muted-foreground">search</span>
+            <div class="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/25">
+              <span class="material-symbols-outlined text-[17px] text-muted-foreground">
+                search
+              </span>
               <TextFieldInput
                 class="w-[190px] border-0 bg-transparent px-0 text-[12px] font-medium shadow-none focus-visible:ring-0"
                 placeholder="Poste, article…"
@@ -159,8 +177,8 @@ const Load: Component<LoadPageProps> = (props) => {
       />
 
       <Show when={props.x3Error}>
-        <div class="flex flex-none items-center gap-2 border-b border-terra/30 bg-terra-soft px-7 py-2 text-[12px] text-foreground">
-          <span class="material-symbols-outlined text-[16px] text-terra">warning</span>
+        <div class="flex flex-none items-center gap-2 border-b border-brand/30 bg-brand-soft px-7 py-2 text-[12px] text-foreground">
+          <span class="material-symbols-outlined text-[16px] text-brand">warning</span>
           <span class="font-bold">Erreur chargement :</span>
           <span class="font-mono">{props.x3Error}</span>
         </div>
@@ -170,14 +188,16 @@ const Load: Component<LoadPageProps> = (props) => {
       <div class="flex flex-none flex-wrap items-center gap-3.5 border-b border-rule px-7 py-2 text-[12px] font-semibold text-secondary-foreground">
         {/* Bascule OF ↔ Commande (parité visuelle avec le sélecteur de /programme). */}
         <div class="inline-flex items-center gap-0.5 rounded-md border border-rule bg-card p-0.5">
-          <For each={(['of', 'commande'] as const)}>
+          <For each={['of', 'commande'] as const}>
             {(v) => (
               <button
                 type="button"
                 onClick={() => setView(v)}
                 class={cx(
                   'rounded-[5px] px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
-                  view() === v ? 'bg-terra-soft text-terra' : 'text-muted-foreground hover:text-foreground',
+                  view() === v
+                    ? 'bg-brand-soft text-brand'
+                    : 'text-muted-foreground hover:text-foreground'
                 )}
               >
                 {v === 'of' ? 'OF' : 'Commande'}
@@ -199,8 +219,8 @@ const Load: Component<LoadPageProps> = (props) => {
                   class={cx(
                     'rounded-[5px] px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
                     (net() ? 'net' : 'brut') === m
-                      ? 'bg-terra-soft text-terra'
-                      : 'text-muted-foreground hover:text-foreground',
+                      ? 'bg-brand-soft text-brand'
+                      : 'text-muted-foreground hover:text-foreground'
                   )}
                 >
                   {m === 'brut' ? 'Brut' : 'Net'}
@@ -215,22 +235,27 @@ const Load: Component<LoadPageProps> = (props) => {
           fallback={
             <>
               <span class="flex items-center gap-1.5">
-                <i class="inline-block h-2.5 w-3.5 rounded-[2px] bg-ferme" />Commande
+                <i class="inline-block h-2.5 w-3.5 rounded-[2px] bg-ferme" />
+                Commande
               </span>
               <span class="flex items-center gap-1.5">
-                <i class="inline-block h-2.5 w-3.5 rounded-[2px] bg-suggere" />Prévision
+                <i class="inline-block h-2.5 w-3.5 rounded-[2px] bg-suggere" />
+                Prévision
               </span>
             </>
           }
         >
           <span class="flex items-center gap-1.5">
-            <i class="inline-block h-2.5 w-3.5 rounded-[2px] bg-ferme" />Ferme
+            <i class="inline-block h-2.5 w-3.5 rounded-[2px] bg-ferme" />
+            Ferme
           </span>
           <span class="flex items-center gap-1.5">
-            <i class="inline-block h-2.5 w-3.5 rounded-[2px] bg-planifie" />Planifié
+            <i class="inline-block h-2.5 w-3.5 rounded-[2px] bg-planifie" />
+            Planifié
           </span>
           <span class="flex items-center gap-1.5">
-            <i class="inline-block h-2.5 w-3.5 rounded-[2px] bg-suggere" />Suggéré
+            <i class="inline-block h-2.5 w-3.5 rounded-[2px] bg-suggere" />
+            Suggéré
           </span>
         </Show>
         <span class="h-3.5 w-px bg-rule-soft" />
@@ -241,10 +266,11 @@ const Load: Component<LoadPageProps> = (props) => {
           class="flex items-center gap-1.5 transition-opacity"
           classList={{ 'opacity-40': !showCapacity() }}
         >
-          <span class="material-symbols-outlined text-[16px] text-terra">
+          <span class="material-symbols-outlined text-[16px] text-brand">
             {showCapacity() ? 'check_box' : 'check_box_outline_blank'}
           </span>
-          <i class="inline-block w-[18px] border-t-[3px] border-foreground/70" />Capacité
+          <i class="inline-block w-[18px] border-t-[3px] border-foreground/70" />
+          Capacité
         </button>
         <button
           type="button"
@@ -252,15 +278,19 @@ const Load: Component<LoadPageProps> = (props) => {
           class="flex items-center gap-1.5 transition-opacity"
           classList={{ 'opacity-40': !showAvg() }}
         >
-          <span class="material-symbols-outlined text-[16px] text-terra">
+          <span class="material-symbols-outlined text-[16px] text-brand">
             {showAvg() ? 'check_box' : 'check_box_outline_blank'}
           </span>
-          <i class="inline-block w-[18px] border-t-[1.5px] border-dashed border-terra" />Moyenne mobile
+          <i class="inline-block w-[18px] border-t-[1.5px] border-dashed border-brand" />
+          Moyenne mobile
         </button>
         <span class="flex items-center gap-1.5">
           <i
             class="inline-block h-2.5 w-3.5 rounded-[2px]"
-            style={{ background: 'color-mix(in srgb, var(--color-danger) 20%, transparent)', 'box-shadow': 'inset 0 0 0 1px var(--color-danger)' }}
+            style={{
+              'background': 'color-mix(in srgb, var(--color-danger) 20%, transparent)',
+              'box-shadow': 'inset 0 0 0 1px var(--color-danger)',
+            }}
           />
           Surcharge
         </span>
@@ -272,7 +302,9 @@ const Load: Component<LoadPageProps> = (props) => {
       {/* Filtre atelier (#36) — chips STOLOC, apparaît dès qu'un poste porte un atelier. */}
       <Show when={props.ateliers.length > 0}>
         <div class="flex flex-none flex-wrap items-center gap-1.5 border-b border-rule px-7 py-2 text-[12px]">
-          <span class="mr-1 font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Atelier</span>
+          <span class="mr-1 font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            Atelier
+          </span>
           <For each={props.ateliers}>
             {(a) => (
               <button
@@ -281,8 +313,8 @@ const Load: Component<LoadPageProps> = (props) => {
                 class={cx(
                   'rounded-full border px-2.5 py-1 font-sans text-[11px] font-semibold transition-colors',
                   atelierFilter().has(a.code)
-                    ? 'border-terra bg-terra-soft text-terra'
-                    : 'border-rule bg-card text-muted-foreground hover:border-[#b3a47e] hover:text-foreground',
+                    ? 'border-brand bg-brand-soft text-brand'
+                    : 'border-rule bg-card text-muted-foreground hover:border-[#b3a47e] hover:text-foreground'
                 )}
                 title={a.code}
               >
@@ -294,7 +326,7 @@ const Load: Component<LoadPageProps> = (props) => {
             <button
               type="button"
               onClick={() => setAtelierFilter(new Set())}
-              class="ml-1 font-mono text-[10px] font-bold uppercase tracking-wider text-terra hover:underline"
+              class="ml-1 font-mono text-[10px] font-bold uppercase tracking-wider text-brand hover:underline"
             >
               Réinitialiser
             </button>
@@ -306,7 +338,9 @@ const Load: Component<LoadPageProps> = (props) => {
         when={lines().length > 0}
         fallback={
           <div class="flex flex-1 items-center justify-center p-10 font-fraunces text-[14px] italic text-muted-foreground">
-            {view() === 'of' ? 'Aucune charge OF sur l\'horizon.' : 'Aucune charge commande sur l\'horizon.'}
+            {view() === 'of'
+              ? "Aucune charge OF sur l'horizon."
+              : "Aucune charge commande sur l'horizon."}
           </div>
         }
       >
@@ -359,7 +393,9 @@ const Load: Component<LoadPageProps> = (props) => {
                   <div class="flex items-center gap-2 font-fraunces text-[20px] font-extrabold tracking-tight">
                     <span class="size-3 rounded-[3px]" style={{ background: line().color }} />
                     {line().code}
-                    <span class="font-sans text-[14px] font-medium text-muted-foreground">· {line().name}</span>
+                    <span class="font-sans text-[14px] font-medium text-muted-foreground">
+                      · {line().name}
+                    </span>
                   </div>
                   <Show when={line().atelier}>
                     <span class="rounded-full border border-rule bg-secondary px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-secondary-foreground">
@@ -371,7 +407,7 @@ const Load: Component<LoadPageProps> = (props) => {
                     <span
                       class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[11px] font-bold"
                       style={{
-                        color: satColor(selSaturation().charge, selSaturation().cap),
+                        'color': satColor(selSaturation().charge, selSaturation().cap),
                         'background-color': 'color-mix(in srgb, currentColor 12%, transparent)',
                       }}
                     >
@@ -390,7 +426,9 @@ const Load: Component<LoadPageProps> = (props) => {
                       onClick={() => setGran('month')}
                       class={cx(
                         'rounded-full px-3.5 py-1.5 font-sans text-[11px] font-bold uppercase tracking-wide transition-colors',
-                        gran() === 'month' ? 'bg-card text-terra shadow-[0_1px_2px_rgba(0,0,0,.08)]' : 'text-muted-foreground',
+                        gran() === 'month'
+                          ? 'bg-card text-brand shadow-[0_1px_2px_rgba(0,0,0,.08)]'
+                          : 'text-muted-foreground'
                       )}
                     >
                       Mois
@@ -400,14 +438,22 @@ const Load: Component<LoadPageProps> = (props) => {
                       onClick={() => setGran('week')}
                       class={cx(
                         'rounded-full px-3.5 py-1.5 font-sans text-[11px] font-bold uppercase tracking-wide transition-colors',
-                        gran() === 'week' ? 'bg-card text-terra shadow-[0_1px_2px_rgba(0,0,0,.08)]' : 'text-muted-foreground',
+                        gran() === 'week'
+                          ? 'bg-card text-brand shadow-[0_1px_2px_rgba(0,0,0,.08)]'
+                          : 'text-muted-foreground'
                       )}
                     >
                       Semaine
                     </button>
                   </div>
                 </div>
-                <DetailChart items={detailItems} gran={gran} view={view} showCapacity={showCapacity} showAvg={showAvg} />
+                <DetailChart
+                  items={detailItems}
+                  gran={gran}
+                  view={view}
+                  showCapacity={showCapacity}
+                  showAvg={showAvg}
+                />
               </div>
             )}
           </Show>

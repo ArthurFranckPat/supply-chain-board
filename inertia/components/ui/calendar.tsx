@@ -6,7 +6,7 @@ import { cx } from '@/libs/cva'
  *
  *  • mode="single" (défaut) : `value` / `onValueChange` — un clic sélectionne.
  *  • mode="range"           : `range` / `onRangeChange` — 1er clic = début,
- *    survol = aperçu, 2e clic = fin (ordre auto). Barre terra-soft continue
+ *    survol = aperçu, 2e clic = fin (ordre auto). Barre brand-soft continue
  *    entre les deux bornes (remplies terra).
  *
  * Mois en Fraunces, numéros de semaine ISO en colonne gauche (alignés sur le
@@ -14,8 +14,18 @@ import { cx } from '@/libs/cva'
  */
 
 const MONTHS = [
-  'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
-  'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre',
+  'Janvier',
+  'Février',
+  'Mars',
+  'Avril',
+  'Mai',
+  'Juin',
+  'Juillet',
+  'Août',
+  'Septembre',
+  'Octobre',
+  'Novembre',
+  'Décembre',
 ]
 const WEEKDAYS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
 const DAY_MS = 86_400_000
@@ -32,7 +42,7 @@ function isoWeek(d: Date): number {
       ((t.getTime() - firstThursday.getTime()) / DAY_MS -
         3 +
         ((firstThursday.getUTCDay() + 6) % 7)) /
-        7,
+        7
     )
   )
 }
@@ -69,10 +79,7 @@ export type CalendarProps = {
 
 export const Calendar: Component<CalendarProps> = (props) => {
   const today = startOfDay(new Date())
-  const initial =
-    props.mode === 'range'
-      ? props.range?.start ?? today
-      : props.value ?? today
+  const initial = props.mode === 'range' ? (props.range?.start ?? today) : (props.value ?? today)
 
   const [view, setView] = createSignal({
     y: initial.getFullYear(),
@@ -105,11 +112,15 @@ export const Calendar: Component<CalendarProps> = (props) => {
     const d = new Date(y, m + delta, 1)
     setView({ y: d.getFullYear(), m: d.getMonth() })
   }
-  const goToday = () => setView({ y: today.getFullYear(), m: today.getMonth() })
+  const goToday = () => {
+    setView({ y: today.getFullYear(), m: today.getMonth() })
+    // Mode single : "Aujourd'hui" sélectionne réellement la date (pas juste la vue) —
+    // sinon le clic ne fait rien de visible quand le mois affiché est déjà le mois courant.
+    if (props.mode !== 'range') props.onValueChange?.(today)
+  }
 
   const isDisabled = (d: Date) =>
-    (props.min != null && d < startOfDay(props.min)) ||
-    (props.max != null && d > props.max)
+    (props.min != null && d < startOfDay(props.min)) || (props.max != null && d > props.max)
 
   /** Plage effective rendue : plage validée OU aperçu (ancre → survol). */
   const effRange = createMemo<DateRange>(() => {
@@ -144,7 +155,7 @@ export const Calendar: Component<CalendarProps> = (props) => {
     <div
       class={cx(
         'w-[320px] select-none rounded-xl border border-border bg-card p-4 shadow-[0_1px_2px_rgba(31,26,19,.05)]',
-        props.class,
+        props.class
       )}
     >
       {/* En-tête : mois (Fraunces) + navigation */}
@@ -229,10 +240,10 @@ export const Calendar: Component<CalendarProps> = (props) => {
                       {hasSpan() && (between() || isRStart() || isREnd()) && (
                         <span
                           class={cx(
-                            'pointer-events-none absolute inset-y-1.5 bg-terra/20',
+                            'pointer-events-none absolute inset-y-1.5 bg-brand/20',
                             between() && 'left-0 right-0',
                             isRStart() && 'left-1/2 right-0',
-                            isREnd() && 'left-0 right-1/2',
+                            isREnd() && 'left-0 right-1/2'
                           )}
                         />
                       )}
@@ -241,15 +252,15 @@ export const Calendar: Component<CalendarProps> = (props) => {
                         class={cx(
                           'relative z-[1] flex size-8 items-center justify-center rounded-full text-[12px] tabular-nums transition-colors',
                           filled()
-                            ? 'bg-terra font-bold text-card'
+                            ? 'bg-brand font-bold text-card'
                             : isToday
-                              ? 'border border-terra font-bold text-terra'
+                              ? 'border border-brand font-bold text-brand'
                               : inMonth
                                 ? isWeekend
-                                  ? 'text-muted-foreground hover:bg-terra-soft hover:text-foreground'
-                                  : 'text-foreground hover:bg-terra-soft'
+                                  ? 'text-muted-foreground hover:bg-brand-soft hover:text-foreground'
+                                  : 'text-foreground hover:bg-brand-soft'
                                 : 'text-muted-foreground/40',
-                          dis && 'opacity-40',
+                          dis && 'opacity-40'
                         )}
                       >
                         {d.getDate()}
@@ -271,7 +282,7 @@ export const Calendar: Component<CalendarProps> = (props) => {
         <button
           type="button"
           onClick={goToday}
-          class="font-mono text-[10px] font-bold tracking-wider text-terra transition-colors hover:text-foreground"
+          class="font-mono text-[10px] font-bold tracking-wider text-brand transition-colors hover:text-foreground"
         >
           Aujourd'hui
         </button>

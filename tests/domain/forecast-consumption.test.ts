@@ -2,11 +2,35 @@ import { test } from '@japa/runner'
 import type { Flow, FlowOrigin } from '#app/domain/models/flow'
 import { consumeForecasts } from '#app/domain/forecast-consumption'
 
-function makeDemand(article: string, quantity: number, date: Date, type: 'order' | 'forecast'): Flow {
+function makeDemand(
+  article: string,
+  quantity: number,
+  date: Date,
+  type: 'order' | 'forecast'
+): Flow {
   const origin: Extract<FlowOrigin, { type: 'order' }> | Extract<FlowOrigin, { type: 'forecast' }> =
     type === 'order'
-      ? { type: 'order', id: `CMD-${article}`, orderType: 'NOR', customer: 'Test', pays: null, nature: 'COMMANDE', contremarque: null, qteCommandee: quantity, qteAllouee: 0 }
-      : { type: 'forecast', id: `FC-${article}`, customer: null, pays: null, orderType: null, contremarque: null, qteCommandee: quantity, qteAllouee: 0 }
+      ? {
+          type: 'order',
+          id: `CMD-${article}`,
+          orderType: 'NOR',
+          customer: 'Test',
+          pays: null,
+          nature: 'COMMANDE',
+          contremarque: null,
+          qteCommandee: quantity,
+          qteAllouee: 0,
+        }
+      : {
+          type: 'forecast',
+          id: `FC-${article}`,
+          customer: null,
+          pays: null,
+          orderType: null,
+          contremarque: null,
+          qteCommandee: quantity,
+          qteAllouee: 0,
+        }
   return { article, quantity, direction: 'demand', date, origin }
 }
 
@@ -59,9 +83,7 @@ test.group('consumeForecasts', () => {
   })
 
   test('no forecasts returns orders only', ({ assert }) => {
-    const demands: Flow[] = [
-      makeDemand('ART1', 100, new Date('2026-04-10'), 'order'),
-    ]
+    const demands: Flow[] = [makeDemand('ART1', 100, new Date('2026-04-10'), 'order')]
 
     const { adjusted, stats } = consumeForecasts(demands)
 
@@ -70,9 +92,7 @@ test.group('consumeForecasts', () => {
   })
 
   test('no orders keeps forecasts unchanged', ({ assert }) => {
-    const demands: Flow[] = [
-      makeDemand('ART1', 500, new Date('2026-04-10'), 'forecast'),
-    ]
+    const demands: Flow[] = [makeDemand('ART1', 500, new Date('2026-04-10'), 'forecast')]
 
     const { adjusted, stats } = consumeForecasts(demands)
 

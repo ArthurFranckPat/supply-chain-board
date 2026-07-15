@@ -50,7 +50,7 @@ routes.sort((a, b) => a.name.localeCompare(b.name))
 const manifestEntries = routes
   .map(
     (r) =>
-      `  ${JSON.stringify(r.name)}: { method: ${JSON.stringify(r.method)}, pattern: ${JSON.stringify(r.pattern)} }`,
+      `  ${JSON.stringify(r.name)}: { method: ${JSON.stringify(r.method)}, pattern: ${JSON.stringify(r.pattern)} }`
   )
   .join(',\n')
 

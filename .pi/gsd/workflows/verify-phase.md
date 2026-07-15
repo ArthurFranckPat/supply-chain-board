@@ -85,6 +85,7 @@ Executed by a verification subagent spawned from execute-phase.md.
 A task "create chat component" can be marked complete when the component is a placeholder. The task was done - but the goal "working chat interface" was not achieved.
 
 Goal-backward verification:
+
 1. What must be TRUE for the goal to be achieved?
 2. What must EXIST for those truths to hold?
 3. What must be WIRED for those artifacts to function?
@@ -107,6 +108,7 @@ Load phase operation context:
 Extract from init JSON: `phase_dir`, `phase_number`, `phase_name`, `has_plans`, `plan_count`.
 
 Then load phase details and list plans/summaries:
+
 ```bash
 pi-gsd-tools roadmap get-phase "${phase_number}"
 grep -E "^| ${phase_number}" .planning/REQUIREMENTS.md 2>/dev/null || true
@@ -141,6 +143,7 @@ PHASE_DATA=$(pi-gsd-tools roadmap get-phase "${phase_number}" --raw)
 ```
 
 Parse the `success_criteria` array from the JSON output. If non-empty:
+
 1. Use each Success Criterion directly as a **truth** (they are already written as observable, testable behaviors)
 2. Derive **artifacts** (concrete file paths for each truth)
 3. Derive **key links** (critical wiring where stubs hide)
@@ -151,6 +154,7 @@ Success Criteria from ROADMAP.md are the contract - they override PLAN-level mus
 **Option C: Derive from phase goal (fallback)**
 
 If no must_haves in frontmatter AND no Success Criteria in ROADMAP:
+
 1. State the goal from ROADMAP.md
 2. Derive **truths** (3-7 observable behaviors, each testable)
 3. Derive **artifacts** (concrete file paths for each truth)
@@ -181,27 +185,31 @@ done
 Parse JSON result: `{ all_passed, passed, total, artifacts: [{path, exists, issues, passed}] }`
 
 **Artifact status from result:**
+
 - `exists=false` → MISSING
 - `issues` not empty → STUB (check issues for "Only N lines" or "Missing pattern")
 - `passed=true` → VERIFIED (Levels 1-2 pass)
 
 **Level 3 - Wired (manual check for artifacts that pass Levels 1-2):**
+
 ```bash
 grep -r "import.*$artifact_name" src/ --include="*.ts" --include="*.tsx"  # IMPORTED
 grep -r "$artifact_name" src/ --include="*.ts" --include="*.tsx" | grep -v "import"  # USED
 ```
+
 WIRED = imported AND used. ORPHANED = exists but not imported/used.
 
-| Exists | Substantive | Wired | Status     |
-| ------ | ----------- | ----- | ---------- |
-| ✓      | ✓           | ✓     | ✓ VERIFIED |
+| Exists | Substantive | Wired | Status      |
+| ------ | ----------- | ----- | ----------- |
+| ✓      | ✓           | ✓     | ✓ VERIFIED  |
 | ✓      | ✓           | ✗     | ⚠️ ORPHANED |
-| ✓      | ✗           | -     | ✗ STUB     |
-| ✗      | -           | -     | ✗ MISSING  |
+| ✓      | ✗           | -     | ✗ STUB      |
+| ✗      | -           | -     | ✗ MISSING   |
 
 **Export-level spot check (WARNING severity):**
 
 For artifacts that pass Level 3, spot-check individual exports:
+
 - Extract key exported symbols (functions, constants, classes - skip types/interfaces)
 - For each, grep for usage outside the defining file
 - Flag exports with zero external call sites as "exported but unused"
@@ -224,6 +232,7 @@ done
 Parse JSON result: `{ all_verified, verified, total, links: [{from, to, via, verified, detail}] }`
 
 **Link status from result:**
+
 - `verified=true` → WIRED
 - `verified=false` with "not found" → NOT_WIRED
 - `verified=false` with "Pattern not found" → PARTIAL
@@ -252,8 +261,8 @@ For each requirement: parse description → identify supporting truths/artifacts
 <step name="scan_antipatterns">
 Extract files modified in this phase from SUMMARY.md, scan each:
 
-| Pattern             | Search                                                        | Severity  |
-| ------------------- | ------------------------------------------------------------- | --------- |
+| Pattern             | Search                                                        | Severity   |
+| ------------------- | ------------------------------------------------------------- | ---------- |
 | TODO/FIXME/XXX/HACK | `grep -n -E "TODO\|FIXME\|XXX\|HACK"`                         | ⚠️ Warning |
 | Placeholder content | `grep -n -iE "placeholder\|coming soon\|will be here"`        | 🛑 Blocker |
 | Empty returns       | `grep -n -E "return null\|return \{\}\|return \[\]\|=> \{\}"` | ⚠️ Warning |
@@ -312,6 +321,7 @@ Orchestrator routes: `passed` → update_roadmap | `gaps_found` → create/execu
 </process>
 
 <success_criteria>
+
 - [ ] Must-haves established (from frontmatter or derived)
 - [ ] All truths verified with status and evidence
 - [ ] All artifacts checked at all three levels
@@ -323,4 +333,4 @@ Orchestrator routes: `passed` → update_roadmap | `gaps_found` → create/execu
 - [ ] Fix plans generated (if gaps_found)
 - [ ] VERIFICATION.md created with complete report
 - [ ] Results returned to orchestrator
-</success_criteria>
+      </success_criteria>

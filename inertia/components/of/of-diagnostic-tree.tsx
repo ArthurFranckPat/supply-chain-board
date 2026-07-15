@@ -39,7 +39,7 @@ const DiagRow: Component<{ short: DiagShort }> = (p) => (
     class={cx(
       'flex items-center gap-3 px-3 py-2',
       p.short.status === 'rupture_matiere' && 'bg-destructive/10',
-      p.short.status === 'qc_a_controler' && 'bg-warning/10',
+      p.short.status === 'qc_a_controler' && 'bg-warning/10'
     )}
   >
     <div class="w-[6.5rem] flex-none">
@@ -47,9 +47,12 @@ const DiagRow: Component<{ short: DiagShort }> = (p) => (
         {TREE_STATUS_LABEL[p.short.status]}
       </Badge>
     </div>
-    <span class={cx('w-[6rem] flex-none truncate font-mono text-[11px] font-bold',
-      p.short.status === 'rupture_matiere' ? 'text-destructive' : 'text-foreground'
-    )}>
+    <span
+      class={cx(
+        'w-[6rem] flex-none truncate font-mono text-[11px] font-bold',
+        p.short.status === 'rupture_matiere' ? 'text-destructive' : 'text-foreground'
+      )}
+    >
       {p.short.article}
     </span>
     <span class="min-w-0 flex-1 truncate text-[11px] text-muted-foreground">
@@ -79,7 +82,7 @@ const DiagRow: Component<{ short: DiagShort }> = (p) => (
               <span class="text-[9px] font-mono">{p.short.receptionOrderId}</span>
               <span class="text-border">·</span>
             </Show>
-            <span class="text-terra">réc. {fmtDateFr(p.short.earliestReception)}</span>
+            <span class="text-brand">réc. {fmtDateFr(p.short.earliestReception)}</span>
           </div>
         </div>
       </Show>
@@ -109,7 +112,9 @@ const DiagShortRow: Component<{ short: DiagShort }> = (props) => (
                 <span class="font-semibold tracking-wider">COUVERT PAR</span>
                 <span class="font-bold text-[11px] text-foreground">{cov.numOf}</span>
                 <Badge
-                  variant={cov.statut === 1 ? 'success' : cov.statut === 3 ? 'warning' : 'secondary'}
+                  variant={
+                    cov.statut === 1 ? 'success' : cov.statut === 3 ? 'warning' : 'secondary'
+                  }
                   class="text-[8px]"
                 >
                   {STATUT_OF[cov.statut] ?? `statut ${cov.statut}`}
@@ -135,9 +140,7 @@ const DiagShortRow: Component<{ short: DiagShort }> = (props) => (
                 }
               >
                 <div class="mb-1 overflow-hidden rounded border border-border/60">
-                  <For each={cov.node.shorts}>
-                    {(s) => <DiagShortRow short={s} />}
-                  </For>
+                  <For each={cov.node.shorts}>{(s) => <DiagShortRow short={s} />}</For>
                 </div>
               </Show>
             </div>
@@ -189,9 +192,7 @@ export const OfDiagnosticTree: Component<{ result: DiagResult }> = (props) => (
     >
       <div class="overflow-hidden rounded-md border border-border">
         <DiagColHeader />
-        <For each={props.result.tree.shorts}>
-          {(s) => <DiagShortRow short={s} />}
-        </For>
+        <For each={props.result.tree.shorts}>{(s) => <DiagShortRow short={s} />}</For>
       </div>
     </Show>
   </div>

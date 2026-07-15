@@ -68,7 +68,10 @@ export interface LineRow {
  * HYGRO=bleu, DHU=orange, AUTO=jaune, PURAIR=vert, AUTOSENS=violet.
  * `light` = teinte claire pour la part bouche-consommatrice (ex: HYGRO-BDH vs HYGRO-BAH).
  */
-export const TYPO_META: Record<string, { label: string; color: string; light: string; text: string }> = {
+export const TYPO_META: Record<
+  string,
+  { label: string; color: string; light: string; text: string }
+> = {
   ESH10: { label: 'AUTO', color: '#eab308', light: '#fde68a', text: '#1f2937' },
   ESH20: { label: 'DHU', color: '#ea580c', light: '#fdba74', text: '#ffffff' },
   ESH30: { label: 'HYGRO', color: '#2563eb', light: '#93c5fd', text: '#ffffff' },

@@ -12,8 +12,12 @@ function mockContext(overrides: Record<string, any> = {}): any {
       },
     },
     response: {
-      badRequest(data: any) { return data },
-      ok(data: any) { return data },
+      badRequest(data: any) {
+        return data
+      },
+      ok(data: any) {
+        return data
+      },
     },
     ...overrides,
   }
@@ -25,7 +29,7 @@ test.group('X3DataController.load', () => {
     const ctx = mockContext({ body: {} })
     ctx.request.only = () => ({ sql: null, params: null })
 
-    const result = await ctrl.load(ctx) as any
+    const result = (await ctrl.load(ctx)) as any
     assert.equal(result.message, 'sql query is required')
   })
 
@@ -34,7 +38,7 @@ test.group('X3DataController.load', () => {
     const ctx = mockContext({ body: { sql: '' } })
     ctx.request.only = () => ({ sql: '', params: null })
 
-    const result = await ctrl.load(ctx) as any
+    const result = (await ctrl.load(ctx)) as any
     assert.equal(result.message, 'sql query is required')
   })
 
@@ -43,7 +47,7 @@ test.group('X3DataController.load', () => {
     const ctx = mockContext({ body: { sql: 123 } })
     ctx.request.only = () => ({ sql: 123, params: null })
 
-    const result = await ctrl.load(ctx) as any
+    const result = (await ctrl.load(ctx)) as any
     assert.equal(result.message, 'sql query is required')
   })
 })

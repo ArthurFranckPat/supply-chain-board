@@ -28,7 +28,9 @@ export default class extends BaseSchema {
       t.string('wcrfcy').notNullable().defaultTo('') // WCRFCY_0 — site de fabrication
       t.integer('synced_at').notNullable().defaultTo(0)
     })
-    this.schema.raw('CREATE UNIQUE INDEX static_workstations_code_unique ON static_workstations (code)')
+    this.schema.raw(
+      'CREATE UNIQUE INDEX static_workstations_code_unique ON static_workstations (code)'
+    )
   }
 
   async down() {

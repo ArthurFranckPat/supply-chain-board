@@ -478,5 +478,4 @@ export default class ItemFacility extends BaseModel {
 
   @belongsTo(() => ItemMaster, { foreignKey: 'article', localKey: 'article' })
   declare ficheArticle: BelongsTo<typeof ItemMaster>
-
 }

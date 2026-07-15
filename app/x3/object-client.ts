@@ -16,53 +16,53 @@
  * brut, aucune protection court-circuitée (contrairement à un write SQL direct).
  */
 
-import { execFile } from "child_process";
-import { writeFileSync, unlinkSync } from "fs";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
-import { randomBytes } from "node:crypto";
+import { execFile } from 'node:child_process'
+import { writeFileSync, unlinkSync } from 'node:fs'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
+import { randomBytes } from 'node:crypto'
 
-import type { X3SoapConfig } from "./soap-client.js";
+import type { X3SoapConfig } from './soap-client.js'
 
-export type ObjectOperation = "read" | "save" | "modify" | "delete" | "getDescription" | "queryList";
+export type ObjectOperation = 'read' | 'save' | 'modify' | 'delete' | 'getDescription' | 'queryList'
 
 export interface ObjectKeyValue {
-  key: string;
-  value: string;
+  key: string
+  value: string
 }
 
 export interface ObjectMessage {
   /** Convention Syracuse : 1 = erreur, 2 = warning, 3 = info. */
-  type: number;
-  text: string;
+  type: number
+  text: string
 }
 
 export interface ObjectResult {
-  ok: boolean;
-  status: number | null;
+  ok: boolean
+  status: number | null
   /** XML objet renvoyé par X3 (résultat de read/save/modify). Brut. */
-  resultXml: string;
-  messages: ObjectMessage[];
+  resultXml: string
+  messages: ObjectMessage[]
   /** Erreur transport (curl/timeout) ou message synthétique d'échec. */
-  error: string;
+  error: string
   /** Réponse SOAP brute (debug). */
-  raw: string;
+  raw: string
 }
 
 const ENDPOINT = (config: X3SoapConfig) =>
-  `http://${config.host}:${config.port}/soap-generic/syracuse/collaboration/syracuse/CAdxWebServiceXmlCC`;
+  `http://${config.host}:${config.port}/soap-generic/syracuse/collaboration/syracuse/CAdxWebServiceXmlCC`
 
 function escapeXml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
 function decodeEntities(s: string): string {
   return s
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
     .replace(/&apos;/g, "'")
-    .replace(/&amp;/g, "&");
+    .replace(/&amp;/g, '&')
 }
 
 /** Normalise un `objectXml` avant envoi en `save`/`modify`.
@@ -74,10 +74,10 @@ function decodeEntities(s: string): string {
  * pouvoir réutiliser tel quel le XML d'un read comme payload d'écriture.
  */
 function normalizeObjectXml(xml: string): string {
-  let s = xml.trim();
-  s = s.replace(/^<\?xml[^>]*\?>\s*/i, "");
-  s = s.replace(/^<RESULT(\s|>)/i, "<PARAM$1").replace(/<\/RESULT>\s*$/i, "</PARAM>");
-  return s;
+  let s = xml.trim()
+  s = s.replace(/^<\?xml[^>]*\?>\s*/i, '')
+  s = s.replace(/^<RESULT(\s|>)/i, '<PARAM$1').replace(/<\/RESULT>\s*$/i, '</PARAM>')
+  return s
 }
 
 /** Sérialise les clés d'objet au tableau SOAP `ArrayOfCAdxParamKeyValue`. */
@@ -87,12 +87,12 @@ function buildObjectKeysXml(keys: ObjectKeyValue[]): string {
       (k) => `        <item xsi:type="wss:CAdxParamKeyValue">
           <key xsi:type="xsd:string">${escapeXml(k.key)}</key>
           <value xsi:type="xsd:string">${escapeXml(k.value)}</value>
-        </item>`,
+        </item>`
     )
-    .join("\n");
+    .join('\n')
   return `      <objectKeys xsi:type="wss:ArrayOfCAdxParamKeyValue" soapenc:arrayType="wss:CAdxParamKeyValue[${keys.length}]">
 ${items}
-      </objectKeys>`;
+      </objectKeys>`
 }
 
 function buildEnvelope(
@@ -100,22 +100,22 @@ function buildEnvelope(
   config: X3SoapConfig,
   publicName: string,
   keys: ObjectKeyValue[],
-  objectXml: string,
+  objectXml: string
 ): string {
-  const needKeys = operation === "read" || operation === "delete" || operation === "modify";
-  const needXml = operation === "save" || operation === "modify";
+  const needKeys = operation === 'read' || operation === 'delete' || operation === 'modify'
+  const needXml = operation === 'save' || operation === 'modify'
 
-  const parts: string[] = [];
+  const parts: string[] = []
   parts.push(`      <callContext xsi:type="wss:CAdxCallContext">
         <codeLang xsi:type="xsd:string">FRA</codeLang>
         <poolAlias xsi:type="xsd:string">${config.pool}</poolAlias>
         <poolId xsi:type="xsd:string"></poolId>
         <requestConfig xsi:type="xsd:string">adxwss.optreturn=XML&amp;adxwss.beautify=true</requestConfig>
-      </callContext>`);
-  parts.push(`      <publicName xsi:type="xsd:string">${escapeXml(publicName)}</publicName>`);
-  if (needKeys) parts.push(buildObjectKeysXml(keys));
+      </callContext>`)
+  parts.push(`      <publicName xsi:type="xsd:string">${escapeXml(publicName)}</publicName>`)
+  if (needKeys) parts.push(buildObjectKeysXml(keys))
   if (needXml) {
-    parts.push(`      <objectXml xsi:type="xsd:string"><![CDATA[${objectXml}]]></objectXml>`);
+    parts.push(`      <objectXml xsi:type="xsd:string"><![CDATA[${objectXml}]]></objectXml>`)
   }
 
   return `<?xml version="1.0" encoding="utf-8"?>
@@ -123,10 +123,10 @@ function buildEnvelope(
   <soapenv:Header/>
   <soapenv:Body>
     <wss:${operation} soapenv:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
-${parts.join("\n")}
+${parts.join('\n')}
     </wss:${operation}>
   </soapenv:Body>
-</soapenv:Envelope>`;
+</soapenv:Envelope>`
 }
 
 /** Extrait les messages Syracuse d'une réponse SOAP.
@@ -136,38 +136,43 @@ ${parts.join("\n")}
  * de body (cas Syracuse). Le texte est dans <message> (parfois <v> selon version).
  */
 function extractMessages(raw: string): ObjectMessage[] {
-  const out: ObjectMessage[] = [];
+  const out: ObjectMessage[] = []
 
   // 1. Cartographie des blocs multiRef : id → { type, text }
-  const multiRefRe = /<multiRef\b[^>]*\bid="(id\d+)"[^>]*>([\s\S]*?)<\/multiRef>/g;
-  const refs = new Map<string, ObjectMessage>();
-  let mm: RegExpExecArray | null;
+  const multiRefRe = /<multiRef\b[^>]*\bid="(id\d+)"[^>]*>([\s\S]*?)<\/multiRef>/g
+  const refs = new Map<string, ObjectMessage>()
+  let mm: RegExpExecArray | null
   while ((mm = multiRefRe.exec(raw)) !== null) {
-    const inner = mm[2];
-    const tm = inner.match(/<(?:[\w]+:)?type[^>]*>\s*(\d+)\s*<\/(?:[\w]+:)?type>/);
-    const vm = inner.match(/<(?:[\w]+:)?(?:message|v)\b[^>]*>([\s\S]*?)<\/(?:[\w]+:)?(?:message|v)>/);
-    refs.set(mm[1], { type: tm ? parseInt(tm[1], 10) : 3, text: vm ? decodeEntities(vm[1].trim()) : "" });
+    const inner = mm[2]
+    const tm = inner.match(/<(?:[\w]+:)?type[^>]*>\s*(\d+)\s*<\/(?:[\w]+:)?type>/)
+    const vm = inner.match(
+      /<(?:[\w]+:)?(?:message|v)\b[^>]*>([\s\S]*?)<\/(?:[\w]+:)?(?:message|v)>/
+    )
+    refs.set(mm[1], {
+      type: tm ? Number.parseInt(tm[1], 10) : 3,
+      text: vm ? decodeEntities(vm[1].trim()) : '',
+    })
   }
 
   // 2a. Références href du tableau <messages> → résolution multiRef
-  const hrefRe = /<messages\b[^>]*\bhref="#(id\d+)"/g;
-  let hm: RegExpExecArray | null;
+  const hrefRe = /<messages\b[^>]*\bhref="#(id\d+)"/g
+  let hm: RegExpExecArray | null
   while ((hm = hrefRe.exec(raw)) !== null) {
-    const ref = refs.get(hm[1]);
-    if (ref) out.push(ref);
+    const ref = refs.get(hm[1])
+    if (ref) out.push(ref)
   }
 
   // 2b. Fallback : paires type/message brutes (structure sans multiRef)
   if (out.length === 0) {
     const pairRe =
-      /<(?:[\w]+:)?type[^>]*>\s*(\d+)\s*<\/(?:[\w]+:)?type>[\s\S]*?<(?:[\w]+:)?(?:message|v)\b[^>]*>([\s\S]*?)<\/(?:[\w]+:)?(?:message|v)>/g;
-    let pm: RegExpExecArray | null;
+      /<(?:[\w]+:)?type[^>]*>\s*(\d+)\s*<\/(?:[\w]+:)?type>[\s\S]*?<(?:[\w]+:)?(?:message|v)\b[^>]*>([\s\S]*?)<\/(?:[\w]+:)?(?:message|v)>/g
+    let pm: RegExpExecArray | null
     while ((pm = pairRe.exec(raw)) !== null) {
-      out.push({ type: parseInt(pm[1], 10), text: decodeEntities(pm[2].trim()) });
+      out.push({ type: Number.parseInt(pm[1], 10), text: decodeEntities(pm[2].trim()) })
     }
   }
 
-  return out;
+  return out
 }
 
 /** Analyse une réponse SOAP d'opération objet. Pure, sans I/O. */
@@ -175,51 +180,51 @@ export function parseObjectResponse(raw: string): ObjectResult {
   const result: ObjectResult = {
     ok: false,
     status: null,
-    resultXml: "",
+    resultXml: '',
     messages: [],
-    error: "",
+    error: '',
     raw,
-  };
-
-  // Fault SOAP (erreur transport/serveur).
-  const faultMatch = raw.match(/<faultstring[^>]*>([\s\S]*?)<\/faultstring>/);
-  if (faultMatch) {
-    result.error = decodeEntities(faultMatch[1].trim());
-    return result;
   }
 
-  const statusMatch = raw.match(/<status[^>]*>\s*(\d+)\s*<\/status>/);
-  if (statusMatch) result.status = parseInt(statusMatch[1], 10);
-  result.ok = result.status === 1;
+  // Fault SOAP (erreur transport/serveur).
+  const faultMatch = raw.match(/<faultstring[^>]*>([\s\S]*?)<\/faultstring>/)
+  if (faultMatch) {
+    result.error = decodeEntities(faultMatch[1].trim())
+    return result
+  }
+
+  const statusMatch = raw.match(/<status[^>]*>\s*(\d+)\s*<\/status>/)
+  if (statusMatch) result.status = Number.parseInt(statusMatch[1], 10)
+  result.ok = result.status === 1
 
   // resultXml : XML objet. CDATA d'abord, sinon contenu échappé.
-  const cdataMatch = raw.match(/<resultXml[^>]*><!\[CDATA\[([\s\S]*?)\]\]><\/resultXml>/);
+  const cdataMatch = raw.match(/<resultXml[^>]*><!\[CDATA\[([\s\S]*?)\]\]><\/resultXml>/)
   if (cdataMatch) {
-    result.resultXml = cdataMatch[1].trim();
+    result.resultXml = cdataMatch[1].trim()
   } else {
-    const plainMatch = raw.match(/<resultXml[^>]*>([\s\S]*?)<\/resultXml>/);
+    const plainMatch = raw.match(/<resultXml[^>]*>([\s\S]*?)<\/resultXml>/)
     if (plainMatch && plainMatch[1].trim()) {
-      result.resultXml = decodeEntities(plainMatch[1]).trim();
+      result.resultXml = decodeEntities(plainMatch[1]).trim()
     }
   }
 
   // Messages Syracuse (RPC/encoded : résolution multiRef des href). type 1=erreur,
   // 2=warning, 3=info — mais les messages système (ex. « Service web inexistant »)
   // arrivent en type 3 : on se fie au `status` global pour le verdict ok/échec.
-  result.messages = extractMessages(raw);
+  result.messages = extractMessages(raw)
 
   if (!result.ok && !result.error && result.messages.length === 0) {
-    result.error = "X3 a refusé l'opération (statut non-succès) sans message explicite.";
+    result.error = "X3 a refusé l'opération (statut non-succès) sans message explicite."
   }
 
-  return result;
+  return result
 }
 
 function buildQueryListEnvelope(
   config: X3SoapConfig,
   publicName: string,
   queryXml: string,
-  listSize: number,
+  listSize: number
 ): string {
   return `<?xml version="1.0" encoding="utf-8"?>
 <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:wss="http://www.adonix.com/WSS" xmlns:soapenc="http://schemas.xmlsoap.org/soap/encoding/">
@@ -237,39 +242,54 @@ function buildQueryListEnvelope(
       <queryXml xsi:type="xsd:string"><![CDATA[${queryXml}]]></queryXml>
     </wss:queryList>
   </soapenv:Body>
-</soapenv:Envelope>`;
+</soapenv:Envelope>`
 }
 
 export async function callQueryList(
   publicName: string,
   config: X3SoapConfig,
-  queryXml: string = "<PARAM/>",
-  listSize: number = 50,
+  queryXml: string = '<PARAM/>',
+  listSize: number = 50
 ): Promise<ObjectResult> {
-  const envelope = buildQueryListEnvelope(config, publicName, queryXml, listSize);
+  const envelope = buildQueryListEnvelope(config, publicName, queryXml, listSize)
 
-  const tmpFile = join(tmpdir(), `x3_ql_${process.pid}_${randomBytes(4).toString("hex")}.xml`);
-  writeFileSync(tmpFile, envelope, "utf-8");
+  const tmpFile = join(tmpdir(), `x3_ql_${process.pid}_${randomBytes(4).toString('hex')}.xml`)
+  writeFileSync(tmpFile, envelope, 'utf-8')
 
   const args = [
-    "-s", "--max-time", "120",
-    "-H", "Content-Type: text/xml; charset=utf-8",
-    "-H", 'SOAPAction: ""',
-    "-u", `${config.user}:${config.password}`,
-    "-d", `@${tmpFile}`,
+    '-s',
+    '--max-time',
+    '120',
+    '-H',
+    'Content-Type: text/xml; charset=utf-8',
+    '-H',
+    'SOAPAction: ""',
+    '-u',
+    `${config.user}:${config.password}`,
+    '-d',
+    `@${tmpFile}`,
     ENDPOINT(config),
-  ];
+  ]
 
   return new Promise((resolve) => {
-    execFile("curl", args, { timeout: 125_000 }, (error, stdout, stderr) => {
-      try { unlinkSync(tmpFile); } catch {}
+    execFile('curl', args, { timeout: 125_000 }, (error, stdout, stderr) => {
+      try {
+        unlinkSync(tmpFile)
+      } catch {}
       if (error) {
-        resolve({ ok: false, status: null, resultXml: "", messages: [], error: `curl: ${stderr?.trim() || error.message}`, raw: stdout || "" });
-        return;
+        resolve({
+          ok: false,
+          status: null,
+          resultXml: '',
+          messages: [],
+          error: `curl: ${stderr?.trim() || error.message}`,
+          raw: stdout || '',
+        })
+        return
       }
-      resolve(parseObjectResponse(stdout));
-    });
-  });
+      resolve(parseObjectResponse(stdout))
+    })
+  })
 }
 
 /** Envoie une opération objet à Syracuse via curl (même mécanisme que la lecture). */
@@ -278,47 +298,47 @@ export async function callObjectOperation(
   publicName: string,
   config: X3SoapConfig,
   keys: ObjectKeyValue[] = [],
-  objectXml: string = "",
+  objectXml: string = ''
 ): Promise<ObjectResult> {
-  const envelope = buildEnvelope(operation, config, publicName, keys, normalizeObjectXml(objectXml));
+  const envelope = buildEnvelope(operation, config, publicName, keys, normalizeObjectXml(objectXml))
 
-  const tmpFile = join(tmpdir(), `x3_obj_${process.pid}_${randomBytes(4).toString("hex")}.xml`);
-  writeFileSync(tmpFile, envelope, "utf-8");
+  const tmpFile = join(tmpdir(), `x3_obj_${process.pid}_${randomBytes(4).toString('hex')}.xml`)
+  writeFileSync(tmpFile, envelope, 'utf-8')
 
   const args = [
-    "-s",
-    "--max-time",
-    "120",
-    "-H",
-    "Content-Type: text/xml; charset=utf-8",
-    "-H",
+    '-s',
+    '--max-time',
+    '120',
+    '-H',
+    'Content-Type: text/xml; charset=utf-8',
+    '-H',
     'SOAPAction: ""',
-    "-u",
+    '-u',
     `${config.user}:${config.password}`,
-    "-d",
+    '-d',
     `@${tmpFile}`,
     ENDPOINT(config),
-  ];
+  ]
 
   return new Promise((resolve) => {
-    execFile("curl", args, { timeout: 125_000 }, (error, stdout, stderr) => {
+    execFile('curl', args, { timeout: 125_000 }, (error, stdout, stderr) => {
       try {
-        unlinkSync(tmpFile);
+        unlinkSync(tmpFile)
       } catch {}
 
       if (error) {
         resolve({
           ok: false,
           status: null,
-          resultXml: "",
+          resultXml: '',
           messages: [],
           error: `curl: ${stderr?.trim() || error.message}`,
-          raw: stdout || "",
-        });
-        return;
+          raw: stdout || '',
+        })
+        return
       }
 
-      resolve(parseObjectResponse(stdout));
-    });
-  });
+      resolve(parseObjectResponse(stdout))
+    })
+  })
 }

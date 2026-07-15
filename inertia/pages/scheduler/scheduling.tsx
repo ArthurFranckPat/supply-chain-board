@@ -10,7 +10,13 @@ import OfDetailSheet from '@/components/of/of-detail-sheet'
 import { Masthead } from '@/components/masthead'
 import { Button } from '@/components/ui/button'
 import { TextField, TextFieldInput } from '@/components/ui/text-field'
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '@/components/ui/select'
 import { Calendar, type DateRange } from '@/components/ui/calendar'
 
 type SchedulingProps = {
@@ -73,8 +79,8 @@ const Scheduling: Component<SchedulingProps> = (props) => {
       (next, prev) => {
         if (prev !== undefined && next !== prev) store.reset(next)
       },
-      { defer: true },
-    ),
+      { defer: true }
+    )
   )
 
   // Calendrier (remplace nav semaine + horizon).
@@ -87,7 +93,8 @@ const Scheduling: Component<SchedulingProps> = (props) => {
     setRange(r)
     if (r.start && r.end) {
       setCalOpen(false)
-      const days = Math.round((startOfDay(r.end).getTime() - startOfDay(r.start).getTime()) / DAY_MS) + 1
+      const days =
+        Math.round((startOfDay(r.end).getTime() - startOfDay(r.start).getTime()) / DAY_MS) + 1
       router.visit(route('scheduling'), {
         data: { start: toIso(r.start), days: String(days) },
         preserveScroll: true,
@@ -102,7 +109,9 @@ const Scheduling: Component<SchedulingProps> = (props) => {
         active="programme"
         meta={
           <>
-            <div class="font-fraunces text-[12px] font-bold not-italic text-terra">{props.weekLabel}</div>
+            <div class="font-fraunces text-[12px] font-bold not-italic text-brand">
+              {props.weekLabel}
+            </div>
             <div>
               Fenêtre <b class="font-bold text-foreground">{props.horizon} j</b> ·{' '}
               <b class="font-bold text-foreground">{props.totalOf}</b> OF ·{' '}
@@ -113,8 +122,10 @@ const Scheduling: Component<SchedulingProps> = (props) => {
         actions={
           <>
             <TextField class="contents">
-              <div class="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-terra focus-within:ring-2 focus-within:ring-terra/25">
-                <span class="material-symbols-outlined text-[17px] text-muted-foreground">search</span>
+              <div class="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/25">
+                <span class="material-symbols-outlined text-[17px] text-muted-foreground">
+                  search
+                </span>
                 <TextFieldInput
                   class="w-[180px] border-0 bg-transparent px-0 text-[12px] font-medium shadow-none focus-visible:ring-0"
                   placeholder="OF, article, poste…"
@@ -134,7 +145,8 @@ const Scheduling: Component<SchedulingProps> = (props) => {
               optionTextValue={(o) => SCOPES.find((s) => s.v === o)?.label ?? o}
               itemComponent={(itemProps) => (
                 <SelectItem item={itemProps.item}>
-                  {SCOPES.find((s) => s.v === itemProps.item.rawValue)?.label ?? itemProps.item.rawValue}
+                  {SCOPES.find((s) => s.v === itemProps.item.rawValue)?.label ??
+                    itemProps.item.rawValue}
                 </SelectItem>
               )}
             >
@@ -156,13 +168,17 @@ const Scheduling: Component<SchedulingProps> = (props) => {
       <div class="flex flex-none flex-wrap items-center justify-between gap-3 border-b border-rule px-7 py-2">
         {/* Filtre statut d'OF (Ferme / Planifié / Suggéré) */}
         <div class="inline-flex items-center gap-1 rounded-md border border-rule bg-card p-0.5">
-          <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Statut</span>
+          <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+            Statut
+          </span>
           <For each={STATUS_FILTER_CHIPS}>
             {({ k, label }) => (
               <button
                 type="button"
                 class={`rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors ${
-                  store.statusActive(k) ? 'bg-terra-soft text-terra' : 'text-muted-foreground hover:text-foreground'
+                  store.statusActive(k)
+                    ? 'bg-brand-soft text-brand'
+                    : 'text-muted-foreground hover:text-foreground'
                 }`}
                 onClick={() => store.toggleStatus(k)}
               >
@@ -177,11 +193,15 @@ const Scheduling: Component<SchedulingProps> = (props) => {
           <button
             type="button"
             onClick={() => setCalOpen((o) => !o)}
-            class="flex items-center gap-1.5 rounded-full border border-rule bg-card px-2.5 py-1 text-[11px] font-semibold text-foreground transition-colors hover:border-terra"
+            class="flex items-center gap-1.5 rounded-full border border-rule bg-card px-2.5 py-1 text-[11px] font-semibold text-foreground transition-colors hover:border-brand"
           >
-            <span class="material-symbols-outlined text-[14px] text-muted-foreground">calendar_month</span>
+            <span class="material-symbols-outlined text-[14px] text-muted-foreground">
+              calendar_month
+            </span>
             {props.dateRange}
-            <span class="material-symbols-outlined text-[16px] text-muted-foreground">expand_more</span>
+            <span class="material-symbols-outlined text-[16px] text-muted-foreground">
+              expand_more
+            </span>
           </button>
           <Show when={calOpen()}>
             <button
@@ -206,7 +226,9 @@ const Scheduling: Component<SchedulingProps> = (props) => {
               onClick={() => store.setMode('immediate')}
               class={cx(
                 'rounded-[5px] px-3 py-1 text-[12px] font-semibold transition-colors',
-                store.mode() === 'immediate' ? 'bg-terra-soft text-terra' : 'text-muted-foreground hover:text-foreground',
+                store.mode() === 'immediate'
+                  ? 'bg-brand-soft text-brand'
+                  : 'text-muted-foreground hover:text-foreground'
               )}
             >
               Instantanée
@@ -217,7 +239,9 @@ const Scheduling: Component<SchedulingProps> = (props) => {
               onClick={() => store.setMode('sequential')}
               class={cx(
                 'rounded-[5px] px-3 py-1 text-[12px] font-semibold transition-colors',
-                store.mode() === 'sequential' ? 'bg-terra-soft text-terra' : 'text-muted-foreground hover:text-foreground',
+                store.mode() === 'sequential'
+                  ? 'bg-brand-soft text-brand'
+                  : 'text-muted-foreground hover:text-foreground'
               )}
             >
               Projetée
@@ -230,7 +254,9 @@ const Scheduling: Component<SchedulingProps> = (props) => {
             onClick={() => store.runFeasibility(props.windowFrom, props.windowTo)}
             class="gap-1.5"
           >
-            <span class={`material-symbols-outlined text-[15px] ${store.feasLoading() ? 'animate-spin' : ''}`}>
+            <span
+              class={`material-symbols-outlined text-[15px] ${store.feasLoading() ? 'animate-spin' : ''}`}
+            >
               {store.feasLoading() ? 'progress_activity' : 'fact_check'}
             </span>
             {store.feasLoading() ? 'Calcul…' : 'Faisabilité'}
@@ -251,8 +277,8 @@ const Scheduling: Component<SchedulingProps> = (props) => {
 
       {/* X3 injoignable */}
       <Show when={props.x3Error}>
-        <div class="flex flex-none items-center gap-2 border-b border-terra/30 bg-terra-soft px-7 py-2 text-[12px] text-foreground">
-          <span class="material-symbols-outlined text-[16px] text-terra">warning</span>
+        <div class="flex flex-none items-center gap-2 border-b border-brand/30 bg-brand-soft px-7 py-2 text-[12px] text-foreground">
+          <span class="material-symbols-outlined text-[16px] text-brand">warning</span>
           X3 injoignable — données {props.cached ? `du cache (${props.cached})` : 'indisponibles'}.
           <Link href={`${route('scheduling')}?refresh=1`} class="font-bold underline">
             Réessayer
@@ -274,7 +300,12 @@ const Scheduling: Component<SchedulingProps> = (props) => {
         </div>
       </Show>
 
-      <OfDetailSheet num={selectedOf()} open={detailOpen()} onOpenChange={setDetailOpen} onFirmed={(oldId, newId) => store.transformCard(oldId, newId)} />
+      <OfDetailSheet
+        num={selectedOf()}
+        open={detailOpen()}
+        onOpenChange={setDetailOpen}
+        onFirmed={(oldId, newId) => store.transformCard(oldId, newId)}
+      />
       <BatchFirmBar store={store} />
     </div>
   )

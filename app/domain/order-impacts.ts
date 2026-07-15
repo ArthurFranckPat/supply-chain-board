@@ -4,7 +4,7 @@
  * Chaîne :
  * 1. CommandeOFMatcher.matchCommandes() → OF alloués par commande
  * 2. buildEffectiveFlows() → OF avec overrides appliqués
- * 3. evaluateSequentialFeasibility() → faisabilité par OF (stock virtuel)
+ * 3. evaluateRuptures() → faisabilité par OF (moteur unique #73, photo/contention)
  * 4. Croisement → statut : on_time / stock / retard / bloquee / sans_couverture
  *
  * Port de services/planning_board_orders.py (evaluate_order_impacts).
@@ -15,8 +15,15 @@ import type { Article } from './models/article.js'
 import type { FeasibilityOptions } from './stock-state.js'
 import type { Nomenclature } from './models/nomenclature.js'
 import type { OfOverride } from './planning_board.js'
-import { CommandeOFMatcher } from './of-conso.js'
-import { evaluateSequentialFeasibility, type OfInput } from './stock-state.js'
+import { CommandeOFMatcher, type AllocationStrategy } from './of-conso.js'
+import type { OfInput } from './stock-state.js'
+import type { MfgMaterialInput } from './of-feasibility.js'
+import {
+  evaluateRuptures,
+  buildOfSupply,
+  directMissing,
+  type RuptureOfInput,
+} from './rupture-engine.js'
 
 export interface OrderImpactRow {
   numCommande: string
@@ -51,6 +58,11 @@ export interface OrderImpactRow {
     missingComponents: Record<string, number>
     modified: boolean
     statutNum: number
+    /** Vrai si au moins une opération intermédiaire a un pointage > 0 (issue #41). */
+    estDebuté?: boolean
+    /** Pièces déjà réalisées (poste le plus avancé pointé) / total de l'OF — état d'avancement. */
+    piecesFaites?: number
+    piecesTotalOf?: number
   }>
 }
 
@@ -69,6 +81,8 @@ export interface OrderImpactResult {
     feasible: boolean | null
     statutNum: number
     missingComponents: Record<string, number>
+    /** Vrai si au moins une opération intermédiaire a un pointage > 0 (issue #41). */
+    estDebuté?: boolean
   }>
   window: { from: string; to: string }
   stats: {
@@ -142,7 +156,30 @@ export function evaluateOrderImpacts(
   precomputedFeasibility?: Map<
     string,
     { feasible: boolean | null; missingComponents: Record<string, number> }
-  >
+  >,
+  /**
+   * Avancement des OFs via pointages MFGOPE (issue #41). Permet d'enrichir chaque OF
+   * avec `estDebuté` et de qualifier le verdict proactif. Optionnel (fixtures/tests).
+   */
+  avancementByOf?: Map<string, { estDebuté: boolean; qtyRealisee?: number }>,
+  strategy?: AllocationStrategy,
+  /**
+   * Matières réelles MFGMAT par OF (règle 1 du moteur unique, rupture-engine.ts) — permet au
+   * moteur séquentiel de créditer l'alloc déjà posée sur CET OF (ALLQTY) avant de le faire
+   * consommer/vérifier dans la contention virtuelle, plutôt que de lui redemander le besoin
+   * théorique BOM complet. Sans ça, un OF ferme déjà partiellement/totalement approvisionné
+   * (ALLQTY couvrant le reste à sortir) peut ressortir en rupture côté vue proactive alors que
+   * X3 lui-même (MFGMAT.SHTQTY_0) ne voit aucun manque — la contention théorique ignore son
+   * acquis réel. Optionnel : absent → repli nomenclature théorique pour tous les OF (comportement
+   * historique, inchangé pour board/ruptures qui utilisent `precomputedFeasibility` à la place).
+   */
+  mfgMaterialsByOf?: Map<string, MfgMaterialInput[]>,
+  /**
+   * Jours de fabrication réels par OF (charge gamme : Σ qteRestante/cadence, plancher 1j,
+   * cf. `fabricationDaysFromHours`) — utilisé pour le calcul du retard (règle "charge réelle",
+   * indépendante du jalonnement CBN STRDAT/ENDDAT). Absent → repli 1 jour par OF.
+   */
+  fabricationDaysByOf?: Map<string, number>
 ): OrderImpactResult {
   // 1. Filter demands in window
   const windowDemands = demands.filter((d) => {
@@ -152,7 +189,7 @@ export function evaluateOrderImpacts(
   })
 
   // 2. Matching commande→OF
-  const matcher = new CommandeOFMatcher(supplyFlows, articles, nomenclatures, 30)
+  const matcher = new CommandeOFMatcher(supplyFlows, articles, nomenclatures, 30, strategy)
   const matchingResults = matcher.matchCommandes(windowDemands)
 
   // 3. Build effective OFs with overrides → evaluate feasibility
@@ -171,23 +208,45 @@ export function evaluateOrderImpacts(
       }
     })
 
-  const feasibility = evaluateSequentialFeasibility(
-    ofInputs,
-    supplyFlows,
-    nomenclatures,
-    articles,
-    window.to,
-    { mode }
+  // Moteur de rupture unique (#73, étape 2.2) : remplace evaluateSequentialFeasibility.
+  // 'immediate' → photo (chaque OF seul), 'sequential' → contention (consommation virtuelle
+  // triée par date besoin). Dispo = flux stock à date nulle (strict+qc, filtrés en amont) ;
+  // couverture des sous-ensembles fabriqués = Σ qteRestante des OF producteurs, PLAFONNÉE.
+  const stockNet = new Map<string, number>()
+  for (const f of supplyFlows) {
+    if (f.date !== null) continue
+    const delta = f.direction === 'supply' ? f.quantity : -f.quantity
+    stockNet.set(f.article, (stockNet.get(f.article) ?? 0) + delta)
+  }
+  const engineOfs: RuptureOfInput[] = ofInputs.map((o) => {
+    const iso = o.dateDebut ?? o.dateFin
+    return {
+      numOf: o.numOf,
+      article: o.article,
+      qteRestante: o.qteRestante,
+      statutNum: o.statutNum,
+      dateBesoin: iso ? new Date(iso) : null,
+      materials: mfgMaterialsByOf?.get(o.numOf) ?? null,
+    }
+  })
+  const verdicts = evaluateRuptures(
+    engineOfs,
+    { articles, nomenclatures, stockNet, ofSupply: buildOfSupply(engineOfs) },
+    mode === 'sequential' ? 'contention' : 'photo'
   )
 
-  // Résout le verdict d'un OF : MFGMAT (précalculé) s'il existe, sinon le moteur théorique.
+  // Résout le verdict d'un OF : MFGMAT (précalculé) s'il existe, sinon le moteur.
+  // Vues : manquants DIRECTS (depth 0) — même forme photo/contention (parité #73).
   const resolveFeasibility = (
     ofId: string
   ): { feasible: boolean | null; missingComponents: Record<string, number> } => {
     const pre = precomputedFeasibility?.get(ofId)
     if (pre) return { feasible: pre.feasible, missingComponents: pre.missingComponents }
-    const entry = feasibility.get(ofId)
-    return { feasible: entry?.feasible ?? null, missingComponents: entry?.missingComponents ?? {} }
+    const verdict = verdicts.get(ofId)
+    return {
+      feasible: verdict?.feasible ?? null,
+      missingComponents: verdict ? directMissing(verdict) : {},
+    }
   }
 
   // 4. Cross matching × feasibility × dates → status per commande
@@ -200,7 +259,13 @@ export function evaluateOrderImpacts(
 
     const ofRows: OrderImpactRow['ofs'] = []
     let blocked = false
-    let latestFin: Date | null = null
+    // Pire retard (en jours) parmi les OF alloués — cf boucle ci-dessous.
+    let ofLatenessDays = 0
+
+    // Buffer logistique J-2 (issue #41) : l'OF doit être terminé 2 jours avant l'expédition
+    // (contrôle, conditionnement, quai).
+    const LOGISTICS_BUFFER_MS = 2 * 86_400_000
+    const expedBornee = demand.date ? new Date(demand.date.getTime() - LOGISTICS_BUFFER_MS) : null
 
     for (const alloc of result.ofAllocations) {
       const ofId = (alloc.ofFlow.origin as any).id ?? ''
@@ -209,24 +274,62 @@ export function evaluateOrderImpacts(
       const ofFeasible = resolved.feasible
 
       if (ofFeasible === false) blocked = true
-      if (effFin && (!latestFin || effFin > latestFin)) latestFin = effFin
+
+      // Retard par OF : une date posée à la main sur le board/un scénario (override) est une
+      // décision humaine ou une simulation explicite, toujours respectée telle quelle.
+      // Sinon, DEUX modes selon que l'appelant fournit `fabricationDaysByOf` :
+      //  - fourni (pipelines live via order_impacts_loader.ts) : on ignore le jalonnement CBN
+      //    (STRDAT/ENDDAT — dérive facilement, cf. shortages.ts "jamais consulté, jugé non
+      //    fiable") et on calcule la charge RÉELLE (cadence gamme × reste à produire) décomptée
+      //    à rebours depuis l'expé bufferisée — si la date de démarrage requise est déjà
+      //    passée, retard.
+      //  - absent (evaluatePlanDiff / scénarios / tests appelant le moteur directement) :
+      //    repli sur l'ancien comportement, `effFin` (ENDDAT ou override) vs expé bufferisée —
+      //    ces appelants pilotent volontairement une date simulée via le flow lui-même.
+      if (expedBornee) {
+        const ov = overrides.get(ofId)
+        let lateness = 0
+        if (ov?.dateFin) {
+          const overrideDate = safeDate(ov.dateFin)
+          if (overrideDate && overrideDate > expedBornee) {
+            lateness = Math.round((overrideDate.getTime() - expedBornee.getTime()) / 86_400_000)
+          }
+        } else if (fabricationDaysByOf) {
+          const fabDays = Math.max(1, fabricationDaysByOf.get(ofId) ?? 1)
+          const requiredStart = new Date(expedBornee.getTime() - fabDays * 86_400_000)
+          if (requiredStart < today) {
+            lateness = Math.round((today.getTime() - requiredStart.getTime()) / 86_400_000)
+          }
+        } else if (effFin && effFin > expedBornee) {
+          lateness = Math.round((effFin.getTime() - expedBornee.getTime()) / 86_400_000)
+        }
+        if (lateness > ofLatenessDays) ofLatenessDays = lateness
+      }
 
       ofRows.push({
         numOf: ofId,
         article: alloc.ofFlow.article,
         qteAllouee: alloc.qteAllouee,
+        // Informatif seulement (jalonnement X3 brut) — n'entre plus dans le calcul de retard.
         dateFin: effFin?.toISOString().slice(0, 10) ?? '',
         feasible: ofFeasible,
         missingComponents: resolved.missingComponents,
         modified: overrides.has(ofId),
         statutNum: overrides.get(ofId)?.status ?? (alloc.ofFlow.origin as any).status ?? 3,
+        estDebuté: avancementByOf?.get(ofId)?.estDebuté,
+        piecesFaites: avancementByOf?.get(ofId)?.qtyRealisee,
+        // EXTQTY (lancée d'origine) — total STABLE, contrairement à qteRestante (RMNEXTQTY) qui
+        // se nette de façon incohérente selon l'historique de déclaration de l'OF (vérifié sur
+        // X3 : deux OF réels avec le même pattern de pointage se comportent différemment).
+        // Repli sur quantity si launched absent (anciens producteurs de flow, cf flow.ts).
+        piecesTotalOf: Math.round(
+          (alloc.ofFlow.origin as { launched?: number }).launched ?? alloc.ofFlow.quantity
+        ),
       })
     }
 
-    let joursRetard = 0
-    if (latestFin && demand.date && latestFin > demand.date) {
-      joursRetard = Math.round((latestFin.getTime() - demand.date.getTime()) / 86400000)
-    } else if (demand.date && demand.date < today) {
+    let joursRetard = ofLatenessDays
+    if (joursRetard === 0 && demand.date && demand.date < today) {
       // date d'expé dépassée sans retard OF → retard calendaire depuis aujourd'hui
       joursRetard = Math.round((today.getTime() - demand.date.getTime()) / 86400000)
     }
@@ -281,15 +384,16 @@ export function evaluateOrderImpacts(
 
   return {
     orders: rows,
-    ofs: [...feasibility.values()].map((e) => {
-      const resolved = resolveFeasibility(e.numOf)
+    ofs: ofInputs.map((o) => {
+      const resolved = resolveFeasibility(o.numOf)
       return {
-        numOf: e.numOf,
-        article: e.article,
-        qteRestante: e.qteRestante,
+        numOf: o.numOf,
+        article: o.article,
+        qteRestante: o.qteRestante,
         feasible: resolved.feasible,
-        statutNum: e.statutNum,
+        statutNum: o.statutNum,
         missingComponents: resolved.missingComponents,
+        estDebuté: avancementByOf?.get(o.numOf)?.estDebuté,
       }
     }),
     window: {

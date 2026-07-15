@@ -27,9 +27,18 @@ function daysFromNow(n: number): Date {
 
 function makeArticle(code: string, supplyType: 'ACHAT' | 'FABRICATION' = 'FABRICATION'): Article {
   return {
-    code, description: `Desc ${code}`, category: 'PF3', supplyType,
-    reorderDelay: 0, productFamily: null, pmp: null, economicLot: null,
-    unitStock: null, unitPurchase: null, purchaseToStockRatio: 1, packagings: [],
+    code,
+    description: `Desc ${code}`,
+    category: 'PF3',
+    supplyType,
+    reorderDelay: 0,
+    productFamily: null,
+    pmp: null,
+    economicLot: null,
+    unitStock: null,
+    unitPurchase: null,
+    purchaseToStockRatio: 1,
+    packagings: [],
   }
 }
 
@@ -47,17 +56,53 @@ function buildDataset(n: number) {
     articles.set(comp, makeArticle(comp, 'ACHAT'))
 
     supply.push({
-      article: pf, quantity: 60, direction: 'supply', date: daysFromNow(8),
-      origin: { type: 'of', id: `OF-${i}`, status: 1, designation: '', typeOfLabel: '', statutLabel: '' } as any,
+      article: pf,
+      quantity: 60,
+      direction: 'supply',
+      date: daysFromNow(8),
+      origin: {
+        type: 'of',
+        id: `OF-${i}`,
+        status: 1,
+        designation: '',
+        typeOfLabel: '',
+        statutLabel: '',
+      } as any,
     })
-    supply.push({ article: comp, quantity: 1000, direction: 'supply', date: null, origin: { type: 'stock', pmp: null } })
+    supply.push({
+      article: comp,
+      quantity: 1000,
+      direction: 'supply',
+      date: null,
+      origin: { type: 'stock', pmp: null },
+    })
     demands.push({
-      article: pf, quantity: 60, direction: 'demand', date: daysFromNow(10),
-      origin: { type: 'order', id: `CMD-${i}`, orderType: 'NOR', client: 'ACME', description: '' } as any,
+      article: pf,
+      quantity: 60,
+      direction: 'demand',
+      date: daysFromNow(10),
+      origin: {
+        type: 'order',
+        id: `CMD-${i}`,
+        orderType: 'NOR',
+        client: 'ACME',
+        description: '',
+      } as any,
     })
     nomenclatures.set(pf, {
-      article: pf, description: '', components: [
-        { parentArticle: pf, parentDescription: '', level: 5, componentArticle: comp, componentDescription: '', linkQuantity: 1, componentType: 'ACHETE', consumptionNature: 'PROPORTIONNEL' },
+      article: pf,
+      description: '',
+      components: [
+        {
+          parentArticle: pf,
+          parentDescription: '',
+          level: 5,
+          componentArticle: comp,
+          componentDescription: '',
+          linkQuantity: 1,
+          componentType: 'ACHETE',
+          consumptionNature: 'PROPORTIONNEL',
+        },
       ],
     })
   }

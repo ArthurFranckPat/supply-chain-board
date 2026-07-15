@@ -500,10 +500,17 @@ export default class SalesOrderLine extends BaseModel {
   @belongsTo(() => PurchaseOrder, { foreignKey: 'noCommande', localKey: 'noCommande' })
   declare commandeAchat: BelongsTo<typeof PurchaseOrder>
 
-  @belongsTo(() => LocalMenu, { foreignKey: 'etatLigne', localKey: 'value', onQuery: (q) => q.where('chapter', 279) })
+  @belongsTo(() => LocalMenu, {
+    foreignKey: 'etatLigne',
+    localKey: 'value',
+    onQuery: (q) => q.where('chapter', 279),
+  })
   declare etatLigneMenu: BelongsTo<typeof LocalMenu>
 
-  @belongsTo(() => LocalMenu, { foreignKey: 'statutOrdre', localKey: 'value', onQuery: (q) => q.where('chapter', 317) })
+  @belongsTo(() => LocalMenu, {
+    foreignKey: 'statutOrdre',
+    localKey: 'value',
+    onQuery: (q) => q.where('chapter', 317),
+  })
   declare statutOrdreMenu: BelongsTo<typeof LocalMenu>
-
 }

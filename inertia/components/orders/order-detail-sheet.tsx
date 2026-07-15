@@ -49,7 +49,9 @@ export const OrderDetailSheet: Component<{
               }
             >
               <div class="flex-1 flex flex-col items-center justify-center gap-2 text-muted-foreground p-8">
-                <span class="material-symbols-outlined text-[28px] animate-spin">progress_activity</span>
+                <span class="material-symbols-outlined text-[28px] animate-spin">
+                  progress_activity
+                </span>
                 <span class="text-sm">Chargement…</span>
               </div>
             </Show>
@@ -73,7 +75,8 @@ export const OrderDetailSheet: Component<{
                     </Show>
                     <Show when={d().hasOverride}>
                       <Badge variant="warning" class="uppercase tracking-wider text-[10px] gap-1">
-                        <span class="material-symbols-outlined text-[12px]">edit_calendar</span> Override
+                        <span class="material-symbols-outlined text-[12px]">edit_calendar</span>{' '}
+                        Override
                       </Badge>
                     </Show>
                   </div>
@@ -88,8 +91,15 @@ export const OrderDetailSheet: Component<{
               <SheetBody>
                 {/* Stats — grille 3 colonnes */}
                 <div class="grid grid-cols-3 gap-2">
-                  <Stat label="Quantité" value={`${d().quantite}${d().unite ? ' ' + d().unite : ''}`} />
-                  <Stat label="Échéance" value={d().dateLivraison} valueClass={d().hasOverride ? 'text-amber-600' : ''} />
+                  <Stat
+                    label="Quantité"
+                    value={`${d().quantite}${d().unite ? ' ' + d().unite : ''}`}
+                  />
+                  <Stat
+                    label="Échéance"
+                    value={d().dateLivraison}
+                    valueClass={d().hasOverride ? 'text-amber-600' : ''}
+                  />
                   <Stat label="Charge" value={`${d().hours} h`} />
                   <Stat label="Poste" value={d().workstation ?? '—'} />
                   <Stat label="Client" value={d().client ?? '—'} />
@@ -102,7 +112,9 @@ export const OrderDetailSheet: Component<{
                     <h3 class="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
                       Composants
                     </h3>
-                    <span class="mono text-[10px] text-muted-foreground">{d().bomCount} articles</span>
+                    <span class="mono text-[10px] text-muted-foreground">
+                      {d().bomCount} articles
+                    </span>
                   </div>
 
                   <Show
@@ -150,8 +162,12 @@ export const OrderDetailSheet: Component<{
                               {row.ok ? '✓' : '!'}
                             </span>
                             <div class="min-w-0">
-                              <div class="mono text-[11px] font-semibold text-foreground truncate">{row.article}</div>
-                              <div class="text-[10px] text-muted-foreground truncate">{row.description}</div>
+                              <div class="mono text-[11px] font-semibold text-foreground truncate">
+                                {row.article}
+                              </div>
+                              <div class="text-[10px] text-muted-foreground truncate">
+                                {row.description}
+                              </div>
                             </div>
                             <div class="text-right">
                               <div class="mono text-[11px] font-semibold text-foreground whitespace-nowrap">

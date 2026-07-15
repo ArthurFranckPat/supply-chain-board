@@ -10,7 +10,7 @@ For deep ecosystem research ("how do experts build this"), use `/gsd-research-ph
 
 ## File Template
 
-```markdown
+````markdown
 ---
 phase: XX-name
 type: discovery
@@ -35,6 +35,7 @@ Output: DISCOVERY.md with recommendation
 
 <discovery_scope>
 <include>
+
 - [Question to answer]
 - [Area to investigate]
 - [Specific comparison if needed]
@@ -49,12 +50,14 @@ Output: DISCOVERY.md with recommendation
 <discovery_protocol>
 
 **Source Priority:**
+
 1. **Context7 MCP** - For library/framework documentation (current, authoritative)
 2. **Official Docs** - For platform-specific or non-indexed libraries
 3. **WebSearch** - For comparisons, trends, community patterns (verify all findings)
 
 **Quality Checklist:**
 Before completing discovery, verify:
+
 - [ ] All claims have authoritative sources (Context7 or official docs)
 - [ ] Negative claims ("X is not possible") verified with official documentation
 - [ ] API syntax/configuration from Context7 or official docs (never WebSearch alone)
@@ -63,12 +66,12 @@ Before completing discovery, verify:
 - [ ] Alternative approaches considered (not just first solution found)
 
 **Confidence Levels:**
+
 - HIGH: Context7 or official docs confirm
 - MEDIUM: WebSearch + Context7/official docs confirm
 - LOW: WebSearch only or training knowledge only (mark for validation)
 
 </discovery_protocol>
-
 
 <output_structure>
 Create `.planning/phases/XX-name/DISCOVERY.md`:
@@ -77,23 +80,29 @@ Create `.planning/phases/XX-name/DISCOVERY.md`:
 # [Topic] Discovery
 
 ## Summary
+
 [2-3 paragraph executive summary - what was researched, what was found, what's recommended]
 
 ## Primary Recommendation
+
 [What to do and why - be specific and actionable]
 
 ## Alternatives Considered
+
 [What else was evaluated and why not chosen]
 
 ## Key Findings
 
 ### [Category 1]
+
 - [Finding with source URL and relevance to our case]
 
 ### [Category 2]
+
 - [Finding with source URL and relevance]
 
 ## Code Examples
+
 [Relevant implementation patterns, if applicable]
 
 ## Metadata
@@ -116,15 +125,18 @@ Create `.planning/phases/XX-name/DISCOVERY.md`:
 </validation_checkpoints>
 </metadata>
 ```
+````
+
 </output_structure>
 
 <success_criteria>
+
 - All scope questions answered with authoritative sources
 - Quality checklist items completed
 - Clear primary recommendation
 - Low-confidence findings marked with validation checkpoints
 - Ready to inform PLAN.md creation
-</success_criteria>
+  </success_criteria>
 
 <guidelines>
 **When to use discovery:**
@@ -134,11 +146,13 @@ Create `.planning/phases/XX-name/DISCOVERY.md`:
 - Single decision pending
 
 **When NOT to use:**
+
 - Established patterns (CRUD, auth with known library)
 - Implementation details (defer to execution)
 - Questions answerable from existing project context
 
 **When to use RESEARCH.md instead:**
+
 - Niche/complex domains (3D, games, audio, shaders)
 - Need ecosystem knowledge, not just library choice
 - "How do experts build this" questions

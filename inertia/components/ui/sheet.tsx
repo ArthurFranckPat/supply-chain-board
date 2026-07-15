@@ -1,8 +1,8 @@
-import { Dialog as DialogPrimitive } from "@kobalte/core/dialog"
-import type { VariantProps } from "cva"
-import { cva, cx } from "@/libs/cva"
-import type { Component, ComponentProps, ValidComponent } from "solid-js"
-import { Show, splitProps } from "solid-js"
+import { Dialog as DialogPrimitive } from '@kobalte/core/dialog'
+import type { VariantProps } from 'cva'
+import { cva, cx } from '@/libs/cva'
+import type { Component, ComponentProps, ValidComponent } from 'solid-js'
+import { Show, splitProps } from 'solid-js'
 
 /**
  * Sheet — drawer latéral. shadcn-solid n'expose pas de composant `sheet` dans son
@@ -13,37 +13,35 @@ import { Show, splitProps } from "solid-js"
  * Animations via tailwindcss-animate (slide-in/out + fade).
  */
 const sheetVariants = cva({
-  base: "fixed z-50 gap-4 bg-background text-foreground shadow-lg flex flex-col",
+  base: 'fixed z-50 gap-4 bg-background text-foreground shadow-lg flex flex-col',
   variants: {
     side: {
       right:
-        "inset-y-0 right-0 h-full w-3/4 sm:max-w-md border-l data-[expanded]:slide-in-from-right data-[closed]:slide-out-to-right",
-      left: "inset-y-0 left-0 h-full w-3/4 sm:max-w-sm border-r data-[expanded]:slide-in-from-left data-[closed]:slide-out-to-left",
-      top: "inset-x-0 top-0 border-b data-[expanded]:slide-in-from-top data-[closed]:slide-out-to-top",
+        'inset-y-0 right-0 h-full w-3/4 sm:max-w-md border-l data-[expanded]:slide-in-from-right data-[closed]:slide-out-to-right',
+      left: 'inset-y-0 left-0 h-full w-3/4 sm:max-w-sm border-r data-[expanded]:slide-in-from-left data-[closed]:slide-out-to-left',
+      top: 'inset-x-0 top-0 border-b data-[expanded]:slide-in-from-top data-[closed]:slide-out-to-top',
       bottom:
-        "inset-x-0 bottom-0 border-t data-[expanded]:slide-in-from-bottom data-[closed]:slide-out-to-bottom",
+        'inset-x-0 bottom-0 border-t data-[expanded]:slide-in-from-bottom data-[closed]:slide-out-to-bottom',
     },
   },
-  defaultVariants: { side: "right" },
+  defaultVariants: { side: 'right' },
 })
 
 export const Sheet = DialogPrimitive
 export const SheetTrigger = DialogPrimitive.Trigger
 export const SheetCloseButton = DialogPrimitive.CloseButton
 
-type SheetContentProps<T extends ValidComponent = "div"> = ComponentProps<
+type SheetContentProps<T extends ValidComponent = 'div'> = ComponentProps<
   typeof DialogPrimitive.Content<T>
 > &
   VariantProps<typeof sheetVariants> & { showCloseButton?: boolean }
 
-export function SheetContent<T extends ValidComponent = "div">(
-  props: SheetContentProps<T>,
-) {
+export function SheetContent<T extends ValidComponent = 'div'>(props: SheetContentProps<T>) {
   const [, rest] = splitProps(props as SheetContentProps, [
-    "class",
-    "side",
-    "children",
-    "showCloseButton",
+    'class',
+    'side',
+    'children',
+    'showCloseButton',
   ])
   return (
     <>
@@ -54,7 +52,7 @@ export function SheetContent<T extends ValidComponent = "div">(
       <DialogPrimitive.Content
         data-slot="sheet-content"
         class={cx(
-          "data-[expanded]:animate-in data-[closed]:animate-out data-[expanded]:duration-300 data-[closed]:duration-200",
+          'data-[expanded]:animate-in data-[closed]:animate-out data-[expanded]:duration-300 data-[closed]:duration-200',
           sheetVariants({ side: props.side }),
           props.class
         )}
@@ -83,13 +81,11 @@ export function SheetContent<T extends ValidComponent = "div">(
   )
 }
 
-export const SheetHeader: Component<ComponentProps<"div">> = (props) => (
+export const SheetHeader: Component<ComponentProps<'div'>> = (props) => (
   <div class="flex flex-col gap-2 px-5 pt-5 pb-4 border-b border-border" {...props} />
 )
 
-export const SheetTitle = <
-  T extends ValidComponent = "h2",
->(
+export const SheetTitle = <T extends ValidComponent = 'h2'>(
   props: ComponentProps<typeof DialogPrimitive.Title<T>>
 ) => (
   <DialogPrimitive.Title
@@ -99,9 +95,7 @@ export const SheetTitle = <
   />
 )
 
-export const SheetDescription = <
-  T extends ValidComponent = "p",
->(
+export const SheetDescription = <T extends ValidComponent = 'p'>(
   props: ComponentProps<typeof DialogPrimitive.Description<T>>
 ) => (
   <DialogPrimitive.Description
@@ -111,6 +105,6 @@ export const SheetDescription = <
   />
 )
 
-export const SheetBody: Component<ComponentProps<"div">> = (props) => (
+export const SheetBody: Component<ComponentProps<'div'>> = (props) => (
   <div class="flex-1 overflow-y-auto px-5 py-4 space-y-5" {...props} />
 )

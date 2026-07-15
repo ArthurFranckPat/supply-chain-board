@@ -46,7 +46,8 @@ export const ChargeHistogram: Component<ChargeHistogramProps> = (props) => {
   const variant = () => props.variant ?? 'full'
   const line = () => variant() === 'line'
 
-  const total = () => props.weeks.reduce((s, w) => s + w.ferme + w.planifie + w.suggere + w.induit, 0)
+  const total = () =>
+    props.weeks.reduce((s, w) => s + w.ferme + w.planifie + w.suggere + w.induit, 0)
   const fermeTotal = () => props.weeks.reduce((s, w) => s + w.ferme, 0)
   const induitTotal = () => props.weeks.reduce((s, w) => s + w.induit, 0)
   const moyenne = () => (props.weeks.length ? total() / props.weeks.length : 0)
@@ -79,34 +80,41 @@ export const ChargeHistogram: Component<ChargeHistogramProps> = (props) => {
         </Show>
         <Show when={line() && induitTotal() > 0}>
           <span
-            class="ml-auto inline-flex items-center gap-1 rounded-[5px] px-1.5 py-0.5 font-mono text-[10px] font-bold text-terra"
+            class="ml-auto inline-flex items-center gap-1 rounded-[5px] px-1.5 py-0.5 font-mono text-[10px] font-bold text-brand"
             style={{ 'background-color': 'rgba(168,67,31,.10)' }}
           >
             <span
               class="size-1.5 rounded-[2px]"
               style={{
                 'background-color': 'rgba(168,67,31,.18)',
-                'background-image': 'repeating-linear-gradient(45deg, rgba(168,67,31,.5) 0 1px, transparent 1px 3px)',
+                'background-image':
+                  'repeating-linear-gradient(45deg, rgba(168,67,31,.5) 0 1px, transparent 1px 3px)',
               }}
             />
             {fmt(induitTotal())} h amont
           </span>
         </Show>
         <Show when={!line()}>
-          <span class="ml-auto rounded-[5px] bg-terra-soft px-1.5 py-0.5 font-mono text-[10px] font-bold text-terra">
+          <span class="ml-auto rounded-[5px] bg-brand-soft px-1.5 py-0.5 font-mono text-[10px] font-bold text-brand">
             moy. {fmt(moyenne())} h/sem
           </span>
         </Show>
       </div>
 
       {/* Barres empilées arrondies */}
-      <div class={cx('relative flex items-end justify-center border-b border-rule-soft px-1', barH(), gap())}>
+      <div
+        class={cx(
+          'relative flex items-end justify-center border-b border-rule-soft px-1',
+          barH(),
+          gap()
+        )}
+      >
         <Show when={!line()}>
           <div
-            class="pointer-events-none absolute bottom-0 left-1 right-1 border-t-[1.5px] border-dashed border-terra"
+            class="pointer-events-none absolute bottom-0 left-1 right-1 border-t-[1.5px] border-dashed border-brand"
             style={{ bottom: `${moyH()}%` }}
           >
-            <span class="absolute right-0 -top-[7px] bg-card px-1 font-mono text-[7px] font-bold text-terra">
+            <span class="absolute right-0 -top-[7px] bg-card px-1 font-mono text-[7px] font-bold text-brand">
               {fmt(moyenne())} h
             </span>
           </div>
@@ -125,19 +133,31 @@ export const ChargeHistogram: Component<ChargeHistogramProps> = (props) => {
                   <span
                     class="flex w-full items-center justify-center"
                     style={{
-                      height: `${pct(w.induit, t)}%`,
+                      'height': `${pct(w.induit, t)}%`,
                       'background-color': 'rgba(168,67,31,.12)',
                       'background-image':
                         'repeating-linear-gradient(45deg, rgba(168,67,31,.4) 0 1.5px, transparent 1.5px 5px)',
                     }}
                   >
                     <Show when={lab(w.induit, t)}>
-                      <span class="font-mono text-[8px] font-bold leading-none text-terra">{lab(w.induit, t)}</span>
+                      <span class="font-mono text-[8px] font-bold leading-none text-brand">
+                        {lab(w.induit, t)}
+                      </span>
                     </Show>
                   </span>
                 </Show>
-                <Seg bg="bg-suggere" h={pct(w.suggere, t)} label={lab(w.suggere, t)} ink="text-[#3a2a0e]" />
-                <Seg bg="bg-planifie" h={pct(w.planifie, t)} label={lab(w.planifie, t)} ink="text-card" />
+                <Seg
+                  bg="bg-suggere"
+                  h={pct(w.suggere, t)}
+                  label={lab(w.suggere, t)}
+                  ink="text-[#3a2a0e]"
+                />
+                <Seg
+                  bg="bg-planifie"
+                  h={pct(w.planifie, t)}
+                  label={lab(w.planifie, t)}
+                  ink="text-card"
+                />
                 <Seg bg="bg-ferme" h={pct(w.ferme, t)} label={lab(w.ferme, t)} ink="text-card" />
               </div>
             )
@@ -153,7 +173,7 @@ export const ChargeHistogram: Component<ChargeHistogramProps> = (props) => {
               class={cx(
                 'text-center font-mono font-bold text-muted-foreground',
                 barW(),
-                line() ? 'text-[10px]' : 'text-[8px]',
+                line() ? 'text-[10px]' : 'text-[8px]'
               )}
             >
               S{w.week}

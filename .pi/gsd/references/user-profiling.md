@@ -23,12 +23,12 @@ This reference document defines detection heuristics for behavioral profiling ac
 
 **Rating spectrum:**
 
-| Rating | Description |
-|--------|-------------|
-| `terse-direct` | Short, imperative messages with minimal context. Gets to the point immediately. |
-| `conversational` | Medium-length messages mixing instructions with questions and thinking-aloud. Natural, informal tone. |
-| `detailed-structured` | Long messages with explicit structure -- headers, numbered lists, problem statements, pre-analysis. |
-| `mixed` | No dominant pattern; style shifts based on task type or project context. |
+| Rating                | Description                                                                                           |
+| --------------------- | ----------------------------------------------------------------------------------------------------- |
+| `terse-direct`        | Short, imperative messages with minimal context. Gets to the point immediately.                       |
+| `conversational`      | Medium-length messages mixing instructions with questions and thinking-aloud. Natural, informal tone. |
+| `detailed-structured` | Long messages with explicit structure -- headers, numbered lists, problem statements, pre-analysis.   |
+| `mixed`               | No dominant pattern; style shifts based on task type or project context.                              |
 
 **Signal patterns:**
 
@@ -74,12 +74,12 @@ When communication style varies systematically by project or task type, report t
 
 **Rating spectrum:**
 
-| Rating | Description |
-|--------|-------------|
-| `fast-intuitive` | Decides immediately based on experience or gut feeling. Minimal deliberation. |
+| Rating                | Description                                                                     |
+| --------------------- | ------------------------------------------------------------------------------- |
+| `fast-intuitive`      | Decides immediately based on experience or gut feeling. Minimal deliberation.   |
 | `deliberate-informed` | Requests comparison or summary before deciding. Wants to understand trade-offs. |
-| `research-first` | Delays decision to research independently. May leave and return with findings. |
-| `delegator` | Defers to the agent's recommendation. Trusts the suggestion. |
+| `research-first`      | Delays decision to research independently. May leave and return with findings.  |
+| `delegator`           | Defers to the agent's recommendation. Trusts the suggestion.                    |
 
 **Signal patterns:**
 
@@ -125,12 +125,12 @@ Decision speed often varies by stakes. A developer may be fast-intuitive for sty
 
 **Rating spectrum:**
 
-| Rating | Description |
-|--------|-------------|
-| `code-only` | Wants working code with minimal or no explanation. Reads and understands code directly. |
-| `concise` | Wants brief explanation of approach with code. Key decisions noted, not exhaustive. |
-| `detailed` | Wants thorough walkthrough of the approach, reasoning, and code. Appreciates structure. |
-| `educational` | Wants deep conceptual explanation. Treats interactions as learning opportunities. |
+| Rating        | Description                                                                             |
+| ------------- | --------------------------------------------------------------------------------------- |
+| `code-only`   | Wants working code with minimal or no explanation. Reads and understands code directly. |
+| `concise`     | Wants brief explanation of approach with code. Key decisions noted, not exhaustive.     |
+| `detailed`    | Wants thorough walkthrough of the approach, reasoning, and code. Appreciates structure. |
+| `educational` | Wants deep conceptual explanation. Treats interactions as learning opportunities.       |
 
 **Signal patterns:**
 
@@ -175,12 +175,12 @@ Explanation depth often correlates with domain familiarity. A developer may want
 
 **Rating spectrum:**
 
-| Rating | Description |
-|--------|-------------|
-| `fix-first` | Pastes error, wants it fixed. Minimal diagnosis interest. Results-oriented. |
-| `diagnostic` | Shares error with context, wants to understand the cause before fixing. |
+| Rating              | Description                                                                             |
+| ------------------- | --------------------------------------------------------------------------------------- |
+| `fix-first`         | Pastes error, wants it fixed. Minimal diagnosis interest. Results-oriented.             |
+| `diagnostic`        | Shares error with context, wants to understand the cause before fixing.                 |
 | `hypothesis-driven` | Investigates independently first, brings specific theories to the agent for validation. |
-| `collaborative` | Wants to work through the problem step-by-step with the agent as a partner. |
+| `collaborative`     | Wants to work through the problem step-by-step with the agent as a partner.             |
 
 **Signal patterns:**
 
@@ -225,12 +225,12 @@ Debugging approach may vary by urgency. A developer might be fix-first under dea
 
 **Rating spectrum:**
 
-| Rating | Description |
-|--------|-------------|
-| `function-first` | Get it working, polish later. Minimal UX concern during implementation. |
-| `pragmatic` | Basic usability from the start. Nothing ugly or broken, but no design obsession. |
+| Rating             | Description                                                                          |
+| ------------------ | ------------------------------------------------------------------------------------ |
+| `function-first`   | Get it working, polish later. Minimal UX concern during implementation.              |
+| `pragmatic`        | Basic usability from the start. Nothing ugly or broken, but no design obsession.     |
 | `design-conscious` | Design and UX are treated as important as functionality. Attention to visual detail. |
-| `backend-focused` | Primarily builds backend/CLI. Minimal frontend exposure or interest. |
+| `backend-focused`  | Primarily builds backend/CLI. Minimal frontend exposure or interest.                 |
 
 **Signal patterns:**
 
@@ -275,12 +275,12 @@ UX philosophy is inherently project-dependent. A developer building a CLI tool i
 
 **Rating spectrum:**
 
-| Rating | Description |
-|--------|-------------|
-| `pragmatic-fast` | Uses what works, what the agent suggests, or what's fastest. Minimal evaluation. |
-| `conservative` | Prefers well-known, battle-tested, widely-adopted options. Risk-averse. |
+| Rating               | Description                                                                              |
+| -------------------- | ---------------------------------------------------------------------------------------- |
+| `pragmatic-fast`     | Uses what works, what the agent suggests, or what's fastest. Minimal evaluation.         |
+| `conservative`       | Prefers well-known, battle-tested, widely-adopted options. Risk-averse.                  |
 | `thorough-evaluator` | Researches alternatives, reads docs, compares features and trade-offs before committing. |
-| `opinionated` | Has strong, pre-existing preferences for specific tools. Knows what they like. |
+| `opinionated`        | Has strong, pre-existing preferences for specific tools. Knows what they like.           |
 
 **Signal patterns:**
 
@@ -325,12 +325,12 @@ Vendor philosophy may shift based on project importance or domain. Personal proj
 
 **Rating spectrum:**
 
-| Rating | Description |
-|--------|-------------|
-| `scope-creep` | Frustrated when the agent does things that were not asked for. Wants bounded execution. |
-| `instruction-adherence` | Frustrated when the agent doesn't follow instructions precisely. Values exactness. |
-| `verbosity` | Frustrated when the agent over-explains or is too wordy. Wants conciseness. |
-| `regression` | Frustrated when the agent breaks working code while fixing something else. Values stability. |
+| Rating                  | Description                                                                                  |
+| ----------------------- | -------------------------------------------------------------------------------------------- |
+| `scope-creep`           | Frustrated when the agent does things that were not asked for. Wants bounded execution.      |
+| `instruction-adherence` | Frustrated when the agent doesn't follow instructions precisely. Values exactness.           |
+| `verbosity`             | Frustrated when the agent over-explains or is too wordy. Wants conciseness.                  |
+| `regression`            | Frustrated when the agent breaks working code while fixing something else. Values stability. |
 
 **Signal patterns:**
 
@@ -375,12 +375,12 @@ Frustration triggers tend to be consistent across projects (personality-driven, 
 
 **Rating spectrum:**
 
-| Rating | Description |
-|--------|-------------|
-| `self-directed` | Reads code directly, figures things out independently. Asks the agent specific questions. |
-| `guided` | Asks the agent to explain relevant parts. Prefers guided understanding. |
-| `documentation-first` | Reads official docs and tutorials before diving in. References documentation. |
-| `example-driven` | Wants working examples to modify and learn from. Pattern-matching learner. |
+| Rating                | Description                                                                               |
+| --------------------- | ----------------------------------------------------------------------------------------- |
+| `self-directed`       | Reads code directly, figures things out independently. Asks the agent specific questions. |
+| `guided`              | Asks the agent to explain relevant parts. Prefers guided understanding.                   |
+| `documentation-first` | Reads official docs and tutorials before diving in. References documentation.             |
+| `example-driven`      | Wants working examples to modify and learn from. Pattern-matching learner.                |
 
 **Signal patterns:**
 
@@ -474,6 +474,7 @@ This metadata enables defense-in-depth auditing. Layer 2 (regex filter in the wr
 ### Natural Language Priority
 
 Weight natural language messages higher than:
+
 - Pasted log output (detected by timestamps, repeated format strings, `[DEBUG]`, `[INFO]`, `[ERROR]`)
 - Session context dumps (messages starting with "This session is being continued from a previous conversation")
 - Large code pastes (messages where > 80% of content is inside code fences)
@@ -511,11 +512,11 @@ Developer styles evolve. A developer who was terse six months ago may now provid
 
 ### Message Thresholds
 
-| Total Genuine Messages | Mode | Behavior |
-|------------------------|------|----------|
-| > 50 | `full` | Full analysis across all 8 dimensions. Questionnaire optional (user can choose to supplement). |
-| 20-50 | `hybrid` | Analyze available messages. Score each dimension with confidence. Supplement with questionnaire for LOW/UNSCORED dimensions. |
-| < 20 | `insufficient` | All dimensions scored LOW or UNSCORED. Recommend questionnaire fallback as primary profile source. Note: "insufficient session data for behavioral analysis." |
+| Total Genuine Messages | Mode           | Behavior                                                                                                                                                      |
+| ---------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| > 50                   | `full`         | Full analysis across all 8 dimensions. Questionnaire optional (user can choose to supplement).                                                                |
+| 20-50                  | `hybrid`       | Analyze available messages. Score each dimension with confidence. Supplement with questionnaire for LOW/UNSCORED dimensions.                                  |
+| < 20                   | `insufficient` | All dimensions scored LOW or UNSCORED. Recommend questionnaire fallback as primary profile source. Note: "insufficient session data for behavioral analysis." |
 
 ### Handling Insufficient Dimensions
 
@@ -530,6 +531,7 @@ When a specific dimension has insufficient data (even if total messages exceed t
 ### Questionnaire Supplement
 
 When operating in `hybrid` mode, the questionnaire fills gaps for dimensions where session analysis produced LOW or UNSCORED confidence. The questionnaire-derived ratings use:
+
 - **MEDIUM** confidence for strong, definitive picks
 - **LOW** confidence for "it varies" or ambiguous selections
 
@@ -549,9 +551,7 @@ The profiler agent must return JSON matching this exact schema, wrapped in `<ana
   "projects_analyzed": ["project-name-1", "project-name-2"],
   "messages_analyzed": 0,
   "message_threshold": "full|hybrid|insufficient",
-  "sensitive_excluded": [
-    { "type": "string", "count": 0 }
-  ],
+  "sensitive_excluded": [{ "type": "string", "count": 0 }],
   "dimensions": {
     "communication_style": {
       "rating": "terse-direct|conversational|detailed-structured|mixed",
@@ -676,6 +676,6 @@ Context-dependent splits are resolved during Phase 3 orchestration. The orchestr
 
 ---
 
-*Reference document version: 1.0*
-*Dimensions: 8*
-*Schema: profile_version 1.0*
+_Reference document version: 1.0_
+_Dimensions: 8_
+_Schema: profile_version 1.0_

@@ -1,4 +1,12 @@
-import { createMemo, createResource, createSignal, onCleanup, Show, createEffect, type Component } from 'solid-js'
+import {
+  createMemo,
+  createResource,
+  createSignal,
+  onCleanup,
+  Show,
+  createEffect,
+  type Component,
+} from 'solid-js'
 import { cx } from '@/libs/cva'
 import { Masthead } from '@/components/masthead'
 import { Calendar, type DateRange } from '@/components/ui/calendar'
@@ -18,12 +26,23 @@ import type { ReceptionsRowsResponse, ReceptionViewKind } from '@/lib/receptions
  */
 
 const fold = (s: string): string =>
-  s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  s
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
 
 const EMPTY: ReceptionsRowsResponse = {
   rows: [],
   chargeByDay: [],
-  stats: { totalPalettes: 0, totalLignes: 0, totalFournisseurs: 0, picPalettes: 0, picJour: null, lignesEstimees: 0, lignesSansCoef: 0 },
+  stats: {
+    totalPalettes: 0,
+    totalLignes: 0,
+    totalFournisseurs: 0,
+    picPalettes: 0,
+    picJour: null,
+    lignesEstimees: 0,
+    lignesSansCoef: 0,
+  },
   range: { from: '', to: '', horizonDays: 0 },
   x3Error: null,
 }
@@ -69,20 +88,20 @@ const Receptions: Component<ReceptionsPageProps> = (props) => {
     return `${u.pathname}?${u.searchParams.toString()}`
   })
 
-  const [data] = createResource(
-    url,
-    async (u): Promise<ReceptionsRowsResponse> => {
-      const start = Date.now()
-      const res = await fetch(u, { headers: { accept: 'application/json' } })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const json = (await res.json()) as ReceptionsRowsResponse
-      setLoadMs(Date.now() - start)
-      return json
-    },
-  )
+  const [data] = createResource(url, async (u): Promise<ReceptionsRowsResponse> => {
+    const start = Date.now()
+    const res = await fetch(u, { headers: { accept: 'application/json' } })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const json = (await res.json()) as ReceptionsRowsResponse
+    setLoadMs(Date.now() - start)
+    return json
+  })
 
   createEffect(() => {
-    if (!data.loading) { setElapsed(0); return }
+    if (!data.loading) {
+      setElapsed(0)
+      return
+    }
     const t0 = Date.now()
     const id = setInterval(() => setElapsed(Date.now() - t0), 200)
     onCleanup(() => clearInterval(id))
@@ -108,7 +127,7 @@ const Receptions: Component<ReceptionsPageProps> = (props) => {
           fold(r.fournisseur).includes(q) ||
           fold(r.article).includes(q) ||
           fold(r.designation).includes(q) ||
-          fold(r.noCommande).includes(q),
+          fold(r.noCommande).includes(q)
       )
     }
     return rows
@@ -121,11 +140,15 @@ const Receptions: Component<ReceptionsPageProps> = (props) => {
         active="receptions"
         meta={
           <>
-            <div class="font-fraunces text-[12px] font-bold capitalize not-italic text-terra">{rangeLabel()}</div>
+            <div class="font-fraunces text-[12px] font-bold capitalize not-italic text-brand">
+              {rangeLabel()}
+            </div>
             <div>
-              <b class="font-bold text-foreground">{stats().totalPalettes}</b> palette{stats().totalPalettes > 1 ? 's' : ''}
+              <b class="font-bold text-foreground">{stats().totalPalettes}</b> palette
+              {stats().totalPalettes > 1 ? 's' : ''}
               {' · '}
-              <b class="font-bold text-foreground">{stats().totalLignes}</b> réception{stats().totalLignes > 1 ? 's' : ''}
+              <b class="font-bold text-foreground">{stats().totalLignes}</b> réception
+              {stats().totalLignes > 1 ? 's' : ''}
             </div>
           </>
         }
@@ -141,13 +164,18 @@ const Receptions: Component<ReceptionsPageProps> = (props) => {
               onClick={() => setCalendarOpen((v) => !v)}
               class="flex items-center gap-1.5 rounded border border-rule bg-card px-2.5 py-1.5 font-mono text-[11px] text-foreground transition-colors hover:bg-secondary/60"
             >
-              <span class="material-symbols-outlined text-[14px] text-muted-foreground">calendar_today</span>
+              <span class="material-symbols-outlined text-[14px] text-muted-foreground">
+                calendar_today
+              </span>
               <span>{rangeLabel()}</span>
             </button>
             <Show when={range()?.start}>
               <button
                 type="button"
-                onClick={() => { setRange(null); setCalendarOpen(false) }}
+                onClick={() => {
+                  setRange(null)
+                  setCalendarOpen(false)
+                }}
                 class="flex size-6 items-center justify-center rounded text-muted-foreground hover:text-foreground"
                 title="Réinitialiser"
               >
@@ -171,7 +199,7 @@ const Receptions: Component<ReceptionsPageProps> = (props) => {
         </div>
 
         {/* Recherche */}
-        <div class="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-terra focus-within:ring-2 focus-within:ring-terra/25">
+        <div class="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/25">
           <span class="material-symbols-outlined text-[17px] text-muted-foreground">search</span>
           <input
             class="w-[180px] border-0 bg-transparent px-0 text-[12px] font-medium text-foreground shadow-none outline-none"
@@ -185,10 +213,15 @@ const Receptions: Component<ReceptionsPageProps> = (props) => {
 
         <div class="ml-auto flex items-center gap-2">
           <Show when={data.loading}>
-            <span class="font-mono text-[11px] tabular-nums text-muted-foreground">{fmtMs(elapsed())}</span>
+            <span class="font-mono text-[11px] tabular-nums text-muted-foreground">
+              {fmtMs(elapsed())}
+            </span>
           </Show>
           <Show when={!data.loading && loadMs() !== null}>
-            <span class="font-mono text-[11px] tabular-nums text-muted-foreground/60" title="Durée dernier chargement X3">
+            <span
+              class="font-mono text-[11px] tabular-nums text-muted-foreground/60"
+              title="Durée dernier chargement X3"
+            >
               {fmtMs(loadMs()!)}
             </span>
           </Show>
@@ -196,10 +229,15 @@ const Receptions: Component<ReceptionsPageProps> = (props) => {
             type="button"
             onClick={() => setBust((b) => b + 1)}
             disabled={data.loading}
-            class="inline-flex items-center gap-1 rounded-full border border-rule bg-card px-3 py-1 text-[11px] font-semibold transition-colors hover:border-terra disabled:opacity-50"
+            class="inline-flex items-center gap-1 rounded-full border border-rule bg-card px-3 py-1 text-[11px] font-semibold transition-colors hover:border-brand disabled:opacity-50"
             title="Recharger les données X3"
           >
-            <span class="material-symbols-outlined text-[14px] text-muted-foreground" classList={{ 'animate-spin': data.loading }}>refresh</span>
+            <span
+              class="material-symbols-outlined text-[14px] text-muted-foreground"
+              classList={{ 'animate-spin': data.loading }}
+            >
+              refresh
+            </span>
             Actualiser
           </button>
         </div>
@@ -208,13 +246,23 @@ const Receptions: Component<ReceptionsPageProps> = (props) => {
       {/* ═══ Toggle vue ═══ */}
       <div class="flex flex-none items-center gap-2.5 border-b border-rule-soft px-7 py-1.5">
         <div class="flex items-center overflow-hidden rounded-md border border-rule bg-card">
-          <ViewTab active={view() === 'tableau'} onClick={() => setView('tableau')} icon="table_rows" label="Tableau" />
-          <ViewTab active={view() === 'calendrier'} onClick={() => setView('calendrier')} icon="bar_chart" label="Charge par jour" />
+          <ViewTab
+            active={view() === 'tableau'}
+            onClick={() => setView('tableau')}
+            icon="table_rows"
+            label="Tableau"
+          />
+          <ViewTab
+            active={view() === 'calendrier'}
+            onClick={() => setView('calendrier')}
+            icon="bar_chart"
+            label="Charge par jour"
+          />
         </div>
 
         {/* Filtre jour actif (drill-down) */}
         <Show when={selectedDay()}>
-          <span class="flex items-center gap-1.5 rounded-md border border-terra/30 bg-terra/5 px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-terra">
+          <span class="flex items-center gap-1.5 rounded-md border border-brand/30 bg-brand/5 px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-brand">
             <span class="material-symbols-outlined text-[13px]">filter_alt</span>
             {charge().find((c) => c.day === selectedDay())?.dayFmt ?? selectedDay()}
             <button type="button" onClick={() => setSelectedDay(null)} class="hover:opacity-70">
@@ -234,12 +282,17 @@ const Receptions: Component<ReceptionsPageProps> = (props) => {
             </span>
           </Show>
           <Show when={stats().lignesSansCoef > 0}>
-            <span class="flex items-center gap-1 text-destructive" title="Lignes sans coef palette ni estimation — charge réellement sous-estimée">
+            <span
+              class="flex items-center gap-1 text-destructive"
+              title="Lignes sans coef palette ni estimation — charge réellement sous-estimée"
+            >
               <span class="material-symbols-outlined text-[13px]">warning</span>
               {stats().lignesSansCoef} coef manquant{stats().lignesSansCoef > 1 ? 's' : ''}
             </span>
           </Show>
-          <span>{filteredRows().length} ligne{filteredRows().length > 1 ? 's' : ''}</span>
+          <span>
+            {filteredRows().length} ligne{filteredRows().length > 1 ? 's' : ''}
+          </span>
         </div>
       </div>
 
@@ -254,10 +307,12 @@ const Receptions: Component<ReceptionsPageProps> = (props) => {
 
       {/* ═══ Vue ═══ */}
       <Show
-        when={!data.loading}
+        when={data() || !data.loading}
         fallback={
           <div class="flex flex-1 items-center justify-center gap-2 text-muted-foreground">
-            <span class="material-symbols-outlined animate-spin text-[20px]">progress_activity</span>
+            <span class="material-symbols-outlined animate-spin text-[20px]">
+              progress_activity
+            </span>
             <span class="text-[13px] font-medium">Calcul des réceptions…</span>
           </div>
         }
@@ -271,45 +326,56 @@ const Receptions: Component<ReceptionsPageProps> = (props) => {
             </div>
           }
         >
-          <Show
-            when={viewData().rows.length > 0 || x3Error()}
-            fallback={
-              <div class="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-center">
-                <span class="material-symbols-outlined text-[32px] text-muted-foreground/50">
-                  {x3Error() ? 'cloud_off' : 'inventory_2'}
-                </span>
-                <span class="font-fraunces text-[14px] italic text-muted-foreground">
-                  {x3Error() ? 'Données indisponibles (X3 injoignable).' : 'Aucune réception planifiée sur la période.'}
-                </span>
-              </div>
-            }
+          <div
+            class="flex flex-1 flex-col overflow-hidden transition-opacity duration-150"
+            classList={{ 'opacity-50 pointer-events-none': data.loading }}
           >
             <Show
-              when={view() === 'tableau'}
+              when={viewData().rows.length > 0 || x3Error()}
               fallback={
-              <ReceptionCalendrier
-                charge={charge}
-                selectedDay={selectedDay}
-                onSelectDay={(day) => {
-                  setSelectedDay(day)
-                  if (day) setView('tableau')
-                }}
-              />
+                <div class="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-center">
+                  <span class="material-symbols-outlined text-[32px] text-muted-foreground/50">
+                    {x3Error() ? 'cloud_off' : 'inventory_2'}
+                  </span>
+                  <span class="font-fraunces text-[14px] italic text-muted-foreground">
+                    {x3Error()
+                      ? 'Données indisponibles (X3 injoignable).'
+                      : 'Aucune réception planifiée sur la période.'}
+                  </span>
+                </div>
               }
             >
-              <ReceptionTableau
-                rows={filteredRows}
-                emptyState={
-                  <div class="flex flex-col items-center justify-center gap-2 p-10 text-center">
-                    <span class="material-symbols-outlined text-[32px] text-muted-foreground/50">inbox</span>
-                    <span class="font-fraunces text-[14px] italic text-muted-foreground">
-                      {selectedDay() ? 'Aucune réception ce jour.' : 'Aucune réception sur la période.'}
-                    </span>
-                  </div>
+              <Show
+                when={view() === 'tableau'}
+                fallback={
+                  <ReceptionCalendrier
+                    charge={charge}
+                    selectedDay={selectedDay}
+                    onSelectDay={(day) => {
+                      setSelectedDay(day)
+                      if (day) setView('tableau')
+                    }}
+                  />
                 }
-              />
+              >
+                <ReceptionTableau
+                  rows={filteredRows}
+                  emptyState={
+                    <div class="flex flex-col items-center justify-center gap-2 p-10 text-center">
+                      <span class="material-symbols-outlined text-[32px] text-muted-foreground/50">
+                        inbox
+                      </span>
+                      <span class="font-fraunces text-[14px] italic text-muted-foreground">
+                        {selectedDay()
+                          ? 'Aucune réception ce jour.'
+                          : 'Aucune réception sur la période.'}
+                      </span>
+                    </div>
+                  }
+                />
+              </Show>
             </Show>
-          </Show>
+          </div>
         </Show>
       </Show>
     </div>
@@ -317,13 +383,15 @@ const Receptions: Component<ReceptionsPageProps> = (props) => {
 }
 
 /** Onglet de bascule de vue (tableau / calendrier). */
-const ViewTab: Component<{ active: boolean; onClick: () => void; icon: string; label: string }> = (p) => (
+const ViewTab: Component<{ active: boolean; onClick: () => void; icon: string; label: string }> = (
+  p
+) => (
   <button
     type="button"
     onClick={p.onClick}
     class={cx(
       'flex items-center gap-1.5 px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
-      p.active ? 'bg-terra/10 text-terra' : 'text-muted-foreground hover:text-foreground',
+      p.active ? 'bg-brand/10 text-brand' : 'text-muted-foreground hover:text-foreground'
     )}
   >
     <span class="material-symbols-outlined text-[14px]">{p.icon}</span>

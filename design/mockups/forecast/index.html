@@ -1,60 +1,253 @@
 <!doctype html>
 <html lang="fr">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Charge long-terme · 3 propositions</title>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet" />
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,400,0,0" rel="stylesheet" />
-<style>
-:root{--bg:#1f1a13;--panel:#2b2620;--line:#463d33;--txt:#f3ece0;--muted:#a99c84;--terra:#c46a3f;--fd:"Space Grotesk",sans-serif;--fs:"Inter",sans-serif;--fm:"JetBrains Mono",monospace}
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:var(--txt);font-family:var(--fs);padding:32px}
-.material-symbols-outlined{font-family:"Material Symbols Outlined";font-weight:400;line-height:1;font-feature-settings:"liga";vertical-align:middle}
-.hd{max-width:1100px;margin:0 auto 26px}
-.hd h1{font:700 26px var(--fd);letter-spacing:-.02em;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.hd .p{font:700 10px var(--fm);text-transform:uppercase;letter-spacing:.14em;color:#e8a980;background:rgba(196,106,63,.18);border:1px solid rgba(196,106,63,.4);padding:5px 11px;border-radius:7px}
-.hd .sub{color:var(--muted);font-size:13px;margin-top:10px;max-width:780px;line-height:1.55}
-.grid{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
-.col{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;display:flex;flex-direction:column;transition:.18s}
-.col:hover{border-color:#6a5d4d;transform:translateY(-2px)}
-.ch{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;gap:13px;align-items:flex-start}
-.ch .ico{width:38px;height:38px;border-radius:10px;background:rgba(196,106,63,.18);color:#e8a980;display:flex;align-items:center;justify-content:center;flex:none}
-.ch .ico .material-symbols-outlined{font-size:21px}
-.ch .n{font:700 10px var(--fm);letter-spacing:.1em;color:var(--muted)}
-.ch h2{font:700 18px var(--fd);letter-spacing:-.02em;margin-top:2px}
-.ch .d{font:500 12px var(--fs);color:var(--muted);margin-top:6px;line-height:1.5}
-.cf{padding:13px 18px;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}
-.cf a{display:inline-flex;align-items:center;gap:7px;font:600 12px var(--fs);text-decoration:none;color:var(--bg);background:#e8a980;padding:8px 13px;border-radius:8px;transition:.15s}
-.cf a:hover{background:#f3ece0}
-.cf a .material-symbols-outlined{font-size:16px}
-.cf .meta{font:600 10px var(--fm);color:var(--muted)}
-.note{max-width:1100px;margin:26px auto 0;font-size:12px;color:var(--muted);line-height:1.6;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 20px}
-.note b{color:var(--txt)}
-</style>
-</head>
-<body>
-<div class="hd">
-  <h1><span class="p"><span class="material-symbols-outlined" style="font-size:13px">trending_up</span>Projection de charge</span>3 propositions — vision long terme</h1>
-  <div class="sub">Complément du board de planification court-terme : visualiser la charge (heures) sur 6 mois, maille mois↔semaine, pour se projeter et décider. Empilé Ferme/Planifié/Suggéré + moyenne mobile. Sélecteur de ligne. Cliquez pour tester (interactif).</div>
-</div>
-<div class="grid">
-  <div class="col">
-    <div class="ch"><div class="ico"><span class="material-symbols-outlined">bar_chart</span></div><div><div class="n">1</div><h2>Barres</h2><div class="d">Histogramme empilé par mois/sem. Lecture précise des valeurs. Moyenne mobile + pic.</div></div></div>
-    <div class="cf"><a href="1-bars.html" target="_blank"><span class="material-symbols-outlined">open_in_new</span>Ouvrir</a><span class="meta">précision</span></div>
-  </div>
-  <div class="col">
-    <div class="ch"><div class="ico"><span class="material-symbols-outlined">show_chart</span></div><div><div class="n">2</div><h2>Aires</h2><div class="d">Aire empilée continue. Accent sur l'évolution / tendance (idéal long terme).</div></div></div>
-    <div class="cf"><a href="2-aires.html" target="_blank"><span class="material-symbols-outlined">open_in_new</span>Ouvrir</a><span class="meta">tendance</span></div>
-  </div>
-  <div class="col">
-    <div class="ch"><div class="ico"><span class="material-symbols-outlined">grid_view</span></div><div><div class="n">3</div><h2>Vue lignes</h2><div class="d">Mini-graphes par ligne (comparaison) + détail au clic. Décider où agir.</div></div></div>
-    <div class="cf"><a href="3-overview.html" target="_blank"><span class="material-symbols-outlined">open_in_new</span>Ouvrir</a><span class="meta">comparaison</span></div>
-  </div>
-</div>
-<div class="note">
-  <b>Commun aux 3 :</b> horizon 6 mois (Juil–Déc 2026), maille <b>Mois ↔ Semaine</b> (toggle), empilé Ferme/Planifié/Suggéré, moyenne mobile en pointillé terra, pic marqué, charge en <b>heures absolues</b>. Sélecteur de ligne (chips ou cartes). <b>Interactif</b> — cliquez les lignes / le toggle.<br><br>
-  <b>Mon avis :</b> <b>1 (Barres)</b> pour la précision des décisions, <b>2 (Aires)</b> si l'évolution/tendance prime, <b>3 (Vue lignes)</b> pour comparer les lignes avant de décider où concentrer les ressources.
-</div>
-</body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Charge long-terme · 3 propositions</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,400,0,0"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #1f1a13;
+        --panel: #2b2620;
+        --line: #463d33;
+        --txt: #f3ece0;
+        --muted: #a99c84;
+        --terra: #c46a3f;
+        --fd: 'Space Grotesk', sans-serif;
+        --fs: 'Inter', sans-serif;
+        --fm: 'JetBrains Mono', monospace;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        background: var(--bg);
+        color: var(--txt);
+        font-family: var(--fs);
+        padding: 32px;
+      }
+      .material-symbols-outlined {
+        font-family: 'Material Symbols Outlined';
+        font-weight: 400;
+        line-height: 1;
+        font-feature-settings: 'liga';
+        vertical-align: middle;
+      }
+      .hd {
+        max-width: 1100px;
+        margin: 0 auto 26px;
+      }
+      .hd h1 {
+        font: 700 26px var(--fd);
+        letter-spacing: -0.02em;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .hd .p {
+        font: 700 10px var(--fm);
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: #e8a980;
+        background: rgba(196, 106, 63, 0.18);
+        border: 1px solid rgba(196, 106, 63, 0.4);
+        padding: 5px 11px;
+        border-radius: 7px;
+      }
+      .hd .sub {
+        color: var(--muted);
+        font-size: 13px;
+        margin-top: 10px;
+        max-width: 780px;
+        line-height: 1.55;
+      }
+      .grid {
+        max-width: 1100px;
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 18px;
+      }
+      .col {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        transition: 0.18s;
+      }
+      .col:hover {
+        border-color: #6a5d4d;
+        transform: translateY(-2px);
+      }
+      .ch {
+        padding: 16px 18px;
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        gap: 13px;
+        align-items: flex-start;
+      }
+      .ch .ico {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        background: rgba(196, 106, 63, 0.18);
+        color: #e8a980;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex: none;
+      }
+      .ch .ico .material-symbols-outlined {
+        font-size: 21px;
+      }
+      .ch .n {
+        font: 700 10px var(--fm);
+        letter-spacing: 0.1em;
+        color: var(--muted);
+      }
+      .ch h2 {
+        font: 700 18px var(--fd);
+        letter-spacing: -0.02em;
+        margin-top: 2px;
+      }
+      .ch .d {
+        font: 500 12px var(--fs);
+        color: var(--muted);
+        margin-top: 6px;
+        line-height: 1.5;
+      }
+      .cf {
+        padding: 13px 18px;
+        border-top: 1px solid var(--line);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .cf a {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        font: 600 12px var(--fs);
+        text-decoration: none;
+        color: var(--bg);
+        background: #e8a980;
+        padding: 8px 13px;
+        border-radius: 8px;
+        transition: 0.15s;
+      }
+      .cf a:hover {
+        background: #f3ece0;
+      }
+      .cf a .material-symbols-outlined {
+        font-size: 16px;
+      }
+      .cf .meta {
+        font: 600 10px var(--fm);
+        color: var(--muted);
+      }
+      .note {
+        max-width: 1100px;
+        margin: 26px auto 0;
+        font-size: 12px;
+        color: var(--muted);
+        line-height: 1.6;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 16px 20px;
+      }
+      .note b {
+        color: var(--txt);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="hd">
+      <h1>
+        <span class="p"
+          ><span class="material-symbols-outlined" style="font-size: 13px">trending_up</span
+          >Projection de charge</span
+        >3 propositions — vision long terme
+      </h1>
+      <div class="sub">
+        Complément du board de planification court-terme : visualiser la charge (heures) sur 6 mois,
+        maille mois↔semaine, pour se projeter et décider. Empilé Ferme/Planifié/Suggéré + moyenne
+        mobile. Sélecteur de ligne. Cliquez pour tester (interactif).
+      </div>
+    </div>
+    <div class="grid">
+      <div class="col">
+        <div class="ch">
+          <div class="ico"><span class="material-symbols-outlined">bar_chart</span></div>
+          <div>
+            <div class="n">1</div>
+            <h2>Barres</h2>
+            <div class="d">
+              Histogramme empilé par mois/sem. Lecture précise des valeurs. Moyenne mobile + pic.
+            </div>
+          </div>
+        </div>
+        <div class="cf">
+          <a href="1-bars.html" target="_blank"
+            ><span class="material-symbols-outlined">open_in_new</span>Ouvrir</a
+          ><span class="meta">précision</span>
+        </div>
+      </div>
+      <div class="col">
+        <div class="ch">
+          <div class="ico"><span class="material-symbols-outlined">show_chart</span></div>
+          <div>
+            <div class="n">2</div>
+            <h2>Aires</h2>
+            <div class="d">
+              Aire empilée continue. Accent sur l'évolution / tendance (idéal long terme).
+            </div>
+          </div>
+        </div>
+        <div class="cf">
+          <a href="2-aires.html" target="_blank"
+            ><span class="material-symbols-outlined">open_in_new</span>Ouvrir</a
+          ><span class="meta">tendance</span>
+        </div>
+      </div>
+      <div class="col">
+        <div class="ch">
+          <div class="ico"><span class="material-symbols-outlined">grid_view</span></div>
+          <div>
+            <div class="n">3</div>
+            <h2>Vue lignes</h2>
+            <div class="d">
+              Mini-graphes par ligne (comparaison) + détail au clic. Décider où agir.
+            </div>
+          </div>
+        </div>
+        <div class="cf">
+          <a href="3-overview.html" target="_blank"
+            ><span class="material-symbols-outlined">open_in_new</span>Ouvrir</a
+          ><span class="meta">comparaison</span>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <b>Commun aux 3 :</b> horizon 6 mois (Juil–Déc 2026), maille <b>Mois ↔ Semaine</b> (toggle),
+      empilé Ferme/Planifié/Suggéré, moyenne mobile en pointillé terra, pic marqué, charge en
+      <b>heures absolues</b>. Sélecteur de ligne (chips ou cartes). <b>Interactif</b> — cliquez les
+      lignes / le toggle.<br /><br />
+      <b>Mon avis :</b> <b>1 (Barres)</b> pour la précision des décisions, <b>2 (Aires)</b> si
+      l'évolution/tendance prime, <b>3 (Vue lignes)</b> pour comparer les lignes avant de décider où
+      concentrer les ressources.
+    </div>
+  </body>
 </html>

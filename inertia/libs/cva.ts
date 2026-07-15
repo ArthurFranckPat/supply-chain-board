@@ -1,5 +1,5 @@
-import { defineConfig } from "cva"
-import { twMerge } from "tailwind-merge"
+import { defineConfig } from 'cva'
+import { twMerge } from 'tailwind-merge'
 
 /**
  * Helper CVA natif shadcn-solid (source : registry/lib/cva). `cx` fusionne les

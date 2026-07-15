@@ -19,7 +19,10 @@ import {
   netDemandsByAllocation,
   type OrderImpactResult,
 } from '#app/domain/order-impacts'
+import { computeAvancement } from '#app/domain/of-avancement'
+import { X3OperationRepository } from '#repositories/operation_repository'
 import { buildStrictQcStock } from '#app/domain/of-feasibility'
+import { fabricationDaysFromHours, DEFAULT_HOURS_PER_DAY } from '#app/domain/shortages'
 import {
   remapDemandDates,
   expandArticleSetWithBom,
@@ -27,6 +30,7 @@ import {
   precomputeMfgFeasibility,
 } from '#app/domain/order-impacts-assembly'
 import type { OfCommandePeg } from '#repositories/order_line_repository'
+import type { OfOverrideRow } from '#app/domain/planning_board'
 import type { Article } from '#app/domain/models/article'
 import type { Nomenclature } from '#app/domain/models/nomenclature'
 import type { Flow } from '#app/domain/models/flow'
@@ -59,10 +63,10 @@ interface PipelineMechanics {
 }
 
 const PIPELINE_MECHANICS: Record<OrderImpactsPipeline, PipelineMechanics> = {
-  programme: { useWindowOfs: true, preferEngineFeasibility: true },
+  'programme': { useWindowOfs: true, preferEngineFeasibility: true },
   'board-badges': { useWindowOfs: true, preferEngineFeasibility: false },
-  ruptures: { useWindowOfs: true, preferEngineFeasibility: false },
-  proactive: { useWindowOfs: false, preferEngineFeasibility: true },
+  'ruptures': { useWindowOfs: true, preferEngineFeasibility: false },
+  'proactive': { useWindowOfs: false, preferEngineFeasibility: true },
 }
 
 export interface LoadOrderImpactsOptions {
@@ -85,6 +89,14 @@ export interface OrderImpactsContext {
   ofPegs: Map<string, OfCommandePeg>
   /** Réceptions d'achat de la fenêtre (déjà fetchées par getLive — évite un SOAP dupliqué). */
   receptionFlows: Flow[]
+  /**
+   * Entrées brutes du moteur (demandes nettées, supply combinée, overrides), telles
+   * qu'injectées dans `evaluateOrderImpacts`. Exposées pour le diff de scénario
+   * (issue #57) : `evaluatePlanDiff` réévalue le plan muté sur ces mêmes entrées.
+   */
+  planInputs: { demands: Flow[]; supplyFlows: Flow[]; overrides: Map<string, OfOverrideRow> }
+  /** Charge réelle gamme par OF (heures brutes, arrondies au dixième) — cf calcul de retard. */
+  fabricationHoursByOf: Map<string, number>
 }
 
 /**
@@ -197,17 +209,18 @@ export async function loadOrderImpacts(
   for (const f of filteredDemands) if (f.article) articleSet.add(f.article)
   for (const f of receptionFlows) if (f.article) articleSet.add(f.article)
 
-  // Mode proactif (preferEngineFeasibility) : MFGMAT et peg sont inutiles.
-  // - MFGMAT : mfgFeasibility = undefined → verdict ignoré ; articleSet déjà couvert par BOM SQLite.
-  // - Peg (SORDERQ) : non utilisé par proactiveRows (destructuré mais pas consommé).
-  // → on saute Phase 2 entière ; stock démarre immédiatement après Phase 1.
+  const windowNumOfs = finalOfFlows
+    .map((f) => (f.origin as { id?: string }).id?.trim() ?? '')
+    .filter(Boolean)
+
+  // Peg (SORDERQ) : non utilisé par proactiveRows (destructuré mais pas consommé) → sauté hors
+  // board/ruptures. MFGMAT en revanche est chargé pour TOUTES les vues (issue conso séquentielle
+  // ignorant l'alloc réelle d'un OF ferme) : le moteur en a besoin pour créditer l'ALLQTY déjà
+  // posée sur un OF avant de le confronter à la contention théorique (règle 1, rupture-engine.ts).
   let ofPegs = new Map<string, OfCommandePeg>()
-  let mfgByOf = new Map<string, import('#repositories/mfgmat_repository').OfMaterial[]>()
+  let mfgByOf: Map<string, import('#repositories/mfgmat_repository').OfMaterial[]>
 
   if (!preferEngineFeasibility) {
-    const windowNumOfs = finalOfFlows
-      .map((f) => (f.origin as { id?: string }).id?.trim() ?? '')
-      .filter(Boolean)
     const [pegs, mfg] = await timeStage('loadOrderImpacts.pegs+mfg', () =>
       Promise.all([
         boardDataset.getOfPegs(windowNumOfs),
@@ -216,13 +229,17 @@ export async function loadOrderImpacts(
     )
     ofPegs = pegs
     mfgByOf = mfg
-    for (const materials of mfgByOf.values()) {
-      for (const m of materials) if (m.article) articleSet.add(m.article)
-    }
+  } else {
+    mfgByOf = await timeStage('loadOrderImpacts.mfg', () =>
+      boardDataset.getMfgMaterials(windowNumOfs)
+    )
+  }
+  for (const materials of mfgByOf.values()) {
+    for (const m of materials) if (m.article) articleSet.add(m.article)
   }
 
   // Expand récursivement à TOUS les composants (ACHETE + FABRIQUE) de tous les niveaux BOM.
-  // Sans ça, checkFeasibility descend dans un sous-ensemble fabriqué sans OF et trouve 0 stock
+  // Sans ça, le moteur unique descend dans un sous-ensemble fabriqué sans OF et trouve 0 stock
   // pour ses composants ACHETE car ils n'ont pas été chargés.
   const expandedArticleSet = expandArticleSetWithBom(articleSet, nomenclatureEntries)
   // Périmètre stock aligné sur le détail OF (issue #11) : seul le stock strict/qc
@@ -271,6 +288,54 @@ export async function loadOrderImpacts(
     ? undefined
     : precomputeMfgFeasibility(finalOfFlows, mfgByOf, stockByArticle, overrideMap)
 
+  // Avancement des OFs via pointages MFGOPE (issue #41) : détermine si chaque OF
+  // est réellement débuté en atelier (opérations intermédiaires pointées).
+  const operations = await timeStage('loadOrderImpacts.operations', () =>
+    new X3OperationRepository().getOperations(windowNumOfs)
+  )
+  const avancementByOf = computeAvancement(operations)
+
+  // Charge réelle par OF (cadence gamme × reste à produire) pour le calcul de retard —
+  // volontairement indépendant du jalonnement CBN (STRDAT/ENDDAT). Même formule que
+  // /ruptures (shortage_payload_loader.ts) : Σ qteRestante/cadence par opération, converti
+  // en jours (7,5h/j par défaut), plancher 1j.
+  const hoursPerDay = Number(process.env.RUPTURES_HOURS_PER_DAY) || DEFAULT_HOURS_PER_DAY
+  const opsByArticle = new Map<string, { rate: number }[]>()
+  for (const g of gamme) {
+    if (!g.article || g.rate <= 0) continue
+    const arr = opsByArticle.get(g.article) ?? []
+    arr.push(g)
+    opsByArticle.set(g.article, arr)
+  }
+  const fabricationDaysByOf = new Map<string, number>()
+  const fabricationHoursByOf = new Map<string, number>()
+  for (const f of finalOfFlows) {
+    const id = (f.origin as { id?: string }).id?.trim() ?? ''
+    const ops = opsByArticle.get(f.article)
+    if (!id || !ops || !f.quantity) continue
+    // Déduit les pièces déjà réalisées (poste le plus avancé pointé, cf of-avancement.ts) —
+    // MAIS seulement si RMNEXTQTY n'a encore RIEN netté (EXTQTY === RMNEXTQTY). Vérifié sur 2 OF
+    // réels au comportement différent : certains OF nettent RMNEXTQTY au fil des pointages
+    // (EXTQTY 480 / RMNEXTQTY déjà descendu à 120 pour 360 pointés — déduire encore double-
+    // compterait, chargerait 0h à tort sur du travail qui reste), d'autres ne nettent qu'à la
+    // déclaration finale de stock (EXTQTY === RMNEXTQTY malgré des pointages en cours — sans
+    // déduction la charge resterait pleine). `launched` (EXTQTY) absent → repli prudent (pas de
+    // déduction, comme si déjà netté) plutôt que de risquer un double-compte silencieux.
+    const launched = (f.origin as { launched?: number }).launched
+    const notYetNetted = launched != null && launched === f.quantity
+    const qtyRealisee = notYetNetted ? (avancementByOf.get(id)?.qtyRealisee ?? 0) : 0
+    const qtyRestante = Math.max(0, f.quantity - qtyRealisee)
+    if (qtyRestante <= 0) {
+      fabricationDaysByOf.set(id, 0)
+      fabricationHoursByOf.set(id, 0)
+      continue
+    }
+    let hours = 0
+    for (const op of ops) hours += qtyRestante / op.rate
+    fabricationDaysByOf.set(id, fabricationDaysFromHours(hours, hoursPerDay))
+    fabricationHoursByOf.set(id, Math.round(hours * 10) / 10)
+  }
+
   const result = evaluateOrderImpacts(
     filteredDemands,
     allSupply,
@@ -279,8 +344,20 @@ export async function loadOrderImpacts(
     overrideMap,
     { from: windowFrom, to: windowTo },
     mode,
-    mfgFeasibility
+    mfgFeasibility,
+    avancementByOf,
+    undefined,
+    mfgByOf,
+    fabricationDaysByOf
   )
 
-  return { result, articles, nomenclatures, ofPegs, receptionFlows }
+  return {
+    result,
+    articles,
+    nomenclatures,
+    ofPegs,
+    receptionFlows,
+    fabricationHoursByOf,
+    planInputs: { demands: filteredDemands, supplyFlows: allSupply, overrides: overrideMap },
+  }
 }

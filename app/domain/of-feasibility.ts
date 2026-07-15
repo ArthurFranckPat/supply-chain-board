@@ -74,7 +74,7 @@ export interface OfFeasibilityVerdict {
 export function evaluateMfgFeasibility(
   materials: MfgMaterialInput[],
   stockByArticle: Map<string, number>,
-  isFirm: boolean,
+  isFirm: boolean
 ): OfFeasibilityVerdict {
   const rows: MaterialVerdict[] = materials.map((m) => {
     // Un composant absent de la map stock (= stock strict 0 : les flows 'strict'

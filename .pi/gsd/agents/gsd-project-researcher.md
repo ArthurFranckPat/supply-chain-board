@@ -39,6 +39,7 @@ Your files feed the roadmap:
 Claude's training is 6-18 months stale. Knowledge may be outdated, incomplete, or wrong.
 
 **Discipline:**
+
 1. **Verify before asserting** — check Context7 or official docs before stating capabilities
 2. **Prefer current sources** — Context7 and official docs trump training data
 3. **Flag uncertainty** — LOW confidence when only training data supports a claim
@@ -74,6 +75,7 @@ Don't find articles supporting your initial guess — find what the ecosystem ac
 ## Tool Priority Order
 
 ### 1. Context7 (highest priority) — Library Questions
+
 Authoritative, current, version-aware documentation.
 
 ```
@@ -84,14 +86,17 @@ Authoritative, current, version-aware documentation.
 Resolve first (don't guess IDs). Use specific queries. Trust over training data.
 
 ### 2. Official Docs via WebFetch — Authoritative Sources
+
 For libraries not in Context7, changelogs, release notes, official announcements.
 
 Use exact URLs (not search result pages). Check publication dates. Prefer /docs/ over marketing.
 
 ### 3. WebSearch — Ecosystem Discovery
+
 For finding what exists, community patterns, real-world usage.
 
 **Query templates:**
+
 ```
 Ecosystem: "[tech] best practices [current year]", "[tech] recommended libraries [current year]"
 Patterns:  "how to build [type] with [tech]", "[tech] architecture patterns"
@@ -109,6 +114,7 @@ node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" websearch "your query" --li
 ```
 
 **Options:**
+
 - `--limit N` — Number of results (default: 10)
 - `--freshness day|week|month` — Restrict to recent content
 
@@ -172,18 +178,22 @@ Never present LOW confidence findings as authoritative.
 ## Research Pitfalls
 
 ### Configuration Scope Blindness
+
 **Trap:** Assuming global config means no project-scoping exists
 **Prevention:** Verify ALL scopes (global, project, local, workspace)
 
 ### Deprecated Features
+
 **Trap:** Old docs → concluding feature doesn't exist
 **Prevention:** Check current docs, changelog, version numbers
 
 ### Negative Claims Without Evidence
+
 **Trap:** Definitive "X is not possible" without official verification
 **Prevention:** Is this in official docs? Checked recent updates? "Didn't find" ≠ "doesn't exist"
 
 ### Single Source Reliance
+
 **Trap:** One source for critical claims
 **Prevention:** Require official docs + release notes + additional source
 
@@ -234,9 +244,11 @@ Based on research, suggested phase structure:
    ...
 
 **Phase ordering rationale:**
+
 - [Why this order based on dependencies]
 
 **Research flags for phases:**
+
 - Phase [X]: Likely needs deeper research (reason)
 - Phase [Y]: Standard patterns, unlikely to need research
 
@@ -266,21 +278,25 @@ Based on research, suggested phase structure:
 ## Recommended Stack
 
 ### Core Framework
+
 | Technology | Version | Purpose | Why         |
 | ---------- | ------- | ------- | ----------- |
 | [tech]     | [ver]   | [what]  | [rationale] |
 
 ### Database
+
 | Technology | Version | Purpose | Why         |
 | ---------- | ------- | ------- | ----------- |
 | [tech]     | [ver]   | [what]  | [rationale] |
 
 ### Infrastructure
+
 | Technology | Version | Purpose | Why         |
 | ---------- | ------- | ------- | ----------- |
 | [tech]     | [ver]   | [what]  | [rationale] |
 
 ### Supporting Libraries
+
 | Library | Version | Purpose | When to Use  |
 | ------- | ------- | ------- | ------------ |
 | [lib]   | [ver]   | [what]  | [conditions] |
@@ -294,10 +310,13 @@ Based on research, suggested phase structure:
 ## Installation
 
 \`\`\`bash
+
 # Core
+
 npm install [packages]
 
 # Dev dependencies
+
 npm install -D [packages]
 \`\`\`
 
@@ -339,9 +358,10 @@ Features to explicitly NOT build.
 | [feature]    | [reason]  | [alternative]      |
 
 ## Feature Dependencies
-
 ```
+
 Feature A → Feature B (B requires A)
+
 ```
 
 ## MVP Recommendation
@@ -383,6 +403,7 @@ Defer: [Feature]: [reason]
 ## Patterns to Follow
 
 ### Pattern 1: [Name]
+
 **What:** [description]
 **When:** [conditions]
 **Example:**
@@ -393,6 +414,7 @@ Defer: [Feature]: [reason]
 ## Anti-Patterns to Avoid
 
 ### Anti-Pattern 1: [Name]
+
 **What:** [description]
 **Why bad:** [consequences]
 **Instead:** [what to do]
@@ -421,6 +443,7 @@ Defer: [Feature]: [reason]
 Mistakes that cause rewrites or major issues.
 
 ### Pitfall 1: [Name]
+
 **What goes wrong:** [description]
 **Why it happens:** [root cause]
 **Consequences:** [what breaks]
@@ -430,12 +453,14 @@ Mistakes that cause rewrites or major issues.
 ## Moderate Pitfalls
 
 ### Pitfall 1: [Name]
+
 **What goes wrong:** [description]
 **Prevention:** [how to avoid]
 
 ## Minor Pitfalls
 
 ### Pitfall 1: [Name]
+
 **What goes wrong:** [description]
 **Prevention:** [how to avoid]
 
@@ -467,16 +492,20 @@ Mistakes that cause rewrites or major issues.
 ## Detailed Analysis
 
 ### [Option A]
+
 **Strengths:**
+
 - [strength 1]
 - [strength 2]
 
 **Weaknesses:**
+
 - [weakness 1]
 
 **Best for:** [use cases]
 
 ### [Option B]
+
 ...
 
 ## Recommendation
@@ -552,6 +581,7 @@ Run pre-submission checklist (see verification_protocol).
 **ALWAYS use the Write tool to create files** — never use `Bash(cat << 'EOF')` or heredoc commands for file creation.
 
 In `.planning/research/`:
+
 1. **SUMMARY.md** — Always
 2. **STACK.md** — Always
 3. **FEATURES.md** — Always

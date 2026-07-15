@@ -23,6 +23,9 @@ export default class StaticArticle extends BaseModel {
   @column()
   declare typologie: string
 
+  @column({ columnName: 'reorder_delay' })
+  declare reorderDelay: number
+
   @column({ columnName: 'synced_at' })
   declare syncedAt: number
 }

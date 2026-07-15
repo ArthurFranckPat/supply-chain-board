@@ -8,7 +8,10 @@ type AuthUser = { username: string; env: 'test' | 'prod' } | null
 
 /** Initiales (2 lettres) dérivées du username pour la pastille avatar. */
 function initials(username: string): string {
-  const parts = username.trim().split(/[.\-_\s]+/).filter(Boolean)
+  const parts = username
+    .trim()
+    .split(/[.\-_\s]+/)
+    .filter(Boolean)
   const raw = parts.length >= 2 ? parts[0][0] + parts[1][0] : username.slice(0, 2)
   return raw.toUpperCase()
 }
@@ -41,7 +44,7 @@ export const UserMenu: Component<{ tone?: 'terra' | 'primary' }> = (props) => {
   }
 
   const avatarTone = () =>
-    props.tone === 'primary' ? 'bg-primary text-primary-foreground' : 'bg-terra text-card'
+    props.tone === 'primary' ? 'bg-primary text-primary-foreground' : 'bg-brand text-card'
 
   return (
     <Show when={user()}>
@@ -81,7 +84,9 @@ export const UserMenu: Component<{ tone?: 'terra' | 'primary' }> = (props) => {
                 onClick={logout}
                 class="flex w-full items-center gap-2 px-3 py-2.5 text-left text-[13px] font-medium text-foreground transition-colors hover:bg-muted/60"
               >
-                <span class="material-symbols-outlined text-[18px] text-muted-foreground">logout</span>
+                <span class="material-symbols-outlined text-[18px] text-muted-foreground">
+                  logout
+                </span>
                 Déconnexion
               </button>
             </div>

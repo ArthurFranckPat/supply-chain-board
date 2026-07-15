@@ -10,7 +10,8 @@ import { route } from '@/lib/routes'
  * on y accède par /diagnostic-test.
  */
 
-type NodeStatus = 'ok' | 'qc_a_controler' | 'rupture_matiere' | 'sous_ensemble_a_lancer' | 'indetermine'
+type NodeStatus =
+  'ok' | 'qc_a_controler' | 'rupture_matiere' | 'sous_ensemble_a_lancer' | 'indetermine'
 type NodeSource = 'MFGMAT' | 'NOMENCLATURE'
 
 interface DiagnosticNode {
@@ -88,16 +89,20 @@ const ShortRow: Component<{ short: ShortComponentNode; depth: number }> = (props
         <span class="font-mono text-[11px] text-muted-foreground">
           besoin {props.short.quantityNeeded} · dispo {props.short.available ?? '?'}
           <Show when={props.short.stockQc}>
-            {' '}· <span class="text-warning font-semibold">CQ {props.short.stockQc}</span>
-          </Show>
-          {' '}· manque{' '}
-          <span class="font-bold text-destructive">{props.short.quantityMissing}</span>
+            {' '}
+            · <span class="text-warning font-semibold">CQ {props.short.stockQc}</span>
+          </Show>{' '}
+          · manque <span class="font-bold text-destructive">{props.short.quantityMissing}</span>
         </span>
         <Show when={props.short.earliestReception}>
-          <span class="font-mono text-[11px] text-terra">récep. {props.short.earliestReception}</span>
+          <span class="font-mono text-[11px] text-brand">
+            récep. {props.short.earliestReception}
+          </span>
         </Show>
         <Show when={props.short.fabricated}>
-          <Badge variant="secondary" class="text-[9px]">fabriqué</Badge>
+          <Badge variant="secondary" class="text-[9px]">
+            fabriqué
+          </Badge>
         </Show>
       </div>
       <Show when={props.short.status === 'qc_a_controler'}>
@@ -112,25 +117,39 @@ const ShortRow: Component<{ short: ShortComponentNode; depth: number }> = (props
         {(cov) => (
           <div class="mt-1 rounded-md bg-secondary/50 px-3 py-2">
             <div class="flex flex-wrap items-center gap-2">
-              <span class="material-symbols-outlined text-[14px] text-muted-foreground">subdirectory_arrow_right</span>
-              <span class="font-mono text-[10px] font-semibold tracking-wider text-muted-foreground">COUVERT PAR</span>
+              <span class="material-symbols-outlined text-[14px] text-muted-foreground">
+                subdirectory_arrow_right
+              </span>
+              <span class="font-mono text-[10px] font-semibold tracking-wider text-muted-foreground">
+                COUVERT PAR
+              </span>
               <span class="font-mono text-[12px] font-bold text-foreground">{cov.numOf}</span>
-              <Badge variant={cov.statut === 1 ? 'success' : cov.statut === 2 ? 'secondary' : 'warning'} class="text-[9px]">
+              <Badge
+                variant={cov.statut === 1 ? 'success' : cov.statut === 2 ? 'secondary' : 'warning'}
+                class="text-[9px]"
+              >
                 {STATUT_OF[cov.statut] ?? `statut ${cov.statut}`}
               </Badge>
               <span class="font-mono text-[11px] text-muted-foreground">qté {cov.quantity}</span>
               <StatusBadge status={cov.node.status} />
-              <Badge variant={cov.node.source === 'MFGMAT' ? 'success' : 'secondary'} class="text-[9px]">
+              <Badge
+                variant={cov.node.source === 'MFGMAT' ? 'success' : 'secondary'}
+                class="text-[9px]"
+              >
                 {cov.node.source === 'MFGMAT' ? 'réel' : 'théorique'}
               </Badge>
             </div>
             {/* Composants du sous-ensemble couvrant */}
             <Show
               when={cov.node.shorts.length > 0}
-              fallback={<div class="mt-1 pl-6 text-[11px] text-ferme">✓ tous composants disponibles</div>}
+              fallback={
+                <div class="mt-1 pl-6 text-[11px] text-ferme">✓ tous composants disponibles</div>
+              }
             >
               <div class="mt-1.5 flex flex-col gap-1">
-                <For each={cov.node.shorts}>{(s) => <ShortRow short={s} depth={props.depth + 1} />}</For>
+                <For each={cov.node.shorts}>
+                  {(s) => <ShortRow short={s} depth={props.depth + 1} />}
+                </For>
               </div>
             </Show>
           </div>
@@ -167,9 +186,11 @@ const DiagnosticTest: Component = () => {
         <div class="mx-auto flex max-w-4xl flex-col gap-5">
           <form class="flex items-end gap-3" onSubmit={run}>
             <label class="flex flex-col gap-1">
-              <span class="font-mono text-[10px] font-semibold tracking-wider text-muted-foreground">OF</span>
+              <span class="font-mono text-[10px] font-semibold tracking-wider text-muted-foreground">
+                OF
+              </span>
               <input
-                class="w-72 rounded-md border border-border bg-background px-3 py-2 font-mono text-[13px] outline-none focus:border-terra"
+                class="w-72 rounded-md border border-border bg-background px-3 py-2 font-mono text-[13px] outline-none focus:border-brand"
                 placeholder="ex. F426-34030"
                 value={input()}
                 onInput={(e) => setInput(e.currentTarget.value)}
@@ -183,7 +204,9 @@ const DiagnosticTest: Component = () => {
 
           <Show when={diag.loading}>
             <div class="flex items-center gap-2 rounded-md bg-secondary px-4 py-3 text-[13px] text-muted-foreground">
-              <span class="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>
+              <span class="material-symbols-outlined animate-spin text-[18px]">
+                progress_activity
+              </span>
               Diagnostic en cours…
             </div>
           </Show>
@@ -204,8 +227,20 @@ const DiagnosticTest: Component = () => {
                     <span class="text-[12px] text-muted-foreground">{d().tree.description}</span>
                   </Show>
                   <StatusBadge status={d().rootCause} />
-                  <Badge variant={d().feasible ? 'success' : d().rootCause === 'qc_a_controler' ? 'warning' : 'destructive'}>
-                    {d().feasible ? 'Faisable' : d().rootCause === 'qc_a_controler' ? 'Faisable sous réserve CQ' : 'Bloqué'}
+                  <Badge
+                    variant={
+                      d().feasible
+                        ? 'success'
+                        : d().rootCause === 'qc_a_controler'
+                          ? 'warning'
+                          : 'destructive'
+                    }
+                  >
+                    {d().feasible
+                      ? 'Faisable'
+                      : d().rootCause === 'qc_a_controler'
+                        ? 'Faisable sous réserve CQ'
+                        : 'Bloqué'}
                   </Badge>
                   <span class="ml-auto flex items-center gap-4 font-mono text-[11px] text-muted-foreground">
                     <span>composants : {d().componentsChecked}</span>
@@ -243,7 +278,7 @@ const DiagnosticTest: Component = () => {
                 {/* JSON brut */}
                 <div>
                   <button
-                    class="font-mono text-[11px] font-semibold text-terra hover:underline"
+                    class="font-mono text-[11px] font-semibold text-brand hover:underline"
                     onClick={() => setShowRaw(!showRaw())}
                   >
                     {showRaw() ? '▾ masquer le JSON brut' : '▸ afficher le JSON brut'}

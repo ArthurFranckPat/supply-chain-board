@@ -43,12 +43,12 @@ Profiles: `quality` | `balanced` | `budget` | `inherit`
 
 <profile_reference>
 
-| Profile | Planner | Executor | Researcher | Verifier | Use when |
-|---------|---------|---------|------------|---------|---------|
-| `quality` | opus | opus | opus | sonnet | Critical architecture, quota available |
-| `balanced` | opus | sonnet | sonnet | sonnet | Normal development (default) |
-| `budget` | sonnet | sonnet | haiku | haiku | Conserving quota, high-volume work |
-| `inherit` | inherit | inherit | inherit | inherit | OpenRouter / local models / session switching |
+| Profile    | Planner | Executor | Researcher | Verifier | Use when                                      |
+| ---------- | ------- | -------- | ---------- | -------- | --------------------------------------------- |
+| `quality`  | opus    | opus     | opus       | sonnet   | Critical architecture, quota available        |
+| `balanced` | opus    | sonnet   | sonnet     | sonnet   | Normal development (default)                  |
+| `budget`   | sonnet  | sonnet   | haiku      | haiku    | Conserving quota, high-volume work            |
+| `inherit`  | inherit | inherit  | inherit    | inherit  | OpenRouter / local models / session switching |
 
 </profile_reference>
 
@@ -84,6 +84,7 @@ Exit (display only, no changes).
 Validate that the provided `profile` value is one of: `quality`, `balanced`, `budget`, `inherit`.
 
 **If invalid:**
+
 ```
 Error: Unknown profile '{profile}'.
 
@@ -91,6 +92,7 @@ Valid profiles: quality, balanced, budget, inherit
 
 Example: /gsd-set-profile balanced
 ```
+
 Exit.
 </step>
 
@@ -110,12 +112,13 @@ This updates `.planning/config.json` with the new model profile.
 
 {profile description}
 
-  Planner:     {model}
-  Executor:    {model}
-  Researcher:  {model}
-  Verifier:    {model}
+Planner: {model}
+Executor: {model}
+Researcher: {model}
+Verifier: {model}
 
 To configure more options: /gsd-settings
+
 ```
 
 Where "profile description" maps:
@@ -133,3 +136,4 @@ Where "profile description" maps:
 - [ ] Confirmation shows per-agent model assignments
 - [ ] Link to /gsd-settings for advanced configuration
 </success_criteria>
+```

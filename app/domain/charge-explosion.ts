@@ -62,7 +62,7 @@ export function explodeCharge(
   orderLines: ChargeOrderLine[],
   bomByParent: Map<string, NomenclatureEntry[]>,
   gammeMap: Map<string, GammeOperation>,
-  maxDepth: number = DEFAULT_MAX_DEPTH,
+  maxDepth: number = DEFAULT_MAX_DEPTH
 ): ChargeRaw[] {
   const raws: ChargeRaw[] = []
 
@@ -72,7 +72,7 @@ export function explodeCharge(
     nature: ChargeNature,
     date: Date,
     depth: number,
-    ancestors: Set<string>,
+    ancestors: Set<string>
   ): void => {
     if (ancestors.has(article)) return // garde anti-cycle
     const gamme = gammeMap.get(article)

@@ -7,7 +7,9 @@ import { assignStatuses, type OrderLine, type StockBreakdown } from '#app/domain
  * l'ALIGNEMENT sur le comportement Python.
  */
 
-function makeLine(overrides: Partial<OrderLine> & { numCommande: string; article: string }): OrderLine {
+function makeLine(
+  overrides: Partial<OrderLine> & { numCommande: string; article: string }
+): OrderLine {
   return {
     ligne: '1000',
     designation: '',
@@ -48,7 +50,9 @@ test.group('assignStatuses - signal CQ (aligné Python)', () => {
     assert.equal(results[0].qteAlloueeVirtuelleStricte, 0)
   })
 
-  test('MTS fabriqué partiellement alloué avec QC → signal CQ levé, statut reste RAS', ({ assert }) => {
+  test('MTS fabriqué partiellement alloué avec QC → signal CQ levé, statut reste RAS', ({
+    assert,
+  }) => {
     // Pour MTS fabriqué : qte_signal = min(qte_restante, qte_allouee), consomme le stock CQ
     // dans le signal indépendant → alerte_cq_statut. L'harmonisation RAS→ALLOCATION ne
     // s'applique PAS au MTS fabriqué (l'allocation n'y est pas le bon levier métier).

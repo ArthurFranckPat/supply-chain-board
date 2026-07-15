@@ -1,4 +1,4 @@
-import { HttpContext } from '@adonisjs/core/http'
+import { type HttpContext } from '@adonisjs/core/http'
 import cache from '@adonisjs/cache/services/main'
 import { getX3EnvConfig } from '#config/x3'
 import { callRunSubprog } from '#app/x3/run-client'

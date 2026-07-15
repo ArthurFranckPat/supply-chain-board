@@ -14,7 +14,12 @@ interface NavItem {
 
 const NAV: NavItem[] = [
   { key: 'board', href: route('scheduling'), icon: 'event_note', label: 'Planning Prods' },
-  { key: 'shortages', href: route('scheduler.shortage_tracker'), icon: 'report', label: 'Suivi des ruptures' },
+  {
+    key: 'shortages',
+    href: route('scheduler.shortage_tracker'),
+    icon: 'report',
+    label: 'Suivi des ruptures',
+  },
 ]
 
 /**
@@ -51,13 +56,25 @@ export const AppLayout: Component<{ active?: NavKey; children: JSX.Element }> = 
               <span class="material-symbols-outlined">{item.icon}</span>
             </Link>
           ))}
-          <a class="p-2 text-gray-400 hover:text-primary transition-colors" href="#" title="Ressources">
+          <a
+            class="p-2 text-gray-400 hover:text-primary transition-colors"
+            href="#"
+            title="Ressources"
+          >
             <span class="material-symbols-outlined">inventory</span>
           </a>
-          <a class="p-2 text-gray-400 hover:text-primary transition-colors" href="#" title="Maintenance">
+          <a
+            class="p-2 text-gray-400 hover:text-primary transition-colors"
+            href="#"
+            title="Maintenance"
+          >
             <span class="material-symbols-outlined">build</span>
           </a>
-          <a class="p-2 text-gray-400 hover:text-primary transition-colors" href="#" title="Analytics">
+          <a
+            class="p-2 text-gray-400 hover:text-primary transition-colors"
+            href="#"
+            title="Analytics"
+          >
             <span class="material-symbols-outlined">monitoring</span>
           </a>
         </nav>

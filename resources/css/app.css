@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 @plugin "tailwindcss-animate";
 
 /* ════════════════════════════════════════════════════════════
@@ -17,25 +17,25 @@
      utility references it — the .btn/.slideover/.menu primitives consume
      many of these via plain var() in @layer components, and without
      `static` Tailwind tree-shakes them away (→ transparent buttons). */
-  --color-bg: #f7f8fa;          /* app background */
-  --color-panel: #ffffff;       /* card / surface */
-  --color-line: #e3e8ef;        /* default border (slate-200-ish) */
-  --color-line-soft: #eef1f6;   /* hairline / grid */
-  --color-txt: #0f172a;         /* foreground (slate-900) */
-  --color-muted: #f1f5f9;       /* muted SURFACE (slate-100) — convention shadcn : bg-muted */
-  --color-wk: #94a3b8;          /* week separators (slate-400) */
+  --color-bg: #f7f8fa; /* app background */
+  --color-panel: #ffffff; /* card / surface */
+  --color-line: #e3e8ef; /* default border (slate-200-ish) */
+  --color-line-soft: #eef1f6; /* hairline / grid */
+  --color-txt: #0f172a; /* foreground (slate-900) */
+  --color-muted: #f1f5f9; /* muted SURFACE (slate-100) — convention shadcn : bg-muted */
+  --color-wk: #94a3b8; /* week separators (slate-400) */
 
   /* ── Brand accent (Aldes) ── */
-  --color-aldes: #0069B4;
+  --color-aldes: #0069b4;
   --color-aldes-hover: #00578f;
-  --color-aldes-soft: rgba(0, 105, 180, 0.10);
+  --color-aldes-soft: rgba(0, 105, 180, 0.1);
 
   /* ── Status ── */
-  --color-st-ferme: #16a34a;    /* green-600 */
-  --color-st-planifie: #0069B4;
-  --color-st-suggere: #d97706;  /* amber-600 */
+  --color-st-ferme: #16a34a; /* green-600 */
+  --color-st-planifie: #0069b4;
+  --color-st-suggere: #d97706; /* amber-600 */
 
-  --color-danger: #dc2626;      /* red-600 */
+  --color-danger: #dc2626; /* red-600 */
   --color-danger-soft: #fef2f2;
   --color-danger-border: #fecaca;
 
@@ -52,14 +52,14 @@
   --color-card: #ffffff;
   --color-card-foreground: #0f172a;
   --color-popover: #ffffff;
-  --color-muted-bg: #f1f5f9;          /* muted SURFACE (slate-100) */
+  --color-muted-bg: #f1f5f9; /* muted SURFACE (slate-100) */
   --color-muted-foreground: #64748b;
-  --color-accent: #f1f5f9;            /* hover surface */
+  --color-accent: #f1f5f9; /* hover surface */
   --color-accent-foreground: #0f172a;
   --color-border: #e3e8ef;
   --color-input: #e3e8ef;
-  --color-ring: #0069B4;
-  --color-primary: #0069B4;
+  --color-ring: #0069b4;
+  --color-primary: #0069b4;
   --color-primary-foreground: #ffffff;
   --color-secondary: #f1f5f9;
   --color-secondary-foreground: #0f172a;
@@ -75,17 +75,34 @@
   /* ── Elevation (shadcn shadows) ── */
   --shadow-xs: 0 1px 2px 0 rgb(16 24 40 / 0.04);
   --shadow-sm: 0 1px 3px 0 rgb(16 24 40 / 0.08), 0 1px 2px -1px rgb(16 24 40 / 0.06);
-  --shadow-md: 0 4px 12px -2px rgb(16 24 40 / 0.10), 0 2px 6px -2px rgb(16 24 40 / 0.06);
-  --shadow-lg: 0 12px 28px -6px rgb(16 24 40 / 0.16), 0 6px 12px -6px rgb(16 24 40 / 0.10);
+  --shadow-md: 0 4px 12px -2px rgb(16 24 40 / 0.1), 0 2px 6px -2px rgb(16 24 40 / 0.06);
+  --shadow-lg: 0 12px 28px -6px rgb(16 24 40 / 0.16), 0 6px 12px -6px rgb(16 24 40 / 0.1);
 
-  --font-sans: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+  --font-sans: -apple-system, system-ui, 'Segoe UI', Roboto, sans-serif;
+
+  /* #62 (lot 4) : échelle typographique — text-2xs (10px) pour les micro-labels
+     décoratifs. Plancher text-xs (12px) pour toute info décisionnelle. */
+  --text-2xs: 0.625rem; /* 10px */
+  --text-2xs--line-height: 1.2;
+  --text-3xs: 0.5625rem; /* 9px — décoratif uniquement (badges type) */
+  --text-3xs--line-height: 1.1;
+
+  /* #62 (lot 2) : font-mono défini globalement (était seulement dans les scopes
+     .theme-papier/.theme-navy → undefined hors scope). « mono » est trompeur :
+     il vaut Inter, pas une police à chasse fixe. Conservé ainsi car l'app
+     utilise font-mono (~465 usages) comme police d'affichage tabulaire pour les
+     numéros OF/commandes, dates, quantités — pas pour du code. Inter fournit
+     de bonnes chiffres tabulaires (tabular-nums). */
+  --font-mono: 'Inter', system-ui, sans-serif;
 }
 
 /* ────────────────────────────────────────────────────────────
    Base — global resets and the shadcn focus-visible ring.
    ──────────────────────────────────────────────────────────── */
 @layer base {
-  html { -webkit-text-size-adjust: 100%; }
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
   body {
     background: var(--color-background);
     color: var(--color-foreground);
@@ -98,22 +115,41 @@
     outline-offset: 2px;
     border-radius: var(--radius-sm);
   }
-  ::selection { background: var(--color-aldes-soft); }
+  ::selection {
+    background: var(--color-aldes-soft);
+  }
 
   /* Thin, neutral scrollbars to match the slate surfaces. */
-  * { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
-  *::-webkit-scrollbar { width: 10px; height: 10px; }
-  *::-webkit-scrollbar-thumb {
-    background: #cbd5e1; border-radius: 9999px;
-    border: 2px solid var(--color-background); background-clip: padding-box;
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
   }
-  *::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 9999px;
+    border: 2px solid var(--color-background);
+    background-clip: padding-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
 }
 
 /* Conteneur scrollable SANS barre visible (scroll molette → horizontal en JS).
    Plus spécifique que les règles `*::-webkit-scrollbar` globales → les masque. */
-.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
-.no-scrollbar::-webkit-scrollbar { width: 0; height: 0; display: none; }
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
 
 /* ────────────────────────────────────────────────────────────
    Gantt-specific CSS — calc()-based positioning that cannot be
@@ -134,10 +170,13 @@
        children are absolutely-positioned bars), which breaks drop hit-testing
        and the clientX→day-index math in onTrackDrop (dayWidthOf → 0). */
     flex: 0 0 calc(var(--cols) * var(--day-w));
-    background: repeating-linear-gradient(to right,
-      transparent 0, transparent calc(var(--day-w) - 1px),
+    background: repeating-linear-gradient(
+      to right,
+      transparent 0,
+      transparent calc(var(--day-w) - 1px),
       var(--color-line-soft) calc(var(--day-w) - 1px),
-      var(--color-line-soft) var(--day-w));
+      var(--color-line-soft) var(--day-w)
+    );
     padding: 3px 0;
   }
   .gantt .track.drop-hover {
@@ -148,9 +187,13 @@
   }
 
   .gantt .wksep {
-    position: absolute; top: 0; bottom: 0; width: 0;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 0;
     border-left: 1px solid var(--color-wk);
-    pointer-events: none; z-index: 1;
+    pointer-events: none;
+    z-index: 1;
   }
 
   .gantt .bar {
@@ -158,14 +201,22 @@
     height: calc(var(--lane-h) - 6px);
     border-radius: var(--radius-sm);
     padding: 0 8px;
-    display: flex; align-items: center; gap: 6px;
-    font-size: 11px; white-space: nowrap; overflow: hidden;
-    cursor: grab; user-select: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    white-space: nowrap;
+    overflow: hidden;
+    cursor: grab;
+    user-select: none;
     background: var(--color-card);
     box-shadow: var(--shadow-xs);
     border: 1px solid var(--color-line);
     border-left: 3px solid var(--color-wk);
-    transition: box-shadow .12s ease, transform .12s ease, border-color .12s ease;
+    transition:
+      box-shadow 0.12s ease,
+      transform 0.12s ease,
+      border-color 0.12s ease;
     /* left, width, top set dynamically by Alpine/JS */
   }
   .gantt .bar:hover {
@@ -173,62 +224,126 @@
     border-color: #cbd5e1;
     z-index: 4;
   }
-  .gantt .bar:active { cursor: grabbing; }
-  .gantt .bar.dragging { opacity: .4; box-shadow: var(--shadow-lg); }
+  .gantt .bar:active {
+    cursor: grabbing;
+  }
+  .gantt .bar.dragging {
+    opacity: 0.4;
+    box-shadow: var(--shadow-lg);
+  }
 
   /* Status — colored left rail. 1=Ferme 2=Planifié 3=Suggéré. */
-  .gantt .bar.st-1 { border-left-color: var(--color-st-ferme); }
-  .gantt .bar.st-2 { border-left-color: var(--color-st-planifie); }
-  .gantt .bar.st-3 { border-left-color: var(--color-st-suggere); background: #fffdf7; }
+  .gantt .bar.st-1 {
+    border-left-color: var(--color-st-ferme);
+  }
+  .gantt .bar.st-2 {
+    border-left-color: var(--color-st-planifie);
+  }
+  .gantt .bar.st-3 {
+    border-left-color: var(--color-st-suggere);
+    background: #fffdf7;
+  }
 
   /* Modified (locally overridden) — dashed brand outline. */
   .gantt .bar.mod {
     border-color: var(--color-aldes);
-    box-shadow: 0 0 0 1px var(--color-aldes-soft), var(--shadow-xs);
+    box-shadow:
+      0 0 0 1px var(--color-aldes-soft),
+      var(--shadow-xs);
   }
 
   /* Continuation past the visible window — flatten the cut edges. */
-  .gantt .bar.cont-left  { border-top-left-radius: 0; border-bottom-left-radius: 0; }
-  .gantt .bar.cont-right { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+  .gantt .bar.cont-left {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+  }
+  .gantt .bar.cont-right {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+  }
 
   .gantt .bar .feas-badge {
-    position: absolute; top: -6px; right: -4px;
-    width: 14px; height: 14px; border-radius: 50%;
-    font-size: 8px; display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 1px 2px rgba(0,0,0,.2); z-index: 2;
+    position: absolute;
+    top: -6px;
+    right: -4px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    font-size: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    z-index: 2;
   }
 
   /* Compact mode: OF on single day, content stacked */
-  .gantt.compact { --lane-h: 48px; }
+  .gantt.compact {
+    --lane-h: 48px;
+  }
   .gantt.compact .bar {
     width: calc(1 * var(--day-w) - 5px) !important;
-    flex-direction: column; align-items: flex-start; justify-content: center;
-    gap: 1px; padding: 3px 6px;
-    border-radius: 4px !important; border-left-style: solid !important;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 1px;
+    padding: 3px 6px;
+    border-radius: 4px !important;
+    border-left-style: solid !important;
   }
   .gantt.compact .bar > span {
-    max-width: 100%; overflow: hidden; text-overflow: ellipsis;
-    white-space: nowrap; line-height: 1.2;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    line-height: 1.2;
   }
 
   /* Sticky labels and headers */
-  .gantt .ghead { position: sticky; top: 0; z-index: 30; }
-  .gantt .corner, .gantt .lbl { position: sticky; left: 0; z-index: 5; }
-  .gantt .ghead .corner { z-index: 35; }
+  .gantt .ghead {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+  }
+  .gantt .corner,
+  .gantt .lbl {
+    position: sticky;
+    left: 0;
+    z-index: 5;
+  }
+  .gantt .ghead .corner {
+    z-index: 35;
+  }
 }
 
 /* ────────────────────────────────────────────────────────────
    Search filter state (toggled by Alpine applyFilter)
    ──────────────────────────────────────────────────────────── */
-.gantt .bar.dim { opacity: .15; }
-.row.hide { display: none; }
-.bar.selected { outline: 2px solid var(--color-aldes); outline-offset: 0; z-index: 5; }
+.gantt .bar.dim {
+  opacity: 0.15;
+}
+.row.hide {
+  display: none;
+}
+.bar.selected {
+  outline: 2px solid var(--color-aldes);
+  outline-offset: 0;
+  z-index: 5;
+}
 
 /* Backlog drag cards reuse the status rail (rendered outside .gantt). */
-.card.st-1 { border-left-color: var(--color-st-ferme); }
-.card.st-2 { border-left-color: var(--color-st-planifie); }
-.card.st-3 { border-left-color: var(--color-st-suggere); }
-.card.dragging { opacity: .4; }
+.card.st-1 {
+  border-left-color: var(--color-st-ferme);
+}
+.card.st-2 {
+  border-left-color: var(--color-st-planifie);
+}
+.card.st-3 {
+  border-left-color: var(--color-st-suggere);
+}
+.card.dragging {
+  opacity: 0.4;
+}
 
 /* ════════════════════════════════════════════════════════════
    UI primitives — shadcn/ui look, plain CSS classes so the Edge
@@ -237,47 +352,124 @@
 @layer components {
   /* ── Button ── */
   .btn {
-    display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
     border-radius: var(--radius-md);
-    font-size: 0.8125rem; font-weight: 500; line-height: 1;
-    height: 2rem; padding-inline: 0.75rem;
-    white-space: nowrap; cursor: pointer; user-select: none;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    line-height: 1;
+    height: 2rem;
+    padding-inline: 0.75rem;
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
     border: 1px solid transparent;
-    transition: background-color .12s ease, color .12s ease,
-                border-color .12s ease, box-shadow .12s ease, opacity .12s ease;
+    transition:
+      background-color 0.12s ease,
+      color 0.12s ease,
+      border-color 0.12s ease,
+      box-shadow 0.12s ease,
+      opacity 0.12s ease;
   }
-  .btn:disabled { opacity: .5; pointer-events: none; }
-  .btn svg, .btn .icon { width: 0.95rem; height: 0.95rem; flex: none; }
+  .btn:disabled {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+  .btn svg,
+  .btn .icon {
+    width: 0.95rem;
+    height: 0.95rem;
+    flex: none;
+  }
 
-  .btn-default     { background: var(--color-primary); color: var(--color-primary-foreground); box-shadow: var(--shadow-xs); }
-  .btn-default:hover{ background: var(--color-aldes-hover); }
-  .btn-secondary   { background: var(--color-card); color: var(--color-foreground); border-color: var(--color-border); box-shadow: var(--shadow-xs); }
-  .btn-secondary:hover{ background: var(--color-accent); }
-  .btn-outline     { background: transparent; color: var(--color-foreground); border-color: var(--color-border); }
-  .btn-outline:hover{ background: var(--color-accent); }
-  .btn-ghost       { background: transparent; color: var(--color-muted-foreground); }
-  .btn-ghost:hover { background: var(--color-accent); color: var(--color-foreground); }
-  .btn-destructive { background: var(--color-destructive); color: #fff; box-shadow: var(--shadow-xs); }
-  .btn-destructive:hover{ background: #b91c1c; }
-  .btn-warn        { background: var(--color-warn-soft); color: #92400e; border-color: var(--color-warn-border); }
-  .btn-warn:hover  { background: #fef3c7; }
+  .btn-default {
+    background: var(--color-primary);
+    color: var(--color-primary-foreground);
+    box-shadow: var(--shadow-xs);
+  }
+  .btn-default:hover {
+    background: var(--color-aldes-hover);
+  }
+  .btn-secondary {
+    background: var(--color-card);
+    color: var(--color-foreground);
+    border-color: var(--color-border);
+    box-shadow: var(--shadow-xs);
+  }
+  .btn-secondary:hover {
+    background: var(--color-accent);
+  }
+  .btn-outline {
+    background: transparent;
+    color: var(--color-foreground);
+    border-color: var(--color-border);
+  }
+  .btn-outline:hover {
+    background: var(--color-accent);
+  }
+  .btn-ghost {
+    background: transparent;
+    color: var(--color-muted-foreground);
+  }
+  .btn-ghost:hover {
+    background: var(--color-accent);
+    color: var(--color-foreground);
+  }
+  .btn-destructive {
+    background: var(--color-destructive);
+    color: #fff;
+    box-shadow: var(--shadow-xs);
+  }
+  .btn-destructive:hover {
+    background: #b91c1c;
+  }
+  .btn-warn {
+    background: var(--color-warn-soft);
+    color: #92400e;
+    border-color: var(--color-warn-border);
+  }
+  .btn-warn:hover {
+    background: #fef3c7;
+  }
 
-  .btn-sm  { height: 1.75rem; padding-inline: 0.6rem; font-size: 0.75rem; border-radius: var(--radius-sm); }
-  .btn-lg  { height: 2.5rem; padding-inline: 1rem; font-size: 0.875rem; }
-  .btn-icon{ width: 2rem; padding: 0; }
-  .btn-icon.btn-sm { width: 1.75rem; }
+  .btn-sm {
+    height: 1.75rem;
+    padding-inline: 0.6rem;
+    font-size: 0.75rem;
+    border-radius: var(--radius-sm);
+  }
+  .btn-lg {
+    height: 2.5rem;
+    padding-inline: 1rem;
+    font-size: 0.875rem;
+  }
+  .btn-icon {
+    width: 2rem;
+    padding: 0;
+  }
+  .btn-icon.btn-sm {
+    width: 1.75rem;
+  }
 
   /* ── Input ── */
   .input {
-    height: 2rem; width: 100%;
+    height: 2rem;
+    width: 100%;
     border-radius: var(--radius-md);
     border: 1px solid var(--color-input);
     background: var(--color-card);
     padding-inline: 0.625rem;
-    font-size: 0.8125rem; color: var(--color-foreground);
-    transition: border-color .12s ease, box-shadow .12s ease;
+    font-size: 0.8125rem;
+    color: var(--color-foreground);
+    transition:
+      border-color 0.12s ease,
+      box-shadow 0.12s ease;
   }
-  .input::placeholder { color: var(--color-muted-foreground); }
+  .input::placeholder {
+    color: var(--color-muted-foreground);
+  }
   .input:focus {
     outline: none;
     border-color: var(--color-ring);
@@ -286,7 +478,8 @@
 
   /* ── Card ── */
   .card-ui {
-    background: var(--color-card); color: var(--color-card-foreground);
+    background: var(--color-card);
+    color: var(--color-card-foreground);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-sm);
@@ -294,111 +487,241 @@
 
   /* ── Badge ── */
   .badge {
-    display: inline-flex; align-items: center; gap: 0.25rem;
-    border-radius: 9999px; padding: 0.1rem 0.5rem;
-    font-size: 0.6875rem; font-weight: 600; line-height: 1.3;
-    border: 1px solid transparent; white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    border-radius: 9999px;
+    padding: 0.1rem 0.5rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: 1.3;
+    border: 1px solid transparent;
+    white-space: nowrap;
   }
-  .badge-neutral  { background: var(--color-muted-bg); color: var(--color-muted-foreground); }
-  .badge-primary  { background: var(--color-aldes-soft); color: var(--color-aldes); }
-  .badge-success  { background: var(--color-ok-soft); color: #15803d; border-color: var(--color-ok-border); }
-  .badge-warn     { background: var(--color-warn-soft); color: #b45309; border-color: var(--color-warn-border); }
-  .badge-danger   { background: var(--color-danger-soft); color: var(--color-danger); border-color: var(--color-danger-border); }
-  .badge-outline  { background: transparent; color: var(--color-muted-foreground); border-color: var(--color-border); }
+  .badge-neutral {
+    background: var(--color-muted-bg);
+    color: var(--color-muted-foreground);
+  }
+  .badge-primary {
+    background: var(--color-aldes-soft);
+    color: var(--color-aldes);
+  }
+  .badge-success {
+    background: var(--color-ok-soft);
+    color: #15803d;
+    border-color: var(--color-ok-border);
+  }
+  .badge-warn {
+    background: var(--color-warn-soft);
+    color: #b45309;
+    border-color: var(--color-warn-border);
+  }
+  .badge-danger {
+    background: var(--color-danger-soft);
+    color: var(--color-danger);
+    border-color: var(--color-danger-border);
+  }
+  .badge-outline {
+    background: transparent;
+    color: var(--color-muted-foreground);
+    border-color: var(--color-border);
+  }
 
   /* ── kbd ── */
   .kbd {
-    display: inline-flex; align-items: center; gap: 2px;
-    min-width: 1.25rem; height: 1.25rem; padding-inline: 0.3rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    min-width: 1.25rem;
+    height: 1.25rem;
+    padding-inline: 0.3rem;
     border-radius: var(--radius-sm);
-    border: 1px solid var(--color-border); border-bottom-width: 2px;
-    background: var(--color-muted-bg); color: var(--color-muted-foreground);
-    font-size: 0.6875rem; font-weight: 600; font-family: var(--font-sans);
+    border: 1px solid var(--color-border);
+    border-bottom-width: 2px;
+    background: var(--color-muted-bg);
+    color: var(--color-muted-foreground);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    font-family: var(--font-sans);
   }
 
   /* ── Dropdown menu (Pines) ── */
   .menu {
-    min-width: 11rem; padding: 0.25rem;
-    background: var(--color-popover); color: var(--color-foreground);
+    min-width: 11rem;
+    padding: 0.25rem;
+    background: var(--color-popover);
+    color: var(--color-foreground);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
     box-shadow: var(--shadow-lg);
   }
   .menu-item {
-    display: flex; align-items: center; gap: 0.5rem; width: 100%;
-    padding: 0.375rem 0.5rem; border-radius: var(--radius-sm);
-    font-size: 0.8125rem; color: var(--color-foreground);
-    cursor: pointer; background: transparent; border: none; text-align: left;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.375rem 0.5rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.8125rem;
+    color: var(--color-foreground);
+    cursor: pointer;
+    background: transparent;
+    border: none;
+    text-align: left;
   }
-  .menu-item:hover { background: var(--color-accent); }
-  .menu-item.is-danger { color: var(--color-danger); }
-  .menu-item.is-danger:hover { background: var(--color-danger-soft); }
-  .menu-sep { height: 1px; margin: 0.25rem 0; background: var(--color-border); }
-  .menu-label { padding: 0.375rem 0.5rem 0.25rem; font-size: 0.6875rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--color-muted-foreground); }
+  .menu-item:hover {
+    background: var(--color-accent);
+  }
+  .menu-item.is-danger {
+    color: var(--color-danger);
+  }
+  .menu-item.is-danger:hover {
+    background: var(--color-danger-soft);
+  }
+  .menu-sep {
+    height: 1px;
+    margin: 0.25rem 0;
+    background: var(--color-border);
+  }
+  .menu-label {
+    padding: 0.375rem 0.5rem 0.25rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-muted-foreground);
+  }
 
   /* ── Tooltip (Pines) ── */
   .tooltip {
-    background: #0f172a; color: #f8fafc;
-    padding: 0.25rem 0.5rem; border-radius: var(--radius-sm);
-    font-size: 0.6875rem; line-height: 1.3; box-shadow: var(--shadow-md);
-    max-width: 16rem; pointer-events: none;
+    background: #0f172a;
+    color: #f8fafc;
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.6875rem;
+    line-height: 1.3;
+    box-shadow: var(--shadow-md);
+    max-width: 16rem;
+    pointer-events: none;
   }
 
   /* ── Overlay + dialog (Pines) ── */
-  .overlay { position: fixed; inset: 0; z-index: 50; background: rgb(15 23 42 / 0.45); backdrop-filter: blur(2px); }
+  .overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    background: rgb(15 23 42 / 0.45);
+    backdrop-filter: blur(2px);
+  }
   .dialog {
-    background: var(--color-card); color: var(--color-foreground);
+    background: var(--color-card);
+    color: var(--color-foreground);
     border: 1px solid var(--color-border);
-    border-radius: var(--radius-lg); box-shadow: var(--shadow-lg);
-    width: 100%; max-width: 28rem;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    width: 100%;
+    max-width: 28rem;
   }
 
   /* ── Slide-over panel ── */
   .slideover {
-    position: fixed; top: 0; bottom: 0; z-index: 50;
-    background: var(--color-card); color: var(--color-foreground);
-    box-shadow: var(--shadow-lg); display: flex; flex-direction: column;
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    z-index: 50;
+    background: var(--color-card);
+    color: var(--color-foreground);
+    box-shadow: var(--shadow-lg);
+    display: flex;
+    flex-direction: column;
   }
-  .slideover-right { right: 0; border-left: 1px solid var(--color-border); }
-  .slideover-left  { left: 0; border-right: 1px solid var(--color-border); }
+  .slideover-right {
+    right: 0;
+    border-left: 1px solid var(--color-border);
+  }
+  .slideover-left {
+    left: 0;
+    border-right: 1px solid var(--color-border);
+  }
 
   /* ── Command palette ── */
   .cmdk {
     background: var(--color-popover);
     border: 1px solid var(--color-border);
-    border-radius: var(--radius-lg); box-shadow: var(--shadow-lg);
-    width: 100%; max-width: 36rem; overflow: hidden;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    width: 100%;
+    max-width: 36rem;
+    overflow: hidden;
   }
 }
 
 /* ────────────────────────────────────────────────────────────
    Animation utilities (Alpine x-transition / Pines)
    ──────────────────────────────────────────────────────────── */
-@keyframes fade-in  { from { opacity: 0 } to { opacity: 1 } }
-@keyframes zoom-in  { from { opacity: 0; transform: scale(.96) } to { opacity: 1; transform: none } }
-.anim-fade { animation: fade-in .15s ease both; }
-.anim-zoom { animation: zoom-in .15s ease both; }
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes zoom-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.anim-fade {
+  animation: fade-in 0.15s ease both;
+}
+.anim-zoom {
+  animation: zoom-in 0.15s ease both;
+}
 
 /* Slide-over enter/leave (used with x-transition class hooks) */
-.panel-slide-right { transition: transform .22s cubic-bezier(.32,.72,0,1); }
-.panel-slide-right-enter, .panel-slide-right-leave-to { transform: translateX(100%); }
-.panel-slide-left  { transition: transform .22s cubic-bezier(.32,.72,0,1); }
-.panel-slide-left-enter, .panel-slide-left-leave-to { transform: translateX(-100%); }
+.panel-slide-right {
+  transition: transform 0.22s cubic-bezier(0.32, 0.72, 0, 1);
+}
+.panel-slide-right-enter,
+.panel-slide-right-leave-to {
+  transform: translateX(100%);
+}
+.panel-slide-left {
+  transition: transform 0.22s cubic-bezier(0.32, 0.72, 0, 1);
+}
+.panel-slide-left-enter,
+.panel-slide-left-leave-to {
+  transform: translateX(-100%);
+}
 
 /* Toast */
-@keyframes toast-in { from { opacity: 0; transform: translateY(8px) scale(.98) } to { opacity: 1; transform: none } }
-.toast-in { animation: toast-in .2s cubic-bezier(.32,.72,0,1) both; }
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.toast-in {
+  animation: toast-in 0.2s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
 
 /* ════════════════════════════════════════════════════════════
-   Scheduler pages — Material 3 scoped theme + components.
+   Scheduler pages — tokens Material 3 (legacy, partiellement consommés).
 
-   The Stitch "Tableau d'Ordonnancement (Expert)" and "Détail OF
-   (Focus Productivité)" screens ship their own Material 3 palette.
-   It collides with the slate/Aldes tokens above (primary, background…),
-   so it is isolated under a `.theme-m3` wrapper: the colliding tokens
-   are retargeted only inside that subtree while every other page keeps
-   the Aldes look. New (non-colliding) tokens are registered in their
-   own @theme block so Tailwind emits the matching utilities.
+   Le scope .theme-m3 a été supprimé (#62 lot 2 — unification vers Navy) :
+   aucune page ne l'appliquait. Les tokens M3 non-collidants ci-dessous
+   restent définis car --color-error et --color-m3-primary sont encore
+   consommés (links-overlay, order-detail-sheet, app layout).
    ──────────────────────────────────────────────────────────── */
 @theme static {
   /* Material 3 surfaces & text */
@@ -422,25 +745,20 @@
   --color-m3-primary: #000122;
 
   /* Material 3 type families (loaded via Google Fonts in the scheduler layout) */
-  --font-body-md: "Inter", system-ui, sans-serif;
-  --font-headline-sm: "Hanken Grotesk", system-ui, sans-serif;
-  --font-label-sm: "Inter", system-ui, sans-serif;
-  --font-label-md: "Inter", system-ui, sans-serif;
-}
-
-/* Retarget the colliding semantic tokens only inside scheduler pages. */
-.theme-m3 {
-  --color-primary: #000122;
-  --color-primary-foreground: #ffffff;
-  --color-background: #fbf8ff;
-  --color-secondary: #526600;
-  --font-mono: "Inter", system-ui, sans-serif;
+  --font-body-md: 'Inter', system-ui, sans-serif;
+  --font-headline-sm: 'Hanken Grotesk', system-ui, sans-serif;
+  --font-label-sm: 'Inter', system-ui, sans-serif;
+  --font-label-md: 'Inter', system-ui, sans-serif;
 }
 
 /* Google Material Symbols icon font (Ligatures on → use the glyph name as text). */
 .material-symbols-outlined {
-  font-family: "Material Symbols Outlined";
-  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 20;
+  font-family: 'Material Symbols Outlined';
+  font-variation-settings:
+    'FILL' 0,
+    'wght' 400,
+    'GRAD' 0,
+    'opsz' 20;
   font-size: 20px;
   line-height: 1;
   font-style: normal;
@@ -449,7 +767,7 @@
   white-space: nowrap;
   word-wrap: normal;
   direction: ltr;
-  -webkit-font-feature-settings: "liga";
+  -webkit-font-feature-settings: 'liga';
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
@@ -458,14 +776,22 @@
    min-width:0 on grid children lets minmax(0,1fr) actually shrink columns to
    the viewport. Without it, card content forces body columns wider than the
    header (which has no min-width) → header/body desync + card overflow. */
-.grid-week, .grid-expert { display: grid; }
-.grid-week > *, .grid-expert > * { min-width: 0; }
+.grid-week,
+.grid-expert {
+  display: grid;
+}
+.grid-week > *,
+.grid-expert > * {
+  min-width: 0;
+}
 
 /* ── Frozen-header / horizontal-scroll board ──────────────────
    One scroll container (.sch-scroll) holds week band + day header + rows.
    Day columns use minmax(120px,1fr): they fill the width up to ~2 weeks, then
    overflow → horizontal scroll. Headers stick to top, line column sticks left. */
-.sch-scroll { overflow: auto; }
+.sch-scroll {
+  overflow: auto;
+}
 /* Day columns: uniform fixed width so every week looks identical (no stretch
    break between the visible weeks and the scrolled ones). The grid track total
    may exceed the viewport → horizontal scroll; if narrower, the gray container
@@ -475,15 +801,29 @@
   min-width: calc(160px + var(--cols) * 130px);
 }
 /* Both header bands wrapped in .sch-head, pinned to top together. */
-.sch-head { position: sticky; top: 0; z-index: 30; }
+.sch-head {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+}
 /* First (line/label) column frozen on horizontal scroll. */
-.sch-col-fix { position: sticky; left: 0; z-index: 20; background: #fff; }
+.sch-col-fix {
+  position: sticky;
+  left: 0;
+  z-index: 20;
+  background: #fff;
+}
 /* Header corners (top AND left) must sit above everything. */
-.sch-head .sch-col-fix { z-index: 40; }
+.sch-head .sch-col-fix {
+  z-index: 40;
+}
 
 /* Compact OF cards (expert view) — left status rail, hover lift. */
 .sch-of-card {
-  transition: transform .1s ease, box-shadow .2s ease, border-color .1s ease;
+  transition:
+    transform 0.1s ease,
+    box-shadow 0.2s ease,
+    border-color 0.1s ease;
   border-left-width: 3px;
   min-width: 0;
   /* no overflow:hidden — would clip the corner feasibility badge.
@@ -491,7 +831,7 @@
 }
 .sch-of-card:hover {
   border-color: #94a3b8;
-  box-shadow: 0 2px 8px rgb(0 0 0 / .04);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.04);
   transform: scale(1.01);
 }
 
@@ -499,25 +839,41 @@
 /* Graph-paper (quadrillé) background on calendar cells — light 20px grid like
    a notebook sheet. Sits behind the OF cards. */
 .sch-cal-cell {
-  transition: background-color .15s ease;
+  transition: background-color 0.15s ease;
   background-color: #fcfcfd;
   background-image:
-    linear-gradient(to right, rgba(15, 23, 42, .05) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(15, 23, 42, .05) 1px, transparent 1px);
+    linear-gradient(to right, rgba(15, 23, 42, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(15, 23, 42, 0.05) 1px, transparent 1px);
   background-size: 20px 20px;
 }
-.sch-cal-cell:hover { background-color: rgb(243 244 246 / .6); }
+.sch-cal-cell:hover {
+  background-color: rgb(243 244 246 / 0.6);
+}
 
 /* Drag & drop affordances (expert board). */
-.sch-of-card[draggable] { cursor: grab; }
-.sch-of-card[draggable]:active { cursor: grabbing; }
-.sch-cal-cell.is-drop { background-color: rgba(0, 105, 180, .10); box-shadow: inset 0 0 0 2px var(--color-aldes); }
+.sch-of-card[draggable] {
+  cursor: grab;
+}
+.sch-of-card[draggable]:active {
+  cursor: grabbing;
+}
+.sch-cal-cell.is-drop {
+  background-color: rgba(0, 105, 180, 0.1);
+  box-shadow: inset 0 0 0 2px var(--color-aldes);
+}
 
 /* Drag-handle reveal on hover (comfortable cards). */
-.sch-drag-handle { opacity: 0; transition: opacity .2s; }
-.sch-of-card:hover .sch-drag-handle { opacity: .4; }
+.sch-drag-handle {
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.sch-of-card:hover .sch-drag-handle {
+  opacity: 0.4;
+}
 
-.mono { font-family: var(--font-mono); }
+.mono {
+  font-family: var(--font-mono);
+}
 
 /* Feasibility badge — small circle pinned to the OF card's top-right corner. */
 .sch-feas-badge {
@@ -531,16 +887,20 @@
   align-items: center;
   justify-content: center;
   color: #fff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, .25);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
   z-index: 3;
 }
 .sch-feas-badge .material-symbols-outlined {
   font-size: 12px;
   font-weight: 700;
-  font-variation-settings: "wght" 700;
+  font-variation-settings: 'wght' 700;
 }
-.sch-feas-badge.is-ok { background: #16a34a; }      /* emerald-600 */
-.sch-feas-badge.is-blocked { background: #dc2626; } /* red-600 */
+.sch-feas-badge.is-ok {
+  background: #16a34a;
+} /* emerald-600 */
+.sch-feas-badge.is-blocked {
+  background: #dc2626;
+} /* red-600 */
 
 /* ── Unpoly drawer (OF detail panel) ──────────────────────────
    Minimal overrides: let Unpoly own positioning/layering. We only
@@ -548,7 +908,7 @@
    (2) set the box width and strip its default chrome (the aside has
    its own), (3) make box + content full height with the box scrolling. */
 up-drawer-backdrop {
-  background: rgba(15, 23, 42, .45);
+  background: rgba(15, 23, 42, 0.45);
   -webkit-backdrop-filter: blur(3px);
   backdrop-filter: blur(3px);
 }
@@ -560,10 +920,17 @@ up-drawer[size] up-drawer-box {
   padding: 0;
   background: var(--color-surface);
 }
-up-drawer-content { display: block; height: 100%; }
-up-drawer-content > #sch-detail-panel { width: 100%; }
+up-drawer-content {
+  display: block;
+  height: 100%;
+}
+up-drawer-content > #sch-detail-panel {
+  width: 100%;
+}
 /* Aside carries its own close button — hide Unpoly's stock dismiss X. */
-up-drawer-dismiss { display: none; }
+up-drawer-dismiss {
+  display: none;
+}
 
 /* Issue #10 — board planification : cases à cocher filtres (type/nature).
    État coché = .is-on (piloté par l'îlot Solid order-grid). */
@@ -577,18 +944,56 @@ up-drawer-dismiss { display: none; }
   background: color-mix(in oklch, var(--color-primary) 8%, #fff);
   color: var(--color-primary);
 }
-.order-chip:hover { border-color: var(--color-gray-300, #d1d5db); }
+.order-chip:hover {
+  border-color: var(--color-gray-300, #d1d5db);
+}
 
 /* ── Inertia UI : Sheet (drawer Kobalte Dialog) ────────────────────────────
    Animations d'ouverture/fermeture (Kobalte pose data-expanded / data-closed). */
-@keyframes sch-overlay-in { from { opacity: 0 } to { opacity: 1 } }
-@keyframes sch-overlay-out { from { opacity: 1 } to { opacity: 0 } }
-@keyframes sch-sheet-in  { from { transform: translateX(100%) } to { transform: translateX(0) } }
-@keyframes sch-sheet-out { from { transform: translateX(0) } to { transform: translateX(100%) } }
-.sch-overlay[data-expanded] { animation: sch-overlay-in .2s ease-out both; }
-.sch-overlay[data-closed]   { animation: sch-overlay-out .15s ease-in both; }
-.sch-sheet[data-expanded]   { animation: sch-sheet-in .25s cubic-bezier(.32,.72,0,1) both; }
-.sch-sheet[data-closed]     { animation: sch-sheet-out .2s ease-in both; }
+@keyframes sch-overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes sch-overlay-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@keyframes sch-sheet-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@keyframes sch-sheet-out {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+.sch-overlay[data-expanded] {
+  animation: sch-overlay-in 0.2s ease-out both;
+}
+.sch-overlay[data-closed] {
+  animation: sch-overlay-out 0.15s ease-in both;
+}
+.sch-sheet[data-expanded] {
+  animation: sch-sheet-in 0.25s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+.sch-sheet[data-closed] {
+  animation: sch-sheet-out 0.2s ease-in both;
+}
 
 /* ════════════════════════════════════════════════════════════
    Design system « Papier » (v1.0).
@@ -599,16 +1004,18 @@ up-drawer-dismiss { display: none; }
    Page de démonstration : GET /design-system.
    ──────────────────────────────────────────────────────────── */
 @theme static {
-  /* Palette Papier — accents brand + statuts (noms sans collision) */
-  --color-terra: #a8431f;
-  --color-terra-soft: rgba(168, 67, 31, .10);
+  /* Palette Papier — accents brand + statuts (noms sans collision).
+     #62 (lot 2) : terra → brand (le token vaut navy sous .theme-navy, le nom
+     « terra » était mensonger). */
+  --color-brand: #a8431f;
+  --color-brand-soft: rgba(168, 67, 31, 0.1);
   --color-ferme: #5b7d4e;
   --color-planifie: #2f4858;
   --color-suggere: #b8862c;
   --color-rule: #cdbfa0;
   --color-rule-soft: #e3d9c1;
   /* Fraunces — serif d'affichage (titres, chiffres) */
-  --font-fraunces: "Fraunces", Georgia, serif;
+  --font-fraunces: 'Fraunces', Georgia, serif;
 }
 
 /* Retargeting des tokens sémantiques (collisions) sous le scope Papier. */
@@ -634,13 +1041,15 @@ up-drawer-dismiss { display: none; }
   --color-destructive: #9a3320;
   --color-destructive-foreground: #fbf8ef;
   --color-danger: #9a3320;
-  --font-sans: "Inter", system-ui, sans-serif;
-  --font-mono: "Inter", system-ui, sans-serif;
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'Inter', system-ui, sans-serif;
   font-family: var(--font-sans);
   color: var(--color-foreground);
   background-color: var(--color-background);
 }
-.theme-papier ::selection { background: var(--color-terra-soft); }
+.theme-papier ::selection {
+  background: var(--color-brand-soft);
+}
 
 /* ════════════════════════════════════════════════════════════
    Design system « Navy » (v0.1, exploration) — palette officielle
@@ -665,8 +1074,8 @@ up-drawer-dismiss { display: none; }
    ──────────────────────────────────────────────────────────── */
 .theme-navy {
   /* Marque + statuts (normalement globaux, ici surchargés par scope) */
-  --color-terra: #081061;
-  --color-terra-soft: rgba(8, 16, 97, .08);
+  --color-brand: #081061;
+  --color-brand-soft: rgba(8, 16, 97, 0.08);
   --color-ferme: #28a745;
   --color-planifie: #17a2b8;
   --color-suggere: #ffc107;
@@ -702,13 +1111,15 @@ up-drawer-dismiss { display: none; }
   --color-destructive-foreground: #ffffff;
   --color-danger: #dc3545;
   --color-lime: #b0d138;
-  --font-sans: "Inter", system-ui, sans-serif;
-  --font-mono: "Inter", system-ui, sans-serif;
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'Inter', system-ui, sans-serif;
   font-family: var(--font-sans);
   color: var(--color-foreground);
   background-color: var(--color-background);
 }
-.theme-navy ::selection { background: var(--color-terra-soft); }
+.theme-navy ::selection {
+  background: var(--color-brand-soft);
+}
 
 /* ════════════════════════════════════════════════════════════
    Environnement — distinction visuelle test vs prod.
@@ -722,14 +1133,14 @@ up-drawer-dismiss { display: none; }
    Les statuts (fermé/planifié/suggéré) ne sont PAS retouchés : ils
    codent du sens métier et doivent rester identiques partout.
    ──────────────────────────────────────────────────────────── */
-:root[data-env="test"] {
-  --color-terra: #6d4bb0;
-  --color-terra-soft: rgba(109, 75, 176, .12);
+:root[data-env='test'] {
+  --color-brand: #6d4bb0;
+  --color-brand-soft: rgba(109, 75, 176, 0.12);
 }
 /* Le scope .theme-papier redéfinit lui-même primary/ring/background… il faut
    donc re-surmonter ces tokens sous test, sinon la déclinaison ne s'applique
    qu'au Masthead (qui consomme --color-terra directement). */
-:root[data-env="test"] .theme-papier {
+:root[data-env='test'] .theme-papier {
   --color-primary: #6d4bb0;
   --color-primary-foreground: #fbf8ef;
   --color-ring: #6d4bb0;
@@ -748,14 +1159,16 @@ up-drawer-dismiss { display: none; }
   --color-border: #cbc2dd;
   --color-input: #cbc2dd;
 }
-:root[data-env="test"] .theme-papier ::selection { background: var(--color-terra-soft); }
+:root[data-env='test'] .theme-papier ::selection {
+  background: var(--color-brand-soft);
+}
 
 /* .theme-navy redéfinit lui-même --color-terra/primary/ring/background (comme
    .theme-papier) → même resurcharge requise sous test, sinon les pages passées
    en Navy perdraient la distinction visuelle test/prod. */
-:root[data-env="test"] .theme-navy {
-  --color-terra: #6d4bb0;
-  --color-terra-soft: rgba(109, 75, 176, .12);
+:root[data-env='test'] .theme-navy {
+  --color-brand: #6d4bb0;
+  --color-brand-soft: rgba(109, 75, 176, 0.12);
   --color-primary: #6d4bb0;
   --color-primary-foreground: #ffffff;
   --color-ring: #6d4bb0;
@@ -774,7 +1187,9 @@ up-drawer-dismiss { display: none; }
   --color-border: #cbc2dd;
   --color-input: #cbc2dd;
 }
-:root[data-env="test"] .theme-navy ::selection { background: var(--color-terra-soft); }
+:root[data-env='test'] .theme-navy ::selection {
+  background: var(--color-brand-soft);
+}
 
 /* ════════════════════════════════════════════════════════════
    Impression — boards & tableau de bord en A3 paysage.
@@ -797,8 +1212,13 @@ up-drawer-dismiss { display: none; }
    ──────────────────────────────────────────────────────────── */
 .print-fit-measure .theme-papier,
 .print-fit-measure .theme-papier .flex-1,
-.print-fit-measure .theme-papier article { max-height: none !important; overflow: visible !important; }
-.print-fit-measure .theme-papier [data-print-header] { display: flex !important; }
+.print-fit-measure .theme-papier article {
+  max-height: none !important;
+  overflow: visible !important;
+}
+.print-fit-measure .theme-papier [data-print-header] {
+  display: flex !important;
+}
 
 @media print {
   @page {
@@ -848,5 +1268,18 @@ up-drawer-dismiss { display: none; }
      est masqué. Le Masthead l'est déjà via print:hidden. */
   [data-print-toolbar] > *:not([data-print-keep]) {
     display: none !important;
+  }
+}
+
+/* KPI personnalisables : à l'écran les tiles suivent --screen-order (ordre
+   d'affichage), à l'impression elles basculent sur --print-order (ordre
+   d'impression indépendant). Déclaratif → indépendant du cycle réactif JS. */
+.kpi-tile {
+  order: var(--screen-order, 0);
+}
+
+@media print {
+  .kpi-tile {
+    order: var(--print-order, 0) !important;
   }
 }

@@ -34,7 +34,7 @@ type RawRow = Record<string, string | null>
 
 // Lookback pour les OF (via env RETARD_LOOKBACK_DAYS, même variable que la vue retards).
 // Élimine les OF très en retard (anomalies ERP) → réduit drastiquement les lignes ZSOAPSQL O(n²).
-const OF_LOOKBACK_DAYS = parseInt(process.env.RETARD_LOOKBACK_DAYS ?? '90', 10)
+const OF_LOOKBACK_DAYS = Number.parseInt(process.env.RETARD_LOOKBACK_DAYS ?? '90', 10)
 
 function toYYYYMMDD(d: Date): string {
   return d.toISOString().slice(0, 10).replace(/-/g, '')
@@ -86,12 +86,16 @@ WHERE WIPTYP_0 = 5
 `
 
 function toNum(v: string | null | undefined): number {
-  return parseFloat(v ?? '0') || 0
+  return Number.parseFloat(v ?? '0') || 0
 }
 
 export class X3OfRepository {
   /** Lit les ordres depuis ORDERS + enrichit la désignation depuis le référentiel local. */
-  private async fetch(): Promise<{ rows: RawRow[]; label: (chapter: number, value: number | null) => string | null; designations: Map<string, string> }> {
+  private async fetch(): Promise<{
+    rows: RawRow[]
+    label: (chapter: number, value: number | null) => string | null
+    designations: Map<string, string>
+  }> {
     const from = new Date()
     from.setDate(from.getDate() - OF_LOOKBACK_DAYS)
     const [rows, menuRows, articles] = await Promise.all([
@@ -110,7 +114,7 @@ export class X3OfRepository {
     const { rows, label, designations } = await this.fetch()
 
     return rows.map((row) => {
-      const status = parseInt(row.STA ?? '0') as 1 | 2 | 3
+      const status = Number.parseInt(row.STA ?? '0') as 1 | 2 | 3
       const article = row.ARTICLE?.trim() ?? ''
       return {
         article,
@@ -147,7 +151,7 @@ export class X3OfRepository {
       if (safe.length === 0) return out
       const inList = safe.map((n) => `'${n}'`).join(',')
       const rows = (await db.raw(
-        `SELECT VCRNUM_0 AS NUM, CREDAT_0 AS CREDAT FROM ORDERS WHERE WIPTYP_0 = 5 AND VCRNUM_0 IN (${inList})`,
+        `SELECT VCRNUM_0 AS NUM, CREDAT_0 AS CREDAT FROM ORDERS WHERE WIPTYP_0 = 5 AND VCRNUM_0 IN (${inList})`
       )) as unknown as RawRow[]
       for (const row of rows) {
         const numOf = row.NUM?.trim() ?? ''
@@ -164,7 +168,7 @@ export class X3OfRepository {
     const { rows, label, designations } = await this.fetch()
 
     return rows.map((row) => {
-      const status = parseInt(row.STA ?? '0') as 1 | 2 | 3
+      const status = Number.parseInt(row.STA ?? '0') as 1 | 2 | 3
       const article = row.ARTICLE?.trim() ?? ''
       return {
         numOf: row.NUM?.trim() ?? '',
@@ -213,7 +217,7 @@ WHERE WIPTYP_0 = 5
     for (const a of articles) if (a.code) designations.set(a.code, a.description)
 
     const row = rows[0]
-    const status = parseInt(row.STA ?? '0') as 1 | 2 | 3
+    const status = Number.parseInt(row.STA ?? '0') as 1 | 2 | 3
     const article = row.ARTICLE?.trim() ?? ''
     return {
       numOf: row.NUM?.trim() ?? '',
@@ -234,7 +238,9 @@ WHERE WIPTYP_0 = 5
   /** OFs dont le STRDAT est dans [from, to] — fenêtre courte, ~25× moins de lignes que getManufacturingOrders(). */
   async getManufacturingOrdersForWindow(from: Date, to: Date): Promise<ManufacturingOrder[]> {
     const [rows, menuRows, articles] = await Promise.all([
-      new X3Database().raw(buildWindowSql(toLocalYYYYMMDD(from), toLocalYYYYMMDD(to))) as unknown as RawRow[],
+      new X3Database().raw(
+        buildWindowSql(toLocalYYYYMMDD(from), toLocalYYYYMMDD(to))
+      ) as unknown as RawRow[],
       LocalMenu.query().whereIn('chapter', [317]),
       staticSync.readArticles().catch(() => []),
     ])
@@ -244,7 +250,7 @@ WHERE WIPTYP_0 = 5
     for (const a of articles) if (a.code) designations.set(a.code, a.description)
 
     return rows.map((row) => {
-      const status = parseInt(row.STA ?? '0') as 1 | 2 | 3
+      const status = Number.parseInt(row.STA ?? '0') as 1 | 2 | 3
       const article = row.ARTICLE?.trim() ?? ''
       return {
         numOf: row.NUM?.trim() ?? '',

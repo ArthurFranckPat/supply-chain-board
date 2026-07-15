@@ -14,7 +14,12 @@ test.group('OverrideStore', (group) => {
 
   test('save creates a new override', async ({ assert }) => {
     const store = new OverrideStore()
-    await store.save('OF001', { dateDebut: '2026-06-12', dateFin: '2026-06-18', status: 1, note: 'Affermi' })
+    await store.save('OF001', {
+      dateDebut: '2026-06-12',
+      dateFin: '2026-06-18',
+      status: 1,
+      note: 'Affermi',
+    })
 
     const row = await OfOverride.findBy('num_of', 'OF001')
     assert.isNotNull(row)

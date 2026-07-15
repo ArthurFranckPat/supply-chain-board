@@ -314,16 +314,31 @@ export default class MfgHead extends BaseModel {
   })
   declare encoursList: HasMany<typeof Orders>
 
-  @belongsTo(() => LocalMenu, { foreignKey: 'statutOrdreDeFabrication', localKey: 'value', onQuery: (q) => q.where('chapter', 317) })
+  @belongsTo(() => LocalMenu, {
+    foreignKey: 'statutOrdreDeFabrication',
+    localKey: 'value',
+    onQuery: (q) => q.where('chapter', 317),
+  })
   declare statutOFMenu: BelongsTo<typeof LocalMenu>
 
-  @belongsTo(() => LocalMenu, { foreignKey: 'typeOf', localKey: 'value', onQuery: (q) => q.where('chapter', 1026) })
+  @belongsTo(() => LocalMenu, {
+    foreignKey: 'typeOf',
+    localKey: 'value',
+    onQuery: (q) => q.where('chapter', 1026),
+  })
   declare typeOfMenu: BelongsTo<typeof LocalMenu>
 
-  @belongsTo(() => LocalMenu, { foreignKey: 'modeLancement', localKey: 'value', onQuery: (q) => q.where('chapter', 333) })
+  @belongsTo(() => LocalMenu, {
+    foreignKey: 'modeLancement',
+    localKey: 'value',
+    onQuery: (q) => q.where('chapter', 333),
+  })
   declare modeLancementMenu: BelongsTo<typeof LocalMenu>
 
-  @belongsTo(() => LocalMenu, { foreignKey: 'priorite', localKey: 'value', onQuery: (q) => q.where('chapter', 365) })
+  @belongsTo(() => LocalMenu, {
+    foreignKey: 'priorite',
+    localKey: 'value',
+    onQuery: (q) => q.where('chapter', 365),
+  })
   declare prioriteMenu: BelongsTo<typeof LocalMenu>
-
 }

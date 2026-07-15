@@ -55,7 +55,7 @@ export const Board: Component<BoardProps> = (props) => {
     <div
       class={cx(
         'overflow-x-auto rounded-xl border border-border bg-card shadow-[0_1px_2px_rgba(31,26,19,.05)]',
-        props.class,
+        props.class
       )}
     >
       <div style={{ 'min-width': minWidth() }}>
@@ -81,12 +81,12 @@ export const Board: Component<BoardProps> = (props) => {
           </div>
           <For each={props.days}>
             {(d) => (
-              <div class={cx('bg-secondary px-1 py-1.5 text-center', d.today && 'bg-terra-soft')}>
+              <div class={cx('bg-secondary px-1 py-1.5 text-center', d.today && 'bg-brand-soft')}>
                 <div class="font-mono text-[9px] uppercase text-muted-foreground">{d.short}</div>
                 <div
                   class={cx(
                     'font-fraunces text-[15px] font-bold leading-none',
-                    d.today ? 'text-terra' : 'text-foreground',
+                    d.today ? 'text-brand' : 'text-foreground'
                   )}
                 >
                   {d.num}
@@ -106,7 +106,9 @@ export const Board: Component<BoardProps> = (props) => {
           when={props.lines.length > 0}
           fallback={
             <div class="flex flex-col items-center gap-2 px-6 py-14 text-center">
-              <span class="material-symbols-outlined text-[28px] text-muted-foreground/60">grid_view</span>
+              <span class="material-symbols-outlined text-[28px] text-muted-foreground/60">
+                grid_view
+              </span>
               <div class="font-fraunces text-[15px] font-bold">Aucun poste à planifier</div>
               <div class="font-fraunces text-[13px] italic text-muted-foreground">
                 Le board est vide sur cette fenêtre.
@@ -139,7 +141,7 @@ export const Board: Component<BoardProps> = (props) => {
                     <div
                       class={cx(
                         'border-r border-rule-soft last:border-r-0',
-                        d.today && 'bg-terra-soft',
+                        d.today && 'bg-brand-soft'
                       )}
                       style={{
                         'min-height': '150px',

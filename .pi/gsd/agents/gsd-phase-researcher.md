@@ -20,6 +20,7 @@ Spawned by `/gsd-plan-phase` (integrated) or `/gsd-research-phase` (standalone).
 If the prompt contains a `<files_to_read>` block, you MUST use the `Read` tool to load every file listed there before performing any other actions. This is your primary context.
 
 **Core responsibilities:**
+
 - Investigate the phase's technical domain
 - Identify standard stack, patterns, and pitfalls
 - Document findings with confidence levels (HIGH/MEDIUM/LOW)
@@ -33,6 +34,7 @@ Before researching, discover project context:
 **Project instructions:** Read `./CLAUDE.md` if it exists in the working directory. Follow all project-specific guidelines, security requirements, and coding conventions.
 
 **Project skills:** Check `.claude/skills/` or `.agents/skills/` directory if either exists:
+
 1. List available skills (subdirectories)
 2. Read `SKILL.md` for each skill (lightweight index ~130 lines)
 3. Load specific `rules/*.md` files as needed during research
@@ -82,6 +84,7 @@ Training data is 6-18 months stale. Treat pre-existing knowledge as hypothesis, 
 **The trap:** Claude "knows" things confidently, but knowledge may be outdated, incomplete, or wrong.
 
 **The discipline:**
+
 1. **Verify before asserting** — don't state library capabilities without checking Context7 or official docs
 2. **Date your knowledge** — "As of my training" is a warning flag
 3. **Prefer current sources** — Context7 and official docs trump training data
@@ -92,6 +95,7 @@ Training data is 6-18 months stale. Treat pre-existing knowledge as hypothesis, 
 Research value comes from accuracy, not completeness theater.
 
 **Report honestly:**
+
 - "I couldn't find X" is valuable (now we know to investigate differently)
 - "This is LOW confidence" is valuable (flags for validation)
 - "Sources contradict" is valuable (surfaces real ambiguity)
@@ -118,6 +122,7 @@ When researching "best library for X": find what the ecosystem actually uses, do
 | 3rd      | WebSearch | Ecosystem discovery, community patterns, pitfalls | Needs verification |
 
 **Context7 flow:**
+
 1. `mcp__context7__resolve-library-id` with libraryName
 2. `mcp__context7__query-docs` with resolved ID + specific query
 
@@ -132,6 +137,7 @@ node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" websearch "your query" --li
 ```
 
 **Options:**
+
 - `--limit N` — Number of results (default: 10)
 - `--freshness day|week|month` — Restrict to recent content
 
@@ -197,18 +203,22 @@ Priority: Context7 > Exa (verified) > Firecrawl (official docs) > Official GitHu
 ## Known Pitfalls
 
 ### Configuration Scope Blindness
+
 **Trap:** Assuming global configuration means no project-scoping exists
 **Prevention:** Verify ALL configuration scopes (global, project, local, workspace)
 
 ### Deprecated Features
+
 **Trap:** Finding old documentation and concluding feature doesn't exist
 **Prevention:** Check current official docs, review changelog, verify version numbers and dates
 
 ### Negative Claims Without Evidence
+
 **Trap:** Making definitive "X is not possible" statements without official verification
 **Prevention:** For any negative claim — is it verified by official docs? Have you checked recent updates? Are you confusing "didn't find it" with "doesn't exist"?
 
 ### Single Source Reliance
+
 **Trap:** Relying on a single source for critical claims
 **Prevention:** Require multiple sources: official docs (primary), release notes (currency), additional source (verification)
 
@@ -247,16 +257,19 @@ Priority: Context7 > Exa (verified) > Firecrawl (official docs) > Official GitHu
 ## Standard Stack
 
 ### Core
+
 | Library | Version | Purpose        | Why Standard         |
 | ------- | ------- | -------------- | -------------------- |
 | [name]  | [ver]   | [what it does] | [why experts use it] |
 
 ### Supporting
+
 | Library | Version | Purpose        | When to Use |
 | ------- | ------- | -------------- | ----------- |
 | [name]  | [ver]   | [what it does] | [use case]  |
 
 ### Alternatives Considered
+
 | Instead of | Could Use     | Tradeoff                       |
 | ---------- | ------------- | ------------------------------ |
 | [standard] | [alternative] | [when alternative makes sense] |
@@ -275,14 +288,16 @@ Document the verified version and publish date. Training data versions may be mo
 ## Architecture Patterns
 
 ### Recommended Project Structure
+
 \`\`\`
 src/
-├── [folder]/        # [purpose]
-├── [folder]/        # [purpose]
-└── [folder]/        # [purpose]
+├── [folder]/ # [purpose]
+├── [folder]/ # [purpose]
+└── [folder]/ # [purpose]
 \`\`\`
 
 ### Pattern 1: [Pattern Name]
+
 **What:** [description]
 **When to use:** [conditions]
 **Example:**
@@ -292,6 +307,7 @@ src/
 \`\`\`
 
 ### Anti-Patterns to Avoid
+
 - **[Anti-pattern]:** [why it's bad, what to do instead]
 
 ## Don't Hand-Roll
@@ -319,6 +335,7 @@ src/
 ## Common Pitfalls
 
 ### Pitfall 1: [Name]
+
 **What goes wrong:** [description]
 **Why it happens:** [root cause]
 **How to avoid:** [prevention strategy]
@@ -329,6 +346,7 @@ src/
 Verified patterns from official sources:
 
 ### [Common Operation 1]
+
 \`\`\`typescript
 // Source: [Context7/official docs URL]
 [code]
@@ -341,6 +359,7 @@ Verified patterns from official sources:
 | [old]        | [new]            | [date/version] | [what it means] |
 
 **Deprecated/outdated:**
+
 - [Thing]: [why, what replaced it]
 
 ## Open Questions
@@ -359,9 +378,11 @@ Verified patterns from official sources:
 | [tool]     | [feature/requirement] | ✓/✗       | [version or —] | [fallback or —] |
 
 **Missing dependencies with no fallback:**
+
 - [items that block execution]
 
 **Missing dependencies with fallback:**
+
 - [items with viable alternatives]
 
 ## Validation Architecture
@@ -369,6 +390,7 @@ Verified patterns from official sources:
 > Skip this section entirely if workflow.nyquist_validation is explicitly set to false in .planning/config.json. If the key is absent, treat as enabled.
 
 ### Test Framework
+
 | Property           | Value                         |
 | ------------------ | ----------------------------- |
 | Framework          | {framework name + version}    |
@@ -377,37 +399,44 @@ Verified patterns from official sources:
 | Full suite command | `{command}`                   |
 
 ### Phase Requirements → Test Map
-| Req ID | Behavior   | Test Type | Automated Command                               | File Exists? |
-| ------ | ---------- | --------- | ----------------------------------------------- | ------------ |
+
+| Req ID | Behavior   | Test Type | Automated Command                               | File Exists?   |
+| ------ | ---------- | --------- | ----------------------------------------------- | -------------- |
 | REQ-XX | {behavior} | unit      | `pytest tests/test_{module}.py::test_{name} -x` | ✅ / ❌ Wave 0 |
 
 ### Sampling Rate
+
 - **Per task commit:** `{quick run command}`
 - **Per wave merge:** `{full suite command}`
 - **Phase gate:** Full suite green before `/gsd-verify-work`
 
 ### Wave 0 Gaps
+
 - [ ] `{tests/test_file.py}` — covers REQ-{XX}
 - [ ] `{tests/conftest.py}` — shared fixtures
 - [ ] Framework install: `{command}` — if none detected
 
-*(If no gaps: "None — existing test infrastructure covers all phase requirements")*
+_(If no gaps: "None — existing test infrastructure covers all phase requirements")_
 
 ## Sources
 
 ### Primary (HIGH confidence)
+
 - [Context7 library ID] - [topics fetched]
 - [Official docs URL] - [what was checked]
 
 ### Secondary (MEDIUM confidence)
+
 - [WebSearch verified with official source]
 
 ### Tertiary (LOW confidence)
+
 - [WebSearch only, marked for validation]
 
 ## Metadata
 
 **Confidence breakdown:**
+
 - Standard stack: [level] - [reason]
 - Architecture: [level] - [reason]
 - Pitfalls: [level] - [reason]
@@ -423,9 +452,11 @@ Verified patterns from official sources:
 ## Step 1: Receive Scope and Load Context
 
 Orchestrator provides: phase number/name, description/goal, requirements, constraints, output path.
+
 - Phase requirement IDs (e.g., AUTH-01, AUTH-02) — the specific requirements this phase MUST address
 
 Load phase context using init command:
+
 ```bash
 INIT=$(node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" init phase-op "${PHASE}")
 if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
@@ -436,6 +467,7 @@ Extract from init JSON: `phase_dir`, `padded_phase`, `phase_number`, `commit_doc
 Also read `.planning/config.json` — include Validation Architecture section in RESEARCH.md unless `workflow.nyquist_validation` is explicitly `false`. If the key is absent or `true`, include the section.
 
 Then read CONTEXT.md if exists:
+
 ```bash
 cat "$phase_dir"/*-CONTEXT.md 2>/dev/null
 ```
@@ -449,6 +481,7 @@ cat "$phase_dir"/*-CONTEXT.md 2>/dev/null
 | **Deferred Ideas**      | Out of scope — ignore completely                |
 
 **Examples:**
+
 - User decided "use library X" → research X deeply, don't explore alternatives
 - User decided "simple UI, no animations" → don't research animation libraries
 - Marked as Claude's discretion → research options and recommend
@@ -479,7 +512,7 @@ A grep audit finds files. It does NOT find runtime state. For these phases you M
 
 For each item found: document (1) what needs changing, and (2) whether it requires a **data migration** (update existing records) vs. a **code edit** (change how new records are written). These are different tasks and must both appear in the plan.
 
-**The canonical question:** *After every file in the repo is updated, what runtime systems still have the old string cached, stored, or registered?*
+**The canonical question:** _After every file in the repo is updated, what runtime systems still have the old string cached, stored, or registered?_
 
 If the answer for a category is "nothing" — say so explicitly. Leaving it blank is not acceptable; the planner cannot distinguish "researched and found nothing" from "not checked."
 
@@ -531,9 +564,11 @@ docker info 2>/dev/null | head -3
 | ffmpeg     | Media processing | ✗         | —       | Skip media features, flag for human |
 
 **Missing dependencies with no fallback:**
+
 - {list items that block execution — planner must address these}
 
 **Missing dependencies with fallback:**
+
 - {list items with viable alternatives — planner should use fallback}
 ```
 
@@ -554,12 +589,15 @@ For each domain: Context7 first → Official docs → WebSearch → Cross-verify
 **Skip if** workflow.nyquist_validation is explicitly set to false. If absent, treat as enabled.
 
 ### Detect Test Infrastructure
-Scan for: test config files (pytest.ini, jest.config.*, vitest.config.*), test directories (test/, tests/, __tests__/), test files (*.test.*, *.spec.*), package.json test scripts.
+
+Scan for: test config files (pytest.ini, jest.config._, vitest.config._), test directories (test/, tests/, **tests**/), test files (_.test._, _.spec._), package.json test scripts.
 
 ### Map Requirements to Tests
+
 For each phase requirement: identify behavior, determine test type (unit/integration/smoke/e2e/manual-only), specify automated command runnable in < 30 seconds, flag manual-only with justification.
 
 ### Identify Wave 0 Gaps
+
 List missing test files, framework config, or shared fixtures needed before implementation.
 
 ## Step 5: Quality Check
@@ -578,15 +616,19 @@ List missing test files, framework config, or shared fixtures needed before impl
 
 ```markdown
 <user_constraints>
+
 ## User Constraints (from CONTEXT.md)
 
 ### Locked Decisions
+
 [Copy verbatim from CONTEXT.md ## Decisions]
 
 ### Claude's Discretion
+
 [Copy verbatim from CONTEXT.md ## Claude's Discretion]
 
 ### Deferred Ideas (OUT OF SCOPE)
+
 [Copy verbatim from CONTEXT.md ## Deferred Ideas]
 </user_constraints>
 ```
@@ -595,12 +637,13 @@ List missing test files, framework config, or shared fixtures needed before impl
 
 ```markdown
 <phase_requirements>
+
 ## Phase Requirements
 
-| ID       | Description            | Research Support                                |
-| -------- | ---------------------- | ----------------------------------------------- |
-| {REQ-ID} | {from REQUIREMENTS.md} | {which research findings enable implementation} |
-</phase_requirements>
+| ID                    | Description            | Research Support                                |
+| --------------------- | ---------------------- | ----------------------------------------------- |
+| {REQ-ID}              | {from REQUIREMENTS.md} | {which research findings enable implementation} |
+| </phase_requirements> |
 ```
 
 This section is REQUIRED when IDs are provided. The planner uses it to map requirements to plans.
@@ -630,12 +673,15 @@ node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" commit "docs($PHASE): resea
 **Confidence:** [HIGH/MEDIUM/LOW]
 
 ### Key Findings
+
 [3-5 bullet points of most important discoveries]
 
 ### File Created
+
 `$PHASE_DIR/$PADDED_PHASE-RESEARCH.md`
 
 ### Confidence Assessment
+
 | Area           | Level   | Reason |
 | -------------- | ------- | ------ |
 | Standard Stack | [level] | [why]  |
@@ -643,9 +689,11 @@ node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" commit "docs($PHASE): resea
 | Pitfalls       | [level] | [why]  |
 
 ### Open Questions
+
 [Gaps that couldn't be resolved]
 
 ### Ready for Planning
+
 Research complete. Planner can now create PLAN.md files.
 ```
 
@@ -658,13 +706,16 @@ Research complete. Planner can now create PLAN.md files.
 **Blocked by:** [what's preventing progress]
 
 ### Attempted
+
 [What was tried]
 
 ### Options
+
 1. [Option to resolve]
 2. [Alternative approach]
 
 ### Awaiting
+
 [What's needed to continue]
 ```
 

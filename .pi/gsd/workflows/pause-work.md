@@ -78,10 +78,12 @@ If no active phase detected, ask user which phase they're pausing work on.
 Ask user for clarifications if needed via conversational questions.
 
 **Also inspect SUMMARY.md files for false completions:**
+
 ```bash
 # Check for placeholder content in existing summaries
 grep -l "To be filled\|placeholder\|TBD" .planning/phases/*/*.md 2>/dev/null || true
 ```
+
 Report any summaries with placeholder content as incomplete items.
 </step>
 
@@ -126,6 +128,7 @@ timestamp=$(pi-gsd-tools current-timestamp full --raw)
   "context_notes": "{mental state, approach, what you were thinking}"
 }
 ```
+
 </step>
 
 <step name="write">
@@ -149,20 +152,20 @@ last_updated: [timestamp from current-timestamp]
 - Task 1: [name] - Done
 - Task 2: [name] - Done
 - Task 3: [name] - In progress, [what's done]
-</completed_work>
+  </completed_work>
 
 <remaining_work>
 
 - Task 3: [what's left]
 - Task 4: Not started
 - Task 5: Not started
-</remaining_work>
+  </remaining_work>
 
 <decisions_made>
 
 - Decided to use [X] because [reason]
 - Chose [approach] over [alternative] because [reason]
-</decisions_made>
+  </decisions_made>
 
 <blockers>
 - [Blocker 1]: [status/workaround]
@@ -180,9 +183,11 @@ Start with: [specific first action when resuming]
 Be specific enough for a fresh the agent to understand immediately.
 
 Use `current-timestamp` for last_updated field. You can use init todos (which provides timestamps) or call directly:
+
 ```bash
 timestamp=$(pi-gsd-tools current-timestamp full --raw)
 ```
+
 </step>
 
 <step name="commit">
@@ -218,3 +223,4 @@ To resume: /gsd-resume-work
 - [ ] Committed as WIP
 - [ ] User knows location and how to resume
 </success_criteria>
+```

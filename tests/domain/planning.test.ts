@@ -1,10 +1,5 @@
 import { test } from '@japa/runner'
-import {
-  nextWorkday,
-  isHoliday,
-  generateWorkdays,
-  chargeByWorkstation,
-} from '#app/domain/planning'
+import { nextWorkday, isHoliday, generateWorkdays, chargeByWorkstation } from '#app/domain/planning'
 
 test.group('Calendar', () => {
   test('nextWorkday skips weekends', ({ assert }) => {
@@ -44,10 +39,7 @@ test.group('Calendar', () => {
 
 test.group('ChargeCalculator', () => {
   test('computes hours from quantity and rate', ({ assert }) => {
-    const result = chargeByWorkstation(
-      [{ workstation: 'PP_830', rate: 10 }],
-      50,
-    )
+    const result = chargeByWorkstation([{ workstation: 'PP_830', rate: 10 }], 50)
     assert.equal(result.get('PP_830'), 5)
   })
 
@@ -58,17 +50,14 @@ test.group('ChargeCalculator', () => {
         { workstation: 'PP_830', rate: 20 },
         { workstation: 'PP_128', rate: 5 },
       ],
-      100,
+      100
     )
     assert.equal(result.get('PP_830'), 15) // 100/10 + 100/20
     assert.equal(result.get('PP_128'), 20) // 100/5
   })
 
   test('returns 0 for zero rate', ({ assert }) => {
-    const result = chargeByWorkstation(
-      [{ workstation: 'PP_830', rate: 0 }],
-      100,
-    )
+    const result = chargeByWorkstation([{ workstation: 'PP_830', rate: 0 }], 100)
     assert.equal(result.get('PP_830'), 0)
   })
 })

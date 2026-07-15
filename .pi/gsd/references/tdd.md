@@ -7,9 +7,11 @@ TDD is about design quality, not coverage metrics. The red-green-refactor cycle 
 </overview>
 
 <when_to_use_tdd>
+
 ## When TDD Improves Quality
 
 **TDD candidates (create a TDD plan):**
+
 - Business logic with defined inputs/outputs
 - API endpoints with request/response contracts
 - Data transformations, parsing, formatting
@@ -19,6 +21,7 @@ TDD is about design quality, not coverage metrics. The red-green-refactor cycle 
 - Utility functions with clear specifications
 
 **Skip TDD (use standard plan with `type="auto"` tasks):**
+
 - UI layout, styling, visual components
 - Configuration changes
 - Glue code connecting existing components
@@ -32,6 +35,7 @@ TDD is about design quality, not coverage metrics. The red-green-refactor cycle 
 </when_to_use_tdd>
 
 <tdd_plan_structure>
+
 ## TDD Plan Structure
 
 Each TDD plan implements **one feature** through the full RED-GREEN-REFACTOR cycle.
@@ -70,11 +74,12 @@ Output: [Working, tested feature]
 </verification>
 
 <success_criteria>
+
 - Failing test written and committed
 - Implementation passes test
 - Refactor complete (if needed)
 - All 2-3 commits present
-</success_criteria>
+  </success_criteria>
 
 <output>
 After completion, create SUMMARY.md with:
@@ -89,9 +94,11 @@ After completion, create SUMMARY.md with:
 </tdd_plan_structure>
 
 <execution_flow>
+
 ## Red-Green-Refactor Cycle
 
 **RED - Write failing test:**
+
 1. Create test file following project conventions
 2. Write test describing expected behavior (from `<behavior>` element)
 3. Run test - it MUST fail
@@ -99,12 +106,14 @@ After completion, create SUMMARY.md with:
 5. Commit: `test({phase}-{plan}): add failing test for [feature]`
 
 **GREEN - Implement to pass:**
+
 1. Write minimal code to make test pass
 2. No cleverness, no optimization - just make it work
 3. Run test - it MUST pass
 4. Commit: `feat({phase}-{plan}): implement [feature]`
 
 **REFACTOR (if needed):**
+
 1. Clean up implementation if obvious improvements exist
 2. Run tests - MUST still pass
 3. Only commit if changes made: `refactor({phase}-{plan}): clean up [feature]`
@@ -113,32 +122,39 @@ After completion, create SUMMARY.md with:
 </execution_flow>
 
 <test_quality>
+
 ## Good Tests vs Bad Tests
 
 **Test behavior, not implementation:**
+
 - Good: "returns formatted date string"
 - Bad: "calls formatDate helper with correct params"
 - Tests should survive refactors
 
 **One concept per test:**
+
 - Good: Separate tests for valid input, empty input, malformed input
 - Bad: Single test checking all edge cases with multiple assertions
 
 **Descriptive names:**
+
 - Good: "should reject empty email", "returns null for invalid ID"
 - Bad: "test1", "handles error", "works correctly"
 
 **No implementation details:**
+
 - Good: Test public API, observable behavior
 - Bad: Mock internals, test private methods, assert on internal state
-</test_quality>
+  </test_quality>
 
 <framework_setup>
+
 ## Test Framework Setup (If None Exists)
 
 When executing a TDD plan but no test framework is configured, set it up as part of the RED phase:
 
 **1. Detect project type:**
+
 ```bash
 # JavaScript/TypeScript
 if [ -f package.json ]; then echo "node"; fi
@@ -154,6 +170,7 @@ if [ -f Cargo.toml ]; then echo "rust"; fi
 ```
 
 **2. Install minimal framework:**
+
 | Project        | Framework  | Install                                   |
 | -------------- | ---------- | ----------------------------------------- |
 | Node.js        | Jest       | `npm install -D jest @types/jest ts-jest` |
@@ -163,11 +180,13 @@ if [ -f Cargo.toml ]; then echo "rust"; fi
 | Rust           | cargo test | Built-in                                  |
 
 **3. Create config if needed:**
+
 - Jest: `jest.config.js` with ts-jest preset
 - Vitest: `vitest.config.ts` with test globals
 - pytest: `pytest.ini` or `pyproject.toml` section
 
 **4. Verify setup:**
+
 ```bash
 # Run empty test suite - should pass with 0 tests
 npm test  # Node
@@ -178,6 +197,7 @@ cargo test    # Rust
 
 **5. Create first test file:**
 Follow project conventions for test location:
+
 - `*.test.ts` / `*.spec.ts` next to source
 - `__tests__/` directory
 - `tests/` directory at root
@@ -186,30 +206,36 @@ Framework setup is a one-time cost included in the first TDD plan's RED phase.
 </framework_setup>
 
 <error_handling>
+
 ## Error Handling
 
 **Test doesn't fail in RED phase:**
+
 - Feature may already exist - investigate
 - Test may be wrong (not testing what you think)
 - Fix before proceeding
 
 **Test doesn't pass in GREEN phase:**
+
 - Debug implementation
 - Don't skip to refactor
 - Keep iterating until green
 
 **Tests fail in REFACTOR phase:**
+
 - Undo refactor
 - Commit was premature
 - Refactor in smaller steps
 
 **Unrelated tests break:**
+
 - Stop and investigate
 - May indicate coupling issue
 - Fix before proceeding
-</error_handling>
+  </error_handling>
 
 <commit_pattern>
+
 ## Commit Pattern for TDD Plans
 
 TDD plans produce 2-3 atomic commits (one per phase):
@@ -235,24 +261,28 @@ refactor(08-02): extract regex to constant (optional)
 ```
 
 **Comparison with standard plans:**
+
 - Standard plans: 1 commit per task, 2-4 commits per plan
 - TDD plans: 2-3 commits for single feature
 
 Both follow same format: `{type}({phase}-{plan}): {description}`
 
 **Benefits:**
+
 - Each commit independently revertable
 - Git bisect works at commit level
 - Clear history showing TDD discipline
 - Consistent with overall commit strategy
-</commit_pattern>
+  </commit_pattern>
 
 <context_budget>
+
 ## Context Budget
 
 TDD plans target **~40% context usage** (lower than standard plans' ~50%).
 
 Why lower:
+
 - RED phase: write test, run test, potentially debug why it didn't fail
 - GREEN phase: implement, run test, potentially iterate on failures
 - REFACTOR phase: modify code, run tests, verify no regressions

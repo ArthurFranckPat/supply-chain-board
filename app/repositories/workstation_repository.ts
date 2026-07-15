@@ -37,7 +37,7 @@ LEFT JOIN TABWEEDIA T ON T.TWD_0 = W.TWD_0
 type RawRow = Record<string, string | number | null>
 
 const num = (v: string | number | null, fallback = 0): number => {
-  const n = typeof v === 'number' ? v : parseFloat(String(v ?? ''))
+  const n = typeof v === 'number' ? v : Number.parseFloat(String(v ?? ''))
   return Number.isFinite(n) ? n : fallback
 }
 const str = (v: string | number | null): string => String(v ?? '').trim()
@@ -47,7 +47,7 @@ export class X3WorkstationRepository {
     const db = new X3Database()
     try {
       const result = await db.raw(SQL)
-      const rows: RawRow[] = Array.isArray(result) ? result : (result as any)?.rows ?? []
+      const rows: RawRow[] = Array.isArray(result) ? result : ((result as any)?.rows ?? [])
       return rows
         .map((r) => ({
           code: str(r.CODE),

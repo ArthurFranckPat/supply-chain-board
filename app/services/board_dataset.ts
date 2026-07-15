@@ -10,6 +10,11 @@ import { X3ReceptionRepository } from '#repositories/reception_repository'
 import { ConditionnementRepository } from '#repositories/conditionnement_repository'
 import { estimerDepuisStock, type EstimationsPaire } from '#app/domain/conditionnement_estimator'
 import { CombinedOrdersRepository } from '#repositories/combined_orders_repository'
+import {
+  StockValuationRepository,
+  type StockValuationKpi,
+  type StockGrain,
+} from '#repositories/stock_valuation_repository'
 import { createHash } from 'node:crypto'
 import staticSync from '#services/static_sync_service'
 import cache from '@adonisjs/cache/services/main'
@@ -107,6 +112,7 @@ class BoardDataset {
             typeOf: null,
             typeOfLabel: mo.typeOfLabel,
             designation: mo.designation,
+            launched: mo.quantityLaunched,
           },
         }))
         this.lastOrdersAt = Date.now()
@@ -146,6 +152,7 @@ class BoardDataset {
             typeOf: null,
             typeOfLabel: mo.typeOfLabel,
             designation: mo.designation,
+            launched: mo.quantityLaunched,
           },
         }))
         return { mos, supply, at: Date.now() } satisfies Orders
@@ -299,7 +306,9 @@ class BoardDataset {
    * Panneau « Engagement » par poste (#46) — un OF peut alimenter plusieurs commandes. */
   async getOfPegsAll(numOfs: string[]): Promise<Map<string, OfCommandePeg[]>> {
     if (!numOfs.length) return new Map()
-    const key = `ofpegs-all:${createHash('md5').update([...numOfs].sort().join(',')).digest('hex')}`
+    const key = `ofpegs-all:${createHash('md5')
+      .update([...numOfs].sort().join(','))
+      .digest('hex')}`
     const entries = await board().getOrSet({
       key,
       ttl: PEG_TTL,
@@ -341,6 +350,32 @@ class BoardDataset {
       ttl: STOCK_TTL,
       timeout: SWR_TIMEOUT,
       factory: () => new X3StockRepository().getStockFlows(articles),
+    })
+  }
+
+  /**
+   * KPI Valorisation du stock (dashboard) — cache SWR GLOBAL par grain + plage.
+   * 7 appels SOAP (1 base + 6 chunks STOJOU) → sans cache, chaque affichage de la
+   * carte paie ~7 round-trips Syracuse. Donnée usine (identique pour tous les
+   * users, comme receptions). TTL court (STOCK_TTL) : le stock évolue, mais 2 min
+   * de stale acceptable pour un KPI de tendance.
+   */
+  async getStockValuation(
+    grain: StockGrain,
+    from: Date,
+    to: Date,
+    refDate: Date,
+    force = false
+  ): Promise<StockValuationKpi> {
+    const isoL = (d: Date) => d.toISOString().slice(0, 10)
+    const key = `stock-valuation:${grain}:${isoL(from)}:${isoL(to)}:${isoL(refDate)}`
+    if (force) await board().delete({ key })
+    return board().getOrSet({
+      key,
+      ttl: STOCK_TTL,
+      timeout: SWR_TIMEOUT,
+      factory: () =>
+        new StockValuationRepository().getStockValuationKpi(refDate, grain, from, to),
     })
   }
 

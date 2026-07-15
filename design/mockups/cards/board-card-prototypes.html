@@ -1,315 +1,753 @@
 <!doctype html>
 <html lang="fr">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Board card · prototypes Papier</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700;9..144,900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,300,0,0" rel="stylesheet" />
-<style>
-:root{
-  --paper:#f3ece0; --panel:#fbf8ef; --panel2:#efe7d6; --rule:#cdbfa0; --rulesoft:#e3d9c1;
-  --ink:#1f1a13; --ink2:#4a4135; --muted:#8c7d66; --muted2:#a99c84;
-  --terra:#a8431f; --terrasoft:rgba(168,67,31,.10);
-  --ferme:#5b7d4e; --fermesoft:rgba(91,125,78,.12);
-  --planifie:#2f4858; --planifiesoft:rgba(47,72,88,.12);
-  --suggere:#b8862c; --suggeresoft:rgba(184,134,44,.14);
-  --danger:#9a3320; --dangersoft:rgba(154,51,32,.09);
-  --fd:"Fraunces",Georgia,serif; --fs:"Inter",system-ui,sans-serif; --fm:"JetBrains Mono",monospace;
-}
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--paper);color:var(--ink);font-family:var(--fs);font-size:14px;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
-.material-symbols-outlined{font-family:"Material Symbols Outlined";font-weight:300;line-height:1;font-feature-settings:"liga";vertical-align:middle}
-.page{max-width:1200px;margin:0 auto;padding:34px 28px 72px}
-/* header */
-.h-top .k{font:700 10px var(--fm);text-transform:uppercase;letter-spacing:.16em;color:var(--terra)}
-.h-top h1{font:900 30px var(--fd);letter-spacing:-.03em;margin-top:4px}
-.h-top .p{font:500 13px var(--fd);font-style:italic;color:var(--muted);margin-top:3px}
-/* sections */
-.sec{margin-top:34px}
-.sec-head{display:flex;align-items:baseline;gap:12px;margin-bottom:14px}
-.sec-head .n{font:700 10px var(--fm);color:#fff;background:var(--terra);border-radius:5px;padding:4px 9px;letter-spacing:.1em;text-transform:uppercase}
-.sec-head h2{font:700 19px var(--fd);letter-spacing:-.02em}
-.sec-head .d{font:400 12.5px var(--fs);color:var(--muted)}
-.shelf{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start}
-.clabel{font:italic 11px var(--fd);color:var(--muted2);margin-bottom:7px;text-align:center}
-.wrap{display:flex;flex-direction:column}
-/* legend */
-.legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
-.lg{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--rule);background:var(--panel);border-radius:999px;padding:5px 11px 5px 8px;font:700 10px var(--fm);color:var(--ink2);text-transform:uppercase;letter-spacing:.06em}
-.lg .bar{width:14px;height:4px;border-radius:2px}
-.lg .dot{width:8px;height:8px;border-radius:999px}
-.lg .dot.pulse{animation:pulse 1.5s ease-in-out infinite}
-@keyframes pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.5);opacity:.45}}
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Board card · prototypes Papier</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700;9..144,900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,300,0,0"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --paper: #f3ece0;
+        --panel: #fbf8ef;
+        --panel2: #efe7d6;
+        --rule: #cdbfa0;
+        --rulesoft: #e3d9c1;
+        --ink: #1f1a13;
+        --ink2: #4a4135;
+        --muted: #8c7d66;
+        --muted2: #a99c84;
+        --terra: #a8431f;
+        --terrasoft: rgba(168, 67, 31, 0.1);
+        --ferme: #5b7d4e;
+        --fermesoft: rgba(91, 125, 78, 0.12);
+        --planifie: #2f4858;
+        --planifiesoft: rgba(47, 72, 88, 0.12);
+        --suggere: #b8862c;
+        --suggeresoft: rgba(184, 134, 44, 0.14);
+        --danger: #9a3320;
+        --dangersoft: rgba(154, 51, 32, 0.09);
+        --fd: 'Fraunces', Georgia, serif;
+        --fs: 'Inter', system-ui, sans-serif;
+        --fm: 'JetBrains Mono', monospace;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        background: var(--paper);
+        color: var(--ink);
+        font-family: var(--fs);
+        font-size: 14px;
+        -webkit-font-smoothing: antialiased;
+        font-variant-numeric: tabular-nums;
+      }
+      .material-symbols-outlined {
+        font-family: 'Material Symbols Outlined';
+        font-weight: 300;
+        line-height: 1;
+        font-feature-settings: 'liga';
+        vertical-align: middle;
+      }
+      .page {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 34px 28px 72px;
+      }
+      /* header */
+      .h-top .k {
+        font: 700 10px var(--fm);
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+        color: var(--terra);
+      }
+      .h-top h1 {
+        font: 900 30px var(--fd);
+        letter-spacing: -0.03em;
+        margin-top: 4px;
+      }
+      .h-top .p {
+        font: 500 13px var(--fd);
+        font-style: italic;
+        color: var(--muted);
+        margin-top: 3px;
+      }
+      /* sections */
+      .sec {
+        margin-top: 34px;
+      }
+      .sec-head {
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+        margin-bottom: 14px;
+      }
+      .sec-head .n {
+        font: 700 10px var(--fm);
+        color: #fff;
+        background: var(--terra);
+        border-radius: 5px;
+        padding: 4px 9px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+      .sec-head h2 {
+        font: 700 19px var(--fd);
+        letter-spacing: -0.02em;
+      }
+      .sec-head .d {
+        font: 400 12.5px var(--fs);
+        color: var(--muted);
+      }
+      .shelf {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        align-items: flex-start;
+      }
+      .clabel {
+        font: italic 11px var(--fd);
+        color: var(--muted2);
+        margin-bottom: 7px;
+        text-align: center;
+      }
+      .wrap {
+        display: flex;
+        flex-direction: column;
+      }
+      /* legend */
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 16px;
+      }
+      .lg {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        border: 1px solid var(--rule);
+        background: var(--panel);
+        border-radius: 999px;
+        padding: 5px 11px 5px 8px;
+        font: 700 10px var(--fm);
+        color: var(--ink2);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+      .lg .bar {
+        width: 14px;
+        height: 4px;
+        border-radius: 2px;
+      }
+      .lg .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+      }
+      .lg .dot.pulse {
+        animation: pulse 1.5s ease-in-out infinite;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          transform: scale(1);
+          opacity: 1;
+        }
+        50% {
+          transform: scale(1.5);
+          opacity: 0.45;
+        }
+      }
 
-/* ═══ CARD (coquille unifiée) ═══ */
-.card{
-  position:relative;width:176px;
-  border:1px solid var(--rule);border-top:3px solid var(--tone,var(--muted2));
-  background:var(--panel);border-radius:6px;
-  padding:10px 12px 8px;
-  box-shadow:0 1px 2px rgba(31,26,19,.05);
-}
-.card.t-ferme{--tone:var(--ferme)}
-.card.t-planifie{--tone:var(--planifie)}
-.card.t-suggere{--tone:var(--suggere)}
-.card.t-cours{--tone:var(--terra)}
-.card.t-termine{--tone:var(--muted);opacity:.62}
-.card.t-bloque{--tone:var(--danger)}
+      /* ═══ CARD (coquille unifiée) ═══ */
+      .card {
+        position: relative;
+        width: 176px;
+        border: 1px solid var(--rule);
+        border-top: 3px solid var(--tone, var(--muted2));
+        background: var(--panel);
+        border-radius: 6px;
+        padding: 10px 12px 8px;
+        box-shadow: 0 1px 2px rgba(31, 26, 19, 0.05);
+      }
+      .card.t-ferme {
+        --tone: var(--ferme);
+      }
+      .card.t-planifie {
+        --tone: var(--planifie);
+      }
+      .card.t-suggere {
+        --tone: var(--suggere);
+      }
+      .card.t-cours {
+        --tone: var(--terra);
+      }
+      .card.t-termine {
+        --tone: var(--muted);
+        opacity: 0.62;
+      }
+      .card.t-bloque {
+        --tone: var(--danger);
+      }
 
-/* feas badge */
-.feas{position:absolute;top:-6px;right:8px;width:16px;height:16px;border-radius:999px;
-  border:2px solid var(--panel);display:flex;align-items:center;justify-content:center;
-  color:var(--panel);font:700 9px var(--fm);box-shadow:0 1px 2px rgba(0,0,0,.18)}
-.feas .material-symbols-outlined{font-size:12px;font-weight:700}
-.feas.ok{background:var(--ferme)} .feas.bad{background:var(--danger)}
-/* check (terminé) */
-.done{position:absolute;top:-6px;right:8px;width:16px;height:16px;border-radius:999px;
-  border:2px solid var(--panel);background:var(--muted);color:var(--panel);
-  display:flex;align-items:center;justify-content:center}
-.done .material-symbols-outlined{font-size:11px;font-weight:700}
-/* cours pulse */
-.live{position:absolute;top:9px;right:10px;width:7px;height:7px;border-radius:999px;background:var(--terra)}
-.live{animation:pulse 1.5s ease-in-out infinite}
+      /* feas badge */
+      .feas {
+        position: absolute;
+        top: -6px;
+        right: 8px;
+        width: 16px;
+        height: 16px;
+        border-radius: 999px;
+        border: 2px solid var(--panel);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--panel);
+        font: 700 9px var(--fm);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+      }
+      .feas .material-symbols-outlined {
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .feas.ok {
+        background: var(--ferme);
+      }
+      .feas.bad {
+        background: var(--danger);
+      }
+      /* check (terminé) */
+      .done {
+        position: absolute;
+        top: -6px;
+        right: 8px;
+        width: 16px;
+        height: 16px;
+        border-radius: 999px;
+        border: 2px solid var(--panel);
+        background: var(--muted);
+        color: var(--panel);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .done .material-symbols-outlined {
+        font-size: 11px;
+        font-weight: 700;
+      }
+      /* cours pulse */
+      .live {
+        position: absolute;
+        top: 9px;
+        right: 10px;
+        width: 7px;
+        height: 7px;
+        border-radius: 999px;
+        background: var(--terra);
+      }
+      .live {
+        animation: pulse 1.5s ease-in-out infinite;
+      }
 
-/* common content */
-.art{font:600 12px/1.25 var(--fm);color:var(--ink)}
-.line2{margin-top:3px;font-size:11px;font-weight:600;line-height:1.3}
-.line2 .pri{color:var(--ink)} .line2 .sec{color:var(--muted);font-weight:400}
-.cli{margin-top:3px;font:italic 11px var(--fd);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.foot{margin-top:8px;padding-top:7px;border-top:1px solid var(--rulesoft);display:flex;align-items:center;gap:8px}
-.pill{border-radius:4px;padding:2px 6px;font:700 9px var(--fm);text-transform:uppercase;letter-spacing:.06em}
-.pill.type{background:var(--terrasoft);color:var(--terra)}
-.pill.s-ferme{background:var(--fermesoft);color:var(--ferme)}
-.pill.s-planifie{background:var(--planifiesoft);color:var(--planifie)}
-.pill.s-suggere{background:var(--suggeresoft);color:var(--suggere)}
-.pill.s-cours{background:var(--terrasoft);color:var(--terra)}
-.pill.s-termine{background:rgba(140,125,102,.16);color:var(--muted)}
-.pill.s-bloque{background:var(--dangersoft);color:var(--danger)}
-.mod{display:inline-flex;align-items:center;gap:2px;color:var(--suggere);font:600 8px var(--fm);text-transform:uppercase;letter-spacing:.06em}
-.mod .material-symbols-outlined{font-size:11px}
-.hours{margin-left:auto;font:700 14px var(--fd);font-variant-numeric:tabular-nums;color:var(--ink)}
-.qty{margin-top:3px;font:600 11px var(--fm);color:var(--ink2)}
+      /* common content */
+      .art {
+        font: 600 12px/1.25 var(--fm);
+        color: var(--ink);
+      }
+      .line2 {
+        margin-top: 3px;
+        font-size: 11px;
+        font-weight: 600;
+        line-height: 1.3;
+      }
+      .line2 .pri {
+        color: var(--ink);
+      }
+      .line2 .sec {
+        color: var(--muted);
+        font-weight: 400;
+      }
+      .cli {
+        margin-top: 3px;
+        font: italic 11px var(--fd);
+        color: var(--muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .foot {
+        margin-top: 8px;
+        padding-top: 7px;
+        border-top: 1px solid var(--rulesoft);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .pill {
+        border-radius: 4px;
+        padding: 2px 6px;
+        font: 700 9px var(--fm);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+      .pill.type {
+        background: var(--terrasoft);
+        color: var(--terra);
+      }
+      .pill.s-ferme {
+        background: var(--fermesoft);
+        color: var(--ferme);
+      }
+      .pill.s-planifie {
+        background: var(--planifiesoft);
+        color: var(--planifie);
+      }
+      .pill.s-suggere {
+        background: var(--suggeresoft);
+        color: var(--suggere);
+      }
+      .pill.s-cours {
+        background: var(--terrasoft);
+        color: var(--terra);
+      }
+      .pill.s-termine {
+        background: rgba(140, 125, 102, 0.16);
+        color: var(--muted);
+      }
+      .pill.s-bloque {
+        background: var(--dangersoft);
+        color: var(--danger);
+      }
+      .mod {
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+        color: var(--suggere);
+        font: 600 8px var(--fm);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+      .mod .material-symbols-outlined {
+        font-size: 11px;
+      }
+      .hours {
+        margin-left: auto;
+        font: 700 14px var(--fd);
+        font-variant-numeric: tabular-nums;
+        color: var(--ink);
+      }
+      .qty {
+        margin-top: 3px;
+        font: 600 11px var(--fm);
+        color: var(--ink2);
+      }
 
-/* progress (approche B) */
-.prog{margin-top:7px;display:flex;align-items:center;gap:7px}
-.prog .track{flex:1;height:5px;background:var(--rulesoft);border-radius:999px;overflow:hidden}
-.prog .fill{height:100%;background:var(--tone,var(--ferme));border-radius:999px}
-.prog .lbl{font:700 9px var(--fm);color:var(--ink2);white-space:nowrap}
-.alert{margin-top:6px;display:flex;align-items:center;gap:4px;background:var(--dangersoft);
-  border-radius:4px;padding:3px 6px;font:700 9px var(--fm);color:var(--danger);line-height:1.2}
-.alert .material-symbols-outlined{font-size:12px}
+      /* progress (approche B) */
+      .prog {
+        margin-top: 7px;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+      }
+      .prog .track {
+        flex: 1;
+        height: 5px;
+        background: var(--rulesoft);
+        border-radius: 999px;
+        overflow: hidden;
+      }
+      .prog .fill {
+        height: 100%;
+        background: var(--tone, var(--ferme));
+        border-radius: 999px;
+      }
+      .prog .lbl {
+        font: 700 9px var(--fm);
+        color: var(--ink2);
+        white-space: nowrap;
+      }
+      .alert {
+        margin-top: 6px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        background: var(--dangersoft);
+        border-radius: 4px;
+        padding: 3px 6px;
+        font: 700 9px var(--fm);
+        color: var(--danger);
+        line-height: 1.2;
+      }
+      .alert .material-symbols-outlined {
+        font-size: 12px;
+      }
 
-/* OF-B poste dot */
-.poste{display:inline-flex;align-items:center;gap:5px;font:600 10px var(--fm);color:var(--ink2)}
-.poste .d{width:7px;height:7px;border-radius:2px;background:var(--tone,var(--planifie))}
+      /* OF-B poste dot */
+      .poste {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font: 600 10px var(--fm);
+        color: var(--ink2);
+      }
+      .poste .d {
+        width: 7px;
+        height: 7px;
+        border-radius: 2px;
+        background: var(--tone, var(--planifie));
+      }
 
-.note{margin-top:20px;max-width:760px;font:italic 12.5px var(--fd);color:var(--muted);line-height:1.6}
-.note b{color:var(--ink2);font-style:normal;font-family:var(--fs);font-weight:600}
-.foot-page{margin-top:40px;border-top:1px solid var(--rulesoft);padding-top:14px;display:flex;justify-content:space-between;font:italic 11px var(--fd);color:var(--muted)}
-</style>
-</head>
-<body>
-<div class="page">
-  <div class="h-top">
-    <div class="k">Board card · design system Papier</div>
-    <h1>Carte unifiée — prototypes</h1>
-    <div class="p">Un composant, deux variantes (commande · OF). Approche A « Miroir » vs B « Enrichi ».</div>
-  </div>
+      .note {
+        margin-top: 20px;
+        max-width: 760px;
+        font: italic 12.5px var(--fd);
+        color: var(--muted);
+        line-height: 1.6;
+      }
+      .note b {
+        color: var(--ink2);
+        font-style: normal;
+        font-family: var(--fs);
+        font-weight: 600;
+      }
+      .foot-page {
+        margin-top: 40px;
+        border-top: 1px solid var(--rulesoft);
+        padding-top: 14px;
+        display: flex;
+        justify-content: space-between;
+        font: italic 11px var(--fd);
+        color: var(--muted);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <div class="h-top">
+        <div class="k">Board card · design system Papier</div>
+        <h1>Carte unifiée — prototypes</h1>
+        <div class="p">
+          Un composant, deux variantes (commande · OF). Approche A « Miroir » vs B « Enrichi ».
+        </div>
+      </div>
 
-  <!-- légende des statuts -->
-  <div class="legend">
-    <span class="lg"><span class="bar" style="background:var(--ferme)"></span>Ferme</span>
-    <span class="lg"><span class="bar" style="background:var(--planifie)"></span>Planifié</span>
-    <span class="lg"><span class="bar" style="background:var(--suggere)"></span>Suggéré</span>
-    <span class="lg"><span class="bar" style="background:var(--terra)"></span><span class="dot pulse" style="background:var(--terra)"></span>Cours</span>
-    <span class="lg"><span class="bar" style="background:var(--muted)"></span>Terminé</span>
-    <span class="lg"><span class="bar" style="background:var(--danger)"></span>Bloqué</span>
-  </div>
+      <!-- légende des statuts -->
+      <div class="legend">
+        <span class="lg"><span class="bar" style="background: var(--ferme)"></span>Ferme</span>
+        <span class="lg"
+          ><span class="bar" style="background: var(--planifie)"></span>Planifié</span
+        >
+        <span class="lg"><span class="bar" style="background: var(--suggere)"></span>Suggéré</span>
+        <span class="lg"
+          ><span class="bar" style="background: var(--terra)"></span
+          ><span class="dot pulse" style="background: var(--terra)"></span>Cours</span
+        >
+        <span class="lg"><span class="bar" style="background: var(--muted)"></span>Terminé</span>
+        <span class="lg"><span class="bar" style="background: var(--danger)"></span>Bloqué</span>
+      </div>
 
-  <!-- ═══ Variante COMMANDE (référence = PapierCard actuel) ═══ -->
-  <div class="sec">
-    <div class="sec-head">
-      <span class="n">ref</span>
-      <h2>Variante commande</h2>
-      <span class="d">— le <code>PapierCard</code> actuel, reproduit fidèlement (board planification).</span>
+      <!-- ═══ Variante COMMANDE (référence = PapierCard actuel) ═══ -->
+      <div class="sec">
+        <div class="sec-head">
+          <span class="n">ref</span>
+          <h2>Variante commande</h2>
+          <span class="d"
+            >— le <code>PapierCard</code> actuel, reproduit fidèlement (board planification).</span
+          >
+        </div>
+        <div class="shelf">
+          <div class="wrap">
+            <span class="clabel">ferme</span>
+            <div class="card t-ferme">
+              <div class="art">XTR107842</div>
+              <div class="line2">
+                <span class="pri">AR24518·L2</span> <span class="sec">· Caisse D250</span>
+              </div>
+              <div class="cli">AXION GUEVIN</div>
+              <div class="foot">
+                <span class="pill type">MTS</span><span class="hours">6,0</span>
+              </div>
+            </div>
+          </div>
+          <div class="wrap">
+            <span class="clabel">planifié</span>
+            <div class="card t-planifie">
+              <div class="art">XTR108120</div>
+              <div class="line2">
+                <span class="pri">AR24601·L1</span> <span class="sec">· Caisse D350</span>
+              </div>
+              <div class="cli">CDC Habitat</div>
+              <div class="foot">
+                <span class="pill type">MTO</span><span class="hours">7,5</span>
+              </div>
+            </div>
+          </div>
+          <div class="wrap">
+            <span class="clabel">suggéré · modif.</span>
+            <div class="card t-planifie">
+              <span class="feas ok"><span class="material-symbols-outlined">check</span></span>
+              <div class="art">VMC-310</div>
+              <div class="line2">
+                <span class="pri">AR24610·L2</span> <span class="sec">· Caisson isolé</span>
+              </div>
+              <div class="cli">Bouygues</div>
+              <div class="foot">
+                <span class="mod"><span class="material-symbols-outlined">edit</span>Mod.</span
+                ><span class="pill type">MTO</span><span class="hours">5,5</span>
+              </div>
+            </div>
+          </div>
+          <div class="wrap">
+            <span class="clabel">non couvert</span>
+            <div class="card t-suggere">
+              <span class="feas bad"
+                ><span class="material-symbols-outlined">priority_high</span></span
+              >
+              <div class="art">XTR106540</div>
+              <div class="line2">
+                <span class="pri">AR24490·L4</span> <span class="sec">· Caisse D200</span>
+              </div>
+              <div class="cli">Bouygues</div>
+              <div class="foot">
+                <span class="pill type">MTS</span><span class="hours">3,0</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ Variante OF · A « Miroir » ═══ -->
+      <div class="sec">
+        <div class="sec-head">
+          <span class="n">A</span>
+          <h2>Variante OF · « Miroir »</h2>
+          <span class="d"
+            >— aussi dense que la commande, mêmes emplacements. Métrique qté là où la commande met
+            le client.</span
+          >
+        </div>
+        <div class="shelf">
+          <div class="wrap">
+            <span class="clabel">ferme</span>
+            <div class="card t-ferme">
+              <div class="art">OF100245</div>
+              <div class="line2">
+                <span class="pri">Caisse D250</span> <span class="sec">· DCP-01</span>
+              </div>
+              <div class="qty">120/150 u</div>
+              <div class="foot">
+                <span class="pill s-ferme">Ferme</span><span class="hours">6,0</span>
+              </div>
+            </div>
+          </div>
+          <div class="wrap">
+            <span class="clabel">planifié</span>
+            <div class="card t-planifie">
+              <div class="art">OF100288</div>
+              <div class="line2">
+                <span class="pri">Double flux</span> <span class="sec">· SDR-02</span>
+              </div>
+              <div class="qty">0/120 u</div>
+              <div class="foot">
+                <span class="pill s-planifie">Planifié</span><span class="hours">8,5</span>
+              </div>
+            </div>
+          </div>
+          <div class="wrap">
+            <span class="clabel">suggéré</span>
+            <div class="card t-suggere">
+              <div class="art">OF100312</div>
+              <div class="line2">
+                <span class="pri">Caisse D200</span> <span class="sec">· PUD-03</span>
+              </div>
+              <div class="qty">0/90 u</div>
+              <div class="foot">
+                <span class="pill s-suggere">Suggéré</span><span class="hours">4,0</span>
+              </div>
+            </div>
+          </div>
+          <div class="wrap">
+            <span class="clabel">cours</span>
+            <div class="card t-cours">
+              <span class="live"></span>
+              <div class="art">OF100198</div>
+              <div class="line2">
+                <span class="pri">Caisson isolé</span> <span class="sec">· ASV-04</span>
+              </div>
+              <div class="qty">95/100 u</div>
+              <div class="foot">
+                <span class="pill s-cours">Cours</span><span class="hours">5,5</span>
+              </div>
+            </div>
+          </div>
+          <div class="wrap">
+            <span class="clabel">terminé</span>
+            <div class="card t-termine">
+              <span class="done"><span class="material-symbols-outlined">check</span></span>
+              <div class="art">OF100156</div>
+              <div class="line2">
+                <span class="pri">Échangeur D350</span> <span class="sec">· CTL-05</span>
+              </div>
+              <div class="qty">60/60 u</div>
+              <div class="foot">
+                <span class="pill s-termine">Terminé</span><span class="hours">3,0</span>
+              </div>
+            </div>
+          </div>
+          <div class="wrap">
+            <span class="clabel">bloqué</span>
+            <div class="card t-bloque">
+              <span class="feas bad"
+                ><span class="material-symbols-outlined">priority_high</span></span
+              >
+              <div class="art">OF100301</div>
+              <div class="line2">
+                <span class="pri">Caisse D200</span> <span class="sec">· DCP-01</span>
+              </div>
+              <div class="qty">0/120 u</div>
+              <div class="foot">
+                <span class="pill s-bloque">Bloqué</span><span class="hours">6,0</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ Variante OF · B « Enrichi » ═══ -->
+      <div class="sec">
+        <div class="sec-head">
+          <span class="n">B</span>
+          <h2>Variante OF · « Enrichi »</h2>
+          <span class="d"
+            >— coquille partagée + barre de progression (qté fait/lancé) + alerte rupture.
+            Recommandée.</span
+          >
+        </div>
+        <div class="shelf">
+          <div class="wrap">
+            <span class="clabel">ferme · 80%</span>
+            <div class="card t-ferme">
+              <span class="feas ok"><span class="material-symbols-outlined">check</span></span>
+              <div class="art">OF100245</div>
+              <div class="line2"><span class="pri">Caisse D250</span></div>
+              <div class="prog">
+                <span class="track"><span class="fill" style="width: 80%"></span></span
+                ><span class="lbl">120/150</span>
+              </div>
+              <div class="foot">
+                <span class="poste"><span class="d"></span>DCP-01</span
+                ><span class="hours">6,0</span>
+              </div>
+            </div>
+          </div>
+          <div class="wrap">
+            <span class="clabel">planifié · 0%</span>
+            <div class="card t-planifie">
+              <div class="art">OF100288</div>
+              <div class="line2"><span class="pri">Double flux</span></div>
+              <div class="prog">
+                <span class="track"><span class="fill" style="width: 0%"></span></span
+                ><span class="lbl">0/120</span>
+              </div>
+              <div class="foot">
+                <span class="poste"><span class="d"></span>SDR-02</span
+                ><span class="hours">8,5</span>
+              </div>
+            </div>
+          </div>
+          <div class="wrap">
+            <span class="clabel">suggéré · 0%</span>
+            <div class="card t-suggere">
+              <div class="art">OF100312</div>
+              <div class="line2"><span class="pri">Caisse D200</span></div>
+              <div class="prog">
+                <span class="track"><span class="fill" style="width: 0%"></span></span
+                ><span class="lbl">0/90</span>
+              </div>
+              <div class="foot">
+                <span class="poste"><span class="d"></span>PUD-03</span
+                ><span class="hours">4,0</span>
+              </div>
+            </div>
+          </div>
+          <div class="wrap">
+            <span class="clabel">cours · 95%</span>
+            <div class="card t-cours">
+              <span class="live"></span>
+              <div class="art">OF100198</div>
+              <div class="line2"><span class="pri">Caisson isolé</span></div>
+              <div class="prog">
+                <span class="track"><span class="fill" style="width: 95%"></span></span
+                ><span class="lbl">95/100</span>
+              </div>
+              <div class="foot">
+                <span class="poste"><span class="d"></span>ASV-04</span
+                ><span class="hours">5,5</span>
+              </div>
+            </div>
+          </div>
+          <div class="wrap">
+            <span class="clabel">terminé · 100%</span>
+            <div class="card t-termine">
+              <span class="done"><span class="material-symbols-outlined">check</span></span>
+              <div class="art">OF100156</div>
+              <div class="line2"><span class="pri">Échangeur D350</span></div>
+              <div class="prog">
+                <span class="track"><span class="fill" style="width: 100%"></span></span
+                ><span class="lbl">60/60</span>
+              </div>
+              <div class="foot">
+                <span class="poste"><span class="d"></span>CTL-05</span
+                ><span class="hours">3,0</span>
+              </div>
+            </div>
+          </div>
+          <div class="wrap">
+            <span class="clabel">bloqué · rupture</span>
+            <div class="card t-bloque">
+              <span class="feas bad"
+                ><span class="material-symbols-outlined">priority_high</span></span
+              >
+              <div class="art">OF100301</div>
+              <div class="line2"><span class="pri">Caisse D200</span></div>
+              <div class="prog">
+                <span class="track"><span class="fill" style="width: 0%"></span></span
+                ><span class="lbl">0/120</span>
+              </div>
+              <div class="alert">
+                <span class="material-symbols-outlined">warning</span>Rupture MOT-33012
+              </div>
+              <div class="foot">
+                <span class="poste"><span class="d"></span>DCP-01</span
+                ><span class="hours">6,0</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="note">
+          <b>A vs B.</b> A colle à la densité de la commande (cohérent, simple) mais masque les deux
+          signaux qui comptent en ordonnancement : la <b>progression</b> et le <b>blocage</b>. B
+          garde la même coquille (liseré de statut, badge faisabilité, pied heures) et ajoute juste
+          ces deux signaux — d'un coup d'œil on voit où en est l'OF et lequel ne peut pas démarrer.
+          Reco : <b>B</b>.
+        </p>
+      </div>
+
+      <div class="foot-page">
+        <span>Carte unifiée Papier · prototype (HTML)</span>
+        <span>Tokens réels du design system · pas de couleur inventée</span>
+      </div>
     </div>
-    <div class="shelf">
-      <div class="wrap"><span class="clabel">ferme</span>
-        <div class="card t-ferme">
-          <div class="art">XTR107842</div>
-          <div class="line2"><span class="pri">AR24518·L2</span> <span class="sec">· Caisse D250</span></div>
-          <div class="cli">AXION GUEVIN</div>
-          <div class="foot"><span class="pill type">MTS</span><span class="hours">6,0</span></div>
-        </div>
-      </div>
-      <div class="wrap"><span class="clabel">planifié</span>
-        <div class="card t-planifie">
-          <div class="art">XTR108120</div>
-          <div class="line2"><span class="pri">AR24601·L1</span> <span class="sec">· Caisse D350</span></div>
-          <div class="cli">CDC Habitat</div>
-          <div class="foot"><span class="pill type">MTO</span><span class="hours">7,5</span></div>
-        </div>
-      </div>
-      <div class="wrap"><span class="clabel">suggéré · modif.</span>
-        <div class="card t-planifie">
-          <span class="feas ok"><span class="material-symbols-outlined">check</span></span>
-          <div class="art">VMC-310</div>
-          <div class="line2"><span class="pri">AR24610·L2</span> <span class="sec">· Caisson isolé</span></div>
-          <div class="cli">Bouygues</div>
-          <div class="foot"><span class="mod"><span class="material-symbols-outlined">edit</span>Mod.</span><span class="pill type">MTO</span><span class="hours">5,5</span></div>
-        </div>
-      </div>
-      <div class="wrap"><span class="clabel">non couvert</span>
-        <div class="card t-suggere">
-          <span class="feas bad"><span class="material-symbols-outlined">priority_high</span></span>
-          <div class="art">XTR106540</div>
-          <div class="line2"><span class="pri">AR24490·L4</span> <span class="sec">· Caisse D200</span></div>
-          <div class="cli">Bouygues</div>
-          <div class="foot"><span class="pill type">MTS</span><span class="hours">3,0</span></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══ Variante OF · A « Miroir » ═══ -->
-  <div class="sec">
-    <div class="sec-head">
-      <span class="n">A</span>
-      <h2>Variante OF · « Miroir »</h2>
-      <span class="d">— aussi dense que la commande, mêmes emplacements. Métrique qté là où la commande met le client.</span>
-    </div>
-    <div class="shelf">
-      <div class="wrap"><span class="clabel">ferme</span>
-        <div class="card t-ferme">
-          <div class="art">OF100245</div>
-          <div class="line2"><span class="pri">Caisse D250</span> <span class="sec">· DCP-01</span></div>
-          <div class="qty">120/150 u</div>
-          <div class="foot"><span class="pill s-ferme">Ferme</span><span class="hours">6,0</span></div>
-        </div>
-      </div>
-      <div class="wrap"><span class="clabel">planifié</span>
-        <div class="card t-planifie">
-          <div class="art">OF100288</div>
-          <div class="line2"><span class="pri">Double flux</span> <span class="sec">· SDR-02</span></div>
-          <div class="qty">0/120 u</div>
-          <div class="foot"><span class="pill s-planifie">Planifié</span><span class="hours">8,5</span></div>
-        </div>
-      </div>
-      <div class="wrap"><span class="clabel">suggéré</span>
-        <div class="card t-suggere">
-          <div class="art">OF100312</div>
-          <div class="line2"><span class="pri">Caisse D200</span> <span class="sec">· PUD-03</span></div>
-          <div class="qty">0/90 u</div>
-          <div class="foot"><span class="pill s-suggere">Suggéré</span><span class="hours">4,0</span></div>
-        </div>
-      </div>
-      <div class="wrap"><span class="clabel">cours</span>
-        <div class="card t-cours">
-          <span class="live"></span>
-          <div class="art">OF100198</div>
-          <div class="line2"><span class="pri">Caisson isolé</span> <span class="sec">· ASV-04</span></div>
-          <div class="qty">95/100 u</div>
-          <div class="foot"><span class="pill s-cours">Cours</span><span class="hours">5,5</span></div>
-        </div>
-      </div>
-      <div class="wrap"><span class="clabel">terminé</span>
-        <div class="card t-termine">
-          <span class="done"><span class="material-symbols-outlined">check</span></span>
-          <div class="art">OF100156</div>
-          <div class="line2"><span class="pri">Échangeur D350</span> <span class="sec">· CTL-05</span></div>
-          <div class="qty">60/60 u</div>
-          <div class="foot"><span class="pill s-termine">Terminé</span><span class="hours">3,0</span></div>
-        </div>
-      </div>
-      <div class="wrap"><span class="clabel">bloqué</span>
-        <div class="card t-bloque">
-          <span class="feas bad"><span class="material-symbols-outlined">priority_high</span></span>
-          <div class="art">OF100301</div>
-          <div class="line2"><span class="pri">Caisse D200</span> <span class="sec">· DCP-01</span></div>
-          <div class="qty">0/120 u</div>
-          <div class="foot"><span class="pill s-bloque">Bloqué</span><span class="hours">6,0</span></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══ Variante OF · B « Enrichi » ═══ -->
-  <div class="sec">
-    <div class="sec-head">
-      <span class="n">B</span>
-      <h2>Variante OF · « Enrichi »</h2>
-      <span class="d">— coquille partagée + barre de progression (qté fait/lancé) + alerte rupture. Recommandée.</span>
-    </div>
-    <div class="shelf">
-      <div class="wrap"><span class="clabel">ferme · 80%</span>
-        <div class="card t-ferme">
-          <span class="feas ok"><span class="material-symbols-outlined">check</span></span>
-          <div class="art">OF100245</div>
-          <div class="line2"><span class="pri">Caisse D250</span></div>
-          <div class="prog"><span class="track"><span class="fill" style="width:80%"></span></span><span class="lbl">120/150</span></div>
-          <div class="foot"><span class="poste"><span class="d"></span>DCP-01</span><span class="hours">6,0</span></div>
-        </div>
-      </div>
-      <div class="wrap"><span class="clabel">planifié · 0%</span>
-        <div class="card t-planifie">
-          <div class="art">OF100288</div>
-          <div class="line2"><span class="pri">Double flux</span></div>
-          <div class="prog"><span class="track"><span class="fill" style="width:0%"></span></span><span class="lbl">0/120</span></div>
-          <div class="foot"><span class="poste"><span class="d"></span>SDR-02</span><span class="hours">8,5</span></div>
-        </div>
-      </div>
-      <div class="wrap"><span class="clabel">suggéré · 0%</span>
-        <div class="card t-suggere">
-          <div class="art">OF100312</div>
-          <div class="line2"><span class="pri">Caisse D200</span></div>
-          <div class="prog"><span class="track"><span class="fill" style="width:0%"></span></span><span class="lbl">0/90</span></div>
-          <div class="foot"><span class="poste"><span class="d"></span>PUD-03</span><span class="hours">4,0</span></div>
-        </div>
-      </div>
-      <div class="wrap"><span class="clabel">cours · 95%</span>
-        <div class="card t-cours">
-          <span class="live"></span>
-          <div class="art">OF100198</div>
-          <div class="line2"><span class="pri">Caisson isolé</span></div>
-          <div class="prog"><span class="track"><span class="fill" style="width:95%"></span></span><span class="lbl">95/100</span></div>
-          <div class="foot"><span class="poste"><span class="d"></span>ASV-04</span><span class="hours">5,5</span></div>
-        </div>
-      </div>
-      <div class="wrap"><span class="clabel">terminé · 100%</span>
-        <div class="card t-termine">
-          <span class="done"><span class="material-symbols-outlined">check</span></span>
-          <div class="art">OF100156</div>
-          <div class="line2"><span class="pri">Échangeur D350</span></div>
-          <div class="prog"><span class="track"><span class="fill" style="width:100%"></span></span><span class="lbl">60/60</span></div>
-          <div class="foot"><span class="poste"><span class="d"></span>CTL-05</span><span class="hours">3,0</span></div>
-        </div>
-      </div>
-      <div class="wrap"><span class="clabel">bloqué · rupture</span>
-        <div class="card t-bloque">
-          <span class="feas bad"><span class="material-symbols-outlined">priority_high</span></span>
-          <div class="art">OF100301</div>
-          <div class="line2"><span class="pri">Caisse D200</span></div>
-          <div class="prog"><span class="track"><span class="fill" style="width:0%"></span></span><span class="lbl">0/120</span></div>
-          <div class="alert"><span class="material-symbols-outlined">warning</span>Rupture MOT-33012</div>
-          <div class="foot"><span class="poste"><span class="d"></span>DCP-01</span><span class="hours">6,0</span></div>
-        </div>
-      </div>
-    </div>
-    <p class="note">
-      <b>A vs B.</b> A colle à la densité de la commande (cohérent, simple) mais masque les deux signaux qui
-      comptent en ordonnancement : la <b>progression</b> et le <b>blocage</b>. B garde la même coquille (liseré
-      de statut, badge faisabilité, pied heures) et ajoute juste ces deux signaux — d'un coup d'œil on voit
-      où en est l'OF et lequel ne peut pas démarrer. Reco : <b>B</b>.
-    </p>
-  </div>
-
-  <div class="foot-page">
-    <span>Carte unifiée Papier · prototype (HTML)</span>
-    <span>Tokens réels du design system · pas de couleur inventée</span>
-  </div>
-</div>
-</body>
+  </body>
 </html>

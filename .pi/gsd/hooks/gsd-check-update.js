@@ -7,53 +7,57 @@
 // Harness is auto-detected from __dirname (e.g. .claude/hooks -> .claude).
 // Do NOT add harness-specific fallbacks here; detection is fully dynamic.
 
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
-const { spawn } = require('child_process');
+const fs = require('fs')
+const path = require('path')
+const os = require('os')
+const { spawn } = require('child_process')
 
-const homeDir = os.homedir();
-const cwd = process.cwd();
+const homeDir = os.homedir()
+const cwd = process.cwd()
 
 // Derive the harness config dir name from this file's location.
 // e.g. /home/user/.claude/hooks/gsd-check-update.js -> '.claude'
 // Falls back to the CLAUDE_CONFIG_DIR env var, then a full filesystem search.
-const harnessDir = path.basename(path.dirname(path.dirname(__filename)));
+const harnessDir = path.basename(path.dirname(path.dirname(__filename)))
 
 // Detect runtime config directory (supports Claude, OpenCode, Gemini, Agent, etc.)
 // Respects CLAUDE_CONFIG_DIR for custom config directory setups
 function detectConfigDir(baseDir) {
-    // Check env override first (supports multi-account setups)
-    const envDir = process.env.CLAUDE_CONFIG_DIR;
-    if (envDir && fs.existsSync(path.join(envDir, 'get-shit-done', 'VERSION'))) {
-        return envDir;
+  // Check env override first (supports multi-account setups)
+  const envDir = process.env.CLAUDE_CONFIG_DIR
+  if (envDir && fs.existsSync(path.join(envDir, 'get-shit-done', 'VERSION'))) {
+    return envDir
+  }
+  // Check harness-derived dir first (most specific), then common alternates
+  const searchDirs = [harnessDir, '.config/opencode', '.opencode', '.gemini', '.claude', '.agent']
+  for (const dir of searchDirs) {
+    if (fs.existsSync(path.join(baseDir, dir, 'get-shit-done', 'VERSION'))) {
+      return path.join(baseDir, dir)
     }
-    // Check harness-derived dir first (most specific), then common alternates
-    const searchDirs = [harnessDir, '.config/opencode', '.opencode', '.gemini', '.claude', '.agent'];
-    for (const dir of searchDirs) {
-        if (fs.existsSync(path.join(baseDir, dir, 'get-shit-done', 'VERSION'))) {
-            return path.join(baseDir, dir);
-        }
-    }
-    return envDir || path.join(baseDir, harnessDir);
+  }
+  return envDir || path.join(baseDir, harnessDir)
 }
 
-const globalConfigDir = detectConfigDir(homeDir);
-const projectConfigDir = detectConfigDir(cwd);
-const cacheDir = path.join(globalConfigDir, 'cache');
-const cacheFile = path.join(cacheDir, 'gsd-update-check.json');
+const globalConfigDir = detectConfigDir(homeDir)
+const projectConfigDir = detectConfigDir(cwd)
+const cacheDir = path.join(globalConfigDir, 'cache')
+const cacheFile = path.join(cacheDir, 'gsd-update-check.json')
 
 // VERSION file locations (check project first, then global)
-const projectVersionFile = path.join(projectConfigDir, 'get-shit-done', 'VERSION');
-const globalVersionFile = path.join(globalConfigDir, 'get-shit-done', 'VERSION');
+const projectVersionFile = path.join(projectConfigDir, 'get-shit-done', 'VERSION')
+const globalVersionFile = path.join(globalConfigDir, 'get-shit-done', 'VERSION')
 
 // Ensure cache directory exists
 if (!fs.existsSync(cacheDir)) {
-    fs.mkdirSync(cacheDir, { recursive: true });
+  fs.mkdirSync(cacheDir, { recursive: true })
 }
 
 // Run check in background (spawn background process, windowsHide prevents console flash)
-const child = spawn(process.execPath, ['-e', `
+const child = spawn(
+  process.execPath,
+  [
+    '-e',
+    `
   const fs = require('fs');
   const path = require('path');
   const { execSync } = require('child_process');
@@ -116,10 +120,13 @@ const child = spawn(process.execPath, ['-e', `
   };
 
   fs.writeFileSync(cacheFile, JSON.stringify(result));
-`], {
+`,
+  ],
+  {
     stdio: 'ignore',
     windowsHide: true,
-    detached: true  // Required on Windows for proper process detachment
-});
+    detached: true, // Required on Windows for proper process detachment
+  }
+)
 
-child.unref();
+child.unref()

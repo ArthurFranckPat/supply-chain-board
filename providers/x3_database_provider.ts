@@ -13,7 +13,7 @@
 
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { ApplicationService } from '@adonisjs/core/types'
+import { type ApplicationService } from '@adonisjs/core/types'
 import { X3Client } from '#app/x3/client/x3_client'
 import { X3Dialect } from '#app/x3/client/x3_dialect'
 
@@ -30,7 +30,7 @@ export default class X3DatabaseProvider {
     const __dirname = fileURLToPath(new URL('.', import.meta.url))
     const dialectPath = resolve(
       __dirname,
-      '../node_modules/@adonisjs/lucid/build/src/dialects/index.js',
+      '../node_modules/@adonisjs/lucid/build/src/dialects/index.js'
     )
     const dialects = await import(new URL('file://' + dialectPath).href)
 
@@ -53,9 +53,9 @@ export default class X3DatabaseProvider {
     const __dirname = fileURLToPath(new URL('.', import.meta.url))
     const connPath = resolve(
       __dirname,
-      '../node_modules/@adonisjs/lucid/build/src/connection/index.js',
+      '../node_modules/@adonisjs/lucid/build/src/connection/index.js'
     )
-    const { Connection } = await import(new URL('file://' + connPath).href) as {
+    const { Connection } = (await import(new URL('file://' + connPath).href)) as {
       Connection: {
         new (...args: any[]): any
         prototype: Record<string, any>

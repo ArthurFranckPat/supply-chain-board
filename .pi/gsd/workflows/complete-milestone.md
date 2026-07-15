@@ -191,6 +191,7 @@ Confirm: "Tagged: v[X.Y]"
 Ask: "Push tag to remote? (y/n)"
 
 If yes:
+
 ```bash
 git push origin v[X.Y]
 ```
@@ -204,6 +205,7 @@ Commit milestone completion.
 ```bash
 pi-gsd-tools commit "chore: complete v[X.Y] milestone" --files .planning/milestones/v[X.Y]-ROADMAP.md .planning/milestones/v[X.Y]-REQUIREMENTS.md .planning/milestones/v[X.Y]-MILESTONE-AUDIT.md .planning/MILESTONES.md .planning/PROJECT.md .planning/STATE.md
 ```
+
 ```
 
 Confirm: "Committed: chore: complete v[X.Y] milestone"
@@ -213,13 +215,16 @@ Confirm: "Committed: chore: complete v[X.Y] milestone"
 <step name="offer_next">
 
 ```
+
 ✅ Milestone v[X.Y] [Name] complete
 
 Shipped:
+
 - [N] phases ([M] plans, [P] tasks)
 - [One sentence of what shipped]
 
 Archived:
+
 - milestones/v[X.Y]-ROADMAP.md
 - milestones/v[X.Y]-REQUIREMENTS.md
 
@@ -243,6 +248,7 @@ Tag: v[X.Y]
 `/gsd-discuss-milestone` — crystallize what to build next, then run `/gsd-new-milestone`
 
 ---
+
 ```
 
 </step>
@@ -293,3 +299,4 @@ Milestone completion is successful when:
 - [ ] User knows next step (/gsd-new-milestone)
 
 </success_criteria>
+```

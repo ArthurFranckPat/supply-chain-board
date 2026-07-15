@@ -94,6 +94,9 @@ router
     router.get('/ruptures', '#controllers/scheduler_controller.shortageTracker')
     router.get('/suivi', '#controllers/suivi_controller.board')
     router.get('/programme', '#controllers/scheduler_controller.programme')
+    router
+      .get('/programme/scenarios/comparer', '#controllers/scenario_controller.comparePage')
+      .as('scenarios.compare')
     router.get('/charge', '#controllers/load_controller.index')
     router.get('/expeditions', '#controllers/expeditions_controller.index')
     router.get('/receptions', '#controllers/receptions_controller.index').as('receptions.index')
@@ -154,6 +157,20 @@ router
         router
           .post('/orders/:orderNum/firm', '#controllers/suggestion_firm_controller.firm')
           .as('planning.order_firm')
+
+        // Scénarios de plan (issue #57, vision étage 3) : persistance des mutations
+        // + diff sur données fraîches (moteur étage 2). L'application (rejeu en PATCHs
+        // réels) reste côté client via update/order_planning.update, puis statut=applique.
+        router.get('/scenarios', '#controllers/scenario_controller.index').as('scenarios.index')
+        router.post('/scenarios', '#controllers/scenario_controller.store_').as('scenarios.store')
+        router.post('/scenarios/diff', '#controllers/scenario_controller.diff').as('scenarios.diff')
+        router.get('/scenarios/:id', '#controllers/scenario_controller.show').as('scenarios.show')
+        router
+          .patch('/scenarios/:id', '#controllers/scenario_controller.update')
+          .as('scenarios.update')
+        router
+          .delete('/scenarios/:id', '#controllers/scenario_controller.destroy')
+          .as('scenarios.destroy')
       })
       .prefix('/api/v1/planning')
 
@@ -181,6 +198,7 @@ router
     // Tableau de bord — KPI (issue #38), calcul lourd différé.
     router.get('/api/v1/dashboard/kpis', '#controllers/dashboard_controller.kpis')
     router.get('/api/v1/dashboard/otd', '#controllers/dashboard_controller.otd')
+    router.get('/api/v1/dashboard/stock', '#controllers/dashboard_controller.stockValuation')
 
     // Expéditions (issue #44) — onglet dédié, calcul lourd différé.
     router.get('/api/v1/expeditions/rows', '#controllers/expeditions_controller.rows')

@@ -1,5 +1,6 @@
 import { createMemo, createSignal } from 'solid-js'
 import { createStore, produce, reconcile } from 'solid-js/store'
+import { toast as sonnerToast } from 'solid-sonner'
 import type { OrderBoardData, OrderCard, OrderSearchScope } from './types'
 import type { FeasibilityMode, FeasStatus } from '@/lib/board/types'
 import { router } from '@/lib/inertia-solid'
@@ -212,7 +213,9 @@ export function createOrderBoardStore(initial: OrderBoardData) {
           }
         }
         setFeasibility(map)
-        toast(nbBlocked > 0 ? `${nbBlocked} bloquée(s) · ${nbOk} OK` : `${nbOk} ligne(s) réalisables`)
+        toast(
+          nbBlocked > 0 ? `${nbBlocked} bloquée(s) · ${nbOk} OK` : `${nbOk} ligne(s) réalisables`
+        )
       })
       .catch((err) => toast(`Échec : ${err.message}`))
       .finally(() => setFeasLoading(false))
@@ -226,9 +229,9 @@ export function createOrderBoardStore(initial: OrderBoardData) {
     const findPos = () => {
       for (let li = 0; li < board.lines.length; li++) {
         const cells = board.lines[li].dayCells
-        for (let ci = 0; ci < cells.length; ci++) {
-          const idx = cells[ci].cards.findIndex((c) => c.id === id)
-          if (idx !== -1) return { line: li, col: ci, idx, card: cells[ci].cards[idx] }
+        for (const [ci, cell] of cells.entries()) {
+          const idx = cell.cards.findIndex((c) => c.id === id)
+          if (idx !== -1) return { line: li, col: ci, idx, card: cell.cards[idx] }
         }
       }
       return null
@@ -279,9 +282,7 @@ export function createOrderBoardStore(initial: OrderBoardData) {
             b.lines[snapshot.line].dayCells[snapshot.col].cards.splice(snapshot.idx, 0, card)
           })
         )
-        window.dispatchEvent(
-          new CustomEvent('sch-toast', { detail: `Déplacement échoué : ${err.message}` })
-        )
+        sonnerToast.error(`Déplacement échoué : ${err.message}`)
       })
   }
 
@@ -314,7 +315,7 @@ export function createOrderBoardStore(initial: OrderBoardData) {
   }
 
   function toast(detail: string) {
-    window.dispatchEvent(new CustomEvent('sch-toast', { detail }))
+    sonnerToast(detail)
   }
 
   return {

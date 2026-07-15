@@ -14,10 +14,61 @@ export type FlowDirection = 'supply' | 'demand'
 
 export type FlowOrigin =
   | { type: 'stock'; subType?: 'strict' | 'qc' | 'rejected'; pmp: number | null }
-  | { type: 'reception'; id: string; supplier: string; designation: string | null; categorie: string | null; dateCommande: Date | null; qteCommandee: number; firm?: boolean }
-  | { type: 'of'; id: string; status: OfStatus; statutLabel: string | null; typeOf: number | null; typeOfLabel: string | null; designation: string | null }
-  | { type: 'order'; id: string; customer: string; pays: string | null; orderType: OrderType | null; nature: NeedNature; contremarque: string | null; qteCommandee: number; qteAllouee: number; ligne?: string | null; designation?: string | null; refCommandeClient?: string | null; refArticleClient?: string | null }
-  | { type: 'forecast'; id: string; customer: string | null; pays: string | null; orderType: OrderType | null; contremarque: string | null; qteCommandee: number; qteAllouee: number; designation?: string | null }
+  | {
+      type: 'reception'
+      id: string
+      supplier: string
+      designation: string | null
+      categorie: string | null
+      dateCommande: Date | null
+      qteCommandee: number
+      firm?: boolean
+    }
+  | {
+      type: 'of'
+      id: string
+      status: OfStatus
+      statutLabel: string | null
+      typeOf: number | null
+      typeOfLabel: string | null
+      designation: string | null
+      /**
+       * Qté lancée d'origine (ORDERS.EXTQTY_0) — total STABLE de l'OF, contrairement à
+       * `quantity` (RMNEXTQTY, reste à produire) qui se nette de façon incohérente selon
+       * l'historique de déclaration de l'OF (vérifié sur X3 : parfois netté au fil des
+       * pointages d'opération, parfois seulement à la déclaration finale — cf issue avancement).
+       * Optionnel : absent → repli sur `quantity` chez le consommateur.
+       */
+      launched?: number
+    }
+  | {
+      type: 'order'
+      id: string
+      customer: string
+      pays: string | null
+      orderType: OrderType | null
+      nature: NeedNature
+      contremarque: string | null
+      qteCommandee: number
+      qteAllouee: number
+      ligne?: string | null
+      designation?: string | null
+      refCommandeClient?: string | null
+      refArticleClient?: string | null
+      dateCommande?: Date | null
+    }
+  | {
+      type: 'forecast'
+      id: string
+      customer: string | null
+      pays: string | null
+      orderType: OrderType | null
+      contremarque: string | null
+      qteCommandee: number
+      qteAllouee: number
+      designation?: string | null
+      dateCommande?: Date | null
+    }
   | { type: 'component'; parent: string; ofId: string }
   | { type: 'allocation'; docId: string }
 

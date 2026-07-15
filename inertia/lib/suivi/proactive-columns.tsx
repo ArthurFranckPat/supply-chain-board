@@ -8,9 +8,13 @@ import { createColumnHelper } from '@tanstack/solid-table'
 import { cx } from '@/libs/cva'
 import type { DataTableIndexColumn } from '@/components/ui/data-table'
 import type { ProactiveDisplayRow } from '@/lib/suivi/types'
-import { OF_STATUT, VERDICT_TONE, LATE_TONE } from '@/lib/suivi/tracking-shared'
+import { OF_STATUT, VERDICT_TONE, LATE_TONE, getRelativeDateLabel } from '@/lib/suivi/tracking-shared'
 
-export function createProactiveColumns() {
+export interface ProactiveColumnsDeps {
+  referenceDate: () => string
+}
+
+export function createProactiveColumns({ referenceDate }: ProactiveColumnsDeps) {
   const proHelper = createColumnHelper<ProactiveDisplayRow>()
   return [
     proHelper.accessor('numCommande', {
@@ -19,57 +23,126 @@ export function createProactiveColumns() {
         <>
           <div class="font-mono text-[13px] font-bold tracking-tight text-foreground">
             {info.getValue()}
-            <Show when={info.row.original.refCommandeClient}>
-              <span class="font-medium text-muted-foreground/70">/{info.row.original.refCommandeClient}</span>
-            </Show>
           </div>
-          <div class="mt-0.5 font-sans text-[12px] font-medium leading-snug text-secondary-foreground">{info.row.original.client || '—'}</div>
+          <div class="mt-0.5 font-sans text-[12px] font-medium leading-snug text-secondary-foreground">
+            {info.row.original.client || '—'}
+          </div>
         </>
       ),
-      meta: { thClass: 'w-[178px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'px-4 py-[9px] align-middle' },
+      meta: {
+        thClass:
+          'w-[150px] px-4 py-[8px] text-left font-sans text-[11px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
+        tdClass: 'px-4 py-[9px] align-middle',
+      },
     }),
     proHelper.accessor('article', {
       header: () => 'Article · Désignation',
       cell: (info) => (
         <>
-          <div class="font-mono text-[13px] font-semibold text-terra">
+          <div class="font-mono text-[13px] font-semibold text-brand">
             {info.getValue()}
-            <Show when={info.row.original.refArticleClient && info.row.original.refArticleClient !== info.getValue()}>
-              <span class="font-medium text-muted-foreground/70">/{info.row.original.refArticleClient}</span>
-            </Show>
           </div>
-          <div class="mt-0.5 font-sans text-[12px] font-medium leading-snug text-secondary-foreground">{info.row.original.designation || '—'}</div>
+          <div class="mt-0.5 font-sans text-[12px] font-medium leading-snug text-secondary-foreground">
+            {info.row.original.designation || '—'}
+          </div>
         </>
       ),
-      meta: { thClass: 'w-[240px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'px-4 py-[9px] align-middle' },
+      meta: {
+        thClass:
+          'w-[200px] px-4 py-[8px] text-left font-sans text-[11px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
+        tdClass: 'px-4 py-[9px] align-middle',
+      },
     }),
     proHelper.accessor('type', {
       header: () => 'Type',
-      cell: (info) => (
-        <span class="rounded bg-terra-soft px-[7px] py-0.5 font-mono text-[10px] font-bold uppercase tracking-wide text-terra">{info.getValue()}</span>
-      ),
-      meta: { thClass: 'w-[56px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'px-4 py-[9px] align-middle' },
+      cell: (info) => {
+        const val = info.getValue()
+        const title =
+          val === 'MTS'
+            ? 'Make To Stock — Fabriqué pour le stock'
+            : val === 'MTO'
+              ? 'Make To Order — Fabriqué à la commande client'
+              : 'Normal — Ligne standard'
+        return (
+          <span
+            class="rounded bg-brand-soft px-[7px] py-0.5 font-mono text-[10px] font-bold uppercase tracking-wide text-brand cursor-help"
+            title={title}
+          >
+            {val}
+          </span>
+        )
+      },
+      meta: {
+        thClass:
+          'w-[56px] px-4 py-[8px] text-left font-sans text-[11px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
+        tdClass: 'px-4 py-[9px] align-middle',
+      },
     }),
     proHelper.accessor('qteRestante', {
-      header: () => 'Reste',
-      cell: (info) => (
-        <>
-          <span class="font-fraunces text-[21px] font-black leading-none tracking-tight text-foreground">{info.getValue()}</span>
-          <span class="ml-0.5 font-mono text-[10px] font-medium text-muted-foreground/80">u</span>
-        </>
-      ),
+      header: () => 'Qté',
+      cell: (info) => {
+        const row = info.row.original
+        const restante = info.getValue() || 1
+        const alloc = row.qteAllouee
+        const reliquat = row.reliquat
+        const pctAlloc = Math.min(100, Math.round((alloc / restante) * 100))
+        const pctReliquat = Math.min(100 - pctAlloc, Math.round((reliquat / restante) * 100))
+        return (
+          <div class="flex flex-col items-end gap-1">
+            <div class="flex items-baseline gap-1">
+              <span class="font-sans text-[18px] font-extrabold leading-none tracking-tight text-foreground tabular-nums">
+                {info.getValue()}
+              </span>
+              <span class="font-mono text-[10px] font-medium text-muted-foreground/80">u</span>
+            </div>
+            <div
+              class="w-full h-[3px] rounded-full bg-secondary overflow-hidden"
+              title={`Restant ${restante} · Alloué ${alloc} · Reliquat ${reliquat}`}
+            >
+              <div class="h-full flex">
+                <div class="h-full bg-emerald-500 transition-all" style={{ width: `${pctAlloc}%` }} />
+                <div class="h-full bg-amber-400 transition-all" style={{ width: `${pctReliquat}%` }} />
+              </div>
+            </div>
+          </div>
+        )
+      },
       sortingFn: 'basic',
-      meta: { thClass: 'w-[92px] px-4 py-[8px] text-right font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'whitespace-nowrap px-4 py-[9px] text-right align-middle' },
+      meta: {
+        thClass:
+          'w-[100px] px-4 py-[8px] text-right font-sans text-[11px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
+        tdClass: 'whitespace-nowrap px-4 py-[9px] text-right align-middle',
+      },
     }),
     proHelper.accessor('dateExp', {
       header: () => 'Expé',
-      cell: (info) => info.getValue() || '—',
+      cell: (info) => {
+        const late = info.row.original.late
+        const rel = getRelativeDateLabel(info.row.original.dateExpIso, referenceDate())
+        return (
+          <div class="flex flex-col items-start gap-0.5">
+            <span classList={{ 'font-bold text-destructive': late, 'text-foreground': !late }}>
+              {info.getValue() || '—'}
+            </span>
+            <Show when={rel}>
+              <span class={cx("rounded-[3px] px-1 py-[1px] text-[8.5px] font-sans leading-none tracking-normal font-semibold", rel!.tone)}>
+                {rel!.label}
+              </span>
+            </Show>
+          </div>
+        )
+      },
       sortingFn: (a, b) => {
         const da = a.original.dateExpIso ?? '9999-12-31'
         const db = b.original.dateExpIso ?? '9999-12-31'
         return da < db ? -1 : da > db ? 1 : 0
       },
-      meta: { thClass: 'w-[76px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'whitespace-nowrap px-4 py-[9px] align-middle font-mono text-[12.5px] font-semibold text-foreground' },
+      meta: {
+        thClass:
+          'w-[76px] px-4 py-[8px] text-left font-sans text-[11px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
+        tdClass:
+          'whitespace-nowrap px-4 py-[9px] align-middle font-mono text-[12.5px] font-semibold text-foreground',
+      },
     }),
     proHelper.accessor('couverture', {
       header: () => 'Couverture',
@@ -84,16 +157,48 @@ export function createProactiveColumns() {
                 {(of) => {
                   const st = OF_STATUT[of.statutNum]
                   return (
-                    <div class="flex items-center gap-1.5">
-                      <span class="font-mono text-[11px] font-semibold leading-snug text-secondary-foreground break-all">
-                        {of.numOf}
-                      </span>
-                      <Show when={st}>
+                    <div class="flex flex-col gap-px">
+                      <div class="relative flex items-center gap-1.5">
+                        <Show when={of.estDebuté}>
+                          <span
+                            class="absolute -right-1.5 -top-1.5 flex size-1.5"
+                            title={
+                              of.piecesFaites != null && of.piecesTotalOf
+                                ? `OF démarré — ${of.piecesFaites}/${of.piecesTotalOf} pièces réalisées`
+                                : 'OF démarré — pointage atelier en cours'
+                            }
+                          >
+                            <span class="absolute inline-flex size-full animate-ping rounded-full bg-emerald-500 opacity-75" />
+                            <span class="relative inline-flex size-1.5 rounded-full bg-emerald-500" />
+                          </span>
+                        </Show>
+                        <span class="font-mono text-[11px] font-semibold leading-snug text-secondary-foreground break-all">
+                          {of.numOf}
+                        </span>
+                        <Show when={st}>
+                          <span
+                            class={cx(
+                              'shrink-0 rounded px-1 py-px font-mono text-[9px] font-bold leading-none cursor-help',
+                              st.tone
+                            )}
+                            title={
+                              st.tag === 'WOF'
+                                ? 'Work Order Firm (OF Ferme) — Validé et verrouillé'
+                                : st.tag === 'WOP'
+                                  ? 'Work Order Planned (OF Planifié) — Planifié en production'
+                                  : 'Work Order Suggested (OF Suggéré) — Proposition du calcul des besoins'
+                            }
+                          >
+                            {st.tag}
+                          </span>
+                        </Show>
+                      </div>
+                      <Show when={of.estDebuté && of.piecesFaites != null && of.piecesTotalOf}>
                         <span
-                          class={cx('shrink-0 rounded px-1 py-px font-mono text-[9px] font-bold leading-none', st.tone)}
-                          title={`OF ${st.tag === 'WOF' ? 'ferme' : st.tag === 'WOP' ? 'planifié' : 'suggéré'}`}
+                          class="font-mono text-[9px] font-semibold tabular-nums leading-none text-emerald-600 cursor-help"
+                          title="Pièces réalisées / total OF (poste le plus avancé pointé)"
                         >
-                          {st.tag}
+                          {of.piecesFaites}/{of.piecesTotalOf} pièces
                         </span>
                       </Show>
                     </div>
@@ -105,7 +210,10 @@ export function createProactiveColumns() {
         }
         const isGood = v === 'Stock' || v === 'Achat'
         return isGood ? (
-          <span class="inline-flex items-center gap-1 rounded-md border border-transparent bg-ferme/15 px-2 py-0.5 font-mono text-[11px] font-bold text-ferme">
+          <span
+            class="inline-flex items-center gap-1 rounded-md border border-transparent bg-ferme/15 px-2 py-0.5 font-mono text-[11px] font-bold text-ferme cursor-help"
+            title={v === 'Stock' ? 'Couvert par le stock disponible' : "Couvert par une commande d'achat fournisseur"}
+          >
             {v}
           </span>
         ) : (
@@ -114,7 +222,11 @@ export function createProactiveColumns() {
           </span>
         )
       },
-      meta: { thClass: 'w-[150px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'px-4 py-[9px] align-middle' },
+      meta: {
+        thClass:
+          'w-[150px] px-4 py-[8px] text-left font-sans text-[11px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
+        tdClass: 'px-4 py-[9px] align-middle',
+      },
     }),
     proHelper.display({
       id: 'verdictKey',
@@ -123,21 +235,40 @@ export function createProactiveColumns() {
       cell: (info) => {
         const o = info.row.original
         return (
-          <span class={cx('inline-flex items-center gap-1 rounded-md border border-transparent px-2 py-0.5 text-[11px] font-medium whitespace-nowrap', VERDICT_TONE[o.verdictKey])}>
+          <span
+            class={cx(
+              'inline-flex items-center gap-1 rounded-md border border-transparent px-2 py-0.5 text-[11px] font-medium whitespace-nowrap',
+              VERDICT_TONE[o.verdictKey]
+            )}
+          >
             {o.verdictLabel}
           </span>
         )
       },
-      meta: { thClass: 'w-[120px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'px-4 py-[9px] align-middle' },
-    }),
-    proHelper.accessor('joursRetard', {
-      header: () => 'J. retard',
-      cell: (info) => {
-        const v = info.getValue()
-        return <>{v > 0 ? v : '—'}</>
+      meta: {
+        thClass:
+          'w-[120px] px-4 py-[8px] text-left font-sans text-[11px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
+        tdClass: 'px-4 py-[9px] align-middle',
       },
-      sortingFn: 'basic',
-      meta: { thClass: 'w-[70px] px-4 py-[8px] text-right font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'whitespace-nowrap px-4 py-[9px] text-right align-middle font-mono text-[12.5px] font-semibold text-secondary-foreground' },
+    }),
+    proHelper.display({
+      id: 'chargeHeures',
+      enableSorting: false,
+      header: () => 'Charge',
+      cell: (info) => {
+        // Charge réelle gamme (Σ qteRestante/cadence) des OF de couverture — indépendante
+        // du jalonnement CBN. '—' si couverte par stock/achat (pas d'OF) ou gamme inconnue.
+        const known = info.row.original.ofs.filter((of) => of.chargeHeures !== null)
+        if (known.length === 0) return <>—</>
+        const total = known.reduce((sum, of) => sum + (of.chargeHeures ?? 0), 0)
+        return <>{Math.round(total * 10) / 10}h</>
+      },
+      meta: {
+        thClass:
+          'w-[70px] px-4 py-[8px] text-right font-sans text-[11px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
+        tdClass:
+          'whitespace-nowrap px-4 py-[9px] text-right align-middle font-mono text-[12.5px] font-semibold text-secondary-foreground',
+      },
     }),
     proHelper.display({
       id: 'composants',
@@ -145,48 +276,149 @@ export function createProactiveColumns() {
       header: () => 'Goulots',
       cell: (info) => {
         const comps = info.row.original.composants
-        if (comps.length === 0) return <span class="font-sans text-[12px] font-medium leading-snug text-muted-foreground/70">—</span>
+        if (comps.length === 0)
+          return (
+            <span class="font-sans text-[12px] font-medium leading-snug text-muted-foreground/70">
+              —
+            </span>
+          )
         return (
           <div class="flex flex-col gap-1">
             <For each={comps.slice(0, 4)}>
               {(c) => (
                 <div class="flex flex-col gap-px">
                   <div class="flex items-center gap-1.5">
-                    <span class="shrink-0 font-mono text-[10.5px] font-bold text-destructive">{c.art}</span>
+                    <span class="shrink-0 font-mono text-[10.5px] font-bold text-destructive">
+                      {c.art}
+                    </span>
                     <Show when={c.desc}>
-                      <span class="truncate font-sans text-[10px] leading-tight text-muted-foreground" title={c.desc}>{c.desc}</span>
+                      <span
+                        class="truncate font-sans text-[10px] leading-tight text-muted-foreground"
+                        title={c.desc}
+                      >
+                        {c.desc}
+                      </span>
                     </Show>
-                    <span class="ml-auto shrink-0 rounded bg-destructive/10 px-1 font-mono text-[10px] font-bold tabular-nums text-destructive">−{c.qty}</span>
+                    <span class="ml-auto shrink-0 rounded bg-destructive/10 px-1 font-mono text-[10px] font-bold tabular-nums text-destructive">
+                      −{c.qty}
+                    </span>
                   </div>
-                  {/* Réception couvrante (lentille appro rapatriée des Ruptures). */}
+                  {/* Descente BOM d'un SE manquant : soit « OF à lancer » (composants dispo),
+                      soit les feuilles réellement bloquantes avec leur réception. La lentille
+                      réception directe ne s'affiche que pour les composants SANS descente
+                      (achetés) — pour un SE elle serait du bruit (pas d'achat sur un fabriqué). */}
                   <Show
-                    when={c.reception}
+                    when={c.descente}
                     fallback={
-                      <span class="font-mono text-[9.5px] font-medium leading-tight text-destructive/70">aucune couverture prévue</span>
+                      <Show
+                        when={c.reception}
+                        fallback={
+                          <div class="mt-0.5 flex items-center gap-1 font-mono text-[9px] font-medium text-destructive/60">
+                            <span class="material-symbols-outlined text-[11px] leading-none text-destructive/50">event_busy</span>
+                            Aucune couverture prévue
+                          </div>
+                        }
+                      >
+                        {(r) => (
+                          <div
+                            class="mt-0.5 flex items-center gap-1 font-mono text-[9px] leading-none"
+                            classList={{
+                              'font-bold text-destructive': r().overdue,
+                              'font-medium text-muted-foreground': !r().overdue,
+                            }}
+                            title={`Fournisseur: ${r().supplier}`}
+                          >
+                            <span class="material-symbols-outlined text-[11px] leading-none opacity-80">
+                              {r().overdue ? 'warning' : 'local_shipping'}
+                            </span>
+                            <span>
+                              {r().overdue
+                                ? `En retard +${r().retardJ} j (${r().eta})`
+                                : `Arrivée ${r().eta} · ${r().po}`}
+                            </span>
+                          </div>
+                        )}
+                      </Show>
                     }
                   >
-                    {(r) => (
-                      <span
-                        classList={{
-                          'font-mono text-[9.5px] font-bold leading-tight text-destructive': r().overdue,
-                          'font-mono text-[9.5px] font-medium leading-tight text-muted-foreground': !r().overdue,
-                        }}
-                        title={r().supplier}
+                    {(d) => (
+                      <Show
+                        when={d().statut === 'bloque'}
+                        fallback={
+                          <div class="mt-0.5 flex items-center gap-1 font-mono text-[9px] font-semibold text-emerald-700 leading-none">
+                            <span class="material-symbols-outlined text-[11px] leading-none text-emerald-600">subdirectory_arrow_right</span>
+                            ↳ SE à lancer (composants dispo)
+                          </div>
+                        }
                       >
-                        {r().overdue ? `en retard +${r().retardJ} j · ${r().eta}` : `arrive ${r().eta} · ${r().po}`}
-                      </span>
+                        <div class="flex flex-col gap-px pl-2 mt-0.5 border-l border-rule-soft">
+                          <For each={d().par.slice(0, 3)}>
+                            {(p) => (
+                              <div
+                                class="flex flex-col gap-px font-mono text-[9px] leading-snug text-muted-foreground"
+                                title={p.desc}
+                              >
+                                <div class="flex items-center gap-1">
+                                  <span class="material-symbols-outlined text-[10px] leading-none text-muted-foreground/60">subdirectory_arrow_right</span>
+                                  <span>Bloqué par <span class="font-bold text-destructive">{p.art}</span> <span class="font-bold text-destructive">−{p.manque}</span></span>
+                                </div>
+                                <Show
+                                  when={p.reception}
+                                  fallback={
+                                    <div class="pl-3.5 flex items-center gap-0.5 text-[8.5px] text-destructive/60 font-medium">
+                                      <span class="material-symbols-outlined text-[10px] leading-none text-destructive/50">event_busy</span>
+                                      Aucune couverture prévue
+                                    </div>
+                                  }
+                                >
+                                  {(pr) => (
+                                    <div
+                                      class="pl-3.5 flex items-center gap-0.5 text-[8.5px] font-medium"
+                                      classList={{
+                                        'text-destructive font-bold': pr().overdue,
+                                        'text-muted-foreground/80': !pr().overdue,
+                                      }}
+                                      title={pr().supplier}
+                                    >
+                                      <span class="material-symbols-outlined text-[10px] leading-none opacity-80">
+                                        {pr().overdue ? 'warning' : 'local_shipping'}
+                                      </span>
+                                      <span>
+                                        {pr().overdue
+                                          ? `En retard +${pr().retardJ} j (${pr().eta})`
+                                          : `Arrivée ${pr().eta} · ${pr().po}`}
+                                      </span>
+                                    </div>
+                                  )}
+                                </Show>
+                              </div>
+                            )}
+                          </For>
+                          <Show when={d().par.length > 3}>
+                            <div class="pl-3.5 font-mono text-[8.5px] font-medium text-muted-foreground/70">
+                              +{d().par.length - 3} autre(s)
+                            </div>
+                          </Show>
+                        </div>
+                      </Show>
                     )}
                   </Show>
                 </div>
               )}
             </For>
             <Show when={comps.length > 4}>
-              <span class="font-mono text-[10px] font-medium text-muted-foreground/70">+{comps.length - 4} autre(s)</span>
+              <span class="font-mono text-[10px] font-medium text-muted-foreground/70">
+                +{comps.length - 4} autre(s)
+              </span>
             </Show>
           </div>
         )
       },
-      meta: { thClass: 'w-[300px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule', tdClass: 'px-4 py-[9px] align-middle' },
+      meta: {
+        thClass:
+          'w-[300px] px-4 py-[8px] text-left font-sans text-[11px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
+        tdClass: 'px-4 py-[9px] align-middle',
+      },
     }),
   ]
 }
@@ -195,7 +427,8 @@ export function createProactiveColumns() {
 export function createProactiveIndexCol(): DataTableIndexColumn<ProactiveDisplayRow> {
   return {
     headerLabel: 'N°',
-    thClass: 'w-[38px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule',
+    thClass:
+      'w-[38px] px-4 py-[8px] text-left font-sans text-[11px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
     tdClass: (row: ProactiveDisplayRow) => {
       // blocked / uncov : pas un retard calendaire mais un vrai problème → rouge foncé.
       // late : utilise la gravité (tolerance/critical).
@@ -204,8 +437,8 @@ export function createProactiveIndexCol(): DataTableIndexColumn<ProactiveDisplay
           ? ('critical' as const)
           : row.lateSeverity
       return cx(
-        'px-4 py-[9px] align-middle font-fraunces text-[14px] leading-none text-muted-foreground/80',
-        LATE_TONE.bar(s),
+        'px-4 py-[9px] align-middle font-sans text-[12px] font-bold leading-none tracking-tight text-muted-foreground/80 tabular-nums',
+        LATE_TONE.bar(s)
       )
     },
   }

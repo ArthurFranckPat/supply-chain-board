@@ -11,15 +11,14 @@ import { parseX3Date } from '#app/x3/utils/parse_date'
  */
 function dateRangeClause(from?: string, to?: string): string {
   const clauses: string[] = []
-  // COALESCE : date confirmée fournisseur (ZDATCOF) sinon date prévue (EXTRCPDAT).
   if (from && /^\d{4}-\d{2}-\d{2}$/.test(from)) {
     clauses.push(
-      `COALESCE(PORDERQ.ZDATCOF_0, PORDERQ.EXTRCPDAT_0) >= TO_DATE('${from}', 'YYYY-MM-DD')`
+      `((PORDERQ.ZDATCOF_0 IS NOT NULL AND PORDERQ.ZDATCOF_0 >= TO_DATE('${from}', 'YYYY-MM-DD')) OR (PORDERQ.ZDATCOF_0 IS NULL AND PORDERQ.EXTRCPDAT_0 >= TO_DATE('${from}', 'YYYY-MM-DD')))`
     )
   }
   if (to && /^\d{4}-\d{2}-\d{2}$/.test(to)) {
     clauses.push(
-      `COALESCE(PORDERQ.ZDATCOF_0, PORDERQ.EXTRCPDAT_0) <= TO_DATE('${to}', 'YYYY-MM-DD')`
+      `((PORDERQ.ZDATCOF_0 IS NOT NULL AND PORDERQ.ZDATCOF_0 <= TO_DATE('${to}', 'YYYY-MM-DD')) OR (PORDERQ.ZDATCOF_0 IS NULL AND PORDERQ.EXTRCPDAT_0 <= TO_DATE('${to}', 'YYYY-MM-DD')))`
     )
   }
   return clauses.length ? clauses.join(' AND ') : ''
@@ -60,6 +59,7 @@ export class X3ReceptionRepository {
       .innerJoin('ITMMASTER', 'ITMMASTER.ITMREF_0', 'PORDERQ.ITMREF_0')
       .innerJoin('BPSUPPLIER', 'BPSUPPLIER.BPSNUM_0', 'PORDERQ.BPSNUM_0')
       .where('PORDER.CLEFLG_0', '1')
+      .where('PORDERQ.LINCLEFLG_0', '1')
       .where('ITMMASTER.ITMSTA_0', '1')
       .whereRaw('PORDERQ.QTYSTU_0 > PORDERQ.RCPQTYSTU_0')
 
@@ -122,10 +122,15 @@ export class X3ReceptionRepository {
       .innerJoin('ITMMASTER', 'ITMMASTER.ITMREF_0', 'PORDERQ.ITMREF_0')
       .innerJoin('BPSUPPLIER', 'BPSUPPLIER.BPSNUM_0', 'PORDERQ.BPSNUM_0')
       .where('PORDER.CLEFLG_0', '1')
+      .where('PORDERQ.LINCLEFLG_0', '1')
       .where('ITMMASTER.ITMSTA_0', '1')
       .whereRaw('PORDERQ.QTYSTU_0 > PORDERQ.RCPQTYSTU_0')
       // Onglet Réceptions : ne garder que les commandes fournisseurs "CG" (préfixe métier).
       .whereRaw("PORDERQ.POHNUM_0 LIKE 'CG%'")
+      // Exclure les catégories d'article commençant par X, Y ou Z.
+      .whereRaw(
+        "ITMMASTER.TCLCOD_0 NOT LIKE 'X%' AND ITMMASTER.TCLCOD_0 NOT LIKE 'Y%' AND ITMMASTER.TCLCOD_0 NOT LIKE 'Z%'"
+      )
 
     const rangeClause = dateRangeClause(opts?.from, opts?.to)
     if (rangeClause) q.whereRaw(rangeClause)

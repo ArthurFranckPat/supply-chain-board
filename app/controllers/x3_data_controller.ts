@@ -1,4 +1,4 @@
-import { HttpContext } from '@adonisjs/core/http'
+import { type HttpContext } from '@adonisjs/core/http'
 import type { X3Queryable } from '#app/x3/types'
 
 export default class X3DataController {

@@ -1,4 +1,13 @@
-import { createMemo, createResource, createSignal, onCleanup, Show, createEffect, For, type Component } from 'solid-js'
+import {
+  createMemo,
+  createResource,
+  createSignal,
+  onCleanup,
+  Show,
+  createEffect,
+  For,
+  type Component,
+} from 'solid-js'
 import { cx } from '@/libs/cva'
 import { Masthead } from '@/components/masthead'
 import type {
@@ -20,7 +29,10 @@ import type {
  */
 
 const fold = (s: string): string =>
-  s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  s
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
 
 /** Valeur distincte d'une facette avec son compte. */
 interface Facette {
@@ -71,17 +83,17 @@ const Conditionnements: Component<ConditionnementsPageProps> = (props) => {
 
   // ── Chargement 1 : articles (fast) ──
   const url = createMemo(() => (bust() ? `${props.rowsHref}?refresh=${bust()}` : props.rowsHref))
-  const [data] = createResource(
-    url,
-    async (u): Promise<ConditionnementsRowsResponse> => {
-      const res = await fetch(u, { headers: { accept: 'application/json' } })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      return (await res.json()) as ConditionnementsRowsResponse
-    },
-  )
+  const [data] = createResource(url, async (u): Promise<ConditionnementsRowsResponse> => {
+    const res = await fetch(u, { headers: { accept: 'application/json' } })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    return (await res.json()) as ConditionnementsRowsResponse
+  })
 
   createEffect(() => {
-    if (!data.loading) { setElapsed(0); return }
+    if (!data.loading) {
+      setElapsed(0)
+      return
+    }
     const t0 = Date.now()
     const id = setInterval(() => setElapsed(Date.now() - t0), 200)
     onCleanup(() => clearInterval(id))
@@ -115,14 +127,20 @@ const Conditionnements: Component<ConditionnementsPageProps> = (props) => {
       const res = await fetch(u, { headers: { accept: 'application/json' } })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       return (await res.json()) as EstimationsFetchResponse
-    },
+    }
   )
 
   const enrichissements = createMemo(() => enrichments()?.enrichissements ?? {})
 
   // ── Facettes ──
-  const matchTexte = (r: { article: string; designation: string; nomFrnsr: string | null }, q: string) =>
-    !q || fold(r.article).includes(q) || fold(r.designation).includes(q) || fold(r.nomFrnsr ?? '').includes(q)
+  const matchTexte = (
+    r: { article: string; designation: string; nomFrnsr: string | null },
+    q: string
+  ) =>
+    !q ||
+    fold(r.article).includes(q) ||
+    fold(r.designation).includes(q) ||
+    fold(r.nomFrnsr ?? '').includes(q)
 
   const ETAT_LABELS: Record<string, string> = {
     complet: 'Complet',
@@ -146,7 +164,10 @@ const Conditionnements: Component<ConditionnementsPageProps> = (props) => {
       return true
     })
 
-  const compter = (rows: ConditionnementDisplayRow[], key: (r: ConditionnementDisplayRow) => string): Map<string, number> => {
+  const compter = (
+    rows: ConditionnementDisplayRow[],
+    key: (r: ConditionnementDisplayRow) => string
+  ): Map<string, number> => {
     const m = new Map<string, number>()
     for (const r of rows) {
       const v = key(r)
@@ -158,14 +179,31 @@ const Conditionnements: Component<ConditionnementsPageProps> = (props) => {
   const facettes = createMemo(() => {
     const base = rowsByTexte()
     const s: Sel = { cats: selCategories(), frns: selFournisseurs(), etats: selEtats() }
-    const toF = (m: Map<string, number>, labels?: Record<string, string>, triDesc = false): Facette[] => {
-      const arr = [...m.entries()].map(([cle, count]) => ({ cle, label: labels?.[cle] ?? cle, count }))
-      return triDesc ? arr.sort((a, b) => b.count - a.count) : arr.sort((a, b) => a.label.localeCompare(b.label))
+    const toF = (
+      m: Map<string, number>,
+      labels?: Record<string, string>,
+      triDesc = false
+    ): Facette[] => {
+      const arr = [...m.entries()].map(([cle, count]) => ({
+        cle,
+        label: labels?.[cle] ?? cle,
+        count,
+      }))
+      return triDesc
+        ? arr.sort((a, b) => b.count - a.count)
+        : arr.sort((a, b) => a.label.localeCompare(b.label))
     }
     return {
-      etats: toF(compter(filtreCroise(base, s, 'etats'), (r) => r.etatCoef), ETAT_LABELS),
+      etats: toF(
+        compter(filtreCroise(base, s, 'etats'), (r) => r.etatCoef),
+        ETAT_LABELS
+      ),
       categories: toF(compter(filtreCroise(base, s, 'cats'), (r) => r.categorie || '—')),
-      fournisseurs: toF(compter(filtreCroise(base, s, 'frns'), (r) => r.nomFrnsr ?? '—'), undefined, true),
+      fournisseurs: toF(
+        compter(filtreCroise(base, s, 'frns'), (r) => r.nomFrnsr ?? '—'),
+        undefined,
+        true
+      ),
     }
   })
 
@@ -192,18 +230,16 @@ const Conditionnements: Component<ConditionnementsPageProps> = (props) => {
     })
   })
 
-  const toggleFacette = (
-    set: (fn: (prev: Set<string>) => Set<string>) => void,
-    cle: string,
-  ) => set((prev) => {
-    const next = new Set(prev)
-    if (next.has(cle)) next.delete(cle)
-    else next.add(cle)
-    return next
-  })
+  const toggleFacette = (set: (fn: (prev: Set<string>) => Set<string>) => void, cle: string) =>
+    set((prev) => {
+      const next = new Set(prev)
+      if (next.has(cle)) next.delete(cle)
+      else next.add(cle)
+      return next
+    })
 
   const nbFiltresActifs = createMemo(
-    () => selCategories().size + selFournisseurs().size + selEtats().size,
+    () => selCategories().size + selFournisseurs().size + selEtats().size
   )
 
   const tauxRemplissageFiltre = createMemo(() => {
@@ -221,17 +257,30 @@ const Conditionnements: Component<ConditionnementsPageProps> = (props) => {
         active="conditionnements"
         meta={
           <>
-            <div class="font-fraunces text-[12px] font-bold capitalize not-italic text-terra">
+            <div class="font-fraunces text-[12px] font-bold capitalize not-italic text-brand">
               {stats().totalArticles} article{stats().totalArticles > 1 ? 's' : ''}
             </div>
             <div>
-              <b class="font-bold text-ferme">{stats().nbComplets}</b> complet{stats().nbComplets > 1 ? 's' : ''}
+              <b class="font-bold text-ferme">{stats().nbComplets}</b> complet
+              {stats().nbComplets > 1 ? 's' : ''}
               {' · '}
-              <b class="font-bold text-destructive">{stats().nbManquant0 + stats().nbManquant1 + stats().nbManquantLesDeux}</b> à rattraper
+              <b class="font-bold text-destructive">
+                {stats().nbManquant0 + stats().nbManquant1 + stats().nbManquantLesDeux}
+              </b>{' '}
+              à rattraper
             </div>
             <div>
               Remplissage&nbsp;
-              <b class={cx('font-bold tabular-nums', tauxRemplissageFiltre() >= 0.8 ? 'text-ferme' : tauxRemplissageFiltre() >= 0.5 ? 'text-suggere' : 'text-destructive')}>
+              <b
+                class={cx(
+                  'font-bold tabular-nums',
+                  tauxRemplissageFiltre() >= 0.8
+                    ? 'text-ferme'
+                    : tauxRemplissageFiltre() >= 0.5
+                      ? 'text-suggere'
+                      : 'text-destructive'
+                )}
+              >
                 {(tauxRemplissageFiltre() * 100).toFixed(0)}%
               </b>
             </div>
@@ -285,7 +334,7 @@ const Conditionnements: Component<ConditionnementsPageProps> = (props) => {
         </Show>
 
         {/* Recherche */}
-        <div class="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-terra focus-within:ring-2 focus-within:ring-terra/25">
+        <div class="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/25">
           <span class="material-symbols-outlined text-[17px] text-muted-foreground">search</span>
           <input
             class="w-[200px] border-0 bg-transparent px-0 text-[12px] font-medium text-foreground shadow-none outline-none"
@@ -303,7 +352,7 @@ const Conditionnements: Component<ConditionnementsPageProps> = (props) => {
             <button
               type="button"
               onClick={() => setEnrichTrigger((t) => t + 1)}
-              class="inline-flex items-center gap-1 rounded-full border border-terra/40 bg-terra/10 px-3 py-1 text-[11px] font-semibold text-terra transition-colors hover:bg-terra/20"
+              class="inline-flex items-center gap-1 rounded-full border border-brand/40 bg-brand/10 px-3 py-1 text-[11px] font-semibold text-brand transition-colors hover:bg-brand/20"
               title="Charger les estimations STOCK/STOJOU + mouvements (coûteux)"
             >
               <span class="material-symbols-outlined text-[14px]">insights</span>
@@ -312,22 +361,31 @@ const Conditionnements: Component<ConditionnementsPageProps> = (props) => {
           </Show>
           <Show when={estimationsChargees() && enrichments.loading}>
             <span class="inline-flex items-center gap-1 text-[11px] text-planifie">
-              <span class="material-symbols-outlined animate-spin text-[14px]">progress_activity</span>
+              <span class="material-symbols-outlined animate-spin text-[14px]">
+                progress_activity
+              </span>
               Calcul…
             </span>
           </Show>
 
           <Show when={data.loading}>
-            <span class="font-mono text-[11px] tabular-nums text-muted-foreground">{fmtMs(elapsed())}</span>
+            <span class="font-mono text-[11px] tabular-nums text-muted-foreground">
+              {fmtMs(elapsed())}
+            </span>
           </Show>
           <button
             type="button"
             onClick={() => setBust((b) => b + 1)}
             disabled={data.loading}
-            class="inline-flex items-center gap-1 rounded-full border border-rule bg-card px-3 py-1 text-[11px] font-semibold transition-colors hover:border-terra disabled:opacity-50"
+            class="inline-flex items-center gap-1 rounded-full border border-rule bg-card px-3 py-1 text-[11px] font-semibold transition-colors hover:border-brand disabled:opacity-50"
             title="Recharger les données X3"
           >
-            <span class="material-symbols-outlined text-[14px] text-muted-foreground" classList={{ 'animate-spin': data.loading }}>refresh</span>
+            <span
+              class="material-symbols-outlined text-[14px] text-muted-foreground"
+              classList={{ 'animate-spin': data.loading }}
+            >
+              refresh
+            </span>
             Actualiser
           </button>
         </div>
@@ -347,7 +405,9 @@ const Conditionnements: Component<ConditionnementsPageProps> = (props) => {
         when={!data.loading}
         fallback={
           <div class="flex flex-1 items-center justify-center gap-2 text-muted-foreground">
-            <span class="material-symbols-outlined animate-spin text-[20px]">progress_activity</span>
+            <span class="material-symbols-outlined animate-spin text-[20px]">
+              progress_activity
+            </span>
             <span class="text-[13px] font-medium">Chargement des articles…</span>
           </div>
         }
@@ -365,7 +425,9 @@ const Conditionnements: Component<ConditionnementsPageProps> = (props) => {
             when={filteredRows().length > 0 || x3Error()}
             fallback={
               <div class="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-center">
-                <span class="material-symbols-outlined text-[32px] text-muted-foreground/50">check_circle</span>
+                <span class="material-symbols-outlined text-[32px] text-muted-foreground/50">
+                  check_circle
+                </span>
                 <span class="font-fraunces text-[14px] italic text-muted-foreground">
                   Aucun article ne correspond au filtre.
                 </span>
@@ -395,21 +457,39 @@ const Conditionnements: Component<ConditionnementsPageProps> = (props) => {
                 <tbody>
                   <For each={displayRows()}>
                     {(r) => (
-                      <tr class={cx('border-t border-rule-soft hover:bg-foreground/[0.04]', rowClass(r))}>
+                      <tr
+                        class={cx(
+                          'border-t border-rule-soft hover:bg-foreground/[0.04]',
+                          rowClass(r)
+                        )}
+                      >
                         <td class={TD}>
-                          <div class="font-mono text-[13px] font-bold tracking-tight text-foreground">{r.article}</div>
+                          <div class="font-mono text-[13px] font-bold tracking-tight text-foreground">
+                            {r.article}
+                          </div>
                           <Show when={r.categorie}>
-                            <span class="font-mono text-[9px] uppercase text-muted-foreground">{r.categorie}</span>
+                            <span class="font-mono text-[9px] uppercase text-muted-foreground">
+                              {r.categorie}
+                            </span>
                           </Show>
                         </td>
                         <td class={TD}>
-                          <span class="truncate text-[12px] text-secondary-foreground">{r.designation || '—'}</span>
+                          <span class="truncate text-[12px] text-secondary-foreground">
+                            {r.designation || '—'}
+                          </span>
                         </td>
                         <td class={TD}>
-                          <Show when={r.nomFrnsr} fallback={<span class="text-[11px] italic text-muted-foreground/40">—</span>}>
+                          <Show
+                            when={r.nomFrnsr}
+                            fallback={
+                              <span class="text-[11px] italic text-muted-foreground/40">—</span>
+                            }
+                          >
                             <div class="truncate text-[12px] text-foreground">{r.nomFrnsr}</div>
                             <Show when={r.codeFrnsr}>
-                              <span class="font-mono text-[9px] text-muted-foreground">{r.codeFrnsr}</span>
+                              <span class="font-mono text-[9px] text-muted-foreground">
+                                {r.codeFrnsr}
+                              </span>
                             </Show>
                           </Show>
                         </td>
@@ -421,29 +501,57 @@ const Conditionnements: Component<ConditionnementsPageProps> = (props) => {
                         </td>
                         <Show when={estimationsChargees()}>
                           <td class={TD}>
-                            <Show when={r.derniereEntree} fallback={<span class="text-[11px] italic text-muted-foreground/40">—</span>}>
-                              <div class="font-mono text-[11px] tabular-nums text-foreground">{fmtFr(r.derniereEntree)}</div>
+                            <Show
+                              when={r.derniereEntree}
+                              fallback={
+                                <span class="text-[11px] italic text-muted-foreground/40">—</span>
+                              }
+                            >
+                              <div class="font-mono text-[11px] tabular-nums text-foreground">
+                                {fmtFr(r.derniereEntree)}
+                              </div>
                               <Show when={r.typeEntree}>
-                                <span class="font-mono text-[9px] text-muted-foreground">{r.typeEntree}</span>
+                                <span class="font-mono text-[9px] text-muted-foreground">
+                                  {r.typeEntree}
+                                </span>
                               </Show>
                             </Show>
                           </td>
                           <td class={TD}>
-                            <Show when={r.derniereSortie} fallback={<span class="text-[11px] italic text-muted-foreground/40">—</span>}>
-                              <div class="font-mono text-[11px] tabular-nums text-foreground">{fmtFr(r.derniereSortie)}</div>
+                            <Show
+                              when={r.derniereSortie}
+                              fallback={
+                                <span class="text-[11px] italic text-muted-foreground/40">—</span>
+                              }
+                            >
+                              <div class="font-mono text-[11px] tabular-nums text-foreground">
+                                {fmtFr(r.derniereSortie)}
+                              </div>
                               <Show when={r.typeSortie}>
-                                <span class="font-mono text-[9px] text-muted-foreground">{r.typeSortie}</span>
+                                <span class="font-mono text-[9px] text-muted-foreground">
+                                  {r.typeSortie}
+                                </span>
                               </Show>
                             </Show>
                           </td>
                         </Show>
                         <td class={cx(TD, 'text-right')}>
-                          <Show when={estimationsChargees()} fallback={<span class="text-[11px] italic text-muted-foreground/40">…</span>}>
+                          <Show
+                            when={estimationsChargees()}
+                            fallback={
+                              <span class="text-[11px] italic text-muted-foreground/40">…</span>
+                            }
+                          >
                             <SourceCell src={r.stock} tone="ferme" label="STOCK" />
                           </Show>
                         </td>
                         <td class={cx(TD, 'text-right')}>
-                          <Show when={estimationsChargees()} fallback={<span class="text-[11px] italic text-muted-foreground/40">…</span>}>
+                          <Show
+                            when={estimationsChargees()}
+                            fallback={
+                              <span class="text-[11px] italic text-muted-foreground/40">…</span>
+                            }
+                          >
                             <SourceCell src={r.stojou} tone="planifie" label="STOJOU" />
                           </Show>
                         </td>
@@ -465,7 +573,8 @@ const Conditionnements: Component<ConditionnementsPageProps> = (props) => {
   )
 }
 
-const TH = 'px-4 py-[11px] font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft'
+const TH =
+  'px-4 py-[11px] font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft'
 const TD = 'px-4 py-[11px] align-middle border-r border-rule-soft'
 
 /** Classe de ligne selon l'état du conditionnement. */
@@ -498,13 +607,23 @@ const SourceCell: Component<{
     when={p.src}
     fallback={<span class="font-sans text-[11px] italic text-muted-foreground/40">—</span>}
   >
-    <span class="inline-flex items-center gap-1" title={`${p.label} — ${p.src!.observations} observation(s) — confiance ${p.src!.confiance}`}>
-      <span class={cx('font-fraunces text-[14px] font-bold tabular-nums', p.tone === 'ferme' ? 'text-ferme' : 'text-planifie')}>
+    <span
+      class="inline-flex items-center gap-1"
+      title={`${p.label} — ${p.src!.observations} observation(s) — confiance ${p.src!.confiance}`}
+    >
+      <span
+        class={cx(
+          'font-fraunces text-[14px] font-bold tabular-nums',
+          p.tone === 'ferme' ? 'text-ferme' : 'text-planifie'
+        )}
+      >
         {p.src!.usParPalette}
       </span>
       <span class="font-mono text-[9px] text-muted-foreground">US/pal</span>
       <Show when={p.src!.confiance === 'faible'}>
-        <span class="text-suggere" title="Confiance faible (< 3 observations)">⚠</span>
+        <span class="text-suggere" title="Confiance faible (< 3 observations)">
+          ⚠
+        </span>
       </Show>
     </span>
   </Show>
@@ -531,15 +650,17 @@ const FacetteDropdown: Component<{
         class={cx(
           'flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
           nbSelectionnees() > 0
-            ? 'border-terra/40 bg-terra/10 text-terra'
-            : 'border-rule bg-card text-muted-foreground hover:text-foreground',
+            ? 'border-brand/40 bg-brand/10 text-brand'
+            : 'border-rule bg-card text-muted-foreground hover:text-foreground'
         )}
       >
         {p.label}
         <Show when={nbSelectionnees() > 0}>
-          <span class="rounded bg-terra/20 px-1 text-[9px] tabular-nums">{nbSelectionnees()}</span>
+          <span class="rounded bg-brand/20 px-1 text-[9px] tabular-nums">{nbSelectionnees()}</span>
         </Show>
-        <span class="material-symbols-outlined text-[12px]">{p.open ? 'expand_less' : 'expand_more'}</span>
+        <span class="material-symbols-outlined text-[12px]">
+          {p.open ? 'expand_less' : 'expand_more'}
+        </span>
       </button>
       <Show when={p.open}>
         <div class="fixed inset-0 z-10" onClick={p.onToggleOpen} />
@@ -552,7 +673,7 @@ const FacetteDropdown: Component<{
               <button
                 type="button"
                 onClick={p.onClear}
-                class="font-mono text-[9px] font-bold uppercase tracking-wider text-terra hover:underline"
+                class="font-mono text-[9px] font-bold uppercase tracking-wider text-brand hover:underline"
               >
                 Effacer
               </button>
@@ -563,12 +684,14 @@ const FacetteDropdown: Component<{
               <label class="flex cursor-pointer items-center gap-2 border-b border-rule-soft px-2 py-1.5 last:border-b-0 hover:bg-secondary/40">
                 <input
                   type="checkbox"
-                  class="accent-terra"
+                  class="accent-brand"
                   checked={p.selection.has(f.cle)}
                   onChange={() => p.onToggle(f.cle)}
                 />
                 <span class="flex-1 truncate text-[11px] text-foreground">{f.label}</span>
-                <span class="font-mono text-[10px] tabular-nums text-muted-foreground">{f.count}</span>
+                <span class="font-mono text-[10px] tabular-nums text-muted-foreground">
+                  {f.count}
+                </span>
               </label>
             )}
           </For>
@@ -594,7 +717,7 @@ const ConcordanceBadge: Component<{
   const label = () => {
     if (c.nbSources === 0) return '—'
     // Affiche nbConcordantes/nbSources (ex : "3/3", "2/3", "1/2").
-    return `${c.nbConcordantes}/${c.nbSources * (c.nbSources - 1) / 2}`
+    return `${c.nbConcordantes}/${(c.nbSources * (c.nbSources - 1)) / 2}`
   }
   const points = () => {
     // Points pleins selon le niveau de concordance (max 3).
@@ -602,7 +725,10 @@ const ConcordanceBadge: Component<{
   }
   return (
     <span
-      class={cx('inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider', cls())}
+      class={cx(
+        'inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider',
+        cls()
+      )}
       title={`${c.nbConcordantes} paire(s) concordante(s) sur ${c.nbSources} source(s) disponible(s)`}
     >
       {points()}

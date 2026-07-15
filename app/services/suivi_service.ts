@@ -37,7 +37,8 @@ import staticSync from '#services/static_sync_service'
 import boardDataset from '#services/board_dataset'
 import type { GammeOperation } from '#app/domain/models/gamme'
 import cache from '@adonisjs/cache/services/main'
-import { RecursiveChecker, type OfRecord, type StockRecord, type ReceptionRecord } from '#app/domain/recursive-checker'
+import type { OfRecord, StockRecord } from '#app/domain/recursive-checker'
+import { evaluateRuptures, buildOfSupply, type RuptureDataset } from '#app/domain/rupture-engine'
 import type { Nomenclature, NomenclatureEntry } from '#app/domain/models/nomenclature'
 import type { Article } from '#app/domain/models/article'
 import type { ErpAllocation } from '#app/domain/allocation'
@@ -64,7 +65,10 @@ class MapStockProvider implements StockProvider {
 class FlowOfMatcher implements OfMatcherPort {
   private byArticle = new Map<string, OFInfo[]>()
 
-  constructor(ofFlows: Flow[], private allocations: Map<string, ErpAllocation[]> = new Map()) {
+  constructor(
+    ofFlows: Flow[],
+    private allocations: Map<string, ErpAllocation[]> = new Map()
+  ) {
     for (const f of ofFlows) {
       if (f.direction !== 'supply' || f.origin.type !== 'of' || f.quantity <= 0) continue
       const origin = f.origin as Extract<Flow['origin'], { type: 'of' }>
@@ -89,7 +93,11 @@ class FlowOfMatcher implements OfMatcherPort {
     return 2
   }
 
-  findMatchingOf(_numCommande: string, article: string, _typeCommande: TypeCommande): OFInfo | null {
+  findMatchingOf(
+    _numCommande: string,
+    article: string,
+    _typeCommande: TypeCommande
+  ): OFInfo | null {
     const candidates = this.byArticle.get(article)
     if (!candidates || candidates.length === 0) return null
     return [...candidates].sort((a, b) => {
@@ -111,61 +119,51 @@ class FlowOfMatcher implements OfMatcherPort {
   }
 }
 
-/** Loader minimal pour RecursiveChecker, alimenté par les maps déjà chargées. */
-class SuiviBomLoader {
-  constructor(
-    private nomenclatures: Map<string, Nomenclature>,
-    private stocks: Map<string, StockRecord>,
-    private ofs: OfRecord[],
-    private articles: Map<string, Article>,
-    private ownAllocations: ErpAllocation[] = [],
-  ) {}
-
-  getArticle(article: string): Article | undefined {
-    return this.articles.get(article)
-  }
-  getNomenclature(article: string): Nomenclature | undefined {
-    return this.nomenclatures.get(article)
-  }
-  getStock(article: string): StockRecord | undefined {
-    return this.stocks.get(article)
-  }
-  getReceptions(_article: string): ReceptionRecord[] {
-    return []
-  }
-  getAllocationsOf(_numDoc: string): ErpAllocation[] {
-    return this.ownAllocations
-  }
-  getOfsByArticle(article: string, statut?: number): OfRecord[] {
-    let f = this.ofs.filter((o) => o.article === article)
-    if (statut !== undefined) f = f.filter((o) => o.statutNum === statut)
-    return f
-  }
-}
-
-/** BomNavigator branché sur la nomenclature + RecursiveChecker existant. */
+/**
+ * BomNavigator branché sur le moteur de rupture unique (#73, étape 2.1 — remplace le
+ * RecursiveChecker). Règles actées appliquées au diagnostic de cause réactif :
+ *  - fantômes AFANT : stock crédité d'abord, descente du reliquat (fini la logique
+ *    « variantes » qui exigeait le besoin complet sur une seule branche) ;
+ *  - allocations ERP de l'OF : déduction partielle au niveau direct (fini le re-crédit
+ *    à chaque niveau de descente) ;
+ *  - sous-ensemble fabriqué : son stock compte EN PLUS des OF couvrants, plafonné à la
+ *    quantité.
+ * Dispo inchangée (contexte suivi) : strict + CQ, cf. buildStockRecordMap.
+ */
 class NomenclatureBomNavigator implements BomNavigator {
+  private dataset: RuptureDataset
+
   constructor(
     private nomenclatures: Map<string, Nomenclature>,
-    private stocks: Map<string, StockRecord>,
-    private ofs: OfRecord[],
-    private articles: Map<string, Article>,
-  ) {}
+    stocks: Map<string, StockRecord>,
+    ofs: OfRecord[],
+    articles: Map<string, Article>
+  ) {
+    const stockNet = new Map<string, number>()
+    for (const [article, s] of stocks) stockNet.set(article, s.stockPhysique - s.stockAlloue)
+    this.dataset = {
+      articles,
+      nomenclatures,
+      stockNet,
+      ofSupply: buildOfSupply(ofs),
+    }
+  }
 
   getComponentShortages(
     article: string,
     quantity: number,
-    ownAllocations: Record<string, number>,
+    ownAllocations: Record<string, number>
   ): Record<string, number> {
-    const allocs: ErpAllocation[] = Object.entries(ownAllocations).map(([art, qty]) => ({
-      article: art,
-      qteAllouee: qty,
-    }))
-    const loader = new SuiviBomLoader(this.nomenclatures, this.stocks, this.ofs, this.articles, allocs)
-    const checker = new RecursiveChecker(loader, { dispoPolicy: 'stock_strict' })
-    // numOfParent synthétique → RecursiveChecker applique ownAllocations via getAllocationsOf.
-    const result = checker.checkArticleRecursive(article, quantity, new Date(), 0, false, '__suivi__')
-    return result.missingComponents
+    const numOf = '__suivi__'
+    const verdicts = evaluateRuptures(
+      [{ numOf, article, qteRestante: quantity, statutNum: 2, dateBesoin: null }],
+      {
+        ...this.dataset,
+        allocationsByOf: new Map([[numOf, new Map(Object.entries(ownAllocations))]]),
+      },
+      'photo'
+    )
+    return verdicts.get(numOf)?.missing ?? {}
   }
 
   isComponentInSubassembly(component: string, rootArticle: string): boolean {
@@ -235,7 +233,7 @@ class StubChargeCalculator implements ChargeCalculatorPort {
 class GammeChargeCalculator implements ChargeCalculatorPort {
   constructor(
     private opsByArticle: Map<string, GammeOperation[]>,
-    private labels: Map<string, string>,
+    private labels: Map<string, string>
   ) {}
 
   calculateDirectCharge(article: string, quantity: number): Record<string, number> {
@@ -309,6 +307,13 @@ interface RawSuiviData {
   stockFlows: Flow[]
   detailedByOrderLine: Map<string, Emplacement[]>
   stockByArticle: Map<string, Emplacement[]>
+  /**
+   * Allocations ERP par OF (STOALL, qté active). Créditées au diagnostic de cause :
+   * un OF qui tient une allocation sur un composant ne doit pas être accusé de la
+   * rupture que sa propre réservation crée (le stock net est déjà minoré de GLOALL).
+   * Optionnel : absent des snapshots cachés antérieurs (grace) → dégrade en Map vide.
+   */
+  allocationsByOf?: Map<string, ErpAllocation[]>
 }
 
 // Cache distribué du contexte (cf. boardDataset, issue #20), namespace `suivi:*`.
@@ -347,7 +352,7 @@ export class SuiviService {
    * à chaque appel à partir du snapshot. Le grace period (config/cache.ts) sert le snapshot
    * périmé si X3 échoue.
    */
-  async buildContext(): Promise<SuiviContext> {
+  async buildContext(force = false): Promise<SuiviContext> {
     const raw = await suiviCache().getOrSet({
       key: 'context',
       ttl: CONTEXT_TTL,
@@ -357,7 +362,7 @@ export class SuiviService {
       // remettre `timeout: 1000` : avec un timeout > 0, le refresh tourne hors mode background ; quand
       // il rejette (loadRaw échoue en tâche de fond) la promesse orpheline → unhandled rejection →
       // crash du serveur → la page /suivi tourne dans le vide. Cold start : pas de grace → attend la factory.
-      factory: () => this.loadRaw(),
+      factory: () => this.loadRaw(force),
     })
     return this.assembleContext(raw)
   }
@@ -370,7 +375,7 @@ export class SuiviService {
    * fait planter le suivi quand X3 est lent/injoignable, alors que le reste de l'app
    * sert ces mêmes données depuis le local. Demande / OF / stock restent live (vivants).
    */
-  private async loadRaw(): Promise<RawSuiviData> {
+  private async loadRaw(force = false): Promise<RawSuiviData> {
     const from = new Date()
     from.setDate(from.getDate() - RETARD_LOOKBACK_DAYS)
     const to = new Date()
@@ -380,8 +385,12 @@ export class SuiviService {
 
     // 1 SOAP getLive WIPTYP=1+2+5, fenêtre [today-90, today+30].
     // Lead time commercial ~21j → +30j couvre le backlog opérationnel. Commandes au-delà = non actionnables.
-    const [{ demand: demandFlows, reception: receptionFlows, supply: ofFlows }, nomenclatureEntries, articleList] = await Promise.all([
-      boardDataset.getLive(fromIso, toIso),
+    const [
+      { demand: demandFlows, reception: receptionFlows, supply: ofFlows },
+      nomenclatureEntries,
+      articleList,
+    ] = await Promise.all([
+      boardDataset.getLive(fromIso, toIso, force),
       staticSync.readNomenclatures().catch(() => [] as NomenclatureEntry[]),
       staticSync.readArticles().catch(() => [] as Article[]),
     ])
@@ -412,16 +421,43 @@ export class SuiviService {
     // Le commit perf bc4a911 les avait retirés en attente d'un endpoint lazy, mais la zone
     // d'expé doit être connue AU cold path pour un statut correct. Les 2 SOAP sont dans le
     // cache SWR suivi:context (TTL 2 min + grace) → chaud = instantané.
-    const orderDemand = demandFlows.filter((f) => f.direction === 'demand' && f.origin.type === 'order')
-    const numCommandes = [...new Set(orderDemand.map((f) => (f.origin as Extract<Flow['origin'], { type: 'order' }>).id).filter(Boolean))]
+    const orderDemand = demandFlows.filter(
+      (f) => f.direction === 'demand' && f.origin.type === 'order'
+    )
+    const numCommandes = [
+      ...new Set(
+        orderDemand
+          .map((f) => (f.origin as Extract<Flow['origin'], { type: 'order' }>).id)
+          .filter(Boolean)
+      ),
+    ]
     const lineArticles = [...new Set(orderDemand.map((f) => f.article).filter(Boolean))]
     const emplRepo = new X3EmplacementRepository()
-    const [detailedByOrderLine, stockByArticle] = await Promise.all([
+    // Allocations ERP des OF de la fenêtre (crédit au diagnostic de cause, cf. RawSuiviData).
+    const numOfs = [
+      ...new Set(
+        ofFlows
+          .filter((f) => f.origin.type === 'of')
+          .map((f) => ((f.origin as Extract<Flow['origin'], { type: 'of' }>).id ?? '').trim())
+          .filter(Boolean)
+      ),
+    ]
+    const [detailedByOrderLine, stockByArticle, allocationsByOf] = await Promise.all([
       emplRepo.getDetailedByOrderLine(numCommandes),
       emplRepo.getStockLocations(lineArticles),
+      emplRepo.getOfAllocations(numOfs),
     ])
 
-    return { demandFlows, ofFlows, nomenclatureEntries, articleList, stockFlows, detailedByOrderLine, stockByArticle }
+    return {
+      demandFlows,
+      ofFlows,
+      nomenclatureEntries,
+      articleList,
+      stockFlows,
+      detailedByOrderLine,
+      stockByArticle,
+      allocationsByOf,
+    }
   }
 
   /**
@@ -439,8 +475,14 @@ export class SuiviService {
         .filter((f) => f.origin.type === 'of')
         .map((f) => {
           const o = f.origin as Extract<Flow['origin'], { type: 'of' }>
-          return { numOf: o.id ?? '', article: f.article, status: o.status ?? 3, quantity: f.quantity, endDate: f.date }
-        }),
+          return {
+            numOf: o.id ?? '',
+            article: f.article,
+            status: o.status ?? 3,
+            quantity: f.quantity,
+            endDate: f.date,
+          }
+        })
     )
 
     const lines = buildOrderLines(raw.demandFlows, nomenclatures, articles)
@@ -449,7 +491,7 @@ export class SuiviService {
     return {
       lines,
       stockProvider: new MapStockProvider(breakdown),
-      ofMatcher: new FlowOfMatcher(raw.ofFlows),
+      ofMatcher: new FlowOfMatcher(raw.ofFlows, raw.allocationsByOf ?? new Map()),
       bomNavigator: new NomenclatureBomNavigator(nomenclatures, stocks, ofs, articles),
       paletteProvider: new StubPaletteProvider(),
       chargeCalculator: new StubChargeCalculator(),
@@ -457,8 +499,8 @@ export class SuiviService {
   }
 
   /** Assigne les statuts + cause + signal CQ pour toutes les lignes courantes. */
-  async assignFromLatest(referenceDate: Date): Promise<StatusAssignment[]> {
-    const ctx = await this.buildContext()
+  async assignFromLatest(referenceDate: Date, force = false): Promise<StatusAssignment[]> {
+    const ctx = await this.buildContext(force)
     return this.assign(ctx, referenceDate)
   }
 
@@ -482,7 +524,6 @@ export class SuiviService {
     const chargeCalculator = await buildGammeChargeCalculator()
     return computeRetardCharge(assignments, ctx.bomNavigator, chargeCalculator)
   }
-
 }
 
 // ---------------------------------------------------------------------------
@@ -532,7 +573,7 @@ function buildStockRecordMap(stockFlows: Flow[]): Map<string, StockRecord> {
 export function buildOrderLines(
   demandFlows: Flow[],
   nomenclatures: Map<string, Nomenclature>,
-  articles: Map<string, Article>,
+  articles: Map<string, Article>
 ): OrderLine[] {
   const lines: OrderLine[] = []
   for (const f of demandFlows) {
@@ -573,7 +614,7 @@ export function buildOrderLines(
 export function applyEmplacements(
   lines: OrderLine[],
   detailedByOrderLine: Map<string, Emplacement[]>,
-  stockByArticle: Map<string, Emplacement[]>,
+  stockByArticle: Map<string, Emplacement[]>
 ): void {
   // Index STOCOU → STOCK pour le lien canonique entre allocation et stock physique.
   const stockByStoCou = new Map<string, Emplacement>()
@@ -628,7 +669,6 @@ export function applyEmplacements(
   }
 }
 
-
 /** Reconstruit une map breakdown depuis le StockProvider du contexte (pour assignStatuses). */
 function stockProviderToMap(ctx: SuiviContext): Map<string, StockBreakdown> {
   const map = new Map<string, StockBreakdown>()
@@ -638,4 +678,3 @@ function stockProviderToMap(ctx: SuiviContext): Map<string, StockBreakdown> {
   }
   return map
 }
-

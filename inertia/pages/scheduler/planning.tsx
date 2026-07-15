@@ -8,7 +8,13 @@ import OrderGrid from '@/components/board/order-grid'
 import OrderDetailSheet from '@/components/orders/order-detail-sheet'
 import { Masthead } from '@/components/masthead'
 import { TextField, TextFieldInput } from '@/components/ui/text-field'
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '@/components/ui/select'
 import { Calendar, type DateRange } from '@/components/ui/calendar'
 
 type PlanningProps = {
@@ -70,8 +76,8 @@ const Planning: Component<PlanningProps> = (props) => {
       (next, prev) => {
         if (prev !== undefined && next !== prev) store.reset(next)
       },
-      { defer: true },
-    ),
+      { defer: true }
+    )
   )
 
   // Calendrier (remplace nav semaine + horizon).
@@ -84,7 +90,8 @@ const Planning: Component<PlanningProps> = (props) => {
     setRange(r)
     if (r.start && r.end) {
       setCalOpen(false)
-      const days = Math.round((startOfDay(r.end).getTime() - startOfDay(r.start).getTime()) / DAY_MS) + 1
+      const days =
+        Math.round((startOfDay(r.end).getTime() - startOfDay(r.start).getTime()) / DAY_MS) + 1
       router.visit(route('planning'), {
         data: { start: toIso(r.start), days: String(days) },
         preserveScroll: true,
@@ -95,7 +102,7 @@ const Planning: Component<PlanningProps> = (props) => {
   const chipCls = (active: boolean) =>
     cx(
       'rounded-[5px] px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
-      active ? 'bg-terra-soft text-terra' : 'text-muted-foreground hover:text-foreground',
+      active ? 'bg-brand-soft text-brand' : 'text-muted-foreground hover:text-foreground'
     )
 
   return (
@@ -105,7 +112,9 @@ const Planning: Component<PlanningProps> = (props) => {
         active="programme"
         meta={
           <>
-            <div class="font-fraunces text-[12px] font-bold not-italic text-terra">{props.weekLabel}</div>
+            <div class="font-fraunces text-[12px] font-bold not-italic text-brand">
+              {props.weekLabel}
+            </div>
             <div>
               Fenêtre <b class="font-bold text-foreground">{props.horizon} j</b> ·{' '}
               <b class="font-bold text-foreground">{props.totalLines}</b> ligne
@@ -117,8 +126,10 @@ const Planning: Component<PlanningProps> = (props) => {
         actions={
           <>
             <TextField class="contents">
-              <div class="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-terra focus-within:ring-2 focus-within:ring-terra/25">
-                <span class="material-symbols-outlined text-[17px] text-muted-foreground">search</span>
+              <div class="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/25">
+                <span class="material-symbols-outlined text-[17px] text-muted-foreground">
+                  search
+                </span>
                 <TextFieldInput
                   class="w-[180px] border-0 bg-transparent px-0 text-[12px] font-medium shadow-none focus-visible:ring-0"
                   placeholder="Commande, article, client…"
@@ -138,7 +149,8 @@ const Planning: Component<PlanningProps> = (props) => {
               optionTextValue={(o) => SCOPES.find((s) => s.v === o)?.label ?? o}
               itemComponent={(itemProps) => (
                 <SelectItem item={itemProps.item}>
-                  {SCOPES.find((s) => s.v === itemProps.item.rawValue)?.label ?? itemProps.item.rawValue}
+                  {SCOPES.find((s) => s.v === itemProps.item.rawValue)?.label ??
+                    itemProps.item.rawValue}
                 </SelectItem>
               )}
             >
@@ -163,11 +175,15 @@ const Planning: Component<PlanningProps> = (props) => {
           <button
             type="button"
             onClick={() => setCalOpen((o) => !o)}
-            class="flex items-center gap-1.5 rounded-full border border-rule bg-card px-2.5 py-1 text-[11px] font-semibold text-foreground transition-colors hover:border-terra"
+            class="flex items-center gap-1.5 rounded-full border border-rule bg-card px-2.5 py-1 text-[11px] font-semibold text-foreground transition-colors hover:border-brand"
           >
-            <span class="material-symbols-outlined text-[14px] text-muted-foreground">calendar_month</span>
+            <span class="material-symbols-outlined text-[14px] text-muted-foreground">
+              calendar_month
+            </span>
             {props.dateRange}
-            <span class="material-symbols-outlined text-[16px] text-muted-foreground">expand_more</span>
+            <span class="material-symbols-outlined text-[16px] text-muted-foreground">
+              expand_more
+            </span>
           </button>
           <Show when={calOpen()}>
             <button
@@ -186,10 +202,16 @@ const Planning: Component<PlanningProps> = (props) => {
         <div class="flex items-center gap-2.5">
           {/* Filtre type commande */}
           <div class="inline-flex items-center gap-1 rounded-md border border-rule bg-card p-0.5">
-            <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Type</span>
+            <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+              Type
+            </span>
             <For each={TYPES}>
               {(t) => (
-                <button type="button" class={chipCls(store.typeFilter().has(t))} onClick={() => store.toggleType(t)}>
+                <button
+                  type="button"
+                  class={chipCls(store.typeFilter().has(t))}
+                  onClick={() => store.toggleType(t)}
+                >
                   {t}
                 </button>
               )}
@@ -198,10 +220,16 @@ const Planning: Component<PlanningProps> = (props) => {
 
           {/* Filtre nature besoin */}
           <div class="inline-flex items-center gap-1 rounded-md border border-rule bg-card p-0.5">
-            <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Besoin</span>
+            <span class="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+              Besoin
+            </span>
             <For each={NATURES}>
               {(n) => (
-                <button type="button" class={chipCls(store.natureFilter().has(n.v))} onClick={() => store.toggleNature(n.v)}>
+                <button
+                  type="button"
+                  class={chipCls(store.natureFilter().has(n.v))}
+                  onClick={() => store.toggleNature(n.v)}
+                >
                   {n.label}
                 </button>
               )}
@@ -217,8 +245,8 @@ const Planning: Component<PlanningProps> = (props) => {
 
       {/* X3 injoignable */}
       <Show when={props.x3Error}>
-        <div class="flex flex-none items-center gap-2 border-b border-terra/30 bg-terra-soft px-7 py-2 text-[12px] text-foreground">
-          <span class="material-symbols-outlined text-[16px] text-terra">warning</span>
+        <div class="flex flex-none items-center gap-2 border-b border-brand/30 bg-brand-soft px-7 py-2 text-[12px] text-foreground">
+          <span class="material-symbols-outlined text-[16px] text-brand">warning</span>
           <span class="font-bold">Erreur chargement planification :</span>
           <span class="font-mono">{props.x3Error}</span>
         </div>

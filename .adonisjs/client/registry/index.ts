@@ -96,6 +96,12 @@ const routes = {
     tokens: [{"old":"/programme","type":0,"val":"programme","end":""}],
     types: placeholder as Registry['scheduler.programme']['types'],
   },
+  'scenarios.compare': {
+    methods: ["GET","HEAD"],
+    pattern: '/programme/scenarios/comparer',
+    tokens: [{"old":"/programme/scenarios/comparer","type":0,"val":"programme","end":""},{"old":"/programme/scenarios/comparer","type":0,"val":"scenarios","end":""},{"old":"/programme/scenarios/comparer","type":0,"val":"comparer","end":""}],
+    types: placeholder as Registry['scenarios.compare']['types'],
+  },
   'load.index': {
     methods: ["GET","HEAD"],
     pattern: '/charge',
@@ -228,6 +234,42 @@ const routes = {
     tokens: [{"old":"/api/v1/planning/orders/:orderNum/firm","type":0,"val":"api","end":""},{"old":"/api/v1/planning/orders/:orderNum/firm","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/orders/:orderNum/firm","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/orders/:orderNum/firm","type":0,"val":"orders","end":""},{"old":"/api/v1/planning/orders/:orderNum/firm","type":1,"val":"orderNum","end":""},{"old":"/api/v1/planning/orders/:orderNum/firm","type":0,"val":"firm","end":""}],
     types: placeholder as Registry['planning.order_firm']['types'],
   },
+  'scenarios.index': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/planning/scenarios',
+    tokens: [{"old":"/api/v1/planning/scenarios","type":0,"val":"api","end":""},{"old":"/api/v1/planning/scenarios","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/scenarios","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/scenarios","type":0,"val":"scenarios","end":""}],
+    types: placeholder as Registry['scenarios.index']['types'],
+  },
+  'scenarios.store': {
+    methods: ["POST"],
+    pattern: '/api/v1/planning/scenarios',
+    tokens: [{"old":"/api/v1/planning/scenarios","type":0,"val":"api","end":""},{"old":"/api/v1/planning/scenarios","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/scenarios","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/scenarios","type":0,"val":"scenarios","end":""}],
+    types: placeholder as Registry['scenarios.store']['types'],
+  },
+  'scenarios.diff': {
+    methods: ["POST"],
+    pattern: '/api/v1/planning/scenarios/diff',
+    tokens: [{"old":"/api/v1/planning/scenarios/diff","type":0,"val":"api","end":""},{"old":"/api/v1/planning/scenarios/diff","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/scenarios/diff","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/scenarios/diff","type":0,"val":"scenarios","end":""},{"old":"/api/v1/planning/scenarios/diff","type":0,"val":"diff","end":""}],
+    types: placeholder as Registry['scenarios.diff']['types'],
+  },
+  'scenarios.show': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/planning/scenarios/:id',
+    tokens: [{"old":"/api/v1/planning/scenarios/:id","type":0,"val":"api","end":""},{"old":"/api/v1/planning/scenarios/:id","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/scenarios/:id","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/scenarios/:id","type":0,"val":"scenarios","end":""},{"old":"/api/v1/planning/scenarios/:id","type":1,"val":"id","end":""}],
+    types: placeholder as Registry['scenarios.show']['types'],
+  },
+  'scenarios.update': {
+    methods: ["PATCH"],
+    pattern: '/api/v1/planning/scenarios/:id',
+    tokens: [{"old":"/api/v1/planning/scenarios/:id","type":0,"val":"api","end":""},{"old":"/api/v1/planning/scenarios/:id","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/scenarios/:id","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/scenarios/:id","type":0,"val":"scenarios","end":""},{"old":"/api/v1/planning/scenarios/:id","type":1,"val":"id","end":""}],
+    types: placeholder as Registry['scenarios.update']['types'],
+  },
+  'scenarios.destroy': {
+    methods: ["DELETE"],
+    pattern: '/api/v1/planning/scenarios/:id',
+    tokens: [{"old":"/api/v1/planning/scenarios/:id","type":0,"val":"api","end":""},{"old":"/api/v1/planning/scenarios/:id","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/scenarios/:id","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/scenarios/:id","type":0,"val":"scenarios","end":""},{"old":"/api/v1/planning/scenarios/:id","type":1,"val":"id","end":""}],
+    types: placeholder as Registry['scenarios.destroy']['types'],
+  },
   'scheduler.of_detail': {
     methods: ["GET","HEAD"],
     pattern: '/api/v1/planning/ofs/:of/detail',
@@ -293,6 +335,12 @@ const routes = {
     pattern: '/api/v1/dashboard/otd',
     tokens: [{"old":"/api/v1/dashboard/otd","type":0,"val":"api","end":""},{"old":"/api/v1/dashboard/otd","type":0,"val":"v1","end":""},{"old":"/api/v1/dashboard/otd","type":0,"val":"dashboard","end":""},{"old":"/api/v1/dashboard/otd","type":0,"val":"otd","end":""}],
     types: placeholder as Registry['dashboard.otd']['types'],
+  },
+  'dashboard.stock_valuation': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/dashboard/stock',
+    tokens: [{"old":"/api/v1/dashboard/stock","type":0,"val":"api","end":""},{"old":"/api/v1/dashboard/stock","type":0,"val":"v1","end":""},{"old":"/api/v1/dashboard/stock","type":0,"val":"dashboard","end":""},{"old":"/api/v1/dashboard/stock","type":0,"val":"stock","end":""}],
+    types: placeholder as Registry['dashboard.stock_valuation']['types'],
   },
   'expeditions.rows': {
     methods: ["GET","HEAD"],

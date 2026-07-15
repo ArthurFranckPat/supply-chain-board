@@ -100,12 +100,14 @@ From `roadmap` JSON, find all phases where `phase_number` starts with `999` (bac
 From `todos-data` JSON, extract `todos` array with fields: `id`, `title`, `area`, `created`, `problem`.
 
 **If both backlog phases and todos are empty:**
+
 ```
 Nothing in the backlog. The queue is clear.
 
 To capture an idea: /gsd-add-backlog <idea>
 To capture a todo: /gsd-add-todo <task>
 ```
+
 Exit.
 </step>
 
@@ -131,6 +133,7 @@ Display a combined inventory:
 ```
 
 Ask:
+
 ```
 Options:
 1. Review each item interactively (recommended)
@@ -139,12 +142,14 @@ Options:
 4. Discard a backlog phase
 5. Done (keep everything)
 ```
+
 </step>
 
 <step name="interactive_review">
 **If user chooses interactive review:**
 
 For each backlog phase (999.x), present:
+
 ```
 ## Phase 999.{N}: {idea}
 
@@ -156,10 +161,13 @@ Options:
 ```
 
 **Promote:** Remove the 999.x entry, add as a properly numbered phase at the end of the current milestone using:
+
 ```bash
 pi-gsd-tools roadmap add-phase "{next_available_number}" "{idea_text}" --raw
 ```
+
 Then remove the 999.x placeholder:
+
 ```bash
 pi-gsd-tools roadmap remove-phase "999.{N}" --raw
 ```
@@ -167,11 +175,13 @@ pi-gsd-tools roadmap remove-phase "999.{N}" --raw
 **Convert to todo:** Create a todo file (see `/gsd-add-todo` workflow) and remove the 999.x phase entry.
 
 **Discard:**
+
 ```bash
 pi-gsd-tools roadmap remove-phase "999.{N}" --raw
 ```
 
 For each pending todo, present:
+
 ```
 ## Todo: {title}
 Area: {area}
@@ -183,6 +193,7 @@ Options:
 3. Promote to backlog phase
 4. Mark done (won't be worked on)
 ```
+
 </step>
 
 <step name="commit_changes">
@@ -193,6 +204,7 @@ pi-gsd-tools commit "docs: backlog review - promoted {X} items, discarded {Y}" -
 ```
 
 Display summary:
+
 ```
 ## Backlog Review Complete
 
@@ -204,11 +216,13 @@ Display summary:
 {If phases promoted:}
 Next: /gsd-plan-phase {new_phase_number}
 ```
+
 </step>
 
 </process>
 
 <success_criteria>
+
 - [ ] All 999.x backlog phases listed
 - [ ] All pending todos listed
 - [ ] Each item reviewed with a clear decision
@@ -216,4 +230,4 @@ Next: /gsd-plan-phase {new_phase_number}
 - [ ] Discards removed from ROADMAP.md
 - [ ] Changes committed to git
 - [ ] User knows what's next
-</success_criteria>
+      </success_criteria>

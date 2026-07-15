@@ -15,8 +15,12 @@ function mockContext(overrides: Record<string, any> = {}): any {
       },
     },
     response: {
-      notFound(data: any) { return { status: 404, ...data } },
-      ok(data: any) { return data },
+      notFound(data: any) {
+        return { status: 404, ...data }
+      },
+      ok(data: any) {
+        return data
+      },
     },
     ...overrides,
   }

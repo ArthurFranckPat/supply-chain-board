@@ -102,6 +102,7 @@ Evaluate `$ARGUMENTS` against these routing rules. Apply the **first matching** 
 
 Which approach fits better?
 ```
+
 </step>
 
 <step name="display">
@@ -116,6 +117,7 @@ Which approach fits better?
 **Routing to:** {chosen command}
 **Reason:** {one-line explanation}
 ```
+
 </step>
 
 <step name="dispatch">
@@ -131,6 +133,7 @@ After invoking the command, stop. The dispatched command handles everything from
 </process>
 
 <success_criteria>
+
 - [ ] Input validated (not empty)
 - [ ] Intent matched to exactly one GSD command
 - [ ] Ambiguity resolved via user question (if needed)
@@ -138,4 +141,4 @@ After invoking the command, stop. The dispatched command handles everything from
 - [ ] Routing decision displayed before dispatch
 - [ ] Command invoked with appropriate arguments
 - [ ] No work done directly - dispatcher only
-</success_criteria>
+      </success_criteria>

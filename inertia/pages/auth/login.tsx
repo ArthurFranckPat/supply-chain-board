@@ -69,7 +69,9 @@ const Login: Component<LoginProps> = (props) => {
         >
           <div>
             <div class="font-fraunces text-[34px] font-black leading-[1.05] tracking-tight">
-              Supply<br />Chain <span class="italic font-medium text-suggere">Board</span>
+              Supply
+              <br />
+              Chain <span class="italic font-medium text-suggere">Board</span>
             </div>
             <p class="mt-4 max-w-[32ch] text-[14.5px] leading-relaxed text-muted-foreground">
               Ordonnancement &amp; suivi de production — connecté à Sage&nbsp;X3.
@@ -85,7 +87,9 @@ const Login: Component<LoginProps> = (props) => {
         <section class="relative flex flex-col justify-center bg-background px-8 py-12 sm:px-12">
           {/* Sélecteur d'environnement — discret, en haut à droite. */}
           <div class="absolute right-6 top-6 flex items-center gap-2">
-            <span class="font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">Env</span>
+            <span class="font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
+              Env
+            </span>
             <div class="inline-flex rounded-md border border-border bg-secondary p-[2px]">
               <For each={ENVS}>
                 {(opt) => (
@@ -158,7 +162,12 @@ const Login: Component<LoginProps> = (props) => {
               Se souvenir de mon identifiant et de l'environnement
             </label>
 
-            <Button type="submit" size="lg" class="h-11 w-full" disabled={!canSubmit() || submitting()}>
+            <Button
+              type="submit"
+              size="lg"
+              class="h-11 w-full"
+              disabled={!canSubmit() || submitting()}
+            >
               {submitting() ? 'Connexion…' : 'Se connecter'}
             </Button>
           </form>

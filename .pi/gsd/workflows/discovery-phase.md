@@ -12,11 +12,11 @@ NOTE: For comprehensive ecosystem research ("how do experts build this"), use /g
 <depth_levels>
 **This workflow supports three depth levels:**
 
-| Level | Name         | Time      | Output                                       | When                                      |
-| ----- | ------------ | --------- | -------------------------------------------- | ----------------------------------------- |
-| 1     | Quick Verify | 2-5 min   | No file, proceed with verified knowledge     | Single library, confirming current syntax |
-| 2     | Standard     | 15-30 min | DISCOVERY.md                                 | Choosing between options, new integration |
-| 3     | Deep Dive    | 1+ hour   | Detailed DISCOVERY.md with validation gates  | Architectural decisions, novel problems   |
+| Level | Name         | Time      | Output                                      | When                                      |
+| ----- | ------------ | --------- | ------------------------------------------- | ----------------------------------------- |
+| 1     | Quick Verify | 2-5 min   | No file, proceed with verified knowledge    | Single library, confirming current syntax |
+| 2     | Standard     | 15-30 min | DISCOVERY.md                                | Choosing between options, new integration |
+| 3     | Deep Dive    | 1+ hour   | Detailed DISCOVERY.md with validation gates | Architectural decisions, novel problems   |
 
 **Depth is determined by plan-phase.md before routing here.**
 </depth_levels>
@@ -289,3 +289,4 @@ NOTE: DISCOVERY.md is NOT committed separately. It will be committed with phase 
 - Confidence gate passed
 - Ready to inform PLAN.md creation
 </success_criteria>
+```

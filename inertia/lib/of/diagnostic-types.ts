@@ -11,7 +11,8 @@
 // Types diagnostic (miroir de RecursiveDiagnosticResult côté serveur)
 // ---------------------------------------------------------------------------
 
-export type NodeStatus = 'ok' | 'qc_a_controler' | 'rupture_matiere' | 'sous_ensemble_a_lancer' | 'indetermine'
+export type NodeStatus =
+  'ok' | 'qc_a_controler' | 'rupture_matiere' | 'sous_ensemble_a_lancer' | 'indetermine'
 export type NodeSource = 'MFGMAT' | 'NOMENCLATURE'
 
 export interface DiagNode {

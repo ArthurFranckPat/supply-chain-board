@@ -1,4 +1,4 @@
-import { HttpContext } from '@adonisjs/core/http'
+import { type HttpContext } from '@adonisjs/core/http'
 import logger from '@adonisjs/core/services/logger'
 import {
   ExpeditionRepository,
@@ -21,7 +21,8 @@ export default class ExpeditionsController {
   /** GET /expeditions — coquille de la page. */
   async index(ctx: HttpContext) {
     const referenceDate =
-      (ctx.request.input('referenceDate') as string | undefined) || new Date().toISOString().slice(0, 10)
+      (ctx.request.input('referenceDate') as string | undefined) ||
+      new Date().toISOString().slice(0, 10)
     return ctx.inertia.render('expeditions', {
       referenceDate,
       rowsHref: `/api/v1/expeditions/rows?referenceDate=${encodeURIComponent(referenceDate)}`,
@@ -59,7 +60,8 @@ export default class ExpeditionsController {
 
     // Tolérance de regroupement « camion » surchargeable par requête (calibration VPN, #44).
     const gapMinParam = Number.parseInt(ctx.request.input('expGapMin'), 10)
-    const gapMinutes = Number.isFinite(gapMinParam) && gapMinParam > 0 ? gapMinParam : CAMION_GAP_MINUTES
+    const gapMinutes =
+      Number.isFinite(gapMinParam) && gapMinParam > 0 ? gapMinParam : CAMION_GAP_MINUTES
 
     let expeditions: ExpeditionKpi = {
       label,

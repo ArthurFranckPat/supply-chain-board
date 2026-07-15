@@ -143,9 +143,7 @@ export class X3OrderLineRepository {
    */
   async getOrderLine(numCommande: string, ligne: string): Promise<OrderLineRow | null> {
     const esc = (s: string) => s.replace(/'/g, "''")
-    const sql =
-      SQL +
-      `\n  AND O.VCRNUM_0 = '${esc(numCommande)}' AND O.VCRLIN_0 = '${esc(ligne)}'`
+    const sql = SQL + `\n  AND O.VCRNUM_0 = '${esc(numCommande)}' AND O.VCRLIN_0 = '${esc(ligne)}'`
 
     const db = new X3Database()
     try {
@@ -163,7 +161,7 @@ export class X3OrderLineRepository {
         client: row.CLIENT?.trim() || null,
         article: row.ARTICLE?.trim() ?? '',
         designation: row.DESIGNATION?.trim() || null,
-        quantite: parseFloat(row.RESTE_LIVRER ?? '0') || 0,
+        quantite: Number.parseFloat(row.RESTE_LIVRER ?? '0') || 0,
         dateLivraison: date,
         contremarque: row.CONTREMARQUE?.trim() || null,
         unite: row.UNITE?.trim() || null,
@@ -181,7 +179,12 @@ export class X3OrderLineRepository {
    * Utilise ENDDAT_0 pour ECHEANCE (vs CASE WHEN SHIDAT_0/ENDDAT_0) : delta négligeable
    * sur un horizon 6 mois en mailles hebdo/mensuel.
    */
-  async getOrderLinesForLoad(fromStr: string, toStr: string): Promise<Pick<OrderLineRow, 'article' | 'designation' | 'quantite' | 'dateLivraison' | 'nature'>[]> {
+  async getOrderLinesForLoad(
+    fromStr: string,
+    toStr: string
+  ): Promise<
+    Pick<OrderLineRow, 'article' | 'designation' | 'quantite' | 'dateLivraison' | 'nature'>[]
+  > {
     const sql = `
 SELECT
   O.ITMREF_0    AS ARTICLE,
@@ -208,7 +211,7 @@ WHERE O.WIPTYP_0 = 1
           return {
             article: row.ARTICLE?.trim() ?? '',
             designation: row.DESIGNATION?.trim() || null,
-            quantite: parseFloat(row.RESTE_LIVRER ?? '0') || 0,
+            quantite: Number.parseFloat(row.RESTE_LIVRER ?? '0') || 0,
             dateLivraison: date,
             nature: (row.WIPSTA?.trim() === '1' ? 'COMMANDE' : 'PREVISION') as NeedNature,
           }
@@ -247,7 +250,7 @@ WHERE O.WIPTYP_0 = 1
           client: row.CLIENT?.trim() || null,
           article: row.ARTICLE?.trim() ?? '',
           designation: row.DESIGNATION?.trim() || null,
-          quantite: parseFloat(row.RESTE_LIVRER ?? '0') || 0,
+          quantite: Number.parseFloat(row.RESTE_LIVRER ?? '0') || 0,
           dateLivraison: date,
           contremarque: row.CONTREMARQUE?.trim() || null,
           unite: row.UNITE?.trim() || null,

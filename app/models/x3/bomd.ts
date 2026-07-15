@@ -187,5 +187,4 @@ export default class BomDetail extends BaseModel {
 
   @belongsTo(() => ItemMaster, { foreignKey: 'articleParent', localKey: 'article' })
   declare ficheArticleParent: BelongsTo<typeof ItemMaster>
-
 }

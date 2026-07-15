@@ -7,6 +7,7 @@ Template for `.planning/MILESTONE-CONTEXT.md` — captures product scope decisio
 **Key principle:** Product-level only. WHAT users will be able to do — not HOW it will be implemented. Implementation decisions happen in `/gsd-discuss-phase` per phase.
 
 **Downstream consumer:**
+
 - `new-milestone` — reads `<scope>` for feature scoping, `<constraints>` for requirements boundaries, `<success>` to inform success criteria in ROADMAP.md
 
 ---
@@ -20,6 +21,7 @@ Template for `.planning/MILESTONE-CONTEXT.md` — captures product scope decisio
 **Status:** Ready for /gsd-new-milestone
 
 <milestone_goal>
+
 ## Goal
 
 [One sentence: what this milestone delivers for users]
@@ -56,12 +58,14 @@ Template for `.planning/MILESTONE-CONTEXT.md` — captures product scope decisio
 ## Success Definition
 
 This milestone is successful when:
+
 - [Observable user outcome — something that can be demoed]
 - [Observable user outcome]
 
 </success>
 
 <open_questions>
+
 ## Open Questions for Planning
 
 - [Question to resolve early in new-milestone or research]
@@ -72,8 +76,8 @@ This milestone is successful when:
 
 ---
 
-*Milestone context gathered: [date]*
-*Run /gsd-new-milestone to start planning*
+_Milestone context gathered: [date]_
+_Run /gsd-new-milestone to start planning_
 ```
 
 <good_examples>
@@ -87,6 +91,7 @@ This milestone is successful when:
 **Status:** Ready for /gsd-new-milestone
 
 <milestone_goal>
+
 ## Goal
 
 Users can invite teammates and collaborate on projects in real time.
@@ -122,12 +127,14 @@ Users can invite teammates and collaborate on projects in real time.
 ## Success Definition
 
 This milestone is successful when:
+
 - A user can invite a colleague and both see the same project within 60 seconds
 - A viewer cannot accidentally edit or delete content
 
 </success>
 
 <open_questions>
+
 ## Open Questions for Planning
 
 - Should activity feed be real-time (websocket) or polling? Affects architecture phase ordering.
@@ -137,8 +144,8 @@ This milestone is successful when:
 
 ---
 
-*Milestone context gathered: 2025-03-15*
-*Run /gsd-new-milestone to start planning*
+_Milestone context gathered: 2025-03-15_
+_Run /gsd-new-milestone to start planning_
 ```
 
 **Example 2: CLI tool — v1.1 reliability release**
@@ -150,6 +157,7 @@ This milestone is successful when:
 **Status:** Ready for /gsd-new-milestone
 
 <milestone_goal>
+
 ## Goal
 
 The backup CLI is reliable enough for unattended production use.
@@ -185,12 +193,14 @@ The backup CLI is reliable enough for unattended production use.
 ## Success Definition
 
 This milestone is successful when:
+
 - A backup job can run overnight on a cron without manual intervention
 - A failed run produces a log entry that tells an ops engineer exactly what went wrong
 
 </success>
 
 <open_questions>
+
 ## Open Questions for Planning
 
 - Should config file use TOML, JSON, or dotenv format? Research common CLI conventions.
@@ -199,8 +209,8 @@ This milestone is successful when:
 
 ---
 
-*Milestone context gathered: 2025-04-01*
-*Run /gsd-new-milestone to start planning*
+_Milestone context gathered: 2025-04-01_
+_Run /gsd-new-milestone to start planning_
 ```
 
 </good_examples>
@@ -209,22 +219,27 @@ This milestone is successful when:
 **What makes a good MILESTONE-CONTEXT.md:**
 
 Good goal (specific, user-observable):
+
 - "Users can invite teammates and collaborate on projects in real time."
 - "The backup CLI is reliable enough for unattended production use."
 
 Bad goal (too vague):
+
 - "Improve collaboration features"
 - "Make things more reliable"
 
 Good scope item (user action):
+
 - "User can invite colleagues by email address"
 - "Dry-run mode previews changes before committing"
 
 Bad scope item (implementation detail):
+
 - "Add Redis pub/sub for real-time updates"
 - "Refactor retry logic in backup module"
 
 **After creation:**
+
 - File lives at `.planning/MILESTONE-CONTEXT.md`
 - `new-milestone` reads it in step 2, uses it for requirements scoping, then deletes it
 - It does NOT persist — it's a handoff document, not a record

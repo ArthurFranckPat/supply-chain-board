@@ -11,7 +11,8 @@ import cache from '@adonisjs/cache/services/main'
  */
 export default class CacheVerify extends BaseCommand {
   static commandName = 'cache:verify'
-  static description = 'Vérifie le cache : roundtrip set/get/delete + serializer (Redis si CACHE_STORE=redis)'
+  static description =
+    'Vérifie le cache : roundtrip set/get/delete + serializer (Redis si CACHE_STORE=redis)'
 
   static options: CommandOptions = { startApp: true }
 
@@ -37,7 +38,8 @@ export default class CacheVerify extends BaseCommand {
         return
       }
 
-      const dateOk = out.date instanceof Date && out.date.toISOString() === payload.date.toISOString()
+      const dateOk =
+        out.date instanceof Date && out.date.toISOString() === payload.date.toISOString()
       const mapOk = out.map instanceof Map && out.map.get('a') === 1
 
       if (!dateOk || !mapOk) {
@@ -48,9 +50,13 @@ export default class CacheVerify extends BaseCommand {
 
       this.logger.success(`Cache OK (${storeName}) : roundtrip + Date/Map préservées.`)
     } catch (err) {
-      this.logger.error(`Cache KO (${storeName}) : ${err instanceof Error ? err.message : String(err)}`)
+      this.logger.error(
+        `Cache KO (${storeName}) : ${err instanceof Error ? err.message : String(err)}`
+      )
       if (storeName === 'redis') {
-        this.logger.info('Vérifier que Redis est joignable (REDIS_HOST/PORT) et que le serveur tourne.')
+        this.logger.info(
+          'Vérifier que Redis est joignable (REDIS_HOST/PORT) et que le serveur tourne.'
+        )
       }
       this.exitCode = 1
     }

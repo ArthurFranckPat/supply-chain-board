@@ -25,11 +25,7 @@
 // Modèles
 // ---------------------------------------------------------------------------
 
-export type SuiviStatus =
-  | 'A_EXPEDIER'
-  | 'ALLOCATION_A_FAIRE'
-  | 'RETARD_PROD'
-  | 'RAS'
+export type SuiviStatus = 'A_EXPEDIER' | 'ALLOCATION_A_FAIRE' | 'RETARD_PROD' | 'RAS'
 export type TypeCommande = 'MTS' | 'MTO' | 'NOR'
 
 /** Cause structurée d'un retard de production (remplace l'ancien parsing textuel). */
@@ -111,7 +107,8 @@ export function analyzeRetroCause(input: RetroCauseInput, margeJours = 2): Retar
   let latest: { art: string; dispoA: Date; rawReception: Date | null } | null = null
   for (const c of input.composants) {
     if (!c.dispoA) continue
-    if (!latest || c.dispoA > latest.dispoA) latest = { art: c.art, dispoA: c.dispoA, rawReception: c.rawReception }
+    if (!latest || c.dispoA > latest.dispoA)
+      latest = { art: c.art, dispoA: c.dispoA, rawReception: c.rawReception }
   }
 
   const retroBase: RetroCause = {
@@ -126,7 +123,9 @@ export function analyzeRetroCause(input: RetroCauseInput, margeJours = 2): Retar
     const expe = input.dateExpedition
     const seuilExpe = expe ? new Date(expe.getTime() - margeJours * 86_400_000) : null
     const tardVsExpe = seuilExpe ? latest.dispoA >= seuilExpe : false
-    const tardVsAffermissement = input.dateAffermissement ? latest.dispoA >= input.dateAffermissement : false
+    const tardVsAffermissement = input.dateAffermissement
+      ? latest.dispoA >= input.dateAffermissement
+      : false
 
     if (tardVsExpe || tardVsAffermissement) {
       const viaCq = !!(latest.rawReception && latest.dispoA > latest.rawReception)
@@ -136,7 +135,11 @@ export function analyzeRetroCause(input: RetroCauseInput, margeJours = 2): Retar
         message: '',
         retro: {
           ...retroBase,
-          composantTardif: { art: latest.art, dispoA: ISO_DAY(latest.dispoA)!, viaControleQualite: viaCq },
+          composantTardif: {
+            art: latest.art,
+            dispoA: ISO_DAY(latest.dispoA)!,
+            viaControleQualite: viaCq,
+          },
         },
       }
     }
@@ -144,8 +147,14 @@ export function analyzeRetroCause(input: RetroCauseInput, margeJours = 2): Retar
 
   // OF affermi mais aucun composant tardif identifié → retard d'ordonnancement (affermissement↔expé).
   let joursRetard = 0
-  if (input.dateAffermissement && input.dateExpedition && input.dateAffermissement > input.dateExpedition) {
-    joursRetard = Math.round((input.dateAffermissement.getTime() - input.dateExpedition.getTime()) / 86_400_000)
+  if (
+    input.dateAffermissement &&
+    input.dateExpedition &&
+    input.dateAffermissement > input.dateExpedition
+  ) {
+    joursRetard = Math.round(
+      (input.dateAffermissement.getTime() - input.dateExpedition.getTime()) / 86_400_000
+    )
   }
   return {
     typeCause: 'RETARD_ORDONNANCEMENT',
@@ -335,7 +344,7 @@ export interface BomNavigator {
   getComponentShortages(
     article: string,
     quantity: number,
-    ownAllocations: Record<string, number>,
+    ownAllocations: Record<string, number>
   ): Record<string, number>
   /** True si le composant est dans un sous-ensemble fabriqué (niveau > 1). */
   isComponentInSubassembly(component: string, rootArticle: string): boolean
@@ -376,7 +385,10 @@ export function besoinNet(line: OrderLine): number {
  * Si la donnée emplacement n'est pas chargée (champ ERP manquant — cf. ENRICHMENT_TODO),
  * retourne false → is_retard se comporte comme avant l'enrichissement.
  */
-export function enZoneExpedition(line: OrderLine, pattern: RegExp = ZONE_EXPEDITION_PATTERN): boolean {
+export function enZoneExpedition(
+  line: OrderLine,
+  pattern: RegExp = ZONE_EXPEDITION_PATTERN
+): boolean {
   return (line.emplacements ?? [])
     .filter((e) => !e.alreadyAllocated)
     .some((e) => pattern.test(e.nom))
@@ -441,7 +453,7 @@ export function isRetard(line: OrderLine, refDate: Date): boolean {
 export function assignStatuses(
   lines: OrderLine[],
   stock: Map<string, StockBreakdown>,
-  referenceDate: Date,
+  referenceDate: Date
 ): StatusAssignment[] {
   // Tri prioritaire pour l'allocation séquentielle : date expé, date liv prévue, num commande.
   const sorted = [...lines].sort((a, b) => {
@@ -499,7 +511,8 @@ export function assignStatuses(
     //  - MTO/NOR : allocation virtuelle, on pioche dans le pool stock (strict/QC).
     let alerteCqStatut = line.allocationQc ?? false
     if (!alerteCqStatut && line.typeCommande !== 'MTS') {
-      const qteSignal = besoin > 0 ? besoin : Math.min(Math.max(0, line.qteRestante), Math.max(0, line.qteAllouee))
+      const qteSignal =
+        besoin > 0 ? besoin : Math.min(Math.max(0, line.qteRestante), Math.max(0, line.qteAllouee))
       alerteCqStatut = consumeForCqSignal(line.article, qteSignal) > 0
     }
 
@@ -511,7 +524,11 @@ export function assignStatuses(
       if (besoin <= 0) {
         assignments.push(emptyAssignment(line, 'A_EXPEDIER', besoin, alerteCqStatut))
       } else if (enZoneExpedition(line)) {
-        assignments.push(emptyAssignment(line, 'ALLOCATION_A_FAIRE', besoin, alerteCqStatut))
+        if (line.typeCommande === 'MTS' && line.isFabrique) {
+          assignments.push(emptyAssignment(line, 'RAS', besoin, alerteCqStatut))
+        } else {
+          assignments.push(emptyAssignment(line, 'ALLOCATION_A_FAIRE', besoin, alerteCqStatut))
+        }
       } else {
         assignments.push(emptyAssignment(line, 'RETARD_PROD', besoin, alerteCqStatut))
       }
@@ -527,7 +544,7 @@ export function assignStatuses(
     // expédier (même partiel, expéditions partielles autorisées + auto-allocation X3).
     // Sinon → RAS (rien de prêt).
     if (line.typeCommande === 'MTS' && line.isFabrique) {
-      const status: SuiviStatus = (line.qteAllouee > 0) ? 'A_EXPEDIER' : 'RAS'
+      const status: SuiviStatus = line.qteAllouee > 0 ? 'A_EXPEDIER' : 'RAS'
       assignments.push(emptyAssignment(line, status, besoin, alerteCqStatut))
       continue
     }
@@ -546,14 +563,11 @@ export function assignStatuses(
     const allocTotal = allocStrict + allocQc
     const couvert = allocTotal >= besoin
 
-    let status: SuiviStatus
-    if (couvert) {
-      status = 'ALLOCATION_A_FAIRE'
-    } else if (isRetardProd(line, referenceDate)) {
-      status = 'RETARD_PROD'
-    } else {
-      status = 'RAS'
-    }
+    // Pas de branche RETARD_PROD ici : on n'atteint ce point QUE si la date d'expé n'est
+    // pas encore passée (sinon la RÈGLE 1 plus haut a déjà `continue`), donc `isRetardProd`
+    // (qui teste justement dateExpedition < referenceDate) y est toujours faux — c'était du
+    // code mort (branche inatteignable).
+    let status: SuiviStatus = couvert ? 'ALLOCATION_A_FAIRE' : 'RAS'
 
     // Harmonisation front : RAS + signal CQ consommé → ALLOCATION_A_FAIRE.
     if (status === 'RAS' && alerteCqStatut) {
@@ -590,9 +604,7 @@ export function assignStatuses(
   }
 
   // Restitue l'ordre original.
-  assignments.sort(
-    (a, b) => (orderIndex.get(a.line) ?? 0) - (orderIndex.get(b.line) ?? 0),
-  )
+  assignments.sort((a, b) => (orderIndex.get(a.line) ?? 0) - (orderIndex.get(b.line) ?? 0))
 
   return assignments
 }
@@ -601,7 +613,7 @@ function emptyAssignment(
   line: OrderLine,
   status: SuiviStatus,
   besoin: number,
-  alerteCqStatut: boolean,
+  alerteCqStatut: boolean
 ): StatusAssignment {
   return {
     line,
@@ -628,7 +640,7 @@ export function analyzeRetardCause(
   line: OrderLine,
   stockProvider: StockProvider,
   ofMatcher: OfMatcherPort,
-  bomNavigator: BomNavigator,
+  bomNavigator: BomNavigator
 ): RetardCause | null {
   // Article acheté : stock dispo ou attente réception.
   if (!line.isFabrique) {
@@ -664,6 +676,20 @@ export function analyzeRetardCause(
     return { typeCause: 'RUPTURE_COMPOSANTS', composants: shortages, message: '' }
   }
 
+  // Si l'OF est planifié en retard par rapport à l'expédition demandée :
+  if (of.dateFin && line.dateExpedition && of.dateFin > line.dateExpedition) {
+    const joursRetard = Math.max(
+      0,
+      Math.round((of.dateFin.getTime() - line.dateExpedition.getTime()) / 86_400_000)
+    )
+    return {
+      typeCause: 'RETARD_ORDONNANCEMENT',
+      composants: {},
+      message: 'OF planifié en retard',
+      joursRetard,
+    }
+  }
+
   return null
 }
 
@@ -677,7 +703,9 @@ export function causeToDisplayString(cause: RetardCause): string {
     case 'AUCUN_OF_PLANIFIE':
       return 'Aucun OF planifié'
     case 'RETARD_ORDONNANCEMENT':
-      return cause.joursRetard ? `OF planifié en retard — ${cause.joursRetard} j` : 'OF planifié en retard'
+      return cause.joursRetard
+        ? `OF planifié en retard — ${cause.joursRetard} j`
+        : 'OF planifié en retard'
     case 'RUPTURE_COMPOSANTS': {
       const parts = Object.entries(cause.composants)
         .sort(([a], [b]) => a.localeCompare(b))
@@ -703,7 +731,7 @@ export function attachCauses(
   assignments: StatusAssignment[],
   stockProvider: StockProvider,
   ofMatcher: OfMatcherPort,
-  bomNavigator: BomNavigator,
+  bomNavigator: BomNavigator
 ): StatusAssignment[] {
   for (const a of assignments) {
     if (a.status !== 'RETARD_PROD') continue
@@ -794,7 +822,7 @@ function ddmm(d: Date): string {
 export function computePaletteSummary(
   assignments: StatusAssignment[],
   paletteProvider: PaletteInfoProvider,
-  referenceDate: Date,
+  referenceDate: Date
 ): PaletteSummary {
   const empty: PaletteSummary = {
     lignes: [],
@@ -818,7 +846,10 @@ export function computePaletteSummary(
   const palettesByType = { '800x1200': 0, '1000x1200': 0 }
 
   // Initialise les 15 jours.
-  const byDay = new Map<string, { date: Date; palettesStandard: number; palettesEasyhome: number; nbLignes: number }>()
+  const byDay = new Map<
+    string,
+    { date: Date; palettesStandard: number; palettesEasyhome: number; nbLignes: number }
+  >()
   for (let i = 0; i < 15; i++) {
     const d = new Date(refDate)
     d.setDate(d.getDate() + i)
@@ -864,21 +895,19 @@ export function computePaletteSummary(
     }
   }
 
-  const byDayList: PaletteDay[] = [...byDay.keys()]
-    .sort()
-    .map((key) => {
-      const d = byDay.get(key)!
-      const total = d.palettesStandard + d.palettesEasyhome
-      return {
-        date: isoDay(d.date),
-        dateFmt: ddmm(d.date),
-        palettesStandard: d.palettesStandard,
-        palettesEasyhome: d.palettesEasyhome,
-        totalPalettes: total,
-        camions: computeCamions(d.palettesStandard, d.palettesEasyhome),
-        nbLignes: d.nbLignes,
-      }
-    })
+  const byDayList: PaletteDay[] = [...byDay.keys()].sort().map((key) => {
+    const d = byDay.get(key)!
+    const total = d.palettesStandard + d.palettesEasyhome
+    return {
+      date: isoDay(d.date),
+      dateFmt: ddmm(d.date),
+      palettesStandard: d.palettesStandard,
+      palettesEasyhome: d.palettesEasyhome,
+      totalPalettes: total,
+      camions: computeCamions(d.palettesStandard, d.palettesEasyhome),
+      nbLignes: d.nbLignes,
+    }
+  })
 
   // Moyenne sur jours ouvrés (Lun=1..Ven=5).
   const joursOuvres = byDayList.filter((d) => {
@@ -927,7 +956,7 @@ export interface PosteCharge {
 export function computeRetardCharge(
   assignments: StatusAssignment[],
   bomNavigator: BomNavigator,
-  chargeCalculator: ChargeCalculatorPort,
+  chargeCalculator: ChargeCalculatorPort
 ): Record<string, PosteCharge> {
   const chargeByPoste = new Map<string, number>()
   const libelleByPoste = new Map<string, string>()

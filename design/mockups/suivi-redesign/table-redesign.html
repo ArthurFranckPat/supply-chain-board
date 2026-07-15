@@ -1,17 +1,17 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
-<head>
-<meta charset="UTF-8" />
-<title>Suivi — redesign du tableau</title>
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link
-  href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700;9..144,900&family=Inter:wght@400;500;600;700;900&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,400,0,0&display=swap"
-  rel="stylesheet"
-/>
-<style>
-  /* ════════════════════════════════════════════════════════════
+  <head>
+    <meta charset="UTF-8" />
+    <title>Suivi — redesign du tableau</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700;9..144,900&family=Inter:wght@400;500;600;700;900&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,400,0,0&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* ════════════════════════════════════════════════════════════
      Redesign du TABLEAU /suivi — 3 traitements du même registre,
      switch en haut de page. Même shell, mêmes données, seule la
      table change.
@@ -30,376 +30,1152 @@
      C « Expansible » : ligne minimale, détail (cause, emplacements,
                         couverture) dans un volet pleine largeur au clic.
      ──────────────────────────────────────────────────────────── */
-  :root {
-    --primary: #081061;
-    --primary-soft: rgba(8, 16, 97, .07);
-    --secondary: #b0d138;
-    --success: #28a745;
-    --info: #17a2b8;
-    --warning: #b8860b;
-    --warning-bright: #ffc107;
-    --danger: #dc3545;
-    --light: #f0f0ed;
-    --gray: #6c757d;
-    --color-background: var(--light);
-    --color-foreground: #12142c;
-    --color-card: #ffffff;
-    --color-muted: #e7e5de;
-    --color-muted-foreground: var(--gray);
-    --color-border: #d9d6cb;
-    --color-rule: #d9d6cb;
-    --color-rule-soft: #eae8e0;
-    --font-fraunces: "Fraunces", Georgia, serif;
-    --font-sans: "Inter", system-ui, sans-serif;
-  }
-  * { box-sizing: border-box; }
-  html, body { height: 100%; }
-  body {
-    margin: 0; font-family: var(--font-sans);
-    background: var(--color-background); color: var(--color-foreground);
-    -webkit-font-smoothing: antialiased;
-    display: flex; flex-direction: column; overflow: hidden;
-  }
-  .material-symbols-outlined { font-family: "Material Symbols Outlined"; font-weight: normal; font-style: normal; line-height: 1; display: inline-block; vertical-align: middle; }
+      :root {
+        --primary: #081061;
+        --primary-soft: rgba(8, 16, 97, 0.07);
+        --secondary: #b0d138;
+        --success: #28a745;
+        --info: #17a2b8;
+        --warning: #b8860b;
+        --warning-bright: #ffc107;
+        --danger: #dc3545;
+        --light: #f0f0ed;
+        --gray: #6c757d;
+        --color-background: var(--light);
+        --color-foreground: #12142c;
+        --color-card: #ffffff;
+        --color-muted: #e7e5de;
+        --color-muted-foreground: var(--gray);
+        --color-border: #d9d6cb;
+        --color-rule: #d9d6cb;
+        --color-rule-soft: #eae8e0;
+        --font-fraunces: 'Fraunces', Georgia, serif;
+        --font-sans: 'Inter', system-ui, sans-serif;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        margin: 0;
+        font-family: var(--font-sans);
+        background: var(--color-background);
+        color: var(--color-foreground);
+        -webkit-font-smoothing: antialiased;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .material-symbols-outlined {
+        font-family: 'Material Symbols Outlined';
+        font-weight: normal;
+        font-style: normal;
+        line-height: 1;
+        display: inline-block;
+        vertical-align: middle;
+      }
 
-  /* ── Bandeau switch variante ── */
-  .switcher {
-    flex: none; display: flex; align-items: center; gap: 10px;
-    padding: 10px 28px; background: var(--primary); color: #fff;
-  }
-  .switcher .t { font-size: 12px; font-weight: 700; letter-spacing: .02em; margin-right: 6px; }
-  .sw-btn {
-    border: 1px solid rgba(255,255,255,.3); background: transparent; color: rgba(255,255,255,.75);
-    border-radius: 999px; padding: 5px 14px; font-family: inherit; font-size: 11px; font-weight: 700;
-    cursor: pointer; transition: background .15s, color .15s;
-  }
-  .sw-btn.on { background: var(--secondary); border-color: var(--secondary); color: #202d09; }
-  .sw-btn:hover:not(.on) { color: #fff; }
-  .switcher .d { font-size: 11px; font-weight: 500; color: rgba(255,255,255,.65); margin-left: 8px; }
+      /* ── Bandeau switch variante ── */
+      .switcher {
+        flex: none;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 28px;
+        background: var(--primary);
+        color: #fff;
+      }
+      .switcher .t {
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        margin-right: 6px;
+      }
+      .sw-btn {
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        background: transparent;
+        color: rgba(255, 255, 255, 0.75);
+        border-radius: 999px;
+        padding: 5px 14px;
+        font-family: inherit;
+        font-size: 11px;
+        font-weight: 700;
+        cursor: pointer;
+        transition:
+          background 0.15s,
+          color 0.15s;
+      }
+      .sw-btn.on {
+        background: var(--secondary);
+        border-color: var(--secondary);
+        color: #202d09;
+      }
+      .sw-btn:hover:not(.on) {
+        color: #fff;
+      }
+      .switcher .d {
+        font-size: 11px;
+        font-weight: 500;
+        color: rgba(255, 255, 255, 0.65);
+        margin-left: 8px;
+      }
 
-  /* ── Shell minimal (inchangé, juste pour contexte) ── */
-  .kpis-line { flex: none; display: flex; align-items: center; gap: 22px; padding: 10px 28px; background: var(--color-card); border-bottom: 1px solid var(--color-rule); }
-  .kpil { display: flex; align-items: baseline; gap: 7px; }
-  .kpil .n { font-family: var(--font-fraunces); font-size: 20px; font-weight: 900; }
-  .kpil .l { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .09em; color: var(--color-muted-foreground); }
-  .kpil .sw { width: 8px; height: 8px; border-radius: 2px; }
-  .kpis-line .right { margin-left: auto; font-size: 11px; font-weight: 500; color: var(--color-muted-foreground); }
-  .kpis-line .right b { color: var(--color-foreground); }
+      /* ── Shell minimal (inchangé, juste pour contexte) ── */
+      .kpis-line {
+        flex: none;
+        display: flex;
+        align-items: center;
+        gap: 22px;
+        padding: 10px 28px;
+        background: var(--color-card);
+        border-bottom: 1px solid var(--color-rule);
+      }
+      .kpil {
+        display: flex;
+        align-items: baseline;
+        gap: 7px;
+      }
+      .kpil .n {
+        font-family: var(--font-fraunces);
+        font-size: 20px;
+        font-weight: 900;
+      }
+      .kpil .l {
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.09em;
+        color: var(--color-muted-foreground);
+      }
+      .kpil .sw {
+        width: 8px;
+        height: 8px;
+        border-radius: 2px;
+      }
+      .kpis-line .right {
+        margin-left: auto;
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--color-muted-foreground);
+      }
+      .kpis-line .right b {
+        color: var(--color-foreground);
+      }
 
-  .table-zone { flex: 1; overflow: hidden; padding: 14px 28px 18px; display: flex; flex-direction: column; }
-  .table-card { flex: 1; overflow: auto; background: var(--color-card); border: 1px solid var(--color-rule); border-radius: 10px; box-shadow: 0 1px 3px rgba(18,20,44,.05); }
-  table { width: 100%; border-collapse: collapse; }
-  .dash { color: var(--color-muted-foreground); opacity: .55; }
+      .table-zone {
+        flex: 1;
+        overflow: hidden;
+        padding: 14px 28px 18px;
+        display: flex;
+        flex-direction: column;
+      }
+      .table-card {
+        flex: 1;
+        overflow: auto;
+        background: var(--color-card);
+        border: 1px solid var(--color-rule);
+        border-radius: 10px;
+        box-shadow: 0 1px 3px rgba(18, 20, 44, 0.05);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      .dash {
+        color: var(--color-muted-foreground);
+        opacity: 0.55;
+      }
 
-  /* ════════ A — ÉDITORIAL ════════
+      /* ════════ A — ÉDITORIAL ════════
      Zéro trait vertical. La lecture s'appuie sur 3 niveaux typo max :
      ink 13/700, corps 12/500 gris, données 12 tabulaires. Statut =
      liseré 3px + mot simple coloré, pas de badge plein. Cause = une
      phrase + une seule ligne de détail. */
-  .vA thead th {
-    position: sticky; top: 0; z-index: 2; background: var(--color-card);
-    padding: 12px 16px 10px; text-align: left;
-    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em;
-    color: var(--color-muted-foreground);
-    border-bottom: 2px solid var(--color-foreground);
-  }
-  .vA thead th.num { text-align: right; }
-  .vA tbody td { padding: 14px 16px; vertical-align: top; border-top: 1px solid var(--color-rule-soft); font-size: 12px; }
-  .vA tbody tr { transition: background .12s; }
-  .vA tbody tr:hover { background: var(--primary-soft); }
-  .vA tr td:first-child { box-shadow: inset 3px 0 var(--stc, transparent); }
-  .vA .lead { font-size: 13px; font-weight: 700; letter-spacing: -.01em; }
-  .vA .lead .ref2 { font-weight: 400; color: var(--color-muted-foreground); }
-  .vA .sub { margin-top: 2px; font-size: 12px; font-weight: 400; color: var(--gray); line-height: 1.4; }
-  .vA .art-l { font-size: 13px; font-weight: 700; color: var(--primary); }
-  .vA td.qty { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
-  .vA .qv { font-size: 14px; font-weight: 700; }
-  .vA .qu { font-size: 10px; color: var(--color-muted-foreground); margin-left: 2px; }
-  .vA td.date { white-space: nowrap; font-variant-numeric: tabular-nums; font-weight: 500; }
-  .vA td.date .late-w { color: var(--danger); font-weight: 800; }
-  .vA td.date .late-j { display: block; font-size: 10px; font-weight: 700; color: var(--danger); margin-top: 1px; }
-  .vA .st-word { font-size: 12px; font-weight: 800; color: var(--stc); letter-spacing: .01em; }
-  .vA .st-extra { display: block; margin-top: 2px; font-size: 10.5px; font-weight: 600; color: var(--info); }
-  .vA .cause-txt { font-size: 12px; font-weight: 500; line-height: 1.45; max-width: 420px; }
-  .vA .cause-det { margin-top: 3px; font-size: 11px; font-weight: 600; color: var(--color-muted-foreground); }
-  .vA .cause-det b { color: var(--danger); font-weight: 800; }
-  .vA .cause-det .eta { color: var(--info); font-weight: 700; }
-  .vA .cause-det .eta.overdue { color: var(--danger); }
-  .vA .emp-inline { margin-top: 3px; font-size: 11px; font-weight: 600; color: var(--gray); }
-  .vA .emp-inline .ok { color: #1d7a33; }
-  .vA .emp-inline .pal { color: var(--color-foreground); background: var(--color-muted); border-radius: 3px; padding: 0 5px; font-size: 10px; font-weight: 700; }
+      .vA thead th {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background: var(--color-card);
+        padding: 12px 16px 10px;
+        text-align: left;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--color-muted-foreground);
+        border-bottom: 2px solid var(--color-foreground);
+      }
+      .vA thead th.num {
+        text-align: right;
+      }
+      .vA tbody td {
+        padding: 14px 16px;
+        vertical-align: top;
+        border-top: 1px solid var(--color-rule-soft);
+        font-size: 12px;
+      }
+      .vA tbody tr {
+        transition: background 0.12s;
+      }
+      .vA tbody tr:hover {
+        background: var(--primary-soft);
+      }
+      .vA tr td:first-child {
+        box-shadow: inset 3px 0 var(--stc, transparent);
+      }
+      .vA .lead {
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+      }
+      .vA .lead .ref2 {
+        font-weight: 400;
+        color: var(--color-muted-foreground);
+      }
+      .vA .sub {
+        margin-top: 2px;
+        font-size: 12px;
+        font-weight: 400;
+        color: var(--gray);
+        line-height: 1.4;
+      }
+      .vA .art-l {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--primary);
+      }
+      .vA td.qty {
+        text-align: right;
+        white-space: nowrap;
+        font-variant-numeric: tabular-nums;
+      }
+      .vA .qv {
+        font-size: 14px;
+        font-weight: 700;
+      }
+      .vA .qu {
+        font-size: 10px;
+        color: var(--color-muted-foreground);
+        margin-left: 2px;
+      }
+      .vA td.date {
+        white-space: nowrap;
+        font-variant-numeric: tabular-nums;
+        font-weight: 500;
+      }
+      .vA td.date .late-w {
+        color: var(--danger);
+        font-weight: 800;
+      }
+      .vA td.date .late-j {
+        display: block;
+        font-size: 10px;
+        font-weight: 700;
+        color: var(--danger);
+        margin-top: 1px;
+      }
+      .vA .st-word {
+        font-size: 12px;
+        font-weight: 800;
+        color: var(--stc);
+        letter-spacing: 0.01em;
+      }
+      .vA .st-extra {
+        display: block;
+        margin-top: 2px;
+        font-size: 10.5px;
+        font-weight: 600;
+        color: var(--info);
+      }
+      .vA .cause-txt {
+        font-size: 12px;
+        font-weight: 500;
+        line-height: 1.45;
+        max-width: 420px;
+      }
+      .vA .cause-det {
+        margin-top: 3px;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--color-muted-foreground);
+      }
+      .vA .cause-det b {
+        color: var(--danger);
+        font-weight: 800;
+      }
+      .vA .cause-det .eta {
+        color: var(--info);
+        font-weight: 700;
+      }
+      .vA .cause-det .eta.overdue {
+        color: var(--danger);
+      }
+      .vA .emp-inline {
+        margin-top: 3px;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--gray);
+      }
+      .vA .emp-inline .ok {
+        color: #1d7a33;
+      }
+      .vA .emp-inline .pal {
+        color: var(--color-foreground);
+        background: var(--color-muted);
+        border-radius: 3px;
+        padding: 0 5px;
+        font-size: 10px;
+        font-weight: 700;
+      }
 
-  /* ════════ B — LIGNE FINE ════════
+      /* ════════ B — LIGNE FINE ════════
      Densité maximale lisible : 1 ligne = 1 rangée de 38px, tout sur
      une seule ligne de texte. Point de statut + mot. Numéros/qtés
      tabulaires alignés. Zebra très léger. Détail complet au survol
      (title). Pour scanner 200 lignes. */
-  .vB thead th {
-    position: sticky; top: 0; z-index: 2; background: #fafaf8;
-    padding: 8px 14px; text-align: left;
-    font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em;
-    color: var(--color-muted-foreground);
-    border-bottom: 1px solid var(--color-rule);
-  }
-  .vB thead th.num { text-align: right; }
-  .vB tbody td { padding: 9px 14px; vertical-align: middle; font-size: 12px; white-space: nowrap; }
-  .vB tbody tr { border-top: 1px solid var(--color-rule-soft); transition: background .1s; }
-  .vB tbody tr:nth-child(even) { background: #fafaf8; }
-  .vB tbody tr:hover { background: var(--primary-soft); }
-  .vB tr.late { background: rgba(220,53,69,.05) !important; }
-  .vB tr.late:hover { background: rgba(220,53,69,.1) !important; }
-  .vB .num-c { font-weight: 700; letter-spacing: -.01em; }
-  .vB .cli { color: var(--gray); font-weight: 500; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
-  .vB .art-b { color: var(--primary); font-weight: 700; }
-  .vB .des-b { color: var(--gray); font-weight: 400; overflow: hidden; text-overflow: ellipsis; max-width: 190px; }
-  .vB td.qty { text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; }
-  .vB td.date { font-variant-numeric: tabular-nums; font-weight: 500; }
-  .vB td.date.late-d { color: var(--danger); font-weight: 800; }
-  .vB .st { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; color: var(--stc); }
-  .vB .st .pt { width: 7px; height: 7px; border-radius: 50%; background: var(--stc); flex: none; }
-  .vB .mini { font-size: 10px; font-weight: 700; border-radius: 4px; padding: 1px 6px; margin-left: 5px; }
-  .vB .mini.cq { background: rgba(23,162,184,.12); color: var(--info); }
-  .vB .mini.att { background: rgba(255,193,7,.16); color: var(--warning); }
-  .vB .cause-b { font-weight: 500; color: var(--gray); overflow: hidden; text-overflow: ellipsis; max-width: 330px; }
-  .vB .cause-b b { color: var(--danger); font-weight: 800; }
-  .vB .cause-b .eta { color: var(--info); font-weight: 600; }
+      .vB thead th {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background: #fafaf8;
+        padding: 8px 14px;
+        text-align: left;
+        font-size: 9.5px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--color-muted-foreground);
+        border-bottom: 1px solid var(--color-rule);
+      }
+      .vB thead th.num {
+        text-align: right;
+      }
+      .vB tbody td {
+        padding: 9px 14px;
+        vertical-align: middle;
+        font-size: 12px;
+        white-space: nowrap;
+      }
+      .vB tbody tr {
+        border-top: 1px solid var(--color-rule-soft);
+        transition: background 0.1s;
+      }
+      .vB tbody tr:nth-child(even) {
+        background: #fafaf8;
+      }
+      .vB tbody tr:hover {
+        background: var(--primary-soft);
+      }
+      .vB tr.late {
+        background: rgba(220, 53, 69, 0.05) !important;
+      }
+      .vB tr.late:hover {
+        background: rgba(220, 53, 69, 0.1) !important;
+      }
+      .vB .num-c {
+        font-weight: 700;
+        letter-spacing: -0.01em;
+      }
+      .vB .cli {
+        color: var(--gray);
+        font-weight: 500;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 150px;
+      }
+      .vB .art-b {
+        color: var(--primary);
+        font-weight: 700;
+      }
+      .vB .des-b {
+        color: var(--gray);
+        font-weight: 400;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 190px;
+      }
+      .vB td.qty {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+        font-weight: 700;
+      }
+      .vB td.date {
+        font-variant-numeric: tabular-nums;
+        font-weight: 500;
+      }
+      .vB td.date.late-d {
+        color: var(--danger);
+        font-weight: 800;
+      }
+      .vB .st {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--stc);
+      }
+      .vB .st .pt {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--stc);
+        flex: none;
+      }
+      .vB .mini {
+        font-size: 10px;
+        font-weight: 700;
+        border-radius: 4px;
+        padding: 1px 6px;
+        margin-left: 5px;
+      }
+      .vB .mini.cq {
+        background: rgba(23, 162, 184, 0.12);
+        color: var(--info);
+      }
+      .vB .mini.att {
+        background: rgba(255, 193, 7, 0.16);
+        color: var(--warning);
+      }
+      .vB .cause-b {
+        font-weight: 500;
+        color: var(--gray);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 330px;
+      }
+      .vB .cause-b b {
+        color: var(--danger);
+        font-weight: 800;
+      }
+      .vB .cause-b .eta {
+        color: var(--info);
+        font-weight: 600;
+      }
 
-  /* ════════ C — EXPANSIBLE ════════
+      /* ════════ C — EXPANSIBLE ════════
      La rangée ne garde que l'essentiel (6 colonnes). Chevron ; clic
      → volet pleine largeur : cause détaillée, emplacements, couverture
      proactive, actions. Les colonnes Emplacement/Cause disparaissent
      de la grille. */
-  .vC thead th {
-    position: sticky; top: 0; z-index: 2; background: var(--color-card);
-    padding: 11px 16px; text-align: left;
-    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em;
-    color: var(--color-muted-foreground);
-    border-bottom: 2px solid var(--primary);
-  }
-  .vC thead th.num { text-align: right; }
-  .vC tbody td { padding: 12px 16px; vertical-align: middle; font-size: 12.5px; border-top: 1px solid var(--color-rule-soft); }
-  .vC tr.main { cursor: pointer; transition: background .12s; }
-  .vC tr.main:hover { background: var(--primary-soft); }
-  .vC tr.main.open { background: var(--primary-soft); }
-  .vC tr.main td:first-child { box-shadow: inset 3px 0 var(--stc, transparent); }
-  .vC .chev { font-size: 18px; color: var(--color-muted-foreground); transition: transform .15s; }
-  .vC tr.open .chev { transform: rotate(90deg); color: var(--primary); }
-  .vC .lead { font-size: 13px; font-weight: 700; letter-spacing: -.01em; }
-  .vC .lead .ref2 { font-weight: 400; color: var(--color-muted-foreground); }
-  .vC .sub { margin-top: 1px; font-size: 11.5px; font-weight: 400; color: var(--gray); }
-  .vC .art-l { font-size: 13px; font-weight: 700; color: var(--primary); }
-  .vC td.qty { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
-  .vC .qv { font-size: 14px; font-weight: 700; }
-  .vC .qu { font-size: 10px; color: var(--color-muted-foreground); margin-left: 2px; }
-  .vC td.date { white-space: nowrap; font-variant-numeric: tabular-nums; font-weight: 500; }
-  .vC td.date.late-d { color: var(--danger); font-weight: 800; }
-  .vC .st-pill { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 800; color: var(--stc); }
-  .vC .st-pill .pt { width: 8px; height: 8px; border-radius: 50%; background: var(--stc); }
-  .vC .hint { font-size: 10.5px; font-weight: 600; color: var(--color-muted-foreground); }
-  .vC .hint b { color: var(--danger); font-weight: 800; }
-  .vC tr.exp td { padding: 0; border-top: 0; }
-  .vC .panel {
-    display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 22px;
-    margin: 0 16px 12px 19px; padding: 14px 18px;
-    background: #fafaf8; border: 1px solid var(--color-rule-soft); border-radius: 8px;
-  }
-  .vC .p-h { font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--color-muted-foreground); margin-bottom: 7px; }
-  .vC .p-txt { font-size: 12px; font-weight: 500; line-height: 1.5; }
-  .vC .p-det { margin-top: 4px; font-size: 11px; font-weight: 600; color: var(--color-muted-foreground); }
-  .vC .p-det b { color: var(--danger); font-weight: 800; }
-  .vC .p-det .eta { color: var(--info); font-weight: 700; }
-  .vC .p-det .eta.overdue { color: var(--danger); }
-  .vC .emp-pill { display: flex; align-items: center; justify-content: space-between; gap: 6px; border: 1px solid var(--color-border); border-radius: 6px; padding: 4px 9px; font-size: 11px; font-weight: 600; margin-bottom: 4px; background: var(--color-card); }
-  .vC .emp-pill.alloc { border-color: rgba(40,167,69,.35); background: rgba(40,167,69,.06); color: #1d7a33; }
-  .vC .emp-pill .q { font-weight: 800; font-variant-numeric: tabular-nums; }
-  .vC .emp-pill .pal { background: var(--color-muted); border-radius: 3px; padding: 0 5px; font-size: 9.5px; font-weight: 700; color: var(--color-foreground); }
-  .vC .of-line { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; margin-bottom: 4px; }
-  .vC .of-tag { border-radius: 4px; padding: 1px 5px; font-size: 9px; font-weight: 800; }
-  .vC .t-wof { background: rgba(40,167,69,.14); color: var(--success); }
-  .vC .t-wop { background: rgba(23,162,184,.14); color: var(--info); }
-  .vC .t-wos { background: rgba(255,193,7,.2); color: var(--warning); }
-  .vC .verdict-w { font-size: 12px; font-weight: 800; }
-  .vC .actions { display: flex; gap: 6px; margin-top: 8px; }
-  .vC .btn-s { display: inline-flex; align-items: center; gap: 5px; border-radius: 999px; padding: 4px 11px; font-family: inherit; font-size: 10.5px; font-weight: 700; border: 1px solid var(--color-border); background: var(--color-card); cursor: pointer; }
-  .vC .btn-s:hover { border-color: var(--primary); }
-  .vC .btn-s .material-symbols-outlined { font-size: 13px; color: var(--color-muted-foreground); }
-  .vC .btn-s.cta { background: var(--secondary); border-color: var(--secondary); color: #202d09; }
-  .vC .btn-s.cta .material-symbols-outlined { color: #202d09; }
+      .vC thead th {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background: var(--color-card);
+        padding: 11px 16px;
+        text-align: left;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--color-muted-foreground);
+        border-bottom: 2px solid var(--primary);
+      }
+      .vC thead th.num {
+        text-align: right;
+      }
+      .vC tbody td {
+        padding: 12px 16px;
+        vertical-align: middle;
+        font-size: 12.5px;
+        border-top: 1px solid var(--color-rule-soft);
+      }
+      .vC tr.main {
+        cursor: pointer;
+        transition: background 0.12s;
+      }
+      .vC tr.main:hover {
+        background: var(--primary-soft);
+      }
+      .vC tr.main.open {
+        background: var(--primary-soft);
+      }
+      .vC tr.main td:first-child {
+        box-shadow: inset 3px 0 var(--stc, transparent);
+      }
+      .vC .chev {
+        font-size: 18px;
+        color: var(--color-muted-foreground);
+        transition: transform 0.15s;
+      }
+      .vC tr.open .chev {
+        transform: rotate(90deg);
+        color: var(--primary);
+      }
+      .vC .lead {
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+      }
+      .vC .lead .ref2 {
+        font-weight: 400;
+        color: var(--color-muted-foreground);
+      }
+      .vC .sub {
+        margin-top: 1px;
+        font-size: 11.5px;
+        font-weight: 400;
+        color: var(--gray);
+      }
+      .vC .art-l {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--primary);
+      }
+      .vC td.qty {
+        text-align: right;
+        white-space: nowrap;
+        font-variant-numeric: tabular-nums;
+      }
+      .vC .qv {
+        font-size: 14px;
+        font-weight: 700;
+      }
+      .vC .qu {
+        font-size: 10px;
+        color: var(--color-muted-foreground);
+        margin-left: 2px;
+      }
+      .vC td.date {
+        white-space: nowrap;
+        font-variant-numeric: tabular-nums;
+        font-weight: 500;
+      }
+      .vC td.date.late-d {
+        color: var(--danger);
+        font-weight: 800;
+      }
+      .vC .st-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11.5px;
+        font-weight: 800;
+        color: var(--stc);
+      }
+      .vC .st-pill .pt {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--stc);
+      }
+      .vC .hint {
+        font-size: 10.5px;
+        font-weight: 600;
+        color: var(--color-muted-foreground);
+      }
+      .vC .hint b {
+        color: var(--danger);
+        font-weight: 800;
+      }
+      .vC tr.exp td {
+        padding: 0;
+        border-top: 0;
+      }
+      .vC .panel {
+        display: grid;
+        grid-template-columns: 1.4fr 1fr 1fr;
+        gap: 22px;
+        margin: 0 16px 12px 19px;
+        padding: 14px 18px;
+        background: #fafaf8;
+        border: 1px solid var(--color-rule-soft);
+        border-radius: 8px;
+      }
+      .vC .p-h {
+        font-size: 9.5px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--color-muted-foreground);
+        margin-bottom: 7px;
+      }
+      .vC .p-txt {
+        font-size: 12px;
+        font-weight: 500;
+        line-height: 1.5;
+      }
+      .vC .p-det {
+        margin-top: 4px;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--color-muted-foreground);
+      }
+      .vC .p-det b {
+        color: var(--danger);
+        font-weight: 800;
+      }
+      .vC .p-det .eta {
+        color: var(--info);
+        font-weight: 700;
+      }
+      .vC .p-det .eta.overdue {
+        color: var(--danger);
+      }
+      .vC .emp-pill {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 6px;
+        border: 1px solid var(--color-border);
+        border-radius: 6px;
+        padding: 4px 9px;
+        font-size: 11px;
+        font-weight: 600;
+        margin-bottom: 4px;
+        background: var(--color-card);
+      }
+      .vC .emp-pill.alloc {
+        border-color: rgba(40, 167, 69, 0.35);
+        background: rgba(40, 167, 69, 0.06);
+        color: #1d7a33;
+      }
+      .vC .emp-pill .q {
+        font-weight: 800;
+        font-variant-numeric: tabular-nums;
+      }
+      .vC .emp-pill .pal {
+        background: var(--color-muted);
+        border-radius: 3px;
+        padding: 0 5px;
+        font-size: 9.5px;
+        font-weight: 700;
+        color: var(--color-foreground);
+      }
+      .vC .of-line {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        font-weight: 700;
+        margin-bottom: 4px;
+      }
+      .vC .of-tag {
+        border-radius: 4px;
+        padding: 1px 5px;
+        font-size: 9px;
+        font-weight: 800;
+      }
+      .vC .t-wof {
+        background: rgba(40, 167, 69, 0.14);
+        color: var(--success);
+      }
+      .vC .t-wop {
+        background: rgba(23, 162, 184, 0.14);
+        color: var(--info);
+      }
+      .vC .t-wos {
+        background: rgba(255, 193, 7, 0.2);
+        color: var(--warning);
+      }
+      .vC .verdict-w {
+        font-size: 12px;
+        font-weight: 800;
+      }
+      .vC .actions {
+        display: flex;
+        gap: 6px;
+        margin-top: 8px;
+      }
+      .vC .btn-s {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        border-radius: 999px;
+        padding: 4px 11px;
+        font-family: inherit;
+        font-size: 10.5px;
+        font-weight: 700;
+        border: 1px solid var(--color-border);
+        background: var(--color-card);
+        cursor: pointer;
+      }
+      .vC .btn-s:hover {
+        border-color: var(--primary);
+      }
+      .vC .btn-s .material-symbols-outlined {
+        font-size: 13px;
+        color: var(--color-muted-foreground);
+      }
+      .vC .btn-s.cta {
+        background: var(--secondary);
+        border-color: var(--secondary);
+        color: #202d09;
+      }
+      .vC .btn-s.cta .material-symbols-outlined {
+        color: #202d09;
+      }
 
-  .type-tag { display: inline-block; background: var(--primary-soft); color: var(--primary); border-radius: 4px; padding: 2px 7px; font-size: 10px; font-weight: 700; letter-spacing: .05em; }
-</style>
-</head>
-<body>
+      .type-tag {
+        display: inline-block;
+        background: var(--primary-soft);
+        color: var(--primary);
+        border-radius: 4px;
+        padding: 2px 7px;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="switcher">
+      <span class="t">Tableau /suivi — 3 traitements</span>
+      <button class="sw-btn on" data-v="A">A · Éditorial</button>
+      <button class="sw-btn" data-v="B">B · Ligne fine</button>
+      <button class="sw-btn" data-v="C">C · Expansible</button>
+      <span class="d" id="sw-desc"
+        >Zéro trait vertical, 3 niveaux typo, statut en liseré + mot — badge pleins supprimés.</span
+      >
+    </div>
 
-  <div class="switcher">
-    <span class="t">Tableau /suivi — 3 traitements</span>
-    <button class="sw-btn on" data-v="A">A · Éditorial</button>
-    <button class="sw-btn" data-v="B">B · Ligne fine</button>
-    <button class="sw-btn" data-v="C">C · Expansible</button>
-    <span class="d" id="sw-desc">Zéro trait vertical, 3 niveaux typo, statut en liseré + mot — badge pleins supprimés.</span>
-  </div>
+    <div class="kpis-line">
+      <span class="kpil"
+        ><span class="sw" style="background: var(--danger)"></span
+        ><span class="n" style="color: var(--danger)">4</span><span class="l">Retard</span></span
+      >
+      <span class="kpil"
+        ><span class="sw" style="background: var(--warning-bright)"></span
+        ><span class="n" style="color: var(--warning)">3</span
+        ><span class="l">À allouer</span></span
+      >
+      <span class="kpil"
+        ><span class="sw" style="background: var(--success)"></span
+        ><span class="n" style="color: var(--success)">3</span
+        ><span class="l">À expédier</span></span
+      >
+      <span class="kpil"
+        ><span class="sw" style="background: var(--info)"></span
+        ><span class="n" style="color: var(--info)">1</span><span class="l">CQ</span></span
+      >
+      <span class="kpil"
+        ><span class="sw" style="background: var(--gray)"></span
+        ><span class="n" style="color: var(--gray)">2</span><span class="l">RAS</span></span
+      >
+      <span class="right"><b>12</b> lignes · réf. <b>2026-07-03</b> · jeudi 3 juillet</span>
+    </div>
 
-  <div class="kpis-line">
-    <span class="kpil"><span class="sw" style="background:var(--danger)"></span><span class="n" style="color:var(--danger)">4</span><span class="l">Retard</span></span>
-    <span class="kpil"><span class="sw" style="background:var(--warning-bright)"></span><span class="n" style="color:var(--warning)">3</span><span class="l">À allouer</span></span>
-    <span class="kpil"><span class="sw" style="background:var(--success)"></span><span class="n" style="color:var(--success)">3</span><span class="l">À expédier</span></span>
-    <span class="kpil"><span class="sw" style="background:var(--info)"></span><span class="n" style="color:var(--info)">1</span><span class="l">CQ</span></span>
-    <span class="kpil"><span class="sw" style="background:var(--gray)"></span><span class="n" style="color:var(--gray)">2</span><span class="l">RAS</span></span>
-    <span class="right"><b>12</b> lignes · réf. <b>2026-07-03</b> · jeudi 3 juillet</span>
-  </div>
+    <div class="table-zone">
+      <div class="table-card" id="card"></div>
+    </div>
 
-  <div class="table-zone">
-    <div class="table-card" id="card"></div>
-  </div>
+    <script>
+      /* ── Données (mêmes 12 lignes que les autres variantes) ── */
+      const STC = {
+        ret: 'var(--danger)',
+        alc: 'var(--warning-bright)',
+        exp: 'var(--success)',
+        ras: 'var(--gray)',
+      }
+      const STW = { ret: 'Retard', alc: 'À allouer', exp: 'À expédier', ras: 'RAS' }
+      const ROWS = [
+        {
+          n: 'F24-08101',
+          refC: '',
+          client: 'Téréva Mâcon',
+          art: 'MH10-EXPORT',
+          des: 'Module hygro export (colisage vrac)',
+          type: 'MTO',
+          st: 'ret',
+          reste: 500,
+          exp: '26/06',
+          jr: 7,
+          late: true,
+          emp: [],
+          cause: 'Attente réception fournisseur',
+          det: '<b>MEMB-HYG-STD −500</b> · <span class="eta overdue">réception en retard +3 j · attendue 04/07 · PO24-1174 (Wistro)</span>',
+          ofs: [{ o: 'OF240221', s: 2 }],
+          verdict: ['Bloquée', 'var(--danger)'],
+          act: [
+            ['Relancer Wistro', 'outgoing_mail'],
+            ['Voir OF240221', 'visibility'],
+          ],
+        },
+        {
+          n: 'F24-08112',
+          refC: 'CDE-77123',
+          client: 'CEDEO Paris Est',
+          art: 'BDH60-ESH30',
+          des: 'Bouche hygro cuisine ESH30',
+          type: 'MTO',
+          st: 'ret',
+          reste: 120,
+          exp: '30/06',
+          jr: 3,
+          late: true,
+          emp: [{ nm: 'MAG1', q: 40, alloc: false }],
+          cause: 'Rupture composant sur l’OF de couverture',
+          det: '<b>MH10-GRS −80</b> · <span class="eta">arrive 07/07 · PO24-1180 (Sanhua)</span>',
+          ofs: [{ o: 'OF240226', s: 1 }],
+          verdict: ['Bloquée', 'var(--danger)'],
+          act: [
+            ['Allouer 40 u MAG1', 'move_to_inbox', 'cta'],
+            ['Voir OF240226', 'visibility'],
+          ],
+        },
+        {
+          n: 'F24-08096',
+          refC: '4501128834',
+          client: 'Aereco GmbH',
+          art: 'VAM-T4-µW',
+          des: 'Ventilateur VAM T4 MicroWatt',
+          type: 'MTO',
+          st: 'ret',
+          reste: 6,
+          exp: '27/06',
+          jr: 4,
+          late: true,
+          emp: [],
+          cause: 'Composant arrivé tard après affermissement OF',
+          det: 'CARTE-EC-24V dispo 01/07 <span class="eta">(sous CQ)</span> · OF240218 affermi 24/06',
+          ofs: [{ o: 'OF240218', s: 1 }],
+          verdict: ['En retard', 'var(--warning)'],
+          act: [
+            ['Prioriser sortie CQ', 'science'],
+            ['Voir OF240218', 'visibility'],
+          ],
+        },
+        {
+          n: 'F24-08120',
+          refC: '',
+          client: 'POINT.P Lyon Gerland',
+          art: 'KHY10-EAH',
+          des: 'Kit VMC hygro + entrées d’air',
+          type: 'NOR',
+          st: 'ret',
+          reste: 45,
+          exp: '01/07',
+          jr: 2,
+          late: true,
+          emp: [],
+          cause: 'Aucun OF planifié pour couvrir le besoin',
+          det: '',
+          ofs: [],
+          verdict: ['Sans couverture', 'var(--danger)'],
+          act: [['Créer un OF (CBN)', 'bolt']],
+        },
+        {
+          n: 'F24-08150',
+          refC: '',
+          client: 'REXEL Nantes',
+          art: 'EAH20-BLC',
+          des: 'Entrée d’air hygro 20 blanc',
+          type: 'MTS',
+          st: 'alc',
+          reste: 300,
+          exp: '04/07',
+          jr: 0,
+          late: false,
+          emp: [{ nm: 'MAG1', q: 300, alloc: false }],
+          cause: 'Stock disponible non alloué',
+          det: 'MAG1 — 300 u libres, couverture totale',
+          ofs: [],
+          verdict: ['En stock', 'var(--success)'],
+          act: [['Allouer 300 u', 'move_to_inbox', 'cta']],
+        },
+        {
+          n: 'F24-08155',
+          refC: '',
+          client: 'Aereco Polska',
+          art: 'EAH20-NOIR',
+          des: 'Entrée d’air hygro 20 noir',
+          type: 'MTS',
+          st: 'alc',
+          reste: 180,
+          exp: '08/07',
+          jr: 0,
+          late: false,
+          emp: [
+            { nm: 'MAG1', q: 120, alloc: false },
+            { nm: 'MAG3', q: 60, alloc: false },
+          ],
+          cause: 'Stock disponible non alloué',
+          det: 'MAG1 120 u + MAG3 60 u — 2 emplacements',
+          ofs: [{ o: 'OF240234', s: 2 }],
+          verdict: ['À temps', 'var(--success)'],
+          act: [['Allouer 180 u', 'move_to_inbox', 'cta']],
+        },
+        {
+          n: 'F24-08161',
+          refC: '',
+          client: 'Brossette IdF',
+          art: 'BDH60-ESH10',
+          des: 'Bouche hygro SDB ESH10',
+          type: 'MTS',
+          st: 'alc',
+          reste: 90,
+          exp: '06/07',
+          jr: 0,
+          late: false,
+          cq: true,
+          emp: [{ nm: 'MAG2', q: 90, alloc: false }],
+          cause: 'Stock disponible non alloué — 30 u sous CQ',
+          det: 'allouer 60 u strictes maintenant, 30 u après CQ',
+          ofs: [{ o: 'OF240230', s: 1 }],
+          verdict: ['À temps', 'var(--success)'],
+          act: [
+            ['Allouer 60 u strictes', 'move_to_inbox', 'cta'],
+            ['Statut CQ', 'science'],
+          ],
+        },
+        {
+          n: 'F24-08133',
+          refC: 'UK-20441',
+          client: 'Aereco UK Ltd',
+          art: 'BXC-BOOST',
+          des: 'Bouche extraction boost',
+          type: 'MTO',
+          st: 'exp',
+          reste: 240,
+          exp: '03/07',
+          jr: 0,
+          late: false,
+          emp: [{ nm: 'EXPE01', q: 240, alloc: true, pal: 'P240611' }],
+          cause: '',
+          det: 'palette P240611 complète en zone expé',
+          ofs: [],
+          verdict: ['En stock', 'var(--success)'],
+          act: [['Bon d’expédition', 'local_shipping']],
+        },
+        {
+          n: 'F24-08141',
+          refC: '',
+          client: 'SIDER Bordeaux',
+          art: 'KHY10-VMC',
+          des: 'Kit VMC hygro complet',
+          type: 'MTO',
+          st: 'exp',
+          reste: 12,
+          exp: '03/07',
+          jr: 0,
+          late: false,
+          att: true,
+          emp: [{ nm: 'MAG1', q: 12, alloc: true }],
+          cause: '',
+          det: 'MTO — en attente de 2 autres lignes de la commande',
+          ofs: [],
+          verdict: ['À temps', 'var(--success)'],
+          act: [['Voir la commande', 'visibility']],
+        },
+        {
+          n: 'F24-08170',
+          refC: '',
+          client: 'DSC Toulouse',
+          art: 'EAH30-GRS',
+          des: 'Entrée d’air hygro 30 gris',
+          type: 'MTS',
+          st: 'exp',
+          reste: 150,
+          exp: '02/07',
+          jr: 0,
+          late: false,
+          emp: [{ nm: 'EXPE01', q: 150, alloc: true, pal: 'P240598' }],
+          cause: '',
+          det: 'palette P240598 en zone expé depuis hier',
+          ofs: [],
+          verdict: ['En stock', 'var(--success)'],
+          act: [['Bon d’expédition', 'local_shipping']],
+        },
+        {
+          n: 'F24-08188',
+          refC: '',
+          client: 'Yesss Électrique',
+          art: 'VAM-T3',
+          des: 'Ventilateur VAM T3',
+          type: 'NOR',
+          st: 'ras',
+          reste: 20,
+          exp: '11/07',
+          jr: 0,
+          late: false,
+          emp: [],
+          cause: '',
+          det: 'OF240244 (WOS) couvre le besoin dans les temps',
+          ofs: [{ o: 'OF240244', s: 3 }],
+          verdict: ['À temps', 'var(--success)'],
+          act: [],
+        },
+        {
+          n: 'F24-08192',
+          refC: '',
+          client: 'CGED Strasbourg',
+          art: 'BDH60-ESH60',
+          des: 'Bouche hygro WC ESH60',
+          type: 'MTS',
+          st: 'ras',
+          reste: 60,
+          exp: '15/07',
+          jr: 0,
+          late: false,
+          emp: [],
+          cause: '',
+          det: 'couverture stock projetée suffisante',
+          ofs: [],
+          verdict: ['En stock', 'var(--success)'],
+          act: [],
+        },
+      ]
+      const OFT = { 1: ['WOF', 't-wof'], 2: ['WOP', 't-wop'], 3: ['WOS', 't-wos'] }
+      const DESC = {
+        A: 'Zéro trait vertical, 3 niveaux typo, statut en liseré + mot — badges pleins supprimés.',
+        B: 'Densité max : 1 ligne texte / rangée, points de statut, chiffres tabulaires — pour scanner 200 lignes.',
+        C: 'Rangée minimale 6 colonnes ; cause, emplacements et couverture dans un volet au clic.',
+      }
 
-<script>
-/* ── Données (mêmes 12 lignes que les autres variantes) ── */
-const STC = { ret:'var(--danger)', alc:'var(--warning-bright)', exp:'var(--success)', ras:'var(--gray)' };
-const STW = { ret:'Retard', alc:'À allouer', exp:'À expédier', ras:'RAS' };
-const ROWS = [
-  { n:'F24-08101', refC:'', client:'Téréva Mâcon', art:'MH10-EXPORT', des:'Module hygro export (colisage vrac)', type:'MTO', st:'ret', reste:500, exp:'26/06', jr:7, late:true,
-    emp:[], cause:'Attente réception fournisseur', det:'<b>MEMB-HYG-STD −500</b> · <span class="eta overdue">réception en retard +3 j · attendue 04/07 · PO24-1174 (Wistro)</span>',
-    ofs:[{o:'OF240221',s:2}], verdict:['Bloquée','var(--danger)'], act:[['Relancer Wistro','outgoing_mail'],['Voir OF240221','visibility']] },
-  { n:'F24-08112', refC:'CDE-77123', client:'CEDEO Paris Est', art:'BDH60-ESH30', des:'Bouche hygro cuisine ESH30', type:'MTO', st:'ret', reste:120, exp:'30/06', jr:3, late:true,
-    emp:[{nm:'MAG1',q:40,alloc:false}], cause:'Rupture composant sur l’OF de couverture', det:'<b>MH10-GRS −80</b> · <span class="eta">arrive 07/07 · PO24-1180 (Sanhua)</span>',
-    ofs:[{o:'OF240226',s:1}], verdict:['Bloquée','var(--danger)'], act:[['Allouer 40 u MAG1','move_to_inbox','cta'],['Voir OF240226','visibility']] },
-  { n:'F24-08096', refC:'4501128834', client:'Aereco GmbH', art:'VAM-T4-µW', des:'Ventilateur VAM T4 MicroWatt', type:'MTO', st:'ret', reste:6, exp:'27/06', jr:4, late:true,
-    emp:[], cause:'Composant arrivé tard après affermissement OF', det:'CARTE-EC-24V dispo 01/07 <span class="eta">(sous CQ)</span> · OF240218 affermi 24/06',
-    ofs:[{o:'OF240218',s:1}], verdict:['En retard','var(--warning)'], act:[['Prioriser sortie CQ','science'],['Voir OF240218','visibility']] },
-  { n:'F24-08120', refC:'', client:'POINT.P Lyon Gerland', art:'KHY10-EAH', des:'Kit VMC hygro + entrées d’air', type:'NOR', st:'ret', reste:45, exp:'01/07', jr:2, late:true,
-    emp:[], cause:'Aucun OF planifié pour couvrir le besoin', det:'',
-    ofs:[], verdict:['Sans couverture','var(--danger)'], act:[['Créer un OF (CBN)','bolt']] },
-  { n:'F24-08150', refC:'', client:'REXEL Nantes', art:'EAH20-BLC', des:'Entrée d’air hygro 20 blanc', type:'MTS', st:'alc', reste:300, exp:'04/07', jr:0, late:false,
-    emp:[{nm:'MAG1',q:300,alloc:false}], cause:'Stock disponible non alloué', det:'MAG1 — 300 u libres, couverture totale',
-    ofs:[], verdict:['En stock','var(--success)'], act:[['Allouer 300 u','move_to_inbox','cta']] },
-  { n:'F24-08155', refC:'', client:'Aereco Polska', art:'EAH20-NOIR', des:'Entrée d’air hygro 20 noir', type:'MTS', st:'alc', reste:180, exp:'08/07', jr:0, late:false,
-    emp:[{nm:'MAG1',q:120,alloc:false},{nm:'MAG3',q:60,alloc:false}], cause:'Stock disponible non alloué', det:'MAG1 120 u + MAG3 60 u — 2 emplacements',
-    ofs:[{o:'OF240234',s:2}], verdict:['À temps','var(--success)'], act:[['Allouer 180 u','move_to_inbox','cta']] },
-  { n:'F24-08161', refC:'', client:'Brossette IdF', art:'BDH60-ESH10', des:'Bouche hygro SDB ESH10', type:'MTS', st:'alc', reste:90, exp:'06/07', jr:0, late:false, cq:true,
-    emp:[{nm:'MAG2',q:90,alloc:false}], cause:'Stock disponible non alloué — 30 u sous CQ', det:'allouer 60 u strictes maintenant, 30 u après CQ',
-    ofs:[{o:'OF240230',s:1}], verdict:['À temps','var(--success)'], act:[['Allouer 60 u strictes','move_to_inbox','cta'],['Statut CQ','science']] },
-  { n:'F24-08133', refC:'UK-20441', client:'Aereco UK Ltd', art:'BXC-BOOST', des:'Bouche extraction boost', type:'MTO', st:'exp', reste:240, exp:'03/07', jr:0, late:false,
-    emp:[{nm:'EXPE01',q:240,alloc:true,pal:'P240611'}], cause:'', det:'palette P240611 complète en zone expé',
-    ofs:[], verdict:['En stock','var(--success)'], act:[['Bon d’expédition','local_shipping']] },
-  { n:'F24-08141', refC:'', client:'SIDER Bordeaux', art:'KHY10-VMC', des:'Kit VMC hygro complet', type:'MTO', st:'exp', reste:12, exp:'03/07', jr:0, late:false, att:true,
-    emp:[{nm:'MAG1',q:12,alloc:true}], cause:'', det:'MTO — en attente de 2 autres lignes de la commande',
-    ofs:[], verdict:['À temps','var(--success)'], act:[['Voir la commande','visibility']] },
-  { n:'F24-08170', refC:'', client:'DSC Toulouse', art:'EAH30-GRS', des:'Entrée d’air hygro 30 gris', type:'MTS', st:'exp', reste:150, exp:'02/07', jr:0, late:false,
-    emp:[{nm:'EXPE01',q:150,alloc:true,pal:'P240598'}], cause:'', det:'palette P240598 en zone expé depuis hier',
-    ofs:[], verdict:['En stock','var(--success)'], act:[['Bon d’expédition','local_shipping']] },
-  { n:'F24-08188', refC:'', client:'Yesss Électrique', art:'VAM-T3', des:'Ventilateur VAM T3', type:'NOR', st:'ras', reste:20, exp:'11/07', jr:0, late:false,
-    emp:[], cause:'', det:'OF240244 (WOS) couvre le besoin dans les temps', ofs:[{o:'OF240244',s:3}], verdict:['À temps','var(--success)'], act:[] },
-  { n:'F24-08192', refC:'', client:'CGED Strasbourg', art:'BDH60-ESH60', des:'Bouche hygro WC ESH60', type:'MTS', st:'ras', reste:60, exp:'15/07', jr:0, late:false,
-    emp:[], cause:'', det:'couverture stock projetée suffisante', ofs:[], verdict:['En stock','var(--success)'], act:[] },
-];
-const OFT = { 1:['WOF','t-wof'], 2:['WOP','t-wop'], 3:['WOS','t-wos'] };
-const DESC = {
-  A: 'Zéro trait vertical, 3 niveaux typo, statut en liseré + mot — badges pleins supprimés.',
-  B: 'Densité max : 1 ligne texte / rangée, points de statut, chiffres tabulaires — pour scanner 200 lignes.',
-  C: 'Rangée minimale 6 colonnes ; cause, emplacements et couverture dans un volet au clic.',
-};
-
-/* ── A — Éditorial ── */
-function renderA() {
-  return `<table class="vA"><thead><tr>
+      /* ── A — Éditorial ── */
+      function renderA() {
+        return `<table class="vA"><thead><tr>
     <th style="width:200px">Commande · Client</th><th style="width:250px">Article</th><th style="width:56px">Type</th>
     <th class="num" style="width:80px">Reste</th><th style="width:96px">Expédition</th><th style="width:120px">Statut</th><th>Situation</th>
-  </tr></thead><tbody>${ROWS.map(r => `
+  </tr></thead><tbody>${ROWS.map(
+    (r) => `
     <tr style="--stc:${STC[r.st]}">
-      <td><div class="lead">${r.n}${r.refC?`<span class="ref2"> / ${r.refC}</span>`:''}</div><div class="sub">${r.client}</div></td>
+      <td><div class="lead">${r.n}${r.refC ? `<span class="ref2"> / ${r.refC}</span>` : ''}</div><div class="sub">${r.client}</div></td>
       <td><div class="art-l">${r.art}</div><div class="sub">${r.des}</div></td>
       <td><span class="type-tag">${r.type}</span></td>
       <td class="qty"><span class="qv">${r.reste}</span><span class="qu">u</span></td>
-      <td class="date">${r.late?`<span class="late-w">${r.exp}</span><span class="late-j">J+${r.jr}</span>`:r.exp}</td>
+      <td class="date">${r.late ? `<span class="late-w">${r.exp}</span><span class="late-j">J+${r.jr}</span>` : r.exp}</td>
       <td><span class="st-word">${STW[r.st]}</span>
-        ${r.cq?'<span class="st-extra">Signal CQ</span>':''}${r.att?'<span class="st-extra" style="color:var(--warning)">Attente lignes</span>':''}</td>
+        ${r.cq ? '<span class="st-extra">Signal CQ</span>' : ''}${r.att ? '<span class="st-extra" style="color:var(--warning)">Attente lignes</span>' : ''}</td>
       <td>
-        ${r.cause?`<div class="cause-txt">${r.cause}</div>`:''}
-        ${r.det?`<div class="cause-det">${r.det}</div>`:''}
-        ${r.emp.length?`<div class="emp-inline">${r.emp.map(e=>
-          `<span class="${e.alloc?'ok':''}">${e.alloc?'✓':'○'} ${e.nm} ${e.q} u</span>${e.pal?` <span class="pal">${e.pal}</span>`:''}`).join(' · ')}</div>`:''}
-        ${!r.cause && !r.det && !r.emp.length?'<span class="dash">—</span>':''}
+        ${r.cause ? `<div class="cause-txt">${r.cause}</div>` : ''}
+        ${r.det ? `<div class="cause-det">${r.det}</div>` : ''}
+        ${
+          r.emp.length
+            ? `<div class="emp-inline">${r.emp
+                .map(
+                  (e) =>
+                    `<span class="${e.alloc ? 'ok' : ''}">${e.alloc ? '✓' : '○'} ${e.nm} ${e.q} u</span>${e.pal ? ` <span class="pal">${e.pal}</span>` : ''}`
+                )
+                .join(' · ')}</div>`
+            : ''
+        }
+        ${!r.cause && !r.det && !r.emp.length ? '<span class="dash">—</span>' : ''}
       </td>
-    </tr>`).join('')}</tbody></table>`;
-}
+    </tr>`
+  ).join('')}</tbody></table>`
+      }
 
-/* ── B — Ligne fine ── */
-function renderB() {
-  return `<table class="vB"><thead><tr>
+      /* ── B — Ligne fine ── */
+      function renderB() {
+        return `<table class="vB"><thead><tr>
     <th style="width:110px">Commande</th><th style="width:150px">Client</th><th style="width:120px">Article</th><th style="width:190px">Désignation</th>
     <th style="width:46px">Type</th><th class="num" style="width:70px">Reste</th><th style="width:66px">Expé</th><th style="width:130px">Statut</th><th>Situation</th>
-  </tr></thead><tbody>${ROWS.map(r => `
-    <tr class="${r.late?'late':''}" style="--stc:${STC[r.st]}">
+  </tr></thead><tbody>${ROWS.map(
+    (r) => `
+    <tr class="${r.late ? 'late' : ''}" style="--stc:${STC[r.st]}">
       <td class="num-c">${r.n}</td>
       <td class="cli" title="${r.client}">${r.client}</td>
       <td class="art-b">${r.art}</td>
       <td class="des-b" title="${r.des}">${r.des}</td>
       <td><span class="type-tag">${r.type}</span></td>
       <td class="qty">${r.reste}</td>
-      <td class="date ${r.late?'late-d':''}">${r.exp}</td>
-      <td><span class="st"><span class="pt"></span>${STW[r.st]}${r.late?` J+${r.jr}`:''}</span>${r.cq?'<span class="mini cq">CQ</span>':''}${r.att?'<span class="mini att">ATT</span>':''}</td>
-      <td class="cause-b" title="${(r.cause?r.cause+' — ':'')+r.det.replace(/<[^>]+>/g,'')}">${r.cause||r.det.replace(/<[^>]+>/g,'')||'—'}</td>
-    </tr>`).join('')}</tbody></table>`;
-}
+      <td class="date ${r.late ? 'late-d' : ''}">${r.exp}</td>
+      <td><span class="st"><span class="pt"></span>${STW[r.st]}${r.late ? ` J+${r.jr}` : ''}</span>${r.cq ? '<span class="mini cq">CQ</span>' : ''}${r.att ? '<span class="mini att">ATT</span>' : ''}</td>
+      <td class="cause-b" title="${(r.cause ? r.cause + ' — ' : '') + r.det.replace(/<[^>]+>/g, '')}">${r.cause || r.det.replace(/<[^>]+>/g, '') || '—'}</td>
+    </tr>`
+  ).join('')}</tbody></table>`
+      }
 
-/* ── C — Expansible ── */
-let openN = 'F24-08112';
-function renderC() {
-  return `<table class="vC"><thead><tr>
+      /* ── C — Expansible ── */
+      let openN = 'F24-08112'
+      function renderC() {
+        return `<table class="vC"><thead><tr>
     <th style="width:30px"></th><th style="width:210px">Commande · Client</th><th style="width:250px">Article</th><th style="width:56px">Type</th>
     <th class="num" style="width:80px">Reste</th><th style="width:76px">Expé</th><th style="width:130px">Statut</th><th>Résumé</th>
-  </tr></thead><tbody>${ROWS.map(r => {
-    const open = openN===r.n;
+  </tr></thead><tbody>${ROWS.map((r) => {
+    const open = openN === r.n
     return `
-    <tr class="main ${open?'open':''}" style="--stc:${STC[r.st]}" data-n="${r.n}">
+    <tr class="main ${open ? 'open' : ''}" style="--stc:${STC[r.st]}" data-n="${r.n}">
       <td><span class="material-symbols-outlined chev">chevron_right</span></td>
-      <td><div class="lead">${r.n}${r.refC?`<span class="ref2"> / ${r.refC}</span>`:''}</div><div class="sub">${r.client}</div></td>
+      <td><div class="lead">${r.n}${r.refC ? `<span class="ref2"> / ${r.refC}</span>` : ''}</div><div class="sub">${r.client}</div></td>
       <td><div class="art-l">${r.art}</div><div class="sub">${r.des}</div></td>
       <td><span class="type-tag">${r.type}</span></td>
       <td class="qty"><span class="qv">${r.reste}</span><span class="qu">u</span></td>
-      <td class="date ${r.late?'late-d':''}">${r.exp}</td>
-      <td><span class="st-pill"><span class="pt"></span>${STW[r.st]}${r.late?` · J+${r.jr}`:''}</span></td>
-      <td><span class="hint">${r.cause?r.cause:(r.det.replace(/<[^>]+>/g,'')||'—')}</span></td>
+      <td class="date ${r.late ? 'late-d' : ''}">${r.exp}</td>
+      <td><span class="st-pill"><span class="pt"></span>${STW[r.st]}${r.late ? ` · J+${r.jr}` : ''}</span></td>
+      <td><span class="hint">${r.cause ? r.cause : r.det.replace(/<[^>]+>/g, '') || '—'}</span></td>
     </tr>
-    ${open?`<tr class="exp"><td colspan="8"><div class="panel">
+    ${
+      open
+        ? `<tr class="exp"><td colspan="8"><div class="panel">
       <div>
         <div class="p-h">Diagnostic</div>
-        <div class="p-txt">${r.cause||'Rien à signaler — ligne prête ou sous contrôle.'}</div>
-        ${r.det?`<div class="p-det">${r.det}</div>`:''}
-        ${r.act.length?`<div class="actions">${r.act.map(a=>
-          `<button class="btn-s ${a[2]==='cta'?'cta':''}"><span class="material-symbols-outlined">${a[1]}</span>${a[0]}</button>`).join('')}</div>`:''}
+        <div class="p-txt">${r.cause || 'Rien à signaler — ligne prête ou sous contrôle.'}</div>
+        ${r.det ? `<div class="p-det">${r.det}</div>` : ''}
+        ${
+          r.act.length
+            ? `<div class="actions">${r.act
+                .map(
+                  (a) =>
+                    `<button class="btn-s ${a[2] === 'cta' ? 'cta' : ''}"><span class="material-symbols-outlined">${a[1]}</span>${a[0]}</button>`
+                )
+                .join('')}</div>`
+            : ''
+        }
       </div>
       <div>
         <div class="p-h">Emplacements</div>
-        ${r.emp.length?r.emp.map(e=>`<div class="emp-pill ${e.alloc?'alloc':''}">
-          <span>${e.alloc?'✓':'○'} <b>${e.nm}</b>${e.alloc?' · alloué':' · libre'}</span>
-          <span>${e.pal?`<span class="pal">${e.pal}</span> `:''}<span class="q">${e.q} u</span></span>
-        </div>`).join(''):'<span class="dash">—</span>'}
+        ${
+          r.emp.length
+            ? r.emp
+                .map(
+                  (e) => `<div class="emp-pill ${e.alloc ? 'alloc' : ''}">
+          <span>${e.alloc ? '✓' : '○'} <b>${e.nm}</b>${e.alloc ? ' · alloué' : ' · libre'}</span>
+          <span>${e.pal ? `<span class="pal">${e.pal}</span> ` : ''}<span class="q">${e.q} u</span></span>
+        </div>`
+                )
+                .join('')
+            : '<span class="dash">—</span>'
+        }
       </div>
       <div>
         <div class="p-h">Couverture projetée</div>
-        <div class="verdict-w" style="color:${r.verdict[1]}">${r.verdict[0]}${r.jr>0?` · +${r.jr} j`:''}</div>
-        ${r.ofs.length?r.ofs.map(o=>`<div class="of-line" style="margin-top:6px">${o.o}<span class="of-tag ${OFT[o.s][1]}">${OFT[o.s][0]}</span></div>`).join(''):
-          '<div class="p-det" style="margin-top:6px">couverture stock / achat</div>'}
+        <div class="verdict-w" style="color:${r.verdict[1]}">${r.verdict[0]}${r.jr > 0 ? ` · +${r.jr} j` : ''}</div>
+        ${
+          r.ofs.length
+            ? r.ofs
+                .map(
+                  (o) =>
+                    `<div class="of-line" style="margin-top:6px">${o.o}<span class="of-tag ${OFT[o.s][1]}">${OFT[o.s][0]}</span></div>`
+                )
+                .join('')
+            : '<div class="p-det" style="margin-top:6px">couverture stock / achat</div>'
+        }
       </div>
-    </div></td></tr>`:''}`;
-  }).join('')}</tbody></table>`;
-}
+    </div></td></tr>`
+        : ''
+    }`
+  }).join('')}</tbody></table>`
+      }
 
-const R = { A: renderA, B: renderB, C: renderC };
-let cur = 'A';
-function render() {
-  document.getElementById('card').innerHTML = R[cur]();
-  document.getElementById('sw-desc').textContent = DESC[cur];
-  if (cur === 'C') document.querySelectorAll('.vC tr.main').forEach(tr => tr.onclick = () => {
-    openN = openN===tr.dataset.n ? null : tr.dataset.n; render(); });
-}
-document.querySelectorAll('.sw-btn').forEach(b => b.onclick = () => {
-  cur = b.dataset.v;
-  document.querySelectorAll('.sw-btn').forEach(x=>x.classList.toggle('on', x===b));
-  render();
-});
-render();
-</script>
-</body>
+      const R = { A: renderA, B: renderB, C: renderC }
+      let cur = 'A'
+      function render() {
+        document.getElementById('card').innerHTML = R[cur]()
+        document.getElementById('sw-desc').textContent = DESC[cur]
+        if (cur === 'C')
+          document.querySelectorAll('.vC tr.main').forEach(
+            (tr) =>
+              (tr.onclick = () => {
+                openN = openN === tr.dataset.n ? null : tr.dataset.n
+                render()
+              })
+          )
+      }
+      document.querySelectorAll('.sw-btn').forEach(
+        (b) =>
+          (b.onclick = () => {
+            cur = b.dataset.v
+            document.querySelectorAll('.sw-btn').forEach((x) => x.classList.toggle('on', x === b))
+            render()
+          })
+      )
+      render()
+    </script>
+  </body>
 </html>

@@ -1,81 +1,213 @@
 <!doctype html>
 <html lang="fr">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Ruptures · 3 directions · Papier</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,300,0,0" rel="stylesheet" />
-<link href="_tokens.css" rel="stylesheet" />
-<style>
-.wrap{max-width:980px;margin:0 auto;padding:56px 32px 96px}
-.head{margin-bottom:36px}
-.head .brand{font:900 30px var(--font-d);letter-spacing:-.03em}
-.head .brand em{font-style:italic;font-weight:500;color:var(--terra)}
-.head h1{font:700 30px var(--font-d);letter-spacing:-.03em;margin-top:14px}
-.head p{color:var(--ink-2);font-size:14px;max-width:680px;margin-top:8px;line-height:1.6}
-.head .note{margin-top:14px;display:inline-flex;align-items:center;gap:7px;font:600 11px var(--font-m);color:var(--terra);background:var(--terra-soft);padding:6px 12px;border-radius:var(--r-2)}
-.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:8px}
-.card{display:block;text-decoration:none;color:inherit;background:var(--panel);border:1px solid var(--rule);border-radius:var(--r-4);overflow:hidden;box-shadow:var(--sh-xs);transition:transform var(--ease),box-shadow var(--ease),border-color var(--ease)}
-.card:hover{transform:translateY(-3px);box-shadow:var(--sh-sm);border-color:var(--terra)}
-.card .thumb{height:128px;display:grid;place-items:center;border-bottom:1px solid var(--rule-soft);background:var(--panel-2);position:relative}
-.card .thumb .material-symbols-outlined{font-size:44px;color:var(--terra)}
-.card .thumb .tag{position:absolute;top:10px;left:10px;font:700 9px var(--font-m);text-transform:uppercase;letter-spacing:.1em;color:var(--muted);background:var(--panel);padding:3px 8px;border-radius:var(--r-1);border:1px solid var(--rule-soft)}
-.card .body{padding:16px 18px}
-.card h2{font:700 17px var(--font-d);letter-spacing:-.02em}
-.card .sub{font:600 10px var(--font-m);text-transform:uppercase;letter-spacing:.1em;color:var(--terra);margin-top:3px}
-.card p{font-size:12.5px;color:var(--ink-2);margin-top:9px;line-height:1.55}
-.card .for{margin-top:11px;font:600 10.5px var(--font-m);color:var(--muted);display:flex;align-items:center;gap:5px}
-.card .for .material-symbols-outlined{font-size:14px}
-</style>
-</head>
-<body>
-<div class="wrap">
-  <div class="head">
-    <div class="brand">Factory<em>OS</em></div>
-    <h1>Ruptures — 3 directions « Papier »</h1>
-    <p>La page Ruptures actuelle est encore sur l'ancien thème (sidebar, bleu Aldes). Ces 3 propositions
-       la réalignent sur le design system <b>Papier</b> du Suivi (masthead FactoryOS, Fraunces + terre cuite,
-       bandeau KPI, badges de statut). Même donnée moteur (OrderImpactResult), trois principes d'organisation.</p>
-    <span class="note"><span class="material-symbols-outlined" style="font-size:15px">palette</span>tokens partagés : _tokens.css (extrait de design-system.html)</span>
-  </div>
-
-  <div class="grid">
-    <a class="card" href="R1-registre.html">
-      <div class="thumb"><span class="tag">R1</span><span class="material-symbols-outlined">table_rows</span></div>
-      <div class="body">
-        <h2>Registre</h2>
-        <div class="sub">Table éditoriale</div>
-        <p>Jumeau direct du Suivi proactif : une ligne par composant × OF bloqué, colonnes denses,
-           bordure rouge sur les retards. Le plus « en phase », transition immédiate.</p>
-        <div class="for"><span class="material-symbols-outlined">groups</span>Polyvalent · vue d'ensemble</div>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ruptures · 3 directions · Papier</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,300,0,0"
+      rel="stylesheet"
+    />
+    <link href="_tokens.css" rel="stylesheet" />
+    <style>
+      .wrap {
+        max-width: 980px;
+        margin: 0 auto;
+        padding: 56px 32px 96px;
+      }
+      .head {
+        margin-bottom: 36px;
+      }
+      .head .brand {
+        font: 900 30px var(--font-d);
+        letter-spacing: -0.03em;
+      }
+      .head .brand em {
+        font-style: italic;
+        font-weight: 500;
+        color: var(--terra);
+      }
+      .head h1 {
+        font: 700 30px var(--font-d);
+        letter-spacing: -0.03em;
+        margin-top: 14px;
+      }
+      .head p {
+        color: var(--ink-2);
+        font-size: 14px;
+        max-width: 680px;
+        margin-top: 8px;
+        line-height: 1.6;
+      }
+      .head .note {
+        margin-top: 14px;
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        font: 600 11px var(--font-m);
+        color: var(--terra);
+        background: var(--terra-soft);
+        padding: 6px 12px;
+        border-radius: var(--r-2);
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 18px;
+        margin-top: 8px;
+      }
+      .card {
+        display: block;
+        text-decoration: none;
+        color: inherit;
+        background: var(--panel);
+        border: 1px solid var(--rule);
+        border-radius: var(--r-4);
+        overflow: hidden;
+        box-shadow: var(--sh-xs);
+        transition:
+          transform var(--ease),
+          box-shadow var(--ease),
+          border-color var(--ease);
+      }
+      .card:hover {
+        transform: translateY(-3px);
+        box-shadow: var(--sh-sm);
+        border-color: var(--terra);
+      }
+      .card .thumb {
+        height: 128px;
+        display: grid;
+        place-items: center;
+        border-bottom: 1px solid var(--rule-soft);
+        background: var(--panel-2);
+        position: relative;
+      }
+      .card .thumb .material-symbols-outlined {
+        font-size: 44px;
+        color: var(--terra);
+      }
+      .card .thumb .tag {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        font: 700 9px var(--font-m);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--muted);
+        background: var(--panel);
+        padding: 3px 8px;
+        border-radius: var(--r-1);
+        border: 1px solid var(--rule-soft);
+      }
+      .card .body {
+        padding: 16px 18px;
+      }
+      .card h2 {
+        font: 700 17px var(--font-d);
+        letter-spacing: -0.02em;
+      }
+      .card .sub {
+        font: 600 10px var(--font-m);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--terra);
+        margin-top: 3px;
+      }
+      .card p {
+        font-size: 12.5px;
+        color: var(--ink-2);
+        margin-top: 9px;
+        line-height: 1.55;
+      }
+      .card .for {
+        margin-top: 11px;
+        font: 600 10.5px var(--font-m);
+        color: var(--muted);
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .card .for .material-symbols-outlined {
+        font-size: 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="head">
+        <div class="brand">Factory<em>OS</em></div>
+        <h1>Ruptures — 3 directions « Papier »</h1>
+        <p>
+          La page Ruptures actuelle est encore sur l'ancien thème (sidebar, bleu Aldes). Ces 3
+          propositions la réalignent sur le design system <b>Papier</b> du Suivi (masthead
+          FactoryOS, Fraunces + terre cuite, bandeau KPI, badges de statut). Même donnée moteur
+          (OrderImpactResult), trois principes d'organisation.
+        </p>
+        <span class="note"
+          ><span class="material-symbols-outlined" style="font-size: 15px">palette</span>tokens
+          partagés : _tokens.css (extrait de design-system.html)</span
+        >
       </div>
-    </a>
 
-    <a class="card" href="R2-pegging.html">
-      <div class="thumb"><span class="tag">R2</span><span class="material-symbols-outlined">account_tree</span></div>
-      <div class="body">
-        <h2>Pegging</h2>
-        <div class="sub">Groupé par composant</div>
-        <p>Une carte par composant en rupture (déficit total + réception couvrante en tête),
-           puis les OF/commandes bloqués imbriqués. Lentille appro : quoi commander, pour qui.</p>
-        <div class="for"><span class="material-symbols-outlined">local_shipping</span>Appro · achats</div>
-      </div>
-    </a>
+      <div class="grid">
+        <a class="card" href="R1-registre.html">
+          <div class="thumb">
+            <span class="tag">R1</span><span class="material-symbols-outlined">table_rows</span>
+          </div>
+          <div class="body">
+            <h2>Registre</h2>
+            <div class="sub">Table éditoriale</div>
+            <p>
+              Jumeau direct du Suivi proactif : une ligne par composant × OF bloqué, colonnes
+              denses, bordure rouge sur les retards. Le plus « en phase », transition immédiate.
+            </p>
+            <div class="for">
+              <span class="material-symbols-outlined">groups</span>Polyvalent · vue d'ensemble
+            </div>
+          </div>
+        </a>
 
-    <a class="card" href="R3-couverture.html">
-      <div class="thumb"><span class="tag">R3</span><span class="material-symbols-outlined">timeline</span></div>
-      <div class="body">
-        <h2>Couverture</h2>
-        <div class="sub">Frise temporelle</div>
-        <p>Chaque ligne porte une mini-frise réception ↔ expédition : on voit d'un coup le gap
-           de retard (hachuré rouge) ou la marge (vert). Lentille délai : arrive-t-on à temps ?</p>
-        <div class="for"><span class="material-symbols-outlined">schedule</span>Ordonnancement · délais</div>
+        <a class="card" href="R2-pegging.html">
+          <div class="thumb">
+            <span class="tag">R2</span><span class="material-symbols-outlined">account_tree</span>
+          </div>
+          <div class="body">
+            <h2>Pegging</h2>
+            <div class="sub">Groupé par composant</div>
+            <p>
+              Une carte par composant en rupture (déficit total + réception couvrante en tête), puis
+              les OF/commandes bloqués imbriqués. Lentille appro : quoi commander, pour qui.
+            </p>
+            <div class="for">
+              <span class="material-symbols-outlined">local_shipping</span>Appro · achats
+            </div>
+          </div>
+        </a>
+
+        <a class="card" href="R3-couverture.html">
+          <div class="thumb">
+            <span class="tag">R3</span><span class="material-symbols-outlined">timeline</span>
+          </div>
+          <div class="body">
+            <h2>Couverture</h2>
+            <div class="sub">Frise temporelle</div>
+            <p>
+              Chaque ligne porte une mini-frise réception ↔ expédition : on voit d'un coup le gap de
+              retard (hachuré rouge) ou la marge (vert). Lentille délai : arrive-t-on à temps ?
+            </p>
+            <div class="for">
+              <span class="material-symbols-outlined">schedule</span>Ordonnancement · délais
+            </div>
+          </div>
+        </a>
       </div>
-    </a>
-  </div>
-</div>
-</body>
+    </div>
+  </body>
 </html>

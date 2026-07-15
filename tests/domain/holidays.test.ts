@@ -4,7 +4,8 @@ import { easterSunday, frenchHolidays, workingDaysBetween } from '#app/domain/ho
 test.group('holidays / easterSunday', () => {
   test('dimanches de Pâques connus', ({ assert }) => {
     // Références : 2026-04-05, 2025-04-20, 2024-03-31, 2027-03-28.
-    const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    const fmt = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
     assert.equal(fmt(easterSunday(2026)), '2026-04-05')
     assert.equal(fmt(easterSunday(2025)), '2025-04-20')
     assert.equal(fmt(easterSunday(2024)), '2024-03-31')

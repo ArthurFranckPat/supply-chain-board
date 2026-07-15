@@ -92,8 +92,35 @@ export class OrderLineOverrideSchema extends BaseModel {
   declare updatedAt: DateTime | null
 }
 
+export class ScenarioSchema extends BaseModel {
+  static $columns = ['auteur', 'createdAt', 'dataAt', 'description', 'evaluatedAt', 'id', 'mutations', 'nom', 'statut', 'strategy', 'updatedAt'] as const
+  $columns = ScenarioSchema.$columns
+  @column()
+  declare auteur: string | null
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime | null
+  @column()
+  declare dataAt: string | null
+  @column()
+  declare description: string | null
+  @column()
+  declare evaluatedAt: string | null
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare mutations: string
+  @column()
+  declare nom: string
+  @column()
+  declare statut: string
+  @column()
+  declare strategy: string
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+}
+
 export class StaticArticleSchema extends BaseModel {
-  static $columns = ['category', 'code', 'description', 'famille', 'supplyType', 'syncedAt', 'typologie'] as const
+  static $columns = ['category', 'code', 'description', 'famille', 'reorderDelay', 'supplyType', 'syncedAt', 'typologie'] as const
   $columns = StaticArticleSchema.$columns
   @column()
   declare category: string
@@ -103,6 +130,8 @@ export class StaticArticleSchema extends BaseModel {
   declare description: string
   @column()
   declare famille: string
+  @column()
+  declare reorderDelay: number
   @column()
   declare supplyType: string
   @column()
@@ -199,10 +228,12 @@ export class StaticWorkstationSchema extends BaseModel {
 }
 
 export class UserSchema extends BaseModel {
-  static $columns = ['createdAt', 'id', 'lastEnv', 'lastLoginAt', 'updatedAt', 'username', 'x3PasswordEncrypted'] as const
+  static $columns = ['createdAt', 'dashboardLayout', 'id', 'lastEnv', 'lastLoginAt', 'updatedAt', 'username', 'x3PasswordEncrypted'] as const
   $columns = UserSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
+  @column()
+  declare dashboardLayout: string | null
   @column({ isPrimary: true })
   declare id: number
   @column()

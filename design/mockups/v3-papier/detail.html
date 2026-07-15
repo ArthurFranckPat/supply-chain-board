@@ -1,312 +1,1234 @@
 <!doctype html>
 <html lang="fr">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Papier · Panneaux de détail commande</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700;9..144,900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,300,0,0" rel="stylesheet" />
-<style>
-:root{
-  --paper:#f1ebdf; --paper2:#ebe3d3; --panel:#fbf7ee; --panel2:#f6f0e2;
-  --rule:#d9cdb5; --rule-soft:#e6dcc6; --ink:#211c17; --ink2:#4a4138; --muted:#857967;
-  --terra:#b8472a; --terra-dim:rgba(184,71,42,.12); --ochre:#b8862c; --sage:#5b7d4e; --indigo:#2f4858;
-  --ferme:#5b7d4e; --planifie:#2f4858; --suggere:#b8862c; --danger:#a83a23;
-  --font-d:"Fraunces",Georgia,serif; --font-s:"Inter",system-ui,sans-serif; --font-m:"JetBrains Mono",ui-monospace,monospace;
-}
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:#d9d3c5;color:var(--ink);font-family:var(--font-s);-webkit-font-smoothing:antialiased;padding:36px 0 60px}
-.material-symbols-outlined{font-family:"Material Symbols Outlined";font-weight:300;line-height:1;font-feature-settings:"liga";-webkit-font-smoothing:antialiased;vertical-align:middle}
-.mono{font-family:var(--font-m)}
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Papier · Panneaux de détail commande</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700;9..144,900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,300,0,0"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --paper: #f1ebdf;
+        --paper2: #ebe3d3;
+        --panel: #fbf7ee;
+        --panel2: #f6f0e2;
+        --rule: #d9cdb5;
+        --rule-soft: #e6dcc6;
+        --ink: #211c17;
+        --ink2: #4a4138;
+        --muted: #857967;
+        --terra: #b8472a;
+        --terra-dim: rgba(184, 71, 42, 0.12);
+        --ochre: #b8862c;
+        --sage: #5b7d4e;
+        --indigo: #2f4858;
+        --ferme: #5b7d4e;
+        --planifie: #2f4858;
+        --suggere: #b8862c;
+        --danger: #a83a23;
+        --font-d: 'Fraunces', Georgia, serif;
+        --font-s: 'Inter', system-ui, sans-serif;
+        --font-m: 'JetBrains Mono', ui-monospace, monospace;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        background: #d9d3c5;
+        color: var(--ink);
+        font-family: var(--font-s);
+        -webkit-font-smoothing: antialiased;
+        padding: 36px 0 60px;
+      }
+      .material-symbols-outlined {
+        font-family: 'Material Symbols Outlined';
+        font-weight: 300;
+        line-height: 1;
+        font-feature-settings: 'liga';
+        -webkit-font-smoothing: antialiased;
+        vertical-align: middle;
+      }
+      .mono {
+        font-family: var(--font-m);
+      }
 
-.hd{max-width:1100px;margin:0 auto 30px;padding:0 32px}
-.hd .k{font:700 11px var(--font-m);text-transform:uppercase;letter-spacing:.16em;color:var(--muted)}
-.hd h1{font:700 26px var(--font-d);letter-spacing:-.02em;margin-top:6px}
-.hd h1 em{font-style:italic;color:var(--terra);font-weight:500}
-.hd p{color:var(--ink2);font-size:14px;margin-top:8px;max-width:680px;line-height:1.5}
+      .hd {
+        max-width: 1100px;
+        margin: 0 auto 30px;
+        padding: 0 32px;
+      }
+      .hd .k {
+        font: 700 11px var(--font-m);
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+        color: var(--muted);
+      }
+      .hd h1 {
+        font: 700 26px var(--font-d);
+        letter-spacing: -0.02em;
+        margin-top: 6px;
+      }
+      .hd h1 em {
+        font-style: italic;
+        color: var(--terra);
+        font-weight: 500;
+      }
+      .hd p {
+        color: var(--ink2);
+        font-size: 14px;
+        margin-top: 8px;
+        max-width: 680px;
+        line-height: 1.5;
+      }
 
-.scene-wrap{max-width:1100px;margin:0 auto 40px;padding:0 32px}
-.scene-cap{display:flex;align-items:baseline;gap:12px;margin-bottom:10px}
-.scene-cap .n{font:700 11px var(--font-m);color:#fff;background:var(--ink);border-radius:6px;padding:3px 8px;letter-spacing:.06em}
-.scene-cap h2{font:700 19px var(--font-d);letter-spacing:-.02em}
-.scene-cap .pros{margin-left:auto;font:600 11px var(--font-s);color:var(--sage)}
-.scene-desc{font-size:13px;color:var(--ink2);margin-bottom:12px;line-height:1.5;max-width:760px}
+      .scene-wrap {
+        max-width: 1100px;
+        margin: 0 auto 40px;
+        padding: 0 32px;
+      }
+      .scene-cap {
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+        margin-bottom: 10px;
+      }
+      .scene-cap .n {
+        font: 700 11px var(--font-m);
+        color: #fff;
+        background: var(--ink);
+        border-radius: 6px;
+        padding: 3px 8px;
+        letter-spacing: 0.06em;
+      }
+      .scene-cap h2 {
+        font: 700 19px var(--font-d);
+        letter-spacing: -0.02em;
+      }
+      .scene-cap .pros {
+        margin-left: auto;
+        font: 600 11px var(--font-s);
+        color: var(--sage);
+      }
+      .scene-desc {
+        font-size: 13px;
+        color: var(--ink2);
+        margin-bottom: 12px;
+        line-height: 1.5;
+        max-width: 760px;
+      }
 
-/* scene frame = a 1100px stage showing board + panel */
-.stage{position:relative;width:100%;height:560px;border-radius:14px;overflow:hidden;box-shadow:0 20px 50px -20px rgba(33,28,23,.4);border:1px solid #bdb39a}
-.backdrop{position:absolute;inset:0;background:var(--paper)}
-/* faux board behind */
-.fb{position:absolute;inset:0;padding:46px 0 0;display:flex;flex-direction:column;gap:0}
-.fb .topbar{position:absolute;top:0;left:0;right:0;height:38px;background:var(--panel);border-bottom:1px solid var(--rule);display:flex;align-items:center;padding:0 16px;gap:10px}
-.fb .topbar .mk{font:900 14px var(--font-d)}
-.fb .topbar .mk em{font-style:italic;color:var(--terra);font-weight:500}
-.fb .topbar .lk{height:8px;border-radius:4px;background:var(--paper2);flex:1;max-width:280px}
-.fb .topbar .lk.s{max-width:60px}
-.fb-grid{display:grid;grid-template-columns:120px repeat(8,1fr);height:100%}
-.fb .col{border-right:1px solid var(--rule-soft);border-bottom:1px solid var(--rule-soft);padding:6px;display:flex;flex-direction:column;gap:4px}
-.fb .col.h{background:var(--panel);font:600 8px var(--font-m);color:var(--muted);align-items:center}
-.fb .lc{background:var(--paper2);height:8px;border-radius:2px;margin-top:3px}
-.fb .card{height:18px;border-radius:2px;border-left:3px solid var(--muted);background:var(--panel2);opacity:.55}
-.fb .card.g{border-left-color:var(--ferme)} .fb .card.b{border-left-color:var(--planifie)} .fb .card.a{border-left-color:var(--suggere)}
+      /* scene frame = a 1100px stage showing board + panel */
+      .stage {
+        position: relative;
+        width: 100%;
+        height: 560px;
+        border-radius: 14px;
+        overflow: hidden;
+        box-shadow: 0 20px 50px -20px rgba(33, 28, 23, 0.4);
+        border: 1px solid #bdb39a;
+      }
+      .backdrop {
+        position: absolute;
+        inset: 0;
+        background: var(--paper);
+      }
+      /* faux board behind */
+      .fb {
+        position: absolute;
+        inset: 0;
+        padding: 46px 0 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+      }
+      .fb .topbar {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 38px;
+        background: var(--panel);
+        border-bottom: 1px solid var(--rule);
+        display: flex;
+        align-items: center;
+        padding: 0 16px;
+        gap: 10px;
+      }
+      .fb .topbar .mk {
+        font: 900 14px var(--font-d);
+      }
+      .fb .topbar .mk em {
+        font-style: italic;
+        color: var(--terra);
+        font-weight: 500;
+      }
+      .fb .topbar .lk {
+        height: 8px;
+        border-radius: 4px;
+        background: var(--paper2);
+        flex: 1;
+        max-width: 280px;
+      }
+      .fb .topbar .lk.s {
+        max-width: 60px;
+      }
+      .fb-grid {
+        display: grid;
+        grid-template-columns: 120px repeat(8, 1fr);
+        height: 100%;
+      }
+      .fb .col {
+        border-right: 1px solid var(--rule-soft);
+        border-bottom: 1px solid var(--rule-soft);
+        padding: 6px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .fb .col.h {
+        background: var(--panel);
+        font: 600 8px var(--font-m);
+        color: var(--muted);
+        align-items: center;
+      }
+      .fb .lc {
+        background: var(--paper2);
+        height: 8px;
+        border-radius: 2px;
+        margin-top: 3px;
+      }
+      .fb .card {
+        height: 18px;
+        border-radius: 2px;
+        border-left: 3px solid var(--muted);
+        background: var(--panel2);
+        opacity: 0.55;
+      }
+      .fb .card.g {
+        border-left-color: var(--ferme);
+      }
+      .fb .card.b {
+        border-left-color: var(--planifie);
+      }
+      .fb .card.a {
+        border-left-color: var(--suggere);
+      }
 
-/* dim overlay when panel open */
-.veil{position:absolute;inset:0;background:rgba(33,28,23,.28);backdrop-filter:blur(1.5px)}
+      /* dim overlay when panel open */
+      .veil {
+        position: absolute;
+        inset: 0;
+        background: rgba(33, 28, 23, 0.28);
+        backdrop-filter: blur(1.5px);
+      }
 
-/* ═══ shared panel tokens ═══ */
-.p-section{padding:0;border-bottom:1px solid var(--rule)}
-.p-section:last-child{border-bottom:0}
-.p-sec-h{font:700 9px var(--font-m);text-transform:uppercase;letter-spacing:.14em;color:var(--terra);padding:12px 22px 6px;display:flex;align-items:center;gap:7px}
-.p-sec-h .material-symbols-outlined{font-size:14px}
-.kv{display:flex;justify-content:space-between;align-items:baseline;padding:4px 22px;font-size:13px}
-.kv .k{font:600 10px var(--font-m);text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
-.kv .v{font:600 13px var(--font-s);color:var(--ink);text-align:right}
-.kv .v.mono{font:600 13px var(--font-m)}
-.pill{font:700 9px var(--font-m);text-transform:uppercase;letter-spacing:.06em;border-radius:4px;padding:2px 7px;display:inline-flex;align-items:center;gap:4px}
-.pill.ok{background:rgba(91,125,78,.15);color:#3f5e30}
-.pill.bad{background:rgba(168,58,35,.13);color:var(--danger)}
-.pill.terra{background:var(--terra-dim);color:var(--terra)}
+      /* ═══ shared panel tokens ═══ */
+      .p-section {
+        padding: 0;
+        border-bottom: 1px solid var(--rule);
+      }
+      .p-section:last-child {
+        border-bottom: 0;
+      }
+      .p-sec-h {
+        font: 700 9px var(--font-m);
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: var(--terra);
+        padding: 12px 22px 6px;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+      }
+      .p-sec-h .material-symbols-outlined {
+        font-size: 14px;
+      }
+      .kv {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        padding: 4px 22px;
+        font-size: 13px;
+      }
+      .kv .k {
+        font: 600 10px var(--font-m);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--muted);
+      }
+      .kv .v {
+        font: 600 13px var(--font-s);
+        color: var(--ink);
+        text-align: right;
+      }
+      .kv .v.mono {
+        font: 600 13px var(--font-m);
+      }
+      .pill {
+        font: 700 9px var(--font-m);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        border-radius: 4px;
+        padding: 2px 7px;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .pill.ok {
+        background: rgba(91, 125, 78, 0.15);
+        color: #3f5e30;
+      }
+      .pill.bad {
+        background: rgba(168, 58, 35, 0.13);
+        color: var(--danger);
+      }
+      .pill.terra {
+        background: var(--terra-dim);
+        color: var(--terra);
+      }
 
-/* BOM table */
-.bom{width:100%;border-collapse:collapse}
-.bom th{font:700 8px var(--font-m);text-transform:uppercase;letter-spacing:.08em;color:var(--muted);text-align:left;padding:8px 10px;border-bottom:1px solid var(--rule);background:var(--panel2)}
-.bom th.r,.bom td.r{text-align:right}
-.bom td{padding:8px 10px;border-bottom:1px solid var(--rule-soft);font-size:12px;color:var(--ink);vertical-align:middle}
-.bom td.art{font:700 11px var(--font-m);white-space:nowrap}
-.bom td.des{color:var(--ink2);font-weight:500}
-.bom tr.bad td{background:rgba(168,58,35,.05)}
-.bom .short{font:700 11px var(--font-m);color:var(--danger)}
-.bom .ok-i{color:var(--ferme);font-weight:700}
-.bom .qty{font:600 12px var(--font-m)}
+      /* BOM table */
+      .bom {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      .bom th {
+        font: 700 8px var(--font-m);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--muted);
+        text-align: left;
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--rule);
+        background: var(--panel2);
+      }
+      .bom th.r,
+      .bom td.r {
+        text-align: right;
+      }
+      .bom td {
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--rule-soft);
+        font-size: 12px;
+        color: var(--ink);
+        vertical-align: middle;
+      }
+      .bom td.art {
+        font: 700 11px var(--font-m);
+        white-space: nowrap;
+      }
+      .bom td.des {
+        color: var(--ink2);
+        font-weight: 500;
+      }
+      .bom tr.bad td {
+        background: rgba(168, 58, 35, 0.05);
+      }
+      .bom .short {
+        font: 700 11px var(--font-m);
+        color: var(--danger);
+      }
+      .bom .ok-i {
+        color: var(--ferme);
+        font-weight: 700;
+      }
+      .bom .qty {
+        font: 600 12px var(--font-m);
+      }
 
-/* ══════ D1 — DRAWER DROIT ══════ */
-.d1{position:absolute;top:0;right:0;bottom:0;width:420px;background:var(--panel);border-left:1px solid var(--rule);box-shadow:-20px 0 50px -20px rgba(33,28,23,.3);display:flex;flex-direction:column;animation:slin .3s cubic-bezier(.32,.72,0,1) both}
-@keyframes slin{from{transform:translateX(40px);opacity:.6}}
-.d1 .ph{padding:16px 22px 14px;border-bottom:1px solid var(--ink);display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
-.d1 .ph .l .eb{font:600 10px var(--font-m);text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
-.d1 .ph .l h3{font:700 21px var(--font-d);letter-spacing:-.02em;margin-top:2px;line-height:1.15}
-.d1 .ph .l h3 .art{display:block;font:600 12px var(--font-m);color:var(--terra);margin-top:4px;letter-spacing:0}
-.d1 .ph .x{width:28px;height:28px;border-radius:50%;border:1px solid var(--rule);background:transparent;color:var(--muted);display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none}
-.d1 .pbody{overflow:auto;flex:1}
-.d1 .flagbar{display:flex;align-items:center;gap:8px;padding:10px 22px;background:rgba(168,58,35,.06);border-bottom:1px solid var(--rule)}
-.d1 .act{padding:12px 22px;border-top:1px solid var(--rule);display:flex;gap:8px}
-.btn{display:inline-flex;align-items:center;gap:6px;font:600 12px var(--font-s);border-radius:7px;padding:8px 13px;cursor:pointer;border:1px solid transparent;text-decoration:none}
-.btn .material-symbols-outlined{font-size:16px}
-.btn-terra{background:var(--terra);color:var(--panel)}
-.btn-out{background:transparent;border-color:var(--rule);color:var(--ink)}
+      /* ══════ D1 — DRAWER DROIT ══════ */
+      .d1 {
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: 420px;
+        background: var(--panel);
+        border-left: 1px solid var(--rule);
+        box-shadow: -20px 0 50px -20px rgba(33, 28, 23, 0.3);
+        display: flex;
+        flex-direction: column;
+        animation: slin 0.3s cubic-bezier(0.32, 0.72, 0, 1) both;
+      }
+      @keyframes slin {
+        from {
+          transform: translateX(40px);
+          opacity: 0.6;
+        }
+      }
+      .d1 .ph {
+        padding: 16px 22px 14px;
+        border-bottom: 1px solid var(--ink);
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 10px;
+      }
+      .d1 .ph .l .eb {
+        font: 600 10px var(--font-m);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--muted);
+      }
+      .d1 .ph .l h3 {
+        font: 700 21px var(--font-d);
+        letter-spacing: -0.02em;
+        margin-top: 2px;
+        line-height: 1.15;
+      }
+      .d1 .ph .l h3 .art {
+        display: block;
+        font: 600 12px var(--font-m);
+        color: var(--terra);
+        margin-top: 4px;
+        letter-spacing: 0;
+      }
+      .d1 .ph .x {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        border: 1px solid var(--rule);
+        background: transparent;
+        color: var(--muted);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        flex: none;
+      }
+      .d1 .pbody {
+        overflow: auto;
+        flex: 1;
+      }
+      .d1 .flagbar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 22px;
+        background: rgba(168, 58, 35, 0.06);
+        border-bottom: 1px solid var(--rule);
+      }
+      .d1 .act {
+        padding: 12px 22px;
+        border-top: 1px solid var(--rule);
+        display: flex;
+        gap: 8px;
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font: 600 12px var(--font-s);
+        border-radius: 7px;
+        padding: 8px 13px;
+        cursor: pointer;
+        border: 1px solid transparent;
+        text-decoration: none;
+      }
+      .btn .material-symbols-outlined {
+        font-size: 16px;
+      }
+      .btn-terra {
+        background: var(--terra);
+        color: var(--panel);
+      }
+      .btn-out {
+        background: transparent;
+        border-color: var(--rule);
+        color: var(--ink);
+      }
 
-/* ══════ D2 — FICHE CENTRÉE ══════ */
-.d2{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:620px;max-height:520px;background:var(--panel);border:2px solid var(--ink);box-shadow:0 30px 60px -20px rgba(33,28,23,.5);display:flex;flex-direction:column;animation:zin .3s cubic-bezier(.32,.72,0,1) both}
-@keyframes zin{from{transform:translate(-50%,-48%) scale(.97);opacity:.5}}
-.d2 .ph{padding:18px 24px;border-bottom:3px double var(--ink);display:flex;align-items:center;justify-content:space-between}
-.d2 .ph .l .eb{font:600 9px var(--font-m);text-transform:uppercase;letter-spacing:.16em;color:var(--terra)}
-.d2 .ph .l h3{font:900 24px var(--font-d);letter-spacing:-.03em;margin-top:2px;line-height:1}
-.d2 .ph .l .sub{font:500 12px var(--font-s);color:var(--muted);font-style:italic;margin-top:3px}
-.d2 .ph .x{width:30px;height:30px;border-radius:50%;border:1px solid var(--rule);background:transparent;color:var(--muted);display:flex;align-items:center;justify-content:center;cursor:pointer}
-.d2 .pbody{overflow:auto;flex:1}
-.d2 .two{display:grid;grid-template-columns:1fr 1fr;gap:0;border-bottom:1px solid var(--rule)}
-.d2 .two .col{padding:6px 0}
-.d2 .two .col:first-child{border-right:1px solid var(--rule)}
+      /* ══════ D2 — FICHE CENTRÉE ══════ */
+      .d2 {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 620px;
+        max-height: 520px;
+        background: var(--panel);
+        border: 2px solid var(--ink);
+        box-shadow: 0 30px 60px -20px rgba(33, 28, 23, 0.5);
+        display: flex;
+        flex-direction: column;
+        animation: zin 0.3s cubic-bezier(0.32, 0.72, 0, 1) both;
+      }
+      @keyframes zin {
+        from {
+          transform: translate(-50%, -48%) scale(0.97);
+          opacity: 0.5;
+        }
+      }
+      .d2 .ph {
+        padding: 18px 24px;
+        border-bottom: 3px double var(--ink);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .d2 .ph .l .eb {
+        font: 600 9px var(--font-m);
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+        color: var(--terra);
+      }
+      .d2 .ph .l h3 {
+        font: 900 24px var(--font-d);
+        letter-spacing: -0.03em;
+        margin-top: 2px;
+        line-height: 1;
+      }
+      .d2 .ph .l .sub {
+        font: 500 12px var(--font-s);
+        color: var(--muted);
+        font-style: italic;
+        margin-top: 3px;
+      }
+      .d2 .ph .x {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        border: 1px solid var(--rule);
+        background: transparent;
+        color: var(--muted);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+      }
+      .d2 .pbody {
+        overflow: auto;
+        flex: 1;
+      }
+      .d2 .two {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0;
+        border-bottom: 1px solid var(--rule);
+      }
+      .d2 .two .col {
+        padding: 6px 0;
+      }
+      .d2 .two .col:first-child {
+        border-right: 1px solid var(--rule);
+      }
 
-/* ══════ D3 — PANNEAU BAS (split) ══════ */
-.d3{position:absolute;left:0;right:0;bottom:0;height:330px;background:var(--panel);border-top:2px solid var(--ink);box-shadow:0 -20px 50px -20px rgba(33,28,23,.3);display:flex;flex-direction:column;animation:upin .3s cubic-bezier(.32,.72,0,1) both}
-@keyframes upin{from{transform:translateY(40px);opacity:.6}}
-.d3 .ph{padding:12px 22px;border-bottom:1px solid var(--rule);display:flex;align-items:center;gap:16px}
-.d3 .ph .id{display:flex;align-items:baseline;gap:10px}
-.d3 .ph .id h3{font:700 19px var(--font-d);letter-spacing:-.02em}
-.d3 .ph .id .art{font:700 12px var(--font-m);color:var(--terra)}
-.d3 .ph .id .des{font:500 12px var(--font-s);color:var(--muted);font-style:italic}
-.d3 .ph .spacer{flex:1}
-.d3 .pbody{overflow:auto;flex:1}
-.d3 .bomwrap{padding:0 22px 12px}
-.d3 .leftmeta{display:flex;align-items:center;gap:14px;padding:0 22px;border-bottom:1px solid var(--rule);background:var(--panel2)}
-.d3 .leftmeta .m{display:flex;flex-direction:column;padding:8px 0}
-.d3 .leftmeta .m .k{font:600 8px var(--font-m);text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
-.d3 .leftmeta .m .v{font:700 13px var(--font-d);color:var(--ink);line-height:1.1}
-.d3 .leftmeta .sep{width:1px;height:26px;background:var(--rule)}
+      /* ══════ D3 — PANNEAU BAS (split) ══════ */
+      .d3 {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 330px;
+        background: var(--panel);
+        border-top: 2px solid var(--ink);
+        box-shadow: 0 -20px 50px -20px rgba(33, 28, 23, 0.3);
+        display: flex;
+        flex-direction: column;
+        animation: upin 0.3s cubic-bezier(0.32, 0.72, 0, 1) both;
+      }
+      @keyframes upin {
+        from {
+          transform: translateY(40px);
+          opacity: 0.6;
+        }
+      }
+      .d3 .ph {
+        padding: 12px 22px;
+        border-bottom: 1px solid var(--rule);
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
+      .d3 .ph .id {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+      }
+      .d3 .ph .id h3 {
+        font: 700 19px var(--font-d);
+        letter-spacing: -0.02em;
+      }
+      .d3 .ph .id .art {
+        font: 700 12px var(--font-m);
+        color: var(--terra);
+      }
+      .d3 .ph .id .des {
+        font: 500 12px var(--font-s);
+        color: var(--muted);
+        font-style: italic;
+      }
+      .d3 .ph .spacer {
+        flex: 1;
+      }
+      .d3 .pbody {
+        overflow: auto;
+        flex: 1;
+      }
+      .d3 .bomwrap {
+        padding: 0 22px 12px;
+      }
+      .d3 .leftmeta {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 0 22px;
+        border-bottom: 1px solid var(--rule);
+        background: var(--panel2);
+      }
+      .d3 .leftmeta .m {
+        display: flex;
+        flex-direction: column;
+        padding: 8px 0;
+      }
+      .d3 .leftmeta .m .k {
+        font: 600 8px var(--font-m);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--muted);
+      }
+      .d3 .leftmeta .m .v {
+        font: 700 13px var(--font-d);
+        color: var(--ink);
+        line-height: 1.1;
+      }
+      .d3 .leftmeta .sep {
+        width: 1px;
+        height: 26px;
+        background: var(--rule);
+      }
 
-.compare{max-width:1100px;margin:0 auto;padding:0 32px}
-.compare .box{background:var(--panel);border:1px solid var(--rule);border-radius:12px;padding:20px 24px}
-.compare h3{font:700 16px var(--font-d);margin-bottom:12px}
-.compare table{width:100%;border-collapse:collapse;font-size:13px}
-.compare th,.compare td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--rule-soft)}
-.compare th{font:600 10px var(--font-m);text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
-.compare td{color:var(--ink2)}
-.compare td b{color:var(--ink)}
-.compare tr:last-child td{border-bottom:0}
-</style>
-</head>
-<body>
-
-<div class="hd">
-  <div class="k">Papier · Composant détail</div>
-  <h1>Panneau de détail <em>au clic sur une carte</em></h1>
-  <p>Trois variantes d'affichage du détail d'une ligne de commande (identité + nomenclature/BOM + faisabilité). Mêmes données : <b>AR24490 · L4</b>, Caisse VMC D200, Bouygues, 120 u, faisabilité bloquée (MOT-33012 −42). Chaque variante est un compromis différent entre <b>contexte préservé</b> et <b>place pour la donnée</b>.</p>
-</div>
-
-<!-- ════════ D1 — DRAWER DROIT ════════ -->
-<div class="scene-wrap">
-  <div class="scene-cap"><span class="n">D1</span><h2>Drawer droit éditorial</h2><span class="pros">→ le plus classique, focus total sur le détail</span></div>
-  <div class="scene-desc">Panneau latéral droit (~420 px). Le board reste visible à gauche mais atténué. Idéal pour lire la nomenclature en entier sans perdre le contexte de la ligne. Recommandé par défaut.</div>
-  <div class="stage">
-    <div class="backdrop"><div class="fb"><div class="topbar"><span class="mk">Factory<em>OS</em></span><span class="lk"></span><span class="lk s"></span></div><div class="fb-grid">
-      <div class="col h">Poste</div><div class="col h">16</div><div class="col h">17</div><div class="col h">18</div><div class="col h">19</div><div class="col h">20</div><div class="col h">23</div><div class="col h">24</div><div class="col h">25</div>
-      <div class="col"></div><div class="col"></div><div class="col"><div class="card g"></div></div><div class="col"><div class="card b"></div><div class="card g"></div></div><div class="col"></div><div class="col"><div class="card a"></div></div><div class="col"></div><div class="col"><div class="card b"></div></div><div class="col"></div>
-      <div class="col"></div><div class="col"><div class="card g"></div></div><div class="col"><div class="card b"></div></div><div class="col"><div class="card g"></div></div><div class="col"></div><div class="col"></div><div class="col"><div class="card b"></div><div class="card g"></div></div><div class="col"><div class="card b"></div></div><div class="col"></div>
-      <div class="col"></div><div class="col"></div><div class="col"></div><div class="col"><div class="card g"></div></div><div class="col"><div class="card b"></div></div><div class="col"><div class="card a"></div></div><div class="col"></div><div class="col"><div class="card b"></div></div><div class="col"><div class="card g"></div></div><div class="col"></div>
-      <div class="col"></div><div class="col"><div class="card g"></div></div><div class="col"></div><div class="col"></div><div class="col"><div class="card b"></div></div><div class="col"></div><div class="col"><div class="card a"></div></div><div class="col"></div><div class="col"></div><div class="col"><div class="card b"></div></div>
-    </div></div></div>
-    <div class="veil"></div>
-    <div class="d1">
-      <div class="ph">
-        <div class="l"><div class="eb">Commande · ligne</div><h3>AR24490 · L4<span class="art">XTR106540 — Caisse VMC D200</span></h3></div>
-        <button class="x"><span class="material-symbols-outlined" style="font-size:18px">close</span></button>
-      </div>
-      <div class="flagbar"><span class="pill bad"><span class="material-symbols-outlined" style="font-size:13px">block</span>Faisabilité bloquée</span><span style="font:500 11px var(--font-s);color:var(--ink2)">1 composant manquant · <b>MOT-33012</b></span></div>
-      <div class="pbody">
-        <div class="p-section">
-          <div class="p-sec-h"><span class="material-symbols-outlined">article</span>Identité</div>
-          <div class="kv"><span class="k">Client</span><span class="v">Bouygues</span></div>
-          <div class="kv"><span class="k">Quantité</span><span class="v mono">120 u</span></div>
-          <div class="kv"><span class="k">Livraison</span><span class="v mono">24 juin 2026</span></div>
-          <div class="kv"><span class="k">Contremarque</span><span class="v mono">BGE-2451</span></div>
-          <div class="kv"><span class="k">Type · Nature</span><span class="v">MTS · Commande</span></div>
-          <div class="kv"><span class="k">Poste</span><span class="v">DCP-01 · Découpe Fan</span></div>
-          <div class="kv"><span class="k">Charge</span><span class="v mono">3,0 h</span></div>
-          <div class="kv"><span class="k">Override</span><span class="v"><span class="pill terra"><span class="material-symbols-outlined" style="font-size:13px">edit</span>Date +1 j</span></span></div>
-        </div>
-        <div class="p-section" style="padding-bottom:12px">
-          <div class="p-sec-h"><span class="material-symbols-outlined">account_tree</span>Nomenclature <span style="margin-left:auto;color:var(--muted);font-weight:600">5 composants · 1 bloquant</span></div>
-          <table class="bom">
-            <thead><tr><th>Article</th><th>Désignation</th><th class="r">Besoin</th><th class="r">Dispo</th><th class="r">État</th></tr></thead>
-            <tbody>
-              <tr class="bad"><td class="art">MOT-33012</td><td class="des">Moteur VMC D250 220V</td><td class="r qty">120</td><td class="r qty">78</td><td class="r short">−42</td></tr>
-              <tr><td class="art">TPS-55120</td><td class="des">Support caisson</td><td class="r qty">120</td><td class="r qty">120</td><td class="r ok-i">✓</td></tr>
-              <tr><td class="art">JNT-90004</td><td class="des">Joint caoutchouc D200</td><td class="r qty">240</td><td class="r qty">312</td><td class="r ok-i">✓</td></tr>
-              <tr><td class="art">SCR-10045</td><td class="des">Vis TRCC 4×20</td><td class="r qty">960</td><td class="r qty">1 240</td><td class="r ok-i">✓</td></tr>
-              <tr><td class="art">LAB-22014</td><td class="des">Étiquette traçabilité</td><td class="r qty">120</td><td class="r qty">120</td><td class="r ok-i">✓</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <div class="act">
-        <a class="btn btn-terra"><span class="material-symbols-outlined">swap_horiz</span>Replanifier</a>
-        <a class="btn btn-out"><span class="material-symbols-outlined">undo</span>Annuler l'override</a>
-      </div>
+      .compare {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 0 32px;
+      }
+      .compare .box {
+        background: var(--panel);
+        border: 1px solid var(--rule);
+        border-radius: 12px;
+        padding: 20px 24px;
+      }
+      .compare h3 {
+        font: 700 16px var(--font-d);
+        margin-bottom: 12px;
+      }
+      .compare table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+      .compare th,
+      .compare td {
+        text-align: left;
+        padding: 9px 10px;
+        border-bottom: 1px solid var(--rule-soft);
+      }
+      .compare th {
+        font: 600 10px var(--font-m);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--muted);
+      }
+      .compare td {
+        color: var(--ink2);
+      }
+      .compare td b {
+        color: var(--ink);
+      }
+      .compare tr:last-child td {
+        border-bottom: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="hd">
+      <div class="k">Papier · Composant détail</div>
+      <h1>Panneau de détail <em>au clic sur une carte</em></h1>
+      <p>
+        Trois variantes d'affichage du détail d'une ligne de commande (identité + nomenclature/BOM +
+        faisabilité). Mêmes données : <b>AR24490 · L4</b>, Caisse VMC D200, Bouygues, 120 u,
+        faisabilité bloquée (MOT-33012 −42). Chaque variante est un compromis différent entre
+        <b>contexte préservé</b> et <b>place pour la donnée</b>.
+      </p>
     </div>
-  </div>
-</div>
 
-<!-- ════════ D2 — FICHE CENTRÉE ════════ -->
-<div class="scene-wrap">
-  <div class="scene-cap"><span class="n">D2</span><h2>Fiche centrée (data sheet)</h2><span class="pros">→ formel, lecture focalisée, ceremony</span></div>
-  <div class="scene-desc">Fenêtre modale centrée type « fiche produit » avec double filet. Le board disparaît derrière un voile. Met l'accent sur l'identité (gros titre serif). Bien pour une consultation ponctuelle, moins pour enchaîner plusieurs lignes.</div>
-  <div class="stage">
-    <div class="backdrop"><div class="fb"><div class="topbar"><span class="mk">Factory<em>OS</em></span><span class="lk"></span><span class="lk s"></span></div><div class="fb-grid">
-      <div class="col h">Poste</div><div class="col h">16</div><div class="col h">17</div><div class="col h">18</div><div class="col h">19</div><div class="col h">20</div><div class="col h">23</div><div class="col h">24</div><div class="col h">25</div>
-      <div class="col"></div><div class="col"></div><div class="col"><div class="card g"></div></div><div class="col"><div class="card b"></div><div class="card g"></div></div><div class="col"></div><div class="col"><div class="card a"></div></div><div class="col"></div><div class="col"><div class="card b"></div></div><div class="col"></div>
-      <div class="col"></div><div class="col"><div class="card g"></div></div><div class="col"><div class="card b"></div></div><div class="col"><div class="card g"></div></div><div class="col"></div><div class="col"></div><div class="col"><div class="card b"></div><div class="card g"></div></div><div class="col"><div class="card b"></div></div><div class="col"></div>
-      <div class="col"></div><div class="col"></div><div class="col"></div><div class="col"><div class="card g"></div></div><div class="col"><div class="card b"></div></div><div class="col"><div class="card a"></div></div><div class="col"></div><div class="col"><div class="card b"></div></div><div class="col"><div class="card g"></div></div><div class="col"></div>
-      <div class="col"></div><div class="col"><div class="card g"></div></div><div class="col"></div><div class="col"></div><div class="col"><div class="card b"></div></div><div class="col"></div><div class="col"><div class="card a"></div></div><div class="col"></div><div class="col"></div><div class="col"><div class="card b"></div></div>
-    </div></div></div>
-    <div class="veil"></div>
-    <div class="d2">
-      <div class="ph">
-        <div class="l"><div class="eb">Fiche ligne de commande</div><h3>AR24490 · L4</h3><div class="sub">Caisse VMC D200 — XTR106540</div></div>
-        <button class="x"><span class="material-symbols-outlined" style="font-size:18px">close</span></button>
+    <!-- ════════ D1 — DRAWER DROIT ════════ -->
+    <div class="scene-wrap">
+      <div class="scene-cap">
+        <span class="n">D1</span>
+        <h2>Drawer droit éditorial</h2>
+        <span class="pros">→ le plus classique, focus total sur le détail</span>
       </div>
-      <div class="pbody">
-        <div class="p-section" style="padding:6px 0 10px">
-          <div class="two">
-            <div class="col">
-              <div class="kv"><span class="k">Client</span><span class="v">Bouygues</span></div>
-              <div class="kv"><span class="k">Quantité</span><span class="v mono">120 u</span></div>
-              <div class="kv"><span class="k">Livraison</span><span class="v mono">24 juin 2026</span></div>
-              <div class="kv"><span class="k">Contremarque</span><span class="v mono">BGE-2451</span></div>
+      <div class="scene-desc">
+        Panneau latéral droit (~420 px). Le board reste visible à gauche mais atténué. Idéal pour
+        lire la nomenclature en entier sans perdre le contexte de la ligne. Recommandé par défaut.
+      </div>
+      <div class="stage">
+        <div class="backdrop">
+          <div class="fb">
+            <div class="topbar">
+              <span class="mk">Factory<em>OS</em></span
+              ><span class="lk"></span><span class="lk s"></span>
             </div>
-            <div class="col">
-              <div class="kv"><span class="k">Type · Nature</span><span class="v">MTS · Commande</span></div>
-              <div class="kv"><span class="k">Poste</span><span class="v">DCP-01</span></div>
-              <div class="kv"><span class="k">Charge</span><span class="v mono">3,0 h</span></div>
-              <div class="kv"><span class="k">Faisabilité</span><span class="v"><span class="pill bad"><span class="material-symbols-outlined" style="font-size:13px">block</span>Bloquée</span></span></div>
+            <div class="fb-grid">
+              <div class="col h">Poste</div>
+              <div class="col h">16</div>
+              <div class="col h">17</div>
+              <div class="col h">18</div>
+              <div class="col h">19</div>
+              <div class="col h">20</div>
+              <div class="col h">23</div>
+              <div class="col h">24</div>
+              <div class="col h">25</div>
+              <div class="col"></div>
+              <div class="col"></div>
+              <div class="col"><div class="card g"></div></div>
+              <div class="col">
+                <div class="card b"></div>
+                <div class="card g"></div>
+              </div>
+              <div class="col"></div>
+              <div class="col"><div class="card a"></div></div>
+              <div class="col"></div>
+              <div class="col"><div class="card b"></div></div>
+              <div class="col"></div>
+              <div class="col"></div>
+              <div class="col"><div class="card g"></div></div>
+              <div class="col"><div class="card b"></div></div>
+              <div class="col"><div class="card g"></div></div>
+              <div class="col"></div>
+              <div class="col"></div>
+              <div class="col">
+                <div class="card b"></div>
+                <div class="card g"></div>
+              </div>
+              <div class="col"><div class="card b"></div></div>
+              <div class="col"></div>
+              <div class="col"></div>
+              <div class="col"></div>
+              <div class="col"></div>
+              <div class="col"><div class="card g"></div></div>
+              <div class="col"><div class="card b"></div></div>
+              <div class="col"><div class="card a"></div></div>
+              <div class="col"></div>
+              <div class="col"><div class="card b"></div></div>
+              <div class="col"><div class="card g"></div></div>
+              <div class="col"></div>
+              <div class="col"></div>
+              <div class="col"><div class="card g"></div></div>
+              <div class="col"></div>
+              <div class="col"></div>
+              <div class="col"><div class="card b"></div></div>
+              <div class="col"></div>
+              <div class="col"><div class="card a"></div></div>
+              <div class="col"></div>
+              <div class="col"></div>
+              <div class="col"><div class="card b"></div></div>
             </div>
           </div>
         </div>
-        <div class="p-section" style="padding-bottom:10px">
-          <div class="p-sec-h"><span class="material-symbols-outlined">account_tree</span>Nomenclature</div>
-          <table class="bom">
-            <thead><tr><th>Article</th><th>Désignation</th><th class="r">Besoin</th><th class="r">Dispo</th><th class="r">État</th></tr></thead>
-            <tbody>
-              <tr class="bad"><td class="art">MOT-33012</td><td class="des">Moteur VMC D250 220V</td><td class="r qty">120</td><td class="r qty">78</td><td class="r short">−42</td></tr>
-              <tr><td class="art">TPS-55120</td><td class="des">Support caisson</td><td class="r qty">120</td><td class="r qty">120</td><td class="r ok-i">✓</td></tr>
-              <tr><td class="art">JNT-90004</td><td class="des">Joint caoutchouc D200</td><td class="r qty">240</td><td class="r qty">312</td><td class="r ok-i">✓</td></tr>
-            </tbody>
-          </table>
+        <div class="veil"></div>
+        <div class="d1">
+          <div class="ph">
+            <div class="l">
+              <div class="eb">Commande · ligne</div>
+              <h3>AR24490 · L4<span class="art">XTR106540 — Caisse VMC D200</span></h3>
+            </div>
+            <button class="x">
+              <span class="material-symbols-outlined" style="font-size: 18px">close</span>
+            </button>
+          </div>
+          <div class="flagbar">
+            <span class="pill bad"
+              ><span class="material-symbols-outlined" style="font-size: 13px">block</span
+              >Faisabilité bloquée</span
+            ><span style="font: 500 11px var(--font-s); color: var(--ink2)"
+              >1 composant manquant · <b>MOT-33012</b></span
+            >
+          </div>
+          <div class="pbody">
+            <div class="p-section">
+              <div class="p-sec-h">
+                <span class="material-symbols-outlined">article</span>Identité
+              </div>
+              <div class="kv"><span class="k">Client</span><span class="v">Bouygues</span></div>
+              <div class="kv"><span class="k">Quantité</span><span class="v mono">120 u</span></div>
+              <div class="kv">
+                <span class="k">Livraison</span><span class="v mono">24 juin 2026</span>
+              </div>
+              <div class="kv">
+                <span class="k">Contremarque</span><span class="v mono">BGE-2451</span>
+              </div>
+              <div class="kv">
+                <span class="k">Type · Nature</span><span class="v">MTS · Commande</span>
+              </div>
+              <div class="kv">
+                <span class="k">Poste</span><span class="v">DCP-01 · Découpe Fan</span>
+              </div>
+              <div class="kv"><span class="k">Charge</span><span class="v mono">3,0 h</span></div>
+              <div class="kv">
+                <span class="k">Override</span
+                ><span class="v"
+                  ><span class="pill terra"
+                    ><span class="material-symbols-outlined" style="font-size: 13px">edit</span>Date
+                    +1 j</span
+                  ></span
+                >
+              </div>
+            </div>
+            <div class="p-section" style="padding-bottom: 12px">
+              <div class="p-sec-h">
+                <span class="material-symbols-outlined">account_tree</span>Nomenclature
+                <span style="margin-left: auto; color: var(--muted); font-weight: 600"
+                  >5 composants · 1 bloquant</span
+                >
+              </div>
+              <table class="bom">
+                <thead>
+                  <tr>
+                    <th>Article</th>
+                    <th>Désignation</th>
+                    <th class="r">Besoin</th>
+                    <th class="r">Dispo</th>
+                    <th class="r">État</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr class="bad">
+                    <td class="art">MOT-33012</td>
+                    <td class="des">Moteur VMC D250 220V</td>
+                    <td class="r qty">120</td>
+                    <td class="r qty">78</td>
+                    <td class="r short">−42</td>
+                  </tr>
+                  <tr>
+                    <td class="art">TPS-55120</td>
+                    <td class="des">Support caisson</td>
+                    <td class="r qty">120</td>
+                    <td class="r qty">120</td>
+                    <td class="r ok-i">✓</td>
+                  </tr>
+                  <tr>
+                    <td class="art">JNT-90004</td>
+                    <td class="des">Joint caoutchouc D200</td>
+                    <td class="r qty">240</td>
+                    <td class="r qty">312</td>
+                    <td class="r ok-i">✓</td>
+                  </tr>
+                  <tr>
+                    <td class="art">SCR-10045</td>
+                    <td class="des">Vis TRCC 4×20</td>
+                    <td class="r qty">960</td>
+                    <td class="r qty">1 240</td>
+                    <td class="r ok-i">✓</td>
+                  </tr>
+                  <tr>
+                    <td class="art">LAB-22014</td>
+                    <td class="des">Étiquette traçabilité</td>
+                    <td class="r qty">120</td>
+                    <td class="r qty">120</td>
+                    <td class="r ok-i">✓</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="act">
+            <a class="btn btn-terra"
+              ><span class="material-symbols-outlined">swap_horiz</span>Replanifier</a
+            >
+            <a class="btn btn-out"
+              ><span class="material-symbols-outlined">undo</span>Annuler l'override</a
+            >
+          </div>
         </div>
       </div>
     </div>
-  </div>
-</div>
 
-<!-- ════════ D3 — PANNEAU BAS ════════ -->
-<div class="scene-wrap">
-  <div class="scene-cap"><span class="n">D3</span><h2>Panneau bas (split horizontal)</h2><span class="pros">→ board visible au-dessus, idéal pour replanifier</span></div>
-  <div class="scene-desc">Le board reste entièrement visible et actif au-dessus ; le détail s'ouvre en bandeau bas. Parfait pour enchaîner : on garde l'œil sur les créneaux disponibles pendant qu'on lit la BOM. Le meilleur compromis pour un usage opérationnel intensif.</div>
-  <div class="stage">
-    <div class="backdrop"><div class="fb" style="padding-top:38px"><div class="topbar"><span class="mk">Factory<em>OS</em></span><span class="lk"></span><span class="lk s"></span></div><div class="fb-grid" style="height:calc(100% - 0px)">
-      <div class="col h">Poste</div><div class="col h">16</div><div class="col h">17</div><div class="col h">18</div><div class="col h">19</div><div class="col h">20</div><div class="col h">23</div><div class="col h">24</div><div class="col h">25</div>
-      <div class="col"></div><div class="col"></div><div class="col"><div class="card g"></div></div><div class="col"><div class="card b"></div><div class="card g"></div></div><div class="col"></div><div class="col"><div class="card a"></div></div><div class="col"></div><div class="col"><div class="card b"></div></div><div class="col"></div>
-      <div class="col"></div><div class="col"><div class="card g"></div></div><div class="col"><div class="card b"></div></div><div class="col"><div class="card g"></div></div><div class="col"></div><div class="col"></div><div class="col"><div class="card b"></div><div class="card g"></div></div><div class="col"><div class="card b"></div></div><div class="col"></div>
-      <div class="col"></div><div class="col"></div><div class="col"></div><div class="col"><div class="card g"></div></div><div class="col"><div class="card b"></div></div><div class="col"><div class="card a"></div></div><div class="col"></div><div class="col"><div class="card b"></div></div><div class="col"><div class="card g"></div></div><div class="col"></div>
-    </div></div></div>
-    <div class="d3">
-      <div class="ph">
-        <div class="id"><h3>AR24490 · L4</h3><span class="art">XTR106540</span><span class="des">Caisse VMC D200</span></div>
-        <span class="pill bad"><span class="material-symbols-outlined" style="font-size:13px">block</span>Bloquée · MOT-33012 −42</span>
-        <span class="spacer"></span>
-        <a class="btn btn-terra"><span class="material-symbols-outlined">swap_horiz</span>Replanifier</a>
-        <button class="x" style="border:1px solid var(--rule);background:transparent"><span class="material-symbols-outlined" style="font-size:18px;color:var(--muted)">close</span></button>
+    <!-- ════════ D2 — FICHE CENTRÉE ════════ -->
+    <div class="scene-wrap">
+      <div class="scene-cap">
+        <span class="n">D2</span>
+        <h2>Fiche centrée (data sheet)</h2>
+        <span class="pros">→ formel, lecture focalisée, ceremony</span>
       </div>
-      <div class="leftmeta">
-        <div class="m"><span class="k">Client</span><span class="v">Bouygues</span></div><div class="sep"></div>
-        <div class="m"><span class="k">Quantité</span><span class="v mono">120 u</span></div><div class="sep"></div>
-        <div class="m"><span class="k">Livraison</span><span class="v mono">24 juin</span></div><div class="sep"></div>
-        <div class="m"><span class="k">Poste</span><span class="v">DCP-01</span></div><div class="sep"></div>
-        <div class="m"><span class="k">Charge</span><span class="v mono">3,0 h</span></div><div class="sep"></div>
-        <div class="m"><span class="k">Type</span><span class="v">MTS · Cmd</span></div><div class="sep"></div>
-        <div class="m"><span class="k">Override</span><span class="v"><span style="color:var(--terra)">Date +1j</span></span></div>
+      <div class="scene-desc">
+        Fenêtre modale centrée type « fiche produit » avec double filet. Le board disparaît derrière
+        un voile. Met l'accent sur l'identité (gros titre serif). Bien pour une consultation
+        ponctuelle, moins pour enchaîner plusieurs lignes.
       </div>
-      <div class="pbody">
-        <div class="bomwrap" style="padding-top:8px">
-          <table class="bom">
-            <thead><tr><th>Article</th><th>Désignation</th><th class="r">Besoin</th><th class="r">Dispo</th><th class="r">Manquant</th><th class="r">État</th></tr></thead>
-            <tbody>
-              <tr class="bad"><td class="art">MOT-33012</td><td class="des">Moteur VMC D250 220V</td><td class="r qty">120</td><td class="r qty">78</td><td class="r short">−42</td><td class="r"><span class="pill bad">Bloquant</span></td></tr>
-              <tr><td class="art">TPS-55120</td><td class="des">Support caisson</td><td class="r qty">120</td><td class="r qty">120</td><td class="r" style="color:var(--muted)">—</td><td class="r ok-i">✓ OK</td></tr>
-              <tr><td class="art">JNT-90004</td><td class="des">Joint caoutchouc D200</td><td class="r qty">240</td><td class="r qty">312</td><td class="r" style="color:var(--muted)">—</td><td class="r ok-i">✓ OK</td></tr>
-              <tr><td class="art">SCR-10045</td><td class="des">Vis TRCC 4×20</td><td class="r qty">960</td><td class="r qty">1 240</td><td class="r" style="color:var(--muted)">—</td><td class="r ok-i">✓ OK</td></tr>
-            </tbody>
-          </table>
+      <div class="stage">
+        <div class="backdrop">
+          <div class="fb">
+            <div class="topbar">
+              <span class="mk">Factory<em>OS</em></span
+              ><span class="lk"></span><span class="lk s"></span>
+            </div>
+            <div class="fb-grid">
+              <div class="col h">Poste</div>
+              <div class="col h">16</div>
+              <div class="col h">17</div>
+              <div class="col h">18</div>
+              <div class="col h">19</div>
+              <div class="col h">20</div>
+              <div class="col h">23</div>
+              <div class="col h">24</div>
+              <div class="col h">25</div>
+              <div class="col"></div>
+              <div class="col"></div>
+              <div class="col"><div class="card g"></div></div>
+              <div class="col">
+                <div class="card b"></div>
+                <div class="card g"></div>
+              </div>
+              <div class="col"></div>
+              <div class="col"><div class="card a"></div></div>
+              <div class="col"></div>
+              <div class="col"><div class="card b"></div></div>
+              <div class="col"></div>
+              <div class="col"></div>
+              <div class="col"><div class="card g"></div></div>
+              <div class="col"><div class="card b"></div></div>
+              <div class="col"><div class="card g"></div></div>
+              <div class="col"></div>
+              <div class="col"></div>
+              <div class="col">
+                <div class="card b"></div>
+                <div class="card g"></div>
+              </div>
+              <div class="col"><div class="card b"></div></div>
+              <div class="col"></div>
+              <div class="col"></div>
+              <div class="col"></div>
+              <div class="col"></div>
+              <div class="col"><div class="card g"></div></div>
+              <div class="col"><div class="card b"></div></div>
+              <div class="col"><div class="card a"></div></div>
+              <div class="col"></div>
+              <div class="col"><div class="card b"></div></div>
+              <div class="col"><div class="card g"></div></div>
+              <div class="col"></div>
+              <div class="col"></div>
+              <div class="col"><div class="card g"></div></div>
+              <div class="col"></div>
+              <div class="col"></div>
+              <div class="col"><div class="card b"></div></div>
+              <div class="col"></div>
+              <div class="col"><div class="card a"></div></div>
+              <div class="col"></div>
+              <div class="col"></div>
+              <div class="col"><div class="card b"></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="veil"></div>
+        <div class="d2">
+          <div class="ph">
+            <div class="l">
+              <div class="eb">Fiche ligne de commande</div>
+              <h3>AR24490 · L4</h3>
+              <div class="sub">Caisse VMC D200 — XTR106540</div>
+            </div>
+            <button class="x">
+              <span class="material-symbols-outlined" style="font-size: 18px">close</span>
+            </button>
+          </div>
+          <div class="pbody">
+            <div class="p-section" style="padding: 6px 0 10px">
+              <div class="two">
+                <div class="col">
+                  <div class="kv"><span class="k">Client</span><span class="v">Bouygues</span></div>
+                  <div class="kv">
+                    <span class="k">Quantité</span><span class="v mono">120 u</span>
+                  </div>
+                  <div class="kv">
+                    <span class="k">Livraison</span><span class="v mono">24 juin 2026</span>
+                  </div>
+                  <div class="kv">
+                    <span class="k">Contremarque</span><span class="v mono">BGE-2451</span>
+                  </div>
+                </div>
+                <div class="col">
+                  <div class="kv">
+                    <span class="k">Type · Nature</span><span class="v">MTS · Commande</span>
+                  </div>
+                  <div class="kv"><span class="k">Poste</span><span class="v">DCP-01</span></div>
+                  <div class="kv">
+                    <span class="k">Charge</span><span class="v mono">3,0 h</span>
+                  </div>
+                  <div class="kv">
+                    <span class="k">Faisabilité</span
+                    ><span class="v"
+                      ><span class="pill bad"
+                        ><span class="material-symbols-outlined" style="font-size: 13px">block</span
+                        >Bloquée</span
+                      ></span
+                    >
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="p-section" style="padding-bottom: 10px">
+              <div class="p-sec-h">
+                <span class="material-symbols-outlined">account_tree</span>Nomenclature
+              </div>
+              <table class="bom">
+                <thead>
+                  <tr>
+                    <th>Article</th>
+                    <th>Désignation</th>
+                    <th class="r">Besoin</th>
+                    <th class="r">Dispo</th>
+                    <th class="r">État</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr class="bad">
+                    <td class="art">MOT-33012</td>
+                    <td class="des">Moteur VMC D250 220V</td>
+                    <td class="r qty">120</td>
+                    <td class="r qty">78</td>
+                    <td class="r short">−42</td>
+                  </tr>
+                  <tr>
+                    <td class="art">TPS-55120</td>
+                    <td class="des">Support caisson</td>
+                    <td class="r qty">120</td>
+                    <td class="r qty">120</td>
+                    <td class="r ok-i">✓</td>
+                  </tr>
+                  <tr>
+                    <td class="art">JNT-90004</td>
+                    <td class="des">Joint caoutchouc D200</td>
+                    <td class="r qty">240</td>
+                    <td class="r qty">312</td>
+                    <td class="r ok-i">✓</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </div>
     </div>
-  </div>
-</div>
 
-<div class="compare">
-  <div class="box">
-    <h3>Comparatif des 3 panneaux</h3>
-    <table>
-      <tr><th></th><th>D1 — Drawer droit</th><th>D2 — Fiche centrée</th><th>D3 — Panneau bas</th></tr>
-      <tr><td><b>Board visible</b></td><td>Partiellement (atténué)</td><td>Non (voile plein)</td><td><b>Oui, actif</b></td></tr>
-      <tr><td><b>Place BOM</b></td><td>Bonne (colonne unique)</td><td>Moyenne (modale bornée)</td><td>Excellente (pleine largeur)</td></tr>
-      <tr><td><b>Enchaîner les lignes</b></td><td>Bon</td><td>Moyen (ceremony)</td><td><b>Excellent</b></td></tr>
-      <tr><td><b>Replanifier en contexte</b></td><td>Moyen</td><td>Faible</td><td><b>Excellent</b></td></tr>
-      <tr><td><b>Signature</b></td><td>Classique, sobre</td><td>Formelle, focalisée</td><td>Opérationnelle</td></tr>
-      <tr><td><b>Recommandé pour</b></td><td>Défaut, consultation</td><td>Fiche détaillée ponctuelle</td><td><b>Usage intensif orchestrateur</b></td></tr>
-    </table>
-  </div>
-</div>
-</body>
+    <!-- ════════ D3 — PANNEAU BAS ════════ -->
+    <div class="scene-wrap">
+      <div class="scene-cap">
+        <span class="n">D3</span>
+        <h2>Panneau bas (split horizontal)</h2>
+        <span class="pros">→ board visible au-dessus, idéal pour replanifier</span>
+      </div>
+      <div class="scene-desc">
+        Le board reste entièrement visible et actif au-dessus ; le détail s'ouvre en bandeau bas.
+        Parfait pour enchaîner : on garde l'œil sur les créneaux disponibles pendant qu'on lit la
+        BOM. Le meilleur compromis pour un usage opérationnel intensif.
+      </div>
+      <div class="stage">
+        <div class="backdrop">
+          <div class="fb" style="padding-top: 38px">
+            <div class="topbar">
+              <span class="mk">Factory<em>OS</em></span
+              ><span class="lk"></span><span class="lk s"></span>
+            </div>
+            <div class="fb-grid" style="height: calc(100% - 0px)">
+              <div class="col h">Poste</div>
+              <div class="col h">16</div>
+              <div class="col h">17</div>
+              <div class="col h">18</div>
+              <div class="col h">19</div>
+              <div class="col h">20</div>
+              <div class="col h">23</div>
+              <div class="col h">24</div>
+              <div class="col h">25</div>
+              <div class="col"></div>
+              <div class="col"></div>
+              <div class="col"><div class="card g"></div></div>
+              <div class="col">
+                <div class="card b"></div>
+                <div class="card g"></div>
+              </div>
+              <div class="col"></div>
+              <div class="col"><div class="card a"></div></div>
+              <div class="col"></div>
+              <div class="col"><div class="card b"></div></div>
+              <div class="col"></div>
+              <div class="col"></div>
+              <div class="col"><div class="card g"></div></div>
+              <div class="col"><div class="card b"></div></div>
+              <div class="col"><div class="card g"></div></div>
+              <div class="col"></div>
+              <div class="col"></div>
+              <div class="col">
+                <div class="card b"></div>
+                <div class="card g"></div>
+              </div>
+              <div class="col"><div class="card b"></div></div>
+              <div class="col"></div>
+              <div class="col"></div>
+              <div class="col"></div>
+              <div class="col"></div>
+              <div class="col"><div class="card g"></div></div>
+              <div class="col"><div class="card b"></div></div>
+              <div class="col"><div class="card a"></div></div>
+              <div class="col"></div>
+              <div class="col"><div class="card b"></div></div>
+              <div class="col"><div class="card g"></div></div>
+              <div class="col"></div>
+            </div>
+          </div>
+        </div>
+        <div class="d3">
+          <div class="ph">
+            <div class="id">
+              <h3>AR24490 · L4</h3>
+              <span class="art">XTR106540</span><span class="des">Caisse VMC D200</span>
+            </div>
+            <span class="pill bad"
+              ><span class="material-symbols-outlined" style="font-size: 13px">block</span>Bloquée ·
+              MOT-33012 −42</span
+            >
+            <span class="spacer"></span>
+            <a class="btn btn-terra"
+              ><span class="material-symbols-outlined">swap_horiz</span>Replanifier</a
+            >
+            <button class="x" style="border: 1px solid var(--rule); background: transparent">
+              <span class="material-symbols-outlined" style="font-size: 18px; color: var(--muted)"
+                >close</span
+              >
+            </button>
+          </div>
+          <div class="leftmeta">
+            <div class="m"><span class="k">Client</span><span class="v">Bouygues</span></div>
+            <div class="sep"></div>
+            <div class="m"><span class="k">Quantité</span><span class="v mono">120 u</span></div>
+            <div class="sep"></div>
+            <div class="m"><span class="k">Livraison</span><span class="v mono">24 juin</span></div>
+            <div class="sep"></div>
+            <div class="m"><span class="k">Poste</span><span class="v">DCP-01</span></div>
+            <div class="sep"></div>
+            <div class="m"><span class="k">Charge</span><span class="v mono">3,0 h</span></div>
+            <div class="sep"></div>
+            <div class="m"><span class="k">Type</span><span class="v">MTS · Cmd</span></div>
+            <div class="sep"></div>
+            <div class="m">
+              <span class="k">Override</span
+              ><span class="v"><span style="color: var(--terra)">Date +1j</span></span>
+            </div>
+          </div>
+          <div class="pbody">
+            <div class="bomwrap" style="padding-top: 8px">
+              <table class="bom">
+                <thead>
+                  <tr>
+                    <th>Article</th>
+                    <th>Désignation</th>
+                    <th class="r">Besoin</th>
+                    <th class="r">Dispo</th>
+                    <th class="r">Manquant</th>
+                    <th class="r">État</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr class="bad">
+                    <td class="art">MOT-33012</td>
+                    <td class="des">Moteur VMC D250 220V</td>
+                    <td class="r qty">120</td>
+                    <td class="r qty">78</td>
+                    <td class="r short">−42</td>
+                    <td class="r"><span class="pill bad">Bloquant</span></td>
+                  </tr>
+                  <tr>
+                    <td class="art">TPS-55120</td>
+                    <td class="des">Support caisson</td>
+                    <td class="r qty">120</td>
+                    <td class="r qty">120</td>
+                    <td class="r" style="color: var(--muted)">—</td>
+                    <td class="r ok-i">✓ OK</td>
+                  </tr>
+                  <tr>
+                    <td class="art">JNT-90004</td>
+                    <td class="des">Joint caoutchouc D200</td>
+                    <td class="r qty">240</td>
+                    <td class="r qty">312</td>
+                    <td class="r" style="color: var(--muted)">—</td>
+                    <td class="r ok-i">✓ OK</td>
+                  </tr>
+                  <tr>
+                    <td class="art">SCR-10045</td>
+                    <td class="des">Vis TRCC 4×20</td>
+                    <td class="r qty">960</td>
+                    <td class="r qty">1 240</td>
+                    <td class="r" style="color: var(--muted)">—</td>
+                    <td class="r ok-i">✓ OK</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="compare">
+      <div class="box">
+        <h3>Comparatif des 3 panneaux</h3>
+        <table>
+          <tr>
+            <th></th>
+            <th>D1 — Drawer droit</th>
+            <th>D2 — Fiche centrée</th>
+            <th>D3 — Panneau bas</th>
+          </tr>
+          <tr>
+            <td><b>Board visible</b></td>
+            <td>Partiellement (atténué)</td>
+            <td>Non (voile plein)</td>
+            <td><b>Oui, actif</b></td>
+          </tr>
+          <tr>
+            <td><b>Place BOM</b></td>
+            <td>Bonne (colonne unique)</td>
+            <td>Moyenne (modale bornée)</td>
+            <td>Excellente (pleine largeur)</td>
+          </tr>
+          <tr>
+            <td><b>Enchaîner les lignes</b></td>
+            <td>Bon</td>
+            <td>Moyen (ceremony)</td>
+            <td><b>Excellent</b></td>
+          </tr>
+          <tr>
+            <td><b>Replanifier en contexte</b></td>
+            <td>Moyen</td>
+            <td>Faible</td>
+            <td><b>Excellent</b></td>
+          </tr>
+          <tr>
+            <td><b>Signature</b></td>
+            <td>Classique, sobre</td>
+            <td>Formelle, focalisée</td>
+            <td>Opérationnelle</td>
+          </tr>
+          <tr>
+            <td><b>Recommandé pour</b></td>
+            <td>Défaut, consultation</td>
+            <td>Fiche détaillée ponctuelle</td>
+            <td><b>Usage intensif orchestrateur</b></td>
+          </tr>
+        </table>
+      </div>
+    </div>
+  </body>
 </html>

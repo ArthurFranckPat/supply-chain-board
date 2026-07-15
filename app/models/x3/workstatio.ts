@@ -146,5 +146,4 @@ export default class WorkStation extends BaseModel {
 
   @hasMany(() => RoutingOp, { foreignKey: 'posteDeChargePrincipal', localKey: 'posteDeCharge' })
   declare routingOpList: HasMany<typeof RoutingOp>
-
 }

@@ -82,7 +82,14 @@ const MSG_STYLE: Record<number, string> = {
 }
 const MSG_LABEL: Record<number, string> = { 1: 'Erreur', 2: 'Avertissement', 3: 'Info' }
 
-async function execOp(op: Op, object: string, keys: string, objectXml: string, queryXml: string = '<PARAM/>', listSize: number = 50): Promise<OpResult> {
+async function execOp(
+  op: Op,
+  object: string,
+  keys: string,
+  objectXml: string,
+  queryXml: string = '<PARAM/>',
+  listSize: number = 50
+): Promise<OpResult> {
   if (op === 'describe') {
     const url = `${route('x3_writeback.describe')}?object=${encodeURIComponent(object)}`
     const res = await fetch(url)
@@ -147,7 +154,14 @@ const WritebackTest: Component = () => {
     setLoading(true)
     setFetchErr('')
     try {
-      const r = await execOp(op(), object().trim(), keys().trim(), objectXml(), queryXml(), listSize())
+      const r = await execOp(
+        op(),
+        object().trim(),
+        keys().trim(),
+        objectXml(),
+        queryXml(),
+        listSize()
+      )
       setResult(r)
     } catch (err) {
       setFetchErr((err as Error).message)
@@ -197,20 +211,23 @@ const WritebackTest: Component = () => {
           <div class="flex items-center gap-2 rounded-md bg-warning/10 px-4 py-2.5 text-[12px] text-warning">
             <span class="material-symbols-outlined text-[16px]">warning</span>
             <span>
-              Save / Modify <strong>écrivent dans X3</strong> via la couche objet (validations + transactions applicables).
-              Cible l'environnement <strong>TEST</strong> : connecte-toi avec <code>env=test</code> avant de tester.
+              Save / Modify <strong>écrivent dans X3</strong> via la couche objet (validations +
+              transactions applicables). Cible l'environnement <strong>TEST</strong> : connecte-toi
+              avec <code>env=test</code> avant de tester.
             </span>
           </div>
 
           {/* Sélecteur d'opération */}
           <div class="flex items-center gap-2">
-            <span class="font-mono text-[10px] font-semibold tracking-wider text-muted-foreground">OPÉRATION</span>
+            <span class="font-mono text-[10px] font-semibold tracking-wider text-muted-foreground">
+              OPÉRATION
+            </span>
             <For each={['describe', 'read', 'list', 'save', 'modify', 'delete', 'run'] as Op[]}>
               {(o) => (
                 <button
                   class={`rounded-md border px-3 py-1.5 font-mono text-[12px] font-semibold ${
                     op() === o
-                      ? 'border-terra bg-terra/10 text-terra'
+                      ? 'border-brand bg-brand/10 text-brand'
                       : 'border-border bg-background text-muted-foreground hover:text-foreground'
                   }`}
                   onClick={() => setOp(o)}
@@ -228,14 +245,17 @@ const WritebackTest: Component = () => {
             </Show>
           </div>
 
-          <form class="flex flex-col gap-4 rounded-md border border-border bg-background px-4 py-4" onSubmit={run}>
+          <form
+            class="flex flex-col gap-4 rounded-md border border-border bg-background px-4 py-4"
+            onSubmit={run}
+          >
             {/* Objet */}
             <label class="flex flex-col gap-1">
               <span class="font-mono text-[10px] font-semibold tracking-wider text-muted-foreground">
                 OBJET PUBLÉ (publicName)
               </span>
               <input
-                class="w-72 rounded-md border border-border bg-background px-3 py-2 font-mono text-[13px] outline-none focus:border-terra"
+                class="w-72 rounded-md border border-border bg-background px-3 py-2 font-mono text-[13px] outline-none focus:border-brand"
                 placeholder="ex. BPC"
                 value={object()}
                 onInput={(e) => setObject(e.currentTarget.value)}
@@ -249,7 +269,7 @@ const WritebackTest: Component = () => {
                   CLÉS — format <code>CHAMP:VALEUR</code> séparées par virgules
                 </span>
                 <input
-                  class="w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-[13px] outline-none focus:border-terra"
+                  class="w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-[13px] outline-none focus:border-brand"
                   placeholder="ex. BPCNUM:C001"
                   value={keys()}
                   onInput={(e) => setKeys(e.currentTarget.value)}
@@ -268,9 +288,11 @@ const WritebackTest: Component = () => {
                     type="number"
                     min="1"
                     max="500"
-                    class="w-28 rounded-md border border-border bg-background px-3 py-2 font-mono text-[13px] outline-none focus:border-terra"
+                    class="w-28 rounded-md border border-border bg-background px-3 py-2 font-mono text-[13px] outline-none focus:border-brand"
                     value={listSize()}
-                    onInput={(e) => setListSize(Math.min(500, Math.max(1, parseInt(e.currentTarget.value) || 50)))}
+                    onInput={(e) =>
+                      setListSize(Math.min(500, Math.max(1, parseInt(e.currentTarget.value) || 50)))
+                    }
                   />
                 </label>
               </div>
@@ -279,7 +301,7 @@ const WritebackTest: Component = () => {
                   queryXml — filtre (vide = tous)
                 </span>
                 <textarea
-                  class="h-24 w-full rounded-md border border-border bg-secondary/40 px-3 py-2 font-mono text-[11px] leading-relaxed outline-none focus:border-terra"
+                  class="h-24 w-full rounded-md border border-border bg-secondary/40 px-3 py-2 font-mono text-[11px] leading-relaxed outline-none focus:border-brand"
                   spellcheck={false}
                   value={queryXml()}
                   onInput={(e) => setQueryXml(e.currentTarget.value)}
@@ -300,7 +322,7 @@ const WritebackTest: Component = () => {
                   <Show when={op() === 'modify'}>
                     <button
                       type="button"
-                      class="flex items-center gap-1 font-mono text-[11px] text-terra hover:underline"
+                      class="flex items-center gap-1 font-mono text-[11px] text-brand hover:underline"
                       onClick={prefill}
                       disabled={loading()}
                     >
@@ -310,13 +332,14 @@ const WritebackTest: Component = () => {
                   </Show>
                 </div>
                 <textarea
-                  class="h-56 w-full rounded-md border border-border bg-secondary/40 px-3 py-2 font-mono text-[11px] leading-relaxed outline-none focus:border-terra"
+                  class="h-56 w-full rounded-md border border-border bg-secondary/40 px-3 py-2 font-mono text-[11px] leading-relaxed outline-none focus:border-brand"
                   spellcheck={false}
                   value={objectXml()}
                   onInput={(e) => setObjectXml(e.currentTarget.value)}
                 />
                 <span class="font-mono text-[10px] text-muted-foreground">
-                  Astuce : Read sur un enregistrement existant → copier le XML renvoyé ici → modifier les valeurs.
+                  Astuce : Read sur un enregistrement existant → copier le XML renvoyé ici →
+                  modifier les valeurs.
                 </span>
               </div>
             </Show>
@@ -324,13 +347,39 @@ const WritebackTest: Component = () => {
             <div class="flex items-center gap-3">
               <Button type="submit" class="gap-1.5" disabled={loading()}>
                 <span class="material-symbols-outlined text-[16px]">
-                  {op() === 'describe' ? 'description' : op() === 'read' ? 'search' : op() === 'list' ? 'format_list_bulleted' : op() === 'save' ? 'add_circle' : op() === 'modify' ? 'edit' : op() === 'run' ? 'play_arrow' : 'delete'}
+                  {op() === 'describe'
+                    ? 'description'
+                    : op() === 'read'
+                      ? 'search'
+                      : op() === 'list'
+                        ? 'format_list_bulleted'
+                        : op() === 'save'
+                          ? 'add_circle'
+                          : op() === 'modify'
+                            ? 'edit'
+                            : op() === 'run'
+                              ? 'play_arrow'
+                              : 'delete'}
                 </span>
-                {op() === 'describe' ? 'Décrire' : op() === 'read' ? 'Lire' : op() === 'list' ? 'Lister (queryList)' : op() === 'save' ? 'Créer (save)' : op() === 'modify' ? 'Modifier (modify)' : op() === 'run' ? 'Exécuter (run)' : 'Supprimer (delete)'}
+                {op() === 'describe'
+                  ? 'Décrire'
+                  : op() === 'read'
+                    ? 'Lire'
+                    : op() === 'list'
+                      ? 'Lister (queryList)'
+                      : op() === 'save'
+                        ? 'Créer (save)'
+                        : op() === 'modify'
+                          ? 'Modifier (modify)'
+                          : op() === 'run'
+                            ? 'Exécuter (run)'
+                            : 'Supprimer (delete)'}
               </Button>
               <Show when={loading()}>
                 <span class="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
-                  <span class="material-symbols-outlined animate-spin text-[16px]">progress_activity</span>
+                  <span class="material-symbols-outlined animate-spin text-[16px]">
+                    progress_activity
+                  </span>
                   En cours…
                 </span>
               </Show>
@@ -351,7 +400,9 @@ const WritebackTest: Component = () => {
               <div class="flex flex-col gap-3">
                 {/* En-tête verdict */}
                 <div class="flex flex-wrap items-center gap-3 rounded-md border border-border bg-secondary px-4 py-3">
-                  <span class="font-mono text-[14px] font-bold text-foreground">{r().publicName}</span>
+                  <span class="font-mono text-[14px] font-bold text-foreground">
+                    {r().publicName}
+                  </span>
                   <Badge variant={r().ok ? 'success' : 'destructive'}>
                     {r().ok ? 'OK' : 'ÉCHEC'}
                   </Badge>
@@ -359,7 +410,9 @@ const WritebackTest: Component = () => {
                     statut X3 : {r().status ?? '—'} · op {r().operation}
                   </span>
                   <Show when={r().error}>
-                    <span class="font-mono text-[11px] font-medium text-destructive">{r().error}</span>
+                    <span class="font-mono text-[11px] font-medium text-destructive">
+                      {r().error}
+                    </span>
                   </Show>
                 </div>
 
@@ -371,8 +424,11 @@ const WritebackTest: Component = () => {
                     </div>
                     <For each={r().messages}>
                       {(msg) => (
-                        <div class={`rounded px-3 py-1.5 font-mono text-[11px] ${MSG_STYLE[msg.type] ?? MSG_STYLE[3]}`}>
-                          <span class="font-bold">[{MSG_LABEL[msg.type] ?? msg.type}]</span> {msg.text}
+                        <div
+                          class={`rounded px-3 py-1.5 font-mono text-[11px] ${MSG_STYLE[msg.type] ?? MSG_STYLE[3]}`}
+                        >
+                          <span class="font-bold">[{MSG_LABEL[msg.type] ?? msg.type}]</span>{' '}
+                          {msg.text}
                         </div>
                       )}
                     </For>
@@ -388,7 +444,7 @@ const WritebackTest: Component = () => {
                       </span>
                       <button
                         type="button"
-                        class="flex items-center gap-1 font-mono text-[11px] text-terra hover:underline"
+                        class="flex items-center gap-1 font-mono text-[11px] text-brand hover:underline"
                         onClick={copyToEditor}
                       >
                         <span class="material-symbols-outlined text-[14px]">download</span>
@@ -403,10 +459,14 @@ const WritebackTest: Component = () => {
                     <Show when={r().resultXml.length >= 8000}>
                       <button
                         type="button"
-                        class="mt-1 font-mono text-[11px] text-terra hover:underline"
+                        class="mt-1 font-mono text-[11px] text-brand hover:underline"
                         onClick={() => setShowFullXml(!showFullXml())}
                       >
-                        {showFullXml() ? '▾ Réduire' : '▸ Afficher le XML complet (' + (r().resultXml.length / 1000).toFixed(0) + ' KB)'}
+                        {showFullXml()
+                          ? '▾ Réduire'
+                          : '▸ Afficher le XML complet (' +
+                            (r().resultXml.length / 1000).toFixed(0) +
+                            ' KB)'}
                       </button>
                     </Show>
                   </div>
@@ -425,7 +485,7 @@ const WritebackTest: Component = () => {
           <Show when={result()}>
             <div>
               <button
-                class="font-mono text-[11px] font-semibold text-terra hover:underline"
+                class="font-mono text-[11px] font-semibold text-brand hover:underline"
                 onClick={() => setShowRaw(!showRaw())}
               >
                 {showRaw() ? '▾ masquer le JSON brut' : '▸ afficher le JSON brut'}

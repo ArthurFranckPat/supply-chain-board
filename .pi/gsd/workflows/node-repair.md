@@ -15,22 +15,26 @@ Autonomous repair operator for failed task verification. Invoked by execute-plan
 Analyze the failure and choose exactly one repair strategy:
 
 **RETRY** - The approach was right but execution failed. Try again with a concrete adjustment.
+
 - Use when: command error, missing dependency, wrong path, env issue, transient failure
 - Output: `RETRY: [specific adjustment to make before retrying]`
 
 **DECOMPOSE** - The task is too coarse. Break it into smaller verifiable sub-steps.
+
 - Use when: done-criteria covers multiple concerns, implementation gaps are structural
 - Output: `DECOMPOSE: [sub-task 1] | [sub-task 2] | ...` (max 3 sub-tasks)
 - Sub-tasks must each have a single verifiable outcome
 
 **PRUNE** - The task is infeasible given current constraints. Skip with justification.
+
 - Use when: prerequisite missing and not fixable here, out of scope, contradicts an earlier decision
 - Output: `PRUNE: [one-sentence justification]`
 
 **ESCALATE** - Repair budget exhausted, or this is an architectural decision (Rule 4).
+
 - Use when: RETRY failed more than once with different approaches, or fix requires structural change
 - Output: `ESCALATE: [what was tried] | [what decision is needed]`
-</repair_directive>
+  </repair_directive>
 
 <process>
 
@@ -84,6 +88,7 @@ All repair actions must appear in SUMMARY.md under "## Deviations from Plan":
 | RETRY fail → ESCALATE | `[Node Repair - RETRY] Task X: [N] attempts exhausted - escalated to user` |
 | DECOMPOSE             | `[Node Repair - DECOMPOSE] Task X split into [N] sub-tasks - all passed`   |
 | PRUNE                 | `[Node Repair - PRUNE] Task X skipped: [justification]`                    |
+
 </logging>
 
 <constraints>

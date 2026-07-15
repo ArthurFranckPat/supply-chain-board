@@ -17,6 +17,7 @@ export interface ApiDefinition {
   dashboard: typeof routes['dashboard'] & {
     kpis: typeof routes['dashboard.kpis']
     otd: typeof routes['dashboard.otd']
+    stockValuation: typeof routes['dashboard.stock_valuation']
   }
   designSystem: typeof routes['design_system']
   diagnosticTest: typeof routes['diagnostic_test']
@@ -41,6 +42,15 @@ export interface ApiDefinition {
     retardCharge: typeof routes['suivi.retard_charge']
     rows: typeof routes['suivi.rows']
     proactiveRows: typeof routes['suivi.proactive_rows']
+  }
+  scenarios: {
+    compare: typeof routes['scenarios.compare']
+    index: typeof routes['scenarios.index']
+    store: typeof routes['scenarios.store']
+    diff: typeof routes['scenarios.diff']
+    show: typeof routes['scenarios.show']
+    update: typeof routes['scenarios.update']
+    destroy: typeof routes['scenarios.destroy']
   }
   load: {
     index: typeof routes['load.index']

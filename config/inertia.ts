@@ -48,10 +48,17 @@ declare module '@adonisjs/inertia/types' {
 
   interface InertiaPages {
     // Tableau de bord (issue #26 shell + #38 KPI). Coquille + fetch différé du KPI.
+    // `layout` = disposition personnalisée (ordre / visibilité / largeur + ordre
+    // d'impression). Optionnel : absent tant que l'utilisateur n'a rien personnalisé.
     'dashboard': {
       referenceDate: string
       kpisHref: string
       otdHref: string
+      stockHref: string
+      layout?: {
+        items: { id: 'charge' | 'otd' | 'stock' | 'lignes' | 'stockTable'; visible: boolean; width: 1 | 2 | 3 }[]
+        printOrder: ('charge' | 'otd' | 'stock' | 'lignes' | 'stockTable')[]
+      }
     }
     // Expéditions (issue #44) — onglet dédié à la gestion des expéditions client.
     'expeditions': {
@@ -117,7 +124,6 @@ declare module '@adonisjs/inertia/types' {
       rowsHref: string
     }
     'scheduler/tracking': {
-      referenceDate: string
       rowsHref: string
       proactiveRowsHref: string
     }
@@ -137,9 +143,25 @@ declare module '@adonisjs/inertia/types' {
     'config/calendrier': {
       year: number
       holidays: { date: string; name: string; active: boolean }[]
-      closures: { id: number; scope: 'global' | 'wst' | 'stoloc'; code: string; from: string; to: string; factor: number; motif: string }[]
+      closures: {
+        id: number
+        scope: 'global' | 'wst' | 'stoloc'
+        code: string
+        from: string
+        to: string
+        factor: number
+        motif: string
+      }[]
       postes: { code: string; label: string; atelier: string }[]
       ateliers: { code: string; label: string }[]
+    }
+    'scheduler/comparer': {
+      scenarios: any[]
+      planActuel: any
+      windowFrom: string
+      windowTo: string
+      evaluatedAt: string
+      dataAt: string
     }
     'scheduler/programme': {
       mode: 'combined' | 'ordonnancement' | 'planification'

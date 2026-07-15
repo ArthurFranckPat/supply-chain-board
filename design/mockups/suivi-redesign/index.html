@@ -1,97 +1,234 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
-<head>
-<meta charset="UTF-8" />
-<title>Redesign /suivi — 3 variantes Navy</title>
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-<style>
-  :root {
-    --primary: #081061; --secondary: #b0d138; --danger: #dc3545;
-    --light: #f0f0ed; --gray: #6c757d; --border: #d9d6cb;
-  }
-  * { box-sizing: border-box; }
-  body { margin: 0; font-family: "Inter", system-ui, sans-serif; background: var(--light); color: #12142c; padding: 48px 32px 64px; }
-  .wrap { max-width: 1080px; margin: 0 auto; }
-  h1 { font-family: "Fraunces", Georgia, serif; font-size: 34px; font-weight: 900; letter-spacing: -.01em; margin: 0; }
-  h1 em { font-style: italic; font-weight: 600; color: var(--primary); }
-  .sub { margin-top: 8px; font-size: 13px; font-weight: 500; color: var(--gray); line-height: 1.6; max-width: 720px; }
-  .grid { margin-top: 32px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
-  a.card { display: flex; flex-direction: column; text-decoration: none; color: inherit; background: #fff; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; transition: box-shadow .15s, transform .15s; }
-  a.card:hover { box-shadow: 0 6px 20px rgba(8,16,97,.12); transform: translateY(-2px); }
-  .thumb { height: 130px; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid var(--border); background: repeating-linear-gradient(-45deg, #fafaf8, #fafaf8 12px, #f4f4f0 12px, #f4f4f0 24px); }
-  .thumb .k { font-family: "Fraunces", Georgia, serif; font-size: 46px; font-weight: 900; color: var(--primary); opacity: .85; }
-  .body { padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
-  .tag { align-self: flex-start; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; border-radius: 999px; padding: 3px 9px; }
-  .t1 { background: rgba(8,16,97,.08); color: var(--primary); }
-  .t2 { background: rgba(23,162,184,.12); color: #117a8b; }
-  .t3 { background: rgba(176,209,56,.25); color: #4a5c10; }
-  .body h2 { font-size: 16px; font-weight: 700; margin: 0; letter-spacing: -.01em; }
-  .body p { font-size: 12px; font-weight: 500; color: var(--gray); line-height: 1.55; margin: 0; flex: 1; }
-  .cta { font-size: 11px; font-weight: 700; color: var(--primary); }
-  .note { margin-top: 28px; font-size: 11.5px; color: var(--gray); border-top: 1px solid var(--border); padding-top: 16px; line-height: 1.7; }
-  .note b { color: #12142c; }
-</style>
-</head>
-<body>
-  <div class="wrap">
-    <h1>Redesign <em>/suivi</em> — direction Navy</h1>
-    <p class="sub">
-      Trois lectures du suivi des commandes (allocation &amp; expédition), du convenu au novateur, sur la palette officielle
-      Aereco — marine #081061 (marque), lime #b0d138 (CTA ponctuels), cyan info, cartes blanches sur fond gris-clair.
-      Données mock réalistes : mêmes 12 lignes dans les 3 variantes.
-    </p>
-    <div class="grid" style="grid-template-columns:1fr;margin-bottom:18px">
-      <a class="card" href="table-redesign.html">
-        <div class="body">
-          <span class="tag t3">Focus tableau</span>
-          <h2>Redesign du tableau — 3 traitements (A/B/C)</h2>
-          <p>Le tableau lui-même, repensé : <b>A Éditorial</b> (zéro trait vertical, hiérarchie typo, statut en liseré + mot),
-          <b>B Ligne fine</b> (1 ligne / rangée, densité max pour scanner 200 lignes), <b>C Expansible</b> (rangée minimale,
-          détail cause/emplacements/couverture dans un volet au clic). Switch en haut de page.</p>
-          <span class="cta">Ouvrir →</span>
-        </div>
-      </a>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Redesign /suivi — 3 variantes Navy</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,900&family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --primary: #081061;
+        --secondary: #b0d138;
+        --danger: #dc3545;
+        --light: #f0f0ed;
+        --gray: #6c757d;
+        --border: #d9d6cb;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: 'Inter', system-ui, sans-serif;
+        background: var(--light);
+        color: #12142c;
+        padding: 48px 32px 64px;
+      }
+      .wrap {
+        max-width: 1080px;
+        margin: 0 auto;
+      }
+      h1 {
+        font-family: 'Fraunces', Georgia, serif;
+        font-size: 34px;
+        font-weight: 900;
+        letter-spacing: -0.01em;
+        margin: 0;
+      }
+      h1 em {
+        font-style: italic;
+        font-weight: 600;
+        color: var(--primary);
+      }
+      .sub {
+        margin-top: 8px;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--gray);
+        line-height: 1.6;
+        max-width: 720px;
+      }
+      .grid {
+        margin-top: 32px;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 18px;
+      }
+      a.card {
+        display: flex;
+        flex-direction: column;
+        text-decoration: none;
+        color: inherit;
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        overflow: hidden;
+        transition:
+          box-shadow 0.15s,
+          transform 0.15s;
+      }
+      a.card:hover {
+        box-shadow: 0 6px 20px rgba(8, 16, 97, 0.12);
+        transform: translateY(-2px);
+      }
+      .thumb {
+        height: 130px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-bottom: 1px solid var(--border);
+        background: repeating-linear-gradient(
+          -45deg,
+          #fafaf8,
+          #fafaf8 12px,
+          #f4f4f0 12px,
+          #f4f4f0 24px
+        );
+      }
+      .thumb .k {
+        font-family: 'Fraunces', Georgia, serif;
+        font-size: 46px;
+        font-weight: 900;
+        color: var(--primary);
+        opacity: 0.85;
+      }
+      .body {
+        padding: 16px 18px 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        flex: 1;
+      }
+      .tag {
+        align-self: flex-start;
+        font-size: 9px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        border-radius: 999px;
+        padding: 3px 9px;
+      }
+      .t1 {
+        background: rgba(8, 16, 97, 0.08);
+        color: var(--primary);
+      }
+      .t2 {
+        background: rgba(23, 162, 184, 0.12);
+        color: #117a8b;
+      }
+      .t3 {
+        background: rgba(176, 209, 56, 0.25);
+        color: #4a5c10;
+      }
+      .body h2 {
+        font-size: 16px;
+        font-weight: 700;
+        margin: 0;
+        letter-spacing: -0.01em;
+      }
+      .body p {
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--gray);
+        line-height: 1.55;
+        margin: 0;
+        flex: 1;
+      }
+      .cta {
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--primary);
+      }
+      .note {
+        margin-top: 28px;
+        font-size: 11.5px;
+        color: var(--gray);
+        border-top: 1px solid var(--border);
+        padding-top: 16px;
+        line-height: 1.7;
+      }
+      .note b {
+        color: #12142c;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>Redesign <em>/suivi</em> — direction Navy</h1>
+      <p class="sub">
+        Trois lectures du suivi des commandes (allocation &amp; expédition), du convenu au novateur,
+        sur la palette officielle Aereco — marine #081061 (marque), lime #b0d138 (CTA ponctuels),
+        cyan info, cartes blanches sur fond gris-clair. Données mock réalistes : mêmes 12 lignes
+        dans les 3 variantes.
+      </p>
+      <div class="grid" style="grid-template-columns: 1fr; margin-bottom: 18px">
+        <a class="card" href="table-redesign.html">
+          <div class="body">
+            <span class="tag t3">Focus tableau</span>
+            <h2>Redesign du tableau — 3 traitements (A/B/C)</h2>
+            <p>
+              Le tableau lui-même, repensé : <b>A Éditorial</b> (zéro trait vertical, hiérarchie
+              typo, statut en liseré + mot), <b>B Ligne fine</b> (1 ligne / rangée, densité max pour
+              scanner 200 lignes), <b>C Expansible</b> (rangée minimale, détail
+              cause/emplacements/couverture dans un volet au clic). Switch en haut de page.
+            </p>
+            <span class="cta">Ouvrir →</span>
+          </div>
+        </a>
+      </div>
+      <div class="grid">
+        <a class="card" href="v1-registre-navy.html">
+          <div class="thumb"><span class="k">V1</span></div>
+          <div class="body">
+            <span class="tag t1">Convenu</span>
+            <h2>Registre Navy</h2>
+            <p>
+              Le registre actuel transposé Navy. Simplification : les tuiles KPI <b>sont</b> les
+              filtres (clic = filtre) — la rangée de chips statut disparaît. Bascule Réactif /
+              Proactif conservée.
+            </p>
+            <span class="cta">Ouvrir la variante →</span>
+          </div>
+        </a>
+        <a class="card" href="v2-triage-detail.html">
+          <div class="thumb"><span class="k">V2</span></div>
+          <div class="body">
+            <span class="tag t2">Réorganisé</span>
+            <h2>Triage + diagnostic</h2>
+            <p>
+              Plus de bascule : réactif et proactif fusionnés. Liste groupée par urgence (Retard → À
+              allouer → À expédier → RAS) et panneau diagnostic au clic — chaîne de cause en frise
+              (OF → composant → réception), verdict projeté, actions.
+            </p>
+            <span class="cta">Ouvrir la variante →</span>
+          </div>
+        </a>
+        <a class="card" href="v3-cockpit-action.html">
+          <div class="thumb"><span class="k">V3</span></div>
+          <div class="body">
+            <span class="tag t3">Novateur</span>
+            <h2>Cockpit d'action</h2>
+            <p>
+              Plus de table : 3 files d'action (Débloquer / Allouer / Expédier) triées par urgence,
+              cartes avec parcours en 3 jalons, frise horizon des départs sur 15 j, actions groupées
+              (lime). Le RAS sort du premier écran.
+            </p>
+            <span class="cta">Ouvrir la variante →</span>
+          </div>
+        </a>
+      </div>
+      <p class="note">
+        <b>Source de vérité tokens :</b> design/mockups/theme-aereco-navy.html ·
+        <b>Page actuelle :</b> inertia/pages/scheduler/tracking.tsx (thème Papier).<br />
+        Décisions transverses : statut « planifié » → cyan #17a2b8 (évite la collision avec le
+        marine marque) ; lime réservé aux actions à forte intention ; Fraunces en display (chiffres,
+        wordmark), Inter partout ailleurs — aucune police mono.
+      </p>
     </div>
-    <div class="grid">
-      <a class="card" href="v1-registre-navy.html">
-        <div class="thumb"><span class="k">V1</span></div>
-        <div class="body">
-          <span class="tag t1">Convenu</span>
-          <h2>Registre Navy</h2>
-          <p>Le registre actuel transposé Navy. Simplification : les tuiles KPI <b>sont</b> les filtres (clic = filtre) —
-          la rangée de chips statut disparaît. Bascule Réactif / Proactif conservée.</p>
-          <span class="cta">Ouvrir la variante →</span>
-        </div>
-      </a>
-      <a class="card" href="v2-triage-detail.html">
-        <div class="thumb"><span class="k">V2</span></div>
-        <div class="body">
-          <span class="tag t2">Réorganisé</span>
-          <h2>Triage + diagnostic</h2>
-          <p>Plus de bascule : réactif et proactif fusionnés. Liste groupée par urgence (Retard → À allouer → À expédier → RAS)
-          et panneau diagnostic au clic — chaîne de cause en frise (OF → composant → réception), verdict projeté, actions.</p>
-          <span class="cta">Ouvrir la variante →</span>
-        </div>
-      </a>
-      <a class="card" href="v3-cockpit-action.html">
-        <div class="thumb"><span class="k">V3</span></div>
-        <div class="body">
-          <span class="tag t3">Novateur</span>
-          <h2>Cockpit d'action</h2>
-          <p>Plus de table : 3 files d'action (Débloquer / Allouer / Expédier) triées par urgence, cartes avec parcours en
-          3 jalons, frise horizon des départs sur 15 j, actions groupées (lime). Le RAS sort du premier écran.</p>
-          <span class="cta">Ouvrir la variante →</span>
-        </div>
-      </a>
-    </div>
-    <p class="note">
-      <b>Source de vérité tokens :</b> design/mockups/theme-aereco-navy.html · <b>Page actuelle :</b> inertia/pages/scheduler/tracking.tsx (thème Papier).<br />
-      Décisions transverses : statut « planifié » → cyan #17a2b8 (évite la collision avec le marine marque) ; lime réservé aux
-      actions à forte intention ; Fraunces en display (chiffres, wordmark), Inter partout ailleurs — aucune police mono.
-    </p>
-  </div>
-</body>
+  </body>
 </html>

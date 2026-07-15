@@ -27,7 +27,7 @@ const samedi = new Date('2026-06-27T00:00:00')
 const dimanche = new Date('2026-06-28T00:00:00')
 
 test.group('capacity / capDay', () => {
-  test('capacité nette d\'un jour ouvré = DAYCAP × WSTNBR × rendement', ({ assert }) => {
+  test("capacité nette d'un jour ouvré = DAYCAP × WSTNBR × rendement", ({ assert }) => {
     // 7,5 × 2 × 0,90 = 13,5 h
     assert.closeTo(capDay(pp830(), lundi), 13.5, 1e-9)
   })

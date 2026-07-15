@@ -22,25 +22,27 @@ FIRMSUGG(WSTOFCY, WSUGNUM, WSTATUS, WMFGNUM, WRETCOD, WRETERMSG)
 ```
 
 ### Pré-requis X3
+
 - Paramètre **MFGMTSNUM** (chapitre STO, groupe MIS) pointé sur une transaction de
   génération auto (**OF6**) — déjà en place.
 - Droits du compte de service sur la création OF (MFGHEAD/MFGMAT/MFGOPE) + CBNDET.
 
 ### Publication GESAWE
+
 `Administration > Web services > Sous-programmes` (classic SOAP) :
 
-| Champ      | Valeur     |
-|------------|------------|
-| Code       | `FIRMSUGG` |
-| Type       | `GOSUB`    |
-| Script     | `FIRMSUGG` |
-| Subprogram | `FIRMSUGG` |
+| Champ      | Valeur                         |
+| ---------- | ------------------------------ |
+| Code       | `FIRMSUGG`                     |
+| Type       | `GOSUB`                        |
+| Script     | `FIRMSUGG`                     |
+| Subprogram | `FIRMSUGG`                     |
 | Pool/User  | même pool que la lecture (#13) |
 
 Grille paramètres — **rangs = ordre de la signature** :
 
 | Rang | Nom       | Dim | Type    | E/S |
-|------|-----------|-----|---------|-----|
+| ---- | --------- | --- | ------- | --- |
 | 1    | WSTOFCY   | 0   | CHAR    | 0   |
 | 2    | WSUGNUM   | 0   | CHAR    | 0   |
 | 3    | WSTATUS   | 0   | INTEGER | 0   |
@@ -51,6 +53,7 @@ Grille paramètres — **rangs = ordre de la signature** :
 **Save → Valider** (WSDL), puis **redémarrer le pool**.
 
 ### Points à valider au 1er test
+
 - Hébergement des masques `[M:DIA]`/`[M:MFGK]` via `Gosub … From TRTAUTOF` (accès
   cross-script). Si X3 refuse → basculer sur un appel direct `MAJ_OF From MFGAUTLIB`
   en répliquant `$MAJREL`.
@@ -58,5 +61,6 @@ Grille paramètres — **rangs = ordre de la signature** :
 - `[M:MFGK]MFGNUM` bien renseigné après `$TRT_OF`.
 
 ### Test
+
 Page `/writeback-test` (op `run`, publicName `FIRMSUGG`) ou route board
 `POST /api/v1/planning/suggestions/:sugNum/firm`.

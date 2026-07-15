@@ -34,7 +34,10 @@ const matches = (c: Closure, w: Workstation): boolean =>
  * @param closedHolidays Dates ISO des fériés *actifs* (chômés) → facteur 0.
  * @param closures       Fermetures saisies.
  */
-export function buildWorkingCalendar(closedHolidays: Set<string>, closures: Closure[]): WorkingCalendar {
+export function buildWorkingCalendar(
+  closedHolidays: Set<string>,
+  closures: Closure[]
+): WorkingCalendar {
   return {
     factor(w, isoDate) {
       let f = closedHolidays.has(isoDate) ? 0 : 1

@@ -72,6 +72,7 @@ Parse JSON for: `default_workspace_base`, `child_repos`, `child_repo_count`, `wo
 ## 2. Parse Arguments
 
 Extract from $ARGUMENTS:
+
 - `--name` → `WORKSPACE_NAME` (required)
 - `--repos` → `REPO_LIST` (comma-separated paths or names)
 - `--path` → `TARGET_PATH` (defaults to `$default_workspace_base/$WORKSPACE_NAME`)
@@ -82,6 +83,7 @@ Extract from $ARGUMENTS:
 **If `--name` is missing and not `--auto`:**
 
 Use AskUserQuestion:
+
 - header: "Workspace Name"
 - question: "What should this workspace be called?"
 - requireAnswer: true
@@ -89,6 +91,7 @@ Use AskUserQuestion:
 ## 3. Select Repos
 
 **If `--repos` is provided:** Parse comma-separated values. For each value:
+
 - If it's an absolute path, use it directly
 - If it's a relative path or name, resolve against `$project_root`
 - Special case: `.` means current repo (use `$project_root`, name it `$cwd_repo_name`)
@@ -100,6 +103,7 @@ Use AskUserQuestion:
 Present child repos for selection:
 
 Use AskUserQuestion:
+
 - header: "Select Repos"
 - question: "Which repos should be included in the workspace?"
 - options: List each child repo from `child_repos` array by name
@@ -108,6 +112,7 @@ Use AskUserQuestion:
 **If `child_repo_count` is 0 and `is_git_repo` is true:**
 
 Use AskUserQuestion:
+
 - header: "Current Repo"
 - question: "No child repos found. Create a workspace with the current repo?"
 - options:
@@ -117,23 +122,27 @@ Use AskUserQuestion:
 **If `child_repo_count` is 0 and `is_git_repo` is false:**
 
 Error:
+
 ```
 No git repos found in the current directory and this is not a git repo.
 
 Run this command from a directory containing git repos, or specify repos explicitly:
   /gsd-new-workspace --name my-workspace --repos /path/to/repo1,/path/to/repo2
 ```
+
 Exit.
 
 **If `--auto` and `--repos` is NOT provided:**
 
 Error:
+
 ```
 Error: --auto requires --repos to specify which repos to include.
 
 Usage:
   /gsd-new-workspace --name my-workspace --repos repo1,repo2 --auto
 ```
+
 Exit.
 
 ## 4. Select Strategy
@@ -143,6 +152,7 @@ Exit.
 **If `--strategy` is NOT provided and not `--auto`:**
 
 Use AskUserQuestion:
+
 - header: "Strategy"
 - question: "How should repos be copied into the workspace?"
 - options:
@@ -156,6 +166,7 @@ Use AskUserQuestion:
 Before creating anything, validate:
 
 1. **Target path** - must not exist or must be empty:
+
 ```bash
 if [ -d "$TARGET_PATH" ] && [ "$(ls -A "$TARGET_PATH" 2>/dev/null)" ]; then
   echo "Error: Target path already exists and is not empty: $TARGET_PATH"
@@ -165,6 +176,7 @@ fi
 ```
 
 2. **Source repos exist and are git repos** - for each repo path:
+
 ```bash
 if [ ! -d "$REPO_PATH/.git" ]; then
   echo "Error: Not a git repo: $REPO_PATH"
@@ -173,6 +185,7 @@ fi
 ```
 
 3. **Worktree availability** - if strategy is `worktree` and `worktree_available` is false:
+
 ```
 Error: git is not available. Install git or use --strategy clone.
 ```
@@ -188,12 +201,14 @@ mkdir -p "$TARGET_PATH"
 ### For each repo:
 
 **Worktree strategy:**
+
 ```bash
 cd "$SOURCE_REPO_PATH"
 git worktree add "$TARGET_PATH/$REPO_NAME" -b "$BRANCH_NAME" 2>&1
 ```
 
 If `git worktree add` fails because the branch already exists, try with a timestamped branch:
+
 ```bash
 TIMESTAMP=$(date +%Y%m%d%H%M%S)
 git worktree add "$TARGET_PATH/$REPO_NAME" -b "${BRANCH_NAME}-${TIMESTAMP}" 2>&1
@@ -202,6 +217,7 @@ git worktree add "$TARGET_PATH/$REPO_NAME" -b "${BRANCH_NAME}-${TIMESTAMP}" 2>&1
 If that also fails, report the error and continue with remaining repos.
 
 **Clone strategy:**
+
 ```bash
 git clone "$SOURCE_REPO_PATH" "$TARGET_PATH/$REPO_NAME" 2>&1
 cd "$TARGET_PATH/$REPO_NAME"
@@ -222,10 +238,10 @@ Strategy: $STRATEGY
 
 ## Member Repos
 
-| Repo       | Source       | Branch  | Strategy  |
-| ---------- | ------------ | ------- | --------- |
-| $REPO_NAME | $SOURCE_PATH | $BRANCH | $STRATEGY |
-...for each repo...
+| Repo                | Source       | Branch  | Strategy  |
+| ------------------- | ------------ | ------- | --------- |
+| $REPO_NAME          | $SOURCE_PATH | $BRANCH | $STRATEGY |
+| ...for each repo... |
 
 ## Notes
 
@@ -270,6 +286,7 @@ Next steps:
 **Offer to initialize GSD (if not `--auto`):**
 
 Use AskUserQuestion:
+
 - header: "Initialize GSD"
 - question: "Would you like to initialize a GSD project in the new workspace?"
 - options:
@@ -279,9 +296,10 @@ Use AskUserQuestion:
 </process>
 
 <success_criteria>
+
 - [ ] Workspace directory created at target path
 - [ ] All specified repos copied (worktree or clone) into workspace
 - [ ] WORKSPACE.md manifest written with correct repo table
 - [ ] `.planning/` directory initialized at workspace root
 - [ ] User informed of workspace path and next steps
-</success_criteria>
+      </success_criteria>

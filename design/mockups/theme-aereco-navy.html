@@ -1,17 +1,17 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
-<head>
-<meta charset="UTF-8" />
-<title>Thème « Navy » — palette officielle Aereco/Aldes</title>
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link
-  href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700;9..144,900&family=Inter:wght@400;500;600;700;900&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,400,0,0&display=swap"
-  rel="stylesheet"
-/>
-<style>
-  /* ════════════════════════════════════════════════════════════
+  <head>
+    <meta charset="UTF-8" />
+    <title>Thème « Navy » — palette officielle Aereco/Aldes</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700;9..144,900&family=Inter:wght@400;500;600;700;900&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,400,0,0&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* ════════════════════════════════════════════════════════════
      Thème « Navy » — construit sur les couleurs officielles fournies
      (Bootstrap-like variables Aereco/Aldes). Direction opposée du thème
      "Papier" actuel (crème/terracotta/Fraunces-partout) : ancrage sur le
@@ -35,641 +35,1063 @@
      5. Cartes blanches pures (pas crème) sur fond gris-clair #f0f0ed :
         rendu plus corporate/net que le grain "papier" du thème actuel.
      ──────────────────────────────────────────────────────────── */
-  :root {
-    /* Palette officielle (fournie telle quelle) */
-    --blue: #007bff;
-    --primary: #081061;
-    --secondary: #b0d138;
-    --success: #28a745;
-    --info: #17a2b8;
-    --warning: #ffc107;
-    --danger: #dc3545;
-    --light: #f0f0ed;
-    --dark: #575756;
-    --gray: #6c757d;
+      :root {
+        /* Palette officielle (fournie telle quelle) */
+        --blue: #007bff;
+        --primary: #081061;
+        --secondary: #b0d138;
+        --success: #28a745;
+        --info: #17a2b8;
+        --warning: #ffc107;
+        --danger: #dc3545;
+        --light: #f0f0ed;
+        --dark: #575756;
+        --gray: #6c757d;
 
-    /* Tokens sémantiques dérivés (grammaire identique à l'app actuelle) */
-    --color-background: var(--light);
-    --color-foreground: #12142c;
-    --color-card: #ffffff;
-    --color-card-foreground: #12142c;
-    --color-primary: var(--primary);
-    --color-primary-foreground: #ffffff;
-    --color-secondary: var(--secondary);
-    --color-secondary-foreground: #202d09;
-    --color-muted: #e7e5de;
-    --color-muted-foreground: var(--gray);
-    --color-border: #d9d6cb;
-    --color-rule: #d9d6cb;
-    --color-rule-soft: #eae8e0;
-    --color-ring: var(--blue);
-    --color-destructive: var(--danger);
+        /* Tokens sémantiques dérivés (grammaire identique à l'app actuelle) */
+        --color-background: var(--light);
+        --color-foreground: #12142c;
+        --color-card: #ffffff;
+        --color-card-foreground: #12142c;
+        --color-primary: var(--primary);
+        --color-primary-foreground: #ffffff;
+        --color-secondary: var(--secondary);
+        --color-secondary-foreground: #202d09;
+        --color-muted: #e7e5de;
+        --color-muted-foreground: var(--gray);
+        --color-border: #d9d6cb;
+        --color-rule: #d9d6cb;
+        --color-rule-soft: #eae8e0;
+        --color-ring: var(--blue);
+        --color-destructive: var(--danger);
 
-    /* Statuts carte OF */
-    --color-ferme: var(--success);
-    --color-planifie: var(--info);
-    --color-suggere: var(--warning);
+        /* Statuts carte OF */
+        --color-ferme: var(--success);
+        --color-planifie: var(--info);
+        --color-suggere: var(--warning);
 
-    --font-fraunces: "Fraunces", Georgia, serif;
-    --font-sans: "Inter", system-ui, sans-serif;
-  }
+        --font-fraunces: 'Fraunces', Georgia, serif;
+        --font-sans: 'Inter', system-ui, sans-serif;
+      }
 
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    font-family: var(--font-sans);
-    background: var(--color-background);
-    color: var(--color-foreground);
-    -webkit-font-smoothing: antialiased;
-  }
-  .material-symbols-outlined {
-    font-family: "Material Symbols Outlined";
-    font-weight: normal;
-    font-style: normal;
-    line-height: 1;
-    display: inline-block;
-    vertical-align: middle;
-  }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: var(--font-sans);
+        background: var(--color-background);
+        color: var(--color-foreground);
+        -webkit-font-smoothing: antialiased;
+      }
+      .material-symbols-outlined {
+        font-family: 'Material Symbols Outlined';
+        font-weight: normal;
+        font-style: normal;
+        line-height: 1;
+        display: inline-block;
+        vertical-align: middle;
+      }
 
-  /* ── Bandeau note de direction ── */
-  .directionNote {
-    background: var(--color-primary);
-    color: #ffffff;
-    font-size: 12px;
-    font-weight: 600;
-    letter-spacing: .02em;
-    padding: 8px 28px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .directionNote .material-symbols-outlined { font-size: 16px; color: var(--secondary); }
+      /* ── Bandeau note de direction ── */
+      .directionNote {
+        background: var(--color-primary);
+        color: #ffffff;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        padding: 8px 28px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .directionNote .material-symbols-outlined {
+        font-size: 16px;
+        color: var(--secondary);
+      }
 
-  /* ── Masthead ── */
-  header.masthead {
-    background: var(--color-card);
-    border-bottom: 1px solid var(--color-rule);
-  }
-  .masthead-top {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: 20px;
-    padding: 14px 28px 8px;
-  }
-  .brand { display: flex; align-items: center; gap: 14px; }
-  .wordmark {
-    font-family: var(--font-fraunces);
-    font-size: 26px;
-    font-weight: 900;
-    line-height: .9;
-    letter-spacing: -.01em;
-  }
-  .wordmark em { font-style: italic; font-weight: 500; color: var(--color-primary); }
-  .subtitle {
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: .1em;
-    text-transform: uppercase;
-    color: var(--color-muted-foreground);
-    padding-bottom: 2px;
-  }
-  .env-pill {
-    display: inline-flex; align-items: center; gap: 5px;
-    border: 1px solid var(--color-border);
-    background: var(--color-muted);
-    color: var(--color-muted-foreground);
-    border-radius: 999px;
-    padding: 3px 9px;
-    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em;
-  }
-  .env-pill .dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
-  .meta {
-    text-align: right;
-    font-size: 11px;
-    font-weight: 500;
-    line-height: 1.6;
-    color: var(--color-muted-foreground);
-  }
-  .meta b { color: var(--color-foreground); font-weight: 700; }
-  .meta .week { font-family: var(--font-fraunces); font-weight: 700; font-size: 12px; color: var(--color-primary); }
+      /* ── Masthead ── */
+      header.masthead {
+        background: var(--color-card);
+        border-bottom: 1px solid var(--color-rule);
+      }
+      .masthead-top {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 20px;
+        padding: 14px 28px 8px;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+      .wordmark {
+        font-family: var(--font-fraunces);
+        font-size: 26px;
+        font-weight: 900;
+        line-height: 0.9;
+        letter-spacing: -0.01em;
+      }
+      .wordmark em {
+        font-style: italic;
+        font-weight: 500;
+        color: var(--color-primary);
+      }
+      .subtitle {
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--color-muted-foreground);
+        padding-bottom: 2px;
+      }
+      .env-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        border: 1px solid var(--color-border);
+        background: var(--color-muted);
+        color: var(--color-muted-foreground);
+        border-radius: 999px;
+        padding: 3px 9px;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+      .env-pill .dot {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: currentColor;
+      }
+      .meta {
+        text-align: right;
+        font-size: 11px;
+        font-weight: 500;
+        line-height: 1.6;
+        color: var(--color-muted-foreground);
+      }
+      .meta b {
+        color: var(--color-foreground);
+        font-weight: 700;
+      }
+      .meta .week {
+        font-family: var(--font-fraunces);
+        font-weight: 700;
+        font-size: 12px;
+        color: var(--color-primary);
+      }
 
-  nav.tabs {
-    display: flex; align-items: center; gap: 4px;
-    border-top: 1px solid var(--color-rule);
-    padding: 0 28px;
-    min-height: 44px;
-  }
-  nav.tabs a {
-    text-decoration: none;
-    font-size: 12px; font-weight: 600;
-    color: var(--color-muted-foreground);
-    padding: 10px 14px;
-    border-bottom: 2px solid transparent;
-    transition: color .15s, border-color .15s;
-  }
-  nav.tabs a:hover { color: var(--color-primary); }
-  nav.tabs a.active { color: var(--color-primary); border-color: var(--color-primary); }
-  .user-chip {
-    margin-left: auto;
-    display: flex; align-items: center; gap: 8px;
-    font-size: 12px; font-weight: 600;
-  }
-  .avatar {
-    width: 26px; height: 26px; border-radius: 50%;
-    background: var(--color-primary); color: #fff;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 11px; font-weight: 700;
-  }
+      nav.tabs {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        border-top: 1px solid var(--color-rule);
+        padding: 0 28px;
+        min-height: 44px;
+      }
+      nav.tabs a {
+        text-decoration: none;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--color-muted-foreground);
+        padding: 10px 14px;
+        border-bottom: 2px solid transparent;
+        transition:
+          color 0.15s,
+          border-color 0.15s;
+      }
+      nav.tabs a:hover {
+        color: var(--color-primary);
+      }
+      nav.tabs a.active {
+        color: var(--color-primary);
+        border-color: var(--color-primary);
+      }
+      .user-chip {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .avatar {
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        background: var(--color-primary);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        font-weight: 700;
+      }
 
-  /* ── Toolbar ── */
-  .toolbar {
-    display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
-    padding: 10px 28px;
-    border-bottom: 1px solid var(--color-rule);
-    background: var(--color-background);
-  }
-  .search {
-    display: flex; align-items: center; gap: 6px;
-    height: 30px; padding: 0 12px;
-    border-radius: 999px;
-    border: 1px solid var(--color-border);
-    background: var(--color-card);
-    font-size: 12px; font-weight: 500;
-    color: var(--color-muted-foreground);
-  }
-  .search .material-symbols-outlined { font-size: 16px; }
-  .search input {
-    border: 0; outline: 0; background: transparent;
-    font: inherit; color: var(--color-foreground); width: 150px;
-  }
-  .segmented {
-    display: inline-flex; align-items: center; gap: 2px;
-    border: 1px solid var(--color-border);
-    background: var(--color-card);
-    border-radius: 8px; padding: 3px;
-  }
-  .segmented .label {
-    font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em;
-    color: var(--color-muted-foreground);
-    padding: 0 6px;
-  }
-  .chip {
-    border: 0; background: transparent; cursor: pointer;
-    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em;
-    color: var(--color-muted-foreground);
-    padding: 6px 11px; border-radius: 6px;
-    transition: background .15s, color .15s;
-  }
-  .chip.on { background: rgba(8,16,97,.08); color: var(--color-primary); }
-  .chip:hover:not(.on) { color: var(--color-foreground); }
+      /* ── Toolbar ── */
+      .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 28px;
+        border-bottom: 1px solid var(--color-rule);
+        background: var(--color-background);
+      }
+      .search {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        height: 30px;
+        padding: 0 12px;
+        border-radius: 999px;
+        border: 1px solid var(--color-border);
+        background: var(--color-card);
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--color-muted-foreground);
+      }
+      .search .material-symbols-outlined {
+        font-size: 16px;
+      }
+      .search input {
+        border: 0;
+        outline: 0;
+        background: transparent;
+        font: inherit;
+        color: var(--color-foreground);
+        width: 150px;
+      }
+      .segmented {
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+        border: 1px solid var(--color-border);
+        background: var(--color-card);
+        border-radius: 8px;
+        padding: 3px;
+      }
+      .segmented .label {
+        font-size: 9px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--color-muted-foreground);
+        padding: 0 6px;
+      }
+      .chip {
+        border: 0;
+        background: transparent;
+        cursor: pointer;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--color-muted-foreground);
+        padding: 6px 11px;
+        border-radius: 6px;
+        transition:
+          background 0.15s,
+          color 0.15s;
+      }
+      .chip.on {
+        background: rgba(8, 16, 97, 0.08);
+        color: var(--color-primary);
+      }
+      .chip:hover:not(.on) {
+        color: var(--color-foreground);
+      }
 
-  .btn {
-    display: inline-flex; align-items: center; gap: 6px;
-    border-radius: 999px;
-    padding: 6px 14px;
-    font-size: 11px; font-weight: 700;
-    border: 1px solid var(--color-border);
-    background: var(--color-card);
-    color: var(--color-foreground);
-    cursor: pointer;
-    transition: border-color .15s, background .15s;
-  }
-  .btn:hover { border-color: var(--color-primary); }
-  .btn .material-symbols-outlined { font-size: 15px; color: var(--color-muted-foreground); }
-  .btn-primary {
-    background: var(--color-primary);
-    border-color: var(--color-primary);
-    color: #fff;
-  }
-  .btn-primary .material-symbols-outlined { color: rgba(255,255,255,.85); }
-  .btn-primary:hover { background: #0a1478; }
-  /* CTA lime — réservé aux actions à forte intention (ex : lancer un batch) */
-  .btn-cta {
-    background: var(--secondary);
-    border-color: var(--secondary);
-    color: var(--color-secondary-foreground);
-  }
-  .btn-cta .material-symbols-outlined { color: var(--color-secondary-foreground); }
-  .btn-cta:hover { filter: brightness(0.96); }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border-radius: 999px;
+        padding: 6px 14px;
+        font-size: 11px;
+        font-weight: 700;
+        border: 1px solid var(--color-border);
+        background: var(--color-card);
+        color: var(--color-foreground);
+        cursor: pointer;
+        transition:
+          border-color 0.15s,
+          background 0.15s;
+      }
+      .btn:hover {
+        border-color: var(--color-primary);
+      }
+      .btn .material-symbols-outlined {
+        font-size: 15px;
+        color: var(--color-muted-foreground);
+      }
+      .btn-primary {
+        background: var(--color-primary);
+        border-color: var(--color-primary);
+        color: #fff;
+      }
+      .btn-primary .material-symbols-outlined {
+        color: rgba(255, 255, 255, 0.85);
+      }
+      .btn-primary:hover {
+        background: #0a1478;
+      }
+      /* CTA lime — réservé aux actions à forte intention (ex : lancer un batch) */
+      .btn-cta {
+        background: var(--secondary);
+        border-color: var(--secondary);
+        color: var(--color-secondary-foreground);
+      }
+      .btn-cta .material-symbols-outlined {
+        color: var(--color-secondary-foreground);
+      }
+      .btn-cta:hover {
+        filter: brightness(0.96);
+      }
 
-  /* ── Layout board + sheet ── */
-  .app-body { display: flex; height: calc(100vh - 190px); overflow: hidden; }
-  .board-wrap { flex: 1; overflow: auto; padding: 20px 28px 40px; }
+      /* ── Layout board + sheet ── */
+      .app-body {
+        display: flex;
+        height: calc(100vh - 190px);
+        overflow: hidden;
+      }
+      .board-wrap {
+        flex: 1;
+        overflow: auto;
+        padding: 20px 28px 40px;
+      }
 
-  .board-grid {
-    display: grid;
-    grid-template-columns: 160px repeat(5, minmax(150px, 1fr));
-    border: 1px solid var(--color-rule);
-    border-radius: 10px;
-    overflow: hidden;
-    background: var(--color-card);
-  }
-  .g-head {
-    background: var(--color-card);
-    border-bottom: 1px solid var(--color-rule);
-    padding: 8px 10px;
-    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em;
-    color: var(--color-muted-foreground);
-    position: sticky; top: 0; z-index: 2;
-  }
-  .g-head.today { color: var(--color-primary); }
-  .g-head .d { font-family: var(--font-fraunces); font-size: 14px; font-weight: 700; color: var(--color-foreground); display: block; margin-top: 2px; }
-  .g-head.today .d { color: var(--color-primary); }
-  .row-label {
-    padding: 12px 10px;
-    border-top: 1px solid var(--color-rule-soft);
-    border-right: 1px solid var(--color-rule);
-    background: var(--color-background);
-    display: flex; flex-direction: column; gap: 4px;
-    justify-content: center;
-  }
-  .row-label .poste { font-size: 12px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
-  .row-label .dot { width: 9px; height: 9px; border-radius: 2px; background: var(--color-primary); }
-  .row-label .cap { font-size: 10px; color: var(--color-muted-foreground); font-weight: 500; }
-  .cell {
-    border-top: 1px solid var(--color-rule-soft);
-    border-right: 1px solid var(--color-rule-soft);
-    padding: 8px; min-height: 118px;
-    display: flex; flex-direction: column; gap: 6px;
-  }
-  .cell:last-child { border-right: 0; }
+      .board-grid {
+        display: grid;
+        grid-template-columns: 160px repeat(5, minmax(150px, 1fr));
+        border: 1px solid var(--color-rule);
+        border-radius: 10px;
+        overflow: hidden;
+        background: var(--color-card);
+      }
+      .g-head {
+        background: var(--color-card);
+        border-bottom: 1px solid var(--color-rule);
+        padding: 8px 10px;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        color: var(--color-muted-foreground);
+        position: sticky;
+        top: 0;
+        z-index: 2;
+      }
+      .g-head.today {
+        color: var(--color-primary);
+      }
+      .g-head .d {
+        font-family: var(--font-fraunces);
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--color-foreground);
+        display: block;
+        margin-top: 2px;
+      }
+      .g-head.today .d {
+        color: var(--color-primary);
+      }
+      .row-label {
+        padding: 12px 10px;
+        border-top: 1px solid var(--color-rule-soft);
+        border-right: 1px solid var(--color-rule);
+        background: var(--color-background);
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        justify-content: center;
+      }
+      .row-label .poste {
+        font-size: 12px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .row-label .dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 2px;
+        background: var(--color-primary);
+      }
+      .row-label .cap {
+        font-size: 10px;
+        color: var(--color-muted-foreground);
+        font-weight: 500;
+      }
+      .cell {
+        border-top: 1px solid var(--color-rule-soft);
+        border-right: 1px solid var(--color-rule-soft);
+        padding: 8px;
+        min-height: 118px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .cell:last-child {
+        border-right: 0;
+      }
 
-  /* ── Carte OF (grammaire identique board-card.tsx) ── */
-  .of-card {
-    position: relative;
-    border-radius: 6px;
-    border: 1px solid var(--color-border);
-    border-top: 3px solid var(--tone);
-    background: var(--color-card);
-    padding: 8px 10px 7px;
-    box-shadow: 0 1px 2px rgba(18,20,44,.06);
-  }
-  .of-card .num { font-size: 12px; font-weight: 700; line-height: 1.2; }
-  .of-card .ref { font-size: 11px; font-weight: 600; color: var(--color-primary); margin-top: 1px; }
-  .of-card .title { font-size: 11px; font-weight: 600; color: var(--color-foreground); margin-top: 4px; }
-  .of-card .progress-row { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
-  .of-card .progress-track { flex: 1; height: 5px; border-radius: 999px; background: var(--color-rule-soft); overflow: hidden; }
-  .of-card .progress-fill { display: block; height: 100%; border-radius: 999px; background: var(--tone); }
-  .of-card .progress-num { font-size: 9px; font-weight: 700; color: var(--color-muted-foreground); }
-  .of-card .footer { display: flex; align-items: center; gap: 6px; margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--color-rule-soft); }
-  .of-card .footer .lbl { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--color-muted-foreground); }
-  .of-card .footer .hours { margin-left: auto; font-family: var(--font-fraunces); font-size: 13px; font-weight: 700; }
-  .of-card .footer .hours span { font-size: 10px; font-weight: 500; color: var(--color-muted-foreground); }
-  .of-card .alert {
-    display: flex; align-items: center; gap: 5px;
-    margin-top: 6px; padding: 3px 7px; border-radius: 5px;
-    background: rgba(220,53,69,.09); color: var(--danger);
-    font-size: 9px; font-weight: 700;
-  }
-  .of-card .alert .material-symbols-outlined { font-size: 12px; }
-  .corner-badge {
-    position: absolute; top: -7px; right: 8px;
-    width: 16px; height: 16px; border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    border: 2px solid var(--color-card); color: #fff;
-  }
-  .corner-badge .material-symbols-outlined { font-size: 12px; font-weight: 700; }
-  .of-card.selected { box-shadow: 0 0 0 2px var(--color-primary); }
+      /* ── Carte OF (grammaire identique board-card.tsx) ── */
+      .of-card {
+        position: relative;
+        border-radius: 6px;
+        border: 1px solid var(--color-border);
+        border-top: 3px solid var(--tone);
+        background: var(--color-card);
+        padding: 8px 10px 7px;
+        box-shadow: 0 1px 2px rgba(18, 20, 44, 0.06);
+      }
+      .of-card .num {
+        font-size: 12px;
+        font-weight: 700;
+        line-height: 1.2;
+      }
+      .of-card .ref {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--color-primary);
+        margin-top: 1px;
+      }
+      .of-card .title {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--color-foreground);
+        margin-top: 4px;
+      }
+      .of-card .progress-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 8px;
+      }
+      .of-card .progress-track {
+        flex: 1;
+        height: 5px;
+        border-radius: 999px;
+        background: var(--color-rule-soft);
+        overflow: hidden;
+      }
+      .of-card .progress-fill {
+        display: block;
+        height: 100%;
+        border-radius: 999px;
+        background: var(--tone);
+      }
+      .of-card .progress-num {
+        font-size: 9px;
+        font-weight: 700;
+        color: var(--color-muted-foreground);
+      }
+      .of-card .footer {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 8px;
+        padding-top: 6px;
+        border-top: 1px solid var(--color-rule-soft);
+      }
+      .of-card .footer .lbl {
+        font-size: 9px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--color-muted-foreground);
+      }
+      .of-card .footer .hours {
+        margin-left: auto;
+        font-family: var(--font-fraunces);
+        font-size: 13px;
+        font-weight: 700;
+      }
+      .of-card .footer .hours span {
+        font-size: 10px;
+        font-weight: 500;
+        color: var(--color-muted-foreground);
+      }
+      .of-card .alert {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        margin-top: 6px;
+        padding: 3px 7px;
+        border-radius: 5px;
+        background: rgba(220, 53, 69, 0.09);
+        color: var(--danger);
+        font-size: 9px;
+        font-weight: 700;
+      }
+      .of-card .alert .material-symbols-outlined {
+        font-size: 12px;
+      }
+      .corner-badge {
+        position: absolute;
+        top: -7px;
+        right: 8px;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 2px solid var(--color-card);
+        color: #fff;
+      }
+      .corner-badge .material-symbols-outlined {
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .of-card.selected {
+        box-shadow: 0 0 0 2px var(--color-primary);
+      }
 
-  /* ── Jauge de remplissage (semaine) ── */
-  .gauge-block { margin-top: 8px; }
-  .gauge-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 3px; }
-  .gauge-head .pct { font-family: var(--font-fraunces); font-size: 15px; font-weight: 700; }
-  .gauge-head .lbl { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--color-muted-foreground); }
-  .gauge-track { height: 8px; border-radius: 999px; background: var(--color-rule-soft); overflow: hidden; display: flex; }
-  .gauge-seg { height: 100%; }
+      /* ── Jauge de remplissage (semaine) ── */
+      .gauge-block {
+        margin-top: 8px;
+      }
+      .gauge-head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        margin-bottom: 3px;
+      }
+      .gauge-head .pct {
+        font-family: var(--font-fraunces);
+        font-size: 15px;
+        font-weight: 700;
+      }
+      .gauge-head .lbl {
+        font-size: 9px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--color-muted-foreground);
+      }
+      .gauge-track {
+        height: 8px;
+        border-radius: 999px;
+        background: var(--color-rule-soft);
+        overflow: hidden;
+        display: flex;
+      }
+      .gauge-seg {
+        height: 100%;
+      }
 
-  /* ── Sheet détail ── */
-  .sheet {
-    width: 380px; flex: none;
-    border-left: 1px solid var(--color-rule);
-    background: var(--color-card);
-    overflow-y: auto;
-  }
-  .sheet-head {
-    padding: 18px 20px 14px;
-    border-bottom: 1px solid var(--color-rule);
-    background: var(--color-primary);
-    color: #fff;
-  }
-  .sheet-head .close { float: right; opacity: .7; cursor: pointer; }
-  .sheet-head .num { font-family: var(--font-fraunces); font-size: 22px; font-weight: 700; }
-  .sheet-head .ref { font-size: 12px; font-weight: 600; color: rgba(255,255,255,.75); margin-top: 2px; }
-  .sheet-status {
-    display: inline-flex; align-items: center; gap: 5px;
-    margin-top: 10px; padding: 3px 10px; border-radius: 999px;
-    background: rgba(255,255,255,.15);
-    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
-  }
-  .sheet-status .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--secondary); }
-  .sheet-body { padding: 18px 20px; display: flex; flex-direction: column; gap: 18px; }
-  .sheet-section .h { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--color-muted-foreground); margin-bottom: 8px; }
-  .kv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; }
-  .kv .k { font-size: 10px; font-weight: 600; color: var(--color-muted-foreground); }
-  .kv .v { font-size: 13px; font-weight: 700; margin-top: 2px; }
-  .kv .v.mono { font-family: var(--font-fraunces); }
-  .comp-row {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 9px 0; border-bottom: 1px solid var(--color-rule-soft);
-    font-size: 12px;
-  }
-  .comp-row .name { font-weight: 600; }
-  .comp-row .qty { font-weight: 700; color: var(--color-muted-foreground); }
-  .comp-row .flag {
-    display: inline-flex; align-items: center; gap: 4px;
-    font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
-    padding: 2px 7px; border-radius: 999px;
-  }
-  .flag.ok { background: rgba(40,167,69,.12); color: var(--success); }
-  .flag.bad { background: rgba(220,53,69,.12); color: var(--danger); }
-  .sheet-cta { display: flex; gap: 8px; margin-top: 4px; }
-  .sheet-cta .btn { flex: 1; justify-content: center; }
+      /* ── Sheet détail ── */
+      .sheet {
+        width: 380px;
+        flex: none;
+        border-left: 1px solid var(--color-rule);
+        background: var(--color-card);
+        overflow-y: auto;
+      }
+      .sheet-head {
+        padding: 18px 20px 14px;
+        border-bottom: 1px solid var(--color-rule);
+        background: var(--color-primary);
+        color: #fff;
+      }
+      .sheet-head .close {
+        float: right;
+        opacity: 0.7;
+        cursor: pointer;
+      }
+      .sheet-head .num {
+        font-family: var(--font-fraunces);
+        font-size: 22px;
+        font-weight: 700;
+      }
+      .sheet-head .ref {
+        font-size: 12px;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.75);
+        margin-top: 2px;
+      }
+      .sheet-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        margin-top: 10px;
+        padding: 3px 10px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.15);
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+      .sheet-status .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--secondary);
+      }
+      .sheet-body {
+        padding: 18px 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+      }
+      .sheet-section .h {
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--color-muted-foreground);
+        margin-bottom: 8px;
+      }
+      .kv-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px 16px;
+      }
+      .kv .k {
+        font-size: 10px;
+        font-weight: 600;
+        color: var(--color-muted-foreground);
+      }
+      .kv .v {
+        font-size: 13px;
+        font-weight: 700;
+        margin-top: 2px;
+      }
+      .kv .v.mono {
+        font-family: var(--font-fraunces);
+      }
+      .comp-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 9px 0;
+        border-bottom: 1px solid var(--color-rule-soft);
+        font-size: 12px;
+      }
+      .comp-row .name {
+        font-weight: 600;
+      }
+      .comp-row .qty {
+        font-weight: 700;
+        color: var(--color-muted-foreground);
+      }
+      .comp-row .flag {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 9px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        padding: 2px 7px;
+        border-radius: 999px;
+      }
+      .flag.ok {
+        background: rgba(40, 167, 69, 0.12);
+        color: var(--success);
+      }
+      .flag.bad {
+        background: rgba(220, 53, 69, 0.12);
+        color: var(--danger);
+      }
+      .sheet-cta {
+        display: flex;
+        gap: 8px;
+        margin-top: 4px;
+      }
+      .sheet-cta .btn {
+        flex: 1;
+        justify-content: center;
+      }
 
-  .legend {
-    display: flex; flex-wrap: wrap; gap: 14px;
-    padding: 12px 28px; border-top: 1px solid var(--color-rule);
-    background: var(--color-card);
-    font-size: 11px; font-weight: 600; color: var(--color-muted-foreground);
-  }
-  .legend .item { display: flex; align-items: center; gap: 6px; }
-  .legend .sw { width: 10px; height: 10px; border-radius: 2px; }
-</style>
-</head>
-<body>
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        padding: 12px 28px;
+        border-top: 1px solid var(--color-rule);
+        background: var(--color-card);
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--color-muted-foreground);
+      }
+      .legend .item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .legend .sw {
+        width: 10px;
+        height: 10px;
+        border-radius: 2px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="directionNote">
+      <span class="material-symbols-outlined">palette</span>
+      Direction « Navy » — palette officielle Aereco/Aldes · #081061 marine (marque) · #b0d138 lime
+      (CTA/actif seulement) · Inter partout, Fraunces en display
+    </div>
 
-  <div class="directionNote">
-    <span class="material-symbols-outlined">palette</span>
-    Direction « Navy » — palette officielle Aereco/Aldes · #081061 marine (marque) · #b0d138 lime (CTA/actif seulement) · Inter partout, Fraunces en display
-  </div>
-
-  <header class="masthead">
-    <div class="masthead-top">
-      <div class="brand">
-        <div class="wordmark">Supply Chain <em>AERECO</em></div>
-        <div class="subtitle">Programme · Flux OF ↔ commandes</div>
-        <span class="env-pill"><span class="dot"></span>Prod</span>
+    <header class="masthead">
+      <div class="masthead-top">
+        <div class="brand">
+          <div class="wordmark">Supply Chain <em>AERECO</em></div>
+          <div class="subtitle">Programme · Flux OF ↔ commandes</div>
+          <span class="env-pill"><span class="dot"></span>Prod</span>
+        </div>
+        <div class="meta">
+          <div class="week">Semaine 27 · 29 juin – 5 juil.</div>
+          <div>Fenêtre <b>21 j</b> · <b>184</b> OF · <b>12</b> postes · <b>63</b> commandes</div>
+        </div>
       </div>
-      <div class="meta">
-        <div class="week">Semaine 27 · 29 juin – 5 juil.</div>
-        <div>Fenêtre <b>21 j</b> · <b>184</b> OF · <b>12</b> postes · <b>63</b> commandes</div>
+      <nav class="tabs">
+        <a href="#">Tableau</a>
+        <a href="#" class="active">Programme</a>
+        <a href="#">Charge</a>
+        <a href="#">Ruptures</a>
+        <a href="#">Suivi</a>
+        <a href="#">Expéditions</a>
+        <a href="#">Config</a>
+        <div class="user-chip">
+          <span class="avatar">AB</span>
+        </div>
+      </nav>
+    </header>
+
+    <div class="toolbar">
+      <div class="segmented">
+        <button class="chip">OF</button>
+        <button class="chip on">Combiné</button>
+        <button class="chip">Cmdes</button>
       </div>
-    </div>
-    <nav class="tabs">
-      <a href="#">Tableau</a>
-      <a href="#" class="active">Programme</a>
-      <a href="#">Charge</a>
-      <a href="#">Ruptures</a>
-      <a href="#">Suivi</a>
-      <a href="#">Expéditions</a>
-      <a href="#">Config</a>
-      <div class="user-chip">
-        <span class="avatar">AB</span>
+
+      <div class="search">
+        <span class="material-symbols-outlined">search</span>
+        <input placeholder="OF, article, poste…" />
       </div>
-    </nav>
-  </header>
 
-  <div class="toolbar">
-    <div class="segmented">
-      <button class="chip">OF</button>
-      <button class="chip on">Combiné</button>
-      <button class="chip">Cmdes</button>
-    </div>
+      <div class="segmented">
+        <span class="label">Statut</span>
+        <button class="chip on">Ferme</button>
+        <button class="chip on">Planifié</button>
+        <button class="chip on">Suggéré</button>
+      </div>
 
-    <div class="search">
-      <span class="material-symbols-outlined">search</span>
-      <input placeholder="OF, article, poste…" />
-    </div>
+      <div class="segmented">
+        <span class="label">Stock</span>
+        <button class="chip on">Instantanée</button>
+        <button class="chip">Projetée</button>
+      </div>
 
-    <div class="segmented">
-      <span class="label">Statut</span>
-      <button class="chip on">Ferme</button>
-      <button class="chip on">Planifié</button>
-      <button class="chip on">Suggéré</button>
-    </div>
-
-    <div class="segmented">
-      <span class="label">Stock</span>
-      <button class="chip on">Instantanée</button>
-      <button class="chip">Projetée</button>
-    </div>
-
-    <div style="margin-left:auto; display:flex; gap:8px;">
-      <button class="btn"><span class="material-symbols-outlined">refresh</span>Actualiser</button>
-      <button class="btn"><span class="material-symbols-outlined">fact_check</span>Faisabilité</button>
-      <button class="btn btn-cta"><span class="material-symbols-outlined">checklist</span>Sélection</button>
-    </div>
-  </div>
-
-  <div class="app-body">
-    <div class="board-wrap">
-      <div class="board-grid">
-        <div class="g-head">Poste</div>
-        <div class="g-head">Lun<span class="d">29</span></div>
-        <div class="g-head today">Mar<span class="d">30</span></div>
-        <div class="g-head">Mer<span class="d">01</span></div>
-        <div class="g-head">Jeu<span class="d">02</span></div>
-        <div class="g-head">Ven<span class="d">03</span></div>
-
-        <!-- Ligne : Montage BDH -->
-        <div class="row-label">
-          <div class="poste"><span class="dot"></span>Montage BDH</div>
-          <div class="cap">7.5h/j · charge 82%</div>
-        </div>
-        <div class="cell">
-          <div class="of-card" style="--tone:var(--color-ferme)">
-            <div class="corner-badge" style="background:var(--color-ferme)"><span class="material-symbols-outlined">check</span></div>
-            <div class="num">OF240118</div>
-            <div class="ref">BDH60-ESH30</div>
-            <div class="title">Bouche hygro cuisine ESH30</div>
-            <div class="progress-row">
-              <span class="progress-track"><span class="progress-fill" style="width:64%"></span></span>
-              <span class="progress-num">64/100</span>
-            </div>
-            <div class="footer"><span class="lbl">Ferme</span><span class="hours">6.2<span>h</span></span></div>
-          </div>
-        </div>
-        <div class="cell">
-          <div class="of-card" style="--tone:var(--color-planifie)">
-            <div class="num">OF240122</div>
-            <div class="ref">BDH60-ESH10</div>
-            <div class="title">Bouche hygro SDB ESH10</div>
-            <div class="progress-row">
-              <span class="progress-track"><span class="progress-fill" style="width:0%"></span></span>
-              <span class="progress-num">0/80</span>
-            </div>
-            <div class="footer"><span class="lbl">Planifié</span><span class="hours">5.0<span>h</span></span></div>
-          </div>
-          <div class="of-card of-card selected" style="--tone:var(--color-suggere)">
-            <div class="num">OF240130</div>
-            <div class="ref">BDH60-ESH60</div>
-            <div class="title">Bouche hygro WC ESH60</div>
-            <div class="alert"><span class="material-symbols-outlined">warning</span>Rupture MH10-BLC</div>
-            <div class="footer"><span class="lbl">Suggéré</span><span class="hours">3.4<span>h</span></span></div>
-          </div>
-        </div>
-        <div class="cell">
-          <div class="of-card" style="--tone:var(--color-ferme)">
-            <div class="corner-badge" style="background:var(--danger)"><span class="material-symbols-outlined">priority_high</span></div>
-            <div class="num">OF240119</div>
-            <div class="ref">BDH60-ESH30</div>
-            <div class="title">Bouche hygro cuisine ESH30</div>
-            <div class="alert"><span class="material-symbols-outlined">warning</span>Rupture MH10-GRS</div>
-            <div class="footer"><span class="lbl">Ferme</span><span class="hours">6.2<span>h</span></span></div>
-          </div>
-        </div>
-        <div class="cell"></div>
-        <div class="cell">
-          <div class="of-card" style="--tone:var(--color-planifie)">
-            <div class="num">OF240145</div>
-            <div class="ref">BDH60-ESH30</div>
-            <div class="title">Bouche hygro cuisine ESH30</div>
-            <div class="progress-row">
-              <span class="progress-track"><span class="progress-fill" style="width:20%"></span></span>
-              <span class="progress-num">20/100</span>
-            </div>
-            <div class="footer"><span class="lbl">Planifié</span><span class="hours">6.2<span>h</span></span></div>
-          </div>
-        </div>
-
-        <!-- Ligne : Climatisation (modules hygro) -->
-        <div class="row-label">
-          <div class="poste"><span class="dot" style="background:var(--color-planifie)"></span>Climatisation</div>
-          <div class="cap">15h/j · charge 58%</div>
-        </div>
-        <div class="cell">
-          <div class="of-card" style="--tone:var(--color-ferme)">
-            <div class="num">OF240201</div>
-            <div class="ref">MH10-BLC</div>
-            <div class="title">Module hygro blanc</div>
-            <div class="footer"><span class="lbl">Ferme</span><span class="hours">2.1<span>h</span></span></div>
-          </div>
-        </div>
-        <div class="cell"></div>
-        <div class="cell">
-          <div class="of-card" style="--tone:var(--color-suggere)">
-            <div class="num">OF240210</div>
-            <div class="ref">MH10-GRS</div>
-            <div class="title">Module hygro gris</div>
-            <div class="footer"><span class="lbl">Suggéré</span><span class="hours">2.1<span>h</span></span></div>
-          </div>
-        </div>
-        <div class="cell">
-          <div class="of-card" style="--tone:var(--color-ferme)">
-            <div class="num">OF240203</div>
-            <div class="ref">MH10-BLC</div>
-            <div class="title">Module hygro blanc</div>
-            <div class="progress-row">
-              <span class="progress-track"><span class="progress-fill" style="width:100%"></span></span>
-              <span class="progress-num">140/140</span>
-            </div>
-            <div class="footer"><span class="lbl">Ferme</span><span class="hours">2.1<span>h</span></span></div>
-          </div>
-        </div>
-        <div class="cell"></div>
-
-        <!-- Ligne : Kits (jauge de remplissage) -->
-        <div class="row-label">
-          <div class="poste"><span class="dot" style="background:var(--color-suggere)"></span>Kits VMC</div>
-          <div class="cap">7.5h/j · charge 93%</div>
-        </div>
-        <div class="cell">
-          <div class="gauge-block">
-            <div class="gauge-head"><span class="pct">61%</span><span class="lbl">Lun</span></div>
-            <div class="gauge-track">
-              <span class="gauge-seg" style="width:40%;background:var(--color-ferme)"></span>
-              <span class="gauge-seg" style="width:21%;background:var(--color-planifie)"></span>
-            </div>
-          </div>
-        </div>
-        <div class="cell">
-          <div class="gauge-block">
-            <div class="gauge-head"><span class="pct" style="color:var(--danger)">108%</span><span class="lbl">Mar</span></div>
-            <div class="gauge-track">
-              <span class="gauge-seg" style="width:55%;background:var(--color-ferme)"></span>
-              <span class="gauge-seg" style="width:30%;background:var(--color-planifie)"></span>
-              <span class="gauge-seg" style="width:23%;background:var(--danger)"></span>
-            </div>
-          </div>
-        </div>
-        <div class="cell">
-          <div class="gauge-block">
-            <div class="gauge-head"><span class="pct">74%</span><span class="lbl">Mer</span></div>
-            <div class="gauge-track">
-              <span class="gauge-seg" style="width:50%;background:var(--color-ferme)"></span>
-              <span class="gauge-seg" style="width:24%;background:var(--color-suggere)"></span>
-            </div>
-          </div>
-        </div>
-        <div class="cell">
-          <div class="gauge-block">
-            <div class="gauge-head"><span class="pct">42%</span><span class="lbl">Jeu</span></div>
-            <div class="gauge-track">
-              <span class="gauge-seg" style="width:42%;background:var(--color-ferme)"></span>
-            </div>
-          </div>
-        </div>
-        <div class="cell">
-          <div class="gauge-block">
-            <div class="gauge-head"><span class="pct">88%</span><span class="lbl">Ven</span></div>
-            <div class="gauge-track">
-              <span class="gauge-seg" style="width:60%;background:var(--color-ferme)"></span>
-              <span class="gauge-seg" style="width:28%;background:var(--color-planifie)"></span>
-            </div>
-          </div>
-        </div>
+      <div style="margin-left: auto; display: flex; gap: 8px">
+        <button class="btn">
+          <span class="material-symbols-outlined">refresh</span>Actualiser
+        </button>
+        <button class="btn">
+          <span class="material-symbols-outlined">fact_check</span>Faisabilité
+        </button>
+        <button class="btn btn-cta">
+          <span class="material-symbols-outlined">checklist</span>Sélection
+        </button>
       </div>
     </div>
 
-    <!-- Sheet détail (OF240130, sélectionné) -->
-    <aside class="sheet">
-      <div class="sheet-head">
-        <span class="close material-symbols-outlined">close</span>
-        <div class="num">OF240130</div>
-        <div class="ref">BDH60-ESH60 · Bouche hygro WC ESH60</div>
-        <div class="sheet-status"><span class="dot"></span>Suggéré</div>
-      </div>
-      <div class="sheet-body">
-        <div class="sheet-section">
-          <div class="h">Informations</div>
-          <div class="kv-grid">
-            <div class="kv"><div class="k">Poste</div><div class="v">Montage BDH</div></div>
-            <div class="kv"><div class="k">Quantité</div><div class="v mono">80</div></div>
-            <div class="kv"><div class="k">Date besoin</div><div class="v">01/07</div></div>
-            <div class="kv"><div class="k">Charge</div><div class="v mono">3.4h</div></div>
-          </div>
-        </div>
-        <div class="sheet-section">
-          <div class="h">Faisabilité — composants critiques</div>
-          <div class="comp-row">
-            <span class="name">MH10-BLC — Module hygro blanc</span>
-            <span class="flag ok">Dispo</span>
-          </div>
-          <div class="comp-row">
-            <span class="name">MH10-GRS — Module hygro gris</span>
-            <span class="flag bad">Rupture</span>
-          </div>
-          <div class="comp-row">
-            <span class="name">BDH60-CORP — Corps bouche</span>
-            <span class="flag ok">Dispo</span>
-          </div>
-        </div>
-        <div class="sheet-cta">
-          <button class="btn"><span class="material-symbols-outlined">visibility</span>Voir OF</button>
-          <button class="btn btn-primary"><span class="material-symbols-outlined">bolt</span>Affermir</button>
-        </div>
-      </div>
-    </aside>
-  </div>
+    <div class="app-body">
+      <div class="board-wrap">
+        <div class="board-grid">
+          <div class="g-head">Poste</div>
+          <div class="g-head">Lun<span class="d">29</span></div>
+          <div class="g-head today">Mar<span class="d">30</span></div>
+          <div class="g-head">Mer<span class="d">01</span></div>
+          <div class="g-head">Jeu<span class="d">02</span></div>
+          <div class="g-head">Ven<span class="d">03</span></div>
 
-  <div class="legend">
-    <div class="item"><span class="sw" style="background:var(--color-ferme)"></span>Ferme (--success)</div>
-    <div class="item"><span class="sw" style="background:var(--color-planifie)"></span>Planifié (--info, réassigné)</div>
-    <div class="item"><span class="sw" style="background:var(--color-suggere)"></span>Suggéré (--warning)</div>
-    <div class="item"><span class="sw" style="background:var(--danger)"></span>Bloqué / rupture (--danger)</div>
-    <div class="item"><span class="sw" style="background:var(--primary)"></span>Marque / actions (--primary)</div>
-    <div class="item"><span class="sw" style="background:var(--secondary)"></span>CTA / actif (--secondary, ponctuel)</div>
-  </div>
+          <!-- Ligne : Montage BDH -->
+          <div class="row-label">
+            <div class="poste"><span class="dot"></span>Montage BDH</div>
+            <div class="cap">7.5h/j · charge 82%</div>
+          </div>
+          <div class="cell">
+            <div class="of-card" style="--tone: var(--color-ferme)">
+              <div class="corner-badge" style="background: var(--color-ferme)">
+                <span class="material-symbols-outlined">check</span>
+              </div>
+              <div class="num">OF240118</div>
+              <div class="ref">BDH60-ESH30</div>
+              <div class="title">Bouche hygro cuisine ESH30</div>
+              <div class="progress-row">
+                <span class="progress-track"
+                  ><span class="progress-fill" style="width: 64%"></span
+                ></span>
+                <span class="progress-num">64/100</span>
+              </div>
+              <div class="footer">
+                <span class="lbl">Ferme</span><span class="hours">6.2<span>h</span></span>
+              </div>
+            </div>
+          </div>
+          <div class="cell">
+            <div class="of-card" style="--tone: var(--color-planifie)">
+              <div class="num">OF240122</div>
+              <div class="ref">BDH60-ESH10</div>
+              <div class="title">Bouche hygro SDB ESH10</div>
+              <div class="progress-row">
+                <span class="progress-track"
+                  ><span class="progress-fill" style="width: 0%"></span
+                ></span>
+                <span class="progress-num">0/80</span>
+              </div>
+              <div class="footer">
+                <span class="lbl">Planifié</span><span class="hours">5.0<span>h</span></span>
+              </div>
+            </div>
+            <div class="of-card of-card selected" style="--tone: var(--color-suggere)">
+              <div class="num">OF240130</div>
+              <div class="ref">BDH60-ESH60</div>
+              <div class="title">Bouche hygro WC ESH60</div>
+              <div class="alert">
+                <span class="material-symbols-outlined">warning</span>Rupture MH10-BLC
+              </div>
+              <div class="footer">
+                <span class="lbl">Suggéré</span><span class="hours">3.4<span>h</span></span>
+              </div>
+            </div>
+          </div>
+          <div class="cell">
+            <div class="of-card" style="--tone: var(--color-ferme)">
+              <div class="corner-badge" style="background: var(--danger)">
+                <span class="material-symbols-outlined">priority_high</span>
+              </div>
+              <div class="num">OF240119</div>
+              <div class="ref">BDH60-ESH30</div>
+              <div class="title">Bouche hygro cuisine ESH30</div>
+              <div class="alert">
+                <span class="material-symbols-outlined">warning</span>Rupture MH10-GRS
+              </div>
+              <div class="footer">
+                <span class="lbl">Ferme</span><span class="hours">6.2<span>h</span></span>
+              </div>
+            </div>
+          </div>
+          <div class="cell"></div>
+          <div class="cell">
+            <div class="of-card" style="--tone: var(--color-planifie)">
+              <div class="num">OF240145</div>
+              <div class="ref">BDH60-ESH30</div>
+              <div class="title">Bouche hygro cuisine ESH30</div>
+              <div class="progress-row">
+                <span class="progress-track"
+                  ><span class="progress-fill" style="width: 20%"></span
+                ></span>
+                <span class="progress-num">20/100</span>
+              </div>
+              <div class="footer">
+                <span class="lbl">Planifié</span><span class="hours">6.2<span>h</span></span>
+              </div>
+            </div>
+          </div>
 
-</body>
+          <!-- Ligne : Climatisation (modules hygro) -->
+          <div class="row-label">
+            <div class="poste">
+              <span class="dot" style="background: var(--color-planifie)"></span>Climatisation
+            </div>
+            <div class="cap">15h/j · charge 58%</div>
+          </div>
+          <div class="cell">
+            <div class="of-card" style="--tone: var(--color-ferme)">
+              <div class="num">OF240201</div>
+              <div class="ref">MH10-BLC</div>
+              <div class="title">Module hygro blanc</div>
+              <div class="footer">
+                <span class="lbl">Ferme</span><span class="hours">2.1<span>h</span></span>
+              </div>
+            </div>
+          </div>
+          <div class="cell"></div>
+          <div class="cell">
+            <div class="of-card" style="--tone: var(--color-suggere)">
+              <div class="num">OF240210</div>
+              <div class="ref">MH10-GRS</div>
+              <div class="title">Module hygro gris</div>
+              <div class="footer">
+                <span class="lbl">Suggéré</span><span class="hours">2.1<span>h</span></span>
+              </div>
+            </div>
+          </div>
+          <div class="cell">
+            <div class="of-card" style="--tone: var(--color-ferme)">
+              <div class="num">OF240203</div>
+              <div class="ref">MH10-BLC</div>
+              <div class="title">Module hygro blanc</div>
+              <div class="progress-row">
+                <span class="progress-track"
+                  ><span class="progress-fill" style="width: 100%"></span
+                ></span>
+                <span class="progress-num">140/140</span>
+              </div>
+              <div class="footer">
+                <span class="lbl">Ferme</span><span class="hours">2.1<span>h</span></span>
+              </div>
+            </div>
+          </div>
+          <div class="cell"></div>
+
+          <!-- Ligne : Kits (jauge de remplissage) -->
+          <div class="row-label">
+            <div class="poste">
+              <span class="dot" style="background: var(--color-suggere)"></span>Kits VMC
+            </div>
+            <div class="cap">7.5h/j · charge 93%</div>
+          </div>
+          <div class="cell">
+            <div class="gauge-block">
+              <div class="gauge-head"><span class="pct">61%</span><span class="lbl">Lun</span></div>
+              <div class="gauge-track">
+                <span class="gauge-seg" style="width: 40%; background: var(--color-ferme)"></span>
+                <span
+                  class="gauge-seg"
+                  style="width: 21%; background: var(--color-planifie)"
+                ></span>
+              </div>
+            </div>
+          </div>
+          <div class="cell">
+            <div class="gauge-block">
+              <div class="gauge-head">
+                <span class="pct" style="color: var(--danger)">108%</span
+                ><span class="lbl">Mar</span>
+              </div>
+              <div class="gauge-track">
+                <span class="gauge-seg" style="width: 55%; background: var(--color-ferme)"></span>
+                <span
+                  class="gauge-seg"
+                  style="width: 30%; background: var(--color-planifie)"
+                ></span>
+                <span class="gauge-seg" style="width: 23%; background: var(--danger)"></span>
+              </div>
+            </div>
+          </div>
+          <div class="cell">
+            <div class="gauge-block">
+              <div class="gauge-head"><span class="pct">74%</span><span class="lbl">Mer</span></div>
+              <div class="gauge-track">
+                <span class="gauge-seg" style="width: 50%; background: var(--color-ferme)"></span>
+                <span class="gauge-seg" style="width: 24%; background: var(--color-suggere)"></span>
+              </div>
+            </div>
+          </div>
+          <div class="cell">
+            <div class="gauge-block">
+              <div class="gauge-head"><span class="pct">42%</span><span class="lbl">Jeu</span></div>
+              <div class="gauge-track">
+                <span class="gauge-seg" style="width: 42%; background: var(--color-ferme)"></span>
+              </div>
+            </div>
+          </div>
+          <div class="cell">
+            <div class="gauge-block">
+              <div class="gauge-head"><span class="pct">88%</span><span class="lbl">Ven</span></div>
+              <div class="gauge-track">
+                <span class="gauge-seg" style="width: 60%; background: var(--color-ferme)"></span>
+                <span
+                  class="gauge-seg"
+                  style="width: 28%; background: var(--color-planifie)"
+                ></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sheet détail (OF240130, sélectionné) -->
+      <aside class="sheet">
+        <div class="sheet-head">
+          <span class="close material-symbols-outlined">close</span>
+          <div class="num">OF240130</div>
+          <div class="ref">BDH60-ESH60 · Bouche hygro WC ESH60</div>
+          <div class="sheet-status"><span class="dot"></span>Suggéré</div>
+        </div>
+        <div class="sheet-body">
+          <div class="sheet-section">
+            <div class="h">Informations</div>
+            <div class="kv-grid">
+              <div class="kv">
+                <div class="k">Poste</div>
+                <div class="v">Montage BDH</div>
+              </div>
+              <div class="kv">
+                <div class="k">Quantité</div>
+                <div class="v mono">80</div>
+              </div>
+              <div class="kv">
+                <div class="k">Date besoin</div>
+                <div class="v">01/07</div>
+              </div>
+              <div class="kv">
+                <div class="k">Charge</div>
+                <div class="v mono">3.4h</div>
+              </div>
+            </div>
+          </div>
+          <div class="sheet-section">
+            <div class="h">Faisabilité — composants critiques</div>
+            <div class="comp-row">
+              <span class="name">MH10-BLC — Module hygro blanc</span>
+              <span class="flag ok">Dispo</span>
+            </div>
+            <div class="comp-row">
+              <span class="name">MH10-GRS — Module hygro gris</span>
+              <span class="flag bad">Rupture</span>
+            </div>
+            <div class="comp-row">
+              <span class="name">BDH60-CORP — Corps bouche</span>
+              <span class="flag ok">Dispo</span>
+            </div>
+          </div>
+          <div class="sheet-cta">
+            <button class="btn">
+              <span class="material-symbols-outlined">visibility</span>Voir OF
+            </button>
+            <button class="btn btn-primary">
+              <span class="material-symbols-outlined">bolt</span>Affermir
+            </button>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <div class="legend">
+      <div class="item">
+        <span class="sw" style="background: var(--color-ferme)"></span>Ferme (--success)
+      </div>
+      <div class="item">
+        <span class="sw" style="background: var(--color-planifie)"></span>Planifié (--info,
+        réassigné)
+      </div>
+      <div class="item">
+        <span class="sw" style="background: var(--color-suggere)"></span>Suggéré (--warning)
+      </div>
+      <div class="item">
+        <span class="sw" style="background: var(--danger)"></span>Bloqué / rupture (--danger)
+      </div>
+      <div class="item">
+        <span class="sw" style="background: var(--primary)"></span>Marque / actions (--primary)
+      </div>
+      <div class="item">
+        <span class="sw" style="background: var(--secondary)"></span>CTA / actif (--secondary,
+        ponctuel)
+      </div>
+    </div>
+  </body>
 </html>

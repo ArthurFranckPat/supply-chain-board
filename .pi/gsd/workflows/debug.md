@@ -63,8 +63,9 @@ For post-mortem investigation of completed phases, use `/gsd-forensics` instead.
 
 <available_agent_types>
 Valid GSD subagent types (use exact names - do not fall back to 'general-purpose'):
+
 - gsd-debugger - Diagnoses and fixes issues
-</available_agent_types>
+  </available_agent_types>
 
 <process>
 
@@ -78,30 +79,33 @@ PHASE_INFO=$(pi-gsd-tools roadmap analyze --raw 2>/dev/null || echo "{}")
 ```
 
 Extract from state JSON:
+
 - `current_phase` - what's being worked on
 - `last_activity` - when was the last change
 - `milestone` - current milestone name
 
 If `description` is empty, ask the user:
+
 ```
 What's broken? Describe the symptom in one sentence:
 (e.g. "auth tokens expire immediately", "build fails with missing module", "tests pass locally but fail in CI")
 ```
+
 Store response as `description`.
 </step>
 
 <step name="classify_issue">
 Classify the issue from the description:
 
-| Symptom pattern | Issue type |
-|----------------|------------|
-| Error/exception message | `runtime_error` |
-| Test failures | `test_failure` |
-| Build/compile error | `build_error` |
-| Wrong behavior (no error) | `logic_error` |
-| Performance problem | `performance` |
-| Integration failure | `integration` |
-| Unclear | `unknown` |
+| Symptom pattern           | Issue type      |
+| ------------------------- | --------------- |
+| Error/exception message   | `runtime_error` |
+| Test failures             | `test_failure`  |
+| Build/compile error       | `build_error`   |
+| Wrong behavior (no error) | `logic_error`   |
+| Performance problem       | `performance`   |
+| Integration failure       | `integration`   |
+| Unclear                   | `unknown`       |
 
 Set `ISSUE_TYPE`.
 </step>
@@ -114,18 +118,20 @@ Display banner:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Issue: {description}
-Type:  {ISSUE_TYPE}
+Type: {ISSUE_TYPE}
 Phase: {current_phase || "not set"}
 
 ◆ Spawning debugger...
-```
+
+````
 
 Resolve model:
 ```bash
 DEBUGGER_MODEL=$(pi-gsd-tools resolve-model gsd-debugger --raw 2>/dev/null || echo "")
-```
+````
 
 Debug prompt:
+
 ```markdown
 <objective>
 Debug the following issue in this project:
@@ -137,14 +143,16 @@ Milestone: {milestone}
 </objective>
 
 <files_to_read>
+
 - .planning/STATE.md (Project state and recent decisions)
 - .planning/ROADMAP.md (Phase context)
 - ./GEMINI.md or ./CLAUDE.md (Project-specific guidelines, if exists)
-</files_to_read>
+  </files_to_read>
 
 ${AGENT_SKILLS_DEBUGGER}
 
 <investigation_protocol>
+
 1. Reproduce: Identify the minimal steps to trigger the issue
 2. Isolate: Narrow down to the failing component/file/function
 3. Root cause: Identify WHY it fails, not just WHERE
@@ -152,12 +160,14 @@ ${AGENT_SKILLS_DEBUGGER}
 5. Verify: Confirm the fix works and doesn't introduce regressions
 
 Always check:
+
 - Recent commits (git log --oneline -10) for what changed
 - Related files for mismatched interfaces or broken contracts
 - Test suite for existing coverage that should have caught this
-</investigation_protocol>
+  </investigation_protocol>
 
 <output_format>
+
 ## DEBUG COMPLETE
 
 **Root cause:** [one sentence]
@@ -183,12 +193,14 @@ Task(
   description="Debug: {description}"
 )
 ```
+
 </step>
 
 <step name="handle_return">
 **`## DEBUG COMPLETE`:**
 
 Display root cause, fix, and verification steps. Offer:
+
 ```
 1. Capture as todo (/gsd-add-todo) - if fix not yet applied
 2. Continue with current phase (/gsd-execute-phase)
@@ -198,11 +210,13 @@ Display root cause, fix, and verification steps. Offer:
 **`## DEBUG BLOCKED`:**
 
 Display blocker and next steps. Offer:
+
 ```
 1. Provide additional context and retry
 2. Try forensics mode (/gsd-forensics) - deeper investigation
 3. Capture as todo and investigate later
 ```
+
 </step>
 
 <step name="persist_session">
@@ -213,38 +227,45 @@ mkdir -p .planning/debug
 ```
 
 Write `.planning/debug/{YYYY-MM-DD}-{slug}.md`:
+
 ```markdown
 ---
-created: {timestamp}
-issue: {description}
-type: {ISSUE_TYPE}
-phase: {current_phase}
-status: {resolved|blocked}
+created: { timestamp }
+issue: { description }
+type: { ISSUE_TYPE }
+phase: { current_phase }
+status: { resolved|blocked }
 ---
 
 ## Root Cause
+
 {root cause summary}
 
 ## Fix
+
 {what was changed}
 
 ## Verification
+
 {how to confirm}
 ```
 
 Commit:
+
 ```bash
 pi-gsd-tools commit "docs: debug session - {description_slug}" --files .planning/debug/{filename}
 ```
+
 </step>
 
 </process>
 
 <success_criteria>
+
 - [ ] Problem description captured (from arg or prompt)
 - [ ] Issue classified by type
 - [ ] gsd-debugger spawned with full project context
 - [ ] Root cause identified or blocker surfaced
 - [ ] Fix applied or next steps clear
 - [ ] Session optionally persisted in .planning/debug/
-</success_criteria>
+      </success_criteria>

@@ -2,7 +2,9 @@ import { test } from '@japa/runner'
 import { mapEngineCause } from '#app/domain/suivi'
 import type { OrderCauseInfo } from '#app/domain/suivi'
 
-function info(overrides: Partial<OrderCauseInfo> & { statut: OrderCauseInfo['statut'] }): OrderCauseInfo {
+function info(
+  overrides: Partial<OrderCauseInfo> & { statut: OrderCauseInfo['statut'] }
+): OrderCauseInfo {
   return {
     joursRetard: 0,
     components: [],
@@ -22,7 +24,7 @@ test.group('mapEngineCause (statut moteur → cause suivi)', () => {
         ],
         reception: { eta: '2026-06-25', po: 'AF12345', supplier: 'FOURN' },
       }),
-      true,
+      true
     )
     assert.isNotNull(cause)
     assert.equal(cause!.typeCause, 'RUPTURE_COMPOSANTS')
@@ -41,7 +43,9 @@ test.group('mapEngineCause (statut moteur → cause suivi)', () => {
     assert.equal(cause!.typeCause, 'ATTENTE_RECEPTION_FOURNISSEUR')
   })
 
-  test('retard (OF faisable mais planifié après expé) → RETARD_ORDONNANCEMENT avec joursRetard', ({ assert }) => {
+  test('retard (OF faisable mais planifié après expé) → RETARD_ORDONNANCEMENT avec joursRetard', ({
+    assert,
+  }) => {
     const cause = mapEngineCause(info({ statut: 'retard', joursRetard: 6 }), true)
     assert.equal(cause!.typeCause, 'RETARD_ORDONNANCEMENT')
     assert.equal(cause!.joursRetard, 6)
@@ -53,7 +57,9 @@ test.group('mapEngineCause (statut moteur → cause suivi)', () => {
     assert.equal(cause!.typeCause, 'STOCK_DISPONIBLE_NON_ALLOUE')
   })
 
-  test('on_time → STOCK_DISPONIBLE_NON_ALLOUE (retard d allocation/expé, pas de prod)', ({ assert }) => {
+  test('on_time → STOCK_DISPONIBLE_NON_ALLOUE (retard d allocation/expé, pas de prod)', ({
+    assert,
+  }) => {
     const cause = mapEngineCause(info({ statut: 'on_time' }), true)
     assert.equal(cause!.typeCause, 'STOCK_DISPONIBLE_NON_ALLOUE')
   })

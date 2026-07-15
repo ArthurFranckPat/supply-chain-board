@@ -1,7 +1,7 @@
 import { For, Show, createMemo, type Component } from 'solid-js'
 import { cx } from '@/libs/cva'
 import type { LoadLine } from '@/lib/load/types'
-import { DANGER, FG, TERRA, rtop, satColor, satRate, segsOf, total } from '@/lib/load/chart-math'
+import { DANGER, FG, BRAND, rtop, satColor, satRate, segsOf, total } from '@/lib/load/chart-math'
 
 /**
  * Mini-graphe (carte poste) de la vue « Projection de charge » (issue #52 —
@@ -38,9 +38,16 @@ export const MiniCard: Component<{
     const slot = (W - 2 * pad) / n
     const bw = slot * 0.55
     // L'échelle inclut la capacité → la ligne de capacité reste visible même sans surcharge.
-    const max = (Math.max(...t, ...c, 0) * 1.1) || 1
+    const max = Math.max(...t, ...c, 0) * 1.1 || 1
     const yy = (v: number) => H - pad - (v / max) * (H - 2 * pad)
-    const out: { kind: 'rect' | 'path'; x: number; y: number; w: number; h: number; fill: string }[] = []
+    const out: {
+      kind: 'rect' | 'path'
+      x: number
+      y: number
+      w: number
+      h: number
+      fill: string
+    }[] = []
     const peakDots: { cx: number; cy: number }[] = []
     const overRects: { x: number; y: number; w: number; h: number }[] = []
     const capPts: { x: number; y: number }[] = []
@@ -72,14 +79,16 @@ export const MiniCard: Component<{
       class={cx(
         'flex w-[190px] shrink-0 flex-col rounded-xl border bg-card p-3 text-left transition-all hover:-translate-y-px',
         p.selected
-          ? 'border-terra shadow-[0_0_0_2px_var(--color-terra-soft),0_4px_12px_-4px_rgba(168,67,31,.25)]'
-          : 'border-rule hover:border-[#b3a47e]',
+          ? 'border-brand shadow-[0_0_0_2px_var(--color-brand-soft),0_4px_12px_-4px_rgba(168,67,31,.25)]'
+          : 'border-rule hover:border-[#b3a47e]'
       )}
     >
       <div class="mb-1.5 flex items-center gap-2">
         <span class="size-[9px] flex-none rounded-[2px]" style={{ background: p.line.color }} />
         <div class="min-w-0">
-          <div class="font-fraunces text-[14px] font-extrabold leading-none tracking-tight">{p.line.code}</div>
+          <div class="font-fraunces text-[14px] font-extrabold leading-none tracking-tight">
+            {p.line.code}
+          </div>
           <div class="truncate font-sans text-[10px] text-muted-foreground">{p.line.name}</div>
         </div>
       </div>
@@ -98,16 +107,34 @@ export const MiniCard: Component<{
           <For each={bars().overRects}>
             {(r) => <rect x={r.x} y={r.y} width={r.w} height={r.h} fill={DANGER} opacity="0.22" />}
           </For>
-          <path d={bars().capPath} fill="none" stroke={FG} stroke-opacity="0.6" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" />
+          <path
+            d={bars().capPath}
+            fill="none"
+            stroke={FG}
+            stroke-opacity="0.6"
+            stroke-width="1.75"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
         </Show>
-        <For each={bars().peakDots}>{(pk) => <circle cx={pk.cx} cy={pk.cy} r="2.5" fill={TERRA} />}</For>
+        <For each={bars().peakDots}>
+          {(pk) => <circle cx={pk.cx} cy={pk.cy} r="2.5" fill={BRAND} />}
+        </For>
       </svg>
       <div class="mt-1.5 flex items-baseline justify-between">
         <span class="font-fraunces text-[16px] font-extrabold tracking-tight">{sum()}h</span>
         <span
           class="font-mono text-[9px] font-bold"
-          style={{ color: peakSat() >= 85 ? satColor(totals()[peakIdx()] ?? 0, caps()[peakIdx()] ?? 0) : undefined }}
-          classList={{ 'text-terra': p.selected && peakSat() < 85, 'text-suggere': !p.selected && peakSat() < 85 }}
+          style={{
+            color:
+              peakSat() >= 85
+                ? satColor(totals()[peakIdx()] ?? 0, caps()[peakIdx()] ?? 0)
+                : undefined,
+          }}
+          classList={{
+            'text-brand': p.selected && peakSat() < 85,
+            'text-suggere': !p.selected && peakSat() < 85,
+          }}
         >
           pic {p.months[peakIdx()]} {totals()[peakIdx()] ?? 0}h
           <Show when={caps()[peakIdx()] > 0}> · {Math.round(peakSat())}%</Show>

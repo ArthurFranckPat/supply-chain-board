@@ -57,6 +57,10 @@ export interface DataTableProps<TRow> {
   getRowClass?: (row: TRow, virtualIndex: number) => string | undefined
   /** Clic sur une ligne (ex. ouverture d'un drawer de détail). Non défini = lignes non cliquables. */
   onRowClick?: (row: TRow) => void
+  /** Clé de la ligne sélectionnée (ex. numCommande::article). Si non vide, la ligne correspondante est mise en surbrillance. */
+  selectedRowKey?: Accessor<string | null>
+  /** Fonction pour extraire la clé d'une ligne (doit correspondre à selectedRowKey). */
+  getRowKey?: (row: TRow) => string
   emptyState?: JSX.Element
 }
 
@@ -75,6 +79,8 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
     'theadRowClass',
     'getRowClass',
     'onRowClick',
+    'selectedRowKey',
+    'getRowKey',
     'emptyState',
   ])
 
@@ -134,34 +140,44 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
       )
     }
     return (
-      <span class="material-symbols-outlined text-[12px] leading-none text-terra">
+      <span class="material-symbols-outlined text-[12px] leading-none text-brand">
         {sorted.desc ? 'arrow_downward' : 'arrow_upward'}
       </span>
     )
   }
 
   return (
-    <div class={cx(DEFAULT_SCROLL_CLASS, local.scrollContainerClass)} ref={(el) => (scrollRef = el)}>
+    <div
+      class={cx(DEFAULT_SCROLL_CLASS, local.scrollContainerClass)}
+      ref={(el) => (scrollRef = el)}
+    >
       <Show when={local.rows().length > 0} fallback={local.emptyState}>
         <table class={cx('w-full border-collapse text-left', local.tableClass)}>
           <thead>
-            <tr class={local.theadRowClass}>
+            <tr class={cx(local.theadRowClass, 'shadow-[0_1px_3px_rgba(0,0,0,0.06)]')}>
               <Show when={local.indexColumn}>
                 <th class={local.indexColumn!.thClass}>{local.indexColumn!.headerLabel}</th>
               </Show>
               <For each={local.columns}>
-                {(col) => (
-                  <th
-                    class={col.meta?.thClass}
-                    style={{ cursor: col.enableSorting !== false ? 'pointer' : 'default' }}
-                    onClick={() => col.enableSorting !== false && toggleSorting(colId(col))}
-                  >
-                    <span class="inline-flex items-center gap-1">
-                      <span>{renderHeader(col)}</span>
-                      {sortIndicator(col)}
-                    </span>
-                  </th>
-                )}
+                {(col) => {
+                  const isSorted = () => local.sorting().some((s) => s.id === colId(col))
+                  return (
+                    <th
+                      class={cx(
+                        col.meta?.thClass,
+                        col.enableSorting !== false && 'hover:text-foreground transition-colors',
+                        isSorted() && 'text-foreground font-bold'
+                      )}
+                      style={{ cursor: col.enableSorting !== false ? 'pointer' : 'default' }}
+                      onClick={() => col.enableSorting !== false && toggleSorting(colId(col))}
+                    >
+                      <span class="inline-flex items-center gap-1">
+                        <span>{renderHeader(col)}</span>
+                        {sortIndicator(col)}
+                      </span>
+                    </th>
+                  )
+                }}
               </For>
             </tr>
           </thead>
@@ -188,7 +204,10 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
                       <tr
                         data-index={virtualRow.index}
                         ref={(el) => queueMicrotask(() => rowVirtualizer.measureElement(el))}
-                        class={local.getRowClass?.(r(), virtualRow.index)}
+                        class={cx(
+                          local.getRowClass?.(r(), virtualRow.index),
+                          local.selectedRowKey?.() && local.getRowKey?.(r()) === local.selectedRowKey?.() && 'ring-2 ring-inset ring-brand/40 bg-brand/[0.04]'
+                        )}
                         style={local.onRowClick ? { cursor: 'pointer' } : undefined}
                         onClick={local.onRowClick ? () => local.onRowClick!(r()) : undefined}
                       >
@@ -203,7 +222,11 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
                             return (
                               <td class={col.meta?.tdClass}>
                                 {col.cell
-                                  ? col.cell({ row: { original: r() } as any, getValue: value, column: { columnDef: col } as any } as any)
+                                  ? col.cell({
+                                      row: { original: r() } as any,
+                                      getValue: value,
+                                      column: { columnDef: col } as any,
+                                    } as any)
                                   : (value() as any)}
                               </td>
                             )

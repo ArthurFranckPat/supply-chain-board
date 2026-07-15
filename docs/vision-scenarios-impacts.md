@@ -1,7 +1,7 @@
 # Vision — Scénarios & étude d'impact sur `/programme`
 
-*Document de vision produit, issu de la session de modélisation du 2026-07-09.
-Généralise l'issue #23 (couche d'impact) — cf. `docs/prd-23-impacts-programme.md`.*
+_Document de vision produit, issu de la session de modélisation du 2026-07-09.
+Généralise l'issue #23 (couche d'impact) — cf. `docs/prd-23-impacts-programme.md`._
 
 ## 1. La question générale
 
@@ -27,7 +27,7 @@ charge. Faisable aujourd'hui au drag & drop — mais les impacts de cette réorg
 sont invisibles :
 
 - **impact client** (promesses) — le plus simple, couvert par #23 ;
-- **impact appro** — pour occuper la ligne on *avance* des OF prévus plus tard ; leurs
+- **impact appro** — pour occuper la ligne on _avance_ des OF prévus plus tard ; leurs
   besoins composants avancent aussi, alors que les appros ont été passés ~1 mois avant
   sur l'ancien plan → perturbation du plan d'appro, potentielles ruptures induites.
   C'est l'impact non maîtrisé aujourd'hui, celui qu'on veut **mesurer**.
@@ -64,12 +64,12 @@ les enregistrer, les comparer en réunion, appliquer le retenu.
 
 Tout se ramène à un **delta sur les flows** (modèle `Flow` demand/supply existant) :
 
-| Mutation | Description | Cas |
-|---|---|---|
-| `shift_of` | supply PF décalée (date, poste) | 1, 5 |
-| `shift_demand` | demand décalée (commande#ligne, date) | 4 |
-| `inject_demand` | demand injectée (commande virtuelle : article, qté, date, client) | 3 |
-| `suspend_supply` | supply composant retirée/retardée (rupture simulée) | 1 |
+| Mutation         | Description                                                       | Cas  |
+| ---------------- | ----------------------------------------------------------------- | ---- |
+| `shift_of`       | supply PF décalée (date, poste)                                   | 1, 5 |
+| `shift_demand`   | demand décalée (commande#ligne, date)                             | 4    |
+| `inject_demand`  | demand injectée (commande virtuelle : article, qté, date, client) | 3    |
+| `suspend_supply` | supply composant retirée/retardée (rupture simulée)               | 1    |
 
 La couche d'overrides actuelle (`OfOverride`, `OrderLineOverride`) **est déjà** une
 couche de mutation appliquée en direct. Le scénario = la même couche, scopée à un id,
@@ -81,7 +81,7 @@ non appliquée. Un seul mécanisme, deux modes.
    (verdict par lien, drag live).
 2. **Amont / appro** — re-projection des besoins composants (BOM × dates OF mutées)
    vs couverture existante (stock + réceptions attendues). Trois verdicts par composant :
-   - besoin avancé **sous le délai fournisseur** → rupture induite *inévitable* ;
+   - besoin avancé **sous le délai fournisseur** → rupture induite _inévitable_ ;
    - besoin avancé mais rattrapable → appro à re-caler ;
    - besoin repoussé → réception inutile à date, stock dormant.
 3. **Latéral / allocation entre demandes** — re-matching : qui perd sa couverture au
@@ -95,12 +95,12 @@ Le diff « quelles couvertures cassent » = comparer deux runs du moteur existan
 
 ## 5. Décisions actées / questions ouvertes
 
-| Sujet | Décision |
-|---|---|
-| Sortie du moteur | **Constat, pas prescription.** Liste d'impacts signée ; le plan d'action reste humain. |
+| Sujet              | Décision                                                                                                                                                                                                                                                                                                     |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Sortie du moteur   | **Constat, pas prescription.** Liste d'impacts signée ; le plan d'action reste humain.                                                                                                                                                                                                                       |
 | Règle d'allocation | **Paramétrique, non tranchée.** Personne ne sait aujourd'hui la bonne règle (récompenser l'anticipation ↔ ne pas encourager les commandes ultra-tôt, risque d'annulations). Le bac à sable sert justement à la trancher : scénario « et si on allouait par X ? » → diff sur carnet réel → décision chiffrée. |
-| Scénarios | **Persistés en base**, nommés, retrouvables. Partage : plus tard (l'enregistrement seul est déjà une grosse feature). |
-| Ré-évaluation | Un scénario stocke les **mutations, pas le résultat**. Rejoué sur données fraîches → diff différent. Assumé et affiché (« évalué le … sur données du … »). |
+| Scénarios          | **Persistés en base**, nommés, retrouvables. Partage : plus tard (l'enregistrement seul est déjà une grosse feature).                                                                                                                                                                                        |
+| Ré-évaluation      | Un scénario stocke les **mutations, pas le résultat**. Rejoué sur données fraîches → diff différent. Assumé et affiché (« évalué le … sur données du … »).                                                                                                                                                   |
 
 Ouvertes : forme du partage des scénarios ; UI de comparaison (side-by-side vs tableau
 de métriques) ; valeur du délai fournisseur par défaut si absent de X3.
@@ -150,15 +150,15 @@ de sortie.
 
 ## 8. Découpage en étages
 
-| # | Étage | Issue | Contenu | Dépend de |
-|---|---|---|---|---|
-| 1 | **Couche d'impact** | #23 | Verdict par lien, états visuels, drag live (PRD dédié) | — |
-| 2 | **Moteur diff** | #56 | évaluer(plan) vs évaluer(plan + mutations), sortie 3 axes | — |
-| 3 | **Scénarios** | #57 | Mode scénario in situ, persistance, CRUD, bandeau | 2 |
-| 4 | **Commande virtuelle** | #58 | Mutation `inject_demand`, étude d'impact avant enregistrement | 2, 3 |
-| 5 | **Axe appro** | #59 | Délais fournisseur, verdicts induits (inévitable / re-calable / dormant) | 2 |
-| 6 | **Allocation paramétrique** | #60 | Stratégie pluggable dans `CommandeOFMatcher`, testée via scénarios | 2, 3 |
-| 7 | **Comparaison de scénarios** | #61 | Tableau comparatif multi-scénarios (réunion charge-capa) | 3 |
+| #   | Étage                        | Issue | Contenu                                                                  | Dépend de |
+| --- | ---------------------------- | ----- | ------------------------------------------------------------------------ | --------- |
+| 1   | **Couche d'impact**          | #23   | Verdict par lien, états visuels, drag live (PRD dédié)                   | —         |
+| 2   | **Moteur diff**              | #56   | évaluer(plan) vs évaluer(plan + mutations), sortie 3 axes                | —         |
+| 3   | **Scénarios**                | #57   | Mode scénario in situ, persistance, CRUD, bandeau                        | 2         |
+| 4   | **Commande virtuelle**       | #58   | Mutation `inject_demand`, étude d'impact avant enregistrement            | 2, 3      |
+| 5   | **Axe appro**                | #59   | Délais fournisseur, verdicts induits (inévitable / re-calable / dormant) | 2         |
+| 6   | **Allocation paramétrique**  | #60   | Stratégie pluggable dans `CommandeOFMatcher`, testée via scénarios       | 2, 3      |
+| 7   | **Comparaison de scénarios** | #61   | Tableau comparatif multi-scénarios (réunion charge-capa)                 | 3         |
 
 Ordre recommandé : 1 → 2 → 3 → 4 → 7 → 5 → 6.
 (4 et 7 sont de la valeur visible rapide une fois 3 posé ; 5 dépend d'une donnée X3 ;

@@ -34,18 +34,26 @@ function chargeTier(palettes: number): 'bad' | 'warn' | 'mid' | 'ok' {
 }
 function chargeBg(tier: ReturnType<typeof chargeTier>): string {
   switch (tier) {
-    case 'bad': return 'bg-destructive'
-    case 'warn': return 'bg-suggere'
-    case 'mid': return 'bg-planifie'
-    case 'ok': return 'bg-ferme'
+    case 'bad':
+      return 'bg-destructive'
+    case 'warn':
+      return 'bg-suggere'
+    case 'mid':
+      return 'bg-planifie'
+    case 'ok':
+      return 'bg-ferme'
   }
 }
 function chargeText(tier: ReturnType<typeof chargeTier>): string {
   switch (tier) {
-    case 'bad': return 'text-destructive'
-    case 'warn': return 'text-suggere'
-    case 'mid': return 'text-planifie'
-    case 'ok': return 'text-ferme'
+    case 'bad':
+      return 'text-destructive'
+    case 'warn':
+      return 'text-suggere'
+    case 'mid':
+      return 'text-planifie'
+    case 'ok':
+      return 'text-ferme'
   }
 }
 
@@ -61,6 +69,31 @@ export const ReceptionTableau: Component<{
   // déjà date asc puis fournisseur ; l'utilisateur peut retrier en cliquant les en-têtes.
   const [sorting, setSorting] = createSignal<SortingState[]>([{ id: 'date', desc: false }])
 
+  const sortedRows = createMemo(() => {
+    const rawRows = props.rows()
+    const sort = sorting()[0]
+    if (!sort) return rawRows
+
+    const key = sort.id as keyof ReceptionDisplayRow
+    const desc = sort.desc
+
+    return [...rawRows].sort((a, b) => {
+      const va = a[key]
+      const vb = b[key]
+
+      if (va === null || va === undefined) return desc ? -1 : 1
+      if (vb === null || vb === undefined) return desc ? 1 : -1
+
+      if (typeof va === 'string' && typeof vb === 'string') {
+        return desc ? vb.localeCompare(va) : va.localeCompare(vb)
+      }
+      if (typeof va === 'number' && typeof vb === 'number') {
+        return desc ? vb - va : va - vb
+      }
+      return 0
+    })
+  })
+
   const columns = [
     {
       accessorKey: 'date',
@@ -72,7 +105,9 @@ export const ReceptionTableau: Component<{
             when={row.date}
             fallback={<span class="font-sans text-[11px] italic text-muted-foreground/50">—</span>}
           >
-            <div class="font-mono text-[12px] font-bold tabular-nums text-foreground">{row.dateFmt}</div>
+            <div class="font-mono text-[12px] font-bold tabular-nums text-foreground">
+              {row.dateFmt}
+            </div>
             <div class="mt-0.5 font-mono text-[10px] text-muted-foreground">{row.dateRelatif}</div>
           </Show>
         )
@@ -93,7 +128,7 @@ export const ReceptionTableau: Component<{
           </>
         )
       },
-      meta: { thClass: TH, tdClass: TD },
+      meta: { thClass: `w-[280px] ${TH}`, tdClass: `w-[280px] ${TD}` },
     },
     {
       accessorKey: 'article',
@@ -102,7 +137,9 @@ export const ReceptionTableau: Component<{
         const row = info.row.original
         return (
           <>
-            <div class="font-mono text-[13px] font-bold tracking-tight text-foreground">{row.article}</div>
+            <div class="font-mono text-[13px] font-bold tracking-tight text-foreground">
+              {row.article}
+            </div>
             <Show when={row.designation}>
               <div class="mt-0.5 truncate max-w-[20rem] font-sans text-[11px] leading-snug text-muted-foreground">
                 {row.designation}
@@ -111,7 +148,7 @@ export const ReceptionTableau: Component<{
           </>
         )
       },
-      meta: { thClass: TH, tdClass: TD },
+      meta: { thClass: `w-[280px] ${TH}`, tdClass: `w-[280px] ${TD}` },
     },
     {
       accessorKey: 'noCommande',
@@ -147,13 +184,16 @@ export const ReceptionTableau: Component<{
             <span
               class={cx(
                 'font-mono text-[11px] tabular-nums',
-                row.coefManquant ? 'text-muted-foreground/50' : 'text-muted-foreground',
+                row.coefManquant ? 'text-muted-foreground/50' : 'text-muted-foreground'
               )}
             >
               {row.conditionnement}
             </span>
             <Show when={row.coefManquant}>
-              <span class="inline-flex w-fit items-center gap-1 rounded bg-destructive/10 px-1 py-px font-mono text-[8.5px] font-bold uppercase tracking-wider text-destructive" title={`Coef manquant — US/UC: ${row.pcuStuCoe ?? '—'} · UC/pal: ${row.ucParPal ?? '—'}`}>
+              <span
+                class="inline-flex w-fit items-center gap-1 rounded bg-destructive/10 px-1 py-px font-mono text-[8.5px] font-bold uppercase tracking-wider text-destructive"
+                title={`Coef manquant — US/UC: ${row.pcuStuCoe ?? '—'} · UC/pal: ${row.ucParPal ?? '—'}`}
+              >
                 <span class="material-symbols-outlined text-[10px]">warning</span>
                 Coef manquant
               </span>
@@ -187,7 +227,7 @@ export const ReceptionTableau: Component<{
                 ? 'text-destructive/50'
                 : estime
                   ? 'text-planifie'
-                  : chargeText(chargeTier(row.nbPalettes)),
+                  : chargeText(chargeTier(row.nbPalettes))
             )}
             title={
               sansCoef
@@ -208,9 +248,10 @@ export const ReceptionTableau: Component<{
   return (
     <DataTable
       columns={columns}
-      rows={props.rows}
+      rows={sortedRows}
       sorting={sorting}
       onSortingChange={setSorting}
+      tableClass="table-fixed"
       getRowClass={(row) =>
         cx(
           'border-t border-rule-soft hover:bg-foreground/[0.04]',
@@ -223,7 +264,7 @@ export const ReceptionTableau: Component<{
             ? 'bg-destructive/[0.04] [box-shadow:inset_3px_0_var(--color-destructive)]'
             : row.coefEstime
               ? 'bg-planifie/[0.04] [box-shadow:inset_3px_0_var(--color-planifie)]'
-              : '',
+              : ''
         )
       }
       emptyState={props.emptyState}
@@ -252,7 +293,9 @@ export const ReceptionCalendrier: Component<{
         when={charge().length > 0}
         fallback={
           <div class="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-center">
-            <span class="material-symbols-outlined text-[32px] text-muted-foreground/50">event_busy</span>
+            <span class="material-symbols-outlined text-[32px] text-muted-foreground/50">
+              event_busy
+            </span>
             <span class="font-fraunces text-[14px] italic text-muted-foreground">
               Aucune réception planifiée sur la période.
             </span>
@@ -271,7 +314,7 @@ export const ReceptionCalendrier: Component<{
               <button
                 type="button"
                 onClick={() => props.onSelectDay(null)}
-                class="ml-2 rounded border border-rule px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-terra hover:bg-terra/10"
+                class="ml-2 rounded border border-rule px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-brand hover:bg-brand/10"
               >
                 Tout afficher
               </button>
@@ -281,35 +324,58 @@ export const ReceptionCalendrier: Component<{
 
         {/* Histogramme scrollable */}
         <div class="flex-1 overflow-auto px-7 py-4">
-          <div class="flex min-h-full items-end gap-1.5" style={{ 'min-width': `${Math.max(charge().length * 56, 100)}px` }}>
+          <div
+            class="flex min-h-full items-end gap-1.5"
+            style={{ 'min-width': `${Math.max(charge().length * 56, 100)}px` }}
+          >
             <For each={charge()}>
               {(c) => {
                 const tier = chargeTier(c.palettes)
-                const heightPct = maxPalettes() > 0 ? Math.max((c.palettes / maxPalettes()) * 100, 6) : 6
+                const heightPct =
+                  maxPalettes() > 0 ? Math.max((c.palettes / maxPalettes()) * 100, 6) : 6
                 const selected = props.selectedDay() === c.day
                 return (
                   <button
                     type="button"
                     onClick={() => props.onSelectDay(selected ? null : c.day)}
                     class={cx(
-                      'group flex min-w-[48px] flex-1 flex-col items-center justify-end rounded-md border transition-colors',
-                      selected ? 'border-terra bg-terra/5' : 'border-rule-soft hover:border-rule hover:bg-secondary/30',
+                      'group flex min-w-[48px] flex-1 flex-col items-center justify-end rounded-md border pb-1.5 transition-colors',
+                      selected
+                        ? 'border-brand bg-brand/5'
+                        : 'border-rule-soft hover:border-rule hover:bg-secondary/30'
                     )}
                     style={{ height: '220px' }}
                     title={`${c.dayFmt} · ${c.palettes} palette(s) · ${c.lignes} réception(s) · ${c.fournisseurs} fournisseur(s)`}
                   >
-                    {/* Nb palettes au-dessus de la barre */}
-                    <div class={cx('mb-1 font-fraunces text-[16px] font-bold tabular-nums leading-none', chargeText(tier))}>
-                      {c.palettes}
+                    {/* Conteneur de charge de hauteur fixe pour éviter l'overflow */}
+                    <div class="flex h-[135px] w-full flex-col justify-end items-center px-1">
+                      {/* Nb palettes au-dessus de la barre */}
+                      <div
+                        class={cx(
+                          'mb-1 font-fraunces text-[16px] font-bold tabular-nums leading-none',
+                          chargeText(tier)
+                        )}
+                      >
+                        {c.palettes}
+                      </div>
+                      {/* Barre */}
+                      <div
+                        class={cx(
+                          'w-full rounded-t-sm transition-all',
+                          chargeBg(tier),
+                          'group-hover:opacity-90'
+                        )}
+                        style={{ height: `${heightPct}%` }}
+                      />
                     </div>
-                    {/* Barre */}
-                    <div
-                      class={cx('w-full rounded-t-sm transition-all', chargeBg(tier), 'group-hover:opacity-90')}
-                      style={{ height: `${heightPct}%` }}
-                    />
                     {/* Jour (relatif + JJ/MM) */}
                     <div class="mt-1.5 px-1 text-center">
-                      <div class={cx('font-mono text-[10px] font-bold', selected ? 'text-terra' : 'text-foreground')}>
+                      <div
+                        class={cx(
+                          'font-mono text-[10px] font-bold',
+                          selected ? 'text-brand' : 'text-foreground'
+                        )}
+                      >
                         {c.dayRelatif}
                       </div>
                       <div class="font-mono text-[9px] text-muted-foreground">{c.dayFmt}</div>

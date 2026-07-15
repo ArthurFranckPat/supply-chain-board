@@ -1,16 +1,28 @@
-import { HttpContext } from '@adonisjs/core/http'
+import { type HttpContext } from '@adonisjs/core/http'
 import logger from '@adonisjs/core/services/logger'
 import { RetardRepository, type RetardChargeKpi } from '#repositories/retard_repository'
-import { OtdRepository, resolveOtdPeriods, type OtdKpi, type OtdMode } from '#repositories/otd_repository'
+import {
+  OtdRepository,
+  resolveOtdPeriods,
+  type OtdKpi,
+  type OtdMode,
+} from '#repositories/otd_repository'
+import {
+  defaultStockRange,
+  type StockValuationKpi,
+  type StockGrain,
+} from '#repositories/stock_valuation_repository'
+import boardDataset from '#services/board_dataset'
 import { RETARD_LOOKBACK_DAYS } from '#services/suivi_service'
 
 /**
  * Tableau de bord (issue #26 shell + #38 KPI). Page d'accueil par défaut post-login.
  *
  * Même motif que /suivi : la coquille Inertia est rendue instantanément (aucun calcul X3),
- * les KPI (calcul lourd) sont chargés en différé via deux endpoints séparés :
+ * les KPI (calcul lourd) sont chargés en différé via trois endpoints séparés :
  *   - /api/v1/dashboard/kpis  → charge en retard (stable, rechargé uniquement au refresh)
  *   - /api/v1/dashboard/otd   → OTD (volatile : mode + plage date changent côté client)
+ *   - /api/v1/dashboard/stock → valorisation du stock sur 12 mois (AE1)
  *
  * Les expéditions (issue #44) vivent désormais dans leur propre onglet dédié
  * (/expeditions, ExpeditionsController) — retiré du dashboard car une carte résumée
@@ -20,11 +32,17 @@ export default class DashboardController {
   /** GET / — coquille du tableau de bord. */
   async index(ctx: HttpContext) {
     const referenceDate =
-      (ctx.request.input('referenceDate') as string | undefined) || new Date().toISOString().slice(0, 10)
+      (ctx.request.input('referenceDate') as string | undefined) ||
+      new Date().toISOString().slice(0, 10)
+    // Layout personnalisé de l'utilisateur (ordre / visibilité / largeur des KPI +
+    // ordre d'impression). `getDashboardLayout()` garantit un objet complet.
+    const layout = ctx.auth.user?.getDashboardLayout() ?? undefined
     return ctx.inertia.render('dashboard', {
       referenceDate,
       kpisHref: `/api/v1/dashboard/kpis?referenceDate=${encodeURIComponent(referenceDate)}`,
       otdHref: `/api/v1/dashboard/otd?referenceDate=${encodeURIComponent(referenceDate)}`,
+      stockHref: `/api/v1/dashboard/stock`,
+      layout,
     })
   }
 
@@ -76,7 +94,7 @@ export default class DashboardController {
     const repo = new OtdRepository()
 
     const results = await Promise.allSettled(
-      periods.map((p) => repo.getOtd(p.from, p.to, p.label, otdMode, client || undefined)),
+      periods.map((p) => repo.getOtd(p.from, p.to, p.label, otdMode, client || undefined))
     )
 
     for (const r of results) {
@@ -89,5 +107,58 @@ export default class DashboardController {
     }
 
     return { otd, x3Error }
+  }
+
+  /** GET /api/v1/dashboard/stock — valorisation du stock sur une plage (AE1).
+   *  Cache SWR global via boardDataset (7 appels SOAP → 1/2min pour toute l'app). */
+  async stockValuation(ctx: HttpContext) {
+    const referenceDate = ctx.request.input('referenceDate')
+    const refDate = referenceDate ? new Date(referenceDate as string) : new Date()
+    const safeRef = Number.isNaN(refDate.getTime()) ? new Date() : refDate
+
+    const rawGrain = ctx.request.input('stockGrain')
+    const grain: StockGrain = rawGrain === 'semaine' ? 'semaine' : 'mois'
+
+    const fromParam = ctx.request.input('stockFrom')
+    const toParam = ctx.request.input('stockTo')
+    // Résout la plage concrète (défaut = 12 périodes glissantes) pour que la clé
+    // de cache soit stable, même si l'utilisateur n'a pas fourni de plage.
+    let from: Date
+    let to: Date
+    if (fromParam && toParam) {
+      const f = new Date(fromParam as string)
+      const t = new Date(toParam as string)
+      // Retombe sur la plage par défaut si les dates sont invalides.
+      const range = Number.isNaN(f.getTime()) || Number.isNaN(t.getTime())
+        ? defaultStockRange(grain, safeRef)
+        : { from: f, to: t }
+      from = range.from
+      to = range.to
+    } else {
+      const range = defaultStockRange(grain, safeRef)
+      from = range.from
+      to = range.to
+    }
+
+    let stockValuation: StockValuationKpi = {
+      grain,
+      series: [],
+      totalActuel: 0,
+      totalDebut: 0,
+      deltaPct: 0,
+      categories: [],
+      articles: [],
+      nbArticles: 0,
+    }
+    let x3Error: string | null = null
+
+    try {
+      stockValuation = await boardDataset.getStockValuation(grain, from, to, safeRef)
+    } catch (e) {
+      logger.error({ err: e }, '[dashboard] stock — échec chargement valorisation X3')
+      x3Error = 'Données X3 indisponibles — valorisation momentanément incalculable.'
+    }
+
+    return { stockValuation, x3Error }
   }
 }

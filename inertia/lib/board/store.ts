@@ -1,5 +1,6 @@
 import { createSignal, createMemo } from 'solid-js'
 import { createStore, produce, reconcile } from 'solid-js/store'
+import { toast as sonnerToast } from 'solid-sonner'
 import type { BoardData, Card, SearchScope, FeasibilityMode, FeasStatus } from './types'
 import { route } from '@/lib/routes'
 import { router } from '@/lib/inertia-solid'
@@ -47,7 +48,11 @@ export function createBoardStore(initial: BoardData) {
   // sans masquer les lignes.
   const STATUS_FILTER_KEYS = ['ferme', 'planifie', 'suggere'] as const
   type StatusKey = (typeof STATUS_FILTER_KEYS)[number]
-  const normStatus = (s: string) => s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase()
+  const normStatus = (s: string) =>
+    s
+      .normalize('NFD')
+      .replace(/\p{Diacritic}/gu, '')
+      .toLowerCase()
   const [statusFilter, setStatusFilter] = createSignal<Set<StatusKey>>(new Set(STATUS_FILTER_KEYS))
   const statusActive = (s: StatusKey) => statusFilter().has(s)
   const toggleStatus = (s: StatusKey) =>
@@ -127,9 +132,17 @@ export function createBoardStore(initial: BoardData) {
       })
   }
 
+  // #62 (lot 7) — debounce de la recherche (180 ms). Sans ça, un fetch partait
+  // à chaque frappe → flicker (toutes cartes grisées pendant la requête) + charge
+  // serveur. setQuery() reste synchrone (champ réactif), seul runSearch est debounce.
+  let searchTimer: ReturnType<typeof setTimeout> | null = null
   function onQueryInput(value: string) {
     setQuery(value)
-    runSearch(scope(), value)
+    if (searchTimer) clearTimeout(searchTimer)
+    searchTimer = setTimeout(() => {
+      searchTimer = null
+      runSearch(scope(), value)
+    }, 180)
   }
   function onScopeChange(value: SearchScope) {
     setScope(value)
@@ -182,7 +195,8 @@ export function createBoardStore(initial: BoardData) {
     line.dayCells.forEach((dc, col) => {
       const wk = board.colWeek[col]
       if (wk === undefined) return
-      for (const card of dc.cards) if (cardStatusOk(card)) byWeek[wk] = (byWeek[wk] ?? 0) + card.hours
+      for (const card of dc.cards)
+        if (cardStatusOk(card)) byWeek[wk] = (byWeek[wk] ?? 0) + card.hours
     })
     return line.weekLoads.map((wl) => {
       const hours = Math.round((byWeek[wl.week] ?? 0) * 10) / 10
@@ -193,15 +207,68 @@ export function createBoardStore(initial: BoardData) {
     })
   }
 
+  // ── Mode scénario (issue #57) : intercepteur de PATCH ──
+  // En mode scénario, moveCard applique le déplacement optimiste à l'écran mais
+  // REMPLACE le PATCH réseau par un append de mutation (via cet intercepteur). null
+  // = mode direct (PATCH immédiat, comportement inchangé).
+  type MoveIntercept = (m: {
+    numOf: string
+    toLineCode: string
+    toCol: number
+    toIso: string
+    dateFinIso?: string
+  }) => void
+  let moveInterceptor: MoveIntercept | null = null
+  const setMoveInterceptor = (fn: MoveIntercept | null) => {
+    moveInterceptor = fn
+  }
+
+  /** Déplace une carte vers une date ISO donnée (colonne dérivée du board), sans
+   *  PATCH ni intercepteur — pour le rejeu visuel d'un scénario rouvert. */
+  function moveCardToIso(numOf: string, toLineCode: string, toIso: string) {
+    const toCol = board.lines[0]?.dayCells.findIndex((dc) => dc.iso === toIso) ?? -1
+    const toLine = board.lines.findIndex((l) => l.code === toLineCode)
+    if (toCol === -1 || toLine === -1) return
+    let found: { line: number; col: number; idx: number } | null = null
+    for (let li = 0; li < board.lines.length && !found; li++) {
+      const cells = board.lines[li].dayCells
+      for (const [ci, cell] of cells.entries()) {
+        const idx = cell.cards.findIndex((c) => c.id === numOf)
+        if (idx !== -1) {
+          found = { line: li, col: ci, idx }
+          break
+        }
+      }
+    }
+    if (!found) return
+    const card = board.lines[found.line].dayCells[found.col].cards[found.idx]
+    setBoard(
+      produce((b) => {
+        b.lines[found!.line].dayCells[found!.col].cards.splice(found!.idx, 1)
+        b.lines[toLine].dayCells[toCol].cards.push(card)
+      })
+    )
+    setFeasibility({})
+  }
+
   // ── Drag: optimistic move + PATCH + rollback ──
-  function moveCard(numOf: string, toLineCode: string, toCol: number, toIso: string) {
+  // dateFinIso (issue #23, gap n°4) : date de fin translatée lors d'un drag OF.
+  // Optionnel → comportement inchangé pour les callsites qui ne la passent pas
+  // (board /ordonnancement). Le PATCH planning_board.update accepte déjà dateFin.
+  function moveCard(
+    numOf: string,
+    toLineCode: string,
+    toCol: number,
+    toIso: string,
+    dateFinIso?: string
+  ) {
     // Locate the card and its current position (returning narrows the type).
     const findPos = () => {
       for (let li = 0; li < board.lines.length; li++) {
         const cells = board.lines[li].dayCells
-        for (let ci = 0; ci < cells.length; ci++) {
-          const idx = cells[ci].cards.findIndex((c) => c.id === numOf)
-          if (idx !== -1) return { line: li, col: ci, idx, card: cells[ci].cards[idx] }
+        for (const [ci, cell] of cells.entries()) {
+          const idx = cell.cards.findIndex((c) => c.id === numOf)
+          if (idx !== -1) return { line: li, col: ci, idx, card: cell.cards[idx] }
         }
       }
       return null
@@ -225,10 +292,24 @@ export function createBoardStore(initial: BoardData) {
     // cache de faisabilité, comme pour un changement de fenêtre (reset()).
     setFeasibility({})
 
+    // Mode scénario (#57) : capture la mutation au lieu de PATCHer. Le déplacement
+    // optimiste est déjà appliqué à l'écran ; rien ne part vers X3/overrides.
+    if (moveInterceptor) {
+      moveInterceptor({ numOf, toLineCode, toCol, toIso, dateFinIso })
+      return
+    }
+
     fetch(route('planning_board.update', { of: numOf }), {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ workstation: toLineCode, dateDebut: toIso }),
+      // #23 : dateFin translatée (durée préservée) → le verdict serveur concorde
+      // avec le verdict optimiste au prochain chargement (effectiveDateFin lit
+      // override.dateFin). Absente si non fournie (comportement inchangé).
+      body: JSON.stringify({
+        workstation: toLineCode,
+        dateDebut: toIso,
+        ...(dateFinIso ? { dateFin: dateFinIso } : {}),
+      }),
     })
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`)
@@ -242,14 +323,12 @@ export function createBoardStore(initial: BoardData) {
             b.lines[snapshot.line].dayCells[snapshot.col].cards.splice(snapshot.idx, 0, card)
           })
         )
-        window.dispatchEvent(
-          new CustomEvent('sch-toast', { detail: `Déplacement échoué : ${err.message}` })
-        )
+        sonnerToast.error(`Déplacement échoué : ${err.message}`)
       })
   }
 
   function toast(detail: string) {
-    window.dispatchEvent(new CustomEvent('sch-toast', { detail }))
+    sonnerToast(detail)
   }
 
   // ── Feasibility: POST board-feasibility → per-OF status map (badges) ──
@@ -332,7 +411,7 @@ export function createBoardStore(initial: BoardData) {
             }
           }
         }
-      }),
+      })
     )
   }
   const enterSelect = () => setSelectMode(true)
@@ -408,6 +487,7 @@ export function createBoardStore(initial: BoardData) {
     statusActive,
     toggleStatus,
     feasOf,
+    feasibility,
     feasLoading,
     cardMatches,
     lineVisible,
@@ -419,6 +499,8 @@ export function createBoardStore(initial: BoardData) {
     reset,
     updateData,
     moveCard,
+    moveCardToIso,
+    setMoveInterceptor,
     transformCard,
     runFeasibility,
     // Sélection multi-OF + batch firming (#34)

@@ -76,12 +76,12 @@ Parse `subcommand` and `name` from injected variables.
 
 **Route by subcommand:**
 
-| Subcommand | Action |
-|------------|--------|
-| `list` (or empty) | → **list_workstreams** |
-| `create <name>` | → **create_workstream** |
-| `switch <name>` | → **switch_workstream** |
-| `status [name]` | → **show_status** |
+| Subcommand        | Action                    |
+| ----------------- | ------------------------- |
+| `list` (or empty) | → **list_workstreams**    |
+| `create <name>`   | → **create_workstream**   |
+| `switch <name>`   | → **switch_workstream**   |
+| `status [name]`   | → **show_status**         |
 | `complete <name>` | → **complete_workstream** |
 
 **If subcommand is unrecognised:** Show help (see offer_help step).
@@ -110,12 +110,14 @@ Active: {ws-active || "(none — on main planning root)"}
 ```
 
 **If no workstreams exist:**
+
 ```
 No workstreams yet. You're working in the main planning root.
 
 Create a workstream to isolate parallel work:
   /gsd-workstreams create <name>
 ```
+
 </step>
 
 <step name="create_workstream">
@@ -129,11 +131,13 @@ pi-gsd-tools workstream create {name}
 ```
 
 Confirm:
+
 ```
 ✓ Workstream '{name}' created
 
 To switch to it: /gsd-workstreams switch {name}
 ```
+
 </step>
 
 <step name="switch_workstream">
@@ -144,12 +148,14 @@ pi-gsd-tools workstream set {name}
 ```
 
 Confirm:
+
 ```
 ✓ Switched to workstream: {name}
 
 All subsequent GSD commands will operate within this workstream.
 To return to main: /gsd-workstreams switch main
 ```
+
 </step>
 
 <step name="show_status">
@@ -166,6 +172,7 @@ Display the full status output including phase progress, open todos, and blocker
 **Require `name`:** If empty, ask which workstream to complete.
 
 Confirm before completing:
+
 ```
 Complete workstream '{name}'?
 
@@ -177,14 +184,17 @@ Continue? (yes / no)
 ```
 
 If yes:
+
 ```bash
 pi-gsd-tools workstream complete {name}
 ```
 
 Confirm:
+
 ```
 ✓ Workstream '{name}' completed and archived.
 ```
+
 </step>
 
 <step name="offer_help">
@@ -194,13 +204,14 @@ Confirm:
 Manage parallel tracks of work within a project.
 
 Usage:
-  /gsd-workstreams                  - list all workstreams
-  /gsd-workstreams create <name>    - create a new workstream
-  /gsd-workstreams switch <name>    - activate a workstream
-  /gsd-workstreams status [name]    - show workstream details
-  /gsd-workstreams complete <name>  - close a finished workstream
+/gsd-workstreams - list all workstreams
+/gsd-workstreams create <name> - create a new workstream
+/gsd-workstreams switch <name> - activate a workstream
+/gsd-workstreams status [name] - show workstream details
+/gsd-workstreams complete <name> - close a finished workstream
 
 Current: {ws-active || "main planning root"}
+
 ```
 </step>
 
@@ -213,3 +224,4 @@ Current: {ws-active || "main planning root"}
 - [ ] Each action calls the appropriate CLI command
 - [ ] Confirmations displayed after mutations
 </success_criteria>
+```

@@ -24,7 +24,7 @@ export default class extends BaseSchema {
       t.boolean('active').notNullable().defaultTo(true) // false = férié neutralisé (on travaille)
     })
     this.schema.raw(
-      'CREATE UNIQUE INDEX capacity_holiday_overrides_date_unique ON capacity_holiday_overrides (date)',
+      'CREATE UNIQUE INDEX capacity_holiday_overrides_date_unique ON capacity_holiday_overrides (date)'
     )
   }
 

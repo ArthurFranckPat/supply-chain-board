@@ -71,6 +71,7 @@ export interface SuiviDisplayRow {
   statusLabel: string
   statusIcon: string
   qteRestante: number
+  qteCommandee: number
   besoinNet: number
   /** Allocation virtuelle (split strict / sous contrôle qualité). */
   allocStrict: number
@@ -121,10 +122,13 @@ export interface SuiviRowsResponse {
   referenceDate: string
 }
 
-/** Props de la page GET /suivi (shell Inertia rendu instantané). */
+/**
+ * Props de la page GET /suivi (shell Inertia rendu instantané). Statiques (ne changent jamais
+ * après montage) — le filtrage par plage de dates est un filtre CLIENT (cf tracking.tsx), pas
+ * une re-navigation Inertia, donc pas besoin de props réactives ici.
+ */
 export interface SuiviPageProps {
-  referenceDate: string
-  /** URL JSON du calcul lourd (lignes + stats). Re-fetch auto quand elle change. */
+  /** URL JSON du calcul lourd (lignes + stats). */
   rowsHref: string
   /** URL JSON de la vue proactive (réalisabilité séquentielle des commandes). */
   proactiveRowsHref: string
@@ -135,7 +139,7 @@ export interface SuiviPageProps {
 // ---------------------------------------------------------------------------
 
 /** Clé courte du verdict moteur pour le badge proactif. */
-export type ProactiveVerdictKey = 'time' | 'stock' | 'late' | 'blocked' | 'uncov'
+export type ProactiveVerdictKey = 'time' | 'stock' | 'late' | 'blocked' | 'uncov' | 'risk'
 
 export interface ProactiveOf {
   numOf: string
@@ -145,6 +149,13 @@ export interface ProactiveOf {
   feasible: boolean | null
   statutNum: number
   missingComponents: { art: string; qty: number }[]
+  /** Vrai si l'OF a des pointages d'opérations intermédiaires (issue #41). */
+  estDebuté?: boolean
+  /** Charge réelle gamme (Σ qteRestante/cadence, heures brutes) — null si gamme inconnue. */
+  chargeHeures: number | null
+  /** État d'avancement : pièces déjà réalisées / total de l'OF — null si non débuté/inconnu. */
+  piecesFaites: number | null
+  piecesTotalOf: number | null
 }
 
 export interface ProactiveDisplayRow {
@@ -175,7 +186,29 @@ export interface ProactiveDisplayRow {
     art: string
     desc: string
     qty: number
-    reception: { eta: string; po: string; supplier: string; overdue: boolean; retardJ: number } | null
+    reception: {
+      eta: string
+      po: string
+      supplier: string
+      overdue: boolean
+      retardJ: number
+    } | null
+    /** Descente BOM d'un SE manquant : 'se_a_lancer' (composants dispo) ou 'bloque' (+ feuilles bloquantes). */
+    descente: {
+      statut: 'se_a_lancer' | 'bloque'
+      par: {
+        art: string
+        desc: string
+        manque: number
+        reception: {
+          eta: string
+          po: string
+          supplier: string
+          overdue: boolean
+          retardJ: number
+        } | null
+      }[]
+    } | null
   }[]
   ofs: ProactiveOf[]
   /** Atelier (STOLOC du poste de gamme) — '' si inconnu (issue #36). */

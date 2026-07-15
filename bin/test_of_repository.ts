@@ -11,7 +11,9 @@ const IMPORTER = (filePath: string) => {
 
 await new Ignitor(APP_ROOT, { importer: IMPORTER })
   .tap((a) => {
-    a.booting(async () => { await import('#start/env') })
+    a.booting(async () => {
+      await import('#start/env')
+    })
     a.listen('SIGTERM', () => a.terminate())
   })
   .createApp('console')
@@ -23,7 +25,9 @@ const flows = await repo.getSupplyFlows()
 
 console.log(`Total: ${flows.length}, affichage 3 premiers:\n`)
 flows.slice(0, 3).forEach((f, i) => {
-  console.log(`[${i + 1}] OF=${(f.origin as any).id}  article=${f.article}  qte=${f.quantity}  fin=${f.date?.toISOString().slice(0, 10)}  statut=${(f.origin as any).status}  type=${(f.origin as any).typeOf}  designation=${(f.origin as any).designation}`)
+  console.log(
+    `[${i + 1}] OF=${(f.origin as any).id}  article=${f.article}  qte=${f.quantity}  fin=${f.date?.toISOString().slice(0, 10)}  statut=${(f.origin as any).status}  type=${(f.origin as any).typeOf}  designation=${(f.origin as any).designation}`
+  )
 })
 
 process.exit(0)

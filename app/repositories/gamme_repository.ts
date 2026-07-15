@@ -42,7 +42,7 @@ export class X3GammeRepository {
         article: row.ARTICLE?.trim() ?? '',
         workstation: row.POSTE_CHARGE?.trim() ?? '',
         workstationLabel: row.LIBELLE_POSTE?.trim() ?? '',
-        rate: parseFloat(row.CADENCE ?? '0') || 0,
+        rate: Number.parseFloat(row.CADENCE ?? '0') || 0,
       }))
     } finally {
       await db.destroy()

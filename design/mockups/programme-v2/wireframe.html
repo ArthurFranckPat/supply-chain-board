@@ -1,0 +1,2248 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Programme v2 — Wireframe cible</title>
+    <style>
+      :root {
+        --ink: #1a1d21;
+        --ink-2: #5a616b;
+        --ink-3: #9aa1ab;
+        --line: #d9dde3;
+        --line-soft: #eceef2;
+        --paper: #ffffff;
+        --canvas: #f4f5f7;
+        --fill: #f0f1f4;
+        --fill-2: #e7e9ee;
+        --annot: #2563eb;
+        --annot-soft: #eff4ff;
+        /* Sémantique cible (documentée §6) */
+        --ok: #3d7a46;
+        --ok-soft: #e8f2ea;
+        --warn: #b45309;
+        --warn-soft: #fdf3e3;
+        --crit: #b3261e;
+        --crit-soft: #fbeae9;
+        --neutral: #8a919c;
+        --neutral-soft: #f0f1f4;
+        --brand: #081061;
+        --brand-soft: #e9ebf5;
+        --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        background: var(--canvas);
+        color: var(--ink);
+        font:
+          14px/1.55 system-ui,
+          -apple-system,
+          'Segoe UI',
+          sans-serif;
+        padding: 40px 4vw 120px;
+      }
+      h1 {
+        font-size: 26px;
+        letter-spacing: -0.02em;
+      }
+      h2 {
+        font-size: 18px;
+        margin: 64px 0 6px;
+        letter-spacing: -0.01em;
+      }
+      h2 .no {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: var(--ink);
+        color: #fff;
+        font-size: 12px;
+        margin-right: 10px;
+        vertical-align: 2px;
+      }
+      .lead {
+        color: var(--ink-2);
+        max-width: 880px;
+      }
+      .doc-head {
+        max-width: 980px;
+        margin-bottom: 8px;
+      }
+      .kicker {
+        font: 700 11px/1 var(--mono);
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--annot);
+        margin-bottom: 10px;
+      }
+      .partis {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 14px;
+        margin: 26px 0 8px;
+        max-width: 1100px;
+      }
+      .parti {
+        background: var(--paper);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 16px 18px;
+      }
+      .parti b {
+        display: block;
+        font-size: 13px;
+        margin-bottom: 4px;
+      }
+      .parti p {
+        font-size: 12.5px;
+        color: var(--ink-2);
+      }
+      .parti .tag {
+        font: 700 10px var(--mono);
+        color: var(--annot);
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+
+      /* ── cadre de wireframe ── */
+      .frame-wrap {
+        overflow-x: auto;
+        padding: 6px 2px 20px;
+      }
+      .frame {
+        position: relative;
+        width: 1440px;
+        background: var(--paper);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        box-shadow: 0 10px 30px -18px rgba(20, 24, 40, 0.25);
+        overflow: hidden;
+        font-size: 11px;
+      }
+      .dim {
+        font: 600 10px var(--mono);
+        color: var(--annot);
+      }
+      .note {
+        font-size: 12.5px;
+        color: var(--ink-2);
+        max-width: 880px;
+        margin: 10px 0 0;
+      }
+      .note b {
+        color: var(--ink);
+      }
+
+      /* pastilles d'annotation */
+      .pin {
+        position: absolute;
+        z-index: 40;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background: var(--annot);
+        color: #fff;
+        font: 700 11px/22px var(--mono);
+        text-align: center;
+        box-shadow:
+          0 0 0 3px #fff,
+          0 2px 6px rgba(0, 0, 0, 0.25);
+      }
+      .legend {
+        max-width: 1100px;
+        margin-top: 18px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--paper);
+        overflow: hidden;
+      }
+      .legend table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12.5px;
+      }
+      .legend td {
+        padding: 9px 14px;
+        border-top: 1px solid var(--line-soft);
+        vertical-align: top;
+      }
+      .legend tr:first-child td {
+        border-top: 0;
+      }
+      .legend td:first-child {
+        width: 34px;
+      }
+      .legend td:nth-child(2) {
+        width: 240px;
+        font-weight: 600;
+      }
+      .legend td:last-child {
+        color: var(--ink-2);
+      }
+      .legend .pin {
+        position: static;
+        display: inline-block;
+      }
+      .lot {
+        font: 700 10px var(--mono);
+        color: var(--ink-3);
+        white-space: nowrap;
+      }
+
+      /* ── éléments génériques du wireframe ── */
+      .bar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0 20px;
+        border-bottom: 1px solid var(--line);
+      }
+      .ghost {
+        background: var(--fill);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        color: var(--ink-2);
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        height: 30px;
+        padding: 0 11px;
+        border: 1px solid var(--line);
+        border-radius: 15px;
+        background: var(--paper);
+        font: 600 11px system-ui;
+        color: var(--ink-2);
+        white-space: nowrap;
+      }
+      .btn.primary {
+        background: var(--ink);
+        border-color: var(--ink);
+        color: #fff;
+      }
+      .btn.on {
+        background: var(--brand-soft);
+        border-color: var(--brand);
+        color: var(--brand);
+      }
+      .seg {
+        display: inline-flex;
+        background: var(--fill);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 2px;
+        gap: 2px;
+      }
+      .seg button {
+        border: 0;
+        background: transparent;
+        height: 26px;
+        padding: 0 12px;
+        border-radius: 6px;
+        font: 600 11px system-ui;
+        color: var(--ink-2);
+      }
+      .seg button.on {
+        background: var(--paper);
+        color: var(--ink);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        height: 26px;
+        padding: 0 10px;
+        border-radius: 13px;
+        border: 1px solid var(--line);
+        background: var(--paper);
+        font: 600 11px system-ui;
+        color: var(--ink-2);
+      }
+      .chip.on {
+        background: var(--ink);
+        border-color: var(--ink);
+        color: #fff;
+      }
+      .grp-label {
+        font: 700 9px var(--mono);
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--ink-3);
+        margin-right: 2px;
+      }
+      .spacer {
+        flex: 1;
+      }
+      .vsep {
+        width: 1px;
+        height: 20px;
+        background: var(--line);
+      }
+      .ico {
+        display: inline-block;
+        width: 13px;
+        height: 13px;
+        border: 1.5px solid currentColor;
+        border-radius: 3px;
+        opacity: 0.75;
+      }
+      .ico.round {
+        border-radius: 50%;
+      }
+      .kbd {
+        font: 700 10px var(--mono);
+        border: 1px solid var(--line);
+        border-bottom-width: 2px;
+        border-radius: 4px;
+        padding: 0 4px;
+        background: var(--paper);
+        color: var(--ink-2);
+      }
+
+      /* badges santé du plan */
+      .health {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        height: 26px;
+        padding: 0 10px;
+        border-radius: 13px;
+        font: 700 11px var(--mono);
+      }
+      .health .dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+      }
+      .health.crit {
+        background: var(--crit-soft);
+        color: var(--crit);
+      }
+      .health.crit .dot {
+        background: var(--crit);
+      }
+      .health.warn {
+        background: var(--warn-soft);
+        color: var(--warn);
+      }
+      .health.warn .dot {
+        background: var(--warn);
+      }
+      .health.okz {
+        background: var(--ok-soft);
+        color: var(--ok);
+      }
+      .health.okz .dot {
+        background: var(--ok);
+      }
+      .health.mut {
+        background: var(--neutral-soft);
+        color: var(--ink-3);
+      }
+      .health.mut .dot {
+        background: var(--ink-3);
+      }
+
+      /* ── board ── */
+      .board {
+        display: grid;
+        grid-template-columns: 1fr 300px;
+        min-height: 0;
+      }
+      .grid-zone {
+        position: relative;
+        border-right: 1px solid var(--line);
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 170px repeat(5, 1fr);
+      }
+      .grid .hdr {
+        border-bottom: 1px solid var(--line);
+        border-right: 1px solid var(--line-soft);
+        background: var(--fill);
+        padding: 6px 10px;
+      }
+      .week {
+        grid-column: 2/-1;
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        background: var(--fill-2) !important;
+      }
+      .dayhead {
+        text-align: center;
+      }
+      .dayhead .dow {
+        font: 700 9px var(--mono);
+        letter-spacing: 0.1em;
+        color: var(--ink-3);
+      }
+      .dayhead .num {
+        font: 700 17px system-ui;
+        letter-spacing: -0.02em;
+      }
+      .dayhead .load {
+        font: 700 10px var(--mono);
+        color: var(--ink-2);
+      }
+      .dayhead.today {
+        background: var(--brand-soft);
+        box-shadow: inset 0 -2px 0 var(--brand);
+      }
+      .dayhead.today .num,
+      .dayhead.today .dow {
+        color: var(--brand);
+      }
+      .poste {
+        border-bottom: 1px solid var(--line-soft);
+        border-right: 1px solid var(--line);
+        padding: 10px 12px;
+        background: var(--paper);
+      }
+      .poste .code {
+        font: 700 12px var(--mono);
+      }
+      .poste .name {
+        font-size: 10.5px;
+        color: var(--ink-2);
+      }
+      .histo {
+        display: flex;
+        align-items: flex-end;
+        gap: 3px;
+        height: 22px;
+        margin-top: 8px;
+      }
+      .histo i {
+        display: block;
+        width: 12px;
+        background: var(--fill-2);
+        border: 1px solid var(--line);
+        border-bottom-width: 2px;
+      }
+      .poste .more {
+        margin-top: 8px;
+        font: 600 10px system-ui;
+        color: var(--annot);
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        cursor: pointer;
+      }
+      .cell {
+        position: relative;
+        border-bottom: 1px solid var(--line-soft);
+        border-right: 1px solid var(--line-soft);
+        min-height: 118px;
+        padding: 7px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        background:
+          linear-gradient(to right, rgba(26, 29, 33, 0.035) 1px, transparent 1px) 0 0/22px 22px,
+          linear-gradient(to bottom, rgba(26, 29, 33, 0.035) 1px, transparent 1px) 0 0/22px 22px;
+      }
+      .cell.today {
+        background: var(--brand-soft);
+      }
+
+      /* carte OF v2 */
+      .card {
+        position: relative;
+        background: var(--paper);
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        border-top: 3px solid var(--ink-3);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+        padding: 6px 8px 6px 10px;
+        font-size: 10.5px;
+      }
+      .card::before {
+        content: '';
+        position: absolute;
+        left: -1px;
+        top: -3px;
+        bottom: -1px;
+        width: 3px;
+        border-radius: 7px 0 0 7px;
+        background: var(--vl, transparent);
+      }
+      .card.v-ok {
+        --vl: var(--ok);
+      }
+      .card.v-warn {
+        --vl: var(--warn);
+      }
+      .card.v-crit {
+        --vl: var(--crit);
+      }
+      .card.v-none {
+        --vl: var(--neutral);
+      }
+      .card.st-ferme {
+        border-top-color: #3d7a46;
+      }
+      .card.st-plan {
+        border-top-color: #4a6fa5;
+      }
+      .card.st-sugg {
+        border-top-color: #b48ead;
+      }
+      .card.st-bloq {
+        border-top-color: var(--crit);
+      }
+      .card .l1 {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .card .num {
+        font: 700 12px var(--mono);
+      }
+      .card .delta {
+        margin-left: auto;
+        font: 700 10px var(--mono);
+        padding: 0 6px;
+        border-radius: 9px;
+      }
+      .delta.crit {
+        background: var(--crit-soft);
+        color: var(--crit);
+      }
+      .delta.warn {
+        background: var(--warn-soft);
+        color: var(--warn);
+      }
+      .card .art {
+        font: 600 11px var(--mono);
+        color: var(--ink-2);
+      }
+      .card .tit {
+        font-size: 10.5px;
+        color: var(--ink-2);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .card .foot {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        margin-top: 5px;
+        padding-top: 5px;
+        border-top: 1px solid var(--line-soft);
+      }
+      .card .foot .h {
+        margin-left: auto;
+        font: 700 12px system-ui;
+      }
+      .tagx {
+        font: 700 8.5px var(--mono);
+        letter-spacing: 0.06em;
+        padding: 1px 5px;
+        border-radius: 3px;
+        background: var(--fill-2);
+        color: var(--ink-2);
+        text-transform: uppercase;
+      }
+      .corner {
+        position: absolute;
+        top: -7px;
+        right: 8px;
+        width: 15px;
+        height: 15px;
+        border-radius: 50%;
+        border: 2px solid var(--paper);
+        font: 700 9px/12px var(--mono);
+        text-align: center;
+        color: #fff;
+      }
+      .corner.crit {
+        background: var(--crit);
+      }
+      .corner.okc {
+        background: var(--ok);
+      }
+      .pbar {
+        height: 4px;
+        border-radius: 2px;
+        background: var(--fill-2);
+        margin-top: 5px;
+        overflow: hidden;
+      }
+      .pbar i {
+        display: block;
+        height: 100%;
+        width: 55%;
+        background: var(--ink-3);
+      }
+
+      /* marqueur commande v2 : forme drapeau, ≠ carte */
+      .mk {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background: var(--paper);
+        border: 1px dashed var(--ink-3);
+        border-left: 3px solid var(--vm, var(--neutral));
+        border-radius: 4px 10px 10px 4px;
+        padding: 4px 8px 4px 6px;
+        font-size: 10px;
+      }
+      .mk.v-ok {
+        --vm: var(--ok);
+      }
+      .mk.v-warn {
+        --vm: var(--warn);
+      }
+      .mk.v-crit {
+        --vm: var(--crit);
+      }
+      .mk .grip {
+        display: grid;
+        grid-template-columns: repeat(2, 3px);
+        gap: 2px;
+        opacity: 0.5;
+      }
+      .mk .grip i {
+        width: 3px;
+        height: 3px;
+        border-radius: 50%;
+        background: var(--ink-2);
+      }
+      .mk .truck {
+        font: 700 9px var(--mono);
+        color: var(--ink-2);
+      }
+      .mk .id {
+        font: 700 10.5px var(--mono);
+      }
+      .mk .cl {
+        color: var(--ink-2);
+        font-style: italic;
+        font-size: 9.5px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 70px;
+      }
+      .mk .delta {
+        margin-left: auto;
+        font: 700 9.5px var(--mono);
+        padding: 0 5px;
+        border-radius: 8px;
+      }
+      .mk .q {
+        font: 700 9px var(--mono);
+        color: var(--neutral);
+      }
+
+      /* liens svg */
+      .links {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        z-index: 5;
+      }
+
+      /* rail triage */
+      .rail {
+        background: var(--paper);
+        display: flex;
+        flex-direction: column;
+      }
+      .rail .rhead {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 14px;
+        border-bottom: 1px solid var(--line);
+      }
+      .rail .rhead b {
+        font-size: 12px;
+      }
+      .rail .tabs {
+        display: flex;
+        gap: 4px;
+        padding: 8px 14px;
+        border-bottom: 1px solid var(--line-soft);
+      }
+      .rail .tabs .t {
+        font: 700 10px var(--mono);
+        padding: 3px 9px;
+        border-radius: 11px;
+        border: 1px solid var(--line);
+        color: var(--ink-2);
+      }
+      .rail .tabs .t.on {
+        background: var(--crit-soft);
+        border-color: var(--crit);
+        color: var(--crit);
+      }
+      .titem {
+        padding: 9px 14px;
+        border-bottom: 1px solid var(--line-soft);
+        cursor: pointer;
+      }
+      .titem.sel {
+        background: var(--annot-soft);
+        box-shadow: inset 3px 0 0 var(--annot);
+      }
+      .titem .r1 {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .titem .r1 .id {
+        font: 700 11px var(--mono);
+      }
+      .titem .r1 .delta {
+        margin-left: auto;
+        font: 700 10px var(--mono);
+        padding: 0 6px;
+        border-radius: 9px;
+      }
+      .titem .r2 {
+        font-size: 10.5px;
+        color: var(--ink-2);
+        margin-top: 2px;
+      }
+      .titem .r3 {
+        display: flex;
+        gap: 6px;
+        margin-top: 6px;
+      }
+      .titem .act {
+        font: 600 10px system-ui;
+        color: var(--annot);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 1px 8px;
+        background: var(--paper);
+      }
+      .vdot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex: none;
+      }
+      .vdot.crit {
+        background: var(--crit);
+      }
+      .vdot.warn {
+        background: var(--warn);
+      }
+
+      /* status footer */
+      .statusbar {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        height: 30px;
+        padding: 0 20px;
+        border-top: 1px solid var(--line);
+        background: var(--fill);
+        font: 600 10px var(--mono);
+        color: var(--ink-2);
+      }
+
+      /* ── sections zoom ── */
+      .zoomgrid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+        gap: 18px;
+        max-width: 1240px;
+        margin-top: 14px;
+      }
+      .zoom {
+        background: var(--paper);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 18px;
+      }
+      .zoom h3 {
+        font-size: 13px;
+        margin-bottom: 10px;
+      }
+      .callouts {
+        margin-top: 12px;
+        font-size: 12px;
+        color: var(--ink-2);
+      }
+      .callouts li {
+        margin: 5px 0 5px 16px;
+      }
+      .callouts b {
+        color: var(--ink);
+      }
+      .stage {
+        position: relative;
+        background: var(--canvas);
+        border: 1px dashed var(--line);
+        border-radius: 8px;
+        padding: 22px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        align-items: flex-start;
+      }
+
+      /* toolbars par mode */
+      .modebar {
+        width: 1240px;
+        max-width: 100%;
+        background: var(--paper);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        margin-top: 10px;
+        overflow: hidden;
+      }
+      .modebar .cap {
+        font: 700 10px var(--mono);
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--ink-3);
+        padding: 7px 14px;
+        border-bottom: 1px solid var(--line-soft);
+        background: var(--fill);
+      }
+
+      /* états */
+      .skel {
+        background: linear-gradient(90deg, var(--fill) 25%, var(--fill-2) 45%, var(--fill) 65%);
+        border-radius: 6px;
+      }
+      .toast {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+        background: var(--ink);
+        color: #fff;
+        border-radius: 10px;
+        padding: 12px 14px;
+        max-width: 420px;
+        font-size: 12px;
+        box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.4);
+      }
+      .toast .tico {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        flex: none;
+        font: 700 11px/18px var(--mono);
+        text-align: center;
+      }
+      .dialog {
+        background: var(--paper);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 20px;
+        max-width: 400px;
+        box-shadow: 0 18px 50px -20px rgba(0, 0, 0, 0.35);
+      }
+      .dialog h4 {
+        font-size: 14px;
+        margin-bottom: 6px;
+      }
+      .dialog p {
+        font-size: 12px;
+        color: var(--ink-2);
+      }
+      .dialog .acts {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        margin-top: 16px;
+      }
+
+      /* tokens */
+      .tokens {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+        max-width: 1240px;
+        margin-top: 14px;
+      }
+      .tok-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+      }
+      .tok-table th {
+        text-align: left;
+        font: 700 10px var(--mono);
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--ink-3);
+        padding: 6px 10px;
+        border-bottom: 1px solid var(--line);
+      }
+      .tok-table td {
+        padding: 7px 10px;
+        border-bottom: 1px solid var(--line-soft);
+        vertical-align: middle;
+      }
+      .sw {
+        display: inline-block;
+        width: 30px;
+        height: 16px;
+        border-radius: 4px;
+        border: 1px solid rgba(0, 0, 0, 0.12);
+        vertical-align: -3px;
+      }
+      .rule-table td:first-child {
+        font-weight: 600;
+        width: 220px;
+      }
+      code {
+        font: 600 11px var(--mono);
+        background: var(--fill);
+        border-radius: 4px;
+        padding: 1px 5px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="doc-head">
+      <div class="kicker">Design · Programme v2 · wireframe cible — accompagne l'issue #62</div>
+      <h1>Programme v2 — du tableau à scanner au cockpit de triage</h1>
+      <p class="lead" style="margin-top: 8px">
+        Wireframe précis de la page <code>/programme</code> cible. Il matérialise le plan de
+        remédiation (issue #62, lots 0-7) et va un cran plus loin : il repense le
+        <b>modèle d'usage</b> de la page. Aujourd'hui, le planificateur <em>scanne</em> ~40 cartes
+        en espérant repérer du rouge. Demain, il <em>traite une file</em> : les problèmes viennent à
+        lui, triés par gravité, et le board sert à agir (déplacer, simuler, affermir).
+      </p>
+    </div>
+
+    <div class="partis">
+      <div class="parti">
+        <span class="tag">Parti pris 1</span><b>Le triage avant le board</b>
+        <p>
+          Un rail « À traiter » (repliable) liste retards, limites et ruptures, triés par gravité ×
+          proximité. Cliquer un item centre le board sur l'OF, allume le lien, ouvre les actions. Le
+          compteur toolbar devient un vrai point d'entrée de travail, pas un badge décoratif.
+        </p>
+      </div>
+      <div class="parti">
+        <span class="tag">Parti pris 2</span><b>Un signal = un canal</b>
+        <p>
+          Statut OF = liseré <b>haut</b>. Verdict temporel = liseré
+          <b>gauche</b> (vert/ambre/rouge/<b>gris = pas de lien évalué</b>). Criticité matière =
+          <b>unique</b> badge de coin (préséance rupture &gt; terminé). Le delta « +N j » vit dans
+          le corps de carte. Plus jamais deux signaux qui se disputent un coin.
+        </p>
+      </div>
+      <div class="parti">
+        <span class="tag">Parti pris 3</span><b>Densité par révélation progressive</b>
+        <p>
+          En-tête de poste compact par défaut (code, nom, mini-histogramme) ; PP830 + stock bouches
+          derrière « Détails ». Liens : rouge visible, ambre atténué, vert au survol. La densité
+          maximale est un état qu'on demande, pas l'état par défaut.
+        </p>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════ 1. VUE PRINCIPALE ═══════════════════════ -->
+    <h2>
+      <span class="no">1</span>Vue principale — mode Combiné, rail de triage ouvert
+      <span class="dim">1440 px</span>
+    </h2>
+    <p class="note">
+      Chrome vertical total avant board : <b>104 px → 152 px</b> incluant désormais la barre
+      contextuelle qui porte la santé du plan (le masthead partagé reste inchangé : 60 + 44 px).
+    </p>
+
+    <div class="frame-wrap">
+      <div class="frame">
+        <!-- pins -->
+        <span class="pin" style="top: 118px; left: 16px">1</span>
+        <span class="pin" style="top: 118px; left: 560px">2</span>
+        <span class="pin" style="top: 118px; left: 1180px">3</span>
+        <span class="pin" style="top: 166px; left: 16px">4</span>
+        <span class="pin" style="top: 166px; left: 700px">5</span>
+        <span class="pin" style="top: 405px; left: 390px">6</span>
+        <span class="pin" style="top: 345px; left: 748px">7</span>
+        <span class="pin" style="top: 300px; left: 1128px">8</span>
+        <span class="pin" style="top: 262px; left: 16px">9</span>
+        <span class="pin" style="top: 660px; left: 16px">10</span>
+
+        <!-- masthead (inchangé, esquissé) -->
+        <div class="bar" style="height: 60px; background: var(--fill)">
+          <div style="font-weight: 800; font-size: 19px; letter-spacing: -0.02em">
+            Supply Chain <i style="font-weight: 500; color: var(--ink-3)">AERECO</i>
+          </div>
+          <span
+            class="ghost"
+            style="padding: 2px 8px; font: 600 9px var(--mono); letter-spacing: 0.1em"
+            >PROGRAMME · FLUX OF ↔ COMMANDES</span
+          >
+          <span class="spacer"></span>
+          <span class="ghost" style="padding: 3px 10px; font: 600 10px var(--mono)"
+            >Semaine 28 · Fenêtre 10 j · 42 OF · 6 postes · 18 cmdes</span
+          >
+        </div>
+        <div class="bar" style="height: 40px">
+          <span
+            style="
+              font-weight: 700;
+              font-size: 11px;
+              border-bottom: 2px solid var(--ink);
+              padding: 10px 2px;
+            "
+            >Programme</span
+          >
+          <span style="font-size: 11px; color: var(--ink-2); padding: 0 8px">Tableau</span>
+          <span style="font-size: 11px; color: var(--ink-2); padding: 0 8px">Charge</span>
+          <span style="font-size: 11px; color: var(--ink-2); padding: 0 8px">Ruptures</span>
+          <span style="font-size: 11px; color: var(--ink-2); padding: 0 8px">Suivi</span>
+          <span style="font-size: 11px; color: var(--ink-3); padding: 0 8px">…</span>
+          <span class="spacer"></span>
+          <span class="ghost round" style="width: 26px; height: 26px; border-radius: 50%"></span>
+        </div>
+
+        <!-- RANGÉE 1 : commande (stable, jamais de wrap) -->
+        <div class="bar" style="height: 48px">
+          <div class="seg" role="radiogroup" aria-label="Vue">
+            <button>Ordonnancement</button><button class="on">Combiné</button
+            ><button>Planification</button>
+          </div>
+          <span class="vsep"></span>
+          <span class="btn"
+            ><span class="ico"></span> 6 → 17 juil. <span style="opacity: 0.5">▾</span></span
+          >
+          <span class="btn" title="R"><span class="ico round"></span> Actualiser</span>
+          <span class="spacer"></span>
+          <span class="btn" style="width: 290px; justify-content: flex-start; border-radius: 15px"
+            ><span class="ico round"></span> Rechercher
+            <span style="margin-left: auto" class="kbd">/</span></span
+          >
+          <span class="btn" style="width: 120px"
+            >Portée : OF <span style="opacity: 0.5; margin-left: auto">▾</span></span
+          >
+          <span class="vsep"></span>
+          <span class="btn primary" title="F"
+            ><span class="ico" style="border-color: #fff"></span> Faisabilité</span
+          >
+          <span class="btn">Sélection</span>
+          <span class="btn on" title="S"><span class="ico"></span> Scénario</span>
+        </div>
+
+        <!-- RANGÉE 2 : contexte du mode + santé du plan (hauteur fixe) -->
+        <div class="bar" style="height: 40px; background: var(--fill)">
+          <span class="grp-label">Statut</span>
+          <span class="chip on" aria-pressed="true">Ferme</span>
+          <span class="chip on" aria-pressed="true">Planifié</span>
+          <span class="chip" aria-pressed="false">Suggéré</span>
+          <span class="vsep"></span>
+          <span class="grp-label">Allocation stock</span>
+          <div class="seg"><button class="on">Instantanée</button><button>Projetée</button></div>
+          <span class="vsep"></span>
+          <span class="grp-label">Liens</span>
+          <div class="seg">
+            <button>Aucun</button><button class="on">Problèmes</button><button>Tous</button>
+          </div>
+          <span class="spacer"></span>
+          <!-- santé du plan : TOUJOURS rendue, jamais de layout shift -->
+          <span class="health crit"><span class="dot"></span>3 retards</span>
+          <span class="health warn"><span class="dot"></span>2 limites</span>
+          <span class="health crit" style="opacity: 0.85"><span class="dot"></span>1 rupture</span>
+          <span class="health mut"><span class="dot"></span>4 sans lien</span>
+          <span class="btn" style="height: 26px">Rail <span class="kbd">T</span></span>
+        </div>
+
+        <!-- bandeau scénario (actif dans cette vue) -->
+        <div
+          class="bar"
+          style="
+            height: 40px;
+            background: repeating-linear-gradient(
+              45deg,
+              var(--brand-soft) 0 10px,
+              #f2f4fa 10px 20px
+            );
+            border-bottom: 1px solid var(--brand);
+          "
+        >
+          <span style="font: 700 10px var(--mono); letter-spacing: 0.1em; color: var(--brand)"
+            >MODE SCÉNARIO — BAC À SABLE, AUCUN ENVOI X3</span
+          >
+          <span class="chip" style="border-color: var(--brand); color: var(--brand)"
+            >« Rattrapage S29 » · 4 mutations</span
+          >
+          <span class="spacer"></span>
+          <span class="btn">Impacts</span>
+          <span class="btn">Enregistrer</span>
+          <span class="btn primary" style="background: var(--brand); border-color: var(--brand)"
+            >Appliquer 4 mutations…</span
+          >
+          <span class="btn" style="color: var(--crit); border-color: var(--crit)">Jeter…</span>
+        </div>
+
+        <div class="board">
+          <div class="grid-zone">
+            <!-- liens SVG : rouge plein, ambre atténué -->
+            <svg class="links" width="1140" height="520" viewBox="0 0 1140 520">
+              <path
+                d="M 455 168 C 560 168 600 328 700 330"
+                fill="none"
+                stroke="var(--crit)"
+                stroke-width="2.4"
+                opacity=".6"
+              />
+              <rect
+                x="556"
+                y="236"
+                width="44"
+                height="17"
+                rx="8.5"
+                fill="#fff"
+                stroke="var(--crit)"
+              />
+              <text
+                x="578"
+                y="248"
+                text-anchor="middle"
+                font-family="monospace"
+                font-size="10"
+                font-weight="700"
+                fill="var(--crit)"
+              >
+                +3 j
+              </text>
+              <path
+                d="M 300 330 C 420 330 500 452 610 455"
+                fill="none"
+                stroke="var(--warn)"
+                stroke-width="2"
+                opacity=".3"
+                stroke-dasharray="1 0"
+              />
+              <rect
+                x="436"
+                y="382"
+                width="30"
+                height="16"
+                rx="8"
+                fill="#fff"
+                stroke="var(--warn)"
+                opacity=".55"
+              />
+              <text
+                x="451"
+                y="394"
+                text-anchor="middle"
+                font-family="monospace"
+                font-size="9.5"
+                font-weight="700"
+                fill="var(--warn)"
+                opacity=".8"
+              >
+                J
+              </text>
+            </svg>
+
+            <div class="grid">
+              <!-- semaine -->
+              <div class="hdr" style="background: var(--fill-2)"></div>
+              <div class="hdr week">
+                <b style="font-size: 12px">Semaine 28</b><span class="dim">312,50 h</span>
+              </div>
+              <!-- jours -->
+              <div
+                class="hdr"
+                style="
+                  font: 700 9px var(--mono);
+                  letter-spacing: 0.1em;
+                  color: var(--ink-3);
+                  display: flex;
+                  align-items: flex-end;
+                "
+              >
+                POSTE
+              </div>
+              <div class="hdr dayhead">
+                <div class="dow">LUN</div>
+                <div class="num">6</div>
+                <div class="load">62,00 h</div>
+              </div>
+              <div class="hdr dayhead today">
+                <div class="dow">MAR</div>
+                <div class="num">7</div>
+                <div class="load">71,50 h</div>
+              </div>
+              <div class="hdr dayhead">
+                <div class="dow">MER</div>
+                <div class="num">8</div>
+                <div class="load">58,00 h</div>
+              </div>
+              <div class="hdr dayhead">
+                <div class="dow">JEU</div>
+                <div class="num">9</div>
+                <div class="load">66,00 h</div>
+              </div>
+              <div class="hdr dayhead">
+                <div class="dow">VEN</div>
+                <div class="num">10</div>
+                <div class="load">55,00 h</div>
+              </div>
+
+              <!-- POSTE 1 -->
+              <div class="poste">
+                <div class="code">MFGOPE</div>
+                <div class="name">Assemblage bouches</div>
+                <div class="histo">
+                  <i style="height: 60%"></i><i style="height: 90%"></i><i style="height: 45%"></i
+                  ><i style="height: 70%"></i>
+                </div>
+                <div class="more">▸ Détails poste <span class="dim">(PP830, bouches)</span></div>
+              </div>
+              <div class="cell">
+                <div class="card st-ferme v-ok">
+                  <div class="l1"><span class="num">OF00312</span></div>
+                  <div class="art">BXC245</div>
+                  <div class="tit">Bouche extraction C245</div>
+                  <div class="pbar"><i></i></div>
+                  <div class="foot">
+                    <span class="tagx">ESH10</span><span class="h">6,50<small>h</small></span>
+                  </div>
+                </div>
+              </div>
+              <div class="cell today">
+                <div class="card st-ferme v-crit">
+                  <span class="corner crit">!</span>
+                  <div class="l1">
+                    <span class="num">OF00318</span><span class="delta crit">+3 j</span>
+                  </div>
+                  <div class="art">GAV130</div>
+                  <div class="tit">Grille alu ventil 130</div>
+                  <div class="foot">
+                    <span class="tagx">BDH</span><span class="tagx">ESH30</span
+                    ><span class="h">4,00<small>h</small></span>
+                  </div>
+                </div>
+              </div>
+              <div class="cell">
+                <div class="card st-plan v-none">
+                  <div class="l1"><span class="num">OF00321</span></div>
+                  <div class="art">EAH70</div>
+                  <div class="tit">Entrée d'air hygro 70</div>
+                  <div class="foot">
+                    <span class="tagx">ESH10</span><span class="h">8,00<small>h</small></span>
+                  </div>
+                </div>
+              </div>
+              <div class="cell"></div>
+              <div class="cell">
+                <div class="card st-sugg v-warn">
+                  <div class="l1">
+                    <span class="num">OF00329</span><span class="delta warn">J</span>
+                  </div>
+                  <div class="art">BXH110</div>
+                  <div class="tit">Bouche hygro 110</div>
+                  <div class="foot">
+                    <span class="tagx">GPE</span><span class="h">5,00<small>h</small></span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- POSTE 2 -->
+              <div class="poste">
+                <div class="code">MFGCOL</div>
+                <div class="name">Collage / finition</div>
+                <div class="histo">
+                  <i style="height: 40%"></i><i style="height: 55%"></i
+                  ><i
+                    style="height: 100%; background: var(--warn-soft); border-color: var(--warn)"
+                  ></i
+                  ><i style="height: 60%"></i>
+                </div>
+                <div class="more">▸ Détails poste</div>
+              </div>
+              <div class="cell">
+                <div class="card st-plan v-warn">
+                  <div class="l1">
+                    <span class="num">OF00305</span><span class="delta warn">J</span>
+                  </div>
+                  <div class="art">CLP090</div>
+                  <div class="tit">Clapet 090</div>
+                  <div class="foot">
+                    <span class="tagx">KIT</span><span class="h">3,50<small>h</small></span>
+                  </div>
+                </div>
+              </div>
+              <div class="cell today"></div>
+              <div class="cell">
+                <div class="mk v-crit">
+                  <span class="grip"><i></i><i></i><i></i><i></i><i></i><i></i></span>
+                  <span class="truck">EXP</span><span class="id">AR24518·L2</span
+                  ><span class="cl">VENTILAIR SAS</span>
+                  <span class="delta crit">+3 j</span>
+                </div>
+              </div>
+              <div class="cell">
+                <div class="card st-ferme v-ok">
+                  <div class="l1"><span class="num">OF00335</span></div>
+                  <div class="art">BXC245</div>
+                  <div class="tit">Bouche extraction C245</div>
+                  <div class="foot">
+                    <span class="tagx">ESH10</span><span class="h">7,00<small>h</small></span>
+                  </div>
+                </div>
+              </div>
+              <div class="cell"></div>
+
+              <!-- POSTE 3 -->
+              <div class="poste">
+                <div class="code">MFGEMB</div>
+                <div class="name">Emballage</div>
+                <div class="histo">
+                  <i style="height: 30%"></i><i style="height: 45%"></i><i style="height: 35%"></i
+                  ><i style="height: 50%"></i>
+                </div>
+                <div class="more">▸ Détails poste</div>
+              </div>
+              <div class="cell"></div>
+              <div class="cell today">
+                <div class="card st-bloq v-none">
+                  <span class="corner crit">!</span>
+                  <div class="l1"><span class="num">OF00340</span></div>
+                  <div class="art">EAH70</div>
+                  <div class="tit">Entrée d'air hygro 70</div>
+                  <div
+                    style="
+                      margin-top: 4px;
+                      font: 700 9px var(--mono);
+                      color: var(--crit);
+                      background: var(--crit-soft);
+                      border-radius: 4px;
+                      padding: 2px 6px;
+                    "
+                  >
+                    ⚠ Rupture JNT004, MSS210
+                  </div>
+                  <div class="foot">
+                    <span class="tagx">ESH10</span><span class="h">6,00<small>h</small></span>
+                  </div>
+                </div>
+              </div>
+              <div class="cell"></div>
+              <div class="cell">
+                <div class="mk v-warn">
+                  <span class="grip"><i></i><i></i><i></i><i></i><i></i><i></i></span>
+                  <span class="truck">EXP</span><span class="id">AR24531·L1</span
+                  ><span class="cl">AERAULEC</span>
+                  <span class="delta warn">J</span>
+                </div>
+              </div>
+              <div class="cell">
+                <div class="mk">
+                  <span class="truck" style="opacity: 0.6">PRÉV</span><span class="id">PV0092</span
+                  ><span class="cl">DISTRIB NORD</span>
+                  <span class="q">non évaluée</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- RAIL TRIAGE -->
+          <div class="rail">
+            <div class="rhead">
+              <b>À traiter</b><span class="dim">6</span><span class="spacer"></span
+              ><span class="ghost" style="padding: 1px 7px; font: 600 9px var(--mono)"
+                >Gravité ▾</span
+              ><span class="ghost" style="padding: 1px 7px; font: 600 9px var(--mono)">✕</span>
+            </div>
+            <div class="tabs">
+              <span class="t on">Retards 3</span
+              ><span class="t" style="border-color: var(--warn); color: var(--warn)">Limites 2</span
+              ><span class="t" style="border-color: var(--crit); color: var(--crit)"
+                >Ruptures 1</span
+              >
+            </div>
+            <div class="titem sel">
+              <div class="r1">
+                <span class="vdot crit"></span><span class="id">AR24518·L2</span
+                ><span class="delta crit">+3 j</span>
+              </div>
+              <div class="r2">VENTILAIR SAS · besoin mer. 8 juil. · OF00318 finit sam. 11</div>
+              <div class="r3">
+                <span class="act">Voir sur le board</span><span class="act">Détail OF</span
+                ><span class="act">Simuler ▸</span>
+              </div>
+            </div>
+            <div class="titem">
+              <div class="r1">
+                <span class="vdot crit"></span><span class="id">AR24522·L1</span
+                ><span class="delta crit">+2 j</span>
+              </div>
+              <div class="r2">CLIMATEK · besoin jeu. 9 juil. · OF00327 finit sam. 11</div>
+            </div>
+            <div class="titem">
+              <div class="r1">
+                <span class="vdot crit"></span><span class="id">AR24509·L3</span
+                ><span class="delta crit">+1 j</span>
+              </div>
+              <div class="r2">AERAULEC · besoin ven. 10 juil. · OF00331 finit sam. 11</div>
+            </div>
+            <div class="titem" style="opacity: 0.65">
+              <div class="r1">
+                <span class="vdot warn"></span><span class="id">AR24531·L1</span
+                ><span class="delta warn">J</span>
+              </div>
+              <div class="r2">AERAULEC · dispo le jour du besoin, sans marge</div>
+            </div>
+            <div style="flex: 1"></div>
+            <div
+              style="
+                padding: 10px 14px;
+                border-top: 1px solid var(--line-soft);
+                font-size: 10.5px;
+                color: var(--ink-3);
+              "
+            >
+              Trié gravité × proximité du besoin. <b style="color: var(--ink-2)">Simuler ▸</b> ouvre
+              le scénario avec l'OF pré-sélectionné.
+            </div>
+          </div>
+        </div>
+
+        <!-- status bar -->
+        <div class="statusbar">
+          <span>Données X3 · cache 14:32 (il y a 6 min)</span>
+          <span>·</span><span>Allocation instantanée</span>
+          <span class="spacer"></span>
+          <span><span class="kbd">?</span> raccourcis</span>
+          <span><span class="kbd">1·2·3</span> vue</span
+          ><span><span class="kbd">T</span> triage</span
+          ><span><span class="kbd">R</span> actualiser</span
+          ><span><span class="kbd">Esc</span> fermer</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="legend">
+      <table>
+        <tr>
+          <td><span class="pin">1</span></td>
+          <td>Rangée commande (48 px, fixe)</td>
+          <td>
+            Vue (radiogroup, libellés complets, raccourcis 1/2/3) · fenêtre · actualiser. Jamais de
+            wrap : c'est la rangée d'identité de la page. <span class="lot">LOT 3</span>
+          </td>
+        </tr>
+        <tr>
+          <td><span class="pin">2</span></td>
+          <td>Recherche rapatriée</td>
+          <td>
+            Quitte le Masthead (tab order réparé) ; portée en Select à largeur unique (120 px) quel
+            que soit le mode ; focus <span class="kbd">/</span>. <span class="lot">LOT 3</span>
+          </td>
+        </tr>
+        <tr>
+          <td><span class="pin">3</span></td>
+          <td>Actions à droite, toujours présentes</td>
+          <td>
+            Scénario visible dans tous les modes — <b>disabled + tooltip</b> hors Combiné au lieu de
+            disparaître. <span class="lot">LOT 3</span>
+          </td>
+        </tr>
+        <tr>
+          <td><span class="pin">4</span></td>
+          <td>Rangée contexte (40 px, fixe)</td>
+          <td>
+            Filtres du mode courant (chips <code>aria-pressed</code>, cible 32 px) + segment « Liens
+            : Aucun / Problèmes / Tous » qui remplace le toggle highlight ambigu.
+            <span class="lot">LOTS 1·3·5</span>
+          </td>
+        </tr>
+        <tr>
+          <td><span class="pin">5</span></td>
+          <td>Santé du plan — emplacement réservé</td>
+          <td>
+            4 badges TOUJOURS rendus (verts « ✓ 0 » quand sain) : retards, limites, ruptures,
+            <b>sans lien</b> (l'inconnu devient une info de premier ordre). Clic = filtre le rail.
+            Zéro layout shift. <span class="lot">LOTS 0·3</span>
+          </td>
+        </tr>
+        <tr>
+          <td><span class="pin">6</span></td>
+          <td>Carte OF v2 — un signal par canal</td>
+          <td>
+            Haut = statut · gauche = verdict (gris = non évalué ≠ vert) · coin unique = criticité
+            (préséance rupture) · delta « +N j » dans le corps. BDH devient un tag de footer.
+            <span class="lot">LOTS 2·5</span>
+          </td>
+        </tr>
+        <tr>
+          <td><span class="pin">7</span></td>
+          <td>Marqueur commande v2</td>
+          <td>
+            Forme drapeau ≠ carte, fond blanc lisible sur la colonne « aujourd'hui », poignée de
+            drag si déplaçable, état « non évaluée » explicite. <span class="lot">LOTS 2·5</span>
+          </td>
+        </tr>
+        <tr>
+          <td><span class="pin">8</span></td>
+          <td>Rail « À traiter »</td>
+          <td>
+            File de triage repliable (300 px, <span class="kbd">T</span>) : onglets
+            retards/limites/ruptures, tri gravité × proximité, actions par item (voir / détail /
+            simuler). Sélection = surbrillance du lien + scroll du board.
+            <span class="lot">NOUVEAU</span>
+          </td>
+        </tr>
+        <tr>
+          <td><span class="pin">9</span></td>
+          <td>Bandeau scénario = bac à sable visible</td>
+          <td>
+            Fond hachuré sur toute la largeur : impossible de confondre simulation et réel. «
+            Appliquer 4 mutations… » et « Jeter… » ouvrent des confirmations (§5).
+            <span class="lot">LOT 0</span>
+          </td>
+        </tr>
+        <tr>
+          <td><span class="pin">10</span></td>
+          <td>Barre de statut</td>
+          <td>
+            Fraîcheur du cache X3 (aujourd'hui invisible), mode d'allocation actif, rappel des
+            raccourcis. <span class="lot">LOTS 1·6</span>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- ═══════════════════════ 2. TOOLBAR PAR MODE ═══════════════════════ -->
+    <h2>
+      <span class="no">2</span>Rangée contexte selon la vue — hauteur constante, contrôles partagés
+      immobiles
+    </h2>
+    <p class="note">
+      Règle : un contrôle présent dans plusieurs modes <b>ne change jamais de position</b>. Ce qui
+      est propre au mode occupe le même créneau à gauche. Santé du plan et bouton rail restent en
+      ancre droite.
+    </p>
+
+    <div class="modebar">
+      <div class="cap">Vue Ordonnancement</div>
+      <div class="bar" style="height: 40px; background: var(--fill); border: 0">
+        <span class="grp-label">Statut</span><span class="chip on">Ferme</span
+        ><span class="chip on">Planifié</span><span class="chip">Suggéré</span>
+        <span class="vsep"></span><span class="grp-label">Allocation stock</span>
+        <div class="seg"><button class="on">Instantanée</button><button>Projetée</button></div>
+        <span class="spacer"></span>
+        <span class="health mut"><span class="dot"></span>liens indisponibles</span>
+        <span
+          class="btn"
+          style="height: 26px; opacity: 0.45"
+          title="Le rail nécessite la vue Combiné"
+          >Rail</span
+        >
+      </div>
+    </div>
+
+    <div class="modebar">
+      <div class="cap">Vue Combiné (référence, cf. §1)</div>
+      <div class="bar" style="height: 40px; background: var(--fill); border: 0">
+        <span class="grp-label">Statut</span><span class="chip on">Ferme</span
+        ><span class="chip on">Planifié</span><span class="chip">Suggéré</span>
+        <span class="vsep"></span><span class="grp-label">Allocation stock</span>
+        <div class="seg"><button class="on">Instantanée</button><button>Projetée</button></div>
+        <span class="vsep"></span><span class="grp-label">Liens</span>
+        <div class="seg">
+          <button>Aucun</button><button class="on">Problèmes</button><button>Tous</button>
+        </div>
+        <span class="spacer"></span>
+        <span class="health okz"><span class="dot"></span>✓ 0 retard</span
+        ><span class="health warn"><span class="dot"></span>2 limites</span
+        ><span class="health okz"><span class="dot"></span>✓ 0 rupture</span
+        ><span class="health mut"><span class="dot"></span>4 sans lien</span>
+        <span class="btn" style="height: 26px">Rail <span class="kbd">T</span></span>
+      </div>
+    </div>
+
+    <div class="modebar">
+      <div class="cap">Vue Planification</div>
+      <div class="bar" style="height: 40px; background: var(--fill); border: 0">
+        <span class="grp-label">Atelier</span><span class="chip on">M1</span
+        ><span class="chip">M2</span><span class="chip">COL</span
+        ><span class="chip" style="border-style: dashed">✕ effacer</span> <span class="vsep"></span
+        ><span class="grp-label">Besoin</span><span class="chip on">Commande</span
+        ><span class="chip">Prévision</span> <span class="vsep"></span
+        ><span class="grp-label">Allocation stock</span>
+        <div class="seg"><button class="on">Instantanée</button><button>Projetée</button></div>
+        <span class="spacer"></span>
+        <span class="health crit"><span class="dot"></span>3 retards</span>
+        <span class="btn" style="height: 26px">Rail <span class="kbd">T</span></span>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════ 3. ANATOMIES ═══════════════════════ -->
+    <h2><span class="no">3</span>Anatomie des composants — la grammaire des signaux</h2>
+
+    <div class="zoomgrid">
+      <div class="zoom">
+        <h3>Carte OF v2 <span class="dim">— 4 canaux, 0 collision</span></h3>
+        <div class="stage">
+          <div class="card st-ferme v-crit" style="width: 230px; font-size: 12px">
+            <span class="corner crit">!</span>
+            <div class="l1">
+              <span class="num" style="font-size: 13px">OF00318</span
+              ><span class="delta crit">+3 j</span>
+            </div>
+            <div class="art" style="font-size: 12px">GAV130</div>
+            <div class="tit" style="font-size: 11.5px">Grille alu ventilation 130</div>
+            <div class="pbar"><i style="width: 40%"></i></div>
+            <div class="foot">
+              <span class="tagx">BDH</span><span class="tagx">ESH30</span
+              ><span class="tagx">GPE</span
+              ><span class="h" style="font-size: 13px">4,00<small>h</small></span>
+            </div>
+          </div>
+        </div>
+        <ul class="callouts">
+          <li>
+            <b>Liseré haut 3 px = statut</b> (ferme vert · planifié bleu · suggéré mauve · bloqué
+            rouge · terminé gris + carte à 60 %).
+          </li>
+          <li>
+            <b>Liseré gauche 3 px = verdict temporel</b> — vert / ambre / rouge /
+            <b>gris « non évalué »</b> : l'absence de donnée a sa propre couleur.
+          </li>
+          <li>
+            <b>Coin haut-droit = UN badge</b>, préséance : rupture composant ! &gt; faisabilité ✓
+            &gt; terminé ✓. Le retard n'est plus en coin.
+          </li>
+          <li>
+            <b>« +N j » chip dans l'en-tête</b> — même ligne que le n° d'OF, 10-11 px, cliquable →
+            source du verdict (quelle commande).
+          </li>
+          <li>
+            <b>BDH / typologie / KIT-GPE = tags de footer</b> — plus de tampon incliné en position
+            absolue.
+          </li>
+          <li>
+            Typo : n° 13 px mono · article 12 px · désignation 11,5 px · footer 11 px.
+            <b>Plancher 11 px partout.</b>
+          </li>
+          <li>
+            Mode sélection : la checkbox remplace le liseré gauche (le verdict passe en chip) —
+            jamais deux occupants d'un même emplacement.
+          </li>
+        </ul>
+      </div>
+
+      <div class="zoom">
+        <h3>Marqueur commande v2 <span class="dim">— une autre espèce que la carte</span></h3>
+        <div class="stage">
+          <div class="mk v-crit" style="width: 250px; font-size: 11px">
+            <span class="grip"><i></i><i></i><i></i><i></i><i></i><i></i></span>
+            <span class="truck">EXP</span
+            ><span class="id" style="font-size: 11.5px">AR24518·L2</span
+            ><span class="cl" style="max-width: 80px">VENTILAIR SAS</span>
+            <span class="delta crit">+3 j</span>
+          </div>
+          <div class="mk v-ok" style="width: 250px; font-size: 11px">
+            <span class="grip"><i></i><i></i><i></i><i></i><i></i><i></i></span>
+            <span class="truck">EXP</span
+            ><span class="id" style="font-size: 11.5px">AR24540·L1</span
+            ><span class="cl" style="max-width: 80px">CLIMATEK</span>
+            <span class="delta" style="background: var(--ok-soft); color: var(--ok)">✓</span>
+          </div>
+          <div class="mk" style="width: 250px; font-size: 11px">
+            <span class="truck" style="opacity: 0.6">PRÉV</span
+            ><span class="id" style="font-size: 11.5px">PV0092</span
+            ><span class="cl" style="max-width: 80px">DISTRIB NORD</span>
+            <span class="q">non évaluée</span>
+          </div>
+        </div>
+        <ul class="callouts">
+          <li>
+            <b>Forme drapeau, bord droit arrondi, contour pointillé</b> : identifiable comme « jalon
+            d'expédition », impossible à confondre avec une carte OF.
+          </li>
+          <li><b>Fond blanc opaque</b> : reste lisible sur la colonne « aujourd'hui » teintée.</li>
+          <li>
+            <b>Poignée 6 points = déplaçable</b> (a une ligne de commande). Une prévision sans ligne
+            n'a pas de poignée : l'affordance dit la vérité.
+          </li>
+          <li>
+            <b>3 états de verdict + « non évaluée »</b> explicite — plus de faux « à l'heure ».
+          </li>
+          <li>
+            Focusable (<code>tabindex=0</code>), <code>aria-label</code> = « Commande AR24518 ligne
+            2, VENTILAIR, besoin 8 juil., retard 3 jours ».
+          </li>
+        </ul>
+      </div>
+
+      <div class="zoom">
+        <h3>Liens &amp; étiquettes <span class="dim">— visibilité graduée</span></h3>
+        <div class="stage" style="min-height: 150px">
+          <svg width="300" height="130" viewBox="0 0 300 130">
+            <path
+              d="M10 20 C 110 20 190 40 290 45"
+              fill="none"
+              stroke="var(--crit)"
+              stroke-width="2.4"
+              opacity=".6"
+            />
+            <rect x="120" y="18" width="46" height="18" rx="9" fill="#fff" stroke="var(--crit)" />
+            <text
+              x="143"
+              y="31"
+              text-anchor="middle"
+              font-size="10.5"
+              font-weight="700"
+              font-family="monospace"
+              fill="var(--crit)"
+            >
+              +3 j
+            </text>
+            <path
+              d="M10 70 C 110 70 190 85 290 90"
+              fill="none"
+              stroke="var(--warn)"
+              stroke-width="2"
+              opacity=".3"
+            />
+            <rect
+              x="130"
+              y="66"
+              width="26"
+              height="17"
+              rx="8.5"
+              fill="#fff"
+              stroke="var(--warn)"
+              opacity=".6"
+            />
+            <text
+              x="143"
+              y="78"
+              text-anchor="middle"
+              font-size="10"
+              font-weight="700"
+              font-family="monospace"
+              fill="var(--warn)"
+              opacity=".85"
+            >
+              J
+            </text>
+            <path
+              d="M10 112 C 110 112 190 118 290 120"
+              fill="none"
+              stroke="var(--ok)"
+              stroke-width="2"
+              opacity=".12"
+              stroke-dasharray="5 4"
+            />
+          </svg>
+        </div>
+        <ul class="callouts">
+          <li>
+            <b>Retard : opacité 0,6 d'emblée</b>, étiquette « +N j » à largeur auto (mesurée sur le
+            label, plus de rect 32 px).
+          </li>
+          <li>
+            <b>Limite : opacité 0,3 d'emblée</b> — un « J » se repère sans interaction, promesse du
+            segment « Problèmes ».
+          </li>
+          <li><b>Ok : survol uniquement</b> (segment « Tous » pour les afficher).</li>
+          <li>
+            Survol carte / marqueur / item du rail → le lien passe à 0,95 et les autres s'estompent
+            à 0,08 (mise au point).
+          </li>
+        </ul>
+      </div>
+
+      <div class="zoom">
+        <h3>En-tête de poste <span class="dim">— compact par défaut</span></h3>
+        <div class="stage">
+          <div
+            style="
+              width: 190px;
+              background: var(--paper);
+              border: 1px solid var(--line);
+              border-radius: 8px;
+              padding: 10px 12px;
+            "
+          >
+            <div class="code" style="font: 700 12px var(--mono)">MFGOPE</div>
+            <div class="name" style="font-size: 10.5px; color: var(--ink-2)">
+              Assemblage bouches
+            </div>
+            <div class="histo">
+              <i style="height: 60%"></i><i style="height: 90%"></i><i style="height: 45%"></i
+              ><i style="height: 70%"></i>
+            </div>
+            <div
+              class="more"
+              style="margin-top: 8px; font: 600 10px system-ui; color: var(--annot)"
+            >
+              ▾ Détails poste
+            </div>
+            <div style="margin-top: 8px; border-top: 1px dashed var(--line); padding-top: 8px">
+              <div style="font: 700 9px var(--mono); color: var(--ink-3); letter-spacing: 0.1em">
+                PP830 · ÉQUILIBRAGE
+              </div>
+              <div
+                style="
+                  display: flex;
+                  height: 6px;
+                  border-radius: 3px;
+                  overflow: hidden;
+                  margin-top: 5px;
+                "
+              >
+                <i style="flex: 3; background: var(--ink-2)"></i
+                ><i style="flex: 2; background: var(--ink-3)"></i
+                ><i style="flex: 1; background: var(--fill-2)"></i>
+              </div>
+              <div style="font-size: 10px; color: var(--ink-2); margin-top: 5px">
+                Bouches hygro <b>142</b> pcs
+              </div>
+              <div style="font: 600 10px system-ui; color: var(--annot); margin-top: 6px">
+                Engagement du poste ▸
+              </div>
+            </div>
+          </div>
+        </div>
+        <ul class="callouts">
+          <li>
+            <b>Compact = code + nom + mini-histogramme</b> (~64 px). La hauteur de rangée suit les
+            cartes, pas l'en-tête.
+          </li>
+          <li>
+            <b>« Détails poste »</b> déplie PP830 + stock bouches, état mémorisé par poste
+            (localStorage).
+          </li>
+          <li>
+            <b>« Engagement du poste ▸ »</b> devient un lien explicite — aujourd'hui c'est un clic
+            caché sur l'identité.
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════ 4. ÉTATS ═══════════════════════ -->
+    <h2><span class="no">4</span>États — chargement, vide, honnêteté du scénario</h2>
+
+    <div class="zoomgrid">
+      <div class="zoom">
+        <h3>Chargement initial <span class="dim">— cache froid = 5-10 s, il faut le dire</span></h3>
+        <div class="stage">
+          <div
+            style="width: 100%; display: grid; grid-template-columns: 130px 1fr 1fr 1fr; gap: 8px"
+          >
+            <div class="skel" style="height: 70px"></div>
+            <div class="skel" style="height: 70px"></div>
+            <div class="skel" style="height: 70px"></div>
+            <div class="skel" style="height: 70px"></div>
+            <div class="skel" style="height: 70px"></div>
+            <div class="skel" style="height: 70px"></div>
+            <div class="skel" style="height: 70px"></div>
+            <div class="skel" style="height: 70px"></div>
+          </div>
+          <div style="font: 600 11px system-ui; color: var(--ink-2)">
+            Chargement des données X3…
+            <span class="dim">première ouverture : jusqu'à 10 s (cache 5 min)</span>
+          </div>
+        </div>
+        <ul class="callouts">
+          <li>
+            Skeleton de grille (en-têtes + 2 rangées) tant que <code>board === null</code> ; jamais
+            « Aucun OF » pendant un chargement.
+          </li>
+        </ul>
+      </div>
+
+      <div class="zoom">
+        <h3>État vide guidé</h3>
+        <div class="stage" style="align-items: center; text-align: center">
+          <div
+            style="
+              width: 44px;
+              height: 44px;
+              border: 2px dashed var(--line);
+              border-radius: 10px;
+              margin: 0 auto;
+            "
+          ></div>
+          <b style="font-size: 13px">Aucun OF dans cette fenêtre</b>
+          <div style="font-size: 11.5px; color: var(--ink-2); max-width: 300px">
+            Aucun ordre entre le 6 et le 17 juillet avec les filtres actuels (Suggéré masqué).
+          </div>
+          <div style="display: flex; gap: 8px">
+            <span class="btn">Élargir la fenêtre</span
+            ><span class="btn">Réinitialiser les filtres</span>
+          </div>
+        </div>
+        <ul class="callouts">
+          <li>
+            Cause probable + deux CTA. En Planification, le test porte sur <b>orderBoard</b> (bug
+            actuel : compteur de postes OF). La BatchFirmBar n'est jamais rendue sous un état vide.
+          </li>
+        </ul>
+      </div>
+
+      <div class="zoom">
+        <h3>Application de scénario — vérité par mutation</h3>
+        <div class="stage">
+          <div class="toast">
+            <span class="tico" style="background: var(--warn)">!</span>
+            <div>
+              <b>Scénario appliqué partiellement — 3/4 mutations</b><br />
+              <span style="opacity: 0.85"
+                >Échec : OF00318 → 9 juil. (X3 : période close). Le scénario reste ouvert avec la
+                mutation en échec.</span
+              >
+              <div style="margin-top: 8px; display: flex; gap: 8px">
+                <span
+                  class="btn"
+                  style="
+                    height: 24px;
+                    background: transparent;
+                    color: #fff;
+                    border-color: rgba(255, 255, 255, 0.4);
+                  "
+                  >Réessayer l'échec</span
+                ><span
+                  class="btn"
+                  style="
+                    height: 24px;
+                    background: transparent;
+                    color: #fff;
+                    border-color: rgba(255, 255, 255, 0.4);
+                  "
+                  >Voir le détail</span
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+        <ul class="callouts">
+          <li>
+            Chaque PATCH vérifie <code>r.ok</code> ; les échecs sont agrégés et nommés.
+            <b>markApplied() seulement si 100 % ok.</b>
+          </li>
+          <li>
+            Dans le bandeau scénario, chaque mutation porte son état pendant l'application : ⏳ → ✓
+            / ✗.
+          </li>
+        </ul>
+      </div>
+
+      <div class="zoom">
+        <h3>« Jeter » — confirmation proportionnée</h3>
+        <div class="stage">
+          <div class="dialog">
+            <h4>Jeter le scénario « Rattrapage S29 » ?</h4>
+            <p>
+              4 mutations non appliquées seront perdues : 3 déplacements d'OF, 1 commande virtuelle.
+              Cette action est immédiate.
+            </p>
+            <div class="acts">
+              <span class="btn">Enregistrer d'abord</span><span class="btn">Annuler</span
+              ><span
+                class="btn"
+                style="background: var(--crit); border-color: var(--crit); color: #fff"
+                >Jeter</span
+              >
+            </div>
+          </div>
+        </div>
+        <ul class="callouts">
+          <li>
+            AlertDialog seulement si ≥ 1 mutation ; l'échappatoire « Enregistrer d'abord »
+            transforme la friction en filet.
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════ 5. INTERACTIONS ═══════════════════════ -->
+    <h2><span class="no">5</span>Interactions — drag, clavier, focus</h2>
+    <div class="zoomgrid">
+      <div class="zoom">
+        <h3>Drag OF — le verdict suit le curseur</h3>
+        <div class="stage">
+          <div style="position: relative; width: 230px">
+            <div
+              class="card st-ferme v-warn"
+              style="
+                width: 210px;
+                opacity: 0.9;
+                transform: rotate(-1.5deg);
+                box-shadow: 0 10px 24px -8px rgba(0, 0, 0, 0.3);
+              "
+            >
+              <div class="l1">
+                <span class="num">OF00318</span><span class="delta warn">J</span>
+              </div>
+              <div class="art">GAV130</div>
+              <div class="foot">
+                <span class="h">4,00<small>h</small></span>
+              </div>
+            </div>
+            <div
+              style="
+                position: absolute;
+                left: 24px;
+                top: calc(100% + 6px);
+                background: var(--ink);
+                color: #fff;
+                border-radius: 8px;
+                padding: 5px 10px;
+                font: 600 11px system-ui;
+                white-space: nowrap;
+                box-shadow: 0 6px 18px -6px rgba(0, 0, 0, 0.4);
+              "
+            >
+              Dispo estimée <b>jeu. 9 juil.</b> · limite (J) — était : retard +3 j
+            </div>
+          </div>
+        </div>
+        <ul class="callouts">
+          <li>
+            <b>Tooltip ancré à la carte fantôme</b> (offset curseur), plus en bas d'écran : verdict
+            prévisionnel + comparaison à l'état d'origine.
+          </li>
+          <li>
+            La cellule cible affiche un anneau + le lien se recalcule en live (comportement existant
+            conservé).
+          </li>
+          <li>Drop hors grille = retour visuel à l'origine (aucun état fantôme).</li>
+        </ul>
+      </div>
+      <div class="zoom">
+        <h3>Clavier — la page entière sans souris</h3>
+        <ul class="callouts" style="margin-top: 0">
+          <li>
+            <span class="kbd">1</span> <span class="kbd">2</span> <span class="kbd">3</span> vue ·
+            <span class="kbd">R</span> actualiser · <span class="kbd">F</span> faisabilité ·
+            <span class="kbd">S</span> scénario · <span class="kbd">T</span> rail ·
+            <span class="kbd">/</span> recherche · <span class="kbd">Esc</span> ferme (calendrier,
+            sheets, rail) · <span class="kbd">?</span> aide.
+          </li>
+          <li>
+            Cartes et marqueurs : <span class="kbd">Tab</span> parcourt,
+            <span class="kbd">↵</span> ouvre le détail,
+            <span class="kbd">Espace</span> (dé)sélectionne en mode sélection.
+          </li>
+          <li>
+            <b>Déplacement clavier</b> : <span class="kbd">M</span> sur une carte = mode
+            déplacement, <span class="kbd">←→</span> change de jour, <span class="kbd">↑↓</span> de
+            poste, <span class="kbd">↵</span> dépose — l'équivalent non-souris du drag (base du
+            futur support tactile).
+          </li>
+          <li>
+            Rail : <span class="kbd">↑↓</span> navigue les items, <span class="kbd">↵</span> centre
+            le board sur le problème.
+          </li>
+          <li>
+            Focus trap dans calendrier et dialogs ; <code>aria-live="polite"</code> sur les toasts
+            et sur le résultat de faisabilité.
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════ 6. TOKENS ═══════════════════════ -->
+    <h2><span class="no">6</span>Fondations — sémantique couleur &amp; échelle typographique</h2>
+    <div class="tokens">
+      <div class="zoom">
+        <h3>Couleur : 3 familles étanches</h3>
+        <table class="tok-table">
+          <tr>
+            <th>Famille</th>
+            <th>Ton</th>
+            <th>Usage exclusif</th>
+          </tr>
+          <tr>
+            <td rowspan="4"><b>Verdict temporel</b><br /><span class="dim">--verdict-*</span></td>
+            <td><span class="sw" style="background: var(--ok)"></span> ok</td>
+            <td>liseré gauche carte, marqueur, lien, badge santé</td>
+          </tr>
+          <tr>
+            <td><span class="sw" style="background: var(--warn)"></span> limite</td>
+            <td>idem — « à l'heure sans marge »</td>
+          </tr>
+          <tr>
+            <td><span class="sw" style="background: var(--crit)"></span> retard</td>
+            <td>idem — delta chiffré obligatoire</td>
+          </tr>
+          <tr>
+            <td><span class="sw" style="background: var(--neutral)"></span> non évalué</td>
+            <td><b>nouveau</b> — pas de lien / donnée absente</td>
+          </tr>
+          <tr>
+            <td rowspan="2"><b>Statut OF</b><br /><span class="dim">--status-*</span></td>
+            <td>
+              <span class="sw" style="background: #3d7a46"></span>
+              <span class="sw" style="background: #4a6fa5"></span>
+              <span class="sw" style="background: #b48ead"></span>
+            </td>
+            <td>liseré haut uniquement (ferme/planifié/suggéré…)</td>
+          </tr>
+          <tr>
+            <td><span class="sw" style="background: var(--crit)"></span> bloqué</td>
+            <td>liseré haut + alerte rupture dans le corps</td>
+          </tr>
+          <tr>
+            <td><b>Marque / interaction</b><br /><span class="dim">--brand-*</span></td>
+            <td><span class="sw" style="background: var(--brand)"></span> navy</td>
+            <td>sélection, focus, aujourd'hui, boutons actifs — <b>jamais un verdict</b></td>
+          </tr>
+        </table>
+        <ul class="callouts">
+          <li>
+            Un seul thème après migration ; <code>terra</code> renommé <code>brand</code> (le token
+            vaut déjà navy sous <code>.theme-navy</code>).
+          </li>
+          <li>
+            Source unique <code>lib/vision/verdict-tones.ts</code> — supprime les 3 duplications
+            actuelles.
+          </li>
+          <li>
+            Redondance non-couleur : icône ≠ par verdict + delta chiffré → lisible en daltonisme.
+          </li>
+        </ul>
+      </div>
+      <div class="zoom">
+        <h3>Typo : 5 niveaux, plancher 11 px</h3>
+        <table class="tok-table rule-table">
+          <tr>
+            <th>Niveau</th>
+            <th>Taille</th>
+            <th>Usage</th>
+          </tr>
+          <tr>
+            <td style="font: 700 10px var(--mono); letter-spacing: 0.1em; color: var(--ink-3)">
+              LABEL 10px MONO
+            </td>
+            <td>10 px</td>
+            <td>
+              micro-étiquettes décoratives uniquement (groupes toolbar, légendes) — jamais une
+              donnée
+            </td>
+          </tr>
+          <tr>
+            <td style="font-size: 11px">Corps 11 px</td>
+            <td>11 px</td>
+            <td><b>plancher décisionnel</b> : deltas, dates, tags, clients, footer carte</td>
+          </tr>
+          <tr>
+            <td style="font-size: 12px">Corps 12 px</td>
+            <td>12 px</td>
+            <td>texte courant, boutons, chips, articles</td>
+          </tr>
+          <tr>
+            <td style="font: 700 13px var(--mono)">Identifiants 13 px</td>
+            <td>13 px mono</td>
+            <td>n° OF / commande / poste — ce qu'on lit à voix haute au téléphone</td>
+          </tr>
+          <tr>
+            <td style="font-weight: 700; font-size: 17px">Chiffres clés 17 px</td>
+            <td>17-19 px</td>
+            <td>n° du jour, totaux d'heures, quantités mises en avant</td>
+          </tr>
+        </table>
+        <ul class="callouts">
+          <li>
+            Remplace les 8 tailles arbitraires <code>text-[Npx]</code> par des tokens
+            (<code>text-2xs</code>…<code>text-lg</code>).
+          </li>
+          <li>
+            Chips et boutons : hauteur min 26 px visuelle,
+            <b>zone cliquable étendue à 32-36 px</b> (pseudo-élément), « ✕ » ≥ 24 px.
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════ 7. RÈGLES ═══════════════════════ -->
+    <h2><span class="no">7</span>Règles de rendu — l'arbitrage écrit une fois pour toutes</h2>
+    <div class="zoom" style="max-width: 1240px">
+      <table class="tok-table rule-table">
+        <tr>
+          <th>Situation</th>
+          <th>Règle</th>
+        </tr>
+        <tr>
+          <td>Coin haut-droit de carte</td>
+          <td>
+            1 badge max — préséance : rupture composant <b>!</b> &gt; faisabilité ✓ &gt; terminé ✓.
+            Les autres signaux existent ailleurs (corps, drawer), jamais empilés.
+          </td>
+        </tr>
+        <tr>
+          <td>Retard + sélection simultanés</td>
+          <td>
+            Le « +N j » reste dans l'en-tête de carte (jamais en coin) ; la checkbox occupe seule le
+            canal gauche en mode sélection, le verdict bascule en chip.
+          </td>
+        </tr>
+        <tr>
+          <td>Visibilité des liens</td>
+          <td>
+            Segment 3 états : Aucun / <b>Problèmes</b> (défaut : retard 0,6 + limite 0,3) / Tous (+
+            ok 0,25). Survol : lien ciblé 0,95, les autres 0,08.
+          </td>
+        </tr>
+        <tr>
+          <td>Verdict absent</td>
+          <td>
+            Toujours rendu en <b>neutre explicite</b> (« non évaluée », liseré gris, badge santé « N
+            sans lien ») — jamais assimilé à « ok ».
+          </td>
+        </tr>
+        <tr>
+          <td>Compteurs de santé</td>
+          <td>
+            Toujours rendus, y compris à zéro (« ✓ 0 retard ») — l'emplacement est réservé,
+            l'absence d'un problème est une information.
+          </td>
+        </tr>
+        <tr>
+          <td>Contrôle indisponible dans un mode</td>
+          <td>
+            <b>Disabled + tooltip</b> expliquant le mode requis — jamais retiré du DOM (position
+            stable, découvrabilité).
+          </td>
+        </tr>
+        <tr>
+          <td>Actualiser</td>
+          <td>
+            Le payload serveur fait foi : purge de <code>cmdMoved</code> / <code>ofShift</code> /
+            <code>ofDateFinOverride</code> à la réception.
+          </td>
+        </tr>
+        <tr>
+          <td>Action destructive ou irréversible</td>
+          <td>
+            Confirmation proportionnée : « Jeter » ≥ 1 mutation → AlertDialog ; « Appliquer » →
+            récapitulatif N mutations ; échec partiel → scénario maintenu ouvert.
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <p class="note" style="margin-top: 36px">
+      <b>Traçabilité :</b> §1-2 couvrent les lots 0·1·3 de l'issue #62 · §3 les lots 2·4·5 · §4 les
+      lots 0·6 · §5 le lot 1 (+ fondation tactile hors périmètre) · §6 les lots 2·4 · §7 est la spec
+      transverse. Le rail de triage (§1, pin 8) est le seul ajout net au périmètre — c'est lui qui
+      fait « passer un step » à la page.
+    </p>
+  </body>
+</html>
