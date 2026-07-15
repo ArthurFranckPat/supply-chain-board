@@ -219,6 +219,11 @@ router
       )
       .as('conditionnements.estimations')
 
+    // CTP — Capable-to-Promise : date au plus tôt (PRD §6.2, lot 2).
+    router
+      .get('/api/v1/promesse', '#controllers/promise_controller.index')
+      .as('promesse.index')
+
     // X3 Data (raw SQL debug) — `.as('data.load')` pour éviter le nom auto
     // `x_3_data.load` généré depuis X3DataController (issue #18).
     router
