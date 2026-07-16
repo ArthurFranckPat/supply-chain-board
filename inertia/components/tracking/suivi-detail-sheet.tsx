@@ -545,6 +545,11 @@ export const SuiviDetailSheet: Component<SuiviDetailSheetProps> = (props) => {
                     </div>
                   </div>
                   <div class="flex items-center gap-3">
+                    <Show when={e.dateMiseEnStock}>
+                      <span class="font-mono text-[10px] text-muted-foreground bg-secondary/55 px-2 py-0.5 rounded-lg border border-rule-soft" title="Date d'entrée en stock">
+                        Entrée: {e.dateMiseEnStock}
+                      </span>
+                    </Show>
                     <Show when={e.hum}>
                       <span class="font-mono text-[10px] text-muted-foreground bg-secondary/55 px-2 py-0.5 rounded-lg border border-rule-soft">
                         HU: {e.hum}
