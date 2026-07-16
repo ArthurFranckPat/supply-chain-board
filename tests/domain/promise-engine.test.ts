@@ -382,6 +382,53 @@ test.group('promise-engine — ledger anti-double-promesse (§5.2)', () => {
   })
 })
 
+test.group('promise-engine — couverture partielle visible dans l’arbre', () => {
+  test('achat partiellement couvert par stock → feuille stock à côté de l’appro', ({
+    assert,
+  }) => {
+    const articles = new Map([['X', mkArticle('X', '', 'ACHAT', 14)]])
+    const stock = new Map([['X', 40]])
+    const data = mkDataset(articles, new Map(), stock)
+
+    const r = promise('X', 100, data)
+
+    // Reliquat 60 en appro (14 j) contraint ; la part stock (40) est visible en enfant.
+    assert.equal(day(r.promiseDate), addDays('2026-07-15', 14))
+    assert.equal(r.tree.reason.kind, 'appro')
+    assert.equal(r.tree.children.length, 1)
+    assert.equal(r.tree.children[0].reason.kind, 'stock')
+    assert.equal(r.tree.children[0].quantity, 40)
+    assert.equal(r.tree.children[0].onCriticalPath, false)
+    // Le chemin critique s'arrête au nœud appro (pas d'enfant critique).
+    assert.equal(r.limitingFactor.reason.kind, 'appro')
+  })
+
+  test('flux partiel plus tardif que la production du reliquat → le flux contraint', ({
+    assert,
+  }) => {
+    const articles = new Map([
+      ['A', mkArticle('A', '', 'FABRICATION', 2)],
+      ['C', mkArticle('C', '', 'ACHAT')],
+    ])
+    const boms = new Map([mkBom('A', [mkEntry('A', 'C', 1, 'ACHETE')])])
+    const stock = new Map([['C', 100]])
+    // 50 de A couverts par un OF qui finit dans 30 j ; le reliquat (50) se
+    // fabrique en 2 j (composants en stock) — l'OF tardif porte la date.
+    const receptions = new Map([
+      ['A', [mkSupply('OF1', new Date(addDays('2026-07-15', 30)), 50, 'of')]],
+    ])
+    const data = mkDataset(articles, boms, stock, receptions)
+
+    const r = promise('A', 100, data)
+
+    assert.equal(day(r.promiseDate), addDays('2026-07-15', 30))
+    const ofLeaf = r.tree.children.find((c) => c.reason.kind === 'of')!
+    assert.isDefined(ofLeaf)
+    assert.equal(ofLeaf.onCriticalPath, true)
+    assert.equal(r.limitingFactor.reason.kind, 'of')
+  })
+})
+
 test.group('promise-engine — optimiste vs engageante', () => {
   test('engageante ≥ optimiste ; l’écart intègre latence + jours ouvrés', ({ assert }) => {
     const articles = new Map([['A', mkArticle('A', '', 'ACHAT', 14)]])

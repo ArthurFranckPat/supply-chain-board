@@ -237,6 +237,23 @@ function dispoDate(
 
   // ── Étape 3 : reliquat à produire ou acheter ──
 
+  // Couverture partielle stock/flux rendue visible dans l'arbre (drill-down
+  // honnête) : la part couverte apparaît en feuilles à côté du reliquat produit/acheté.
+  const coverLeaves: PromiseNode[] = []
+  if (stockTaken > 0) coverLeaves.push(mkLeaf(article, stockTaken, from, { kind: 'stock' }, 0))
+  if (flux.taken > 0 && flux.supply) {
+    const s = flux.supply
+    const date = flux.date ?? from
+    const reason: PromiseReason =
+      s.source === 'of'
+        ? { kind: 'of', ofId: s.id, date }
+        : { kind: 'reception', poId: s.id, date }
+    coverLeaves.push(mkLeaf(article, flux.taken, date, reason, 0))
+  }
+  // La feuille flux la plus tardive — candidate au chemin critique si elle
+  // arrive après la production/commande du reliquat.
+  const fluxLeaf = coverLeaves.length > 0 ? coverLeaves[coverLeaves.length - 1] : null
+
   const phantom = info ? isPhantom(info) : false
   const subcontracted = info ? isSubcontracted(info) : false
   const canFabricate = hasBom && info?.supplyType === 'FABRICATION' && !phantom && !subcontracted
@@ -244,7 +261,18 @@ function dispoDate(
 
   // 3a/3b — Fantôme AFANT (délai 0) ou fabrication (délai fab) : descendre la BOM.
   if (canPhantomDescend || canFabricate) {
-    return fabricate(article, quantity, remaining, from, depth, visited, ctx, info, partialDate)
+    return fabricate(
+      article,
+      quantity,
+      remaining,
+      from,
+      depth,
+      visited,
+      ctx,
+      info,
+      partialDate,
+      coverLeaves
+    )
   }
 
   // 3c — Achat ou sous-traitance : commander (délai appro).
@@ -252,13 +280,15 @@ function dispoDate(
     const baseDelay = info.reorderDelay || 14
     const observed = ctx.mode === 'engageante' && latency > 0 ? latency : undefined
     const orderArrival = shiftDate(from, baseDelay + latency, ctx.mode, ctx.data.closedDays)
+    // Si le flux partiel arrive après la commande du reliquat, c'est lui qui contraint.
+    if (fluxLeaf && partialDate.getTime() > orderArrival.getTime()) fluxLeaf.onCriticalPath = true
     return {
       article,
       quantity,
       availableDate: maxDate(partialDate, orderArrival),
       reason: { kind: 'appro', leadTime: baseDelay, observed },
       leadTimeUsed: baseDelay + latency,
-      children: [],
+      children: coverLeaves,
       onCriticalPath: false,
     }
   }
@@ -284,13 +314,14 @@ function fabricate(
   visited: Set<string>,
   ctx: EngineCtx,
   info: Article | undefined,
-  partialDate: Date
+  partialDate: Date,
+  coverLeaves: PromiseNode[]
 ): PromiseNode {
   const bom = ctx.data.nomenclatures.get(article)!
   const phantom = info ? isPhantom(info) : false
   const fabDelay = phantom ? 0 : info!.reorderDelay || 10
 
-  const children: PromiseNode[] = []
+  const bomChildren: PromiseNode[] = []
   for (const entry of bom.components) {
     const compArticle = entry.componentArticle
     if (visited.has(compArticle)) {
@@ -306,20 +337,26 @@ function fabricate(
       new Set(visited).add(article),
       ctx
     )
-    children.push(child)
+    bomChildren.push(child)
   }
 
-  // Marquer l'enfant le plus lent (branche critique).
-  markCriticalChild(children)
-
   const componentsReady =
-    children.length > 0
-      ? children.reduce(
+    bomChildren.length > 0
+      ? bomChildren.reduce(
           (max, c) => (c.availableDate.getTime() > max.getTime() ? c.availableDate : max),
-          children[0].availableDate
+          bomChildren[0].availableDate
         )
       : from
   const productionDate = shiftDate(componentsReady, fabDelay, ctx.mode, ctx.data.closedDays)
+
+  // Branche critique : le flux partiel s'il arrive après la production du
+  // reliquat, sinon le composant BOM le plus lent.
+  const fluxLeaf = coverLeaves.length > 0 ? coverLeaves[coverLeaves.length - 1] : null
+  if (fluxLeaf && partialDate.getTime() > productionDate.getTime()) {
+    fluxLeaf.onCriticalPath = true
+  } else {
+    markCriticalChild(bomChildren)
+  }
 
   return {
     article,
@@ -327,7 +364,7 @@ function fabricate(
     availableDate: maxDate(partialDate, productionDate),
     reason: { kind: 'fabrication', leadTime: fabDelay },
     leadTimeUsed: fabDelay,
-    children,
+    children: [...coverLeaves, ...bomChildren],
     onCriticalPath: false,
   }
 }
