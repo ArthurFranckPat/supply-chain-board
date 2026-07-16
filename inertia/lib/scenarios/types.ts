@@ -22,6 +22,8 @@ export type PlanMutation =
       date: string
       client?: string
       ligne?: string | null
+      /** true si la date vient du moteur CTP (« au plus tôt ») — badge sur le chip. */
+      earliest?: boolean
     }
   | { type: 'suspend_supply'; article: string; sourceId?: string; delay?: string }
 
