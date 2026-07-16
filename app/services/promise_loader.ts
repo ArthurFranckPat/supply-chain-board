@@ -61,10 +61,11 @@ export async function buildPromiseDataset(article: string): Promise<PromiseDatas
 
   const reachable = expandArticleSetWithBom([article], nomEntries)
 
-  const [stockFlows, receptionFlows, poolData] = await Promise.all([
+  const [stockFlows, receptionFlows, poolData, supplierLatency] = await Promise.all([
     boardDataset.getStock([...reachable]).catch(() => [] as Flow[]),
     boardDataset.getReceptions().catch(() => [] as Flow[]),
     boardDataset.getPool().catch(() => ({ supply: [] as Flow[], mos: [] })),
+    boardDataset.getSupplierLatency().catch(() => new Map<string, number>()),
   ])
 
   const nomenclatures = buildNomenclatureMap(nomEntries)
@@ -73,8 +74,7 @@ export async function buildPromiseDataset(article: string): Promise<PromiseDatas
 
   const receptions = scopeToReachable(flowsToDatedSupplies(receptionFlows, 'reception'), reachable)
   const ofSupply = scopeToReachable(flowsToDatedSupplies(poolData.supply, 'of'), reachable)
-
-  return { articles, nomenclatures, stockNet, receptions, ofSupply }
+  return { articles, nomenclatures, stockNet, receptions, ofSupply, supplierLatency }
 }
 
 export interface PromiseResponse {
