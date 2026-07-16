@@ -155,6 +155,19 @@ const Promesse: Component = () => {
   const gap = () =>
     result() ? daysBetween(result()!.optimiste.promiseDate, result()!.engageante.promiseDate) : 0
 
+  const toVirtualCommand = () => {
+    if (!result()) return
+    sessionStorage.setItem(
+      'promesse:bridge',
+      JSON.stringify({
+        article: result()!.article,
+        quantity: result()!.quantity,
+        date: result()!.engageante.promiseDate,
+      })
+    )
+    window.location.href = route('scheduler.programme')
+  }
+
   return (
     <>
       <Masthead active="promesse" subtitle="Capable-to-Promise — date au plus tôt" />
@@ -308,6 +321,18 @@ const Promesse: Component = () => {
                   <span class="material-symbols-outlined text-[16px]">warning</span>
                   Arbre incomplet — profondeur maximale atteinte ou cycle de nomenclature détecté.
                 </div>
+              </Show>
+
+              {/* Pont vers commande virtuelle (PRD §6.2 / lot 5) */}
+              <Show when={!result()!.engageante.infeasible}>
+                <button
+                  type="button"
+                  onClick={toVirtualCommand}
+                  class="flex w-full items-center justify-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-sm font-semibold text-primary transition-colors hover:bg-primary/10"
+                >
+                  <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+                  Transformer en commande virtuelle sur /programme
+                </button>
               </Show>
             </div>
           </Show>
