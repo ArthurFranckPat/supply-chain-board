@@ -73,7 +73,13 @@ export async function buildPromiseDataset(article: string): Promise<PromiseDatas
   const stockNet = buildStrictQcStock(stockFlows)
 
   const receptions = scopeToReachable(flowsToDatedSupplies(receptionFlows, 'reception'), reachable)
-  const ofSupply = scopeToReachable(flowsToDatedSupplies(poolData.supply, 'of'), reachable)
+  // Suggestions CBN (statut 3) exclues : une suggestion jamais affermie n'est pas
+  // une date engagée — promettre dessus = sur-promesse. Seuls les OF fermes (1)
+  // et planifiés (2) comptent comme flux datés (« OF en cours », PRD §4).
+  const firmOfFlows = poolData.supply.filter(
+    (f) => f.origin.type === 'of' && f.origin.status !== 3
+  )
+  const ofSupply = scopeToReachable(flowsToDatedSupplies(firmOfFlows, 'of'), reachable)
   return { articles, nomenclatures, stockNet, receptions, ofSupply, supplierLatency }
 }
 
