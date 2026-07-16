@@ -11,6 +11,7 @@
  */
 
 import boardDataset from '#services/board_dataset'
+import capacityCalendarService from '#services/capacity_calendar_service'
 import { buildNomenclatureMap } from '#services/feasibility-loader-adapter'
 import { buildStrictQcStock } from '#app/domain/of-feasibility'
 import { buildArticleCatalog, expandArticleSetWithBom } from '#app/domain/order-impacts-assembly'
@@ -61,11 +62,15 @@ export async function buildPromiseDataset(article: string): Promise<PromiseDatas
 
   const reachable = expandArticleSetWithBom([article], nomEntries)
 
-  const [stockFlows, receptionFlows, poolData, supplierLatency] = await Promise.all([
+  const year = new Date().getUTCFullYear()
+  const [stockFlows, receptionFlows, poolData, supplierLatency, closedDays] = await Promise.all([
     boardDataset.getStock([...reachable]).catch(() => [] as Flow[]),
     boardDataset.getReceptions().catch(() => [] as Flow[]),
     boardDataset.getPool().catch(() => ({ supply: [] as Flow[], mos: [] })),
     boardDataset.getSupplierLatency().catch(() => new Map<string, number>()),
+    // Fériés actifs + fermetures globales (#37) — les promesses peuvent porter
+    // loin (appros long délai cumulés) : horizon année courante + 2.
+    capacityCalendarService.globalClosedDays(year, year + 2).catch(() => new Set<string>()),
   ])
 
   const nomenclatures = buildNomenclatureMap(nomEntries)
@@ -80,7 +85,7 @@ export async function buildPromiseDataset(article: string): Promise<PromiseDatas
     (f) => f.origin.type === 'of' && f.origin.status !== 3
   )
   const ofSupply = scopeToReachable(flowsToDatedSupplies(firmOfFlows, 'of'), reachable)
-  return { articles, nomenclatures, stockNet, receptions, ofSupply, supplierLatency }
+  return { articles, nomenclatures, stockNet, receptions, ofSupply, supplierLatency, closedDays }
 }
 
 export interface PromiseResponse {

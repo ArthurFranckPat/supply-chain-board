@@ -18,7 +18,6 @@ import type { NomenclatureEntry } from './models/nomenclature.js'
 import { requiredQuantity } from './models/nomenclature.js'
 import { isSubcontracted } from './rules.js'
 import { PHANTOM_DEPTH_CAP, type ArticleLookup, type NomenclatureLookup } from './rupture-engine.js'
-import type { WorkingCalendar } from './working_calendar.js'
 
 // Re-export pour le loader (Lot 2) — single import surface.
 export type { ArticleLookup, NomenclatureLookup } from './rupture-engine.js'
@@ -47,8 +46,12 @@ export interface PromiseDataset {
   receptions: Map<string, DatedSupply[]>
   /** OF en cours datés, non alloués, par article produit. */
   ofSupply?: Map<string, DatedSupply[]>
-  /** Jours ouvrés (v2 capacitaire — Lot 4/6). */
-  calendar?: WorkingCalendar
+  /**
+   * Jours fermés usine (ISO `YYYY-MM-DD`) : fériés actifs + fermetures globales
+   * totales (#37). Consommé par le décalage en jours ouvrés (mode engageante),
+   * en plus des week-ends. Absent → week-ends seuls.
+   */
+  closedDays?: Set<string>
   /** Retard fournisseur moyen observé, en jours (#43) — mode engageante. V1 défaut 0. */
   supplierLatency?: Map<string, number>
 }
@@ -187,7 +190,7 @@ function dispoDate(
     return mkLeaf(
       article,
       quantity,
-      shiftDate(from, delay, ctx.mode),
+      shiftDate(from, delay, ctx.mode, ctx.data.closedDays),
       {
         kind: 'appro',
         leadTime: delay,
@@ -213,7 +216,7 @@ function dispoDate(
   // overdue dans le passé.
   const latency =
     ctx.mode === 'engageante' ? Math.max(0, ctx.data.supplierLatency?.get(article) ?? 0) : 0
-  const flux = ctx.ledger.takeFlux(article, remaining, from, ctx.mode, latency)
+  const flux = ctx.ledger.takeFlux(article, remaining, from, ctx.mode, latency, ctx.data.closedDays)
   remaining -= flux.taken
 
   const partialDate = flux.date ? maxDate(from, flux.date) : from
@@ -248,7 +251,7 @@ function dispoDate(
   if (info && (info.supplyType === 'ACHAT' || subcontracted)) {
     const baseDelay = info.reorderDelay || 14
     const observed = ctx.mode === 'engageante' && latency > 0 ? latency : undefined
-    const orderArrival = shiftDate(from, baseDelay + latency, ctx.mode)
+    const orderArrival = shiftDate(from, baseDelay + latency, ctx.mode, ctx.data.closedDays)
     return {
       article,
       quantity,
@@ -316,7 +319,7 @@ function fabricate(
           children[0].availableDate
         )
       : from
-  const productionDate = shiftDate(componentsReady, fabDelay, ctx.mode)
+  const productionDate = shiftDate(componentsReady, fabDelay, ctx.mode, ctx.data.closedDays)
 
   return {
     article,
@@ -378,7 +381,8 @@ class PromiseLedger {
     qty: number,
     from: Date,
     mode: PromiseMode,
-    latency: number
+    latency: number,
+    closedDays?: Set<string>
   ): { taken: number; date: Date | null; supply: DatedSupply | null } {
     if (qty <= 0) return { taken: 0, date: null, supply: null }
     const supplies = this.flux.get(article)
@@ -386,8 +390,8 @@ class PromiseLedger {
 
     const sorted = [...supplies].sort(
       (a, b) =>
-        effectiveDate(a, from, mode, latency).getTime() -
-        effectiveDate(b, from, mode, latency).getTime()
+        effectiveDate(a, from, mode, latency, closedDays).getTime() -
+        effectiveDate(b, from, mode, latency, closedDays).getTime()
     )
 
     let taken = 0
@@ -401,7 +405,7 @@ class PromiseLedger {
       const consume = Math.min(qty - taken, avail)
       s.quantity -= consume
       taken += consume
-      date = effectiveDate(s, from, mode, latency)
+      date = effectiveDate(s, from, mode, latency, closedDays)
       supply = { ...s, quantity: consume }
     }
 
@@ -412,25 +416,31 @@ class PromiseLedger {
 // ───────────────────────────── Helpers dates ─────────────────────────────
 
 /** Date effective d'un flux selon le mode (PRD §5.4). */
-function effectiveDate(s: DatedSupply, from: Date, mode: PromiseMode, latency: number): Date {
+function effectiveDate(
+  s: DatedSupply,
+  from: Date,
+  mode: PromiseMode,
+  latency: number,
+  closedDays?: Set<string>
+): Date {
   if (mode === 'optimiste') {
     // Overdue : date théorique dans le passé → dispo maintenant.
     return maxDate(s.date, from)
   }
-  // Engageante : overdue re-datée à today + latence résiduelle.
-  if (s.date.getTime() < from.getTime()) return addCalendarDays(from, latency)
+  // Engageante : overdue re-datée à today + latence résiduelle (jours ouvrés).
+  if (s.date.getTime() < from.getTime()) return shiftDate(from, latency, mode, closedDays)
   return s.date
 }
 
 /**
  * Décale une date de `days` jours.
  * - Optimiste : jours calendaires.
- * - Engageante : jours ouvrés (saute sam/dim ; fériés via calendar au Lot 4).
+ * - Engageante : jours ouvrés (saute sam/dim + jours fermés usine #37).
  */
-function shiftDate(date: Date, days: number, mode: PromiseMode): Date {
+function shiftDate(date: Date, days: number, mode: PromiseMode, closedDays?: Set<string>): Date {
   if (days <= 0) return new Date(date)
   if (mode === 'optimiste') return addCalendarDays(date, days)
-  return addWorkingDays(date, days)
+  return addWorkingDays(date, days, closedDays)
 }
 
 function addCalendarDays(date: Date, n: number): Date {
@@ -439,13 +449,15 @@ function addCalendarDays(date: Date, n: number): Date {
   return d
 }
 
-function addWorkingDays(date: Date, n: number): Date {
+function addWorkingDays(date: Date, n: number, closedDays?: Set<string>): Date {
   const d = new Date(date)
   let remaining = n
   while (remaining > 0) {
     d.setUTCDate(d.getUTCDate() + 1)
     const dow = d.getUTCDay()
-    if (dow !== 0 && dow !== 6) remaining-- // skip dim(0) / sam(6)
+    if (dow === 0 || dow === 6) continue // dim(0) / sam(6)
+    if (closedDays?.has(d.toISOString().slice(0, 10))) continue // férié / fermeture usine
+    remaining--
   }
   return d
 }

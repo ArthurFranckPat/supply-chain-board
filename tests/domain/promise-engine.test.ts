@@ -70,7 +70,7 @@ function mkDataset(
   boms: Map<string, Nomenclature>,
   stockNet: Map<string, number> = new Map(),
   receptions: Map<string, DatedSupply[]> = new Map(),
-  extra: Partial<Pick<PromiseDataset, 'ofSupply' | 'supplierLatency'>> = {}
+  extra: Partial<Pick<PromiseDataset, 'ofSupply' | 'supplierLatency' | 'closedDays'>> = {}
 ): PromiseDataset {
   return { articles, nomenclatures: boms, stockNet, receptions, ...extra }
 }
@@ -241,7 +241,9 @@ test.group('promise-engine — réceptions overdue (§5.4)', () => {
     assert.equal(r.tree.reason.kind, 'reception')
   })
 
-  test('overdue en engageante → re-datée à today + latence résiduelle', ({ assert }) => {
+  test('overdue en engageante → re-datée à today + latence résiduelle (jours ouvrés)', ({
+    assert,
+  }) => {
     const articles = new Map([['A', mkArticle('A', '', 'ACHAT', 14)]])
     const receptions = new Map([
       ['A', [mkSupply('PO1', new Date(addDays('2026-07-15', -10)), 200)]],
@@ -251,7 +253,7 @@ test.group('promise-engine — réceptions overdue (§5.4)', () => {
 
     const r = promise('A', 200, data, 'engageante')
 
-    assert.equal(day(r.promiseDate), addDays('2026-07-15', 7))
+    assert.equal(day(r.promiseDate), addWorkingDays('2026-07-15', 7))
     assert.equal(r.tree.reason.kind, 'reception')
   })
 })
@@ -398,6 +400,20 @@ test.group('promise-engine — optimiste vs engageante', () => {
     // l'appro engageante porte le retard observé
     if (eng.tree.reason.kind === 'appro') assert.equal(eng.tree.reason.observed, 5)
     if (opt.tree.reason.kind === 'appro') assert.isUndefined(opt.tree.reason.observed)
+  })
+
+  test('jours fermés usine (fériés #37) sautés dans le décalage engageante', ({ assert }) => {
+    const articles = new Map([['A', mkArticle('A', '', 'ACHAT', 1)]])
+    // Jeudi 16/07 fermé → 1 jour ouvré depuis mercredi 15/07 tombe vendredi 17/07.
+    const closedDays = new Set(['2026-07-16'])
+    const data = mkDataset(articles, new Map(), new Map(), new Map(), { closedDays })
+
+    const eng = promise('A', 1, data, 'engageante')
+    const opt = promise('A', 1, data, 'optimiste')
+
+    assert.equal(day(eng.promiseDate), '2026-07-17')
+    // L'optimiste (jours calendaires) ignore les fermetures.
+    assert.equal(day(opt.promiseDate), '2026-07-16')
   })
 
   test('latence négative (fournisseur en avance) clampée à 0 — engageante ≥ optimiste', ({
