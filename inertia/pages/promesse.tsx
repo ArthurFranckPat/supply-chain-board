@@ -1,4 +1,4 @@
-import { createSignal, Show, type Component } from 'solid-js'
+import { createSignal, For, onMount, Show, type Component } from 'solid-js'
 import { Masthead } from '@/components/masthead'
 import { route } from '@/lib/routes'
 import type { PromiseResult, PromiseNode, PromiseReason } from '@/lib/promesse/types'
@@ -128,6 +128,18 @@ const Promesse: Component = () => {
   const [loading, setLoading] = createSignal(false)
   const [error, setError] = createSignal('')
   const [showTree, setShowTree] = createSignal(false)
+  const [articleOptions, setArticleOptions] = createSignal<
+    { code: string; description: string }[]
+  >([])
+
+  onMount(async () => {
+    try {
+      const res = await fetch(route('promesse.articles'))
+      if (res.ok) setArticleOptions(await res.json())
+    } catch {
+      /* autocomplete best-effort — la saisie libre reste possible */
+    }
+  })
 
   const submit = async (e: Event) => {
     e.preventDefault()
@@ -186,12 +198,18 @@ const Promesse: Component = () => {
                 <label class="mb-1 block text-[11px] font-medium text-gray-500">Article</label>
                 <input
                   type="text"
+                  list="promesse-article-options"
                   value={article()}
                   onInput={(e) => setArticle(e.currentTarget.value)}
                   placeholder="PP_830_X"
                   class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:border-primary focus:ring-1 focus:ring-primary outline-none"
                   autofocus
                 />
+                <datalist id="promesse-article-options">
+                  <For each={articleOptions()}>
+                    {(a) => <option value={a.code}>{a.description}</option>}
+                  </For>
+                </datalist>
               </div>
               <div>
                 <label class="mb-1 block text-[11px] font-medium text-gray-500">Quantité</label>

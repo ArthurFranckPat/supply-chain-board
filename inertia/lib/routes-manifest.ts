@@ -2,7 +2,7 @@
  * AUTO-GÉNÉRÉ par scripts/gen-routes-manifest.mjs — NE PAS ÉDITER À LA MAIN.
  * Source : `start/routes.ts` → `node ace list:routes --jsonl`.
  * Régénérer : `npm run routes:gen` · Vérifier la fraîcheur : `npm run routes:check`.
- * 73 routes nommées.
+ * 74 routes nommées.
  */
 
 export const MANIFEST = {
@@ -45,6 +45,7 @@ export const MANIFEST = {
   "planning_board.update": { method: "PATCH", pattern: "/api/v1/planning/ofs/:of" },
   "planning.order_firm": { method: "POST", pattern: "/api/v1/planning/orders/:orderNum/firm" },
   "planning.suggestion_firm": { method: "POST", pattern: "/api/v1/planning/suggestions/:sugNum/firm" },
+  "promesse.articles": { method: "GET", pattern: "/api/v1/promesse/articles" },
   "promesse.index": { method: "GET", pattern: "/api/v1/promesse" },
   "promesse.show": { method: "GET", pattern: "/promesse" },
   "receptions.index": { method: "GET", pattern: "/receptions" },
@@ -127,6 +128,7 @@ export type RouteParams = {
   "planning_board.update": { "of": string | number },
   "planning.order_firm": { "orderNum": string | number },
   "planning.suggestion_firm": { "sugNum": string | number },
+  "promesse.articles": void,
   "promesse.index": void,
   "promesse.show": void,
   "receptions.index": void,

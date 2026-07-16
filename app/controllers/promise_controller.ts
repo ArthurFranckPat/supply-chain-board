@@ -8,6 +8,7 @@
  */
 
 import type { HttpContext } from '@adonisjs/core/http'
+import boardDataset from '#services/board_dataset'
 import { loadPromise } from '#services/promise_loader'
 
 export default class PromiseController {
@@ -34,6 +35,17 @@ export default class PromiseController {
 
     const result = await loadPromise({ article, quantity, from })
     return ctx.response.ok(result)
+  }
+
+  /**
+   * GET /api/v1/promesse/articles — référentiel léger pour l'autocomplete du
+   * simulateur (PRD §6.2). Codes + désignations, depuis le cache statique.
+   */
+  async articles(ctx: HttpContext) {
+    const articles = await boardDataset.getArticles()
+    return ctx.response.ok(
+      articles.map((a) => ({ code: a.code, description: a.description }))
+    )
   }
 
   /** GET /promesse — page Inertia du simulateur CTP autonome. */
