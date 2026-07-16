@@ -247,6 +247,18 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'promesse.show': {
+    methods: ["GET","HEAD"]
+    pattern: '/promesse'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'calendar_config.index': {
     methods: ["GET","HEAD"]
     pattern: '/configuration/calendrier'
@@ -718,6 +730,30 @@ export interface Registry {
   'conditionnements.estimations': {
     methods: ["GET","HEAD"]
     pattern: '/api/v1/conditionnements/estimations'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'promesse.index': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/promesse'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'promesse.articles': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/promesse/articles'
     types: {
       body: {}
       paramsTuple: []

@@ -68,6 +68,11 @@ export interface ApiDefinition {
     rows: typeof routes['conditionnements.rows']
     estimations: typeof routes['conditionnements.estimations']
   }
+  promesse: {
+    show: typeof routes['promesse.show']
+    index: typeof routes['promesse.index']
+    articles: typeof routes['promesse.articles']
+  }
   calendarConfig: {
     index: typeof routes['calendar_config.index']
     toggleHoliday: typeof routes['calendar_config.toggle_holiday']

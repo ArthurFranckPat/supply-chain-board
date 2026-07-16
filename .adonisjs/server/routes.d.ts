@@ -24,6 +24,7 @@ export type ScannedRoutes = {
     'expeditions.index': { paramsTuple?: []; params?: {} }
     'receptions.index': { paramsTuple?: []; params?: {} }
     'conditionnements.index': { paramsTuple?: []; params?: {} }
+    'promesse.show': { paramsTuple?: []; params?: {} }
     'calendar_config.index': { paramsTuple?: []; params?: {} }
     'calendar_config.toggle_holiday': { paramsTuple?: []; params?: {} }
     'calendar_config.create_closure': { paramsTuple?: []; params?: {} }
@@ -64,6 +65,8 @@ export type ScannedRoutes = {
     'receptions.rows': { paramsTuple?: []; params?: {} }
     'conditionnements.rows': { paramsTuple?: []; params?: {} }
     'conditionnements.estimations': { paramsTuple?: []; params?: {} }
+    'promesse.index': { paramsTuple?: []; params?: {} }
+    'promesse.articles': { paramsTuple?: []; params?: {} }
     'data.load': { paramsTuple?: []; params?: {} }
     'static_sync.status': { paramsTuple?: []; params?: {} }
     'static_sync.sync': { paramsTuple?: []; params?: {} }
@@ -95,6 +98,7 @@ export type ScannedRoutes = {
     'expeditions.index': { paramsTuple?: []; params?: {} }
     'receptions.index': { paramsTuple?: []; params?: {} }
     'conditionnements.index': { paramsTuple?: []; params?: {} }
+    'promesse.show': { paramsTuple?: []; params?: {} }
     'calendar_config.index': { paramsTuple?: []; params?: {} }
     'order_planning.index': { paramsTuple?: []; params?: {} }
     'order_planning.line_detail': { paramsTuple: [ParamValue,ParamValue]; params: {'order': ParamValue,'line': ParamValue} }
@@ -117,6 +121,8 @@ export type ScannedRoutes = {
     'receptions.rows': { paramsTuple?: []; params?: {} }
     'conditionnements.rows': { paramsTuple?: []; params?: {} }
     'conditionnements.estimations': { paramsTuple?: []; params?: {} }
+    'promesse.index': { paramsTuple?: []; params?: {} }
+    'promesse.articles': { paramsTuple?: []; params?: {} }
     'static_sync.status': { paramsTuple?: []; params?: {} }
     'x3_writeback.describe': { paramsTuple?: []; params?: {} }
     'x3_writeback.read': { paramsTuple?: []; params?: {} }
@@ -143,6 +149,7 @@ export type ScannedRoutes = {
     'expeditions.index': { paramsTuple?: []; params?: {} }
     'receptions.index': { paramsTuple?: []; params?: {} }
     'conditionnements.index': { paramsTuple?: []; params?: {} }
+    'promesse.show': { paramsTuple?: []; params?: {} }
     'calendar_config.index': { paramsTuple?: []; params?: {} }
     'order_planning.index': { paramsTuple?: []; params?: {} }
     'order_planning.line_detail': { paramsTuple: [ParamValue,ParamValue]; params: {'order': ParamValue,'line': ParamValue} }
@@ -165,6 +172,8 @@ export type ScannedRoutes = {
     'receptions.rows': { paramsTuple?: []; params?: {} }
     'conditionnements.rows': { paramsTuple?: []; params?: {} }
     'conditionnements.estimations': { paramsTuple?: []; params?: {} }
+    'promesse.index': { paramsTuple?: []; params?: {} }
+    'promesse.articles': { paramsTuple?: []; params?: {} }
     'static_sync.status': { paramsTuple?: []; params?: {} }
     'x3_writeback.describe': { paramsTuple?: []; params?: {} }
     'x3_writeback.read': { paramsTuple?: []; params?: {} }

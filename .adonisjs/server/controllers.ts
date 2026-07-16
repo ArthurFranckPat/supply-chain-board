@@ -15,6 +15,7 @@ export const controllers = {
   OrderPlanning: () => import('#controllers/order_planning_controller'),
   Perf: () => import('#controllers/perf_controller'),
   PlanningBoard: () => import('#controllers/planning_board_controller'),
+  Promise: () => import('#controllers/promise_controller'),
   Receptions: () => import('#controllers/receptions_controller'),
   Scenario: () => import('#controllers/scenario_controller'),
   Scheduler: () => import('#controllers/scheduler_controller'),

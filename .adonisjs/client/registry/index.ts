@@ -126,6 +126,12 @@ const routes = {
     tokens: [{"old":"/conditionnements","type":0,"val":"conditionnements","end":""}],
     types: placeholder as Registry['conditionnements.index']['types'],
   },
+  'promesse.show': {
+    methods: ["GET","HEAD"],
+    pattern: '/promesse',
+    tokens: [{"old":"/promesse","type":0,"val":"promesse","end":""}],
+    types: placeholder as Registry['promesse.show']['types'],
+  },
   'calendar_config.index': {
     methods: ["GET","HEAD"],
     pattern: '/configuration/calendrier',
@@ -365,6 +371,18 @@ const routes = {
     pattern: '/api/v1/conditionnements/estimations',
     tokens: [{"old":"/api/v1/conditionnements/estimations","type":0,"val":"api","end":""},{"old":"/api/v1/conditionnements/estimations","type":0,"val":"v1","end":""},{"old":"/api/v1/conditionnements/estimations","type":0,"val":"conditionnements","end":""},{"old":"/api/v1/conditionnements/estimations","type":0,"val":"estimations","end":""}],
     types: placeholder as Registry['conditionnements.estimations']['types'],
+  },
+  'promesse.index': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/promesse',
+    tokens: [{"old":"/api/v1/promesse","type":0,"val":"api","end":""},{"old":"/api/v1/promesse","type":0,"val":"v1","end":""},{"old":"/api/v1/promesse","type":0,"val":"promesse","end":""}],
+    types: placeholder as Registry['promesse.index']['types'],
+  },
+  'promesse.articles': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/promesse/articles',
+    tokens: [{"old":"/api/v1/promesse/articles","type":0,"val":"api","end":""},{"old":"/api/v1/promesse/articles","type":0,"val":"v1","end":""},{"old":"/api/v1/promesse/articles","type":0,"val":"promesse","end":""},{"old":"/api/v1/promesse/articles","type":0,"val":"articles","end":""}],
+    types: placeholder as Registry['promesse.articles']['types'],
   },
   'data.load': {
     methods: ["POST"],
