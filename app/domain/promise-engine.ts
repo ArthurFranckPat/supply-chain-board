@@ -208,7 +208,11 @@ function dispoDate(
   let remaining = quantity - stockTaken
 
   // ── Étape 2 : flux datés (réceptions + OF en cours) ──
-  const latency = ctx.mode === 'engageante' ? (ctx.data.supplierLatency?.get(article) ?? 0) : 0
+  // Latence clampée à 0 : un fournisseur en avance (moyenne négative) ne doit
+  // jamais produire engageante < optimiste (critère PRD §12) ni re-dater un
+  // overdue dans le passé.
+  const latency =
+    ctx.mode === 'engageante' ? Math.max(0, ctx.data.supplierLatency?.get(article) ?? 0) : 0
   const flux = ctx.ledger.takeFlux(article, remaining, from, ctx.mode, latency)
   remaining -= flux.taken
 

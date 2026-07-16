@@ -399,4 +399,27 @@ test.group('promise-engine — optimiste vs engageante', () => {
     if (eng.tree.reason.kind === 'appro') assert.equal(eng.tree.reason.observed, 5)
     if (opt.tree.reason.kind === 'appro') assert.isUndefined(opt.tree.reason.observed)
   })
+
+  test('latence négative (fournisseur en avance) clampée à 0 — engageante ≥ optimiste', ({
+    assert,
+  }) => {
+    const articles = new Map([['A', mkArticle('A', '', 'ACHAT', 14)]])
+    const latency = new Map([['A', -10]])
+    const receptions = new Map([
+      ['A', [mkSupply('PO1', new Date(addDays('2026-07-15', -3)), 50)]], // overdue
+    ])
+    const data = mkDataset(articles, new Map(), new Map(), receptions, {
+      supplierLatency: latency,
+    })
+
+    const opt = promise('A', 100, data, 'optimiste')
+    const eng = promise('A', 100, data, 'engageante')
+
+    // Engageante : appro = 14 j ouvrés (latence −10 ignorée), pas 4.
+    assert.equal(day(eng.promiseDate), addWorkingDays('2026-07-15', 14))
+    assert.isAtLeast(eng.promiseDate.getTime(), opt.promiseDate.getTime())
+    // Overdue re-daté à today + 0 — jamais dans le passé.
+    assert.isAtLeast(eng.tree.availableDate.getTime(), FROM.getTime())
+    if (eng.tree.reason.kind === 'appro') assert.isUndefined(eng.tree.reason.observed)
+  })
 })
