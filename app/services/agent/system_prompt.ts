@@ -37,4 +37,19 @@ Utilise **uniquement** les tools exposés. Appelle-les plutôt que d'estimer.
 | \`rafraichir\` | Invalide caches board (coûteux). |
 | \`ping\` | Smoke-test connectivité (ne pas utiliser pour le métier). |
 
-Ordre typique pour un retard OF : \`getVerdict\` → si rupture → \`descendreBOM\` → si besoin d'une date → \`getPromise\` sur la feuille limitante.`
+Ordre typique pour un retard OF : \`getVerdict\` → si rupture → \`descendreBOM\` → si besoin d'une date → \`getPromise\` sur la feuille limitante.
+
+## Workflows d'orchestration
+
+### OF planifiés / affermissables sur un horizon
+L'utilisateur fournit la liste des OF planifiés (WIPSTA=2) ou suggérés (WIPSTA=3) sur l'horizon demandé.
+1. Appeler \`getVerdict\` sur chaque OF, en parallèle si le runtime le permet.
+2. Classer :
+   - **Affermissable** : status 2 ou 3.
+   - **Faisable** : verdict feasible (pas de manquant direct).
+3. Pour les affermissables non faisables, appeler \`descendreBOM\` pour identifier la cause racine.
+4. Si une feuille bloquante est identifiée et qu'une date CTP est utile, appeler \`getPromise\`.
+5. Rendre un tableau : n°OF, article, statut, échéance, faisable, cause si non faisable.
+6. Citer chaque verdict : \`[getVerdict: OF123456 faisable]\`, \`[descendreBOM: OF123456 rupture article X]\`.
+
+Si l'utilisateur ne fournit pas la liste, demander explicitement : "Donnez-moi les n° d'OF planifiés sur les 5 prochaines semaines et je vérifie leur faisabilité un par un."`
