@@ -60,6 +60,23 @@ function buildMockTools(gc: GoldenCase): ToolDefinition[] {
 
   return [
     wrap(
+      'listerOF',
+      'Liste les OF du pool (statuts 1 ferme/2 planifié/3 suggéré, article, horizon). ' +
+        "Découverte : à appeler AVANT de demander une liste d'OF à l'utilisateur. Citation [listerOF: …].",
+      Type.Object({
+        statuts: Type.Optional(Type.Array(Type.Number())),
+        article: Type.Optional(Type.String()),
+        horizonDays: Type.Optional(Type.Number()),
+        from: Type.Optional(Type.String()),
+        limit: Type.Optional(Type.Number()),
+      })
+    ),
+    wrap(
+      'rechercherArticle',
+      'Recherche article par code partiel ou libellé. Citation [rechercherArticle: …].',
+      Type.Object({ query: Type.String(), limit: Type.Optional(Type.Number()) })
+    ),
+    wrap(
       'getVerdict',
       "Verdict photo rupture d'un OF. Citation [getVerdict: …].",
       Type.Object({ numOf: Type.String() })
@@ -108,7 +125,12 @@ export async function runOneCase(gc: GoldenCase): Promise<ScoreResult> {
   })
 
   try {
-    await runtime.session.prompt(gc.question)
+    // Multi-tour : tours successifs dans la MÊME session (mémoire conversationnelle).
+    // Le scoring porte sur le texte du dernier tour + le cumul des tools.
+    for (const turn of [gc.question, ...(gc.turns ?? [])]) {
+      finalText = ''
+      await runtime.session.prompt(turn)
+    }
   } finally {
     unsub()
     runtime.dispose()

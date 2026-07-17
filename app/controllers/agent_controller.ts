@@ -2,10 +2,11 @@
  * Endpoint SSE du copilote supply (couche agentique v1).
  *
  * POST /api/v1/agent/chat
- * body: { message: string, page?, selection?, filters? }
+ * body: { message: string, conversationId?, page?, selection?, filters? }
  *
  * Stream `text/event-stream` d'événements JSON (cf. AgentSseEvent).
- * Session Pi in-memory, éphémère = 1 requête.
+ * Session Pi in-memory, persistée par conversationId (mémoire multi-tour,
+ * TTL 30 min) — jetable si absent.
  */
 
 import type { HttpContext } from '@adonisjs/core/http'
@@ -90,6 +91,10 @@ export default class AgentController {
     try {
       for await (const event of runAgentTurn({
         message,
+        conversationId:
+          typeof body.conversationId === 'string'
+            ? body.conversationId.trim().slice(0, 64) || undefined
+            : undefined,
         screenContext: {
           page: typeof body.page === 'string' ? body.page : undefined,
           selection: asIdMap(body.selection),

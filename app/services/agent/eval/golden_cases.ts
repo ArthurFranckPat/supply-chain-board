@@ -14,12 +14,19 @@ export type GoldenToolName =
   | 'descendreBOM'
   | 'getPromise'
   | 'listerRetardsPrevus'
+  | 'listerOF'
+  | 'rechercherArticle'
   | 'ping'
 
 export interface GoldenCase {
   id: string
   /** Question user naturelle (FR). */
   question: string
+  /**
+   * Tours supplémentaires (multi-tour) : envoyés après `question` dans la MÊME
+   * session. Le scoring porte sur la réponse du dernier tour + tous les tools.
+   */
+  turns?: string[]
   /**
    * Réponses mock indexées par tool. Les params sont ignorés sauf quand
    * `byArgs` disambigue plusieurs appels (ex. getPromise sur 2 articles).
@@ -621,6 +628,126 @@ export const GOLDEN_CASES: GoldenCase[] = [
     expected: {
       articles: ['PF-OMEGA', 'ACH-JOINT-R'],
       keywords: ['CMD-9001'],
+    },
+  },
+  {
+    id: 'G13-decouverte-liste-of-horizon',
+    question:
+      'Quels OF planifiés ou suggérés sur les 3 prochaines semaines ? Lesquels sont faisables ?',
+    mocks: {
+      listerOF: {
+        _source: 'listerOF',
+        engine: 'boardDataset.getPool (ORDERS WIPSTA 1/2/3)',
+        filtres: { statuts: [2, 3], article: null, from: '2026-07-17', to: '2026-08-07' },
+        totalMatching: 2,
+        truncated: false,
+        ofs: [
+          {
+            numOf: 'MFG-9001',
+            article: 'PF-GAMMA',
+            designation: 'Caisson gamma',
+            quantity: 120,
+            statut: 2,
+            statutLabel: 'Planifié',
+            dateFin: '2026-07-24',
+            enRetard: false,
+          },
+          {
+            numOf: 'MFG-9002',
+            article: 'PF-DELTA',
+            designation: 'Caisson delta',
+            quantity: 60,
+            statut: 3,
+            statutLabel: 'Suggéré',
+            dateFin: '2026-07-30',
+            enRetard: false,
+          },
+        ],
+      },
+      getVerdict: {
+        byArgs: [
+          {
+            match: { numOf: 'MFG-9001' },
+            result: verdict({
+              of: { numOf: 'MFG-9001', article: 'PF-GAMMA', quantity: 120, statutNum: 2 },
+              requirementSource: 'NOMENCLATURE',
+              feasible: true,
+              missingDirect: [],
+              missingCount: 0,
+              missingDetail: [],
+            }),
+          },
+          {
+            match: { numOf: 'MFG-9002' },
+            result: verdict({
+              of: { numOf: 'MFG-9002', article: 'PF-DELTA', quantity: 60, statutNum: 3 },
+              requirementSource: 'NOMENCLATURE',
+              feasible: false,
+              missingDirect: [{ article: 'ACH-JOINT-77', qty: 120 }],
+              missingCount: 1,
+              missingDetail: [
+                { article: 'ACH-JOINT-77', shortage: 120, depth: 0, fabricated: false },
+              ],
+            }),
+          },
+        ],
+      },
+    },
+    // Gate anti-« demande la liste » : le modèle doit découvrir seul via listerOF.
+    mustCall: ['listerOF', 'getVerdict'],
+    expected: {
+      ofs: ['MFG-9001', 'MFG-9002'],
+      articles: ['ACH-JOINT-77'],
+      keywords: ['faisable'],
+    },
+  },
+  {
+    id: 'G14-multi-tour-contexte',
+    question: "Pourquoi l'OF MFG-7007 est bloqué ?",
+    turns: [
+      'Et quelle date engageante pour couvrir ce composant manquant (quantité manquante) ?',
+    ],
+    mocks: {
+      getVerdict: verdict({
+        of: { numOf: 'MFG-7007', article: 'PF-EPSILON', quantity: 40, statutNum: 2 },
+        requirementSource: 'MFGMAT',
+        feasible: false,
+        missingDirect: [{ article: 'ACH-CAPTEUR-12', qty: 60 }],
+        missingCount: 1,
+        missingDetail: [
+          { article: 'ACH-CAPTEUR-12', shortage: 60, depth: 0, fabricated: false },
+        ],
+      }),
+      getPromise: {
+        byArgs: [
+          {
+            match: { article: 'ACH-CAPTEUR-12' },
+            result: promise({
+              article: 'ACH-CAPTEUR-12',
+              quantity: 60,
+              from: '2026-07-17',
+              optimiste: {
+                promiseDate: '2026-07-28',
+                mode: 'optimiste',
+                infeasible: false,
+                limitingFactor: { article: 'ACH-CAPTEUR-12', reason: { kind: 'appro' } },
+              },
+              engageante: {
+                promiseDate: '2026-08-04',
+                mode: 'engageante',
+                infeasible: false,
+                limitingFactor: { article: 'ACH-CAPTEUR-12', reason: { kind: 'appro' } },
+              },
+            }),
+          },
+        ],
+      },
+    },
+    // Tour 2 sans re-donner l'article : la session doit se souvenir du tour 1.
+    mustCall: ['getVerdict', 'getPromise'],
+    expected: {
+      articles: ['ACH-CAPTEUR-12'],
+      keywords: ['04/08/2026', '2026-08-04', 'engageante'],
     },
   },
 ]

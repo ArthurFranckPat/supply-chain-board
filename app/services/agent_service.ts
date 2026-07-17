@@ -12,7 +12,7 @@
  * - Data    = caches board (ultérieur) — zéro SOAP ici.
  */
 
-import { mkdirSync, mkdtempSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -27,8 +27,13 @@ import {
   type ToolDefinition,
 } from '@earendil-works/pi-coding-agent'
 
-import { AGENT_SYSTEM_PROMPT } from '#services/agent/system_prompt'
+import { buildAgentSystemPrompt } from '#services/agent/system_prompt'
 import { agentToolNames, buildAgentTools } from '#services/agent/tools'
+import {
+  getStoredSession,
+  storeSession,
+  type StoredAgentSession,
+} from '#services/agent/session_store'
 
 /** Provider / model verrouillés (Q12). */
 export const AGENT_PROVIDER = 'zai' as const
@@ -49,6 +54,11 @@ export type AgentSseEvent =
 export interface RunAgentOptions {
   /** Message user. */
   message: string
+  /**
+   * Id de conversation (front). Fourni → la session Pi est réutilisée entre
+   * les tours (mémoire multi-tour, TTL 30 min). Absent → session jetable.
+   */
+  conversationId?: string
   /** Contexte écran injecté (IDs seulement) — préfixé au message. */
   screenContext?: {
     page?: string
@@ -168,7 +178,7 @@ export async function createAgentRuntime(tools: ToolDefinition[] = buildAgentToo
     noPromptTemplates: true,
     noThemes: true,
     noContextFiles: true,
-    systemPromptOverride: () => AGENT_SYSTEM_PROMPT,
+    systemPromptOverride: () => buildAgentSystemPrompt(new Date()),
     appendSystemPromptOverride: () => [],
   })
   await loader.reload()
@@ -178,16 +188,26 @@ export async function createAgentRuntime(tools: ToolDefinition[] = buildAgentToo
     agentDir: runtimeDir,
     model,
     modelRuntime,
-    thinkingLevel: 'off',
+    // Q12 : raisonnement causal — thinking actif (clampé aux capacités modèle).
+    thinkingLevel: 'medium',
     tools: toolNames,
     customTools: tools,
     resourceLoader: loader,
     sessionManager: SessionManager.inMemory(runtimeDir),
   })
 
+  const cleanupDir = () => {
+    try {
+      rmSync(runtimeDir, { recursive: true, force: true })
+    } catch {
+      /* best-effort */
+    }
+  }
+
   if (modelFallbackMessage) {
     // Le fallback silencieux vers un autre modèle casserait Q12.
     session.dispose()
+    cleanupDir()
     throw new Error(`Modèle non appliqué : ${modelFallbackMessage}`)
   }
 
@@ -195,6 +215,7 @@ export async function createAgentRuntime(tools: ToolDefinition[] = buildAgentToo
   const leaked = active.filter((n) => BUILTIN_TOOL_NAMES.has(n))
   if (leaked.length > 0) {
     session.dispose()
+    cleanupDir()
     throw new Error(`Barrière sécu rompue — builtins exposés : ${leaked.join(', ')}`)
   }
 
@@ -206,6 +227,7 @@ export async function createAgentRuntime(tools: ToolDefinition[] = buildAgentToo
       } catch {
         /* ignore double-dispose */
       }
+      cleanupDir()
     },
     modelLabel: `${AGENT_PROVIDER}/${AGENT_MODEL_ID}`,
     toolNames: active,
@@ -214,14 +236,41 @@ export async function createAgentRuntime(tools: ToolDefinition[] = buildAgentToo
 }
 
 /**
+ * Résout la session du tour : réutilisée (conversationId, mémoire multi-tour)
+ * ou jetable (pas d'id — smoke/tests).
+ */
+async function resolveTurnSession(options: RunAgentOptions): Promise<{
+  runtime: Pick<StoredAgentSession, 'session' | 'dispose' | 'modelLabel' | 'toolNames' | 'sessionId'>
+  persistent: boolean
+}> {
+  const tools = options.tools ?? buildAgentTools()
+  const convId = options.conversationId?.trim()
+  if (!convId) {
+    return { runtime: await createAgentRuntime(tools), persistent: false }
+  }
+
+  const existing = getStoredSession(convId)
+  if (existing) {
+    if (existing.session.isStreaming) {
+      throw new Error('Une réponse est déjà en cours pour cette conversation.')
+    }
+    return { runtime: existing, persistent: true }
+  }
+
+  const created = await createAgentRuntime(tools)
+  storeSession(convId, created)
+  return { runtime: created, persistent: true }
+}
+
+/**
  * Exécute un tour agent et yield les événements SSE normalisés.
- * Toujours dispose la session en fin de stream (mémoire éphémère).
+ * Session : persistée par conversation (TTL 30 min) si `conversationId`,
+ * sinon jetable (dispose en fin de stream).
  */
 export async function* runAgentTurn(
   options: RunAgentOptions
 ): AsyncGenerator<AgentSseEvent, void, void> {
-  const tools = options.tools ?? buildAgentTools()
-  const runtime = await createAgentRuntime(tools)
+  const { runtime, persistent } = await resolveTurnSession(options)
   const { session, dispose, modelLabel, toolNames, sessionId } = runtime
 
   yield { type: 'session', sessionId, model: modelLabel, tools: toolNames }
@@ -287,7 +336,9 @@ export async function* runAgentTurn(
       options.signal.removeEventListener('abort', onAbort)
     }
     unsub()
-    dispose()
+    // Session conversationnelle : on la garde vivante (mémoire multi-tour).
+    // L'éviction TTL/cap du session_store s'occupe du dispose.
+    if (!persistent) dispose()
   }
 }
 

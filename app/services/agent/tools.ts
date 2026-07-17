@@ -9,9 +9,18 @@
 import { Type } from 'typebox'
 import { defineTool, type ToolDefinition } from '@earendil-works/pi-coding-agent'
 
+/** Budget contexte : au-delà, le JSON est tronqué (le modèle doit affiner ses filtres). */
+const MAX_TOOL_JSON_CHARS = 24_000
+
 function toolResult(payload: unknown) {
+  let text = JSON.stringify(payload)
+  if (text.length > MAX_TOOL_JSON_CHARS) {
+    text =
+      text.slice(0, MAX_TOOL_JSON_CHARS) +
+      ` …[payload tronqué à ${MAX_TOOL_JSON_CHARS} caractères sur ${text.length} — utiliser des filtres plus précis]`
+  }
   return {
-    content: [{ type: 'text' as const, text: JSON.stringify(payload) }],
+    content: [{ type: 'text' as const, text }],
     details: payload as Record<string, unknown>,
   }
 }
@@ -35,6 +44,59 @@ export const pingTool = defineTool({
       source: 'ping' as const,
     }
     return toolResult(payload)
+  },
+})
+
+export const listerOFTool = defineTool({
+  name: 'listerOF',
+  label: 'Lister OF',
+  description:
+    'Liste les OF du pool board (ORDERS WIPSTA 1=ferme, 2=planifié, 3=suggéré) avec filtres ' +
+    'statuts / article / horizon. Point d’entrée découverte : à appeler AVANT de demander ' +
+    "une liste d'OF à l'utilisateur. Citation : [listerOF: N OF / filtres].",
+  parameters: Type.Object({
+    statuts: Type.Optional(
+      Type.Array(Type.Number(), {
+        description: 'Statuts WIPSTA à garder, ex. [2,3] = affermissables. Défaut = tous.',
+      })
+    ),
+    article: Type.Optional(Type.String({ description: 'Filtre code article exact' })),
+    horizonDays: Type.Optional(
+      Type.Number({ description: 'Horizon jours : dateFin ≤ from+horizon (max 180)' })
+    ),
+    from: Type.Optional(
+      Type.String({ description: "Début horizon ISO YYYY-MM-DD (défaut = aujourd'hui)" })
+    ),
+    limit: Type.Optional(Type.Number({ description: 'Max lignes (défaut 50, max 200)' })),
+  }),
+  execute: async (_id, params) => {
+    const p = await primitives()
+    return toolResult(
+      await p.listerOF({
+        statuts: params.statuts,
+        article: params.article,
+        horizonDays: params.horizonDays,
+        from: params.from,
+        limit: params.limit,
+      })
+    )
+  },
+})
+
+export const rechercherArticleTool = defineTool({
+  name: 'rechercherArticle',
+  label: 'Rechercher article',
+  description:
+    'Retrouve des codes articles par code partiel ou libellé (catalogue board). ' +
+    "À utiliser quand l'utilisateur donne un nom ou un code approximatif. " +
+    'Citation : [rechercherArticle: query → code].',
+  parameters: Type.Object({
+    query: Type.String({ description: 'Code partiel ou fragment de libellé' }),
+    limit: Type.Optional(Type.Number({ description: 'Max résultats (défaut 20, max 50)' })),
+  }),
+  execute: async (_id, params) => {
+    const p = await primitives()
+    return toolResult(await p.rechercherArticle({ query: params.query, limit: params.limit }))
   },
 })
 
@@ -217,6 +279,8 @@ export const getEngagementPosteTool = defineTool({
 
 export function buildAgentTools(): ToolDefinition[] {
   return [
+    listerOFTool,
+    rechercherArticleTool,
     getVerdictTool,
     descendreBOMTool,
     getPromiseTool,

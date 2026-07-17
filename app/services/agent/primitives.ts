@@ -67,6 +67,154 @@ function findOfInPool(
   return null
 }
 
+// ───────────────────────────── listerOF ─────────────────────────────
+
+export interface ListerOfParams {
+  /** Statuts WIPSTA à garder (1 ferme, 2 planifié, 3 suggéré). Défaut = tous. */
+  statuts?: number[]
+  /** Filtre code article exact (insensible à la casse). */
+  article?: string
+  /** Horizon en jours : ne garde que dateFin ≤ from+horizon. Défaut = pas de borne. */
+  horizonDays?: number
+  /** Début d'horizon ISO (défaut = aujourd'hui). Sert de référence retard. */
+  from?: string
+  /** Nombre max de lignes (défaut 50, max 200). */
+  limit?: number
+}
+
+/**
+ * Découverte : liste les OF du pool board (ORDERS 1/2/3) avec filtres.
+ * Rend l'agent autonome — il ne doit jamais demander la liste à l'utilisateur.
+ */
+export async function listerOF(params: ListerOfParams = {}) {
+  const pool = await boardDataset.getPool().catch(() => ({ supply: [] as Flow[] }))
+
+  const statuts =
+    Array.isArray(params.statuts) && params.statuts.length > 0
+      ? new Set(params.statuts.map((s) => Math.trunc(Number(s))).filter((s) => s >= 1 && s <= 3))
+      : null
+  const articleFilter = params.article?.trim().toUpperCase() || null
+
+  const from = params.from ? new Date(params.from) : new Date()
+  if (Number.isNaN(from.getTime())) {
+    return { error: 'from invalide (YYYY-MM-DD attendu)', _source: 'listerOF' as const }
+  }
+  from.setHours(0, 0, 0, 0)
+
+  let to: Date | null = null
+  if (params.horizonDays !== undefined) {
+    const h = Math.floor(Number(params.horizonDays))
+    if (!Number.isFinite(h) || h <= 0) {
+      return { error: 'horizonDays doit être > 0', _source: 'listerOF' as const }
+    }
+    to = new Date(from)
+    to.setDate(to.getDate() + Math.min(h, 180))
+    to.setHours(23, 59, 59, 999)
+  }
+
+  const limitRaw = params.limit === undefined ? 50 : Math.floor(Number(params.limit))
+  const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 200) : 50
+
+  type OfRow = {
+    numOf: string
+    article: string
+    designation: string | null
+    quantity: number
+    statut: number
+    statutLabel: string | null
+    dateFin: string | null
+    enRetard: boolean
+  }
+  const rows: OfRow[] = []
+  for (const f of pool.supply) {
+    if (f.origin.type !== 'of') continue
+    const statut = f.origin.status ?? 3
+    if (statuts && !statuts.has(statut)) continue
+    if (articleFilter && f.article.toUpperCase() !== articleFilter) continue
+    if (to && f.date && f.date > to) continue
+    // Sans dateFin : gardé seulement hors fenêtre horizon (donnée incomplète sinon).
+    if (to && !f.date) continue
+    rows.push({
+      numOf: f.origin.id,
+      article: f.article,
+      designation: f.origin.designation ?? null,
+      quantity: f.quantity,
+      statut,
+      statutLabel: f.origin.statutLabel,
+      dateFin: isoDate(f.date),
+      enRetard: Boolean(f.date && f.date < from),
+    })
+  }
+
+  rows.sort((a, b) => {
+    if (a.dateFin === b.dateFin) return a.numOf.localeCompare(b.numOf)
+    if (a.dateFin === null) return 1
+    if (b.dateFin === null) return -1
+    return a.dateFin.localeCompare(b.dateFin)
+  })
+
+  return {
+    _source: 'listerOF' as const,
+    engine: 'boardDataset.getPool (ORDERS WIPSTA 1/2/3)',
+    filtres: {
+      statuts: statuts ? [...statuts] : null,
+      article: articleFilter,
+      from: isoDate(from),
+      to: to ? isoDate(to) : null,
+    },
+    totalMatching: rows.length,
+    truncated: rows.length > limit,
+    ofs: rows.slice(0, limit),
+  }
+}
+
+// ─────────────────────────── rechercherArticle ───────────────────────────
+
+/**
+ * Découverte : retrouve un code article par code partiel ou libellé.
+ * Classement : code exact > code préfixe > code contient > libellé contient.
+ */
+export async function rechercherArticle(params: { query: string; limit?: number }) {
+  const query = params.query?.trim()
+  if (!query) return { error: 'query requis', _source: 'rechercherArticle' as const }
+
+  const limitRaw = params.limit === undefined ? 20 : Math.floor(Number(params.limit))
+  const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 50) : 20
+
+  const articles = await boardDataset.getArticles().catch(() => [])
+  const q = query.toUpperCase()
+
+  const scored: Array<{ score: number; row: (typeof articles)[number] }> = []
+  for (const a of articles) {
+    const code = a.code.toUpperCase()
+    const desc = (a.description ?? '').toUpperCase()
+    let score = 0
+    if (code === q) score = 100
+    else if (code.startsWith(q)) score = 80
+    else if (code.includes(q)) score = 60
+    else if (desc.includes(q)) score = 40
+    else continue
+    scored.push({ score, row: a })
+  }
+  scored.sort((x, y) => y.score - x.score || x.row.code.localeCompare(y.row.code))
+
+  return {
+    _source: 'rechercherArticle' as const,
+    engine: 'boardDataset.getArticles',
+    query,
+    totalMatching: scored.length,
+    truncated: scored.length > limit,
+    articles: scored.slice(0, limit).map(({ row }) => ({
+      code: row.code,
+      description: row.description,
+      supplyType: row.supplyType,
+      famille: row.famille ?? null,
+      typologie: row.typologie ?? null,
+      reorderDelay: row.reorderDelay,
+    })),
+  }
+}
+
 // ───────────────────────────── getVerdict ─────────────────────────────
 
 /**
@@ -153,9 +301,94 @@ export async function getVerdict(numOf: string) {
 
 // ───────────────────────────── descendreBOM ─────────────────────────────
 
+/** Bornes de compactage arbre BOM pour le contexte LLM. */
+const BOM_MAX_SHORTS_PER_NODE = 8
+const BOM_MAX_COVERING = 3
+const BOM_MAX_BLOCKING_LEAVES = 15
+
+type DiagShort = {
+  article: string
+  description: string
+  quantityNeeded: number
+  available: number | null
+  quantityMissing: number
+  earliestReception: string | null
+  receptionSupplier?: string
+  receptionOrderId?: string
+  fabricated: boolean
+  status: string
+  covering: Array<{ numOf: string; statut: number; quantity: number; node: DiagNode }>
+}
+type DiagNode = {
+  numOf: string
+  article: string
+  statut: number
+  source: string
+  feasible: boolean
+  status: string
+  shorts: DiagShort[]
+  alerts: string[]
+}
+
+function slimDiagNode(node: DiagNode): Record<string, unknown> {
+  return {
+    numOf: node.numOf,
+    article: node.article,
+    statut: node.statut,
+    source: node.source,
+    feasible: node.feasible,
+    status: node.status,
+    ...(node.alerts.length > 0 ? { alerts: node.alerts } : {}),
+    shorts: node.shorts.slice(0, BOM_MAX_SHORTS_PER_NODE).map((s) => ({
+      article: s.article,
+      description: s.description,
+      quantityNeeded: s.quantityNeeded,
+      available: s.available,
+      quantityMissing: s.quantityMissing,
+      earliestReception: s.earliestReception,
+      ...(s.receptionSupplier ? { receptionSupplier: s.receptionSupplier } : {}),
+      ...(s.receptionOrderId ? { receptionOrderId: s.receptionOrderId } : {}),
+      fabricated: s.fabricated,
+      status: s.status,
+      covering: s.covering.slice(0, BOM_MAX_COVERING).map((c) => ({
+        numOf: c.numOf,
+        statut: c.statut,
+        quantity: c.quantity,
+        node: slimDiagNode(c.node),
+      })),
+      ...(s.covering.length > BOM_MAX_COVERING ? { coveringTruncated: s.covering.length } : {}),
+    })),
+    ...(node.shorts.length > BOM_MAX_SHORTS_PER_NODE ? { shortsTruncated: node.shorts.length } : {}),
+  }
+}
+
+/** Feuilles réellement bloquantes de l'arbre (achats en manque, SE sans OF couvrant). */
+function collectBlockingLeaves(node: DiagNode, depth = 0, out: Array<Record<string, unknown>> = []) {
+  for (const s of node.shorts) {
+    const leaf = !s.fabricated || s.covering.length === 0
+    if (leaf && s.quantityMissing > 0) {
+      out.push({
+        article: s.article,
+        description: s.description,
+        quantityMissing: s.quantityMissing,
+        available: s.available,
+        fabricated: s.fabricated,
+        status: s.status,
+        earliestReception: s.earliestReception,
+        ...(s.receptionSupplier ? { receptionSupplier: s.receptionSupplier } : {}),
+        sousOf: node.numOf,
+        depth,
+      })
+    }
+    for (const c of s.covering) collectBlockingLeaves(c.node, depth + 1, out)
+  }
+  return out
+}
+
 /**
  * Arbre de diagnostic récursif (issue #25) — vraie racine bloquante.
  * Wrapper mince autour de `loadOfMaterialsDiagnostic` (sans HttpContext).
+ * Sortie compactée pour le LLM : arbre borné + feuilles bloquantes extraites.
  */
 export async function descendreBOM(numOf: string) {
   const ofId = numOf.trim()
@@ -166,12 +399,21 @@ export async function descendreBOM(numOf: string) {
     return { error: `OF introuvable dans le pool : ${ofId}`, _source: 'descendreBOM' as const }
   }
 
-  // Compactage pour le LLM : monolithe debug retiré, nœuds utilitaires.
-  const { _debug: _ignored, ...core } = result as typeof result & { _debug?: unknown }
+  const tree = result.tree as unknown as DiagNode
+  const blockingLeaves = collectBlockingLeaves(tree)
   return {
     _source: 'descendreBOM' as const,
     engine: 'RecursiveDiagnosticChecker.diagnoseOf',
-    ...core,
+    numOf: result.numOf,
+    article: result.article,
+    feasible: result.feasible,
+    rootCause: result.rootCause,
+    componentsChecked: result.componentsChecked,
+    maxDepthReached: result.maxDepthReached,
+    alerts: result.alerts,
+    blockingLeavesCount: blockingLeaves.length,
+    blockingLeaves: blockingLeaves.slice(0, BOM_MAX_BLOCKING_LEAVES),
+    tree: slimDiagNode(tree),
   }
 }
 
@@ -328,7 +570,7 @@ export async function listerRetardsPrevus(params: ListerRetardsParams = {}) {
   const CAP = 40
   const sample = lines.slice(0, CAP)
 
-  const retards: Array<{
+  type RetardRow = {
     orderId: string
     ligne: string | null
     article: string
@@ -341,9 +583,9 @@ export async function listerRetardsPrevus(params: ListerRetardsParams = {}) {
     limitingArticle: string | null
     limitingReason: string | null
     infeasible: boolean
-  }> = []
+  }
 
-  for (const line of sample) {
+  const evalLine = async (line: DemandLine): Promise<RetardRow | null> => {
     try {
       const p = await loadPromise({
         article: line.article,
@@ -355,8 +597,8 @@ export async function listerRetardsPrevus(params: ListerRetardsParams = {}) {
       const promiseIso = eng.infeasible ? null : isoDate(eng.promiseDate)
       const retardJours =
         promiseIso === null ? 9999 : Math.max(0, daysBetween(besoinIso, promiseIso))
-      if (retardJours <= 0 && !eng.infeasible) continue
-      retards.push({
+      if (retardJours <= 0 && !eng.infeasible) return null
+      return {
         orderId: line.orderId,
         ligne: line.ligne,
         article: line.article,
@@ -369,9 +611,9 @@ export async function listerRetardsPrevus(params: ListerRetardsParams = {}) {
         limitingArticle: eng.limitingFactor.article,
         limitingReason: eng.limitingFactor.reason.kind,
         infeasible: eng.infeasible,
-      })
+      }
     } catch (err) {
-      retards.push({
+      return {
         orderId: line.orderId,
         ligne: line.ligne,
         article: line.article,
@@ -384,9 +626,23 @@ export async function listerRetardsPrevus(params: ListerRetardsParams = {}) {
         limitingArticle: null,
         limitingReason: err instanceof Error ? err.message : String(err),
         infeasible: true,
-      })
+      }
     }
   }
+
+  // CTP par lots concurrents (données = caches board, pas de SOAP par ligne).
+  const CONCURRENCY = 5
+  const evaluated: Array<RetardRow | null> = new Array(sample.length).fill(null)
+  let cursor = 0
+  await Promise.all(
+    Array.from({ length: Math.min(CONCURRENCY, sample.length) }, async () => {
+      while (cursor < sample.length) {
+        const i = cursor++
+        evaluated[i] = await evalLine(sample[i])
+      }
+    })
+  )
+  const retards: RetardRow[] = evaluated.filter((r): r is RetardRow => r !== null)
 
   retards.sort((a, b) => b.retardJours - a.retardJours || a.dateBesoin.localeCompare(b.dateBesoin))
 

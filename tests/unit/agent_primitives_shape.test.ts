@@ -11,6 +11,8 @@ test.group('agent tools registry', () => {
   test('tools métier + ping en allowlist, zéro builtin', ({ assert }) => {
     const names = agentToolNames(buildAgentTools())
     for (const n of [
+      'listerOF',
+      'rechercherArticle',
       'getVerdict',
       'descendreBOM',
       'getPromise',

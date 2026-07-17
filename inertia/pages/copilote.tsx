@@ -25,11 +25,24 @@ interface ChatMessage {
 let _id = 0
 const nextId = () => ++_id
 
+function newConversationId(): string {
+  return typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `conv-${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
+
 const CopilotePage: Component = () => {
   const [messages, setMessages] = createSignal<ChatMessage[]>([])
   const [input, setInput] = createSignal('')
   const [busy, setBusy] = createSignal(false)
   const [model, setModel] = createSignal<string | null>(null)
+  const [conversationId, setConversationId] = createSignal(newConversationId())
+
+  function resetConversation() {
+    if (busy()) return
+    setMessages([])
+    setConversationId(newConversationId())
+  }
 
   async function send() {
     const text = input().trim()
@@ -57,6 +70,7 @@ const CopilotePage: Component = () => {
         credentials: 'same-origin',
         body: JSON.stringify({
           message: text,
+          conversationId: conversationId(),
           page: 'copilote',
         }),
       })
@@ -181,11 +195,21 @@ const CopilotePage: Component = () => {
       />
 
       <main class="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-3 overflow-hidden px-5 py-4">
-        <p class="text-[12px] text-secondary-foreground">
-          Copilote lecture-seule. Orchestre les algos board (verdict, BOM, CTP, retards,
-          scénarios). Tout chiffre porte sa source tool{' '}
-          <code class="rounded bg-muted px-1">[tool: …]</code>.
-        </p>
+        <div class="flex items-start justify-between gap-3">
+          <p class="text-[12px] text-secondary-foreground">
+            Copilote lecture-seule. Orchestre les algos board (verdict, BOM, CTP, retards,
+            scénarios). Tout chiffre porte sa source tool{' '}
+            <code class="rounded bg-muted px-1">[tool: …]</code>.
+          </p>
+          <button
+            type="button"
+            onClick={resetConversation}
+            disabled={busy() || messages().length === 0}
+            class="shrink-0 rounded-md border border-rule px-2 py-1 text-[11px] text-secondary-foreground hover:border-brand hover:text-foreground disabled:opacity-40"
+          >
+            Nouvelle conversation
+          </button>
+        </div>
 
         <div class="flex flex-1 flex-col gap-3 overflow-y-auto rounded-lg border border-rule bg-card p-4">
           <Show when={messages().length === 0}>
