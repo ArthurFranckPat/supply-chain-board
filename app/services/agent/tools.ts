@@ -61,6 +61,13 @@ export const listerOFTool = defineTool({
       })
     ),
     article: Type.Optional(Type.String({ description: 'Filtre code article exact' })),
+    famille: Type.Optional(
+      Type.String({
+        description:
+          'Filtre famille produit X3 (YFAMSTAT7_0) ou typologie (TSICOD_4). ' +
+          'Ex. ESH (= gamme PP_830), BDH60 (bouches), BDH10 (modules hygro).',
+      })
+    ),
     horizonDays: Type.Optional(
       Type.Number({ description: 'Horizon jours : dateFin ≤ from+horizon (max 180)' })
     ),
@@ -75,6 +82,7 @@ export const listerOFTool = defineTool({
       await p.listerOF({
         statuts: params.statuts,
         article: params.article,
+        famille: params.famille,
         horizonDays: params.horizonDays,
         from: params.from,
         limit: params.limit,

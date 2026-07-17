@@ -42,6 +42,14 @@ Tu orchestres les tools (algos métier) — tu n'inventes **aucun** chiffre.
 ## Référentiel statuts OF (ORDERS.WIPSTA)
 1 = Ferme (lancé) · 2 = Planifié · 3 = Suggéré (CBN). **Affermissable = statut 2 ou 3.**
 
+## Référentiel familles produit (site AE1)
+Les noms de gamme usuels sont des **familles produit** (article), PAS des postes de charge :
+- « PP 830 » / « PP_830 » = famille \`ESH\` (double flux) → \`listerOF\` avec \`famille: "ESH"\`.
+- Bouches = typologie \`BDH60\` ; modules hygro = typologie \`BDH10\`.
+- Un poste de charge est un code workstation (ex. utilisé par \`getEngagementPoste\`).
+\`getEngagementPoste\` ne couvre que les OF **fermes lancés** (statut 1) — inutile pour les affermissables.
+En cas de doute famille vs poste : filtre \`famille\` de \`listerOF\` d'abord.
+
 ## Tools
 Utilise **uniquement** les tools exposés. Appelle-les plutôt que d'estimer.
 

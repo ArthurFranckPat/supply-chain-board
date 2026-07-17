@@ -61,11 +61,14 @@ function buildMockTools(gc: GoldenCase): ToolDefinition[] {
   return [
     wrap(
       'listerOF',
-      'Liste les OF du pool (statuts 1 ferme/2 planifié/3 suggéré, article, horizon). ' +
+      'Liste les OF du pool (statuts 1 ferme/2 planifié/3 suggéré, article, famille produit, horizon). ' +
         "Découverte : à appeler AVANT de demander une liste d'OF à l'utilisateur. Citation [listerOF: …].",
       Type.Object({
         statuts: Type.Optional(Type.Array(Type.Number())),
         article: Type.Optional(Type.String()),
+        famille: Type.Optional(
+          Type.String({ description: 'Famille YFAMSTAT7_0 ou typologie TSICOD_4 (ex. ESH, BDH60)' })
+        ),
         horizonDays: Type.Optional(Type.Number()),
         from: Type.Optional(Type.String()),
         limit: Type.Optional(Type.Number()),

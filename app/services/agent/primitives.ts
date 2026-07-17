@@ -74,6 +74,11 @@ export interface ListerOfParams {
   statuts?: number[]
   /** Filtre code article exact (insensible à la casse). */
   article?: string
+  /**
+   * Filtre famille produit X3 : match YFAMSTAT7_0 (famille, ex. ESH) OU
+   * TSICOD_4 (typologie, ex. BDH60). Insensible à la casse.
+   */
+  famille?: string
   /** Horizon en jours : ne garde que dateFin ≤ from+horizon. Défaut = pas de borne. */
   horizonDays?: number
   /** Début d'horizon ISO (défaut = aujourd'hui). Sert de référence retard. */
@@ -94,6 +99,17 @@ export async function listerOF(params: ListerOfParams = {}) {
       ? new Set(params.statuts.map((s) => Math.trunc(Number(s))).filter((s) => s >= 1 && s <= 3))
       : null
   const articleFilter = params.article?.trim().toUpperCase() || null
+  const familleFilter = params.famille?.trim().toUpperCase() || null
+
+  // Catalogue articles : famille/typologie (YFAMSTAT7_0 / TSICOD_4) par code.
+  const catalog = familleFilter
+    ? new Map(
+        (await boardDataset.getArticles().catch(() => [])).map((a) => [
+          a.code.toUpperCase(),
+          { famille: a.famille?.toUpperCase() ?? null, typologie: a.typologie?.toUpperCase() ?? null },
+        ])
+      )
+    : null
 
   const from = params.from ? new Date(params.from) : new Date()
   if (Number.isNaN(from.getTime())) {
@@ -131,6 +147,10 @@ export async function listerOF(params: ListerOfParams = {}) {
     const statut = f.origin.status ?? 3
     if (statuts && !statuts.has(statut)) continue
     if (articleFilter && f.article.toUpperCase() !== articleFilter) continue
+    if (familleFilter && catalog) {
+      const art = catalog.get(f.article.toUpperCase())
+      if (!art || (art.famille !== familleFilter && art.typologie !== familleFilter)) continue
+    }
     if (to && f.date && f.date > to) continue
     // Sans dateFin : gardé seulement hors fenêtre horizon (donnée incomplète sinon).
     if (to && !f.date) continue
@@ -159,6 +179,7 @@ export async function listerOF(params: ListerOfParams = {}) {
     filtres: {
       statuts: statuts ? [...statuts] : null,
       article: articleFilter,
+      famille: familleFilter,
       from: isoDate(from),
       to: to ? isoDate(to) : null,
     },

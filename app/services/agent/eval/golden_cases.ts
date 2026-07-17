@@ -750,4 +750,51 @@ export const GOLDEN_CASES: GoldenCase[] = [
       keywords: ['04/08/2026', '2026-08-04', 'engageante'],
     },
   },
+  {
+    id: 'G15-famille-pp830-pas-un-poste',
+    // « PP 830 » = famille produit ESH, PAS un poste de charge (référentiel prompt).
+    question: 'OF affermissables sur PP 830 sur les 5 prochains jours ?',
+    mocks: {
+      listerOF: {
+        byArgs: [
+          {
+            match: { famille: 'ESH' },
+            result: {
+              _source: 'listerOF',
+              engine: 'boardDataset.getPool (ORDERS WIPSTA 1/2/3)',
+              filtres: { statuts: [2, 3], famille: 'ESH', from: '2026-07-17', to: '2026-07-22' },
+              totalMatching: 1,
+              truncated: false,
+              ofs: [
+                {
+                  numOf: 'MFG-8801',
+                  article: 'PP_830_ESH_D',
+                  designation: 'Double flux PP830',
+                  quantity: 25,
+                  statut: 2,
+                  statutLabel: 'Planifié',
+                  dateFin: '2026-07-21',
+                  enRetard: false,
+                },
+              ],
+            },
+          },
+        ],
+      },
+      getVerdict: verdict({
+        of: { numOf: 'MFG-8801', article: 'PP_830_ESH_D', quantity: 25, statutNum: 2 },
+        requirementSource: 'NOMENCLATURE',
+        feasible: true,
+        missingDirect: [],
+        missingCount: 0,
+        missingDetail: [],
+      }),
+    },
+    mustCall: ['listerOF', 'getVerdict'],
+    expected: {
+      ofs: ['MFG-8801'],
+      articles: ['PP_830_ESH_D'],
+      keywords: ['faisable'],
+    },
+  },
 ]
