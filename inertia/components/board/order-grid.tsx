@@ -416,6 +416,15 @@ function CardView(props: {
     if (!f) return undefined
     return f.st === 'blocked' ? ('bad' as const) : ('ok' as const)
   }
+  // Composants en rupture (union des OF bloqués rattachés à la ligne, agrégée
+  // côté store) — miroir de BoardGrid.CardView (alert OF), même rendu visuel.
+  const alert = () => {
+    if (ghost) return undefined
+    const f = store.feasOf(card.id)
+    return f && f.st === 'blocked' && f.missing.length
+      ? `Rupture ${f.missing.join(', ')}`
+      : undefined
+  }
   return (
     <div
       role="button"
@@ -463,6 +472,7 @@ function CardView(props: {
         qty={card.qty}
         induit={ghost}
         feas={feas()}
+        alert={alert()}
       />
       {/* Override : bouton réinitialiser (date X3 d'origine) */}
       <Show when={card.hasOverride}>

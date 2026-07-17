@@ -33,6 +33,7 @@ export interface OfDetail {
   stats: StatItem[]
   progressPct: number
   operator: { initials: string; name: string }
+  createdAt: string
   cycle: { start: string; end: string }
   bomCount: number
   bomBlocked: number

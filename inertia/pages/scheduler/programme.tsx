@@ -126,6 +126,12 @@ const ORDER_SCOPES = [
   { v: 'client', label: 'Client' },
 ] as const satisfies { v: OrderSearchScope; label: string }[]
 
+// Barre de recherche unifiée : un seul <Select>, dont les options basculent
+// selon le mode (au lieu de deux blocs quasi-dupliqués swappés en <Show>).
+// Un seul store est actif à la fois (store en combiné, orderStore en
+// planification) — pas de filtrage croisé, juste du DRY.
+type ScopeOption = { v: SearchScope | OrderSearchScope; label: string }
+
 const Programme: Component<VisionProps> = (props) => {
   const store = createBoardStore(props.board ?? EMPTY_BOARD)
   const orderStore = createOrderBoardStore(props.orderBoard ?? EMPTY_ORDER_BOARD)
@@ -178,6 +184,7 @@ const Programme: Component<VisionProps> = (props) => {
   // badges, le sélecteur de mode d'allocation et le bouton de calcul pilotent le
   // bon board — sans dupliquer les ternaires dans le JSX (issue #21).
   const isOrderMode = () => mode() === 'planification'
+  const scopeOptions = (): readonly ScopeOption[] => (isOrderMode() ? ORDER_SCOPES : OF_SCOPES)
   const feasLoading = () => (isOrderMode() ? orderStore.feasLoading() : store.feasLoading())
   const runFeasibility = () =>
     isOrderMode()
@@ -915,64 +922,36 @@ const Programme: Component<VisionProps> = (props) => {
                 />
               </div>
             </TextField>
-            <Show
-              when={mode() === 'planification'}
-              fallback={
-                <Select<string>
-                  title="Portée de la recherche"
-                  value={store.scope()}
-                  onChange={(v) => v && store.onScopeChange(v as SearchScope)}
-                  options={OF_SCOPES.map((s) => s.v)}
-                  disallowEmptySelection
-                  optionTextValue={(o) => OF_SCOPES.find((s) => s.v === o)?.label ?? o}
-                  itemComponent={(itemProps) => (
-                    <SelectItem item={itemProps.item}>
-                      {OF_SCOPES.find((s) => s.v === itemProps.item.rawValue)?.label ??
-                        itemProps.item.rawValue}
-                    </SelectItem>
-                  )}
-                >
-                  <SelectTrigger
-                    class="h-[30px] w-[92px] rounded-full border border-rule bg-card px-3 text-xs font-semibold"
-                    aria-label="Portée de la recherche"
-                  >
-                    <SelectValue<string>>
-                      {(state) =>
-                        OF_SCOPES.find((s) => s.v === state.selectedOption())?.label ?? 'Portée'
-                      }
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent />
-                </Select>
-              }
+            <Select<string>
+              title="Portée de la recherche"
+              value={mode() === 'planification' ? orderStore.scope() : store.scope()}
+              onChange={(v) => {
+                if (!v) return
+                if (mode() === 'planification') orderStore.onScopeChange(v as OrderSearchScope)
+                else store.onScopeChange(v as SearchScope)
+              }}
+              options={scopeOptions().map((s) => s.v)}
+              disallowEmptySelection
+              optionTextValue={(o) => scopeOptions().find((s) => s.v === o)?.label ?? o}
+              itemComponent={(itemProps) => (
+                <SelectItem item={itemProps.item}>
+                  {scopeOptions().find((s) => s.v === itemProps.item.rawValue)?.label ??
+                    itemProps.item.rawValue}
+                </SelectItem>
+              )}
             >
-              <Select<string>
-                title="Portée de la recherche"
-                value={orderStore.scope()}
-                onChange={(v) => v && orderStore.onScopeChange(v as OrderSearchScope)}
-                options={ORDER_SCOPES.map((s) => s.v)}
-                disallowEmptySelection
-                optionTextValue={(o) => ORDER_SCOPES.find((s) => s.v === o)?.label ?? o}
-                itemComponent={(itemProps) => (
-                  <SelectItem item={itemProps.item}>
-                    {ORDER_SCOPES.find((s) => s.v === itemProps.item.rawValue)?.label ??
-                      itemProps.item.rawValue}
-                  </SelectItem>
-                )}
+              <SelectTrigger
+                class="h-[30px] w-[110px] rounded-full border border-rule bg-card px-3 text-xs font-semibold"
+                aria-label="Portée de la recherche"
               >
-                <SelectTrigger
-                  class="h-[30px] w-[110px] rounded-full border border-rule bg-card px-3 text-xs font-semibold"
-                  aria-label="Portée de la recherche"
-                >
-                  <SelectValue<string>>
-                    {(state) =>
-                      ORDER_SCOPES.find((s) => s.v === state.selectedOption())?.label ?? 'Portée'
-                    }
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent />
-              </Select>
-            </Show>
+                <SelectValue<string>>
+                  {(state) =>
+                    scopeOptions().find((s) => s.v === state.selectedOption())?.label ?? 'Portée'
+                  }
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent />
+            </Select>
           </>
         }
       />

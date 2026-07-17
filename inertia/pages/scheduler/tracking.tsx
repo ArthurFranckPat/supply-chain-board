@@ -11,6 +11,7 @@ import { ProactiveView } from '@/components/tracking/proactive-view'
 import type { SuiviRowsResponse, ProactiveRowsResponse } from '@/lib/suivi/types'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetBody } from '@/components/ui/sheet'
 import { SuiviDetailSheet } from '@/components/tracking/suivi-detail-sheet'
+import OfDetailSheet from '@/components/of/of-detail-sheet'
 import type { SuiviDisplayRow, ProactiveDisplayRow } from '@/lib/suivi/types'
 
 /**
@@ -98,6 +99,15 @@ const Tracking: Component<SuiviPageProps> = (props) => {
     type: 'reactif' | 'proactif'
     row: SuiviDisplayRow | ProactiveDisplayRow
   } | null>(null)
+
+  // Détail OF (faisabilité) au clic sur un n° d'OF (colonne Couverture, proactif) —
+  // même <OfDetailSheet> que /programme.
+  const [selectedOf, setSelectedOf] = createSignal<string | null>(null)
+  const [ofDetailOpen, setOfDetailOpen] = createSignal(false)
+  const onSelectOf = (numOf: string) => {
+    setSelectedOf(numOf)
+    setOfDetailOpen(true)
+  }
 
   const toggleType = (t: string) =>
     setTypeFilter((prev) => {
@@ -476,6 +486,7 @@ const Tracking: Component<SuiviPageProps> = (props) => {
             }}
             onRowClick={(row) => setSelectedRow({ type: 'proactif', row })}
             selectedRowKey={selectedRowKey}
+            onSelectOf={onSelectOf}
           />
         }
       >
@@ -514,6 +525,9 @@ const Tracking: Component<SuiviPageProps> = (props) => {
           )}
         </Show>
       </Sheet>
+
+      {/* Drawer détail OF (faisabilité) — n° d'OF cliqué en colonne Couverture (proactif). */}
+      <OfDetailSheet num={selectedOf()} open={ofDetailOpen()} onOpenChange={setOfDetailOpen} />
     </div>
   )
 }
