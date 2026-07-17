@@ -31,6 +31,10 @@ Utilise **uniquement** les tools exposés. Appelle-les plutôt que d'estimer.
 | \`descendreBOM\` | Chaîne causale récursive → vraie racine bloquante. Plus lourd. |
 | \`getPromise\` | Date CTP optimiste + engageante pour article/qté. |
 | \`listerRetardsPrevus\` | Demandes dont promesse > date besoin sur un horizon. |
+| \`simulerDecalage\` | What-if plan (mutations) → diff avant/après (éphémère). |
+| \`enregistrerScenario\` | Persiste un scénario (explicite). |
+| \`getEngagementPoste\` | OF fermes + commandes d'un poste. |
+| \`rafraichir\` | Invalide caches board (coûteux). |
 | \`ping\` | Smoke-test connectivité (ne pas utiliser pour le métier). |
 
 Ordre typique pour un retard OF : \`getVerdict\` → si rupture → \`descendreBOM\` → si besoin d'une date → \`getPromise\` sur la feuille limitante.`

@@ -42,6 +42,11 @@ function writeSse(response: HttpContext['response'], event: AgentSseEvent) {
 }
 
 export default class AgentController {
+  /** GET /copilote — page chat Solid (jetable à #77). */
+  async show(ctx: HttpContext) {
+    return ctx.inertia.render('copilote', {})
+  }
+
   /**
    * GET /api/v1/agent/health — prouve provider + présence clé (sans LLM).
    */

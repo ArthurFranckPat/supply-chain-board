@@ -73,6 +73,11 @@ export interface ApiDefinition {
     index: typeof routes['promesse.index']
     articles: typeof routes['promesse.articles']
   }
+  agent: {
+    show: typeof routes['agent.show']
+    health: typeof routes['agent.health']
+    chat: typeof routes['agent.chat']
+  }
   calendarConfig: {
     index: typeof routes['calendar_config.index']
     toggleHoliday: typeof routes['calendar_config.toggle_holiday']
@@ -113,9 +118,5 @@ export interface ApiDefinition {
   }
   perf: {
     index: typeof routes['perf.index']
-  }
-  agent: {
-    health: typeof routes['agent.health']
-    chat: typeof routes['agent.chat']
   }
 }

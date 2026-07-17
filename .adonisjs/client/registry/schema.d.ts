@@ -259,6 +259,18 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'agent.show': {
+    methods: ["GET","HEAD"]
+    pattern: '/copilote'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'calendar_config.index': {
     methods: ["GET","HEAD"]
     pattern: '/configuration/calendrier'

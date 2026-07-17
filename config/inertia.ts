@@ -94,6 +94,8 @@ declare module '@adonisjs/inertia/types' {
     'writeback-test': Record<string, never>
     // CTP — simulateur autonome « date au plus tôt » (PRD §6.2, lot 3).
     'promesse': Record<string, never>
+    // Copilote agentique v1 — chat SSE (jetable #77).
+    'copilote': Record<string, never>
     'scheduler/scheduling': {
       board: BoardProp
       windowFrom: string

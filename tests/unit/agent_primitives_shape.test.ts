@@ -8,13 +8,17 @@ import { agentToolNames, buildAgentTools } from '#services/agent/tools'
 import { getPromise } from '#services/agent/primitives'
 
 test.group('agent tools registry', () => {
-  test('4 primitifs + ping en allowlist', ({ assert }) => {
+  test('tools métier + ping en allowlist, zéro builtin', ({ assert }) => {
     const names = agentToolNames(buildAgentTools())
     for (const n of [
       'getVerdict',
       'descendreBOM',
       'getPromise',
       'listerRetardsPrevus',
+      'simulerDecalage',
+      'enregistrerScenario',
+      'getEngagementPoste',
+      'rafraichir',
       'ping',
     ]) {
       assert.include(names, n)

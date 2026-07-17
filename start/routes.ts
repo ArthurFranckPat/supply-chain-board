@@ -104,6 +104,7 @@ router
       .get('/conditionnements', '#controllers/conditionnements_controller.index')
       .as('conditionnements.index')
     router.get('/promesse', '#controllers/promise_controller.show').as('promesse.show')
+    router.get('/copilote', '#controllers/agent_controller.show').as('agent.show')
     router.get('/configuration/calendrier', '#controllers/calendar_config_controller.index')
 
     // Configuration calendrier usine — API JSON (issue #37).

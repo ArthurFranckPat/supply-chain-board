@@ -132,6 +132,12 @@ const routes = {
     tokens: [{"old":"/promesse","type":0,"val":"promesse","end":""}],
     types: placeholder as Registry['promesse.show']['types'],
   },
+  'agent.show': {
+    methods: ["GET","HEAD"],
+    pattern: '/copilote',
+    tokens: [{"old":"/copilote","type":0,"val":"copilote","end":""}],
+    types: placeholder as Registry['agent.show']['types'],
+  },
   'calendar_config.index': {
     methods: ["GET","HEAD"],
     pattern: '/configuration/calendrier',

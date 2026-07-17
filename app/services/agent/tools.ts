@@ -131,12 +131,100 @@ export const listerRetardsPrevusTool = defineTool({
   },
 })
 
+async function extras() {
+  return import('#services/agent/primitives_extra')
+}
+
+export const rafraichirTool = defineTool({
+  name: 'rafraichir',
+  label: 'Rafraîchir caches',
+  description:
+    'Invalide les caches board → prochain accès = live X3. Coûteux. Citation [rafraichir: …].',
+  parameters: Type.Object({
+    article: Type.Optional(
+      Type.String({ description: 'Article (informatif ; v1 = reload global)' })
+    ),
+  }),
+  execute: async (_id, params) => {
+    const e = await extras()
+    return toolResult(await e.rafraichir(params.article))
+  },
+})
+
+export const simulerDecalageTool = defineTool({
+  name: 'simulerDecalage',
+  label: 'Simuler scénario',
+  description:
+    'Simule des mutations de plan en RAM (evaluatePlanDiff) : shift_of, shift_demand, inject_demand, suspend_supply. ' +
+    'Retourne stats avant/après + top dégradations. Ne persiste pas. Citation [simulerDecalage: …].',
+  parameters: Type.Object({
+    mutations: Type.Array(Type.Any(), {
+      description:
+        'PlanMutation[] : {type:"shift_of",numOf,dateFin?}|{type:"shift_demand",numCommande,date}|{type:"inject_demand",id,article,quantity,date}|{type:"suspend_supply",article}',
+    }),
+    from: Type.Optional(Type.String()),
+    to: Type.Optional(Type.String()),
+    horizonDays: Type.Optional(Type.Number()),
+  }),
+  execute: async (_id, params) => {
+    const e = await extras()
+    return toolResult(
+      await e.simulerDecalage({
+        mutations: params.mutations as never,
+        from: params.from,
+        to: params.to,
+        horizonDays: params.horizonDays,
+      })
+    )
+  },
+})
+
+export const enregistrerScenarioTool = defineTool({
+  name: 'enregistrerScenario',
+  label: 'Enregistrer scénario',
+  description:
+    'Persiste un scénario (explicit) dans scenario_store. Citation [enregistrerScenario: id=…].',
+  parameters: Type.Object({
+    nom: Type.String(),
+    description: Type.Optional(Type.String()),
+    mutations: Type.Array(Type.Any()),
+  }),
+  execute: async (_id, params) => {
+    const e = await extras()
+    return toolResult(
+      await e.enregistrerScenario({
+        nom: params.nom,
+        description: params.description,
+        mutations: params.mutations as never,
+      })
+    )
+  },
+})
+
+export const getEngagementPosteTool = defineTool({
+  name: 'getEngagementPoste',
+  label: 'Engagement poste',
+  description:
+    'Liste les OF fermes engagés sur un poste de charge + commandes liées. Citation [getEngagementPoste: …].',
+  parameters: Type.Object({
+    poste: Type.String({ description: 'Code poste / workstation' }),
+  }),
+  execute: async (_id, params) => {
+    const e = await extras()
+    return toolResult(await e.getEngagementPoste(params.poste))
+  },
+})
+
 export function buildAgentTools(): ToolDefinition[] {
   return [
     getVerdictTool,
     descendreBOMTool,
     getPromiseTool,
     listerRetardsPrevusTool,
+    simulerDecalageTool,
+    enregistrerScenarioTool,
+    getEngagementPosteTool,
+    rafraichirTool,
     pingTool,
   ]
 }

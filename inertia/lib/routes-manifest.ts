@@ -2,12 +2,13 @@
  * AUTO-GÉNÉRÉ par scripts/gen-routes-manifest.mjs — NE PAS ÉDITER À LA MAIN.
  * Source : `start/routes.ts` → `node ace list:routes --jsonl`.
  * Régénérer : `npm run routes:gen` · Vérifier la fraîcheur : `npm run routes:check`.
- * 76 routes nommées.
+ * 77 routes nommées.
  */
 
 export const MANIFEST = {
   "agent.chat": { method: "POST", pattern: "/api/v1/agent/chat" },
   "agent.health": { method: "GET", pattern: "/api/v1/agent/health" },
+  "agent.show": { method: "GET", pattern: "/copilote" },
   "assets.css": { method: "GET", pattern: "/css/app.css" },
   "assets.js": { method: "GET", pattern: "/js/app.js" },
   "auth.attempt": { method: "POST", pattern: "/login" },
@@ -93,6 +94,7 @@ export type RouteName = keyof typeof MANIFEST
 export type RouteParams = {
   "agent.chat": void,
   "agent.health": void,
+  "agent.show": void,
   "assets.css": void,
   "assets.js": void,
   "auth.attempt": void,

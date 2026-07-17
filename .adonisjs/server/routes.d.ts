@@ -25,6 +25,7 @@ export type ScannedRoutes = {
     'receptions.index': { paramsTuple?: []; params?: {} }
     'conditionnements.index': { paramsTuple?: []; params?: {} }
     'promesse.show': { paramsTuple?: []; params?: {} }
+    'agent.show': { paramsTuple?: []; params?: {} }
     'calendar_config.index': { paramsTuple?: []; params?: {} }
     'calendar_config.toggle_holiday': { paramsTuple?: []; params?: {} }
     'calendar_config.create_closure': { paramsTuple?: []; params?: {} }
@@ -101,6 +102,7 @@ export type ScannedRoutes = {
     'receptions.index': { paramsTuple?: []; params?: {} }
     'conditionnements.index': { paramsTuple?: []; params?: {} }
     'promesse.show': { paramsTuple?: []; params?: {} }
+    'agent.show': { paramsTuple?: []; params?: {} }
     'calendar_config.index': { paramsTuple?: []; params?: {} }
     'order_planning.index': { paramsTuple?: []; params?: {} }
     'order_planning.line_detail': { paramsTuple: [ParamValue,ParamValue]; params: {'order': ParamValue,'line': ParamValue} }
@@ -153,6 +155,7 @@ export type ScannedRoutes = {
     'receptions.index': { paramsTuple?: []; params?: {} }
     'conditionnements.index': { paramsTuple?: []; params?: {} }
     'promesse.show': { paramsTuple?: []; params?: {} }
+    'agent.show': { paramsTuple?: []; params?: {} }
     'calendar_config.index': { paramsTuple?: []; params?: {} }
     'order_planning.index': { paramsTuple?: []; params?: {} }
     'order_planning.line_detail': { paramsTuple: [ParamValue,ParamValue]; params: {'order': ParamValue,'line': ParamValue} }
