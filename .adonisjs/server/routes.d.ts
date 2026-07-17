@@ -78,6 +78,8 @@ export type ScannedRoutes = {
     'x3_writeback.list': { paramsTuple?: []; params?: {} }
     'x3_writeback.run': { paramsTuple?: []; params?: {} }
     'perf.index': { paramsTuple?: []; params?: {} }
+    'agent.health': { paramsTuple?: []; params?: {} }
+    'agent.chat': { paramsTuple?: []; params?: {} }
   }
   GET: {
     'auth.login': { paramsTuple?: []; params?: {} }
@@ -129,6 +131,7 @@ export type ScannedRoutes = {
     'x3_writeback.delete': { paramsTuple?: []; params?: {} }
     'x3_writeback.list': { paramsTuple?: []; params?: {} }
     'perf.index': { paramsTuple?: []; params?: {} }
+    'agent.health': { paramsTuple?: []; params?: {} }
   }
   HEAD: {
     'auth.login': { paramsTuple?: []; params?: {} }
@@ -180,6 +183,7 @@ export type ScannedRoutes = {
     'x3_writeback.delete': { paramsTuple?: []; params?: {} }
     'x3_writeback.list': { paramsTuple?: []; params?: {} }
     'perf.index': { paramsTuple?: []; params?: {} }
+    'agent.health': { paramsTuple?: []; params?: {} }
   }
   POST: {
     'auth.attempt': { paramsTuple?: []; params?: {} }
@@ -200,6 +204,7 @@ export type ScannedRoutes = {
     'x3_writeback.save': { paramsTuple?: []; params?: {} }
     'x3_writeback.modify': { paramsTuple?: []; params?: {} }
     'x3_writeback.run': { paramsTuple?: []; params?: {} }
+    'agent.chat': { paramsTuple?: []; params?: {} }
   }
   PATCH: {
     'calendar_config.update_closure': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }

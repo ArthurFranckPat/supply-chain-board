@@ -895,4 +895,28 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'agent.health': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/agent/health'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'agent.chat': {
+    methods: ["POST"]
+    pattern: '/api/v1/agent/chat'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
 }

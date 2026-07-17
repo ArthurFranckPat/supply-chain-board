@@ -114,4 +114,8 @@ export interface ApiDefinition {
   perf: {
     index: typeof routes['perf.index']
   }
+  agent: {
+    health: typeof routes['agent.health']
+    chat: typeof routes['agent.chat']
+  }
 }

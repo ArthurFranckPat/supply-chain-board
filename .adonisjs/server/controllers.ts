@@ -4,6 +4,7 @@
  */
 
 export const controllers = {
+  Agent: () => import('#controllers/agent_controller'),
   Auth: () => import('#controllers/auth_controller'),
   CalendarConfig: () => import('#controllers/calendar_config_controller'),
   Conditionnements: () => import('#controllers/conditionnements_controller'),

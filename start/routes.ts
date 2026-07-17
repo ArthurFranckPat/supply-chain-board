@@ -265,5 +265,14 @@ router
 
     // Baseline perf (issue #33) — P50/P95 par route, collectés par timing_middleware.
     router.get('/api/v1/_perf', '#controllers/perf_controller.index').as('perf.index')
+
+    // Couche agentique v1 — copilote lecture-seule (Pi + GLM 5.2).
+    // Health = provider/key sans LLM ; chat = SSE un tour / session éphémère.
+    router
+      .group(() => {
+        router.get('/health', '#controllers/agent_controller.health').as('agent.health')
+        router.post('/chat', '#controllers/agent_controller.chat').as('agent.chat')
+      })
+      .prefix('/api/v1/agent')
   })
   .use([middleware.auth(), middleware.x3Context()])

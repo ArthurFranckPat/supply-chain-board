@@ -450,6 +450,18 @@ const routes = {
     tokens: [{"old":"/api/v1/_perf","type":0,"val":"api","end":""},{"old":"/api/v1/_perf","type":0,"val":"v1","end":""},{"old":"/api/v1/_perf","type":0,"val":"_perf","end":""}],
     types: placeholder as Registry['perf.index']['types'],
   },
+  'agent.health': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/agent/health',
+    tokens: [{"old":"/api/v1/agent/health","type":0,"val":"api","end":""},{"old":"/api/v1/agent/health","type":0,"val":"v1","end":""},{"old":"/api/v1/agent/health","type":0,"val":"agent","end":""},{"old":"/api/v1/agent/health","type":0,"val":"health","end":""}],
+    types: placeholder as Registry['agent.health']['types'],
+  },
+  'agent.chat': {
+    methods: ["POST"],
+    pattern: '/api/v1/agent/chat',
+    tokens: [{"old":"/api/v1/agent/chat","type":0,"val":"api","end":""},{"old":"/api/v1/agent/chat","type":0,"val":"v1","end":""},{"old":"/api/v1/agent/chat","type":0,"val":"agent","end":""},{"old":"/api/v1/agent/chat","type":0,"val":"chat","end":""}],
+    types: placeholder as Registry['agent.chat']['types'],
+  },
 } as const satisfies Record<string, AdonisEndpoint>
 
 export { routes }

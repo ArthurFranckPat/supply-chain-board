@@ -85,6 +85,8 @@
     "@adonisjs/shield": "^9.0.0",
     "@adonisjs/vite": "^5.1.1",
     "@dotenvx/dotenvx": "^1.75.1",
+    "@earendil-works/pi-ai": "^0.80.10",
+    "@earendil-works/pi-coding-agent": "^0.80.10",
     "@inertiajs/core": "^3.6.0",
     "@japa/api-client": "^3.2.1",
     "@kobalte/core": "^0.13.12",
