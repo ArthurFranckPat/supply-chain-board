@@ -15,6 +15,10 @@ export type GoldenToolName =
   | 'getPromise'
   | 'listerRetardsPrevus'
   | 'listerRuptures'
+  | 'listerCommandesStatut'
+  | 'getDetailCommande'
+  | 'getStock'
+  | 'getCharge'
   | 'listerOF'
   | 'rechercherArticle'
   | 'ping'
@@ -916,6 +920,82 @@ export const GOLDEN_CASES: GoldenCase[] = [
     expected: {
       articles: ['ACH-VIS-M8'],
       keywords: ['PO-99231', '24/07/2026', '2026-07-24', 'VISSERIE-SA'],
+    },
+  },
+  {
+    id: 'G18-commandes-a-risque',
+    question: 'Quelles commandes clientes sont à risque ou en retard sur les 2 prochaines semaines ?',
+    mocks: {
+      listerCommandesStatut: {
+        _source: 'listerCommandesStatut',
+        engine: 'order_impacts_loader.evaluateOrderImpacts (pipeline programme)',
+        window: { from: '2026-07-17', to: '2026-07-31' },
+        stats: { nbCommandes: 24, nbOnTime: 21, nbRetard: 2, nbBloquees: 1, nbSansCouverture: 0 },
+        totalMatching: 3,
+        truncated: false,
+        commandes: [
+          {
+            numCommande: 'CMD-3301',
+            ligne: '1000',
+            client: 'CLIENT-ALPHA',
+            article: 'PF-CAISSON-A',
+            qteRestante: 60,
+            dateExpedition: '2026-07-22',
+            dejaEnRetard: false,
+            nature: 'commande',
+            statut: 'retard',
+            joursRetard: 4,
+            ofs: [{ numOf: 'MFG-3311', feasible: false, dateFin: '2026-07-21' }],
+          },
+          {
+            numCommande: 'CMD-3302',
+            ligne: '2000',
+            client: 'CLIENT-BETA',
+            article: 'PF-CAISSON-B',
+            qteRestante: 30,
+            dateExpedition: '2026-07-24',
+            dejaEnRetard: false,
+            nature: 'commande',
+            statut: 'retard',
+            joursRetard: 2,
+            ofs: [{ numOf: 'MFG-3322', feasible: false, dateFin: '2026-07-23' }],
+          },
+          {
+            numCommande: 'CMD-3303',
+            ligne: '1000',
+            client: 'CLIENT-GAMMA',
+            article: 'PF-CAISSON-C',
+            qteRestante: 10,
+            dateExpedition: '2026-07-28',
+            dejaEnRetard: false,
+            nature: 'commande',
+            statut: 'bloquee',
+            joursRetard: 0,
+            ofs: [],
+          },
+        ],
+      },
+    },
+    mustCall: ['listerCommandesStatut'],
+    expected: {
+      keywords: ['CMD-3301', 'CMD-3302', 'CMD-3303', 'CLIENT-ALPHA'],
+    },
+  },
+  {
+    id: 'G19-stock-article',
+    question: 'Combien reste-t-il en stock utilisable de ACH-MOTEUR-45 ?',
+    mocks: {
+      getStock: {
+        _source: 'getStock',
+        engine: 'boardDataset.getStock + buildStockBreakdownMap',
+        note: 'Stock photo usine — ne dit pas ce qui est alloué à un OF donné.',
+        stocks: [{ article: 'ACH-MOTEUR-45', strict: 128, qc: 40, total: 168, inconnu: false }],
+      },
+    },
+    mustCall: ['getStock'],
+    expected: {
+      articles: ['ACH-MOTEUR-45'],
+      keywords: ['128', 'qc', 'qualite'],
     },
   },
 ]

@@ -307,6 +307,111 @@ export const listerRupturesTool = defineTool({
   },
 })
 
+export const getStockTool = defineTool({
+  name: 'getStock',
+  label: 'Stock articles',
+  description:
+    'Stock photo usine par article : strict (utilisable), QC (bloqué contrôle qualité), total. ' +
+    "Ne dit pas ce qui est alloué à un OF donné (ça, c'est getVerdict). " +
+    'Citation : [getStock: article → strict/qc].',
+  parameters: Type.Object({
+    articles: Type.Array(Type.String(), { description: 'Codes articles (max 50)' }),
+  }),
+  execute: async (_id, params) => {
+    const e = await extras()
+    return toolResult(await e.getStock({ articles: params.articles }))
+  },
+})
+
+export const listerCommandesStatutTool = defineTool({
+  name: 'listerCommandesStatut',
+  label: 'Statuts commandes',
+  description:
+    'Statuts des commandes clientes sur une fenêtre (moteur order-impacts /programme) : ' +
+    'on_time | stock | retard | bloquee | sans_couverture, avec jours de retard et OF liés. ' +
+    'LE tool pour « quelles commandes passent / sont à risque ? ». Citation : [listerCommandesStatut: …].',
+  parameters: Type.Object({
+    horizonDays: Type.Optional(Type.Number({ description: 'Horizon jours (défaut 14, max 90)' })),
+    from: Type.Optional(Type.String({ description: 'Début ISO YYYY-MM-DD (défaut auj.)' })),
+    client: Type.Optional(Type.String({ description: 'Filtre client (sous-chaîne)' })),
+    statuts: Type.Optional(
+      Type.Array(Type.String(), {
+        description: 'Filtre statuts : on_time|stock|retard|bloquee|sans_couverture',
+      })
+    ),
+    limit: Type.Optional(Type.Number({ description: 'Max lignes (défaut 60, max 150)' })),
+  }),
+  execute: async (_id, params) => {
+    const e = await extras()
+    return toolResult(
+      await e.listerCommandesStatut({
+        horizonDays: params.horizonDays,
+        from: params.from,
+        client: params.client,
+        statuts: params.statuts,
+        limit: params.limit,
+      })
+    )
+  },
+})
+
+export const getDetailCommandeTool = defineTool({
+  name: 'getDetailCommande',
+  label: 'Détail ligne commande',
+  description:
+    "Détail d'une ligne de commande cliente : article, qté, date livraison, poste/charge, " +
+    'BOM directe avec dispo par composant. Citation : [getDetailCommande: …].',
+  parameters: Type.Object({
+    numCommande: Type.String({ description: 'N° commande (SORDER)' }),
+    ligne: Type.String({ description: 'N° de ligne (VCRLIN)' }),
+  }),
+  execute: async (_id, params) => {
+    const e = await extras()
+    return toolResult(
+      await e.getDetailCommande({ numCommande: params.numCommande, ligne: params.ligne })
+    )
+  },
+})
+
+export const getChargeTool = defineTool({
+  name: 'getCharge',
+  label: 'Charge vs capacité',
+  description:
+    'Charge vs capacité par poste (payload /charge, horizon 6 mois, calendrier usine). ' +
+    'Sans filtre : agrégats par poste triés par saturation. Avec `poste` : détail hebdo ' +
+    '(charge, capacité, semaines saturées). Citation : [getCharge: …].',
+  parameters: Type.Object({
+    poste: Type.Optional(
+      Type.String({ description: 'Filtre poste (sous-chaîne code ou libellé)' })
+    ),
+    start: Type.Optional(Type.String({ description: 'Début ISO (défaut mois courant)' })),
+    vue: Type.Optional(
+      Type.String({ description: "'of' = OF réels du plan (défaut) | 'commandes' = besoin explosé" })
+    ),
+  }),
+  execute: async (_id, params) => {
+    const e = await extras()
+    return toolResult(
+      await e.getCharge({
+        poste: params.poste,
+        start: params.start,
+        vue: params.vue === 'commandes' ? 'commandes' : 'of',
+      })
+    )
+  },
+})
+
+export const listerScenariosTool = defineTool({
+  name: 'listerScenarios',
+  label: 'Scénarios persistés',
+  description: 'Liste les scénarios enregistrés (scenario_store). Citation : [listerScenarios: …].',
+  parameters: Type.Object({}),
+  execute: async () => {
+    const e = await extras()
+    return toolResult(await e.listerScenarios())
+  },
+})
+
 export const getEngagementPosteTool = defineTool({
   name: 'getEngagementPoste',
   label: 'Engagement poste',
@@ -330,8 +435,13 @@ export function buildAgentTools(): ToolDefinition[] {
     getPromiseTool,
     listerRetardsPrevusTool,
     listerRupturesTool,
+    listerCommandesStatutTool,
+    getDetailCommandeTool,
+    getStockTool,
+    getChargeTool,
     simulerDecalageTool,
     enregistrerScenarioTool,
+    listerScenariosTool,
     getEngagementPosteTool,
     rafraichirTool,
     pingTool,

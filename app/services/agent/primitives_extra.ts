@@ -8,6 +8,10 @@ import { evaluateScenarioDiff } from '#services/scenario_diff_loader'
 import { ScenarioStore } from '#services/scenario_store'
 import { loadPosteEngagement } from '#services/poste_engagement_loader'
 import { loadShortageRowsData } from '#services/shortage_payload_loader'
+import { loadChargePayloadData } from '#services/load_payload_loader'
+import { loadOrderImpacts } from '#services/order_impacts_loader'
+import { loadOrderLineDetail } from '#services/order_line_detail_loader'
+import { buildStockBreakdownMap } from '#services/suivi_service'
 import type { PlanMutation } from '#app/domain/plan-diff'
 
 function isoDay(d: Date): string {
@@ -215,6 +219,226 @@ export async function listerRuptures(params: {
           }
         : null,
       sousEnsembleOfs: r.sousEnsembleOfs,
+    })),
+  }
+}
+
+/**
+ * Stock net par article : strict (utilisable), QC (bloqué contrôle qualité), total.
+ * Source = flux stock board (STOCK X3, cache SWR).
+ */
+export async function getStock(params: { articles: string[] }) {
+  const articles = Array.isArray(params.articles)
+    ? [...new Set(params.articles.map((a) => String(a).trim()).filter(Boolean))]
+    : []
+  if (articles.length === 0) {
+    return { error: 'articles[] requis', _source: 'getStock' as const }
+  }
+  if (articles.length > 50) {
+    return { error: 'max 50 articles par appel', _source: 'getStock' as const }
+  }
+
+  const flows = await boardDataset.getStock(articles).catch(() => [])
+  const breakdown = buildStockBreakdownMap(flows)
+
+  return {
+    _source: 'getStock' as const,
+    engine: 'boardDataset.getStock + buildStockBreakdownMap',
+    note: 'Stock photo usine — ne dit pas ce qui est alloué à un OF donné (voir getVerdict).',
+    stocks: articles.map((a) => {
+      const b = breakdown.get(a)
+      return {
+        article: a,
+        strict: b?.strict ?? 0,
+        qc: b?.qc ?? 0,
+        total: b?.total ?? 0,
+        inconnu: !b,
+      }
+    }),
+  }
+}
+
+/**
+ * Statuts des commandes clientes sur une fenêtre (moteur order-impacts,
+ * pipeline /programme) : on_time | stock | retard | bloquee | sans_couverture.
+ */
+export async function listerCommandesStatut(params: {
+  /** Horizon jours (défaut 14, max 90). */
+  horizonDays?: number
+  /** Début ISO (défaut aujourd'hui). */
+  from?: string
+  /** Filtre client (sous-chaîne, insensible à la casse). */
+  client?: string
+  /** Filtre statuts : on_time | stock | retard | bloquee | sans_couverture. */
+  statuts?: string[]
+  /** Max lignes (défaut 60, max 150). */
+  limit?: number
+} = {}) {
+  const horizonRaw = params.horizonDays ?? 14
+  const horizon =
+    Number.isFinite(horizonRaw) && horizonRaw > 0 ? Math.min(Math.floor(horizonRaw), 90) : 14
+  const from = params.from ? new Date(params.from) : new Date()
+  if (Number.isNaN(from.getTime())) {
+    return { error: 'from invalide', _source: 'listerCommandesStatut' as const }
+  }
+  from.setHours(0, 0, 0, 0)
+  const to = new Date(from)
+  to.setDate(to.getDate() + horizon)
+  to.setHours(23, 59, 59, 999)
+
+  const { result } = await loadOrderImpacts({ from, to, pipeline: 'programme' })
+
+  const clientFilter = params.client?.trim().toLowerCase() || null
+  const statutFilter =
+    Array.isArray(params.statuts) && params.statuts.length > 0
+      ? new Set(params.statuts.map((s) => String(s).trim().toLowerCase()))
+      : null
+  const limitRaw = params.limit === undefined ? 60 : Math.floor(Number(params.limit))
+  const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 150) : 60
+
+  const filtered = result.orders.filter((o) => {
+    if (clientFilter && !o.client.toLowerCase().includes(clientFilter)) return false
+    if (statutFilter && !statutFilter.has(o.statut)) return false
+    return true
+  })
+
+  return {
+    _source: 'listerCommandesStatut' as const,
+    engine: 'order_impacts_loader.evaluateOrderImpacts (pipeline programme)',
+    window: result.window,
+    stats: result.stats,
+    totalMatching: filtered.length,
+    truncated: filtered.length > limit,
+    commandes: filtered.slice(0, limit).map((o) => ({
+      numCommande: o.numCommande,
+      ligne: o.ligne ?? null,
+      client: o.client,
+      article: o.article,
+      description: o.description,
+      qteRestante: o.qteRestante,
+      dateExpedition: o.dateExpedition,
+      dejaEnRetard: o.dejaEnRetard,
+      nature: o.nature,
+      statut: o.statut,
+      joursRetard: o.joursRetard,
+      ofs: o.ofs.slice(0, 3).map((f) => ({
+        numOf: f.numOf,
+        feasible: f.feasible,
+        dateFin: f.dateFin,
+      })),
+    })),
+  }
+}
+
+/** Détail d'une ligne de commande (loadOrderLineDetail) : OF liés, poste, BOM directe. */
+export async function getDetailCommande(params: { numCommande: string; ligne: string }) {
+  const num = params.numCommande?.trim()
+  const ligne = params.ligne?.trim()
+  if (!num || !ligne) {
+    return { error: 'numCommande et ligne requis', _source: 'getDetailCommande' as const }
+  }
+  const detail = await loadOrderLineDetail(num, ligne)
+  if (!detail) {
+    return {
+      error: `Ligne introuvable : ${num} #${ligne}`,
+      _source: 'getDetailCommande' as const,
+    }
+  }
+  return {
+    _source: 'getDetailCommande' as const,
+    engine: 'order_line_detail_loader',
+    ...detail,
+  }
+}
+
+/** Somme des heures d'une période de charge (fermes+planifiés+suggérés+induits). */
+function periodTotal(p: { f: number; p: number; s: number; fi: number; si: number }): number {
+  return p.f + p.p + p.s + p.fi + p.si
+}
+
+/**
+ * Charge vs capacité par poste (payload /charge). Sans filtre : agrégats par poste.
+ * Avec `poste` : détail hebdo (charge, capacité, saturation).
+ */
+export async function getCharge(params: {
+  /** Filtre poste (sous-chaîne sur code ou libellé, insensible à la casse). */
+  poste?: string
+  /** Début horizon ISO (défaut mois courant ; horizon fixe 6 mois). */
+  start?: string
+  /** Vue : 'of' = OF réels du plan (défaut) ; 'commandes' = besoin commandes explosé. */
+  vue?: 'of' | 'commandes'
+} = {}) {
+  const payload = await loadChargePayloadData({ start: params.start })
+  const vue = params.vue === 'commandes' ? 'commandes' : 'of'
+  const lines = vue === 'commandes' ? payload.cmdLines : payload.ofLines
+  const posteFilter = params.poste?.trim().toLowerCase() || null
+
+  const matching = posteFilter
+    ? lines.filter(
+        (l) =>
+          l.code.toLowerCase().includes(posteFilter) || l.name.toLowerCase().includes(posteFilter)
+      )
+    : lines
+
+  const summary = matching.map((l) => {
+    const chargeParSemaine = l.weekly.map(periodTotal)
+    const capaciteParSemaine = l.capacity.weekly
+    let semainesSaturees = 0
+    for (let i = 0; i < chargeParSemaine.length; i++) {
+      const cap = capaciteParSemaine[i] ?? 0
+      if (cap > 0 && chargeParSemaine[i] > cap) semainesSaturees++
+    }
+    return {
+      poste: l.code,
+      libelle: l.name,
+      atelier: l.atelierLabel,
+      totalHeures: Math.round(chargeParSemaine.reduce((a, b) => a + b, 0)),
+      totalCapacite: Math.round(capaciteParSemaine.reduce((a, b) => a + b, 0)),
+      semainesSaturees,
+      // Détail hebdo seulement en mode filtré (budget contexte).
+      ...(posteFilter
+        ? {
+            semaines: payload.weeks.map((w: string, i: number) => ({
+              semaine: w.replace('\n', ' '),
+              charge: Math.round(chargeParSemaine[i] ?? 0),
+              capacite: Math.round(capaciteParSemaine[i] ?? 0),
+              sature:
+                (capaciteParSemaine[i] ?? 0) > 0 &&
+                (chargeParSemaine[i] ?? 0) > (capaciteParSemaine[i] ?? 0),
+            })),
+          }
+        : {}),
+    }
+  })
+
+  summary.sort((a, b) => b.semainesSaturees - a.semainesSaturees || b.totalHeures - a.totalHeures)
+
+  return {
+    _source: 'getCharge' as const,
+    engine: 'load_payload_loader (charge vs capacité WORKSTATIO × calendrier)',
+    vue,
+    horizon: payload.rangeLabel,
+    postesCount: matching.length,
+    x3Error: payload.x3Error,
+    postes: summary.slice(0, posteFilter ? 10 : 40),
+  }
+}
+
+/** Scénarios persistés (scenario_store). */
+export async function listerScenarios() {
+  const store = new ScenarioStore()
+  const rows = await store.list()
+  return {
+    _source: 'listerScenarios' as const,
+    engine: 'ScenarioStore.list',
+    count: rows.length,
+    scenarios: rows.slice(0, 30).map((r) => ({
+      id: r.id,
+      nom: r.nom,
+      statut: r.statut,
+      auteur: r.auteur,
+      mutationsCount: Array.isArray(r.mutations) ? r.mutations.length : 0,
+      createdAt: r.createdAt,
     })),
   }
 }

@@ -121,6 +121,37 @@ function buildMockTools(gc: GoldenCase): ToolDefinition[] {
         limit: Type.Optional(Type.Number()),
       })
     ),
+    wrap(
+      'listerCommandesStatut',
+      'Statuts commandes clientes (on_time|stock|retard|bloquee|sans_couverture) sur fenêtre. ' +
+        'Citation [listerCommandesStatut: …].',
+      Type.Object({
+        horizonDays: Type.Optional(Type.Number()),
+        from: Type.Optional(Type.String()),
+        client: Type.Optional(Type.String()),
+        statuts: Type.Optional(Type.Array(Type.String())),
+        limit: Type.Optional(Type.Number()),
+      })
+    ),
+    wrap(
+      'getDetailCommande',
+      "Détail d'une ligne de commande (OF liés, poste, BOM directe). Citation [getDetailCommande: …].",
+      Type.Object({ numCommande: Type.String(), ligne: Type.String() })
+    ),
+    wrap(
+      'getStock',
+      'Stock photo par article : strict/QC/total. Citation [getStock: …].',
+      Type.Object({ articles: Type.Array(Type.String()) })
+    ),
+    wrap(
+      'getCharge',
+      'Charge vs capacité par poste ; détail hebdo avec filtre poste. Citation [getCharge: …].',
+      Type.Object({
+        poste: Type.Optional(Type.String()),
+        start: Type.Optional(Type.String()),
+        vue: Type.Optional(Type.String()),
+      })
+    ),
   ]
 }
 

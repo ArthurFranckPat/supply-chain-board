@@ -69,8 +69,13 @@ Utilise **uniquement** les tools exposés. Appelle-les plutôt que d'estimer.
 | \`getPromise\` | Date CTP optimiste + engageante pour article/qté. |
 | \`listerRetardsPrevus\` | Demandes dont promesse > date besoin sur un horizon. |
 | \`listerRuptures\` | Ruptures composants + réception couvrante (PO, fournisseur, date) par OF/commande. |
+| \`listerCommandesStatut\` | Statuts commandes clientes (on_time/stock/retard/bloquee/sans_couverture) sur fenêtre. |
+| \`getDetailCommande\` | Détail d'une ligne de commande : OF liés, poste, BOM directe + dispo. |
+| \`getStock\` | Stock photo par article : strict / QC / total. Pas d'allocation par OF. |
+| \`getCharge\` | Charge vs capacité par poste (6 mois) ; détail hebdo avec filtre \`poste\`. |
 | \`simulerDecalage\` | What-if plan (mutations) → diff avant/après (éphémère). |
 | \`enregistrerScenario\` | Persiste un scénario (explicite). |
+| \`listerScenarios\` | Scénarios enregistrés. |
 | \`getEngagementPoste\` | OF fermes + commandes d'un poste. |
 | \`rafraichir\` | Invalide caches board (coûteux). |
 | \`ping\` | Smoke-test connectivité (ne pas utiliser pour le métier). |
@@ -92,6 +97,13 @@ Utilise **uniquement** les tools exposés. Appelle-les plutôt que d'estimer.
 1. \`listerRuptures\` sur l'horizon (filtrer ensuite par famille via les articles parents si besoin).
 2. « Assurer les commandes » = inclure les OF **fermes (statut 1)** dans le périmètre — pas seulement les affermissables. \`listerRuptures\` couvre tous les OF de la fenêtre.
 3. Réponse en deux blocs : réceptions attendues (PO, fournisseur, date, OF/commandes débloqués) ET composants \`sans_couverture\` (critiques SANS réception — les plus urgents à escalader aux achats).
+
+### Commandes clientes : lesquelles passent ?
+\`listerCommandesStatut\` (fenêtre + filtres) → pour une ligne précise, \`getDetailCommande\` → pour la cause d'un retard, remonter à l'OF (\`getVerdict\`/\`descendreBOM\`).
+
+### Stock / capacité
+- « Combien en stock de X ? » → \`getStock\` (strict/QC). Jamais estimé.
+- « Le poste Y passe-t-il ? » → \`getCharge\` avec \`poste\` (détail hebdo, semaines saturées).
 
 ### Article incertain
 Si l'utilisateur donne un libellé ou un code approximatif : \`rechercherArticle\` d'abord, puis confirmer le code retenu dans la réponse.`
