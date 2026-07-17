@@ -8,7 +8,7 @@
  * pool + chargeurs paresseux memoïsés + mapping debug, 142 l. inline dans le controller.
  */
 
-import type { HttpContext } from '@adonisjs/core/http'
+import logger from '@adonisjs/core/services/logger'
 import boardDataset from '#services/board_dataset'
 import {
   buildStocksMap,
@@ -29,8 +29,13 @@ import type { Flow } from '#app/domain/models/flow'
 import { X3MfgmatRepository } from '#repositories/mfgmat_repository'
 import type { Article } from '#app/domain/models/article'
 
-/** Retourne `null` si `numOf` est introuvable dans le pool (404 côté controller). */
-export async function loadOfMaterialsDiagnostic(ctx: HttpContext, numOf: string) {
+/**
+ * Diagnostic récursif d'un OF. Pure-ish (I/O board + MFGMAT), sans HttpContext —
+ * appelable depuis controller HTTP **et** tools agent.
+ *
+ * Retourne `null` si `numOf` est introuvable dans le pool (404 côté controller).
+ */
+export async function loadOfMaterialsDiagnostic(numOf: string) {
   // getPool() = getOrders() seul (cache global SWR). Surtout ne pas rajouter de
   // fenêtre getLive ici : cf. BoardDataset.getPool (#55, fetchLive 13 mois jeté).
   const [poolData, nomEntries, articlesList] = await Promise.all([
@@ -164,7 +169,7 @@ export async function loadOfMaterialsDiagnostic(ctx: HttpContext, numOf: string)
   const checker = new RecursiveDiagnosticChecker(loader, { checkDate: new Date() })
   const tDesc = Date.now()
   const result = await checker.diagnoseOf(head)
-  ctx.logger.info(
+  logger.info(
     `[diagnostic #55] ${head.numOf}: descente=${Date.now() - tDesc}ms mfgmat=${mfgmatCalls}×/${mfgmatMs}ms stock=${stockCalls}×/${stockMs}ms nodes=${result.componentsChecked} depth=${result.maxDepthReached}`
   )
 

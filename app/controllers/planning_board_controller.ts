@@ -88,7 +88,7 @@ export default class PlanningBoardController {
     const numOf = ctx.params.of
     if (!numOf) return ctx.response.badRequest({ error: 'numOf requis' })
 
-    const result = await loadOfMaterialsDiagnostic(ctx, numOf)
+    const result = await loadOfMaterialsDiagnostic(numOf)
     if (!result) return ctx.response.notFound({ error: `OF ${numOf} introuvable dans le pool` })
     return result
   }
