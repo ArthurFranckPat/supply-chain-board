@@ -87,9 +87,8 @@ const VERDICT_PRESET: Record<ShortageRow['verdict'], { label: string; cls: strin
 }
 
 /**
- * GET /api/v1/planning/shortages/rows — endpoint JSON (calcul lourd).
- * Charge le pipeline de faisabilité + réceptions, pivote en lignes, renvoie les lignes
- * pré-formatées + stats + erreur X3 (consommé en fetch par la page Solid `scheduler/shortages`).
+ * Cœur du pipeline ruptures — sans HttpContext (consommé par l'endpoint HTTP ET
+ * le tool agent `listerRuptures`). Renvoie les ShortageRow bruts + stats.
  *
  * Limite assumée : le verdict de faisabilité par OF vient de l'override MFGMAT (snapshot
  * PLAT, sans consommation virtuelle entre OFs — contrat badge==détail, issue #11). Deux OF
@@ -97,13 +96,22 @@ const VERDICT_PRESET: Record<ShortageRow['verdict'], { label: string; cls: strin
  * de contention invisible ici. La vue proactive /suivi (preferEngineFeasibility, moteur
  * séquentiel) couvre ce cas. Ne pas « corriger » ici sans casser la parité badge board.
  */
-export async function loadShortageRows(ctx: HttpContext) {
-  const startParam = ctx.request.input('start') as string | undefined
-  const daysParam = Number.parseInt(ctx.request.input('days', '14'), 10)
+export async function loadShortageRowsData(params: {
+  start?: string
+  days?: number
+  force?: boolean
+}): Promise<{
+  rows: ShortageRow[]
+  stats: { nbRuptures: number; nbCouvertes: number; nbSansCouverture: number }
+  x3Error: string | null
+  windowFrom: Date
+  horizon: number
+}> {
+  const daysParam = params.days ?? 14
   const horizon = Number.isFinite(daysParam) && daysParam > 0 && daysParam <= 90 ? daysParam : 14
-  const force = !!ctx.request.input('refresh')
+  const force = !!params.force
 
-  const windowFrom = startParam ? new Date(startParam) : new Date()
+  const windowFrom = params.start ? new Date(params.start) : new Date()
   windowFrom.setHours(0, 0, 0, 0)
   const windowTo = new Date(windowFrom)
   windowTo.setDate(windowTo.getDate() + horizon)
@@ -214,6 +222,22 @@ export async function loadShortageRows(ctx: HttpContext) {
   } catch (e) {
     x3Error = (e as Error).message
   }
+
+  return { rows, stats, x3Error, windowFrom, horizon }
+}
+
+/**
+ * GET /api/v1/planning/shortages/rows — endpoint JSON (calcul lourd).
+ * Charge le pipeline via `loadShortageRowsData`, renvoie les lignes pré-formatées
+ * + stats + erreur X3 (consommé en fetch par la page Solid `scheduler/shortages`).
+ */
+export async function loadShortageRows(ctx: HttpContext) {
+  const daysParam = Number.parseInt(ctx.request.input('days', '14'), 10)
+  const { rows, stats, x3Error } = await loadShortageRowsData({
+    start: ctx.request.input('start') as string | undefined,
+    days: daysParam,
+    force: !!ctx.request.input('refresh'),
+  })
 
   const displayRows = rows.map((r) => {
     const preset = VERDICT_PRESET[r.verdict]

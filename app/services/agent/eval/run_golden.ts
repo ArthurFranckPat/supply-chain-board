@@ -108,6 +108,19 @@ function buildMockTools(gc: GoldenCase): ToolDefinition[] {
         from: Type.Optional(Type.String()),
       })
     ),
+    wrap(
+      'listerRuptures',
+      'Ruptures composants + réception couvrante (PO, fournisseur, date) ou sans_couverture. ' +
+        'LE tool pour les réceptions fournisseurs attendues/critiques — ne jamais déduire de getPromise. ' +
+        'Citation [listerRuptures: …].',
+      Type.Object({
+        horizonDays: Type.Optional(Type.Number()),
+        from: Type.Optional(Type.String()),
+        composant: Type.Optional(Type.String()),
+        verdicts: Type.Optional(Type.Array(Type.String())),
+        limit: Type.Optional(Type.Number()),
+      })
+    ),
   ]
 }
 

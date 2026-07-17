@@ -14,6 +14,7 @@ export type GoldenToolName =
   | 'descendreBOM'
   | 'getPromise'
   | 'listerRetardsPrevus'
+  | 'listerRuptures'
   | 'listerOF'
   | 'rechercherArticle'
   | 'ping'
@@ -795,6 +796,126 @@ export const GOLDEN_CASES: GoldenCase[] = [
       ofs: ['MFG-8801'],
       articles: ['PP_830_ESH_D'],
       keywords: ['faisable'],
+    },
+  },
+  {
+    id: 'G16-receptions-cles-semaine',
+    // « Réceptions fournisseurs clés » = listerRuptures (réceptions couvrantes +
+    // sans_couverture), PAS une inférence via getPromise.
+    question:
+      'Quelles sont les réceptions fournisseurs clés pour tenir le plan la semaine prochaine ?',
+    mocks: {
+      listerRuptures: {
+        _source: 'listerRuptures',
+        engine: 'shortage_payload_loader (rupture-engine + réceptions PORDERQ)',
+        window: { from: '2026-07-20', days: 7 },
+        stats: { nbRuptures: 2, nbCouvertes: 1, nbSansCouverture: 1 },
+        verdictCounts: { retard: 1, sans_couverture: 1 },
+        totalMatching: 2,
+        truncated: false,
+        x3Error: null,
+        ruptures: [
+          {
+            composant: 'ACH-BAGUE-250',
+            composantDesc: 'BAGUE D.250',
+            qteManquante: 104,
+            numOf: 'MFG-5501',
+            articleParent: 'PF-MODULO-250',
+            numCommande: 'CMD-777',
+            client: 'CLIENT-NORD',
+            dateExpedition: '2026-07-23',
+            verdict: 'a_risque',
+            overdue: false,
+            reception: {
+              commandeAchat: 'PO-88112',
+              fournisseur: 'FOURNISSEUR-LYON',
+              qty: 200,
+              dateArrivee: '2026-07-21',
+            },
+            sousEnsembleOfs: [],
+          },
+          {
+            composant: 'ACH-JOINT-125',
+            composantDesc: 'JOINT D.125',
+            qteManquante: 465,
+            numOf: 'MFG-5502',
+            articleParent: 'PF-MODULO-125',
+            numCommande: 'CMD-778',
+            client: 'CLIENT-SUD',
+            dateExpedition: '2026-07-25',
+            verdict: 'sans_couverture',
+            overdue: false,
+            reception: null,
+            sousEnsembleOfs: [],
+          },
+        ],
+      },
+    },
+    mustCall: ['listerRuptures'],
+    expected: {
+      articles: ['ACH-BAGUE-250', 'ACH-JOINT-125'],
+      keywords: ['PO-88112', 'sans couverture', 'FOURNISSEUR-LYON'],
+    },
+  },
+  {
+    id: 'G17-piege-reason-stock-pas-preuve-absence',
+    // Piège épistémique : getPromise reason=stock ne dit RIEN des réceptions.
+    // Le modèle doit vérifier via listerRuptures, pas conclure « aucune réception ».
+    question: "L'article ACH-VIS-M8 a-t-il une réception fournisseur à venir ?",
+    mocks: {
+      getPromise: promise({
+        article: 'ACH-VIS-M8',
+        quantity: 1,
+        from: '2026-07-17',
+        optimiste: {
+          promiseDate: '2026-07-17',
+          mode: 'optimiste',
+          infeasible: false,
+          limitingFactor: { article: 'ACH-VIS-M8', reason: { kind: 'stock' } },
+        },
+        engageante: {
+          promiseDate: '2026-07-17',
+          mode: 'engageante',
+          infeasible: false,
+          limitingFactor: { article: 'ACH-VIS-M8', reason: { kind: 'stock' } },
+        },
+      }),
+      listerRuptures: {
+        _source: 'listerRuptures',
+        engine: 'shortage_payload_loader (rupture-engine + réceptions PORDERQ)',
+        window: { from: '2026-07-17', days: 14 },
+        stats: { nbRuptures: 1, nbCouvertes: 1, nbSansCouverture: 0 },
+        verdictCounts: { a_risque: 1 },
+        totalMatching: 1,
+        truncated: false,
+        x3Error: null,
+        ruptures: [
+          {
+            composant: 'ACH-VIS-M8',
+            composantDesc: 'VIS M8 INOX',
+            qteManquante: 300,
+            numOf: 'MFG-6601',
+            articleParent: 'PF-CAISSON-X',
+            numCommande: 'CMD-901',
+            client: 'CLIENT-EST',
+            dateExpedition: '2026-07-29',
+            verdict: 'a_risque',
+            overdue: false,
+            reception: {
+              commandeAchat: 'PO-99231',
+              fournisseur: 'VISSERIE-SA',
+              qty: 500,
+              dateArrivee: '2026-07-24',
+            },
+            sousEnsembleOfs: [],
+          },
+        ],
+      },
+    },
+    mustCall: ['listerRuptures'],
+    expected: {
+      articles: ['ACH-VIS-M8'],
+      keywords: ['PO-99231', '24/07/2026', '2026-07-24', 'VISSERIE-SA'],
     },
   },
 ]

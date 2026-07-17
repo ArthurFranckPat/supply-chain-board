@@ -7,6 +7,7 @@ import boardDataset from '#services/board_dataset'
 import { evaluateScenarioDiff } from '#services/scenario_diff_loader'
 import { ScenarioStore } from '#services/scenario_store'
 import { loadPosteEngagement } from '#services/poste_engagement_loader'
+import { loadShortageRowsData } from '#services/shortage_payload_loader'
 import type { PlanMutation } from '#app/domain/plan-diff'
 
 function isoDay(d: Date): string {
@@ -139,6 +140,82 @@ export async function enregistrerScenario(params: {
     statut: row.statut,
     mutationsCount: row.mutations.length,
     createdAt: row.createdAt,
+  }
+}
+
+/**
+ * Ruptures composants + réceptions couvrantes (pipeline /ruptures, issue #49).
+ * LE tool pour « quelles réceptions fournisseurs ? » : chaque ligne porte la
+ * réception couvrante (n° PO, fournisseur, qté, date) ou son absence
+ * (verdict sans_couverture) — pas d'inférence via getPromise.
+ */
+export async function listerRuptures(params: {
+  /** Horizon jours (fenêtre STRDAT des OF, défaut 14, max 90). */
+  horizonDays?: number
+  /** Début fenêtre ISO (défaut aujourd'hui). */
+  from?: string
+  /** Filtre article composant exact (insensible à la casse). */
+  composant?: string
+  /** Filtre verdicts : couvert | a_risque | retard | sans_couverture | sous_ensemble. */
+  verdicts?: string[]
+  /** Max lignes (défaut 60, max 150). */
+  limit?: number
+} = {}) {
+  const data = await loadShortageRowsData({
+    start: params.from,
+    days: params.horizonDays,
+  })
+
+  const composantFilter = params.composant?.trim().toUpperCase() || null
+  const verdictFilter =
+    Array.isArray(params.verdicts) && params.verdicts.length > 0
+      ? new Set(params.verdicts.map((v) => String(v).trim().toLowerCase()))
+      : null
+  const limitRaw = params.limit === undefined ? 60 : Math.floor(Number(params.limit))
+  const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 150) : 60
+
+  const filtered = data.rows.filter((r) => {
+    if (composantFilter && r.component.toUpperCase() !== composantFilter) return false
+    if (verdictFilter && !verdictFilter.has(r.verdict)) return false
+    return true
+  })
+
+  const verdictCounts: Record<string, number> = {}
+  for (const r of filtered) verdictCounts[r.verdict] = (verdictCounts[r.verdict] ?? 0) + 1
+
+  return {
+    _source: 'listerRuptures' as const,
+    engine: 'shortage_payload_loader (rupture-engine + réceptions PORDERQ)',
+    window: { from: isoDay(data.windowFrom), days: data.horizon },
+    stats: data.stats,
+    verdictCounts,
+    totalMatching: filtered.length,
+    truncated: filtered.length > limit,
+    x3Error: data.x3Error,
+    ruptures: filtered.slice(0, limit).map((r) => ({
+      composant: r.component,
+      composantDesc: r.componentDesc,
+      qteManquante: r.qteManquante,
+      numOf: r.numOf,
+      articleParent: r.articleParent,
+      numCommande: r.numCommande,
+      client: r.client,
+      dateExpedition: r.dateExpedition,
+      dateBesoin: r.dateBesoin,
+      verdict: r.verdict,
+      overdue: r.overdue,
+      joursMarge: r.joursMarge,
+      joursRetardReception: r.joursRetardReception,
+      reception: r.reception
+        ? {
+            commandeAchat: r.reception.id,
+            fournisseur: r.reception.supplier,
+            qty: r.reception.qty,
+            dateArrivee: r.reception.dateArrivee,
+          }
+        : null,
+      sousEnsembleOfs: r.sousEnsembleOfs,
+    })),
   }
 }
 

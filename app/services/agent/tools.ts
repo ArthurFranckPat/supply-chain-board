@@ -271,6 +271,42 @@ export const enregistrerScenarioTool = defineTool({
   },
 })
 
+export const listerRupturesTool = defineTool({
+  name: 'listerRuptures',
+  label: 'Ruptures + réceptions',
+  description:
+    'Ruptures composants sur un horizon (pipeline /ruptures) : composant manquant, OF bloqué, ' +
+    'commande/client, ET la réception couvrante (n° commande achat, fournisseur, qté, date) ' +
+    "ou son absence (verdict sans_couverture). LE tool pour « quelles réceptions fournisseurs " +
+    'attendues/critiques ? » — ne JAMAIS déduire cela de getPromise. ' +
+    'Citation : [listerRuptures: …].',
+  parameters: Type.Object({
+    horizonDays: Type.Optional(
+      Type.Number({ description: 'Fenêtre jours (OF qui démarrent dedans, défaut 14, max 90)' })
+    ),
+    from: Type.Optional(Type.String({ description: 'Début ISO YYYY-MM-DD (défaut auj.)' })),
+    composant: Type.Optional(Type.String({ description: 'Filtre article composant exact' })),
+    verdicts: Type.Optional(
+      Type.Array(Type.String(), {
+        description: 'Filtre verdicts : couvert|a_risque|retard|sans_couverture|sous_ensemble',
+      })
+    ),
+    limit: Type.Optional(Type.Number({ description: 'Max lignes (défaut 60, max 150)' })),
+  }),
+  execute: async (_id, params) => {
+    const e = await extras()
+    return toolResult(
+      await e.listerRuptures({
+        horizonDays: params.horizonDays,
+        from: params.from,
+        composant: params.composant,
+        verdicts: params.verdicts,
+        limit: params.limit,
+      })
+    )
+  },
+})
+
 export const getEngagementPosteTool = defineTool({
   name: 'getEngagementPoste',
   label: 'Engagement poste',
@@ -293,6 +329,7 @@ export function buildAgentTools(): ToolDefinition[] {
     descendreBOMTool,
     getPromiseTool,
     listerRetardsPrevusTool,
+    listerRupturesTool,
     simulerDecalageTool,
     enregistrerScenarioTool,
     getEngagementPosteTool,

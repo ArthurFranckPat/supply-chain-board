@@ -17,6 +17,7 @@ test.group('agent tools registry', () => {
       'descendreBOM',
       'getPromise',
       'listerRetardsPrevus',
+      'listerRuptures',
       'simulerDecalage',
       'enregistrerScenario',
       'getEngagementPoste',
