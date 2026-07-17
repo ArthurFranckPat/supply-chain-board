@@ -2,18 +2,12 @@
  * Tools custom exposés au runtime Pi.
  *
  * Barrière sécu : ce module ne doit **jamais** enregistrer bash/read/write/edit.
- * Étape 2 : 4 primitifs supply (getVerdict, descendreBOM, getPromise, listerRetardsPrevus)
- * + ping (smoke).
+ * Execute charge `primitives` en lazy pour ne pas tirer Lucid/board au boot CLI
+ * (smoke, eval mocks importent agent_service sans X3).
  */
 
 import { Type } from 'typebox'
 import { defineTool, type ToolDefinition } from '@earendil-works/pi-coding-agent'
-import {
-  descendreBOM,
-  getPromise,
-  getVerdict,
-  listerRetardsPrevus,
-} from '#services/agent/primitives'
 
 function toolResult(payload: unknown) {
   return {
@@ -22,9 +16,10 @@ function toolResult(payload: unknown) {
   }
 }
 
-/**
- * Tool minimal pour valider le runtime (gardé en smoke + debug).
- */
+async function primitives() {
+  return import('#services/agent/primitives')
+}
+
 export const pingTool = defineTool({
   name: 'ping',
   label: 'Ping',
@@ -53,7 +48,10 @@ export const getVerdictTool = defineTool({
   parameters: Type.Object({
     numOf: Type.String({ description: "N° d'OF (ex. MFG-…)" }),
   }),
-  execute: async (_id, params) => toolResult(await getVerdict(params.numOf)),
+  execute: async (_id, params) => {
+    const p = await primitives()
+    return toolResult(await p.getVerdict(params.numOf))
+  },
 })
 
 export const descendreBOMTool = defineTool({
@@ -67,31 +65,38 @@ export const descendreBOMTool = defineTool({
   parameters: Type.Object({
     numOf: Type.String({ description: "N° d'OF à diagnostiquer" }),
   }),
-  execute: async (_id, params) => toolResult(await descendreBOM(params.numOf)),
+  execute: async (_id, params) => {
+    const p = await primitives()
+    return toolResult(await p.descendreBOM(params.numOf))
+  },
 })
 
 export const getPromiseTool = defineTool({
   name: 'getPromise',
   label: 'Date promesse CTP',
   description:
-    "Date au plus tôt (Capable-to-Promise) pour un couple article/quantité. " +
+    'Date au plus tôt (Capable-to-Promise) pour un couple article/quantité. ' +
     'Retourne mode optimiste + engageante, chemin critique et facteur limitant. ' +
     'Citation : [getPromise: article qté → date engageante].',
   parameters: Type.Object({
     article: Type.String({ description: 'Code article X3' }),
     quantity: Type.Number({ description: 'Quantité demandée (> 0)' }),
     from: Type.Optional(
-      Type.String({ description: 'Date de départ ISO YYYY-MM-DD (défaut = aujourd\'hui)' })
+      Type.String({
+        description: "Date de départ ISO YYYY-MM-DD (défaut = aujourd'hui)",
+      })
     ),
   }),
-  execute: async (_id, params) =>
-    toolResult(
-      await getPromise({
+  execute: async (_id, params) => {
+    const p = await primitives()
+    return toolResult(
+      await p.getPromise({
         article: params.article,
         quantity: params.quantity,
         from: params.from,
       })
-    ),
+    )
+  },
 })
 
 export const listerRetardsPrevusTool = defineTool({
@@ -108,21 +113,24 @@ export const listerRetardsPrevusTool = defineTool({
     article: Type.Optional(Type.String({ description: 'Filtre code article exact' })),
     client: Type.Optional(Type.String({ description: 'Filtre client (sous-chaîne)' })),
     from: Type.Optional(
-      Type.String({ description: 'Début horizon ISO YYYY-MM-DD (défaut = aujourd\'hui)' })
+      Type.String({
+        description: "Début horizon ISO YYYY-MM-DD (défaut = aujourd'hui)",
+      })
     ),
   }),
-  execute: async (_id, params) =>
-    toolResult(
-      await listerRetardsPrevus({
+  execute: async (_id, params) => {
+    const p = await primitives()
+    return toolResult(
+      await p.listerRetardsPrevus({
         horizonDays: params.horizonDays,
         article: params.article,
         client: params.client,
         from: params.from,
       })
-    ),
+    )
+  },
 })
 
-/** Ensemble de tools actifs pour l'étape courante du build. */
 export function buildAgentTools(): ToolDefinition[] {
   return [
     getVerdictTool,
@@ -133,7 +141,6 @@ export function buildAgentTools(): ToolDefinition[] {
   ]
 }
 
-/** Noms allowlistés — à passer à `createAgentSession({ tools })`. */
 export function agentToolNames(tools: ToolDefinition[] = buildAgentTools()): string[] {
   return tools.map((t) => t.name)
 }
