@@ -17,7 +17,8 @@
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit",
     "routes:gen": "node scripts/gen-routes-manifest.mjs",
-    "routes:check": "node scripts/gen-routes-manifest.mjs && git diff --exit-code inertia/lib/routes-manifest.ts"
+    "routes:check": "node scripts/gen-routes-manifest.mjs && git diff --exit-code inertia/lib/routes-manifest.ts",
+    "mcp:start": "dotenvx run -- node --import @poppinss/ts-exec bin/mcp_supply.ts"
   },
   "imports": {
     "#controllers/*": "./app/controllers/*.js",
@@ -90,6 +91,7 @@
     "@inertiajs/core": "^3.6.0",
     "@japa/api-client": "^3.2.1",
     "@kobalte/core": "^0.13.12",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@tanstack/solid-table": "^8.21.3",
     "@tanstack/solid-virtual": "^3.13.32",
     "@tuyau/core": "^1.2.2",

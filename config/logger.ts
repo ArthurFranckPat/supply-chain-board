@@ -32,9 +32,14 @@ const loggerConfig = defineConfig({
 
       /**
        * Configure where logs are written.
+       *
+       * MCP stdio (bin/mcp_supply.ts, issue #80) : stdout appartient au
+       * transport JSON-RPC — toute écriture parasite corrompt le protocole.
+       * `SUPPLY_MCP=1` (positionné par le binaire) redirige donc vers stderr.
+       * Serveur HTTP : SUPPLY_MCP non défini → stdout (comportement inchangé).
        */
       transport: {
-        targets: [targets.file({ destination: 1 })],
+        targets: [targets.file({ destination: process.env.SUPPLY_MCP === '1' ? 2 : 1 })],
       },
     },
   },

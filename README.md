@@ -183,3 +183,44 @@ npm run routes:gen
 - Ce repo est **uniquement** l'app AdonisJS. Le monorepo Python/FastAPI décrit dans les anciennes versions du README n'est plus présent ici.
 - Le frontend Edge.js/Unpoly a été remplacé par Inertia + SolidJS (design system « Papier »). Une migration vers React + Carbon est en cours sur une branche séparée (issue #77), pas encore mergée.
 - Les variables X3 peuvent être chiffrées avec `@dotenvx/dotenvx` ; le démarrage utilise `dotenvx run --`.
+
+## MCP server (usage hors app)
+
+Le serveur MCP `supply-board` (`bin/mcp_supply.ts`, issue #80) expose les **17
+primitives** agent de l'app (getVerdict, descendreBOM, getPromise, listerOF,
+listerRuptures, listerCommandesStatut, getStock, getCharge, …) en serveur MCP
+**stdio autonome**, consommable depuis Claude Code, Claude Desktop ou tout agent
+compatible MCP. C'est une **façade** sur le même code que le copilote `/copilote`
+— aucun chiffre ne vient d'une réimplémentation (parité structurelle app vs MCP).
+
+### Prérequis
+
+- Le repo cloné + `npm install`
+- Un fichier `.env` avec les creds X3 (comme pour l'app)
+- Node.js — pas de Redis requis (`CACHE_STORE=memory` par défaut)
+- Accès réseau à Sage X3
+
+### Enregistrement Claude Code
+
+```bash
+claude mcp add supply-board -- node --import @poppinss/ts-exec bin/mcp_supply.ts
+```
+
+Le binaire boot Adonis en mode console (conteneur monté : cache + Lucid + X3),
+construit les 17 tools via `buildAgentTools()` puis les sert en JSON-RPC sur
+stdio. Premier appel = cold start (chargement pool X3), ensuite chaud.
+
+### Test manuel
+
+```bash
+npm run mcp:start   # démarre le serveur stdio (logs sur stderr)
+```
+
+### Doctrine d'usage
+
+Charger le skill `.claude/skills/supply-board/SKILL.md` (Lot 2 de l'issue) — il
+documente la sémantique des moteurs (verdict prime, getPromise isolé, raison
+`stock` ≠ absence de PO), le référentiel familles (PP 830 → `ESH`, `BDH60`,
+`BDH10`) et les workflows d'orchestration. Sans cette doctrine, un client externe
+refait les erreurs déjà corrigées dans le copilote intégré.
+
