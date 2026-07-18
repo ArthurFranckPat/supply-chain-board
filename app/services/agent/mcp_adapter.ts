@@ -17,6 +17,7 @@
  */
 
 import type { ToolDefinition } from '@earendil-works/pi-coding-agent'
+import { Check, Errors } from 'typebox/value'
 
 /** JSON Schema brut tel que l'attend l'API low-level du SDK MCP. */
 export type JsonSchema = {
@@ -58,6 +59,21 @@ export function adaptPiToolsForMcp(tools: ToolDefinition[]): McpToolRegistration
     // TypeBox ≡ JSON Schema : `Type.Object({...})` produit `{type:'object', properties, required}`.
     inputSchema: (tool.parameters as JsonSchema) ?? { type: 'object', properties: {} },
     handler: async (args, signal) => {
+      // Le Server low-level du SDK MCP ne valide PAS les arguments entrants
+      // contre inputSchema — il forward tel quel. Dans l'app copilote, pi
+      // valide avant execute() ; ici la validation est donc à notre charge,
+      // sinon un args malformé (statuts: "abc") entre directement dans les
+      // primitives et ressort comme une erreur moteur incompréhensible.
+      if (!Check(tool.parameters, args)) {
+        const details = Errors(tool.parameters, args)
+          .map((e) => `${e.instancePath || '/'} ${e.message}`)
+          .slice(0, 5)
+          .join(' ; ')
+        return {
+          content: [{ type: 'text', text: `Arguments invalides pour ${tool.name}: ${details}` }],
+          isError: true,
+        }
+      }
       try {
         // execute(toolCallId, params, signal, onUpdate?, ctx?) — onUpdate/ctx non utilisés par les tools supply.
         const result = await tool.execute(

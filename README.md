@@ -196,9 +196,21 @@ compatible MCP. C'est une **façade** sur le même code que le copilote `/copilo
 ### Prérequis
 
 - Le repo cloné + `npm install`
-- Un fichier `.env` avec les creds X3 (comme pour l'app)
-- Node.js — pas de Redis requis (`CACHE_STORE=memory` par défaut)
+- Un fichier `.env` avec les creds X3 (comme pour l'app, cf. `.env.example`) —
+  chiffré dotenvx ou non, les deux fonctionnent (déchiffrement in-process au
+  boot, pas besoin de `dotenvx run --` dans la commande `claude mcp add`)
+- Node.js — pas de Redis requis (`CACHE_STORE=memory`)
 - Accès réseau à Sage X3
+
+Au premier boot, le binaire **auto-migre** la SQLite locale (`tmp/db.sqlite3`,
+idempotent — scénarios, tables statiques). Pour peupler les référentiels
+locaux (rechercherArticle, labels de statuts, classification des verdicts),
+une sync X3 initiale est nécessaire — sinon ces tools tournent en mode dégradé
+(un warning stderr le signale au boot) :
+
+```bash
+node ace sync:x3 && node ace sync:local-menus
+```
 
 ### Enregistrement Claude Code
 

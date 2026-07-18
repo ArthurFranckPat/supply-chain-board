@@ -67,7 +67,14 @@ const IMPORTER = (filePath: string) => {
   return import(filePath)
 }
 
-const SERVER_INFO = { name: 'supply-board', version: '1.0.0' } as const
+// Version lue depuis package.json : les payloads `_source` deviennent un
+// contrat public (issue #80) → la version exposée doit suivre le package,
+// pas une constante qu'on oublie de bumper.
+const { readFile } = await import('node:fs/promises')
+const PKG_VERSION: string = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'))
+  .version
+
+const SERVER_INFO = { name: 'supply-board', version: PKG_VERSION } as const
 
 async function main() {
   // ─── 1. Boot Adonis "console" (conteneur monté, pas de HTTP) ───
@@ -87,6 +94,54 @@ async function main() {
   await app.init() // valide env (X3 creds, APP_KEY) — erreur propre si absent
   await app.boot() // providers : cache, lucid, x3, redis
   await app.start(() => {}) // résout les preloads (routes/kernel/validator — safe en console)
+
+  // ─── 1bis. SQLite locale prête (critère « PC vierge » #80) ───
+  // Scénarios + référentiels statiques (static_articles, local_menus, …) vivent
+  // dans tmp/db.sqlite3. Sur un PC vierge, sans migration : rechercherArticle
+  // renvoie [] SILENCIEUSEMENT (catch → [] dans boardDataset.getArticles) et
+  // enregistrerScenario plante. Auto-migration idempotente (= migration:run)
+  // + warning explicite si les référentiels ne sont pas peuplés (sync:x3).
+  try {
+    const { mkdir } = await import('node:fs/promises')
+    await mkdir(app.tmpPath(), { recursive: true }) // sqlite3 ne crée pas le dossier parent
+    const db = await app.container.make('lucid.db')
+    const { MigrationRunner } = await import('@adonisjs/lucid/migration')
+    const migrator = new MigrationRunner(db, app, {
+      direction: 'up',
+      connectionName: db.primaryConnectionName,
+    })
+    await migrator.run()
+    const applied = Object.values(migrator.migratedFiles).filter(
+      (f) => f.status === 'completed'
+    ).length
+    if (applied > 0) {
+      console.error(`[supply-board MCP] SQLite locale : ${applied} migration(s) appliquée(s)`)
+    }
+  } catch (migrationError) {
+    // Dégradé mais fonctionnel : les tools X3 restent utilisables ; seuls les
+    // scénarios et référentiels locaux seront KO (erreurs propres à l'appel).
+    const msg = migrationError instanceof Error ? migrationError.message : String(migrationError)
+    console.error(
+      `[supply-board MCP] ⚠ Auto-migration SQLite impossible (${msg}) — lancer "node ace migration:run"`
+    )
+  }
+  try {
+    const { default: StaticArticle } = await import('#models/static_article')
+    const { default: LocalMenu } = await import('#models/local_menu')
+    const articles = await StaticArticle.query().count('* as total').first()
+    const menus = await LocalMenu.query().count('* as total').first()
+    const missing: string[] = []
+    if (Number(articles?.$extras.total ?? 0) === 0) missing.push('static_articles (sync:x3)')
+    if (Number(menus?.$extras.total ?? 0) === 0) missing.push('local_menus (sync:local-menus)')
+    if (missing.length > 0) {
+      console.error(
+        `[supply-board MCP] ⚠ Référentiels vides : ${missing.join(', ')} — ` +
+          'sans eux rechercherArticle muet, verdicts dégradés, labels de statuts absents'
+      )
+    }
+  } catch {
+    // Tables absentes → le warning migration ci-dessus couvre déjà le diagnostic.
+  }
 
   // ─── 2. Construction des tools (source de vérité unique) ───
   const { buildAgentTools } = await import('#services/agent/tools')
@@ -115,7 +170,7 @@ async function main() {
     })),
   }))
 
-  server.setRequestHandler(CallToolRequestSchema, async (request) => {
+  server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
     const name = request.params.name
     const tool = byName.get(name)
     if (!tool) {
@@ -127,9 +182,10 @@ async function main() {
     // L'adapter retourne un payload compatible CallToolResult (content + isError).
     // Le cast explicite documente la compatibilité de forme — pi `AgentToolResult.content`
     // et MCP `CallToolResult.content` partagent le même contrat (TextContent|ImageContent).
+    // extra.signal : annulation côté client (ex. requête longue interrompue).
     return (await tool.handler(
       (request.params.arguments ?? {}) as Record<string, unknown>,
-      undefined
+      extra.signal
     )) as CallToolResult
   })
 
