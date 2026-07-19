@@ -111,6 +111,10 @@ async function main() {
       connectionName: db.primaryConnectionName,
     })
     await migrator.run()
+    // MigrationRunner.run() ne throw JAMAIS : il avale l'erreur dans
+    // `migrator.error` (lucid runner.js). Sans ce rethrow, une migration
+    // cassée passe silencieusement et le catch ci-dessous ne fire pas.
+    if (migrator.error) throw migrator.error
     const applied = Object.values(migrator.migratedFiles).filter(
       (f) => f.status === 'completed'
     ).length
@@ -182,7 +186,9 @@ async function main() {
     // L'adapter retourne un payload compatible CallToolResult (content + isError).
     // Le cast explicite documente la compatibilité de forme — pi `AgentToolResult.content`
     // et MCP `CallToolResult.content` partagent le même contrat (TextContent|ImageContent).
-    // extra.signal : annulation côté client (ex. requête longue interrompue).
+    // extra.signal : annulation côté client. Transmis jusqu'à execute(), mais
+    // les tools supply (tools.ts) ne consomment pas encore le signal — un appel
+    // X3 en cours ira au bout. Effectif le jour où les primitives le brancheront.
     return (await tool.handler(
       (request.params.arguments ?? {}) as Record<string, unknown>,
       extra.signal
@@ -195,6 +201,15 @@ async function main() {
   process.stdout.write = realStdoutWrite
 
   const transport = new StdioServerTransport()
+  // Client parti (stdin EOF) → terminer. Le StdioServerTransport du SDK n'écoute
+  // pas 'end' (onclose ne fire jamais sur EOF) ; sans ce hook le process reste
+  // vivant (pool Lucid + caches gardent l'event loop) : zombie si le client ne
+  // SIGTERM pas. terminate() ferme les providers ; exit force les handles restants.
+  process.stdin.once('end', async () => {
+    console.error('[supply-board MCP] stdin fermé — arrêt')
+    await app.terminate().catch(() => {})
+    process.exit(0)
+  })
   await server.connect(transport)
 
   console.error(

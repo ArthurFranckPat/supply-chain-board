@@ -218,6 +218,24 @@ node ace sync:x3 && node ace sync:local-menus
 claude mcp add supply-board -- node --import @poppinss/ts-exec bin/mcp_supply.ts
 ```
 
+Chemins relatifs valables car Claude Code lance le serveur avec le repo comme
+cwd. Pour un client qui ne le fait pas (Claude Desktop lance avec cwd=`/`),
+utiliser des chemins **absolus** ET forcer le cwd sur le repo — dotenvx lit
+`.env`/`.env.keys` depuis le cwd, sans quoi les creds X3 chiffrés ne sont pas
+déchiffrés :
+
+```json
+{
+  "mcpServers": {
+    "supply-board": {
+      "command": "node",
+      "args": ["--import", "@poppinss/ts-exec", "/chemin/vers/supply-chain-board/bin/mcp_supply.ts"],
+      "cwd": "/chemin/vers/supply-chain-board"
+    }
+  }
+}
+```
+
 Le binaire boot Adonis en mode console (conteneur monté : cache + Lucid + X3),
 construit les 17 tools via `buildAgentTools()` puis les sert en JSON-RPC sur
 stdio. Premier appel = cold start (chargement pool X3), ensuite chaud.
