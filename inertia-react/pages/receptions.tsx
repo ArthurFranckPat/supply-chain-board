@@ -1,9 +1,8 @@
 import { useMemo, useState } from 'react'
-import { Head } from '@inertiajs/react'
 import { fr } from 'react-day-picker/locale'
 import type { DateRange as DayPickerRange } from 'react-day-picker'
 
-import Masthead from '@r/components/masthead'
+import AppLayout from '@r/layouts/app'
 import { Calendar } from '@r/components/ui/calendar'
 import { ReceptionTableau, ReceptionCalendrier } from '@r/components/receptions/reception-views'
 import { useTimedFetch } from '@r/lib/suivi/use-timed-fetch'
@@ -122,27 +121,26 @@ export default function Receptions(props: ReceptionsPageProps) {
   const hasContent = viewData.rows.length > 0 || x3Error
 
   return (
-    <>
-      <Head title="Réceptions" />
-      <div className="theme-navy flex h-screen flex-col overflow-hidden bg-background text-foreground">
-        <Masthead
-          subtitle="Réceptions · Commandes fournisseurs"
-          active="receptions"
-          meta={
-            <>
-              <div className="font-fraunces text-[12px] font-bold capitalize not-italic text-brand">
-                {rangeLabel}
-              </div>
-              <div>
-                <b className="font-bold text-foreground">{stats.totalPalettes}</b> palette
-                {stats.totalPalettes > 1 ? 's' : ''}
-                {' · '}
-                <b className="font-bold text-foreground">{stats.totalLignes}</b> réception
-                {stats.totalLignes > 1 ? 's' : ''}
-              </div>
-            </>
-          }
-        />
+    <AppLayout
+      title="Réceptions"
+      active="receptions"
+      subtitle="Réceptions · Commandes fournisseurs"
+      theme="airbnb"
+      meta={
+        <>
+          <div className="font-fraunces text-[12px] font-bold capitalize not-italic text-brand">
+            {rangeLabel}
+          </div>
+          <div>
+            <b className="font-bold text-foreground">{stats.totalPalettes}</b> palette
+            {stats.totalPalettes > 1 ? 's' : ''}
+            {' · '}
+            <b className="font-bold text-foreground">{stats.totalLignes}</b> réception
+            {stats.totalLignes > 1 ? 's' : ''}
+          </div>
+        </>
+      }
+    >
 
         {/* ═══ Toolbar ═══ */}
         <div className="flex flex-none flex-wrap items-center gap-2.5 border-b border-rule px-7 py-2">
@@ -363,8 +361,7 @@ export default function Receptions(props: ReceptionsPageProps) {
             )}
           </div>
         )}
-      </div>
-    </>
+    </AppLayout>
   )
 }
 

@@ -1,7 +1,6 @@
 import { type Dispatch, type SetStateAction, useMemo, useState } from 'react'
-import { Head } from '@inertiajs/react'
 
-import Masthead from '@r/components/masthead'
+import AppLayout from '@r/layouts/app'
 import {
   ConditionnementsTable,
   type DisplayRow,
@@ -237,44 +236,43 @@ export default function Conditionnements(props: ConditionnementsPageProps) {
   }, [filteredRows])
 
   return (
-    <>
-      <Head title="Conditionnements" />
-      <div className="theme-navy flex h-screen flex-col overflow-hidden bg-background text-foreground">
-        <Masthead
-          subtitle="Conditionnements · Rattrapage référentiel"
-          active="conditionnements"
-          meta={
-            <>
-              <div className="font-fraunces text-[12px] font-bold capitalize not-italic text-brand">
-                {stats.totalArticles} article{stats.totalArticles > 1 ? 's' : ''}
-              </div>
-              <div>
-                <b className="font-bold text-ferme">{stats.nbComplets}</b> complet
-                {stats.nbComplets > 1 ? 's' : ''}
-                {' · '}
-                <b className="font-bold text-destructive">
-                  {stats.nbManquant0 + stats.nbManquant1 + stats.nbManquantLesDeux}
-                </b>{' '}
-                à rattraper
-              </div>
-              <div>
-                Remplissage&nbsp;
-                <b
-                  className={cn(
-                    'font-bold tabular-nums',
-                    tauxRemplissageFiltre >= 0.8
-                      ? 'text-ferme'
-                      : tauxRemplissageFiltre >= 0.5
-                        ? 'text-suggere'
-                        : 'text-destructive'
-                  )}
-                >
-                  {(tauxRemplissageFiltre * 100).toFixed(0)}%
-                </b>
-              </div>
-            </>
-          }
-        />
+    <AppLayout
+      title="Conditionnements"
+      active="conditionnements"
+      subtitle="Conditionnements · Rattrapage référentiel"
+      theme="airbnb"
+      meta={
+        <>
+          <div className="font-fraunces text-[12px] font-bold capitalize not-italic text-brand">
+            {stats.totalArticles} article{stats.totalArticles > 1 ? 's' : ''}
+          </div>
+          <div>
+            <b className="font-bold text-ferme">{stats.nbComplets}</b> complet
+            {stats.nbComplets > 1 ? 's' : ''}
+            {' · '}
+            <b className="font-bold text-destructive">
+              {stats.nbManquant0 + stats.nbManquant1 + stats.nbManquantLesDeux}
+            </b>{' '}
+            à rattraper
+          </div>
+          <div>
+            Remplissage&nbsp;
+            <b
+              className={cn(
+                'font-bold tabular-nums',
+                tauxRemplissageFiltre >= 0.8
+                  ? 'text-ferme'
+                  : tauxRemplissageFiltre >= 0.5
+                    ? 'text-suggere'
+                    : 'text-destructive'
+              )}
+            >
+              {(tauxRemplissageFiltre * 100).toFixed(0)}%
+            </b>
+          </div>
+        </>
+      }
+    >
 
         {/* ═══ Toolbar ═══ */}
         <div className="flex flex-none flex-wrap items-center gap-2.5 border-b border-rule px-7 py-2">
@@ -421,7 +419,6 @@ export default function Conditionnements(props: ConditionnementsPageProps) {
             }
           />
         )}
-      </div>
-    </>
+    </AppLayout>
   )
 }
