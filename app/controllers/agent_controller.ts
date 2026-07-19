@@ -4,7 +4,12 @@
  * POST /api/v1/agent/chat
  * body: { message: string, conversationId?, page?, selection?, filters? }
  *
- * Stream `text/event-stream` d'événements JSON (cf. AgentSseEvent).
+ * Stream `text/event-stream` au **UI Message Stream Protocol** de l'AI SDK
+ * v6 (`x-vercel-ai-ui-message-stream: v1`) — consommé par `useChat` +
+ * `DefaultChatTransport` côté front (Solid via `@kodehort/ai-sdk-solid`,
+ * puis React à #77). Le mapping `AgentSseEvent` → `UIMessageChunk` vit dans
+ * `agent/ui_message_stream.ts`.
+ *
  * Session Pi in-memory, persistée par conversationId (mémoire multi-tour,
  * TTL 30 min) — jetable si absent.
  *
@@ -15,10 +20,13 @@
 
 import type { HttpContext } from '@adonisjs/core/http'
 import {
-  assertAgentProviderConfigured,
-  runAgentTurn,
-  type AgentSseEvent,
-} from '#services/agent_service'
+  createUIMessageStream,
+  JsonToSseTransformStream,
+  UI_MESSAGE_STREAM_HEADERS,
+} from 'ai'
+
+import { AgentUIMessageMapper } from '#services/agent/ui_message_stream'
+import { assertAgentProviderConfigured, runAgentTurn } from '#services/agent_service'
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v)
@@ -40,10 +48,6 @@ function asIdMap(
     }
   }
   return out
-}
-
-function writeSse(response: HttpContext['response'], event: AgentSseEvent) {
-  response.response.write(`data: ${JSON.stringify(event)}\n\n`)
 }
 
 export default class AgentController {
@@ -96,36 +100,48 @@ export default class AgentController {
       })
     }
 
-    // Headers SSE — pas de compression / buffer middleware-friendly.
-    ctx.response.response.writeHead(200, {
-      'Content-Type': 'text/event-stream; charset=utf-8',
-      'Cache-Control': 'no-cache, no-transform',
-      Connection: 'keep-alive',
-      'X-Accel-Buffering': 'no',
-    })
-
     const abort = new AbortController()
     const onClose = () => abort.abort()
     ctx.request.request.on('close', onClose)
 
+    // Mapping événements agent → UI message stream (AI SDK v6). Les erreurs
+    // fatales du tour deviennent un chunk `error` (onError) — plus besoin
+    // d'écrire de frames à la main.
+    const mapper = new AgentUIMessageMapper()
+    const stream = createUIMessageStream({
+      execute: async ({ writer }) => {
+        for await (const event of runAgentTurn({
+          message,
+          conversationId: rawConversationId,
+          userId,
+          screenContext: {
+            page: typeof body.page === 'string' ? body.page : undefined,
+            selection: asIdMap(body.selection),
+            filters: asIdMap(body.filters),
+          },
+          signal: abort.signal,
+        })) {
+          for (const chunk of mapper.map(event)) {
+            writer.write(chunk)
+          }
+        }
+      },
+      onError: (err) => (err instanceof Error ? err.message : String(err)),
+    })
+
+    // Headers standard AI SDK (incl. x-accel-buffering: no).
+    ctx.response.response.writeHead(200, UI_MESSAGE_STREAM_HEADERS)
+
+    const sse = stream
+      .pipeThrough(new JsonToSseTransformStream())
+      .pipeThrough(new TextEncoderStream())
+    const reader = sse.getReader()
     try {
-      for await (const event of runAgentTurn({
-        message,
-        conversationId: rawConversationId,
-        userId,
-        screenContext: {
-          page: typeof body.page === 'string' ? body.page : undefined,
-          selection: asIdMap(body.selection),
-          filters: asIdMap(body.filters),
-        },
-        signal: abort.signal,
-      })) {
-        writeSse(ctx.response, event)
+      for (;;) {
+        const { done, value } = await reader.read()
+        if (done) break
+        ctx.response.response.write(value)
       }
-    } catch (err) {
-      const messageErr = err instanceof Error ? err.message : String(err)
-      writeSse(ctx.response, { type: 'error', message: messageErr })
-      writeSse(ctx.response, { type: 'done', sessionId: '' })
     } finally {
       ctx.request.request.off('close', onClose)
       ctx.response.response.end()
