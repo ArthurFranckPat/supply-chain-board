@@ -50,6 +50,3 @@ export function buildWorkingCalendar(
     },
   }
 }
-
-/** Calendrier neutre (tout ouvert) — fallback quand rien n'est configuré. */
-export const ALWAYS_OPEN: WorkingCalendar = { factor: () => 1 }

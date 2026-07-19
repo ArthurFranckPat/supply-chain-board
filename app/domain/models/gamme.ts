@@ -20,14 +20,3 @@ export function hoursForQuantity(op: Pick<GammeOperation, 'rate'>, qty: number):
   if (op.rate <= 0) return 0
   return qty / op.rate
 }
-
-export function totalHoursByWorkstation(gamme: Gamme, qty: number): Map<string, number> {
-  const result = new Map<string, number>()
-  for (const op of gamme.operations) {
-    if (op.rate > 0) {
-      const h = qty / op.rate
-      result.set(op.workstation, (result.get(op.workstation) ?? 0) + h)
-    }
-  }
-  return result
-}

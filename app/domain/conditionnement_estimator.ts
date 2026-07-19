@@ -259,23 +259,6 @@ export interface EstimationsPaire {
 }
 
 /**
- * Calcule les DEUX estimations (STOCK et STOJOU) indépendamment, pour comparaison.
- *
- * Contrairement à `estimerUsParPalette` (qui choisit la meilleure par priorité),
- * cette fonction retourne systématiquement les deux pour que l'utilisateur les
- * compare et valide : concordance = forte confiance, divergence = à vérifier.
- */
-export function estimerLesDeux(
-  stockObs: PaletteObservation[],
-  stojouObs: PaletteObservation[]
-): EstimationsPaire {
-  return {
-    stock: estimerDepuisStock(stockObs),
-    stojou: estimerDepuisStojou(stojouObs),
-  }
-}
-
-/**
  * Tolérance de concordance entre deux valeurs US/pal (en %). Deux valeurs sont
  * considérées "égales" si leur écart relatif est ≤ TOLERANCE_CONCORDANCE.
  * Ex : 960 et 1000 → écart 4,2% → concordants (tolérance 5%).

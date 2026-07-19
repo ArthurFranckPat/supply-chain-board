@@ -1,7 +1,6 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import boardDataset from '#services/board_dataset'
 import staticSync from '#services/static_sync_service'
-import cache from '@adonisjs/cache/services/main'
 import { OrderLineOverrideStore } from '#services/order_line_override_store'
 import { loadOrderLineDetail } from '#services/order_line_detail_loader'
 import type { GammeOperation } from '#app/domain/models/gamme'
@@ -208,53 +207,6 @@ function makeInduitCard(p: {
 export default class OrderPlanningController {
   private get overrideStore() {
     return new OrderLineOverrideStore()
-  }
-
-  /** GET /planification — board planification. */
-  async board(ctx: HttpContext) {
-    const startParam = ctx.request.input('start') as string | undefined
-    const daysParam = Number.parseInt(ctx.request.input('days', '14'), 10)
-    const horizon = Number.isFinite(daysParam) && daysParam > 0 && daysParam <= 90 ? daysParam : 14
-    const force = !!ctx.request.input('refresh')
-    const windowStart = startParam ? atMidnight(new Date(startParam)) : atMidnight(new Date())
-
-    // Cache du payload calculé. Clé GLOBALE, pas par utilisateur (issue #39, C2) :
-    // getOpenOrderLines renvoie des données usine identiques pour tous → un namespace
-    // par user faisait réinterroger X3 à chaque nouvel utilisateur. TTL court (sources
-    // X3 vivantes) ; ?refresh=1 invalide la clé. Sérialisable via superjson.
-    const planCache = () => cache.namespace('planification')
-    const cacheKey = `payload:${isoDay(windowStart)}:${horizon}`
-    if (force) await planCache().delete({ key: cacheKey })
-    const data = await planCache().getOrSet({
-      key: cacheKey,
-      ttl: 2 * 60 * 1000,
-      // SWR (issue #33) : timeout par défaut (0) = vrai stale-while-revalidate — valeur en grace
-      // servie instantanément, refresh en arrière-plan (isBackground → erreurs avalées). NE PAS
-      // mettre > 0 → refresh hors background, rejet orphelin → unhandled rejection → crash serveur
-      // (cf. board_dataset / suivi / programme). Aligne /planification sur /programme.
-      factory: () => loadOrderBoardData(ctx),
-    })
-    return ctx.inertia.render('scheduler/planning', {
-      board: {
-        days: data.days,
-        lines: data.lines,
-        weekSpans: data.weekSpans,
-        cols: data.cols,
-        colWeek: data.colWeek,
-        weekCaps: data.weekCaps,
-      },
-      totalLines: data.totalLines,
-      lineCount: data.lineCount,
-      horizon: data.horizon,
-      windowFrom: data.windowFrom,
-      windowTo: data.windowTo,
-      dateRange: data.dateRange,
-      weekLabel: data.weekLabel,
-      prevHref: data.prevHref,
-      nextHref: data.nextHref,
-      todayHref: data.todayHref,
-      x3Error: data.x3Error,
-    })
   }
 
   /** GET /api/v1/planning/order-lines — JSON (debug / clients externes). */
