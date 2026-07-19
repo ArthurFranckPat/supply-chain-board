@@ -703,6 +703,18 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'user.dashboard_layout.update': {
+    methods: ["PATCH"]
+    pattern: '/api/v1/user/dashboard-layout'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'expeditions.rows': {
     methods: ["GET","HEAD"]
     pattern: '/api/v1/expeditions/rows'

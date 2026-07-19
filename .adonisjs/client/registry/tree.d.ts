@@ -100,6 +100,11 @@ export interface ApiDefinition {
     searchPf: typeof routes['planning_board.search_pf']
     ofMaterialsDiagnostic: typeof routes['planning_board.of_materials_diagnostic']
   }
+  user: {
+    dashboardLayout: {
+      update: typeof routes['user.dashboard_layout.update']
+    }
+  }
   data: {
     load: typeof routes['data.load']
   }

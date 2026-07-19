@@ -62,6 +62,7 @@ export type ScannedRoutes = {
     'dashboard.kpis': { paramsTuple?: []; params?: {} }
     'dashboard.otd': { paramsTuple?: []; params?: {} }
     'dashboard.stock_valuation': { paramsTuple?: []; params?: {} }
+    'user.dashboard_layout.update': { paramsTuple?: []; params?: {} }
     'expeditions.rows': { paramsTuple?: []; params?: {} }
     'receptions.rows': { paramsTuple?: []; params?: {} }
     'conditionnements.rows': { paramsTuple?: []; params?: {} }
@@ -214,6 +215,7 @@ export type ScannedRoutes = {
     'order_planning.update': { paramsTuple: [ParamValue,ParamValue]; params: {'order': ParamValue,'line': ParamValue} }
     'planning_board.update': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
     'scenarios.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'user.dashboard_layout.update': { paramsTuple?: []; params?: {} }
   }
   DELETE: {
     'calendar_config.delete_closure': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
