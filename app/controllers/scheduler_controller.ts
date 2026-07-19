@@ -168,23 +168,6 @@ export default class SchedulerController {
   }
 
   /**
-   * GET /react-board — POC drag du board React (phase 3 migration react-shadcn).
-   * Même payload OF que /programme (mode ordonnancement) ; page jetable, à
-   * retirer après le verdict go/no-go. Le drop est local-only côté client
-   * (aucun PATCH émis par le POC).
-   */
-  async reactBoardPoc(ctx: HttpContext) {
-    const data = await this.loadProgrammeData(ctx, '/react-board', 'ordonnancement')
-    return ctx.inertia.render('react_board', {
-      board: data.board,
-      dateRange: data.dateRange,
-      totalOf: data.totalOf,
-      lineCount: data.lineCount,
-      x3Error: data.x3Error,
-    })
-  }
-
-  /**
    * Payload de la vue unifiée OF ↔ commandes.
    *
    * Réutilise la même logique de placement que loadBoardData (OF posés en date de
