@@ -4,12 +4,27 @@ import { getX3EnvConfig } from '#config/x3'
 import { callRunSubprog } from '#app/x3/run-client'
 import { X3SuggestionRepository } from '#app/repositories/suggestion_repository'
 
-/** Invalide les caches board + vision de l'utilisateur (issue #20) après un write-back. */
-async function bustBoardCaches(userId: number | string | undefined) {
-  const ns = userId ? `user_${userId}` : ''
+/**
+ * Invalide les caches board après un write-back X3 (FIRMSUGG).
+ *
+ * K4 (audit sécu) : tous les namespaces sont GLOBAUX (cf. `board_dataset.ts:63`
+ * `cache.namespace('board')` sans suffixe user) — le code précédent ciblait des
+ * clés inexistantes (`board:user_${id}`) → aucun cache n'était invalidé → UI
+ * stale → re-clic possible = double lancement d'OF. On purge tous les
+ * namespaces impactés par un changement de statut OF (Ferme/Planifié/Suggéré) :
+ *   - board / programme / suivi : vues listing OF
+ *   - ruptures : couverture recalculée selon le pool OF fermes
+ *   - charge : capacité consommée par les OFs fermes
+ *   - engagement : allocation par poste impactée par les OFs lancés
+ */
+async function bustBoardCaches() {
   await Promise.all([
-    cache.namespace(ns ? `board:${ns}` : 'board').clear(),
-    cache.namespace(ns ? `programme:${ns}` : 'programme').clear(),
+    cache.namespace('board').clear(),
+    cache.namespace('programme').clear(),
+    cache.namespace('suivi').clear(),
+    cache.namespace('ruptures').clear(),
+    cache.namespace('charge').clear(),
+    cache.namespace('engagement').clear(),
   ])
 }
 
@@ -90,10 +105,10 @@ export default class SuggestionFirmController {
     }
 
     // Write-back réussi : l'ordre a changé (statut/n°). On invalide les caches
-    // board + vision de l'utilisateur pour que le prochain reload soit à jour.
+    // globaux impactés pour que le prochain reload soit à jour (K4).
     // Inutile de blacklister la suggestion : depuis #32, la supply vient d'ORDERS
     // (temps réel) → FUNMAUTR y consomme la suggestion, elle disparaît d'elle-même.
-    await bustBoardCaches(ctx.auth.user?.id)
+    await bustBoardCaches()
 
     return {
       ok: true,

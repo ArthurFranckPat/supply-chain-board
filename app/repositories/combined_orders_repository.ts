@@ -194,7 +194,12 @@ function mapReceptionRow(row: RawRow): Flow {
 }
 
 function mapOfRow(row: RawRow): Flow {
-  const status = (Number.parseInt(row.WIPSTA_0 ?? '0') || 1) as 1 | 2 | 3
+  // H5 (audit sécu) : défaut prudent = Suggéré (3), pas Ferme (1). Un statut
+  // null/0/NaN ne doit JAMAIS devenir Ferme — cela court-circuiterait les checks
+  // de rupture (un OF ferme est considéré lancé, donc la matière est consommée).
+  // WIPSTA valide ∈ {1, 2, 3} ; tout autre valeur → 3 (Suggéré, conservatif).
+  const raw = Number.parseInt(row.WIPSTA_0 ?? '0')
+  const status = (raw >= 1 && raw <= 3 ? raw : 3) as 1 | 2 | 3
   return {
     article: row.ITMREF_0?.trim() ?? '',
     quantity: toNum(row.RMNEXTQTY_0),
