@@ -62,6 +62,10 @@ export function ProgrammeToolbar(props: {
   applyRange: (r: DateRange) => void
   scenarioActive?: boolean
   onToggleScenario?: () => void
+  /** Slot recherche/portée — vit à droite du <flex-1> (avant les pills
+   *  Faisabilité/Sélection). Sorti du Masthead pour éviter le doublon
+   *  visuel avec la toolbar. */
+  search?: React.ReactNode
 }) {
   return (
     <div
@@ -143,6 +147,10 @@ export function ProgrammeToolbar(props: {
       </button>
 
       <div className="flex-1" />
+
+      {/* Recherche + portée — sortis du Masthead (évite le doublon avec la
+          toolbar). Prop `search` injectée depuis programme.tsx. */}
+      {props.search}
 
       {/* Scénario — pill toggle (tous modes, disabled hors Combiné) */}
       {props.onToggleScenario && (

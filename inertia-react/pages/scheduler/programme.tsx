@@ -855,7 +855,23 @@ export default function Programme(props: VisionProps) {
               </div>
             </>
           }
-          actions={
+        />
+
+        <ProgrammeToolbar
+          mode={mode}
+          switchMode={switchMode}
+          feasLoading={feasLoading()}
+          runFeasibility={runFeasibility}
+          refreshing={refreshing}
+          doRefresh={doRefresh}
+          dateRange={props.dateRange}
+          calOpen={calOpen}
+          setCalOpen={setCalOpen}
+          range={range}
+          applyRange={applyRange}
+          scenarioActive={scenarioStore.active}
+          onToggleScenario={toggleScenario}
+          search={
             <>
               <div className="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/25">
                 <span className="material-symbols-outlined text-[17px] text-muted-foreground">
@@ -903,22 +919,6 @@ export default function Programme(props: VisionProps) {
               </Select>
             </>
           }
-        />
-
-        <ProgrammeToolbar
-          mode={mode}
-          switchMode={switchMode}
-          feasLoading={feasLoading()}
-          runFeasibility={runFeasibility}
-          refreshing={refreshing}
-          doRefresh={doRefresh}
-          dateRange={props.dateRange}
-          calOpen={calOpen}
-          setCalOpen={setCalOpen}
-          range={range}
-          applyRange={applyRange}
-          scenarioActive={scenarioStore.active}
-          onToggleScenario={toggleScenario}
         />
 
         <ProgrammeContextBar mode={mode} feasMode={feasMode()} setFeasMode={setFeasMode}>
