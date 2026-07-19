@@ -59,6 +59,19 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* ── Couche de compatibilité tokens métier (portage Solid → React) ──
+     Les pages portées utilisent la grammaire Papier (brand/rule/ferme/
+     planifie/suggere/warn). On la mappe sur le thème shadcn stock : le
+     re-theming futur = swap de ces valeurs, pas des classNames. */
+  --color-brand: var(--primary);
+  --color-brand-soft: var(--muted);
+  --color-rule: var(--border);
+  --color-rule-soft: var(--border);
+  --color-ferme: oklch(0.596 0.145 163);       /* emerald-600 */
+  --color-planifie: oklch(0.546 0.245 262.9);  /* blue-600 */
+  --color-suggere: oklch(0.666 0.179 58.3);    /* amber-600 */
+  --color-warning: oklch(0.666 0.179 58.3);
 }
 
 :root {
@@ -140,6 +153,17 @@
   html {
     @apply font-sans;
   }
+}
+
+/* Conteneur scrollable SANS barre visible (parité Solid). */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
 }
 
 /* ────────────────────────────────────────────────────────────

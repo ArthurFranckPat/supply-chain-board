@@ -225,6 +225,7 @@ export type ProactiveVerdictCounts = {
   late: number
   blocked: number
   uncov: number
+  risk: number
 }
 
 /** Réponse de GET /api/v1/status/proactive-rows (vue proactive). */
