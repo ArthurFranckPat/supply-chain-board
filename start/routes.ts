@@ -78,6 +78,10 @@ router
       })
       .as('react_lab')
 
+    // POC drag board React (phase 3) — payload réel /programme, drop local-only.
+    // À retirer après le verdict go/no-go.
+    router.get('/react-board', '#controllers/scheduler_controller.reactBoardPoc').as('react_board')
+
     // Write-back X3 (issue #29) — terrain de test read/save/modify sur objets
     // publiés du stub CAdxWebServiceXmlCC. Cible TEST (login env=test). À
     // verrouiller/retirer une fois le write-back fiabilisé.

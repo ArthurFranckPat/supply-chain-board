@@ -66,6 +66,12 @@ const routes = {
     tokens: [{"old":"/react-lab","type":0,"val":"react-lab","end":""}],
     types: placeholder as Registry['react_lab']['types'],
   },
+  'react_board': {
+    methods: ["GET","HEAD"],
+    pattern: '/react-board',
+    tokens: [{"old":"/react-board","type":0,"val":"react-board","end":""}],
+    types: placeholder as Registry['react_board']['types'],
+  },
   'x3_writeback_test': {
     methods: ["GET","HEAD"],
     pattern: '/writeback-test',

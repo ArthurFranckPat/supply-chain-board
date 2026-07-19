@@ -127,6 +127,18 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'react_board': {
+    methods: ["GET","HEAD"]
+    pattern: '/react-board'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'x3_writeback_test': {
     methods: ["GET","HEAD"]
     pattern: '/writeback-test'

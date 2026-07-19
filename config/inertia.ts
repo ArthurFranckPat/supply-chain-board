@@ -101,6 +101,14 @@ declare module '@adonisjs/inertia/types' {
     'design_system': Record<string, never>
     // Page témoin du socle React (migration react-shadcn, phase 0).
     'react_lab': Record<string, never>
+    // POC drag board React (phase 3) — payload OF réel de /programme.
+    'react_board': {
+      board: BoardProp | null
+      dateRange: string
+      totalOf: number
+      lineCount: number
+      x3Error: string | null
+    }
     'diagnostic-test': Record<string, never>
     'writeback-test': Record<string, never>
     // CTP — simulateur autonome « date au plus tôt » (PRD §6.2, lot 3).
