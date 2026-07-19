@@ -202,6 +202,17 @@ router
     router.get('/api/v1/dashboard/otd', '#controllers/dashboard_controller.otd')
     router.get('/api/v1/dashboard/stock', '#controllers/dashboard_controller.stockValuation')
 
+    // Layout KPI personnalisables (feature tableau de bord) — le contrôleur +
+    // le validator existent déjà ; la route manquait, le PATCH front 404 à chaque
+    // drag/resize (🟡 dead-code §2). Rattaché au scope « user » (layout persisté
+    // sur le modèle User courant).
+    router
+      .patch(
+        '/api/v1/user/dashboard-layout',
+        '#controllers/dashboard_layout_controller.update'
+      )
+      .as('user.dashboard_layout.update')
+
     // Expéditions (issue #44) — onglet dédié, calcul lourd différé.
     router.get('/api/v1/expeditions/rows', '#controllers/expeditions_controller.rows')
 

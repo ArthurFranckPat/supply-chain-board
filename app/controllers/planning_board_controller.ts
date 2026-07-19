@@ -3,8 +3,16 @@ import { OverrideStore } from '#services/override_store'
 import boardDataset from '#services/board_dataset'
 import { loadOrderImpacts } from '#services/order_impacts_loader'
 import { loadOfMaterialsDiagnostic } from '#services/of_diagnostic_loader'
+import { planningBoardUpdateValidator } from '#validators/planning_board'
 import type { ManufacturingOrder } from '#repositories/of_repository'
 import type { GammeOperation } from '#app/domain/models/gamme'
+
+/**
+ * Regex métier d'un numéro d'OF (path param `of`).
+ * Sage X3 (ORDERS.VCRNUM_0) : alphanumérique + tiret/underscore, jusqu'à 40 c.
+ * Volontairement tolérant : on normalise côté application, pas via le path.
+ */
+const OF_RE = /^[A-Za-z0-9_-]{1,40}$/
 
 /**
  * PlanningBoardController — endpoints OF LIVE consommés par le board unifié (/programme) :
@@ -25,17 +33,21 @@ export default class PlanningBoardController {
   }
 
   async update(ctx: HttpContext) {
-    const { dateDebut, dateFin, status, workstation, note } = ctx.request.only([
-      'dateDebut',
-      'dateFin',
-      'status',
-      'workstation',
-      'note',
-    ])
-    await this.store.save(ctx.params.of, { dateDebut, dateFin, status, workstation, note })
+    const numOf = String(ctx.params.of ?? '')
+    if (!OF_RE.test(numOf)) {
+      return ctx.response.badRequest({ error: 'Numéro d\'OF invalide' })
+    }
+
+    // H4 — on valide le body avant de persister : status ∈ {1,2,3},
+    // dates ISO, workstation texte non-vide, note plafonnée. Sans cela, un
+    // payload arbitraire pouvait corrompre `precomputeMfgFeasibility` + le
+    // matcher OF↔commande via une valeur hors domaine en SQLite.
+    const { dateDebut, dateFin, status, workstation, note } =
+      await ctx.request.validateUsing(planningBoardUpdateValidator)
+    await this.store.save(numOf, { dateDebut, dateFin, status, workstation, note })
 
     return {
-      numOf: ctx.params.of,
+      numOf,
       dateDebut: dateDebut ?? null,
       dateFin: dateFin ?? null,
       status: status ?? null,
