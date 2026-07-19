@@ -10,6 +10,9 @@ export const REACT_ROUTES = new Set([
   '/suivi',
   '/receptions',
   '/expeditions',
+  '/ruptures',
+  '/conditionnements',
+  '/charge',
 ])
 
 /**
