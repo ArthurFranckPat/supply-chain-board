@@ -67,7 +67,7 @@ export default function Conditionnements(props: ConditionnementsPageProps) {
     return bust ? `${props.rowsHref}?refresh=${bust}` : props.rowsHref
   }, [props.rowsHref, bust])
 
-  const { data, loading, error, ms, elapsed } = useTimedFetch<ConditionnementsRowsResponse>(url)
+  const { data, loading, error, elapsed } = useTimedFetch<ConditionnementsRowsResponse>(url)
 
   const viewData = data ?? EMPTY
   const stats = viewData.stats

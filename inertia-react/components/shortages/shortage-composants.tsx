@@ -12,7 +12,6 @@ import { cn } from '@r/lib/utils'
 import {
   VERDICT_BADGE,
   groupByComponent,
-  isLate,
   TH,
   TH_R,
   TD,

@@ -5,13 +5,11 @@
  * Les lignes arrivent déjà filtrées du parent (scheduler/shortages) ; le tri
  * est géré localement par le DataTable.
  */
-import { useMemo, useState, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { DataTable, type ColumnDef, type SortingState } from '@r/components/ui/data-table'
 import type { ShortageDisplayRow } from '@/lib/shortages/types'
 import { cn } from '@r/lib/utils'
 import { isLate, TH, TH_R, TD } from '@/lib/shortages/shortage-math'
-
-const EMPTY = { rows: [] }
 
 export function ShortageRegistre({
   rows,
