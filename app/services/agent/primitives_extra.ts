@@ -288,19 +288,7 @@ export async function listerCommandesStatut(params: {
   to.setDate(to.getDate() + horizon)
   to.setHours(23, 59, 59, 999)
 
-  const { result, planInputs } = await loadOrderImpacts({ from, to, pipeline: 'programme' })
-
-  // Contremarque X3 (SORDERQ.FMINUM_0) = VRAI peg OF↔commande. Le matcher alloue un OF par
-  // heuristique article+date même sans contremarque — cet OF n'est PAS un lien X3 (bug
-  // initial : AR2602673 faussement liée à SGAE10651504544). On n'expose dans ofs[] QUE
-  // l'OF du peg X3 réel, pour aligner le copilote sur le board (qui filtre les OFs non
-  // posés / non peggés via placedByOf).
-  const contremarqueMap = new Map<string, string | null>()
-  for (const f of planInputs.demands) {
-    const o = f.origin as { id?: string; ligne?: string | null; contremarque?: string | null }
-    if (!o.id) continue
-    contremarqueMap.set(`${o.id}#${o.ligne ?? ''}`, o.contremarque ?? null)
-  }
+  const { result } = await loadOrderImpacts({ from, to, pipeline: 'programme' })
 
   const clientFilter = params.client?.trim().toLowerCase() || null
   const statutFilter =
@@ -328,40 +316,32 @@ export async function listerCommandesStatut(params: {
     stats: result.stats,
     totalMatching: filtered.length,
     truncated: filtered.length > limit,
-    commandes: filtered.slice(0, limit).map((o) => {
-      const contremarque = contremarqueMap.get(`${o.numCommande}#${o.ligne ?? ''}`) ?? null
-      return {
-        numCommande: o.numCommande,
-        ligne: o.ligne ?? null,
-        client: o.client,
-        article: o.article,
-        description: o.description,
-        qteRestante: o.qteRestante,
-        dateExpedition: o.dateExpedition,
-        dejaEnRetard: o.dejaEnRetard,
-        nature: o.nature,
-        statut: o.statut,
-        joursRetard: o.joursRetard,
-        matchingMethod: o.matchingMethod,
-        // Peg X3 officiel (SORDERQ.FMINUM_0). Non null = OF réellement peggé à cette ligne
-        // dans X3. Null = aucun lien X3 — l'OF alloué par le moteur est une heuristique
-        // article+date, pas un peg ; on ne l'exhibe pas (aligné sur le board).
-        contremarque,
-        // On ne garde QUE l'OF du peg X3 réel. Sans contremarque → ofs=[] : ne pas présenter
-        // d'OF lié (le matcher peut avoir alloué un OF heuristique non fiable).
-        ofs: o.ofs
-          .filter((f) => (contremarque ? f.numOf === contremarque : false))
-          .slice(0, 3)
-          .map((f) => ({
-            numOf: f.numOf,
-            article: f.article,
-            qteAllouee: f.qteAllouee,
-            statutNum: f.statutNum,
-            feasible: f.feasible,
-            dateFin: f.dateFin,
-          })),
-      }
-    }),
+    commandes: filtered.slice(0, limit).map((o) => ({
+      numCommande: o.numCommande,
+      ligne: o.ligne ?? null,
+      client: o.client,
+      article: o.article,
+      description: o.description,
+      qteRestante: o.qteRestante,
+      dateExpedition: o.dateExpedition,
+      dejaEnRetard: o.dejaEnRetard,
+      nature: o.nature,
+      statut: o.statut,
+      joursRetard: o.joursRetard,
+      // matchingMethod = nature de l'allocation moteur (mts_hard_pegging | stock_complete |
+      // nor_mto_cumulative | purchase_supply | none). mts_hard_pegging couvre à la fois le peg
+      // X3 réel (contremarque) et l'heuristique article+date — ce tool ne les distingue pas.
+      // Voir getDetailCommande.contremarque pour le peg X3 officiel.
+      matchingMethod: o.matchingMethod,
+      ofs: o.ofs.slice(0, 3).map((f) => ({
+        numOf: f.numOf,
+        article: f.article,
+        qteAllouee: f.qteAllouee,
+        statutNum: f.statutNum,
+        feasible: f.feasible,
+        dateFin: f.dateFin,
+      })),
+    })),
   }
 }
 
