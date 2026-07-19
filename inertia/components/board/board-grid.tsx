@@ -5,6 +5,8 @@ import type { Card, LineRow } from '@/lib/board/types'
 import { TYPO_META } from '@/lib/board/types'
 import { usePrintFit } from '@/lib/board/use-print-fit'
 import type { VirtualOrderVm } from '@/lib/scenarios/types'
+import { promiseReasonText, type PromiseNode } from '@/lib/promesse/types'
+import { route } from '@/lib/routes'
 import { onActivation } from '@/lib/a11y/activation'
 import { fmtDay } from '@/lib/vision/date-utils'
 import { BoardCard, type CardStatus } from './board-card'
@@ -634,6 +636,27 @@ function VirtualCell(props: {
 
 function VirtualOrderChip(props: { order: VirtualOrderVm; onRemove?: (id: string) => void }) {
   const tone = () => (props.order.statut ? VERDICT_TONE[props.order.statut] : undefined)
+  // CTP §6.1 — popover chemin critique, chargé à la demande au clic du chip.
+  const [ctpOpen, setCtpOpen] = createSignal(false)
+  const [ctpPath, setCtpPath] = createSignal<PromiseNode[] | null>(null)
+  const [ctpError, setCtpError] = createSignal(false)
+  const toggleCtp = async () => {
+    const open = !ctpOpen()
+    setCtpOpen(open)
+    if (!open || ctpPath() || ctpError()) return
+    try {
+      const params = new URLSearchParams({
+        article: props.order.article,
+        quantity: String(props.order.quantity),
+      })
+      const res = await fetch(`${route('promesse.index')}?${params}`)
+      if (!res.ok) throw new Error()
+      const data = await res.json()
+      setCtpPath((data.engageante?.criticalPath ?? []) as PromiseNode[])
+    } catch {
+      setCtpError(true)
+    }
+  }
   return (
     <div
       draggable
@@ -641,17 +664,21 @@ function VirtualOrderChip(props: { order: VirtualOrderVm; onRemove?: (id: string
         e.dataTransfer?.setData('application/x-virtual-cmd', props.order.id)
         if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'
       }}
+      onClick={toggleCtp}
       class={cx(
-        'group relative overflow-hidden rounded-[6px] border border-dashed border-brand/60 border-l-[3px] bg-card/80 px-1.5 py-1 leading-tight shadow-sm',
+        'group relative rounded-[6px] border border-dashed border-brand/60 border-l-[3px] bg-card/80 px-1.5 py-1 leading-tight shadow-sm',
         'cursor-grab active:cursor-grabbing',
         tone()?.border ?? 'border-l-brand/60'
       )}
-      title="Commande virtuelle — n'existe que dans le scénario"
+      title="Commande virtuelle — n'existe que dans le scénario · clic : chemin critique"
     >
       <button
         type="button"
         class="absolute right-0.5 top-0.5 flex size-3.5 items-center justify-center rounded-full text-muted-foreground opacity-50 hover:text-error hover:opacity-100"
-        onClick={() => props.onRemove?.(props.order.id)}
+        onClick={(e) => {
+          e.stopPropagation()
+          props.onRemove?.(props.order.id)
+        }}
         title="Retirer du scénario"
       >
         <span class="material-symbols-outlined text-xs">close</span>
@@ -666,6 +693,11 @@ function VirtualOrderChip(props: { order: VirtualOrderVm; onRemove?: (id: string
         <span class="flex-none font-fraunces text-2xs font-bold tabular-nums text-secondary-foreground">
           {fmtDay(props.order.date)}
         </span>
+        <Show when={props.order.earliest}>
+          <span class="flex-none rounded-full bg-brand-soft px-1 py-px font-mono text-3xs font-bold uppercase tracking-wider text-brand">
+            au plus tôt
+          </span>
+        </Show>
         <Show when={props.order.client}>
           <span class="truncate font-fraunces text-2xs italic text-muted-foreground">
             {props.order.client}
@@ -683,6 +715,38 @@ function VirtualOrderChip(props: { order: VirtualOrderVm; onRemove?: (id: string
           </span>
         </Show>
       </div>
+      {/* Popover chemin critique CTP (§6.1) */}
+      <Show when={ctpOpen()}>
+        <div
+          class="absolute left-0 top-full z-50 mt-1 w-[260px] cursor-default rounded-lg border border-rule bg-card p-2 shadow-lg"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <p class="mb-1 font-fraunces text-2xs font-bold text-brand">Chemin critique (CTP)</p>
+          <Show
+            when={!ctpError()}
+            fallback={<p class="text-2xs italic text-muted-foreground">Calcul indisponible.</p>}
+          >
+            <Show
+              when={ctpPath()}
+              fallback={<p class="text-2xs italic text-muted-foreground">Calcul…</p>}
+            >
+              <ul class="space-y-0.5">
+                <For each={ctpPath()}>
+                  {(n, i) => (
+                    <li class="flex items-baseline gap-1 text-2xs" style={{ 'padding-left': `${i() * 8}px` }}>
+                      <span class="font-mono font-bold text-foreground">{n.article}</span>
+                      <span class="text-muted-foreground">{promiseReasonText(n.reason)}</span>
+                      <span class="ml-auto font-fraunces tabular-nums text-secondary-foreground">
+                        {fmtDay(n.availableDate)}
+                      </span>
+                    </li>
+                  )}
+                </For>
+              </ul>
+            </Show>
+          </Show>
+        </div>
+      </Show>
     </div>
   )
 }

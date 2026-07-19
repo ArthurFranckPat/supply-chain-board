@@ -56,7 +56,11 @@ declare module '@adonisjs/inertia/types' {
       otdHref: string
       stockHref: string
       layout?: {
-        items: { id: 'charge' | 'otd' | 'stock' | 'lignes' | 'stockTable'; visible: boolean; width: 1 | 2 | 3 }[]
+        items: {
+          id: 'charge' | 'otd' | 'stock' | 'lignes' | 'stockTable'
+          visible: boolean
+          width: 1 | 2 | 3
+        }[]
         printOrder: ('charge' | 'otd' | 'stock' | 'lignes' | 'stockTable')[]
       }
     }
@@ -88,35 +92,10 @@ declare module '@adonisjs/inertia/types' {
     'design_system': Record<string, never>
     'diagnostic-test': Record<string, never>
     'writeback-test': Record<string, never>
-    'scheduler/scheduling': {
-      board: BoardProp
-      windowFrom: string
-      windowTo: string
-      horizon: number
-      dateRange: string
-      weekLabel: string
-      prevHref: string
-      nextHref: string
-      todayHref: string
-      totalOf: number
-      lineCount: number
-      x3Error: string | null
-      cached: string | null
-    }
-    'scheduler/planning': {
-      board: BoardProp
-      totalLines: number
-      lineCount: number
-      horizon: number
-      windowFrom: string
-      windowTo: string
-      dateRange: string
-      weekLabel: string
-      prevHref: string
-      nextHref: string
-      todayHref: string
-      x3Error: string | null
-    }
+    // CTP — simulateur autonome « date au plus tôt » (PRD §6.2, lot 3).
+    'promesse': Record<string, never>
+    // Copilote agentique v1 — chat SSE (jetable #77).
+    'copilote': Record<string, never>
     'scheduler/shortages': {
       horizon: number
       windowStart: string

@@ -81,12 +81,22 @@ export class X3Client extends KnexClient {
     if (!obj.sql) throw new Error('The query is empty')
     const bindings = obj.bindings?.length ? obj.bindings : null
     const result = await connection.x3conn.query(obj.sql, bindings)
-    if (!result.success) throw new Error(`X3 query failed: ${result.error}`)
+    if (!result.success) {
+      // ponytail: knex (execution/internal/query-executioner.js:37-45) prepend
+      // systématiquement `${sql} - ` au message de toute erreur jetée par _query,
+      // sans flag pour le désactiver. Pour garder le SQL hors des logs, on ne
+      // throw PAS ici : on stash l'erreur sur `obj` et on la jette dans
+      // processResponse (appelée hors du catch executeQuery → non enrichie).
+      obj.__x3Error = `X3 query failed: ${result.error}`
+      obj.response = []
+      return obj
+    }
     obj.response = result.data
     return obj
   }
 
   processResponse(obj: any, _runner: any): any {
+    if (obj.__x3Error) throw new Error(obj.__x3Error)
     const { response } = obj
     if (obj.output) return obj.output.call(_runner, response)
     switch (obj.method) {

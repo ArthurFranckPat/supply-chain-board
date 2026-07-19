@@ -24,10 +24,6 @@ export interface Nomenclature {
 
 // -- Helpers --
 
-export function isPurchased(entry: Pick<NomenclatureEntry, 'componentType'>): boolean {
-  return entry.componentType === 'ACHETE'
-}
-
 export function isManufactured(entry: Pick<NomenclatureEntry, 'componentType'>): boolean {
   return entry.componentType === 'FABRIQUE'
 }

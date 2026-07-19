@@ -10,6 +10,7 @@ import { X3ReceptionRepository } from '#repositories/reception_repository'
 import { ConditionnementRepository } from '#repositories/conditionnement_repository'
 import { estimerDepuisStock, type EstimationsPaire } from '#app/domain/conditionnement_estimator'
 import { CombinedOrdersRepository } from '#repositories/combined_orders_repository'
+import { computeSupplierLatency } from '#repositories/supplier_latency_repository'
 import {
   StockValuationRepository,
   type StockValuationKpi,
@@ -374,8 +375,7 @@ class BoardDataset {
       key,
       ttl: STOCK_TTL,
       timeout: SWR_TIMEOUT,
-      factory: () =>
-        new StockValuationRepository().getStockValuationKpi(refDate, grain, from, to),
+      factory: () => new StockValuationRepository().getStockValuationKpi(refDate, grain, from, to),
     })
   }
 
@@ -443,6 +443,25 @@ class BoardDataset {
   /** Articles (lecture SQLite). Utilisé pour la classification ACHAT/FABRICATION dans la faisabilité. */
   async getArticles(): Promise<import('#app/domain/models/article').Article[]> {
     return staticSync.readArticles().catch(() => [])
+  }
+
+  /**
+   * Latence fournisseur moyenne par article (retard observé, en jours — PRD §8.6).
+   * Source : historique PORDERQ (6 derniers mois). TTL long (2h) — donnée
+   * historique qui évolue lentement. SWR : sert la stale si X3 est injoignable.
+   */
+  async getSupplierLatency(force = false): Promise<Map<string, number>> {
+    if (force) await board().delete({ key: 'supplier-latency' })
+    const { latency } = await board().getOrSet({
+      key: 'supplier-latency',
+      ttl: REF_TTL,
+      timeout: SWR_TIMEOUT,
+      factory: async () => ({
+        latency: await computeSupplierLatency(),
+        at: Date.now(),
+      }),
+    })
+    return latency
   }
 
   status() {

@@ -117,10 +117,13 @@ const round = (p: LoadPeriod): LoadPeriod => ({
   si: Math.round(p.si),
 })
 
-/** GET /charge — payload de la page Inertia de projection de charge long terme. */
-export async function loadChargePayload(ctx: HttpContext) {
-  const startParam = ctx.request.input('start') as string | undefined
-  const force = !!ctx.request.input('refresh')
+/**
+ * Cœur du payload charge — sans HttpContext (consommé par l'endpoint HTTP ET le
+ * tool agent `getCharge`).
+ */
+export async function loadChargePayloadData(params: { start?: string; force?: boolean }) {
+  const startParam = params.start
+  const force = !!params.force
 
   // Horizon : N mois pleins à partir du 1er du mois de `start` (par défaut mois courant).
   const monthStart = atMidnight(startParam ? new Date(startParam) : new Date())
@@ -404,5 +407,13 @@ export async function loadChargePayload(ctx: HttpContext) {
         x3Error,
       }
     },
+  })
+}
+
+/** GET /charge — payload de la page Inertia de projection de charge long terme. */
+export async function loadChargePayload(ctx: HttpContext) {
+  return loadChargePayloadData({
+    start: ctx.request.input('start') as string | undefined,
+    force: !!ctx.request.input('refresh'),
   })
 }

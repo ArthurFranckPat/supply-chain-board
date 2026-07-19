@@ -103,6 +103,8 @@ router
     router
       .get('/conditionnements', '#controllers/conditionnements_controller.index')
       .as('conditionnements.index')
+    router.get('/promesse', '#controllers/promise_controller.show').as('promesse.show')
+    router.get('/copilote', '#controllers/agent_controller.show').as('agent.show')
     router.get('/configuration/calendrier', '#controllers/calendar_config_controller.index')
 
     // Configuration calendrier usine — API JSON (issue #37).
@@ -200,6 +202,17 @@ router
     router.get('/api/v1/dashboard/otd', '#controllers/dashboard_controller.otd')
     router.get('/api/v1/dashboard/stock', '#controllers/dashboard_controller.stockValuation')
 
+    // Layout KPI personnalisables (feature tableau de bord) — le contrôleur +
+    // le validator existent déjà ; la route manquait, le PATCH front 404 à chaque
+    // drag/resize (🟡 dead-code §2). Rattaché au scope « user » (layout persisté
+    // sur le modèle User courant).
+    router
+      .patch(
+        '/api/v1/user/dashboard-layout',
+        '#controllers/dashboard_layout_controller.update'
+      )
+      .as('user.dashboard_layout.update')
+
     // Expéditions (issue #44) — onglet dédié, calcul lourd différé.
     router.get('/api/v1/expeditions/rows', '#controllers/expeditions_controller.rows')
 
@@ -218,6 +231,12 @@ router
         '#controllers/conditionnements_controller.estimations'
       )
       .as('conditionnements.estimations')
+
+    // CTP — Capable-to-Promise : date au plus tôt (PRD §6.2, lot 2).
+    router.get('/api/v1/promesse', '#controllers/promise_controller.index').as('promesse.index')
+    router
+      .get('/api/v1/promesse/articles', '#controllers/promise_controller.articles')
+      .as('promesse.articles')
 
     // X3 Data (raw SQL debug) — `.as('data.load')` pour éviter le nom auto
     // `x_3_data.load` généré depuis X3DataController (issue #18).
@@ -258,5 +277,14 @@ router
 
     // Baseline perf (issue #33) — P50/P95 par route, collectés par timing_middleware.
     router.get('/api/v1/_perf', '#controllers/perf_controller.index').as('perf.index')
+
+    // Couche agentique v1 — copilote lecture-seule (Pi + GLM 5.2).
+    // Health = provider/key sans LLM ; chat = SSE un tour / session éphémère.
+    router
+      .group(() => {
+        router.get('/health', '#controllers/agent_controller.health').as('agent.health')
+        router.post('/chat', '#controllers/agent_controller.chat').as('agent.chat')
+      })
+      .prefix('/api/v1/agent')
   })
   .use([middleware.auth(), middleware.x3Context()])

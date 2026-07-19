@@ -183,3 +183,74 @@ npm run routes:gen
 - Ce repo est **uniquement** l'app AdonisJS. Le monorepo Python/FastAPI décrit dans les anciennes versions du README n'est plus présent ici.
 - Le frontend Edge.js/Unpoly a été remplacé par Inertia + SolidJS (design system « Papier »). Une migration vers React + Carbon est en cours sur une branche séparée (issue #77), pas encore mergée.
 - Les variables X3 peuvent être chiffrées avec `@dotenvx/dotenvx` ; le démarrage utilise `dotenvx run --`.
+
+## MCP server (usage hors app)
+
+Le serveur MCP `supply-board` (`bin/mcp_supply.ts`, issue #80) expose les **17
+primitives** agent de l'app (getVerdict, descendreBOM, getPromise, listerOF,
+listerRuptures, listerCommandesStatut, getStock, getCharge, …) en serveur MCP
+**stdio autonome**, consommable depuis Claude Code, Claude Desktop ou tout agent
+compatible MCP. C'est une **façade** sur le même code que le copilote `/copilote`
+— aucun chiffre ne vient d'une réimplémentation (parité structurelle app vs MCP).
+
+### Prérequis
+
+- Le repo cloné + `npm install`
+- Un fichier `.env` avec les creds X3 (comme pour l'app, cf. `.env.example`) —
+  chiffré dotenvx ou non, les deux fonctionnent (déchiffrement in-process au
+  boot, pas besoin de `dotenvx run --` dans la commande `claude mcp add`)
+- Node.js — pas de Redis requis (`CACHE_STORE=memory`)
+- Accès réseau à Sage X3
+
+Au premier boot, le binaire **auto-migre** la SQLite locale (`tmp/db.sqlite3`,
+idempotent — scénarios, tables statiques). Pour peupler les référentiels
+locaux (rechercherArticle, labels de statuts, classification des verdicts),
+une sync X3 initiale est nécessaire — sinon ces tools tournent en mode dégradé
+(un warning stderr le signale au boot) :
+
+```bash
+node ace sync:x3 && node ace sync:local-menus
+```
+
+### Enregistrement Claude Code
+
+```bash
+claude mcp add supply-board -- node --import @poppinss/ts-exec bin/mcp_supply.ts
+```
+
+Chemins relatifs valables car Claude Code lance le serveur avec le repo comme
+cwd. Pour un client qui ne le fait pas (Claude Desktop lance avec cwd=`/`),
+utiliser des chemins **absolus** ET forcer le cwd sur le repo — dotenvx lit
+`.env`/`.env.keys` depuis le cwd, sans quoi les creds X3 chiffrés ne sont pas
+déchiffrés :
+
+```json
+{
+  "mcpServers": {
+    "supply-board": {
+      "command": "node",
+      "args": ["--import", "@poppinss/ts-exec", "/chemin/vers/supply-chain-board/bin/mcp_supply.ts"],
+      "cwd": "/chemin/vers/supply-chain-board"
+    }
+  }
+}
+```
+
+Le binaire boot Adonis en mode console (conteneur monté : cache + Lucid + X3),
+construit les 17 tools via `buildAgentTools()` puis les sert en JSON-RPC sur
+stdio. Premier appel = cold start (chargement pool X3), ensuite chaud.
+
+### Test manuel
+
+```bash
+npm run mcp:start   # démarre le serveur stdio (logs sur stderr)
+```
+
+### Doctrine d'usage
+
+Charger le skill `.claude/skills/supply-board/SKILL.md` (Lot 2 de l'issue) — il
+documente la sémantique des moteurs (verdict prime, getPromise isolé, raison
+`stock` ≠ absence de PO), le référentiel familles (PP 830 → `ESH`, `BDH60`,
+`BDH10`) et les workflows d'orchestration. Sans cette doctrine, un client externe
+refait les erreurs déjà corrigées dans le copilote intégré.
+

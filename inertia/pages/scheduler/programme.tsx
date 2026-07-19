@@ -854,12 +854,41 @@ const Programme: Component<VisionProps> = (props) => {
     window.addEventListener('resize', measure)
     if (document.fonts?.ready) document.fonts.ready.then(measure).catch(() => {})
 
+    // #57 — deep-link depuis /programme/scenarios/comparer : ?open_scenario_id=N
+    // rouvre le scénario enregistré directement.
     const params = new URLSearchParams(window.location.search)
     const openId = params.get('open_scenario_id')
     if (openId) {
       const numId = Number.parseInt(openId, 10)
       if (!Number.isNaN(numId)) {
         openScenario(numId)
+      }
+    }
+
+    // #58/CTP — pont depuis /promesse : une demande virtuelle pré-calculée par le
+    // simulateur CTP est en attente dans sessionStorage. On active le mode scénario
+    // et on injecte la demande à la date engageante calculée par le moteur.
+    const bridge = sessionStorage.getItem('promesse:bridge')
+    if (bridge) {
+      sessionStorage.removeItem('promesse:bridge')
+      try {
+        const { article, quantity, date } = JSON.parse(bridge) as {
+          article: string
+          quantity: number
+          date: string
+        }
+        scenario.setActive(true)
+        injectVirtualOrder({
+          type: 'inject_demand',
+          id: `CTP-${Date.now().toString(36)}`,
+          article,
+          quantity,
+          // ISO complet toléré côté payload — le board matche les colonnes sur `YYYY-MM-DD`.
+          date: date.slice(0, 10),
+          earliest: true,
+        })
+      } catch {
+        /* payload corrompu — silencieux */
       }
     }
 

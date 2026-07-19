@@ -47,4 +47,9 @@ export default await Env.create(new URL('../', import.meta.url), {
   X3_PROD_USERNAME: Env.schema.string.optional(),
   X3_PROD_PASSWORD: Env.schema.string.optional(),
   X3_PROD_POOL: Env.schema.string.optional(),
+
+  // Couche agentique v1 — provider Z.AI / GLM 5.2 (pi-ai `zai`).
+  // Optionnel au boot (les pages non-agent restent utilisables) ;
+  // requis dès POST /api/v1/agent/chat.
+  ZAI_API_KEY: Env.schema.string.optional(),
 })

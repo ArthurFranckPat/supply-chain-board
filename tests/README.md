@@ -18,7 +18,7 @@ node ace test functional
 ## Lancer un fichier de tests
 
 ```bash
-node ace test --files=forecast-consumption.test.ts
+node ace test --files=rupture-engine.test.ts
 ```
 
 Le nom du fichier peut être donné avec ou sans extension.
@@ -28,13 +28,13 @@ Le nom du fichier peut être donné avec ou sans extension.
 Un groupe correspond à l'appel `test.group('...', () => {})`.
 
 ```bash
-node ace test --groups="consumeForecasts"
+node ace test --groups="rupture-engine"
 ```
 
 ## Lancer un test précis par son titre
 
 ```bash
-node ace test --tests="orders consume forecasts completely"
+node ace test --tests="rupture engine returns shortage"
 ```
 
 ## Filtrer par tag
@@ -65,7 +65,6 @@ node ace test --files=analyse-rupture.test.ts
 node ace test --files=analyse-rupture-bug.test.ts
 node ace test --files=rupture-engine.test.ts
 node ace test --files=feasibility-contract.test.ts
-node ace test --files=feasibility-diagnostics.test.ts
 node ace test --files=of-conso.test.ts
 node ace test --files=matching-edge-cases.test.ts
 node ace test --files=availability.test.ts

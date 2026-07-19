@@ -54,6 +54,8 @@ export interface SuiviEmplacement {
   alreadyAllocated?: boolean
   /** PALNUM (identifiant palette). */
   hum?: string | null
+  /** Date d'entrée en stock de la palette — JJ/MM/AAAA, null si inconnue. */
+  dateMiseEnStock?: string | null
 }
 
 export interface SuiviDisplayRow {

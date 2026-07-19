@@ -403,28 +403,6 @@ export function isRetardProd(line: OrderLine, refDate: Date): boolean {
   return line.dateExpedition < refDate && !enZoneExpedition(line)
 }
 
-/**
- * Retard d'expédition — sous-classification d'un retard.
- *
- * Indépendamment du type de commande (MTS / MTO / NOR) : si la date d'expédition
- * est passée et que TOUTE la quantité restante est allouée (source STOALL) en
- * zone d'expédition, la marchandise est au quai et n'est pas partie → retard
- * d'expédition (sous-type de RETARD_PROD).
- *
- * Une ligne en zone avec du stock libre (STOCK, pas STOALL) ou avec allocation
- * partielle n'est PAS un retard d'expédition : c'est un problème d'allocation
- * ou de production, et la ligne tombera sur RETARD_PROD via la branche date
- * passée d'assignStatuses().
- */
-export function isRetardExpe(line: OrderLine, refDate: Date): boolean {
-  if (!line.dateExpedition) return false
-  if (line.dateExpedition >= refDate) return false
-  const qteInZone = (line.emplacements ?? [])
-    .filter((e) => e.source === 'STOALL' && ZONE_EXPEDITION_PATTERN.test(e.nom))
-    .reduce((sum, e) => sum + (e.qtePalette ?? 0), 0)
-  return qteInZone >= line.qteRestante
-}
-
 /** Alias historique de isRetardProd — conservé pour rétrocompatibilité (tests, code tiers). */
 export function isRetard(line: OrderLine, refDate: Date): boolean {
   return isRetardProd(line, refDate)

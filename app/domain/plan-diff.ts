@@ -46,6 +46,8 @@ export type PlanMutation =
       date: string
       client?: string
       ligne?: string | null
+      /** true si la date vient du moteur CTP (« au plus tôt ») — informatif, ignoré par le diff. */
+      earliest?: boolean
     }
   /** Rupture simulée : supply d'un composant retirée (delay absent) ou retardée à `delay`. */
   | { type: 'suspend_supply'; article: string; sourceId?: string; delay?: string }

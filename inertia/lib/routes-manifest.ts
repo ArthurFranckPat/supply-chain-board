@@ -2,10 +2,13 @@
  * AUTO-GÉNÉRÉ par scripts/gen-routes-manifest.mjs — NE PAS ÉDITER À LA MAIN.
  * Source : `start/routes.ts` → `node ace list:routes --jsonl`.
  * Régénérer : `npm run routes:gen` · Vérifier la fraîcheur : `npm run routes:check`.
- * 72 routes nommées.
+ * 77 routes nommées.
  */
 
 export const MANIFEST = {
+  "agent.chat": { method: "POST", pattern: "/api/v1/agent/chat" },
+  "agent.health": { method: "GET", pattern: "/api/v1/agent/health" },
+  "agent.show": { method: "GET", pattern: "/copilote" },
   "assets.css": { method: "GET", pattern: "/css/app.css" },
   "assets.js": { method: "GET", pattern: "/js/app.js" },
   "auth.attempt": { method: "POST", pattern: "/login" },
@@ -20,7 +23,6 @@ export const MANIFEST = {
   "conditionnements.index": { method: "GET", pattern: "/conditionnements" },
   "conditionnements.rows": { method: "GET", pattern: "/api/v1/conditionnements/rows" },
   "dashboard": { method: "GET", pattern: "/" },
-  "dashboard_layout.update": { method: "PATCH", pattern: "/api/v1/user/dashboard-layout" },
   "dashboard.kpis": { method: "GET", pattern: "/api/v1/dashboard/kpis" },
   "dashboard.otd": { method: "GET", pattern: "/api/v1/dashboard/otd" },
   "dashboard.stock_valuation": { method: "GET", pattern: "/api/v1/dashboard/stock" },
@@ -46,6 +48,9 @@ export const MANIFEST = {
   "planning_board.update": { method: "PATCH", pattern: "/api/v1/planning/ofs/:of" },
   "planning.order_firm": { method: "POST", pattern: "/api/v1/planning/orders/:orderNum/firm" },
   "planning.suggestion_firm": { method: "POST", pattern: "/api/v1/planning/suggestions/:sugNum/firm" },
+  "promesse.articles": { method: "GET", pattern: "/api/v1/promesse/articles" },
+  "promesse.index": { method: "GET", pattern: "/api/v1/promesse" },
+  "promesse.show": { method: "GET", pattern: "/promesse" },
   "receptions.index": { method: "GET", pattern: "/receptions" },
   "receptions.rows": { method: "GET", pattern: "/api/v1/receptions/rows" },
   "scenarios.compare": { method: "GET", pattern: "/programme/scenarios/comparer" },
@@ -87,6 +92,9 @@ export type RouteName = keyof typeof MANIFEST
  * `void` = aucun paramètre de path ; les query strings (?start&days…) restent à l'appelant.
  */
 export type RouteParams = {
+  "agent.chat": void,
+  "agent.health": void,
+  "agent.show": void,
   "assets.css": void,
   "assets.js": void,
   "auth.attempt": void,
@@ -101,7 +109,6 @@ export type RouteParams = {
   "conditionnements.index": void,
   "conditionnements.rows": void,
   "dashboard": void,
-  "dashboard_layout.update": void,
   "dashboard.kpis": void,
   "dashboard.otd": void,
   "dashboard.stock_valuation": void,
@@ -127,6 +134,9 @@ export type RouteParams = {
   "planning_board.update": { "of": string | number },
   "planning.order_firm": { "orderNum": string | number },
   "planning.suggestion_firm": { "sugNum": string | number },
+  "promesse.articles": void,
+  "promesse.index": void,
+  "promesse.show": void,
   "receptions.index": void,
   "receptions.rows": void,
   "scenarios.compare": void,

@@ -40,6 +40,29 @@ class CapacityCalendarService {
     }))
   }
 
+  /**
+   * Jours totalement fermés à l'échelle usine (ISO `YYYY-MM-DD`) : fériés actifs
+   * + fermetures globales à facteur 0. Consommé par le moteur CTP (décalage en
+   * jours ouvrés, mode engageante) qui n'a pas de contexte poste.
+   */
+  async globalClosedDays(fromYear: number, toYear: number): Promise<Set<string>> {
+    const [holidays, closures] = await Promise.all([
+      this.holidays(fromYear, toYear),
+      this.closures(),
+    ])
+    const closed = new Set(holidays.filter((h) => h.active).map((h) => h.date))
+    for (const c of closures) {
+      if (c.scope !== 'global' || c.factor > 0) continue
+      const d = new Date(c.from)
+      const end = new Date(c.to)
+      while (d.getTime() <= end.getTime()) {
+        closed.add(d.toISOString().slice(0, 10))
+        d.setUTCDate(d.getUTCDate() + 1)
+      }
+    }
+    return closed
+  }
+
   /** Calendrier d'ouverture prêt à l'emploi pour la plage d'années. */
   async buildCalendar(fromYear: number, toYear: number): Promise<WorkingCalendar> {
     const [holidays, closures] = await Promise.all([

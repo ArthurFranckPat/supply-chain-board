@@ -343,6 +343,8 @@ export interface SuiviEmplacementDisplay {
   alreadyAllocated?: boolean
   /** PALNUM (identifiant palette), si renseigné par X3. */
   hum?: string | null
+  /** Date d'entrée en stock (STOCK.LASRCPDAT_0) — JJ/MM/AAAA, null si inconnue. */
+  dateMiseEnStock?: string | null
 }
 
 export interface SuiviCauseDisplay {
@@ -511,6 +513,13 @@ function fmtFrDay(iso: string | null | undefined): string {
   return m ? `${m[3]}/${m[2]}` : iso
 }
 
+/** Formate une date ISO (YYYY-MM-DD) en JJ/MM/AAAA — null si absente. */
+function fmtFrFull(iso: string | null | undefined): string | null {
+  if (!iso) return null
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso)
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : iso
+}
+
 /**
  * Sanitize une erreur X3 pour la bannière client.
  *
@@ -632,6 +641,7 @@ export function buildSuiviDisplay(
           enZoneExpe: ZONE_EXPEDITION_PATTERN.test(e.nom),
           alreadyAllocated: e.alreadyAllocated ?? false,
           hum: e.hum || null,
+          dateMiseEnStock: fmtFrFull(e.dateMiseEnStock ? e.dateMiseEnStock.toISOString().slice(0, 10) : null),
         })),
       enZoneExpe: enZoneExpedition(a.line),
       cause,

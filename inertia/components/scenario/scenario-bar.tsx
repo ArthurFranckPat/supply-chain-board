@@ -1,7 +1,18 @@
-import { For, Show, createSignal, onMount, type Accessor, type Component } from 'solid-js'
+import {
+  For,
+  Show,
+  createEffect,
+  createSignal,
+  onCleanup,
+  onMount,
+  type Accessor,
+  type Component,
+} from 'solid-js'
 import { cx } from '@/libs/cva'
 import { Button } from '@/components/ui/button'
 import { router } from '@/lib/inertia-solid'
+import { route } from '@/lib/routes'
+import { promiseReasonText } from '@/lib/promesse/types'
 import {
   AlertDialog,
   AlertDialogContent,
@@ -60,28 +71,86 @@ export const ScenarioBar: Component<{
   }
   const [article, setArticle] = createSignal('')
   const [quantity, setQuantity] = createSignal('1')
-  const [date, setDate] = createSignal(props.windowFrom)
+  // CTP §6.1 : champ vide = « au plus tôt » (le moteur calcule la date engageante).
+  const [date, setDate] = createSignal('')
   const [client, setClient] = createSignal('')
 
   onMount(() => {
     s.loadList()
   })
 
-  const submitInject = (e: SubmitEvent) => {
+  // CTP §6.1 — date au plus tôt (mode engageante) recalculée en arrière-plan
+  // dès que (article, qté) est valide. Sert à pré-remplir le champ date laissé
+  // vide et à avertir si la date saisie est avant le possible.
+  const [earliest, setEarliest] = createSignal<null | { date: string; limiting: string }>(null)
+  const [earliestLoading, setEarliestLoading] = createSignal(false)
+  let debounceId: ReturnType<typeof setTimeout> | undefined
+
+  const fetchEarliest = async (
+    art: string,
+    qty: number
+  ): Promise<{ date: string; limiting: string } | null> => {
+    setEarliestLoading(true)
+    try {
+      const params = new URLSearchParams({ article: art, quantity: String(qty) })
+      const res = await fetch(`${route('promesse.index')}?${params}`)
+      if (!res.ok) return null
+      const data = await res.json()
+      if (data.engageante?.infeasible) {
+        const out = { date: '', limiting: 'infaisable (ni stock, ni flux, ni nomenclature)' }
+        setEarliest(out)
+        return out
+      }
+      const lf = data.engageante.limitingFactor
+      const out = {
+        date: String(data.engageante.promiseDate).slice(0, 10),
+        limiting: lf ? `${lf.article} — ${promiseReasonText(lf.reason)}` : '',
+      }
+      setEarliest(out)
+      return out
+    } catch {
+      return null
+    } finally {
+      setEarliestLoading(false)
+    }
+  }
+
+  createEffect(() => {
+    const art = article().trim()
+    const qty = Number(quantity())
+    setEarliest(null)
+    clearTimeout(debounceId)
+    if (!formOpen() || !art || !Number.isFinite(qty) || qty <= 0) return
+    debounceId = setTimeout(() => fetchEarliest(art, qty), 400)
+  })
+  onCleanup(() => clearTimeout(debounceId))
+
+  const submitInject = async (e: SubmitEvent) => {
     e.preventDefault()
     const art = article().trim()
     const qty = Number(quantity())
-    if (!art || !Number.isFinite(qty) || qty <= 0 || !date()) return
+    if (!art || !Number.isFinite(qty) || qty <= 0) return
+    let besoin = date()
+    let fromEngine = false
+    if (!besoin) {
+      // Date vide → date au plus tôt du moteur CTP (déjà chargée ou à la volée).
+      const e2 = earliest() ?? (await fetchEarliest(art, qty))
+      if (!e2?.date) return
+      besoin = e2.date
+      fromEngine = true
+    }
     props.onInjectDemand({
       type: 'inject_demand',
       id: `VIRT-${Date.now().toString(36)}`,
       article: art,
       quantity: qty,
-      date: date(),
+      date: besoin,
       client: client().trim() || undefined,
+      earliest: fromEngine || undefined,
     })
     setArticle('')
     setQuantity('1')
+    setDate('')
     setClient('')
     setFormOpen(false)
   }
@@ -244,12 +313,35 @@ export const ScenarioBar: Component<{
                 />
                 <input
                   type="date"
-                  required
                   value={date()}
                   onInput={(e) => setDate(e.currentTarget.value)}
+                  title="Vide = date au plus tôt (calculée par le moteur CTP)"
                   class="h-[28px] flex-1 rounded-md border border-rule bg-background px-2 text-[12px] focus:border-brand focus:outline-none"
                 />
               </div>
+              {/* CTP §6.1 — date vide : le moteur propose ; date saisie trop tôt : avertit. */}
+              <Show when={!date() && (earliestLoading() || earliest())}>
+                <p class="flex items-center gap-1 text-[11px] text-muted-foreground">
+                  <span class="material-symbols-outlined text-[13px] text-brand">bolt</span>
+                  <Show when={!earliestLoading()} fallback="Calcul de la date au plus tôt…">
+                    <Show
+                      when={earliest()?.date}
+                      fallback={<span class="text-error">Article {earliest()?.limiting}</span>}
+                    >
+                      Au plus tôt le{' '}
+                      <strong>{new Date(earliest()!.date).toLocaleDateString('fr-FR')}</strong>
+                      <Show when={earliest()?.limiting}> — {earliest()!.limiting}</Show>
+                    </Show>
+                  </Show>
+                </p>
+              </Show>
+              <Show when={date() && earliest()?.date && date() < earliest()!.date}>
+                <p class="flex items-center gap-1 text-[11px] font-semibold text-warning">
+                  <span class="material-symbols-outlined text-[13px]">warning</span>
+                  Infaisable à cette date — sinon possible au plus tôt le{' '}
+                  {new Date(earliest()!.date).toLocaleDateString('fr-FR')}
+                </p>
+              </Show>
               <input
                 value={client()}
                 onInput={(e) => setClient(e.currentTarget.value)}
@@ -258,7 +350,7 @@ export const ScenarioBar: Component<{
               />
               <Button type="submit" size="sm" class="w-full gap-1.5">
                 <span class="material-symbols-outlined text-[15px]">add</span>
-                Ajouter au scénario
+                {date() ? 'Ajouter au scénario' : 'Ajouter au plus tôt'}
               </Button>
             </form>
           </Show>

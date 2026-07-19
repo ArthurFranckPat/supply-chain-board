@@ -30,21 +30,6 @@ export interface Packaging {
 
 // -- Helpers --
 
-export function isPurchase(article: Pick<Article, 'supplyType'>): boolean {
-  return article.supplyType === 'ACHAT'
-}
-
-export function isFabrication(article: Pick<Article, 'supplyType'>): boolean {
-  return article.supplyType === 'FABRICATION'
-}
-
 export function isPhantom(article: Pick<Article, 'category'>): boolean {
   return article.category.toUpperCase() === 'AFANT'
-}
-
-/** Arrondit au plus petit conditionnement (arrondi superieur). */
-export function roundToPackaging(article: Pick<Article, 'packagings'>, qty: number): number {
-  if (article.packagings.length === 0 || qty <= 0) return qty
-  const smallest = article.packagings[0].quantity
-  return Math.ceil(qty / smallest) * smallest
 }

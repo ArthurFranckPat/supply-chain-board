@@ -4,6 +4,7 @@
  */
 
 export const controllers = {
+  Agent: () => import('#controllers/agent_controller'),
   Auth: () => import('#controllers/auth_controller'),
   CalendarConfig: () => import('#controllers/calendar_config_controller'),
   Conditionnements: () => import('#controllers/conditionnements_controller'),
@@ -15,6 +16,7 @@ export const controllers = {
   OrderPlanning: () => import('#controllers/order_planning_controller'),
   Perf: () => import('#controllers/perf_controller'),
   PlanningBoard: () => import('#controllers/planning_board_controller'),
+  Promise: () => import('#controllers/promise_controller'),
   Receptions: () => import('#controllers/receptions_controller'),
   Scenario: () => import('#controllers/scenario_controller'),
   Scheduler: () => import('#controllers/scheduler_controller'),

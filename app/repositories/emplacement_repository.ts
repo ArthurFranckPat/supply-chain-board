@@ -1,3 +1,4 @@
+import type { DateTime } from 'luxon'
 import type { Emplacement } from '#app/domain/suivi'
 import type { ErpAllocation } from '#app/domain/allocation'
 import StockAlloc from '#models/x3/stoall'
@@ -48,6 +49,22 @@ export class X3EmplacementRepository {
       } catch {
         // X3 KO → dégrade en map vide (la détection zone est non-bloquante).
       }
+      // STOALL ne porte pas la date d'entrée en stock — on la récupère sur STOCK
+      // via le chrono commun STOCOU_0 (même ligne physique).
+      const stoCous = [...new Set(rows.map((r) => r.chronoStock).filter((v): v is string => Boolean(v)))]
+      const entreeParStoCou = new Map<string, DateTime | null>()
+      if (stoCous.length > 0) {
+        try {
+          const stockRows = await Stock.query()
+            .select('STOCOU_0', 'LASRCPDAT_0')
+            .whereIn('STOCOU_0', stoCous)
+          for (const s of stockRows) {
+            if (s.chronoStock) entreeParStoCou.set(s.chronoStock, s.dateDerniereEntree)
+          }
+        } catch {
+          // date d'entrée non-bloquante — dégrade en absence de date.
+        }
+      }
       for (const r of rows) {
         const loc = r.emplacementRupture?.trim() ?? ''
         const key = `${r.noPieceNoRecNoLivOuNoOf?.trim() ?? ''}#${String(r.noLignePiece ?? '').trim()}`
@@ -59,6 +76,7 @@ export class X3EmplacementRepository {
           qtePalette: intOrNull(r.quantiteUs),
           source: 'STOALL',
           stoCou: String(r.chronoStock ?? '') || null,
+          dateMiseEnStock: (r.chronoStock ? entreeParStoCou.get(r.chronoStock) : null)?.toJSDate() ?? null,
         })
         map.set(key, arr)
       }
@@ -120,7 +138,8 @@ export class X3EmplacementRepository {
             'QTYSTUACT_0',
             'STOCOU_0',
             'STA_0',
-            'QLYCTLDEM_0'
+            'QLYCTLDEM_0',
+            'LASRCPDAT_0'
           )
           .whereIn('ITMREF_0', part)
           .whereNotNull('LOC_0')
@@ -140,6 +159,7 @@ export class X3EmplacementRepository {
           source: 'STOCK',
           stoCou: String(r.chronoStock ?? '') || null,
           isQc: (r.statut?.trim() ?? '') === 'Q' || Boolean(r.demandeAnalyseQualite?.trim()),
+          dateMiseEnStock: r.dateDerniereEntree?.toJSDate() ?? null,
         })
         map.set(art, arr)
       }

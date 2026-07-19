@@ -247,6 +247,30 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'promesse.show': {
+    methods: ["GET","HEAD"]
+    pattern: '/promesse'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'agent.show': {
+    methods: ["GET","HEAD"]
+    pattern: '/copilote'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'calendar_config.index': {
     methods: ["GET","HEAD"]
     pattern: '/configuration/calendrier'
@@ -679,6 +703,18 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'user.dashboard_layout.update': {
+    methods: ["PATCH"]
+    pattern: '/api/v1/user/dashboard-layout'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'expeditions.rows': {
     methods: ["GET","HEAD"]
     pattern: '/api/v1/expeditions/rows'
@@ -718,6 +754,30 @@ export interface Registry {
   'conditionnements.estimations': {
     methods: ["GET","HEAD"]
     pattern: '/api/v1/conditionnements/estimations'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'promesse.index': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/promesse'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'promesse.articles': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/promesse/articles'
     types: {
       body: {}
       paramsTuple: []
@@ -850,6 +910,30 @@ export interface Registry {
   'perf.index': {
     methods: ["GET","HEAD"]
     pattern: '/api/v1/_perf'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'agent.health': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/agent/health'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'agent.chat': {
+    methods: ["POST"]
+    pattern: '/api/v1/agent/chat'
     types: {
       body: {}
       paramsTuple: []

@@ -94,10 +94,6 @@ export function isDemand(flow: Flow): flow is Flow & { direction: 'demand' } {
   return flow.direction === 'demand'
 }
 
-export function hasDate(flow: Flow): flow is Flow & { date: Date } {
-  return flow.date !== null
-}
-
 /** Somme nette des flows pour un article (supply positif, demand negatif). */
 export function netQuantity(flows: Flow[], article: string, upToDate?: Date): number {
   return flows

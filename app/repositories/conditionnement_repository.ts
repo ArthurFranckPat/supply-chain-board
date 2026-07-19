@@ -273,11 +273,30 @@ export class ConditionnementRepository {
     stock: Map<string, PaletteObservation[]>
     stojou: Map<string, EstimationResult>
   }> {
-    const [stock, stojou] = await Promise.all([
+    // Promise.allSettled : STOCK (lignes brutes, ZSOAPSQL O(n²) sur ~45k lignes)
+    // peut timeout tant que le fix 4GL (commit 0f7e68a) n'est pas déployé côté
+    // ERP. Un Promise.all jetterait aussi STOJOU (déjà agrégé Oracle, rapide) →
+    // la factory échouait, le cache restait froid, chaque requête retryait.
+    // Ici on dégrade vers STOJOU seul : le cache se remplit, la page marche,
+    // et le SWR retryera STOCK au prochain TTL (2h) — donc dès que le fix ERP
+    // sera posé, on récupère les deux sources sans rien déployer côté app.
+    const [stockR, stojouR] = await Promise.allSettled([
       this.getStockSrmParArticle(),
       this.getStojouEstimations(),
     ])
-    return { stock, stojou }
+    // ponytail: console.warn — pas de DI logger dans les repos ; le preheat
+    // provider log déjà l'erreur via la factory bentocache, ce warn précise
+    // juste la dégradation (STOCK absent → fallback STOJOU partout).
+    if (stockR.status === 'rejected') {
+      console.warn(
+        '[conditionnement] STOCK indispo — dégradation vers STOJOU seul :',
+        stockR.reason instanceof Error ? stockR.reason.message : stockR.reason
+      )
+    }
+    return {
+      stock: stockR.status === 'fulfilled' ? stockR.value : new Map(),
+      stojou: stojouR.status === 'fulfilled' ? stojouR.value : new Map(),
+    }
   }
 
   /**

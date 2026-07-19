@@ -68,6 +68,16 @@ export interface ApiDefinition {
     rows: typeof routes['conditionnements.rows']
     estimations: typeof routes['conditionnements.estimations']
   }
+  promesse: {
+    show: typeof routes['promesse.show']
+    index: typeof routes['promesse.index']
+    articles: typeof routes['promesse.articles']
+  }
+  agent: {
+    show: typeof routes['agent.show']
+    health: typeof routes['agent.health']
+    chat: typeof routes['agent.chat']
+  }
   calendarConfig: {
     index: typeof routes['calendar_config.index']
     toggleHoliday: typeof routes['calendar_config.toggle_holiday']
@@ -89,6 +99,11 @@ export interface ApiDefinition {
     searchOf: typeof routes['planning_board.search_of']
     searchPf: typeof routes['planning_board.search_pf']
     ofMaterialsDiagnostic: typeof routes['planning_board.of_materials_diagnostic']
+  }
+  user: {
+    dashboardLayout: {
+      update: typeof routes['user.dashboard_layout.update']
+    }
   }
   data: {
     load: typeof routes['data.load']

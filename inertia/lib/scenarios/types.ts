@@ -22,6 +22,8 @@ export type PlanMutation =
       date: string
       client?: string
       ligne?: string | null
+      /** true si la date vient du moteur CTP (« au plus tôt ») — badge sur le chip. */
+      earliest?: boolean
     }
   | { type: 'suspend_supply'; article: string; sourceId?: string; delay?: string }
 
@@ -128,6 +130,8 @@ export interface VirtualOrderVm {
   date: string
   statut: ClientDiffEntry['statutApres'] | null
   joursRetard: number | null
+  /** Date calculée « au plus tôt » par le moteur CTP (badge sur le chip). */
+  earliest: boolean
 }
 
 /** Reconstruit les commandes virtuelles courantes (mutations `inject_demand`) et
@@ -155,6 +159,7 @@ export function virtualOrdersFrom(
         date: m.date,
         statut: entry?.statutApres ?? null,
         joursRetard: entry?.joursRetardApres ?? null,
+        earliest: m.earliest === true,
       }
     })
 }
