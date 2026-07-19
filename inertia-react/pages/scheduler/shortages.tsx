@@ -7,13 +7,12 @@
  * Trois vues d'une même donnée : « Registre » (table éditoriale), « Par composant »
  * (agrégation dégâts) et « Couverture » (frise réception ↔ expédition).
  */
-import { Head } from '@inertiajs/react'
-import { fr } from 'react-day-picker/locale'
-import type { DateRange as DayPickerRange } from 'react-day-picker'
 import { useMemo, useState } from 'react'
 import { Link } from '@inertiajs/react'
+import { fr } from 'react-day-picker/locale'
+import type { DateRange as DayPickerRange } from 'react-day-picker'
 
-import Masthead from '@r/components/masthead'
+import AppLayout from '@r/layouts/app'
 import { Calendar } from '@r/components/ui/calendar'
 import { OfDetailSheet } from '@r/components/of/of-detail-sheet'
 import { useTimedFetch } from '@r/lib/suivi/use-timed-fetch'
@@ -152,38 +151,36 @@ export default function Shortages(props: ShortagesProps) {
   }
 
   return (
-    <>
-      <Head title="Ruptures" />
-      <div className="theme-navy flex h-screen flex-col overflow-hidden bg-background text-foreground">
-        <Masthead
-          subtitle="Ruptures · Couverture composants"
-          active="ruptures"
-          meta={
-            <>
-              <div className="font-fraunces text-[12px] font-bold capitalize not-italic text-brand">
-                {props.dateRange}
-              </div>
-              <div>
-                <b className="font-bold text-foreground">{viewData.stats.nbRuptures}</b> ruptures · horizon{' '}
-                <b className="font-bold text-foreground">+{props.horizon} j</b>
-              </div>
-            </>
-          }
-          actions={
-            <div className="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/25">
-              <span className="material-symbols-outlined text-[17px] text-muted-foreground">search</span>
-              <input
-                className="w-[200px] border-0 bg-transparent px-0 text-[12px] font-medium text-foreground shadow-none outline-none"
-                placeholder="Composant, OF, commande, fournisseur…"
-                type="text"
-                autoComplete="off"
-                value={query}
-                onChange={(e) => setQuery(e.currentTarget.value)}
-              />
+      <AppLayout
+        title="Ruptures"
+        active="ruptures"
+        subtitle="Ruptures · Couverture composants"
+        theme="airbnb"
+        meta={
+          <>
+            <div className="font-fraunces text-[12px] font-bold capitalize not-italic text-brand">
+              {props.dateRange}
             </div>
-          }
-        />
-
+            <div>
+              <b className="font-bold text-foreground">{viewData.stats.nbRuptures}</b> ruptures · horizon{' '}
+              <b className="font-bold text-foreground">+{props.horizon} j</b>
+            </div>
+          </>
+        }
+        mastheadActions={
+          <div className="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/25">
+            <span className="material-symbols-outlined text-[17px] text-muted-foreground">search</span>
+            <input
+              className="w-[200px] border-0 bg-transparent px-0 text-[12px] font-medium text-foreground shadow-none outline-none"
+              placeholder="Composant, OF, commande, fournisseur…"
+              type="text"
+              autoComplete="off"
+              value={query}
+              onChange={(e) => setQuery(e.currentTarget.value)}
+            />
+          </div>
+        }
+      >
         {/* ═══ Toolbar ═══ */}
         <div className="flex flex-none flex-wrap items-center gap-2.5 border-b border-rule px-7 py-2">
           {/* Bascule Registre / Par composant / Couverture */}
@@ -327,7 +324,6 @@ export default function Shortages(props: ShortagesProps) {
         )}
 
         <OfDetailSheet num={selectedOf} open={detailOpen} onOpenChange={setDetailOpen} />
-      </div>
-    </>
+    </AppLayout>
   )
 }
