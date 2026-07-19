@@ -6,7 +6,6 @@
  */
 export const REACT_ROUTES = new Set([
   '/react-lab',
-  '/react-board',
   '/suivi',
   '/receptions',
   '/expeditions',
