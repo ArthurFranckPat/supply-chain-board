@@ -60,15 +60,19 @@ const tabClsStock = (active: boolean) =>
       : 'border-transparent text-secondary-foreground hover:text-primary'
   )
 
-// Variant `airbnb` — DESIGN.md `product-tab-active` / `product-tab-inactive` :
-// • nav-link : 16px / 600 / 1.25 (cf. DESIGN.md typography.nav-link)
-// • actif : underline ink 2px (border-foreground), texte ink (text-foreground)
-// • inactif : texte muted-foreground #6a6a6a (DESIGN.md colors.muted)
-// Rausch n'apparaît PAS dans la nav chez Airbnb — la marque est réservée
-// aux CTA, à l'orbe search et au cœur saved.
+// Variant `airbnb` — DESIGN.md `top-nav` + `product-tab-active` :
+// Layout fusionné : logo + onglets + utilitaires sur UNE seule rangée
+// (au lieu de 2 séparées header/nav). Gain : 48px verticaux.
+// DESIGN.md top-nav : 80px de haut, wordmark à gauche, onglets centrés,
+// utilitaires à droite.
+//
+// • nav-link : 14px / 600 / 1.25
+// • actif : underline ink 3px (border-foreground), texte ink
+// • inactif : texte muted-foreground, hover foreground
+// Rausch n'apparaît PAS dans la nav chez Airbnb.
 const tabClsAirbnb = (active: boolean) =>
   cn(
-    'border-b-2 px-4 py-3 text-[14px] font-semibold leading-tight transition-colors',
+    'border-b-[3px] px-3 py-2.5 text-[14px] font-semibold leading-tight transition-colors',
     active
       ? 'border-foreground text-foreground'
       : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -95,52 +99,97 @@ export function Masthead(props: {
 
   const tabCls = variant === 'airbnb' ? tabClsAirbnb : tabClsStock
 
+  if (variant === 'airbnb') {
+    // Layout fusionné : 1 seule rangée 64px (au lieu de 80+48=128 stock).
+    // DESIGN.md top-nav : wordmark à gauche, onglets centrés, utilitaires droite.
+    return (
+      <header className="relative flex min-h-[64px] flex-none items-center gap-6 border-b border-border bg-background px-7 print:hidden">
+        {env === 'test' && (
+          <div
+            className="absolute inset-x-0 top-0 z-10 h-[4px] bg-[var(--color-arches,#fc642d)]"
+            aria-hidden="true"
+          />
+        )}
+
+        {/* Bloc gauche : wordmark + subtitle + env badge. */}
+        <div className="flex items-center gap-3">
+          <div className="text-[20px] font-bold leading-none tracking-tight">
+            Supply Chain <span className="text-primary">AERECO</span>
+            {env === 'test' && (
+              <span className="ml-2 align-middle text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--color-arches,#fc642d)]">
+                [TEST]
+              </span>
+            )}
+          </div>
+          {props.subtitle && (
+            <span className="hidden font-mono text-[10px] font-medium tracking-[0.12em] text-muted-foreground lg:inline">
+              {props.subtitle}
+            </span>
+          )}
+          {env && (
+            <span
+              title={`Environnement Sage X3 : ${env}`}
+              className={cn(
+                'inline-flex items-center gap-1 rounded-full border px-2 py-[2px] font-mono text-[10px] font-bold uppercase tracking-[0.08em]',
+                env === 'test'
+                  ? 'border-transparent bg-[var(--color-arches,#fc642d)] text-white'
+                  : 'bg-muted text-muted-foreground'
+              )}
+            >
+              <span className="size-[5px] rounded-full bg-current" />
+              {env === 'test' ? 'Test' : 'Prod'}
+            </span>
+          )}
+        </div>
+
+        {/* Nav centrée — DESIGN.md top-nav : onglets au milieu. */}
+        <nav className="flex flex-1 items-center justify-center gap-0.5">
+          {TABS.map((t) =>
+            isReactRoute(t.href) ? (
+              <Link key={t.key} href={t.href} className={tabCls(t.key === props.active)}>
+                {t.label}
+              </Link>
+            ) : (
+              <a key={t.key} href={t.href} className={tabCls(t.key === props.active)}>
+                {t.label}
+              </a>
+            )
+          )}
+        </nav>
+
+        {/* Bloc droit : meta (optionnel) + actions + UserMenu. */}
+        <div className="flex items-center gap-3">
+          {props.meta && (
+            <div className="hidden text-right font-mono text-[11px] font-medium leading-relaxed text-muted-foreground xl:block">
+              {props.meta}
+            </div>
+          )}
+          {props.actions}
+          <UserMenu />
+        </div>
+      </header>
+    )
+  }
+
+  // Variant `stock` — structure historique 2 rangées (header + nav) conservée.
   return (
-    <header
-      className={cn(
-        'relative flex-none border-b bg-background print:hidden',
-        variant === 'airbnb' && 'min-h-[80px]'
-      )}
-    >
+    <header className="relative flex-none border-b bg-background print:hidden">
       {env === 'test' && (
-        /* Bandeau Arches orange — couleur du brand book Airbnb (#fc642d).
-           Sous .theme-airbnb, le signal test/prod passe par ce bandeau + le
-           suffixe [TEST] du wordmark. On n'altère PAS le Rausch (couleur
-           marque). Hors thème airbnb, bg-primary reste le fallback. */
         <div
           className="absolute inset-x-0 top-0 z-10 h-[4px] bg-[var(--color-arches,#fc642d)]"
           aria-hidden="true"
         />
       )}
-      <div
-        className={cn(
-          'flex items-end justify-between gap-5 px-7 pb-2 pt-3.5',
-          variant === 'airbnb' ? 'min-h-[80px] pt-5' : 'min-h-[60px]'
-        )}
-      >
+      <div className="flex min-h-[60px] items-end justify-between gap-5 px-7 pb-2 pt-3.5">
         <div className="flex items-center gap-3.5">
-          {variant === 'airbnb' ? (
-            /* DESIGN.md top-nav + nav-link : wordmark 16px/600 (on pousse à
-               22px/700 pour le wordmark — Airbnb Cereal capital) — pas
-               d'italique sur AERECO (DESIGN.md ne l'utilise pas). */
-            <div className="text-[22px] font-bold leading-[1.05] tracking-tight">
-              Supply Chain <span className="font-bold text-primary">AERECO</span>
-              {env === 'test' && (
-                <span className="ml-2 align-middle text-[12px] font-bold uppercase tracking-[0.16em] text-[var(--color-arches,#fc642d)]">
-                  [TEST]
-                </span>
-              )}
-            </div>
-          ) : (
-            <div className="text-[24px] font-bold leading-[0.9] tracking-tight">
-              Supply Chain <span className="font-medium italic text-primary">AERECO</span>
-              {env === 'test' && (
-                <span className="ml-2 align-middle text-[12px] font-bold uppercase tracking-[0.16em] text-[var(--color-arches,#fc642d)]">
-                  [TEST]
-                </span>
-              )}
-            </div>
-          )}
+          <div className="text-[24px] font-bold leading-[0.9] tracking-tight">
+            Supply Chain <span className="font-medium italic text-primary">AERECO</span>
+            {env === 'test' && (
+              <span className="ml-2 align-middle text-[12px] font-bold uppercase tracking-[0.16em] text-[var(--color-arches,#fc642d)]">
+                [TEST]
+              </span>
+            )}
+          </div>
           <div className="pb-1 font-mono text-[10px] font-medium tracking-[0.12em] text-muted-foreground">
             {props.subtitle}
           </div>
@@ -166,12 +215,7 @@ export function Masthead(props: {
         )}
       </div>
 
-      <nav
-        className={cn(
-          'flex items-center gap-1 border-t px-7',
-          variant === 'airbnb' ? 'min-h-[48px]' : 'min-h-[44px]'
-        )}
-      >
+      <nav className="flex min-h-[44px] items-center gap-1 border-t px-7">
         {TABS.map((t) =>
           isReactRoute(t.href) ? (
             <Link key={t.key} href={t.href} className={tabCls(t.key === props.active)}>
