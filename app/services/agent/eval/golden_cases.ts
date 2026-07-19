@@ -946,6 +946,7 @@ export const GOLDEN_CASES: GoldenCase[] = [
             statut: 'retard',
             joursRetard: 4,
             matchingMethod: 'mts_hard_pegging',
+            contremarque: 'MFG-3311',
             ofs: [
               {
                 numOf: 'MFG-3311',
@@ -969,16 +970,8 @@ export const GOLDEN_CASES: GoldenCase[] = [
             statut: 'retard',
             joursRetard: 2,
             matchingMethod: 'nor_mto_cumulative',
-            ofs: [
-              {
-                numOf: 'MFG-3322',
-                article: 'PF-CAISSON-B',
-                qteAllouee: 30,
-                statutNum: 2,
-                feasible: false,
-                dateFin: '2026-07-23',
-              },
-            ],
+            contremarque: null,
+            ofs: [],
           },
           {
             numCommande: 'CMD-3303',
@@ -992,6 +985,7 @@ export const GOLDEN_CASES: GoldenCase[] = [
             statut: 'bloquee',
             joursRetard: 0,
             matchingMethod: 'none',
+            contremarque: null,
             ofs: [],
           },
         ],
@@ -1020,11 +1014,11 @@ export const GOLDEN_CASES: GoldenCase[] = [
     },
   },
   {
-    id: 'G20-of-alloue-pas-lie-mts-sans-contremarque',
-    // MTS sans contremarque X3 → l'OF renvoyé par listerCommandesStatut est une ALLOCATION
-    // heuristique (matchingMethod mts_hard_pegging), pas un peg X3. getDetailCommande confirme
-    // l'absence de contremarque (null). Le modèle doit parler d'« OF alloué », JAMAIS d'« OF lié »
-    // sans réserve. Cas d'origine : AR2602398 (PP_830/ESH) faussement liée à SGAE10651489882.
+    id: 'G20-pas-dof-lie-mts-sans-contremarque',
+    // MTS sans contremarque X3 → AUCUN OF lié dans X3. listerCommandesStatut filtre ofs[] sur
+    // la contremarque (null) → ofs=[]. matchingMethod peut être mts_hard_pegging (le moteur a
+    // alloué un OF par heuristique article+date) mais ce n'est PAS un lien X3 → le modèle doit
+    // dire « pas d'OF peggé dans X3 », JAMAIS exhiber un OF. Cas d'origine : AR2602398.
     question: 'Sur PP_830, la commande AR2602398 est-elle couverte par un OF ?',
     mocks: {
       listerCommandesStatut: {
@@ -1047,47 +1041,15 @@ export const GOLDEN_CASES: GoldenCase[] = [
             statut: 'retard',
             joursRetard: 2,
             matchingMethod: 'mts_hard_pegging',
-            ofs: [
-              {
-                numOf: 'SGAE10651489882',
-                article: '11026032',
-                qteAllouee: 480,
-                statutNum: 2,
-                feasible: false,
-                dateFin: '2026-09-02',
-              },
-            ],
+            contremarque: null,
+            ofs: [],
           },
         ],
-      },
-      getDetailCommande: {
-        _source: 'getDetailCommande',
-        engine: 'order_line_detail_loader',
-        numCommande: 'AR2602398',
-        ligne: '1000',
-        article: '11026032',
-        designation: 'ESHKIT CBL AUTO-- BIP',
-        client: 'ALDES',
-        quantite: 480,
-        unite: 'PCS',
-        dateLivraison: '21/07/2026',
-        contremarque: null,
-        orderType: 'MTS',
-        nature: 'commande',
-        hasOverride: false,
-        workstation: 'POSTE-ASS',
-        workstationLabel: 'Assemblage',
-        hours: 12,
-        bom: [],
-        bomCount: 0,
-        bomBlocked: 0,
-        x3Error: null,
       },
     },
     mustCall: ['listerCommandesStatut'],
     expected: {
-      ofs: ['SGAE10651489882'],
-      keywords: ['alloué'],
+      keywords: ['aucun'],
     },
   },
 ]
