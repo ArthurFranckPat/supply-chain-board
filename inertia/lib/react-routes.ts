@@ -18,6 +18,9 @@ export const REACT_ROUTES = new Set([
   '/programme',
   '/promesse',
   '/copilote',
+  '/design-system',
+  '/diagnostic-test',
+  '/writeback-test',
   '/',
 ])
 
