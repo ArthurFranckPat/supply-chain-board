@@ -4,7 +4,13 @@
  * runtimes : la navigation inter-runtimes DOIT passer par un <a> natif
  * (visite XHR cross-runtime = composant introuvable dans le bundle).
  */
-export const REACT_ROUTES = new Set(['/react-lab', '/react-board', '/suivi', '/receptions'])
+export const REACT_ROUTES = new Set([
+  '/react-lab',
+  '/react-board',
+  '/suivi',
+  '/receptions',
+  '/expeditions',
+])
 
 /**
  * Détermine si une URL (relative ou absolue) pointe vers une page React.
