@@ -16,6 +16,7 @@ export const REACT_ROUTES = new Set([
   '/login',
   '/configuration/calendrier',
   '/programme/scenarios/comparer',
+  '/',
 ])
 
 /**
