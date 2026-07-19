@@ -5,6 +5,13 @@ import { toast } from 'sonner'
 import Masthead from '@r/components/masthead'
 import { Badge } from '@r/components/ui/badge'
 import { Button } from '@r/components/ui/button'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@r/components/ui/card'
 import DataTable, { type ColumnDef, type SortingState } from '@r/components/ui/data-table'
 import {
   Dialog,
@@ -17,6 +24,11 @@ import {
 } from '@r/components/ui/dialog'
 import { Field, FieldLabel } from '@r/components/ui/field'
 import { Input } from '@r/components/ui/input'
+import { Pill } from '@r/components/ui/pill'
+import {
+  SearchBar,
+  type SearchSegment,
+} from '@r/components/ui/search-bar'
 import {
   Select,
   SelectContent,
@@ -97,6 +109,7 @@ export default function ReactLab() {
   const page = usePage()
   const [sorting, setSorting] = useState<SortingState[]>([])
   const [ligne, setLigne] = useState<string | null>(null)
+  const [theme, setTheme] = useState<'stock' | 'airbnb'>('airbnb')
 
   const rows = sortRows(
     ligne ? MOCK_ROWS.filter((r) => r.ligne === ligne) : MOCK_ROWS,
@@ -106,7 +119,9 @@ export default function ReactLab() {
   return (
     <>
       <Head title="React Lab" />
-      <div className="flex min-h-screen flex-col bg-background text-foreground">
+      <div
+        className={`flex min-h-screen flex-col bg-background text-foreground ${theme === 'airbnb' ? 'theme-airbnb' : ''}`}
+      >
         <Masthead
           subtitle="LABORATOIRE REACT"
           active="dashboard"
@@ -116,6 +131,30 @@ export default function ReactLab() {
               <br />
               {page.component} · {page.url}
             </>
+          }
+          actions={
+            <div
+              className="inline-flex rounded-full border bg-muted p-0.5"
+              role="tablist"
+              aria-label="Thème"
+            >
+              {(['stock', 'airbnb'] as const).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  role="tab"
+                  aria-selected={theme === t}
+                  onClick={() => setTheme(t)}
+                  className={`rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wide transition-colors ${
+                    theme === t
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
           }
         />
 
@@ -164,7 +203,12 @@ export default function ReactLab() {
           <div className="space-y-5 rounded-xl border bg-card p-5 shadow-xs">
             <div>
               <h2 className="text-sm font-semibold">Primitives shadcn / Base UI</h2>
-              <p className="text-xs text-muted-foreground">Thème stock (base-nova, Geist)</p>
+              <p className="text-xs text-muted-foreground">
+                Thème <span className="font-semibold">{theme}</span>{' '}
+                {theme === 'airbnb'
+                  ? '(Rausch #ff385c, Inter, radius 14px)'
+                  : '(base-nova, Geist, neutral oklch)'}
+              </p>
             </div>
 
             <div className="flex flex-wrap gap-2">
@@ -227,6 +271,83 @@ export default function ReactLab() {
                   </SheetHeader>
                 </SheetContent>
               </Sheet>
+            </div>
+
+            <Separator />
+
+            {/* Pills — pattern extrait de 8 occurrences Solid. */}
+            <div>
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Pills
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                <Pill>Default</Pill>
+                <Pill variant="outline">Outline</Pill>
+                <Pill variant="ghost">Ghost</Pill>
+                <Pill variant="soft">Soft</Pill>
+                <Pill variant="active">Active</Pill>
+                <Pill variant="default" dot>
+                  Avec dot
+                </Pill>
+                <Pill variant="default" size="sm">
+                  sm
+                </Pill>
+                <Pill variant="default" size="lg">
+                  lg
+                </Pill>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Card — tokens unifiés (rounded-lg, hairline, shadow unique). */}
+            <div>
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Card
+              </h3>
+              <div className="grid grid-cols-2 gap-3">
+                <Card elevation="flat" padding="default">
+                  <CardHeader>
+                    <CardTitle>Flat</CardTitle>
+                    <CardDescription>Pas d'ombre, hairline seul.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="text-xs text-muted-foreground">
+                    Variante par défaut, 95% des surfaces.
+                  </CardContent>
+                </Card>
+                <Card elevation="raised" padding="default">
+                  <CardHeader>
+                    <CardTitle>Raised</CardTitle>
+                    <CardDescription>Une seule ombre (Airbnb).</CardDescription>
+                  </CardHeader>
+                  <CardContent className="text-xs text-muted-foreground">
+                    Hover card, search-bar, dropdown.
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* SearchBar — signature Airbnb (pill 64px + orbe Rausch). */}
+            <div>
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                SearchBar
+              </h3>
+              <SearchBar
+                segments={
+                  [
+                    { label: 'Où', placeholder: 'Rechercher une destination' },
+                    { label: 'Quand', placeholder: 'Dates' },
+                    { label: 'Qui', placeholder: 'Convives' },
+                  ] as SearchSegment[]
+                }
+                onSubmit={() =>
+                  toast.success('SearchBar soumise', {
+                    description: 'Pattern Airbnb (pill 64px + orbe Rausch)',
+                  })
+                }
+              />
             </div>
 
             <Separator />

@@ -71,12 +71,24 @@ export function Masthead(props: {
   return (
     <header className="relative flex-none border-b bg-background print:hidden">
       {env === 'test' && (
-        <div className="absolute inset-x-0 top-0 z-10 h-[3px] bg-primary" aria-hidden="true" />
+        /* Bandeau Arches orange — couleur du brand book Airbnb (#fc642d).
+           Sous .theme-airbnb, le signal test/prod passe par ce bandeau + le
+           suffixe [TEST] du wordmark. On n'altère PAS le Rausch (couleur
+           marque). Hors thème airbnb, bg-primary reste le fallback. */
+        <div
+          className="absolute inset-x-0 top-0 z-10 h-[4px] bg-[var(--color-arches,#fc642d)]"
+          aria-hidden="true"
+        />
       )}
       <div className="flex min-h-[60px] items-end justify-between gap-5 px-7 pb-2 pt-3.5">
         <div className="flex items-center gap-3.5">
           <div className="text-[24px] font-bold leading-[0.9] tracking-tight">
             Supply Chain <span className="font-medium italic text-primary">AERECO</span>
+            {env === 'test' && (
+              <span className="ml-2 align-middle text-[12px] font-bold uppercase tracking-[0.16em] text-[var(--color-arches,#fc642d)]">
+                [TEST]
+              </span>
+            )}
           </div>
           <div className="pb-1 font-mono text-[10px] font-medium tracking-[0.12em] text-muted-foreground">
             {props.subtitle}
@@ -87,7 +99,7 @@ export function Masthead(props: {
               className={cn(
                 'inline-flex items-center gap-1 rounded-full border px-2 py-[3px] font-mono text-[10px] font-bold uppercase tracking-[0.08em]',
                 env === 'test'
-                  ? 'border-transparent bg-primary text-primary-foreground'
+                  ? 'border-transparent bg-[var(--color-arches,#fc642d)] text-white'
                   : 'bg-muted text-muted-foreground'
               )}
             >

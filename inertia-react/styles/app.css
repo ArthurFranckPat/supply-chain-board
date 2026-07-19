@@ -15,6 +15,7 @@
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
 @import '@fontsource-variable/geist';
+@import '@fontsource-variable/inter';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -190,3 +191,167 @@
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
+
+/* ════════════════════════════════════════════════════════════
+   Thème « Airbnb » (v0.2, 2026-07-19).
+
+   Identité visuelle calquée sur Airbnb DESIGN.md (voltagent/awesome-
+   design-md, lastUpdated 2026-05-12) + couleurs du brand book officiel
+   Airbnb (usbrandcolors, airbnb.design — palette Rausch/Babu/Arches/
+   Hof/Foggy) vérifiées le 19/07/2026.
+
+   Sources vérifiées :
+   • DESIGN.md fourni (identique à VoltAgent/awesome-design-md/airbnb).
+   • Mobbin (scan apps réelles 2026) : primary UI = #ff385c.
+   • usbrandcolors (brand book) : Rausch logo = #ff5a5f (old marketing).
+   • r/typographie (283 votes) : Figtree ≈ Cereal, Inter proche.
+   Choix : #ff385c (production actuelle, ce que dit le DESIGN.md).
+
+   Principes calqués sur DESIGN.md :
+   • un seul voltage marque — Rausch #ff385c (CTA, search orb, heart) ;
+   • canvas blanc pur, ink #222 (pas de noir), hairline #dddddd ;
+   • typo Inter Variable (substitut ouvert d'Airbnb Cereal VF, recommandé
+     par DESIGN.md « Font Substitutes » — ajuster line-height -2% si besoin) ;
+   • radius soft : 8 (boutons) / 14 (cards) / 32 (pills) / 9999 (full) ;
+   • une seule ombre (card hover float) — pas de tiers progressifs ;
+   • pas de dark mode (le DESIGN.md est light-only).
+
+   Couleurs du brand book officiel (tokennisées mais pas câblées
+   sémantiquement — le DESIGN.md dit qu'elles ne sont pas utilisées
+   dans le mainline marketing. On les expose pour un usage ponctuel
+   volontaire) :
+   • Rausch #ff385c — marque principale (UI réelle)
+   • Rausch (logo) #ff5a5f — variante historique brand book
+   • Babu       #00a699 — teal (info / accent secondaire)
+   • Arches     #fc642d — orange (énergie / alerte chaude)
+   • Hof        #484848 — ink marketing (légèrement plus clair que le #222)
+   • Foggy      #767676 — muted marketing
+
+   Implementation : retargeting in-place des tokens shadcn existants
+   (--background, --primary, --border…) sous le scope .theme-airbnb.
+   Les primitives ui/* shadcn suivent automatiquement, pas de portage
+   composant par composant. Poser le scope sur la racine de la page
+   (ex. <div class="theme-airbnb">) active le thème.
+   ──────────────────────────────────────────────────────────── */
+.theme-airbnb {
+  /* ── Brand voltage — Rausch (production 2026) ── */
+  --primary: #ff385c;
+  --primary-foreground: #ffffff;
+  --ring: #222222; /* focus = ink, pas brand (Airbnb) */
+
+  /* ── Couleurs du brand book officiel (tokennisées, pas câblées) ──
+     Exposées pour usage ponctuel volontaire. Le DESIGN.md précise que
+     Babu/Arches ne sont pas en mainline marketing — on ne les câble à
+     aucun token sémantique pour ne pas inonder l'UI. */
+  --color-rausch: #ff385c;       /* marque principale (UI réelle) */
+  --color-rausch-logo: #ff5a5f;  /* variante logo marketing */
+  --color-rausch-active: #e00b41;/* press state (DESIGN.md) */
+  --color-rausch-disabled: #ffd1da;
+  --color-babu: #00a699;         /* teal — info / CTA secondaire */
+  --color-arches: #fc642d;       /* orange — énergie / alerte chaude */
+  --color-hof: #484848;          /* ink marketing */
+  --color-foggy: #767676;        /* muted marketing */
+  --color-luxe: #460479;         /* sub-brand Luxe (DESIGN.md) */
+  --color-plus: #92174d;         /* sub-brand Plus (DESIGN.md) */
+  --color-legal-link: #428bff;   /* liens légaux uniquement (DESIGN.md) */
+
+  /* ── Surfaces — blanc clinique ── */
+  --background: #ffffff;
+  --foreground: #222222;
+  --card: #ffffff;
+  --card-foreground: #222222;
+  --popover: #ffffff;
+  --popover-foreground: #222222;
+
+  /* ── Neutres — surfaces douces ── */
+  --secondary: #f7f7f7;          /* surface-soft (DESIGN.md) */
+  --secondary-foreground: #222222;
+  --muted: #f2f2f2;              /* surface-strong (DESIGN.md) */
+  --muted-foreground: #6a6a6a;   /* muted (DESIGN.md) */
+  --accent: #f7f7f7;
+  --accent-foreground: #222222;
+
+  /* ── Hairlines & bordures ── */
+  --border: #dddddd;             /* hairline (DESIGN.md) */
+  --input: #c1c1c1;              /* border-strong sur focus (DESIGN.md) */
+
+  /* ── Sémantique — error ≠ Rausch (Airbnb utilise un rouge plus sombre) ── */
+  --destructive: #c13515;        /* primary-error-text (DESIGN.md) */
+  --destructive-foreground: #ffffff;
+
+  /* ── Pas de dark mode Airbnb — on pointe vers le light pour sécurité ── */
+
+  /* ── Radius — l'échelle signature ── */
+  --radius: 0.875rem;            /* 14px — cards (rounded.md Airbnb) */
+  /* Les dérivés (sm/md/lg/xl/2xl/3xl/4xl) sont calculés dans @theme inline */
+
+  /* ── Une seule ombre — card hover float (DESIGN.md Elevation) ──
+     Surcharge des --shadow-* utilisés par shadcn. On écrase les niveaux
+     par la même définition : aucun cas de l'app n'a besoin de tiers
+     progressifs, et le DESIGN.md est explicite (« one shadow tier »). */
+  --shadow-xs: 0 0 0 1px rgb(0 0 0 / 0.02), 0 2px 6px rgb(0 0 0 / 0.04), 0 4px 8px rgb(0 0 0 / 0.10);
+  --shadow-sm: 0 0 0 1px rgb(0 0 0 / 0.02), 0 2px 6px rgb(0 0 0 / 0.04), 0 4px 8px rgb(0 0 0 / 0.10);
+
+  /* ── Typo — Inter Variable substitut de Cereal VF ──
+     DESIGN.md « Font Substitutes » : « Inter is the closest open-source
+     substitute; adjust display headlines down by ~2% in line-height to
+     match Cereal's slightly tighter cap height. » */
+  --font-sans: 'Inter Variable', -apple-system, system-ui, 'Helvetica Neue', sans-serif;
+  --font-heading: 'Inter Variable', sans-serif;
+  --font-mono: 'Inter Variable', system-ui, sans-serif; /* tabular-nums pour OF/dates */
+
+  /* ── Sidebar — neutre, alignée sur le canvas ── */
+  --sidebar: #ffffff;
+  --sidebar-foreground: #222222;
+  --sidebar-primary: #ff385c;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f7f7f7;
+  --sidebar-accent-foreground: #222222;
+  --sidebar-border: #dddddd;
+  --sidebar-ring: #222222;
+
+  /* ── Charts — Rausch + palette brand ── */
+  --chart-1: #ff385c;            /* Rausch */
+  --chart-2: #00a699;            /* Babu teal */
+  --chart-3: #fc642d;            /* Arches orange */
+  --chart-4: #6a6a6a;            /* muted */
+  --chart-5: #222222;            /* ink */
+
+  /* ── Tokens métier (portés depuis .theme-navy Solid) ──
+     Les pages migrées utilisent la grammaire brand/rule/ferme/planifie/suggere.
+     On les retarget sous .theme-airbnb : la marque devient Rausch, les statuts
+     restent sémantiques (sens métier — Airbnb lui-même préserve des couleurs
+     sémantiques au-delà du Rausch). */
+  --brand: var(--primary);
+  --brand-soft: rgba(255, 56, 92, 0.10);
+  --rule: var(--border);
+  --rule-soft: #ebebeb;          /* hairline-soft (DESIGN.md) */
+  --ferme: #008049;              /* green-700 — lisible sur blanc */
+  --planifie: var(--color-babu); /* Babu teal — info, aligné sur le brand book */
+  --suggere: var(--color-arches);/* Arches orange — warning chaud, brand book */
+  --warning: var(--color-arches);
+
+  color: var(--foreground);
+  background-color: var(--background);
+  font-family: var(--font-sans);
+}
+
+.theme-airbnb ::selection {
+  background: var(--brand-soft);
+}
+
+/* Ajustement line-height Cereal-like (DESIGN.md note) — titres display.
+   Inter a une cap-height légèrement plus haute que Cereal ; on resserre
+   de ~2% sur les gros weights pourmatcher l'allure. */
+.theme-airbnb h1,
+.theme-airbnb h2,
+.theme-airbnb h3 {
+  line-height: 1.2;
+}
+
+/* Distinction test/prod — fidèle à la palette Airbnb.
+   En test : on ne touche PAS au Rausch (couleur marque sacrée). Le signal
+   est porté par un bandeau Arches orange (#fc642d, couleur du brand book)
+   en haut du Masthead, plus un suffixe [TEST] dans le wordmark. Voir
+   masthead.tsx côté React. Aucune override de tokens : le thème Airbnb
+   reste strictement identique en test et en prod. */
