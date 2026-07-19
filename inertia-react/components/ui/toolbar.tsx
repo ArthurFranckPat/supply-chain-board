@@ -49,7 +49,7 @@ function Toolbar({
       data-slot="toolbar"
       className={cn(
         "flex flex-none flex-wrap items-center border-b border-border bg-background",
-        "px-7",
+        "px-4",
         gap === "2" && "gap-2",
         gap === "2.5" && "gap-2.5",
         gap === "3" && "gap-3",

@@ -117,24 +117,23 @@ export function AppLayout({
       {/* Toolbar — 56px, pills de filtrage.
           Pas de border-top (Masthead a déjà un border-bottom), border-bottom
           hairline pour séparer de la zone principale. Padding horizontal
-          identique au Masthead (px-7 = 28px) pour aligner les pills avec
-          les onglets. */}
+          identique à la zone principale (px-4 = 16px). */}
       {toolbar && (
-        <div className="flex min-h-[56px] flex-none items-center gap-2 border-b border-border bg-background px-7 py-2.5 print:hidden">
+        <div className="flex min-h-[56px] flex-none items-center gap-2 border-b border-border bg-background px-4 py-2.5 print:hidden">
           {toolbar}
         </div>
       )}
 
       {/* Zone principale.
           - `dense` : pas de padding, maxWidth full (board, programme).
-          - défaut : padding px-7 py-4 (aligné avec la toolbar), maxWidth 7xl centré.
+          - défaut : padding px-4 py-3, maxWidth 7xl centré.
           - `scrollable` : overflow-y-auto (la plupart des pages).
           - non scrollable : le contenu gère son propre scroll (gantt). */}
       <main
         className={cn(
           'flex-1 min-h-0',
           scrollable && 'overflow-y-auto',
-          !dense && 'px-7 py-4',
+          !dense && 'px-4 py-3',
           dense && 'overflow-hidden'
         )}
       >
@@ -153,7 +152,7 @@ export function AppLayout({
           Pas de footer marketing (inutile en interne). Désactivé en dense
           et sur print. */}
       {!hideFooter && !dense && (
-        <footer className="flex h-8 flex-none items-center justify-between border-t border-border bg-background px-7 text-[11px] text-muted-foreground print:hidden">
+        <footer className="flex h-8 flex-none items-center justify-between border-t border-border bg-background px-4 text-[11px] text-muted-foreground print:hidden">
           {footer ?? <DefaultFooter />}
         </footer>
       )}
