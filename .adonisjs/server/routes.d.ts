@@ -13,6 +13,7 @@ export type ScannedRoutes = {
     'dashboard': { paramsTuple?: []; params?: {} }
     'design_system': { paramsTuple?: []; params?: {} }
     'diagnostic_test': { paramsTuple?: []; params?: {} }
+    'react_lab': { paramsTuple?: []; params?: {} }
     'x3_writeback_test': { paramsTuple?: []; params?: {} }
     'scheduling': { paramsTuple?: []; params?: {} }
     'planning': { paramsTuple?: []; params?: {} }
@@ -91,6 +92,7 @@ export type ScannedRoutes = {
     'dashboard': { paramsTuple?: []; params?: {} }
     'design_system': { paramsTuple?: []; params?: {} }
     'diagnostic_test': { paramsTuple?: []; params?: {} }
+    'react_lab': { paramsTuple?: []; params?: {} }
     'x3_writeback_test': { paramsTuple?: []; params?: {} }
     'scheduling': { paramsTuple?: []; params?: {} }
     'planning': { paramsTuple?: []; params?: {} }
@@ -144,6 +146,7 @@ export type ScannedRoutes = {
     'dashboard': { paramsTuple?: []; params?: {} }
     'design_system': { paramsTuple?: []; params?: {} }
     'diagnostic_test': { paramsTuple?: []; params?: {} }
+    'react_lab': { paramsTuple?: []; params?: {} }
     'x3_writeback_test': { paramsTuple?: []; params?: {} }
     'scheduling': { paramsTuple?: []; params?: {} }
     'planning': { paramsTuple?: []; params?: {} }

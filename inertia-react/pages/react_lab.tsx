@@ -1,70 +1,237 @@
 import { useState } from 'react'
-import { Head, Link, usePage } from '@inertiajs/react'
+import { Head, usePage } from '@inertiajs/react'
 import { toast } from 'sonner'
 
+import Masthead from '@r/components/masthead'
+import { Badge } from '@r/components/ui/badge'
 import { Button } from '@r/components/ui/button'
+import DataTable, { type ColumnDef, type SortingState } from '@r/components/ui/data-table'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@r/components/ui/dialog'
+import { Field, FieldLabel } from '@r/components/ui/field'
+import { Input } from '@r/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@r/components/ui/select'
+import { Separator } from '@r/components/ui/separator'
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@r/components/ui/sheet'
 
 /**
- * Page témoin du socle dual-runtime (phase 0, plan react-shadcn §8).
- * Valide : Button shadcn thémé (thème shadcn de base), usePage(), toast
- * sonner, navigation inter-runtimes dans les deux sens.
+ * Page témoin des fondations React (phases 0-1) : masthead, primitives
+ * shadcn/Base UI (thème stock), DataTable virtualisée sur données mock.
  */
+
+interface MockRow {
+  id: string
+  article: string
+  ligne: string
+  quantity: number
+  statut: 'Ferme' | 'Planifié' | 'Suggéré'
+}
+
+const LIGNES = ['PP_830', 'PP_153', 'PP_128', 'PP_146']
+const STATUTS: MockRow['statut'][] = ['Ferme', 'Planifié', 'Suggéré']
+
+const MOCK_ROWS: MockRow[] = Array.from({ length: 500 }, (_, i) => ({
+  id: `OF${String(i + 1).padStart(5, '0')}`,
+  article: `ART-${String((i * 37) % 900).padStart(3, '0')}`,
+  ligne: LIGNES[i % LIGNES.length],
+  quantity: ((i * 53) % 240) + 10,
+  statut: STATUTS[i % STATUTS.length],
+}))
+
+const COLUMNS: ColumnDef<MockRow>[] = [
+  { accessorKey: 'id', header: 'OF', enableSorting: true },
+  { accessorKey: 'article', header: 'Article', enableSorting: true },
+  { accessorKey: 'ligne', header: 'Ligne', enableSorting: true },
+  {
+    accessorKey: 'quantity',
+    header: 'Quantité',
+    enableSorting: true,
+    meta: { tdClass: 'tabular-nums' },
+  },
+  {
+    accessorKey: 'statut',
+    header: 'Statut',
+    enableSorting: true,
+    cell: ({ row }) => (
+      <Badge variant={row.original.statut === 'Ferme' ? 'default' : 'secondary'}>
+        {row.original.statut}
+      </Badge>
+    ),
+  },
+]
+
+function sortRows(rows: MockRow[], sorting: SortingState[]): MockRow[] {
+  if (sorting.length === 0) return rows
+  const { id, desc } = sorting[0]
+  return [...rows].sort((a, b) => {
+    const av = a[id as keyof MockRow]
+    const bv = b[id as keyof MockRow]
+    const cmp = typeof av === 'number' && typeof bv === 'number'
+      ? av - bv
+      : String(av).localeCompare(String(bv))
+    return desc ? -cmp : cmp
+  })
+}
+
 export default function ReactLab() {
   const page = usePage()
-  const [count, setCount] = useState(0)
+  const [sorting, setSorting] = useState<SortingState[]>([])
+  const [ligne, setLigne] = useState<string | null>(null)
+
+  const rows = sortRows(
+    ligne ? MOCK_ROWS.filter((r) => r.ligne === ligne) : MOCK_ROWS,
+    sorting
+  )
 
   return (
     <>
       <Head title="React Lab" />
-      <div className="min-h-screen bg-background text-foreground">
-        <div className="mx-auto max-w-3xl space-y-8 p-8">
-          <header className="space-y-1 border-b pb-4">
-            <h1 className="text-2xl font-semibold tracking-tight">React Lab</h1>
-            <p className="text-sm text-muted-foreground">
-              Socle dual-runtime — React 19 + shadcn (thème de base) + Inertia officiel.
-              Thème Papier/Aldes conservé en backup côté Solid.
-            </p>
-          </header>
+      <div className="flex min-h-screen flex-col bg-background text-foreground">
+        <Masthead
+          subtitle="LABORATOIRE REACT"
+          active="dashboard"
+          meta={
+            <>
+              Fondations phases 0-1
+              <br />
+              {page.component} · {page.url}
+            </>
+          }
+        />
 
-          <section className="space-y-3 rounded-lg border bg-card p-6 shadow-sm">
-            <h2 className="text-sm font-medium text-muted-foreground">Button shadcn (variants)</h2>
+        <div className="grid flex-1 grid-cols-1 items-start gap-6 p-6 lg:grid-cols-[1fr_360px]">
+          {/* DataTable virtualisée (500 lignes mock) */}
+          <div className="flex h-[calc(100vh-200px)] min-h-[400px] flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <h2 className="text-sm font-semibold">DataTable — 500 lignes virtualisées</h2>
+              <div className="ml-auto w-44">
+                <Select
+                  value={ligne}
+                  onValueChange={(v) => setLigne(v as string | null)}
+                  items={[
+                    { value: null, label: 'Toutes les lignes' },
+                    ...LIGNES.map((l) => ({ value: l, label: l })),
+                  ]}
+                >
+                  <SelectTrigger size="sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={null}>Toutes les lignes</SelectItem>
+                    {LIGNES.map((l) => (
+                      <SelectItem key={l} value={l}>
+                        {l}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DataTable
+              columns={COLUMNS}
+              rows={rows}
+              sorting={sorting}
+              onSortingChange={setSorting}
+              getRowKey={(r) => r.id}
+              onRowClick={(r) => toast.info(`Ligne cliquée : ${r.id}`)}
+              emptyState={
+                <div className="p-8 text-center text-sm text-muted-foreground">Aucune ligne</div>
+              }
+            />
+          </div>
+
+          {/* Vitrine primitives */}
+          <div className="space-y-5 rounded-xl border bg-card p-5 shadow-xs">
+            <div>
+              <h2 className="text-sm font-semibold">Primitives shadcn / Base UI</h2>
+              <p className="text-xs text-muted-foreground">Thème stock (base-nova, Geist)</p>
+            </div>
+
             <div className="flex flex-wrap gap-2">
-              <Button onClick={() => setCount((c) => c + 1)}>Compteur : {count}</Button>
+              <Button>Default</Button>
               <Button variant="secondary">Secondary</Button>
               <Button variant="outline">Outline</Button>
               <Button variant="ghost">Ghost</Button>
               <Button variant="destructive">Destructive</Button>
-              <Button variant="link">Link</Button>
             </div>
-          </section>
 
-          <section className="space-y-3 rounded-lg border bg-card p-6 shadow-sm">
-            <h2 className="text-sm font-medium text-muted-foreground">Toast sonner</h2>
-            <Button
-              variant="outline"
-              onClick={() =>
-                toast.success('Runtime React opérationnel', {
-                  description: 'Toaster monté dans inertia-react/app.tsx',
-                })
-              }
-            >
-              Déclencher un toast
-            </Button>
-          </section>
+            <div className="flex flex-wrap gap-2">
+              <Badge>Ferme</Badge>
+              <Badge variant="secondary">Planifié</Badge>
+              <Badge variant="outline">Suggéré</Badge>
+              <Badge variant="destructive">Rupture</Badge>
+            </div>
 
-          <section className="space-y-3 rounded-lg border bg-card p-6 shadow-sm">
-            <h2 className="text-sm font-medium text-muted-foreground">usePage()</h2>
-            <pre className="overflow-x-auto rounded-md bg-muted p-3 text-xs">
-              {JSON.stringify({ component: page.component, url: page.url }, null, 2)}
-            </pre>
-          </section>
+            <Separator />
 
-          <section className="space-y-3 rounded-lg border bg-card p-6 shadow-sm">
-            <h2 className="text-sm font-medium text-muted-foreground">
-              Navigation inter-runtimes
-            </h2>
+            <Field>
+              <FieldLabel htmlFor="of-search">Recherche OF</FieldLabel>
+              <Input id="of-search" placeholder="OF00042…" />
+            </Field>
+
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                onClick={() =>
+                  toast.success('Runtime React opérationnel', {
+                    description: 'Toaster sonner monté dans app.tsx',
+                  })
+                }
+              >
+                Toast
+              </Button>
+
+              <Dialog>
+                <DialogTrigger render={<Button variant="outline">Dialog</Button>} />
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Dialog Base UI</DialogTitle>
+                    <DialogDescription>
+                      Primitive @base-ui/react/dialog, styles shadcn stock.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <DialogFooter>
+                    <Button>Fermer</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+
+              <Sheet>
+                <SheetTrigger render={<Button variant="outline">Sheet</Button>} />
+                <SheetContent>
+                  <SheetHeader>
+                    <SheetTitle>Sheet latérale</SheetTitle>
+                    <SheetDescription>
+                      Surface la plus utilisée de l'app (détail OF / commande / suivi).
+                    </SheetDescription>
+                  </SheetHeader>
+                </SheetContent>
+              </Sheet>
+            </div>
+
+            <Separator />
+
             <div className="flex flex-wrap items-center gap-3 text-sm">
-              {/* Cross-runtime → <a> natif OBLIGATOIRE (hard visit) */}
               <a className="underline underline-offset-4 hover:text-muted-foreground" href="/">
                 → Tableau (Solid, a natif)
               </a>
@@ -74,20 +241,13 @@ export default function ReactLab() {
               >
                 → Programme (Solid, a natif)
               </a>
-              {/* Intra-runtime → Link Inertia (visite XHR) */}
-              <Link
-                className="underline underline-offset-4 hover:text-muted-foreground"
-                href="/react-lab"
-              >
-                → React Lab (Link Inertia, XHR)
-              </Link>
             </div>
-          </section>
 
-          <footer className="flex justify-between text-xs text-muted-foreground">
-            <span>Runtime : React 19 — Compiler actif</span>
-            <span>Thème : shadcn base (neutral)</span>
-          </footer>
+            <div className="flex justify-between pt-1 text-xs text-muted-foreground">
+              <span>React 19 · Compiler actif</span>
+              <span>Base UI 1.6 · shadcn base-nova</span>
+            </div>
+          </div>
         </div>
       </div>
     </>
