@@ -211,13 +211,15 @@ function ToolbarSearch({
 
 interface ToolbarRefreshProps extends React.ComponentProps<"button"> {
   loading?: boolean
+  /** Label textuel. Par défaut vide (l'icône refresh est explicite).
+   *  Passer une chaîne pour afficher un label à côté de l'icône. */
   label?: string
 }
 
 function ToolbarRefresh({
   className,
   loading = false,
-  label = "Actualiser",
+  label,
   disabled,
   type,
   ...props
@@ -228,9 +230,10 @@ function ToolbarRefresh({
       disabled={disabled || loading}
       title="Recharger les données X3"
       className={cn(
-        "inline-flex items-center gap-1 rounded-full border border-border bg-card px-3 py-1",
-        "text-[11px] font-semibold text-foreground transition-colors",
+        "inline-flex items-center gap-1 rounded-full border border-border bg-card p-2",
+        "text-foreground transition-colors",
         "hover:border-primary disabled:opacity-50",
+        label && "px-3 py-1 text-[11px] font-semibold",
         className
       )}
       {...props}
