@@ -340,6 +340,13 @@ export const listerCommandesStatutTool = defineTool({
         description: 'Filtre statuts : on_time|stock|retard|bloquee|sans_couverture',
       })
     ),
+    nature: Type.Optional(
+      Type.Array(Type.String(), {
+        description:
+          "Filtre nature : 'commande' (ferme client SORDER) | 'prevision' (budget CBN). " +
+          "L'utilisateur disant « commandes » → ['commande'].",
+      })
+    ),
     limit: Type.Optional(Type.Number({ description: 'Max lignes (défaut 60, max 150)' })),
   }),
   execute: async (_id, params) => {
@@ -350,6 +357,7 @@ export const listerCommandesStatutTool = defineTool({
         from: params.from,
         client: params.client,
         statuts: params.statuts,
+        nature: params.nature,
         limit: params.limit,
       })
     )

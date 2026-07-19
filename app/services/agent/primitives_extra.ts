@@ -271,6 +271,8 @@ export async function listerCommandesStatut(params: {
   client?: string
   /** Filtre statuts : on_time | stock | retard | bloquee | sans_couverture. */
   statuts?: string[]
+  /** Filtre nature : 'commande' (ferme client SORDER) | 'prevision' (budget CBN). */
+  nature?: string[]
   /** Max lignes (défaut 60, max 150). */
   limit?: number
 } = {}) {
@@ -293,12 +295,17 @@ export async function listerCommandesStatut(params: {
     Array.isArray(params.statuts) && params.statuts.length > 0
       ? new Set(params.statuts.map((s) => String(s).trim().toLowerCase()))
       : null
+  const natureFilter =
+    Array.isArray(params.nature) && params.nature.length > 0
+      ? new Set(params.nature.map((n) => String(n).trim().toLowerCase()))
+      : null
   const limitRaw = params.limit === undefined ? 60 : Math.floor(Number(params.limit))
   const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 150) : 60
 
   const filtered = result.orders.filter((o) => {
     if (clientFilter && !o.client.toLowerCase().includes(clientFilter)) return false
     if (statutFilter && !statutFilter.has(o.statut)) return false
+    if (natureFilter && !natureFilter.has(o.nature)) return false
     return true
   })
 
