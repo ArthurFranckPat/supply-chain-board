@@ -43,13 +43,25 @@ export const AGENT_MODEL_ID = 'glm-5.2' as const
 
 const BUILTIN_TOOL_NAMES = new Set(['bash', 'read', 'write', 'edit', 'grep', 'find', 'ls'])
 
-/** Événement SSE normalisé (front chat + smoke). */
+/**
+ * Événement SSE normalisé (front chat + smoke).
+ *
+ * `args` / `result` sont additifs (stream UI AI SDK — cf.
+ * `agent/ui_message_stream.ts`) : les consommateurs historiques (smoke,
+ * golden eval) les ignorent.
+ */
 export type AgentSseEvent =
   | { type: 'session'; sessionId: string; model: string; tools: string[] }
   | { type: 'text_delta'; text: string }
   | { type: 'thinking_delta'; text: string }
-  | { type: 'tool_start'; toolName: string; toolCallId: string }
-  | { type: 'tool_end'; toolName: string; toolCallId: string; isError: boolean }
+  | { type: 'tool_start'; toolName: string; toolCallId: string; args?: unknown }
+  | {
+      type: 'tool_end'
+      toolName: string
+      toolCallId: string
+      isError: boolean
+      result?: unknown
+    }
   | { type: 'error'; message: string }
   | { type: 'done'; sessionId: string }
 
@@ -127,6 +139,7 @@ function mapPiEvent(event: PiEvent): AgentSseEvent[] {
           type: 'tool_start',
           toolName: event.toolName,
           toolCallId: event.toolCallId,
+          args: event.args,
         },
       ]
     case 'tool_execution_end':
@@ -136,6 +149,7 @@ function mapPiEvent(event: PiEvent): AgentSseEvent[] {
           toolName: event.toolName,
           toolCallId: event.toolCallId,
           isError: Boolean(event.isError),
+          result: event.result,
         },
       ]
     default:
