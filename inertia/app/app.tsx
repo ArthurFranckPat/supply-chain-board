@@ -8,15 +8,25 @@ import { createInertiaApp } from '../lib/inertia-solid'
 const pages = import.meta.glob('../pages/**/*.tsx')
 
 createInertiaApp({
-  resolve: (name) => {
+  resolve: async (name) => {
     // Filet inter-runtimes (migration react-shadcn §4.4) : composant absent du
     // bundle Solid (visite XHR vers une route React) → hard reload pour que le
-    // serveur serve le layout React. Navigation normale = <a> natifs.
+    // serveur serve le layout React. `await` dans le try : resolvePageComponent
+    // rejette en async (un throw sync ne couvre pas le cas). Navigation
+    // normale = <a> natifs.
     try {
-      return resolvePageComponent(`../pages/${name}.tsx`, pages)
+      return await resolvePageComponent(`../pages/${name}.tsx`, pages)
     } catch (error) {
       console.warn(`Page [${name}] absente du bundle Solid — hard reload`, error)
-      window.location.reload()
+      // Garde anti-boucle : un seul reload par URL par fenêtre de 10s.
+      const key = `runtime-reload:${window.location.pathname}`
+      const last = Number(sessionStorage.getItem(key) ?? 0)
+      if (Date.now() - last > 10_000) {
+        sessionStorage.setItem(key, String(Date.now()))
+        window.location.reload()
+      } else {
+        console.error(`Boucle de reload évitée pour [${name}] — layout serveur incohérent ?`)
+      }
       return new Promise(() => {})
     }
   },
