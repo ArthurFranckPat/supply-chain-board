@@ -66,13 +66,13 @@ const tabClsStock = (active: boolean) =>
 // DESIGN.md top-nav : 80px de haut, wordmark à gauche, onglets centrés,
 // utilitaires à droite.
 //
-// • nav-link : 14px / 600 / 1.25
+// • nav-link : 12px / 600 (compacté pour 11 onglets sur une rangée)
 // • actif : underline ink 3px (border-foreground), texte ink
 // • inactif : texte muted-foreground, hover foreground
 // Rausch n'apparaît PAS dans la nav chez Airbnb.
 const tabClsAirbnb = (active: boolean) =>
   cn(
-    'border-b-[3px] px-3 py-2.5 text-[14px] font-semibold leading-tight transition-colors',
+    'border-b-[3px] px-2.5 py-2 text-[12px] font-semibold leading-tight transition-colors',
     active
       ? 'border-foreground text-foreground'
       : 'border-transparent text-muted-foreground hover:text-foreground'
