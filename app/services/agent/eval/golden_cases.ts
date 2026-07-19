@@ -945,7 +945,17 @@ export const GOLDEN_CASES: GoldenCase[] = [
             nature: 'commande',
             statut: 'retard',
             joursRetard: 4,
-            ofs: [{ numOf: 'MFG-3311', feasible: false, dateFin: '2026-07-21' }],
+            matchingMethod: 'mts_hard_pegging',
+            ofs: [
+              {
+                numOf: 'MFG-3311',
+                article: 'PF-CAISSON-A',
+                qteAllouee: 60,
+                statutNum: 1,
+                feasible: false,
+                dateFin: '2026-07-21',
+              },
+            ],
           },
           {
             numCommande: 'CMD-3302',
@@ -958,7 +968,17 @@ export const GOLDEN_CASES: GoldenCase[] = [
             nature: 'commande',
             statut: 'retard',
             joursRetard: 2,
-            ofs: [{ numOf: 'MFG-3322', feasible: false, dateFin: '2026-07-23' }],
+            matchingMethod: 'nor_mto_cumulative',
+            ofs: [
+              {
+                numOf: 'MFG-3322',
+                article: 'PF-CAISSON-B',
+                qteAllouee: 30,
+                statutNum: 2,
+                feasible: false,
+                dateFin: '2026-07-23',
+              },
+            ],
           },
           {
             numCommande: 'CMD-3303',
@@ -971,6 +991,7 @@ export const GOLDEN_CASES: GoldenCase[] = [
             nature: 'commande',
             statut: 'bloquee',
             joursRetard: 0,
+            matchingMethod: 'none',
             ofs: [],
           },
         ],
@@ -996,6 +1017,77 @@ export const GOLDEN_CASES: GoldenCase[] = [
     expected: {
       articles: ['ACH-MOTEUR-45'],
       keywords: ['128', 'qc', 'qualite'],
+    },
+  },
+  {
+    id: 'G20-of-alloue-pas-lie-mts-sans-contremarque',
+    // MTS sans contremarque X3 → l'OF renvoyé par listerCommandesStatut est une ALLOCATION
+    // heuristique (matchingMethod mts_hard_pegging), pas un peg X3. getDetailCommande confirme
+    // l'absence de contremarque (null). Le modèle doit parler d'« OF alloué », JAMAIS d'« OF lié »
+    // sans réserve. Cas d'origine : AR2602398 (PP_830/ESH) faussement liée à SGAE10651489882.
+    question: 'Sur PP_830, la commande AR2602398 est-elle couverte par un OF ?',
+    mocks: {
+      listerCommandesStatut: {
+        _source: 'listerCommandesStatut',
+        engine: 'order_impacts_loader.evaluateOrderImpacts (pipeline programme)',
+        window: { from: '2026-07-19', to: '2026-08-02' },
+        stats: { nbCommandes: 1, nbOnTime: 0, nbRetard: 1, nbBloquees: 0, nbSansCouverture: 0 },
+        totalMatching: 1,
+        truncated: false,
+        commandes: [
+          {
+            numCommande: 'AR2602398',
+            ligne: '1000',
+            client: 'ALDES',
+            article: '11026032',
+            qteRestante: 480,
+            dateExpedition: '2026-07-21',
+            dejaEnRetard: true,
+            nature: 'commande',
+            statut: 'retard',
+            joursRetard: 2,
+            matchingMethod: 'mts_hard_pegging',
+            ofs: [
+              {
+                numOf: 'SGAE10651489882',
+                article: '11026032',
+                qteAllouee: 480,
+                statutNum: 2,
+                feasible: false,
+                dateFin: '2026-09-02',
+              },
+            ],
+          },
+        ],
+      },
+      getDetailCommande: {
+        _source: 'getDetailCommande',
+        engine: 'order_line_detail_loader',
+        numCommande: 'AR2602398',
+        ligne: '1000',
+        article: '11026032',
+        designation: 'ESHKIT CBL AUTO-- BIP',
+        client: 'ALDES',
+        quantite: 480,
+        unite: 'PCS',
+        dateLivraison: '21/07/2026',
+        contremarque: null,
+        orderType: 'MTS',
+        nature: 'commande',
+        hasOverride: false,
+        workstation: 'POSTE-ASS',
+        workstationLabel: 'Assemblage',
+        hours: 12,
+        bom: [],
+        bomCount: 0,
+        bomBlocked: 0,
+        x3Error: null,
+      },
+    },
+    mustCall: ['listerCommandesStatut'],
+    expected: {
+      ofs: ['SGAE10651489882'],
+      keywords: ['alloué'],
     },
   },
 ]

@@ -328,7 +328,8 @@ export const listerCommandesStatutTool = defineTool({
   label: 'Statuts commandes',
   description:
     'Statuts des commandes clientes sur une fenêtre (moteur order-impacts /programme) : ' +
-    'on_time | stock | retard | bloquee | sans_couverture, avec jours de retard et OF liés. ' +
+    'on_time | stock | retard | bloquee | sans_couverture, avec jours de retard et OF **alloués** ' +
+    '(matchingMethod : allocation moteur, pas un peg X3 — voir getDetailCommande.contremarque). ' +
     'LE tool pour « quelles commandes passent / sont à risque ? ». Citation : [listerCommandesStatut: …].',
   parameters: Type.Object({
     horizonDays: Type.Optional(Type.Number({ description: 'Horizon jours (défaut 14, max 90)' })),
@@ -359,8 +360,9 @@ export const getDetailCommandeTool = defineTool({
   name: 'getDetailCommande',
   label: 'Détail ligne commande',
   description:
-    "Détail d'une ligne de commande cliente : article, qté, date livraison, poste/charge, " +
-    'BOM directe avec dispo par composant. Citation : [getDetailCommande: …].',
+    "Détail d'une ligne de commande cliente : article, qté, date livraison, **contremarque X3** " +
+    '(n° OF peggé officiellement si non null), poste/charge, BOM directe avec dispo par composant. ' +
+    'Citation : [getDetailCommande: …].',
   parameters: Type.Object({
     numCommande: Type.String({ description: 'N° commande (SORDER)' }),
     ligne: Type.String({ description: 'N° de ligne (VCRLIN)' }),
@@ -416,7 +418,8 @@ export const getEngagementPosteTool = defineTool({
   name: 'getEngagementPoste',
   label: 'Engagement poste',
   description:
-    'Liste les OF fermes engagés sur un poste de charge + commandes liées. Citation [getEngagementPoste: …].',
+    'Liste les OF fermes engagés sur un poste de charge + commandes (method: matcher=allocation ' +
+    'moteur | peg=repli contremarque). Citation [getEngagementPoste: …].',
   parameters: Type.Object({
     poste: Type.String({ description: 'Code poste / workstation' }),
   }),

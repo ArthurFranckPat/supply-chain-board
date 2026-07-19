@@ -321,8 +321,16 @@ export async function listerCommandesStatut(params: {
       nature: o.nature,
       statut: o.statut,
       joursRetard: o.joursRetard,
+      // matchingMethod = nature de l'allocation moteur (mts_hard_pegging | stock_complete |
+      // nor_mto_cumulative | purchase_supply | none). mts_hard_pegging couvre à la fois le peg
+      // X3 réel (contremarque) et l'heuristique article+date — ce tool ne les distingue pas.
+      // Voir getDetailCommande.contremarque pour le peg X3 officiel.
+      matchingMethod: o.matchingMethod,
       ofs: o.ofs.slice(0, 3).map((f) => ({
         numOf: f.numOf,
+        article: f.article,
+        qteAllouee: f.qteAllouee,
+        statutNum: f.statutNum,
         feasible: f.feasible,
         dateFin: f.dateFin,
       })),
@@ -460,6 +468,9 @@ export async function getEngagementPoste(poste: string) {
       numCommande: c.numCommande,
       client: c.client,
       livraisonIso: c.livraisonIso,
+      // 'matcher' = allocation moteur (chaîne board) ; 'peg' = repli contremarque SORDERQ
+      // hors fenêtre. Dans les deux cas, alloué par planification — pas un peg X3 confirmé.
+      method: c.method,
     })),
   }))
 
