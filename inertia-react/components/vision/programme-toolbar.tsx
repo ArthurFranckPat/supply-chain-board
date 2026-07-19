@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useRef, useEffect, useState } from 'react'
 import { cn } from '@r/lib/utils'
 import { Calendar } from '@r/components/ui/calendar'
 import { useBoardStore, statusActive } from '@r/lib/board/store'
@@ -152,60 +152,166 @@ export function ProgrammeToolbar(props: {
           toolbar). Prop `search` injectée depuis programme.tsx. */}
       {props.search}
 
-      {/* Scénario — pill toggle (tous modes, disabled hors Combiné) */}
-      {props.onToggleScenario && (
-        <button
-          type="button"
-          disabled={props.mode !== 'combined'}
-          aria-pressed={props.scenarioActive ?? false}
-          title={
-            props.mode === 'combined'
-              ? 'Mode scénario (aucun envoi X3)'
-              : 'Disponible en mode Combiné'
-          }
-          onClick={() => props.onToggleScenario?.()}
-          className={cn(
-            PILL,
-            'disabled:cursor-not-allowed disabled:opacity-40',
-            props.scenarioActive && '!border-brand !bg-brand !text-white'
-          )}
-        >
-          <span className="material-symbols-outlined text-sm">science</span>
-          Scénario
-        </button>
-      )}
-
-      {/* Faisabilité — pill (primary) */}
-      <button
-        type="button"
-        disabled={props.feasLoading}
-        onClick={props.runFeasibility}
-        className={cn(PILL, '!border-transparent !bg-foreground !text-background disabled:opacity-60')}
-      >
-        <span
-          className={`material-symbols-outlined text-sm ${props.feasLoading ? 'animate-spin' : ''}`}
-        >
-          {props.feasLoading ? 'progress_activity' : 'fact_check'}
-        </span>
-        {props.feasLoading ? 'Calcul…' : 'Faisabilité'}
-      </button>
-
-      {/* Sélection — pill (OF uniquement) */}
-      {props.mode !== 'planification' && (
-        <button
-          type="button"
-          aria-pressed={useBoardStore((s) => s.selectMode)}
-          onClick={() => {
-            const s = useBoardStore.getState()
-            s.selectMode ? s.exitSelect() : s.enterSelect()
-          }}
-          className={cn(PILL, useBoardStore((s) => s.selectMode) && '!border-brand !bg-brand-soft !text-brand')}
-        >
-          <span className="material-symbols-outlined text-sm">checklist</span>
-          Sélection
-        </button>
-      )}
+      {/* Menu Actions — regroupe Scénario + Faisabilité + Sélection pour
+          désencombrer la toolbar. Comportement identique (mêmes handlers),
+          regroupé sous un seul déclencheur. Le state actif de chaque action
+          est reflété par une coche pour ne pas perdre le signal visuel. */}
+      <ActionsMenu
+        mode={props.mode}
+        scenarioActive={props.scenarioActive}
+        onToggleScenario={props.onToggleScenario}
+        feasLoading={props.feasLoading}
+        runFeasibility={props.runFeasibility}
+      />
     </div>
+  )
+}
+
+/**
+ * Menu Actions — déclencheur unique qui regroupe Scénario, Faisabilité et
+ * Sélection. Désencombre la toolbar sans perdre les fonctionnalités.
+ *
+ * Implémentation: <details> natif (accessible, zero deps, gère le clic
+ * extérieur via un listener). Le state actif/loading est reflété par des
+ * indicateurs visuels dans chaque item pour préserver le feedback usager.
+ */
+function ActionsMenu(props: {
+  mode: VisionMode
+  scenarioActive?: boolean
+  onToggleScenario?: () => void
+  feasLoading: boolean
+  runFeasibility: () => void
+}) {
+  const selectMode = useBoardStore((s) => s.selectMode)
+  const detailsRef = useRef<HTMLDetailsElement>(null)
+  const [open, setOpen] = useState(false)
+
+  // Ferme au clic extérieur ou sur Échap (parité popover).
+  useEffect(() => {
+    if (!open) return
+    const onDocClick = (e: MouseEvent) => {
+      if (!detailsRef.current?.contains(e.target as Node)) setOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('mousedown', onDocClick)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDocClick)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  // Au moins une action active/connue → le déclencheur porte un dot.
+  const hasActive = Boolean(props.scenarioActive || selectMode)
+
+  return (
+    <details
+      ref={detailsRef}
+      open={open}
+      onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}
+      className="relative"
+    >
+      <summary
+        className={cn(
+          PILL,
+          'cursor-pointer list-none [&::-webkit-details-marker]:hidden',
+          open && 'border-brand'
+        )}
+        title="Actions (scénario, faisabilité, sélection)"
+      >
+        <span className="material-symbols-outlined text-sm text-muted-foreground">tune</span>
+        Actions
+        {hasActive && (
+          <span className="ml-0.5 size-1.5 rounded-full bg-brand" aria-hidden="true" />
+        )}
+        <span className="material-symbols-outlined text-[16px] text-muted-foreground">
+          expand_more
+        </span>
+      </summary>
+
+      {/* Panneau déroulant — aligné à droite du déclencheur. */}
+      <div className="absolute right-0 top-full z-50 mt-1.5 w-[220px] rounded-xl border border-rule bg-popover p-1 shadow-lg">
+        {/* Scénario */}
+        {props.onToggleScenario && (
+          <button
+            type="button"
+            disabled={props.mode !== 'combined'}
+            onClick={() => {
+              props.onToggleScenario?.()
+              setOpen(false)
+            }}
+            className={cn(
+              'flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-semibold transition-colors',
+              props.mode !== 'combined'
+                ? 'cursor-not-allowed opacity-40'
+                : 'hover:bg-muted',
+              props.scenarioActive && 'text-brand'
+            )}
+          >
+            <span className="material-symbols-outlined text-sm text-muted-foreground">science</span>
+            <span className="flex-1">Scénario</span>
+            {props.scenarioActive && (
+              <span className="font-mono text-3xs uppercase tracking-wider">ON</span>
+            )}
+            {props.mode !== 'combined' && (
+              <span className="font-mono text-3xs uppercase tracking-wider text-muted-foreground">
+                Combiné
+              </span>
+            )}
+          </button>
+        )}
+
+        {/* Faisabilité */}
+        <button
+          type="button"
+          disabled={props.feasLoading}
+          onClick={() => {
+            props.runFeasibility()
+            setOpen(false)
+          }}
+          className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-semibold transition-colors hover:bg-muted disabled:opacity-60"
+        >
+          <span
+            className={cn(
+              'material-symbols-outlined text-sm text-muted-foreground',
+              props.feasLoading && 'animate-spin'
+            )}
+          >
+            {props.feasLoading ? 'progress_activity' : 'fact_check'}
+          </span>
+          <span className="flex-1">
+            {props.feasLoading ? 'Calcul en cours…' : 'Faisabilité'}
+          </span>
+        </button>
+
+        {/* Sélection — OF / Combiné uniquement */}
+        {props.mode !== 'planification' && (
+          <button
+            type="button"
+            aria-pressed={selectMode}
+            onClick={() => {
+              const s = useBoardStore.getState()
+              s.selectMode ? s.exitSelect() : s.enterSelect()
+              setOpen(false)
+            }}
+            className={cn(
+              'flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-semibold transition-colors hover:bg-muted',
+              selectMode && 'text-brand'
+            )}
+          >
+            <span className="material-symbols-outlined text-sm text-muted-foreground">
+              checklist
+            </span>
+            <span className="flex-1">Sélection</span>
+            {selectMode && (
+              <span className="font-mono text-3xs uppercase tracking-wider">ON</span>
+            )}
+          </button>
+        )}
+      </div>
+    </details>
   )
 }
 

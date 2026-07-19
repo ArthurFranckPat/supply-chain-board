@@ -53,7 +53,6 @@ import {
 import { ProgrammeToolbar, ProgrammeContextBar, type VisionMode } from '@r/components/vision/programme-toolbar'
 import { CommandeMarker } from '@r/components/vision/commande-marker'
 import { LinksOverlay, type LinkMode } from '@r/components/vision/links-overlay'
-import { PlanHealth, type HealthCategory } from '@r/components/vision/plan-health'
 import { TriageRail, type TriageItem } from '@r/components/vision/triage-rail'
 import { ScenarioBar } from '@r/components/scenario/scenario-bar'
 import { ScenarioDiffSheet } from '@r/components/scenario/scenario-diff-sheet'
@@ -395,11 +394,12 @@ export default function Programme(props: VisionProps) {
   }, [boardStore.board.lines, linksByOf])
 
   // ── Link mode ──
-  const [linkMode, setLinkMode] = useState<'none' | 'problems' | 'all'>('problems')
+  // Fixé à 'problems' : les liens retard+limite restent visibles. Le segment
+  // de réglage a été retiré (trop d'options). Modifier ici si besoin.
+  const linkMode: 'none' | 'problems' | 'all' = 'problems'
 
   // ── Rail de triage ──
   const [railOpen, setRailOpen] = useState(false)
-  const [railTab, setRailTab] = useState<'retards' | 'limites' | 'sanslien'>('retards')
   const [railSelected, setRailSelected] = useState<string | null>(null)
 
   // ── Positions OF + drag progress (#23) ──
@@ -924,47 +924,38 @@ export default function Programme(props: VisionProps) {
         <ProgrammeContextBar mode={mode} feasMode={feasMode()} setFeasMode={setFeasMode}>
           {mode === 'combined' && (
             <>
-              <div
-                className="inline-flex items-center gap-0.5 rounded-lg border border-rule bg-card p-0.5"
-                role="radiogroup"
-                aria-label="Visibilité des liens"
-              >
-                <span className="px-1.5 font-mono text-3xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Liens
-                </span>
-                {(['none', 'problems', 'all'] as const).map((lm) => (
-                  <button
-                    key={lm}
-                    type="button"
-                    role="radio"
-                    aria-checked={linkMode === lm}
-                    className={cn(
-                      'min-h-[28px] rounded-md px-2.5 py-1 font-mono text-2xs font-bold uppercase tracking-wider transition-colors',
-                      linkMode === lm
-                        ? 'bg-brand-soft text-brand'
-                        : 'text-muted-foreground hover:text-foreground'
-                    )}
-                    onClick={() => setLinkMode(lm)}
-                  >
-                    {lm === 'none' ? 'Aucun' : lm === 'problems' ? 'Problèmes' : 'Tous'}
-                  </button>
-                ))}
-              </div>
-              <PlanHealth
-                nbRetards={nbCmdRetard}
-                nbLimites={nbCmdLimite}
-                nbRuptures={((): number => {
+              {/* Santé du plan — pill résumé unique (remplace les 4 badges
+                  PlanHealth). Un seul signal "N problèmes" / "✓ Plan sain"
+                  qui ouvre le rail filtré. Le détail vit dans le rail. */}
+              {(() => {
+                const nbRuptures = ((): number => {
                   let n = 0
-                  for (const f of Object.values(boardStore.feasibility)) if (f.st === 'blocked') n++
+                  for (const f of Object.values(boardStore.feasibility))
+                    if (f.st === 'blocked') n++
                   return n
-                })()}
-                rupturesAvailable={Object.keys(boardStore.feasibility).length > 0}
-                nbSansLien={nbCmdSansLien}
-                onSelect={(cat: HealthCategory) => {
-                  setRailTab(cat === 'ruptures' ? 'retards' : cat)
-                  setRailOpen(true)
-                }}
-              />
+                })()
+                const nbProblemes = nbCmdRetard + nbCmdLimite + nbRuptures + nbCmdSansLien
+                const hasProblems = nbProblemes > 0
+                return (
+                  <button
+                    type="button"
+                    onClick={() => setRailOpen(true)}
+                    className={cn(
+                      'inline-flex min-h-[28px] items-center gap-1.5 rounded-full border px-3 py-1 font-mono text-2xs font-bold uppercase tracking-wider transition-colors',
+                      hasProblems
+                        ? 'border-transparent bg-error/10 text-error hover:opacity-80'
+                        : 'border-transparent bg-ferme/10 text-ferme hover:opacity-80'
+                    )}
+                    title={`${nbProblemes} problème(s) — ouvrir le rail`}
+                  >
+                    <span
+                      className={cn('size-1.5 rounded-full', hasProblems ? 'bg-error' : 'bg-ferme')}
+                      aria-hidden="true"
+                    />
+                    {hasProblems ? `${nbProblemes} problèmes` : 'Plan sain'}
+                  </button>
+                )
+              })()}
               <div className="flex-1" />
               <button
                 type="button"
