@@ -38,6 +38,16 @@ import {
 } from '@r/components/ui/select'
 import { Separator } from '@r/components/ui/separator'
 import {
+  Toolbar,
+  ToolbarGroup,
+  ToolbarRefresh,
+  ToolbarSearch,
+  ToolbarSegment,
+  ToolbarSegmented,
+  ToolbarSeparator,
+  ToolbarSpacer,
+} from '@r/components/ui/toolbar'
+import {
   Sheet,
   SheetContent,
   SheetDescription,
@@ -110,6 +120,10 @@ export default function ReactLab() {
   const [sorting, setSorting] = useState<SortingState[]>([])
   const [ligne, setLigne] = useState<string | null>(null)
   const [theme, setTheme] = useState<'stock' | 'airbnb'>('airbnb')
+  const [view, setView] = useState<'registre' | 'composants' | 'couverture'>('registre')
+  const [verdict, setVerdict] = useState<'all' | 'ok' | 'late'>('all')
+  const [search, setSearch] = useState('')
+  const [refreshing, setRefreshing] = useState(false)
 
   const rows = sortRows(
     ligne ? MOCK_ROWS.filter((r) => r.ligne === ligne) : MOCK_ROWS,
@@ -155,15 +169,30 @@ export default function ReactLab() {
         </>
       }
       toolbar={
-        <>
-          <Pill variant={ligne ? 'default' : 'ghost'} dot={ligne ? true : false}>
-            {ligne ? `Ligne ${ligne}` : 'Toutes les lignes'}
-          </Pill>
-          <Pill variant="soft">React Lab</Pill>
-          <span className="ml-auto text-[11px] text-muted-foreground">
-            Layout B — Toolbar slot
+        <Toolbar>
+          <ToolbarSegmented>
+            {(['registre', 'composants', 'couverture'] as const).map((m) => (
+              <ToolbarSegment key={m} active={view === m} onClick={() => setView(m)}>
+                {m}
+              </ToolbarSegment>
+            ))}
+          </ToolbarSegmented>
+          <ToolbarSeparator />
+          <ToolbarGroup>
+            {(['all', 'ok', 'late'] as const).map((v) => (
+              <Pill key={v} variant={verdict === v ? 'soft' : 'outline'} size="sm" onClick={() => setVerdict(v)}>
+                {v === 'all' ? 'Tous' : v === 'ok' ? 'OK' : 'Retard'}
+              </Pill>
+            ))}
+          </ToolbarGroup>
+          <ToolbarSeparator />
+          <ToolbarSearch value={search} onChange={setSearch} placeholder="OF, article, client…" />
+          <ToolbarSpacer />
+          <span className="text-[11px] text-muted-foreground">
+            {rows.length} lignes
           </span>
-        </>
+          <ToolbarRefresh loading={refreshing} onClick={() => { setRefreshing(true); setTimeout(() => setRefreshing(false), 600) }} />
+        </Toolbar>
       }
     >
       <div className="grid h-full grid-cols-1 items-start gap-6 lg:grid-cols-[1fr_360px]">
