@@ -8,7 +8,7 @@ import { autoScrollForElements } from '@atlaskit/pragmatic-drag-and-drop-auto-sc
 
 import { cn } from '@r/lib/utils'
 import { useBoardStore, cardMatches, lineVisible, feasOf, type BoardState } from '@r/lib/board/store'
-import type { Card, LineRow } from '@/lib/board/types'
+import type { Card, DayCol, LineRow } from '@/lib/board/types'
 import { TYPO_META } from '@/lib/board/types'
 import type { VirtualOrderVm } from '@/lib/scenarios/types'
 import { promiseReasonText, type PromiseNode } from '@/lib/promesse/types'
@@ -369,77 +369,121 @@ export default function BoardGrid(props: BoardGridProps) {
         )}
 
         {/* ═══ Rangées de postes ═══ */}
-        {lines.map((line, li) => {
-          const charges = lineCharge.get(li) ?? []
-          const visible = useBoardStore((s) => lineVisible(s, line.code))
-
-          if (!visible) return null
-
-          return (
-            <div
-              key={line.code}
-              className="grid border-b border-rule-soft"
-              style={{ gridTemplateColumns: gridTpl }}
-            >
-              {/* En-tête de poste (collant à gauche). L'identité (dot+code+nom) est
-                  cliquable → panneau « Engagement » par poste (#46). Pas de bouton
-                  dédié : le header est déjà dense (histogramme + PP_830). */}
-              <div className="sticky left-0 z-20 flex flex-col gap-1.5 overflow-hidden border-r border-rule bg-card px-3.5 py-3">
-                <div
-                  className={cn(
-                    'flex items-center gap-2',
-                    props.onLineEngagement && 'cursor-pointer transition-colors hover:[&_.line-code]:text-brand'
-                  )}
-                  onClick={() => props.onLineEngagement?.(line.code)}
-                  title={props.onLineEngagement ? 'Engagement — OF fermes du poste' : undefined}
-                >
-                  <span
-                    className="size-2.5 rounded-[2px]"
-                    style={{ background: line.dot ? undefined : 'var(--color-planifie)' }}
-                  />
-                  <span className="line-code font-mono text-sm font-bold tracking-tight text-foreground transition-colors">
-                    {line.code}
-                  </span>
-                </div>
-                <span className="text-xs leading-tight text-muted-foreground">{line.name}</span>
-                <ChargeHistogram
-                  weeks={charges}
-                  maxHours={maxLineHours}
-                  variant="line"
-                />
-                {/* PP_830 — équilibrage (issue #42, header M1) : barre empilée typo
-                    (plein = sans bouche, clair = consomme bouche) + stock bouches hygro. */}
-                {line.pp830 && (
-                  <PP830Header pp830={line.pp830} />
-                )}
-              </div>
-
-              {/* Cellules */}
-              {line.dayCells.map((dc, ci) => {
-                const isToday = days[ci]?.today
-                return (
-                  <BoardCell
-                    key={`${line.code}:${ci}`}
-                    lineCode={line.code}
-                    col={ci}
-                    iso={dc.iso}
-                    isToday={isToday ?? false}
-                    cards={dc.cards}
-                    draggedNumOf={draggedNumOf}
-                    store={store}
-                    onSelectOf={props.onSelectOf}
-                    onCardHover={props.onCardHover}
-                    cardRetard={props.cardRetard}
-                    cellExtra={props.cellExtra?.(line.code, ci)}
-                    onCellDrop={props.onCellDrop}
-                  />
-                )
-              })}
-            </div>
-          )
-        })}
+        {lines.map((line, li) => (
+          <BoardLine
+            key={line.code}
+            line={line}
+            li={li}
+            lineCharge={lineCharge}
+            gridTpl={gridTpl}
+            maxLineHours={maxLineHours}
+            days={days}
+            draggedNumOf={draggedNumOf}
+            store={store}
+            onSelectOf={props.onSelectOf}
+            onCardHover={props.onCardHover}
+            cardRetard={props.cardRetard}
+            cellExtra={props.cellExtra}
+            onCellDrop={props.onCellDrop}
+            onLineEngagement={props.onLineEngagement}
+          />
+        ))}
         {props.overlay}
       </div>
+    </div>
+  )
+}
+
+// ── Rangée de poste (composant dédié : useBoardStore au top-level, PAS dans le .map) ──
+interface BoardLineProps {
+  line: LineRow
+  li: number
+  lineCharge: Map<number, ChargeWeek[]>
+  gridTpl: string
+  maxLineHours: number
+  days: DayCol[]
+  draggedNumOf: string | null
+  store: BoardState
+  onSelectOf?: (num: string) => void
+  onCardHover?: (numOf: string | null) => void
+  cardRetard?: (ofId: string) => number | null | undefined
+  cellExtra?: (lineCode: string, col: number) => JSX.Element
+  onCellDrop?: (lineCode: string, col: number, iso: string, e: DragEvent) => void
+  onLineEngagement?: (lineCode: string) => void
+}
+
+function BoardLine({
+  line,
+  li,
+  lineCharge,
+  gridTpl,
+  maxLineHours,
+  days,
+  draggedNumOf,
+  store,
+  onSelectOf,
+  onCardHover,
+  cardRetard,
+  cellExtra,
+  onCellDrop,
+  onLineEngagement,
+}: BoardLineProps) {
+  const charges = lineCharge.get(li) ?? []
+  // ponytail: ce hook DOIT être au top-level du sous-composant (pas dans un .map du parent),
+  // sinon violation Rules of Hooks (rendered more hooks than previous render).
+  const visible = useBoardStore((s) => lineVisible(s, line.code))
+  if (!visible) return null
+
+  return (
+    <div className="grid border-b border-rule-soft" style={{ gridTemplateColumns: gridTpl }}>
+      {/* En-tête de poste (collant à gauche). L'identité (dot+code+nom) est
+          cliquable → panneau « Engagement » par poste (#46). Pas de bouton
+          dédié : le header est déjà dense (histogramme + PP_830). */}
+      <div className="sticky left-0 z-20 flex flex-col gap-1.5 overflow-hidden border-r border-rule bg-card px-3.5 py-3">
+        <div
+          className={cn(
+            'flex items-center gap-2',
+            onLineEngagement && 'cursor-pointer transition-colors hover:[&_.line-code]:text-brand'
+          )}
+          onClick={() => onLineEngagement?.(line.code)}
+          title={onLineEngagement ? 'Engagement — OF fermes du poste' : undefined}
+        >
+          <span
+            className="size-2.5 rounded-[2px]"
+            style={{ background: line.dot ? undefined : 'var(--color-planifie)' }}
+          />
+          <span className="line-code font-mono text-sm font-bold tracking-tight text-foreground transition-colors">
+            {line.code}
+          </span>
+        </div>
+        <span className="text-xs leading-tight text-muted-foreground">{line.name}</span>
+        <ChargeHistogram weeks={charges} maxHours={maxLineHours} variant="line" />
+        {/* PP_830 — équilibrage (issue #42, header M1) : barre empilée typo
+            (plein = sans bouche, clair = consomme bouche) + stock bouches hygro. */}
+        {line.pp830 && <PP830Header pp830={line.pp830} />}
+      </div>
+
+      {/* Cellules */}
+      {line.dayCells.map((dc, ci) => {
+        const isToday = days[ci]?.today
+        return (
+          <BoardCell
+            key={`${line.code}:${ci}`}
+            lineCode={line.code}
+            col={ci}
+            iso={dc.iso}
+            isToday={isToday ?? false}
+            cards={dc.cards}
+            draggedNumOf={draggedNumOf}
+            store={store}
+            onSelectOf={onSelectOf}
+            onCardHover={onCardHover}
+            cardRetard={cardRetard}
+            cellExtra={cellExtra?.(line.code, ci)}
+            onCellDrop={onCellDrop}
+          />
+        )
+      })}
     </div>
   )
 }
