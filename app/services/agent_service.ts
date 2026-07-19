@@ -32,6 +32,8 @@ import { agentToolNames, buildAgentTools } from '#services/agent/tools'
 import {
   getStoredSession,
   storeSession,
+  tryLock,
+  unlock,
   type StoredAgentSession,
 } from '#services/agent/session_store'
 
@@ -59,6 +61,13 @@ export interface RunAgentOptions {
    * les tours (mémoire multi-tour, TTL 30 min). Absent → session jetable.
    */
   conversationId?: string
+  /**
+   * Id de l'user authentifié (K5 IDOR). Requis dès que `conversationId` est
+   * fourni : la Map est namespacée `${userId}:${conversationId}` pour qu'un
+   * attaquant ne puisse pas deviner un id de conversation et lire la session
+   * Pi d'autrui (historique + résultats d'outils = données ERP).
+   */
+  userId?: string | number
   /** Contexte écran injecté (IDs seulement) — préfixé au message. */
   screenContext?: {
     page?: string
@@ -249,8 +258,20 @@ async function resolveTurnSession(options: RunAgentOptions): Promise<{
     return { runtime: await createAgentRuntime(tools), persistent: false }
   }
 
-  const existing = getStoredSession(convId)
+  // K5 — userId obligatoire pour les sessions persistantes : la Map est
+  // namespacée `${userId}:${conversationId}`, sinon un attaquant qui devine
+  // un conversationId récupère la session Pi d'autrui.
+  const userId = options.userId
+  if (userId === undefined) {
+    throw new Error(
+      'userId requis avec conversationId (K5 : namespace anti-IDOR obligatoire).'
+    )
+  }
+
+  const existing = getStoredSession(userId, convId)
   if (existing) {
+    // Defense-in-depth : le verrou atomique (runAgentTurn) est la barrière
+    // primaire contre le TOCTOU. Ce check reste en seconde ligne.
     if (existing.session.isStreaming) {
       throw new Error('Une réponse est déjà en cours pour cette conversation.')
     }
@@ -258,7 +279,7 @@ async function resolveTurnSession(options: RunAgentOptions): Promise<{
   }
 
   const created = await createAgentRuntime(tools)
-  storeSession(convId, created)
+  storeSession(userId, convId, created)
   return { runtime: created, persistent: true }
 }
 
@@ -266,79 +287,108 @@ async function resolveTurnSession(options: RunAgentOptions): Promise<{
  * Exécute un tour agent et yield les événements SSE normalisés.
  * Session : persistée par conversation (TTL 30 min) si `conversationId`,
  * sinon jetable (dispose en fin de stream).
+ *
+ * M1 (concurrence) : pour les sessions conversationnelles, on acquiert un
+ * verrou atomique `tryLock(userId, conversationId)` AVANT tout await/yield.
+ * Sans cela, deux POST quasi-simultanés sur la même conversation passent
+ * tous les deux le guard `isStreaming=false` (le générateur suspend au yield
+ * `{ type: 'session' }` avant que `session.prompt()` n'ait retourné), puis
+ * déclenchent deux streams en parallèle sur la même session Pi. Le verrou
+ * est relâché dans le `finally` extérieur quoi qu'il arrive.
  */
 export async function* runAgentTurn(
   options: RunAgentOptions
 ): AsyncGenerator<AgentSseEvent, void, void> {
-  const { runtime, persistent } = await resolveTurnSession(options)
-  const { session, dispose, modelLabel, toolNames, sessionId } = runtime
+  const convId = options.conversationId?.trim()
+  const userId = options.userId
+  const needsLock = Boolean(convId && userId !== undefined)
 
-  yield { type: 'session', sessionId, model: modelLabel, tools: toolNames }
-
-  const queue: PiEvent[] = []
-  let wake: (() => void) | null = null
-  let finished = false
-  let fatalMessage: string | null = null
-
-  const waitEvent = (): Promise<void> =>
-    new Promise((resolve) => {
-      if (queue.length > 0 || finished) {
-        resolve()
-        return
-      }
-      wake = () => {
-        wake = null
-        resolve()
-      }
-    })
-
-  const unsub = session.subscribe((event) => {
-    queue.push(event)
-    wake?.()
-  })
-
-  const onAbort = () => {
-    session.abort().catch(() => {})
-  }
-  if (options.signal) {
-    if (options.signal.aborted) onAbort()
-    else options.signal.addEventListener('abort', onAbort, { once: true })
+  // M1 — Verrou atomique sync pré-yield : aucun await entre ce check et la
+  // prise effective du verrou → pas de fenêtre TOCTOU.
+  if (needsLock) {
+    if (!tryLock(userId as string | number, convId as string)) {
+      throw new Error('Une réponse est déjà en cours pour cette conversation.')
+    }
   }
 
-  const userText = `${formatScreenContext(options.screenContext)}${options.message}`
+  try {
+    const { runtime, persistent } = await resolveTurnSession(options)
+    const { session, dispose, modelLabel, toolNames, sessionId } = runtime
 
-  const promptPromise = session
-    .prompt(userText)
-    .catch((err: unknown) => {
-      fatalMessage = err instanceof Error ? err.message : String(err)
-    })
-    .finally(() => {
-      finished = true
+    yield { type: 'session', sessionId, model: modelLabel, tools: toolNames }
+
+    const queue: PiEvent[] = []
+    let wake: (() => void) | null = null
+    let finished = false
+    let fatalMessage: string | null = null
+
+    const waitEvent = (): Promise<void> =>
+      new Promise((resolve) => {
+        if (queue.length > 0 || finished) {
+          resolve()
+          return
+        }
+        wake = () => {
+          wake = null
+          resolve()
+        }
+      })
+
+    const unsub = session.subscribe((event) => {
+      queue.push(event)
       wake?.()
     })
 
-  try {
-    while (!finished || queue.length > 0) {
-      if (queue.length === 0) {
-        await waitEvent()
-        continue
-      }
-      const event = queue.shift()!
-      for (const e of mapPiEvent(event)) yield e
+    const onAbort = () => {
+      session.abort().catch(() => {})
     }
-    await promptPromise
-    if (fatalMessage) {
-      yield { type: 'error', message: fatalMessage }
-    }
-    yield { type: 'done', sessionId }
-  } finally {
     if (options.signal) {
-      options.signal.removeEventListener('abort', onAbort)
+      if (options.signal.aborted) onAbort()
+      else options.signal.addEventListener('abort', onAbort, { once: true })
     }
-    unsub()
-    // Session conversationnelle : on la garde vivante (mémoire multi-tour).
-    // L'éviction TTL/cap du session_store s'occupe du dispose.
-    if (!persistent) dispose()
+
+    const userText = `${formatScreenContext(options.screenContext)}${options.message}`
+
+    const promptPromise = session
+      .prompt(userText)
+      .catch((err: unknown) => {
+        fatalMessage = err instanceof Error ? err.message : String(err)
+      })
+      .finally(() => {
+        finished = true
+        wake?.()
+      })
+
+    try {
+      while (!finished || queue.length > 0) {
+        if (queue.length === 0) {
+          await waitEvent()
+          continue
+        }
+        const event = queue.shift()!
+        for (const e of mapPiEvent(event)) yield e
+      }
+      await promptPromise
+      if (fatalMessage) {
+        yield { type: 'error', message: fatalMessage }
+      }
+      yield { type: 'done', sessionId }
+    } finally {
+      if (options.signal) {
+        options.signal.removeEventListener('abort', onAbort)
+      }
+      unsub()
+      // Session conversationnelle : on la garde vivante (mémoire multi-tour).
+      // L'éviction TTL/cap du session_store s'occupe du dispose.
+      if (!persistent) dispose()
+    }
+  } finally {
+    // M1 — Relâche le verrou atomique dans tous les chemins (throw, return,
+    // fin normale). Sans cela, la conversation resterait bloquée jusqu'au
+    // redémarrage processus.
+    if (needsLock) {
+      unlock(userId as string | number, convId as string)
+    }
   }
 }
 

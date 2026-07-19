@@ -7,6 +7,10 @@
  * Stream `text/event-stream` d'événements JSON (cf. AgentSseEvent).
  * Session Pi in-memory, persistée par conversationId (mémoire multi-tour,
  * TTL 30 min) — jetable si absent.
+ *
+ * K5 (sécu) : la session est namespacée par `ctx.auth.user.id` côté
+ * `session_store` — un attaquant qui devine un `conversationId` ne peut
+ * plus lire la session Pi d'un autre user. Derrière `middleware.auth()`.
  */
 
 import type { HttpContext } from '@adonisjs/core/http'
@@ -76,6 +80,22 @@ export default class AgentController {
       return ctx.response.badRequest({ error: 'Champ « message » requis.' })
     }
 
+    const rawConversationId =
+      typeof body.conversationId === 'string'
+        ? body.conversationId.trim().slice(0, 64) || undefined
+        : undefined
+    const userId = ctx.auth.user?.id
+
+    // K5 — sans user authentifié, on refuse la persistence conversationnelle
+    // (defense in depth : le middleware.auth() devrait déjà bloquer, mais on
+    // ne veut jamais keyer une session sur un id absent car cela ouvrirait un
+    // namespace partagé "undefined:*" — un avatar d'IDOR).
+    if (rawConversationId && userId === undefined) {
+      return ctx.response.unauthorized({
+        error: 'Authentification requise pour la mémoire conversationnelle.',
+      })
+    }
+
     // Headers SSE — pas de compression / buffer middleware-friendly.
     ctx.response.response.writeHead(200, {
       'Content-Type': 'text/event-stream; charset=utf-8',
@@ -91,10 +111,8 @@ export default class AgentController {
     try {
       for await (const event of runAgentTurn({
         message,
-        conversationId:
-          typeof body.conversationId === 'string'
-            ? body.conversationId.trim().slice(0, 64) || undefined
-            : undefined,
+        conversationId: rawConversationId,
+        userId,
         screenContext: {
           page: typeof body.page === 'string' ? body.page : undefined,
           selection: asIdMap(body.selection),
