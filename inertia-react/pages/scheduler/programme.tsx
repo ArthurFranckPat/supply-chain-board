@@ -50,7 +50,7 @@ import {
   type ImpactVerdict,
 } from '@r/lib/vision/impact'
 
-import { ProgrammeToolbar, ProgrammeContextBar, type VisionMode } from '@r/components/vision/programme-toolbar'
+import { ProgrammeToolbar, type VisionMode } from '@r/components/vision/programme-toolbar'
 import { CommandeMarker } from '@r/components/vision/commande-marker'
 import { LinksOverlay, type LinkMode } from '@r/components/vision/links-overlay'
 import { TriageRail, type TriageItem } from '@r/components/vision/triage-rail'
@@ -864,7 +864,8 @@ export default function Programme(props: VisionProps) {
           runFeasibility={runFeasibility}
           refreshing={refreshing}
           doRefresh={doRefresh}
-          dateRange={props.dateRange}
+          windowFrom={props.windowFrom}
+          windowTo={props.windowTo}
           calOpen={calOpen}
           setCalOpen={setCalOpen}
           range={range}
@@ -919,61 +920,59 @@ export default function Programme(props: VisionProps) {
               </Select>
             </>
           }
+          combinedSlot={
+            mode === 'combined' ? (
+              <>
+                {/* Santé du plan — pill résumé unique (remplace les 4 badges
+                    PlanHealth). Un seul signal "N problèmes" / "✓ Plan sain"
+                    qui ouvre le rail filtré. Le détail vit dans le rail. */}
+                {(() => {
+                  const nbRuptures = ((): number => {
+                    let n = 0
+                    for (const f of Object.values(boardStore.feasibility))
+                      if (f.st === 'blocked') n++
+                    return n
+                  })()
+                  const nbProblemes = nbCmdRetard + nbCmdLimite + nbRuptures + nbCmdSansLien
+                  const hasProblems = nbProblemes > 0
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => setRailOpen(true)}
+                      className={cn(
+                        'inline-flex min-h-[28px] items-center gap-1.5 rounded-full border px-3 py-1 font-mono text-2xs font-bold uppercase tracking-wider transition-colors',
+                        hasProblems
+                          ? 'border-transparent bg-error/10 text-error hover:opacity-80'
+                          : 'border-transparent bg-ferme/10 text-ferme hover:opacity-80'
+                      )}
+                      title={`${nbProblemes} problème(s) — ouvrir le rail`}
+                    >
+                      <span
+                        className={cn('size-1.5 rounded-full', hasProblems ? 'bg-error' : 'bg-ferme')}
+                        aria-hidden="true"
+                      />
+                      {hasProblems ? `${nbProblemes} problèmes` : 'Plan sain'}
+                    </button>
+                  )
+                })()}
+                <button
+                  type="button"
+                  onClick={() => setRailOpen((v) => !v)}
+                  aria-pressed={railOpen}
+                  className={cn(
+                    'inline-flex min-h-[28px] items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors',
+                    railOpen
+                      ? 'border-brand bg-brand-soft text-brand'
+                      : 'border-rule bg-card text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  <span className="material-symbols-outlined text-sm">queue</span>
+                  Rail
+                </button>
+              </>
+            ) : null
+          }
         />
-
-        <ProgrammeContextBar mode={mode} feasMode={feasMode()} setFeasMode={setFeasMode}>
-          {mode === 'combined' && (
-            <>
-              {/* Santé du plan — pill résumé unique (remplace les 4 badges
-                  PlanHealth). Un seul signal "N problèmes" / "✓ Plan sain"
-                  qui ouvre le rail filtré. Le détail vit dans le rail. */}
-              {(() => {
-                const nbRuptures = ((): number => {
-                  let n = 0
-                  for (const f of Object.values(boardStore.feasibility))
-                    if (f.st === 'blocked') n++
-                  return n
-                })()
-                const nbProblemes = nbCmdRetard + nbCmdLimite + nbRuptures + nbCmdSansLien
-                const hasProblems = nbProblemes > 0
-                return (
-                  <button
-                    type="button"
-                    onClick={() => setRailOpen(true)}
-                    className={cn(
-                      'inline-flex min-h-[28px] items-center gap-1.5 rounded-full border px-3 py-1 font-mono text-2xs font-bold uppercase tracking-wider transition-colors',
-                      hasProblems
-                        ? 'border-transparent bg-error/10 text-error hover:opacity-80'
-                        : 'border-transparent bg-ferme/10 text-ferme hover:opacity-80'
-                    )}
-                    title={`${nbProblemes} problème(s) — ouvrir le rail`}
-                  >
-                    <span
-                      className={cn('size-1.5 rounded-full', hasProblems ? 'bg-error' : 'bg-ferme')}
-                      aria-hidden="true"
-                    />
-                    {hasProblems ? `${nbProblemes} problèmes` : 'Plan sain'}
-                  </button>
-                )
-              })()}
-              <div className="flex-1" />
-              <button
-                type="button"
-                onClick={() => setRailOpen((v) => !v)}
-                aria-pressed={railOpen}
-                className={cn(
-                  'inline-flex min-h-[28px] items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors',
-                  railOpen
-                    ? 'border-brand bg-brand-soft text-brand'
-                    : 'border-rule bg-card text-muted-foreground hover:text-foreground'
-                )}
-              >
-                <span className="material-symbols-outlined text-sm">queue</span>
-                Rail
-              </button>
-            </>
-          )}
-        </ProgrammeContextBar>
 
         {/* #57 — bandeau du mode scénario */}
         {mode === 'combined' && scenarioStore.active && (

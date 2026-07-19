@@ -44,6 +44,30 @@ const PILL =
   'inline-flex min-h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 py-1 text-xs font-semibold text-foreground transition-colors hover:border-brand'
 
 /**
+ * Formatage court d'un intervalle de dates ISO (YYYY-MM-DD) en dd/MM → dd/MM.
+ * Exemple : ('2026-07-19', '2026-07-25') → '19/07 → 25/07'.
+ *
+ * Remplace l'ancien format serveur (`19/07 — 25/07` avec em-dash) par un
+ * intervalle fléché plus lisible, aligné sur le langage métier planning.
+ * Falls back gracieusement si l'ISO est absente/corrompu.
+ */
+function formatRange(fromIso: string, toIso: string): string {
+  const from = formatDdMm(fromIso)
+  const to = formatDdMm(toIso)
+  if (!from && !to) return '—'
+  if (!from) return to ?? '—'
+  if (!to) return from
+  return `${from} → ${to}`
+}
+
+function formatDdMm(iso: string): string | null {
+  if (!iso || typeof iso !== 'string') return null
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (!m) return null
+  return `${m[3]}/${m[2]}`
+}
+
+/**
  * Toolbar de la page Programme — rangée COMMANDE (48px fixe).
  * Programme v2 : ne contient que l'identité de la page (mode, fenêtre,
  * actions). Les filtres sont descendus dans le contexte-row.
@@ -55,22 +79,32 @@ export function ProgrammeToolbar(props: {
   runFeasibility: () => void
   refreshing: boolean
   doRefresh: () => void
-  dateRange: string
+  /** Date ISO (YYYY-MM-DD) de début de fenêtre — pour reformater l'affichage
+   *  de la pill calendrier en dd/MM → dd/MM (au lieu du string serveur). */
+  windowFrom: string
+  windowTo: string
   calOpen: boolean
   setCalOpen: (open: boolean) => void
   range: DateRange
   applyRange: (r: DateRange) => void
   scenarioActive?: boolean
   onToggleScenario?: () => void
-  /** Slot recherche/portée — vit à droite du <flex-1> (avant les pills
-   *  Faisabilité/Sélection). Sorti du Masthead pour éviter le doublon
-   *  visuel avec la toolbar. */
+  /** Slot recherche/portée — vit à droite du <flex-1> (avant le menu Actions).
+   *  Sorti du Masthead pour éviter le doublon visuel avec la toolbar. */
   search?: React.ReactNode
+  /** Slot Combiné-only : pill "N problèmes" + bouton Rail. Injecté depuis
+   *  programme.tsx. Apparaît entre la recherche et le menu Actions. */
+  combinedSlot?: React.ReactNode
 }) {
+  // Formatage local dd/MM → dd/MM depuis les ISO. Plus lisible que le
+  // "19/07 — 25/07" serveur (em-dash), et aligné sur le langage métier
+  // planning (intervalle fléché). Fall-back sur props.dateRange si ISO absent.
+  const dateRangeLabel = formatRange(props.windowFrom, props.windowTo)
+
   return (
     <div
       data-print-toolbar
-      className="flex flex-none flex-wrap items-center gap-2.5 border-b border-rule px-7 py-2 min-h-[48px]"
+      className="flex flex-none flex-wrap items-center gap-2 border-b border-rule px-7 py-2 min-h-[48px]"
     >
       {/* Mode — segment */}
       <div className={SEG} role="radiogroup" aria-label="Mode d'affichage">
@@ -89,11 +123,11 @@ export function ProgrammeToolbar(props: {
         ))}
       </div>
 
-      {/* Fenêtre — pill, conservée à l'impression */}
+      {/* Fenêtre — pill calendrier (dd/MM → dd/MM) */}
       <div data-print-keep className="relative">
         <button
           type="button"
-          aria-label={`Fenêtre : ${props.dateRange}${props.calOpen ? ' — fermer' : ' — ouvrir'}`}
+          aria-label={`Fenêtre : ${dateRangeLabel}${props.calOpen ? ' — fermer' : ' — ouvrir'}`}
           aria-expanded={props.calOpen}
           onClick={() => props.setCalOpen(!props.calOpen)}
           className={PILL}
@@ -101,7 +135,7 @@ export function ProgrammeToolbar(props: {
           <span className="material-symbols-outlined text-sm text-muted-foreground">
             calendar_month
           </span>
-          {props.dateRange}
+          <span className="font-mono tabular-nums">{dateRangeLabel}</span>
           <span className="material-symbols-outlined text-[16px] text-muted-foreground">
             expand_more
           </span>
@@ -130,27 +164,53 @@ export function ProgrammeToolbar(props: {
         )}
       </div>
 
-      {/* Actualiser — pill */}
-      <button
-        type="button"
-        disabled={props.refreshing}
-        onClick={props.doRefresh}
-        className={cn(PILL, 'disabled:opacity-60')}
-        title="Recharger les données X3 (cache → re-fetch live)"
-      >
-        <span
-          className={`material-symbols-outlined text-sm text-muted-foreground ${props.refreshing ? 'animate-spin' : ''}`}
-        >
-          refresh
-        </span>
-        {props.refreshing ? 'Actualisation…' : 'Actualiser'}
-      </button>
+      {/* Statut — segment (OF / Combiné). fusion ContextBar → 1 rangée. */}
+      {props.mode !== 'planification' && (
+        <div className={SEG}>
+          <span className={SEG_LBL}>Statut</span>
+          {STATUS_FILTER_CHIPS.map(({ k, label }) => (
+            <button
+              key={k}
+              type="button"
+              aria-pressed={useBoardStore((s) => statusActive(s, k))}
+              className={useBoardStore((s) => (statusActive(s, k) ? SEG_BTN_ON : SEG_BTN_OFF))}
+              onClick={() => useBoardStore.getState().toggleStatus(k)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="flex-1" />
 
       {/* Recherche + portée — sortis du Masthead (évite le doublon avec la
           toolbar). Prop `search` injectée depuis programme.tsx. */}
       {props.search}
+
+      {/* Slot Combiné : pill "N problèmes" + bouton Rail. Injecté depuis
+          programme.tsx. Apparaît entre la recherche et le menu Actions. */}
+      {props.combinedSlot}
+
+      {/* Actualiser — icon-only pour désencombrer. Title porte le label
+          complet pour a11y + tooltip. */}
+      <button
+        type="button"
+        disabled={props.refreshing}
+        onClick={props.doRefresh}
+        className={cn(PILL, 'disabled:opacity-60')}
+        title={props.refreshing ? 'Actualisation en cours…' : 'Recharger les données X3 (cache → re-fetch live)'}
+        aria-label="Actualiser"
+      >
+        <span
+          className={cn(
+            'material-symbols-outlined text-sm text-muted-foreground',
+            props.refreshing && 'animate-spin'
+          )}
+        >
+          refresh
+        </span>
+      </button>
 
       {/* Menu Actions — regroupe Scénario + Faisabilité + Sélection pour
           désencombrer la toolbar. Comportement identique (mêmes handlers),
@@ -312,43 +372,5 @@ function ActionsMenu(props: {
         )}
       </div>
     </details>
-  )
-}
-
-/**
- * Programme v2 — rangée CONTEXTE (40px fixe). Filtres du mode courant +
- * segment Liens + santé du plan + bouton rail. Hauteur constante, zéro CLS.
- */
-export function ProgrammeContextBar(props: {
-  mode: VisionMode
-  feasMode: 'immediate' | 'sequential'
-  setFeasMode: (m: 'immediate' | 'sequential') => void
-  children?: React.ReactNode
-}) {
-  const store = useBoardStore()
-
-  return (
-    <div className="flex flex-none items-center gap-2.5 border-b border-rule bg-muted/30 px-7 py-1.5 min-h-[40px]">
-      {/* Statut — segment (OF / Combiné) */}
-      {props.mode !== 'planification' && (
-        <div className={SEG}>
-          <span className={SEG_LBL}>Statut</span>
-          {STATUS_FILTER_CHIPS.map(({ k, label }) => (
-            <button
-              key={k}
-              type="button"
-              aria-pressed={useBoardStore((s) => statusActive(s, k))}
-              className={useBoardStore((s) => (statusActive(s, k) ? SEG_BTN_ON : SEG_BTN_OFF))}
-              onClick={() => store.toggleStatus(k)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Liens segment + PlanHealth + Rail : injectés via children (programme.tsx) */}
-      {props.children}
-    </div>
   )
 }
