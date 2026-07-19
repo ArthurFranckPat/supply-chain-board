@@ -59,7 +59,7 @@ export default function Login(props: LoginProps) {
   return (
     <>
       <Head title="Connexion - Supply Chain Board" />
-      <main className="theme-navy min-h-screen bg-background text-foreground">
+      <main className="theme-airbnb min-h-screen bg-background text-foreground">
         <div className="mx-auto grid min-h-screen w-full max-w-5xl items-stretch md:grid-cols-[1.05fr_.95fr]">
           {/* ═══ Panneau marque ═══ */}
           <aside

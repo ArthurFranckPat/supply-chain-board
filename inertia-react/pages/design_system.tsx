@@ -283,7 +283,7 @@ export default function DesignSystem() {
   return (
     <>
       <Head title="Design System" />
-      <div className={theme === 'navy' ? 'theme-navy min-h-screen' : 'theme-papier min-h-screen'}>
+      <div className="theme-airbnb min-h-screen">
         <div className="mx-auto grid max-w-[1280px] grid-cols-[210px_1fr] gap-0">
           {/* ═══ TOC ═══ */}
           <aside className="sticky top-0 h-screen overflow-auto border-r border-rule-soft px-4 py-8 pl-8">

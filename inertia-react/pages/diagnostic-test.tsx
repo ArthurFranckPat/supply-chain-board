@@ -243,10 +243,11 @@ export default function DiagnosticTest() {
   return (
     <>
       <Head title="Diagnostic test" />
-      <div className="theme-navy flex h-screen flex-col overflow-hidden bg-background text-foreground">
+      <div className="theme-airbnb flex h-screen flex-col overflow-hidden bg-background text-foreground">
         <Masthead
           subtitle="Diagnostic récursif · page de test (#25)"
           active="programme"
+          variant="airbnb"
         />
         <div className="flex-1 overflow-auto px-7 py-6">
           <div className="mx-auto flex max-w-4xl flex-col gap-5">

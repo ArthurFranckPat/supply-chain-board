@@ -837,10 +837,11 @@ export default function Programme(props: VisionProps) {
   return (
     <>
       <Head title="Programme" />
-      <div className="theme-navy flex h-screen flex-col overflow-hidden bg-background text-foreground">
+      <div className="theme-airbnb flex h-screen flex-col overflow-hidden bg-background text-foreground">
         <Masthead
           subtitle="Programme · Flux OF ↔ commandes"
           active="programme"
+          variant="airbnb"
           meta={
             <>
               <div className="font-fraunces text-xs font-bold not-italic text-brand">

@@ -120,10 +120,11 @@ export default function Copilote() {
   return (
     <>
       <Head title="Copilote" />
-      <div className="flex h-screen flex-col bg-background text-foreground">
+      <div className="theme-airbnb flex h-screen flex-col bg-background text-foreground">
         <Masthead
           subtitle="Copilote supply — lecture seule"
           active="copilote"
+          variant="airbnb"
           meta={
             <div className="text-right text-[11px] leading-tight text-secondary-foreground">
               <div className="font-semibold text-foreground">Agentique v1</div>

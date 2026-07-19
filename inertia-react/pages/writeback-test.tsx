@@ -280,10 +280,11 @@ export default function WritebackTest() {
   return (
     <>
       <Head title="Writeback test" />
-      <div className="theme-navy flex h-screen flex-col overflow-hidden bg-background text-foreground">
+      <div className="theme-airbnb flex h-screen flex-col overflow-hidden bg-background text-foreground">
         <Masthead
           subtitle="Write-back X3 · terrain de test (#29)"
           active="programme"
+          variant="airbnb"
         />
 
         <div className="flex-1 overflow-auto px-7 py-6">

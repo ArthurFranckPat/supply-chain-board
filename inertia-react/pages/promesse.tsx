@@ -208,8 +208,8 @@ export default function Promesse() {
   return (
     <>
       <Head title="Promesse" />
-      <div className="theme-navy flex h-screen flex-col overflow-hidden bg-background text-foreground">
-        <Masthead active="promesse" subtitle="Capable-to-Promise — date au plus tôt" />
+      <div className="theme-airbnb flex h-screen flex-col overflow-hidden bg-background text-foreground">
+        <Masthead active="promesse" subtitle="Capable-to-Promise — date au plus tôt" variant="airbnb" />
         <main className="ml-12 pt-12 min-h-screen bg-gray-50 flex-1">
           <div className="mx-auto max-w-3xl px-6 py-8">
             {/* Formulaire */}
