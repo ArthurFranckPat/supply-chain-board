@@ -6,15 +6,19 @@ function mockContext(overrides: Record<string, any> = {}): any {
   return {
     params: {},
     request: {
-      only(keys: string[]) {
-        const result: Record<string, any> = {}
-        for (const k of keys) result[k] = overrides.body?.[k] ?? null
-        return result
+      // H4 — le contrôleur utilise désormais `validateUsing` (vine) au lieu de
+      // `only(...)`. Le mock renvoie le body validé tel quel (le schéma vine
+      // est couvert par `app/validators/planning_board.ts` et testé ailleurs).
+      validateUsing(_schema: unknown) {
+        return overrides.body ?? {}
       },
     },
     response: {
       ok(data: any) {
         return data
+      },
+      badRequest(data: any) {
+        return { __status: 400, ...data }
       },
     },
     ...overrides,
@@ -35,16 +39,21 @@ test.group('PlanningBoardController', (group) => {
       params: { of: 'OF001' },
       body: { dateFin: '2026-06-25', status: 1, note: 'Affermi' },
     })
-    ctx.request.only = (_keys: string[]) => ({
-      dateFin: '2026-06-25',
-      status: 1,
-      note: 'Affermi',
-      dateDebut: null,
-    })
 
-    const result = await ctrl.update(ctx)
+    const result: any = await ctrl.update(ctx)
     assert.equal(result.numOf, 'OF001')
     assert.equal(result.dateFin, '2026-06-25')
     assert.isTrue(result.modified)
+  })
+
+  test('update rejette un numOf d\'OF invalide (H4)', async ({ assert }) => {
+    const ctrl = new PlanningBoardController()
+    const ctx = mockContext({
+      params: { of: 'OF 001; DROP--' },
+      body: { dateFin: '2026-06-25' },
+    })
+
+    const result: any = await ctrl.update(ctx)
+    assert.equal(result.__status, 400)
   })
 })
