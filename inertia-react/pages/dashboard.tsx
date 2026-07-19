@@ -1,10 +1,9 @@
-import { Head } from '@inertiajs/react'
 import { useMemo, useState, useEffect, useRef, useCallback } from 'react'
 import { fr } from 'react-day-picker/locale'
 import type { DateRange as DayPickerRange } from 'react-day-picker'
 import { toast } from 'sonner'
 
-import Masthead from '@r/components/masthead'
+import AppLayout from '@r/layouts/app'
 import { Calendar } from '@r/components/ui/calendar'
 import { useTimedFetch } from '@r/lib/suivi/use-timed-fetch'
 import { usePrintFitPage } from '@r/lib/board/use-print-fit-page'
@@ -640,12 +639,15 @@ export default function Dashboard(props: DashboardProps) {
   }
 
   return (
-    <>
-      <Head title="Tableau de bord" />
-      <div className="theme-navy flex h-screen flex-col overflow-hidden bg-background text-foreground print:h-auto print:overflow-visible">
-        <Masthead subtitle="Tableau de bord · Overview" active="dashboard" />
-
-        <div ref={contentElRef} className="flex-1 overflow-auto px-7 py-6 print:overflow-visible">
+    <AppLayout
+      title="Tableau de bord"
+      active="dashboard"
+      subtitle="Tableau de bord · Overview"
+      theme="airbnb"
+      scrollable={false}
+      maxWidth="7xl"
+    >
+        <div ref={contentElRef} className="h-full overflow-auto px-7 py-6 print:overflow-visible">
           {/* En-tête imprimable — masquée à l'écran, visible uniquement à l'impression */}
           <div
             data-print-header
@@ -1530,7 +1532,6 @@ export default function Dashboard(props: DashboardProps) {
             )}
           </div>
         </div>
-      </div>
-    </>
+    </AppLayout>
   )
 }

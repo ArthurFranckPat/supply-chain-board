@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { Head, usePage } from '@inertiajs/react'
+import { usePage } from '@inertiajs/react'
 import { toast } from 'sonner'
 
-import Masthead from '@r/components/masthead'
+import AppLayout from '@r/layouts/app'
 import { Badge } from '@r/components/ui/badge'
 import { Button } from '@r/components/ui/button'
 import {
@@ -117,51 +117,58 @@ export default function ReactLab() {
   )
 
   return (
-    <>
-      <Head title="React Lab" />
-      <div
-        className={`flex min-h-screen flex-col bg-background text-foreground ${theme === 'airbnb' ? 'theme-airbnb' : ''}`}
-      >
-        <Masthead
-          subtitle="LABORATOIRE REACT"
-          active="dashboard"
-          variant={theme}
-          meta={
-            <>
-              Fondations phases 0-1
-              <br />
-              {page.component} · {page.url}
-            </>
-          }
-          actions={
-            <div
-              className="inline-flex rounded-full border bg-muted p-0.5"
-              role="tablist"
-              aria-label="Thème"
+    <AppLayout
+      title="React Lab"
+      active="dashboard"
+      subtitle="LABORATOIRE REACT"
+      theme={theme}
+      hideFooter={theme === 'stock'}
+      mastheadActions={
+        <div
+          className="inline-flex rounded-full border bg-muted p-0.5"
+          role="tablist"
+          aria-label="Thème"
+        >
+          {(['stock', 'airbnb'] as const).map((t) => (
+            <button
+              key={t}
+              type="button"
+              role="tab"
+              aria-selected={theme === t}
+              onClick={() => setTheme(t)}
+              className={`rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wide transition-colors ${
+                theme === t
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
             >
-              {(['stock', 'airbnb'] as const).map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  role="tab"
-                  aria-selected={theme === t}
-                  onClick={() => setTheme(t)}
-                  className={`rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wide transition-colors ${
-                    theme === t
-                      ? 'bg-primary text-primary-foreground'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  {t}
-                </button>
-              ))}
-            </div>
-          }
-        />
-
-        <div className="grid flex-1 grid-cols-1 items-start gap-6 p-6 lg:grid-cols-[1fr_360px]">
+              {t}
+            </button>
+          ))}
+        </div>
+      }
+      meta={
+        <>
+          Fondations phases 0-1
+          <br />
+          {page.component} · {page.url}
+        </>
+      }
+      toolbar={
+        <>
+          <Pill variant={ligne ? 'default' : 'ghost'} dot={ligne ? true : false}>
+            {ligne ? `Ligne ${ligne}` : 'Toutes les lignes'}
+          </Pill>
+          <Pill variant="soft">React Lab</Pill>
+          <span className="ml-auto text-[11px] text-muted-foreground">
+            Layout B — Toolbar slot
+          </span>
+        </>
+      }
+    >
+      <div className="grid h-full grid-cols-1 items-start gap-6 lg:grid-cols-[1fr_360px]">
           {/* DataTable virtualisée (500 lignes mock) */}
-          <div className="flex h-[calc(100vh-200px)] min-h-[400px] flex-col gap-3">
+          <div className="flex h-[calc(100vh-280px)] min-h-[400px] flex-col gap-3">
             <div className="flex items-center gap-3">
               <h2 className="text-sm font-semibold">DataTable — 500 lignes virtualisées</h2>
               <div className="ml-auto w-44">
@@ -371,7 +378,6 @@ export default function ReactLab() {
             </div>
           </div>
         </div>
-      </div>
-    </>
+    </AppLayout>
   )
 }
