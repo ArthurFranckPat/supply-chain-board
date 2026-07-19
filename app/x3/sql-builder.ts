@@ -70,9 +70,3 @@ function splitColumns(selectPart: string): string[] {
   if (current.trim()) cols.push(current.trim())
   return cols
 }
-
-/** Replace single-quoted string literals with CHR(39) concatenation.
- *  Syracuse's JSON parser crashes on single quotes in W_SQL values. */
-export function escapeSqlForSyracuse(sql: string): string {
-  return sql.replace(/'([^']*)'/g, 'CHR(39)||$1||CHR(39)')
-}

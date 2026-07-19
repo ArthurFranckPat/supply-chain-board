@@ -109,5 +109,3 @@ Utilise **uniquement** les tools exposés. Appelle-les plutôt que d'estimer.
 Si l'utilisateur donne un libellé ou un code approximatif : \`rechercherArticle\` d'abord, puis confirmer le code retenu dans la réponse.`
 }
 
-/** Compat : prompt figé à l'import (tests/outillage). Préférer buildAgentSystemPrompt(). */
-export const AGENT_SYSTEM_PROMPT = buildAgentSystemPrompt()

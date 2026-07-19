@@ -132,26 +132,6 @@ export default class SchedulerController {
     return new OverrideStore()
   }
 
-  /** GET /ordonnancement — board d'ordonnancement OF, vue experte haute densité. */
-  async expertBoard(ctx: HttpContext) {
-    const data = await loadBoardData(ctx)
-    return ctx.inertia.render('scheduler/scheduling', {
-      board: data.board,
-      windowFrom: data.windowFrom,
-      windowTo: data.windowTo,
-      horizon: data.horizon,
-      dateRange: data.dateRange,
-      weekLabel: data.weekLabel,
-      prevHref: data.prevHref,
-      nextHref: data.nextHref,
-      todayHref: data.todayHref,
-      totalOf: data.totalOf,
-      lineCount: data.lineCount,
-      x3Error: data.x3Error,
-      cached: data.cached,
-    })
-  }
-
   /** GET /programme — vue unifiée OF ↔ commandes (issue #21, #22). */
   async programme(ctx: HttpContext) {
     const rawMode = ctx.request.input('mode') as string | undefined
