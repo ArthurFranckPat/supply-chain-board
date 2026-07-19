@@ -72,7 +72,7 @@ const tabClsStock = (active: boolean) =>
 // Rausch n'apparaît PAS dans la nav chez Airbnb.
 const tabClsAirbnb = (active: boolean) =>
   cn(
-    'border-b-[3px] px-2.5 py-2 text-[12px] font-semibold leading-tight transition-colors',
+    'border-b-[3px] px-1.5 py-2 text-[12px] font-semibold leading-tight transition-colors',
     active
       ? 'border-foreground text-foreground'
       : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -143,7 +143,7 @@ export function Masthead(props: {
         </div>
 
         {/* Nav centrée — DESIGN.md top-nav : onglets au milieu. */}
-        <nav className="flex flex-1 items-center justify-center gap-0.5">
+        <nav className="flex flex-1 items-center justify-center gap-0">
           {TABS.map((t) =>
             isReactRoute(t.href) ? (
               <Link key={t.key} href={t.href} className={tabCls(t.key === props.active)}>
