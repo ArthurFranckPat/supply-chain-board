@@ -125,6 +125,7 @@ export default function ReactLab() {
         <Masthead
           subtitle="LABORATOIRE REACT"
           active="dashboard"
+          variant={theme}
           meta={
             <>
               Fondations phases 0-1
