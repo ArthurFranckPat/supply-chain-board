@@ -127,14 +127,14 @@ export function AppLayout({
 
       {/* Zone principale.
           - `dense` : pas de padding, maxWidth full (board, programme).
-          - défaut : padding 24px, maxWidth 7xl centré.
+          - défaut : padding px-7 py-4 (aligné avec la toolbar), maxWidth 7xl centré.
           - `scrollable` : overflow-y-auto (la plupart des pages).
           - non scrollable : le contenu gère son propre scroll (gantt). */}
       <main
         className={cn(
           'flex-1 min-h-0',
           scrollable && 'overflow-y-auto',
-          !dense && 'p-6',
+          !dense && 'px-7 py-4',
           dense && 'overflow-hidden'
         )}
       >
