@@ -8,7 +8,6 @@
  * components/tracking/*-view.tsx (issue #52).
  */
 import { useMemo, useState } from 'react'
-import { Head } from '@inertiajs/react'
 import { fr } from 'react-day-picker/locale'
 import type { DateRange as DayPickerRange } from 'react-day-picker'
 
@@ -24,7 +23,7 @@ import type {
 import { parseIso, toIso, startOfDay } from '@/lib/vision/date-utils'
 import { EMPTY, PROACTIVE_EMPTY, fmtMs } from '@/lib/suivi/tracking-shared'
 
-import Masthead from '@r/components/masthead'
+import AppLayout from '@r/layouts/app'
 import { Calendar } from '@r/components/ui/calendar'
 import {
   Sheet,
@@ -275,38 +274,37 @@ export default function Tracking(props: SuiviPageProps) {
   }
 
   return (
-    <>
-      <Head title="Suivi" />
-      <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
-        <Masthead
-          subtitle="Suivi · Allocation & expédition"
-          active="tracking"
-          meta={
-            <>
-              <div className="text-[12px] font-bold capitalize not-italic text-brand">
-                {refLabel}
-              </div>
-              <div>
-                <b className="font-bold text-foreground">{totalCount}</b> lignes ouvertes
-              </div>
-            </>
-          }
-          actions={
-            <div className="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/25">
-              <span className="material-symbols-outlined text-[17px] text-muted-foreground">
-                search
-              </span>
-              <input
-                className="w-[200px] border-0 bg-transparent px-0 text-[12px] font-medium text-foreground shadow-none outline-none"
-                placeholder="Commande, article, client…"
-                type="text"
-                autoComplete="off"
-                value={query}
-                onChange={(e) => setQuery(e.currentTarget.value)}
-              />
-            </div>
-          }
-        />
+    <AppLayout
+      title="Suivi"
+      active="tracking"
+      subtitle="Suivi · Allocation & expédition"
+      theme="airbnb"
+      meta={
+        <>
+          <div className="text-[12px] font-bold capitalize not-italic text-brand">
+            {refLabel}
+          </div>
+          <div>
+            <b className="font-bold text-foreground">{totalCount}</b> lignes ouvertes
+          </div>
+        </>
+      }
+      mastheadActions={
+        <div className="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/25">
+          <span className="material-symbols-outlined text-[17px] text-muted-foreground">
+            search
+          </span>
+          <input
+            className="w-[200px] border-0 bg-transparent px-0 text-[12px] font-medium text-foreground shadow-none outline-none"
+            placeholder="Commande, article, client…"
+            type="text"
+            autoComplete="off"
+            value={query}
+            onChange={(e) => setQuery(e.currentTarget.value)}
+          />
+        </div>
+      }
+    >
 
         {/* ═══ Toolbar ═══ */}
         {/* overflow-x-auto isolé aux CHIPS (sous-div) : sur toute la rangée, il
@@ -522,7 +520,6 @@ export default function Tracking(props: SuiviPageProps) {
 
         {/* Drawer détail OF (faisabilité) — n° d'OF cliqué en colonne Couverture (proactif). */}
         <OfDetailSheet num={selectedOf} open={ofDetailOpen} onOpenChange={setOfDetailOpen} />
-      </div>
-    </>
+    </AppLayout>
   )
 }

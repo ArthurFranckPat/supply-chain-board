@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Head } from '@inertiajs/react'
-import Masthead from '@r/components/masthead'
+import AppLayout from '@r/layouts/app'
 import { cn } from '@r/lib/utils'
 import type { LoadPageProps, LoadLine, LoadView } from '@/lib/load/types'
 import { type Gran, satColor, satRate, total } from '@/lib/load/chart-math'
@@ -134,42 +133,41 @@ export default function Load(props: LoadPageProps) {
   }, [selLine, gran])
 
   return (
-    <>
-      <Head title="Charge · Projection" />
-      <div className="theme-navy flex h-screen flex-col overflow-hidden bg-background text-foreground">
-        <HatchDefs />
-        <Masthead
-          subtitle="Charge · vision long terme"
-          active="load"
-          meta={
-            <>
-              <div className="font-fraunces text-[12px] font-bold italic text-brand">
-                {props.rangeLabel}
-              </div>
-              <div>
-                <b className="font-bold text-foreground">{lines.length}</b> postes de charge ·{' '}
-                {view === 'of' ? 'charge OF' : 'charge commandes'}
-              </div>
-            </>
-          }
-          actions={
-            <div className="contents">
-              <div className="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/25">
-                <span className="material-symbols-outlined text-[17px] text-muted-foreground">
-                  search
-                </span>
-                <input
-                  className="w-[190px] border-0 bg-transparent px-0 text-[12px] font-medium text-foreground shadow-none outline-none"
-                  placeholder="Poste, article…"
-                  type="text"
-                  autoComplete="off"
-                  value={query}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.currentTarget.value)}
-                />
-              </div>
-            </div>
-          }
-        />
+    <AppLayout
+      title="Charge · Projection"
+      active="load"
+      subtitle="Charge · vision long terme"
+      theme="airbnb"
+      meta={
+        <>
+          <div className="font-fraunces text-[12px] font-bold italic text-brand">
+            {props.rangeLabel}
+          </div>
+          <div>
+            <b className="font-bold text-foreground">{lines.length}</b> postes de charge ·{' '}
+            {view === 'of' ? 'charge OF' : 'charge commandes'}
+          </div>
+        </>
+      }
+      mastheadActions={
+        <div className="contents">
+          <div className="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/25">
+            <span className="material-symbols-outlined text-[17px] text-muted-foreground">
+              search
+            </span>
+            <input
+              className="w-[190px] border-0 bg-transparent px-0 text-[12px] font-medium text-foreground shadow-none outline-none"
+              placeholder="Poste, article…"
+              type="text"
+              autoComplete="off"
+              value={query}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.currentTarget.value)}
+            />
+          </div>
+        </div>
+      }
+    >
+      <HatchDefs />
 
         {props.x3Error && (
           <div className="flex flex-none items-center gap-2 border-b border-brand/30 bg-brand-soft px-7 py-2 text-[12px] text-foreground">
@@ -443,7 +441,6 @@ export default function Load(props: LoadPageProps) {
             )}
           </div>
         )}
-      </div>
-    </>
+    </AppLayout>
   )
 }
