@@ -1,13 +1,22 @@
 import { defineConfig } from '@adonisjs/inertia'
+import { REACT_ROUTES } from '../inertia/lib/react-routes.js'
 
 /**
  * Configuration Inertia.
  *
- * - `rootView` : shell Edge minimal qui charge le bundle Vite + le tag @inertia.
+ * - `rootView` : shell Edge choisi par route — les routes migrées React
+ *   (REACT_ROUTES) chargent le bundle inertia-react, les autres le bundle
+ *   Solid. Migration progressive, cf. .planning/react-shadcn-migration-plan.md.
  * - SSR désactivé (SPA) : SEO interne faible, on garde le setup simple.
  */
 export default defineConfig({
-  rootView: 'inertia_layout',
+  rootView: (ctx) => {
+    const pattern = ctx.route?.pattern ?? ''
+    const path = ctx.request.url().split('?')[0]
+    return REACT_ROUTES.has(pattern) || REACT_ROUTES.has(path)
+      ? 'inertia_layout_react'
+      : 'inertia_layout'
+  },
   ssr: { enabled: false },
 })
 
@@ -90,6 +99,8 @@ declare module '@adonisjs/inertia/types' {
       error: string | null
     }
     'design_system': Record<string, never>
+    // Page témoin du socle React (migration react-shadcn, phase 0).
+    'react_lab': Record<string, never>
     'diagnostic-test': Record<string, never>
     'writeback-test': Record<string, never>
     // CTP — simulateur autonome « date au plus tôt » (PRD §6.2, lot 3).

@@ -70,6 +70,14 @@ router
       })
       .as('diagnostic_test')
 
+    // Laboratoire React (migration react-shadcn, phase 0) — page témoin du
+    // socle dual-runtime. À retirer en phase 6 (décommission Solid).
+    router
+      .get('/react-lab', async ({ inertia }) => {
+        return inertia.render('react_lab', {})
+      })
+      .as('react_lab')
+
     // Write-back X3 (issue #29) — terrain de test read/save/modify sur objets
     // publiés du stub CAdxWebServiceXmlCC. Cible TEST (login env=test). À
     // verrouiller/retirer une fois le write-back fiabilisé.
