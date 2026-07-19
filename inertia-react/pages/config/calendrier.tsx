@@ -1,9 +1,8 @@
 import { useMemo, useState } from 'react'
-import { Head } from '@inertiajs/react'
 import { fr } from 'react-day-picker/locale'
 import type { DateRange as DayPickerRange } from 'react-day-picker'
 
-import Masthead from '@r/components/masthead'
+import AppLayout from '@r/layouts/app'
 import { Calendar } from '@r/components/ui/calendar'
 import { Button } from '@r/components/ui/button'
 import {
@@ -448,24 +447,23 @@ export default function Calendrier(props: CalendrierPageProps) {
   }
 
   return (
-    <>
-      <Head title="Calendrier usine" />
-      <div className="theme-navy flex min-h-screen flex-col bg-background text-foreground">
-        <Masthead
-          subtitle="Calendrier usine"
-          active="config"
-          meta={
-            <>
-              <div className="font-fraunces text-[12px] font-bold italic text-brand">
-                Année {props.year}
-              </div>
-              <div>
-                <b className="font-bold text-foreground">{activeCount}</b> fériés actifs ·{' '}
-                <b className="font-bold text-foreground">{closures.length}</b> fermetures
+    <AppLayout
+      title="Calendrier usine"
+      active="config"
+      subtitle="Calendrier usine"
+      theme="airbnb"
+      meta={
+        <>
+          <div className="font-fraunces text-[12px] font-bold italic text-brand">
+            Année {props.year}
+          </div>
+          <div>
+            <b className="font-bold text-foreground">{activeCount}</b> fériés actifs ·{' '}
+            <b className="font-bold text-foreground">{closures.length}</b> fermetures
               </div>
             </>
           }
-          actions={
+          mastheadActions={
             <div className="inline-flex items-center gap-0.5 rounded-md border border-rule bg-card p-0.5">
               {(['registre', 'frise'] as const).map((v) => (
                 <button
@@ -484,8 +482,7 @@ export default function Calendrier(props: CalendrierPageProps) {
               ))}
             </div>
           }
-        />
-
+        >
         <div className="mx-auto w-full max-w-[1280px] px-7 py-6">
           <h1 className="mb-1 font-fraunces text-[24px] font-extrabold tracking-tight">
             Calendrier usine {props.year}
@@ -689,7 +686,6 @@ export default function Calendrier(props: CalendrierPageProps) {
             </div>
           )}
         </div>
-      </div>
-    </>
+    </AppLayout>
   )
 }
