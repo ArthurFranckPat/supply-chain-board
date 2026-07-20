@@ -54,6 +54,15 @@ const BAND_TONE: Record<CardStatus, string> = {
   termine: 'var(--color-muted-foreground, #717171)',
   bloque: 'var(--color-destructive, #ff385c)',
 }
+/** Libellé d'état du ruban de bandeau (signal fort, lisible en colonne dense). */
+const STATUS_LABEL: Record<CardStatus, string> = {
+  ferme: 'FERME',
+  planifie: 'PLANIFIÉ',
+  suggere: 'SUGGÉRÉ',
+  cours: 'EN COURS',
+  termine: 'TERMINÉ',
+  bloque: 'BLOQUÉ',
+}
 
 /**
  * Type commande → couleur (MTS/MTO/NOR). Tokens de statut sémantiques
@@ -321,9 +330,6 @@ function OfListingCard(p: OfCardProps) {
     p.progress && p.progress.total > 0
       ? Math.min(100, Math.round((p.progress.done / p.progress.total) * 100))
       : 0
-  // Motif du bandeau : poste de charge (à la manière du code produit sur la
-  // « photo » d'une annonce), à défaut la réf. article.
-  const motif = p.poste ?? p.articleRef ?? p.article
 
   return (
     <div
@@ -335,25 +341,27 @@ function OfListingCard(p: OfCardProps) {
         p.className
       )}
     >
-      {/* Bande de statut — la « photo » de l'annonce. overflow-hidden + coins
-          arrondis SUR LA BANDE (pas le conteneur) pour ne pas rogner les badges
-          faisabilité/retard qui dépassent du haut de la carte. */}
+      {/* Ruban de statut — teinte douce + pastille + mot d'état saturé : signal
+          fort, lisible même en colonne dense (remplace l'ancien liseré 3 px).
+          Le « code fantôme » de la maquette est volontairement omis : en colonne
+          de ~120 px il se tronquait et doublonnait le code article. overflow-hidden
+          + coins arrondis SUR le ruban pour ne pas rogner les badges saillants. */}
       <div
-        className="relative flex h-9 items-end overflow-hidden rounded-t-[7px] px-2.5"
+        className="relative flex h-7 items-center gap-1.5 overflow-hidden rounded-t-[7px] px-2.5"
         style={{
-          background: `linear-gradient(135deg, color-mix(in srgb, ${tone} 12%, var(--card)), color-mix(in srgb, ${tone} 26%, var(--card)))`,
+          background: `linear-gradient(135deg, color-mix(in srgb, ${tone} 16%, var(--card)), color-mix(in srgb, ${tone} 30%, var(--card)))`,
         }}
       >
+        <span className="size-[7px] shrink-0 rounded-full" style={{ background: tone }} />
         <span
-          aria-hidden
-          className="pointer-events-none select-none truncate font-mono text-[26px] font-bold leading-[1.05] tracking-tight"
-          style={{ color: tone, opacity: 0.18 }}
+          className="shrink-0 font-mono text-[10px] font-extrabold uppercase leading-none tracking-[0.08em]"
+          style={{ color: tone }}
         >
-          {motif}
+          {STATUS_LABEL[p.status]}
         </span>
-        {/* cours : point Rausch pulsant sur la bande */}
+        {/* cours : point Rausch pulsant à droite du ruban */}
         {p.status === 'cours' && (
-          <span className="absolute right-2.5 top-2.5 size-[7px] animate-pulse rounded-full bg-brand" />
+          <span className="absolute right-2.5 top-1/2 size-[7px] -translate-y-1/2 animate-pulse rounded-full bg-brand" />
         )}
       </div>
 
@@ -383,12 +391,23 @@ function OfListingCard(p: OfCardProps) {
             BDH
           </span>
         )}
-        {/* N° OF (ancre). */}
-        <div className="truncate font-mono text-[13px] font-bold leading-tight text-foreground">
+        {/* N° OF (ancre). Réserve à droite la place du tampon BDH si présent. */}
+        <div
+          className={cn(
+            'truncate font-mono text-[13px] font-bold leading-tight text-foreground',
+            p.consommeBouche && 'pr-9'
+          )}
+        >
           {p.article}
         </div>
+        {/* Réf. article : mono gris discret (le rouge est réservé au danger/retard). */}
         {p.articleRef && (
-          <div className="truncate font-mono text-xs font-semibold leading-tight text-brand">
+          <div
+            className={cn(
+              'truncate font-mono text-xs font-medium leading-tight text-secondary-foreground',
+              p.consommeBouche && 'pr-9'
+            )}
+          >
             {p.articleRef}
           </div>
         )}
@@ -418,7 +437,10 @@ function OfListingCard(p: OfCardProps) {
             « prix » de l'annonce). */}
         <div className="mt-1.5 flex items-baseline justify-between gap-1.5 border-t border-rule-soft pt-1">
           {typo ? (
-            <span className="inline-flex min-w-0 items-center gap-1 font-mono text-3xs font-bold uppercase tracking-wider text-secondary-foreground">
+            <span
+              title={typo.label}
+              className="inline-flex min-w-0 items-center gap-1 font-mono text-3xs font-bold uppercase text-secondary-foreground"
+            >
               <span className="size-[8px] shrink-0 rounded-[2px]" style={{ background: typo.color }} />
               <span className="truncate">{typo.label}</span>
             </span>
