@@ -1,4 +1,4 @@
-import { useRef, type CSSProperties, type ReactNode } from 'react'
+import { useMemo, useRef, type CSSProperties, type ReactNode } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 
 import { cn } from '@r/lib/utils'
@@ -81,6 +81,25 @@ export function DataTable<TRow>({
   })
 
   const virtualItems = rowVirtualizer.getVirtualItems()
+
+  // Pré-calcul des clés uniques : si getRowKey retourne des doublons (deux
+  // rows métier indistinguables par les champs naturels — cas X3 où une
+  // même commande/article/date peut donner 2 rows), on suffixe par un
+  // compteur pour garantir l'unicité exigée par React. Stable tant que
+  // l'ordre des rows ne change pas entre renders (tri/filtrage pilotés
+  // en amont).
+  const uniqueKeys = useMemo(() => {
+    const seen = new Map<string, number>()
+    const out: string[] = new Array(rows.length)
+    for (let i = 0; i < rows.length; i++) {
+      const base = getRowKey ? getRowKey(rows[i]) : String(i)
+      const count = seen.get(base) ?? 0
+      seen.set(base, count + 1)
+      out[i] = count === 0 ? base : `${base}#${count}`
+    }
+    return out
+  }, [rows, getRowKey])
+
   const totalSize = rowVirtualizer.getTotalSize()
   const topPad = virtualItems.length > 0 ? virtualItems[0].start : 0
   const bottomPad =
@@ -186,7 +205,7 @@ export function DataTable<TRow>({
 
               const isSelected =
                 selectedRowKey && getRowKey && getRowKey(row) === selectedRowKey
-              const rowKey = getRowKey ? getRowKey(row) : virtualRow.index
+              const rowKey = uniqueKeys[virtualRow.index] ?? virtualRow.index
               const rowStyle: CSSProperties | undefined = onRowClick
                 ? { cursor: 'pointer' }
                 : undefined
