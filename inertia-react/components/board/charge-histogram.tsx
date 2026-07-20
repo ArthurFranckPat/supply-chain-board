@@ -159,7 +159,7 @@ export function ChargeHistogram(props: ChargeHistogramProps) {
                 bg="bg-suggere"
                 h={pct(w.suggere, t)}
                 label={lab(w.suggere, t)}
-                ink="text-[#3a2a0e]"
+                ink="text-foreground"
               />
               <Seg
                 bg="bg-planifie"

@@ -300,7 +300,7 @@ export default function Load(props: LoadPageProps) {
                   'rounded-full border px-2.5 py-1 font-sans text-[11px] font-semibold transition-colors',
                   atelierFilter.has(a.code)
                     ? 'border-brand bg-brand-soft text-brand'
-                    : 'border-rule bg-card text-muted-foreground hover:border-[#b3a47e] hover:text-foreground'
+                    : 'border-rule bg-card text-muted-foreground hover:border-foreground hover:text-foreground'
                 )}
                 title={a.code}
               >

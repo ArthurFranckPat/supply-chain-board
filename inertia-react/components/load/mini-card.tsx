@@ -80,7 +80,7 @@ export function MiniCard({ line, months, selected, showCapacity, onSelect }: Min
         'flex w-[190px] shrink-0 flex-col rounded-xl border bg-card p-3 text-left transition-all hover:-translate-y-px',
         selected
           ? 'border-brand shadow-[0_0_0_2px_var(--color-brand-soft),0_4px_12px_-4px_rgba(0,0,0,.25)]'
-          : 'border-rule hover:border-[#b3a47e]'
+          : 'border-rule hover:border-foreground'
       )}
     >
       <div className="mb-1.5 flex items-center gap-2">

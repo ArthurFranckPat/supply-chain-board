@@ -88,7 +88,7 @@ export function LinksOverlay(props: {
                 width={p.badgeW}
                 height={16}
                 rx={8}
-                fill="var(--color-card, #fffdf8)"
+                fill="var(--color-card, #ffffff)"
                 stroke={p.stroke}
                 strokeWidth={1}
               />

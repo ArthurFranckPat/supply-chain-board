@@ -220,7 +220,7 @@ export function ChargeForecast(props: ChargeForecastProps) {
           label: h > 16 ? v : null,
           labelX: cx,
           labelY: yTop + h / 2 + 3,
-          labelFill: k === 's' ? '#3a2a0e' : 'var(--color-card)',
+          labelFill: k === 's' ? 'var(--color-foreground)' : 'var(--color-card)',
         })
         acc += v
       })

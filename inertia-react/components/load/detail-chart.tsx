@@ -118,7 +118,7 @@ export function DetailChart({ items, gran, view, showCapacity, showAvg }: Detail
             x: cx,
             y: (yTop + y(acc)) / 2 + 3,
             text: v,
-            fill: k === 's' || k === 'si' ? '#3a2a0e' : CARD,
+            fill: k === 's' || k === 'si' ? 'var(--color-foreground)' : CARD,
           })
         acc += v
       })
