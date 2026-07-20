@@ -33,10 +33,15 @@
   --text-3xs: 0.5625rem;           /* 9px — décoratif uniquement */
   --text-3xs--line-height: 1.1;
 
-  /* ── Fraunces (display italique pour empty states / meta) ──
-     Webfont non chargée par le layout React — on expose la famille avec
-     un fallback Georgia/serif pour que font-fraunces ne soit plus un no-op. */
-  --font-fraunces: 'Fraunces', Georgia, serif;
+  /* ── Fraunces — NEUTRALISÉ sous le runtime React (thème Airbnb). ──
+     Airbnb = jamais de serif. La webfont Fraunces n'est de toute façon pas
+     chargée par le layout React (elle tombait sur Georgia, un serif empâté
+     qui cassait le côté épuré). On résout donc `font-fraunces` sur la
+     sans-serif du thème (Inter) : les ~130 occurrences `font-fraunces`
+     rendent désormais en Inter (poids/italique/tabular-nums conservés).
+     Si un thème Papier React devait réactiver un display serif, redéfinir
+     cette variable sous son propre scope `.theme-*`. */
+  --font-fraunces: var(--font-sans);
 
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
