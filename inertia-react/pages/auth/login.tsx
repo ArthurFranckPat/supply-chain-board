@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useMemo, useEffect } from 'react'
 import { Head, useForm } from '@inertiajs/react'
 import { Button } from '@r/components/ui/button'
 import { TextField, TextFieldInput, TextFieldLabel } from '@r/components/ui/text-field'
@@ -22,22 +22,21 @@ const ENVS: { value: 'test' | 'prod'; label: string }[] = [
  * à droite. L'utilisateur saisit ses identifiants Sage X3 ; le sélecteur
  * d'environnement (Test / Prod) est discret, en haut à droite, par défaut sur
  * Production. Le serveur valide via un healthcheck X3 avant d'ouvrir la session.
+ *
+ * Bug historique (fix 2026-07-20) : useState pour les champs + useForm figé à
+ * l'init → POST avec username/password vides → 422 Vine. Source de vérité
+ * unique : useForm, les inputs bindent directement form.data/setData.
  */
 export default function Login(props: LoginProps) {
-  const [username, setUsername] = useState(props.lastUsername)
-  const [password, setPassword] = useState('')
-  const [env, setEnv] = useState<'test' | 'prod'>(props.lastEnv)
-  const [remember, setRemember] = useState(Boolean(props.lastUsername))
-
-  const canSubmit = useMemo(() => username.trim().length > 0 && password.length > 0, [username, password])
-
   const form = useForm({
-    username: username.trim(),
-    password,
-    env,
-    remember,
+    username: props.lastUsername,
+    password: '',
+    env: props.lastEnv,
+    remember: Boolean(props.lastUsername),
   })
 
+  // Env est aussi piloté via data-env sur <html> (side-effect visuel global).
+  const env = form.data.env
   useEffect(() => {
     document.documentElement.dataset.env = env
     return () => {
@@ -45,13 +44,18 @@ export default function Login(props: LoginProps) {
     }
   }, [env])
 
+  const canSubmit = useMemo(
+    () => form.data.username.trim().length > 0 && form.data.password.length > 0,
+    [form.data.username, form.data.password]
+  )
+
   function submit(e: React.FormEvent) {
     e.preventDefault()
     if (!canSubmit || form.processing) return
 
     form.post('/login', {
       onFinish: () => {
-        setPassword('')
+        form.setData('password', '')
       },
     })
   }
@@ -98,7 +102,7 @@ export default function Login(props: LoginProps) {
                   <button
                     key={opt.value}
                     type="button"
-                    onClick={() => setEnv(opt.value)}
+                    onClick={() => form.setData('env', opt.value)}
                     aria-pressed={env === opt.value}
                     className={cn(
                       'rounded-[5px] px-2.5 py-[3px] font-mono text-[10.5px] tracking-wide transition-colors',
@@ -135,7 +139,10 @@ export default function Login(props: LoginProps) {
             )}
 
             <form onSubmit={submit} className="mt-6 flex flex-col gap-[18px]">
-              <TextField value={username} onChange={setUsername}>
+              <TextField
+                value={form.data.username}
+                onChange={(v) => form.setData('username', v)}
+              >
                 <TextFieldLabel>Identifiant</TextFieldLabel>
                 <TextFieldInput
                   type="text"
@@ -145,7 +152,10 @@ export default function Login(props: LoginProps) {
                 />
               </TextField>
 
-              <TextField value={password} onChange={setPassword}>
+              <TextField
+                value={form.data.password}
+                onChange={(v) => form.setData('password', v)}
+              >
                 <TextFieldLabel>Mot de passe</TextFieldLabel>
                 <TextFieldInput
                   type="password"
@@ -159,8 +169,8 @@ export default function Login(props: LoginProps) {
                 <input
                   type="checkbox"
                   className="size-4 accent-primary"
-                  checked={remember}
-                  onChange={(e) => setRemember(e.currentTarget.checked)}
+                  checked={form.data.remember}
+                  onChange={(e) => form.setData('remember', e.currentTarget.checked)}
                 />
                 Se souvenir de mon identifiant et de l'environnement
               </label>
