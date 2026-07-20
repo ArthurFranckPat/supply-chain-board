@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
 import { cn } from '@r/lib/utils'
-import type { VisionCommande, VisionLink } from '@r/lib/vision/types'
-import type { ImpactVerdict } from '@r/lib/vision/impact'
-import { deltaLabel } from '@r/lib/vision/impact'
+import type { VisionCommande, VisionLink } from '@/lib/vision/types'
+import type { ImpactVerdict } from '@/lib/vision/impact'
+import { deltaLabel } from '@/lib/vision/impact'
 import type { HealthCategory } from './plan-health'
 
 /**

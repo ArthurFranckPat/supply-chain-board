@@ -39,16 +39,16 @@ import type { OrderBoardData, OrderSearchScope } from '@/lib/orders/types'
 import type { VisionCommande, VisionLink } from '@/lib/vision/types'
 import type { PlanMutation } from '@/lib/scenarios/types'
 
-import { parseIso, toIso, startOfDay, DAY_MS, fmtDay } from '@r/lib/vision/date-utils'
-import { buildLinkPath, pathMid, type PathSpec } from '@r/lib/vision/link-overlay'
-import { buildCmdCells } from '@r/lib/vision/cmd-cells'
+import { parseIso, toIso, startOfDay, DAY_MS, fmtDay } from '@/lib/vision/date-utils'
+import { buildLinkPath, pathMid, type PathSpec } from '@/lib/vision/link-overlay'
+import { buildCmdCells } from '@/lib/vision/cmd-cells'
 import {
   computeImpacts,
   worstVerdict,
   deltaLabel,
   linkKey,
   type ImpactVerdict,
-} from '@r/lib/vision/impact'
+} from '@/lib/vision/impact'
 
 import { ProgrammeToolbar, type VisionMode } from '@r/components/vision/programme-toolbar'
 import { CommandeMarker } from '@r/components/vision/commande-marker'

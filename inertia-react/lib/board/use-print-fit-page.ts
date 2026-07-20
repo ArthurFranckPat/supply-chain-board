@@ -24,33 +24,33 @@ import { useEffect } from 'react'
  * taille réduite, donc le contenu tient bien sur une page.
  */
 export function usePrintFitPage(getEl: () => HTMLElement | null) {
-  const before = () => {
-    const el = getEl()
-    if (!el || el.scrollWidth === 0) return
-    const root = document.documentElement
-    // Bascule en mise en page « impression » le temps de la mesure.
-    root.classList.add('print-fit-measure')
-    // A3 paysage imprimable = 420×297 mm − marges @page (12 mm h / 10 mm v) → px @96dpi.
-    const printW = ((420 - 24) * 96) / 25.4
-    const printH = ((297 - 20) * 96) / 25.4
-    // Force la largeur imprimable A3 pendant la mesure : la mise en page est
-    // responsive (grille 3 colonnes dès `lg`), il faut donc mesurer à la largeur
-    // qu'aura réellement le contenu à l'impression, pas celle de la fenêtre.
-    const prevWidth = el.style.width
-    el.style.width = `${printW}px`
-    const raw = Math.min(printW / el.scrollWidth, printH / el.scrollHeight)
-    el.style.width = prevWidth
-    root.classList.remove('print-fit-measure')
-    // Ne grossit jamais (raw ≥ 1 → 1). En dessous, ×0,98 absorbe les arrondis
-    // du zoom décimal pour éviter une 2ᵉ page fantôme (1 px de débordement).
-    el.style.zoom = String(raw >= 1 ? 1 : raw * 0.98)
-  }
-  const after = () => {
-    const el = getEl()
-    if (el) el.style.zoom = ''
-  }
-
   useEffect(() => {
+    const before = () => {
+      const el = getEl()
+      if (!el || el.scrollWidth === 0) return
+      const root = document.documentElement
+      // Bascule en mise en page « impression » le temps de la mesure.
+      root.classList.add('print-fit-measure')
+      // A3 paysage imprimable = 420×297 mm − marges @page (12 mm h / 10 mm v) → px @96dpi.
+      const printW = ((420 - 24) * 96) / 25.4
+      const printH = ((297 - 20) * 96) / 25.4
+      // Force la largeur imprimable A3 pendant la mesure : la mise en page est
+      // responsive (grille 3 colonnes dès `lg`), il faut donc mesurer à la largeur
+      // qu'aura réellement le contenu à l'impression, pas celle de la fenêtre.
+      const prevWidth = el.style.width
+      el.style.width = `${printW}px`
+      const raw = Math.min(printW / el.scrollWidth, printH / el.scrollHeight)
+      el.style.width = prevWidth
+      root.classList.remove('print-fit-measure')
+      // Ne grossit jamais (raw ≥ 1 → 1). En dessous, ×0,98 absorbe les arrondis
+      // du zoom décimal pour éviter une 2ᵉ page fantôme (1 px de débordement).
+      el.style.zoom = String(raw >= 1 ? 1 : raw * 0.98)
+    }
+    const after = () => {
+      const el = getEl()
+      if (el) el.style.zoom = ''
+    }
+
     window.addEventListener('beforeprint', before)
     window.addEventListener('afterprint', after)
     return () => {
@@ -58,5 +58,5 @@ export function usePrintFitPage(getEl: () => HTMLElement | null) {
       window.removeEventListener('afterprint', after)
       after()
     }
-  }, [])
+  }, [getEl])
 }

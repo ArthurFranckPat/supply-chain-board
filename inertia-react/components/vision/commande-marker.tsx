@@ -1,16 +1,16 @@
 import { useState } from 'react'
 import { cn } from '@r/lib/utils'
-import type { VisionCommande } from '@r/lib/vision/types'
-import { fmtDay } from '@r/lib/vision/date-utils'
-import type { ImpactVerdict } from '@r/lib/vision/impact'
-import { deltaLabel } from '@r/lib/vision/impact'
+import type { VisionCommande } from '@/lib/vision/types'
+import { fmtDay } from '@/lib/vision/date-utils'
+import type { ImpactVerdict } from '@/lib/vision/impact'
+import { deltaLabel } from '@/lib/vision/impact'
 import {
   VERDICT_BORDER,
   VERDICT_ICON,
   VERDICT_LABEL,
   UNKNOWN_BORDER,
   UNKNOWN_ICON,
-} from '@r/lib/vision/verdict-tones'
+} from '@/lib/vision/verdict-tones'
 
 /**
  * Marqueur commande rendu dans une cellule du board (slot cellExtra de

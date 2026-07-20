@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
-import { deltaLabel } from '@r/lib/vision/impact'
-import { VERDICT_STROKE } from '@r/lib/vision/verdict-tones'
-import type { PathSpec } from '@r/lib/vision/link-overlay'
+import { deltaLabel } from '@/lib/vision/impact'
+import { VERDICT_STROKE } from '@/lib/vision/verdict-tones'
+import type { PathSpec } from '@/lib/vision/link-overlay'
 
 /**
  * Overlay SVG des liens OF↔commande, mode « combiné » (issue #52 — extrait de
