@@ -83,7 +83,7 @@ export function ShortageTimeline({
               <div
                 className={cn(
                   'flex flex-col gap-0.5 border-r border-rule-soft px-4 py-[13px]',
-                  isLate(row) && '[box-shadow:inset_3px_0_var(--color-destructive)]'
+                  isLate(row) && 'bg-destructive/[0.05]'
                 )}
               >
                 <div className="flex items-baseline gap-2">

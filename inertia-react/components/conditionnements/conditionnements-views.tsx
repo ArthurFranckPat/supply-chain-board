@@ -225,9 +225,9 @@ export function rowClass(r: { etatCoef: string; stock: unknown; stojou: unknown 
   if (r.etatCoef === 'complet') return ''
   const estime = r.stock || r.stojou
   if (!estime) {
-    return 'bg-destructive/[0.03] [box-shadow:inset_3px_0_var(--color-destructive)]'
+    return 'bg-destructive/[0.06]'
   }
-  return 'bg-planifie/[0.03] [box-shadow:inset_3px_0_var(--color-planifie)]'
+  return 'bg-planifie/[0.05]'
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

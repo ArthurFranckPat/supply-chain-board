@@ -34,8 +34,8 @@ import { usePrintFit } from './use-print-fit'
 
 const LABEL_W = 208 // colonne « Poste » (gelée à gauche)
 const GRAPH_PAPER =
-  'linear-gradient(to right, rgba(31,26,19,.045) 1px, transparent 1px),' +
-  'linear-gradient(to bottom, rgba(31,26,19,.045) 1px, transparent 1px)'
+  'linear-gradient(to right, rgba(0,0,0,.045) 1px, transparent 1px),' +
+  'linear-gradient(to bottom, rgba(0,0,0,.045) 1px, transparent 1px)'
 
 // Classes de surlignage de cellule — appliquées en DOM direct (jamais setState).
 const DROP_CLASSES = ['ring-2', 'ring-brand/70', 'ring-inset']
@@ -284,7 +284,7 @@ export default function BoardGrid(props: BoardGridProps) {
     <div ref={rootRef} data-board-root className="h-full overflow-auto bg-background">
       <div ref={contentRef} className="relative" style={{ minWidth }}>
         {/* ═══ En-tête collant (semaines + jours) ═══ */}
-        <div className="sticky top-0 z-30 bg-background shadow-[0_2px_10px_-4px_rgba(31,26,19,.18)]">
+        <div className="sticky top-0 z-30 bg-background shadow-[0_2px_10px_-4px_rgba(0,0,0,.18)]">
           {/* Bande semaines */}
           <div className="grid" style={{ gridTemplateColumns: gridTpl }}>
             <div className="sticky left-0 z-40 border-b border-rule bg-secondary" />
@@ -856,9 +856,9 @@ function VirtualOrderChip(props: VirtualOrderChipProps) {
       }}
       onClick={toggleCtp}
       className={cn(
-        'group relative rounded-[6px] border border-dashed border-brand/60 border-l-[3px] bg-card/80 px-1.5 py-1 leading-tight shadow-sm',
+        'group relative rounded-[6px] border border-dashed border-brand/60 bg-card/80 px-1.5 py-1 leading-tight shadow-sm',
         'cursor-grab active:cursor-grabbing',
-        tone?.border ?? 'border-l-brand/60'
+        tone?.border ?? ''
       )}
       title="Commande virtuelle — n'existe que dans le scénario · clic : chemin critique"
     >

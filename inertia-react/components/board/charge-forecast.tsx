@@ -392,7 +392,7 @@ export function ChargeForecast(props: ChargeForecastProps) {
       </div>
 
       {/* ══ Chart ══ */}
-      <div className="rounded-xl border border-border bg-card p-[18px_16px_10px] shadow-[0_1px_2px_rgba(31,26,19,.05)]">
+      <div className="rounded-xl border border-border bg-card p-[18px_16px_10px] shadow-[0_1px_2px_rgba(0,0,0,.05)]">
         <svg
           viewBox={`0 0 ${W} ${H}`}
           preserveAspectRatio="xMidYMid meet"

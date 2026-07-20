@@ -90,14 +90,14 @@ export function ChargeHistogram(props: ChargeHistogramProps) {
         {line && totals.induitTotal > 0 && (
           <span
             className="ml-auto inline-flex items-center gap-1 rounded-[5px] px-1.5 py-0.5 font-mono text-[10px] font-bold text-brand"
-            style={{ backgroundColor: 'rgba(168,67,31,.10)' }}
+            style={{ backgroundColor: 'rgba(0,0,0,.10)' }}
           >
             <span
               className="size-1.5 rounded-[2px]"
               style={{
-                backgroundColor: 'rgba(168,67,31,.18)',
+                backgroundColor: 'rgba(0,0,0,.18)',
                 backgroundImage:
-                  'repeating-linear-gradient(45deg, rgba(168,67,31,.5) 0 1px, transparent 1px 3px)',
+                  'repeating-linear-gradient(45deg, rgba(0,0,0,.5) 0 1px, transparent 1px 3px)',
               }}
             />
             {fmt(totals.induitTotal)} h amont
@@ -143,9 +143,9 @@ export function ChargeHistogram(props: ChargeHistogramProps) {
                   className="flex w-full items-center justify-center"
                   style={{
                     height: `${pct(w.induit, t)}%`,
-                    backgroundColor: 'rgba(168,67,31,.12)',
+                    backgroundColor: 'rgba(0,0,0,.12)',
                     backgroundImage:
-                      'repeating-linear-gradient(45deg, rgba(168,67,31,.4) 0 1.5px, transparent 1.5px 5px)',
+                      'repeating-linear-gradient(45deg, rgba(0,0,0,.4) 0 1.5px, transparent 1.5px 5px)',
                   }}
                 >
                   {lab(w.induit, t) && (

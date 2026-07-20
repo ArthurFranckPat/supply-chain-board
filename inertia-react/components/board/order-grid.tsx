@@ -44,8 +44,8 @@ interface OrderGridProps {
 
 const LABEL_W = 208
 const GRAPH_PAPER =
-  'linear-gradient(to right, rgba(31,26,19,.045) 1px, transparent 1px),' +
-  'linear-gradient(to bottom, rgba(31,26,19,.045) 1px, transparent 1px)'
+  'linear-gradient(to right, rgba(0,0,0,.045) 1px, transparent 1px),' +
+  'linear-gradient(to bottom, rgba(0,0,0,.045) 1px, transparent 1px)'
 
 const fmt = (h: number) => (Math.round(h * 100) / 100).toFixed(2).replace('.', ',')
 
@@ -174,7 +174,7 @@ export function OrderGrid(props: OrderGridProps) {
     <div ref={rootEl} data-board-root className="h-full overflow-auto bg-background">
       <div style={{ minWidth }}>
         {/* ═══ En-tête collant (semaines + jours) ═══ */}
-        <div className="sticky top-0 z-30 bg-background shadow-[0_2px_10px_-4px_rgba(31,26,19,.18)]">
+        <div className="sticky top-0 z-30 bg-background shadow-[0_2px_10px_-4px_rgba(0,0,0,.18)]">
           {/* Bande semaines */}
           <div className="grid" style={{ gridTemplateColumns: gridTpl }}>
             <div className="sticky left-0 z-40 border-b border-rule bg-secondary" />
@@ -211,9 +211,9 @@ export function OrderGrid(props: OrderGridProps) {
                   <span
                     className="size-[7px] rounded-[1px]"
                     style={{
-                      backgroundColor: 'rgba(168,67,31,.18)',
+                      backgroundColor: 'rgba(0,0,0,.18)',
                       backgroundImage:
-                        'repeating-linear-gradient(45deg, rgba(168,67,31,.5) 0 1px, transparent 1px 3px)',
+                        'repeating-linear-gradient(45deg, rgba(0,0,0,.5) 0 1px, transparent 1px 3px)',
                     }}
                   />
                   amont
@@ -274,9 +274,9 @@ export function OrderGrid(props: OrderGridProps) {
                             className="block h-full"
                             style={{
                               width: `${(amont / total) * 100}%`,
-                              backgroundColor: 'rgba(168,67,31,.45)',
+                              backgroundColor: 'rgba(0,0,0,.45)',
                               backgroundImage:
-                                'repeating-linear-gradient(45deg, rgba(168,67,31,.55) 0 1.5px, transparent 1.5px 4px)',
+                                'repeating-linear-gradient(45deg, rgba(0,0,0,.55) 0 1.5px, transparent 1.5px 4px)',
                             }}
                           />
                         )}
@@ -493,7 +493,7 @@ function CardView(props: CardViewProps) {
       {card.hasOverride && (
         <button
           type="button"
-          className="absolute right-1.5 top-1.5 z-10 flex size-5 items-center justify-center rounded-full bg-card text-suggere shadow-[0_1px_2px_rgba(31,26,19,.15)] transition-colors hover:text-foreground"
+          className="absolute right-1.5 top-1.5 z-10 flex size-5 items-center justify-center rounded-full bg-card text-suggere shadow-[0_1px_2px_rgba(0,0,0,.15)] transition-colors hover:text-foreground"
           title="Réinitialiser l'override (date X3)"
           onClick={(e) => props.onResetOverride(e, card.id)}
         >

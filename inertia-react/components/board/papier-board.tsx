@@ -32,8 +32,8 @@ export type BoardProps = {
 }
 
 const GRAPH_PAPER =
-  'linear-gradient(to right, rgba(31,26,19,.045) 1px, transparent 1px),' +
-  'linear-gradient(to bottom, rgba(31,26,19,.045) 1px, transparent 1px)'
+  'linear-gradient(to right, rgba(0,0,0,.045) 1px, transparent 1px),' +
+  'linear-gradient(to bottom, rgba(0,0,0,.045) 1px, transparent 1px)'
 
 export function Board(props: BoardProps) {
   const lw = props.labelWidth ?? 210
@@ -55,7 +55,7 @@ export function Board(props: BoardProps) {
   return (
     <div
       className={cn(
-        'overflow-x-auto rounded-xl border border-border bg-card shadow-[0_1px_2px_rgba(31,26,19,.05)]',
+        'overflow-x-auto rounded-xl border border-border bg-card shadow-[0_1px_2px_rgba(0,0,0,.05)]',
         props.class
       )}
     >

@@ -369,7 +369,7 @@ export default function Load(props: LoadPageProps) {
 
             {/* Détail du poste sélectionné */}
             {selLine && (
-              <div className="flex min-h-0 flex-1 flex-col rounded-xl border border-rule bg-card p-4 shadow-[0_1px_2px_rgba(31,26,19,.05)]">
+              <div className="flex min-h-0 flex-1 flex-col rounded-xl border border-rule bg-card p-4 shadow-[0_1px_2px_rgba(0,0,0,.05)]">
                 <div className="mb-2.5 flex flex-none flex-wrap items-center gap-3">
                   <div className="flex items-center gap-2 font-fraunces text-[20px] font-extrabold tracking-tight">
                     <span className="size-3 rounded-[3px]" style={{ background: selLine.color }} />

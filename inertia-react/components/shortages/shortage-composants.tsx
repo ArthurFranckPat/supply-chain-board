@@ -69,7 +69,7 @@ export function ShortageComposants({
                 <td
                   className={cn(
                     'px-4 py-[13px] align-middle font-fraunces text-[14px] leading-none text-muted-foreground/80 border-r border-rule-soft',
-                    late && '[box-shadow:inset_3px_0_var(--color-destructive)]'
+                    late && 'bg-destructive/[0.05]'
                   )}
                 >
                   {i + 1}

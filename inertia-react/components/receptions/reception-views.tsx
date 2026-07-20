@@ -247,9 +247,9 @@ export function ReceptionTableau({
           row.nbPalettes >= 20 ? 'bg-destructive/[0.04]' : '',
           // Bordure gauche sur les lignes au conditionnement non référencé.
           row.coefManquant
-            ? 'bg-destructive/[0.04] [box-shadow:inset_3px_0_var(--color-destructive)]'
+            ? 'bg-destructive/[0.07]'
             : row.coefEstime
-              ? 'bg-planifie/[0.04] [box-shadow:inset_3px_0_var(--color-planifie)]'
+              ? 'bg-planifie/[0.06]'
               : ''
         )
       }

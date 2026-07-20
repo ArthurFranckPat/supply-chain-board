@@ -929,7 +929,7 @@ function Section({
 
 function Frame({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-6 shadow-[0_1px_2px_rgba(31,26,19,.05)]">
+    <div className="rounded-xl border border-border bg-card p-6 shadow-[0_1px_2px_rgba(0,0,0,.05)]">
       {children}
     </div>
   )

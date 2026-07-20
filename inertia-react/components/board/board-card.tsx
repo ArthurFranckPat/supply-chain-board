@@ -42,16 +42,18 @@ const TONE_FILL: Record<CardStatus, string> = {
 }
 
 /**
- * Type commande → couleur (MTS/MTO/NOR). Tons puisés dans le thème Papier :
- *  • MTS (Make To Stock)   → vert ferme   (production sur stock, stable)
- *  • MTO (Make To Order)   → terra        (production sur commande spécifique)
- *  • NOR (standard)        → bleu planifié (mode normal)
+ * Type commande → couleur (MTS/MTO/NOR). Tokens de statut sémantiques
+ * (retargetés par thème ; sous Airbnb = brand book ferme/suggere/planifie),
+ * avec fallback hex pour les thèmes qui ne définiraient pas la variable :
+ *  • MTS (Make To Stock)   → ferme    (production sur stock, stable)
+ *  • MTO (Make To Order)   → suggere  (production sur commande spécifique)
+ *  • NOR (standard)        → planifie (mode normal)
  * Type inconnu → pastille neutre (secondary) par défaut.
  */
 const TYPE_META: Record<string, { background: string; color: string }> = {
-  MTS: { background: '#5b7d4e', color: '#ffffff' },
-  MTO: { background: '#a8431f', color: '#ffffff' },
-  NOR: { background: '#2f4858', color: '#ffffff' },
+  MTS: { background: 'var(--ferme, #008049)', color: '#ffffff' },
+  MTO: { background: 'var(--suggere, #fc642d)', color: '#ffffff' },
+  NOR: { background: 'var(--planifie, #00a699)', color: '#ffffff' },
 }
 
 type Common = {
@@ -156,19 +158,19 @@ export function BoardCard(props: BoardCardProps) {
   return (
     <div
       className={cn(
-        'relative w-full rounded-md border border-border border-t-[3px] bg-card px-3 pb-2 pt-2.5 shadow-[0_1px_2px_rgba(31,26,19,.05)]',
+        'relative w-full rounded-md border border-border border-t-[3px] bg-card px-3 pb-2 pt-2.5 shadow-[0_1px_2px_rgba(0,0,0,.05)]',
         TONE_BORDER[props.status],
         props.status === 'termine' && 'opacity-60',
         props.className
       )}
       style={
         ring
-          ? { boxShadow: '0 0 0 1.5px var(--color-brand), 0 1px 2px rgba(31,26,19,.05)' }
+          ? { boxShadow: '0 0 0 1.5px var(--color-brand), 0 1px 2px rgba(0,0,0,.05)' }
           : ghost
             ? {
-                backgroundColor: 'rgba(168,67,31,.07)',
+                backgroundColor: 'rgba(0,0,0,.07)',
                 backgroundImage:
-                  'repeating-linear-gradient(45deg, rgba(168,67,31,.12) 0 2px, transparent 2px 8px)',
+                  'repeating-linear-gradient(45deg, rgba(0,0,0,.12) 0 2px, transparent 2px 8px)',
               }
             : undefined
       }
@@ -260,7 +262,7 @@ function CommandeBody(p: CommandeBodyProps) {
               style={{
                 color: 'var(--color-brand)',
                 borderColor: 'var(--color-brand)',
-                textShadow: '0 0 1px rgba(168,67,31,.35)',
+                textShadow: '0 0 1px rgba(0,0,0,.35)',
               }}
             >
               BDH
@@ -342,7 +344,7 @@ function OfBody(p: OfBodyProps) {
           style={{
             color: 'var(--color-brand)',
             borderColor: 'var(--color-brand)',
-            textShadow: '0 0 1px rgba(168,67,31,.35)',
+            textShadow: '0 0 1px rgba(0,0,0,.35)',
           }}
         >
           BDH

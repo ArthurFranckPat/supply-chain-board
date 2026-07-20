@@ -164,8 +164,7 @@ export function TriageRail(props: {
               }}
               className={cn(
                 'block w-full border-b border-rule-soft px-3.5 py-2.5 text-left transition-colors hover:bg-accent',
-                selectedId === item.commandeId &&
-                  'bg-brand-soft/50 shadow-[inset_3px_0_0_var(--color-brand)]'
+                selectedId === item.commandeId && 'bg-brand-soft'
               )}
             >
               {/* Ligne 1 : dot + id + delta */}

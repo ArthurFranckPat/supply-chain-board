@@ -189,7 +189,7 @@ export function ShortageRegistre({
     tdClass: (row: ShortageDisplayRow) =>
       cn(
         'px-4 py-[13px] align-middle font-fraunces text-[14px] leading-none text-muted-foreground/80 border-r border-rule-soft',
-        isLate(row) && '[box-shadow:inset_3px_0_var(--color-destructive)]'
+        isLate(row) && 'bg-destructive/[0.05]'
       ),
   }
 
