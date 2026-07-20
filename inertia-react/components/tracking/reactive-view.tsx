@@ -84,7 +84,7 @@ export function ReactiveView(props: ReactiveViewProps) {
             theadRowClass="sticky top-0 z-10 bg-secondary"
             onRowClick={props.onRowClick}
             selectedRowKey={props.selectedRowKey}
-            getRowKey={(row: SuiviDisplayRow) => `${row.numCommande}::${row.article}`}
+            getRowKey={(row: SuiviDisplayRow) => `${row.numCommande}::${row.article}::${row.dateExpIso ?? row.dateExp}`}
             emptyState={
               <div className="flex flex-1 items-center justify-center p-12 text-center">
                 <div className="flex flex-col items-center">
