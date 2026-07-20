@@ -234,29 +234,7 @@ export default function Load(props: LoadPageProps) {
             </>
           )}
           <span className="h-3.5 w-px bg-rule-soft" />
-          {/* Couches optionnelles */}
-          <button
-            type="button"
-            onClick={() => setShowCapacity((v) => !v)}
-            className={cn('flex items-center gap-1.5 transition-opacity', !showCapacity && 'opacity-40')}
-          >
-            <span className="material-symbols-outlined text-[16px] text-brand">
-              {showCapacity ? 'check_box' : 'check_box_outline_blank'}
-            </span>
-            <i className="inline-block w-[18px] border-t-[3px] border-foreground/70" />
-            Capacité
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowAvg((v) => !v)}
-            className={cn('flex items-center gap-1.5 transition-opacity', !showAvg && 'opacity-40')}
-          >
-            <span className="material-symbols-outlined text-[16px] text-brand">
-              {showAvg ? 'check_box' : 'check_box_outline_blank'}
-            </span>
-            <i className="inline-block w-[18px] border-t-[1.5px] border-dashed border-brand" />
-            Moyenne mobile
-          </button>
+          {/* Couches optionnelles — déplacées à droite (actions d'affichage). */}
           <span className="flex items-center gap-1.5">
             <i
               className="inline-block h-2.5 w-3.5 rounded-[2px]"
@@ -268,8 +246,30 @@ export default function Load(props: LoadPageProps) {
             Surcharge
           </span>
           <span className="ml-auto flex items-center gap-3">
-            {/* Recherche — déplacée depuis le Masthead. Vit dans la toolbar
-                pour cohérence avec les autres pages. */}
+            {/* Couches optionnelles — toggles d'affichage, à droite avec les actions. */}
+            <button
+              type="button"
+              onClick={() => setShowCapacity((v) => !v)}
+              className={cn('flex items-center gap-1.5 transition-opacity', !showCapacity && 'opacity-40')}
+            >
+              <span className="material-symbols-outlined text-[16px] text-brand">
+                {showCapacity ? 'check_box' : 'check_box_outline_blank'}
+              </span>
+              <i className="inline-block w-[18px] border-t-[3px] border-foreground/70" />
+              Capacité
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowAvg((v) => !v)}
+              className={cn('flex items-center gap-1.5 transition-opacity', !showAvg && 'opacity-40')}
+            >
+              <span className="material-symbols-outlined text-[16px] text-brand">
+                {showAvg ? 'check_box' : 'check_box_outline_blank'}
+              </span>
+              <i className="inline-block w-[18px] border-t-[1.5px] border-dashed border-brand" />
+              Moyenne mobile
+            </button>
+            {/* Recherche — systématiquement à droite (convention toolbar). */}
             <div className="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/25">
               <span className="material-symbols-outlined text-[17px] text-muted-foreground">
                 search
