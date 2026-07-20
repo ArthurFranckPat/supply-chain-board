@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { router, usePage } from '@inertiajs/react'
+import { LogOut } from 'lucide-react'
 
 import { cn } from '@r/lib/utils'
 
@@ -82,9 +83,7 @@ export function UserMenu() {
             onClick={logout}
             className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-[13px] font-medium text-foreground transition-colors hover:bg-muted/60"
           >
-            <span className="material-symbols-outlined text-[18px] text-muted-foreground">
-              logout
-            </span>
+            <LogOut size={18} strokeWidth={1.75} className="text-muted-foreground" />
             Déconnexion
           </button>
         </div>

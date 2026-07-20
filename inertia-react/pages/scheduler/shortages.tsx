@@ -11,6 +11,8 @@ import { useMemo, useState } from 'react'
 import { Link } from '@inertiajs/react'
 import { fr } from 'react-day-picker/locale'
 import type { DateRange as DayPickerRange } from 'react-day-picker'
+import { Search, RefreshCw, Calendar as CalendarIcon, ChevronDown, TriangleAlert, LoaderCircle, CircleX } from 'lucide-react'
+import { DynamicIcon } from '../../components/ui/dynamic-icon'
 
 import AppLayout from '@r/layouts/app'
 import { Calendar } from '@r/components/ui/calendar'
@@ -120,9 +122,7 @@ export default function Shortages(props: ShortagesProps) {
   const emptyState = (
     <div className="flex flex-1 items-center justify-center p-10 text-center font-fraunces text-[14px] italic text-muted-foreground">
       <div className="flex flex-col items-center gap-2">
-        <span className="material-symbols-outlined text-[32px] text-muted-foreground/50">
-          {viewData.x3Error ? 'cloud_off' : 'task_alt'}
-        </span>
+        <DynamicIcon name={viewData.x3Error ? 'cloud_off' : 'task_alt'} size={32} className="text-muted-foreground/50" />
         {viewData.x3Error
           ? 'Données indisponibles (X3 injoignable).'
           : 'Aucune rupture détectée dans la fenêtre.'}
@@ -223,13 +223,9 @@ export default function Shortages(props: ShortagesProps) {
               className="flex items-center gap-1.5 rounded-full border border-rule bg-card px-2.5 py-1 text-[11px] font-semibold text-foreground transition-colors hover:border-brand"
               title="Fenêtre d'analyse : OF dont le démarrage tombe dans la plage"
             >
-              <span className="material-symbols-outlined text-[14px] text-muted-foreground">
-                calendar_month
-              </span>
+              <CalendarIcon size={14} strokeWidth={1.75} className="text-muted-foreground" />
               {props.dateRange}
-              <span className="material-symbols-outlined text-[16px] text-muted-foreground">
-                expand_more
-              </span>
+              <ChevronDown size={16} strokeWidth={1.75} className="text-muted-foreground" />
             </button>
             {calOpen && (
               <>
@@ -253,7 +249,7 @@ export default function Shortages(props: ShortagesProps) {
           <div className="ml-auto flex items-center gap-2">
             {/* Recherche — systématiquement à droite (convention toolbar). */}
             <div className="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/25">
-              <span className="material-symbols-outlined text-[17px] text-muted-foreground">search</span>
+              <Search size={17} strokeWidth={1.75} className="text-muted-foreground" />
               <input
                 className="w-[200px] border-0 bg-transparent px-0 text-[12px] font-medium text-foreground shadow-none outline-none"
                 placeholder="Composant, OF, commande, fournisseur…"
@@ -268,7 +264,7 @@ export default function Shortages(props: ShortagesProps) {
               className="inline-flex items-center gap-1 rounded-full border border-rule bg-card px-3 py-1 text-[11px] font-semibold transition-colors hover:border-brand"
               title="Recharger les données X3 (cache → re-fetch live)"
             >
-              <span className="material-symbols-outlined text-[14px] text-muted-foreground">refresh</span>
+              <RefreshCw size={14} strokeWidth={1.75} className="text-muted-foreground" />
               Actualiser
             </Link>
           </div>
@@ -277,7 +273,7 @@ export default function Shortages(props: ShortagesProps) {
         {/* ═══ X3 injoignable ═══ */}
         {viewData.x3Error && (
           <div className="flex flex-none items-center gap-2 border-b border-destructive/30 bg-destructive/10 px-7 py-2 text-[12px] text-foreground">
-            <span className="material-symbols-outlined text-[16px] text-destructive">warning</span>
+            <TriangleAlert size={16} strokeWidth={1.75} className="text-destructive" />
             <span className="font-bold">Erreur chargement ruptures :</span>
             <span className="font-mono">{viewData.x3Error}</span>
           </div>
@@ -286,14 +282,12 @@ export default function Shortages(props: ShortagesProps) {
         {/* ═══ Vue active ═══ */}
         {loading && !data ? (
           <div className="flex flex-1 items-center justify-center gap-2 text-muted-foreground">
-            <span className="material-symbols-outlined animate-spin text-[20px]">
-              progress_activity
-            </span>
+            <LoaderCircle size={20} strokeWidth={1.75} className="animate-spin" />
             <span className="text-[13px] font-medium">Calcul des ruptures…</span>
           </div>
         ) : error ? (
           <div className="flex flex-1 items-center justify-center gap-2 text-[13px] text-destructive">
-            <span className="material-symbols-outlined text-[20px]">error</span>
+            <CircleX size={20} strokeWidth={1.75} className="text-destructive" />
             Échec du calcul des ruptures.
           </div>
         ) : (

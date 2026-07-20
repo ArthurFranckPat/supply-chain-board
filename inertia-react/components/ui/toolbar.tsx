@@ -1,7 +1,9 @@
 import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
+import { RefreshCw } from "lucide-react"
 
 import { cn } from "@r/lib/utils"
+import { DynamicIcon } from "./dynamic-icon"
 
 // Toolbar — composant unifié pour les barres de filtrage au-dessus des pages
 // métier (dashboard, suivi, ruptures, expeditions, receptions, etc.).
@@ -189,9 +191,7 @@ function ToolbarSearch({
         className
       )}
     >
-      <span className="material-symbols-outlined text-[17px] text-muted-foreground">
-        {icon}
-      </span>
+      <DynamicIcon name={icon} size={17} strokeWidth={1.75} className="text-muted-foreground" />
       <input
         type="text"
         autoComplete="off"
@@ -238,15 +238,15 @@ function ToolbarRefresh({
       )}
       {...props}
     >
-      <span
+      <RefreshCw
+        size={14}
+        strokeWidth={1.75}
         className={cn(
-          "material-symbols-outlined text-[14px] text-muted-foreground",
+          "text-muted-foreground",
           loading && "animate-spin"
         )}
         aria-hidden="true"
-      >
-        refresh
-      </span>
+      />
       {label}
     </button>
   )

@@ -9,6 +9,7 @@
  * [dispo 3rem] [manque 4rem] [réception 6.5rem]
  */
 import { Badge } from '@r/components/ui/badge'
+import { CornerDownRight, CircleCheck } from 'lucide-react'
 import { cn } from '@r/lib/utils'
 import {
   type DiagResult,
@@ -117,9 +118,7 @@ function DiagShortRow({ short }: { short: DiagShort }) {
             <div key={cov.numOf} className="pl-3 pt-0.5">
               {/* En-tête OF couvrant */}
               <div className="flex flex-wrap items-center gap-1.5 py-1 font-mono text-[9px] text-muted-foreground">
-                <span className="material-symbols-outlined text-[11px]">
-                  subdirectory_arrow_right
-                </span>
+                <CornerDownRight size={11} strokeWidth={1.75} />
                 <span className="font-semibold tracking-wider">COUVERT PAR</span>
                 <span className="text-[11px] font-bold text-foreground">{cov.numOf}</span>
                 <Badge
@@ -195,7 +194,7 @@ export function OfDiagnosticTree({ result }: { result: DiagResult }) {
         </div>
       ) : (
         <div className="flex items-center gap-2 rounded-md bg-ferme/10 px-3 py-2 text-[12px] font-medium text-ferme">
-          <span className="material-symbols-outlined text-[16px]">check_circle</span>
+          <CircleCheck size={16} strokeWidth={1.75} />
           Tous les composants sont disponibles
         </div>
       )}

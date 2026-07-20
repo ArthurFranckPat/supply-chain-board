@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react'
+import { Check, FlaskConical, RefreshCw, TriangleAlert, X } from 'lucide-react'
 import {
   draggable,
   dropTargetForElements,
@@ -350,7 +351,7 @@ export default function BoardGrid(props: BoardGridProps) {
             style={{ gridTemplateColumns: gridTpl }}
           >
             <div className="sticky left-0 z-20 flex items-center gap-1.5 border-r border-rule bg-brand-soft/60 px-3.5 py-3">
-              <span className="material-symbols-outlined text-[15px] text-brand">science</span>
+              <FlaskConical size={15} strokeWidth={1.75} className="text-brand" />
               <span className="font-mono text-2xs font-bold uppercase tracking-wider text-brand">
                 Virtuelles
               </span>
@@ -640,7 +641,7 @@ function CardView(props: CardViewProps) {
             picked ? 'border-brand bg-brand text-card' : 'border-rule text-transparent'
           )}
         >
-          <span className="material-symbols-outlined text-sm font-bold">check</span>
+          <Check size={14} strokeWidth={1.75} />
         </span>
       )}
       {/* Badge d'état batch (spinner / ✓ / ✗) par OF */}
@@ -652,18 +653,13 @@ function CardView(props: CardViewProps) {
           )}
           title={batchItem.msg}
         >
-          <span
-            className={cn(
-              'material-symbols-outlined text-xs font-bold',
-              batchItem.st === 'running' && 'animate-spin'
-            )}
-          >
-            {batchItem.st === 'ok'
-              ? 'check'
-              : batchItem.st === 'error'
-                ? 'priority_high'
-                : 'progress_activity'}
-          </span>
+          {batchItem.st === 'ok' ? (
+            <Check size={12} strokeWidth={1.75} />
+          ) : batchItem.st === 'error' ? (
+            <TriangleAlert size={12} strokeWidth={1.75} />
+          ) : (
+            <RefreshCw size={12} strokeWidth={1.75} className="animate-spin" />
+          )}
         </span>
       )}
       <BoardCard
@@ -875,10 +871,10 @@ function VirtualOrderChip(props: VirtualOrderChipProps) {
         }}
         title="Retirer du scénario"
       >
-        <span className="material-symbols-outlined text-xs">close</span>
+        <X size={12} strokeWidth={1.75} />
       </button>
       <div className="flex items-baseline gap-1 whitespace-nowrap pr-3 font-mono text-2xs font-bold text-brand">
-        <span className="material-symbols-outlined flex-none self-center text-xs">science</span>
+        <FlaskConical size={12} strokeWidth={1.75} className="flex-none self-center" />
         <span>
           {props.order.article} × {props.order.quantity}
         </span>

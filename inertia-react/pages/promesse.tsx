@@ -4,6 +4,8 @@ import Masthead from '@r/components/masthead'
 import { route } from '@/lib/routes'
 import { cn } from '@r/lib/utils'
 import type { PromiseResult, PromiseNode, PromiseReason } from '@/lib/promesse/types'
+import { DynamicIcon } from '../components/ui/dynamic-icon'
+import { Ban, Headset, Zap, TrendingUp, ChevronRight, TriangleAlert, ArrowRight } from 'lucide-react'
 
 function frDate(d: Date | string): string {
   const date = typeof d === 'string' ? new Date(d) : d
@@ -63,9 +65,7 @@ function TreeNode({ node, depth }: TreeNodeProps) {
         {node.children.length > 0 && (
           <span className="text-gray-300 text-xs">▸</span>
         )}
-        <span className="material-symbols-outlined text-[16px] text-gray-400">
-          {REASON_ICON[node.reason.kind] ?? 'circle'}
-        </span>
+        <DynamicIcon name={REASON_ICON[node.reason.kind] ?? 'circle'} size={16} className="text-gray-400" />
         <span
           className={cn(
             'text-[13px] font-mono',
@@ -124,7 +124,7 @@ function DateCard({ label, date, color, result }: DateCardProps) {
         </>
       ) : (
         <div className="mt-1 text-lg font-bold text-red-600">
-          <span className="material-symbols-outlined align-middle text-[20px]">block</span> Infaisable
+          <Ban size={20} className="align-middle inline" /> Infaisable
         </div>
       )}
     </div>
@@ -215,9 +215,7 @@ export default function Promesse() {
             {/* Formulaire */}
             <form onSubmit={submit} className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
               <h2 className="mb-4 text-sm font-bold text-gray-700">
-                <span className="material-symbols-outlined align-middle text-[18px] text-primary">
-                  support_agent
-                </span>{' '}
+                <Headset size={18} className="align-middle text-primary" />{' '}
                 Simulateur de promesse client
               </h2>
               <div className="grid grid-cols-[1fr_120px_160px_auto] gap-3">
@@ -267,7 +265,7 @@ export default function Promesse() {
                   >
                     {!loading ? (
                       <>
-                        <span className="material-symbols-outlined align-middle text-[18px]">bolt</span>{' '}
+                        <Zap size={18} className="align-middle" />{' '}
                         Promettre
                       </>
                     ) : (
@@ -307,7 +305,7 @@ export default function Promesse() {
                 {/* Écart de risque */}
                 {!result.optimiste.infeasible && !result.engageante.infeasible && (
                   <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5">
-                    <span className="material-symbols-outlined text-[18px] text-blue-500">trending_up</span>
+                    <TrendingUp size={18} className="text-blue-500" />
                     <span className="text-[13px] text-blue-800">
                       Écart de risque :{' '}
                       <strong>
@@ -342,14 +340,13 @@ export default function Promesse() {
                       onClick={() => setShowTree((v) => !v)}
                       className="flex w-full items-center gap-2 px-4 py-3 text-left"
                     >
-                      <span
+                      <ChevronRight
+                        size={18}
                         className={cn(
-                          'material-symbols-outlined text-[18px] text-gray-400 transition-transform',
+                          'text-gray-400 transition-transform',
                           showTree && 'rotate-90'
                         )}
-                      >
-                        chevron_right
-                      </span>
+                      />
                       <span className="text-[13px] font-semibold text-gray-700">
                         Chemin critique détaillé
                       </span>
@@ -371,7 +368,7 @@ export default function Promesse() {
                 {/* Tronqué ? */}
                 {result.engageante.truncated && (
                   <div className="flex items-center gap-2 text-[12px] text-orange-600">
-                    <span className="material-symbols-outlined text-[16px]">warning</span>
+                    <TriangleAlert size={16} />
                     Arbre incomplet — profondeur maximale atteinte ou cycle de nomenclature détecté.
                   </div>
                 )}
@@ -383,7 +380,7 @@ export default function Promesse() {
                     onClick={toVirtualCommand}
                     className="flex w-full items-center justify-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-sm font-semibold text-primary transition-colors hover:bg-primary/10"
                   >
-                    <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                    <ArrowRight size={18} />
                     Transformer en commande virtuelle sur /programme
                   </button>
                 )}

@@ -12,6 +12,8 @@ import {
   LATE_TONE,
   getRelativeDateLabel,
 } from '@/lib/suivi/tracking-shared'
+import { CalendarX, CornerDownRight } from 'lucide-react'
+import { DynamicIcon } from '../../components/ui/dynamic-icon'
 
 export interface ProactiveColumnsDeps {
   referenceDate: string
@@ -343,9 +345,7 @@ export function createProactiveColumns({
                           title={p.desc}
                         >
                           <div className="flex items-center gap-1">
-                            <span className="material-symbols-outlined text-[10px] leading-none text-muted-foreground/60">
-                              subdirectory_arrow_right
-                            </span>
+                            <CornerDownRight size={10} strokeWidth={1.75} className="leading-none text-muted-foreground/60" />
                             <span>
                               Bloqué par <span className="font-bold text-destructive">{p.art}</span>{' '}
                               <span className="font-bold text-destructive">−{p.manque}</span>
@@ -361,9 +361,7 @@ export function createProactiveColumns({
                               )}
                               title={p.reception.supplier}
                             >
-                              <span className="material-symbols-outlined text-[10px] leading-none opacity-80">
-                                {p.reception.overdue ? 'warning' : 'local_shipping'}
-                              </span>
+                              <DynamicIcon name={p.reception.overdue ? 'warning' : 'local_shipping'} size={10} strokeWidth={1.75} className="leading-none opacity-80" />
                               <span>
                                 {p.reception.overdue
                                   ? `En retard +${p.reception.retardJ} j (${p.reception.eta})`
@@ -372,9 +370,7 @@ export function createProactiveColumns({
                             </div>
                           ) : (
                             <div className="flex items-center gap-0.5 pl-3.5 text-[8.5px] font-medium text-destructive/60">
-                              <span className="material-symbols-outlined text-[10px] leading-none text-destructive/50">
-                                event_busy
-                              </span>
+                              <CalendarX size={10} strokeWidth={1.75} className="leading-none text-destructive/50" />
                               Aucune couverture prévue
                             </div>
                           )}
@@ -388,9 +384,7 @@ export function createProactiveColumns({
                     </div>
                   ) : (
                     <div className="mt-0.5 flex items-center gap-1 font-mono text-[9px] font-semibold leading-none text-emerald-700">
-                      <span className="material-symbols-outlined text-[11px] leading-none text-emerald-600">
-                        subdirectory_arrow_right
-                      </span>
+                      <CornerDownRight size={11} strokeWidth={1.75} className="leading-none text-emerald-600" />
                       ↳ SE à lancer (composants dispo)
                     </div>
                   )
@@ -404,9 +398,7 @@ export function createProactiveColumns({
                     )}
                     title={`Fournisseur: ${c.reception.supplier}`}
                   >
-                    <span className="material-symbols-outlined text-[11px] leading-none opacity-80">
-                      {c.reception.overdue ? 'warning' : 'local_shipping'}
-                    </span>
+                    <DynamicIcon name={c.reception.overdue ? 'warning' : 'local_shipping'} size={11} strokeWidth={1.75} className="leading-none opacity-80" />
                     <span>
                       {c.reception.overdue
                         ? `En retard +${c.reception.retardJ} j (${c.reception.eta})`
@@ -415,9 +407,7 @@ export function createProactiveColumns({
                   </div>
                 ) : (
                   <div className="mt-0.5 flex items-center gap-1 font-mono text-[9px] font-medium text-destructive/60">
-                    <span className="material-symbols-outlined text-[11px] leading-none text-destructive/50">
-                      event_busy
-                    </span>
+                    <CalendarX size={11} strokeWidth={1.75} className="leading-none text-destructive/50" />
                     Aucune couverture prévue
                   </div>
                 )}

@@ -6,6 +6,7 @@ import { cn } from '@r/lib/utils'
 import { Masthead } from '@r/components/masthead'
 import { Badge } from '@r/components/ui/badge'
 import { Button } from '@r/components/ui/button'
+import { BadgeCheck, CornerDownRight, Search, LoaderCircle, CircleX, CircleCheck } from 'lucide-react'
 
 /**
  * Page de TEST provisoire (issue #25) pour valider le diagnostic récursif sur un
@@ -140,9 +141,7 @@ function ShortRow({ short, depth }: ShortRowProps) {
       </div>
       {short.status === 'qc_a_controler' && (
         <div className="ml-1 flex items-center gap-1.5 py-0.5 font-mono text-[11px] text-warning">
-          <span className="material-symbols-outlined text-[13px]">
-            verified
-          </span>
+          <BadgeCheck size={13} />
           Action : lever le contrôle qualité ({short.stockQc} en CQ — couvre le
           besoin)
         </div>
@@ -155,9 +154,7 @@ function ShortRow({ short, depth }: ShortRowProps) {
           className="mt-1 rounded-md bg-secondary/50 px-3 py-2"
         >
           <div className="flex flex-wrap items-center gap-2">
-            <span className="material-symbols-outlined text-[14px] text-muted-foreground">
-              subdirectory_arrow_right
-            </span>
+            <CornerDownRight size={14} className="text-muted-foreground" />
             <span className="font-mono text-[10px] font-semibold tracking-wider text-muted-foreground">
               COUVERT PAR
             </span>
@@ -264,26 +261,20 @@ export default function DiagnosticTest() {
                 />
               </label>
               <Button type="submit" className="gap-1.5">
-                <span className="material-symbols-outlined text-[16px]">
-                  search
-                </span>
+                <Search size={16} />
                 Examiner
               </Button>
             </form>
 
             {loading && (
               <div className="flex items-center gap-2 rounded-md bg-secondary px-4 py-3 text-[13px] text-muted-foreground">
-                <span className="material-symbols-outlined animate-spin text-[18px]">
-                  progress_activity
-                </span>
+                <LoaderCircle size={18} className="animate-spin" />
                 Diagnostic en cours…
               </div>
             )}
             {error && (
               <div className="flex items-center gap-2 rounded-md bg-destructive/10 px-4 py-3 text-[13px] font-medium text-destructive">
-                <span className="material-symbols-outlined text-[18px]">
-                  error
-                </span>
+                <CircleX size={18} />
                 {error}
               </div>
             )}
@@ -331,9 +322,7 @@ export default function DiagnosticTest() {
                   </div>
                 ) : (
                   <div className="flex items-center gap-2 rounded-md bg-ferme/10 px-4 py-3 text-[13px] font-medium text-ferme">
-                    <span className="material-symbols-outlined text-[18px]">
-                      check_circle
-                    </span>
+                    <CircleCheck size={18} />
                     Aucun manque — tous les composants sont disponibles.
                   </div>
                 )}

@@ -189,29 +189,12 @@
 }
 
 /* ────────────────────────────────────────────────────────────
-   Icônes Material Symbols — conservées pendant la transition
-   (uniformisation lucide-react en phase 6). Font chargée via
-   Google Fonts dans inertia_layout_react.edge.
+   Icônes : Material Symbols retiré (Lot A redesign Airbnb, 2026-07-20).
+   Toute l'UI React utilise désormais lucide-react (trait fin, strokeWidth
+   1.75). Les icônes pilotées par la donnée passent par <DynamicIcon>
+   (components/ui/dynamic-icon.tsx). La police Material Symbols et son
+   lien Google Fonts ont été retirés de inertia_layout_react.edge.
    ──────────────────────────────────────────────────────────── */
-.material-symbols-outlined {
-  font-family: 'Material Symbols Outlined';
-  font-variation-settings:
-    'FILL' 0,
-    'wght' 400,
-    'GRAD' 0,
-    'opsz' 20;
-  font-size: 20px;
-  line-height: 1;
-  font-style: normal;
-  font-weight: normal;
-  display: inline-block;
-  white-space: nowrap;
-  word-wrap: normal;
-  direction: ltr;
-  -webkit-font-feature-settings: 'liga';
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
-}
 
 /* ════════════════════════════════════════════════════════════
    Thème « Airbnb » (v0.2, 2026-07-19).

@@ -15,6 +15,8 @@ import {
 } from '@r/components/ui/alert-dialog'
 import { useScenarioStore } from '@r/lib/scenario/store'
 import type { PlanMutation } from '@/lib/scenarios/types'
+import { FlaskConical, Save, Trash2, CirclePlus, Zap, TriangleAlert, Plus, FolderOpen, ArrowLeftRight } from 'lucide-react'
+import { DynamicIcon } from '../ui/dynamic-icon'
 
 /**
  * Bandeau du mode scénario (issue #57) : « Scénario ‹nom› — N mutations — Impacts
@@ -174,7 +176,7 @@ export function ScenarioBar({
 
   return (
     <div className="flex flex-none flex-wrap items-center gap-3 border-b border-brand/40 bg-brand-soft px-7 py-2">
-      <span className="material-symbols-outlined text-[18px] text-brand">science</span>
+      <FlaskConical size={18} strokeWidth={1.75} className="text-brand" />
       <span className="font-fraunces text-[13px] font-bold text-brand">Scénario</span>
 
       {/* Nom éditable */}
@@ -215,11 +217,12 @@ export function ScenarioBar({
           onClick={openDiff}
           className="gap-1.5"
         >
-          <span
-            className={cn('material-symbols-outlined text-[15px]', s.diffLoading && 'animate-spin')}
-          >
-            {s.diffLoading ? 'progress_activity' : 'insights'}
-          </span>
+          <DynamicIcon
+            name={s.diffLoading ? 'progress_activity' : 'insights'}
+            size={15}
+            strokeWidth={1.75}
+            className={cn(s.diffLoading && 'animate-spin')}
+          />
           Impacts
         </Button>
 
@@ -230,19 +233,22 @@ export function ScenarioBar({
           onClick={() => s.save()}
           className="gap-1.5"
         >
-          <span className="material-symbols-outlined text-[15px]">save</span>
+          <Save size={15} strokeWidth={1.75} />
           {s.saving ? 'Enregistrement…' : 'Enregistrer'}
         </Button>
 
         <Button size="sm" disabled={mutationCount === 0 || applying} onClick={onApply} className="gap-1.5">
-          <span className={cn('material-symbols-outlined text-[15px]', applying && 'animate-spin')}>
-            {applying ? 'progress_activity' : 'play_arrow'}
-          </span>
+          <DynamicIcon
+            name={applying ? 'progress_activity' : 'play_arrow'}
+            size={15}
+            strokeWidth={1.75}
+            className={cn(applying && 'animate-spin')}
+          />
           {applying ? 'Application…' : 'Appliquer'}
         </Button>
 
         <Button size="sm" variant="ghost" onClick={requestDiscard} className="gap-1.5">
-          <span className="material-symbols-outlined text-[15px]">delete</span>
+          <Trash2 size={15} strokeWidth={1.75} />
           Jeter
         </Button>
 
@@ -263,7 +269,7 @@ export function ScenarioBar({
                   Annuler
                 </Button>
                 <Button size="sm" variant="destructive" onClick={confirmDiscard} className="gap-1.5">
-                  <span className="material-symbols-outlined text-[15px]">delete</span>
+                  <Trash2 size={15} strokeWidth={1.75} />
                   Jeter le scénario
                 </Button>
               </AlertDialogFooter>
@@ -274,7 +280,7 @@ export function ScenarioBar({
         {/* #58 — commande virtuelle (mutation inject_demand, what-if) */}
         <div className="relative">
           <Button size="sm" variant="outline" onClick={() => setFormOpen((o) => !o)} className="gap-1.5">
-            <span className="material-symbols-outlined text-[15px]">add_circle</span>
+            <CirclePlus size={15} strokeWidth={1.75} />
             Commande virtuelle
           </Button>
           {formOpen && (
@@ -325,7 +331,7 @@ export function ScenarioBar({
                 {/* CTP §6.1 — date vide : le moteur propose ; date saisie trop tôt : avertit. */}
                 {!date && (earliestLoading || earliest) && (
                   <p className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                    <span className="material-symbols-outlined text-[13px] text-brand">bolt</span>
+                    <Zap size={13} strokeWidth={1.75} className="text-brand" />
                     {!earliestLoading ? (
                       earliest?.date ? (
                         <>
@@ -342,7 +348,7 @@ export function ScenarioBar({
                 )}
                 {date && earliest?.date && date < earliest.date && (
                   <p className="flex items-center gap-1 text-[11px] font-semibold text-warning">
-                    <span className="material-symbols-outlined text-[13px]">warning</span>
+                    <TriangleAlert size={13} strokeWidth={1.75} />
                     Infaisable à cette date — sinon possible au plus tôt le{' '}
                     {new Date(earliest.date).toLocaleDateString('fr-FR')}
                   </p>
@@ -354,7 +360,7 @@ export function ScenarioBar({
                   className="h-[28px] w-full rounded-md border border-rule bg-background px-2 text-[12px] focus:border-brand focus:outline-none"
                 />
                 <Button type="submit" size="sm" className="w-full gap-1.5">
-                  <span className="material-symbols-outlined text-[15px]">add</span>
+                  <Plus size={15} strokeWidth={1.75} />
                   {date ? 'Ajouter au scénario' : 'Ajouter au plus tôt'}
                 </Button>
               </form>
@@ -365,7 +371,7 @@ export function ScenarioBar({
         {/* Liste des scénarios enregistrés */}
         <div className="relative">
           <Button size="sm" variant="outline" onClick={() => setListOpen((o) => !o)} className="gap-1.5">
-            <span className="material-symbols-outlined text-[15px]">folder_open</span>
+            <FolderOpen size={15} strokeWidth={1.75} />
             Ouvrir
           </Button>
           {listOpen && (
@@ -420,10 +426,10 @@ export function ScenarioBar({
                       <button
                         type="button"
                         title="Supprimer"
-                        className="material-symbols-outlined text-[16px] text-muted-foreground hover:text-error"
+                        className="text-muted-foreground hover:text-error"
                         onClick={() => s.remove(sc.id)}
                       >
-                        delete
+                        <Trash2 size={16} strokeWidth={1.75} />
                       </button>
                     </div>
                   ))
@@ -437,7 +443,7 @@ export function ScenarioBar({
                         router.visit(`/programme/scenarios/comparer?ids=${selectedIds.join(',')}`)
                       }}
                     >
-                      <span className="material-symbols-outlined text-[15px]">compare_arrows</span>
+                      <ArrowLeftRight size={15} strokeWidth={1.75} />
                       Comparer ({selectedIds.length})
                     </Button>
                   </div>

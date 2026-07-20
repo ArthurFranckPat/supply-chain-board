@@ -1,6 +1,8 @@
 import { type JSX } from 'react'
+import { Pencil, TriangleAlert } from 'lucide-react'
 import { cn } from '@r/lib/utils'
 import { TYPO_META } from '@/lib/board/types'
+import { DynamicIcon } from '../ui/dynamic-icon'
 
 /**
  * BoardCard « Papier » — carte unifiée du board.
@@ -276,7 +278,7 @@ function CommandeBody(p: CommandeBodyProps) {
       )}
       {p.alert && (
         <div className="mt-1.5 flex items-center gap-1 rounded bg-destructive/10 px-1.5 py-[3px] font-mono text-2xs font-bold text-destructive">
-          <span className="material-symbols-outlined text-xs">warning</span>
+          <TriangleAlert size={12} strokeWidth={1.75} />
           {p.alert}
         </div>
       )}
@@ -285,7 +287,7 @@ function CommandeBody(p: CommandeBodyProps) {
       <div className="mt-2 flex flex-wrap items-center gap-1 border-t border-rule-soft pt-1.5">
         {p.mod && (
           <span className="inline-flex items-center gap-0.5 font-mono text-3xs font-semibold uppercase tracking-wider text-suggere">
-            <span className="material-symbols-outlined text-xs">edit</span>
+            <Pencil size={12} strokeWidth={1.75} />
           </span>
         )}
         {typo && (
@@ -371,7 +373,7 @@ function OfBody(p: OfBodyProps) {
       )}
       {p.alert && (
         <div className="mt-1.5 flex items-center gap-1 rounded bg-destructive/10 px-1.5 py-[3px] font-mono text-2xs font-bold text-destructive">
-          <span className="material-symbols-outlined text-xs">warning</span>
+          <TriangleAlert size={12} strokeWidth={1.75} />
           {p.alert}
         </div>
       )}
@@ -405,7 +407,7 @@ function CornerBadge(p: CornerBadgeProps) {
         p.cls
       )}
     >
-      <span className="material-symbols-outlined text-xs font-bold">{p.icon}</span>
+      <DynamicIcon name={p.icon} size={12} strokeWidth={1.75} />
     </span>
   )
 }

@@ -1,5 +1,6 @@
 import { type CamionDtl } from '@r/components/expeditions/camion-detail-sheet'
 import { chargeBgClass, chargeText, chargeTier } from '@/components/expeditions/palette-charge'
+import { Clock, TriangleAlert, Truck } from 'lucide-react'
 import { cn } from '@r/lib/utils'
 
 /**
@@ -28,9 +29,7 @@ export function ManifesteView({
       <div className="h-full overflow-y-auto px-5 pb-8 pt-4">
         <div className="grid grid-cols-[repeat(auto-fill,minmax(310px,1fr))] gap-3.5">
           <div className="col-span-full flex flex-col items-center gap-2 p-10 text-center">
-            <span className="material-symbols-outlined text-[32px] text-muted-foreground/50">
-              local_shipping
-            </span>
+            <Truck size={32} strokeWidth={1.75} className="text-muted-foreground/50" />
             <span className="font-fraunces text-[14px] italic text-muted-foreground">
               Aucun camion ne correspond au filtre.
             </span>
@@ -98,7 +97,7 @@ export function ManifesteView({
                       : 'bg-secondary text-secondary-foreground'
                   )}
                 >
-                  <span className="material-symbols-outlined text-[12px]">schedule</span>
+                  <Clock size={12} strokeWidth={1.75} />
                   {c.debut}
                   {c.fin !== c.debut ? `–${c.fin}` : ''}
                 </span>
@@ -169,7 +168,7 @@ export function ManifesteView({
                 <Stat label="Lignes" value={String(c.nbLignes)} />
                 {c.anomalie && (
                   <span className="ml-auto flex items-center gap-1 font-mono text-[9px] font-bold uppercase tracking-[0.06em] text-destructive">
-                    <span className="material-symbols-outlined text-[13px]">warning</span>
+                    <TriangleAlert size={13} strokeWidth={1.75} />
                     Suspecte
                   </span>
                 )}

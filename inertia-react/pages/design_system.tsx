@@ -9,6 +9,8 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 import { Board } from '@r/components/board/papier-board'
 import { BoardCard } from '@r/components/board/board-card'
 import { ChargeForecast, type ForecastLine } from '@r/components/board/charge-forecast'
+import { ClipboardCheck, Download, RefreshCw, Trash2, SlidersHorizontal, Check, Ban, Pencil, ArrowLeftRight } from 'lucide-react'
+import { DynamicIcon } from '../components/ui/dynamic-icon'
 
 /**
  * Design system « Papier » — showcase des VRAIS composants ui/* (shadcn/Base UI)
@@ -427,17 +429,17 @@ export default function DesignSystem() {
                 </FieldLabel>
                 <div className="flex flex-wrap items-center gap-3">
                   <Button>
-                    <span className="material-symbols-outlined text-[17px]">fact_check</span>Faisabilité
+                    <ClipboardCheck size={17} />Faisabilité
                   </Button>
                   <Button variant="secondary">
-                    <span className="material-symbols-outlined text-[17px]">download</span>Exporter
+                    <Download size={17} />Exporter
                   </Button>
                   <Button variant="outline">Annuler</Button>
                   <Button variant="ghost">
-                    <span className="material-symbols-outlined text-[17px]">refresh</span>X3
+                    <RefreshCw size={17} />X3
                   </Button>
                   <Button variant="destructive">
-                    <span className="material-symbols-outlined text-[17px]">delete</span>Supprimer
+                    <Trash2 size={17} />Supprimer
                   </Button>
                   <Button variant="link">Détail</Button>
                 </div>
@@ -448,10 +450,10 @@ export default function DesignSystem() {
                   <Button>Moyen</Button>
                   <Button size="lg">Grand</Button>
                   <Button size="icon" variant="secondary">
-                    <span className="material-symbols-outlined text-[18px]">tune</span>
+                    <SlidersHorizontal size={18} />
                   </Button>
                   <Button size="icon-sm" variant="secondary">
-                    <span className="material-symbols-outlined text-[16px]">refresh</span>
+                    <RefreshCw size={16} />
                   </Button>
                 </div>
 
@@ -552,12 +554,12 @@ export default function DesignSystem() {
                 </FieldLabel>
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant="success">
-                    <span className="material-symbols-outlined text-[13px]">check</span>Ferme
+                    <Check size={13} />Ferme
                   </Badge>
                   <Badge variant="secondary">Planifié</Badge>
                   <Badge variant="warning">Suggéré</Badge>
                   <Badge variant="destructive">
-                    <span className="material-symbols-outlined text-[13px]">block</span>Sans couverture
+                    <Ban size={13} />Sans couverture
                   </Badge>
                   <Badge variant="outline">Brouillon</Badge>
                   <Badge variant="default">Default / primary</Badge>
@@ -578,7 +580,7 @@ export default function DesignSystem() {
                     MTS
                   </span>
                   <span className="inline-flex items-center gap-1 font-mono text-[9px] font-semibold uppercase tracking-wider text-suggere">
-                    <span className="material-symbols-outlined text-[12px]">edit</span>Modifié
+                    <Pencil size={12} />Modifié
                   </span>
                   <span className="flex size-4 items-center justify-center rounded-full bg-ferme text-[10px] font-bold text-card">
                     ✓
@@ -757,12 +759,12 @@ export default function DesignSystem() {
                     Caisse VMC D200
                   </span>
                   <Badge variant="destructive" className="ml-1">
-                    <span className="material-symbols-outlined text-[13px]">block</span>Bloquée ·
+                    <Ban size={13} />Bloquée ·
                     MOT-33012 −42
                   </Badge>
                   <span className="flex-1" />
                   <Button size="sm">
-                    <span className="material-symbols-outlined text-[15px]">swap_horiz</span>Replanifier
+                    <ArrowLeftRight size={15} />Replanifier
                   </Button>
                 </div>
                 <div className="flex items-center gap-0 border-b border-rule-soft bg-card px-4">
@@ -1052,7 +1054,7 @@ function RuptureRow(props: {
       <div>
         {props.none ? (
           <span className="inline-flex items-center gap-1 font-mono text-[10px] font-semibold uppercase tracking-wider text-destructive">
-            <span className="material-symbols-outlined text-[13px]">block</span>Aucune couverture
+            <Ban size={13} />Aucune couverture
           </span>
         ) : (
           <>
@@ -1104,7 +1106,7 @@ function StatePane(props: {
         <div className="size-7 animate-spin rounded-full border-[3px] border-border border-t-brand" />
       ) : (
         <div className={`flex size-11 items-center justify-center rounded-full ${toneCls[props.tone]}`}>
-          <span className="material-symbols-outlined text-[26px]">{props.icon}</span>
+          <DynamicIcon name={props.icon} size={26} />
         </div>
       )}
       <div className="font-fraunces text-[15px] font-bold">{props.title}</div>

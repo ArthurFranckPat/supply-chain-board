@@ -4,6 +4,8 @@
  * popover de confirmation (absolu → aucun décalage du header).
  */
 import { Button } from '@r/components/ui/button'
+import { TriangleAlert } from 'lucide-react'
+import { DynamicIcon } from '../ui/dynamic-icon'
 import type { BomRow } from '@/lib/of/types'
 
 export interface OfFirmActionProps {
@@ -31,11 +33,12 @@ export function OfFirmAction(props: OfFirmActionProps) {
         onClick={props.onFirm}
         disabled={props.firming || props.confirmRupture}
       >
-        <span
-          className={`material-symbols-outlined text-[15px] ${props.firming ? 'animate-spin' : ''}`}
-        >
-          {props.firming ? 'progress_activity' : 'check_circle'}
-        </span>
+        <DynamicIcon
+          name={props.firming ? 'progress_activity' : 'check_circle'}
+          size={15}
+          strokeWidth={1.75}
+          className={props.firming ? 'animate-spin' : undefined}
+        />
         {props.firming ? 'Affermissement…' : props.isSuggestion ? 'Affermir' : 'Passer en ferme'}
       </Button>
       {props.confirmRupture && (
@@ -45,9 +48,7 @@ export function OfFirmAction(props: OfFirmActionProps) {
           <div className="fixed inset-0 z-40" onClick={props.onCancelConfirm} aria-hidden="true" />
           <div className="absolute bottom-full right-0 z-50 mb-2 w-[20rem] rounded-lg border border-destructive/40 bg-background p-3 shadow-xl">
             <div className="flex items-start gap-2">
-              <span className="material-symbols-outlined mt-0.5 text-[18px] text-destructive">
-                warning
-              </span>
+              <TriangleAlert size={18} strokeWidth={1.75} className="mt-0.5 text-destructive" />
               <div className="min-w-0 flex-1">
                 <div className="font-mono text-[12px] font-bold text-destructive">
                   {props.rupturedComponents.length} composant
@@ -81,11 +82,12 @@ export function OfFirmAction(props: OfFirmActionProps) {
                 onClick={props.onDoFirm}
                 disabled={props.firming}
               >
-                <span
-                  className={`material-symbols-outlined text-[14px] ${props.firming ? 'animate-spin' : ''}`}
-                >
-                  {props.firming ? 'progress_activity' : 'gpp_maybe'}
-                </span>
+                <DynamicIcon
+                  name={props.firming ? 'progress_activity' : 'gpp_maybe'}
+                  size={14}
+                  strokeWidth={1.75}
+                  className={props.firming ? 'animate-spin' : undefined}
+                />
                 Affermir malgré les ruptures
               </Button>
             </div>

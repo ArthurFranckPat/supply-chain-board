@@ -1,5 +1,7 @@
 import { useMemo, useState, useCallback } from 'react'
+import { Layers } from 'lucide-react'
 import { cn } from '@r/lib/utils'
+import { DynamicIcon } from '../ui/dynamic-icon'
 
 /**
  * ChargeForecast « Barres » — projection de charge long-terme.
@@ -108,7 +110,7 @@ function Stat({ icon, lab, v, unit, tone, sub }: StatProps) {
   return (
     <div className="rounded-[10px] border border-border bg-card px-4 py-3">
       <div className="flex items-center gap-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-        <span className="material-symbols-outlined text-[14px]">{icon}</span>
+        <DynamicIcon name={icon} size={14} strokeWidth={1.75} />
         {lab}
       </div>
       <div className="mt-1 flex items-baseline gap-1">
@@ -290,7 +292,7 @@ export function ChargeForecast(props: ChargeForecastProps) {
             )}
             onClick={() => setLineId('all')}
           >
-            <span className="material-symbols-outlined text-[13px]">layers</span>Toutes
+            <Layers size={13} strokeWidth={1.75} />Toutes
           </button>
           {props.lines.map((l) => (
             <button

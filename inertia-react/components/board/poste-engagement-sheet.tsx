@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { CircleX, Package, RefreshCw, TriangleAlert } from 'lucide-react'
 import { cn } from '@r/lib/utils'
 import { Sheet, SheetContent, SheetTitle } from '@r/components/ui/sheet'
 import { route } from '@/lib/routes'
@@ -140,23 +141,19 @@ export function PosteEngagementSheet(props: PosteEngagementSheetProps) {
       >
         {loading ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-muted-foreground">
-            <span className="material-symbols-outlined animate-spin text-[26px]">
-              progress_activity
-            </span>
+            <RefreshCw size={26} strokeWidth={1.75} className="animate-spin" />
             <span className="text-sm">Chargement…</span>
           </div>
         ) : error ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-destructive">
-            <span className="material-symbols-outlined text-[26px]">error</span>
+            <CircleX size={26} strokeWidth={1.75} />
             <span className="text-sm font-medium">Échec du chargement de l'engagement.</span>
           </div>
         ) : !data ? null : (
           <>
             {/* Barre d'identité poste + saturation charge/capacité. */}
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border bg-secondary px-5 py-3 pr-14">
-              <span className="material-symbols-outlined self-center text-[18px] text-brand">
-                inventory_2
-              </span>
+              <Package size={18} strokeWidth={1.75} className="self-center text-brand" />
               <div className="flex items-baseline gap-2">
                 <span className="font-mono text-[13px] font-bold text-foreground">
                   {data.poste.code}
@@ -216,9 +213,7 @@ export function PosteEngagementSheet(props: PosteEngagementSheetProps) {
 
             {data.x3Error && (
               <div className="flex flex-none items-start gap-2 border-b border-brand/30 bg-brand-soft px-5 py-2 text-[12px] text-foreground">
-                <span className="material-symbols-outlined mt-px text-[16px] text-brand">
-                  warning
-                </span>
+                <TriangleAlert size={16} strokeWidth={1.75} className="mt-px text-brand" />
                 <span className="flex-none font-bold">Matching partiel :</span>
                 <span className="font-mono break-all">{data.x3Error}</span>
               </div>
@@ -226,7 +221,7 @@ export function PosteEngagementSheet(props: PosteEngagementSheetProps) {
 
             {data.rows.length === 0 ? (
               <div className="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-muted-foreground">
-                <span className="material-symbols-outlined text-[26px]">inventory_2</span>
+                <Package size={26} strokeWidth={1.75} />
                 <span className="font-fraunces text-[13px] italic">
                   Aucun OF ferme sur ce poste.
                 </span>

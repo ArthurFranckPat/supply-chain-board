@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { fr } from 'react-day-picker/locale'
 import type { DateRange as DayPickerRange } from 'react-day-picker'
+import { Calendar as CalendarIcon, X, Minus, Plus, TriangleAlert, Search, RefreshCw, LoaderCircle, CircleX, CloudOff, Truck } from 'lucide-react'
 
 import AppLayout from '@r/layouts/app'
 import { Calendar } from '@r/components/ui/calendar'
@@ -9,6 +10,7 @@ import { ManifesteView, type ManifesteSort } from '@r/components/expeditions/man
 import { FriseView } from '@r/components/expeditions/frise-view'
 import { useTimedFetch } from '@r/lib/suivi/use-timed-fetch'
 import { cn } from '@r/lib/utils'
+import { DynamicIcon } from '../components/ui/dynamic-icon'
 
 /**
  * Page « Expéditions » (issue #44) — port React iso du Solid
@@ -183,9 +185,7 @@ export default function Expeditions(props: ExpeditionsPageProps) {
                 onClick={() => setCalendarOpen((v) => !v)}
                 className="flex items-center gap-1.5 rounded border border-rule bg-card px-2.5 py-1.5 font-mono text-[11px] text-foreground transition-colors hover:bg-secondary/60"
               >
-                <span className="material-symbols-outlined text-[14px] text-muted-foreground">
-                  calendar_today
-                </span>
+                <CalendarIcon size={14} strokeWidth={1.75} className="text-muted-foreground" />
                 <span>{rangeLabel ?? 'J-1'}</span>
               </button>
               {range?.start && (
@@ -198,7 +198,7 @@ export default function Expeditions(props: ExpeditionsPageProps) {
                   className="flex size-6 items-center justify-center rounded text-muted-foreground hover:text-foreground"
                   title="Réinitialiser"
                 >
-                  <span className="material-symbols-outlined text-[14px]">close</span>
+                  <X size={14} strokeWidth={1.75} />
                 </button>
               )}
             </div>
@@ -234,7 +234,7 @@ export default function Expeditions(props: ExpeditionsPageProps) {
               title="Diminuer la tolérance"
               aria-label="Diminuer la tolérance"
             >
-              <span className="material-symbols-outlined text-[13px]">remove</span>
+              <Minus size={13} strokeWidth={1.75} />
             </button>
             <span className="min-w-[48px] text-center font-mono text-[10px] font-bold tabular-nums text-foreground">
               ± {gapEff} min
@@ -246,7 +246,7 @@ export default function Expeditions(props: ExpeditionsPageProps) {
               title="Augmenter la tolérance"
               aria-label="Augmenter la tolérance"
             >
-              <span className="material-symbols-outlined text-[13px]">add</span>
+              <Plus size={13} strokeWidth={1.75} />
             </button>
           </div>
 
@@ -261,14 +261,14 @@ export default function Expeditions(props: ExpeditionsPageProps) {
                 : 'border-rule bg-card text-muted-foreground hover:text-foreground'
             )}
           >
-            <span className="material-symbols-outlined text-[13px]">warning</span>
+            <TriangleAlert size={13} strokeWidth={1.75} />
             Anomalies seules
           </button>
 
           <div className="ml-auto flex items-center gap-2">
             {/* Recherche — systématiquement à droite (convention toolbar). */}
             <div className="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/25">
-              <span className="material-symbols-outlined text-[17px] text-muted-foreground">search</span>
+              <Search size={17} strokeWidth={1.75} className="text-muted-foreground" />
               <input
                 className="w-[160px] border-0 bg-transparent px-0 text-[12px] font-medium text-foreground shadow-none outline-none"
                 placeholder="Client…"
@@ -298,14 +298,11 @@ export default function Expeditions(props: ExpeditionsPageProps) {
               className="inline-flex items-center gap-1 rounded-full border border-rule bg-card px-3 py-1 text-[11px] font-semibold transition-colors hover:border-brand disabled:opacity-50"
               title="Recharger les données X3"
             >
-              <span
-                className={cn(
-                  'material-symbols-outlined text-[14px] text-muted-foreground',
-                  loading && 'animate-spin'
-                )}
-              >
-                refresh
-              </span>
+              <RefreshCw
+                size={14}
+                strokeWidth={1.75}
+                className={cn('text-muted-foreground', loading && 'animate-spin')}
+              />
               Actualiser
             </button>
           </div>
@@ -359,7 +356,7 @@ export default function Expeditions(props: ExpeditionsPageProps) {
         {/* ═══ X3 injoignable ═══ */}
         {x3Error && (
           <div className="flex flex-none items-center gap-2 border-b border-destructive/30 bg-destructive/10 px-7 py-2 text-[12px] text-foreground">
-            <span className="material-symbols-outlined text-[16px] text-destructive">warning</span>
+            <TriangleAlert size={16} strokeWidth={1.75} className="text-destructive" />
             <span className="font-bold">Erreur chargement expéditions :</span>
             <span className="font-mono">{x3Error}</span>
           </div>
@@ -368,14 +365,12 @@ export default function Expeditions(props: ExpeditionsPageProps) {
         {/* ═══ Vue ═══ */}
         {loading ? (
           <div className="flex flex-1 items-center justify-center gap-2 text-muted-foreground">
-            <span className="material-symbols-outlined animate-spin text-[20px]">
-              progress_activity
-            </span>
+            <LoaderCircle size={20} strokeWidth={1.75} className="animate-spin" />
             <span className="text-[13px] font-medium">Calcul des expéditions…</span>
           </div>
         ) : error ? (
           <div className="flex flex-1 items-center justify-center gap-2 text-[13px] text-destructive">
-            <span className="material-symbols-outlined text-[20px]">error</span>
+            <CircleX size={20} strokeWidth={1.75} />
             Échec du calcul des expéditions.
           </div>
         ) : hasContent ? (
@@ -398,9 +393,11 @@ export default function Expeditions(props: ExpeditionsPageProps) {
           )
         ) : (
           <div className="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-center">
-            <span className="material-symbols-outlined text-[32px] text-muted-foreground/50">
-              {x3Error ? 'cloud_off' : 'local_shipping'}
-            </span>
+            {x3Error ? (
+              <CloudOff size={32} strokeWidth={1.75} className="text-muted-foreground/50" />
+            ) : (
+              <Truck size={32} strokeWidth={1.75} className="text-muted-foreground/50" />
+            )}
             <span className="font-fraunces text-[14px] italic text-muted-foreground">
               {x3Error
                 ? 'Données indisponibles (X3 injoignable).'
@@ -439,7 +436,7 @@ function ViewTab({
         active ? 'bg-brand/10 text-brand' : 'text-muted-foreground hover:text-foreground'
       )}
     >
-      <span className="material-symbols-outlined text-[14px]">{icon}</span>
+      <DynamicIcon name={icon} size={14} />
       {label}
     </button>
   )

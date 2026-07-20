@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { LayoutGrid } from 'lucide-react'
 import { cn } from '@r/lib/utils'
 import { ChargeHistogram, type ChargeWeek } from './charge-histogram'
 
@@ -104,9 +105,7 @@ export function Board(props: BoardProps) {
         {/* Rangées de postes */}
         {props.lines.length === 0 ? (
           <div className="flex flex-col items-center gap-2 px-6 py-14 text-center">
-            <span className="material-symbols-outlined text-[28px] text-muted-foreground/60">
-              grid_view
-            </span>
+            <LayoutGrid size={28} strokeWidth={1.75} className="text-muted-foreground/60" />
             <div className="font-fraunces text-[15px] font-bold">Aucun poste à planifier</div>
             <div className="font-fraunces text-[13px] italic text-muted-foreground">
               Le board est vide sur cette fenêtre.

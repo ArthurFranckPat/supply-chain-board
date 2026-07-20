@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'
+import { CircleCheck, RefreshCw, ShieldQuestion, TriangleAlert, X } from 'lucide-react'
 import { useBoardStore, batchCounts } from '@r/lib/board/store'
 import { Button } from '@r/components/ui/button'
 
@@ -38,9 +39,7 @@ export function BatchFirmBar() {
         {counts.total > 0 ? (
           <span className="flex items-center gap-2 font-mono text-[12px] font-bold">
             {store.batchRunning && (
-              <span className="material-symbols-outlined animate-spin text-[16px] text-brand">
-                progress_activity
-              </span>
+              <RefreshCw size={16} strokeWidth={1.75} className="animate-spin text-brand" />
             )}
             <span className="text-ferme">✓ {counts.ok}</span>
             {counts.err > 0 && (
@@ -57,7 +56,7 @@ export function BatchFirmBar() {
         {/* Warning groupé rupture */}
         {blocked.length > 0 && !store.batchRunning && (
           <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 font-mono text-[10px] font-bold text-destructive">
-            <span className="material-symbols-outlined text-[13px]">warning</span>
+            <TriangleAlert size={13} strokeWidth={1.75} />
             {blocked.length} en rupture
           </span>
         )}
@@ -72,11 +71,11 @@ export function BatchFirmBar() {
             onClick={run}
             disabled={store.batchRunning || store.selected.size === 0}
           >
-            <span
-              className={`material-symbols-outlined text-[15px] ${store.batchRunning ? 'animate-spin' : ''}`}
-            >
-              {store.batchRunning ? 'progress_activity' : 'check_circle'}
-            </span>
+            {store.batchRunning ? (
+              <RefreshCw size={15} strokeWidth={1.75} className="animate-spin" />
+            ) : (
+              <CircleCheck size={15} strokeWidth={1.75} />
+            )}
             {store.batchRunning ? 'Affermissement…' : 'Affermir la sélection'}
           </Button>
 
@@ -90,9 +89,7 @@ export function BatchFirmBar() {
               />
               <div className="absolute bottom-full left-1/2 z-50 mb-2 w-[22rem] -translate-x-1/2 rounded-lg border border-destructive/40 bg-background p-3 shadow-xl">
                 <div className="flex items-start gap-2">
-                  <span className="material-symbols-outlined mt-0.5 text-[18px] text-destructive">
-                    warning
-                  </span>
+                  <TriangleAlert size={18} strokeWidth={1.75} className="mt-0.5 text-destructive" />
                   <div className="min-w-0 flex-1">
                     <div className="font-mono text-[12px] font-bold text-destructive">
                       {blocked.length} OF en rupture dans la sélection
@@ -118,7 +115,7 @@ export function BatchFirmBar() {
                     className="h-7 gap-1 text-[11px]"
                     onClick={run}
                   >
-                    <span className="material-symbols-outlined text-[14px]">gpp_maybe</span>
+                    <ShieldQuestion size={14} strokeWidth={1.75} />
                     Affermir malgré les ruptures
                   </Button>
                 </div>
@@ -134,7 +131,7 @@ export function BatchFirmBar() {
           onClick={() => store.exitSelect()}
           disabled={store.batchRunning}
         >
-          <span className="material-symbols-outlined text-[15px]">close</span>
+          <X size={15} strokeWidth={1.75} />
           Quitter
         </Button>
       </div>

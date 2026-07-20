@@ -11,6 +11,7 @@ import {
   UNKNOWN_BORDER,
   UNKNOWN_ICON,
 } from '@/lib/vision/verdict-tones'
+import { DynamicIcon } from '../ui/dynamic-icon'
 
 /**
  * Marqueur commande rendu dans une cellule du board (slot cellExtra de
@@ -96,9 +97,7 @@ export function CommandeMarker(props: {
     >
       {/* Numéro complet (+ ligne) sur sa propre ligne, police réduite pour rentrer. */}
       <div className="flex items-baseline gap-1 whitespace-nowrap font-mono text-2xs font-bold text-brand">
-        <span className={cn('material-symbols-outlined flex-none self-center text-xs', iconClass)}>
-          {iconName}
-        </span>
+        <DynamicIcon name={iconName} size={12} strokeWidth={1.75} className={cn('flex-none self-center', iconClass)} />
         <span>
           {cmd.numCommande}
           {cmd.ligne && (

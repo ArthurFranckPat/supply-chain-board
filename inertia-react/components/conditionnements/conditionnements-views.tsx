@@ -5,6 +5,7 @@ import type {
   ConditionnementDisplayRow,
   EstimationSourceDisplay,
 } from '@/lib/conditionnements/types'
+import { DynamicIcon } from '../ui/dynamic-icon'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers & Constants
@@ -165,9 +166,7 @@ export function FacetteDropdown({
             {nbSelectionnees}
           </span>
         )}
-        <span className="material-symbols-outlined text-[12px]">
-          {open ? 'expand_less' : 'expand_more'}
-        </span>
+        <DynamicIcon name={open ? 'expand_less' : 'expand_more'} size={12} strokeWidth={1.75} />
       </button>
       {open && (
         <>

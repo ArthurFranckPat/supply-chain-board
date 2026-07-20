@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { fr } from 'react-day-picker/locale'
 import type { DateRange as DayPickerRange } from 'react-day-picker'
+import { Calendar as CalendarIcon, X, Search, RefreshCw, SlidersHorizontal, Lightbulb, TriangleAlert, LoaderCircle, CircleX, Inbox, CloudOff, Package } from 'lucide-react'
 
 import AppLayout from '@r/layouts/app'
 import { Calendar } from '@r/components/ui/calendar'
@@ -8,6 +9,7 @@ import { ReceptionTableau, ReceptionCalendrier } from '@r/components/receptions/
 import { useTimedFetch } from '@r/lib/suivi/use-timed-fetch'
 import { cn } from '@r/lib/utils'
 import type { ReceptionsRowsResponse, ReceptionViewKind } from '@/lib/receptions/types'
+import { DynamicIcon } from '../components/ui/dynamic-icon'
 
 /**
  * Page « Réceptions fournisseurs » (port React — structure iso du Solid
@@ -154,9 +156,7 @@ export default function Receptions(props: ReceptionsPageProps) {
                 onClick={() => setCalendarOpen((v) => !v)}
                 className="flex items-center gap-1.5 rounded border border-rule bg-card px-2.5 py-1.5 font-mono text-[11px] text-foreground transition-colors hover:bg-secondary/60"
               >
-                <span className="material-symbols-outlined text-[14px] text-muted-foreground">
-                  calendar_today
-                </span>
+                <CalendarIcon size={14} strokeWidth={1.75} className="text-muted-foreground" />
                 <span>{rangeLabel}</span>
               </button>
               {range?.start && (
@@ -169,7 +169,7 @@ export default function Receptions(props: ReceptionsPageProps) {
                   className="flex size-6 items-center justify-center rounded text-muted-foreground hover:text-foreground"
                   title="Réinitialiser"
                 >
-                  <span className="material-symbols-outlined text-[14px]">close</span>
+                  <X size={14} strokeWidth={1.75} />
                 </button>
               )}
             </div>
@@ -198,7 +198,7 @@ export default function Receptions(props: ReceptionsPageProps) {
           <div className="ml-auto flex items-center gap-2">
             {/* Recherche — systématiquement à droite (convention toolbar). */}
             <div className="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/25">
-              <span className="material-symbols-outlined text-[17px] text-muted-foreground">search</span>
+              <Search size={17} strokeWidth={1.75} className="text-muted-foreground" />
               <input
                 className="w-[180px] border-0 bg-transparent px-0 text-[12px] font-medium text-foreground shadow-none outline-none"
                 placeholder="Fournisseur, article, commande…"
@@ -228,14 +228,11 @@ export default function Receptions(props: ReceptionsPageProps) {
               className="inline-flex items-center gap-1 rounded-full border border-rule bg-card px-3 py-1 text-[11px] font-semibold transition-colors hover:border-brand disabled:opacity-50"
               title="Recharger les données X3"
             >
-              <span
-                className={cn(
-                  'material-symbols-outlined text-[14px] text-muted-foreground',
-                  loading && 'animate-spin'
-                )}
-              >
-                refresh
-              </span>
+              <RefreshCw
+                size={14}
+                strokeWidth={1.75}
+                className={cn('text-muted-foreground', loading && 'animate-spin')}
+              />
               Actualiser
             </button>
           </div>
@@ -261,10 +258,10 @@ export default function Receptions(props: ReceptionsPageProps) {
           {/* Filtre jour actif (drill-down) */}
           {selectedDay && (
             <span className="flex items-center gap-1.5 rounded-md border border-brand/30 bg-brand/5 px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-brand">
-              <span className="material-symbols-outlined text-[13px]">filter_alt</span>
+              <SlidersHorizontal size={13} strokeWidth={1.75} />
               {charge.find((c) => c.day === selectedDay)?.dayFmt ?? selectedDay}
               <button type="button" onClick={() => setSelectedDay(null)} className="hover:opacity-70">
-                <span className="material-symbols-outlined text-[12px]">close</span>
+                <X size={12} strokeWidth={1.75} />
               </button>
             </span>
           )}
@@ -275,7 +272,7 @@ export default function Receptions(props: ReceptionsPageProps) {
                 className="flex items-center gap-1 text-planifie"
                 title="Lignes dont le coef palette a été estimé (stock actuel SM* ou historique STOJOU)"
               >
-                <span className="material-symbols-outlined text-[13px]">insights</span>
+                <Lightbulb size={13} strokeWidth={1.75} />
                 {stats.lignesEstimees} estimé{stats.lignesEstimees > 1 ? 's' : ''}
               </span>
             )}
@@ -284,7 +281,7 @@ export default function Receptions(props: ReceptionsPageProps) {
                 className="flex items-center gap-1 text-destructive"
                 title="Lignes sans coef palette ni estimation — charge réellement sous-estimée"
               >
-                <span className="material-symbols-outlined text-[13px]">warning</span>
+                <TriangleAlert size={13} strokeWidth={1.75} />
                 {stats.lignesSansCoef} coef manquant{stats.lignesSansCoef > 1 ? 's' : ''}
               </span>
             )}
@@ -297,7 +294,7 @@ export default function Receptions(props: ReceptionsPageProps) {
         {/* ═══ X3 injoignable ═══ */}
         {x3Error && (
           <div className="flex flex-none items-center gap-2 border-b border-destructive/30 bg-destructive/10 px-7 py-2 text-[12px] text-foreground">
-            <span className="material-symbols-outlined text-[16px] text-destructive">warning</span>
+            <TriangleAlert size={16} strokeWidth={1.75} className="text-destructive" />
             <span className="font-bold">Erreur chargement réceptions :</span>
             <span className="font-mono">{x3Error}</span>
           </div>
@@ -306,14 +303,12 @@ export default function Receptions(props: ReceptionsPageProps) {
         {/* ═══ Vue ═══ */}
         {loading && !data ? (
           <div className="flex flex-1 items-center justify-center gap-2 text-muted-foreground">
-            <span className="material-symbols-outlined animate-spin text-[20px]">
-              progress_activity
-            </span>
+            <LoaderCircle size={20} strokeWidth={1.75} className="animate-spin" />
             <span className="text-[13px] font-medium">Calcul des réceptions…</span>
           </div>
         ) : error ? (
           <div className="flex flex-1 items-center justify-center gap-2 text-[13px] text-destructive">
-            <span className="material-symbols-outlined text-[20px]">error</span>
+            <CircleX size={20} strokeWidth={1.75} />
             Échec du calcul des réceptions.
           </div>
         ) : (
@@ -329,9 +324,7 @@ export default function Receptions(props: ReceptionsPageProps) {
                   rows={filteredRows}
                   emptyState={
                     <div className="flex flex-col items-center justify-center gap-2 p-10 text-center">
-                      <span className="material-symbols-outlined text-[32px] text-muted-foreground/50">
-                        inbox
-                      </span>
+                      <Inbox size={32} strokeWidth={1.75} className="text-muted-foreground/50" />
                       <span className="font-fraunces text-[14px] italic text-muted-foreground">
                         {selectedDay ? 'Aucune réception ce jour.' : 'Aucune réception sur la période.'}
                       </span>
@@ -350,9 +343,11 @@ export default function Receptions(props: ReceptionsPageProps) {
               )
             ) : (
               <div className="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-center">
-                <span className="material-symbols-outlined text-[32px] text-muted-foreground/50">
-                  {x3Error ? 'cloud_off' : 'inventory_2'}
-                </span>
+                {x3Error ? (
+                  <CloudOff size={32} strokeWidth={1.75} className="text-muted-foreground/50" />
+                ) : (
+                  <Package size={32} strokeWidth={1.75} className="text-muted-foreground/50" />
+                )}
                 <span className="font-fraunces text-[14px] italic text-muted-foreground">
                   {x3Error
                     ? 'Données indisponibles (X3 injoignable).'
@@ -387,7 +382,7 @@ function ViewTab({
         active ? 'bg-brand/10 text-brand' : 'text-muted-foreground hover:text-foreground'
       )}
     >
-      <span className="material-symbols-outlined text-[14px]">{icon}</span>
+      <DynamicIcon name={icon} size={14} />
       {label}
     </button>
   )

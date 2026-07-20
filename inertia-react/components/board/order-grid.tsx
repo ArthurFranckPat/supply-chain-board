@@ -1,4 +1,5 @@
 import { useMemo, useState, useCallback, useRef, useEffect } from 'react'
+import { Undo2 } from 'lucide-react'
 import { cn } from '@r/lib/utils'
 import { usePrintFitPage } from '@r/lib/board/use-print-fit-page'
 import { TYPO_META } from '@/lib/board/types'
@@ -496,7 +497,7 @@ function CardView(props: CardViewProps) {
           title="Réinitialiser l'override (date X3)"
           onClick={(e) => props.onResetOverride(e, card.id)}
         >
-          <span className="material-symbols-outlined text-[13px]">undo</span>
+          <Undo2 size={13} strokeWidth={1.75} />
         </button>
       )}
     </div>

@@ -9,6 +9,7 @@ import {
   timeBounds,
   toMinutes,
 } from '@/components/expeditions/palette-charge'
+import { TriangleAlert, Truck } from 'lucide-react'
 import { cn } from '@r/lib/utils'
 
 /**
@@ -119,7 +120,7 @@ export function FriseView({
         {/* Rangées camions */}
         {rows.length === 0 ? (
           <div className="flex flex-col items-center gap-2 p-10 text-center text-muted-foreground">
-            <span className="material-symbols-outlined text-[32px] opacity-45">local_shipping</span>
+            <Truck size={32} strokeWidth={1.75} className="opacity-45" />
             <span className="font-fraunces text-[14px] italic">
               Aucun camion ne correspond au filtre.
             </span>
@@ -158,7 +159,7 @@ export function FriseView({
                   </span>
                   {c.anomalie && (
                     <span className="flex w-fit items-center gap-0.5 font-mono text-[8.5px] font-bold uppercase tracking-[0.05em] text-destructive">
-                      <span className="material-symbols-outlined text-[11px]">warning</span>
+                      <TriangleAlert size={11} strokeWidth={1.75} />
                       {c.nbPalettes} pal &gt; {maxPalettesCamion}
                     </span>
                   )}
@@ -167,7 +168,7 @@ export function FriseView({
                       className="flex w-fit items-center gap-0.5 font-mono text-[8.5px] font-bold uppercase tracking-[0.05em] text-destructive"
                       title="Volume au-delà de la capacité (équivalent-palettes)"
                     >
-                      <span className="material-symbols-outlined text-[11px]">warning</span>
+                      <TriangleAlert size={11} strokeWidth={1.75} />
                       {Math.round(taux * 100)}% rempl.
                     </span>
                   )}
@@ -226,7 +227,7 @@ export function FriseView({
                       <span className="flex items-center gap-1 whitespace-nowrap font-mono text-[10px] font-bold text-card">
                         {c.nbPalettes}
                         {c.anomalie && (
-                          <span className="material-symbols-outlined text-[12px]">warning</span>
+                          <TriangleAlert size={12} strokeWidth={1.75} />
                         )}
                       </span>
                     )}

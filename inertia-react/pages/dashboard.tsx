@@ -17,6 +17,8 @@ import {
   type KpiWidth,
 } from '@/lib/dashboard/types'
 import { useLayoutStore } from '@r/lib/dashboard/layout-store'
+import { Eye, EyeOff, GripVertical, ArrowUp, ArrowDown, LoaderCircle, Calendar as CalendarIcon, X, Search, ChevronDown, ChevronRight } from 'lucide-react'
+import { DynamicIcon } from '../components/ui/dynamic-icon'
 
 /**
  * Tableau de bord (issue #26 shell + #38 KPI). Landing par défaut post-login.
@@ -217,7 +219,7 @@ function CardHeader({
             title="Masquer ce KPI"
             aria-label={`Masquer le KPI ${title}`}
           >
-            <span className="material-symbols-outlined text-[15px]">visibility</span>
+            <Eye size={15} />
           </button>
         )}
       </div>
@@ -283,7 +285,7 @@ function HiddenTile({ id, editMode, onShow }: { id: KpiId; editMode: boolean; on
   return (
     <div className="lg:col-span-1" style={{ order: 999 } as React.CSSProperties}>
       <div className="flex items-center gap-2 rounded border border-dashed border-rule bg-secondary/30 px-4 py-3 print:hidden">
-        <span className="material-symbols-outlined text-[15px] text-muted-foreground">visibility_off</span>
+        <EyeOff size={15} className="text-muted-foreground" />
         <span className="font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
           {KPI_TITLES[id]}
         </span>
@@ -293,7 +295,7 @@ function HiddenTile({ id, editMode, onShow }: { id: KpiId; editMode: boolean; on
           onClick={onShow}
           className="ml-auto flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
         >
-          <span className="material-symbols-outlined text-[13px]">visibility</span>
+          <Eye size={13} />
           <span>Afficher</span>
         </button>
       </div>
@@ -381,7 +383,7 @@ function Tile({
         <>
           <div className="pointer-events-none absolute -top-3 left-3 z-10 flex items-center gap-1 rounded border border-rule bg-card px-1.5 py-0.5 shadow-sm print:hidden">
             <span className="text-muted-foreground" title="Glisser pour réordonner">
-              <span className="material-symbols-outlined text-[14px]">drag_indicator</span>
+              <GripVertical size={14} />
             </span>
             {/* Sélecteur de largeur discret */}
             <div className="pointer-events-auto flex items-center rounded border border-rule bg-secondary px-0.5">
@@ -412,7 +414,7 @@ function Tile({
               title="Monter dans l'ordre d'impression"
               aria-label="Monter dans l'ordre d'impression"
             >
-              <span className="material-symbols-outlined text-[13px]">arrow_upward</span>
+              <ArrowUp size={13} />
             </button>
             <span className="font-mono text-[9px] font-bold tabular-nums text-brand" title="Ordre d'impression">
               #{printRank + 1}
@@ -424,7 +426,7 @@ function Tile({
               title="Descendre dans l'ordre d'impression"
               aria-label="Descendre dans l'ordre d'impression"
             >
-              <span className="material-symbols-outlined text-[13px]">arrow_downward</span>
+              <ArrowDown size={13} />
             </button>
           </div>
         </>
@@ -447,9 +449,7 @@ function Tile({
 function Spinner() {
   return (
     <div className="flex h-[180px] items-center justify-center">
-      <span className="material-symbols-outlined animate-spin text-[22px] text-muted-foreground/50">
-        progress_activity
-      </span>
+      <LoaderCircle className="animate-spin text-muted-foreground/50" size={22} />
     </div>
   )
 }
@@ -686,9 +686,7 @@ export default function Dashboard(props: DashboardProps) {
                 onClick={() => setEditMode((v) => !v)}
                 className="flex items-center gap-1.5 rounded border border-rule bg-card px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-foreground transition-colors hover:bg-secondary"
               >
-                <span className="material-symbols-outlined text-[14px] text-muted-foreground">
-                  {editMode ? 'check' : 'tune'}
-                </span>
+                <DynamicIcon name={editMode ? 'check' : 'tune'} size={14} className="text-muted-foreground" />
                 {editMode ? 'Terminé' : 'Personnaliser'}
               </button>
             </div>
@@ -821,9 +819,7 @@ export default function Dashboard(props: DashboardProps) {
                           onClick={() => setCalendarOpen((v) => !v)}
                           className="flex items-center gap-1.5 rounded border border-rule bg-secondary px-2 py-1 font-mono text-[10px] text-foreground transition-colors hover:bg-secondary/80"
                         >
-                          <span className="material-symbols-outlined text-[13px] text-muted-foreground">
-                            calendar_today
-                          </span>
+                          <CalendarIcon size={13} className="text-muted-foreground" />
                           <span>{otdRangeLabel ?? 'Auto'}</span>
                         </button>
                         {otdRange?.start && (
@@ -836,7 +832,7 @@ export default function Dashboard(props: DashboardProps) {
                             className="flex size-6 items-center justify-center rounded text-muted-foreground hover:text-foreground"
                             title="Réinitialiser"
                           >
-                            <span className="material-symbols-outlined text-[14px]">close</span>
+                            <X size={14} />
                           </button>
                         )}
                       </div>
@@ -892,7 +888,7 @@ export default function Dashboard(props: DashboardProps) {
                       title="Masquer ce KPI"
                       aria-label="Masquer le KPI OTD"
                     >
-                      <span className="material-symbols-outlined text-[15px]">visibility</span>
+                      <Eye size={15} />
                     </button>
                   </div>
 
@@ -911,9 +907,7 @@ export default function Dashboard(props: DashboardProps) {
                       {/* Filtre client + toggle détails */}
                       <div className="mb-3 flex items-center gap-1.5">
                         <div className="relative min-w-0 flex-1">
-                          <span className="material-symbols-outlined pointer-events-none absolute left-1.5 top-1/2 -translate-y-1/2 text-[13px] text-muted-foreground">
-                            search
-                          </span>
+                          <Search size={13} strokeWidth={1.75} className="pointer-events-none absolute left-1.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
                           <input
                             type="text"
                             value={clientFilter}
@@ -930,7 +924,7 @@ export default function Dashboard(props: DashboardProps) {
                               title="Effacer le filtre"
                               aria-label="Effacer le filtre"
                             >
-                              <span className="material-symbols-outlined text-[13px]">close</span>
+                              <X size={13} />
                             </button>
                           )}
                         </div>
@@ -940,9 +934,7 @@ export default function Dashboard(props: DashboardProps) {
                           className="flex shrink-0 items-center gap-1 rounded border border-rule bg-secondary px-2 py-[5px] font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-foreground transition-colors hover:bg-secondary/80"
                           title={detailsOpen ? 'Masquer les détails' : 'Afficher les détails'}
                         >
-                          <span className="material-symbols-outlined text-[13px] text-muted-foreground">
-                            {detailsOpen ? 'expand_more' : 'chevron_right'}
-                          </span>
+                          <DynamicIcon name={detailsOpen ? 'expand_more' : 'chevron_right'} size={13} className="text-muted-foreground" />
                           <span>Détails</span>
                         </button>
                       </div>
@@ -1076,9 +1068,7 @@ export default function Dashboard(props: DashboardProps) {
                         onClick={() => setStockCalendarOpen((v) => !v)}
                         className="flex items-center gap-1.5 rounded border border-rule bg-secondary px-2 py-1 font-mono text-[10px] text-foreground transition-colors hover:bg-secondary/80"
                       >
-                        <span className="material-symbols-outlined text-[13px] text-muted-foreground">
-                          calendar_today
-                        </span>
+                        <CalendarIcon size={13} className="text-muted-foreground" />
                         <span>{stockRangeLabel ?? `12 ${stockGrain === 'semaine' ? 'sem.' : 'mois'}`}</span>
                       </button>
                       {stockRange?.start && (
@@ -1091,7 +1081,7 @@ export default function Dashboard(props: DashboardProps) {
                           className="flex size-6 items-center justify-center rounded text-muted-foreground hover:text-foreground"
                           title="Réinitialiser"
                         >
-                          <span className="material-symbols-outlined text-[14px]">close</span>
+                          <X size={14} />
                         </button>
                       )}
                       {stockCalendarOpen && (
@@ -1145,7 +1135,7 @@ export default function Dashboard(props: DashboardProps) {
                       title="Masquer ce KPI"
                       aria-label="Masquer le KPI Valorisation stock"
                     >
-                      <span className="material-symbols-outlined text-[15px]">visibility</span>
+                      <Eye size={15} />
                     </button>
                   </div>
 
@@ -1381,9 +1371,7 @@ export default function Dashboard(props: DashboardProps) {
                       {/* Barre de filtres */}
                       <div className="mb-3 flex flex-wrap items-center gap-1.5">
                         <div className="relative min-w-0 flex-1">
-                          <span className="material-symbols-outlined pointer-events-none absolute left-1.5 top-1/2 -translate-y-1/2 text-[13px] text-muted-foreground">
-                            search
-                          </span>
+                          <Search size={13} strokeWidth={1.75} className="pointer-events-none absolute left-1.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
                           <input
                             type="text"
                             value={stockSearch}
@@ -1400,7 +1388,7 @@ export default function Dashboard(props: DashboardProps) {
                               title="Effacer"
                               aria-label="Effacer la recherche"
                             >
-                              <span className="material-symbols-outlined text-[13px]">close</span>
+                              <X size={13} />
                             </button>
                           )}
                         </div>
@@ -1428,9 +1416,7 @@ export default function Dashboard(props: DashboardProps) {
                           )}
                           title="Masquer les articles à stock nul"
                         >
-                          <span className="material-symbols-outlined text-[13px]">
-                            {stockHideZero ? 'check_box' : 'check_box_outline_blank'}
-                          </span>
+                          <DynamicIcon name={stockHideZero ? 'check_box' : 'check_box_outline_blank'} size={13} />
                           <span>Stock ≠ 0</span>
                         </button>
                       </div>

@@ -2,6 +2,8 @@ import { useMemo, useRef, useEffect, useState } from 'react'
 import { cn } from '@r/lib/utils'
 import { Calendar } from '@r/components/ui/calendar'
 import { useBoardStore, statusActive } from '@r/lib/board/store'
+import { CalendarDays, ChevronDown, RefreshCw, SlidersHorizontal, FlaskConical, ClipboardList } from 'lucide-react'
+import { DynamicIcon } from '../ui/dynamic-icon'
 
 export type DateRange = { from: Date | undefined; to: Date | undefined }
 
@@ -129,13 +131,9 @@ export function ProgrammeToolbar(props: {
           onClick={() => props.setCalOpen(!props.calOpen)}
           className={PILL}
         >
-          <span className="material-symbols-outlined text-sm text-muted-foreground">
-            calendar_month
-          </span>
+          <CalendarDays size={14} strokeWidth={1.75} className="text-muted-foreground" />
           <span className="font-mono tabular-nums">{dateRangeLabel}</span>
-          <span className="material-symbols-outlined text-[16px] text-muted-foreground">
-            expand_more
-          </span>
+          <ChevronDown size={16} strokeWidth={1.75} className="text-muted-foreground" />
         </button>
         {props.calOpen && (
           <>
@@ -195,14 +193,11 @@ export function ProgrammeToolbar(props: {
         title={props.refreshing ? 'Actualisation en cours…' : 'Recharger les données X3 (cache → re-fetch live)'}
         aria-label="Actualiser"
       >
-        <span
-          className={cn(
-            'material-symbols-outlined text-sm text-muted-foreground',
-            props.refreshing && 'animate-spin'
-          )}
-        >
-          refresh
-        </span>
+        <RefreshCw
+          size={14}
+          strokeWidth={1.75}
+          className={cn('text-muted-foreground', props.refreshing && 'animate-spin')}
+        />
       </button>
 
       {/* Menu Actions — regroupe Scénario + Faisabilité + Sélection pour
@@ -274,14 +269,12 @@ function ActionsMenu(props: {
         )}
         title="Actions (scénario, faisabilité, sélection)"
       >
-        <span className="material-symbols-outlined text-sm text-muted-foreground">tune</span>
+        <SlidersHorizontal size={14} strokeWidth={1.75} className="text-muted-foreground" />
         Actions
         {hasActive && (
           <span className="ml-0.5 size-1.5 rounded-full bg-brand" aria-hidden="true" />
         )}
-        <span className="material-symbols-outlined text-[16px] text-muted-foreground">
-          expand_more
-        </span>
+        <ChevronDown size={16} strokeWidth={1.75} className="text-muted-foreground" />
       </summary>
 
       {/* Panneau déroulant — aligné à droite du déclencheur. */}
@@ -303,7 +296,7 @@ function ActionsMenu(props: {
               props.scenarioActive && 'text-brand'
             )}
           >
-            <span className="material-symbols-outlined text-sm text-muted-foreground">science</span>
+            <FlaskConical size={14} strokeWidth={1.75} className="text-muted-foreground" />
             <span className="flex-1">Scénario</span>
             {props.scenarioActive && (
               <span className="font-mono text-3xs uppercase tracking-wider">ON</span>
@@ -326,14 +319,12 @@ function ActionsMenu(props: {
           }}
           className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-semibold transition-colors hover:bg-muted disabled:opacity-60"
         >
-          <span
-            className={cn(
-              'material-symbols-outlined text-sm text-muted-foreground',
-              props.feasLoading && 'animate-spin'
-            )}
-          >
-            {props.feasLoading ? 'progress_activity' : 'fact_check'}
-          </span>
+          <DynamicIcon
+            name={props.feasLoading ? 'progress_activity' : 'fact_check'}
+            size={14}
+            strokeWidth={1.75}
+            className={cn('text-muted-foreground', props.feasLoading && 'animate-spin')}
+          />
           <span className="flex-1">
             {props.feasLoading ? 'Calcul en cours…' : 'Faisabilité'}
           </span>
@@ -354,9 +345,7 @@ function ActionsMenu(props: {
               selectMode && 'text-brand'
             )}
           >
-            <span className="material-symbols-outlined text-sm text-muted-foreground">
-              checklist
-            </span>
+            <ClipboardList size={14} strokeWidth={1.75} className="text-muted-foreground" />
             <span className="flex-1">Sélection</span>
             {selectMode && (
               <span className="font-mono text-3xs uppercase tracking-wider">ON</span>

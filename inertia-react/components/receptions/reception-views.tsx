@@ -1,6 +1,7 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { DataTable, type ColumnDef, type SortingState } from '@r/components/ui/data-table'
 import type { DayChargeDisplay, ReceptionDisplayRow } from '@/lib/receptions/types'
+import { CalendarX, Lightbulb, TriangleAlert } from 'lucide-react'
 import { cn } from '@r/lib/utils'
 
 /**
@@ -183,7 +184,7 @@ export function ReceptionTableau({
               className="inline-flex w-fit items-center gap-1 rounded bg-destructive/10 px-1 py-px font-mono text-[8.5px] font-bold uppercase tracking-wider text-destructive"
               title={`Coef manquant — US/UC: ${row.pcuStuCoe ?? '—'} · UC/pal: ${row.ucParPal ?? '—'}`}
             >
-              <span className="material-symbols-outlined text-[10px]">warning</span>
+              <TriangleAlert size={10} strokeWidth={1.75} />
               Coef manquant
             </span>
           )}
@@ -192,7 +193,7 @@ export function ReceptionTableau({
               className="inline-flex w-fit items-center gap-1 rounded bg-planifie/10 px-1 py-px font-mono text-[8.5px] font-bold uppercase tracking-wider text-planifie"
               title={`US/palette estimé par ${row.coefSource === 'STOCK' ? 'le stock actuel sur emplacements SM*' : "l'historique des rangements STOJOU (6 mois)"} — coef ITMMASTER absent`}
             >
-              <span className="material-symbols-outlined text-[10px]">insights</span>
+              <Lightbulb size={10} strokeWidth={1.75} />
               Estimé ({row.coefSource})
             </span>
           )}
@@ -276,9 +277,7 @@ export function ReceptionCalendrier({
   if (list.length === 0) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-center">
-        <span className="material-symbols-outlined text-[32px] text-muted-foreground/50">
-          event_busy
-        </span>
+        <CalendarX size={32} strokeWidth={1.75} className="text-muted-foreground/50" />
         <span className="font-fraunces text-[14px] italic text-muted-foreground">
           Aucune réception planifiée sur la période.
         </span>

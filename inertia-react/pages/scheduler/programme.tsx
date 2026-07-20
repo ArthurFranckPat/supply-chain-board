@@ -19,6 +19,7 @@
 
 import { useEffect, useMemo, useState, useRef, useCallback, type JSX } from 'react'
 import { Head, usePage, router } from '@inertiajs/react'
+import { Search, TriangleAlert } from 'lucide-react'
 
 import Masthead from '@r/components/masthead'
 import { TextField, TextFieldInput } from '@r/components/ui/text-field'
@@ -875,9 +876,7 @@ export default function Programme(props: VisionProps) {
           search={
             <>
               <div className="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/25">
-                <span className="material-symbols-outlined text-[17px] text-muted-foreground">
-                  search
-                </span>
+                <Search size={17} strokeWidth={1.75} className="text-muted-foreground" />
                 <input
                   className="w-[180px] border-0 bg-transparent px-0 text-xs font-medium shadow-none focus-visible:ring-0 outline-none"
                   placeholder={
@@ -939,7 +938,7 @@ export default function Programme(props: VisionProps) {
 
         {props.x3Error && (
           <div className="flex flex-none items-center gap-2 border-b border-brand/30 bg-brand-soft px-7 py-2 text-xs text-foreground print:hidden">
-            <span className="material-symbols-outlined text-[16px] text-brand">warning</span>
+            <TriangleAlert size={16} strokeWidth={1.75} className="text-brand" />
             <span className="font-bold">Erreur chargement :</span>
             <span className="font-mono">{props.x3Error}</span>
           </div>

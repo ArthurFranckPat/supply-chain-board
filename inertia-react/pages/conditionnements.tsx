@@ -1,4 +1,5 @@
 import { type Dispatch, type SetStateAction, useMemo, useState } from 'react'
+import { FilterX, Search, Lightbulb, LoaderCircle, RefreshCw, TriangleAlert, CircleX, CircleCheck } from 'lucide-react'
 
 import AppLayout from '@r/layouts/app'
 import {
@@ -316,7 +317,7 @@ export default function Conditionnements(props: ConditionnementsPageProps) {
               }}
               className="inline-flex items-center gap-1 rounded-md border border-rule bg-card px-2 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
             >
-              <span className="material-symbols-outlined text-[13px]">filter_alt_off</span>
+              <FilterX size={13} strokeWidth={1.75} />
               Réinitialiser ({nbFiltresActifs})
             </button>
           )}
@@ -324,7 +325,7 @@ export default function Conditionnements(props: ConditionnementsPageProps) {
           <div className="ml-auto flex items-center gap-2">
             {/* Recherche — systématiquement à droite (convention toolbar). */}
             <div className="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/25">
-              <span className="material-symbols-outlined text-[17px] text-muted-foreground">search</span>
+              <Search size={17} strokeWidth={1.75} className="text-muted-foreground" />
               <input
                 className="w-[200px] border-0 bg-transparent px-0 text-[12px] font-medium text-foreground shadow-none outline-none"
                 placeholder="Article, désignation, fournisseur…"
@@ -342,15 +343,13 @@ export default function Conditionnements(props: ConditionnementsPageProps) {
                 className="inline-flex items-center gap-1 rounded-full border border-brand/40 bg-brand/10 px-3 py-1 text-[11px] font-semibold text-brand transition-colors hover:bg-brand/20"
                 title="Charger les estimations STOCK/STOJOU + mouvements (coûteux)"
               >
-                <span className="material-symbols-outlined text-[14px]">insights</span>
+                <Lightbulb size={14} strokeWidth={1.75} />
                 Charger les estimations
               </button>
             )}
             {estimationsChargees && enrichmentsLoading && (
               <span className="inline-flex items-center gap-1 text-[11px] text-planifie">
-                <span className="material-symbols-outlined animate-spin text-[14px]">
-                  progress_activity
-                </span>
+                <LoaderCircle size={14} strokeWidth={1.75} className="animate-spin" />
                 Calcul…
               </span>
             )}
@@ -367,14 +366,11 @@ export default function Conditionnements(props: ConditionnementsPageProps) {
               className="inline-flex items-center gap-1 rounded-full border border-rule bg-card px-3 py-1 text-[11px] font-semibold transition-colors hover:border-brand disabled:opacity-50"
               title="Recharger les données X3"
             >
-              <span
-                className={cn(
-                  'material-symbols-outlined text-[14px] text-muted-foreground',
-                  loading && 'animate-spin'
-                )}
-              >
-                refresh
-              </span>
+              <RefreshCw
+                size={14}
+                strokeWidth={1.75}
+                className={cn('text-muted-foreground', loading && 'animate-spin')}
+              />
               Actualiser
             </button>
           </div>
@@ -383,7 +379,7 @@ export default function Conditionnements(props: ConditionnementsPageProps) {
         {/* ═══ X3 injoignable ═══ */}
         {x3Error && (
           <div className="flex flex-none items-center gap-2 border-b border-destructive/30 bg-destructive/10 px-7 py-2 text-[12px] text-foreground">
-            <span className="material-symbols-outlined text-[16px] text-destructive">warning</span>
+            <TriangleAlert size={16} strokeWidth={1.75} className="text-destructive" />
             <span className="font-bold">Erreur chargement :</span>
             <span className="font-mono">{x3Error}</span>
           </div>
@@ -392,14 +388,12 @@ export default function Conditionnements(props: ConditionnementsPageProps) {
         {/* ═══ Tableau ═══ */}
         {loading && !data ? (
           <div className="flex flex-1 items-center justify-center gap-2 text-muted-foreground">
-            <span className="material-symbols-outlined animate-spin text-[20px]">
-              progress_activity
-            </span>
+            <LoaderCircle size={20} strokeWidth={1.75} className="animate-spin" />
             <span className="text-[13px] font-medium">Chargement des articles…</span>
           </div>
         ) : error ? (
           <div className="flex flex-1 items-center justify-center gap-2 text-[13px] text-destructive">
-            <span className="material-symbols-outlined text-[20px]">error</span>
+            <CircleX size={20} strokeWidth={1.75} />
             Échec du chargement.
           </div>
         ) : (
@@ -409,9 +403,7 @@ export default function Conditionnements(props: ConditionnementsPageProps) {
             emptyState={
               filteredRows.length === 0 && !x3Error ? (
                 <div className="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-center">
-                  <span className="material-symbols-outlined text-[32px] text-muted-foreground/50">
-                    check_circle
-                  </span>
+                  <CircleCheck size={32} strokeWidth={1.75} className="text-muted-foreground/50" />
                   <span className="font-fraunces text-[14px] italic text-muted-foreground">
                     Aucun article ne correspond au filtre.
                   </span>

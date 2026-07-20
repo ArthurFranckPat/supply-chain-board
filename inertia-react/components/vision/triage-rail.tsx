@@ -4,6 +4,7 @@ import type { VisionCommande, VisionLink } from '@/lib/vision/types'
 import type { ImpactVerdict } from '@/lib/vision/impact'
 import { deltaLabel } from '@/lib/vision/impact'
 import type { HealthCategory } from './plan-health'
+import { ListPlus, X, CircleCheckBig } from 'lucide-react'
 
 /**
  * Programme v2 — rail de triage « À traiter ». Panneau latéral repliable qui
@@ -104,7 +105,7 @@ export function TriageRail(props: {
     <div className="flex h-full w-[300px] flex-none flex-col border-l border-rule bg-card">
       {/* Header */}
       <div className="flex items-center gap-2 border-b border-rule px-3.5 py-2.5">
-        <span className="material-symbols-outlined text-sm text-muted-foreground">queue</span>
+        <ListPlus size={14} strokeWidth={1.75} className="text-muted-foreground" />
         <b className="text-xs">À traiter</b>
         <span className="font-mono text-2xs text-muted-foreground">{items.length}</span>
         <div className="flex-1" />
@@ -115,7 +116,7 @@ export function TriageRail(props: {
           onClick={props.onClose}
           className="text-muted-foreground hover:text-foreground"
         >
-          <span className="material-symbols-outlined text-sm">close</span>
+          <X size={14} strokeWidth={1.75} />
         </button>
       </div>
 
@@ -146,7 +147,7 @@ export function TriageRail(props: {
       <div className="flex-1 overflow-y-auto">
         {items.length === 0 ? (
           <div className="flex flex-col items-center gap-2 px-4 py-10 text-center">
-            <span className="material-symbols-outlined text-[24px] text-ferme/60">task_alt</span>
+            <CircleCheckBig size={24} strokeWidth={1.75} className="text-ferme/60" />
             <span className="font-fraunces text-sm font-bold">Rien à traiter</span>
             <span className="font-fraunces text-2xs italic text-muted-foreground">
               Aucun élément dans cette catégorie.

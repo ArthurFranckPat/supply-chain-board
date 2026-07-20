@@ -1,6 +1,7 @@
 import { useRef } from 'react'
 import { Head } from '@inertiajs/react'
 import { router } from '@inertiajs/react'
+import { ArrowLeft, Printer } from 'lucide-react'
 
 import { Button } from '@r/components/ui/button'
 import Masthead from '@r/components/masthead'
@@ -102,11 +103,11 @@ export default function Comparer(props: ComparerPageProps) {
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => router.visit('/programme')}>
-              <span className="material-symbols-outlined text-[16px] mr-1.5">arrow_back</span>
+              <ArrowLeft size={16} strokeWidth={1.75} className="mr-1.5" />
               Retour au programme
             </Button>
             <Button size="sm" onClick={handlePrint} className="gap-1.5">
-              <span className="material-symbols-outlined text-[16px]">print</span>
+              <Printer size={16} strokeWidth={1.75} />
               Imprimer (A3 Paysage)
             </Button>
           </div>

@@ -1,5 +1,6 @@
 import { useMemo, useRef, type CSSProperties, type ReactNode } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
+import { ArrowDown, ArrowUp, ChevronsUpDown } from 'lucide-react'
 
 import { cn } from '@r/lib/utils'
 
@@ -139,15 +140,13 @@ export function DataTable<TRow>({
     const sorted = sorting.find((s) => s.id === colId(col))
     if (!sorted) {
       return (
-        <span className="material-symbols-outlined text-[12px] leading-none text-muted-foreground/50">
-          unfold_more
-        </span>
+        <ChevronsUpDown size={12} strokeWidth={1.75} className="leading-none text-muted-foreground/50" />
       )
     }
-    return (
-      <span className="material-symbols-outlined text-[12px] leading-none text-primary">
-        {sorted.desc ? 'arrow_downward' : 'arrow_upward'}
-      </span>
+    return sorted.desc ? (
+      <ArrowDown size={12} strokeWidth={1.75} className="leading-none text-primary" />
+    ) : (
+      <ArrowUp size={12} strokeWidth={1.75} className="leading-none text-primary" />
     )
   }
 

@@ -10,6 +10,7 @@
 import { useMemo, useState } from 'react'
 import { fr } from 'react-day-picker/locale'
 import type { DateRange as DayPickerRange } from 'react-day-picker'
+import { Search, RefreshCw, Calendar as CalendarIcon, ChevronDown } from 'lucide-react'
 
 import type {
   SuiviPageProps,
@@ -24,6 +25,7 @@ import { parseIso, toIso, startOfDay } from '@/lib/vision/date-utils'
 import { EMPTY, PROACTIVE_EMPTY, fmtMs } from '@/lib/suivi/tracking-shared'
 
 import AppLayout from '@r/layouts/app'
+import { cn } from '@r/lib/utils'
 import { Calendar } from '@r/components/ui/calendar'
 import {
   Sheet,
@@ -390,9 +392,7 @@ export default function Tracking(props: SuiviPageProps) {
                 les autres pages (la recherche vit dans la toolbar, pas dans
                 la barre de navigation globale). */}
             <div className="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/25">
-              <span className="material-symbols-outlined text-[17px] text-muted-foreground">
-                search
-              </span>
+              <Search size={17} strokeWidth={1.75} className="text-muted-foreground" />
               <input
                 className="w-[200px] border-0 bg-transparent px-0 text-[12px] font-medium text-foreground shadow-none outline-none"
                 placeholder="Commande, article, client…"
@@ -430,11 +430,7 @@ export default function Tracking(props: SuiviPageProps) {
               className="inline-flex items-center gap-1 rounded-full border border-rule bg-card px-3 py-1 text-[11px] font-semibold transition-colors hover:border-brand disabled:opacity-50"
               title="Recharger les données X3 (cache → re-fetch live)"
             >
-              <span
-                className={`material-symbols-outlined text-[14px] text-muted-foreground ${loading ? 'animate-spin' : ''}`}
-              >
-                refresh
-              </span>
+              <RefreshCw size={14} strokeWidth={1.75} className={cn('text-muted-foreground', loading && 'animate-spin')} />
               Actualiser
             </button>
             <div className="relative">
@@ -446,13 +442,9 @@ export default function Tracking(props: SuiviPageProps) {
                 }`}
                 title="Filtrer par plage de dates d'expédition (les lignes en retard restent toujours visibles)"
               >
-                <span className="material-symbols-outlined text-[14px] text-muted-foreground">
-                  calendar_month
-                </span>
+                <CalendarIcon size={14} strokeWidth={1.75} className="text-muted-foreground" />
                 {rangeLabel}
-                <span className="material-symbols-outlined text-[16px] text-muted-foreground">
-                  expand_more
-                </span>
+                <ChevronDown size={16} strokeWidth={1.75} className="text-muted-foreground" />
               </button>
               {dateOpen && (
                 <>

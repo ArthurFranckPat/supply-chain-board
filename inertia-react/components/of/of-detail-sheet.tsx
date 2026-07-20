@@ -14,6 +14,7 @@ import { router } from '@inertiajs/react'
 import { Sheet, SheetContent, SheetTitle } from '@r/components/ui/sheet'
 import { Badge } from '@r/components/ui/badge'
 import { cn } from '@r/lib/utils'
+import { CircleX, Loader2, ArrowRight, Package, Network, TriangleAlert, CircleCheck } from 'lucide-react'
 import type { OfDetail } from '@/lib/of/types'
 import { type DiagResult } from '@/lib/of/diagnostic-types'
 import { route } from '@/lib/routes'
@@ -167,14 +168,12 @@ export function OfDetailSheet(props: {
         {!d ? (
           detailError ? (
             <div className="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-center text-destructive">
-              <span className="material-symbols-outlined text-[28px]">error</span>
+              <CircleX size={28} strokeWidth={1.75} />
               <span className="text-sm font-medium">Échec du chargement du détail.</span>
             </div>
           ) : (
             <div className="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-muted-foreground">
-              <span className="material-symbols-outlined animate-spin text-[28px]">
-                progress_activity
-              </span>
+              <Loader2 size={28} strokeWidth={1.75} className="animate-spin" />
               <span className="text-sm">Chargement…</span>
             </div>
           )
@@ -218,9 +217,7 @@ export function OfDetailSheet(props: {
             {/* Méta + avancement */}
             <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-rule-soft px-5 py-2.5">
               <Meta k="Début" v={d.cycle.start} mono />
-              <span className="material-symbols-outlined text-[15px] text-muted-foreground">
-                arrow_forward
-              </span>
+              <ArrowRight size={15} strokeWidth={1.75} className="text-muted-foreground" />
               <Meta k="Fin" v={d.cycle.end} mono />
               {d.context && <Meta k="Poste" v={d.context} />}
               <Meta k="Créé le" v={d.createdAt} mono />
@@ -247,7 +244,7 @@ export function OfDetailSheet(props: {
             {/* Onglets */}
             <div className="flex gap-0 border-b">
               <TabBtn active={tab === 'composants'} onClick={() => setTab('composants')}>
-                <span className="material-symbols-outlined text-[14px]">inventory_2</span>
+                <Package size={14} strokeWidth={1.75} />
                 Composants
                 {d.bomBlocked > 0 && (
                   <span className="ml-1 rounded-full bg-destructive px-1.5 py-0.5 text-[9px] font-bold text-white">
@@ -256,7 +253,7 @@ export function OfDetailSheet(props: {
                 )}
               </TabBtn>
               <TabBtn active={tab === 'diagnostic'} onClick={openDiagTab}>
-                <span className="material-symbols-outlined text-[14px]">account_tree</span>
+                <Network size={14} strokeWidth={1.75} />
                 Diagnostic récursif
               </TabBtn>
             </div>
@@ -269,7 +266,7 @@ export function OfDetailSheet(props: {
                   {d.bomBlocked > 0 && (
                     <div className="mb-3 rounded-md border border-destructive/30 bg-destructive/8 px-3 py-2.5">
                       <div className="mb-1.5 flex items-center gap-1.5 font-mono text-[10px] font-bold tracking-wider text-destructive">
-                        <span className="material-symbols-outlined text-[14px]">warning</span>
+                        <TriangleAlert size={14} strokeWidth={1.75} />
                         {d.bomBlocked} COMPOSANT{d.bomBlocked > 1 ? 'S' : ''} EN RUPTURE
                       </div>
                       <div className="flex flex-wrap gap-1.5">
@@ -292,7 +289,7 @@ export function OfDetailSheet(props: {
                   <div className="mb-1 flex items-center justify-between">
                     {d.bomBlocked === 0 && d.bom.length > 0 && (
                       <div className="flex items-center gap-2 rounded-md bg-ferme/10 px-3 py-1.5 text-[12px] font-medium text-ferme">
-                        <span className="material-symbols-outlined text-[15px]">check_circle</span>
+                        <CircleCheck size={15} strokeWidth={1.75} />
                         Tous les composants sont disponibles
                       </div>
                     )}
@@ -352,14 +349,12 @@ export function OfDetailSheet(props: {
               {tab === 'diagnostic' &&
                 (diagLoading ? (
                   <div className="flex flex-col items-center justify-center gap-2 py-10 text-muted-foreground">
-                    <span className="material-symbols-outlined animate-spin text-[24px]">
-                      progress_activity
-                    </span>
+                    <Loader2 size={24} strokeWidth={1.75} className="animate-spin" />
                     <span className="text-[12px]">Diagnostic en cours…</span>
                   </div>
                 ) : diagError ? (
                   <div className="flex flex-col items-center gap-2 py-8 text-destructive">
-                    <span className="material-symbols-outlined text-[22px]">error</span>
+                    <CircleX size={22} strokeWidth={1.75} />
                     <span className="text-[12px] font-medium">{diagError}</span>
                   </div>
                 ) : (

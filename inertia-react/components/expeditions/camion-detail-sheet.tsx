@@ -7,6 +7,7 @@ import {
   SheetDescription,
 } from '@r/components/ui/sheet'
 import { Badge } from '@r/components/ui/badge'
+import { CircleHelp, Ruler, TriangleAlert, Truck } from 'lucide-react'
 import { cn } from '@r/lib/utils'
 
 /**
@@ -115,7 +116,7 @@ export function CamionDetailSheet({
                 </span>
                 {camion.source === 'navette' ? (
                   <Badge className="gap-1 bg-brand text-[10px] uppercase tracking-wider text-card">
-                    <span className="material-symbols-outlined text-[12px]">local_shipping</span>
+                    <Truck size={12} strokeWidth={1.75} />
                     {camion.navetteNum}
                   </Badge>
                 ) : (
@@ -123,7 +124,7 @@ export function CamionDetailSheet({
                     variant="secondary"
                     className="gap-1 text-[10px] uppercase tracking-wider"
                   >
-                    <span className="material-symbols-outlined text-[12px]">help_outline</span>
+                    <CircleHelp size={12} strokeWidth={1.75} />
                     Hors navette
                   </Badge>
                 )}
@@ -132,7 +133,7 @@ export function CamionDetailSheet({
                     variant="destructive"
                     className="gap-1 text-[10px] uppercase tracking-wider"
                   >
-                    <span className="material-symbols-outlined text-[12px]">warning</span>
+                    <TriangleAlert size={12} strokeWidth={1.75} />
                     Anomalie
                   </Badge>
                 )}
@@ -172,7 +173,7 @@ export function CamionDetailSheet({
                       className="inline-flex items-center gap-1 rounded bg-brand/10 px-1.5 py-0.5 font-mono text-[10px] font-bold text-brand"
                       title="Palettes 1000×1200 (famille ESH) — comptées pour 1,25 éq. standard dans le remplissage"
                     >
-                      <span className="material-symbols-outlined text-[11px]">straighten</span>
+                      <Ruler size={11} strokeWidth={1.75} />
                       {nbPalEsh} pal. ESH
                     </span>
                   )}

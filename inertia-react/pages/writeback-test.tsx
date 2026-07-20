@@ -6,6 +6,8 @@ import { cn } from '@r/lib/utils'
 import { Masthead } from '@r/components/masthead'
 import { Badge } from '@r/components/ui/badge'
 import { Button } from '@r/components/ui/button'
+import { DynamicIcon } from '../components/ui/dynamic-icon'
+import { TriangleAlert, Download, LoaderCircle, CircleX } from 'lucide-react'
 
 /**
  * Terrain de test du write-back X3 (issue #29).
@@ -291,9 +293,7 @@ export default function WritebackTest() {
           <div className="mx-auto flex max-w-5xl flex-col gap-5">
             {/* Avertissement ciblage TEST */}
             <div className="flex items-center gap-2 rounded-md bg-warning/10 px-4 py-2.5 text-[12px] text-warning">
-              <span className="material-symbols-outlined text-[16px]">
-                warning
-              </span>
+              <TriangleAlert size={16} />
               <span>
                 Save / Modify <strong>écrivent dans X3</strong> via la couche objet
                 (validations + transactions applicatives). Cible
@@ -419,9 +419,7 @@ export default function WritebackTest() {
                         onClick={prefill}
                         disabled={loading}
                       >
-                        <span className="material-symbols-outlined text-[14px]">
-                          download
-                        </span>
+                        <Download size={14} />
                         Pré-remplir depuis un read
                       </button>
                     )}
@@ -441,16 +439,12 @@ export default function WritebackTest() {
 
               <div className="flex items-center gap-3">
                 <Button type="submit" className="gap-1.5" disabled={loading}>
-                  <span className="material-symbols-outlined text-[16px]">
-                    {getOpIcon(op)}
-                  </span>
+                  <DynamicIcon name={getOpIcon(op)} size={16} />
                   {getOpLabel(op)}
                 </Button>
                 {loading && (
                   <span className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
-                    <span className="material-symbols-outlined animate-spin text-[16px]">
-                      progress_activity
-                    </span>
+                    <LoaderCircle size={16} className="animate-spin" />
                     En cours…
                   </span>
                 )}
@@ -460,9 +454,7 @@ export default function WritebackTest() {
             {/* Erreur réseau */}
             {fetchErr && (
               <div className="flex items-center gap-2 rounded-md bg-destructive/10 px-4 py-3 text-[13px] font-medium text-destructive">
-                <span className="material-symbols-outlined text-[18px]">
-                  error
-                </span>
+                <CircleX size={18} />
                 {fetchErr}
               </div>
             )}
@@ -523,9 +515,7 @@ export default function WritebackTest() {
                         className="flex items-center gap-1 font-mono text-[11px] text-brand hover:underline"
                         onClick={copyToEditor}
                       >
-                        <span className="material-symbols-outlined text-[14px]">
-                          download
-                        </span>
+                        <Download size={14} />
                         Charger dans l'éditeur (→ save)
                       </button>
                     </div>

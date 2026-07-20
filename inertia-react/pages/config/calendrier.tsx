@@ -5,6 +5,19 @@ import type { DateRange as DayPickerRange } from 'react-day-picker'
 import AppLayout from '@r/layouts/app'
 import { Calendar } from '@r/components/ui/calendar'
 import { Button } from '@r/components/ui/button'
+import { DynamicIcon } from '../../components/ui/dynamic-icon'
+import {
+  Calendar as CalendarIcon,
+  ChevronDown,
+  TriangleAlert,
+  X,
+  CalendarDays,
+  Wrench,
+  Pencil,
+  Trash2,
+  Plus,
+  CalendarRange,
+} from 'lucide-react'
 import {
   Combobox,
   ComboboxContent,
@@ -305,13 +318,9 @@ function ClosureForm({
             onClick={() => setCalOpen((v) => !v)}
             className="flex h-[34px] min-w-[170px] items-center gap-2 rounded-lg border border-rule bg-card px-3 text-[12.5px] font-semibold transition-colors hover:border-brand"
           >
-            <span className="material-symbols-outlined text-[15px] text-muted-foreground">
-              calendar_month
-            </span>
+            <CalendarIcon size={15} className="text-muted-foreground" />
             <span className={!range.start ? 'text-muted-foreground' : ''}>{rangeLabel}</span>
-            <span className="material-symbols-outlined ml-auto text-[16px] text-muted-foreground">
-              expand_more
-            </span>
+            <ChevronDown size={16} className="ml-auto text-muted-foreground" />
           </button>
           {calOpen && (
             <>
@@ -373,9 +382,7 @@ function ClosureForm({
             (!edit && scope !== 'global' && codes.length === 0)
           }
         >
-          <span className="material-symbols-outlined mr-1 text-[16px]">
-            {edit ? 'check' : 'add'}
-          </span>
+          <DynamicIcon name={edit ? 'check' : 'add'} size={16} className="mr-1" />
           {edit ? 'Enregistrer' : 'Ajouter'}
         </Button>
       </div>
@@ -496,14 +503,14 @@ export default function Calendrier(props: CalendrierPageProps) {
 
           {warn && (
             <div className="mb-4 flex items-center gap-2 rounded-lg border border-suggere/40 bg-[color-mix(in_srgb,var(--color-suggere)_12%,transparent)] px-3.5 py-2 text-[12.5px]">
-              <span className="material-symbols-outlined text-[17px] text-suggere">warning</span>
+              <TriangleAlert size={17} className="text-suggere" />
               <span className="flex-1">{warn}</span>
               <button
                 type="button"
                 onClick={() => setWarn('')}
                 className="text-muted-foreground hover:text-foreground"
               >
-                <span className="material-symbols-outlined text-[16px]">close</span>
+                <X size={16} />
               </button>
             </div>
           )}
@@ -513,7 +520,7 @@ export default function Calendrier(props: CalendrierPageProps) {
               {/* Jours fériés */}
               <section className="overflow-hidden rounded-2xl border border-rule bg-card">
                 <header className="flex items-center gap-2 border-b border-rule-soft px-4 py-3.5">
-                  <span className="material-symbols-outlined text-[18px] text-brand">event</span>
+                  <CalendarDays size={18} className="text-brand" />
                   <span className="font-fraunces text-[15px] font-bold">Jours fériés France</span>
                   <span className="ml-auto font-mono text-[11px] font-bold text-muted-foreground">
                     {activeCount} actifs
@@ -557,7 +564,7 @@ export default function Calendrier(props: CalendrierPageProps) {
               {/* Fermetures par ligne */}
               <section className="rounded-2xl border border-rule bg-card">
                 <header className="flex items-center gap-2 border-b border-rule-soft px-4 py-3.5">
-                  <span className="material-symbols-outlined text-[18px] text-suggere">engineering</span>
+                  <Wrench size={18} className="text-suggere" />
                   <span className="font-fraunces text-[15px] font-bold">
                     Fermetures par ligne de production
                   </span>
@@ -632,7 +639,7 @@ export default function Calendrier(props: CalendrierPageProps) {
                                   className="text-muted-foreground transition-colors hover:text-brand"
                                   title="Éditer"
                                 >
-                                  <span className="material-symbols-outlined text-[18px]">edit</span>
+                                  <Pencil size={18} />
                                 </button>
                                 <button
                                   type="button"
@@ -640,7 +647,7 @@ export default function Calendrier(props: CalendrierPageProps) {
                                   className="text-muted-foreground transition-colors hover:text-danger"
                                   title="Supprimer"
                                 >
-                                  <span className="material-symbols-outlined text-[18px]">delete</span>
+                                  <Trash2 size={18} />
                                 </button>
                               </div>
                             </td>
@@ -658,7 +665,7 @@ export default function Calendrier(props: CalendrierPageProps) {
                       onClick={() => setFormState({ mode: 'add' })}
                       className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-brand px-3 py-2 font-sans text-[12.5px] font-bold text-brand"
                     >
-                      <span className="material-symbols-outlined text-[16px]">add</span>Nouvelle
+                      <Plus size={16} />Nouvelle
                       fermeture
                     </button>
                     <span className="font-fraunces text-[11.5px] italic text-muted-foreground">
@@ -679,7 +686,7 @@ export default function Calendrier(props: CalendrierPageProps) {
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-rule bg-card px-6 py-20 text-center">
-              <span className="material-symbols-outlined text-[34px] text-brand/60">view_timeline</span>
+              <CalendarRange size={34} className="text-brand/60" />
               <div className="font-fraunces text-[16px] font-bold">Vue Frise — bientôt</div>
               <p className="max-w-md text-[12.5px] text-muted-foreground">
                 Timeline par poste sur l'année (fériés + fermetures déplaçables). Conçue, pas encore

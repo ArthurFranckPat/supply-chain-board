@@ -7,6 +7,8 @@ import { cn } from '@r/lib/utils'
 import type { ColumnDef, DataTableIndexColumn } from '@r/components/ui/data-table'
 import type { SuiviDisplayRow } from '@/lib/suivi/types'
 import { BADGE_TONE, LATE_TONE, empKey, getRelativeDateLabel } from '@/lib/suivi/tracking-shared'
+import { FlaskConical, Hourglass } from 'lucide-react'
+import { DynamicIcon } from '../../components/ui/dynamic-icon'
 
 export interface ReactiveColumnsDeps {
   expandedEmps: Set<string>
@@ -200,14 +202,15 @@ export function createReactiveColumns({
                 }
               >
                 <span className="flex min-w-[52px] shrink-0 items-center gap-1">
-                  <span
+                  <DynamicIcon
+                    name={e.source === 'STOALL' ? 'check_circle' : 'radio_button_unchecked'}
+                    size={13}
+                    strokeWidth={1.75}
                     className={cn(
-                      'material-symbols-outlined text-[13px] leading-none',
+                      'leading-none',
                       e.source === 'STOALL' ? 'text-ferme' : 'text-muted-foreground/70'
                     )}
-                  >
-                    {e.source === 'STOALL' ? 'check_circle' : 'radio_button_unchecked'}
-                  </span>
+                  />
                   <span className="font-semibold">{e.nom}</span>
                 </span>
                 <span className="flex-1" />
@@ -236,9 +239,12 @@ export function createReactiveColumns({
                 <span>
                   {expanded ? 'Réduire' : `Voir +${hidden} emplacement${hidden > 1 ? 's' : ''}`}
                 </span>
-                <span className="material-symbols-outlined text-[14px] leading-none transition-transform duration-200">
-                  {expanded ? 'expand_less' : 'expand_more'}
-                </span>
+                <DynamicIcon
+                  name={expanded ? 'expand_less' : 'expand_more'}
+                  size={14}
+                  strokeWidth={1.75}
+                  className="leading-none transition-transform duration-200"
+                />
               </button>
             )}
           </div>
@@ -264,9 +270,7 @@ export function createReactiveColumns({
                 BADGE_TONE[o.statusKey]
               )}
             >
-              <span className="material-symbols-outlined grid size-[14px] place-items-center overflow-hidden text-[14px] leading-none">
-                {o.statusIcon}
-              </span>
+              <DynamicIcon name={o.statusIcon} size={14} strokeWidth={1.75} className="overflow-hidden leading-none" />
               {o.statusLabel}
             </span>
             {o.cq && (
@@ -274,9 +278,7 @@ export function createReactiveColumns({
                 className="inline-flex cursor-help items-center gap-1 whitespace-nowrap rounded-md border border-transparent bg-brand-soft px-2 py-0.5 text-[11px] font-medium text-brand"
                 title="Contrôle Qualité — Nécessite une validation du laboratoire de contrôle"
               >
-                <span className="material-symbols-outlined grid size-[14px] place-items-center text-[14px] leading-none">
-                  science
-                </span>
+                <FlaskConical size={14} strokeWidth={1.75} className="leading-none" />
                 CQ
               </span>
             )}
@@ -285,9 +287,7 @@ export function createReactiveColumns({
                 className="inline-flex items-center gap-1 whitespace-nowrap rounded-md border border-transparent bg-suggere/15 px-2 py-0.5 text-[11px] font-medium text-suggere"
                 title="Commande MTO — expédition partielle non autorisée, en attente des autres lignes"
               >
-                <span className="material-symbols-outlined grid size-[14px] place-items-center text-[14px] leading-none">
-                  pending
-                </span>
+                <Hourglass size={14} strokeWidth={1.75} className="leading-none" />
                 Attente lignes
               </span>
             )}

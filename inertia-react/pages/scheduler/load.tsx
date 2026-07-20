@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { TriangleAlert, Search, Gauge } from 'lucide-react'
+import { DynamicIcon } from '../../components/ui/dynamic-icon'
 import AppLayout from '@r/layouts/app'
 import { cn } from '@r/lib/utils'
 import type { LoadPageProps, LoadLine, LoadView } from '@/lib/load/types'
@@ -156,7 +158,7 @@ export default function Load(props: LoadPageProps) {
 
         {props.x3Error && (
           <div className="flex flex-none items-center gap-2 border-b border-brand/30 bg-brand-soft px-7 py-2 text-[12px] text-foreground">
-            <span className="material-symbols-outlined text-[16px] text-brand">warning</span>
+            <TriangleAlert size={16} strokeWidth={1.75} className="text-brand" />
             <span className="font-bold">Erreur chargement :</span>
             <span className="font-mono">{props.x3Error}</span>
           </div>
@@ -252,9 +254,7 @@ export default function Load(props: LoadPageProps) {
               onClick={() => setShowCapacity((v) => !v)}
               className={cn('flex items-center gap-1.5 transition-opacity', !showCapacity && 'opacity-40')}
             >
-              <span className="material-symbols-outlined text-[16px] text-brand">
-                {showCapacity ? 'check_box' : 'check_box_outline_blank'}
-              </span>
+              <DynamicIcon name={showCapacity ? 'check_box' : 'check_box_outline_blank'} size={16} className="text-brand" />
               <i className="inline-block w-[18px] border-t-[3px] border-foreground/70" />
               Capacité
             </button>
@@ -263,17 +263,13 @@ export default function Load(props: LoadPageProps) {
               onClick={() => setShowAvg((v) => !v)}
               className={cn('flex items-center gap-1.5 transition-opacity', !showAvg && 'opacity-40')}
             >
-              <span className="material-symbols-outlined text-[16px] text-brand">
-                {showAvg ? 'check_box' : 'check_box_outline_blank'}
-              </span>
+              <DynamicIcon name={showAvg ? 'check_box' : 'check_box_outline_blank'} size={16} className="text-brand" />
               <i className="inline-block w-[18px] border-t-[1.5px] border-dashed border-brand" />
               Moyenne mobile
             </button>
             {/* Recherche — systématiquement à droite (convention toolbar). */}
             <div className="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/25">
-              <span className="material-symbols-outlined text-[17px] text-muted-foreground">
-                search
-              </span>
+              <Search size={17} strokeWidth={1.75} className="text-muted-foreground" />
               <input
                 className="w-[190px] border-0 bg-transparent px-0 text-[12px] font-medium text-foreground shadow-none outline-none"
                 placeholder="Poste, article…"
@@ -396,9 +392,7 @@ export default function Load(props: LoadPageProps) {
                         backgroundColor: 'color-mix(in srgb, currentColor 12%, transparent)',
                       }}
                     >
-                      <span className="material-symbols-outlined text-[14px]">
-                        {selSaturation.rate > 100 ? 'warning' : 'speed'}
-                      </span>
+                      <DynamicIcon name={selSaturation.rate > 100 ? 'warning' : 'speed'} size={14} />
                       Saturation {Math.round(selSaturation.rate)}%
                       <span className="font-sans font-medium opacity-70">
                         ({selSaturation.charge} / {selSaturation.cap} h)

@@ -3,6 +3,8 @@
  * inertia/components/tracking/suivi-detail-sheet.tsx.
  */
 import { cn } from '@r/lib/utils'
+import { Receipt, Factory, Package, BookmarkCheck, Truck, Clock, CalendarX, CornerDownRight, CircleCheck } from 'lucide-react'
+import { DynamicIcon } from '../ui/dynamic-icon'
 import { BADGE_TONE, VERDICT_TONE, OF_STATUT } from '@/lib/suivi/tracking-shared'
 import type { SuiviDisplayRow, ProactiveDisplayRow } from '@/lib/suivi/types'
 
@@ -123,7 +125,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
             )}
             title="Commande enregistrée et validée dans l'ERP."
           >
-            <span className="material-symbols-outlined text-[16px]">receipt_long</span>
+            <Receipt size={16} strokeWidth={1.75} />
           </div>
           <span className="text-center text-[8.5px] font-extrabold uppercase tracking-wider text-muted-foreground">
             Saisie
@@ -145,7 +147,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                   : "Aucune couverture d'approvisionnement planifiée"
             }
           >
-            <span className="material-symbols-outlined text-[16px]">precision_manufacturing</span>
+            <Factory size={16} strokeWidth={1.75} />
           </div>
           <span className="text-center text-[8.5px] font-extrabold uppercase tracking-wider text-muted-foreground">
             Couverture
@@ -167,7 +169,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                   : 'Rupture composant ou retard de fabrication'
             }
           >
-            <span className="material-symbols-outlined text-[16px]">inventory_2</span>
+            <Package size={16} strokeWidth={1.75} />
           </div>
           <span className="text-center text-[8.5px] font-extrabold uppercase tracking-wider text-muted-foreground">
             Disponible
@@ -189,7 +191,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                   : "En attente d'entrée en stock"
             }
           >
-            <span className="material-symbols-outlined text-[16px]">bookmark_added</span>
+            <BookmarkCheck size={16} strokeWidth={1.75} />
           </div>
           <span className="text-center text-[8.5px] font-extrabold uppercase tracking-wider text-muted-foreground">
             Alloué
@@ -213,7 +215,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                     : "En attente de transfert vers la zone d'expédition"
             }
           >
-            <span className="material-symbols-outlined text-[16px]">local_shipping</span>
+            <Truck size={16} strokeWidth={1.75} />
           </div>
           <span className="text-center text-[8.5px] font-extrabold uppercase tracking-wider text-muted-foreground">
             Zone Expé
@@ -293,14 +295,10 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
         )}
       >
         <div className="absolute right-0 top-0 -translate-y-3 translate-x-3 opacity-[0.04]">
-          <span className="material-symbols-outlined text-[72px] leading-none">
-            {severity === 'critical' ? 'report' : severity === 'warning' ? 'warning' : 'info'}
-          </span>
+          <DynamicIcon name={severity === 'critical' ? 'report' : severity === 'warning' ? 'warning' : 'info'} size={72} strokeWidth={1.75} className="leading-none" />
         </div>
         <div className="flex items-center gap-2">
-          <span className="material-symbols-outlined text-[18px]">
-            {severity === 'critical' ? 'report' : severity === 'warning' ? 'warning' : 'info'}
-          </span>
+          <DynamicIcon name={severity === 'critical' ? 'report' : severity === 'warning' ? 'warning' : 'info'} size={18} strokeWidth={1.75} />
           <span className="text-[10px] font-extrabold uppercase tracking-wider">
             Recommandation Supply-Chain
           </span>
@@ -344,7 +342,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
             )}
             {late && (
               <span className="mt-0.5 flex items-center gap-0.5 text-[10.5px] font-bold text-destructive">
-                <span className="material-symbols-outlined text-[12px] leading-none">schedule</span>
+                <Clock size={12} strokeWidth={1.75} className="leading-none" />
                 Retard: +{lateDays} jour{lateDays > 1 ? 's' : ''}
               </span>
             )}
@@ -444,9 +442,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                           c.reception.overdue ? 'text-destructive' : 'text-brand'
                         )}
                       >
-                        <span className="material-symbols-outlined text-[16px]">
-                          {c.reception.overdue ? 'warning' : 'local_shipping'}
-                        </span>
+                        <DynamicIcon name={c.reception.overdue ? 'warning' : 'local_shipping'} size={16} strokeWidth={1.75} />
                         <span>
                           {c.reception.overdue
                             ? `Retard d'approvisionnement (+${c.reception.retardJ}j)`
@@ -514,9 +510,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                 ) : (
                   !c.descente && (
                     <div className="flex w-fit items-center gap-1 rounded-lg border border-destructive/10 bg-destructive/5 px-2.5 py-1 font-mono text-[10px] font-bold text-destructive/80">
-                      <span className="material-symbols-outlined text-[13px] leading-none">
-                        event_busy
-                      </span>
+                      <CalendarX size={13} strokeWidth={1.75} className="leading-none" />
                       Aucune réception d'achat de couverture prévue.
                     </div>
                   )
@@ -526,14 +520,12 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                 {c.descente && (
                   <div className="flex flex-col gap-2 rounded-xl border border-rule-soft bg-secondary/15 p-3">
                     <div className="flex items-center gap-1.5 text-[11px] font-bold text-foreground">
-                      <span className="material-symbols-outlined text-[14px]">
-                        subdirectory_arrow_right
-                      </span>
+                      <CornerDownRight size={14} strokeWidth={1.75} />
                       <span>Nomenclature sous-ensemble</span>
                     </div>
                     {c.descente.statut === 'se_a_lancer' ? (
                       <div className="flex items-center gap-1 pl-3.5 text-[11px] font-bold text-emerald-700">
-                        <span className="material-symbols-outlined text-[14px]">check_circle</span>
+                        <CircleCheck size={14} strokeWidth={1.75} />
                         Composants disponibles — OF du sous-ensemble prêt à lancer
                       </div>
                     ) : (
@@ -566,9 +558,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                                     p.reception.overdue ? 'text-destructive' : 'text-foreground/75'
                                   )}
                                 >
-                                  <span className="material-symbols-outlined text-[12px]">
-                                    {p.reception.overdue ? 'warning' : 'local_shipping'}
-                                  </span>
+                                  <DynamicIcon name={p.reception.overdue ? 'warning' : 'local_shipping'} size={12} strokeWidth={1.75} />
                                   <span>
                                     {p.reception.overdue
                                       ? `Retard +${p.reception.retardJ}j`
@@ -587,9 +577,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                               </div>
                             ) : (
                               <div className="flex w-fit items-center gap-0.5 rounded bg-destructive/5 px-2 py-0.5 text-[9.5px] font-bold text-destructive/80">
-                                <span className="material-symbols-outlined text-[11px] leading-none">
-                                  event_busy
-                                </span>
+                                <CalendarX size={11} strokeWidth={1.75} className="leading-none" />
                                 Aucune couverture
                               </div>
                             )}
@@ -681,9 +669,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                             of.feasible ? 'text-emerald-600' : 'text-destructive'
                           )}
                         >
-                          <span className="material-symbols-outlined text-[13px] leading-none">
-                            {of.feasible ? 'check_circle' : 'cancel'}
-                          </span>
+                          <DynamicIcon name={of.feasible ? 'check_circle' : 'cancel'} size={13} strokeWidth={1.75} className="leading-none" />
                           {of.feasible === null ? '—' : of.feasible ? 'Prêt à produire' : 'Bloqué'}
                         </span>
                       </div>
@@ -728,9 +714,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
               >
                 <div className="flex items-center gap-3">
                   <div className="flex size-8 items-center justify-center rounded-lg border border-rule-soft bg-secondary text-muted-foreground/75">
-                    <span className="material-symbols-outlined text-[18px]">
-                      {e.source === 'STOALL' ? 'inventory' : 'shelves'}
-                    </span>
+                    <DynamicIcon name={e.source === 'STOALL' ? 'inventory' : 'shelves'} size={18} strokeWidth={1.75} />
                   </div>
                   <div>
                     <div className="font-mono text-[12px] font-bold text-foreground">{e.nom}</div>
