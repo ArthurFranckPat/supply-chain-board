@@ -1,4 +1,3 @@
-import { type JSX } from 'react'
 import { Pencil, TriangleAlert } from 'lucide-react'
 import { cn } from '@r/lib/utils'
 import { TYPO_META } from '@/lib/board/types'
@@ -12,12 +11,14 @@ import { DynamicIcon } from '../ui/dynamic-icon'
  *  • of       — board ordonnancement (OF, progression qty fait/lancé, poste,
  *               alerte rupture quand bloqué).
  *
- * Coquille partagée : ~176 px, liseré supérieur 3 px = ton du statut, badge
- * faisabilité au coin. cours → point terra pulsant ; terminé → coche muted +
- * carte atténuée ; bloqué → liseré rouge (+ ligne d'alerte côté OF).
+ * La variante OF est une carte « Listing » (grammaire Airbnb, validée 2026-07-20) :
+ * bande de statut en dégradé doux tenant lieu de « photo », motif code produit,
+ * n° OF en ancre, heure de charge au pied, flottement au survol. La variante
+ * commande garde la coquille historique (liseré 3 px). Badge faisabilité au coin,
+ * cours → point pulsant, terminé → atténuée, bloqué → rouge + alerte rupture.
  *
- * Statut → ton : ferme / planifié / suggéré / cours(terra) / terminé(muted) /
- * bloqué(destructive). Prototype : design/mockups/cards/board-card-prototypes.html
+ * Statut → ton : ferme / planifié / suggéré / cours(brand) / terminé(muted) /
+ * bloqué(destructive). Maquette : design/showcase/airbnb-composants.html (§03).
  */
 
 export type CardStatus = 'ferme' | 'planifie' | 'suggere' | 'cours' | 'termine' | 'bloque'
@@ -39,6 +40,19 @@ const TONE_FILL: Record<CardStatus, string> = {
   cours: 'bg-brand',
   termine: 'bg-muted-foreground',
   bloque: 'bg-destructive',
+}
+/**
+ * Ton CSS du bandeau « Listing » (variante OF) — décliné en dégradé doux via
+ * color-mix dans OfListingCard. Le bandeau remplace le liseré 3 px : c'est la
+ * « photo » de la carte, façon annonce Airbnb.
+ */
+const BAND_TONE: Record<CardStatus, string> = {
+  ferme: 'var(--ferme, #008049)',
+  planifie: 'var(--planifie, #00a699)',
+  suggere: 'var(--suggere, #fc642d)',
+  cours: 'var(--color-brand, #ff385c)',
+  termine: 'var(--color-muted-foreground, #717171)',
+  bloque: 'var(--color-destructive, #ff385c)',
 }
 
 /**
@@ -115,45 +129,18 @@ export type OfCardProps = Common & {
 export type BoardCardProps = CommandeCardProps | OfCardProps
 
 export function BoardCard(props: BoardCardProps) {
-  // commande modifiée (override local) → liseré terra autour de la carte
-  const ring = props.variant === 'commande' && props.mod
-  // carte induite (ghost) → fond hachuré terra
-  const ghost = props.variant === 'commande' && props.induit
-  // #23 : badge retard — accessor (pas une const figée) pour rester réactif au drag
-  // live ; le narrowing de variant sur un Show inline ne passe pas le type union
-  // BoardCardProps, d'où le detour par une fonction plutôt qu'un JSX inline direct.
-  const retardJours = props.variant === 'of' ? props.retardJours : undefined
+  // Variante OF = carte « Listing » (grammaire Airbnb, validée 2026-07-20 —
+  // variante A de la maquette design/showcase/airbnb-composants.html). La
+  // variante commande garde la coquille historique (non touchée).
+  return props.variant === 'of' ? <OfListingCard {...props} /> : <CommandeCard {...props} />
+}
 
-  const body: JSX.Element =
-    props.variant === 'commande' ? (
-      <CommandeBody
-        article={props.article}
-        title={props.title}
-        ord={props.ord}
-        client={props.client}
-        type={props.type}
-        mod={props.mod}
-        hours={props.hours}
-        consommeBouche={props.consommeBouche}
-        typologie={props.typologie}
-        qty={props.qty}
-        induit={props.induit}
-        alert={props.alert}
-      />
-    ) : (
-      <OfBody
-        status={props.status}
-        article={props.article}
-        articleRef={props.articleRef}
-        title={props.title}
-        poste={props.poste}
-        progress={props.progress}
-        alert={props.alert}
-        hours={props.hours}
-        consommeBouche={props.consommeBouche}
-        typologie={props.typologie}
-      />
-    )
+/* ── Coquille historique (variante commande) ── */
+function CommandeCard(props: CommandeCardProps) {
+  // commande modifiée (override local) → liseré terra autour de la carte
+  const ring = props.mod
+  // carte induite (ghost) → fond hachuré terra
+  const ghost = props.induit
 
   return (
     <div
@@ -183,15 +170,20 @@ export function BoardCard(props: BoardCardProps) {
       {props.status === 'cours' && (
         <span className="absolute right-2.5 top-2.5 size-[7px] animate-pulse rounded-full bg-brand" />
       )}
-      {/* Issue #23 : badge retard coin haut-gauche (« +N j ») — OF finissant après le
-          besoin de sa commande. Disjoint du badge faisabilité (haut-droite) et de la
-          sélection (haut-gauche, uniquement en selectMode). */}
-      {(retardJours ?? null) !== null && retardJours! > 0 && (
-        <span className="absolute -top-1.5 left-2 flex h-4 items-center justify-center rounded-full border-2 border-card bg-error px-1 font-mono text-3xs font-bold tabular-nums text-card">
-          +{retardJours}j
-        </span>
-      )}
-      {body}
+      <CommandeBody
+        article={props.article}
+        title={props.title}
+        ord={props.ord}
+        client={props.client}
+        type={props.type}
+        mod={props.mod}
+        hours={props.hours}
+        consommeBouche={props.consommeBouche}
+        typologie={props.typologie}
+        qty={props.qty}
+        induit={props.induit}
+        alert={props.alert}
+      />
     </div>
   )
 }
@@ -313,86 +305,133 @@ function CommandeBody(p: CommandeBodyProps) {
   )
 }
 
-/* ── Variante OF (approche B : progression + alerte) ── */
-interface OfBodyProps {
-  status: CardStatus
-  article: string
-  articleRef?: string
-  title: string
-  poste?: string
-  progress?: { done: number; total: number }
-  alert?: string
-  hours: string
-  consommeBouche?: boolean
-  typologie?: string
-}
-
-function OfBody(p: OfBodyProps) {
+/* ── Variante OF — carte « Listing » (grammaire Airbnb, variante A) ──
+ *
+ * Bande de statut en guise de « photo » (dégradé doux du ton, motif = code
+ * produit/poste en mono translucide), puis hiérarchie claire : n° OF en gras,
+ * désignation, progression, alerte, et l'heure de charge en ancre au pied.
+ * Survol = léger flottement (comportement annonce Airbnb). Tous les signaux
+ * existants sont préservés : faisabilité, point cours, badge retard, tampon
+ * BDH, typologie, progression, alerte rupture.
+ */
+function OfListingCard(p: OfCardProps) {
   const typo = p.typologie ? TYPO_META[p.typologie] : undefined
+  const tone = BAND_TONE[p.status]
   const pct =
     p.progress && p.progress.total > 0
       ? Math.min(100, Math.round((p.progress.done / p.progress.total) * 100))
       : 0
+  // Motif du bandeau : poste de charge (à la manière du code produit sur la
+  // « photo » d'une annonce), à défaut la réf. article.
+  const motif = p.poste ?? p.articleRef ?? p.article
 
   return (
-    <>
-      {/* Tampon « BDH » = consomme une bouche (issue #42). Absolu, fond carte pour
-          masquer proprement — le n° OF garde toute la largeur (pas de troncature). */}
-      {p.consommeBouche && (
+    <div
+      className={cn(
+        'relative w-full rounded-lg border border-border bg-card',
+        'shadow-[0_1px_2px_rgba(0,0,0,.08)] transition-all duration-150',
+        'hover:-translate-y-0.5 hover:shadow-[0_6px_16px_rgba(0,0,0,.14)]',
+        p.status === 'termine' && 'opacity-60',
+        p.className
+      )}
+    >
+      {/* Bande de statut — la « photo » de l'annonce. overflow-hidden + coins
+          arrondis SUR LA BANDE (pas le conteneur) pour ne pas rogner les badges
+          faisabilité/retard qui dépassent du haut de la carte. */}
+      <div
+        className="relative flex h-9 items-end overflow-hidden rounded-t-[7px] px-2.5"
+        style={{
+          background: `linear-gradient(135deg, color-mix(in srgb, ${tone} 12%, var(--card)), color-mix(in srgb, ${tone} 26%, var(--card)))`,
+        }}
+      >
         <span
-          className="absolute right-1.5 top-1.5 rotate-[-7deg] rounded border bg-card px-1.5 py-0.5 font-mono text-xs font-black uppercase tracking-wider opacity-70"
-          style={{
-            color: 'var(--color-brand)',
-            borderColor: 'var(--color-brand)',
-            textShadow: '0 0 1px rgba(0,0,0,.35)',
-          }}
+          aria-hidden
+          className="pointer-events-none select-none truncate font-mono text-[26px] font-bold leading-[1.05] tracking-tight"
+          style={{ color: tone, opacity: 0.18 }}
         >
-          BDH
+          {motif}
+        </span>
+        {/* cours : point Rausch pulsant sur la bande */}
+        {p.status === 'cours' && (
+          <span className="absolute right-2.5 top-2.5 size-[7px] animate-pulse rounded-full bg-brand" />
+        )}
+      </div>
+
+      {/* Badges saillants, positionnés sur la bande (inchangés). */}
+      {p.feas === 'ok' && <CornerBadge cls="bg-ferme" icon="check" />}
+      {p.feas === 'bad' && <CornerBadge cls="bg-destructive" icon="priority_high" />}
+      {!p.feas && p.status === 'termine' && <CornerBadge cls="bg-muted-foreground" icon="check" />}
+      {/* Issue #23 : badge retard « +N j » (chevauche le haut de la bande). */}
+      {(p.retardJours ?? null) !== null && p.retardJours! > 0 && (
+        <span className="absolute -top-1.5 left-2 z-10 flex h-4 items-center justify-center rounded-full border-2 border-card bg-error px-1 font-mono text-3xs font-bold tabular-nums text-card">
+          +{p.retardJours}j
         </span>
       )}
-      {/* N° OF — pleine largeur (truncate seulement si réellement trop long). */}
-      <div className="truncate font-mono text-xs font-bold leading-tight text-foreground">
-        {p.article}
-      </div>
-      {p.articleRef && (
-        <div className="truncate font-mono text-xs font-semibold leading-tight text-brand">
-          {p.articleRef}
-        </div>
-      )}
-      <div className="mt-1 truncate text-xs font-semibold text-foreground">{p.title}</div>
-      {p.progress && (
-        <div className="mt-2 flex items-center gap-1.5">
-          <span className="h-[5px] flex-1 overflow-hidden rounded-full bg-rule-soft">
-            <span
-              className={cn('block h-full rounded-full', TONE_FILL[p.status])}
-              style={{ width: `${pct}%` }}
-            />
-          </span>
-          <span className="font-mono text-2xs font-bold text-secondary-foreground">
-            {p.progress.done}/{p.progress.total}
-          </span>
-        </div>
-      )}
-      {p.alert && (
-        <div className="mt-1.5 flex items-center gap-1 rounded bg-destructive/10 px-1.5 py-[3px] font-mono text-2xs font-bold text-destructive">
-          <TriangleAlert size={12} strokeWidth={1.75} />
-          {p.alert}
-        </div>
-      )}
-      {/* Footer mono-ligne (hauteur fixe) : point couleur typo + label · heures. */}
-      <div className="mt-2 flex items-center gap-1.5 border-t border-rule-soft pt-1.5">
-        {typo && (
-          <span className="inline-flex items-center gap-1 font-mono text-2xs font-bold uppercase tracking-wider text-secondary-foreground">
-            <span className="size-[8px] rounded-[2px]" style={{ background: typo.color }} />
-            {typo.label}
+
+      {/* Corps */}
+      <div className="relative px-2.5 pb-2 pt-1.5">
+        {/* Tampon « BDH » (issue #42) — dans le corps, sous la bande. */}
+        {p.consommeBouche && (
+          <span
+            className="absolute right-1.5 top-1 rotate-[-7deg] rounded border bg-card px-1.5 py-0.5 font-mono text-2xs font-black uppercase tracking-wider opacity-70"
+            style={{
+              color: 'var(--color-brand)',
+              borderColor: 'var(--color-brand)',
+              textShadow: '0 0 1px rgba(0,0,0,.35)',
+            }}
+          >
+            BDH
           </span>
         )}
-        <span className="ml-auto font-fraunces text-sm font-bold tabular-nums">
-          {p.hours}
-          <span className="ml-0.5 text-2xs font-medium text-muted-foreground">h</span>
-        </span>
+        {/* N° OF (ancre). */}
+        <div className="truncate font-mono text-[13px] font-bold leading-tight text-foreground">
+          {p.article}
+        </div>
+        {p.articleRef && (
+          <div className="truncate font-mono text-xs font-semibold leading-tight text-brand">
+            {p.articleRef}
+          </div>
+        )}
+        <div className="mt-0.5 truncate text-xs font-medium leading-tight text-muted-foreground" title={p.title}>
+          {p.title}
+        </div>
+        {p.progress && (
+          <div className="mt-1.5 flex items-center gap-1.5">
+            <span className="h-[5px] flex-1 overflow-hidden rounded-full bg-rule-soft">
+              <span
+                className={cn('block h-full rounded-full', TONE_FILL[p.status])}
+                style={{ width: `${pct}%` }}
+              />
+            </span>
+            <span className="font-mono text-3xs font-bold text-secondary-foreground">
+              {p.progress.done}/{p.progress.total}
+            </span>
+          </div>
+        )}
+        {p.alert && (
+          <div className="mt-1.5 flex items-center gap-1 rounded bg-destructive/10 px-1.5 py-[3px] font-mono text-3xs font-bold text-destructive">
+            <TriangleAlert size={12} strokeWidth={1.75} />
+            {p.alert}
+          </div>
+        )}
+        {/* Pied : typologie à gauche, heure de charge en ancre à droite (le
+            « prix » de l'annonce). */}
+        <div className="mt-1.5 flex items-baseline justify-between gap-1.5 border-t border-rule-soft pt-1">
+          {typo ? (
+            <span className="inline-flex min-w-0 items-center gap-1 font-mono text-3xs font-bold uppercase tracking-wider text-secondary-foreground">
+              <span className="size-[8px] shrink-0 rounded-[2px]" style={{ background: typo.color }} />
+              <span className="truncate">{typo.label}</span>
+            </span>
+          ) : (
+            <span className="min-w-0" />
+          )}
+          <span className="shrink-0 font-fraunces text-base font-bold leading-none tabular-nums text-foreground">
+            {p.hours}
+            <span className="ml-0.5 text-2xs font-medium text-muted-foreground">h</span>
+          </span>
+        </div>
       </div>
-    </>
+    </div>
   )
 }
 
