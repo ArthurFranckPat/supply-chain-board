@@ -210,7 +210,7 @@ export function FriseView({
                       top: `${ROW_H - h - PAD_TOP}px`,
                       height: `${h}px`,
                       backgroundImage:
-                        'repeating-linear-gradient(90deg, transparent 0 7px, rgba(251,248,239,0.14) 7px 8px)',
+                        'repeating-linear-gradient(90deg, transparent 0 7px, rgba(255,255,255,0.14) 7px 8px)',
                     }}
                     onClick={() => onSelect(c)}
                     onKeyDown={(e) => {
@@ -270,7 +270,7 @@ export function FriseView({
                     width: `${(1 / bounds.hours) * 100 - 1}%`,
                     height: `${Math.max(hpct, d.n ? 12 : 0)}%`,
                     backgroundImage:
-                      'repeating-linear-gradient(90deg, transparent 0 6px, rgba(251,248,239,0.12) 6px 7px)',
+                      'repeating-linear-gradient(90deg, transparent 0 6px, rgba(255,255,255,0.12) 6px 7px)',
                   }}
                 >
                   {d.n > 0 && (

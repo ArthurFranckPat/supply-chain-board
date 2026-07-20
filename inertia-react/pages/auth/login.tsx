@@ -70,7 +70,7 @@ export default function Login(props: LoginProps) {
             className="relative hidden flex-col justify-between overflow-hidden bg-foreground px-12 py-12 text-background md:flex"
             style={{
               backgroundImage:
-                'linear-gradient(rgba(243,236,224,.06) 1px, transparent 1px), linear-gradient(90deg, rgba(243,236,224,.06) 1px, transparent 1px)',
+                'linear-gradient(rgba(255,255,255,.06) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.06) 1px, transparent 1px)',
               backgroundSize: '26px 26px',
             }}
           >

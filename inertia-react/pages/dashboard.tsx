@@ -154,10 +154,15 @@ const EMPTY_STOCK: StockValuationKpi = {
   nbArticles: 0,
 }
 
-/** Palette des barres par rang de poste (du plus chargé au moins chargé). */
-const BAR_PALETTE = ['#b23b2e', '#cf6a3f', '#b8862c', '#cdb079', '#a8a18c']
-/** Palette des catégories de stock (bleus/verts, distincte du rouge « charge »). */
-const STOCK_PALETTE = ['#2d6a8f', '#3a8a5f', '#5b9a8f', '#8fae8f', '#a8a18c']
+/**
+ * Palette Airbnb « stricte » — une seule famille pour toutes les séries
+ * catégorielles (choix utilisateur 2026-07-20) : Rausch en accent (rang le plus
+ * chargé / valeur saillante), puis ink, teal Babu, rampe de gris. Remplace
+ * l'ancienne famille terreuse Papier (brique/or/moutarde/sable).
+ */
+const BAR_PALETTE = ['#ff385c', '#222222', '#00a699', '#717171', '#dddddd']
+/** Catégories de stock — même famille unique (cohérence Airbnb stricte). */
+const STOCK_PALETTE = ['#ff385c', '#222222', '#00a699', '#717171', '#dddddd']
 
 /** Classes de largeur statiques (purge Tailwind). 1 = 1/3, 2 = 2/3, 3 = plein. */
 const WIDTH_CLASS: Record<KpiWidth, string> = {
@@ -177,10 +182,10 @@ const fmtEuro = new Intl.NumberFormat('fr-FR', {
 })
 
 function otdColor(taux: number, nbTotal: number): string {
-  if (nbTotal === 0) return '#a8a18c'
-  if (taux >= 90) return '#2d7a4f'
-  if (taux >= 70) return '#b8862c'
-  return '#b23b2e'
+  if (nbTotal === 0) return '#dddddd'
+  if (taux >= 90) return '#008049'
+  if (taux >= 70) return '#717171'
+  return '#ff385c'
 }
 
 // ═════════════════════════════════════════════════════════════════════════ Components
@@ -200,7 +205,7 @@ function CardHeader({
     <div className="mb-4 flex items-center gap-2.5 border-b border-rule-soft pb-3">
       <span
         className="size-2 shrink-0 rounded-full"
-        style={{ background: tone ?? 'var(--color-destructive, #b23b2e)' }}
+        style={{ background: tone ?? 'var(--color-destructive, #ff385c)' }}
       />
       <h2 className="font-fraunces text-[16px] font-semibold leading-none tracking-tight text-foreground">
         {title}
@@ -262,7 +267,7 @@ function StockSparkline({ series }: { series: StockValuationPoint[] }) {
               width={barW}
               height={h}
               rx={1.5}
-              fill={isLast ? '#2d6a8f' : '#c4d3da'}
+              fill={isLast ? '#222222' : '#dddddd'}
             >
               <title>{`${pt.label} · ${pt.valeur.toFixed(0)} €`}</title>
             </rect>
@@ -710,7 +715,7 @@ export default function Dashboard(props: DashboardProps) {
                 setDropTargetId={setDropTargetId}
                 onDrop={() => draggedId && moveItem(draggedId, 'charge')}
               >
-                <article className="rounded border border-rule bg-card p-6 shadow-[0_14px_30px_-26px_rgba(42,38,34,0.45)]">
+                <article className="rounded border border-rule bg-card p-6 shadow-[0_14px_30px_-26px_rgba(0,0,0,0.45)]">
                   <CardHeader
                     title="Charge en retard"
                     suffix="par poste"
@@ -805,7 +810,7 @@ export default function Dashboard(props: DashboardProps) {
                 setDropTargetId={setDropTargetId}
                 onDrop={() => draggedId && moveItem(draggedId, 'otd')}
               >
-                <article className="rounded border border-rule bg-card p-6 shadow-[0_14px_30px_-26px_rgba(42,38,34,0.45)]">
+                <article className="rounded border border-rule bg-card p-6 shadow-[0_14px_30px_-26px_rgba(0,0,0,0.45)]">
                   <div className="mb-4 flex items-center gap-2.5 border-b border-rule-soft pb-3">
                     <span className="size-2 shrink-0 rounded-full bg-foreground/30" />
                     <h2 className="font-fraunces text-[16px] font-semibold leading-none tracking-tight text-foreground">
@@ -1056,9 +1061,9 @@ export default function Dashboard(props: DashboardProps) {
                 setDropTargetId={setDropTargetId}
                 onDrop={() => draggedId && moveItem(draggedId, 'stock')}
               >
-                <article className="rounded border border-rule bg-card p-6 shadow-[0_14px_30px_-26px_rgba(42,38,34,0.45)]">
+                <article className="rounded border border-rule bg-card p-6 shadow-[0_14px_30px_-26px_rgba(0,0,0,0.45)]">
                   <div className="mb-4 flex items-center gap-2.5 border-b border-rule-soft pb-3">
-                    <span className="size-2 shrink-0 rounded-full" style={{ background: '#2d6a8f' }} />
+                    <span className="size-2 shrink-0 rounded-full" style={{ background: '#00a699' }} />
                     <h2 className="font-fraunces text-[16px] font-semibold leading-none tracking-tight text-foreground">
                       Valorisation stock
                     </h2>
@@ -1161,7 +1166,7 @@ export default function Dashboard(props: DashboardProps) {
                             {stock.deltaPct !== 0 && (
                               <span
                                 className="font-bold tabular-nums"
-                                style={{ color: stock.deltaPct > 0 ? '#b23b2e' : '#2d7a4f' }}
+                                style={{ color: stock.deltaPct > 0 ? '#ff385c' : '#008049' }}
                               >
                                 {stock.deltaPct > 0 ? '+' : ''}
                                 {stock.deltaPct}%
@@ -1243,7 +1248,7 @@ export default function Dashboard(props: DashboardProps) {
                 setDropTargetId={setDropTargetId}
                 onDrop={() => draggedId && moveItem(draggedId, 'lignes')}
               >
-                <article className="flex max-h-[calc(100vh-9rem)] flex-col rounded border border-rule bg-card p-6 shadow-[0_14px_30px_-26px_rgba(42,38,34,0.45)] print:max-h-none print:overflow-visible print:shadow-none">
+                <article className="flex max-h-[calc(100vh-9rem)] flex-col rounded border border-rule bg-card p-6 shadow-[0_14px_30px_-26px_rgba(0,0,0,0.45)] print:max-h-none print:overflow-visible print:shadow-none">
                   <CardHeader
                     title="Lignes en retard"
                     suffix={`${kpi.nbLignes} commande${kpi.nbLignes > 1 ? 's' : ''}`}
@@ -1353,11 +1358,11 @@ export default function Dashboard(props: DashboardProps) {
                 setDropTargetId={setDropTargetId}
                 onDrop={() => draggedId && moveItem(draggedId, 'stockTable')}
               >
-                <article className="flex max-h-[calc(100vh-9rem)] flex-col rounded border border-rule bg-card p-6 shadow-[0_14px_30px_-26px_rgba(42,38,34,0.45)] print:max-h-none print:overflow-visible print:shadow-none">
+                <article className="flex max-h-[calc(100vh-9rem)] flex-col rounded border border-rule bg-card p-6 shadow-[0_14px_30px_-26px_rgba(0,0,0,0.45)] print:max-h-none print:overflow-visible print:shadow-none">
                   <CardHeader
                     title="Stock par article"
                     suffix={`${filteredArticles.length} / ${stock.nbArticles} · AE1`}
-                    tone="#2d6a8f"
+                    tone="#00a699"
                     onHide={() => setVisible('stockTable', false)}
                   />
                   {stockData.loading ? (
