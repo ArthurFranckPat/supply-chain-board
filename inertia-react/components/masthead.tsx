@@ -14,7 +14,7 @@ import UserMenu from '@r/components/user-menu'
  *                 historique conservé pour les pages React migrées qui ne sont
  *                 pas encore passées au thème Airbnb.
  *   • `airbnb`  — aligné sur Airbnb DESIGN.md `top-nav` + `product-tab-active` :
- *                 hauteur 80px, wordmark Inter 700 22px (pas d'italique), onglet
+ *                 hauteur 80px, wordmark Plus Jakarta Sans 700 22px (pas d'italique), onglet
  *                 actif souligné par une underline ink 2px (pas Rausch), texte
  *                 inactif en muted-foreground #6a6a6a.
  *

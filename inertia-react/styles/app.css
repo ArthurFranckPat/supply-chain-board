@@ -16,6 +16,7 @@
 @import 'shadcn/tailwind.css';
 @import '@fontsource-variable/geist';
 @import '@fontsource-variable/inter';
+@import '@fontsource-variable/plus-jakarta-sans';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -296,13 +297,16 @@
   --shadow-xs: 0 0 0 1px rgb(0 0 0 / 0.02), 0 2px 6px rgb(0 0 0 / 0.04), 0 4px 8px rgb(0 0 0 / 0.10);
   --shadow-sm: 0 0 0 1px rgb(0 0 0 / 0.02), 0 2px 6px rgb(0 0 0 / 0.04), 0 4px 8px rgb(0 0 0 / 0.10);
 
-  /* ── Typo — Inter Variable substitut de Cereal VF ──
-     DESIGN.md « Font Substitutes » : « Inter is the closest open-source
-     substitute; adjust display headlines down by ~2% in line-height to
-     match Cereal's slightly tighter cap height. » */
-  --font-sans: 'Inter Variable', -apple-system, system-ui, 'Helvetica Neue', sans-serif;
-  --font-heading: 'Inter Variable', sans-serif;
-  --font-mono: 'Inter Variable', system-ui, sans-serif; /* tabular-nums pour OF/dates */
+  /* ── Typo — Plus Jakarta Sans Variable, substitut de Cereal VF ──
+     Choix utilisateur (2026-07-20) : Plus Jakarta Sans est le substitut
+     open-source le plus proche du tempérament de Cereal (géométrique,
+     légèrement rond, forte personnalité) — plus près qu'Inter, resté le
+     fallback système. line-height display resserré (~2%) plus bas pour
+     matcher le cap-height un peu plus haut. tabular-nums (tnum) porté par
+     la variable font pour l'alignement OF/dates. */
+  --font-sans: 'Plus Jakarta Sans Variable', -apple-system, system-ui, 'Helvetica Neue', sans-serif;
+  --font-heading: 'Plus Jakarta Sans Variable', sans-serif;
+  --font-mono: 'Plus Jakarta Sans Variable', system-ui, sans-serif; /* tabular-nums pour OF/dates */
 
   /* ── Sidebar — neutre, alignée sur le canvas ── */
   --sidebar: #ffffff;
@@ -345,8 +349,8 @@
 }
 
 /* Ajustement line-height Cereal-like (DESIGN.md note) — titres display.
-   Inter a une cap-height légèrement plus haute que Cereal ; on resserre
-   de ~2% sur les gros weights pourmatcher l'allure. */
+   Plus Jakarta Sans a une cap-height légèrement plus haute que Cereal ; on
+   resserre de ~2% sur les gros weights pour matcher l'allure. */
 .theme-airbnb h1,
 .theme-airbnb h2,
 .theme-airbnb h3 {
