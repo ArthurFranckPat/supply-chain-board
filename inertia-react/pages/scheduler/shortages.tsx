@@ -172,19 +172,6 @@ export default function Shortages(props: ShortagesProps) {
       >
         {/* ═══ Toolbar ═══ */}
         <div className="flex flex-none flex-wrap items-center gap-2.5 border-b border-rule px-7 py-2">
-          {/* Recherche — déplacée depuis le Masthead pour cohérence avec
-              les autres pages (la recherche vit dans la toolbar). */}
-          <div className="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/25">
-            <span className="material-symbols-outlined text-[17px] text-muted-foreground">search</span>
-            <input
-              className="w-[200px] border-0 bg-transparent px-0 text-[12px] font-medium text-foreground shadow-none outline-none"
-              placeholder="Composant, OF, commande, fournisseur…"
-              type="text"
-              autoComplete="off"
-              value={query}
-              onChange={(e) => setQuery(e.currentTarget.value)}
-            />
-          </div>
           {/* Bascule Registre / Par composant / Couverture */}
           <div className="inline-flex items-center rounded-md border border-rule bg-card p-0.5">
             {(
@@ -264,6 +251,18 @@ export default function Shortages(props: ShortagesProps) {
           </div>
 
           <div className="ml-auto flex items-center gap-2">
+            {/* Recherche — systématiquement à droite (convention toolbar). */}
+            <div className="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/25">
+              <span className="material-symbols-outlined text-[17px] text-muted-foreground">search</span>
+              <input
+                className="w-[200px] border-0 bg-transparent px-0 text-[12px] font-medium text-foreground shadow-none outline-none"
+                placeholder="Composant, OF, commande, fournisseur…"
+                type="text"
+                autoComplete="off"
+                value={query}
+                onChange={(e) => setQuery(e.currentTarget.value)}
+              />
+            </div>
             <Link
               href={`${route('scheduler.shortage_tracker')}?start=${props.windowStart}&days=${props.horizon}&refresh=1`}
               className="inline-flex items-center gap-1 rounded-full border border-rule bg-card px-3 py-1 text-[11px] font-semibold transition-colors hover:border-brand"

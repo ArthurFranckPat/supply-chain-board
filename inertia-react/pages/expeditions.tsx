@@ -265,20 +265,19 @@ export default function Expeditions(props: ExpeditionsPageProps) {
             Anomalies seules
           </button>
 
-          {/* Recherche client */}
-          <div className="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/25">
-            <span className="material-symbols-outlined text-[17px] text-muted-foreground">search</span>
-            <input
-              className="w-[160px] border-0 bg-transparent px-0 text-[12px] font-medium text-foreground shadow-none outline-none"
-              placeholder="Client…"
-              type="text"
-              autoComplete="off"
-              value={query}
-              onChange={(e) => setQuery(e.currentTarget.value)}
-            />
-          </div>
-
           <div className="ml-auto flex items-center gap-2">
+            {/* Recherche — systématiquement à droite (convention toolbar). */}
+            <div className="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/25">
+              <span className="material-symbols-outlined text-[17px] text-muted-foreground">search</span>
+              <input
+                className="w-[160px] border-0 bg-transparent px-0 text-[12px] font-medium text-foreground shadow-none outline-none"
+                placeholder="Client…"
+                type="text"
+                autoComplete="off"
+                value={query}
+                onChange={(e) => setQuery(e.currentTarget.value)}
+              />
+            </div>
             {loading && (
               <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
                 {fmtMs(elapsed)}
