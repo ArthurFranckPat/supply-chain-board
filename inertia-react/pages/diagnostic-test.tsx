@@ -249,7 +249,7 @@ export default function DiagnosticTest() {
           active="programme"
           variant="airbnb"
         />
-        <div className="flex-1 overflow-auto px-7 py-6">
+        <div className="flex-1 overflow-auto px-4 py-3">
           <div className="mx-auto flex max-w-4xl flex-col gap-5">
             <form className="flex items-end gap-3" onSubmit={run}>
               <label className="flex flex-col gap-1">

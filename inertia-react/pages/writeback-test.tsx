@@ -287,7 +287,7 @@ export default function WritebackTest() {
           variant="airbnb"
         />
 
-        <div className="flex-1 overflow-auto px-7 py-6">
+        <div className="flex-1 overflow-auto px-4 py-3">
           <div className="mx-auto flex max-w-5xl flex-col gap-5">
             {/* Avertissement ciblage TEST */}
             <div className="flex items-center gap-2 rounded-md bg-warning/10 px-4 py-2.5 text-[12px] text-warning">

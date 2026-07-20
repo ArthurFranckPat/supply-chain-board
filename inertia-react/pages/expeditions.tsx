@@ -158,6 +158,8 @@ export default function Expeditions(props: ExpeditionsPageProps) {
       active="expeditions"
       subtitle="Expéditions · Livraisons client"
       theme="airbnb"
+      dense
+      scrollable={false}
       meta={
         <>
           <div className="font-fraunces text-[12px] font-bold capitalize not-italic text-brand">

@@ -138,6 +138,8 @@ export default function Load(props: LoadPageProps) {
       active="load"
       subtitle="Charge · vision long terme"
       theme="airbnb"
+      dense
+      scrollable={false}
       meta={
         <>
           <div className="font-fraunces text-[12px] font-bold italic text-brand">
@@ -148,23 +150,6 @@ export default function Load(props: LoadPageProps) {
             {view === 'of' ? 'charge OF' : 'charge commandes'}
           </div>
         </>
-      }
-      mastheadActions={
-        <div className="contents">
-          <div className="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/25">
-            <span className="material-symbols-outlined text-[17px] text-muted-foreground">
-              search
-            </span>
-            <input
-              className="w-[190px] border-0 bg-transparent px-0 text-[12px] font-medium text-foreground shadow-none outline-none"
-              placeholder="Poste, article…"
-              type="text"
-              autoComplete="off"
-              value={query}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.currentTarget.value)}
-            />
-          </div>
-        </div>
       }
     >
       <HatchDefs />
@@ -282,8 +267,25 @@ export default function Load(props: LoadPageProps) {
             />
             Surcharge
           </span>
-          <span className="ml-auto font-fraunces text-[11px] italic text-muted-foreground">
-            Mini-graphes : {props.months.length} mois · clic = détail
+          <span className="ml-auto flex items-center gap-3">
+            {/* Recherche — déplacée depuis le Masthead. Vit dans la toolbar
+                pour cohérence avec les autres pages. */}
+            <div className="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/25">
+              <span className="material-symbols-outlined text-[17px] text-muted-foreground">
+                search
+              </span>
+              <input
+                className="w-[190px] border-0 bg-transparent px-0 text-[12px] font-medium text-foreground shadow-none outline-none"
+                placeholder="Poste, article…"
+                type="text"
+                autoComplete="off"
+                value={query}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.currentTarget.value)}
+              />
+            </div>
+            <span className="font-fraunces text-[11px] italic text-muted-foreground">
+              Mini-graphes : {props.months.length} mois · clic = détail
+            </span>
           </span>
         </div>
 

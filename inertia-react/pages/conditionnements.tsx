@@ -241,6 +241,8 @@ export default function Conditionnements(props: ConditionnementsPageProps) {
       active="conditionnements"
       subtitle="Conditionnements · Rattrapage référentiel"
       theme="airbnb"
+      dense
+      scrollable={false}
       meta={
         <>
           <div className="font-fraunces text-[12px] font-bold capitalize not-italic text-brand">

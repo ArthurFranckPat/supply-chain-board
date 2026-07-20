@@ -85,7 +85,7 @@ export default function Comparer(props: ComparerPageProps) {
       <Head title="Comparaison des scénarios" />
       <div
         ref={pageRef}
-        className="theme-airbnb min-h-screen bg-background p-8 font-sans print:p-0 print:bg-white"
+        className="theme-airbnb min-h-screen bg-background px-4 py-3 font-sans print:p-0 print:bg-white"
       >
         <Masthead subtitle="Programme · Scénarios" active="programme" variant="airbnb" />
 

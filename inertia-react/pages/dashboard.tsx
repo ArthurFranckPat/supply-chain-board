@@ -647,7 +647,7 @@ export default function Dashboard(props: DashboardProps) {
       scrollable={false}
       maxWidth="7xl"
     >
-        <div ref={contentElRef} className="h-full overflow-auto px-7 py-6 print:overflow-visible">
+        <div ref={contentElRef} className="h-full overflow-auto print:overflow-visible">
           {/* En-tête imprimable — masquée à l'écran, visible uniquement à l'impression */}
           <div
             data-print-header

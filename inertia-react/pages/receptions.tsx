@@ -126,6 +126,8 @@ export default function Receptions(props: ReceptionsPageProps) {
       active="receptions"
       subtitle="Réceptions · Commandes fournisseurs"
       theme="airbnb"
+      dense
+      scrollable={false}
       meta={
         <>
           <div className="font-fraunces text-[12px] font-bold capitalize not-italic text-brand">

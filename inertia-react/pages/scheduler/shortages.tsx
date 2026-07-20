@@ -156,6 +156,8 @@ export default function Shortages(props: ShortagesProps) {
         active="ruptures"
         subtitle="Ruptures · Couverture composants"
         theme="airbnb"
+        dense
+        scrollable={false}
         meta={
           <>
             <div className="font-fraunces text-[12px] font-bold capitalize not-italic text-brand">
@@ -167,7 +169,11 @@ export default function Shortages(props: ShortagesProps) {
             </div>
           </>
         }
-        mastheadActions={
+      >
+        {/* ═══ Toolbar ═══ */}
+        <div className="flex flex-none flex-wrap items-center gap-2.5 border-b border-rule px-7 py-2">
+          {/* Recherche — déplacée depuis le Masthead pour cohérence avec
+              les autres pages (la recherche vit dans la toolbar). */}
           <div className="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/25">
             <span className="material-symbols-outlined text-[17px] text-muted-foreground">search</span>
             <input
@@ -179,10 +185,6 @@ export default function Shortages(props: ShortagesProps) {
               onChange={(e) => setQuery(e.currentTarget.value)}
             />
           </div>
-        }
-      >
-        {/* ═══ Toolbar ═══ */}
-        <div className="flex flex-none flex-wrap items-center gap-2.5 border-b border-rule px-7 py-2">
           {/* Bascule Registre / Par composant / Couverture */}
           <div className="inline-flex items-center rounded-md border border-rule bg-card p-0.5">
             {(

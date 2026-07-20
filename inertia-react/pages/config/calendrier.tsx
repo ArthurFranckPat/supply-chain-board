@@ -452,6 +452,8 @@ export default function Calendrier(props: CalendrierPageProps) {
       active="config"
       subtitle="Calendrier usine"
       theme="airbnb"
+      dense
+      scrollable={false}
       meta={
         <>
           <div className="font-fraunces text-[12px] font-bold italic text-brand">
