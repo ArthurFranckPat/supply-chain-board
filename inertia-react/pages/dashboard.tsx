@@ -240,7 +240,7 @@ function StockSparkline({ series }: { series: StockValuationPoint[] }) {
   }, [series.length])
 
   return (
-    <div className="mt-5" style={{ '-webkit-print-color-adjust': 'exact', 'print-color-adjust': 'exact' } as React.CSSProperties}>
+    <div className="mt-5" style={{ 'WebkitPrintColorAdjust': 'exact', 'print-color-adjust': 'exact' } as React.CSSProperties}>
       <svg
         viewBox={`0 0 ${W} ${H}`}
         className="w-full"
@@ -760,8 +760,8 @@ export default function Dashboard(props: DashboardProps) {
                               <div
                                 className="h-2 overflow-hidden rounded-full bg-secondary"
                                 style={{
-                                  '-webkit-print-color-adjust': 'exact',
-                                  'print-color-adjust': 'exact',
+                                  'WebkitPrintColorAdjust': 'exact',
+                                  'printColorAdjust': 'exact',
                                 } as React.CSSProperties}
                               >
                                 <div
@@ -769,8 +769,8 @@ export default function Dashboard(props: DashboardProps) {
                                   style={{
                                     width: `${Math.max(3, (poste.heures / maxHeures) * 100)}%`,
                                     background: BAR_PALETTE[Math.min(i, BAR_PALETTE.length - 1)],
-                                    '-webkit-print-color-adjust': 'exact',
-                                    'print-color-adjust': 'exact',
+                                    'WebkitPrintColorAdjust': 'exact',
+                                    'printColorAdjust': 'exact',
                                   } as React.CSSProperties}
                                 />
                               </div>
@@ -997,7 +997,7 @@ export default function Dashboard(props: DashboardProps) {
                                     </thead>
                                     <tbody>
                                       {p.lignesNon.map((l) => (
-                                        <tr key={l.numCommande} className="border-b border-rule-soft last:border-0 hover:bg-secondary/40">
+                                        <tr key={`${l.numCommande}::${l.article}::${l.posteDeCharge ?? '-'}`} className="border-b border-rule-soft last:border-0 hover:bg-secondary/40">
                                           <td className="px-2 py-1.5 align-top">
                                             <div className="font-mono text-[11px] font-bold text-foreground">
                                               {l.numCommande}
@@ -1210,8 +1210,8 @@ export default function Dashboard(props: DashboardProps) {
                               <div
                                 className="h-2 overflow-hidden rounded-full bg-secondary"
                                 style={{
-                                  '-webkit-print-color-adjust': 'exact',
-                                  'print-color-adjust': 'exact',
+                                  'WebkitPrintColorAdjust': 'exact',
+                                  'printColorAdjust': 'exact',
                                 } as React.CSSProperties}
                               >
                                 <div
@@ -1219,8 +1219,8 @@ export default function Dashboard(props: DashboardProps) {
                                   style={{
                                     width: `${Math.max(3, (cat.valeur / stockMaxCat) * 100)}%`,
                                     background: STOCK_PALETTE[Math.min(i, STOCK_PALETTE.length - 1)],
-                                    '-webkit-print-color-adjust': 'exact',
-                                    'print-color-adjust': 'exact',
+                                    'WebkitPrintColorAdjust': 'exact',
+                                    'printColorAdjust': 'exact',
                                   } as React.CSSProperties}
                                 />
                               </div>
@@ -1296,7 +1296,7 @@ export default function Dashboard(props: DashboardProps) {
                         </thead>
                         <tbody>
                           {kpi.lignes.map((l) => (
-                            <tr key={l.numCommande + l.article} className="border-b border-rule-soft last:border-0 hover:bg-secondary/40">
+                            <tr key={`${l.numCommande}::${l.article}::${l.dateExpIso ?? l.dateExp}`} className="border-b border-rule-soft last:border-0 hover:bg-secondary/40">
                               <td className="whitespace-nowrap px-2 py-2.5 align-top font-mono text-[12px] font-semibold text-destructive">
                                 {l.dateExp || '—'}
                               </td>
@@ -1497,7 +1497,7 @@ export default function Dashboard(props: DashboardProps) {
                           </thead>
                           <tbody>
                             {filteredArticles.map((a) => (
-                              <tr key={a.article} className="border-b border-rule-soft last:border-0 hover:bg-secondary/40">
+                              <tr key={`${a.article}::${a.categorie}`} className="border-b border-rule-soft last:border-0 hover:bg-secondary/40">
                                 <td className="px-2 py-1.5 align-top font-mono text-[12px] font-semibold text-brand">
                                   {a.article}
                                 </td>
