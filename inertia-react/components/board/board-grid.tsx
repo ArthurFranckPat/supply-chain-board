@@ -667,6 +667,7 @@ function CardView(props: CardViewProps) {
         status={toStatus(card.status)}
         article={card.id}
         articleRef={card.article ?? undefined}
+        poste={props.lineCode}
         title={card.title}
         hours={fmt(card.hours)}
         progress={parseProgress(card.metric)}

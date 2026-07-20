@@ -330,6 +330,9 @@ function OfListingCard(p: OfCardProps) {
     p.progress && p.progress.total > 0
       ? Math.min(100, Math.round((p.progress.done / p.progress.total) * 100))
       : 0
+  // Motif « photo » du bandeau = poste de charge (code court, distinct, ne
+  // tronque pas). À défaut la réf. article. Le statut, lui, vit dans le pill.
+  const motif = p.poste ?? p.articleRef ?? p.article
 
   return (
     <div
@@ -341,28 +344,37 @@ function OfListingCard(p: OfCardProps) {
         p.className
       )}
     >
-      {/* Ruban de statut — teinte douce + pastille + mot d'état saturé : signal
-          fort, lisible même en colonne dense (remplace l'ancien liseré 3 px).
-          Le « code fantôme » de la maquette est volontairement omis : en colonne
-          de ~120 px il se tronquait et doublonnait le code article. overflow-hidden
-          + coins arrondis SUR le ruban pour ne pas rogner les badges saillants. */}
+      {/* Bandeau « photo » — teinte d'ambiance + code poste en filigrane (le
+          sujet), le statut vivant dans un pill blanc au coin (badge Airbnb, à la
+          place du cœur de la maquette). Le filigrane est absolutisé à gauche et
+          passe SOUS le pill (z-10, fond opaque) : en colonne étroite ses derniers
+          glyphes se masquent derrière le pill sans jamais afficher d'ellipsis.
+          overflow-hidden + coins arrondis SUR le bandeau pour ne pas rogner les
+          badges saillants. */}
       <div
-        className="relative flex h-7 items-center gap-1.5 overflow-hidden rounded-t-[7px] px-2.5"
+        className="relative flex h-7 items-center justify-end overflow-hidden rounded-t-[7px] px-2"
         style={{
-          background: `linear-gradient(135deg, color-mix(in srgb, ${tone} 16%, var(--card)), color-mix(in srgb, ${tone} 30%, var(--card)))`,
+          background: `linear-gradient(135deg, color-mix(in srgb, ${tone} 14%, var(--card)), color-mix(in srgb, ${tone} 28%, var(--card)))`,
         }}
       >
-        <span className="size-[7px] shrink-0 rounded-full" style={{ background: tone }} />
         <span
-          className="shrink-0 font-mono text-[10px] font-extrabold uppercase leading-none tracking-[0.08em]"
+          aria-hidden
+          className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 select-none whitespace-nowrap font-mono text-[20px] font-bold leading-none"
+          style={{ color: tone, opacity: 0.16 }}
+        >
+          {motif}
+        </span>
+        {/* Pill de statut (libellé lisible, non redondant avec la teinte). */}
+        <span
+          className="relative z-10 inline-flex items-center gap-1 rounded-full bg-card px-1.5 py-0.5 font-mono text-[9px] font-extrabold uppercase leading-none shadow-[0_1px_2px_rgba(0,0,0,.10)]"
           style={{ color: tone }}
         >
+          <span
+            className={cn('size-1 rounded-full', p.status === 'cours' && 'animate-pulse')}
+            style={{ background: tone }}
+          />
           {STATUS_LABEL[p.status]}
         </span>
-        {/* cours : point Rausch pulsant à droite du ruban */}
-        {p.status === 'cours' && (
-          <span className="absolute right-2.5 top-1/2 size-[7px] -translate-y-1/2 animate-pulse rounded-full bg-brand" />
-        )}
       </div>
 
       {/* Badges saillants, positionnés sur la bande (inchangés). */}
