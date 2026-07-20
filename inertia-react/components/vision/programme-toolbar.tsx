@@ -92,9 +92,6 @@ export function ProgrammeToolbar(props: {
   /** Slot recherche/portée — vit à droite du <flex-1> (avant le menu Actions).
    *  Sorti du Masthead pour éviter le doublon visuel avec la toolbar. */
   search?: React.ReactNode
-  /** Slot Combiné-only : pill "N problèmes" + bouton Rail. Injecté depuis
-   *  programme.tsx. Apparaît entre la recherche et le menu Actions. */
-  combinedSlot?: React.ReactNode
 }) {
   // Formatage local dd/MM → dd/MM depuis les ISO. Plus lisible que le
   // "19/07 — 25/07" serveur (em-dash), et aligné sur le langage métier
@@ -187,10 +184,6 @@ export function ProgrammeToolbar(props: {
       {/* Recherche + portée — sortis du Masthead (évite le doublon avec la
           toolbar). Prop `search` injectée depuis programme.tsx. */}
       {props.search}
-
-      {/* Slot Combiné : pill "N problèmes" + bouton Rail. Injecté depuis
-          programme.tsx. Apparaît entre la recherche et le menu Actions. */}
-      {props.combinedSlot}
 
       {/* Actualiser — icon-only pour désencombrer. Title porte le label
           complet pour a11y + tooltip. */}
