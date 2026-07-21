@@ -3,6 +3,7 @@ import { DataTable, type ColumnDef, type SortingState } from '@r/components/ui/d
 import type { DayChargeDisplay, ReceptionDisplayRow } from '@/lib/receptions/types'
 import { CalendarX, Lightbulb, TriangleAlert } from 'lucide-react'
 import { cn } from '@r/lib/utils'
+import { chargeBg, chargeText, chargeTier } from '@r/lib/receptions/charge'
 
 /**
  * Vues des réceptions fournisseurs (port React — structure iso du Solid
@@ -21,42 +22,6 @@ const TH =
   'px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft'
 const TH_R = TH.replace('text-left', 'text-right')
 const TD = 'px-4 py-[13px] align-middle border-r border-rule-soft'
-
-/**
- * Palier de charge pour la couleur des barres (vue Calendrier).
- * Échelle absolue en palettes. Calibrage empirique : > 20 = débord, 12-20 = fort,
- * 5-12 = moyen, < 5 = léger.
- */
-function chargeTier(palettes: number): 'bad' | 'warn' | 'mid' | 'ok' {
-  if (palettes >= 20) return 'bad'
-  if (palettes >= 12) return 'warn'
-  if (palettes >= 5) return 'mid'
-  return 'ok'
-}
-function chargeBg(tier: ReturnType<typeof chargeTier>): string {
-  switch (tier) {
-    case 'bad':
-      return 'bg-destructive'
-    case 'warn':
-      return 'bg-suggere'
-    case 'mid':
-      return 'bg-planifie'
-    case 'ok':
-      return 'bg-ferme'
-  }
-}
-function chargeText(tier: ReturnType<typeof chargeTier>): string {
-  switch (tier) {
-    case 'bad':
-      return 'text-destructive'
-    case 'warn':
-      return 'text-suggere'
-    case 'mid':
-      return 'text-planifie'
-    case 'ok':
-      return 'text-ferme'
-  }
-}
 
 // ───────────────────────────────────────────────────────────────────────────
 // V1 · Tableau

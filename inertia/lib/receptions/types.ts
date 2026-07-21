@@ -82,5 +82,8 @@ export interface ReceptionsRowsResponse {
   x3Error: string | null
 }
 
-/** Bascule de vue (tableau détail vs calendrier de charge). */
-export type ReceptionViewKind = 'tableau' | 'calendrier'
+/**
+ * Bascule de vue : tableau détail, calendrier de charge, ou board de planification
+ * (grille temps × fournisseur — issue #82, React uniquement).
+ */
+export type ReceptionViewKind = 'tableau' | 'calendrier' | 'board'

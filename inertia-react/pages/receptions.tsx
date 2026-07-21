@@ -1,15 +1,21 @@
 import { useMemo, useState } from 'react'
-import { fr } from 'react-day-picker/locale'
 import type { DateRange as DayPickerRange } from 'react-day-picker'
-import { Calendar as CalendarIcon, X, Search, RefreshCw, SlidersHorizontal, Lightbulb, TriangleAlert, LoaderCircle, CircleX, Inbox, CloudOff, Package } from 'lucide-react'
+import { X, Search, SlidersHorizontal, Lightbulb, TriangleAlert, LoaderCircle, CircleX, Inbox, CloudOff, Package } from 'lucide-react'
 
 import AppLayout from '@r/layouts/app'
-import { Calendar } from '@r/components/ui/calendar'
 import { ReceptionTableau, ReceptionCalendrier } from '@r/components/receptions/reception-views'
+import { ReceptionBoard, type ReceptionGroupBy } from '@r/components/receptions/reception-board'
 import { useTimedFetch } from '@r/lib/suivi/use-timed-fetch'
 import { cn } from '@r/lib/utils'
+import {
+  PILL,
+  Segment,
+  SegmentButton,
+  DateWindowPill,
+  RefreshPill,
+  ToolbarRow,
+} from '@r/components/vision/toolbar'
 import type { ReceptionsRowsResponse, ReceptionViewKind } from '@/lib/receptions/types'
-import { DynamicIcon } from '../components/ui/dynamic-icon'
 
 /**
  * Page « Réceptions fournisseurs » (port React — structure iso du Solid
@@ -67,6 +73,7 @@ export default function Receptions(props: ReceptionsPageProps) {
   const [calendarOpen, setCalendarOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
+  const [groupBy, setGroupBy] = useState<ReceptionGroupBy>('fournisseur')
   const [bust, setBust] = useState(0)
 
   const rangeLabel = useMemo(() => {
@@ -147,60 +154,72 @@ export default function Receptions(props: ReceptionsPageProps) {
     >
 
         {/* ═══ Toolbar ═══ */}
-        <div className="flex flex-none flex-wrap items-center gap-2.5 border-b border-rule px-7 py-2">
+        <ToolbarRow>
           {/* Sélecteur de plage */}
-          <div className="relative">
-            <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1">
+            <DateWindowPill
+              open={calendarOpen}
+              onOpenChange={setCalendarOpen}
+              selected={{
+                from: range?.start ?? new Date(props.from),
+                to: range?.end ?? new Date(props.to),
+              }}
+              onSelect={applyRange}
+            />
+            {range?.start && (
               <button
                 type="button"
-                onClick={() => setCalendarOpen((v) => !v)}
-                className="flex items-center gap-1.5 rounded border border-rule bg-card px-2.5 py-1.5 font-mono text-[11px] text-foreground transition-colors hover:bg-secondary/60"
+                onClick={() => {
+                  setRange(null)
+                  setCalendarOpen(false)
+                }}
+                className="flex size-6 items-center justify-center rounded text-muted-foreground hover:text-foreground"
+                title="Réinitialiser"
               >
-                <CalendarIcon size={14} strokeWidth={1.75} className="text-muted-foreground" />
-                <span>{rangeLabel}</span>
+                <X size={14} strokeWidth={1.75} />
               </button>
-              {range?.start && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setRange(null)
-                    setCalendarOpen(false)
-                  }}
-                  className="flex size-6 items-center justify-center rounded text-muted-foreground hover:text-foreground"
-                  title="Réinitialiser"
-                >
-                  <X size={14} strokeWidth={1.75} />
-                </button>
-              )}
-            </div>
-            {calendarOpen && (
-              <>
-                <div
-                  className="fixed inset-0 z-10"
-                  onClick={() => setCalendarOpen(false)}
-                />
-                <div className="absolute left-0 top-full z-20 mt-1">
-                  <Calendar
-                    mode="range"
-                    locale={fr}
-                    numberOfMonths={2}
-                    selected={{
-                      from: range?.start ?? undefined,
-                      to: range?.end ?? undefined,
-                    }}
-                    onSelect={applyRange}
-                  />
-                </div>
-              </>
             )}
           </div>
 
+          {/* Vue — segment (Tableau / Charge par jour) */}
+          <Segment role="radiogroup" ariaLabel="Vue">
+            <SegmentButton role="radio" active={view === 'tableau'} onClick={() => setView('tableau')}>
+              Tableau
+            </SegmentButton>
+            <SegmentButton role="radio" active={view === 'calendrier'} onClick={() => setView('calendrier')}>
+              Charge par jour
+            </SegmentButton>
+            <SegmentButton role="radio" active={view === 'board'} onClick={() => setView('board')}>
+              Board
+            </SegmentButton>
+          </Segment>
+
+          {/* Regroupement des lignes du board (fournisseur = cadence, quai = charge pure). */}
+          {view === 'board' && (
+            <Segment role="radiogroup" ariaLabel="Regroupement">
+              <SegmentButton
+                role="radio"
+                active={groupBy === 'fournisseur'}
+                onClick={() => setGroupBy('fournisseur')}
+              >
+                Fournisseur
+              </SegmentButton>
+              <SegmentButton
+                role="radio"
+                active={groupBy === 'quai'}
+                onClick={() => setGroupBy('quai')}
+              >
+                Quai
+              </SegmentButton>
+            </Segment>
+          )}
+
           <div className="ml-auto flex items-center gap-2">
             {/* Recherche — systématiquement à droite (convention toolbar). */}
-            <div className="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/25">
+            <div className={PILL}>
               <Search size={17} strokeWidth={1.75} className="text-muted-foreground" />
               <input
-                className="w-[180px] border-0 bg-transparent px-0 text-[12px] font-medium text-foreground shadow-none outline-none"
+                className="w-[180px] border-0 bg-transparent px-0 text-xs font-medium text-foreground shadow-none outline-none"
                 placeholder="Fournisseur, article, commande…"
                 type="text"
                 autoComplete="off"
@@ -221,39 +240,12 @@ export default function Receptions(props: ReceptionsPageProps) {
                 {fmtMs(ms)}
               </span>
             )}
-            <button
-              type="button"
-              onClick={() => setBust((b) => b + 1)}
-              disabled={loading}
-              className="inline-flex items-center gap-1 rounded-full border border-rule bg-card px-3 py-1 text-[11px] font-semibold transition-colors hover:border-brand disabled:opacity-50"
-              title="Recharger les données X3"
-            >
-              <RefreshCw
-                size={14}
-                strokeWidth={1.75}
-                className={cn('text-muted-foreground', loading && 'animate-spin')}
-              />
-              Actualiser
-            </button>
+            <RefreshPill loading={loading} onClick={() => setBust((b) => b + 1)} />
           </div>
-        </div>
+        </ToolbarRow>
 
-        {/* ═══ Toggle vue ═══ */}
+        {/* ═══ Bandeau vue (drill-down + compteurs) ═══ */}
         <div className="flex flex-none items-center gap-2.5 border-b border-rule-soft px-7 py-1.5">
-          <div className="flex items-center overflow-hidden rounded-md border border-rule bg-card">
-            <ViewTab
-              active={view === 'tableau'}
-              onClick={() => setView('tableau')}
-              icon="table_rows"
-              label="Tableau"
-            />
-            <ViewTab
-              active={view === 'calendrier'}
-              onClick={() => setView('calendrier')}
-              icon="bar_chart"
-              label="Charge par jour"
-            />
-          </div>
 
           {/* Filtre jour actif (drill-down) */}
           {selectedDay && (
@@ -319,7 +311,14 @@ export default function Receptions(props: ReceptionsPageProps) {
             )}
           >
             {hasContent ? (
-              view === 'tableau' ? (
+              view === 'board' ? (
+                <ReceptionBoard
+                  rows={filteredRows}
+                  from={viewData.range.from}
+                  to={viewData.range.to}
+                  groupBy={groupBy}
+                />
+              ) : view === 'tableau' ? (
                 <ReceptionTableau
                   rows={filteredRows}
                   emptyState={
@@ -358,32 +357,5 @@ export default function Receptions(props: ReceptionsPageProps) {
           </div>
         )}
     </AppLayout>
-  )
-}
-
-/** Onglet de bascule de vue (tableau / calendrier). */
-function ViewTab({
-  active,
-  onClick,
-  icon,
-  label,
-}: {
-  active: boolean
-  onClick: () => void
-  icon: string
-  label: string
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        'flex items-center gap-1.5 px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
-        active ? 'bg-brand/10 text-brand' : 'text-muted-foreground hover:text-foreground'
-      )}
-    >
-      <DynamicIcon name={icon} size={14} />
-      {label}
-    </button>
   )
 }
