@@ -100,6 +100,133 @@ export function calcPalettes(
   return Math.ceil(pal)
 }
 
+// ───────────────────────────────────────────────────────────────────────────
+// Criticité — jointure avec le module ruptures (issue #82)
+// ───────────────────────────────────────────────────────────────────────────
+
+/**
+ * Tension d'une réception attendue.
+ *  - `retard`   : elle arrive APRÈS l'expédition client → retard projeté, déjà acquis.
+ *  - `a_risque` : elle arrive entre la date de besoin et l'expédition → les buffers
+ *                 sont entamés mais le client peut encore être servi. C'est le
+ *                 niveau qui se pilote : au-delà, il n'y a plus qu'à constater.
+ *
+ * Les verdicts `couvert` (arrivée confortable), `sous_ensemble` (couverture par un OF
+ * fils, pas par un PO) et `sans_couverture` (aucune réception) ne produisent pas
+ * d'entrée : le premier n'appelle aucune décision, les deux autres ne désignent
+ * aucune réception.
+ */
+export type CriticiteNiveau = 'retard' | 'a_risque'
+
+/** Un OF que la réception débloque, avec son engagement client. */
+export interface CriticiteOf {
+  numOf: string
+  /** Article produit par l'OF (PF). */
+  articleParent: string
+  numCommande: string | null
+  client: string | null
+  /** Date d'expédition client (ISO), null si OF non rattaché. */
+  dateExpedition: string | null
+  /** Marge signée (j) entre l'arrivée de la réception et l'expédition. ≤ 0 = retard. */
+  joursMarge: number
+}
+
+/** Criticité d'une ligne de réception (clé POHNUM + article). */
+export interface ReceptionCriticiteEntry {
+  /** N° commande achat (PORDERQ.POHNUM) — clé de jointure avec le board. */
+  noCommande: string
+  /** Article attendu — seconde moitié de la clé. */
+  article: string
+  niveau: CriticiteNiveau
+  /** Pire marge parmi les OF débloqués (la plus contrainte gouverne). */
+  joursMarge: number
+  /** Réception attendue dans le passé et non reçue. */
+  overdue: boolean
+  /** OF débloqués, du plus contraint au moins contraint. */
+  ofs: CriticiteOf[]
+}
+
+/** Forme minimale de ShortageRow consommée ici (évite le couplage au module complet). */
+interface ShortageRowLike {
+  component: string
+  numOf: string
+  articleParent: string
+  numCommande: string | null
+  client: string | null
+  dateExpedition: string | null
+  joursMarge: number
+  overdue: boolean
+  reception: { id: string } | null
+  verdict: string
+}
+
+/** `retard` domine `a_risque` : une réception tendue pour un OF l'est pour la feuille. */
+function pireNiveau(a: CriticiteNiveau, b: CriticiteNiveau): CriticiteNiveau {
+  return a === 'retard' || b === 'retard' ? 'retard' : 'a_risque'
+}
+
+/**
+ * Inverse l'index du module ruptures : de « cette rupture est-elle couverte ? » à
+ * « cette réception couvre-t-elle quelque chose de tendu ? ».
+ *
+ * Le pipeline ruptures apparie déjà chaque manque à la commande d'achat qui le
+ * couvre (`ShortageRow.reception.id` = POHNUM) ; il n'y a donc ni requête ni calcul
+ * de faisabilité à refaire, seulement un regroupement par (commande, article).
+ *
+ * Une même réception apparaît autant de fois qu'elle débloque d'OF : les OF sont
+ * dédupliqués par numéro, et c'est la marge la plus faible qui gouverne l'entrée.
+ */
+export function buildCriticiteIndex(rows: ShortageRowLike[]): ReceptionCriticiteEntry[] {
+  const acc = new Map<string, ReceptionCriticiteEntry & { seen: Set<string> }>()
+
+  for (const row of rows) {
+    if (!row.reception) continue
+    if (row.verdict !== 'retard' && row.verdict !== 'a_risque') continue
+    const niveau = row.verdict as CriticiteNiveau
+
+    const key = `${row.reception.id}|${row.component}`
+    let entry = acc.get(key)
+    if (!entry) {
+      entry = {
+        noCommande: row.reception.id,
+        article: row.component,
+        niveau,
+        joursMarge: row.joursMarge,
+        overdue: row.overdue,
+        ofs: [],
+        seen: new Set<string>(),
+      }
+      acc.set(key, entry)
+    }
+    entry.niveau = pireNiveau(entry.niveau, niveau)
+    entry.joursMarge = Math.min(entry.joursMarge, row.joursMarge)
+    entry.overdue = entry.overdue || row.overdue
+
+    if (!entry.seen.has(row.numOf)) {
+      entry.seen.add(row.numOf)
+      entry.ofs.push({
+        numOf: row.numOf,
+        articleParent: row.articleParent,
+        numCommande: row.numCommande,
+        client: row.client,
+        dateExpedition: row.dateExpedition,
+        joursMarge: row.joursMarge,
+      })
+    }
+  }
+
+  return [...acc.values()]
+    .map(({ seen: _seen, ...entry }) => ({
+      ...entry,
+      ofs: entry.ofs.sort((x, y) => x.joursMarge - y.joursMarge),
+    }))
+    .sort(
+      (x, y) =>
+        Number(y.niveau === 'retard') - Number(x.niveau === 'retard') ||
+        x.joursMarge - y.joursMarge
+    )
+}
+
 /** Enrichit une ligne brute avec la date retenue et le nombre de palettes. */
 export function buildReceptionRow(input: ReceptionInput): ReceptionRow {
   return {

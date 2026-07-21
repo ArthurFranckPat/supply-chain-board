@@ -1,5 +1,6 @@
 import { test } from '@japa/runner'
 import {
+  buildCriticiteIndex,
   buildReceptionRow,
   calcPalettes,
   groupReceptionsByDay,
@@ -122,5 +123,90 @@ test.group('groupReceptionsByDay', () => {
       charge.map((c) => c.day),
       [...charge].sort((a, b) => a.day.localeCompare(b.day)).map((c) => c.day)
     )
+  })
+})
+
+/** Ligne de rupture minimale (forme consommée par buildCriticiteIndex). */
+function shortage(over: Partial<Parameters<typeof buildCriticiteIndex>[0][number]> = {}) {
+  return {
+    component: 'COMP1',
+    numOf: 'OF1',
+    articleParent: 'PF1',
+    numCommande: 'CMD1',
+    client: 'ACME',
+    dateExpedition: '2026-08-01',
+    joursMarge: -2,
+    overdue: false,
+    reception: { id: 'PO1' },
+    verdict: 'retard',
+    ...over,
+  }
+}
+
+test.group('buildCriticiteIndex', () => {
+  test('ne retient que les verdicts retard et a_risque', ({ assert }) => {
+    const items = buildCriticiteIndex([
+      shortage({ verdict: 'retard' }),
+      shortage({ verdict: 'a_risque', component: 'COMP2' }),
+      shortage({ verdict: 'couvert', component: 'COMP3' }),
+      shortage({ verdict: 'sous_ensemble', component: 'COMP4' }),
+      shortage({ verdict: 'sans_couverture', component: 'COMP5' }),
+    ])
+    assert.deepEqual(
+      items.map((i) => i.article).sort(),
+      ['COMP1', 'COMP2']
+    )
+  })
+
+  test('ignore les lignes sans réception rattachée', ({ assert }) => {
+    assert.lengthOf(buildCriticiteIndex([shortage({ reception: null })]), 0)
+  })
+
+  test('regroupe par commande d’achat ET article', ({ assert }) => {
+    const items = buildCriticiteIndex([
+      shortage({ numOf: 'OF1' }),
+      shortage({ numOf: 'OF2' }),
+      shortage({ numOf: 'OF3', component: 'COMP2' }),
+    ])
+    assert.lengthOf(items, 2)
+    const comp1 = items.find((i) => i.article === 'COMP1')!
+    assert.deepEqual(
+      comp1.ofs.map((o) => o.numOf),
+      ['OF1', 'OF2']
+    )
+  })
+
+  test('dédoublonne les OF attendant deux fois la même réception', ({ assert }) => {
+    const items = buildCriticiteIndex([shortage({ numOf: 'OF1' }), shortage({ numOf: 'OF1' })])
+    assert.lengthOf(items[0].ofs, 1)
+  })
+
+  test('retard domine a_risque et la marge la plus faible gouverne', ({ assert }) => {
+    const items = buildCriticiteIndex([
+      shortage({ numOf: 'OF1', verdict: 'a_risque', joursMarge: 3 }),
+      shortage({ numOf: 'OF2', verdict: 'retard', joursMarge: -5 }),
+    ])
+    assert.equal(items[0].niveau, 'retard')
+    assert.equal(items[0].joursMarge, -5)
+  })
+
+  test('classe les OF du plus contraint au moins contraint', ({ assert }) => {
+    const items = buildCriticiteIndex([
+      shortage({ numOf: 'OF1', joursMarge: 4 }),
+      shortage({ numOf: 'OF2', joursMarge: -3 }),
+      shortage({ numOf: 'OF3', joursMarge: 1 }),
+    ])
+    assert.deepEqual(
+      items[0].ofs.map((o) => o.numOf),
+      ['OF2', 'OF3', 'OF1']
+    )
+  })
+
+  test('propage overdue dès qu’une ligne le porte', ({ assert }) => {
+    const items = buildCriticiteIndex([
+      shortage({ numOf: 'OF1', overdue: false }),
+      shortage({ numOf: 'OF2', overdue: true }),
+    ])
+    assert.isTrue(items[0].overdue)
   })
 })

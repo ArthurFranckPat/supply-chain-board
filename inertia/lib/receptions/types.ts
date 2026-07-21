@@ -87,3 +87,46 @@ export interface ReceptionsRowsResponse {
  * (grille temps × fournisseur — issue #82, React uniquement).
  */
 export type ReceptionViewKind = 'tableau' | 'calendrier' | 'board'
+
+// ───────────────────────────────────────────────────────────────────────────
+// Criticité (GET /api/v1/receptions/criticite) — jointure avec le module ruptures.
+// Miroir de app/domain/receptions.ts. Chargée SÉPARÉMENT de /rows : le pipeline
+// ruptures est lourd, le board s'affiche sans l'attendre et reste utilisable si
+// elle échoue.
+// ───────────────────────────────────────────────────────────────────────────
+
+/**
+ * `retard` = la réception arrive après l'expédition client (retard projeté).
+ * `a_risque` = elle arrive entre la date de besoin et l'expédition (buffers entamés,
+ * client encore servi) — le seul niveau sur lequel un décalage se pilote encore.
+ */
+export type CriticiteNiveau = 'retard' | 'a_risque'
+
+/** Un OF que la réception débloque, avec son engagement client. */
+export interface CriticiteOf {
+  numOf: string
+  articleParent: string
+  numCommande: string | null
+  client: string | null
+  dateExpedition: string | null
+  /** Marge signée (j) entre l'arrivée et l'expédition. ≤ 0 = retard. */
+  joursMarge: number
+}
+
+/** Criticité d'une ligne de réception. Clé de jointure : `noCommande` + `article`. */
+export interface ReceptionCriticite {
+  noCommande: string
+  article: string
+  niveau: CriticiteNiveau
+  /** Pire marge parmi les OF débloqués. */
+  joursMarge: number
+  overdue: boolean
+  ofs: CriticiteOf[]
+}
+
+export interface ReceptionsCriticiteResponse {
+  items: ReceptionCriticite[]
+  /** Fenêtre du calcul : les OF DÉMARRANT dans les N jours. Hors fenêtre = non évalué. */
+  horizonDays: number
+  x3Error: string | null
+}

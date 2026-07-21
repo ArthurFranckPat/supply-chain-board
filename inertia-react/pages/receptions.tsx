@@ -15,7 +15,11 @@ import {
   RefreshPill,
   ToolbarRow,
 } from '@r/components/vision/toolbar'
-import type { ReceptionsRowsResponse, ReceptionViewKind } from '@/lib/receptions/types'
+import type {
+  ReceptionsCriticiteResponse,
+  ReceptionsRowsResponse,
+  ReceptionViewKind,
+} from '@/lib/receptions/types'
 
 /**
  * Page « Réceptions fournisseurs » (port React — structure iso du Solid
@@ -53,6 +57,8 @@ interface ReceptionsPageProps {
   to: string
   horizon: number
   rowsHref: string
+  /** Fragment criticité (jointure ruptures), chargé indépendamment de rowsHref. */
+  criticiteHref: string
   todayHref: string
   defaultHorizon: number
 }
@@ -77,6 +83,7 @@ export default function Receptions(props: ReceptionsPageProps) {
   const [query, setQuery] = useState('')
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
   const [groupBy, setGroupBy] = useState<ReceptionGroupBy>('fournisseur')
+  const [criticiteOnly, setCriticiteOnly] = useState(false)
   const [bust, setBust] = useState(0)
 
   const rangeLabel = useMemo(() => {
@@ -105,6 +112,23 @@ export default function Receptions(props: ReceptionsPageProps) {
   }, [props.rowsHref, range, bust])
 
   const { data, loading, error, ms, elapsed } = useTimedFetch<ReceptionsRowsResponse>(url)
+
+  // Criticité : second fetch, indépendant et non bloquant. Le board s'affiche sans
+  // l'attendre ; un pipeline ruptures froid ou en panne coûte les badges, pas la page.
+  // Chargée seulement en vue Board — les autres vues ne l'exploitent pas.
+  const criticiteUrl = useMemo(() => {
+    if (view !== 'board') return null
+    const u = new URL(props.criticiteHref, window.location.origin)
+    if (range?.start) {
+      const fmt = (d: Date) => d.toISOString().slice(0, 10)
+      u.searchParams.set('from', fmt(range.start))
+      u.searchParams.set('to', fmt(range.end ?? range.start))
+    }
+    if (bust) u.searchParams.set('refresh', '1')
+    return `${u.pathname}?${u.searchParams.toString()}`
+  }, [props.criticiteHref, range, bust, view])
+
+  const { data: criticiteData } = useTimedFetch<ReceptionsCriticiteResponse>(criticiteUrl)
 
   const viewData = data ?? EMPTY
   const stats = viewData.stats
@@ -245,6 +269,33 @@ export default function Receptions(props: ReceptionsPageProps) {
             </Segment>
           )}
 
+          {/* Filtre criticité — n'apparaît qu'une fois la jointure ruptures chargée
+              (elle arrive après le board) et seulement s'il y a quelque chose à
+              filtrer : un filtre qui ne trouve jamais rien apprend le contraire. */}
+          {view === 'board' && (criticiteData?.items.length ?? 0) > 0 && (
+            <button
+              type="button"
+              onClick={() => setCriticiteOnly((v) => !v)}
+              className={cn(
+                PILL,
+                criticiteOnly ? 'border-destructive bg-destructive/10 text-destructive' : ''
+              )}
+              title="N'afficher que les réceptions qui débloquent une rupture tendue"
+            >
+              <TriangleAlert
+                size={15}
+                strokeWidth={1.75}
+                className={criticiteOnly ? 'text-destructive' : 'text-muted-foreground'}
+              />
+              <span className="text-xs font-medium">
+                Critiques
+                <span className="ml-1 font-mono tabular-nums opacity-70">
+                  {criticiteData?.items.length}
+                </span>
+              </span>
+            </button>
+          )}
+
           <div className="ml-auto flex items-center gap-2">
             {/* Recherche — systématiquement à droite (convention toolbar). */}
             <div className={PILL}>
@@ -361,6 +412,9 @@ export default function Receptions(props: ReceptionsPageProps) {
                   from={viewData.range.from}
                   to={viewData.range.to}
                   groupBy={groupBy}
+                  criticite={criticiteData?.items ?? []}
+                  criticiteHorizon={criticiteData?.horizonDays ?? null}
+                  criticiteOnly={criticiteOnly}
                 />
               ) : view === 'tableau' ? (
                 <ReceptionTableau

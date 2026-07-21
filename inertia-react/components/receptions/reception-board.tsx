@@ -1,11 +1,23 @@
 import { useMemo, useRef, useState } from 'react'
-import { CalendarX, Lightbulb, Package, TriangleAlert, Truck, Warehouse } from 'lucide-react'
+import {
+  CalendarX,
+  Lightbulb,
+  Link2,
+  Package,
+  TriangleAlert,
+  Truck,
+  Warehouse,
+} from 'lucide-react'
 
 import { cn } from '@r/lib/utils'
 import { Sheet, SheetContent, SheetTitle } from '@r/components/ui/sheet'
 import { usePrintFit } from '@r/components/board/use-print-fit'
 import { chargeBg, chargeLabel, chargeText, chargeTier } from '@r/lib/receptions/charge'
-import type { ReceptionDisplayRow } from '@/lib/receptions/types'
+import type {
+  CriticiteNiveau,
+  ReceptionCriticite,
+  ReceptionDisplayRow,
+} from '@/lib/receptions/types'
 
 /**
  * V3 · Board de planification de charge réception (issue #82, lot 1 — lecture seule).
@@ -68,6 +80,14 @@ interface ReceptionGroup {
   palettes: number
   /** Lignes PO agrégées. */
   rows: ReceptionDisplayRow[]
+  /**
+   * Pire niveau de tension parmi les lignes du camion (jointure ruptures), null si
+   * aucune ligne ne débloque de rupture tendue — ou si la criticité n'est pas
+   * (encore) chargée. `null` signifie donc « non signalé », jamais « sans risque ».
+   */
+  criticite: CriticiteNiveau | null
+  /** Entrées de criticité des lignes du camion, la plus contrainte d'abord. */
+  criticiteItems: ReceptionCriticite[]
   /** Nb de lignes au coef absent (charge sous-estimée). */
   sansCoef: number
   /** Nb de lignes au coef estimé (STOCK/STOJOU). */
@@ -112,6 +132,12 @@ function isoWeek(d: Date): number {
 }
 
 const WEEKDAY_FMT = new Intl.DateTimeFormat('fr-FR', { weekday: 'short' })
+
+/** ISO YYYY-MM-DD → jj/mm/aa (jamais d'ISO brut à l'écran). */
+function fmtIsoFr(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso)
+  return m ? `${m[3]}/${m[2]}/${m[1].slice(2)}` : iso
+}
 
 /**
  * Axe dense de la fenêtre [from, to]. Élargi si des réceptions tombent hors
@@ -162,6 +188,9 @@ export function ReceptionBoard({
   from,
   to,
   groupBy,
+  criticite,
+  criticiteHorizon,
+  criticiteOnly,
 }: {
   rows: ReceptionDisplayRow[]
   /** Début de fenêtre ISO (payload `range.from`). */
@@ -169,6 +198,12 @@ export function ReceptionBoard({
   /** Fin de fenêtre ISO (payload `range.to`). */
   to: string
   groupBy: ReceptionGroupBy
+  /** Jointure ruptures — arrive après le board, vide tant qu'elle charge. */
+  criticite: ReceptionCriticite[]
+  /** Fenêtre du calcul ruptures (OF démarrant dans N jours). null = non chargée. */
+  criticiteHorizon: number | null
+  /** N'afficher que les camions portant une réception tendue. */
+  criticiteOnly: boolean
 }) {
   const [detail, setDetail] = useState<ReceptionGroup | null>(null)
   const rootRef = useRef<HTMLDivElement>(null)
@@ -201,6 +236,13 @@ export function ReceptionBoard({
    * Maille du board : un groupe par couple (fournisseur, jour). Les lignes PO du
    * même camion sont agrégées en une carte — leur détail reste dans le panneau.
    */
+  /** Criticité indexée par `POHNUM|article` — la clé de jointure avec les lignes PO. */
+  const criticiteByLine = useMemo(() => {
+    const m = new Map<string, ReceptionCriticite>()
+    for (const c of criticite) m.set(`${c.noCommande}|${c.article}`, c)
+    return m
+  }, [criticite])
+
   const groups = useMemo<ReceptionGroup[]>(() => {
     const acc = new Map<string, ReceptionGroup>()
     for (const r of dated) {
@@ -217,6 +259,8 @@ export function ReceptionBoard({
           rows: [],
           sansCoef: 0,
           estimees: 0,
+          criticite: null,
+          criticiteItems: [],
         }
         acc.set(key, g)
       }
@@ -224,9 +268,20 @@ export function ReceptionBoard({
       g.rows.push(r)
       if (r.coefManquant) g.sansCoef += 1
       else if (r.coefEstime) g.estimees += 1
+
+      const crit = criticiteByLine.get(`${r.noCommande}|${r.article}`)
+      if (crit) {
+        g.criticiteItems.push(crit)
+        g.criticite =
+          g.criticite === 'retard' || crit.niveau === 'retard' ? 'retard' : 'a_risque'
+      }
     }
-    return [...acc.values()]
-  }, [dated])
+    for (const g of acc.values()) {
+      g.criticiteItems.sort((a, b) => a.joursMarge - b.joursMarge)
+    }
+    const all = [...acc.values()]
+    return criticiteOnly ? all.filter((g) => g.criticite !== null) : all
+  }, [dated, criticiteByLine, criticiteOnly])
 
   /** Lignes du board : une par fournisseur (tri charge desc), ou une seule « Quai ». */
   const lines = useMemo<BoardLine[]>(() => {
@@ -497,6 +552,22 @@ export function ReceptionBoard({
         </div>
       </div>
 
+      {/* Portée de la criticité — sans cette mention, l'absence de badge se lit
+          « rien à signaler » alors qu'elle veut dire « hors fenêtre d'analyse ».
+          Le moteur ruptures ne juge que les OF DÉMARRANT dans les N jours. */}
+      {criticiteHorizon !== null && (
+        <div className="flex flex-none items-center gap-2 border-t border-rule-soft bg-secondary/40 px-7 py-1.5 font-mono text-[10px] text-muted-foreground print:hidden">
+          <Link2 size={13} strokeWidth={1.75} />
+          Tension évaluée sur les OF démarrant dans les {criticiteHorizon} jours — une
+          réception attendue par un OF plus lointain n'est pas signalée.
+          {criticiteOnly && (
+            <span className="ml-auto">
+              Filtre actif : la charge en pied reste celle du quai entier.
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Bandeau « sans date » — ces lignes n'apparaissent nulle part sur la grille. */}
       {undated > 0 && (
         <div className="flex flex-none items-center gap-2 border-t border-rule-soft bg-secondary/40 px-7 py-1.5 font-mono text-[10px] text-muted-foreground">
@@ -533,6 +604,9 @@ function ReceptionCard({
   const nbLignes = group.rows.length
   const degrade = group.sansCoef > 0
   const estime = !degrade && group.estimees > 0
+  const crit = group.criticite
+  /** Nb d'OF distincts débloqués par le camion (un OF peut attendre 2 lignes). */
+  const nbOfs = new Set(group.criticiteItems.flatMap((c) => c.ofs.map((o) => o.numOf))).size
   /** Une seule ligne PO → on affiche l'article, plus parlant que « 1 ligne ». */
   const single = nbLignes === 1 ? group.rows[0] : null
   const nbCommandes = new Set(group.rows.map((r) => r.noCommande)).size
@@ -544,16 +618,27 @@ function ReceptionCard({
       className={cn(
         'flex w-full flex-col gap-1 rounded-md border border-t-[3px] border-rule-soft bg-card px-2 py-1.5 text-left transition-all',
         'hover:-translate-y-px hover:shadow-float',
-        degrade
-          ? 'border-t-destructive/60 bg-destructive/[0.05]'
-          : estime
-            ? 'border-t-planifie bg-planifie/[0.05]'
-            : 'border-t-ferme'
+        // La tension prime sur la qualité du coef : un camion qui tient une
+        // commande client se signale avant un coef manquant.
+        crit === 'retard'
+          ? 'border-destructive/40 border-t-destructive bg-destructive/[0.07]'
+          : crit === 'a_risque'
+            ? 'border-suggere/40 border-t-suggere bg-suggere/[0.07]'
+            : degrade
+              ? 'border-t-destructive/60 bg-destructive/[0.05]'
+              : estime
+                ? 'border-t-planifie bg-planifie/[0.05]'
+                : 'border-t-ferme'
       )}
       title={[
         showFournisseur ? group.fournisseurNom : null,
         `${group.palettes} palette${group.palettes > 1 ? 's' : ''}`,
         `${nbLignes} ligne${nbLignes > 1 ? 's' : ''} de commande`,
+        crit === 'retard'
+          ? `Retard client projeté — débloque ${nbOfs} OF`
+          : crit === 'a_risque'
+            ? `À risque (buffers entamés) — débloque ${nbOfs} OF`
+            : null,
         group.sansCoef > 0 ? `${group.sansCoef} sans coef (charge sous-estimée)` : null,
         group.estimees > 0 ? `${group.estimees} coef estimé` : null,
       ]
@@ -585,6 +670,23 @@ function ReceptionCard({
           <Package size={11} strokeWidth={1.75} className="ml-auto text-muted-foreground/60" />
         )}
       </span>
+
+      {/* Tension : ce que le camion tient en aval. Sans ce badge, rien ne
+          distingue une réception décalable d'une réception qui porte une
+          commande client. */}
+      {crit && (
+        <span
+          className={cn(
+            'flex w-fit items-center gap-1 rounded px-1 py-px font-mono text-[8.5px] font-bold uppercase tracking-wider',
+            crit === 'retard'
+              ? 'bg-destructive/15 text-destructive'
+              : 'bg-suggere/15 text-suggere'
+          )}
+        >
+          <Link2 size={9} strokeWidth={2} />
+          {crit === 'retard' ? 'Retard' : 'À risque'} · {nbOfs} OF
+        </span>
+      )}
 
       {/* Contenu du camion : article si ligne unique, sinon le compte — en
           mentionnant les commandes dès qu'il y en a plusieurs (une réception
@@ -680,6 +782,73 @@ function ReceptionDetailSheet({
                 </div>
               )}
             </div>
+
+            {/* Ce que le camion tient en aval — la seule information qui dise si
+                un décalage est possible ou non. */}
+            {group.criticiteItems.length > 0 && (
+              <section
+                className={cn(
+                  'border-b px-6 py-4',
+                  group.criticite === 'retard'
+                    ? 'border-destructive/30 bg-destructive/[0.06]'
+                    : 'border-suggere/30 bg-suggere/[0.06]'
+                )}
+              >
+                <div
+                  className={cn(
+                    'flex items-center gap-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.14em]',
+                    group.criticite === 'retard' ? 'text-destructive' : 'text-suggere'
+                  )}
+                >
+                  <Link2 size={12} strokeWidth={2} />
+                  {group.criticite === 'retard'
+                    ? 'Retard client projeté'
+                    : 'À risque — buffers entamés'}
+                </div>
+
+                <div className="mt-2 flex flex-col gap-2.5">
+                  {group.criticiteItems.map((c) => (
+                    <div key={`${c.noCommande}:${c.article}`}>
+                      <div className="flex items-baseline gap-2 font-mono text-[11px]">
+                        <span className="font-bold text-foreground">{c.article}</span>
+                        {c.overdue && (
+                          <span className="rounded bg-destructive/15 px-1 py-px text-[8.5px] font-bold uppercase tracking-wider text-destructive">
+                            Livraison en retard
+                          </span>
+                        )}
+                        <span className="ml-auto text-muted-foreground">
+                          {c.joursMarge > 0
+                            ? `marge ${c.joursMarge} j`
+                            : c.joursMarge === 0
+                              ? 'marge nulle'
+                              : `${Math.abs(c.joursMarge)} j de retard`}
+                        </span>
+                      </div>
+                      <ul className="mt-1 flex flex-col gap-1">
+                        {c.ofs.map((of) => (
+                          <li
+                            key={of.numOf}
+                            className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 font-mono text-[10px] text-muted-foreground"
+                          >
+                            <span className="font-semibold text-foreground">{of.numOf}</span>
+                            <span>{of.articleParent}</span>
+                            {of.numCommande && (
+                              <span className="text-secondary-foreground">
+                                → {of.numCommande}
+                                {of.client ? ` · ${of.client}` : ''}
+                              </span>
+                            )}
+                            {of.dateExpedition && (
+                              <span className="ml-auto">expé {fmtIsoFr(of.dateExpedition)}</span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
 
             {/* Détail : les commandes du camion, chacune avec ses lignes.
                 Le n° de commande est l'unité de dialogue avec le fournisseur

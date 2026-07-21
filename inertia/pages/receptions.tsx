@@ -52,6 +52,8 @@ interface ReceptionsPageProps {
   to: string
   horizon: number
   rowsHref: string
+  /** Fragment criticité (jointure ruptures) — consommé par la vue Board React seule. */
+  criticiteHref?: string
   todayHref: string
   defaultHorizon: number
 }

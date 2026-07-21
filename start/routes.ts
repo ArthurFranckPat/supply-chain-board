@@ -228,6 +228,11 @@ router
     router
       .get('/api/v1/receptions/rows', '#controllers/receptions_controller.rows')
       .as('receptions.rows')
+    // Criticité des réceptions (jointure ruptures) — endpoint séparé de /rows : le
+    // pipeline ruptures est lourd, le board ne doit pas attendre après lui (issue #82).
+    router
+      .get('/api/v1/receptions/criticite', '#controllers/receptions_controller.criticite')
+      .as('receptions.criticite')
 
     // Conditionnements — identification des coefs manquants + estimation (STOCK/STOJOU).
     router

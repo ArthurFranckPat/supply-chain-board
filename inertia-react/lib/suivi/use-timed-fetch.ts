@@ -7,7 +7,12 @@
  */
 import { useEffect, useState } from 'react'
 
-export function useTimedFetch<T>(url: string) {
+/**
+ * `url` à `null` = fragment non requis pour l'instant (onglet inactif, dépendance
+ * absente) : aucun fetch n'est déclenché et l'état retombe au repos. Permet de
+ * conditionner un chargement sans violer les règles des hooks.
+ */
+export function useTimedFetch<T>(url: string | null) {
   const [data, setData] = useState<T | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
@@ -15,6 +20,10 @@ export function useTimedFetch<T>(url: string) {
   const [elapsed, setElapsed] = useState(0)
 
   useEffect(() => {
+    if (url === null) {
+      setLoading(false)
+      return
+    }
     let cancelled = false
     setLoading(true)
     setError(null)

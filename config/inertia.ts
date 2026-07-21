@@ -86,6 +86,8 @@ declare module '@adonisjs/inertia/types' {
       to: string
       horizon: number
       rowsHref: string
+      /** Fragment criticité (jointure ruptures), chargé séparément de rowsHref. */
+      criticiteHref: string
       todayHref: string
       defaultHorizon: number
     }

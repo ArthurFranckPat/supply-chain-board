@@ -3,13 +3,16 @@ import cache from '@adonisjs/cache/services/main'
 import logger from '@adonisjs/core/services/logger'
 import { X3ReceptionRepository } from '#repositories/reception_repository'
 import {
+  buildCriticiteIndex,
   buildReceptionRow,
   calcPalettes,
   groupReceptionsByDay,
+  type ReceptionCriticiteEntry,
   type ReceptionInput,
   type ReceptionRow,
 } from '#app/domain/receptions'
 import { isoLocalDay } from '#app/domain/shortages'
+import { loadShortageRowsData } from '#services/shortage_payload_loader'
 import boardDataset from '#services/board_dataset'
 import type { EstimationResult, EstimationsPaire } from '#app/domain/conditionnement_estimator'
 
@@ -125,6 +128,16 @@ export interface DayChargeDisplay {
   fournisseurs: number
 }
 
+/** Criticité d'une réception (jointure ruptures) — cf. buildCriticiteIndex. */
+export type ReceptionCriticite = ReceptionCriticiteEntry
+
+export interface ReceptionsCriticiteResponse {
+  items: ReceptionCriticite[]
+  /** Fenêtre effective du calcul ruptures (OF démarrant dans les N jours). */
+  horizonDays: number
+  x3Error: string | null
+}
+
 export interface ReceptionsRowsResponse {
   rows: ReceptionDisplayRow[]
   chargeByDay: DayChargeDisplay[]
@@ -165,6 +178,8 @@ export default class ReceptionsController {
       to,
       horizon,
       rowsHref,
+      // Second fragment différé, indépendant : criticité (jointure ruptures).
+      criticiteHref: `/api/v1/receptions/criticite?${params.toString()}`,
       todayHref: `/receptions?from=${today}&horizon=${DEFAULT_HORIZON_DAYS}`,
       defaultHorizon: DEFAULT_HORIZON_DAYS,
     })
@@ -233,6 +248,52 @@ export default class ReceptionsController {
       range: { from, to, horizonDays },
       x3Error,
     }
+    return response
+  }
+
+  /**
+   * GET /api/v1/receptions/criticite — quelles réceptions attendues débloquent une
+   * rupture, et avec quelle marge (issue #82, ouvre la voie à #76).
+   *
+   * Endpoint SÉPARÉ de /rows, délibérément : le pipeline ruptures est lourd (~18 s
+   * à froid) là où /receptions est tenu rapide. Les fusionner ferait payer ce coût
+   * au board à chaque cache froid et le rendrait indisponible quand le pipeline
+   * ruptures tombe. Ici le board s'affiche d'abord, les badges arrivent après ; en
+   * cas d'échec il reste pleinement utilisable, badges en moins.
+   *
+   * Aucune requête X3 propre : `loadShortageRowsData` apparie DÉJÀ les ruptures aux
+   * commandes d'achat (`ShortageRow.reception.id` = POHNUM). On ne fait qu'inverser
+   * son index — de « cette rupture est-elle couverte ? » à « cette réception
+   * couvre-t-elle quelque chose de tendu ? ».
+   */
+  async criticite(ctx: HttpContext) {
+    const today = isoLocalDay()
+    const from = (ctx.request.input('from') as string | undefined) || today
+    const to = (ctx.request.input('to') as string | undefined) || from
+    const force = ctx.request.input('refresh') === '1'
+
+    // Horizon ruptures aligné sur la plage du board : le moteur scope les OF par date
+    // de DÉBUT, donc une réception ne peut être dite critique que vis-à-vis des OF
+    // démarrant dans cette fenêtre. Borné à 90 j (limite du loader).
+    const a = Date.parse(`${from}T00:00:00Z`)
+    const b = Date.parse(`${to}T00:00:00Z`)
+    const span =
+      Number.isFinite(a) && Number.isFinite(b) && b >= a
+        ? Math.round((b - a) / 86_400_000) + 1
+        : DEFAULT_HORIZON_DAYS
+    const horizonDays = Math.min(Math.max(span, 1), 90)
+
+    let items: ReceptionCriticite[] = []
+    let x3Error: string | null = null
+    try {
+      const { rows } = await loadShortageRowsData({ start: from, days: horizonDays, force })
+      items = buildCriticiteIndex(rows)
+    } catch (e) {
+      logger.error({ err: e }, '[receptions] criticité — échec pipeline ruptures')
+      x3Error = 'Criticité indisponible — pipeline ruptures injoignable.'
+    }
+
+    const response: ReceptionsCriticiteResponse = { items, horizonDays, x3Error }
     return response
   }
 
