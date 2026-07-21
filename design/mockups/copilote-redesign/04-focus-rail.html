@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Copilote · D — Focus + Rail (recommandé)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ╔════════════════════════════════════════════════════════════╗
+   ║  DIRECTION D — FOCUS + RAIL CONTEXTE (recommandée)          ║
+   ║  Mix : base A (chat centré sobre, assistant ghost) + rail   ║
+   ║  contexte supply de C (gauche, COLLAPSIBLE + CONTEXTUEL).   ║
+   ║  Source chips [tool: …] CLIQUABLES → flashent la donnée     ║
+   ║  correspondante dans le rail. Pas de dock droit.            ║
+   ║  Bubble (shadcn base) + grammaire Airbnb. Standalone.       ║
+   ╚════════════════════════════════════════════════════════════╝ */
+
+:root {
+  --background: #ffffff; --foreground: #222222; --card: #ffffff;
+  --primary: #ff385c; --primary-foreground: #ffffff;
+  --secondary: #f7f7f7; --secondary-foreground: #222222;
+  --muted: #f2f2f2; --muted-foreground: #6a6a6a;
+  --accent: #f7f7f7; --destructive: #c13515; --destructive-foreground: #ffffff;
+  --border: #dddddd; --rule-soft: #ebebeb; --input: #c1c1c1; --ring: #222222;
+  --color-rausch-active: #e00b41; --color-babu: #00a699; --color-arches: #fc642d;
+  --brand-soft: rgba(255, 56, 92, 0.10);
+  --ferme: #008049; --planifie: var(--color-babu); --suggere: var(--color-arches);
+  --radius-sm: 8px; --radius: 14px; --radius-lg: 18px; --radius-pill: 9999px;
+  --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.04), 0 2px 8px rgb(0 0 0 / 0.06);
+  --font-sans: 'Plus Jakarta Sans', -apple-system, system-ui, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', monospace;
+  --rail-w: 268px;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; font-family: var(--font-sans); color: var(--foreground); background: var(--background); -webkit-font-smoothing: antialiased; height: 100%; }
+.tnum { font-variant-numeric: tabular-nums; }
+.scroll-area { scrollbar-width: thin; scrollbar-color: #d4d4d4 transparent; }
+.scroll-area::-webkit-scrollbar { width: 8px; }
+.scroll-area::-webkit-scrollbar-thumb { background: #d4d4d4; border-radius: 99px; }
+.scroll-area::-webkit-scrollbar-track { background: transparent; }
+
+/* ── Masthead ── */
+.masthead { display: flex; align-items: center; gap: 16px; padding: 14px 24px; border-bottom: 1px solid var(--border); }
+.masthead__brand { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 18px; letter-spacing: -0.02em; color: var(--primary); }
+.masthead__nav { display: flex; gap: 2px; margin-left: 8px; }
+.masthead__tab { padding: 8px 14px; font-size: 13.5px; font-weight: 500; color: var(--muted-foreground); text-decoration: none; border-radius: var(--radius-sm); cursor: pointer; }
+.masthead__tab:hover { color: var(--foreground); background: var(--secondary); }
+.masthead__tab.is-active { color: var(--foreground); font-weight: 600; }
+.masthead__meta { margin-left: auto; text-align: right; font-size: 11px; line-height: 1.25; color: var(--muted-foreground); }
+.masthead__meta strong { color: var(--foreground); font-weight: 700; }
+
+/* ── Bubble (shadcn base) ── */
+.bubble { display: flex; flex-direction: column; max-width: 88%; position: relative; }
+.bubble[data-align="end"] { align-self: flex-end; align-items: flex-end; }
+.bubble[data-align="start"] { align-self: flex-start; align-items: flex-start; }
+.bubble[data-variant="ghost"] { max-width: 100%; width: 100%; align-items: stretch; }
+.bubble-content { display: block; padding: 10px 14px; border-radius: var(--radius-lg); font-size: 14px; line-height: 1.55; word-break: break-word; }
+.bubble[data-variant="default"] .bubble-content { background: var(--primary); color: var(--primary-foreground); border-bottom-right-radius: 6px; }
+.bubble[data-variant="ghost"] .bubble-content { background: transparent; color: var(--foreground); padding: 0; border-radius: 0; }
+
+/* ── Méthier ── */
+.sender-label { font-size: 11px; font-weight: 600; color: var(--muted-foreground); margin-bottom: 4px; }
+.bubble[data-align="end"] .sender-label { text-align: right; }
+
+/* Source chip CLIQUABLE → underline + pointe vers le rail */
+.source-tag { display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px; margin: 0 1px; font-family: var(--font-mono); font-size: 10.5px; font-weight: 600; color: var(--primary); background: var(--brand-soft); border-radius: 5px; vertical-align: baseline; white-space: nowrap; cursor: pointer; border: none; border-bottom: 1.5px solid transparent; transition: background 0.12s, border-color 0.12s; }
+.source-tag:hover { background: rgba(255,56,92,0.18); border-bottom-color: var(--primary); }
+.source-tag:focus-visible { outline: 2px solid var(--ring); outline-offset: 1px; }
+
+.tool-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 8px; font-size: 12px; font-weight: 600; border-radius: var(--radius-pill); border: 1px solid var(--border); background: var(--card); color: var(--foreground); white-space: nowrap; cursor: pointer; }
+.tool-chip__dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.tool-chip[data-status="done"] { border-color: color-mix(in srgb, var(--ferme) 35%, transparent); }
+.tool-chip[data-status="done"] .tool-chip__dot { background: var(--ferme); }
+.tool-chip[data-status="running"] { border-color: color-mix(in srgb, var(--suggere) 35%, transparent); }
+.tool-chip[data-status="running"] .tool-chip__dot { background: var(--suggere); animation: pulse 1.1s ease-in-out infinite; }
+.tool-chip[data-status="error"] { border-color: color-mix(in srgb, var(--destructive) 35%, transparent); color: var(--destructive); }
+.tool-chip[data-status="error"] .tool-chip__dot { background: var(--destructive); }
+.tool-chip__name { font-family: var(--font-mono); font-size: 11.5px; }
+.tool-chip:hover { background: var(--secondary); }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+/* Tool trace repliable dans le flux */
+.tool-trace { border: 1px solid var(--border); border-radius: var(--radius); background: var(--secondary); overflow: hidden; }
+.tool-trace__summary { display: flex; align-items: center; gap: 8px; padding: 7px 12px; cursor: pointer; font-size: 12px; color: var(--muted-foreground); list-style: none; }
+.tool-trace__summary::-webkit-details-marker { display: none; }
+.tool-trace__summary .chev { transition: transform 0.15s; flex: none; }
+.tool-trace[open] > .tool-trace__summary .chev { transform: rotate(90deg); }
+.tool-trace__body { padding: 0 12px 10px; }
+.tool-item { border-top: 1px solid var(--rule-soft); padding: 7px 0; }
+.tool-item:first-child { border-top: none; }
+.tool-item__head { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.tool-item__payload pre { margin: 4px 0 0; padding: 8px; background: var(--background); border: 1px solid var(--rule-soft); border-radius: 8px; font-family: var(--font-mono); font-size: 11px; line-height: 1.5; color: var(--muted-foreground); white-space: pre-wrap; overflow-x: auto; }
+.tool-item__payload .label { font-weight: 600; color: var(--foreground); font-size: 11px; }
+
+.avatar { width: 30px; height: 30px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
+.avatar--user { background: var(--secondary); color: var(--foreground); }
+.avatar--ai { background: var(--brand-soft); color: var(--primary); }
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; font-family: inherit; font-size: 13.5px; font-weight: 600; border-radius: var(--radius-sm); border: 1px solid transparent; cursor: pointer; white-space: nowrap; }
+.btn--ghost { background: none; color: var(--foreground); border-color: var(--border); }
+.btn--ghost:hover { border-color: var(--foreground); }
+.badge { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; font-size: 10.5px; font-weight: 600; border-radius: var(--radius-pill); background: var(--secondary); color: var(--muted-foreground); }
+.badge--green { background: color-mix(in srgb, var(--ferme) 14%, transparent); color: var(--ferme); }
+.badge--auto { background: color-mix(in srgb, var(--planifie) 14%, transparent); color: #00736b; }
+
+/* ═══ LAYOUT D — 2 colonnes asymétrique ═══ */
+.app { display: flex; flex-direction: column; height: 100vh; }
+.workspace { flex: 1; display: grid; grid-template-columns: var(--rail-w) 1fr; overflow: hidden; transition: grid-template-columns 0.22s ease; }
+.workspace.is-collapsed { grid-template-columns: 0px 1fr; }
+.workspace.is-collapsed .context-rail { transform: translateX(-8px); opacity: 0; }
+.context-rail { display: flex; flex-direction: column; border-right: 1px solid var(--border); background: var(--secondary); overflow: hidden; transition: opacity 0.18s, transform 0.18s; }
+
+/* ── Rail tête ── */
+.rail-head { padding: 14px 16px 12px; border-bottom: 1px solid var(--rule-soft); }
+.rail-eyebrow { display: flex; align-items: center; gap: 8px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted-foreground); }
+.rail-title { font-size: 18px; font-weight: 800; letter-spacing: -0.01em; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.rail-sub { font-size: 11px; color: var(--muted-foreground); margin-top: 2px; line-height: 1.4; }
+.rail-body { flex: 1; overflow-y: auto; padding: 14px 16px 16px; }
+
+/* Cartes contexte */
+.ctx-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 10px; transition: box-shadow 0.3s; position: relative; }
+.ctx-card__label { font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted-foreground); }
+.ctx-card__value { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; margin-top: 2px; }
+.ctx-card__value .u { font-size: 13px; color: var(--muted-foreground); font-weight: 600; }
+.ctx-card__foot { font-size: 11px; color: var(--muted-foreground); margin-top: 2px; }
+.ctx-card__foot strong { color: var(--foreground); }
+.ctx-card[data-kind="result"] { border-left: 3px solid var(--planifie); }
+
+/* Indicateur "cité dans la réponse" — point Rausch */
+.ctx-card.is-cited::after { content: ''; position: absolute; top: 12px; right: 12px; width: 7px; height: 7px; border-radius: 50%; background: var(--primary); box-shadow: 0 0 0 3px var(--brand-soft); }
+
+/* Flash au clic d'un source chip */
+.ctx-card.is-flash { animation: flash 1.1s ease; }
+@keyframes flash {
+  0% { box-shadow: 0 0 0 0 rgba(255,56,92,0.0); }
+  25% { box-shadow: 0 0 0 5px rgba(255,56,92,0.22); border-color: var(--primary); }
+  100% { box-shadow: 0 0 0 0 rgba(255,56,92,0.0); }
+}
+
+/* Mini barre de couverture */
+.cover-bar { display: flex; height: 6px; border-radius: 99px; overflow: hidden; background: var(--rule-soft); margin-top: 8px; }
+.cover-bar__fill { background: var(--ferme); }
+.cover-bar__miss { background: var(--suggere); }
+.cover-legend { display: flex; gap: 12px; margin-top: 6px; font-size: 10.5px; color: var(--muted-foreground); }
+.cover-legend span::before { content: '●'; margin-right: 3px; }
+.cover-legend .l1::before { color: var(--ferme); }
+.cover-legend .l2::before { color: var(--suggere); }
+
+.ctx-row { display: flex; align-items: center; justify-content: space-between; padding: 7px 0; border-top: 1px solid var(--rule-soft); font-size: 12.5px; }
+.ctx-row:first-of-type { border-top: none; }
+.ctx-row__k { color: var(--muted-foreground); }
+.ctx-row__k code { font-family: var(--font-mono); font-size: 11.5px; color: var(--foreground); }
+.ctx-row__v { font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.rail-empty { font-size: 12px; color: var(--muted-foreground); line-height: 1.5; padding: 8px 4px; }
+
+/* ── Centre : chat ── */
+.chat-col { display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+.chat-header { display: flex; align-items: center; gap: 10px; padding: 10px 20px; border-bottom: 1px solid var(--rule-soft); }
+.chat-header__t { font-size: 12.5px; color: var(--muted-foreground); flex: 1; }
+.chat-header__t strong { color: var(--foreground); }
+
+.toggle-rail { display: inline-flex; align-items: center; gap: 6px; padding: 6px 11px; font-family: inherit; font-size: 12px; font-weight: 600; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--card); color: var(--foreground); cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+.toggle-rail:hover { border-color: var(--foreground); }
+.toggle-rail svg { flex: none; transition: transform 0.18s; }
+.workspace.is-collapsed ~ * .toggle-rail svg,
+.is-collapsed .toggle-rail svg { transform: rotate(180deg); }
+
+.conversation-wrap { flex: 1; overflow: hidden; display: flex; justify-content: center; }
+.conversation { width: 100%; max-width: 720px; overflow-y: auto; padding: 24px 24px 10px; }
+.conversation > * + * { margin-top: 22px; }
+.turn { display: flex; flex-direction: column; gap: 18px; }
+.msg { display: flex; gap: 12px; align-items: flex-start; }
+.msg--user { flex-direction: row-reverse; }
+.msg__bubbles { display: flex; flex-direction: column; gap: 10px; min-width: 0; flex: 1; }
+.msg--user .msg__bubbles { align-items: flex-end; }
+.ghost-prose { font-size: 15px; line-height: 1.65; color: var(--foreground); }
+.ghost-prose strong { font-weight: 700; }
+.ghost-prose .num { font-variant-numeric: tabular-nums; }
+.ghost-hint { display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; padding: 7px 11px; background: var(--secondary); border-radius: 8px; font-size: 12px; color: var(--muted-foreground); }
+.ghost-hint b { color: var(--foreground); font-weight: 600; }
+
+.composer-wrap { border-top: 1px solid var(--rule-soft); background: var(--background); padding: 14px 24px 18px; display: flex; justify-content: center; }
+.composer { width: 100%; max-width: 720px; display: flex; gap: 8px; align-items: center; padding: 6px 6px 6px 16px; border: 1px solid var(--border); border-radius: var(--radius-pill); transition: border-color 0.15s, box-shadow 0.15s; }
+.composer:focus-within { border-color: var(--foreground); box-shadow: 0 0 0 3px rgba(34,34,34,0.06); }
+.composer__input { flex: 1; border: none; outline: none; background: none; font-family: inherit; font-size: 14.5px; color: var(--foreground); padding: 10px 0; resize: none; max-height: 140px; line-height: 1.5; }
+.composer__input::placeholder { color: var(--muted-foreground); }
+.composer__send { width: 38px; height: 38px; border-radius: 50%; border: none; background: var(--primary); color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; flex: none; transition: background 0.15s, transform 0.1s; }
+.composer__send:hover { background: var(--color-rausch-active); }
+.composer__send:active { transform: scale(0.94); }
+.composer__foot { width: 100%; max-width: 720px; display: flex; justify-content: space-between; align-items: center; padding: 0 6px; margin-top: 8px; font-size: 11px; color: var(--muted-foreground); }
+.composer__foot kbd { font-family: var(--font-mono); font-size: 10px; padding: 1px 5px; border: 1px solid var(--border); border-radius: 4px; background: var(--secondary); }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+
+  <header class="masthead">
+    <div class="masthead__brand">
+      <svg width="28" height="28" viewBox="0 0 32 32" fill="none"><path d="M16 2C9 2 4 9 4 17c0 6 4 13 12 13s12-7 12-13C28 9 23 2 16 2Z" fill="currentColor" opacity="0.14"/><path d="M16 5c-5 0-9 6-9 12 0 5 3 10 9 10s9-5 9-10c0-6-4-12-9-12Zm0 3c3.5 0 6 4.5 6 9 0 3.7-2 7-6 7s-6-3.3-6-7c0-4.5 2.5-9 6-9Z" fill="currentColor"/></svg>
+      Supply&nbsp;Board
+    </div>
+    <nav class="masthead__nav">
+      <span class="masthead__tab">Board</span>
+      <span class="masthead__tab">Scénarios</span>
+      <span class="masthead__tab is-active">Copilote</span>
+    </nav>
+    <div class="masthead__meta"><strong>Agentique v1</strong><br>zai / glm-5.2</div>
+  </header>
+
+  <div class="workspace" id="workspace">
+
+    <!-- ══ RAIL GAUCHE : CONTEXTE SUPPLY (contextuel, collapsible) ══ -->
+    <aside class="context-rail" id="context-rail">
+      <div class="rail-head">
+        <div class="rail-eyebrow">
+          Contexte
+          <span class="badge badge--auto">auto · déduit de la conversation</span>
+        </div>
+        <div class="rail-title tnum">PP_830_ESH</div>
+        <div class="rail-sub">Poutre profilée · ESH · 3 réf. internes</div>
+      </div>
+      <div class="rail-body scroll-area">
+
+        <div class="ctx-card is-cited" id="ctx-stock">
+          <div class="ctx-card__label">Stock disponible</div>
+          <div class="ctx-card__value tnum">84<span class="u">&nbsp;u</span></div>
+          <div class="cover-bar"><div class="cover-bar__fill" style="width:42%"></div><div class="cover-bar__miss" style="width:58%"></div></div>
+          <div class="cover-legend"><span class="l1">Dispo 42%</span><span class="l2">Manquant 116</span></div>
+        </div>
+
+        <div class="ctx-card" id="ctx-demand">
+          <div class="ctx-card__label">Demande analysée</div>
+          <div class="ctx-card__value tnum">200<span class="u">&nbsp;u</span></div>
+          <div class="ctx-card__foot">Couverte à <strong>42%</strong> en stock</div>
+        </div>
+
+        <div class="ctx-card is-cited" data-kind="result" id="ctx-ctp">
+          <div class="ctx-card__label">Date engageante (CTP)</div>
+          <div class="ctx-card__value tnum" style="font-size:18px;">18 août 2024</div>
+          <div class="ctx-card__foot">via <strong>OF-2024-1182</strong>, fin 16 août</div>
+        </div>
+
+        <div class="ctx-card">
+          <div class="ctx-card__label" style="margin-bottom:6px;">OF en cours · 2</div>
+          <div class="ctx-row"><span class="ctx-row__k"><code>OF-2024-1182</code></span><span class="ctx-row__v">200 u</span></div>
+          <div class="ctx-row"><span class="ctx-row__k"><code>OF-2024-1201</code></span><span class="ctx-row__v">80 u</span></div>
+        </div>
+
+      </div>
+    </aside>
+
+    <!-- ══ CENTRE : CHAT ══ -->
+    <section class="chat-col">
+      <div class="chat-header">
+        <button class="toggle-rail" id="toggle-rail" aria-pressed="true" title="Replier / déplier le contexte">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          Contexte
+        </button>
+        <div class="chat-header__t"><strong>Copilote</strong> · lecture seule · verdict · BOM · CTP · retards · scénarios</div>
+        <button class="btn btn--ghost" style="padding:6px 12px;font-size:12px;">↻ Nouvelle</button>
+      </div>
+
+      <div class="conversation-wrap">
+        <div class="conversation scroll-area" id="conversation">
+
+          <!-- Astuce d'interaction (discrete, disparaît au scroll) -->
+          <div class="ghost-hint" style="margin-bottom:6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--primary);flex:none;"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+            <span>Astuce&nbsp;: clique un <b>source tag</b> <span style="font-family:var(--font-mono);color:var(--primary);">[tool: …]</span> pour flasher la donnée dans le panneau contexte.</span>
+          </div>
+
+          <!-- TURN 1 -->
+          <div class="turn">
+            <div class="msg msg--user">
+              <div class="avatar avatar--user">AB</div>
+              <div class="msg__bubbles">
+                <div class="sender-label">Vous</div>
+                <div class="bubble" data-variant="default" data-align="end">
+                  <div class="bubble-content">Date engageante pour 200 PP_830_ESH&nbsp;?</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="msg">
+              <div class="avatar avatar--ai">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a4 4 0 0 1 4 4v1h1a4 4 0 0 1 0 8h-1v1a4 4 0 0 1-8 0v-1H7a4 4 0 0 1 0-8h1V6a4 4 0 0 1 4-4Z"/><circle cx="12" cy="11" r="1.5" fill="currentColor"/></svg>
+              </div>
+              <div class="msg__bubbles">
+                <div class="sender-label">Copilote</div>
+
+                <details class="tool-trace" open>
+                  <summary class="tool-trace__summary">
+                    <svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+                    <span>Trace outils</span>
+                    <span style="margin-left:auto;"><span class="badge badge--green">2 ✓</span></span>
+                  </summary>
+                  <div class="tool-trace__body">
+                    <details class="tool-item" open>
+                      <summary class="tool-item__head" style="list-style:none;"><span class="tool-chip" data-status="done"><span class="tool-chip__dot"></span><span class="tool-chip__name">verdict_stock</span></span></summary>
+                      <div class="tool-item__payload">
+                        <div class="label">résultat</div>
+                        <pre>{ "stock": 84, "statut": "rupture_partielle" }</pre>
+                      </div>
+                    </details>
+                    <details class="tool-item">
+                      <summary class="tool-item__head" style="list-style:none;"><span class="tool-chip" data-status="done"><span class="tool-chip__dot"></span><span class="tool-chip__name">ctp_calcul</span></span></summary>
+                    </details>
+                  </div>
+                </details>
+
+                <div class="bubble" data-variant="ghost">
+                  <div class="bubble-content">
+                    <div class="ghost-prose">
+                      Pour <strong>200 PP_830_ESH</strong>, la date engageante la plus tôt est le <strong class="num">18 août 2024</strong>. <button class="source-tag" data-target="ctx-ctp">[tool: ctp]</button>
+                      <br><br>
+                      Stock actuel&nbsp;: <strong class="num">84 u</strong> <button class="source-tag" data-target="ctx-stock">[tool: verdict]</button>. Manquant&nbsp;: <strong class="num">116</strong>. L'OF <span class="tnum">OF-2024-1182</span> (200 u) finit le <strong class="num">16 août</strong> <button class="source-tag" data-target="ctx-ctp">[tool: ctp]</button> → dispo au <strong class="num">18</strong>.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TURN 2 — running -->
+          <div class="turn">
+            <div class="msg msg--user">
+              <div class="avatar avatar--user">AB</div>
+              <div class="msg__bubbles">
+                <div class="sender-label">Vous</div>
+                <div class="bubble" data-variant="default" data-align="end">
+                  <div class="bubble-content">Et les retards clients prévus sur 14 jours&nbsp;?</div>
+                </div>
+              </div>
+            </div>
+            <div class="msg">
+              <div class="avatar avatar--ai">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a4 4 0 0 1 4 4v1h1a4 4 0 0 1 0 8h-1v1a4 4 0 0 1-8 0v-1H7a4 4 0 0 1 0-8h1V6a4 4 0 0 1 4-4Z"/><circle cx="12" cy="11" r="1.5" fill="currentColor"/></svg>
+              </div>
+              <div class="msg__bubbles">
+                <div class="sender-label">Copilote</div>
+                <span class="tool-chip" data-status="running"><span class="tool-chip__dot"></span><span class="tool-chip__name">retards_clients</span></span>
+                <div class="bubble" data-variant="ghost">
+                  <div class="bubble-content">
+                    <div class="ghost-prose" style="color:var(--muted-foreground);font-style:italic;">Calcul des retards en cours…</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="composer-wrap">
+        <div>
+          <div class="composer">
+            <textarea class="composer__input" rows="1" placeholder="Poser une question supply…"></textarea>
+            <button class="composer__send" aria-label="Envoyer">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+            </button>
+          </div>
+          <div class="composer__foot">
+            <span>Lecture seule · l'agent ne modifie aucune donnée</span>
+            <span><kbd>↵</kbd> envoyer &nbsp;·&nbsp; <kbd>⇧↵</kbd> saut de ligne</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<script>
+  // ── Replier / déplier le rail contexte ──
+  (function () {
+    var ws = document.getElementById('workspace');
+    var toggle = document.getElementById('toggle-rail');
+    toggle.addEventListener('click', function () {
+      var collapsed = ws.classList.toggle('is-collapsed');
+      toggle.setAttribute('aria-pressed', String(!collapsed));
+    });
+
+    // ── Source chip → flasher la donnée citée dans le rail ──
+    var conv = document.getElementById('conversation');
+    conv.addEventListener('click', function (e) {
+      var chip = e.target.closest('.source-tag');
+      if (!chip) return;
+      var targetId = chip.getAttribute('data-target');
+      var target = document.getElementById(targetId);
+      if (!target) return;
+
+      // Si le rail est replié, on le déplie d'abord
+      if (ws.classList.contains('is-collapsed')) {
+        ws.classList.remove('is-collapsed');
+        toggle.setAttribute('aria-pressed', 'true');
+      }
+
+      // Relance l'animation flash
+      target.classList.remove('is-flash');
+      void target.offsetWidth; // reflow
+      target.classList.add('is-flash');
+
+      target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+  })();
+</script>
+</body>
+</html>

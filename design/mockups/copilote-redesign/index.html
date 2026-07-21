@@ -26,7 +26,6 @@
   .sub code { font-family: ui-monospace, monospace; background: var(--secondary); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
 
   .meta-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
-  .pill { font-size: 11.5px; font-weight: 600; padding: 4px 11px; border-radius: 99px; background: var(--secondary); color: var(--muted-foreground); display: inline-flex; align-items: center; gap: 5px; }
 
   .grid { margin-top: 32px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
   a.card { display: flex; flex-direction: column; text-decoration: none; color: inherit; background: #fff; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; transition: box-shadow 0.18s, transform 0.18s, border-color 0.18s; }
@@ -58,7 +57,19 @@
   .note b { color: var(--foreground); }
   .note code { font-family: ui-monospace, monospace; background: var(--secondary); padding: 1px 5px; border-radius: 4px; font-size: 11px; }
 
-  @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+  /* Bloc recommandation */
+  .pick { margin-top: 28px; }
+  .pick__badge { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; color: var(--primary); margin-bottom: 10px; letter-spacing: 0.02em; }
+  .pick__card { display: flex; flex-direction: column; gap: 14px; text-decoration: none; color: inherit; background: #fff; border: 1.5px solid var(--primary); border-radius: 14px; padding: 20px 22px; transition: box-shadow 0.18s, transform 0.18s; box-shadow: 0 0 0 4px rgba(255,56,92,0.06); }
+  .pick__card:hover { box-shadow: 0 8px 24px rgb(255 56 92 / 0.14); transform: translateY(-2px); }
+  .pick__title { font-size: 19px; font-weight: 800; letter-spacing: -0.015em; }
+  .pick__desc { font-size: 13px; font-weight: 500; color: var(--muted-foreground); line-height: 1.65; margin-top: 8px; }
+  .pick__desc b { color: var(--foreground); }
+  .pick__desc code { font-family: ui-monospace, monospace; background: var(--secondary); padding: 1px 5px; border-radius: 4px; font-size: 11.5px; }
+  .pick__cta { align-self: flex-start; font-size: 12.5px; font-weight: 700; color: var(--primary); }
+
+  .sec { margin-top: 36px; font-size: 13px; font-weight: 700; color: var(--muted-foreground); letter-spacing: 0.02em; }
+
 </style>
 </head>
 <body>
@@ -69,21 +80,31 @@
     Supply&nbsp;Board · design/mockups
   </div>
 
-  <h1>Copilote — <em>3 directions</em> de redesign</h1>
+  <h1>Copilote — <em>redesign</em></h1>
   <p class="sub">
     Repenser <code>inertia-react/pages/copilote.tsx</code> avec le composant <b>Bubble</b> de shadcn
     (<a href="https://ui.shadcn.com/docs/components/base/bubble" style="color:var(--primary);">docs</a>) et la grammaire
-    <b>Airbnb</b> (Rausch <code>#ff385c</code>, ink <code>#222</code>, Plus Jakarta Sans). Gradient du convenu au novateur.
-    Les tools et le raisonnement — la richesse de ce copilote — sont <b>mis en avant</b> dans les 3 (chips de statut,
-    source tags <code>[tool: …]</code>). Méme conversation de démo dans les 3 variantes.
+    <b>Airbnb</b> (Rausch <code>#ff385c</code>, ink <code>#222</code>, Plus Jakarta Sans). Trois explorations (gradient
+    convenu → novateur), puis <b>une recommandation</b> qui mixe le meilleur. Les tools et le raisonnement — la
+    richesse de ce copilote — sont <b>mis en avant</b> partout (chips de statut, source tags <code>[tool: …]</code>).
   </p>
 
-  <div class="meta-row">
-    <span class="pill">📐 Composant Bubble (7 variants)</span>
-    <span class="pill">🎨 Thème Airbnb (production)</span>
-    <span class="pill">🔍 Tools + raisonnement visibles</span>
-    <span class="pill">📋 Sous le Masthead existant</span>
+  <div class="pick">
+    <div class="pick__badge">★ Recommandé</div>
+    <a class="pick__card" href="04-focus-rail.html">
+      <div class="pick__body">
+        <div class="pick__title">D — Focus + Rail contexte</div>
+        <div class="pick__desc">
+          Le meilleur des deux&nbsp;: chat centré sobre de <b>A</b> + rail contexte supply de <b>C</b> à gauche
+          (collapsible, contextuel). Source tags <code>[tool: …]</code> <b>cliquables</b> → flashent la donnée citée.
+          Pas de dock droit (filler). C'est la direction retenue pour le port React.
+        </div>
+      </div>
+      <span class="pick__cta">Ouvrir la recommandation →</span>
+    </a>
   </div>
+
+  <h2 class="sec">Les 3 explorations</h2>
 
   <div class="grid">
 
@@ -163,8 +184,8 @@
     (sans cadre, full width) · <code>outline</code>/<code>muted</code> = tool traces · <code>destructive</code> = erreur.<br>
     <b>Décisions transverses&nbsp;:</b> statuts OF conservés (<code>ferme</code> green · <code>planifie</code> Babu teal ·
     <code>suggere</code> Arches) · focus = ink <code>#222</code> pas Rausch · une seule ombre (hover float) · pas de dark mode.<br>
-    <b>Prochaine étape&nbsp;:</b> choisir une direction (ou mixer, ex. « A + rail contexte de C »), puis porter en composant
-    React Bubble + adapter <code>copilote.tsx</code>.
+    <b>Recommandation&nbsp;:</b> <b>D — Focus + Rail contexte</b> retenu. Prochaine étape = porter en composant React Bubble
+    et adapter <code>copilote.tsx</code>.
   </p>
 
 </div>
