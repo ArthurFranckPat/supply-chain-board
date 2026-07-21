@@ -1,14 +1,24 @@
 /* ════════════════════════════════════════════════════════════
-   Feuille de style du runtime React — thème shadcn/ui DE BASE
-   (preset base-nova, primitives Base UI, généré par le CLI).
+   Feuille de style du runtime React — shadcn/ui + Base UI,
+   thème Airbnb ACTIVÉ par défaut (bascule 2026-07-21).
    ────────────────────────────────────────────────────────────
-   Choix explicite (19/07/2026) : rendu « stock » shadcn (neutral,
-   flat, oklch, police Geist) pour juger avant tout réhabillage.
+   Le jugement « rendu stock shadcn pour juger avant tout
+   réhabillage » (19/07/2026) est clos : la grammaire Airbnb est
+   le thème produit, validée par les showcases design/showcase/
+   (airbnb-grammar, airbnb-composants, airbnb-overlays) et les
+   ports board-card (variante A) + data-viz dashboard.
+
+   Les tokens :root sont retargetés (mêmes noms sémantiques) pour
+   que les primitives Base UI PORTALES au niveau <body> (sheets,
+   dialogs, popovers) héritent du thème — un scope .theme-airbnb
+   posé sur un div ne cascade pas dans les portals. Le bloc
+   .theme-airbnb (20/07/2026) reste en place : compat des pages
+   qui posent le scope explicitement, valeurs identiques.
 
    BACKUP — le thème maison (Papier/Aldes) reste intact dans
-   `resources/css/app.css`, toujours consommé par le runtime
-   Solid. Pour revenir aux tokens maison côté React : remplacer
-   les valeurs :root/.dark ci-dessous (mêmes noms sémantiques).
+   `resources/css/app.css`, consommé par le runtime Solid. Pour y
+   revenir côté React : remplacer les valeurs :root/.dark
+   ci-dessous (mêmes noms sémantiques).
    ════════════════════════════════════════════════════════════ */
 
 @import 'tailwindcss';
@@ -21,8 +31,13 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  /* ── Typo — Plus Jakarta Sans Variable (substitut de Cereal VF,
+     validé 20/07/2026). Déclarée ici pour que l'utilitaire font-sans
+     suive, y compris hors scope .theme-airbnb (portals). mono = Jakarta
+     avec tabular-nums pour l'alignement OF/dates (choix du 20/07). ── */
   --font-heading: var(--font-sans);
-  --font-sans: 'Geist Variable', sans-serif;
+  --font-sans: 'Plus Jakarta Sans Variable', -apple-system, system-ui, 'Helvetica Neue', sans-serif;
+  --font-mono: 'Plus Jakarta Sans Variable', system-ui, sans-serif;
 
   /* ── Échelle typographique micro (port depuis resources/css/app.css) ──
      Tailwind v4 n'expose pas text-2xs/text-3xs par défaut. Sans ces tokens,
@@ -84,86 +99,112 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 
   /* ── Couche de compatibilité tokens métier (portage Solid → React) ──
-     Les pages portées utilisent la grammaire Papier (brand/rule/ferme/
-     planifie/suggere/warn). On la mappe sur le thème shadcn stock : le
-     re-theming futur = swap de ces valeurs, pas des classNames. */
+     Les pages portées utilisent la grammaire brand/rule/ferme/planifie/
+     suggere/warn. Valeurs = grammaire Airbnb figée (design/showcase/
+     airbnb-grammar.html) : le swap des oklch stock vers les hex métier
+     a été fait le 21/07/2026 — ne pas revenir aux oklch. */
   --color-brand: var(--primary);
-  --color-brand-soft: var(--muted);
+  --color-brand-soft: rgba(255, 56, 92, 0.10); /* Rausch soft */
   --color-rule: var(--border);
-  --color-rule-soft: var(--border);
-  --color-ferme: oklch(0.596 0.145 163);       /* emerald-600 */
-  --color-planifie: oklch(0.546 0.245 262.9);  /* blue-600 */
-  --color-suggere: oklch(0.666 0.179 58.3);    /* amber-600 */
-  --color-warning: oklch(0.666 0.179 58.3);
+  --color-rule-soft: #ebebeb;                  /* hairline-soft */
+  --color-ferme: #008049;                      /* green-700 (statut OF ferme) */
+  --color-planifie: #00a699;                   /* Babu teal (statut planifié) */
+  --color-suggere: #fc642d;                    /* Arches orange (statut suggéré) */
+  --color-warning: #fc642d;
+}
+
+@theme {
+  /* ── La troisième ombre — LA seule élévation hors page. Réservée aux
+     overlays (sheets, dialogs, toasts). Grammaire figée par
+     design/showcase/airbnb-overlays.html (échelle des couches).
+     Déclarée GLOBALE : les primitives Base UI sont portales au niveau
+     <body>, hors du scope .theme-airbnb. Directive : ne pas créer de
+     4e niveau d'ombre. ── */
+  --shadow-overlay: 0 18px 50px rgb(0 0 0 / 0.24);
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  /* ── Grammaire Airbnb (valeurs identiques au bloc .theme-airbnb) ── */
+  --background: #ffffff;
+  --foreground: #222222;             /* ink — jamais de noir pur */
+  --card: #ffffff;
+  --card-foreground: #222222;
+  --popover: #ffffff;
+  --popover-foreground: #222222;
+  --primary: #ff385c;                /* Rausch — CTA marque */
+  --primary-foreground: #ffffff;
+  --secondary: #f7f7f7;              /* surface-soft */
+  --secondary-foreground: #222222;
+  --muted: #f2f2f2;                  /* surface-strong */
+  --muted-foreground: #6a6a6a;
+  --accent: #f7f7f7;
+  --accent-foreground: #222222;
+  --destructive: #c13515;            /* error ≠ Rausch (grammaire overlays) */
+  --destructive-foreground: #ffffff;
+  --border: #dddddd;                 /* hairline */
+  --input: #c1c1c1;                  /* border-strong */
+  --ring: #222222;                   /* focus = ink, pas brand */
+  --chart-1: #ff385c;                /* Rausch */
+  --chart-2: #00a699;                /* Babu teal */
+  --chart-3: #fc642d;                /* Arches orange */
+  --chart-4: #6a6a6a;
+  --chart-5: #222222;
+  --radius: 0.875rem;                /* 14px — cards/dialogs (boutons = sm) */
+  --sidebar: #ffffff;
+  --sidebar-foreground: #222222;
+  --sidebar-primary: #ff385c;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f7f7f7;
+  --sidebar-accent-foreground: #222222;
+  --sidebar-border: #dddddd;
+  --sidebar-ring: #222222;
+
+  /* ── Tokens métier (statuts OF) — portails inclus. ── */
+  --brand: var(--primary);
+  --brand-soft: rgba(255, 56, 92, 0.10);
+  --rule: var(--border);
+  --rule-soft: #ebebeb;
+  --ferme: #008049;
+  --planifie: #00a699;
+  --suggere: #fc642d;
+  --warning: #fc642d;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  /* Pas de dark mode Airbnb (DESIGN.md light-only) — miroir exact du
+     light pour qu'un `.dark` accidentel ne casse pas la grammaire. */
+  --background: #ffffff;
+  --foreground: #222222;
+  --card: #ffffff;
+  --card-foreground: #222222;
+  --popover: #ffffff;
+  --popover-foreground: #222222;
+  --primary: #ff385c;
+  --primary-foreground: #ffffff;
+  --secondary: #f7f7f7;
+  --secondary-foreground: #222222;
+  --muted: #f2f2f2;
+  --muted-foreground: #6a6a6a;
+  --accent: #f7f7f7;
+  --accent-foreground: #222222;
+  --destructive: #c13515;
+  --destructive-foreground: #ffffff;
+  --border: #dddddd;
+  --input: #c1c1c1;
+  --ring: #222222;
+  --chart-1: #ff385c;
+  --chart-2: #00a699;
+  --chart-3: #fc642d;
+  --chart-4: #6a6a6a;
+  --chart-5: #222222;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #222222;
+  --sidebar-primary: #ff385c;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f7f7f7;
+  --sidebar-accent-foreground: #222222;
+  --sidebar-border: #dddddd;
+  --sidebar-ring: #222222;
 }
 
 @layer base {
@@ -359,7 +400,28 @@
 
 /* Distinction test/prod — fidèle à la palette Airbnb.
    En test : on ne touche PAS au Rausch (couleur marque sacrée). Le signal
-   est porté par un bandeau Arches orange (#fc642d, couleur du brand book)
+   est porté par le bandeau Arches orange (#fc642d, couleur du brand book)
    en haut du Masthead, plus un suffixe [TEST] dans le wordmark. Voir
    masthead.tsx côté React. Aucune override de tokens : le thème Airbnb
    reste strictement identique en test et en prod. */
+
+/* ────────────────────────────────────────────────────────────
+   Toasts sonner — pilule encre bas-centre (grammaire figée par
+   design/showcase/airbnb-overlays.html §04). Le style principal
+   (fond, rayon, padding) est posé en INLINE via toastOptions dans
+   app.tsx — il gagne sur les styles internes de sonner. Ici : les
+   détails hérités que l'inline ne couvre pas.
+   ──────────────────────────────────────────────────────────── */
+[data-sonner-toast] [data-description] {
+  color: rgba(255, 255, 255, 0.72);
+}
+[data-sonner-toast] [data-button] {
+  background: transparent;
+  color: #ffffff;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  box-shadow: none;
+  height: auto;
+  padding: 0;
+}

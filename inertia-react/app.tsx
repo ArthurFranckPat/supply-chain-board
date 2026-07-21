@@ -44,7 +44,27 @@ createInertiaApp({
     createRoot(el).render(
       <>
         <App {...props} />
-        <Toaster position="top-right" richColors closeButton duration={4000} />
+        {/* Grammaire overlays (airbnb-overlays.html §04) : pilule encre
+            bas-centre, 4,2 s, couche toasts au-dessus de tout (sheets
+            z-60, dialogs z-70 — le z-index natif de sonner reste le plus
+            haut, pas de prop zIndex dans l'API v2). Le sens est porté par
+            l'icône, pas la pilule : pas de richColors. Détails hérités
+            dans styles/app.css. */}
+        <Toaster
+          position="bottom-center"
+          duration={4200}
+          toastOptions={{
+            style: {
+              background: '#222222',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '9999px',
+              padding: '13px 20px',
+              fontWeight: 500,
+              boxShadow: '0 6px 20px rgb(0 0 0 / 0.16)',
+            },
+          }}
+        />
       </>
     )
   },
