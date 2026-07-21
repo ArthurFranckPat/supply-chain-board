@@ -502,6 +502,7 @@ function ReceptionCard({
   const estime = !degrade && group.estimees > 0
   /** Une seule ligne PO → on affiche l'article, plus parlant que « 1 ligne ». */
   const single = nbLignes === 1 ? group.rows[0] : null
+  const nbCommandes = new Set(group.rows.map((r) => r.noCommande)).size
 
   return (
     <button
@@ -552,9 +553,15 @@ function ReceptionCard({
         )}
       </span>
 
-      {/* Contenu du camion : article si ligne unique, sinon compte de lignes. */}
+      {/* Contenu du camion : article si ligne unique, sinon le compte — en
+          mentionnant les commandes dès qu'il y en a plusieurs (une réception
+          multi-commandes se traite différemment au quai). */}
       <span className="truncate font-mono text-[9.5px] leading-none text-muted-foreground">
-        {single ? `${single.noCommande} · ${single.article}` : `${nbLignes} lignes`}
+        {single
+          ? `${single.noCommande} · ${single.article}`
+          : nbCommandes > 1
+            ? `${nbCommandes} cmd · ${nbLignes} lignes`
+            : `${nbLignes} lignes`}
       </span>
     </button>
   )
@@ -564,6 +571,28 @@ function ReceptionCard({
 // Détail (drill-down)
 // ───────────────────────────────────────────────────────────────────────────
 
+/** Une commande d'achat du camion, avec ses lignes et son sous-total palettes. */
+interface CommandeGroup {
+  noCommande: string
+  palettes: number
+  rows: ReceptionDisplayRow[]
+}
+
+/** Regroupe les lignes du camion par n° de commande (ordre d'apparition). */
+function groupByCommande(rows: ReceptionDisplayRow[]): CommandeGroup[] {
+  const acc = new Map<string, CommandeGroup>()
+  for (const r of rows) {
+    let cmd = acc.get(r.noCommande)
+    if (!cmd) {
+      cmd = { noCommande: r.noCommande, palettes: 0, rows: [] }
+      acc.set(r.noCommande, cmd)
+    }
+    cmd.palettes += r.nbPalettes
+    cmd.rows.push(r)
+  }
+  return [...acc.values()]
+}
+
 function ReceptionDetailSheet({
   group,
   onClose,
@@ -571,6 +600,9 @@ function ReceptionDetailSheet({
   group: ReceptionGroup | null
   onClose: () => void
 }) {
+  // Hook inconditionnel (le panneau reste monté fermé, group peut être null).
+  const commandes = useMemo(() => groupByCommande(group?.rows ?? []), [group])
+
   return (
     <Sheet open={group !== null} onOpenChange={(v) => !v && onClose()}>
       <SheetContent side="right" className="gap-0 p-0">
@@ -616,74 +648,103 @@ function ReceptionDetailSheet({
               )}
             </div>
 
-            {/* Détail : les lignes de commande du camion. */}
-            <div className="px-6 py-4">
+            {/* Détail : les commandes du camion, chacune avec ses lignes.
+                Le n° de commande est l'unité de dialogue avec le fournisseur
+                (« ta commande CG0042 arrive-t-elle bien jeudi ? ») — il porte
+                donc la section plutôt que de se répéter sur chaque ligne. */}
+            <div className="px-6 pb-2 pt-4">
               <div className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                {group.rows.length} ligne{group.rows.length > 1 ? 's' : ''} de commande
+                {commandes.length} commande{commandes.length > 1 ? 's' : ''} ·{' '}
+                {group.rows.length} ligne{group.rows.length > 1 ? 's' : ''}
               </div>
             </div>
-            <div className="flex flex-col">
-              {group.rows.map((r) => (
-                <div
-                  key={`${r.noCommande}:${r.article}`}
-                  className={cn(
-                    'border-t border-rule-soft px-6 py-3',
-                    r.coefManquant
-                      ? 'bg-destructive/[0.05]'
-                      : r.coefEstime
-                        ? 'bg-planifie/[0.05]'
-                        : ''
-                  )}
-                >
-                  <div className="flex items-baseline justify-between gap-3">
-                    <span className="font-mono text-[12px] font-bold text-foreground">
-                      {r.article}
+
+            {commandes.map((cmd) => (
+              <section key={cmd.noCommande} className="border-t border-rule">
+                {/* En-tête de commande : n° + sous-total palettes. */}
+                <header className="flex items-baseline justify-between gap-3 bg-secondary/40 px-6 py-2">
+                  <span className="font-mono text-[12px] font-bold tracking-tight text-foreground">
+                    {cmd.noCommande}
+                  </span>
+                  <span className="flex items-baseline gap-2 font-mono text-[10px] text-muted-foreground">
+                    <span>
+                      {cmd.rows.length} ligne{cmd.rows.length > 1 ? 's' : ''}
                     </span>
                     <span
                       className={cn(
-                        'font-fraunces text-[15px] font-bold tabular-nums leading-none',
-                        r.coefManquant
-                          ? 'text-destructive/60'
-                          : r.coefEstime
-                            ? 'text-planifie'
-                            : chargeText(chargeTier(r.nbPalettes))
+                        'font-fraunces text-[14px] font-bold tabular-nums',
+                        chargeText(chargeTier(cmd.palettes))
                       )}
                     >
-                      {r.nbPalettesFmt}
+                      {cmd.palettes}
                       <span className="ml-1 font-mono text-[9px] font-medium text-muted-foreground">
                         pal.
                       </span>
                     </span>
-                  </div>
-                  {r.designation && (
-                    <div className="mt-0.5 font-sans text-[11.5px] leading-snug text-muted-foreground">
-                      {r.designation}
+                  </span>
+                </header>
+
+                {cmd.rows.map((r) => (
+                  <div
+                    key={`${r.noCommande}:${r.article}`}
+                    className={cn(
+                      'border-t border-rule-soft px-6 py-3',
+                      r.coefManquant
+                        ? 'bg-destructive/[0.05]'
+                        : r.coefEstime
+                          ? 'bg-planifie/[0.05]'
+                          : ''
+                    )}
+                  >
+                    <div className="flex items-baseline justify-between gap-3">
+                      <span className="font-mono text-[12px] font-bold text-foreground">
+                        {r.article}
+                      </span>
+                      <span
+                        className={cn(
+                          'font-fraunces text-[15px] font-bold tabular-nums leading-none',
+                          r.coefManquant
+                            ? 'text-destructive/60'
+                            : r.coefEstime
+                              ? 'text-planifie'
+                              : chargeText(chargeTier(r.nbPalettes))
+                        )}
+                      >
+                        {r.nbPalettesFmt}
+                        <span className="ml-1 font-mono text-[9px] font-medium text-muted-foreground">
+                          pal.
+                        </span>
+                      </span>
                     </div>
-                  )}
-                  <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[10px] text-muted-foreground">
-                    <span className="font-semibold text-foreground">{r.noCommande}</span>
-                    <span>
-                      {r.qteUsFmt} <span className="text-muted-foreground/70">US</span>
-                    </span>
-                    <span className={cn(r.coefManquant && 'text-destructive')}>
-                      {r.conditionnement}
-                    </span>
-                    {r.coefEstime && (
-                      <span className="flex items-center gap-1 text-planifie">
-                        <Lightbulb size={10} strokeWidth={1.75} />
-                        Estimé ({r.coefSource})
-                      </span>
+                    {r.designation && (
+                      <div className="mt-0.5 font-sans text-[11.5px] leading-snug text-muted-foreground">
+                        {r.designation}
+                      </div>
                     )}
-                    {r.coefManquant && (
-                      <span className="flex items-center gap-1 text-destructive">
-                        <TriangleAlert size={10} strokeWidth={1.75} />
-                        Coef manquant
+                    <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[10px] text-muted-foreground">
+                      <span>
+                        {r.qteUsFmt} <span className="text-muted-foreground/70">US</span>
                       </span>
-                    )}
+                      <span className={cn(r.coefManquant && 'text-destructive')}>
+                        {r.conditionnement}
+                      </span>
+                      {r.coefEstime && (
+                        <span className="flex items-center gap-1 text-planifie">
+                          <Lightbulb size={10} strokeWidth={1.75} />
+                          Estimé ({r.coefSource})
+                        </span>
+                      )}
+                      {r.coefManquant && (
+                        <span className="flex items-center gap-1 text-destructive">
+                          <TriangleAlert size={10} strokeWidth={1.75} />
+                          Coef manquant
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </section>
+            ))}
           </div>
         )}
       </SheetContent>
