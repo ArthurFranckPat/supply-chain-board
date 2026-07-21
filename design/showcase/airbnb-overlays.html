@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Supply Chain Board · Overlays — grammaire Airbnb</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script src="https://unpkg.com/lucide@1.25.0/dist/umd/lucide.min.js" integrity="sha384-UoXAhqcCCjwD94x4CCSExEHvtO49AfNiY7g/IxDgrPtx4U6o6tvy1cScx9v/RrS9" crossorigin="anonymous"></script>
+<style>
+  :root{
+    /* ── Grammaire Airbnb (DESIGN.md) ── */
+    --rausch:#ff385c;
+    --rausch-dark:#e31c5f;
+    --ink:#222222;
+    --gray:#717171;
+    --gray-l:#b0b0b0;
+    --line:#dddddd;
+    --line-soft:#ebebeb;
+    --surface:#f7f7f7;
+    --white:#ffffff;
+    /* ── Statuts métier ── */
+    --ferme:#008049;
+    --planifie:#00a699;
+    --suggere:#fc642d;
+    --danger:#c13515;
+    /* ── Ombres : repos / flottaison / LA troisième, réservée aux overlays ── */
+    --sh-rest:0 1px 2px rgba(0,0,0,.08);
+    --sh-float:0 6px 20px rgba(0,0,0,.16);
+    --sh-overlay:0 18px 50px rgba(0,0,0,.24);
+    /* ── Rayons : 8 btn / 14 card & dialog / 16 sheet / pill ── */
+    --r-btn:8px; --r-card:14px; --r-sheet:16px; --r-pill:9999px;
+    /* ── Courbe & tempo uniques ── */
+    --ease:cubic-bezier(.2,.7,.2,1);
+    --t-sheet:.32s; --t-dlg:.24s;
+    --sans:'Plus Jakarta Sans',-apple-system,system-ui,sans-serif;
+    --mono:'IBM Plex Mono',ui-monospace,monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    font-family:var(--sans);color:var(--ink);background:var(--white);
+    -webkit-font-smoothing:antialiased;font-size:14px;line-height:1.5;
+  }
+  .num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+  button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+  i[data-lucide]{stroke-width:1.75}
+
+  /* ════════ RÉVÉLATION AU SCROLL ════════ */
+  .reveal{opacity:0;transform:translateY(18px);transition:opacity .6s var(--ease),transform .6s var(--ease)}
+  .reveal.in{opacity:1;transform:none}
+
+  /* ════════ MASTHEAD ════════ */
+  .masthead{
+    position:sticky;top:0;z-index:50;background:var(--white);
+    border-bottom:1px solid var(--line-soft);
+    display:flex;align-items:center;gap:28px;height:80px;padding:0 40px;
+  }
+  .wordmark{display:flex;align-items:center;gap:9px;color:var(--rausch);font-weight:800;font-size:21px;letter-spacing:-.02em;white-space:nowrap}
+  .wordmark .mark{font-size:26px;line-height:1;transform:translateY(-1px)}
+  .wordmark .suffix{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--gray);border:1px solid var(--line);border-radius:4px;padding:1px 5px;margin-left:2px}
+  .mast-right{margin-left:auto;display:flex;align-items:center;gap:14px}
+  .user-pill{
+    display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:var(--r-pill);
+    padding:6px 8px 6px 14px;box-shadow:var(--sh-rest);transition:box-shadow .2s;
+  }
+  .user-pill:hover{box-shadow:var(--sh-float)}
+  .user-pill .avatar{width:32px;height:32px;border-radius:var(--r-pill);background:var(--gray);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700}
+
+  /* ════════ CANVAS + SECTIONS ════════ */
+  .canvas{max-width:1240px;margin:0 auto;padding:0 40px}
+  .section{padding:56px 0 8px}
+  .sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:6px}
+  .sec-num{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--rausch);letter-spacing:.06em}
+  .sec-title{font-size:26px;font-weight:800;letter-spacing:-.02em}
+  .sec-sub{color:var(--gray);font-size:14px;max-width:680px;margin-bottom:26px}
+  .sec-sub b{color:var(--ink)}
+  .panel{border:1px solid var(--line-soft);border-radius:var(--r-card);padding:24px;background:var(--white)}
+  .panel-label{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--gray);margin-bottom:16px}
+  hr.rule{border:none;border-top:1px solid var(--line-soft);margin:56px 0 0}
+  .grid{display:grid;gap:20px}
+  .g2{grid-template-columns:1fr 1fr}
+
+  /* ════════ BADGES & BOUTONS (rappel grammaire) ════════ */
+  .badge{display:inline-flex;align-items:center;gap:6px;border-radius:var(--r-pill);font-size:12px;font-weight:600;padding:4px 12px}
+  .badge .dot{width:7px;height:7px;border-radius:50%}
+  .b-ferme{background:rgba(0,128,73,.10);color:var(--ferme)} .b-ferme .dot{background:var(--ferme)}
+  .b-planifie{background:rgba(0,166,153,.12);color:#007d73} .b-planifie .dot{background:var(--planifie)}
+  .b-suggere{background:rgba(252,100,45,.12);color:#c2410c} .b-suggere .dot{background:var(--suggere)}
+  .b-retard{background:rgba(255,56,92,.10);color:var(--rausch)} .b-retard .dot{background:var(--rausch)}
+  .badge-ghost{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:var(--r-pill);font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.04em;color:var(--gray);padding:4px 10px}
+
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:48px;padding:0 22px;border-radius:var(--r-btn);font-size:15px;font-weight:600;transition:background .15s,box-shadow .15s,transform .08s,border-color .15s}
+  .btn:active{transform:scale(.97)}
+  .btn-primary{background:var(--rausch);color:#fff}
+  .btn-primary:hover{background:var(--rausch-dark)}
+  .btn-secondary{background:var(--white);border:1px solid var(--ink);color:var(--ink)}
+  .btn-secondary:hover{background:var(--surface)}
+  .btn-soft{background:var(--surface);border:1px solid var(--line);color:var(--ink)}
+  .btn-soft:hover{border-color:var(--ink)}
+  .btn-ghost{color:var(--ink);text-decoration:underline;text-underline-offset:3px;height:auto;padding:6px 2px;font-size:14px}
+  .btn-ghost:hover{color:var(--gray)}
+  .btn-danger{background:var(--danger);color:#fff}
+  .btn-danger:hover{background:#a32c12}
+  .btn:focus-visible,input:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+
+  /* ════════ 00 · SCÈNE VIVANTE ════════ */
+  .stage{
+    background:var(--surface);border:1px solid var(--line-soft);border-radius:var(--r-card);
+    padding:30px 30px 26px;position:relative;overflow:hidden;
+  }
+  .stage::before{content:'';position:absolute;inset:0;background-image:radial-gradient(var(--line) 1px,transparent 1px);background-size:22px 22px;opacity:.5;pointer-events:none}
+  .stage > *{position:relative}
+  .stage-row{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:22px}
+  .card-b{
+    border:1px solid var(--line);border-radius:12px;background:var(--white);padding:13px 14px 12px 17px;position:relative;
+    transition:box-shadow .18s,transform .18s;cursor:pointer;overflow:hidden;width:262px;text-align:left;
+  }
+  .card-b::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px}
+  .card-b.k-ferme::before{background:var(--ferme)} .card-b.k-planifie::before{background:var(--planifie)} .card-b.k-suggere::before{background:var(--suggere)}
+  .card-b:hover{box-shadow:var(--sh-float);transform:translateY(-2px)}
+  .card-b .r1{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .card-b .of{font-family:var(--mono);font-weight:600;font-size:13px}
+  .card-b .desc{font-weight:700;font-size:14px;letter-spacing:-.01em;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .card-b .sub{color:var(--gray);font-size:12px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .card-b .r2{display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:9px;border-top:1px solid var(--line-soft)}
+  .card-b .due{display:flex;align-items:center;gap:6px;color:var(--gray);font-size:12px}
+  .card-b .due i{width:13px;height:13px}
+  .card-b .hrs{font-family:var(--mono);font-weight:700;font-size:14px}
+  .card-b .hrs small{color:var(--gray);font-weight:500}
+  .stage-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .hint{margin-top:18px;font-size:13px;color:var(--gray)}
+  .hint kbd{font-family:var(--mono);font-size:11px;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:1px 6px;background:#fff;color:var(--ink)}
+
+  /* ════════ CHIP + MENU DÉROULANT ════════ */
+  .chip-wrap{position:relative}
+  .chip-btn{
+    display:inline-flex;align-items:center;gap:8px;height:48px;padding:0 18px;
+    border:1px solid var(--line);border-radius:var(--r-pill);background:#fff;
+    font-size:14px;font-weight:600;transition:box-shadow .15s,border-color .15s;
+  }
+  .chip-btn:hover{box-shadow:var(--sh-float)}
+  .chip-btn .count{color:var(--gray);font-weight:400}
+  .chip-btn i{width:15px;height:15px;color:var(--gray);transition:transform .2s var(--ease)}
+  .chip-wrap.open .chip-btn i{transform:rotate(180deg)}
+  .menu{
+    position:absolute;top:calc(100% + 8px);left:0;min-width:238px;z-index:40;
+    background:#fff;border:1px solid var(--line-soft);border-radius:12px;box-shadow:var(--sh-float);
+    padding:8px;opacity:0;transform:translateY(-4px) scale(.98);transform-origin:top left;
+    pointer-events:none;transition:opacity .18s var(--ease),transform .18s var(--ease);
+  }
+  .chip-wrap.open .menu{opacity:1;transform:none;pointer-events:auto}
+  .menu .mi{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:10px 12px;border-radius:8px;font-size:14px;transition:background .12s}
+  .menu .mi:hover{background:var(--surface)}
+  .menu .mi .sub{color:var(--gray);font-size:12px}
+  .menu .mi .tick{margin-left:auto;color:var(--ink);opacity:0;transition:opacity .12s}
+  .menu .mi .tick i{width:15px;height:15px}
+  .menu .mi.sel .tick{opacity:1}
+  .menu .m-sep{height:1px;background:var(--line-soft);margin:6px 4px}
+  .menu .m-head{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--gray-l);padding:8px 12px 4px}
+  .user-wrap .menu{left:auto;right:0;transform-origin:top right}
+  .user-wrap .menu .mi{font-size:14px;font-weight:500}
+
+  /* ════════ COMBOBOX ════════ */
+  .cbx{position:relative}
+  .cbx .field-ic{position:absolute;left:14px;top:14px;color:var(--gray);width:16px;height:16px;pointer-events:none}
+  .cbx input{
+    width:100%;height:48px;border:1px solid var(--line);border-radius:var(--r-btn);
+    padding:0 14px 0 40px;font-size:15px;font-family:inherit;color:var(--ink);background:#fff;transition:border-color .15s;
+  }
+  .cbx input:hover{border-color:var(--gray-l)}
+  .cbx input:focus{border-color:var(--ink);outline:2px solid var(--ink);outline-offset:0}
+  .cbx .menu{position:absolute;top:calc(100% + 6px);left:0;right:0;min-width:0;transform-origin:top center}
+  .cbx:focus-within .menu{opacity:1;transform:none;pointer-events:auto}
+  .cbx .mi .tag{margin-left:auto;font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.05em;color:var(--gray-l);border:1px solid var(--line);border-radius:4px;padding:1px 5px}
+
+  /* ════════ COUCHES — backdrop, sheets, dialogs ════════ */
+  .backdrop{position:fixed;inset:0;z-index:55;background:rgba(34,34,34,.5);opacity:0;pointer-events:none;transition:opacity .25s var(--ease)}
+  .backdrop.on{opacity:1;pointer-events:auto}
+
+  /* — Sheet latéral (droite) — */
+  .sheet-r{
+    position:fixed;top:0;right:0;bottom:0;z-index:60;width:min(480px,100vw);
+    background:#fff;box-shadow:var(--sh-overlay);display:flex;flex-direction:column;
+    transform:translateX(102%);transition:transform var(--t-sheet) var(--ease);
+  }
+  .sheet-r.on{transform:none}
+  .s-head{padding:22px 24px 18px;border-bottom:1px solid var(--line-soft)}
+  .s-head .row1{display:flex;align-items:center;gap:12px}
+  .s-head h3{font-size:22px;font-weight:800;letter-spacing:-.02em}
+  .s-head .x{margin-left:auto;width:36px;height:36px;border-radius:var(--r-pill);display:grid;place-items:center;color:var(--gray);transition:background .15s,color .15s}
+  .s-head .x:hover{background:var(--surface);color:var(--ink)}
+  .s-head .x i{width:17px;height:17px}
+  .s-head .sub{color:var(--gray);font-size:13px;margin-top:4px}
+  .s-body{flex:1;overflow:auto;padding:22px 24px}
+  .s-foot{padding:16px 24px;border-top:1px solid var(--line-soft);display:flex;gap:10px;background:#fff}
+  .s-foot .btn{flex:1;height:46px}
+
+  .sheet-tabs{display:flex;gap:2px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-pill);padding:3px;margin-bottom:22px}
+  .sheet-tabs button{flex:1;border-radius:var(--r-pill);padding:8px 0;font-size:13px;font-weight:700;color:var(--gray);transition:background .15s,color .15s,box-shadow .15s}
+  .sheet-tabs button.on{background:#fff;color:var(--ink);box-shadow:var(--sh-rest)}
+  .sheet-pane{display:none}
+  .sheet-pane.on{display:block;animation:pane .3s var(--ease)}
+  @keyframes pane{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+  .dl{display:grid;grid-template-columns:1fr 1fr;gap:16px 20px;margin-bottom:24px}
+  .dl dt{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--gray)}
+  .dl dd{font-size:15px;font-weight:600;margin-top:3px}
+  .dl dd small{font-weight:500;color:var(--gray)}
+
+  /* timeline horizontale (déclinaison « Itinéraire ») */
+  .mini-tl{position:relative;height:48px;margin:6px 0 26px}
+  .mini-tl .track{position:absolute;left:7px;right:7px;top:16px;height:3px;border-radius:2px;background:var(--line-soft)}
+  .mini-tl .prog{position:absolute;left:7px;top:16px;height:3px;border-radius:2px;background:var(--ferme)}
+  .mini-tl .node{position:absolute;top:10px;width:15px;height:15px;border-radius:50%;background:#fff;border:3px solid var(--line)}
+  .mini-tl .node.done{border-color:var(--ferme)}
+  .mini-tl .node.now{border-color:var(--rausch);box-shadow:0 0 0 4px rgba(255,56,92,.18)}
+  .mini-tl .lbl{position:absolute;top:32px;font-size:10px;font-family:var(--mono);color:var(--gray);transform:translateX(-50%);white-space:nowrap}
+
+  /* arbre de diagnostic composants */
+  .tree{border-left:2px solid var(--line-soft);margin-left:7px;padding-left:20px;display:flex;flex-direction:column;gap:14px}
+  .tree .node{position:relative}
+  .tree .node::before{content:'';position:absolute;left:-20px;top:13px;width:15px;height:2px;background:var(--line-soft)}
+  .tree .n-top{display:flex;align-items:center;gap:10px}
+  .tree .n-name{font-weight:700;font-size:14px}
+  .tree .n-qty{font-family:var(--mono);font-size:12px;color:var(--gray)}
+  .tree .n-qty.neg{color:var(--rausch);font-weight:700}
+  .tree .n-sub{font-size:12px;color:var(--gray);margin-top:2px}
+
+  /* — Sheet bas (bottom sheet) — */
+  .sheet-b{
+    position:fixed;left:0;right:0;bottom:0;z-index:60;max-width:640px;margin:0 auto;
+    background:#fff;border-radius:var(--r-sheet) var(--r-sheet) 0 0;box-shadow:var(--sh-overlay);
+    max-height:84vh;display:flex;flex-direction:column;
+    transform:translateY(102%);transition:transform var(--t-sheet) var(--ease);
+  }
+  .sheet-b.on{transform:none}
+  .sheet-b .grab{width:38px;height:4px;border-radius:2px;background:var(--line);margin:12px auto 0}
+  .mut{display:flex;align-items:center;gap:14px;padding:15px 0;border-bottom:1px solid var(--line-soft)}
+  .mut:last-child{border-bottom:0}
+  .mut .m-ic{width:36px;height:36px;border-radius:50%;background:var(--surface);display:grid;place-items:center;color:var(--gray);flex:none}
+  .mut .m-ic i{width:16px;height:16px}
+  .mut .d{flex:1;min-width:0}
+  .mut .t{font-weight:700;font-size:14px}
+  .mut .s{font-size:13px;color:var(--gray);margin-top:2px}
+  .mut .old{text-decoration:line-through;color:var(--gray-l)}
+  .mut .arr{margin:0 6px;color:var(--gray-l)}
+  .chip-delta{font-family:var(--mono);font-size:11px;font-weight:700;padding:3px 9px;border-radius:var(--r-pill);flex:none}
+  .cd-warn{background:rgba(252,100,45,.12);color:#c2410c}
+  .cd-new{background:rgba(0,166,153,.12);color:#007d73}
+  .cd-del{background:rgba(255,56,92,.10);color:var(--rausch)}
+
+  /* — Dialogs & alert-dialogs — */
+  .modal-wrap{position:fixed;inset:0;z-index:70;display:grid;place-items:center;padding:24px;visibility:hidden}
+  .modal-wrap .scrim{position:absolute;inset:0;background:rgba(34,34,34,.45);opacity:0;transition:opacity .2s var(--ease)}
+  .modal{
+    position:relative;width:min(440px,100%);background:#fff;border-radius:var(--r-card);
+    box-shadow:var(--sh-overlay);padding:26px;
+    opacity:0;transform:scale(.96) translateY(10px);transition:opacity var(--t-dlg) var(--ease),transform var(--t-dlg) var(--ease);
+  }
+  .modal-wrap.on{visibility:visible}
+  .modal-wrap.on .scrim{opacity:1}
+  .modal-wrap.on .modal{opacity:1;transform:none}
+  .modal h3{font-size:19px;font-weight:800;letter-spacing:-.02em}
+  .modal .m-body{color:var(--gray);font-size:14px;margin-top:8px;line-height:1.6}
+  .modal .m-body b{color:var(--ink)}
+  .modal .m-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:24px}
+  .modal .m-actions .btn{height:44px}
+  .m-ic-danger{width:46px;height:46px;border-radius:50%;background:rgba(193,53,21,.10);color:var(--danger);display:grid;place-items:center;margin-bottom:16px}
+  .m-ic-danger i{width:21px;height:21px}
+  .field{display:flex;flex-direction:column;gap:7px;margin-top:18px}
+  .field label{font-size:13px;font-weight:600}
+  .field input,.field select{height:52px;border:1px solid var(--line);border-radius:var(--r-btn);padding:0 14px;font-size:15px;font-family:inherit;color:var(--ink);background:#fff;transition:border-color .15s}
+  .field input:hover,.field select:hover{border-color:var(--gray-l)}
+  .field input:focus,.field select:focus{border-color:var(--ink);outline:2px solid var(--ink);outline-offset:0}
+  .field .hint{font-size:12px;color:var(--gray)}
+
+  /* ════════ TOASTS ════════ */
+  .toasts{position:fixed;bottom:26px;left:50%;transform:translateX(-50%);z-index:80;display:flex;flex-direction:column-reverse;gap:10px;align-items:center;pointer-events:none}
+  .toast{
+    pointer-events:auto;display:flex;align-items:center;gap:11px;max-width:min(480px,90vw);
+    background:var(--ink);color:#fff;border-radius:var(--r-pill);padding:13px 20px;
+    font-size:14px;font-weight:500;box-shadow:var(--sh-float);
+    animation:t-in .32s var(--ease);
+  }
+  .toast .tic{width:19px;height:19px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:800;color:#fff;flex:none}
+  .toast.t-ok .tic{background:var(--ferme)}
+  .toast.t-err .tic{background:var(--danger)}
+  .toast.t-info .tic{background:var(--gray)}
+  .toast .act{color:#fff;font-weight:700;text-decoration:underline;text-underline-offset:3px;white-space:nowrap}
+  .toast.out{animation:t-out .26s var(--ease) forwards}
+  @keyframes t-in{from{opacity:0;transform:translateY(16px) scale(.96)}to{opacity:1;transform:none}}
+  @keyframes t-out{to{opacity:0;transform:translateY(10px) scale(.96)}}
+
+  /* ════════ 06 · ÉTATS VIDES & SKELETTES ════════ */
+  .empty{border:1px dashed var(--line);border-radius:var(--r-card);padding:52px 24px;text-align:center;background:#fff}
+  .empty .e-ic{width:54px;height:54px;margin:0 auto 16px;border-radius:50%;background:var(--surface);display:grid;place-items:center;color:var(--gray)}
+  .empty .e-ic i{width:22px;height:22px}
+  .empty h4{font-size:16px;font-weight:800;letter-spacing:-.01em}
+  .empty p{color:var(--gray);font-size:13px;margin:6px auto 18px;max-width:340px}
+  .skl{position:relative;overflow:hidden;background:var(--surface);border-radius:8px}
+  .skl::after{content:'';position:absolute;inset:0;transform:translateX(-100%);background:linear-gradient(90deg,transparent,rgba(255,255,255,.65),transparent);animation:shimmer 1.5s infinite}
+  @keyframes shimmer{100%{transform:translateX(100%)}}
+  .skl-card{border:1px solid var(--line-soft);border-radius:var(--r-card);padding:16px;background:#fff}
+  .skl-line{height:12px;margin-bottom:10px}
+
+  /* ════════ ÉCHELLE DES COUCHES ════════ */
+  .ztable{font-family:var(--mono);font-size:13px}
+  .ztable .zr{display:flex;align-items:center;gap:14px;padding:9px 0;border-bottom:1px solid var(--line-soft)}
+  .ztable .zr:last-child{border-bottom:0}
+  .ztable .zv{width:34px;font-weight:700;color:var(--rausch)}
+  .ztable .zn{flex:1}
+  .ztable .zc{color:var(--gray-l);font-size:12px}
+
+  .foot-note{color:var(--gray);font-size:13px;padding:48px 0 64px;max-width:680px}
+  .foot-note b{color:var(--ink)}
+  .foot-note code{font-family:var(--mono);font-size:12px;background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:1px 6px}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════ MASTHEAD ══════════════════ -->
+<header class="masthead">
+  <div class="wordmark">
+    <span class="mark">⌂</span> Supply Chain Board
+    <span class="suffix">OVERLAYS</span>
+  </div>
+  <div class="mast-right">
+    <div class="chip-wrap user-wrap">
+      <button class="user-pill" aria-haspopup="menu"><i data-lucide="menu" style="width:15px;height:15px;color:var(--ink)"></i><span class="avatar">AB</span></button>
+      <div class="menu" role="menu">
+        <div class="m-head">Session X3 · CLTEST</div>
+        <button class="mi">Compte Aldes</button>
+        <button class="mi">Préférences</button>
+        <div class="m-sep"></div>
+        <button class="mi">Déconnexion <span class="tick"><i data-lucide="log-out"></i></span></button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="canvas">
+
+  <!-- ══ 00 · TOUT S'OUVRE, TOUT SE FERME ══ -->
+  <section class="section reveal">
+    <div class="sec-head"><span class="sec-num">00</span><h1 class="sec-title">Tout s'ouvre, tout se ferme</h1></div>
+    <p class="sec-sub">La famille qui manquait à la grammaire — <b>les overlays</b> — branchée sur un vrai flux : ouvre un OF, affermis une suggestion, empile un scénario, jette-le. Chaque contrôle ci-dessous est réel.</p>
+
+    <div class="stage">
+      <div class="stage-row">
+        <button class="card-b k-ferme" data-open="#sheet-of">
+          <div class="r1"><span class="of">OF 24157</span><span class="badge b-ferme"><span class="dot"></span>Ferme</span></div>
+          <div class="desc">Bouche hygro BDH10</div>
+          <div class="sub">Aldes · MTS · poste PP_153</div>
+          <div class="r2"><span class="due"><i data-lucide="calendar-clock"></i><span class="num">28/07/2026</span></span><span class="hrs num">64<small> h</small></span></div>
+        </button>
+        <button class="card-b k-suggere" data-open="#sheet-of">
+          <div class="r1"><span class="of">SUG 8821</span><span class="badge b-suggere"><span class="dot"></span>Suggéré</span></div>
+          <div class="desc">Recharge BDH10</div>
+          <div class="sub">CBN · à affermir</div>
+          <div class="r2"><span class="due"><i data-lucide="calendar-clock"></i><span class="num">12/08/2026</span></span><span class="hrs num">21<small> h</small></span></div>
+        </button>
+      </div>
+
+      <div class="stage-bar">
+        <button class="btn btn-primary" data-open="#dlg-firm"><i data-lucide="check" style="width:16px;height:16px"></i>Affermir SUG 8821</button>
+        <button class="btn btn-soft" data-open="#sheet-scenario"><i data-lucide="layers" style="width:16px;height:16px"></i>Scénario <span class="num" style="color:var(--gray)">(4)</span></button>
+        <button class="btn btn-ghost" id="btn-export"><i data-lucide="download" style="width:14px;height:14px"></i>Exporter CSV</button>
+        <div class="chip-wrap">
+          <button class="chip-btn" aria-haspopup="menu">Atelier <span class="count">· <span id="atelier-lbl">Tous</span></span> <i data-lucide="chevron-down"></i></button>
+          <div class="menu" id="menu-atelier" role="menu">
+            <div class="m-head">Filtrer par atelier</div>
+            <button class="mi sel" data-short="Tous">Tous les ateliers <span class="tick"><i data-lucide="check"></i></span></button>
+            <button class="mi" data-short="BDH60">BDH60 <span class="sub">· bouches équipées</span> <span class="tick"><i data-lucide="check"></i></span></button>
+            <button class="mi" data-short="PP_146">PP_146 <span class="sub">· modules hygro</span> <span class="tick"><i data-lucide="check"></i></span></button>
+            <button class="mi" data-short="PP_153">PP_153 <span class="sub">· bouches nues</span> <span class="tick"><i data-lucide="check"></i></span></button>
+            <button class="mi" data-short="ESH">ESH <span class="sub">· extracteurs</span> <span class="tick"><i data-lucide="check"></i></span></button>
+          </div>
+        </div>
+      </div>
+
+      <p class="hint">Clique partout : une carte ouvre le <b>sheet latéral</b>, le bouton Rausch ouvre le <b>dialog d'affermissement</b>, « Scénario » glisse le <b>sheet bas</b> — <kbd>Échap</kbd> ou le fond ferment. Le menu utilisateur, en haut à droite, aussi.</p>
+    </div>
+  </section>
+
+  <hr class="rule" />
+
+  <!-- ══ 01 · SHEET LATÉRAL ══ -->
+  <section class="section reveal">
+    <div class="sec-head"><span class="sec-num">01</span><h2 class="sec-title">Sheet latéral — le détail d'OF</h2></div>
+    <p class="sec-sub">Le composant le plus consommé de l'app (programme, ruptures, suivi l'appellent). <b>480 px</b>, fond assombri à <span class="num">50 %</span>, onglets en pilule, pied d'action collé. La descente BOM du diagnostic vit dans l'onglet Composants.</p>
+    <div style="display:flex;gap:12px;flex-wrap:wrap">
+      <button class="btn btn-secondary" data-open="#sheet-of"><i data-lucide="panel-right" style="width:16px;height:16px"></i>Ouvrir le détail OF 24157</button>
+      <span class="badge-ghost">largeur 480</span>
+      <span class="badge-ghost">z-60</span>
+      <span class="badge-ghost">slide 320 ms</span>
+    </div>
+  </section>
+
+  <!-- ══ 02 · SHEET BAS ══ -->
+  <section class="section reveal">
+    <div class="sec-head"><span class="sec-num">02</span><h2 class="sec-title">Sheet bas — diff de scénario</h2></div>
+    <p class="sec-sub">Centre-ville de la page Programme : les mutations empilées, jamais de PATCH direct. <b>640 px max</b>, coins hauts à <span class="num">16 px</span>, poignée de tirage. « Appliquer » rejoue, « Écarter » enchaîne sur l'alert-dialog — essaie la chaîne complète.</p>
+    <div style="display:flex;gap:12px;flex-wrap:wrap">
+      <button class="btn btn-secondary" data-open="#sheet-scenario"><i data-lucide="panel-bottom" style="width:16px;height:16px"></i>Ouvrir le scénario (4 mutations)</button>
+      <span class="badge-ghost">max 640</span>
+      <span class="badge-ghost">rayon 16 haut</span>
+      <span class="badge-ghost">poignée 38×4</span>
+    </div>
+  </section>
+
+  <hr class="rule" />
+
+  <!-- ══ 03 · DIALOGS ══ -->
+  <section class="section reveal">
+    <div class="sec-head"><span class="sec-num">03</span><h2 class="sec-title">Dialog & alert-dialog</h2></div>
+    <p class="sec-sub">Rayon <span class="num">14 px</span> (celui des cartes), entrée <b>scale 0,96 → 1</b> en 240 ms. Le destructif est <span class="num">#c13515</span> — <b>jamais Rausch</b>, qui reste la couleur de marque. Un seul choix primaire par dialog.</p>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+      <button class="btn btn-secondary" data-open="#dlg-firm">Dialog d'action — affermir</button>
+      <button class="btn btn-secondary" data-open="#dlg-discard">Alert-dialog — écarter un scénario</button>
+      <span class="badge-ghost">z-70</span>
+      <span class="badge-ghost">scale 240 ms</span>
+    </div>
+
+    <div class="panel ztable" style="margin-top:26px">
+      <div class="panel-label">Échelle des couches — gravée ici</div>
+      <div class="zr"><span class="zv">40</span><span class="zn">menus déroulants</span><span class="zc">chip, combobox, utilisateur</span></div>
+      <div class="zr"><span class="zv">55</span><span class="zn">backdrop</span><span class="zc">fond des sheets, clic = fermer</span></div>
+      <div class="zr"><span class="zv">60</span><span class="zn">sheets</span><span class="zc">latéral & bas</span></div>
+      <div class="zr"><span class="zv">70</span><span class="zn">dialogs</span><span class="zc">scrim propre, au-dessus des sheets</span></div>
+      <div class="zr"><span class="zv">80</span><span class="zn">toasts</span><span class="zc">toujours au-dessus de tout</span></div>
+    </div>
+  </section>
+
+  <!-- ══ 04 · TOASTS ══ -->
+  <section class="section reveal">
+    <div class="sec-head"><span class="sec-num">04</span><h2 class="sec-title">Toasts</h2></div>
+    <p class="sec-sub">Pilule d'encre <span class="num">#222222</span>, bas-centre, <b>4,2 s</b> puis sortie en glissant. La pastille porte le sens — vert, danger, neutre — jamais la pilule entière. Une action soulignée au maximum.</p>
+    <div style="display:flex;gap:12px;flex-wrap:wrap">
+      <button class="btn btn-soft" id="fire-ok"><i data-lucide="check" style="width:15px;height:15px"></i>Succès</button>
+      <button class="btn btn-soft" id="fire-info">Neutre</button>
+      <button class="btn btn-soft" id="fire-err"><i data-lucide="x" style="width:15px;height:15px"></i>Erreur</button>
+    </div>
+  </section>
+
+  <hr class="rule" />
+
+  <!-- ══ 05 · MENUS & COMBOBOX ══ -->
+  <section class="section reveal">
+    <div class="sec-head"><span class="sec-num">05</span><h2 class="sec-title">Menus déroulants & combobox</h2></div>
+    <p class="sec-sub">Rayon <span class="num">12 px</span>, ombre de flottaison, chevron qui pivote. La coche apparaît sur l'option active — pas de couleur. La combobox filtre en direct ; tape « <span class="num">PP</span> » ou « <span class="num">24</span> ».</p>
+    <div class="grid g2">
+      <div class="panel">
+        <div class="panel-label">Filtre — menu radio</div>
+        <div class="chip-wrap">
+          <button class="chip-btn" aria-haspopup="menu">Horizon <span class="count">· <span id="horizon-lbl">12 mois</span></span> <i data-lucide="chevron-down"></i></button>
+          <div class="menu" id="menu-horizon" role="menu">
+            <button class="mi sel" data-short="12 mois" data-lbl="#horizon-lbl">12 mois glissants <span class="tick"><i data-lucide="check"></i></span></button>
+            <button class="mi" data-short="6 mois" data-lbl="#horizon-lbl">6 mois <span class="tick"><i data-lucide="check"></i></span></button>
+            <button class="mi" data-short="Trimestre" data-lbl="#horizon-lbl">Trimestre <span class="tick"><i data-lucide="check"></i></span></button>
+          </div>
+        </div>
+        <p style="color:var(--gray);font-size:13px;margin-top:16px">Clic dehors ou <span class="num">Échap</span> pour fermer. L'option sélectionnée met à jour la puce — c'est elle qui porte l'état, pas le menu.</p>
+      </div>
+      <div class="panel">
+        <div class="panel-label">Recherche — combobox</div>
+        <div class="cbx">
+          <i data-lucide="search" class="field-ic"></i>
+          <input id="cbx" type="text" placeholder="Poste de charge ou OF…" autocomplete="off" />
+          <div class="menu" id="cbx-list" role="listbox">
+            <button class="mi" data-val="PP_153 — Bouches BDH60">PP_153 — Bouches BDH60 <span class="tag">POSTE</span></button>
+            <button class="mi" data-val="PP_146 — Modules hygro MH">PP_146 — Modules hygro MH <span class="tag">POSTE</span></button>
+            <button class="mi" data-val="Injection 2 — Corps BDH10">Injection 2 — Corps BDH10 <span class="tag">POSTE</span></button>
+            <button class="mi" data-val="OF 24157 — Bouche hygro BDH10">OF 24157 — Bouche hygro BDH10 <span class="tag">OF</span></button>
+            <button class="mi" data-val="OF 24166 — BDH60 équipée">OF 24166 — BDH60 équipée <span class="tag">OF</span></button>
+            <button class="mi" data-val="SUG 8821 — Recharge BDH10">SUG 8821 — Recharge BDH10 <span class="tag">SUG</span></button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ 06 · ÉTATS ══ -->
+  <section class="section reveal">
+    <div class="sec-head"><span class="sec-num">06</span><h2 class="sec-title">Vides, chargements, erreurs</h2></div>
+    <p class="sec-sub">La grammaire doit tenir quand il n'y a <b>rien à montrer</b>. Vide = pointillés + icône neutre + une seule issue. Chargement = shimmer <span class="num">1,5 s</span> sur silhouettes exactes, jamais de spinner plein écran.</p>
+    <div class="grid g2">
+      <div class="empty">
+        <div class="e-ic"><i data-lucide="search"></i></div>
+        <h4>Aucun OF — Injection 3, semaine 32</h4>
+        <p>Fermeture d'été ? Vérifie le calendrier usine, ou élargis l'horizon d'une semaine.</p>
+        <button class="btn btn-secondary" style="height:42px" id="btn-empty">Voir la semaine 33</button>
+      </div>
+      <div class="skl-card">
+        <div class="panel-label" style="margin-bottom:14px">Skeleton — carte OF</div>
+        <div style="display:flex;gap:10px;margin-bottom:14px">
+          <div class="skl" style="width:4px;height:64px;border-radius:2px"></div>
+          <div style="flex:1">
+            <div class="skl skl-line" style="width:42%"></div>
+            <div class="skl skl-line" style="width:78%;height:15px"></div>
+            <div class="skl skl-line" style="width:58%;margin-bottom:0"></div>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px">
+          <div class="skl" style="flex:1;height:34px"></div>
+          <div class="skl" style="flex:1;height:34px"></div>
+          <div class="skl" style="flex:1;height:34px"></div>
+          <div class="skl" style="flex:1;height:34px"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <p class="foot-note">
+    <b>Ce fichier grave la couche overlay de la grammaire.</b> Troisième ombre <code>--sh-overlay</code> réservée aux tiroirs, dialogs et toasts — jamais sur la page ·
+    courbe unique <code>cubic-bezier(.2,.7,.2,1)</code>, 320 ms sheets / 240 ms dialogs ·
+    échelle z : <code>40 → 55 → 60 → 70 → 80</code> · Échap ferme la couche la plus haute, le fond ferme les sheets ·
+    destructif <code>#c13515</code> ≠ Rausch. Chaîne validée ici : scénario → alert-dialog → toast.
+    Prochain chantier : la landing <code>/tableau</code> et le <code>/copilote</code>.
+  </p>
+
+</div>
+
+<!-- ══════════════════ COUCHES ══════════════════ -->
+<div class="backdrop" id="backdrop"></div>
+
+<!-- — Sheet latéral : détail OF — -->
+<aside class="sheet-r" id="sheet-of" aria-label="Détail OF 24157">
+  <div class="s-head">
+    <div class="row1">
+      <h3 class="num">OF 24157</h3>
+      <span class="badge b-ferme"><span class="dot"></span>Ferme</span>
+      <button class="x" data-close aria-label="Fermer"><i data-lucide="x"></i></button>
+    </div>
+    <div class="sub">Bouche hygro BDH10 · Aldes · MTS · poste PP_153</div>
+  </div>
+  <div class="s-body">
+    <div class="sheet-tabs">
+      <button class="on" data-pane="pane-syn">Synthèse</button>
+      <button data-pane="pane-comp">Composants <span class="num" style="color:var(--gray-l)">(3)</span></button>
+    </div>
+
+    <div class="sheet-pane on" id="pane-syn">
+      <dl class="dl">
+        <div><dt>Client</dt><dd>Aldes Distribution</dd></div>
+        <div><dt>Commande</dt><dd class="num">CD-2026-1187</dd></div>
+        <div><dt>Quantité</dt><dd class="num">240 <small>pcs</small></dd></div>
+        <div><dt>Charge</dt><dd class="num">64 <small>h</small></dd></div>
+        <div><dt>Lancé le</dt><dd class="num">14/07/2026</dd></div>
+        <div><dt>Dû le</dt><dd class="num">28/07/2026</dd></div>
+      </dl>
+      <div class="panel-label">Trajectoire</div>
+      <div class="mini-tl">
+        <div class="track"></div>
+        <div class="prog" style="width:46%"></div>
+        <div class="node done" style="left:0"></div>
+        <div class="node now" style="left:46%"></div>
+        <div class="node" style="left:calc(100% - 15px)"></div>
+        <span class="lbl" style="left:7px">Lancé 14/07</span>
+        <span class="lbl" style="left:46%">Aujourd'hui</span>
+        <span class="lbl" style="left:calc(100% - 8px)">Dû 28/07</span>
+      </div>
+      <div class="panel-label">Faisabilité</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <span class="badge b-retard"><span class="dot"></span>1 composant en rupture</span>
+        <span class="badge-ghost">stock net −120 pcs</span>
+        <span class="badge-ghost">réception 12/07 non arrivée</span>
+      </div>
+    </div>
+
+    <div class="sheet-pane" id="pane-comp">
+      <div class="tree">
+        <div class="node">
+          <div class="n-top"><span class="n-name">Corps de bouche BDH10</span><span class="n-qty neg">net −120 pcs</span><span class="badge b-retard" style="margin-left:auto"><span class="dot"></span>Rupture</span></div>
+          <div class="n-sub">Cause racine — bloque la quantité totale de l'OF</div>
+          <div class="n-sub" style="margin-top:6px;padding-left:14px;border-left:2px solid var(--line-soft)">↳ Réception <span class="num">REC-0412</span> VTI — 300 pcs dues le <span class="num">12/07/2026</span>, <b style="color:var(--rausch)">retard 9 j</b></div>
+        </div>
+        <div class="node">
+          <div class="n-top"><span class="n-name">Moteur ESH30</span><span class="n-qty">net 340 pcs</span><span class="badge b-ferme" style="margin-left:auto"><span class="dot"></span>Couvert</span></div>
+          <div class="n-sub">Stock suffisant pour 240 pcs + sécurité</div>
+        </div>
+        <div class="node">
+          <div class="n-top"><span class="n-name">Cassette hygro MH</span><span class="n-qty">140 / 200 pcs</span><span class="badge b-suggere" style="margin-left:auto"><span class="dot"></span>Partielle</span></div>
+          <div class="n-sub">Réception partielle <span class="num">REC-0409</span> — reliquat attendu le <span class="num">24/07/2026</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="s-foot">
+    <button class="btn btn-primary" id="btn-detail-follow">Suivre cet OF</button>
+    <button class="btn btn-secondary" id="btn-detail-export">Exporter</button>
+  </div>
+</aside>
+
+<!-- — Sheet bas : scénario — -->
+<aside class="sheet-b" id="sheet-scenario" aria-label="Scénario — 4 mutations">
+  <div class="grab"></div>
+  <div class="s-head">
+    <div class="row1">
+      <h3 style="font-size:19px">Scénario «&nbsp;S32 décalé&nbsp;»</h3>
+      <span class="badge-ghost">non appliqué</span>
+      <button class="x" data-close aria-label="Fermer"><i data-lucide="x"></i></button>
+    </div>
+    <div class="sub">4 mutations empilées — aucune écriture vers l'ERP tant que tu n'appliques pas.</div>
+  </div>
+  <div class="s-body">
+    <div class="mut">
+      <span class="m-ic"><i data-lucide="calendar-clock"></i></span>
+      <div class="d">
+        <div class="t">Décaler — <span class="num">OF 24157</span></div>
+        <div class="s">Dû <span class="old num">28/07/2026</span><span class="arr">→</span><b class="num" style="color:var(--ink)">31/07/2026</b></div>
+      </div>
+      <span class="chip-delta cd-warn">+3 j</span>
+    </div>
+    <div class="mut">
+      <span class="m-ic"><i data-lucide="layers"></i></span>
+      <div class="d">
+        <div class="t">Recharger — <span class="num">OF 24166</span> · BDH60 équipée</div>
+        <div class="s">Charge <span class="old num">110 h</span><span class="arr">→</span><b class="num" style="color:var(--ink)">140 h</b></div>
+      </div>
+      <span class="chip-delta cd-warn">+30 h</span>
+    </div>
+    <div class="mut">
+      <span class="m-ic"><i data-lucide="check"></i></span>
+      <div class="d">
+        <div class="t">Affermir — <span class="num">SUG 8821</span> · Recharge BDH10</div>
+        <div class="s">Suggestion CBN → OF ferme, dû <b class="num" style="color:var(--ink)">21/08/2026</b></div>
+      </div>
+      <span class="chip-delta cd-new">nouveau</span>
+    </div>
+    <div class="mut">
+      <span class="m-ic"><i data-lucide="x"></i></span>
+      <div class="d">
+        <div class="t">Annuler — <span class="num">OF 24170</span> · Caisson VMC S23</div>
+        <div class="s">Libère le poste montage en semaine 33</div>
+      </div>
+      <span class="chip-delta cd-del">−40 h</span>
+    </div>
+  </div>
+  <div class="s-foot">
+    <button class="btn btn-primary" id="btn-apply"><i data-lucide="check" style="width:16px;height:16px"></i>Appliquer (4 PATCH)</button>
+    <button class="btn btn-ghost" id="btn-discard" style="font-size:15px">Écarter</button>
+  </div>
+</aside>
+
+<!-- — Dialog : affermir — -->
+<div class="modal-wrap" id="dlg-firm">
+  <div class="scrim" data-close></div>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="firm-title">
+    <h3 id="firm-title">Affermir la suggestion <span class="num">SUG 8821</span> ?</h3>
+    <p class="m-body">La suggestion CBN devient un <b>OF ferme</b> écrit dans X3 (subprogramme <b>FIRMSUGG</b>, base CLTEST). Quantité et date restent modifiables après affermissement.</p>
+    <div class="field">
+      <label for="firm-qty">Quantité à affermir</label>
+      <input id="firm-qty" class="num" type="text" value="120" inputmode="numeric" />
+      <span class="hint">Besoin net calculé : 120 pcs · dû le 12/08/2026</span>
+    </div>
+    <div class="m-actions">
+      <button class="btn btn-ghost" data-close style="font-size:15px">Annuler</button>
+      <button class="btn btn-primary" id="btn-firm">Affermir</button>
+    </div>
+  </div>
+</div>
+
+<!-- — Alert-dialog : écarter — -->
+<div class="modal-wrap" id="dlg-discard">
+  <div class="scrim" data-close></div>
+  <div class="modal" role="alertdialog" aria-modal="true" aria-labelledby="disc-title">
+    <div class="m-ic-danger"><i data-lucide="octagon-alert"></i></div>
+    <h3 id="disc-title">Écarter le scénario ?</h3>
+    <p class="m-body">Les <b>4 mutations</b> empilées (décalage <span class="num">OF 24157</span>, recharge <span class="num">OF 24166</span>, affermissement <span class="num">SUG 8821</span>, annulation <span class="num">OF 24170</span>) seront perdues. Le board revient à l'état réel — sans rechargement.</p>
+    <div class="m-actions">
+      <button class="btn btn-secondary" data-close>Garder</button>
+      <button class="btn btn-danger" id="btn-discard-confirm">Écarter le scénario</button>
+    </div>
+  </div>
+</div>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<script>
+  if (window.lucide) lucide.createIcons();
+  const $ = s => document.querySelector(s);
+  const $$ = s => [...document.querySelectorAll(s)];
+
+  /* ── révélation au scroll ── */
+  const io = new IntersectionObserver(es => es.forEach(e => {
+    if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+  }), { threshold: 0.08 });
+  $$('.reveal').forEach(el => io.observe(el));
+
+  /* ── toasts ── */
+  const toastsEl = $('#toasts');
+  function toast(msg, kind = 'info', action) {
+    const t = document.createElement('div');
+    t.className = 'toast t-' + kind;
+    const glyph = kind === 'ok' ? '✓' : kind === 'err' ? '!' : 'i';
+    t.innerHTML = `<span class="tic">${glyph}</span><span>${msg}</span>` +
+      (action ? `<button class="act">${action[0]}</button>` : '');
+    toastsEl.appendChild(t);
+    const kill = () => { t.classList.add('out'); setTimeout(() => t.remove(), 280); };
+    if (action) t.querySelector('.act').addEventListener('click', () => { action[1](); kill(); });
+    setTimeout(kill, 4200);
+  }
+  $('#fire-ok').addEventListener('click', () => toast('Réception REC-0415 pointée — 500 pcs en stock', 'ok'));
+  $('#fire-info').addEventListener('click', () => toast('Board actualisé — 580 OF, semaine 30', 'info'));
+  $('#fire-err').addEventListener('click', () => toast('Écriture X3 refusée — FIRMSUGG en timeout', 'err', ['Réessayer', () => toast('Écriture relancée…', 'info')]));
+
+  /* ── menus déroulants ── */
+  function closeMenus() { $$('.chip-wrap.open').forEach(c => c.classList.remove('open')); }
+  $$('.chip-wrap .chip-btn, .chip-wrap .user-pill').forEach(b =>
+    b.addEventListener('click', e => {
+      e.stopPropagation();
+      const w = b.parentElement, was = w.classList.contains('open');
+      closeMenus();
+      if (!was) w.classList.add('open');
+    })
+  );
+  document.addEventListener('click', e => { if (!e.target.closest('.chip-wrap')) closeMenus(); });
+
+  $$('#menu-atelier .mi').forEach(mi => mi.addEventListener('click', () => {
+    $$('#menu-atelier .mi').forEach(m => m.classList.remove('sel'));
+    mi.classList.add('sel');
+    $('#atelier-lbl').textContent = mi.dataset.short;
+    closeMenus();
+    toast(`Filtre atelier — ${mi.dataset.short}`, 'info');
+  }));
+  $$('#menu-horizon .mi').forEach(mi => mi.addEventListener('click', () => {
+    $$('#menu-horizon .mi').forEach(m => m.classList.remove('sel'));
+    mi.classList.add('sel');
+    $(mi.dataset.lbl).textContent = mi.dataset.short;
+    closeMenus();
+  }));
+
+  /* ── combobox ── */
+  const cbx = $('#cbx'), cbxItems = $$('#cbx-list .mi');
+  cbx.addEventListener('input', () => {
+    const q = cbx.value.toLowerCase();
+    cbxItems.forEach(mi => { mi.style.display = mi.textContent.toLowerCase().includes(q) ? '' : 'none'; });
+  });
+  cbxItems.forEach(mi => mi.addEventListener('click', () => {
+    cbx.value = mi.dataset.val;
+    cbx.blur();
+    toast(`Sélection — ${mi.dataset.val}`, 'info');
+  }));
+
+  /* ── couches : ouverture / fermeture ── */
+  const backdrop = $('#backdrop');
+  const sheetOpen = () => $('.sheet-r.on, .sheet-b.on');
+
+  $$('[data-open]').forEach(b => b.addEventListener('click', () => {
+    const target = $(b.dataset.open);
+    target.classList.add('on');
+    if (!target.classList.contains('modal-wrap')) backdrop.classList.add('on');
+  }));
+  $$('[data-close]').forEach(b => b.addEventListener('click', () => {
+    const layer = b.closest('.sheet-r, .sheet-b, .modal-wrap');
+    layer.classList.remove('on');
+    if (!sheetOpen()) backdrop.classList.remove('on');
+  }));
+  backdrop.addEventListener('click', () => {
+    $$('.sheet-r.on, .sheet-b.on').forEach(s => s.classList.remove('on'));
+    backdrop.classList.remove('on');
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    const dlg = $('.modal-wrap.on');
+    if (dlg) { dlg.classList.remove('on'); if (!sheetOpen()) backdrop.classList.remove('on'); return; }
+    const sh = sheetOpen();
+    if (sh) { sh.classList.remove('on'); backdrop.classList.remove('on'); return; }
+    closeMenus();
+  });
+
+  /* ── onglets du sheet OF ── */
+  $$('.sheet-tabs button').forEach(b => b.addEventListener('click', () => {
+    $$('.sheet-tabs button').forEach(x => x.classList.remove('on'));
+    b.classList.add('on');
+    $$('.sheet-pane').forEach(p => p.classList.toggle('on', p.id === b.dataset.pane));
+  }));
+
+  /* ── flux scénarios & dialogs ── */
+  $('#btn-apply').addEventListener('click', () => {
+    $('#sheet-scenario').classList.remove('on');
+    backdrop.classList.remove('on');
+    toast('Scénario appliqué — 4 mutations rejouées en PATCH', 'ok');
+  });
+  $('#btn-discard').addEventListener('click', () => $('#dlg-discard').classList.add('on'));
+  $('#btn-discard-confirm').addEventListener('click', () => {
+    $('#dlg-discard').classList.remove('on');
+    $('#sheet-scenario').classList.remove('on');
+    backdrop.classList.remove('on');
+    toast('Scénario écarté — board revenu à l’état réel', 'info', ['Annuler', () => toast('Scénario restauré', 'ok')]);
+  });
+  $('#btn-firm').addEventListener('click', () => {
+    const q = $('#firm-qty').value || '120';
+    $('#dlg-firm').classList.remove('on');
+    toast(`SUG 8821 affermie (${q} pcs) — OF ferme créé dans X3`, 'ok');
+  });
+  $('#btn-export').addEventListener('click', () => toast('580 OF exportés en CSV — programme S30', 'ok'));
+  $('#btn-detail-follow').addEventListener('click', () => {
+    $('#sheet-of').classList.remove('on');
+    backdrop.classList.remove('on');
+    toast('OF 24157 ajouté à tes suivis', 'ok');
+  });
+  $('#btn-detail-export').addEventListener('click', () => toast('Fiche OF 24157 exportée', 'ok'));
+  $('#btn-empty').addEventListener('click', () => toast('Semaine 33 — 3 OF trouvés sur Injection 3', 'ok'));
+</script>
+</body>
+</html>
