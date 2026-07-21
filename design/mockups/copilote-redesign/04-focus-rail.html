@@ -181,16 +181,46 @@ html, body { margin: 0; padding: 0; font-family: var(--font-sans); color: var(--
 .ghost-hint { display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; padding: 7px 11px; background: var(--secondary); border-radius: 8px; font-size: 12px; color: var(--muted-foreground); }
 .ghost-hint b { color: var(--foreground); font-weight: 600; }
 
-.composer-wrap { border-top: 1px solid var(--rule-soft); background: var(--background); padding: 14px 24px 18px; display: flex; justify-content: center; }
-.composer { width: 100%; max-width: 720px; display: flex; gap: 8px; align-items: center; padding: 6px 6px 6px 16px; border: 1px solid var(--border); border-radius: var(--radius-pill); transition: border-color 0.15s, box-shadow 0.15s; }
+/* ── Composer (inspiration ChatGPT / Claude) ──
+   Conteneur arrondi + ligne d'actions en bas + chips de prompts au-dessus. */
+.composer-wrap { border-top: 1px solid var(--rule-soft); background: var(--background); padding: 12px 24px 14px; display: flex; justify-content: center; }
+.composer-stack { width: 100%; max-width: 720px; }
+
+/* Prompt chips — raccourcis cliquables au-dessus du composer */
+.prompt-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.prompt-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; font-family: inherit; font-size: 12.5px; font-weight: 500; color: var(--foreground); background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-pill); cursor: pointer; transition: border-color 0.15s, background 0.15s, transform 0.1s; }
+.prompt-chip:hover { border-color: var(--foreground); background: var(--secondary); }
+.prompt-chip:active { transform: scale(0.97); }
+.prompt-chip svg { color: var(--primary); flex: none; }
+
+/* Composer box — conteneur arrondi (rounded-3xl) */
+.composer { border: 1px solid var(--border); border-radius: 24px; background: var(--background); box-shadow: var(--shadow-soft); transition: border-color 0.15s, box-shadow 0.15s; }
 .composer:focus-within { border-color: var(--foreground); box-shadow: 0 0 0 3px rgba(34,34,34,0.06); }
-.composer__input { flex: 1; border: none; outline: none; background: none; font-family: inherit; font-size: 14.5px; color: var(--foreground); padding: 10px 0; resize: none; max-height: 140px; line-height: 1.5; }
+.composer__textarea-row { padding: 13px 16px 2px; }
+.composer__input { width: 100%; border: none; outline: none; background: none; font-family: inherit; font-size: 15px; line-height: 1.55; color: var(--foreground); resize: none; min-height: 24px; max-height: 200px; display: block; overflow: hidden; }
 .composer__input::placeholder { color: var(--muted-foreground); }
-.composer__send { width: 38px; height: 38px; border-radius: 50%; border: none; background: var(--primary); color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; flex: none; transition: background 0.15s, transform 0.1s; }
-.composer__send:hover { background: var(--color-rausch-active); }
-.composer__send:active { transform: scale(0.94); }
-.composer__foot { width: 100%; max-width: 720px; display: flex; justify-content: space-between; align-items: center; padding: 0 6px; margin-top: 8px; font-size: 11px; color: var(--muted-foreground); }
-.composer__foot kbd { font-family: var(--font-mono); font-size: 10px; padding: 1px 5px; border: 1px solid var(--border); border-radius: 4px; background: var(--secondary); }
+.composer__actionrow { display: flex; align-items: center; gap: 8px; padding: 6px 8px 8px 12px; }
+
+/* Chips de gauche : contexte actif + verrou lecture seule */
+.cx-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; font-size: 11.5px; font-weight: 600; border-radius: var(--radius-pill); border: 1px solid var(--border); background: var(--card); color: var(--foreground); cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+.cx-chip:hover { border-color: var(--foreground); background: var(--secondary); }
+.cx-chip code { font-family: var(--font-mono); font-size: 11px; }
+.cx-chip[data-tone="lock"] { color: var(--muted-foreground); cursor: default; }
+.cx-chip[data-tone="lock"]:hover { border-color: var(--border); background: var(--card); }
+.cx-chip[data-tone="ctx"] { border-color: color-mix(in srgb, var(--planifie) 32%, transparent); color: #00736b; background: color-mix(in srgb, var(--planifie) 7%, transparent); }
+.cx-chip[data-tone="ctx"]:hover { background: color-mix(in srgb, var(--planifie) 12%, transparent); border-color: color-mix(in srgb, var(--planifie) 50%, transparent); }
+
+.composer__sendhint { margin-left: auto; font-size: 10.5px; color: var(--muted-foreground); display: inline-flex; align-items: center; gap: 3px; }
+.composer__sendhint kbd { font-family: var(--font-mono); font-size: 10px; padding: 1px 5px; border: 1px solid var(--border); border-radius: 4px; background: var(--secondary); }
+.composer__send { width: 36px; height: 36px; border-radius: 50%; border: none; background: var(--primary); color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; flex: none; transition: background 0.15s, transform 0.1s, opacity 0.15s; }
+.composer__send:hover:not(:disabled) { background: var(--color-rausch-active); }
+.composer__send:active:not(:disabled) { transform: scale(0.92); }
+.composer__send:disabled { background: var(--border); color: #fff; cursor: not-allowed; }
+
+/* Micro-copie honnête sous le composer (style ChatGPT/Claude) */
+.composer__foot { margin-top: 8px; padding: 0 6px; font-size: 11px; color: var(--muted-foreground); line-height: 1.5; }
+.composer__foot code { font-family: var(--font-mono); background: var(--secondary); padding: 1px 5px; border-radius: 4px; font-size: 10.5px; }
+.composer__foot kbd { font-family: var(--font-mono); font-size: 10px; padding: 1px 5px; border: 1px solid var(--border); border-radius: 4px; background: var(--secondary); color: var(--muted-foreground); }
 </style>
 </head>
 <body>
@@ -354,16 +384,50 @@ html, body { margin: 0; padding: 0; font-family: var(--font-sans); color: var(--
       </div>
 
       <div class="composer-wrap">
-        <div>
-          <div class="composer">
-            <textarea class="composer__input" rows="1" placeholder="Poser une question supply…"></textarea>
-            <button class="composer__send" aria-label="Envoyer">
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+        <div class="composer-stack">
+          <!-- Raccourcis prompts (discoverability style ChatGPT) -->
+          <div class="prompt-chips">
+            <button class="prompt-chip" data-prompt="Date engageante pour 200 PP_830_ESH ?">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              Date engageante
+            </button>
+            <button class="prompt-chip" data-prompt="Retards clients prévus sur 14 jours ?">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              Retards clients
+            </button>
+            <button class="prompt-chip" data-prompt="Pourquoi l'OF OF-2024-1182 est-il bloqué ?">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              OF bloqué
+            </button>
+            <button class="prompt-chip" data-prompt="Scénario : impact si je décale l'OF OF-2024-1182 de 5 jours ?">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+              Scénario what-if
             </button>
           </div>
+
+          <!-- Composer : conteneur arrondi + ligne d'actions en bas -->
+          <div class="composer">
+            <div class="composer__textarea-row">
+              <textarea class="composer__input" id="composer-input" rows="1" placeholder="Poser une question supply…"></textarea>
+            </div>
+            <div class="composer__actionrow">
+              <button class="cx-chip" data-tone="ctx" id="ctx-toggle" title="Contexte déduit de la conversation — replier/déplier">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                Contexte : <code>PP_830_ESH</code>
+              </button>
+              <span class="cx-chip" data-tone="lock" title="Le copilote ne modifie aucune donnée">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                Lecture seule
+              </span>
+              <span class="composer__sendhint"><kbd>↵</kbd></span>
+              <button class="composer__send" id="send-btn" aria-label="Envoyer" disabled>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+              </button>
+            </div>
+          </div>
+
           <div class="composer__foot">
-            <span>Lecture seule · l'agent ne modifie aucune donnée</span>
-            <span><kbd>↵</kbd> envoyer &nbsp;·&nbsp; <kbd>⇧↵</kbd> saut de ligne</span>
+            Le copilote peut se tromper — chaque chiffre porte sa source <code>[tool: …]</code> pour vérification. <kbd>⇧↵</kbd> pour un saut de ligne.
           </div>
         </div>
       </div>
@@ -373,13 +437,23 @@ html, body { margin: 0; padding: 0; font-family: var(--font-sans); color: var(--
 </div>
 
 <script>
-  // ── Replier / déplier le rail contexte ──
   (function () {
     var ws = document.getElementById('workspace');
     var toggle = document.getElementById('toggle-rail');
-    toggle.addEventListener('click', function () {
-      var collapsed = ws.classList.toggle('is-collapsed');
+
+    // ── Replier / déplier le rail contexte (bouton header) ──
+    function setCollapsed(collapsed) {
+      ws.classList.toggle('is-collapsed', collapsed);
       toggle.setAttribute('aria-pressed', String(!collapsed));
+    }
+    toggle.addEventListener('click', function () {
+      setCollapsed(!ws.classList.contains('is-collapsed'));
+    });
+
+    // Le chip « Contexte » du composer bascule aussi le rail
+    var ctxToggle = document.getElementById('ctx-toggle');
+    if (ctxToggle) ctxToggle.addEventListener('click', function () {
+      setCollapsed(!ws.classList.contains('is-collapsed'));
     });
 
     // ── Source chip → flasher la donnée citée dans le rail ──
@@ -387,22 +461,37 @@ html, body { margin: 0; padding: 0; font-family: var(--font-sans); color: var(--
     conv.addEventListener('click', function (e) {
       var chip = e.target.closest('.source-tag');
       if (!chip) return;
-      var targetId = chip.getAttribute('data-target');
-      var target = document.getElementById(targetId);
+      var target = document.getElementById(chip.getAttribute('data-target'));
       if (!target) return;
-
-      // Si le rail est replié, on le déplie d'abord
-      if (ws.classList.contains('is-collapsed')) {
-        ws.classList.remove('is-collapsed');
-        toggle.setAttribute('aria-pressed', 'true');
-      }
-
-      // Relance l'animation flash
+      if (ws.classList.contains('is-collapsed')) setCollapsed(false);
       target.classList.remove('is-flash');
-      void target.offsetWidth; // reflow
+      void target.offsetWidth;
       target.classList.add('is-flash');
-
       target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+
+    // ── Composer : auto-grow + état du bouton envoyer ──
+    var ta = document.getElementById('composer-input');
+    var send = document.getElementById('send-btn');
+    function sync() {
+      ta.style.height = 'auto';
+      ta.style.height = Math.min(ta.scrollHeight, 200) + 'px';
+      send.disabled = ta.value.trim().length === 0;
+    }
+    ta.addEventListener('input', sync);
+    ta.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (!send.disabled) { send.click(); } }
+    });
+    sync();
+
+    // ── Prompt chips → remplir l'input et focus ──
+    document.querySelectorAll('.prompt-chip').forEach(function (chip) {
+      chip.addEventListener('click', function () {
+        ta.value = chip.getAttribute('data-prompt');
+        sync();
+        ta.focus();
+        ta.setSelectionRange(ta.value.length, ta.value.length);
+      });
     });
   })();
 </script>
