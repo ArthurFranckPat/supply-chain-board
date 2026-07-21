@@ -284,6 +284,71 @@
   .grammar-note b { color: var(--ink); }
   .grammar-note code { background: var(--canvas); border: 1px solid var(--hairline); border-radius: 5px; padding: 1px 6px; font-size: 12px; }
 
+  /* ============ VUES (navigation) ============ */
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* ============ FILE DE TRIAGE (ruptures) ============ */
+  .alert-summary { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 28px; }
+  .alert {
+    display: flex; align-items: center; gap: 16px;
+    border: 1px solid var(--hairline); border-radius: var(--r-card);
+    padding: 16px 20px; background: var(--canvas); cursor: pointer;
+    transition: box-shadow .18s, transform .18s;
+  }
+  .alert + .alert { margin-top: 12px; }
+  .alert:hover { box-shadow: var(--shadow-float); transform: translateY(-1px); }
+  .alert .ic {
+    width: 40px; height: 40px; border-radius: var(--r-pill);
+    display: grid; place-items: center; flex: none;
+  }
+  .ic-crit { background: rgba(193,53,21,0.10);  color: var(--danger); }
+  .ic-warn { background: rgba(252,100,45,0.10); color: var(--suggere); }
+  .ic-info { background: rgba(0,166,153,0.10);  color: var(--planifie); }
+  .ic-mute { background: var(--surface-soft);   color: var(--muted); }
+  .alert .main { min-width: 0; }
+  .alert .t { font-size: 14px; font-weight: 600; letter-spacing: -0.1px; }
+  .alert .s { color: var(--muted); font-size: 13px; margin-top: 3px; }
+  .alert .right { margin-left: auto; display: flex; align-items: center; gap: 18px; flex: none; }
+  .alert .when { font-size: 12px; color: var(--muted-soft); font-variant-numeric: tabular-nums; }
+  .alert .cta { font-size: 13px; font-weight: 600; color: var(--ink); text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }
+  .alert:hover .cta { color: var(--rausch-active); }
+
+  /* ============ PROJECTION DE CHARGE ============ */
+  .chart-wrap { border: 1px solid var(--hairline); border-radius: var(--r-card); padding: 24px; }
+  .bars { position: relative; display: flex; align-items: flex-end; gap: 28px; height: 220px; }
+  .bgroup { flex: 1; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; }
+  .bgroup .tot { font-size: 11px; color: var(--muted); margin-bottom: 5px; font-variant-numeric: tabular-nums; }
+  .stack {
+    width: min(56px, 100%); display: flex; flex-direction: column;
+    border-radius: 6px 6px 0 0; overflow: hidden;
+  }
+  .stack .s { transition: opacity .15s; }
+  .bgroup:hover .s { opacity: .82; }
+  .s-ferme { background: var(--ferme); } .s-planifie { background: var(--planifie); } .s-suggere { background: var(--suggere); }
+  .bgroup .xl { margin-top: 8px; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .cap-line { position: absolute; left: 0; right: 0; border-top: 2px dashed var(--border-strong); pointer-events: none; }
+  .cap-line span {
+    position: absolute; right: 0; top: -18px;
+    font-size: 10px; font-weight: 600; color: var(--muted);
+    background: var(--canvas); padding-left: 6px; font-variant-numeric: tabular-nums;
+  }
+  .legend { display: flex; gap: 20px; margin-top: 18px; font-size: 12px; color: var(--muted); }
+  .legend .k { display: inline-flex; align-items: center; gap: 7px; }
+  .legend .sw { width: 10px; height: 10px; border-radius: 3px; }
+
+  /* ============ ALLOCATION (suivi) ============ */
+  .alloc {
+    display: inline-block; vertical-align: middle; margin-right: 8px;
+    width: 110px; height: 4px; border-radius: var(--r-pill);
+    background: var(--surface-strong); overflow: hidden;
+  }
+  .alloc > span { display: block; height: 100%; border-radius: var(--r-pill); }
+
+  /* note de bas de page */
+  .foot-note { margin-top: 56px; max-width: 660px; color: var(--muted); font-size: 13px; line-height: 1.7; }
+  .foot-note b { color: var(--ink); }
+
   @media (max-width: 1000px) {
     .kpi-grid, .board-grid { grid-template-columns: repeat(2, 1fr); }
   }
@@ -295,15 +360,15 @@
   <header class="masthead">
     <div class="wordmark">Supply Chain <b>AERECO</b></div>
     <nav class="nav">
-      <a href="#" class="active">Programme</a>
-      <a href="#">Suivi</a>
-      <a href="#">Charge</a>
-      <a href="#">Ruptures</a>
-      <a href="#">Réceptions</a>
-      <a href="#">Expéditions</a>
+      <a href="#" class="active" data-view="programme">Programme</a>
+      <a href="#" data-view="suivi">Suivi</a>
+      <a href="#" data-view="charge">Charge</a>
+      <a href="#" data-view="ruptures">Ruptures</a>
+      <a href="#" data-view="receptions">Réceptions</a>
+      <a href="#" data-view="expeditions">Expéditions</a>
     </nav>
     <div class="mast-right">
-      <span class="env-meta num">Site AE1 · 20/07/2026</span>
+      <span class="env-meta num">Site AE1 · 21/07/2026</span>
       <div class="avatar">AB</div>
     </div>
   </header>
@@ -332,6 +397,9 @@
   </div>
 
   <main>
+
+    <!-- ================= VUE PROGRAMME ================= -->
+    <section class="view active" id="view-programme">
     <div class="page-head">
       <h1>Programme de production</h1>
       <p class="num">Semaine 30 · 580 OF · 12 lignes</p>
@@ -512,7 +580,466 @@
       statuts métier = pastilles teintées transparentes (ferme vert <code>#008049</code>, planifié teal <code>#00a699</code>, suggéré orange <code>#fc642d</code>, rupture <code>#c13515</code>) ·
       police Inter (substitut ouvert de Cereal). Pas de serif (Fraunces) sous ce thème.
     </div>
+    </section>
+
+    <!-- ================= VUE SUIVI ================= -->
+    <section class="view" id="view-suivi">
+      <div class="page-head">
+        <h1>Suivi des commandes</h1>
+        <p class="num">Correspondance OF ↔ commande · allocation en temps réel · 96 commandes ouvertes</p>
+      </div>
+
+      <div class="section-label">Commandes en fabrication</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Commande</th>
+              <th>Client</th>
+              <th class="r">Besoin</th>
+              <th>OF alloué</th>
+              <th>Allocation</th>
+              <th>Statut</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="td-strong num">CD-2026-1178</td>
+              <td>Point P Lyon</td>
+              <td class="r num">21/07/2026</td>
+              <td class="td-strong num">OF-08390</td>
+              <td><span class="alloc"><span style="width:100%;background:var(--ferme)"></span></span><span class="num">100%</span></td>
+              <td><span class="pill ferme"><span class="d"></span>Prête à expédier</span></td>
+            </tr>
+            <tr>
+              <td class="td-strong num">CD-2026-1187</td>
+              <td>Aldes Distribution</td>
+              <td class="r num">22/07/2026</td>
+              <td class="td-strong num">OF-08412</td>
+              <td><span class="alloc"><span style="width:100%;background:var(--ferme)"></span></span><span class="num">100%</span></td>
+              <td><span class="pill ferme"><span class="d"></span>Couverte</span></td>
+            </tr>
+            <tr>
+              <td class="td-strong num">CD-2026-1194</td>
+              <td>Leroy Merlin</td>
+              <td class="r num">19/07/2026</td>
+              <td class="td-strong num">OF-08398</td>
+              <td><span class="alloc"><span style="width:40%;background:var(--danger)"></span></span><span class="num">40%</span></td>
+              <td><span class="pill late"><span class="d"></span>Rupture composant</span></td>
+            </tr>
+            <tr>
+              <td class="td-strong num">CD-2026-1190</td>
+              <td>Point P Lyon</td>
+              <td class="r num">25/07/2026</td>
+              <td class="td-strong num">OF-08413</td>
+              <td><span class="alloc"><span style="width:65%;background:var(--planifie)"></span></span><span class="num">65%</span></td>
+              <td><span class="pill planifie"><span class="d"></span>En fabrication</span></td>
+            </tr>
+            <tr>
+              <td class="td-strong num">CD-2026-1201</td>
+              <td>Castorama</td>
+              <td class="r num">30/07/2026</td>
+              <td class="td-muted num">SUG-8821</td>
+              <td><span class="alloc"><span style="width:0%"></span></span><span class="num">0%</span></td>
+              <td><span class="pill suggere"><span class="d"></span>OF à affermir</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ================= VUE CHARGE ================= -->
+    <section class="view" id="view-charge">
+      <div class="page-head">
+        <h1>Charge ateliers</h1>
+        <p class="num">Semaine 30 · capacité 120 h / poste · 5 jours ouvrés</p>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi">
+          <div class="label">Charge moyenne</div>
+          <div class="value num">78<span style="font-size:18px;color:var(--muted)">%</span></div>
+          <div class="delta flat">— stable vs S29</div>
+        </div>
+        <div class="kpi">
+          <div class="label">Postes saturés</div>
+          <div class="value num">1</div>
+          <div class="delta down">PP_153 à 109 %</div>
+        </div>
+        <div class="kpi">
+          <div class="label">Heures en retard</div>
+          <div class="value num">131<span style="font-size:18px;color:var(--muted)"> h</span></div>
+          <div class="delta down">▲ 40 h vs S29</div>
+        </div>
+        <div class="kpi">
+          <div class="label">Jours ouvrés S30</div>
+          <div class="value num">5</div>
+          <div class="delta up">aucune fermeture</div>
+        </div>
+      </div>
+
+      <div class="section-label">Projection — 5 prochaines semaines</div>
+      <div class="chart-wrap">
+        <!-- échelle : 700 h = 180 px · capacité 600 h = 154 px -->
+        <div class="bars">
+          <div class="cap-line" style="bottom:173px"><span>capacité 600 h</span></div>
+          <div class="bgroup" title="S30 — 500 h (ferme 320 · planifié 140 · suggéré 40)">
+            <span class="tot">500 h</span>
+            <div class="stack" style="height:128px">
+              <div class="s s-suggere" style="height:10px"></div>
+              <div class="s s-planifie" style="height:36px"></div>
+              <div class="s s-ferme" style="height:82px"></div>
+            </div>
+            <span class="xl">S30 · 20/07</span>
+          </div>
+          <div class="bgroup" title="S31 — 540 h (ferme 300 · planifié 180 · suggéré 60)">
+            <span class="tot">540 h</span>
+            <div class="stack" style="height:138px">
+              <div class="s s-suggere" style="height:15px"></div>
+              <div class="s s-planifie" style="height:46px"></div>
+              <div class="s s-ferme" style="height:77px"></div>
+            </div>
+            <span class="xl">S31 · 27/07</span>
+          </div>
+          <div class="bgroup" title="S32 — 630 h (ferme 340 · planifié 200 · suggéré 90) — dépasse la capacité">
+            <span class="tot">630 h</span>
+            <div class="stack" style="height:161px">
+              <div class="s s-suggere" style="height:23px"></div>
+              <div class="s s-planifie" style="height:51px"></div>
+              <div class="s s-ferme" style="height:87px"></div>
+            </div>
+            <span class="xl">S32 · 03/08</span>
+          </div>
+          <div class="bgroup" title="S33 — 500 h (ferme 280 · planifié 150 · suggéré 70)">
+            <span class="tot">500 h</span>
+            <div class="stack" style="height:129px">
+              <div class="s s-suggere" style="height:18px"></div>
+              <div class="s s-planifie" style="height:39px"></div>
+              <div class="s s-ferme" style="height:72px"></div>
+            </div>
+            <span class="xl">S33 · 10/08</span>
+          </div>
+          <div class="bgroup" title="S34 — 410 h (ferme 240 · planifié 120 · suggéré 50)">
+            <span class="tot">410 h</span>
+            <div class="stack" style="height:106px">
+              <div class="s s-suggere" style="height:13px"></div>
+              <div class="s s-planifie" style="height:31px"></div>
+              <div class="s s-ferme" style="height:62px"></div>
+            </div>
+            <span class="xl">S34 · 17/08</span>
+          </div>
+        </div>
+        <div class="legend">
+          <span class="k"><span class="sw s-ferme"></span>Ferme</span>
+          <span class="k"><span class="sw s-planifie"></span>Planifié</span>
+          <span class="k"><span class="sw s-suggere"></span>Suggéré</span>
+          <span class="k"><span class="sw" style="background:none;border-top:2px dashed var(--border-strong);border-radius:0;height:0"></span>Capacité</span>
+        </div>
+      </div>
+
+      <div class="section-label">Par poste de charge</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Poste</th>
+              <th>Ligne</th>
+              <th class="r">OF en cours</th>
+              <th class="r">Charge</th>
+              <th class="r">Capacité</th>
+              <th class="r">Taux</th>
+              <th>État</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="td-strong num">PP_153</td>
+              <td class="td-muted">Bouches BDH60</td>
+              <td class="r num">6</td>
+              <td class="r num">131 h</td>
+              <td class="r num">120 h</td>
+              <td class="r td-strong num">109%</td>
+              <td><span class="pill late"><span class="d"></span>Saturé</span></td>
+            </tr>
+            <tr>
+              <td class="td-strong num">Injection 2</td>
+              <td class="td-muted">Corps BDH10</td>
+              <td class="r num">5</td>
+              <td class="r num">104 h</td>
+              <td class="r num">120 h</td>
+              <td class="r td-strong num">87%</td>
+              <td><span class="pill suggere"><span class="d"></span>Tendu</span></td>
+            </tr>
+            <tr>
+              <td class="td-strong num">Montage ESH</td>
+              <td class="td-muted">Extracteurs ESH30/60</td>
+              <td class="r num">3</td>
+              <td class="r num">96 h</td>
+              <td class="r num">120 h</td>
+              <td class="r td-strong num">80%</td>
+              <td><span class="pill suggere"><span class="d"></span>Tendu</span></td>
+            </tr>
+            <tr>
+              <td class="td-strong num">PP_146</td>
+              <td class="td-muted">Modules hygro MH</td>
+              <td class="r num">4</td>
+              <td class="r num">85 h</td>
+              <td class="r num">120 h</td>
+              <td class="r td-strong num">71%</td>
+              <td><span class="pill ferme"><span class="d"></span>Fluide</span></td>
+            </tr>
+            <tr>
+              <td class="td-strong num">Emballage</td>
+              <td class="td-muted">Expéditions</td>
+              <td class="r num">2</td>
+              <td class="r num">44 h</td>
+              <td class="r num">120 h</td>
+              <td class="r td-strong num">37%</td>
+              <td><span class="pill ferme"><span class="d"></span>Fluide</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ================= VUE RUPTURES ================= -->
+    <section class="view" id="view-ruptures">
+      <div class="page-head">
+        <h1>Ruptures &amp; alertes</h1>
+        <p>File de triage — chaque alerte est prouvée par le moteur de faisabilité</p>
+      </div>
+
+      <div class="alert-summary">
+        <span class="pill late"><span class="d"></span>2 critiques</span>
+        <span class="pill suggere"><span class="d"></span>1 OF à lancer</span>
+        <span class="pill planifie"><span class="d"></span>1 réception</span>
+        <span class="pill ghost">1 à arbitrer</span>
+      </div>
+
+      <div class="section-label">File de triage</div>
+      <div class="alert">
+        <span class="ic ic-crit">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+        </span>
+        <div class="main">
+          <div class="t">Rupture matière — Corps de bouche BDH10</div>
+          <div class="s">Bloque 4 OF fermes (OF-08412, OF-08420…) · stock net −120 pcs · réceptions VTI insuffisantes</div>
+        </div>
+        <div class="right"><span class="when">il y a 2 h</span><span class="cta">Diagnostiquer</span></div>
+      </div>
+      <div class="alert">
+        <span class="ic ic-warn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+        </span>
+        <div class="main">
+          <div class="t">OF sous-ensemble à lancer — SE moteur ESH30</div>
+          <div class="s">Le parent OF-08398 en dépend · lancement conseillé avant le 23/07/2026</div>
+        </div>
+        <div class="right"><span class="when">hier</span><span class="cta">Voir l'OF</span></div>
+      </div>
+      <div class="alert">
+        <span class="ic ic-crit">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.62l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></svg>
+        </span>
+        <div class="main">
+          <div class="t">Réception en retard — CMD 88412</div>
+          <div class="s">Fournisseur VTI · 300 pcs attendues le 12/07/2026, rien au 21/07/2026</div>
+        </div>
+        <div class="right"><span class="when">12/07/2026</span><span class="cta">Relancer</span></div>
+      </div>
+      <div class="alert">
+        <span class="ic ic-mute">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+        </span>
+        <div class="main">
+          <div class="t">Allocations à zéro — Cassettes hygro MH</div>
+          <div class="s">Pegs FMINUM vides sur 2 OF MTS · arbitrage MTS / contremarque à confirmer</div>
+        </div>
+        <div class="right"><span class="when">ce matin</span><span class="cta">Arbitrer</span></div>
+      </div>
+    </section>
+
+    <!-- ================= VUE RÉCEPTIONS ================= -->
+    <section class="view" id="view-receptions">
+      <div class="page-head">
+        <h1>Réceptions fournisseurs</h1>
+        <p class="num">Fenêtre 90 jours · verdict retard automatique · site AE1</p>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi">
+          <div class="label">Réceptions en retard</div>
+          <div class="value num">2</div>
+          <div class="delta down">9 j de dépassement max</div>
+        </div>
+        <div class="kpi">
+          <div class="label">Partielles</div>
+          <div class="value num">1</div>
+          <div class="delta flat">140 / 200 pcs</div>
+        </div>
+        <div class="kpi">
+          <div class="label">Attendues sous 7 j</div>
+          <div class="value num">5</div>
+          <div class="delta down">dont 2 bloquantes</div>
+        </div>
+        <div class="kpi">
+          <div class="label">Taux à l'heure</div>
+          <div class="value num">82<span style="font-size:18px;color:var(--muted)">%</span></div>
+          <div class="delta up">▲ 3 pts</div>
+        </div>
+      </div>
+
+      <div class="section-label">Réceptions à surveiller</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Réception</th>
+              <th>Commande</th>
+              <th>Fournisseur</th>
+              <th>Article</th>
+              <th class="r">Qté attendue</th>
+              <th class="r">Date prévue</th>
+              <th>État</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="td-strong num">REC-0412</td>
+              <td class="num">CMD 88412</td>
+              <td>VTI</td>
+              <td class="td-muted">Moteurs ESH60</td>
+              <td class="r num">300</td>
+              <td class="r num">12/07/2026</td>
+              <td><span class="pill late"><span class="d"></span>En retard · 9 j</span></td>
+            </tr>
+            <tr>
+              <td class="td-strong num">REC-0409</td>
+              <td class="num">CMD 88399</td>
+              <td>VTI</td>
+              <td class="td-muted">Cassettes hygro MH</td>
+              <td class="r num">200</td>
+              <td class="r num">18/07/2026</td>
+              <td><span class="pill suggere"><span class="d"></span>Partielle · 140/200</span></td>
+            </tr>
+            <tr>
+              <td class="td-strong num">REC-0415</td>
+              <td class="num">CMD 88420</td>
+              <td>Sotra</td>
+              <td class="td-muted">Corps BDH10 injectés</td>
+              <td class="r num">500</td>
+              <td class="r num">23/07/2026</td>
+              <td><span class="pill planifie"><span class="d"></span>Attendue</span></td>
+            </tr>
+            <tr>
+              <td class="td-strong num">REC-0418</td>
+              <td class="num">CMD 88431</td>
+              <td>Lindab</td>
+              <td class="td-muted">Tôle galvanisée</td>
+              <td class="r num">1 200 kg</td>
+              <td class="r num">28/07/2026</td>
+              <td><span class="pill planifie"><span class="d"></span>Attendue</span></td>
+            </tr>
+            <tr>
+              <td class="td-strong num">REC-0421</td>
+              <td class="num">CMD 88440</td>
+              <td>VTI</td>
+              <td class="td-muted">Bouches BDH60 nues</td>
+              <td class="r num">350</td>
+              <td class="r num">04/08/2026</td>
+              <td><span class="pill ferme"><span class="d"></span>Confirmée</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ================= VUE EXPÉDITIONS ================= -->
+    <section class="view" id="view-expeditions">
+      <div class="page-head">
+        <h1>Expéditions</h1>
+        <p class="num">Prochains départs · arrimés aux commandes du suivi</p>
+      </div>
+
+      <div class="section-label">À expédier</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Expédition</th>
+              <th>Commande</th>
+              <th>Client</th>
+              <th class="r">Date souhaitée</th>
+              <th>Transporteur</th>
+              <th>État</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="td-strong num">EXP-0729</td>
+              <td class="num">CD-2026-1178</td>
+              <td>Point P Lyon</td>
+              <td class="r num">21/07/2026</td>
+              <td class="td-muted">XPO</td>
+              <td><span class="pill ferme"><span class="d"></span>Expédiée</span></td>
+            </tr>
+            <tr>
+              <td class="td-strong num">EXP-0733</td>
+              <td class="num">CD-2026-1194</td>
+              <td>Leroy Merlin</td>
+              <td class="r num">22/07/2026</td>
+              <td class="td-muted">Heppner</td>
+              <td><span class="pill late"><span class="d"></span>Bloquée · rupture</span></td>
+            </tr>
+            <tr>
+              <td class="td-strong num">EXP-0731</td>
+              <td class="num">CD-2026-1187</td>
+              <td>Aldes Distribution</td>
+              <td class="r num">24/07/2026</td>
+              <td class="td-muted">XPO</td>
+              <td><span class="pill suggere"><span class="d"></span>Préparation</span></td>
+            </tr>
+            <tr>
+              <td class="td-strong num">EXP-0735</td>
+              <td class="num">CD-2026-1201</td>
+              <td>Castorama</td>
+              <td class="r num">31/07/2026</td>
+              <td class="td-muted">—</td>
+              <td><span class="pill ghost">À planifier</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <p class="foot-note">
+      <b>Maquette de travail</b> — elle vit hors du code, dans <code style="background:var(--surface-soft);border:1px solid var(--hairline);border-radius:5px;padding:1px 6px;font-size:12px">design/showcase/</code>.
+      Navigue entre les vues via l'en-tête : chaque page de l'app y est illustrée dans la même grammaire,
+      avec des données fictives mais réalistes du site AE1 (postes PP_153 / PP_146, modèle BDH60 · MH · ESH).
+    </p>
   </main>
 
+  <script>
+    // Navigation : bascule entre les vues de l'app
+    const views = document.querySelectorAll('.view');
+    document.querySelectorAll('.nav a').forEach(a =>
+      a.addEventListener('click', e => {
+        e.preventDefault();
+        document.querySelectorAll('.nav a').forEach(x => x.classList.remove('active'));
+        a.classList.add('active');
+        views.forEach(v => v.classList.toggle('active', v.id === 'view-' + a.dataset.view));
+        window.scrollTo(0, 0);
+      })
+    );
+    // Segments de la barre d'outils (Semaine / Jour / Liste)
+    document.querySelectorAll('.seg').forEach(seg =>
+      seg.querySelectorAll('button').forEach(btn =>
+        btn.addEventListener('click', () => {
+          seg.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+        })
+      )
+    );
+  </script>
 </body>
 </html>
