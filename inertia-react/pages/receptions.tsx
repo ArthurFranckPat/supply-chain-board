@@ -152,7 +152,11 @@ export default function Receptions(props: ReceptionsPageProps) {
         </>
       }
     >
-
+      {/* Colonne flex plein écran : `dense` + `scrollable={false}` donnent un
+          conteneur en `overflow-hidden` — sans cette coquille les `flex-1` des
+          vues ne prennent aucune hauteur et tout ce qui dépasse du viewport est
+          coupé, sans ascenseur (chaque vue gère son propre scroll interne). */}
+      <div className="flex h-full flex-col overflow-hidden">
         {/* ═══ Toolbar ═══ */}
         <ToolbarRow>
           {/* Sélecteur de plage */}
@@ -356,6 +360,7 @@ export default function Receptions(props: ReceptionsPageProps) {
             )}
           </div>
         )}
+      </div>
     </AppLayout>
   )
 }

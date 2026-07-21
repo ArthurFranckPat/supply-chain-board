@@ -40,7 +40,7 @@ interface DayCol {
   weekday: string
   /** N° de semaine ISO. */
   week: number
-  /** Samedi ou dimanche. */
+  /** Samedi ou dimanche — affiché uniquement s'il porte une réception (exception). */
   weekend: boolean
   /** Jour courant. */
   today: boolean
@@ -116,6 +116,11 @@ const WEEKDAY_FMT = new Intl.DateTimeFormat('fr-FR', { weekday: 'short' })
  * Axe dense de la fenêtre [from, to]. Élargi si des réceptions tombent hors
  * plage (le serveur borne la requête, mais une date confirmée peut déborder).
  * Borné à 120 colonnes pour éviter une grille ingérable sur une plage absurde.
+ *
+ * Les week-ends sont retirés — le quai ne réceptionne pas, deux colonnes vides
+ * par semaine ne font que diluer la lecture des pics. Exception : un samedi ou
+ * dimanche **porteur d'une réception** reste affiché (une date confirmée
+ * fournisseur peut tomber là), sinon la carte disparaîtrait du board.
  */
 export function buildDayAxis(from: string, to: string, isos: string[]): DayCol[] {
   const bounds = [from, to, ...isos].filter(Boolean).sort()
@@ -123,21 +128,25 @@ export function buildDayAxis(from: string, to: string, isos: string[]): DayCol[]
   const end = parseIso(bounds[bounds.length - 1] ?? '')
   if (!start || !end || end < start) return []
 
+  const charged = new Set(isos)
   const todayIso = toIso(new Date())
   const cols: DayCol[] = []
   const cur = new Date(start)
   while (cur <= end && cols.length < 120) {
     const iso = toIso(cur)
     const dow = cur.getDay()
-    cols.push({
-      iso,
-      num: String(cur.getDate()),
-      weekday: WEEKDAY_FMT.format(cur),
-      week: isoWeek(cur),
-      weekend: dow === 0 || dow === 6,
-      today: iso === todayIso,
-      past: iso < todayIso,
-    })
+    const weekend = dow === 0 || dow === 6
+    if (!weekend || charged.has(iso)) {
+      cols.push({
+        iso,
+        num: String(cur.getDate()),
+        weekday: WEEKDAY_FMT.format(cur),
+        week: isoWeek(cur),
+        weekend,
+        today: iso === todayIso,
+        past: iso < todayIso,
+      })
+    }
     cur.setDate(cur.getDate() + 1)
   }
   return cols
