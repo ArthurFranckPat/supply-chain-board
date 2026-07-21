@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { DateRange as DayPickerRange } from 'react-day-picker'
-import { X, Search, SlidersHorizontal, Lightbulb, TriangleAlert, LoaderCircle, CircleX, Inbox, CloudOff, Package } from 'lucide-react'
+import { X, Search, SlidersHorizontal, Lightbulb, TriangleAlert, LoaderCircle, CircleX, Inbox, CloudOff, Package, Printer } from 'lucide-react'
 
 import AppLayout from '@r/layouts/app'
 import { ReceptionTableau, ReceptionCalendrier } from '@r/components/receptions/reception-views'
@@ -67,6 +67,9 @@ const fmtMs = (ms: number) => (ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms
 const fmtDay = (d: Date) =>
   `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`
 
+/** jj/mm/aaaa — l'année est indispensable sur un document imprimé. */
+const fmtDayFull = (d: Date) => `${fmtDay(d)}/${d.getFullYear()}`
+
 export default function Receptions(props: ReceptionsPageProps) {
   const [view, setView] = useState<ReceptionViewKind>('tableau')
   const [range, setRange] = useState<DateRangeSel | null>(null)
@@ -81,6 +84,13 @@ export default function Receptions(props: ReceptionsPageProps) {
     if (!range.end || range.start.toDateString() === range.end.toDateString())
       return fmtDay(range.start)
     return `${fmtDay(range.start)} → ${fmtDay(range.end)}`
+  }, [range, props.from, props.to])
+
+  /** Plage en clair pour l'en-tête imprimée (année comprise, contrairement à l'écran). */
+  const printRange = useMemo(() => {
+    const start = range?.start ?? new Date(props.from)
+    const end = range?.end ?? range?.start ?? new Date(props.to)
+    return `${fmtDayFull(start)} → ${fmtDayFull(end)}`
   }, [range, props.from, props.to])
 
   const url = useMemo(() => {
@@ -156,7 +166,24 @@ export default function Receptions(props: ReceptionsPageProps) {
           conteneur en `overflow-hidden` — sans cette coquille les `flex-1` des
           vues ne prennent aucune hauteur et tout ce qui dépasse du viewport est
           coupé, sans ascenseur (chaque vue gère son propre scroll interne). */}
-      <div className="flex h-full flex-col overflow-hidden">
+      <div data-print-page className="flex h-full flex-col overflow-hidden">
+        {/* ═══ En-tête imprimable ═══
+            Masquée à l'écran (le Masthead porte déjà le contexte), elle est la
+            seule identité de la feuille une fois posée sur une table : sans
+            elle, on ne sait ni de quelle période ni de quand date le tirage. */}
+        <div className="hidden flex-none items-baseline justify-between border-b border-rule px-7 pb-3 pt-1 print:flex">
+          <span className="font-fraunces text-[20px] font-semibold tracking-tight text-foreground">
+            Réceptions <span className="font-medium italic text-brand">fournisseurs</span>
+            <span className="ml-3 font-mono text-[13px] font-normal text-muted-foreground">
+              {printRange}
+            </span>
+          </span>
+          <span className="font-mono text-[12px] text-muted-foreground">
+            {stats.totalPalettes} palettes · {stats.totalLignes} réceptions ·{' '}
+            {stats.totalFournisseurs} fournisseurs
+          </span>
+        </div>
+
         {/* ═══ Toolbar ═══ */}
         <ToolbarRow>
           {/* Sélecteur de plage */}
@@ -244,12 +271,25 @@ export default function Receptions(props: ReceptionsPageProps) {
                 {fmtMs(ms)}
               </span>
             )}
+            {/* Impression A3 paysage — mise en page calibrée pour le board seul
+                (point d'équipe sur les réceptions à venir). */}
+            {view === 'board' && (
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className={cn(PILL, 'hover:bg-secondary')}
+                title="Imprimer le board (A3 paysage)"
+              >
+                <Printer size={16} strokeWidth={1.75} className="text-muted-foreground" />
+                <span className="text-xs font-medium">Imprimer</span>
+              </button>
+            )}
             <RefreshPill loading={loading} onClick={() => setBust((b) => b + 1)} />
           </div>
         </ToolbarRow>
 
         {/* ═══ Bandeau vue (drill-down + compteurs) ═══ */}
-        <div className="flex flex-none items-center gap-2.5 border-b border-rule-soft px-7 py-1.5">
+        <div className="flex flex-none items-center gap-2.5 border-b border-rule-soft px-7 py-1.5 print:hidden">
 
           {/* Filtre jour actif (drill-down) */}
           {selectedDay && (
@@ -360,6 +400,18 @@ export default function Receptions(props: ReceptionsPageProps) {
             )}
           </div>
         )}
+
+        {/* ═══ Pied de page imprimé ═══
+            `position: fixed` en contexte paginé = une occurrence par page :
+            au-delà de la page 1 l'en-tête de jours n'est plus visible, ce
+            rappel de période évite une feuille orpheline sur la table. */}
+        <div
+          data-print-footer
+          className="hidden items-baseline justify-between border-t border-rule bg-background px-7 pb-1 pt-1.5 font-mono text-[10px] text-muted-foreground"
+        >
+          <span>Réceptions fournisseurs · {printRange}</span>
+          <span>Édité le {fmtDayFull(new Date())}</span>
+        </div>
       </div>
     </AppLayout>
   )

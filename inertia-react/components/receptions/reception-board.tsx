@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { CalendarX, Lightbulb, Package, TriangleAlert, Truck, Warehouse } from 'lucide-react'
 
 import { cn } from '@r/lib/utils'
 import { Sheet, SheetContent, SheetTitle } from '@r/components/ui/sheet'
+import { usePrintFit } from '@r/components/board/use-print-fit'
 import { chargeBg, chargeLabel, chargeText, chargeTier } from '@r/lib/receptions/charge'
 import type { ReceptionDisplayRow } from '@/lib/receptions/types'
 
@@ -170,6 +171,13 @@ export function ReceptionBoard({
   groupBy: ReceptionGroupBy
 }) {
   const [detail, setDetail] = useState<ReceptionGroup | null>(null)
+  const rootRef = useRef<HTMLDivElement>(null)
+
+  // Impression A3 paysage : le board est plus large que la page, or les
+  // navigateurs ne paginent qu'en vertical — sans réduction, les colonnes de
+  // droite seraient purement et simplement rognées. Fit en largeur seul : la
+  // taille de texte reste lisible, la pagination verticale fait le reste.
+  usePrintFit(() => rootRef.current ?? undefined)
 
   /** Lignes datées (positionnables) vs sans date retenue (ni EXTRCPDAT ni ZDATCOF). */
   const dated = useMemo(() => rows.filter((r) => r.date), [rows])
@@ -304,7 +312,11 @@ export function ReceptionBoard({
 
   return (
     <>
-      <div className="min-h-0 flex-1 overflow-auto bg-background">
+      <div
+        ref={rootRef}
+        data-print-unclip
+        className="min-h-0 flex-1 overflow-auto bg-background"
+      >
         <div className="relative" style={{ minWidth }}>
           {/* ═══ En-tête collant (semaines + jours) ═══ */}
           <div className="sticky top-0 z-30 bg-background shadow-float">
@@ -337,33 +349,51 @@ export function ReceptionBoard({
                 )}
                 {groupBy === 'quai' ? 'Quai' : 'Fournisseur'}
               </div>
-              {days.map((d) => (
-                <div
-                  key={d.iso}
-                  className={cn(
-                    'border-b border-r border-rule-soft bg-card px-2.5 py-1.5 text-center',
-                    d.weekend && 'bg-secondary/50',
-                    d.today && 'bg-brand-soft'
-                  )}
-                >
+              {days.map((d) => {
+                const pal = chargeByIso.get(d.iso) ?? 0
+                return (
                   <div
+                    key={d.iso}
                     className={cn(
-                      'font-mono text-[9px] font-bold uppercase tracking-[0.1em]',
-                      d.today ? 'text-brand' : 'text-muted-foreground'
+                      'border-b border-r border-rule-soft bg-card px-2.5 py-1.5 text-center',
+                      d.weekend && 'bg-secondary/50',
+                      d.today && 'bg-brand-soft'
                     )}
                   >
-                    {d.weekday}
+                    <div
+                      className={cn(
+                        'font-mono text-[9px] font-bold uppercase tracking-[0.1em]',
+                        d.today ? 'text-brand' : 'text-muted-foreground'
+                      )}
+                    >
+                      {d.weekday}
+                    </div>
+                    <div
+                      className={cn(
+                        'font-fraunces text-lg font-bold leading-none tracking-tight',
+                        d.today
+                          ? 'italic text-brand'
+                          : d.past
+                            ? 'text-muted-foreground'
+                            : 'text-foreground'
+                      )}
+                    >
+                      {d.num}
+                    </div>
+                    {/* Charge rappelée dans l'en-tête à l'impression seulement :
+                        le pied de charge ne figure qu'en fin de document, une
+                        page 2 serait sinon muette sur les palettes du jour. */}
+                    <div
+                      className={cn(
+                        'hidden font-mono text-[10px] font-bold tabular-nums print:block',
+                        pal > 0 ? chargeText(chargeTier(pal)) : 'text-muted-foreground/50'
+                      )}
+                    >
+                      {pal > 0 ? `${pal} pal.` : '—'}
+                    </div>
                   </div>
-                  <div
-                    className={cn(
-                      'font-fraunces text-lg font-bold leading-none tracking-tight',
-                      d.today ? 'italic text-brand' : d.past ? 'text-muted-foreground' : 'text-foreground'
-                    )}
-                  >
-                    {d.num}
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
 
@@ -371,6 +401,7 @@ export function ReceptionBoard({
           {lines.map((line) => (
             <div
               key={line.key}
+              data-print-row
               className="grid border-b border-rule-soft"
               style={{ gridTemplateColumns: gridTpl }}
             >
@@ -419,6 +450,8 @@ export function ReceptionBoard({
 
           {/* ═══ Pied de charge collant (l'info n°1 : pics & trous) ═══ */}
           <div
+            data-print-ink
+            data-print-row
             className="sticky bottom-0 z-30 grid bg-background shadow-[0_-1px_0_var(--color-rule,rgba(0,0,0,.1))]"
             style={{ gridTemplateColumns: gridTpl }}
           >

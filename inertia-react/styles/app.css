@@ -427,3 +427,95 @@
   height: auto;
   padding: 0;
 }
+
+/* ════════════════════════════════════════════════════════════
+   Impression — A3 paysage (runtime React).
+   ────────────────────────────────────────────────────────────
+   Le pendant de ce bloc existait uniquement dans `resources/css/app.css`
+   (runtime Solid) et y est scopé `.theme-papier` : les pages React, qui
+   portent `.theme-airbnb`, n'en héritaient pas. Résultat, `usePrintFit` /
+   `usePrintFitPage` calculaient un zoom pour une zone A3 (396 mm) que le
+   navigateur imprimait ensuite en A4 portrait, sur un contenu par ailleurs
+   clippé par les conteneurs plein écran d'AppLayout.
+
+   Trois choses à faire, et rien d'autre :
+     1. déclarer le format (`@page`) — sans quoi tout le calcul JS est faux ;
+     2. dérouler ce que l'écran clippe (`h-screen`, `overflow-hidden`) et
+        neutraliser les positionnements collants, qui se superposeraient aux
+        sauts de page ;
+     3. restituer les fonds porteurs d'information.
+
+   Sur le point 3, la version Solid passe `*` en `economy` (fonds strippés,
+   papier seul). Ce compromis ne tient pas pour un board de charge : les
+   barres de palier SONT l'information, une feuille sans elles ne dit plus
+   rien des pics. D'où l'opt-in explicite `[data-print-ink]`, à poser sur
+   les seuls éléments dont la couleur porte du sens.
+   ──────────────────────────────────────────────────────────── */
+@media print {
+  @page {
+    size: A3 landscape;
+    margin: 10mm 12mm;
+  }
+
+  html,
+  body {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Déroulage : AppLayout est un h-screen/overflow-hidden, sa zone
+     principale un overflow-hidden en mode dense, et les pages y empilent
+     leurs propres coquilles flex. Tout doit rendre sa hauteur naturelle. */
+  [data-app-layout],
+  [data-app-layout] > main,
+  [data-app-layout] > main > *,
+  [data-print-page],
+  [data-print-page] > *,
+  [data-print-unclip],
+  [data-print-unclip] > * {
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+
+  /* En-têtes et colonnes collants → statiques : en pagination verticale ils
+     se figeraient par-dessus le contenu à chaque saut de page. */
+  [data-print-unclip] .sticky {
+    position: static !important;
+  }
+
+  /* Barre d'outils : on ne garde que ce qui est explicitement marqué
+     (convention partagée avec le runtime Solid). */
+  [data-print-toolbar] > *:not([data-print-keep]) {
+    display: none !important;
+  }
+
+  /* Fonds porteurs de sens (barres de charge, pastilles de palier). */
+  [data-print-ink],
+  [data-print-ink] * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Une rangée ne se coupe pas entre deux pages. */
+  [data-print-row] {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Bandeau de rappel répété en pied de chaque page (`fixed` en contexte
+     paginé = une occurrence par page). Masqué à l'écran. Le `fixed` étant
+     hors flux, la zone imprimée doit lui réserver sa hauteur — sinon la
+     dernière rangée de chaque page passe dessous. */
+  [data-print-footer] {
+    display: flex !important;
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+  }
+  [data-print-page]:has([data-print-footer]) {
+    padding-bottom: 8mm !important;
+  }
+}
