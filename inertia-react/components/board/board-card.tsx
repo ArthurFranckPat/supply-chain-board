@@ -54,16 +54,6 @@ const BAND_TONE: Record<CardStatus, string> = {
   termine: 'var(--color-muted-foreground, #717171)',
   bloque: 'var(--color-destructive, #ff385c)',
 }
-/** Libellé d'état du ruban de bandeau (signal fort, lisible en colonne dense). */
-const STATUS_LABEL: Record<CardStatus, string> = {
-  ferme: 'FERME',
-  planifie: 'PLANIFIÉ',
-  suggere: 'SUGGÉRÉ',
-  cours: 'EN COURS',
-  termine: 'TERMINÉ',
-  bloque: 'BLOQUÉ',
-}
-
 /**
  * Type commande → couleur (MTS/MTO/NOR). Tokens de statut sémantiques
  * (retargetés par thème ; sous Airbnb = brand book ferme/suggere/planifie),
@@ -330,9 +320,12 @@ function OfListingCard(p: OfCardProps) {
     p.progress && p.progress.total > 0
       ? Math.min(100, Math.round((p.progress.done / p.progress.total) * 100))
       : 0
-  // Motif « photo » du bandeau = poste de charge (code court, distinct, ne
-  // tronque pas). À défaut la réf. article. Le statut, lui, vit dans le pill.
-  const motif = p.poste ?? p.articleRef ?? p.article
+  // Code produit porté par le bandeau (le « sujet » de la carte, lisible). Le
+  // statut vit dans la couleur du bandeau, pas dans un libellé. Rendu en SVG
+  // auto-ajusté (preserveAspectRatio meet) → texte TOUJOURS complet, jamais
+  // tronqué, quelle que soit la largeur de colonne. Sans réf. → bande de statut.
+  const ghost = p.articleRef
+  const ghostW = Math.max(1, ghost?.length ?? 0) * 12
 
   return (
     <div
@@ -344,37 +337,31 @@ function OfListingCard(p: OfCardProps) {
         p.className
       )}
     >
-      {/* Bandeau « photo » — teinte d'ambiance + code poste en filigrane (le
-          sujet), le statut vivant dans un pill blanc au coin (badge Airbnb, à la
-          place du cœur de la maquette). Le filigrane est absolutisé à gauche et
-          passe SOUS le pill (z-10, fond opaque) : en colonne étroite ses derniers
-          glyphes se masquent derrière le pill sans jamais afficher d'ellipsis.
-          overflow-hidden + coins arrondis SUR le bandeau pour ne pas rogner les
-          badges saillants. */}
+      {/* Bandeau = tag de statut (la COULEUR porte l'état) portant le code produit
+          en TEXTE lisible (le SUJET = réf. article ; ni le poste, ni un pill de
+          statut). Rendu en SVG auto-ajusté (preserveAspectRatio meet) : le texte
+          est mis à l'échelle pour tenir la largeur → TOUJOURS complet, JAMAIS
+          tronqué, de 108 px à pleine largeur. Sans réf. article, le bandeau reste
+          une simple bande de statut. overflow-hidden + coins arrondis pour ne pas
+          rogner les badges saillants (faisabilité/retard). */}
       <div
-        className="relative flex h-7 items-center justify-end overflow-hidden rounded-t-[7px] px-2"
+        className="relative h-7 overflow-hidden rounded-t-[7px]"
         style={{
           background: `linear-gradient(135deg, color-mix(in srgb, ${tone} 14%, var(--card)), color-mix(in srgb, ${tone} 28%, var(--card)))`,
         }}
       >
-        <span
-          aria-hidden
-          className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 select-none whitespace-nowrap font-mono text-[20px] font-bold leading-none"
-          style={{ color: tone, opacity: 0.16 }}
-        >
-          {motif}
-        </span>
-        {/* Pill de statut (libellé lisible, non redondant avec la teinte). */}
-        <span
-          className="relative z-10 inline-flex items-center gap-1 rounded-full bg-card px-1.5 py-0.5 font-mono text-[9px] font-extrabold uppercase leading-none shadow-[0_1px_2px_rgba(0,0,0,.10)]"
-          style={{ color: tone }}
-        >
-          <span
-            className={cn('size-1 rounded-full', p.status === 'cours' && 'animate-pulse')}
-            style={{ background: tone }}
-          />
-          {STATUS_LABEL[p.status]}
-        </span>
+        {ghost && (
+          <svg
+            aria-hidden
+            viewBox={`0 0 ${ghostW} 24`}
+            preserveAspectRatio="xMinYMid meet"
+            className="absolute inset-y-0 left-2 right-2"
+          >
+            <text x="0" y="17" fontFamily="var(--font-mono)" fontWeight={700} fontSize="20" fill={tone}>
+              {ghost}
+            </text>
+          </svg>
+        )}
       </div>
 
       {/* Badges saillants, positionnés sur la bande (inchangés). */}
@@ -412,17 +399,7 @@ function OfListingCard(p: OfCardProps) {
         >
           {p.article}
         </div>
-        {/* Réf. article : mono gris discret (le rouge est réservé au danger/retard). */}
-        {p.articleRef && (
-          <div
-            className={cn(
-              'truncate font-mono text-xs font-medium leading-tight text-secondary-foreground',
-              p.consommeBouche && 'pr-9'
-            )}
-          >
-            {p.articleRef}
-          </div>
-        )}
+        {/* Désignation (la réf. article, elle, vit en texte lisible dans le bandeau). */}
         <div className="mt-0.5 truncate text-xs font-medium leading-tight text-muted-foreground" title={p.title}>
           {p.title}
         </div>
