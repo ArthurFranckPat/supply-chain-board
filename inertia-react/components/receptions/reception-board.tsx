@@ -48,6 +48,31 @@ interface DayCol {
   past: boolean
 }
 
+/**
+ * Unité du board : **un fournisseur, un jour**. C'est la maille du geste métier
+ * (« je décale la livraison ACME de mardi à jeudi »), pas la ligne de commande —
+ * un camion arrive entier. Les lignes PO sous-jacentes restent consultables dans
+ * le panneau de détail.
+ */
+interface ReceptionGroup {
+  /** Clé stable `fournisseur|jour`. */
+  key: string
+  fournisseur: string
+  fournisseurNom: string
+  /** Jour ISO. */
+  iso: string
+  /** Date JJ/MM/AA (reprise de la 1ʳᵉ ligne, déjà formatée serveur). */
+  dateFmt: string
+  /** Total palettes du camion. */
+  palettes: number
+  /** Lignes PO agrégées. */
+  rows: ReceptionDisplayRow[]
+  /** Nb de lignes au coef absent (charge sous-estimée). */
+  sansCoef: number
+  /** Nb de lignes au coef estimé (STOCK/STOJOU). */
+  estimees: number
+}
+
 interface BoardLine {
   /** Clé de regroupement (code fournisseur, ou 'QUAI'). */
   key: string
@@ -57,8 +82,8 @@ interface BoardLine {
   sub: string
   /** Total palettes de la ligne sur la fenêtre. */
   palettes: number
-  /** Cartes par jour ISO. */
-  byDay: Map<string, ReceptionDisplayRow[]>
+  /** Groupes fournisseur×jour, par jour ISO. */
+  byDay: Map<string, ReceptionGroup[]>
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -135,7 +160,7 @@ export function ReceptionBoard({
   to: string
   groupBy: ReceptionGroupBy
 }) {
-  const [detail, setDetail] = useState<ReceptionDisplayRow | null>(null)
+  const [detail, setDetail] = useState<ReceptionGroup | null>(null)
 
   /** Lignes datées (positionnables) vs sans date retenue (ni EXTRCPDAT ni ZDATCOF). */
   const dated = useMemo(() => rows.filter((r) => r.date), [rows])
@@ -155,52 +180,86 @@ export function ReceptionBoard({
 
   const maxCharge = useMemo(() => Math.max(0, ...chargeByIso.values()), [chargeByIso])
 
+  /**
+   * Maille du board : un groupe par couple (fournisseur, jour). Les lignes PO du
+   * même camion sont agrégées en une carte — leur détail reste dans le panneau.
+   */
+  const groups = useMemo<ReceptionGroup[]>(() => {
+    const acc = new Map<string, ReceptionGroup>()
+    for (const r of dated) {
+      const key = `${r.fournisseur}|${r.date}`
+      let g = acc.get(key)
+      if (!g) {
+        g = {
+          key,
+          fournisseur: r.fournisseur,
+          fournisseurNom: r.fournisseurNom || r.fournisseur,
+          iso: r.date!,
+          dateFmt: r.dateFmt,
+          palettes: 0,
+          rows: [],
+          sansCoef: 0,
+          estimees: 0,
+        }
+        acc.set(key, g)
+      }
+      g.palettes += r.nbPalettes
+      g.rows.push(r)
+      if (r.coefManquant) g.sansCoef += 1
+      else if (r.coefEstime) g.estimees += 1
+    }
+    return [...acc.values()]
+  }, [dated])
+
   /** Lignes du board : une par fournisseur (tri charge desc), ou une seule « Quai ». */
   const lines = useMemo<BoardLine[]>(() => {
+    if (groups.length === 0) return []
+
+    const push = (line: BoardLine, g: ReceptionGroup) => {
+      line.palettes += g.palettes
+      const slot = line.byDay.get(g.iso) ?? []
+      slot.push(g)
+      line.byDay.set(g.iso, slot)
+    }
+
     if (groupBy === 'quai') {
-      const byDay = new Map<string, ReceptionDisplayRow[]>()
-      let palettes = 0
-      const fournisseurs = new Set<string>()
-      for (const r of dated) {
-        const slot = byDay.get(r.date!) ?? []
-        slot.push(r)
-        byDay.set(r.date!, slot)
-        palettes += r.nbPalettes
-        fournisseurs.add(r.fournisseur)
+      const line: BoardLine = {
+        key: 'QUAI',
+        label: 'Quai réception',
+        sub: '',
+        palettes: 0,
+        byDay: new Map(),
       }
-      if (dated.length === 0) return []
-      return [
-        {
-          key: 'QUAI',
-          label: 'Quai réception',
-          sub: `${fournisseurs.size} fournisseur${fournisseurs.size > 1 ? 's' : ''}`,
-          palettes,
-          byDay,
-        },
-      ]
+      const fournisseurs = new Set<string>()
+      for (const g of groups) {
+        push(line, g)
+        fournisseurs.add(g.fournisseur)
+      }
+      // Cartes empilées d'un même jour : la plus chargée en tête.
+      for (const slot of line.byDay.values()) slot.sort((a, b) => b.palettes - a.palettes)
+      line.sub = `${fournisseurs.size} fournisseur${fournisseurs.size > 1 ? 's' : ''}`
+      return [line]
     }
 
     const acc = new Map<string, BoardLine>()
-    for (const r of dated) {
-      const line =
-        acc.get(r.fournisseur) ??
-        ({
-          key: r.fournisseur,
-          label: r.fournisseurNom || r.fournisseur,
-          sub: r.fournisseur,
+    for (const g of groups) {
+      let line = acc.get(g.fournisseur)
+      if (!line) {
+        line = {
+          key: g.fournisseur,
+          label: g.fournisseurNom,
+          sub: g.fournisseur,
           palettes: 0,
           byDay: new Map(),
-        } satisfies BoardLine)
-      line.palettes += r.nbPalettes
-      const slot = line.byDay.get(r.date!) ?? []
-      slot.push(r)
-      line.byDay.set(r.date!, slot)
-      acc.set(r.fournisseur, line)
+        }
+        acc.set(g.fournisseur, line)
+      }
+      push(line, g)
     }
     return [...acc.values()].sort(
       (a, b) => b.palettes - a.palettes || a.label.localeCompare(b.label)
     )
-  }, [dated, groupBy])
+  }, [groups, groupBy])
 
   /** Empans de semaine (bande supérieure) + total palettes hebdo. */
   const weekSpans = useMemo(() => {
@@ -335,11 +394,12 @@ export function ReceptionBoard({
                       d.today && 'bg-brand-soft/40'
                     )}
                   >
-                    {cards.map((r) => (
+                    {cards.map((g) => (
                       <ReceptionCard
-                        key={`${r.noCommande}:${r.article}:${r.date}`}
-                        row={r}
-                        onOpen={() => setDetail(r)}
+                        key={g.key}
+                        group={g}
+                        showFournisseur={groupBy === 'quai'}
+                        onOpen={() => setDetail(g)}
                       />
                     ))}
                   </div>
@@ -404,7 +464,7 @@ export function ReceptionBoard({
         </div>
       )}
 
-      <ReceptionDetailSheet row={detail} onClose={() => setDetail(null)} />
+      <ReceptionDetailSheet group={detail} onClose={() => setDetail(null)} />
     </>
   )
 }
@@ -413,49 +473,79 @@ export function ReceptionBoard({
 // Carte
 // ───────────────────────────────────────────────────────────────────────────
 
-function ReceptionCard({ row, onOpen }: { row: ReceptionDisplayRow; onOpen: () => void }) {
-  const tier = chargeTier(row.nbPalettes)
+/**
+ * Carte = un camion (fournisseur × jour). Le nombre de palettes est l'ancre
+ * visuelle ; le nom du fournisseur n'est repris que dans le mode « Quai », où
+ * l'en-tête de ligne ne le porte plus.
+ */
+function ReceptionCard({
+  group,
+  showFournisseur,
+  onOpen,
+}: {
+  group: ReceptionGroup
+  showFournisseur: boolean
+  onOpen: () => void
+}) {
+  const tier = chargeTier(group.palettes)
+  const nbLignes = group.rows.length
+  const degrade = group.sansCoef > 0
+  const estime = !degrade && group.estimees > 0
+  /** Une seule ligne PO → on affiche l'article, plus parlant que « 1 ligne ». */
+  const single = nbLignes === 1 ? group.rows[0] : null
+
   return (
     <button
       type="button"
       onClick={onOpen}
       className={cn(
-        'group flex w-full flex-col gap-1 rounded-md border border-t-[3px] bg-card px-2 py-1.5 text-left transition-all',
+        'flex w-full flex-col gap-1 rounded-md border border-t-[3px] border-rule-soft bg-card px-2 py-1.5 text-left transition-all',
         'hover:-translate-y-px hover:shadow-float',
-        row.coefManquant
-          ? 'border-rule-soft border-t-destructive/60 bg-destructive/[0.05]'
-          : row.coefEstime
-            ? 'border-rule-soft border-t-planifie bg-planifie/[0.05]'
-            : 'border-rule-soft border-t-ferme'
+        degrade
+          ? 'border-t-destructive/60 bg-destructive/[0.05]'
+          : estime
+            ? 'border-t-planifie bg-planifie/[0.05]'
+            : 'border-t-ferme'
       )}
-      title={`${row.noCommande} · ${row.article} · ${row.nbPalettesFmt} palette(s)`}
+      title={[
+        showFournisseur ? group.fournisseurNom : null,
+        `${group.palettes} palette${group.palettes > 1 ? 's' : ''}`,
+        `${nbLignes} ligne${nbLignes > 1 ? 's' : ''} de commande`,
+        group.sansCoef > 0 ? `${group.sansCoef} sans coef (charge sous-estimée)` : null,
+        group.estimees > 0 ? `${group.estimees} coef estimé` : null,
+      ]
+        .filter(Boolean)
+        .join(' · ')}
     >
-      <span className="font-mono text-[10.5px] font-bold leading-none text-foreground">
-        {row.noCommande}
-      </span>
-      <span className="truncate font-mono text-[10px] leading-none text-muted-foreground">
-        {row.article}
-      </span>
-      <span className="flex items-center gap-1">
-        {row.coefManquant ? (
-          <TriangleAlert size={11} strokeWidth={1.75} className="text-destructive" />
-        ) : row.coefEstime ? (
-          <Lightbulb size={11} strokeWidth={1.75} className="text-planifie" />
-        ) : (
-          <Package size={11} strokeWidth={1.75} className="text-muted-foreground" />
-        )}
+      {showFournisseur && (
+        <span className="truncate font-sans text-[11px] font-semibold leading-tight text-secondary-foreground">
+          {group.fournisseurNom}
+        </span>
+      )}
+
+      {/* Palettes — l'unité du board. */}
+      <span className="flex items-baseline gap-1">
         <span
           className={cn(
-            'font-fraunces text-[12px] font-bold tabular-nums leading-none',
-            row.coefManquant
-              ? 'text-destructive/60'
-              : row.coefEstime
-                ? 'text-planifie'
-                : chargeText(tier)
+            'font-fraunces text-[19px] font-bold tabular-nums leading-none',
+            degrade ? 'text-destructive/70' : estime ? 'text-planifie' : chargeText(tier)
           )}
         >
-          {row.nbPalettesFmt}
+          {group.palettes}
         </span>
+        <span className="font-mono text-[9px] font-medium text-muted-foreground">pal.</span>
+        {degrade ? (
+          <TriangleAlert size={11} strokeWidth={1.75} className="ml-auto text-destructive" />
+        ) : estime ? (
+          <Lightbulb size={11} strokeWidth={1.75} className="ml-auto text-planifie" />
+        ) : (
+          <Package size={11} strokeWidth={1.75} className="ml-auto text-muted-foreground/60" />
+        )}
+      </span>
+
+      {/* Contenu du camion : article si ligne unique, sinon compte de lignes. */}
+      <span className="truncate font-mono text-[9.5px] leading-none text-muted-foreground">
+        {single ? `${single.noCommande} · ${single.article}` : `${nbLignes} lignes`}
       </span>
     </button>
   )
@@ -466,99 +556,128 @@ function ReceptionCard({ row, onOpen }: { row: ReceptionDisplayRow; onOpen: () =
 // ───────────────────────────────────────────────────────────────────────────
 
 function ReceptionDetailSheet({
-  row,
+  group,
   onClose,
 }: {
-  row: ReceptionDisplayRow | null
+  group: ReceptionGroup | null
   onClose: () => void
 }) {
   return (
-    <Sheet open={row !== null} onOpenChange={(v) => !v && onClose()}>
+    <Sheet open={group !== null} onOpenChange={(v) => !v && onClose()}>
       <SheetContent side="right" className="gap-0 p-0">
-        {row && (
+        {group && (
           <div className="flex h-full flex-col overflow-auto">
+            {/* En-tête : le camion. */}
             <div className="border-b border-rule px-6 py-5">
-              <SheetTitle className="font-fraunces text-[19px] font-bold tracking-tight text-foreground">
-                {row.noCommande}
+              <SheetTitle className="font-fraunces text-[19px] font-bold leading-tight tracking-tight text-foreground">
+                {group.fournisseurNom}
               </SheetTitle>
               <div className="mt-1 font-mono text-[11px] text-muted-foreground">
-                {row.dateFmt} · {row.dateRelatif}
+                {group.fournisseur} · {group.dateFmt}
               </div>
-            </div>
-
-            <div className="flex flex-col gap-4 px-6 py-5">
-              <Field label="Fournisseur">
-                <div className="font-sans text-[13px] font-semibold text-secondary-foreground">
-                  {row.fournisseurNom}
-                </div>
-                <div className="font-mono text-[11px] text-muted-foreground">{row.fournisseur}</div>
-              </Field>
-
-              <Field label="Article">
-                <div className="font-mono text-[13px] font-bold text-foreground">{row.article}</div>
-                {row.designation && (
-                  <div className="mt-0.5 font-sans text-[12px] leading-snug text-muted-foreground">
-                    {row.designation}
-                  </div>
-                )}
-              </Field>
-
-              <Field label="Quantité restante">
-                <span className="font-fraunces text-[16px] font-bold tabular-nums text-foreground">
-                  {row.qteUsFmt}
-                  <span className="ml-1 font-mono text-[10px] font-medium text-muted-foreground">
-                    US
-                  </span>
-                </span>
-              </Field>
-
-              <Field label="Conditionnement">
-                <div className="font-mono text-[12px] text-muted-foreground">
-                  {row.conditionnement}
-                </div>
-                {row.coefManquant && (
-                  <div className="mt-1.5 flex items-center gap-1.5 rounded bg-destructive/10 px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-destructive">
-                    <TriangleAlert size={12} strokeWidth={1.75} />
-                    Coef manquant — charge sous-estimée
-                  </div>
-                )}
-                {row.coefEstime && (
-                  <div className="mt-1.5 flex items-center gap-1.5 rounded bg-planifie/10 px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-planifie">
-                    <Lightbulb size={12} strokeWidth={1.75} />
-                    Estimé ({row.coefSource})
-                  </div>
-                )}
-              </Field>
-
-              <Field label="Palettes attendues">
+              <div className="mt-3 flex items-baseline gap-2">
                 <span
                   className={cn(
-                    'font-fraunces text-[26px] font-bold tabular-nums leading-none',
-                    row.coefManquant
-                      ? 'text-destructive/60'
-                      : row.coefEstime
-                        ? 'text-planifie'
-                        : chargeText(chargeTier(row.nbPalettes))
+                    'font-fraunces text-[30px] font-bold tabular-nums leading-none',
+                    chargeText(chargeTier(group.palettes))
                   )}
                 >
-                  {row.nbPalettesFmt}
+                  {group.palettes}
                 </span>
-              </Field>
+                <span className="font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                  palette{group.palettes > 1 ? 's' : ''} ·{' '}
+                  {chargeLabel(chargeTier(group.palettes))}
+                </span>
+              </div>
+              {(group.sansCoef > 0 || group.estimees > 0) && (
+                <div className="mt-2.5 flex flex-wrap gap-1.5">
+                  {group.sansCoef > 0 && (
+                    <span className="flex items-center gap-1 rounded bg-destructive/10 px-2 py-1 font-mono text-[9.5px] font-bold uppercase tracking-wider text-destructive">
+                      <TriangleAlert size={11} strokeWidth={1.75} />
+                      {group.sansCoef} sans coef — charge sous-estimée
+                    </span>
+                  )}
+                  {group.estimees > 0 && (
+                    <span className="flex items-center gap-1 rounded bg-planifie/10 px-2 py-1 font-mono text-[9.5px] font-bold uppercase tracking-wider text-planifie">
+                      <Lightbulb size={11} strokeWidth={1.75} />
+                      {group.estimees} coef estimé{group.estimees > 1 ? 's' : ''}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Détail : les lignes de commande du camion. */}
+            <div className="px-6 py-4">
+              <div className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                {group.rows.length} ligne{group.rows.length > 1 ? 's' : ''} de commande
+              </div>
+            </div>
+            <div className="flex flex-col">
+              {group.rows.map((r) => (
+                <div
+                  key={`${r.noCommande}:${r.article}`}
+                  className={cn(
+                    'border-t border-rule-soft px-6 py-3',
+                    r.coefManquant
+                      ? 'bg-destructive/[0.05]'
+                      : r.coefEstime
+                        ? 'bg-planifie/[0.05]'
+                        : ''
+                  )}
+                >
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="font-mono text-[12px] font-bold text-foreground">
+                      {r.article}
+                    </span>
+                    <span
+                      className={cn(
+                        'font-fraunces text-[15px] font-bold tabular-nums leading-none',
+                        r.coefManquant
+                          ? 'text-destructive/60'
+                          : r.coefEstime
+                            ? 'text-planifie'
+                            : chargeText(chargeTier(r.nbPalettes))
+                      )}
+                    >
+                      {r.nbPalettesFmt}
+                      <span className="ml-1 font-mono text-[9px] font-medium text-muted-foreground">
+                        pal.
+                      </span>
+                    </span>
+                  </div>
+                  {r.designation && (
+                    <div className="mt-0.5 font-sans text-[11.5px] leading-snug text-muted-foreground">
+                      {r.designation}
+                    </div>
+                  )}
+                  <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[10px] text-muted-foreground">
+                    <span className="font-semibold text-foreground">{r.noCommande}</span>
+                    <span>
+                      {r.qteUsFmt} <span className="text-muted-foreground/70">US</span>
+                    </span>
+                    <span className={cn(r.coefManquant && 'text-destructive')}>
+                      {r.conditionnement}
+                    </span>
+                    {r.coefEstime && (
+                      <span className="flex items-center gap-1 text-planifie">
+                        <Lightbulb size={10} strokeWidth={1.75} />
+                        Estimé ({r.coefSource})
+                      </span>
+                    )}
+                    {r.coefManquant && (
+                      <span className="flex items-center gap-1 text-destructive">
+                        <TriangleAlert size={10} strokeWidth={1.75} />
+                        Coef manquant
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
       </SheetContent>
     </Sheet>
-  )
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <span className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-        {label}
-      </span>
-      {children}
-    </div>
   )
 }
