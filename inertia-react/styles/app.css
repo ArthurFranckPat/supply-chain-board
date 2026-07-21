@@ -114,12 +114,14 @@
 }
 
 @theme {
-  /* ── La troisième ombre — LA seule élévation hors page. Réservée aux
-     overlays (sheets, dialogs, toasts). Grammaire figée par
-     design/showcase/airbnb-overlays.html (échelle des couches).
-     Déclarée GLOBALE : les primitives Base UI sont portales au niveau
-     <body>, hors du scope .theme-airbnb. Directive : ne pas créer de
-     4e niveau d'ombre. ── */
+  /* ── Ombres globales (déclarées ici, pas sous .theme-airbnb) : les
+     primitives Base UI sont portales au niveau <body>, hors du scope.
+     Grammaire figée par design/showcase/airbnb-overlays.html.
+     • --shadow-float  : menus/popups (select, combobox) — « hover float ».
+     • --shadow-overlay: LA seule élévation hors page, réservée aux
+       overlays (sheets, dialogs).
+     Directive : ne pas créer de 3e niveau d'ombre globale. ── */
+  --shadow-float: 0 6px 20px rgb(0 0 0 / 0.16);
   --shadow-overlay: 0 18px 50px rgb(0 0 0 / 0.24);
 }
 

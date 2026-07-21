@@ -204,7 +204,7 @@ export function ScenarioBar({
       </span>
 
       {s.current.statut === 'applique' && (
-        <span className="rounded-full bg-emerald-100 px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-700">
+        <span className="rounded-full bg-ferme/10 px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-ferme">
           Appliqué
         </span>
       )}
@@ -408,7 +408,7 @@ export function ScenarioBar({
                         <div className="flex items-center gap-1.5 text-[12px] font-semibold text-foreground">
                           {sc.nom}
                           {sc.statut === 'applique' && (
-                            <span className="font-mono text-[9px] font-bold uppercase text-emerald-600">
+                            <span className="font-mono text-[9px] font-bold uppercase text-ferme">
                               appliqué
                             </span>
                           )}

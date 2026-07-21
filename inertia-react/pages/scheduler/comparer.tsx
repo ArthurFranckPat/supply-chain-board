@@ -120,11 +120,11 @@ export default function Comparer(props: ComparerPageProps) {
               <h1 className="font-fraunces text-xl font-bold text-black">
                 Comparaison des Scénarios de Planification
               </h1>
-              <p className="text-[10px] text-gray-600">
+              <p className="text-[10px] text-foreground/80">
                 Horizon : {props.windowFrom} au {props.windowTo}
               </p>
             </div>
-            <p className="text-[9px] text-gray-500 text-right">
+            <p className="text-[9px] text-muted-foreground text-right">
               Évalué le {new Date(props.evaluatedAt).toLocaleString()} sur données du{' '}
               {new Date(props.dataAt).toLocaleDateString()}
             </p>
@@ -256,8 +256,8 @@ export default function Comparer(props: ComparerPageProps) {
                       className={cn(
                         'rounded px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase',
                         sc.statut === 'applique'
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : 'bg-amber-100 text-amber-800'
+                          ? 'bg-ferme/10 text-ferme'
+                          : 'bg-suggere/10 text-suggere'
                       )}
                     >
                       {sc.statut === 'applique' ? 'appliqué' : 'brouillon'}
@@ -298,9 +298,9 @@ export default function Comparer(props: ComparerPageProps) {
                       className={cn(
                         'text-xs font-bold',
                         clientDelta > 0
-                          ? 'text-red-600'
+                          ? 'text-destructive'
                           : clientDelta < 0
-                            ? 'text-emerald-600'
+                            ? 'text-ferme'
                             : 'text-muted-foreground'
                       )}
                     >
@@ -321,9 +321,9 @@ export default function Comparer(props: ComparerPageProps) {
                       className={cn(
                         'text-xs font-bold',
                         shortageDelta > 0
-                          ? 'text-red-600'
+                          ? 'text-destructive'
                           : shortageDelta < 0
-                            ? 'text-emerald-600'
+                            ? 'text-ferme'
                             : 'text-muted-foreground'
                       )}
                     >
@@ -331,11 +331,11 @@ export default function Comparer(props: ComparerPageProps) {
                     </span>
                     <span className="text-[10px] font-normal text-muted-foreground">vs plan actuel</span>
                   </div>
-                  <div className="text-xs font-normal text-red-600 flex justify-between">
+                  <div className="text-xs font-normal text-destructive flex justify-between">
                     <span>Inévitables</span>
                     <span>{inevitableCount}</span>
                   </div>
-                  <div className="text-xs font-normal text-amber-600 flex justify-between">
+                  <div className="text-xs font-normal text-suggere flex justify-between">
                     <span>À re-caler</span>
                     <span>{recalableCount}</span>
                   </div>
@@ -350,9 +350,9 @@ export default function Comparer(props: ComparerPageProps) {
                       className={cn(
                         'font-bold',
                         hoursDelta > 0
-                          ? 'text-red-600'
+                          ? 'text-destructive'
                           : hoursDelta < 0
-                            ? 'text-emerald-600'
+                            ? 'text-ferme'
                             : 'text-muted-foreground'
                       )}
                     >

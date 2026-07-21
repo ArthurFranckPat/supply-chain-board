@@ -15,13 +15,13 @@ type Tone = 'crit' | 'warn' | 'okz' | 'mut'
 
 const TONE_CLASS: Record<Tone, string> = {
   crit: 'bg-error/10 text-error',
-  warn: 'bg-amber-500/10 text-amber-600',
+  warn: 'bg-suggere/10 text-suggere',
   okz: 'bg-ferme/10 text-ferme',
   mut: 'bg-muted text-muted-foreground',
 }
 const DOT_CLASS: Record<Tone, string> = {
   crit: 'bg-error',
-  warn: 'bg-amber-500',
+  warn: 'bg-suggere',
   okz: 'bg-ferme',
   mut: 'bg-muted-foreground',
 }

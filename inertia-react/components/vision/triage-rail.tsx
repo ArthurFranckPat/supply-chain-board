@@ -40,12 +40,12 @@ const SEVERITY: Record<string, number> = { retard: 2, limite: 1 }
 
 const VERDICT_DOT: Record<ImpactVerdict, string> = {
   retard: 'bg-error',
-  limite: 'bg-amber-500',
+  limite: 'bg-suggere',
   ok: 'bg-ferme',
 }
 const VERDICT_DELTA_TONE: Record<ImpactVerdict, string> = {
   retard: 'bg-error/10 text-error',
-  limite: 'bg-amber-500/10 text-amber-600',
+  limite: 'bg-suggere/10 text-suggere',
   ok: 'bg-ferme/10 text-ferme',
 }
 
@@ -133,7 +133,7 @@ export function TriageRail(props: {
                 ? t === 'retards'
                   ? 'border-error bg-error/10 text-error'
                   : t === 'limites'
-                    ? 'border-amber-500 text-amber-600'
+                    ? 'border-suggere text-suggere'
                     : 'border-muted-foreground text-muted-foreground'
                 : 'border-rule text-muted-foreground hover:text-foreground'
             )}

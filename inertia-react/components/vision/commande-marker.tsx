@@ -109,7 +109,7 @@ export function CommandeMarker(props: {
           <span
             className={cn(
               'ml-auto rounded-full px-1 py-px font-mono text-3xs font-bold tabular-nums',
-              verdict === 'retard' ? 'bg-error/10 text-error' : 'bg-amber-500/10 text-amber-600'
+              verdict === 'retard' ? 'bg-error/10 text-error' : 'bg-suggere/10 text-suggere'
             )}
           >
             {deltaLabel(props.deltaJours!)}

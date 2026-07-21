@@ -703,7 +703,7 @@ function PP830Header({ pp830 }: PP830HeaderProps) {
               className="block h-full"
               style={{
                 width: seg(t.sans),
-                background: TYPO_META[t.typo]?.color ?? '#94a3b8',
+                background: TYPO_META[t.typo]?.color ?? 'var(--border)',
               }}
             />
             {t.bouche > 0 && (
@@ -711,7 +711,7 @@ function PP830Header({ pp830 }: PP830HeaderProps) {
                 className="block h-full"
                 style={{
                   width: seg(t.bouche),
-                  background: TYPO_META[t.typo]?.light ?? '#cbd5e1',
+                  background: TYPO_META[t.typo]?.light ?? 'var(--rule-soft)',
                 }}
               />
             )}
@@ -724,12 +724,12 @@ function PP830Header({ pp830 }: PP830HeaderProps) {
             <span className="inline-flex items-center gap-0.5">
               <span
                 className="size-[7px] rounded-[1px]"
-                style={{ background: TYPO_META[t.typo]?.color ?? '#94a3b8' }}
+                style={{ background: TYPO_META[t.typo]?.color ?? 'var(--border)' }}
               />
               {t.bouche > 0 && (
                 <span
                   className="size-[7px] rounded-[1px]"
-                  style={{ background: TYPO_META[t.typo]?.light ?? '#cbd5e1' }}
+                  style={{ background: TYPO_META[t.typo]?.light ?? 'var(--rule-soft)' }}
                 />
               )}
             </span>
@@ -765,8 +765,8 @@ const VERDICT_TONE: Record<string, { border: string; text: string; label: string
   retard: { border: 'border-l-error', text: 'text-error', label: 'retard' },
   bloquee: { border: 'border-l-error', text: 'text-error', label: 'bloquée' },
   sans_couverture: {
-    border: 'border-l-amber-500',
-    text: 'text-amber-600',
+    border: 'border-l-suggere',
+    text: 'text-suggere',
     label: 'sans couverture',
   },
 }

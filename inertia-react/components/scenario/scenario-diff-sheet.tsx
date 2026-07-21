@@ -11,7 +11,7 @@ import type { PlanDiff, DiffSens } from '@/lib/scenarios/types'
  * Principe acté (vision §5) : CONSTAT, pas prescription — on liste, l'humain décide.
  */
 
-const sensClass = (s: DiffSens) => (s === 'degradation' ? 'text-error' : 'text-emerald-600')
+const sensClass = (s: DiffSens) => (s === 'degradation' ? 'text-error' : 'text-ferme')
 
 const fmtDelta = (n: number, unit: string) => `${n > 0 ? '+' : ''}${n}${unit}`
 
@@ -54,7 +54,7 @@ export function ScenarioDiffSheet({
             {/* Bilan */}
             <div className="flex gap-4 text-[12px] font-bold">
               <span className="text-error">{diff.stats.degradations} dégradation(s)</span>
-              <span className="text-emerald-600">{diff.stats.ameliorations} amélioration(s)</span>
+              <span className="text-ferme">{diff.stats.ameliorations} amélioration(s)</span>
             </div>
 
             {/* Axe client — promesses */}
@@ -104,10 +104,10 @@ export function ScenarioDiffSheet({
                       : 'Stock dormant'
                 const badgeClass =
                   v.verdict === 'inevitable'
-                    ? 'bg-red-100 text-red-700'
+                    ? 'bg-destructive/10 text-destructive'
                     : v.verdict === 'recalable'
-                      ? 'bg-amber-100 text-amber-700'
-                      : 'bg-gray-100 text-gray-700'
+                      ? 'bg-suggere/10 text-suggere'
+                      : 'bg-muted text-foreground/80'
                 return (
                   <Row key={`verdict-${i}`} sens={sens}>
                     <div className="flex flex-col gap-0.5 w-full">
@@ -183,7 +183,7 @@ function Row({ sens, children }: RowProps) {
     <div
       className={cn(
         'flex flex-wrap items-center gap-2 rounded-md border-l-2 bg-card px-2.5 py-1.5 text-[12px]',
-        sens === 'degradation' ? 'border-l-error' : 'border-l-emerald-500'
+        sens === 'degradation' ? 'border-l-error' : 'border-l-ferme'
       )}
     >
       {children}

@@ -15,13 +15,16 @@ interface SuiviDetailSheetProps {
 
 type StepState = 'green' | 'amber' | 'gray' | 'purple'
 
+// Pastilles d'étape — hex grammaire (airbnb-grammar.html) : ferme #008049,
+// suggere #fc642d, planifie #00a699 (ex-« purple » CQ : pas de violet dans
+// la grammaire, replié sur l'accent secondaire teal).
 const STEP_CIRCLE: Record<StepState, string> = {
   green:
-    'bg-emerald-500 text-white shadow-[0_0_12px_rgba(16,185,129,0.3)] border border-emerald-400',
+    'bg-ferme text-white shadow-[0_0_12px_rgba(0,128,73,0.3)] border border-ferme',
   amber:
-    'bg-amber-500 text-white animate-pulse shadow-[0_0_12px_rgba(245,158,11,0.3)] border border-amber-400',
+    'bg-suggere text-white animate-pulse shadow-[0_0_12px_rgba(252,100,45,0.3)] border border-suggere',
   purple:
-    'bg-purple-500 text-white animate-pulse shadow-[0_0_12px_rgba(168,85,247,0.3)] border border-purple-400',
+    'bg-planifie text-white animate-pulse shadow-[0_0_12px_rgba(0,166,153,0.3)] border border-planifie',
   gray: 'bg-secondary text-muted-foreground border border-rule',
 }
 
@@ -223,9 +226,9 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
         </div>
       </div>
 
-      {/* 2. Header Card (Fiche Commande) */}
-      <div className="relative overflow-hidden rounded-2xl border border-rule bg-gradient-to-br from-secondary/30 via-secondary/10 to-transparent p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] backdrop-blur-sm">
-        <div className="absolute -right-6 -top-6 size-24 rounded-full bg-brand/5 opacity-[0.03] blur-xl" />
+      {/* 2. Header Card (Fiche Commande) — carte plate grammaire :
+          rayon 14, hairline, pas de gradient ni de blur. */}
+      <div className="relative overflow-hidden rounded-lg border border-rule bg-card p-5">
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
@@ -287,10 +290,9 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
       {/* 3. Alert Notification (Recommandation) */}
       <div
         className={cn(
-          'relative flex flex-col gap-2.5 overflow-hidden rounded-2xl border border-rule p-5 shadow-[0_4px_20px_-6px_rgba(0,0,0,0.02)] transition-all',
+          'relative flex flex-col gap-2.5 overflow-hidden rounded-lg border border-rule p-5 transition-all',
           severity === 'info' && 'border-brand/20 bg-brand/5 text-brand',
-          severity === 'warning' &&
-            'border-amber-500/25 bg-amber-500/[0.04] text-amber-600 dark:text-amber-400',
+          severity === 'warning' && 'border-suggere/25 bg-suggere/5 text-suggere',
           severity === 'critical' && 'border-destructive/20 bg-destructive/[0.03] text-destructive'
         )}
       >
@@ -365,8 +367,8 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
             </span>
           </div>
           <div className="relative flex h-3 w-full overflow-hidden rounded-full border border-rule-soft bg-secondary/50">
-            <div className="h-full bg-emerald-500 transition-all duration-500" style={{ width: `${pctStrict}%` }} />
-            <div className="h-full bg-purple-500 transition-all duration-500" style={{ width: `${pctCq}%` }} />
+            <div className="h-full bg-ferme transition-all duration-500" style={{ width: `${pctStrict}%` }} />
+            <div className="h-full bg-planifie transition-all duration-500" style={{ width: `${pctCq}%` }} />
             <div className="h-full bg-secondary transition-all duration-500" style={{ width: `${pctReliquat}%` }} />
           </div>
         </div>
@@ -379,14 +381,14 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
           {isReactif ? (
             <>
               <div className="rounded-xl border border-rule-soft/40 bg-secondary/15 p-2.5">
-                <div className="text-[9.5px] font-semibold text-emerald-600">Strict</div>
-                <div className="mt-0.5 font-mono text-[16px] font-black text-emerald-600">
+                <div className="text-[9.5px] font-semibold text-ferme">Strict</div>
+                <div className="mt-0.5 font-mono text-[16px] font-black text-ferme">
                   {reactiveRow.allocStrict}
                 </div>
               </div>
               <div className="rounded-xl border border-rule-soft/40 bg-secondary/15 p-2.5">
-                <div className="text-[9.5px] font-semibold text-purple-600">Sous CQ</div>
-                <div className="mt-0.5 font-mono text-[16px] font-black text-purple-600">
+                <div className="text-[9.5px] font-semibold text-planifie">Sous CQ</div>
+                <div className="mt-0.5 font-mono text-[16px] font-black text-planifie">
                   {reactiveRow.allocCq}
                 </div>
               </div>
@@ -394,8 +396,8 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
           ) : (
             <>
               <div className="rounded-xl border border-rule-soft/40 bg-secondary/15 p-2.5">
-                <div className="text-[9.5px] font-semibold text-emerald-600">Alloué</div>
-                <div className="mt-0.5 font-mono text-[16px] font-black text-emerald-600">
+                <div className="text-[9.5px] font-semibold text-ferme">Alloué</div>
+                <div className="mt-0.5 font-mono text-[16px] font-black text-ferme">
                   {proactiveRow.qteAllouee}
                 </div>
               </div>
@@ -457,8 +459,8 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                     {/* Delivery Timeline Track */}
                     <div className="mt-1 flex items-center gap-2 px-1">
                       <div className="flex flex-1 flex-col gap-1">
-                        <div className="h-1.5 rounded-full bg-emerald-500" />
-                        <span className="text-[8px] font-extrabold uppercase text-emerald-600">
+                        <div className="h-1.5 rounded-full bg-ferme" />
+                        <span className="text-[8px] font-extrabold uppercase text-ferme">
                           Commandé
                         </span>
                       </div>
@@ -466,7 +468,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                         <div
                           className={cn(
                             'h-1.5 rounded-full',
-                            c.reception.overdue ? 'bg-destructive/40' : 'bg-emerald-500'
+                            c.reception.overdue ? 'bg-destructive/40' : 'bg-ferme'
                           )}
                         />
                         <span
@@ -474,7 +476,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                             'text-[8px] font-extrabold uppercase',
                             c.reception.overdue
                               ? 'font-bold text-destructive'
-                              : 'text-emerald-600'
+                              : 'text-ferme'
                           )}
                         >
                           Transit
@@ -524,7 +526,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                       <span>Nomenclature sous-ensemble</span>
                     </div>
                     {c.descente.statut === 'se_a_lancer' ? (
-                      <div className="flex items-center gap-1 pl-3.5 text-[11px] font-bold text-emerald-700">
+                      <div className="flex items-center gap-1 pl-3.5 text-[11px] font-bold text-ferme">
                         <CircleCheck size={14} strokeWidth={1.75} />
                         Composants disponibles — OF du sous-ensemble prêt à lancer
                       </div>
@@ -666,7 +668,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                         <span
                           className={cn(
                             'inline-flex items-center gap-1 text-[11px] font-bold',
-                            of.feasible ? 'text-emerald-600' : 'text-destructive'
+                            of.feasible ? 'text-ferme' : 'text-destructive'
                           )}
                         >
                           <DynamicIcon name={of.feasible ? 'check_circle' : 'cancel'} size={13} strokeWidth={1.75} className="leading-none" />
@@ -721,7 +723,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                     <div
                       className={cn(
                         'mt-0.5 text-[9px] font-extrabold uppercase tracking-wider',
-                        e.source === 'STOALL' ? 'text-emerald-600' : 'text-amber-600'
+                        e.source === 'STOALL' ? 'text-ferme' : 'text-suggere'
                       )}
                     >
                       {e.source === 'STOALL' ? 'Stock Alloué' : 'Stock Libre'}

@@ -330,7 +330,7 @@ export function OrderGrid(props: OrderGridProps) {
                             className="block h-full"
                             style={{
                               width: `${((t.sans + t.bouche) / (line.pp830?.chargeByTypo ?? []).reduce((s, x) => s + x.sans + x.bouche, 0)) * 100}%`,
-                              background: TYPO_META[t.typo]?.color ?? '#94a3b8',
+                              background: TYPO_META[t.typo]?.color ?? 'var(--border)',
                             }}
                           />
                           {t.bouche > 0 && (
@@ -338,7 +338,7 @@ export function OrderGrid(props: OrderGridProps) {
                               className="block h-full"
                               style={{
                                 width: `${(t.bouche / (line.pp830?.chargeByTypo ?? []).reduce((s, x) => s + x.sans + x.bouche, 0)) * 100}%`,
-                                background: TYPO_META[t.typo]?.light ?? '#cbd5e1',
+                                background: TYPO_META[t.typo]?.light ?? 'var(--rule-soft)',
                               }}
                             />
                           )}
@@ -351,12 +351,12 @@ export function OrderGrid(props: OrderGridProps) {
                           <span className="inline-flex items-center gap-0.5">
                             <span
                               className="size-[7px] rounded-[1px]"
-                              style={{ background: TYPO_META[t.typo]?.color ?? '#94a3b8' }}
+                              style={{ background: TYPO_META[t.typo]?.color ?? 'var(--border)' }}
                             />
                             {t.bouche > 0 && (
                               <span
                                 className="size-[7px] rounded-[1px]"
-                                style={{ background: TYPO_META[t.typo]?.light ?? '#cbd5e1' }}
+                                style={{ background: TYPO_META[t.typo]?.light ?? 'var(--rule-soft)' }}
                               />
                             )}
                           </span>

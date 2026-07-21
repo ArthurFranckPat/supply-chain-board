@@ -616,7 +616,8 @@ export default function Calendrier(props: CalendrierPageProps) {
                                     c.motif === 'maintenance'
                                       ? 'color-mix(in srgb, var(--color-suggere) 18%, transparent)'
                                       : 'color-mix(in srgb, var(--color-planifie) 16%, transparent)',
-                                  color: c.motif === 'maintenance' ? '#5a4410' : 'var(--color-planifie)',
+                                  /* orange sombre grammaire (b-suggere du showcase) */
+                                  color: c.motif === 'maintenance' ? '#c2410c' : 'var(--color-planifie)',
                                 }}
                               >
                                 {motifLabel(c.motif)}

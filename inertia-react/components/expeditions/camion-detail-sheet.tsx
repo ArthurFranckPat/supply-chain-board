@@ -161,7 +161,7 @@ export function CamionDetailSheet({
                         'inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[10px] font-bold',
                         camion.ecartPalettes > 0.3
                           ? 'bg-destructive/10 text-destructive'
-                          : 'bg-emerald-500/10 text-emerald-600'
+                          : 'bg-ferme/10 text-ferme'
                       )}
                       title="Écart entre palettes scannées et palettes théoriques (calcul UC)"
                     >

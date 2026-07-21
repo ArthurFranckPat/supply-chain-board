@@ -55,35 +55,35 @@ interface TreeNodeProps {
 
 function TreeNode({ node, depth }: TreeNodeProps) {
   return (
-    <li className={depth > 0 ? 'ml-5 border-l border-gray-200 pl-3' : ''}>
+    <li className={depth > 0 ? 'ml-5 border-l border-rule-soft pl-3' : ''}>
       <div
         className={cn(
           'flex items-center gap-2 py-1.5 rounded-md px-2',
-          node.onCriticalPath && 'bg-amber-50 ring-1 ring-amber-200'
+          node.onCriticalPath && 'bg-suggere/10 ring-1 ring-suggere/20'
         )}
       >
         {node.children.length > 0 && (
-          <span className="text-gray-300 text-xs">▸</span>
+          <span className="text-muted-foreground/70 text-xs">▸</span>
         )}
-        <DynamicIcon name={REASON_ICON[node.reason.kind] ?? 'circle'} size={16} className="text-gray-400" />
+        <DynamicIcon name={REASON_ICON[node.reason.kind] ?? 'circle'} size={16} className="text-muted-foreground" />
         <span
           className={cn(
             'text-[13px] font-mono',
-            node.onCriticalPath ? 'font-bold text-amber-900' : 'text-gray-700'
+            node.onCriticalPath ? 'font-bold text-suggere' : 'text-foreground/80'
           )}
         >
           {node.article}
         </span>
-        <span className="text-[11px] text-gray-400">×{node.quantity}</span>
-        <span className="text-[11px] text-gray-500">{reasonText(node.reason)}</span>
+        <span className="text-[11px] text-muted-foreground">×{node.quantity}</span>
+        <span className="text-[11px] text-muted-foreground">{reasonText(node.reason)}</span>
         {node.leadTimeUsed > 0 && (
-          <span className="text-[11px] text-gray-400">+{node.leadTimeUsed}j</span>
+          <span className="text-[11px] text-muted-foreground">+{node.leadTimeUsed}j</span>
         )}
-        <span className="ml-auto text-[11px] font-medium text-gray-600">
+        <span className="ml-auto text-[11px] font-medium text-foreground/80">
           {frDate(node.availableDate)}
         </span>
         {node.onCriticalPath && (
-          <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wide">
+          <span className="text-[10px] font-bold text-suggere uppercase tracking-wide">
             Critique
           </span>
         )}
@@ -108,22 +108,22 @@ interface DateCardProps {
 
 function DateCard({ label, date, color, result }: DateCardProps) {
   const styles = {
-    green: 'border-green-300 bg-green-50',
-    amber: 'border-amber-300 bg-amber-50',
+    green: 'border-ferme/30 bg-ferme/10',
+    amber: 'border-suggere/30 bg-suggere/10',
   }
-  const dateColor = { green: 'text-green-700', amber: 'text-amber-700' }
+  const dateColor = { green: 'text-ferme', amber: 'text-suggere' }
   return (
     <div className={cn('flex-1 rounded-xl border p-4', styles[color])}>
-      <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">{label}</div>
+      <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</div>
       {!result.infeasible ? (
         <>
           <div className={cn('mt-1 text-2xl font-bold', dateColor[color])}>{frDate(date)}</div>
-          <div className="mt-1 text-[12px] text-gray-500">
+          <div className="mt-1 text-[12px] text-muted-foreground">
             {reasonText(result.limitingFactor.reason)}
           </div>
         </>
       ) : (
-        <div className="mt-1 text-lg font-bold text-red-600">
+        <div className="mt-1 text-lg font-bold text-destructive">
           <Ban size={20} className="align-middle inline" /> Infaisable
         </div>
       )}
@@ -210,24 +210,24 @@ export default function Promesse() {
       <Head title="Promesse" />
       <div className="theme-airbnb flex h-screen flex-col overflow-hidden bg-background text-foreground">
         <Masthead active="promesse" subtitle="Capable-to-Promise — date au plus tôt" variant="airbnb" />
-        <main className="ml-12 pt-12 min-h-screen bg-gray-50 flex-1">
+        <main className="ml-12 pt-12 min-h-screen bg-secondary flex-1">
           <div className="mx-auto max-w-3xl px-6 py-8">
             {/* Formulaire */}
-            <form onSubmit={submit} className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-              <h2 className="mb-4 text-sm font-bold text-gray-700">
+            <form onSubmit={submit} className="rounded-xl border border-rule-soft bg-card p-5 shadow-sm">
+              <h2 className="mb-4 text-sm font-bold text-foreground/80">
                 <Headset size={18} className="align-middle text-primary" />{' '}
                 Simulateur de promesse client
               </h2>
               <div className="grid grid-cols-[1fr_120px_160px_auto] gap-3">
                 <div>
-                  <label className="mb-1 block text-[11px] font-medium text-gray-500">Article</label>
+                  <label className="mb-1 block text-[11px] font-medium text-muted-foreground">Article</label>
                   <input
                     type="text"
                     list="promesse-article-options"
                     value={article}
                     onChange={(e) => setArticle(e.currentTarget.value)}
                     placeholder="PP_830_X"
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+                    className="w-full rounded-lg border border-border px-3 py-2 text-sm font-mono focus:border-primary focus:ring-1 focus:ring-primary outline-none"
                     autoFocus
                   />
                   <datalist id="promesse-article-options">
@@ -239,22 +239,22 @@ export default function Promesse() {
                   </datalist>
                 </div>
                 <div>
-                  <label className="mb-1 block text-[11px] font-medium text-gray-500">Quantité</label>
+                  <label className="mb-1 block text-[11px] font-medium text-muted-foreground">Quantité</label>
                   <input
                     type="number"
                     value={quantity}
                     onChange={(e) => setQuantity(e.currentTarget.value)}
                     min="1"
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+                    className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none"
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-[11px] font-medium text-gray-500">À partir du</label>
+                  <label className="mb-1 block text-[11px] font-medium text-muted-foreground">À partir du</label>
                   <input
                     type="date"
                     value={fromDate || today}
                     onChange={(e) => setFromDate(e.currentTarget.value)}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+                    className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none"
                   />
                 </div>
                 <div className="flex items-end">
@@ -278,7 +278,7 @@ export default function Promesse() {
 
             {/* Erreur */}
             {error && (
-              <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <div className="mt-4 rounded-lg border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
                 {error}
               </div>
             )}
@@ -304,9 +304,9 @@ export default function Promesse() {
 
                 {/* Écart de risque */}
                 {!result.optimiste.infeasible && !result.engageante.infeasible && (
-                  <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5">
-                    <TrendingUp size={18} className="text-blue-500" />
-                    <span className="text-[13px] text-blue-800">
+                  <div className="flex items-center gap-2 rounded-lg border border-planifie/20 bg-planifie/10 px-4 py-2.5">
+                    <TrendingUp size={18} className="text-planifie" />
+                    <span className="text-[13px] text-planifie">
                       Écart de risque :{' '}
                       <strong>
                         {gap} jour{gap > 1 ? 's' : ''}
@@ -318,11 +318,11 @@ export default function Promesse() {
 
                 {/* Facteur limitant */}
                 {!result.engageante.infeasible && (
-                  <div className="rounded-lg border border-gray-200 bg-white px-4 py-3">
-                    <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                  <div className="rounded-lg border border-rule-soft bg-card px-4 py-3">
+                    <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                       Facteur limitant
                     </div>
-                    <p className="mt-1 text-sm text-gray-700">
+                    <p className="mt-1 text-sm text-foreground/80">
                       <span className="font-mono font-bold">
                         {result.engageante.limitingFactor.article}
                       </span>{' '}
@@ -334,7 +334,7 @@ export default function Promesse() {
 
                 {/* Chemin critique dépliable */}
                 {!result.engageante.infeasible && (
-                  <div className="rounded-lg border border-gray-200 bg-white">
+                  <div className="rounded-lg border border-rule-soft bg-card">
                     <button
                       type="button"
                       onClick={() => setShowTree((v) => !v)}
@@ -343,20 +343,20 @@ export default function Promesse() {
                       <ChevronRight
                         size={18}
                         className={cn(
-                          'text-gray-400 transition-transform',
+                          'text-muted-foreground transition-transform',
                           showTree && 'rotate-90'
                         )}
                       />
-                      <span className="text-[13px] font-semibold text-gray-700">
+                      <span className="text-[13px] font-semibold text-foreground/80">
                         Chemin critique détaillé
                       </span>
-                      <span className="ml-auto text-[11px] text-gray-400">
+                      <span className="ml-auto text-[11px] text-muted-foreground">
                         {result.engageante.criticalPath.length} maillon
                         {result.engageante.criticalPath.length > 1 ? 's' : ''}
                       </span>
                     </button>
                     {showTree && (
-                      <div className="border-t border-gray-100 px-4 py-3">
+                      <div className="border-t border-rule-soft px-4 py-3">
                         <ul>
                           <TreeNode node={result.engageante.tree} depth={0} />
                         </ul>
@@ -367,7 +367,7 @@ export default function Promesse() {
 
                 {/* Tronqué ? */}
                 {result.engageante.truncated && (
-                  <div className="flex items-center gap-2 text-[12px] text-orange-600">
+                  <div className="flex items-center gap-2 text-[12px] text-destructive">
                     <TriangleAlert size={16} />
                     Arbre incomplet — profondeur maximale atteinte ou cycle de nomenclature détecté.
                   </div>

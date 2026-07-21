@@ -146,7 +146,8 @@ export function ManifesteView({
                       style={{
                         width: `${Math.min((over / Math.max(taux, 1)) * 100, 100)}%`,
                         background:
-                          'repeating-linear-gradient(45deg, var(--color-destructive) 0 3px, #c44a32 3px 6px)',
+                          /* hachures retard — deux tons dérivés du token destructive */
+                          'repeating-linear-gradient(45deg, var(--color-destructive) 0 3px, color-mix(in srgb, var(--color-destructive) 70%, #ffffff) 3px 6px)',
                       }}
                     />
                   )}
