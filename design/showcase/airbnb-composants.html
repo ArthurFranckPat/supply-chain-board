@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Supply Chain Board · Composants grammaire Airbnb</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script src="https://unpkg.com/lucide@1.25.0/dist/umd/lucide.min.js" integrity="sha384-UoXAhqcCCjwD94x4CCSExEHvtO49AfNiY7g/IxDgrPtx4U6o6tvy1cScx9v/RrS9" crossorigin="anonymous"></script>
+<style>
+  :root{
+    /* ── Grammaire Airbnb (DESIGN.md) ── */
+    --rausch:#ff385c;        /* CTA — couleur marque sacrée */
+    --rausch-dark:#e31c5f;   /* hover Rausch (celui d'Airbnb) */
+    --ink:#222222;           /* jamais de noir pur */
+    --gray:#717171;          /* texte secondaire */
+    --gray-l:#b0b0b0;        /* texte tertiaire */
+    --line:#dddddd;          /* hairline */
+    --line-soft:#ebebeb;     /* hairline douce */
+    --surface:#f7f7f7;       /* surface de section */
+    --white:#ffffff;
+    /* ── Statuts métier (sens préservé) ── */
+    --ferme:#008049;
+    --planifie:#00a699;      /* Babu teal */
+    --suggere:#fc642d;       /* Arches orange */
+    /* ── Une seule ombre, deux intensités ── */
+    --sh-rest:0 1px 2px rgba(0,0,0,.08);
+    --sh-float:0 6px 20px rgba(0,0,0,.16);
+    /* ── Rayons : 8 btn / 14 card / pill ── */
+    --r-btn:8px; --r-card:14px; --r-pill:9999px;
+    --sans:'Plus Jakarta Sans',-apple-system,system-ui,sans-serif;
+    --mono:'IBM Plex Mono',ui-monospace,monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    font-family:var(--sans); color:var(--ink); background:var(--white);
+    -webkit-font-smoothing:antialiased; font-size:14px; line-height:1.5;
+  }
+  .num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+  button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+  i[data-lucide]{stroke-width:1.75}
+
+  /* ════════ RÉVÉLATION AU SCROLL ════════ */
+  .reveal{opacity:0;transform:translateY(18px);transition:opacity .6s cubic-bezier(.2,.7,.2,1),transform .6s cubic-bezier(.2,.7,.2,1)}
+  .reveal.in{opacity:1;transform:none}
+
+  /* ════════ MASTHEAD ════════ */
+  .masthead{
+    position:sticky;top:0;z-index:50;background:var(--white);
+    border-bottom:1px solid var(--line-soft);
+    display:flex;align-items:center;gap:28px;height:80px;padding:0 40px;
+  }
+  .wordmark{display:flex;align-items:center;gap:9px;color:var(--rausch);font-weight:800;font-size:21px;letter-spacing:-.02em;white-space:nowrap}
+  .wordmark .mark{font-size:26px;line-height:1;transform:translateY(-1px)}
+  .wordmark .suffix{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--gray);border:1px solid var(--line);border-radius:4px;padding:1px 5px;margin-left:2px}
+  .nav{display:flex;gap:4px;height:100%}
+  .nav button{
+    position:relative;height:100%;padding:0 14px;font-size:14px;font-weight:600;color:var(--gray);transition:color .15s;
+  }
+  .nav button:hover{color:var(--ink)}
+  .nav button.active{color:var(--ink)}
+  .nav button::after{
+    content:'';position:absolute;left:14px;right:14px;bottom:0;height:2px;border-radius:2px;background:var(--ink);
+    transform:scaleX(0);transition:transform .2s cubic-bezier(.2,.7,.2,1);
+  }
+  .nav button.active::after,.nav button:hover::after{transform:scaleX(1)}
+  .mast-right{margin-left:auto;display:flex;align-items:center;gap:14px}
+  .search-pill{
+    display:flex;align-items:center;border:1px solid var(--line);border-radius:var(--r-pill);
+    box-shadow:var(--sh-rest);transition:box-shadow .2s;height:48px;overflow:hidden;
+  }
+  .search-pill:hover{box-shadow:var(--sh-float)}
+  .search-pill .seg{padding:0 18px;font-size:14px;font-weight:600;white-space:nowrap}
+  .search-pill .seg.muted{color:var(--gray);font-weight:400}
+  .search-pill .div{width:1px;height:24px;background:var(--line-soft)}
+  .search-pill .go{
+    margin:7px 7px 7px 10px;width:34px;height:34px;border-radius:var(--r-pill);background:var(--rausch);
+    display:flex;align-items:center;justify-content:center;color:#fff;transition:background .15s,transform .1s;flex:none;
+  }
+  .search-pill .go:hover{background:var(--rausch-dark)}
+  .search-pill .go:active{transform:scale(.92)}
+  .search-pill .go i{width:16px;height:16px}
+  .user-pill{
+    display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:var(--r-pill);
+    padding:6px 8px 6px 14px;box-shadow:var(--sh-rest);transition:box-shadow .2s;
+  }
+  .user-pill:hover{box-shadow:var(--sh-float)}
+  .user-pill .avatar{width:32px;height:32px;border-radius:var(--r-pill);background:var(--gray);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700}
+
+  /* ════════ CANVAS + SECTIONS ════════ */
+  .canvas{max-width:1240px;margin:0 auto;padding:0 40px}
+  .section{padding:56px 0 8px}
+  .sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:6px}
+  .sec-num{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--rausch);letter-spacing:.06em}
+  .sec-title{font-size:26px;font-weight:800;letter-spacing:-.02em}
+  .sec-sub{color:var(--gray);font-size:14px;max-width:640px;margin-bottom:26px}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:28px}
+  .chip{
+    display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:var(--r-pill);
+    padding:5px 12px;font-size:12px;color:var(--gray);background:var(--white);
+  }
+  .chip .sw{width:12px;height:12px;border-radius:4px;border:1px solid rgba(0,0,0,.08)}
+  .chip .k{font-family:var(--mono);font-weight:600;color:var(--ink)}
+  .grid{display:grid;gap:20px}
+  .g2{grid-template-columns:1fr 1fr}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  .g4{grid-template-columns:repeat(4,1fr)}
+  .panel{border:1px solid var(--line-soft);border-radius:var(--r-card);padding:24px;background:var(--white)}
+  .panel-label{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--gray);margin-bottom:18px}
+  hr.rule{border:none;border-top:1px solid var(--line-soft);margin:56px 0 0}
+
+  /* ════════ 01 · STATUTS & BADGES ════════ */
+  .badge{
+    display:inline-flex;align-items:center;gap:6px;border-radius:var(--r-pill);
+    font-size:12px;font-weight:600;padding:4px 12px;
+  }
+  .badge .dot{width:7px;height:7px;border-radius:50%}
+  .b-ferme{background:rgba(0,128,73,.10);color:var(--ferme)} .b-ferme .dot{background:var(--ferme)}
+  .b-planifie{background:rgba(0,166,153,.12);color:#007d73} .b-planifie .dot{background:var(--planifie)}
+  .b-suggere{background:rgba(252,100,45,.12);color:#c2410c} .b-suggere .dot{background:var(--suggere)}
+  .b-retard{background:rgba(255,56,92,.10);color:var(--rausch)} .b-retard .dot{background:var(--rausch)}
+  .badge-ghost{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:var(--r-pill);font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.04em;color:var(--gray);padding:4px 10px}
+
+  /* ════════ 02 · BOUTONS ════════ */
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:48px;padding:0 22px;border-radius:var(--r-btn);font-size:15px;font-weight:600;transition:background .15s,box-shadow .15s,transform .08s,border-color .15s}
+  .btn:active{transform:scale(.97)}
+  .btn-primary{background:var(--rausch);color:#fff}
+  .btn-primary:hover{background:var(--rausch-dark)}
+  .btn-secondary{background:var(--white);border:1px solid var(--ink);color:var(--ink)}
+  .btn-secondary:hover{background:var(--surface)}
+  .btn-ghost{color:var(--ink);text-decoration:underline;text-underline-offset:3px;height:auto;padding:6px 2px;font-size:14px}
+  .btn-ghost:hover{color:var(--gray)}
+  .btn-soft{background:var(--surface);border:1px solid var(--line);color:var(--ink)}
+  .btn-soft:hover{border-color:var(--ink)}
+  .btn-sm{height:36px;padding:0 16px;font-size:13px;border-radius:var(--r-btn)}
+  .btn-icon{width:40px;height:40px;padding:0;border-radius:var(--r-pill);display:inline-flex;align-items:center;justify-content:center;color:var(--gray);transition:background .15s,color .15s}
+  .btn-icon:hover{background:var(--surface);color:var(--ink)}
+  .btn:focus-visible,.search-pill:focus-within,.field input:focus,.seg-ctl button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+
+  /* ════════ 03 · CARTE OF — 3 VARIANTES ════════ */
+  .var-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;align-items:start}
+  .var-tag{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--gray);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+  .var-tag .rec{background:var(--rausch);color:#fff;border-radius:4px;padding:1px 7px;font-size:10px;letter-spacing:.06em}
+
+  /* Variante A — « Listing » (fidèle Airbnb) */
+  .card-a{
+    border-radius:var(--r-card);overflow:hidden;background:var(--white);border:1px solid var(--line-soft);
+    box-shadow:var(--sh-rest);transition:transform .2s cubic-bezier(.2,.7,.2,1),box-shadow .2s;cursor:pointer;position:relative;
+  }
+  .card-a:hover{transform:translateY(-3px);box-shadow:var(--sh-float)}
+  .card-a .ph{height:118px;position:relative;display:flex;align-items:flex-end;padding:12px;overflow:hidden}
+  .card-a .ph .mono{font-family:var(--mono);font-size:42px;font-weight:700;letter-spacing:-.03em;opacity:.16;line-height:1}
+  .card-a .heart{position:absolute;top:10px;right:10px;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;background:rgba(0,0,0,.32);transition:transform .12s,background .15s}
+  .card-a .heart:hover{transform:scale(1.08)}
+  .card-a .heart svg{width:16px;height:16px;fill:rgba(0,0,0,.5);stroke:#fff}
+  .card-a .heart.on svg{fill:var(--rausch);stroke:var(--rausch)}
+  .card-a .body{padding:13px 14px 15px}
+  .card-a .top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+  .card-a .of{font-weight:700;font-size:15px;letter-spacing:-.01em}
+  .card-a .due{font-size:13px;color:var(--gray);white-space:nowrap}
+  .card-a .desc{color:var(--gray);font-size:13px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .card-a .meta{color:var(--gray-l);font-size:13px;margin-top:1px}
+  .card-a .foot{display:flex;align-items:baseline;gap:6px;margin-top:9px}
+  .card-a .hours{font-weight:800;font-size:16px;letter-spacing:-.01em}
+  .card-a .unit{color:var(--gray);font-size:13px}
+  .ph-ferme{background:linear-gradient(135deg,#e6f3ec,#cfe8da)} .ph-ferme .mono{color:var(--ferme)}
+  .ph-planifie{background:linear-gradient(135deg,#e2f4f2,#c8ebe7)} .ph-planifie .mono{color:var(--planifie)}
+  .ph-suggere{background:linear-gradient(135deg,#fdeadd,#fad9c4)} .ph-suggere .mono{color:var(--suggere)}
+
+  /* Variante B — « Ticket » (dense, board) */
+  .card-b{
+    border:1px solid var(--line);border-radius:12px;background:var(--white);padding:13px 14px 12px 17px;position:relative;
+    transition:box-shadow .18s,border-color .18s;cursor:pointer;overflow:hidden;
+  }
+  .card-b::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px}
+  .card-b.k-ferme::before{background:var(--ferme)} .card-b.k-planifie::before{background:var(--planifie)} .card-b.k-suggere::before{background:var(--suggere)}
+  .card-b:hover{box-shadow:var(--sh-float);border-color:var(--line)}
+  .card-b .r1{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .card-b .of{font-family:var(--mono);font-weight:600;font-size:13px}
+  .card-b .desc{font-weight:700;font-size:14px;letter-spacing:-.01em;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .card-b .sub{color:var(--gray);font-size:12px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .card-b .r2{display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:9px;border-top:1px solid var(--line-soft)}
+  .card-b .due{display:flex;align-items:center;gap:6px;color:var(--gray);font-size:12px}
+  .card-b .due i{width:13px;height:13px}
+  .card-b .hrs{font-family:var(--mono);font-weight:700;font-size:14px}
+  .card-b .hrs small{color:var(--gray);font-weight:500}
+  .card-b.late .due{color:var(--rausch);font-weight:600}
+
+  /* Variante C — « Itinéraire » (novatrice) */
+  .card-c{border:1px solid var(--line-soft);border-radius:var(--r-card);background:var(--white);padding:16px;box-shadow:var(--sh-rest);transition:transform .2s,box-shadow .2s;cursor:pointer}
+  .card-c:hover{transform:translateY(-3px);box-shadow:var(--sh-float)}
+  .card-c .head{display:flex;justify-content:space-between;align-items:center}
+  .card-c .of{font-weight:800;font-size:15px;letter-spacing:-.01em}
+  .card-c .tl{margin-top:14px;position:relative;height:44px}
+  .card-c .track{position:absolute;left:7px;right:7px;top:20px;height:3px;border-radius:2px;background:var(--line-soft)}
+  .card-c .prog{position:absolute;left:7px;top:20px;height:3px;border-radius:2px}
+  .card-c .node{position:absolute;top:14px;width:15px;height:15px;border-radius:50%;background:var(--white);border:3px solid var(--line)}
+  .card-c .node.done{border-color:var(--ferme)}
+  .card-c .node.now{border-color:var(--rausch);box-shadow:0 0 0 4px rgba(255,56,92,.18)}
+  .card-c .lbl{position:absolute;top:34px;font-size:10px;color:var(--gray);font-family:var(--mono);transform:translateX(-50%);white-space:nowrap}
+  .card-c .foot{display:flex;justify-content:space-between;align-items:center;margin-top:16px}
+  .card-c .desc{font-size:13px;color:var(--gray);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60%}
+  .card-c .hrs{font-weight:800;font-size:16px}
+
+  /* ════════ 04 · BOARD (colonnes + cards) ════════ */
+  .board{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;background:var(--surface);border:1px solid var(--line-soft);border-radius:var(--r-card);padding:16px}
+  .col-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px;padding:0 2px}
+  .col-head .d{font-weight:700;font-size:13px}
+  .col-head .load{font-family:var(--mono);font-size:11px;color:var(--gray)}
+  .col-head .load.hot{color:var(--rausch);font-weight:700}
+  .col{display:flex;flex-direction:column;gap:10px}
+
+  /* ════════ 05 · KPI ════════ */
+  .kpi{border:1px solid var(--line-soft);border-radius:var(--r-card);padding:20px 22px;background:var(--white);transition:box-shadow .18s,transform .18s;cursor:default}
+  .kpi:hover{box-shadow:var(--sh-float);transform:translateY(-2px)}
+  .kpi .lab{font-size:12px;font-weight:600;color:var(--gray);display:flex;align-items:center;gap:7px}
+  .kpi .lab i{width:15px;height:15px;color:var(--gray-l)}
+  .kpi .val{font-size:34px;font-weight:800;letter-spacing:-.03em;margin-top:8px;line-height:1}
+  .kpi .val small{font-size:16px;font-weight:600;color:var(--gray);letter-spacing:0}
+  .kpi .delta{display:inline-flex;align-items:center;gap:4px;margin-top:10px;font-size:12px;font-weight:700;border-radius:var(--r-pill);padding:3px 9px}
+  .kpi .delta i{width:13px;height:13px}
+  .d-bad{background:rgba(255,56,92,.10);color:var(--rausch)}
+  .d-good{background:rgba(0,128,73,.10);color:var(--ferme)}
+  .d-flat{background:var(--surface);color:var(--gray)}
+
+  /* ════════ 06 · TRIAGE ════════ */
+  .alert-row{
+    display:flex;align-items:center;gap:16px;border:1px solid var(--line-soft);border-radius:var(--r-card);
+    padding:14px 18px;background:var(--white);transition:box-shadow .18s,transform .18s;cursor:pointer;
+  }
+  .alert-row:hover{box-shadow:var(--sh-float);transform:translateY(-2px)}
+  .alert-row + .alert-row{margin-top:12px}
+  .alert-row .ic{width:40px;height:40px;border-radius:var(--r-pill);display:flex;align-items:center;justify-content:center;flex:none}
+  .alert-row .ic i{width:18px;height:18px}
+  .ic-red{background:rgba(255,56,92,.10);color:var(--rausch)}
+  .ic-orange{background:rgba(252,100,45,.12);color:#c2410c}
+  .ic-teal{background:rgba(0,166,153,.12);color:#007d73}
+  .alert-row .main{min-width:0}
+  .alert-row .t{font-weight:700;font-size:14px;letter-spacing:-.01em}
+  .alert-row .s{color:var(--gray);font-size:13px;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .alert-row .right{margin-left:auto;display:flex;align-items:center;gap:14px;flex:none}
+  .alert-row .when{font-family:var(--mono);font-size:12px;color:var(--gray)}
+  .alert-row .cta{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--rausch)}
+  .alert-row .cta i{width:14px;height:14px;transition:transform .15s}
+  .alert-row:hover .cta i{transform:translateX(3px)}
+
+  /* ════════ 07 · TABLE ════════ */
+  table{width:100%;border-collapse:collapse}
+  thead th{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--gray);text-align:left;padding:10px 14px;border-bottom:1px solid var(--line)}
+  tbody td{padding:15px 14px;border-bottom:1px solid var(--line-soft);font-size:14px;vertical-align:middle}
+  tbody tr{transition:background .12s}
+  tbody tr:hover{background:var(--surface)}
+  .cell-of{font-family:var(--mono);font-weight:600;font-size:13px}
+  .cell-strong{font-weight:600}
+  .cell-muted{color:var(--gray)}
+  .cell-num{font-family:var(--mono);text-align:right;font-variant-numeric:tabular-nums}
+
+  /* ════════ 08 · FORMULAIRES ════════ */
+  .field{display:flex;flex-direction:column;gap:7px}
+  .field label{font-size:13px;font-weight:600}
+  .field input,.field select{
+    height:52px;border:1px solid var(--line);border-radius:var(--r-btn);padding:0 14px;font-size:15px;font-family:inherit;color:var(--ink);
+    background:var(--white);transition:border-color .15s;
+  }
+  .field input:hover,.field select:hover{border-color:var(--gray-l)}
+  .field input:focus{border-color:var(--ink);outline:2px solid var(--ink);outline-offset:0}
+  .field .hint{font-size:12px;color:var(--gray)}
+  .seg-ctl{display:inline-flex;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-pill);padding:4px;gap:2px}
+  .seg-ctl button{border-radius:var(--r-pill);padding:8px 20px;font-size:13px;font-weight:700;color:var(--gray);transition:background .15s,color .15s,box-shadow .15s}
+  .seg-ctl button.on{background:var(--white);color:var(--ink);box-shadow:var(--sh-rest)}
+
+  /* ════════ 09 · GRAPHIQUE ════════ */
+  .chart-wrap{position:relative}
+  .bars{display:flex;align-items:flex-end;gap:26px;height:190px;padding-top:14px}
+  .bgroup{flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;height:100%;justify-content:flex-end}
+  .stack{width:min(52px,100%);display:flex;flex-direction:column;justify-content:flex-end;border-radius:6px 6px 0 0;overflow:hidden;height:100%}
+  .stack .s{transition:opacity .15s}
+  .s-ferme{background:var(--ferme)} .s-planifie{background:var(--planifie)} .s-suggere{background:var(--suggere)}
+  .bgroup:hover .s{opacity:.82}
+  .bgroup .xl{font-family:var(--mono);font-size:11px;color:var(--gray)}
+  .cap-line{position:absolute;left:0;right:0;border-top:2px dashed var(--gray-l);pointer-events:none}
+  .cap-line span{position:absolute;right:0;top:-20px;font-family:var(--mono);font-size:10px;color:var(--gray)}
+  .legend{display:flex;gap:20px;margin-top:18px;font-size:13px;color:var(--gray)}
+  .legend .k{display:flex;align-items:center;gap:7px}
+  .legend .sw{width:12px;height:12px;border-radius:3px}
+
+  /* ════════ 10 · CALENDRIER ════════ */
+  .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+  .cal .dow{font-size:11px;font-weight:700;color:var(--gray);text-align:center;padding:6px 0}
+  .cal .day{
+    aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:var(--r-pill);
+    font-size:14px;font-weight:500;transition:background .12s,color .12s;border:1px solid transparent;
+  }
+  .cal .day:hover{border-color:var(--ink)}
+  .cal .day.muted{color:var(--gray-l)}
+  .cal .day.sel{background:var(--ink);color:#fff;font-weight:700}
+  .cal .day.inrange{background:var(--surface);border-radius:0}
+  .cal .day.range-start{background:var(--ink);color:#fff;border-radius:50% 0 0 50%}
+  .cal .day.range-end{background:var(--ink);color:#fff;border-radius:0 50% 50% 0}
+  .cal .day.has{position:relative}
+  .cal .day.has::after{content:'';position:absolute;bottom:6px;width:4px;height:4px;border-radius:50%;background:var(--rausch)}
+
+  .foot-note{color:var(--gray);font-size:13px;padding:48px 0 64px;max-width:640px}
+  .foot-note b{color:var(--ink)}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════ MASTHEAD (composant 0) ══════════════════ -->
+<header class="masthead">
+  <div class="wordmark">
+    <span class="mark">⌂</span> Supply Chain Board
+    <span class="suffix">TEST</span>
+  </div>
+  <nav class="nav" id="nav">
+    <button class="active">Tableau</button>
+    <button>Programme</button>
+    <button>Charge</button>
+    <button>Ruptures</button>
+    <button>Suivi</button>
+  </nav>
+  <div class="mast-right">
+    <div class="search-pill" tabindex="0">
+      <span class="seg">Poste ou OF</span>
+      <span class="div"></span>
+      <span class="seg muted">Toute période</span>
+      <span class="div"></span>
+      <span class="seg muted">Filtrer…</span>
+      <button class="go" aria-label="Rechercher"><i data-lucide="search"></i></button>
+    </div>
+    <button class="user-pill"><i data-lucide="menu" style="width:15px;height:15px;color:var(--ink)"></i><span class="avatar">AB</span></button>
+  </div>
+</header>
+
+<div class="canvas">
+
+  <!-- Ouverture : le sujet lui-même — un extrait de board vivant -->
+  <section class="section reveal">
+    <div class="sec-head"><span class="sec-num">00</span><h1 class="sec-title">Le board, tel qu'il devrait se lire</h1></div>
+    <p class="sec-sub">Une colonne = un jour. Une carte = un ordre de fabrication. Le retard se voit sans cliquer, la charge se lit d'un coup d'œil. Grammaire Airbnb : Rausch en accent, encre <span class="num">#222222</span>, une seule ombre, hairlines <span class="num">#dddddd</span>.</p>
+    <div class="board">
+      <div class="col">
+        <div class="col-head"><span class="d">lun. 21/07</span><span class="load">96 h / 120</span></div>
+        <div class="card-b k-ferme late">
+          <div class="r1"><span class="of">OF 24157</span><span class="badge b-retard"><span class="dot"></span>Retard</span></div>
+          <div class="desc">Bouche hygro BDH10</div>
+          <div class="sub">Aldes · ESH30 · poste BDH60</div>
+          <div class="r2"><span class="due"><i data-lucide="calendar-clock"></i>28/07/2026</span><span class="hrs">64<small> h</small></span></div>
+        </div>
+        <div class="card-b k-ferme">
+          <div class="r1"><span class="of">OF 24158</span><span class="badge b-ferme"><span class="dot"></span>Ferme</span></div>
+          <div class="desc">Module MH2 · PP_146</div>
+          <div class="sub">Aldes · MTS</div>
+          <div class="r2"><span class="due"><i data-lucide="calendar-clock"></i>30/07/2026</span><span class="hrs">32<small> h</small></span></div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="col-head"><span class="d">mar. 22/07</span><span class="load">85 h / 120</span></div>
+        <div class="card-b k-planifie">
+          <div class="r1"><span class="of">OF 24162</span><span class="badge b-planifie"><span class="dot"></span>Planifié</span></div>
+          <div class="desc">Extracteur ESH60</div>
+          <div class="sub">Aldes · MTO · poste PP_146</div>
+          <div class="r2"><span class="due"><i data-lucide="calendar-clock"></i>05/08/2026</span><span class="hrs">85<small> h</small></span></div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="col-head"><span class="d">mer. 23/07</span><span class="load hot">131 h / 120</span></div>
+        <div class="card-b k-ferme">
+          <div class="r1"><span class="of">OF 24166</span><span class="badge b-ferme"><span class="dot"></span>Ferme</span></div>
+          <div class="desc">Bouche BDH60 équipée</div>
+          <div class="sub">Aldes · PP_830 · poste PP_153</div>
+          <div class="r2"><span class="due"><i data-lucide="calendar-clock"></i>01/08/2026</span><span class="hrs">110<small> h</small></span></div>
+        </div>
+        <div class="card-b k-suggere">
+          <div class="r1"><span class="of">SUG 8821</span><span class="badge b-suggere"><span class="dot"></span>Suggéré</span></div>
+          <div class="desc">Recharge BDH10</div>
+          <div class="sub">CBN · à affermir</div>
+          <div class="r2"><span class="due"><i data-lucide="calendar-clock"></i>12/08/2026</span><span class="hrs">21<small> h</small></span></div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="col-head"><span class="d">jeu. 24/07</span><span class="load">40 h / 120</span></div>
+        <div class="card-b k-ferme">
+          <div class="r1"><span class="of">OF 24170</span><span class="badge b-ferme"><span class="dot"></span>Ferme</span></div>
+          <div class="desc">Caisson VMC S23</div>
+          <div class="sub">Aldes · NOR · montage</div>
+          <div class="r2"><span class="due"><i data-lucide="calendar-clock"></i>08/08/2026</span><span class="hrs">40<small> h</small></span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="rule" />
+
+  <!-- ══ 01 STATUTS ══ -->
+  <section class="section reveal">
+    <div class="sec-head"><span class="sec-num">01</span><h2 class="sec-title">Statuts & badges</h2></div>
+    <p class="sec-sub">Le sens métier est préservé (vert = ferme, orange = suggéré) mais exprimé en teintes douces sur fond — jamais de pastilles criardes. Le rouge est réservé à la marque et au retard.</p>
+    <div class="panel">
+      <div class="panel-label">Statuts d'ordre</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <span class="badge b-ferme"><span class="dot"></span>Ferme</span>
+        <span class="badge b-planifie"><span class="dot"></span>Planifié</span>
+        <span class="badge b-suggere"><span class="dot"></span>Suggéré</span>
+        <span class="badge b-retard"><span class="dot"></span>Retard</span>
+      </div>
+      <div class="panel-label" style="margin-top:26px">Natures & méta</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <span class="badge-ghost">MTS</span>
+        <span class="badge-ghost">MTO</span>
+        <span class="badge-ghost">NOR</span>
+        <span class="badge-ghost"><i data-lucide="archive" style="width:12px;height:12px"></i>BDH60</span>
+        <span class="badge-ghost"><i data-lucide="layers" style="width:12px;height:12px"></i>3 composants</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ 02 BOUTONS ══ -->
+  <section class="section reveal">
+    <div class="sec-head"><span class="sec-num">02</span><h2 class="sec-title">Boutons</h2></div>
+    <p class="sec-sub">Primaire Rausch 48 px, secondaire à bordure encre, fantôme souligné. Focus = bordure 2 px encre, sans halo. Une seule hiérarchie par zone d'action.</p>
+    <div class="panel">
+      <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+        <button class="btn btn-primary">Affermir la suggestion</button>
+        <button class="btn btn-secondary">Exporter</button>
+        <button class="btn btn-soft"><i data-lucide="sliders-horizontal" style="width:16px;height:16px"></i>Filtres</button>
+        <button class="btn btn-ghost">Voir le détail</button>
+        <button class="btn-icon" aria-label="Masquer"><i data-lucide="eye"></i></button>
+        <button class="btn-icon" aria-label="Fermer"><i data-lucide="x"></i></button>
+      </div>
+      <div style="display:flex;gap:12px;align-items:center;margin-top:22px">
+        <button class="btn btn-secondary btn-sm">Mois</button>
+        <button class="btn btn-primary btn-sm">Semaine</button>
+        <span style="color:var(--gray-l)">·</span>
+        <button class="btn btn-secondary btn-sm"><i data-lucide="download" style="width:14px;height:14px"></i>CSV</button>
+      </div>
+    </div>
+  </section>
+
+  <hr class="rule" />
+
+  <!-- ══ 03 CARTE OF — VARIANTES ══ -->
+  <section class="section reveal">
+    <div class="sec-head"><span class="sec-num">03</span><h2 class="sec-title">La carte OF — 3 directions</h2></div>
+    <p class="sec-sub">Le composant roi, celui que tu regardes 200 fois par jour. Trois partis pris, du plus fidèle à Airbnb au plus novateur. <b>Dis-moi laquelle porter dans le code</b> (ou mixe : « la A pour le board, la C pour /vision »).</p>
+
+    <div class="var-grid">
+      <!-- A : Listing -->
+      <div>
+        <div class="var-tag">A · « Listing » <span class="rec">Recommandée</span></div>
+        <div class="card-a">
+          <div class="ph ph-ferme"><span class="mono">BDH60</span>
+            <button class="heart" aria-label="Suivre"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></button>
+          </div>
+          <div class="body">
+            <div class="top"><span class="of">OF 24157</span><span class="due num">28/07/2026</span></div>
+            <div class="desc">Bouche hygro BDH10</div>
+            <div class="meta">Aldes · ESH30 · poste BDH60</div>
+            <div class="foot"><span class="hours">64 h</span><span class="unit">· Ferme</span><span class="badge b-ferme" style="margin-left:auto"><span class="dot"></span>À l'heure</span></div>
+          </div>
+        </div>
+        <p style="color:var(--gray);font-size:13px;margin-top:14px">Comme une annonce : un bandeau de statut en guise de « photo », le cœur pour suivre un OF, l'heure de charge en prix d'ancrage. Survole-la.</p>
+      </div>
+
+      <!-- B : Ticket -->
+      <div>
+        <div class="var-tag">B · « Ticket »</div>
+        <div class="card-b k-ferme late">
+          <div class="r1"><span class="of">OF 24157</span><span class="badge-ghost">MTS</span></div>
+          <div class="desc">Bouche hygro BDH10</div>
+          <div class="sub">Aldes · ESH30 · poste BDH60</div>
+          <div class="r2"><span class="due"><i data-lucide="calendar-clock"></i>28/07/2026</span><span class="hrs">64<small> h</small></span></div>
+        </div>
+        <div class="card-b k-planifie" style="margin-top:12px">
+          <div class="r1"><span class="of">OF 24162</span><span class="badge-ghost">MTO</span></div>
+          <div class="desc">Extracteur ESH60</div>
+          <div class="sub">Aldes · poste PP_146</div>
+          <div class="r2"><span class="due"><i data-lucide="calendar-clock"></i>05/08/2026</span><span class="hrs">85<small> h</small></span></div>
+        </div>
+        <p style="color:var(--gray);font-size:13px;margin-top:14px">Dense, bordure + épine de statut à gauche : conçu pour les colonnes serrées du board, là où il faut caser 8 cartes par jour.</p>
+      </div>
+
+      <!-- C : Itinéraire -->
+      <div>
+        <div class="var-tag">C · « Itinéraire »</div>
+        <div class="card-c">
+          <div class="head"><span class="of">OF 24157</span><span class="badge b-ferme"><span class="dot"></span>Ferme</span></div>
+          <div class="tl">
+            <div class="track"></div>
+            <div class="prog" style="left:7px;width:38%;background:var(--ferme)"></div>
+            <div class="node done" style="left:0"></div>
+            <div class="node now" style="left:38%"></div>
+            <div class="node" style="left:calc(100% - 15px)"></div>
+            <span class="lbl" style="left:7px">Lancé 14/07</span>
+            <span class="lbl" style="left:40%">Aujourd'hui</span>
+            <span class="lbl" style="left:calc(100% - 8px)">Dû 28/07</span>
+          </div>
+          <div class="foot"><span class="desc">Bouche hygro BDH10 · Aldes</span><span class="hrs">64 h</span></div>
+        </div>
+        <p style="color:var(--gray);font-size:13px;margin-top:14px">La temporalité dans la carte : lancé → aujourd'hui → dû. Idéale pour <span class="num">/vision</span> et le suivi, moins pour un board dense.</p>
+      </div>
+    </div>
+  </section>
+
+  <hr class="rule" />
+
+  <!-- ══ 04 KPI ══ -->
+  <section class="section reveal">
+    <div class="sec-head"><span class="sec-num">04</span><h2 class="sec-title">Indicateurs</h2></div>
+    <p class="sec-sub">Chiffre énorme, unité discrète, delta en pastille. Le rouge n'apparaît que quand c'est un problème — sinon c'est du vert ou du neutre.</p>
+    <div class="grid g4">
+      <div class="kpi">
+        <div class="lab"><i data-lucide="timer"></i>Charge en retard</div>
+        <div class="val">342 <small>h</small></div>
+        <span class="delta d-bad"><i data-lucide="trending-up"></i>+12 % vs sem. dern.</span>
+      </div>
+      <div class="kpi">
+        <div class="lab"><i data-lucide="list-ordered"></i>Lignes en retard</div>
+        <div class="val">18</div>
+        <span class="delta d-bad"><i data-lucide="trending-up"></i>+3</span>
+      </div>
+      <div class="kpi">
+        <div class="lab"><i data-lucide="badge-check"></i>Taux OTIF</div>
+        <div class="val">87 <small>%</small></div>
+        <span class="delta d-good"><i data-lucide="trending-down"></i>−3 pts</span>
+      </div>
+      <div class="kpi">
+        <div class="lab"><i data-lucide="boxes"></i>Valorisation stock</div>
+        <div class="val">1 248 <small>k€</small></div>
+        <span class="delta d-flat"><i data-lucide="minus"></i>stable</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ 05 TRIAGE ══ -->
+  <section class="section reveal">
+    <div class="sec-head"><span class="sec-num">05</span><h2 class="sec-title">File de triage</h2></div>
+    <p class="sec-sub">Chaque alerte = une ligne actionnable. L'icône porte la gravité, la flèche invite à ouvrir. Pas de barre latérale colorée : la teinte est dans la pastille.</p>
+    <div class="alert-row">
+      <span class="ic ic-red"><i data-lucide="octagon-alert"></i></span>
+      <div class="main"><div class="t">Rupture matière — BDH10 Module hygro</div><div class="s">Bloque 4 OF fermes · stock net −120 pcs · réceptions insuffisantes</div></div>
+      <div class="right"><span class="when">il y a 2 h</span><span class="cta">Diagnostiquer <i data-lucide="arrow-right"></i></span></div>
+    </div>
+    <div class="alert-row">
+      <span class="ic ic-orange"><i data-lucide="triangle-alert"></i></span>
+      <div class="main"><div class="t">OF sous-ensemble à lancer — SE ESH30</div><div class="s">Le parent OF 24157 en dépend · lancement conseillé avant le 23/07/2026</div></div>
+      <div class="right"><span class="when">hier</span><span class="cta">Voir l'OF <i data-lucide="arrow-right"></i></span></div>
+    </div>
+    <div class="alert-row">
+      <span class="ic ic-teal"><i data-lucide="truck"></i></span>
+      <div class="main"><div class="t">Réception en retard — CMD 88412</div><div class="s">Fournisseur VTI · 300 pcs attendues le 12/07, rien au 20/07</div></div>
+      <div class="right"><span class="when">12/07/2026</span><span class="cta">Relancer <i data-lucide="arrow-right"></i></span></div>
+    </div>
+  </section>
+
+  <hr class="rule" />
+
+  <!-- ══ 06 TABLE ══ -->
+  <section class="section reveal">
+    <div class="sec-head"><span class="sec-num">06</span><h2 class="sec-title">Table des commandes</h2></div>
+    <p class="sec-sub">Hairlines <span class="num">#ebebeb</span>, pas de zébrures, survol <span class="num">#f7f7f7</span>. Le retard est un badge, pas une ligne rouge.</p>
+    <div class="panel" style="padding:8px 10px">
+      <table>
+        <thead><tr><th>Commande</th><th>Client</th><th>Article</th><th style="text-align:right">Qté</th><th>Expédition</th><th>Statut</th></tr></thead>
+        <tbody>
+          <tr><td class="cell-of">88412</td><td class="cell-strong">Aldes</td><td>ESH30 Extracteur</td><td class="cell-num">120</td><td class="num">28/07/2026</td><td><span class="badge b-retard"><span class="dot"></span>Retard</span></td></tr>
+          <tr><td class="cell-of">88419</td><td class="cell-strong">Aldes</td><td>BDH60 Bouche équipée</td><td class="cell-num">340</td><td class="num">05/08/2026</td><td><span class="badge b-ferme"><span class="dot"></span>À l'heure</span></td></tr>
+          <tr><td class="cell-of">88423</td><td class="cell-strong">VTI</td><td>PP_830 Module hygro</td><td class="cell-num">85</td><td class="num">12/08/2026</td><td><span class="badge b-planifie"><span class="dot"></span>Planifié</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ══ 07 FORMULAIRES ══ -->
+  <section class="section reveal">
+    <div class="sec-head"><span class="sec-num">07</span><h2 class="sec-title">Formulaires & contrôles</h2></div>
+    <p class="sec-sub">Champs 52 px, focus bordure encre 2 px. Segments en pilule sur fond <span class="num">#f7f7f7</span>, pouce blanc avec l'ombre unique.</p>
+    <div class="grid g2">
+      <div class="panel">
+        <div style="display:flex;flex-direction:column;gap:20px">
+          <div class="field"><label>Poste de charge</label><input type="text" value="BDH60 — Bouches hygro" /><span class="hint">Rechercher par code, libellé ou atelier</span></div>
+          <div class="field"><label>Horizon</label>
+            <select><option>12 mois glissants</option><option>6 mois</option><option>Trimestre</option></select>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-label">Granularité</div>
+        <div class="seg-ctl" id="seg1"><button class="on">Mois</button><button>Semaine</button></div>
+        <div class="panel-label" style="margin-top:26px">Vue</div>
+        <div class="seg-ctl" id="seg2"><button class="on">OF</button><button>Commande</button><button>Net</button></div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="rule" />
+
+  <!-- ══ 08 GRAPHIQUE ══ -->
+  <section class="section reveal">
+    <div class="sec-head"><span class="sec-num">08</span><h2 class="sec-title">Projection de charge</h2></div>
+    <p class="sec-sub">Empilement ferme / planifié / suggéré en teintes de statut, ligne de capacité pointillée, un seul niveau d'ombre. Survole les colonnes.</p>
+    <div class="panel chart-wrap">
+      <div class="cap-line" style="bottom:calc(34px + 118px)"><span>capacité 120 h</span></div>
+      <div class="bars">
+        <div class="bgroup"><div class="stack"><div class="s s-suggere" style="height:10%"></div><div class="s s-planifie" style="height:24%"></div><div class="s s-ferme" style="height:46%"></div></div><span class="xl">août</span></div>
+        <div class="bgroup"><div class="stack"><div class="s s-suggere" style="height:16%"></div><div class="s s-planifie" style="height:30%"></div><div class="s s-ferme" style="height:52%"></div></div><span class="xl">sept.</span></div>
+        <div class="bgroup"><div class="stack"><div class="s s-suggere" style="height:22%"></div><div class="s s-planifie" style="height:34%"></div><div class="s s-ferme" style="height:40%"></div></div><span class="xl">oct.</span></div>
+        <div class="bgroup"><div class="stack"><div class="s s-suggere" style="height:8%"></div><div class="s s-planifie" style="height:20%"></div><div class="s s-ferme" style="height:38%"></div></div><span class="xl">nov.</span></div>
+        <div class="bgroup"><div class="stack"><div class="s s-suggere" style="height:6%"></div><div class="s s-planifie" style="height:16%"></div><div class="s s-ferme" style="height:30%"></div></div><span class="xl">déc.</span></div>
+      </div>
+      <div class="legend">
+        <span class="k"><span class="sw s-ferme"></span>Ferme</span>
+        <span class="k"><span class="sw s-planifie"></span>Planifié</span>
+        <span class="k"><span class="sw s-suggere"></span>Suggéré</span>
+        <span class="k"><span class="sw" style="background:none;border-top:2px dashed var(--gray-l);height:0;border-radius:0"></span>Capacité</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ 09 CALENDRIER ══ -->
+  <section class="section reveal">
+    <div class="sec-head"><span class="sec-num">09</span><h2 class="sec-title">Calendrier</h2></div>
+    <p class="sec-sub">Jour sélectionné = disque encre (jamais Rausch), plage en <span class="num">#f7f7f7</span>, point Rausch sous les jours chargés. Semaine française, lundi en premier.</p>
+    <div class="panel" style="max-width:420px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <span style="font-weight:700">août 2026</span>
+        <span style="display:flex;gap:4px"><button class="btn-icon" style="width:32px;height:32px"><i data-lucide="chevron-left" style="width:16px;height:16px"></i></button><button class="btn-icon" style="width:32px;height:32px"><i data-lucide="chevron-right" style="width:16px;height:16px"></i></button></span>
+      </div>
+      <div class="cal">
+        <span class="dow">L</span><span class="dow">M</span><span class="dow">M</span><span class="dow">J</span><span class="dow">V</span><span class="dow">S</span><span class="dow">D</span>
+        <span class="day muted">27</span><span class="day muted">28</span><span class="day muted">29</span><span class="day muted">30</span><span class="day muted">31</span><span class="day">1</span><span class="day">2</span>
+        <span class="day has">3</span><span class="day">4</span><span class="day">5</span><span class="day">6</span><span class="day has">7</span><span class="day">8</span><span class="day">9</span>
+        <span class="day range-start">10</span><span class="day inrange">11</span><span class="day inrange">12</span><span class="day inrange">13</span><span class="day range-end has">14</span><span class="day">15</span><span class="day">16</span>
+        <span class="day">17</span><span class="day">18</span><span class="day">19</span><span class="day">20</span><span class="day sel has">21</span><span class="day">22</span><span class="day">23</span>
+      </div>
+    </div>
+  </section>
+
+  <p class="foot-note">
+    <b>Ce fichier est une maquette de travail</b> — il vit hors du code, dans <span class="num">design/showcase/</span>.
+    Ouvre-le dans ton navigateur, survole tout, puis dis-moi : <b>quelle variante de carte OF</b> je porte dans le vrai board,
+    et si un composant manque à l'appel (sheet latéral, dialog, masthead mobile…). Chaque validation = un commit de porté.
+  </p>
+
+</div>
+
+<script>
+  if (window.lucide) lucide.createIcons();
+
+  // Tabs du masthead : underline glissant
+  document.querySelectorAll('#nav button').forEach(b =>
+    b.addEventListener('click', () => {
+      document.querySelectorAll('#nav button').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+    })
+  );
+
+  // Cœurs (suivre un OF)
+  document.querySelectorAll('.heart').forEach(h =>
+    h.addEventListener('click', e => { e.stopPropagation(); h.classList.toggle('on'); })
+  );
+
+  // Segmented controls
+  document.querySelectorAll('.seg-ctl').forEach(ctl =>
+    ctl.querySelectorAll('button').forEach(btn =>
+      btn.addEventListener('click', () => {
+        ctl.querySelectorAll('button').forEach(b => b.classList.remove('on'));
+        btn.classList.add('on');
+      })
+    )
+  );
+
+  // Révélation au scroll
+  const io = new IntersectionObserver(entries =>
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }),
+    { threshold: 0.08 }
+  );
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+</script>
+</body>
+</html>
