@@ -8,6 +8,7 @@ import { type Gran, satColor, satRate, total } from '@/lib/load/chart-math'
 import { HatchDefs } from '@r/components/load/hatch-defs'
 import { MiniCard } from '@r/components/load/mini-card'
 import { DetailChart } from '@r/components/load/detail-chart'
+import { PILL, Segment, SegmentButton, ToolbarRow } from '@r/components/vision/toolbar'
 
 /**
  * Page « Projection de charge » — vision long terme, variante 3 « Charge par ligne »
@@ -156,6 +157,11 @@ export default function Load(props: LoadPageProps) {
     >
       <HatchDefs />
 
+      {/* AppLayout (dense, scrollable=false) rend ses children en flux bloc
+          normal (pas de flex-col) : sans ce wrapper, les `flex-1`/`h-full` de
+          la toolbar et du contenu en dessous ne se dimensionnent contre rien
+          et débordent hors de l'écran sans scroll possible. */}
+      <div className="flex h-full min-h-0 flex-col">
         {props.x3Error && (
           <div className="flex flex-none items-center gap-2 border-b border-brand/30 bg-brand-soft px-7 py-2 text-[12px] text-foreground">
             <TriangleAlert size={16} strokeWidth={1.75} className="text-brand" />
@@ -165,47 +171,30 @@ export default function Load(props: LoadPageProps) {
         )}
 
         {/* Sélecteur de vue + légende */}
-        <div className="flex flex-none flex-wrap items-center gap-3.5 border-b border-rule px-7 py-2 text-[12px] font-semibold text-secondary-foreground">
+        <ToolbarRow className="text-xs font-semibold text-secondary-foreground">
           {/* Bascule OF ↔ Commande */}
-          <div className="inline-flex items-center gap-0.5 rounded-md border border-rule bg-card p-0.5">
+          <Segment role="radiogroup" ariaLabel="Vue">
             {(['of', 'commande'] as const).map((v) => (
-              <button
-                key={v}
-                type="button"
-                onClick={() => setView(v)}
-                className={cn(
-                  'rounded-[5px] px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
-                  view === v
-                    ? 'bg-brand-soft text-brand'
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
+              <SegmentButton key={v} role="radio" active={view === v} onClick={() => setView(v)}>
                 {v === 'of' ? 'OF' : 'Commande'}
-              </button>
+              </SegmentButton>
             ))}
-          </div>
+          </Segment>
           {/* Bascule Brut ↔ Net (vue commande) */}
           {view === 'commande' && (
-            <div
-              className="inline-flex items-center gap-0.5 rounded-md border border-rule bg-card p-0.5"
-              title="Net = besoin − stock disponible (physique + CQ), consommé FIFO sur l'horizon"
-            >
+            <Segment role="radiogroup" ariaLabel="Brut ou net">
               {(['brut', 'net'] as const).map((m) => (
-                <button
+                <SegmentButton
                   key={m}
-                  type="button"
+                  role="radio"
+                  active={(net ? 'net' : 'brut') === m}
+                  title="Net = besoin − stock disponible (physique + CQ), consommé FIFO sur l'horizon"
                   onClick={() => setNet(m === 'net')}
-                  className={cn(
-                    'rounded-[5px] px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
-                    (net ? 'net' : 'brut') === m
-                      ? 'bg-brand-soft text-brand'
-                      : 'text-muted-foreground hover:text-foreground'
-                  )}
                 >
                   {m === 'brut' ? 'Brut' : 'Net'}
-                </button>
+                </SegmentButton>
               ))}
-            </div>
+            </Segment>
           )}
           <span className="h-3.5 w-px bg-rule-soft" />
           {view === 'of' ? (
@@ -268,10 +257,10 @@ export default function Load(props: LoadPageProps) {
               Moyenne mobile
             </button>
             {/* Recherche — systématiquement à droite (convention toolbar). */}
-            <div className="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/25">
+            <div className={PILL}>
               <Search size={17} strokeWidth={1.75} className="text-muted-foreground" />
               <input
-                className="w-[190px] border-0 bg-transparent px-0 text-[12px] font-medium text-foreground shadow-none outline-none"
+                className="w-[190px] border-0 bg-transparent px-0 text-xs font-medium text-foreground shadow-none outline-none"
                 placeholder="Poste, article…"
                 type="text"
                 autoComplete="off"
@@ -283,7 +272,7 @@ export default function Load(props: LoadPageProps) {
               Mini-graphes : {props.months.length} mois · clic = détail
             </span>
           </span>
-        </div>
+        </ToolbarRow>
 
         {/* Filtre atelier (#36) */}
         {props.ateliers.length > 0 && (
@@ -437,6 +426,7 @@ export default function Load(props: LoadPageProps) {
             )}
           </div>
         )}
+      </div>
     </AppLayout>
   )
 }

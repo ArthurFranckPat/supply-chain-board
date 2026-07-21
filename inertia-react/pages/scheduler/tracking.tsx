@@ -8,9 +8,8 @@
  * components/tracking/*-view.tsx (issue #52).
  */
 import { useMemo, useState } from 'react'
-import { fr } from 'react-day-picker/locale'
 import type { DateRange as DayPickerRange } from 'react-day-picker'
-import { Search, RefreshCw, Calendar as CalendarIcon, ChevronDown } from 'lucide-react'
+import { Search } from 'lucide-react'
 
 import type {
   SuiviPageProps,
@@ -21,12 +20,11 @@ import type {
   SuiviDisplayRow,
   ProactiveDisplayRow,
 } from '@/lib/suivi/types'
-import { parseIso, toIso, startOfDay } from '@/lib/vision/date-utils'
+import { toIso, startOfDay } from '@/lib/vision/date-utils'
 import { EMPTY, PROACTIVE_EMPTY, fmtMs } from '@/lib/suivi/tracking-shared'
 
 import AppLayout from '@r/layouts/app'
 import { cn } from '@r/lib/utils'
-import { Calendar } from '@r/components/ui/calendar'
 import {
   Sheet,
   SheetContent,
@@ -34,6 +32,17 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@r/components/ui/sheet'
+import {
+  PILL,
+  Segment,
+  SegmentButton,
+  DateWindowPill,
+  RefreshPill,
+  ToolbarRow,
+  ToolbarSpacer,
+  FilterMenu,
+  FilterMenuSectionLabel,
+} from '@r/components/vision/toolbar'
 import { useTimedFetch } from '@r/lib/suivi/use-timed-fetch'
 import { ReactiveView } from '@r/components/tracking/reactive-view'
 import { ProactiveView } from '@r/components/tracking/proactive-view'
@@ -190,17 +199,6 @@ export default function Tracking(props: SuiviPageProps) {
     month: 'long',
   })
 
-  // Jamais de ISO (aaaa-mm-jj) affiché à l'écran — toujours jj/mm/aaaa (règle projet).
-  const fmtFrDate = (iso: string) => {
-    const d = parseIso(iso)
-    return d ? d.toLocaleDateString('fr-FR') : iso
-  }
-  const rangeLabel = (() => {
-    const { start, end } = dateRange
-    if (!start || !end) return '—'
-    return `${fmtFrDate(toIso(start))} → ${fmtFrDate(toIso(end))}`
-  })()
-
   // Sélecteur de plage — filtre client (dateRange), pas de re-fetch ni de navigation.
   const [dateOpen, setDateOpen] = useState(false)
   const applyRange = (r: DayPickerRange | undefined) => {
@@ -217,17 +215,13 @@ export default function Tracking(props: SuiviPageProps) {
   const lastMs = mode === 'reactif' ? rowsMs : proMs
   const liveElapsed = mode === 'reactif' ? elapsed : proElapsed
 
-  const chipCls = (on: boolean) =>
-    `inline-flex items-center gap-1 rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold tracking-wider transition-colors ${
-      on ? 'bg-brand-soft text-brand' : 'text-muted-foreground hover:text-foreground'
-    }`
-
   const chipCount = (on: boolean, count?: number) =>
     count !== undefined && count > 0 ? (
       <span
-        className={`rounded-full px-1.5 py-px text-[8px] font-extrabold leading-none tabular-nums ${
+        className={cn(
+          'rounded-full px-1.5 py-px text-[8px] font-extrabold leading-none tabular-nums',
           on ? 'bg-brand/15 text-brand' : 'bg-foreground/[0.06] text-muted-foreground'
-        }`}
+        )}
       >
         {count}
       </span>
@@ -236,34 +230,32 @@ export default function Tracking(props: SuiviPageProps) {
   const statusChip = (k: SuiviStatusKey | 'all', label: string, count?: number) => {
     const on = statusFilter === k
     return (
-      <button type="button" className={chipCls(on)} onClick={() => setStatusFilter(on ? 'all' : k)}>
+      <SegmentButton active={on} onClick={() => setStatusFilter(on ? 'all' : k)}>
         {label}
         {chipCount(on, count)}
-      </button>
+      </SegmentButton>
     )
   }
 
   const verdictChip = (k: ProactiveVerdictKey | 'all', label: string, count?: number) => {
     const on = verdictFilter === k
     return (
-      <button
-        type="button"
-        className={chipCls(on)}
-        onClick={() => setVerdictFilter(on ? 'all' : k)}
-      >
+      <SegmentButton active={on} onClick={() => setVerdictFilter(on ? 'all' : k)}>
         {label}
         {chipCount(on, count)}
-      </button>
+      </SegmentButton>
     )
   }
 
-  const isFiltered =
-    !!query.trim() ||
+  // Filtres secondaires uniquement (hors recherche, qui reste toujours
+  // visible dans la rangée) — pilote la pastille du déclencheur FilterMenu.
+  const filtersActive =
     (mode === 'reactif' && statusFilter !== 'all') ||
     (mode === 'proactif' && verdictFilter !== 'all') ||
     !typeFilter.has('MTS') ||
     !typeFilter.has('MTO') ||
     atelierFilter.size > 0
+  const isFiltered = !!query.trim() || filtersActive
   const filteredCount = mode === 'reactif' ? reactiveFilteredRows.length : proFilteredRows.length
   const totalCount = mode === 'reactif' ? view.total : proView.total
 
@@ -295,183 +287,159 @@ export default function Tracking(props: SuiviPageProps) {
       }
     >
 
+      {/* AppLayout (dense, scrollable=false) rend ses children en flux bloc
+          normal (pas de flex-col) : sans ce wrapper, les `flex-1`/`h-full` de
+          la toolbar et de la vue en dessous ne se dimensionnent contre rien
+          et la table déborde hors de l'écran sans scroll possible. */}
+      <div className="flex h-full min-h-0 flex-col">
         {/* ═══ Toolbar ═══ */}
-        {/* overflow-x-auto isolé aux CHIPS (sous-div) : sur toute la rangée, il
-            couperait le popover du sélecteur de date (quirk overflow CSS). */}
-        <div className="flex flex-none select-none items-center gap-2.5 border-b border-rule px-7 py-2">
-          <div className="no-scrollbar flex min-w-0 flex-1 items-center gap-2.5 overflow-x-auto">
-            {/* Bascule Réactif / Proactif */}
-            <div className="inline-flex shrink-0 items-center rounded-md border border-rule bg-card p-0.5">
-              <button
-                type="button"
-                className={chipCls(mode === 'reactif')}
-                onClick={() => setMode('reactif')}
-                title="Suivi as-is : statuts allocation/expédition + causes de retard"
-              >
-                Réactif
-              </button>
-              <button
-                type="button"
-                className={chipCls(mode === 'proactif')}
-                onClick={() => setMode('proactif')}
-                title="Réalisabilité projetée : consommation séquentielle des composants entre OFs"
-              >
-                Proactif
-              </button>
-            </div>
+        <ToolbarRow className="select-none" noWrap>
+          {/* Bascule Réactif / Proactif */}
+          <Segment role="radiogroup" ariaLabel="Vue" className="shrink-0">
+            <SegmentButton
+              role="radio"
+              active={mode === 'reactif'}
+              onClick={() => setMode('reactif')}
+              title="Suivi as-is : statuts allocation/expédition + causes de retard"
+            >
+              Réactif
+            </SegmentButton>
+            <SegmentButton
+              role="radio"
+              active={mode === 'proactif'}
+              onClick={() => setMode('proactif')}
+              title="Réalisabilité projetée : consommation séquentielle des composants entre OFs"
+            >
+              Proactif
+            </SegmentButton>
+          </Segment>
+
+          {/* Fenêtre — sélecteur de plage (filtre client, pas de re-fetch). */}
+          <DateWindowPill
+            open={dateOpen}
+            onOpenChange={setDateOpen}
+            selected={{ from: dateRange.start ?? undefined, to: dateRange.end ?? undefined }}
+            onSelect={applyRange}
+            align="right"
+            title="Filtrer par plage de dates d'expédition (les lignes en retard restent toujours visibles)"
+          />
+
+          {/* Filtres — déclencheur unique (Statut/Verdict selon la vue +
+              Type + Atelier). Avant : 3-4 <Segment> empilés forçaient un
+              scroll horizontal sur la rangée (voir commentaire retiré) ;
+              consolidés ici, la rangée ne déborde plus jamais. */}
+          <FilterMenu
+            label="Filtres"
+            indicators={
+              filtersActive ? <span className="ml-0.5 size-1.5 rounded-full bg-brand" aria-hidden="true" /> : null
+            }
+          >
             {mode === 'reactif' && (
-              <div className="inline-flex shrink-0 items-center gap-1 rounded-md border border-rule bg-card p-0.5">
-                <span className="px-1.5 font-mono text-[9px] font-bold tracking-wider text-muted-foreground">
-                  Statut
-                </span>
-                {statusChip('all', 'Tous', view.total)}
-                {statusChip('ret', 'Retard', view.statusCounts.RETARD_PROD)}
-                {statusChip('alc', 'À allouer', view.statusCounts.ALLOCATION_A_FAIRE)}
-                {statusChip('exp', 'À expédier', view.statusCounts.A_EXPEDIER)}
-              </div>
+              <>
+                <FilterMenuSectionLabel>Statut</FilterMenuSectionLabel>
+                <Segment className="w-full flex-wrap">
+                  {statusChip('all', 'Tous', view.total)}
+                  {statusChip('ret', 'Retard', view.statusCounts.RETARD_PROD)}
+                  {statusChip('alc', 'À allouer', view.statusCounts.ALLOCATION_A_FAIRE)}
+                  {statusChip('exp', 'À expédier', view.statusCounts.A_EXPEDIER)}
+                </Segment>
+                <div className="my-2.5 border-t border-rule-soft" />
+              </>
             )}
             {mode === 'proactif' && (
-              <div className="inline-flex shrink-0 items-center gap-1 rounded-md border border-rule bg-card p-0.5">
-                <span className="px-1.5 font-mono text-[9px] font-bold tracking-wider text-muted-foreground">
-                  Verdict
-                </span>
-                {verdictChip('all', 'Tous', proView.total)}
-                {verdictChip('blocked', 'Bloquée', proView.verdictCounts.blocked)}
-                {verdictChip('uncov', 'Sans couverture', proView.verdictCounts.uncov)}
-                {verdictChip('late', 'Retard', proView.verdictCounts.late)}
-                {verdictChip('risk', 'À risque', proView.verdictCounts.risk)}
-              </div>
+              <>
+                <FilterMenuSectionLabel>Verdict</FilterMenuSectionLabel>
+                <Segment className="w-full flex-wrap">
+                  {verdictChip('all', 'Tous', proView.total)}
+                  {verdictChip('blocked', 'Bloquée', proView.verdictCounts.blocked)}
+                  {verdictChip('uncov', 'Sans couverture', proView.verdictCounts.uncov)}
+                  {verdictChip('late', 'Retard', proView.verdictCounts.late)}
+                  {verdictChip('risk', 'À risque', proView.verdictCounts.risk)}
+                </Segment>
+                <div className="my-2.5 border-t border-rule-soft" />
+              </>
             )}
-            <div className="inline-flex shrink-0 items-center gap-1 rounded-md border border-rule bg-card p-0.5">
-              <span className="px-1.5 font-mono text-[9px] font-bold tracking-wider text-muted-foreground">
-                Type
-              </span>
+            <FilterMenuSectionLabel>Type</FilterMenuSectionLabel>
+            <Segment className="w-full justify-between">
               {['MTS', 'MTO', 'NOR'].map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  className={chipCls(typeFilter.has(t))}
-                  onClick={() => toggleType(t)}
-                >
+                <SegmentButton key={t} active={typeFilter.has(t)} onClick={() => toggleType(t)}>
                   {t}
-                </button>
+                </SegmentButton>
               ))}
-            </div>
+            </Segment>
             {/* Filtre atelier (#36) — chips STOLOC. Transverse aux 2 vues. */}
             {ateliers.length > 0 && (
-              <div className="inline-flex shrink-0 flex-nowrap items-center gap-1 rounded-md border border-rule bg-card p-0.5">
-                <span className="px-1.5 font-mono text-[9px] font-bold tracking-wider text-muted-foreground">
-                  Atelier
-                </span>
-                {ateliers.map((a) => (
-                  <button
-                    key={a.code}
-                    type="button"
-                    className={chipCls(atelierFilter.has(a.code))}
-                    onClick={() => toggleAtelier(a.code)}
-                    title={a.label}
-                  >
-                    {a.label.replace(/^ATELIER\s+/i, '')}
-                  </button>
-                ))}
-                {atelierFilter.size > 0 && (
-                  <button
-                    type="button"
-                    className="rounded-[5px] px-1.5 py-1 font-mono text-[10px] font-bold tracking-wider text-muted-foreground transition-colors hover:text-foreground"
-                    onClick={() => setAtelierFilter(new Set())}
-                    title="Réinitialiser le filtre atelier"
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
+              <>
+                <div className="my-2.5 border-t border-rule-soft" />
+                <div className="flex items-center justify-between">
+                  <FilterMenuSectionLabel>Atelier</FilterMenuSectionLabel>
+                  {atelierFilter.size > 0 && (
+                    <button
+                      type="button"
+                      className="rounded-md px-1.5 py-1 font-mono text-2xs font-bold tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+                      onClick={() => setAtelierFilter(new Set())}
+                      title="Réinitialiser le filtre atelier"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+                <Segment className="w-full flex-wrap">
+                  {ateliers.map((a) => (
+                    <SegmentButton
+                      key={a.code}
+                      active={atelierFilter.has(a.code)}
+                      onClick={() => toggleAtelier(a.code)}
+                      title={a.label}
+                    >
+                      {a.label.replace(/^ATELIER\s+/i, '')}
+                    </SegmentButton>
+                  ))}
+                </Segment>
+              </>
             )}
+          </FilterMenu>
+
+          <ToolbarSpacer />
+
+          {/* Recherche — déplacée depuis le Masthead pour cohérence avec
+              les autres pages (la recherche vit dans la toolbar, pas dans
+              la barre de navigation globale). Reste toujours visible : pas
+              un filtre secondaire, pas de consolidation derrière un clic. */}
+          <div className={cn(PILL, 'shrink-0')}>
+            <Search size={17} strokeWidth={1.75} className="text-muted-foreground" />
+            <input
+              className="w-[200px] border-0 bg-transparent px-0 text-xs font-medium text-foreground shadow-none outline-none"
+              placeholder="Commande, article, client…"
+              type="text"
+              autoComplete="off"
+              value={query}
+              onChange={(e) => setQuery(e.currentTarget.value)}
+            />
           </div>
-          <div className="ml-auto flex shrink-0 items-center gap-2">
-            {/* Recherche — déplacée depuis le Masthead pour cohérence avec
-                les autres pages (la recherche vit dans la toolbar, pas dans
-                la barre de navigation globale). */}
-            <div className="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/25">
-              <Search size={17} strokeWidth={1.75} className="text-muted-foreground" />
-              <input
-                className="w-[200px] border-0 bg-transparent px-0 text-[12px] font-medium text-foreground shadow-none outline-none"
-                placeholder="Commande, article, client…"
-                type="text"
-                autoComplete="off"
-                value={query}
-                onChange={(e) => setQuery(e.currentTarget.value)}
-              />
-            </div>
-            {/* Compteur filtré */}
-            {isFiltered && (
-              <span className="font-mono text-[11px] font-bold tabular-nums text-brand">
-                {filteredCount}{' '}
-                <span className="font-medium text-muted-foreground">/ {totalCount}</span>
-              </span>
-            )}
-            {/* Durée de chargement X3 */}
-            {loading && (
-              <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
-                {fmtMs(liveElapsed)}
-              </span>
-            )}
-            {!loading && lastMs !== null && (
-              <span
-                className="font-mono text-[11px] tabular-nums text-muted-foreground/60"
-                title="Durée dernier chargement X3"
-              >
-                {fmtMs(lastMs)}
-              </span>
-            )}
-            <button
-              type="button"
-              onClick={() => setBust((b) => b + 1)}
-              disabled={loading}
-              className="inline-flex items-center gap-1 rounded-full border border-rule bg-card px-3 py-1 text-[11px] font-semibold transition-colors hover:border-brand disabled:opacity-50"
-              title="Recharger les données X3 (cache → re-fetch live)"
+          {/* Compteur filtré */}
+          {isFiltered && (
+            <span className="font-mono text-xs font-bold tabular-nums text-brand">
+              {filteredCount}{' '}
+              <span className="font-medium text-muted-foreground">/ {totalCount}</span>
+            </span>
+          )}
+          {/* Durée de chargement X3 */}
+          {loading && (
+            <span className="font-mono text-xs tabular-nums text-muted-foreground">
+              {fmtMs(liveElapsed)}
+            </span>
+          )}
+          {!loading && lastMs !== null && (
+            <span
+              className="font-mono text-xs tabular-nums text-muted-foreground/60"
+              title="Durée dernier chargement X3"
             >
-              <RefreshCw size={14} strokeWidth={1.75} className={cn('text-muted-foreground', loading && 'animate-spin')} />
-              Actualiser
-            </button>
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setDateOpen((o) => !o)}
-                className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-[11px] font-semibold transition-colors hover:border-brand ${
-                  dateOpen ? 'border-brand bg-brand-soft/20 text-brand' : 'border-rule bg-card'
-                }`}
-                title="Filtrer par plage de dates d'expédition (les lignes en retard restent toujours visibles)"
-              >
-                <CalendarIcon size={14} strokeWidth={1.75} className="text-muted-foreground" />
-                {rangeLabel}
-                <ChevronDown size={16} strokeWidth={1.75} className="text-muted-foreground" />
-              </button>
-              {dateOpen && (
-                <>
-                  <button
-                    type="button"
-                    tabIndex={-1}
-                    className="fixed inset-0 z-40 cursor-default"
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => setDateOpen(false)}
-                  />
-                  <div className="absolute right-0 top-full z-50 mt-2 rounded-lg border bg-card shadow-lg">
-                    <Calendar
-                      mode="range"
-                      locale={fr}
-                      numberOfMonths={2}
-                      selected={{
-                        from: dateRange.start ?? undefined,
-                        to: dateRange.end ?? undefined,
-                      }}
-                      onSelect={applyRange}
-                    />
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
+              {fmtMs(lastMs)}
+            </span>
+          )}
+          <RefreshPill loading={loading} onClick={() => setBust((b) => b + 1)} />
+        </ToolbarRow>
 
         {mode === 'reactif' ? (
           <ReactiveView
@@ -495,6 +463,7 @@ export default function Tracking(props: SuiviPageProps) {
             onSelectOf={onSelectOf}
           />
         )}
+      </div>
 
         {/* Drawer diagnostic de ligne */}
         <Sheet open={selectedRow !== null} onOpenChange={(open) => !open && setSelectedRow(null)}>

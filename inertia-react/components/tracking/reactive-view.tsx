@@ -66,7 +66,7 @@ export function ReactiveView(props: ReactiveViewProps) {
           Échec du calcul du suivi.
         </div>
       ) : (
-        <div className="flex-1 overflow-hidden p-5">
+        <div className="min-h-0 flex-1 overflow-hidden p-5">
           <DataTable
             columns={columns}
             rows={rows}

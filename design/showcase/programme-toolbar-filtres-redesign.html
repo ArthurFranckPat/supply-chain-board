@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Programme Toolbar · 3 redesigns gestion des filtres</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --rausch: #ff385c;
+    --rausch-soft: rgba(255, 56, 92, 0.10);
+    --ink: #222222;
+    --muted: #6a6a6a;
+    --canvas: #ffffff;
+    --surface-soft: #f7f7f7;
+    --surface-strong: #f2f2f2;
+    --hairline: #dddddd;
+    --hairline-soft: #ebebeb;
+    --ferme: #008049;
+    --planifie: #00a699;
+    --suggere: #fc642d;
+    --r-btn: 8px;
+    --r-card: 14px;
+    --r-pill: 9999px;
+    --shadow-float: 0 6px 20px rgb(0 0 0 / 0.16);
+    --font: 'Plus Jakarta Sans', -apple-system, system-ui, 'Helvetica Neue', sans-serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { -webkit-font-smoothing: antialiased; }
+  body { font-family: var(--font); color: var(--ink); background: var(--surface-strong); font-size: 14px; line-height: 1.45; padding: 40px 24px 100px; }
+  .num { font-variant-numeric: tabular-nums; }
+
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  .page-head { margin-bottom: 28px; }
+  .page-head h1 { font-size: 21px; font-weight: 800; letter-spacing: -0.3px; margin-bottom: 6px; }
+  .page-head p { font-size: 13px; color: var(--muted); max-width: 640px; }
+
+  /* ── Tabs ── */
+  .tabs { display: flex; gap: 4px; padding: 4px; background: var(--surface-soft); border-radius: var(--r-btn); width: fit-content; margin-bottom: 20px; }
+  .tab {
+    appearance: none; border: 0; background: transparent; cursor: pointer;
+    font-family: var(--font); font-size: 12px; font-weight: 700; letter-spacing: 0.02em;
+    color: var(--muted); padding: 9px 16px; border-radius: 6px; transition: all .15s;
+  }
+  .tab.active { background: var(--canvas); color: var(--ink); box-shadow: var(--shadow-float); }
+  .tab:hover:not(.active) { color: var(--ink); }
+
+  .version { display: none; }
+  .version.active { display: block; }
+
+  .version-head { background: var(--canvas); border: 1px solid var(--hairline); border-radius: var(--r-card); padding: 18px 22px; margin-bottom: 16px; }
+  .version-head .kicker { font-family: var(--font); font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--rausch); margin-bottom: 6px; }
+  .version-head h2 { font-size: 17px; font-weight: 800; margin-bottom: 8px; letter-spacing: -0.2px; }
+  .version-head p { font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+  .version-head .tradeoff { font-size: 12px; color: var(--muted); margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--hairline); }
+  .version-head .tradeoff b { color: var(--ink); font-weight: 700; }
+
+  /* ── Resizable demo frame ── */
+  .frame-label { font-size: 11px; color: var(--muted); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .frame-label svg { width: 13px; height: 13px; }
+  .frame {
+    resize: horizontal; overflow: auto; min-width: 460px; max-width: 100%;
+    width: 1040px; border: 1px dashed #c1c1c1; border-radius: var(--r-card);
+    background: var(--canvas); margin-bottom: 36px;
+  }
+  .frame-inner { min-width: 460px; }
+
+  /* ── App chrome mimic ── */
+  .fake-app { background: var(--canvas); }
+  .fake-content { height: 64px; background: repeating-linear-gradient(45deg, var(--surface-soft), var(--surface-soft) 10px, var(--canvas) 10px, var(--canvas) 20px); border-radius: 0 0 var(--r-card) var(--r-card); display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--muted); }
+
+  /* ══════════════ TOOLBAR GRAMMAR (ported from toolbar.tsx) ══════════════ */
+  .toolbar-row { display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--hairline); padding: 8px 20px; min-height: 48px; flex-wrap: wrap; }
+  .toolbar-row.nowrap { flex-wrap: nowrap; }
+  .toolbar-row.sub { background: var(--surface-soft); border-bottom: 1px solid var(--hairline); min-height: 40px; padding: 6px 20px; }
+  .spacer { flex: 1; }
+
+  .seg { display: inline-flex; align-items: center; gap: 2px; border-radius: var(--r-btn); border: 1px solid var(--hairline); background: var(--canvas); padding: 2px; flex: none; }
+  .seg-lbl { padding: 0 6px; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+  .seg-btn { appearance: none; border: 0; cursor: pointer; font-family: var(--font); min-height: 28px; border-radius: 6px; padding: 4px 12px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); background: transparent; transition: all .15s; white-space: nowrap; }
+  .seg-btn.on { background: var(--rausch-soft); color: var(--rausch); }
+  .seg-btn:hover:not(.on) { color: var(--ink); }
+  .seg-btn.status-on[data-k="ferme"] { background: color-mix(in srgb, var(--ferme) 12%, transparent); color: var(--ferme); }
+  .seg-btn.status-on[data-k="planifie"] { background: color-mix(in srgb, var(--planifie) 12%, transparent); color: var(--planifie); }
+  .seg-btn.status-on[data-k="suggere"] { background: color-mix(in srgb, var(--suggere) 12%, transparent); color: var(--suggere); }
+
+  .pill { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; border-radius: var(--r-pill); border: 1px solid var(--hairline); background: var(--canvas); padding: 5px 12px; font-size: 12px; font-weight: 600; color: var(--ink); cursor: pointer; white-space: nowrap; flex: none; }
+  .pill:hover { border-color: var(--rausch); }
+  .pill svg { flex: none; color: var(--muted); }
+  .pill input { border: 0; background: transparent; outline: none; font-family: var(--font); font-size: 12px; font-weight: 500; width: 150px; }
+  .pill.icon-only { padding: 5px; width: 30px; justify-content: center; }
+  .pill .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--rausch); }
+  .pill .badge { font-family: var(--font); font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+  .pill .status-dots { display: inline-flex; gap: 3px; margin-left: 1px; }
+  .pill .status-dots i { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+  .pill .scope-select { border: 0; background: transparent; font-family: var(--font); font-size: 12px; font-weight: 500; color: var(--muted); outline: none; }
+
+  svg.i { width: 14px; height: 14px; stroke: currentColor; stroke-width: 1.75; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+  svg.i.sm { width: 12px; height: 12px; }
+
+  /* overflow badge pill (V3) */
+  .pill.overflow { border-color: var(--rausch); color: var(--rausch); }
+  .pill.overflow.hidden-state { display: none; }
+
+  /* dropdown panel shared */
+  .panel { position: relative; }
+  .panel-pop {
+    position: absolute; top: calc(100% + 6px); right: 0; z-index: 30; width: 260px;
+    background: var(--canvas); border: 1px solid var(--hairline); border-radius: 12px;
+    box-shadow: var(--shadow-float); padding: 10px; display: none;
+  }
+  .panel.open .panel-pop { display: block; }
+  .panel-pop .section-lbl { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); padding: 4px 6px 8px; }
+  .panel-pop .row-gap { display: flex; flex-direction: column; gap: 8px; padding: 0 2px 8px; }
+  .panel-pop .seg { width: 100%; justify-content: space-between; }
+  .panel-pop hr { border: 0; border-top: 1px solid var(--hairline-soft); margin: 6px 0; }
+  .menu-item { display: flex; align-items: center; gap: 8px; width: 100%; border: 0; background: transparent; cursor: pointer; text-align: left; border-radius: 8px; padding: 8px 10px; font-family: var(--font); font-size: 12px; font-weight: 600; color: var(--ink); }
+  .menu-item:hover { background: var(--surface-soft); }
+  .menu-item svg { color: var(--muted); }
+  .menu-item .tag { margin-left: auto; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; }
+  .menu-item .tag.on { color: var(--rausch); }
+
+  footer { max-width: 1180px; margin: 40px auto 0; font-size: 12px; color: var(--muted); border-top: 1px solid var(--hairline); padding-top: 16px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="page-head">
+    <h1>Gestion des filtres — Programme toolbar</h1>
+    <p>3 pistes pour désengorger <code>programme-toolbar.tsx</code> : le débordement vient de tout empiler sur une seule rangée nowrap-optionnelle (mode + fenêtre + statut + recherche + portée + refresh + actions). Redimensionne chaque cadre (poignée en bas à droite) pour voir le comportement à l'étroit.</p>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-v="v1">V1 · Rangée double figée</button>
+    <button class="tab" data-v="v2">V2 · Panneau Filtres consolidé</button>
+    <button class="tab" data-v="v3">V3 · Débordement adaptatif</button>
+  </div>
+
+  <!-- ══════════════ V1 ══════════════ -->
+  <section class="version active" id="v1">
+    <div class="version-head">
+      <div class="kicker">Convenu — architecture sûre</div>
+      <h2>Deux rangées figées : Commande / Filtres</h2>
+      <p>Retour à une séparation en 2 rangées <em>fixes</em> (jamais de wrap possible) : rangée 1 = identité de page (mode, fenêtre, refresh, actions) ; rangée 2 = tout ce qui filtre les données (statut, recherche, portée), fond légèrement teinté <code>--surface-soft</code> pour la distinguer visuellement sans ajouter de bordure lourde.</p>
+      <div class="tradeoff"><b>Coût :</b> +40px de hauteur verticale permanente. <b>Gain :</b> zéro calcul, zéro JS — chaque rangée a moitié moins d'éléments donc ne wrap jamais, même sur écran 13″. C'est l'inverse de la fusion faite en e54b752 ; on la refait mais avec un partitionnement identité/filtre plus net (avant : statut seul était descendu, pas recherche/portée).</div>
+    </div>
+
+    <div class="frame-label"><svg class="i sm" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M3 16v3a2 2 0 0 0 2 2h3"/></svg> redimensionne le cadre →</div>
+    <div class="frame"><div class="frame-inner fake-app">
+      <div class="toolbar-row nowrap">
+        <div class="seg" role="radiogroup">
+          <button class="seg-btn on">OF</button>
+          <button class="seg-btn">Combiné</button>
+          <button class="seg-btn">Cmdes</button>
+        </div>
+        <button class="pill"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><span class="num">22/07 → 29/07</span><svg class="i" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
+        <div class="spacer"></div>
+        <button class="pill icon-only" title="Actualiser"><svg class="i" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg></button>
+        <button class="pill"><svg class="i" viewBox="0 0 24 24"><line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/></svg>Actions<span class="dot"></span><svg class="i" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
+      </div>
+      <div class="toolbar-row sub nowrap">
+        <div class="seg">
+          <span class="seg-lbl">Statut</span>
+          <button class="seg-btn status-on" data-k="ferme">Ferme</button>
+          <button class="seg-btn status-on" data-k="planifie">Planifié</button>
+          <button class="seg-btn">Suggéré</button>
+        </div>
+        <div class="spacer"></div>
+        <div class="pill"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><input placeholder="OF, article, poste…" /></div>
+        <div class="pill"><span class="scope-select">Tout</span><svg class="i" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></div>
+      </div>
+      <div class="fake-content">contenu du board</div>
+    </div></div>
+  </section>
+
+  <!-- ══════════════ V2 ══════════════ -->
+  <section class="version" id="v2">
+    <div class="version-head">
+      <div class="kicker">Consolidation — réutilise le pattern Actions existant</div>
+      <h2>Un seul déclencheur « Filtres » (statut + recherche + portée)</h2>
+      <p>La rangée reste unique. Statut / recherche / portée sortent de la rangée et vont dans un panneau déroulant — même mécanique <code>&lt;details&gt;</code> que le menu Actions actuel (zéro nouvelle dépendance). Le déclencheur porte des points colorés (statuts actifs) + le nombre de filtres actifs, pour ne pas perdre le signal au clic.</p>
+      <div class="tradeoff"><b>Coût :</b> changer le statut demande 1 clic de plus qu'aujourd'hui (état masqué par défaut). <b>Gain :</b> la rangée perd 3 éléments variables (statut×3 chips + recherche + portée) → largeur quasi constante quel que soit le mode. Cohérent avec l'existant : même geste que « Actions », l'utilisateur n'apprend rien de neuf.</div>
+    </div>
+
+    <div class="frame-label"><svg class="i sm" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M3 16v3a2 2 0 0 0 2 2h3"/></svg> redimensionne le cadre →</div>
+    <div class="frame"><div class="frame-inner fake-app">
+      <div class="toolbar-row nowrap">
+        <div class="seg" role="radiogroup">
+          <button class="seg-btn on">OF</button>
+          <button class="seg-btn">Combiné</button>
+          <button class="seg-btn">Cmdes</button>
+        </div>
+        <button class="pill"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><span class="num">22/07 → 29/07</span><svg class="i" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
+        <div class="spacer"></div>
+
+        <div class="panel" id="v2-filters-panel">
+          <button class="pill" onclick="document.getElementById('v2-filters-panel').classList.toggle('open')">
+            <svg class="i" viewBox="0 0 24 24"><line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/></svg>
+            Filtres <span class="badge num">· 2</span>
+            <span class="status-dots"><i style="background:var(--ferme)"></i><i style="background:var(--planifie)"></i></span>
+            <svg class="i" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <div class="panel-pop" style="width:280px;right:0;">
+            <div class="section-lbl">Statut</div>
+            <div class="row-gap">
+              <div class="seg">
+                <button class="seg-btn status-on" data-k="ferme">Ferme</button>
+                <button class="seg-btn status-on" data-k="planifie">Planifié</button>
+                <button class="seg-btn">Suggéré</button>
+              </div>
+            </div>
+            <hr />
+            <div class="section-lbl">Recherche</div>
+            <div class="row-gap">
+              <div class="pill" style="width:100%;"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><input placeholder="OF, article, poste…" style="width:100%;" /></div>
+              <div class="pill" style="width:100%; justify-content: space-between;"><span class="scope-select">Portée : Tout</span><svg class="i" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></div>
+            </div>
+          </div>
+        </div>
+
+        <button class="pill icon-only" title="Actualiser"><svg class="i" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg></button>
+        <button class="pill"><svg class="i" viewBox="0 0 24 24"><path d="M10 2v7.31"/><path d="M14 9.3V1.99"/><path d="M8.5 2h7"/><path d="M14 9.3a6.5 6.5 0 1 1-4 0"/></svg>Actions<span class="dot"></span><svg class="i" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
+      </div>
+      <div class="fake-content">contenu du board</div>
+    </div></div>
+  </section>
+
+  <!-- ══════════════ V3 ══════════════ -->
+  <section class="version" id="v3">
+    <div class="version-head">
+      <div class="kicker">Novateur — collapse mesuré, pas de perte visuelle tant que ça rentre</div>
+      <h2>Priorité adaptative : « +N filtres » seulement si nécessaire</h2>
+      <p>Tout reste visible en ligne, identique à aujourd'hui, <em>tant qu'il y a la place</em>. Un <code>ResizeObserver</code> mesure la rangée ; en dessous d'un seuil, les éléments de plus basse priorité (Suggéré → Portée → Recherche → Statut restants) se replient un par un dans une pilule <code>+N filtres</code> en fin de rangée, qui ouvre un panneau avec les éléments masqués. Priorité fixe : Mode / Fenêtre / Refresh / Actions ne se replient jamais.</p>
+      <div class="tradeoff"><b>Coût :</b> le plus de code (mesure + réordonnancement dynamique), et l'état masqué change avec la largeur (moins prévisible qu'un simple menu fixe). <b>Gain :</b> zéro changement visuel/comportemental sur grand écran (le cas actuel qui marche reste identique) ; dégrade proprement au lieu de wrapper sur petit écran/sidebar ouverte.</div>
+    </div>
+
+    <div class="frame-label"><svg class="i sm" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M3 16v3a2 2 0 0 0 2 2h3"/></svg> redimensionne le cadre → regarde les chips se replier dans « +N filtres »</div>
+    <div class="frame" id="v3-frame"><div class="frame-inner fake-app">
+      <div class="toolbar-row nowrap" id="v3-row" style="flex-wrap: nowrap; overflow: hidden;">
+        <div class="seg" data-prio="0" role="radiogroup">
+          <button class="seg-btn on">OF</button>
+          <button class="seg-btn">Combiné</button>
+          <button class="seg-btn">Cmdes</button>
+        </div>
+        <button class="pill" data-prio="0"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><span class="num">22/07 → 29/07</span><svg class="i" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
+
+        <div class="seg" data-prio="0" id="v3-status-seg">
+          <span class="seg-lbl">Statut</span>
+          <button class="seg-btn status-on" data-k="ferme" data-prio="3">Ferme</button>
+          <button class="seg-btn status-on" data-k="planifie" data-prio="2">Planifié</button>
+          <button class="seg-btn" data-prio="1">Suggéré</button>
+        </div>
+
+        <div class="spacer" data-prio="0"></div>
+
+        <div class="pill" data-prio="4" id="v3-search"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><input placeholder="OF, article, poste…" /></div>
+        <div class="pill" data-prio="5" id="v3-scope"><span class="scope-select">Tout</span><svg class="i" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></div>
+
+        <div class="panel" id="v3-overflow-panel" data-prio="0">
+          <button class="pill overflow hidden-state" id="v3-overflow-btn" onclick="document.getElementById('v3-overflow-panel').classList.toggle('open')">
+            <span class="num" id="v3-overflow-count">+0</span> filtres<svg class="i" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <div class="panel-pop" id="v3-overflow-content" style="width:260px;"></div>
+        </div>
+
+        <button class="pill icon-only" data-prio="0" title="Actualiser"><svg class="i" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg></button>
+        <button class="pill" data-prio="0"><svg class="i" viewBox="0 0 24 24"><path d="M10 2v7.31"/><path d="M14 9.3V1.99"/><path d="M8.5 2h7"/><path d="M14 9.3a6.5 6.5 0 1 1-4 0"/></svg>Actions<span class="dot"></span><svg class="i" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
+      </div>
+      <div class="fake-content">contenu du board — le panneau « +N filtres » liste : Statut Suggéré, Recherche, Portée (ordre de repli inverse de la priorité)</div>
+    </div></div>
+  </section>
+
+  <footer>
+    Tokens réels : <code>--rausch #ff385c</code>, <code>--ferme #008049</code>, <code>--planifie #00a699</code>, <code>--suggere #fc642d</code>, radius pill <code>9999px</code> / card <code>14px</code>, Plus Jakarta Sans, grammaire <code>PILL</code>/<code>Segment</code>/<code>ToolbarRow</code> de <code>vision/toolbar.tsx</code>. V2 réutilise le mécanisme <code>&lt;details&gt;</code> déjà en place pour le menu Actions.
+  </footer>
+</div>
+
+<script>
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.version').forEach(v => v.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById(tab.dataset.v).classList.add('active');
+    });
+  });
+
+  // close panels on outside click
+  document.addEventListener('mousedown', (e) => {
+    document.querySelectorAll('.panel.open').forEach(p => {
+      if (!p.contains(e.target)) p.classList.remove('open');
+    });
+  });
+
+  // ── V3 adaptive overflow ──
+  const v3Row = document.getElementById('v3-row');
+  const overflowBtn = document.getElementById('v3-overflow-btn');
+  const overflowCount = document.getElementById('v3-overflow-count');
+  const overflowContent = document.getElementById('v3-overflow-content');
+  const collapsible = Array.from(v3Row.querySelectorAll('[data-prio]'))
+    .filter(el => Number(el.dataset.prio) > 0)
+    .sort((a, b) => Number(a.dataset.prio) - Number(b.dataset.prio)); // repli du plus bas au plus haut
+
+  const homes = new Map(collapsible.map(el => [el, { parent: el.parentNode, next: el.nextSibling }]));
+
+  function labelFor(el) {
+    if (el.id === 'v3-search') return 'Recherche';
+    if (el.id === 'v3-scope') return 'Portée';
+    if (el.dataset.k === 'ferme') return 'Statut · Ferme';
+    if (el.dataset.k === 'planifie') return 'Statut · Planifié';
+    return 'Statut · Suggéré';
+  }
+
+  function relayout() {
+    // reset: put everything back home first
+    collapsible.forEach(el => {
+      const h = homes.get(el);
+      if (el.parentNode !== h.parent) h.parent.insertBefore(el, h.next);
+      el.style.display = '';
+    });
+    overflowContent.innerHTML = '';
+    let hiddenCount = 0;
+
+    let guard = 0;
+    while (v3Row.scrollWidth > v3Row.clientWidth && guard < collapsible.length) {
+      const el = collapsible[guard];
+      el.style.display = 'none';
+      const item = document.createElement('div');
+      item.className = 'menu-item';
+      item.style.cursor = 'default';
+      item.innerHTML = `<span>${labelFor(el)}</span>`;
+      overflowContent.appendChild(item);
+      hiddenCount++;
+      guard++;
+      overflowBtn.classList.remove('hidden-state');
+      overflowCount.textContent = '+' + hiddenCount;
+      // force reflow measure
+      void v3Row.offsetWidth;
+    }
+    if (hiddenCount === 0) {
+      overflowBtn.classList.add('hidden-state');
+      document.getElementById('v3-overflow-panel').classList.remove('open');
+    }
+  }
+
+  new ResizeObserver(relayout).observe(v3Row);
+  window.addEventListener('load', relayout);
+</script>
+</body>
+</html>

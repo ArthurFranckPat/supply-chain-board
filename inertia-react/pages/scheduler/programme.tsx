@@ -51,7 +51,8 @@ import {
   type ImpactVerdict,
 } from '@/lib/vision/impact'
 
-import { ProgrammeToolbar, PILL, type VisionMode } from '@r/components/vision/programme-toolbar'
+import { ProgrammeToolbar, type VisionMode } from '@r/components/vision/programme-toolbar'
+import { PILL } from '@r/components/vision/toolbar'
 import { CommandeMarker } from '@r/components/vision/commande-marker'
 import { LinksOverlay, type LinkMode } from '@r/components/vision/links-overlay'
 import { TriageRail, type TriageItem } from '@r/components/vision/triage-rail'
@@ -865,8 +866,6 @@ export default function Programme(props: VisionProps) {
           runFeasibility={runFeasibility}
           refreshing={refreshing}
           doRefresh={doRefresh}
-          windowFrom={props.windowFrom}
-          windowTo={props.windowTo}
           calOpen={calOpen}
           setCalOpen={setCalOpen}
           range={range}

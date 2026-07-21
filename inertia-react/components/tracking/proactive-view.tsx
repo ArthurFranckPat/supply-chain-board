@@ -59,7 +59,7 @@ export function ProactiveView(props: ProactiveViewProps) {
           Échec du calcul de réalisabilité.
         </div>
       ) : (
-        <div className="flex-1 overflow-hidden p-5">
+        <div className="min-h-0 flex-1 overflow-hidden p-5">
           <DataTable
             columns={columns}
             rows={rows}

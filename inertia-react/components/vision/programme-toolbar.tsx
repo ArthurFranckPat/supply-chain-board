@@ -1,9 +1,18 @@
-import { useMemo, useRef, useEffect, useState } from 'react'
+import { useRef, useEffect, useState } from 'react'
 import { cn } from '@r/lib/utils'
-import { Calendar } from '@r/components/ui/calendar'
 import { useBoardStore, statusActive } from '@r/lib/board/store'
-import { CalendarDays, ChevronDown, RefreshCw, SlidersHorizontal, FlaskConical, ClipboardList } from 'lucide-react'
+import { ChevronDown, SlidersHorizontal, FlaskConical, ClipboardList } from 'lucide-react'
 import { DynamicIcon } from '../ui/dynamic-icon'
+import {
+  PILL,
+  Segment,
+  SegmentButton,
+  DateWindowPill,
+  RefreshPill,
+  ToolbarRow,
+  ToolbarSpacer,
+  FilterMenu,
+} from './toolbar'
 
 export type DateRange = { from: Date | undefined; to: Date | undefined }
 
@@ -27,52 +36,12 @@ const STATUS_FILTER_CHIPS: { k: 'ferme' | 'planifie' | 'suggere'; label: string 
   { k: 'suggere', label: 'Suggéré' },
 ]
 
-const BESOIN_CHIPS = [
-  { k: 'COMMANDE', label: 'Cmde' },
-  { k: 'PREVISION', label: 'Prév' },
-] as const
-
-/** Programme v2 — grammaire visuelle unifiée : 2 styles seulement.
- *  • Segment (rounded-lg) pour les choix groupés exclusifs (mode, stock, liens).
- *  • Pill (rounded-full) pour les actions et toggles (fenêtre, actualiser, etc.).
- *  Plus de mix rounded-md / rounded-full / shadcn-button.
- *
- *  Source UNIQUE de la grammaire toolbar : constantes exportées pour que les
- *  contrôles pill injectés dans la rangée (recherche, portée… cf. programme.tsx)
- *  réutilisent exactement la même géométrie (min-h-[30px] / rounded-full / px-3)
- *  au lieu de recopier des variantes `h-[30px]` à la main. */
-export const SEG = 'inline-flex items-center gap-0.5 rounded-lg border border-rule bg-card p-0.5'
-export const SEG_BTN_ON =
-  'min-h-[28px] rounded-md px-3 py-1 font-mono text-2xs font-bold uppercase tracking-wider bg-brand-soft text-brand transition-colors'
-export const SEG_BTN_OFF =
-  'min-h-[28px] rounded-md px-3 py-1 font-mono text-2xs font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors'
-export const SEG_LBL =
-  'px-1.5 font-mono text-3xs font-bold uppercase tracking-wider text-muted-foreground'
-export const PILL =
-  'inline-flex min-h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 py-1 text-xs font-semibold text-foreground transition-colors hover:border-brand'
-
-/**
- * Formatage court d'un intervalle de dates ISO (YYYY-MM-DD) en dd/MM → dd/MM.
- * Exemple : ('2026-07-19', '2026-07-25') → '19/07 → 25/07'.
- *
- * Remplace l'ancien format serveur (`19/07 — 25/07` avec em-dash) par un
- * intervalle fléché plus lisible, aligné sur le langage métier planning.
- * Falls back gracieusement si l'ISO est absente/corrompu.
- */
-function formatRange(fromIso: string, toIso: string): string {
-  const from = formatDdMm(fromIso)
-  const to = formatDdMm(toIso)
-  if (!from && !to) return '—'
-  if (!from) return to ?? '—'
-  if (!to) return from
-  return `${from} → ${to}`
-}
-
-function formatDdMm(iso: string): string | null {
-  if (!iso || typeof iso !== 'string') return null
-  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/)
-  if (!m) return null
-  return `${m[3]}/${m[2]}`
+// Classes littérales (pas de `bg-${k}` dynamique — Tailwind v4 scanne le
+// source statiquement, une interpolation ne serait pas détectée).
+const STATUS_DOT_CLASS: Record<'ferme' | 'planifie' | 'suggere', string> = {
+  ferme: 'bg-ferme',
+  planifie: 'bg-planifie',
+  suggere: 'bg-suggere',
 }
 
 /**
@@ -87,124 +56,88 @@ export function ProgrammeToolbar(props: {
   runFeasibility: () => void
   refreshing: boolean
   doRefresh: () => void
-  /** Date ISO (YYYY-MM-DD) de début de fenêtre — pour reformater l'affichage
-   *  de la pill calendrier en dd/MM → dd/MM (au lieu du string serveur). */
-  windowFrom: string
-  windowTo: string
   calOpen: boolean
   setCalOpen: (open: boolean) => void
   range: DateRange
   applyRange: (r: DateRange) => void
   scenarioActive?: boolean
   onToggleScenario?: () => void
-  /** Slot recherche/portée — vit à droite du <flex-1> (avant le menu Actions).
-   *  Sorti du Masthead pour éviter le doublon visuel avec la toolbar. */
+  /** Slot recherche/portée — vit à droite du <ToolbarSpacer /> (avant le menu
+   *  Actions). Sorti du Masthead pour éviter le doublon visuel avec la toolbar. */
   search?: React.ReactNode
 }) {
-  // Formatage local dd/MM → dd/MM depuis les ISO. Plus lisible que le
-  // "19/07 — 25/07" serveur (em-dash), et aligné sur le langage métier
-  // planning (intervalle fléché). Fall-back sur props.dateRange si ISO absent.
-  const dateRangeLabel = formatRange(props.windowFrom, props.windowTo)
+  // Statut — sélecteurs primitifs (pas d'objet littéral : un nouvel objet à
+  // chaque rendu casse le cache de snapshot de useSyncExternalStore → boucle
+  // infinie « Maximum update depth exceeded »). Pas de hook dans un .map()
+  // conditionnel non plus : cf. directive plus bas.
+  const statusFerme = useBoardStore((s) => statusActive(s, 'ferme'))
+  const statusPlanifie = useBoardStore((s) => statusActive(s, 'planifie'))
+  const statusSuggere = useBoardStore((s) => statusActive(s, 'suggere'))
+  const statuses = { ferme: statusFerme, planifie: statusPlanifie, suggere: statusSuggere }
+  const toggleStatus = useBoardStore((s) => s.toggleStatus)
 
   return (
-    <div
-      data-print-toolbar
-      className="flex flex-none flex-wrap items-center gap-2.5 border-b border-rule px-7 py-2 min-h-[48px]"
-    >
+    <ToolbarRow>
       {/* Mode — segment */}
-      <div className={SEG} role="radiogroup" aria-label="Mode d'affichage">
+      <Segment role="radiogroup" ariaLabel="Mode d'affichage">
         {(['ordonnancement', 'combined', 'planification'] as const).map((m) => (
-          <button
+          <SegmentButton
             key={m}
-            type="button"
             role="radio"
-            aria-checked={props.mode === m}
+            active={props.mode === m}
             title={MODE_TITLES[m]}
-            className={props.mode === m ? SEG_BTN_ON : SEG_BTN_OFF}
             onClick={() => props.switchMode(m)}
           >
             {MODE_LABELS[m]}
-          </button>
+          </SegmentButton>
         ))}
-      </div>
+      </Segment>
 
       {/* Fenêtre — pill calendrier (dd/MM → dd/MM) */}
-      <div data-print-keep className="relative">
-        <button
-          type="button"
-          aria-label={`Fenêtre : ${dateRangeLabel}${props.calOpen ? ' — fermer' : ' — ouvrir'}`}
-          aria-expanded={props.calOpen}
-          onClick={() => props.setCalOpen(!props.calOpen)}
-          className={PILL}
-        >
-          <CalendarDays size={14} strokeWidth={1.75} className="text-muted-foreground" />
-          <span className="font-mono tabular-nums">{dateRangeLabel}</span>
-          <ChevronDown size={16} strokeWidth={1.75} className="text-muted-foreground" />
-        </button>
-        {props.calOpen && (
-          <>
-            <button
-              type="button"
-              tabIndex={-1}
-              aria-hidden="true"
-              className="fixed inset-0 z-40 cursor-default"
-              onClick={() => props.setCalOpen(false)}
-            />
-            <div className="absolute left-0 top-full z-50 mt-2">
-              <Calendar
-                mode="range"
-                selected={props.range.from ? { from: props.range.from, to: props.range.to } : undefined}
-                onSelect={(range) => {
-                  if (range) {
-                    props.applyRange({ from: range.from, to: range.to })
-                  }
-                }}
-              />
-            </div>
-          </>
-        )}
-      </div>
+      <DateWindowPill
+        open={props.calOpen}
+        onOpenChange={props.setCalOpen}
+        selected={{ from: props.range.from, to: props.range.to }}
+        onSelect={(range) => {
+          if (range) props.applyRange({ from: range.from, to: range.to })
+        }}
+      />
 
-      {/* Statut — segment (OF / Combiné). fusion ContextBar → 1 rangée. */}
+      {/* Statut — déclencheur unique (masqué en mode Commandes, pas de
+          statut OF applicable). Les pastilles colorées sur le pill fermé
+          reflètent les statuts actifs, pas besoin d'ouvrir pour le savoir. */}
       {props.mode !== 'planification' && (
-        <div className={SEG}>
-          <span className={SEG_LBL}>Statut</span>
-          {STATUS_FILTER_CHIPS.map(({ k, label }) => (
-            <button
-              key={k}
-              type="button"
-              aria-pressed={useBoardStore((s) => statusActive(s, k))}
-              className={useBoardStore((s) => (statusActive(s, k) ? SEG_BTN_ON : SEG_BTN_OFF))}
-              onClick={() => useBoardStore.getState().toggleStatus(k)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <FilterMenu
+          label="Statut"
+          indicators={
+            [statuses.ferme, statuses.planifie, statuses.suggere].some(Boolean) ? (
+              <span className="ml-0.5 flex items-center gap-0.5" aria-hidden="true">
+                {STATUS_FILTER_CHIPS.filter(({ k }) => statuses[k]).map(({ k }) => (
+                  <span key={k} className={cn('size-1.5 rounded-full', STATUS_DOT_CLASS[k])} />
+                ))}
+              </span>
+            ) : null
+          }
+        >
+          <Segment className="w-full justify-between">
+            {STATUS_FILTER_CHIPS.map(({ k, label }) => (
+              <SegmentButton key={k} active={statuses[k]} onClick={() => toggleStatus(k)}>
+                {label}
+              </SegmentButton>
+            ))}
+          </Segment>
+        </FilterMenu>
       )}
 
-      <div className="flex-1" />
+      <ToolbarSpacer />
 
       {/* Recherche + portée — sortis du Masthead (évite le doublon avec la
-          toolbar). Prop `search` injectée depuis programme.tsx. */}
+          toolbar). Prop `search` injectée depuis programme.tsx. Reste
+          toujours visible : ce n'est pas un filtre secondaire, pas de
+          consolidation derrière un clic. */}
       {props.search}
 
-      {/* Actualiser — icon-only pour désencombrer. Title porte le label
-          complet pour a11y + tooltip. */}
-      <button
-        type="button"
-        disabled={props.refreshing}
-        onClick={props.doRefresh}
-        className={cn(PILL, 'disabled:opacity-60')}
-        title={props.refreshing ? 'Actualisation en cours…' : 'Recharger les données X3 (cache → re-fetch live)'}
-        aria-label="Actualiser"
-      >
-        <RefreshCw
-          size={14}
-          strokeWidth={1.75}
-          className={cn('text-muted-foreground', props.refreshing && 'animate-spin')}
-        />
-      </button>
+      <RefreshPill loading={props.refreshing} onClick={props.doRefresh} />
 
       {/* Menu Actions — regroupe Scénario + Faisabilité + Sélection pour
           désencombrer la toolbar. Comportement identique (mêmes handlers),
@@ -217,7 +150,7 @@ export function ProgrammeToolbar(props: {
         feasLoading={props.feasLoading}
         runFeasibility={props.runFeasibility}
       />
-    </div>
+    </ToolbarRow>
   )
 }
 
