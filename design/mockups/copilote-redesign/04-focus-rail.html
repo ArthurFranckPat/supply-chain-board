@@ -3,17 +3,19 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Copilote · D — Focus + Rail (recommandé)</title>
+<title>Copilote · D — Nav + Inspecteur contexte (recommandé)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 /* ╔════════════════════════════════════════════════════════════╗
-   ║  DIRECTION D — FOCUS + RAIL CONTEXTE (recommandée)          ║
-   ║  Mix : base A (chat centré sobre, assistant ghost) + rail   ║
-   ║  contexte supply de C (gauche, COLLAPSIBLE + CONTEXTUEL).   ║
-   ║  Source chips [tool: …] CLIQUABLES → flashent la donnée     ║
-   ║  correspondante dans le rail. Pas de dock droit.            ║
+   ║  DIRECTION D — NAV (gauche) + INSPECTEUR CONTEXTE (droite)  ║
+   ║  App shell standard :                                       ║
+   ║   • gauche  = navigation (new chat, recherche, historique)  ║
+   ║   • centre  = conversation + composer                       ║
+   ║   • droite  = inspecteur contexte supply (stock/CTP/OF)     ║
+   ║  Les deux panneaux sont collapsibles indépendamment.       ║
+   ║  Source chips [tool: …] → flashent la carte citée à droite. ║
    ║  Bubble (shadcn base) + grammaire Airbnb. Standalone.       ║
    ╚════════════════════════════════════════════════════════════╝ */
 
@@ -31,7 +33,8 @@
   --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.04), 0 2px 8px rgb(0 0 0 / 0.06);
   --font-sans: 'Plus Jakarta Sans', -apple-system, system-ui, sans-serif;
   --font-mono: ui-monospace, 'SF Mono', monospace;
-  --rail-w: 268px;
+  --nav-w: 260px;
+  --insp-w: 300px;
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; font-family: var(--font-sans); color: var(--foreground); background: var(--background); -webkit-font-smoothing: antialiased; height: 100%; }
@@ -64,7 +67,6 @@ html, body { margin: 0; padding: 0; font-family: var(--font-sans); color: var(--
 .sender-label { font-size: 11px; font-weight: 600; color: var(--muted-foreground); margin-bottom: 4px; }
 .bubble[data-align="end"] .sender-label { text-align: right; }
 
-/* Source chip CLIQUABLE → underline + pointe vers le rail */
 .source-tag { display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px; margin: 0 1px; font-family: var(--font-mono); font-size: 10.5px; font-weight: 600; color: var(--primary); background: var(--brand-soft); border-radius: 5px; vertical-align: baseline; white-space: nowrap; cursor: pointer; border: none; border-bottom: 1.5px solid transparent; transition: background 0.12s, border-color 0.12s; }
 .source-tag:hover { background: rgba(255,56,92,0.18); border-bottom-color: var(--primary); }
 .source-tag:focus-visible { outline: 2px solid var(--ring); outline-offset: 1px; }
@@ -75,13 +77,10 @@ html, body { margin: 0; padding: 0; font-family: var(--font-sans); color: var(--
 .tool-chip[data-status="done"] .tool-chip__dot { background: var(--ferme); }
 .tool-chip[data-status="running"] { border-color: color-mix(in srgb, var(--suggere) 35%, transparent); }
 .tool-chip[data-status="running"] .tool-chip__dot { background: var(--suggere); animation: pulse 1.1s ease-in-out infinite; }
-.tool-chip[data-status="error"] { border-color: color-mix(in srgb, var(--destructive) 35%, transparent); color: var(--destructive); }
-.tool-chip[data-status="error"] .tool-chip__dot { background: var(--destructive); }
 .tool-chip__name { font-family: var(--font-mono); font-size: 11.5px; }
 .tool-chip:hover { background: var(--secondary); }
 @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
 
-/* Tool trace repliable dans le flux */
 .tool-trace { border: 1px solid var(--border); border-radius: var(--radius); background: var(--secondary); overflow: hidden; }
 .tool-trace__summary { display: flex; align-items: center; gap: 8px; padding: 7px 12px; cursor: pointer; font-size: 12px; color: var(--muted-foreground); list-style: none; }
 .tool-trace__summary::-webkit-details-marker { display: none; }
@@ -104,35 +103,31 @@ html, body { margin: 0; padding: 0; font-family: var(--font-sans); color: var(--
 .badge--green { background: color-mix(in srgb, var(--ferme) 14%, transparent); color: var(--ferme); }
 .badge--auto { background: color-mix(in srgb, var(--planifie) 14%, transparent); color: #00736b; }
 
-/* ═══ LAYOUT D — 2 colonnes asymétrique ═══ */
+/* ═══ APP SHELL — 3 colonnes ═══ */
 .app { display: flex; flex-direction: column; height: 100vh; }
-.workspace { flex: 1; display: grid; grid-template-columns: var(--rail-w) 1fr; overflow: hidden; transition: grid-template-columns 0.22s ease; }
-.workspace.is-collapsed { grid-template-columns: 0px 1fr; }
-.workspace.is-collapsed .sidebar { transform: translateX(-8px); opacity: 0; }
+.workspace { flex: 1; display: grid; grid-template-columns: var(--nav-w) 1fr var(--insp-w); overflow: hidden; transition: grid-template-columns 0.22s ease; }
+.workspace.nav-collapsed { grid-template-columns: 0px 1fr var(--insp-w); }
+.workspace.insp-collapsed { grid-template-columns: var(--nav-w) 1fr 0px; }
+.workspace.nav-collapsed.insp-collapsed { grid-template-columns: 0px 1fr 0px; }
+.workspace.nav-collapsed .sidebar { transform: translateX(-8px); opacity: 0; }
+.workspace.insp-collapsed .inspector { transform: translateX(8px); opacity: 0; }
+.sidebar, .inspector { transition: opacity 0.18s, transform 0.18s; }
 
-/* ═══ SIDEBAR (DNA ChatGPT / Claude + contexte supply épinglé) ═══
-   Structure : nav en haut (new chat + recherche) → corps scrollable
-   (conversations récentes + contexte épinglé) → profil/modèle en bas. */
-.sidebar { display: flex; flex-direction: column; border-right: 1px solid var(--border); background: var(--secondary); overflow: hidden; transition: opacity 0.18s, transform 0.18s; }
-
-/* ── Bandeau supérieur : new chat + recherche ── */
-.sb-top { padding: 12px 12px 8px; display: flex; gap: 8px; }
-.sb-newchat { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 10px 12px; font-family: inherit; font-size: 13px; font-weight: 600; color: var(--foreground); background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+/* ═══ SIDEBAR GAUCHE — navigation (DNA ChatGPT/Claude) ═══ */
+.sidebar { display: flex; flex-direction: column; border-right: 1px solid var(--border); background: var(--secondary); overflow: hidden; }
+.sb-top { padding: 12px 12px 8px; }
+.sb-newchat { width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 10px 12px; font-family: inherit; font-size: 13px; font-weight: 600; color: var(--foreground); background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; transition: border-color 0.15s, background 0.15s; }
 .sb-newchat:hover { border-color: var(--foreground); }
 .sb-newchat svg { color: var(--primary); flex: none; }
+.sb-searchwrap { padding: 0 12px 8px; }
 .sb-search { position: relative; }
 .sb-search input { width: 100%; padding: 8px 12px 8px 32px; font-family: inherit; font-size: 12.5px; color: var(--foreground); background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm); outline: none; transition: border-color 0.15s; }
 .sb-search input::placeholder { color: var(--muted-foreground); }
 .sb-search input:focus { border-color: var(--foreground); }
 .sb-search svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--muted-foreground); pointer-events: none; }
-.sb-searchwrap { padding: 0 12px 8px; }
-
-/* ── Corps scrollable ── */
 .sb-body { flex: 1; overflow-y: auto; padding: 4px 10px 12px; }
 .sb-section { margin-top: 14px; }
-.sb-section__label { display: flex; align-items: center; gap: 6px; padding: 0 6px 6px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted-foreground); }
-
-/* ── Lignes de conversation récente (history) ── */
+.sb-section__label { padding: 0 6px 6px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted-foreground); }
 .conv-row { display: flex; align-items: flex-start; gap: 9px; width: 100%; padding: 8px 9px; margin-bottom: 2px; font-family: inherit; font-size: 12.5px; color: var(--foreground); background: none; border: 1px solid transparent; border-radius: var(--radius-sm); cursor: pointer; text-align: left; transition: background 0.12s, border-color 0.12s; }
 .conv-row:hover { background: var(--card); }
 .conv-row.is-active { background: var(--card); border-color: var(--border); box-shadow: inset 3px 0 0 var(--primary); }
@@ -141,17 +136,20 @@ html, body { margin: 0; padding: 0; font-family: var(--font-sans); color: var(--
 .conv-row__main { min-width: 0; flex: 1; }
 .conv-row__title { font-weight: 500; color: var(--foreground); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .conv-row__meta { margin-top: 1px; font-size: 10.5px; color: var(--muted-foreground); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-/* ── Section contexte épinglé (le différenciant supply) ── */
-.sb-pinned { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--rule-soft); }
-
-/* ── Pied : profil + modèle ── */
 .sb-foot { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-top: 1px solid var(--rule-soft); background: var(--secondary); }
 .sb-foot__name { font-size: 12.5px; font-weight: 600; color: var(--foreground); line-height: 1.2; }
 .sb-foot__name span { display: block; font-size: 10.5px; font-weight: 500; color: var(--muted-foreground); }
 .sb-foot__model { margin-left: auto; font-family: var(--font-mono); font-size: 10px; font-weight: 600; color: #00736b; background: color-mix(in srgb, var(--planifie) 10%, transparent); padding: 3px 8px; border-radius: var(--radius-pill); }
 
-/* Cartes contexte */
+/* ═══ INSPECTEUR DROIT — contexte supply ═══ */
+.inspector { display: flex; flex-direction: column; border-left: 1px solid var(--border); background: var(--secondary); overflow: hidden; }
+.insp-head { padding: 14px 16px 12px; border-bottom: 1px solid var(--rule-soft); }
+.insp-eyebrow { display: flex; align-items: center; gap: 8px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted-foreground); }
+.insp-title { font-size: 18px; font-weight: 800; letter-spacing: -0.01em; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.insp-sub { font-size: 11px; color: var(--muted-foreground); margin-top: 2px; line-height: 1.4; }
+.insp-body { flex: 1; overflow-y: auto; padding: 14px 16px 16px; }
+
+/* Cartes contexte (partagées, dans l'inspecteur) */
 .ctx-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 10px; transition: box-shadow 0.3s; position: relative; }
 .ctx-card__label { font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted-foreground); }
 .ctx-card__value { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; margin-top: 2px; }
@@ -159,19 +157,13 @@ html, body { margin: 0; padding: 0; font-family: var(--font-sans); color: var(--
 .ctx-card__foot { font-size: 11px; color: var(--muted-foreground); margin-top: 2px; }
 .ctx-card__foot strong { color: var(--foreground); }
 .ctx-card[data-kind="result"] { border-left: 3px solid var(--planifie); }
-
-/* Indicateur "cité dans la réponse" — point Rausch */
 .ctx-card.is-cited::after { content: ''; position: absolute; top: 12px; right: 12px; width: 7px; height: 7px; border-radius: 50%; background: var(--primary); box-shadow: 0 0 0 3px var(--brand-soft); }
-
-/* Flash au clic d'un source chip */
 .ctx-card.is-flash { animation: flash 1.1s ease; }
 @keyframes flash {
   0% { box-shadow: 0 0 0 0 rgba(255,56,92,0.0); }
   25% { box-shadow: 0 0 0 5px rgba(255,56,92,0.22); border-color: var(--primary); }
   100% { box-shadow: 0 0 0 0 rgba(255,56,92,0.0); }
 }
-
-/* Mini barre de couverture */
 .cover-bar { display: flex; height: 6px; border-radius: 99px; overflow: hidden; background: var(--rule-soft); margin-top: 8px; }
 .cover-bar__fill { background: var(--ferme); }
 .cover-bar__miss { background: var(--suggere); }
@@ -179,26 +171,22 @@ html, body { margin: 0; padding: 0; font-family: var(--font-sans); color: var(--
 .cover-legend span::before { content: '●'; margin-right: 3px; }
 .cover-legend .l1::before { color: var(--ferme); }
 .cover-legend .l2::before { color: var(--suggere); }
-
 .ctx-row { display: flex; align-items: center; justify-content: space-between; padding: 7px 0; border-top: 1px solid var(--rule-soft); font-size: 12.5px; }
 .ctx-row:first-of-type { border-top: none; }
 .ctx-row__k { color: var(--muted-foreground); }
 .ctx-row__k code { font-family: var(--font-mono); font-size: 11.5px; color: var(--foreground); }
 .ctx-row__v { font-weight: 600; font-variant-numeric: tabular-nums; }
+.insp-empty { font-size: 11.5px; color: var(--muted-foreground); line-height: 1.5; padding: 10px 4px; }
 
-.rail-empty { font-size: 12px; color: var(--muted-foreground); line-height: 1.5; padding: 8px 4px; }
-
-/* ── Centre : chat ── */
+/* ═══ CENTRE : chat ═══ */
 .chat-col { display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
 .chat-header { display: flex; align-items: center; gap: 10px; padding: 10px 20px; border-bottom: 1px solid var(--rule-soft); }
-.chat-header__t { font-size: 12.5px; color: var(--muted-foreground); flex: 1; }
+.chat-header__t { font-size: 12.5px; color: var(--muted-foreground); flex: 1; text-align: center; }
 .chat-header__t strong { color: var(--foreground); }
-
-.toggle-rail { display: inline-flex; align-items: center; gap: 6px; padding: 6px 11px; font-family: inherit; font-size: 12px; font-weight: 600; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--card); color: var(--foreground); cursor: pointer; transition: border-color 0.15s, background 0.15s; }
-.toggle-rail:hover { border-color: var(--foreground); }
-.toggle-rail svg { flex: none; transition: transform 0.18s; }
-/* Panneau replié : la barre verticale se décale vers le centre droit (effet « fermé ») */
-.workspace.is-collapsed .toggle-rail svg line:last-child { transform: translateX(3px); }
+.hd-toggle { display: inline-flex; align-items: center; gap: 6px; padding: 6px 11px; font-family: inherit; font-size: 12px; font-weight: 600; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--card); color: var(--foreground); cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+.hd-toggle:hover { border-color: var(--foreground); }
+.hd-toggle[aria-pressed="false"] { color: var(--muted-foreground); }
+.hd-toggle svg { flex: none; }
 
 .conversation-wrap { flex: 1; overflow: hidden; display: flex; justify-content: center; }
 .conversation { width: 100%; max-width: 720px; overflow-y: auto; padding: 24px 24px 10px; }
@@ -214,27 +202,20 @@ html, body { margin: 0; padding: 0; font-family: var(--font-sans); color: var(--
 .ghost-hint { display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; padding: 7px 11px; background: var(--secondary); border-radius: 8px; font-size: 12px; color: var(--muted-foreground); }
 .ghost-hint b { color: var(--foreground); font-weight: 600; }
 
-/* ── Composer (inspiration ChatGPT / Claude) ──
-   Conteneur arrondi + ligne d'actions en bas + chips de prompts au-dessus. */
+/* ── Composer (inspiration ChatGPT / Claude) ── */
 .composer-wrap { border-top: 1px solid var(--rule-soft); background: var(--background); padding: 12px 24px 14px; display: flex; justify-content: center; }
 .composer-stack { width: 100%; max-width: 720px; }
-
-/* Prompt chips — raccourcis cliquables au-dessus du composer */
 .prompt-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
 .prompt-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; font-family: inherit; font-size: 12.5px; font-weight: 500; color: var(--foreground); background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-pill); cursor: pointer; transition: border-color 0.15s, background 0.15s, transform 0.1s; }
 .prompt-chip:hover { border-color: var(--foreground); background: var(--secondary); }
 .prompt-chip:active { transform: scale(0.97); }
 .prompt-chip svg { color: var(--primary); flex: none; }
-
-/* Composer box — conteneur arrondi (rounded-3xl) */
 .composer { border: 1px solid var(--border); border-radius: 24px; background: var(--background); box-shadow: var(--shadow-soft); transition: border-color 0.15s, box-shadow 0.15s; }
 .composer:focus-within { border-color: var(--foreground); box-shadow: 0 0 0 3px rgba(34,34,34,0.06); }
 .composer__textarea-row { padding: 13px 16px 2px; }
 .composer__input { width: 100%; border: none; outline: none; background: none; font-family: inherit; font-size: 15px; line-height: 1.55; color: var(--foreground); resize: none; min-height: 24px; max-height: 200px; display: block; overflow: hidden; }
 .composer__input::placeholder { color: var(--muted-foreground); }
 .composer__actionrow { display: flex; align-items: center; gap: 8px; padding: 6px 8px 8px 12px; }
-
-/* Chips de gauche : contexte actif + verrou lecture seule */
 .cx-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; font-size: 11.5px; font-weight: 600; border-radius: var(--radius-pill); border: 1px solid var(--border); background: var(--card); color: var(--foreground); cursor: pointer; transition: border-color 0.15s, background 0.15s; }
 .cx-chip:hover { border-color: var(--foreground); background: var(--secondary); }
 .cx-chip code { font-family: var(--font-mono); font-size: 11px; }
@@ -242,15 +223,12 @@ html, body { margin: 0; padding: 0; font-family: var(--font-sans); color: var(--
 .cx-chip[data-tone="lock"]:hover { border-color: var(--border); background: var(--card); }
 .cx-chip[data-tone="ctx"] { border-color: color-mix(in srgb, var(--planifie) 32%, transparent); color: #00736b; background: color-mix(in srgb, var(--planifie) 7%, transparent); }
 .cx-chip[data-tone="ctx"]:hover { background: color-mix(in srgb, var(--planifie) 12%, transparent); border-color: color-mix(in srgb, var(--planifie) 50%, transparent); }
-
 .composer__sendhint { margin-left: auto; font-size: 10.5px; color: var(--muted-foreground); display: inline-flex; align-items: center; gap: 3px; }
 .composer__sendhint kbd { font-family: var(--font-mono); font-size: 10px; padding: 1px 5px; border: 1px solid var(--border); border-radius: 4px; background: var(--secondary); }
 .composer__send { width: 36px; height: 36px; border-radius: 50%; border: none; background: var(--primary); color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; flex: none; transition: background 0.15s, transform 0.1s, opacity 0.15s; }
 .composer__send:hover:not(:disabled) { background: var(--color-rausch-active); }
 .composer__send:active:not(:disabled) { transform: scale(0.92); }
 .composer__send:disabled { background: var(--border); color: #fff; cursor: not-allowed; }
-
-/* Micro-copie honnête sous le composer (style ChatGPT/Claude) */
 .composer__foot { margin-top: 8px; padding: 0 6px; font-size: 11px; color: var(--muted-foreground); line-height: 1.5; }
 .composer__foot code { font-family: var(--font-mono); background: var(--secondary); padding: 1px 5px; border-radius: 4px; font-size: 10.5px; }
 .composer__foot kbd { font-family: var(--font-mono); font-size: 10px; padding: 1px 5px; border: 1px solid var(--border); border-radius: 4px; background: var(--secondary); color: var(--muted-foreground); }
@@ -274,17 +252,14 @@ html, body { margin: 0; padding: 0; font-family: var(--font-sans); color: var(--
 
   <div class="workspace" id="workspace">
 
-    <!-- ══ SIDEBAR GAUCHE : nav + historique + contexte supply épinglé ══ -->
-    <aside class="sidebar" id="context-rail">
-
-      <!-- New chat -->
+    <!-- ═══ SIDEBAR GAUCHE : navigation ═══ -->
+    <aside class="sidebar" id="nav-sidebar">
       <div class="sb-top">
         <button class="sb-newchat" id="new-chat">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           Nouvelle conversation
         </button>
       </div>
-      <!-- Recherche -->
       <div class="sb-searchwrap">
         <div class="sb-search">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -292,90 +267,35 @@ html, body { margin: 0; padding: 0; font-family: var(--font-sans); color: var(--
         </div>
       </div>
 
-      <!-- Corps scrollable -->
       <div class="sb-body scroll-area">
-
-        <!-- Récents · Aujourd'hui -->
         <div class="sb-section">
           <div class="sb-section__label">Aujourd'hui</div>
           <button class="conv-row is-active">
             <span class="conv-row__ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
-            <span class="conv-row__main">
-              <span class="conv-row__title">Date engageante — 200 PP_830_ESH</span>
-              <span class="conv-row__meta">à l'instant · CTP</span>
-            </span>
+            <span class="conv-row__main"><span class="conv-row__title">Date engageante — 200 PP_830_ESH</span><span class="conv-row__meta">à l'instant · CTP</span></span>
           </button>
           <button class="conv-row">
             <span class="conv-row__ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
-            <span class="conv-row__main">
-              <span class="conv-row__title">Retards clients sur 14 j</span>
-              <span class="conv-row__meta">il y a 2 h · en cours</span>
-            </span>
+            <span class="conv-row__main"><span class="conv-row__title">Retards clients sur 14 j</span><span class="conv-row__meta">il y a 2 h · en cours</span></span>
           </button>
         </div>
-
-        <!-- Récents · Cette semaine -->
         <div class="sb-section">
           <div class="sb-section__label">Cette semaine</div>
           <button class="conv-row">
             <span class="conv-row__ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
-            <span class="conv-row__main">
-              <span class="conv-row__title">OF-2024-1182 bloqué&nbsp;?</span>
-              <span class="conv-row__meta">lun. · verdict</span>
-            </span>
+            <span class="conv-row__main"><span class="conv-row__title">OF-2024-1182 bloqué&nbsp;?</span><span class="conv-row__meta">lun. · verdict</span></span>
           </button>
           <button class="conv-row">
             <span class="conv-row__ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></span>
-            <span class="conv-row__main">
-              <span class="conv-row__title">Stock de sécurité PP_120_ARC</span>
-              <span class="conv-row__meta">dim. · verdict</span>
-            </span>
+            <span class="conv-row__main"><span class="conv-row__title">Stock de sécurité PP_120_ARC</span><span class="conv-row__meta">dim. · verdict</span></span>
           </button>
           <button class="conv-row">
             <span class="conv-row__ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg></span>
-            <span class="conv-row__main">
-              <span class="conv-row__title">Scénario décalage réception</span>
-              <span class="conv-row__meta">sam. · scénarios</span>
-            </span>
+            <span class="conv-row__main"><span class="conv-row__title">Scénario décalage réception</span><span class="conv-row__meta">sam. · scénarios</span></span>
           </button>
         </div>
-
-        <!-- Contexte supply épinglé (le différenciant, flachable) -->
-        <div class="sb-section sb-pinned">
-          <div class="sb-section__label">
-            Épinglé · Contexte
-            <span class="badge badge--auto">auto</span>
-          </div>
-
-          <div class="ctx-card is-cited" id="ctx-stock">
-            <div class="ctx-card__label">Stock disponible</div>
-            <div class="ctx-card__value tnum">84<span class="u">&nbsp;u</span></div>
-            <div class="cover-bar"><div class="cover-bar__fill" style="width:42%"></div><div class="cover-bar__miss" style="width:58%"></div></div>
-            <div class="cover-legend"><span class="l1">Dispo 42%</span><span class="l2">Manquant 116</span></div>
-          </div>
-
-          <div class="ctx-card" id="ctx-demand">
-            <div class="ctx-card__label">Demande analysée</div>
-            <div class="ctx-card__value tnum">200<span class="u">&nbsp;u</span></div>
-            <div class="ctx-card__foot">Couverte à <strong>42%</strong> en stock</div>
-          </div>
-
-          <div class="ctx-card is-cited" data-kind="result" id="ctx-ctp">
-            <div class="ctx-card__label">Date engageante (CTP)</div>
-            <div class="ctx-card__value tnum" style="font-size:18px;">18 août 2024</div>
-            <div class="ctx-card__foot">via <strong>OF-2024-1182</strong>, fin 16 août</div>
-          </div>
-
-          <div class="ctx-card">
-            <div class="ctx-card__label" style="margin-bottom:6px;">OF en cours · 2</div>
-            <div class="ctx-row"><span class="ctx-row__k"><code>OF-2024-1182</code></span><span class="ctx-row__v">200 u</span></div>
-            <div class="ctx-row"><span class="ctx-row__k"><code>OF-2024-1201</code></span><span class="ctx-row__v">80 u</span></div>
-          </div>
-        </div>
-
       </div>
 
-      <!-- Pied : profil + modèle -->
       <div class="sb-foot">
         <div class="avatar avatar--user" style="width:32px;height:32px;">AB</div>
         <div class="sb-foot__name">Arthur<span>Planificateur supply</span></div>
@@ -383,24 +303,25 @@ html, body { margin: 0; padding: 0; font-family: var(--font-sans); color: var(--
       </div>
     </aside>
 
-    <!-- ══ CENTRE : CHAT ══ -->
+    <!-- ═══ CENTRE : chat ═══ -->
     <section class="chat-col">
       <div class="chat-header">
-        <button class="toggle-rail" id="toggle-rail" aria-pressed="true" title="Replier / déplier le panneau">
+        <button class="hd-toggle" id="nav-toggle" aria-pressed="true" title="Replier / déplier la navigation">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
-          Panneau
         </button>
         <div class="chat-header__t"><strong>Copilote</strong> · lecture seule · verdict · BOM · CTP · retards · scénarios</div>
-        <button class="btn btn--ghost" style="padding:6px 12px;font-size:12px;">↻ Nouvelle</button>
+        <button class="hd-toggle" id="ctx-toggle" aria-pressed="true" title="Replier / déplier le contexte">
+          Contexte
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+        </button>
       </div>
 
       <div class="conversation-wrap">
         <div class="conversation scroll-area" id="conversation">
 
-          <!-- Astuce d'interaction (discrete, disparaît au scroll) -->
           <div class="ghost-hint" style="margin-bottom:6px;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--primary);flex:none;"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-            <span>Astuce&nbsp;: clique un <b>source tag</b> <span style="font-family:var(--font-mono);color:var(--primary);">[tool: …]</span> pour flasher la donnée dans le panneau contexte.</span>
+            <span>Astuce&nbsp;: clique un <b>source tag</b> <span style="font-family:var(--font-mono);color:var(--primary);">[tool: …]</span> pour flasher la donnée dans le panneau contexte à droite.</span>
           </div>
 
           <!-- TURN 1 -->
@@ -487,7 +408,6 @@ html, body { margin: 0; padding: 0; font-family: var(--font-sans); color: var(--
 
       <div class="composer-wrap">
         <div class="composer-stack">
-          <!-- Raccourcis prompts (discoverability style ChatGPT) -->
           <div class="prompt-chips">
             <button class="prompt-chip" data-prompt="Date engageante pour 200 PP_830_ESH ?">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
@@ -507,16 +427,11 @@ html, body { margin: 0; padding: 0; font-family: var(--font-sans); color: var(--
             </button>
           </div>
 
-          <!-- Composer : conteneur arrondi + ligne d'actions en bas -->
           <div class="composer">
             <div class="composer__textarea-row">
               <textarea class="composer__input" id="composer-input" rows="1" placeholder="Poser une question supply…"></textarea>
             </div>
             <div class="composer__actionrow">
-              <button class="cx-chip" data-tone="ctx" id="ctx-toggle" title="Contexte déduit de la conversation — replier/déplier">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-                Contexte : <code>PP_830_ESH</code>
-              </button>
               <span class="cx-chip" data-tone="lock" title="Le copilote ne modifie aucune donnée">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
                 Lecture seule
@@ -535,37 +450,75 @@ html, body { margin: 0; padding: 0; font-family: var(--font-sans); color: var(--
       </div>
     </section>
 
+    <!-- ═══ INSPECTEUR DROIT : contexte supply ═══ -->
+    <aside class="inspector" id="ctx-inspector">
+      <div class="insp-head">
+        <div class="insp-eyebrow">
+          Contexte
+          <span class="badge badge--auto">auto · déduit de la conversation</span>
+        </div>
+        <div class="insp-title tnum">PP_830_ESH</div>
+        <div class="insp-sub">Poutre profilée · ESH · 3 réf. internes</div>
+      </div>
+      <div class="insp-body scroll-area">
+
+        <div class="ctx-card is-cited" id="ctx-stock">
+          <div class="ctx-card__label">Stock disponible</div>
+          <div class="ctx-card__value tnum">84<span class="u">&nbsp;u</span></div>
+          <div class="cover-bar"><div class="cover-bar__fill" style="width:42%"></div><div class="cover-bar__miss" style="width:58%"></div></div>
+          <div class="cover-legend"><span class="l1">Dispo 42%</span><span class="l2">Manquant 116</span></div>
+        </div>
+
+        <div class="ctx-card" id="ctx-demand">
+          <div class="ctx-card__label">Demande analysée</div>
+          <div class="ctx-card__value tnum">200<span class="u">&nbsp;u</span></div>
+          <div class="ctx-card__foot">Couverte à <strong>42%</strong> en stock</div>
+        </div>
+
+        <div class="ctx-card is-cited" data-kind="result" id="ctx-ctp">
+          <div class="ctx-card__label">Date engageante (CTP)</div>
+          <div class="ctx-card__value tnum" style="font-size:18px;">18 août 2024</div>
+          <div class="ctx-card__foot">via <strong>OF-2024-1182</strong>, fin 16 août</div>
+        </div>
+
+        <div class="ctx-card">
+          <div class="ctx-card__label" style="margin-bottom:6px;">OF en cours · 2</div>
+          <div class="ctx-row"><span class="ctx-row__k"><code>OF-2024-1182</code></span><span class="ctx-row__v">200 u</span></div>
+          <div class="ctx-row"><span class="ctx-row__k"><code>OF-2024-1201</code></span><span class="ctx-row__v">80 u</span></div>
+        </div>
+
+      </div>
+    </aside>
+
   </div>
 </div>
 
 <script>
   (function () {
     var ws = document.getElementById('workspace');
-    var toggle = document.getElementById('toggle-rail');
-
-    // ── Replier / déplier le rail contexte (bouton header) ──
-    function setCollapsed(collapsed) {
-      ws.classList.toggle('is-collapsed', collapsed);
-      toggle.setAttribute('aria-pressed', String(!collapsed));
-    }
-    toggle.addEventListener('click', function () {
-      setCollapsed(!ws.classList.contains('is-collapsed'));
-    });
-
-    // Le chip « Contexte » du composer bascule aussi le rail
+    var navToggle = document.getElementById('nav-toggle');
     var ctxToggle = document.getElementById('ctx-toggle');
-    if (ctxToggle) ctxToggle.addEventListener('click', function () {
-      setCollapsed(!ws.classList.contains('is-collapsed'));
-    });
 
-    // ── Source chip → flasher la donnée citée dans le rail ──
+    // ── Deux replis indépendants : nav (gauche) + contexte (droite) ──
+    function bindToggle(btn, cls) {
+      btn.addEventListener('click', function () {
+        var open = ws.classList.toggle(cls);
+        btn.setAttribute('aria-pressed', String(!open));
+      });
+    }
+    bindToggle(navToggle, 'nav-collapsed');
+    bindToggle(ctxToggle, 'insp-collapsed');
+
+    function inspOpen() { ws.classList.remove('insp-collapsed'); ctxToggle.setAttribute('aria-pressed', 'true'); }
+
+    // ── Source chip → flasher la carte citée dans l'inspecteur droit ──
     var conv = document.getElementById('conversation');
     conv.addEventListener('click', function (e) {
       var chip = e.target.closest('.source-tag');
       if (!chip) return;
       var target = document.getElementById(chip.getAttribute('data-target'));
       if (!target) return;
-      if (ws.classList.contains('is-collapsed')) setCollapsed(false);
+      if (ws.classList.contains('insp-collapsed')) inspOpen();
       target.classList.remove('is-flash');
       void target.offsetWidth;
       target.classList.add('is-flash');
@@ -589,9 +542,7 @@ html, body { margin: 0; padding: 0; font-family: var(--font-sans); color: var(--
     // ── Nouvelle conversation → vide l'input + focus ──
     var newChat = document.getElementById('new-chat');
     if (newChat) newChat.addEventListener('click', function () {
-      ta.value = '';
-      sync();
-      ta.focus();
+      ta.value = ''; sync(); ta.focus();
     });
 
     // ── Prompt chips → remplir l'input et focus ──
