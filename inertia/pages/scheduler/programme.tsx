@@ -39,6 +39,11 @@ import { TriageRail, type TriageItem } from '@/components/vision/triage-rail'
 import {
   ProgrammeToolbar,
   ProgrammeContextBar,
+  SEG,
+  SEG_BTN_ON,
+  SEG_BTN_OFF,
+  SEG_LBL,
+  PILL,
   type VisionMode,
 } from '@/components/vision/programme-toolbar'
 import { createScenarioStore } from '@/lib/scenarios/store'
@@ -1017,26 +1022,15 @@ const Programme: Component<VisionProps> = (props) => {
       >
         {/* Combiné seulement : segment Liens + santé + rail */}
         <Show when={mode() === 'combined'}>
-          <div
-            class="inline-flex items-center gap-0.5 rounded-lg border border-rule bg-card p-0.5"
-            role="radiogroup"
-            aria-label="Visibilité des liens"
-          >
-            <span class="px-1.5 font-mono text-3xs font-bold uppercase tracking-wider text-muted-foreground">
-              Liens
-            </span>
+          <div class={SEG} role="radiogroup" aria-label="Visibilité des liens">
+            <span class={SEG_LBL}>Liens</span>
             <For each={['none', 'problems', 'all'] as const}>
               {(lm) => (
                 <button
                   type="button"
                   role="radio"
                   aria-checked={linkMode() === lm}
-                  class={cx(
-                    'min-h-[28px] rounded-md px-2.5 py-1 font-mono text-2xs font-bold uppercase tracking-wider transition-colors',
-                    linkMode() === lm
-                      ? 'bg-brand-soft text-brand'
-                      : 'text-muted-foreground hover:text-foreground'
-                  )}
+                  class={linkMode() === lm ? SEG_BTN_ON : SEG_BTN_OFF}
                   onClick={() => setLinkMode(lm)}
                 >
                   {lm === 'none' ? 'Aucun' : lm === 'problems' ? 'Problèmes' : 'Tous'}
@@ -1064,12 +1058,7 @@ const Programme: Component<VisionProps> = (props) => {
             type="button"
             onClick={() => setRailOpen((v) => !v)}
             aria-pressed={railOpen()}
-            class={cx(
-              'inline-flex min-h-[28px] items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors',
-              railOpen()
-                ? 'border-brand bg-brand-soft text-brand'
-                : 'border-rule bg-card text-muted-foreground hover:text-foreground'
-            )}
+            class={cx(PILL, railOpen() && 'border-brand bg-brand-soft text-brand')}
           >
             <span class="material-symbols-outlined text-sm">queue</span>
             Rail
