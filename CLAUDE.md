@@ -20,10 +20,6 @@ précédent doit déjà être commité et poussé.
 Exceptions : si l'utilisateur dit explicitement « ne commit pas » ou « attends
 avant de pousser ».
 
-## GSD Integration
-
-This project uses GSD (Get Shit Done) for structured development. Run `/gsd-help` to see available commands.
-
 ## Tests
 
 **NEVER run the full test suite** (`node ace test` sans filtre, `--suite`, `jest`, etc.).
