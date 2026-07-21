@@ -108,15 +108,48 @@ html, body { margin: 0; padding: 0; font-family: var(--font-sans); color: var(--
 .app { display: flex; flex-direction: column; height: 100vh; }
 .workspace { flex: 1; display: grid; grid-template-columns: var(--rail-w) 1fr; overflow: hidden; transition: grid-template-columns 0.22s ease; }
 .workspace.is-collapsed { grid-template-columns: 0px 1fr; }
-.workspace.is-collapsed .context-rail { transform: translateX(-8px); opacity: 0; }
-.context-rail { display: flex; flex-direction: column; border-right: 1px solid var(--border); background: var(--secondary); overflow: hidden; transition: opacity 0.18s, transform 0.18s; }
+.workspace.is-collapsed .sidebar { transform: translateX(-8px); opacity: 0; }
 
-/* ── Rail tête ── */
-.rail-head { padding: 14px 16px 12px; border-bottom: 1px solid var(--rule-soft); }
-.rail-eyebrow { display: flex; align-items: center; gap: 8px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted-foreground); }
-.rail-title { font-size: 18px; font-weight: 800; letter-spacing: -0.01em; margin-top: 4px; font-variant-numeric: tabular-nums; }
-.rail-sub { font-size: 11px; color: var(--muted-foreground); margin-top: 2px; line-height: 1.4; }
-.rail-body { flex: 1; overflow-y: auto; padding: 14px 16px 16px; }
+/* ═══ SIDEBAR (DNA ChatGPT / Claude + contexte supply épinglé) ═══
+   Structure : nav en haut (new chat + recherche) → corps scrollable
+   (conversations récentes + contexte épinglé) → profil/modèle en bas. */
+.sidebar { display: flex; flex-direction: column; border-right: 1px solid var(--border); background: var(--secondary); overflow: hidden; transition: opacity 0.18s, transform 0.18s; }
+
+/* ── Bandeau supérieur : new chat + recherche ── */
+.sb-top { padding: 12px 12px 8px; display: flex; gap: 8px; }
+.sb-newchat { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 10px 12px; font-family: inherit; font-size: 13px; font-weight: 600; color: var(--foreground); background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+.sb-newchat:hover { border-color: var(--foreground); }
+.sb-newchat svg { color: var(--primary); flex: none; }
+.sb-search { position: relative; }
+.sb-search input { width: 100%; padding: 8px 12px 8px 32px; font-family: inherit; font-size: 12.5px; color: var(--foreground); background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm); outline: none; transition: border-color 0.15s; }
+.sb-search input::placeholder { color: var(--muted-foreground); }
+.sb-search input:focus { border-color: var(--foreground); }
+.sb-search svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--muted-foreground); pointer-events: none; }
+.sb-searchwrap { padding: 0 12px 8px; }
+
+/* ── Corps scrollable ── */
+.sb-body { flex: 1; overflow-y: auto; padding: 4px 10px 12px; }
+.sb-section { margin-top: 14px; }
+.sb-section__label { display: flex; align-items: center; gap: 6px; padding: 0 6px 6px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted-foreground); }
+
+/* ── Lignes de conversation récente (history) ── */
+.conv-row { display: flex; align-items: flex-start; gap: 9px; width: 100%; padding: 8px 9px; margin-bottom: 2px; font-family: inherit; font-size: 12.5px; color: var(--foreground); background: none; border: 1px solid transparent; border-radius: var(--radius-sm); cursor: pointer; text-align: left; transition: background 0.12s, border-color 0.12s; }
+.conv-row:hover { background: var(--card); }
+.conv-row.is-active { background: var(--card); border-color: var(--border); box-shadow: inset 3px 0 0 var(--primary); }
+.conv-row__ico { flex: none; margin-top: 1px; color: var(--muted-foreground); }
+.conv-row.is-active .conv-row__ico { color: var(--primary); }
+.conv-row__main { min-width: 0; flex: 1; }
+.conv-row__title { font-weight: 500; color: var(--foreground); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.conv-row__meta { margin-top: 1px; font-size: 10.5px; color: var(--muted-foreground); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ── Section contexte épinglé (le différenciant supply) ── */
+.sb-pinned { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--rule-soft); }
+
+/* ── Pied : profil + modèle ── */
+.sb-foot { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-top: 1px solid var(--rule-soft); background: var(--secondary); }
+.sb-foot__name { font-size: 12.5px; font-weight: 600; color: var(--foreground); line-height: 1.2; }
+.sb-foot__name span { display: block; font-size: 10.5px; font-weight: 500; color: var(--muted-foreground); }
+.sb-foot__model { margin-left: auto; font-family: var(--font-mono); font-size: 10px; font-weight: 600; color: #00736b; background: color-mix(in srgb, var(--planifie) 10%, transparent); padding: 3px 8px; border-radius: var(--radius-pill); }
 
 /* Cartes contexte */
 .ctx-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 10px; transition: box-shadow 0.3s; position: relative; }
@@ -164,8 +197,8 @@ html, body { margin: 0; padding: 0; font-family: var(--font-sans); color: var(--
 .toggle-rail { display: inline-flex; align-items: center; gap: 6px; padding: 6px 11px; font-family: inherit; font-size: 12px; font-weight: 600; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--card); color: var(--foreground); cursor: pointer; transition: border-color 0.15s, background 0.15s; }
 .toggle-rail:hover { border-color: var(--foreground); }
 .toggle-rail svg { flex: none; transition: transform 0.18s; }
-.workspace.is-collapsed ~ * .toggle-rail svg,
-.is-collapsed .toggle-rail svg { transform: rotate(180deg); }
+/* Panneau replié : la barre verticale se décale vers le centre droit (effet « fermé ») */
+.workspace.is-collapsed .toggle-rail svg line:last-child { transform: translateX(3px); }
 
 .conversation-wrap { flex: 1; overflow: hidden; display: flex; justify-content: center; }
 .conversation { width: 100%; max-width: 720px; overflow-y: auto; padding: 24px 24px 10px; }
@@ -241,52 +274,121 @@ html, body { margin: 0; padding: 0; font-family: var(--font-sans); color: var(--
 
   <div class="workspace" id="workspace">
 
-    <!-- ══ RAIL GAUCHE : CONTEXTE SUPPLY (contextuel, collapsible) ══ -->
-    <aside class="context-rail" id="context-rail">
-      <div class="rail-head">
-        <div class="rail-eyebrow">
-          Contexte
-          <span class="badge badge--auto">auto · déduit de la conversation</span>
-        </div>
-        <div class="rail-title tnum">PP_830_ESH</div>
-        <div class="rail-sub">Poutre profilée · ESH · 3 réf. internes</div>
+    <!-- ══ SIDEBAR GAUCHE : nav + historique + contexte supply épinglé ══ -->
+    <aside class="sidebar" id="context-rail">
+
+      <!-- New chat -->
+      <div class="sb-top">
+        <button class="sb-newchat" id="new-chat">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Nouvelle conversation
+        </button>
       </div>
-      <div class="rail-body scroll-area">
+      <!-- Recherche -->
+      <div class="sb-searchwrap">
+        <div class="sb-search">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" placeholder="Rechercher une conversation…">
+        </div>
+      </div>
 
-        <div class="ctx-card is-cited" id="ctx-stock">
-          <div class="ctx-card__label">Stock disponible</div>
-          <div class="ctx-card__value tnum">84<span class="u">&nbsp;u</span></div>
-          <div class="cover-bar"><div class="cover-bar__fill" style="width:42%"></div><div class="cover-bar__miss" style="width:58%"></div></div>
-          <div class="cover-legend"><span class="l1">Dispo 42%</span><span class="l2">Manquant 116</span></div>
+      <!-- Corps scrollable -->
+      <div class="sb-body scroll-area">
+
+        <!-- Récents · Aujourd'hui -->
+        <div class="sb-section">
+          <div class="sb-section__label">Aujourd'hui</div>
+          <button class="conv-row is-active">
+            <span class="conv-row__ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+            <span class="conv-row__main">
+              <span class="conv-row__title">Date engageante — 200 PP_830_ESH</span>
+              <span class="conv-row__meta">à l'instant · CTP</span>
+            </span>
+          </button>
+          <button class="conv-row">
+            <span class="conv-row__ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
+            <span class="conv-row__main">
+              <span class="conv-row__title">Retards clients sur 14 j</span>
+              <span class="conv-row__meta">il y a 2 h · en cours</span>
+            </span>
+          </button>
         </div>
 
-        <div class="ctx-card" id="ctx-demand">
-          <div class="ctx-card__label">Demande analysée</div>
-          <div class="ctx-card__value tnum">200<span class="u">&nbsp;u</span></div>
-          <div class="ctx-card__foot">Couverte à <strong>42%</strong> en stock</div>
+        <!-- Récents · Cette semaine -->
+        <div class="sb-section">
+          <div class="sb-section__label">Cette semaine</div>
+          <button class="conv-row">
+            <span class="conv-row__ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
+            <span class="conv-row__main">
+              <span class="conv-row__title">OF-2024-1182 bloqué&nbsp;?</span>
+              <span class="conv-row__meta">lun. · verdict</span>
+            </span>
+          </button>
+          <button class="conv-row">
+            <span class="conv-row__ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></span>
+            <span class="conv-row__main">
+              <span class="conv-row__title">Stock de sécurité PP_120_ARC</span>
+              <span class="conv-row__meta">dim. · verdict</span>
+            </span>
+          </button>
+          <button class="conv-row">
+            <span class="conv-row__ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg></span>
+            <span class="conv-row__main">
+              <span class="conv-row__title">Scénario décalage réception</span>
+              <span class="conv-row__meta">sam. · scénarios</span>
+            </span>
+          </button>
         </div>
 
-        <div class="ctx-card is-cited" data-kind="result" id="ctx-ctp">
-          <div class="ctx-card__label">Date engageante (CTP)</div>
-          <div class="ctx-card__value tnum" style="font-size:18px;">18 août 2024</div>
-          <div class="ctx-card__foot">via <strong>OF-2024-1182</strong>, fin 16 août</div>
+        <!-- Contexte supply épinglé (le différenciant, flachable) -->
+        <div class="sb-section sb-pinned">
+          <div class="sb-section__label">
+            Épinglé · Contexte
+            <span class="badge badge--auto">auto</span>
+          </div>
+
+          <div class="ctx-card is-cited" id="ctx-stock">
+            <div class="ctx-card__label">Stock disponible</div>
+            <div class="ctx-card__value tnum">84<span class="u">&nbsp;u</span></div>
+            <div class="cover-bar"><div class="cover-bar__fill" style="width:42%"></div><div class="cover-bar__miss" style="width:58%"></div></div>
+            <div class="cover-legend"><span class="l1">Dispo 42%</span><span class="l2">Manquant 116</span></div>
+          </div>
+
+          <div class="ctx-card" id="ctx-demand">
+            <div class="ctx-card__label">Demande analysée</div>
+            <div class="ctx-card__value tnum">200<span class="u">&nbsp;u</span></div>
+            <div class="ctx-card__foot">Couverte à <strong>42%</strong> en stock</div>
+          </div>
+
+          <div class="ctx-card is-cited" data-kind="result" id="ctx-ctp">
+            <div class="ctx-card__label">Date engageante (CTP)</div>
+            <div class="ctx-card__value tnum" style="font-size:18px;">18 août 2024</div>
+            <div class="ctx-card__foot">via <strong>OF-2024-1182</strong>, fin 16 août</div>
+          </div>
+
+          <div class="ctx-card">
+            <div class="ctx-card__label" style="margin-bottom:6px;">OF en cours · 2</div>
+            <div class="ctx-row"><span class="ctx-row__k"><code>OF-2024-1182</code></span><span class="ctx-row__v">200 u</span></div>
+            <div class="ctx-row"><span class="ctx-row__k"><code>OF-2024-1201</code></span><span class="ctx-row__v">80 u</span></div>
+          </div>
         </div>
 
-        <div class="ctx-card">
-          <div class="ctx-card__label" style="margin-bottom:6px;">OF en cours · 2</div>
-          <div class="ctx-row"><span class="ctx-row__k"><code>OF-2024-1182</code></span><span class="ctx-row__v">200 u</span></div>
-          <div class="ctx-row"><span class="ctx-row__k"><code>OF-2024-1201</code></span><span class="ctx-row__v">80 u</span></div>
-        </div>
+      </div>
 
+      <!-- Pied : profil + modèle -->
+      <div class="sb-foot">
+        <div class="avatar avatar--user" style="width:32px;height:32px;">AB</div>
+        <div class="sb-foot__name">Arthur<span>Planificateur supply</span></div>
+        <span class="sb-foot__model">zai / glm-5.2</span>
       </div>
     </aside>
 
     <!-- ══ CENTRE : CHAT ══ -->
     <section class="chat-col">
       <div class="chat-header">
-        <button class="toggle-rail" id="toggle-rail" aria-pressed="true" title="Replier / déplier le contexte">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-          Contexte
+        <button class="toggle-rail" id="toggle-rail" aria-pressed="true" title="Replier / déplier le panneau">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+          Panneau
         </button>
         <div class="chat-header__t"><strong>Copilote</strong> · lecture seule · verdict · BOM · CTP · retards · scénarios</div>
         <button class="btn btn--ghost" style="padding:6px 12px;font-size:12px;">↻ Nouvelle</button>
@@ -483,6 +585,14 @@ html, body { margin: 0; padding: 0; font-family: var(--font-sans); color: var(--
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (!send.disabled) { send.click(); } }
     });
     sync();
+
+    // ── Nouvelle conversation → vide l'input + focus ──
+    var newChat = document.getElementById('new-chat');
+    if (newChat) newChat.addEventListener('click', function () {
+      ta.value = '';
+      sync();
+      ta.focus();
+    });
 
     // ── Prompt chips → remplir l'input et focus ──
     document.querySelectorAll('.prompt-chip').forEach(function (chip) {
