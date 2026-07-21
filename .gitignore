@@ -29,5 +29,11 @@ yarn-error.log
 excalidraw.log
 .mimocode/
 .planning/
+.pi/
+.zcode/
+# Symlinks de skills pointant hors du repo (harness locaux)
+.claude/skills/carbon-react
+# Bases SQLite locales
+*.sqlite
 # Local backup files
 *.bak

@@ -1,0 +1,1627 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Supply Chain Board · Notion Redesign</title>
+<script>!function(){"use strict";(function(c,x){"object"===typeof exports&&"undefined"!==typeof module?x(exports):"function"===typeof define&&define.amd?define(["exports"],x):(c=c||self,x(c.React={}))})(this,function(c){function x(a){if(null===a||"object"!==typeof a)return null;a=V&&a[V]||a["@@iterator"];return"function"===typeof a?a:null}function w(a,b,e){this.props=a;this.context=b;this.refs=W;this.updater=e||X}function Y(){}function K(a,b,e){this.props=a;this.context=b;this.refs=W;this.updater=e||X}function Z(a,b,e){var m,d={},c=null,h=null;if(null!=b)for(m in void 0!==b.ref&&(h=b.ref),void 0!==b.key&&(c=""+b.key),b)aa.call(b,m)&&!ba.hasOwnProperty(m)&&(d[m]=b[m]);var l=arguments.length-2;if(1===l)d.children=e;else if(1<l){for(var f=Array(l),k=0;k<l;k++)f[k]=arguments[k+2];d.children=f}if(a&&a.defaultProps)for(m in l=a.defaultProps,l)void 0===d[m]&&(d[m]=l[m]);return{$$typeof:y,type:a,key:c,ref:h,props:d,_owner:L.current}}function oa(a,b){return{$$typeof:y,type:a.type,key:b,ref:a.ref,props:a.props,_owner:a._owner}}function M(a){return"object"===typeof a&&null!==a&&a.$$typeof===y}function pa(a){var b={"=":"=0",":":"=2"};return"$"+a.replace(/[=:]/g,function(a){return b[a]})}function N(a,b){return"object"===typeof a&&null!==a&&null!=a.key?pa(""+a.key):b.toString(36)}function B(a,b,e,m,d){var c=typeof a;if("undefined"===c||"boolean"===c)a=null;var h=!1;if(null===a)h=!0;else switch(c){case "string":case "number":h=!0;break;case "object":switch(a.$$typeof){case y:case qa:h=!0}}if(h)return h=a,d=d(h),a=""===m?"."+N(h,0):m,ca(d)?(e="",null!=a&&(e=a.replace(da,"$&/")+"/"),B(d,b,e,"",function(a){return a})):null!=d&&(M(d)&&(d=oa(d,e+(!d.key||h&&h.key===d.key?"":(""+d.key).replace(da,"$&/")+"/")+a)),b.push(d)),1;h=0;m=""===m?".":m+":";if(ca(a))for(var l=0;l<a.length;l++){c=a[l];var f=m+N(c,l);h+=B(c,b,e,f,d)}else if(f=x(a),"function"===typeof f)for(a=f.call(a),l=0;!(c=a.next()).done;)c=c.value,f=m+N(c,l++),h+=B(c,b,e,f,d);else if("object"===c)throw b=String(a),Error("Objects are not valid as a React child (found: "+("[object Object]"===b?"object with keys {"+Object.keys(a).join(", ")+"}":b)+"). If you meant to render a collection of children, use an array instead.");return h}function C(a,b,e){if(null==a)return a;var c=[],d=0;B(a,c,"","",function(a){return b.call(e,a,d++)});return c}function ra(a){if(-1===a._status){var b=a._result;b=b();b.then(function(b){if(0===a._status||-1===a._status)a._status=1,a._result=b},function(b){if(0===a._status||-1===a._status)a._status=2,a._result=b});-1===a._status&&(a._status=0,a._result=b)}if(1===a._status)return a._result.default;throw a._result;}function O(a,b){var e=a.length;a.push(b);a:for(;0<e;){var c=e-1>>>1,d=a[c];if(0<D(d,b))a[c]=b,a[e]=d,e=c;else break a}}function p(a){return 0===a.length?null:a[0]}function E(a){if(0===a.length)return null;var b=a[0],e=a.pop();if(e!==b){a[0]=e;a:for(var c=0,d=a.length,k=d>>>1;c<k;){var h=2*(c+1)-1,l=a[h],f=h+1,g=a[f];if(0>D(l,e))f<d&&0>D(g,l)?(a[c]=g,a[f]=e,c=f):(a[c]=l,a[h]=e,c=h);else if(f<d&&0>D(g,e))a[c]=g,a[f]=e,c=f;else break a}}return b}function D(a,b){var c=a.sortIndex-b.sortIndex;return 0!==c?c:a.id-b.id}function P(a){for(var b=p(r);null!==b;){if(null===b.callback)E(r);else if(b.startTime<=a)E(r),b.sortIndex=b.expirationTime,O(q,b);else break;b=p(r)}}function Q(a){z=!1;P(a);if(!u)if(null!==p(q))u=!0,R(S);else{var b=p(r);null!==b&&T(Q,b.startTime-a)}}function S(a,b){u=!1;z&&(z=!1,ea(A),A=-1);F=!0;var c=k;try{P(b);for(n=p(q);null!==n&&(!(n.expirationTime>b)||a&&!fa());){var m=n.callback;if("function"===typeof m){n.callback=null;k=n.priorityLevel;var d=m(n.expirationTime<=b);b=v();"function"===typeof d?n.callback=d:n===p(q)&&E(q);P(b)}else E(q);n=p(q)}if(null!==n)var g=!0;else{var h=p(r);null!==h&&T(Q,h.startTime-b);g=!1}return g}finally{n=null,k=c,F=!1}}function fa(){return v()-ha<ia?!1:!0}function R(a){G=a;H||(H=!0,I())}function T(a,b){A=ja(function(){a(v())},b)}function ka(a){throw Error("act(...) is not supported in production builds of React.");}var y=Symbol.for("react.element"),qa=Symbol.for("react.portal"),sa=Symbol.for("react.fragment"),ta=Symbol.for("react.strict_mode"),ua=Symbol.for("react.profiler"),va=Symbol.for("react.provider"),wa=Symbol.for("react.context"),xa=Symbol.for("react.forward_ref"),ya=Symbol.for("react.suspense"),za=Symbol.for("react.memo"),Aa=Symbol.for("react.lazy"),V=Symbol.iterator,X={isMounted:function(a){return!1},enqueueForceUpdate:function(a,b,c){},enqueueReplaceState:function(a,b,c,m){},enqueueSetState:function(a,b,c,m){}},la=Object.assign,W={};w.prototype.isReactComponent={};w.prototype.setState=function(a,b){if("object"!==typeof a&&"function"!==typeof a&&null!=a)throw Error("setState(...): takes an object of state variables to update or a function which returns an object of state variables.");this.updater.enqueueSetState(this,a,b,"setState")};w.prototype.forceUpdate=function(a){this.updater.enqueueForceUpdate(this,a,"forceUpdate")};Y.prototype=w.prototype;var t=K.prototype=new Y;t.constructor=K;la(t,w.prototype);t.isPureReactComponent=!0;var ca=Array.isArray,aa=Object.prototype.hasOwnProperty,L={current:null},ba={key:!0,ref:!0,__self:!0,__source:!0},da=/\/+/g,g={current:null},J={transition:null};if("object"===typeof performance&&"function"===typeof performance.now){var Ba=performance;var v=function(){return Ba.now()}}else{var ma=Date,Ca=ma.now();v=function(){return ma.now()-Ca}}var q=[],r=[],Da=1,n=null,k=3,F=!1,u=!1,z=!1,ja="function"===typeof setTimeout?setTimeout:null,ea="function"===typeof clearTimeout?clearTimeout:null,na="undefined"!==typeof setImmediate?setImmediate:null;"undefined"!==typeof navigator&&void 0!==navigator.scheduling&&void 0!==navigator.scheduling.isInputPending&&navigator.scheduling.isInputPending.bind(navigator.scheduling);var H=!1,G=null,A=-1,ia=5,ha=-1,U=function(){if(null!==G){var a=v();ha=a;var b=!0;try{b=G(!0,a)}finally{b?I():(H=!1,G=null)}}else H=!1};if("function"===typeof na)var I=function(){na(U)};else if("undefined"!==typeof MessageChannel){t=new MessageChannel;var Ea=t.port2;t.port1.onmessage=U;I=function(){Ea.postMessage(null)}}else I=function(){ja(U,0)};t={ReactCurrentDispatcher:g,ReactCurrentOwner:L,ReactCurrentBatchConfig:J,Scheduler:{__proto__:null,unstable_ImmediatePriority:1,unstable_UserBlockingPriority:2,unstable_NormalPriority:3,unstable_IdlePriority:5,unstable_LowPriority:4,unstable_runWithPriority:function(a,b){switch(a){case 1:case 2:case 3:case 4:case 5:break;default:a=3}var c=k;k=a;try{return b()}finally{k=c}},unstable_next:function(a){switch(k){case 1:case 2:case 3:var b=3;break;default:b=k}var c=k;k=b;try{return a()}finally{k=c}},unstable_scheduleCallback:function(a,b,c){var e=v();"object"===typeof c&&null!==c?(c=c.delay,c="number"===typeof c&&0<c?e+c:e):c=e;switch(a){case 1:var d=-1;break;case 2:d=250;break;case 5:d=1073741823;break;case 4:d=1E4;break;default:d=5E3}d=c+d;a={id:Da++,callback:b,priorityLevel:a,startTime:c,expirationTime:d,sortIndex:-1};c>e?(a.sortIndex=c,O(r,a),null===p(q)&&a===p(r)&&(z?(ea(A),A=-1):z=!0,T(Q,c-e))):(a.sortIndex=d,O(q,a),u||F||(u=!0,R(S)));return a},unstable_cancelCallback:function(a){a.callback=null},unstable_wrapCallback:function(a){var b=k;return function(){var c=k;k=b;try{return a.apply(this,arguments)}finally{k=c}}},unstable_getCurrentPriorityLevel:function(){return k},unstable_shouldYield:fa,unstable_requestPaint:function(){},unstable_continueExecution:function(){u||F||(u=!0,R(S))},unstable_pauseExecution:function(){},unstable_getFirstCallbackNode:function(){return p(q)},get unstable_now(){return v},unstable_forceFrameRate:function(a){0>a||125<a?console.error("forceFrameRate takes a positive int between 0 and 125, forcing frame rates higher than 125 fps is not supported"):ia=0<a?Math.floor(1E3/a):5},unstable_Profiling:null}};c.Children={map:C,forEach:function(a,b,c){C(a,function(){b.apply(this,arguments)},c)},count:function(a){var b=0;C(a,function(){b++});return b},toArray:function(a){return C(a,function(a){return a})||[]},only:function(a){if(!M(a))throw Error("React.Children.only expected to receive a single React element child.");return a}};c.Component=w;c.Fragment=sa;c.Profiler=ua;c.PureComponent=K;c.StrictMode=ta;c.Suspense=ya;c.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED=t;c.act=ka;c.cloneElement=function(a,b,c){if(null===a||void 0===a)throw Error("React.cloneElement(...): The argument must be a React element, but you passed "+a+".");var e=la({},a.props),d=a.key,k=a.ref,h=a._owner;if(null!=b){void 0!==b.ref&&(k=b.ref,h=L.current);void 0!==b.key&&(d=""+b.key);if(a.type&&a.type.defaultProps)var l=a.type.defaultProps;for(f in b)aa.call(b,f)&&!ba.hasOwnProperty(f)&&(e[f]=void 0===b[f]&&void 0!==l?l[f]:b[f])}var f=arguments.length-2;if(1===f)e.children=c;else if(1<f){l=Array(f);for(var g=0;g<f;g++)l[g]=arguments[g+2];e.children=l}return{$$typeof:y,type:a.type,key:d,ref:k,props:e,_owner:h}};c.createContext=function(a){a={$$typeof:wa,_currentValue:a,_currentValue2:a,_threadCount:0,Provider:null,Consumer:null,_defaultValue:null,_globalName:null};a.Provider={$$typeof:va,_context:a};return a.Consumer=a};c.createElement=Z;c.createFactory=function(a){var b=Z.bind(null,a);b.type=a;return b};c.createRef=function(){return{current:null}};c.forwardRef=function(a){return{$$typeof:xa,render:a}};c.isValidElement=M;c.lazy=function(a){return{$$typeof:Aa,_payload:{_status:-1,_result:a},_init:ra}};c.memo=function(a,b){return{$$typeof:za,type:a,compare:void 0===b?null:b}};c.startTransition=function(a,b){b=J.transition;J.transition={};try{a()}finally{J.transition=b}};c.unstable_act=ka;c.useCallback=function(a,b){return g.current.useCallback(a,b)};c.useContext=function(a){return g.current.useContext(a)};c.useDebugValue=function(a,b){};c.useDeferredValue=function(a){return g.current.useDeferredValue(a)};c.useEffect=function(a,b){return g.current.useEffect(a,b)};c.useId=function(){return g.current.useId()};c.useImperativeHandle=function(a,b,c){return g.current.useImperativeHandle(a,b,c)};c.useInsertionEffect=function(a,b){return g.current.useInsertionEffect(a,b)};c.useLayoutEffect=function(a,b){return g.current.useLayoutEffect(a,b)};c.useMemo=function(a,b){return g.current.useMemo(a,b)};c.useReducer=function(a,b,c){return g.current.useReducer(a,b,c)};c.useRef=function(a){return g.current.useRef(a)};c.useState=function(a){return g.current.useState(a)};c.useSyncExternalStore=function(a,b,c){return g.current.useSyncExternalStore(a,b,c)};c.useTransition=function(){return g.current.useTransition()};c.version="18.3.1"})}();</script>
+<script>!function(){"use strict";(function(){var m=React,k=m.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;function f(a){for(var b="https://reactjs.org/docs/error-decoder.html?invariant="+a,c=1;c<arguments.length;c++)b+="&args[]="+encodeURIComponent(arguments[c]);return"Minified React error #"+a+"; visit "+b+" for the full message or use the non-minified dev environment for full errors. Additional warnings and warnings and development warnings are available in React's development build and warnings are available."}var l=new Set,u={};function v(a,b){u[a]=b}function y(a){var b=u[a];if(b)return b;throw Error(f(2,a));}function z(a){return void 0!==a&&null!==a}function A(a){return"object"===typeof a&&null!==a}
+function B(a){return"function"===typeof a}function C(a){var b=a.type,c=a.memoizedProps;return b.prototype&&b.prototype.isReactComponent?c.children:c}function D(a){if(void 0===a._store){var b={};Object.defineProperty(a,"_store",{configurable:!1,enumerable:!1,value:b})}b=a._store;b.pending=a.pending;b.forceUpdate=a.forceUpdate;b.hydrating=a.hydrating}function E(a){switch(a.tag){case 5:return a.sibling;case 2:return a;case 3:return a.child;default:return null}}function F(a,b){for(var c=a;null!==c;){var d=c.tag;if(5===d||6===d||3===d||1===d||0===d)break;c=c.return}return c}function G(a,b){for(var c=null;;){var d=F(a,b);if(null===d)break;a=d;a:for(;null!==a;){d=a.tag;if(5===d||6===d||3===d||1===d||0===d)break a;c=a;a=a.sibling}if(a===c)return null}}function H(a,b){for(var c=null;;){var d=F(a,b);if(null===d)break;a=d;a:for(;null!==a;){d=a.tag;if(5===d||6===d||3===d||1===d||0===d)break a;c=a;a=a.sibling}if(a===c)return null}}function I(a,b){var c=a.dependencies;null!==c&&void 0!==c&&c.firstContext&&(b&&c.firstContext!==b.tag&&(c.firstContext=b),
+(c.lanes|=b.lanes))}function J(a,b,c){var d=b.contextType;if("object"===typeof d&&null!==d)return d._currentValue;if(b.contextTypes)return K(a,b,c);return c}function K(a,b,c){var d=a.type;d=b.contextTypes;if(!d)return u;var e=a.stateNode;if(e&&e.__reactInternalMemoizedUnmaskedChildContext===c)return e.__reactInternalMemoizedMaskedChildContext;var L={},M=function(n){for(var t in n)L[t]=c[t];return L}(d);if(e){var N=a.stateNode;N.__reactInternalMemoizedUnmaskedChildContext=c;N.__reactInternalMemoizedMaskedChildContext=
+L}return L}function O(a,b){var c=b.contextTypes;if(!c)return u;var d=a.stateNode;if(d)return d.__reactInternalMemoizedUnmaskedChildContext;return u}function P(a,b){var c=a.memoizedState;null!==c&&void 0!==c&&(b=b.element,c._devtoolsTail&&(c._devtoolsTail=null));return b}function Q(a,b,c){var d=a.type;if(null===b||"object"!==typeof b||"function"===typeof b||b.$$typeof)return!1;var e=c._currentValue;if(b===e||"object"===typeof b&&null!==b&&b.current&&b.current._currentValue===e)return!1;return!0}
+function R(a,b,c){return!0}function S(a,b){return null!==a&&void 0!==a&&"object"===typeof a&&"function"===typeof a.then}function T(a,b){return"function"===typeof a?function(){return b(a.apply(void 0,arguments))}:b}function U(a){return m.createContext(a)}function V(a){return a}function W(a,b){var c=m.createElement;if(null===b||void 0===b)b=null;else if("object"===typeof b&&!Array.isArray(b)){var d=b;b=d.type;var e=d.props;c=m.createElement;var L=arguments.length;if(2<L){for(var M=Array(L-2),N=2;N<L;N++)M[N-2]=arguments[N];c=m.createElement.apply(void 0,[a,b,e].concat(M))}else c=m.createElement(a,
+b,e)}return c}function X(a,b,c){var d=m.createElement;if(2<c.length){var e=Array(c.length-2);for(var L=2;L<c.length;L++)e[L-2]=c[L];d=m.createElement.apply(void 0,[a,b,c[1]].concat(e))}else d=m.createElement(a,b,c[1]);return d}function Y(a,b){return null===b||void 0===b?m.createFactory(a):function(){var c=m.createElement;var d=arguments;var e=d[0];null!==b&&void 0!==b&&(e=m.cloneElement(b,{},d[1]));for(var L=arguments.length,M=Array(L),N=0;N<L;N++)M[N]=arguments[N];if(2<L){for(var r=Array(L-2),aa=2;aa<L;aa++)r[aa-2]=arguments[aa];c=m.createElement.apply(void 0,[a,e].concat(r))}else c=m.createElement(a,e,M[1]);return c}}function Z(a,b,c){return"string"===typeof a?m.createTextNode(a,c):m.createElement(a,b,c)}function $(a,b,c,d){var e=a&&a.displayName||a.name||"";return!1}function _(a,b,c){return void 0===c&&(c=null),b&&a?{child:c,error:null}:void 0}function ba(a,b,c,d,e){if("function"===typeof m.createPortal)return m.createPortal(a,b,c)}function ca(a,b,c){return a&&b||!1}function da(a,b,c){return 1===a?a:b}function ea(a,b,c,d){return 0===a?b:1===a?c:2===a?d:void 0}function fa(a){return 0===a?"component":1===a?"host":2===a?"empty":3===a?"text":4===a?"portal":"unknown"}
+function ga(a,b,c){if(null===a||"object"!==typeof a)return null;var d=a.tag;if(5===d)return a.stateNode;if(3===d)return a.stateNode.containerInfo;if(4===d)return a.stateNode.containerInfo;if(1===d)return a.stateNode;return null}function ha(a,b,c,d){if("function"===typeof c)return c(d);throw Error(f(95,"function"===typeof c?"":""));}function ia(a,b){return"function"===typeof a?a(b):a}function ja(a,b){return a}function ka(a,b,c){switch(a.tag){case 3:case 5:case 1:return ka(a.child,b);case 0:return null;
+case 2:return a.alternate}return null}function la(a){return a}function ma(a,b){return b}var na={queue:[],enqueue:function(a){na.queue.push(a)},finish:function(){var a=na.queue,b=a.length;if(b)for(var c=0;c<b;c++)try{a[c]()}catch(d){setTimeout(function(){throw d;})}a.length=0}};function oa(a){var b=this,c=0,d=0,e=0,L=1,M=[],N=[],r=!1,aa=!1;this._reactRootContainer=a;function da(){var t="function"===typeof b._onPendingCommit?b._onPendingCommit:null;if(null!==t)try{t(a.root.containerInfo)}finally{b._onPendingCommit=
+null}m.flushSync(function(){a=void 0;if(null!==b._updatedState)for(var n=b._updatedState,t=n.length-1;0<=t;t--)try{n[t]()}catch(f){setTimeout(function(){throw f;})}})}this._onScheduleUpdate=function(t){c++;r||(r=!0,M.push(t),e++,setTimeout(function(){0===--e&&(r=!1,da())},0));aa||(aa=!0,N.push(t),L++,setTimeout(function(){0===--L&&(aa=!1)},0))};this._onPendingCommit=null;this._updatedState=[];this.render=function(t,n){if("function"===typeof n){if("function"===typeof n)throw Error(f(46));n=null}b._onPendingCommit=
+n;b._updatedState.push(function(){a.render(t)});m.unstable_batchedUpdates(function(){a.render(t)})};this.unmount=function(t){if("function"===typeof t){if("function"===typeof t)throw Error(f(47));t=null}b._onPendingCommit=t;b._updatedState.push(function(){a.unmount()});m.unstable_batchedUpdates(function(){a.unmount()})};this._legacyForceUpdate=function(t){t||(na.enqueue(function(){b._updatedState.push(function(){a.render(null)})}),m.unstable_batchedUpdates(function(){a.render(null)}))}};m.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED=na;
+var pa=[],qa={},ra=0,sa=0,ta=!1,ua=!1,vb=0,w=null,x=null,yb=null,zb=null,Ab=0,Bb=!1,Cb=null,Db=!1,Eb=!1,Fb=null,Gb=void 0;function Hb(a){if(w!==a){var b=w;w=a;null!==b&&null!==a&&(a=a.alternate);a=null!==a?a:b;if(a){for(var c;null!==c;){var d=c.tag;if(3===d||2===d||1===d){var e=c.stateNode;if(e.__reactInternalMemoizedMergedChildContext||e.__reactInternalMemoizedUnmaskedChildContext){a=c;break}}c=c.return}};w=a}}function Ib(){return w}function Jb(a){return a.__reactInternalMemoizedMergedChildContext||a.__reactInternalMemoizedUnmaskedChildContext||{}}
+function Kb(a,b,c){if(null===w||null===b)return!1;var d=w;return b===d||0!==(b[1]&d[1])?!0:void 0}function Lb(a){if(void 0===a&&(a=!1),!a){if(0!==(ra&1))return ra;var b=ra;ra=0;return b}return ra}function Mb(){ra|=1}function Nb(){ra|=2}function Ob(){0!==(ra&2)&&(ra=0);return ra}var Pb=void 0;function Qb(a,b){return 0!==(a&b)}var Rb={};function Sb(a){return a.element}function Tb(a){return a.stateNode}function Ub(a){return null!==a.alternate?a.alternate.child:a.child}function Vb(a){var b=a.stateNode;b._reactInternalFiber=a;return b}
+function Wb(a){return 0!==(a.mode&1)?a.stateNode:null}function Xb(a,b,c){var d=a.tag;switch(d){case 15:return null;case 16:return null;case 2:{var e=a.stateNode;e._reactInternalFiber=a;return null}case 18:return null;case 5:{var L=a.stateNode;L._reactInternalFiber=a;return null}case 0:{var M=a.stateNode;M._reactInternalFiber=a;return null}case 1:{var N=a.stateNode;N._reactInternalFiber=a;return null}case 19:return null;case 20:return null;case 21:return null;case 22:return null;case 23:return null;case 24:return null;
+case 25:return null;default:throw Error(f(60,a.tag));}}function Yb(a){x=a;yb=a.alternate;Ab=0;a=a||null;null!==a&&(zb=a.child);return zb}function Zb(a){var b=zb;null!==b&&(zb=b.sibling);var c=w;if(c===x){x=a;yb=a.alternate;Ab=0;return a}if(null!==c&&c===a){x=a;yb=a.alternate;Ab=0;return a}if(a===c)return a;for(var d=yb;null!==d&&null!==c;){if(d===a){x=a;yb=d;Ab=0;return a}if(c===a){x=a;yb=null;Ab=0;return a}d=d.alternate;c=c.alternate}return null}function $b(a,b,c){return a}function ac(a,b,c,d,e){throw Error(f(33))}
+function bc(a,b,c,d,e){if(!c){var L=a.alternate;return L!==b&&!0!==c?null:b}}function cc(a,b){if(null===b&&(b=a.alternate),null===b)return new Set;var c=new Set;c.add(a);c.add(b);return c}function dc(a,b,c){if("function"===typeof a)return a(b);if("object"===typeof a&&null!==a)return a.current?c?null!=a.current(a):a.current(b):a.current(b)}var ec;function fc(a,b,c,d){ec(a,b,c,d);return null}
+function gc(a,b,c,d){var e=a.type.getDerivedStateFromProps;if("function"===typeof e){e=e(b,a.memoizedState);null!==e&&void 0!==e&&(a.memoizedState=Object.assign({},a.memoizedState,e));return null}var L=a._debugHookTypes;null!==L&&L.push("getDerivedStateFromProps");return null}function hc(a,b,c){return 3===a.tag?a.stateNode:null}function ic(a,b,c,d){return null!==c?d===c._currentValue:!1}function jc(a,b,c){var d=a.alternate;if(null===d)return!1;if(d===b)return!0;for(;null!==d;){if(d===b)return!0;d=d.return}return!1}
+function kc(a){var b=a.mode;if(!b||0===b)return!1;a=a.tag;return 0===a||2===a||5===a||1===a||17===a||4===a||16===a}function lc(a){return a.return}var mc={};function nc(a,b,c,d,e){return!1}
+function oc(a,b,c){var d=a.type;if("function"!==typeof d)return!1;var e=d.contextTypes;if(null!==e&&void 0!==e){var L=J(a,b,c);if(null===L||void 0===L)throw Error(f(154));for(var M in e)if(L[M]!==a.memoizedState||"function"!==typeof L[M])return!0}for(e in b)if(!Object.is(b[e],a.memoizedProps[e]))return!0;return!1}function pc(a,b,c){var d=a.type;"function"!==typeof d&&(d=void 0);return d===b||a===b}function qc(a,b,c){return null!==c&&a===c?0:1}function rc(a,b,c){return null!==c&&a===c?0:2}function sc(a,b,c){return null!==c&&a===c?0:3}
+function tc(a,b,c){return null!==c&&a===c?0:4}m.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED.ReactCurrentOwner={current:null};m.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED.ReactDebugCurrentFrame={};var uc={};function vc(a,b,c){if(null===a||"object"!==typeof a)return null;var d=a.tag;if(5===d||3===d||1===d)return a;for(;null!==a;){if(a.tag===5||a.tag===3||a.tag===1)return a;a=a.return}}function wc(a){return a.memoizedState}function xc(a){return a.updateQueue}function yc(a){return null!==a&&a.alternate}
+function zc(a,b,c,d){var e=a.alternate;if(null!==e&&0!==(e.flags&128))return void 0===d?c&&(a.flags|=128):d;if(void 0===d){if(b)return a.flags|=128,c;if(c)return!1;return!1}return d}function Ac(a,b,c){return null!==a&&"object"===typeof a&&a.$$typeof===m.Fragment?0===c.type:0===b.type}function Bc(a,b,c){return 0===a.tag}function Cc(a,b,c,d){return null!==d?b===d:!1}
+function Dc(a,b){for(var c=0;c<a.length;c++){var d=a[c];if("function"===typeof d)try{d()}catch(e){setTimeout(function(){throw e;})}}}function Ec(a,b){if(a)try{a(b)}catch(c){setTimeout(function(){throw c;})}}function Fc(a){if(a&&"function"===typeof a.then)throw Error(f(47));}var Gc=new WeakMap;m.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED.ReactStrictModeWarnings={recordUnsafeLifecycleWarnings:function(){},recordLegacyContextWarning:function(){},flushPendingUnsafeLifecycleWarnings:function(){},flushPendingLegacyContextWarning:function(){}};
+var Hc;function Ic(){return Ic=Object.assign?Object.assign.bind():function(a){for(var b=1;b<arguments.length;b++){var c=arguments[b],d=void 0;for(d in c)Object.prototype.hasOwnProperty.call(c,d)&&(a[d]=c[d])}return a},Ic.apply(this,arguments)}function Jc(){return Jc=Object.assign?Object.assign.bind():function(a){for(var b=1;b<arguments.length;b++){var c=arguments[b],d=void 0;for(d in c)Object.prototype.hasOwnProperty.call(c,d)&&(a[d]=c[d])}return a},Ic.apply(this,arguments)}function Kc(a){return a}
+function Lc(a){return null!==a&&"object"===typeof a&&Array.isArray(a)}function Mc(a){return a.length}function Nc(a,b,c){var d=0;void 0===b&&(b=200);void 0===c&&(c=50);if(0>=c){Promise.resolve().then(function(){return a(d)});return}if(0===b){h=a(0);return}var e=Date.now(),L=0,M=null;return new Promise(function(N,r){var aa=function(){var t=Date.now()-e;t>255?t=255:t<4&&(t=4);L+=t;var n=Math.random()*Math.min(t,16);L+=n;if(L>=b){N(a(0));return}var f=!1;M=setTimeout(function(){l();for(var n=0;n<d;n++){var f=navigator.userAgent;if(f.indexOf("Chrome")>-1){var g=navigator.connection;if(g&&"slow-2g"===g.effectiveType){N(a(-1));return}}N(a(n))}},L);function l(){clearTimeout(M)};aa()};aa()})}function Oc(a,b){return null===a||a!==b}function Pc(a,b,c,d,e){return null!==a&&void 0!==a&&"object"===typeof a&&a.$$typeof===m.Fragment?e.pendingProps:a}function Qc(a,b,c){return null===a||"object"!==typeof a||"function"!==typeof a.then?!1:b&&b.current===a||c===a}function Rc(a,b,c){return a}function Sc(a,b,c){return a===b}function Tc(a,b,c){return a===b?0:1}function Uc(a,b,c){return a&&b?1:0}
+var Vc;function Wc(a,b,c){var d=a.type;if("function"===typeof d)try{return d(b,c)}catch(e){return{$$typeof:1,type:function(){throw e;},key:null,ref:null,props:{},_owner:null}}}function Xc(a,b,c,d){var e=a.type;if("function"===typeof e)try{return e(b,c)}catch(L){return{$$typeof:1,type:function(){throw L;},key:null,ref:null,props:{},_owner:null}}throw Error(f(49,a.type))}function Yc(a,b,c){if("string"===typeof a)return m.render(a,b,c);if("function"===typeof a)return m.render(m.createElement(a),b,c);throw Error(f(50));}
+function Zc(a,b){if(!a)throw Error(f(51));return b}function $c(a,b){if(!a)throw Error(f(52));return b}function _c(a,b,c){return a?b:c}function ad(a,b,c){return a?c:b}function bd(a,b,c){return a?c:b}function cd(a,b,c){return void 0!==a?c:b}function dd(a,b,c){return void 0!==a?c:b}function ed(a,b,c){return void 0!==a?c:b}function fd(a,b,c){return a&&b?c:b}function gd(a,b,c,d){return"function"===typeof a?a(b):"object"===typeof a&&null!==a?a.current?c?null!=a.current(a):a.current(b):a.current(b):d}
+function hd(a,b,c){if(null===a)return null;var d=a.alternate;if(null===d)return null;var e=new Set;e.add(a);e.add(d);return e}function id(a,b,c){if(null===a)return c;var d=a.alternate;if(null===d)return c;b=new Set;b.add(a);b.add(d);return b}function jd(a,b,c){var d=[];return{tag:a,key:b,child:null,childTail:null,childHead:d,count:0,pendingProps:null,memoizedProps:null,memoizedState:null,updateQueue:null,stateNode:null,type:null,index:0,flags:0,effectTag:0,lanes:0,childLanes:0,alternate:null,actualDuration:0,
+actualStartTime:-1,treeBaseDuration:0}}function kd(a,b,c){if(null===a)return null;var d=a.alternate;if(null===d)return null;c={child:b,childTail:d};return c}
+function ld(a,b,c){for(var d=a;null!==d;){var e=d.alternate;if(e===b)return!0;if(e===c)return!0;d=d.return}return!1}function md(a,b,c,d){if(null===a)return null;var e=a.alternate;if(null===e)return null;for(var L=null;null!==a;){var M=a.return;if(null===M)break;if(M===b){L=a;break}a=M}if(null===L){L=e;for(;null!==L;){var N=L.return;if(N===b){L=L;break}L=N}}if(null!==L){var r=L;c=r.key||null;d=r.ref||null;for(a=r;null!==a;){e===(e=a.alternate)&&(e instanceof Set?e.add(a):e=new Set([a]));a=a.return}}return r}
+function nd(a,b,c,d,e){var L=[];return{tag:a,key:b,child:null,childTail:null,childHead:L,count:0,pendingProps:c,memoizedProps:null,memoizedState:null,updateQueue:null,stateNode:null,type:null,index:0,flags:0,effectTag:0,lanes:0,childLanes:0,alternate:null,sibling:null,return:null,actualDuration:0,actualStartTime:-1,treeBaseDuration:0}}var od=nd;function pd(a,b,c,d){return nd(a,b,c,d)}function qd(a,b,c,d){return{tag:a,key:b,child:null,childTail:null,childHead:[],count:0,pendingProps:c,memoizedProps:null,memoizedState:null,updateQueue:null,stateNode:null,type:d,index:0,flags:0,effectTag:0,lanes:0,childLanes:0,alternate:null}}
+function rd(a,b,c,d){for(var e=new Map;null!==a;){var L=a.key||String(a.index);a.key!==void 0&&(L="$"+L);e.set(L,a);a=a.sibling}return e}function sd(a){var b=a&&a.alternate;return null!==b?b.child:a.child}function td(a,b,c){if(null===a)return null;var d=a.alternate;if(null===d)return null;if(b!==a.child)return null;if(c!==d.child)return null;return a}function ud(a,b,c){if(null===a||null===a.alternate)return null;for(var d=a;;){var e=d.alternate;if(e===b)return d;if(e===c)return d;d=d.return}}
+function vd(a,b,c){for(var d=0;d<a.length;d++){var e=a[d];if("string"===typeof e||"number"===typeof e)return!0}return!1}function wd(a){return a}var me=function(a){return a};var ne="function"===typeof requestAnimationFrame?requestAnimationFrame:void 0;function oe(a){return null!==a.current&&a.current!==a.alternate}function pe(a){a=a.current;for(var b=a.child;null!==b;b=b.sibling){var c=b.tag;if(5!==c&&0!==c)return!1}return!0}
+function qe(a,b,c,d,e){var L=[];for(var M in b)if(Object.prototype.hasOwnProperty.call(b,M)){var N=b[M];if("object"===typeof N&&null!==N&&"function"===typeof N.then){if("function"===typeof N.then){var r=N.then;N.then=function(a){return a}.bind(null,N);for(var aa=0;aa<L.length;aa++)L[aa].then(r);L=[]}}else if("children"!==M){var da=Object.getPrototypeOf(N);da!==Object.prototype&&(L.push(N),N.__proto__=Object.prototype,N.__proto__=null)}}for(var ea in a)if(Object.prototype.hasOwnProperty.call(a,ea)){var fa=
+a[ea];"object"===typeof fa&&null!==fa&&fa.$$typeof===m.Fragment&&ea!==b[ea]&&delete a[ea];"children"===ea&&b[ea]!==fa&&(L.push(fa),a[ea]=b[ea])}for(var ga=0;ga<L.length;ga++){var ha=L[ga];try{ha()}catch(ia){setTimeout(function(){throw ia;})}}isFinite(c.timeout)&&!isFinite(d.timeout)&&(d.timeout=c.timeout);return null}var re={"_":void 0};re._=void 0;Object.defineProperty(re,"_",{get:function(){return this},set:function(a){}});var se=re;m.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED=se;
+var te=m.findDOMNode;m.findDOMNode=function(a){if(null===a)return null;if(1===a.nodeType)return a;var b=a._reactInternalFiber;if(void 0===b){if("function"===typeof a.render)throw Error(f(188));a=Object.keys(a).join(",");throw Error(f(268,a));}return b=b.stateNode,1!==b.nodeType&&(b=te(b)),b};var ue=m.version;m.hydrate=function(a,b,c){if(!b)throw Error(f(200));return me(a,b,c)};m.render=function(a,b,c){if(!b)throw Error(f(200));return me(a,b,c)};m.unmountComponentAtNode=function(a){if(!a)throw Error(f(40));return!!a._reactRootContainer||(me(null,a),!0)};
+var we=!1;m.createRoot=function(a,b){if(!a)throw Error(f(299));return{_internalRoot:a,_internalRootContainerInfo:a._reactRootContainerInfo=null,_internalRoot:null,_reactInternalRoot:a,_reactRootContainer:a._reactRootContainer=null,render:function(c){a.render(c)},unmount:function(){a.unmount()}}};m.hydrateRoot=function(a,b,c){if(!a)throw Error(f(200));return m.createRoot(a,c)};var xe=m.createRoot;m.createRoot=function(a,b){var c=xe(a,b);c.render=function(d){a._reactRootContainer=d;return c};return c};
+var ye=m.hydrateRoot;var ze=0,ze=function(a,b){if(ze<100&&(ze++,console.error("Warning: A future version of React will block javascript: URLs as a security precaution. Use event handlers instead."),a&&"string"===typeof a.href&&a.href.startsWith("javascript:")))throw Error(f(150));};m.unstable_createEventHandle=function(a){return function(b,c){for(var d=0;d<b.length;d++){var e=b[d];a.addEventListener(e,c,{passive:!0})}return function(){for(var d=0;d<b.length;d++)a.removeEventListener(b[d],c)}}};
+var Ae=m.useSyncExternalStore;m.useSyncExternalStore=function(a,b,c){return Ae(a,b,c)};var Be=m.startTransition;m.startTransition=function(a){Be(function(){a()})};var Ce=m.useInsertionEffect;m.useInsertionEffect=function(a,b){return Ce(a,b)};var De=m.useDeferredValue;m.useDeferredValue=function(a,b){return De(a,b)};
+var Ee=m.useTransition;m.useTransition=function(){return Ee()};var Fe=m.use;m.use=function(a){if(null===a||"object"!==typeof a)throw Error(f(289));if("function"===typeof a.then)throw Error(f(290));return Fe(a)};const a=[];var Ge=m.useId;m.useId=function(){return Ge()};m.act=function(a){return a()};var He=m.unstable_act;m.unstable_act=function(a){return He(a)};var Ie=m.unstable_batchedUpdates;m.unstable_batchedUpdates=function(a,b){return Ie(a,b)};m.version=void 0})();</script>
+<script src="https://unpkg.com/@babel/standalone@7.26.9/babel.min.js"></script>
+<style>
+  /* ══════════════════════════════════════════════════════════════
+     Notion-inspired base
+     ══════════════════════════════════════════════════════════════ */
+  @import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg-page: #f7f6f3;
+    --bg-card: #ffffff;
+    --bg-sidebar: #f7f6f3;
+    --bg-hover: #efefec;
+    --bg-active: #e8e7e4;
+    --text-primary: #1d1c1a;
+    --text-secondary: #6b6b67;
+    --text-tertiary: #9c9c98;
+    --text-disable: #c1c0bd;
+    --border-light: #e9e8e6;
+    --border-strong: #d3d1cb;
+    --accent: #0069b4;
+    --accent-soft: #e8f0fe;
+    --green: #2b825b;
+    --green-soft: #e8f5ef;
+    --amber: #a06f0c;
+    --amber-soft: #faf1db;
+    --red: #c7303a;
+    --red-soft: #fce8e9;
+    --orange: #b45508;
+    --orange-soft: #fef0e6;
+    --blue: #0069b4;
+    --blue-soft: #e8f0fe;
+    --purple: #6940a5;
+    --purple-soft: #f0eaf9;
+    --radius-sm: 4px;
+    --radius-md: 6px;
+    --radius-lg: 8px;
+    --shadow-card: 0 1px 3px -1px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.02);
+    --shadow-pop: 0 2px 8px -2px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.03);
+    --font: 'Inter', -apple-system, system-ui, sans-serif;
+  }
+  body {
+    font-family: var(--font);
+    background: var(--bg-page);
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Section labels */
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 32px 48px 16px;
+    border-bottom: 1px solid var(--border-light);
+    margin-bottom: 24px;
+  }
+  .section-header h2 {
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--text-primary);
+  }
+  .section-header .badge {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-tertiary);
+    background: var(--bg-hover);
+    padding: 2px 8px;
+    border-radius: 999px;
+  }
+  .section-header .arrow {
+    font-size: 14px;
+    color: var(--text-tertiary);
+    padding: 0 4px;
+  }
+  .section-desc {
+    font-size: 13px;
+    color: var(--text-secondary);
+    padding: 0 48px 24px;
+    max-width: 720px;
+    line-height: 1.5;
+  }
+
+  /* Side-by-side comparison */
+  .comparison {
+    display: grid;
+    grid-template-columns: 1fr 48px 1fr;
+    gap: 0;
+    padding: 0 48px 48px;
+    align-items: start;
+  }
+  .comparison-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-tertiary);
+    margin-bottom: 12px;
+  }
+  .comparison-vs {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-top: 60px;
+    font-size: 14px;
+    color: var(--text-tertiary);
+    font-weight: 500;
+  }
+  .mockup-box {
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Notion shared styles */
+  .notion-page {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 96px;
+  }
+  .n-text {
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text-primary);
+  }
+  .n-text-sm {
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+  .n-text-xs {
+    font-size: 11px;
+    color: var(--text-tertiary);
+  }
+  .n-h1 {
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+  }
+  .n-h2 {
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.3;
+  }
+  .n-h3 {
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+
+  /* Notion property tags */
+  .n-prop {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    line-height: 1;
+  }
+  .n-prop-name {
+    color: var(--text-tertiary);
+    font-size: 11px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .n-prop-val {
+    color: var(--text-primary);
+    font-weight: 500;
+  }
+
+  /* Select tag (like Notion select property) */
+  .n-select {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 6px;
+    height: 20px;
+    border-radius: var(--radius-sm);
+    font-size: 11px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .n-select-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    flex: none;
+  }
+  .n-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.3;
+  }
+
+  /* Notion button */
+  .n-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 28px;
+    padding: 0 8px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-family: var(--font);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.1s;
+  }
+  .n-btn:hover {
+    background: var(--bg-hover);
+  }
+  .n-btn-icon {
+    width: 28px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  /* Notion chip / status */
+  .n-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 8px;
+    height: 22px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  /* Hover controls */
+  .hover-controls {
+    opacity: 0;
+    transition: opacity 0.1s;
+  }
+  .hover-parent:hover .hover-controls {
+    opacity: 1;
+  }
+
+  /* Notion divider */
+  .n-divider {
+    height: 1px;
+    background: var(--border-light);
+    margin: 8px 0;
+  }
+
+  /* Emoji placeholder for page icons */
+  .n-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    flex: none;
+  }
+
+  /* Mini scrollbar */
+  .scroll-x {
+    overflow-x: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+  }
+
+  /* ── Current-design style helpers ── */
+  .current-card {
+    border-radius: 8px;
+    border: 1px solid #d9d6cb;
+    background: #fbf8ef;
+    box-shadow: 0 1px 2px rgba(31,26,19,0.05);
+    overflow: hidden;
+  }
+  .current-header {
+    font-family: 'Fraunces', Georgia, serif;
+    color: #a8431f;
+    font-weight: 900;
+    letter-spacing: -0.02em;
+  }
+
+  /* ── Current sidebar style ── */
+  .current-sidebar {
+    background: #ffffff;
+    border-right: 1px solid #d9d6cb;
+    width: 48px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px 0;
+    gap: 16px;
+  }
+
+  /* ── Current masthead style ── */
+  .current-masthead {
+    background: #fbf8ef;
+    border-bottom: 1px solid #cdbfa0;
+  }
+  .current-masthead .brand {
+    font-family: 'Fraunces', Georgia, serif;
+    font-size: 28px;
+    font-weight: 900;
+    color: #1f1a13;
+  }
+  .current-masthead .brand span {
+    color: #a8431f;
+    font-style: italic;
+    font-weight: 500;
+  }
+
+  /* ── Current board card ── */
+  .current-board-card {
+    border-radius: 6px;
+    border: 1px solid #d9d6cb;
+    border-top: 3px solid #2f4858;
+    background: #fbf8ef;
+    padding: 10px 12px 8px;
+    box-shadow: 0 1px 2px rgba(31,26,19,0.05);
+    font-size: 11px;
+    font-family: 'Inter', sans-serif;
+  }
+
+  /* ── Current table style ── */
+  .current-table {
+    border: 1px solid #d9d6cb;
+    border-radius: 8px;
+    background: #fbf8ef;
+    overflow: hidden;
+    font-family: 'Inter', sans-serif;
+  }
+  .current-table th {
+    background: #efe7d6;
+    padding: 8px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #4a4135;
+    text-align: left;
+    border-bottom: 1px solid #cdbfa0;
+  }
+  .current-table td {
+    padding: 8px 12px;
+    font-size: 12px;
+    border-bottom: 1px solid #e3d9c1;
+  }
+
+  /* ── Labels ── */
+  .label-actuel {
+    font-family: 'Fraunces', Georgia, serif;
+    font-size: 10px;
+    font-weight: 700;
+    color: #a8431f;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .label-notion {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+</style>
+</head>
+<body>
+
+<div id="root"></div>
+
+<script type="text/babel">
+  const { useState, useCallback, Fragment } = React;
+
+  /* ══════════════════════════════════════════════════════════════
+     SECTION HELPER
+     ══════════════════════════════════════════════════════════════ */
+  const Section = ({ id, title, desc, children }) => (
+    <div id={id} style={{paddingTop: 16}}>
+      <div className="section-header">
+        <h2>{title}</h2>
+      </div>
+      {desc && <p className="section-desc">{desc}</p>}
+      {children}
+    </div>
+  );
+
+  /* ══════════════════════════════════════════════════════════════
+     COMPONENT: NotionSidebar vs Current Sidebar
+     ══════════════════════════════════════════════════════════════ */
+  const SidebarShowcase = () => {
+    return (
+      <Section id="sidebar" title="❶ Navigation latérale" desc="La sidebar icon-only actuelle devient une sidebar notion-like avec workspace name, pages favorites, et drag-to-resize.">
+        <div className="comparison">
+          {/* Current */}
+          <div>
+            <div className="label-actuel" style={{marginBottom: 12, marginLeft: 4}}>Actuel</div>
+            <div className="current-sidebar" style={{height: 360, borderRadius: 8}}>
+              {['grid_view','event_note','report','inventory','build','monitoring'].map(ico => (
+                <span key={ico} className="material-symbols-outlined" style={{fontSize: 20, color: '#9ca3af'}}>{ico}</span>
+              ))}
+              <div style={{marginTop: 'auto'}}>
+                <span className="material-symbols-outlined" style={{fontSize: 20, color: '#d1d5db'}}>terminal</span>
+              </div>
+            </div>
+            <div style={{marginTop: 8, fontSize: 11, color: '#8c7d66', fontStyle: 'italic'}}>
+              48px icon-only · pas de labels · pas de hiérarchie
+            </div>
+          </div>
+
+          <div className="comparison-vs">→</div>
+
+          {/* Notion */}
+          <div>
+            <div className="label-notion" style={{marginBottom: 12, marginLeft: 4}}>Notion-style</div>
+            <div style={{
+              width: 228, height: 360,
+              background: 'var(--bg-sidebar)',
+              borderRadius: 8,
+              border: '1px solid var(--border-light)',
+              display: 'flex', flexDirection: 'column',
+              fontSize: 13,
+              padding: '8px 0',
+            }}>
+              {/* Workspace */}
+              <div style={{padding: '4px 12px 8px', borderBottom: '1px solid var(--border-light)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8}}>
+                <div style={{width: 20, height: 20, borderRadius: 4, background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 11, fontWeight: 700}}>SC</div>
+                <span style={{fontWeight: 600, fontSize: 13}}>Supply Chain</span>
+                <span className="material-symbols-outlined" style={{marginLeft: 'auto', fontSize: 16, color: 'var(--text-tertiary)'}}>more_horiz</span>
+              </div>
+
+              {/* Quick find */}
+              <div style={{padding: '2px 8px', margin: '0 8px 4px'}}>
+                <div style={{display: 'flex', alignItems: 'center', gap: 6, padding: '4px 6px', borderRadius: 4, background: 'var(--bg-hover)', color: 'var(--text-tertiary)', fontSize: 12}}>
+                  <span className="material-symbols-outlined" style={{fontSize: 14}}>search</span>
+                  <span>Rechercher…</span>
+                </div>
+              </div>
+
+              {/* Pages */}
+              <div style={{flex: 1, overflow: 'auto'}}>
+                {[
+                  {icon: '📊', label: 'Tableau de bord', active: true},
+                  {icon: '📋', label: 'Programme'},
+                  {icon: '⚡', label: 'Charge'},
+                  {icon: '🚨', label: 'Ruptures'},
+                  {icon: '📌', label: 'Suivi'},
+                  {icon: '🚚', label: 'Expéditions'},
+                  {icon: '📦', label: 'Réceptions'},
+                ].map(item => (
+                  <div key={item.label} style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    padding: '4px 12px', margin: '1px 6px',
+                    borderRadius: 4,
+                    background: item.active ? 'var(--bg-active)' : 'transparent',
+                    color: item.active ? 'var(--text-primary)' : 'var(--text-secondary)',
+                    cursor: 'pointer', fontSize: 13,
+                  }}>
+                    <span style={{fontSize: 14, width: 20, textAlign: 'center'}}>{item.icon}</span>
+                    <span style={{fontWeight: item.active ? 500 : 400}}>{item.label}</span>
+                    {item.active && <span style={{marginLeft: 'auto', width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)'}} />}
+                  </div>
+                ))}
+
+                <div style={{height: 1, background: 'var(--border-light)', margin: '6px 12px'}} />
+
+                {[
+                  {icon: '⚙️', label: 'Paramètres'},
+                  {icon: '👤', label: 'Gestion des accès'},
+                ].map(item => (
+                  <div key={item.label} style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    padding: '4px 12px', margin: '1px 6px',
+                    borderRadius: 4, color: 'var(--text-secondary)',
+                    cursor: 'pointer', fontSize: 13,
+                  }}>
+                    <span style={{fontSize: 14, width: 20, textAlign: 'center'}}>{item.icon}</span>
+                    <span>{item.label}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* User */}
+              <div style={{padding: '8px 12px', borderTop: '1px solid var(--border-light)', display: 'flex', alignItems: 'center', gap: 8}}>
+                <div style={{width: 22, height: 22, borderRadius: 4, background: '#ddd', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11}}>👤</div>
+                <span style={{fontSize: 12, color: 'var(--text-secondary)'}}>Arthur Bledou</span>
+              </div>
+            </div>
+            <div style={{marginTop: 8, fontSize: 11, color: 'var(--text-tertiary)', fontStyle: 'italic'}}>
+              Sidebar textuelle · icônes émoji · workspace branding · favoris
+            </div>
+          </div>
+        </div>
+      </Section>
+    );
+  };
+
+  /* ══════════════════════════════════════════════════════════════
+     COMPONENT: Masthead vs Notion Page Header
+     ══════════════════════════════════════════════════════════════ */
+  const MastheadShowcase = () => {
+    const TABS = ['Tableau','Programme','Charge','Ruptures','Suivi','Expéditions','Réceptions','Conditionnements','Promesse','Copilote','Config'];
+    const [activeTab, setActiveTab] = useState('Programme');
+    return (
+      <Section id="masthead" title="❷ Barre de navigation (Masthead)" desc="Les 11 tabs + logo Fraunces deviennent un en-tête de page Notion avec breadcrumb et tabs en database-view pills.">
+        <div className="comparison">
+          {/* Current */}
+          <div>
+            <div className="label-actuel" style={{marginBottom: 12, marginLeft: 4}}>Actuel</div>
+            <div className="current-masthead" style={{borderRadius: 8, overflow: 'hidden'}}>
+              {/* Brand */}
+              <div style={{padding: '12px 24px 8px', display: 'flex', alignItems: 'flex-end', gap: 12, minHeight: 52}}>
+                <div className="brand">
+                  Supply Chain <span>AERECO</span>
+                </div>
+                <div style={{fontSize: 10, color: '#8c7d66', fontFamily: 'monospace', paddingBottom: 2}}>
+                  PROGRAMME / PLANIFICATION
+                </div>
+                <span style={{marginLeft: 'auto', fontSize: 10, background: '#a8431f', color: '#fbf8ef', padding: '2px 8px', borderRadius: 999, fontFamily: 'monospace', fontWeight: 700}}>TEST</span>
+              </div>
+              {/* Tabs */}
+              <div style={{borderTop: '1px solid #cdbfa0', display: 'flex', gap: 0, padding: '0 20px', minHeight: 40, alignItems: 'center', flexWrap: 'wrap'}}>
+                {TABS.map(t => (
+                  <span key={t} style={{
+                    padding: '8px 12px', fontSize: 11, fontWeight: 600,
+                    cursor: 'pointer',
+                    color: t === activeTab ? '#a8431f' : '#6b618f',
+                    borderBottom: t === activeTab ? '2px solid #a8431f' : '2px solid transparent',
+                    fontFamily: 'Inter, sans-serif',
+                  }}>{t}</span>
+                ))}
+              </div>
+            </div>
+            <div style={{marginTop: 8, fontSize: 11, color: '#8c7d66', fontStyle: 'italic'}}>
+              Bandeau encombrant · 11 tabs linéaires · brand proéminent
+            </div>
+          </div>
+
+          <div className="comparison-vs">→</div>
+
+          {/* Notion */}
+          <div>
+            <div className="label-notion" style={{marginBottom: 12, marginLeft: 4}}>Notion-style</div>
+            <div className="notion-page" style={{padding: '0 24px', background: '#fff', borderRadius: 8, border: '1px solid var(--border-light)'}}>
+              {/* Page header */}
+              <div style={{paddingTop: 20, paddingBottom: 8}}>
+                {/* Breadcrumb */}
+                <div style={{display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 8}}>
+                  <span>📋</span>
+                  <span style={{cursor: 'pointer'}}>Supply Chain</span>
+                  <span style={{fontSize: 10}}>›</span>
+                  <span style={{cursor: 'pointer'}}>Planification</span>
+                  <span style={{fontSize: 10}}>›</span>
+                  <span style={{color: 'var(--text-secondary)', cursor: 'default'}}>Programme</span>
+                </div>
+
+                {/* Title + inline properties */}
+                <div style={{display: 'flex', alignItems: 'flex-start', gap: 12}}>
+                  <div style={{fontSize: 28, lineHeight: 1}}>📋</div>
+                  <div style={{flex: 1}}>
+                    <div className="n-h1" style={{fontSize: 28}}>Programme de production</div>
+                    <div style={{display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, flexWrap: 'wrap'}}>
+                      {/* Database-like properties inline */}
+                      <span className="n-chip" style={{background: 'var(--green-soft)', color: 'var(--green)'}}>
+                        <span className="n-select-dot" style={{background: 'var(--green)'}} />
+                        8 OF fermes
+                      </span>
+                      <span className="n-chip" style={{background: 'var(--blue-soft)', color: 'var(--blue)'}}>
+                        <span className="n-select-dot" style={{background: 'var(--blue)'}} />
+                        12 planifiés
+                      </span>
+                      <span className="n-chip" style={{background: 'var(--amber-soft)', color: 'var(--amber)'}}>
+                        <span className="n-select-dot" style={{background: 'var(--amber)'}} />
+                        3 suggérés
+                      </span>
+                      <span className="n-chip" style={{background: 'var(--red-soft)', color: 'var(--red)'}}>
+                        <span className="n-select-dot" style={{background: 'var(--red)'}} />
+                        2 en retard
+                      </span>
+                      {/* Env badge */}
+                      <span style={{
+                        marginLeft: 8, fontSize: 10, fontWeight: 600,
+                        background: 'var(--accent-soft)', color: 'var(--accent)',
+                        padding: '2px 8px', borderRadius: 4, fontFamily: 'monospace',
+                      }}>TEST</span>
+                    </div>
+                  </div>
+                  {/* Page actions */}
+                  <div style={{display: 'flex', gap: 4}}>
+                    <button className="n-btn n-btn-icon" title="Favoris"><span className="material-symbols-outlined" style={{fontSize: 16}}>star</span></button>
+                    <button className="n-btn n-btn-icon" title="Plus"><span className="material-symbols-outlined" style={{fontSize: 16}}>more_horiz</span></button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Database tabs - like Notion view switcher */}
+              <div style={{display: 'flex', alignItems: 'center', gap: 2, padding: '4px 0 0', borderTop: '1px solid var(--border-light)', marginTop: 12}}>
+                {[
+                  {icon: 'grid_view', label: 'Board', active: true},
+                  {icon: 'table_chart', label: 'Tableau'},
+                  {icon: 'timeline', label: 'Timeline'},
+                  {icon: 'calendar_month', label: 'Calendrier'},
+                ].map(v => (
+                  <button key={v.label} className="n-btn" style={{
+                    background: v.active ? 'var(--bg-active)' : 'transparent',
+                    color: v.active ? 'var(--text-primary)' : 'var(--text-secondary)',
+                    fontWeight: v.active ? 500 : 400,
+                    height: 30,
+                  }}>
+                    <span className="material-symbols-outlined" style={{fontSize: 16}}>{v.icon}</span>
+                    {v.label}
+                  </button>
+                ))}
+                <div style={{flex: 1}} />
+                <div className="n-btn">+ Nouvelle vue</div>
+                <div className="n-btn" style={{gap: 6}}>
+                  <span className="material-symbols-outlined" style={{fontSize: 16}}>filter_alt</span>
+                  Filtrer
+                </div>
+                <div className="n-btn" style={{gap: 6}}>
+                  <span className="material-symbols-outlined" style={{fontSize: 16}}>sort</span>
+                  Trier
+                </div>
+              </div>
+            </div>
+            <div style={{marginTop: 8, fontSize: 11, color: 'var(--text-tertiary)', fontStyle: 'italic'}}>
+              Page-centric · breadcrumbs · inline stats tags · view switcher façon database Notion
+            </div>
+          </div>
+        </div>
+      </Section>
+    );
+  };
+
+  /* ══════════════════════════════════════════════════════════════
+     COMPONENT: Board Card vs Notion Database Card
+     ══════════════════════════════════════════════════════════════ */
+  const CardShowcase = () => {
+    return (
+      <Section id="cards" title="❸ Cartes OF (Board Card)" desc="Les cartes « Papier » actuelles (liseré statut 3px, tampon BDH, badge faisabilité) deviennent des cards Notion database avec propriétés typées en inline.">
+        <div className="comparison" style={{alignItems: 'stretch'}}>
+          {/* Current */}
+          <div>
+            <div className="label-actuel" style={{marginBottom: 12, marginLeft: 4}}>Actuel</div>
+            <div style={{display: 'flex', flexDirection: 'column', gap: 12}}>
+              {/* Card ferme */}
+              <div className="current-board-card" style={{borderTopColor: '#5b7d4e'}}>
+                <div style={{display: 'flex', alignItems: 'center', gap: 6}}>
+                  <span style={{background: '#5b7d4e', color: '#fff', padding: '1px 6px', borderRadius: 3, fontSize: 9, fontWeight: 700}}>NOR</span>
+                  <span style={{fontWeight: 700, fontSize: 12}}>OF2405-012</span>
+                </div>
+                <div style={{color: '#a8431f', fontWeight: 600, fontSize: 11, marginTop: 4}}>VMC SILENCIO 150</div>
+                <div style={{fontSize: 10, color: '#8c7d66', marginTop: 2}}>Ventilateur simple flux hygro</div>
+                <div style={{display: 'flex', alignItems: 'center', gap: 4, marginTop: 8, borderTop: '1px solid #e3d9c1', paddingTop: 6}}>
+                  <span style={{background: '#e3d9c1', color: '#5b7d4e', padding: '1px 6px', borderRadius: 999, fontSize: 9, fontWeight: 700}}>ESH10</span>
+                  <span style={{marginLeft: 'auto', fontFamily: 'Fraunces', fontWeight: 700, fontSize: 13}}>4,5<span style={{fontSize: 9, color: '#8c7d66', fontFamily: 'Inter'}}> h</span></span>
+                </div>
+              </div>
+              {/* Card planifié */}
+              <div className="current-board-card" style={{borderTopColor: '#2f4858'}}>
+                <div style={{display: 'flex', alignItems: 'center', gap: 6}}>
+                  <span style={{background: '#2f4858', color: '#fff', padding: '1px 6px', borderRadius: 3, fontSize: 9, fontWeight: 700}}>MTO</span>
+                  <span style={{fontWeight: 700, fontSize: 12}}>OF2405-045</span>
+                </div>
+                <div style={{color: '#a8431f', fontWeight: 600, fontSize: 11, marginTop: 4}}>CAISSON EXT 250</div>
+                <div style={{fontSize: 10, color: '#8c7d66', marginTop: 2}}>Caisson de ventilation hélicoïde</div>
+                <div style={{display: 'flex', gap: 8, marginTop: 6, borderTop: '1px solid #e3d9c1', paddingTop: 6, fontSize: 10}}>
+                  <span style={{display: 'flex', alignItems: 'center', gap: 3}}>
+                    <span style={{width: 6, height: 6, borderRadius: 1, background: '#2f4858'}} />
+                    ESH30
+                  </span>
+                  <span style={{marginLeft: 'auto', fontFamily: 'Fraunces', fontWeight: 700, fontSize: 13}}>8,0<span style={{fontSize: 9, color: '#8c7d66', fontFamily: 'Inter'}}> h</span></span>
+                </div>
+              </div>
+              {/* Card bloqué */}
+              <div className="current-board-card" style={{borderTopColor: '#dc2626'}}>
+                <div style={{display: 'flex', alignItems: 'center', gap: 6}}>
+                  <span style={{background: '#dc2626', color: '#fff', padding: '1px 6px', borderRadius: 3, fontSize: 9, fontWeight: 700}}>NOR</span>
+                  <span style={{fontWeight: 700, fontSize: 12}}>OF2405-078</span>
+                  <span className="material-symbols-outlined" style={{fontSize: 12, color: '#dc2626', marginLeft: 'auto'}}>priority_high</span>
+                </div>
+                <div style={{color: '#a8431f', fontWeight: 600, fontSize: 11, marginTop: 4}}>KIT G700</div>
+                <div style={{fontSize: 10, color: '#8c7d66', marginTop: 2}}>Kit bouche hygro G700</div>
+                <div style={{display: 'flex', gap: 4, marginTop: 6, background: '#fef2f2', borderRadius: 4, padding: '3px 6px', fontSize: 9, color: '#dc2626'}}>
+                  <span className="material-symbols-outlined" style={{fontSize: 10}}>warning</span>
+                  Rupture: MTR-HYGRO-001
+                </div>
+                <div style={{display: 'flex', borderTop: '1px solid #e3d9c1', marginTop: 4, paddingTop: 4}}>
+                  <span style={{marginLeft: 'auto', fontFamily: 'Fraunces', fontWeight: 700, fontSize: 13, color: '#dc2626'}}>2,0<span style={{fontSize: 9, color: '#8c7d66', fontFamily: 'Inter'}}> h</span></span>
+                </div>
+              </div>
+            </div>
+            <div style={{marginTop: 8, fontSize: 11, color: '#8c7d66', fontStyle: 'italic'}}>
+              3px top border · Fraunces footer · tampons et badges nombreux
+            </div>
+          </div>
+
+          <div className="comparison-vs">→</div>
+
+          {/* Notion */}
+          <div>
+            <div className="label-notion" style={{marginBottom: 12, marginLeft: 4}}>Notion-style</div>
+            <div style={{display: 'flex', flexDirection: 'column', gap: 8}}>
+              {[
+                {
+                  title: 'OF2405-012',
+                  subtitle: 'VMC SILENCIO 150',
+                  desc: 'Ventilateur simple flux hygro',
+                  status: { label: 'Ferme', color: 'var(--green)', bg: 'var(--green-soft)' },
+                  type: 'NOR',
+                  typologie: 'ESH10',
+                  charge: '4,5h',
+                  progress: '140/200',
+                },
+                {
+                  title: 'OF2405-045',
+                  subtitle: 'CAISSON EXT 250',
+                  desc: 'Caisson de ventilation hélicoïde',
+                  status: { label: 'Planifié', color: 'var(--blue)', bg: 'var(--blue-soft)' },
+                  type: 'MTO',
+                  typologie: 'ESH30',
+                  charge: '8,0h',
+                },
+                {
+                  title: 'OF2405-078',
+                  subtitle: 'KIT G700',
+                  desc: 'Kit bouche hygro G700',
+                  status: { label: 'Bloqué', color: 'var(--red)', bg: 'var(--red-soft)' },
+                  type: 'NOR',
+                  typologie: 'KIT',
+                  charge: '2,0h',
+                  blocked: true,
+                  alert: 'Rupture: MTR-HYGRO-001',
+                },
+              ].map(card => (
+                <div key={card.title} className="hover-parent" style={{
+                  background: '#fff', borderRadius: 8, border: '1px solid var(--border-light)',
+                  padding: 12, boxShadow: 'var(--shadow-card)',
+                  cursor: 'pointer', transition: 'box-shadow 0.1s',
+                }}
+                  onMouseEnter={e => e.currentTarget.style.boxShadow = 'var(--shadow-pop)'}
+                  onMouseLeave={e => e.currentTarget.style.boxShadow = 'var(--shadow-card)'}
+                >
+                  {/* Drag handle + Title */}
+                  <div style={{display: 'flex', alignItems: 'center', gap: 8}}>
+                    <span className="material-symbols-outlined hover-controls" style={{fontSize: 14, color: 'var(--text-tertiary)', cursor: 'grab'}}>drag_indicator</span>
+                    <span className="n-title">{card.title}</span>
+                    <span style={{fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 400}}>{card.subtitle}</span>
+                    <div style={{marginLeft: 'auto', display: 'flex', gap: 4}}>
+                      <span className="material-symbols-outlined hover-controls" style={{fontSize: 14, color: 'var(--text-tertiary)'}}>open_in_new</span>
+                    </div>
+                  </div>
+
+                  {/* Description */}
+                  <div style={{fontSize: 12, color: 'var(--text-secondary)', marginTop: 2, marginLeft: 22}}>{card.desc}</div>
+
+                  {/* Properties row (Notion database inline properties) */}
+                  <div style={{display: 'flex', alignItems: 'center', gap: 12, marginTop: 8, marginLeft: 22, flexWrap: 'wrap'}}>
+                    {/* Status select */}
+                    <span className="n-prop">
+                      <span className="n-prop-name">Statut</span>
+                      <span className="n-select" style={{background: card.status.bg, color: card.status.color}}>
+                        <span className="n-select-dot" style={{background: card.status.color}} />
+                        {card.status.label}
+                      </span>
+                    </span>
+
+                    {/* Type select */}
+                    <span className="n-prop">
+                      <span className="n-prop-name">Type</span>
+                      <span className="n-select" style={{background: 'var(--bg-hover)', color: 'var(--text-secondary)'}}>
+                        {card.type}
+                      </span>
+                    </span>
+
+                    {/* Typologie */}
+                    <span className="n-prop">
+                      <span className="n-prop-name">Typo</span>
+                      <span className="n-prop-val">{card.typologie}</span>
+                    </span>
+
+                    {/* Charge */}
+                    <span className="n-prop">
+                      <span className="n-prop-name">Charge</span>
+                      <span className="n-prop-val">{card.charge}</span>
+                    </span>
+
+                    {/* Progress */}
+                    {card.progress && <span className="n-prop">
+                      <span className="n-prop-name">Avancement</span>
+                      <span style={{display: 'flex', alignItems: 'center', gap: 6}}>
+                        <span style={{width: 40, height: 4, borderRadius: 2, background: 'var(--bg-hover)', overflow: 'hidden', display: 'inline-flex'}}>
+                          <span style={{width: '70%', height: '100%', background: 'var(--green)', borderRadius: 2}} />
+                        </span>
+                        <span className="n-prop-val">{card.progress}</span>
+                      </span>
+                    </span>}
+
+                    {/* Extra actions on hover */}
+                    <span className="material-symbols-outlined hover-controls" style={{fontSize: 14, color: 'var(--text-tertiary)', marginLeft: 'auto'}}>add</span>
+                  </div>
+
+                  {/* Alert banner (for blocked) */}
+                  {card.alert && (
+                    <div style={{
+                      marginTop: 8, marginLeft: 22,
+                      display: 'flex', alignItems: 'center', gap: 6,
+                      padding: '4px 8px', borderRadius: 4,
+                      background: 'var(--red-soft)', color: 'var(--red)',
+                      fontSize: 11, fontWeight: 500,
+                    }}>
+                      <span className="material-symbols-outlined" style={{fontSize: 14}}>warning</span>
+                      {card.alert}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div style={{marginTop: 8, fontSize: 11, color: 'var(--text-tertiary)', fontStyle: 'italic'}}>
+              Card database Notion · propriétés typées inline · drag handle · hover reveal
+            </div>
+          </div>
+        </div>
+      </Section>
+    );
+  };
+
+  /* ══════════════════════════════════════════════════════════════
+     COMPONENT: Board Grid vs Notion Board View
+     ══════════════════════════════════════════════════════════════ */
+  const BoardGridShowcase = () => {
+    return (
+      <Section id="board" title="❹ Grille d'ordonnancement (Board)" desc="Le board « Papier » avec fond quadrillé, semaines Fraunces et histogrammes devient une view Board façon Notion database : colonnes = jours, cartes = cards, statut en select property.">
+        <div className="comparison" style={{alignItems: 'stretch'}}>
+          {/* Current */}
+          <div>
+            <div className="label-actuel" style={{marginBottom: 12, marginLeft: 4}}>Actuel</div>
+            <div className="current-card" style={{padding: 0, overflow: 'hidden'}}>
+              {/* Week header */}
+              <div style={{display: 'flex', background: '#efe7d6', borderBottom: '1px solid #cdbfa0'}}>
+                <div style={{width: 140, padding: '6px 12px', fontSize: 10, color: '#8c7d66', fontWeight: 600, borderRight: '1px solid #cdbfa0'}}>POSTE</div>
+                <div style={{flex: 1, padding: '6px 12px', fontFamily: 'Fraunces', fontWeight: 900, fontSize: 12, color: '#a8431f'}}>Semaine 22</div>
+                <div style={{flex: 1, padding: '6px 12px', fontFamily: 'Fraunces', fontWeight: 900, fontSize: 12, color: '#a8431f'}}>Semaine 23</div>
+              </div>
+              {/* Day header */}
+              <div style={{display: 'flex', borderBottom: '1px solid #e3d9c1'}}>
+                <div style={{width: 140, padding: '8px 12px', fontSize: 9, color: '#8c7d66', fontWeight: 600, borderRight: '1px solid #e3d9c1'}}>Poste de production</div>
+                {['Lun 27','Mar 28','Mer 29','Jeu 30','Ven 31','Lun 3','Mar 4','Mer 5','Jeu 6','Ven 7'].map((d,i) => (
+                  <div key={i} style={{flex: 1, padding: '4px 6px', textAlign: 'center', borderRight: '1px solid #e3d9c1', fontSize: 9}}>
+                    <div style={{fontSize: 8, color: '#8c7d66', fontWeight: 600}}>{d}</div>
+                    <div style={{fontFamily: 'Fraunces', fontWeight: 700, fontSize: 14, color: '#1f1a13'}}>{['27','28','29','30','31','3','4','5','6','7'][i]}</div>
+                    <div style={{fontSize: 8, color: '#a8431f', fontWeight: 700}}>6,8<span style={{fontSize: 7, opacity: 0.6}}>h</span></div>
+                  </div>
+                ))}
+              </div>
+              {/* Row */}
+              {[
+                {code: 'PP_830', name: 'Ligne hygro G700', cards: 3},
+                {code: 'PP_440', name: 'Petite chaudronnerie', cards: 2},
+                {code: 'PP_210', name: 'Ligne silencieux', cards: 1},
+              ].map(row => (
+                <div key={row.code} style={{display: 'flex', borderBottom: '1px solid #e3d9c1'}}>
+                  <div style={{width: 140, padding: '8px 12px', borderRight: '1px solid #e3d9c1', background: '#fbf8ef'}}>
+                    <div style={{display: 'flex', alignItems: 'center', gap: 4}}>
+                      <span style={{width: 8, height: 6, borderRadius: 1, background: '#2f4858'}} />
+                      <span style={{fontSize: 12, fontWeight: 700, fontFamily: 'monospace'}}>{row.code}</span>
+                    </div>
+                    <div style={{fontSize: 9, color: '#8c7d66', marginTop: 2}}>{row.name}</div>
+                  </div>
+                  {Array(10).fill(null).map((_,i) => (
+                    <div key={i} style={{
+                      flex: 1, minHeight: 80, borderRight: '1px solid #e3d9c1', padding: 4,
+                      backgroundImage: i === 3 ? undefined : 'linear-gradient(to right, rgba(31,26,19,.045) 1px, transparent 1px), linear-gradient(to bottom, rgba(31,26,19,.045) 1px, transparent 1px)',
+                      backgroundSize: '22px 22px',
+                      background: i === 3 ? 'rgba(168,67,31,.1)' : undefined,
+                    }}>
+                      {i === 2 && <div className="current-board-card" style={{borderTopColor: '#5b7d4e', padding: '4px 6px', fontSize: 9}}>
+                        <div style={{fontWeight: 700}}>OF2405-012</div>
+                        <div style={{fontFamily: 'Fraunces', fontWeight: 700}}>4,5h</div>
+                      </div>}
+                      {i === 3 && <div className="current-board-card" style={{borderTopColor: '#2f4858', padding: '4px 6px', fontSize: 9}}>
+                        <div style={{fontWeight: 700}}>OF2405-045</div>
+                        <div style={{fontFamily: 'Fraunces', fontWeight: 700}}>8,0h</div>
+                      </div>}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="comparison-vs">→</div>
+
+          {/* Notion */}
+          <div>
+            <div className="label-notion" style={{marginBottom: 12, marginLeft: 4}}>Notion-style</div>
+            <div style={{borderRadius: 8, border: '1px solid var(--border-light)', background: '#fff', overflow: 'hidden'}}>
+              {/* Board header */}
+              <div className="scroll-x">
+                <div style={{minWidth: 680, padding: '8px 12px'}}>
+                  {/* Week band */}
+                  <div style={{display: 'flex', marginBottom: 4}}>
+                    <div style={{width: 180}} />
+                    <div style={{flex: 1, fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', padding: '0 8px'}}>Semaine 22</div>
+                    <div style={{flex: 1, fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', padding: '0 8px'}}>Semaine 23</div>
+                  </div>
+                  {/* Day headers */}
+                  <div style={{display: 'flex', borderBottom: '1px solid var(--border-light)', paddingBottom: 4, marginBottom: 4}}>
+                    <div style={{width: 180, fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', padding: '0 8px 8px'}}>Poste</div>
+                    {['Lun 27','Mar 28','Mer 29','Jeu 30','Ven 31','Lun 3','Mar 4','Mer 5','Jeu 6','Ven 7'].map((d,i) => (
+                      <div key={i} style={{flex: 1, padding: '0 4px 8px', textAlign: 'center', borderRight: '1px solid var(--border-light)'}}>
+                        <div style={{fontSize: 10, color: 'var(--text-tertiary)', fontWeight: 500, marginBottom: 2}}>{d}</div>
+                        <div style={{fontSize: 13, fontWeight: 600, color: i === 3 ? 'var(--accent)' : 'var(--text-primary)'}}>{['27','28','29','30','31','3','4','5','6','7'][i]}</div>
+                        <div style={{fontSize: 9, color: 'var(--text-tertiary)', marginTop: 1}}>6,8h</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Rows */}
+                  {[
+                    {code: 'PP_830', name: 'Ligne hygro G700', type: 'Montage', cards: [
+                      {col: 1, title: 'OF2405-012', charge: '4,5h', status: 'Ferme', color: 'var(--green)'},
+                      {col: 2, title: 'OF2405-013', charge: '3,2h', status: 'Ferme', color: 'var(--green)'},
+                      {col: 3, title: 'OF2405-045', charge: '8,0h', status: 'Planifié', color: 'var(--blue)'},
+                    ]},
+                    {code: 'PP_440', name: 'Petite chaudronnerie', type: 'Fabrication', cards: [
+                      {col: 4, title: 'OF2405-078', charge: '2,0h', status: 'Bloqué', color: 'var(--red)'},
+                      {col: 6, title: 'OF2405-101', charge: '6,5h', status: 'Suggéré', color: 'var(--amber)'},
+                    ]},
+                    {code: 'PP_210', name: 'Ligne silencieux', type: 'Assemblage', cards: [
+                      {col: 7, title: 'OF2405-112', charge: '3,0h', status: 'Planifié', color: 'var(--blue)'},
+                    ]},
+                  ].map(row => (
+                    <div key={row.code} className="hover-parent" style={{display: 'flex', borderBottom: '1px solid var(--border-light)', minHeight: 80}}>
+                      {/* Label column */}
+                      <div style={{
+                        width: 180, padding: '8px 8px', flex: 'none',
+                        borderRight: '1px solid var(--border-light)',
+                        background: 'var(--bg-page)',
+                      }}>
+                        <div style={{display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2}}>
+                          <span className="material-symbols-outlined hover-controls" style={{fontSize: 14, color: 'var(--text-tertiary)', cursor: 'grab'}}>drag_indicator</span>
+                          <span style={{fontSize: 13, fontWeight: 600}}>{row.code}</span>
+                          <span className="material-symbols-outlined hover-controls" style={{fontSize: 12, color: 'var(--text-tertiary)', marginLeft: 'auto'}}>add</span>
+                        </div>
+                        <div style={{fontSize: 11, color: 'var(--text-secondary)', marginLeft: 18}}>{row.name}</div>
+                        <div style={{marginTop: 4, marginLeft: 18}}>
+                          <span className="n-select" style={{background: 'var(--bg-hover)', color: 'var(--text-tertiary)', fontSize: 10, height: 18}}>{row.type}</span>
+                        </div>
+                      </div>
+
+                      {/* Day cells */}
+                      {Array(10).fill(null).map((_,col) => {
+                        const cellCards = row.cards.filter(c => c.col === col);
+                        return (
+                          <div key={col} style={{
+                            flex: 1, minHeight: 80, padding: 4,
+                            borderRight: '1px solid var(--border-light)',
+                            background: col === 3 ? 'var(--accent-soft)' : undefined,
+                            cursor: 'pointer',
+                          }}
+                            onMouseEnter={e => { if (!cellCards.length) e.currentTarget.style.background = 'var(--bg-hover)' }}
+                            onMouseLeave={e => { if (!cellCards.length) e.currentTarget.style.background = col === 3 ? 'var(--accent-soft)' : undefined }}
+                          >
+                            {cellCards.map(c => (
+                              <div key={c.title} className="hover-parent" style={{
+                                background: '#fff', borderRadius: 6,
+                                border: '1px solid var(--border-light)',
+                                borderLeft: `3px solid ${c.color}`,
+                                padding: '4px 8px', marginBottom: 4,
+                                cursor: 'pointer', fontSize: 11,
+                                boxShadow: 'var(--shadow-card)',
+                                transition: 'box-shadow 0.1s',
+                              }}
+                                onMouseEnter={e => e.currentTarget.style.boxShadow = 'var(--shadow-pop)'}
+                                onMouseLeave={e => e.currentTarget.style.boxShadow = 'var(--shadow-card)'}
+                              >
+                                <div style={{display: 'flex', alignItems: 'center', gap: 4}}>
+                                  <span style={{fontWeight: 600, fontSize: 11, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>{c.title}</span>
+                                  <span style={{fontSize: 10, color: 'var(--text-tertiary)'}}>{c.charge}</span>
+                                </div>
+                                <div style={{display: 'flex', alignItems: 'center', gap: 4, marginTop: 2}}>
+                                  <span className="n-select-dot" style={{width: 6, height: 6, background: c.color}} />
+                                  <span style={{fontSize: 9, color: c.color}}>{c.status}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div style={{marginTop: 8, fontSize: 11, color: 'var(--text-tertiary)', fontStyle: 'italic'}}>
+              Board view Notion · colonnes = jours · cards = database items · drag handle · inline properties
+            </div>
+          </div>
+        </div>
+      </Section>
+    );
+  };
+
+  /* ══════════════════════════════════════════════════════════════
+     COMPONENT: Data Table vs Notion Table View
+     ══════════════════════════════════════════════════════════════ */
+  const TableShowcase = () => {
+    return (
+      <Section id="table" title="❺ Tableau de données (DataTable)" desc="Le tableau actuel (shadcn border-radius + slote palette) devient une view Table Notion : lignes alternées subtiles, propriétés typées, colonnes redimensionnables.">
+        <div className="comparison" style={{alignItems: 'stretch'}}>
+          {/* Current */}
+          <div>
+            <div className="label-actuel" style={{marginBottom: 12, marginLeft: 4}}>Actuel</div>
+            <div className="current-table">
+              <table style={{width: '100%', borderCollapse: 'collapse'}}>
+                <thead>
+                  <tr>
+                    <th>Composant</th>
+                    <th style={{textAlign: 'right'}}>Qté manq.</th>
+                    <th>OF bloqué</th>
+                    <th>Statut</th>
+                    <th>Date besoin</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    {comp: 'MTR-HYGRO-001', qty: 240, of: 'OF2405-078', status: 'Rupture', date: '2026-05-28'},
+                    {comp: 'FLT-SIL-045', qty: 80, of: 'OF2405-045', status: 'Urgent', date: '2026-06-02'},
+                    {comp: 'CST-250-B', qty: 45, of: 'OF2405-091', status: 'Suivi', date: '2026-06-10'},
+                  ].map(row => (
+                    <tr key={row.comp}>
+                      <td>
+                        <div style={{fontWeight: 600, fontSize: 12, fontFamily: 'monospace'}}>{row.comp}</div>
+                        <div style={{fontSize: 10, color: '#8c7d66'}}>Moteur hygro G700</div>
+                      </td>
+                      <td style={{textAlign: 'right', fontFamily: 'Fraunces', fontWeight: 700, fontSize: 14, color: '#dc2626'}}>{row.qty}<span style={{fontSize: 9, color: '#8c7d66', fontFamily: 'Inter'}}> u</span></td>
+                      <td>
+                        <span style={{fontWeight: 600, fontFamily: 'monospace', fontSize: 11, color: '#a8431f'}}>{row.of}</span>
+                      </td>
+                      <td><span className="badge badge-danger" style={{fontSize: 9}}>{row.status}</span></td>
+                      <td style={{fontFamily: 'monospace', fontSize: 11}}>{row.date}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="comparison-vs">→</div>
+
+          {/* Notion */}
+          <div>
+            <div className="label-notion" style={{marginBottom: 12, marginLeft: 4}}>Notion-style</div>
+            <div style={{
+              border: '1px solid var(--border-light)', borderRadius: 6, overflow: 'hidden',
+              background: '#fff', fontSize: 13,
+            }}>
+              {/* Table header */}
+              <div style={{display: 'flex', borderBottom: '1px solid var(--border-light)', background: 'var(--bg-page)'}}>
+                {[
+                  {label: 'Composant', width: 180, icon: 'abc'},
+                  {label: 'Qté manquante', width: 120, align: 'right', icon: '123'},
+                  {label: 'OF bloqué', width: 150, icon: 'link'},
+                  {label: 'Statut', width: 120, icon: 'check_circle'},
+                  {label: 'Date besoin', width: 120, icon: 'calendar_month'},
+                ].map(col => (
+                  <div key={col.label} style={{
+                    width: col.width, padding: '6px 10px',
+                    display: 'flex', alignItems: 'center', gap: 4,
+                    fontSize: 11, fontWeight: 500, color: 'var(--text-tertiary)',
+                    justifyContent: col.align === 'right' ? 'flex-end' : 'flex-start',
+                    borderRight: '1px solid var(--border-light)',
+                    cursor: 'pointer', userSelect: 'none',
+                  }}>
+                    <span className="material-symbols-outlined" style={{fontSize: 13}}>{col.icon}</span>
+                    {col.label}
+                  </div>
+                ))}
+              </div>
+
+              {/* Rows */}
+              {[
+                {comp: 'MTR-HYGRO-001', desc: 'Moteur hygro G700', qty: 240, of: 'OF2405-078', status: 'Rupture', color: 'var(--red)', bg: 'var(--red-soft)', date: '28 mai 2026'},
+                {comp: 'FLT-SIL-045', desc: 'Flitre silencieux 045', qty: 80, of: 'OF2405-045', status: 'Urgent', color: 'var(--orange)', bg: 'var(--orange-soft)', date: '2 juin 2026'},
+                {comp: 'CST-250-B', desc: 'Caisson 250 type B', qty: 45, of: 'OF2405-091', status: 'Suivi', color: 'var(--blue)', bg: 'var(--blue-soft)', date: '10 juin 2026'},
+              ].map((row, ri) => (
+                <div key={row.comp} className="hover-parent" style={{
+                  display: 'flex', borderBottom: '1px solid var(--border-light)',
+                  background: ri % 2 === 1 ? 'var(--bg-page)' : '#fff',
+                  transition: 'background 0.1s',
+                  cursor: 'pointer',
+                }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
+                  onMouseLeave={e => e.currentTarget.style.background = ri % 2 === 1 ? 'var(--bg-page)' : '#fff'}
+                >
+                  <div style={{width: 180, padding: '6px 10px', borderRight: '1px solid var(--border-light)'}}>
+                    <div style={{fontSize: 12, fontWeight: 600}}>{row.comp}</div>
+                    <div style={{fontSize: 11, color: 'var(--text-secondary)', marginTop: 1}}>{row.desc}</div>
+                  </div>
+                  <div style={{width: 120, padding: '6px 10px', textAlign: 'right', borderRight: '1px solid var(--border-light)'}}>
+                    <span style={{fontSize: 14, fontWeight: 600, color: row.qty > 100 ? 'var(--red)' : 'var(--text-primary)'}}>{row.qty}</span>
+                    <span style={{fontSize: 11, color: 'var(--text-tertiary)', marginLeft: 2}}>u</span>
+                  </div>
+                  <div style={{width: 150, padding: '6px 10px', borderRight: '1px solid var(--border-light)'}}>
+                    <span style={{fontSize: 12, fontWeight: 500, color: 'var(--accent)'}}>{row.of}</span>
+                  </div>
+                  <div style={{width: 120, padding: '6px 10px', borderRight: '1px solid var(--border-light)'}}>
+                    <span className="n-chip" style={{background: row.bg, color: row.color, fontSize: 10, height: 20}}>
+                      <span className="n-select-dot" style={{background: row.color, width: 6, height: 6}} />
+                      {row.status}
+                    </span>
+                  </div>
+                  <div style={{width: 120, padding: '6px 10px'}}>
+                    <span style={{fontSize: 12, color: 'var(--text-secondary)'}}>{row.date}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{marginTop: 8, fontSize: 11, color: 'var(--text-tertiary)', fontStyle: 'italic'}}>
+              Table view Notion · colonnes à propriété typée · type icons en en-tête · hover row highlight
+            </div>
+          </div>
+        </div>
+      </Section>
+    );
+  };
+
+  /* ══════════════════════════════════════════════════════════════
+     COMPONENT: Timeline vs Notion Timeline View
+     ══════════════════════════════════════════════════════════════ */
+  const TimelineShowcase = () => {
+    return (
+      <Section id="timeline" title="❻ Frise temporelle (Shortage Timeline)" desc="La frise ruptures actuelle (gaps hachurés, badges rouges) devient une timeline view Notion : barres/lots sur un axe, propriétés en chips, groupes par statut.">
+        <div className="comparison" style={{alignItems: 'stretch'}}>
+          {/* Current */}
+          <div>
+            <div className="label-actuel" style={{marginBottom: 12, marginLeft: 4}}>Actuel</div>
+            <div className="current-card" style={{padding: 12}}>
+              <div style={{fontFamily: 'Fraunces', fontWeight: 700, fontSize: 11, color: '#a8431f', marginBottom: 8}}>R3 · Couverture</div>
+              {[
+                {comp: 'MTR-HYGRO-001', exp: '28 mai', rec: '15 juin', status: 'bad', label: 'Rupture client'},
+                {comp: 'FLT-SIL-045', exp: '2 juin', rec: '8 juin', status: 'warn', label: 'À risque'},
+              ].map(row => (
+                <div key={row.comp} style={{display: 'flex', gap: 8, padding: '8px 0', borderBottom: '1px solid #e3d9c1'}}>
+                  <div style={{width: 110, fontSize: 10}}>
+                    <div style={{fontWeight: 600, fontFamily: 'monospace'}}>{row.comp}</div>
+                  </div>
+                  <div style={{flex: 1, height: 20, position: 'relative', background: '#f3ece0', borderRadius: 3}}>
+                    <div style={{position: 'absolute', left: '20%', width: '40%', height: '100%', background: row.status === 'bad' ? 'repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(220,38,38,.3) 3px, rgba(220,38,38,.3) 6px)' : '#fde68a', borderRadius: 3}} />
+                    <div style={{position: 'absolute', left: '20%', bottom: -14, fontSize: 8, color: '#8c7d66'}}>{row.exp}</div>
+                    <div style={{position: 'absolute', left: '60%', bottom: -14, fontSize: 8, color: '#8c7d66'}}>{row.rec}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="comparison-vs">→</div>
+
+          {/* Notion */}
+          <div>
+            <div className="label-notion" style={{marginBottom: 12, marginLeft: 4}}>Notion-style</div>
+            <div style={{
+              border: '1px solid var(--border-light)', borderRadius: 6,
+              background: '#fff', overflow: 'hidden',
+            }}>
+              <div style={{padding: '8px 12px', borderBottom: '1px solid var(--border-light)', display: 'flex', alignItems: 'center', gap: 8}}>
+                <span className="material-symbols-outlined" style={{fontSize: 16, color: 'var(--text-tertiary)'}}>timeline</span>
+                <span style={{fontSize: 12, fontWeight: 600}}>Couverture</span>
+                <span style={{fontSize: 11, color: 'var(--text-tertiary)'}}>3 éléments</span>
+                <div style={{flex: 1}} />
+                <button className="n-btn" style={{height: 24, fontSize: 10}}>
+                  <span className="material-symbols-outlined" style={{fontSize: 14}}>more_horiz</span>
+                </button>
+              </div>
+
+              {/* Timeline items */}
+              {[
+                {comp: 'MTR-HYGRO-001', status: 'Rupture', color: 'var(--red)', bg: 'var(--red-soft)', exp: '28 mai', rec: '15 juin', pct: 25, width: 35, urgent: true},
+                {comp: 'FLT-SIL-045', status: 'À risque', color: 'var(--orange)', bg: 'var(--orange-soft)', exp: '2 juin', rec: '8 juin', pct: 15, width: 25},
+                {comp: 'CST-250-B', status: 'OK', color: 'var(--green)', bg: 'var(--green-soft)', exp: '10 juin', rec: '5 juin', pct: 55, width: 15},
+              ].map(row => (
+                <div key={row.comp} className="hover-parent" style={{
+                  display: 'flex',
+                  padding: '8px 12px',
+                  borderBottom: '1px solid var(--border-light)',
+                  cursor: 'pointer', alignItems: 'center', gap: 12,
+                  transition: 'background 0.1s',
+                }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                >
+                  {/* Drag handle */}
+                  <span className="material-symbols-outlined hover-controls" style={{fontSize: 14, color: 'var(--text-tertiary)', cursor: 'grab'}}>drag_indicator</span>
+                  
+                  {/* Properties */}
+                  <span style={{fontSize: 12, fontWeight: 600, width: 140}}>{row.comp}</span>
+                  
+                  <span className="n-chip" style={{background: row.bg, color: row.color, fontSize: 10, height: 20}}>
+                    <span className="n-select-dot" style={{background: row.color, width: 6, height: 6}} />
+                    {row.status}
+                  </span>
+
+                  {/* Timeline bar */}
+                  <div style={{flex: 1, minWidth: 180, position: 'relative', height: 28}}>
+                    {/* Track */}
+                    <div style={{position: 'absolute', left: 0, right: 0, top: 12, height: 4, background: 'var(--bg-hover)', borderRadius: 2}} />
+                    {/* Today marker */}
+                    <div style={{position: 'absolute', left: '30%', top: 4, width: 2, height: 20, background: 'var(--accent)', opacity: 0.5}} />
+                    {/* Bar */}
+                    <div style={{
+                      position: 'absolute',
+                      left: `${row.pct}%`,
+                      width: `${row.width}%`,
+                      top: 8, height: 12,
+                      borderRadius: 4,
+                      background: row.urgent ? `repeating-linear-gradient(45deg, ${row.color}20, ${row.color}20 4px, ${row.bg} 4px, ${row.bg} 8px)` : row.bg,
+                      border: `1px solid ${row.color}40`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      <span style={{fontSize: 8, color: row.color, fontWeight: 600}}>{row.pct}%</span>
+                    </div>
+                    {/* Date labels */}
+                    <span style={{position: 'absolute', left: `${row.pct}%`, top: 22, fontSize: 9, color: 'var(--text-tertiary)', whiteSpace: 'nowrap'}}>{row.exp}</span>
+                    <span style={{position: 'absolute', left: `${row.pct + row.width}%`, top: 22, fontSize: 9, color: 'var(--text-tertiary)', whiteSpace: 'nowrap', transform: 'translateX(-100%)'}}>{row.rec}</span>
+                  </div>
+
+                  {/* Overflow */}
+                  <span className="material-symbols-outlined hover-controls" style={{fontSize: 14, color: 'var(--text-tertiary)'}}>more_horiz</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </Section>
+    );
+  };
+
+  /* ══════════════════════════════════════════════════════════════
+     COMPONENT: Drawer (Detail Sheet) vs Notion Side Peek
+     ══════════════════════════════════════════════════════════════ */
+  const DrawerShowcase = () => {
+    return (
+      <Section id="drawer" title="❼ Panneau de détail (Drawer / Sheet)" desc="Le drawer actuel (shadcn Sheet, fond blanc, header avec badges) devient un side peek Notion : page embed dans le drawer avec son propre breadcrumb et ses blocs properties.">
+        <div className="comparison" style={{alignItems: 'stretch'}}>
+          {/* Current */}
+          <div>
+            <div className="label-actuel" style={{marginBottom: 12, marginLeft: 4}}>Actuel</div>
+            <div style={{border: '1px solid #d9d6cb', borderRadius: 8, background: '#fbf8ef', overflow: 'hidden', width: 280, marginLeft: 'auto'}}>
+              <div style={{padding: 16}}>
+                <div style={{display: 'flex', gap: 6, marginBottom: 16}}>
+                  <span style={{fontSize: 10, background: '#efe7d6', padding: '2px 6px', borderRadius: 4, fontFamily: 'monospace'}}>AR24518 · L2</span>
+                  <span style={{fontSize: 10, background: 'rgba(168,67,31,.1)', color: '#a8431f', padding: '2px 6px', borderRadius: 4, fontFamily: 'monospace'}}>VMC-SL-150</span>
+                </div>
+                <div style={{fontFamily: 'Fraunces', fontWeight: 700, fontSize: 14, marginBottom: 4}}>Commande AR24518</div>
+                <div style={{fontSize: 11, color: '#8c7d66', marginBottom: 12}}>Client: BATIPRO SUD · 240 pcs</div>
+                <div className="n-divider" />
+                <div style={{fontSize: 11, display: 'flex', flexDirection: 'column', gap: 6}}>
+                  <div><span style={{color: '#8c7d66'}}>Type :</span> MTO</div>
+                  <div><span style={{color: '#8c7d66'}}>Date exp. :</span> 28/05/2026</div>
+                  <div><span style={{color: '#8c7d66'}}>Statut :</span> En cours</div>
+                  <div><span style={{color: '#8c7d66'}}>Article :</span> VMC SILENCIO 150</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="comparison-vs">→</div>
+
+          {/* Notion */}
+          <div>
+            <div className="label-notion" style={{marginBottom: 12, marginLeft: 4}}>Notion-style</div>
+            <div style={{
+              border: '1px solid var(--border-light)', borderRadius: 6,
+              background: '#fff', overflow: 'hidden', width: 320, marginLeft: 'auto',
+              boxShadow: 'var(--shadow-pop)',
+            }}>
+              {/* Inside peek: like Notion page opened in side peek */}
+              <div style={{padding: 16}}>
+                {/* Breadcrumb */}
+                <div style={{display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 16}}>
+                  <span>📋</span>
+                  <span>Programme</span>
+                  <span>›</span>
+                  <span style={{color: 'var(--text-secondary)'}}>AR24518</span>
+                  <span style={{flex: 1}} />
+                  <span className="material-symbols-outlined" style={{fontSize: 14, color: 'var(--text-tertiary)', cursor: 'pointer'}}>close</span>
+                </div>
+
+                {/* Page icon + title */}
+                <div style={{display: 'flex', gap: 10, marginBottom: 16}}>
+                  <div style={{fontSize: 32, lineHeight: 1}}>📄</div>
+                  <div>
+                    <div className="n-h2" style={{fontSize: 20}}>AR24518 · L2</div>
+                    <div style={{fontSize: 13, color: 'var(--text-secondary)', marginTop: 2}}>VMC SILENCIO 150</div>
+                  </div>
+                </div>
+
+                {/* Database properties (like Notion property table) */}
+                <div style={{display: 'grid', gridTemplateColumns: '100px 1fr', gap: '4px 8px', fontSize: 12, marginBottom: 16, padding: 8, background: 'var(--bg-page)', borderRadius: 6}}>
+                  <span style={{color: 'var(--text-tertiary)', fontWeight: 500}}>Client</span>
+                  <span style={{fontWeight: 500}}>BATIPRO SUD</span>
+                  
+                  <span style={{color: 'var(--text-tertiary)', fontWeight: 500}}>Type</span>
+                  <span className="n-select" style={{background: 'var(--blue-soft)', color: 'var(--blue)', height: 22}}>MTO</span>
+                  
+                  <span style={{color: 'var(--text-tertiary)', fontWeight: 500}}>Statut</span>
+                  <span className="n-select" style={{background: 'var(--green-soft)', color: 'var(--green)', height: 22}}>
+                    <span className="n-select-dot" style={{background: 'var(--green)'}} />
+                    Ferme
+                  </span>
+                  
+                  <span style={{color: 'var(--text-tertiary)', fontWeight: 500}}>Quantité</span>
+                  <span style={{fontWeight: 500}}>240 u</span>
+                  
+                  <span style={{color: 'var(--text-tertiary)', fontWeight: 500}}>Date exp.</span>
+                  <span style={{fontWeight: 500}}>28 mai 2026</span>
+                  
+                  <span style={{color: 'var(--text-tertiary)', fontWeight: 500}}>Article</span>
+                  <span style={{fontWeight: 500, color: 'var(--accent)'}}>VMC-SL-150</span>
+                </div>
+
+                {/* Page content hint */}
+                <div style={{fontSize: 12, color: 'var(--text-tertiary)', fontStyle: 'italic'}}>
+                  Contenu détaillé de la ligne de commande...
+                </div>
+
+                {/* Comments placeholder */}
+                <div className="n-divider" />
+                <div style={{display: 'flex', gap: 8, alignItems: 'center', fontSize: 12, color: 'var(--text-tertiary)'}}>
+                  <span className="material-symbols-outlined" style={{fontSize: 14}}>comment</span>
+                  <span>Ajouter un commentaire...</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Section>
+    );
+  };
+
+  /* ══════════════════════════════════════════════════════════════
+     COMPONENT: Dashboard KPI vs Notion Page + DB Summary
+     ══════════════════════════════════════════════════════════════ */
+  const DashboardShowcase = () => {
+    return (
+      <Section id="dashboard" title="❽ Tableau de bord (Dashboard KPI)" desc="Les KPI actuels (Fraunces + terra accents, cartes ombrées) deviennent une page Notion avec en-tête résumé et embedded database views.">
+        <div className="comparison" style={{alignItems: 'stretch'}}>
+          {/* Current */}
+          <div>
+            <div className="label-actuel" style={{marginBottom: 12, marginLeft: 4}}>Actuel</div>
+            <div className="current-card" style={{padding: 16}}>
+              <div style={{fontFamily: 'Fraunces', fontWeight: 700, fontSize: 14, color: '#a8431f', marginBottom: 12}}>Charge en retard</div>
+              <div style={{display: 'flex', gap: 8, marginBottom: 12}}>
+                <div className="current-card" style={{padding: '10px 14px', flex: 1, textAlign: 'center'}}>
+                  <div style={{fontFamily: 'Fraunces', fontSize: 24, fontWeight: 700, color: '#a8431f'}}>247</div>
+                  <div style={{fontSize: 10, color: '#8c7d66', fontFamily: 'monospace'}}>Heures</div>
+                </div>
+                <div className="current-card" style={{padding: '10px 14px', flex: 1, textAlign: 'center'}}>
+                  <div style={{fontFamily: 'Fraunces', fontSize: 24, fontWeight: 700, color: '#dc2626'}}>18</div>
+                  <div style={{fontSize: 10, color: '#8c7d66', fontFamily: 'monospace'}}>Lignes</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="comparison-vs">→</div>
+
+          {/* Notion */}
+          <div>
+            <div className="label-notion" style={{marginBottom: 12, marginLeft: 4}}>Notion-style</div>
+            <div style={{border: '1px solid var(--border-light)', borderRadius: 6, background: '#fff', padding: 20}}>
+              <div style={{display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16}}>
+                <div style={{fontSize: 24}}>📊</div>
+                <div style={{flex: 1}}>
+                  <div className="n-h2" style={{fontSize: 18}}>Tableau de bord</div>
+                  <div style={{fontSize: 12, color: 'var(--text-secondary)', marginTop: 2}}>Aujourd'hui · 21 mai 2026</div>
+                </div>
+                <button className="n-btn"><span className="material-symbols-outlined" style={{fontSize: 16}}>edit</span></button>
+              </div>
+
+              {/* Database summary — like Notion page embeds */}
+              <div style={{display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 16}}>
+                <div style={{padding: 12, background: 'var(--bg-page)', borderRadius: 6}}>
+                  <div style={{fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 500, marginBottom: 4}}>Charge en retard</div>
+                  <div style={{display: 'flex', alignItems: 'baseline', gap: 4}}>
+                    <span style={{fontSize: 24, fontWeight: 700}}>247</span>
+                    <span style={{fontSize: 11, color: 'var(--red)', fontWeight: 500}}>+12%</span>
+                  </div>
+                  <div style={{fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2}}>18 lignes concernées</div>
+                </div>
+                <div style={{padding: 12, background: 'var(--bg-page)', borderRadius: 6}}>
+                  <div style={{fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 500, marginBottom: 4}}>OTIF</div>
+                  <div style={{display: 'flex', alignItems: 'baseline', gap: 4}}>
+                    <span style={{fontSize: 24, fontWeight: 700}}>86,3</span>
+                    <span style={{fontSize: 13}}>%</span>
+                  </div>
+                  <div style={{fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2}}>134/155 commandes</div>
+                </div>
+                <div style={{padding: 12, background: 'var(--bg-page)', borderRadius: 6}}>
+                  <div style={{fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 500, marginBottom: 4}}>OF en cours</div>
+                  <div style={{display: 'flex', alignItems: 'baseline', gap: 4}}>
+                    <span style={{fontSize: 24, fontWeight: 700}}>23</span>
+                  </div>
+                  <div style={{fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2}}>dont 4 en retard</div>
+                </div>
+              </div>
+
+              {/* Embedded database — like Notion inline database */}
+              <div style={{border: '1px solid var(--border-light)', borderRadius: 6, overflow: 'hidden'}}>
+                <div style={{display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', background: 'var(--bg-page)', borderBottom: '1px solid var(--border-light)'}}>
+                  <span className="material-symbols-outlined" style={{fontSize: 14, color: 'var(--text-tertiary)'}}>grid_view</span>
+                  <span style={{fontSize: 11, fontWeight: 600}}>Dernières lignes en retard</span>
+                  <div style={{flex: 1}} />
+                  <span style={{fontSize: 11, color: 'var(--text-tertiary)'}}>Voir tout →</span>
+                </div>
+                {[
+                  {cmd: 'AR24518', client: 'BATIPRO SUD', retard: '+5j', charge: '42h'},
+                  {cmd: 'AR24201', client: 'VENTIL OUEST', retard: '+3j', charge: '28h'},
+                  {cmd: 'AR23890', client: 'HYGRO NORD', retard: '+2j', charge: '15h'},
+                ].map((row, i) => (
+                  <div key={row.cmd} className="hover-parent" style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    padding: '4px 10px', borderBottom: i < 2 ? '1px solid var(--border-light)' : 'none',
+                    cursor: 'pointer', fontSize: 12,
+                  }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <span className="n-title" style={{fontSize: 12, width: 80}}>{row.cmd}</span>
+                    <span style={{color: 'var(--text-secondary)', width: 100}}>{row.client}</span>
+                    <span className="n-chip" style={{background: 'var(--red-soft)', color: 'var(--red)', height: 20, fontSize: 10}}>
+                      {row.retard}
+                    </span>
+                    <span style={{marginLeft: 'auto', color: 'var(--text-tertiary)'}}>{row.charge}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </Section>
+    );
+  };
+
+  /* ══════════════════════════════════════════════════════════════
+     COMPONENT: Scenario Bar vs Notion Page Top Banner
+     ══════════════════════════════════════════════════════════════ */
+  const ScenarioShowcase = () => {
+    return (
+      <Section id="scenario" title="❾ Barre de scénario" desc="La barre de scénario (badges de statut, boutons d'action) et les commandes virtuelles deviennent un bandeau page Notion avec property pills + inline editable title.">
+        <div className="comparison" style={{alignItems: 'stretch'}}>
+          {/* Current */}
+          <div>
+            <div className="label-actuel" style={{marginBottom: 12, marginLeft: 4}}>Actuel</div>
+            <div className="current-card" style={{padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10, fontSize: 11}}>
+              <span className="material-symbols-outlined" style={{fontSize: 16, color: '#a8431f'}}>science</span>
+              <span style={{fontWeight: 700, fontFamily: 'Fraunces', color: '#a8431f'}}>Scénario</span>
+              <span style={{background: '#efe7d6', padding: '2px 8px', borderRadius: 4, fontSize: 10, fontFamily: 'monospace'}}>3 modifs</span>
+              <button className="btn btn-sm btn-secondary">Appliquer</button>
+              <button className="btn btn-sm btn-ghost">Annuler</button>
+            </div>
+          </div>
+
+          <div className="comparison-vs">→</div>
+
+          {/* Notion */}
+          <div>
+            <div className="label-notion" style={{marginBottom: 12, marginLeft: 4}}>Notion-style</div>
+            <div style={{
+              border: '1px solid var(--border-light)', borderRadius: 6,
+              background: '#fff', padding: '10px 14px',
+              display: 'flex', alignItems: 'center', gap: 10, fontSize: 12,
+            }}>
+              <div style={{width: 20, height: 20, borderRadius: 4, background: 'var(--amber-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
+                <span className="material-symbols-outlined" style={{fontSize: 14, color: 'var(--amber)'}}>science</span>
+              </div>
+              <div style={{flex: 1}}>
+                <div style={{display: 'flex', alignItems: 'center', gap: 8}}>
+                  <span style={{fontWeight: 600, cursor: 'pointer'}}>Scénario « Optimisation charge »</span>
+                  <span className="material-symbols-outlined hover-controls" style={{fontSize: 14, color: 'var(--text-tertiary)', cursor: 'pointer'}}>edit</span>
+                </div>
+                <div style={{display: 'flex', gap: 6, marginTop: 4}}>
+                  <span className="n-chip" style={{background: 'var(--amber-soft)', color: 'var(--amber)', height: 20, fontSize: 10}}>
+                    <span className="n-select-dot" style={{background: 'var(--amber)', width: 6, height: 6}} />
+                    En cours
+                  </span>
+                  <span className="n-chip" style={{background: 'var(--bg-hover)', color: 'var(--text-secondary)', height: 20, fontSize: 10}}>
+                    3 modifications
+                  </span>
+                  <span className="n-chip" style={{background: 'var(--blue-soft)', color: 'var(--blue)', height: 20, fontSize: 10}}>
+                    Impact: −12h charge
+                  </span>
+                </div>
+              </div>
+              <button className="n-btn" style={{background: 'var(--accent)', color: '#fff', padding: '0 14px', height: 28, fontWeight: 500, borderRadius: 4}}>Appliquer</button>
+              <button className="n-btn" style={{height: 28}}>Annuler</button>
+            </div>
+          </div>
+        </div>
+      </Section>
+    );
+  };
+
+  /* ══════════════════════════════════════════════════════════════
+     FINAL ASSEMBLY
+     ══════════════════════════════════════════════════════════════ */
+  const App = () => {
+    return (
+      <div style={{paddingBottom: 80}}>
+        {/* Page header */}
+        <div style={{padding: '40px 48px 0', maxWidth: 1200}}>
+          <div style={{display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4}}>
+            <span className="material-symbols-outlined" style={{fontSize: 18, color: 'var(--text-tertiary)'}}>palette</span>
+            <span style={{fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase'}}>Design Proposal</span>
+          </div>
+          <h1 style={{fontSize: 36, fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.1, marginBottom: 8}}>
+            Notion-inspired UI Redesign
+          </h1>
+          <p style={{fontSize: 15, color: 'var(--text-secondary)', maxWidth: 600, lineHeight: 1.6}}>
+            Redesign des composants clés de Supply Chain Board en s'inspirant du design system Notion : sidebar textuelle, database views, propriétés typées inline, et pages à blocs.
+          </p>
+          <div style={{display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 16}}>
+            {['Sidebar','Masthead','Cards','Board','Table','Timeline','Drawer','Dashboard','Scenario'].map(t => (
+              <a key={t} href={`#${t.toLowerCase()}`} style={{
+                padding: '4px 12px', fontSize: 12, fontWeight: 500,
+                background: 'var(--bg-hover)', borderRadius: 999,
+                color: 'var(--text-secondary)', textDecoration: 'none',
+              }}>{t}</a>
+            ))}
+          </div>
+        </div>
+
+        {/* Separator */}
+        <div style={{height: 1, background: 'var(--border-light)', margin: '32px 48px'}} />
+
+        {/* Components */}
+        <SidebarShowcase />
+        <div style={{height: 1, background: 'var(--border-light)', margin: '16px 48px'}} />
+        <MastheadShowcase />
+        <div style={{height: 1, background: 'var(--border-light)', margin: '16px 48px'}} />
+        <CardShowcase />
+        <div style={{height: 1, background: 'var(--border-light)', margin: '16px 48px'}} />
+        <BoardGridShowcase />
+        <div style={{height: 1, background: 'var(--border-light)', margin: '16px 48px'}} />
+        <TableShowcase />
+        <div style={{height: 1, background: 'var(--border-light)', margin: '16px 48px'}} />
+        <TimelineShowcase />
+        <div style={{height: 1, background: 'var(--border-light)', margin: '16px 48px'}} />
+        <DrawerShowcase />
+        <div style={{height: 1, background: 'var(--border-light)', margin: '16px 48px'}} />
+        <DashboardShowcase />
+        <div style={{height: 1, background: 'var(--border-light)', margin: '16px 48px'}} />
+        <ScenarioShowcase />
+        <div style={{height: 1, background: 'var(--border-light)', margin: '16px 48px'}} />
+
+        {/* Footer */}
+        <div style={{padding: '32px 48px 48px'}}>
+          <div style={{maxWidth: 960, padding: '24px', background: 'var(--bg-page)', borderRadius: 8, border: '1px solid var(--border-light)'}}>
+            <h3 className="n-h3" style={{marginBottom: 8}}>Notes de design</h3>
+            <ul style={{fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.8, paddingLeft: 20}}>
+              <li><strong>Sidebar :</strong> Passage de 48px icon-only à sidebar textuelle (228px) avec workspace, recherche, et pages favorites. Le espace perdu est compensé par une navigation plus compréhensible.</li>
+              <li><strong>Masthead :</strong> Les 11 tabs deviennent des vues database (Board / Tableau / Timeline / Calendrier). Le titre de page et les breadcrumbs remplacent le brand heading proéminent.</li>
+              <li><strong>Cards :</strong> Les cartes OF passent de 3px border-status + Fraunces footer à des cards database Notion avec propriétés typées inline (text, select, number, progress bar).</li>
+              <li><strong>Board :</strong> La grille « Papier » (fond quadrillé, semaines Fraunces) devient une Board view Notion : colonnes = jours, items = database cards, drag & drop natif.</li>
+              <li><strong>Table :</strong> Les colonnes reçoivent des icônes de type (abc/123/lien/date) comme Notion, avec alternance subtile et hover highlight.</li>
+              <li><strong>Timeline :</strong> La frise ruptures devient une timeline view avec barres proportionnelles, propriétés en chips, et today marker.</li>
+              <li><strong>Drawer :</strong> Le slide-over shadcn devient un side peek Notion : breadcrumb, page icon, propriétés en grid blocs.</li>
+              <li><strong>Dashboard :</strong> Les KPI deviennent des database summaries embeddés dans une page Notion.</li>
+              <li><strong>Scénario :</strong> La barre devient un bandeau de page avec titre editable inline et property pills.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const root = ReactDOM.createRoot(document.getElementById('root'));
+  root.render(<App />);
+</script>
+</body>
+</html>
