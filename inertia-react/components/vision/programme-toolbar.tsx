@@ -278,7 +278,7 @@ function ActionsMenu(props: {
       </summary>
 
       {/* Panneau déroulant — aligné à droite du déclencheur. */}
-      <div className="absolute right-0 top-full z-50 mt-1.5 w-[220px] rounded-xl border border-rule bg-popover p-1 shadow-lg">
+      <div className="absolute right-0 top-full z-50 mt-1.5 w-[220px] rounded-lg border border-rule bg-popover p-1 shadow-lg">
         {/* Scénario */}
         {props.onToggleScenario && (
           <button

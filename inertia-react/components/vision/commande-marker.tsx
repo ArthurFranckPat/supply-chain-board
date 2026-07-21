@@ -88,11 +88,11 @@ export function CommandeMarker(props: {
         props.onActivate?.(null)
       }}
       className={cn(
-        'relative overflow-hidden rounded-[6px] border border-rule bg-brand-soft px-1.5 py-1.5 leading-tight shadow-[0_1px_2px_rgba(0,0,0,.06)] transition-shadow duration-150',
+        'relative overflow-hidden rounded-[6px] border border-rule bg-brand-soft px-1.5 py-1.5 leading-tight transition-shadow duration-150',
         borderClass,
         cmd.ligne ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer',
         activeId === cmd.id &&
-          'shadow-[0_2px_10px_rgba(0,0,0,.22)] ring-1 ring-brand/50'
+          'shadow-float ring-1 ring-brand/50'
       )}
     >
       {/* Numéro complet (+ ligne) sur sa propre ligne, police réduite pour rentrer. */}
@@ -109,7 +109,7 @@ export function CommandeMarker(props: {
           <span
             className={cn(
               'ml-auto rounded-full px-1 py-px font-mono text-3xs font-bold tabular-nums',
-              verdict === 'retard' ? 'bg-error/10 text-error' : 'bg-suggere/10 text-suggere'
+              verdict === 'retard' ? 'bg-destructive/10 text-destructive' : 'bg-suggere/10 text-suggere'
             )}
           >
             {deltaLabel(props.deltaJours!)}

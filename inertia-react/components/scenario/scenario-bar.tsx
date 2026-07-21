@@ -339,7 +339,7 @@ export function ScenarioBar({
                           {earliest.limiting && <> — {earliest.limiting}</>}
                         </>
                       ) : (
-                        <span className="text-error">Article {earliest?.limiting}</span>
+                        <span className="text-destructive">Article {earliest?.limiting}</span>
                       )
                     ) : (
                       'Calcul de la date au plus tôt…'
@@ -426,7 +426,7 @@ export function ScenarioBar({
                       <button
                         type="button"
                         title="Supprimer"
-                        className="text-muted-foreground hover:text-error"
+                        className="text-muted-foreground hover:text-destructive"
                         onClick={() => s.remove(sc.id)}
                       >
                         <Trash2 size={16} strokeWidth={1.75} />

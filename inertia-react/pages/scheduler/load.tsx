@@ -329,7 +329,7 @@ export default function Load(props: LoadPageProps) {
           <div className="flex min-h-0 flex-1 flex-col gap-[18px] px-7 py-5">
             {/* Vue d'ensemble : slider horizontal de mini-cartes */}
             {filteredLines.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-rule px-4 py-6 text-center font-fraunces text-[13px] italic text-muted-foreground">
+              <div className="rounded-lg border border-dashed border-rule px-4 py-6 text-center font-fraunces text-[13px] italic text-muted-foreground">
                 Aucun poste ne correspond à « {query} ».
               </div>
             ) : (
@@ -369,7 +369,7 @@ export default function Load(props: LoadPageProps) {
 
             {/* Détail du poste sélectionné */}
             {selLine && (
-              <div className="flex min-h-0 flex-1 flex-col rounded-xl border border-rule bg-card p-4 shadow-[0_1px_2px_rgba(0,0,0,.05)]">
+              <div className="flex min-h-0 flex-1 flex-col rounded-lg border border-rule bg-card p-4">
                 <div className="mb-2.5 flex flex-none flex-wrap items-center gap-3">
                   <div className="flex items-center gap-2 font-fraunces text-[20px] font-extrabold tracking-tight">
                     <span className="size-3 rounded-[3px]" style={{ background: selLine.color }} />
@@ -406,7 +406,7 @@ export default function Load(props: LoadPageProps) {
                       className={cn(
                         'rounded-full px-3.5 py-1.5 font-sans text-[11px] font-bold uppercase tracking-wide transition-colors',
                         gran === 'month'
-                          ? 'bg-card text-brand shadow-[0_1px_2px_rgba(0,0,0,.08)]'
+                          ? 'bg-card text-brand'
                           : 'text-muted-foreground'
                       )}
                     >
@@ -418,7 +418,7 @@ export default function Load(props: LoadPageProps) {
                       className={cn(
                         'rounded-full px-3.5 py-1.5 font-sans text-[11px] font-bold uppercase tracking-wide transition-colors',
                         gran === 'week'
-                          ? 'bg-card text-brand shadow-[0_1px_2px_rgba(0,0,0,.08)]'
+                          ? 'bg-card text-brand'
                           : 'text-muted-foreground'
                       )}
                     >

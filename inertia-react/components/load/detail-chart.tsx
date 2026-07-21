@@ -356,7 +356,7 @@ export function DetailChart({ items, gran, view, showCapacity, showAvg }: Detail
       {/* Tooltip détail de section */}
       {hover && (
         <div
-          className="pointer-events-none absolute z-10 whitespace-nowrap rounded-lg border border-rule bg-card px-3 py-2 shadow-[0_4px_14px_-4px_rgba(0,0,0,.35)]"
+          className="pointer-events-none absolute z-10 whitespace-nowrap rounded-lg border border-rule bg-card px-3 py-2 shadow-float"
           style={{
             left: `${pos.x}px`,
             top: `${pos.y}px`,

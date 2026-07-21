@@ -64,19 +64,25 @@ export interface LineRow {
 }
 
 /**
- * Map typo X3 (TSICOD_4) → {label, color, light}. Décision user (issue #42) :
- * HYGRO=bleu, DHU=orange, AUTO=jaune, PURAIR=vert, AUTOSENS=violet.
- * `light` = teinte claire pour la part bouche-consommatrice (ex: HYGRO-BDH vs HYGRO-BAH).
+ * Map typo X3 (TSICOD_4) → {label, color, light}. Sémantique issue #42
+ * (HYGRO=bleuté, DHU=orange, AUTO=neutre chaud, PURAIR=vert, AUTOSENS=violet)
+ * remappée le 21/07/2026 sur le brand book Airbnb (migration grammaire —
+ * les hex Tailwind d'origine dataient d'avant le pivot design) :
+ *   HYGRO → Babu #00a699 · DHU → Arches #fc642d · PURAIR → ferme #008049
+ *   AUTOSENS → Luxe #460479 (sub-brand violet, usage ponctuel data-viz)
+ *   AUTO → Foggy #767676 (pas de jaune en grammaire Airbnb)
+ * `light` = teinte claire (≈45 % blanc) pour la part bouche-consommatrice
+ * (ex: HYGRO-BDH vs HYGRO-BAH).
  */
 export const TYPO_META: Record<
   string,
   { label: string; color: string; light: string; text: string }
 > = {
-  ESH10: { label: 'AUTO', color: '#eab308', light: '#fde68a', text: '#1f2937' },
-  ESH20: { label: 'DHU', color: '#ea580c', light: '#fdba74', text: '#ffffff' },
-  ESH30: { label: 'HYGRO', color: '#2563eb', light: '#93c5fd', text: '#ffffff' },
-  ESH40: { label: 'PURAIR', color: '#5b7d4e', light: '#a7c4a0', text: '#ffffff' },
-  ESH60: { label: 'AUTOSENS', color: '#6d4bb0', light: '#c4b5fd', text: '#ffffff' },
+  ESH10: { label: 'AUTO', color: '#767676', light: '#adadad', text: '#ffffff' },
+  ESH20: { label: 'DHU', color: '#fc642d', light: '#fdb196', text: '#ffffff' },
+  ESH30: { label: 'HYGRO', color: '#00a699', light: '#72cbc2', text: '#ffffff' },
+  ESH40: { label: 'PURAIR', color: '#008049', light: '#72b99b', text: '#ffffff' },
+  ESH60: { label: 'AUTOSENS', color: '#460479', light: '#9975b5', text: '#ffffff' },
 }
 
 export interface WeekSpan {

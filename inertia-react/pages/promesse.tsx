@@ -113,7 +113,7 @@ function DateCard({ label, date, color, result }: DateCardProps) {
   }
   const dateColor = { green: 'text-ferme', amber: 'text-suggere' }
   return (
-    <div className={cn('flex-1 rounded-xl border p-4', styles[color])}>
+    <div className={cn('flex-1 rounded-lg border p-4', styles[color])}>
       <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</div>
       {!result.infeasible ? (
         <>
@@ -213,7 +213,7 @@ export default function Promesse() {
         <main className="ml-12 pt-12 min-h-screen bg-secondary flex-1">
           <div className="mx-auto max-w-3xl px-6 py-8">
             {/* Formulaire */}
-            <form onSubmit={submit} className="rounded-xl border border-rule-soft bg-card p-5 shadow-sm">
+            <form onSubmit={submit} className="rounded-lg border border-rule-soft bg-card p-5 shadow-sm">
               <h2 className="mb-4 text-sm font-bold text-foreground/80">
                 <Headset size={18} className="align-middle text-primary" />{' '}
                 Simulateur de promesse client

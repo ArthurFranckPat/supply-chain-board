@@ -11,7 +11,7 @@ import type { PlanDiff, DiffSens } from '@/lib/scenarios/types'
  * Principe acté (vision §5) : CONSTAT, pas prescription — on liste, l'humain décide.
  */
 
-const sensClass = (s: DiffSens) => (s === 'degradation' ? 'text-error' : 'text-ferme')
+const sensClass = (s: DiffSens) => (s === 'degradation' ? 'text-destructive' : 'text-ferme')
 
 const fmtDelta = (n: number, unit: string) => `${n > 0 ? '+' : ''}${n}${unit}`
 
@@ -37,7 +37,7 @@ export function ScenarioDiffSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="theme-navy w-full overflow-y-auto bg-background text-foreground sm:max-w-2xl">
+      <SheetContent className="w-full overflow-y-auto bg-background text-foreground sm:max-w-2xl">
         <SheetTitle className="font-fraunces text-[18px] font-bold">Étude d'impact</SheetTitle>
         <p className="mt-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
           Évalué le {fmtStamp(evaluatedAt)} · sur données du {fmtStamp(dataAt)}
@@ -53,7 +53,7 @@ export function ScenarioDiffSheet({
           <div className="mt-4 space-y-6">
             {/* Bilan */}
             <div className="flex gap-4 text-[12px] font-bold">
-              <span className="text-error">{diff.stats.degradations} dégradation(s)</span>
+              <span className="text-destructive">{diff.stats.degradations} dégradation(s)</span>
               <span className="text-ferme">{diff.stats.ameliorations} amélioration(s)</span>
             </div>
 
@@ -183,7 +183,7 @@ function Row({ sens, children }: RowProps) {
     <div
       className={cn(
         'flex flex-wrap items-center gap-2 rounded-md border-l-2 bg-card px-2.5 py-1.5 text-[12px]',
-        sens === 'degradation' ? 'border-l-error' : 'border-l-ferme'
+        sens === 'degradation' ? 'border-l-destructive' : 'border-l-ferme'
       )}
     >
       {children}

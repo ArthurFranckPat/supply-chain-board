@@ -325,7 +325,7 @@ export function ChargeForecast(props: ChargeForecastProps) {
               className={cn(
                 'rounded-full px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-wide transition-colors',
                 gran === g
-                  ? 'bg-card text-brand shadow-[0_1px_2px_rgba(0,0,0,.08)]'
+                  ? 'bg-card text-brand'
                   : 'text-muted-foreground hover:text-foreground'
               )}
               onClick={() => setGran(g)}
@@ -392,7 +392,7 @@ export function ChargeForecast(props: ChargeForecastProps) {
       </div>
 
       {/* ══ Chart ══ */}
-      <div className="rounded-xl border border-border bg-card p-[18px_16px_10px] shadow-[0_1px_2px_rgba(0,0,0,.05)]">
+      <div className="rounded-lg border border-border bg-card p-[18px_16px_10px]">
         <svg
           viewBox={`0 0 ${W} ${H}`}
           preserveAspectRatio="xMidYMid meet"

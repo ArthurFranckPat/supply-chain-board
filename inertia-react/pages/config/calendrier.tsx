@@ -255,7 +255,7 @@ function ClosureForm({
     c.scope === 'global' ? "Toute l'usine" : c.scope === 'stoloc' ? `Atelier ${c.code}` : c.code
 
   return (
-    <div className="flex flex-wrap items-end gap-x-5 gap-y-3.5 rounded-b-2xl border-t border-rule-soft bg-secondary px-4 py-4">
+    <div className="flex flex-wrap items-end gap-x-5 gap-y-3.5 rounded-b-lg border-t border-rule-soft bg-secondary px-4 py-4">
       {!edit ? (
         <>
           <Field label="Portée">
@@ -518,7 +518,7 @@ export default function Calendrier(props: CalendrierPageProps) {
           {view === 'registre' ? (
             <div className="grid grid-cols-[380px_1fr] items-start gap-6">
               {/* Jours fériés */}
-              <section className="overflow-hidden rounded-2xl border border-rule bg-card">
+              <section className="overflow-hidden rounded-lg border border-rule bg-card">
                 <header className="flex items-center gap-2 border-b border-rule-soft px-4 py-3.5">
                   <CalendarDays size={18} className="text-brand" />
                   <span className="font-fraunces text-[15px] font-bold">Jours fériés France</span>
@@ -562,7 +562,7 @@ export default function Calendrier(props: CalendrierPageProps) {
               </section>
 
               {/* Fermetures par ligne */}
-              <section className="rounded-2xl border border-rule bg-card">
+              <section className="rounded-lg border border-rule bg-card">
                 <header className="flex items-center gap-2 border-b border-rule-soft px-4 py-3.5">
                   <Wrench size={18} className="text-suggere" />
                   <span className="font-fraunces text-[15px] font-bold">
@@ -686,7 +686,7 @@ export default function Calendrier(props: CalendrierPageProps) {
               </section>
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-rule bg-card px-6 py-20 text-center">
+            <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-rule bg-card px-6 py-20 text-center">
               <CalendarRange size={34} className="text-brand/60" />
               <div className="font-fraunces text-[16px] font-bold">Vue Frise — bientôt</div>
               <p className="max-w-md text-[12.5px] text-muted-foreground">

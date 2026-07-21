@@ -55,7 +55,7 @@ export interface DataTableProps<TRow> {
   emptyState?: ReactNode
 }
 
-const DEFAULT_SCROLL_CLASS = 'h-full overflow-auto rounded-xl border bg-card shadow-xs'
+const DEFAULT_SCROLL_CLASS = 'h-full overflow-auto rounded-lg border bg-card shadow-xs'
 
 export function DataTable<TRow>({
   columns,

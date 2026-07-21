@@ -116,7 +116,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
   return (
     <div className="text-sans flex flex-col gap-6 pb-8">
       {/* 1. Stepper de Cycle de Commande */}
-      <div className="relative flex items-center justify-between overflow-hidden rounded-2xl border border-rule-soft/60 bg-secondary/15 px-3 py-4 shadow-[inset_0_2px_4px_rgba(0,0,0,0.01)]">
+      <div className="relative flex items-center justify-between overflow-hidden rounded-lg border border-rule-soft/60 bg-secondary/15 px-3 py-4">
         <div className="absolute left-10 right-10 top-[2.25rem] z-0 h-0.5 border-t border-rule-soft bg-secondary" />
 
         {/* Etape 1: Commande */}
@@ -310,7 +310,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
 
       {/* 4. Expé & Délais */}
       <div className="grid grid-cols-2 gap-4">
-        <div className="flex h-20 flex-col justify-between rounded-2xl border border-rule bg-card p-4 shadow-[0_2px_10px_rgba(0,0,0,0.02)]">
+        <div className="flex h-20 flex-col justify-between rounded-lg border border-rule bg-card p-4">
           <span className="text-[9.5px] font-bold uppercase tracking-wider text-muted-foreground/80">
             Date d'Expédition
           </span>
@@ -318,7 +318,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
             {row.dateExp || '—'}
           </div>
         </div>
-        <div className="flex h-20 flex-col justify-between rounded-2xl border border-rule bg-card p-4 shadow-[0_2px_10px_rgba(0,0,0,0.02)]">
+        <div className="flex h-20 flex-col justify-between rounded-lg border border-rule bg-card p-4">
           <span className="text-[9.5px] font-bold uppercase tracking-wider text-muted-foreground/80">
             État de Livraison
           </span>
@@ -353,7 +353,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
       </div>
 
       {/* 5. Gauge Visuelle & Répartition des Quantités */}
-      <div className="flex flex-col gap-4 rounded-2xl border border-rule bg-card p-5 shadow-[0_2px_10px_rgba(0,0,0,0.02)]">
+      <div className="flex flex-col gap-4 rounded-lg border border-rule bg-card p-5">
         <h4 className="border-b border-rule-soft pb-2 text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground/80">
           Répartition des Quantités
         </h4>
@@ -374,19 +374,19 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
         </div>
 
         <div className="mt-2 grid grid-cols-3 gap-2 text-center">
-          <div className="rounded-xl border border-rule-soft/40 bg-secondary/15 p-2.5">
+          <div className="rounded-lg border border-rule-soft/40 bg-secondary/15 p-2.5">
             <div className="text-[9.5px] font-semibold text-muted-foreground">Reste à livrer</div>
             <div className="mt-0.5 font-mono text-[16px] font-black text-foreground">{total}</div>
           </div>
           {isReactif ? (
             <>
-              <div className="rounded-xl border border-rule-soft/40 bg-secondary/15 p-2.5">
+              <div className="rounded-lg border border-rule-soft/40 bg-secondary/15 p-2.5">
                 <div className="text-[9.5px] font-semibold text-ferme">Strict</div>
                 <div className="mt-0.5 font-mono text-[16px] font-black text-ferme">
                   {reactiveRow.allocStrict}
                 </div>
               </div>
-              <div className="rounded-xl border border-rule-soft/40 bg-secondary/15 p-2.5">
+              <div className="rounded-lg border border-rule-soft/40 bg-secondary/15 p-2.5">
                 <div className="text-[9.5px] font-semibold text-planifie">Sous CQ</div>
                 <div className="mt-0.5 font-mono text-[16px] font-black text-planifie">
                   {reactiveRow.allocCq}
@@ -395,13 +395,13 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
             </>
           ) : (
             <>
-              <div className="rounded-xl border border-rule-soft/40 bg-secondary/15 p-2.5">
+              <div className="rounded-lg border border-rule-soft/40 bg-secondary/15 p-2.5">
                 <div className="text-[9.5px] font-semibold text-ferme">Alloué</div>
                 <div className="mt-0.5 font-mono text-[16px] font-black text-ferme">
                   {proactiveRow.qteAllouee}
                 </div>
               </div>
-              <div className="rounded-xl border border-rule-soft/40 bg-secondary/15 p-2.5">
+              <div className="rounded-lg border border-rule-soft/40 bg-secondary/15 p-2.5">
                 <div className="text-[9.5px] font-semibold text-muted-foreground">Reliquat</div>
                 <div className="mt-0.5 font-mono text-[16px] font-black text-foreground">
                   {proactiveRow.reliquat}
@@ -414,7 +414,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
 
       {/* 6. Goulots & Approvisionnements (BOM) */}
       {!isReactif && proactiveRow.composants.length > 0 && (
-        <div className="flex flex-col gap-4 rounded-2xl border border-rule bg-card p-4 shadow-[0_2px_10px_rgba(0,0,0,0.02)]">
+        <div className="flex flex-col gap-4 rounded-lg border border-rule bg-card p-4">
           <h4 className="border-b border-rule-soft pb-2 text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground/80">
             Goulots d'Approvisionnement
           </h4>
@@ -436,7 +436,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
 
                 {/* Reception Directe (Acheminement) */}
                 {c.reception ? (
-                  <div className="flex flex-col gap-3 rounded-xl border border-rule-soft bg-gradient-to-r from-secondary/15 to-transparent p-4">
+                  <div className="flex flex-col gap-3 rounded-lg border border-rule-soft bg-gradient-to-r from-secondary/15 to-transparent p-4">
                     <div className="flex items-center justify-between">
                       <div
                         className={cn(
@@ -520,7 +520,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
 
                 {/* Descente de Nomenclature (Niveau Cascade) */}
                 {c.descente && (
-                  <div className="flex flex-col gap-2 rounded-xl border border-rule-soft bg-secondary/15 p-3">
+                  <div className="flex flex-col gap-2 rounded-lg border border-rule-soft bg-secondary/15 p-3">
                     <div className="flex items-center gap-1.5 text-[11px] font-bold text-foreground">
                       <CornerDownRight size={14} strokeWidth={1.75} />
                       <span>Nomenclature sous-ensemble</span>
@@ -597,7 +597,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
 
       {/* 7. Ordres de Fabrication Associés */}
       {!isReactif && proactiveRow.ofs.length > 0 && (
-        <div className="flex flex-col gap-4 rounded-2xl border border-rule bg-card p-4 shadow-[0_2px_10px_rgba(0,0,0,0.02)]">
+        <div className="flex flex-col gap-4 rounded-lg border border-rule bg-card p-4">
           <h4 className="border-b border-rule-soft pb-2 text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground/80">
             Ordres de Fabrication ({proactiveRow.ofs.length})
           </h4>
@@ -607,7 +607,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
               return (
                 <div
                   key={of.numOf}
-                  className="relative flex flex-col gap-3 overflow-hidden rounded-xl border border-rule-soft bg-secondary/15 p-4"
+                  className="relative flex flex-col gap-3 overflow-hidden rounded-lg border border-rule-soft bg-secondary/15 p-4"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -704,7 +704,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
 
       {/* 8. Emplacements de Stock */}
       {isReactif && reactiveRow.emplacements.length > 0 && (
-        <div className="flex flex-col gap-4 rounded-2xl border border-rule bg-card p-4 shadow-[0_2px_10px_rgba(0,0,0,0.02)]">
+        <div className="flex flex-col gap-4 rounded-lg border border-rule bg-card p-4">
           <h4 className="border-b border-rule-soft pb-2 text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground/80">
             Emplacements &amp; Palettes de Stock
           </h4>
@@ -712,7 +712,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
             {reactiveRow.emplacements.map((e, i) => (
               <div
                 key={`${e.nom}-${e.hum}-${i}`}
-                className="flex items-center justify-between rounded-xl border border-rule-soft/60 bg-secondary/5 p-3 transition-all hover:bg-secondary/15"
+                className="flex items-center justify-between rounded-lg border border-rule-soft/60 bg-secondary/5 p-3 transition-all hover:bg-secondary/15"
               >
                 <div className="flex items-center gap-3">
                   <div className="flex size-8 items-center justify-center rounded-lg border border-rule-soft bg-secondary text-muted-foreground/75">

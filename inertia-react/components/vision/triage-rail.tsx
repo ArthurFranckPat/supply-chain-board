@@ -39,12 +39,12 @@ const TAB_LABELS: Record<Tab, string> = {
 const SEVERITY: Record<string, number> = { retard: 2, limite: 1 }
 
 const VERDICT_DOT: Record<ImpactVerdict, string> = {
-  retard: 'bg-error',
+  retard: 'bg-destructive',
   limite: 'bg-suggere',
   ok: 'bg-ferme',
 }
 const VERDICT_DELTA_TONE: Record<ImpactVerdict, string> = {
-  retard: 'bg-error/10 text-error',
+  retard: 'bg-destructive/10 text-destructive',
   limite: 'bg-suggere/10 text-suggere',
   ok: 'bg-ferme/10 text-ferme',
 }
@@ -131,7 +131,7 @@ export function TriageRail(props: {
               'rounded-full border px-2.5 py-1 font-mono text-2xs font-bold transition-colors',
               activeTab === t
                 ? t === 'retards'
-                  ? 'border-error bg-error/10 text-error'
+                  ? 'border-destructive bg-destructive/10 text-destructive'
                   : t === 'limites'
                     ? 'border-suggere text-suggere'
                     : 'border-muted-foreground text-muted-foreground'

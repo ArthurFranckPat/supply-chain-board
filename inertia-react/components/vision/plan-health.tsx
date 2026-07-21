@@ -14,13 +14,13 @@ import { cn } from '@r/lib/utils'
 type Tone = 'crit' | 'warn' | 'okz' | 'mut'
 
 const TONE_CLASS: Record<Tone, string> = {
-  crit: 'bg-error/10 text-error',
+  crit: 'bg-destructive/10 text-destructive',
   warn: 'bg-suggere/10 text-suggere',
   okz: 'bg-ferme/10 text-ferme',
   mut: 'bg-muted text-muted-foreground',
 }
 const DOT_CLASS: Record<Tone, string> = {
-  crit: 'bg-error',
+  crit: 'bg-destructive',
   warn: 'bg-suggere',
   okz: 'bg-ferme',
   mut: 'bg-muted-foreground',

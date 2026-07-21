@@ -237,7 +237,7 @@ export default function ReactLab() {
           </div>
 
           {/* Vitrine primitives */}
-          <div className="space-y-5 rounded-xl border bg-card p-5 shadow-xs">
+          <div className="space-y-5 rounded-lg border bg-card p-5 shadow-xs">
             <div>
               <h2 className="text-sm font-semibold">Primitives shadcn / Base UI</h2>
               <p className="text-xs text-muted-foreground">

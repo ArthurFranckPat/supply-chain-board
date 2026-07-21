@@ -144,7 +144,7 @@ function CommandeCard(props: CommandeCardProps) {
   return (
     <div
       className={cn(
-        'relative w-full rounded-md border border-border border-t-[3px] bg-card px-3 pb-2 pt-2.5 shadow-[0_1px_2px_rgba(0,0,0,.05)]',
+        'relative w-full rounded-md border border-border border-t-[3px] bg-card px-3 pb-2 pt-2.5',
         TONE_BORDER[props.status],
         props.status === 'termine' && 'opacity-60',
         props.className
@@ -331,8 +331,8 @@ function OfListingCard(p: OfCardProps) {
     <div
       className={cn(
         'relative w-full rounded-lg border border-border bg-card',
-        'shadow-[0_1px_2px_rgba(0,0,0,.08)] transition-all duration-150',
-        'hover:-translate-y-0.5 hover:shadow-[0_6px_16px_rgba(0,0,0,.14)]',
+        ' transition-all duration-150',
+        'hover:-translate-y-0.5 hover:shadow-float',
         p.status === 'termine' && 'opacity-60',
         p.className
       )}
@@ -370,7 +370,7 @@ function OfListingCard(p: OfCardProps) {
       {!p.feas && p.status === 'termine' && <CornerBadge cls="bg-muted-foreground" icon="check" />}
       {/* Issue #23 : badge retard « +N j » (chevauche le haut de la bande). */}
       {(p.retardJours ?? null) !== null && p.retardJours! > 0 && (
-        <span className="absolute -top-1.5 left-2 z-10 flex h-4 items-center justify-center rounded-full border-2 border-card bg-error px-1 font-mono text-3xs font-bold tabular-nums text-card">
+        <span className="absolute -top-1.5 left-2 z-10 flex h-4 items-center justify-center rounded-full border-2 border-card bg-destructive px-1 font-mono text-3xs font-bold tabular-nums text-card">
           +{p.retardJours}j
         </span>
       )}

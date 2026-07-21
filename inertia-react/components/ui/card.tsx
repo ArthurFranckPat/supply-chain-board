@@ -10,7 +10,7 @@ import { cn } from "@r/lib/utils"
 // • 1px hairline border (border-border)
 // • l'unique shadow tier du DESIGN.md, optionnel (variant `raised`).
 //
-// L'app Solid utilisait `rounded-xl border-rule shadow-[0_1px_2px_...]` inline
+// L'app Solid utilisait `rounded-lg border-rule shadow-[0_1px_2px_...]` inline
 // à ~20 endroits. Centraliser ici permet de retargeter toutes les cards via
 // les tokens, sans toucher aux pages.
 
@@ -22,7 +22,7 @@ const cardVariants = cva(
       elevation: {
         flat: "",
         raised:
-          "shadow-[0_0_0_1px_rgb(0_0_0/0.02),0_2px_6px_rgb(0_0_0/0.04),0_4px_8px_rgb(0_0_0/0.10)]",
+          "shadow-float",
       },
       padding: {
         none: "",

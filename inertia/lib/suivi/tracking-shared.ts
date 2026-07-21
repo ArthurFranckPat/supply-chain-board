@@ -53,7 +53,8 @@ export const OF_STATUT: Record<number, { tag: string; tone: string }> = {
  * Couleur du badge verdict (vue proactive). `late` (retard déjà constaté, calcul de date)
  * et `risk` (préventif : OF pas démarré, échéance proche, date encore bonne) étaient
  * confondus sous le même ambre `suggere` — 2 sémantiques différentes rendues identiques.
- * `risk` utilise désormais `planifie` (bleu, déjà porté par le tag WOP) pour les distinguer.
+ * `risk` utilise désormais `planifie` (teal Babu #00a699, déjà porté par le
+ * tag WOP) pour les distinguer.
  */
 export const VERDICT_TONE: Record<ProactiveVerdictKey, string> = {
   time: 'bg-ferme/15 text-ferme',
@@ -86,9 +87,9 @@ export const LATE_TONE = {
   bg: (s: 'tolerance' | 'critical' | null) => 'hover:bg-foreground/[0.07]',
   bar: (s: 'tolerance' | 'critical' | null) =>
     s === 'critical'
-      ? '[box-shadow:inset_3px_0_#dc2626]'
+      ? '[box-shadow:inset_3px_0_#c13515]' // destructive grammaire
       : s === 'tolerance'
-        ? '[box-shadow:inset_3px_0_#f59e0b]'
+        ? '[box-shadow:inset_3px_0_#fc642d]' // suggere grammaire
         : '',
 }
 
@@ -110,10 +111,10 @@ export function getRelativeDateLabel(
     if (diffDays === 0) {
       return {
         label: "Aujourd'hui",
-        tone: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+        tone: 'bg-ferme/10 text-ferme',
       }
     } else if (diffDays === 1) {
-      return { label: 'Demain', tone: 'bg-blue-500/10 text-blue-600 dark:text-blue-400' }
+      return { label: 'Demain', tone: 'bg-planifie/10 text-planifie' }
     } else if (diffDays === -1) {
       return { label: 'Hier', tone: 'bg-destructive/10 text-destructive' }
     } else if (diffDays < -1) {

@@ -137,7 +137,7 @@ export function PosteEngagementSheet(props: PosteEngagementSheetProps) {
     <Sheet open={props.open} onOpenChange={props.onOpenChange}>
       <SheetContent
         side="bottom"
-        className="theme-navy flex h-[72vh] w-full max-w-none flex-col gap-0 rounded-t-xl p-0"
+        className="flex h-[72vh] w-full max-w-none flex-col gap-0 rounded-t-[16px] p-0"
       >
         {loading ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-muted-foreground">

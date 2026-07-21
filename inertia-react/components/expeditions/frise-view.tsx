@@ -96,7 +96,7 @@ export function FriseView({
 
   return (
     <div className="h-full overflow-auto px-5 pb-8 pt-4">
-      <div className="overflow-hidden rounded-xl border border-rule bg-card">
+      <div className="overflow-hidden rounded-lg border border-rule bg-card">
         {/* En-tête : label + heures */}
         <div className="sticky top-0 z-[6] grid grid-cols-[210px_1fr] border-b border-rule bg-secondary">
           <div className="border-r border-rule-soft px-4 py-[11px] font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
@@ -287,7 +287,7 @@ export function FriseView({
       <div
         ref={tipRef}
         className={cn(
-          'pointer-events-none fixed z-50 max-w-[240px] rounded-lg border border-rule bg-card p-2.5 text-[11px] shadow-[0_8px_24px_-8px_rgba(0,0,0,0.25)]',
+          'pointer-events-none fixed z-50 max-w-[240px] rounded-lg border border-rule bg-card p-2.5 text-[11px] shadow-float',
           !hovered && 'hidden'
         )}
       >

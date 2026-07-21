@@ -715,7 +715,7 @@ export default function Dashboard(props: DashboardProps) {
                 setDropTargetId={setDropTargetId}
                 onDrop={() => draggedId && moveItem(draggedId, 'charge')}
               >
-                <article className="rounded border border-rule bg-card p-6 shadow-[0_14px_30px_-26px_rgba(0,0,0,0.45)]">
+                <article className="rounded border border-rule bg-card p-6 shadow-float">
                   <CardHeader
                     title="Charge en retard"
                     suffix="par poste"
@@ -810,7 +810,7 @@ export default function Dashboard(props: DashboardProps) {
                 setDropTargetId={setDropTargetId}
                 onDrop={() => draggedId && moveItem(draggedId, 'otd')}
               >
-                <article className="rounded border border-rule bg-card p-6 shadow-[0_14px_30px_-26px_rgba(0,0,0,0.45)]">
+                <article className="rounded border border-rule bg-card p-6 shadow-float">
                   <div className="mb-4 flex items-center gap-2.5 border-b border-rule-soft pb-3">
                     <span className="size-2 shrink-0 rounded-full bg-foreground/30" />
                     <h2 className="font-fraunces text-[16px] font-semibold leading-none tracking-tight text-foreground">
@@ -1061,7 +1061,7 @@ export default function Dashboard(props: DashboardProps) {
                 setDropTargetId={setDropTargetId}
                 onDrop={() => draggedId && moveItem(draggedId, 'stock')}
               >
-                <article className="rounded border border-rule bg-card p-6 shadow-[0_14px_30px_-26px_rgba(0,0,0,0.45)]">
+                <article className="rounded border border-rule bg-card p-6 shadow-float">
                   <div className="mb-4 flex items-center gap-2.5 border-b border-rule-soft pb-3">
                     <span className="size-2 shrink-0 rounded-full" style={{ background: '#00a699' }} />
                     <h2 className="font-fraunces text-[16px] font-semibold leading-none tracking-tight text-foreground">
@@ -1248,7 +1248,7 @@ export default function Dashboard(props: DashboardProps) {
                 setDropTargetId={setDropTargetId}
                 onDrop={() => draggedId && moveItem(draggedId, 'lignes')}
               >
-                <article className="flex max-h-[calc(100vh-9rem)] flex-col rounded border border-rule bg-card p-6 shadow-[0_14px_30px_-26px_rgba(0,0,0,0.45)] print:max-h-none print:overflow-visible print:shadow-none">
+                <article className="flex max-h-[calc(100vh-9rem)] flex-col rounded border border-rule bg-card p-6 shadow-float print:max-h-none print:overflow-visible print:shadow-none">
                   <CardHeader
                     title="Lignes en retard"
                     suffix={`${kpi.nbLignes} commande${kpi.nbLignes > 1 ? 's' : ''}`}
@@ -1358,7 +1358,7 @@ export default function Dashboard(props: DashboardProps) {
                 setDropTargetId={setDropTargetId}
                 onDrop={() => draggedId && moveItem(draggedId, 'stockTable')}
               >
-                <article className="flex max-h-[calc(100vh-9rem)] flex-col rounded border border-rule bg-card p-6 shadow-[0_14px_30px_-26px_rgba(0,0,0,0.45)] print:max-h-none print:overflow-visible print:shadow-none">
+                <article className="flex max-h-[calc(100vh-9rem)] flex-col rounded border border-rule bg-card p-6 shadow-float print:max-h-none print:overflow-visible print:shadow-none">
                   <CardHeader
                     title="Stock par article"
                     suffix={`${filteredArticles.length} / ${stock.nbArticles} · AE1`}

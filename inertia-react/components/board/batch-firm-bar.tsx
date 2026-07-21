@@ -33,8 +33,8 @@ export function BatchFirmBar() {
   if (!store.selectMode) return null
 
   return (
-    <div className="theme-navy fixed bottom-5 left-1/2 z-50 -translate-x-1/2">
-      <div className="flex items-center gap-3 rounded-full border border-rule bg-card px-4 py-2 shadow-[0_8px_28px_-8px_rgba(0,0,0,.4)]">
+    <div className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2">
+      <div className="flex items-center gap-3 rounded-full border border-rule bg-card px-4 py-2 shadow-float">
         {/* Compteur sélection / progression */}
         {counts.total > 0 ? (
           <span className="flex items-center gap-2 font-mono text-[12px] font-bold">

@@ -55,7 +55,7 @@ export function Board(props: BoardProps) {
   return (
     <div
       className={cn(
-        'overflow-x-auto rounded-xl border border-border bg-card shadow-[0_1px_2px_rgba(0,0,0,.05)]',
+        'overflow-x-auto rounded-lg border border-border bg-card',
         props.class
       )}
     >

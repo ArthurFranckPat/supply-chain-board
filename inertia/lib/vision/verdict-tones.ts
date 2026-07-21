@@ -23,13 +23,13 @@ import type { ImpactVerdict } from '@/lib/vision/impact'
 
 /** Tons Tailwind pour le liseré gauche + icône du marqueur commande. */
 export const VERDICT_BORDER: Record<ImpactVerdict, string> = {
-  retard: 'border-l-error',
-  limite: 'border-l-amber-500',
+  retard: 'border-l-destructive',
+  limite: 'border-l-suggere',
   ok: 'border-l-ferme',
 }
 export const VERDICT_ICON: Record<ImpactVerdict, string> = {
-  retard: 'text-error',
-  limite: 'text-amber-600',
+  retard: 'text-destructive',
+  limite: 'text-suggere',
   ok: 'text-ferme',
 }
 
@@ -39,8 +39,8 @@ export const UNKNOWN_ICON = 'text-muted-foreground'
 
 /** Couleurs SVG brutes pour l'overlay des liens (links-overlay). */
 export const VERDICT_STROKE: Record<ImpactVerdict, string> = {
-  retard: 'var(--color-error)',
-  limite: '#d97706', // amber-600
+  retard: 'var(--color-destructive)',
+  limite: 'var(--color-suggere)',
   ok: 'var(--color-ferme)',
 }
 

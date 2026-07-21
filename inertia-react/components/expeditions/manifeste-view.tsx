@@ -62,7 +62,7 @@ export function ManifesteView({
               key={`${c.bprnum}-${c.debut}-${c.client}`}
               type="button"
               className={cn(
-                'relative flex flex-col gap-3 overflow-hidden rounded-xl border bg-card p-4 text-left transition-[border-color,box-shadow] duration-150',
+                'relative flex flex-col gap-3 overflow-hidden rounded-lg border bg-card p-4 text-left transition-[border-color,box-shadow] duration-150',
                 'border-rule hover:border-brand',
                 isSel && 'border-brand ring-2 ring-brand/20',
                 c.anomalie && 'border-destructive/45',

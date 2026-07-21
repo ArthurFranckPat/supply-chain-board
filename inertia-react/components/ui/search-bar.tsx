@@ -47,7 +47,7 @@ function SearchBar({
         // DESIGN.md search-bar-pill : 64px, rounded-full, 1px hairline,
         // shadow tier (le search bar a l'ombre au repos, contrairement aux cards).
         "flex h-16 w-full items-center rounded-full border border-border bg-card pl-8 pr-2",
-        "shadow-[0_0_0_1px_rgb(0_0_0/0.02),0_2px_6px_rgb(0_0_0/0.04),0_4px_8px_rgb(0_0_0/0.10)]",
+        "shadow-float",
         "focus-within:border-foreground",
         className
       )}

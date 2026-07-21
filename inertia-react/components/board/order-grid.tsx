@@ -174,7 +174,7 @@ export function OrderGrid(props: OrderGridProps) {
     <div ref={rootEl} data-board-root className="h-full overflow-auto bg-background">
       <div style={{ minWidth }}>
         {/* ═══ En-tête collant (semaines + jours) ═══ */}
-        <div className="sticky top-0 z-30 bg-background shadow-[0_2px_10px_-4px_rgba(0,0,0,.18)]">
+        <div className="sticky top-0 z-30 bg-background shadow-float">
           {/* Bande semaines */}
           <div className="grid" style={{ gridTemplateColumns: gridTpl }}>
             <div className="sticky left-0 z-40 border-b border-rule bg-secondary" />
@@ -493,7 +493,7 @@ function CardView(props: CardViewProps) {
       {card.hasOverride && (
         <button
           type="button"
-          className="absolute right-1.5 top-1.5 z-10 flex size-5 items-center justify-center rounded-full bg-card text-suggere shadow-[0_1px_2px_rgba(0,0,0,.15)] transition-colors hover:text-foreground"
+          className="absolute right-1.5 top-1.5 z-10 flex size-5 items-center justify-center rounded-full bg-card text-suggere transition-colors hover:text-foreground"
           title="Réinitialiser l'override (date X3)"
           onClick={(e) => props.onResetOverride(e, card.id)}
         >

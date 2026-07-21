@@ -284,7 +284,7 @@ export default function BoardGrid(props: BoardGridProps) {
     <div ref={rootRef} data-board-root className="h-full overflow-auto bg-background">
       <div ref={contentRef} className="relative" style={{ minWidth }}>
         {/* ═══ En-tête collant (semaines + jours) ═══ */}
-        <div className="sticky top-0 z-30 bg-background shadow-[0_2px_10px_-4px_rgba(0,0,0,.18)]">
+        <div className="sticky top-0 z-30 bg-background shadow-float">
           {/* Bande semaines */}
           <div className="grid" style={{ gridTemplateColumns: gridTpl }}>
             <div className="sticky left-0 z-40 border-b border-rule bg-secondary" />
@@ -762,8 +762,8 @@ function PP830Header({ pp830 }: PP830HeaderProps) {
 const VERDICT_TONE: Record<string, { border: string; text: string; label: string }> = {
   on_time: { border: 'border-l-brand', text: 'text-brand', label: 'à temps' },
   stock: { border: 'border-l-brand', text: 'text-brand', label: 'à temps' },
-  retard: { border: 'border-l-error', text: 'text-error', label: 'retard' },
-  bloquee: { border: 'border-l-error', text: 'text-error', label: 'bloquée' },
+  retard: { border: 'border-l-destructive', text: 'text-destructive', label: 'retard' },
+  bloquee: { border: 'border-l-destructive', text: 'text-destructive', label: 'bloquée' },
   sans_couverture: {
     border: 'border-l-suggere',
     text: 'text-suggere',
@@ -865,7 +865,7 @@ function VirtualOrderChip(props: VirtualOrderChipProps) {
     >
       <button
         type="button"
-        className="absolute right-0.5 top-0.5 flex size-3.5 items-center justify-center rounded-full text-muted-foreground opacity-50 hover:text-error hover:opacity-100"
+        className="absolute right-0.5 top-0.5 flex size-3.5 items-center justify-center rounded-full text-muted-foreground opacity-50 hover:text-destructive hover:opacity-100"
         onClick={(e) => {
           e.stopPropagation()
           props.onRemove?.(props.order.id)

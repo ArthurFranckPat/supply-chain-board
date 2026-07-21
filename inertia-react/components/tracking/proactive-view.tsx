@@ -75,7 +75,7 @@ export function ProactiveView(props: ProactiveViewProps) {
               )
             }}
             tableClass="min-w-[1252px] table-fixed"
-            scrollContainerClass="h-full border border-rule rounded-xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] bg-card"
+            scrollContainerClass="h-full border border-rule rounded-lg shadow-float bg-card"
             theadRowClass="sticky top-0 z-10 bg-secondary"
             onRowClick={props.onRowClick}
             selectedRowKey={props.selectedRowKey}

@@ -88,7 +88,7 @@ function ToolbarGroup({
    muted et le border hairline. */
 
 const segmentedItemVariants = cva(
-  "rounded-[5px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors",
+  "rounded-[4px] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors",
   {
     variants: {
       active: {

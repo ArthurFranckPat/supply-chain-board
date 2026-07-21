@@ -386,7 +386,7 @@ export default function DesignSystem() {
 
             {/* ═══ 02 Typographie ═══ */}
             <Section id="typo" n="02" title="Typographie">
-              <div className="rounded-xl border border-border bg-card p-6">
+              <div className="rounded-lg border border-border bg-card p-6">
                 <TypeRow spec="Display XL · Fraunces 900 / 52">
                   <span className="font-fraunces text-[52px] font-black leading-none tracking-tight">
                     Planification
@@ -594,7 +594,7 @@ export default function DesignSystem() {
 
             {/* ═══ 06 Carte board (unifiée) ═══ */}
             <Section id="carte" n="06" title="Carte board (unifiée)">
-              <div className="rounded-xl border border-border bg-secondary/40 p-6">
+              <div className="rounded-lg border border-border bg-secondary/40 p-6">
                 <FieldLabel>Variante commande — board planification</FieldLabel>
                 <div className="grid grid-cols-[repeat(auto-fill,176px)] gap-4">
                   <BoardCard
@@ -709,7 +709,7 @@ export default function DesignSystem() {
 
             {/* ═══ 07 Rangée rupture ═══ */}
             <Section id="rupture" n="07" title="Rangée rupture">
-              <div className="overflow-hidden rounded-xl border border-border bg-card">
+              <div className="overflow-hidden rounded-lg border border-border bg-card">
                 <div className="grid grid-cols-[28px_1.6fr_70px_1.3fr_90px_1.5fr_120px] gap-4 border-b border-border bg-secondary px-4 py-2 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
                   <span>№</span>
                   <span>Composant</span>
@@ -751,7 +751,7 @@ export default function DesignSystem() {
 
             {/* ═══ 08 Panneau détail / BOM ═══ */}
             <Section id="detail" n="08" title="Panneau de détail (D3 · bas)">
-              <div className="overflow-hidden rounded-xl border-2 border-foreground bg-card shadow-md">
+              <div className="overflow-hidden rounded-lg border-2 border-foreground bg-card shadow-md">
                 <div className="flex items-center gap-3 border-b border-border bg-secondary px-4 py-2.5">
                   <span className="font-fraunces text-[16px] font-bold">AR24490 · L4</span>
                   <span className="font-mono text-[12px] font-bold text-brand">XTR106540</span>
@@ -929,7 +929,7 @@ function Section({
 
 function Frame({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-6 shadow-[0_1px_2px_rgba(0,0,0,.05)]">
+    <div className="rounded-lg border border-border bg-card p-6">
       {children}
     </div>
   )
@@ -1101,7 +1101,7 @@ function StatePane(props: {
     muted: 'bg-secondary text-muted-foreground',
   }
   return (
-    <div className="flex flex-col items-center gap-3 rounded-xl border border-border bg-card px-5 py-9 text-center">
+    <div className="flex flex-col items-center gap-3 rounded-lg border border-border bg-card px-5 py-9 text-center">
       {props.spin ? (
         <div className="size-7 animate-spin rounded-full border-[3px] border-border border-t-brand" />
       ) : (
