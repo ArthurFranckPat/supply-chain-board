@@ -51,7 +51,7 @@ import {
   type ImpactVerdict,
 } from '@/lib/vision/impact'
 
-import { ProgrammeToolbar, type VisionMode } from '@r/components/vision/programme-toolbar'
+import { ProgrammeToolbar, PILL, type VisionMode } from '@r/components/vision/programme-toolbar'
 import { CommandeMarker } from '@r/components/vision/commande-marker'
 import { LinksOverlay, type LinkMode } from '@r/components/vision/links-overlay'
 import { TriageRail, type TriageItem } from '@r/components/vision/triage-rail'
@@ -875,7 +875,12 @@ export default function Programme(props: VisionProps) {
           onToggleScenario={toggleScenario}
           search={
             <>
-              <div className="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/25">
+              <div
+                className={cn(
+                  PILL,
+                  'transition-shadow focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/25'
+                )}
+              >
                 <Search size={17} strokeWidth={1.75} className="text-muted-foreground" />
                 <input
                   className="w-[180px] border-0 bg-transparent px-0 text-xs font-medium shadow-none focus-visible:ring-0 outline-none"
@@ -904,7 +909,7 @@ export default function Programme(props: VisionProps) {
                 }}
               >
                 <SelectTrigger
-                  className="h-[30px] w-[110px] rounded-full border border-rule bg-card px-3 text-xs font-semibold"
+                  className={cn(PILL, 'w-[110px]')}
                   aria-label="Portée de la recherche"
                 >
                   <SelectValue placeholder="Portée" />

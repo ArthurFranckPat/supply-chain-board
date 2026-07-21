@@ -35,14 +35,20 @@ const BESOIN_CHIPS = [
 /** Programme v2 — grammaire visuelle unifiée : 2 styles seulement.
  *  • Segment (rounded-lg) pour les choix groupés exclusifs (mode, stock, liens).
  *  • Pill (rounded-full) pour les actions et toggles (fenêtre, actualiser, etc.).
- *  Plus de mix rounded-md / rounded-full / shadcn-button. */
-const SEG = 'inline-flex items-center gap-0.5 rounded-lg border border-rule bg-card p-0.5'
-const SEG_BTN_ON =
+ *  Plus de mix rounded-md / rounded-full / shadcn-button.
+ *
+ *  Source UNIQUE de la grammaire toolbar : constantes exportées pour que les
+ *  contrôles pill injectés dans la rangée (recherche, portée… cf. programme.tsx)
+ *  réutilisent exactement la même géométrie (min-h-[30px] / rounded-full / px-3)
+ *  au lieu de recopier des variantes `h-[30px]` à la main. */
+export const SEG = 'inline-flex items-center gap-0.5 rounded-lg border border-rule bg-card p-0.5'
+export const SEG_BTN_ON =
   'min-h-[28px] rounded-md px-3 py-1 font-mono text-2xs font-bold uppercase tracking-wider bg-brand-soft text-brand transition-colors'
-const SEG_BTN_OFF =
+export const SEG_BTN_OFF =
   'min-h-[28px] rounded-md px-3 py-1 font-mono text-2xs font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors'
-const SEG_LBL = 'px-1.5 font-mono text-3xs font-bold uppercase tracking-wider text-muted-foreground'
-const PILL =
+export const SEG_LBL =
+  'px-1.5 font-mono text-3xs font-bold uppercase tracking-wider text-muted-foreground'
+export const PILL =
   'inline-flex min-h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 py-1 text-xs font-semibold text-foreground transition-colors hover:border-brand'
 
 /**
@@ -103,7 +109,7 @@ export function ProgrammeToolbar(props: {
   return (
     <div
       data-print-toolbar
-      className="flex flex-none flex-wrap items-center gap-2 border-b border-rule px-7 py-2 min-h-[48px]"
+      className="flex flex-none flex-wrap items-center gap-2.5 border-b border-rule px-7 py-2 min-h-[48px]"
     >
       {/* Mode — segment */}
       <div className={SEG} role="radiogroup" aria-label="Mode d'affichage">
