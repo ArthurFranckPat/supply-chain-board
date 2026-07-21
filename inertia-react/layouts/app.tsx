@@ -165,7 +165,7 @@ function DefaultFooter() {
   return (
     <>
       <span className="flex items-center gap-1.5">
-        <span className="size-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
+        <span className="size-1.5 rounded-full bg-ferme" aria-hidden="true" />
         <span className="font-mono">Connecté à Sage X3</span>
       </span>
       <span className="font-mono">Supply Chain Board · v0.2</span>

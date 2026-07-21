@@ -118,9 +118,9 @@ export function createReactiveColumns({
               title={`Commandé ${commandee} · Livré ${delivered} · Alloué ${strict}${cq > 0 ? ` + CQ ${cq}` : ''} · Reliquat ${reliquat}`}
             >
               <div className="flex h-full">
-                <div className="h-full bg-emerald-500 transition-all" style={{ width: `${pctStrict}%` }} />
-                <div className="h-full bg-purple-500 transition-all" style={{ width: `${pctCq}%` }} />
-                <div className="h-full bg-amber-400 transition-all" style={{ width: `${pctReliquat}%` }} />
+                <div className="h-full bg-ferme transition-all" style={{ width: `${pctStrict}%` }} />
+                <div className="h-full bg-planifie transition-all" style={{ width: `${pctCq}%` }} />
+                <div className="h-full bg-suggere transition-all" style={{ width: `${pctReliquat}%` }} />
               </div>
             </div>
           </div>

@@ -156,7 +156,7 @@ export function lineWeekLoads(
     const total = direct + induit
     const cap = board.weekCaps[String(wl.week)] ?? 0
     const pct = cap > 0 ? Math.round((total / cap) * 100) : 0
-    const barClass = pct > 100 ? 'bg-error' : pct >= 90 ? 'bg-blue-500' : 'bg-emerald-500'
+    const barClass = pct > 100 ? 'bg-destructive' : pct >= 90 ? 'bg-suggere' : 'bg-ferme'
     return { week: wl.week, direct, induit, hours: total, pct, barClass }
   })
 }

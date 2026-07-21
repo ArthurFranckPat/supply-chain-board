@@ -534,7 +534,7 @@ export function lineWeekLoads(state: BoardState, lineCode: string) {
     const hours = Math.round((byWeek[wl.week] ?? 0) * 10) / 10
     const cap = state.board.weekCaps[String(wl.week)] ?? 0
     const pct = cap > 0 ? Math.round((hours / cap) * 100) : 0
-    const barClass = pct > 100 ? 'bg-error' : pct >= 90 ? 'bg-blue-500' : 'bg-emerald-500'
+    const barClass = pct > 100 ? 'bg-destructive' : pct >= 90 ? 'bg-suggere' : 'bg-ferme'
     return { week: wl.week, hours, pct, barClass }
   })
 }

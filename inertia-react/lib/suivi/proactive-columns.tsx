@@ -113,8 +113,8 @@ export function createProactiveColumns({
               title={`Restant ${restante} · Alloué ${alloc} · Reliquat ${reliquat}`}
             >
               <div className="flex h-full">
-                <div className="h-full bg-emerald-500 transition-all" style={{ width: `${pctAlloc}%` }} />
-                <div className="h-full bg-amber-400 transition-all" style={{ width: `${pctReliquat}%` }} />
+                <div className="h-full bg-ferme transition-all" style={{ width: `${pctAlloc}%` }} />
+                <div className="h-full bg-suggere transition-all" style={{ width: `${pctReliquat}%` }} />
               </div>
             </div>
           </div>
@@ -180,8 +180,8 @@ export function createProactiveColumns({
                               : 'OF démarré — pointage atelier en cours'
                           }
                         >
-                          <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-500 opacity-75" />
-                          <span className="relative inline-flex size-1.5 rounded-full bg-emerald-500" />
+                          <span className="absolute inline-flex size-full animate-ping rounded-full bg-ferme opacity-75" />
+                          <span className="relative inline-flex size-1.5 rounded-full bg-ferme" />
                         </span>
                       )}
                       <button
@@ -221,7 +221,7 @@ export function createProactiveColumns({
                     </div>
                     {of.estDebuté && of.piecesFaites != null && of.piecesTotalOf && (
                       <span
-                        className="cursor-help font-mono text-[9px] font-semibold leading-none text-emerald-600 tabular-nums"
+                        className="cursor-help font-mono text-[9px] font-semibold leading-none text-ferme tabular-nums"
                         title="Pièces réalisées / total OF (poste le plus avancé pointé)"
                       >
                         {of.piecesFaites}/{of.piecesTotalOf} pièces
@@ -383,8 +383,8 @@ export function createProactiveColumns({
                       )}
                     </div>
                   ) : (
-                    <div className="mt-0.5 flex items-center gap-1 font-mono text-[9px] font-semibold leading-none text-emerald-700">
-                      <CornerDownRight size={11} strokeWidth={1.75} className="leading-none text-emerald-600" />
+                    <div className="mt-0.5 flex items-center gap-1 font-mono text-[9px] font-semibold leading-none text-ferme">
+                      <CornerDownRight size={11} strokeWidth={1.75} className="leading-none text-ferme" />
                       ↳ SE à lancer (composants dispo)
                     </div>
                   )
