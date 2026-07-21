@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Copilote — 3 directions de redesign</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* Galerie — grammaire Airbnb (cohérente avec les mockups liés) */
+  :root {
+    --primary: #ff385c; --foreground: #222222; --muted-foreground: #6a6a6a;
+    --border: #dddddd; --rule-soft: #ebebeb; --secondary: #f7f7f7; --background: #ffffff;
+    --planifie: #00a699; --ferme: #008049; --suggere: #fc642d;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; background: var(--background); color: var(--foreground); padding: 48px 32px 64px; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 1120px; margin: 0 auto; }
+  .brand { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 17px; letter-spacing: -0.02em; color: var(--primary); margin-bottom: 18px; }
+
+  h1 { font-size: 32px; font-weight: 800; letter-spacing: -0.025em; margin: 0; line-height: 1.1; }
+  h1 em { font-style: normal; color: var(--primary); }
+  .sub { margin-top: 10px; font-size: 13.5px; font-weight: 500; color: var(--muted-foreground); line-height: 1.6; max-width: 760px; }
+  .sub b { color: var(--foreground); }
+  .sub code { font-family: ui-monospace, monospace; background: var(--secondary); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+
+  .meta-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .pill { font-size: 11.5px; font-weight: 600; padding: 4px 11px; border-radius: 99px; background: var(--secondary); color: var(--muted-foreground); display: inline-flex; align-items: center; gap: 5px; }
+
+  .grid { margin-top: 32px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  a.card { display: flex; flex-direction: column; text-decoration: none; color: inherit; background: #fff; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; transition: box-shadow 0.18s, transform 0.18s, border-color 0.18s; }
+  a.card:hover { box-shadow: 0 6px 20px rgb(0 0 0 / 0.10); transform: translateY(-2px); border-color: var(--foreground); }
+
+  .thumb { height: 150px; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid var(--border); position: relative; overflow: hidden; }
+  .thumb .glyph { font-size: 56px; font-weight: 800; letter-spacing: -0.04em; opacity: 0.9; }
+  .thumb-A { background: linear-gradient(180deg, #fff 0%, #fafafa 100%); }
+  .thumb-A .glyph { color: var(--primary); }
+  .thumb-B { background: #fff; }
+  .thumb-C { background: var(--secondary); }
+
+  /* Mini-diagrammes ASCII stylisés dans les thumbs */
+  .diagram { font-family: ui-monospace, monospace; font-size: 11px; line-height: 1.4; color: var(--muted-foreground); white-space: pre; }
+  .diagram b { color: var(--primary); }
+  .diagram i { color: var(--planifie); font-style: normal; }
+
+  .body { padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+  .tag { align-self: flex-start; font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; border-radius: 99px; padding: 3px 9px; }
+  .t1 { background: rgba(0, 166, 153, 0.12); color: #00736b; }      /* Convenu → teal */
+  .t2 { background: rgba(252, 100, 45, 0.14); color: #b5430f; }     /* Réorganisé → arches */
+  .t3 { background: rgba(255, 56, 92, 0.10); color: var(--primary); }/* Novateur → rausch */
+  .body h2 { font-size: 16.5px; font-weight: 800; margin: 0; letter-spacing: -0.01em; }
+  .body p { font-size: 12.5px; font-weight: 500; color: var(--muted-foreground); line-height: 1.6; margin: 0; flex: 1; }
+  .body p b { color: var(--foreground); }
+  .cta { font-size: 12px; font-weight: 700; color: var(--primary); }
+
+  .note { margin-top: 32px; font-size: 11.5px; color: var(--muted-foreground); border-top: 1px solid var(--border); padding-top: 16px; line-height: 1.7; }
+  .note b { color: var(--foreground); }
+  .note code { font-family: ui-monospace, monospace; background: var(--secondary); padding: 1px 5px; border-radius: 4px; font-size: 11px; }
+
+  @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="brand">
+    <svg width="24" height="24" viewBox="0 0 32 32" fill="none"><path d="M16 2C9 2 4 9 4 17c0 6 4 13 12 13s12-7 12-13C28 9 23 2 16 2Z" fill="currentColor" opacity="0.14"/><path d="M16 5c-5 0-9 6-9 12 0 5 3 10 9 10s9-5 9-10c0-6-4-12-9-12Zm0 3c3.5 0 6 4.5 6 9 0 3.7-2 7-6 7s-6-3.3-6-7c0-4.5 2.5-9 6-9Z" fill="currentColor"/></svg>
+    Supply&nbsp;Board · design/mockups
+  </div>
+
+  <h1>Copilote — <em>3 directions</em> de redesign</h1>
+  <p class="sub">
+    Repenser <code>inertia-react/pages/copilote.tsx</code> avec le composant <b>Bubble</b> de shadcn
+    (<a href="https://ui.shadcn.com/docs/components/base/bubble" style="color:var(--primary);">docs</a>) et la grammaire
+    <b>Airbnb</b> (Rausch <code>#ff385c</code>, ink <code>#222</code>, Plus Jakarta Sans). Gradient du convenu au novateur.
+    Les tools et le raisonnement — la richesse de ce copilote — sont <b>mis en avant</b> dans les 3 (chips de statut,
+    source tags <code>[tool: …]</code>). Méme conversation de démo dans les 3 variantes.
+  </p>
+
+  <div class="meta-row">
+    <span class="pill">📐 Composant Bubble (7 variants)</span>
+    <span class="pill">🎨 Thème Airbnb (production)</span>
+    <span class="pill">🔍 Tools + raisonnement visibles</span>
+    <span class="pill">📋 Sous le Masthead existant</span>
+  </div>
+
+  <div class="grid">
+
+    <!-- A — FOCUS -->
+    <a class="card" href="01-focus.html">
+      <div class="thumb thumb-A">
+        <div class="diagram">┌─────────────┐
+│   chat      │
+│   centré    │
+│   ≤ 720px   │
+│  ─────────  │
+│ ▌ composer  │
+└─────────────┘</div>
+      </div>
+      <div class="body">
+        <span class="tag t1">Convenu</span>
+        <h2>A — Focus</h2>
+        <p>
+          Chat épuré centré (Linear / ChatGPT). Tools et raisonnement vivent <b>dans le flux</b>, repliables mais
+          ouverts par défaut. Assistant en <b>ghost</b> (sans cadre) pour un rendu éditorial. Le plus sobre, le plus
+          lisible — l'option sécurité.
+        </p>
+        <span class="cta">Ouvrir la variante →</span>
+      </div>
+    </a>
+
+    <!-- B — DUALITY -->
+    <a class="card" href="02-duality.html">
+      <div class="thumb thumb-B">
+        <div class="diagram">┌──────────┬───────┐
+│   chat   │<i>insp.</i>│
+│  centré  │<i>tools </i>│
+│          │<i>raison.</i>│
+│  ──────  │<i>fil   </i>│
+│▌composer │       │
+└──────────┴───────┘</div>
+      </div>
+      <div class="body">
+        <span class="tag t2">Réorganisé</span>
+        <h2>B — Duality</h2>
+        <p>
+          Split 2 colonnes&nbsp;: conversation clean à gauche, <b>inspecteur</b> à droite (tools détaillés, raisonnement
+          complet, fil chronologique). La lecture et la profondeur se séparant — l'option <b>pro / power user</b>.
+        </p>
+        <span class="cta">Ouvrir la variante →</span>
+      </div>
+    </a>
+
+    <!-- C — COMMAND -->
+    <a class="card" href="03-command.html">
+      <div class="thumb thumb-C">
+        <div class="diagram"><b>OF</b>┌───────┬──────┬┌tools┐
+<b>stock</b>│ chat  │<i>dock </i>││     │
+<b>84u </b>│       │<i>5 alg</i>││     │
+<b>CTP </b>│ ────  │      ││     │
+<b>18/8</b>│▌comp. │      ││     │
+     └───────┴──────┴└─────┘</div>
+      </div>
+      <div class="body">
+        <span class="tag t3">Novateur</span>
+        <h2>C — Command</h2>
+        <p>
+          Command center 3 zones&nbsp;: <b>rail contexte supply</b> (OF, stock, CTP de l'article actif) à gauche,
+          conversation au centre, <b>dock capacités</b> à droite. Source chips cliquables qui pointent vers le contexte.
+          Le copilote ancré dans le métier — l'option <b>immersif</b>.
+        </p>
+        <span class="cta">Ouvrir la variante →</span>
+      </div>
+    </a>
+
+  </div>
+
+  <p class="note">
+    <b>Source de vérité tokens&nbsp;:</b> <code>inertia-react/styles/app.css</code> (scope <code>.theme-airbnb</code>) ·
+    <b>Page actuelle&nbsp;:</b> <code>inertia-react/pages/copilote.tsx</code> (chat sans Bubble).<br>
+    <b>Bubble — mapping variants&nbsp;:</b> <code>default</code> = user (Rausch, align end) · <code>ghost</code> = assistant
+    (sans cadre, full width) · <code>outline</code>/<code>muted</code> = tool traces · <code>destructive</code> = erreur.<br>
+    <b>Décisions transverses&nbsp;:</b> statuts OF conservés (<code>ferme</code> green · <code>planifie</code> Babu teal ·
+    <code>suggere</code> Arches) · focus = ink <code>#222</code> pas Rausch · une seule ombre (hover float) · pas de dark mode.<br>
+    <b>Prochaine étape&nbsp;:</b> choisir une direction (ou mixer, ex. « A + rail contexte de C »), puis porter en composant
+    React Bubble + adapter <code>copilote.tsx</code>.
+  </p>
+
+</div>
+</body>
+</html>
