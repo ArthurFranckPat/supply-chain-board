@@ -125,6 +125,8 @@ interface BoardState {
   batchFirm: (ids: string[]) => Promise<void>
 }
 
+export type { BoardState }
+
 // ---------------------------------------------------------------------------
 // Helpers immuables
 // ---------------------------------------------------------------------------
