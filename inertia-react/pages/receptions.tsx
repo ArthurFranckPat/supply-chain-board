@@ -76,6 +76,12 @@ const fmtDay = (d: Date) =>
 /** jj/mm/aaaa — l'année est indispensable sur un document imprimé. */
 const fmtDayFull = (d: Date) => `${fmtDay(d)}/${d.getFullYear()}`
 
+/** ISO YYYY-MM-DD en composantes LOCALES.
+ *  toISOString() (UTC) recule d'un jour entre minuit et 1-2h du matin en fuseau
+ *  UTC+1/+2 : un clic sur le 21 à 00:00 local devient le 20 en UTC. */
+const isoLocalDay = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
 export default function Receptions(props: ReceptionsPageProps) {
   const [view, setView] = useState<ReceptionViewKind>('tableau')
   const [range, setRange] = useState<DateRangeSel | null>(null)
@@ -103,9 +109,8 @@ export default function Receptions(props: ReceptionsPageProps) {
   const url = useMemo(() => {
     const u = new URL(props.rowsHref, window.location.origin)
     if (range?.start) {
-      const fmt = (d: Date) => d.toISOString().slice(0, 10)
-      u.searchParams.set('from', fmt(range.start))
-      u.searchParams.set('to', fmt(range.end ?? range.start))
+      u.searchParams.set('from', isoLocalDay(range.start))
+      u.searchParams.set('to', isoLocalDay(range.end ?? range.start))
     }
     if (bust) u.searchParams.set('refresh', String(bust))
     return `${u.pathname}?${u.searchParams.toString()}`
@@ -120,9 +125,8 @@ export default function Receptions(props: ReceptionsPageProps) {
     if (view !== 'board') return null
     const u = new URL(props.criticiteHref, window.location.origin)
     if (range?.start) {
-      const fmt = (d: Date) => d.toISOString().slice(0, 10)
-      u.searchParams.set('from', fmt(range.start))
-      u.searchParams.set('to', fmt(range.end ?? range.start))
+      u.searchParams.set('from', isoLocalDay(range.start))
+      u.searchParams.set('to', isoLocalDay(range.end ?? range.start))
     }
     if (bust) u.searchParams.set('refresh', '1')
     return `${u.pathname}?${u.searchParams.toString()}`
