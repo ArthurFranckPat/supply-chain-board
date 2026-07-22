@@ -113,12 +113,12 @@ export function createProactiveColumns({
       cell: ({ row, getValue }) => {
         const rel = getRelativeDateLabel(row.original.dateExpIso, referenceDate)
         return (
-          <span className="whitespace-nowrap">
-            <span className="font-mono text-[11px] font-semibold text-foreground">{(getValue() as string) || '—'}</span>
+          <div className="leading-tight">
+            <div className="font-mono text-[11px] font-semibold text-foreground">{(getValue() as string) || '—'}</div>
             {rel && (
-              <span
+              <div
                 className={cn(
-                  'ml-1 font-sans text-[9px] font-semibold',
+                  'font-sans text-[9px] font-semibold',
                   rel.label.startsWith('Retard')
                     ? 'text-destructive'
                     : rel.label === "Aujourd'hui"
@@ -129,9 +129,9 @@ export function createProactiveColumns({
                 )}
               >
                 {rel.label}
-              </span>
+              </div>
             )}
-          </span>
+          </div>
         )
       },
       meta: {
@@ -150,66 +150,64 @@ export function createProactiveColumns({
         // Couverture par OF : un n° + son statut X3 (WOF/WOP/WOS) par ordre.
         if (ofs.length > 0) {
           return (
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-0.5">
               {ofs.map((of) => {
                 const st = OF_STATUT[of.statutNum]
                 return (
-                  <div key={of.numOf} className="flex flex-col gap-px">
-                    <div className="relative flex items-center gap-1.5">
-                      {of.estDebuté && (
-                        <span
-                          className="absolute -right-1.5 -top-1.5 flex size-1.5"
-                          title={
-                            of.piecesFaites != null && of.piecesTotalOf
-                              ? `OF démarré — ${of.piecesFaites}/${of.piecesTotalOf} pièces réalisées`
-                              : 'OF démarré — pointage atelier en cours'
-                          }
-                        >
-                          <span className="absolute inline-flex size-full animate-ping rounded-full bg-ferme opacity-75" />
-                          <span className="relative inline-flex size-1.5 rounded-full bg-ferme" />
-                        </span>
+                  <div key={of.numOf} className="flex items-center gap-1 min-w-0">
+                    <button
+                      type="button"
+                      className={cn(
+                        'truncate font-mono text-[10px] font-semibold leading-none',
+                        onSelectOf
+                          ? 'text-foreground underline decoration-dotted decoration-muted-foreground/40 underline-offset-2 hover:text-foreground/70'
+                          : 'text-secondary-foreground'
                       )}
-                      <button
-                        type="button"
-                        className={cn(
-                          'break-all font-mono text-[11px] font-semibold leading-snug',
-                          onSelectOf
-                            ? 'text-foreground underline decoration-dotted decoration-muted-foreground/40 underline-offset-2 hover:text-foreground/70'
-                            : 'text-secondary-foreground'
-                        )}
-                        disabled={!onSelectOf}
-                        title={onSelectOf ? `Détail OF ${of.numOf} (faisabilité)` : undefined}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onSelectOf?.(of.numOf)
-                        }}
+                      disabled={!onSelectOf}
+                      title={onSelectOf ? `Détail OF ${of.numOf} (faisabilité)` : of.numOf}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onSelectOf?.(of.numOf)
+                      }}
+                    >
+                      {of.numOf}
+                    </button>
+                    {of.estDebuté && (
+                      <span
+                        className="flex size-1.5 shrink-0"
+                        title={
+                          of.piecesFaites != null && of.piecesTotalOf
+                            ? `OF démarré — ${of.piecesFaites}/${of.piecesTotalOf} pièces réalisées`
+                            : 'OF démarré — pointage atelier en cours'
+                        }
                       >
-                        {of.numOf}
-                      </button>
-                      {st && (
-                        <span
-                          className={cn(
-                            'shrink-0 cursor-help rounded px-1 py-px font-mono text-[9px] font-bold leading-none',
-                            st.tone
-                          )}
-                          title={
-                            st.tag === 'WOF'
-                              ? 'Work Order Firm (OF Ferme) — Validé et verrouillé'
-                              : st.tag === 'WOP'
-                                ? 'Work Order Planned (OF Planifié) — Planifié en production'
-                                : 'Work Order Suggested (OF Suggéré) — Proposition du calcul des besoins'
-                          }
-                        >
-                          {st.tag}
-                        </span>
-                      )}
-                    </div>
+                        <span className="absolute inline-flex size-1.5 animate-ping rounded-full bg-ferme opacity-75" />
+                        <span className="relative inline-flex size-1.5 rounded-full bg-ferme" />
+                      </span>
+                    )}
+                    {st && (
+                      <span
+                        className={cn(
+                          'shrink-0 cursor-help rounded px-1 py-px font-mono text-[8px] font-bold leading-none',
+                          st.tone
+                        )}
+                        title={
+                          st.tag === 'WOF'
+                            ? 'Work Order Firm (OF Ferme) — Validé et verrouillé'
+                            : st.tag === 'WOP'
+                              ? 'Work Order Planned (OF Planifié) — Planifié en production'
+                              : 'Work Order Suggested (OF Suggéré) — Proposition du calcul des besoins'
+                        }
+                      >
+                        {st.tag}
+                      </span>
+                    )}
                     {of.estDebuté && of.piecesFaites != null && of.piecesTotalOf && (
                       <span
-                        className="cursor-help font-mono text-[9px] font-semibold leading-none text-ferme tabular-nums"
+                        className="shrink-0 cursor-help font-mono text-[8px] font-semibold leading-none text-ferme tabular-nums"
                         title="Pièces réalisées / total OF (poste le plus avancé pointé)"
                       >
-                        {of.piecesFaites}/{of.piecesTotalOf} pièces
+                        {of.piecesFaites}/{of.piecesTotalOf}
                       </span>
                     )}
                   </div>

@@ -111,12 +111,12 @@ export function createReactiveColumns({
       cell: ({ row, getValue }) => {
         const rel = getRelativeDateLabel(row.original.dateExpIso, referenceDate)
         return (
-          <span className="whitespace-nowrap">
-            <span className="font-mono text-[11px] font-semibold text-foreground">{(getValue() as string) || '—'}</span>
+          <div className="leading-tight">
+            <div className="font-mono text-[11px] font-semibold text-foreground">{(getValue() as string) || '—'}</div>
             {rel && (
-              <span
+              <div
                 className={cn(
-                  'ml-1 font-sans text-[9px] font-semibold',
+                  'font-sans text-[9px] font-semibold',
                   rel.label.startsWith('Retard')
                     ? 'text-destructive'
                     : rel.label === "Aujourd'hui"
@@ -127,9 +127,9 @@ export function createReactiveColumns({
                 )}
               >
                 {rel.label}
-              </span>
+              </div>
             )}
-          </span>
+          </div>
         )
       },
       meta: {
