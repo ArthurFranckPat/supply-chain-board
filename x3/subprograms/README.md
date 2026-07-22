@@ -134,6 +134,20 @@ ignorés. Sépare un problème de publication ou de chargement du pool (pas de p
 d'un problème d'impression (pong OK, tirage KO), et sert de test de chaîne sans
 consommer de papier.
 
+### Piège de signature (coûté une soirée)
+
+`Variable Integer WRETCOD` — **sans parenthèses**. Sur un `Integer`, `()` déclare
+un tableau non dimensionné ; le wrapper de publication passe un scalaire (`typ
+INT`, `dim 1`) et la liaison échoue **avant** le corps du sous-programme, donc
+sans aucun message : `WW_OK=0`, `Result (0)`, `messages[0]`, `resultXml` nil.
+Sur un `Char`, `()` est normal (longueur variable) — `FIRMSUGG` en est plein.
+Référence de style : `ZSOAPSQL.src` (`Variable Integer W_COUNT`).
+
+Diagnostic reproductible : ajouter `adxwss.trace.on=on&adxwss.trace.size=32768`
+au `requestConfig` de l'enveloppe SOAP, puis lire `<traceRequest>` dans la
+réponse. La trace donne le wrapper appelé, les arguments transmis et `Result(n)`.
+Un échec *dans* le corps remonte, lui, un message dans `WW_MESS`.
+
 ### Points à valider au 1er test
 
 - **`[S]stat1`** : variable de statut d'`IMPRIM0`. Si le compilateur la refuse

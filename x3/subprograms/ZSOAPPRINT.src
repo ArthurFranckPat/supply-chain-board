@@ -32,7 +32,11 @@ Value    Char    WRPTCOD()      # [IN]  Code état (GESARP)
 Value    Char    WSTOFCY()      # [IN]  Site production
 Value    Char    WMFGNUM()      # [IN]  No OF
 Value    Char    WDEST()        # [IN]  Code destination (GESADI / APRINTER)
-Variable Integer WRETCOD()      # [OUT] 0 = OK · 1 = échec
+Variable Integer WRETCOD        # [OUT] 0 = OK · 1 = échec
+# /!\ PAS de parenthèses sur un Integer : elles y déclarent un tableau non
+#     dimensionné, et la liaison avec le wrapper de publication (qui passe un
+#     scalaire INT) échoue sans le moindre message. Modèle : ZSOAPSQL.src.
+#     Sur un Char les parenthèses sont normales (longueur variable) — cf FIRMSUGG.
 Variable Char    WRETERMSG()    # [OUT] Message d'erreur ("" si OK)
 
 # Copies locales : les états standards hébergent des Local de même nom.
