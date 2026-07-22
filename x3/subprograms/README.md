@@ -179,6 +179,15 @@ Un échec *dans* le corps remonte, lui, un message dans `WW_MESS`.
 | destination inexistante | 1 | `Destination DESTBIDON introuvable (GESAIM).` |
 | état inexistant | 1 | `État ETATBIDON introuvable dans le dictionnaire (GESARP).` |
 
+**Corroboré côté serveur d'édition** : une rafale de 6 `BONTRV` vers `PDFFILE` a
+produit 6 tâches réelles, visibles dans la fonction **`PSIMP`** (Surveillance
+impressions) — jobs 19 à 22 encore en pile, utilisateur `ABL`, état `BONTRV`,
+application `CLTEST;srv-x3tst-01`, statut vert, exécution 1 à 4 s. `ETAT` soumet
+donc de vraies tâches, et le `WRETCOD=0` n'est pas complaisant.
+
+`PSIMP` montre l'état **instantané** du serveur (pile consommée en quelques
+secondes), pas un historique : pour observer, tirer une rafale et rafraîchir.
+
 Le 4ᵉ argument d'`ETAT` à 1 fait remonter un **message X3 nommant l'état et la
 destination**, exposé côté app comme `printMessage`. C'est le signal positif qui
 manquait : un `WRETCOD=0` sans ce message ne distingue pas un tir réel d'un appel
