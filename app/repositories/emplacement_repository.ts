@@ -29,6 +29,12 @@ const intOrNull = (v: string | null | undefined): number | null => {
   return Number.isFinite(n) ? n : null
 }
 
+// X3 renvoie parfois une date sentinelle non parsable (ex: LASRCPDAT_0 vide) →
+// Luxon produit un DateTime invalide sans lever ; toJSDate() donne alors un Invalid Date
+// qui fait planter .toISOString() plus loin (contrôleur suivi). On filtre ici.
+const toValidJsDate = (dt: DateTime | null | undefined): Date | null =>
+  dt?.isValid ? dt.toJSDate() : null
+
 export class X3EmplacementRepository {
   /**
    * Allocations détaillées par (numCommande#ligne) → emplacements. Source STOALL.
@@ -76,7 +82,7 @@ export class X3EmplacementRepository {
           qtePalette: intOrNull(r.quantiteUs),
           source: 'STOALL',
           stoCou: String(r.chronoStock ?? '') || null,
-          dateMiseEnStock: (r.chronoStock ? entreeParStoCou.get(r.chronoStock) : null)?.toJSDate() ?? null,
+          dateMiseEnStock: toValidJsDate(r.chronoStock ? entreeParStoCou.get(r.chronoStock) : null),
         })
         map.set(key, arr)
       }
@@ -159,7 +165,7 @@ export class X3EmplacementRepository {
           source: 'STOCK',
           stoCou: String(r.chronoStock ?? '') || null,
           isQc: (r.statut?.trim() ?? '') === 'Q' || Boolean(r.demandeAnalyseQualite?.trim()),
-          dateMiseEnStock: r.dateDerniereEntree?.toJSDate() ?? null,
+          dateMiseEnStock: toValidJsDate(r.dateDerniereEntree),
         })
         map.set(art, arr)
       }
