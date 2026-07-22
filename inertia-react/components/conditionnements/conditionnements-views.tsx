@@ -1,5 +1,6 @@
-import type { ReactNode } from 'react'
+import { type ReactNode, useMemo, useState } from 'react'
 import { cn } from '@r/lib/utils'
+import DataTable, { type ColumnDef, type SortingState } from '@r/components/ui/data-table'
 import type {
   ArticleEnrichissement,
   ConditionnementDisplayRow,
@@ -11,12 +12,9 @@ import { DynamicIcon } from '../ui/dynamic-icon'
 // Helpers & Constants
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Cellules internes à px-4 ; premières/dernières colonnes à pl-7/pr-7 pour
-// aligner les bords du tableau sur la toolbar (ToolbarRow px-7), convention des
-// autres pages denses. `last:border-r-0` supprime le filet vertical de bord.
-const TH =
-  'px-4 first:pl-7 last:pr-7 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft last:border-r-0'
-const TD = 'px-4 first:pl-7 last:pr-7 py-[11px] align-middle border-r border-rule-soft last:border-r-0'
+/** Grammaire compacte reprise de la table Suivi (font-sans 10px, py serré). */
+const TH_C = 'px-4 py-[6px] font-sans text-[10px] font-semibold tracking-wider'
+const TD_C = 'px-4 py-[5px] align-middle'
 
 /** Valeur distincte d'une facette avec son compte. */
 export interface Facette {
@@ -102,12 +100,6 @@ export function ConcordanceBadge({
     if (concordance.niveau >= 2) return 'bg-planifie/15 text-planifie'
     if (concordance.niveau === 1) return 'bg-suggere/15 text-suggere'
     return 'bg-destructive/15 text-destructive'
-  })()
-
-  const label = (() => {
-    if (concordance.nbSources === 0) return '—'
-    // Affiche nbConcordantes/nbSources (ex : "3/3", "2/3", "1/2").
-    return `${concordance.nbConcordantes}/${(concordance.nbSources * (concordance.nbSources - 1)) / 2}`
   })()
 
   const points = '●'.repeat(concordance.niveau) + '○'.repeat(Math.max(0, 3 - concordance.niveau))
@@ -251,139 +243,216 @@ const fmtFr = (iso: string | null | undefined): string => {
   return `${m[3]}/${m[2]}/${m[1]!.slice(2)}`
 }
 
+/** Placeholder « — » (valeur absente) ou « … » (enrichissement non chargé). */
+function Vide({ variant = 'absent' }: { variant?: 'absent' | 'attente' }) {
+  return (
+    <span className="text-[11px] italic text-muted-foreground/40">
+      {variant === 'attente' ? '…' : '—'}
+    </span>
+  )
+}
+
+/**
+ * Colonnes de la table conditionnements, au format DataTable partagé. Les
+ * colonnes d'enrichissement (dates, concordance) n'apparaissent qu'une fois les
+ * estimations chargées — d'où le paramètre `estimationsChargees`.
+ *
+ * `accessorFn` sert au tri (valeur triable, nulls poussés en fin), `cell` au
+ * rendu. Grammaire compacte reprise de Suivi (TH_C / TD_C).
+ */
+function buildColumns(estimationsChargees: boolean): ColumnDef<DisplayRow>[] {
+  const cols: ColumnDef<DisplayRow>[] = [
+    {
+      id: 'article',
+      header: 'Article',
+      accessorFn: (r) => r.article,
+      meta: { thClass: TH_C, tdClass: TD_C },
+      cell: ({ row: { original: r } }) => (
+        <div className="leading-tight">
+          <div className="font-mono text-[12px] font-bold tracking-tight text-foreground">
+            {r.article}
+          </div>
+          {r.categorie && (
+            <span className="font-mono text-[9px] uppercase text-muted-foreground">
+              {r.categorie}
+            </span>
+          )}
+        </div>
+      ),
+    },
+    {
+      id: 'designation',
+      header: 'Désignation',
+      accessorFn: (r) => r.designation ?? '',
+      meta: { thClass: TH_C, tdClass: TD_C },
+      cell: ({ row: { original: r } }) => (
+        <span className="text-[12px] text-secondary-foreground">{r.designation || '—'}</span>
+      ),
+    },
+    {
+      id: 'fournisseur',
+      header: 'Fournisseur',
+      accessorFn: (r) => r.nomFrnsr ?? '',
+      meta: { thClass: TH_C, tdClass: TD_C },
+      cell: ({ row: { original: r } }) =>
+        !r.nomFrnsr ? (
+          <Vide />
+        ) : (
+          <div className="leading-tight">
+            <div className="truncate text-[12px] text-foreground">{r.nomFrnsr}</div>
+            {r.codeFrnsr && (
+              <span className="font-mono text-[9px] text-muted-foreground">{r.codeFrnsr}</span>
+            )}
+          </div>
+        ),
+    },
+    {
+      id: 'pcuStuCoe',
+      header: 'US/UC',
+      accessorFn: (r) => r.pcuStuCoe ?? -1,
+      meta: { thClass: cn(TH_C, 'text-right'), tdClass: cn(TD_C, 'text-right') },
+      cell: ({ row: { original: r } }) => <CoefCell value={r.pcuStuCoe} />,
+    },
+    {
+      id: 'ucParPal',
+      header: 'UC/pal',
+      accessorFn: (r) => r.ucParPal ?? -1,
+      meta: { thClass: cn(TH_C, 'text-right'), tdClass: cn(TD_C, 'text-right') },
+      cell: ({ row: { original: r } }) => <CoefCell value={r.ucParPal} />,
+    },
+  ]
+
+  if (estimationsChargees) {
+    cols.push(
+      {
+        id: 'derniereEntree',
+        header: 'Dernière entrée',
+        accessorFn: (r) => r.derniereEntree ?? '',
+        meta: { thClass: TH_C, tdClass: TD_C },
+        cell: ({ row: { original: r } }) =>
+          !r.derniereEntree ? (
+            <Vide />
+          ) : (
+            <div className="leading-tight">
+              <div className="font-mono text-[11px] tabular-nums text-foreground">
+                {fmtFr(r.derniereEntree)}
+              </div>
+              {r.typeEntree && (
+                <span className="font-mono text-[9px] text-muted-foreground">{r.typeEntree}</span>
+              )}
+            </div>
+          ),
+      },
+      {
+        id: 'derniereSortie',
+        header: 'Dernière sortie',
+        accessorFn: (r) => r.derniereSortie ?? '',
+        meta: { thClass: TH_C, tdClass: TD_C },
+        cell: ({ row: { original: r } }) =>
+          !r.derniereSortie ? (
+            <Vide />
+          ) : (
+            <div className="leading-tight">
+              <div className="font-mono text-[11px] tabular-nums text-foreground">
+                {fmtFr(r.derniereSortie)}
+              </div>
+              {r.typeSortie && (
+                <span className="font-mono text-[9px] text-muted-foreground">{r.typeSortie}</span>
+              )}
+            </div>
+          ),
+      }
+    )
+  }
+
+  cols.push(
+    {
+      id: 'stock',
+      header: 'STOCK',
+      accessorFn: (r) => r.stock?.usParPalette ?? -1,
+      meta: { thClass: cn(TH_C, 'text-right'), tdClass: cn(TD_C, 'text-right') },
+      cell: ({ row: { original: r } }) =>
+        !estimationsChargees ? (
+          <Vide variant="attente" />
+        ) : (
+          <SourceCell src={r.stock} tone="ferme" label="STOCK" />
+        ),
+    },
+    {
+      id: 'stojou',
+      header: 'STOJOU',
+      accessorFn: (r) => r.stojou?.usParPalette ?? -1,
+      meta: { thClass: cn(TH_C, 'text-right'), tdClass: cn(TD_C, 'text-right') },
+      cell: ({ row: { original: r } }) =>
+        !estimationsChargees ? (
+          <Vide variant="attente" />
+        ) : (
+          <SourceCell src={r.stojou} tone="planifie" label="STOJOU" />
+        ),
+    }
+  )
+
+  if (estimationsChargees) {
+    cols.push({
+      id: 'concordance',
+      header: 'Concordance',
+      accessorFn: (r) => r.concordance.niveau,
+      meta: { thClass: cn(TH_C, 'text-center'), tdClass: cn(TD_C, 'text-center') },
+      cell: ({ row: { original: r } }) => <ConcordanceBadge concordance={r.concordance} />,
+    })
+  }
+
+  return cols
+}
+
+/** Tri d'une copie des lignes selon l'état de tri (une seule colonne, nulls en fin). */
+function trier(
+  rows: DisplayRow[],
+  sorting: SortingState[],
+  columns: ColumnDef<DisplayRow>[]
+): DisplayRow[] {
+  if (sorting.length === 0) return rows
+  const s = sorting[0]!
+  const col = columns.find((c) => c.id === s.id)
+  if (!col?.accessorFn) return rows
+  const val = col.accessorFn
+  const dir = s.desc ? -1 : 1
+  return [...rows].sort((a, b) => {
+    const va = val(a) as string | number
+    const vb = val(b) as string | number
+    if (va < vb) return -1 * dir
+    if (va > vb) return 1 * dir
+    return 0
+  })
+}
+
 export function ConditionnementsTable({
   rows,
   estimationsChargees,
   emptyState,
 }: ConditionnementsTableProps) {
-  if (rows.length === 0 && emptyState) {
-    return <>{emptyState}</>
-  }
+  const [sorting, setSorting] = useState<SortingState[]>([])
+  const columns = useMemo(() => buildColumns(estimationsChargees), [estimationsChargees])
+  const sortedRows = useMemo(() => trier(rows, sorting, columns), [rows, sorting, columns])
 
+  // Coquille identique à la table Suivi : gouttière p-5, carte bordée + ombre,
+  // header collant sur fond secondaire, lignes zébrées + teinte d'état.
   return (
-    <div className="min-h-0 flex-1 overflow-auto">
-      <table className="w-full border-collapse text-left">
-        <thead className="sticky top-0 z-10 bg-card">
-          <tr>
-            <th className={TH}>Article</th>
-            <th className={TH}>Désignation</th>
-            <th className={TH}>Fournisseur</th>
-            <th className={cn(TH, 'text-right')}>US/UC</th>
-            <th className={cn(TH, 'text-right')}>UC/pal</th>
-            {estimationsChargees && (
-              <>
-                <th className={TH}>Dernière entrée</th>
-                <th className={TH}>Dernière sortie</th>
-              </>
-            )}
-            <th className={cn(TH, 'text-right')}>STOCK</th>
-            <th className={cn(TH, 'text-right')}>STOJOU</th>
-            {estimationsChargees && <th className={cn(TH, 'text-center')}>Concordance</th>}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr
-              key={r.article}
-              className={cn(
-                'border-t border-rule-soft hover:bg-foreground/[0.04]',
-                rowClass(r)
-              )}
-            >
-              <td className={TD}>
-                <div className="font-mono text-[13px] font-bold tracking-tight text-foreground">
-                  {r.article}
-                </div>
-                {r.categorie && (
-                  <span className="font-mono text-[9px] uppercase text-muted-foreground">
-                    {r.categorie}
-                  </span>
-                )}
-              </td>
-              <td className={TD}>
-                <span className="truncate text-[12px] text-secondary-foreground">
-                  {r.designation || '—'}
-                </span>
-              </td>
-              <td className={TD}>
-                {!r.nomFrnsr ? (
-                  <span className="text-[11px] italic text-muted-foreground/40">—</span>
-                ) : (
-                  <>
-                    <div className="truncate text-[12px] text-foreground">{r.nomFrnsr}</div>
-                    {r.codeFrnsr && (
-                      <span className="font-mono text-[9px] text-muted-foreground">
-                        {r.codeFrnsr}
-                      </span>
-                    )}
-                  </>
-                )}
-              </td>
-              <td className={cn(TD, 'text-right')}>
-                <CoefCell value={r.pcuStuCoe} />
-              </td>
-              <td className={cn(TD, 'text-right')}>
-                <CoefCell value={r.ucParPal} />
-              </td>
-              {estimationsChargees && (
-                <>
-                  <td className={TD}>
-                    {!r.derniereEntree ? (
-                      <span className="text-[11px] italic text-muted-foreground/40">—</span>
-                    ) : (
-                      <>
-                        <div className="font-mono text-[11px] tabular-nums text-foreground">
-                          {fmtFr(r.derniereEntree)}
-                        </div>
-                        {r.typeEntree && (
-                          <span className="font-mono text-[9px] text-muted-foreground">
-                            {r.typeEntree}
-                          </span>
-                        )}
-                      </>
-                    )}
-                  </td>
-                  <td className={TD}>
-                    {!r.derniereSortie ? (
-                      <span className="text-[11px] italic text-muted-foreground/40">—</span>
-                    ) : (
-                      <>
-                        <div className="font-mono text-[11px] tabular-nums text-foreground">
-                          {fmtFr(r.derniereSortie)}
-                        </div>
-                        {r.typeSortie && (
-                          <span className="font-mono text-[9px] text-muted-foreground">
-                            {r.typeSortie}
-                          </span>
-                        )}
-                      </>
-                    )}
-                  </td>
-                </>
-              )}
-              <td className={cn(TD, 'text-right')}>
-                {!estimationsChargees ? (
-                  <span className="text-[11px] italic text-muted-foreground/40">…</span>
-                ) : (
-                  <SourceCell src={r.stock} tone="ferme" label="STOCK" />
-                )}
-              </td>
-              <td className={cn(TD, 'text-right')}>
-                {!estimationsChargees ? (
-                  <span className="text-[11px] italic text-muted-foreground/40">…</span>
-                ) : (
-                  <SourceCell src={r.stojou} tone="planifie" label="STOJOU" />
-                )}
-              </td>
-              {estimationsChargees && (
-                <td className={cn(TD, 'text-center')}>
-                  <ConcordanceBadge concordance={r.concordance} />
-                </td>
-              )}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="min-h-0 flex-1 overflow-hidden p-5">
+      <DataTable
+        columns={columns}
+        rows={sortedRows}
+        sorting={sorting}
+        onSortingChange={setSorting}
+        getRowKey={(r) => r.article}
+        getRowClass={(r) =>
+          cn('border-t border-rule-soft transition-colors even:bg-foreground/[0.015]', rowClass(r))
+        }
+        tableClass="min-w-[880px]"
+        scrollContainerClass="h-full border border-rule rounded-lg shadow-float bg-card"
+        theadRowClass="sticky top-0 z-10 bg-secondary"
+        emptyState={emptyState}
+      />
     </div>
   )
 }
