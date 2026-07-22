@@ -131,31 +131,43 @@ html, body { margin: 0; padding: 0; font-family: var(--font-sans); color: var(--
 
 /* ═══ SIDEBAR GAUCHE — navigation (DNA ChatGPT/Claude) ═══ */
 .sidebar { display: flex; flex-direction: column; border-right: 1px solid var(--border); background: var(--secondary); overflow: hidden; }
-.sb-top { padding: 12px 12px 8px; }
-.sb-newchat { width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 10px 12px; font-family: inherit; font-size: 13px; font-weight: 600; color: var(--foreground); background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; transition: border-color 0.15s, background 0.15s; }
-.sb-newchat:hover { border-color: var(--foreground); }
+/* ═══ SIDEBAR GAUCHE — navigation (DNA ChatGPT/Claude, refined) ═══ */
+.sidebar { display: flex; flex-direction: column; border-right: 1px solid var(--border); background: var(--secondary); overflow: hidden; }
+
+/* Nouvelle conversation + recherche */
+.sb-top { padding: 14px 14px 10px; }
+.sb-newchat { width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 11px 12px; font-family: inherit; font-size: 13px; font-weight: 600; color: var(--foreground); background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s; }
+.sb-newchat:hover { border-color: var(--foreground); box-shadow: var(--shadow-soft); }
 .sb-newchat svg { color: var(--primary); flex: none; }
-.sb-searchwrap { padding: 0 12px 8px; }
+.sb-searchwrap { padding: 0 14px 12px; }
 .sb-search { position: relative; }
-.sb-search input { width: 100%; padding: 8px 12px 8px 32px; font-family: inherit; font-size: 12.5px; color: var(--foreground); background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm); outline: none; transition: border-color 0.15s; }
+.sb-search input { width: 100%; padding: 8px 12px 8px 33px; font-family: inherit; font-size: 12.5px; color: var(--foreground); background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm); outline: none; transition: border-color 0.15s; }
 .sb-search input::placeholder { color: var(--muted-foreground); }
 .sb-search input:focus { border-color: var(--foreground); }
-.sb-search svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--muted-foreground); pointer-events: none; }
-.sb-body { flex: 1; overflow-y: auto; padding: 4px 10px 12px; }
-.sb-section { margin-top: 14px; }
-.sb-section__label { padding: 0 6px 6px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted-foreground); }
-.conv-row { display: flex; align-items: flex-start; gap: 9px; width: 100%; padding: 8px 9px; margin-bottom: 2px; font-family: inherit; font-size: 12.5px; color: var(--foreground); background: none; border: 1px solid transparent; border-radius: var(--radius-sm); cursor: pointer; text-align: left; transition: background 0.12s, border-color 0.12s; }
-.conv-row:hover { background: var(--card); }
-.conv-row.is-active { background: var(--card); border-color: var(--border); box-shadow: inset 3px 0 0 var(--primary); }
-.conv-row__ico { flex: none; margin-top: 1px; color: var(--muted-foreground); }
-.conv-row.is-active .conv-row__ico { color: var(--primary); }
-.conv-row__main { min-width: 0; flex: 1; }
-.conv-row__title { font-weight: 500; color: var(--foreground); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.conv-row__meta { margin-top: 1px; font-size: 10.5px; color: var(--muted-foreground); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sb-foot { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-top: 1px solid var(--rule-soft); background: var(--secondary); }
-.sb-foot__name { font-size: 12.5px; font-weight: 600; color: var(--foreground); line-height: 1.2; }
+.sb-search svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--muted-foreground); pointer-events: none; }
+
+/* Corps */
+.sb-body { flex: 1; overflow-y: auto; padding: 6px 8px 14px; }
+.sb-section { margin-top: 16px; }
+.sb-section:first-child { margin-top: 8px; }
+.sb-section__label { padding: 0 10px 6px; font-size: 11px; font-weight: 600; color: var(--muted-foreground); }
+
+/* Conversation — 1 ligne, titre seul, pas d'icône ni de méta */
+.conv-row { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 10px; font-family: inherit; font-size: 13px; font-weight: 500; color: var(--foreground); background: none; border: none; border-radius: var(--radius-sm); cursor: pointer; text-align: left; transition: background 0.12s; position: relative; }
+.conv-row:hover { background: color-mix(in srgb, var(--card) 65%, var(--secondary)); }
+.conv-row.is-active { background: var(--card); }
+.conv-row.is-active::before { content: ''; position: absolute; left: 0; top: 7px; bottom: 7px; width: 3px; border-radius: 3px; background: var(--primary); }
+.conv-row__title { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.conv-row.is-active .conv-row__title { font-weight: 600; }
+.conv-row__status { width: 7px; height: 7px; border-radius: 50%; flex: none; background: var(--suggere); animation: pulse 1.1s ease-in-out infinite; }
+
+/* Pied : profil */
+.sb-foot { display: flex; align-items: center; gap: 10px; padding: 11px 14px; border-top: 1px solid var(--rule-soft); background: var(--secondary); }
+.sb-avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--foreground); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 11.5px; font-weight: 700; flex: none; }
+.sb-foot__name { font-size: 12.5px; font-weight: 600; color: var(--foreground); line-height: 1.2; min-width: 0; }
 .sb-foot__name span { display: block; font-size: 10.5px; font-weight: 500; color: var(--muted-foreground); }
-.sb-foot__model { margin-left: auto; font-family: var(--font-mono); font-size: 10px; font-weight: 600; color: #00736b; background: color-mix(in srgb, var(--planifie) 10%, transparent); padding: 3px 8px; border-radius: var(--radius-pill); }
+.sb-menu { margin-left: auto; width: 28px; height: 28px; border-radius: 7px; border: none; background: none; color: var(--muted-foreground); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: background 0.12s, color 0.12s; }
+.sb-menu:hover { background: var(--card); color: var(--foreground); }
 
 /* ═══ INSPECTEUR DROIT — contexte supply (refined, éditorial) ═══ */
 .inspector { display: flex; flex-direction: column; border-left: 1px solid var(--border); background: var(--card); overflow: hidden; }
@@ -321,50 +333,37 @@ html, body { margin: 0; padding: 0; font-family: var(--font-sans); color: var(--
     <aside class="sidebar" id="nav-sidebar">
       <div class="sb-top">
         <button class="sb-newchat" id="new-chat">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
           Nouvelle conversation
         </button>
       </div>
       <div class="sb-searchwrap">
         <div class="sb-search">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input type="text" placeholder="Rechercher une conversation…">
+          <input type="text" placeholder="Rechercher…">
         </div>
       </div>
 
       <div class="sb-body scroll-area">
         <div class="sb-section">
           <div class="sb-section__label">Aujourd'hui</div>
-          <button class="conv-row is-active">
-            <span class="conv-row__ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
-            <span class="conv-row__main"><span class="conv-row__title">Date engageante — 200 PP_830_ESH</span><span class="conv-row__meta">à l'instant · CTP</span></span>
-          </button>
-          <button class="conv-row">
-            <span class="conv-row__ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
-            <span class="conv-row__main"><span class="conv-row__title">Retards clients sur 14 j</span><span class="conv-row__meta">il y a 2 h · en cours</span></span>
-          </button>
+          <button class="conv-row is-active"><span class="conv-row__title">Date engageante — 200 PP_830_ESH</span></button>
+          <button class="conv-row"><span class="conv-row__title">Retards clients sur 14 j</span><span class="conv-row__status" title="en cours"></span></button>
         </div>
         <div class="sb-section">
           <div class="sb-section__label">Cette semaine</div>
-          <button class="conv-row">
-            <span class="conv-row__ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
-            <span class="conv-row__main"><span class="conv-row__title">OF-2024-1182 bloqué&nbsp;?</span><span class="conv-row__meta">lun. · verdict</span></span>
-          </button>
-          <button class="conv-row">
-            <span class="conv-row__ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></span>
-            <span class="conv-row__main"><span class="conv-row__title">Stock de sécurité PP_120_ARC</span><span class="conv-row__meta">dim. · verdict</span></span>
-          </button>
-          <button class="conv-row">
-            <span class="conv-row__ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg></span>
-            <span class="conv-row__main"><span class="conv-row__title">Scénario décalage réception</span><span class="conv-row__meta">sam. · scénarios</span></span>
-          </button>
+          <button class="conv-row"><span class="conv-row__title">OF-2024-1182 bloqué&nbsp;?</span></button>
+          <button class="conv-row"><span class="conv-row__title">Stock de sécurité PP_120_ARC</span></button>
+          <button class="conv-row"><span class="conv-row__title">Scénario décalage réception</span></button>
         </div>
       </div>
 
       <div class="sb-foot">
-        <div class="avatar avatar--user" style="width:32px;height:32px;">AB</div>
+        <div class="sb-avatar">AB</div>
         <div class="sb-foot__name">Arthur<span>Planificateur supply</span></div>
-        <span class="sb-foot__model">zai / glm-5.2</span>
+        <button class="sb-menu" title="Réglages" aria-label="Réglages">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+        </button>
       </div>
     </aside>
 
