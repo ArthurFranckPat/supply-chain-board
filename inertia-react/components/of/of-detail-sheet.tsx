@@ -163,7 +163,7 @@ export function OfDetailSheet(props: {
     <Sheet open={props.open} onOpenChange={props.onOpenChange}>
       <SheetContent
         side="bottom"
-        className="flex h-[72vh] w-full max-w-none flex-col gap-0 rounded-t-[16px] p-0"
+        className="flex h-[72vh] w-full max-w-none flex-col gap-0 rounded-t-[16px] p-0 data-[side=bottom]:max-w-none data-[side=bottom]:mx-0"
       >
         {!d ? (
           detailError ? (
