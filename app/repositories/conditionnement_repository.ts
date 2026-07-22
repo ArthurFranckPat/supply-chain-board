@@ -1,7 +1,6 @@
 import { X3Database } from '#app/x3/client/x3_database'
 import {
-  SEUIL_CONFIANCE_OK,
-  type EstimationResult,
+  NB_MOUVEMENTS_STOJOU,
   type PaletteObservation,
 } from '#app/domain/conditionnement_estimator'
 
@@ -71,11 +70,13 @@ const LOC_STOCKAGE_PREFIX = 'SM'
 const LOC_CONSO_PATTERN = 'S_P' // LIKE 'S_P' + CLP géré séparément
 
 /**
- * Fenêtre d'historique STOJOU (mois). Compromis : assez longue pour capter les
- * articles à rotation lente (ex. A1230H : dernier rangement en 2023), mais pas
- * au point de scanner 10 ans d'historique (cold start). Calibrable via env.
+ * Nombre de rangements récents remontés par article (cf. `NB_MOUVEMENTS_STOJOU`
+ * côté domaine, qui applique la règle). Le bornage se fait sur le NOMBRE de
+ * mouvements, pas sur leur ancienneté : un article reçu pour la dernière fois il
+ * y a deux ans reste estimable, alors que l'ancienne fenêtre glissante de 6 mois
+ * l'excluait — précisément la population dont le référentiel est mal tenu.
  */
-const HISTORY_MONTHS = Number(process.env.ESTIMATION_HISTORY_MONTHS) || 6
+const NB_MOUVEMENTS = NB_MOUVEMENTS_STOJOU
 
 const toNum = (v: string | null): number => {
   const n = Number.parseFloat(String(v ?? ''))
@@ -108,32 +109,41 @@ ORDER BY ITMREF_0
 `
 
 /**
- * STOJOU agrégé : mode (STATS_MODE) + compte des rangements par article, DEPUIS
- * la zone de réception (`TRSTYP=7` AND `LOC='REC'`). **Agrégation côté Oracle**
- * (GROUP BY + STATS_MODE) → ~1 ligne par article au lieu de 45k brutes. C'est ce
- * qui résout le cold start : le SOAP Syracuse transfère 200 lignes au lieu de
- * 45 151, soit ~200x moins de volume XML.
+ * STOJOU : les `NB_MOUVEMENTS` derniers rangements de palette par article, DEPUIS
+ * la zone de réception (`TRSTYP=7` AND `LOC='REC'`, qté négative = sortie de REC).
  *
- * La sortie de REC (qté négative) certifie qu'on range une palette issue d'une
- * réception fournisseur libérée du contrôle qualité. La valeur absolue = contenu
- * d'une palette complète au moment du rangement. STATS_MODE = valeur récurrente
- * (la plus fréquente), robuste face aux palettes partielles accidentelles.
+ * La sortie de REC certifie qu'on range une palette issue d'une réception
+ * fournisseur libérée du contrôle qualité — donc COMPLÈTE (le reliquat naît à la
+ * consommation, pas à la réception). `ABS(QTYSTU_0)` = US/palette directement.
  *
- * Fenêtre HISTORY_MONTHS (défaut 36 mois) : couvre les articles à rotation lente
- * sans scanner 10 ans d'historique. Calibrable via ESTIMATION_HISTORY_MONTHS.
+ * **Fenêtrage par rang, pas par date.** Le `ROW_NUMBER` borne à N lignes par
+ * article quelle que soit leur ancienneté : un article reçu pour la dernière fois
+ * en 2023 reste estimable. Volume transféré : ~3 lignes/article (~600 au total),
+ * du même ordre que l'ancien GROUP BY + STATS_MODE — donc pas de régression SOAP.
+ *
+ * Tri sur `CREDATTIM_0` (horodatage complet) et non `CREDAT_0` : les palettes
+ * d'une même réception sont rangées le MÊME JOUR, une date seule ne les
+ * départagerait pas et « les 3 derniers » deviendrait arbitraire.
+ *
+ * Le domaine (`estimerDepuisStojou`) applique la règle : ≥ 2 rangements
+ * concordants → cette valeur ; sinon le plus récent, marqué 'faible'. L'ordre du
+ * ORDER BY fait donc foi côté app — ne pas le retirer.
  */
 const buildStojouSql = () => `
-SELECT
-  ITMREF_0 AS ITMREF,
-  STATS_MODE(ABS(QTYSTU_0)) AS MODE_QTE,
-  COUNT(ITMREF_0) AS NB
-FROM STOJOU
-WHERE TRSTYP_0 = 7
-  AND LOC_0 = 'REC'
-  AND QTYSTU_0 < 0
-  AND ABS(QTYSTU_0) > 1
-  AND CREDAT_0 >= ADD_MONTHS(TRUNC(SYSDATE), -${HISTORY_MONTHS})
-GROUP BY ITMREF_0
+SELECT ITMREF, QTE
+FROM (
+  SELECT
+    ITMREF_0 AS ITMREF,
+    ABS(QTYSTU_0) AS QTE,
+    ROW_NUMBER() OVER (PARTITION BY ITMREF_0 ORDER BY CREDATTIM_0 DESC) AS RN
+  FROM STOJOU
+  WHERE TRSTYP_0 = 7
+    AND LOC_0 = 'REC'
+    AND QTYSTU_0 < 0
+    AND ABS(QTYSTU_0) > 1
+)
+WHERE RN <= ${NB_MOUVEMENTS}
+ORDER BY ITMREF, RN
 `
 
 /**
@@ -234,11 +244,11 @@ export class ConditionnementRepository {
   }
 
   /**
-   * Estimation STOJOU par article : mode (STATS_MODE) + count, déjà agrégés côté
-   * Oracle par GROUP BY. Retourne directement une Map article → EstimationResult,
-   * car l'agrégation est faite en SQL (pas besoin de repasser par le domaine).
+   * Les `NB_MOUVEMENTS_STOJOU` derniers rangements de palette par article, source
+   * 'STOJOU'. **Ordre du plus récent au plus ancien** (ORDER BY RN) — le domaine
+   * s'appuie dessus pour son repli « valeur du mouvement le plus récent ».
    */
-  async getStojouEstimations(): Promise<Map<string, EstimationResult>> {
+  async getStojouRangements(): Promise<Map<string, PaletteObservation[]>> {
     const db = new X3Database()
     let rows: RawRow[] = []
     try {
@@ -246,43 +256,29 @@ export class ConditionnementRepository {
     } finally {
       await db.destroy()
     }
-    const out = new Map<string, EstimationResult>()
-    for (const row of rows) {
-      const article = row.ITMREF?.trim()
-      if (!article) continue
-      const usParPalette = toNumOrNull(row.MODE_QTE)
-      const observations = Number.parseInt(row.NB ?? '0', 10)
-      if (!usParPalette || usParPalette <= 0 || observations === 0) continue
-      out.set(article, {
-        usParPalette,
-        source: 'STOJOU',
-        confiance: observations >= SEUIL_CONFIANCE_OK ? 'ok' : 'faible',
-        observations,
-      })
-    }
-    return out
+    return aggregate(rows, 'STOJOU')
   }
 
   /**
-   * Les deux sources en parallèle. STOCK retourne des observations brutes (le
-   * consensus SM* se calcule côté domaine), STOJOU retourne des estimations déjà
-   * agrégées par Oracle (STATS_MODE) — asymétrie volontaire : l'agrégation STOJOU
-   * côté SQL évite de transférer 45k lignes brutes via SOAP.
+   * Les deux sources en parallèle, au même grain : des observations brutes que le
+   * domaine transforme en estimation (consensus SM* pour STOCK, concordance des N
+   * derniers rangements pour STOJOU). Aucune règle métier en SQL.
    */
   async getObservations(): Promise<{
     stock: Map<string, PaletteObservation[]>
-    stojou: Map<string, EstimationResult>
+    stojou: Map<string, PaletteObservation[]>
   }> {
     // Promise.allSettled : STOCK (lignes brutes, ZSOAPSQL O(n²) sur ~45k lignes)
     // peut timeout tant que le fix 4GL (commit 0f7e68a) n'est pas déployé côté
-    // ERP. Un Promise.all jetterait aussi STOJOU (déjà agrégé Oracle, rapide) →
-    // la factory échouait, le cache restait froid, chaque requête retryait.
-    // Ici on dégrade vers STOJOU seul : le cache se remplit, la page marche,
-    // et le SWR retryera STOCK au prochain TTL (2h) — donc dès que le fix ERP
-    // sera posé, on récupère les deux sources sans rien déployer côté app.
+    // ERP. Un Promise.all jetterait aussi STOJOU (borné à 3 lignes/article par le
+    // ROW_NUMBER, donc léger) → la factory échouait, le cache restait froid,
+    // chaque requête retryait. Ici on dégrade vers STOJOU seul : le cache se
+    // remplit, la page marche, et le SWR retryera STOCK au prochain TTL (2h) —
+    // donc dès que le fix ERP sera posé, on récupère les deux sources sans rien
+    // déployer côté app.
     const [stockR, stojouR] = await Promise.allSettled([
       this.getStockSrmParArticle(),
-      this.getStojouEstimations(),
+      this.getStojouRangements(),
     ])
     // ponytail: console.warn — pas de DI logger dans les repos ; le preheat
     // provider log déjà l'erreur via la factory bentocache, ce warn précise

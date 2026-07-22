@@ -1,9 +1,9 @@
 import { test } from '@japa/runner'
 import {
   appliquerEstimation,
+  estimerDepuisStojou,
   estimerUsParPalette,
-  median,
-  mode,
+  NB_MOUVEMENTS_STOJOU,
   SEUIL_CONFIANCE_OK,
   SEUIL_DOMINANCE_STOCK,
   type PaletteObservation,
@@ -23,50 +23,72 @@ function conso(us: number): PaletteObservation {
   return { us, source: 'STOCK', typeEmplacement: 'conso' }
 }
 
-test.group('median', () => {
-  test("médiane d'un tableau impair = valeur centrale", ({ assert }) => {
-    assert.equal(median([3, 1, 2]), 2)
-    assert.equal(median([10, 42, 42, 42, 50]), 42)
+/** Rangement STOJOU. Les tableaux sont ordonnés du PLUS RÉCENT au plus ancien. */
+function rgt(us: number): PaletteObservation {
+  return { us, source: 'STOJOU' }
+}
+
+test.group('estimerDepuisStojou', () => {
+  test('3 rangements identiques → cette valeur, confiance ok', ({ assert }) => {
+    const r = estimerDepuisStojou([rgt(960), rgt(960), rgt(960)])
+    assert.equal(r!.usParPalette, 960)
+    assert.equal(r!.confiance, 'ok')
+    assert.equal(r!.observations, 3)
   })
 
-  test("médiane d'un tableau pair = moyenne des 2 centrales", ({ assert }) => {
-    assert.equal(median([1, 2, 3, 4]), 2.5)
-    assert.equal(median([42, 42]), 42)
+  test('2 rangements concordants sur 3 → la valeur concordante', ({ assert }) => {
+    // Le plus récent (17) est isolé, deux autres à 960 → 960 l'emporte.
+    const r = estimerDepuisStojou([rgt(17), rgt(960), rgt(960)])
+    assert.equal(r!.usParPalette, 960)
+    assert.equal(r!.confiance, 'ok')
   })
 
-  test("médiane ne mute pas l'entrée", ({ assert }) => {
-    const arr = [3, 1, 2]
-    median(arr)
-    assert.deepEqual(arr, [3, 1, 2])
+  test('3 rangements tous différents → le plus récent, confiance faible', ({ assert }) => {
+    // Conditionnement changé ou mouvements groupés : on prend la valeur en
+    // vigueur (la plus récente), et on le signale.
+    const r = estimerDepuisStojou([rgt(500), rgt(960), rgt(17)])
+    assert.equal(r!.usParPalette, 500)
+    assert.equal(r!.confiance, 'faible')
+    assert.equal(r!.observations, 3)
   })
 
-  test('médiane vide = null', ({ assert }) => {
-    assert.isNull(median([]))
-  })
-})
-
-test.group('mode', () => {
-  test('retourne la valeur la plus récurrente', ({ assert }) => {
-    assert.equal(mode([960, 960, 960, 17, 960]), 960)
-    assert.equal(mode([42, 42, 42, 100, 100]), 42)
+  test('un seul rangement → cette valeur, confiance faible', ({ assert }) => {
+    const r = estimerDepuisStojou([rgt(960)])
+    assert.equal(r!.usParPalette, 960)
+    assert.equal(r!.confiance, 'faible')
+    assert.equal(r!.observations, 1)
   })
 
-  test("en cas d'égalité, retourne la plus grande valeur", ({ assert }) => {
-    assert.equal(mode([42, 42, 100, 100]), 100)
+  test(`ne regarde que les ${NB_MOUVEMENTS_STOJOU} premiers (les plus récents)`, ({ assert }) => {
+    // Garde-fou si la requête remonte plus de lignes que prévu : les anciennes
+    // (960 × 3) ne doivent pas écraser les récentes (500 × 3).
+    const r = estimerDepuisStojou([
+      rgt(500),
+      rgt(500),
+      rgt(500),
+      rgt(960),
+      rgt(960),
+      rgt(960),
+      rgt(960),
+    ])
+    assert.equal(r!.usParPalette, 500)
+    assert.equal(r!.observations, NB_MOUVEMENTS_STOJOU)
   })
 
-  test('valeur unique = cette valeur', ({ assert }) => {
-    assert.equal(mode([960]), 960)
+  test('aucun rangement → null', ({ assert }) => {
+    assert.isNull(estimerDepuisStojou([]))
   })
 
-  test('vide = null', ({ assert }) => {
-    assert.isNull(mode([]))
+  test('ignore les observations STOCK mélangées', ({ assert }) => {
+    assert.isNull(estimerDepuisStojou([sm(42), sm(42)]))
   })
 
-  test('robuste face aux palettes partielles', ({ assert }) => {
-    // 10 palettes à 960 + 1 palette partielle à 17 → mode = 960 (pas dévié).
-    const valeurs = [...Array(10).fill(960), 17]
-    assert.equal(mode(valeurs), 960)
+  test('exclut les qtés ≤ 1 avant de prendre le plus récent', ({ assert }) => {
+    // Le plus récent est un mouvement à 1 (paramétrage) → écarté, le repli
+    // devient le 960 suivant.
+    const r = estimerDepuisStojou([rgt(1), rgt(960), rgt(500)])
+    assert.equal(r!.usParPalette, 960)
+    assert.equal(r!.observations, 2)
   })
 })
 

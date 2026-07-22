@@ -12,13 +12,15 @@
  *    Sans valeur partagée par ≥ 2 emplacements, le STOCK est jugé non fiable et
  *    on laisse le fallback STOJOU prendre le relais.
  *
- * 2. **STOJOU** (fallback, historique 6 mois) : chaque changement d'emplacement
- *    depuis la zone de réception (`TRSTYP=7` AND `LOC='REC'`, qté négative = sortie
- *    de REC) est le rangement d'une palette issue d'une réception fournisseur
- *    libérée du contrôle qualité. La médiane des `|QTYSTU_0|` = US/palette. On
+ * 2. **STOJOU** (fallback) : chaque changement d'emplacement depuis la zone de
+ *    réception (`TRSTYP=7` AND `LOC='REC'`, qté négative = sortie de REC) est le
+ *    rangement d'une palette issue d'une réception fournisseur libérée du
+ *    contrôle qualité — donc une palette COMPLÈTE : le reliquat naît à la
+ *    consommation, pas à la réception. `|QTYSTU_0|` = US/palette directement. On
  *    cible l'origine `REC` (pas la destination) pour ne capter que les palettes
  *    de réception, et exclure les transferts internes SM*-vers-SM* / SM*-vers-PRE qui ne sont
- *    pas des palettes de réception.
+ *    pas des palettes de réception. On examine les `NB_MOUVEMENTS_STOJOU` derniers
+ *    rangements, sans borne d'ancienneté.
  *
  * AUCUN accès X3 ici : ce module ne fait que transformer des observations déjà
  * chargées en estimation (testable isolément, cf. tests/domain/).
@@ -54,48 +56,6 @@ export const SEUIL_CONFIANCE_OK = 3
  * pleine type, pas d'un reliquat partiel.
  */
 export const SEUIL_DOMINANCE_STOCK = 2
-
-/**
- * Médiane d'un tableau de nombres. Trie une copie (ne mute pas l'entrée).
- * Retourne null si le tableau est vide. Pour un nombre pair d'éléments, prend la
- * moyenne des deux valeurs centrales (médiane standard).
- *
- * NB : la médiane n'est PLUS utilisée pour l'estimation (remplacée par `mode` -
- * voir ci-dessous). Conservée pour référence / tests.
- */
-export function median(valeurs: number[]): number | null {
-  if (valeurs.length === 0) return null
-  const triees = [...valeurs].sort((a, b) => a - b)
-  const n = triees.length
-  const milieu = Math.floor(n / 2)
-  if (n % 2 === 1) return triees[milieu]!
-  return (triees[milieu - 1]! + triees[milieu]!) / 2
-}
-
-/**
- * Mode d'un tableau de nombres = la valeur la plus récurrente (la plus
- * fréquente). Plus robuste que la médiane face aux palettes partielles : si un
- * article est rangé 10 fois à 960 et une fois à 17 (palette entamée), le mode
- * retourne 960 (le conditionnement dominant) tandis que la médiane pourrait
- * dériver. En cas d'égalité (ex. deux valeurs ex aequo), retourne la plus grande.
- *
- * Retourne null si le tableau est vide.
- */
-export function mode(valeurs: number[]): number | null {
-  if (valeurs.length === 0) return null
-  const compte = new Map<number, number>()
-  for (const v of valeurs) compte.set(v, (compte.get(v) ?? 0) + 1)
-  let meilleureValeur = Number.NaN
-  let meilleureOcc = 0
-  for (const [valeur, occurrences] of compte) {
-    // Strictement plus fréquent, ou ex aequo mais valeur plus grande.
-    if (occurrences > meilleureOcc || (occurrences === meilleureOcc && valeur > meilleureValeur)) {
-      meilleureValeur = valeur
-      meilleureOcc = occurrences
-    }
-  }
-  return Number.isNaN(meilleureValeur) ? null : meilleureValeur
-}
 
 /**
  * Observation de palette pour un article : une quantité US (= le contenu d'une
@@ -196,20 +156,55 @@ export function estimerDepuisStock(obs: PaletteObservation[]): EstimationResult 
 }
 
 /**
- * Estimation STOJOU : mode (valeur la plus récurrente) des qtés de rangement
- * historiques. Plus robuste que la médiane face aux palettes partielles : si un
- * article est rangé 10 fois à 960 et une fois à 17 (palette entamée), le mode
- * retourne 960 (conditionnement dominant) tandis que la médiane dérive.
+ * Nombre de rangements récents examinés par article. Les palettes reçues d'un
+ * fournisseur sont complètes (le reliquat naît à la consommation, pas à la
+ * réception), donc le dernier rangement porte déjà le conditionnement. On en
+ * prend 3 pour disposer d'une redondance : concordance = confirmation, divergence
+ * = signal (conditionnement changé, ou mouvement groupant plusieurs palettes).
  */
-function estimerDepuisStojou(obs: PaletteObservation[]): EstimationResult | null {
-  const valides = observationsValides(obs.filter((o) => o.source === 'STOJOU'))
+export const NB_MOUVEMENTS_STOJOU = 3
+
+/** Nb de rangements concordants suffisant pour une confiance 'ok'. */
+export const SEUIL_DOMINANCE_STOJOU = 2
+
+/**
+ * Estimation STOJOU : les `NB_MOUVEMENTS_STOJOU` derniers rangements de palette
+ * de réception, **du plus récent au plus ancien** (l'ordre du tableau fait foi,
+ * il vient du ORDER BY de la requête).
+ *
+ * Règle :
+ *  - ≥ `SEUIL_DOMINANCE_STOJOU` rangements à la même qté → cette qté, confiance 'ok' ;
+ *  - sinon (rangements tous différents, ou un seul disponible) → le **plus
+ *    récent**, confiance 'faible'. Le plus récent car il reflète le
+ *    conditionnement en vigueur : si le fournisseur a changé de palettisation,
+ *    l'ancienne valeur est périmée, pas plus vraie parce qu'elle est plus vue.
+ *
+ * Aucune fenêtre calendaire : un article reçu pour la dernière fois il y a deux
+ * ans reste estimable (c'est justement la population dont le référentiel est mal
+ * tenu). Le bornage se fait sur le NOMBRE de mouvements, pas sur leur âge.
+ */
+export function estimerDepuisStojou(obs: PaletteObservation[]): EstimationResult | null {
+  const valides = observationsValides(obs.filter((o) => o.source === 'STOJOU')).slice(
+    0,
+    NB_MOUVEMENTS_STOJOU
+  )
   if (valides.length === 0) return null
-  const valeurMode = mode(valides.map((o) => o.us))
-  if (valeurMode === null || valeurMode <= 0) return null
+
+  const compte = new Map<number, number>()
+  for (const o of valides) compte.set(o.us, (compte.get(o.us) ?? 0) + 1)
+
+  // Repli par défaut : le mouvement le plus récent (tête de tableau).
+  const plusRecent = valides[0]!.us
+  let meilleure = { valeur: plusRecent, occurrences: compte.get(plusRecent) ?? 1 }
+  for (const [valeur, occurrences] of compte) {
+    if (occurrences > meilleure.occurrences) meilleure = { valeur, occurrences }
+  }
+  if (meilleure.valeur <= 0) return null
+
   return {
-    usParPalette: valeurMode,
+    usParPalette: meilleure.valeur,
     source: 'STOJOU',
-    confiance: valides.length >= SEUIL_CONFIANCE_OK ? 'ok' : 'faible',
+    confiance: meilleure.occurrences >= SEUIL_DOMINANCE_STOJOU ? 'ok' : 'faible',
     observations: valides.length,
   }
 }
@@ -221,8 +216,8 @@ function estimerDepuisStojou(obs: PaletteObservation[]): EstimationResult | null
  * Logique :
  *  1. Si STOCK a une valeur dominante fiable (≥ 2 emplacements à la même qté) →
  *     on retourne l'estimation STOCK (palette type observée sur le stock live).
- *  2. Sinon (stock entamé / palette unique / vide), fallback STOJOU : mode des
- *     rangements historiques (palettes complètes au moment du rangement).
+ *  2. Sinon (stock entamé / palette unique / vide), fallback STOJOU : les 3
+ *     derniers rangements (palettes complètes au moment du rangement).
  *  3. Sinon null → l'article reste « Coef manquant » (aucune estimation possible).
  *
  * On ne mélange jamais les sources : garder la source distincte permet au

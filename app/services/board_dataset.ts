@@ -8,7 +8,11 @@ import { X3MfgmatRepository, type OfMaterial } from '#repositories/mfgmat_reposi
 import { X3OrderLineRepository, type OfCommandePeg } from '#repositories/order_line_repository'
 import { X3ReceptionRepository } from '#repositories/reception_repository'
 import { ConditionnementRepository } from '#repositories/conditionnement_repository'
-import { estimerDepuisStock, type EstimationsPaire } from '#app/domain/conditionnement_estimator'
+import {
+  estimerDepuisStock,
+  estimerDepuisStojou,
+  type EstimationsPaire,
+} from '#app/domain/conditionnement_estimator'
 import { CombinedOrdersRepository } from '#repositories/combined_orders_repository'
 import { computeSupplierLatency } from '#repositories/supplier_latency_repository'
 import {
@@ -401,10 +405,11 @@ class BoardDataset {
         const articles = new Set([...stock.keys(), ...stojou.keys()])
         const out = new Map<string, EstimationsPaire>()
         for (const article of articles) {
-          // STOCK : consensus SM* calculé côté domaine depuis les observations brutes.
+          // Les deux sources passent par le domaine : consensus SM* pour STOCK,
+          // concordance des N derniers rangements pour STOJOU (ordre récent →
+          // ancien préservé par le repository).
           const stockEstim = estimerDepuisStock(stock.get(article) ?? [])
-          // STOJOU : déjà agrégé par Oracle (STATS_MODE) — directement utilisable.
-          const stojouEstim = stojou.get(article) ?? null
+          const stojouEstim = estimerDepuisStojou(stojou.get(article) ?? [])
           if (stockEstim || stojouEstim) {
             out.set(article, { stock: stockEstim, stojou: stojouEstim })
           }
