@@ -9,6 +9,8 @@ import type { ProactiveDisplayRow } from '@/lib/suivi/types'
 import {
   OF_STATUT,
   VERDICT_TONE,
+  VERDICT_DOT,
+  VERDICT_TEXT,
   LATE_TONE,
   getRelativeDateLabel,
 } from '@/lib/suivi/tracking-shared'
@@ -31,37 +33,37 @@ export function createProactiveColumns({
       header: 'Commande · Client',
       cell: ({ row, getValue }) => (
         <>
-          <div className="font-mono text-[13px] font-bold tracking-tight text-foreground">
+          <span className="font-mono text-[12px] font-bold tracking-tight text-foreground">
             {getValue() as string}
-          </div>
-          <div className="mt-0.5 font-sans text-[12px] font-medium leading-snug text-secondary-foreground">
+          </span>
+          <span className="ml-1.5 text-[10px] text-muted-foreground">
             {row.original.client || '—'}
-          </div>
+          </span>
         </>
       ),
       meta: {
         thClass:
-          'w-[150px] px-4 py-[8px] text-left font-sans text-[11px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
-        tdClass: 'px-4 py-[9px] align-middle',
+          'w-[150px] px-4 py-[6px] text-left font-sans text-[10px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
+        tdClass: 'px-4 py-[5px] align-middle',
       },
     },
     {
       accessorKey: 'article',
       header: 'Article · Désignation',
       cell: ({ row, getValue }) => (
-        <>
-          <div className="font-mono text-[13px] font-bold tracking-tight text-foreground">
+        <div className="flex items-baseline gap-1.5 min-w-0">
+          <span className="shrink-0 font-mono text-[12px] font-bold tracking-tight text-foreground">
             {getValue() as string}
-          </div>
-          <div className="mt-0.5 font-sans text-[11px] font-normal leading-snug text-muted-foreground/70">
+          </span>
+          <span className="truncate text-[10px] text-muted-foreground/70">
             {row.original.designation || '—'}
-          </div>
-        </>
+          </span>
+        </div>
       ),
       meta: {
         thClass:
-          'w-[200px] px-4 py-[8px] text-left font-sans text-[11px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
-        tdClass: 'px-4 py-[9px] align-middle',
+          'w-[200px] px-4 py-[6px] text-left font-sans text-[10px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
+        tdClass: 'px-4 py-[5px] align-middle',
       },
     },
     {
@@ -86,60 +88,37 @@ export function createProactiveColumns({
       },
       meta: {
         thClass:
-          'w-[56px] px-4 py-[8px] text-left font-sans text-[11px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
-        tdClass: 'px-4 py-[9px] align-middle',
+          'w-[56px] px-4 py-[6px] text-left font-sans text-[10px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
+        tdClass: 'px-4 py-[5px] align-middle',
       },
     },
     {
       accessorKey: 'qteRestante',
       header: 'Qté',
-      cell: ({ row, getValue }) => {
-        const r = row.original
-        const restante = (getValue() as number) || 1
-        const alloc = r.qteAllouee
-        const reliquat = r.reliquat
-        const pctAlloc = Math.min(100, Math.round((alloc / restante) * 100))
-        const pctReliquat = Math.min(100 - pctAlloc, Math.round((reliquat / restante) * 100))
-        return (
-          <div className="flex flex-col items-end gap-1">
-            <div className="flex items-baseline gap-1">
-              <span className="font-sans text-[18px] font-extrabold leading-none tracking-tight text-foreground tabular-nums">
-                {getValue() as number}
-              </span>
-              <span className="font-mono text-[10px] font-medium text-muted-foreground/80">u</span>
-            </div>
-            <div
-              className="h-[3px] w-full overflow-hidden rounded-full bg-secondary"
-              title={`Restant ${restante} · Alloué ${alloc} · Reliquat ${reliquat}`}
-            >
-              <div className="flex h-full">
-                <div className="h-full bg-foreground/60 transition-all" style={{ width: `${pctAlloc}%` }} />
-                <div className="h-full bg-foreground/20 transition-all" style={{ width: `${pctReliquat}%` }} />
-              </div>
-            </div>
-          </div>
-        )
-      },
+      cell: ({ getValue }) => (
+        <span className="font-mono text-[13px] font-bold leading-none tracking-tight text-foreground tabular-nums">
+          {getValue() as number}
+          <span className="ml-0.5 text-[9px] font-medium text-muted-foreground/60">u</span>
+        </span>
+      ),
       meta: {
         thClass:
-          'w-[100px] px-4 py-[8px] text-right font-sans text-[11px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
-        tdClass: 'whitespace-nowrap px-4 py-[9px] text-right align-middle',
+          'w-[100px] px-4 py-[6px] text-right font-sans text-[10px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
+        tdClass: 'whitespace-nowrap px-4 py-[5px] text-right align-middle',
       },
     },
     {
       accessorKey: 'dateExp',
       header: 'Expé',
       cell: ({ row, getValue }) => {
-        // Pas de champ `late` sur les lignes proactives (payload serveur) — le
-        // Solid lisait undefined (falsy). Parité : jamais de rouge ici.
         const rel = getRelativeDateLabel(row.original.dateExpIso, referenceDate)
         return (
-          <div className="flex flex-col items-start gap-0.5">
-            <span className="text-foreground">{(getValue() as string) || '—'}</span>
+          <span className="whitespace-nowrap">
+            <span className="font-mono text-[11px] font-semibold text-foreground">{(getValue() as string) || '—'}</span>
             {rel && (
               <span
                 className={cn(
-                  'font-sans text-[9px] font-semibold leading-none',
+                  'ml-1 font-sans text-[9px] font-semibold',
                   rel.label.startsWith('Retard')
                     ? 'text-destructive'
                     : rel.label === "Aujourd'hui"
@@ -152,14 +131,14 @@ export function createProactiveColumns({
                 {rel.label}
               </span>
             )}
-          </div>
+          </span>
         )
       },
       meta: {
         thClass:
-          'w-[76px] px-4 py-[8px] text-left font-sans text-[11px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
+          'w-[76px] px-4 py-[6px] text-left font-sans text-[10px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
         tdClass:
-          'whitespace-nowrap px-4 py-[9px] align-middle font-mono text-[12.5px] font-semibold text-foreground',
+          'whitespace-nowrap px-4 py-[5px] align-middle font-mono text-[12.5px] font-semibold text-foreground',
       },
     },
     {
@@ -259,8 +238,8 @@ export function createProactiveColumns({
       },
       meta: {
         thClass:
-          'w-[150px] px-4 py-[8px] text-left font-sans text-[11px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
-        tdClass: 'px-4 py-[9px] align-middle',
+          'w-[150px] px-4 py-[6px] text-left font-sans text-[10px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
+        tdClass: 'px-4 py-[5px] align-middle',
       },
     },
     {
@@ -270,20 +249,18 @@ export function createProactiveColumns({
       cell: ({ row }) => {
         const o = row.original
         return (
-          <span
-            className={cn(
-              'inline-flex items-center gap-1 whitespace-nowrap rounded-md border border-transparent px-2 py-0.5 text-[11px] font-medium',
-              VERDICT_TONE[o.verdictKey]
-            )}
-          >
-            {o.verdictLabel}
+          <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+            <span className={cn('size-1.5 shrink-0 rounded-full', VERDICT_DOT[o.verdictKey])} />
+            <span className={cn('text-[10px] font-semibold', VERDICT_TEXT[o.verdictKey])}>
+              {o.verdictLabel}
+            </span>
           </span>
         )
       },
       meta: {
         thClass:
-          'w-[120px] px-4 py-[8px] text-left font-sans text-[11px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
-        tdClass: 'px-4 py-[9px] align-middle',
+          'w-[120px] px-4 py-[6px] text-left font-sans text-[10px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
+        tdClass: 'px-4 py-[5px] align-middle',
       },
     },
     {
@@ -300,9 +277,9 @@ export function createProactiveColumns({
       },
       meta: {
         thClass:
-          'w-[70px] px-4 py-[8px] text-right font-sans text-[11px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
+          'w-[70px] px-4 py-[6px] text-right font-sans text-[10px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
         tdClass:
-          'whitespace-nowrap px-4 py-[9px] text-right align-middle font-mono text-[12.5px] font-semibold text-secondary-foreground',
+          'whitespace-nowrap px-4 py-[5px] text-right align-middle font-mono text-[12.5px] font-semibold text-secondary-foreground',
       },
     },
     {
@@ -429,8 +406,8 @@ export function createProactiveColumns({
       },
       meta: {
         thClass:
-          'w-[300px] px-4 py-[8px] text-left font-sans text-[11px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
-        tdClass: 'px-4 py-[9px] align-middle',
+          'w-[300px] px-4 py-[6px] text-left font-sans text-[10px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
+        tdClass: 'px-4 py-[5px] align-middle',
       },
     },
   ]
@@ -441,7 +418,7 @@ export function createProactiveIndexCol(): DataTableIndexColumn<ProactiveDisplay
   return {
     headerLabel: 'N°',
     thClass:
-      'w-[38px] px-4 py-[8px] text-left font-sans text-[11px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
+      'w-[38px] px-4 py-[6px] text-left font-sans text-[10px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
     tdClass: (row: ProactiveDisplayRow) => {
       // blocked / uncov : pas un retard calendaire mais un vrai problème → rouge foncé.
       // late : utilise la gravité (tolerance/critical).
@@ -450,7 +427,7 @@ export function createProactiveIndexCol(): DataTableIndexColumn<ProactiveDisplay
           ? ('critical' as const)
           : row.lateSeverity
       return cn(
-        'px-4 py-[9px] align-middle font-sans text-[12px] font-bold leading-none tracking-tight text-muted-foreground/80 tabular-nums',
+        'px-4 py-[5px] align-middle font-sans text-[12px] font-bold leading-none tracking-tight text-muted-foreground/80 tabular-nums',
         LATE_TONE.bar(s)
       )
     },

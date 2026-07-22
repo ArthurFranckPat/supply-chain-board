@@ -37,6 +37,22 @@ export const BADGE_TONE: Record<SuiviStatusKey, string> = {
   ras: 'bg-secondary text-muted-foreground',
 }
 
+/** Dot statut réactif (mode compact). */
+export const BADGE_DOT: Record<SuiviStatusKey, string> = {
+  exp: 'bg-ferme',
+  alc: 'bg-suggere',
+  ret: 'bg-destructive',
+  ras: 'bg-muted-foreground/40',
+}
+
+/** Texte statut réactif (mode compact). */
+export const BADGE_TEXT: Record<SuiviStatusKey, string> = {
+  exp: 'text-ferme',
+  alc: 'text-suggere',
+  ret: 'text-destructive',
+  ras: 'text-muted-foreground',
+}
+
 /**
  * Statut X3 d'un OF (WIPSTA / statutNum) → tag court WOF/WOP/WOS + couleur.
  *  - 1 = Ferme     → WOF (Work Order Firm)
@@ -63,6 +79,26 @@ export const VERDICT_TONE: Record<ProactiveVerdictKey, string> = {
   blocked: 'bg-destructive/10 text-destructive',
   uncov: 'bg-destructive/10 text-destructive',
   risk: 'bg-planifie/15 text-planifie',
+}
+
+/** Dot verdict (mode compact) — couleur pleine, pas de fond. */
+export const VERDICT_DOT: Record<ProactiveVerdictKey, string> = {
+  time: 'bg-ferme',
+  stock: 'bg-ferme',
+  late: 'bg-suggere',
+  blocked: 'bg-destructive',
+  uncov: 'bg-destructive',
+  risk: 'bg-planifie',
+}
+
+/** Texte verdict (mode compact) — couleur seule, pas de pill. */
+export const VERDICT_TEXT: Record<ProactiveVerdictKey, string> = {
+  time: 'text-ferme',
+  stock: 'text-ferme',
+  late: 'text-suggere',
+  blocked: 'text-destructive',
+  uncov: 'text-destructive',
+  risk: 'text-planifie',
 }
 
 /**
