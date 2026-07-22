@@ -277,7 +277,12 @@ export default function Conditionnements(props: ConditionnementsPageProps) {
         </>
       }
     >
-
+      {/* Colonne flex bornée à la hauteur de la zone principale : le layout est
+          en `dense` + `scrollable={false}`, donc c'est le tableau qui scrolle
+          (via son `flex-1 min-h-0 overflow-auto`). Sans ce wrapper flex, le
+          `flex-1` du tableau n'a pas de parent flex, ne borne rien, et le
+          contenu est coupé par l'`overflow-hidden` du <main>. */}
+      <div className="flex h-full flex-col">
         {/* ═══ Toolbar ═══ */}
         <ToolbarRow>
           <FacetteDropdown
@@ -400,6 +405,7 @@ export default function Conditionnements(props: ConditionnementsPageProps) {
             }
           />
         )}
+      </div>
     </AppLayout>
   )
 }

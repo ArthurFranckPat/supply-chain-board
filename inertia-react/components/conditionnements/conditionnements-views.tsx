@@ -258,7 +258,7 @@ export function ConditionnementsTable({
   }
 
   return (
-    <div className="flex-1 overflow-auto">
+    <div className="min-h-0 flex-1 overflow-auto">
       <table className="w-full border-collapse text-left">
         <thead className="sticky top-0 z-10 bg-card">
           <tr>
