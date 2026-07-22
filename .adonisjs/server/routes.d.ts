@@ -50,6 +50,8 @@ export type ScannedRoutes = {
     'planning_board.search_pf': { paramsTuple?: []; params?: {} }
     'planning_board.of_materials_diagnostic': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
     'planning.suggestion_firm': { paramsTuple: [ParamValue]; params: {'sugNum': ParamValue} }
+    'print.print': { paramsTuple: [ParamValue]; params: {'orderNum': ParamValue} }
+    'print.history': { paramsTuple: [ParamValue]; params: {'orderNum': ParamValue} }
     'planning.order_firm': { paramsTuple: [ParamValue]; params: {'orderNum': ParamValue} }
     'scenarios.index': { paramsTuple?: []; params?: {} }
     'scenarios.store': { paramsTuple?: []; params?: {} }
@@ -126,6 +128,7 @@ export type ScannedRoutes = {
     'planning_board.search_of': { paramsTuple?: []; params?: {} }
     'planning_board.search_pf': { paramsTuple?: []; params?: {} }
     'planning_board.of_materials_diagnostic': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
+    'print.history': { paramsTuple: [ParamValue]; params: {'orderNum': ParamValue} }
     'scenarios.index': { paramsTuple?: []; params?: {} }
     'scenarios.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'scheduler.of_detail': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
@@ -185,6 +188,7 @@ export type ScannedRoutes = {
     'planning_board.search_of': { paramsTuple?: []; params?: {} }
     'planning_board.search_pf': { paramsTuple?: []; params?: {} }
     'planning_board.of_materials_diagnostic': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
+    'print.history': { paramsTuple: [ParamValue]; params: {'orderNum': ParamValue} }
     'scenarios.index': { paramsTuple?: []; params?: {} }
     'scenarios.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'scheduler.of_detail': { paramsTuple: [ParamValue]; params: {'of': ParamValue} }
@@ -218,6 +222,7 @@ export type ScannedRoutes = {
     'print_config.upsert_rule': { paramsTuple?: []; params?: {} }
     'planning_board.board_feasibility': { paramsTuple?: []; params?: {} }
     'planning.suggestion_firm': { paramsTuple: [ParamValue]; params: {'sugNum': ParamValue} }
+    'print.print': { paramsTuple: [ParamValue]; params: {'orderNum': ParamValue} }
     'planning.order_firm': { paramsTuple: [ParamValue]; params: {'orderNum': ParamValue} }
     'scenarios.store': { paramsTuple?: []; params?: {} }
     'scenarios.diff': { paramsTuple?: []; params?: {} }

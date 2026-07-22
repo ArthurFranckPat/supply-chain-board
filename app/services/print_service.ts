@@ -4,6 +4,8 @@ import { callRunSubprog } from '#app/x3/run-client'
 import { X3Connection } from '#app/x3/connection'
 import PrintDestination from '#models/print_destination'
 import PrintJob from '#models/print_job'
+import boardDataset from '#services/board_dataset'
+import { atelierLabel } from '#app/domain/atelier'
 import {
   fetchJobs,
   fetchPrinters,
@@ -198,6 +200,13 @@ class PrintService {
     origin?: 'firm' | 'manual' | 'test'
     requestedBy?: string
     config?: X3EnvConfig
+    /**
+     * Durée du suivi de tâche côté serveur d'édition. `0` = pas de suivi : le
+     * tirage est journalisé avec son numéro de tâche et le verdict reste
+     * `pending`, à trancher par `print:reconcile`. Sert à l'affermissement
+     * groupé, où attendre l'issue de chaque tirage ferait exploser la durée.
+     */
+    watchTimeoutMs?: number
   }): Promise<PrintOutcome> {
     const ofNum = params.ofNum.trim()
     const stoloc = (params.stoloc ?? '').trim()
@@ -265,7 +274,10 @@ class PrintService {
     // sinon notre propre tâche est déjà dans le relevé et devient invisible.
     const cfg = params.config ?? getX3EnvConfig()
     const printServer = resolvePrintServer(cfg, await this.serverOf(routed.destCode, cfg))
-    const before = printServer ? await fetchJobs(cfg, printServer) : { error: 'non configuré' }
+    const before =
+      printServer && params.watchTimeoutMs !== 0
+        ? await fetchJobs(cfg, printServer)
+        : { error: 'relevé non pris (suivi désactivé ou serveur inconnu)' }
     const knownRanks = new Set<number>(
       Array.isArray(before) ? before.map((j) => j.rank) : []
     )
@@ -326,12 +338,13 @@ class PrintService {
           'X3 a accepté l’appel sans soumettre de tâche : l’état n’a produit aucun document pour cet OF.',
         inferred: false,
       }
-    } else if (ok && printServer) {
+    } else if (ok && printServer && params.watchTimeoutMs !== 0) {
       const w = await watchJob(cfg, printServer, {
         folder: cfg.pool,
         report: docType,
         knownRanks,
         expectedRank,
+        timeoutMs: params.watchTimeoutMs,
       })
       watch = {
         verdict: w.verdict,
@@ -401,6 +414,105 @@ class PrintService {
       jobDetail: watch.detail,
       verdictInferred: watch.inferred,
     }
+  }
+
+  /**
+   * Atelier d'un article = `STOLOC` du poste de sa gamme (dernière opération
+   * gagne). Même règle que /charge et /suivi, via le référentiel partagé.
+   * Chaîne vide si inconnu : le routage retombe alors sur la règle par défaut,
+   * jamais sur une destination inventée.
+   */
+  async resolveAtelier(itmref: string): Promise<{ code: string; label: string }> {
+    const article = (itmref ?? '').trim()
+    if (!article) return { code: '', label: '' }
+    try {
+      const ref = await boardDataset.getReferential()
+      const stolocByWst = new Map((ref.workstations ?? []).map((w) => [w.code, w.stockLocation]))
+      const g = ref.gamme.find((x) => x.article === article)
+      const code = (stolocByWst.get(g?.workstation ?? '') ?? '').trim()
+      return { code, label: code ? atelierLabel(code) : '' }
+    } catch {
+      // Référentiel indisponible : on n'invente pas d'atelier, la règle par
+      // défaut s'appliquera.
+      return { code: '', label: '' }
+    }
+  }
+
+  /**
+   * Dossier complet d'un OF : bon de travail + bon de sortie matière.
+   *
+   * Les documents sont indépendants — l'échec de l'un n'annule pas l'autre, et
+   * chacun porte son propre verdict. Un dossier « partiel » (bon de travail
+   * sorti, bon matière non) doit rester visible comme tel : c'est précisément
+   * l'état qui envoie un opérateur chercher des composants sans liste.
+   */
+  async printFolder(params: {
+    ofNum: string
+    stofcy: string
+    itmref?: string
+    stoloc?: string
+    docTypes?: DocType[]
+    force?: boolean
+    origin?: 'firm' | 'manual' | 'test'
+    requestedBy?: string
+    config?: X3EnvConfig
+    watchTimeoutMs?: number
+  }): Promise<{
+    ok: boolean
+    atelier: { code: string; label: string }
+    documents: PrintOutcome[]
+  }> {
+    const atelier = params.stoloc
+      ? { code: params.stoloc, label: atelierLabel(params.stoloc) }
+      : await this.resolveAtelier(params.itmref ?? '')
+
+    const documents: PrintOutcome[] = []
+    for (const docType of params.docTypes ?? DOC_TYPES) {
+      try {
+        documents.push(
+          await this.printOf({
+            ofNum: params.ofNum,
+            docType,
+            stofcy: params.stofcy,
+            stoloc: atelier.code,
+            force: params.force,
+            origin: params.origin,
+            requestedBy: params.requestedBy,
+            config: params.config,
+            watchTimeoutMs: params.watchTimeoutMs,
+          })
+        )
+      } catch (e) {
+        // Une exception ne doit jamais faire disparaître un document du bilan :
+        // un tirage non rendu compte est un tirage qu'on croira sorti.
+        documents.push({
+          ok: false,
+          status: 'failed',
+          ofNum: params.ofNum,
+          docType,
+          destCode: '',
+          sandbox: true,
+          attempt: 0,
+          message: '',
+          error: String(e),
+          jobId: null,
+          previous: null,
+          serverVerdict: 'unknown',
+          jobRank: 0,
+          jobPhase: '',
+          jobDetail: '',
+          verdictInferred: false,
+        })
+      }
+    }
+
+    // Le dossier n'est « ok » que si chaque document est parti sans erreur
+    // constatée. Un verrou d'idempotence (`locked`) compte comme un succès :
+    // le document est déjà sorti.
+    const ok = documents.every(
+      (d) => (d.status === 'submitted' || d.status === 'locked') && d.serverVerdict !== 'error'
+    )
+    return { ok, atelier, documents }
   }
 
   /** Serveur d'édition déclaré par une destination (`APRINTER.PRTSRV`). */

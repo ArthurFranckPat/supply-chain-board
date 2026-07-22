@@ -20,6 +20,11 @@ import { type DiagResult } from '@/lib/of/diagnostic-types'
 import { route } from '@/lib/routes'
 import { OfDiagnosticTree } from './of-diagnostic-tree'
 import { OfFirmAction } from './of-firm-action'
+import {
+  OfPrintVerdict,
+  OfReprintButton,
+  type PrintReport,
+} from './of-print-verdict'
 
 export function OfDetailSheet(props: {
   num: string | null
@@ -43,6 +48,8 @@ export function OfDetailSheet(props: {
   // Affermissement (write-back X3 FUNMAUTR, #31). ~13s : spinner + message.
   const [firming, setFirming] = useState(false)
   const [firmMsg, setFirmMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  /** Verdict d'impression, tenu à part du verdict d'affermissement (#85 lot 3). */
+  const [printMsg, setPrintMsg] = useState<PrintReport | null>(null)
   // Confirmation requise pour affermir un OF en rupture (défaut : interdit).
   const [confirmRupture, setConfirmRupture] = useState(false)
 
@@ -63,6 +70,7 @@ export function OfDetailSheet(props: {
     setDiagRequested(false)
     setDiag(null)
     setFirmMsg(null)
+    setPrintMsg(null)
     setConfirmRupture(false)
     setDetail(null)
     if (props.open && props.num) void fetchDetail(props.num)
@@ -124,9 +132,17 @@ export function OfDetailSheet(props: {
         ? route('planning.suggestion_firm', { sugNum: d.num })
         : route('planning.order_firm', { orderNum: d.num })
       const res = await fetch(url, { method: 'POST' })
-      const data = (await res.json()) as { ok: boolean; mfgNum?: string; error?: string }
+      const data = (await res.json()) as {
+        ok: boolean
+        mfgNum?: string
+        error?: string
+        print?: PrintReport
+      }
       if (data.ok && data.mfgNum) {
         setFirmMsg({ ok: true, text: `OF ${data.mfgNum} affermi` })
+        // L'impression a son propre verdict : un OF affermi dont le dossier
+        // n'est pas sorti doit se voir, pas se fondre dans le succès.
+        if (data.print) setPrintMsg({ ...data.print, documents: data.print.documents ?? [] })
         // Mise à jour optimiste : la carte se transforme en place (id → nouvel OF).
         props.onFirmed?.(d.num, data.mfgNum)
         if (data.mfgNum !== d.num) {
@@ -193,14 +209,22 @@ export function OfDetailSheet(props: {
               </Badge>
               {d.bomBlocked > 0 && <Badge variant="destructive">{d.bomBlocked} rupture(s)</Badge>}
               <span className="flex-1" />
-              {firmMsg && (
-                <span
-                  className={`font-mono text-[11px] font-semibold ${firmMsg.ok ? 'text-ferme' : 'text-destructive'}`}
-                >
-                  {firmMsg.ok ? '✓ ' : '⚠ '}
-                  {firmMsg.text}
+              {/* Deux verdicts empilés, jamais fusionnés : l'affermissement a
+                  réussi ou non, l'impression a abouti ou non (#85, invariant 1). */}
+              {(firmMsg || printMsg) && (
+                <span className="flex flex-col items-end gap-0.5">
+                  {firmMsg && (
+                    <span
+                      className={`font-mono text-[11px] font-semibold ${firmMsg.ok ? 'text-ferme' : 'text-destructive'}`}
+                    >
+                      {firmMsg.ok ? '✓ ' : '⚠ '}
+                      {firmMsg.text}
+                    </span>
+                  )}
+                  {printMsg && <OfPrintVerdict report={printMsg} />}
                 </span>
               )}
+              {!canFirm && d.statusLabel === 'Ferme' && <OfReprintButton ofNum={d.num} />}
               {canFirm && (
                 <OfFirmAction
                   firming={firming}

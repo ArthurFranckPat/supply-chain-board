@@ -180,6 +180,9 @@ router
         router
           .post('/suggestions/:sugNum/firm', '#controllers/suggestion_firm_controller.firm')
           .as('planning.suggestion_firm')
+        // Impression du dossier d'OF à la demande / historique (#85 lot 3).
+        router.post('/orders/:orderNum/print', '#controllers/print_controller.print')
+        router.get('/orders/:orderNum/print', '#controllers/print_controller.history')
         router
           .post('/orders/:orderNum/firm', '#controllers/suggestion_firm_controller.firm')
           .as('planning.order_firm')

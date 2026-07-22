@@ -3,6 +3,7 @@ import cache from '@adonisjs/cache/services/main'
 import { getX3EnvConfig } from '#config/x3'
 import { callRunSubprog } from '#app/x3/run-client'
 import { X3SuggestionRepository } from '#app/repositories/suggestion_repository'
+import printService, { DOC_LABELS } from '#services/print_service'
 
 /**
  * Invalide les caches board après un write-back X3 (FIRMSUGG).
@@ -110,6 +111,57 @@ export default class SuggestionFirmController {
     // (temps réel) → FUNMAUTR y consomme la suggestion, elle disparaît d'elle-même.
     await bustBoardCaches()
 
+    // --- Impression du dossier (issue #85, lot 3) ----------------------------
+    // Affermir d'abord, imprimer ensuite : l'OF existe dans l'ERP quoi qu'il
+    // arrive au papier. L'impression ne peut donc JAMAIS faire échouer cette
+    // réponse — elle rend un verdict séparé, que l'écran affiche séparément.
+    // Sans cette séparation, un « succès » global masquerait un atelier sans
+    // papier, qui est l'état dangereux de l'issue.
+    const batch = ctx.request.input('batch') === true || ctx.request.input('batch') === '1'
+    let print: FirmPrintReport = {
+      attempted: false,
+      ok: false,
+      deferred: batch,
+      atelier: { code: '', label: '' },
+      documents: [],
+      error: '',
+    }
+    try {
+      const folder = await printService.printFolder({
+        ofNum: mfgNum,
+        stofcy: keys.stofcy,
+        itmref: keys.itmref,
+        origin: 'firm',
+        requestedBy: ctx.auth.user?.username ?? '',
+        config,
+        // Affermissement groupé : pas de suivi de tâche, sinon chaque OF paie
+        // l'attente du verdict et le lot devient interminable. Les tirages sont
+        // journalisés avec leur numéro de tâche, `print:reconcile` tranche.
+        watchTimeoutMs: batch ? 0 : FIRM_WATCH_MS,
+      })
+      print = {
+        attempted: true,
+        ok: folder.ok,
+        deferred: batch,
+        atelier: folder.atelier,
+        documents: folder.documents.map((d) => ({
+          docType: d.docType,
+          label: DOC_LABELS[d.docType],
+          status: d.status,
+          destCode: d.destCode,
+          sandbox: d.sandbox,
+          serverVerdict: d.serverVerdict,
+          jobRank: d.jobRank,
+          attempt: d.attempt,
+          message: d.message,
+          error: d.error || d.jobDetail,
+        })),
+        error: '',
+      }
+    } catch (e) {
+      print.error = String(e)
+    }
+
     return {
       ok: true,
       sugNum: keys.sugNum,
@@ -117,8 +169,35 @@ export default class SuggestionFirmController {
       article: keys.itmref,
       site: keys.stofcy,
       env: config.pool,
+      /** Verdict d'impression — distinct du verdict d'affermissement. */
+      print,
     }
   }
+}
+
+/** Fenêtre de suivi d'un tirage déclenché par un affermissement unitaire. */
+const FIRM_WATCH_MS = 6000
+
+interface FirmPrintReport {
+  /** false = l'impression n'a même pas été tentée (erreur en amont). */
+  attempted: boolean
+  ok: boolean
+  /** true = verdict différé (affermissement groupé) : les tirages sont partis, l'issue reste à lire. */
+  deferred: boolean
+  atelier: { code: string; label: string }
+  documents: {
+    docType: string
+    label: string
+    status: string
+    destCode: string
+    sandbox: boolean
+    serverVerdict: string
+    jobRank: number
+    attempt: number
+    message: string
+    error: string
+  }[]
+  error: string
 }
 
 function escapeXml(s: string): string {

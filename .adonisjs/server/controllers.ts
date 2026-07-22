@@ -27,4 +27,5 @@ export const controllers = {
   Suivi: () => import('#controllers/suivi_controller'),
   X3Data: () => import('#controllers/x3_data_controller'),
   X3Writeback: () => import('#controllers/x3_writeback_controller'),
+  Print: () => import('#controllers/print_controller'),
 }

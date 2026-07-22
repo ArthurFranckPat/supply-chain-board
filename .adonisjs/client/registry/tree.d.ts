@@ -110,6 +110,10 @@ export interface ApiDefinition {
     searchPf: typeof routes['planning_board.search_pf']
     ofMaterialsDiagnostic: typeof routes['planning_board.of_materials_diagnostic']
   }
+  print: {
+    print: typeof routes['print.print']
+    history: typeof routes['print.history']
+  }
   user: {
     dashboardLayout: {
       update: typeof routes['user.dashboard_layout.update']

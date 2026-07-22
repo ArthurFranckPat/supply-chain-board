@@ -441,12 +441,28 @@ export const useBoardStore = create<BoardState>((set, get) => ({
     })
     let nbOk = 0
     let nbErr = 0
+    /** OF affermis dont au moins un document du dossier n'est pas parti (#85). */
+    let nbPrintKo = 0
     const firmed: string[] = []
     for (const id of ids) {
       try {
-        const res = await fetch(route('planning.order_firm', { orderNum: id }), { method: 'POST' })
-        const data = (await res.json()) as { ok: boolean; mfgNum?: string; error?: string }
+        // `batch: true` : impression soumise sans attendre le verdict du serveur
+        // d'édition. Attendre l'issue de chaque tirage rendrait un lot de 20 OF
+        // interminable ; les tâches sont journalisées avec leur numéro et
+        // `print:reconcile` tranche ensuite.
+        const res = await fetch(route('planning.order_firm', { orderNum: id }), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ batch: true }),
+        })
+        const data = (await res.json()) as {
+          ok: boolean
+          mfgNum?: string
+          error?: string
+          print?: { ok: boolean; documents?: { status: string; serverVerdict: string }[] }
+        }
         if (data.ok && data.mfgNum) {
+          if (data.print && !data.print.ok) nbPrintKo++
           set((s) => ({ batch: { ...s.batch, [id]: { st: 'ok', msg: data.mfgNum } } }))
           get().transformCard(id, data.mfgNum)
           firmed.push(id)
@@ -463,7 +479,10 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       }
     }
     set({ batchRunning: false })
-    toast(nbErr === 0 ? `${nbOk} OF affermi(s)` : `${nbOk} affermi(s) · ${nbErr} échec(s)`)
+    // Affermissement et impression sont deux verdicts : un lot « tout affermi »
+    // dont des dossiers ne sont pas partis ne doit pas s'annoncer comme un succès.
+    const firmText = nbErr === 0 ? `${nbOk} OF affermi(s)` : `${nbOk} affermi(s) · ${nbErr} échec(s)`
+    toast(nbPrintKo > 0 ? `${firmText} · ${nbPrintKo} dossier(s) non imprimé(s)` : firmText)
     set((s) => {
       const n = new Set(s.selected)
       for (const oldId of firmed) n.delete(oldId)

@@ -38,7 +38,53 @@ export default class PrintOf extends BaseCommand {
   @flags.boolean({ description: 'Résout le routage et le verrou sans appeler X3' })
   declare dry: boolean
 
+  @flags.boolean({
+    description: 'Dossier complet (bon de travail + bon matière), atelier résolu depuis l’article',
+  })
+  declare folder: boolean
+
+  @flags.string({ description: 'Article de l’OF — sert à résoudre l’atelier avec --folder' })
+  declare article: string
+
   async run() {
+    if (this.folder) return this.runFolder()
+    return this.runSingle()
+  }
+
+  /** Dossier complet : la chaîne exacte utilisée par l'affermissement. */
+  private async runFolder() {
+    const ofNum = (this.of ?? '').trim()
+    const site = (this.site ?? '').trim()
+    if (!ofNum || !site) {
+      this.logger.error('--of et --site sont requis.')
+      this.exitCode = 1
+      return
+    }
+    const res = await printService.printFolder({
+      ofNum,
+      stofcy: site,
+      itmref: (this.article ?? '').trim(),
+      stoloc: (this.atelier ?? '').trim() || undefined,
+      force: this.force,
+      origin: 'test',
+      requestedBy: 'cli',
+      config: getX3EnvConfig('test'),
+    })
+    this.logger.info(`Atelier : ${res.atelier.label || res.atelier.code || 'aucun (règle par défaut)'}`)
+    for (const d of res.documents) {
+      const line = `${DOC_LABELS[d.docType]} → ${d.destCode || '—'} · X3 ${d.status} · serveur ${d.serverVerdict}${d.jobRank ? ` (tâche ${d.jobRank})` : ''}`
+      if (d.serverVerdict === 'error' || d.status === 'failed') {
+        this.logger.error(`${line} · ${d.error || d.jobDetail}`)
+      } else if (d.status === 'locked') {
+        this.logger.warning(`${line} · ${d.message}`)
+      } else {
+        this.logger.success(line)
+      }
+    }
+    if (!res.ok) this.exitCode = 1
+  }
+
+  private async runSingle() {
     const ofNum = (this.of ?? '').trim()
     const site = (this.site ?? '').trim()
     const docType = ((this.doc ?? 'BONTRV').trim().toUpperCase() || 'BONTRV') as DocType

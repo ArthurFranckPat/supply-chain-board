@@ -282,6 +282,18 @@ const routes = {
     tokens: [{"old":"/api/v1/planning/suggestions/:sugNum/firm","type":0,"val":"api","end":""},{"old":"/api/v1/planning/suggestions/:sugNum/firm","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/suggestions/:sugNum/firm","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/suggestions/:sugNum/firm","type":0,"val":"suggestions","end":""},{"old":"/api/v1/planning/suggestions/:sugNum/firm","type":1,"val":"sugNum","end":""},{"old":"/api/v1/planning/suggestions/:sugNum/firm","type":0,"val":"firm","end":""}],
     types: placeholder as Registry['planning.suggestion_firm']['types'],
   },
+  'print.print': {
+    methods: ["POST"],
+    pattern: '/api/v1/planning/orders/:orderNum/print',
+    tokens: [{"old":"/api/v1/planning/orders/:orderNum/print","type":0,"val":"api","end":""},{"old":"/api/v1/planning/orders/:orderNum/print","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/orders/:orderNum/print","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/orders/:orderNum/print","type":0,"val":"orders","end":""},{"old":"/api/v1/planning/orders/:orderNum/print","type":1,"val":"orderNum","end":""},{"old":"/api/v1/planning/orders/:orderNum/print","type":0,"val":"print","end":""}],
+    types: placeholder as Registry['print.print']['types'],
+  },
+  'print.history': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/planning/orders/:orderNum/print',
+    tokens: [{"old":"/api/v1/planning/orders/:orderNum/print","type":0,"val":"api","end":""},{"old":"/api/v1/planning/orders/:orderNum/print","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/orders/:orderNum/print","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/orders/:orderNum/print","type":0,"val":"orders","end":""},{"old":"/api/v1/planning/orders/:orderNum/print","type":1,"val":"orderNum","end":""},{"old":"/api/v1/planning/orders/:orderNum/print","type":0,"val":"print","end":""}],
+    types: placeholder as Registry['print.history']['types'],
+  },
   'planning.order_firm': {
     methods: ["POST"],
     pattern: '/api/v1/planning/orders/:orderNum/firm',

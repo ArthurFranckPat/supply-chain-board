@@ -559,6 +559,30 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'print.print': {
+    methods: ["POST"]
+    pattern: '/api/v1/planning/orders/:orderNum/print'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { orderNum: ParamValue }
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'print.history': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/planning/orders/:orderNum/print'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { orderNum: ParamValue }
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'planning.order_firm': {
     methods: ["POST"]
     pattern: '/api/v1/planning/orders/:orderNum/firm'
