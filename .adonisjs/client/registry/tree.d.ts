@@ -63,6 +63,7 @@ export interface ApiDefinition {
   receptions: {
     index: typeof routes['receptions.index']
     rows: typeof routes['receptions.rows']
+    criticite: typeof routes['receptions.criticite']
   }
   conditionnements: {
     index: typeof routes['conditionnements.index']

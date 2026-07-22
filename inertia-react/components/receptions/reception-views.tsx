@@ -1,31 +1,64 @@
-import { useMemo, useState, type ReactNode } from 'react'
-import { DataTable, type ColumnDef, type SortingState } from '@r/components/ui/data-table'
+import { type ReactNode } from 'react'
 import type { DayChargeDisplay, ReceptionDisplayRow } from '@/lib/receptions/types'
 import { CalendarX, Lightbulb, TriangleAlert } from 'lucide-react'
 import { cn } from '@r/lib/utils'
 import { chargeBg, chargeText, chargeTier } from '@r/lib/receptions/charge'
 
 /**
- * Vues des réceptions fournisseurs (port React — structure iso du Solid
- * inertia/components/receptions/reception-views.tsx, markup shadcn).
+ * Vues des réceptions fournisseurs (port React — markup shadcn / thème Airbnb).
  *
- * - `ReceptionTableau` : table éditoriale dense — une ligne par réception attendue,
- *   colonnes triables via le DataTable maison (date, fournisseur, article, qté, palettes).
- * - `ReceptionCalendrier` : charge agrégée par jour — histogramme du nombre de palettes
- *   attendues chaque jour, avec drill-down (clic sur un jour → filtre le tableau).
+ * - `ReceptionTableau` : **bordereau** — une section par jour (rail de date +
+ *   lignes de détail + total comptable du jour). Chaque ligne expose l'équation
+ *   de conversion (qté US ÷ conditionnement → palettes) pour rendre le calcul
+ *   vérifiable plutôt qu'une assertion. Rendu bespoke : le rail vertical
+ *   spanning + les sous-totaux intercalaires sont incompatibles avec la
+ *   virtualisation ligne-à-ligne du DataTable maison.
+ * - `ReceptionCalendrier` : charge agrégée par jour — histogramme du nombre de
+ *   palettes attendues, avec drill-down (clic sur un jour → filtre le tableau).
  *
- * Les lignes arrivent déjà filtrées du parent (page receptions) ; le tri du
- * tableau est géré localement par le DataTable.
+ * Les lignes arrivent déjà filtrées (recherche + drill-down jour) et triées
+ * (date asc) du parent `pages/receptions.tsx`. Contrat `(rows, emptyState)`.
  */
 
-const TH =
-  'px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft'
-const TH_R = TH.replace('text-left', 'text-right')
-const TD = 'px-4 py-[13px] align-middle border-r border-rule-soft'
+// ───────────────────────────────────────────────────────────────────────────
+// V1 · Bordereau (tableau détaillé par jour)
+// ───────────────────────────────────────────────────────────────────────────
 
-// ───────────────────────────────────────────────────────────────────────────
-// V1 · Tableau
-// ───────────────────────────────────────────────────────────────────────────
+/**
+ * Formatters FR pour le rail de date du bordereau.
+ *
+ * Entorse isolée et documentée à la convention « lignes déjà pré-formatées
+ * côté serveur » (cf. types.ts) : on décompose `row.date` (ISO fiable) en
+ * jour de semaine / numéro / mois via `Intl`, car le serveur ne fournit que
+ * `dateFmt` (« 22/07/26 ») et `dateRelatif` (« auj. », « +5j »). Le relatif,
+ * lui, est repris tel quel.
+ */
+const railWeekday = new Intl.DateTimeFormat('fr-FR', { weekday: 'long' })
+const railDay = new Intl.DateTimeFormat('fr-FR', { day: 'numeric' })
+const railMonth = new Intl.DateTimeFormat('fr-FR', { month: 'long' })
+
+/** Capitalise la première lettre (Intl fr renvoie « mercredi »). */
+const cap = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s)
+
+function formatRailDate(iso: string): { weekday: string; day: string; month: string } {
+  // 'T00:00:00' force l'analyse en tz local — évite le décalage UTC sur un
+  // date-only ISO qui tomberait sur la veille.
+  const d = new Date(`${iso}T00:00:00`)
+  return {
+    weekday: cap(railWeekday.format(d)),
+    day: railDay.format(d),
+    month: railMonth.format(d),
+  }
+}
+
+/** Somme des palettes d'un groupe (0 pour les lignes à coef manquant). */
+function sumPalettes(rows: ReceptionDisplayRow[]): number {
+  return rows.reduce((s, r) => s + (r.nbPalettes ?? 0), 0)
+}
+
+function distinctFournisseurs(rows: ReceptionDisplayRow[]): number {
+  return new Set(rows.map((r) => r.fournisseur)).size
+}
 
 export function ReceptionTableau({
   rows,
@@ -34,192 +67,207 @@ export function ReceptionTableau({
   rows: ReceptionDisplayRow[]
   emptyState: ReactNode
 }) {
-  // Tri par défaut : date asc (du plus proche au plus lointain).
-  const [sorting, setSorting] = useState<SortingState[]>([{ id: 'date', desc: false }])
+  if (rows.length === 0) return <>{emptyState}</>
 
-  const sortedRows = useMemo(() => {
-    const sort = sorting[0]
-    if (!sort) return rows
-
-    const key = sort.id as keyof ReceptionDisplayRow
-    const desc = sort.desc
-
-    return [...rows].sort((a, b) => {
-      const va = a[key]
-      const vb = b[key]
-
-      if (va === null || va === undefined) return desc ? -1 : 1
-      if (vb === null || vb === undefined) return desc ? 1 : -1
-
-      if (typeof va === 'string' && typeof vb === 'string') {
-        return desc ? vb.localeCompare(va) : va.localeCompare(vb)
-      }
-      if (typeof va === 'number' && typeof vb === 'number') {
-        return desc ? vb - va : va - vb
-      }
-      return 0
-    })
-  }, [rows, sorting])
-
-  const columns: ColumnDef<ReceptionDisplayRow>[] = [
-    {
-      accessorKey: 'date',
-      header: () => 'Date',
-      cell: ({ row: { original: row } }) =>
-        row.date ? (
-          <>
-            <div className="font-mono text-[12px] font-bold tabular-nums text-foreground">
-              {row.dateFmt}
-            </div>
-            <div className="mt-0.5 font-mono text-[10px] text-muted-foreground">
-              {row.dateRelatif}
-            </div>
-          </>
-        ) : (
-          <span className="font-sans text-[11px] italic text-muted-foreground/50">—</span>
-        ),
-      meta: { thClass: `w-[90px] ${TH}`, tdClass: `w-[90px] whitespace-nowrap ${TD}` },
-    },
-    {
-      accessorKey: 'fournisseurNom',
-      header: () => 'Fournisseur',
-      cell: ({ row: { original: row } }) => (
-        <>
-          <div className="truncate max-w-[15rem] font-sans text-[12px] font-semibold text-secondary-foreground">
-            {row.fournisseurNom}
-          </div>
-          <div className="mt-0.5 font-mono text-[10px] text-muted-foreground">{row.fournisseur}</div>
-        </>
-      ),
-      meta: { thClass: `w-[280px] ${TH}`, tdClass: `w-[280px] ${TD}` },
-    },
-    {
-      accessorKey: 'article',
-      header: () => 'Article',
-      cell: ({ row: { original: row } }) => (
-        <>
-          <div className="font-mono text-[13px] font-bold tracking-tight text-foreground">
-            {row.article}
-          </div>
-          {row.designation && (
-            <div className="mt-0.5 truncate max-w-[20rem] font-sans text-[11px] leading-snug text-muted-foreground">
-              {row.designation}
-            </div>
-          )}
-        </>
-      ),
-      meta: { thClass: `w-[280px] ${TH}`, tdClass: `w-[280px] ${TD}` },
-    },
-    {
-      accessorKey: 'noCommande',
-      header: () => 'Commande',
-      cell: ({ row: { original: row } }) => (
-        <span className="font-mono text-[11.5px] font-semibold text-foreground">
-          {row.noCommande}
-        </span>
-      ),
-      meta: { thClass: `w-[110px] ${TH}`, tdClass: `w-[110px] ${TD}` },
-    },
-    {
-      accessorKey: 'qteUs',
-      header: () => 'Qté US',
-      cell: ({ row: { original: row } }) => (
-        <span className="font-fraunces text-[14px] font-bold tabular-nums leading-none text-foreground">
-          {row.qteUsFmt}
-          <span className="ml-0.5 font-mono text-[9px] font-medium text-muted-foreground/70">u</span>
-        </span>
-      ),
-      meta: { thClass: `w-[90px] ${TH_R}`, tdClass: `w-[90px] whitespace-nowrap text-right ${TD}` },
-    },
-    {
-      accessorKey: 'conditionnement',
-      header: () => 'Conditionnement',
-      cell: ({ row: { original: row } }) => (
-        <div className="flex flex-col gap-0.5">
-          <span
-            className={cn(
-              'font-mono text-[11px] tabular-nums',
-              row.coefManquant ? 'text-muted-foreground/50' : 'text-muted-foreground'
-            )}
-          >
-            {row.conditionnement}
-          </span>
-          {row.coefManquant && (
-            <span
-              className="inline-flex w-fit items-center gap-1 rounded bg-destructive/10 px-1 py-px font-mono text-[8.5px] font-bold uppercase tracking-wider text-destructive"
-              title={`Coef manquant — US/UC: ${row.pcuStuCoe ?? '—'} · UC/pal: ${row.ucParPal ?? '—'}`}
-            >
-              <TriangleAlert size={10} strokeWidth={1.75} />
-              Coef manquant
-            </span>
-          )}
-          {row.coefEstime && (
-            <span
-              className="inline-flex w-fit items-center gap-1 rounded bg-planifie/10 px-1 py-px font-mono text-[8.5px] font-bold uppercase tracking-wider text-planifie"
-              title={`US/palette estimé par ${row.coefSource === 'STOCK' ? 'le stock actuel sur emplacements SM*' : "l'historique des rangements STOJOU (6 mois)"} — coef ITMMASTER absent`}
-            >
-              <Lightbulb size={10} strokeWidth={1.75} />
-              Estimé ({row.coefSource})
-            </span>
-          )}
-        </div>
-      ),
-      meta: { thClass: `w-[150px] ${TH}`, tdClass: `w-[150px] ${TD}` },
-    },
-    {
-      accessorKey: 'nbPalettes',
-      header: () => 'Palettes',
-      cell: ({ row: { original: row } }) => {
-        const sansCoef = row.coefManquant
-        const estime = row.coefEstime
-        return (
-          <span
-            className={cn(
-              'font-fraunces text-[15px] font-bold tabular-nums leading-none',
-              sansCoef
-                ? 'text-destructive/50'
-                : estime
-                  ? 'text-planifie'
-                  : chargeText(chargeTier(row.nbPalettes))
-            )}
-            title={
-              sansCoef
-                ? 'Palette non calculée — conditionnement incomplet (cf. colonne Conditionnement)'
-                : estime
-                  ? `${row.nbPalettes} palette(s) — coef estimé (${row.coefSource})`
-                  : `${row.nbPalettes} palette(s)`
-            }
-          >
-            {row.nbPalettesFmt}
-          </span>
-        )
-      },
-      meta: { thClass: `w-[90px] ${TH_R}`, tdClass: `w-[90px] whitespace-nowrap text-right ${TD}` },
-    },
-  ]
+  // Regroupement par date ISO (rows déjà triées date asc côté serveur).
+  // On porte l'index global pour la numérotation continue du bordereau (01…N).
+  const groups: { date: string | null; items: { row: ReceptionDisplayRow; n: number }[] }[] = []
+  rows.forEach((row, i) => {
+    const last = groups[groups.length - 1]
+    if (last && last.date === row.date) {
+      last.items.push({ row, n: i + 1 })
+    } else {
+      groups.push({ date: row.date, items: [{ row, n: i + 1 }] })
+    }
+  })
 
   return (
-    <DataTable
-      columns={columns}
-      rows={sortedRows}
-      sorting={sorting}
-      onSortingChange={setSorting}
-      tableClass="table-fixed"
-      getRowClass={(row) =>
-        cn(
-          'border-t border-rule-soft hover:bg-foreground/[0.04]',
-          // Surligne doucement les journées fortement chargées (> 20 pal.).
-          row.nbPalettes >= 20 ? 'bg-destructive/[0.04]' : '',
-          // Bordure gauche sur les lignes au conditionnement non référencé.
-          row.coefManquant
-            ? 'bg-destructive/[0.07]'
-            : row.coefEstime
-              ? 'bg-planifie/[0.06]'
-              : ''
+    <div className="h-full overflow-auto rounded-lg border bg-card shadow-xs">
+      {groups.map((group, gi) => {
+        const groupRows = group.items.map((it) => it.row)
+        const totalPal = sumPalettes(groupRows)
+        const totalTier = chargeTier(totalPal)
+        const totalFmt = (Math.round(totalPal * 10) / 10).toLocaleString('fr-FR')
+        const relatif = group.items[0]?.row.dateRelatif ?? ''
+        const rail = group.date ? formatRailDate(group.date) : null
+        const nbFrs = distinctFournisseurs(groupRows)
+
+        return (
+          <section
+            key={group.date ?? `nodate-${gi}`}
+            className={cn('flex', gi > 0 && 'border-t border-rule')}
+          >
+            {/* ── Rail de date ── */}
+            <aside className="flex w-36 flex-none flex-col border-r border-rule-soft py-5 pl-8 pr-3">
+              {rail ? (
+                <>
+                  <div className="font-mono text-[9px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
+                    {rail.weekday}
+                  </div>
+                  <div className="font-fraunces text-[34px] font-extrabold leading-none tracking-tight text-foreground tabular-nums">
+                    {rail.day}
+                  </div>
+                  <div className="mt-0.5 text-[11px] font-semibold text-muted-foreground">
+                    {rail.month}
+                  </div>
+                </>
+              ) : (
+                <div className="font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Sans date
+                </div>
+              )}
+              {relatif && (
+                <span
+                  className={cn(
+                    'mt-2 font-mono text-[10px] font-bold',
+                    relatif === 'auj.' ? 'text-brand' : 'text-muted-foreground'
+                  )}
+                >
+                  {relatif}
+                </span>
+              )}
+              {/* Charge agrégée du jour */}
+              <div className="mt-3.5 space-y-0.5 border-t border-rule-soft pt-2.5 font-mono text-[10px] tabular-nums text-muted-foreground">
+                <div>
+                  {group.items.length} ligne{group.items.length > 1 ? 's' : ''}
+                </div>
+                <div>
+                  {nbFrs} fournisseur{nbFrs > 1 ? 's' : ''}
+                </div>
+                <div
+                  className={cn(
+                    'pt-1 font-fraunces text-[15px] font-bold tabular-nums',
+                    chargeText(totalTier)
+                  )}
+                >
+                  {totalFmt}
+                  <span className="ml-1 align-baseline font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+                    pal
+                  </span>
+                </div>
+              </div>
+            </aside>
+
+            {/* ── Lignes du jour ── */}
+            <div className="min-w-0 flex-1">
+              {group.items.map(({ row, n }) => {
+                const tier = chargeTier(row.nbPalettes)
+                // On n'affiche les diviseurs que si le coef est réel et complet.
+                const showDivisors =
+                  !row.coefManquant && !row.coefEstime && row.pcuStuCoe != null && row.ucParPal != null
+
+                return (
+                  <div
+                    key={`${row.noCommande}-${row.article}-${n}`}
+                    className="flex items-baseline gap-5 border-b border-rule-soft py-3.5 pl-6 pr-8 transition-colors hover:bg-foreground/[0.03]"
+                  >
+                    <span className="w-5 flex-none text-[10px] font-semibold tabular-nums text-muted-foreground/60">
+                      {String(n).padStart(2, '0')}
+                    </span>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-baseline gap-2">
+                        <span className="font-mono text-[13px] font-bold tracking-tight text-foreground">
+                          {row.article}
+                        </span>
+                        <span className="font-mono text-[10.5px] font-medium text-muted-foreground/70">
+                          {row.noCommande}
+                        </span>
+                      </div>
+                      <div className="mt-0.5 truncate text-[11.5px] leading-snug text-muted-foreground">
+                        {row.designation}
+                        {row.designation && ' — '}
+                        <span className="font-semibold text-secondary-foreground">
+                          {row.fournisseurNom}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Équation de conversion — la signature du bordereau :
+                        le chiffre de palettes devient vérifiable. */}
+                    <div
+                      className="flex-none text-right tabular-nums"
+                      title={
+                        row.coefManquant
+                          ? `Coef manquant — US/UC : ${row.pcuStuCoe ?? '—'} · UC/pal : ${row.ucParPal ?? '—'}`
+                          : row.coefEstime
+                            ? `Palette estimée (${
+                                row.coefSource === 'STOCK'
+                                  ? 'stock actuel SM*'
+                                  : 'historique des rangements STOJOU (6 mois)'
+                              })`
+                            : `${row.qteUsFmt} u ÷ ${row.pcuStuCoe}/UC · ${row.ucParPal}/pal = ${row.nbPalettesFmt} pal`
+                      }
+                    >
+                      <div className="whitespace-nowrap text-[11px] text-muted-foreground">
+                        <span className="font-bold text-foreground">{row.qteUsFmt}</span> u
+                        {showDivisors && (
+                          <>
+                            <span className="mx-1 text-muted-foreground/40">÷</span>
+                            <span>{row.pcuStuCoe}/UC</span>
+                            <span className="mx-1 text-muted-foreground/40">·</span>
+                            <span>{row.ucParPal}/pal</span>
+                          </>
+                        )}
+                        <span className="ml-2 text-muted-foreground/50">→</span>
+                      </div>
+                      <span
+                        className={cn(
+                          'font-fraunces text-[19px] font-bold leading-none tabular-nums',
+                          row.coefManquant
+                            ? 'font-medium text-destructive/45'
+                            : chargeText(tier)
+                        )}
+                      >
+                        {row.nbPalettesFmt}
+                        {!row.coefManquant && (
+                          <span className="ml-0.5 align-baseline font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">
+                            pal
+                          </span>
+                        )}
+                      </span>
+                      {row.coefManquant && (
+                        <div className="mt-0.5 flex items-center justify-end gap-1 text-[10px] font-medium italic text-destructive">
+                          <TriangleAlert size={10} strokeWidth={2} className="not-italic" />
+                          coef non référencé
+                        </div>
+                      )}
+                      {row.coefEstime && (
+                        <div className="mt-0.5 flex items-center justify-end gap-1 text-[10px] font-medium italic text-planifie">
+                          <Lightbulb size={10} strokeWidth={2} className="not-italic" />
+                          estimé {row.coefSource?.toLowerCase()}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+
+              {/*
+                Total du jour — filet comptable.
+                Exception documentée à la grammaire Airbnb (hairlines 1px partout) :
+                le bordereau adopte une ligne simple au-dessus + un filet double
+                en dessous, convention comptable de soulignement du total.
+              */}
+              <div className="ml-6 mr-8 mt-0.5 flex items-baseline gap-3 border-t border-b-[3px] border-double border-foreground pt-2.5 pb-3 pr-2 font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                <span>Total du jour</span>
+                <span
+                  className={cn(
+                    'ml-auto font-fraunces text-[14px] font-bold normal-case tracking-normal tabular-nums',
+                    chargeText(totalTier)
+                  )}
+                >
+                  {totalFmt}
+                  <span className="ml-1 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
+                    PAL
+                  </span>
+                </span>
+              </div>
+            </div>
+          </section>
         )
-      }
-      emptyState={emptyState}
-    />
+      })}
+    </div>
   )
 }
 

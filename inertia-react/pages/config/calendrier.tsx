@@ -4,6 +4,7 @@ import type { DateRange as DayPickerRange } from 'react-day-picker'
 
 import AppLayout from '@r/layouts/app'
 import { Calendar } from '@r/components/ui/calendar'
+import { Segment, SegmentButton } from '@r/components/vision/toolbar'
 import { Button } from '@r/components/ui/button'
 import { DynamicIcon } from '../../components/ui/dynamic-icon'
 import {
@@ -331,7 +332,7 @@ function ClosureForm({
                 className="fixed inset-0 z-40 cursor-default"
                 onClick={() => setCalOpen(false)}
               />
-              <div className="absolute left-0 top-full z-50 mt-2">
+              <div className="absolute left-0 top-full z-50 mt-2 rounded-lg border border-rule bg-popover shadow-float">
                 <Calendar
                   mode="range"
                   locale={fr}
@@ -463,7 +464,7 @@ export default function Calendrier(props: CalendrierPageProps) {
       scrollable={false}
       meta={
         <>
-          <div className="font-fraunces text-[12px] font-bold italic text-brand">
+          <div className="font-fraunces text-[12px] font-bold not-italic text-brand">
             Année {props.year}
           </div>
           <div>
@@ -473,23 +474,13 @@ export default function Calendrier(props: CalendrierPageProps) {
             </>
           }
           mastheadActions={
-            <div className="inline-flex items-center gap-0.5 rounded-md border border-rule bg-card p-0.5">
+            <Segment role="radiogroup" ariaLabel="Vue">
               {(['registre', 'frise'] as const).map((v) => (
-                <button
-                  key={v}
-                  type="button"
-                  onClick={() => setView(v)}
-                  className={cn(
-                    'rounded-[5px] px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
-                    view === v
-                      ? 'bg-brand-soft text-brand'
-                      : 'text-muted-foreground hover:text-foreground'
-                  )}
-                >
+                <SegmentButton key={v} role="radio" active={view === v} onClick={() => setView(v)}>
                   {v === 'registre' ? 'Registre' : 'Frise'}
-                </button>
+                </SegmentButton>
               ))}
-            </div>
+            </Segment>
           }
         >
         <div className="mx-auto w-full max-w-[1280px] px-7 py-6">

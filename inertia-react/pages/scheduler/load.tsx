@@ -145,7 +145,7 @@ export default function Load(props: LoadPageProps) {
       scrollable={false}
       meta={
         <>
-          <div className="font-fraunces text-[12px] font-bold italic text-brand">
+          <div className="font-fraunces text-[12px] font-bold not-italic text-brand">
             {props.rangeLabel}
           </div>
           <div>

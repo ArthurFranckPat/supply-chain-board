@@ -1,7 +1,8 @@
 import { type Dispatch, type SetStateAction, useMemo, useState } from 'react'
-import { FilterX, Search, Lightbulb, LoaderCircle, RefreshCw, TriangleAlert, CircleX, CircleCheck } from 'lucide-react'
+import { FilterX, Search, Lightbulb, LoaderCircle, TriangleAlert, CircleX, CircleCheck } from 'lucide-react'
 
 import AppLayout from '@r/layouts/app'
+import { PILL, RefreshPill, ToolbarRow } from '@r/components/vision/toolbar'
 import {
   ConditionnementsTable,
   type DisplayRow,
@@ -278,7 +279,7 @@ export default function Conditionnements(props: ConditionnementsPageProps) {
     >
 
         {/* ═══ Toolbar ═══ */}
-        <div className="flex flex-none flex-wrap items-center gap-2.5 border-b border-rule px-7 py-2">
+        <ToolbarRow>
           <FacetteDropdown
             label="État"
             facettes={facettes.etats}
@@ -324,10 +325,10 @@ export default function Conditionnements(props: ConditionnementsPageProps) {
 
           <div className="ml-auto flex items-center gap-2">
             {/* Recherche — systématiquement à droite (convention toolbar). */}
-            <div className="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/25">
+            <div className={PILL}>
               <Search size={17} strokeWidth={1.75} className="text-muted-foreground" />
               <input
-                className="w-[200px] border-0 bg-transparent px-0 text-[12px] font-medium text-foreground shadow-none outline-none"
+                className="w-[200px] border-0 bg-transparent px-0 text-xs font-medium text-foreground shadow-none outline-none"
                 placeholder="Article, désignation, fournisseur…"
                 type="text"
                 autoComplete="off"
@@ -359,22 +360,9 @@ export default function Conditionnements(props: ConditionnementsPageProps) {
                 {fmtMs(elapsed)}
               </span>
             )}
-            <button
-              type="button"
-              onClick={() => setBust((b) => b + 1)}
-              disabled={loading}
-              className="inline-flex items-center gap-1 rounded-full border border-rule bg-card px-3 py-1 text-[11px] font-semibold transition-colors hover:border-brand disabled:opacity-50"
-              title="Recharger les données X3"
-            >
-              <RefreshCw
-                size={14}
-                strokeWidth={1.75}
-                className={cn('text-muted-foreground', loading && 'animate-spin')}
-              />
-              Actualiser
-            </button>
+            <RefreshPill loading={loading} onClick={() => setBust((b) => b + 1)} />
           </div>
-        </div>
+        </ToolbarRow>
 
         {/* ═══ X3 injoignable ═══ */}
         {x3Error && (

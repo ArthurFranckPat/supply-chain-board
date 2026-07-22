@@ -277,7 +277,7 @@ export default function Tracking(props: SuiviPageProps) {
       scrollable={false}
       meta={
         <>
-          <div className="text-[12px] font-bold capitalize not-italic text-brand">
+          <div className="font-fraunces text-[12px] font-bold capitalize not-italic text-brand">
             {refLabel}
           </div>
           <div>

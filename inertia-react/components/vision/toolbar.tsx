@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react'
 import { fr } from 'react-day-picker/locale'
 import type { DateRange as DayPickerRange } from 'react-day-picker'
 import { Link } from '@inertiajs/react'
@@ -84,14 +84,21 @@ export function SegmentButton(props: {
   )
 }
 
+const MONTHS_SHORT_FR = [
+  'janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin',
+  'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.',
+]
+
 /** Pill fenêtre de dates — même position, même popover partout. Chaque page
  *  garde son propre câblage (state local, navigation serveur…) via `onSelect`.
- *  Le libellé est calculé ICI depuis `selected` (dd/MM → dd/MM, sans année) —
- *  chaque page passait avant son propre format (ISO serveur avec tiret cadratin,
- *  dd/mm/yyyy complet…), d'où l'incohérence visuelle entre pages. */
+ *  Le libellé est calculé ICI depuis `selected` (01 janv. → 01 janv., sans
+ *  année) — chaque page passait avant son propre format (ISO serveur avec
+ *  tiret cadratin, dd/mm/yyyy complet…), d'où l'incohérence visuelle entre
+ *  pages. Tableau statique plutôt qu'Intl : déterministe, pas de coût de
+ *  locale-loading par rendu. */
 function formatShort(d?: Date): string | null {
   if (!d) return null
-  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`
+  return `${String(d.getDate()).padStart(2, '0')} ${MONTHS_SHORT_FR[d.getMonth()]}`
 }
 
 function formatWindowLabel(from?: Date, to?: Date): string {
@@ -111,6 +118,9 @@ export function DateWindowPill(props: {
   align?: 'left' | 'right'
   numberOfMonths?: number
   title?: string
+  /** Passthrough vers <Calendar> — ex. `{ after: new Date() }` pour interdire
+   *  les dates futures (expéditions : pas de sélection au-delà d'aujourd'hui). */
+  disabled?: ComponentProps<typeof Calendar>['disabled']
 }) {
   const align = props.align ?? 'left'
   const label = formatWindowLabel(props.selected.from, props.selected.to)
@@ -138,7 +148,10 @@ export function DateWindowPill(props: {
             onClick={() => props.onOpenChange(false)}
           />
           <div
-            className={cn('absolute top-full z-50 mt-2', align === 'right' ? 'right-0' : 'left-0')}
+            className={cn(
+              'absolute top-full z-50 mt-2 rounded-lg border border-rule bg-popover shadow-float',
+              align === 'right' ? 'right-0' : 'left-0'
+            )}
           >
             <Calendar
               mode="range"
@@ -148,6 +161,7 @@ export function DateWindowPill(props: {
                 props.selected.from ? { from: props.selected.from, to: props.selected.to } : undefined
               }
               onSelect={props.onSelect}
+              disabled={props.disabled}
             />
           </div>
         </>

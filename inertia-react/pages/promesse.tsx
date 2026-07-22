@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Head } from '@inertiajs/react'
-import Masthead from '@r/components/masthead'
+import AppLayout from '@r/layouts/app'
 import { route } from '@/lib/routes'
 import { cn } from '@r/lib/utils'
 import type { PromiseResult, PromiseNode, PromiseReason } from '@/lib/promesse/types'
@@ -206,12 +205,13 @@ export default function Promesse() {
   }
 
   return (
-    <>
-      <Head title="Promesse" />
-      <div className="theme-airbnb flex h-screen flex-col overflow-hidden bg-background text-foreground">
-        <Masthead active="promesse" subtitle="Capable-to-Promise — date au plus tôt" variant="airbnb" />
-        <main className="ml-12 pt-12 min-h-screen bg-secondary flex-1">
-          <div className="mx-auto max-w-3xl px-6 py-8">
+    <AppLayout
+      title="Promesse"
+      active="promesse"
+      subtitle="Capable-to-Promise — date au plus tôt"
+      theme="airbnb"
+    >
+          <div className="mx-auto max-w-3xl py-5">
             {/* Formulaire */}
             <form onSubmit={submit} className="rounded-lg border border-rule-soft bg-card p-5 shadow-sm">
               <h2 className="mb-4 text-sm font-bold text-foreground/80">
@@ -387,8 +387,6 @@ export default function Promesse() {
               </div>
             )}
           </div>
-        </main>
-      </div>
-    </>
+    </AppLayout>
   )
 }

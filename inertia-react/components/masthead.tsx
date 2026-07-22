@@ -121,11 +121,6 @@ export function Masthead(props: {
               </span>
             )}
           </div>
-          {props.subtitle && (
-            <span className="hidden font-mono text-[10px] font-medium tracking-[0.12em] text-muted-foreground lg:inline">
-              {props.subtitle}
-            </span>
-          )}
           {env && (
             <span
               title={`Environnement Sage X3 : ${env}`}
@@ -189,9 +184,6 @@ export function Masthead(props: {
                 [TEST]
               </span>
             )}
-          </div>
-          <div className="pb-1 font-mono text-[10px] font-medium tracking-[0.12em] text-muted-foreground">
-            {props.subtitle}
           </div>
           {env && (
             <span

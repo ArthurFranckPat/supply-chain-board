@@ -845,7 +845,7 @@ export default function Dashboard(props: DashboardProps) {
                       {calendarOpen && (
                         <>
                           <div className="fixed inset-0 z-10" onClick={() => setCalendarOpen(false)} />
-                          <div className="absolute right-0 top-full z-20 mt-1">
+                          <div className="absolute right-0 top-full z-20 mt-1 rounded-lg border border-rule bg-popover shadow-float">
                             <Calendar
                               mode="range"
                               locale={fr}
@@ -1092,7 +1092,7 @@ export default function Dashboard(props: DashboardProps) {
                       {stockCalendarOpen && (
                         <>
                           <div className="fixed inset-0 z-10" onClick={() => setStockCalendarOpen(false)} />
-                          <div className="absolute right-0 top-full z-20 mt-1">
+                          <div className="absolute right-0 top-full z-20 mt-1 rounded-lg border border-rule bg-popover shadow-float">
                             <Calendar
                               mode="range"
                               locale={fr}

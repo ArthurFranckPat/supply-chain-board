@@ -378,6 +378,12 @@ const routes = {
     tokens: [{"old":"/api/v1/receptions/rows","type":0,"val":"api","end":""},{"old":"/api/v1/receptions/rows","type":0,"val":"v1","end":""},{"old":"/api/v1/receptions/rows","type":0,"val":"receptions","end":""},{"old":"/api/v1/receptions/rows","type":0,"val":"rows","end":""}],
     types: placeholder as Registry['receptions.rows']['types'],
   },
+  'receptions.criticite': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/receptions/criticite',
+    tokens: [{"old":"/api/v1/receptions/criticite","type":0,"val":"api","end":""},{"old":"/api/v1/receptions/criticite","type":0,"val":"v1","end":""},{"old":"/api/v1/receptions/criticite","type":0,"val":"receptions","end":""},{"old":"/api/v1/receptions/criticite","type":0,"val":"criticite","end":""}],
+    types: placeholder as Registry['receptions.criticite']['types'],
+  },
   'conditionnements.rows': {
     methods: ["GET","HEAD"],
     pattern: '/api/v1/conditionnements/rows',

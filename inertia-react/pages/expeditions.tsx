@@ -1,16 +1,21 @@
 import { useMemo, useState } from 'react'
-import { fr } from 'react-day-picker/locale'
 import type { DateRange as DayPickerRange } from 'react-day-picker'
-import { Calendar as CalendarIcon, X, Minus, Plus, TriangleAlert, Search, RefreshCw, LoaderCircle, CircleX, CloudOff, Truck } from 'lucide-react'
+import { X, Minus, Plus, TriangleAlert, Search, LoaderCircle, CircleX, CloudOff, Truck } from 'lucide-react'
 
 import AppLayout from '@r/layouts/app'
-import { Calendar } from '@r/components/ui/calendar'
+import {
+  PILL,
+  Segment,
+  SegmentButton,
+  DateWindowPill,
+  RefreshPill,
+  ToolbarRow,
+} from '@r/components/vision/toolbar'
 import { CamionDetailSheet, type CamionDtl } from '@r/components/expeditions/camion-detail-sheet'
 import { ManifesteView, type ManifesteSort } from '@r/components/expeditions/manifeste-view'
 import { FriseView } from '@r/components/expeditions/frise-view'
 import { useTimedFetch } from '@r/lib/suivi/use-timed-fetch'
 import { cn } from '@r/lib/utils'
-import { DynamicIcon } from '../components/ui/dynamic-icon'
 
 /**
  * Page « Expéditions » (issue #44) — port React iso du Solid
@@ -81,9 +86,6 @@ function sortRows(rows: CamionDtl[], sort: ManifesteSort): CamionDtl[] {
 
 const fmtMs = (ms: number) => (ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`)
 
-const fmtDay = (d: Date) =>
-  `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`
-
 interface DateRangeSel {
   start: Date | null
   end: Date | null
@@ -100,13 +102,6 @@ export default function Expeditions(props: ExpeditionsPageProps) {
   const [mSort, setMSort] = useState<ManifesteSort>('time')
   const [selectedCamion, setSelectedCamion] = useState<CamionDtl | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
-
-  const rangeLabel = useMemo(() => {
-    if (!range?.start) return null
-    if (!range.end || range.start.toDateString() === range.end.toDateString())
-      return fmtDay(range.start)
-    return `${fmtDay(range.start)} → ${fmtDay(range.end)}`
-  }, [range])
 
   const url = useMemo(() => {
     let u = props.rowsHref
@@ -176,49 +171,31 @@ export default function Expeditions(props: ExpeditionsPageProps) {
     >
 
         {/* ═══ Toolbar ═══ */}
-        <div className="flex flex-none flex-wrap items-center gap-2.5 border-b border-rule px-7 py-2">
-          {/* Sélecteur de plage */}
-          <div className="relative">
-            <div className="flex items-center gap-1">
+        <ToolbarRow>
+          {/* Sélecteur de plage — pas de date future (expédition = passé/J-1). */}
+          <div className="flex items-center gap-1">
+            <DateWindowPill
+              open={calendarOpen}
+              onOpenChange={setCalendarOpen}
+              selected={{
+                from: range?.start ?? new Date(props.referenceDate),
+                to: range?.end ?? new Date(props.referenceDate),
+              }}
+              onSelect={applyRange}
+              disabled={{ after: new Date() }}
+            />
+            {range?.start && (
               <button
                 type="button"
-                onClick={() => setCalendarOpen((v) => !v)}
-                className="flex items-center gap-1.5 rounded border border-rule bg-card px-2.5 py-1.5 font-mono text-[11px] text-foreground transition-colors hover:bg-secondary/60"
+                onClick={() => {
+                  setRange(null)
+                  setCalendarOpen(false)
+                }}
+                className="flex size-6 items-center justify-center rounded text-muted-foreground hover:text-foreground"
+                title="Réinitialiser"
               >
-                <CalendarIcon size={14} strokeWidth={1.75} className="text-muted-foreground" />
-                <span>{rangeLabel ?? 'J-1'}</span>
+                <X size={14} strokeWidth={1.75} />
               </button>
-              {range?.start && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setRange(null)
-                    setCalendarOpen(false)
-                  }}
-                  className="flex size-6 items-center justify-center rounded text-muted-foreground hover:text-foreground"
-                  title="Réinitialiser"
-                >
-                  <X size={14} strokeWidth={1.75} />
-                </button>
-              )}
-            </div>
-            {calendarOpen && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setCalendarOpen(false)} />
-                <div className="absolute left-0 top-full z-20 mt-1">
-                  <Calendar
-                    mode="range"
-                    locale={fr}
-                    numberOfMonths={2}
-                    selected={{
-                      from: range?.start ?? undefined,
-                      to: range?.end ?? undefined,
-                    }}
-                    onSelect={applyRange}
-                    disabled={{ after: new Date() }}
-                  />
-                </div>
-              </>
             )}
           </div>
 
@@ -267,10 +244,10 @@ export default function Expeditions(props: ExpeditionsPageProps) {
 
           <div className="ml-auto flex items-center gap-2">
             {/* Recherche — systématiquement à droite (convention toolbar). */}
-            <div className="flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-card px-3 transition-shadow focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/25">
+            <div className={PILL}>
               <Search size={17} strokeWidth={1.75} className="text-muted-foreground" />
               <input
-                className="w-[160px] border-0 bg-transparent px-0 text-[12px] font-medium text-foreground shadow-none outline-none"
+                className="w-[160px] border-0 bg-transparent px-0 text-xs font-medium text-foreground shadow-none outline-none"
                 placeholder="Client…"
                 type="text"
                 autoComplete="off"
@@ -291,51 +268,34 @@ export default function Expeditions(props: ExpeditionsPageProps) {
                 {fmtMs(ms)}
               </span>
             )}
-            <button
-              type="button"
-              onClick={() => setBust((b) => b + 1)}
-              disabled={loading}
-              className="inline-flex items-center gap-1 rounded-full border border-rule bg-card px-3 py-1 text-[11px] font-semibold transition-colors hover:border-brand disabled:opacity-50"
-              title="Recharger les données X3"
-            >
-              <RefreshCw
-                size={14}
-                strokeWidth={1.75}
-                className={cn('text-muted-foreground', loading && 'animate-spin')}
-              />
-              Actualiser
-            </button>
+            <RefreshPill loading={loading} onClick={() => setBust((b) => b + 1)} />
           </div>
-        </div>
+        </ToolbarRow>
 
         {/* ═══ Toggle vue + tri manifeste ═══ */}
         <div className="flex flex-none items-center gap-2.5 border-b border-rule-soft px-7 py-1.5">
-          <div className="flex items-center overflow-hidden rounded-md border border-rule bg-card">
-            <ViewTab
-              active={view === 'manifeste'}
-              onClick={() => setView('manifeste')}
-              icon="grid_view"
-              label="Manifestes"
-            />
-            <ViewTab
-              active={view === 'frise'}
-              onClick={() => setView('frise')}
-              icon="timeline"
-              label="Frise de charge"
-            />
-          </div>
+          <Segment role="radiogroup" ariaLabel="Vue">
+            <SegmentButton role="radio" active={view === 'manifeste'} onClick={() => setView('manifeste')}>
+              Manifestes
+            </SegmentButton>
+            <SegmentButton role="radio" active={view === 'frise'} onClick={() => setView('frise')}>
+              Frise de charge
+            </SegmentButton>
+          </Segment>
 
           {/* Tri segmenté — propre au manifeste */}
           {view === 'manifeste' && (
-            <div className="flex items-center overflow-hidden rounded-md border border-rule bg-card">
-              <SegTab active={mSort === 'time'} onClick={() => setMSort('time')} label="Par heure" />
-              <SegTab active={mSort === 'load'} onClick={() => setMSort('load')} label="Par charge" />
-              <SegTab
-                active={mSort === 'client'}
-                onClick={() => setMSort('client')}
-                label="Par client"
-              />
-            </div>
+            <Segment role="radiogroup" ariaLabel="Tri manifeste">
+              <SegmentButton role="radio" active={mSort === 'time'} onClick={() => setMSort('time')}>
+                Par heure
+              </SegmentButton>
+              <SegmentButton role="radio" active={mSort === 'load'} onClick={() => setMSort('load')}>
+                Par charge
+              </SegmentButton>
+              <SegmentButton role="radio" active={mSort === 'client'} onClick={() => setMSort('client')}>
+                Par client
+              </SegmentButton>
+            </Segment>
           )}
 
           {/* Légende (frise) — paliers de taux de remplissage */}
@@ -412,57 +372,6 @@ export default function Expeditions(props: ExpeditionsPageProps) {
           onOpenChange={setDetailOpen}
         />
     </AppLayout>
-  )
-}
-
-/** Onglet de bascule de vue (manifeste / frise). */
-function ViewTab({
-  active,
-  onClick,
-  icon,
-  label,
-}: {
-  active: boolean
-  onClick: () => void
-  icon: string
-  label: string
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        'flex items-center gap-1.5 px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
-        active ? 'bg-brand/10 text-brand' : 'text-muted-foreground hover:text-foreground'
-      )}
-    >
-      <DynamicIcon name={icon} size={14} />
-      {label}
-    </button>
-  )
-}
-
-/** Onglet segmenté (tri manifeste). */
-function SegTab({
-  active,
-  onClick,
-  label,
-}: {
-  active: boolean
-  onClick: () => void
-  label: string
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        'border-r border-rule-soft px-2.5 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors last:border-r-0',
-        active ? 'bg-brand/10 text-brand' : 'text-muted-foreground hover:text-foreground'
-      )}
-    >
-      {label}
-    </button>
   )
 }
 

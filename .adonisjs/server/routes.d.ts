@@ -66,6 +66,7 @@ export type ScannedRoutes = {
     'user.dashboard_layout.update': { paramsTuple?: []; params?: {} }
     'expeditions.rows': { paramsTuple?: []; params?: {} }
     'receptions.rows': { paramsTuple?: []; params?: {} }
+    'receptions.criticite': { paramsTuple?: []; params?: {} }
     'conditionnements.rows': { paramsTuple?: []; params?: {} }
     'conditionnements.estimations': { paramsTuple?: []; params?: {} }
     'promesse.index': { paramsTuple?: []; params?: {} }
@@ -126,6 +127,7 @@ export type ScannedRoutes = {
     'dashboard.stock_valuation': { paramsTuple?: []; params?: {} }
     'expeditions.rows': { paramsTuple?: []; params?: {} }
     'receptions.rows': { paramsTuple?: []; params?: {} }
+    'receptions.criticite': { paramsTuple?: []; params?: {} }
     'conditionnements.rows': { paramsTuple?: []; params?: {} }
     'conditionnements.estimations': { paramsTuple?: []; params?: {} }
     'promesse.index': { paramsTuple?: []; params?: {} }
@@ -180,6 +182,7 @@ export type ScannedRoutes = {
     'dashboard.stock_valuation': { paramsTuple?: []; params?: {} }
     'expeditions.rows': { paramsTuple?: []; params?: {} }
     'receptions.rows': { paramsTuple?: []; params?: {} }
+    'receptions.criticite': { paramsTuple?: []; params?: {} }
     'conditionnements.rows': { paramsTuple?: []; params?: {} }
     'conditionnements.estimations': { paramsTuple?: []; params?: {} }
     'promesse.index': { paramsTuple?: []; params?: {} }

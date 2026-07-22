@@ -751,6 +751,18 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'receptions.criticite': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/receptions/criticite'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'conditionnements.rows': {
     methods: ["GET","HEAD"]
     pattern: '/api/v1/conditionnements/rows'
