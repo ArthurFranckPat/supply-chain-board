@@ -123,17 +123,18 @@ Endif
 
 # --- 5. Impression silencieuse ---------------------------------------------
 # IMPRIM0 = variante headless (aucune boîte de paramètres), celle des batchs.
-# Le statut est posé dans [S]stat1 SANS erreur levée : on le teste explicitement.
-[S]stat1 = 0
+#
+# /!\ DETTE ASSUMÉE : pas de contrôle de statut post-appel. La référence à
+#     [S]stat1 a été retirée — identifiant non vérifié sur cette version, et un
+#     identifiant inconnu rend TOUT le script non chargeable (la compilation est
+#     par script), ce qui a produit un échec muet y compris sur la sonde PING.
+#     Conséquence : WRETCOD=0 signifie « IMPRIM0 a rendu la main sans erreur
+#     runtime », PAS « le document est sorti ». L'invariant 1 de l'issue #85
+#     n'est donc PAS encore tenu côté X3 — la panne partielle reste invisible.
+#     À rétablir dès que la variable de statut de la GIMP locale est identifiée,
+#     avant tout branchement sur une imprimante d'atelier.
 Call IMPRIM0(ZPRTRPT, ZPRTDST, ZPRTPAR) From GIMP
 
-If [S]stat1 <> 0
-    WRETERMSG = "Échec impression " - ZPRTRPT - " vers " - ZPRTDST -
-&              " (stat1=" - num$([S]stat1) - ")."
-    End
-Endif
-
-# Seul chemin qui autorise un verdict de succès.
 WRETCOD = 0
 End
 

@@ -150,10 +150,13 @@ Un échec *dans* le corps remonte, lui, un message dans `WW_MESS`.
 
 ### Points à valider au 1er test
 
-- **`[S]stat1`** : variable de statut d'`IMPRIM0`. Si le compilateur la refuse
-  sur cette version, remplacer par la variable de retour de la `GIMP` locale —
-  mais **ne pas supprimer le contrôle** : sans lui, l'appel SOAP répond « OK »
-  sur une impression qui n'a jamais eu lieu (invariant 1 de l'issue #85).
+- **Statut d'impression : contrôle absent, dette ouverte.** `[S]stat1` a été
+  retiré du code — identifiant non vérifié sur cette version, et un identifiant
+  inconnu rend le script entier non chargeable, ce qui donne un échec muet même
+  sur la sonde PING. En l'état, `WRETCOD=0` veut dire « `IMPRIM0` a rendu la
+  main », pas « le document est sorti » : **l'invariant 1 de l'issue #85 n'est
+  pas tenu**. Identifier la variable de statut de la `GIMP` locale et rétablir
+  le contrôle **avant** de router quoi que ce soit vers une imprimante d'atelier.
 - `codimp=1` et `impselection=1` reprennent les valeurs par défaut d'`AREPORTD` ;
   à confirmer sur un tirage réel (sélection mémorisée vs bornes).
 - `GUSER` en contexte web service : le paramètre `usr` de l'état doit être un
