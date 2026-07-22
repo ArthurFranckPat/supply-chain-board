@@ -53,7 +53,7 @@ export function createProactiveColumns({
           <div className="font-mono text-[13px] font-bold tracking-tight text-foreground">
             {getValue() as string}
           </div>
-          <div className="mt-0.5 font-sans text-[12px] font-medium leading-snug lowercase text-secondary-foreground">
+          <div className="mt-0.5 font-sans text-[11px] font-normal leading-snug text-muted-foreground/70">
             {row.original.designation || '—'}
           </div>
         </>
