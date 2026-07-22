@@ -173,6 +173,18 @@ export async function listerOF(params: ListerOfParams = {}) {
     return a.dateFin.localeCompare(b.dateFin)
   })
 
+  // Filtre famille inconnu → 0 ligne est ambigu (« code faux » vs « aucun OF »).
+  // On rend l'échec actionnable en listant les valeurs légales (cf. toolDoc SI VIDE).
+  let famillesConnues: string[] | undefined
+  if (familleFilter && catalog && rows.length === 0) {
+    const values = new Set<string>()
+    for (const { famille, typologie } of catalog.values()) {
+      if (famille) values.add(famille)
+      if (typologie) values.add(typologie)
+    }
+    famillesConnues = [...values].sort()
+  }
+
   return {
     _source: 'listerOF' as const,
     engine: 'boardDataset.getPool (ORDERS WIPSTA 1/2/3)',
@@ -186,6 +198,12 @@ export async function listerOF(params: ListerOfParams = {}) {
     totalMatching: rows.length,
     truncated: rows.length > limit,
     ofs: rows.slice(0, limit),
+    ...(famillesConnues
+      ? {
+          familleInconnue: !famillesConnues.includes(familleFilter!),
+          famillesConnues,
+        }
+      : {}),
   }
 }
 
