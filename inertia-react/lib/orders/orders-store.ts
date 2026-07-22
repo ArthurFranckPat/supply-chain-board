@@ -305,7 +305,11 @@ export const useOrderBoardStore = create<OrderBoardState>((set, get) => ({
           orders?: Array<{
             numCommande: string
             ligne?: string | null
-            ofs?: Array<{ feasible?: boolean | null; missingComponents?: Record<string, number> }>
+            ofs?: Array<{
+              feasible?: boolean | null
+              missingComponents?: Record<string, number>
+              qcComponents?: Record<string, number>
+            }>
           }>
         }>
       })
@@ -313,24 +317,46 @@ export const useOrderBoardStore = create<OrderBoardState>((set, get) => ({
         const map: Record<string, FeasStatus> = {}
         let nbOk = 0
         let nbBlocked = 0
+        let nbQc = 0
         for (const o of data.orders ?? []) {
           if (!o.ligne) continue
           const cardId = `${o.numCommande}#${o.ligne}`
-          const blockedOfs = (o.ofs ?? []).filter((of) => of.feasible === false)
+          const ofs = o.ofs ?? []
+          const blockedOfs = ofs.filter((of) => of.feasible === false)
+          // Dépendance CQ agrégée sur la ligne : un seul OF tributaire suffit à la signaler.
+          const qcComponents: Record<string, number> = {}
+          for (const of of ofs) {
+            for (const [comp, qty] of Object.entries(of.qcComponents ?? {})) {
+              qcComponents[comp] = (qcComponents[comp] ?? 0) + qty
+            }
+          }
+          const dependsOnQc = Object.keys(qcComponents).length > 0
           if (blockedOfs.length > 0) {
             const missing = new Set<string>()
             for (const of of blockedOfs) {
               for (const comp of Object.keys(of.missingComponents ?? {})) missing.add(comp)
             }
-            map[cardId] = { st: 'blocked', missing: Array.from(missing) }
+            map[cardId] = {
+              st: 'blocked',
+              missing: Array.from(missing),
+              ...(dependsOnQc ? { qcComponents } : {}),
+            }
             nbBlocked++
+          } else if (dependsOnQc) {
+            map[cardId] = { st: 'qc', missing: [], qcComponents }
+            nbQc++
           } else {
             map[cardId] = { st: 'ok', missing: [] }
             nbOk++
           }
         }
         set({ feasibility: map })
-        toast(nbBlocked > 0 ? `${nbBlocked} bloquée(s) · ${nbOk} OK` : `${nbOk} ligne(s) réalisables`)
+        const parts = [
+          nbBlocked > 0 ? `${nbBlocked} bloquée(s)` : null,
+          nbQc > 0 ? `${nbQc} sous CQ` : null,
+          `${nbOk} OK`,
+        ].filter(Boolean)
+        toast(parts.join(' · '))
       })
       .catch((err) => toast(`Échec : ${err.message}`))
       .finally(() => set({ feasLoading: false }))

@@ -108,8 +108,16 @@ export type SearchScope = 'poste' | 'of' | 'pf' | 'composant'
 /** Stock-availability mode for the feasibility computation. */
 export type FeasibilityMode = 'immediate' | 'sequential'
 
-/** Per-OF feasibility result. `missing` = component refs short on stock. */
+/**
+ * Per-OF feasibility result. `missing` = component refs short on stock.
+ *
+ * `qc` = faisable, MAIS la couverture repose sur du stock au statut Q (contrôle qualité) :
+ * le verdict compte ce stock comme disponible (règle métier assumée), l'état distinct rend
+ * la dépendance visible pour que l'ordonnanceur relance le service contrôle réception.
+ */
 export interface FeasStatus {
-  st: 'ok' | 'blocked'
+  st: 'ok' | 'qc' | 'blocked'
   missing: string[]
+  /** Composants couverts uniquement grâce au stock sous CQ : réf → quantité concernée. */
+  qcComponents?: Record<string, number>
 }

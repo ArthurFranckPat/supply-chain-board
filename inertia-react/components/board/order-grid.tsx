@@ -414,8 +414,10 @@ export function OrderGrid(props: OrderGridProps) {
                         feas={(() => {
                           const f = props.feasOf(card.id)
                           if (!f) return undefined
-                          return f.st === 'blocked' ? ('bad' as const) : ('ok' as const)
+                          if (f.st === 'blocked') return 'bad' as const
+                          return f.st === 'qc' ? ('qc' as const) : ('ok' as const)
                         })()}
+                        feasQcComponents={props.feasOf(card.id)?.qcComponents}
                         alert={(() => {
                           const f = props.feasOf(card.id)
                           return f && f.st === 'blocked' && f.missing.length
@@ -443,7 +445,9 @@ interface CardViewProps {
   line: OrderLineRow
   onSelectCard: (id: string) => void
   matches: boolean
-  feas?: 'ok' | 'bad'
+  feas?: 'ok' | 'qc' | 'bad'
+  /** Composants sous CQ à faire libérer (infobulle du badge `qc`). */
+  feasQcComponents?: Record<string, number>
   alert?: string
   onDragStart: (e: React.DragEvent, id: string, card: OrderCard, lineCode: string) => void
   onDragEnd: () => void
@@ -487,6 +491,7 @@ function CardView(props: CardViewProps) {
         qty={card.qty}
         induit={ghost}
         feas={props.feas}
+        feasQcComponents={props.feasQcComponents}
         alert={props.alert}
       />
       {/* Override : bouton réinitialiser (date X3 d'origine) */}

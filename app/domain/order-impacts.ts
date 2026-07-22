@@ -56,6 +56,14 @@ export interface OrderImpactRow {
     dateFin: string
     feasible: boolean | null
     missingComponents: Record<string, number>
+    /**
+     * Composants dont la couverture repose sur du stock sous contrôle qualité (statut Q) :
+     * article → quantité qui manquerait sans le CQ. Le verdict `feasible` compte le Q comme
+     * disponible (décision métier assumée), ce champ rend la dépendance EXPLICITE pour que
+     * l'ordonnanceur relance le service contrôle réception.
+     * Optionnel dans le TYPE seulement (fixtures de tests) — toujours produit par le moteur.
+     */
+    qcComponents?: Record<string, number>
     modified: boolean
     statutNum: number
     /** Vrai si au moins une opération intermédiaire a un pointage > 0 (issue #41). */
@@ -81,6 +89,8 @@ export interface OrderImpactResult {
     feasible: boolean | null
     statutNum: number
     missingComponents: Record<string, number>
+    /** Composants couverts uniquement grâce au stock sous CQ (cf. `orders[].ofs[].qcComponents`). */
+    qcComponents?: Record<string, number>
     /** Vrai si au moins une opération intermédiaire a un pointage > 0 (issue #41). */
     estDebuté?: boolean
   }>
@@ -155,7 +165,11 @@ export function evaluateOrderImpacts(
   mode?: FeasibilityOptions['mode'],
   precomputedFeasibility?: Map<
     string,
-    { feasible: boolean | null; missingComponents: Record<string, number> }
+    {
+      feasible: boolean | null
+      missingComponents: Record<string, number>
+      qcComponents?: Record<string, number>
+    }
   >,
   /**
    * Avancement des OFs via pointages MFGOPE (issue #41). Permet d'enrichir chaque OF
@@ -213,10 +227,20 @@ export function evaluateOrderImpacts(
   // triée par date besoin). Dispo = flux stock à date nulle (strict+qc, filtrés en amont) ;
   // couverture des sous-ensembles fabriqués = Σ qteRestante des OF producteurs, PLAFONNÉE.
   const stockNet = new Map<string, number>()
+  // Même dispo, MOINS le stock sous contrôle qualité : sert uniquement à révéler quels
+  // composants ne tiennent QUE grâce au CQ (le verdict rendu reste celui de `stockNet`).
+  const stockNetStrict = new Map<string, number>()
+  let hasQcStock = false
   for (const f of supplyFlows) {
     if (f.date !== null) continue
     const delta = f.direction === 'supply' ? f.quantity : -f.quantity
     stockNet.set(f.article, (stockNet.get(f.article) ?? 0) + delta)
+    const isQc = f.origin.type === 'stock' && (f.origin as { subType?: string }).subType === 'qc'
+    if (isQc) {
+      hasQcStock = true
+      continue
+    }
+    stockNetStrict.set(f.article, (stockNetStrict.get(f.article) ?? 0) + delta)
   }
   const engineOfs: RuptureOfInput[] = ofInputs.map((o) => {
     const iso = o.dateDebut ?? o.dateFin
@@ -229,23 +253,63 @@ export function evaluateOrderImpacts(
       materials: mfgMaterialsByOf?.get(o.numOf) ?? null,
     }
   })
+  const engineMode = mode === 'sequential' ? 'contention' : 'photo'
   const verdicts = evaluateRuptures(
     engineOfs,
     { articles, nomenclatures, stockNet, ofSupply: buildOfSupply(engineOfs) },
-    mode === 'sequential' ? 'contention' : 'photo'
+    engineMode
   )
+  // 2e passe SANS le CQ — uniquement si du stock Q existe dans le périmètre (sinon aucun
+  // écart possible et on évite le coût). Pur calcul mémoire : zéro requête X3 en plus.
+  const verdictsStrict = hasQcStock
+    ? evaluateRuptures(
+        engineOfs,
+        {
+          articles,
+          nomenclatures,
+          stockNet: stockNetStrict,
+          ofSupply: buildOfSupply(engineOfs),
+        },
+        engineMode
+      )
+    : undefined
+
+  /** Écart de manquants entre la passe « sans CQ » et la passe retenue → dette envers le CQ. */
+  const qcDelta = (ofId: string): Record<string, number> => {
+    const strict = verdictsStrict?.get(ofId)
+    if (!strict) return {}
+    const withQc = verdicts.get(ofId)
+    const missWithQc = withQc ? directMissing(withQc) : {}
+    const out: Record<string, number> = {}
+    for (const [article, shortage] of Object.entries(directMissing(strict))) {
+      const covered = shortage - (missWithQc[article] ?? 0)
+      if (covered > 0) out[article] = covered
+    }
+    return out
+  }
 
   // Résout le verdict d'un OF : MFGMAT (précalculé) s'il existe, sinon le moteur.
   // Vues : manquants DIRECTS (depth 0) — même forme photo/contention (parité #73).
   const resolveFeasibility = (
     ofId: string
-  ): { feasible: boolean | null; missingComponents: Record<string, number> } => {
+  ): {
+    feasible: boolean | null
+    missingComponents: Record<string, number>
+    qcComponents: Record<string, number>
+  } => {
     const pre = precomputedFeasibility?.get(ofId)
-    if (pre) return { feasible: pre.feasible, missingComponents: pre.missingComponents }
+    if (pre) {
+      return {
+        feasible: pre.feasible,
+        missingComponents: pre.missingComponents,
+        qcComponents: pre.qcComponents ?? {},
+      }
+    }
     const verdict = verdicts.get(ofId)
     return {
       feasible: verdict?.feasible ?? null,
       missingComponents: verdict ? directMissing(verdict) : {},
+      qcComponents: qcDelta(ofId),
     }
   }
 
@@ -314,6 +378,7 @@ export function evaluateOrderImpacts(
         dateFin: effFin?.toISOString().slice(0, 10) ?? '',
         feasible: ofFeasible,
         missingComponents: resolved.missingComponents,
+        qcComponents: resolved.qcComponents,
         modified: overrides.has(ofId),
         statutNum: overrides.get(ofId)?.status ?? (alloc.ofFlow.origin as any).status ?? 3,
         estDebuté: avancementByOf?.get(ofId)?.estDebuté,
@@ -393,6 +458,7 @@ export function evaluateOrderImpacts(
         feasible: resolved.feasible,
         statutNum: o.statutNum,
         missingComponents: resolved.missingComponents,
+        qcComponents: resolved.qcComponents,
         estDebuté: avancementByOf?.get(o.numOf)?.estDebuté,
       }
     }),

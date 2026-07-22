@@ -114,8 +114,22 @@ export function precomputeMfgFeasibility(
   ofFlows: Flow[],
   mfgByOf: Map<string, MfgMaterialInput[]>,
   stockByArticle: Map<string, number>,
-  overrideMap: Map<string, OfOverride>
-): Map<string, { feasible: boolean | null; missingComponents: Record<string, number> }> {
+  overrideMap: Map<string, OfOverride>,
+  /**
+   * Même dispo mais SANS le stock sous contrôle qualité (statut Q). Fourni → 2e passe moteur
+   * dont l'écart de manquants alimente `qcComponents` : le verdict ne change pas (le Q reste
+   * compté dispo), mais on sait quels composants ne tiennent QUE grâce au CQ — l'action de
+   * l'ordonnanceur devient « relancer le contrôle réception » au lieu de « rien à faire ».
+   */
+  stockStrictByArticle?: Map<string, number>
+): Map<
+  string,
+  {
+    feasible: boolean | null
+    missingComponents: Record<string, number>
+    qcComponents: Record<string, number>
+  }
+> {
   const engineOfs: RuptureOfInput[] = []
   for (const f of ofFlows) {
     const numOf = (f.origin as { id?: string }).id?.trim() ?? ''
@@ -138,14 +152,36 @@ export function precomputeMfgFeasibility(
     'photo'
   )
 
+  const verdictsStrict = stockStrictByArticle
+    ? evaluateRuptures(
+        engineOfs,
+        { articles: new Map(), nomenclatures: new Map(), stockNet: stockStrictByArticle },
+        'photo'
+      )
+    : undefined
+
   const mfgFeasibility = new Map<
     string,
-    { feasible: boolean | null; missingComponents: Record<string, number> }
+    {
+      feasible: boolean | null
+      missingComponents: Record<string, number>
+      qcComponents: Record<string, number>
+    }
   >()
   for (const [numOf, verdict] of verdicts) {
+    const missing = directMissing(verdict)
+    const qcComponents: Record<string, number> = {}
+    const strict = verdictsStrict?.get(numOf)
+    if (strict) {
+      for (const [article, shortage] of Object.entries(directMissing(strict))) {
+        const covered = shortage - (missing[article] ?? 0)
+        if (covered > 0) qcComponents[article] = covered
+      }
+    }
     mfgFeasibility.set(numOf, {
       feasible: verdict.feasible,
-      missingComponents: directMissing(verdict),
+      missingComponents: missing,
+      qcComponents,
     })
   }
   return mfgFeasibility

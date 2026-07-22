@@ -398,24 +398,46 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`)
         return r.json() as Promise<{
-          ofs?: { numOf: string; feasible?: boolean; missingComponents?: Record<string, unknown> }[]
+          ofs?: {
+            numOf: string
+            feasible?: boolean
+            missingComponents?: Record<string, unknown>
+            qcComponents?: Record<string, number>
+          }[]
         }>
       })
       .then((data) => {
         const map: Record<string, FeasStatus> = {}
         let nbOk = 0
         let nbBlocked = 0
+        let nbQc = 0
         for (const of of data.ofs ?? []) {
+          const qcComponents = of.qcComponents ?? {}
+          const dependsOnQc = Object.keys(qcComponents).length > 0
           if (of.feasible === false) {
-            map[of.numOf] = { st: 'blocked', missing: Object.keys(of.missingComponents ?? {}) }
+            map[of.numOf] = {
+              st: 'blocked',
+              missing: Object.keys(of.missingComponents ?? {}),
+              ...(dependsOnQc ? { qcComponents } : {}),
+            }
             nbBlocked++
           } else if (of.feasible === true) {
-            map[of.numOf] = { st: 'ok', missing: [] }
-            nbOk++
+            // Faisable mais tributaire du CQ → état distinct : l'OF n'est PAS lançable tant
+            // que le contrôle réception n'a pas libéré le stock.
+            map[of.numOf] = dependsOnQc
+              ? { st: 'qc', missing: [], qcComponents }
+              : { st: 'ok', missing: [] }
+            if (dependsOnQc) nbQc++
+            else nbOk++
           }
         }
         set({ feasibility: map })
-        toast(nbBlocked > 0 ? `${nbBlocked} bloqué(s) · ${nbOk} OK` : `${nbOk} OF réalisables`)
+        const parts = [
+          nbBlocked > 0 ? `${nbBlocked} bloqué(s)` : null,
+          nbQc > 0 ? `${nbQc} sous CQ` : null,
+          `${nbOk} OK`,
+        ].filter(Boolean)
+        toast(parts.join(' · '))
       })
       .catch((err) => toast(`Échec : ${err.message}`))
       .finally(() => set({ feasLoading: false }))

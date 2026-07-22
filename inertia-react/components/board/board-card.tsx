@@ -77,8 +77,13 @@ type Common = {
   title: string
   /** Charge (heures), à droite du pied. */
   hours: string
-  /** Badge faisabilité au coin (✓ réalisable / ! rupture). */
-  feas?: 'ok' | 'bad'
+  /**
+   * Badge faisabilité au coin : ✓ réalisable / ⚗ réalisable mais tributaire du contrôle
+   * qualité (stock statut Q) / ! rupture.
+   */
+  feas?: 'ok' | 'qc' | 'bad'
+  /** Infobulle du badge `qc` : composants sous CQ à faire libérer (réf → quantité). */
+  feasQcComponents?: Record<string, number>
   className?: string
 }
 
@@ -163,6 +168,13 @@ function CommandeCard(props: CommandeCardProps) {
     >
       {/* coin haut-droit : faisabilité, ou coche terminé */}
       {props.feas === 'ok' && <CornerBadge cls="bg-ferme" icon="check" />}
+      {props.feas === 'qc' && (
+        <CornerBadge
+          cls="bg-warning"
+          icon="science"
+          title={qcBadgeTitle(props.feasQcComponents)}
+        />
+      )}
       {props.feas === 'bad' && <CornerBadge cls="bg-destructive" icon="priority_high" />}
       {!props.feas && props.status === 'termine' && <CornerBadge cls="bg-muted-foreground" icon="check" />}
       {/* cours : point terra pulsant (intérieur) */}
@@ -366,6 +378,9 @@ function OfListingCard(p: OfCardProps) {
 
       {/* Badges saillants, positionnés sur la bande (inchangés). */}
       {p.feas === 'ok' && <CornerBadge cls="bg-ferme" icon="check" />}
+      {p.feas === 'qc' && (
+        <CornerBadge cls="bg-warning" icon="science" title={qcBadgeTitle(p.feasQcComponents)} />
+      )}
       {p.feas === 'bad' && <CornerBadge cls="bg-destructive" icon="priority_high" />}
       {!p.feas && p.status === 'termine' && <CornerBadge cls="bg-muted-foreground" icon="check" />}
       {/* Issue #23 : badge retard « +N j » (chevauche le haut de la bande). */}
@@ -449,11 +464,32 @@ function OfListingCard(p: OfCardProps) {
 interface CornerBadgeProps {
   cls: string
   icon: string
+  /** Infobulle native (aucun portail : la carte est draggable, un Tooltip casserait le drag). */
+  title?: string
+}
+
+/**
+ * Libellé d'infobulle du badge CQ — dit l'action, pas seulement l'état : l'ordonnanceur
+ * doit appeler le contrôle réception pour faire lever le statut Q.
+ */
+export function qcBadgeTitle(qcComponents?: Record<string, number>): string {
+  const entries = Object.entries(qcComponents ?? {})
+  const detail = entries
+    .slice(0, 4)
+    .map(([ref, qty]) => `${ref} (${Math.round(qty)})`)
+    .join(', ')
+  const reste = entries.length > 4 ? `, +${entries.length - 4} autre(s)` : ''
+  return (
+    `Réalisable UNIQUEMENT grâce à du stock sous contrôle qualité (statut Q)` +
+    (detail ? ` : ${detail}${reste}` : '') +
+    `\nAction : contacter le contrôle réception pour faire libérer le stock.`
+  )
 }
 
 function CornerBadge(p: CornerBadgeProps) {
   return (
     <span
+      title={p.title}
       className={cn(
         'absolute -top-1.5 right-2 flex size-4 items-center justify-center rounded-full border-2 border-card text-card',
         p.cls

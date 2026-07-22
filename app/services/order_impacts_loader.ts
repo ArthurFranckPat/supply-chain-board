@@ -284,9 +284,21 @@ export async function loadOrderImpacts(
   // la contention des composants partagés entre OFs. Le moteur (consommation séquentielle tous
   // composants) devient seul juge.
   const stockByArticle = buildStrictQcStock(stockFlows)
+  // Dispo hors CQ : sert à isoler les composants qui ne tiennent QUE grâce au stock statut Q.
+  // Le verdict reste rendu sur `stockByArticle` (CQ compté dispo) — on ne change pas la règle,
+  // on la rend lisible.
+  const stockStrictByArticle = buildStrictQcStock(
+    stockFlows.filter((f) => (f.origin as { subType?: string }).subType !== 'qc')
+  )
   const mfgFeasibility = preferEngineFeasibility
     ? undefined
-    : precomputeMfgFeasibility(finalOfFlows, mfgByOf, stockByArticle, overrideMap)
+    : precomputeMfgFeasibility(
+        finalOfFlows,
+        mfgByOf,
+        stockByArticle,
+        overrideMap,
+        stockStrictByArticle
+      )
 
   // Avancement des OFs via pointages MFGOPE (issue #41) : détermine si chaque OF
   // est réellement débuté en atelier (opérations intermédiaires pointées).

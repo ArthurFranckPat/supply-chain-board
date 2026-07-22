@@ -573,8 +573,10 @@ function CardView(props: CardViewProps) {
   const feas = useBoardStore((s) => {
     const f = feasOf(s, card.id)
     if (!f) return undefined
-    return f.st === 'blocked' ? ('bad' as const) : ('ok' as const)
+    if (f.st === 'blocked') return 'bad' as const
+    return f.st === 'qc' ? ('qc' as const) : ('ok' as const)
   })
+  const feasQcComponents = useBoardStore((s) => feasOf(s, card.id)?.qcComponents)
   const alert = useBoardStore((s) => {
     const f = feasOf(s, card.id)
     return f && f.st === 'blocked' && f.missing.length
@@ -672,6 +674,7 @@ function CardView(props: CardViewProps) {
         hours={fmt(card.hours)}
         progress={parseProgress(card.metric)}
         feas={feas}
+        feasQcComponents={feasQcComponents}
         alert={alert}
         consommeBouche={card.consommeBouche}
         typologie={card.typologie}
