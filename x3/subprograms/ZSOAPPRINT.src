@@ -1,0 +1,131 @@
+##############################################################################
+# ZSOAPPRINT — Imprimer un état standard X3 pour UN OF, en silencieux (issue #85)
+#
+# Enveloppe `IMPRIM0` (variante sans boîte de dialogue) pour les documents
+# d'atelier : BONTRV (bon de travail) et BSM (bon de sortie matière). L'état,
+# le gabarit et la mise en page restent ceux de X3 : l'application ne régénère
+# aucun PDF — un bon matière pilote un picking physique, deux documents
+# homonymes qui divergent seraient une erreur de sortie, pas un écart de style.
+#
+# L'application ne parle jamais à une imprimante : elle passe un CODE DESTINATION
+# (`APRINTER` / GESADI, ex. ATELIER-MD, RESP-MAG, PDFFILE) et c'est le serveur
+# d'impression X3 (`PRTSRV`) qui envoie le papier.
+#
+# Signature : ZSOAPPRINT(WRPTCOD, WSTOFCY, WMFGNUM, WDEST, WRETCOD, WRETERMSG)
+#   WRPTCOD   IN   Char     Code état GESARP (BONTRV | BSM)
+#   WSTOFCY   IN   Char     Site de production (contrôle d'appartenance de l'OF)
+#   WMFGNUM   IN   Char     No OF — borne début ET fin (un seul OF par appel)
+#   WDEST     IN   Char     Code destination APRINTER (GESADI)
+#   WRETCOD   OUT  Integer  0 = imprimé · 1 = échec (défaut : 1)
+#   WRETERMSG OUT  Char     Cause de l'échec ("" si OK)
+#
+# /!\ INVARIANT — `IMPRIM0` ÉCHOUE EN SILENCE : état absent, destination morte ou
+#     OF inexistant ne lèvent pas d'erreur, l'appel « réussit » et rien ne sort.
+#     WRETCOD vaut donc 1 par défaut et n'est mis à 0 qu'après contrôle de stat1.
+#     L'appelant ne doit JAMAIS déduire un succès d'une absence d'erreur SOAP.
+#
+# /!\ Aucune idempotence ici : le verrou (OF × type de document) vit côté board
+#     (table print_jobs). Deux appels = deux tirages. Le papier ne se reprend pas.
+##############################################################################
+Subprog ZSOAPPRINT(WRPTCOD, WSTOFCY, WMFGNUM, WDEST, WRETCOD, WRETERMSG)
+Value    Char    WRPTCOD()      # [IN]  Code état (GESARP)
+Value    Char    WSTOFCY()      # [IN]  Site production
+Value    Char    WMFGNUM()      # [IN]  No OF
+Value    Char    WDEST()        # [IN]  Code destination (GESADI / APRINTER)
+Variable Integer WRETCOD()      # [OUT] 0 = OK · 1 = échec
+Variable Char    WRETERMSG()    # [OUT] Message d'erreur ("" si OK)
+
+# Copies locales : les états standards hébergent des Local de même nom.
+Local Char    ZPRTRPT(30)  : ZPRTRPT = WRPTCOD
+Local Char    ZPRTFCY(10)  : ZPRTFCY = WSTOFCY
+Local Char    ZPRTOFN(20)  : ZPRTOFN = WMFGNUM
+Local Char    ZPRTDST(30)  : ZPRTDST = WDEST
+Local Char    ZPRTPAR(1000)
+
+# --- Sorties par défaut : échec tant que rien n'a prouvé le contraire --------
+WRETCOD   = 1
+WRETERMSG = ""
+
+# Capture TOUTE erreur runtime → message en sortie.
+Onerrgo ERRPRINT
+
+If ZPRTRPT = "" Or ZPRTFCY = "" Or ZPRTOFN = "" Or ZPRTDST = ""
+    WRETERMSG = "Paramètres incomplets (état/site/OF/destination requis)."
+    End
+Endif
+
+# --- 1. L'état existe et est actif (sinon IMPRIM0 sort en silence) ----------
+Local File AREPORT [ARP]
+Read [ARP]ARP0 = ZPRTRPT
+If fstat
+    WRETERMSG = "État " - ZPRTRPT - " introuvable dans le dictionnaire (GESARP)."
+    End
+Endif
+If [F:ARP]ENAFLG <> 2
+    WRETERMSG = "État " - ZPRTRPT - " inactif (ENAFLG=" - num$([F:ARP]ENAFLG) - ")."
+    End
+Endif
+
+# --- 2. La destination existe et est active (GESADI) ------------------------
+Local File APRINTER [AIM]
+Read [AIM]AIM0 = ZPRTDST
+If fstat
+    WRETERMSG = "Destination " - ZPRTDST - " introuvable (GESADI)."
+    End
+Endif
+If [F:AIM]ENAFLG <> 2
+    WRETERMSG = "Destination " - ZPRTDST - " inactive."
+    End
+Endif
+
+# --- 3. L'OF existe et appartient au site (sinon : page blanche) ------------
+Local File MFGHEAD [MFG]
+Read [MFG]MFG0 = ZPRTOFN
+If fstat
+    WRETERMSG = "OF " - ZPRTOFN - " introuvable (MFGHEAD)."
+    End
+Endif
+If [F:MFG]MFGFCY <> ZPRTFCY
+    WRETERMSG = "OF " - ZPRTOFN - " rattaché au site " - [F:MFG]MFGFCY -
+&              ", pas à " - ZPRTFCY - "."
+    End
+Endif
+
+# --- 4. Chaîne de paramètres : bornes début = fin = l'OF ciblé --------------
+# Paramètres déclarés dans AREPORTD pour BONTRV et BSM (mêmes bornes) :
+#   mfgfcydeb (site) · mfgnumdeb (No OF) · codimp · impselection · usr · etat
+# Les bornes se passent par couple deb/fin ; on les colle sur un OF unique.
+ZPRTPAR = "mfgfcydeb=" + ZPRTFCY + ";mfgfcyfin=" + ZPRTFCY
+&       + ";mfgnumdeb=" + ZPRTOFN + ";mfgnumfin=" + ZPRTOFN
+&       + ";codimp=1;impselection=1"
+&       + ";usr=" + GUSER + ";etat=" + ZPRTRPT
+
+# Limite de longueur du superviseur selon le pilote de destination (~1000).
+If len(ZPRTPAR) > 1000
+    WRETERMSG = "Chaîne de paramètres trop longue (" - num$(len(ZPRTPAR)) - ")."
+    End
+Endif
+
+# --- 5. Impression silencieuse ---------------------------------------------
+# IMPRIM0 = variante headless (aucune boîte de paramètres), celle des batchs.
+# Le statut est posé dans [S]stat1 SANS erreur levée : on le teste explicitement.
+[S]stat1 = 0
+Call IMPRIM0(ZPRTRPT, ZPRTDST, ZPRTPAR) From GIMP
+
+If [S]stat1 <> 0
+    WRETERMSG = "Échec impression " - ZPRTRPT - " vers " - ZPRTDST -
+&              " (stat1=" - num$([S]stat1) - ")."
+    End
+Endif
+
+# Seul chemin qui autorise un verdict de succès.
+WRETCOD = 0
+End
+
+##############################################################################
+# $ERRPRINT — capture d'erreur runtime de l'impression.
+##############################################################################
+$ERRPRINT
+    WRETCOD   = 1
+    WRETERMSG = "Erreur impression : " - errmes$(errn) - " (l." - num$(errl) - ")"
+End

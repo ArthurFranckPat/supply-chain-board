@@ -64,3 +64,81 @@ Grille paramètres — **rangs = ordre de la signature** :
 
 Page `/writeback-test` (op `run`, publicName `FIRMSUGG`) ou route board
 `POST /api/v1/planning/suggestions/:sugNum/firm`.
+
+## ZSOAPPRINT.src — imprimer les documents d'un OF (issue #85)
+
+Enveloppe `IMPRIM0` (`From GIMP`) pour sortir **un état standard X3 sur un OF**,
+en silencieux, vers une destination `GESADI`. L'application ne parle jamais à une
+imprimante : elle passe un code destination, le serveur d'impression X3 fait le
+reste. Aucun PDF n'est régénéré côté board.
+
+### Signature
+
+```
+ZSOAPPRINT(WRPTCOD, WSTOFCY, WMFGNUM, WDEST, WRETCOD, WRETERMSG)
+  WRPTCOD   IN   Char     Code état GESARP : BONTRV | BSM
+  WSTOFCY   IN   Char     Site production
+  WMFGNUM   IN   Char     No OF (borne début = fin)
+  WDEST     IN   Char     Code destination APRINTER / GESADI
+  WRETCOD   OUT  Integer  0 = imprimé · 1 = échec (défaut 1)
+  WRETERMSG OUT  Char     Cause de l'échec
+```
+
+### Relevé X3 (lot 0, base CLTEST)
+
+États réellement utilisés en production — `AREPORTM` :
+
+| Code     | Document              | Tirages mémorisés |
+| -------- | --------------------- | ----------------- |
+| `BONTRV` | bon de travail        | 176 038           |
+| `BSM`    | bon de sortie matière | 29 497            |
+| `DOSFAB` | dossier de fabrication (standard) | 0     |
+
+`DOSFAB` / `FICHSUI` / `XFICHFAB` existent mais ne sont pas utilisés : les
+documents d'atelier chez Aldes sont **BONTRV + BSM**.
+
+Paramètres (`AREPORTD`, identiques pour les deux) : `mfgfcydeb`, `mfgnumdeb`,
+`pjtdeb`, `gammedeb`, `strdatdeb`, `codimp`, `usr`, `etat`, `numedt`,
+`impselection`. Bornes passées par couple `…deb` / `…fin`.
+`AREPORTM.CLEA1_0` contient un `MFGNUM` unique par ligne (`F123-16429`) : le
+tirage pièce par pièce est déjà la pratique, pas seulement une plage.
+
+Destinations : table **`APRINTER`** (et non `ADELIVER`, qui est la livraison de
+patchs). 72 destinations déjà créées, dont par atelier/îlot : `ATELIER-MD`,
+`IMP-ORDO`, `RESP-MAG`, `HUM-BDH`, `HUM-BAP`, `HUM-PP91`, `HUM-PP127`,
+`IMP-EXPE`, `ML3710-*`. `PRT_0` = type (1 aperçu · 2 imprimante · 4 fichier),
+`PRTSRV_0` = serveur d'impression. **`PDFFILE`** (type 4) sert de mode bac à
+sable : chaîne complète validée sans consommer de papier.
+
+### Publication GESAWE
+
+Même procédure que `FIRMSUGG` (classic SOAP, type `GOSUB`, script et subprogram
+`ZSOAPPRINT`, même pool que la lecture).
+
+| Rang | Nom       | Dim | Type    | E/S |
+| ---- | --------- | --- | ------- | --- |
+| 1    | WRPTCOD   | 0   | CHAR    | 0   |
+| 2    | WSTOFCY   | 0   | CHAR    | 0   |
+| 3    | WMFGNUM   | 0   | CHAR    | 0   |
+| 4    | WDEST     | 0   | CHAR    | 0   |
+| 5    | WRETCOD   | 0   | INTEGER | 1   |
+| 6    | WRETERMSG | 0   | CHAR    | 1   |
+
+**Save → Valider** (WSDL), puis **redémarrer le pool**.
+
+### Points à valider au 1er test
+
+- **`[S]stat1`** : variable de statut d'`IMPRIM0`. Si le compilateur la refuse
+  sur cette version, remplacer par la variable de retour de la `GIMP` locale —
+  mais **ne pas supprimer le contrôle** : sans lui, l'appel SOAP répond « OK »
+  sur une impression qui n'a jamais eu lieu (invariant 1 de l'issue #85).
+- `codimp=1` et `impselection=1` reprennent les valeurs par défaut d'`AREPORTD` ;
+  à confirmer sur un tirage réel (sélection mémorisée vs bornes).
+- `GUSER` en contexte web service : le paramètre `usr` de l'état doit être un
+  utilisateur valide, sinon l'état peut sortir vide.
+- 1er test vers **`PDFFILE`**, jamais directement vers une imprimante d'atelier.
+
+### Test
+
+Page `/writeback-test` (op `run`, publicName `ZSOAPPRINT`) sur un OF connu du
+site, destination `PDFFILE`.
