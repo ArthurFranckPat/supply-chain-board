@@ -74,19 +74,23 @@ html, body { margin: 0; padding: 0; font-family: var(--font-sans); color: var(--
 .source-tag:hover { background: rgba(255,56,92,0.18); border-bottom-color: var(--primary); }
 .source-tag:focus-visible { outline: 2px solid var(--ring); outline-offset: 1px; }
 
-.tool-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 8px; font-size: 12px; font-weight: 600; border-radius: var(--radius-pill); border: 1px solid var(--border); background: var(--card); color: var(--foreground); white-space: nowrap; cursor: pointer; }
-.tool-chip__dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
-.tool-chip[data-status="done"] { border-color: color-mix(in srgb, var(--ferme) 35%, transparent); }
-.tool-chip[data-status="done"] .tool-chip__dot { background: var(--ferme); }
-.tool-chip[data-status="running"] { border-color: color-mix(in srgb, var(--suggere) 35%, transparent); }
-.tool-chip[data-status="running"] .tool-chip__dot { background: var(--suggere); animation: pulse 1.1s ease-in-out infinite; }
-.tool-chip__name { font-family: var(--font-mono); font-size: 11.5px; }
-.tool-chip:hover { background: var(--secondary); }
+/* ── Tool tokens (flat, typographique — hiérarchie au lieu de pills) ──
+   Pas de boîte bordée : juste un glyphe de statut + nom mono. Le statut
+   est porté par le glyphe (✓ achevé, dot animé = en cours), pas par la
+   couleur seule. Le label « Outils » mène, les tokens suivent. */
+.tool-token { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 11.5px; color: var(--muted-foreground); white-space: nowrap; transition: color 0.12s; }
+.tool-token:hover { color: var(--foreground); }
+.tool-token__mark { display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.tool-token[data-status="done"] .tool-token__mark { color: var(--ferme); }
+.tool-token[data-status="running"] .tool-token__mark { color: var(--suggere); }
+.tool-token[data-status="error"] .tool-token__mark { color: var(--destructive); }
+.tool-token__pulse { width: 8px; height: 8px; border-radius: 50%; background: currentColor; animation: pulse 1.1s ease-in-out infinite; }
+.tool-token__name { letter-spacing: -0.01em; }
 @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
 
 /* ── Tools strip (slim, subordonné à la réponse) ── */
 .tools { display: flex; flex-direction: column; gap: 8px; }
-.tools__row { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.tools__row { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; }
 .tools__label { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; color: var(--muted-foreground); }
 .tools__label svg { color: var(--muted-foreground); flex: none; }
 .tools__detail { margin-top: 2px; }
@@ -409,8 +413,8 @@ html, body { margin: 0; padding: 0; font-family: var(--font-sans); color: var(--
                 <div class="tools">
                   <div class="tools__row">
                     <span class="tools__label"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76Z"/></svg> Outils</span>
-                    <span class="tool-chip" data-status="done"><span class="tool-chip__dot"></span><span class="tool-chip__name">verdict_stock</span></span>
-                    <span class="tool-chip" data-status="done"><span class="tool-chip__dot"></span><span class="tool-chip__name">ctp_calcul</span></span>
+                    <span class="tool-token" data-status="done"><span class="tool-token__mark"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span><span class="tool-token__name">verdict_stock</span></span>
+                    <span class="tool-token" data-status="done"><span class="tool-token__mark"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span><span class="tool-token__name">ctp_calcul</span></span>
                   </div>
                   <details class="tools__detail">
                     <summary><svg class="chev" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg> détail des appels</summary>
@@ -464,7 +468,7 @@ html, body { margin: 0; padding: 0; font-family: var(--font-sans); color: var(--
                 <div class="tools">
                   <div class="tools__row">
                     <span class="tools__label"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76Z"/></svg> Outils</span>
-                    <span class="tool-chip" data-status="running"><span class="tool-chip__dot"></span><span class="tool-chip__name">retards_clients</span></span>
+                    <span class="tool-token" data-status="running"><span class="tool-token__mark"><span class="tool-token__pulse"></span></span><span class="tool-token__name">retards_clients</span></span>
                   </div>
                 </div>
                 <div class="thinking">
