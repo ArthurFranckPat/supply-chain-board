@@ -365,12 +365,18 @@ export const useOrderBoardStore = create<OrderBoardState>((set, get) => ({
   // Helpers dérivés inline (pour éviter les imports circulaires)
   cardMatches: (card, lineCode) => {
     const state = get()
-    // Carte induite (ghost) : charge structurelle, toujours visible, hors filtres.
-    if (card.induit) return true
-    const tf = state.typeFilter
-    const t = card.orderType ?? 'NOR'
-    if (!tf.has(t)) return false
-    if (!state.natureFilter.has(card.nature)) return false
+    // Carte induite (ghost) : charge structurelle. Exemptée des filtres Type/Nature
+    // seulement — sa nature 'INDUIT' n'appartient pas à ces vocabulaires (MTS/MTO/NOR,
+    // COMMANDE/PREVISION), l'y soumettre la ferait disparaître d'office.
+    // La RECHERCHE, elle, s'y applique : sans ça, toute ligne portant un ghost restait
+    // visible et filtrer sur un poste laissait le board entier à l'écran, les autres
+    // cartes simplement éteintes — au lieu de ne montrer que le résultat comme en OF.
+    if (!card.induit) {
+      const tf = state.typeFilter
+      const t = card.orderType ?? 'NOR'
+      if (!tf.has(t)) return false
+      if (!state.natureFilter.has(card.nature)) return false
+    }
 
     const q = state.query.trim()
     if (!q) return true
@@ -397,6 +403,12 @@ export const useOrderBoardStore = create<OrderBoardState>((set, get) => ({
     if (!line) return false
     const af = state.atelierFilter
     if (af.size > 0 && !(line.atelier && af.has(line.atelier))) return false
+    // Recherche par poste : le poste cherché reste affiché même vide — c'est LUI le
+    // résultat, pas ses cartes (parité avec `lineVisible` des modes OF/Combiné).
+    const q = state.query.trim()
+    if (q && state.scope === 'poste' && lineCode.toLowerCase().includes(q.toLowerCase())) {
+      return true
+    }
     return line.dayCells.some((dc) => dc.cards.some((c) => get().cardMatches(c, lineCode)))
   },
 
