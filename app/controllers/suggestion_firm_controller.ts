@@ -125,7 +125,30 @@ export default class SuggestionFirmController {
       atelier: { code: '', label: '' },
       documents: [],
       error: '',
+      skipped: '',
     }
+
+    // Le déclenchement automatique est un réglage, pas une fatalité : imprimer
+    // systématiquement sort du papier sur un affermissement d'essai. Décision
+    // prise par le service, pour que le geste unitaire et le geste groupé ne
+    // divergent jamais.
+    const gate = await printService.shouldPrintOnFirm(batch)
+    if (!gate.print) {
+      print.skipped =
+        gate.mode === 'off'
+          ? 'Impression automatique désactivée dans les réglages.'
+          : 'Impression automatique limitée à l’affermissement unitaire.'
+      return {
+        ok: true,
+        sugNum: keys.sugNum,
+        mfgNum,
+        article: keys.itmref,
+        site: keys.stofcy,
+        env: config.pool,
+        print,
+      }
+    }
+
     try {
       const folder = await printService.printFolder({
         ofNum: mfgNum,
@@ -157,6 +180,7 @@ export default class SuggestionFirmController {
           error: d.error || d.jobDetail,
         })),
         error: '',
+        skipped: '',
       }
     } catch (e) {
       print.error = String(e)
@@ -198,6 +222,8 @@ interface FirmPrintReport {
     error: string
   }[]
   error: string
+  /** Motif de non-impression quand le réglage l'a écartée (chaîne vide sinon). */
+  skipped: string
 }
 
 function escapeXml(s: string): string {

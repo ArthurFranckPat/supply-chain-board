@@ -192,6 +192,12 @@ const routes = {
     tokens: [{"old":"/api/v1/config/print/destinations","type":0,"val":"api","end":""},{"old":"/api/v1/config/print/destinations","type":0,"val":"v1","end":""},{"old":"/api/v1/config/print/destinations","type":0,"val":"config","end":""},{"old":"/api/v1/config/print/destinations","type":0,"val":"print","end":""},{"old":"/api/v1/config/print/destinations","type":0,"val":"destinations","end":""}],
     types: placeholder as Registry['print_config.destinations']['types'],
   },
+  'print_config.update_settings': {
+    methods: ["POST"],
+    pattern: '/api/v1/config/print/settings',
+    tokens: [{"old":"/api/v1/config/print/settings","type":0,"val":"api","end":""},{"old":"/api/v1/config/print/settings","type":0,"val":"v1","end":""},{"old":"/api/v1/config/print/settings","type":0,"val":"config","end":""},{"old":"/api/v1/config/print/settings","type":0,"val":"print","end":""},{"old":"/api/v1/config/print/settings","type":0,"val":"settings","end":""}],
+    types: placeholder as Registry['print_config.update_settings']['types'],
+  },
   'print_config.upsert_rule': {
     methods: ["POST"],
     pattern: '/api/v1/config/print/rules',

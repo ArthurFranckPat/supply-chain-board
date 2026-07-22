@@ -2,7 +2,7 @@
  * AUTO-GÉNÉRÉ par scripts/gen-routes-manifest.mjs — NE PAS ÉDITER À LA MAIN.
  * Source : `start/routes.ts` → `node ace list:routes --jsonl`.
  * Régénérer : `npm run routes:gen` · Vérifier la fraîcheur : `npm run routes:check`.
- * 89 routes nommées.
+ * 90 routes nommées.
  */
 
 export const MANIFEST = {
@@ -52,6 +52,7 @@ export const MANIFEST = {
   "print_config.destinations": { method: "GET", pattern: "/api/v1/config/print/destinations" },
   "print_config.index": { method: "GET", pattern: "/configuration/impressions" },
   "print_config.jobs": { method: "GET", pattern: "/api/v1/config/print/jobs" },
+  "print_config.update_settings": { method: "POST", pattern: "/api/v1/config/print/settings" },
   "print_config.upsert_rule": { method: "POST", pattern: "/api/v1/config/print/rules" },
   "print.history": { method: "GET", pattern: "/api/v1/planning/orders/:orderNum/print" },
   "print.print": { method: "POST", pattern: "/api/v1/planning/orders/:orderNum/print" },
@@ -150,6 +151,7 @@ export type RouteParams = {
   "print_config.destinations": void,
   "print_config.index": void,
   "print_config.jobs": void,
+  "print_config.update_settings": void,
   "print_config.upsert_rule": void,
   "print.history": { "orderNum": string | number },
   "print.print": { "orderNum": string | number },

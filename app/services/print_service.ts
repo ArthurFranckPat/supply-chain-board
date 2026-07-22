@@ -4,6 +4,7 @@ import { callRunSubprog } from '#app/x3/run-client'
 import { X3Connection } from '#app/x3/connection'
 import PrintDestination from '#models/print_destination'
 import PrintJob from '#models/print_job'
+import PrintSetting from '#models/print_setting'
 import boardDataset from '#services/board_dataset'
 import { atelierLabel } from '#app/domain/atelier'
 import {
@@ -36,6 +37,16 @@ import {
 
 export type DocType = 'BONTRV' | 'BSM'
 export const DOC_TYPES: DocType[] = ['BONTRV', 'BSM']
+
+/**
+ * Déclenchement automatique à l'affermissement.
+ *  - `off`    : jamais. La réimpression explicite reste disponible.
+ *  - `single` : affermissement unitaire seulement — le geste est délibéré et
+ *               l'utilisateur voit le verdict à l'écran.
+ *  - `all`    : unitaire et groupé. Un lot de 20 OF sort 40 documents.
+ */
+export type AutoPrintMode = 'off' | 'single' | 'all'
+export const AUTO_PRINT_MODES: AutoPrintMode[] = ['off', 'single', 'all']
 
 /** Libellés métier des documents (l'utilisateur ne parle pas en codes X3). */
 export const DOC_LABELS: Record<DocType, string> = {
@@ -138,6 +149,42 @@ class PrintService {
         })
       },
     })
+  }
+
+  /**
+   * Réglages d'impression. Ligne unique créée à la volée, défaut `off` : un
+   * environnement neuf n'imprime rien tant que personne ne l'a décidé.
+   */
+  async getSettings(): Promise<{ autoPrintMode: AutoPrintMode; updatedAt: number; updatedBy: string }> {
+    const row = await PrintSetting.firstOrCreate(
+      { id: 1 },
+      { id: 1, autoPrintMode: 'off', updatedAt: 0, updatedBy: '' }
+    )
+    const mode = AUTO_PRINT_MODES.includes(row.autoPrintMode as AutoPrintMode)
+      ? (row.autoPrintMode as AutoPrintMode)
+      : 'off'
+    return { autoPrintMode: mode, updatedAt: row.updatedAt, updatedBy: row.updatedBy }
+  }
+
+  async setAutoPrintMode(mode: AutoPrintMode, by: string): Promise<AutoPrintMode> {
+    const row = await PrintSetting.firstOrCreate({ id: 1 }, { id: 1, autoPrintMode: 'off' })
+    row.autoPrintMode = mode
+    row.updatedAt = Math.floor(Date.now() / 1000)
+    row.updatedBy = by
+    await row.save()
+    return mode
+  }
+
+  /**
+   * L'affermissement doit-il imprimer ? Décision centralisée : le contrôleur ne
+   * doit pas réinterpréter le réglage, sous peine de divergence entre le geste
+   * unitaire et le geste groupé.
+   */
+  async shouldPrintOnFirm(batch: boolean): Promise<{ print: boolean; mode: AutoPrintMode }> {
+    const { autoPrintMode } = await this.getSettings()
+    if (autoPrintMode === 'off') return { print: false, mode: autoPrintMode }
+    if (autoPrintMode === 'single' && batch) return { print: false, mode: autoPrintMode }
+    return { print: true, mode: autoPrintMode }
   }
 
   /** Toutes les règles de routage, atelier puis document. */

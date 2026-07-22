@@ -1,5 +1,13 @@
 import { useMemo, useState } from 'react'
-import { Plus, Printer, Trash2, TriangleAlert, FileText, ShieldCheck } from 'lucide-react'
+import {
+  Plus,
+  Printer,
+  Trash2,
+  TriangleAlert,
+  FileText,
+  ShieldCheck,
+  Settings2,
+} from 'lucide-react'
 
 import AppLayout from '@r/layouts/app'
 import { Button } from '@r/components/ui/button'
@@ -67,7 +75,14 @@ interface Job {
   requestedBy: string
   createdAt: number
 }
+interface Settings {
+  /** 'off' | 'single' | 'all'. */
+  autoPrintMode: string
+  updatedAt: number
+  updatedBy: string
+}
 interface PageProps {
+  settings: Settings
   ateliers: Atelier[]
   destinations: Destination[]
   destinationsError: string
@@ -156,6 +171,115 @@ function EffetChip({ sandbox }: { sandbox: boolean }) {
       <Printer size={12} />
       papier
     </span>
+  )
+}
+
+const AUTO_MODES = [
+  {
+    v: 'off',
+    label: 'Jamais',
+    hint: 'L’affermissement n’imprime rien. Le dossier se tire à la main depuis le détail OF.',
+  },
+  {
+    v: 'single',
+    label: 'Affermissement unitaire',
+    hint: 'Un OF affermi depuis son détail imprime son dossier. L’affermissement groupé, non.',
+  },
+  {
+    v: 'all',
+    label: 'Unitaire et groupé',
+    hint: 'Tout affermissement imprime. Un lot de 20 OF sort 40 documents d’un coup.',
+  },
+]
+
+/**
+ * Déclenchement automatique à l'affermissement.
+ *
+ * Trois états et non une case à cocher : l'affermissement groupé n'a pas la
+ * même conséquence physique qu'un affermissement unitaire, et beaucoup de gens
+ * veulent le premier sans le second.
+ */
+function AutoPrintSetting({ settings }: { settings: Settings }) {
+  const [mode, setMode] = useState(settings.autoPrintMode)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  const change = async (v: string) => {
+    const previous = mode
+    setMode(v)
+    setBusy(true)
+    setError('')
+    try {
+      const r = await fetch(route('print_config.update_settings'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ autoPrintMode: v }),
+      })
+      const j = await r.json()
+      if (!r.ok || j.error) {
+        setError(j.error ?? `Erreur ${r.status}`)
+        setMode(previous) // l'écran ne doit pas afficher un réglage non enregistré
+      }
+    } catch (e) {
+      setError(String(e))
+      setMode(previous)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section className="rounded-lg border border-rule bg-card">
+      <header className="flex items-center gap-2 border-b border-rule px-4 py-3">
+        <Settings2 size={16} className="text-brand" />
+        <h2 className="font-fraunces text-[15px] font-bold">Déclenchement</h2>
+        <span className="text-[11.5px] text-muted-foreground">
+          quand l’affermissement doit-il imprimer le dossier ?
+        </span>
+      </header>
+
+      <div className="flex flex-col gap-1 px-4 py-3">
+        {AUTO_MODES.map((m) => (
+          <label
+            key={m.v}
+            className={cn(
+              'flex cursor-pointer items-start gap-2.5 rounded-md px-2 py-2 transition-colors',
+              mode === m.v ? 'bg-brand-soft' : 'hover:bg-muted/50'
+            )}
+          >
+            <input
+              type="radio"
+              name="autoPrintMode"
+              className="mt-0.5"
+              checked={mode === m.v}
+              disabled={busy}
+              onChange={() => void change(m.v)}
+            />
+            <span className="flex flex-col gap-0.5">
+              <span
+                className={cn(
+                  'text-[13px] font-semibold',
+                  mode === m.v ? 'text-brand' : 'text-foreground'
+                )}
+              >
+                {m.label}
+              </span>
+              <span className="text-[11.5px] text-muted-foreground">{m.hint}</span>
+            </span>
+          </label>
+        ))}
+
+        {error && (
+          <p className="mt-1 rounded-md bg-red-50 px-3 py-2 text-[12.5px] text-red-900">{error}</p>
+        )}
+
+        <p className="mt-1 text-[11.5px] italic text-muted-foreground">
+          La réimpression explicite depuis le détail OF reste disponible quel que soit ce réglage —
+          c’est un geste, pas un automatisme.
+          {settings.updatedBy ? ` Dernière modification : ${settings.updatedBy}.` : ''}
+        </p>
+      </div>
+    </section>
   )
 }
 
@@ -410,6 +534,8 @@ export default function ImpressionsConfig(props: PageProps) {
             restent affichées, mais aucune nouvelle règle ne peut être validée.
           </p>
         )}
+
+        <AutoPrintSetting settings={props.settings} />
 
         {props.queuesError && (
           <p className="flex items-center gap-2 rounded-md bg-muted px-3 py-2 text-[12.5px]">

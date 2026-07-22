@@ -135,6 +135,7 @@ router
 
         // Routage d'impression du dossier d'OF (issue #85, lot 2).
         router.get('/print/destinations', '#controllers/print_config_controller.destinations')
+        router.post('/print/settings', '#controllers/print_config_controller.updateSettings')
         router.post('/print/rules', '#controllers/print_config_controller.upsertRule')
         router.delete('/print/rules/:id', '#controllers/print_config_controller.deleteRule')
         router.get('/print/jobs', '#controllers/print_config_controller.jobs')

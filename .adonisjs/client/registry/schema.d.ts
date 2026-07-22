@@ -379,6 +379,18 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'print_config.update_settings': {
+    methods: ["POST"]
+    pattern: '/api/v1/config/print/settings'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'print_config.upsert_rule': {
     methods: ["POST"]
     pattern: '/api/v1/config/print/rules'

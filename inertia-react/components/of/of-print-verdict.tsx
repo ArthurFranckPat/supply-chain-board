@@ -40,6 +40,8 @@ export interface PrintReport {
   atelier?: { code: string; label: string }
   documents: PrintDocument[]
   error?: string
+  /** Motif quand le réglage a écarté l'impression (chaîne vide sinon). */
+  skipped?: string
 }
 
 const docFailed = (d: PrintDocument) => d.status === 'failed' || d.serverVerdict === 'error'
@@ -73,6 +75,15 @@ function DocLine({ d, deferred }: { d: PrintDocument; deferred: boolean }) {
 }
 
 export function OfPrintVerdict({ report }: { report: PrintReport }) {
+  // Réglage : rien n'a été imprimé, et c'était voulu. Le dire explicitement —
+  // un silence laisserait croire à un dossier sorti.
+  if (report.skipped) {
+    return (
+      <div className="font-mono text-[10.5px] text-muted-foreground">
+        Aucune impression · {report.skipped}
+      </div>
+    )
+  }
   if (report.error) {
     return (
       <div className="font-mono text-[11px] font-semibold text-destructive">

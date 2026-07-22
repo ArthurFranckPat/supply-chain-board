@@ -1,7 +1,12 @@
 import { type HttpContext } from '@adonisjs/core/http'
 import PrintDestination from '#models/print_destination'
 import PrintJob from '#models/print_job'
-import printService, { DOC_TYPES, type DocType } from '#services/print_service'
+import printService, {
+  AUTO_PRINT_MODES,
+  DOC_TYPES,
+  type AutoPrintMode,
+  type DocType,
+} from '#services/print_service'
 import staticSync from '#services/static_sync_service'
 import { atelierLabel } from '#app/domain/atelier'
 
@@ -23,10 +28,11 @@ const isDocType = (v: string): v is DocType => (DOC_TYPES as string[]).includes(
 export default class PrintConfigController {
   /** GET /configuration/impressions — page Inertia. */
   async index(ctx: HttpContext) {
-    const [rules, workstations, jobs] = await Promise.all([
+    const [rules, workstations, jobs, settings] = await Promise.all([
       printService.listRules(),
       staticSync.readWorkstations().catch(() => []),
       PrintJob.query().orderBy('id', 'desc').limit(50),
+      printService.getSettings(),
     ])
 
     // Destinations X3 : la page reste utilisable si X3 est injoignable (les
@@ -58,9 +64,28 @@ export default class PrintConfigController {
       destinationsError,
       queues,
       queuesError,
+      settings,
       rules: rules.map(serializeRule),
       jobs: jobs.map(serializeJob),
     })
+  }
+
+  /**
+   * POST /api/v1/config/print/settings — règle le déclenchement automatique.
+   *
+   * Le mode est validé contre la liste connue : une valeur inattendue doit être
+   * refusée, pas silencieusement rabattue sur un défaut qui pourrait imprimer.
+   */
+  async updateSettings(ctx: HttpContext) {
+    const mode = String(ctx.request.input('autoPrintMode') ?? '').trim()
+    if (!(AUTO_PRINT_MODES as string[]).includes(mode)) {
+      return ctx.response.badRequest({
+        ok: false,
+        error: `Mode invalide : ${mode || '(vide)'}. Attendu ${AUTO_PRINT_MODES.join(' | ')}.`,
+      })
+    }
+    await printService.setAutoPrintMode(mode as AutoPrintMode, ctx.auth.user?.username ?? '')
+    return { ok: true, settings: await printService.getSettings() }
   }
 
   /** POST /api/v1/config/print/rules — crée ou remplace la règle (atelier, document). */

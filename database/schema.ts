@@ -162,6 +162,19 @@ export class PrintJobSchema extends BaseModel {
   declare verdictInferred: boolean
 }
 
+export class PrintSettingSchema extends BaseModel {
+  static $columns = ['autoPrintMode', 'id', 'updatedAt', 'updatedBy'] as const
+  $columns = PrintSettingSchema.$columns
+  @column()
+  declare autoPrintMode: string
+  @column({ isPrimary: true })
+  declare id: number
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime
+  @column()
+  declare updatedBy: string
+}
+
 export class ScenarioSchema extends BaseModel {
   static $columns = ['auteur', 'createdAt', 'dataAt', 'description', 'evaluatedAt', 'id', 'mutations', 'nom', 'statut', 'strategy', 'updatedAt'] as const
   $columns = ScenarioSchema.$columns

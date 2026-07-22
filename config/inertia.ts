@@ -173,6 +173,7 @@ declare module '@adonisjs/inertia/types' {
       destinationsError: string
       queues: string[]
       queuesError: string
+      settings: { autoPrintMode: string; updatedAt: number; updatedBy: string }
       rules: {
         id: number
         stoloc: string

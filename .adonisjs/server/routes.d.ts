@@ -35,6 +35,7 @@ export type ScannedRoutes = {
     'calendar_config.update_closure': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'calendar_config.delete_closure': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'print_config.destinations': { paramsTuple?: []; params?: {} }
+    'print_config.update_settings': { paramsTuple?: []; params?: {} }
     'print_config.upsert_rule': { paramsTuple?: []; params?: {} }
     'print_config.delete_rule': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'print_config.jobs': { paramsTuple?: []; params?: {} }
@@ -219,6 +220,7 @@ export type ScannedRoutes = {
     'auth.logout': { paramsTuple?: []; params?: {} }
     'calendar_config.toggle_holiday': { paramsTuple?: []; params?: {} }
     'calendar_config.create_closure': { paramsTuple?: []; params?: {} }
+    'print_config.update_settings': { paramsTuple?: []; params?: {} }
     'print_config.upsert_rule': { paramsTuple?: []; params?: {} }
     'planning_board.board_feasibility': { paramsTuple?: []; params?: {} }
     'planning.suggestion_firm': { paramsTuple: [ParamValue]; params: {'sugNum': ParamValue} }
