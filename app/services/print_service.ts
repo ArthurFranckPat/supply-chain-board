@@ -296,6 +296,13 @@ class PrintService {
     // sur le rapprochement par exclusion.
     const jobNum = Number.parseInt((res.fields.WJOBNUM ?? '').trim(), 10)
     const expectedRank = Number.isFinite(jobNum) && jobNum > 0 ? jobNum : undefined
+    /**
+     * Le champ est PRÉSENT mais vide : X3 a accepté l'appel sans soumettre la
+     * moindre tâche — état sans données pour cet OF, le plus souvent. Rien ne
+     * sortira, et il faut le dire. Distinct du champ ABSENT, qui signale
+     * seulement un subprogram publié sans le 7ᵉ paramètre.
+     */
+    const noJobSubmitted = 'WJOBNUM' in res.fields && !expectedRank
 
     // --- Second verdict : le serveur d'édition -------------------------------
     // X3 peut accepter une édition que le serveur d'édition met ensuite en
@@ -310,7 +317,16 @@ class PrintService {
       detail: printServer ? '' : 'Aucun serveur d’édition configuré pour cette destination.',
       inferred: false,
     }
-    if (ok && printServer) {
+    if (ok && noJobSubmitted) {
+      watch = {
+        verdict: 'error',
+        rank: 0,
+        phase: '',
+        detail:
+          'X3 a accepté l’appel sans soumettre de tâche : l’état n’a produit aucun document pour cet OF.',
+        inferred: false,
+      }
+    } else if (ok && printServer) {
       const w = await watchJob(cfg, printServer, {
         folder: cfg.pool,
         report: docType,

@@ -291,11 +291,36 @@ Trois limites, à ne pas oublier :
   partent en même temps. Il deviendra exact avec `ETATJOB`, qui rend le numéro
   de tâche (`NOJOB`) — voir ci-dessous.
 
-### Piste suivante : `ETATJOB`
+### `ETATJOB` en service (23/07/2026)
 
-`ASUBPROG` déclare **deux** points d'entrée dans `AIMP3` : `ETAT` (7 paramètres,
-celui qu'on utilise) et **`ETATJOB`** (11 paramètres, « Impression état avec
-groupage »). Les 4 paramètres supplémentaires : `DIFF` (différé), `IMPDAT`,
-`IMPTIM`, et **`NOJOB` — le seul paramètre passé par adresse (`ADRVAL=1`), donc
-en sortie : le numéro de tâche**. Y passer supprime le rapprochement heuristique
-et ouvre l'impression différée (utile en affermissement de masse).
+Recompilé, republié au rang 7, pool redémarré. Vérifications :
+
+| Cas | `WJOBNUM` | Serveur d'édition |
+| --- | --- | --- |
+| `BONTRV` → `PDFFILE` | 33 | tâche 33 observée, verdict `ok` |
+| `BONTRV` → `ZETI1` (file « Xerox » absente) | 34 | tâche 34, `status: Erreur` |
+| `BSM` → `PDFFILE`, OF `F224-03380` | 41 | tâche 41, verdict `ok` |
+| `BSM` → `PDFFILE`, OF `F126-47558` | **vide** | aucune tâche créée |
+
+`NOJOB` **est** le `rank` de l'API REST : le rapprochement est exact, plus par
+exclusion.
+
+**`WJOBNUM` vide alors que `WRETCOD=0` = X3 n'a soumis aucune tâche.** L'état
+n'a rien produit pour cet OF — rien ne sortira. L'application le traite comme un
+échec explicite, distinct du champ *absent* (qui ne signale qu'un subprogram
+publié sans le 7ᵉ paramètre). Sur `F126-47558`, `BSM` ne produit rien là où
+`BONTRV` produit : cause côté paramètres d'état, non élucidée (`BSM` porte 4
+paramètres de plus que `BONTRV` dans `AREPORTD` — `gwrhact`, `mfgnumprf`,
+`iloprf`, `palprf`), sans effet sur la chaîne elle-même.
+
+⚠️ **Piège de parsing.** X3 sérialise un paramètre de sortie vide en balise
+auto-fermante `<FLD …/>` et répartit les sorties sur plusieurs groupes
+(`GRP1`, `GRP2`). Une regex qui n'attend que `<FLD …>valeur</FLD>` capture alors
+jusqu'au `</FLD>` du champ **suivant** : ici `WRETERMSG` vide avalait `WJOBNUM`,
+à travers le changement de groupe. Corrigé dans `app/x3/run-client.ts`.
+
+### Reste ouvert : impression différée
+
+`ETATJOB` porte aussi `DIFF` / `IMPDAT` / `IMPTIM`, câblés à « immédiat » pour
+l'instant. L'impression différée servira à l'affermissement de masse, pour ne pas
+noyer une imprimante d'atelier.

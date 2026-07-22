@@ -57,13 +57,22 @@ function decodeEntities(s: string): string {
     .replace(/&amp;/g, '&')
 }
 
-/** Extrait les paramètres de sortie `<FLD NAME="X">val</FLD>` du resultXml. */
+/**
+ * Extrait les paramètres de sortie du resultXml.
+ *
+ * Deux formes cohabitent dans une même réponse X3 : `<FLD …>valeur</FLD>` et,
+ * pour une valeur vide, la balise auto-fermante `<FLD …/>`. Ne traiter que la
+ * première fait déraper la capture jusqu'au `</FLD>` du champ SUIVANT : un
+ * paramètre vide avalait alors la valeur de son voisin, y compris à travers un
+ * changement de groupe (`</GRP><GRP ID="GRP2">`). Constaté sur `WRETERMSG` vide
+ * qui absorbait `WJOBNUM` (issue #85).
+ */
 function parseFields(resultXml: string): Record<string, string> {
   const out: Record<string, string> = {}
-  const re = /<FLD\b[^>]*\bNAME="([^"]+)"[^>]*>([\s\S]*?)<\/FLD>/g
+  const re = /<FLD\b[^>]*?\bNAME="([^"]+)"[^>]*?(\/>|>([\s\S]*?)<\/FLD>)/g
   let m: RegExpExecArray | null
   while ((m = re.exec(resultXml)) !== null) {
-    out[m[1]] = decodeEntities(m[2].trim())
+    out[m[1]] = m[2] === '/>' ? '' : decodeEntities((m[3] ?? '').trim())
   }
   return out
 }
