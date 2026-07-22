@@ -8,30 +8,35 @@
  *
  * Historique LLM : porté par la session Pi côté serveur (clé
  * `conversationId`, TTL 30 min) — le front n'envoie que le dernier message.
- * Trace outils + payloads repliables, raisonnement affiché (repliable).
  *
- * Port depuis inertia/pages/copilote.tsx (Solid).
+ * Redesign issue #84 : app shell 3 zones (nav / chat / inspecteur contexte)
+ * — voir design/mockups/copilote-redesign/04-focus-rail.html pour la
+ * référence visuelle. Backend inchangé.
  */
 
-import { useState, useMemo, useRef, useCallback } from 'react'
-import { Head } from '@inertiajs/react'
+import { useCallback, useMemo, useRef, useState } from 'react'
+import { Head, usePage } from '@inertiajs/react'
 import {
   DefaultChatTransport,
-  getToolName,
   isReasoningUIPart,
   isTextUIPart,
   isToolUIPart,
-  type DynamicToolUIPart,
-  type ToolUIPart,
   type UIMessage,
 } from 'ai'
 import { useChat } from '@ai-sdk/react'
+import { Bot, Check, Copy, PanelLeft, PanelRight } from 'lucide-react'
 
 import { route } from '@/lib/routes'
 import { cn } from '@r/lib/utils'
 
-/** Masthead import — React component from inertia-react/components */
 import { Masthead } from '@r/components/masthead'
+import { Bubble, BubbleContent } from '@r/components/ui/bubble'
+import { AppShell } from '@r/components/copilote/app-shell'
+import { CopiloteSidebar } from '@r/components/copilote/sidebar'
+import { InspectorPanel, deriveInspectorContext } from '@r/components/copilote/inspector'
+import { Composer } from '@r/components/copilote/composer'
+import { ToolTokens } from '@r/components/copilote/tool-tokens'
+import { renderMessageText } from '@r/components/copilote/source-tag'
 
 /** Metadata émise par le backend sur le chunk `start` (ex-event `session`). */
 interface AgentMessageMetadata {
@@ -48,22 +53,20 @@ function newConversationId(): string {
     : `conv-${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
 
-type AnyToolPart = ToolUIPart | DynamicToolUIPart
-type ToolStatus = 'running' | 'done' | 'error'
-
-function toolStatus(part: AnyToolPart): ToolStatus {
-  if (part.state === 'output-available') return 'done'
-  if (part.state === 'output-error') return 'error'
-  return 'running'
-}
+type AuthUser = { username: string; env: 'test' | 'prod' } | null
 
 export default function Copilote() {
+  const authUser = usePage<{ authUser: AuthUser }>().props.authUser
+
   const [input, setInput] = useState('')
   const [conversationId, setConversationId] = useState(newConversationId())
   const conversationIdRef = useRef(conversationId)
-
-  // Keep ref in sync when conversationId changes
   conversationIdRef.current = conversationId
+
+  const [navCollapsed, setNavCollapsed] = useState(false)
+  const [inspectorCollapsed, setInspectorCollapsed] = useState(false)
+  const [flash, setFlash] = useState<{ tool: string; nonce: number } | null>(null)
+  const [copiedId, setCopiedId] = useState<string | null>(null)
 
   const chat = useChat<AgentUIMessage>({
     transport: useMemo(
@@ -97,6 +100,7 @@ export default function Copilote() {
     chat.setMessages([])
     chat.clearError()
     setConversationId(newConversationId())
+    setInput('')
   }, [busy, chat])
 
   const send = useCallback(() => {
@@ -105,6 +109,17 @@ export default function Copilote() {
     setInput('')
     void chat.sendMessage({ text })
   }, [input, busy, chat])
+
+  const flashTool = useCallback((tool: string) => {
+    setInspectorCollapsed(false)
+    setFlash({ tool, nonce: Date.now() })
+  }, [])
+
+  function copyAnswer(messageId: string, text: string) {
+    if (navigator.clipboard) void navigator.clipboard.writeText(text).catch(() => {})
+    setCopiedId(messageId)
+    setTimeout(() => setCopiedId((cur) => (cur === messageId ? null : cur)), 1400)
+  }
 
   /** Modèle lu depuis la metadata du dernier message assistant. */
   const model = useMemo(() => {
@@ -115,7 +130,19 @@ export default function Copilote() {
     return null
   }, [chat.messages])
 
-  const toolParts = useCallback((m: AgentUIMessage) => m.parts.filter(isToolUIPart), [])
+  const { entries: inspectorEntries, subject } = useMemo(
+    () => deriveInspectorContext(chat.messages),
+    [chat.messages]
+  )
+
+  const firstUserText = useMemo(() => {
+    for (const m of chat.messages) {
+      if (m.role !== 'user') continue
+      const text = m.parts.filter(isTextUIPart).map((p) => p.text).join(' ')
+      if (text) return text.length > 42 ? `${text.slice(0, 42)}…` : text
+    }
+    return null
+  }, [chat.messages])
 
   return (
     <>
@@ -133,170 +160,185 @@ export default function Copilote() {
           }
         />
 
-        <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-3 overflow-hidden px-5 py-4">
-          <div className="flex items-start justify-between gap-3">
-            <p className="text-[12px] text-secondary-foreground">
-              Copilote lecture-seule. Orchestre les algos board (verdict, BOM, CTP,
-              retards, scénarios). Tout chiffre porte sa source tool{' '}
-              <code className="rounded bg-muted px-1">[tool: …]</code>.
-            </p>
+        <AppShell
+          navCollapsed={navCollapsed}
+          inspectorCollapsed={inspectorCollapsed}
+          sidebar={
+            <CopiloteSidebar
+              currentTitle={firstUserText}
+              busy={busy}
+              onNewChat={resetConversation}
+              disabled={busy || chat.messages.length === 0}
+              username={authUser?.username ?? '—'}
+              env={authUser?.env ?? 'prod'}
+            />
+          }
+          inspector={<InspectorPanel entries={inspectorEntries} subject={subject} flash={flash} />}
+        >
+          <div className="flex items-center gap-2.5 border-b border-border/60 px-5 py-2.5">
             <button
               type="button"
-              onClick={resetConversation}
-              disabled={busy || chat.messages.length === 0}
-              className="shrink-0 rounded-md border border-rule px-2 py-1 text-[11px] text-secondary-foreground hover:border-brand hover:text-foreground disabled:opacity-40"
+              onClick={() => setNavCollapsed((v) => !v)}
+              title="Replier / déplier la navigation"
+              aria-pressed={!navCollapsed}
+              className="flex size-7 items-center justify-center rounded-md border border-border bg-card text-muted-foreground transition-colors hover:border-foreground hover:text-foreground"
             >
-              Nouvelle conversation
+              <PanelLeft size={14} />
+            </button>
+            <div className="flex-1 text-center text-[12.5px] text-muted-foreground">
+              <strong className="font-semibold text-foreground">Copilote</strong> · lecture seule
+            </div>
+            <button
+              type="button"
+              onClick={() => setInspectorCollapsed((v) => !v)}
+              title="Replier / déplier le contexte"
+              aria-pressed={!inspectorCollapsed}
+              className={cn(
+                'flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1.5 text-[12px] font-semibold transition-colors hover:border-foreground hover:text-foreground',
+                inspectorCollapsed ? 'text-muted-foreground' : 'text-foreground'
+              )}
+            >
+              Contexte
+              <PanelRight size={14} />
             </button>
           </div>
 
-          <div className="flex flex-1 flex-col gap-3 overflow-y-auto rounded-lg border border-rule bg-card p-4">
-            {chat.messages.length === 0 && (
-              <div className="text-[13px] text-secondary-foreground">
-                Exemples :
-                <ul className="mt-2 list-disc space-y-1 pl-5">
-                  <li>Pourquoi l'OF … est bloqué ?</li>
-                  <li>Date engageante pour 200 PP_830_ESH ?</li>
-                  <li>Retards clients prévus sur 14 jours</li>
-                </ul>
-              </div>
-            )}
-            {chat.messages.map((m) => (
-              <div
-                key={m.id}
-                className={
-                  m.role === 'user'
-                    ? 'ml-8 rounded-lg bg-brand/10 px-3 py-2 text-[13px]'
-                    : 'mr-4 rounded-lg border border-rule bg-background px-3 py-2 text-[13px]'
-                }
-              >
-                <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-secondary-foreground">
-                  {m.role === 'user' ? 'Vous' : 'Copilote'}
+          <div className="flex flex-1 justify-center overflow-hidden">
+            <div className="w-full max-w-[720px] overflow-y-auto px-6 py-6">
+              {chat.messages.length === 0 && (
+                <div className="text-[13px] text-secondary-foreground">
+                  Exemples :
+                  <ul className="mt-2 list-disc space-y-1 pl-5">
+                    <li>Pourquoi l'OF … est bloqué ?</li>
+                    <li>Date engageante pour 200 PP_830_ESH ?</li>
+                    <li>Retards clients prévus sur 14 jours</li>
+                  </ul>
+                  <p className="mt-3 text-[11.5px] text-muted-foreground">
+                    Astuce : clique un{' '}
+                    <code className="rounded bg-muted px-1 font-mono">[tool: …]</code> dans une
+                    réponse pour flasher la donnée citée à droite.
+                  </p>
                 </div>
-                {toolParts(m).length > 0 && (
-                  <details className="mb-2 rounded border border-rule/60 bg-muted/40 px-2 py-1">
-                    <summary className="cursor-pointer text-[11px] text-secondary-foreground">
-                      Trace outils ({toolParts(m).length})
-                    </summary>
-                    <ul className="mt-1 space-y-0.5 text-[11px]">
-                      {toolParts(m).map((t, idx) => {
-                        const status = toolStatus(t)
-                        const toolName = getToolName(t)
-                        return (
-                          <li key={`${toolName}-${idx}`}>
-                            <details>
-                              <summary className="cursor-pointer">
-                                <span
-                                  className={
-                                    status === 'running'
-                                      ? 'text-suggere'
-                                      : status === 'error'
-                                        ? 'text-destructive'
-                                        : 'text-foreground'
-                                  }
-                                >
-                                  {status === 'running'
-                                    ? '…'
-                                    : status === 'error'
-                                      ? '✗'
-                                      : '✓'}{' '}
-                                  {toolName}
-                                </span>
-                              </summary>
-                              <div className="mt-1 space-y-1 pl-4">
-                                <div>
-                                  <span className="font-semibold text-secondary-foreground">
-                                    args
-                                  </span>
-                                  <pre className="overflow-x-auto rounded bg-background/60 p-1 text-[10px]">
-                                    {JSON.stringify(t.input, null, 2)}
-                                  </pre>
-                                </div>
-                                {status !== 'running' && (
-                                  <div>
-                                    <span className="font-semibold text-secondary-foreground">
-                                      résultat
-                                    </span>
-                                    <pre className="max-h-48 overflow-auto rounded bg-background/60 p-1 text-[10px]">
-                                      {status === 'error'
-                                        ? t.errorText
-                                        : JSON.stringify(t.output, null, 2)}
-                                    </pre>
-                                  </div>
-                                )}
-                              </div>
-                            </details>
-                          </li>
-                        )
-                      })}
-                    </ul>
-                  </details>
-                )}
-                {m.parts.map((part, idx) => {
-                  const textOrReasoning = isTextUIPart(part) || isReasoningUIPart(part) ? part : null
-                  if (!textOrReasoning) return null
+              )}
 
-                  return (
-                    <div key={idx}>
-                      {isTextUIPart(textOrReasoning) ? (
-                        <div className="whitespace-pre-wrap leading-relaxed">
-                          {textOrReasoning.text}
+              {chat.messages.map((m) => (
+                <div key={m.id} className="mt-6 flex flex-col gap-5 first:mt-0">
+                  {m.role === 'user' ? (
+                    <Bubble variant="tinted" align="end">
+                      <BubbleContent>
+                        {m.parts
+                          .filter(isTextUIPart)
+                          .map((p) => p.text)
+                          .join('\n')}
+                      </BubbleContent>
+                    </Bubble>
+                  ) : (
+                    <div className="flex items-start gap-3">
+                      <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-primary">
+                        <Bot size={15} />
+                      </span>
+                      <div className="flex min-w-0 flex-1 flex-col gap-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[13px] font-bold tracking-tight text-foreground">
+                            Copilote
+                          </span>
+                          {m.metadata?.model && (
+                            <span className="rounded-full bg-planifie/15 px-1.5 py-px font-mono text-[10px] font-semibold text-planifie">
+                              {m.metadata.model}
+                            </span>
+                          )}
                         </div>
-                      ) : (
-                        <details className="mb-2 rounded border border-rule/40 bg-muted/20 px-2 py-1">
-                          <summary className="cursor-pointer text-[11px] italic text-secondary-foreground">
-                            Réflexion
-                          </summary>
-                          <div className="mt-1 whitespace-pre-wrap text-[12px] italic leading-relaxed text-secondary-foreground">
-                            {textOrReasoning.text}
-                          </div>
-                        </details>
-                      )}
+
+                        <ToolTokens parts={m.parts.filter(isToolUIPart)} />
+
+                        <div className="group/answer">
+                          {m.parts.map((part, idx) => {
+                            if (isReasoningUIPart(part)) {
+                              return (
+                                <details
+                                  key={idx}
+                                  className="mb-2.5 rounded-lg border border-border/40 bg-muted/20 px-2.5 py-1.5"
+                                >
+                                  <summary className="cursor-pointer text-[11px] italic text-muted-foreground">
+                                    Réflexion
+                                  </summary>
+                                  <div className="mt-1 whitespace-pre-wrap text-[12px] italic leading-relaxed text-muted-foreground">
+                                    {part.text}
+                                  </div>
+                                </details>
+                              )
+                            }
+                            if (isTextUIPart(part) && part.text) {
+                              return (
+                                <div
+                                  key={idx}
+                                  className="whitespace-pre-wrap text-[15.5px] leading-[1.7] text-foreground"
+                                >
+                                  {renderMessageText(part.text, flashTool)}
+                                </div>
+                              )
+                            }
+                            return null
+                          })}
+
+                          {m.parts.some((p) => isTextUIPart(p) && p.text) && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                copyAnswer(
+                                  m.id,
+                                  m.parts
+                                    .filter(isTextUIPart)
+                                    .map((p) => p.text)
+                                    .join('\n')
+                                )
+                              }
+                              title="Copier la réponse"
+                              className={cn(
+                                'mt-2.5 flex size-7 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-secondary hover:text-foreground group-hover/answer:opacity-100',
+                                copiedId === m.id && 'text-ferme opacity-100'
+                              )}
+                            >
+                              {copiedId === m.id ? <Check size={14} /> : <Copy size={14} />}
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  )
-                })}
-              </div>
-            ))}
-            {chat.error && (
-              <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-[12px] text-destructive">
-                {chat.error?.message}
-              </div>
-            )}
+                  )}
+                </div>
+              ))}
+
+              {busy && (
+                <div className="mt-6 flex items-center gap-3 text-[13.5px] italic text-muted-foreground">
+                  <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-primary">
+                    <Bot size={15} />
+                  </span>
+                  <span className="inline-flex gap-1">
+                    <span className="size-[5px] animate-pulse rounded-full bg-current [animation-delay:0ms]" />
+                    <span className="size-[5px] animate-pulse rounded-full bg-current [animation-delay:180ms]" />
+                    <span className="size-[5px] animate-pulse rounded-full bg-current [animation-delay:360ms]" />
+                  </span>
+                  Le copilote réfléchit…
+                </div>
+              )}
+
+              {chat.error && (
+                <div className="mt-6 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-[12px] text-destructive">
+                  {chat.error?.message}
+                </div>
+              )}
+            </div>
           </div>
 
-          <form
-            className="flex gap-2"
-            onSubmit={(e) => {
-              e.preventDefault()
-              send()
-            }}
-          >
-            <input
-              className="flex-1 rounded-md border border-rule bg-background px-3 py-2 text-[13px] outline-none focus:border-brand"
-              placeholder="Poser une question supply…"
-              value={input}
-              onChange={(e) => setInput(e.currentTarget.value)}
-              disabled={busy}
-            />
-            {!busy ? (
-              <button
-                type="submit"
-                disabled={!input.trim()}
-                className="rounded-md bg-brand px-4 py-2 text-[13px] font-semibold text-white disabled:opacity-50"
-              >
-                Envoyer
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => void chat.stop()}
-                className="rounded-md bg-destructive px-4 py-2 text-[13px] font-semibold text-white"
-              >
-                Stop
-              </button>
-            )}
-          </form>
-        </main>
+          <Composer
+            value={input}
+            onChange={setInput}
+            onSend={send}
+            onStop={() => void chat.stop()}
+            busy={busy}
+          />
+        </AppShell>
       </div>
     </>
   )
