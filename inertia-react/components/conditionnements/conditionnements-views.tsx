@@ -11,9 +11,12 @@ import { DynamicIcon } from '../ui/dynamic-icon'
 // Helpers & Constants
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Cellules internes à px-4 ; premières/dernières colonnes à pl-7/pr-7 pour
+// aligner les bords du tableau sur la toolbar (ToolbarRow px-7), convention des
+// autres pages denses. `last:border-r-0` supprime le filet vertical de bord.
 const TH =
-  'px-4 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft'
-const TD = 'px-4 py-[11px] align-middle border-r border-rule-soft'
+  'px-4 first:pl-7 last:pr-7 py-[11px] text-left font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground border-b border-rule border-r border-rule-soft last:border-r-0'
+const TD = 'px-4 first:pl-7 last:pr-7 py-[11px] align-middle border-r border-rule-soft last:border-r-0'
 
 /** Valeur distincte d'une facette avec son compte. */
 export interface Facette {

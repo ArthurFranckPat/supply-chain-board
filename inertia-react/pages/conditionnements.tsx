@@ -277,12 +277,12 @@ export default function Conditionnements(props: ConditionnementsPageProps) {
         </>
       }
     >
-      {/* Colonne flex bornée à la hauteur de la zone principale : le layout est
-          en `dense` + `scrollable={false}`, donc c'est le tableau qui scrolle
-          (via son `flex-1 min-h-0 overflow-auto`). Sans ce wrapper flex, le
-          `flex-1` du tableau n'a pas de parent flex, ne borne rien, et le
-          contenu est coupé par l'`overflow-hidden` du <main>. */}
-      <div className="flex h-full flex-col">
+      {/* Colonne flex plein écran (même coquille que Réceptions / Expéditions) :
+          `dense` + `scrollable={false}` donnent un <main> en overflow-hidden, donc
+          c'est le tableau qui scrolle (via son `flex-1 min-h-0 overflow-auto`).
+          Sans ce wrapper flex, le `flex-1` du tableau n'a pas de parent flex, ne
+          borne rien, et le contenu est coupé sans ascenseur. */}
+      <div data-print-page className="flex h-full flex-col overflow-hidden">
         {/* ═══ Toolbar ═══ */}
         <ToolbarRow>
           <FacetteDropdown
@@ -321,9 +321,9 @@ export default function Conditionnements(props: ConditionnementsPageProps) {
                 setSelCategories(new Set<string>())
                 setSelFournisseurs(new Set<string>())
               }}
-              className="inline-flex items-center gap-1 rounded-md border border-rule bg-card px-2 py-1.5 font-mono text-[10px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
+              className={cn(PILL, 'text-muted-foreground hover:text-foreground')}
             >
-              <FilterX size={13} strokeWidth={1.75} />
+              <FilterX size={14} strokeWidth={1.75} />
               Réinitialiser ({nbFiltresActifs})
             </button>
           )}
@@ -346,7 +346,7 @@ export default function Conditionnements(props: ConditionnementsPageProps) {
               <button
                 type="button"
                 onClick={() => setEnrichTrigger((t) => t + 1)}
-                className="inline-flex items-center gap-1 rounded-full border border-brand/40 bg-brand/10 px-3 py-1 text-[11px] font-semibold text-brand transition-colors hover:bg-brand/20"
+                className={cn(PILL, 'border-brand/40 bg-brand-soft text-brand hover:bg-brand/20')}
                 title="Charger les estimations STOCK/STOJOU + mouvements (coûteux)"
               >
                 <Lightbulb size={14} strokeWidth={1.75} />
