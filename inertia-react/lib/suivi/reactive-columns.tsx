@@ -46,7 +46,7 @@ export function createReactiveColumns({
       header: 'Article · Désignation',
       cell: ({ row, getValue }) => (
         <>
-          <div className="font-mono text-[13px] font-semibold text-brand">
+          <div className="font-mono text-[13px] font-bold tracking-tight text-foreground">
             {getValue() as string}
           </div>
           <div className="mt-0.5 font-sans text-[12px] font-medium leading-snug text-secondary-foreground">
@@ -73,7 +73,7 @@ export function createReactiveColumns({
               : 'Normal — Ligne standard'
         return (
           <span
-            className="cursor-help rounded bg-brand-soft px-[7px] py-0.5 font-mono text-[10px] font-semibold text-brand"
+            className="cursor-help rounded bg-secondary px-[7px] py-0.5 font-mono text-[10px] font-semibold text-muted-foreground"
             title={title}
           >
             {val}
@@ -118,9 +118,9 @@ export function createReactiveColumns({
               title={`Commandé ${commandee} · Livré ${delivered} · Alloué ${strict}${cq > 0 ? ` + CQ ${cq}` : ''} · Reliquat ${reliquat}`}
             >
               <div className="flex h-full">
-                <div className="h-full bg-ferme transition-all" style={{ width: `${pctStrict}%` }} />
-                <div className="h-full bg-planifie transition-all" style={{ width: `${pctCq}%` }} />
-                <div className="h-full bg-suggere transition-all" style={{ width: `${pctReliquat}%` }} />
+                <div className="h-full bg-foreground/60 transition-all" style={{ width: `${pctStrict}%` }} />
+                <div className="h-full bg-foreground/35 transition-all" style={{ width: `${pctCq}%` }} />
+                <div className="h-full bg-foreground/15 transition-all" style={{ width: `${pctReliquat}%` }} />
               </div>
             </div>
           </div>
@@ -140,14 +140,14 @@ export function createReactiveColumns({
         const rel = getRelativeDateLabel(row.original.dateExpIso, referenceDate)
         return (
           <div className="flex flex-col items-start gap-0.5">
-            <span className={late ? 'font-bold text-destructive' : 'text-foreground'}>
+            <span className="text-foreground">
               {(getValue() as string) || '—'}
             </span>
             {rel && (
               <span
                 className={cn(
-                  'rounded-[3px] px-1 py-[1px] font-sans text-[8.5px] font-semibold leading-none tracking-normal',
-                  rel.tone
+                  'font-sans text-[9px] font-semibold leading-none',
+                  rel.label.startsWith('Retard') ? 'text-destructive/70' : 'text-muted-foreground'
                 )}
               >
                 {rel.label}
@@ -189,7 +189,7 @@ export function createReactiveColumns({
                 className={cn(
                   'flex w-full items-center gap-1.5 whitespace-nowrap rounded border px-2 py-1 font-mono text-[10.5px] leading-[1.4]',
                   e.source === 'STOALL'
-                    ? 'border-ferme/30 bg-ferme/15 text-ferme'
+                    ? 'border-foreground/15 bg-secondary text-secondary-foreground'
                     : 'border-transparent bg-secondary text-secondary-foreground',
                   e.alreadyAllocated && 'line-through opacity-60'
                 )}
@@ -208,7 +208,7 @@ export function createReactiveColumns({
                     strokeWidth={1.75}
                     className={cn(
                       'leading-none',
-                      e.source === 'STOALL' ? 'text-ferme' : 'text-muted-foreground/70'
+                      e.source === 'STOALL' ? 'text-foreground' : 'text-muted-foreground/70'
                     )}
                   />
                   <span className="font-semibold">{e.nom}</span>
@@ -275,7 +275,7 @@ export function createReactiveColumns({
             </span>
             {o.cq && (
               <span
-                className="inline-flex cursor-help items-center gap-1 whitespace-nowrap rounded-md border border-transparent bg-brand-soft px-2 py-0.5 text-[11px] font-medium text-brand"
+                className="inline-flex cursor-help items-center gap-1 whitespace-nowrap rounded-md border border-transparent bg-secondary px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
                 title="Contrôle Qualité — Nécessite une validation du laboratoire de contrôle"
               >
                 <FlaskConical size={14} strokeWidth={1.75} className="leading-none" />
@@ -284,7 +284,7 @@ export function createReactiveColumns({
             )}
             {o.attenteLignes && (
               <span
-                className="inline-flex items-center gap-1 whitespace-nowrap rounded-md border border-transparent bg-suggere/15 px-2 py-0.5 text-[11px] font-medium text-suggere"
+                className="inline-flex items-center gap-1 whitespace-nowrap rounded-md border border-transparent bg-secondary px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
                 title="Commande MTO — expédition partielle non autorisée, en attente des autres lignes"
               >
                 <Hourglass size={14} strokeWidth={1.75} className="leading-none" />
@@ -316,7 +316,7 @@ export function createReactiveColumns({
           <>
             <div className="text-[12px] leading-snug text-secondary-foreground">{cause.label}</div>
             {cause.comps.length > 0 && (
-              <span className="mt-[3px] block font-mono text-[10px] font-bold text-destructive">
+              <span className="mt-[3px] block font-mono text-[10px] font-bold text-foreground">
                 {cause.comps.map((c) => `${c.art} −${c.qty}`).join(' · ')}
               </span>
             )}
@@ -353,7 +353,7 @@ export function createReactiveIndexCol(): DataTableIndexColumn<SuiviDisplayRow> 
   return {
     headerLabel: 'N°',
     thClass:
-      'w-[38px] px-4 py-[8px] text-left font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground border-b border-rule',
+      'w-[38px] px-4 py-[8px] text-left font-mono text-[11px] font-semibold text-muted-foreground border-b border-rule',
     tdClass: (row: SuiviDisplayRow) =>
       cn(
         'px-4 py-[9px] align-middle font-sans text-[12px] font-bold leading-none tracking-tight text-muted-foreground/80 tabular-nums',
