@@ -1000,11 +1000,14 @@ export function recommendActions(assignment: StatusAssignment): ActionRecommenda
   const { status, alerteCqStatut, cause } = assignment
 
   switch (status) {
+    // Le stock sous CQ (statut Q) compte comme disponible dans le verdict, mais rien ne
+    // partira tant que le contrôle n'est pas levé : l'action nomme donc l'interlocuteur
+    // (contrôle réception) au lieu de constater l'état.
     case 'A_EXPEDIER':
       return {
-        severity: 'info',
+        severity: alerteCqStatut ? 'warning' : 'info',
         actions: alerteCqStatut
-          ? ['Vérifier la levée du contrôle qualité avant expédition', 'Expédier']
+          ? ['Contacter le contrôle réception : stock en statut Q à libérer', 'Expédier']
           : ['Expédier'],
       }
 
@@ -1012,7 +1015,10 @@ export function recommendActions(assignment: StatusAssignment): ActionRecommenda
       return {
         severity: 'warning',
         actions: alerteCqStatut
-          ? ["Réaliser l'allocation ERP (stock partiellement sous CQ)"]
+          ? [
+              'Contacter le contrôle réception : stock en statut Q à libérer',
+              "Réaliser l'allocation ERP",
+            ]
           : ["Réaliser l'allocation ERP"],
       }
 

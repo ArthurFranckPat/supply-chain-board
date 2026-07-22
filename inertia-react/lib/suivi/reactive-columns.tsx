@@ -246,9 +246,14 @@ export function createReactiveColumns({
                 {o.statusLabel}
               </span>
             </span>
+            {/* Stock sous statut Q : compté disponible, mais rien ne part tant que le
+                contrôle n'est pas levé → marqueur saillant + action nommée. */}
             {o.cq && (
-              <span className="inline-flex items-center gap-1 text-[9px] font-medium text-muted-foreground">
-                <FlaskConical size={10} strokeWidth={1.75} className="leading-none" />
+              <span
+                title={`${o.allocCq} u. de ${o.article} en statut Q (contrôle qualité).\nAction : contacter le contrôle réception pour faire libérer le stock.`}
+                className="inline-flex items-center gap-1 rounded bg-warning/15 px-1 py-px text-[9px] font-semibold text-warning"
+              >
+                <FlaskConical size={10} strokeWidth={2} className="leading-none" />
                 CQ
               </span>
             )}

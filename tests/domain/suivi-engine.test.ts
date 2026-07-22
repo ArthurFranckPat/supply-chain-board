@@ -448,8 +448,18 @@ test.group('recommendActions', () => {
     assert.equal(recommendActions(asg('A_EXPEDIER')).severity, 'info')
   })
 
-  test('A_EXPEDIER + signal CQ → action qualité', ({ assert }) => {
-    assert.match(recommendActions(asg('A_EXPEDIER', null, true)).actions[0], /qualité/)
+  // L'action doit nommer l'interlocuteur (contrôle réception), pas seulement constater
+  // que du stock est sous CQ : c'est le geste attendu de l'ordonnanceur.
+  test('A_EXPEDIER + signal CQ → action contrôle réception + warning', ({ assert }) => {
+    const r = recommendActions(asg('A_EXPEDIER', null, true))
+    assert.match(r.actions[0], /contrôle réception/)
+    assert.equal(r.severity, 'warning')
+  })
+
+  test('ALLOCATION_A_FAIRE + signal CQ → action contrôle réception en tête', ({ assert }) => {
+    const r = recommendActions(asg('ALLOCATION_A_FAIRE', null, true))
+    assert.match(r.actions[0], /contrôle réception/)
+    assert.match(r.actions[1], /allocation ERP/)
   })
 
   test('ALLOCATION_A_FAIRE → warning', ({ assert }) => {
