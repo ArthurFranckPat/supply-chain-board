@@ -52,6 +52,28 @@ export default class PrintJob extends BaseModel {
   @column({ columnName: 'duration_ms' })
   declare durationMs: number
 
+  /**
+   * Verdict du serveur d'édition : 'pending' | 'ok' | 'error' | 'unknown'.
+   * Second verdict, distinct de `status` — X3 peut accepter une édition que le
+   * serveur d'édition met ensuite en erreur.
+   */
+  @column({ columnName: 'server_verdict' })
+  declare serverVerdict: string
+
+  /** Numéro de tâche du serveur d'édition (celui de PSIMP). 0 = inconnu. */
+  @column({ columnName: 'job_rank' })
+  declare jobRank: number
+
+  @column({ columnName: 'job_phase' })
+  declare jobPhase: string
+
+  @column({ columnName: 'job_detail' })
+  declare jobDetail: string
+
+  /** true = succès déduit d'une disparition, pas lu sur un statut terminal. */
+  @column({ columnName: 'verdict_inferred' })
+  declare verdictInferred: boolean
+
   /** 'firm' | 'manual' | 'test'. */
   @column()
   declare origin: string

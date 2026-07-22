@@ -48,6 +48,12 @@ export default await Env.create(new URL('../', import.meta.url), {
   X3_PROD_PASSWORD: Env.schema.string.optional(),
   X3_PROD_POOL: Env.schema.string.optional(),
 
+  // Serveur d'édition par défaut, au format `hote:port` (issue #85). Sert quand
+  // la destination `APRINTER` ne déclare pas de `PRTSRV` — X3 se rabat alors sur
+  // le serveur du dossier, que rien en base ne nomme.
+  X3_TEST_PRINT_SERVER: Env.schema.string.optional(),
+  X3_PROD_PRINT_SERVER: Env.schema.string.optional(),
+
   // Couche agentique v1 — provider Z.AI / GLM 5.2 (pi-ai `zai`).
   // Optionnel au boot (les pages non-agent restent utilisables) ;
   // requis dès POST /api/v1/agent/chat.

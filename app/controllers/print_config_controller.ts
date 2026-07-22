@@ -40,6 +40,14 @@ export default class PrintConfigController {
       destinationsError = String(e)
     }
 
+    // Files réellement connues du serveur d'édition : c'est ce qui permet de
+    // repérer une règle qui échouera au tirage AVANT qu'elle n'échoue.
+    let queues: string[] = []
+    let queuesError = ''
+    const q = await printService.listPrintServerQueues().catch((e) => ({ error: String(e) }))
+    if (Array.isArray(q)) queues = q
+    else queuesError = q.error
+
     const ateliers = [...new Set(workstations.map((w) => w.stockLocation).filter(Boolean))]
       .map((code) => ({ code, label: atelierLabel(code) }))
       .sort((a, b) => a.label.localeCompare(b.label))
@@ -48,6 +56,8 @@ export default class PrintConfigController {
       ateliers,
       destinations,
       destinationsError,
+      queues,
+      queuesError,
       rules: rules.map(serializeRule),
       jobs: jobs.map(serializeJob),
     })
@@ -144,6 +154,12 @@ function serializeJob(j: PrintJob) {
     destCode: j.destCode,
     sandbox: j.sandbox,
     status: j.status,
+    /** Verdict du serveur d'édition — distinct de `status` (cf. print_service). */
+    serverVerdict: j.serverVerdict,
+    jobRank: j.jobRank,
+    jobPhase: j.jobPhase,
+    jobDetail: j.jobDetail,
+    verdictInferred: j.verdictInferred,
     retCod: j.retCod,
     message: j.message,
     error: j.error,

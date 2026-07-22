@@ -4,6 +4,13 @@ import { callRunSubprog } from '#app/x3/run-client'
 import { X3Connection } from '#app/x3/connection'
 import PrintDestination from '#models/print_destination'
 import PrintJob from '#models/print_job'
+import {
+  fetchJobs,
+  fetchPrinters,
+  resolvePrintServer,
+  watchJob,
+  type PrintVerdict,
+} from '#app/x3/print_server_client'
 
 /**
  * Impression du dossier d'OF (issue #85, lot 2) — routage, verrou, journal.
@@ -81,6 +88,16 @@ export interface PrintOutcome {
   jobId: number | null
   /** Tirage précédent, quand le verrou refuse. */
   previous: { attempt: number; at: number; destCode: string; by: string } | null
+  /**
+   * Second verdict, celui du serveur d'édition. `status: 'submitted'` avec
+   * `serverVerdict: 'error'` est exactement la panne partielle que l'issue #85
+   * désigne comme l'état dangereux : X3 a dit oui, rien n'est sorti.
+   */
+  serverVerdict: PrintVerdict | 'pending'
+  jobRank: number
+  jobPhase: string
+  jobDetail: string
+  verdictInferred: boolean
 }
 
 class PrintService {
@@ -192,6 +209,11 @@ class PrintService {
       attempt: 0,
       jobId: null,
       previous: null,
+      serverVerdict: 'pending' as const,
+      jobRank: 0,
+      jobPhase: '',
+      jobDetail: '',
+      verdictInferred: false,
     }
 
     const routed = await this.resolveDestination(stoloc, docType)
@@ -237,8 +259,18 @@ class PrintService {
     }
     const attempt = (existing[0]?.attempt ?? 0) + 1
 
-    // --- Appel X3 ------------------------------------------------------------
+    // --- Relevé AVANT tirage -------------------------------------------------
+    // Le rapprochement de la tâche se fait par exclusion : tout rang absent de
+    // ce relevé et portant notre état est le nôtre. À prendre avant l'appel,
+    // sinon notre propre tâche est déjà dans le relevé et devient invisible.
     const cfg = params.config ?? getX3EnvConfig()
+    const printServer = resolvePrintServer(cfg, await this.serverOf(routed.destCode, cfg))
+    const before = printServer ? await fetchJobs(cfg, printServer) : { error: 'non configuré' }
+    const knownRanks = new Set<number>(
+      Array.isArray(before) ? before.map((j) => j.rank) : []
+    )
+
+    // --- Appel X3 ------------------------------------------------------------
     const inputXml =
       `<PARAM><GRP ID="GRP1">` +
       `<FLD NAME="WRPTCOD">${escapeXml(docType)}</FLD>` +
@@ -260,6 +292,32 @@ class PrintService {
       ''
     const ok = res.ok && retCod === '0'
 
+    // --- Second verdict : le serveur d'édition -------------------------------
+    // X3 peut accepter une édition que le serveur d'édition met ensuite en
+    // erreur (file inexistante, moteur Crystal en échec). Sans cette lecture,
+    // l'échec est totalement muet côté application.
+    let watch = {
+      verdict: 'pending' as PrintVerdict | 'pending',
+      rank: 0,
+      phase: '',
+      detail: printServer ? '' : 'Aucun serveur d’édition configuré pour cette destination.',
+      inferred: false,
+    }
+    if (ok && printServer) {
+      const w = await watchJob(cfg, printServer, {
+        folder: cfg.pool,
+        report: docType,
+        knownRanks,
+      })
+      watch = {
+        verdict: w.verdict,
+        rank: w.rank ?? 0,
+        phase: w.phase,
+        detail: w.detail,
+        inferred: w.inferred,
+      }
+    }
+
     // --- Journal -------------------------------------------------------------
     // Écrit dans tous les cas. L'insertion peut échouer sur collision de rang
     // (deux appels concurrents) : c'est le verrou structurel qui joue, on ne
@@ -279,6 +337,11 @@ class PrintService {
         error: ok ? '' : retErMsg || res.error || 'Appel X3 sans verdict',
         poolEntryIdx: res.poolEntryIdx ?? '',
         durationMs,
+        serverVerdict: watch.verdict,
+        jobRank: watch.rank,
+        jobPhase: watch.phase,
+        jobDetail: watch.detail,
+        verdictInferred: watch.inferred,
         origin: params.origin ?? 'manual',
         requestedBy: params.requestedBy ?? '',
         createdAt: Math.floor(Date.now() / 1000),
@@ -308,7 +371,28 @@ class PrintService {
       error: ok ? '' : retErMsg || res.error || 'Appel X3 sans verdict',
       jobId: job.id,
       previous: null,
+      serverVerdict: watch.verdict,
+      jobRank: watch.rank,
+      jobPhase: watch.phase,
+      jobDetail: watch.detail,
+      verdictInferred: watch.inferred,
     }
+  }
+
+  /** Serveur d'édition déclaré par une destination (`APRINTER.PRTSRV`). */
+  private async serverOf(destCode: string, config: X3EnvConfig): Promise<string> {
+    const known = await this.listX3Destinations(config).catch(() => [])
+    return known.find((d) => d.code === destCode)?.server ?? ''
+  }
+
+  /**
+   * Files d'impression connues du serveur d'édition, pour confronter le routage
+   * à la réalité : une règle pointant une file absente échouera au tirage, mais
+   * se détecte dès la configuration.
+   */
+  async listPrintServerQueues(config?: X3EnvConfig): Promise<string[] | { error: string }> {
+    const cfg = config ?? getX3EnvConfig()
+    return fetchPrinters(cfg, cfg.printServer)
   }
 }
 

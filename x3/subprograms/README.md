@@ -236,6 +236,53 @@ Chaîne éprouvée le 22/07/2026 en CLTEST via la CLI : `BONTRV` et `BSM` sur
 → refusé par le verrou, aucune ligne créée ; `--force` → tirage 2 ; OF inconnu →
 ligne `failed` portant « OF F126-00000 introuvable (MFGHEAD) ».
 
-La dette du lot 1 reste ouverte : `submitted` signifie « X3 a accepté l'édition »,
-pas « le document est sorti ». Ne pas router vers une imprimante d'atelier avant
-d'avoir rétabli un contrôle de statut.
+## Le second verdict : l'API REST du serveur d'édition
+
+La dette du lot 1 (« X3 a accepté » ≠ « le document est sorti ») est levée pour
+l'essentiel — non pas côté X3, qui ne dit rien, mais côté **serveur d'édition**,
+qui expose une API REST depuis sa version 2.29, sur le port Syracuse :
+
+```
+GET http://<syracuse>:8124/print/<serveur>:1890/$jobs      → tâches
+GET http://<syracuse>:8124/print/<serveur>:1890/$printers  → files déclarées
+```
+
+Une tâche porte : `rank` (le numéro affiché par `PSIMP`), `status` (`OK` /
+`Erreur`), `phase`, `report` (`BONTRV.rpt`), `destination`, `user`, `processId`,
+durées, et le dossier applicatif.
+
+**Preuve de la panne partielle, obtenue sans papier (CLTEST, 22/07/2026).**
+`ZETI1` pointe une file « Xerox » absente des 52 imprimantes déclarées au serveur
+d'édition de test. Tirage de `BONTRV` dessus :
+
+| Source | Verdict |
+|---|---|
+| `ZSOAPPRINT` | `WRETCOD = 0` — « tout va bien » |
+| Serveur d'édition, tâche 29 | `status = Erreur` |
+
+C'est exactement l'état dangereux décrit par l'issue, désormais **détecté** :
+`app/x3/print_server_client.ts` relève les tâches avant le tirage, suit la nôtre
+par exclusion, et journalise `server_verdict` (`ok` / `error` / `unknown`) à côté
+du verdict X3.
+
+Trois limites, à ne pas oublier :
+
+- `ok` signifie « remis à la file d'impression ». Un bac vide ou un bourrage ne
+  remonte nulle part — aucun signal logiciel ne prouve qu'une feuille est sortie.
+- Sans rétention côté console (réglage **« Time before deleting print job
+  status »**, 0 par défaut, disponible depuis la console 2.58.0.9 / 2023R2), la
+  tâche disparaît en quelques secondes : le succès est alors *déduit* de sa
+  disparition (`verdict_inferred`), pas lu sur un statut terminal. Activer la
+  rétention rend `node ace print:reconcile` utile et supprime la course.
+- Le rapprochement par exclusion reste ambigu si deux tirages du même état
+  partent en même temps. Il deviendra exact avec `ETATJOB`, qui rend le numéro
+  de tâche (`NOJOB`) — voir ci-dessous.
+
+### Piste suivante : `ETATJOB`
+
+`ASUBPROG` déclare **deux** points d'entrée dans `AIMP3` : `ETAT` (7 paramètres,
+celui qu'on utilise) et **`ETATJOB`** (11 paramètres, « Impression état avec
+groupage »). Les 4 paramètres supplémentaires : `DIFF` (différé), `IMPDAT`,
+`IMPTIM`, et **`NOJOB` — le seul paramètre passé par adresse (`ADRVAL=1`), donc
+en sortie : le numéro de tâche**. Y passer supprime le rapprochement heuristique
+et ouvre l'impression différée (utile en affermissement de masse).

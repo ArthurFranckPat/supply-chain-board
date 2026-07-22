@@ -171,6 +171,8 @@ declare module '@adonisjs/inertia/types' {
         sandbox: boolean
       }[]
       destinationsError: string
+      queues: string[]
+      queuesError: string
       rules: {
         id: number
         stoloc: string
@@ -192,6 +194,11 @@ declare module '@adonisjs/inertia/types' {
         destCode: string
         sandbox: boolean
         status: string
+        serverVerdict: string
+        jobRank: number
+        jobPhase: string
+        jobDetail: string
+        verdictInferred: boolean
         retCod: string
         message: string
         error: string

@@ -54,6 +54,11 @@ interface Job {
   destCode: string
   sandbox: boolean
   status: string
+  serverVerdict: string
+  jobRank: number
+  jobPhase: string
+  jobDetail: string
+  verdictInferred: boolean
   retCod: string
   message: string
   error: string
@@ -66,6 +71,9 @@ interface PageProps {
   ateliers: Atelier[]
   destinations: Destination[]
   destinationsError: string
+  /** Files réellement déclarées au serveur d'édition (`$printers`). */
+  queues: string[]
+  queuesError: string
   rules: Rule[]
   jobs: Job[]
 }
@@ -96,6 +104,46 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   )
 }
 
+/**
+ * Verdict du serveur d'édition. Distinct du verdict X3 : `soumis` + `échec`
+ * est la panne partielle que l'issue #85 désigne comme l'état dangereux.
+ */
+function VerdictChip({ job }: { job: Job }) {
+  if (job.serverVerdict === 'error') {
+    return (
+      <span
+        className="inline-flex items-center gap-1 font-semibold text-red-700"
+        title={job.jobDetail}
+      >
+        <TriangleAlert size={13} />
+        rien n’est sorti
+      </span>
+    )
+  }
+  if (job.serverVerdict === 'ok') {
+    return (
+      <span
+        className="text-emerald-700"
+        title={
+          job.verdictInferred
+            ? 'Succès déduit de la disparition de la tâche, pas lu sur un statut terminal.'
+            : undefined
+        }
+      >
+        remis à la file{job.verdictInferred ? ' *' : ''}
+      </span>
+    )
+  }
+  if (job.serverVerdict === 'unknown') {
+    return (
+      <span className="text-amber-700" title={job.jobDetail}>
+        sans verdict
+      </span>
+    )
+  }
+  return <span className="text-muted-foreground">—</span>
+}
+
 /** Pastille papier / sans effet — la distinction structurante de l'écran. */
 function EffetChip({ sandbox }: { sandbox: boolean }) {
   return sandbox ? (
@@ -115,11 +163,13 @@ function EffetChip({ sandbox }: { sandbox: boolean }) {
 function RuleForm({
   ateliers,
   destinations,
+  queues,
   onSaved,
   onCancel,
 }: {
   ateliers: Atelier[]
   destinations: Destination[]
+  queues: string[]
   onSaved: (r: Rule) => void
   onCancel: () => void
 }) {
@@ -233,6 +283,14 @@ function RuleForm({
               Destination legacy : file pointant un poste, à vérifier physiquement avant usage.
             </span>
           )}
+          {/* Confrontation au réel : le serveur d'édition liste ses files. Une
+              file absente échouera au tirage — autant le dire maintenant. */}
+          {!dest.sandbox && queues.length > 0 && dest.queue && !queues.includes(dest.queue) && (
+            <span className="flex items-center gap-1 font-semibold text-red-700">
+              <TriangleAlert size={13} />
+              La file « {dest.queue} » n’existe pas sur le serveur d’édition. Cette règle échouera.
+            </span>
+          )}
           {!dest.sandbox && (
             <span className="flex items-center gap-1 font-semibold text-amber-800">
               <TriangleAlert size={13} />
@@ -282,6 +340,24 @@ export default function ImpressionsConfig(props: PageProps) {
       ),
     [rules]
   )
+
+  /**
+   * Règles dont la file n'existe pas sur le serveur d'édition. Elles passeront
+   * le contrôle X3 et échoueront au tirage — c'est précisément ce qu'on veut
+   * voir avant d'affermir, pas après.
+   */
+  const rulesCassees = useMemo(() => {
+    if (props.queues.length === 0) return new Set<number>()
+    const queueOf = new Map(props.destinations.map((d) => [d.code, d]))
+    return new Set(
+      rules
+        .filter((r) => {
+          const d = queueOf.get(r.destCode)
+          return d && !d.sandbox && d.queue && !props.queues.includes(d.queue)
+        })
+        .map((r) => r.id)
+    )
+  }, [rules, props.destinations, props.queues])
 
   const papier = sorted.filter((r) => !r.sandbox).length
   const manquantes = DOCS.filter((d) => !rules.some((r) => r.stoloc === '' && r.docType === d.code))
@@ -335,6 +411,27 @@ export default function ImpressionsConfig(props: PageProps) {
           </p>
         )}
 
+        {props.queuesError && (
+          <p className="flex items-center gap-2 rounded-md bg-muted px-3 py-2 text-[12.5px]">
+            <TriangleAlert size={15} className="text-amber-700" />
+            Serveur d’édition injoignable : {props.queuesError} — impossible de confronter les
+            règles aux files réelles, et les tirages resteront « sans verdict ».
+          </p>
+        )}
+
+        {rulesCassees.size > 0 && (
+          <p className="flex items-center gap-2 rounded-md bg-red-50 px-3 py-2 text-[12.5px] text-red-900">
+            <TriangleAlert size={15} />
+            <span>
+              <strong>
+                {rulesCassees.size} règle{rulesCassees.size > 1 ? 's' : ''}
+              </strong>{' '}
+              pointe{rulesCassees.size > 1 ? 'nt' : ''} une file inconnue du serveur d’édition. X3
+              acceptera l’édition, rien ne sortira.
+            </span>
+          </p>
+        )}
+
         {manquantes.length > 0 && (
           <p className="flex items-center gap-2 rounded-md bg-muted px-3 py-2 text-[12.5px]">
             <TriangleAlert size={15} className="text-amber-700" />
@@ -385,6 +482,15 @@ export default function ImpressionsConfig(props: PageProps) {
                       {r.destLabel && (
                         <span className="ml-2 text-muted-foreground">{r.destLabel}</span>
                       )}
+                      {rulesCassees.has(r.id) && (
+                        <span
+                          className="ml-2 inline-flex items-center gap-1 font-semibold text-red-700"
+                          title="File absente du serveur d’édition"
+                        >
+                          <TriangleAlert size={13} />
+                          file introuvable
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-2">
                       <EffetChip sandbox={r.sandbox} />
@@ -413,6 +519,7 @@ export default function ImpressionsConfig(props: PageProps) {
             <RuleForm
               ateliers={props.ateliers}
               destinations={props.destinations}
+              queues={props.queues}
               onSaved={applyRule}
               onCancel={() => setAdding(false)}
             />
@@ -453,7 +560,8 @@ export default function ImpressionsConfig(props: PageProps) {
                   <th className="px-4 py-2 font-bold">Document</th>
                   <th className="px-4 py-2 font-bold">Tirage</th>
                   <th className="px-4 py-2 font-bold">Destination</th>
-                  <th className="px-4 py-2 font-bold">Verdict</th>
+                  <th className="px-4 py-2 font-bold">X3</th>
+                  <th className="px-4 py-2 font-bold">Serveur d’édition</th>
                   <th className="px-4 py-2 font-bold">Origine</th>
                 </tr>
               </thead>
@@ -477,10 +585,18 @@ export default function ImpressionsConfig(props: PageProps) {
                     </td>
                     <td className="px-4 py-2">
                       {j.status === 'submitted' ? (
-                        <span className="text-emerald-700">soumis à X3</span>
+                        <span className="text-emerald-700">soumis</span>
                       ) : (
                         <span className="text-red-700" title={j.error}>
-                          échec
+                          refusé
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2">
+                      <VerdictChip job={j} />
+                      {j.jobRank > 0 && (
+                        <span className="ml-2 font-mono text-[11px] text-muted-foreground">
+                          #{j.jobRank}
                         </span>
                       )}
                     </td>
@@ -495,8 +611,11 @@ export default function ImpressionsConfig(props: PageProps) {
           )}
 
           <p className="border-t border-rule px-4 py-2 text-[11.5px] italic text-muted-foreground">
-            « Soumis à X3 » atteste que l’édition a été acceptée par le serveur d’édition — pas que
-            le document est sorti de l’imprimante.
+            Deux verdicts, volontairement séparés. <b>X3</b> dit s’il a accepté l’édition ; le{' '}
+            <b>serveur d’édition</b> dit ce qu’elle est devenue — une édition acceptée par X3 peut
+            très bien finir en erreur. « Remis à la file » reste la limite haute : un bac vide ou un
+            bourrage ne remonte nulle part. L’astérisque marque un succès déduit de la disparition
+            de la tâche plutôt que lu sur un statut terminal.
           </p>
         </section>
       </div>

@@ -14,6 +14,11 @@ export interface X3EnvConfig {
   grpSql: string
   grpRes: string
   grpCount: string
+  /**
+   * Serveur d'édition par défaut (`hote:port`), consulté quand la destination
+   * `APRINTER` ne déclare pas de `PRTSRV` (issue #85).
+   */
+  printServer: string
 }
 
 /** Identifiants X3 d'une session authentifiée (env choisi + creds utilisateur). */
@@ -34,6 +39,7 @@ const ENVIRONMENTS: Record<X3EnvName, () => X3EnvConfig> = {
     grpSql: 'GRP1',
     grpRes: 'GRP2',
     grpCount: 'GRP3',
+    printServer: env.get('X3_TEST_PRINT_SERVER', ''),
   }),
   prod: () => ({
     host: env.get('X3_PROD_HOST', ''),
@@ -45,6 +51,7 @@ const ENVIRONMENTS: Record<X3EnvName, () => X3EnvConfig> = {
     grpSql: 'GRP1',
     grpRes: 'GRP2',
     grpCount: 'GRP3',
+    printServer: env.get('X3_PROD_PRINT_SERVER', ''),
   }),
 }
 

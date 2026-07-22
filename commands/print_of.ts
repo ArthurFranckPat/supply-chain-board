@@ -105,5 +105,22 @@ export default class PrintOf extends BaseCommand {
       `Tirage ${res.attempt} soumis à X3 → ${res.destCode} · job #${res.jobId}` +
         (res.message ? ` · ${res.message}` : '')
     )
+
+    // Second verdict. Un `submitted` avec `error` côté serveur d'édition est la
+    // panne partielle de l'issue : X3 a dit oui, rien n'est sorti.
+    const rank = res.jobRank ? ` (tâche ${res.jobRank}` + (res.jobPhase ? `, ${res.jobPhase})` : ')') : ''
+    if (res.serverVerdict === 'error') {
+      this.logger.error(`Serveur d'édition : ÉCHEC${rank}. ${res.jobDetail}`)
+      this.exitCode = 1
+      return
+    }
+    if (res.serverVerdict === 'ok') {
+      this.logger.success(
+        `Serveur d'édition : remis à la file${rank}` +
+          (res.verdictInferred ? ' — succès déduit de la disparition de la tâche' : '')
+      )
+      return
+    }
+    this.logger.warning(`Serveur d'édition : sans verdict${rank}. ${res.jobDetail}`)
   }
 }
