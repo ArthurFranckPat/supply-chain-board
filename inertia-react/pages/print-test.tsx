@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import { Head } from '@inertiajs/react'
-import { LoaderCircle, Printer, TriangleAlert } from 'lucide-react'
+import { Check, Copy, LoaderCircle, Printer, TriangleAlert } from 'lucide-react'
 
 import { Masthead } from '@r/components/masthead'
 import { Badge } from '@r/components/ui/badge'
@@ -49,6 +49,30 @@ const ETATS = [
   { cod: 'BONTRV', label: 'BONTRV — bon de travail' },
   { cod: 'BSM', label: 'BSM — bon de sortie matière' },
 ]
+
+/**
+ * Bouton de copie. Repasse à l'icône neutre après 1,5 s — un état « copié »
+ * permanent mentirait au coup d'après.
+ */
+function CopyButton({ text, label }: { text: string; label: string }) {
+  const [copied, setCopied] = useState(false)
+
+  const copy = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      setCopied(false)
+    }
+  }, [text])
+
+  return (
+    <Button variant="ghost" size="sm" onClick={copy} title={label} aria-label={label}>
+      {copied ? <Check className="size-4 text-emerald-600" /> : <Copy className="size-4" />}
+    </Button>
+  )
+}
 
 export default function PrintTest() {
   const [rptCod, setRptCod] = useState('PING')
@@ -185,6 +209,12 @@ export default function PrintTest() {
               {res.poolEntryIdx && <Badge variant="outline">pool #{res.poolEntryIdx}</Badge>}
               {res.durationMs != null && <Badge variant="outline">{res.durationMs} ms</Badge>}
               {res.env && <Badge variant="outline">{res.env}</Badge>}
+              <span className="ml-auto">
+                <CopyButton
+                  text={JSON.stringify(res, null, 2)}
+                  label="Copier la réponse complète (JSON)"
+                />
+              </span>
             </div>
 
             {res.retCod === '0' && (
@@ -227,9 +257,14 @@ export default function PrintTest() {
             {res.trace && (
               <details>
                 <summary className="cursor-pointer text-sm font-medium">Trace X3</summary>
-                <pre className="bg-muted mt-2 max-h-96 overflow-auto rounded p-3 text-xs">
-                  {res.trace}
-                </pre>
+                <div className="flex items-start gap-2">
+                  <pre className="bg-muted mt-2 max-h-96 flex-1 overflow-auto rounded p-3 text-xs">
+                    {res.trace}
+                  </pre>
+                  <span className="mt-2">
+                    <CopyButton text={res.trace} label="Copier la trace X3" />
+                  </span>
+                </div>
               </details>
             )}
           </section>
