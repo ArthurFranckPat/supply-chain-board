@@ -34,7 +34,12 @@ export function deriveInspectorContext(messages: UIMessage[]): {
       const p = part as AnyToolPart
       const name = getToolName(p)
       const status = toolStatus(p)
-      if (!byName.has(name)) order.push(name)
+      // Ré-insère en fin d'ordre à chaque occurrence : un tool rappelé plus
+      // tard remonte en tête (entries est affiché latest-first), sinon le
+      // panneau reste figé sur le premier appel et ignore les suivants.
+      const existingIdx = order.indexOf(name)
+      if (existingIdx !== -1) order.splice(existingIdx, 1)
+      order.push(name)
       byName.set(name, {
         toolName: name,
         status,
@@ -43,7 +48,9 @@ export function deriveInspectorContext(messages: UIMessage[]): {
         errorText: status === 'error' ? p.errorText : undefined,
       })
 
-      if (status === 'done' && p.input && typeof p.input === 'object') {
+      // Dès que l'input est connu (pas besoin d'attendre la fin de l'appel)
+      // pour que le contexte se peuple sans latence perçue.
+      if (p.input && typeof p.input === 'object') {
         for (const field of SUBJECT_FIELDS) {
           const value = (p.input as Record<string, unknown>)[field]
           if (typeof value === 'string' && value) {
