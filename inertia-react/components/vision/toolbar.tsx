@@ -5,6 +5,7 @@ import { Link } from '@inertiajs/react'
 import { CalendarDays, ChevronDown, RefreshCw, SlidersHorizontal } from 'lucide-react'
 import { cn } from '@r/lib/utils'
 import { Calendar } from '@r/components/ui/calendar'
+import { useRangeCalendar } from '@r/lib/use-range-calendar'
 
 /** Grammaire visuelle unifiée des toolbars de page (Programme, Charge, Suivi,
  *  Ruptures) — SOURCE UNIQUE. Avant ce fichier, chaque page recopiait ses
@@ -124,6 +125,13 @@ export function DateWindowPill(props: {
 }) {
   const align = props.align ?? 'left'
   const label = formatWindowLabel(props.selected.from, props.selected.to)
+  const { selected, onSelect } = useRangeCalendar({
+    open: props.open,
+    value: props.selected.from
+      ? { from: props.selected.from, to: props.selected.to }
+      : undefined,
+    onCommit: props.onSelect,
+  })
   return (
     <div data-print-keep className="relative">
       <button
@@ -157,10 +165,8 @@ export function DateWindowPill(props: {
               mode="range"
               locale={fr}
               numberOfMonths={props.numberOfMonths ?? 2}
-              selected={
-                props.selected.from ? { from: props.selected.from, to: props.selected.to } : undefined
-              }
-              onSelect={props.onSelect}
+              selected={selected}
+              onSelect={onSelect}
               disabled={props.disabled}
             />
           </div>

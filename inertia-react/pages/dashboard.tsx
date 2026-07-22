@@ -1,10 +1,10 @@
 import { useMemo, useState, useEffect, useRef, useCallback } from 'react'
 import { fr } from 'react-day-picker/locale'
-import type { DateRange as DayPickerRange } from 'react-day-picker'
 import { toast } from 'sonner'
 
 import AppLayout from '@r/layouts/app'
 import { Calendar } from '@r/components/ui/calendar'
+import { useRangeCalendar } from '@r/lib/use-range-calendar'
 import { useTimedFetch } from '@r/lib/suivi/use-timed-fetch'
 import { usePrintFitPage } from '@r/lib/board/use-print-fit-page'
 import { cn } from '@r/lib/utils'
@@ -631,17 +631,23 @@ export default function Dashboard(props: DashboardProps) {
     }
   }
 
-  const applyOtdRange = (r: DayPickerRange | undefined) => {
-    const next: { start: Date | null; end: Date | null } = { start: r?.from ?? null, end: r?.to ?? null }
-    setOtdRange(next)
-    if (next.start && next.end) setCalendarOpen(false)
-  }
+  const otdCal = useRangeCalendar({
+    open: calendarOpen,
+    value: otdRange?.start ? { from: otdRange.start, to: otdRange.end ?? undefined } : undefined,
+    onCommit: (r) => {
+      setOtdRange({ start: r.from ?? null, end: r.to ?? null })
+      setCalendarOpen(false)
+    },
+  })
 
-  const applyStockRange = (r: DayPickerRange | undefined) => {
-    const next: { start: Date | null; end: Date | null } = { start: r?.from ?? null, end: r?.to ?? null }
-    setStockRange(next)
-    if (next.start && next.end) setStockCalendarOpen(false)
-  }
+  const stockCal = useRangeCalendar({
+    open: stockCalendarOpen,
+    value: stockRange?.start ? { from: stockRange.start, to: stockRange.end ?? undefined } : undefined,
+    onCommit: (r) => {
+      setStockRange({ start: r.from ?? null, end: r.to ?? null })
+      setStockCalendarOpen(false)
+    },
+  })
 
   return (
     <AppLayout
@@ -850,11 +856,8 @@ export default function Dashboard(props: DashboardProps) {
                               mode="range"
                               locale={fr}
                               numberOfMonths={2}
-                              selected={{
-                                from: otdRange?.start ?? undefined,
-                                to: otdRange?.end ?? undefined,
-                              }}
-                              onSelect={applyOtdRange}
+                              selected={otdCal.selected}
+                              onSelect={otdCal.onSelect}
                               disabled={(day) => day > new Date()}
                             />
                           </div>
@@ -1097,11 +1100,8 @@ export default function Dashboard(props: DashboardProps) {
                               mode="range"
                               locale={fr}
                               numberOfMonths={2}
-                              selected={{
-                                from: stockRange?.start ?? undefined,
-                                to: stockRange?.end ?? undefined,
-                              }}
-                              onSelect={applyStockRange}
+                              selected={stockCal.selected}
+                              onSelect={stockCal.onSelect}
                               disabled={(day) => day > new Date()}
                             />
                           </div>

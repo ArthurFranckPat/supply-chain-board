@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react'
 import { fr } from 'react-day-picker/locale'
-import type { DateRange as DayPickerRange } from 'react-day-picker'
 
 import AppLayout from '@r/layouts/app'
 import { Calendar } from '@r/components/ui/calendar'
+import { useRangeCalendar } from '@r/lib/use-range-calendar'
 import { Segment, SegmentButton } from '@r/components/vision/toolbar'
 import { Button } from '@r/components/ui/button'
 import { DynamicIcon } from '../../components/ui/dynamic-icon'
@@ -246,11 +246,14 @@ function ClosureForm({
     }
   }
 
-  const applyRange = (r: DayPickerRange | undefined) => {
-    const next: DateRangeSel = { start: r?.from ?? null, end: r?.to ?? null }
-    setRange(next)
-    if (next.start && next.end) setCalOpen(false)
-  }
+  const rangeCal = useRangeCalendar({
+    open: calOpen,
+    value: range.start ? { from: range.start, to: range.end ?? undefined } : undefined,
+    onCommit: (r) => {
+      setRange({ start: r.from ?? null, end: r.to ?? null })
+      setCalOpen(false)
+    },
+  })
 
   const targetLabel = (c: Closure) =>
     c.scope === 'global' ? "Toute l'usine" : c.scope === 'stoloc' ? `Atelier ${c.code}` : c.code
@@ -336,11 +339,8 @@ function ClosureForm({
                 <Calendar
                   mode="range"
                   locale={fr}
-                  selected={{
-                    from: range.start ?? undefined,
-                    to: range.end ?? undefined,
-                  }}
-                  onSelect={applyRange}
+                  selected={rangeCal.selected}
+                  onSelect={rangeCal.onSelect}
                 />
               </div>
             </>

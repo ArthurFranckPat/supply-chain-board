@@ -5,6 +5,7 @@ import { Badge } from '@r/components/ui/badge'
 import { TextField, TextFieldInput, TextFieldLabel } from '@r/components/ui/text-field'
 import { Separator } from '@r/components/ui/separator'
 import { Calendar } from '@r/components/ui/calendar'
+import { useRangeCalendar } from '@r/lib/use-range-calendar'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@r/components/ui/select'
 import { Board } from '@r/components/board/papier-board'
 import { BoardCard } from '@r/components/board/board-card'
@@ -273,6 +274,10 @@ export default function DesignSystem() {
   const [range, setRange] = useState<{ start: Date | null; end: Date | null }>({
     start: new Date(2026, 5, 16),
     end: new Date(2026, 5, 27),
+  })
+  const rangeCal = useRangeCalendar({
+    value: range.start ? { from: range.start, to: range.end ?? undefined } : undefined,
+    onCommit: (r) => setRange({ start: r.from ?? null, end: r.to ?? null }),
   })
   const fmtDate = (d: Date) => d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
   const rangeDays = (r: { start: Date | null; end: Date | null }) =>
@@ -832,10 +837,8 @@ export default function DesignSystem() {
               <div className="flex items-start gap-8">
                 <Calendar
                   mode="range"
-                  selected={range.start && range.end ? { from: range.start, to: range.end } : undefined}
-                  onSelect={(r) =>
-                    setRange({ start: r?.from ?? null, end: r?.to ?? null })
-                  }
+                  selected={rangeCal.selected}
+                  onSelect={rangeCal.onSelect}
                   disabled={{ after: new Date() }}
                   numberOfMonths={1}
                 />
