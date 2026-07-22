@@ -1,5 +1,6 @@
 import { test } from '@japa/runner'
-import SuiviController from '#controllers/suivi_controller'
+import SuiviController, { buildSuiviDisplay } from '#controllers/suivi_controller'
+import type { StatusAssignment } from '#app/domain/suivi'
 
 function mockContext(overrides: Record<string, any> = {}): any {
   return {
@@ -163,5 +164,40 @@ test.group('SuiviController.assign', () => {
     assert.equal(result.assignments[0].article, 'ART1')
     assert.equal(result.assignments[0].besoinNet, 10)
     assert.equal(result.assignments[0].qteAlloueeVirtuelle, 10)
+  })
+})
+
+test.group('buildSuiviDisplay — rattachement poste de charge', () => {
+  function assignment(): StatusAssignment {
+    return {
+      line: { ...sampleLines[0], ligne: '1', emplacements: [] } as StatusAssignment['line'],
+      status: 'ALLOCATION_A_FAIRE',
+      besoinNet: 10,
+      qteAlloueeVirtuelle: 0,
+      qteAlloueeVirtuelleStricte: 0,
+      qteAlloueeVirtuelleCq: 0,
+      utiliseStockSousCq: false,
+      alerteCqStatut: false,
+      cause: null,
+    }
+  }
+
+  test('propage code + libellé du poste de gamme dans la ligne et le filtre', ({ assert }) => {
+    const { rows } = buildSuiviDisplay(
+      [assignment()],
+      new Date('2026-06-18'),
+      new Map([
+        ['ART1', { code: 'M1', label: 'Montage 1', poste: 'PP_830', posteLabel: 'Presse 830' }],
+      ])
+    )
+    assert.equal(rows[0].poste, 'PP_830')
+    assert.equal(rows[0].posteLabel, 'Presse 830')
+    assert.include(rows[0].filter, 'pp_830')
+  })
+
+  test("poste vide si l'article est hors référentiel gamme", ({ assert }) => {
+    const { rows } = buildSuiviDisplay([assignment()], new Date('2026-06-18'))
+    assert.equal(rows[0].poste, '')
+    assert.equal(rows[0].posteLabel, '')
   })
 })

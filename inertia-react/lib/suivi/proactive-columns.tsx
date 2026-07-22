@@ -93,6 +93,32 @@ export function createProactiveColumns({
       },
     },
     {
+      accessorKey: 'poste',
+      header: 'Poste',
+      cell: ({ row, getValue }) => {
+        const code = getValue() as string
+        if (!code)
+          return (
+            <span className="font-sans text-[12px] font-medium leading-snug text-muted-foreground/70">
+              —
+            </span>
+          )
+        return (
+          <span
+            className="cursor-help whitespace-nowrap rounded bg-secondary px-[7px] py-0.5 font-mono text-[10px] font-semibold text-muted-foreground"
+            title={row.original.posteLabel ? `${code} — ${row.original.posteLabel}` : code}
+          >
+            {code}
+          </span>
+        )
+      },
+      meta: {
+        thClass:
+          'w-[90px] px-4 py-[7px] text-left font-sans text-[10px] font-semibold tracking-wider text-muted-foreground border-b border-rule',
+        tdClass: 'px-4 py-[7px] align-middle',
+      },
+    },
+    {
       accessorKey: 'qteRestante',
       header: 'Qté',
       cell: ({ getValue }) => (

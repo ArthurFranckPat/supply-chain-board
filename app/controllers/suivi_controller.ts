@@ -53,20 +53,38 @@ export interface AtelierOption {
 }
 
 /**
- * Map article → atelier (STOLOC du poste de sa gamme), via le référentiel partagé
- * (boardDataset, cache SWR commun avec /charge). Miroir exact de load_controller :
+ * Rattachement d'un article à son poste de gamme (dernière opération gagne) :
+ * atelier (STOLOC du poste) + poste de charge (code WST_0 + libellé WSTDES_0).
+ */
+export interface ArticleGammeRef extends AtelierOption {
+  /** Code poste de charge (WST_0) — '' si inconnu. */
+  poste: string
+  /** Libellé du poste de charge (WSTDES_0) — '' si inconnu. */
+  posteLabel: string
+}
+
+/**
+ * Map article → rattachement gamme (atelier + poste de charge), via le référentiel
+ * partagé (boardDataset, cache SWR commun avec /charge). Miroir exact de load_controller :
  * un article a un poste de gamme (dernière opération gagne), dont le STOLOC est l'atelier.
  * Dégrade en map vide si le référentiel est indisponible → pas de filtre atelier, page OK.
  */
-async function buildAtelierByArticle(): Promise<Map<string, AtelierOption>> {
-  const out = new Map<string, AtelierOption>()
+async function buildAtelierByArticle(): Promise<Map<string, ArticleGammeRef>> {
+  const out = new Map<string, ArticleGammeRef>()
   try {
     const ref = await boardDataset.getReferential()
-    const stolocByWst = new Map((ref.workstations ?? []).map((w) => [w.code, w.stockLocation]))
+    const wstByCode = new Map((ref.workstations ?? []).map((w) => [w.code, w]))
     const gammeByArticle = new Map(ref.gamme.map((g) => [g.article, g]))
     for (const [article, g] of gammeByArticle) {
-      const stoloc = (stolocByWst.get(g.workstation) ?? '').trim()
-      if (article && stoloc) out.set(article, { code: stoloc, label: atelierLabel(stoloc) })
+      if (!article || !g.workstation) continue
+      const wst = wstByCode.get(g.workstation)
+      const stoloc = (wst?.stockLocation ?? '').trim()
+      out.set(article, {
+        code: stoloc,
+        label: stoloc ? atelierLabel(stoloc) : '',
+        poste: g.workstation,
+        posteLabel: wst?.description ?? g.workstationLabel ?? '',
+      })
     }
   } catch {
     /* référentiel indispo → filtre atelier absent (dégradation silencieuse) */
@@ -398,6 +416,10 @@ export interface SuiviDisplayRow {
   /** Atelier (STOLOC du poste de gamme) de l'article — '' si inconnu (issue #36). */
   atelier: string
   atelierLabel: string
+  /** Poste de charge associé (code WST_0 du poste de gamme) — '' si inconnu. */
+  poste: string
+  /** Libellé du poste de charge (WSTDES_0) — '' si inconnu. */
+  posteLabel: string
   /** Champ texte pré-concaténé pour le filtre client (lowercase). */
   filter: string
 }
@@ -486,6 +508,10 @@ export interface ProactiveDisplayRow {
   /** Atelier (STOLOC du poste de gamme) de l'article — '' si inconnu (issue #36). */
   atelier: string
   atelierLabel: string
+  /** Poste de charge associé (code WST_0 du poste de gamme) — '' si inconnu. */
+  poste: string
+  /** Libellé du poste de charge (WSTDES_0) — '' si inconnu. */
+  posteLabel: string
   filter: string
 }
 
@@ -548,7 +574,7 @@ function sanitizeX3Error(msg: string): string {
 export function buildSuiviDisplay(
   assignments: StatusAssignment[],
   refDate?: Date,
-  atelierByArticle: Map<string, AtelierOption> = new Map()
+  atelierByArticle: Map<string, ArticleGammeRef> = new Map()
 ): {
   rows: SuiviDisplayRow[]
   statusCounts: Record<SuiviStatus, number>
@@ -599,7 +625,12 @@ export function buildSuiviDisplay(
         : null
     const rec = recommendActions(a)
     const compsTxt = cause ? cause.comps.map((c) => `${c.art} −${c.qty}`).join(' ') : ''
-    const atelier = atelierByArticle.get(a.line.article) ?? { code: '', label: '' }
+    const atelier = atelierByArticle.get(a.line.article) ?? {
+      code: '',
+      label: '',
+      poste: '',
+      posteLabel: '',
+    }
     const attente = !!a.attenteLignesMto
     return {
       numCommande: a.line.numCommande,
@@ -648,8 +679,10 @@ export function buildSuiviDisplay(
       action: { severity: rec.severity, label: rec.actions[0] ?? '—' },
       atelier: atelier.code,
       atelierLabel: atelier.label,
+      poste: atelier.poste,
+      posteLabel: atelier.posteLabel,
       filter:
-        `${a.line.numCommande} ${a.line.nomClient} ${a.line.article} ${a.line.designation} ${a.line.typeCommande} ${a.line.refCommandeClient ?? ''} ${a.line.refArticleClient ?? ''} ${cause?.label ?? ''} ${compsTxt} ${(a.line.emplacements ?? []).map((e) => e.nom).join(' ')} ${atelier.label}${attente ? ' attente lignes mto' : ''}`.toLowerCase(),
+        `${a.line.numCommande} ${a.line.nomClient} ${a.line.article} ${a.line.designation} ${a.line.typeCommande} ${a.line.refCommandeClient ?? ''} ${a.line.refArticleClient ?? ''} ${cause?.label ?? ''} ${compsTxt} ${(a.line.emplacements ?? []).map((e) => e.nom).join(' ')} ${atelier.label} ${atelier.poste}${attente ? ' attente lignes mto' : ''}`.toLowerCase(),
     }
   })
   return { rows, statusCounts: buildStatusCounts(assignments.map((a) => a.status)) }
@@ -675,7 +708,7 @@ export function buildProactiveDisplay(
   result: OrderImpactResult,
   articles: Map<string, Article> = new Map(),
   receptionsByArticle: Map<string, ReceptionRecord[]> = new Map(),
-  atelierByArticle: Map<string, AtelierOption> = new Map(),
+  atelierByArticle: Map<string, ArticleGammeRef> = new Map(),
   /**
    * Contexte BOM pour la descente d'explication des SE manquants (photo stock strict).
    * Optionnel : absent (tests/legacy) → pas de descente, `descente: null` partout.
@@ -864,7 +897,12 @@ export function buildProactiveDisplay(
             : o.matchingMethod === 'purchase_supply'
               ? 'Achat'
               : '—'
-      const atelier = atelierByArticle.get(o.article) ?? { code: '', label: '' }
+      const atelier = atelierByArticle.get(o.article) ?? {
+        code: '',
+        label: '',
+        poste: '',
+        posteLabel: '',
+      }
       return {
         numCommande: o.numCommande,
         client: o.client,
@@ -890,8 +928,10 @@ export function buildProactiveDisplay(
         ofs: ofsFinal,
         atelier: atelier.code,
         atelierLabel: atelier.label,
+        poste: atelier.poste,
+        posteLabel: atelier.posteLabel,
         filter:
-          `${o.numCommande} ${o.client} ${o.article} ${o.description} ${o.typeCommande} ${o.refCommandeClient ?? ''} ${o.refArticleClient ?? ''} ${finalVerdictLabel} ${couverture} ${compsTxt} ${atelier.label}`.toLowerCase(),
+          `${o.numCommande} ${o.client} ${o.article} ${o.description} ${o.typeCommande} ${o.refCommandeClient ?? ''} ${o.refArticleClient ?? ''} ${finalVerdictLabel} ${couverture} ${compsTxt} ${atelier.label} ${atelier.poste}`.toLowerCase(),
       }
     })
 

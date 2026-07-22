@@ -296,3 +296,25 @@ test.group('buildProactiveDisplay — descente SE', () => {
     assert.isNull(rows[0].composants[0].descente)
   })
 })
+
+test.group('buildProactiveDisplay — rattachement poste de charge', () => {
+  test('propage code + libellé du poste de gamme dans la ligne et le filtre', ({ assert }) => {
+    const { rows } = buildProactiveDisplay(
+      result({ statut: 'on_time' }),
+      new Map(),
+      new Map(),
+      new Map([
+        ['11033025', { code: 'M1', label: 'Montage 1', poste: 'PP_830', posteLabel: 'Presse 830' }],
+      ])
+    )
+    assert.equal(rows[0].poste, 'PP_830')
+    assert.equal(rows[0].posteLabel, 'Presse 830')
+    assert.include(rows[0].filter, 'pp_830')
+  })
+
+  test("poste vide si l'article est hors référentiel gamme", ({ assert }) => {
+    const { rows } = buildProactiveDisplay(result({ statut: 'on_time' }))
+    assert.equal(rows[0].poste, '')
+    assert.equal(rows[0].posteLabel, '')
+  })
+})

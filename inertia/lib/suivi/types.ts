@@ -101,6 +101,10 @@ export interface SuiviDisplayRow {
   /** Atelier (STOLOC du poste de gamme) — '' si inconnu (issue #36). */
   atelier: string
   atelierLabel: string
+  /** Poste de charge associé (code WST_0 du poste de gamme) — '' si inconnu. */
+  poste: string
+  /** Libellé du poste de charge (WSTDES_0) — '' si inconnu. */
+  posteLabel: string
   /** Champ texte pré-concaténé (lowercase) pour le filtre client. */
   filter: string
 }
@@ -216,6 +220,10 @@ export interface ProactiveDisplayRow {
   /** Atelier (STOLOC du poste de gamme) — '' si inconnu (issue #36). */
   atelier: string
   atelierLabel: string
+  /** Poste de charge associé (code WST_0 du poste de gamme) — '' si inconnu. */
+  poste: string
+  /** Libellé du poste de charge (WSTDES_0) — '' si inconnu. */
+  posteLabel: string
   filter: string
 }
 
