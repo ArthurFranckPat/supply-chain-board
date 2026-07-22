@@ -212,7 +212,7 @@ function CardHeader({
       </h2>
       <div className="ml-auto flex items-center gap-2.5">
         {suffix && (
-          <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+          <span className="font-mono text-[10px] font-semibold text-muted-foreground">
             {suffix}
           </span>
         )}
@@ -291,14 +291,14 @@ function HiddenTile({ id, editMode, onShow }: { id: KpiId; editMode: boolean; on
     <div className="lg:col-span-1" style={{ order: 999 } as React.CSSProperties}>
       <div className="flex items-center gap-2 rounded border border-dashed border-rule bg-secondary/30 px-4 py-3 print:hidden">
         <EyeOff size={15} className="text-muted-foreground" />
-        <span className="font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+        <span className="font-mono text-[10px] font-semibold text-muted-foreground">
           {KPI_TITLES[id]}
         </span>
         <span className="font-fraunces text-[12px] italic text-muted-foreground/70">— masqué</span>
         <button
           type="button"
           onClick={onShow}
-          className="ml-auto flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          className="ml-auto flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[9px] font-semibold text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
         >
           <Eye size={13} />
           <span>Afficher</span>
@@ -672,7 +672,7 @@ export default function Dashboard(props: DashboardProps) {
           {/* Barre d'outils édition */}
           <div className="mb-4 flex items-center justify-between gap-3 print:hidden">
             {editMode && (
-              <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+              <span className="font-mono text-[10px] font-semibold text-muted-foreground">
                 Personnalisation — glissez les KPI, changez leur largeur, masquez-en.
               </span>
             )}
@@ -681,7 +681,7 @@ export default function Dashboard(props: DashboardProps) {
                 <button
                   type="button"
                   onClick={() => setLayout(DEFAULT_DASHBOARD_LAYOUT)}
-                  className="rounded border border-rule bg-secondary px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground transition-colors hover:bg-secondary/80 hover:text-foreground"
+                  className="rounded border border-rule bg-secondary px-3 py-1.5 font-mono text-[10px] font-semibold text-muted-foreground transition-colors hover:bg-secondary/80 hover:text-foreground"
                 >
                   Réinitialiser
                 </button>
@@ -689,7 +689,7 @@ export default function Dashboard(props: DashboardProps) {
               <button
                 type="button"
                 onClick={() => setEditMode((v) => !v)}
-                className="flex items-center gap-1.5 rounded border border-rule bg-card px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-foreground transition-colors hover:bg-secondary"
+                className="flex items-center gap-1.5 rounded border border-rule bg-card px-3 py-1.5 font-mono text-[10px] font-semibold text-foreground transition-colors hover:bg-secondary"
               >
                 <DynamicIcon name={editMode ? 'check' : 'tune'} size={14} className="text-muted-foreground" />
                 {editMode ? 'Terminé' : 'Personnaliser'}
@@ -862,7 +862,7 @@ export default function Dashboard(props: DashboardProps) {
                       )}
                     </div>
                     {/* Toggle mode */}
-                    <div className="flex items-center rounded border border-rule bg-secondary p-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.12em]">
+                    <div className="flex items-center rounded border border-rule bg-secondary p-0.5 font-mono text-[9px] font-semibold">
                       <button
                         onClick={() => setOtdMode('demandee')}
                         className={cn(
@@ -936,7 +936,7 @@ export default function Dashboard(props: DashboardProps) {
                         <button
                           type="button"
                           onClick={() => setDetailsOpen((v) => !v)}
-                          className="flex shrink-0 items-center gap-1 rounded border border-rule bg-secondary px-2 py-[5px] font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-foreground transition-colors hover:bg-secondary/80"
+                          className="flex shrink-0 items-center gap-1 rounded border border-rule bg-secondary px-2 py-[5px] font-mono text-[9px] font-semibold text-foreground transition-colors hover:bg-secondary/80"
                           title={detailsOpen ? 'Masquer les détails' : 'Afficher les détails'}
                         >
                           <DynamicIcon name={detailsOpen ? 'expand_more' : 'chevron_right'} size={13} className="text-muted-foreground" />
@@ -946,7 +946,7 @@ export default function Dashboard(props: DashboardProps) {
 
                       {otd.map((p, i) => (
                         <div key={p.label} className={cn('mt-5 border-t border-rule-soft pt-5', i > 0)}>
-                          <div className="mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                          <div className="mb-2 font-mono text-[10px] font-semibold text-muted-foreground">
                             {p.label}
                           </div>
 
@@ -1109,7 +1109,7 @@ export default function Dashboard(props: DashboardProps) {
                       )}
                     </div>
                     {/* Toggle maille */}
-                    <div className="flex items-center rounded border border-rule bg-secondary p-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.12em]">
+                    <div className="flex items-center rounded border border-rule bg-secondary p-0.5 font-mono text-[9px] font-semibold">
                       <button
                         onClick={() => setStockGrain('mois')}
                         className={cn(
@@ -1187,7 +1187,7 @@ export default function Dashboard(props: DashboardProps) {
 
                       {/* Top 5 catégories */}
                       <div className="mt-5">
-                        <div className="mb-3 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                        <div className="mb-3 font-mono text-[9px] font-semibold text-muted-foreground">
                           Top catégories
                         </div>
                         <div className="flex flex-col gap-3">
@@ -1401,7 +1401,7 @@ export default function Dashboard(props: DashboardProps) {
                           value={stockCatFilter}
                           onChange={(e) => setStockCatFilter(e.currentTarget.value)}
                           aria-label="Filtrer par catégorie"
-                          className="rounded border border-rule bg-secondary py-[5px] px-2 font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-foreground focus:border-foreground/30 focus:outline-none"
+                          className="rounded border border-rule bg-secondary py-[5px] px-2 font-mono text-[10px] font-semibold text-foreground focus:border-foreground/30 focus:outline-none"
                         >
                           <option value="">Toutes cat.</option>
                           {stockCategories.map((c) => (
@@ -1414,7 +1414,7 @@ export default function Dashboard(props: DashboardProps) {
                           type="button"
                           onClick={() => setStockHideZero((v) => !v)}
                           className={cn(
-                            'flex items-center gap-1 rounded border border-rule px-2 py-[5px] font-mono text-[9px] font-bold uppercase tracking-[0.12em] transition-colors',
+                            'flex items-center gap-1 rounded border border-rule px-2 py-[5px] font-mono text-[9px] font-semibold transition-colors',
                             stockHideZero
                               ? 'bg-foreground text-background'
                               : 'bg-secondary text-muted-foreground hover:text-foreground'

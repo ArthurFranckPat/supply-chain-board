@@ -344,7 +344,7 @@ export default function Receptions(props: ReceptionsPageProps) {
 
           {/* Filtre jour actif (drill-down) */}
           {selectedDay && (
-            <span className="flex items-center gap-1.5 rounded-md border border-brand/30 bg-brand/5 px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-brand">
+            <span className="flex items-center gap-1.5 rounded-md border border-brand/30 bg-brand/5 px-2 py-1 font-mono text-[10px] font-semibold text-brand">
               <SlidersHorizontal size={13} strokeWidth={1.75} />
               {charge.find((c) => c.day === selectedDay)?.dayFmt ?? selectedDay}
               <button type="button" onClick={() => setSelectedDay(null)} className="hover:opacity-70">

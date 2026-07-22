@@ -316,7 +316,7 @@ export default function Conditionnements(props: ConditionnementsPageProps) {
                 setSelCategories(new Set<string>())
                 setSelFournisseurs(new Set<string>())
               }}
-              className="inline-flex items-center gap-1 rounded-md border border-rule bg-card px-2 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+              className="inline-flex items-center gap-1 rounded-md border border-rule bg-card px-2 py-1.5 font-mono text-[10px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
             >
               <FilterX size={13} strokeWidth={1.75} />
               Réinitialiser ({nbFiltresActifs})

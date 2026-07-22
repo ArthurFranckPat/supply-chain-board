@@ -352,7 +352,7 @@ export default function BoardGrid(props: BoardGridProps) {
           >
             <div className="sticky left-0 z-20 flex items-center gap-1.5 border-r border-rule bg-brand-soft/60 px-3.5 py-3">
               <FlaskConical size={15} strokeWidth={1.75} className="text-brand" />
-              <span className="font-mono text-2xs font-bold uppercase tracking-wider text-brand">
+              <span className="font-mono text-2xs font-semibold text-brand">
                 Virtuelles
               </span>
             </div>
@@ -885,7 +885,7 @@ function VirtualOrderChip(props: VirtualOrderChipProps) {
           {fmtDay(props.order.date)}
         </span>
         {props.order.earliest && (
-          <span className="flex-none rounded-full bg-brand-soft px-1 py-px font-mono text-3xs font-bold uppercase tracking-wider text-brand">
+          <span className="flex-none rounded-full bg-brand-soft px-1 py-px font-mono text-3xs font-semibold text-brand">
             au plus tôt
           </span>
         )}
@@ -897,7 +897,7 @@ function VirtualOrderChip(props: VirtualOrderChipProps) {
         {tone && (
           <span
             className={cn(
-              'ml-auto rounded-full bg-card px-1 py-px font-mono text-3xs font-bold uppercase tracking-wider',
+              'ml-auto rounded-full bg-card px-1 py-px font-mono text-3xs font-semibold',
               tone.text
             )}
           >

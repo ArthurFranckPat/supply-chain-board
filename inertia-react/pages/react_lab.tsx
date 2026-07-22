@@ -150,7 +150,7 @@ export default function ReactLab() {
               role="tab"
               aria-selected={theme === t}
               onClick={() => setTheme(t)}
-              className={`rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wide transition-colors ${
+              className={`rounded-full px-3 py-1 text-[11px] font-semibold transition-colors ${
                 theme === t
                   ? 'bg-primary text-primary-foreground'
                   : 'text-muted-foreground hover:text-foreground'
@@ -314,7 +314,7 @@ export default function ReactLab() {
 
             {/* Pills — pattern extrait de 8 occurrences Solid. */}
             <div>
-              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <h3 className="mb-2 text-xs font-semibold text-muted-foreground">
                 Pills
               </h3>
               <div className="flex flex-wrap gap-2">
@@ -339,7 +339,7 @@ export default function ReactLab() {
 
             {/* Card — tokens unifiés (rounded-lg, hairline, shadow unique). */}
             <div>
-              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <h3 className="mb-2 text-xs font-semibold text-muted-foreground">
                 Card
               </h3>
               <div className="grid grid-cols-2 gap-3">
@@ -368,7 +368,7 @@ export default function ReactLab() {
 
             {/* SearchBar — signature Airbnb (pill 64px + orbe Rausch). */}
             <div>
-              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <h3 className="mb-2 text-xs font-semibold text-muted-foreground">
                 SearchBar
               </h3>
               <SearchBar

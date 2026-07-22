@@ -77,7 +77,7 @@ export function createProactiveColumns({
               : 'Normal — Ligne standard'
         return (
           <span
-            className="cursor-help rounded bg-brand-soft px-[7px] py-0.5 font-mono text-[10px] font-bold uppercase tracking-wide text-brand"
+            className="cursor-help rounded bg-brand-soft px-[7px] py-0.5 font-mono text-[10px] font-semibold text-brand"
             title={title}
           >
             {val}

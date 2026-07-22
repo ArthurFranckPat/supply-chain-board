@@ -141,12 +141,12 @@ export default function Comparer(props: ComparerPageProps) {
           {/* Row Headers */}
           <div className="flex flex-col gap-4">
             <div className="h-[150px] border border-transparent p-4 flex flex-col justify-end">
-              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Scénario</span>
+              <span className="text-xs font-semibold text-muted-foreground">Scénario</span>
             </div>
 
             {/* Metadata Section */}
             <div className="rounded-lg border border-rule bg-muted/40 p-4 space-y-4">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">Informations</h3>
+              <h3 className="text-xs font-semibold text-foreground">Informations</h3>
               <div className="h-28 flex flex-col justify-between text-xs text-muted-foreground">
                 <div>Règle d'allocation</div>
                 <div>Mutations enregistrées</div>
@@ -156,7 +156,7 @@ export default function Comparer(props: ComparerPageProps) {
 
             {/* Client Axis Section */}
             <div className="rounded-lg border border-rule bg-muted/40 p-4 space-y-4">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">Axe Client</h3>
+              <h3 className="text-xs font-semibold text-foreground">Axe Client</h3>
               <div className="h-16 flex flex-col justify-between text-xs text-muted-foreground">
                 <div>Commandes en retard</div>
                 <div>Delta retards</div>
@@ -165,7 +165,7 @@ export default function Comparer(props: ComparerPageProps) {
 
             {/* Appro Axis Section */}
             <div className="rounded-lg border border-rule bg-muted/40 p-4 space-y-4">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">Axe Appro</h3>
+              <h3 className="text-xs font-semibold text-foreground">Axe Appro</h3>
               <div className="h-24 flex flex-col justify-between text-xs text-muted-foreground">
                 <div>Composants en rupture</div>
                 <div>Ruptures inévitables</div>
@@ -175,7 +175,7 @@ export default function Comparer(props: ComparerPageProps) {
 
             {/* Charge Axis Section */}
             <div className="rounded-lg border border-rule bg-muted/40 p-4 space-y-4">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">Axe Charge</h3>
+              <h3 className="text-xs font-semibold text-foreground">Axe Charge</h3>
               <div className="h-24 flex flex-col justify-between text-xs text-muted-foreground">
                 <div>Surcharges détectées</div>
                 <div>Delta d'heures supp.</div>
@@ -254,7 +254,7 @@ export default function Comparer(props: ComparerPageProps) {
                     </h2>
                     <span
                       className={cn(
-                        'rounded px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase',
+                        'rounded px-1.5 py-0.5 font-mono text-[9px] font-semibold',
                         sc.statut === 'applique'
                           ? 'bg-ferme/10 text-ferme'
                           : 'bg-suggere/10 text-suggere'

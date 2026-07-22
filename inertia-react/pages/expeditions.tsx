@@ -201,7 +201,7 @@ export default function Expeditions(props: ExpeditionsPageProps) {
 
           {/* Tolérance de regroupement camion (issue #44) */}
           <div className="flex items-center gap-1 rounded-md border border-rule bg-card p-0.5">
-            <span className="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+            <span className="px-1.5 font-mono text-[9px] font-semibold text-muted-foreground">
               Regroupement
             </span>
             <button
@@ -232,7 +232,7 @@ export default function Expeditions(props: ExpeditionsPageProps) {
             type="button"
             onClick={() => setAnomalyOnly((v) => !v)}
             className={cn(
-              'flex items-center gap-1 rounded-md border px-2.5 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
+              'flex items-center gap-1 rounded-md border px-2.5 py-1.5 font-mono text-[10px] font-semibold transition-colors',
               anomalyOnly
                 ? 'border-destructive/40 bg-destructive/10 text-destructive'
                 : 'border-rule bg-card text-muted-foreground hover:text-foreground'

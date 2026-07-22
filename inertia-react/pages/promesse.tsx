@@ -82,7 +82,7 @@ function TreeNode({ node, depth }: TreeNodeProps) {
           {frDate(node.availableDate)}
         </span>
         {node.onCriticalPath && (
-          <span className="text-[10px] font-bold text-suggere uppercase tracking-wide">
+          <span className="text-[10px] font-bold text-suggere">
             Critique
           </span>
         )}
@@ -113,7 +113,7 @@ function DateCard({ label, date, color, result }: DateCardProps) {
   const dateColor = { green: 'text-ferme', amber: 'text-suggere' }
   return (
     <div className={cn('flex-1 rounded-lg border p-4', styles[color])}>
-      <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="text-[11px] font-semibold text-muted-foreground">{label}</div>
       {!result.infeasible ? (
         <>
           <div className={cn('mt-1 text-2xl font-bold', dateColor[color])}>{frDate(date)}</div>
@@ -319,7 +319,7 @@ export default function Promesse() {
                 {/* Facteur limitant */}
                 {!result.engageante.infeasible && (
                   <div className="rounded-lg border border-rule-soft bg-card px-4 py-3">
-                    <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    <div className="text-[11px] font-semibold text-muted-foreground">
                       Facteur limitant
                     </div>
                     <p className="mt-1 text-sm text-foreground/80">

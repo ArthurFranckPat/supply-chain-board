@@ -277,7 +277,7 @@ export default function Load(props: LoadPageProps) {
         {/* Filtre atelier (#36) */}
         {props.ateliers.length > 0 && (
           <div className="flex flex-none flex-wrap items-center gap-1.5 border-b border-rule px-7 py-2 text-[12px]">
-            <span className="mr-1 font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            <span className="mr-1 font-mono text-[10px] font-semibold text-muted-foreground">
               Atelier
             </span>
             {props.ateliers.map((a) => (
@@ -300,7 +300,7 @@ export default function Load(props: LoadPageProps) {
               <button
                 type="button"
                 onClick={() => setAtelierFilter(new Set())}
-                className="ml-1 font-mono text-[10px] font-bold uppercase tracking-wider text-brand hover:underline"
+                className="ml-1 font-mono text-[10px] font-semibold text-brand hover:underline"
               >
                 Réinitialiser
               </button>
@@ -368,7 +368,7 @@ export default function Load(props: LoadPageProps) {
                     </span>
                   </div>
                   {selLine.atelier && (
-                    <span className="rounded-full border border-rule bg-secondary px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-secondary-foreground">
+                    <span className="rounded-full border border-rule bg-secondary px-2.5 py-1 font-mono text-[10px] font-semibold text-secondary-foreground">
                       {selLine.atelierLabel}
                     </span>
                   )}
@@ -393,7 +393,7 @@ export default function Load(props: LoadPageProps) {
                       type="button"
                       onClick={() => setGran('month')}
                       className={cn(
-                        'rounded-full px-3.5 py-1.5 font-sans text-[11px] font-bold uppercase tracking-wide transition-colors',
+                        'rounded-full px-3.5 py-1.5 font-sans text-[11px] font-semibold transition-colors',
                         gran === 'month'
                           ? 'bg-card text-brand'
                           : 'text-muted-foreground'
@@ -405,7 +405,7 @@ export default function Load(props: LoadPageProps) {
                       type="button"
                       onClick={() => setGran('week')}
                       className={cn(
-                        'rounded-full px-3.5 py-1.5 font-sans text-[11px] font-bold uppercase tracking-wide transition-colors',
+                        'rounded-full px-3.5 py-1.5 font-sans text-[11px] font-semibold transition-colors',
                         gran === 'week'
                           ? 'bg-card text-brand'
                           : 'text-muted-foreground'

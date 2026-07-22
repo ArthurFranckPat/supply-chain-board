@@ -525,7 +525,7 @@ export default function DesignSystem() {
                         <button
                           key={t}
                           type="button"
-                          className={`rounded-md border px-2.5 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                          className={`rounded-md border px-2.5 py-1.5 font-mono text-[10px] font-semibold transition-colors ${
                             flt.includes(t)
                               ? 'border-brand/40 bg-brand-soft text-brand'
                               : 'border-border bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground'
@@ -576,10 +576,10 @@ export default function DesignSystem() {
 
                 <FieldLabel className="mt-6">Type · override · faisabilité</FieldLabel>
                 <div className="flex flex-wrap items-center gap-4">
-                  <span className="rounded bg-brand-soft px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-brand">
+                  <span className="rounded bg-brand-soft px-1.5 py-0.5 font-mono text-[9px] font-semibold text-brand">
                     MTS
                   </span>
-                  <span className="inline-flex items-center gap-1 font-mono text-[9px] font-semibold uppercase tracking-wider text-suggere">
+                  <span className="inline-flex items-center gap-1 font-mono text-[9px] font-semibold text-suggere">
                     <Pencil size={12} />Modifié
                   </span>
                   <span className="flex size-4 items-center justify-center rounded-full bg-ferme text-[10px] font-bold text-card">
@@ -840,7 +840,7 @@ export default function DesignSystem() {
                   numberOfMonths={1}
                 />
                 <div className="pt-1">
-                  <div className="font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  <div className="font-mono text-[10px] font-semibold text-muted-foreground">
                     Plage sélectionnée
                   </div>
                   <div className="mt-1 font-fraunces text-[22px] font-bold tracking-tight">
@@ -944,7 +944,7 @@ function FieldLabel({
 }) {
   return (
     <span
-      className={`mb-2 block font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground ${className ?? ''}`}
+      className={`mb-2 block font-mono text-[10px] font-semibold text-muted-foreground ${className ?? ''}`}
     >
       {children}
     </span>
@@ -979,7 +979,7 @@ function SwatchGroup({
 }) {
   return (
     <>
-      <div className="mb-2 mt-5 font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground first:mt-0">
+      <div className="mb-2 mt-5 font-mono text-[10px] font-semibold text-muted-foreground first:mt-0">
         {label}
       </div>
       <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3">
@@ -1007,7 +1007,7 @@ function Verdot({
 }) {
   return (
     <span
-      className={`inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.1em] ${className ?? ''}`}
+      className={`inline-flex items-center gap-1.5 text-[10px] font-semibold ${className ?? ''}`}
     >
       <span className="size-1.5 rounded-full bg-current" />
       {children}
@@ -1053,7 +1053,7 @@ function RuptureRow(props: {
       </div>
       <div>
         {props.none ? (
-          <span className="inline-flex items-center gap-1 font-mono text-[10px] font-semibold uppercase tracking-wider text-destructive">
+          <span className="inline-flex items-center gap-1 font-mono text-[10px] font-semibold text-destructive">
             <Ban size={13} />Aucune couverture
           </span>
         ) : (
@@ -1066,7 +1066,7 @@ function RuptureRow(props: {
         )}
       </div>
       <span
-        className={`justify-self-end inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.1em] ${vcls}`}
+        className={`justify-self-end inline-flex items-center gap-1.5 text-[10px] font-semibold ${vcls}`}
       >
         <span className="size-1.5 rounded-full bg-current" />
         {props.vlabel}

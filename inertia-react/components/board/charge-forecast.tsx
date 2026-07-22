@@ -323,7 +323,7 @@ export function ChargeForecast(props: ChargeForecastProps) {
               key={g}
               type="button"
               className={cn(
-                'rounded-full px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-wide transition-colors',
+                'rounded-full px-3.5 py-1.5 text-[11px] font-semibold transition-colors',
                 gran === g
                   ? 'bg-card text-brand'
                   : 'text-muted-foreground hover:text-foreground'

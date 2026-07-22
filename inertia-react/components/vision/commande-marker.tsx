@@ -118,7 +118,7 @@ export function CommandeMarker(props: {
       </div>
       <div className="mt-1 flex items-center gap-1">
         {cmd.type && (
-          <span className="flex-none rounded bg-brand-soft px-1 py-px font-mono text-3xs font-bold uppercase tracking-wider text-brand">
+          <span className="flex-none rounded bg-brand-soft px-1 py-px font-mono text-3xs font-semibold text-brand">
             {cmd.type}
           </span>
         )}
