@@ -14,7 +14,16 @@ import { router } from '@inertiajs/react'
 import { Sheet, SheetContent, SheetTitle } from '@r/components/ui/sheet'
 import { Badge } from '@r/components/ui/badge'
 import { cn } from '@r/lib/utils'
-import { CircleX, Loader2, ArrowRight, Package, Network, TriangleAlert, CircleCheck } from 'lucide-react'
+import {
+  CircleX,
+  Loader2,
+  ArrowRight,
+  Package,
+  Network,
+  TriangleAlert,
+  CircleCheck,
+  FlaskConical,
+} from 'lucide-react'
 import type { OfDetail } from '@/lib/of/types'
 import { type DiagResult } from '@/lib/of/diagnostic-types'
 import { route } from '@/lib/routes'
@@ -105,6 +114,8 @@ export function OfDetailSheet(props: {
   /** Composants en rupture (table Composants) — pilote le warning d'affermissement. */
   const rupturedComponents = (detail?.bom ?? []).filter((r) => !r.ok)
   const hasRuptures = rupturedComponents.length > 0
+  /** Composants dont la couverture ne tient que sur du stock sous contrôle qualité. */
+  const qcRows = (detail?.bom ?? []).filter((r) => r.qc)
   const canFirm = (() => {
     if (firmMsg?.ok) return false // déjà affermi ce tour → on masque le bouton
     const s = (detail?.statusLabel ?? '').toLowerCase()
@@ -309,9 +320,37 @@ export function OfDetailSheet(props: {
                     </div>
                   )}
 
+                  {/* Dépendance au contrôle qualité : le stock statut Q compte comme dispo
+                      dans le verdict, mais l'OF n'est pas lançable tant qu'il n'est pas
+                      libéré → l'action est de relancer le contrôle réception. */}
+                  {qcRows.length > 0 && (
+                    <div className="mb-3 rounded-md border border-warning/40 bg-warning/10 px-3 py-2.5">
+                      <div className="mb-1.5 flex items-center gap-1.5 font-mono text-[10px] font-bold tracking-wider text-warning">
+                        <FlaskConical size={14} strokeWidth={1.75} />
+                        {qcRows.length} COMPOSANT{qcRows.length > 1 ? 'S' : ''} SOUS CONTRÔLE
+                        QUALITÉ
+                      </div>
+                      <div className="mb-2 flex flex-wrap gap-1.5">
+                        {qcRows.map((r) => (
+                          <span
+                            key={r.id}
+                            className="inline-flex items-baseline gap-1 rounded border border-warning/40 bg-background px-2 py-0.5 font-mono text-[11px]"
+                          >
+                            <span className="font-bold text-foreground">{r.id}</span>
+                            <span className="font-semibold text-warning">{r.qc}</span>
+                          </span>
+                        ))}
+                      </div>
+                      <p className="text-[11px] leading-snug text-muted-foreground">
+                        Ces quantités sont comptées disponibles mais restent bloquées en statut Q.
+                        Action : contacter le contrôle réception pour faire lever le contrôle.
+                      </p>
+                    </div>
+                  )}
+
                   {/* En-tête table */}
                   <div className="mb-1 flex items-center justify-between">
-                    {d.bomBlocked === 0 && d.bom.length > 0 && (
+                    {d.bomBlocked === 0 && d.bom.length > 0 && qcRows.length === 0 && (
                       <div className="flex items-center gap-2 rounded-md bg-ferme/10 px-3 py-1.5 text-[12px] font-medium text-ferme">
                         <CircleCheck size={15} strokeWidth={1.75} />
                         Tous les composants sont disponibles
@@ -335,11 +374,17 @@ export function OfDetailSheet(props: {
                       key={row.id}
                       className={cn(
                         'grid grid-cols-[1fr_1.7fr_72px_84px_96px] items-center gap-3 border-b px-3 py-2',
-                        row.ok
-                          ? 'border-rule-soft'
-                          : 'border-l-2 border-destructive/20 border-l-destructive bg-destructive/10'
+                        !row.ok
+                          ? 'border-l-2 border-destructive/20 border-l-destructive bg-destructive/10'
+                          : row.qc
+                            ? 'border-l-2 border-warning/20 border-l-warning bg-warning/10'
+                            : 'border-rule-soft'
                       )}
-                      title={`${row.id} — ${row.name}`}
+                      title={
+                        row.qc
+                          ? `${row.id} — ${row.name}\n${row.qc} sous contrôle qualité : contacter le contrôle réception`
+                          : `${row.id} — ${row.name}`
+                      }
                     >
                       <span
                         className={cn(
@@ -355,10 +400,20 @@ export function OfDetailSheet(props: {
                       </span>
                       <span className="text-right font-mono text-[12px] text-muted-foreground">
                         {row.stock}
+                        {row.qc && (
+                          <span className="ml-1 font-semibold text-warning">·Q{row.qc}</span>
+                        )}
                       </span>
                       <span className="text-right">
                         {row.ok ? (
-                          <span className="font-bold text-ferme">✓</span>
+                          row.qc ? (
+                            <span className="inline-flex items-center gap-1 font-mono text-[11px] font-bold text-warning">
+                              <FlaskConical size={12} strokeWidth={2} />
+                              CQ
+                            </span>
+                          ) : (
+                            <span className="font-bold text-ferme">✓</span>
+                          )
                         ) : (
                           <span className="font-mono text-[12px] font-bold text-destructive">
                             −{row.shortage}

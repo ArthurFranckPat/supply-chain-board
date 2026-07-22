@@ -20,6 +20,11 @@ export interface BomRow {
   unit: string
   ok: boolean
   shortage: string | null
+  /**
+   * Quantité couverte uniquement par du stock sous contrôle qualité (statut Q).
+   * Non nul → ligne « ok » mais non lançable tant que le contrôle réception n'a pas libéré.
+   */
+  qc?: string | null
 }
 
 export interface OfDetail {

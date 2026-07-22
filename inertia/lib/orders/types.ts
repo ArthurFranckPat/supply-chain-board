@@ -89,6 +89,8 @@ export interface OrderBomRow {
   unit: string
   ok: boolean
   shortage: string | null
+  /** Part du besoin couverte par du stock sous contrôle qualité (statut Q), null sinon. */
+  qc?: string | null
 }
 
 /** Détail d'une ligne de commande — miroir de OrderPlanningController.lineDetail(). */

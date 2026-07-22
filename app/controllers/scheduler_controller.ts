@@ -33,6 +33,12 @@ interface BomRow {
   unit: string
   ok: boolean
   shortage: string | null
+  /**
+   * Quantité de ce composant qui ne tient QUE grâce au stock sous contrôle qualité
+   * (statut Q). Non nul → la ligne est « ok » mais l'OF n'est pas lançable tant que le
+   * contrôle réception n'a pas libéré le stock. null = aucune dépendance au CQ.
+   */
+  qc: string | null
 }
 
 interface StatItem {
@@ -465,25 +471,36 @@ export default class SchedulerController {
         const stockFlows =
           articleCodes.length > 0 ? await boardDataset.getStock(articleCodes).catch(() => []) : []
         const stockByArticle = buildStrictQcStock(stockFlows)
+        // Même dispo hors stock sous CQ : l'écart de manquants révèle les composants qui ne
+        // tiennent QUE grâce au statut Q (verdict inchangé, cf. badge board).
+        const stockStrictByArticle = buildStrictQcStock(
+          stockFlows.filter((f) => (f.origin as { subType?: string }).subType !== 'qc')
+        )
 
+        const engineOf = {
+          numOf: num,
+          article: mo?.article ?? '',
+          qteRestante: mo?.quantity ?? 0,
+          statutNum: status,
+          dateBesoin: null,
+          materials,
+        }
         const verdicts = evaluateRuptures(
-          [
-            {
-              numOf: num,
-              article: mo?.article ?? '',
-              qteRestante: mo?.quantity ?? 0,
-              statutNum: status,
-              dateBesoin: null,
-              materials,
-            },
-          ],
+          [engineOf],
           { articles: new Map(), nomenclatures: new Map(), stockNet: stockByArticle },
           'photo'
         )
+        const verdictsStrict = evaluateRuptures(
+          [engineOf],
+          { articles: new Map(), nomenclatures: new Map(), stockNet: stockStrictByArticle },
+          'photo'
+        )
         const missing = verdicts.get(num) ? directMissing(verdicts.get(num)!) : {}
+        const missingStrict = verdictsStrict.get(num) ? directMissing(verdictsStrict.get(num)!) : {}
         bom = materials.map((m) => {
           const available = stockByArticle.get(m.article) ?? 0
           const short = missing[m.article] ?? 0
+          const qcCovered = (missingStrict[m.article] ?? 0) - short
           return {
             id: m.article,
             name: m.description || m.article,
@@ -492,6 +509,7 @@ export default class SchedulerController {
             unit: m.unit ?? '',
             ok: short <= 0,
             shortage: short > 0 ? `−${short.toFixed(0)}` : null,
+            qc: qcCovered > 0 ? qcCovered.toFixed(0) : null,
           }
         })
       }
@@ -600,6 +618,10 @@ export default class SchedulerController {
     const reachable = expandArticleSetWithBom([mo.article], nomEntries)
     const stockFlows = await boardDataset.getStock([...reachable]).catch(() => [])
     const stockNet = buildStrictQcStock(stockFlows)
+    // Dispo hors CQ : révèle les composants tenant uniquement sur du stock statut Q.
+    const stockNetStrict = buildStrictQcStock(
+      stockFlows.filter((f) => (f.origin as { subType?: string }).subType !== 'qc')
+    )
 
     const of: RuptureOfInput = {
       numOf,
@@ -612,11 +634,18 @@ export default class SchedulerController {
     const requirements = resolveOfRequirements(of, dataset)
     const verdict = evaluateRuptures([of], dataset, 'photo').get(numOf)
     const missing = verdict ? directMissing(verdict) : {}
+    const verdictStrict = evaluateRuptures(
+      [of],
+      { articles, nomenclatures, stockNet: stockNetStrict },
+      'photo'
+    ).get(numOf)
+    const missingStrict = verdictStrict ? directMissing(verdictStrict) : {}
 
     const nFr = (n: number) => Math.round(n * 100) / 100
     return requirements.map((r) => {
       const available = stockNet.get(r.article) ?? 0
       const short = missing[r.article] ?? 0
+      const qcCovered = (missingStrict[r.article] ?? 0) - short
       const need = r.need + r.coveredByPhantomStock
       return {
         id: r.article,
@@ -626,6 +655,7 @@ export default class SchedulerController {
         unit: '',
         ok: short <= 0,
         shortage: short > 0 ? `−${nFr(short).toFixed(0)}` : null,
+        qc: qcCovered > 0 ? nFr(qcCovered).toFixed(0) : null,
       }
     })
   }

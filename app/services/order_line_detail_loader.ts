@@ -41,10 +41,14 @@ export async function loadOrderLineDetail(num: string, ligne: string) {
     ? await boardDataset.getStock(compArticles).catch(() => [])
     : []
   const stockByArticle = new Map<string, number>()
+  // Part sous contrôle qualité, tracée à part : elle compte dans le dispo (règle inchangée)
+  // mais doit rester visible — l'action est de relancer le contrôle réception.
+  const qcByArticle = new Map<string, number>()
   for (const f of stockFlows) {
     const sub = (f.origin as { subType?: string })?.subType
     if (sub === 'strict' || sub === 'qc') {
       stockByArticle.set(f.article, (stockByArticle.get(f.article) ?? 0) + f.quantity)
+      if (sub === 'qc') qcByArticle.set(f.article, (qcByArticle.get(f.article) ?? 0) + f.quantity)
     }
   }
   const receptionFlows = await boardDataset.getReceptions().catch(() => [])
@@ -58,6 +62,10 @@ export async function loadOrderLineDetail(num: string, ligne: string) {
         available += rec.quantity
     }
     const ok = available >= need
+    // Quantité de CQ réellement mobilisée = ce que le stock libre (+ réceptions arrivées)
+    // ne couvre pas, plafonné au CQ disponible.
+    const qc = qcByArticle.get(comp.componentArticle) ?? 0
+    const qcUsed = Math.min(qc, Math.max(0, need - (available - qc)))
     return {
       article: comp.componentArticle,
       description: comp.componentDescription,
@@ -66,6 +74,7 @@ export async function loadOrderLineDetail(num: string, ligne: string) {
       unit: '',
       ok,
       shortage: ok ? null : String(nFr(need - available)),
+      qc: qcUsed > 0 ? String(nFr(qcUsed)) : null,
     }
   })
   const bomBlocked = bom.filter((b) => !b.ok).length
