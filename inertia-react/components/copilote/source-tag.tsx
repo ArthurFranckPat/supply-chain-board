@@ -10,11 +10,11 @@ import { toolLabel } from '@r/lib/copilote/tool-labels'
  */
 const SOURCE_TAG_RE = /\[([a-zA-Z][a-zA-Z0-9_]*):\s*([^\]]+)\]/g
 
-function SourceTag(props: { tool: string; detail: string; onFlash: (tool: string) => void }) {
+export function SourceTag(props: { tool: string; detail?: string; onFlash: (tool: string) => void }) {
   return (
     <button
       type="button"
-      title={`[${props.tool}: ${props.detail}]`}
+      title={props.detail ? `[${props.tool}: ${props.detail}]` : undefined}
       onClick={() => props.onFlash(props.tool)}
       className={cn(
         'mx-px inline-flex items-center rounded-[5px] border-b-[1.5px] border-transparent bg-brand/10 px-1.5 py-px font-mono text-[10.5px] font-semibold text-primary transition-colors',

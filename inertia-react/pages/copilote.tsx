@@ -36,7 +36,7 @@ import { CopiloteSidebar } from '@r/components/copilote/sidebar'
 import { InspectorPanel, deriveInspectorContext } from '@r/components/copilote/inspector'
 import { Composer } from '@r/components/copilote/composer'
 import { ToolTokens } from '@r/components/copilote/tool-tokens'
-import { renderMessageText } from '@r/components/copilote/source-tag'
+import { CopiloteMarkdown } from '@r/components/copilote/markdown'
 
 /** Metadata émise par le backend sur le chunk `start` (ex-event `session`). */
 interface AgentMessageMetadata {
@@ -270,12 +270,7 @@ export default function Copilote() {
                             }
                             if (isTextUIPart(part) && part.text) {
                               return (
-                                <div
-                                  key={idx}
-                                  className="whitespace-pre-wrap text-[15.5px] leading-[1.7] text-foreground"
-                                >
-                                  {renderMessageText(part.text, flashTool)}
-                                </div>
+                                <CopiloteMarkdown key={idx} text={part.text} onFlash={flashTool} />
                               )
                             }
                             return null
