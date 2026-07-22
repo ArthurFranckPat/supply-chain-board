@@ -67,10 +67,24 @@ Page `/writeback-test` (op `run`, publicName `FIRMSUGG`) ou route board
 
 ## ZSOAPPRINT.src — imprimer les documents d'un OF (issue #85)
 
-Enveloppe `IMPRIM0` (`From GIMP`) pour sortir **un état standard X3 sur un OF**,
-en silencieux, vers une destination `GESADI`. L'application ne parle jamais à une
-imprimante : elle passe un code destination, le serveur d'impression X3 fait le
-reste. Aucun PDF n'est régénéré côté board.
+Enveloppe **`ETAT` (script `AIMP3`)** pour sortir un état standard X3 sur un OF,
+en silencieux, vers une destination `APRINTER` (**`GESAIM`**, et non `GESADI`).
+L'application ne parle jamais à une imprimante : elle passe un code destination,
+le serveur d'impression X3 fait le reste. Aucun PDF n'est régénéré côté board.
+
+```l4g
+Call ETAT(code_etat, destination, langue, trace, message, TBPAR, TBVAL) From AIMP3
+```
+
+`TBPAR` / `TBVAL` = deux tableaux parallèles (noms de paramètres, valeurs), les
+noms étant les codes d'`AREPORTD`. 4ᵉ argument = trace (1 journalise, 0 non).
+
+**`IMPRIM0 ... From GIMP` n'existe pas.** L'issue #85 l'annonçait, aucune source
+ne la documente, et le coût de l'erreur est élevé : un `Call` vers un
+sous-programme inexistant empêche le chargement du script entier, donc l'appel
+SOAP échoue sans aucun message — y compris sur une sonde qui ne fait que deux
+affectations. Même piège pour la chaîne `"NOM=VALEUR;NOM=VALEUR"`, qui n'est pas
+le format attendu.
 
 ### Signature
 
@@ -150,6 +164,10 @@ Un échec *dans* le corps remonte, lui, un message dans `WW_MESS`.
 
 ### Points à valider au 1er test
 
+- **Destination fichier** : un état sort vers une destination de type fichier
+  via une section `$FICHIER` dans son script, qui récupère le nom de fichier
+  dans les paramètres. À vérifier sur `BONTRV` et `BSM` avant de conclure qu'un
+  tir `PDFFILE` muet est un échec.
 - **Statut d'impression : contrôle absent, dette ouverte.** `[S]stat1` a été
   retiré du code — identifiant non vérifié sur cette version, et un identifiant
   inconnu rend le script entier non chargeable, ce qui donne un échec muet même
