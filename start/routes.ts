@@ -87,6 +87,13 @@ router
       })
       .as('x3_writeback_test')
 
+    // Impression X3 (issue #85, lot 1) — appel direct de ZSOAPPRINT sur un OF.
+    router
+      .get('/print-test', async ({ inertia }) => {
+        return inertia.render('print-test', {})
+      })
+      .as('x3_print_test')
+
     // Pages Inertia (HTML, sans param de path) — URLs françaises (app pour public FR).
     // Les endpoints JSON associés vivent sous /api/v1/planning (P3, #18).
     //   /ordonnancement : board OF, vue experte haute densité
@@ -287,6 +294,10 @@ router
           .as('x3_writeback.run')
       })
       .prefix('/api/v1/x3/writeback')
+
+    // Impression X3 (issue #85, lot 1) — ZSOAPPRINT sur un OF, terrain de test.
+    // ⚠️ Une destination imprimante sort du papier : rester sur PDFFILE.
+    router.post('/api/v1/x3/print/test', '#controllers/print_test_controller.run').as('x3_print.test')
 
     // Baseline perf (issue #33) — P50/P95 par route, collectés par timing_middleware.
     router.get('/api/v1/_perf', '#controllers/perf_controller.index').as('perf.index')

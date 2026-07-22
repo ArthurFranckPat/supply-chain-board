@@ -30,6 +30,19 @@ export interface RunResult {
   messages: ObjectMessage[]
   error: string
   raw: string
+  /** Entrée de pool adonix ayant servi l'appel (`technicalInfos.poolEntryIdx`). */
+  poolEntryIdx: string | null
+  /** Trace X3 (`<traceRequest>`), non vide seulement si `trace: true`. */
+  trace: string
+}
+
+export interface RunOptions {
+  /**
+   * Active la trace X3 (`adxwss.trace.on`). La réponse porte alors le wrapper
+   * appelé, les arguments transmis et le `Result(n)` du sous-programme —
+   * seule source d'information quand l'appel échoue sans message SOAP.
+   */
+  trace?: boolean
 }
 
 const ENDPOINT = (config: X3SoapConfig) =>
@@ -55,7 +68,15 @@ function parseFields(resultXml: string): Record<string, string> {
   return out
 }
 
-function buildEnvelope(config: X3SoapConfig, publicName: string, inputXml: string): string {
+function buildEnvelope(
+  config: X3SoapConfig,
+  publicName: string,
+  inputXml: string,
+  options: RunOptions = {}
+): string {
+  const requestConfig = options.trace
+    ? 'adxwss.optreturn=XML&amp;adxwss.beautify=true&amp;adxwss.trace.on=on&amp;adxwss.trace.size=32768'
+    : 'adxwss.optreturn=XML&amp;adxwss.beautify=true'
   return `<?xml version="1.0" encoding="utf-8"?>
 <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:wss="http://www.adonix.com/WSS" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <soapenv:Header/>
@@ -65,7 +86,7 @@ function buildEnvelope(config: X3SoapConfig, publicName: string, inputXml: strin
         <codeLang xsi:type="xsd:string">FRA</codeLang>
         <poolAlias xsi:type="xsd:string">${config.pool}</poolAlias>
         <poolId xsi:type="xsd:string"></poolId>
-        <requestConfig xsi:type="xsd:string">adxwss.optreturn=XML&amp;adxwss.beautify=true</requestConfig>
+        <requestConfig xsi:type="xsd:string">${requestConfig}</requestConfig>
       </callContext>
       <publicName xsi:type="xsd:string">${publicName}</publicName>
       <inputXml xsi:type="xsd:string"><![CDATA[${inputXml}]]></inputXml>
@@ -78,9 +99,10 @@ function buildEnvelope(config: X3SoapConfig, publicName: string, inputXml: strin
 export async function callRunSubprog(
   publicName: string,
   config: X3SoapConfig,
-  inputXml: string
+  inputXml: string,
+  options: RunOptions = {}
 ): Promise<RunResult> {
-  const envelope = buildEnvelope(config, publicName, inputXml)
+  const envelope = buildEnvelope(config, publicName, inputXml, options)
 
   const tmpFile = join(tmpdir(), `x3_run_${process.pid}_${randomBytes(4).toString('hex')}.xml`)
   writeFileSync(tmpFile, envelope, 'utf-8')
@@ -114,6 +136,8 @@ export async function callRunSubprog(
           messages: [],
           error: `curl: ${stderr?.trim() || error.message}`,
           raw: stdout || '',
+          poolEntryIdx: null,
+          trace: '',
         })
         return
       }
@@ -126,6 +150,10 @@ export async function callRunSubprog(
         messages: parsed.messages,
         error: parsed.error,
         raw: parsed.raw,
+        poolEntryIdx: stdout.match(/<poolEntryIdx[^>]*>([^<]*)<\/poolEntryIdx>/)?.[1] ?? null,
+        trace: decodeEntities(
+          stdout.match(/<traceRequest[^>]*>([\s\S]*?)<\/traceRequest>/)?.[1] ?? ''
+        ),
       })
     })
   })
