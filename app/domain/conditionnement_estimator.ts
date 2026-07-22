@@ -133,55 +133,65 @@ function observationsValides(obs: PaletteObservation[]): PaletteObservation[] {
 }
 
 /**
- * Valeur retenue pour l'estimation STOCK selon la règle des emplacements palette :
+ * Valeur retenue pour l'estimation STOCK — RÈGLE UNIQUE : **consensus SM***.
  *
- *  - **Cas A — consensus SM*** : ≥ 2 emplacements de stockage (`SM*`) à la MÊME
- *    valeur → on retourne cette valeur (palette type confirmée par redondance).
- *  - **Cas B — SM* + conso** : exactement 1 emplacement de stockage (`SM*`) +
- *    au moins 1 emplacement de consommation (`S*P`/`CLP`, valeur différente
- *    autorisée) → on retourne la valeur du `SM*` (le S*P valide la présence
- *    d'un stock palette, mais sa valeur est ignorée car entamée).
+ * Il faut ≥ `SEUIL_DOMINANCE_STOCK` (2) emplacements de stockage (`SM*`) portant
+ * la MÊME quantité. Cette redondance est la seule preuve qu'on observe une
+ * palette type et non un reliquat : deux emplacements distincts ne se retrouvent
+ * pas à la même qté par hasard.
  *
- * La présence d'au moins un `SM*` est OBLIGATOIRE : un stock constitué
- * uniquement de `S*P`/`CLP` (consommation) n'est pas fiable (palette entamée).
+ * Un `SM*` UNIQUE ne prouve RIEN, même accompagné d'un `S*P`/`CLP`. Contre-exemple
+ * qui a motivé la suppression de l'ancienne branche « 1 SM* + conso » : article à
+ * 100 en `SMAC11` + 457 en `S9P`. Rien ne dit que les 100 ne sont pas le reliquat
+ * d'une palette ayant servi à réalimenter le `S9P` — l'ancienne règle affirmait
+ * pourtant « palette = 100 ». On ne conclut plus : STOJOU prend le relais.
  *
- * Retourne null si : aucun `SM*`, ou plusieurs `SM*` à valeurs toutes
- * différentes (stock entamé, pas de palette type identifiable) SANS S*P/CLP
- * pour valider la branche B.
+ * Les `S*P`/`CLP` (consommation) sont donc totalement hors-jeu : ni valeur, ni
+ * présence. Ils ne servent qu'à être exclus du consensus.
+ *
+ * En cas d'égalité (deux qtés atteignant le seuil avec le MÊME nombre
+ * d'emplacements), aucune n'est plus légitime que l'autre → null. Sinon, la plus
+ * fréquente gagne (et non la première rencontrée : l'ordre des lignes X3 n'est
+ * pas un critère métier).
+ *
+ * Retourne `{ valeur, occurrences }`, ou null si pas de consensus.
  */
-function valeurStock(stockage: PaletteObservation[], conso: PaletteObservation[]): number | null {
-  // Cas A : consensus sur les SM* (≥ 2 à la même valeur).
+function valeurStock(stockage: PaletteObservation[]): { valeur: number; occurrences: number } | null {
   const compte = new Map<number, number>()
   for (const o of stockage) compte.set(o.us, (compte.get(o.us) ?? 0) + 1)
+
+  let meilleure: { valeur: number; occurrences: number } | null = null
+  let exAequo = false
   for (const [valeur, occurrences] of compte) {
-    if (occurrences >= SEUIL_DOMINANCE_STOCK) return valeur
+    if (occurrences < SEUIL_DOMINANCE_STOCK) continue
+    if (!meilleure || occurrences > meilleure.occurrences) {
+      meilleure = { valeur, occurrences }
+      exAequo = false
+    } else if (occurrences === meilleure.occurrences) {
+      exAequo = true
+    }
   }
-  // Cas B : 1 SM* + au moins 1 S*P/CLP → on prend la valeur du SM*.
-  // (S'il y a plusieurs SM* à valeurs différentes, on prend la dominante.)
-  if (stockage.length >= 1 && conso.length >= 1) {
-    if (stockage.length === 1) return stockage[0]!.us
-    // Plusieurs SM* différents + conso : on prend le mode des SM*.
-    return mode(stockage.map((o) => o.us))
-  }
-  return null
+  // Deux conditionnements candidats à égalité stricte : indécidable, on se tait.
+  return exAequo ? null : meilleure
 }
 
 /**
- * Estimation STOCK : applique la règle des emplacements palette (consensus SM*
- * ou SM* + conso). Un SM* est toujours requis ; les S*P/CLP valident la
- * présence mais leur valeur est ignorée (consommation).
+ * Estimation STOCK : consensus d'au moins `SEUIL_DOMINANCE_STOCK` emplacements
+ * `SM*` à la même quantité. Les `S*P`/`CLP` sont ignorés (palette entamée).
+ *
+ * `observations` = nombre d'emplacements portant la valeur RETENUE (pas le total
+ * des lignes lues) : la confiance doit refléter ce qui soutient le verdict.
  */
 export function estimerDepuisStock(obs: PaletteObservation[]): EstimationResult | null {
   const valides = observationsValides(obs.filter((o) => o.source === 'STOCK'))
   const stockage = valides.filter((o) => o.typeEmplacement === 'stockage')
-  const conso = valides.filter((o) => o.typeEmplacement === 'conso')
-  const valeur = valeurStock(stockage, conso)
-  if (valeur === null || valeur <= 0) return null
+  const consensus = valeurStock(stockage)
+  if (consensus === null || consensus.valeur <= 0) return null
   return {
-    usParPalette: valeur,
+    usParPalette: consensus.valeur,
     source: 'STOCK',
-    confiance: valides.length >= SEUIL_CONFIANCE_OK ? 'ok' : 'faible',
-    observations: valides.length,
+    confiance: consensus.occurrences >= SEUIL_CONFIANCE_OK ? 'ok' : 'faible',
+    observations: consensus.occurrences,
   }
 }
 
@@ -211,7 +221,7 @@ function estimerDepuisStojou(obs: PaletteObservation[]): EstimationResult | null
  * Logique :
  *  1. Si STOCK a une valeur dominante fiable (≥ 2 emplacements à la même qté) →
  *     on retourne l'estimation STOCK (palette type observée sur le stock live).
- *  2. Sinon (stock entamé / palette unique / vide), fallback STOJOU : médiane des
+ *  2. Sinon (stock entamé / palette unique / vide), fallback STOJOU : mode des
  *     rangements historiques (palettes complètes au moment du rangement).
  *  3. Sinon null → l'article reste « Coef manquant » (aucune estimation possible).
  *

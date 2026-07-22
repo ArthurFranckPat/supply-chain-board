@@ -102,33 +102,36 @@ test.group('estimerUsParPalette — dominance SM* vs S*P', () => {
   })
 
   test("SM* unique SANS conso → pas d'estimation STOCK", ({ assert }) => {
-    // 1 SM* seul : ni consensus (≥ 2 identiques), ni SM*+conso → null.
+    // 1 SM* seul : pas de consensus (≥ 2 identiques requis) → null.
     const r = estimerUsParPalette([sm(42)], [])
     assert.isNull(r)
   })
 
-  test('SM* unique + S*P présent → on garde la valeur SM*', ({ assert }) => {
-    // 1 SM* à 42 + 1 S*P à 720 (valeurs différentes) → 42 (le SM*).
+  test("SM* unique + S*P présent → toujours pas d'estimation STOCK", ({ assert }) => {
+    // Un S*P ne prouve RIEN sur la valeur du SM* : le SM* peut être le reliquat
+    // d'une palette ayant servi à réalimenter le S*P.
     const r = estimerUsParPalette([sm(42), conso(720)], [])
-    assert.isNotNull(r)
-    assert.equal(r!.usParPalette, 42)
-    assert.equal(r!.source, 'STOCK')
+    assert.isNull(r)
   })
 
-  test('SM* + CLP présent → on garde la valeur SM* (CLP = conso)', ({ assert }) => {
-    // 1 SM* à 2250 + 1 CLP à 720 → 2250 (le SM*, cas A1248L02).
+  test('cas réel SMAC11 100 + S9P 457 → null (le 100 peut être un reliquat)', ({ assert }) => {
+    const r = estimerUsParPalette([sm(100), conso(457)], [])
+    assert.isNull(r)
+  })
+
+  test("SM* unique + CLP présent → pas d'estimation STOCK", ({ assert }) => {
     const r = estimerUsParPalette([sm(2250), conso(720)], [])
-    assert.isNotNull(r)
-    assert.equal(r!.usParPalette, 2250)
+    assert.isNull(r)
   })
 
   test('SM* consensus + S*P à valeur différente → consensus SM* gagne', ({ assert }) => {
     // 2 SM* à 42 (consensus) + 1 S*P à 17 (consommation, ignoré) → 42.
+    // observations = 2 (les SM* du consensus), le S*P ne compte pas.
     const r = estimerUsParPalette([sm(42), sm(42), conso(17)], [])
     assert.isNotNull(r)
     assert.equal(r!.usParPalette, 42)
     assert.equal(r!.source, 'STOCK')
-    assert.equal(r!.observations, 3)
+    assert.equal(r!.observations, 2)
   })
 
   test("S*P seuls (pas de SM*) → pas d'estimation STOCK", ({ assert }) => {
@@ -137,17 +140,29 @@ test.group('estimerUsParPalette — dominance SM* vs S*P', () => {
   })
 
   test('stock entamé : SM* à valeurs différentes SANS conso → null', ({ assert }) => {
-    // 3 SM* à qtés différentes, pas de conso → pas de consensus ni de branche B.
+    // 3 SM* à qtés différentes → aucun consensus.
     const r = estimerUsParPalette([sm(42), sm(17), sm(9)], [])
     assert.isNull(r)
   })
 
-  test('stock entamé : SM* à valeurs différentes + conso → mode des SM*', ({ assert }) => {
-    // 3 SM* différents + 1 conso → on prend le mode des SM* (le plus récurrent,
-    // sinon le plus grand en cas d'égalité). Ici tous différents → le plus grand.
+  test('stock entamé : SM* à valeurs différentes + conso → null aussi', ({ assert }) => {
+    // La présence d'un S*P ne rattrape pas l'absence de consensus.
     const r = estimerUsParPalette([sm(42), sm(17), sm(9), conso(5)], [])
+    assert.isNull(r)
+  })
+
+  test('consensus le plus fréquent gagne (pas le premier rencontré)', ({ assert }) => {
+    // 2 SM* à 17 énumérés d'abord, 3 SM* à 960 → 960 (3 occurrences).
+    const r = estimerUsParPalette([sm(17), sm(17), sm(960), sm(960), sm(960)], [])
     assert.isNotNull(r)
-    assert.equal(r!.usParPalette, 42) // mode = plus grand en cas d'égalité d'occurrences
+    assert.equal(r!.usParPalette, 960)
+    assert.equal(r!.observations, 3)
+  })
+
+  test('deux consensus à égalité stricte → null (indécidable)', ({ assert }) => {
+    // 2 SM* à 42 et 2 SM* à 960 : aucune valeur n'est plus légitime que l'autre.
+    const r = estimerUsParPalette([sm(42), sm(42), sm(960), sm(960)], [])
+    assert.isNull(r)
   })
 })
 
