@@ -168,8 +168,25 @@ Un échec *dans* le corps remonte, lui, un message dans `WW_MESS`.
   via une section `$FICHIER` dans son script, qui récupère le nom de fichier
   dans les paramètres. À vérifier sur `BONTRV` et `BSM` avant de conclure qu'un
   tir `PDFFILE` muet est un échec.
-- **Statut d'impression : contrôle absent, dette ouverte.** `[S]stat1` a été
-  retiré du code — identifiant non vérifié sur cette version, et un identifiant
+### Chaîne prouvée en CLTEST (22/07/2026)
+
+| Appel | `WRETCOD` | Retour |
+| --- | --- | --- |
+| `BONTRV` · `F126-47558` · `PDFFILE` | 0 | `Impression de l'état BONTRV\Bons de travail\Imprimante PDFFILE` |
+| `BSM` · `F126-47558` · `PDFFILE` | 0 | `Impression de l'état BSM\Bons de sortie matières\Imprimante PDFFILE` |
+| `PING` | 0 | `pong` |
+| OF inexistant | 1 | `OF F999-00000 introuvable (MFGHEAD).` |
+| destination inexistante | 1 | `Destination DESTBIDON introuvable (GESAIM).` |
+| état inexistant | 1 | `État ETATBIDON introuvable dans le dictionnaire (GESARP).` |
+
+Le 4ᵉ argument d'`ETAT` à 1 fait remonter un **message X3 nommant l'état et la
+destination**, exposé côté app comme `printMessage`. C'est le signal positif qui
+manquait : un `WRETCOD=0` sans ce message ne distingue pas un tir réel d'un appel
+sans effet. Il reste faible — il atteste que X3 a soumis l'édition, pas que le
+document est sorti de l'imprimante.
+
+- **Statut d'impression : contrôle partiel.** `[S]stat1` a été
+  retiré du code (API inexistante) — identifiant non vérifié sur cette version, et un identifiant
   inconnu rend le script entier non chargeable, ce qui donne un échec muet même
   sur la sonde PING. En l'état, `WRETCOD=0` veut dire « `IMPRIM0` a rendu la
   main », pas « le document est sorti » : **l'invariant 1 de l'issue #85 n'est

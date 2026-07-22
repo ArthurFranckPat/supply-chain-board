@@ -52,6 +52,14 @@ export default class PrintTestController {
     const started = Date.now()
     const result = await callRunSubprog('ZSOAPPRINT', config, inputXml, { trace })
 
+    // `ETAT` appelé avec le drapeau de trace émet un message nommant l'état ET la
+    // destination : « Impression de l'état BONTRV\Bons de travail\Imprimante
+    // PDFFILE ». C'est le seul signal positif dont on dispose — WRETCOD=0 seul ne
+    // distingue pas un tir réel d'un appel qui n'a rien produit. Il reste faible :
+    // il atteste que X3 a soumis l'édition, pas que le document est sorti.
+    const printMessage =
+      result.messages.find((m) => m.text.includes(rptCod) && m.text.includes(dest))?.text ?? null
+
     return {
       ok: result.ok,
       status: result.status,
@@ -62,6 +70,8 @@ export default class PrintTestController {
       // Verdict du subprogram. Absents si l'appel n'a pas atteint le corps.
       retCod: result.fields.WRETCOD ?? null,
       retErMsg: result.fields.WRETERMSG ?? null,
+      /** Message X3 confirmant la soumission de l'édition — null si absent. */
+      printMessage,
       fields: result.fields,
       messages: result.messages,
       error: result.error,

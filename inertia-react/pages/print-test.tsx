@@ -30,6 +30,7 @@ interface RunResponse {
   sent?: Record<string, string>
   retCod?: string | null
   retErMsg?: string | null
+  printMessage?: string | null
   fields?: Record<string, string>
   messages?: { type: number; text: string }[]
   error?: string | null
@@ -104,9 +105,11 @@ export default function PrintTest() {
 
   const verdict = res
     ? res.retCod === '0'
-      ? { txt: 'IMPRIM0 a rendu la main', tone: 'ok' as const }
+      ? res.printMessage
+        ? { txt: 'Édition soumise à X3', tone: 'ok' as const }
+        : { txt: 'Appel passé, aucune confirmation X3', tone: 'warn' as const }
       : res.retCod
-        ? { txt: `Échec subprogram (WRETCOD=${res.retCod})`, tone: 'ko' as const }
+        ? { txt: `Refusé par le subprogram (WRETCOD=${res.retCod})`, tone: 'ko' as const }
         : { txt: 'Corps du subprogram jamais atteint', tone: 'ko' as const }
     : null
 
@@ -202,7 +205,15 @@ export default function PrintTest() {
         {res && (
           <section className="flex flex-col gap-3 rounded-lg border p-4">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge variant={verdict?.tone === 'ok' ? 'default' : 'destructive'}>
+              <Badge
+                variant={
+                  verdict?.tone === 'ok'
+                    ? 'default'
+                    : verdict?.tone === 'warn'
+                      ? 'outline'
+                      : 'destructive'
+                }
+              >
                 {verdict?.txt}
               </Badge>
               <Badge variant="outline">status SOAP {String(res.status)}</Badge>
@@ -217,11 +228,26 @@ export default function PrintTest() {
               </span>
             </div>
 
+            {res.printMessage && (
+              <p className="rounded bg-emerald-50 p-3 text-sm text-emerald-900">
+                {res.printMessage}
+              </p>
+            )}
+
             {res.retCod === '0' && (
               <p className="text-muted-foreground text-sm">
-                <strong>WRETCOD=0 ne prouve pas que le document est sorti.</strong> Le contrôle de
-                statut côté L4G n’est pas rétabli : vérifier la sortie réelle avant toute
-                conclusion.
+                {res.printMessage ? (
+                  <>
+                    X3 a <strong>soumis</strong> l’édition à la destination. Ça ne prouve pas que le
+                    document est sorti : ni la file d’impression, ni le serveur d’édition ne
+                    remontent ici.
+                  </>
+                ) : (
+                  <>
+                    <strong>Aucun message de confirmation X3.</strong> L’appel est passé, mais rien
+                    n’atteste qu’une édition a été soumise.
+                  </>
+                )}
               </p>
             )}
 
