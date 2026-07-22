@@ -49,6 +49,17 @@ WRETERMSG = ""
 # Capture TOUTE erreur runtime → message en sortie.
 Onerrgo ERRPRINT
 
+# --- 0. Sonde de vie : WRPTCOD="PING" ---------------------------------------
+# Sort AVANT tout Local File, tout IMPRIM0, tout [S]stat1. Sert à séparer un
+# problème de publication/chargement (le pong ne revient pas) d'un problème
+# d'impression (le pong revient, l'impression échoue). Garde son utilité en
+# exploitation : vérifier la chaîne SOAP sans risquer une feuille.
+If ZPRTRPT = "PING"
+    WRETCOD   = 0
+    WRETERMSG = "pong"
+    End
+Endif
+
 If ZPRTRPT = "" Or ZPRTFCY = "" Or ZPRTOFN = "" Or ZPRTDST = ""
     WRETERMSG = "Paramètres incomplets (état/site/OF/destination requis)."
     End

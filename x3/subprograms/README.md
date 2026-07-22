@@ -126,6 +126,14 @@ Même procédure que `FIRMSUGG` (classic SOAP, type `GOSUB`, script et subprogra
 
 **Save → Valider** (WSDL), puis **redémarrer le pool**.
 
+### Sonde de vie (PING)
+
+`WRPTCOD="PING"` sort immédiatement avec `WRETCOD=0` / `WRETERMSG="pong"`, avant
+tout `Local File`, tout `IMPRIM0`, tout `[S]stat1`. Les autres paramètres sont
+ignorés. Sépare un problème de publication ou de chargement du pool (pas de pong)
+d'un problème d'impression (pong OK, tirage KO), et sert de test de chaîne sans
+consommer de papier.
+
 ### Points à valider au 1er test
 
 - **`[S]stat1`** : variable de statut d'`IMPRIM0`. Si le compilateur la refuse
