@@ -95,6 +95,10 @@ export interface ApiDefinition {
     upsertRule: typeof routes['print_config.upsert_rule']
     deleteRule: typeof routes['print_config.delete_rule']
     jobs: typeof routes['print_config.jobs']
+    reconcile: typeof routes['print_config.reconcile']
+  }
+  printJournal: typeof routes['print_journal'] & {
+    rows: typeof routes['print_journal.rows']
   }
   orderPlanning: {
     index: typeof routes['order_planning.index']

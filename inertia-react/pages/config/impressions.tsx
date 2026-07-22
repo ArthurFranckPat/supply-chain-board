@@ -514,6 +514,12 @@ export default function ImpressionsConfig(props: PageProps) {
           <span className="rounded-md bg-brand-soft px-2.5 py-1 font-semibold text-brand">
             Impressions
           </span>
+          <a
+            href={route('print_journal')}
+            className="ml-auto rounded-md px-2.5 py-1 font-semibold text-muted-foreground hover:text-foreground"
+          >
+            Journal des tirages →
+          </a>
         </nav>
 
         <div>

@@ -562,6 +562,61 @@ class PrintService {
     return { ok, atelier, documents }
   }
 
+  /**
+   * Tranche les tirages restés sans verdict, en relisant le serveur d'édition.
+   *
+   * N'a de prise que sur les tâches encore présentes côté serveur, donc sur les
+   * installations où la rétention est activée (« Time before deleting print job
+   * status », 0 par défaut). Le cas contraire n'est pas une erreur : c'est une
+   * information, et elle est rendue telle quelle plutôt que déguisée en succès.
+   */
+  async reconcilePending(config?: X3EnvConfig): Promise<{
+    pending: number
+    resolved: number
+    note: string
+  }> {
+    const cfg = config ?? getX3EnvConfig()
+    const rows = await PrintJob.query()
+      .where('status', 'submitted')
+      .whereIn('server_verdict', ['pending', 'unknown'])
+      .where('job_rank', '>', 0)
+      .orderBy('id', 'desc')
+      .limit(500)
+
+    if (rows.length === 0) return { pending: 0, resolved: 0, note: 'Aucun tirage en attente.' }
+
+    const jobs = await fetchJobs(cfg, cfg.printServer)
+    if ('error' in jobs) {
+      return { pending: rows.length, resolved: 0, note: `Serveur d’édition : ${jobs.error}` }
+    }
+    if (jobs.length === 0) {
+      return {
+        pending: rows.length,
+        resolved: 0,
+        note:
+          'Le serveur d’édition ne conserve aucune tâche. Activer « Time before deleting print job status » côté console pour pouvoir trancher après coup.',
+      }
+    }
+
+    const byRank = new Map(jobs.map((j) => [j.rank, j]))
+    let resolved = 0
+    for (const row of rows) {
+      const j = byRank.get(row.jobRank)
+      if (!j) continue
+      row.serverVerdict = j.status === 'OK' ? 'ok' : 'error'
+      row.jobPhase = j.phase ?? row.jobPhase
+      row.jobDetail = j.status === 'OK' ? '' : j.status
+      row.verdictInferred = false
+      await row.save()
+      resolved++
+    }
+    return {
+      pending: rows.length,
+      resolved,
+      note: `${resolved} tirage(s) tranché(s) sur ${rows.length} en attente.`,
+    }
+  }
+
   /** Serveur d'édition déclaré par une destination (`APRINTER.PRTSRV`). */
   private async serverOf(destCode: string, config: X3EnvConfig): Promise<string> {
     const known = await this.listX3Destinations(config).catch(() => [])

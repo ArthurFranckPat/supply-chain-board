@@ -319,6 +319,18 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'print_journal': {
+    methods: ["GET","HEAD"]
+    pattern: '/impressions'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'calendar_config.toggle_holiday': {
     methods: ["POST"]
     pattern: '/api/v1/config/holidays/toggle'
@@ -418,6 +430,30 @@ export interface Registry {
   'print_config.jobs': {
     methods: ["GET","HEAD"]
     pattern: '/api/v1/config/print/jobs'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'print_config.reconcile': {
+    methods: ["POST"]
+    pattern: '/api/v1/config/print/reconcile'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'print_journal.rows': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/config/print/journal'
     types: {
       body: {}
       paramsTuple: []

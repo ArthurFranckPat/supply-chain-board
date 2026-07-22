@@ -143,7 +143,11 @@ export default class PrintConfigController {
     }
   }
 
-  /** GET /api/v1/config/print/jobs — journal des tirages (50 derniers par défaut). */
+  /**
+   * GET /api/v1/config/print/jobs — 50 derniers tirages, sans filtre.
+   * Le journal filtrable vit sur `/impressions` (`print_journal_controller`) :
+   * une seule implémentation des filtres, pour qu'elles ne divergent pas.
+   */
   async jobs(ctx: HttpContext) {
     const limit = Math.min(Number(ctx.request.input('limit') ?? 50) || 50, 500)
     const ofNum = String(ctx.request.input('of') ?? '').trim()
@@ -151,6 +155,18 @@ export default class PrintConfigController {
     if (ofNum) q.where('of_num', ofNum)
     const rows = await q
     return { ok: true, jobs: rows.map(serializeJob) }
+  }
+
+  /**
+   * POST /api/v1/config/print/reconcile — tranche les tirages sans verdict.
+   * Même règle que `node ace print:reconcile`, déclenchée depuis l'écran.
+   */
+  async reconcile(ctx: HttpContext) {
+    try {
+      return { ok: true, ...(await printService.reconcilePending()) }
+    } catch (e) {
+      return ctx.response.badGateway({ ok: false, error: String(e) })
+    }
   }
 }
 

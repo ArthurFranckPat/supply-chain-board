@@ -157,6 +157,34 @@ declare module '@adonisjs/inertia/types' {
       postes: { code: string; label: string; atelier: string }[]
       ateliers: { code: string; label: string }[]
     }
+    // Journal d'exploitation des impressions (issue #85, lot 4).
+    impressions: {
+      jobs: {
+        id: number
+        ofNum: string
+        docType: string
+        docLabel: string
+        attempt: number
+        stoloc: string
+        atelierLabel: string
+        destCode: string
+        sandbox: boolean
+        status: string
+        serverVerdict: string
+        jobRank: number
+        jobPhase: string
+        jobDetail: string
+        verdictInferred: boolean
+        message: string
+        error: string
+        origin: string
+        requestedBy: string
+        createdAt: number
+      }[]
+      ateliers: { code: string; label: string }[]
+      autoPrintMode: string
+      since: number
+    }
     // Routage d'impression du dossier d'OF (issue #85, lot 2).
     'config/impressions': {
       ateliers: { code: string; label: string }[]

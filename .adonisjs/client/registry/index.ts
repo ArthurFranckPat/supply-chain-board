@@ -162,6 +162,12 @@ const routes = {
     tokens: [{"old":"/configuration/impressions","type":0,"val":"configuration","end":""},{"old":"/configuration/impressions","type":0,"val":"impressions","end":""}],
     types: placeholder as Registry['print_config.index']['types'],
   },
+  'print_journal': {
+    methods: ["GET","HEAD"],
+    pattern: '/impressions',
+    tokens: [{"old":"/impressions","type":0,"val":"impressions","end":""}],
+    types: placeholder as Registry['print_journal']['types'],
+  },
   'calendar_config.toggle_holiday': {
     methods: ["POST"],
     pattern: '/api/v1/config/holidays/toggle',
@@ -215,6 +221,18 @@ const routes = {
     pattern: '/api/v1/config/print/jobs',
     tokens: [{"old":"/api/v1/config/print/jobs","type":0,"val":"api","end":""},{"old":"/api/v1/config/print/jobs","type":0,"val":"v1","end":""},{"old":"/api/v1/config/print/jobs","type":0,"val":"config","end":""},{"old":"/api/v1/config/print/jobs","type":0,"val":"print","end":""},{"old":"/api/v1/config/print/jobs","type":0,"val":"jobs","end":""}],
     types: placeholder as Registry['print_config.jobs']['types'],
+  },
+  'print_config.reconcile': {
+    methods: ["POST"],
+    pattern: '/api/v1/config/print/reconcile',
+    tokens: [{"old":"/api/v1/config/print/reconcile","type":0,"val":"api","end":""},{"old":"/api/v1/config/print/reconcile","type":0,"val":"v1","end":""},{"old":"/api/v1/config/print/reconcile","type":0,"val":"config","end":""},{"old":"/api/v1/config/print/reconcile","type":0,"val":"print","end":""},{"old":"/api/v1/config/print/reconcile","type":0,"val":"reconcile","end":""}],
+    types: placeholder as Registry['print_config.reconcile']['types'],
+  },
+  'print_journal.rows': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/config/print/journal',
+    tokens: [{"old":"/api/v1/config/print/journal","type":0,"val":"api","end":""},{"old":"/api/v1/config/print/journal","type":0,"val":"v1","end":""},{"old":"/api/v1/config/print/journal","type":0,"val":"config","end":""},{"old":"/api/v1/config/print/journal","type":0,"val":"print","end":""},{"old":"/api/v1/config/print/journal","type":0,"val":"journal","end":""}],
+    types: placeholder as Registry['print_journal.rows']['types'],
   },
   'order_planning.index': {
     methods: ["GET","HEAD"],

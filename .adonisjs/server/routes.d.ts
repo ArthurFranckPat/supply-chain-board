@@ -30,6 +30,7 @@ export type ScannedRoutes = {
     'agent.show': { paramsTuple?: []; params?: {} }
     'calendar_config.index': { paramsTuple?: []; params?: {} }
     'print_config.index': { paramsTuple?: []; params?: {} }
+    'print_journal': { paramsTuple?: []; params?: {} }
     'calendar_config.toggle_holiday': { paramsTuple?: []; params?: {} }
     'calendar_config.create_closure': { paramsTuple?: []; params?: {} }
     'calendar_config.update_closure': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -39,6 +40,8 @@ export type ScannedRoutes = {
     'print_config.upsert_rule': { paramsTuple?: []; params?: {} }
     'print_config.delete_rule': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'print_config.jobs': { paramsTuple?: []; params?: {} }
+    'print_config.reconcile': { paramsTuple?: []; params?: {} }
+    'print_journal.rows': { paramsTuple?: []; params?: {} }
     'order_planning.index': { paramsTuple?: []; params?: {} }
     'order_planning.line_detail': { paramsTuple: [ParamValue,ParamValue]; params: {'order': ParamValue,'line': ParamValue} }
     'order_planning.update': { paramsTuple: [ParamValue,ParamValue]; params: {'order': ParamValue,'line': ParamValue} }
@@ -120,8 +123,10 @@ export type ScannedRoutes = {
     'agent.show': { paramsTuple?: []; params?: {} }
     'calendar_config.index': { paramsTuple?: []; params?: {} }
     'print_config.index': { paramsTuple?: []; params?: {} }
+    'print_journal': { paramsTuple?: []; params?: {} }
     'print_config.destinations': { paramsTuple?: []; params?: {} }
     'print_config.jobs': { paramsTuple?: []; params?: {} }
+    'print_journal.rows': { paramsTuple?: []; params?: {} }
     'order_planning.index': { paramsTuple?: []; params?: {} }
     'order_planning.line_detail': { paramsTuple: [ParamValue,ParamValue]; params: {'order': ParamValue,'line': ParamValue} }
     'planning_board.articles_by_component': { paramsTuple: [ParamValue]; params: {'component': ParamValue} }
@@ -180,8 +185,10 @@ export type ScannedRoutes = {
     'agent.show': { paramsTuple?: []; params?: {} }
     'calendar_config.index': { paramsTuple?: []; params?: {} }
     'print_config.index': { paramsTuple?: []; params?: {} }
+    'print_journal': { paramsTuple?: []; params?: {} }
     'print_config.destinations': { paramsTuple?: []; params?: {} }
     'print_config.jobs': { paramsTuple?: []; params?: {} }
+    'print_journal.rows': { paramsTuple?: []; params?: {} }
     'order_planning.index': { paramsTuple?: []; params?: {} }
     'order_planning.line_detail': { paramsTuple: [ParamValue,ParamValue]; params: {'order': ParamValue,'line': ParamValue} }
     'planning_board.articles_by_component': { paramsTuple: [ParamValue]; params: {'component': ParamValue} }
@@ -222,6 +229,7 @@ export type ScannedRoutes = {
     'calendar_config.create_closure': { paramsTuple?: []; params?: {} }
     'print_config.update_settings': { paramsTuple?: []; params?: {} }
     'print_config.upsert_rule': { paramsTuple?: []; params?: {} }
+    'print_config.reconcile': { paramsTuple?: []; params?: {} }
     'planning_board.board_feasibility': { paramsTuple?: []; params?: {} }
     'planning.suggestion_firm': { paramsTuple: [ParamValue]; params: {'sugNum': ParamValue} }
     'print.print': { paramsTuple: [ParamValue]; params: {'orderNum': ParamValue} }

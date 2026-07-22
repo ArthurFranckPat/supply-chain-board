@@ -124,6 +124,7 @@ router
     router
       .get('/configuration/impressions', '#controllers/print_config_controller.index')
       .as('print_config.index')
+    router.get('/impressions', '#controllers/print_journal_controller.index').as('print_journal')
 
     // Configuration calendrier usine — API JSON (issue #37).
     router
@@ -139,6 +140,8 @@ router
         router.post('/print/rules', '#controllers/print_config_controller.upsertRule')
         router.delete('/print/rules/:id', '#controllers/print_config_controller.deleteRule')
         router.get('/print/jobs', '#controllers/print_config_controller.jobs')
+        router.post('/print/reconcile', '#controllers/print_config_controller.reconcile')
+        router.get('/print/journal', '#controllers/print_journal_controller.rows')
       })
       .prefix('/api/v1/config')
 
