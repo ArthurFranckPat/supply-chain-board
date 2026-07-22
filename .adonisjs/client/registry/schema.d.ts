@@ -139,6 +139,18 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'x3_print_test': {
+    methods: ["GET","HEAD"]
+    pattern: '/print-test'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'scheduling': {
     methods: ["GET","HEAD"]
     pattern: '/ordonnancement'
@@ -295,6 +307,18 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'print_config.index': {
+    methods: ["GET","HEAD"]
+    pattern: '/configuration/impressions'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'calendar_config.toggle_holiday': {
     methods: ["POST"]
     pattern: '/api/v1/config/holidays/toggle'
@@ -338,6 +362,54 @@ export interface Registry {
       body: {}
       paramsTuple: [ParamValue]
       params: { id: ParamValue }
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'print_config.destinations': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/config/print/destinations'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'print_config.upsert_rule': {
+    methods: ["POST"]
+    pattern: '/api/v1/config/print/rules'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'print_config.delete_rule': {
+    methods: ["DELETE"]
+    pattern: '/api/v1/config/print/rules/:id'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'print_config.jobs': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/config/print/jobs'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
       query: {}
       response: unknown
       errorResponse: unknown
@@ -922,6 +994,18 @@ export interface Registry {
   'x3_writeback.run': {
     methods: ["POST"]
     pattern: '/api/v1/x3/writeback/run'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'x3_print.test': {
+    methods: ["POST"]
+    pattern: '/api/v1/x3/print/test'
     types: {
       body: {}
       paramsTuple: []

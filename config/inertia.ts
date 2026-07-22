@@ -157,6 +157,50 @@ declare module '@adonisjs/inertia/types' {
       postes: { code: string; label: string; atelier: string }[]
       ateliers: { code: string; label: string }[]
     }
+    // Routage d'impression du dossier d'OF (issue #85, lot 2).
+    'config/impressions': {
+      ateliers: { code: string; label: string }[]
+      destinations: {
+        code: string
+        label: string
+        kind: number
+        kindLabel: string
+        server: string
+        queue: string
+        active: boolean
+        sandbox: boolean
+      }[]
+      destinationsError: string
+      rules: {
+        id: number
+        stoloc: string
+        atelierLabel: string
+        docType: string
+        destCode: string
+        destLabel: string
+        sandbox: boolean
+        note: string
+        updatedAt: number
+        updatedBy: string
+      }[]
+      jobs: {
+        id: number
+        ofNum: string
+        docType: string
+        attempt: number
+        stoloc: string
+        destCode: string
+        sandbox: boolean
+        status: string
+        retCod: string
+        message: string
+        error: string
+        durationMs: number
+        origin: string
+        requestedBy: string
+        createdAt: number
+      }[]
+    }
     'scheduler/comparer': {
       scenarios: any[]
       planActuel: any

@@ -2,7 +2,7 @@
  * AUTO-GÉNÉRÉ par scripts/gen-routes-manifest.mjs — NE PAS ÉDITER À LA MAIN.
  * Source : `start/routes.ts` → `node ace list:routes --jsonl`.
  * Régénérer : `npm run routes:gen` · Vérifier la fraîcheur : `npm run routes:check`.
- * 77 routes nommées.
+ * 87 routes nommées.
  */
 
 export const MANIFEST = {
@@ -48,9 +48,16 @@ export const MANIFEST = {
   "planning_board.update": { method: "PATCH", pattern: "/api/v1/planning/ofs/:of" },
   "planning.order_firm": { method: "POST", pattern: "/api/v1/planning/orders/:orderNum/firm" },
   "planning.suggestion_firm": { method: "POST", pattern: "/api/v1/planning/suggestions/:sugNum/firm" },
+  "print_config.delete_rule": { method: "DELETE", pattern: "/api/v1/config/print/rules/:id" },
+  "print_config.destinations": { method: "GET", pattern: "/api/v1/config/print/destinations" },
+  "print_config.index": { method: "GET", pattern: "/configuration/impressions" },
+  "print_config.jobs": { method: "GET", pattern: "/api/v1/config/print/jobs" },
+  "print_config.upsert_rule": { method: "POST", pattern: "/api/v1/config/print/rules" },
   "promesse.articles": { method: "GET", pattern: "/api/v1/promesse/articles" },
   "promesse.index": { method: "GET", pattern: "/api/v1/promesse" },
   "promesse.show": { method: "GET", pattern: "/promesse" },
+  "react_lab": { method: "GET", pattern: "/react-lab" },
+  "receptions.criticite": { method: "GET", pattern: "/api/v1/receptions/criticite" },
   "receptions.index": { method: "GET", pattern: "/receptions" },
   "receptions.rows": { method: "GET", pattern: "/api/v1/receptions/rows" },
   "scenarios.compare": { method: "GET", pattern: "/programme/scenarios/comparer" },
@@ -75,6 +82,9 @@ export const MANIFEST = {
   "suivi.proactive_rows": { method: "GET", pattern: "/api/v1/status/proactive-rows" },
   "suivi.retard_charge": { method: "POST", pattern: "/api/v1/status/retard-charge" },
   "suivi.rows": { method: "GET", pattern: "/api/v1/status/rows" },
+  "user.dashboard_layout.update": { method: "PATCH", pattern: "/api/v1/user/dashboard-layout" },
+  "x3_print_test": { method: "GET", pattern: "/print-test" },
+  "x3_print.test": { method: "POST", pattern: "/api/v1/x3/print/test" },
   "x3_writeback_test": { method: "GET", pattern: "/writeback-test" },
   "x3_writeback.delete": { method: "GET", pattern: "/api/v1/x3/writeback/delete" },
   "x3_writeback.describe": { method: "GET", pattern: "/api/v1/x3/writeback/describe" },
@@ -134,9 +144,16 @@ export type RouteParams = {
   "planning_board.update": { "of": string | number },
   "planning.order_firm": { "orderNum": string | number },
   "planning.suggestion_firm": { "sugNum": string | number },
+  "print_config.delete_rule": { "id": string | number },
+  "print_config.destinations": void,
+  "print_config.index": void,
+  "print_config.jobs": void,
+  "print_config.upsert_rule": void,
   "promesse.articles": void,
   "promesse.index": void,
   "promesse.show": void,
+  "react_lab": void,
+  "receptions.criticite": void,
   "receptions.index": void,
   "receptions.rows": void,
   "scenarios.compare": void,
@@ -161,6 +178,9 @@ export type RouteParams = {
   "suivi.proactive_rows": void,
   "suivi.retard_charge": void,
   "suivi.rows": void,
+  "user.dashboard_layout.update": void,
+  "x3_print_test": void,
+  "x3_print.test": void,
   "x3_writeback_test": void,
   "x3_writeback.delete": void,
   "x3_writeback.describe": void,

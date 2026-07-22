@@ -121,6 +121,9 @@ router
     router.get('/promesse', '#controllers/promise_controller.show').as('promesse.show')
     router.get('/copilote', '#controllers/agent_controller.show').as('agent.show')
     router.get('/configuration/calendrier', '#controllers/calendar_config_controller.index')
+    router
+      .get('/configuration/impressions', '#controllers/print_config_controller.index')
+      .as('print_config.index')
 
     // Configuration calendrier usine — API JSON (issue #37).
     router
@@ -129,6 +132,12 @@ router
         router.post('/closures', '#controllers/calendar_config_controller.createClosure')
         router.patch('/closures/:id', '#controllers/calendar_config_controller.updateClosure')
         router.delete('/closures/:id', '#controllers/calendar_config_controller.deleteClosure')
+
+        // Routage d'impression du dossier d'OF (issue #85, lot 2).
+        router.get('/print/destinations', '#controllers/print_config_controller.destinations')
+        router.post('/print/rules', '#controllers/print_config_controller.upsertRule')
+        router.delete('/print/rules/:id', '#controllers/print_config_controller.deleteRule')
+        router.get('/print/jobs', '#controllers/print_config_controller.jobs')
       })
       .prefix('/api/v1/config')
 

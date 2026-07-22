@@ -23,6 +23,7 @@ export interface ApiDefinition {
   diagnosticTest: typeof routes['diagnostic_test']
   reactLab: typeof routes['react_lab']
   x3WritebackTest: typeof routes['x3_writeback_test']
+  x3PrintTest: typeof routes['x3_print_test']
   scheduling: typeof routes['scheduling']
   planning: typeof routes['planning'] & {
     suggestionFirm: typeof routes['planning.suggestion_firm']
@@ -87,6 +88,13 @@ export interface ApiDefinition {
     updateClosure: typeof routes['calendar_config.update_closure']
     deleteClosure: typeof routes['calendar_config.delete_closure']
   }
+  printConfig: {
+    index: typeof routes['print_config.index']
+    destinations: typeof routes['print_config.destinations']
+    upsertRule: typeof routes['print_config.upsert_rule']
+    deleteRule: typeof routes['print_config.delete_rule']
+    jobs: typeof routes['print_config.jobs']
+  }
   orderPlanning: {
     index: typeof routes['order_planning.index']
     lineDetail: typeof routes['order_planning.line_detail']
@@ -122,6 +130,9 @@ export interface ApiDefinition {
     delete: typeof routes['x3_writeback.delete']
     list: typeof routes['x3_writeback.list']
     run: typeof routes['x3_writeback.run']
+  }
+  x3Print: {
+    test: typeof routes['x3_print.test']
   }
   perf: {
     index: typeof routes['perf.index']

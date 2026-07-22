@@ -211,3 +211,31 @@ document est sorti de l'imprimante.
 
 Page `/writeback-test` (op `run`, publicName `ZSOAPPRINT`) sur un OF connu du
 site, destination `PDFFILE`.
+
+## Lot 2 — routage et journal côté board
+
+Le subprogram ne décide de rien : il reçoit un code destination. Le choix de la
+destination et le verrou d'idempotence vivent côté application (issue #85, lot 2).
+
+- `print_destinations` — une règle par **atelier (STOLOC) × document**, plus une
+  règle par défaut (`stoloc = ''`). Le drapeau `sandbox` n'est pas déclaratif :
+  il est recopié depuis `APRINTER.PRT_0` (seul le type 2 met du papier dans un
+  bac), donc l'écran ne peut pas mentir sur l'effet physique d'une règle.
+- `print_jobs` — journal de chaque tentative, y compris les échecs. Le rang
+  `attempt` est unique par `(of_num, doc_type)` : deux appels concurrents ne
+  peuvent pas produire deux tirages « initiaux ». Une réimpression est explicite
+  (`force`), jamais un écrasement.
+- `app/services/print_service.ts` — résolution + verrou + appel + journal.
+  Aucune relance automatique : un échec reste un échec journalisé.
+- Écran : `/configuration/impressions`. CLI : `node ace print:of --of=… --site=…
+  [--doc=BSM] [--force] [--dry]` (aucun flag de destination — router est le rôle
+  de la table, pas de la ligne de commande).
+
+Chaîne éprouvée le 22/07/2026 en CLTEST via la CLI : `BONTRV` et `BSM` sur
+`F126-47558` vers `PDFFILE` → `submitted` + message X3 ; 2ᵉ appel sans `--force`
+→ refusé par le verrou, aucune ligne créée ; `--force` → tirage 2 ; OF inconnu →
+ligne `failed` portant « OF F126-00000 introuvable (MFGHEAD) ».
+
+La dette du lot 1 reste ouverte : `submitted` signifie « X3 a accepté l'édition »,
+pas « le document est sorti ». Ne pas router vers une imprimante d'atelier avant
+d'avoir rétabli un contrôle de statut.

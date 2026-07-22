@@ -15,6 +15,7 @@ export type ScannedRoutes = {
     'diagnostic_test': { paramsTuple?: []; params?: {} }
     'react_lab': { paramsTuple?: []; params?: {} }
     'x3_writeback_test': { paramsTuple?: []; params?: {} }
+    'x3_print_test': { paramsTuple?: []; params?: {} }
     'scheduling': { paramsTuple?: []; params?: {} }
     'planning': { paramsTuple?: []; params?: {} }
     'scheduler.shortage_tracker': { paramsTuple?: []; params?: {} }
@@ -28,10 +29,15 @@ export type ScannedRoutes = {
     'promesse.show': { paramsTuple?: []; params?: {} }
     'agent.show': { paramsTuple?: []; params?: {} }
     'calendar_config.index': { paramsTuple?: []; params?: {} }
+    'print_config.index': { paramsTuple?: []; params?: {} }
     'calendar_config.toggle_holiday': { paramsTuple?: []; params?: {} }
     'calendar_config.create_closure': { paramsTuple?: []; params?: {} }
     'calendar_config.update_closure': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'calendar_config.delete_closure': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'print_config.destinations': { paramsTuple?: []; params?: {} }
+    'print_config.upsert_rule': { paramsTuple?: []; params?: {} }
+    'print_config.delete_rule': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'print_config.jobs': { paramsTuple?: []; params?: {} }
     'order_planning.index': { paramsTuple?: []; params?: {} }
     'order_planning.line_detail': { paramsTuple: [ParamValue,ParamValue]; params: {'order': ParamValue,'line': ParamValue} }
     'order_planning.update': { paramsTuple: [ParamValue,ParamValue]; params: {'order': ParamValue,'line': ParamValue} }
@@ -81,6 +87,7 @@ export type ScannedRoutes = {
     'x3_writeback.delete': { paramsTuple?: []; params?: {} }
     'x3_writeback.list': { paramsTuple?: []; params?: {} }
     'x3_writeback.run': { paramsTuple?: []; params?: {} }
+    'x3_print.test': { paramsTuple?: []; params?: {} }
     'perf.index': { paramsTuple?: []; params?: {} }
     'agent.health': { paramsTuple?: []; params?: {} }
     'agent.chat': { paramsTuple?: []; params?: {} }
@@ -95,6 +102,7 @@ export type ScannedRoutes = {
     'diagnostic_test': { paramsTuple?: []; params?: {} }
     'react_lab': { paramsTuple?: []; params?: {} }
     'x3_writeback_test': { paramsTuple?: []; params?: {} }
+    'x3_print_test': { paramsTuple?: []; params?: {} }
     'scheduling': { paramsTuple?: []; params?: {} }
     'planning': { paramsTuple?: []; params?: {} }
     'scheduler.shortage_tracker': { paramsTuple?: []; params?: {} }
@@ -108,6 +116,9 @@ export type ScannedRoutes = {
     'promesse.show': { paramsTuple?: []; params?: {} }
     'agent.show': { paramsTuple?: []; params?: {} }
     'calendar_config.index': { paramsTuple?: []; params?: {} }
+    'print_config.index': { paramsTuple?: []; params?: {} }
+    'print_config.destinations': { paramsTuple?: []; params?: {} }
+    'print_config.jobs': { paramsTuple?: []; params?: {} }
     'order_planning.index': { paramsTuple?: []; params?: {} }
     'order_planning.line_detail': { paramsTuple: [ParamValue,ParamValue]; params: {'order': ParamValue,'line': ParamValue} }
     'planning_board.articles_by_component': { paramsTuple: [ParamValue]; params: {'component': ParamValue} }
@@ -150,6 +161,7 @@ export type ScannedRoutes = {
     'diagnostic_test': { paramsTuple?: []; params?: {} }
     'react_lab': { paramsTuple?: []; params?: {} }
     'x3_writeback_test': { paramsTuple?: []; params?: {} }
+    'x3_print_test': { paramsTuple?: []; params?: {} }
     'scheduling': { paramsTuple?: []; params?: {} }
     'planning': { paramsTuple?: []; params?: {} }
     'scheduler.shortage_tracker': { paramsTuple?: []; params?: {} }
@@ -163,6 +175,9 @@ export type ScannedRoutes = {
     'promesse.show': { paramsTuple?: []; params?: {} }
     'agent.show': { paramsTuple?: []; params?: {} }
     'calendar_config.index': { paramsTuple?: []; params?: {} }
+    'print_config.index': { paramsTuple?: []; params?: {} }
+    'print_config.destinations': { paramsTuple?: []; params?: {} }
+    'print_config.jobs': { paramsTuple?: []; params?: {} }
     'order_planning.index': { paramsTuple?: []; params?: {} }
     'order_planning.line_detail': { paramsTuple: [ParamValue,ParamValue]; params: {'order': ParamValue,'line': ParamValue} }
     'planning_board.articles_by_component': { paramsTuple: [ParamValue]; params: {'component': ParamValue} }
@@ -200,6 +215,7 @@ export type ScannedRoutes = {
     'auth.logout': { paramsTuple?: []; params?: {} }
     'calendar_config.toggle_holiday': { paramsTuple?: []; params?: {} }
     'calendar_config.create_closure': { paramsTuple?: []; params?: {} }
+    'print_config.upsert_rule': { paramsTuple?: []; params?: {} }
     'planning_board.board_feasibility': { paramsTuple?: []; params?: {} }
     'planning.suggestion_firm': { paramsTuple: [ParamValue]; params: {'sugNum': ParamValue} }
     'planning.order_firm': { paramsTuple: [ParamValue]; params: {'orderNum': ParamValue} }
@@ -214,6 +230,7 @@ export type ScannedRoutes = {
     'x3_writeback.save': { paramsTuple?: []; params?: {} }
     'x3_writeback.modify': { paramsTuple?: []; params?: {} }
     'x3_writeback.run': { paramsTuple?: []; params?: {} }
+    'x3_print.test': { paramsTuple?: []; params?: {} }
     'agent.chat': { paramsTuple?: []; params?: {} }
   }
   PATCH: {
@@ -225,6 +242,7 @@ export type ScannedRoutes = {
   }
   DELETE: {
     'calendar_config.delete_closure': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'print_config.delete_rule': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'order_planning.reset_override': { paramsTuple: [ParamValue,ParamValue]; params: {'order': ParamValue,'line': ParamValue} }
     'scenarios.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }

@@ -72,6 +72,12 @@ const routes = {
     tokens: [{"old":"/writeback-test","type":0,"val":"writeback-test","end":""}],
     types: placeholder as Registry['x3_writeback_test']['types'],
   },
+  'x3_print_test': {
+    methods: ["GET","HEAD"],
+    pattern: '/print-test',
+    tokens: [{"old":"/print-test","type":0,"val":"print-test","end":""}],
+    types: placeholder as Registry['x3_print_test']['types'],
+  },
   'scheduling': {
     methods: ["GET","HEAD"],
     pattern: '/ordonnancement',
@@ -150,6 +156,12 @@ const routes = {
     tokens: [{"old":"/configuration/calendrier","type":0,"val":"configuration","end":""},{"old":"/configuration/calendrier","type":0,"val":"calendrier","end":""}],
     types: placeholder as Registry['calendar_config.index']['types'],
   },
+  'print_config.index': {
+    methods: ["GET","HEAD"],
+    pattern: '/configuration/impressions',
+    tokens: [{"old":"/configuration/impressions","type":0,"val":"configuration","end":""},{"old":"/configuration/impressions","type":0,"val":"impressions","end":""}],
+    types: placeholder as Registry['print_config.index']['types'],
+  },
   'calendar_config.toggle_holiday': {
     methods: ["POST"],
     pattern: '/api/v1/config/holidays/toggle',
@@ -173,6 +185,30 @@ const routes = {
     pattern: '/api/v1/config/closures/:id',
     tokens: [{"old":"/api/v1/config/closures/:id","type":0,"val":"api","end":""},{"old":"/api/v1/config/closures/:id","type":0,"val":"v1","end":""},{"old":"/api/v1/config/closures/:id","type":0,"val":"config","end":""},{"old":"/api/v1/config/closures/:id","type":0,"val":"closures","end":""},{"old":"/api/v1/config/closures/:id","type":1,"val":"id","end":""}],
     types: placeholder as Registry['calendar_config.delete_closure']['types'],
+  },
+  'print_config.destinations': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/config/print/destinations',
+    tokens: [{"old":"/api/v1/config/print/destinations","type":0,"val":"api","end":""},{"old":"/api/v1/config/print/destinations","type":0,"val":"v1","end":""},{"old":"/api/v1/config/print/destinations","type":0,"val":"config","end":""},{"old":"/api/v1/config/print/destinations","type":0,"val":"print","end":""},{"old":"/api/v1/config/print/destinations","type":0,"val":"destinations","end":""}],
+    types: placeholder as Registry['print_config.destinations']['types'],
+  },
+  'print_config.upsert_rule': {
+    methods: ["POST"],
+    pattern: '/api/v1/config/print/rules',
+    tokens: [{"old":"/api/v1/config/print/rules","type":0,"val":"api","end":""},{"old":"/api/v1/config/print/rules","type":0,"val":"v1","end":""},{"old":"/api/v1/config/print/rules","type":0,"val":"config","end":""},{"old":"/api/v1/config/print/rules","type":0,"val":"print","end":""},{"old":"/api/v1/config/print/rules","type":0,"val":"rules","end":""}],
+    types: placeholder as Registry['print_config.upsert_rule']['types'],
+  },
+  'print_config.delete_rule': {
+    methods: ["DELETE"],
+    pattern: '/api/v1/config/print/rules/:id',
+    tokens: [{"old":"/api/v1/config/print/rules/:id","type":0,"val":"api","end":""},{"old":"/api/v1/config/print/rules/:id","type":0,"val":"v1","end":""},{"old":"/api/v1/config/print/rules/:id","type":0,"val":"config","end":""},{"old":"/api/v1/config/print/rules/:id","type":0,"val":"print","end":""},{"old":"/api/v1/config/print/rules/:id","type":0,"val":"rules","end":""},{"old":"/api/v1/config/print/rules/:id","type":1,"val":"id","end":""}],
+    types: placeholder as Registry['print_config.delete_rule']['types'],
+  },
+  'print_config.jobs': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/config/print/jobs',
+    tokens: [{"old":"/api/v1/config/print/jobs","type":0,"val":"api","end":""},{"old":"/api/v1/config/print/jobs","type":0,"val":"v1","end":""},{"old":"/api/v1/config/print/jobs","type":0,"val":"config","end":""},{"old":"/api/v1/config/print/jobs","type":0,"val":"print","end":""},{"old":"/api/v1/config/print/jobs","type":0,"val":"jobs","end":""}],
+    types: placeholder as Registry['print_config.jobs']['types'],
   },
   'order_planning.index': {
     methods: ["GET","HEAD"],
@@ -467,6 +503,12 @@ const routes = {
     pattern: '/api/v1/x3/writeback/run',
     tokens: [{"old":"/api/v1/x3/writeback/run","type":0,"val":"api","end":""},{"old":"/api/v1/x3/writeback/run","type":0,"val":"v1","end":""},{"old":"/api/v1/x3/writeback/run","type":0,"val":"x3","end":""},{"old":"/api/v1/x3/writeback/run","type":0,"val":"writeback","end":""},{"old":"/api/v1/x3/writeback/run","type":0,"val":"run","end":""}],
     types: placeholder as Registry['x3_writeback.run']['types'],
+  },
+  'x3_print.test': {
+    methods: ["POST"],
+    pattern: '/api/v1/x3/print/test',
+    tokens: [{"old":"/api/v1/x3/print/test","type":0,"val":"api","end":""},{"old":"/api/v1/x3/print/test","type":0,"val":"v1","end":""},{"old":"/api/v1/x3/print/test","type":0,"val":"x3","end":""},{"old":"/api/v1/x3/print/test","type":0,"val":"print","end":""},{"old":"/api/v1/x3/print/test","type":0,"val":"test","end":""}],
+    types: placeholder as Registry['x3_print.test']['types'],
   },
   'perf.index': {
     methods: ["GET","HEAD"],

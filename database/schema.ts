@@ -92,6 +92,66 @@ export class OrderLineOverrideSchema extends BaseModel {
   declare updatedAt: DateTime | null
 }
 
+export class PrintDestinationSchema extends BaseModel {
+  static $columns = ['destCode', 'destLabel', 'docType', 'id', 'note', 'sandbox', 'stoloc', 'updatedAt', 'updatedBy'] as const
+  $columns = PrintDestinationSchema.$columns
+  @column()
+  declare destCode: string
+  @column()
+  declare destLabel: string
+  @column()
+  declare docType: string
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare note: string
+  @column()
+  declare sandbox: boolean
+  @column()
+  declare stoloc: string
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime
+  @column()
+  declare updatedBy: string
+}
+
+export class PrintJobSchema extends BaseModel {
+  static $columns = ['attempt', 'createdAt', 'destCode', 'docType', 'durationMs', 'error', 'id', 'message', 'ofNum', 'origin', 'poolEntryIdx', 'requestedBy', 'retCod', 'sandbox', 'status', 'stoloc'] as const
+  $columns = PrintJobSchema.$columns
+  @column()
+  declare attempt: number
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare destCode: string
+  @column()
+  declare docType: string
+  @column()
+  declare durationMs: number
+  @column()
+  declare error: string
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare message: string
+  @column()
+  declare ofNum: string
+  @column()
+  declare origin: string
+  @column()
+  declare poolEntryIdx: string
+  @column()
+  declare requestedBy: string
+  @column()
+  declare retCod: string
+  @column()
+  declare sandbox: boolean
+  @column()
+  declare status: string
+  @column()
+  declare stoloc: string
+}
+
 export class ScenarioSchema extends BaseModel {
   static $columns = ['auteur', 'createdAt', 'dataAt', 'description', 'evaluatedAt', 'id', 'mutations', 'nom', 'statut', 'strategy', 'updatedAt'] as const
   $columns = ScenarioSchema.$columns
