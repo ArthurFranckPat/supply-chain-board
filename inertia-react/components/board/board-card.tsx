@@ -358,6 +358,7 @@ function OfListingCard(p: OfCardProps) {
           rogner les badges saillants (faisabilité/retard). */}
       <div
         className="relative h-7 overflow-hidden rounded-t-[7px]"
+        title={ghost ?? undefined}
         style={{
           background: `linear-gradient(135deg, color-mix(in srgb, ${tone} 14%, var(--card)), color-mix(in srgb, ${tone} 28%, var(--card)))`,
         }}
@@ -369,7 +370,21 @@ function OfListingCard(p: OfCardProps) {
             preserveAspectRatio="xMinYMid meet"
             className="absolute inset-y-0 left-2 right-2"
           >
-            <text x="0" y="17" fontFamily="var(--font-mono)" fontWeight={700} fontSize="20" fill={tone}>
+            {/* `textLength` + `lengthAdjust` : la largeur du viewBox est une ESTIMATION
+                (12 px/caractère) ; sans contrainte, une police mono un peu plus large
+                déborde et le SVG rogne la fin de la réf (bug observé : « VA65046 » rendu
+                « VA6504 »). Forcer la longueur rend le texte toujours entier, au prix
+                d'un resserrement de quelques % invisible à l'œil. */}
+            <text
+              x="0"
+              y="17"
+              textLength={ghostW}
+              lengthAdjust="spacingAndGlyphs"
+              fontFamily="var(--font-mono)"
+              fontWeight={700}
+              fontSize="20"
+              fill={tone}
+            >
               {ghost}
             </text>
           </svg>
@@ -407,6 +422,7 @@ function OfListingCard(p: OfCardProps) {
         )}
         {/* N° OF (ancre). Réserve à droite la place du tampon BDH si présent. */}
         <div
+          title={p.article}
           className={cn(
             'truncate font-mono text-[13px] font-bold leading-tight text-foreground',
             p.consommeBouche && 'pr-9'

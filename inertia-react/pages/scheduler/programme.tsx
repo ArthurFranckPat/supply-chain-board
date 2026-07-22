@@ -133,6 +133,26 @@ const ORDER_SCOPES = [
   { v: 'client' as const, label: 'Client' },
 ] as const
 
+/**
+ * Traduction de portée au changement de mode (les deux boards n'indexent pas les mêmes
+ * choses). Seuls « poste » et l'article (PF côté OF) ont un équivalent exact ; les portées
+ * sans contrepartie retombent sur « poste », qui existe des deux côtés — plutôt que de
+ * garder une portée qui ne matcherait rien et donnerait un board vide sans explication.
+ */
+const OF_TO_ORDER_SCOPE: Record<SearchScope, OrderSearchScope> = {
+  poste: 'poste',
+  pf: 'article',
+  of: 'poste',
+  composant: 'poste',
+}
+
+const ORDER_TO_OF_SCOPE: Record<OrderSearchScope, SearchScope> = {
+  poste: 'poste',
+  article: 'pf',
+  commande: 'poste',
+  client: 'poste',
+}
+
 type ScopeOption = { v: SearchScope | OrderSearchScope; label: string }
 
 // ---------------------------------------------------------------------------
@@ -163,6 +183,21 @@ export default function Programme(props: VisionProps) {
   // Switch de mode → toggle local + URL (replaceState)
   const switchMode = useCallback((newMode: VisionMode) => {
     if (newMode === mode) return
+    // Les modes OF/Combiné lisent le boardStore, le mode Cmdes l'orderStore : sans report
+    // explicite, franchir cette frontière vidait la recherche en cours. On reporte la
+    // requête et on traduit la portée (vocabulaires distincts) ; scope d'abord, query
+    // ensuite — l'inverse relancerait une recherche avec l'ancienne portée.
+    const wasOrderMode = mode === 'planification'
+    const willBeOrderMode = newMode === 'planification'
+    if (wasOrderMode !== willBeOrderMode) {
+      if (willBeOrderMode) {
+        orderStore.onScopeChange(OF_TO_ORDER_SCOPE[boardStore.scope])
+        orderStore.onQueryInput(boardStore.query)
+      } else {
+        boardStore.onScopeChange(ORDER_TO_OF_SCOPE[orderStore.scope])
+        boardStore.onQueryInput(orderStore.query)
+      }
+    }
     setMode(newMode)
     const url = new URL(window.location.href)
     if (newMode === 'combined') {
@@ -171,7 +206,7 @@ export default function Programme(props: VisionProps) {
       url.searchParams.set('mode', newMode)
     }
     window.history.replaceState({}, '', url)
-  }, [mode])
+  }, [mode, boardStore.query, boardStore.scope, orderStore.query, orderStore.scope])
 
   // Store « actif » selon le mode
   const isOrderMode = mode === 'planification'
