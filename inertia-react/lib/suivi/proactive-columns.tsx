@@ -53,7 +53,7 @@ export function createProactiveColumns({
           <div className="font-mono text-[13px] font-bold tracking-tight text-foreground">
             {getValue() as string}
           </div>
-          <div className="mt-0.5 font-sans text-[12px] font-medium leading-snug text-secondary-foreground">
+          <div className="mt-0.5 font-sans text-[12px] font-medium leading-snug lowercase text-secondary-foreground">
             {row.original.designation || '—'}
           </div>
         </>
@@ -140,7 +140,13 @@ export function createProactiveColumns({
               <span
                 className={cn(
                   'font-sans text-[9px] font-semibold leading-none',
-                  rel.label.startsWith('Retard') ? 'text-destructive/70' : 'text-muted-foreground'
+                  rel.label.startsWith('Retard')
+                    ? 'text-destructive'
+                    : rel.label === "Aujourd'hui"
+                      ? 'text-ferme'
+                      : rel.label === 'Demain'
+                        ? 'text-planifie'
+                        : 'text-muted-foreground'
                 )}
               >
                 {rel.label}
@@ -173,13 +179,16 @@ export function createProactiveColumns({
                     <div className="relative flex items-center gap-1.5">
                       {of.estDebuté && (
                         <span
-                          className="absolute -right-1 -top-1 size-1.5 rounded-full bg-foreground/40"
+                          className="absolute -right-1.5 -top-1.5 flex size-1.5"
                           title={
                             of.piecesFaites != null && of.piecesTotalOf
                               ? `OF démarré — ${of.piecesFaites}/${of.piecesTotalOf} pièces réalisées`
                               : 'OF démarré — pointage atelier en cours'
                           }
-                        />
+                        >
+                          <span className="absolute inline-flex size-full animate-ping rounded-full bg-ferme opacity-75" />
+                          <span className="relative inline-flex size-1.5 rounded-full bg-ferme" />
+                        </span>
                       )}
                       <button
                         type="button"
@@ -200,7 +209,10 @@ export function createProactiveColumns({
                       </button>
                       {st && (
                         <span
-                          className="shrink-0 cursor-help rounded bg-secondary px-1 py-px font-mono text-[9px] font-semibold leading-none text-muted-foreground"
+                          className={cn(
+                            'shrink-0 cursor-help rounded px-1 py-px font-mono text-[9px] font-bold leading-none',
+                            st.tone
+                          )}
                           title={
                             st.tag === 'WOF'
                               ? 'Work Order Firm (OF Ferme) — Validé et verrouillé'
@@ -215,7 +227,7 @@ export function createProactiveColumns({
                     </div>
                     {of.estDebuté && of.piecesFaites != null && of.piecesTotalOf && (
                       <span
-                        className="cursor-help font-mono text-[9px] font-medium leading-none text-muted-foreground tabular-nums"
+                        className="cursor-help font-mono text-[9px] font-semibold leading-none text-ferme tabular-nums"
                         title="Pièces réalisées / total OF (poste le plus avancé pointé)"
                       >
                         {of.piecesFaites}/{of.piecesTotalOf} pièces

@@ -49,7 +49,7 @@ export function createReactiveColumns({
           <div className="font-mono text-[13px] font-bold tracking-tight text-foreground">
             {getValue() as string}
           </div>
-          <div className="mt-0.5 font-sans text-[12px] font-medium leading-snug text-secondary-foreground">
+          <div className="mt-0.5 font-sans text-[12px] font-medium leading-snug lowercase text-secondary-foreground">
             {row.original.designation || '—'}
           </div>
         </>
@@ -147,7 +147,13 @@ export function createReactiveColumns({
               <span
                 className={cn(
                   'font-sans text-[9px] font-semibold leading-none',
-                  rel.label.startsWith('Retard') ? 'text-destructive/70' : 'text-muted-foreground'
+                  rel.label.startsWith('Retard')
+                    ? 'text-destructive'
+                    : rel.label === "Aujourd'hui"
+                      ? 'text-ferme'
+                      : rel.label === 'Demain'
+                        ? 'text-planifie'
+                        : 'text-muted-foreground'
                 )}
               >
                 {rel.label}
