@@ -30,6 +30,8 @@ interface RunResponse {
   sent?: Record<string, string>
   retCod?: string | null
   retErMsg?: string | null
+  /** Numéro de tâche du serveur d'édition (`ETATJOB` / NOJOB). */
+  jobNum?: string | null
   printMessage?: string | null
   fields?: Record<string, string>
   messages?: { type: number; text: string }[]
@@ -218,6 +220,9 @@ export default function PrintTest() {
               </Badge>
               <Badge variant="outline">status SOAP {String(res.status)}</Badge>
               {res.poolEntryIdx && <Badge variant="outline">pool #{res.poolEntryIdx}</Badge>}
+              {res.jobNum && res.jobNum !== '0' && (
+                <Badge variant="outline">tâche #{res.jobNum}</Badge>
+              )}
               {res.durationMs != null && <Badge variant="outline">{res.durationMs} ms</Badge>}
               {res.env && <Badge variant="outline">{res.env}</Badge>}
               <span className="ml-auto">

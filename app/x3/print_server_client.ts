@@ -148,12 +148,12 @@ export interface WatchResult {
 /**
  * Suit une tâche jusqu'à son issue.
  *
- * Le rapprochement se fait sur `(dossier, état, rang inconnu avant l'appel)` :
- * `knownRanks` doit être le relevé pris JUSTE AVANT de soumettre l'impression.
- * C'est un rapprochement par exclusion, honnête mais pas infaillible — deux
- * tirages simultanés du même état sur le même dossier resteraient ambigus. Il
- * deviendra exact le jour où le subprogram passera à `ETATJOB`, qui rend le
- * numéro de tâche.
+ * Deux modes de rapprochement, par ordre de fiabilité :
+ *  - `expectedRank` fourni — le numéro rendu par `ETATJOB` (paramètre `NOJOB`).
+ *    Identification exacte, y compris si plusieurs tirages partent ensemble.
+ *  - à défaut, exclusion sur `(dossier, état, rang absent de `knownRanks`)`, ce
+ *    relevé devant être pris JUSTE AVANT de soumettre. Honnête, mais ambigu si
+ *    deux tirages du même état partent simultanément.
  *
  * `unknown` n'est jamais transformé en `ok` : une tâche disparue avant d'être
  * vue (rétention à 0 + tirage très court) reste une tâche dont on ne sait rien.
@@ -165,6 +165,8 @@ export async function watchJob(
     folder: string
     report: string
     knownRanks: Set<number>
+    /** Numéro de tâche rendu par `ETATJOB` — rapprochement exact quand présent. */
+    expectedRank?: number
     timeoutMs?: number
     intervalMs?: number
   }
@@ -174,9 +176,12 @@ export async function watchJob(
   const deadline = Date.now() + timeout
   const reportFile = `${params.report}.rpt`.toLowerCase()
 
-  let seenRank: number | null = null
+  // Un rang connu d'avance vaut identification : on part avec.
+  let seenRank: number | null = params.expectedRank && params.expectedRank > 0 ? params.expectedRank : null
+  const exact = seenRank !== null
   let lastPhase = ''
   let lastError = ''
+  let everSeen = false
 
   while (Date.now() < deadline) {
     const jobs = await fetchJobs(config, printServer)
@@ -196,6 +201,7 @@ export async function watchJob(
 
     if (mine) {
       seenRank = mine.rank
+      everSeen = true
       lastPhase = mine.phase ?? lastPhase
       if (mine.status && mine.status !== 'OK') {
         return {
@@ -206,16 +212,17 @@ export async function watchJob(
           inferred: false,
         }
       }
-    } else if (seenRank !== null) {
+    } else if (everSeen) {
       // Vue puis disparue sans passer en erreur : le serveur d'édition l'a
-      // terminée et purgée (rétention à 0).
+      // terminée et purgée (rétention à 0). Le succès est déduit, pas lu —
+      // une erreur survenue entre deux sondages se lirait pareil.
       return { verdict: 'ok', rank: seenRank, phase: lastPhase, detail: '', inferred: true }
     }
 
     await new Promise((r) => setTimeout(r, interval))
   }
 
-  if (seenRank !== null) {
+  if (everSeen) {
     // Toujours en pile à l'expiration : pas d'échec constaté, pas de fin non plus.
     return {
       verdict: 'unknown',
@@ -227,11 +234,15 @@ export async function watchJob(
   }
   return {
     verdict: 'unknown',
-    rank: null,
+    // Le rang d'`ETATJOB` reste vrai même si la tâche n'a jamais été observée :
+    // c'est lui qui rendra la réconciliation différée possible.
+    rank: seenRank,
     phase: '',
     inferred: false,
     detail:
       lastError ||
-      'Tâche jamais observée : trop rapide pour le sondage, ou serveur d’édition muet. Activer la rétention côté console (« Time before deleting print job status ») lève l’ambiguïté.',
+      (exact
+        ? 'Tâche jamais observée malgré son numéro : terminée avant le premier sondage. Activer la rétention côté console (« Time before deleting print job status ») permet de trancher après coup.'
+        : 'Tâche jamais observée : trop rapide pour le sondage, ou serveur d’édition muet. Activer la rétention côté console lève l’ambiguïté.'),
   }
 }

@@ -11,35 +11,45 @@
 # (ex. ATELIER-MD, RESP-MAG, PDFFILE) et le serveur d'impression X3 (`PRTSRV`)
 # envoie le papier.
 #
-# /!\ API : `Call ETAT(...) From AIMP3`, avec DEUX TABLEAUX parallèles TBPAR /
+# /!\ API : `Call ETATJOB(...) From AIMP3`, avec DEUX TABLEAUX parallèles TBPAR /
 #     TBVAL (noms de paramètres, valeurs). Ce n'est PAS `IMPRIM0 From GIMP`, ni
 #     une chaîne "NOM=VALEUR;NOM=VALEUR" — cette API-là n'existe pas, et un Call
 #     vers un sous-programme inexistant empêche le CHARGEMENT DU SCRIPT ENTIER :
 #     l'appel SOAP échoue alors sans le moindre message, y compris sur PING.
 #
-# Signature : ZSOAPPRINT(WRPTCOD, WSTOFCY, WMFGNUM, WDEST, WRETCOD, WRETERMSG)
+# `ETATJOB` = `ETAT` + 4 paramètres (relevé ASUBPROGD, script AIMP3) :
+#   DIFF (différé), IMPDAT (date), IMPTIM (heure) et surtout **NOJOB**, seul
+#   paramètre passé PAR ADRESSE (ADRVAL=1) : X3 y écrit le NUMÉRO DE TÂCHE, celui
+#   qu'affiche PSIMP et que renvoie l'API REST du serveur d'édition. Sans lui, le
+#   board doit deviner sa tâche par exclusion ; avec lui, le rapprochement est
+#   exact.
+#
+# Signature : ZSOAPPRINT(WRPTCOD, WSTOFCY, WMFGNUM, WDEST, WRETCOD, WRETERMSG, WJOBNUM)
 #   WRPTCOD   IN   Char     Code état GESARP : BONTRV | BSM · "PING" = sonde
 #   WSTOFCY   IN   Char     Site production
 #   WMFGNUM   IN   Char     No OF (borne début = fin)
 #   WDEST     IN   Char     Code destination APRINTER (GESAIM)
 #   WRETCOD   OUT  Integer  0 = appel passé · 1 = échec (défaut 1) — SANS parenthèses
 #   WRETERMSG OUT  Char     Cause de l'échec
+#   WJOBNUM   OUT  Char     Numéro de tâche du serveur d'édition ("" si inconnu)
 #
-# /!\ WRETCOD=0 signifie « ETAT a rendu la main sans erreur runtime », PAS « le
-#     document est sorti ». L'invariant 1 de l'issue #85 (panne partielle
-#     invisible) n'est donc pas tenu tant qu'un contrôle de statut n'est pas
-#     identifié. Ne pas router vers une imprimante d'atelier sur cette base.
+# /!\ WRETCOD=0 signifie « ETATJOB a rendu la main sans erreur runtime », PAS
+#     « le document est sorti » : X3 ignore ce que devient l'édition. Le verdict
+#     d'aboutissement se lit sur l'API REST du serveur d'édition
+#     (`/print/<serveur>:1890/$jobs`), en rapprochant WJOBNUM du champ `rank`.
+#     Une file d'impression inexistante donne WRETCOD=0 ET status "Erreur".
 #
 # /!\ Aucune idempotence ici : le verrou (OF × type de document) vit côté board
 #     (table print_jobs). Deux appels = deux tirages. Le papier ne se reprend pas.
 ##############################################################################
-Subprog ZSOAPPRINT(WRPTCOD, WSTOFCY, WMFGNUM, WDEST, WRETCOD, WRETERMSG)
+Subprog ZSOAPPRINT(WRPTCOD, WSTOFCY, WMFGNUM, WDEST, WRETCOD, WRETERMSG, WJOBNUM)
 Value    Char    WRPTCOD()      # [IN]  Code état (GESARP) ou "PING"
 Value    Char    WSTOFCY()      # [IN]  Site production
 Value    Char    WMFGNUM()      # [IN]  No OF
 Value    Char    WDEST()        # [IN]  Code destination (GESAIM / APRINTER)
 Variable Integer WRETCOD        # [OUT] 0 = OK · 1 = échec
 Variable Char    WRETERMSG()    # [OUT] Message d'erreur ("" si OK)
+Variable Char    WJOBNUM()      # [OUT] Numéro de tâche serveur d'édition
 
 # Copies locales : les états standards hébergent des Local de même nom.
 Local Char    ZPRTRPT(30)  : ZPRTRPT = WRPTCOD
@@ -47,13 +57,19 @@ Local Char    ZPRTFCY(10)  : ZPRTFCY = WSTOFCY
 Local Char    ZPRTOFN(20)  : ZPRTOFN = WMFGNUM
 Local Char    ZPRTDST(30)  : ZPRTDST = WDEST
 
-# Tableaux de paramètres d'état, format attendu par ETAT.
+# Tableaux de paramètres d'état, format attendu par ETATJOB.
 Local Char    ZTBPAR(30)(1..20)
 Local Char    ZTBVAL(250)(1..20)
+
+# Sortie d'ETATJOB : numéro de tâche (Char côté dictionnaire, pas Integer).
+Local Char    ZPRTJOB(30)
+# Date d'impression différée. Laissée nulle = impression immédiate (DIFF=0).
+Local Date    ZPRTDAT
 
 # --- Sorties par défaut : échec tant que rien n'a prouvé le contraire --------
 WRETCOD   = 1
 WRETERMSG = ""
+WJOBNUM   = ""
 
 # Capture TOUTE erreur runtime → message en sortie.
 Onerrgo ERRPRINT
@@ -120,9 +136,12 @@ ZTBPAR(4) = "mfgnumfin"  : ZTBVAL(4) = ZPRTOFN
 
 # --- 5. Impression silencieuse ----------------------------------------------
 # Args : code état · destination · langue ("" = défaut) · trace (1 = journalise)
-#      · message · tableau des noms · tableau des valeurs.
-Call ETAT(ZPRTRPT, ZPRTDST, "", 1, "", ZTBPAR, ZTBVAL) From AIMP3
+#      · message · tableau des noms · tableau des valeurs
+#      · différé (0 = immédiat) · date · heure · [OUT] numéro de tâche.
+# ZPRTJOB doit être une VARIABLE : NOJOB est le seul paramètre passé par adresse.
+Call ETATJOB(ZPRTRPT, ZPRTDST, "", 1, "", ZTBPAR, ZTBVAL, 0, ZPRTDAT, "", ZPRTJOB) From AIMP3
 
+WJOBNUM = ZPRTJOB
 WRETCOD = 0
 End
 

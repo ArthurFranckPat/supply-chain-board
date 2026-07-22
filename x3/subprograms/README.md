@@ -89,14 +89,21 @@ le format attendu.
 ### Signature
 
 ```
-ZSOAPPRINT(WRPTCOD, WSTOFCY, WMFGNUM, WDEST, WRETCOD, WRETERMSG)
-  WRPTCOD   IN   Char     Code état GESARP : BONTRV | BSM
+ZSOAPPRINT(WRPTCOD, WSTOFCY, WMFGNUM, WDEST, WRETCOD, WRETERMSG, WJOBNUM)
+  WRPTCOD   IN   Char     Code état GESARP : BONTRV | BSM · "PING" = sonde
   WSTOFCY   IN   Char     Site production
   WMFGNUM   IN   Char     No OF (borne début = fin)
-  WDEST     IN   Char     Code destination APRINTER / GESADI
-  WRETCOD   OUT  Integer  0 = imprimé · 1 = échec (défaut 1)
+  WDEST     IN   Char     Code destination APRINTER (GESAIM)
+  WRETCOD   OUT  Integer  0 = appel passé · 1 = échec (défaut 1)
   WRETERMSG OUT  Char     Cause de l'échec
+  WJOBNUM   OUT  Char     Numéro de tâche du serveur d'édition (NOJOB)
 ```
+
+Le corps appelle **`ETATJOB`** (et non `ETAT`) : mêmes 7 arguments, plus `DIFF`
+(différé), `IMPDAT`, `IMPTIM` et surtout **`NOJOB`**, seul paramètre passé par
+adresse dans le dictionnaire (`ASUBPROGD.ADRVAL_0 = 1`), où X3 écrit le numéro
+de tâche. C'est la clé de rapprochement exacte avec l'API REST du serveur
+d'édition — sans elle, le board identifie sa tâche par exclusion.
 
 ### Relevé X3 (lot 0, base CLTEST)
 
@@ -137,13 +144,19 @@ Même procédure que `FIRMSUGG` (classic SOAP, type `GOSUB`, script et subprogra
 | 4    | WDEST     | 0   | CHAR    | 0   |
 | 5    | WRETCOD   | 0   | INTEGER | 1   |
 | 6    | WRETERMSG | 0   | CHAR    | 1   |
+| 7    | WJOBNUM   | 0   | CHAR    | 1   |
 
 **Save → Valider** (WSDL), puis **redémarrer le pool**.
+
+⚠️ Le rang 7 (`WJOBNUM`) est arrivé avec `ETATJOB` : une publication restée à
+6 paramètres laisse le champ absent de la réponse. L'application le supporte —
+elle retombe sur le rapprochement par exclusion — mais perd l'identification
+exacte de la tâche.
 
 ### Sonde de vie (PING)
 
 `WRPTCOD="PING"` sort immédiatement avec `WRETCOD=0` / `WRETERMSG="pong"`, avant
-tout `Local File`, tout `IMPRIM0`, tout `[S]stat1`. Les autres paramètres sont
+tout `Local File` et tout appel d'impression. Les autres paramètres sont
 ignorés. Sépare un problème de publication ou de chargement du pool (pas de pong)
 d'un problème d'impression (pong OK, tirage KO), et sert de test de chaîne sans
 consommer de papier.

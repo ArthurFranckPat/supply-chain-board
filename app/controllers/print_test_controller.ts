@@ -70,6 +70,8 @@ export default class PrintTestController {
       // Verdict du subprogram. Absents si l'appel n'a pas atteint le corps.
       retCod: result.fields.WRETCOD ?? null,
       retErMsg: result.fields.WRETERMSG ?? null,
+      /** Numéro de tâche du serveur d'édition rendu par `ETATJOB` (NOJOB). */
+      jobNum: result.fields.WJOBNUM ?? null,
       /** Message X3 confirmant la soumission de l'édition — null si absent. */
       printMessage,
       fields: result.fields,

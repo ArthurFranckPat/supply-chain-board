@@ -291,6 +291,11 @@ class PrintService {
       res.messages.find((m) => m.text.includes(docType) && m.text.includes(routed.destCode))?.text ??
       ''
     const ok = res.ok && retCod === '0'
+    // Numéro de tâche rendu par `ETATJOB` (paramètre NOJOB). Vide tant que le
+    // subprogram publié n'expose pas le 7ᵉ paramètre : le suivi retombe alors
+    // sur le rapprochement par exclusion.
+    const jobNum = Number.parseInt((res.fields.WJOBNUM ?? '').trim(), 10)
+    const expectedRank = Number.isFinite(jobNum) && jobNum > 0 ? jobNum : undefined
 
     // --- Second verdict : le serveur d'édition -------------------------------
     // X3 peut accepter une édition que le serveur d'édition met ensuite en
@@ -298,7 +303,9 @@ class PrintService {
     // l'échec est totalement muet côté application.
     let watch = {
       verdict: 'pending' as PrintVerdict | 'pending',
-      rank: 0,
+      // Le numéro de tâche vaut d'être journalisé même sans suivi : il rend la
+      // réconciliation différée possible.
+      rank: expectedRank ?? 0,
       phase: '',
       detail: printServer ? '' : 'Aucun serveur d’édition configuré pour cette destination.',
       inferred: false,
@@ -308,10 +315,11 @@ class PrintService {
         folder: cfg.pool,
         report: docType,
         knownRanks,
+        expectedRank,
       })
       watch = {
         verdict: w.verdict,
-        rank: w.rank ?? 0,
+        rank: w.rank ?? expectedRank ?? 0,
         phase: w.phase,
         detail: w.detail,
         inferred: w.inferred,
