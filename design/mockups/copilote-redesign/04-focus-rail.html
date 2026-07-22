@@ -141,42 +141,69 @@ html, body { margin: 0; padding: 0; font-family: var(--font-sans); color: var(--
 .sb-foot__name span { display: block; font-size: 10.5px; font-weight: 500; color: var(--muted-foreground); }
 .sb-foot__model { margin-left: auto; font-family: var(--font-mono); font-size: 10px; font-weight: 600; color: #00736b; background: color-mix(in srgb, var(--planifie) 10%, transparent); padding: 3px 8px; border-radius: var(--radius-pill); }
 
-/* ═══ INSPECTEUR DROIT — contexte supply ═══ */
-.inspector { display: flex; flex-direction: column; border-left: 1px solid var(--border); background: var(--secondary); overflow: hidden; }
-.insp-head { padding: 14px 16px 12px; border-bottom: 1px solid var(--rule-soft); }
-.insp-eyebrow { display: flex; align-items: center; gap: 8px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted-foreground); }
-.insp-title { font-size: 18px; font-weight: 800; letter-spacing: -0.01em; margin-top: 4px; font-variant-numeric: tabular-nums; }
-.insp-sub { font-size: 11px; color: var(--muted-foreground); margin-top: 2px; line-height: 1.4; }
-.insp-body { flex: 1; overflow-y: auto; padding: 14px 16px 16px; }
+/* ═══ INSPECTEUR DROIT — contexte supply (refined, éditorial) ═══ */
+.inspector { display: flex; flex-direction: column; border-left: 1px solid var(--border); background: var(--card); overflow: hidden; }
 
-/* Cartes contexte (partagées, dans l'inspecteur) */
-.ctx-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 10px; transition: box-shadow 0.3s; position: relative; }
-.ctx-card__label { font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted-foreground); }
-.ctx-card__value { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; margin-top: 2px; }
-.ctx-card__value .u { font-size: 13px; color: var(--muted-foreground); font-weight: 600; }
-.ctx-card__foot { font-size: 11px; color: var(--muted-foreground); margin-top: 2px; }
-.ctx-card__foot strong { color: var(--foreground); }
-.ctx-card[data-kind="result"] { border-left: 3px solid var(--planifie); }
-.ctx-card.is-cited::after { content: ''; position: absolute; top: 12px; right: 12px; width: 7px; height: 7px; border-radius: 50%; background: var(--primary); box-shadow: 0 0 0 3px var(--brand-soft); }
-.ctx-card.is-flash { animation: flash 1.1s ease; }
+/* Head : article sous forme de tag riche (icône + code + sous-titre) */
+.insp-head { display: flex; align-items: flex-start; gap: 10px; padding: 16px 18px 14px; border-bottom: 1px solid var(--rule-soft); }
+.insp-art { display: flex; align-items: center; gap: 11px; flex: 1; min-width: 0; }
+.insp-art__ico { width: 38px; height: 38px; border-radius: 10px; background: var(--brand-soft); color: var(--primary); display: flex; align-items: center; justify-content: center; flex: none; }
+.insp-art__code { font-size: 16px; font-weight: 800; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; line-height: 1.15; }
+.insp-art__sub { font-size: 11px; color: var(--muted-foreground); margin-top: 1px; }
+.insp-head .badge { margin-top: 3px; flex: none; }
+
+.insp-body { flex: 1; overflow-y: auto; padding: 6px 18px 20px; }
+
+/* Bloc générique — borderless, séparé par hairline + spacing */
+.ctx-block { padding: 16px 0; border-top: 1px solid var(--rule-soft); }
+.ctx-block:first-child { border-top: none; }
+.ctx-block__label { display: flex; align-items: center; gap: 7px; font-size: 11.5px; font-weight: 600; color: var(--muted-foreground); margin-bottom: 12px; }
+.ctx-block__label svg { color: var(--muted-foreground); flex: none; }
+
+/* HERO : la réponse (date engageante) — tinté teal, point focal */
+.ctx-hero { background: color-mix(in srgb, var(--planifie) 7%, #ffffff); border-radius: 12px; padding: 14px 16px 14px 18px; position: relative; overflow: hidden; margin-bottom: 4px; }
+.ctx-hero::before { content: ''; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px; border-radius: 3px; background: var(--planifie); }
+.ctx-hero__label { display: flex; align-items: center; gap: 7px; font-size: 11.5px; font-weight: 600; color: #00736b; margin-bottom: 7px; }
+.ctx-hero__label svg { flex: none; }
+.ctx-hero__pill { font-family: var(--font-mono); font-size: 9.5px; font-weight: 700; padding: 1px 6px; border-radius: 99px; background: color-mix(in srgb, var(--planifie) 16%, transparent); color: #00695f; }
+.ctx-hero__value { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.ctx-hero__foot { font-size: 11px; color: var(--muted-foreground); margin-top: 6px; }
+.ctx-hero__foot strong { color: var(--foreground); font-weight: 600; }
+.ctx-hero__src { font-family: var(--font-mono); font-size: 10px; color: #00736b; }
+
+/* Couverture stock — grand chiffre + ratio + barre fine */
+.ctx-cov__nums { display: flex; align-items: baseline; gap: 7px; margin-bottom: 11px; }
+.ctx-cov__big { font-size: 28px; font-weight: 800; letter-spacing: -0.02em; color: var(--ferme); font-variant-numeric: tabular-nums; line-height: 1; }
+.ctx-cov__sep { font-size: 19px; color: var(--border); font-weight: 700; }
+.ctx-cov__dem { font-size: 19px; font-weight: 700; color: var(--muted-foreground); font-variant-numeric: tabular-nums; }
+.ctx-cov__unit { font-size: 11px; color: var(--muted-foreground); margin-left: 1px; }
+.ctx-cov__bar { height: 6px; border-radius: 99px; background: var(--rule-soft); overflow: hidden; }
+.ctx-cov__fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--ferme), color-mix(in srgb, var(--ferme) 65%, var(--planifie))); }
+.ctx-cov__legend { display: flex; align-items: center; gap: 14px; margin-top: 10px; font-size: 11px; color: var(--muted-foreground); }
+.ctx-cov__legend span { display: inline-flex; align-items: center; gap: 5px; }
+.ctx-cov__legend i { width: 7px; height: 7px; border-radius: 50%; font-style: normal; }
+.ctx-cov__legend .d1 { background: var(--ferme); }
+.ctx-cov__legend .d2 { background: var(--suggere); }
+.ctx-cov__pct { margin-left: auto; font-weight: 700; color: var(--foreground); font-variant-numeric: tabular-nums; }
+
+/* OF rows — dot de statut + code + qté + échéance */
+.of-list { display: flex; flex-direction: column; gap: 1px; }
+.of-row { display: flex; align-items: center; gap: 10px; padding: 9px 8px; border-radius: 8px; transition: background 0.12s; }
+.of-row:hover { background: var(--secondary); }
+.of-row__dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.of-row__dot[data-status="running"] { background: var(--planifie); box-shadow: 0 0 0 3px color-mix(in srgb, var(--planifie) 16%, transparent); }
+.of-row__dot[data-status="done"] { background: var(--ferme); }
+.of-row__code { font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: var(--foreground); flex: 1; }
+.of-row__qty { font-size: 12px; font-weight: 700; color: var(--foreground); font-variant-numeric: tabular-nums; }
+.of-row__date { font-size: 11px; color: var(--muted-foreground); font-variant-numeric: tabular-nums; min-width: 66px; text-align: right; }
+
+/* Flash générique (clic d'un source chip) */
+.is-flash { animation: flash 1.1s ease; }
 @keyframes flash {
   0% { box-shadow: 0 0 0 0 rgba(255,56,92,0.0); }
-  25% { box-shadow: 0 0 0 5px rgba(255,56,92,0.22); border-color: var(--primary); }
+  25% { box-shadow: 0 0 0 5px rgba(255,56,92,0.22); }
   100% { box-shadow: 0 0 0 0 rgba(255,56,92,0.0); }
 }
-.cover-bar { display: flex; height: 6px; border-radius: 99px; overflow: hidden; background: var(--rule-soft); margin-top: 8px; }
-.cover-bar__fill { background: var(--ferme); }
-.cover-bar__miss { background: var(--suggere); }
-.cover-legend { display: flex; gap: 12px; margin-top: 6px; font-size: 10.5px; color: var(--muted-foreground); }
-.cover-legend span::before { content: '●'; margin-right: 3px; }
-.cover-legend .l1::before { color: var(--ferme); }
-.cover-legend .l2::before { color: var(--suggere); }
-.ctx-row { display: flex; align-items: center; justify-content: space-between; padding: 7px 0; border-top: 1px solid var(--rule-soft); font-size: 12.5px; }
-.ctx-row:first-of-type { border-top: none; }
-.ctx-row__k { color: var(--muted-foreground); }
-.ctx-row__k code { font-family: var(--font-mono); font-size: 11.5px; color: var(--foreground); }
-.ctx-row__v { font-weight: 600; font-variant-numeric: tabular-nums; }
-.insp-empty { font-size: 11.5px; color: var(--muted-foreground); line-height: 1.5; padding: 10px 4px; }
 
 /* ═══ CENTRE : chat ═══ */
 .chat-col { display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
@@ -450,41 +477,75 @@ html, body { margin: 0; padding: 0; font-family: var(--font-sans); color: var(--
       </div>
     </section>
 
-    <!-- ═══ INSPECTEUR DROIT : contexte supply ═══ -->
+    <!-- ═══ INSPECTEUR DROIT : contexte supply (refined) ═══ -->
     <aside class="inspector" id="ctx-inspector">
       <div class="insp-head">
-        <div class="insp-eyebrow">
-          Contexte
-          <span class="badge badge--auto">auto · déduit de la conversation</span>
+        <div class="insp-art">
+          <span class="insp-art__ico">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 9.4 7.5 4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.29 7 12 12 20.71 7"/><line x1="12" y1="22" x2="12" y2="12"/></svg>
+          </span>
+          <div style="min-width:0;">
+            <div class="insp-art__code">PP_830_ESH</div>
+            <div class="insp-art__sub">Poutre profilée · ESH · 3 réf. internes</div>
+          </div>
         </div>
-        <div class="insp-title tnum">PP_830_ESH</div>
-        <div class="insp-sub">Poutre profilée · ESH · 3 réf. internes</div>
+        <span class="badge badge--auto" title="Déduit automatiquement de la conversation">auto</span>
       </div>
+
       <div class="insp-body scroll-area">
 
-        <div class="ctx-card is-cited" id="ctx-stock">
-          <div class="ctx-card__label">Stock disponible</div>
-          <div class="ctx-card__value tnum">84<span class="u">&nbsp;u</span></div>
-          <div class="cover-bar"><div class="cover-bar__fill" style="width:42%"></div><div class="cover-bar__miss" style="width:58%"></div></div>
-          <div class="cover-legend"><span class="l1">Dispo 42%</span><span class="l2">Manquant 116</span></div>
+        <!-- HERO : la réponse (date engageante) -->
+        <div class="ctx-block" style="border-top:none;padding-top:14px;">
+          <div class="ctx-hero" id="ctx-ctp">
+            <div class="ctx-hero__label">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="m9 16 2 2 4-4"/></svg>
+              Date engageante <span class="ctx-hero__pill">CTP</span>
+            </div>
+            <div class="ctx-hero__value">18 août 2024</div>
+            <div class="ctx-hero__foot">le plus tôt · via <strong>OF-2024-1182</strong> (fin 16 août) <span class="ctx-hero__src">· source: ctp</span></div>
+          </div>
         </div>
 
-        <div class="ctx-card" id="ctx-demand">
-          <div class="ctx-card__label">Demande analysée</div>
-          <div class="ctx-card__value tnum">200<span class="u">&nbsp;u</span></div>
-          <div class="ctx-card__foot">Couverte à <strong>42%</strong> en stock</div>
+        <!-- Couverture stock -->
+        <div class="ctx-block" id="ctx-stock">
+          <div class="ctx-block__label">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+            Couverture stock
+          </div>
+          <div class="ctx-cov__nums">
+            <span class="ctx-cov__big tnum">84</span>
+            <span class="ctx-cov__sep">/</span>
+            <span class="ctx-cov__dem tnum">200</span>
+            <span class="ctx-cov__unit">u demandées</span>
+          </div>
+          <div class="ctx-cov__bar"><div class="ctx-cov__fill" style="width:42%"></div></div>
+          <div class="ctx-cov__legend">
+            <span><i class="d1"></i> 84 dispo</span>
+            <span><i class="d2"></i> 116 manquant</span>
+            <span class="ctx-cov__pct">42%</span>
+          </div>
         </div>
 
-        <div class="ctx-card is-cited" data-kind="result" id="ctx-ctp">
-          <div class="ctx-card__label">Date engageante (CTP)</div>
-          <div class="ctx-card__value tnum" style="font-size:18px;">18 août 2024</div>
-          <div class="ctx-card__foot">via <strong>OF-2024-1182</strong>, fin 16 août</div>
-        </div>
-
-        <div class="ctx-card">
-          <div class="ctx-card__label" style="margin-bottom:6px;">OF en cours · 2</div>
-          <div class="ctx-row"><span class="ctx-row__k"><code>OF-2024-1182</code></span><span class="ctx-row__v">200 u</span></div>
-          <div class="ctx-row"><span class="ctx-row__k"><code>OF-2024-1201</code></span><span class="ctx-row__v">80 u</span></div>
+        <!-- OF liés -->
+        <div class="ctx-block">
+          <div class="ctx-block__label">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+            OF en cours · 2
+          </div>
+          <div class="of-list">
+            <div class="of-row">
+              <span class="of-row__dot" data-status="running"></span>
+              <span class="of-row__code">OF-2024-1182</span>
+              <span class="of-row__qty">200 u</span>
+              <span class="of-row__date">fin 16 août</span>
+            </div>
+            <div class="of-row">
+              <span class="of-row__dot" data-status="running"></span>
+              <span class="of-row__code">OF-2024-1201</span>
+              <span class="of-row__qty">80 u</span>
+              <span class="of-row__date">fin 22 août</span>
+            </div>
+          </div>
         </div>
 
       </div>
