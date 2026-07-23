@@ -232,6 +232,20 @@
   display: none;
 }
 
+/* KPI personnalisables : à l'écran les tiles suivent --screen-order (ordre
+   d'affichage), à l'impression elles basculent sur --print-order (ordre
+   d'impression indépendant). Déclaratif → indépendant du cycle réactif JS.
+   Porté depuis resources/css/app.css (runtime Solid). */
+.kpi-tile {
+  order: var(--screen-order, 0);
+}
+
+@media print {
+  .kpi-tile {
+    order: var(--print-order, 0) !important;
+  }
+}
+
 /* ────────────────────────────────────────────────────────────
    Icônes : Material Symbols retiré (Lot A redesign Airbnb, 2026-07-20).
    Toute l'UI React utilise désormais lucide-react (trait fin, strokeWidth
