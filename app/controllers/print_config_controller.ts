@@ -99,7 +99,16 @@ export default class PrintConfigController {
     if (!isDocType(docType)) return ctx.response.badRequest({ error: 'docType invalide' })
     if (!destCode) return ctx.response.badRequest({ error: 'destination requise' })
 
-    const known = await printService.listX3Destinations()
+    // X3 injoignable ≠ destination inconnue : une règle refusée doit dire
+    // laquelle des deux, sinon on cherche une imprimante qui existe.
+    let known: Awaited<ReturnType<typeof printService.listX3Destinations>>
+    try {
+      known = await printService.listX3Destinations()
+    } catch (e) {
+      return ctx.response.badGateway({
+        error: `Destinations X3 illisibles, règle non enregistrée : ${e}`,
+      })
+    }
     const dest = known.find((d) => d.code === destCode)
     if (!dest) {
       return ctx.response.badRequest({

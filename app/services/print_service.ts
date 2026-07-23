@@ -127,12 +127,17 @@ class PrintService {
       ttl: '10m',
       factory: async () => {
         const conn = new X3Connection(cfg)
+        // Table non qualifiée : `cfg.pool` est l'alias de pool Syracuse, pas le
+        // schéma Oracle. Les deux coïncident sur CLTEST et divergent sur prod
+        // (alias CLAERECO2, schéma CLAERECO) — préfixer y cassait la requête.
         const res = await conn.query(
           `SELECT COD_0, DES_0, PRT_0, PRTSRV_0, PRTNAM_0, ENAFLG_0
-             FROM ${cfg.pool}.APRINTER
+             FROM APRINTER
             ORDER BY PRT_0, COD_0`
         )
-        if (!res.success) return []
+        // La cause remonte : un `[]` muet a déjà fait passer une panne X3 pour
+        // un parc d'imprimantes vide.
+        if (!res.success) throw new Error(res.error ?? 'Lecture APRINTER en échec.')
         return res.data.map((r: any) => {
           const kind = Number(String(r.PRT_0 ?? '').trim()) || 0
           return {

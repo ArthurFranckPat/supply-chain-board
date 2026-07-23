@@ -104,7 +104,8 @@ export default class PrintController {
   ): Promise<{ site: string; article: string } | null> {
     const conn = new X3Connection(config)
     const res = await conn.query(
-      `SELECT MFGFCY_0, ITMREF_0 FROM ${config.pool}.MFGITM
+      // Non qualifié : `config.pool` est l'alias de pool, pas le schéma Oracle.
+      `SELECT MFGFCY_0, ITMREF_0 FROM MFGITM
         WHERE MFGNUM_0 = %ofNum% AND ROWNUM <= 1`,
       { ofNum }
     )
