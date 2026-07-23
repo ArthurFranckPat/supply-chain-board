@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>V1 · Registre — Réceptions</title>
+<!--
+  ─────────────────────────────────────────────────────────────────────────
+  V1 · REGISTRE — direction « information architecture » (by-the-book)
+
+  ASSUMPTIONS
+  - Le besoin premier d'un réceptionniste/planifieur : scanner jour par jour,
+    savoir combien de palettes arrivent, repérer les lignes à coef douteux.
+  - La date est le GROUPE, pas une colonne répétée 15 fois — pattern déjà
+    canonisé dans poste-engagement-sheet.tsx (séparateurs mono 9px + tiret).
+  - Tokens : thème Airbnb du codebase (encre #222, Rausch #ff385c, statuts
+    ferme/planifie/suggere/destructive, hairlines #ddd/#ebebeb, Jakarta).
+  - Chiffres tabular-nums alignés droite, unités en mono discret.
+
+  RAISONNEMENT
+  - Header de groupe jour = total palettes + lignes + fournisseurs + tier :
+    la charge du jour se lit AVANT le détail. C'est l'info du calendrier
+    (chargeByDay) ramenée dans le tableau — les deux vues se répondent.
+  - Numérotation de registre continue (01…15) : ancre de conversation
+    (« la ligne 07 »), signature éditoriale déjà vue dans shortage-registre.
+  - Couleur de la colonne Palettes = tier de charge. Les teintes de fond de
+    ligne ne sont utilisées QUE pour les anomalies coef (manquant/estimé).
+  - Zéro ombre, zéro gradient, zéro emoji — grammaire Airbnb stricte.
+
+  PLACEHOLDERS
+  - Chrome de page (masthead/toolbar) simplifiée, non interactive.
+  - Tri/filtre non simulés — ce mockup juge la structure, pas l'interaction.
+  ─────────────────────────────────────────────────────────────────────────
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #222222;
+    --body: #3f3f3f;
+    --muted: #6a6a6a;
+    --faint: #9a9a9a;
+    --brand: #ff385c;
+    --rule: #dddddd;
+    --rule-soft: #ebebeb;
+    --surface: #f7f7f7;
+    --card: #ffffff;
+    --ferme: #008049;
+    --planifie: #00a699;
+    --suggere: #fc642d;
+    --destructive: #c13515;
+    --shadow-float: 0 6px 20px rgb(0 0 0 / 0.16);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { -webkit-font-smoothing: antialiased; }
+
+  body {
+    font-family: 'Plus Jakarta Sans', -apple-system, system-ui, sans-serif;
+    font-size: 13px;
+    color: var(--body);
+    background: var(--surface);
+  }
+
+  .tnum { font-variant-numeric: tabular-nums; }
+
+  /* ═══ Chrome de page (identique aux 3 variantes — hors sujet du mockup) ═══ */
+
+  .masthead {
+    height: 64px;
+    background: var(--card);
+    border-bottom: 1px solid var(--rule);
+    display: flex;
+    align-items: center;
+    gap: 32px;
+    padding: 0 28px;
+  }
+  .wordmark { font-size: 20px; font-weight: 800; color: var(--ink); letter-spacing: -0.02em; }
+  .wordmark b { color: var(--brand); font-weight: 800; }
+  .env {
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+    color: #fff; background: var(--suggere); border-radius: 9999px; padding: 3px 10px;
+    margin-left: 10px; vertical-align: 3px;
+  }
+  .nav { display: flex; gap: 24px; margin-left: 16px; height: 64px; }
+  .nav a {
+    display: flex; align-items: center; font-size: 12px; font-weight: 600;
+    color: var(--muted); text-decoration: none; border-bottom: 3px solid transparent;
+  }
+  .nav a.active { color: var(--ink); border-bottom-color: var(--ink); }
+  .masthead .meta { margin-left: auto; text-align: right; font-size: 11px; color: var(--muted); }
+  .masthead .meta .range { font-size: 12px; font-weight: 700; color: var(--brand); }
+  .masthead .meta b { color: var(--ink); }
+
+  .toolbar {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--card); border-bottom: 1px solid var(--rule);
+    padding: 8px 28px;
+  }
+  .pill-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    border: 1px solid var(--rule); border-radius: 8px; background: var(--card);
+    padding: 6px 10px; font-size: 11px; font-weight: 600; color: var(--ink);
+  }
+  .pill-btn svg { color: var(--muted); }
+  .toolbar .right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+  .search {
+    display: flex; align-items: center; gap: 6px; height: 30px; width: 220px;
+    border: 1px solid var(--rule); border-radius: 9999px; padding: 0 12px;
+    font-size: 12px; color: var(--faint); background: var(--card);
+  }
+  .refresh {
+    display: inline-flex; align-items: center; gap: 6px;
+    border: 1px solid var(--rule); border-radius: 9999px; background: var(--card);
+    padding: 6px 12px; font-size: 11px; font-weight: 700; color: var(--ink);
+  }
+
+  .subbar {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--card); border-bottom: 1px solid var(--rule-soft);
+    padding: 6px 28px;
+  }
+  .viewtoggle { display: flex; border: 1px solid var(--rule); border-radius: 8px; overflow: hidden; }
+  .viewtoggle span {
+    padding: 6px 12px; font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--muted);
+  }
+  .viewtoggle span.on { background: rgba(255,56,92,0.10); color: var(--brand); }
+  .subbar .stats { margin-left: auto; display: flex; gap: 14px; font-size: 11px; color: var(--muted); }
+  .subbar .stats .est { color: var(--planifie); display: flex; align-items: center; gap: 4px; }
+  .subbar .stats .miss { color: var(--destructive); display: flex; align-items: center; gap: 4px; }
+
+  /* ═══ Annotation de direction (à retirer en prod) ═══ */
+
+  .annotation {
+    margin: 20px 28px 0;
+    border: 1px dashed var(--rule); border-radius: 8px;
+    padding: 10px 14px; font-size: 11px; color: var(--muted); line-height: 1.55;
+    background: var(--card);
+  }
+  .annotation b {
+    font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.14em;
+    color: var(--ink); display: block; margin-bottom: 2px;
+  }
+
+  /* ═══ V1 · LE TABLEAU REGISTRE ═══ */
+
+  .stage { padding: 16px 28px 48px; }
+
+  .registre {
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+
+  table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+
+  /* En-tête de colonnes — mono 9px uppercase, hairlines verticales */
+  thead th {
+    padding: 11px 16px;
+    text-align: left;
+    font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.14em;
+    color: var(--muted);
+    background: var(--surface);
+    border-bottom: 1px solid var(--rule);
+    border-right: 1px solid var(--rule-soft);
+    white-space: nowrap;
+  }
+  thead th:last-child { border-right: none; }
+  thead th.r { text-align: right; }
+  thead th .sort { color: var(--faint); font-weight: 500; letter-spacing: 0; text-transform: none; }
+
+  /* ── Header de groupe jour ── */
+  .dayhead td {
+    padding: 0;
+    border-bottom: 1px solid var(--rule);
+    background: var(--card);
+  }
+  .dayhead .wrap {
+    display: flex; align-items: baseline; gap: 12px;
+    padding: 14px 16px 10px;
+  }
+  .dayhead .dash { width: 16px; height: 2px; background: var(--ink); flex: none; align-self: center; }
+  .dayhead .date {
+    font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--ink); white-space: nowrap;
+  }
+  .dayhead .rel {
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--brand); white-space: nowrap;
+  }
+  .dayhead .rel.later { color: var(--faint); }
+  .dayhead .totals {
+    margin-left: auto; display: flex; align-items: baseline; gap: 14px;
+    font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--muted); white-space: nowrap;
+  }
+  .dayhead .totals .pal { font-size: 15px; font-weight: 800; letter-spacing: 0; text-transform: none; }
+  .dayhead .totals .pal small { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; margin-left: 2px; }
+  .tier-ok   { color: var(--ferme); }
+  .tier-mid  { color: var(--planifie); }
+  .tier-warn { color: var(--suggere); }
+  .tier-bad  { color: var(--destructive); }
+  .dayhead .tier-tag {
+    font-size: 8.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.12em;
+    padding: 2px 8px; border-radius: 9999px;
+  }
+  .tier-tag.tier-ok   { background: rgba(0,128,73,0.12); }
+  .tier-tag.tier-mid  { background: rgba(0,166,153,0.12); }
+  .tier-tag.tier-warn { background: rgba(252,100,45,0.12); }
+  .tier-tag.tier-bad  { background: rgba(193,53,21,0.10); }
+
+  /* ── Lignes de données ── */
+  tbody td {
+    padding: 13px 16px;
+    vertical-align: middle;
+    border-bottom: 1px solid var(--rule-soft);
+    border-right: 1px solid var(--rule-soft);
+  }
+  tbody td:last-child { border-right: none; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr.data:hover td { background: rgba(34,34,34,0.035); }
+
+  /* Anomalies coef : teinte de fond + liseré gauche (pas de pill décorative) */
+  tr.coef-miss td { background: rgba(193,53,21,0.05); }
+  tr.coef-miss td:first-child { box-shadow: inset 3px 0 0 var(--destructive); }
+  tr.coef-miss:hover td { background: rgba(193,53,21,0.09); }
+  tr.coef-est td { background: rgba(0,166,153,0.05); }
+  tr.coef-est td:first-child { box-shadow: inset 3px 0 0 var(--planifie); }
+  tr.coef-est:hover td { background: rgba(0,166,153,0.09); }
+
+  /* Cellules */
+  .idx { font-size: 12px; font-weight: 600; color: var(--faint); }
+  .l1 { font-size: 12px; font-weight: 700; color: var(--ink); }
+  .l2 { margin-top: 2px; font-size: 11px; color: var(--muted); }
+  .code { font-size: 13px; font-weight: 800; letter-spacing: -0.01em; color: var(--ink); }
+  .desi { margin-top: 2px; font-size: 11px; line-height: 1.35; color: var(--muted);
+          white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .po { font-size: 11.5px; font-weight: 600; color: var(--ink); }
+  .qty { font-size: 14px; font-weight: 800; color: var(--ink); }
+  .qty small { font-size: 9px; font-weight: 500; color: var(--faint); margin-left: 2px; }
+  .cond { font-size: 11px; color: var(--muted); }
+  .cond-note {
+    margin-top: 3px; display: inline-flex; align-items: center; gap: 4px;
+    font-size: 8.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em;
+    padding: 1px 6px; border-radius: 4px;
+  }
+  .cond-note.miss { color: var(--destructive); background: rgba(193,53,21,0.10); }
+  .cond-note.est  { color: var(--planifie);  background: rgba(0,166,153,0.12); }
+  .pal { font-size: 16px; font-weight: 800; }
+  .pal.none { color: rgba(193,53,21,0.45); font-weight: 500; }
+
+  /* Pied de registre */
+  .registre-foot {
+    display: flex; align-items: baseline; gap: 16px;
+    padding: 12px 16px;
+    border-top: 1px solid var(--rule);
+    background: var(--surface);
+    font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--muted);
+  }
+  .registre-foot .grand { margin-left: auto; display: flex; align-items: baseline; gap: 8px; }
+  .registre-foot .grand .pal { font-size: 18px; }
+  .registre-foot .warn { color: var(--destructive); }
+</style>
+</head>
+<body>
+
+<!-- ═══ Chrome (identique V1/V2/V3) ═══ -->
+<header class="masthead">
+  <div class="wordmark">Supply Chain <b>AERECO</b><span class="env">test</span></div>
+  <nav class="nav">
+    <a href="#">Dashboard</a>
+    <a href="#">Board</a>
+    <a href="#" class="active">Réceptions</a>
+    <a href="#">Expéditions</a>
+    <a href="#">Ruptures</a>
+  </nav>
+  <div class="meta">
+    <div class="range">22/07 → 28/07</div>
+    <div><b class="tnum">79,5</b> palettes · <b class="tnum">15</b> réceptions</div>
+  </div>
+</header>
+
+<div class="toolbar">
+  <span class="pill-btn">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+    22/07 → 28/07
+  </span>
+  <div class="right">
+    <span class="search">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      Fournisseur, article, commande…
+    </span>
+    <span class="refresh">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>
+      Actualiser
+    </span>
+  </div>
+</div>
+
+<div class="subbar">
+  <div class="viewtoggle"><span class="on">Tableau</span><span>Charge par jour</span></div>
+  <div class="stats">
+    <span class="est">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>
+      2 estimés
+    </span>
+    <span class="miss">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+      1 coef manquant
+    </span>
+    <span class="tnum">15 lignes</span>
+  </div>
+</div>
+
+<div class="annotation">
+  <b>V1 · Registre — groupement par jour</b>
+  La date devient un header de groupe qui porte le total du jour (palettes · lignes · fournisseurs) et son tier de charge — l'info du calendrier directement dans le tableau. Grille stricte à hairlines verticales, numérotation continue, anomalies coef signalées par teinte de ligne + liseré. Le plus « by-the-book » des trois.
+</div>
+
+<main class="stage">
+  <div class="registre">
+    <table>
+      <colgroup>
+        <col style="width:44px">
+        <col style="width:220px">
+        <col style="width:300px">
+        <col style="width:110px">
+        <col style="width:100px">
+        <col style="width:190px">
+        <col style="width:110px">
+      </colgroup>
+      <thead>
+        <tr>
+          <th>N°</th>
+          <th>Fournisseur</th>
+          <th>Article</th>
+          <th>Commande</th>
+          <th class="r">Qté US</th>
+          <th>Conditionnement</th>
+          <th class="r">Palettes</th>
+        </tr>
+      </thead>
+      <tbody>
+
+        <!-- ── Jour 1 · aujourd'hui · débord ── -->
+        <tr class="dayhead">
+          <td colspan="7">
+            <div class="wrap">
+              <span class="dash"></span>
+              <span class="date">Mer. 22 juil.</span>
+              <span class="rel">Aujourd'hui</span>
+              <div class="totals">
+                <span class="tnum">4 lignes</span>
+                <span class="tnum">4 fournisseurs</span>
+                <span class="pal tier-bad tnum">30,5<small>pal</small></span>
+                <span class="tier-tag tier-bad">Débord</span>
+              </div>
+            </div>
+          </td>
+        </tr>
+        <tr class="data">
+          <td class="idx tnum">01</td>
+          <td><div class="l1">EBM-PAPST</div><div class="l2 tnum">F10082</div></td>
+          <td><div class="code">MOTEUR-VMC-2V</div><div class="desi">Moteur VMC 2 vitesses 230 V</div></td>
+          <td class="po tnum">PO250741</td>
+          <td style="text-align:right"><span class="qty tnum">1&nbsp;200<small>u</small></span></td>
+          <td class="cond tnum">24 US/UC · 5 UC/pal</td>
+          <td style="text-align:right"><span class="pal tier-mid tnum">10</span></td>
+        </tr>
+        <tr class="data">
+          <td class="idx tnum">02</td>
+          <td><div class="l1">PLASTIVAL</div><div class="l2 tnum">F20314</div></td>
+          <td><div class="code">GRILLE-ALU-125-BC</div><div class="desi">Grille alu laqué Ø125 blanc</div></td>
+          <td class="po tnum">PO250738</td>
+          <td style="text-align:right"><span class="qty tnum">4&nbsp;800<small>u</small></span></td>
+          <td class="cond tnum">48 US/UC · 8 UC/pal</td>
+          <td style="text-align:right"><span class="pal tier-warn tnum">12,5</span></td>
+        </tr>
+        <tr class="data coef-miss">
+          <td class="idx tnum">03</td>
+          <td><div class="l1">BOSSARD</div><div class="l2 tnum">F10765</div></td>
+          <td><div class="code">VISSERIE-KIT-M6</div><div class="desi">Kit visserie M6 inox A2</div></td>
+          <td class="po tnum">PO250755</td>
+          <td style="text-align:right"><span class="qty tnum">600<small>u</small></span></td>
+          <td>
+            <span class="cond" style="color:var(--faint)">—</span><br>
+            <span class="cond-note miss">
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+              Coef manquant
+            </span>
+          </td>
+          <td style="text-align:right"><span class="pal none tnum">—</span></td>
+        </tr>
+        <tr class="data">
+          <td class="idx tnum">04</td>
+          <td><div class="l1">SIKA FRANCE</div><div class="l2 tnum">F30218</div></td>
+          <td><div class="code">COLLE-PU-310</div><div class="desi">Colle PU cartouche 310 ml</div></td>
+          <td class="po tnum">PO250742</td>
+          <td style="text-align:right"><span class="qty tnum">960<small>u</small></span></td>
+          <td class="cond tnum">12 US/UC · 10 UC/pal</td>
+          <td style="text-align:right"><span class="pal tier-mid tnum">8</span></td>
+        </tr>
+
+        <!-- ── Jour 2 · +1j · fort ── -->
+        <tr class="dayhead">
+          <td colspan="7">
+            <div class="wrap">
+              <span class="dash"></span>
+              <span class="date">Jeu. 23 juil.</span>
+              <span class="rel later">+1 j</span>
+              <div class="totals">
+                <span class="tnum">3 lignes</span>
+                <span class="tnum">3 fournisseurs</span>
+                <span class="pal tier-warn tnum">13<small>pal</small></span>
+                <span class="tier-tag tier-warn">Fort</span>
+              </div>
+            </div>
+          </td>
+        </tr>
+        <tr class="data">
+          <td class="idx tnum">05</td>
+          <td><div class="l1">LEGRAND</div><div class="l2 tnum">F40112</div></td>
+          <td><div class="code">INTER-VMC-2V</div><div class="desi">Interrupteur 2 vitesses étanche</div></td>
+          <td class="po tnum">PO250760</td>
+          <td style="text-align:right"><span class="qty tnum">800<small>u</small></span></td>
+          <td class="cond tnum">20 US/UC · 9 UC/pal</td>
+          <td style="text-align:right"><span class="pal tier-ok tnum">4,5</span></td>
+        </tr>
+        <tr class="data coef-est">
+          <td class="idx tnum">06</td>
+          <td><div class="l1">ARCELOR TUBES</div><div class="l2 tnum">F50091</div></td>
+          <td><div class="code">TUBE-GALVA-160-3M</div><div class="desi">Tube galva Ø160 L.3 m</div></td>
+          <td class="po tnum">PO250759</td>
+          <td style="text-align:right"><span class="qty tnum">300<small>u</small></span></td>
+          <td>
+            <span class="cond tnum">est. stock SM*</span><br>
+            <span class="cond-note est">
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>
+              Estimé (STOCK)
+            </span>
+          </td>
+          <td style="text-align:right"><span class="pal tier-mid tnum">6</span></td>
+        </tr>
+        <tr class="data">
+          <td class="idx tnum">07</td>
+          <td><div class="l1">EBM-PAPST</div><div class="l2 tnum">F10082</div></td>
+          <td><div class="code">HELICE-315</div><div class="desi">Hélice Ø315 aluminium</div></td>
+          <td class="po tnum">PO250761</td>
+          <td style="text-align:right"><span class="qty tnum">150<small>u</small></span></td>
+          <td class="cond tnum">10 US/UC · 6 UC/pal</td>
+          <td style="text-align:right"><span class="pal tier-ok tnum">2,5</span></td>
+        </tr>
+
+        <!-- ── Jour 3 · +2j · moyen ── -->
+        <tr class="dayhead">
+          <td colspan="7">
+            <div class="wrap">
+              <span class="dash"></span>
+              <span class="date">Ven. 24 juil.</span>
+              <span class="rel later">+2 j</span>
+              <div class="totals">
+                <span class="tnum">2 lignes</span>
+                <span class="tnum">2 fournisseurs</span>
+                <span class="pal tier-mid tnum">5<small>pal</small></span>
+                <span class="tier-tag tier-mid">Moyen</span>
+              </div>
+            </div>
+          </td>
+        </tr>
+        <tr class="data">
+          <td class="idx tnum">08</td>
+          <td><div class="l1">SCHNEIDER ELECTRIC</div><div class="l2 tnum">F60044</div></td>
+          <td><div class="code">CONTACTEUR-LC1D</div><div class="desi">Contacteur LC1D 18 A</div></td>
+          <td class="po tnum">PO250770</td>
+          <td style="text-align:right"><span class="qty tnum">120<small>u</small></span></td>
+          <td class="cond tnum">12 US/UC · 12 UC/pal</td>
+          <td style="text-align:right"><span class="pal tier-ok tnum">1</span></td>
+        </tr>
+        <tr class="data">
+          <td class="idx tnum">09</td>
+          <td><div class="l1">PLASTIVAL</div><div class="l2 tnum">F20314</div></td>
+          <td><div class="code">BOUCHE-EXTR-80</div><div class="desi">Bouche extraction Ø80 réglable</div></td>
+          <td class="po tnum">PO250768</td>
+          <td style="text-align:right"><span class="qty tnum">2&nbsp;400<small>u</small></span></td>
+          <td class="cond tnum">60 US/UC · 10 UC/pal</td>
+          <td style="text-align:right"><span class="pal tier-ok tnum">4</span></td>
+        </tr>
+
+        <!-- ── Jour 4 · +5j · débord ── -->
+        <tr class="dayhead">
+          <td colspan="7">
+            <div class="wrap">
+              <span class="dash"></span>
+              <span class="date">Lun. 27 juil.</span>
+              <span class="rel later">+5 j</span>
+              <div class="totals">
+                <span class="tnum">4 lignes</span>
+                <span class="tnum">4 fournisseurs</span>
+                <span class="pal tier-bad tnum">28,5<small>pal</small></span>
+                <span class="tier-tag tier-bad">Débord</span>
+              </div>
+            </div>
+          </td>
+        </tr>
+        <tr class="data">
+          <td class="idx tnum">10</td>
+          <td><div class="l1">ARCELOR TUBES</div><div class="l2 tnum">F50091</div></td>
+          <td><div class="code">TUBE-GALVA-125-3M</div><div class="desi">Tube galva Ø125 L.3 m</div></td>
+          <td class="po tnum">PO250780</td>
+          <td style="text-align:right"><span class="qty tnum">900<small>u</small></span></td>
+          <td class="cond tnum">30 US/UC · 5 UC/pal</td>
+          <td style="text-align:right"><span class="pal tier-mid tnum">6</span></td>
+        </tr>
+        <tr class="data">
+          <td class="idx tnum">11</td>
+          <td><div class="l1">EBM-PAPST</div><div class="l2 tnum">F10082</div></td>
+          <td><div class="code">CAISSON-EXTR-45</div><div class="desi">Caisson extraction 45 dB(A)</div></td>
+          <td class="po tnum">PO250781</td>
+          <td style="text-align:right"><span class="qty tnum">96<small>u</small></span></td>
+          <td class="cond tnum">4 US/UC · 2 UC/pal</td>
+          <td style="text-align:right"><span class="pal tier-warn tnum">12</span></td>
+        </tr>
+        <tr class="data">
+          <td class="idx tnum">12</td>
+          <td><div class="l1">FISCHER</div><div class="l2 tnum">F70233</div></td>
+          <td><div class="code">CHEVILLE-SX-10</div><div class="desi">Cheville SX 10×50</div></td>
+          <td class="po tnum">PO250782</td>
+          <td style="text-align:right"><span class="qty tnum">5&nbsp;000<small>u</small></span></td>
+          <td class="cond tnum">100 US/UC · 20 UC/pal</td>
+          <td style="text-align:right"><span class="pal tier-ok tnum">2,5</span></td>
+        </tr>
+        <tr class="data coef-est">
+          <td class="idx tnum">13</td>
+          <td><div class="l1">SIKA FRANCE</div><div class="l2 tnum">F30218</div></td>
+          <td><div class="code">MASTIC-ACRYL</div><div class="desi">Mastic acrylique blanc 300 ml</div></td>
+          <td class="po tnum">PO250783</td>
+          <td style="text-align:right"><span class="qty tnum">1&nbsp;440<small>u</small></span></td>
+          <td>
+            <span class="cond tnum">est. historique 6 mois</span><br>
+            <span class="cond-note est">
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>
+              Estimé (STOJOU)
+            </span>
+          </td>
+          <td style="text-align:right"><span class="pal tier-mid tnum">8</span></td>
+        </tr>
+
+        <!-- ── Jour 5 · +6j · léger ── -->
+        <tr class="dayhead">
+          <td colspan="7">
+            <div class="wrap">
+              <span class="dash"></span>
+              <span class="date">Mar. 28 juil.</span>
+              <span class="rel later">+6 j</span>
+              <div class="totals">
+                <span class="tnum">2 lignes</span>
+                <span class="tnum">2 fournisseurs</span>
+                <span class="pal tier-ok tnum">2,5<small>pal</small></span>
+                <span class="tier-tag tier-ok">Léger</span>
+              </div>
+            </div>
+          </td>
+        </tr>
+        <tr class="data">
+          <td class="idx tnum">14</td>
+          <td><div class="l1">BOSSARD</div><div class="l2 tnum">F10765</div></td>
+          <td><div class="code">ECROU-FREIN-M8</div><div class="desi">Écrou frein M8 zingué</div></td>
+          <td class="po tnum">PO250790</td>
+          <td style="text-align:right"><span class="qty tnum">2&nbsp;000<small>u</small></span></td>
+          <td class="cond tnum">100 US/UC · 24 UC/pal</td>
+          <td style="text-align:right"><span class="pal tier-ok tnum">1</span></td>
+        </tr>
+        <tr class="data">
+          <td class="idx tnum">15</td>
+          <td><div class="l1">LEGRAND</div><div class="l2 tnum">F40112</div></td>
+          <td><div class="code">SONDE-CO2</div><div class="desi">Sonde CO₂ murale 0-2000 ppm</div></td>
+          <td class="po tnum">PO250791</td>
+          <td style="text-align:right"><span class="qty tnum">60<small>u</small></span></td>
+          <td class="cond tnum">6 US/UC · 8 UC/pal</td>
+          <td style="text-align:right"><span class="pal tier-ok tnum">1,5</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Pied de registre : grand total -->
+    <div class="registre-foot">
+      <span class="tnum">15 réceptions · 8 fournisseurs</span>
+      <span class="warn tnum">⚠ 1 ligne hors calcul (coef manquant)</span>
+      <span class="grand">
+        <span>Total période</span>
+        <span class="pal tier-bad tnum">79,5<small style="font-size:10px;font-weight:700;letter-spacing:0.1em"> PAL</small></span>
+      </span>
+    </div>
+  </div>
+</main>
+
+</body>
+</html>

@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Suivi Proactif — Row Redesign Variations</title>
+<style>
+  :root {
+    --brand: #ff385c;
+    --brand-soft: rgba(255, 56, 92, 0.10);
+    --bg: #ffffff;
+    --fg: #222222;
+    --card: #ffffff;
+    --secondary: #f7f7f7;
+    --muted: #6a6a6a;
+    --muted-70: rgba(106, 106, 106, 0.7);
+    --secondary-fg: #222222;
+    --destructive: #c13515;
+    --ferme: #008049;
+    --planifie: #00a699;
+    --suggere: #fc642d;
+    --border: #dddddd;
+    --rule-soft: #ebebeb;
+    --font-mono: 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-display: 'Fraunces', 'Georgia', serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--font-sans);
+    background: #f0f0f0;
+    color: var(--fg);
+    padding: 40px 32px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1 {
+    font-family: var(--font-display);
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    margin-bottom: 8px;
+  }
+
+  .subtitle {
+    font-size: 14px;
+    color: var(--muted);
+    margin-bottom: 48px;
+    max-width: 640px;
+    line-height: 1.5;
+  }
+
+  .variation {
+    margin-bottom: 56px;
+  }
+
+  .variation-header {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 6px;
+  }
+
+  .variation-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .variation-name {
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  .variation-desc {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 16px;
+    max-width: 720px;
+    line-height: 1.5;
+  }
+
+  .table-wrap {
+    background: var(--card);
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+
+  /* ── Shared table structure ── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+
+  th {
+    font-family: var(--font-sans);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+    text-align: left;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+
+  th.right { text-align: right; }
+
+  td {
+    padding: 10px 16px;
+    vertical-align: middle;
+    border-bottom: 1px solid var(--rule-soft);
+  }
+
+  /* ── Shared cell atoms ── */
+  .cmd { font-family: var(--font-mono); font-size: 13px; font-weight: 700; letter-spacing: -0.02em; color: var(--fg); }
+  .client { font-size: 12px; font-weight: 500; color: var(--secondary-fg); margin-top: 2px; }
+  .art { font-family: var(--font-mono); font-size: 13px; font-weight: 700; letter-spacing: -0.02em; color: var(--fg); }
+  .desig { font-size: 11px; font-weight: 400; color: var(--muted-70); margin-top: 2px; line-height: 1.3; }
+  .type-badge { display: inline-block; font-family: var(--font-mono); font-size: 10px; font-weight: 600; background: var(--secondary); color: var(--muted); padding: 2px 7px; border-radius: 3px; cursor: help; }
+  .qty { font-family: var(--font-sans); font-size: 18px; font-weight: 800; letter-spacing: -0.02em; color: var(--fg); }
+  .qty-unit { font-family: var(--font-mono); font-size: 10px; font-weight: 500; color: var(--muted-70); margin-left: 2px; }
+  .date { font-family: var(--font-mono); font-size: 12.5px; font-weight: 600; color: var(--fg); }
+  .retard-text { font-size: 9px; font-weight: 600; color: var(--destructive); margin-top: 2px; }
+  .of-ref { font-family: var(--font-mono); font-size: 11px; font-weight: 600; color: var(--fg); text-decoration: underline; text-decoration-style: dotted; text-decoration-color: rgba(106,106,106,0.4); text-underline-offset: 2px; cursor: pointer; }
+  .of-tag { display: inline-block; font-family: var(--font-mono); font-size: 9px; font-weight: 700; padding: 1px 4px; border-radius: 2px; margin-left: 6px; }
+  .of-tag-wof { background: rgba(0,128,73,0.15); color: var(--ferme); }
+  .of-tag-wop { background: rgba(0,166,153,0.15); color: var(--planifie); }
+  .of-tag-wos { background: rgba(252,100,45,0.15); color: var(--suggere); }
+  .pieces { font-family: var(--font-mono); font-size: 9px; font-weight: 600; color: var(--ferme); margin-top: 2px; }
+  .verdict-pill { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 5px; white-space: nowrap; }
+  .verdict-late { background: rgba(252,100,45,0.15); color: var(--suggere); }
+  .verdict-ok { background: rgba(0,128,73,0.15); color: var(--ferme); }
+  .verdict-blocked { background: rgba(193,53,21,0.10); color: var(--destructive); }
+  .charge { font-family: var(--font-mono); font-size: 12.5px; font-weight: 600; color: var(--muted); }
+  .empty { color: var(--muted-70); font-size: 12px; }
+  .n-col { font-family: var(--font-sans); font-size: 12px; font-weight: 700; color: var(--muted-70); }
+
+  /* Progress bar */
+  .prog-bar { height: 3px; width: 100%; border-radius: 2px; background: var(--secondary); overflow: hidden; margin-top: 4px; }
+  .prog-fill { height: 100%; }
+
+  /* Ping dot */
+  .ping-dot { position: relative; display: inline-flex; width: 6px; height: 6px; margin-left: 4px; vertical-align: middle; }
+  .ping-dot::before { content: ''; position: absolute; inset: 0; border-radius: 50%; background: var(--ferme); opacity: 0.75; animation: ping 1.5s cubic-bezier(0,0,0.2,1) infinite; }
+  .ping-dot::after { content: ''; position: relative; display: inline-flex; width: 6px; height: 6px; border-radius: 50%; background: var(--ferme); }
+  @keyframes ping { 75%, 100% { transform: scale(2); opacity: 0; } }
+
+  /* ── Variation-specific ── */
+
+  /* Baseline: left border via box-shadow */
+  .v-baseline td:first-child { box-shadow: inset 3px 0 0 var(--suggere); }
+
+  /* A: Le registre — vertical rules between zones, dot in N° */
+  .v-registre td { border-right: 1px solid var(--rule-soft); }
+  .v-registre td:last-child { border-right: none; }
+  .v-registre .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; vertical-align: middle; }
+  .v-registre .verdict-text { font-size: 11px; font-weight: 600; }
+  .v-registre .verdict-text.late { color: var(--suggere); }
+
+  /* B: Le signal — tinted left zone, wider verdict */
+  .v-signal .signal-zone { background: rgba(252,100,45,0.04); }
+  .v-signal td:first-child { box-shadow: inset 3px 0 0 var(--suggere); }
+
+  /* C: Le compact — dense, same-line art+desig, dot verdict */
+  .v-compact td { padding: 6px 12px; }
+  .v-compact th { padding: 6px 12px; font-size: 10px; }
+  .v-compact .art-line { display: flex; align-items: baseline; gap: 8px; }
+  .v-compact .desig-inline { font-size: 10px; color: var(--muted-70); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px; }
+  .v-compact .verdict-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 5px; vertical-align: middle; }
+  .v-compact .verdict-label { font-size: 11px; font-weight: 500; }
+
+  /* Column widths */
+  .col-n { width: 42px; }
+  .col-cmd { width: 150px; }
+  .col-art { width: 220px; }
+  .col-type { width: 52px; }
+  .col-qty { width: 80px; }
+  .col-exp { width: 76px; }
+  .col-couv { width: 160px; }
+  .col-verdict { width: 110px; }
+  .col-charge { width: 60px; }
+  .col-goulots { width: 60px; }
+
+  /* Annotation */
+  .annotation {
+    margin-top: 12px;
+    padding: 12px 16px;
+    background: var(--secondary);
+    border-radius: 8px;
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.6;
+    max-width: 720px;
+  }
+  .annotation strong { color: var(--fg); font-weight: 600; }
+  .annotation .pro { color: var(--ferme); }
+  .annotation .con { color: var(--destructive); }
+</style>
+</head>
+<body>
+
+<h1>Suivi Proactif — Row Redesign</h1>
+<p class="subtitle">
+  4 directions pour la row du tableau de suivi proactif. Données réelles de la row #01 (AR2602259 / ALDES, en retard −7j).
+  Tokens Airbnb du projet. Chaque variation explore un compromis différent entre scanabilité, densité et hiérarchie.
+</p>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- BASELINE -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="variation">
+  <div class="variation-header">
+    <span class="variation-label">Baseline</span>
+    <span class="variation-name">État actuel (post-fix tier 2)</span>
+  </div>
+  <p class="variation-desc">
+    Bordure gauche = statut. Row monochrome sauf verdict pill (tier 1) + WOF/retard/pièces (tier 2).
+    Article en noir bold, désignation en muted 11px.
+  </p>
+  <div class="table-wrap">
+    <table class="v-baseline">
+      <colgroup>
+        <col class="col-n"><col class="col-cmd"><col class="col-art"><col class="col-type">
+        <col class="col-qty"><col class="col-exp"><col class="col-couv"><col class="col-verdict">
+        <col class="col-charge"><col class="col-goulots">
+      </colgroup>
+      <thead><tr>
+        <th>N°</th><th>Commande · Client</th><th>Article · Désignation</th><th>Type</th>
+        <th class="right">Qté</th><th>Expé</th><th>Couverture</th><th>Verdict</th>
+        <th class="right">Charge</th><th>Goulots</th>
+      </tr></thead>
+      <tbody><tr>
+        <td class="n-col">01</td>
+        <td><div class="cmd">AR2602259</div><div class="client">ALDES</div></td>
+        <td><div class="art">11026052</div><div class="desig">ESHKIT CPT DHU-- COL -------</div></td>
+        <td><span class="type-badge">MTS</span></td>
+        <td style="text-align:right">
+          <div style="display:flex;align-items:baseline;justify-content:flex-end;gap:2px">
+            <span class="qty">64</span><span class="qty-unit">u</span>
+          </div>
+          <div class="prog-bar"><div class="prog-fill" style="width:70%;background:rgba(34,34,34,0.6)"></div></div>
+        </td>
+        <td><div class="date">15/07</div><div class="retard-text">Retard −7j</div></td>
+        <td>
+          <div style="display:flex;align-items:center;gap:4px">
+            <span class="of-ref">F426-39011</span>
+            <span class="of-tag of-tag-wof">WOF</span>
+            <span class="ping-dot"></span>
+          </div>
+          <div class="pieces">58/96 pièces</div>
+        </td>
+        <td><span class="verdict-pill verdict-late">En retard</span></td>
+        <td style="text-align:right"><span class="charge">1.1h</span></td>
+        <td><span class="empty">—</span></td>
+      </tr></tbody>
+    </table>
+  </div>
+  <div class="annotation">
+    <strong>Bilan :</strong>
+    <span class="pro">+ Hiérarchie claire</span> ·
+    <span class="pro">+ Tier 2 scannable</span> ·
+    <span class="con">− La bordure gauche est le seul signal de statut — facile à manquer sur un écran large</span> ·
+    <span class="con">− Le verdict pill et le retard texte disent la même chose</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- VARIATION A: LE REGISTRE -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="variation">
+  <div class="variation-header">
+    <span class="variation-label">Variation A</span>
+    <span class="variation-name">Le registre</span>
+  </div>
+  <p class="variation-desc">
+    Style grand livre / ledger. Filets verticaux entre les zones. Le statut est un dot dans la colonne N° —
+    pas de bordure gauche, pas de pill verdict. Le verdict devient un texte teinté.
+    Plus aéré, plus « comptable », moins « dashboard ».
+  </p>
+  <div class="table-wrap">
+    <table class="v-registre">
+      <colgroup>
+        <col class="col-n"><col class="col-cmd"><col class="col-art"><col class="col-type">
+        <col class="col-qty"><col class="col-exp"><col class="col-couv"><col class="col-verdict">
+        <col class="col-charge"><col class="col-goulots">
+      </colgroup>
+      <thead><tr>
+        <th>N°</th><th>Commande · Client</th><th>Article · Désignation</th><th>Type</th>
+        <th class="right">Qté</th><th>Expé</th><th>Couverture</th><th>Verdict</th>
+        <th class="right">Charge</th><th style="border-right:none">Goulots</th>
+      </tr></thead>
+      <tbody><tr>
+        <td><span class="status-dot" style="background:var(--suggere)"></span><span class="n-col">01</span></td>
+        <td><div class="cmd">AR2602259</div><div class="client">ALDES</div></td>
+        <td><div class="art">11026052</div><div class="desig">ESHKIT CPT DHU-- COL -------</div></td>
+        <td><span class="type-badge">MTS</span></td>
+        <td style="text-align:right">
+          <div style="display:flex;align-items:baseline;justify-content:flex-end;gap:2px">
+            <span class="qty">64</span><span class="qty-unit">u</span>
+          </div>
+        </td>
+        <td><div class="date">15/07</div><div class="retard-text">−7j</div></td>
+        <td>
+          <div style="display:flex;align-items:center;gap:4px">
+            <span class="of-ref">F426-39011</span>
+            <span class="of-tag of-tag-wof">WOF</span>
+          </div>
+          <div class="pieces">58/96</div>
+        </td>
+        <td><span class="verdict-text late">En retard</span></td>
+        <td style="text-align:right"><span class="charge">1.1h</span></td>
+        <td style="border-right:none"><span class="empty">—</span></td>
+      </tr></tbody>
+    </table>
+  </div>
+  <div class="annotation">
+    <strong>Philosophie :</strong> le dot N° porte le statut en pré-attentif (8px, couleur pleine).
+    Le verdict devient du texte teinté — pas de fond, pas de pill. Les filets verticaux créent des « colonnes de registre »
+    qui guident l'œil horizontalement.<br>
+    <span class="pro">+ Très aéré, zéro bruit de fond</span> ·
+    <span class="pro">+ Le dot N° est scannable verticalement (colonne étroite)</span> ·
+    <span class="con">− Les filets verticaux ajoutent du bruit structurel</span> ·
+    <span class="con">− Le verdict texte sans fond est moins visible que le pill sur 50 rows</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- VARIATION B: LE SIGNAL -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="variation">
+  <div class="variation-header">
+    <span class="variation-label">Variation B</span>
+    <span class="variation-name">Le signal</span>
+  </div>
+  <p class="variation-desc">
+    Status-first. Les 3 premières colonnes (N° + Commande + Article) ont un fond teinté à 4% de la couleur de statut.
+    Le reste de la row reste blanc. La bordure gauche est conservée. Le verdict pill est conservé mais
+    la zone teintée crée un « bloc de signal » à gauche qui attire l'œil avant même de lire.
+  </p>
+  <div class="table-wrap">
+    <table class="v-signal">
+      <colgroup>
+        <col class="col-n"><col class="col-cmd"><col class="col-art"><col class="col-type">
+        <col class="col-qty"><col class="col-exp"><col class="col-couv"><col class="col-verdict">
+        <col class="col-charge"><col class="col-goulots">
+      </colgroup>
+      <thead><tr>
+        <th>N°</th><th>Commande · Client</th><th>Article · Désignation</th><th>Type</th>
+        <th class="right">Qté</th><th>Expé</th><th>Couverture</th><th>Verdict</th>
+        <th class="right">Charge</th><th>Goulots</th>
+      </tr></thead>
+      <tbody><tr>
+        <td class="signal-zone n-col">01</td>
+        <td class="signal-zone"><div class="cmd">AR2602259</div><div class="client">ALDES</div></td>
+        <td class="signal-zone"><div class="art">11026052</div><div class="desig">ESHKIT CPT DHU-- COL -------</div></td>
+        <td><span class="type-badge">MTS</span></td>
+        <td style="text-align:right">
+          <div style="display:flex;align-items:baseline;justify-content:flex-end;gap:2px">
+            <span class="qty">64</span><span class="qty-unit">u</span>
+          </div>
+          <div class="prog-bar"><div class="prog-fill" style="width:70%;background:rgba(34,34,34,0.6)"></div></div>
+        </td>
+        <td><div class="date">15/07</div><div class="retard-text">Retard −7j</div></td>
+        <td>
+          <div style="display:flex;align-items:center;gap:4px">
+            <span class="of-ref">F426-39011</span>
+            <span class="of-tag of-tag-wof">WOF</span>
+            <span class="ping-dot"></span>
+          </div>
+          <div class="pieces">58/96 pièces</div>
+        </td>
+        <td><span class="verdict-pill verdict-late">En retard</span></td>
+        <td style="text-align:right"><span class="charge">1.1h</span></td>
+        <td><span class="empty">—</span></td>
+      </tr></tbody>
+    </table>
+  </div>
+  <div class="annotation">
+    <strong>Philosophie :</strong> le bloc teinté à gauche crée une « masse visuelle » qui attire l'œil
+    avant même la lecture. Sur 50 rows, les rows en retard forment des bandes colorées à gauche —
+    pattern match immédiat. Le reste de la row reste propre.<br>
+    <span class="pro">+ Scan vertical ultra-rapide (les bandes teintées sautent aux yeux)</span> ·
+    <span class="pro">+ Conserve toute la hiérarchie du baseline</span> ·
+    <span class="con">− Si 60% des rows sont en retard, les bandes se fondent dans le bruit</span> ·
+    <span class="con">− Le fond teinté peut paraître « sale » sur un écran mal calibré</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- VARIATION C: LE COMPACT -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="variation">
+  <div class="variation-header">
+    <span class="variation-label">Variation C</span>
+    <span class="variation-name">Le compact</span>
+  </div>
+  <p class="variation-desc">
+    Densité maximale. Row height réduite de 30%. Article + désignation sur la même ligne (désignation truncatée).
+    Le verdict devient un dot + texte (pas de pill). La barre de progression Qté est retirée.
+    Objectif : 40% de rows visibles en plus sans scroll.
+  </p>
+  <div class="table-wrap">
+    <table class="v-compact">
+      <colgroup>
+        <col class="col-n"><col class="col-cmd"><col class="col-art"><col class="col-type">
+        <col class="col-qty"><col class="col-exp"><col class="col-couv"><col class="col-verdict">
+        <col class="col-charge"><col class="col-goulots">
+      </colgroup>
+      <thead><tr>
+        <th>N°</th><th>Commande · Client</th><th>Article · Désignation</th><th>Type</th>
+        <th class="right">Qté</th><th>Expé</th><th>Couverture</th><th>Verdict</th>
+        <th class="right">Charge</th><th>Goulots</th>
+      </tr></thead>
+      <tbody><tr>
+        <td class="n-col" style="box-shadow:inset 3px 0 0 var(--suggere)">01</td>
+        <td><span class="cmd">AR2602259</span> <span style="color:var(--muted);font-size:11px">ALDES</span></td>
+        <td>
+          <div class="art-line">
+            <span class="art">11026052</span>
+            <span class="desig-inline">ESHKIT CPT DHU-- COL -------</span>
+          </div>
+        </td>
+        <td><span class="type-badge">MTS</span></td>
+        <td style="text-align:right"><span class="qty" style="font-size:14px">64</span><span class="qty-unit">u</span></td>
+        <td><span class="date">15/07</span> <span class="retard-text" style="display:inline;margin-left:4px">−7j</span></td>
+        <td>
+          <span class="of-ref">F426-39011</span>
+          <span class="of-tag of-tag-wof">WOF</span>
+        </td>
+        <td>
+          <span class="verdict-dot" style="background:var(--suggere)"></span>
+          <span class="verdict-label" style="color:var(--suggere)">En retard</span>
+        </td>
+        <td style="text-align:right"><span class="charge">1.1h</span></td>
+        <td><span class="empty">—</span></td>
+      </tr></tbody>
+    </table>
+  </div>
+  <div class="annotation">
+    <strong>Philosophie :</strong> densité > lisibilité individuelle. Le planner qui monitore 200 commandes
+    a besoin de voir le maximum de rows sans scroll. Chaque row sacrifie un peu de respirabilité
+    pour gagner 30% de densité verticale.<br>
+    <span class="pro">+ 40% de rows visibles en plus</span> ·
+    <span class="pro">+ Le dot verdict est suffisant en contexte (la bordure gauche porte déjà le signal)</span> ·
+    <span class="con">− La désignation truncatée perd de l'info</span> ·
+    <span class="con">− Moins confortable pour une lecture prolongée</span> ·
+    <span class="con">− Les pièces 58/96 sont masquées (manque de place)</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- RECOMMANDATION -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div style="margin-top: 48px; padding: 24px; background: var(--card); border-radius: 10px; border: 1px solid var(--border); max-width: 720px;">
+  <div style="font-family: var(--font-display); font-size: 16px; font-weight: 700; margin-bottom: 12px;">Recommandation</div>
+  <p style="font-size: 13px; color: var(--muted); line-height: 1.7;">
+    <strong style="color:var(--fg)">Baseline + emprunt à B</strong> : garder la structure actuelle (bordure gauche + tier 2 + verdict pill)
+    mais ajouter le fond teinté à 3-4% sur les 3 premières colonnes pour les rows en retard/bloqué.
+    C'est le meilleur compromis : le baseline a la bonne hiérarchie, le fond teinté de B ajoute
+    le scan vertical qui manque. Le registre (A) est trop dépouillé pour un outil opérationnel.
+    Le compact (C) est à réserver pour un mode « vue dense » toggleable.
+  </p>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>V3 · Bordereau — Réceptions</title>
+<!--
+  ─────────────────────────────────────────────────────────────────────────
+  V3 · BORDEREAU — direction « éditoriale / document »
+
+  ASSUMPTIONS
+  - Mêmes tokens Airbnb, mêmes données que V1/V2 — seule la STRUCTURE change.
+  - Cette page est lue comme un DOCUMENT (bordereau de réception qu'on
+    imprimerait pour le quai), pas comme une grille de données à trier.
+  - L'utilisateur vérifie la cohérence qté → palettes : il veut VOIR le calcul.
+
+  RAISONNEMENT
+  - Rail de dates en marge : la date n'apparaît qu'une fois par jour, en
+    grand, reliée aux lignes par un filet vertical. La lecture est verticale
+    (chronologie) puis horizontale (détail). C'est la structure d'un registre
+    papier, pas d'une table.
+  - L'équation de conversion est visible : « 1 200 u ÷ 24/UC · 5/pal → 10 ».
+    Le chiffre de palettes cesse d'être une assertion magique — il devient
+    vérifiable. C'est LA signature à 120% de cette direction : la confiance
+    par la transparence du calcul.
+  - Les totaux de jour sont des lignes comptables : double filet au-dessus,
+    chiffre aligné sur la colonne des résultats, mentions en italique.
+  - Restraint : la couleur de tier n'apparaît QUE sur le résultat quand il
+    dépasse les seuils utiles (≥12). En dessous, encre neutre. Pas de pills,
+    pas de badges — les anomalies coef sont des notes de marge en italique.
+  - Typographie : contraste taille/graisse plutôt que couleur. Numérotation
+    continue en exposant discret pour la traçabilité.
+
+  PLACEHOLDERS
+  - Chrome de page simplifiée, non interactive.
+  - Pas de tri par colonne ici (document, pas grille) — à discuter.
+  ─────────────────────────────────────────────────────────────────────────
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,500;1,600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #222222;
+    --body: #3f3f3f;
+    --muted: #6a6a6a;
+    --faint: #9a9a9a;
+    --brand: #ff385c;
+    --rule: #dddddd;
+    --rule-soft: #ebebeb;
+    --surface: #f7f7f7;
+    --card: #ffffff;
+    --ferme: #008049;
+    --planifie: #00a699;
+    --suggere: #fc642d;
+    --destructive: #c13515;
+    --shadow-float: 0 6px 20px rgb(0 0 0 / 0.16);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { -webkit-font-smoothing: antialiased; }
+  body {
+    font-family: 'Plus Jakarta Sans', -apple-system, system-ui, sans-serif;
+    font-size: 13px; color: var(--body); background: var(--surface);
+  }
+  .tnum { font-variant-numeric: tabular-nums; }
+
+  /* ═══ Chrome (identique V1/V2/V3) ═══ */
+  .masthead {
+    height: 64px; background: var(--card); border-bottom: 1px solid var(--rule);
+    display: flex; align-items: center; gap: 32px; padding: 0 28px;
+  }
+  .wordmark { font-size: 20px; font-weight: 800; color: var(--ink); letter-spacing: -0.02em; }
+  .wordmark b { color: var(--brand); }
+  .env {
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+    color: #fff; background: var(--suggere); border-radius: 9999px; padding: 3px 10px;
+    margin-left: 10px; vertical-align: 3px;
+  }
+  .nav { display: flex; gap: 24px; margin-left: 16px; height: 64px; }
+  .nav a {
+    display: flex; align-items: center; font-size: 12px; font-weight: 600;
+    color: var(--muted); text-decoration: none; border-bottom: 3px solid transparent;
+  }
+  .nav a.active { color: var(--ink); border-bottom-color: var(--ink); }
+  .masthead .meta { margin-left: auto; text-align: right; font-size: 11px; color: var(--muted); }
+  .masthead .meta .range { font-size: 12px; font-weight: 700; color: var(--brand); }
+  .masthead .meta b { color: var(--ink); }
+
+  .toolbar {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--card); border-bottom: 1px solid var(--rule); padding: 8px 28px;
+  }
+  .pill-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    border: 1px solid var(--rule); border-radius: 8px; background: var(--card);
+    padding: 6px 10px; font-size: 11px; font-weight: 600; color: var(--ink);
+  }
+  .pill-btn svg { color: var(--muted); }
+  .toolbar .right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+  .search {
+    display: flex; align-items: center; gap: 6px; height: 30px; width: 220px;
+    border: 1px solid var(--rule); border-radius: 9999px; padding: 0 12px;
+    font-size: 12px; color: var(--faint); background: var(--card);
+  }
+  .refresh {
+    display: inline-flex; align-items: center; gap: 6px;
+    border: 1px solid var(--rule); border-radius: 9999px; background: var(--card);
+    padding: 6px 12px; font-size: 11px; font-weight: 700; color: var(--ink);
+  }
+
+  .subbar {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--card); border-bottom: 1px solid var(--rule-soft); padding: 6px 28px;
+  }
+  .viewtoggle { display: flex; border: 1px solid var(--rule); border-radius: 8px; overflow: hidden; }
+  .viewtoggle span {
+    padding: 6px 12px; font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--muted);
+  }
+  .viewtoggle span.on { background: rgba(255,56,92,0.10); color: var(--brand); }
+  .subbar .stats { margin-left: auto; display: flex; gap: 14px; font-size: 11px; color: var(--muted); }
+  .subbar .stats .est { color: var(--planifie); display: flex; align-items: center; gap: 4px; }
+  .subbar .stats .miss { color: var(--destructive); display: flex; align-items: center; gap: 4px; }
+
+  .annotation {
+    margin: 20px 28px 0; border: 1px dashed var(--rule); border-radius: 8px;
+    padding: 10px 14px; font-size: 11px; color: var(--muted); line-height: 1.55;
+    background: var(--card);
+  }
+  .annotation b {
+    font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.14em;
+    color: var(--ink); display: block; margin-bottom: 2px;
+  }
+
+  /* ═══ V3 · LE BORDEREAU ═══ */
+
+  .stage { padding: 16px 28px 56px; }
+
+  .bordereau {
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: 14px;
+    padding: 8px 0 0;
+  }
+
+  /* Tête de document */
+  .doc-head {
+    display: flex; align-items: baseline; gap: 16px;
+    padding: 20px 32px 16px;
+    border-bottom: 2px solid var(--ink);
+  }
+  .doc-head .titre { font-size: 17px; font-weight: 800; letter-spacing: -0.01em; color: var(--ink); }
+  .doc-head .sous { font-size: 11px; color: var(--muted); font-style: italic; }
+  .doc-head .ref { margin-left: auto; font-size: 10px; color: var(--faint); text-transform: uppercase; letter-spacing: 0.12em; }
+
+  /* ── Bloc jour : rail + lignes ── */
+  .jour { display: flex; }
+  .jour + .jour { border-top: 1px solid var(--rule); }
+
+  .rail {
+    flex: none; width: 148px;
+    padding: 22px 0 22px 32px;
+    border-right: 1px solid var(--rule-soft);
+    position: relative;
+  }
+  .rail .dow { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.16em; color: var(--muted); }
+  .rail .num { font-size: 34px; font-weight: 800; line-height: 1.05; color: var(--ink); letter-spacing: -0.02em; }
+  .rail .mois { font-size: 11px; font-weight: 600; color: var(--muted); }
+  .rail .rel {
+    display: inline-block; margin-top: 8px;
+    font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--faint);
+  }
+  .rail .rel.today { color: var(--brand); }
+  .rail .charge {
+    margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--rule-soft);
+    font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted);
+    line-height: 1.9;
+  }
+  .rail .charge b { display: block; font-size: 15px; font-weight: 800; letter-spacing: 0; text-transform: none; }
+  .rail .charge b small { font-size: 9px; color: var(--faint); font-weight: 700; letter-spacing: 0.08em; }
+
+  /* Lignes du jour */
+  .lignes { flex: 1; min-width: 0; }
+
+  .ligne {
+    display: flex; align-items: baseline; gap: 20px;
+    padding: 15px 32px 14px 24px;
+    border-bottom: 1px solid var(--rule-soft);
+  }
+  .ligne:last-child { border-bottom: none; }
+  .ligne:hover { background: rgba(34,34,34,0.025); }
+
+  .ligne .n {
+    flex: none; width: 20px;
+    font-size: 10px; font-weight: 600; color: var(--faint);
+    transform: translateY(-1px);
+  }
+
+  .ligne .quoi { flex: 1; min-width: 0; }
+  .ligne .code { font-size: 13px; font-weight: 800; letter-spacing: -0.01em; color: var(--ink); }
+  .ligne .po { font-size: 10.5px; font-weight: 500; color: var(--faint); margin-left: 8px; }
+  .ligne .desi { margin-top: 2px; font-size: 11.5px; line-height: 1.4; color: var(--muted);
+                 white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ligne .desi .frs { font-weight: 700; color: var(--body); }
+
+  /* Équation de conversion — la signature */
+  .eq { flex: none; text-align: right; }
+  .eq .calc { font-size: 11px; color: var(--muted); white-space: nowrap; }
+  .eq .calc b { font-weight: 700; color: var(--body); }
+  .eq .calc .op { color: var(--rule); margin: 0 4px; }
+  .eq .calc .arrow { color: var(--faint); margin: 0 6px 0 8px; }
+  .eq .res { display: inline; font-size: 19px; font-weight: 800; color: var(--ink); }
+  .eq .res small { font-size: 9px; font-weight: 700; color: var(--faint); text-transform: uppercase; letter-spacing: 0.08em; margin-left: 2px; }
+  .eq .res.warn { color: var(--suggere); }
+  .eq .res.bad { color: var(--destructive); }
+  .eq .note { margin-top: 3px; font-size: 10px; font-style: italic; color: var(--faint); }
+  .eq .note.miss { color: var(--destructive); }
+  .eq .note.est { color: var(--planifie); }
+
+  /* Total de jour — ligne comptable à double filet */
+  .total-jour {
+    display: flex; align-items: baseline; gap: 12px;
+    margin: 2px 32px 0 24px; padding: 9px 8px 12px 0;
+    border-top: 1px solid var(--ink);
+    border-bottom: 3px double var(--ink);
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--muted);
+  }
+  .total-jour .val { margin-left: auto; font-size: 14px; font-weight: 800; letter-spacing: 0; text-transform: none; color: var(--ink); }
+  .total-jour .val.warn { color: var(--suggere); }
+  .total-jour .val.bad { color: var(--destructive); }
+  .total-jour .val small { font-size: 9px; color: var(--faint); font-weight: 700; letter-spacing: 0.08em; }
+
+  /* Pied de document — grand total */
+  .doc-foot {
+    display: flex; align-items: baseline; gap: 18px;
+    padding: 18px 32px 20px;
+    border-top: 2px solid var(--ink);
+    margin-top: 24px;
+  }
+  .doc-foot .lib { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.14em; color: var(--ink); }
+  .doc-foot .mention { font-size: 10.5px; font-style: italic; color: var(--muted); }
+  .doc-foot .mention b { font-style: normal; color: var(--destructive); }
+  .doc-foot .grand { margin-left: auto; font-size: 26px; font-weight: 800; color: var(--ink); letter-spacing: -0.01em; }
+  .doc-foot .grand small { font-size: 11px; font-weight: 700; color: var(--faint); text-transform: uppercase; letter-spacing: 0.1em; margin-left: 3px; }
+</style>
+</head>
+<body>
+
+<!-- ═══ Chrome (identique V1/V2/V3) ═══ -->
+<header class="masthead">
+  <div class="wordmark">Supply Chain <b>AERECO</b><span class="env">test</span></div>
+  <nav class="nav">
+    <a href="#">Dashboard</a>
+    <a href="#">Board</a>
+    <a href="#" class="active">Réceptions</a>
+    <a href="#">Expéditions</a>
+    <a href="#">Ruptures</a>
+  </nav>
+  <div class="meta">
+    <div class="range">22/07 → 28/07</div>
+    <div><b class="tnum">79,5</b> palettes · <b class="tnum">15</b> réceptions</div>
+  </div>
+</header>
+
+<div class="toolbar">
+  <span class="pill-btn">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+    22/07 → 28/07
+  </span>
+  <div class="right">
+    <span class="search">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      Fournisseur, article, commande…
+    </span>
+    <span class="refresh">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>
+      Actualiser
+    </span>
+  </div>
+</div>
+
+<div class="subbar">
+  <div class="viewtoggle"><span class="on">Tableau</span><span>Charge par jour</span></div>
+  <div class="stats">
+    <span class="est">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>
+      2 estimés
+    </span>
+    <span class="miss">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+      1 coef manquant
+    </span>
+    <span class="tnum">15 lignes</span>
+  </div>
+</div>
+
+<div class="annotation">
+  <b>V3 · Bordereau — le document de quai</b>
+  La page lue comme un bordereau imprimable : rail de dates en marge (une date = un bloc), et surtout <b>l'équation de conversion visible</b> — « 1 200 u ÷ 24/UC · 5/pal → 10 pal » : le chiffre de palettes devient vérifiable au lieu d'être une assertion. Totaux de jour en lignes comptables à double filet, couleur de tier réservée aux seuils qui comptent (≥ 12), anomalies en notes de marge italiques. Le plus distinctif des trois — mais sans tri par colonne.
+</div>
+
+<main class="stage">
+  <div class="bordereau">
+
+    <div class="doc-head">
+      <span class="titre">Bordereau des réceptions attendues</span>
+      <span class="sous">commandes fournisseurs non soldées · horizon 7 jours</span>
+      <span class="ref">Aereco · Quai Nord · 22/07/2026</span>
+    </div>
+
+    <!-- ── Jour 1 ── -->
+    <section class="jour">
+      <div class="rail">
+        <div class="dow">Mercredi</div>
+        <div class="num tnum">22</div>
+        <div class="mois">juillet</div>
+        <div class="rel today">Aujourd'hui</div>
+        <div class="charge tnum">4 lignes · 4 frs<b class="tnum" style="color:var(--destructive)">30,5<small> PAL</small></b></div>
+      </div>
+      <div class="lignes">
+        <div class="ligne">
+          <span class="n tnum">01</span>
+          <div class="quoi">
+            <span class="code">MOTEUR-VMC-2V</span><span class="po tnum">PO250741</span>
+            <div class="desi">Moteur VMC 2 vitesses 230 V — <span class="frs">EBM-PAPST</span></div>
+          </div>
+          <div class="eq tnum">
+            <span class="calc"><b>1&nbsp;200</b> u<span class="op">÷</span>24/UC<span class="op">·</span>5/pal<span class="arrow">→</span></span><span class="res tnum">10<small>pal</small></span>
+          </div>
+        </div>
+        <div class="ligne">
+          <span class="n tnum">02</span>
+          <div class="quoi">
+            <span class="code">GRILLE-ALU-125-BC</span><span class="po tnum">PO250738</span>
+            <div class="desi">Grille alu laqué Ø125 blanc — <span class="frs">PLASTIVAL</span></div>
+          </div>
+          <div class="eq tnum">
+            <span class="calc"><b>4&nbsp;800</b> u<span class="op">÷</span>48/UC<span class="op">·</span>8/pal<span class="arrow">→</span></span><span class="res warn tnum">12,5<small>pal</small></span>
+          </div>
+        </div>
+        <div class="ligne">
+          <span class="n tnum">03</span>
+          <div class="quoi">
+            <span class="code">VISSERIE-KIT-M6</span><span class="po tnum">PO250755</span>
+            <div class="desi">Kit visserie M6 inox A2 — <span class="frs">BOSSARD</span></div>
+          </div>
+          <div class="eq tnum">
+            <span class="calc"><b>600</b> u<span class="arrow">→</span></span><span class="res tnum" style="color:rgba(193,53,21,0.45);font-weight:500">—</span>
+            <div class="note miss">coef palette non référencé — charge hors calcul</div>
+          </div>
+        </div>
+        <div class="ligne">
+          <span class="n tnum">04</span>
+          <div class="quoi">
+            <span class="code">COLLE-PU-310</span><span class="po tnum">PO250742</span>
+            <div class="desi">Colle PU cartouche 310 ml — <span class="frs">SIKA FRANCE</span></div>
+          </div>
+          <div class="eq tnum">
+            <span class="calc"><b>960</b> u<span class="op">÷</span>12/UC<span class="op">·</span>10/pal<span class="arrow">→</span></span><span class="res tnum">8<small>pal</small></span>
+          </div>
+        </div>
+        <div class="total-jour tnum">
+          <span>Total du jour</span>
+          <span class="val bad tnum">30,5<small> PAL</small></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Jour 2 ── -->
+    <section class="jour">
+      <div class="rail">
+        <div class="dow">Jeudi</div>
+        <div class="num tnum">23</div>
+        <div class="mois">juillet</div>
+        <div class="rel">J + 1</div>
+        <div class="charge tnum">3 lignes · 3 frs<b class="tnum" style="color:var(--suggere)">13<small> PAL</small></b></div>
+      </div>
+      <div class="lignes">
+        <div class="ligne">
+          <span class="n tnum">05</span>
+          <div class="quoi">
+            <span class="code">INTER-VMC-2V</span><span class="po tnum">PO250760</span>
+            <div class="desi">Interrupteur 2 vitesses étanche — <span class="frs">LEGRAND</span></div>
+          </div>
+          <div class="eq tnum">
+            <span class="calc"><b>800</b> u<span class="op">÷</span>20/UC<span class="op">·</span>9/pal<span class="arrow">→</span></span><span class="res tnum">4,5<small>pal</small></span>
+          </div>
+        </div>
+        <div class="ligne">
+          <span class="n tnum">06</span>
+          <div class="quoi">
+            <span class="code">TUBE-GALVA-160-3M</span><span class="po tnum">PO250759</span>
+            <div class="desi">Tube galva Ø160 L.3 m — <span class="frs">ARCELOR TUBES</span></div>
+          </div>
+          <div class="eq tnum">
+            <span class="calc"><b>300</b> u<span class="arrow">→</span></span><span class="res tnum">6<small>pal</small></span>
+            <div class="note est">coef estimé sur stock actuel SM*</div>
+          </div>
+        </div>
+        <div class="ligne">
+          <span class="n tnum">07</span>
+          <div class="quoi">
+            <span class="code">HELICE-315</span><span class="po tnum">PO250761</span>
+            <div class="desi">Hélice Ø315 aluminium — <span class="frs">EBM-PAPST</span></div>
+          </div>
+          <div class="eq tnum">
+            <span class="calc"><b>150</b> u<span class="op">÷</span>10/UC<span class="op">·</span>6/pal<span class="arrow">→</span></span><span class="res tnum">2,5<small>pal</small></span>
+          </div>
+        </div>
+        <div class="total-jour tnum">
+          <span>Total du jour</span>
+          <span class="val warn tnum">13<small> PAL</small></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Jour 3 ── -->
+    <section class="jour">
+      <div class="rail">
+        <div class="dow">Vendredi</div>
+        <div class="num tnum">24</div>
+        <div class="mois">juillet</div>
+        <div class="rel">J + 2</div>
+        <div class="charge tnum">2 lignes · 2 frs<b class="tnum" style="color:var(--ink)">5<small> PAL</small></b></div>
+      </div>
+      <div class="lignes">
+        <div class="ligne">
+          <span class="n tnum">08</span>
+          <div class="quoi">
+            <span class="code">CONTACTEUR-LC1D</span><span class="po tnum">PO250770</span>
+            <div class="desi">Contacteur LC1D 18 A — <span class="frs">SCHNEIDER ELECTRIC</span></div>
+          </div>
+          <div class="eq tnum">
+            <span class="calc"><b>120</b> u<span class="op">÷</span>12/UC<span class="op">·</span>12/pal<span class="arrow">→</span></span><span class="res tnum">1<small>pal</small></span>
+          </div>
+        </div>
+        <div class="ligne">
+          <span class="n tnum">09</span>
+          <div class="quoi">
+            <span class="code">BOUCHE-EXTR-80</span><span class="po tnum">PO250768</span>
+            <div class="desi">Bouche extraction Ø80 réglable — <span class="frs">PLASTIVAL</span></div>
+          </div>
+          <div class="eq tnum">
+            <span class="calc"><b>2&nbsp;400</b> u<span class="op">÷</span>60/UC<span class="op">·</span>10/pal<span class="arrow">→</span></span><span class="res tnum">4<small>pal</small></span>
+          </div>
+        </div>
+        <div class="total-jour tnum">
+          <span>Total du jour</span>
+          <span class="val tnum">5<small> PAL</small></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Jour 4 ── -->
+    <section class="jour">
+      <div class="rail">
+        <div class="dow">Lundi</div>
+        <div class="num tnum">27</div>
+        <div class="mois">juillet</div>
+        <div class="rel">J + 5</div>
+        <div class="charge tnum">4 lignes · 4 frs<b class="tnum" style="color:var(--destructive)">28,5<small> PAL</small></b></div>
+      </div>
+      <div class="lignes">
+        <div class="ligne">
+          <span class="n tnum">10</span>
+          <div class="quoi">
+            <span class="code">TUBE-GALVA-125-3M</span><span class="po tnum">PO250780</span>
+            <div class="desi">Tube galva Ø125 L.3 m — <span class="frs">ARCELOR TUBES</span></div>
+          </div>
+          <div class="eq tnum">
+            <span class="calc"><b>900</b> u<span class="op">÷</span>30/UC<span class="op">·</span>5/pal<span class="arrow">→</span></span><span class="res tnum">6<small>pal</small></span>
+          </div>
+        </div>
+        <div class="ligne">
+          <span class="n tnum">11</span>
+          <div class="quoi">
+            <span class="code">CAISSON-EXTR-45</span><span class="po tnum">PO250781</span>
+            <div class="desi">Caisson extraction 45 dB(A) — <span class="frs">EBM-PAPST</span></div>
+          </div>
+          <div class="eq tnum">
+            <span class="calc"><b>96</b> u<span class="op">÷</span>4/UC<span class="op">·</span>2/pal<span class="arrow">→</span></span><span class="res warn tnum">12<small>pal</small></span>
+          </div>
+        </div>
+        <div class="ligne">
+          <span class="n tnum">12</span>
+          <div class="quoi">
+            <span class="code">CHEVILLE-SX-10</span><span class="po tnum">PO250782</span>
+            <div class="desi">Cheville SX 10×50 — <span class="frs">FISCHER</span></div>
+          </div>
+          <div class="eq tnum">
+            <span class="calc"><b>5&nbsp;000</b> u<span class="op">÷</span>100/UC<span class="op">·</span>20/pal<span class="arrow">→</span></span><span class="res tnum">2,5<small>pal</small></span>
+          </div>
+        </div>
+        <div class="ligne">
+          <span class="n tnum">13</span>
+          <div class="quoi">
+            <span class="code">MASTIC-ACRYL</span><span class="po tnum">PO250783</span>
+            <div class="desi">Mastic acrylique blanc 300 ml — <span class="frs">SIKA FRANCE</span></div>
+          </div>
+          <div class="eq tnum">
+            <span class="calc"><b>1&nbsp;440</b> u<span class="arrow">→</span></span><span class="res tnum">8<small>pal</small></span>
+            <div class="note est">coef estimé sur historique rangements 6 mois</div>
+          </div>
+        </div>
+        <div class="total-jour tnum">
+          <span>Total du jour</span>
+          <span class="val bad tnum">28,5<small> PAL</small></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Jour 5 ── -->
+    <section class="jour">
+      <div class="rail">
+        <div class="dow">Mardi</div>
+        <div class="num tnum">28</div>
+        <div class="mois">juillet</div>
+        <div class="rel">J + 6</div>
+        <div class="charge tnum">2 lignes · 2 frs<b class="tnum" style="color:var(--ink)">2,5<small> PAL</small></b></div>
+      </div>
+      <div class="lignes">
+        <div class="ligne">
+          <span class="n tnum">14</span>
+          <div class="quoi">
+            <span class="code">ECROU-FREIN-M8</span><span class="po tnum">PO250790</span>
+            <div class="desi">Écrou frein M8 zingué — <span class="frs">BOSSARD</span></div>
+          </div>
+          <div class="eq tnum">
+            <span class="calc"><b>2&nbsp;000</b> u<span class="op">÷</span>100/UC<span class="op">·</span>24/pal<span class="arrow">→</span></span><span class="res tnum">1<small>pal</small></span>
+          </div>
+        </div>
+        <div class="ligne">
+          <span class="n tnum">15</span>
+          <div class="quoi">
+            <span class="code">SONDE-CO2</span><span class="po tnum">PO250791</span>
+            <div class="desi">Sonde CO₂ murale 0-2000 ppm — <span class="frs">LEGRAND</span></div>
+          </div>
+          <div class="eq tnum">
+            <span class="calc"><b>60</b> u<span class="op">÷</span>6/UC<span class="op">·</span>8/pal<span class="arrow">→</span></span><span class="res tnum">1,5<small>pal</small></span>
+          </div>
+        </div>
+        <div class="total-jour tnum">
+          <span>Total du jour</span>
+          <span class="val tnum">2,5<small> PAL</small></span>
+        </div>
+      </div>
+    </section>
+
+    <div class="doc-foot tnum">
+      <span class="lib">Total période</span>
+      <span class="mention">15 réceptions · 8 fournisseurs — <b>hors 1 ligne à coef manquant</b>, charge réellement supérieure</span>
+      <span class="grand tnum">79,5<small>PAL</small></span>
+    </div>
+
+  </div>
+</main>
+
+</body>
+</html>

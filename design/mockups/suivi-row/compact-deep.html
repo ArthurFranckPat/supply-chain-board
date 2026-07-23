@@ -1,0 +1,641 @@
+<style>
+  :root {
+    --brand: #ff385c;
+    --brand-soft: rgba(255, 56, 92, 0.10);
+    --bg: #ffffff;
+    --fg: #222222;
+    --card: #ffffff;
+    --secondary: #f7f7f7;
+    --muted: #6a6a6a;
+    --muted-50: rgba(106, 106, 106, 0.5);
+    --muted-70: rgba(106, 106, 106, 0.7);
+    --secondary-fg: #222222;
+    --destructive: #c13515;
+    --ferme: #008049;
+    --planifie: #00a699;
+    --suggere: #fc642d;
+    --border: #dddddd;
+    --rule-soft: #ebebeb;
+    --mono: 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --display: 'Fraunces', 'Georgia', serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--sans);
+    background: #f5f5f5;
+    color: var(--fg);
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+
+  /* ── Page chrome ── */
+  .page-header {
+    padding: 32px 40px 0;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
+  }
+
+  .page-title {
+    font-family: var(--display);
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--fg);
+  }
+
+  .page-subtitle {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 4px;
+    line-height: 1.5;
+    max-width: 480px;
+  }
+
+  .density-toggle {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    background: var(--secondary);
+    border-radius: 8px;
+    padding: 3px;
+    flex-shrink: 0;
+  }
+
+  .density-btn {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    padding: 5px 12px;
+    border-radius: 6px;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .density-btn.active {
+    background: var(--card);
+    color: var(--fg);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+  }
+
+  .density-btn:hover:not(.active) { color: var(--fg); }
+
+  /* ── Stats bar ── */
+  .stats-bar {
+    display: flex;
+    gap: 24px;
+    padding: 16px 40px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .stat-item { display: flex; align-items: center; gap: 6px; }
+  .stat-dot { width: 6px; height: 6px; border-radius: 50%; }
+  .stat-count { font-weight: 700; color: var(--fg); }
+
+  /* ── Table container ── */
+  .table-container {
+    margin: 0 40px 40px;
+    background: var(--card);
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.02);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+
+  /* ── Header ─ */
+  thead th {
+    font-family: var(--sans);
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--muted);
+    text-align: left;
+    padding: 7px 12px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    background: var(--card);
+    z-index: 10;
+    letter-spacing: 0.02em;
+  }
+
+  thead th.right { text-align: right; }
+
+  /* ── Row ── */
+  tbody tr {
+    transition: background 0.1s ease;
+    cursor: default;
+  }
+
+  tbody tr:hover { background: rgba(34, 34, 34, 0.025); }
+
+  tbody td {
+    padding: 5px 12px;
+    vertical-align: middle;
+    border-bottom: 1px solid var(--rule-soft);
+    font-size: 11px;
+    line-height: 1.3;
+    overflow: hidden;
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+
+  /* ── Status bar (left edge) ── */
+  .status-bar {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+  }
+
+  td:first-child { position: relative; }
+
+  /* ── Cell atoms ── */
+  .n { font-family: var(--mono); font-size: 10px; font-weight: 700; color: var(--muted-50); }
+
+  .cmd { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: -0.02em; color: var(--fg); }
+  .client { font-size: 10px; color: var(--muted); margin-left: 6px; font-weight: 400; }
+
+  .art { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: -0.02em; color: var(--fg); }
+  .desig {
+    font-size: 10px;
+    color: var(--muted-70);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 160px;
+    display: inline-block;
+    vertical-align: baseline;
+    margin-left: 6px;
+  }
+
+  .type {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 9px;
+    font-weight: 600;
+    background: var(--secondary);
+    color: var(--muted);
+    padding: 1px 5px;
+    border-radius: 2px;
+  }
+
+  .qty {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--fg);
+    letter-spacing: -0.02em;
+  }
+  .qty-u { font-size: 9px; font-weight: 500; color: var(--muted-50); margin-left: 1px; }
+
+  .date { font-family: var(--mono); font-size: 11px; font-weight: 600; color: var(--fg); }
+  .retard { font-size: 9px; font-weight: 600; margin-left: 4px; }
+  .retard-late { color: var(--destructive); }
+  .retard-ok { color: var(--muted-50); }
+
+  .of { font-family: var(--mono); font-size: 10px; font-weight: 600; color: var(--fg); }
+  .of-tag {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 8px;
+    font-weight: 700;
+    padding: 0px 3px;
+    border-radius: 2px;
+    margin-left: 4px;
+    vertical-align: middle;
+  }
+  .tag-wof { background: rgba(0,128,73,0.12); color: var(--ferme); }
+  .tag-wop { background: rgba(0,166,153,0.12); color: var(--planifie); }
+  .tag-wos { background: rgba(252,100,45,0.12); color: var(--suggere); }
+
+  .pieces { font-family: var(--mono); font-size: 8px; font-weight: 600; color: var(--ferme); margin-left: 4px; }
+
+  .ping {
+    display: inline-block;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--ferme);
+    margin-left: 3px;
+    vertical-align: middle;
+    position: relative;
+  }
+  .ping::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: 50%;
+    background: var(--ferme);
+    opacity: 0.4;
+    animation: ping 2s cubic-bezier(0,0,0.2,1) infinite;
+  }
+  @keyframes ping { 75%, 100% { transform: scale(2.5); opacity: 0; } }
+
+  /* Verdict: dot + text, no pill */
+  .verdict { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+  .v-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .v-label { font-size: 10px; font-weight: 600; }
+
+  .v-late .v-dot { background: var(--suggere); }
+  .v-late .v-label { color: var(--suggere); }
+  .v-ok .v-dot { background: var(--ferme); }
+  .v-ok .v-label { color: var(--ferme); }
+  .v-blocked .v-dot { background: var(--destructive); }
+  .v-blocked .v-label { color: var(--destructive); }
+  .v-risk .v-dot { background: var(--planifie); }
+  .v-risk .v-label { color: var(--planifie); }
+
+  .charge { font-family: var(--mono); font-size: 11px; font-weight: 600; color: var(--muted); }
+
+  .goulots-comp {
+    font-family: var(--mono);
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--fg);
+  }
+  .goulots-qty {
+    font-family: var(--mono);
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--muted);
+    margin-left: 2px;
+  }
+  .goulots-empty { color: var(--muted-50); font-size: 10px; }
+
+  /* ── Hover expand row ── */
+  .expand-row {
+    display: none;
+    background: var(--secondary);
+  }
+
+  .expand-row td {
+    padding: 8px 12px 8px 54px;
+    border-bottom: 1px solid var(--rule-soft);
+    font-size: 10px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  tbody tr:hover + .expand-row { display: table-row; }
+
+  .expand-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+  }
+
+  .expand-section-title {
+    font-family: var(--mono);
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--muted-50);
+    margin-bottom: 4px;
+    letter-spacing: 0.04em;
+  }
+
+  .expand-of {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--fg);
+    font-weight: 600;
+  }
+
+  .expand-detail {
+    font-size: 10px;
+    color: var(--muted);
+  }
+
+  /* ── Column widths ── */
+  .c-n { width: 32px; }
+  .c-cmd { width: 170px; }
+  .c-art { width: 240px; }
+  .c-type { width: 40px; }
+  .c-qty { width: 56px; }
+  .c-exp { width: 80px; }
+  .c-couv { width: 150px; }
+  .c-verdict { width: 90px; }
+  .c-charge { width: 48px; }
+  .c-goulots { width: 100px; }
+
+  /* ── Annotation panel ── */
+  .annotations {
+    margin: 0 40px 48px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  .anno-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+  }
+
+  .anno-title {
+    font-family: var(--mono);
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--muted-50);
+    letter-spacing: 0.06em;
+    margin-bottom: 8px;
+  }
+
+  .anno-body {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  .anno-body strong { color: var(--fg); font-weight: 600; }
+
+  .pro { color: var(--ferme); font-weight: 600; }
+  .con { color: var(--destructive); font-weight: 600; }
+
+  /* ── Responsive scroll ── */
+  .table-scroll { overflow-x: auto; }
+</style>
+
+<div class="page-header">
+  <div>
+    <div class="page-title">Le compact — approfondi</div>
+    <div class="page-subtitle">
+      Densité maximale pour le monitoring opérationnel. Hover une row pour révéler le détail contextuel.
+      8 rows avec des statuts variés pour tester le scan vertical.
+    </div>
+  </div>
+  <div class="density-toggle">
+    <button class="density-btn active">Compact</button>
+    <button class="density-btn">Normal</button>
+  </div>
+</div>
+
+<div class="stats-bar">
+  <div class="stat-item"><span class="stat-dot" style="background:var(--ferme)"></span><span class="stat-count">3</span> à temps</div>
+  <div class="stat-item"><span class="stat-dot" style="background:var(--suggere)"></span><span class="stat-count">2</span> en retard</div>
+  <div class="stat-item"><span class="stat-dot" style="background:var(--destructive)"></span><span class="stat-count">1</span> bloqué</div>
+  <div class="stat-item"><span class="stat-dot" style="background:var(--planifie)"></span><span class="stat-count">1</span> risque</div>
+  <div class="stat-item"><span class="stat-dot" style="background:var(--muted-50)"></span><span class="stat-count">1</span> couvert stock</div>
+  <div style="margin-left:auto;color:var(--muted-50)">8 lignes · 1.2s</div>
+</div>
+
+<div class="table-container">
+  <div class="table-scroll">
+    <table>
+      <colgroup>
+        <col class="c-n"><col class="c-cmd"><col class="c-art"><col class="c-type">
+        <col class="c-qty"><col class="c-exp"><col class="c-couv"><col class="c-verdict">
+        <col class="c-charge"><col class="c-goulots">
+      </colgroup>
+      <thead>
+        <tr>
+          <th>N°</th>
+          <th>Commande · Client</th>
+          <th>Article · Désignation</th>
+          <th>Type</th>
+          <th class="right">Qté</th>
+          <th>Expé</th>
+          <th>Couverture</th>
+          <th>Verdict</th>
+          <th class="right">Charge</th>
+          <th>Goulots</th>
+        </tr>
+      </thead>
+      <tbody>
+
+        <!-- Row 1: En retard -->
+        <tr>
+          <td><div class="status-bar" style="background:var(--suggere)"></div><span class="n">01</span></td>
+          <td><span class="cmd">AR2602259</span><span class="client">ALDES</span></td>
+          <td><span class="art">11026052</span><span class="desig">ESHKIT CPT DHU-- COL -------</span></td>
+          <td><span class="type">MTS</span></td>
+          <td style="text-align:right"><span class="qty">64</span><span class="qty-u">u</span></td>
+          <td><span class="date">15/07</span><span class="retard retard-late">−7j</span></td>
+          <td><span class="of">F426-39011</span><span class="of-tag tag-wof">WOF</span><span class="ping"></span><span class="pieces">58/96</span></td>
+          <td><div class="verdict v-late"><span class="v-dot"></span><span class="v-label">En retard</span></div></td>
+          <td style="text-align:right"><span class="charge">1.1h</span></td>
+          <td><span class="goulots-empty">—</span></td>
+        </tr>
+        <tr class="expand-row"><td colspan="10">
+          <div class="expand-grid">
+            <div><div class="expand-section-title">Couverture</div><div class="expand-of">F426-39011 <span class="of-tag tag-wof">WOF</span></div><div class="expand-detail">58/96 pièces réalisées · OF démarré le 08/07</div></div>
+            <div><div class="expand-section-title">Allocation</div><div class="expand-detail">64u restantes · 0 allouées · 64 reliquat</div></div>
+            <div><div class="expand-section-title">Gamme</div><div class="expand-detail">Charge réelle 1.1h · 2 opérations restantes</div></div>
+          </div>
+        </td></tr>
+
+        <!-- Row 2: À temps -->
+        <tr>
+          <td><div class="status-bar" style="background:var(--ferme)"></div><span class="n">02</span></td>
+          <td><span class="cmd">AR2602301</span><span class="client">LEGRAND</span></td>
+          <td><span class="art">20045871</span><span class="desig">INTERRUPTEUR 2P 10A BLANC</span></td>
+          <td><span class="type">MTS</span></td>
+          <td style="text-align:right"><span class="qty">200</span><span class="qty-u">u</span></td>
+          <td><span class="date">28/07</span><span class="retard retard-ok">+6j</span></td>
+          <td><span class="of">F426-39105</span><span class="of-tag tag-wof">WOF</span><span class="ping"></span><span class="pieces">140/200</span></td>
+          <td><div class="verdict v-ok"><span class="v-dot"></span><span class="v-label">À temps</span></div></td>
+          <td style="text-align:right"><span class="charge">3.2h</span></td>
+          <td><span class="goulots-empty">—</span></td>
+        </tr>
+        <tr class="expand-row"><td colspan="10">
+          <div class="expand-grid">
+            <div><div class="expand-section-title">Couverture</div><div class="expand-of">F426-39105 <span class="of-tag tag-wof">WOF</span></div><div class="expand-detail">140/200 pièces · OF démarré le 14/07</div></div>
+            <div><div class="expand-section-title">Allocation</div><div class="expand-detail">200u restantes · 120 allouées · 80 reliquat</div></div>
+            <div><div class="expand-section-title">Gamme</div><div class="expand-detail">Charge réelle 3.2h · 4 opérations restantes</div></div>
+          </div>
+        </td></tr>
+
+        <!-- Row 3: Bloqué -->
+        <tr>
+          <td><div class="status-bar" style="background:var(--destructive)"></div><span class="n">03</span></td>
+          <td><span class="cmd">AR2602187</span><span class="client">SCHNEIDER</span></td>
+          <td><span class="art">30012445</span><span class="desig">COFFRET METAL 400x300 IP65</span></td>
+          <td><span class="type">MTO</span></td>
+          <td style="text-align:right"><span class="qty">12</span><span class="qty-u">u</span></td>
+          <td><span class="date">18/07</span><span class="retard retard-late">−4j</span></td>
+          <td><span class="of">F426-38990</span><span class="of-tag tag-wop">WOP</span></td>
+          <td><div class="verdict v-blocked"><span class="v-dot"></span><span class="v-label">Bloqué</span></div></td>
+          <td style="text-align:right"><span class="charge">—</span></td>
+          <td><span class="goulots-comp">40087122</span><span class="goulots-qty">−8</span></td>
+        </tr>
+        <tr class="expand-row"><td colspan="10">
+          <div class="expand-grid">
+            <div><div class="expand-section-title">Couverture</div><div class="expand-of">F426-38990 <span class="of-tag tag-wop">WOP</span></div><div class="expand-detail">OF planifié, non démarré — en attente composants</div></div>
+            <div><div class="expand-section-title">Goulot</div><div class="expand-of">40087122</div><div class="expand-detail">Tôle acier 1.5mm · manque 8u · aucune réception prévue</div></div>
+            <div><div class="expand-section-title">Impact</div><div class="expand-detail">Retard estimé +5j si appro lancé aujourd'hui</div></div>
+          </div>
+        </td></tr>
+
+        <!-- Row 4: Risque -->
+        <tr>
+          <td><div class="status-bar" style="background:var(--planifie)"></div><span class="n">04</span></td>
+          <td><span class="cmd">AR2602410</span><span class="client">HAGER</span></td>
+          <td><span class="art">50098234</span><span class="desig">DISJONCTEUR DIFF 30mA TYPE A</span></td>
+          <td><span class="type">MTS</span></td>
+          <td style="text-align:right"><span class="qty">48</span><span class="qty-u">u</span></td>
+          <td><span class="date">24/07</span><span class="retard retard-ok">+2j</span></td>
+          <td><span class="of">F426-39200</span><span class="of-tag tag-wos">WOS</span></td>
+          <td><div class="verdict v-risk"><span class="v-dot"></span><span class="v-label">Risque</span></div></td>
+          <td style="text-align:right"><span class="charge">2.4h</span></td>
+          <td><span class="goulots-empty">—</span></td>
+        </tr>
+        <tr class="expand-row"><td colspan="10">
+          <div class="expand-grid">
+            <div><div class="expand-section-title">Couverture</div><div class="expand-of">F426-39200 <span class="of-tag tag-wos">WOS</span></div><div class="expand-detail">OF suggéré, non planifié — risque de non-démarrage</div></div>
+            <div><div class="expand-section-title">Risque</div><div class="expand-detail">OF pas encore affirmé · échéance dans 2j · marge nulle</div></div>
+            <div><div class="expand-section-title">Action</div><div class="expand-detail">Affermir l'OF ou basculer en achat fournisseur</div></div>
+          </div>
+        </td></tr>
+
+        <!-- Row 5: En retard critique -->
+        <tr>
+          <td><div class="status-bar" style="background:var(--destructive)"></div><span class="n">05</span></td>
+          <td><span class="cmd">AR2602098</span><span class="client">ABB</span></td>
+          <td><span class="art">60034521</span><span class="desig">CONTACTEUR 3P 25A AC3 BOB 230V</span></td>
+          <td><span class="type">MTO</span></td>
+          <td style="text-align:right"><span class="qty">6</span><span class="qty-u">u</span></td>
+          <td><span class="date">10/07</span><span class="retard retard-late">−12j</span></td>
+          <td><span class="of">F426-38850</span><span class="of-tag tag-wof">WOF</span><span class="ping"></span><span class="pieces">2/6</span></td>
+          <td><div class="verdict v-late"><span class="v-dot"></span><span class="v-label">En retard</span></div></td>
+          <td style="text-align:right"><span class="charge">0.8h</span></td>
+          <td><span class="goulots-comp">70012345</span><span class="goulots-qty">−3</span></td>
+        </tr>
+        <tr class="expand-row"><td colspan="10">
+          <div class="expand-grid">
+            <div><div class="expand-section-title">Couverture</div><div class="expand-of">F426-38850 <span class="of-tag tag-wof">WOF</span></div><div class="expand-detail">2/6 pièces · OF démarré le 02/07 · bloqué poste 3</div></div>
+            <div><div class="expand-section-title">Goulot</div><div class="expand-of">70012345</div><div class="expand-detail">Bobine 230V · manque 3u · réception prévue 25/07 (PO-4421)</div></div>
+            <div><div class="expand-section-title">Descente BOM</div><div class="expand-detail">Bloqué par 70012345 → réception en retard +3j</div></div>
+          </div>
+        </td></tr>
+
+        <!-- Row 6: Couvert stock -->
+        <tr>
+          <td><div class="status-bar" style="background:var(--ferme)"></div><span class="n">06</span></td>
+          <td><span class="cmd">AR2602455</span><span class="client">SIEMENS</span></td>
+          <td><span class="art">80056712</span><span class="desig">BORNIER DE TERRE 10mm² VERT/JAUNE</span></td>
+          <td><span class="type">NOR</span></td>
+          <td style="text-align:right"><span class="qty">500</span><span class="qty-u">u</span></td>
+          <td><span class="date">30/07</span><span class="retard retard-ok">+8j</span></td>
+          <td><span style="font-family:var(--mono);font-size:10px;font-weight:600;color:var(--muted)">Stock</span></td>
+          <td><div class="verdict v-ok"><span class="v-dot"></span><span class="v-label">À temps</span></div></td>
+          <td style="text-align:right"><span class="charge">—</span></td>
+          <td><span class="goulots-empty">—</span></td>
+        </tr>
+        <tr class="expand-row"><td colspan="10">
+          <div class="expand-grid">
+            <div><div class="expand-section-title">Couverture</div><div class="expand-detail">Couvert par le stock disponible · SM01-A3 · 1200u en stock</div></div>
+            <div><div class="expand-section-title">Allocation</div><div class="expand-detail">500u restantes · 500 allouées strict · 0 reliquat</div></div>
+            <div><div class="expand-section-title">Gamme</div><div class="expand-detail">Pas d'OF — pièce achetée, pas fabriquée</div></div>
+          </div>
+        </td></tr>
+
+        <!-- Row 7: À temps, multi-OF -->
+        <tr>
+          <td><div class="status-bar" style="background:var(--ferme)"></div><span class="n">07</span></td>
+          <td><span class="cmd">AR2602388</span><span class="client">EATON</span></td>
+          <td><span class="art">90078123</span><span class="desig">RELAIS THERMIQUE 4-6A CLASSE 10</span></td>
+          <td><span class="type">MTS</span></td>
+          <td style="text-align:right"><span class="qty">30</span><span class="qty-u">u</span></td>
+          <td><span class="date">25/07</span><span class="retard retard-ok">+3j</span></td>
+          <td>
+            <div><span class="of">F426-39150</span><span class="of-tag tag-wof">WOF</span><span class="ping"></span></div>
+            <div style="margin-top:1px"><span class="of">F426-39151</span><span class="of-tag tag-wop">WOP</span></div>
+          </td>
+          <td><div class="verdict v-ok"><span class="v-dot"></span><span class="v-label">À temps</span></div></td>
+          <td style="text-align:right"><span class="charge">4.1h</span></td>
+          <td><span class="goulots-empty">—</span></td>
+        </tr>
+        <tr class="expand-row"><td colspan="10">
+          <div class="expand-grid">
+            <div><div class="expand-section-title">Couverture multi-OF</div><div class="expand-of">F426-39150 <span class="of-tag tag-wof">WOF</span></div><div class="expand-detail">20/30 pièces · démarré le 12/07</div><div class="expand-of" style="margin-top:4px">F426-39151 <span class="of-tag tag-wop">WOP</span></div><div class="expand-detail">10/30 pièces · planifié, non démarré</div></div>
+            <div><div class="expand-section-title">Allocation</div><div class="expand-detail">30u restantes · 20 allouées · 10 reliquat</div></div>
+            <div><div class="expand-section-title">Gamme</div><div class="expand-detail">Charge cumulée 4.1h · 2 OF · 6 opérations restantes</div></div>
+          </div>
+        </td></tr>
+
+        <!-- Row 8: En retard, multi-goulots -->
+        <tr>
+          <td><div class="status-bar" style="background:var(--suggere)"></div><span class="n">08</span></td>
+          <td><span class="cmd">AR2602201</span><span class="client">PHOENIX</span></td>
+          <td><span class="art">10089234</span><span class="desig">CONNECTEUR PCB 5.08mm 3 VOIES</span></td>
+          <td><span class="type">MTS</span></td>
+          <td style="text-align:right"><span class="qty">150</span><span class="qty-u">u</span></td>
+          <td><span class="date">14/07</span><span class="retard retard-late">−8j</span></td>
+          <td><span class="of">F426-38920</span><span class="of-tag tag-wof">WOF</span></td>
+          <td><div class="verdict v-late"><span class="v-dot"></span><span class="v-label">En retard</span></div></td>
+          <td style="text-align:right"><span class="charge">1.8h</span></td>
+          <td>
+            <div><span class="goulots-comp">20034567</span><span class="goulots-qty">−40</span></div>
+            <div style="margin-top:1px"><span class="goulots-comp">20034890</span><span class="goulots-qty">−12</span></div>
+          </td>
+        </tr>
+        <tr class="expand-row"><td colspan="10">
+          <div class="expand-grid">
+            <div><div class="expand-section-title">Couverture</div><div class="expand-of">F426-38920 <span class="of-tag tag-wof">WOF</span></div><div class="expand-detail">0/150 pièces · OF non démarré — composants manquants</div></div>
+            <div><div class="expand-section-title">Goulots (2)</div><div class="expand-of">20034567</div><div class="expand-detail">Boîtier PA66 · manque 40u · réception 22/07 (PO-4455)</div><div class="expand-of" style="margin-top:3px">20034890</div><div class="expand-detail">Broches laiton · manque 12u · aucune couverture</div></div>
+            <div><div class="expand-section-title">Impact</div><div class="expand-detail">Retard estimé +10j · goulot 20034890 sans couverture</div></div>
+          </div>
+        </td></tr>
+
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Annotations -->
+<div class="annotations">
+  <div class="anno-card">
+    <div class="anno-title">Principes du compact</div>
+    <div class="anno-body">
+      <strong>Row height 32px</strong> (vs 56px normal) — 75% de rows en plus sans scroll.<br>
+      <strong>Article + désignation inline</strong> — la désignation truncate à 160px, l'essentiel est la ref.<br>
+      <strong>Verdict = dot 6px + texte</strong> — pas de pill, pas de fond. Le dot porte la couleur, le texte porte le label.<br>
+      <strong>Commande + client inline</strong> — le client passe en muted 10px, la commande reste bold 12px.<br>
+      <strong>Retard inline</strong> — pas de badge, juste du texte teinté après la date.
+    </div>
+  </div>
+  <div class="anno-card">
+    <div class="anno-title">Hover = détail contextuel</div>
+    <div class="anno-body">
+      Au survol, une <strong>row d'expansion</strong> apparaît en dessous avec 3 colonnes : couverture détaillée, allocation/reliquat, gamme/impact.
+      C'est le compromis densité ↔ info : la row compacte montre l'essentiel, le hover révèle le contexte sans quitter le tableau.<br>
+      <span class="pro">+ Pas de sheet/modal — le contexte reste dans le flux</span><br>
+      <span class="con">− Le hover ne marche pas sur tactile — prévoir un tap-to-expand</span>
+    </div>
+  </div>
+  <div class="anno-card">
+    <div class="anno-title">Scan vertical</div>
+    <div class="anno-body">
+      La <strong>barre de statut 3px</strong> à gauche crée une colonne de couleur continue.
+      Sur 8 rows, on voit immédiatement : 2 bandes rouges (bloqué/retard critique), 2 bandes orange (retard), 1 teal (risque), 3 vertes (OK).<br>
+      Le <strong>dot verdict</strong> renforce le signal sans ajouter de masse visuelle (pas de fond de pill).<br>
+      <span class="pro">+ Le scan vertical est plus rapide qu'avec des pills — moins de masse colorée à traiter</span>
+    </div>
+  </div>
+  <div class="anno-card">
+    <div class="anno-title">Ce qui est sacrifié</div>
+    <div class="anno-body">
+      <span class="con">Barre de progression Qté</span> — pas de place. Le chiffre brut suffit en compact.<br>
+      <span class="con">Pièces réalisées</span> — visibles seulement au hover. En compact, le ping dot suffit comme signal « OF actif ».<br>
+      <span class="con">Désignation longue</span> — truncatée. Le planner qui a besoin de la désignation complète hover ou clique.<br>
+      <span class="con">Multi-OF</span> — empilés verticalement dans la cellule, mais la row gagne 4px de hauteur par OF supplémentaire.
+    </div>
+  </div>
+</div>

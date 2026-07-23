@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>V2 · Quai — Réceptions</title>
+<!--
+  ─────────────────────────────────────────────────────────────────────────
+  V2 · QUAI — direction « data-forward / dashboard »
+
+  ASSUMPTIONS
+  - Mêmes tokens Airbnb, mêmes données que V1 — seule la STRUCTURE change.
+  - L'utilisateur de cette vue est en mode « exploitation » : il veut voir
+    la CHARGE d'abord, le détail ensuite. La colonne Palettes passe en tête.
+  - Le tri par date suffit — pas de headers de groupe : les gros chiffres se
+    regroupent visuellement d'eux-mêmes (effet histogramme des micro-barres).
+
+  RAISONNEMENT
+  - Micro-barre sous chaque chiffre de palettes : longueur ∝ palettes (cap 20),
+    couleur = tier. C'est de la donnée, pas de la déco — la barre lit le tier
+    avant même le chiffre. À elles toutes, elles rejouent le calendrier de
+    charge en miniature (redondance voulue avec la vue « Charge par jour »).
+  - Colonne « État » unique qui agrège les anomalies coef en pilules — au lieu
+    de teinter toute la ligne (V1), on concentre le signal dans une colonne
+    dédiée : la ligne reste neutre, scannable, et l'état devient triable.
+  - Date compacte en 2 lignes (jour relatif d'abord — c'est lui qu'on scanne).
+  - Densité max : qté + conditionnement fusionnés en une expression mono
+    « 1 200 u · 24/UC · 5/pal » — une seule colonne au lieu de deux.
+
+  PLACEHOLDERS
+  - Chrome de page simplifiée, non interactive.
+  - Barres rendues en largeurs statiques (mockup) ; en prod : style inline.
+  ─────────────────────────────────────────────────────────────────────────
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #222222;
+    --body: #3f3f3f;
+    --muted: #6a6a6a;
+    --faint: #9a9a9a;
+    --brand: #ff385c;
+    --rule: #dddddd;
+    --rule-soft: #ebebeb;
+    --surface: #f7f7f7;
+    --card: #ffffff;
+    --ferme: #008049;
+    --planifie: #00a699;
+    --suggere: #fc642d;
+    --destructive: #c13515;
+    --shadow-float: 0 6px 20px rgb(0 0 0 / 0.16);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { -webkit-font-smoothing: antialiased; }
+  body {
+    font-family: 'Plus Jakarta Sans', -apple-system, system-ui, sans-serif;
+    font-size: 13px; color: var(--body); background: var(--surface);
+  }
+  .tnum { font-variant-numeric: tabular-nums; }
+
+  /* ═══ Chrome (identique V1/V2/V3) ═══ */
+  .masthead {
+    height: 64px; background: var(--card); border-bottom: 1px solid var(--rule);
+    display: flex; align-items: center; gap: 32px; padding: 0 28px;
+  }
+  .wordmark { font-size: 20px; font-weight: 800; color: var(--ink); letter-spacing: -0.02em; }
+  .wordmark b { color: var(--brand); }
+  .env {
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+    color: #fff; background: var(--suggere); border-radius: 9999px; padding: 3px 10px;
+    margin-left: 10px; vertical-align: 3px;
+  }
+  .nav { display: flex; gap: 24px; margin-left: 16px; height: 64px; }
+  .nav a {
+    display: flex; align-items: center; font-size: 12px; font-weight: 600;
+    color: var(--muted); text-decoration: none; border-bottom: 3px solid transparent;
+  }
+  .nav a.active { color: var(--ink); border-bottom-color: var(--ink); }
+  .masthead .meta { margin-left: auto; text-align: right; font-size: 11px; color: var(--muted); }
+  .masthead .meta .range { font-size: 12px; font-weight: 700; color: var(--brand); }
+  .masthead .meta b { color: var(--ink); }
+
+  .toolbar {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--card); border-bottom: 1px solid var(--rule); padding: 8px 28px;
+  }
+  .pill-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    border: 1px solid var(--rule); border-radius: 8px; background: var(--card);
+    padding: 6px 10px; font-size: 11px; font-weight: 600; color: var(--ink);
+  }
+  .pill-btn svg { color: var(--muted); }
+  .toolbar .right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+  .search {
+    display: flex; align-items: center; gap: 6px; height: 30px; width: 220px;
+    border: 1px solid var(--rule); border-radius: 9999px; padding: 0 12px;
+    font-size: 12px; color: var(--faint); background: var(--card);
+  }
+  .refresh {
+    display: inline-flex; align-items: center; gap: 6px;
+    border: 1px solid var(--rule); border-radius: 9999px; background: var(--card);
+    padding: 6px 12px; font-size: 11px; font-weight: 700; color: var(--ink);
+  }
+
+  .subbar {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--card); border-bottom: 1px solid var(--rule-soft); padding: 6px 28px;
+  }
+  .viewtoggle { display: flex; border: 1px solid var(--rule); border-radius: 8px; overflow: hidden; }
+  .viewtoggle span {
+    padding: 6px 12px; font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--muted);
+  }
+  .viewtoggle span.on { background: rgba(255,56,92,0.10); color: var(--brand); }
+  .subbar .stats { margin-left: auto; display: flex; gap: 14px; font-size: 11px; color: var(--muted); }
+  .subbar .stats .est { color: var(--planifie); display: flex; align-items: center; gap: 4px; }
+  .subbar .stats .miss { color: var(--destructive); display: flex; align-items: center; gap: 4px; }
+
+  .annotation {
+    margin: 20px 28px 0; border: 1px dashed var(--rule); border-radius: 8px;
+    padding: 10px 14px; font-size: 11px; color: var(--muted); line-height: 1.55;
+    background: var(--card);
+  }
+  .annotation b {
+    font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.14em;
+    color: var(--ink); display: block; margin-bottom: 2px;
+  }
+
+  /* ═══ V2 · LA TABLE QUAI ═══ */
+
+  .stage { padding: 16px 28px 48px; }
+
+  .quai {
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+
+  table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+
+  thead th {
+    padding: 10px 16px;
+    text-align: left;
+    font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.14em;
+    color: var(--muted);
+    background: var(--surface);
+    border-bottom: 1px solid var(--rule);
+    white-space: nowrap;
+  }
+  thead th.r { text-align: right; }
+
+  tbody td {
+    padding: 11px 16px;
+    vertical-align: middle;
+    border-bottom: 1px solid var(--rule-soft);
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr.data { transition: box-shadow 120ms ease, transform 120ms ease; }
+  tbody tr.data:hover { background: var(--surface); }
+
+  /* Rupture de jour : simple double hairline, pas de bandeau */
+  tr.daybreak td { border-top: 1px solid var(--rule); }
+
+  /* ── Colonne Palettes (héros) ── */
+  .palcell { display: flex; align-items: center; gap: 12px; }
+  .palnum { font-size: 19px; font-weight: 800; min-width: 44px; text-align: right; }
+  .palnum small { font-size: 9px; font-weight: 700; color: var(--faint); text-transform: uppercase; letter-spacing: 0.08em; margin-left: 2px; }
+  .palnum.none { color: rgba(193,53,21,0.45); font-weight: 500; }
+  .tier-ok   { color: var(--ferme); }
+  .tier-mid  { color: var(--planifie); }
+  .tier-warn { color: var(--suggere); }
+  .tier-bad  { color: var(--destructive); }
+  .bar-track {
+    flex: 1; height: 5px; border-radius: 9999px; background: var(--rule-soft);
+    overflow: hidden; max-width: 90px;
+  }
+  .bar-fill { height: 100%; border-radius: 9999px; }
+  .bar-fill.tier-ok   { background: var(--ferme); }
+  .bar-fill.tier-mid  { background: var(--planifie); }
+  .bar-fill.tier-warn { background: var(--suggere); }
+  .bar-fill.tier-bad  { background: var(--destructive); }
+  .bar-fill.unknown   { background: repeating-linear-gradient(-45deg, rgba(193,53,21,0.35) 0 4px, transparent 4px 8px); }
+
+  /* ── Colonne Date compacte ── */
+  .datecell .rel { font-size: 12px; font-weight: 800; color: var(--ink); }
+  .datecell .rel.today { color: var(--brand); }
+  .datecell .d { margin-top: 1px; font-size: 10px; color: var(--muted); }
+
+  /* ── Article / fournisseur ── */
+  .code { font-size: 13px; font-weight: 800; letter-spacing: -0.01em; color: var(--ink); }
+  .desi { margin-top: 2px; font-size: 11px; line-height: 1.35; color: var(--muted);
+          white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .frs { font-size: 12px; font-weight: 700; color: var(--ink); }
+  .frs-code { margin-top: 2px; font-size: 10px; color: var(--muted); }
+
+  /* ── Expression quantité fusionnée ── */
+  .expr { font-size: 11.5px; color: var(--body); white-space: nowrap; }
+  .expr b { font-size: 13px; font-weight: 800; color: var(--ink); }
+  .expr .sep { color: var(--rule); margin: 0 5px; }
+  .expr .unit { font-size: 9px; font-weight: 500; color: var(--faint); }
+  .expr .unknown { color: var(--faint); font-style: italic; }
+
+  /* ── Pilules d'état ── */
+  .pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em;
+    padding: 3px 9px; border-radius: 9999px; white-space: nowrap;
+  }
+  .pill.ok   { color: var(--ferme);       background: rgba(0,128,73,0.12); }
+  .pill.est  { color: var(--planifie);    background: rgba(0,166,153,0.12); }
+  .pill.miss { color: var(--destructive); background: rgba(193,53,21,0.10); }
+
+  /* Pied : somme + légende des barres */
+  .quai-foot {
+    display: flex; align-items: center; gap: 18px;
+    padding: 11px 16px; border-top: 1px solid var(--rule); background: var(--surface);
+    font-size: 10px; color: var(--muted);
+  }
+  .quai-foot .lg { display: flex; align-items: center; gap: 6px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; font-size: 9px; }
+  .quai-foot .lg i { width: 14px; height: 5px; border-radius: 9999px; display: inline-block; }
+  .quai-foot .total { margin-left: auto; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; }
+  .quai-foot .total b { font-size: 16px; font-weight: 800; letter-spacing: 0; text-transform: none; margin-left: 8px; }
+</style>
+</head>
+<body>
+
+<!-- ═══ Chrome (identique V1/V2/V3) ═══ -->
+<header class="masthead">
+  <div class="wordmark">Supply Chain <b>AERECO</b><span class="env">test</span></div>
+  <nav class="nav">
+    <a href="#">Dashboard</a>
+    <a href="#">Board</a>
+    <a href="#" class="active">Réceptions</a>
+    <a href="#">Expéditions</a>
+    <a href="#">Ruptures</a>
+  </nav>
+  <div class="meta">
+    <div class="range">22/07 → 28/07</div>
+    <div><b class="tnum">79,5</b> palettes · <b class="tnum">15</b> réceptions</div>
+  </div>
+</header>
+
+<div class="toolbar">
+  <span class="pill-btn">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+    22/07 → 28/07
+  </span>
+  <div class="right">
+    <span class="search">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      Fournisseur, article, commande…
+    </span>
+    <span class="refresh">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>
+      Actualiser
+    </span>
+  </div>
+</div>
+
+<div class="subbar">
+  <div class="viewtoggle"><span class="on">Tableau</span><span>Charge par jour</span></div>
+  <div class="stats">
+    <span class="est">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>
+      2 estimés
+    </span>
+    <span class="miss">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+      1 coef manquant
+    </span>
+    <span class="tnum">15 lignes</span>
+  </div>
+</div>
+
+<div class="annotation">
+  <b>V2 · Quai — la charge d'abord</b>
+  Table plate sans groupement : la colonne Palettes ouvre la ligne, chaque chiffre porte sa micro-barre (longueur ∝ charge, couleur = tier) — l'ensemble rejoue le calendrier en miniature. Qté + conditionnement fusionnés en une expression mono. Les anomalies coef vivent dans une colonne « État » triable au lieu de teinter les lignes. Le plus dense et « exploitation » des trois.
+</div>
+
+<main class="stage">
+  <div class="quai">
+    <table>
+      <colgroup>
+        <col style="width:190px">
+        <col style="width:90px">
+        <col style="width:290px">
+        <col style="width:180px">
+        <col style="width:250px">
+        <col style="width:130px">
+      </colgroup>
+      <thead>
+        <tr>
+          <th>Palettes</th>
+          <th>Date</th>
+          <th>Article</th>
+          <th>Fournisseur</th>
+          <th>Quantité · conditionnement</th>
+          <th style="text-align:left">État</th>
+        </tr>
+      </thead>
+      <tbody>
+
+        <!-- Jour 1 · aujourd'hui -->
+        <tr class="data">
+          <td><div class="palcell"><span class="palnum tier-mid tnum">10<small>pal</small></span><span class="bar-track"><span class="bar-fill tier-mid" style="width:50%"></span></span></div></td>
+          <td><div class="datecell"><div class="rel today">auj.</div><div class="d tnum">22/07</div></div></td>
+          <td><div class="code">MOTEUR-VMC-2V</div><div class="desi">Moteur VMC 2 vitesses 230 V · PO250741</div></td>
+          <td><div class="frs">EBM-PAPST</div><div class="frs-code tnum">F10082</div></td>
+          <td><div class="expr tnum"><b>1&nbsp;200</b> <span class="unit">u</span><span class="sep">·</span>24/UC<span class="sep">·</span>5 UC/pal</div></td>
+          <td><span class="pill ok">Confirmé</span></td>
+        </tr>
+        <tr class="data">
+          <td><div class="palcell"><span class="palnum tier-warn tnum">12,5<small>pal</small></span><span class="bar-track"><span class="bar-fill tier-warn" style="width:62%"></span></span></div></td>
+          <td><div class="datecell"><div class="rel today">auj.</div><div class="d tnum">22/07</div></div></td>
+          <td><div class="code">GRILLE-ALU-125-BC</div><div class="desi">Grille alu laqué Ø125 blanc · PO250738</div></td>
+          <td><div class="frs">PLASTIVAL</div><div class="frs-code tnum">F20314</div></td>
+          <td><div class="expr tnum"><b>4&nbsp;800</b> <span class="unit">u</span><span class="sep">·</span>48/UC<span class="sep">·</span>8 UC/pal</div></td>
+          <td><span class="pill ok">Confirmé</span></td>
+        </tr>
+        <tr class="data">
+          <td><div class="palcell"><span class="palnum none tnum">—</span><span class="bar-track"><span class="bar-fill unknown" style="width:100%"></span></span></div></td>
+          <td><div class="datecell"><div class="rel today">auj.</div><div class="d tnum">22/07</div></div></td>
+          <td><div class="code">VISSERIE-KIT-M6</div><div class="desi">Kit visserie M6 inox A2 · PO250755</div></td>
+          <td><div class="frs">BOSSARD</div><div class="frs-code tnum">F10765</div></td>
+          <td><div class="expr tnum"><b>600</b> <span class="unit">u</span><span class="sep">·</span><span class="unknown">conditionnement non référencé</span></div></td>
+          <td><span class="pill miss">
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+            Coef manquant
+          </span></td>
+        </tr>
+        <tr class="data">
+          <td><div class="palcell"><span class="palnum tier-mid tnum">8<small>pal</small></span><span class="bar-track"><span class="bar-fill tier-mid" style="width:40%"></span></span></div></td>
+          <td><div class="datecell"><div class="rel today">auj.</div><div class="d tnum">22/07</div></div></td>
+          <td><div class="code">COLLE-PU-310</div><div class="desi">Colle PU cartouche 310 ml · PO250742</div></td>
+          <td><div class="frs">SIKA FRANCE</div><div class="frs-code tnum">F30218</div></td>
+          <td><div class="expr tnum"><b>960</b> <span class="unit">u</span><span class="sep">·</span>12/UC<span class="sep">·</span>10 UC/pal</div></td>
+          <td><span class="pill ok">Confirmé</span></td>
+        </tr>
+
+        <!-- Jour 2 · +1j -->
+        <tr class="data daybreak">
+          <td><div class="palcell"><span class="palnum tier-ok tnum">4,5<small>pal</small></span><span class="bar-track"><span class="bar-fill tier-ok" style="width:22%"></span></span></div></td>
+          <td><div class="datecell"><div class="rel">+1 j</div><div class="d tnum">23/07</div></div></td>
+          <td><div class="code">INTER-VMC-2V</div><div class="desi">Interrupteur 2 vitesses étanche · PO250760</div></td>
+          <td><div class="frs">LEGRAND</div><div class="frs-code tnum">F40112</div></td>
+          <td><div class="expr tnum"><b>800</b> <span class="unit">u</span><span class="sep">·</span>20/UC<span class="sep">·</span>9 UC/pal</div></td>
+          <td><span class="pill ok">Confirmé</span></td>
+        </tr>
+        <tr class="data">
+          <td><div class="palcell"><span class="palnum tier-mid tnum">6<small>pal</small></span><span class="bar-track"><span class="bar-fill tier-mid" style="width:30%"></span></span></div></td>
+          <td><div class="datecell"><div class="rel">+1 j</div><div class="d tnum">23/07</div></div></td>
+          <td><div class="code">TUBE-GALVA-160-3M</div><div class="desi">Tube galva Ø160 L.3 m · PO250759</div></td>
+          <td><div class="frs">ARCELOR TUBES</div><div class="frs-code tnum">F50091</div></td>
+          <td><div class="expr tnum"><b>300</b> <span class="unit">u</span><span class="sep">·</span><span class="unknown">est. stock SM*</span></div></td>
+          <td><span class="pill est">
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>
+            Estimé · STOCK
+          </span></td>
+        </tr>
+        <tr class="data">
+          <td><div class="palcell"><span class="palnum tier-ok tnum">2,5<small>pal</small></span><span class="bar-track"><span class="bar-fill tier-ok" style="width:12%"></span></span></div></td>
+          <td><div class="datecell"><div class="rel">+1 j</div><div class="d tnum">23/07</div></div></td>
+          <td><div class="code">HELICE-315</div><div class="desi">Hélice Ø315 aluminium · PO250761</div></td>
+          <td><div class="frs">EBM-PAPST</div><div class="frs-code tnum">F10082</div></td>
+          <td><div class="expr tnum"><b>150</b> <span class="unit">u</span><span class="sep">·</span>10/UC<span class="sep">·</span>6 UC/pal</div></td>
+          <td><span class="pill ok">Confirmé</span></td>
+        </tr>
+
+        <!-- Jour 3 · +2j -->
+        <tr class="data daybreak">
+          <td><div class="palcell"><span class="palnum tier-ok tnum">1<small>pal</small></span><span class="bar-track"><span class="bar-fill tier-ok" style="width:6%"></span></span></div></td>
+          <td><div class="datecell"><div class="rel">+2 j</div><div class="d tnum">24/07</div></div></td>
+          <td><div class="code">CONTACTEUR-LC1D</div><div class="desi">Contacteur LC1D 18 A · PO250770</div></td>
+          <td><div class="frs">SCHNEIDER ELECTRIC</div><div class="frs-code tnum">F60044</div></td>
+          <td><div class="expr tnum"><b>120</b> <span class="unit">u</span><span class="sep">·</span>12/UC<span class="sep">·</span>12 UC/pal</div></td>
+          <td><span class="pill ok">Confirmé</span></td>
+        </tr>
+        <tr class="data">
+          <td><div class="palcell"><span class="palnum tier-ok tnum">4<small>pal</small></span><span class="bar-track"><span class="bar-fill tier-ok" style="width:20%"></span></span></div></td>
+          <td><div class="datecell"><div class="rel">+2 j</div><div class="d tnum">24/07</div></div></td>
+          <td><div class="code">BOUCHE-EXTR-80</div><div class="desi">Bouche extraction Ø80 réglable · PO250768</div></td>
+          <td><div class="frs">PLASTIVAL</div><div class="frs-code tnum">F20314</div></td>
+          <td><div class="expr tnum"><b>2&nbsp;400</b> <span class="unit">u</span><span class="sep">·</span>60/UC<span class="sep">·</span>10 UC/pal</div></td>
+          <td><span class="pill ok">Confirmé</span></td>
+        </tr>
+
+        <!-- Jour 4 · +5j -->
+        <tr class="data daybreak">
+          <td><div class="palcell"><span class="palnum tier-mid tnum">6<small>pal</small></span><span class="bar-track"><span class="bar-fill tier-mid" style="width:30%"></span></span></div></td>
+          <td><div class="datecell"><div class="rel">+5 j</div><div class="d tnum">27/07</div></div></td>
+          <td><div class="code">TUBE-GALVA-125-3M</div><div class="desi">Tube galva Ø125 L.3 m · PO250780</div></td>
+          <td><div class="frs">ARCELOR TUBES</div><div class="frs-code tnum">F50091</div></td>
+          <td><div class="expr tnum"><b>900</b> <span class="unit">u</span><span class="sep">·</span>30/UC<span class="sep">·</span>5 UC/pal</div></td>
+          <td><span class="pill ok">Confirmé</span></td>
+        </tr>
+        <tr class="data">
+          <td><div class="palcell"><span class="palnum tier-warn tnum">12<small>pal</small></span><span class="bar-track"><span class="bar-fill tier-warn" style="width:60%"></span></span></div></td>
+          <td><div class="datecell"><div class="rel">+5 j</div><div class="d tnum">27/07</div></div></td>
+          <td><div class="code">CAISSON-EXTR-45</div><div class="desi">Caisson extraction 45 dB(A) · PO250781</div></td>
+          <td><div class="frs">EBM-PAPST</div><div class="frs-code tnum">F10082</div></td>
+          <td><div class="expr tnum"><b>96</b> <span class="unit">u</span><span class="sep">·</span>4/UC<span class="sep">·</span>2 UC/pal</div></td>
+          <td><span class="pill ok">Confirmé</span></td>
+        </tr>
+        <tr class="data">
+          <td><div class="palcell"><span class="palnum tier-ok tnum">2,5<small>pal</small></span><span class="bar-track"><span class="bar-fill tier-ok" style="width:12%"></span></span></div></td>
+          <td><div class="datecell"><div class="rel">+5 j</div><div class="d tnum">27/07</div></div></td>
+          <td><div class="code">CHEVILLE-SX-10</div><div class="desi">Cheville SX 10×50 · PO250782</div></td>
+          <td><div class="frs">FISCHER</div><div class="frs-code tnum">F70233</div></td>
+          <td><div class="expr tnum"><b>5&nbsp;000</b> <span class="unit">u</span><span class="sep">·</span>100/UC<span class="sep">·</span>20 UC/pal</div></td>
+          <td><span class="pill ok">Confirmé</span></td>
+        </tr>
+        <tr class="data">
+          <td><div class="palcell"><span class="palnum tier-mid tnum">8<small>pal</small></span><span class="bar-track"><span class="bar-fill tier-mid" style="width:40%"></span></span></div></td>
+          <td><div class="datecell"><div class="rel">+5 j</div><div class="d tnum">27/07</div></div></td>
+          <td><div class="code">MASTIC-ACRYL</div><div class="desi">Mastic acrylique blanc 300 ml · PO250783</div></td>
+          <td><div class="frs">SIKA FRANCE</div><div class="frs-code tnum">F30218</div></td>
+          <td><div class="expr tnum"><b>1&nbsp;440</b> <span class="unit">u</span><span class="sep">·</span><span class="unknown">est. historique 6 mois</span></div></td>
+          <td><span class="pill est">
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>
+            Estimé · STOJOU
+          </span></td>
+        </tr>
+
+        <!-- Jour 5 · +6j -->
+        <tr class="data daybreak">
+          <td><div class="palcell"><span class="palnum tier-ok tnum">1<small>pal</small></span><span class="bar-track"><span class="bar-fill tier-ok" style="width:6%"></span></span></div></td>
+          <td><div class="datecell"><div class="rel">+6 j</div><div class="d tnum">28/07</div></div></td>
+          <td><div class="code">ECROU-FREIN-M8</div><div class="desi">Écrou frein M8 zingué · PO250790</div></td>
+          <td><div class="frs">BOSSARD</div><div class="frs-code tnum">F10765</div></td>
+          <td><div class="expr tnum"><b>2&nbsp;000</b> <span class="unit">u</span><span class="sep">·</span>100/UC<span class="sep">·</span>24 UC/pal</div></td>
+          <td><span class="pill ok">Confirmé</span></td>
+        </tr>
+        <tr class="data">
+          <td><div class="palcell"><span class="palnum tier-ok tnum">1,5<small>pal</small></span><span class="bar-track"><span class="bar-fill tier-ok" style="width:8%"></span></span></div></td>
+          <td><div class="datecell"><div class="rel">+6 j</div><div class="d tnum">28/07</div></div></td>
+          <td><div class="code">SONDE-CO2</div><div class="desi">Sonde CO₂ murale 0-2000 ppm · PO250791</div></td>
+          <td><div class="frs">LEGRAND</div><div class="frs-code tnum">F40112</div></td>
+          <td><div class="expr tnum"><b>60</b> <span class="unit">u</span><span class="sep">·</span>6/UC<span class="sep">·</span>8 UC/pal</div></td>
+          <td><span class="pill ok">Confirmé</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="quai-foot">
+      <span class="lg"><i style="background:var(--ferme)"></i>&lt; 5</span>
+      <span class="lg"><i style="background:var(--planifie)"></i>5–11</span>
+      <span class="lg"><i style="background:var(--suggere)"></i>12–19</span>
+      <span class="lg"><i style="background:var(--destructive)"></i>≥ 20</span>
+      <span class="lg"><i style="background:repeating-linear-gradient(-45deg, rgba(193,53,21,0.35) 0 4px, transparent 4px 8px)"></i>Inconnu</span>
+      <span class="total tnum">Total période<b class="tnum">79,5 pal</b></span>
+    </div>
+  </div>
+</main>
+
+</body>
+</html>
