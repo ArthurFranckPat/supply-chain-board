@@ -116,7 +116,7 @@ export class PrintDestinationSchema extends BaseModel {
 }
 
 export class PrintJobSchema extends BaseModel {
-  static $columns = ['attempt', 'createdAt', 'destCode', 'docType', 'durationMs', 'error', 'id', 'jobDetail', 'jobPhase', 'jobRank', 'message', 'ofNum', 'origin', 'poolEntryIdx', 'requestedBy', 'retCod', 'sandbox', 'serverVerdict', 'status', 'stoloc', 'verdictInferred'] as const
+  static $columns = ['attempt', 'createdAt', 'destCode', 'docType', 'durationMs', 'error', 'id', 'jobDetail', 'jobPhase', 'jobRank', 'message', 'ofNum', 'origin', 'poolEntryIdx', 'requestedBy', 'retCod', 'sandbox', 'serverVerdict', 'status', 'stoloc', 'verdictInferred', 'x3Trace'] as const
   $columns = PrintJobSchema.$columns
   @column()
   declare attempt: number
@@ -160,6 +160,8 @@ export class PrintJobSchema extends BaseModel {
   declare stoloc: string
   @column()
   declare verdictInferred: boolean
+  @column()
+  declare x3Trace: string
 }
 
 export class PrintSettingSchema extends BaseModel {
