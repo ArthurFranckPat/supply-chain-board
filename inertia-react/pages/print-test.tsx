@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { Head } from '@inertiajs/react'
 import { Check, Copy, LoaderCircle, Printer, TriangleAlert } from 'lucide-react'
 
@@ -39,23 +39,25 @@ interface RunResponse {
   trace?: string
 }
 
-/**
- * Destinations sans effet physique — `APRINTER.PRT_0` à 3 (mail) ou 4 (fichier).
- * Ces quatre codes existent sur les deux dossiers ; aucun nom de serveur ici, il
- * dépend du dossier ciblé et l'écrire en dur a déjà induit en erreur.
- */
-const DEST_SURES = [
-  { cod: 'PDFFILE', label: 'Fichier PDF' },
-  { cod: 'ZMAIL', label: 'Envoi PDF par mail' },
-  { cod: 'ZRPT', label: 'Prévisualisation' },
-  { cod: 'ZTXTBRUT2', label: 'Texte brut' },
-]
+interface Destination {
+  code: string
+  label: string
+  kind: number
+  kindLabel: string
+  server: string
+  queue: string
+  active: boolean
+  /** true = fichier / mail / aperçu : ne sort pas de papier. */
+  sandbox: boolean
+}
 
 interface PageProps {
   /** 'test' | 'prod' — dossier de la session, celui qui sera réellement appelé. */
   env: string
   pool: string
   host: string
+  destinations: Destination[]
+  destinationsError: string
 }
 
 const ETATS = [
@@ -97,7 +99,24 @@ export default function PrintTest(props: PageProps) {
   const [loading, setLoading] = useState(false)
   const [res, setRes] = useState<RunResponse | null>(null)
 
-  const destPhysique = !DEST_SURES.some((d) => d.cod === dest)
+  // Groupées par nature (imprimante / fichier / mail / aperçu) : on choisit
+  // d'abord un EFFET, puis une destination dans cet effet.
+  const groupes = useMemo(() => {
+    const par = new Map<string, Destination[]>()
+    for (const d of props.destinations.filter((x) => x.active)) {
+      par.set(d.kindLabel, [...(par.get(d.kindLabel) ?? []), d])
+    }
+    // Les destinations sans papier d'abord : c'est par là qu'on commence un test.
+    return [...par.entries()].sort((a, b) => {
+      const pa = a[1][0].sandbox ? 0 : 1
+      const pb = b[1][0].sandbox ? 0 : 1
+      return pa - pb || a[0].localeCompare(b[0])
+    })
+  }, [props.destinations])
+
+  const destChoisie = props.destinations.find((d) => d.code === dest)
+  /** Inconnue du dossier = on ne sait pas ce qu'elle fera. Traitée comme à risque. */
+  const destPhysique = !destChoisie || !destChoisie.sandbox
 
   const run = useCallback(async () => {
     setLoading(true)
@@ -192,26 +211,67 @@ export default function PrintTest(props: PageProps) {
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label>Destination</Label>
-            <div className="flex flex-wrap gap-2">
-              {DEST_SURES.map((d) => (
-                <Button
-                  key={d.cod}
-                  variant={dest === d.cod ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setDest(d.cod)}
-                >
-                  {d.label}
-                </Button>
-              ))}
-            </div>
-            <Input value={dest} onChange={(e) => setDest(e.target.value)} className="mt-1" />
+            <Label htmlFor="dest">Destination</Label>
+            {props.destinationsError ? (
+              <p className="flex items-center gap-2 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                <TriangleAlert className="size-4 shrink-0" />
+                Destinations X3 indisponibles : {props.destinationsError} — saisir le code à la
+                main.
+              </p>
+            ) : (
+              <select
+                id="dest"
+                value={props.destinations.some((d) => d.code === dest) ? dest : ''}
+                onChange={(e) => setDest(e.target.value)}
+                className="border-input bg-background h-9 rounded-md border px-2 text-sm"
+              >
+                <option value="">— choisir une destination —</option>
+                {groupes.map(([nature, list]) => (
+                  <optgroup
+                    key={nature}
+                    label={`${nature}${list[0].sandbox ? '' : ' — sort du papier'}`}
+                  >
+                    {list.map((d) => (
+                      <option key={d.code} value={d.code}>
+                        {d.code} — {d.label || '(sans libellé)'}
+                        {d.queue ? ` · file ${d.queue}` : ''}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            )}
+
+            <Input
+              value={dest}
+              onChange={(e) => setDest(e.target.value)}
+              placeholder="ou saisir un code destination"
+              className="mt-1"
+            />
+
+            {destChoisie && (
+              <p className="text-muted-foreground text-sm">
+                {destChoisie.kindLabel}
+                {destChoisie.server ? ` · serveur ${destChoisie.server}` : ' · aucun serveur d’impression déclaré'}
+                {destChoisie.queue ? ` · file ${destChoisie.queue}` : ''}
+              </p>
+            )}
+
             {destPhysique && (
               <p className="flex items-center gap-2 text-sm text-amber-600">
                 <TriangleAlert className="size-4 shrink-0" />
                 <span>
-                  <strong>{dest}</strong> n’est pas une destination fichier connue. Si c’est une
-                  imprimante, du papier sortira — et ne se reprendra pas.
+                  {destChoisie ? (
+                    <>
+                      <strong>{dest}</strong> est une imprimante : du papier sortira, et il ne se
+                      reprend pas.
+                    </>
+                  ) : (
+                    <>
+                      <strong>{dest || '(vide)'}</strong> est inconnue de ce dossier. On ne sait pas
+                      ce qu’elle fera — si c’est une imprimante, du papier sortira.
+                    </>
+                  )}
                 </span>
               </p>
             )}

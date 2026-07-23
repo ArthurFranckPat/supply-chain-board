@@ -1,6 +1,7 @@
 import { type HttpContext } from '@adonisjs/core/http'
 import { getX3EnvConfig } from '#config/x3'
 import { callRunSubprog } from '#app/x3/run-client'
+import printService from '#services/print_service'
 
 /**
  * Terrain de test de l'impression X3 (issue #85, lot 1).
@@ -26,10 +27,25 @@ export default class PrintTestController {
    */
   async show(ctx: HttpContext) {
     const cfg = getX3EnvConfig()
+
+    // Vraies destinations du dossier (APRINTER), pas une liste écrite en dur :
+    // une imprimante ne se devine pas, et les codes diffèrent d'un dossier à
+    // l'autre. La page reste utilisable X3 injoignable, avec la cause à l'écran.
+    let destinations: Awaited<ReturnType<typeof printService.listX3Destinations>> = []
+    let destinationsError = ''
+    try {
+      destinations = await printService.listX3Destinations()
+      if (destinations.length === 0) destinationsError = 'X3 n’a renvoyé aucune destination.'
+    } catch (e) {
+      destinationsError = String(e)
+    }
+
     return ctx.inertia.render('print-test', {
       env: ctx.auth.user?.lastEnv ?? '',
       pool: cfg.pool,
       host: cfg.host,
+      destinations,
+      destinationsError,
     })
   }
 

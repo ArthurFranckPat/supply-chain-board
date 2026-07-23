@@ -119,6 +119,18 @@ declare module '@adonisjs/inertia/types' {
       env: string
       pool: string
       host: string
+      /** Destinations APRINTER du dossier ; `sandbox` = ne sort pas de papier. */
+      destinations: {
+        code: string
+        label: string
+        kind: number
+        kindLabel: string
+        server: string
+        queue: string
+        active: boolean
+        sandbox: boolean
+      }[]
+      destinationsError: string
     }
     // CTP — simulateur autonome « date au plus tôt » (PRD §6.2, lot 3).
     'promesse': Record<string, never>
