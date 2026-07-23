@@ -1,5 +1,14 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Printer, RefreshCw, RotateCcw, Search, Settings2, TriangleAlert } from 'lucide-react'
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  ChevronDown,
+  ChevronRight,
+  Printer,
+  RefreshCw,
+  RotateCcw,
+  Search,
+  Settings2,
+  TriangleAlert,
+} from 'lucide-react'
 
 import AppLayout from '@r/layouts/app'
 import { Button } from '@r/components/ui/button'
@@ -40,6 +49,8 @@ interface Job {
   verdictInferred: boolean
   message: string
   error: string
+  /** Trace X3 du tirage, vide hors échec. */
+  x3Trace: string
   origin: string
   requestedBy: string
   createdAt: number
@@ -115,6 +126,57 @@ function Verdict({ j }: { j: Job }) {
   )
 }
 
+/**
+ * Détail d'un tirage : ce que X3 a répondu, puis la trace.
+ *
+ * La trace n'existe que sur les échecs, et elle peut manquer même là (trace non
+ * activée côté serveur, refus avant l'entrée dans le sous-programme). Son
+ * absence est dite, pas masquée : « pas de trace » et « trace vide » ne se
+ * diagnostiquent pas pareil.
+ */
+function JobDetail({ j }: { j: Job }) {
+  return (
+    <div className="flex flex-col gap-2 rounded-md border border-rule bg-muted/40 px-3 py-2.5 text-[12.5px]">
+      {j.error && (
+        <p>
+          <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+            Refus X3
+          </span>
+          <br />
+          <span className="text-red-800">{j.error}</span>
+        </p>
+      )}
+      {j.jobDetail && (
+        <p>
+          <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+            Serveur d’édition
+          </span>
+          <br />
+          {j.jobDetail}
+          {j.jobPhase ? ` · étape « ${j.jobPhase} »` : ''}
+        </p>
+      )}
+      {j.message && !j.error && <p className="text-muted-foreground">{j.message}</p>}
+
+      <div>
+        <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+          Trace X3
+        </span>
+        {j.x3Trace ? (
+          <pre className="mt-1 max-h-80 overflow-auto whitespace-pre-wrap break-words rounded border border-rule bg-card p-2 font-mono text-[11px] leading-relaxed">
+            {j.x3Trace}
+          </pre>
+        ) : (
+          <p className="mt-1 italic text-muted-foreground">
+            Aucune trace enregistrée pour ce tirage. Les tirages antérieurs à la mise en place de
+            la trace n’en ont pas : relancer le tirage en produit une.
+          </p>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function Impressions(props: PageProps) {
   const [jobs, setJobs] = useState<Job[]>(props.jobs)
   const [period, setPeriod] = useState<number>(DAY)
@@ -124,6 +186,15 @@ export default function Impressions(props: PageProps) {
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState('')
   const [relaunching, setRelaunching] = useState<number | null>(null)
+  /** Tirages dont le détail est déplié. Plusieurs à la fois : on compare. */
+  const [opened, setOpened] = useState<Set<number>>(new Set())
+
+  const toggle = (id: number) =>
+    setOpened((prev) => {
+      const next = new Set(prev)
+      if (!next.delete(id)) next.add(id)
+      return next
+    })
 
   const load = useCallback(async () => {
     setBusy(true)
@@ -349,10 +420,11 @@ export default function Impressions(props: PageProps) {
               </thead>
               <tbody>
                 {jobs.map((j) => (
+                  <Fragment key={j.id}>
                   <tr
-                    key={j.id}
                     className={cn(
-                      'border-b border-rule/60 last:border-0',
+                      'border-b border-rule/60',
+                      opened.has(j.id) && 'border-b-0',
                       failed(j) && 'bg-red-50/40'
                     )}
                   >
@@ -388,24 +460,49 @@ export default function Impressions(props: PageProps) {
                       {j.requestedBy ? ` · ${j.requestedBy}` : ''}
                     </td>
                     <td className="px-4 py-2 text-right">
-                      {failed(j) && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => void relaunch(j)}
-                          disabled={relaunching === j.id}
-                          title="Relancer ce tirage"
-                        >
-                          {relaunching === j.id ? (
-                            <RefreshCw size={13} className="animate-spin" />
-                          ) : (
-                            <Printer size={13} />
-                          )}
-                          Relancer
-                        </Button>
-                      )}
+                      <span className="inline-flex items-center gap-1.5">
+                        {(j.error || j.x3Trace || j.jobDetail) && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => toggle(j.id)}
+                            title="Cause et trace X3"
+                          >
+                            {opened.has(j.id) ? (
+                              <ChevronDown size={13} />
+                            ) : (
+                              <ChevronRight size={13} />
+                            )}
+                            Détail
+                          </Button>
+                        )}
+                        {failed(j) && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => void relaunch(j)}
+                            disabled={relaunching === j.id}
+                            title="Relancer ce tirage"
+                          >
+                            {relaunching === j.id ? (
+                              <RefreshCw size={13} className="animate-spin" />
+                            ) : (
+                              <Printer size={13} />
+                            )}
+                            Relancer
+                          </Button>
+                        )}
+                      </span>
                     </td>
                   </tr>
+                  {opened.has(j.id) && (
+                    <tr className={cn('border-b border-rule/60', failed(j) && 'bg-red-50/40')}>
+                      <td colSpan={8} className="px-4 pb-3 pt-0">
+                        <JobDetail j={j} />
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                 ))}
               </tbody>
             </table>

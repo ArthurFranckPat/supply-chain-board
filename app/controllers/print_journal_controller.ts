@@ -84,6 +84,8 @@ export function serializeJob(j: PrintJob) {
     verdictInferred: j.verdictInferred,
     message: j.message,
     error: j.error,
+    /** Vide sur un tirage sain — l'écran n'ouvre le bloc que s'il y a à lire. */
+    x3Trace: j.x3Trace ?? '',
     origin: j.origin,
     requestedBy: j.requestedBy,
     createdAt: j.createdAt,

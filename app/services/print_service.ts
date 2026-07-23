@@ -1,6 +1,6 @@
 import cache from '@adonisjs/cache/services/main'
 import { getX3EnvConfig, type X3EnvConfig } from '#config/x3'
-import { callRunSubprog } from '#app/x3/run-client'
+import { callRunSubprog, type RunResult } from '#app/x3/run-client'
 import { X3Connection } from '#app/x3/connection'
 import PrintDestination from '#models/print_destination'
 import PrintJob from '#models/print_job'
@@ -344,7 +344,11 @@ class PrintService {
       `</GRP></PARAM>`
 
     const started = Date.now()
-    const res = await callRunSubprog('ZSOAPPRINT', cfg, inputXml)
+    // Trace demandée AU PREMIER APPEL. Un échec de ZSOAPPRINT peut arriver sans
+    // le moindre message SOAP ; la trace est alors la seule chose à lire. La
+    // rejouer pour l'obtenir serait un second tirage — le papier ne se reprend
+    // pas, donc on la paie systématiquement plutôt que de rappeler.
+    const res = await callRunSubprog('ZSOAPPRINT', cfg, inputXml, { trace: true })
     const durationMs = Date.now() - started
 
     const retCod = res.fields.WRETCOD ?? ''
@@ -426,6 +430,7 @@ class PrintService {
         error: ok ? '' : retErMsg || res.error || 'Appel X3 sans verdict',
         poolEntryIdx: res.poolEntryIdx ?? '',
         durationMs,
+        x3Trace: diagnosticTrace(res, ok, watch.verdict),
         serverVerdict: watch.verdict,
         jobRank: watch.rank,
         jobPhase: watch.phase,
@@ -637,6 +642,36 @@ class PrintService {
     const cfg = config ?? getX3EnvConfig()
     return fetchPrinters(cfg, cfg.printServer)
   }
+}
+
+/** Coupe franchement, en le disant : une trace tronquée en silence ment. */
+function clip(s: string, max: number): string {
+  return s.length <= max ? s : `${s.slice(0, max)}\n… (tronqué à ${max} caractères)`
+}
+
+/**
+ * Matière de diagnostic à journaliser pour UN tirage.
+ *
+ * Vide sur un tirage sans anomalie : la trace n'a d'intérêt que là où il n'y a
+ * rien d'autre à lire, et la stocker systématiquement gonflerait le journal.
+ *
+ * Quand X3 refuse sans message, la trace peut elle aussi revenir vide (trace non
+ * activée côté serveur, refus avant l'entrée dans le sous-programme) : on
+ * retombe alors sur la réponse SOAP brute, seule chose qui reste.
+ */
+function diagnosticTrace(res: RunResult, ok: boolean, verdict: PrintVerdict | 'pending'): string {
+  if (ok && verdict !== 'error') return ''
+  const parts: string[] = []
+  if (res.trace.trim()) parts.push(`--- trace X3 (adxwss.trace.on) ---\n${res.trace.trim()}`)
+  if (res.messages.length > 0) {
+    parts.push(
+      `--- messages SOAP ---\n${res.messages.map((m) => `[${m.type}] ${m.text}`).join('\n')}`
+    )
+  }
+  if (parts.length === 0 && res.raw.trim()) {
+    parts.push(`--- réponse SOAP brute (aucune trace renvoyée) ---\n${res.raw.trim()}`)
+  }
+  return clip(parts.join('\n\n'), 32_000)
 }
 
 function escapeXml(s: string): string {

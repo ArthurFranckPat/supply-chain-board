@@ -74,6 +74,13 @@ export default class PrintJob extends BaseModel {
   @column({ columnName: 'verdict_inferred' })
   declare verdictInferred: boolean
 
+  /**
+   * Trace X3 (`adxwss.trace.on`) du tirage, ou à défaut la réponse SOAP brute.
+   * Renseignée sur les seuls échecs : c'est là qu'il n'y a rien d'autre à lire.
+   */
+  @column({ columnName: 'x3_trace' })
+  declare x3Trace: string
+
   /** 'firm' | 'manual' | 'test'. */
   @column()
   declare origin: string
