@@ -359,6 +359,17 @@ class PrintService {
       res.messages.find((m) => m.text.includes(docType) && m.text.includes(routed.destCode))?.text ??
       ''
     const ok = res.ok && retCod === '0'
+    /**
+     * Tous les messages X3, dédupliqués, pour servir de cause en cas d'échec.
+     *
+     * `run-client` ne renseigne `res.error` que si X3 n'a renvoyé AUCUN message —
+     * un échec accompagné de messages retombait donc sur « Appel X3 sans
+     * verdict », et la cause réelle (« WRETCOD : Incompatibilité de type ») ne
+     * quittait jamais la réponse SOAP.
+     */
+    const x3Messages = [...new Set(res.messages.map((m) => m.text.trim()).filter(Boolean))].join(
+      ' · '
+    )
     // Numéro de tâche rendu par `ETATJOB` (paramètre NOJOB). Vide tant que le
     // subprogram publié n'expose pas le 7ᵉ paramètre : le suivi retombe alors
     // sur le rapprochement par exclusion.
@@ -427,7 +438,7 @@ class PrintService {
         status: ok ? 'submitted' : 'failed',
         retCod,
         message: printMessage || retErMsg,
-        error: ok ? '' : retErMsg || res.error || 'Appel X3 sans verdict',
+        error: ok ? '' : retErMsg || x3Messages || res.error || 'Appel X3 sans verdict',
         poolEntryIdx: res.poolEntryIdx ?? '',
         durationMs,
         x3Trace: diagnosticTrace(res, ok, watch.verdict),
@@ -462,7 +473,7 @@ class PrintService {
       sandbox: routed.sandbox,
       attempt,
       message: printMessage || retErMsg,
-      error: ok ? '' : retErMsg || res.error || 'Appel X3 sans verdict',
+      error: ok ? '' : retErMsg || x3Messages || res.error || 'Appel X3 sans verdict',
       jobId: job.id,
       previous: null,
       serverVerdict: watch.verdict,
