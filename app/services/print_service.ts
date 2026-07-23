@@ -12,6 +12,7 @@ import {
   fetchPrinters,
   resolvePrintServer,
   watchJob,
+  type PrintServerJob,
   type PrintVerdict,
 } from '#app/x3/print_server_client'
 
@@ -606,16 +607,27 @@ class PrintService {
 
     if (rows.length === 0) return { pending: 0, resolved: 0, note: 'Aucun tirage en attente.' }
 
-    const jobs = await fetchJobs(cfg, cfg.printServer)
-    if ('error' in jobs) {
-      return { pending: rows.length, resolved: 0, note: `Serveur d’édition : ${jobs.error}` }
+    // Tous les serveurs du dossier, pas seulement celui de `.env` : les tâches
+    // d'un tirage vivent sur le serveur de LEUR destination.
+    const servers = await this.printServers(cfg)
+    if (servers.length === 0) {
+      return { pending: rows.length, resolved: 0, note: 'Aucun serveur d’édition déclaré.' }
+    }
+
+    const jobs: PrintServerJob[] = []
+    const errors: string[] = []
+    for (const srv of servers) {
+      const res = await fetchJobs(cfg, srv)
+      if ('error' in res) errors.push(`${srv} : ${res.error}`)
+      else jobs.push(...res)
     }
     if (jobs.length === 0) {
       return {
         pending: rows.length,
         resolved: 0,
-        note:
-          'Le serveur d’édition ne conserve aucune tâche. Activer « Time before deleting print job status » côté console pour pouvoir trancher après coup.',
+        note: errors.length
+          ? `Serveur d’édition : ${errors.join(' · ')}`
+          : 'Le serveur d’édition ne conserve aucune tâche. Activer « Time before deleting print job status » côté console pour pouvoir trancher après coup.',
       }
     }
 
@@ -645,13 +657,45 @@ class PrintService {
   }
 
   /**
-   * Files d'impression connues du serveur d'édition, pour confronter le routage
+   * Serveurs d'édition à interroger pour ce dossier.
+   *
+   * `X3_*_PRINT_SERVER` n'est qu'un repli : la vérité est dans `APRINTER.PRTSRV`,
+   * et un dossier peut en déclarer plusieurs. Sans ça, un environnement dont la
+   * variable n'est pas renseignée — le cas de prod — n'avait AUCUN moyen de lire
+   * les files ni de réconcilier, alors que les destinations nomment leur serveur.
+   */
+  private async printServers(config: X3EnvConfig): Promise<string[]> {
+    const known = await this.listX3Destinations(config).catch(() => [])
+    const set = new Set(known.filter((d) => d.active && d.server).map((d) => d.server))
+    if (config.printServer) set.add(config.printServer)
+    return [...set]
+  }
+
+  /**
+   * Files d'impression connues des serveurs d'édition, pour confronter le routage
    * à la réalité : une règle pointant une file absente échouera au tirage, mais
    * se détecte dès la configuration.
+   *
+   * Union sur tous les serveurs du dossier. Une erreur n'est rendue que si AUCUN
+   * ne répond : un serveur muet sur deux ne doit pas faire passer les files de
+   * l'autre pour inexistantes — ce qui marquerait des règles saines « cassées ».
    */
   async listPrintServerQueues(config?: X3EnvConfig): Promise<string[] | { error: string }> {
     const cfg = config ?? getX3EnvConfig()
-    return fetchPrinters(cfg, cfg.printServer)
+    const servers = await this.printServers(cfg)
+    if (servers.length === 0) {
+      return { error: 'Aucun serveur d’édition déclaré (APRINTER.PRTSRV vide partout).' }
+    }
+
+    const queues = new Set<string>()
+    const errors: string[] = []
+    for (const srv of servers) {
+      const res = await fetchPrinters(cfg, srv)
+      if (Array.isArray(res)) res.forEach((q) => queues.add(q))
+      else errors.push(`${srv} : ${res.error}`)
+    }
+    if (queues.size === 0 && errors.length > 0) return { error: errors.join(' · ') }
+    return [...queues].sort((a, b) => a.localeCompare(b))
   }
 }
 

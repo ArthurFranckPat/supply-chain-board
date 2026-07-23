@@ -37,6 +37,16 @@ interface RunResponse {
   messages?: { type: number; text: string }[]
   error?: string | null
   trace?: string
+  /** Verdict du serveur d'édition — distinct de celui de X3. */
+  serveur?: {
+    server: string
+    verdict: string
+    phase: string
+    detail: string
+    inferred: boolean
+    queueKnown: boolean | null
+    queue: string
+  } | null
 }
 
 interface Destination {
@@ -363,6 +373,46 @@ export default function PrintTest(props: PageProps) {
                   </>
                 )}
               </p>
+            )}
+
+            {/* Second verdict, jamais fusionné avec celui de X3 : « soumis » et
+                « sorti » ne sont pas la même chose, et c'est là que se cachent
+                les files inexistantes. */}
+            {res.serveur && (
+              <div className="flex flex-col gap-1 rounded border p-3 text-sm">
+                <span className="text-muted-foreground font-mono text-[10px] uppercase tracking-wider">
+                  Serveur d’édition · {res.serveur.server}
+                </span>
+                {res.serveur.verdict === 'ok' && (
+                  <span className="text-emerald-700">
+                    Tâche remise à la file{res.serveur.inferred ? ' (succès déduit de sa disparition)' : ''}.
+                    Un bac vide ou un bourrage ne remonte pas jusqu’ici.
+                  </span>
+                )}
+                {res.serveur.verdict === 'error' && (
+                  <span className="font-semibold text-red-700">
+                    Tâche en erreur : {res.serveur.detail || 'cause non précisée'}
+                  </span>
+                )}
+                {res.serveur.verdict === 'unknown' && (
+                  <span className="text-amber-700">Sans verdict — {res.serveur.detail}</span>
+                )}
+                {res.serveur.phase && (
+                  <span className="text-muted-foreground">Étape : {res.serveur.phase}</span>
+                )}
+                {res.serveur.queueKnown === false && (
+                  <span className="flex items-center gap-1.5 font-semibold text-red-700">
+                    <TriangleAlert className="size-4 shrink-0" />
+                    La file « {res.serveur.queue} » n’est pas déclarée sur ce serveur d’édition.
+                    Rien ne sortira.
+                  </span>
+                )}
+                {res.serveur.queueKnown === true && (
+                  <span className="text-muted-foreground">
+                    File « {res.serveur.queue} » déclarée sur le serveur.
+                  </span>
+                )}
+              </div>
             )}
 
             {res.retErMsg && (

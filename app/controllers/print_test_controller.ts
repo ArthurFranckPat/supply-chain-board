@@ -2,6 +2,7 @@ import { type HttpContext } from '@adonisjs/core/http'
 import { getX3EnvConfig } from '#config/x3'
 import { callRunSubprog } from '#app/x3/run-client'
 import printService from '#services/print_service'
+import { fetchPrinters, resolvePrintServer, watchJob } from '#app/x3/print_server_client'
 
 /**
  * Terrain de test de l'impression X3 (issue #85, lot 1).
@@ -92,7 +93,58 @@ export default class PrintTestController {
     const printMessage =
       result.messages.find((m) => m.text.includes(rptCod) && m.text.includes(dest))?.text ?? null
 
+    /**
+     * Second verdict : le serveur d'édition.
+     *
+     * `WRETCOD=0` + un numéro de tâche signifie « X3 a soumis », pas « le papier
+     * est sorti ». Un tirage vers une file inexistante rend exactement la même
+     * réponse côté X3 et finit en `Erreur` côté serveur d'édition. Sans cette
+     * lecture, la page affirmait un succès que rien n'étayait.
+     */
+    const destInfo = await printService
+      .listX3Destinations(config)
+      .then((l) => l.find((d) => d.code === dest) ?? null)
+      .catch(() => null)
+
+    const printServer = resolvePrintServer(config, destInfo?.server ?? '')
+    const jobNum = Number.parseInt((result.fields.WJOBNUM ?? '').trim(), 10)
+    const expectedRank = Number.isFinite(jobNum) && jobNum > 0 ? jobNum : undefined
+
+    let serveur: {
+      server: string
+      verdict: string
+      phase: string
+      detail: string
+      inferred: boolean
+      /** La file de la destination est-elle déclarée au serveur ? null = inconnu. */
+      queueKnown: boolean | null
+      queue: string
+    } | null = null
+
+    if (result.ok && expectedRank && printServer) {
+      const [w, printers] = await Promise.all([
+        watchJob(config, printServer, {
+          folder: config.pool,
+          report: rptCod,
+          knownRanks: new Set<number>(),
+          expectedRank,
+        }),
+        fetchPrinters(config, printServer),
+      ])
+      const queue = destInfo?.queue ?? ''
+      serveur = {
+        server: printServer,
+        verdict: w.verdict,
+        phase: w.phase,
+        detail: w.detail,
+        inferred: w.inferred,
+        queue,
+        queueKnown: Array.isArray(printers) && queue ? printers.includes(queue) : null,
+      }
+    }
+
     return {
+      serveur,
       ok: result.ok,
       status: result.status,
       env: config.pool,
