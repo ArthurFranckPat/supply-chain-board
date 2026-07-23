@@ -17,6 +17,22 @@ import { callRunSubprog } from '#app/x3/run-client'
  * de `x3/subprograms`). Ne pas router vers un atelier sur cette base.
  */
 export default class PrintTestController {
+  /**
+   * GET /print-test — la page, avec le dossier réellement ciblé.
+   *
+   * L'appel suit l'environnement de la session (`user.lastEnv`), pas un dossier
+   * de test figé. L'écran doit donc l'annoncer AVANT le tir : ne l'apprendre que
+   * dans le verdict, c'est le découvrir une fois le papier sorti.
+   */
+  async show(ctx: HttpContext) {
+    const cfg = getX3EnvConfig()
+    return ctx.inertia.render('print-test', {
+      env: ctx.auth.user?.lastEnv ?? '',
+      pool: cfg.pool,
+      host: cfg.host,
+    })
+  }
+
   async run(ctx: HttpContext) {
     const body = ctx.request.body()
     const rptCod = String(body.rptCod ?? '').trim()

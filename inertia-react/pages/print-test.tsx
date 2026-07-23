@@ -39,13 +39,24 @@ interface RunResponse {
   trace?: string
 }
 
-/** Destinations sans effet physique — relevé APRINTER (PRT_0 = 3 mail / 4 fichier). */
+/**
+ * Destinations sans effet physique — `APRINTER.PRT_0` à 3 (mail) ou 4 (fichier).
+ * Ces quatre codes existent sur les deux dossiers ; aucun nom de serveur ici, il
+ * dépend du dossier ciblé et l'écrire en dur a déjà induit en erreur.
+ */
 const DEST_SURES = [
-  { cod: 'PDFFILE', label: 'Fichier PDF (srv-x3tst-01)' },
+  { cod: 'PDFFILE', label: 'Fichier PDF' },
   { cod: 'ZMAIL', label: 'Envoi PDF par mail' },
   { cod: 'ZRPT', label: 'Prévisualisation' },
   { cod: 'ZTXTBRUT2', label: 'Texte brut' },
 ]
+
+interface PageProps {
+  /** 'test' | 'prod' — dossier de la session, celui qui sera réellement appelé. */
+  env: string
+  pool: string
+  host: string
+}
 
 const ETATS = [
   { cod: 'PING', label: 'PING — sonde, n’imprime rien' },
@@ -77,7 +88,7 @@ function CopyButton({ text, label }: { text: string; label: string }) {
   )
 }
 
-export default function PrintTest() {
+export default function PrintTest(props: PageProps) {
   const [rptCod, setRptCod] = useState('PING')
   const [stofcy, setStofcy] = useState('AE1')
   const [mfgNum, setMfgNum] = useState('F126-47558')
@@ -132,6 +143,24 @@ export default function PrintTest() {
             sous-programme, pas une interprétation.
           </p>
         </header>
+
+        {/* Dossier ciblé, annoncé AVANT le tir : cet écran peut sortir du papier,
+            et il suit l'environnement de la session — pas un dossier de test. */}
+        <p
+          className={
+            props.env === 'prod'
+              ? 'flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900'
+              : 'flex items-center gap-2 rounded-md border bg-muted px-3 py-2 text-sm'
+          }
+        >
+          {props.env === 'prod' && <TriangleAlert className="size-4 shrink-0" />}
+          <span>
+            Dossier ciblé : <strong>{props.pool || '—'}</strong>
+            {props.env ? ` · ${props.env}` : ''}
+            {props.host ? ` · ${props.host}` : ''}
+            {props.env === 'prod' && ' — les tirages partent en production.'}
+          </span>
+        </p>
 
         <section className="flex flex-col gap-4 rounded-lg border p-4">
           <div className="flex flex-col gap-2">

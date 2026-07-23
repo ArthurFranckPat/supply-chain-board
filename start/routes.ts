@@ -88,11 +88,10 @@ router
       .as('x3_writeback_test')
 
     // Impression X3 (issue #85, lot 1) — appel direct de ZSOAPPRINT sur un OF.
-    router
-      .get('/print-test', async ({ inertia }) => {
-        return inertia.render('print-test', {})
-      })
-      .as('x3_print_test')
+    // Le dossier ciblé est celui de la session (`user.lastEnv`) et il est passé à
+    // la page : un écran qui peut sortir du papier doit dire OÙ avant qu'on
+    // clique, pas dans le verdict d'après.
+    router.get('/print-test', '#controllers/print_test_controller.show').as('x3_print_test')
 
     // Pages Inertia (HTML, sans param de path) — URLs françaises (app pour public FR).
     // Les endpoints JSON associés vivent sous /api/v1/planning (P3, #18).

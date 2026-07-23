@@ -114,7 +114,12 @@ declare module '@adonisjs/inertia/types' {
     'diagnostic-test': Record<string, never>
     'writeback-test': Record<string, never>
     // Impression X3 (issue #85) — appel direct de ZSOAPPRINT sur un OF.
-    'print-test': Record<string, never>
+    // Le dossier ciblé suit la session : la page doit l'annoncer avant le tir.
+    'print-test': {
+      env: string
+      pool: string
+      host: string
+    }
     // CTP — simulateur autonome « date au plus tôt » (PRD §6.2, lot 3).
     'promesse': Record<string, never>
     // Copilote agentique v1 — chat SSE (jetable #77).
