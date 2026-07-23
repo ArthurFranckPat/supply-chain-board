@@ -7,6 +7,16 @@ import { Badge } from '@r/components/ui/badge'
 import { Button } from '@r/components/ui/button'
 import { Input } from '@r/components/ui/input'
 import { Label } from '@r/components/ui/label'
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxGroup,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxLabel,
+  ComboboxList,
+  useComboboxAnchor,
+} from '@r/components/ui/combobox'
 
 /**
  * Terrain de test de l'impression X3 (issue #85, lot 1).
@@ -116,20 +126,33 @@ export default function PrintTest(props: PageProps) {
   const [loading, setLoading] = useState(false)
   const [res, setRes] = useState<RunResponse | null>(null)
 
+  // Recherche : 72 destinations sur prod, la liste déroulante seule ne suffit
+  // pas. Le filtre porte sur le code, le libellé, la nature ET la file — c'est
+  // souvent le nom de la file qu'on connaît, pas le code X3.
+  const [destQuery, setDestQuery] = useState('')
+
   // Groupées par nature (imprimante / fichier / mail / aperçu) : on choisit
   // d'abord un EFFET, puis une destination dans cet effet.
   const groupes = useMemo(() => {
+    const q = destQuery.trim().toLowerCase()
+    const actives = props.destinations.filter((x) => x.active)
+    const retenues = q
+      ? actives.filter((d) =>
+          `${d.code} ${d.label} ${d.kindLabel} ${d.queue}`.toLowerCase().includes(q)
+        )
+      : actives
+
     const par = new Map<string, Destination[]>()
-    for (const d of props.destinations.filter((x) => x.active)) {
-      par.set(d.kindLabel, [...(par.get(d.kindLabel) ?? []), d])
-    }
+    for (const d of retenues) par.set(d.kindLabel, [...(par.get(d.kindLabel) ?? []), d])
     // Les destinations sans papier d'abord : c'est par là qu'on commence un test.
     return [...par.entries()].sort((a, b) => {
       const pa = a[1][0].sandbox ? 0 : 1
       const pb = b[1][0].sandbox ? 0 : 1
       return pa - pb || a[0].localeCompare(b[0])
     })
-  }, [props.destinations])
+  }, [props.destinations, destQuery])
+
+  const anchorRef = useComboboxAnchor()
 
   const destChoisie = props.destinations.find((d) => d.code === dest)
   /** Inconnue du dossier = on ne sait pas ce qu'elle fera. Traitée comme à risque. */
@@ -236,35 +259,60 @@ export default function PrintTest(props: PageProps) {
                 main.
               </p>
             ) : (
-              <select
-                id="dest"
-                value={props.destinations.some((d) => d.code === dest) ? dest : ''}
-                onChange={(e) => setDest(e.target.value)}
-                className="border-input bg-background h-9 rounded-md border px-2 text-sm"
-              >
-                <option value="">— choisir une destination —</option>
-                {groupes.map(([nature, list]) => (
-                  <optgroup
-                    key={nature}
-                    label={`${nature}${list[0].sandbox ? '' : ' — sort du papier'}`}
-                  >
-                    {list.map((d) => (
-                      <option key={d.code} value={d.code}>
-                        {d.code} — {d.label || '(sans libellé)'}
-                        {d.queue ? ` · file ${d.queue}` : ''}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
+              <div ref={anchorRef}>
+                <Combobox
+                  value={dest}
+                  onValueChange={(v) => setDest(String(v ?? ''))}
+                  onInputValueChange={(v) => setDestQuery(v)}
+                >
+                  <ComboboxInput
+                    id="dest"
+                    placeholder="Rechercher : code, libellé, file d’impression…"
+                    className="w-full"
+                  />
+                  <ComboboxContent anchor={anchorRef}>
+                    <ComboboxList>
+                      {groupes.length === 0 ? (
+                        <p className="text-muted-foreground px-2 py-3 text-center text-sm">
+                          Aucune destination ne correspond à « {destQuery} ».
+                        </p>
+                      ) : (
+                        groupes.map(([nature, list]) => (
+                          <ComboboxGroup key={nature}>
+                            <ComboboxLabel>
+                              {nature}
+                              {list[0].sandbox ? '' : ' — sort du papier'}
+                            </ComboboxLabel>
+                            {list.map((d) => (
+                              <ComboboxItem key={d.code} value={d.code}>
+                                <span className="font-mono text-[12px] font-semibold">
+                                  {d.code}
+                                </span>
+                                <span className="text-muted-foreground truncate">
+                                  {d.label || '(sans libellé)'}
+                                  {d.queue ? ` · ${d.queue}` : ''}
+                                </span>
+                              </ComboboxItem>
+                            ))}
+                          </ComboboxGroup>
+                        ))
+                      )}
+                    </ComboboxList>
+                  </ComboboxContent>
+                </Combobox>
+              </div>
             )}
 
-            <Input
-              value={dest}
-              onChange={(e) => setDest(e.target.value)}
-              placeholder="ou saisir un code destination"
-              className="mt-1"
-            />
+            {/* Saisie libre seulement quand X3 n'a pas répondu : sinon la liste
+                fait foi, et un code tapé à la main est une source d'erreur. */}
+            {props.destinationsError && (
+              <Input
+                value={dest}
+                onChange={(e) => setDest(e.target.value)}
+                placeholder="code destination"
+                className="mt-1"
+              />
+            )}
 
             {destChoisie && (
               <p className="text-muted-foreground text-sm">
