@@ -41,6 +41,11 @@
 #
 # /!\ Aucune idempotence ici : le verrou (OF × type de document) vit côté board
 #     (table print_jobs). Deux appels = deux tirages. Le papier ne se reprend pas.
+#
+# /!\ `codimp` est forcé à 2 (Ré-impression). En 1 (Impression), valeur par
+#     défaut du dictionnaire, l'état ne retient que les OF pas encore imprimés :
+#     le premier tir sort et les suivants rendent WRETCOD=0 avec un numéro de
+#     tâche mais AUCUN document. Cf. § 4.
 ##############################################################################
 Subprog ZSOAPPRINT(WRPTCOD, WSTOFCY, WMFGNUM, WDEST, WRETCOD, WRETERMSG, WJOBNUM)
 Value    Char    WRPTCOD()      # [IN]  Code état (GESARP) ou "PING"
@@ -126,13 +131,24 @@ If [F:MFG]MFGFCY <> ZPRTFCY
 Endif
 
 # --- 4. Paramètres de l'état : bornes début = fin = l'OF ciblé --------------
-# Codes relevés dans AREPORTD pour BONTRV et BSM (mêmes bornes) :
+# Codes relevés dans AREPORTD pour BONTRV, BSM et RECETTE (mêmes bornes) :
 #   mfgfcydeb (site) · mfgnumdeb (No OF) · pjtdeb · gammedeb · strdatdeb
 # Les bornes se passent par couple deb/fin ; on les colle sur un OF unique.
 ZTBPAR(1) = "mfgfcydeb"  : ZTBVAL(1) = ZPRTFCY
 ZTBPAR(2) = "mfgfcyfin"  : ZTBVAL(2) = ZPRTFCY
 ZTBPAR(3) = "mfgnumdeb"  : ZTBVAL(3) = ZPRTOFN
 ZTBPAR(4) = "mfgnumfin"  : ZTBVAL(4) = ZPRTOFN
+
+# /!\ codimp — menu local 299 : 1 = Impression · 2 = Ré-impression.
+#     Le défaut d'AREPORTD est 1, et en 1 l'état ne retient que les OF PAS
+#     ENCORE imprimés : le premier tir sort, tous les suivants rendent
+#     WRETCOD=0 avec un numéro de tâche ET AUCUNE LIGNE. Un silence qui se
+#     lit comme un succès.
+#     On force donc 2. Décider quand imprimer est le rôle du board — le verrou
+#     (OF × document) vit dans print_jobs, avec son rang de tirage et sa
+#     réimpression explicite. Déléguer ce choix au drapeau « déjà imprimé »
+#     de X3 rendrait le geste muet et non journalisé.
+ZTBPAR(5) = "codimp"     : ZTBVAL(5) = "2"
 
 # --- 5. Impression silencieuse ----------------------------------------------
 # Args : code état · destination · langue ("" = défaut) · trace (1 = journalise)
