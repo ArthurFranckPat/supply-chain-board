@@ -1,7 +1,7 @@
 import { type HttpContext } from '@adonisjs/core/http'
 import { getX3EnvConfig } from '#config/x3'
 import { X3Connection } from '#app/x3/connection'
-import printService, { DOC_LABELS, DOC_TYPES, type DocType } from '#services/print_service'
+import printService, { docLabel, type DocType } from '#services/print_service'
 import PrintJob from '#models/print_job'
 
 /**
@@ -32,9 +32,11 @@ export default class PrintController {
     const requested = Array.isArray(body.docTypes)
       ? body.docTypes.map((d: unknown) => String(d).trim().toUpperCase())
       : []
-    const docTypes = requested.filter((d: string): d is DocType =>
-      (DOC_TYPES as string[]).includes(d)
-    )
+    // Filtré sur les documents CONFIGURÉS : un code inconnu ne doit pas
+    // atteindre X3, il n'y a pas de routage pour lui.
+    const known = await printService.docTypes()
+    const docTypes = requested.filter((d: string): d is DocType => known.includes(d))
+    const labels = await printService.docLabels()
 
     const head = await this.headOf(ofNum, config)
     if (!head) {
@@ -58,7 +60,7 @@ export default class PrintController {
       atelier: folder.atelier,
       documents: folder.documents.map((d) => ({
         docType: d.docType,
-        label: DOC_LABELS[d.docType],
+        label: docLabel(labels, d.docType),
         status: d.status,
         destCode: d.destCode,
         sandbox: d.sandbox,
@@ -75,14 +77,17 @@ export default class PrintController {
   /** GET /api/v1/planning/orders/:orderNum/print — tirages déjà journalisés. */
   async history(ctx: HttpContext) {
     const ofNum = String(ctx.params.orderNum ?? '').trim()
-    const rows = await PrintJob.query().where('of_num', ofNum).orderBy('id', 'desc')
+    const [rows, labels] = await Promise.all([
+      PrintJob.query().where('of_num', ofNum).orderBy('id', 'desc'),
+      printService.docLabels(),
+    ])
     return {
       ok: true,
       ofNum,
       jobs: rows.map((j) => ({
         id: j.id,
         docType: j.docType,
-        label: DOC_LABELS[j.docType as DocType] ?? j.docType,
+        label: docLabel(labels, j.docType),
         attempt: j.attempt,
         destCode: j.destCode,
         sandbox: j.sandbox,

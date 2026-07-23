@@ -115,6 +115,25 @@ export class PrintDestinationSchema extends BaseModel {
   declare updatedBy: string
 }
 
+export class PrintDocumentSchema extends BaseModel {
+  static $columns = ['active', 'code', 'id', 'label', 'position', 'updatedAt', 'updatedBy'] as const
+  $columns = PrintDocumentSchema.$columns
+  @column()
+  declare active: boolean
+  @column()
+  declare code: string
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare label: string
+  @column()
+  declare position: number
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime
+  @column()
+  declare updatedBy: string
+}
+
 export class PrintJobSchema extends BaseModel {
   static $columns = ['attempt', 'createdAt', 'destCode', 'docType', 'durationMs', 'error', 'id', 'jobDetail', 'jobPhase', 'jobRank', 'message', 'ofNum', 'origin', 'poolEntryIdx', 'requestedBy', 'retCod', 'sandbox', 'serverVerdict', 'status', 'stoloc', 'verdictInferred', 'x3Trace'] as const
   $columns = PrintJobSchema.$columns

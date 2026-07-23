@@ -1,11 +1,11 @@
 import { type HttpContext } from '@adonisjs/core/http'
 import PrintDestination from '#models/print_destination'
 import PrintJob from '#models/print_job'
+import PrintDocument from '#models/print_document'
 import printService, {
   AUTO_PRINT_MODES,
-  DOC_TYPES,
+  docLabel,
   type AutoPrintMode,
-  type DocType,
 } from '#services/print_service'
 import staticSync from '#services/static_sync_service'
 import { atelierLabel } from '#app/domain/atelier'
@@ -23,17 +23,18 @@ import { atelierLabel } from '#app/domain/atelier'
  *  - `sandbox` est déduit du type de destination X3 et non de ce que le client
  *    envoie : seul le type 2 (imprimante) sort du papier.
  */
-const isDocType = (v: string): v is DocType => (DOC_TYPES as string[]).includes(v)
-
 export default class PrintConfigController {
   /** GET /configuration/impressions — page Inertia. */
   async index(ctx: HttpContext) {
-    const [rules, workstations, jobs, settings] = await Promise.all([
+    const [rules, workstations, jobs, settings, documents, labels] = await Promise.all([
       printService.listRules(),
       staticSync.readWorkstations().catch(() => []),
       PrintJob.query().orderBy('id', 'desc').limit(50),
       printService.getSettings(),
+      printService.listDocuments(true),
+      printService.docLabels(),
     ])
+    const known = new Set(documents.filter((d) => d.active).map((d) => d.code))
 
     // Destinations X3 : la page reste utilisable si X3 est injoignable (les
     // règles existantes s'affichent), avec la cause à l'écran.
@@ -65,8 +66,9 @@ export default class PrintConfigController {
       queues,
       queuesError,
       settings,
-      rules: rules.map(serializeRule),
-      jobs: jobs.map(serializeJob),
+      documents: documents.map(serializeDocument),
+      rules: rules.map((r) => serializeRule(r, labels, known)),
+      jobs: jobs.map((j) => serializeJob(j, labels)),
     })
   }
 
@@ -96,7 +98,16 @@ export default class PrintConfigController {
     const destCode = String(r.input('destCode') ?? '').trim()
     const note = String(r.input('note') ?? '').trim()
 
-    if (!isDocType(docType)) return ctx.response.badRequest({ error: 'docType invalide' })
+    // Le document doit être configuré : router vers un code d'état inconnu
+    // produirait un tirage que rien ne peut honorer.
+    const documents = await printService.listDocuments()
+    if (!documents.some((d) => d.code === docType)) {
+      return ctx.response.badRequest({
+        error: `Document ${docType || '(vide)'} inconnu. Documents configurés : ${
+          documents.map((d) => d.code).join(', ') || 'aucun'
+        }.`,
+      })
+    }
     if (!destCode) return ctx.response.badRequest({ error: 'destination requise' })
 
     // X3 injoignable ≠ destination inconnue : une règle refusée doit dire
@@ -133,7 +144,63 @@ export default class PrintConfigController {
         updatedBy: ctx.auth.user?.username ?? '',
       }
     )
-    return { ok: true, rule: serializeRule(row) }
+    return { ok: true, rule: serializeRule(row, await printService.docLabels(), new Set(documents.map((d) => d.code))) }
+  }
+
+  /**
+   * POST /api/v1/config/print/documents — crée ou renomme un document.
+   *
+   * Le code est celui de `GESARP` et n'est pas vérifié contre X3 : la liste des
+   * états n'est pas exposée par le board, et une faute de frappe se voit au
+   * premier tirage — `ZSOAPPRINT` refuse un état introuvable avec son nom.
+   */
+  async upsertDocument(ctx: HttpContext) {
+    const r = ctx.request
+    const code = String(r.input('code') ?? '').trim().toUpperCase()
+    const label = String(r.input('label') ?? '').trim()
+    const position = Number(r.input('position') ?? 0) || 0
+    const active = r.input('active') !== false && r.input('active') !== 'false'
+
+    if (!code) return ctx.response.badRequest({ error: 'code requis' })
+    if (!/^[A-Z0-9_-]{1,30}$/.test(code)) {
+      return ctx.response.badRequest({
+        error: `Code ${code} invalide : lettres, chiffres, tiret et souligné, 30 caractères au plus.`,
+      })
+    }
+
+    const row = await PrintDocument.updateOrCreate(
+      { code },
+      {
+        code,
+        label,
+        position,
+        active,
+        updatedAt: Math.floor(Date.now() / 1000),
+        updatedBy: ctx.auth.user?.username ?? '',
+      }
+    )
+    return { ok: true, document: serializeDocument(row) }
+  }
+
+  /**
+   * DELETE /api/v1/config/print/documents/:id — retire un document.
+   *
+   * Refusé tant qu'une règle de routage le désigne : supprimer le document
+   * laisserait une règle qui ne peut plus rien imprimer, sans le dire.
+   */
+  async deleteDocument(ctx: HttpContext) {
+    const row = await PrintDocument.find(Number(ctx.params.id))
+    if (!row) return { ok: true }
+
+    const used = await PrintDestination.query().where('doc_type', row.code).count('* as total')
+    const total = Number((used[0] as any)?.$extras?.total ?? 0)
+    if (total > 0) {
+      return ctx.response.badRequest({
+        error: `${row.code} est utilisé par ${total} règle(s) de routage. Les supprimer d’abord, ou désactiver le document.`,
+      })
+    }
+    await row.delete()
+    return { ok: true }
   }
 
   /** DELETE /api/v1/config/print/rules/:id — supprime une règle. */
@@ -162,8 +229,8 @@ export default class PrintConfigController {
     const ofNum = String(ctx.request.input('of') ?? '').trim()
     const q = PrintJob.query().orderBy('id', 'desc').limit(limit)
     if (ofNum) q.where('of_num', ofNum)
-    const rows = await q
-    return { ok: true, jobs: rows.map(serializeJob) }
+    const [rows, labels] = await Promise.all([q, printService.docLabels()])
+    return { ok: true, jobs: rows.map((j) => serializeJob(j, labels)) }
   }
 
   /**
@@ -179,12 +246,27 @@ export default class PrintConfigController {
   }
 }
 
-function serializeRule(r: PrintDestination) {
+function serializeDocument(d: PrintDocument) {
+  return {
+    id: d.id,
+    code: d.code,
+    label: d.label,
+    position: d.position,
+    active: d.active,
+    updatedAt: d.updatedAt,
+    updatedBy: d.updatedBy,
+  }
+}
+
+function serializeRule(r: PrintDestination, labels: Record<string, string>, known: Set<string>) {
   return {
     id: r.id,
     stoloc: r.stoloc,
     atelierLabel: r.stoloc ? atelierLabel(r.stoloc) : 'Par défaut',
     docType: r.docType,
+    docLabel: docLabel(labels, r.docType),
+    /** Règle portant un document retiré de la configuration : elle ne sert plus. */
+    orphan: !known.has(r.docType),
     destCode: r.destCode,
     destLabel: r.destLabel,
     sandbox: r.sandbox,
@@ -194,11 +276,12 @@ function serializeRule(r: PrintDestination) {
   }
 }
 
-function serializeJob(j: PrintJob) {
+function serializeJob(j: PrintJob, labels: Record<string, string>) {
   return {
     id: j.id,
     ofNum: j.ofNum,
     docType: j.docType,
+    docLabel: docLabel(labels, j.docType),
     attempt: j.attempt,
     stoloc: j.stoloc,
     destCode: j.destCode,

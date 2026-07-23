@@ -3,7 +3,7 @@ import cache from '@adonisjs/cache/services/main'
 import { getX3EnvConfig } from '#config/x3'
 import { callRunSubprog } from '#app/x3/run-client'
 import { X3SuggestionRepository } from '#app/repositories/suggestion_repository'
-import printService, { DOC_LABELS } from '#services/print_service'
+import printService, { docLabel } from '#services/print_service'
 
 /**
  * Invalide les caches board après un write-back X3 (FIRMSUGG).
@@ -162,6 +162,7 @@ export default class SuggestionFirmController {
         // journalisés avec leur numéro de tâche, `print:reconcile` tranche.
         watchTimeoutMs: batch ? 0 : FIRM_WATCH_MS,
       })
+      const docLabels = await printService.docLabels()
       print = {
         attempted: true,
         ok: folder.ok,
@@ -169,7 +170,7 @@ export default class SuggestionFirmController {
         atelier: folder.atelier,
         documents: folder.documents.map((d) => ({
           docType: d.docType,
-          label: DOC_LABELS[d.docType],
+          label: docLabel(docLabels, d.docType),
           status: d.status,
           destCode: d.destCode,
           sandbox: d.sandbox,

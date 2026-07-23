@@ -138,6 +138,9 @@ router
         router.post('/print/settings', '#controllers/print_config_controller.updateSettings')
         router.post('/print/rules', '#controllers/print_config_controller.upsertRule')
         router.delete('/print/rules/:id', '#controllers/print_config_controller.deleteRule')
+        // Documents du dossier : le couple d'états dépend du dossier X3.
+        router.post('/print/documents', '#controllers/print_config_controller.upsertDocument')
+        router.delete('/print/documents/:id', '#controllers/print_config_controller.deleteDocument')
         router.get('/print/jobs', '#controllers/print_config_controller.jobs')
         router.post('/print/reconcile', '#controllers/print_config_controller.reconcile')
         router.get('/print/journal', '#controllers/print_journal_controller.rows')

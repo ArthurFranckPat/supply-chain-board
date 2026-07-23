@@ -1,6 +1,6 @@
 import { type HttpContext } from '@adonisjs/core/http'
 import PrintJob from '#models/print_job'
-import printService, { DOC_LABELS, type DocType } from '#services/print_service'
+import printService, { docLabel } from '#services/print_service'
 import { atelierLabel } from '#app/domain/atelier'
 
 /**
@@ -19,9 +19,10 @@ export default class PrintJournalController {
   /** GET /impressions — page Inertia (aujourd'hui par défaut). */
   async index(ctx: HttpContext) {
     const since = Math.floor(Date.now() / 1000) - DAY
-    const [jobs, settings] = await Promise.all([
+    const [jobs, settings, labels] = await Promise.all([
       PrintJob.query().where('created_at', '>=', since).orderBy('id', 'desc').limit(200),
       printService.getSettings(),
+      printService.docLabels(),
     ])
 
     // Ateliers présents dans le journal — suffisant pour filtrer, et sans
@@ -31,7 +32,7 @@ export default class PrintJournalController {
       .sort((a, b) => a.label.localeCompare(b.label))
 
     return ctx.inertia.render('impressions', {
-      jobs: jobs.map(serializeJob),
+      jobs: jobs.map((j) => serializeJob(j, labels)),
       ateliers,
       autoPrintMode: settings.autoPrintMode,
       since,
@@ -60,17 +61,17 @@ export default class PrintJournalController {
     if (failedOnly) {
       q.where((sub) => sub.where('status', 'failed').orWhere('server_verdict', 'error'))
     }
-    const rows = await q
-    return { ok: true, jobs: rows.map(serializeJob) }
+    const [rows, labels] = await Promise.all([q, printService.docLabels()])
+    return { ok: true, jobs: rows.map((j) => serializeJob(j, labels)) }
   }
 }
 
-export function serializeJob(j: PrintJob) {
+export function serializeJob(j: PrintJob, labels: Record<string, string>) {
   return {
     id: j.id,
     ofNum: j.ofNum,
     docType: j.docType,
-    docLabel: DOC_LABELS[j.docType as DocType] ?? j.docType,
+    docLabel: docLabel(labels, j.docType),
     attempt: j.attempt,
     stoloc: j.stoloc,
     atelierLabel: j.stoloc ? atelierLabel(j.stoloc) : '',

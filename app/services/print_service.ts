@@ -3,6 +3,7 @@ import { getX3EnvConfig, type X3EnvConfig } from '#config/x3'
 import { callRunSubprog, type RunResult } from '#app/x3/run-client'
 import { X3Connection } from '#app/x3/connection'
 import PrintDestination from '#models/print_destination'
+import PrintDocument from '#models/print_document'
 import PrintJob from '#models/print_job'
 import PrintSetting from '#models/print_setting'
 import boardDataset from '#services/board_dataset'
@@ -36,8 +37,15 @@ import {
  * sorti. Le statut journalisé est donc `submitted`, jamais `printed`.
  */
 
-export type DocType = 'BONTRV' | 'BSM'
-export const DOC_TYPES: DocType[] = ['BONTRV', 'BSM']
+/**
+ * Code d'état X3 (`AREPORT.RPTCOD`), tel que saisi dans `print_documents`.
+ *
+ * Ce fut une union `'BONTRV' | 'BSM'`, héritée du dossier de test. Sur prod le
+ * bon de travail est `RECETTE` : le couple dépend du dossier, donc c'est de la
+ * donnée. Le type reste nommé pour que les signatures disent ce qu'elles
+ * transportent — un code d'état, pas une chaîne quelconque.
+ */
+export type DocType = string
 
 /**
  * Déclenchement automatique à l'affermissement.
@@ -49,10 +57,14 @@ export const DOC_TYPES: DocType[] = ['BONTRV', 'BSM']
 export type AutoPrintMode = 'off' | 'single' | 'all'
 export const AUTO_PRINT_MODES: AutoPrintMode[] = ['off', 'single', 'all']
 
-/** Libellés métier des documents (l'utilisateur ne parle pas en codes X3). */
-export const DOC_LABELS: Record<DocType, string> = {
-  BONTRV: 'Bon de travail',
-  BSM: 'Bon de sortie matière',
+/**
+ * Libellé métier d'un document, à partir de la table chargée.
+ *
+ * Rend le code lui-même s'il est inconnu — un tirage journalisé sous un code
+ * depuis retiré doit rester lisible, pas devenir « undefined ».
+ */
+export function docLabel(labels: Record<string, string>, code: string): string {
+  return labels[code] ?? code
 }
 
 /** Destination X3 telle que déclarée dans `APRINTER` (GESAIM). */
@@ -115,6 +127,33 @@ export interface PrintOutcome {
 }
 
 class PrintService {
+  /**
+   * Documents configurés, actifs, dans l'ordre d'impression.
+   *
+   * Pas de cache : la table tient dans deux lignes, et un document ajouté doit
+   * être routable dans la seconde. Un cache n'économiserait rien et ferait
+   * diverger l'écran de configuration de ce qui s'imprime.
+   */
+  async listDocuments(includeInactive = false): Promise<PrintDocument[]> {
+    const q = PrintDocument.query().orderBy('position').orderBy('code')
+    if (!includeInactive) q.where('active', true)
+    return q
+  }
+
+  /** Codes des documents actifs — l'ordre du dossier d'OF. */
+  async docTypes(): Promise<DocType[]> {
+    return (await this.listDocuments()).map((d) => d.code)
+  }
+
+  /**
+   * Libellés par code, documents inactifs compris : le journal affiche des
+   * tirages antérieurs à une désactivation, et ils doivent rester lisibles.
+   */
+  async docLabels(): Promise<Record<string, string>> {
+    const rows = await this.listDocuments(true)
+    return Object.fromEntries(rows.map((d) => [d.code, d.label || d.code]))
+  }
+
   /**
    * Destinations déclarées dans X3 (`APRINTER`, fonction GESAIM).
    *
@@ -264,6 +303,7 @@ class PrintService {
     const ofNum = params.ofNum.trim()
     const stoloc = (params.stoloc ?? '').trim()
     const docType = params.docType
+    const labels = await this.docLabels()
     const base = {
       ofNum,
       docType,
@@ -286,7 +326,7 @@ class PrintService {
         status: 'failed',
         destCode: '',
         message: '',
-        error: `Aucune destination configurée pour ${DOC_LABELS[docType]}${
+        error: `Aucune destination configurée pour ${docLabel(labels, docType)}${
           stoloc ? ` (atelier ${stoloc})` : ''
         }.`,
       }
@@ -309,7 +349,7 @@ class PrintService {
         status: 'locked',
         destCode: routed.destCode,
         sandbox: routed.sandbox,
-        message: `${DOC_LABELS[docType]} déjà imprimé pour ${ofNum} (tirage ${last.attempt}).`,
+        message: `${docLabel(labels, docType)} déjà imprimé pour ${ofNum} (tirage ${last.attempt}).`,
         error: '',
         previous: {
           attempt: last.attempt,
@@ -536,7 +576,7 @@ class PrintService {
       : await this.resolveAtelier(params.itmref ?? '')
 
     const documents: PrintOutcome[] = []
-    for (const docType of params.docTypes ?? DOC_TYPES) {
+    for (const docType of params.docTypes ?? (await this.docTypes())) {
       try {
         documents.push(
           await this.printOf({

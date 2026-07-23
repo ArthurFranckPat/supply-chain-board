@@ -1,7 +1,7 @@
 import { BaseCommand, flags } from '@adonisjs/core/ace'
 import type { CommandOptions } from '@adonisjs/core/types/ace'
 import { getX3EnvConfig } from '#config/x3'
-import printService, { DOC_LABELS, DOC_TYPES, type DocType } from '#services/print_service'
+import printService, { docLabel, type DocType } from '#services/print_service'
 
 /**
  * `node ace print:of --of=F126-47558 --site=AE1` — imprime un document d'OF en
@@ -26,7 +26,7 @@ export default class PrintOf extends BaseCommand {
   @flags.string({ description: 'Site de production (ex. AE1)' })
   declare site: string
 
-  @flags.string({ description: `Document : ${DOC_TYPES.join(' | ')} (défaut BONTRV)` })
+  @flags.string({ description: 'Code document configuré (défaut : le premier du dossier)' })
   declare doc: string
 
   @flags.string({ description: 'Atelier STOLOC (défaut : règle par défaut)' })
@@ -70,9 +70,10 @@ export default class PrintOf extends BaseCommand {
       requestedBy: 'cli',
       config: getX3EnvConfig('test'),
     })
+    const labels = await printService.docLabels()
     this.logger.info(`Atelier : ${res.atelier.label || res.atelier.code || 'aucun (règle par défaut)'}`)
     for (const d of res.documents) {
-      const line = `${DOC_LABELS[d.docType]} → ${d.destCode || '—'} · X3 ${d.status} · serveur ${d.serverVerdict}${d.jobRank ? ` (tâche ${d.jobRank})` : ''}`
+      const line = `${docLabel(labels, d.docType)} → ${d.destCode || '—'} · X3 ${d.status} · serveur ${d.serverVerdict}${d.jobRank ? ` (tâche ${d.jobRank})` : ''}`
       if (d.serverVerdict === 'error' || d.status === 'failed') {
         this.logger.error(`${line} · ${d.error || d.jobDetail}`)
       } else if (d.status === 'locked') {
@@ -87,7 +88,11 @@ export default class PrintOf extends BaseCommand {
   private async runSingle() {
     const ofNum = (this.of ?? '').trim()
     const site = (this.site ?? '').trim()
-    const docType = ((this.doc ?? 'BONTRV').trim().toUpperCase() || 'BONTRV') as DocType
+    // Défaut = premier document configuré, pas un code écrit en dur : le couple
+    // d'états dépend du dossier X3.
+    const configured = await printService.docTypes()
+    const labels = await printService.docLabels()
+    const docType = ((this.doc ?? '').trim().toUpperCase() || configured[0] || '') as DocType
     const stoloc = (this.atelier ?? '').trim()
 
     if (!ofNum || !site) {
@@ -95,8 +100,10 @@ export default class PrintOf extends BaseCommand {
       this.exitCode = 1
       return
     }
-    if (!DOC_TYPES.includes(docType)) {
-      this.logger.error(`--doc invalide : ${docType} (attendu ${DOC_TYPES.join(' | ')}).`)
+    if (!configured.includes(docType)) {
+      this.logger.error(
+        `--doc invalide : ${docType || '(aucun)'} (configurés : ${configured.join(' | ') || 'aucun'}).`
+      )
       this.exitCode = 1
       return
     }
@@ -104,7 +111,7 @@ export default class PrintOf extends BaseCommand {
     const routed = await printService.resolveDestination(stoloc, docType)
     if (!routed) {
       this.logger.error(
-        `Aucune destination configurée pour ${DOC_LABELS[docType]}${stoloc ? ` (atelier ${stoloc})` : ''}.`
+        `Aucune destination configurée pour ${docLabel(labels, docType)}${stoloc ? ` (atelier ${stoloc})` : ''}.`
       )
       this.exitCode = 1
       return
