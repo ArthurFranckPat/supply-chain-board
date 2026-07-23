@@ -94,7 +94,14 @@ export default function PrintTest(props: PageProps) {
   const [rptCod, setRptCod] = useState('PING')
   const [stofcy, setStofcy] = useState('AE1')
   const [mfgNum, setMfgNum] = useState('F126-47558')
-  const [dest, setDest] = useState('PDFFILE')
+  /**
+   * Aucune destination pré-choisie. `PDFFILE` l'était, et c'est trompeur : l'état
+   * `BSM` ne produit AUCUNE tâche vers une destination fichier (type 4) alors
+   * qu'il sort normalement vers un aperçu (type 1) — vérifié sur prod, et
+   * reproduit en interactif dans X3. Un défaut qui échoue silencieusement sur la
+   * moitié des états ne peut pas être le défaut.
+   */
+  const [dest, setDest] = useState('')
   const [trace, setTrace] = useState(true)
   const [loading, setLoading] = useState(false)
   const [res, setRes] = useState<RunResponse | null>(null)
@@ -254,6 +261,19 @@ export default function PrintTest(props: PageProps) {
                 {destChoisie.kindLabel}
                 {destChoisie.server ? ` · serveur ${destChoisie.server}` : ' · aucun serveur d’impression déclaré'}
                 {destChoisie.queue ? ` · file ${destChoisie.queue}` : ''}
+              </p>
+            )}
+
+            {/* Constat de terrain, pas une théorie : BSM vers PDFFILE rend
+                WRETCOD=0 et AUCUNE tâche, alors que BSM vers PREVISU sort. */}
+            {destChoisie?.kind === 4 && rptCod === 'BSM' && (
+              <p className="flex items-center gap-2 text-sm text-amber-600">
+                <TriangleAlert className="size-4 shrink-0" />
+                <span>
+                  <strong>BSM ne produit rien vers une destination fichier.</strong> L’appel rendra{' '}
+                  <code>WRETCOD=0</code> sans numéro de tâche. Pour un essai sans papier, prendre un
+                  aperçu (ex. <code>PREVISU</code>).
+                </span>
               </p>
             )}
 
