@@ -25,7 +25,8 @@
 #   exact.
 #
 # Signature : ZSOAPPRINT(WRPTCOD, WSTOFCY, WMFGNUM, WDEST, WRETCOD, WRETERMSG, WJOBNUM)
-#   WRPTCOD   IN   Char     Code état GESARP : BONTRV | BSM · "PING" = sonde
+#   WRPTCOD   IN   Char     Code état GESARP (BONTRV, BSM, RECETTE…) · "PING"
+#                           = sonde, rend "pong <version du source compilé>"
 #   WSTOFCY   IN   Char     Site production
 #   WMFGNUM   IN   Char     No OF (borne début = fin)
 #   WDEST     IN   Char     Code destination APRINTER (GESAIM)
@@ -66,6 +67,15 @@ Local Char    ZPRTDST(30)  : ZPRTDST = WDEST
 Local Char    ZTBPAR(30)(1..20)
 Local Char    ZTBVAL(250)(1..20)
 
+# Version du SOURCE, rendue par PING.
+#
+# Republier dans GESAWE régénère le wrapper depuis la signature du
+# dictionnaire, pas depuis le corps du sous-programme : un dossier peut donc
+# servir une publication à jour ET un code compilé périmé, sans que rien en
+# base ne le trahisse. Ce marqueur est le seul moyen de savoir quelle version
+# tourne réellement. À incrémenter à chaque modification du source.
+Local Char    ZPRTVER(30)  : ZPRTVER = "2026-07-23b codimp=2"
+
 # Sortie d'ETATJOB : numéro de tâche (Char côté dictionnaire, pas Integer).
 Local Char    ZPRTJOB(30)
 # Date d'impression différée. Laissée nulle = impression immédiate (DIFF=0).
@@ -84,7 +94,7 @@ Onerrgo ERRPRINT
 # chaîne SOAP sans consommer de papier.
 If ZPRTRPT = "PING"
     WRETCOD   = 0
-    WRETERMSG = "pong"
+    WRETERMSG = "pong " - ZPRTVER
     End
 Endif
 
