@@ -84,6 +84,11 @@ export default function Load(props: LoadPageProps) {
   }
 
   const segFiltered = activeSegs.size < segOptions(view).length
+  /** Segments réellement tracés — alimente la légende intégrée au graphe. */
+  const visibleSegs = useMemo(
+    () => segOptions(view).filter((o) => activeSegs.has(o.id)),
+    [view, activeSegs]
+  )
 
   // Filtres secondaires uniquement (hors recherche, toujours visible dans la
   // rangée) — pilote la pastille du déclencheur FilterMenu.
@@ -221,7 +226,7 @@ export default function Load(props: LoadPageProps) {
           </div>
         )}
 
-        {/* Sélecteur de vue + légende */}
+        {/* Sélecteur de vue + filtres + recherche (la légende vit dans le graphe) */}
         <ToolbarRow className="text-xs font-semibold text-secondary-foreground">
           {/* Bascule OF ↔ Commande */}
           <Segment role="radiogroup" ariaLabel="Vue">
@@ -341,41 +346,8 @@ export default function Load(props: LoadPageProps) {
               </SegmentButton>
             </Segment>
           </FilterMenu>
-          <span className="h-3.5 w-px bg-rule-soft" />
-          {/* Légende (lecture seule) — le filtre vit dans le FilterMenu. */}
-          {segOptions(view).map((o) => (
-            <span key={o.id} className="flex items-center gap-1.5">
-              <i className="inline-block h-2.5 w-3.5 rounded-[2px]" style={{ background: o.color }} />
-              {o.label}
-            </span>
-          ))}
-          {/* Couches d'affichage : entrées de légende conditionnées par leur
-              toggle — la légende ne décrit que ce qui est réellement tracé
-              (la surcharge n'est peinte que sous `showCapacity`). */}
-          {showCapacity && (
-            <>
-              <span className="flex items-center gap-1.5">
-                <i className="inline-block w-[18px] border-t-[3px] border-foreground/70" />
-                Capacité
-              </span>
-              <span className="flex items-center gap-1.5">
-                <i
-                  className="inline-block h-2.5 w-3.5 rounded-[2px]"
-                  style={{
-                    background: 'color-mix(in srgb, var(--color-danger) 20%, transparent)',
-                    boxShadow: 'inset 0 0 0 1px var(--color-danger)',
-                  }}
-                />
-                Surcharge
-              </span>
-            </>
-          )}
-          {showAvg && (
-            <span className="flex items-center gap-1.5">
-              <i className="inline-block w-[18px] border-t-[1.5px] border-dashed border-brand" />
-              Moyenne mobile
-            </span>
-          )}
+          {/* Pas de légende ici : elle est dessinée DANS le graphe de détail
+              (DetailChart), attachée à ce qu'elle décrit. */}
           <ToolbarSpacer />
           {/* Recherche — systématiquement à droite, jamais consolidée derrière
               un clic (convention toolbar). */}
@@ -510,6 +482,7 @@ export default function Load(props: LoadPageProps) {
                   view={view}
                   showCapacity={showCapacity}
                   showAvg={showAvg}
+                  segs={visibleSegs}
                 />
               </div>
             )}

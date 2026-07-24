@@ -8,6 +8,7 @@ import {
   RULE_SOFT,
   BRAND,
   type Gran,
+  type LoadSegOption,
   mobileAvg,
   rtop,
   satColor,
@@ -27,6 +28,8 @@ interface DetailChartProps {
   view: LoadView
   showCapacity: boolean
   showAvg: boolean
+  /** Segments effectivement tracés (filtre statut/nature appliqué) — légende. */
+  segs: LoadSegOption[]
 }
 
 type SegInfo = {
@@ -38,10 +41,20 @@ type SegInfo = {
   color: string
 }
 
-export function DetailChart({ items, gran, view, showCapacity, showAvg }: DetailChartProps) {
+export function DetailChart({
+  items,
+  gran,
+  view,
+  showCapacity,
+  showAvg,
+  segs,
+}: DetailChartProps) {
   const padL = 46
   const padR = 16
-  const padT = 14
+  // Bande haute réservée à la légende intégrée (voir `legend` plus bas) : elle
+  // vit DANS le graphe, pas dans la toolbar, pour rester attachée à ce qu'elle
+  // décrit (et suivre le graphe à l'impression).
+  const padT = 34
   const padB = 38
 
   const wrapRef = useRef<HTMLDivElement>(null)
@@ -160,6 +173,44 @@ export function DetailChart({ items, gran, view, showCapacity, showAvg }: Detail
     }
   }, [items, dim, gran, view])
 
+  /**
+   * Légende intégrée, calée en haut à droite de la zone de tracé.
+   *
+   * N'énumère QUE ce qui est réellement peint : les segments restant après le
+   * filtre statut/nature, et les couches optionnelles selon leurs toggles (la
+   * surcharge n'existe que sous `showCapacity`). Largeurs estimées au ratio
+   * moyen de la fonte plutôt que mesurées : pas de re-layout, et l'alignement
+   * à droite absorbe l'erreur résiduelle.
+   */
+  const legend = useMemo(() => {
+    type Item = { kind: 'swatch' | 'box' | 'line' | 'dash'; color: string; label: string }
+    const entries: Item[] = segs.map((o) => ({
+      kind: 'swatch' as const,
+      color: o.color,
+      label: o.label,
+    }))
+    if (showCapacity) {
+      entries.push({ kind: 'line', color: FG, label: 'Capacité' })
+      entries.push({ kind: 'box', color: DANGER, label: 'Surcharge' })
+    }
+    if (showAvg) entries.push({ kind: 'dash', color: BRAND, label: 'Moyenne mobile' })
+
+    const FS = 10
+    const MARK_W = 16
+    const MARK_GAP = 5
+    const ITEM_GAP = 14
+    const widths = entries.map((e) => MARK_W + MARK_GAP + e.label.length * FS * 0.56)
+    const totalW = widths.reduce((a, w) => a + w, 0) + ITEM_GAP * Math.max(0, entries.length - 1)
+
+    const baseline = 14
+    let x = Math.max(padL, dim.w - padR - totalW)
+    return entries.map((e, i) => {
+      const at = x
+      x += widths[i] + ITEM_GAP
+      return { ...e, x: at, markW: MARK_W, textX: at + MARK_W + MARK_GAP, y: baseline, fs: FS }
+    })
+  }, [segs, showCapacity, showAvg, dim.w])
+
   const [hover, setHover] = useState<SegInfo | null>(null)
   const [pos, setPos] = useState({ x: 0, y: 0 })
 
@@ -177,6 +228,57 @@ export function DetailChart({ items, gran, view, showCapacity, showAvg }: Detail
         preserveAspectRatio="none"
         className="block h-full w-full"
       >
+        {/* Légende intégrée (bande `padT`, alignée à droite) */}
+        {legend.map((l, i) => {
+          const cy = l.y - 3.5
+          return (
+            <g key={`lg-${i}`}>
+              {l.kind === 'swatch' && (
+                <rect x={l.x} y={cy - 4.5} width="14" height="9" rx="2" fill={l.color} />
+              )}
+              {l.kind === 'box' && (
+                <rect
+                  x={l.x}
+                  y={cy - 4.5}
+                  width="14"
+                  height="9"
+                  rx="2"
+                  fill={l.color}
+                  fillOpacity="0.2"
+                  stroke={l.color}
+                  strokeWidth="1"
+                />
+              )}
+              {l.kind === 'line' && (
+                <line
+                  x1={l.x}
+                  x2={l.x + l.markW}
+                  y1={cy}
+                  y2={cy}
+                  stroke={l.color}
+                  strokeOpacity="0.75"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                />
+              )}
+              {l.kind === 'dash' && (
+                <line
+                  x1={l.x}
+                  x2={l.x + l.markW}
+                  y1={cy}
+                  y2={cy}
+                  stroke={l.color}
+                  strokeWidth="2"
+                  strokeDasharray="5 4"
+                  strokeLinecap="round"
+                />
+              )}
+              <text x={l.textX} y={l.y} fontSize={l.fs} fontWeight="600" fill={MUTED}>
+                {l.label}
+              </text>
+            </g>
+          )
+        })}
         {/* Gridlines + axe Y */}
         {geom.grid.map((g, i) => (
           <g key={`grid-${i}`}>
