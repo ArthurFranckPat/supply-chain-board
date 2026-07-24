@@ -393,20 +393,12 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
                     onValueChange={(v) => setArticleFilter(v == null ? null : String(v))}
                     onInputValueChange={(v) => setArticleQuery(v)}
                   >
-                    {/* Le cadre noir à angles vifs vient de `styles/app.css` :
-                        `@layer base { * { @apply outline-ring/50 } }` repeint
-                        l'outline de focus du navigateur en `--ring` (#222222)
-                        sur TOUS les éléments. C'est une règle globale : aucune
-                        classe utilitaire posée ici ne la neutralise de façon
-                        fiable, d'où le style inline sur l'input — il gagne
-                        contre tout. `style` traverse ComboboxInput jusqu'à
-                        l'élément input ; `className`, lui, s'arrête sur
-                        l'InputGroup qui l'enveloppe.
-                        Reste un seul repère de focus : la bordure en brand. */}
+                    {/* Focus standard du design system : c'est l'InputGroup qui
+                        le porte. Le cadre noir venait d'un oubli dans
+                        InputGroupInput, corrigé à la source. */}
                     <ComboboxInput
                       placeholder="Tous les articles — code ou désignation…"
-                      style={{ outline: 'none', boxShadow: 'none' }}
-                      className="w-full border-rule has-[[data-slot=input-group-control]:focus-visible]:border-brand has-[[data-slot=input-group-control]:focus-visible]:ring-0!"
+                      className="w-full"
                     />
                     {/* Au-dessus du panneau qui le contient (z-60), sous les
                         dialogs (z-65). Sans ça, la liste s'ouvre DERRIÈRE le

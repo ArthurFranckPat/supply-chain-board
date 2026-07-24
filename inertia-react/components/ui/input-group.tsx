@@ -124,7 +124,15 @@ function InputGroupInput({
     <Input
       data-slot="input-group-control"
       className={cn(
-        "flex-1 rounded-none border-0 bg-transparent shadow-none ring-0 focus-visible:ring-0 disabled:bg-transparent aria-invalid:ring-0 dark:bg-transparent dark:disabled:bg-transparent",
+        // `focus-visible:border-0` complète la neutralisation : `Input` définit
+        // le focus comme une bordure d'encre de 2 px (cf. input.tsx), juste pour
+        // un champ isolé mais faux à l'intérieur d'un groupe — le `border-0` nu
+        // ne la couvre pas, la variante `focus-visible:` l'emportant. L'input
+        // étant `rounded-none` et plus étroit que le groupe, cela dessinait au
+        // focus un rectangle noir à angles vifs À L'INTÉRIEUR du champ, s'arrêtant
+        // avant les addons. C'est le groupe qui porte le focus (`border-ring` +
+        // ring), pas le contrôle.
+        "flex-1 rounded-none border-0 bg-transparent shadow-none ring-0 focus-visible:border-0 focus-visible:ring-0 disabled:bg-transparent aria-invalid:ring-0 dark:bg-transparent dark:disabled:bg-transparent",
         className
       )}
       {...props}
