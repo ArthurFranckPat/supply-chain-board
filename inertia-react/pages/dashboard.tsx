@@ -17,7 +17,7 @@ import {
   type KpiWidth,
 } from '@/lib/dashboard/types'
 import { useLayoutStore } from '@r/lib/dashboard/layout-store'
-import { Eye, EyeOff, GripVertical, ArrowUp, ArrowDown, LoaderCircle, Calendar as CalendarIcon, X, Search, ChevronDown, ChevronRight } from 'lucide-react'
+import { Eye, EyeOff, GripVertical, ArrowUp, ArrowDown, LoaderCircle, Calendar as CalendarIcon, X, Search, ChevronDown, ChevronRight, ChevronLeft } from 'lucide-react'
 import { DynamicIcon } from '../components/ui/dynamic-icon'
 import { StockArticleSheet } from '@r/components/board/stock-article-sheet'
 import { Skeleton, SkeletonChart } from '@r/components/ui/skeleton'
@@ -191,10 +191,10 @@ const fmtPmp = new Intl.NumberFormat('fr-FR', {
 const fmtQtyDec = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 })
 
 function otdColor(taux: number, nbTotal: number): string {
-  if (nbTotal === 0) return '#dddddd'
-  if (taux >= 90) return '#008049'
-  if (taux >= 70) return '#717171'
-  return '#ff385c'
+  if (nbTotal === 0) return 'var(--color-muted-foreground)'
+  if (taux >= 95) return 'var(--color-ferme, #008049)'
+  if (taux >= 85) return 'var(--color-planifie, #d97706)'
+  return 'var(--color-destructive, #ff385c)'
 }
 
 // ═════════════════════════════════════════════════════════════════════════ Components
@@ -336,7 +336,9 @@ function Tile({
   printRank,
   width,
   onWidth,
+  onHide,
   onPrintMove,
+  onScreenMove,
   draggedId,
   dropTargetId,
   setDraggedId,
@@ -352,6 +354,7 @@ function Tile({
   onWidth: (w: KpiWidth) => void
   onHide: () => void
   onPrintMove: (dir: -1 | 1) => void
+  onScreenMove?: (dir: -1 | 1) => void
   draggedId: KpiId | null
   dropTargetId: KpiId | null
   setDraggedId: (v: KpiId | null) => void
@@ -397,13 +400,36 @@ function Tile({
         if (draggedId && draggedId !== id) onDrop()
       }}
     >
-      {/* Barre d'outils édition (poignée + largeur + ordre impression + masquer) */}
+      {/* Barre d'outils édition (poignée + réordonnancement clavier + largeur + ordre impression + masquer) */}
       {editMode && (
         <>
-          <div className="pointer-events-none absolute -top-3 left-3 z-10 flex items-center gap-1 rounded border border-rule bg-card px-1.5 py-0.5 shadow-sm print:hidden">
+          <div className="pointer-events-none absolute -top-3 left-3 z-10 flex items-center gap-1.5 rounded border border-rule bg-card px-1.5 py-0.5 shadow-sm print:hidden">
             <span className="text-muted-foreground" title="Glisser pour réordonner">
               <GripVertical size={14} />
             </span>
+            {/* Boutons de réordonnancement clavier */}
+            {onScreenMove && (
+              <div className="pointer-events-auto flex items-center gap-0.5 rounded border border-rule bg-secondary px-0.5">
+                <button
+                  type="button"
+                  onClick={() => onScreenMove(-1)}
+                  className="p-0.5 text-muted-foreground transition-colors hover:text-foreground"
+                  title="Déplacer vers la gauche / haut"
+                  aria-label="Déplacer la carte vers la gauche"
+                >
+                  <ChevronLeft size={13} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onScreenMove(1)}
+                  className="p-0.5 text-muted-foreground transition-colors hover:text-foreground"
+                  title="Déplacer vers la droite / bas"
+                  aria-label="Déplacer la carte vers la droite"
+                >
+                  <ChevronRight size={13} />
+                </button>
+              </div>
+            )}
             {/* Sélecteur de largeur discret */}
             <div className="pointer-events-auto flex items-center rounded border border-rule bg-secondary px-0.5">
               {([1, 2, 3] as KpiWidth[]).map((w) => (
@@ -499,6 +525,7 @@ export default function Dashboard(props: DashboardProps) {
     setVisible: setStoreVisible,
     setWidth: setStoreWidth,
     moveItem: moveStoreItem,
+    moveItemDir: moveStoreItemDir,
     movePrint: moveStorePrint,
     layoutItem,
     isVisible: getIsVisible,
@@ -515,6 +542,7 @@ export default function Dashboard(props: DashboardProps) {
   const setVisible = useCallback((id: KpiId, visible: boolean) => setStoreVisible(id, visible), [setStoreVisible])
   const setWidth = useCallback((id: KpiId, width: KpiWidth) => setStoreWidth(id, width), [setStoreWidth])
   const moveItem = useCallback((draggedId: KpiId, targetId: KpiId) => moveStoreItem(draggedId, targetId), [moveStoreItem])
+  const moveScreen = useCallback((id: KpiId, dir: -1 | 1) => moveStoreItemDir(id, dir), [moveStoreItemDir])
   const movePrint = useCallback((id: KpiId, dir: -1 | 1) => moveStorePrint(id, dir), [moveStorePrint])
   const isVisible = useCallback((id: KpiId) => getIsVisible(id), [getIsVisible])
 
@@ -562,8 +590,7 @@ export default function Dashboard(props: DashboardProps) {
         body: JSON.stringify(layout),
       })
         .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
-        .then(() => toast.success('Disposition enregistrée', { duration: 1800 }))
-        .catch(() => toast.error('Disposition non enregistrée'))
+        .catch(() => toast.error('Échec de la sauvegarde de la disposition'))
     }, 600)
     return () => clearTimeout(timer)
   }, [items, printOrder])
@@ -743,6 +770,7 @@ export default function Dashboard(props: DashboardProps) {
                 onWidth={setWidth.bind(null, 'charge')}
                 onHide={() => setVisible('charge', false)}
                 onPrintMove={(dir) => movePrint('charge', dir)}
+                onScreenMove={(dir) => moveScreen('charge', dir)}
                 draggedId={draggedId}
                 dropTargetId={dropTargetId}
                 setDraggedId={setDraggedId}
@@ -838,6 +866,7 @@ export default function Dashboard(props: DashboardProps) {
                 onWidth={setWidth.bind(null, 'otd')}
                 onHide={() => setVisible('otd', false)}
                 onPrintMove={(dir) => movePrint('otd', dir)}
+                onScreenMove={(dir) => moveScreen('otd', dir)}
                 draggedId={draggedId}
                 dropTargetId={dropTargetId}
                 setDraggedId={setDraggedId}
@@ -1086,6 +1115,7 @@ export default function Dashboard(props: DashboardProps) {
                 onWidth={setWidth.bind(null, 'stock')}
                 onHide={() => setVisible('stock', false)}
                 onPrintMove={(dir) => movePrint('stock', dir)}
+                onScreenMove={(dir) => moveScreen('stock', dir)}
                 draggedId={draggedId}
                 dropTargetId={dropTargetId}
                 setDraggedId={setDraggedId}
@@ -1270,6 +1300,7 @@ export default function Dashboard(props: DashboardProps) {
                 onWidth={setWidth.bind(null, 'lignes')}
                 onHide={() => setVisible('lignes', false)}
                 onPrintMove={(dir) => movePrint('lignes', dir)}
+                onScreenMove={(dir) => moveScreen('lignes', dir)}
                 draggedId={draggedId}
                 dropTargetId={dropTargetId}
                 setDraggedId={setDraggedId}
@@ -1380,6 +1411,7 @@ export default function Dashboard(props: DashboardProps) {
                 onWidth={setWidth.bind(null, 'stockTable')}
                 onHide={() => setVisible('stockTable', false)}
                 onPrintMove={(dir) => movePrint('stockTable', dir)}
+                onScreenMove={(dir) => moveScreen('stockTable', dir)}
                 draggedId={draggedId}
                 dropTargetId={dropTargetId}
                 setDraggedId={setDraggedId}

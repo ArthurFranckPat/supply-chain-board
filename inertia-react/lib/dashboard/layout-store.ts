@@ -27,6 +27,7 @@ interface LayoutState extends DashboardLayout {
   setVisible: (id: KpiId, visible: boolean) => void
   setWidth: (id: KpiId, width: KpiWidth) => void
   moveItem: (draggedId: KpiId, targetId: KpiId) => void
+  moveItemDir: (id: KpiId, dir: -1 | 1) => void
   movePrint: (id: KpiId, dir: -1 | 1) => void
   reset: () => void
 
@@ -66,6 +67,16 @@ export const useLayoutStore = create<LayoutState>()(
         if (from === -1 || to === -1) return
         const [moved] = ordered.splice(from, 1)
         ordered.splice(to, 0, moved)
+        set({ items: ordered })
+      },
+
+      moveItemDir: (id, dir) => {
+        const { items } = get()
+        const ordered = [...items]
+        const i = ordered.findIndex((it) => it.id === id)
+        const j = i + dir
+        if (i === -1 || j < 0 || j >= ordered.length) return
+        ;[ordered[i], ordered[j]] = [ordered[j], ordered[i]]
         set({ items: ordered })
       },
 
