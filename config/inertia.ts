@@ -131,6 +131,8 @@ declare module '@adonisjs/inertia/types' {
         sandbox: boolean
       }[]
       destinationsError: string
+      /** Documents configurés — proposés en plus de la sonde PING. */
+      documents: { code: string; label: string }[]
     }
     // CTP — simulateur autonome « date au plus tôt » (PRD §6.2, lot 3).
     'promesse': Record<string, never>
@@ -219,11 +221,24 @@ declare module '@adonisjs/inertia/types' {
       queues: string[]
       queuesError: string
       settings: { autoPrintMode: string; updatedAt: number; updatedBy: string }
+      /** Documents du dossier — codes GESARP saisis, inactifs compris. */
+      documents: {
+        id: number
+        code: string
+        label: string
+        position: number
+        active: boolean
+        updatedAt: number
+        updatedBy: string
+      }[]
       rules: {
         id: number
         stoloc: string
         atelierLabel: string
         docType: string
+        docLabel: string
+        /** Règle portant un document retiré : elle ne sert plus à rien. */
+        orphan: boolean
         destCode: string
         destLabel: string
         sandbox: boolean

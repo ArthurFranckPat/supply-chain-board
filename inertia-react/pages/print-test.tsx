@@ -78,13 +78,9 @@ interface PageProps {
   host: string
   destinations: Destination[]
   destinationsError: string
+  /** Documents configurés sur /configuration/impressions. */
+  documents: { code: string; label: string }[]
 }
-
-const ETATS = [
-  { cod: 'PING', label: 'PING — sonde, n’imprime rien' },
-  { cod: 'BONTRV', label: 'BONTRV — bon de travail' },
-  { cod: 'BSM', label: 'BSM — bon de sortie matière' },
-]
 
 /**
  * Bouton de copie. Repasse à l'icône neutre après 1,5 s — un état « copié »
@@ -153,6 +149,16 @@ export default function PrintTest(props: PageProps) {
   }, [props.destinations, destQuery])
 
   const anchorRef = useComboboxAnchor()
+
+  // PING d'abord — la sonde qui ne consomme rien — puis les documents
+  // réellement configurés. Le champ reste libre pour un état hors dossier.
+  const etats = useMemo(
+    () => [
+      { cod: 'PING', label: 'PING — sonde, n’imprime rien' },
+      ...props.documents.map((d) => ({ cod: d.code, label: `${d.code} — ${(d.label || d.code).toLowerCase()}` })),
+    ],
+    [props.documents]
+  )
 
   const destChoisie = props.destinations.find((d) => d.code === dest)
   /** Inconnue du dossier = on ne sait pas ce qu'elle fera. Traitée comme à risque. */
@@ -225,7 +231,7 @@ export default function PrintTest(props: PageProps) {
           <div className="flex flex-col gap-2">
             <Label>État</Label>
             <div className="flex flex-wrap gap-2">
-              {ETATS.map((e) => (
+              {etats.map((e) => (
                 <Button
                   key={e.cod}
                   variant={rptCod === e.cod ? 'default' : 'outline'}

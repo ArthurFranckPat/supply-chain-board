@@ -46,6 +46,9 @@ interface Rule {
   stoloc: string
   atelierLabel: string
   docType: string
+  docLabel: string
+  /** Le document de cette règle n'est plus configuré : elle n'imprimera rien. */
+  orphan: boolean
   destCode: string
   destLabel: string
   sandbox: boolean
@@ -57,6 +60,7 @@ interface Job {
   id: number
   ofNum: string
   docType: string
+  docLabel: string
   attempt: number
   stoloc: string
   destCode: string
@@ -81,8 +85,20 @@ interface Settings {
   updatedAt: number
   updatedBy: string
 }
+/** Document du dossier d'OF — code GESARP + libellé métier, saisis. */
+interface Doc {
+  id: number
+  code: string
+  label: string
+  position: number
+  active: boolean
+  updatedAt: number
+  updatedBy: string
+}
+
 interface PageProps {
   settings: Settings
+  documents: Doc[]
   ateliers: Atelier[]
   destinations: Destination[]
   destinationsError: string
@@ -92,13 +108,6 @@ interface PageProps {
   rules: Rule[]
   jobs: Job[]
 }
-
-const DOCS = [
-  { code: 'BONTRV', label: 'Bon de travail' },
-  { code: 'BSM', label: 'Bon de sortie matière' },
-]
-
-const docLabel = (c: string) => DOCS.find((d) => d.code === c)?.label ?? c
 
 /** Horodatage epoch (s) → « 22/07/26 14:38 ». */
 const fmtStamp = (s: number): string => {
@@ -199,6 +208,143 @@ const AUTO_MODES = [
  * même conséquence physique qu'un affermissement unitaire, et beaucoup de gens
  * veulent le premier sans le second.
  */
+/**
+ * Documents du dossier d'OF.
+ *
+ * Le code est celui de `GESARP` et il dépend du dossier X3 : sur AE1 le bon de
+ * travail est `RECETTE`, pas le `BONTRV` standard. Il n'est pas confronté à X3
+ * ici — le board n'expose pas le dictionnaire des états, et une faute de frappe
+ * se voit au premier tirage, avec le nom de l'état dans le refus.
+ */
+function DocumentsSetting({ documents }: { documents: Doc[] }) {
+  const [docs, setDocs] = useState<Doc[]>(documents)
+  const [code, setCode] = useState('')
+  const [label, setLabel] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  const save = async (body: Record<string, unknown>) => {
+    setBusy(true)
+    setError('')
+    try {
+      const r = await fetch(route('print_config.upsert_document'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const j = await r.json()
+      if (!r.ok || j.error) {
+        setError(j.error ?? `Erreur ${r.status}`)
+        return null
+      }
+      return j.document as Doc
+    } catch (e) {
+      setError(String(e))
+      return null
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const add = async () => {
+    const saved = await save({
+      code,
+      label,
+      position: (docs.at(-1)?.position ?? 0) + 1,
+      active: true,
+    })
+    if (!saved) return
+    setDocs((prev) => [...prev.filter((d) => d.code !== saved.code), saved])
+    setCode('')
+    setLabel('')
+  }
+
+  const toggle = async (d: Doc) => {
+    const saved = await save({ code: d.code, label: d.label, position: d.position, active: !d.active })
+    if (saved) setDocs((prev) => prev.map((x) => (x.id === saved.id ? saved : x)))
+  }
+
+  const remove = async (d: Doc) => {
+    setBusy(true)
+    setError('')
+    try {
+      const r = await fetch(route('print_config.delete_document', { id: d.id }), {
+        method: 'DELETE',
+      })
+      const j = await r.json()
+      if (!r.ok || j.error) return setError(j.error ?? `Erreur ${r.status}`)
+      setDocs((prev) => prev.filter((x) => x.id !== d.id))
+    } catch (e) {
+      setError(String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section className="rounded-lg border border-rule bg-card">
+      <header className="flex items-center gap-2 border-b border-rule px-4 py-3">
+        <Settings2 size={16} className="text-brand" />
+        <h2 className="font-fraunces text-[15px] font-bold">Documents du dossier</h2>
+        <span className="text-[11.5px] text-muted-foreground">
+          codes d’état X3 (GESARP), dans l’ordre d’impression
+        </span>
+      </header>
+
+      <div className="flex flex-col gap-2 px-4 py-3">
+        {docs.length === 0 && (
+          <p className="text-[12.5px] text-red-800">
+            Aucun document configuré : l’affermissement n’imprimera rien.
+          </p>
+        )}
+
+        {docs.map((d) => (
+          <div key={d.id} className="flex flex-wrap items-center gap-2 text-[13px]">
+            <span className="font-mono text-[12px] font-bold">{d.code}</span>
+            <span className="text-muted-foreground">{d.label || '(sans libellé)'}</span>
+            {!d.active && (
+              <span className="font-mono text-[10px] uppercase text-amber-700">désactivé</span>
+            )}
+            <span className="ml-auto flex items-center gap-1">
+              <Button size="sm" variant="ghost" onClick={() => void toggle(d)} disabled={busy}>
+                {d.active ? 'Désactiver' : 'Activer'}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => void remove(d)} disabled={busy}>
+                <Trash2 size={13} />
+              </Button>
+            </span>
+          </div>
+        ))}
+
+        <div className="mt-1 flex flex-wrap items-end gap-2 border-t border-rule pt-3">
+          <Field label="Code état">
+            <Input
+              value={code}
+              onChange={(e) => setCode(e.target.value.toUpperCase())}
+              placeholder="RECETTE"
+              className="w-40 font-mono"
+            />
+          </Field>
+          <Field label="Libellé métier">
+            <Input
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              placeholder="Bon de travail"
+              className="w-56"
+            />
+          </Field>
+          <Button size="sm" onClick={() => void add()} disabled={busy || !code.trim()}>
+            <Plus size={14} />
+            Ajouter
+          </Button>
+        </div>
+
+        {error && <p className="text-[12.5px] text-red-700">{error}</p>}
+      </div>
+    </section>
+  )
+}
+
 function AutoPrintSetting({ settings }: { settings: Settings }) {
   const [mode, setMode] = useState(settings.autoPrintMode)
   const [busy, setBusy] = useState(false)
@@ -286,19 +432,21 @@ function AutoPrintSetting({ settings }: { settings: Settings }) {
 /** Formulaire d'ajout / remplacement d'une règle. */
 function RuleForm({
   ateliers,
+  documents,
   destinations,
   queues,
   onSaved,
   onCancel,
 }: {
   ateliers: Atelier[]
+  documents: Doc[]
   destinations: Destination[]
   queues: string[]
   onSaved: (r: Rule) => void
   onCancel: () => void
 }) {
   const [stoloc, setStoloc] = useState('')
-  const [docType, setDocType] = useState('BONTRV')
+  const [docType, setDocType] = useState(documents[0]?.code ?? '')
   const [destCode, setDestCode] = useState('')
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
@@ -362,9 +510,9 @@ function RuleForm({
             onChange={(e) => setDocType(e.target.value)}
             className="h-9 rounded-md border border-rule bg-card px-2 text-[13px]"
           >
-            {DOCS.map((d) => (
+            {documents.map((d) => (
               <option key={d.code} value={d.code}>
-                {d.label}
+                {d.label || d.code}
               </option>
             ))}
           </select>
@@ -484,7 +632,9 @@ export default function ImpressionsConfig(props: PageProps) {
   }, [rules, props.destinations, props.queues])
 
   const papier = sorted.filter((r) => !r.sandbox).length
-  const manquantes = DOCS.filter((d) => !rules.some((r) => r.stoloc === '' && r.docType === d.code))
+  const manquantes = props.documents
+    .filter((d) => d.active)
+    .filter((d) => !rules.some((r) => r.stoloc === '' && r.docType === d.code))
 
   return (
     <AppLayout
@@ -540,6 +690,8 @@ export default function ImpressionsConfig(props: PageProps) {
             restent affichées, mais aucune nouvelle règle ne peut être validée.
           </p>
         )}
+
+        <DocumentsSetting documents={props.documents} />
 
         <AutoPrintSetting settings={props.settings} />
 
@@ -608,7 +760,14 @@ export default function ImpressionsConfig(props: PageProps) {
                         {r.atelierLabel}
                       </span>
                     </td>
-                    <td className="px-4 py-2">{docLabel(r.docType)}</td>
+                    <td className="px-4 py-2">
+                      {r.docLabel}
+                      {r.orphan && (
+                        <span className="ml-1.5 text-[11px] font-semibold text-red-700">
+                          document retiré
+                        </span>
+                      )}
+                    </td>
                     <td className="px-4 py-2">
                       <span className="font-mono text-[12px] font-bold">{r.destCode}</span>
                       {r.destLabel && (
@@ -650,6 +809,7 @@ export default function ImpressionsConfig(props: PageProps) {
           {adding ? (
             <RuleForm
               ateliers={props.ateliers}
+              documents={props.documents.filter((d) => d.active)}
               destinations={props.destinations}
               queues={props.queues}
               onSaved={applyRule}
@@ -702,7 +862,7 @@ export default function ImpressionsConfig(props: PageProps) {
                   <tr key={j.id} className="border-b border-rule/60 last:border-0">
                     <td className="px-4 py-2 text-muted-foreground">{fmtStamp(j.createdAt)}</td>
                     <td className="px-4 py-2 font-mono text-[12px]">{j.ofNum}</td>
-                    <td className="px-4 py-2">{docLabel(j.docType)}</td>
+                    <td className="px-4 py-2">{j.docLabel}</td>
                     <td className="px-4 py-2">
                       {j.attempt > 1 ? (
                         <span className="font-semibold text-amber-800">

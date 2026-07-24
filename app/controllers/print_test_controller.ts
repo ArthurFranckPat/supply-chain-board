@@ -47,6 +47,13 @@ export default class PrintTestController {
       host: cfg.host,
       destinations,
       destinationsError,
+      // Les documents configurés, plutôt que des codes d'état écrits dans la
+      // page : le couple dépend du dossier, et tester autre chose que ce qui
+      // s'imprimera n'a pas d'intérêt.
+      documents: (await printService.listDocuments()).map((d) => ({
+        code: d.code,
+        label: d.label,
+      })),
     })
   }
 
