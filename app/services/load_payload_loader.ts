@@ -14,7 +14,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import cache from '@adonisjs/cache/services/main'
 import boardDataset from '#services/board_dataset'
 import type { ManufacturingOrder } from '#repositories/of_repository'
-import type { OrderLineRow } from '#repositories/order_line_repository'
+import type { OrderLineForLoad } from '#repositories/order_line_repository'
 import type { GammeOperation } from '#app/domain/models/gamme'
 import type { Workstation } from '#app/domain/models/workstation'
 import { capDay } from '#app/domain/capacity'
@@ -22,7 +22,7 @@ import { atelierLabel, atelierCategory, type AtelierCategory } from '#app/domain
 import capacityCalendar from '#services/capacity_calendar_service'
 import staticSync from '#services/static_sync_service'
 import { isManufactured, type NomenclatureEntry } from '#app/domain/models/nomenclature'
-import { explodeCharge, netCharge } from '#app/domain/charge-explosion'
+import { explodeCharge, netCharge, type ChargeNeed } from '#app/domain/charge-explosion'
 import type { Flow } from '#app/domain/models/flow'
 
 /**
@@ -108,6 +108,53 @@ const PALETTE = [
 
 const NB_MONTHS = 6
 
+/**
+ * Horizon canonique de la vue charge : N mois pleins depuis le 1er du mois de
+ * `start`. Exporté pour que le détail d'un bucket vise EXACTEMENT la même
+ * fenêtre que l'agrégat — recopier ce calcul, c'est se garantir un décalage le
+ * jour où NB_MONTHS bouge.
+ */
+export function chargeHorizon(start?: string): { monthStart: Date; horizonEnd: Date } {
+  const monthStart = atMidnight(start ? new Date(start) : new Date())
+  monthStart.setDate(1)
+  const horizonEnd = new Date(monthStart)
+  horizonEnd.setMonth(monthStart.getMonth() + NB_MONTHS)
+  horizonEnd.setDate(0)
+  horizonEnd.setHours(23, 59, 59, 999)
+  return { monthStart, horizonEnd }
+}
+
+/**
+ * Bornes d'un bucket, depuis sa clé telle que produite par le payload :
+ * `YYYY-M` en maille mensuelle, ISO du lundi en maille hebdo. Retourne null si
+ * la clé est illisible (URL bricolée) — l'appelant répond 400 plutôt que de
+ * servir un intervalle par défaut, qui afficherait une table plausible mais fausse.
+ */
+export function chargeBucketRange(
+  gran: 'month' | 'week',
+  key: string
+): { from: Date; to: Date; label: string } | null {
+  if (gran === 'month') {
+    const m = /^(\d{4})-(\d{1,2})$/.exec(key)
+    if (!m) return null
+    const year = Number(m[1])
+    const month = Number(m[2]) - 1
+    if (month < 0 || month > 11) return null
+    const from = new Date(year, month, 1, 0, 0, 0, 0)
+    const to = new Date(year, month + 1, 0, 23, 59, 59, 999)
+    return { from, to, label: `${monthLabel(from)} ${year}` }
+  }
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(key)
+  if (!m) return null
+  const from = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 0, 0, 0, 0)
+  if (Number.isNaN(from.getTime())) return null
+  const to = new Date(from.getTime() + 6 * DAY_MS)
+  to.setHours(23, 59, 59, 999)
+  const dd = String(from.getDate()).padStart(2, '0')
+  const mm = String(from.getMonth() + 1).padStart(2, '0')
+  return { from, to, label: `S${isoWeek(from)} · semaine du ${dd}/${mm}` }
+}
+
 const emptyPeriod = (): LoadPeriod => ({ f: 0, p: 0, s: 0, fi: 0, si: 0 })
 const round = (p: LoadPeriod): LoadPeriod => ({
   f: Math.round(p.f),
@@ -116,6 +163,130 @@ const round = (p: LoadPeriod): LoadPeriod => ({
   fi: Math.round(p.fi),
   si: Math.round(p.si),
 })
+
+/** Entrées brutes du calcul de charge, partagées agrégat ↔ détail. */
+export interface ChargeInputs {
+  mos: ManufacturingOrder[]
+  orderLines: OrderLineForLoad[]
+  gammeMap: Map<string, GammeOperation>
+  workstations: Workstation[]
+  wstLabels: Map<string, string>
+  bomByParent: Map<string, NomenclatureEntry[]>
+  x3Error: string | null
+}
+
+/**
+ * Lecture des sources du calcul de charge (OF, lignes de demande, référentiel,
+ * nomenclature) sur [monthStart, horizonEnd].
+ *
+ * Extrait du factory de payload pour que le DÉTAIL d'un bucket reparte
+ * exactement des mêmes entrées : une table de détail dont le total ne retombe
+ * pas sur la hauteur de la barre est pire que pas de table du tout. Tous les
+ * appels passent par les caches SWR de boardDataset — le détail ne déclenche
+ * donc aucune requête X3 supplémentaire.
+ */
+export async function fetchChargeInputs(
+  monthStart: Date,
+  horizonEnd: Date,
+  force = false
+): Promise<ChargeInputs> {
+  const toYYYYMMDD = (d: Date) => {
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const da = String(d.getDate()).padStart(2, '0')
+    return `${y}${m}${da}`
+  }
+
+  let mos: ManufacturingOrder[] = []
+  let orderLines: OrderLineForLoad[] = []
+  let gammeOps: GammeOperation[] = []
+  let workstations: Workstation[] = []
+  const bomByParent = new Map<string, NomenclatureEntry[]>()
+  let x3Error: string | null = null
+
+  const [refR, ordR, olR, nomR] = await Promise.allSettled([
+    boardDataset.getReferential(force),
+    boardDataset.getOrdersForWindow(monthStart, horizonEnd, force),
+    boardDataset.getOrderLinesForLoad(toYYYYMMDD(monthStart), toYYYYMMDD(horizonEnd), force),
+    staticSync.readNomenclatures(),
+  ])
+  if (refR.status === 'fulfilled') {
+    gammeOps = refR.value.gamme
+    workstations = refR.value.workstations ?? []
+  } else {
+    x3Error = (refR.reason as Error).message
+  }
+  if (ordR.status === 'fulfilled') {
+    mos = ordR.value.mos
+  } else {
+    x3Error = x3Error ?? (ordR.reason as Error).message
+  }
+  if (olR.status === 'fulfilled') {
+    orderLines = olR.value
+  } else {
+    x3Error = x3Error ?? (olR.reason as Error).message
+  }
+  // BOM (composants FABRIQUÉS) pour la charge induite (vue commande).
+  if (nomR.status === 'fulfilled') {
+    for (const e of nomR.value) {
+      if (!isManufactured(e)) continue
+      const arr = bomByParent.get(e.parentArticle)
+      if (arr) arr.push(e)
+      else bomByParent.set(e.parentArticle, [e])
+    }
+  }
+
+  const wstLabels = new Map<string, string>()
+  for (const g of gammeOps) {
+    if (g.workstation) wstLabels.set(g.workstation, g.workstationLabel || g.workstation)
+  }
+
+  return {
+    mos,
+    orderLines,
+    gammeMap: new Map(gammeOps.map((g) => [g.article, g])),
+    workstations,
+    wstLabels,
+    bomByParent,
+    x3Error,
+  }
+}
+
+/**
+ * Vue commande : explosion depth-4 + netting stock (suite issue #42).
+ * ponytail: snapshot stock « maintenant » étalé sur l'horizon, FIFO/article.
+ * Pas de réceptions/OF en cours, pas d'offset lead time (choix métier).
+ */
+export async function computeChargeNeeds(inputs: ChargeInputs): Promise<ChargeNeed[]> {
+  const chargeRaws = explodeCharge(
+    inputs.orderLines.map((l) => ({
+      article: l.article,
+      quantite: l.quantite,
+      date: atMidnight(l.dateLivraison),
+      nature: (l.nature === 'PREVISION' ? 'prevision' : 'ferme') as 'prevision' | 'ferme',
+      source: {
+        numCommande: l.numCommande,
+        ligne: l.ligne,
+        client: l.clientCode,
+        pfArticle: l.article,
+      },
+    })),
+    inputs.bomByParent,
+    inputs.gammeMap
+  )
+  const chargeArticles = [...new Set(chargeRaws.map((r) => r.article))]
+  const stockByArticle = new Map<string, number>()
+  if (chargeArticles.length > 0) {
+    const flows = await boardDataset.getStock(chargeArticles).catch(() => [] as Flow[])
+    for (const f of flows) {
+      if (f.origin.type !== 'stock') continue
+      if (f.origin.subType === 'strict' || f.origin.subType === 'qc') {
+        stockByArticle.set(f.article, (stockByArticle.get(f.article) ?? 0) + f.quantity)
+      }
+    }
+  }
+  return netCharge(chargeRaws, stockByArticle)
+}
 
 /**
  * Cœur du payload charge — sans HttpContext (consommé par l'endpoint HTTP ET le
@@ -126,23 +297,10 @@ export async function loadChargePayloadData(params: { start?: string; force?: bo
   const force = !!params.force
 
   // Horizon : N mois pleins à partir du 1er du mois de `start` (par défaut mois courant).
-  const monthStart = atMidnight(startParam ? new Date(startParam) : new Date())
-  monthStart.setDate(1)
+  const { monthStart, horizonEnd } = chargeHorizon(startParam)
   const cacheKey = `payload:charge:${isoDay(monthStart)}:${NB_MONTHS}`
   const chargeCache = () => cache.namespace('charge')
   if (force) await chargeCache().delete({ key: cacheKey })
-
-  const toYYYYMMDD = (d: Date) => {
-    const y = d.getFullYear()
-    const m = String(d.getMonth() + 1).padStart(2, '0')
-    const da = String(d.getDate()).padStart(2, '0')
-    return `${y}${m}${da}`
-  }
-
-  const horizonEnd = new Date(monthStart)
-  horizonEnd.setMonth(monthStart.getMonth() + NB_MONTHS)
-  horizonEnd.setDate(0)
-  horizonEnd.setHours(23, 59, 59, 999)
 
   // Tout le calcul dans le factory : cache miss = 1 exécution, hits suivants = instant (SWR).
   return chargeCache().getOrSet({
@@ -175,53 +333,8 @@ export async function loadChargePayloadData(params: { start?: string; force?: bo
         weekBuckets.push({ key, label: `${dd}/${mm}\nS${isoWeek(cur)}` })
       }
 
-      let mos: ManufacturingOrder[] = []
-      let orderLines: Pick<
-        OrderLineRow,
-        'article' | 'designation' | 'quantite' | 'dateLivraison' | 'nature'
-      >[] = []
-      let gammeOps: GammeOperation[] = []
-      let workstations: Workstation[] = []
-      let bomByParent = new Map<string, NomenclatureEntry[]>()
-      let x3Error: string | null = null
-
-      const [refR, ordR, olR, nomR] = await Promise.allSettled([
-        boardDataset.getReferential(force),
-        boardDataset.getOrdersForWindow(monthStart, horizonEnd, force),
-        boardDataset.getOrderLinesForLoad(toYYYYMMDD(monthStart), toYYYYMMDD(horizonEnd), force),
-        staticSync.readNomenclatures(),
-      ])
-      if (refR.status === 'fulfilled') {
-        gammeOps = refR.value.gamme
-        workstations = refR.value.workstations ?? []
-      } else {
-        x3Error = (refR.reason as Error).message
-      }
-      if (ordR.status === 'fulfilled') {
-        mos = ordR.value.mos
-      } else {
-        x3Error = x3Error ?? (ordR.reason as Error).message
-      }
-      if (olR.status === 'fulfilled') {
-        orderLines = olR.value
-      } else {
-        x3Error = x3Error ?? (olR.reason as Error).message
-      }
-      // BOM depth-1 (composants FABRIQUÉS) pour la charge induite (vue commande).
-      if (nomR.status === 'fulfilled') {
-        for (const e of nomR.value) {
-          if (!isManufactured(e)) continue
-          const arr = bomByParent.get(e.parentArticle)
-          if (arr) arr.push(e)
-          else bomByParent.set(e.parentArticle, [e])
-        }
-      }
-
-      const gammeMap = new Map(gammeOps.map((g) => [g.article, g]))
-      const wstLabels = new Map<string, string>()
-      for (const g of gammeOps) {
-        if (g.workstation) wstLabels.set(g.workstation, g.workstationLabel || g.workstation)
-      }
+      const inputs = await fetchChargeInputs(monthStart, horizonEnd, force)
+      const { mos, gammeMap, workstations, wstLabels, x3Error } = inputs
 
       const calendar = await capacityCalendar
         .buildCalendar(monthStart.getFullYear(), horizonEnd.getFullYear())
@@ -319,30 +432,7 @@ export async function loadChargePayloadData(params: { start?: string; force?: bo
       }
 
       // ── Charge commande : explosion depth-4 + netting stock (suite issue #42).
-      // ponytail: snapshot stock « maintenant » étalé sur l'horizon, FIFO/article.
-      // Pas de réceptions/OF en cours, pas d'offset lead time (choix métier).
-      const chargeRaws = explodeCharge(
-        orderLines.map((l) => ({
-          article: l.article,
-          quantite: l.quantite,
-          date: atMidnight(l.dateLivraison),
-          nature: (l.nature === 'PREVISION' ? 'prevision' : 'ferme') as 'prevision' | 'ferme',
-        })),
-        bomByParent,
-        gammeMap
-      )
-      const chargeArticles = [...new Set(chargeRaws.map((r) => r.article))]
-      const stockByArticle = new Map<string, number>()
-      if (chargeArticles.length > 0) {
-        const flows = await boardDataset.getStock(chargeArticles).catch(() => [] as Flow[])
-        for (const f of flows) {
-          if (f.origin.type !== 'stock') continue
-          if (f.origin.subType === 'strict' || f.origin.subType === 'qc') {
-            stockByArticle.set(f.article, (stockByArticle.get(f.article) ?? 0) + f.quantity)
-          }
-        }
-      }
-      const chargeNeeds = netCharge(chargeRaws, stockByArticle)
+      const chargeNeeds = await computeChargeNeeds(inputs)
 
       const ofLines = buildLines(
         mos.flatMap((mo) => {
@@ -401,6 +491,11 @@ export async function loadChargePayloadData(params: { start?: string; force?: bo
         rangeLabel,
         months: monthBuckets.map((m) => m.label),
         weeks: weekBuckets.map((w) => w.label),
+        // Clés de bucket (non affichées) : le client les renvoie telles quelles
+        // pour demander le détail d'une période — pas d'index positionnel, qui
+        // se décalerait dès que l'horizon glisse.
+        monthKeys: monthBuckets.map((m) => m.key),
+        weekKeys: weekBuckets.map((w) => w.key),
         ofLines,
         cmdLines,
         ateliers: [...ateliers.values()].sort((a, b) => a.label.localeCompare(b.label)),

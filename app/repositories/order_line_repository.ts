@@ -56,6 +56,24 @@ export interface OrderLineRow {
   nature: NeedNature
 }
 
+/**
+ * Ligne de demande servant la projection de charge (ORDERS WIPTYP=1). Volontairement
+ * distinct d'`OrderLineRow` : `clientCode` est le CODE tiers brut, pas la raison
+ * sociale — la résolution du nom coûte une jointure BPARTNER, faite à la demande.
+ */
+export interface OrderLineForLoad {
+  article: string
+  designation: string | null
+  quantite: number
+  dateLivraison: Date
+  nature: NeedNature
+  /** Commande client (WIPSTA=1) ou identifiant de prévision (WIPSTA=3). */
+  numCommande: string | null
+  ligne: string | null
+  /** Code tiers X3 ; null sur une prévision (pas de client). */
+  clientCode: string | null
+}
+
 /** Lien inverse OF → commande cliente, via la contremarque X3 (SORDERQ.FMINUM_0). */
 export interface OfCommandePeg {
   numCommande: string
@@ -174,24 +192,29 @@ export class X3OrderLineRepository {
   }
 
   /**
-   * Charge /charge uniquement : 5 cols, 1 JOIN (ITMMASTER) au lieu de 11 cols + 5 JOINs.
+   * Charge /charge uniquement : 8 cols, 1 JOIN (ITMMASTER) au lieu de 11 cols + 5 JOINs.
    * Supprime BPARTNER×2, SORDER, SORDERQ, ITMBPC sous-requête — tous inutiles pour la vue charge.
    * Utilise ENDDAT_0 pour ECHEANCE (vs CASE WHEN SHIDAT_0/ENDDAT_0) : delta négligeable
    * sur un horizon 6 mois en mailles hebdo/mensuel.
+   *
+   * VCRNUM/VCRLIN/BPRNUM portent la PROVENANCE, propagée jusqu'aux composants
+   * par l'explosion (cf. ChargeSource) pour le détail de charge. Ce sont 3
+   * colonnes de la table déjà lue, sans JOIN supplémentaire : le nom du client
+   * est délibérément NON résolu ici — rejoindre BPARTNER remettrait la jointure
+   * retirée pour la perf (#39), sur la totalité de l'horizon alors que seul le
+   * bucket cliqué en a besoin. Cf. `resolveClientNames`.
    */
-  async getOrderLinesForLoad(
-    fromStr: string,
-    toStr: string
-  ): Promise<
-    Pick<OrderLineRow, 'article' | 'designation' | 'quantite' | 'dateLivraison' | 'nature'>[]
-  > {
+  async getOrderLinesForLoad(fromStr: string, toStr: string): Promise<OrderLineForLoad[]> {
     const sql = `
 SELECT
   O.ITMREF_0    AS ARTICLE,
   I.ITMDES1_0   AS DESIGNATION,
   O.WIPSTA_0    AS WIPSTA,
   O.ENDDAT_0    AS ECHEANCE,
-  O.RMNEXTQTY_0 AS RESTE_LIVRER
+  O.RMNEXTQTY_0 AS RESTE_LIVRER,
+  O.VCRNUM_0    AS NO_DOCUMENT,
+  O.VCRLIN_0    AS LIGNE,
+  O.BPRNUM_0    AS CODE_CLIENT
 FROM ORDERS O
 JOIN ITMMASTER I ON I.ITMREF_0 = O.ITMREF_0
 WHERE O.WIPTYP_0 = 1
@@ -208,15 +231,46 @@ WHERE O.WIPTYP_0 = 1
         .map((row) => {
           const date = parseX3Date(row.ECHEANCE)
           if (!date) return null
+          const ligne = row.LIGNE?.trim() ?? ''
           return {
             article: row.ARTICLE?.trim() ?? '',
             designation: row.DESIGNATION?.trim() || null,
             quantite: Number.parseFloat(row.RESTE_LIVRER ?? '0') || 0,
             dateLivraison: date,
             nature: (row.WIPSTA?.trim() === '1' ? 'COMMANDE' : 'PREVISION') as NeedNature,
+            numCommande: row.NO_DOCUMENT?.trim() || null,
+            // Une prévision porte VCRLIN_0 = 0 : pas de ligne, pas un « 0 » à afficher.
+            ligne: ligne && ligne !== '0' ? ligne : null,
+            clientCode: row.CODE_CLIENT?.trim() || null,
           }
         })
         .filter((r): r is NonNullable<typeof r> => r !== null)
+    } finally {
+      await db.destroy()
+    }
+  }
+
+  /**
+   * Code tiers → raison sociale, pour un petit lot de codes (détail d'un bucket
+   * de charge). Volontairement à la demande : la vue /charge agrégée n'affiche
+   * aucun client, elle n'a pas à payer la jointure BPARTNER.
+   */
+  async resolveClientNames(codes: string[]): Promise<Map<string, string>> {
+    const out = new Map<string, string>()
+    const clean = [...new Set(codes.map((c) => c.trim()).filter(Boolean))]
+    if (clean.length === 0) return out
+    const inList = clean.map((c) => `'${c.replace(/'/g, "''")}'`).join(',')
+    const db = new X3Database()
+    try {
+      const rows: RawRow[] = await db.raw(
+        `SELECT BPRNUM_0, BPRNAM_0 FROM BPARTNER WHERE BPRNUM_0 IN (${inList})`
+      )
+      for (const row of rows) {
+        const code = row.BPRNUM_0?.trim()
+        const name = row.BPRNAM_0?.trim()
+        if (code && name) out.set(code, name)
+      }
+      return out
     } finally {
       await db.destroy()
     }

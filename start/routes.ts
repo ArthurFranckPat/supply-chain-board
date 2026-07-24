@@ -217,6 +217,10 @@ router
       '#controllers/scheduler_controller.posteEngagement'
     )
     router.get('/api/v1/planning/shortages/rows', '#controllers/scheduler_controller.shortageRows')
+    // Détail d'une période de charge : composition d'une barre du graphe /charge.
+    router
+      .get('/api/v1/planning/charge/detail', '#controllers/load_controller.periodDetail')
+      .as('charge.detail')
 
     // Suivi Commandes
     router

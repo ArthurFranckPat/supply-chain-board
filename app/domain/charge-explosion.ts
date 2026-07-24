@@ -18,11 +18,29 @@ import type { GammeOperation } from './models/gamme.js'
 
 export type ChargeNature = 'ferme' | 'prevision'
 
+/**
+ * Provenance d'un besoin : la ligne de demande qui l'a déclenché. Portée telle
+ * quelle du PF jusqu'aux composants les plus profonds — c'est ce qui permet au
+ * détail de charge de répondre « ce composant est chargé POUR QUI ».
+ *
+ * Sur une prévision (ORDERS WIPSTA=3), `numCommande` est un identifiant
+ * technique de prévision et `client` est vide côté X3 : une prévision n'a pas
+ * de client. L'affichage doit le dire, pas laisser un trou.
+ */
+export interface ChargeSource {
+  numCommande: string | null
+  ligne: string | null
+  client: string | null
+  /** Article du PF de tête (= `article` quand depth 0). */
+  pfArticle: string
+}
+
 export interface ChargeOrderLine {
   article: string
   quantite: number
   date: Date
   nature: ChargeNature
+  source?: ChargeSource
 }
 
 /** Besoin brut issu de l'explosion (avant netting). */
@@ -36,6 +54,10 @@ export interface ChargeRaw {
   depth: number
   qty: number
   rate: number
+  /** Article parent immédiat (null au depth 0) — reconstitue le chemin BOM. */
+  parent: string | null
+  /** Ligne de demande d'origine (absente si l'appelant n'en fournit pas). */
+  source: ChargeSource | null
 }
 
 /** Besoin net (après déduction stock) prêt à être ventilé en heures. */
@@ -47,6 +69,11 @@ export interface ChargeNeed {
   depth: number
   brutHours: number
   netHours: number
+  /** Quantités correspondantes — la table de détail les affiche à côté des heures. */
+  brutQty: number
+  netQty: number
+  parent: string | null
+  source: ChargeSource | null
 }
 
 const DEFAULT_MAX_DEPTH = 4
@@ -72,27 +99,38 @@ export function explodeCharge(
     nature: ChargeNature,
     date: Date,
     depth: number,
-    ancestors: Set<string>
+    ancestors: Set<string>,
+    parent: string | null,
+    source: ChargeSource | null
   ): void => {
     if (ancestors.has(article)) return // garde anti-cycle
     const gamme = gammeMap.get(article)
     const rate = gamme?.rate ?? 0
     if (gamme?.workstation && rate > 0) {
-      raws.push({ article, wst: gamme.workstation, date, nature, depth, qty, rate })
+      raws.push({ article, wst: gamme.workstation, date, nature, depth, qty, rate, parent, source })
     }
     if (depth >= maxDepth) return
     const bom = bomByParent.get(article)
     if (!bom?.length) return
     const next = new Set(ancestors).add(article)
     for (const entry of bom) {
-      explode(entry.componentArticle, requiredQuantity(entry, qty), nature, date, depth + 1, next)
+      explode(
+        entry.componentArticle,
+        requiredQuantity(entry, qty),
+        nature,
+        date,
+        depth + 1,
+        next,
+        article,
+        source
+      )
     }
   }
 
   for (const l of orderLines) {
     // PF sans gamme → ligne ignorée (consistance depth-1 : pas de route = pas planifiable).
     if (!gammeMap.get(l.article)?.workstation) continue
-    explode(l.article, l.quantite, l.nature, l.date, 0, new Set())
+    explode(l.article, l.quantite, l.nature, l.date, 0, new Set(), null, l.source ?? null)
   }
   return raws
 }
@@ -124,6 +162,10 @@ export function netCharge(raws: ChargeRaw[], stockByArticle: Map<string, number>
         depth: r.depth,
         brutHours: r.qty / r.rate,
         netHours: netQty / r.rate,
+        brutQty: r.qty,
+        netQty,
+        parent: r.parent,
+        source: r.source,
       })
     }
   }

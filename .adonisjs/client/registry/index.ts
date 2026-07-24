@@ -390,6 +390,12 @@ const routes = {
     tokens: [{"old":"/api/v1/planning/shortages/rows","type":0,"val":"api","end":""},{"old":"/api/v1/planning/shortages/rows","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/shortages/rows","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/shortages/rows","type":0,"val":"shortages","end":""},{"old":"/api/v1/planning/shortages/rows","type":0,"val":"rows","end":""}],
     types: placeholder as Registry['scheduler.shortage_rows']['types'],
   },
+  'charge.detail': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/planning/charge/detail',
+    tokens: [{"old":"/api/v1/planning/charge/detail","type":0,"val":"api","end":""},{"old":"/api/v1/planning/charge/detail","type":0,"val":"v1","end":""},{"old":"/api/v1/planning/charge/detail","type":0,"val":"planning","end":""},{"old":"/api/v1/planning/charge/detail","type":0,"val":"charge","end":""},{"old":"/api/v1/planning/charge/detail","type":0,"val":"detail","end":""}],
+    types: placeholder as Registry['charge.detail']['types'],
+  },
   'suivi.assign': {
     methods: ["POST"],
     pattern: '/api/v1/status/assign',

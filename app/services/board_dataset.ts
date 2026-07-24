@@ -212,12 +212,7 @@ class BoardDataset {
     fromStr: string,
     toStr: string,
     force = false
-  ): Promise<
-    Pick<
-      import('#repositories/order_line_repository').OrderLineRow,
-      'article' | 'designation' | 'quantite' | 'dateLivraison' | 'nature'
-    >[]
-  > {
+  ): Promise<import('#repositories/order_line_repository').OrderLineForLoad[]> {
     const key = `order-lines-load:${fromStr}:${toStr}`
     if (force) await board().delete({ key })
     return board().getOrSet({

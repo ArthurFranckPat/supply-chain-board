@@ -2,7 +2,7 @@
  * AUTO-GÉNÉRÉ par scripts/gen-routes-manifest.mjs — NE PAS ÉDITER À LA MAIN.
  * Source : `start/routes.ts` → `node ace list:routes --jsonl`.
  * Régénérer : `npm run routes:gen` · Vérifier la fraîcheur : `npm run routes:check`.
- * 93 routes nommées.
+ * 96 routes nommées.
  */
 
 export const MANIFEST = {
@@ -19,6 +19,7 @@ export const MANIFEST = {
   "calendar_config.index": { method: "GET", pattern: "/configuration/calendrier" },
   "calendar_config.toggle_holiday": { method: "POST", pattern: "/api/v1/config/holidays/toggle" },
   "calendar_config.update_closure": { method: "PATCH", pattern: "/api/v1/config/closures/:id" },
+  "charge.detail": { method: "GET", pattern: "/api/v1/planning/charge/detail" },
   "conditionnements.estimations": { method: "GET", pattern: "/api/v1/conditionnements/estimations" },
   "conditionnements.index": { method: "GET", pattern: "/conditionnements" },
   "conditionnements.rows": { method: "GET", pattern: "/api/v1/conditionnements/rows" },
@@ -123,6 +124,7 @@ export type RouteParams = {
   "calendar_config.index": void,
   "calendar_config.toggle_holiday": void,
   "calendar_config.update_closure": { "id": string | number },
+  "charge.detail": void,
   "conditionnements.estimations": void,
   "conditionnements.index": void,
   "conditionnements.rows": void,
@@ -152,9 +154,9 @@ export type RouteParams = {
   "planning_board.update": { "of": string | number },
   "planning.order_firm": { "orderNum": string | number },
   "planning.suggestion_firm": { "sugNum": string | number },
+  "print_config.delete_document": { "id": string | number },
   "print_config.delete_rule": { "id": string | number },
   "print_config.destinations": void,
-  "print_config.delete_document": { "id": string | number },
   "print_config.index": void,
   "print_config.jobs": void,
   "print_config.reconcile": void,

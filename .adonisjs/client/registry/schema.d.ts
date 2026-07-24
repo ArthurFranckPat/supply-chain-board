@@ -775,6 +775,18 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'charge.detail': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/planning/charge/detail'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'suivi.assign': {
     methods: ["POST"]
     pattern: '/api/v1/status/assign'

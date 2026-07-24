@@ -121,6 +121,9 @@ export interface ApiDefinition {
     print: typeof routes['print.print']
     history: typeof routes['print.history']
   }
+  charge: {
+    detail: typeof routes['charge.detail']
+  }
   user: {
     dashboardLayout: {
       update: typeof routes['user.dashboard_layout.update']
