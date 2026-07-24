@@ -1,10 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { TriangleAlert, Search, Gauge } from 'lucide-react'
+import { TriangleAlert, Search } from 'lucide-react'
 import { DynamicIcon } from '../../components/ui/dynamic-icon'
 import AppLayout from '@r/layouts/app'
 import { cn } from '@r/lib/utils'
 import type { LoadPageProps, LoadLine, LoadView } from '@/lib/load/types'
-import { type Gran, satColor, satRate, total } from '@/lib/load/chart-math'
+import {
+  type Gran,
+  maskPeriod,
+  satColor,
+  satRate,
+  segKeys,
+  segOptions,
+  total,
+} from '@/lib/load/chart-math'
 import { HatchDefs } from '@r/components/load/hatch-defs'
 import { MiniCard } from '@r/components/load/mini-card'
 import { DetailChart } from '@r/components/load/detail-chart'
@@ -48,10 +56,41 @@ export default function Load(props: LoadPageProps) {
   const viewNet = (l: LoadLine): LoadLine =>
     net ? { ...l, monthly: l.monthlyNet, weekly: l.weeklyNet } : l
 
-  const lines = useMemo(
-    () => (view === 'of' ? props.ofLines : props.cmdLines).map(viewNet),
-    [view, props.ofLines, props.cmdLines, net]
-  )
+  // Filtre de segments — un jeu par vue : la vue OF filtre des STATUTS
+  // (Ferme/Planifié/Suggéré), la vue Commande des NATURES (Commande/Prévision).
+  // Deux états séparés pour qu'une bascule de vue ne perde pas la sélection.
+  const [ofStatus, setOfStatus] = useState<Set<string>>(new Set(['f', 'p', 's']))
+  const [cmdNature, setCmdNature] = useState<Set<string>>(new Set(['commande', 'prevision']))
+  const activeSegs = view === 'of' ? ofStatus : cmdNature
+  const setActiveSegs = view === 'of' ? setOfStatus : setCmdNature
+
+  const toggleSeg = (id: string) => {
+    setActiveSegs((prev) => {
+      // Tout décocher n'a pas de sens (graphes vides) : le dernier actif est verrouillé.
+      if (prev.has(id) && prev.size === 1) return prev
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const segFiltered = activeSegs.size < segOptions(view).length
+
+  const lines = useMemo(() => {
+    const keep = segKeys(view, activeSegs)
+    const base = (view === 'of' ? props.ofLines : props.cmdLines).map(viewNet)
+    if (!segFiltered) return base
+    return base
+      .map((l) => ({
+        ...l,
+        monthly: l.monthly.map((p) => maskPeriod(p, keep)),
+        weekly: l.weekly.map((p) => maskPeriod(p, keep)),
+      }))
+      // Un poste sans charge restante n'a plus rien à montrer : on le sort du
+      // slider plutôt que d'afficher une carte plate à 0 h.
+      .filter((l) => l.monthly.some((p) => total(p) > 0))
+  }, [view, props.ofLines, props.cmdLines, net, activeSegs, segFiltered])
 
   const filteredLines = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -197,32 +236,46 @@ export default function Load(props: LoadPageProps) {
             </Segment>
           )}
           <span className="h-3.5 w-px bg-rule-soft" />
-          {view === 'of' ? (
-            <>
-              <span className="flex items-center gap-1.5">
-                <i className="inline-block h-2.5 w-3.5 rounded-[2px] bg-ferme" />
-                Ferme
-              </span>
-              <span className="flex items-center gap-1.5">
-                <i className="inline-block h-2.5 w-3.5 rounded-[2px] bg-planifie" />
-                Planifié
-              </span>
-              <span className="flex items-center gap-1.5">
-                <i className="inline-block h-2.5 w-3.5 rounded-[2px] bg-suggere" />
-                Suggéré
-              </span>
-            </>
-          ) : (
-            <>
-              <span className="flex items-center gap-1.5">
-                <i className="inline-block h-2.5 w-3.5 rounded-[2px] bg-ferme" />
-                Commande
-              </span>
-              <span className="flex items-center gap-1.5">
-                <i className="inline-block h-2.5 w-3.5 rounded-[2px] bg-suggere" />
-                Prévision
-              </span>
-            </>
+          {/* Légende CLIQUABLE = filtre de segments. La légende portait déjà les
+              bons libellés par vue ; en faire l'interrupteur évite d'ajouter une
+              rangée de chips en doublon (cf. filtre Atelier plus bas). */}
+          {segOptions(view).map((o) => {
+            const on = activeSegs.has(o.id)
+            return (
+              <button
+                key={o.id}
+                type="button"
+                role="checkbox"
+                aria-checked={on}
+                onClick={() => toggleSeg(o.id)}
+                title={
+                  on
+                    ? `Masquer « ${o.label} »`
+                    : `Afficher « ${o.label} »`
+                }
+                className={cn(
+                  'flex items-center gap-1.5 rounded-full border px-2 py-0.5 transition-colors',
+                  on
+                    ? 'border-rule text-secondary-foreground hover:border-foreground'
+                    : 'border-dashed border-rule text-muted-foreground opacity-55 hover:opacity-80'
+                )}
+              >
+                <i
+                  className="inline-block h-2.5 w-3.5 rounded-[2px]"
+                  style={{ background: on ? o.color : 'transparent', boxShadow: `inset 0 0 0 1px ${o.color}` }}
+                />
+                {o.label}
+              </button>
+            )
+          })}
+          {segFiltered && (
+            <button
+              type="button"
+              onClick={() => setActiveSegs(new Set(segOptions(view).map((o) => o.id)))}
+              className="font-mono text-[10px] font-semibold text-brand hover:underline"
+            >
+              Tout
+            </button>
           )}
           <span className="h-3.5 w-px bg-rule-soft" />
           {/* Couches optionnelles — déplacées à droite (actions d'affichage). */}
@@ -310,9 +363,14 @@ export default function Load(props: LoadPageProps) {
 
         {lines.length === 0 ? (
           <div className="flex flex-1 items-center justify-center p-10 font-fraunces text-[14px] italic text-muted-foreground">
-            {view === 'of'
-              ? "Aucune charge OF sur l'horizon."
-              : "Aucune charge commande sur l'horizon."}
+            {segFiltered
+              ? `Aucune charge ${segOptions(view)
+                  .filter((o) => activeSegs.has(o.id))
+                  .map((o) => o.label.toLowerCase())
+                  .join(' / ')} sur l'horizon.`
+              : view === 'of'
+                ? "Aucune charge OF sur l'horizon."
+                : "Aucune charge commande sur l'horizon."}
           </div>
         ) : (
           <div className="flex min-h-0 flex-1 flex-col gap-[18px] px-7 py-5">

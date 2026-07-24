@@ -22,6 +22,58 @@ export const HATCH_SUGGERE = 'url(#load-hatch-suggere)'
 
 export const total = (p: LoadPeriod) => p.f + p.p + p.s + p.fi + p.si
 
+/**
+ * Filtre de segments (issue « filtre statut/nature » sur /charge).
+ *
+ * Les deux vues ne filtrent pas la même chose : la vue OF ventile par STATUT
+ * d'ordre (Ferme/Planifié/Suggéré = WIPSTA 1/2/3), la vue Commande par NATURE
+ * de demande (Commande/Prévision) — et chaque nature entraîne son induit
+ * (`fi`/`si`, hachuré), qui suit forcément son parent : filtrer « Prévision »
+ * sans retirer l'induit prévision afficherait une charge orpheline.
+ */
+export interface LoadSegOption {
+  /** Identifiant du bouton (stable par vue). */
+  id: string
+  label: string
+  /** Couleur de pastille de légende. */
+  color: string
+  /** Champs de `LoadPeriod` conservés quand l'option est active. */
+  keys: (keyof LoadPeriod)[]
+}
+
+export const OF_SEG_OPTIONS: LoadSegOption[] = [
+  { id: 'f', label: 'Ferme', color: FERME, keys: ['f'] },
+  { id: 'p', label: 'Planifié', color: PLANIFIE, keys: ['p'] },
+  { id: 's', label: 'Suggéré', color: SUGGERE, keys: ['s'] },
+]
+
+export const CMD_SEG_OPTIONS: LoadSegOption[] = [
+  { id: 'commande', label: 'Commande', color: FERME, keys: ['f', 'fi'] },
+  { id: 'prevision', label: 'Prévision', color: SUGGERE, keys: ['s', 'si'] },
+]
+
+export const segOptions = (view: LoadView): LoadSegOption[] =>
+  view === 'of' ? OF_SEG_OPTIONS : CMD_SEG_OPTIONS
+
+/** Champs de `LoadPeriod` retenus par un jeu d'options actives. */
+export const segKeys = (view: LoadView, active: ReadonlySet<string>): Set<keyof LoadPeriod> => {
+  const keys = new Set<keyof LoadPeriod>()
+  for (const o of segOptions(view)) {
+    if (active.has(o.id)) o.keys.forEach((k) => keys.add(k))
+  }
+  return keys
+}
+
+/** Remet à zéro les segments écartés par le filtre — tout le reste (totaux,
+ *  pic, saturation, moyenne mobile) en découle sans autre modification. */
+export const maskPeriod = (p: LoadPeriod, on: ReadonlySet<keyof LoadPeriod>): LoadPeriod => ({
+  f: on.has('f') ? p.f : 0,
+  p: on.has('p') ? p.p : 0,
+  s: on.has('s') ? p.s : 0,
+  fi: on.has('fi') ? p.fi : 0,
+  si: on.has('si') ? p.si : 0,
+})
+
 /** Taux de saturation charge/capacité, en % (0 si capacité nulle). */
 export const satRate = (charge: number, cap: number): number => (cap > 0 ? (charge / cap) * 100 : 0)
 
