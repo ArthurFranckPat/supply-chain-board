@@ -126,9 +126,61 @@ function TooltipRow({
   )
 }
 
+/** Valeurs lues par le graphe selon l'unité active. */
+const lineValOf = (p: StockHistoryPoint, unit: Unit) => (unit === 'qte' ? p.qte : p.valeur)
+const inValOf = (p: StockHistoryPoint, unit: Unit) => (unit === 'qte' ? p.entreeQte : p.entreeVal)
+const outValOf = (p: StockHistoryPoint, unit: Unit) => (unit === 'qte' ? p.sortieQte : p.sortieVal)
+
+const REDUCED_MOTION =
+  typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+/**
+ * Interpole les valeurs TRACÉES (fractions 0-1 de leur échelle) vers leur
+ * cible — easeOutCubic ~450 ms, requestAnimationFrame.
+ *
+ * Les échelles restent calculées sur les valeurs cibles (axes stables) ; seule
+ * la géométrie s'anime. Deux effets : à l'arrivée, courbe et barres montent
+ * depuis leur ligne de base ; au changement d'article, l'ancienne forme MORPHE
+ * vers la nouvelle au lieu de disparaître. Saut direct si
+ * prefers-reduced-motion.
+ */
+function useAnimatedFracs(target: number[][]): number[][] {
+  const [display, setDisplay] = useState<number[][]>(() =>
+    REDUCED_MOTION ? target : target.map((t) => t.map(() => 0))
+  )
+  const displayRef = useRef(display)
+  displayRef.current = display
+
+  useEffect(() => {
+    if (REDUCED_MOTION) {
+      setDisplay(target)
+      return
+    }
+    const from = displayRef.current
+    // Longueurs différentes (cas théorique) : on repart de la ligne de base.
+    const start = from.length === target.length ? from : target.map((t) => t.map(() => 0))
+    const t0 = performance.now()
+    let raf = 0
+    const tick = (now: number) => {
+      const k = Math.min(1, (now - t0) / 450)
+      const e = 1 - Math.pow(1 - k, 3)
+      setDisplay(
+        target.map((tv, i) => tv.map((v, j) => (start[i]?.[j] ?? 0) + (v - (start[i]?.[j] ?? 0)) * e))
+      )
+      if (k < 1) raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [target])
+
+  return display
+}
+
 /** Graphe stock + flux : courbe du stock fin de semaine (bande haute, axe
  *  gauche) et barres miroir des entrées/sorties (bande basse). SVG inline
- *  responsive (ResizeObserver), légende dessinée dans le graphe. */
+ *  responsive (ResizeObserver), légende dessinée dans le graphe. Le guide de
+ *  survol et le point de lecture glissent en transition CSS ; le tooltip
+ *  (HTML) suit l'unité active et les valeurs animées. */
 function HistoryChart({ series, unit }: { series: StockHistoryPoint[]; unit: Unit }) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const [dim, setDim] = useState({ w: 900, h: 300 })
@@ -136,6 +188,9 @@ function HistoryChart({ series, unit }: { series: StockHistoryPoint[]; unit: Uni
   // la série change (autre article) pour éviter un index hors bornes.
   const [hover, setHover] = useState<number | null>(null)
   useEffect(() => setHover(null), [series])
+  // Dernier index survolé : le tooltip reste positionné pendant son fondu.
+  const lastHoverRef = useRef(0)
+  if (hover !== null) lastHoverRef.current = hover
 
   useEffect(() => {
     const el = wrapRef.current
@@ -147,6 +202,22 @@ function HistoryChart({ series, unit }: { series: StockHistoryPoint[]; unit: Uni
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
+
+  // ----- Échelles stables (valeurs cibles) + géométrie animée (fractions) -----
+  const targets = useMemo(
+    () => series.map((p) => [lineValOf(p, unit), inValOf(p, unit), outValOf(p, unit)]),
+    [series, unit]
+  )
+  const lineMax = useMemo(() => Math.max(1, ...targets.map((t) => t[0])) * 1.08, [targets])
+  const flowMax = useMemo(
+    () => Math.max(1, ...targets.map((t) => Math.max(t[1], t[2]))),
+    [targets]
+  )
+  const targetFracs = useMemo(
+    () => targets.map((t) => [t[0] / lineMax, t[1] / flowMax, t[2] / flowMax]),
+    [targets, lineMax, flowMax]
+  )
+  const fracs = useAnimatedFracs(targetFracs)
 
   const geom = useMemo(() => {
     const W = dim.w
@@ -162,26 +233,21 @@ function HistoryChart({ series, unit }: { series: StockHistoryPoint[]; unit: Uni
     const slot = innerW / n
     const x = (i: number) => padL + (i + 0.5) * slot
 
-    const lineVal = (p: StockHistoryPoint) => (unit === 'qte' ? p.qte : p.valeur)
-    const inVal = (p: StockHistoryPoint) => (unit === 'qte' ? p.entreeQte : p.entreeVal)
-    const outVal = (p: StockHistoryPoint) => (unit === 'qte' ? p.sortieQte : p.sortieVal)
-
-    const lineMax = Math.max(1, ...series.map(lineVal)) * 1.08
-    const flowMax = Math.max(1, ...series.map((p) => Math.max(inVal(p), outVal(p))))
-
     // Courbe : 62 % du haut ; flux : axe miroir à 80 %, amplitude ±17 %.
     const lineBase = padT + innerH * 0.62
     const flowAxis = padT + innerH * 0.8
     const flowAmp = innerH * 0.17
 
-    const yLine = (v: number) => lineBase - (v / lineMax) * (lineBase - padT)
+    // La géométrie lit les FRACTIONS animées (0-1), pas les valeurs brutes :
+    // c'est ce qui donne la montée à l'arrivée et le morphing entre articles.
+    const yLine = (frac: number) => lineBase - frac * (lineBase - padT)
 
     let linePath = ''
     let areaPath = ''
-    if (series.length > 0) {
-      const pts = series.map((p, i) => `${x(i)},${yLine(lineVal(p))}`)
+    if (fracs.length > 0) {
+      const pts = fracs.map((f, i) => `${x(i)},${yLine(f[0] ?? 0)}`)
       linePath = `M ${pts.join(' L ')}`
-      areaPath = `${linePath} L ${x(series.length - 1)},${lineBase} L ${x(0)},${lineBase} Z`
+      areaPath = `${linePath} L ${x(fracs.length - 1)},${lineBase} L ${x(0)},${lineBase} Z`
     }
 
     const barW = Math.max(1.5, slot * 0.58)
@@ -197,11 +263,6 @@ function HistoryChart({ series, unit }: { series: StockHistoryPoint[]; unit: Uni
       innerH,
       slot,
       x,
-      lineVal,
-      inVal,
-      outVal,
-      lineMax,
-      flowMax,
       lineBase,
       flowAxis,
       flowAmp,
@@ -211,23 +272,38 @@ function HistoryChart({ series, unit }: { series: StockHistoryPoint[]; unit: Uni
       barW,
       tickStep,
     }
-  }, [dim, series, unit])
+  }, [dim, fracs, series.length])
 
   const lastIdx = series.length - 1
 
-  // Position du tooltip : ancré à la semaine survolée, retourné près des bords
-  // pour rester dans le panneau. Le viewBox du SVG vaut les pixels mesurés du
+  // Index lu par le tooltip : le dernier survolé tant que la souris est partie
+  // (le fondu de sortie reste positionné au bon endroit).
+  const hi = hover ?? lastHoverRef.current
+  const hPoint = series[hi]
+  const hFrac = fracs[hi] ?? [0, 0, 0]
+
+  // Position du tooltip : ancré à la semaine lue, retourné près des bords pour
+  // rester dans le panneau. Le viewBox du SVG vaut les pixels mesurés du
   // conteneur (rapport 1:1) — les coordonnées SVG sont des CSS pixels.
-  const tooltipPos = useMemo(() => {
-    if (hover === null || !series[hover]) return undefined
-    const x = geom.x(hover)
-    const nearRight = x > geom.W - 120
-    const nearLeft = x < 120
-    return {
-      left: nearRight ? x - 10 : nearLeft ? x + 10 : x,
-      transform: nearRight ? 'translateX(-100%)' : nearLeft ? undefined : 'translateX(-50%)',
-    }
-  }, [hover, geom, series])
+  const tooltipStyle = hPoint
+    ? (() => {
+        const x = geom.x(hi)
+        const nearRight = x > geom.W - 120
+        const nearLeft = x < 120
+        return {
+          left: nearRight ? x - 10 : nearLeft ? x + 10 : x,
+          transform: nearRight ? 'translateX(-100%)' : nearLeft ? undefined : 'translateX(-50%)',
+        }
+      })()
+    : undefined
+
+  // Valeurs affichées dans le tooltip = fractions animées × échelles : les
+  // chiffres « montent » avec la courbe à l'arrivée.
+  const hLineVal = hFrac[0] * lineMax
+  const hInVal = hFrac[1] * flowMax
+  const hOutVal = hFrac[2] * flowMax
+
+  const lastFrac = fracs[lastIdx] ?? [0, 0, 0]
 
   return (
     <div ref={wrapRef} className="relative h-full w-full">
@@ -275,7 +351,7 @@ function HistoryChart({ series, unit }: { series: StockHistoryPoint[]; unit: Uni
         {/* Grille + axe gauche (échelle du stock) */}
         <g fontFamily="var(--font-mono)" fontSize={9} fontWeight={600}>
           {[0, 0.5, 1].map((t) => {
-            const y = geom.yLine(geom.lineMax * t)
+            const y = geom.yLine(t)
             return (
               <g key={t}>
                 <line
@@ -293,7 +369,7 @@ function HistoryChart({ series, unit }: { series: StockHistoryPoint[]; unit: Uni
                   textAnchor="end"
                   fill="var(--color-muted-foreground)"
                 >
-                  {fmtAxis(geom.lineMax * t, unit)}
+                  {fmtAxis(lineMax * t, unit)}
                 </text>
               </g>
             )
@@ -310,17 +386,18 @@ function HistoryChart({ series, unit }: { series: StockHistoryPoint[]; unit: Uni
           strokeWidth={1}
         />
 
-        {/* Barres de flux (miroir : entrées au-dessus de l'axe, sorties en dessous) */}
+        {/* Barres de flux (miroir : entrées au-dessus de l'axe, sorties en
+            dessous). Hauteurs lues sur les fractions animées — elles poussent
+            depuis l'axe à l'arrivée. */}
         {series.map((p, i) => {
-          const inn = geom.inVal(p)
-          const out = geom.outVal(p)
-          const hIn = (inn / geom.flowMax) * geom.flowAmp
-          const hOut = (out / geom.flowMax) * geom.flowAmp
+          const f = fracs[i] ?? [0, 0, 0]
+          const hIn = (f[1] ?? 0) * geom.flowAmp
+          const hOut = (f[2] ?? 0) * geom.flowAmp
           const bx = geom.x(i) - geom.barW / 2
-          const op = hover === null || hover === i ? 0.85 : 0.45
+          const op = hover === null || hover === i ? 0.85 : 0.4
           return (
             <g key={p.periode}>
-              {hIn > 0 && (
+              {hIn > 0.25 && (
                 <rect
                   x={bx}
                   y={geom.flowAxis - hIn}
@@ -329,9 +406,10 @@ function HistoryChart({ series, unit }: { series: StockHistoryPoint[]; unit: Uni
                   rx={1}
                   fill={COL_ENTREE}
                   opacity={op}
+                  style={{ transition: 'opacity 160ms ease-out' }}
                 />
               )}
-              {hOut > 0 && (
+              {hOut > 0.25 && (
                 <rect
                   x={bx}
                   y={geom.flowAxis}
@@ -340,16 +418,23 @@ function HistoryChart({ series, unit }: { series: StockHistoryPoint[]; unit: Uni
                   rx={1}
                   fill={COL_SORTIE}
                   opacity={op}
+                  style={{ transition: 'opacity 160ms ease-out' }}
                 />
               )}
             </g>
           )
         })}
 
-        {/* Courbe de stock + aire légère */}
+        {/* Courbe de stock + aire en dégradé (profondeur sans bruit) */}
         {series.length > 0 && (
           <>
-            <path d={geom.areaPath} fill={COL_STOCK} opacity={0.06} />
+            <defs>
+              <linearGradient id="stock-history-area" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" style={{ stopColor: COL_STOCK, stopOpacity: 0.16 }} />
+                <stop offset="100%" style={{ stopColor: COL_STOCK, stopOpacity: 0.01 }} />
+              </linearGradient>
+            </defs>
+            <path d={geom.areaPath} fill="url(#stock-history-area)" />
             <path
               d={geom.linePath}
               fill="none"
@@ -358,13 +443,27 @@ function HistoryChart({ series, unit }: { series: StockHistoryPoint[]; unit: Uni
               strokeLinejoin="round"
               strokeLinecap="round"
             />
-            {/* Dernier point marqué (semaine courante) */}
+            {/* Semaine courante : point plein + halo pulsé (SMIL, coupé si
+                prefers-reduced-motion) */}
             <circle
               cx={geom.x(lastIdx)}
-              cy={geom.yLine(geom.lineVal(series[lastIdx]))}
+              cy={geom.yLine(lastFrac[0] ?? 0)}
               r={3}
               fill={COL_STOCK}
             />
+            {!REDUCED_MOTION && (
+              <circle
+                cx={geom.x(lastIdx)}
+                cy={geom.yLine(lastFrac[0] ?? 0)}
+                r={3}
+                fill="none"
+                stroke={COL_STOCK}
+                strokeWidth={1}
+              >
+                <animate attributeName="r" values="3;9" dur="2.4s" repeatCount="indefinite" />
+                <animate attributeName="opacity" values="0.35;0" dur="2.4s" repeatCount="indefinite" />
+              </circle>
+            )}
           </>
         )}
 
@@ -402,59 +501,66 @@ function HistoryChart({ series, unit }: { series: StockHistoryPoint[]; unit: Uni
           />
         ))}
 
-        {/* Indicateur de survol : guide vertical + point sur la courbe */}
+        {/* Indicateur de survol : guide vertical + point de lecture. Rendus
+            dans des groupes translatés en CSS (transition sur transform) pour
+            glisser de semaine en semaine au lieu de sauter. */}
         {hover !== null && series[hover] && (
-          <g pointerEvents="none">
-            <line
-              x1={geom.x(hover)}
-              x2={geom.x(hover)}
-              y1={geom.padT}
-              y2={geom.padT + geom.innerH}
-              stroke="var(--color-foreground)"
-              opacity={0.3}
-              strokeDasharray="3 3"
-            />
-            <circle
-              cx={geom.x(hover)}
-              cy={geom.yLine(geom.lineVal(series[hover]))}
-              r={4}
-              fill={COL_STOCK}
-              stroke="var(--color-card)"
-              strokeWidth={2}
-            />
-          </g>
+          <>
+            <g
+              pointerEvents="none"
+              style={{
+                transform: `translate(${geom.x(hover)}px, 0px)`,
+                transition: 'transform 170ms cubic-bezier(0.2, 0.7, 0.2, 1)',
+              }}
+            >
+              <line
+                x1={0}
+                x2={0}
+                y1={geom.padT}
+                y2={geom.padT + geom.innerH}
+                stroke="var(--color-foreground)"
+                opacity={0.28}
+                strokeDasharray="3 3"
+              />
+            </g>
+            <g
+              pointerEvents="none"
+              style={{
+                transform: `translate(${geom.x(hover)}px, ${geom.yLine((fracs[hover] ?? [0])[0] ?? 0)}px)`,
+                transition: 'transform 170ms cubic-bezier(0.2, 0.7, 0.2, 1)',
+              }}
+            >
+              <circle r={4.5} fill={COL_STOCK} stroke="var(--color-card)" strokeWidth={2} />
+            </g>
+          </>
         )}
       </svg>
 
       {/* Tooltip — HTML plutôt que <title> natif : lecture instantanée, mis en
-          page, et suit l'unité active. Ancré en haut du tracé, retourné près
-          des bords pour ne jamais sortir du panneau. */}
-      {hover !== null && series[hover] && (
+          page, suit l'unité active et les valeurs animées. Toujours monté dès
+          qu'il y a une série : il glisse entre semaines (left/transform) et
+          apparaît/disparaît en fondu (opacity). */}
+      {hPoint && (
         <div
-          className="pointer-events-none absolute top-8 z-10 min-w-[10.5rem] rounded-md border border-rule bg-popover px-3 py-2 shadow-float transition-[left,transform] duration-100 ease-out"
-          style={tooltipPos}
+          className={cn(
+            'pointer-events-none absolute top-8 z-10 min-w-[10.5rem] rounded-md border border-rule bg-popover px-3 py-2 shadow-float transition-[left,transform,opacity] duration-150 ease-out',
+            hover === null && 'opacity-0'
+          )}
+          style={tooltipStyle}
         >
           <div className="mb-1.5 font-mono text-[10px] font-bold tracking-wide text-foreground">
-            {fmtWeekFull(series[hover])}
+            {fmtWeekFull(hPoint)}
           </div>
           <div className="space-y-1">
             <TooltipRow
               swatch="line"
               color={COL_STOCK}
               label="Stock"
-              value={fmtVal(geom.lineVal(series[hover]), unit)}
+              value={fmtVal(hLineVal, unit)}
               strong
             />
-            <TooltipRow
-              color={COL_ENTREE}
-              label="Entrées"
-              value={`+ ${fmtVal(geom.inVal(series[hover]), unit)}`}
-            />
-            <TooltipRow
-              color={COL_SORTIE}
-              label="Sorties"
-              value={`− ${fmtVal(geom.outVal(series[hover]), unit)}`}
-            />
+            <TooltipRow color={COL_ENTREE} label="Entrées" value={`+ ${fmtVal(hInVal, unit)}`} />
+            <TooltipRow color={COL_SORTIE} label="Sorties" value={`− ${fmtVal(hOutVal, unit)}`} />
           </div>
         </div>
       )}
