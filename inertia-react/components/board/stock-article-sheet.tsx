@@ -196,18 +196,39 @@ function useAnimatedFracs(target: number[][]): number[][] {
   return display
 }
 
-/** Graphe stock + flux : courbe du stock fin de semaine (bande haute, axe
- *  gauche) et barres miroir des entrées/sorties (bande basse). SVG inline
+/** Point tracé — historique (stock réel + flux passés) ou futur (stock
+ *  projeté + besoins/ressources). Même géométrie pour les deux moitiés :
+ *  `line` = niveau de stock, `inn` = barre au-dessus de l'axe, `out` = barre
+ *  en dessous. */
+interface ChartPoint {
+  periode: string
+  kind: 'hist' | 'fut'
+  line: number
+  inn: number
+  out: number
+}
+
+/** Graphe stock + flux sur 105 semaines : 53 semaines d'historique (courbe
+ *  pleine + entrées/sorties) puis 52 semaines de projection (courbe pointillée
+ *  + ressources attendues/besoins), séparées par la ligne « auj. ». SVG inline
  *  responsive (ResizeObserver), légende dessinée dans le graphe. Le guide de
  *  survol et le point de lecture glissent en transition CSS ; le tooltip
- *  (HTML) suit l'unité active et les valeurs animées. */
-function HistoryChart({ series, unit }: { series: StockHistoryPoint[]; unit: Unit }) {
+ *  (HTML) suit l'unité active, les valeurs animées, et adapte ses libellés à
+ *  la moitié survolée. */
+function HistoryChart({
+  series,
+  future,
+  unit,
+}: {
+  series: StockHistoryPoint[]
+  future: StockFuturePoint[]
+  unit: Unit
+}) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const [dim, setDim] = useState({ w: 900, h: 300 })
-  // Semaine survolée (index dans `series`) — null = aucun. Remis à zéro quand
-  // la série change (autre article) pour éviter un index hors bornes.
+  // Semaine survolée (index dans `points`) — null = aucun. Remis à zéro quand
+  // les données changent (autre article) pour éviter un index hors bornes.
   const [hover, setHover] = useState<number | null>(null)
-  useEffect(() => setHover(null), [series])
   // Dernier index survolé : le tooltip reste positionné pendant son fondu.
   const lastHoverRef = useRef(0)
   if (hover !== null) lastHoverRef.current = hover
@@ -223,10 +244,32 @@ function HistoryChart({ series, unit }: { series: StockHistoryPoint[]; unit: Uni
     return () => ro.disconnect()
   }, [])
 
+  // ----- Points combinés (historique + projection) -----
+  const points = useMemo<ChartPoint[]>(() => {
+    const hist: ChartPoint[] = series.map((p) => ({
+      periode: p.periode,
+      kind: 'hist',
+      line: lineValOf(p, unit),
+      inn: inValOf(p, unit),
+      out: outValOf(p, unit),
+    }))
+    const fut: ChartPoint[] = future.map((p) => ({
+      periode: p.periode,
+      kind: 'fut',
+      line: unit === 'qte' ? p.stockQte : p.stockVal,
+      inn: unit === 'qte' ? p.ressourceQte : p.ressourceVal,
+      out: unit === 'qte' ? p.besoinQte : p.besoinVal,
+    }))
+    return [...hist, ...fut]
+  }, [series, future, unit])
+
+  const histLen = series.length
+  useEffect(() => setHover(null), [points])
+
   // ----- Échelles stables (valeurs cibles) + géométrie animée (fractions) -----
   const targets = useMemo(
-    () => series.map((p) => [lineValOf(p, unit), inValOf(p, unit), outValOf(p, unit)]),
-    [series, unit]
+    () => points.map((p) => [p.line, p.inn, p.out]),
+    [points]
   )
   const lineMax = useMemo(() => Math.max(1, ...targets.map((t) => t[0])) * 1.08, [targets])
   const flowMax = useMemo(
@@ -249,7 +292,7 @@ function HistoryChart({ series, unit }: { series: StockHistoryPoint[]; unit: Uni
     const innerW = Math.max(10, W - padL - padR)
     const innerH = Math.max(10, H - padT - padB)
 
-    const n = series.length || 1
+    const n = points.length || 1
     const slot = innerW / n
     const x = (i: number) => padL + (i + 0.5) * slot
 
@@ -262,16 +305,25 @@ function HistoryChart({ series, unit }: { series: StockHistoryPoint[]; unit: Uni
     // c'est ce qui donne la montée à l'arrivée et le morphing entre articles.
     const yLine = (frac: number) => lineBase - frac * (lineBase - padT)
 
-    let linePath = ''
-    let areaPath = ''
-    if (fracs.length > 0) {
-      const pts = fracs.map((f, i) => `${x(i)},${yLine(f[0] ?? 0)}`)
-      linePath = `M ${pts.join(' L ')}`
-      areaPath = `${linePath} L ${x(fracs.length - 1)},${lineBase} L ${x(0)},${lineBase} Z`
+    // Courbe historique (pleine) + aire, puis projection (pointillée) qui
+    // démarre du dernier point réel pour la continuité visuelle.
+    let histPath = ''
+    let histArea = ''
+    let futPath = ''
+    if (fracs.length > 0 && histLen > 0) {
+      const hpts = fracs.slice(0, histLen).map((f, i) => `${x(i)},${yLine(f[0] ?? 0)}`)
+      histPath = `M ${hpts.join(' L ')}`
+      histArea = `${histPath} L ${x(histLen - 1)},${lineBase} L ${x(0)},${lineBase} Z`
+      const fpts = fracs
+        .slice(histLen - 1)
+        .map((f, j) => `${x(histLen - 1 + j)},${yLine(f[0] ?? 0)}`)
+      if (fpts.length > 1) futPath = `M ${fpts.join(' L ')}`
     }
 
     const barW = Math.max(1.5, slot * 0.58)
     const tickStep = Math.max(1, Math.ceil(n / 7))
+    // Charnière passé/futur : bord gauche du premier seau futur.
+    const nowX = padL + histLen * slot
 
     return {
       W,
@@ -287,19 +339,21 @@ function HistoryChart({ series, unit }: { series: StockHistoryPoint[]; unit: Uni
       flowAxis,
       flowAmp,
       yLine,
-      linePath,
-      areaPath,
+      histPath,
+      histArea,
+      futPath,
       barW,
       tickStep,
+      nowX,
     }
-  }, [dim, fracs, series.length])
+  }, [dim, fracs, points.length, histLen])
 
-  const lastIdx = series.length - 1
+  const lastIdx = points.length - 1
 
   // Index lu par le tooltip : le dernier survolé tant que la souris est partie
   // (le fondu de sortie reste positionné au bon endroit).
   const hi = hover ?? lastHoverRef.current
-  const hPoint = series[hi]
+  const hPoint = points[hi]
   const hFrac = fracs[hi] ?? [0, 0, 0]
 
   // Position du tooltip : ancré à la semaine lue, retourné près des bords pour
@@ -323,7 +377,10 @@ function HistoryChart({ series, unit }: { series: StockHistoryPoint[]; unit: Uni
   const hInVal = hFrac[1] * flowMax
   const hOutVal = hFrac[2] * flowMax
 
-  const lastFrac = fracs[lastIdx] ?? [0, 0, 0]
+  // Point « maintenant » (dernier point réel) — ancre du pulse et de la
+  // charnière passé/futur.
+  const nowFrac = fracs[histLen - 1] ?? [0, 0, 0]
+  const hasFuture = future.length > 0
 
   return (
     <div ref={wrapRef} className="relative h-full w-full">
@@ -454,9 +511,9 @@ function HistoryChart({ series, unit }: { series: StockHistoryPoint[]; unit: Uni
                 <stop offset="100%" style={{ stopColor: COL_STOCK, stopOpacity: 0.01 }} />
               </linearGradient>
             </defs>
-            <path d={geom.areaPath} fill="url(#stock-history-area)" />
+            <path d={geom.histArea} fill="url(#stock-history-area)" />
             <path
-              d={geom.linePath}
+              d={geom.histPath}
               fill="none"
               stroke={COL_STOCK}
               strokeWidth={1.75}
@@ -467,14 +524,14 @@ function HistoryChart({ series, unit }: { series: StockHistoryPoint[]; unit: Uni
                 prefers-reduced-motion) */}
             <circle
               cx={geom.x(lastIdx)}
-              cy={geom.yLine(lastFrac[0] ?? 0)}
+              cy={geom.yLine(nowFrac[0] ?? 0)}
               r={3}
               fill={COL_STOCK}
             />
             {!REDUCED_MOTION && (
               <circle
                 cx={geom.x(lastIdx)}
-                cy={geom.yLine(lastFrac[0] ?? 0)}
+                cy={geom.yLine(nowFrac[0] ?? 0)}
                 r={3}
                 fill="none"
                 stroke={COL_STOCK}
@@ -743,7 +800,7 @@ export function StockArticleSheet(props: StockArticleSheetProps) {
               </div>
             ) : (
               <div className="min-h-0 flex-1 px-5 pb-4 pt-2">
-                <HistoryChart series={detail.series} unit={unit} />
+                <HistoryChart series={detail.series} future={detail.future ?? []} unit={unit} />
               </div>
             )}
           </>

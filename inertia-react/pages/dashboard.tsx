@@ -8,6 +8,7 @@ import { useRangeCalendar } from '@r/lib/use-range-calendar'
 import { useTimedFetch } from '@r/lib/suivi/use-timed-fetch'
 import { usePrintFitPage } from '@r/lib/board/use-print-fit-page'
 import { cn } from '@r/lib/utils'
+import { Segment, SegmentButton, DateWindowPill } from '@r/components/vision/toolbar'
 import {
   DEFAULT_DASHBOARD_LAYOUT,
   KPI_TITLES,
@@ -900,68 +901,54 @@ export default function Dashboard(props: DashboardProps) {
                       OTD
                     </h2>
                     {/* Sélecteur de plage */}
-                    <div className="relative ml-auto">
-                      <div className="flex items-center gap-1">
-                        <button
+                    <div className="ml-auto flex items-center gap-1">
+                      <DateWindowPill
+                        open={calendarOpen}
+                        onOpenChange={setCalendarOpen}
+                        selected={{ from: otdRange?.start ?? undefined, to: otdRange?.end ?? undefined }}
+                        onSelect={(range) => {
+                          if (range?.from && range?.to) {
+                            setOtdRange({ start: range.from, end: range.to })
+                            setCalendarOpen(false)
+                          } else if (range?.from) {
+                            setOtdRange({ start: range.from, end: range.from })
+                          }
+                        }}
+                        disabled={(day) => day > new Date()}
+                        align="right"
+                      />
+                      {otdRange?.start && (
+                        <Button
                           type="button"
-                          onClick={() => setCalendarOpen((v) => !v)}
-                          className="flex items-center gap-1.5 rounded border border-rule bg-secondary px-2 py-1 font-mono text-[10px] text-foreground transition-colors hover:bg-secondary/80"
+                          variant="ghost"
+                          size="icon-xs"
+                          onClick={() => {
+                            setOtdRange(null)
+                            setCalendarOpen(false)
+                          }}
+                          title="Réinitialiser la période OTD"
                         >
-                          <CalendarIcon size={13} className="text-muted-foreground" />
-                          <span>{otdRangeLabel ?? 'Auto'}</span>
-                        </button>
-                        {otdRange?.start && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setOtdRange(null)
-                              setCalendarOpen(false)
-                            }}
-                            className="flex size-6 items-center justify-center rounded text-muted-foreground hover:text-foreground"
-                            title="Réinitialiser"
-                          >
-                            <X size={14} />
-                          </button>
-                        )}
-                      </div>
-
-                      {calendarOpen && (
-                        <>
-                          <div className="fixed inset-0 z-10" onClick={() => setCalendarOpen(false)} />
-                          <div className="absolute right-0 top-full z-20 mt-1 rounded-lg border border-rule bg-popover shadow-float">
-                            <Calendar
-                              mode="range"
-                              locale={fr}
-                              numberOfMonths={2}
-                              selected={otdCal.selected}
-                              onSelect={otdCal.onSelect}
-                              disabled={(day) => day > new Date()}
-                            />
-                          </div>
-                        </>
+                          <X size={14} />
+                        </Button>
                       )}
                     </div>
                     {/* Toggle mode */}
-                    <div className="flex items-center rounded-[8px] border border-input bg-secondary/50 p-0.5 font-mono text-[9px] font-semibold">
-                      <Button
-                        type="button"
-                        variant={otdMode === 'demandee' ? 'secondary' : 'ghost'}
-                        size="xs"
+                    <Segment role="radiogroup" ariaLabel="Mode d'OTD">
+                      <SegmentButton
+                        role="radio"
+                        active={otdMode === 'demandee'}
                         onClick={() => setOtdMode('demandee')}
-                        className="h-6 px-2 text-[10px]"
                       >
                         Demandée
-                      </Button>
-                      <Button
-                        type="button"
-                        variant={otdMode === 'acceptee' ? 'secondary' : 'ghost'}
-                        size="xs"
+                      </SegmentButton>
+                      <SegmentButton
+                        role="radio"
+                        active={otdMode === 'acceptee'}
                         onClick={() => setOtdMode('acceptee')}
-                        className="h-6 px-2 text-[10px]"
                       >
                         Acceptée
-                      </Button>
-                    </div>
+                      </SegmentButton>
+                    </Segment>
                     <button
                       type="button"
                       onClick={() => setVisible('otd', false)}
@@ -1148,65 +1135,54 @@ export default function Dashboard(props: DashboardProps) {
                     <h2 className="font-fraunces text-[16px] font-semibold leading-none tracking-tight text-foreground">
                       Valorisation stock
                     </h2>
-                    <div className="relative ml-auto">
-                      <button
-                        type="button"
-                        onClick={() => setStockCalendarOpen((v) => !v)}
-                        className="flex items-center gap-1.5 rounded border border-rule bg-secondary px-2 py-1 font-mono text-[10px] text-foreground transition-colors hover:bg-secondary/80"
-                      >
-                        <CalendarIcon size={13} className="text-muted-foreground" />
-                        <span>{stockRangeLabel ?? `12 ${stockGrain === 'semaine' ? 'sem.' : 'mois'}`}</span>
-                      </button>
+                    <div className="ml-auto flex items-center gap-1">
+                      <DateWindowPill
+                        open={stockCalendarOpen}
+                        onOpenChange={setStockCalendarOpen}
+                        selected={{ from: stockRange?.start ?? undefined, to: stockRange?.end ?? undefined }}
+                        onSelect={(range) => {
+                          if (range?.from && range?.to) {
+                            setStockRange({ start: range.from, end: range.to })
+                            setStockCalendarOpen(false)
+                          } else if (range?.from) {
+                            setStockRange({ start: range.from, end: range.from })
+                          }
+                        }}
+                        disabled={(day) => day > new Date()}
+                        align="right"
+                      />
                       {stockRange?.start && (
-                        <button
+                        <Button
                           type="button"
+                          variant="ghost"
+                          size="icon-xs"
                           onClick={() => {
                             setStockRange(null)
                             setStockCalendarOpen(false)
                           }}
-                          className="flex size-6 items-center justify-center rounded text-muted-foreground hover:text-foreground"
-                          title="Réinitialiser"
+                          title="Réinitialiser la période stock"
                         >
                           <X size={14} />
-                        </button>
-                      )}
-                      {stockCalendarOpen && (
-                        <>
-                          <div className="fixed inset-0 z-10" onClick={() => setStockCalendarOpen(false)} />
-                          <div className="absolute right-0 top-full z-20 mt-1 rounded-lg border border-rule bg-popover shadow-float">
-                            <Calendar
-                              mode="range"
-                              locale={fr}
-                              numberOfMonths={2}
-                              selected={stockCal.selected}
-                              onSelect={stockCal.onSelect}
-                              disabled={(day) => day > new Date()}
-                            />
-                          </div>
-                        </>
+                        </Button>
                       )}
                     </div>
                     {/* Toggle maille */}
-                    <div className="flex items-center rounded-[8px] border border-input bg-secondary/50 p-0.5 font-mono text-[9px] font-semibold">
-                      <Button
-                        type="button"
-                        variant={stockGrain === 'mois' ? 'secondary' : 'ghost'}
-                        size="xs"
+                    <Segment role="radiogroup" ariaLabel="Maille temporelle stock">
+                      <SegmentButton
+                        role="radio"
+                        active={stockGrain === 'mois'}
                         onClick={() => setStockGrain('mois')}
-                        className="h-6 px-2 text-[10px]"
                       >
                         Mois
-                      </Button>
-                      <Button
-                        type="button"
-                        variant={stockGrain === 'semaine' ? 'secondary' : 'ghost'}
-                        size="xs"
+                      </SegmentButton>
+                      <SegmentButton
+                        role="radio"
+                        active={stockGrain === 'semaine'}
                         onClick={() => setStockGrain('semaine')}
-                        className="h-6 px-2 text-[10px]"
                       >
                         Sem.
-                      </Button>
-                    </div>
+                      </SegmentButton>
+                    </Segment>
                     <button
                       type="button"
                       onClick={() => setVisible('stock', false)}
