@@ -16,7 +16,15 @@ import {
 import { HatchDefs } from '@r/components/load/hatch-defs'
 import { MiniCard } from '@r/components/load/mini-card'
 import { DetailChart } from '@r/components/load/detail-chart'
-import { PILL, Segment, SegmentButton, ToolbarRow } from '@r/components/vision/toolbar'
+import {
+  FilterMenu,
+  FilterMenuSectionLabel,
+  PILL,
+  Segment,
+  SegmentButton,
+  ToolbarRow,
+  ToolbarSpacer,
+} from '@r/components/vision/toolbar'
 
 /**
  * Page « Projection de charge » — vision long terme, variante 3 « Charge par ligne »
@@ -76,6 +84,10 @@ export default function Load(props: LoadPageProps) {
   }
 
   const segFiltered = activeSegs.size < segOptions(view).length
+
+  // Filtres secondaires uniquement (hors recherche, toujours visible dans la
+  // rangée) — pilote la pastille du déclencheur FilterMenu.
+  const filtersActive = segFiltered || atelierFilter.size > 0
 
   const lines = useMemo(() => {
     const keep = segKeys(view, activeSegs)
@@ -235,48 +247,85 @@ export default function Load(props: LoadPageProps) {
               ))}
             </Segment>
           )}
+          {/* Filtres — déclencheur unique (Statut ou Nature selon la vue +
+              Atelier). Même grammaire que Suivi/Ruptures : pas de chips
+              empilées dans la rangée, pas de rangée dédiée sous la toolbar. */}
+          <FilterMenu
+            label="Filtres"
+            indicators={
+              filtersActive ? (
+                <span className="ml-0.5 size-1.5 rounded-full bg-brand" aria-hidden="true" />
+              ) : null
+            }
+          >
+            <div className="flex items-center justify-between">
+              {/* La vue OF ventile par STATUT d'ordre, la vue Commande par
+                  NATURE de demande : même filtre, deux vocabulaires métier. */}
+              <FilterMenuSectionLabel>{view === 'of' ? 'Statut' : 'Nature'}</FilterMenuSectionLabel>
+              {segFiltered && (
+                <button
+                  type="button"
+                  className="rounded-md px-1.5 py-1 font-mono text-2xs font-bold tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+                  onClick={() => setActiveSegs(new Set(segOptions(view).map((o) => o.id)))}
+                  title={`Réinitialiser le filtre ${view === 'of' ? 'statut' : 'nature'}`}
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+            <Segment className="w-full flex-wrap">
+              {segOptions(view).map((o) => (
+                <SegmentButton
+                  key={o.id}
+                  active={activeSegs.has(o.id)}
+                  onClick={() => toggleSeg(o.id)}
+                  title={o.label}
+                >
+                  {o.label}
+                </SegmentButton>
+              ))}
+            </Segment>
+            {/* Filtre atelier (#36) — chips STOLOC, transverse aux 2 vues.
+                Vivait dans sa propre rangée sous la toolbar : consolidé ici. */}
+            {props.ateliers.length > 0 && (
+              <>
+                <div className="my-2.5 border-t border-rule-soft" />
+                <div className="flex items-center justify-between">
+                  <FilterMenuSectionLabel>Atelier</FilterMenuSectionLabel>
+                  {atelierFilter.size > 0 && (
+                    <button
+                      type="button"
+                      className="rounded-md px-1.5 py-1 font-mono text-2xs font-bold tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+                      onClick={() => setAtelierFilter(new Set())}
+                      title="Réinitialiser le filtre atelier"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+                <Segment className="w-full flex-wrap">
+                  {props.ateliers.map((a) => (
+                    <SegmentButton
+                      key={a.code}
+                      active={atelierFilter.has(a.code)}
+                      onClick={() => toggleAtelier(a.code)}
+                      title={a.code}
+                    >
+                      {a.label.replace(/^ATELIER\s+/i, '')}
+                    </SegmentButton>
+                  ))}
+                </Segment>
+              </>
+            )}
+          </FilterMenu>
           <span className="h-3.5 w-px bg-rule-soft" />
-          {/* Légende CLIQUABLE = filtre de segments. La légende portait déjà les
-              bons libellés par vue ; en faire l'interrupteur évite d'ajouter une
-              rangée de chips en doublon (cf. filtre Atelier plus bas). */}
-          {segOptions(view).map((o) => {
-            const on = activeSegs.has(o.id)
-            return (
-              <button
-                key={o.id}
-                type="button"
-                role="checkbox"
-                aria-checked={on}
-                onClick={() => toggleSeg(o.id)}
-                title={
-                  on
-                    ? `Masquer « ${o.label} »`
-                    : `Afficher « ${o.label} »`
-                }
-                className={cn(
-                  'flex items-center gap-1.5 rounded-full border px-2 py-0.5 transition-colors',
-                  on
-                    ? 'border-rule text-secondary-foreground hover:border-foreground'
-                    : 'border-dashed border-rule text-muted-foreground opacity-55 hover:opacity-80'
-                )}
-              >
-                <i
-                  className="inline-block h-2.5 w-3.5 rounded-[2px]"
-                  style={{ background: on ? o.color : 'transparent', boxShadow: `inset 0 0 0 1px ${o.color}` }}
-                />
-                {o.label}
-              </button>
-            )
-          })}
-          {segFiltered && (
-            <button
-              type="button"
-              onClick={() => setActiveSegs(new Set(segOptions(view).map((o) => o.id)))}
-              className="font-mono text-[10px] font-semibold text-brand hover:underline"
-            >
-              Tout
-            </button>
-          )}
+          {/* Légende (lecture seule) — le filtre vit dans le FilterMenu. */}
+          {segOptions(view).map((o) => (
+            <span key={o.id} className="flex items-center gap-1.5">
+              <i className="inline-block h-2.5 w-3.5 rounded-[2px]" style={{ background: o.color }} />
+              {o.label}
+            </span>
+          ))}
           <span className="h-3.5 w-px bg-rule-soft" />
           {/* Couches optionnelles — déplacées à droite (actions d'affichage). */}
           <span className="flex items-center gap-1.5">
@@ -289,7 +338,8 @@ export default function Load(props: LoadPageProps) {
             />
             Surcharge
           </span>
-          <span className="ml-auto flex items-center gap-3">
+          <ToolbarSpacer />
+          <span className="flex items-center gap-3">
             {/* Couches optionnelles — toggles d'affichage, à droite avec les actions. */}
             <button
               type="button"
@@ -321,45 +371,8 @@ export default function Load(props: LoadPageProps) {
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.currentTarget.value)}
               />
             </div>
-            <span className="font-fraunces text-[11px] italic text-muted-foreground">
-              Mini-graphes : {props.months.length} mois · clic = détail
-            </span>
           </span>
         </ToolbarRow>
-
-        {/* Filtre atelier (#36) */}
-        {props.ateliers.length > 0 && (
-          <div className="flex flex-none flex-wrap items-center gap-1.5 border-b border-rule px-7 py-2 text-[12px]">
-            <span className="mr-1 font-mono text-[10px] font-semibold text-muted-foreground">
-              Atelier
-            </span>
-            {props.ateliers.map((a) => (
-              <button
-                key={a.code}
-                type="button"
-                onClick={() => toggleAtelier(a.code)}
-                className={cn(
-                  'rounded-full border px-2.5 py-1 font-sans text-[11px] font-semibold transition-colors',
-                  atelierFilter.has(a.code)
-                    ? 'border-brand bg-brand-soft text-brand'
-                    : 'border-rule bg-card text-muted-foreground hover:border-foreground hover:text-foreground'
-                )}
-                title={a.code}
-              >
-                {a.label}
-              </button>
-            ))}
-            {atelierFilter.size > 0 && (
-              <button
-                type="button"
-                onClick={() => setAtelierFilter(new Set())}
-                className="ml-1 font-mono text-[10px] font-semibold text-brand hover:underline"
-              >
-                Réinitialiser
-              </button>
-            )}
-          </div>
-        )}
 
         {lines.length === 0 ? (
           <div className="flex flex-1 items-center justify-center p-10 font-fraunces text-[14px] italic text-muted-foreground">
