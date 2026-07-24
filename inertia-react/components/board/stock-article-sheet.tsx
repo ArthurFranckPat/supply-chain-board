@@ -24,6 +24,18 @@ interface StockHistoryPoint {
   sortieVal: number
 }
 
+/** Point hebdomadaire de la projection (seaux S+1 … S+52). */
+interface StockFuturePoint {
+  periode: string
+  label: string
+  besoinQte: number
+  besoinVal: number
+  ressourceQte: number
+  ressourceVal: number
+  stockQte: number // stock projeté fin de semaine (borné ≥ 0)
+  stockVal: number
+}
+
 interface StockArticleDetail {
   article: string
   designation: string
@@ -33,6 +45,7 @@ interface StockArticleDetail {
   valeur: number
   grain: 'semaine'
   series: StockHistoryPoint[]
+  future: StockFuturePoint[]
 }
 
 interface StockArticleDetailResponse {
@@ -90,8 +103,9 @@ const fmtPct = (v: number): string =>
  *  chaque mention de semaine (axe, tooltip, plage affichée). */
 const weekYear = (periode: string) => periode.slice(0, 4)
 const weekNo = (periode: string) => periode.slice(-2)
-const fmtWeekAxis = (p: StockHistoryPoint) => `S${weekNo(p.periode)} ${weekYear(p.periode)}`
-const fmtWeekFull = (p: StockHistoryPoint) => `Semaine ${weekNo(p.periode)} · ${weekYear(p.periode)}`
+const fmtWeekAxis = (p: { periode: string }) => `S${weekNo(p.periode)} ${weekYear(p.periode)}`
+const fmtWeekFull = (p: { periode: string }) =>
+  `Semaine ${weekNo(p.periode)} · ${weekYear(p.periode)}`
 
 /** Ligne du tooltip : pastille (trait pour la courbe, carré pour les barres),
  *  label mono uppercase, valeur tabular alignée à droite. */

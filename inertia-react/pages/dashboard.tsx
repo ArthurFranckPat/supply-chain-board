@@ -31,6 +31,14 @@ import {
   InputGroupInput,
   InputGroupButton,
 } from '@r/components/ui/input-group'
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '@r/components/ui/select'
+import { Switch } from '@r/components/ui/switch'
 
 /**
  * Tableau de bord (issue #26 shell + #38 KPI). Landing par défaut post-login.
@@ -934,29 +942,25 @@ export default function Dashboard(props: DashboardProps) {
                       )}
                     </div>
                     {/* Toggle mode */}
-                    <div className="flex items-center rounded border border-rule bg-secondary p-0.5 font-mono text-[9px] font-semibold">
-                      <button
+                    <div className="flex items-center rounded-[8px] border border-input bg-secondary/50 p-0.5 font-mono text-[9px] font-semibold">
+                      <Button
+                        type="button"
+                        variant={otdMode === 'demandee' ? 'secondary' : 'ghost'}
+                        size="xs"
                         onClick={() => setOtdMode('demandee')}
-                        className={cn(
-                          'rounded px-2 py-1 transition-colors',
-                          otdMode === 'demandee'
-                            ? 'bg-card text-foreground shadow-sm'
-                            : 'text-muted-foreground hover:text-foreground'
-                        )}
+                        className="h-6 px-2 text-[10px]"
                       >
                         Demandée
-                      </button>
-                      <button
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={otdMode === 'acceptee' ? 'secondary' : 'ghost'}
+                        size="xs"
                         onClick={() => setOtdMode('acceptee')}
-                        className={cn(
-                          'rounded px-2 py-1 transition-colors',
-                          otdMode === 'acceptee'
-                            ? 'bg-card text-foreground shadow-sm'
-                            : 'text-muted-foreground hover:text-foreground'
-                        )}
+                        className="h-6 px-2 text-[10px]"
                       >
                         Acceptée
-                      </button>
+                      </Button>
                     </div>
                     <button
                       type="button"
@@ -1183,29 +1187,25 @@ export default function Dashboard(props: DashboardProps) {
                       )}
                     </div>
                     {/* Toggle maille */}
-                    <div className="flex items-center rounded border border-rule bg-secondary p-0.5 font-mono text-[9px] font-semibold">
-                      <button
+                    <div className="flex items-center rounded-[8px] border border-input bg-secondary/50 p-0.5 font-mono text-[9px] font-semibold">
+                      <Button
+                        type="button"
+                        variant={stockGrain === 'mois' ? 'secondary' : 'ghost'}
+                        size="xs"
                         onClick={() => setStockGrain('mois')}
-                        className={cn(
-                          'rounded px-2 py-1 transition-colors',
-                          stockGrain === 'mois'
-                            ? 'bg-card text-foreground shadow-sm'
-                            : 'text-muted-foreground hover:text-foreground'
-                        )}
+                        className="h-6 px-2 text-[10px]"
                       >
                         Mois
-                      </button>
-                      <button
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={stockGrain === 'semaine' ? 'secondary' : 'ghost'}
+                        size="xs"
                         onClick={() => setStockGrain('semaine')}
-                        className={cn(
-                          'rounded px-2 py-1 transition-colors',
-                          stockGrain === 'semaine'
-                            ? 'bg-card text-foreground shadow-sm'
-                            : 'text-muted-foreground hover:text-foreground'
-                        )}
+                        className="h-6 px-2 text-[10px]"
                       >
                         Sem.
-                      </button>
+                      </Button>
                     </div>
                     <button
                       type="button"
@@ -1477,29 +1477,32 @@ export default function Dashboard(props: DashboardProps) {
                             </InputGroupAddon>
                           )}
                         </InputGroup>
-                        <select
-                          value={stockCatFilter}
-                          onChange={(e) => setStockCatFilter(e.currentTarget.value)}
-                          aria-label="Filtrer par catégorie"
-                          className="h-8 rounded-[8px] border border-input bg-card px-2.5 font-mono text-[10px] font-semibold text-foreground focus-visible:border-foreground focus-visible:outline-none"
+                        <Select
+                          value={stockCatFilter || 'all'}
+                          onValueChange={(val) => setStockCatFilter(val === 'all' ? '' : (val ?? ''))}
                         >
-                          <option value="">Toutes cat.</option>
-                          {stockCategories.map((c) => (
-                            <option key={c} value={c}>
-                              {c}
-                            </option>
-                          ))}
-                        </select>
-                        <Button
-                          type="button"
-                          variant={stockHideZero ? 'secondary' : 'outline'}
-                          size="xs"
-                          onClick={() => setStockHideZero((v) => !v)}
-                          title="Masquer les articles à stock nul"
-                        >
-                          <DynamicIcon name={stockHideZero ? 'check_box' : 'check_box_outline_blank'} size={13} />
-                          <span>Stock ≠ 0</span>
-                        </Button>
+                          <SelectTrigger size="sm" className="h-8 font-mono text-[11px] font-semibold">
+                            <SelectValue placeholder="Toutes cat." />
+                          </SelectTrigger>
+                          <SelectContent side="bottom">
+                            <SelectItem value="all">Toutes cat.</SelectItem>
+                            {stockCategories.map((c) => (
+                              <SelectItem key={c} value={c}>
+                                {c}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <div className="flex h-8 items-center gap-2 rounded-[8px] border border-input bg-card px-2.5">
+                          <Switch
+                            id="stock-hide-zero-switch"
+                            checked={stockHideZero}
+                            onCheckedChange={setStockHideZero}
+                          />
+                          <label htmlFor="stock-hide-zero-switch" className="cursor-pointer font-mono text-[10px] font-bold text-foreground">
+                            Stock ≠ 0
+                          </label>
+                        </div>
                       </div>
 
                       <div className="-mx-2 overflow-auto print:overflow-visible">
