@@ -465,7 +465,7 @@ function Tile({
       className={cn(
         'kpi-tile relative transition-all duration-300 ease-out',
         customWidth ? 'w-auto max-w-full' : WIDTH_CLASS[width],
-        editMode && 'cursor-grab rounded-lg ring-1 ring-brand/30 hover:ring-brand/60 active:cursor-grabbing active:scale-[0.99]',
+        editMode && 'rounded-lg ring-1 ring-brand/30 hover:ring-brand/60',
         isDragging && 'scale-[0.98] opacity-60 shadow-2xl ring-2 ring-brand',
         isDropTarget && 'scale-[1.01] ring-2 ring-brand ring-offset-2 ring-offset-background'
       )}
@@ -477,18 +477,6 @@ function Tile({
         width: customWidth ? `${customWidth}px` : undefined,
         height: customHeight ? `${customHeight}px` : undefined,
       } as React.CSSProperties}
-      draggable={editMode}
-      onDragStart={(e) => {
-        setDraggedId(id)
-        if (e.dataTransfer) {
-          e.dataTransfer.effectAllowed = 'move'
-          e.dataTransfer.setData('text/plain', id)
-        }
-      }}
-      onDragEnd={() => {
-        setDraggedId(null)
-        setDropTargetId(null)
-      }}
       onDragOver={(e) => {
         if (!editMode) return
         e.preventDefault()
@@ -504,7 +492,9 @@ function Tile({
       {/* 1. Poignée bord droit (Axe X — Largeur) */}
       {editMode && (
         <div
+          draggable={false}
           onMouseDown={handleWidthResizeStart}
+          onDragStart={(e) => e.preventDefault()}
           className="pointer-events-auto absolute -right-1.5 top-1/2 z-30 flex h-16 w-3 -translate-y-1/2 cursor-ew-resize items-center justify-center rounded-full transition-all hover:scale-110"
           title="Glisser horizontalement pour ajuster la largeur (Axe X)"
         >
@@ -515,7 +505,9 @@ function Tile({
       {/* 2. Poignée bord bas (Axe Y — Hauteur) */}
       {editMode && (
         <div
+          draggable={false}
           onMouseDown={handleHeightResizeStart}
+          onDragStart={(e) => e.preventDefault()}
           className="pointer-events-auto absolute -bottom-1.5 left-1/2 z-30 flex h-3 w-16 -translate-x-1/2 cursor-ns-resize items-center justify-center rounded-full transition-all hover:scale-110"
           title="Glisser verticalement pour ajuster la hauteur (Axe Y)"
         >
@@ -526,7 +518,9 @@ function Tile({
       {/* 3. Poignée coin bas-droit (2 Axes simultanés X + Y) */}
       {editMode && (
         <div
+          draggable={false}
           onMouseDown={handleCornerResizeStart}
+          onDragStart={(e) => e.preventDefault()}
           onDoubleClick={() => onCustomSize?.(undefined, undefined)}
           className="pointer-events-auto absolute -bottom-2 -right-2 z-30 flex size-7 cursor-nwse-resize items-center justify-center rounded-full bg-card border-2 border-brand shadow-lg transition-all duration-150 hover:scale-125 active:scale-110"
           title="Glisser dans tous les sens pour redimensionner librement sur les 2 AXES (Largeur + Hauteur). Double-cliquer pour réinitialiser."
@@ -551,11 +545,26 @@ function Tile({
           </button>
         </div>
       )}
-      {/* Barre d'outils édition (poignée + réordonnancement clavier + largeur + ordre impression + masquer) */}
+      {/* Barre d'outils édition (poignée drag + réordonnancement clavier + largeur + ordre impression + masquer) */}
       {editMode && (
         <>
           <div className="pointer-events-none absolute -top-3 left-3 z-10 flex items-center gap-1.5 rounded border border-rule bg-card px-1.5 py-0.5 shadow-sm print:hidden">
-            <span className="text-muted-foreground" title="Glisser pour réordonner">
+            <span
+              draggable={editMode}
+              onDragStart={(e) => {
+                setDraggedId(id)
+                if (e.dataTransfer) {
+                  e.dataTransfer.effectAllowed = 'move'
+                  e.dataTransfer.setData('text/plain', id)
+                }
+              }}
+              onDragEnd={() => {
+                setDraggedId(null)
+                setDropTargetId(null)
+              }}
+              className="pointer-events-auto cursor-grab active:cursor-grabbing text-muted-foreground hover:text-brand"
+              title="Cliquer et glisser cette poignée pour réordonner le KPI"
+            >
               <GripVertical size={14} />
             </span>
             {/* Boutons de réordonnancement clavier */}
