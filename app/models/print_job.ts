@@ -32,7 +32,13 @@ export default class PrintJob extends BaseModel {
   @column()
   declare sandbox: boolean
 
-  /** 'submitted' | 'failed'. */
+  /**
+   * 'pending' | 'submitted' | 'failed'.
+   *
+   * `pending` = rang réservé avant l'appel X3, issue encore inconnue. Transitoire
+   * en régime normal ; persistant si le processus est tombé pendant l'appel — et
+   * il doit le rester, car on ignore alors si du papier est sorti.
+   */
   @column()
   declare status: string
 

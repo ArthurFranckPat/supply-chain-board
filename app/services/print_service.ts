@@ -24,8 +24,10 @@ import {
  *
  *  1. **Verrou.** Le papier ne se reprend pas. Un couple (OF, document) déjà
  *     imprimé avec succès ne se réimprime que sur `force`, et le rang du tirage
- *     est unique en base : deux appels concurrents ne peuvent pas produire deux
- *     tirages « initiaux ».
+ *     est **réservé en base avant l'appel X3** : l'index unique (of_num,
+ *     doc_type, attempt) arbitre donc entre deux appels concurrents avant qu'une
+ *     feuille ne bouge, le perdant sort sans imprimer. Journaliser après coup
+ *     n'aurait fait échouer que la seconde écriture — deux papiers, une trace.
  *  2. **Routage.** Atelier (STOLOC) × type de document → code destination X3.
  *     Repli sur la règle par défaut (`stoloc = ''`) ; aucune destination codée
  *     en dur, aucune invention de destination.
@@ -101,7 +103,10 @@ export interface ResolvedDestination {
 
 export interface PrintOutcome {
   ok: boolean
-  /** 'submitted' | 'failed' | 'locked' — `locked` = refus par idempotence. */
+  /**
+   * 'submitted' | 'failed' | 'locked' — `locked` = refus par idempotence
+   * (document déjà sorti, ou tirage concurrent en cours sur le même couple).
+   */
   status: 'submitted' | 'failed' | 'locked'
   ofNum: string
   docType: DocType
@@ -318,38 +323,34 @@ class PrintService {
       verdictInferred: false,
     }
 
-    const routed = await this.resolveDestination(stoloc, docType)
-    if (!routed) {
-      return {
-        ...base,
-        ok: false,
-        status: 'failed',
-        destCode: '',
-        message: '',
-        error: `Aucune destination configurée pour ${docLabel(labels, docType)}${
-          stoloc ? ` (atelier ${stoloc})` : ''
-        }.`,
-      }
-    }
-
     // --- Verrou d'idempotence ------------------------------------------------
-    // Le rang à utiliser se déduit des tirages existants. Le refus porte sur les
-    // tirages RÉUSSIS : un échec n'a rien produit, le retenter n'est pas un
-    // doublon.
+    // Lu AVANT le routage : un document déjà sorti ne se réimprime pas au
+    // prétexte qu'une règle a changé entre-temps.
+    //
+    // Le refus porte sur les tirages RÉUSSIS et sur les tirages RÉSERVÉS
+    // (`pending`) : un échec franc n'a rien produit et se retente sans risque,
+    // mais un rang réservé signale un appel en vol — ou un processus tombé
+    // pendant l'appel X3, dont on ignore s'il a sorti du papier. Dans le doute,
+    // on n'en remet pas. `force` reste toujours possible.
     const existing = await PrintJob.query()
       .where('of_num', ofNum)
       .where('doc_type', docType)
       .orderBy('attempt', 'desc')
-    const submitted = existing.filter((j) => j.status === 'submitted')
-    if (submitted.length > 0 && !params.force) {
-      const last = submitted[0]
+    const blocking = existing.filter((j) => j.status === 'submitted' || j.status === 'pending')
+    if (blocking.length > 0 && !params.force) {
+      const last = blocking[0]
       return {
         ...base,
         ok: false,
         status: 'locked',
-        destCode: routed.destCode,
-        sandbox: routed.sandbox,
-        message: `${docLabel(labels, docType)} déjà imprimé pour ${ofNum} (tirage ${last.attempt}).`,
+        // Destination du tirage PRÉCÉDENT : c'est là que le papier est parti,
+        // pas là où la règle actuelle l'enverrait.
+        destCode: last.destCode,
+        sandbox: last.sandbox,
+        message:
+          last.status === 'pending'
+            ? `${docLabel(labels, docType)} : tirage ${last.attempt} en cours pour ${ofNum}, issue inconnue.`
+            : `${docLabel(labels, docType)} déjà imprimé pour ${ofNum} (tirage ${last.attempt}).`,
         error: '',
         previous: {
           attempt: last.attempt,
@@ -360,6 +361,90 @@ class PrintService {
       }
     }
     const attempt = (existing[0]?.attempt ?? 0) + 1
+
+    const routed = await this.resolveDestination(stoloc, docType)
+    if (!routed) {
+      // Journalisé comme tout le reste : un affermissement automatique sur un
+      // atelier non routé n'imprime rien, et ce non-événement doit se lire sur
+      // /impressions. Sans ligne, il ne vivrait que dans une réponse HTTP —
+      // invisible en affermissement groupé.
+      const row = await PrintJob.create({
+        ofNum,
+        docType,
+        attempt,
+        stoloc,
+        destCode: '',
+        sandbox: true,
+        status: 'failed',
+        error: `Aucune destination configurée pour ${docLabel(labels, docType)}${
+          stoloc ? ` (atelier ${stoloc})` : ''
+        }.`,
+        serverVerdict: 'unknown',
+        origin: params.origin ?? 'manual',
+        requestedBy: params.requestedBy ?? '',
+        createdAt: Math.floor(Date.now() / 1000),
+      }).catch(() => null)
+      return {
+        ...base,
+        ok: false,
+        status: 'failed',
+        destCode: '',
+        attempt,
+        message: '',
+        jobId: row?.id ?? null,
+        serverVerdict: 'unknown',
+        error: `Aucune destination configurée pour ${docLabel(labels, docType)}${
+          stoloc ? ` (atelier ${stoloc})` : ''
+        }.`,
+      }
+    }
+
+    // --- Réservation du rang, AVANT le tirage --------------------------------
+    // C'est ici que le verrou devient structurel. Journaliser après l'appel X3
+    // laissait une fenêtre où deux appels concurrents lisaient tous deux « rien
+    // d'imprimé », tiraient tous deux, et où seule la SECONDE ÉCRITURE échouait :
+    // deux papiers sortis, un seul tracé. L'index unique (of_num, doc_type,
+    // attempt) arbitre désormais avant qu'une feuille ne bouge — le perdant sort
+    // sans imprimer.
+    let job: PrintJob
+    try {
+      job = await PrintJob.create({
+        ofNum,
+        docType,
+        attempt,
+        stoloc,
+        destCode: routed.destCode,
+        sandbox: routed.sandbox,
+        status: 'pending',
+        serverVerdict: 'pending',
+        origin: params.origin ?? 'manual',
+        requestedBy: params.requestedBy ?? '',
+        createdAt: Math.floor(Date.now() / 1000),
+      })
+    } catch (e) {
+      // Deux causes possibles, à ne pas confondre : le rang est pris (un autre
+      // appel tire ce document en ce moment) ou la base est en panne. Relire le
+      // rang tranche — annoncer « tirage concurrent » sur une panne enverrait
+      // chercher un papier qui n'existe pas.
+      const taken = await PrintJob.query()
+        .where('of_num', ofNum)
+        .where('doc_type', docType)
+        .where('attempt', attempt)
+        .first()
+        .catch(() => null)
+      return {
+        ...base,
+        ok: false,
+        status: taken ? 'locked' : 'failed',
+        destCode: routed.destCode,
+        sandbox: routed.sandbox,
+        attempt,
+        message: '',
+        error: taken
+          ? `Tirage concurrent sur ${docLabel(labels, docType)} / ${ofNum} : rien n’a été envoyé une seconde fois.`
+          : `Réservation du tirage impossible (${String(e)}) : rien n’a été envoyé, le journal n’aurait rien tracé.`,
+      }
+    }
 
     // --- Relevé AVANT tirage -------------------------------------------------
     // Le rapprochement de la tâche se fait par exclusion : tout rang absent de
@@ -463,46 +548,27 @@ class PrintService {
       }
     }
 
-    // --- Journal -------------------------------------------------------------
-    // Écrit dans tous les cas. L'insertion peut échouer sur collision de rang
-    // (deux appels concurrents) : c'est le verrou structurel qui joue, on ne
-    // l'avale pas silencieusement.
-    let job: PrintJob | null = null
+    // --- Clôture du journal --------------------------------------------------
+    // La ligne existe déjà (réservation) : on ne fait que la trancher. Un échec
+    // ici laisse un `pending` en base — état honnête, qui bloque la réimpression
+    // automatique et se voit sur /impressions, plutôt qu'un tirage effacé.
+    let journalError = ''
     try {
-      job = await PrintJob.create({
-        ofNum,
-        docType,
-        attempt,
-        stoloc,
-        destCode: routed.destCode,
-        sandbox: routed.sandbox,
-        status: ok ? 'submitted' : 'failed',
-        retCod,
-        message: printMessage || retErMsg,
-        error: ok ? '' : retErMsg || x3Messages || res.error || 'Appel X3 sans verdict',
-        poolEntryIdx: res.poolEntryIdx ?? '',
-        durationMs,
-        x3Trace: diagnosticTrace(res, ok, watch.verdict),
-        serverVerdict: watch.verdict,
-        jobRank: watch.rank,
-        jobPhase: watch.phase,
-        jobDetail: watch.detail,
-        verdictInferred: watch.inferred,
-        origin: params.origin ?? 'manual',
-        requestedBy: params.requestedBy ?? '',
-        createdAt: Math.floor(Date.now() / 1000),
-      })
+      job.status = ok ? 'submitted' : 'failed'
+      job.retCod = retCod
+      job.message = printMessage || retErMsg
+      job.error = ok ? '' : retErMsg || x3Messages || res.error || 'Appel X3 sans verdict'
+      job.poolEntryIdx = res.poolEntryIdx ?? ''
+      job.durationMs = durationMs
+      job.x3Trace = diagnosticTrace(res, ok, watch.verdict)
+      job.serverVerdict = watch.verdict
+      job.jobRank = watch.rank
+      job.jobPhase = watch.phase
+      job.jobDetail = watch.detail
+      job.verdictInferred = watch.inferred
+      await job.save()
     } catch (e) {
-      return {
-        ...base,
-        ok: false,
-        status: 'failed',
-        destCode: routed.destCode,
-        sandbox: routed.sandbox,
-        attempt,
-        message: printMessage,
-        error: `Tirage exécuté mais non journalisé (${String(e)}). Vérifier avant de relancer.`,
-      }
+      journalError = `Verdict non journalisé (${String(e)}) : le tirage ${attempt} reste en cours au journal.`
     }
 
     return {
@@ -514,7 +580,10 @@ class PrintService {
       sandbox: routed.sandbox,
       attempt,
       message: printMessage || retErMsg,
-      error: ok ? '' : retErMsg || x3Messages || res.error || 'Appel X3 sans verdict',
+      error:
+        [ok ? '' : retErMsg || x3Messages || res.error || 'Appel X3 sans verdict', journalError]
+          .filter(Boolean)
+          .join(' · '),
       jobId: job.id,
       previous: null,
       serverVerdict: watch.verdict,
@@ -616,8 +685,9 @@ class PrintService {
     }
 
     // Le dossier n'est « ok » que si chaque document est parti sans erreur
-    // constatée. Un verrou d'idempotence (`locked`) compte comme un succès :
-    // le document est déjà sorti.
+    // constatée. Un verrou d'idempotence (`locked`) compte comme un succès : le
+    // document est déjà sorti, ou un tirage concurrent le sort en ce moment —
+    // dans les deux cas c'est ce tirage-là qui porte le verdict, au journal.
     const ok = documents.every(
       (d) => (d.status === 'submitted' || d.status === 'locked') && d.serverVerdict !== 'error'
     )

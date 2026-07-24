@@ -78,9 +78,13 @@ const ORIGINS: Record<string, string> = {
 
 /** Un tirage a échoué si X3 l'a refusé OU si le serveur d'édition l'a mis en erreur. */
 const failed = (j: Job) => j.status === 'failed' || j.serverVerdict === 'error'
-/** Verdict encore inconnu : soumis, mais issue non lue. */
+/**
+ * Verdict encore inconnu : soumis mais issue non lue, ou tirage réservé dont
+ * l'appel X3 n'a jamais rendu la main.
+ */
 const pending = (j: Job) =>
-  j.status === 'submitted' && (j.serverVerdict === 'pending' || j.serverVerdict === 'unknown')
+  j.status === 'pending' ||
+  (j.status === 'submitted' && (j.serverVerdict === 'pending' || j.serverVerdict === 'unknown'))
 
 const fmtStamp = (s: number): string => {
   if (!s) return '—'
@@ -91,6 +95,18 @@ const fmtStamp = (s: number): string => {
 
 /** Verdict du serveur d'édition, rendu sans arrondi. */
 function Verdict({ j }: { j: Job }) {
+  // Rang réservé, appel X3 sans retour. Ni succès ni échec : on ne sait pas si
+  // du papier est sorti, et c'est ce qu'il faut afficher.
+  if (j.status === 'pending') {
+    return (
+      <span
+        className="font-semibold text-amber-700"
+        title="Tirage réservé au journal, issue de l’appel X3 inconnue. Réimprimer reste possible, explicitement."
+      >
+        tirage en cours
+      </span>
+    )
+  }
   if (j.status === 'failed') {
     return (
       <span className="font-semibold text-red-700" title={j.error}>

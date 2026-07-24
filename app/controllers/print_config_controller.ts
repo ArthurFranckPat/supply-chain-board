@@ -159,7 +159,6 @@ export default class PrintConfigController {
     const code = String(r.input('code') ?? '').trim().toUpperCase()
     const label = String(r.input('label') ?? '').trim()
     const position = Number(r.input('position') ?? 0) || 0
-    const active = r.input('active') !== false && r.input('active') !== 'false'
 
     if (!code) return ctx.response.badRequest({ error: 'code requis' })
     if (!/^[A-Z0-9_-]{1,30}$/.test(code)) {
@@ -167,6 +166,19 @@ export default class PrintConfigController {
         error: `Code ${code} invalide : lettres, chiffres, tiret et souligné, 30 caractères au plus.`,
       })
     }
+
+    /**
+     * `active` n'est touché que s'il est envoyé. Le déduire d'une absence
+     * réactivait un document désactivé au premier renommage — et un document
+     * actif rentre dans le dossier d'OF, donc sort du papier que personne
+     * n'avait redemandé. Un nouveau document, lui, naît actif.
+     */
+    const rawActive = r.input('active')
+    const current = await PrintDocument.findBy('code', code)
+    const active =
+      rawActive === undefined || rawActive === null
+        ? (current?.active ?? true)
+        : rawActive !== false && rawActive !== 'false' && rawActive !== 0 && rawActive !== '0'
 
     const row = await PrintDocument.updateOrCreate(
       { code },

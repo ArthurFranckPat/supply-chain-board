@@ -876,9 +876,14 @@ export default function ImpressionsConfig(props: PageProps) {
                       <span className="font-mono text-[12px]">{j.destCode}</span>
                     </td>
                     <td className="px-4 py-2">
-                      {j.status === 'submitted' ? (
-                        <span className="text-emerald-700">soumis</span>
-                      ) : (
+                      {j.status === 'submitted' && <span className="text-emerald-700">soumis</span>}
+                      {/* Rang réservé, appel X3 sans retour : ni soumis ni refusé. */}
+                      {j.status === 'pending' && (
+                        <span className="text-amber-700" title="Issue de l’appel X3 inconnue.">
+                          en cours
+                        </span>
+                      )}
+                      {j.status !== 'submitted' && j.status !== 'pending' && (
                         <span className="text-red-700" title={j.error}>
                           refusé
                         </span>
