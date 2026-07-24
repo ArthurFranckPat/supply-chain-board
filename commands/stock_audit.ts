@@ -100,25 +100,9 @@ export default class StockAudit extends BaseCommand {
         return x ? `${x.n} lignes, Σ ${Math.round(x.qty * 100) / 100}` : '0 lignes'
       }
       this.logger.info(`Projection — demande client : ${fmtKind('demande')}`)
+      this.logger.info(`Projection — besoin composant OF (MFGMAT) : ${fmtKind('composant')}`)
       this.logger.info(`Projection — réceptions attendues : ${fmtKind('reception')}`)
       this.logger.info(`Projection — production OF : ${fmtKind('of')}`)
-
-      // Besoin composant : lignes MFGMAT restant à sortir sur OF ouverts
-      // (fermes/planifiés) démarrant avant l'horizon — la demande réelle des
-      // articles achetés/semi-finis, absente de WIPTYP 1.
-      const matRows = (await db.raw(
-        `SELECT (M.RETQTY_0 - M.USEQTY_0) AS QTY, O.STRDAT_0 AS STRDAT
-         FROM MFGMAT M
-         INNER JOIN ORDERS O ON O.VCRNUM_0 = M.MFGNUM_0 AND O.WIPTYP_0 = 5
-         WHERE M.ITMREF_0 = '${article}'
-           AND (M.RETQTY_0 - M.USEQTY_0) > 0
-           AND O.WIPSTA_0 IN (1, 2)
-           AND O.STRDAT_0 <= TO_DATE('${isoL(horizon).replace(/-/g, '')}','YYYYMMDD')`
-      )) as Record<string, string | null>[]
-      const matQty = matRows.reduce((s, r) => s + num(r.QTY), 0)
-      this.logger.info(
-        `Projection — besoin composant OF (MFGMAT) : ${matRows.length} lignes, Σ ${Math.round(matQty * 100) / 100}`
-      )
 
       // --- Lignes brutes du journal sur la fenêtre 52 semaines ---
       let rows: Record<string, string | null>[]
