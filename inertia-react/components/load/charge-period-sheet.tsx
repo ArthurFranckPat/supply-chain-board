@@ -2,6 +2,14 @@ import { useEffect, useMemo, useState } from 'react'
 import { CircleX, RefreshCw, TriangleAlert } from 'lucide-react'
 import { cn } from '@r/lib/utils'
 import { Sheet, SheetContent, SheetTitle } from '@r/components/ui/sheet'
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+  useComboboxAnchor,
+} from '@r/components/ui/combobox'
 import { route } from '@/lib/routes'
 import type { LoadPeriod, LoadView } from '@/lib/load/types'
 import { type Gran, segKeys, segLabel } from '@/lib/load/chart-math'
@@ -183,26 +191,76 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
   // Masque identique à celui du graphe — même source (`segKeys`).
   const keep = useMemo(() => segKeys(view, activeSegs), [view, activeSegs])
 
+  // Filtre article local au panneau. Sentinelle explicite plutôt que chaîne
+  // vide : Base UI traite '' comme « aucune sélection », ce qui empêcherait de
+  // sélectionner l'option « tous » une fois un article choisi.
+  const ALL = '__all__'
+  const [articleFilter, setArticleFilter] = useState<string>(ALL)
+  const [articleQuery, setArticleQuery] = useState('')
+  const anchorRef = useComboboxAnchor()
+
+  // Le filtre porte sur un bucket donné : il n'a pas de sens d'un bucket à
+  // l'autre, on le remet à zéro dès que la cible ou la vue change.
+  useEffect(() => {
+    setArticleFilter(ALL)
+    setArticleQuery('')
+  }, [poste, bucketKey, gran, view])
+
+  const cmdHours = (r: DetailCmdRow) => (net ? r.netHours : r.brutHours)
+
+  /**
+   * Options du filtre article — construites APRÈS le masque de segments et
+   * AVANT le filtre article : la liste propose donc exactement les articles
+   * visibles, et ne se vide pas d'elle-même une fois une sélection faite.
+   */
+  const articleOptions = useMemo(() => {
+    if (!data) return [] as { code: string; designation: string | null; hours: number }[]
+    const agg = new Map<string, { code: string; designation: string | null; hours: number }>()
+    const push = (code: string, designation: string | null, hours: number) => {
+      const cur = agg.get(code)
+      if (cur) {
+        cur.hours += hours
+        if (!cur.designation) cur.designation = designation
+      } else agg.set(code, { code, designation, hours })
+    }
+    if (data.view === 'of') {
+      for (const r of data.ofRows) if (keep.has(r.field)) push(r.article, r.designation, r.hours)
+    } else {
+      for (const r of data.cmdRows) if (keep.has(r.field)) push(r.article, r.designation, cmdHours(r))
+    }
+    return [...agg.values()].sort((a, b) => b.hours - a.hours)
+  }, [data, keep, net])
+
+  const filteredOptions = useMemo(() => {
+    const q = articleQuery.trim().toLowerCase()
+    if (!q) return articleOptions
+    return articleOptions.filter((o) =>
+      `${o.code} ${o.designation ?? ''}`.toLowerCase().includes(q)
+    )
+  }, [articleOptions, articleQuery])
+
+  const articleActive = articleFilter !== ALL
+  const matchesArticle = (article: string) => !articleActive || article === articleFilter
+
   const ofGroups = useMemo(() => {
     if (data?.view !== 'of') return []
     return groupByDay(
-      data.ofRows.filter((r) => keep.has(r.field)),
+      data.ofRows.filter((r) => keep.has(r.field) && matchesArticle(r.article)),
       (r) => r.dateIso,
       (r) => r.field,
       (r) => r.hours
     )
-  }, [data, keep])
+  }, [data, keep, articleFilter])
 
-  const cmdHours = (r: DetailCmdRow) => (net ? r.netHours : r.brutHours)
   const cmdGroups = useMemo(() => {
     if (data?.view !== 'commande') return []
     return groupByDay(
-      data.cmdRows.filter((r) => keep.has(r.field)),
+      data.cmdRows.filter((r) => keep.has(r.field) && matchesArticle(r.article)),
       (r) => r.dateIso,
       (r) => r.field,
       cmdHours
     )
-  }, [data, keep, net])
+  }, [data, keep, net, articleFilter])
 
   const groups = view === 'of' ? ofGroups : cmdGroups
   const totalHours = useMemo(() => groups.reduce((a, g) => a + g.hours, 0), [groups])
@@ -287,6 +345,11 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
               <span className="font-mono text-[15px] font-bold tabular-nums text-foreground">
                 {fmtH(totalHours)} h
               </span>
+              {/* Un total filtré n'est plus la hauteur de la barre : le dire,
+                  sinon le chiffre semble contredire le graphe. */}
+              {articleActive && (
+                <span className="font-mono text-[10px] font-semibold text-brand">filtré</span>
+              )}
               {view === 'commande' && (
                 <span className="font-mono text-[10px] text-muted-foreground">
                   {net ? 'net' : 'brut'}
@@ -318,9 +381,74 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
               </div>
             )}
 
+            {/* Filtre article — inutile quand la période ne contient qu'un
+                article : un sélecteur à un seul choix n'est que du bruit. */}
+            {articleOptions.length > 1 && (
+              <div className="flex flex-none items-center gap-2 border-b border-rule px-5 py-1.5">
+                <span className="font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Article
+                </span>
+                <div ref={anchorRef} className="w-[320px]">
+                  <Combobox
+                    value={articleFilter}
+                    onValueChange={(v) => setArticleFilter(String(v ?? ALL))}
+                    onInputValueChange={(v) => setArticleQuery(v)}
+                  >
+                    <ComboboxInput
+                      placeholder="Tous les articles — code ou désignation…"
+                      className="w-full"
+                    />
+                    <ComboboxContent anchor={anchorRef}>
+                      <ComboboxList>
+                        <ComboboxItem value={ALL}>
+                          <span className="text-[12px] font-semibold">Tous les articles</span>
+                          <span className="text-muted-foreground text-[11px]">
+                            {articleOptions.length}
+                          </span>
+                        </ComboboxItem>
+                        {filteredOptions.length === 0 ? (
+                          <p className="px-2 py-3 text-center text-sm text-muted-foreground">
+                            Aucun article ne correspond à « {articleQuery} ».
+                          </p>
+                        ) : (
+                          filteredOptions.map((o) => (
+                            <ComboboxItem key={o.code} value={o.code}>
+                              <span className="font-mono text-[12px] font-semibold">{o.code}</span>
+                              <span className="min-w-0 flex-1 truncate text-muted-foreground text-[11px]">
+                                {o.designation || '—'}
+                              </span>
+                              {/* Le poids oriente le choix sans avoir à filtrer
+                                  pour le découvrir. */}
+                              <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+                                {fmtH(o.hours)} h
+                              </span>
+                            </ComboboxItem>
+                          ))
+                        )}
+                      </ComboboxList>
+                    </ComboboxContent>
+                  </Combobox>
+                </div>
+                {articleActive && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setArticleFilter(ALL)
+                      setArticleQuery('')
+                    }}
+                    className="font-mono text-[10px] font-semibold text-brand hover:underline"
+                  >
+                    Tout afficher
+                  </button>
+                )}
+              </div>
+            )}
+
             {rowCount === 0 ? (
               <div className="flex flex-1 items-center justify-center p-10 font-fraunces text-[13px] italic text-muted-foreground">
-                Aucune charge sur cette période avec le filtre actif.
+                {articleActive
+                  ? `Aucune charge pour ${articleFilter} sur cette période.`
+                  : 'Aucune charge sur cette période avec le filtre actif.'}
               </div>
             ) : (
               <div className="min-h-0 flex-1 overflow-auto">
