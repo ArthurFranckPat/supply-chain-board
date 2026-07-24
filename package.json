@@ -101,6 +101,7 @@
     "clsx": "^2.1.1",
     "cva": "^1.0.0-beta.4",
     "edge.js": "^6.5.1",
+    "gridstack": "^13.1.0",
     "luxon": "^3.7.2",
     "reflect-metadata": "^0.2.2",
     "solid-js": "^1.9.14",

@@ -4,6 +4,7 @@ import {
   createSignal,
   createEffect,
   on,
+  onMount,
   onCleanup,
   For,
   Show,
@@ -12,17 +13,19 @@ import {
 } from 'solid-js'
 import { createStore, produce } from 'solid-js/store'
 import { toast } from 'solid-sonner'
+import { GridStack, type GridStackNode } from 'gridstack'
+import 'gridstack/dist/gridstack.min.css'
 import { Masthead } from '@/components/masthead'
 import { Calendar, type DateRange } from '@/components/ui/calendar'
 import { usePrintFitPage } from '@/lib/board/use-print-fit'
 import {
   DEFAULT_DASHBOARD_LAYOUT,
+  GRID_COLS,
   KPI_TITLES,
   normalizeDashboardLayout,
   type DashboardLayout,
   type KpiId,
   type KpiLayoutItem,
-  type KpiWidth,
 } from '@/lib/dashboard/types'
 
 /**
@@ -230,174 +233,122 @@ const StockSparkline: Component<{ series: StockValuationPoint[] }> = (p) => {
   )
 }
 
-/** Classes de largeur statiques (purge Tailwind). 1 = 1/3, 2 = 2/3, 3 = plein. */
-const WIDTH_CLASS: Record<KpiWidth, string> = {
-  1: 'lg:col-span-1',
-  2: 'lg:col-span-2',
-  3: 'lg:col-span-3',
-}
-
 /**
- * Conteneur de KPI pilotant la disposition : largeur discrète (col-span sur la
- * grille 3 colonnes), ordre CSS (écran vs impression via `order`), et en mode
- * édition, poignée de drag, sélecteur de largeur, flèches d'ordre d'impression
- * et badge de numéro d'impression.
+ * Conteneur de KPI monté comme widget Gridstack (position + taille libres,
+ * drag + resize live gérés par la lib) : en mode édition, poignée de drag
+ * implicite (tout le tile), poignée de resize (coin bas-droit), flèches
+ * d'ordre d'impression, bouton masquer/afficher et badge de numéro d'impression.
+ *
+ * Le `<div class="grid-stack-item">` racine porte les attributs `gs-*`
+ * (position/taille initiales) que Gridstack lit UNE SEULE fois à
+ * `GridStack.init()` puis possède ensuite — on ne les remet jamais à jour
+ * depuis le store (Gridstack est source de vérité pendant la session ; le
+ * store ne fait qu'écouter ses events `change`).
+ *
+ * CRITIQUE : ce noeud racine ne doit JAMAIS être démonté/remonté par Solid
+ * (pas de `<Show>` dessus) — Gridstack le référence en interne dans son
+ * moteur ; un swap d'élément désynchroniserait son état (positions/collisions
+ * fausses au prochain drag). La visibilité se bascule donc à l'intérieur
+ * (contenu réel vs placeholder « masqué »), jamais sur le wrapper lui-même.
  */
 const Tile: Component<{
   id: KpiId
   children: JSX.Element
   editMode: boolean
-  screenRank: number
+  visible: boolean
+  x: number
+  y: number
+  w: number
+  h: number
   printRank: number
-  width: KpiWidth
-  onWidth: (w: KpiWidth) => void
   onHide: () => void
+  onShow: () => void
   onPrintMove: (dir: -1 | 1) => void
-  draggedId: () => KpiId | null
-  dropTargetId: () => KpiId | null
-  setDraggedId: (v: KpiId | null) => void
-  setDropTargetId: (v: KpiId | null) => void
-  onDrop: (target: KpiId) => void
+  itemRef: (id: KpiId, el: HTMLDivElement | undefined) => void
 }> = (p) => {
-  // Ordre d'affichage via variables CSS : `--screen-order` à l'écran,
-  // `--print-order` à l'impression (bascule déclarative en CSS @media print,
-  // indépendante du cycle réactif de Solid → robuste vis-à-vis de usePrintFitPage).
-  const isDropTarget = () => p.dropTargetId() === p.id && p.draggedId() !== null && p.draggedId() !== p.id
-
   return (
     <div
-      class={`kpi-tile relative ${WIDTH_CLASS[p.width]} ${p.editMode ? 'cursor-grab rounded ring-1 ring-brand/30 active:cursor-grabbing' : ''} ${
-        isDropTarget() ? 'ring-2 ring-brand' : ''
-      }`}
-      style={{ '--screen-order': p.screenRank, '--print-order': p.printRank }}
-      draggable={p.editMode}
-      onDragStart={(e) => {
-        p.setDraggedId(p.id)
-        if (e.dataTransfer) {
-          e.dataTransfer.effectAllowed = 'move'
-          e.dataTransfer.setData('text/plain', p.id)
-        }
-      }}
-      onDragEnd={() => {
-        p.setDraggedId(null)
-        p.setDropTargetId(null)
-      }}
-      onDragOver={(e) => {
-        // CRITIQUE : en HTML5 DnD, un `drop` ne se déclenche QUE si dragover a
-        // appelé preventDefault(). On le fait TOUJOURS en mode édition (on ne
-        // dépend pas du signal draggedId qui peut ne pas être propagé à temps),
-        // sinon le navigateur refuse définitivement le drop sur cette cible.
-        if (!p.editMode) return
-        e.preventDefault()
-        if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
-        if (p.draggedId() && p.draggedId() !== p.id) p.setDropTargetId(p.id)
-      }}
-      onDrop={(e) => {
-        e.preventDefault()
-        p.setDropTargetId(null)
-        const dragged = p.draggedId()
-        if (dragged && dragged !== p.id) p.onDrop(p.id)
-      }}
+      class="grid-stack-item"
+      classList={{ hidden: !p.visible && !p.editMode }}
+      gs-id={p.id}
+      gs-x={String(p.x)}
+      gs-y={String(p.y)}
+      gs-w={String(p.w)}
+      gs-h={String(p.h)}
+      style={{ '--print-order': p.printRank }}
+      ref={(el) => p.itemRef(p.id, el)}
     >
-      {/* Barre d'outils édition (poignée + largeur + ordre impression + masquer) */}
-      <Show when={p.editMode}>
-        <div class="pointer-events-none absolute -top-3 left-3 z-10 flex items-center gap-1 rounded border border-rule bg-card px-1.5 py-0.5 shadow-sm print:hidden">
-          <span class="text-muted-foreground" title="Glisser pour réordonner">
-            <span class="material-symbols-outlined text-[14px]">drag_indicator</span>
-          </span>
-          {/* Sélecteur de largeur discret */}
-          <div class="pointer-events-auto flex items-center rounded border border-rule bg-secondary px-0.5">
-            <For each={[1, 2, 3] as KpiWidth[]}>
-              {(w) => (
-                <button
-                  type="button"
-                  onClick={() => p.onWidth(w)}
-                  class="rounded px-1 py-0.5 font-mono text-[9px] font-bold transition-colors"
-                  classList={{
-                    'bg-card text-foreground shadow-sm': p.width === w,
-                    'text-muted-foreground hover:text-foreground': p.width !== w,
-                  }}
-                  title={w === 1 ? '1/3' : w === 2 ? '2/3' : 'Pleine largeur'}
-                >
-                  {w === 1 ? '⅓' : w === 2 ? '⅔' : '▭'}
-                </button>
-              )}
-            </For>
-          </div>
-        </div>
-        {/* Badge numéro d'impression + flèches d'ordre d'impression */}
-        <div class="pointer-events-none absolute -top-3 right-3 z-10 flex items-center gap-0.5 rounded border border-rule bg-card px-1.5 py-0.5 shadow-sm print:hidden">
-          <button
-            type="button"
-            onClick={() => p.onPrintMove(-1)}
-            class="pointer-events-auto text-muted-foreground hover:text-foreground"
-            title="Monter dans l'ordre d'impression"
-            aria-label="Monter dans l'ordre d'impression"
-          >
-            <span class="material-symbols-outlined text-[13px]">arrow_upward</span>
-          </button>
-          <span class="font-mono text-[9px] font-bold tabular-nums text-brand" title="Ordre d'impression">
-            #{p.printRank + 1}
-          </span>
-          <button
-            type="button"
-            onClick={() => p.onPrintMove(1)}
-            class="pointer-events-auto text-muted-foreground hover:text-foreground"
-            title="Descendre dans l'ordre d'impression"
-            aria-label="Descendre dans l'ordre d'impression"
-          >
-            <span class="material-symbols-outlined text-[13px]">arrow_downward</span>
-          </button>
-        </div>
-      </Show>
-      {/* Badge numéro d'impression — visible uniquement à l'impression (évite le
-          chevauchement avec le bouton masquer du CardHeader à l'écran). */}
-      <Show when={!p.editMode}>
-        <span
-          class="absolute right-3 top-3 z-10 hidden rounded bg-secondary/80 px-1.5 py-0.5 font-mono text-[9px] font-bold tabular-nums text-muted-foreground print:block"
-          title="Ordre d'impression"
+      <div class="grid-stack-item-content relative">
+        <Show
+          when={p.visible}
+          fallback={
+            <div class="flex h-full items-center gap-2 rounded border border-dashed border-rule bg-secondary/30 px-4 py-3 print:hidden">
+              <span class="material-symbols-outlined text-[15px] text-muted-foreground">
+                visibility_off
+              </span>
+              <span class="font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                {KPI_TITLES[p.id]}
+              </span>
+              <span class="font-fraunces text-[12px] italic text-muted-foreground/70">— masqué</span>
+              <button
+                type="button"
+                onClick={p.onShow}
+                class="ml-auto flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              >
+                <span class="material-symbols-outlined text-[13px]">visibility</span>
+                <span>Afficher</span>
+              </button>
+            </div>
+          }
         >
-          {p.printRank + 1}
-        </span>
-      </Show>
-      {p.children}
-    </div>
-  )
-}
-
-/**
- * Placeholder pour un KPI masqué. En mode édition, il reste un tile réordonnable
- * (pour le replacer) ; hors édition, il est masqué à l'impression.
- */
-const HiddenTile: Component<{
-  id: KpiId
-  editMode: boolean
-  onShow: () => void
-}> = (p) => {
-  // Affiché uniquement en mode édition : sinon le KPI masqué disparaît totalement.
-  return (
-    <Show when={p.editMode}>
-      <div
-        class="lg:col-span-1"
-        style={{ order: 999 }}
-      >
-        <div class="flex items-center gap-2 rounded border border-dashed border-rule bg-secondary/30 px-4 py-3 print:hidden">
-          <span class="material-symbols-outlined text-[15px] text-muted-foreground">visibility_off</span>
-          <span class="font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-            {KPI_TITLES[p.id]}
-          </span>
-          <span class="font-fraunces text-[12px] italic text-muted-foreground/70">— masqué</span>
-          <button
-            type="button"
-            onClick={p.onShow}
-            class="ml-auto flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-          >
-            <span class="material-symbols-outlined text-[13px]">visibility</span>
-            <span>Afficher</span>
-          </button>
-        </div>
+          {/* Badge numéro d'impression + flèches d'ordre d'impression */}
+          <Show when={p.editMode}>
+            <div class="pointer-events-none absolute -top-3 left-3 z-10 flex items-center gap-1 rounded border border-rule bg-card px-1.5 py-0.5 shadow-sm print:hidden">
+              <span
+                class="text-muted-foreground"
+                title="Glisser pour réordonner, tirer le coin pour redimensionner"
+              >
+                <span class="material-symbols-outlined text-[14px]">drag_indicator</span>
+              </span>
+            </div>
+            <div class="pointer-events-none absolute -top-3 right-3 z-10 flex items-center gap-0.5 rounded border border-rule bg-card px-1.5 py-0.5 shadow-sm print:hidden">
+              <button
+                type="button"
+                onClick={() => p.onPrintMove(-1)}
+                class="pointer-events-auto text-muted-foreground hover:text-foreground"
+                title="Monter dans l'ordre d'impression"
+                aria-label="Monter dans l'ordre d'impression"
+              >
+                <span class="material-symbols-outlined text-[13px]">arrow_upward</span>
+              </button>
+              <span class="font-mono text-[9px] font-bold tabular-nums text-brand" title="Ordre d'impression">
+                #{p.printRank + 1}
+              </span>
+              <button
+                type="button"
+                onClick={() => p.onPrintMove(1)}
+                class="pointer-events-auto text-muted-foreground hover:text-foreground"
+                title="Descendre dans l'ordre d'impression"
+                aria-label="Descendre dans l'ordre d'impression"
+              >
+                <span class="material-symbols-outlined text-[13px]">arrow_downward</span>
+              </button>
+            </div>
+          </Show>
+          {/* Badge numéro d'impression — visible uniquement à l'impression (évite le
+              chevauchement avec le bouton masquer du CardHeader à l'écran). */}
+          <Show when={!p.editMode}>
+            <span
+              class="absolute right-3 top-3 z-10 hidden rounded bg-secondary/80 px-1.5 py-0.5 font-mono text-[9px] font-bold tabular-nums text-muted-foreground print:block"
+              title="Ordre d'impression"
+            >
+              {p.printRank + 1}
+            </span>
+          </Show>
+          {p.children}
+        </Show>
       </div>
-    </Show>
+    </div>
   )
 }
 
@@ -424,23 +375,8 @@ const Dashboard: Component<DashboardProps> = (props) => {
   const isVisible = (id: KpiId) => layoutItem(id)?.visible ?? true
   const setVisible = (id: KpiId, visible: boolean) =>
     setLayout('items', (it: KpiLayoutItem) => it.id === id, 'visible', visible)
-  const setWidth = (id: KpiId, width: KpiWidth) =>
-    setLayout('items', (it: KpiLayoutItem) => it.id === id, 'width', width)
   const printRank = (id: KpiId) => layout.printOrder.indexOf(id)
 
-  /** Déplace un KPI avant/après un autre dans l'ordre écran. */
-  const moveItem = (draggedId: KpiId, targetId: KpiId) => {
-    if (draggedId === targetId) return
-    setLayout('items', (items: KpiLayoutItem[]) => {
-      const ordered = [...items]
-      const from = ordered.findIndex((it) => it.id === draggedId)
-      const to = ordered.findIndex((it) => it.id === targetId)
-      if (from === -1 || to === -1) return ordered
-      const [moved] = ordered.splice(from, 1)
-      ordered.splice(to, 0, moved)
-      return ordered
-    })
-  }
   /** Déplace un KPI d'un cran dans l'ordre d'impression (dir = -1 | +1). */
   const movePrint = (id: KpiId, dir: -1 | 1) => {
     setLayout('printOrder', produce((order: KpiId[]) => {
@@ -449,6 +385,81 @@ const Dashboard: Component<DashboardProps> = (props) => {
       if (i === -1 || j < 0 || j >= order.length) return
       ;[order[i], order[j]] = [order[j], order[i]]
     }))
+  }
+
+  /* ----- Grille libre (Gridstack) : drag + resize live, positions/tailles
+   *  libres en pixels (unités de grille). Gridstack possède le DOM et son
+   *  propre moteur de collisions une fois initialisé ; le store Solid
+   *  n'écoute que ses events `change` pour persister — jamais l'inverse en
+   *  cours de session (sinon boucle de rétroaction avec le drag natif). ----- */
+  let gridEl: HTMLDivElement | undefined
+  let grid: GridStack | undefined
+  const itemEls = new Map<KpiId, HTMLDivElement>()
+  const setItemRef = (id: KpiId, el: HTMLDivElement | undefined) => {
+    if (el) itemEls.set(id, el)
+    else itemEls.delete(id)
+  }
+
+  /** Persiste dans le store la position/taille courante d'un ou plusieurs
+   *  widgets suite à un drag/resize natif Gridstack (déjà appliqué au DOM). */
+  const applyGridChange = (nodes: GridStackNode[]) => {
+    setLayout(
+      'items',
+      produce((items: KpiLayoutItem[]) => {
+        for (const node of nodes) {
+          const id = node.id as KpiId | undefined
+          if (!id) continue
+          const item = items.find((it) => it.id === id)
+          if (!item) continue
+          item.x = node.x ?? item.x
+          item.y = node.y ?? item.y
+          item.w = node.w ?? item.w
+          item.h = node.h ?? item.h
+        }
+      })
+    )
+  }
+
+  onMount(() => {
+    if (!gridEl) return
+    const instance = GridStack.init(
+      {
+        column: GRID_COLS,
+        cellHeight: 28,
+        margin: 8,
+        float: true,
+        staticGrid: !editMode(),
+        draggable: { handle: '.grid-stack-item-content' },
+        resizable: { handles: 'se' },
+      },
+      gridEl
+    )
+    if (!instance) return
+    grid = instance
+    instance.on('change', (_ev, nodes) => applyGridChange((nodes ?? []) as GridStackNode[]))
+  })
+  onCleanup(() => grid?.destroy(false))
+
+  // Bascule verrouillage drag/resize avec le mode édition (les boutons
+  // toolbar + poignée restent gérés déclarativement par Solid ; seule
+  // l'interaction native Gridstack est (dé)verrouillée ici).
+  createEffect(() => {
+    grid?.setStatic(!editMode())
+  })
+
+  /** Réinitialise la disposition par défaut : replace chaque widget côté
+   *  Gridstack (source de vérité du DOM) puis synchronise le store. */
+  const resetLayout = () => {
+    const defaults = structuredClone(DEFAULT_DASHBOARD_LAYOUT)
+    if (grid) {
+      grid.batchUpdate()
+      for (const it of defaults.items) {
+        const el = itemEls.get(it.id)
+        if (el) grid.update(el, { x: it.x, y: it.y, w: it.w, h: it.h })
+      }
+      grid.batchUpdate(false)
+    }
+    setLayout(defaults)
   }
 
   // Filtres du tableau « Stock par article ».
@@ -656,14 +667,6 @@ const Dashboard: Component<DashboardProps> = (props) => {
     </div>
   )
 
-  /* ----- Layout dynamique : grille dense + ordre CSS + largeurs discrètes ----- */
-  /** Position d'un KPI dans l'ordre écran (utilisé pour CSS `order`). */
-  const screenRank = (id: KpiId) => layout.items.findIndex((it) => it.id === id)
-
-  /** Drag & drop natif (HTML5) pour réordonner les KPI à l'écran. */
-  const [draggedId, setDraggedId] = createSignal<KpiId | null>(null)
-  const [dropTargetId, setDropTargetId] = createSignal<KpiId | null>(null)
-
   return (
     <div class="theme-navy flex h-screen flex-col overflow-hidden bg-background text-foreground print:h-auto print:overflow-visible">
       <Masthead subtitle="Tableau de bord · Overview" active="dashboard" />
@@ -691,14 +694,14 @@ const Dashboard: Component<DashboardProps> = (props) => {
         <div class="mb-4 flex items-center justify-between gap-3 print:hidden">
           <Show when={editMode()}>
             <span class="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-              Personnalisation — glissez les KPI, changez leur largeur, masquez-en.
+              Personnalisation — glissez les KPI, tirez le coin pour redimensionner librement, masquez-en.
             </span>
           </Show>
           <div class="ml-auto flex items-center gap-2">
             <Show when={editMode()}>
               <button
                 type="button"
-                onClick={() => setLayout(structuredClone(DEFAULT_DASHBOARD_LAYOUT))}
+                onClick={resetLayout}
                 class="rounded border border-rule bg-secondary px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground transition-colors hover:bg-secondary/80 hover:text-foreground"
               >
                 Réinitialiser
@@ -717,29 +720,22 @@ const Dashboard: Component<DashboardProps> = (props) => {
           </div>
         </div>
 
-        <div class="grid grid-cols-1 items-start gap-6 lg:grid-cols-3 lg:[grid-auto-flow:dense]">
+        <div class="grid-stack" ref={gridEl}>
           {/* KPI #1 — Charge en retard par poste (issue #38) */}
-          <Show
-            when={isVisible('charge')}
-            fallback={
-              <HiddenTile id="charge" editMode={editMode()} onShow={() => setVisible('charge', true)} />
-            }
+          <Tile
+            id="charge"
+            editMode={editMode()}
+            visible={isVisible('charge')}
+            x={layoutItem('charge')!.x}
+            y={layoutItem('charge')!.y}
+            w={layoutItem('charge')!.w}
+            h={layoutItem('charge')!.h}
+            printRank={printRank('charge')}
+            onHide={() => setVisible('charge', false)}
+            onShow={() => setVisible('charge', true)}
+            onPrintMove={(dir) => movePrint('charge', dir)}
+            itemRef={setItemRef}
           >
-            <Tile
-              id="charge"
-              editMode={editMode()}
-              screenRank={screenRank('charge')}
-              printRank={printRank('charge')}
-              width={layoutItem('charge')?.width ?? 1}
-              onWidth={(w) => setWidth('charge', w)}
-              onHide={() => setVisible('charge', false)}
-              onPrintMove={(dir) => movePrint('charge', dir)}
-              draggedId={draggedId}
-              dropTargetId={dropTargetId}
-              setDraggedId={setDraggedId}
-              setDropTargetId={setDropTargetId}
-              onDrop={() => moveItem(draggedId()!, 'charge')}
-            >
               <article class="rounded border border-rule bg-card p-6 shadow-[0_14px_30px_-26px_rgba(42,38,34,0.45)]">
                 <CardHeader
                   title="Charge en retard"
@@ -820,31 +816,23 @@ const Dashboard: Component<DashboardProps> = (props) => {
                   </Show>
                 </Show>
               </article>
-              </Tile>
-            </Show>
+          </Tile>
 
-            {/* KPI #2 — OTD (On-Time Delivery) — 1 ou 2 périodes selon le jour */}
-            <Show
-              when={isVisible('otd')}
-              fallback={
-                <HiddenTile id="otd" editMode={editMode()} onShow={() => setVisible('otd', true)} />
-              }
+          {/* KPI #2 — OTD (On-Time Delivery) — 1 ou 2 périodes selon le jour */}
+            <Tile
+              id="otd"
+              editMode={editMode()}
+              visible={isVisible('otd')}
+              x={layoutItem('otd')!.x}
+              y={layoutItem('otd')!.y}
+              w={layoutItem('otd')!.w}
+              h={layoutItem('otd')!.h}
+              printRank={printRank('otd')}
+              onHide={() => setVisible('otd', false)}
+              onShow={() => setVisible('otd', true)}
+              onPrintMove={(dir) => movePrint('otd', dir)}
+              itemRef={setItemRef}
             >
-              <Tile
-                id="otd"
-                editMode={editMode()}
-                screenRank={screenRank('otd')}
-                printRank={printRank('otd')}
-                width={layoutItem('otd')?.width ?? 1}
-                onWidth={(w) => setWidth('otd', w)}
-                onHide={() => setVisible('otd', false)}
-                onPrintMove={(dir) => movePrint('otd', dir)}
-                draggedId={draggedId}
-                dropTargetId={dropTargetId}
-                setDraggedId={setDraggedId}
-                setDropTargetId={setDropTargetId}
-                onDrop={() => moveItem(draggedId()!, 'otd')}
-              >
               <article class="rounded border border-rule bg-card p-6 shadow-[0_14px_30px_-26px_rgba(42,38,34,0.45)]">
                 <div class="mb-4 flex items-center gap-2.5 border-b border-rule-soft pb-3">
                   <span class="size-2 shrink-0 rounded-full bg-foreground/30"></span>
@@ -1089,31 +1077,23 @@ const Dashboard: Component<DashboardProps> = (props) => {
                   </Show>
                 </Show>
               </article>
-              </Tile>
-            </Show>
+            </Tile>
 
             {/* KPI #3 — Valorisation du stock sur 12 mois (AE1) */}
-            <Show
-              when={isVisible('stock')}
-              fallback={
-                <HiddenTile id="stock" editMode={editMode()} onShow={() => setVisible('stock', true)} />
-              }
+            <Tile
+              id="stock"
+              editMode={editMode()}
+              visible={isVisible('stock')}
+              x={layoutItem('stock')!.x}
+              y={layoutItem('stock')!.y}
+              w={layoutItem('stock')!.w}
+              h={layoutItem('stock')!.h}
+              printRank={printRank('stock')}
+              onHide={() => setVisible('stock', false)}
+              onShow={() => setVisible('stock', true)}
+              onPrintMove={(dir) => movePrint('stock', dir)}
+              itemRef={setItemRef}
             >
-              <Tile
-                id="stock"
-                editMode={editMode()}
-                screenRank={screenRank('stock')}
-                printRank={printRank('stock')}
-                width={layoutItem('stock')?.width ?? 1}
-                onWidth={(w) => setWidth('stock', w)}
-                onHide={() => setVisible('stock', false)}
-                onPrintMove={(dir) => movePrint('stock', dir)}
-                draggedId={draggedId}
-                dropTargetId={dropTargetId}
-                setDraggedId={setDraggedId}
-                setDropTargetId={setDropTargetId}
-                onDrop={() => moveItem(draggedId()!, 'stock')}
-              >
               <article class="rounded border border-rule bg-card p-6 shadow-[0_14px_30px_-26px_rgba(42,38,34,0.45)]">
                 <div class="mb-4 flex items-center gap-2.5 border-b border-rule-soft pb-3">
                   <span class="size-2 shrink-0 rounded-full" style={{ background: '#2d6a8f' }}></span>
@@ -1288,30 +1268,22 @@ const Dashboard: Component<DashboardProps> = (props) => {
                   </Show>
                 </Show>
               </article>
-              </Tile>
-            </Show>
+            </Tile>
 
           {/* KPI — Lignes en retard (détail) */}
-          <Show
-            when={isVisible('lignes')}
-            fallback={
-              <HiddenTile id="lignes" editMode={editMode()} onShow={() => setVisible('lignes', true)} />
-            }
-          >
             <Tile
               id="lignes"
               editMode={editMode()}
-              screenRank={screenRank('lignes')}
+              visible={isVisible('lignes')}
+              x={layoutItem('lignes')!.x}
+              y={layoutItem('lignes')!.y}
+              w={layoutItem('lignes')!.w}
+              h={layoutItem('lignes')!.h}
               printRank={printRank('lignes')}
-              width={layoutItem('lignes')?.width ?? 2}
-              onWidth={(w) => setWidth('lignes', w)}
               onHide={() => setVisible('lignes', false)}
+              onShow={() => setVisible('lignes', true)}
               onPrintMove={(dir) => movePrint('lignes', dir)}
-              draggedId={draggedId}
-              dropTargetId={dropTargetId}
-              setDraggedId={setDraggedId}
-              setDropTargetId={setDropTargetId}
-              onDrop={() => moveItem(draggedId()!, 'lignes')}
+              itemRef={setItemRef}
             >
             <article class="flex max-h-[calc(100vh-9rem)] flex-col rounded border border-rule bg-card p-6 shadow-[0_14px_30px_-26px_rgba(42,38,34,0.45)] print:max-h-none print:overflow-visible print:shadow-none">
               <CardHeader
@@ -1419,31 +1391,23 @@ const Dashboard: Component<DashboardProps> = (props) => {
                 </Show>
               </Show>
             </article>
-            </Tile>
-          </Show>
+          </Tile>
 
           {/* Carte — Stock par article (détail, même source que le KPI valorisation) */}
-          <Show
-            when={isVisible('stockTable')}
-            fallback={
-              <HiddenTile id="stockTable" editMode={editMode()} onShow={() => setVisible('stockTable', true)} />
-            }
+          <Tile
+            id="stockTable"
+            editMode={editMode()}
+            visible={isVisible('stockTable')}
+            x={layoutItem('stockTable')!.x}
+            y={layoutItem('stockTable')!.y}
+            w={layoutItem('stockTable')!.w}
+            h={layoutItem('stockTable')!.h}
+            printRank={printRank('stockTable')}
+            onHide={() => setVisible('stockTable', false)}
+            onShow={() => setVisible('stockTable', true)}
+            onPrintMove={(dir) => movePrint('stockTable', dir)}
+            itemRef={setItemRef}
           >
-            <Tile
-              id="stockTable"
-              editMode={editMode()}
-              screenRank={screenRank('stockTable')}
-              printRank={printRank('stockTable')}
-              width={layoutItem('stockTable')?.width ?? 2}
-              onWidth={(w) => setWidth('stockTable', w)}
-              onHide={() => setVisible('stockTable', false)}
-              onPrintMove={(dir) => movePrint('stockTable', dir)}
-              draggedId={draggedId}
-              dropTargetId={dropTargetId}
-              setDraggedId={setDraggedId}
-              setDropTargetId={setDropTargetId}
-              onDrop={() => moveItem(draggedId()!, 'stockTable')}
-            >
             <article class="flex max-h-[calc(100vh-9rem)] flex-col rounded border border-rule bg-card p-6 shadow-[0_14px_30px_-26px_rgba(42,38,34,0.45)] print:max-h-none print:overflow-visible print:shadow-none">
               <CardHeader
                 title="Stock par article"
@@ -1589,8 +1553,7 @@ const Dashboard: Component<DashboardProps> = (props) => {
                 </Show>
               </Show>
             </article>
-            </Tile>
-          </Show>
+          </Tile>
         </div>
       </div>
     </div>

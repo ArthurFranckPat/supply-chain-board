@@ -48,8 +48,9 @@ declare module '@adonisjs/inertia/types' {
 
   interface InertiaPages {
     // Tableau de bord (issue #26 shell + #38 KPI). Coquille + fetch différé du KPI.
-    // `layout` = disposition personnalisée (ordre / visibilité / largeur + ordre
-    // d'impression). Optionnel : absent tant que l'utilisateur n'a rien personnalisé.
+    // `layout` = disposition personnalisée (position/taille libres Gridstack +
+    // visibilité + ordre d'impression). Optionnel : absent tant que l'utilisateur
+    // n'a rien personnalisé.
     'dashboard': {
       referenceDate: string
       kpisHref: string
@@ -59,7 +60,10 @@ declare module '@adonisjs/inertia/types' {
         items: {
           id: 'charge' | 'otd' | 'stock' | 'lignes' | 'stockTable'
           visible: boolean
-          width: 1 | 2 | 3
+          x: number
+          y: number
+          w: number
+          h: number
         }[]
         printOrder: ('charge' | 'otd' | 'stock' | 'lignes' | 'stockTable')[]
       }

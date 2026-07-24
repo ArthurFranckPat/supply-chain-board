@@ -1271,15 +1271,52 @@ up-drawer-dismiss {
   }
 }
 
-/* KPI personnalisables : à l'écran les tiles suivent --screen-order (ordre
-   d'affichage), à l'impression elles basculent sur --print-order (ordre
-   d'impression indépendant). Déclaratif → indépendant du cycle réactif JS. */
-.kpi-tile {
-  order: var(--screen-order, 0);
+/* KPI personnalisables (Gridstack) : à l'écran, position/taille libres
+   pixel-absolues gérées par Gridstack. À l'impression, on écrase cette mise
+   en page absolue par un flux vertical classique ordonné par --print-order
+   (ordre d'impression indépendant du placement écran). Déclaratif → robuste
+   vis-à-vis du cycle réactif JS et de usePrintFitPage. */
+.grid-stack:not(.grid-stack-static) > .grid-stack-item > .grid-stack-item-content {
+  cursor: grab;
+  outline: 1px solid color-mix(in oklab, var(--color-brand, #2d6a8f) 30%, transparent);
+  outline-offset: -1px;
+  border-radius: 0.25rem;
+}
+.grid-stack:not(.grid-stack-static) > .grid-stack-item.ui-draggable-dragging > .grid-stack-item-content {
+  cursor: grabbing;
+}
+/* Le redimensionnement Gridstack change la hauteur/largeur de la boîte
+   `.grid-stack-item-content` (position absolue). Sans ceci, la carte KPI
+   dedans (largeur auto en display:block → OK, mais hauteur intrinsèque au
+   contenu) ne suit pas visuellement : la tuile grandit mais la carte visible
+   reste figée à sa hauteur naturelle. On étire l'enfant réel (la carte, pas
+   les badges en position absolute qui ignorent flex) sur tout l'espace. */
+.grid-stack-item-content {
+  display: flex;
+  flex-direction: column;
+}
+.grid-stack-item-content > * {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
 }
 
 @media print {
-  .kpi-tile {
+  .grid-stack {
+    display: flex !important;
+    flex-direction: column !important;
+    height: auto !important;
+  }
+  .grid-stack > .grid-stack-item {
+    position: static !important;
+    inset: auto !important;
+    width: 100% !important;
+    height: auto !important;
+    margin-bottom: 12px;
     order: var(--print-order, 0) !important;
+  }
+  .grid-stack > .grid-stack-item > .grid-stack-item-content {
+    position: static !important;
+    inset: auto !important;
   }
 }

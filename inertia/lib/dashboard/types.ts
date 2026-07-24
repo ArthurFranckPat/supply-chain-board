@@ -9,13 +9,20 @@
 export const KPI_IDS = ['charge', 'otd', 'stock', 'lignes', 'stockTable'] as const
 export type KpiId = (typeof KPI_IDS)[number]
 
-export const KPI_WIDTHS = [1, 2, 3] as const
-export type KpiWidth = (typeof KPI_WIDTHS)[number]
+/** Grille libre (Gridstack) : nb de colonnes + bornes de taille en unités de grille. */
+export const GRID_COLS = 12
+export const GRID_MIN_W = 2
+export const GRID_MIN_H = 2
+export const GRID_MAX_H = 40
 
+/** Position + taille libres d'un KPI sur la grille (unités Gridstack, pas des px). */
 export interface KpiLayoutItem {
   id: KpiId
   visible: boolean
-  width: KpiWidth
+  x: number
+  y: number
+  w: number
+  h: number
 }
 
 export interface DashboardLayout {
@@ -25,11 +32,11 @@ export interface DashboardLayout {
 
 export const DEFAULT_DASHBOARD_LAYOUT: DashboardLayout = {
   items: [
-    { id: 'charge', visible: true, width: 1 },
-    { id: 'otd', visible: true, width: 1 },
-    { id: 'stock', visible: true, width: 1 },
-    { id: 'lignes', visible: true, width: 2 },
-    { id: 'stockTable', visible: true, width: 2 },
+    { id: 'charge', visible: true, x: 0, y: 0, w: 4, h: 7 },
+    { id: 'otd', visible: true, x: 4, y: 0, w: 4, h: 7 },
+    { id: 'stock', visible: true, x: 8, y: 0, w: 4, h: 7 },
+    { id: 'lignes', visible: true, x: 0, y: 7, w: 6, h: 9 },
+    { id: 'stockTable', visible: true, x: 6, y: 7, w: 6, h: 9 },
   ],
   printOrder: ['charge', 'otd', 'stock', 'lignes', 'stockTable'],
 }
@@ -52,15 +59,25 @@ export function normalizeDashboardLayout(raw: unknown): DashboardLayout {
     const incoming = obj.items
       .map((it) => (it && typeof it === 'object' ? (it as Record<string, unknown>) : null))
       .filter((it): it is Record<string, unknown> => it !== null)
+    const clampInt = (v: unknown, min: number, max: number, fallback: number): number => {
+      const n = typeof v === 'number' && Number.isFinite(v) ? Math.round(v) : fallback
+      return Math.min(max, Math.max(min, n))
+    }
     const merged: KpiLayoutItem[] = []
     for (const it of incoming) {
       if (!isKpiId(it.id) || seen.has(it.id)) continue
       seen.add(it.id)
-      const width: KpiWidth = it.width === 2 ? 2 : it.width === 3 ? 3 : 1
-      merged.push({ id: it.id, visible: it.visible !== false, width })
+      const w = clampInt(it.w, GRID_MIN_W, GRID_COLS, GRID_MIN_W)
+      const h = clampInt(it.h, GRID_MIN_H, GRID_MAX_H, GRID_MIN_H)
+      const x = clampInt(it.x, 0, GRID_COLS - w, 0)
+      const y = clampInt(it.y, 0, 999, 0)
+      merged.push({ id: it.id, visible: it.visible !== false, x, y, w, h })
     }
     for (const id of KPI_IDS) {
-      if (!seen.has(id)) merged.push({ id, visible: true, width: 1 })
+      if (!seen.has(id)) {
+        const fallback = DEFAULT_DASHBOARD_LAYOUT.items.find((it) => it.id === id)!
+        merged.push({ ...fallback })
+      }
     }
     base.items = merged
   }
