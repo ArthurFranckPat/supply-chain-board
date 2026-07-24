@@ -191,18 +191,17 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
   // Masque identique à celui du graphe — même source (`segKeys`).
   const keep = useMemo(() => segKeys(view, activeSegs), [view, activeSegs])
 
-  // Filtre article local au panneau. Sentinelle explicite plutôt que chaîne
-  // vide : Base UI traite '' comme « aucune sélection », ce qui empêcherait de
-  // sélectionner l'option « tous » une fois un article choisi.
-  const ALL = '__all__'
-  const [articleFilter, setArticleFilter] = useState<string>(ALL)
+  // Filtre article local au panneau. `null` = tous : Base UI affiche alors le
+  // placeholder. Surtout PAS de sentinelle textuelle — Base UI rend la valeur
+  // brute dans le champ faute de libellé, et l'utilisateur lisait « __all__ ».
+  const [articleFilter, setArticleFilter] = useState<string | null>(null)
   const [articleQuery, setArticleQuery] = useState('')
   const anchorRef = useComboboxAnchor()
 
   // Le filtre porte sur un bucket donné : il n'a pas de sens d'un bucket à
   // l'autre, on le remet à zéro dès que la cible ou la vue change.
   useEffect(() => {
-    setArticleFilter(ALL)
+    setArticleFilter(null)
     setArticleQuery('')
   }, [poste, bucketKey, gran, view])
 
@@ -239,7 +238,7 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
     )
   }, [articleOptions, articleQuery])
 
-  const articleActive = articleFilter !== ALL
+  const articleActive = articleFilter !== null
   const matchesArticle = (article: string) => !articleActive || article === articleFilter
 
   const ofGroups = useMemo(() => {
@@ -391,19 +390,21 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
                 <div ref={anchorRef} className="w-[320px]">
                   <Combobox
                     value={articleFilter}
-                    onValueChange={(v) => setArticleFilter(String(v ?? ALL))}
+                    onValueChange={(v) => setArticleFilter(v == null ? null : String(v))}
                     onInputValueChange={(v) => setArticleQuery(v)}
                   >
-                    {/* `className` atterrit sur l'InputGroup, pas sur l'input :
-                        c'est lui qui porte l'anneau de focus de 3 px
-                        (`ring-3 ring-ring/50`), bien trop lourd dans un bandeau
-                        dense. On garde un repère de focus — la bordure passe en
-                        brand — mais sans le halo. Le `!` est nécessaire : deux
-                        utilitaires `ring-*` de même spécificité se départagent
-                        par l'ordre interne de Tailwind, pas par l'ordre d'écriture. */}
+                    {/* Deux traitements de focus se cumulaient à l'écran :
+                        l'anneau de 3 px de l'InputGroup (`ring-3 ring-ring/50`,
+                        terracotta dans ce thème, d'où l'effet « bordure rouge »)
+                        et l'outline par défaut du navigateur sur l'input, que le
+                        primitive ne neutralise pas. On garde un seul repère —
+                        la bordure passe en brand. `className` atterrit sur
+                        l'InputGroup, d'où le `[&_input]` pour joindre l'input.
+                        Le `!` départage les `ring-*` concurrents, que Tailwind
+                        ordonne en interne et non selon l'ordre d'écriture. */}
                     <ComboboxInput
                       placeholder="Tous les articles — code ou désignation…"
-                      className="w-full border-rule has-[[data-slot=input-group-control]:focus-visible]:border-brand has-[[data-slot=input-group-control]:focus-visible]:ring-0!"
+                      className="w-full border-rule [&_input]:outline-none [&_input]:focus-visible:outline-none has-[[data-slot=input-group-control]:focus-visible]:border-brand has-[[data-slot=input-group-control]:focus-visible]:ring-0!"
                     />
                     {/* Au-dessus du panneau qui le contient (z-60), sous les
                         dialogs (z-65). Sans ça, la liste s'ouvre DERRIÈRE le
@@ -411,7 +412,7 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
                         délibérément sous les sheets. */}
                     <ComboboxContent anchor={anchorRef} layerClassName="z-[62]">
                       <ComboboxList>
-                        <ComboboxItem value={ALL}>
+                        <ComboboxItem value={null}>
                           <span className="text-[12px] font-semibold">Tous les articles</span>
                           <span className="text-muted-foreground text-[11px]">
                             {articleOptions.length}
@@ -444,7 +445,7 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
                   <button
                     type="button"
                     onClick={() => {
-                      setArticleFilter(ALL)
+                      setArticleFilter(null)
                       setArticleQuery('')
                     }}
                     className="font-mono text-[10px] font-semibold text-brand hover:underline"
