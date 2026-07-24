@@ -20,10 +20,13 @@ import type { X3EnvConfig } from '#config/x3'
  * ⚠️ Deux limites à garder en tête :
  *  - `status: "OK"` signifie « remis à la file d'impression », pas « le papier
  *    est sorti ». Un bac vide ou un bourrage reste invisible.
- *  - sans rétention configurée côté console (réglage « Time before deleting
- *    print job status », 0 par défaut), la tâche disparaît en quelques secondes.
- *    Le sondage court-circuite le problème pour un tirage unitaire ; la
- *    réconciliation différée, elle, exige la rétention.
+ *  - la tâche ne survit à sa fin que le temps de la rétention, réglée dans
+ *    `adxeditionserverconfig.xml` (élément `<jobs>`) : `SuccessfulJobsStatusRetention`
+ *    vaut 10 min par défaut et `FailedJobsStatusRetention` 15 min depuis la
+ *    version 2.29. Une pile qui se vide en quelques secondes signale donc une
+ *    valeur mise à 0 dans le fichier, pas un réglage absent. Le sondage
+ *    court-circuite le problème pour un tirage unitaire ; la réconciliation
+ *    différée, elle, exige la rétention.
  */
 
 /** Tâche telle que renvoyée par `$jobs`. */
@@ -31,7 +34,14 @@ export interface PrintServerJob {
   /** Numéro de tâche du serveur d'édition (celui affiché par `PSIMP`). */
   rank: number
   order: number
+  /** Processus servant la tâche. 0 = terminé — mais 0 aussi tant qu'elle attend. */
   processId: number
+  /**
+   * 'Finished' | 'InProgress' | 'Standby' — état de traitement, distinct de
+   * `status` (qui dit seulement si quelque chose a échoué). Absent des serveurs
+   * d'édition antérieurs à 2.29 : ne jamais s'y fier sans repli.
+   */
+  state?: string
   /** 'OK' tant que rien n'a échoué · 'Erreur' en cas d'échec. */
   status: string
   /** Étape courante : « Mise à jour du cache », « … moteur d'impression crystal »… */
@@ -148,6 +158,10 @@ export interface WatchResult {
 /**
  * Suit une tâche jusqu'à son issue.
  *
+ * Deux verdicts positifs, par ordre de fiabilité : `state: "Finished"` lu sur la
+ * tâche (serveur d'édition ≥ 2.29), sinon disparition de la tâche — succès
+ * déduit, marqué comme tel (`inferred`).
+ *
  * Deux modes de rapprochement, par ordre de fiabilité :
  *  - `expectedRank` fourni — le numéro rendu par `ETATJOB` (paramètre `NOJOB`).
  *    Identification exacte, y compris si plusieurs tirages partent ensemble.
@@ -211,6 +225,13 @@ export async function watchJob(
           detail: mine.status,
           inferred: false,
         }
+      }
+      // Fin LUE, pas déduite d'une disparition. `state` n'existe qu'à partir du
+      // serveur d'édition 2.29 ; quand il est là, il évite d'attendre la purge
+      // et retire l'ambiguïté du succès inféré (une erreur survenue entre deux
+      // sondages se lisait comme une réussite).
+      if (mine.state === 'Finished') {
+        return { verdict: 'ok', rank: mine.rank, phase: lastPhase, detail: '', inferred: false }
       }
     } else if (everSeen) {
       // Vue puis disparue sans passer en erreur : le serveur d'édition l'a

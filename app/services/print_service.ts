@@ -705,6 +705,8 @@ class PrintService {
   async reconcilePending(config?: X3EnvConfig): Promise<{
     pending: number
     resolved: number
+    /** Tirages qu'aucune relecture ne pourra trancher, faute de n° de tâche. */
+    unmatchable: number
     note: string
   }> {
     const cfg = config ?? getX3EnvConfig()
@@ -715,13 +717,47 @@ class PrintService {
       .orderBy('id', 'desc')
       .limit(500)
 
-    if (rows.length === 0) return { pending: 0, resolved: 0, note: 'Aucun tirage en attente.' }
+    /**
+     * Tirages sans n° de tâche : définitivement hors de portée.
+     *
+     * `$jobs` ne porte AUCUNE référence à l'OF — seulement le rang, le fichier
+     * d'état, le dossier et l'utilisateur. Deux tirages du même état lancés par
+     * le même compte SOAP n'y sont donc discernables que par leur rang. Sans
+     * `WJOBNUM`, aucun rapprochement n'est possible, et ces lignes resteraient
+     * « en attente » à vie sans que rien ne le dise.
+     *
+     * Cause quasi certaine : `ZSOAPPRINT` publié sans son 7ᵉ paramètre côté
+     * GESASU/ASUBPROGD sur cet environnement.
+     */
+    const orphanRows = await PrintJob.query()
+      .where('status', 'submitted')
+      .whereIn('server_verdict', ['pending', 'unknown'])
+      .where('job_rank', '<=', 0)
+      .count('* as total')
+    const unmatchable = Number((orphanRows[0] as any)?.$extras?.total ?? 0)
+    const orphanNote = unmatchable
+      ? ` ${unmatchable} tirage(s) sans n° de tâche, non réconciliables : vérifier que ZSOAPPRINT est publié avec son 7ᵉ paramètre (WJOBNUM) sur cet environnement.`
+      : ''
+
+    if (rows.length === 0) {
+      return {
+        pending: 0,
+        resolved: 0,
+        unmatchable,
+        note: `Aucun tirage réconciliable en attente.${orphanNote}`,
+      }
+    }
 
     // Tous les serveurs du dossier, pas seulement celui de `.env` : les tâches
     // d'un tirage vivent sur le serveur de LEUR destination.
     const servers = await this.printServers(cfg)
     if (servers.length === 0) {
-      return { pending: rows.length, resolved: 0, note: 'Aucun serveur d’édition déclaré.' }
+      return {
+        pending: rows.length,
+        resolved: 0,
+        unmatchable,
+        note: `Aucun serveur d’édition déclaré.${orphanNote}`,
+      }
     }
 
     const jobs: PrintServerJob[] = []
@@ -735,17 +771,34 @@ class PrintService {
       return {
         pending: rows.length,
         resolved: 0,
-        note: errors.length
-          ? `Serveur d’édition : ${errors.join(' · ')}`
-          : 'Le serveur d’édition ne conserve aucune tâche. Activer « Time before deleting print job status » côté console pour pouvoir trancher après coup.',
+        unmatchable,
+        note:
+          (errors.length
+            ? `Serveur d’édition : ${errors.join(' · ')}`
+            : // Depuis le serveur d'édition 2.29 les défauts d'`adxeditionserverconfig.xml`
+              // sont 10 min (succès) et 15 min (échecs) : une pile toujours vide
+              // signale une valeur mise à 0 dans le fichier, pas un réglage manquant.
+              'Le serveur d’édition ne conserve aucune tâche. Vérifier SuccessfulJobsStatusRetention dans adxeditionserverconfig.xml (10 min par défaut depuis la version 2.29) : à 0, rien ne survit pour être tranché.') +
+          orphanNote,
       }
     }
 
     const byRank = new Map(jobs.map((j) => [j.rank, j]))
     let resolved = 0
+    let running = 0
     for (const row of rows) {
       const j = byRank.get(row.jobRank)
       if (!j) continue
+      // Une tâche encore dans la pile n'a pas d'issue : la marquer « ok » sur son
+      // seul `status` — qui vaut 'OK' tant que RIEN n'a échoué, y compris en
+      // cours de route — trancherait avant la fin. `state` n'existe qu'à partir
+      // de 2.29 ; sans lui on garde l'ancien comportement, faute de mieux.
+      if (j.state && j.state !== 'Finished') {
+        running++
+        row.jobPhase = j.phase ?? row.jobPhase
+        await row.save()
+        continue
+      }
       row.serverVerdict = j.status === 'OK' ? 'ok' : 'error'
       row.jobPhase = j.phase ?? row.jobPhase
       row.jobDetail = j.status === 'OK' ? '' : j.status
@@ -756,7 +809,11 @@ class PrintService {
     return {
       pending: rows.length,
       resolved,
-      note: `${resolved} tirage(s) tranché(s) sur ${rows.length} en attente.`,
+      unmatchable,
+      note:
+        `${resolved} tirage(s) tranché(s) sur ${rows.length} en attente.` +
+        (running ? ` ${running} encore en cours côté serveur d’édition.` : '') +
+        orphanNote,
     }
   }
 

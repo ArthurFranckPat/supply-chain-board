@@ -135,6 +135,19 @@ function Verdict({ j }: { j: Job }) {
       </span>
     )
   }
+  // Sans n° de tâche, aucune relecture ne tranchera jamais : `$jobs` ne porte
+  // pas le n° d'OF, seul le rang identifie un tirage. Le dire, plutôt que
+  // laisser croire à un verdict qui finira par tomber.
+  if (!j.jobRank) {
+    return (
+      <span
+        className="text-amber-700"
+        title="Aucun n° de tâche renvoyé par X3 : ce tirage ne pourra jamais être tranché. Vérifier que ZSOAPPRINT est publié avec son 7ᵉ paramètre (WJOBNUM)."
+      >
+        non réconciliable
+      </span>
+    )
+  }
   return (
     <span className="text-amber-700" title={j.jobDetail}>
       sans verdict
