@@ -317,6 +317,29 @@ export default function Load(props: LoadPageProps) {
                 </Segment>
               </>
             )}
+            {/* Couches d'affichage — pas des filtres (elles ne retirent aucune
+                donnée), mais même déclencheur : la rangée n'a pas à porter des
+                coches ad hoc. Elles ne pilotent donc PAS la pastille du
+                déclencheur, sinon « Capacité » (activée par défaut) la
+                laisserait allumée en permanence. */}
+            <div className="my-2.5 border-t border-rule-soft" />
+            <FilterMenuSectionLabel>Affichage</FilterMenuSectionLabel>
+            <Segment className="w-full flex-wrap">
+              <SegmentButton
+                active={showCapacity}
+                onClick={() => setShowCapacity((v) => !v)}
+                title="Plafond de capacité nette + zones de surcharge"
+              >
+                Capacité
+              </SegmentButton>
+              <SegmentButton
+                active={showAvg}
+                onClick={() => setShowAvg((v) => !v)}
+                title="Moyenne mobile de la charge totale"
+              >
+                Moyenne mobile
+              </SegmentButton>
+            </Segment>
           </FilterMenu>
           <span className="h-3.5 w-px bg-rule-soft" />
           {/* Légende (lecture seule) — le filtre vit dans le FilterMenu. */}
@@ -326,52 +349,47 @@ export default function Load(props: LoadPageProps) {
               {o.label}
             </span>
           ))}
-          <span className="h-3.5 w-px bg-rule-soft" />
-          {/* Couches optionnelles — déplacées à droite (actions d'affichage). */}
-          <span className="flex items-center gap-1.5">
-            <i
-              className="inline-block h-2.5 w-3.5 rounded-[2px]"
-              style={{
-                background: 'color-mix(in srgb, var(--color-danger) 20%, transparent)',
-                boxShadow: 'inset 0 0 0 1px var(--color-danger)',
-              }}
-            />
-            Surcharge
-          </span>
-          <ToolbarSpacer />
-          <span className="flex items-center gap-3">
-            {/* Couches optionnelles — toggles d'affichage, à droite avec les actions. */}
-            <button
-              type="button"
-              onClick={() => setShowCapacity((v) => !v)}
-              className={cn('flex items-center gap-1.5 transition-opacity', !showCapacity && 'opacity-40')}
-            >
-              <DynamicIcon name={showCapacity ? 'check_box' : 'check_box_outline_blank'} size={16} className="text-brand" />
-              <i className="inline-block w-[18px] border-t-[3px] border-foreground/70" />
-              Capacité
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowAvg((v) => !v)}
-              className={cn('flex items-center gap-1.5 transition-opacity', !showAvg && 'opacity-40')}
-            >
-              <DynamicIcon name={showAvg ? 'check_box' : 'check_box_outline_blank'} size={16} className="text-brand" />
+          {/* Couches d'affichage : entrées de légende conditionnées par leur
+              toggle — la légende ne décrit que ce qui est réellement tracé
+              (la surcharge n'est peinte que sous `showCapacity`). */}
+          {showCapacity && (
+            <>
+              <span className="flex items-center gap-1.5">
+                <i className="inline-block w-[18px] border-t-[3px] border-foreground/70" />
+                Capacité
+              </span>
+              <span className="flex items-center gap-1.5">
+                <i
+                  className="inline-block h-2.5 w-3.5 rounded-[2px]"
+                  style={{
+                    background: 'color-mix(in srgb, var(--color-danger) 20%, transparent)',
+                    boxShadow: 'inset 0 0 0 1px var(--color-danger)',
+                  }}
+                />
+                Surcharge
+              </span>
+            </>
+          )}
+          {showAvg && (
+            <span className="flex items-center gap-1.5">
               <i className="inline-block w-[18px] border-t-[1.5px] border-dashed border-brand" />
               Moyenne mobile
-            </button>
-            {/* Recherche — systématiquement à droite (convention toolbar). */}
-            <div className={PILL}>
-              <Search size={17} strokeWidth={1.75} className="text-muted-foreground" />
-              <input
-                className="w-[190px] border-0 bg-transparent px-0 text-xs font-medium text-foreground shadow-none outline-none"
-                placeholder="Poste, article…"
-                type="text"
-                autoComplete="off"
-                value={query}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.currentTarget.value)}
-              />
-            </div>
-          </span>
+            </span>
+          )}
+          <ToolbarSpacer />
+          {/* Recherche — systématiquement à droite, jamais consolidée derrière
+              un clic (convention toolbar). */}
+          <div className={PILL}>
+            <Search size={17} strokeWidth={1.75} className="text-muted-foreground" />
+            <input
+              className="w-[190px] border-0 bg-transparent px-0 text-xs font-medium text-foreground shadow-none outline-none"
+              placeholder="Poste, article…"
+              type="text"
+              autoComplete="off"
+              value={query}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.currentTarget.value)}
+            />
+          </div>
         </ToolbarRow>
 
         {lines.length === 0 ? (
