@@ -1457,7 +1457,7 @@ export default function Dashboard(props: DashboardProps) {
                           value={stockCatFilter || 'all'}
                           onValueChange={(val) => setStockCatFilter(val === 'all' ? '' : (val ?? ''))}
                         >
-                          <SelectTrigger size="sm" className="h-8 font-mono text-[11px] font-semibold">
+                          <SelectTrigger size="sm" className="h-8 border-border bg-card font-mono text-[11px] font-semibold text-foreground">
                             <SelectValue placeholder="Toutes cat." />
                           </SelectTrigger>
                           <SelectContent side="bottom">
@@ -1469,16 +1469,18 @@ export default function Dashboard(props: DashboardProps) {
                             ))}
                           </SelectContent>
                         </Select>
-                        <div className="flex h-8 items-center gap-2 rounded-[8px] border border-input bg-card px-2.5">
-                          <Switch
-                            id="stock-hide-zero-switch"
-                            checked={stockHideZero}
-                            onCheckedChange={setStockHideZero}
-                          />
-                          <label htmlFor="stock-hide-zero-switch" className="cursor-pointer font-mono text-[10px] font-bold text-foreground">
-                            Stock ≠ 0
-                          </label>
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setStockHideZero((v) => !v)}
+                          className={cn(
+                            'h-8 rounded-[8px] border px-2.5 font-mono text-[11px] font-semibold transition-colors',
+                            stockHideZero
+                              ? 'border-brand/40 bg-brand-soft text-brand'
+                              : 'border-border bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground'
+                          )}
+                        >
+                          Stock ≠ 0
+                        </button>
                       </div>
 
                       <div className="-mx-2 overflow-auto print:overflow-visible">

@@ -390,7 +390,8 @@ function HistoryChart({
         onMouseLeave={() => setHover(null)}
       >
         {/* Légende — dans le graphe, attachée à ce qu'elle décrit (convention
-            DetailChart). Décalages mono 9.5px (~5,7 px/caractère). */}
+            DetailChart). Décalages mono 9.5px (~5,7 px/caractère). Avec la
+            projection : 4 items (stock réel/projeté, ressources, besoins). */}
         <g fontFamily="var(--font-mono)" fontSize={9.5} fontWeight={600}>
           <line
             x1={geom.padL}
@@ -401,18 +402,45 @@ function HistoryChart({
             strokeWidth={1.5}
           />
           <text x={geom.padL + 20} y={17} fill="var(--color-muted-foreground)">
-            Stock fin de semaine
+            {hasFuture ? 'Stock' : 'Stock fin de semaine'}
           </text>
-          <rect x={geom.padL + 144} y={10} width={8} height={8} rx={1} fill={COL_ENTREE} />
-          <text x={geom.padL + 156} y={17} fill="var(--color-muted-foreground)">
-            Entrées
-          </text>
-          <rect x={geom.padL + 206} y={10} width={8} height={8} rx={1} fill={COL_SORTIE} />
-          <text x={geom.padL + 218} y={17} fill="var(--color-muted-foreground)">
-            Sorties
-          </text>
-          {/* Plage couverte, à droite */}
-          {series.length > 0 && (
+          {hasFuture ? (
+            <>
+              <line
+                x1={geom.padL + 62}
+                y1={14}
+                x2={geom.padL + 76}
+                y2={14}
+                stroke={COL_STOCK}
+                strokeWidth={1.5}
+                strokeDasharray="3 2"
+              />
+              <text x={geom.padL + 82} y={17} fill="var(--color-muted-foreground)">
+                Projeté
+              </text>
+              <rect x={geom.padL + 132} y={10} width={8} height={8} rx={1} fill={COL_ENTREE} />
+              <text x={geom.padL + 144} y={17} fill="var(--color-muted-foreground)">
+                Entrées &amp; ressources
+              </text>
+              <rect x={geom.padL + 266} y={10} width={8} height={8} rx={1} fill={COL_SORTIE} />
+              <text x={geom.padL + 278} y={17} fill="var(--color-muted-foreground)">
+                Sorties &amp; besoins
+              </text>
+            </>
+          ) : (
+            <>
+              <rect x={geom.padL + 144} y={10} width={8} height={8} rx={1} fill={COL_ENTREE} />
+              <text x={geom.padL + 156} y={17} fill="var(--color-muted-foreground)">
+                Entrées
+              </text>
+              <rect x={geom.padL + 206} y={10} width={8} height={8} rx={1} fill={COL_SORTIE} />
+              <text x={geom.padL + 218} y={17} fill="var(--color-muted-foreground)">
+                Sorties
+              </text>
+            </>
+          )}
+          {/* Plage couverte (historique + projection), à droite */}
+          {points.length > 0 && (
             <text
               x={geom.W - geom.padR}
               y={17}
@@ -420,7 +448,7 @@ function HistoryChart({
               fill="var(--color-muted-foreground)"
               opacity={0.75}
             >
-              {fmtWeekAxis(series[0])} → {fmtWeekAxis(series[lastIdx])}
+              {fmtWeekAxis(points[0])} → {fmtWeekAxis(points[lastIdx])}
             </text>
           )}
         </g>
@@ -463,10 +491,10 @@ function HistoryChart({
           strokeWidth={1}
         />
 
-        {/* Barres de flux (miroir : entrées au-dessus de l'axe, sorties en
-            dessous). Hauteurs lues sur les fractions animées — elles poussent
-            depuis l'axe à l'arrivée. */}
-        {series.map((p, i) => {
+        {/* Barres de flux (miroir : entrées/ressources au-dessus de l'axe,
+            sorties/besoins en dessous). Hauteurs lues sur les fractions
+            animées — elles poussent depuis l'axe à l'arrivée. */}
+        {points.map((p, i) => {
           const f = fracs[i] ?? [0, 0, 0]
           const hIn = (f[1] ?? 0) * geom.flowAmp
           const hOut = (f[2] ?? 0) * geom.flowAmp
@@ -502,8 +530,9 @@ function HistoryChart({
           )
         })}
 
-        {/* Courbe de stock + aire en dégradé (profondeur sans bruit) */}
-        {series.length > 0 && (
+        {/* Courbe de stock : historique plein + aire en dégradé (profondeur
+            sans bruit), projection en pointillés dans son prolongement. */}
+        {histLen > 0 && (
           <>
             <defs>
               <linearGradient id="stock-history-area" x1="0" y1="0" x2="0" y2="1">
@@ -520,17 +549,29 @@ function HistoryChart({
               strokeLinejoin="round"
               strokeLinecap="round"
             />
-            {/* Semaine courante : point plein + halo pulsé (SMIL, coupé si
-                prefers-reduced-motion) */}
+            {geom.futPath && (
+              <path
+                d={geom.futPath}
+                fill="none"
+                stroke={COL_STOCK}
+                strokeWidth={1.75}
+                strokeDasharray="5 4"
+                strokeLinejoin="round"
+                strokeLinecap="round"
+                opacity={0.75}
+              />
+            )}
+            {/* Point « maintenant » (dernier réel) : plein + halo pulsé (SMIL,
+                coupé si prefers-reduced-motion) */}
             <circle
-              cx={geom.x(lastIdx)}
+              cx={geom.x(histLen - 1)}
               cy={geom.yLine(nowFrac[0] ?? 0)}
               r={3}
               fill={COL_STOCK}
             />
             {!REDUCED_MOTION && (
               <circle
-                cx={geom.x(lastIdx)}
+                cx={geom.x(histLen - 1)}
                 cy={geom.yLine(nowFrac[0] ?? 0)}
                 r={3}
                 fill="none"
@@ -544,10 +585,36 @@ function HistoryChart({
           </>
         )}
 
-        {/* Labels de semaines (année ISO incluse — les 53 points chevauchent
-            deux années) */}
+        {/* Charnière passé/futur — ligne verticale « auj. » */}
+        {hasFuture && (
+          <g pointerEvents="none">
+            <line
+              x1={geom.nowX}
+              x2={geom.nowX}
+              y1={geom.padT}
+              y2={geom.padT + geom.innerH}
+              stroke="var(--color-muted-foreground)"
+              opacity={0.5}
+              strokeDasharray="2 3"
+            />
+            <text
+              x={geom.nowX}
+              y={geom.H - geom.padB + 13}
+              textAnchor="middle"
+              fontFamily="var(--font-mono)"
+              fontSize={9}
+              fontWeight={700}
+              fill="var(--color-muted-foreground)"
+            >
+              auj.
+            </text>
+          </g>
+        )}
+
+        {/* Labels de semaines (année ISO incluse — les 105 points couvrent
+            ~2 ans, passés et futurs) */}
         <g fontFamily="var(--font-mono)" fontSize={9} fontWeight={600}>
-          {series.map((p, i) =>
+          {points.map((p, i) =>
             i % geom.tickStep === 0 || i === lastIdx ? (
               <text
                 key={p.periode}
@@ -565,7 +632,7 @@ function HistoryChart({
 
         {/* Zones de survol — une par semaine, pleine hauteur. Pilotent le
             tooltip HTML (rendu hors SVG, cf. plus bas). */}
-        {series.map((p, i) => (
+        {points.map((p, i) => (
           <rect
             key={p.periode}
             x={geom.x(i) - geom.slot / 2}
@@ -581,7 +648,7 @@ function HistoryChart({
         {/* Indicateur de survol : guide vertical + point de lecture. Rendus
             dans des groupes translatés en CSS (transition sur transform) pour
             glisser de semaine en semaine au lieu de sauter. */}
-        {hover !== null && series[hover] && (
+        {hover !== null && points[hover] && (
           <>
             <g
               pointerEvents="none"
@@ -627,17 +694,28 @@ function HistoryChart({
         >
           <div className="mb-1.5 font-mono text-[10px] font-bold tracking-wide text-foreground">
             {fmtWeekFull(hPoint)}
+            {hPoint.kind === 'fut' && (
+              <span className="ml-1.5 font-medium italic text-muted-foreground">· proj.</span>
+            )}
           </div>
           <div className="space-y-1">
             <TooltipRow
               swatch="line"
               color={COL_STOCK}
-              label="Stock"
+              label={hPoint.kind === 'fut' ? 'Stock projeté' : 'Stock'}
               value={fmtVal(hLineVal, unit)}
               strong
             />
-            <TooltipRow color={COL_ENTREE} label="Entrées" value={`+ ${fmtVal(hInVal, unit)}`} />
-            <TooltipRow color={COL_SORTIE} label="Sorties" value={`− ${fmtVal(hOutVal, unit)}`} />
+            <TooltipRow
+              color={COL_ENTREE}
+              label={hPoint.kind === 'fut' ? 'Ressources' : 'Entrées'}
+              value={`+ ${fmtVal(hInVal, unit)}`}
+            />
+            <TooltipRow
+              color={COL_SORTIE}
+              label={hPoint.kind === 'fut' ? 'Besoins' : 'Sorties'}
+              value={`− ${fmtVal(hOutVal, unit)}`}
+            />
           </div>
         </div>
       )}

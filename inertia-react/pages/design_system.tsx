@@ -10,6 +10,7 @@ import { LoadingState } from '@r/components/ui/loading-state'
 import { Calendar } from '@r/components/ui/calendar'
 import { useRangeCalendar } from '@r/lib/use-range-calendar'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@r/components/ui/select'
+import { Switch } from '@r/components/ui/switch'
 import { Board } from '@r/components/board/papier-board'
 import { BoardCard } from '@r/components/board/board-card'
 import { ChargeForecast, type ForecastLine } from '@r/components/board/charge-forecast'
@@ -543,6 +544,15 @@ export default function DesignSystem() {
                           {t}
                         </button>
                       ))}
+                    </div>
+                  </div>
+                  <div>
+                    <FieldLabel>Interrupteur (Switch)</FieldLabel>
+                    <div className="flex items-center gap-2 py-1">
+                      <Switch id="ds-switch-demo" defaultChecked />
+                      <label htmlFor="ds-switch-demo" className="text-xs font-medium cursor-pointer">
+                        Activer le masque
+                      </label>
                     </div>
                   </div>
                 </div>
