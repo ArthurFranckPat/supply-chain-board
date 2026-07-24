@@ -436,14 +436,18 @@ export class StockValuationRepository {
     let runningQtySub = 0
     for (let i = refPeriods.length - 1; i >= 0; i--) {
       const qtyClose = stkAnchor - runningQtySub
+      // Plancher à 0 : le stock physique ne peut pas être négatif. Une valeur
+      // reconstruite négative est un écart de réconciliation STOJOU↔ITMMVT
+      // (net du journal sur-compté), pas un stock réel — on borne l'affichage.
+      const qtyFloor = Math.max(0, qtyClose)
       const f = fluxByPeriod.get(refPeriods[i].key)
       const entree = f?.entree ?? 0
       const sortie = f?.sortie ?? 0
       series[i] = {
         periode: refPeriods[i].key,
         label: refPeriods[i].label,
-        qte: round2(qtyClose),
-        valeur: round2(qtyClose * pmp),
+        qte: round2(qtyFloor),
+        valeur: round2(qtyFloor * pmp),
         entreeQte: round2(entree),
         sortieQte: round2(sortie),
         entreeVal: round2(entree * pmp),
