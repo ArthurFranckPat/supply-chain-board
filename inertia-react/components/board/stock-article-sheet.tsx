@@ -80,12 +80,62 @@ const fmtVal = (v: number, unit: Unit): string =>
 const fmtPct = (v: number): string =>
   `${(Math.round(v * 1000) / 10).toFixed(1).replace('.', ',').replace(/,0$/, '')} %`
 
+/** La clé `periode` (« 2025-W26 ») porte l'année ISO — on l'extrait pour dater
+ *  chaque mention de semaine (axe, tooltip, plage affichée). */
+const weekYear = (periode: string) => periode.slice(0, 4)
+const weekNo = (periode: string) => periode.slice(-2)
+const fmtWeekAxis = (p: StockHistoryPoint) => `S${weekNo(p.periode)} ${weekYear(p.periode)}`
+const fmtWeekFull = (p: StockHistoryPoint) => `Semaine ${weekNo(p.periode)} · ${weekYear(p.periode)}`
+
+/** Ligne du tooltip : pastille (trait pour la courbe, carré pour les barres),
+ *  label mono uppercase, valeur tabular alignée à droite. */
+function TooltipRow({
+  swatch = 'square',
+  color,
+  label,
+  value,
+  strong,
+}: {
+  swatch?: 'square' | 'line'
+  color: string
+  label: string
+  value: string
+  strong?: boolean
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <span
+        className={cn(
+          'shrink-0',
+          swatch === 'line' ? 'h-[2px] w-3 rounded-full' : 'size-2 rounded-[2px]'
+        )}
+        style={{ background: color }}
+      />
+      <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+        {label}
+      </span>
+      <span
+        className={cn(
+          'ml-auto pl-4 font-mono text-[11px] tabular-nums',
+          strong ? 'font-bold text-foreground' : 'text-secondary-foreground'
+        )}
+      >
+        {value}
+      </span>
+    </div>
+  )
+}
+
 /** Graphe stock + flux : courbe du stock fin de semaine (bande haute, axe
  *  gauche) et barres miroir des entrées/sorties (bande basse). SVG inline
  *  responsive (ResizeObserver), légende dessinée dans le graphe. */
 function HistoryChart({ series, unit }: { series: StockHistoryPoint[]; unit: Unit }) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const [dim, setDim] = useState({ w: 900, h: 300 })
+  // Semaine survolée (index dans `series`) — null = aucun. Remis à zéro quand
+  // la série change (autre article) pour éviter un index hors bornes.
+  const [hover, setHover] = useState<number | null>(null)
+  useEffect(() => setHover(null), [series])
 
   useEffect(() => {
     const el = wrapRef.current
@@ -165,9 +215,27 @@ function HistoryChart({ series, unit }: { series: StockHistoryPoint[]; unit: Uni
 
   const lastIdx = series.length - 1
 
+  // Position du tooltip : ancré à la semaine survolée, retourné près des bords
+  // pour rester dans le panneau. Le viewBox du SVG vaut les pixels mesurés du
+  // conteneur (rapport 1:1) — les coordonnées SVG sont des CSS pixels.
+  const tooltipPos = useMemo(() => {
+    if (hover === null || !series[hover]) return undefined
+    const x = geom.x(hover)
+    const nearRight = x > geom.W - 120
+    const nearLeft = x < 120
+    return {
+      left: nearRight ? x - 10 : nearLeft ? x + 10 : x,
+      transform: nearRight ? 'translateX(-100%)' : nearLeft ? undefined : 'translateX(-50%)',
+    }
+  }, [hover, geom, series])
+
   return (
-    <div ref={wrapRef} className="h-full w-full">
-      <svg viewBox={`0 0 ${geom.W} ${geom.H}`} className="block h-full w-full">
+    <div ref={wrapRef} className="relative h-full w-full">
+      <svg
+        viewBox={`0 0 ${geom.W} ${geom.H}`}
+        className="block h-full w-full"
+        onMouseLeave={() => setHover(null)}
+      >
         {/* Légende — dans le graphe, attachée à ce qu'elle décrit (convention
             DetailChart). Décalages mono 9.5px (~5,7 px/caractère). */}
         <g fontFamily="var(--font-mono)" fontSize={9.5} fontWeight={600}>
@@ -199,7 +267,7 @@ function HistoryChart({ series, unit }: { series: StockHistoryPoint[]; unit: Uni
               fill="var(--color-muted-foreground)"
               opacity={0.75}
             >
-              {series[0].label} → {series[lastIdx].label}
+              {fmtWeekAxis(series[0])} → {fmtWeekAxis(series[lastIdx])}
             </text>
           )}
         </g>
@@ -249,6 +317,7 @@ function HistoryChart({ series, unit }: { series: StockHistoryPoint[]; unit: Uni
           const hIn = (inn / geom.flowMax) * geom.flowAmp
           const hOut = (out / geom.flowMax) * geom.flowAmp
           const bx = geom.x(i) - geom.barW / 2
+          const op = hover === null || hover === i ? 0.85 : 0.45
           return (
             <g key={p.periode}>
               {hIn > 0 && (
@@ -259,7 +328,7 @@ function HistoryChart({ series, unit }: { series: StockHistoryPoint[]; unit: Uni
                   height={hIn}
                   rx={1}
                   fill={COL_ENTREE}
-                  opacity={0.85}
+                  opacity={op}
                 />
               )}
               {hOut > 0 && (
@@ -270,7 +339,7 @@ function HistoryChart({ series, unit }: { series: StockHistoryPoint[]; unit: Uni
                   height={hOut}
                   rx={1}
                   fill={COL_SORTIE}
-                  opacity={0.85}
+                  opacity={op}
                 />
               )}
             </g>
@@ -299,7 +368,8 @@ function HistoryChart({ series, unit }: { series: StockHistoryPoint[]; unit: Uni
           </>
         )}
 
-        {/* Labels de semaines */}
+        {/* Labels de semaines (année ISO incluse — les 53 points chevauchent
+            deux années) */}
         <g fontFamily="var(--font-mono)" fontSize={9} fontWeight={600}>
           {series.map((p, i) =>
             i % geom.tickStep === 0 || i === lastIdx ? (
@@ -311,13 +381,14 @@ function HistoryChart({ series, unit }: { series: StockHistoryPoint[]; unit: Uni
                 fill="var(--color-muted-foreground)"
                 opacity={0.75}
               >
-                {p.label}
+                {fmtWeekAxis(p)}
               </text>
             ) : null
           )}
         </g>
 
-        {/* Zones de survol (tooltip natif) — une par semaine, pleine hauteur */}
+        {/* Zones de survol — une par semaine, pleine hauteur. Pilotent le
+            tooltip HTML (rendu hors SVG, cf. plus bas). */}
         {series.map((p, i) => (
           <rect
             key={p.periode}
@@ -326,16 +397,67 @@ function HistoryChart({ series, unit }: { series: StockHistoryPoint[]; unit: Uni
             width={geom.slot}
             height={geom.innerH}
             fill="transparent"
-          >
-            <title>
-              {`${p.label} · stock ${fmtVal(geom.lineVal(p), unit)} · entrées ${fmtVal(
-                geom.inVal(p),
-                unit
-              )} · sorties ${fmtVal(geom.outVal(p), unit)}`}
-            </title>
-          </rect>
+            className="cursor-crosshair"
+            onMouseEnter={() => setHover(i)}
+          />
         ))}
+
+        {/* Indicateur de survol : guide vertical + point sur la courbe */}
+        {hover !== null && series[hover] && (
+          <g pointerEvents="none">
+            <line
+              x1={geom.x(hover)}
+              x2={geom.x(hover)}
+              y1={geom.padT}
+              y2={geom.padT + geom.innerH}
+              stroke="var(--color-foreground)"
+              opacity={0.3}
+              strokeDasharray="3 3"
+            />
+            <circle
+              cx={geom.x(hover)}
+              cy={geom.yLine(geom.lineVal(series[hover]))}
+              r={4}
+              fill={COL_STOCK}
+              stroke="var(--color-card)"
+              strokeWidth={2}
+            />
+          </g>
+        )}
       </svg>
+
+      {/* Tooltip — HTML plutôt que <title> natif : lecture instantanée, mis en
+          page, et suit l'unité active. Ancré en haut du tracé, retourné près
+          des bords pour ne jamais sortir du panneau. */}
+      {hover !== null && series[hover] && (
+        <div
+          className="pointer-events-none absolute top-8 z-10 min-w-[10.5rem] rounded-md border border-rule bg-popover px-3 py-2 shadow-float transition-[left,transform] duration-100 ease-out"
+          style={tooltipPos}
+        >
+          <div className="mb-1.5 font-mono text-[10px] font-bold tracking-wide text-foreground">
+            {fmtWeekFull(series[hover])}
+          </div>
+          <div className="space-y-1">
+            <TooltipRow
+              swatch="line"
+              color={COL_STOCK}
+              label="Stock"
+              value={fmtVal(geom.lineVal(series[hover]), unit)}
+              strong
+            />
+            <TooltipRow
+              color={COL_ENTREE}
+              label="Entrées"
+              value={`+ ${fmtVal(geom.inVal(series[hover]), unit)}`}
+            />
+            <TooltipRow
+              color={COL_SORTIE}
+              label="Sorties"
+              value={`− ${fmtVal(geom.outVal(series[hover]), unit)}`}
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -233,6 +233,11 @@ function CardHeader({
   )
 }
 
+/** Période datée : « S26 2025 » en maille semaine (la clé `periode` « YYYY-Www »
+ *  porte l'année ISO), sinon le label fourni (« janv. 26 »). */
+const periodDated = (p: StockValuationPoint) =>
+  p.periode.includes('-W') ? `S${p.periode.slice(-2)} ${p.periode.slice(0, 4)}` : p.label
+
 /** Mini-graphique 12 mois en colonnes verticales (SVG inline, pas de lib).
  *  Hauteur ∝ valeur ; dernière colonne surlignée (mois courant). */
 function StockSparkline({ series }: { series: StockValuationPoint[] }) {
@@ -270,14 +275,14 @@ function StockSparkline({ series }: { series: StockValuationPoint[] }) {
               rx={1.5}
               fill={isLast ? '#222222' : '#dddddd'}
             >
-              <title>{`${pt.label} · ${pt.valeur.toFixed(0)} €`}</title>
+              <title>{`${periodDated(pt)} · ${pt.valeur.toFixed(0)} €`}</title>
             </rect>
           )
         })}
       </svg>
       <div className="mt-1 flex justify-between font-mono text-[8.5px] text-muted-foreground/70">
-        <span>{series[0]?.label}</span>
-        <span>{series[series.length - 1]?.label}</span>
+        <span>{series[0] ? periodDated(series[0]) : null}</span>
+        <span>{series[series.length - 1] ? periodDated(series[series.length - 1]) : null}</span>
       </div>
     </div>
   )
