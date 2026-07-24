@@ -18,7 +18,7 @@ import {
   type KpiWidth,
 } from '@/lib/dashboard/types'
 import { useLayoutStore } from '@r/lib/dashboard/layout-store'
-import { Eye, EyeOff, GripVertical, ArrowUp, ArrowDown, LoaderCircle, Calendar as CalendarIcon, X, Search, ChevronDown, ChevronRight, ChevronLeft } from 'lucide-react'
+import { Eye, EyeOff, GripVertical, ArrowUp, ArrowDown, LoaderCircle, Calendar as CalendarIcon, X, Search, ChevronDown, ChevronRight, ChevronLeft, RotateCcw, SlidersHorizontal } from 'lucide-react'
 import { DynamicIcon } from '../components/ui/dynamic-icon'
 import { StockArticleSheet } from '@r/components/board/stock-article-sheet'
 import { Skeleton, SkeletonChart } from '@r/components/ui/skeleton'
@@ -384,9 +384,40 @@ function Tile({
 }) {
   const isDragging = draggedId === id
   const isDropTarget = dropTargetId === id && draggedId !== null && draggedId !== id
+  const tileRef = useRef<HTMLDivElement>(null)
+
+  const handleResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const startX = e.clientX
+    const startWidth = width
+    const container = tileRef.current?.parentElement
+    if (!container) return
+    const gridColWidth = container.clientWidth / 3
+
+    const onMouseMove = (moveEv: MouseEvent) => {
+      const deltaX = moveEv.clientX - startX
+      if (deltaX > gridColWidth * 0.35 && startWidth < 3) {
+        const nextW = (startWidth + 1) as KpiWidth
+        onWidth(nextW)
+      } else if (deltaX < -gridColWidth * 0.35 && startWidth > 1) {
+        const nextW = (startWidth - 1) as KpiWidth
+        onWidth(nextW)
+      }
+    }
+
+    const onMouseUp = () => {
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+    }
+
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+  }
 
   return (
     <div
+      ref={tileRef}
       className={cn(
         'kpi-tile relative transition-all duration-300 ease-out',
         WIDTH_CLASS[width],
@@ -408,10 +439,6 @@ function Tile({
         setDropTargetId(null)
       }}
       onDragOver={(e) => {
-        // CRITIQUE : en HTML5 DnD, un `drop` ne se déclenche QUE si dragover a
-        // appelé preventDefault(). On le fait TOUJOURS en mode édition (on ne
-        // dépend pas du signal draggedId qui peut ne pas être propagé à temps),
-        // sinon le navigateur refuse définitivement le drop sur cette cible.
         if (!editMode) return
         e.preventDefault()
         if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
@@ -423,6 +450,16 @@ function Tile({
         if (draggedId && draggedId !== id) onDrop()
       }}
     >
+      {/* Poignée de redimensionnement tactile libre sur le bord droit */}
+      {editMode && (
+        <div
+          onMouseDown={handleResizeStart}
+          className="pointer-events-auto absolute -right-2 top-1/2 z-30 flex h-20 w-4 -translate-y-1/2 cursor-ew-resize items-center justify-center rounded-full transition-all duration-150 hover:scale-110 active:scale-125"
+          title="Glisser horizontalement pour redimensionner la carte"
+        >
+          <div className="h-12 w-1.5 rounded-full bg-brand/40 shadow-sm transition-colors hover:bg-brand" />
+        </div>
+      )}
       {/* Barre d'outils édition (poignée + réordonnancement clavier + largeur + ordre impression + masquer) */}
       {editMode && (
         <>
@@ -772,28 +809,33 @@ export default function Dashboard(props: DashboardProps) {
           {/* Barre d'outils édition */}
           <div className="mb-4 flex items-center justify-between gap-3 print:hidden">
             {editMode && (
-              <span className="font-mono text-[10px] font-semibold text-muted-foreground">
-                Personnalisation — glissez les KPI, changez leur largeur, masquez-en.
+              <span className="font-mono text-xs font-medium text-muted-foreground">
+                Personnalisation — glissez les KPI, ajustez la poignée ou choisissez une largeur, masquez-en.
               </span>
             )}
             <div className="ml-auto flex items-center gap-2">
               {editMode && (
-                <button
+                <Button
                   type="button"
-                  onClick={() => setLayout(DEFAULT_DASHBOARD_LAYOUT)}
-                  className="rounded border border-rule bg-secondary px-3 py-1.5 font-mono text-[10px] font-semibold text-muted-foreground transition-colors hover:bg-secondary/80 hover:text-foreground"
+                  variant="outline"
+                  size="xs"
+                  onClick={() => animateLayoutChange(() => setLayout(DEFAULT_DASHBOARD_LAYOUT))}
+                  className="font-mono text-xs font-semibold text-muted-foreground hover:text-foreground"
                 >
+                  <RotateCcw size={13} className="mr-1" />
                   Réinitialiser
-                </button>
+                </Button>
               )}
-              <button
+              <Button
                 type="button"
+                variant={editMode ? 'default' : 'outline'}
+                size="xs"
                 onClick={() => setEditMode((v) => !v)}
-                className="flex items-center gap-1.5 rounded border border-rule bg-card px-3 py-1.5 font-mono text-[10px] font-semibold text-foreground transition-colors hover:bg-secondary"
+                className="font-mono text-xs font-semibold"
               >
-                <DynamicIcon name={editMode ? 'check' : 'tune'} size={14} className="text-muted-foreground" />
+                <SlidersHorizontal size={13} className="mr-1" />
                 {editMode ? 'Terminé' : 'Personnaliser'}
-              </button>
+              </Button>
             </div>
           </div>
 
