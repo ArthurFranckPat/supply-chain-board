@@ -94,60 +94,43 @@ const SEG_COLOR: Record<string, string> = {
   si: 'var(--color-suggere)',
 }
 
-/** Groupe d'article : l'unité de lecture de la table. */
+/**
+ * Groupe = un JOUR. L'axe de lecture d'un plan de charge est le temps : à
+ * l'intérieur d'un mois ou d'une semaine, on veut voir la séquence des dates,
+ * pas un palmarès d'articles. Les articles vivent dans les lignes du jour.
+ */
 interface Group<R> {
-  article: string
-  designation: string | null
-  /** Niveau BOM (vue commande) — le PF et ses induits ne se mélangent pas. */
-  depth: number | null
+  dateIso: string
   hours: number
   rows: R[]
-  /** Segments présents dans le groupe (pastilles d'en-tête). */
+  /** Segments présents ce jour-là (pastilles d'en-tête). */
   fields: string[]
 }
 
-/**
- * `meta` porte l'article explicitement plutôt que de le ré-extraire de la clé :
- * une clé composite qu'on redécoupe ensuite est une invitation à la corruption
- * (elle avait introduit un séparateur non imprimable dans ce fichier, au point
- * de le faire passer pour du binaire aux yeux de git).
- */
-function groupBy<R>(
+function groupByDay<R>(
   rows: R[],
-  key: (r: R) => string,
-  meta: (r: R) => {
-    article: string
-    designation: string | null
-    depth: number | null
-    field: string
-  },
-  hours: (r: R) => number,
-  sortRows: (a: R, b: R) => number
+  dateOf: (r: R) => string,
+  fieldOf: (r: R) => string,
+  hours: (r: R) => number
 ): Group<R>[] {
   const map = new Map<string, Group<R>>()
   for (const r of rows) {
-    const k = key(r)
-    const m = meta(r)
+    const k = dateOf(r)
     let g = map.get(k)
     if (!g) {
-      g = {
-        article: m.article,
-        designation: m.designation,
-        depth: m.depth,
-        hours: 0,
-        rows: [],
-        fields: [],
-      }
+      g = { dateIso: k, hours: 0, rows: [], fields: [] }
       map.set(k, g)
     }
     g.hours += hours(r)
     g.rows.push(r)
-    if (!g.fields.includes(m.field)) g.fields.push(m.field)
+    const f = fieldOf(r)
+    if (!g.fields.includes(f)) g.fields.push(f)
   }
   const out = [...map.values()]
-  for (const g of out) g.rows.sort(sortRows)
-  // Groupes du plus lourd au plus léger : ce qui pèse dans la barre d'abord.
-  return out.sort((a, b) => b.hours - a.hours)
+  // Dans un jour, le plus lourd d'abord : ce qui fait la charge du jour.
+  for (const g of out) g.rows.sort((a, b) => hours(b) - hours(a))
+  // Chronologie stricte, du plus tôt au plus tard.
+  return out.sort((a, b) => a.dateIso.localeCompare(b.dateIso))
 }
 
 export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
@@ -189,44 +172,48 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
 
   const ofGroups = useMemo(() => {
     if (data?.view !== 'of') return []
-    return groupBy(
+    return groupByDay(
       data.ofRows.filter((r) => keep.has(r.field)),
-      (r) => r.article,
-      (r) => ({ article: r.article, designation: r.designation, depth: null, field: r.field }),
-      (r) => r.hours,
-      (a, b) => a.dateIso.localeCompare(b.dateIso)
+      (r) => r.dateIso,
+      (r) => r.field,
+      (r) => r.hours
     )
   }, [data, keep])
 
   const cmdHours = (r: DetailCmdRow) => (net ? r.netHours : r.brutHours)
   const cmdGroups = useMemo(() => {
     if (data?.view !== 'commande') return []
-    return groupBy(
+    return groupByDay(
       data.cmdRows.filter((r) => keep.has(r.field)),
-      // Un même article peut apparaître en PF et en induit : ne pas fondre les deux.
-      (r) => `${r.article}::${r.depth}`,
-      (r) => ({ article: r.article, designation: r.designation, depth: r.depth, field: r.field }),
-      cmdHours,
-      (a, b) => a.dateIso.localeCompare(b.dateIso)
+      (r) => r.dateIso,
+      (r) => r.field,
+      cmdHours
     )
   }, [data, keep, net])
 
   const groups = view === 'of' ? ofGroups : cmdGroups
   const totalHours = useMemo(() => groups.reduce((a, g) => a + g.hours, 0), [groups])
   const rowCount = useMemo(() => groups.reduce((a, g) => a + g.rows.length, 0), [groups])
-  const maxGroupHours = groups.length ? groups[0].hours : 0
+  // Référence de la barre de contribution : le jour le plus chargé (pas le
+  // premier, puisque les groupes sont désormais triés par date et non par poids).
+  const maxGroupHours = useMemo(
+    () => groups.reduce((m, g) => Math.max(m, g.hours), 0),
+    [groups]
+  )
 
   // Grille UNIQUE (en-tête + lignes + total dans le même conteneur) : l'alignement
   // est structurel. Deux grilles distinctes se dimensionnaient indépendamment et
   // décalaient les en-têtes des cellules.
-  // L'article ne figure PAS dans les colonnes : il est porté une seule fois par
-  // la ligne de groupe. Les sous-lignes n'affichent que ce qui les distingue.
-  const cols = view === 'of' ? '1fr 8rem 7rem 7rem' : '1fr 10rem 1.2fr 8rem 7rem 7rem'
+  // La DATE ne figure pas dans les colonnes : elle est portée une seule fois
+  // par l'en-tête de jour. Les lignes n'affichent que ce qui les distingue au
+  // sein de ce jour.
+  const cols =
+    view === 'of' ? '9rem 1.6fr 10rem 7rem 7rem' : '9rem 1.6fr 8rem 9rem 1fr 7rem 7rem'
 
   const heads =
     view === 'of'
-      ? ['Ordre', 'Début', 'Qté', 'Heures']
-      : ['Via', 'Commande', 'Client', 'Échéance', 'Qté', 'Heures']
+      ? ['Article', 'Désignation', 'Ordre', 'Qté', 'Heures']
+      : ['Article', 'Désignation', 'Via', 'Commande', 'Client', 'Qté', 'Heures']
 
   return (
     <Sheet open={props.open} onOpenChange={props.onOpenChange}>
@@ -270,7 +257,7 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
               </span>
               <span className="flex-1" />
               <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                {groups.length} article{groups.length > 1 ? 's' : ''} · {rowCount}{' '}
+                {groups.length} jour{groups.length > 1 ? 's' : ''} · {rowCount}{' '}
                 {view === 'of' ? 'ordres' : 'besoins'}
               </span>
               <span className="font-mono text-[15px] font-bold tabular-nums text-foreground">
@@ -314,13 +301,12 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
                     </div>
                   ))}
 
-                  {groups.map((g, gi) => (
-                    <GroupBlock
-                      key={`${g.article}-${g.depth ?? ''}-${gi}`}
+                  {groups.map((g) => (
+                    <DayBlock
+                      key={g.dateIso}
                       group={g}
                       view={view}
                       net={net}
-                      colSpan={heads.length}
                       maxHours={maxGroupHours}
                       totalHours={totalHours}
                     />
@@ -357,27 +343,33 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
   )
 }
 
+/** Jour de la semaine abrégé, pour situer la date sans la décoder. */
+const WEEKDAYS = ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.']
+const weekdayOf = (iso: string): string => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso)
+  if (!m) return ''
+  return WEEKDAYS[new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).getDay()] ?? ''
+}
+
 /**
- * Un article : ligne d'en-tête (identité + poids dans la période) puis ses
- * ordres/besoins en sous-lignes. L'article n'est PAS répété sur chaque ligne —
- * c'est ce qui rendait la table illisible.
+ * Un JOUR : en-tête de date (+ poids dans la période) puis ses ordres/besoins.
+ * La date n'est pas répétée sur chaque ligne — c'est l'en-tête qui la porte,
+ * et la succession des en-têtes donne la chronologie de la période.
  */
-function GroupBlock(props: {
+function DayBlock(props: {
   group: Group<DetailOfRow | DetailCmdRow>
   view: LoadView
   net: boolean
-  colSpan: number
   maxHours: number
   totalHours: number
 }) {
   const { group: g, view, net, maxHours, totalHours } = props
   const share = totalHours > 0 ? (g.hours / totalHours) * 100 : 0
   const barPct = maxHours > 0 ? (g.hours / maxHours) * 100 : 0
-  const single = g.rows.length === 1
 
   return (
     <>
-      {/* Ligne de groupe — pleine largeur, alignée sur la grille parente. */}
+      {/* En-tête de jour — pleine largeur, alignée sur la grille parente. */}
       <div className="col-span-full mt-1 flex items-baseline gap-2.5 border-y border-rule-soft bg-card/60 px-5 py-1.5">
         {g.fields.map((f) => (
           <i
@@ -387,26 +379,18 @@ function GroupBlock(props: {
             title={segLabel(view, f as SegField)}
           />
         ))}
-        <span className="font-mono text-[12px] font-bold text-foreground">{g.article}</span>
-        <span className="min-w-0 flex-1 truncate text-[12px] text-muted-foreground">
-          {g.designation || '—'}
+        <span className="font-mono text-[10px] uppercase text-muted-foreground">
+          {weekdayOf(g.dateIso)}
         </span>
-        {g.depth !== null && (
-          <span
-            className={cn(
-              'flex-none font-mono text-[9px] font-bold uppercase tracking-wider',
-              g.depth === 0 ? 'text-brand' : 'text-muted-foreground'
-            )}
-            title={g.depth === 0 ? 'Produit fini — charge directe' : `Composant induit, niveau ${g.depth}`}
-          >
-            {g.depth === 0 ? 'produit fini' : `induit N-${g.depth}`}
-          </span>
-        )}
+        <span className="font-mono text-[12px] font-bold tabular-nums text-foreground">
+          {fmtDateFr(g.dateIso)}
+        </span>
+        <span className="flex-1" />
         <span className="flex-none font-mono text-[10px] text-muted-foreground">
           {g.rows.length} {view === 'of' ? 'ordre' : 'besoin'}
           {g.rows.length > 1 ? 's' : ''}
         </span>
-        {/* Poids du groupe dans la barre cliquée — la question qu'on se pose. */}
+        {/* Poids du jour dans la barre cliquée — la question qu'on se pose. */}
         <span className="flex flex-none items-center gap-2">
           <span className="relative h-1.5 w-24 overflow-hidden rounded-full bg-rule-soft">
             <span
@@ -423,17 +407,14 @@ function GroupBlock(props: {
         </span>
       </div>
 
-      {/* Sous-lignes : un groupe d'un seul élément n'a rien à détailler de plus
-          que sa date — on la garde, mais sans répéter l'article. */}
       {g.rows.map((r, i) =>
         view === 'of' ? (
-          <OfRow key={`${(r as DetailOfRow).numOf}-${i}`} row={r as DetailOfRow} dim={single} />
+          <OfRow key={`${(r as DetailOfRow).numOf}-${i}`} row={r as DetailOfRow} />
         ) : (
           <CmdRow
-            key={`${(r as DetailCmdRow).numCommande ?? ''}-${(r as DetailCmdRow).ligne ?? ''}-${i}`}
+            key={`${(r as DetailCmdRow).numCommande ?? ''}-${(r as DetailCmdRow).ligne ?? ''}-${(r as DetailCmdRow).article}-${i}`}
             row={r as DetailCmdRow}
             net={net}
-            dim={single}
           />
         )
       )}
@@ -443,35 +424,45 @@ function GroupBlock(props: {
 
 const CELL = 'border-b border-rule-soft/60 py-[5px] text-[11px]'
 
-function OfRow({ row: r, dim }: { row: DetailOfRow; dim: boolean }) {
+function OfRow({ row: r }: { row: DetailOfRow }) {
   return (
     <>
-      {/* Identifiant technique : lisible mais discret. Sur un OF suggéré il
-          n'a aucune valeur de lecture — il ne doit pas capter le regard avant
-          la date et les heures. */}
-      <div className={cn(CELL, 'pl-5 font-mono text-[10px] text-muted-foreground')}>{r.numOf}</div>
-      <div className={cn(CELL, 'font-mono text-secondary-foreground')}>{fmtDateFr(r.dateIso)}</div>
+      <div className={cn(CELL, 'truncate pl-5 font-mono text-[11px] font-bold text-foreground')}>
+        {r.article}
+      </div>
+      <div className={cn(CELL, 'truncate text-muted-foreground')}>{r.designation || '—'}</div>
+      {/* Identifiant technique : lisible mais discret. Sur un OF suggéré il n'a
+          aucune valeur de lecture — il ne doit pas capter le regard avant
+          l'article et les heures. */}
+      <div className={cn(CELL, 'font-mono text-[10px] text-muted-foreground')}>{r.numOf}</div>
       <div className={cn(CELL, 'text-right font-mono tabular-nums text-secondary-foreground')}>
         {fmtQ(r.quantite)}
       </div>
-      <div
-        className={cn(
-          CELL,
-          'pr-5 text-right font-mono tabular-nums',
-          dim ? 'text-muted-foreground' : 'text-foreground'
-        )}
-      >
+      <div className={cn(CELL, 'pr-5 text-right font-mono tabular-nums text-foreground')}>
         {fmtH(r.hours)}
       </div>
     </>
   )
 }
 
-function CmdRow({ row: r, net, dim }: { row: DetailCmdRow; net: boolean; dim: boolean }) {
+function CmdRow({ row: r, net }: { row: DetailCmdRow; net: boolean }) {
   return (
     <>
+      <div className={cn(CELL, 'truncate pl-5 font-mono text-[11px] font-bold text-foreground')}>
+        {r.article}
+        {/* Marqueur de niveau BOM : un induit ne se lit pas comme un PF. */}
+        {r.depth > 0 && (
+          <span
+            className="ml-1 font-mono text-[9px] font-normal text-muted-foreground"
+            title={`Composant induit, niveau ${r.depth}`}
+          >
+            N-{r.depth}
+          </span>
+        )}
+      </div>
+      <div className={cn(CELL, 'truncate text-muted-foreground')}>{r.designation || '—'}</div>
       {/* Chemin BOM : par quel parent ce besoin arrive (vide sur un PF). */}
-      <div className={cn(CELL, 'truncate pl-5 font-mono text-[10px] text-muted-foreground')}>
+      <div className={cn(CELL, 'truncate font-mono text-[10px] text-muted-foreground')}>
         {r.depth === 0 ? '' : `via ${r.parent ?? '?'}`}
       </div>
       <div className={cn(CELL, 'font-mono text-[10px] text-secondary-foreground')}>
@@ -481,17 +472,10 @@ function CmdRow({ row: r, net, dim }: { row: DetailCmdRow; net: boolean; dim: bo
       <div className={cn(CELL, 'truncate text-muted-foreground')}>
         {r.client ?? <span className="italic">prévision · sans client</span>}
       </div>
-      <div className={cn(CELL, 'font-mono text-secondary-foreground')}>{fmtDateFr(r.dateIso)}</div>
       <div className={cn(CELL, 'text-right font-mono tabular-nums text-secondary-foreground')}>
         {fmtQ(net ? r.netQty : r.brutQty)}
       </div>
-      <div
-        className={cn(
-          CELL,
-          'pr-5 text-right font-mono tabular-nums',
-          dim ? 'text-muted-foreground' : 'text-foreground'
-        )}
-      >
+      <div className={cn(CELL, 'pr-5 text-right font-mono tabular-nums text-foreground')}>
         {fmtH(net ? r.netHours : r.brutHours)}
       </div>
     </>
