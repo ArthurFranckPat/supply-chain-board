@@ -895,6 +895,18 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'dashboard.stock_article_detail': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/dashboard/stock/article'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'user.dashboard_layout.update': {
     methods: ["PATCH"]
     pattern: '/api/v1/user/dashboard-layout'

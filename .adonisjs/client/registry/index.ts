@@ -450,6 +450,12 @@ const routes = {
     tokens: [{"old":"/api/v1/dashboard/stock","type":0,"val":"api","end":""},{"old":"/api/v1/dashboard/stock","type":0,"val":"v1","end":""},{"old":"/api/v1/dashboard/stock","type":0,"val":"dashboard","end":""},{"old":"/api/v1/dashboard/stock","type":0,"val":"stock","end":""}],
     types: placeholder as Registry['dashboard.stock_valuation']['types'],
   },
+  'dashboard.stock_article_detail': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/dashboard/stock/article',
+    tokens: [{"old":"/api/v1/dashboard/stock/article","type":0,"val":"api","end":""},{"old":"/api/v1/dashboard/stock/article","type":0,"val":"v1","end":""},{"old":"/api/v1/dashboard/stock/article","type":0,"val":"dashboard","end":""},{"old":"/api/v1/dashboard/stock/article","type":0,"val":"stock","end":""},{"old":"/api/v1/dashboard/stock/article","type":0,"val":"article","end":""}],
+    types: placeholder as Registry['dashboard.stock_article_detail']['types'],
+  },
   'user.dashboard_layout.update': {
     methods: ["PATCH"],
     pattern: '/api/v1/user/dashboard-layout',

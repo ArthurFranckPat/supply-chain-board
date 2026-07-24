@@ -10,6 +10,7 @@ import {
 import {
   defaultStockRange,
   type StockValuationKpi,
+  type StockArticleHistory,
   type StockGrain,
 } from '#repositories/stock_valuation_repository'
 import boardDataset from '#services/board_dataset'
@@ -160,5 +161,34 @@ export default class DashboardController {
     }
 
     return { stockValuation, x3Error }
+  }
+
+  /** GET /api/v1/dashboard/stock/article — historique hebdo d'un article (AE1).
+   *  Alimente la sheet de détail ouverte au clic d'une ligne du KPI stock. */
+  async stockArticleDetail(ctx: HttpContext) {
+    const article = (ctx.request.input('article') as string | undefined)?.trim()
+    if (!article) {
+      return ctx.response.badRequest({ error: 'Paramètre article manquant' })
+    }
+
+    const referenceDate = ctx.request.input('referenceDate')
+    const refDate = referenceDate ? new Date(referenceDate as string) : new Date()
+    const safeRef = Number.isNaN(refDate.getTime()) ? new Date() : refDate
+
+    let detail: StockArticleHistory | null = null
+    let x3Error: string | null = null
+
+    try {
+      detail = await boardDataset.getStockArticleHistory(article, safeRef)
+    } catch (e) {
+      logger.error({ err: e }, '[dashboard] stock article — échec chargement historique X3')
+      x3Error = 'Données X3 indisponibles — historique momentanément incalculable.'
+    }
+
+    if (!detail && !x3Error) {
+      return ctx.response.notFound({ error: `Article inconnu : ${article}` })
+    }
+
+    return { detail, x3Error }
   }
 }

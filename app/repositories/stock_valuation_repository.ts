@@ -46,6 +46,21 @@ WHERE M.ITMSTA_0 = 1
                            AND IPTDAT_0 >= TO_DATE('${fromStr}','YYYYMMDD')))
 `
 
+/** Base d'UN article : stock + PMP actuels sur AE1 + identité (désignation,
+ *  catégorie). Pas de filtre ITMSTA/TCLCOD : la sheet de détail doit répondre
+ *  pour tout article cliqué dans le KPI, même sorti du référentiel actif. */
+const buildArticleBaseSql = (article: string) => `
+SELECT
+  M.ITMREF_0    AS ARTICLE,
+  M.ITMDES1_0   AS DESIGNATION,
+  M.TCLCOD_0    AS CATEGORIE,
+  (V.PHYSTO_0 + V.CTLSTO_0) AS STK,
+  V.AVC_0       AS PMP
+FROM ITMMASTER M
+INNER JOIN ITMMVT V ON V.ITMREF_0 = M.ITMREF_0 AND V.STOFCY_0 = '${SITE}'
+WHERE M.ITMREF_0 = '${article.replace(/'/g, "''")}'
+`
+
 /** Flux agrégé par article × période (entrées, sorties, net qté).
  *  Filtré par liste d'articles (chunk) — le flux complet dépasse le seuil de
  *  lignes du web service SOAP Syracuse (resultXml is nil). */
@@ -94,6 +109,30 @@ export interface StockValuationKpi {
   categories: StockCategorieRow[]
   articles: StockArticleRow[] // trié par valeur décroissante
   nbArticles: number
+}
+
+/** Point hebdomadaire de l'historique d'un article (sheet de détail dashboard).
+ *  Valeurs = quantité × PMP actuel (même convention de valorisation que le KPI). */
+export interface StockArticleHistoryPoint {
+  periode: string // clé YYYY-Www (semaine ISO)
+  label: string // ex. "sem. 26"
+  qte: number // stock fin de semaine
+  valeur: number // qte × PMP actuel (€)
+  entreeQte: number
+  sortieQte: number
+  entreeVal: number
+  sortieVal: number
+}
+
+export interface StockArticleHistory {
+  article: string
+  designation: string
+  categorie: string
+  stock: number // stock actuel (ancré à refDate)
+  pmp: number
+  valeur: number // stock × pmp (€)
+  grain: 'semaine'
+  series: StockArticleHistoryPoint[] // du plus ancien au plus récent
 }
 
 function toYYYYMMDD(d: Date): string {
@@ -318,6 +357,110 @@ export class StockValuationRepository {
       categories,
       articles,
       nbArticles: baseRows.length,
+    }
+  }
+
+  /**
+   * Historique hebdomadaire d'UN article sur 52 semaines glissantes (sheet de
+   * détail du KPI stock). Même méthode de rembobinage que le KPI agrégé :
+   *   QTE_CLOSE(S) = stkAnchor − Σ NETQ(semaines postérieures à S)
+   * avec stkAnchor = stock actuel − mouvements postérieurs à la dernière
+   * semaine affichée (invariant si refDate ≈ aujourd'hui). Les flux valorisés
+   * appliquent le PMP actuel, comme la courbe de stock.
+   *
+   * Retourne `null` si l'article n'a pas de fiche stock sur AE1.
+   */
+  async getArticleStockHistory(
+    article: string,
+    refDate: Date = new Date()
+  ): Promise<StockArticleHistory | null> {
+    // 52 semaines glissantes (12 mois) : buildRefPeriods aligne sur les lundis,
+    // soit 53 points hebdomadaires entre `from` et `to`.
+    const to = new Date(Date.UTC(refDate.getUTCFullYear(), refDate.getUTCMonth(), refDate.getUTCDate()))
+    const from = new Date(to.getTime() - 52 * 7 * 86_400_000)
+    const refPeriods = buildRefPeriods('semaine', from, to)
+    const fromStr = toYYYYMMDD(from)
+
+    const db = new X3Database()
+    let baseRows: RawRow[] = []
+    let fluxRows: RawRow[] = []
+    try {
+      baseRows = await db.raw(buildArticleBaseSql(article))
+      if (baseRows.length === 0) return null
+      fluxRows = await db.raw(buildFluxSql(fromStr, [article], 'semaine'))
+    } finally {
+      await db.destroy()
+    }
+
+    const row = baseRows[0]
+    const stkNow = num(row.STK)
+    const pmp = num(row.PMP)
+
+    // Flux indexés par semaine (clé YYYY-Www, comme le TRUNC 'IW' Oracle).
+    const fluxByPeriod = new Map<string, { net: number; entree: number; sortie: number }>()
+    for (const f of fluxRows) {
+      const d = parseX3Date(f.PERIODE)
+      if (!d) continue
+      fluxByPeriod.set(periodKey(d, 'semaine'), {
+        net: num(f.NETQ),
+        entree: num(f.ENTREE),
+        sortie: num(f.SORTIE),
+      })
+    }
+
+    // Ancrage à refDate : retranche les mouvements des semaines postérieures à la
+    // dernière période affichée (comparaison lexicographique des clés YYYY-Www).
+    const toKey = refPeriods[refPeriods.length - 1]?.key
+    let postRefQty = 0
+    if (toKey) {
+      for (const [key, f] of fluxByPeriod) {
+        if (key > toKey) postRefQty += f.net
+      }
+    }
+    const stkAnchor = stkNow - postRefQty
+
+    const round2 = (v: number) => Math.round(v * 100) / 100
+
+    // Rembobinage du plus récent au plus ancien : runningSub = Σ des qtés nettes
+    // des semaines PLUS RÉCENTES que i.
+    const series: StockArticleHistoryPoint[] = refPeriods.map((p) => ({
+      periode: p.key,
+      label: p.label,
+      qte: 0,
+      valeur: 0,
+      entreeQte: 0,
+      sortieQte: 0,
+      entreeVal: 0,
+      sortieVal: 0,
+    }))
+    let runningQtySub = 0
+    for (let i = refPeriods.length - 1; i >= 0; i--) {
+      const qtyClose = stkAnchor - runningQtySub
+      const f = fluxByPeriod.get(refPeriods[i].key)
+      const entree = f?.entree ?? 0
+      const sortie = f?.sortie ?? 0
+      series[i] = {
+        periode: refPeriods[i].key,
+        label: refPeriods[i].label,
+        qte: round2(qtyClose),
+        valeur: round2(qtyClose * pmp),
+        entreeQte: round2(entree),
+        sortieQte: round2(sortie),
+        entreeVal: round2(entree * pmp),
+        sortieVal: round2(sortie * pmp),
+      }
+      if (f) runningQtySub += f.net
+    }
+
+    return {
+      article: article.trim(),
+      designation: row.DESIGNATION?.trim() ?? '',
+      categorie: (row.CATEGORIE?.trim() || '(sans cat.)').toUpperCase(),
+      stock: round2(stkAnchor),
+      pmp: Math.round(pmp * 1_000_000) / 1_000_000,
+      valeur: round2(stkAnchor * pmp),
+      grain: 'semaine',
+      series,
     }
   }
 }

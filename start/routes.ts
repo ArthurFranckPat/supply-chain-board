@@ -238,6 +238,8 @@ router
     router.get('/api/v1/dashboard/kpis', '#controllers/dashboard_controller.kpis')
     router.get('/api/v1/dashboard/otd', '#controllers/dashboard_controller.otd')
     router.get('/api/v1/dashboard/stock', '#controllers/dashboard_controller.stockValuation')
+    // Détail d'un article (sheet ouverte au clic d'une ligne du KPI stock).
+    router.get('/api/v1/dashboard/stock/article', '#controllers/dashboard_controller.stockArticleDetail')
 
     // Layout KPI personnalisables (feature tableau de bord) — le contrôleur +
     // le validator existent déjà ; la route manquait, le PATCH front 404 à chaque

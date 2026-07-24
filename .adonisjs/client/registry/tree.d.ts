@@ -18,6 +18,7 @@ export interface ApiDefinition {
     kpis: typeof routes['dashboard.kpis']
     otd: typeof routes['dashboard.otd']
     stockValuation: typeof routes['dashboard.stock_valuation']
+    stockArticleDetail: typeof routes['dashboard.stock_article_detail']
   }
   designSystem: typeof routes['design_system']
   diagnosticTest: typeof routes['diagnostic_test']

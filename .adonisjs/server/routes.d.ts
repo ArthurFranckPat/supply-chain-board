@@ -78,6 +78,7 @@ export type ScannedRoutes = {
     'dashboard.kpis': { paramsTuple?: []; params?: {} }
     'dashboard.otd': { paramsTuple?: []; params?: {} }
     'dashboard.stock_valuation': { paramsTuple?: []; params?: {} }
+    'dashboard.stock_article_detail': { paramsTuple?: []; params?: {} }
     'user.dashboard_layout.update': { paramsTuple?: []; params?: {} }
     'expeditions.rows': { paramsTuple?: []; params?: {} }
     'receptions.rows': { paramsTuple?: []; params?: {} }
@@ -149,6 +150,7 @@ export type ScannedRoutes = {
     'dashboard.kpis': { paramsTuple?: []; params?: {} }
     'dashboard.otd': { paramsTuple?: []; params?: {} }
     'dashboard.stock_valuation': { paramsTuple?: []; params?: {} }
+    'dashboard.stock_article_detail': { paramsTuple?: []; params?: {} }
     'expeditions.rows': { paramsTuple?: []; params?: {} }
     'receptions.rows': { paramsTuple?: []; params?: {} }
     'receptions.criticite': { paramsTuple?: []; params?: {} }
@@ -212,6 +214,7 @@ export type ScannedRoutes = {
     'dashboard.kpis': { paramsTuple?: []; params?: {} }
     'dashboard.otd': { paramsTuple?: []; params?: {} }
     'dashboard.stock_valuation': { paramsTuple?: []; params?: {} }
+    'dashboard.stock_article_detail': { paramsTuple?: []; params?: {} }
     'expeditions.rows': { paramsTuple?: []; params?: {} }
     'receptions.rows': { paramsTuple?: []; params?: {} }
     'receptions.criticite': { paramsTuple?: []; params?: {} }

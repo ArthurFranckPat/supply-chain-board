@@ -18,6 +18,7 @@ import { computeSupplierLatency } from '#repositories/supplier_latency_repositor
 import {
   StockValuationRepository,
   type StockValuationKpi,
+  type StockArticleHistory,
   type StockGrain,
 } from '#repositories/stock_valuation_repository'
 import { createHash } from 'node:crypto'
@@ -376,6 +377,29 @@ class BoardDataset {
       timeout: SWR_TIMEOUT,
       factory: () => new StockValuationRepository().getStockValuationKpi(refDate, grain, from, to),
     })
+  }
+
+  /**
+   * Historique hebdo d'un article (sheet de détail du KPI stock). SWR 2 min —
+   * même fraîcheur acceptable que le KPI. Le résultat est emballé dans un objet
+   * car bentocache ne met pas en cache un `null` nu (article inconnu → 404 du
+   * contrôleur, sans re-jeu SOAP à chaque clic).
+   */
+  async getStockArticleHistory(
+    article: string,
+    refDate: Date
+  ): Promise<StockArticleHistory | null> {
+    const isoL = (d: Date) => d.toISOString().slice(0, 10)
+    const key = `stock-article-history:${article}:${isoL(refDate)}`
+    const cached = await board().getOrSet({
+      key,
+      ttl: STOCK_TTL,
+      timeout: SWR_TIMEOUT,
+      factory: async () => ({
+        detail: await new StockValuationRepository().getArticleStockHistory(article, refDate),
+      }),
+    })
+    return cached.detail
   }
 
   /**

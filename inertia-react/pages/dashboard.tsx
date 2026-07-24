@@ -19,6 +19,7 @@ import {
 import { useLayoutStore } from '@r/lib/dashboard/layout-store'
 import { Eye, EyeOff, GripVertical, ArrowUp, ArrowDown, LoaderCircle, Calendar as CalendarIcon, X, Search, ChevronDown, ChevronRight } from 'lucide-react'
 import { DynamicIcon } from '../components/ui/dynamic-icon'
+import { StockArticleSheet } from '@r/components/board/stock-article-sheet'
 
 /**
  * Tableau de bord (issue #26 shell + #38 KPI). Landing par défaut post-login.
@@ -512,6 +513,8 @@ export default function Dashboard(props: DashboardProps) {
   const [stockGrain, setStockGrain] = useState<StockGrain>('mois')
   const [stockRange, setStockRange] = useState<{ start: Date | null; end: Date | null } | null>(null)
   const [stockCalendarOpen, setStockCalendarOpen] = useState(false)
+  // Article ouvert dans la sheet de détail (null = fermé).
+  const [stockArticle, setStockArticle] = useState<string | null>(null)
 
   // Ref pour le contenu imprimable
   const contentElRef = useRef<HTMLDivElement>(null)
@@ -1488,7 +1491,12 @@ export default function Dashboard(props: DashboardProps) {
                           </thead>
                           <tbody>
                             {filteredArticles.map((a) => (
-                              <tr key={`${a.article}::${a.categorie}`} className="border-b border-rule-soft last:border-0 hover:bg-secondary/40">
+                              <tr
+                                key={`${a.article}::${a.categorie}`}
+                                onClick={() => setStockArticle(a.article)}
+                                title="Ouvrir le détail de l'article"
+                                className="cursor-pointer border-b border-rule-soft last:border-0 hover:bg-secondary/40"
+                              >
                                 <td className="px-2 py-1.5 align-top font-mono text-[12px] font-semibold text-brand">
                                   {a.article}
                                 </td>
@@ -1522,6 +1530,15 @@ export default function Dashboard(props: DashboardProps) {
               <HiddenTile id="stockTable" editMode={editMode} onShow={() => setVisible('stockTable', true)} />
             )}
           </div>
+
+          {/* Sheet de détail article (clic sur une ligne du KPI stock). */}
+          <StockArticleSheet
+            article={stockArticle}
+            open={!!stockArticle}
+            onOpenChange={(v) => {
+              if (!v) setStockArticle(null)
+            }}
+          />
         </div>
     </AppLayout>
   )
