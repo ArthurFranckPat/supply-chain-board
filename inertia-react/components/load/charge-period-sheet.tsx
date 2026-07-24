@@ -393,18 +393,20 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
                     onValueChange={(v) => setArticleFilter(v == null ? null : String(v))}
                     onInputValueChange={(v) => setArticleQuery(v)}
                   >
-                    {/* Deux traitements de focus se cumulaient à l'écran :
-                        l'anneau de 3 px de l'InputGroup (`ring-3 ring-ring/50`,
-                        terracotta dans ce thème, d'où l'effet « bordure rouge »)
-                        et l'outline par défaut du navigateur sur l'input, que le
-                        primitive ne neutralise pas. On garde un seul repère —
-                        la bordure passe en brand. `className` atterrit sur
-                        l'InputGroup, d'où le `[&_input]` pour joindre l'input.
-                        Le `!` départage les `ring-*` concurrents, que Tailwind
-                        ordonne en interne et non selon l'ordre d'écriture. */}
+                    {/* Le cadre noir à angles vifs vient de `styles/app.css` :
+                        `@layer base { * { @apply outline-ring/50 } }` repeint
+                        l'outline de focus du navigateur en `--ring` (#222222)
+                        sur TOUS les éléments. C'est une règle globale : aucune
+                        classe utilitaire posée ici ne la neutralise de façon
+                        fiable, d'où le style inline sur l'input — il gagne
+                        contre tout. `style` traverse ComboboxInput jusqu'à
+                        l'élément input ; `className`, lui, s'arrête sur
+                        l'InputGroup qui l'enveloppe.
+                        Reste un seul repère de focus : la bordure en brand. */}
                     <ComboboxInput
                       placeholder="Tous les articles — code ou désignation…"
-                      className="w-full border-rule [&_input]:outline-none [&_input]:focus-visible:outline-none has-[[data-slot=input-group-control]:focus-visible]:border-brand has-[[data-slot=input-group-control]:focus-visible]:ring-0!"
+                      style={{ outline: 'none', boxShadow: 'none' }}
+                      className="w-full border-rule has-[[data-slot=input-group-control]:focus-visible]:border-brand has-[[data-slot=input-group-control]:focus-visible]:ring-0!"
                     />
                     {/* Au-dessus du panneau qui le contient (z-60), sous les
                         dialogs (z-65). Sans ça, la liste s'ouvre DERRIÈRE le
