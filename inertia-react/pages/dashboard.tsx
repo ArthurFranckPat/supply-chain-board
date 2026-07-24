@@ -20,6 +20,7 @@ import { useLayoutStore } from '@r/lib/dashboard/layout-store'
 import { Eye, EyeOff, GripVertical, ArrowUp, ArrowDown, LoaderCircle, Calendar as CalendarIcon, X, Search, ChevronDown, ChevronRight } from 'lucide-react'
 import { DynamicIcon } from '../components/ui/dynamic-icon'
 import { StockArticleSheet } from '@r/components/board/stock-article-sheet'
+import { Skeleton, SkeletonChart } from '@r/components/ui/skeleton'
 
 /**
  * Tableau de bord (issue #26 shell + #38 KPI). Landing par défaut post-login.
@@ -466,8 +467,20 @@ function Tile({
 
 function Spinner() {
   return (
-    <div className="flex h-[180px] items-center justify-center">
-      <LoaderCircle className="animate-spin text-muted-foreground/50" size={22} />
+    <div className="flex h-[180px] w-full flex-col gap-3 p-4">
+      <div className="flex items-center justify-between">
+        <Skeleton className="h-4 w-28" />
+        <Skeleton className="h-4 w-12 rounded-full" />
+      </div>
+      <div className="flex flex-1 items-end gap-2 pt-2">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <Skeleton
+            key={i}
+            className="w-full rounded-t-sm"
+            style={{ height: `${30 + (i * 11) % 60}%` }}
+          />
+        ))}
+      </div>
     </div>
   )
 }

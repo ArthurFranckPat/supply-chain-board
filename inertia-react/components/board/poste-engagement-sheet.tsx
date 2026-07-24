@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { CircleX, Package, RefreshCw, TriangleAlert } from 'lucide-react'
 import { cn } from '@r/lib/utils'
 import { Sheet, SheetContent, SheetTitle } from '@r/components/ui/sheet'
+import { LoadingState } from '@r/components/ui/loading-state'
 import { route } from '@/lib/routes'
 
 /**
@@ -140,10 +141,10 @@ export function PosteEngagementSheet(props: PosteEngagementSheetProps) {
         className="flex h-[72vh] w-full max-w-none flex-col gap-0 rounded-t-[16px] p-0"
       >
         {loading ? (
-          <div className="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-muted-foreground">
-            <RefreshCw size={26} strokeWidth={1.75} className="animate-spin" />
-            <span className="text-sm">Chargement…</span>
-          </div>
+          <LoadingState
+            title="Chargement du poste..."
+            description="Récupération des ordres et charges engagées"
+          />
         ) : error ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-destructive">
             <CircleX size={26} strokeWidth={1.75} />

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { CircleX, RefreshCw, TriangleAlert } from 'lucide-react'
 import { cn } from '@r/lib/utils'
 import { Sheet, SheetContent, SheetTitle } from '@r/components/ui/sheet'
+import { LoadingState } from '@r/components/ui/loading-state'
 import {
   Combobox,
   ComboboxContent,
@@ -313,10 +314,10 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
         className="flex w-full flex-col gap-0 rounded-t-[16px] p-0 data-[side=bottom]:mx-0 data-[side=bottom]:h-[78vh] data-[side=bottom]:max-w-none"
       >
         {loading ? (
-          <div className="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-muted-foreground">
-            <RefreshCw size={26} strokeWidth={1.75} className="animate-spin" />
-            <span className="text-sm">Chargement…</span>
-          </div>
+          <LoadingState
+            title="Chargement de la période..."
+            description="Récupération du détail de charge par opération"
+          />
         ) : error ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-destructive">
             <CircleX size={26} strokeWidth={1.75} />

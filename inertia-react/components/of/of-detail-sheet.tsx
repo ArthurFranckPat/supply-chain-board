@@ -12,6 +12,7 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { router } from '@inertiajs/react'
 
 import { Sheet, SheetContent, SheetTitle } from '@r/components/ui/sheet'
+import { LoadingState } from '@r/components/ui/loading-state'
 import { Badge } from '@r/components/ui/badge'
 import { cn } from '@r/lib/utils'
 import {
@@ -199,10 +200,10 @@ export function OfDetailSheet(props: {
               <span className="text-sm font-medium">Échec du chargement du détail.</span>
             </div>
           ) : (
-            <div className="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-muted-foreground">
-              <Loader2 size={28} strokeWidth={1.75} className="animate-spin" />
-              <span className="text-sm">Chargement…</span>
-            </div>
+            <LoadingState
+              title="Chargement de l'ordre de fabrication..."
+              description="Récupération des détails, composants et opérations"
+            />
           )
         ) : (
           <>
@@ -427,10 +428,11 @@ export function OfDetailSheet(props: {
 
               {tab === 'diagnostic' &&
                 (diagLoading ? (
-                  <div className="flex flex-col items-center justify-center gap-2 py-10 text-muted-foreground">
-                    <Loader2 size={24} strokeWidth={1.75} className="animate-spin" />
-                    <span className="text-[12px]">Diagnostic en cours…</span>
-                  </div>
+                  <LoadingState
+                    compact
+                    title="Diagnostic en cours..."
+                    description="Analyse des besoins composants et chaînes de dépendance"
+                  />
                 ) : diagError ? (
                   <div className="flex flex-col items-center gap-2 py-8 text-destructive">
                     <CircleX size={22} strokeWidth={1.75} />

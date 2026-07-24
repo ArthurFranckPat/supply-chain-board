@@ -7,6 +7,7 @@ import { useState } from 'react'
 
 import { cn } from '@r/lib/utils'
 import { TriangleAlert, Loader2, CircleX, FilterX } from 'lucide-react'
+import { SkeletonRow } from '@r/components/ui/skeleton'
 import { DynamicIcon } from '../ui/dynamic-icon'
 import DataTable, { type SortingState } from '@r/components/ui/data-table'
 import type { SuiviRowsResponse, SuiviDisplayRow } from '@/lib/suivi/types'
@@ -54,11 +55,9 @@ export function ReactiveView(props: ReactiveViewProps) {
         </div>
       )}
 
-      {/* ═══ Table ═══ */}
       {props.loading ? (
-        <div className="flex flex-1 items-center justify-center gap-2 text-muted-foreground">
-          <Loader2 size={20} strokeWidth={1.75} className="animate-spin" />
-          <span className="text-[13px] font-medium">Calcul du suivi…</span>
+        <div className="flex-1 overflow-hidden p-5">
+          <SkeletonRow count={6} />
         </div>
       ) : props.error ? (
         <div className="flex flex-1 items-center justify-center gap-2 text-[13px] text-destructive">

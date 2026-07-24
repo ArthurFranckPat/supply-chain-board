@@ -7,6 +7,7 @@ import { useState } from 'react'
 
 import { cn } from '@r/lib/utils'
 import { TriangleAlert, Loader2, CircleX, FilterX } from 'lucide-react'
+import { SkeletonRow } from '@r/components/ui/skeleton'
 import { DynamicIcon } from '../ui/dynamic-icon'
 import DataTable, { type SortingState } from '@r/components/ui/data-table'
 import type { ProactiveRowsResponse, ProactiveDisplayRow } from '@/lib/suivi/types'
@@ -47,11 +48,9 @@ export function ProactiveView(props: ProactiveViewProps) {
         </div>
       )}
 
-      {/* ═══ Proactif : table ═══ */}
       {props.loading ? (
-        <div className="flex flex-1 items-center justify-center gap-2 text-muted-foreground">
-          <Loader2 size={20} strokeWidth={1.75} className="animate-spin" />
-          <span className="text-[13px] font-medium">Calcul de la réalisabilité…</span>
+        <div className="flex-1 overflow-hidden p-5">
+          <SkeletonRow count={6} />
         </div>
       ) : props.error ? (
         <div className="flex flex-1 items-center justify-center gap-2 text-[13px] text-destructive">

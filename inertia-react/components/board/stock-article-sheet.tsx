@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { CircleX, Package, RefreshCw, TriangleAlert } from 'lucide-react'
 import { cn } from '@r/lib/utils'
 import { Sheet, SheetContent, SheetTitle } from '@r/components/ui/sheet'
+import { LoadingState } from '@r/components/ui/loading-state'
 
 /**
  * Sheet « Détail article » du KPI Stock par article (dashboard) : historique
@@ -646,10 +647,10 @@ export function StockArticleSheet(props: StockArticleSheetProps) {
         className="flex w-full flex-col gap-0 rounded-t-[16px] p-0 data-[side=bottom]:mx-0 data-[side=bottom]:h-[85vh] data-[side=bottom]:max-w-none"
       >
         {loading ? (
-          <div className="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-muted-foreground">
-            <RefreshCw size={26} strokeWidth={1.75} className="animate-spin" />
-            <span className="text-sm">Chargement…</span>
-          </div>
+          <LoadingState
+            title="Chargement du stock..."
+            description="Calcul des mouvements et projections de stock"
+          />
         ) : error ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-destructive">
             <CircleX size={26} strokeWidth={1.75} />

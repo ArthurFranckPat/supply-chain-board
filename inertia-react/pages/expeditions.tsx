@@ -3,6 +3,7 @@ import type { DateRange as DayPickerRange } from 'react-day-picker'
 import { X, Minus, Plus, TriangleAlert, Search, LoaderCircle, CircleX, CloudOff, Truck } from 'lucide-react'
 
 import AppLayout from '@r/layouts/app'
+import { SkeletonRow } from '@r/components/ui/skeleton'
 import {
   PILL,
   Segment,
@@ -322,11 +323,9 @@ export default function Expeditions(props: ExpeditionsPageProps) {
           </div>
         )}
 
-        {/* ═══ Vue ═══ */}
         {loading ? (
-          <div className="flex flex-1 items-center justify-center gap-2 text-muted-foreground">
-            <LoaderCircle size={20} strokeWidth={1.75} className="animate-spin" />
-            <span className="text-[13px] font-medium">Calcul des expéditions…</span>
+          <div className="flex-1 overflow-hidden p-5">
+            <SkeletonRow count={6} />
           </div>
         ) : error ? (
           <div className="flex flex-1 items-center justify-center gap-2 text-[13px] text-destructive">

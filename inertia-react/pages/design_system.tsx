@@ -4,6 +4,9 @@ import { Button } from '@r/components/ui/button'
 import { Badge } from '@r/components/ui/badge'
 import { TextField, TextFieldInput, TextFieldLabel } from '@r/components/ui/text-field'
 import { Separator } from '@r/components/ui/separator'
+import { Spinner } from '@r/components/ui/spinner'
+import { Skeleton, SkeletonCard, SkeletonChart, SkeletonRow } from '@r/components/ui/skeleton'
+import { LoadingState } from '@r/components/ui/loading-state'
 import { Calendar } from '@r/components/ui/calendar'
 import { useRangeCalendar } from '@r/lib/use-range-calendar'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@r/components/ui/select'
@@ -1106,7 +1109,7 @@ function StatePane(props: {
   return (
     <div className="flex flex-col items-center gap-3 rounded-lg border border-border bg-card px-5 py-9 text-center">
       {props.spin ? (
-        <div className="size-7 animate-spin rounded-full border-[3px] border-border border-t-brand" />
+        <Spinner variant="brand" size="lg" />
       ) : (
         <div className={`flex size-11 items-center justify-center rounded-full ${toneCls[props.tone]}`}>
           <DynamicIcon name={props.icon} size={26} />

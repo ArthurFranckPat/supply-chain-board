@@ -2,6 +2,8 @@ import { type Dispatch, type SetStateAction, useMemo, useState } from 'react'
 import { FilterX, Search, Lightbulb, LoaderCircle, TriangleAlert, CircleX, CircleCheck } from 'lucide-react'
 
 import AppLayout from '@r/layouts/app'
+import { SkeletonRow } from '@r/components/ui/skeleton'
+import { Spinner } from '@r/components/ui/spinner'
 import { PILL, RefreshPill, ToolbarRow } from '@r/components/vision/toolbar'
 import {
   ConditionnementsTable,
@@ -354,8 +356,8 @@ export default function Conditionnements(props: ConditionnementsPageProps) {
               </button>
             )}
             {estimationsChargees && enrichmentsLoading && (
-              <span className="inline-flex items-center gap-1 text-[11px] text-planifie">
-                <LoaderCircle size={14} strokeWidth={1.75} className="animate-spin" />
+              <span className="inline-flex items-center gap-1.5 text-[11px] text-planifie">
+                <Spinner size="xs" variant="brand" />
                 Calcul…
               </span>
             )}
@@ -380,9 +382,8 @@ export default function Conditionnements(props: ConditionnementsPageProps) {
 
         {/* ═══ Tableau ═══ */}
         {loading && !data ? (
-          <div className="flex flex-1 items-center justify-center gap-2 text-muted-foreground">
-            <LoaderCircle size={20} strokeWidth={1.75} className="animate-spin" />
-            <span className="text-[13px] font-medium">Chargement des articles…</span>
+          <div className="flex-1 overflow-hidden p-5">
+            <SkeletonRow count={6} />
           </div>
         ) : error ? (
           <div className="flex flex-1 items-center justify-center gap-2 text-[13px] text-destructive">
