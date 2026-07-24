@@ -686,15 +686,22 @@ function CmdRow({ row: r, net }: { row: DetailCmdRow; net: boolean }) {
         )}
         {r.designation || '—'}
       </div>
-      {/* Chemin BOM COMPLET, du produit fini au parent immédiat. Le dernier
-          maillon seul ne disait pas de quel produit fini le composant descend,
-          ce qui rendait la ligne incohérente avec sa commande dès le niveau 2.
-          Tronqué à l'affichage, entier au survol. */}
+      {/* Chaîne BOM lue en REMONTÉE : du parent immédiat vers le produit fini.
+          `path` est stocké dans l'ordre d'ascendance (PF en tête) ; on l'inverse
+          ici parce que la lecture part de l'article de la ligne et doit ABOUTIR
+          au produit fini — celui-là même que porte la colonne Commande, juste à
+          côté. Dans l'autre sens, les deux colonnes ne se raccordaient pas.
+          Tronqué dans la cellule, chaîne entière au survol. */}
       <div
         className={cn(CELL, 'truncate font-mono text-[10px] text-muted-foreground')}
-        title={r.path.length ? [...r.path, r.article].join(' › ') : undefined}
+        title={
+          r.path.length
+            ? // Chaîne entière, article de la ligne inclus en tête.
+              [r.article, ...[...r.path].reverse()].join(' → ')
+            : undefined
+        }
       >
-        {r.path.length === 0 ? '' : r.path.join(' › ')}
+        {r.path.length === 0 ? '' : [...r.path].reverse().join(' → ')}
       </div>
       <div className={cn(CELL, 'font-mono text-[10px] text-secondary-foreground')}>
         {r.numCommande ?? '—'}

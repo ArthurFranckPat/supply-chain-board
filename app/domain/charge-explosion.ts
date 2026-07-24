@@ -55,12 +55,17 @@ export interface ChargeRaw {
   qty: number
   rate: number
   /**
-   * Chemin BOM complet, du produit fini jusqu'au parent immédiat (exclut
-   * l'article lui-même). Vide au depth 0.
+   * Chemin BOM complet, en ordre d'ASCENDANCE : produit fini en tête, parent
+   * immédiat en queue (exclut l'article lui-même). Vide au depth 0.
    *
    * Chaîne entière et non dernier maillon : au-delà du niveau 1, « via C1 » ne
    * dit pas de quel produit fini C1 descend, et la ligne devient illisible face
-   * à sa commande. Le parent immédiat reste le dernier élément.
+   * à sa commande.
+   *
+   * L'ordre stocké est celui de la descente (racine d'abord), convention usuelle
+   * d'un chemin. L'AFFICHAGE le prend à l'envers : on lit en remontant depuis
+   * l'article vers le produit fini. Ne pas inverser ici — d'autres lectures
+   * (profondeur, ancêtres) attendent la racine en tête.
    */
   path: string[]
   /** Ligne de demande d'origine (absente si l'appelant n'en fournit pas). */
