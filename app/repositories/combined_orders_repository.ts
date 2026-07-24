@@ -304,26 +304,31 @@ export class CombinedOrdersRepository {
   }
 
   /** Flux futurs d'UN article — projection de stock de la sheet détail du KPI
-   *  stock (stock_detail_loader). Demande à livrer (WIPTYP 1, fermes WIPSTA 1
-   *  + prévisions WIPSTA 3, ENDDAT ∈ [from, to]), réceptions attendues
-   *  (WIPTYP 2, WIPSTA 1/2, ENDDAT ≤ to) et OF ouverts fermes/planifiés
-   *  (WIPTYP 5, WIPSTA 1/2, ENDDAT ∈ [from, to]).
+   *  stock (stock_detail_loader). Quatre natures :
+   *   - `demande` : lignes client à livrer (WIPTYP 1, fermes WIPSTA 1 +
+   *     prévisions WIPSTA 3, ENDDAT ∈ [from, to]) — les articles vendus.
+   *   - `composant` : besoin matière des OF ouverts (MFGMAT restant à sortir,
+   *     OF fermes/planifiés démarrant ≤ to, datés STRDAT) — la demande réelle
+   *     des articles achetés/semi-finis, absente de WIPTYP 1.
+   *   - `reception` : réceptions attendues (WIPTYP 2, WIPSTA 1/2, ENDDAT ≤ to).
+   *   - `of` : production attendue des OF ouverts (WIPTYP 5, WIPSTA 1/2,
+   *     ENDDAT ∈ [from, to]).
    *
-   *  Même sémantique de fenêtre que buildOrdersSql, mais scopée à l'article,
-   *  sans jointure et 3 colonnes : le fetch global toutes fenêtres confondues
-   *  dépasse le seuil de lignes du SOAP Syracuse (resultXml is nil) sur un
-   *  horizon 12 mois — ici le résultat tient toujours en une poignée de
-   *  lignes. */
+   *  Même sémantique de fenêtre que buildOrdersSql, mais scopée à l'article :
+   *  le fetch global toutes fenêtres confondues dépasse le seuil de lignes du
+   *  SOAP Syracuse (resultXml is nil) sur un horizon 12 mois — ici chaque
+   *  résultat tient toujours en une poignée de lignes. */
   async fetchArticleFutureFlows(
     article: string,
     fromIso: string,
     toIso: string
-  ): Promise<Array<{ wiptyp: number; endDat: Date | null; qty: number }>> {
+  ): Promise<Array<{ kind: 'demande' | 'composant' | 'reception' | 'of'; date: Date | null; qty: number }>> {
     const from = fromIso.replace(/-/g, '')
     const to = toIso.replace(/-/g, '')
     const itmr = article.replace(/'/g, "''")
     const db = new X3Database()
     let rows: RawRow[] = []
+    let matRows: RawRow[] = []
     try {
       rows = await db.raw(`
 SELECT O.WIPTYP_0, O.ENDDAT_0, O.RMNEXTQTY_0
@@ -340,16 +345,33 @@ WHERE O.ITMREF_0 = '${itmr}'
       AND O.ENDDAT_0 >= TO_DATE('${from}','YYYYMMDD')
       AND O.ENDDAT_0 <= TO_DATE('${to}','YYYYMMDD'))
   )`)
+      // Besoin composant : pas de borne basse sur STRDAT — un OF démarré avant
+      // la fenêtre dont la matière n'est pas encore sortie reste un besoin à
+      // venir (le loader le clampe dans son premier seau, comme les retards).
+      matRows = await db.raw(`
+SELECT O.STRDAT_0 AS STRDAT, (M.RETQTY_0 - M.USEQTY_0) AS QTY
+FROM MFGMAT M
+INNER JOIN ORDERS O ON O.VCRNUM_0 = M.MFGNUM_0 AND O.WIPTYP_0 = 5
+WHERE M.ITMREF_0 = '${itmr}'
+  AND (M.RETQTY_0 - M.USEQTY_0) > 0
+  AND O.WIPSTA_0 IN (1, 2)
+  AND O.STRDAT_0 <= TO_DATE('${to}','YYYYMMDD')`)
     } finally {
       await db.destroy()
     }
 
-    const out: Array<{ wiptyp: number; endDat: Date | null; qty: number }> = []
+    const out: Array<{ kind: 'demande' | 'composant' | 'reception' | 'of'; date: Date | null; qty: number }> = []
     for (const row of rows) {
       const wiptyp = Number.parseInt(row.WIPTYP_0 ?? '0')
       const qty = Number.parseFloat(row.RMNEXTQTY_0 ?? '0') || 0
       if (qty <= 0) continue
-      out.push({ wiptyp, endDat: parseX3Date(row.ENDDAT_0), qty })
+      const kind = wiptyp === 1 ? 'demande' : wiptyp === 2 ? 'reception' : 'of'
+      out.push({ kind, date: parseX3Date(row.ENDDAT_0), qty })
+    }
+    for (const row of matRows) {
+      const qty = Number.parseFloat(row.QTY ?? '0') || 0
+      if (qty <= 0) continue
+      out.push({ kind: 'composant', date: parseX3Date(row.STRDAT), qty })
     }
     return out
   }

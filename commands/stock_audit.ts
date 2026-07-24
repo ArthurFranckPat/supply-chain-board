@@ -88,20 +88,20 @@ export default class StockAudit extends BaseCommand {
         isoL(refDate),
         isoL(horizon)
       )
-      const byTyp = new Map<number, { n: number; qty: number }>()
+      const byKind = new Map<string, { n: number; qty: number }>()
       for (const f of flows) {
-        const t = byTyp.get(f.wiptyp) ?? { n: 0, qty: 0 }
+        const t = byKind.get(f.kind) ?? { n: 0, qty: 0 }
         t.n += 1
         t.qty += f.qty
-        byTyp.set(f.wiptyp, t)
+        byKind.set(f.kind, t)
       }
-      const fmtTyp = (t: number) => {
-        const x = byTyp.get(t)
+      const fmtKind = (k: string) => {
+        const x = byKind.get(k)
         return x ? `${x.n} lignes, Σ ${Math.round(x.qty * 100) / 100}` : '0 lignes'
       }
-      this.logger.info(`Projection — demande client (WIPTYP 1) : ${fmtTyp(1)}`)
-      this.logger.info(`Projection — réceptions attendues (WIPTYP 2) : ${fmtTyp(2)}`)
-      this.logger.info(`Projection — OF ouverts (WIPTYP 5) : ${fmtTyp(5)}`)
+      this.logger.info(`Projection — demande client : ${fmtKind('demande')}`)
+      this.logger.info(`Projection — réceptions attendues : ${fmtKind('reception')}`)
+      this.logger.info(`Projection — production OF : ${fmtKind('of')}`)
 
       // Besoin composant : lignes MFGMAT restant à sortir sur OF ouverts
       // (fermes/planifiés) démarrant avant l'horizon — la demande réelle des

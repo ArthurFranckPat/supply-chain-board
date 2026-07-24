@@ -392,6 +392,48 @@ function Tile({
   const isDropTarget = dropTargetId === id && draggedId !== null && draggedId !== id
   const tileRef = useRef<HTMLDivElement>(null)
 
+  const handleWidthResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const startX = e.clientX
+    const rect = tileRef.current?.getBoundingClientRect()
+    if (!rect) return
+    const startW = rect.width
+    const curH = customHeight
+
+    const onMouseMove = (moveEv: MouseEvent) => {
+      const newW = Math.max(260, Math.round(startW + (moveEv.clientX - startX)))
+      onCustomSize?.(newW, curH)
+    }
+    const onMouseUp = () => {
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+    }
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+  }
+
+  const handleHeightResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const startY = e.clientY
+    const rect = tileRef.current?.getBoundingClientRect()
+    if (!rect) return
+    const curW = customWidth
+    const startH = rect.height
+
+    const onMouseMove = (moveEv: MouseEvent) => {
+      const newH = Math.max(160, Math.round(startH + (moveEv.clientY - startY)))
+      onCustomSize?.(curW, newH)
+    }
+    const onMouseUp = () => {
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+    }
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+  }
+
   const handleCornerResizeStart = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
@@ -422,7 +464,7 @@ function Tile({
       ref={tileRef}
       className={cn(
         'kpi-tile relative transition-all duration-300 ease-out',
-        WIDTH_CLASS[width],
+        customWidth ? 'w-auto max-w-full' : WIDTH_CLASS[width],
         editMode && 'cursor-grab rounded-lg ring-1 ring-brand/30 hover:ring-brand/60 active:cursor-grabbing active:scale-[0.99]',
         isDragging && 'scale-[0.98] opacity-60 shadow-2xl ring-2 ring-brand',
         isDropTarget && 'scale-[1.01] ring-2 ring-brand ring-offset-2 ring-offset-background'
@@ -432,6 +474,7 @@ function Tile({
         '--screen-order': screenRank,
         '--print-order': printRank,
         viewTransitionName: `kpi-tile-${id}`,
+        width: customWidth ? `${customWidth}px` : undefined,
         height: customHeight ? `${customHeight}px` : undefined,
       } as React.CSSProperties}
       draggable={editMode}
@@ -458,15 +501,54 @@ function Tile({
         if (draggedId && draggedId !== id) onDrop()
       }}
     >
-      {/* Poignée de redimensionnement libre en coin bas-droit (Option 1) */}
+      {/* 1. Poignée bord droit (Axe X — Largeur) */}
+      {editMode && (
+        <div
+          onMouseDown={handleWidthResizeStart}
+          className="pointer-events-auto absolute -right-1.5 top-1/2 z-30 flex h-16 w-3 -translate-y-1/2 cursor-ew-resize items-center justify-center rounded-full transition-all hover:scale-110"
+          title="Glisser horizontalement pour ajuster la largeur (Axe X)"
+        >
+          <div className="h-10 w-1 rounded-full bg-brand/40 hover:bg-brand" />
+        </div>
+      )}
+
+      {/* 2. Poignée bord bas (Axe Y — Hauteur) */}
+      {editMode && (
+        <div
+          onMouseDown={handleHeightResizeStart}
+          className="pointer-events-auto absolute -bottom-1.5 left-1/2 z-30 flex h-3 w-16 -translate-x-1/2 cursor-ns-resize items-center justify-center rounded-full transition-all hover:scale-110"
+          title="Glisser verticalement pour ajuster la hauteur (Axe Y)"
+        >
+          <div className="h-1 w-10 rounded-full bg-brand/40 hover:bg-brand" />
+        </div>
+      )}
+
+      {/* 3. Poignée coin bas-droit (2 Axes simultanés X + Y) */}
       {editMode && (
         <div
           onMouseDown={handleCornerResizeStart}
           onDoubleClick={() => onCustomSize?.(undefined, undefined)}
-          className="pointer-events-auto absolute -bottom-2 -right-2 z-30 flex size-6 cursor-nwse-resize items-center justify-center rounded-full bg-card border border-brand/50 shadow-md transition-all duration-150 hover:scale-125 hover:border-brand hover:bg-brand/10 active:scale-110"
-          title="Glisser dans tous les sens pour redimensionner librement (largeur et hauteur). Double-cliquer pour réinitialiser."
+          className="pointer-events-auto absolute -bottom-2 -right-2 z-30 flex size-7 cursor-nwse-resize items-center justify-center rounded-full bg-card border-2 border-brand shadow-lg transition-all duration-150 hover:scale-125 active:scale-110"
+          title="Glisser dans tous les sens pour redimensionner librement sur les 2 AXES (Largeur + Hauteur). Double-cliquer pour réinitialiser."
         >
-          <div className="size-2 rounded-xs border-r-2 border-b-2 border-brand" />
+          <div className="size-2.5 border-r-2 border-b-2 border-brand" />
+        </div>
+      )}
+
+      {/* Badge dimensions sur mesure en mode édition */}
+      {editMode && (customWidth || customHeight) && (
+        <div className="pointer-events-auto absolute -bottom-7 right-6 z-20 flex items-center gap-1.5 rounded bg-popover border border-border px-2 py-0.5 font-mono text-[10px] font-bold text-foreground shadow-sm">
+          <span>
+            {customWidth ? `${customWidth}px` : 'auto'} × {customHeight ? `${customHeight}px` : 'auto'}
+          </span>
+          <button
+            type="button"
+            onClick={() => onCustomSize?.(undefined, undefined)}
+            className="ml-1 rounded text-muted-foreground hover:text-foreground"
+            title="Réinitialiser les dimensions sur mesure"
+          >
+            <X size={11} />
+          </button>
         </div>
       )}
       {/* Barre d'outils édition (poignée + réordonnancement clavier + largeur + ordre impression + masquer) */}

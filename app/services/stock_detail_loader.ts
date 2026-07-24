@@ -11,8 +11,10 @@
  * cache 2 min avec le détail.
  *
  * Conventions de projection :
- *  - Besoins : demande client à livrer, fermes (WIPSTA 1) + prévisions
- *    (WIPSTA 3).
+ *  - Besoins : demande client à livrer (fermes WIPSTA 1 + prévisions WIPSTA 3)
+ *    + besoin matière des OF ouverts (MFGMAT restant à sortir) — sans ce
+ *    dernier, les articles achetés/semi-finis n'ont aucun besoin (ils ne sont
+ *    pas vendus directement).
  *  - Ressources : réceptions attendues (achats) + OF ouverts fermes/planifiés
  *    (suggérés exclus — trop de bruit pour une projection stock).
  *  - Seaux : S+1 … S+52 (lundis ISO) ; les flux datés avant S+1 (retards)
@@ -124,12 +126,14 @@ export async function loadStockArticleDetail(
           toIso
         )
         for (const f of flows) {
-          const k = bucketOf(f.endDat)
+          const k = bucketOf(f.date)
           if (!k) continue
           const b = byWeek.get(k)
           if (!b) continue
-          if (f.wiptyp === 1) b.besoin += f.qty
-          else b.ressource += f.qty // WIPTYP 2 = réceptions, 5 = OF
+          // Besoins : demande client (articles vendus) + besoin composant des
+          // OF (articles achetés/semi-finis). Ressources : réceptions + OF.
+          if (f.kind === 'demande' || f.kind === 'composant') b.besoin += f.qty
+          else b.ressource += f.qty
         }
       } catch (e) {
         logger.error({ err: e }, `[stock-detail] échec chargement flux futurs : ${article}`)
