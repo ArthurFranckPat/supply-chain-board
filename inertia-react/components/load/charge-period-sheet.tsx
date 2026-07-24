@@ -394,9 +394,16 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
                     onValueChange={(v) => setArticleFilter(String(v ?? ALL))}
                     onInputValueChange={(v) => setArticleQuery(v)}
                   >
+                    {/* `className` atterrit sur l'InputGroup, pas sur l'input :
+                        c'est lui qui porte l'anneau de focus de 3 px
+                        (`ring-3 ring-ring/50`), bien trop lourd dans un bandeau
+                        dense. On garde un repère de focus — la bordure passe en
+                        brand — mais sans le halo. Le `!` est nécessaire : deux
+                        utilitaires `ring-*` de même spécificité se départagent
+                        par l'ordre interne de Tailwind, pas par l'ordre d'écriture. */}
                     <ComboboxInput
                       placeholder="Tous les articles — code ou désignation…"
-                      className="w-full"
+                      className="w-full border-rule has-[[data-slot=input-group-control]:focus-visible]:border-brand has-[[data-slot=input-group-control]:focus-visible]:ring-0!"
                     />
                     {/* Au-dessus du panneau qui le contient (z-60), sous les
                         dialogs (z-65). Sans ça, la liste s'ouvre DERRIÈRE le
