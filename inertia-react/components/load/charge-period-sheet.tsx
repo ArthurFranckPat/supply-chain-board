@@ -398,7 +398,11 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
                       placeholder="Tous les articles — code ou désignation…"
                       className="w-full"
                     />
-                    <ComboboxContent anchor={anchorRef}>
+                    {/* Au-dessus du panneau qui le contient (z-60), sous les
+                        dialogs (z-65). Sans ça, la liste s'ouvre DERRIÈRE le
+                        sheet : le défaut z-50 des popovers les place
+                        délibérément sous les sheets. */}
+                    <ComboboxContent anchor={anchorRef} layerClassName="z-[62]">
                       <ComboboxList>
                         <ComboboxItem value={ALL}>
                           <span className="text-[12px] font-semibold">Tous les articles</span>

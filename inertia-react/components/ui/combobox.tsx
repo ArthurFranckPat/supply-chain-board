@@ -91,12 +91,27 @@ function ComboboxContent({
   align = "start",
   alignOffset = 0,
   anchor,
+  layerClassName,
   ...props
 }: ComboboxPrimitive.Popup.Props &
   Pick<
     ComboboxPrimitive.Positioner.Props,
     "side" | "align" | "sideOffset" | "alignOffset" | "anchor"
-  >) {
+  > & {
+    /**
+     * Couche d'empilement du popup. Par défaut `z-50`, soit SOUS les sheets
+     * (z-60) : c'est voulu pour un combobox de page, qui ne doit pas passer
+     * par-dessus un panneau ouvert.
+     *
+     * Un combobox rendu DANS un sheet a besoin de l'inverse, sans quoi sa liste
+     * est masquée par le panneau qui la contient. Le `z` vit sur le Positioner,
+     * qui isole son sous-arbre : le passer en `className` ne l'atteint pas (il
+     * n'arrive que sur le Popup, déjà enfermé dans ce contexte d'empilement).
+     * D'où ce point d'entrée dédié — à régler sur `z-[62]` depuis un sheet :
+     * au-dessus du panneau (60), sous les dialogs (65).
+     */
+    layerClassName?: string
+  }) {
   return (
     <ComboboxPrimitive.Portal>
       <ComboboxPrimitive.Positioner
@@ -105,7 +120,10 @@ function ComboboxContent({
         align={align}
         alignOffset={alignOffset}
         anchor={anchor}
-        className="isolate z-50"
+        // `layerClassName` REMPLACE la couche par défaut au lieu de s'y ajouter :
+        // deux utilitaires z-* concurrents se départageraient par l'ordre interne
+        // de Tailwind, pas par l'ordre d'écriture — donc de façon non fiable.
+        className={cn("isolate", layerClassName ?? "z-50")}
       >
         <ComboboxPrimitive.Popup
           data-slot="combobox-content"
