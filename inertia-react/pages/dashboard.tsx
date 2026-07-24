@@ -530,8 +530,12 @@ export default function Dashboard(props: DashboardProps) {
   // Déclaré avant les mémos qui en dépendent (gridLayout, handleLayoutChange).
   const [editMode, setEditMode] = useState(false)
 
-  // Largeur mesurée du conteneur de la grille (react-grid-layout v2).
-  const { width: gridWidth, containerRef: gridContainerRef } = useContainerWidth()
+  // Largeur mesurée du conteneur de la grille (react-grid-layout v2). Le gate
+  // `mounted` est requis (doc) : la page est rendue SSR par Inertia, et un
+  // premier montage à width=0 dégénère (breakpoint xxs à 2 colonnes avec des
+  // items minW=3) — la géométrie cassée neutralise drag et resize.
+  const { width: gridWidth, containerRef: gridContainerRef, mounted: gridMounted } =
+    useContainerWidth()
 
   const gridLayout = useMemo(
     () =>
@@ -776,6 +780,7 @@ export default function Dashboard(props: DashboardProps) {
           </div>
 
           <div ref={gridContainerRef}>
+            {gridMounted && (
             <ResponsiveGridLayout
               className="layout"
               width={gridWidth}
@@ -784,7 +789,7 @@ export default function Dashboard(props: DashboardProps) {
               cols={{ lg: 12, md: 12, sm: 6, xs: 4, xxs: 2 }}
               rowHeight={65}
               dragConfig={{ enabled: editMode, handle: '.grid-drag-handle' }}
-              resizeConfig={{ enabled: editMode }}
+              resizeConfig={{ enabled: editMode, handles: ['se'] }}
               onLayoutChange={handleLayoutChange}
             >
             {/* ═════ KPI #1 — Charge en retard par poste ═════ */}
@@ -1556,6 +1561,7 @@ export default function Dashboard(props: DashboardProps) {
               </div>
             )}
             </ResponsiveGridLayout>
+            )}
           </div>
 
           {/* Section cartes masquées en mode édition */}
