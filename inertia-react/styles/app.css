@@ -248,6 +248,31 @@
   }
 }
 
+/* Animation fluide FLIP (View Transitions API) pour l'agrandissement, le rétrécissement
+   et le réordonnancement des cartes KPI du dashboard */
+::view-transition-group(kpi-tile-charge),
+::view-transition-group(kpi-tile-otd),
+::view-transition-group(kpi-tile-stock),
+::view-transition-group(kpi-tile-lignes),
+::view-transition-group(kpi-tile-stockTable) {
+  animation-duration: 320ms;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+::view-transition-old(kpi-tile-charge),
+::view-transition-old(kpi-tile-otd),
+::view-transition-old(kpi-tile-stock),
+::view-transition-old(kpi-tile-lignes),
+::view-transition-old(kpi-tile-stockTable),
+::view-transition-new(kpi-tile-charge),
+::view-transition-new(kpi-tile-otd),
+::view-transition-new(kpi-tile-stock),
+::view-transition-new(kpi-tile-lignes),
+::view-transition-new(kpi-tile-stockTable) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
 /* ────────────────────────────────────────────────────────────
    Icônes : Material Symbols retiré (Lot A redesign Airbnb, 2026-07-20).
    Toute l'UI React utilise désormais lucide-react (trait fin, strokeWidth

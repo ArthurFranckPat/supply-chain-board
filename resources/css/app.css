@@ -1285,3 +1285,14 @@ up-drawer-dismiss {
     order: var(--print-order, 0) !important;
   }
 }
+
+/* Animation fluide FLIP (View Transitions API) pour l'agrandissement, le rétrécissement
+   et le réordonnancement des cartes KPI du dashboard */
+::view-transition-group(kpi-tile-charge),
+::view-transition-group(kpi-tile-otd),
+::view-transition-group(kpi-tile-stock),
+::view-transition-group(kpi-tile-lignes),
+::view-transition-group(kpi-tile-stockTable) {
+  animation-duration: 320ms;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}

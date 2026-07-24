@@ -302,4 +302,55 @@ export class CombinedOrdersRepository {
 
     return { demandFlows, receptionFlows, ofFlows }
   }
+
+  /** Flux futurs d'UN article — projection de stock de la sheet détail du KPI
+   *  stock (stock_detail_loader). Demande à livrer (WIPTYP 1, fermes WIPSTA 1
+   *  + prévisions WIPSTA 3, ENDDAT ∈ [from, to]), réceptions attendues
+   *  (WIPTYP 2, WIPSTA 1/2, ENDDAT ≤ to) et OF ouverts fermes/planifiés
+   *  (WIPTYP 5, WIPSTA 1/2, ENDDAT ∈ [from, to]).
+   *
+   *  Même sémantique de fenêtre que buildOrdersSql, mais scopée à l'article,
+   *  sans jointure et 3 colonnes : le fetch global toutes fenêtres confondues
+   *  dépasse le seuil de lignes du SOAP Syracuse (resultXml is nil) sur un
+   *  horizon 12 mois — ici le résultat tient toujours en une poignée de
+   *  lignes. */
+  async fetchArticleFutureFlows(
+    article: string,
+    fromIso: string,
+    toIso: string
+  ): Promise<Array<{ wiptyp: number; endDat: Date | null; qty: number }>> {
+    const from = fromIso.replace(/-/g, '')
+    const to = toIso.replace(/-/g, '')
+    const itmr = article.replace(/'/g, "''")
+    const db = new X3Database()
+    let rows: RawRow[] = []
+    try {
+      rows = await db.raw(`
+SELECT O.WIPTYP_0, O.ENDDAT_0, O.RMNEXTQTY_0
+FROM ORDERS O
+WHERE O.ITMREF_0 = '${itmr}'
+  AND O.RMNEXTQTY_0 > 0
+  AND (
+    (O.WIPTYP_0 = 1 AND O.WIPSTA_0 IN (1, 3)
+      AND O.ENDDAT_0 >= TO_DATE('${from}','YYYYMMDD')
+      AND O.ENDDAT_0 <= TO_DATE('${to}','YYYYMMDD'))
+    OR (O.WIPTYP_0 = 2 AND O.WIPSTA_0 IN (1, 2)
+      AND O.ENDDAT_0 <= TO_DATE('${to}','YYYYMMDD'))
+    OR (O.WIPTYP_0 = 5 AND O.WIPSTA_0 IN (1, 2)
+      AND O.ENDDAT_0 >= TO_DATE('${from}','YYYYMMDD')
+      AND O.ENDDAT_0 <= TO_DATE('${to}','YYYYMMDD'))
+  )`)
+    } finally {
+      await db.destroy()
+    }
+
+    const out: Array<{ wiptyp: number; endDat: Date | null; qty: number }> = []
+    for (const row of rows) {
+      const wiptyp = Number.parseInt(row.WIPTYP_0 ?? '0')
+      const qty = Number.parseFloat(row.RMNEXTQTY_0 ?? '0') || 0
+      if (qty <= 0) continue
+      out.push({ wiptyp, endDat: parseX3Date(row.ENDDAT_0), qty })
+    }
+    return out
+  }
 }

@@ -1,15 +1,18 @@
 /**
  * Détail d'un article pour la sheet du KPI stock — historique 52 semaines
- * (rembobinage STOJOU, cf. StockValuationRepository.getArticleStockHistory)
- * + projection 52 semaines du stock à partir des besoins et ressources à
- * venir. Même motif que charge_detail_loader : aucune requête X3 dédiée, tout
- * passe par les caches SWR partagés de boardDataset (historique article,
- * demande/réceptions par fenêtre, OF ouverts) ; seul l'article cliqué est
- * filtré et assemblé ici.
+ * (rembobinage STOJOU en cache SWR, cf.
+ * StockValuationRepository.getArticleStockHistory) + projection 52 semaines
+ * du stock à partir des besoins et ressources à venir.
+ *
+ * Les flux futurs passent par une requête ORDERS lean scopée à l'article
+ * (CombinedOrdersRepository.fetchArticleFutureFlows) : le fetch global
+ * partagé (getDemandAndReception) dépasse le seuil de lignes du SOAP
+ * Syracuse sur un horizon 12 mois (resultXml is nil). Le résultat est mis en
+ * cache 2 min avec le détail.
  *
  * Conventions de projection :
  *  - Besoins : demande client à livrer, fermes (WIPSTA 1) + prévisions
- *    (WIPSTA 3) — ce que getDemandAndReception remonte déjà.
+ *    (WIPSTA 3).
  *  - Ressources : réceptions attendues (achats) + OF ouverts fermes/planifiés
  *    (suggérés exclus — trop de bruit pour une projection stock).
  *  - Seaux : S+1 … S+52 (lundis ISO) ; les flux datés avant S+1 (retards)
@@ -21,8 +24,9 @@
  */
 
 import cache from '@adonisjs/cache/services/main'
+import logger from '@adonisjs/core/services/logger'
 import boardDataset from '#services/board_dataset'
-import type { Flow } from '#app/domain/models/flow'
+import { CombinedOrdersRepository } from '#repositories/combined_orders_repository'
 import {
   isoWeekKey,
   type StockArticleHistory,
@@ -85,37 +89,11 @@ export async function loadStockArticleDetail(
       const history = await boardDataset.getStockArticleHistory(article, refDate)
       if (!history) return { detail: null, x3Error: null }
 
-      // --- Flux futurs depuis les caches partagés (tous sites) ---
       const fromIso = isoDay(refDate)
       const horizon = new Date(refDate.getTime() + WEEKS * 7 * 86_400_000)
       const toIso = isoDay(horizon)
 
       let x3Error: string | null = null
-      let demandFlows: Flow[] = []
-      let receptionFlows: Flow[] = []
-      let ofFlows: Flow[] = []
-
-      try {
-        const dr = await boardDataset.getDemandAndReception(fromIso, toIso)
-        demandFlows = dr.demand.filter((f) => f.article === article)
-        receptionFlows = dr.reception.filter((f) => f.article === article)
-      } catch {
-        x3Error =
-          'Données X3 indisponibles — projection des besoins/réceptions momentanément incalculable.'
-      }
-      try {
-        const orders = await boardDataset.getOrders()
-        ofFlows = orders.supply.filter(
-          (f) =>
-            f.article === article &&
-            f.origin.type === 'of' &&
-            (f.origin.status === 1 || f.origin.status === 2)
-        )
-      } catch {
-        if (!x3Error) {
-          x3Error = 'Données X3 indisponibles — projection des OF momentanément incalculable.'
-        }
-      }
 
       // --- Seaux hebdomadaires S+1 … S+52 ---
       const firstMonday = new Date(toMonday(refDate).getTime() + 7 * 86_400_000)
@@ -138,13 +116,25 @@ export async function loadStockArticleDetail(
         return k < firstKey ? firstKey : k
       }
 
-      for (const f of demandFlows) {
-        const k = bucketOf(f.date)
-        if (k) byWeek.get(k)!.besoin += f.quantity
-      }
-      for (const f of [...receptionFlows, ...ofFlows]) {
-        const k = bucketOf(f.date)
-        if (k) byWeek.get(k)!.ressource += f.quantity
+      // --- Flux futurs : requête ORDERS lean scopée à l'article ---
+      try {
+        const flows = await new CombinedOrdersRepository().fetchArticleFutureFlows(
+          article,
+          fromIso,
+          toIso
+        )
+        for (const f of flows) {
+          const k = bucketOf(f.endDat)
+          if (!k) continue
+          const b = byWeek.get(k)
+          if (!b) continue
+          if (f.wiptyp === 1) b.besoin += f.qty
+          else b.ressource += f.qty // WIPTYP 2 = réceptions, 5 = OF
+        }
+      } catch (e) {
+        logger.error({ err: e }, `[stock-detail] échec chargement flux futurs : ${article}`)
+        x3Error =
+          'Données X3 indisponibles — projection besoins/ressources momentanément incalculable.'
       }
 
       // --- Projection cumulée depuis le stock actuel, bornée à 0 ---

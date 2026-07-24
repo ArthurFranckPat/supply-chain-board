@@ -323,7 +323,7 @@ function HiddenTile({ id, editMode, screenRank, onShow }: { id: KpiId; editMode:
   // Affiché uniquement en mode édition : sinon le KPI masqué disparaît totalement.
   if (!editMode) return null
   return (
-    <div className="lg:col-span-1 transition-all duration-300 ease-out" style={{ order: screenRank ?? 999 } as React.CSSProperties}>
+    <div className="lg:col-span-1 transition-all duration-300 ease-out" style={{ order: screenRank ?? 999, viewTransitionName: `kpi-tile-${id}` } as React.CSSProperties}>
       <div className="flex items-center gap-2 rounded-lg border border-dashed border-rule bg-secondary/30 px-4 py-3 transition-all duration-200 hover:border-brand/40 hover:bg-secondary/50 print:hidden">
         <EyeOff size={15} className="text-muted-foreground" />
         <span className="font-mono text-[10px] font-semibold text-muted-foreground">
@@ -394,7 +394,7 @@ function Tile({
         isDragging && 'scale-[0.98] opacity-60 shadow-2xl ring-2 ring-brand',
         isDropTarget && 'scale-[1.01] ring-2 ring-brand ring-offset-2 ring-offset-background'
       )}
-      style={{ order: screenRank, '--screen-order': screenRank, '--print-order': printRank } as React.CSSProperties}
+      style={{ order: screenRank, '--screen-order': screenRank, '--print-order': printRank, viewTransitionName: `kpi-tile-${id}` } as React.CSSProperties}
       draggable={editMode}
       onDragStart={(e) => {
         setDraggedId(id)
@@ -563,12 +563,22 @@ export default function Dashboard(props: DashboardProps) {
     }
   }, [layoutFromProps, setLayout])
 
-  // Sélecteurs réactifs connectés à l'état React items et printOrder
-  const setVisible = useCallback((id: KpiId, visible: boolean) => setStoreVisible(id, visible), [setStoreVisible])
-  const setWidth = useCallback((id: KpiId, width: KpiWidth) => setStoreWidth(id, width), [setStoreWidth])
-  const moveItem = useCallback((draggedId: KpiId, targetId: KpiId) => moveStoreItem(draggedId, targetId), [moveStoreItem])
-  const moveScreen = useCallback((id: KpiId, dir: -1 | 1) => moveStoreItemDir(id, dir), [moveStoreItemDir])
-  const movePrint = useCallback((id: KpiId, dir: -1 | 1) => moveStorePrint(id, dir), [moveStorePrint])
+  const animateLayoutChange = useCallback((fn: () => void) => {
+    if (typeof document !== 'undefined' && 'startViewTransition' in document) {
+      ;(document as any).startViewTransition(() => {
+        fn()
+      })
+    } else {
+      fn()
+    }
+  }, [])
+
+  // Sélecteurs réactifs connectés à l'état React items et printOrder avec animations FLIP
+  const setVisible = useCallback((id: KpiId, visible: boolean) => animateLayoutChange(() => setStoreVisible(id, visible)), [animateLayoutChange, setStoreVisible])
+  const setWidth = useCallback((id: KpiId, width: KpiWidth) => animateLayoutChange(() => setStoreWidth(id, width)), [animateLayoutChange, setStoreWidth])
+  const moveItem = useCallback((draggedId: KpiId, targetId: KpiId) => animateLayoutChange(() => moveStoreItem(draggedId, targetId)), [animateLayoutChange, moveStoreItem])
+  const moveScreen = useCallback((id: KpiId, dir: -1 | 1) => animateLayoutChange(() => moveStoreItemDir(id, dir)), [animateLayoutChange, moveStoreItemDir])
+  const movePrint = useCallback((id: KpiId, dir: -1 | 1) => animateLayoutChange(() => moveStorePrint(id, dir)), [animateLayoutChange, moveStorePrint])
 
   const isVisible = useCallback((id: KpiId) => items.find((it) => it.id === id)?.visible ?? true, [items])
   const layoutItem = useCallback((id: KpiId) => items.find((it) => it.id === id), [items])
