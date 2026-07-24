@@ -174,13 +174,28 @@ export function DataTable<TRow>({
                 return (
                   <th
                     key={columnId}
+                    tabIndex={canSort ? 0 : undefined}
+                    role={canSort ? 'button' : undefined}
+                    aria-sort={
+                      isSorted
+                        ? sorting.find((s) => s.id === columnId)?.desc
+                          ? 'descending'
+                          : 'ascending'
+                        : undefined
+                    }
                     className={cn(
-                      'px-3 py-2 text-xs font-medium text-muted-foreground select-none',
+                      'px-3 py-2 text-xs font-medium text-muted-foreground select-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded',
                       col.meta?.thClass,
                       canSort && 'cursor-pointer transition-colors hover:text-foreground',
                       isSorted && 'font-bold text-foreground'
                     )}
                     onClick={() => canSort && toggleSorting(columnId)}
+                    onKeyDown={(e) => {
+                      if (canSort && (e.key === 'Enter' || e.key === ' ')) {
+                        e.preventDefault()
+                        toggleSorting(columnId)
+                      }
+                    }}
                   >
                     <span className="inline-flex items-center gap-1">
                       <span>{renderHeader(col)}</span>

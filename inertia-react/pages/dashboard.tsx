@@ -21,6 +21,10 @@ import { Eye, EyeOff, GripVertical, ArrowUp, ArrowDown, LoaderCircle, Calendar a
 import { DynamicIcon } from '../components/ui/dynamic-icon'
 import { StockArticleSheet } from '@r/components/board/stock-article-sheet'
 import { Skeleton, SkeletonChart } from '@r/components/ui/skeleton'
+import { Card, CardContent } from '@r/components/ui/card'
+import { Badge } from '@r/components/ui/badge'
+import { Button } from '@r/components/ui/button'
+import { Separator } from '@r/components/ui/separator'
 
 /**
  * Tableau de bord (issue #26 shell + #38 KPI). Landing par défaut post-login.
@@ -211,30 +215,32 @@ function CardHeader({
   onHide?: () => void
 }) {
   return (
-    <div className="mb-4 flex items-center gap-2.5 border-b border-rule-soft pb-3">
+    <div className="mb-4 flex items-center gap-2.5 border-b border-border/60 pb-3">
       <span
         className="size-2 shrink-0 rounded-full"
         style={{ background: tone ?? 'var(--color-destructive, #ff385c)' }}
       />
-      <h2 className="font-fraunces text-[16px] font-semibold leading-none tracking-tight text-foreground">
+      <h2 className="font-heading text-base font-semibold leading-none tracking-tight text-foreground">
         {title}
       </h2>
-      <div className="ml-auto flex items-center gap-2.5">
+      <div className="ml-auto flex items-center gap-2">
         {suffix && (
-          <span className="font-mono text-[10px] font-semibold text-muted-foreground">
+          <Badge variant="secondary" className="font-mono text-[10px] uppercase font-bold">
             {suffix}
-          </span>
+          </Badge>
         )}
         {onHide && (
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon-xs"
             onClick={onHide}
-            className="flex size-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground print:hidden"
+            className="size-6 text-muted-foreground hover:text-foreground print:hidden"
             title="Masquer ce KPI"
             aria-label={`Masquer le KPI ${title}`}
           >
-            <Eye size={15} />
-          </button>
+            <Eye size={14} />
+          </Button>
         )}
       </div>
     </div>
@@ -777,7 +783,7 @@ export default function Dashboard(props: DashboardProps) {
                 setDropTargetId={setDropTargetId}
                 onDrop={() => draggedId && moveItem(draggedId, 'charge')}
               >
-                <article className="rounded border border-rule bg-card p-6 shadow-float">
+                <Card elevation="raised" padding="lg">
                   <CardHeader
                     title="Charge en retard"
                     suffix="par poste"
@@ -849,7 +855,7 @@ export default function Dashboard(props: DashboardProps) {
                       )}
                     </>
                   )}
-                </article>
+                </Card>
               </Tile>
             ) : (
               <HiddenTile id="charge" editMode={editMode} onShow={() => setVisible('charge', true)} />
@@ -873,7 +879,7 @@ export default function Dashboard(props: DashboardProps) {
                 setDropTargetId={setDropTargetId}
                 onDrop={() => draggedId && moveItem(draggedId, 'otd')}
               >
-                <article className="rounded border border-rule bg-card p-6 shadow-float">
+                <Card elevation="raised" padding="lg">
                   <div className="mb-4 flex items-center gap-2.5 border-b border-rule-soft pb-3">
                     <span className="size-2 shrink-0 rounded-full bg-foreground/30" />
                     <h2 className="font-fraunces text-[16px] font-semibold leading-none tracking-tight text-foreground">
@@ -1098,7 +1104,7 @@ export default function Dashboard(props: DashboardProps) {
                       ))}
                     </>
                   )}
-                </article>
+                </Card>
               </Tile>
             ) : (
               <HiddenTile id="otd" editMode={editMode} onShow={() => setVisible('otd', true)} />
@@ -1122,7 +1128,7 @@ export default function Dashboard(props: DashboardProps) {
                 setDropTargetId={setDropTargetId}
                 onDrop={() => draggedId && moveItem(draggedId, 'stock')}
               >
-                <article className="rounded border border-rule bg-card p-6 shadow-float">
+                <Card elevation="raised" padding="lg">
                   <div className="mb-4 flex items-center gap-2.5 border-b border-rule-soft pb-3">
                     <span className="size-2 shrink-0 rounded-full" style={{ background: '#00a699' }} />
                     <h2 className="font-fraunces text-[16px] font-semibold leading-none tracking-tight text-foreground">
@@ -1283,7 +1289,7 @@ export default function Dashboard(props: DashboardProps) {
                       </div>
                     </>
                   )}
-                </article>
+                </Card>
               </Tile>
             ) : (
               <HiddenTile id="stock" editMode={editMode} onShow={() => setVisible('stock', true)} />
@@ -1307,7 +1313,7 @@ export default function Dashboard(props: DashboardProps) {
                 setDropTargetId={setDropTargetId}
                 onDrop={() => draggedId && moveItem(draggedId, 'lignes')}
               >
-                <article className="flex max-h-[calc(100vh-9rem)] flex-col rounded border border-rule bg-card p-6 shadow-float print:max-h-none print:overflow-visible print:shadow-none">
+                <Card elevation="raised" padding="lg" className="max-h-[calc(100vh-9rem)] print:max-h-none print:overflow-visible print:shadow-none">
                   <CardHeader
                     title="Lignes en retard"
                     suffix={`${kpi.nbLignes} commande${kpi.nbLignes > 1 ? 's' : ''}`}
@@ -1370,12 +1376,13 @@ export default function Dashboard(props: DashboardProps) {
                                 {l.postes.length > 0 ? (
                                   <div className="flex flex-wrap gap-1">
                                     {l.postes.map((p) => (
-                                      <span
+                                      <Badge
                                         key={p}
-                                        className="rounded bg-secondary px-1.5 py-0.5 font-mono text-[10px] font-bold tracking-wide text-secondary-foreground"
+                                        variant="secondary"
+                                        className="font-mono text-[10px] font-bold tracking-wide"
                                       >
                                         {p}
-                                      </span>
+                                      </Badge>
                                     ))}
                                   </div>
                                 ) : (
@@ -1394,7 +1401,7 @@ export default function Dashboard(props: DashboardProps) {
                       </table>
                     </div>
                   )}
-                </article>
+                </Card>
               </Tile>
             ) : (
               <HiddenTile id="lignes" editMode={editMode} onShow={() => setVisible('lignes', true)} />
@@ -1418,7 +1425,7 @@ export default function Dashboard(props: DashboardProps) {
                 setDropTargetId={setDropTargetId}
                 onDrop={() => draggedId && moveItem(draggedId, 'stockTable')}
               >
-                <article className="flex max-h-[calc(100vh-9rem)] flex-col rounded border border-rule bg-card p-6 shadow-float print:max-h-none print:overflow-visible print:shadow-none">
+                <Card elevation="raised" padding="lg" className="max-h-[calc(100vh-9rem)] print:max-h-none print:overflow-visible print:shadow-none">
                   <CardHeader
                     title="Stock par article"
                     suffix={`${filteredArticles.length} / ${stock.nbArticles} · AE1`}
@@ -1581,7 +1588,7 @@ export default function Dashboard(props: DashboardProps) {
                       </div>
                     </>
                   )}
-                </article>
+                </Card>
               </Tile>
             ) : (
               <HiddenTile id="stockTable" editMode={editMode} onShow={() => setVisible('stockTable', true)} />
