@@ -116,6 +116,8 @@ export class X3ReceptionRepository {
         'BPSUPPLIER.BPSNAM_0',
         'ITMMASTER.ITMDES1_0',
         'ITMMASTER.PCUSTUCOE_0 AS PCU_STU_COE',
+        // PCUSTUCOE_1 = US par palette (chaque PCUSTUCOE_n ramène son conditionnement
+        // à l'unité de stock ; ils ne se composent pas). Alias historique conservé.
         'ITMMASTER.PCUSTUCOE_1 AS UC_PAR_PAL'
       )
       .innerJoin('PORDER', 'PORDER.POHNUM_0', 'PORDERQ.POHNUM_0')

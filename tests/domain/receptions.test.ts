@@ -27,31 +27,37 @@ function input(over: Partial<ReceptionInput> = {}): ReceptionInput {
     datePrevue: localDate(0),
     dateConfirmee: null,
     pcuStuCoe: 10,
-    ucParPal: 5,
+    // PCUSTUCOE_1 = US par palette → 100 US = 2 palettes.
+    ucParPal: 50,
     ...over,
   }
 }
 
 test.group('calcPalettes', () => {
   test('arrondit au supérieur (palette partielle = 1 palette au sol)', ({ assert }) => {
-    // 100 US / 10 (US par UC) = 10 UC ; 10 UC / 5 (UC par palette) = 2 palettes.
-    assert.equal(calcPalettes(100, 10, 5), 2)
-    // 101 US → 10,1 UC → 2,02 palettes → ceil = 3.
-    assert.equal(calcPalettes(101, 10, 5), 3)
-    // 1 US → 0,1 UC → 0,02 palette → ceil = 1 (palette partielle).
-    assert.equal(calcPalettes(1, 10, 5), 1)
+    // 100 US / 50 (US par palette) = 2 palettes pleines.
+    assert.equal(calcPalettes(100, 50), 2)
+    // 101 US → 2,02 palettes → ceil = 3.
+    assert.equal(calcPalettes(101, 50), 3)
+    // 1 US → 0,02 palette → ceil = 1 (palette partielle).
+    assert.equal(calcPalettes(1, 50), 1)
   })
 
-  test('retourne 0 si un coef est absent ou non positif', ({ assert }) => {
-    assert.equal(calcPalettes(100, null, 5), 0)
-    assert.equal(calcPalettes(100, 10, null), 0)
-    assert.equal(calcPalettes(100, 0, 5), 0)
-    assert.equal(calcPalettes(100, 10, -3), 0)
+  test('PCUSTUCOE_1 est en US/pal, pas en UC/pal (régression : double division)', ({ assert }) => {
+    // Cas réel A7398E01 : 6480 US, PCUSTUCOE_0=36, PCUSTUCOE_1=720 → 9 palettes.
+    // L'ancien calcul enchaînait les deux coefs (6480/36/720 = 0,25 → 1 palette).
+    assert.equal(calcPalettes(6480, 720), 9)
+  })
+
+  test('retourne 0 si le coef est absent ou non positif', ({ assert }) => {
+    assert.equal(calcPalettes(100, null), 0)
+    assert.equal(calcPalettes(100, 0), 0)
+    assert.equal(calcPalettes(100, -3), 0)
   })
 
   test('retourne 0 si la quantité est nulle ou négative', ({ assert }) => {
-    assert.equal(calcPalettes(0, 10, 5), 0)
-    assert.equal(calcPalettes(-50, 10, 5), 0)
+    assert.equal(calcPalettes(0, 50), 0)
+    assert.equal(calcPalettes(-50, 50), 0)
   })
 })
 
@@ -75,13 +81,18 @@ test.group('pickReceptionDate', () => {
 
 test.group('buildReceptionRow', () => {
   test('enrichit avec date retenue et palettes calculées', ({ assert }) => {
-    const row = buildReceptionRow(input({ qteUs: 100, pcuStuCoe: 10, ucParPal: 5 }))
+    const row = buildReceptionRow(input({ qteUs: 100, pcuStuCoe: 10, ucParPal: 50 }))
     assert.isNotNull(row.date)
     assert.equal(row.nbPalettes, 2)
   })
 
-  test('coef manquant → palettes à 0 mais ligne conservée', ({ assert }) => {
-    const row = buildReceptionRow(input({ pcuStuCoe: null }))
+  test('pcuStuCoe absent n’empêche pas le calcul (seul PCUSTUCOE_1 compte)', ({ assert }) => {
+    const row = buildReceptionRow(input({ qteUs: 100, pcuStuCoe: null, ucParPal: 50 }))
+    assert.equal(row.nbPalettes, 2)
+  })
+
+  test('coef US/pal manquant → palettes à 0 mais ligne conservée', ({ assert }) => {
+    const row = buildReceptionRow(input({ ucParPal: null }))
     assert.equal(row.nbPalettes, 0)
     assert.isNotNull(row.date)
   })

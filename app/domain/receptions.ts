@@ -28,9 +28,14 @@ export interface ReceptionInput {
   datePrevue: Date | null
   /** Date confirmée par le fournisseur (PORDERQ.ZDATCOF), plus fiable si renseignée. */
   dateConfirmee: Date | null
-  /** Nb d'US par UC (ITMMASTER.PCUSTUCOE_0). */
+  /** Nb d'US par UC (ITMMASTER.PCUSTUCOE_0) — affichage seul, hors calcul palette. */
   pcuStuCoe: number | null
-  /** Nb d'UC par palette (ITMMASTER.PCUSTUCOE_1). */
+  /**
+   * Nb d'US par palette (ITMMASTER.PCUSTUCOE_1). ATTENTION : les coefficients
+   * PCUSTUCOE_n de X3 convertissent CHACUN leur unité de conditionnement vers
+   * l'unité de STOCK — ils ne se composent pas entre eux. PCUSTUCOE_1 est donc
+   * directement une quantité d'US par palette, pas un nombre d'UC.
+   */
   ucParPal: number | null
 }
 
@@ -77,27 +82,22 @@ export function pickReceptionDate(
 /**
  * Nombre de palettes pleines attendues pour une quantité donnée.
  *
- * Calcul : `ceil(qteUs / pcuStuCoe / ucParPal)` où
- *  - `pcuStuCoe` = nb d'US par UC (ITMMASTER.PCUSTUCOE_0),
- *  - `ucParPal`  = nb d'UC par palette (ITMMASTER.PCUSTUCOE_1).
+ * Calcul : `ceil(qteUs / usParPal)` où `usParPal` = ITMMASTER.PCUSTUCOE_1, exprimé
+ * en unités de STOCK par palette (cf. commentaire de ReceptionInput.ucParPal : les
+ * coefs PCUSTUCOE_n ne se composent PAS, chacun ramène son conditionnement à l'US).
+ * Le coef PCUSTUCOE_0 (US par UC) n'intervient donc pas : l'enchaîner divisait la
+ * quantité une seconde fois et sous-estimait la charge d'un facteur pcuStuCoe.
  *
- * Retourne 0 si l'un des coefs est absent ou non positif (impossible à calculer —
+ * Retourne 0 si le coef est absent ou non positif (impossible à calculer —
  * l'article sera visible dans le tableau mais n'alimentera pas la charge palette).
  *
  * On arrondit au supérieur : une palette partielle occupe physiquement une palette
  * au sol. (Variante ESH / familles VB non gérée ici — cf. expedition_repository.)
  */
-export function calcPalettes(
-  qteUs: number,
-  pcuStuCoe: number | null,
-  ucParPal: number | null
-): number {
+export function calcPalettes(qteUs: number, usParPal: number | null): number {
   if (!Number.isFinite(qteUs) || qteUs <= 0) return 0
-  if (!pcuStuCoe || pcuStuCoe <= 0) return 0
-  if (!ucParPal || ucParPal <= 0) return 0
-  const uc = qteUs / pcuStuCoe
-  const pal = uc / ucParPal
-  return Math.ceil(pal)
+  if (!usParPal || usParPal <= 0) return 0
+  return Math.ceil(qteUs / usParPal)
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -232,7 +232,7 @@ export function buildReceptionRow(input: ReceptionInput): ReceptionRow {
   return {
     ...input,
     date: pickReceptionDate(input.dateConfirmee, input.datePrevue),
-    nbPalettes: calcPalettes(input.qteUs, input.pcuStuCoe, input.ucParPal),
+    nbPalettes: calcPalettes(input.qteUs, input.ucParPal),
   }
 }
 

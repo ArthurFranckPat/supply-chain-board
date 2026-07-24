@@ -63,19 +63,19 @@ function fmtRelatif(iso: string | null | undefined): string {
 
 /**
  * Conditionnement article formaté depuis les coefs ITMMASTER :
- *  - coefs complets     → « 10 US/UC · 5 UC/pal »
- *  - un seul coef       → « 10 US/UC · UC/pal ? » (rattache ce qui manque au rattrapage)
+ *  - coefs complets     → « 10 US/UC · 500 US/pal »
+ *  - un seul coef       → « 10 US/UC · US/pal ? » (rattache ce qui manque au rattrapage)
  *  - aucun coef         → « — » (marque la ligne coefManquant)
  *
- * `pcuStuCoe` = US par UC (PCUSTUCOE_0) ; `ucParPal` = UC par palette (PCUSTUCOE_1).
- * Les deux doivent être > 0 pour calculer un nombre de palettes.
+ * `pcuStuCoe` = US par UC (PCUSTUCOE_0), informatif ; `usParPal` = US par palette
+ * (PCUSTUCOE_1), seul coef nécessaire au calcul du nombre de palettes.
  */
-function fmtConditionnement(pcuStuCoe: number | null, ucParPal: number | null): string {
+function fmtConditionnement(pcuStuCoe: number | null, usParPal: number | null): string {
   const usUc = pcuStuCoe && pcuStuCoe > 0 ? fmtQty(pcuStuCoe) : null
-  const ucPal = ucParPal && ucParPal > 0 ? fmtQty(ucParPal) : null
-  if (usUc && ucPal) return `${usUc} US/UC · ${ucPal} UC/pal`
-  if (usUc) return `${usUc} US/UC · UC/pal ?`
-  if (ucPal) return `US/UC ? · ${ucPal} UC/pal`
+  const usPal = usParPal && usParPal > 0 ? fmtQty(usParPal) : null
+  if (usUc && usPal) return `${usUc} US/UC · ${usPal} US/pal`
+  if (usUc) return `${usUc} US/UC · US/pal ?`
+  if (usPal) return `US/UC ? · ${usPal} US/pal`
   return '—'
 }
 
@@ -91,9 +91,9 @@ export interface ReceptionDisplayRow {
   nbPalettes: number
   nbPalettesFmt: string
   /**
-   * Vrai si le calcul palette est impossible (un des coefs PCUSTUCOE manquant/nul)
-   * ET qu'aucune estimation n'a pu être produite. La ligne est conservée mais
-   * n'alimente pas la charge. Marquée visuellement (badge « Coef manquant »).
+   * Vrai si le calcul palette est impossible (PCUSTUCOE_1 manquant/nul) ET qu'aucune
+   * estimation n'a pu être produite. La ligne est conservée mais n'alimente pas la
+   * charge. Marquée visuellement (badge « Coef manquant »).
    */
   coefManquant: boolean
   /**
@@ -106,9 +106,9 @@ export interface ReceptionDisplayRow {
   coefSource: 'STOCK' | 'STOJOU' | null
   /** Nb d'US par UC (ITMMASTER.PCUSTUCOE_0). null si non renseigné. */
   pcuStuCoe: number | null
-  /** Nb d'UC par palette (ITMMASTER.PCUSTUCOE_1). null si non renseigné. */
+  /** Nb d'US par palette (ITMMASTER.PCUSTUCOE_1). null si non renseigné. */
   ucParPal: number | null
-  /** Conditionnement formaté « 10 US/UC · 5 UC/pal », ou '—' si incomplet. */
+  /** Conditionnement formaté « 10 US/UC · 500 US/pal », ou '—' si incomplet. */
   conditionnement: string
   /** Date retenue ISO (YYYY-MM-DD) — tri/grp. */
   date: string | null
@@ -320,12 +320,9 @@ export default class ReceptionsController {
     // Conditionnements affiche les deux pour comparaison, ici on n'en garde qu'une).
     const enriched: { input: ReceptionInput; estimation: EstimationResult | null }[] = inputs.map(
       (input) => {
-        const coefManquant = !(
-          input.pcuStuCoe &&
-          input.pcuStuCoe > 0 &&
-          input.ucParPal &&
-          input.ucParPal > 0
-        )
+        // Seul PCUSTUCOE_1 (US/palette) conditionne le calcul : PCUSTUCOE_0 est
+        // informatif (colisage) et son absence n'empêche pas de compter les palettes.
+        const coefManquant = !(input.ucParPal && input.ucParPal > 0)
         const paire = coefManquant ? (estimator.get(input.article) ?? null) : null
         const estimation: EstimationResult | null = paire
           ? (paire.stock ?? paire.stojou ?? null)
@@ -337,12 +334,12 @@ export default class ReceptionsController {
     const receptionRows: ReceptionRow[] = enriched.map(({ input, estimation }) => {
       const base = buildReceptionRow(input)
       if (estimation && estimation.usParPalette > 0 && base.nbPalettes === 0) {
-        // Coef estimé direct (US/palette) → calcPalettes avec pcuStuCoe=1 équivaut à
-        // ceil(qteUs / usParPalette). On évite de muter le pcuStuCoe réel (affiché tel
-        // quel dans la colonne Conditionnement, marqué « estimé » séparément).
+        // Coef estimé (US/palette) — même unité que PCUSTUCOE_1, il s'y substitue tel
+        // quel. Le coef ITMMASTER reste affiché brut dans la colonne Conditionnement,
+        // l'origine estimée étant marquée séparément.
         return {
           ...base,
-          nbPalettes: calcPalettes(input.qteUs, 1, estimation.usParPalette),
+          nbPalettes: calcPalettes(input.qteUs, estimation.usParPalette),
         }
       }
       return base
@@ -351,7 +348,7 @@ export default class ReceptionsController {
     // Lignes pré-formatées (date FR + relatif + palettes + conditionnement + estimation).
     const rows: ReceptionDisplayRow[] = receptionRows.map((r, i) => {
       const estimation = enriched[i]!.estimation
-      const coefManquant = !(r.pcuStuCoe && r.pcuStuCoe > 0 && r.ucParPal && r.ucParPal > 0)
+      const coefManquant = !(r.ucParPal && r.ucParPal > 0)
       const coefEstime = !!estimation && r.nbPalettes > 0
       return {
         noCommande: r.noCommande,

@@ -152,9 +152,8 @@ export function ReceptionTableau({
             <div className="min-w-0 flex-1">
               {group.items.map(({ row, n }) => {
                 const tier = chargeTier(row.nbPalettes)
-                // On n'affiche les diviseurs que si le coef est réel et complet.
-                const showDivisors =
-                  !row.coefManquant && !row.coefEstime && row.pcuStuCoe != null && row.ucParPal != null
+                // On n'affiche le diviseur que si le coef US/palette est réel (non estimé).
+                const showDivisors = !row.coefManquant && !row.coefEstime && row.ucParPal != null
 
                 return (
                   <div
@@ -189,14 +188,14 @@ export function ReceptionTableau({
                       className="flex-none text-right tabular-nums"
                       title={
                         row.coefManquant
-                          ? `Coef manquant — US/UC : ${row.pcuStuCoe ?? '—'} · UC/pal : ${row.ucParPal ?? '—'}`
+                          ? `Coef manquant — US/UC : ${row.pcuStuCoe ?? '—'} · US/pal : ${row.ucParPal ?? '—'}`
                           : row.coefEstime
                             ? `Palette estimée (${
                                 row.coefSource === 'STOCK'
                                   ? 'stock actuel SM*'
                                   : 'historique des rangements STOJOU (6 mois)'
                               })`
-                            : `${row.qteUsFmt} u ÷ ${row.pcuStuCoe}/UC · ${row.ucParPal}/pal = ${row.nbPalettesFmt} pal`
+                            : `${row.qteUsFmt} u ÷ ${row.ucParPal} US/pal = ${row.nbPalettesFmt} pal`
                       }
                     >
                       <div className="whitespace-nowrap text-[11px] text-muted-foreground">
@@ -204,8 +203,6 @@ export function ReceptionTableau({
                         {showDivisors && (
                           <>
                             <span className="mx-1 text-muted-foreground/40">÷</span>
-                            <span>{row.pcuStuCoe}/UC</span>
-                            <span className="mx-1 text-muted-foreground/40">·</span>
                             <span>{row.ucParPal}/pal</span>
                           </>
                         )}
