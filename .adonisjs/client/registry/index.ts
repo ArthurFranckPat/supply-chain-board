@@ -216,6 +216,18 @@ const routes = {
     tokens: [{"old":"/api/v1/config/print/rules/:id","type":0,"val":"api","end":""},{"old":"/api/v1/config/print/rules/:id","type":0,"val":"v1","end":""},{"old":"/api/v1/config/print/rules/:id","type":0,"val":"config","end":""},{"old":"/api/v1/config/print/rules/:id","type":0,"val":"print","end":""},{"old":"/api/v1/config/print/rules/:id","type":0,"val":"rules","end":""},{"old":"/api/v1/config/print/rules/:id","type":1,"val":"id","end":""}],
     types: placeholder as Registry['print_config.delete_rule']['types'],
   },
+  'print_config.upsert_document': {
+    methods: ["POST"],
+    pattern: '/api/v1/config/print/documents',
+    tokens: [{"old":"/api/v1/config/print/documents","type":0,"val":"api","end":""},{"old":"/api/v1/config/print/documents","type":0,"val":"v1","end":""},{"old":"/api/v1/config/print/documents","type":0,"val":"config","end":""},{"old":"/api/v1/config/print/documents","type":0,"val":"print","end":""},{"old":"/api/v1/config/print/documents","type":0,"val":"documents","end":""}],
+    types: placeholder as Registry['print_config.upsert_document']['types'],
+  },
+  'print_config.delete_document': {
+    methods: ["DELETE"],
+    pattern: '/api/v1/config/print/documents/:id',
+    tokens: [{"old":"/api/v1/config/print/documents/:id","type":0,"val":"api","end":""},{"old":"/api/v1/config/print/documents/:id","type":0,"val":"v1","end":""},{"old":"/api/v1/config/print/documents/:id","type":0,"val":"config","end":""},{"old":"/api/v1/config/print/documents/:id","type":0,"val":"print","end":""},{"old":"/api/v1/config/print/documents/:id","type":0,"val":"documents","end":""},{"old":"/api/v1/config/print/documents/:id","type":1,"val":"id","end":""}],
+    types: placeholder as Registry['print_config.delete_document']['types'],
+  },
   'print_config.jobs': {
     methods: ["GET","HEAD"],
     pattern: '/api/v1/config/print/jobs',

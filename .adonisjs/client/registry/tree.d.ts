@@ -94,6 +94,8 @@ export interface ApiDefinition {
     updateSettings: typeof routes['print_config.update_settings']
     upsertRule: typeof routes['print_config.upsert_rule']
     deleteRule: typeof routes['print_config.delete_rule']
+    upsertDocument: typeof routes['print_config.upsert_document']
+    deleteDocument: typeof routes['print_config.delete_document']
     jobs: typeof routes['print_config.jobs']
     reconcile: typeof routes['print_config.reconcile']
   }

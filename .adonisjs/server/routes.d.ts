@@ -39,6 +39,8 @@ export type ScannedRoutes = {
     'print_config.update_settings': { paramsTuple?: []; params?: {} }
     'print_config.upsert_rule': { paramsTuple?: []; params?: {} }
     'print_config.delete_rule': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'print_config.upsert_document': { paramsTuple?: []; params?: {} }
+    'print_config.delete_document': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'print_config.jobs': { paramsTuple?: []; params?: {} }
     'print_config.reconcile': { paramsTuple?: []; params?: {} }
     'print_journal.rows': { paramsTuple?: []; params?: {} }
@@ -229,6 +231,7 @@ export type ScannedRoutes = {
     'calendar_config.create_closure': { paramsTuple?: []; params?: {} }
     'print_config.update_settings': { paramsTuple?: []; params?: {} }
     'print_config.upsert_rule': { paramsTuple?: []; params?: {} }
+    'print_config.upsert_document': { paramsTuple?: []; params?: {} }
     'print_config.reconcile': { paramsTuple?: []; params?: {} }
     'planning_board.board_feasibility': { paramsTuple?: []; params?: {} }
     'planning.suggestion_firm': { paramsTuple: [ParamValue]; params: {'sugNum': ParamValue} }
@@ -258,6 +261,7 @@ export type ScannedRoutes = {
   DELETE: {
     'calendar_config.delete_closure': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'print_config.delete_rule': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'print_config.delete_document': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'order_planning.reset_override': { paramsTuple: [ParamValue,ParamValue]; params: {'order': ParamValue,'line': ParamValue} }
     'scenarios.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }

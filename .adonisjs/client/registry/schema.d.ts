@@ -427,6 +427,30 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'print_config.upsert_document': {
+    methods: ["POST"]
+    pattern: '/api/v1/config/print/documents'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
+  'print_config.delete_document': {
+    methods: ["DELETE"]
+    pattern: '/api/v1/config/print/documents/:id'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'print_config.jobs': {
     methods: ["GET","HEAD"]
     pattern: '/api/v1/config/print/jobs'
