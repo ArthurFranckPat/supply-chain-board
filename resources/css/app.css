@@ -1276,6 +1276,8 @@ up-drawer-dismiss {
    d'impression indépendant). Déclaratif → indépendant du cycle réactif JS. */
 .kpi-tile {
   order: var(--screen-order, 0);
+  transition: transform 250ms cubic-bezier(0.16, 1, 0.3, 1), opacity 200ms ease, box-shadow 200ms ease, border-color 200ms ease;
+  will-change: transform, opacity;
 }
 
 @media print {

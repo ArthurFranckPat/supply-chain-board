@@ -15,7 +15,7 @@ import { cn } from "@r/lib/utils"
 // les tokens, sans toucher aux pages.
 
 const cardVariants = cva(
-  "flex flex-col gap-2 rounded-lg border bg-card text-card-foreground",
+  "flex flex-col gap-2 rounded-lg border bg-card text-card-foreground transition-all duration-200 ease-out hover:border-border/90 hover:shadow-md",
   {
     variants: {
       // elevation — Airbnb a UN seul shadow tier.

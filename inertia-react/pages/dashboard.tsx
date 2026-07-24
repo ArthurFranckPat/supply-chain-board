@@ -323,8 +323,8 @@ function HiddenTile({ id, editMode, screenRank, onShow }: { id: KpiId; editMode:
   // Affiché uniquement en mode édition : sinon le KPI masqué disparaît totalement.
   if (!editMode) return null
   return (
-    <div className="lg:col-span-1" style={{ order: screenRank ?? 999 } as React.CSSProperties}>
-      <div className="flex items-center gap-2 rounded border border-dashed border-rule bg-secondary/30 px-4 py-3 print:hidden">
+    <div className="lg:col-span-1 transition-all duration-300 ease-out" style={{ order: screenRank ?? 999 } as React.CSSProperties}>
+      <div className="flex items-center gap-2 rounded-lg border border-dashed border-rule bg-secondary/30 px-4 py-3 transition-all duration-200 hover:border-brand/40 hover:bg-secondary/50 print:hidden">
         <EyeOff size={15} className="text-muted-foreground" />
         <span className="font-mono text-[10px] font-semibold text-muted-foreground">
           {KPI_TITLES[id]}
@@ -333,7 +333,7 @@ function HiddenTile({ id, editMode, screenRank, onShow }: { id: KpiId; editMode:
         <button
           type="button"
           onClick={onShow}
-          className="ml-auto flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[9px] font-semibold text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          className="ml-auto flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[9px] font-semibold text-muted-foreground transition-all duration-150 active:scale-95 hover:bg-secondary hover:text-foreground"
         >
           <Eye size={13} />
           <span>Afficher</span>
@@ -382,15 +382,17 @@ function Tile({
   setDropTargetId: (v: KpiId | null) => void
   onDrop: () => void
 }) {
+  const isDragging = draggedId === id
   const isDropTarget = dropTargetId === id && draggedId !== null && draggedId !== id
 
   return (
     <div
       className={cn(
-        'kpi-tile relative',
+        'kpi-tile relative transition-all duration-300 ease-out',
         WIDTH_CLASS[width],
-        editMode && 'cursor-grab rounded ring-1 ring-brand/30 active:cursor-grabbing',
-        isDropTarget && 'ring-2 ring-brand'
+        editMode && 'cursor-grab rounded-lg ring-1 ring-brand/30 hover:ring-brand/60 active:cursor-grabbing active:scale-[0.99]',
+        isDragging && 'scale-[0.98] opacity-60 shadow-2xl ring-2 ring-brand',
+        isDropTarget && 'scale-[1.01] ring-2 ring-brand ring-offset-2 ring-offset-background'
       )}
       style={{ order: screenRank, '--screen-order': screenRank, '--print-order': printRank } as React.CSSProperties}
       draggable={editMode}
