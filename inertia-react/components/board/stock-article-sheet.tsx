@@ -61,6 +61,11 @@ const fmtEuro = new Intl.NumberFormat('fr-FR', {
   currency: 'EUR',
   maximumFractionDigits: 0,
 })
+/** PMP : 4 décimales, virgule décimale (toFixed donnerait un point). */
+const fmtPmp = new Intl.NumberFormat('fr-FR', {
+  minimumFractionDigits: 4,
+  maximumFractionDigits: 4,
+})
 
 /** Compact pour les axes : 1,2 M€ / 450 k€ / 123 €. */
 const fmtEuroCompact = (v: number): string => {
@@ -617,14 +622,17 @@ export function StockArticleSheet(props: StockArticleSheetProps) {
 
   const detail = data?.detail ?? null
 
-  // Variation sur la plage (premier → dernier point), dans l'unité active.
+  // Variation sur la plage, dans l'unité active. Base = première semaine non
+  // nulle (pas le premier point brut : les semaines à 0 en bord de fenêtre —
+  // article démarré en cours d'année, ou artefact de réconciliation borné par
+  // le plancher — feraient disparaître la tendance à tort).
   const delta = useMemo(() => {
     if (!detail || detail.series.length < 2) return null
     const get = (p: StockHistoryPoint) => (unit === 'qte' ? p.qte : p.valeur)
-    const first = get(detail.series[0])
+    const base = detail.series.map(get).find((v) => v > 0)
+    if (base === undefined) return null
     const last = get(detail.series[detail.series.length - 1])
-    if (first === 0) return null
-    return (last - first) / Math.abs(first)
+    return (last - base) / base
   }, [detail, unit])
 
   return (
@@ -670,14 +678,14 @@ export function StockArticleSheet(props: StockArticleSheetProps) {
                 <div className="flex items-center gap-3">
                   <Metric label="Stock" value={fmtQtyDec.format(detail.stock)} />
                   <span className="h-6 w-px bg-border" />
-                  <Metric label="PMP" value={detail.pmp.toFixed(4)} title="Prix moyen pondéré (€ / unité)" />
+                  <Metric label="PMP" value={fmtPmp.format(detail.pmp)} title="Prix moyen pondéré (€ / unité)" />
                   <span className="h-6 w-px bg-border" />
                   <Metric label="Valeur" value={fmtEuro.format(detail.valeur)} />
                   <span className="h-6 w-px bg-border" />
                   <Metric
                     label="Δ 12 mois"
                     value={delta === null ? '—' : `${delta >= 0 ? '▲' : '▼'} ${fmtPct(Math.abs(delta))}`}
-                    title="Variation du stock entre le premier et le dernier point affiché"
+                    title="Variation du stock entre la première semaine non nulle et la dernière semaine affichée"
                   />
                 </div>
               )}

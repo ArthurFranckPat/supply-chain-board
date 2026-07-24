@@ -181,6 +181,13 @@ const fmtEuro = new Intl.NumberFormat('fr-FR', {
   currency: 'EUR',
   maximumFractionDigits: 0,
 })
+/** PMP : 4 décimales, virgule décimale (toFixed donnerait un point). */
+const fmtPmp = new Intl.NumberFormat('fr-FR', {
+  minimumFractionDigits: 4,
+  maximumFractionDigits: 4,
+})
+/** Quantité : 2 décimales max, virgule décimale (l'affichage JS brut point). */
+const fmtQtyDec = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 })
 
 function otdColor(taux: number, nbTotal: number): string {
   if (nbTotal === 0) return '#dddddd'
@@ -1514,10 +1521,10 @@ export default function Dashboard(props: DashboardProps) {
                                   </span>
                                 </td>
                                 <td className="whitespace-nowrap px-2 py-1.5 text-right align-top font-mono text-[11px] tabular-nums text-foreground">
-                                  {a.stock}
+                                  {fmtQtyDec.format(a.stock)}
                                 </td>
                                 <td className="whitespace-nowrap px-2 py-1.5 text-right align-top font-mono text-[11px] tabular-nums text-muted-foreground">
-                                  {a.pmp.toFixed(4)}
+                                  {fmtPmp.format(a.pmp)}
                                 </td>
                                 <td className="whitespace-nowrap px-2 py-1.5 text-right align-top font-mono text-[11px] font-bold tabular-nums text-foreground">
                                   {fmtEuro.format(a.valeur)}
