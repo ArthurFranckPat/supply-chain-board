@@ -548,10 +548,6 @@ export default function Dashboard(props: DashboardProps) {
     moveItem: moveStoreItem,
     moveItemDir: moveStoreItemDir,
     movePrint: moveStorePrint,
-    layoutItem,
-    isVisible: getIsVisible,
-    printRank: getPrintRank,
-    screenRank: getScreenRank,
   } = useLayoutStore()
 
   // Sync initial layout from props (une seule fois au mount initial)
@@ -565,13 +561,17 @@ export default function Dashboard(props: DashboardProps) {
     }
   }, [layoutFromProps, setLayout])
 
-  // Wrap actions with store methods
+  // Sélecteurs réactifs connectés à l'état React items et printOrder
   const setVisible = useCallback((id: KpiId, visible: boolean) => setStoreVisible(id, visible), [setStoreVisible])
   const setWidth = useCallback((id: KpiId, width: KpiWidth) => setStoreWidth(id, width), [setStoreWidth])
   const moveItem = useCallback((draggedId: KpiId, targetId: KpiId) => moveStoreItem(draggedId, targetId), [moveStoreItem])
   const moveScreen = useCallback((id: KpiId, dir: -1 | 1) => moveStoreItemDir(id, dir), [moveStoreItemDir])
   const movePrint = useCallback((id: KpiId, dir: -1 | 1) => moveStorePrint(id, dir), [moveStorePrint])
-  const isVisible = useCallback((id: KpiId) => getIsVisible(id), [getIsVisible])
+
+  const isVisible = useCallback((id: KpiId) => items.find((it) => it.id === id)?.visible ?? true, [items])
+  const layoutItem = useCallback((id: KpiId) => items.find((it) => it.id === id), [items])
+  const getScreenRank = useCallback((id: KpiId) => items.findIndex((it) => it.id === id), [items])
+  const getPrintRank = useCallback((id: KpiId) => printOrder.indexOf(id), [printOrder])
 
   // ----- Local state -----
   const [otdMode, setOtdMode] = useState<OtdMode>('demandee')
