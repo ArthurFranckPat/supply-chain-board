@@ -136,15 +136,17 @@ test('provenance et parent propagés du PF jusqu’aux composants profonds', ({ 
     assert.equal(byArt.get(art)!.source!.numCommande, 'AR2601083')
     assert.equal(byArt.get(art)!.source!.pfArticle, 'PF1')
   }
-  // Le parent est le maillon IMMÉDIAT, pas le PF de tête.
-  assert.isNull(byArt.get('PF1')!.parent)
-  assert.equal(byArt.get('C1')!.parent, 'PF1')
-  assert.equal(byArt.get('S1')!.parent, 'C1')
+  // Le chemin est la LIGNÉE ENTIÈRE, du PF au parent immédiat (exclu : l'article
+  // lui-même). Au niveau 2, le seul parent direct ne dirait pas de quel produit
+  // fini le composant descend.
+  assert.deepEqual(byArt.get('PF1')!.path, [])
+  assert.deepEqual(byArt.get('C1')!.path, ['PF1'])
+  assert.deepEqual(byArt.get('S1')!.path, ['PF1', 'C1'])
 
   // netCharge reporte provenance, parent et quantités sur le besoin net.
   const s1 = netCharge(raws, new Map([['S1', 5]])).find((n) => n.article === 'S1')!
   assert.equal(s1.source!.client, '50028')
-  assert.equal(s1.parent, 'C1')
+  assert.deepEqual(s1.path, ['PF1', 'C1'])
   assert.equal(s1.brutQty, 20)
   assert.equal(s1.netQty, 15)
 })

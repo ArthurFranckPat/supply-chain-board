@@ -50,8 +50,8 @@ export interface ChargeDetailCmdRow {
   designation: string | null
   /** 0 = produit fini (charge directe), >0 = composant induit. */
   depth: number
-  /** Article parent immédiat — null au depth 0. */
-  parent: string | null
+  /** Chaîne BOM du produit fini au parent immédiat — vide au depth 0. */
+  path: string[]
   /** Produit fini de tête de la chaîne. */
   pfArticle: string
   numCommande: string | null
@@ -173,7 +173,7 @@ export async function loadChargeDetail(params: ChargeDetailParams): Promise<Char
           article: n.article,
           designation: desByArticle.get(n.article) ?? null,
           depth: n.depth,
-          parent: n.parent,
+          path: n.path,
           pfArticle: n.source?.pfArticle ?? n.article,
           numCommande: n.source?.numCommande ?? null,
           ligne: n.source?.ligne ?? null,

@@ -54,8 +54,15 @@ export interface ChargeRaw {
   depth: number
   qty: number
   rate: number
-  /** Article parent immédiat (null au depth 0) — reconstitue le chemin BOM. */
-  parent: string | null
+  /**
+   * Chemin BOM complet, du produit fini jusqu'au parent immédiat (exclut
+   * l'article lui-même). Vide au depth 0.
+   *
+   * Chaîne entière et non dernier maillon : au-delà du niveau 1, « via C1 » ne
+   * dit pas de quel produit fini C1 descend, et la ligne devient illisible face
+   * à sa commande. Le parent immédiat reste le dernier élément.
+   */
+  path: string[]
   /** Ligne de demande d'origine (absente si l'appelant n'en fournit pas). */
   source: ChargeSource | null
 }
@@ -72,7 +79,8 @@ export interface ChargeNeed {
   /** Quantités correspondantes — la table de détail les affiche à côté des heures. */
   brutQty: number
   netQty: number
-  parent: string | null
+  /** Chemin BOM du produit fini au parent immédiat (vide au depth 0). */
+  path: string[]
   source: ChargeSource | null
 }
 
@@ -100,14 +108,14 @@ export function explodeCharge(
     date: Date,
     depth: number,
     ancestors: Set<string>,
-    parent: string | null,
+    path: string[],
     source: ChargeSource | null
   ): void => {
     if (ancestors.has(article)) return // garde anti-cycle
     const gamme = gammeMap.get(article)
     const rate = gamme?.rate ?? 0
     if (gamme?.workstation && rate > 0) {
-      raws.push({ article, wst: gamme.workstation, date, nature, depth, qty, rate, parent, source })
+      raws.push({ article, wst: gamme.workstation, date, nature, depth, qty, rate, path, source })
     }
     if (depth >= maxDepth) return
     const bom = bomByParent.get(article)
@@ -121,7 +129,9 @@ export function explodeCharge(
         date,
         depth + 1,
         next,
-        article,
+        // Le chemin s'allonge de l'article courant : l'enfant hérite de toute
+        // la lignée, pas seulement de son parent.
+        [...path, article],
         source
       )
     }
@@ -130,7 +140,7 @@ export function explodeCharge(
   for (const l of orderLines) {
     // PF sans gamme → ligne ignorée (consistance depth-1 : pas de route = pas planifiable).
     if (!gammeMap.get(l.article)?.workstation) continue
-    explode(l.article, l.quantite, l.nature, l.date, 0, new Set(), null, l.source ?? null)
+    explode(l.article, l.quantite, l.nature, l.date, 0, new Set(), [], l.source ?? null)
   }
   return raws
 }
@@ -164,7 +174,7 @@ export function netCharge(raws: ChargeRaw[], stockByArticle: Map<string, number>
         netHours: netQty / r.rate,
         brutQty: r.qty,
         netQty,
-        parent: r.parent,
+        path: r.path,
         source: r.source,
       })
     }

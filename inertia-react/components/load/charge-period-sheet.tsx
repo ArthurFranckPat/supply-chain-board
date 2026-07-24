@@ -48,7 +48,8 @@ interface DetailCmdRow {
   article: string
   designation: string | null
   depth: number
-  parent: string | null
+  /** Chaîne BOM du produit fini au parent immédiat — vide au depth 0. */
+  path: string[]
   pfArticle: string
   numCommande: string | null
   ligne: string | null
@@ -288,8 +289,10 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
   // La DATE ne figure pas dans les colonnes : elle est portée une seule fois
   // par l'en-tête de jour. Les lignes n'affichent que ce qui les distingue au
   // sein de ce jour.
+  // « Via » porte une chaîne d'articles (PF › SE › …), pas un code isolé :
+  // elle a besoin d'une part élastique, pas d'une largeur fixe.
   const cols =
-    view === 'of' ? '9rem 1.6fr 10rem 7rem 7rem' : '9rem 1.6fr 8rem 9rem 1fr 7rem 7rem'
+    view === 'of' ? '9rem 1.6fr 10rem 7rem 7rem' : '9rem 1.3fr 1.4fr 9rem 1fr 7rem 7rem'
 
   const heads =
     view === 'of'
@@ -683,9 +686,15 @@ function CmdRow({ row: r, net }: { row: DetailCmdRow; net: boolean }) {
         )}
         {r.designation || '—'}
       </div>
-      {/* Chemin BOM : par quel parent ce besoin arrive (vide sur un PF). */}
-      <div className={cn(CELL, 'truncate font-mono text-[10px] text-muted-foreground')}>
-        {r.depth === 0 ? '' : `via ${r.parent ?? '?'}`}
+      {/* Chemin BOM COMPLET, du produit fini au parent immédiat. Le dernier
+          maillon seul ne disait pas de quel produit fini le composant descend,
+          ce qui rendait la ligne incohérente avec sa commande dès le niveau 2.
+          Tronqué à l'affichage, entier au survol. */}
+      <div
+        className={cn(CELL, 'truncate font-mono text-[10px] text-muted-foreground')}
+        title={r.path.length ? [...r.path, r.article].join(' › ') : undefined}
+      >
+        {r.path.length === 0 ? '' : r.path.join(' › ')}
       </div>
       <div className={cn(CELL, 'font-mono text-[10px] text-secondary-foreground')}>
         {r.numCommande ?? '—'}
