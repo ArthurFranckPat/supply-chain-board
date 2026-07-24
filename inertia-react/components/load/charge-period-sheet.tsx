@@ -85,6 +85,19 @@ const fmtDateFr = (iso: string): string => {
 const fmtH = (h: number) => (Math.round(h * 10) / 10).toFixed(1).replace('.', ',')
 const fmtQ = (q: number) => Math.round(q).toLocaleString('fr-FR')
 
+/**
+ * Ligne tirée par une PRÉVISION client (et non par une commande ferme).
+ *
+ * Exact, pas déduit : la nature vient de `ORDERS.WIPSTA` (3 = prévision) sur la
+ * ligne de demande, et l'explosion de nomenclature la propage telle quelle aux
+ * composants induits — un sous-ensemble fabriqué pour une prévision reste tiré
+ * par une prévision. `s` = produit fini prévisionnel, `si` = son induit.
+ *
+ * N'a de sens QUE en vue commande : en vue OF, `s` désigne le statut « suggéré »
+ * de l'ordre, qui ne dit rien de la nature de la demande qui le tire.
+ */
+const isForecastPulled = (field: string): boolean => field === 's' || field === 'si'
+
 /** Couleur de segment, alignée sur le graphe. */
 const SEG_COLOR: Record<string, string> = {
   f: 'var(--color-ferme)',
@@ -201,6 +214,17 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
     [groups]
   )
 
+  // Part de la période tirée par des prévisions plutôt que par des commandes
+  // fermes : c'est la charge la moins sûre, elle mérite d'être chiffrée avant
+  // qu'on décide quoi que ce soit sur ce poste.
+  const forecastHours = useMemo(() => {
+    if (data?.view !== 'commande') return 0
+    return cmdGroups.reduce(
+      (a, g) => a + g.rows.reduce((b, r) => b + (isForecastPulled(r.field) ? cmdHours(r) : 0), 0),
+      0
+    )
+  }, [data, cmdGroups, net])
+
   // Grille UNIQUE (en-tête + lignes + total dans le même conteneur) : l'alignement
   // est structurel. Deux grilles distinctes se dimensionnaient indépendamment et
   // décalaient les en-têtes des cellules.
@@ -266,6 +290,22 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
               {view === 'commande' && (
                 <span className="font-mono text-[10px] text-muted-foreground">
                   {net ? 'net' : 'brut'}
+                </span>
+              )}
+              {view === 'commande' && forecastHours > 0 && (
+                <span
+                  className="inline-flex items-baseline gap-1.5 rounded-full border px-2 py-0.5 font-mono text-[10px] font-semibold"
+                  style={{
+                    color: 'var(--color-suggere)',
+                    borderColor: 'color-mix(in srgb, var(--color-suggere) 45%, transparent)',
+                    background: 'color-mix(in srgb, var(--color-suggere) 10%, transparent)',
+                  }}
+                  title="Charge tirée par des prévisions et non par des commandes fermes — la moins sûre de la période"
+                >
+                  dont {fmtH(forecastHours)} h de prévision
+                  <span className="opacity-70">
+                    ({Math.round((forecastHours / totalHours) * 100)}%)
+                  </span>
                 </span>
               )}
             </div>
@@ -366,6 +406,14 @@ function DayBlock(props: {
   const { group: g, view, net, maxHours, totalHours } = props
   const share = totalHours > 0 ? (g.hours / totalHours) * 100 : 0
   const barPct = maxHours > 0 ? (g.hours / maxHours) * 100 : 0
+  const dayForecastHours =
+    view === 'commande'
+      ? g.rows.reduce((a, r) => {
+          if (!isForecastPulled(r.field)) return a
+          const c = r as DetailCmdRow
+          return a + (net ? c.netHours : c.brutHours)
+        }, 0)
+      : 0
 
   return (
     <>
@@ -386,6 +434,18 @@ function DayBlock(props: {
           {fmtDateFr(g.dateIso)}
         </span>
         <span className="flex-1" />
+        {/* Part du jour tirée par des prévisions — affichée seulement si le
+            jour en contient, et seulement en vue commande où l'information
+            existe réellement. */}
+        {view === 'commande' && dayForecastHours > 0 && (
+          <span
+            className="flex-none font-mono text-[10px] font-semibold"
+            style={{ color: 'var(--color-suggere)' }}
+            title="Part de la charge du jour tirée par des prévisions"
+          >
+            dont {fmtH(dayForecastHours)} h prév.
+          </span>
+        )}
         <span className="flex-none font-mono text-[10px] text-muted-foreground">
           {g.rows.length} {view === 'of' ? 'ordre' : 'besoin'}
           {g.rows.length > 1 ? 's' : ''}
@@ -446,9 +506,19 @@ function OfRow({ row: r }: { row: DetailOfRow }) {
 }
 
 function CmdRow({ row: r, net }: { row: DetailCmdRow; net: boolean }) {
+  const forecast = isForecastPulled(r.field)
   return (
     <>
-      <div className={cn(CELL, 'truncate pl-5 font-mono text-[11px] font-bold text-foreground')}>
+      {/* Liseré sur toute la ligne : une charge tirée par une prévision se
+          repère au balayage, sans lire la colonne Client. */}
+      <div
+        className={cn(CELL, 'truncate pl-5 font-mono text-[11px] font-bold text-foreground')}
+        style={
+          forecast
+            ? { borderLeft: '2px solid var(--color-suggere)', paddingLeft: 'calc(1.25rem - 2px)' }
+            : undefined
+        }
+      >
         {r.article}
         {/* Marqueur de niveau BOM : un induit ne se lit pas comme un PF. */}
         {r.depth > 0 && (
@@ -460,7 +530,25 @@ function CmdRow({ row: r, net }: { row: DetailCmdRow; net: boolean }) {
           </span>
         )}
       </div>
-      <div className={cn(CELL, 'truncate text-muted-foreground')}>{r.designation || '—'}</div>
+      <div className={cn(CELL, 'truncate text-muted-foreground')}>
+        {forecast && (
+          <span
+            className="mr-1.5 rounded-sm px-1 py-px font-mono text-[9px] font-bold uppercase tracking-wider"
+            style={{
+              color: 'var(--color-suggere)',
+              background: 'color-mix(in srgb, var(--color-suggere) 14%, transparent)',
+            }}
+            title={
+              r.depth === 0
+                ? 'Produit fini tiré par une prévision client, pas par une commande ferme'
+                : "Composant induit par un produit fini lui-même tiré par une prévision"
+            }
+          >
+            prév.
+          </span>
+        )}
+        {r.designation || '—'}
+      </div>
       {/* Chemin BOM : par quel parent ce besoin arrive (vide sur un PF). */}
       <div className={cn(CELL, 'truncate font-mono text-[10px] text-muted-foreground')}>
         {r.depth === 0 ? '' : `via ${r.parent ?? '?'}`}
@@ -469,8 +557,10 @@ function CmdRow({ row: r, net }: { row: DetailCmdRow; net: boolean }) {
         {r.numCommande ?? '—'}
         {r.ligne && <span className="text-muted-foreground">/{r.ligne}</span>}
       </div>
+      {/* Le badge « prév. » porte déjà la nature : ici on ne dit plus que
+          l'absence de client, qui sur une prévision est structurelle. */}
       <div className={cn(CELL, 'truncate text-muted-foreground')}>
-        {r.client ?? <span className="italic">prévision · sans client</span>}
+        {r.client ?? (forecast ? <span className="italic">sans client</span> : '—')}
       </div>
       <div className={cn(CELL, 'text-right font-mono tabular-nums text-secondary-foreground')}>
         {fmtQ(net ? r.netQty : r.brutQty)}
