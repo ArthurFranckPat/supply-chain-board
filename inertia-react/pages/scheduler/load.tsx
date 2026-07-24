@@ -16,6 +16,7 @@ import {
 import { HatchDefs } from '@r/components/load/hatch-defs'
 import { MiniCard } from '@r/components/load/mini-card'
 import { DetailChart } from '@r/components/load/detail-chart'
+import { ChargePeriodSheet } from '@r/components/load/charge-period-sheet'
 import {
   FilterMenu,
   FilterMenuSectionLabel,
@@ -180,6 +181,28 @@ export default function Load(props: LoadPageProps) {
           cap: line.capacity.weekly[i] ?? 0,
         }))
   }, [selLine, gran, props.months, props.weeks])
+
+  // Détail d'une période : le clic passe la CLÉ du bucket (pas son index), pour
+  // que la demande reste valide même si l'horizon a glissé entre-temps.
+  const [periodTarget, setPeriodTarget] = useState<{
+    poste: string
+    bucketKey: string
+    gran: Gran
+    periodLabel: string
+  } | null>(null)
+
+  const openPeriod = (index: number) => {
+    if (!selLine) return
+    const key = gran === 'month' ? props.monthKeys[index] : props.weekKeys[index]
+    if (!key) return
+    const label = (gran === 'month' ? props.months[index] : props.weeks[index]) ?? ''
+    setPeriodTarget({
+      poste: selLine.code,
+      bucketKey: key,
+      gran,
+      periodLabel: label.replace('\n', ' '),
+    })
+  }
 
   const selSaturation = useMemo(() => {
     const line = selLine
@@ -483,12 +506,27 @@ export default function Load(props: LoadPageProps) {
                   showCapacity={showCapacity}
                   showAvg={showAvg}
                   segs={visibleSegs}
+                  onSelectPeriod={openPeriod}
                 />
               </div>
             )}
           </div>
         )}
       </div>
+
+      {/* Détail de la période cliquée. `activeSegs`/`net` sont passés tels
+          quels : la table applique le MÊME masque que le graphe, donc son
+          total suit la hauteur de la barre sans re-fetch au changement de
+          filtre. */}
+      <ChargePeriodSheet
+        open={!!periodTarget}
+        onOpenChange={(v) => !v && setPeriodTarget(null)}
+        target={periodTarget}
+        view={view}
+        start={props.startIso}
+        activeSegs={activeSegs}
+        net={net}
+      />
     </AppLayout>
   )
 }

@@ -489,6 +489,9 @@ export async function loadChargePayloadData(params: { start?: string; force?: bo
 
       return {
         rangeLabel,
+        // Ancre d'horizon résolue (1er du mois de départ) : le détail d'un
+        // bucket la renvoie pour viser exactement la même fenêtre.
+        startIso: isoDay(monthStart),
         months: monthBuckets.map((m) => m.label),
         weeks: weekBuckets.map((w) => w.label),
         // Clés de bucket (non affichées) : le client les renvoie telles quelles

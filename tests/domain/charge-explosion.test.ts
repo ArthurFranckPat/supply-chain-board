@@ -116,3 +116,44 @@ test('stock couvrant totalement → net nul', ({ assert }) => {
   assert.equal(c1.brutHours, 4)
   assert.equal(c1.netHours, 0)
 })
+
+test('provenance et parent propagés du PF jusqu’aux composants profonds', ({ assert }) => {
+  const source = {
+    numCommande: 'AR2601083',
+    ligne: '1000',
+    client: '50028',
+    pfArticle: 'PF1',
+  }
+  const raws = explodeCharge(
+    [{ article: 'PF1', quantite: 10, date: D1, nature: 'ferme', source }],
+    bomByParent,
+    gammeMap
+  )
+  const byArt = new Map(raws.map((r) => [r.article, r]))
+  // La commande d'origine survit à toute la descente : c'est ce qui permet de
+  // dire POUR QUI un composant de niveau 2 est chargé.
+  for (const art of ['PF1', 'C1', 'S1']) {
+    assert.equal(byArt.get(art)!.source!.numCommande, 'AR2601083')
+    assert.equal(byArt.get(art)!.source!.pfArticle, 'PF1')
+  }
+  // Le parent est le maillon IMMÉDIAT, pas le PF de tête.
+  assert.isNull(byArt.get('PF1')!.parent)
+  assert.equal(byArt.get('C1')!.parent, 'PF1')
+  assert.equal(byArt.get('S1')!.parent, 'C1')
+
+  // netCharge reporte provenance, parent et quantités sur le besoin net.
+  const s1 = netCharge(raws, new Map([['S1', 5]])).find((n) => n.article === 'S1')!
+  assert.equal(s1.source!.client, '50028')
+  assert.equal(s1.parent, 'C1')
+  assert.equal(s1.brutQty, 20)
+  assert.equal(s1.netQty, 15)
+})
+
+test('sans source fournie, la provenance reste nulle (pas de valeur inventée)', ({ assert }) => {
+  const raws = explodeCharge(
+    [{ article: 'PF1', quantite: 10, date: D1, nature: 'ferme' }],
+    bomByParent,
+    gammeMap
+  )
+  assert.isTrue(raws.every((r) => r.source === null))
+})

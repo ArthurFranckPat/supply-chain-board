@@ -70,10 +70,18 @@ export type LoadView = 'of' | 'commande'
 export interface LoadPageProps {
   /** Libellé d'en-tête : « Juillet → Décembre 2026 · 6 mois ». */
   rangeLabel: string
+  /** Ancre d'horizon résolue (ISO, 1er du mois de départ) — renvoyée telle
+   *  quelle à l'endpoint de détail pour viser la même fenêtre. */
+  startIso: string
   /** Libellés mensuels courts (« Juil », « Août »…). */
   months: string[]
   /** Libellés hebdo (« S27 », « S28 »…). */
   weeks: string[]
+  /** Clés de bucket mensuel (« 2026-7 »), alignées sur `months` — non affichées :
+   *  renvoyées telles quelles à l'endpoint de détail d'une période. */
+  monthKeys: string[]
+  /** Clés de bucket hebdo (ISO du lundi), alignées sur `weeks`. */
+  weekKeys: string[]
   /** Charge OF, segments Ferme(f) / Planifié(p) / Suggéré(s). */
   ofLines: LoadLine[]
   /** Charge demande, segments Commande(f) / Prévision(s) — `p` toujours 0. */

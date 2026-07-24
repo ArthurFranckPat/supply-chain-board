@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { cn } from '@r/lib/utils'
 import type { LoadPeriod, LoadView } from '@/lib/load/types'
 import {
   CARD,
@@ -30,6 +31,8 @@ interface DetailChartProps {
   showAvg: boolean
   /** Segments effectivement tracés (filtre statut/nature appliqué) — légende. */
   segs: LoadSegOption[]
+  /** Clic sur une période : ouvre le détail de la barre (index dans `items`). */
+  onSelectPeriod?: (index: number) => void
 }
 
 type SegInfo = {
@@ -48,6 +51,7 @@ export function DetailChart({
   showCapacity,
   showAvg,
   segs,
+  onSelectPeriod,
 }: DetailChartProps) {
   const padL = 46
   const padR = 16
@@ -98,12 +102,14 @@ export function DetailChart({
       h: number
       fill: string
       info: SegInfo
+      /** Index de la période — porté par le segment pour le clic « détail ». */
+      idx: number
     }
     type Lbl = { x: number; y: number; text: number; fill: string }
     const segments: Seg[] = []
     const inLabels: Lbl[] = []
     const totals: { x: number; y: number; text: number; fill: string }[] = []
-    const xLabels: { x: number; y: number; text: string }[] = []
+    const xLabels: { x: number; y: number; text: string; idx: number }[] = []
     const capPts: { x: number; y: number; v: number; over: boolean }[] = []
     const overRects: { x: number; y: number; w: number; h: number }[] = []
 
@@ -125,6 +131,7 @@ export function DetailChart({
           h,
           fill: col,
           info: { period: it.label, label, value: v, total: T[i], cap: C[i], color: col },
+          idx: i,
         })
         if (h > 16)
           inLabels.push({
@@ -141,7 +148,7 @@ export function DetailChart({
         capPts.push({ x: cx, y: y(C[i]), v: C[i], over })
         if (over) overRects.push({ x: xx, y: y(T[i]), w: bw, h: y(C[i]) - y(T[i]) })
       }
-      xLabels.push({ x: cx, y: H - padB + 18, text: it.label })
+      xLabels.push({ x: cx, y: H - padB + 18, text: it.label, idx: i })
     })
 
     const capPath = capPts.map((p2, i) => `${i ? 'L' : 'M'}${p2.x} ${p2.y}`).join(' ')
@@ -302,7 +309,7 @@ export function DetailChart({
             </text>
           </g>
         ))}
-        {/* Barres empilées (survol → tooltip) */}
+        {/* Barres empilées (survol → tooltip, clic → détail de la période) */}
         {geom.segments.map((s, i) => {
           const isOn = hover && hover.period === s.info.period && hover.label === s.info.label
           const common = {
@@ -314,6 +321,7 @@ export function DetailChart({
             } as React.CSSProperties,
             onMouseEnter: () => setHover(s.info),
             onMouseLeave: () => setHover(null),
+            onClick: onSelectPeriod ? () => onSelectPeriod(s.idx) : undefined,
           }
           return s.kind === 'path' ? (
             <path key={`seg-${i}`} d={rtop(s.x, s.y, s.w, s.h, Math.min(s.w / 3, 7))} {...common} />
@@ -426,7 +434,8 @@ export function DetailChart({
             fontSize={geom.week ? '8' : '12'}
             fontWeight={geom.week ? '500' : '700'}
             fill={MUTED}
-            className={geom.week ? 'font-mono' : 'font-fraunces'}
+            className={cn(geom.week ? 'font-mono' : 'font-fraunces', onSelectPeriod && 'cursor-pointer')}
+            onClick={onSelectPeriod ? () => onSelectPeriod(l.idx) : undefined}
           >
             {l.text.split('\n').map((ln, j) => (
               <tspan
@@ -489,6 +498,11 @@ export function DetailChart({
                   style={{ color: satColor(hover.total, hover.cap) }}
                 >
                   capacité {hover.cap} h · saturation {Math.round(satRate(hover.total, hover.cap))}%
+                </div>
+              )}
+              {onSelectPeriod && (
+                <div className="mt-1 font-fraunces text-[10px] italic text-muted-foreground">
+                  Clic : détail de la période
                 </div>
               )}
             </>
