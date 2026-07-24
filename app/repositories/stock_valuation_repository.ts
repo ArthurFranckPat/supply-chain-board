@@ -141,6 +141,12 @@ function toYYYYMMDD(d: Date): string {
 
 const num = (v: string | null | undefined): number => Number.parseFloat(v ?? '0') || 0
 
+/** Clé de semaine ISO d'une date (« 2026-W31 », lundi) — partagée avec le
+ *  loader de projection (stock_detail_loader) pour seaux futurs. */
+export function isoWeekKey(d: Date): string {
+  return periodKey(d, 'semaine')
+}
+
 /** Clé de période pour apparier flux ↔ périodes de référence. */
 function periodKey(d: Date, grain: StockGrain): string {
   if (grain === 'semaine') {

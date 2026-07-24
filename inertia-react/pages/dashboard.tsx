@@ -25,6 +25,12 @@ import { Card, CardContent } from '@r/components/ui/card'
 import { Badge } from '@r/components/ui/badge'
 import { Button } from '@r/components/ui/button'
 import { Separator } from '@r/components/ui/separator'
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+  InputGroupButton,
+} from '@r/components/ui/input-group'
 
 /**
  * Tableau de bord (issue #26 shell + #38 KPI). Landing par défaut post-login.
@@ -977,37 +983,41 @@ export default function Dashboard(props: DashboardProps) {
                     <>
                       {/* Filtre client + toggle détails */}
                       <div className="mb-3 flex items-center gap-1.5">
-                        <div className="relative min-w-0 flex-1">
-                          <Search size={13} strokeWidth={1.75} className="pointer-events-none absolute left-1.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                          <input
+                        <InputGroup className="h-8 flex-1">
+                          <InputGroupAddon align="inline-start">
+                            <Search size={13} className="text-muted-foreground" />
+                          </InputGroupAddon>
+                          <InputGroupInput
                             type="text"
                             value={clientFilter}
-                            onInput={(e) => setClientFilter(e.currentTarget.value)}
+                            onChange={(e) => setClientFilter(e.target.value)}
                             placeholder="Filtrer par client"
                             aria-label="Filtrer les lignes par client"
-                            className="w-full rounded border border-rule bg-secondary py-[5px] pl-7 pr-6 font-sans text-[11px] text-foreground placeholder:text-muted-foreground/60 focus:border-foreground/30 focus:outline-none"
+                            className="h-8 text-xs"
                           />
                           {clientFilter && (
-                            <button
-                              type="button"
-                              onClick={() => setClientFilter('')}
-                              className="absolute right-1 top-1/2 flex size-4 -translate-y-1/2 items-center justify-center text-muted-foreground hover:text-foreground"
-                              title="Effacer le filtre"
-                              aria-label="Effacer le filtre"
-                            >
-                              <X size={13} />
-                            </button>
+                            <InputGroupAddon align="inline-end">
+                              <InputGroupButton
+                                size="icon-xs"
+                                onClick={() => setClientFilter('')}
+                                title="Effacer le filtre"
+                                aria-label="Effacer le filtre"
+                              >
+                                <X size={13} />
+                              </InputGroupButton>
+                            </InputGroupAddon>
                           )}
-                        </div>
-                        <button
+                        </InputGroup>
+                        <Button
                           type="button"
+                          variant="outline"
+                          size="xs"
                           onClick={() => setDetailsOpen((v) => !v)}
-                          className="flex shrink-0 items-center gap-1 rounded border border-rule bg-secondary px-2 py-[5px] font-mono text-[9px] font-semibold text-foreground transition-colors hover:bg-secondary/80"
                           title={detailsOpen ? 'Masquer les détails' : 'Afficher les détails'}
                         >
                           <DynamicIcon name={detailsOpen ? 'expand_more' : 'chevron_right'} size={13} className="text-muted-foreground" />
                           <span>Détails</span>
-                        </button>
+                        </Button>
                       </div>
 
                       {otd.map((p, i) => (
@@ -1442,33 +1452,36 @@ export default function Dashboard(props: DashboardProps) {
                     <>
                       {/* Barre de filtres */}
                       <div className="mb-3 flex flex-wrap items-center gap-1.5">
-                        <div className="relative min-w-0 flex-1">
-                          <Search size={13} strokeWidth={1.75} className="pointer-events-none absolute left-1.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                          <input
+                        <InputGroup className="h-8 flex-1">
+                          <InputGroupAddon align="inline-start">
+                            <Search size={13} className="text-muted-foreground" />
+                          </InputGroupAddon>
+                          <InputGroupInput
                             type="text"
                             value={stockSearch}
-                            onInput={(e) => setStockSearch(e.currentTarget.value)}
+                            onChange={(e) => setStockSearch(e.target.value)}
                             placeholder="Article ou désignation"
                             aria-label="Filtrer les articles"
-                            className="w-full rounded border border-rule bg-secondary py-[5px] pl-7 pr-6 font-sans text-[11px] text-foreground placeholder:text-muted-foreground/60 focus:border-foreground/30 focus:outline-none"
+                            className="h-8 text-xs"
                           />
                           {stockSearch && (
-                            <button
-                              type="button"
-                              onClick={() => setStockSearch('')}
-                              className="absolute right-1 top-1/2 flex size-4 -translate-y-1/2 items-center justify-center text-muted-foreground hover:text-foreground"
-                              title="Effacer"
-                              aria-label="Effacer la recherche"
-                            >
-                              <X size={13} />
-                            </button>
+                            <InputGroupAddon align="inline-end">
+                              <InputGroupButton
+                                size="icon-xs"
+                                onClick={() => setStockSearch('')}
+                                title="Effacer la recherche"
+                                aria-label="Effacer la recherche"
+                              >
+                                <X size={13} />
+                              </InputGroupButton>
+                            </InputGroupAddon>
                           )}
-                        </div>
+                        </InputGroup>
                         <select
                           value={stockCatFilter}
                           onChange={(e) => setStockCatFilter(e.currentTarget.value)}
                           aria-label="Filtrer par catégorie"
-                          className="rounded border border-rule bg-secondary py-[5px] px-2 font-mono text-[10px] font-semibold text-foreground focus:border-foreground/30 focus:outline-none"
+                          className="h-8 rounded-[8px] border border-input bg-card px-2.5 font-mono text-[10px] font-semibold text-foreground focus-visible:border-foreground focus-visible:outline-none"
                         >
                           <option value="">Toutes cat.</option>
                           {stockCategories.map((c) => (
@@ -1477,20 +1490,16 @@ export default function Dashboard(props: DashboardProps) {
                             </option>
                           ))}
                         </select>
-                        <button
+                        <Button
                           type="button"
+                          variant={stockHideZero ? 'secondary' : 'outline'}
+                          size="xs"
                           onClick={() => setStockHideZero((v) => !v)}
-                          className={cn(
-                            'flex items-center gap-1 rounded border border-rule px-2 py-[5px] font-mono text-[9px] font-semibold transition-colors',
-                            stockHideZero
-                              ? 'bg-foreground text-background'
-                              : 'bg-secondary text-muted-foreground hover:text-foreground'
-                          )}
                           title="Masquer les articles à stock nul"
                         >
                           <DynamicIcon name={stockHideZero ? 'check_box' : 'check_box_outline_blank'} size={13} />
                           <span>Stock ≠ 0</span>
-                        </button>
+                        </Button>
                       </div>
 
                       <div className="-mx-2 overflow-auto print:overflow-visible">

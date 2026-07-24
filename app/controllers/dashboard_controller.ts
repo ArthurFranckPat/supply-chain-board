@@ -1,19 +1,14 @@
 import { type HttpContext } from '@adonisjs/core/http'
 import logger from '@adonisjs/core/services/logger'
-import { RetardRepository, type RetardChargeKpi } from '#repositories/retard_repository'
-import {
-  OtdRepository,
-  resolveOtdPeriods,
-  type OtdKpi,
-  type OtdMode,
-} from '#repositories/otd_repository'
-import {
-  defaultStockRange,
-  type StockValuationKpi,
-  type StockArticleHistory,
-  type StockGrain,
-} from '#repositories/stock_valuation_repository'
+import { RetardRepository } from '#repositories/retard_repository'
+import type { RetardChargeKpi } from '#repositories/retard_repository'
+import { OtdRepository, resolveOtdPeriods } from '#repositories/otd_repository'
+import type { OtdKpi, OtdMode } from '#repositories/otd_repository'
+import { defaultStockRange } from '#repositories/stock_valuation_repository'
+import type { StockValuationKpi, StockGrain } from '#repositories/stock_valuation_repository'
 import boardDataset from '#services/board_dataset'
+import { StockDetailBadRequest, loadStockArticleDetail } from '#services/stock_detail_loader'
+import type { StockArticleDetail } from '#services/stock_detail_loader'
 import { RETARD_LOOKBACK_DAYS } from '#services/suivi_service'
 
 /**
@@ -163,7 +158,8 @@ export default class DashboardController {
     return { stockValuation, x3Error }
   }
 
-  /** GET /api/v1/dashboard/stock/article — historique hebdo d'un article (AE1).
+  /** GET /api/v1/dashboard/stock/article — historique hebdo d'un article (AE1)
+   *  + projection 52 semaines (besoins/ressources, cf. loadStockArticleDetail).
    *  Alimente la sheet de détail ouverte au clic d'une ligne du KPI stock. */
   async stockArticleDetail(ctx: HttpContext) {
     const article = (ctx.request.input('article') as string | undefined)?.trim()
@@ -175,14 +171,20 @@ export default class DashboardController {
     const refDate = referenceDate ? new Date(referenceDate as string) : new Date()
     const safeRef = Number.isNaN(refDate.getTime()) ? new Date() : refDate
 
-    let detail: StockArticleHistory | null = null
+    let detail: StockArticleDetail | null = null
     let x3Error: string | null = null
 
     try {
-      detail = await boardDataset.getStockArticleHistory(article, safeRef)
+      ;({ detail, x3Error } = await loadStockArticleDetail({
+        article,
+        referenceDate: safeRef,
+      }))
     } catch (e) {
-      logger.error({ err: e }, '[dashboard] stock article — échec chargement historique X3')
-      x3Error = 'Données X3 indisponibles — historique momentanément incalculable.'
+      if (e instanceof StockDetailBadRequest) {
+        return ctx.response.badRequest({ error: e.message })
+      }
+      logger.error({ err: e }, '[dashboard] stock article — échec chargement détail')
+      x3Error = 'Données X3 indisponibles — détail momentanément incalculable.'
     }
 
     if (!detail && !x3Error) {
