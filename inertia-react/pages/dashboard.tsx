@@ -319,11 +319,11 @@ function StockSparkline({ series }: { series: StockValuationPoint[] }) {
 
 /** Placeholder pour un KPI masqué. En mode édition, il reste un tile réordonnable
  * (pour le replacer) ; hors édition, il est masqué à l'impression. */
-function HiddenTile({ id, editMode, onShow }: { id: KpiId; editMode: boolean; onShow: () => void }) {
+function HiddenTile({ id, editMode, screenRank, onShow }: { id: KpiId; editMode: boolean; screenRank?: number; onShow: () => void }) {
   // Affiché uniquement en mode édition : sinon le KPI masqué disparaît totalement.
   if (!editMode) return null
   return (
-    <div className="lg:col-span-1" style={{ order: 999 } as React.CSSProperties}>
+    <div className="lg:col-span-1" style={{ order: screenRank ?? 999 } as React.CSSProperties}>
       <div className="flex items-center gap-2 rounded border border-dashed border-rule bg-secondary/30 px-4 py-3 print:hidden">
         <EyeOff size={15} className="text-muted-foreground" />
         <span className="font-mono text-[10px] font-semibold text-muted-foreground">
@@ -392,7 +392,7 @@ function Tile({
         editMode && 'cursor-grab rounded ring-1 ring-brand/30 active:cursor-grabbing',
         isDropTarget && 'ring-2 ring-brand'
       )}
-      style={{ '--screen-order': screenRank, '--print-order': printRank } as React.CSSProperties}
+      style={{ order: screenRank, '--screen-order': screenRank, '--print-order': printRank } as React.CSSProperties}
       draggable={editMode}
       onDragStart={(e) => {
         setDraggedId(id)
@@ -554,9 +554,15 @@ export default function Dashboard(props: DashboardProps) {
     screenRank: getScreenRank,
   } = useLayoutStore()
 
-  // Sync initial layout from props (une seule fois au mount)
+  // Sync initial layout from props (une seule fois au mount initial)
+  const isInitialMount = useRef(true)
   useEffect(() => {
-    setLayout(layoutFromProps)
+    if (isInitialMount.current) {
+      isInitialMount.current = false
+      if (layoutFromProps) {
+        setLayout(layoutFromProps)
+      }
+    }
   }, [layoutFromProps, setLayout])
 
   // Wrap actions with store methods
@@ -873,7 +879,7 @@ export default function Dashboard(props: DashboardProps) {
                 </Card>
               </Tile>
             ) : (
-              <HiddenTile id="charge" editMode={editMode} onShow={() => setVisible('charge', true)} />
+              <HiddenTile id="charge" editMode={editMode} screenRank={getScreenRank('charge')} onShow={() => setVisible('charge', true)} />
             )}
 
             {/* ═════ KPI #2 — OTD ═════ */}
@@ -1108,7 +1114,7 @@ export default function Dashboard(props: DashboardProps) {
                 </Card>
               </Tile>
             ) : (
-              <HiddenTile id="otd" editMode={editMode} onShow={() => setVisible('otd', true)} />
+              <HiddenTile id="otd" editMode={editMode} screenRank={getScreenRank('otd')} onShow={() => setVisible('otd', true)} />
             )}
 
             {/* ═════ KPI #3 — Valorisation du stock ═════ */}
@@ -1278,7 +1284,7 @@ export default function Dashboard(props: DashboardProps) {
                 </Card>
               </Tile>
             ) : (
-              <HiddenTile id="stock" editMode={editMode} onShow={() => setVisible('stock', true)} />
+              <HiddenTile id="stock" editMode={editMode} screenRank={getScreenRank('stock')} onShow={() => setVisible('stock', true)} />
             )}
 
             {/* ═════ KPI #4 — Lignes en retard ═════ */}
@@ -1390,7 +1396,7 @@ export default function Dashboard(props: DashboardProps) {
                 </Card>
               </Tile>
             ) : (
-              <HiddenTile id="lignes" editMode={editMode} onShow={() => setVisible('lignes', true)} />
+              <HiddenTile id="lignes" editMode={editMode} screenRank={getScreenRank('lignes')} onShow={() => setVisible('lignes', true)} />
             )}
 
             {/* ═════ KPI #5 — Stock par article ═════ */}
@@ -1581,7 +1587,7 @@ export default function Dashboard(props: DashboardProps) {
                 </Card>
               </Tile>
             ) : (
-              <HiddenTile id="stockTable" editMode={editMode} onShow={() => setVisible('stockTable', true)} />
+              <HiddenTile id="stockTable" editMode={editMode} screenRank={getScreenRank('stockTable')} onShow={() => setVisible('stockTable', true)} />
             )}
           </div>
 
