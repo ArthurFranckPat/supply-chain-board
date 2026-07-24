@@ -16,6 +16,8 @@ export interface KpiLayoutItem {
   id: KpiId
   visible: boolean
   width: KpiWidth
+  customWidth?: number
+  customHeight?: number
 }
 
 export interface DashboardLayout {
@@ -57,7 +59,9 @@ export function normalizeDashboardLayout(raw: unknown): DashboardLayout {
       if (!isKpiId(it.id) || seen.has(it.id)) continue
       seen.add(it.id)
       const width: KpiWidth = it.width === 2 ? 2 : it.width === 3 ? 3 : 1
-      merged.push({ id: it.id, visible: it.visible !== false, width })
+      const customWidth = typeof it.customWidth === 'number' && it.customWidth > 150 ? it.customWidth : undefined
+      const customHeight = typeof it.customHeight === 'number' && it.customHeight > 100 ? it.customHeight : undefined
+      merged.push({ id: it.id, visible: it.visible !== false, width, customWidth, customHeight })
     }
     for (const id of KPI_IDS) {
       if (!seen.has(id)) merged.push({ id, visible: true, width: 1 })

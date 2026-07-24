@@ -356,7 +356,10 @@ function Tile({
   screenRank,
   printRank,
   width,
+  customHeight,
+  customWidth,
   onWidth,
+  onCustomSize,
   onHide,
   onPrintMove,
   onScreenMove,
@@ -372,7 +375,10 @@ function Tile({
   screenRank: number
   printRank: number
   width: KpiWidth
+  customHeight?: number
+  customWidth?: number
   onWidth: (w: KpiWidth) => void
+  onCustomSize?: (w?: number, h?: number) => void
   onHide: () => void
   onPrintMove: (dir: -1 | 1) => void
   onScreenMove?: (dir: -1 | 1) => void
@@ -386,24 +392,20 @@ function Tile({
   const isDropTarget = dropTargetId === id && draggedId !== null && draggedId !== id
   const tileRef = useRef<HTMLDivElement>(null)
 
-  const handleResizeStart = (e: React.MouseEvent) => {
+  const handleCornerResizeStart = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
     const startX = e.clientX
-    const startWidth = width
-    const container = tileRef.current?.parentElement
-    if (!container) return
-    const gridColWidth = container.clientWidth / 3
+    const startY = e.clientY
+    const rect = tileRef.current?.getBoundingClientRect()
+    if (!rect) return
+    const startW = rect.width
+    const startH = rect.height
 
     const onMouseMove = (moveEv: MouseEvent) => {
-      const deltaX = moveEv.clientX - startX
-      if (deltaX > gridColWidth * 0.35 && startWidth < 3) {
-        const nextW = (startWidth + 1) as KpiWidth
-        onWidth(nextW)
-      } else if (deltaX < -gridColWidth * 0.35 && startWidth > 1) {
-        const nextW = (startWidth - 1) as KpiWidth
-        onWidth(nextW)
-      }
+      const newW = Math.max(260, Math.round(startW + (moveEv.clientX - startX)))
+      const newH = Math.max(160, Math.round(startH + (moveEv.clientY - startY)))
+      onCustomSize?.(newW, newH)
     }
 
     const onMouseUp = () => {
@@ -425,7 +427,13 @@ function Tile({
         isDragging && 'scale-[0.98] opacity-60 shadow-2xl ring-2 ring-brand',
         isDropTarget && 'scale-[1.01] ring-2 ring-brand ring-offset-2 ring-offset-background'
       )}
-      style={{ order: screenRank, '--screen-order': screenRank, '--print-order': printRank, viewTransitionName: `kpi-tile-${id}` } as React.CSSProperties}
+      style={{
+        order: screenRank,
+        '--screen-order': screenRank,
+        '--print-order': printRank,
+        viewTransitionName: `kpi-tile-${id}`,
+        height: customHeight ? `${customHeight}px` : undefined,
+      } as React.CSSProperties}
       draggable={editMode}
       onDragStart={(e) => {
         setDraggedId(id)
@@ -450,14 +458,15 @@ function Tile({
         if (draggedId && draggedId !== id) onDrop()
       }}
     >
-      {/* Poignée de redimensionnement tactile libre sur le bord droit */}
+      {/* Poignée de redimensionnement libre en coin bas-droit (Option 1) */}
       {editMode && (
         <div
-          onMouseDown={handleResizeStart}
-          className="pointer-events-auto absolute -right-2 top-1/2 z-30 flex h-20 w-4 -translate-y-1/2 cursor-ew-resize items-center justify-center rounded-full transition-all duration-150 hover:scale-110 active:scale-125"
-          title="Glisser horizontalement pour redimensionner la carte"
+          onMouseDown={handleCornerResizeStart}
+          onDoubleClick={() => onCustomSize?.(undefined, undefined)}
+          className="pointer-events-auto absolute -bottom-2 -right-2 z-30 flex size-6 cursor-nwse-resize items-center justify-center rounded-full bg-card border border-brand/50 shadow-md transition-all duration-150 hover:scale-125 hover:border-brand hover:bg-brand/10 active:scale-110"
+          title="Glisser dans tous les sens pour redimensionner librement (largeur et hauteur). Double-cliquer pour réinitialiser."
         >
-          <div className="h-12 w-1.5 rounded-full bg-brand/40 shadow-sm transition-colors hover:bg-brand" />
+          <div className="size-2 rounded-xs border-r-2 border-b-2 border-brand" />
         </div>
       )}
       {/* Barre d'outils édition (poignée + réordonnancement clavier + largeur + ordre impression + masquer) */}
@@ -584,6 +593,7 @@ export default function Dashboard(props: DashboardProps) {
     setLayout,
     setVisible: setStoreVisible,
     setWidth: setStoreWidth,
+    setCustomSize: setStoreCustomSize,
     moveItem: moveStoreItem,
     moveItemDir: moveStoreItemDir,
     movePrint: moveStorePrint,
@@ -613,6 +623,7 @@ export default function Dashboard(props: DashboardProps) {
   // Sélecteurs réactifs connectés à l'état React items et printOrder avec animations FLIP
   const setVisible = useCallback((id: KpiId, visible: boolean) => animateLayoutChange(() => setStoreVisible(id, visible)), [animateLayoutChange, setStoreVisible])
   const setWidth = useCallback((id: KpiId, width: KpiWidth) => animateLayoutChange(() => setStoreWidth(id, width)), [animateLayoutChange, setStoreWidth])
+  const setCustomSize = useCallback((id: KpiId, w?: number, h?: number) => setStoreCustomSize(id, w, h), [setStoreCustomSize])
   const moveItem = useCallback((draggedId: KpiId, targetId: KpiId) => animateLayoutChange(() => moveStoreItem(draggedId, targetId)), [animateLayoutChange, moveStoreItem])
   const moveScreen = useCallback((id: KpiId, dir: -1 | 1) => animateLayoutChange(() => moveStoreItemDir(id, dir)), [animateLayoutChange, moveStoreItemDir])
   const movePrint = useCallback((id: KpiId, dir: -1 | 1) => animateLayoutChange(() => moveStorePrint(id, dir)), [animateLayoutChange, moveStorePrint])
@@ -848,7 +859,10 @@ export default function Dashboard(props: DashboardProps) {
                 screenRank={getScreenRank('charge')}
                 printRank={getPrintRank('charge')}
                 width={layoutItem('charge')?.width ?? 1}
+                customWidth={layoutItem('charge')?.customWidth}
+                customHeight={layoutItem('charge')?.customHeight}
                 onWidth={setWidth.bind(null, 'charge')}
+                onCustomSize={(w, h) => setCustomSize('charge', w, h)}
                 onHide={() => setVisible('charge', false)}
                 onPrintMove={(dir) => movePrint('charge', dir)}
                 onScreenMove={(dir) => moveScreen('charge', dir)}
@@ -944,7 +958,10 @@ export default function Dashboard(props: DashboardProps) {
                 screenRank={getScreenRank('otd')}
                 printRank={getPrintRank('otd')}
                 width={layoutItem('otd')?.width ?? 1}
+                customWidth={layoutItem('otd')?.customWidth}
+                customHeight={layoutItem('otd')?.customHeight}
                 onWidth={setWidth.bind(null, 'otd')}
+                onCustomSize={(w, h) => setCustomSize('otd', w, h)}
                 onHide={() => setVisible('otd', false)}
                 onPrintMove={(dir) => movePrint('otd', dir)}
                 onScreenMove={(dir) => moveScreen('otd', dir)}
@@ -1179,7 +1196,10 @@ export default function Dashboard(props: DashboardProps) {
                 screenRank={getScreenRank('stock')}
                 printRank={getPrintRank('stock')}
                 width={layoutItem('stock')?.width ?? 1}
+                customWidth={layoutItem('stock')?.customWidth}
+                customHeight={layoutItem('stock')?.customHeight}
                 onWidth={setWidth.bind(null, 'stock')}
+                onCustomSize={(w, h) => setCustomSize('stock', w, h)}
                 onHide={() => setVisible('stock', false)}
                 onPrintMove={(dir) => movePrint('stock', dir)}
                 onScreenMove={(dir) => moveScreen('stock', dir)}
@@ -1349,7 +1369,10 @@ export default function Dashboard(props: DashboardProps) {
                 screenRank={getScreenRank('lignes')}
                 printRank={getPrintRank('lignes')}
                 width={layoutItem('lignes')?.width ?? 2}
+                customWidth={layoutItem('lignes')?.customWidth}
+                customHeight={layoutItem('lignes')?.customHeight}
                 onWidth={setWidth.bind(null, 'lignes')}
+                onCustomSize={(w, h) => setCustomSize('lignes', w, h)}
                 onHide={() => setVisible('lignes', false)}
                 onPrintMove={(dir) => movePrint('lignes', dir)}
                 onScreenMove={(dir) => moveScreen('lignes', dir)}
@@ -1461,7 +1484,10 @@ export default function Dashboard(props: DashboardProps) {
                 screenRank={getScreenRank('stockTable')}
                 printRank={getPrintRank('stockTable')}
                 width={layoutItem('stockTable')?.width ?? 2}
+                customWidth={layoutItem('stockTable')?.customWidth}
+                customHeight={layoutItem('stockTable')?.customHeight}
                 onWidth={setWidth.bind(null, 'stockTable')}
+                onCustomSize={(w, h) => setCustomSize('stockTable', w, h)}
                 onHide={() => setVisible('stockTable', false)}
                 onPrintMove={(dir) => movePrint('stockTable', dir)}
                 onScreenMove={(dir) => moveScreen('stockTable', dir)}

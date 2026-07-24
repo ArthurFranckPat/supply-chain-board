@@ -26,6 +26,7 @@ interface LayoutState extends DashboardLayout {
   setLayout: (layout: DashboardLayout) => void
   setVisible: (id: KpiId, visible: boolean) => void
   setWidth: (id: KpiId, width: KpiWidth) => void
+  setCustomSize: (id: KpiId, customWidth?: number, customHeight?: number) => void
   moveItem: (draggedId: KpiId, targetId: KpiId) => void
   moveItemDir: (id: KpiId, dir: -1 | 1) => void
   movePrint: (id: KpiId, dir: -1 | 1) => void
@@ -56,6 +57,11 @@ export const useLayoutStore = create<LayoutState>()(
       setWidth: (id, width) =>
         set((state) => ({
           items: state.items.map((it) => (it.id === id ? { ...it, width } : it)),
+        })),
+
+      setCustomSize: (id, customWidth, customHeight) =>
+        set((state) => ({
+          items: state.items.map((it) => (it.id === id ? { ...it, customWidth, customHeight } : it)),
         })),
 
       moveItem: (draggedId, targetId) => {

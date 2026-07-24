@@ -2,6 +2,7 @@ import { BaseCommand, args } from '@adonisjs/core/ace'
 import type { CommandOptions } from '@adonisjs/core/types/ace'
 import { X3Database } from '#app/x3/client/x3_database'
 import { parseX3Date } from '#app/x3/utils/parse_date'
+import { CombinedOrdersRepository } from '#app/repositories/combined_orders_repository'
 import { getX3EnvConfig } from '#config/x3'
 
 /**
@@ -77,6 +78,46 @@ export default class StockAudit extends BaseCommand {
         ecart > 0
           ? `Écart +${Math.round(ecart * 100) / 100} : le journal SUR-COMPTE le net de ${Math.round(ecart * 100) / 100} vs le stock réel → faux négatifs possibles en reconstruction.`
           : `Écart ${Math.round(ecart * 100) / 100} : stock initial non journalé (reprise de données) — cas standard.`
+      )
+
+      // --- Entrées de la projection 12 mois (diagnostic besoins/ressources) ---
+      const isoL = (d: Date) => d.toISOString().slice(0, 10)
+      const horizon = new Date(to.getTime() + 52 * 7 * 86_400_000)
+      const flows = await new CombinedOrdersRepository().fetchArticleFutureFlows(
+        this.article.trim(),
+        isoL(refDate),
+        isoL(horizon)
+      )
+      const byTyp = new Map<number, { n: number; qty: number }>()
+      for (const f of flows) {
+        const t = byTyp.get(f.wiptyp) ?? { n: 0, qty: 0 }
+        t.n += 1
+        t.qty += f.qty
+        byTyp.set(f.wiptyp, t)
+      }
+      const fmtTyp = (t: number) => {
+        const x = byTyp.get(t)
+        return x ? `${x.n} lignes, Σ ${Math.round(x.qty * 100) / 100}` : '0 lignes'
+      }
+      this.logger.info(`Projection — demande client (WIPTYP 1) : ${fmtTyp(1)}`)
+      this.logger.info(`Projection — réceptions attendues (WIPTYP 2) : ${fmtTyp(2)}`)
+      this.logger.info(`Projection — OF ouverts (WIPTYP 5) : ${fmtTyp(5)}`)
+
+      // Besoin composant : lignes MFGMAT restant à sortir sur OF ouverts
+      // (fermes/planifiés) démarrant avant l'horizon — la demande réelle des
+      // articles achetés/semi-finis, absente de WIPTYP 1.
+      const matRows = (await db.raw(
+        `SELECT (M.RETQTY_0 - M.USEQTY_0) AS QTY, O.STRDAT_0 AS STRDAT
+         FROM MFGMAT M
+         INNER JOIN ORDERS O ON O.VCRNUM_0 = M.MFGNUM_0 AND O.WIPTYP_0 = 5
+         WHERE M.ITMREF_0 = '${article}'
+           AND (M.RETQTY_0 - M.USEQTY_0) > 0
+           AND O.WIPSTA_0 IN (1, 2)
+           AND O.STRDAT_0 <= TO_DATE('${isoL(horizon).replace(/-/g, '')}','YYYYMMDD')`
+      )) as Record<string, string | null>[]
+      const matQty = matRows.reduce((s, r) => s + num(r.QTY), 0)
+      this.logger.info(
+        `Projection — besoin composant OF (MFGMAT) : ${matRows.length} lignes, Σ ${Math.round(matQty * 100) / 100}`
       )
 
       // --- Lignes brutes du journal sur la fenêtre 52 semaines ---
