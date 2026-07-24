@@ -403,7 +403,11 @@ export function StockArticleSheet(props: StockArticleSheetProps) {
     <Sheet open={props.open} onOpenChange={props.onOpenChange}>
       <SheetContent
         side="bottom"
-        className="flex h-[72vh] w-full max-w-none flex-col gap-0 rounded-t-[16px] p-0"
+        // Dimensions redéclarées en variantes `data-[side=bottom]:` : le
+        // primitive porte `data-[side=bottom]:h-auto` et
+        // `data-[side=bottom]:max-w-[640px]`, dont le sélecteur d'attribut bat
+        // toute classe utilitaire nue (même correctif que charge-period-sheet).
+        className="flex w-full flex-col gap-0 rounded-t-[16px] p-0 data-[side=bottom]:mx-0 data-[side=bottom]:h-[85vh] data-[side=bottom]:max-w-none"
       >
         {loading ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-muted-foreground">
