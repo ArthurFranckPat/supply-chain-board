@@ -9,6 +9,7 @@ import PrintSetting from '#models/print_setting'
 import boardDataset from '#services/board_dataset'
 import { atelierLabel } from '#app/domain/atelier'
 import {
+  FAST_TIMEOUT_MS,
   fetchJobs,
   fetchPrinters,
   resolvePrintServer,
@@ -452,9 +453,12 @@ class PrintService {
     // sinon notre propre tâche est déjà dans le relevé et devient invisible.
     const cfg = params.config ?? getX3EnvConfig()
     const printServer = resolvePrintServer(cfg, await this.serverOf(routed.destCode, cfg))
+    // Budget court : ce relevé n'est qu'un filet de rapprochement quand
+    // `WJOBNUM` manque. Le payer 15 s alors que l'utilisateur attend, pour un
+    // serveur qui ne répond pas, coûtait plus que ce qu'il rapporte.
     const before =
       printServer && params.watchTimeoutMs !== 0
-        ? await fetchJobs(cfg, printServer)
+        ? await fetchJobs(cfg, printServer, FAST_TIMEOUT_MS)
         : { error: 'relevé non pris (suivi désactivé ou serveur inconnu)' }
     const knownRanks = new Set<number>(
       Array.isArray(before) ? before.map((j) => j.rank) : []

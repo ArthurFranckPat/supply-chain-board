@@ -67,6 +67,30 @@ export interface PrintServerError {
 const TIMEOUT_MS = 15_000
 
 /**
+ * Budget d'attente quand la lecture est sur le chemin d'un geste utilisateur
+ * (relevé avant tirage, sondage de suivi). Le verdict du serveur d'édition est
+ * un confort ; l'affermissement, lui, a déjà eu lieu. Attendre 15 s de plus par
+ * document ne rend le verdict ni plus sûr ni plus rapide à obtenir.
+ */
+export const FAST_TIMEOUT_MS = 3_000
+
+/**
+ * Disjoncteur par serveur d'édition.
+ *
+ * Relevé sur prod le 24/07/2026 : `srv-x3imp-01-fr` ne répond plus du tout
+ * (`curl (28) timed out after 15011 ms with 0 bytes received`), sur `$jobs`
+ * comme sur `$printers`. Sans disjoncteur, chaque tirage repayait ce mur : le
+ * relevé d'avant tirage PUIS le premier sondage, soit ~30 s par document et une
+ * minute par dossier d'OF — sur un geste qui, côté ERP, est déjà terminé.
+ *
+ * Ne se déclenche QUE sur une panne de transport. Un serveur qui répond, même
+ * pour dire `DESTINATION_10 not found`, n'est pas muet : sa réponse est une
+ * information, et elle doit continuer de remonter telle quelle.
+ */
+const DOWN_TTL_MS = 60_000
+const down = new Map<string, { until: number; error: string }>()
+
+/**
  * Serveur d'édition à interroger pour une destination donnée.
  * `PRTSRV` vide = X3 se rabat sur le serveur du dossier, que seule la config
  * applicative nomme (`X3_*_PRINT_SERVER`).
@@ -77,19 +101,24 @@ export function resolvePrintServer(config: X3EnvConfig, destServer: string): str
 }
 
 /** Appel REST authentifié, via curl (même chemin que le SOAP : proxy/VPN identiques). */
-async function get(config: X3EnvConfig, path: string): Promise<any> {
+async function get(config: X3EnvConfig, path: string, timeoutMs = TIMEOUT_MS): Promise<any> {
   const url = `http://${config.host}:${config.port}${path}`
   const args = [
     '-sS',
     '--max-time',
-    String(Math.floor(TIMEOUT_MS / 1000)),
+    String(Math.max(1, Math.floor(timeoutMs / 1000))),
     '-u',
     `${config.user}:${config.password}`,
     url,
   ]
   return new Promise((resolve, reject) => {
-    execFile('curl', args, { timeout: TIMEOUT_MS + 2000 }, (error, stdout, stderr) => {
-      if (error) return reject(new Error(`curl: ${stderr?.trim() || error.message}`))
+    execFile('curl', args, { timeout: timeoutMs + 2000 }, (error, stdout, stderr) => {
+      if (error) {
+        const e = new Error(`curl: ${stderr?.trim() || error.message}`)
+        // Marqué transport : c'est ce qui distingue « muet » de « répond mal ».
+        ;(e as Error & { transport?: boolean }).transport = true
+        return reject(e)
+      }
       try {
         resolve(JSON.parse(stdout))
       } catch {
@@ -99,20 +128,46 @@ async function get(config: X3EnvConfig, path: string): Promise<any> {
   })
 }
 
+/** Serveur déjà constaté muet ? Rend l'erreur mémorisée, sans repayer l'attente. */
+function tripped(printServer: string): PrintServerError | null {
+  const flag = down.get(printServer)
+  if (!flag) return null
+  if (Date.now() >= flag.until) {
+    down.delete(printServer)
+    return null
+  }
+  const left = Math.ceil((flag.until - Date.now()) / 1000)
+  return { error: `${flag.error} (serveur muet, nouvelle tentative dans ${left} s)` }
+}
+
+/** Consigne une panne de transport ; toute réponse, même mauvaise, réarme. */
+function record(printServer: string, e: unknown): void {
+  if ((e as { transport?: boolean })?.transport) {
+    down.set(printServer, { until: Date.now() + DOWN_TTL_MS, error: String(e) })
+  } else {
+    down.delete(printServer)
+  }
+}
+
 /** Tâches en cours (et conservées, si la rétention est activée). */
 export async function fetchJobs(
   config: X3EnvConfig,
-  printServer: string
+  printServer: string,
+  timeoutMs = TIMEOUT_MS
 ): Promise<PrintServerJob[] | PrintServerError> {
   if (!printServer) return { error: 'Aucun serveur d’édition connu pour cette destination.' }
+  const short = tripped(printServer)
+  if (short) return short
   try {
-    const raw = await get(config, `/print/${printServer}/$jobs`)
+    const raw = await get(config, `/print/${printServer}/$jobs`, timeoutMs)
+    down.delete(printServer)
     if (Array.isArray(raw)) return raw as PrintServerJob[]
     // Le serveur répond `{$diagnoses:[…]}` quand le serveur d'édition nommé
     // n'est pas déclaré côté Syracuse (chaque environnement a le sien).
     const diag = raw?.$diagnoses?.[0]?.$message
     return { error: diag ? String(diag) : 'Réponse inattendue du serveur d’édition.' }
   } catch (e) {
+    record(printServer, e)
     return { error: String(e) }
   }
 }
@@ -120,11 +175,15 @@ export async function fetchJobs(
 /** Files d'impression déclarées au serveur d'édition (`$printers`). */
 export async function fetchPrinters(
   config: X3EnvConfig,
-  printServer: string
+  printServer: string,
+  timeoutMs = TIMEOUT_MS
 ): Promise<string[] | PrintServerError> {
   if (!printServer) return { error: 'Aucun serveur d’édition connu.' }
+  const short = tripped(printServer)
+  if (short) return short
   try {
-    const raw = await get(config, `/print/${printServer}/$printers`)
+    const raw = await get(config, `/print/${printServer}/$printers`, timeoutMs)
+    down.delete(printServer)
     if (raw && typeof raw === 'object' && !raw.$diagnoses) {
       return Object.entries(raw)
         .filter(([k]) => k.startsWith('_PrinterName'))
@@ -134,6 +193,7 @@ export async function fetchPrinters(
     const diag = raw?.$diagnoses?.[0]?.$message
     return { error: diag ? String(diag) : 'Réponse inattendue du serveur d’édition.' }
   } catch (e) {
+    record(printServer, e)
     return { error: String(e) }
   }
 }
@@ -198,7 +258,13 @@ export async function watchJob(
   let everSeen = false
 
   while (Date.now() < deadline) {
-    const jobs = await fetchJobs(config, printServer)
+    // Jamais plus que ce qu'il reste à vivre au suivi : un sondage à 15 s dans
+    // une fenêtre de 6 s faisait dépasser le budget d'un facteur trois.
+    const jobs = await fetchJobs(
+      config,
+      printServer,
+      Math.min(FAST_TIMEOUT_MS, Math.max(1000, deadline - Date.now()))
+    )
     if ('error' in jobs) {
       lastError = jobs.error
       break
