@@ -24,6 +24,10 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
+/* Astryx 0.1.8 — socle coexistence (spike Lot 0, issue #90).
+   Ordre @layer + reset wrappé + composants Astryx + interop Tailwind.
+   Doit venir APRÈS shadcn pour que ce dernier reste gagnant par défaut. */
+@import './astryx.css';
 @import '@fontsource-variable/geist';
 @import '@fontsource-variable/inter';
 @import '@fontsource-variable/plus-jakarta-sans';
