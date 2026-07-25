@@ -50,33 +50,49 @@ test.group('assignStatuses - signal CQ (aligné Python)', () => {
     assert.equal(results[0].qteAlloueeVirtuelleStricte, 0)
   })
 
-  test('MTS fabriqué partiellement alloué avec QC → signal CQ levé, statut reste RAS', ({
-    assert,
-  }) => {
-    // Pour MTS fabriqué : qte_signal = min(qte_restante, qte_allouee), consomme le stock CQ
-    // dans le signal indépendant → alerte_cq_statut. L'harmonisation RAS→ALLOCATION ne
-    // s'applique PAS au MTS fabriqué (l'allocation n'y est pas le bon levier métier).
-    const refDate = new Date('2026-06-10')
-    const lines: OrderLine[] = [
+  /**
+   * Ces deux cas remplacent un test qui affirmait « MTS fabriqué partiellement alloué
+   * → statut RAS + signal CQ levé ». Ses deux assertions ont été invalidées par des
+   * changements délibérés, et personne ne l'a vu (la suite complète ne tourne pas en
+   * local) :
+   *  - `c90f76a` : une allocation X3 > 0 rend la ligne expédiable, même partielle.
+   *  - `2f0a0b7` : les lignes MTS sont exclues du signal CQ calculé (`suivi.ts`), qui
+   *    ne vient plus que de `allocationQc` transmis par l'ERP.
+   */
+  function mtsFabrique(qteAllouee: number): OrderLine[] {
+    return [
       makeLine({
         numCommande: 'C1',
         article: 'A',
         typeCommande: 'MTS',
         isFabrique: true,
         qteRestante: 100,
-        qteAllouee: 50,
-        dateExpedition: new Date('2026-06-20'),
+        qteAllouee,
+        dateExpedition: new Date('2026-06-20'), // futur → pas retard
       }),
     ]
-    const stock = new Map<string, StockBreakdown>([['A', { strict: 0, qc: 100, total: 100 }]])
+  }
 
-    const results = assignStatuses(lines, stock, refDate)
+  const stockQc = new Map<string, StockBreakdown>([['A', { strict: 0, qc: 100, total: 100 }]])
 
-    // MTS fabriqué → pas d'allocation virtuelle, statut RAS (futur), mais signal CQ levé.
-    assert.equal(results[0].status, 'RAS')
+  test('MTS fabriqué avec allocation X3 partielle → A_EXPEDIER', ({ assert }) => {
+    // Expéditions partielles autorisées : ce qui est alloué peut partir.
+    const results = assignStatuses(mtsFabrique(50), stockQc, new Date('2026-06-10'))
+
+    assert.equal(results[0].status, 'A_EXPEDIER')
+    // Pas d'allocation VIRTUELLE pour le MTS fabriqué : le stock CQ présent n'est pas
+    // consommé, l'allocation ERP reste le seul levier.
     assert.equal(results[0].qteAlloueeVirtuelle, 0)
     assert.equal(results[0].qteAlloueeVirtuelleCq, 0)
     assert.isFalse(results[0].utiliseStockSousCq)
-    assert.isTrue(results[0].alerteCqStatut) // qte_signal_cq = 50
+    assert.isFalse(results[0].alerteCqStatut)
+  })
+
+  test('MTS fabriqué sans allocation X3 → RAS', ({ assert }) => {
+    const results = assignStatuses(mtsFabrique(0), stockQc, new Date('2026-06-10'))
+
+    assert.equal(results[0].status, 'RAS')
+    assert.equal(results[0].qteAlloueeVirtuelle, 0)
+    assert.isFalse(results[0].alerteCqStatut)
   })
 })

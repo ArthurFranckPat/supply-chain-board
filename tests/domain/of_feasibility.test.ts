@@ -71,10 +71,16 @@ test.group('evaluateMfgFeasibility', () => {
     assert.isTrue(v.feasible)
   })
 
-  test('unknown stock → feasible null (not a rupture)', ({ assert }) => {
+  test('article absent du stock chargé → rupture, pas un indéterminé', ({ assert }) => {
+    // Les flux 'strict' ne sont émis que si strict > 0 : absent de la map = stock nul,
+    // pas « inconnu ». Le traiter en indéterminé le sortait des bloqués et rendait un
+    // verdict faisable à tort — bug « composants dispo, badge rupture » corrigé en
+    // 8c8f27d, qui aligne ce moteur sur RecursiveDiagnosticChecker (`available ?? 0`).
     const v = evaluateMfgFeasibility([mat('C1', 60)], new Map(), false)
-    assert.isNull(v.materials[0].feasible)
-    assert.equal(v.blockedCount, 0)
-    assert.isTrue(v.feasible)
+    assert.equal(v.materials[0].available, 0)
+    assert.isFalse(v.materials[0].feasible)
+    assert.equal(v.blockedCount, 1)
+    assert.isFalse(v.feasible)
+    assert.equal(v.missingComponents['C1'], 60)
   })
 })
