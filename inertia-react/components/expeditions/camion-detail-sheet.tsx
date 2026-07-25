@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { Sheet } from '@r/components/sheet'
 import { Badge } from '@r/components/ui/badge'
 import { CircleHelp, Ruler, TriangleAlert, Truck } from 'lucide-react'
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 
 /**
  * Détail d'un camion (cluster de lignes STOJOU) — port React iso du Solid
@@ -151,7 +151,7 @@ export function CamionDetailSheet({
                   </span>
                   {camion.ecartPalettes >= 0 && (
                     <span
-                      className={cn(
+                      className={cx(
                         'inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[10px] font-bold',
                         camion.ecartPalettes > 0.3
                           ? 'bg-destructive/10 text-destructive'
@@ -180,15 +180,15 @@ export function CamionDetailSheet({
               <table className="w-full border-collapse text-left">
                 <thead className="sticky top-0 z-10 bg-secondary">
                   <tr>
-                    <th className={cn(TH, 'w-[120px]')}>Article</th>
+                    <th className={cx(TH, 'w-[120px]')}>Article</th>
                     <th className={TH}>Désignation</th>
-                    <th className={cn(TH, 'w-[90px]')}>BL</th>
-                    <th className={cn(TH, 'w-[95px]')}>Commande</th>
-                    <th className={cn(TH, 'w-[70px] text-right')}>Palette</th>
-                    <th className={cn(TH, 'w-[50px] text-right')}>PCU</th>
-                    <th className={cn(TH, 'w-[60px] text-right')}>UC/Pal</th>
-                    <th className={cn(TH, 'w-[110px] text-right')}>Contenants</th>
-                    <th className={cn(TH, 'w-[80px] text-right')}>Heure</th>
+                    <th className={cx(TH, 'w-[90px]')}>BL</th>
+                    <th className={cx(TH, 'w-[95px]')}>Commande</th>
+                    <th className={cx(TH, 'w-[70px] text-right')}>Palette</th>
+                    <th className={cx(TH, 'w-[50px] text-right')}>PCU</th>
+                    <th className={cx(TH, 'w-[60px] text-right')}>UC/Pal</th>
+                    <th className={cx(TH, 'w-[110px] text-right')}>Contenants</th>
+                    <th className={cx(TH, 'w-[80px] text-right')}>Heure</th>
                   </tr>
                 </thead>
                 <tbody>

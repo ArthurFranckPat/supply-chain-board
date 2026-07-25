@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 import type { VisionCommande, VisionLink } from '@r/lib/vision/types'
 import type { ImpactVerdict } from '@r/lib/vision/impact'
 import { deltaLabel } from '@r/lib/vision/impact'
@@ -127,7 +127,7 @@ export function TriageRail(props: {
             key={t}
             type="button"
             onClick={() => setActiveTab(t)}
-            className={cn(
+            className={cx(
               'rounded-full border px-2.5 py-1 font-mono text-2xs font-bold transition-colors',
               activeTab === t
                 ? t === 'retards'
@@ -162,7 +162,7 @@ export function TriageRail(props: {
                 setSelectedId(item.commandeId)
                 props.onSelect(item)
               }}
-              className={cn(
+              className={cx(
                 'block w-full border-b border-rule-soft px-3.5 py-2.5 text-left transition-colors hover:bg-accent',
                 selectedId === item.commandeId && 'bg-brand-soft'
               )}
@@ -170,7 +170,7 @@ export function TriageRail(props: {
               {/* Ligne 1 : dot + id + delta */}
               <div className="flex items-center gap-2">
                 <span
-                  className={cn(
+                  className={cx(
                     'size-2 flex-none rounded-full',
                     item.verdict ? VERDICT_DOT[item.verdict] : 'bg-muted-foreground'
                   )}
@@ -184,7 +184,7 @@ export function TriageRail(props: {
                 <div className="flex-1" />
                 {item.verdict && item.delta !== null && (
                   <span
-                    className={cn(
+                    className={cx(
                       'rounded-full px-1.5 py-px font-mono text-2xs font-bold tabular-nums',
                       VERDICT_DELTA_TONE[item.verdict]
                     )}

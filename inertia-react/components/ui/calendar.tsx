@@ -3,7 +3,7 @@ import {
   type ISODateString,
 } from "@astryxdesign/core/Calendar"
 
-import { cn } from "@r/lib/utils"
+import { cx } from "@r/lib/cx"
 import { buttonVariants } from "@r/components/ui/button"
 
 // Calendar — Lot 3 (issue #90). react-day-picker DayPicker → Astryx Calendar.
@@ -94,7 +94,7 @@ function Calendar({
           const to = fromISO(next.end)
           onSelect?.({ from, to }, from, {}, undefined)
         }}
-        className={cn(className)}
+        className={cx(className)}
       />
     )
   }
@@ -109,7 +109,7 @@ function Calendar({
         const date = fromISO(next)
         onSelect?.(date, date, {}, undefined)
       }}
-      className={cn(className)}
+      className={cx(className)}
     />
   )
 }

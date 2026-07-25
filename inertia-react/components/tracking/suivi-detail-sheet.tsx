@@ -2,7 +2,7 @@
  * Diagnostic de ligne (drawer) — port React de
  * inertia/components/tracking/suivi-detail-sheet.tsx.
  */
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 import { Receipt, Factory, Package, BookmarkCheck, Truck, Clock, CalendarX, CornerDownRight, CircleCheck } from 'lucide-react'
 import { DynamicIcon } from '../ui/dynamic-icon'
 import { BADGE_TONE, VERDICT_TONE, OF_STATUT } from '@r/lib/suivi/tracking-shared'
@@ -122,7 +122,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
         {/* Etape 1: Commande */}
         <div className="z-10 flex w-16 flex-col items-center gap-1.5">
           <div
-            className={cn(
+            className={cx(
               'flex size-8 items-center justify-center rounded-full text-[12px] font-bold transition-all',
               STEP_CIRCLE.green
             )}
@@ -138,7 +138,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
         {/* Etape 2: Planifié / Couvert */}
         <div className="z-10 flex w-16 flex-col items-center gap-1.5">
           <div
-            className={cn(
+            className={cx(
               'flex size-8 items-center justify-center rounded-full text-[12px] font-bold transition-all',
               STEP_CIRCLE[stepAppro]
             )}
@@ -160,7 +160,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
         {/* Etape 3: Produit / Disponible */}
         <div className="z-10 flex w-16 flex-col items-center gap-1.5">
           <div
-            className={cn(
+            className={cx(
               'flex size-8 items-center justify-center rounded-full text-[12px] font-bold transition-all',
               STEP_CIRCLE[stepDispo]
             )}
@@ -182,7 +182,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
         {/* Etape 4: Réservé / Alloué */}
         <div className="z-10 flex w-16 flex-col items-center gap-1.5">
           <div
-            className={cn(
+            className={cx(
               'flex size-8 items-center justify-center rounded-full text-[12px] font-bold transition-all',
               STEP_CIRCLE[stepAlloc]
             )}
@@ -204,7 +204,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
         {/* Etape 5: Zone Expé */}
         <div className="z-10 flex w-16 flex-col items-center gap-1.5">
           <div
-            className={cn(
+            className={cx(
               'flex size-8 items-center justify-center rounded-full text-[12px] font-bold transition-all',
               STEP_CIRCLE[stepExp]
             )}
@@ -289,7 +289,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
 
       {/* 3. Alert Notification (Recommandation) */}
       <div
-        className={cn(
+        className={cx(
           'relative flex flex-col gap-2.5 overflow-hidden rounded-lg border border-rule p-5 transition-all',
           severity === 'info' && 'border-brand/20 bg-brand/5 text-brand',
           severity === 'warning' && 'border-suggere/25 bg-suggere/5 text-suggere',
@@ -325,7 +325,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
           <div className="flex flex-col gap-0.5">
             {isReactif ? (
               <span
-                className={cn(
+                className={cx(
                   'inline-flex w-fit items-center gap-1 rounded px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide',
                   BADGE_TONE[reactiveRow.statusKey]
                 )}
@@ -334,7 +334,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
               </span>
             ) : (
               <span
-                className={cn(
+                className={cx(
                   'inline-flex w-fit items-center gap-1 rounded px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide',
                   VERDICT_TONE[proactiveRow.verdictKey]
                 )}
@@ -439,7 +439,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                   <div className="flex flex-col gap-3 rounded-lg border border-rule-soft bg-gradient-to-r from-secondary/15 to-transparent p-4">
                     <div className="flex items-center justify-between">
                       <div
-                        className={cn(
+                        className={cx(
                           'flex items-center gap-1.5 text-[11px] font-bold',
                           c.reception.overdue ? 'text-destructive' : 'text-brand'
                         )}
@@ -466,13 +466,13 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                       </div>
                       <div className="flex flex-1 flex-col gap-1">
                         <div
-                          className={cn(
+                          className={cx(
                             'h-1.5 rounded-full',
                             c.reception.overdue ? 'bg-destructive/40' : 'bg-ferme'
                           )}
                         />
                         <span
-                          className={cn(
+                          className={cx(
                             'text-[8px] font-extrabold uppercase',
                             c.reception.overdue
                               ? 'font-bold text-destructive'
@@ -484,13 +484,13 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                       </div>
                       <div className="flex flex-1 flex-col gap-1">
                         <div
-                          className={cn(
+                          className={cx(
                             'h-1.5 rounded-full',
                             c.reception.overdue ? 'bg-destructive' : 'bg-secondary'
                           )}
                         />
                         <span
-                          className={cn(
+                          className={cx(
                             'text-[8px] font-extrabold uppercase',
                             c.reception.overdue
                               ? 'font-bold text-destructive'
@@ -555,7 +555,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                             {p.reception ? (
                               <div className="mt-0.5 flex flex-col gap-0.5 rounded border border-rule-soft bg-secondary/40 p-2.5 text-[10px]">
                                 <div
-                                  className={cn(
+                                  className={cx(
                                     'flex items-center gap-1 font-semibold',
                                     p.reception.overdue ? 'text-destructive' : 'text-foreground/75'
                                   )}
@@ -632,7 +632,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                       )}
                       {st && (
                         <span
-                          className={cn(
+                          className={cx(
                             'rounded border border-transparent px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider',
                             st.tone
                           )}
@@ -666,7 +666,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                       <span className="font-semibold text-foreground/60">État de faisabilité :</span>
                       <div className="mt-0.5">
                         <span
-                          className={cn(
+                          className={cx(
                             'inline-flex items-center gap-1 text-[11px] font-bold',
                             of.feasible ? 'text-ferme' : 'text-destructive'
                           )}
@@ -721,7 +721,7 @@ export function SuiviDetailSheet({ type, row }: SuiviDetailSheetProps) {
                   <div>
                     <div className="font-mono text-[12px] font-bold text-foreground">{e.nom}</div>
                     <div
-                      className={cn(
+                      className={cx(
                         'mt-0.5 text-[9px] font-extrabold uppercase tracking-wider',
                         e.source === 'STOALL' ? 'text-ferme' : 'text-suggere'
                       )}

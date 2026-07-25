@@ -1,7 +1,7 @@
 import * as React from "react"
 import { Spinner as AstryxSpinner } from "@astryxdesign/core/Spinner"
 import { cva, type VariantProps } from "class-variance-authority"
-import { cn } from "@r/lib/utils"
+import { cx } from "@r/lib/cx"
 
 // Spinner — Lot 2 (issue #90). lucide LoaderCircle → Astryx Spinner.
 // cva conservée pour variants shadcn (brand/muted/white/current) — Astryx
@@ -56,7 +56,7 @@ export function Spinner({
       data-slot="spinner"
       label={ariaLabel ?? "Chargement"}
       size={size ? SIZE_TO_ASTRYX[size] : "md"}
-      className={cn(spinnerVariants({ variant, size }), className)}
+      className={cx(spinnerVariants({ variant, size }), className)}
       {...props}
     />
   )

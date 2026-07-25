@@ -63,7 +63,7 @@ import { useShortcuts } from '@r/lib/a11y/shortcuts'
 import { toast } from 'sonner'
 import { virtualOrdersFrom } from '@r/lib/scenarios/types'
 import { route } from '@r/lib/routes'
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 import type { DateRange } from '@r/components/vision/programme-toolbar'
 
 // ---------------------------------------------------------------------------
@@ -904,7 +904,7 @@ export default function Programme(props: VisionProps) {
           search={
             <>
               <div
-                className={cn(
+                className={cx(
                   PILL,
                   'transition-shadow focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/25'
                 )}
@@ -938,7 +938,7 @@ export default function Programme(props: VisionProps) {
                 }}
                 placeholder="Portée"
                 options={scopeOptions().map((s) => ({ id: s.v, value: s.v, label: s.label }))}
-                className={cn(PILL, 'w-[110px]')}
+                className={cx(PILL, 'w-[110px]')}
               />
             </>
           }

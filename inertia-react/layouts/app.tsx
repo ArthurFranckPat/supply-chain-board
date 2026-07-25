@@ -2,7 +2,7 @@ import * as React from 'react'
 import { Head } from '@inertiajs/react'
 
 import { Masthead, type MastheadTab } from '@r/components/masthead'
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 
 /**
  * AppLayout — shell applicatif Layout B (B2B adapté Airbnb).
@@ -98,7 +98,7 @@ export function AppLayout({
   return (
     <div
       data-app-layout="b"
-      className={cn(
+      className={cx(
         'flex h-screen flex-col overflow-hidden bg-background text-foreground',
         THEME_SCOPE[theme],
         dense && 'print:h-auto print:overflow-visible'
@@ -130,7 +130,7 @@ export function AppLayout({
           - `scrollable` : overflow-y-auto (la plupart des pages).
           - non scrollable : le contenu gère son propre scroll (gantt). */}
       <main
-        className={cn(
+        className={cx(
           'flex-1 min-h-0',
           scrollable && 'overflow-y-auto',
           !dense && 'px-4 py-3',
@@ -138,7 +138,7 @@ export function AppLayout({
         )}
       >
         <div
-          className={cn(
+          className={cx(
             'mx-auto h-full w-full',
             maxWidth === '7xl' && !dense && 'max-w-7xl',
             dense && 'max-w-none'

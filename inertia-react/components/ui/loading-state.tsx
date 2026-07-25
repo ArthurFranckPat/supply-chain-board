@@ -1,6 +1,6 @@
 import * as React from "react"
 import { Spinner, type SpinnerProps } from "./spinner"
-import { cn } from "@r/lib/utils"
+import { cx } from "@r/lib/cx"
 
 export interface LoadingStateProps extends React.ComponentPropsWithoutRef<"div"> {
   title?: string
@@ -24,7 +24,7 @@ export function LoadingState({
   return (
     <div
       data-slot="loading-state"
-      className={cn(
+      className={cx(
         "flex flex-col items-center justify-center text-center animate-in fade-in-50 duration-200",
         compact ? "py-6 gap-2" : "py-16 gap-3.5 px-4",
         className
@@ -37,7 +37,7 @@ export function LoadingState({
       {(title || description) && (
         <div className="space-y-1 max-w-xs">
           {title && (
-            <p className={cn("font-medium tracking-tight text-foreground", compact ? "text-xs" : "text-sm")}>
+            <p className={cx("font-medium tracking-tight text-foreground", compact ? "text-xs" : "text-sm")}>
               {title}
             </p>
           )}

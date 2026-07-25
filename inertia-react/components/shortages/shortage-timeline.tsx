@@ -9,7 +9,7 @@
  */
 import { useMemo, type ReactNode } from 'react'
 import type { ShortageDisplayRow } from '@r/lib/shortages/types'
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 import { isAtRisk, isLate, offsetPct } from '@r/lib/shortages/shortage-math'
 
 export function ShortageTimeline({
@@ -72,7 +72,7 @@ export function ShortageTimeline({
           return (
             <div
               key={`${row.numOf}-${row.component}`}
-              className={cn(
+              className={cx(
                 'grid grid-cols-[330px_1fr] border-b border-rule-soft transition-colors',
                 isLate(row)
                   ? 'bg-destructive/10 hover:bg-destructive/[0.18]'
@@ -81,7 +81,7 @@ export function ShortageTimeline({
             >
               {/* Contexte */}
               <div
-                className={cn(
+                className={cx(
                   'flex flex-col gap-0.5 border-r border-rule-soft px-4 py-[13px]',
                   isLate(row) && 'bg-destructive/[0.05]'
                 )}
@@ -91,7 +91,7 @@ export function ShortageTimeline({
                     {row.component}
                   </span>
                   <span
-                    className={cn(
+                    className={cx(
                       'ml-auto font-mono text-[11px] font-semibold',
                       isLate(row) ? 'text-destructive' : 'text-muted-foreground'
                     )}
@@ -147,7 +147,7 @@ export function ShortageTimeline({
                 {/* Gap réception ↔ expé */}
                 {gap && (
                   <div
-                    className={cn(
+                    className={cx(
                       'absolute top-[21px] h-2 rounded-full border',
                       gap.state === 'bad'
                         ? 'border-destructive/35 [background:repeating-linear-gradient(45deg,var(--color-destructive)/10,var(--color-destructive)/10_5px,transparent_5px,transparent_10px)]'
@@ -263,8 +263,8 @@ function Marker({
       className="absolute top-3.5 flex -translate-x-1/2 flex-col items-center gap-0.5"
       style={{ left: `${pct}%` }}
     >
-      <span className={cn('size-[13px] rounded-full border-2 border-card', pinCls)} />
-      <span className={cn('mt-0.5 whitespace-nowrap font-mono text-[9px] font-bold', capCls)}>
+      <span className={cx('size-[13px] rounded-full border-2 border-card', pinCls)} />
+      <span className={cx('mt-0.5 whitespace-nowrap font-mono text-[9px] font-bold', capCls)}>
         {cap}
       </span>
       {sub && (

@@ -10,7 +10,7 @@
  */
 import { Badge } from '@r/components/ui/badge'
 import { CornerDownRight, CircleCheck } from 'lucide-react'
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 import {
   type DiagResult,
   type DiagShort,
@@ -39,7 +39,7 @@ function DiagColHeader() {
 function DiagRow({ short }: { short: DiagShort }) {
   return (
     <div
-      className={cn(
+      className={cx(
         'flex items-center gap-3 px-3 py-2',
         short.status === 'rupture_matiere' && 'bg-destructive/10',
         short.status === 'qc_a_controler' && 'bg-warning/10'
@@ -51,7 +51,7 @@ function DiagRow({ short }: { short: DiagShort }) {
         </Badge>
       </div>
       <span
-        className={cn(
+        className={cx(
           'w-[6rem] flex-none truncate font-mono text-[11px] font-bold',
           short.status === 'rupture_matiere' ? 'text-destructive' : 'text-foreground'
         )}

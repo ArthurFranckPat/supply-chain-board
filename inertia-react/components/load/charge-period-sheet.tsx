@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useRef } from 'react'
 import { CircleX, RefreshCw, TriangleAlert } from 'lucide-react'
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 import { Sheet } from '@r/components/sheet'
 import { LoadingState } from '@r/components/ui/loading-state'
 import { Typeahead, createStaticSource, type SearchableItem } from '@astryxdesign/core/Typeahead'
@@ -451,7 +451,7 @@ export function ChargePeriodSheet(props: ChargePeriodSheetProps) {
                   {heads.map((h, i) => (
                     <div
                       key={`h-${i}`}
-                      className={cn(
+                      className={cx(
                         'sticky top-0 z-10 border-b border-border bg-secondary py-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground',
                         i === 0 && 'pl-5',
                         i === heads.length - 1 && 'pr-5',
@@ -608,18 +608,18 @@ const CELL = 'border-b border-rule-soft/60 py-[5px] text-[11px]'
 function OfRow({ row: r }: { row: DetailOfRow }) {
   return (
     <>
-      <div className={cn(CELL, 'truncate pl-5 font-mono text-[11px] font-bold text-foreground')}>
+      <div className={cx(CELL, 'truncate pl-5 font-mono text-[11px] font-bold text-foreground')}>
         {r.article}
       </div>
-      <div className={cn(CELL, 'truncate text-muted-foreground')}>{r.designation || '—'}</div>
+      <div className={cx(CELL, 'truncate text-muted-foreground')}>{r.designation || '—'}</div>
       {/* Identifiant technique : lisible mais discret. Sur un OF suggéré il n'a
           aucune valeur de lecture — il ne doit pas capter le regard avant
           l'article et les heures. */}
-      <div className={cn(CELL, 'font-mono text-[10px] text-muted-foreground')}>{r.numOf}</div>
-      <div className={cn(CELL, 'text-right font-mono tabular-nums text-secondary-foreground')}>
+      <div className={cx(CELL, 'font-mono text-[10px] text-muted-foreground')}>{r.numOf}</div>
+      <div className={cx(CELL, 'text-right font-mono tabular-nums text-secondary-foreground')}>
         {fmtQ(r.quantite)}
       </div>
-      <div className={cn(CELL, 'pr-5 text-right font-mono tabular-nums text-foreground')}>
+      <div className={cx(CELL, 'pr-5 text-right font-mono tabular-nums text-foreground')}>
         {fmtH(r.hours)}
       </div>
     </>
@@ -633,7 +633,7 @@ function CmdRow({ row: r, net }: { row: DetailCmdRow; net: boolean }) {
       {/* Liseré sur toute la ligne : une charge tirée par une prévision se
           repère au balayage, sans lire la colonne Client. */}
       <div
-        className={cn(CELL, 'truncate pl-5 font-mono text-[11px] font-bold text-foreground')}
+        className={cx(CELL, 'truncate pl-5 font-mono text-[11px] font-bold text-foreground')}
         style={
           forecast
             ? { borderLeft: '2px solid var(--color-suggere)', paddingLeft: 'calc(1.25rem - 2px)' }
@@ -651,7 +651,7 @@ function CmdRow({ row: r, net }: { row: DetailCmdRow; net: boolean }) {
           </span>
         )}
       </div>
-      <div className={cn(CELL, 'truncate text-muted-foreground')}>
+      <div className={cx(CELL, 'truncate text-muted-foreground')}>
         {forecast && (
           <span
             className="mr-1.5 rounded-sm px-1 py-px font-mono text-[9px] font-bold uppercase tracking-wider"
@@ -677,7 +677,7 @@ function CmdRow({ row: r, net }: { row: DetailCmdRow; net: boolean }) {
           côté. Dans l'autre sens, les deux colonnes ne se raccordaient pas.
           Tronqué dans la cellule, chaîne entière au survol. */}
       <div
-        className={cn(CELL, 'truncate font-mono text-[10px] text-muted-foreground')}
+        className={cx(CELL, 'truncate font-mono text-[10px] text-muted-foreground')}
         title={
           r.path.length
             ? // Chaîne entière, article de la ligne inclus en tête.
@@ -687,19 +687,19 @@ function CmdRow({ row: r, net }: { row: DetailCmdRow; net: boolean }) {
       >
         {r.path.length === 0 ? '' : [...r.path].reverse().join(' → ')}
       </div>
-      <div className={cn(CELL, 'font-mono text-[10px] text-secondary-foreground')}>
+      <div className={cx(CELL, 'font-mono text-[10px] text-secondary-foreground')}>
         {r.numCommande ?? '—'}
         {r.ligne && <span className="text-muted-foreground">/{r.ligne}</span>}
       </div>
       {/* Le badge « prév. » porte déjà la nature : ici on ne dit plus que
           l'absence de client, qui sur une prévision est structurelle. */}
-      <div className={cn(CELL, 'truncate text-muted-foreground')}>
+      <div className={cx(CELL, 'truncate text-muted-foreground')}>
         {r.client ?? (forecast ? <span className="italic">sans client</span> : '—')}
       </div>
-      <div className={cn(CELL, 'text-right font-mono tabular-nums text-secondary-foreground')}>
+      <div className={cx(CELL, 'text-right font-mono tabular-nums text-secondary-foreground')}>
         {fmtQ(net ? r.netQty : r.brutQty)}
       </div>
-      <div className={cn(CELL, 'pr-5 text-right font-mono tabular-nums text-foreground')}>
+      <div className={cx(CELL, 'pr-5 text-right font-mono tabular-nums text-foreground')}>
         {fmtH(net ? r.netHours : r.brutHours)}
       </div>
     </>

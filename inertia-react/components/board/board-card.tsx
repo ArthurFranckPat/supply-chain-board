@@ -1,5 +1,5 @@
 import { Pencil, TriangleAlert } from 'lucide-react'
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 import { TYPO_META } from '@r/lib/board/types'
 import { DynamicIcon } from '../ui/dynamic-icon'
 
@@ -148,7 +148,7 @@ function CommandeCard(props: CommandeCardProps) {
 
   return (
     <div
-      className={cn(
+      className={cx(
         'relative w-full rounded-md border border-border border-t-[3px] bg-card px-3 pb-2 pt-2.5',
         TONE_BORDER[props.status],
         props.status === 'termine' && 'opacity-60',
@@ -341,7 +341,7 @@ function OfListingCard(p: OfCardProps) {
 
   return (
     <div
-      className={cn(
+      className={cx(
         'relative w-full rounded-lg border border-border bg-card',
         ' transition-all duration-150',
         'hover:-translate-y-0.5 hover:shadow-float',
@@ -423,7 +423,7 @@ function OfListingCard(p: OfCardProps) {
         {/* N° OF (ancre). Réserve à droite la place du tampon BDH si présent. */}
         <div
           title={p.article}
-          className={cn(
+          className={cx(
             'truncate font-mono text-[13px] font-bold leading-tight text-foreground',
             p.consommeBouche && 'pr-9'
           )}
@@ -438,7 +438,7 @@ function OfListingCard(p: OfCardProps) {
           <div className="mt-1.5 flex items-center gap-1.5">
             <span className="h-[5px] flex-1 overflow-hidden rounded-full bg-rule-soft">
               <span
-                className={cn('block h-full rounded-full', TONE_FILL[p.status])}
+                className={cx('block h-full rounded-full', TONE_FILL[p.status])}
                 style={{ width: `${pct}%` }}
               />
             </span>
@@ -506,7 +506,7 @@ function CornerBadge(p: CornerBadgeProps) {
   return (
     <span
       title={p.title}
-      className={cn(
+      className={cx(
         'absolute -top-1.5 right-2 flex size-4 items-center justify-center rounded-full border-2 border-card text-card',
         p.cls
       )}

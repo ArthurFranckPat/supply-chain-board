@@ -24,7 +24,7 @@ import { toIso, startOfDay } from '@r/lib/vision/date-utils'
 import { EMPTY, PROACTIVE_EMPTY, fmtMs } from '@r/lib/suivi/tracking-shared'
 
 import AppLayout from '@r/layouts/app'
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 import { Sheet } from '@r/components/sheet'
 import {
   PILL,
@@ -212,7 +212,7 @@ export default function Tracking(props: SuiviPageProps) {
   const chipCount = (on: boolean, count?: number) =>
     count !== undefined && count > 0 ? (
       <span
-        className={cn(
+        className={cx(
           'rounded-full px-1.5 py-px text-[8px] font-extrabold leading-none tabular-nums',
           on ? 'bg-brand/15 text-brand' : 'bg-foreground/[0.06] text-muted-foreground'
         )}
@@ -400,7 +400,7 @@ export default function Tracking(props: SuiviPageProps) {
               les autres pages (la recherche vit dans la toolbar, pas dans
               la barre de navigation globale). Reste toujours visible : pas
               un filtre secondaire, pas de consolidation derrière un clic. */}
-          <div className={cn(PILL, 'shrink-0')}>
+          <div className={cx(PILL, 'shrink-0')}>
             <Search size={17} strokeWidth={1.75} className="text-muted-foreground" />
             <input
               className="w-[200px] border-0 bg-transparent px-0 text-xs font-medium text-foreground shadow-none outline-none"

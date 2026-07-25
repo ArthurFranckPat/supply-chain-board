@@ -9,7 +9,7 @@ import {
   Warehouse,
 } from 'lucide-react'
 
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 import { Sheet } from '@r/components/sheet'
 import { usePrintFit } from '@r/components/board/use-print-fit'
 import { chargeBg, chargeLabel, chargeText, chargeTier } from '@r/lib/receptions/charge'
@@ -409,14 +409,14 @@ export function ReceptionBoard({
                 return (
                   <div
                     key={d.iso}
-                    className={cn(
+                    className={cx(
                       'border-b border-r border-rule-soft bg-card px-2.5 py-1.5 text-center',
                       d.weekend && 'bg-secondary/50',
                       d.today && 'bg-brand-soft'
                     )}
                   >
                     <div
-                      className={cn(
+                      className={cx(
                         'font-mono text-[9px] font-bold uppercase tracking-[0.1em]',
                         d.today ? 'text-brand' : 'text-muted-foreground'
                       )}
@@ -424,7 +424,7 @@ export function ReceptionBoard({
                       {d.weekday}
                     </div>
                     <div
-                      className={cn(
+                      className={cx(
                         'font-fraunces text-lg font-bold leading-none tracking-tight',
                         d.today
                           ? 'italic text-brand'
@@ -439,7 +439,7 @@ export function ReceptionBoard({
                         le pied de charge ne figure qu'en fin de document, une
                         page 2 serait sinon muette sur les palettes du jour. */}
                     <div
-                      className={cn(
+                      className={cx(
                         'hidden font-mono text-[10px] font-bold tabular-nums print:block',
                         pal > 0 ? chargeText(chargeTier(pal)) : 'text-muted-foreground/50'
                       )}
@@ -467,7 +467,7 @@ export function ReceptionBoard({
                 </span>
                 <span className="font-mono text-[10px] text-muted-foreground">{line.sub}</span>
                 <span
-                  className={cn(
+                  className={cx(
                     'mt-0.5 font-fraunces text-[13px] font-bold tabular-nums leading-none',
                     chargeText(chargeTier(line.palettes))
                   )}
@@ -482,7 +482,7 @@ export function ReceptionBoard({
                 return (
                   <div
                     key={`${line.key}:${d.iso}`}
-                    className={cn(
+                    className={cx(
                       'flex min-h-[74px] flex-col gap-1.5 border-r border-rule-soft p-1.5',
                       d.weekend && 'bg-secondary/40',
                       d.past && !d.today && 'bg-destructive/[0.035]',
@@ -523,14 +523,14 @@ export function ReceptionBoard({
               return (
                 <div
                   key={`charge:${d.iso}`}
-                  className={cn(
+                  className={cx(
                     'flex flex-col items-center justify-end gap-1 border-r border-t border-rule bg-card px-2 pb-1.5 pt-2',
                     d.today && 'bg-brand-soft/50'
                   )}
                   title={`${d.weekday} ${d.num} · ${pal} palette${pal > 1 ? 's' : ''}${pal > 0 ? ` · ${chargeLabel(tier)}` : ''}`}
                 >
                   <span
-                    className={cn(
+                    className={cx(
                       'font-fraunces text-[15px] font-bold tabular-nums leading-none',
                       pal > 0 ? chargeText(tier) : 'text-muted-foreground/40'
                     )}
@@ -540,7 +540,7 @@ export function ReceptionBoard({
                   <div className="flex h-[18px] w-full items-end">
                     {pal > 0 && (
                       <div
-                        className={cn('w-full rounded-t-sm', chargeBg(tier))}
+                        className={cx('w-full rounded-t-sm', chargeBg(tier))}
                         style={{ height: `${pct}%` }}
                       />
                     )}
@@ -615,7 +615,7 @@ function ReceptionCard({
     <button
       type="button"
       onClick={onOpen}
-      className={cn(
+      className={cx(
         'flex w-full flex-col gap-1 rounded-md border border-t-[3px] border-rule-soft bg-card px-2 py-1.5 text-left transition-all',
         'hover:-translate-y-px hover:shadow-float',
         // La tension prime sur la qualité du coef : un camion qui tient une
@@ -654,7 +654,7 @@ function ReceptionCard({
       {/* Palettes — l'unité du board. */}
       <span className="flex items-baseline gap-1">
         <span
-          className={cn(
+          className={cx(
             'font-fraunces text-[19px] font-bold tabular-nums leading-none',
             degrade ? 'text-destructive/70' : estime ? 'text-planifie' : chargeText(tier)
           )}
@@ -676,7 +676,7 @@ function ReceptionCard({
           commande client. */}
       {crit && (
         <span
-          className={cn(
+          className={cx(
             'flex w-fit items-center gap-1 rounded px-1 py-px font-mono text-[8.5px] font-bold uppercase tracking-wider',
             crit === 'retard'
               ? 'bg-destructive/15 text-destructive'
@@ -757,7 +757,7 @@ function ReceptionDetailSheet({
               </div>
               <div className="mt-3 flex items-baseline gap-2">
                 <span
-                  className={cn(
+                  className={cx(
                     'font-fraunces text-[30px] font-bold tabular-nums leading-none',
                     chargeText(chargeTier(group.palettes))
                   )}
@@ -791,7 +791,7 @@ function ReceptionDetailSheet({
                 un décalage est possible ou non. */}
             {group.criticiteItems.length > 0 && (
               <section
-                className={cn(
+                className={cx(
                   'border-b px-6 py-4',
                   group.criticite === 'retard'
                     ? 'border-destructive/30 bg-destructive/[0.06]'
@@ -799,7 +799,7 @@ function ReceptionDetailSheet({
                 )}
               >
                 <div
-                  className={cn(
+                  className={cx(
                     'flex items-center gap-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.14em]',
                     group.criticite === 'retard' ? 'text-destructive' : 'text-suggere'
                   )}
@@ -877,7 +877,7 @@ function ReceptionDetailSheet({
                       {cmd.rows.length} ligne{cmd.rows.length > 1 ? 's' : ''}
                     </span>
                     <span
-                      className={cn(
+                      className={cx(
                         'font-fraunces text-[14px] font-bold tabular-nums',
                         chargeText(chargeTier(cmd.palettes))
                       )}
@@ -893,7 +893,7 @@ function ReceptionDetailSheet({
                 {cmd.rows.map((r) => (
                   <div
                     key={`${r.noCommande}:${r.article}`}
-                    className={cn(
+                    className={cx(
                       'border-t border-rule-soft px-6 py-3',
                       r.coefManquant
                         ? 'bg-destructive/[0.05]'
@@ -907,7 +907,7 @@ function ReceptionDetailSheet({
                         {r.article}
                       </span>
                       <span
-                        className={cn(
+                        className={cx(
                           'font-fraunces text-[15px] font-bold tabular-nums leading-none',
                           r.coefManquant
                             ? 'text-destructive/60'
@@ -931,7 +931,7 @@ function ReceptionDetailSheet({
                       <span>
                         {r.qteUsFmt} <span className="text-muted-foreground/70">US</span>
                       </span>
-                      <span className={cn(r.coefManquant && 'text-destructive')}>
+                      <span className={cx(r.coefManquant && 'text-destructive')}>
                         {r.conditionnement}
                       </span>
                       {r.coefEstime && (

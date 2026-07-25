@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 import type { LoadPeriod, LoadView } from '@r/lib/load/types'
 import {
   CARD,
@@ -434,7 +434,7 @@ export function DetailChart({
             fontSize={geom.week ? '8' : '12'}
             fontWeight={geom.week ? '500' : '700'}
             fill={MUTED}
-            className={cn(geom.week ? 'font-mono' : 'font-fraunces', onSelectPeriod && 'cursor-pointer')}
+            className={cx(geom.week ? 'font-mono' : 'font-fraunces', onSelectPeriod && 'cursor-pointer')}
             onClick={onSelectPeriod ? () => onSelectPeriod(l.idx) : undefined}
           >
             {l.text.split('\n').map((ln, j) => (

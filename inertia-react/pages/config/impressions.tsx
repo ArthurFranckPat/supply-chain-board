@@ -12,7 +12,7 @@ import {
 import AppLayout from '@r/layouts/app'
 import { Button } from '@r/components/ui/button'
 import { Input } from '@r/components/ui/input'
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 import { route } from '@r/lib/routes'
 
 /**
@@ -388,7 +388,7 @@ function AutoPrintSetting({ settings }: { settings: Settings }) {
         {AUTO_MODES.map((m) => (
           <label
             key={m.v}
-            className={cn(
+            className={cx(
               'flex cursor-pointer items-start gap-2.5 rounded-md px-2 py-2 transition-colors',
               mode === m.v ? 'bg-brand-soft' : 'hover:bg-muted/50'
             )}
@@ -403,7 +403,7 @@ function AutoPrintSetting({ settings }: { settings: Settings }) {
             />
             <span className="flex flex-col gap-0.5">
               <span
-                className={cn(
+                className={cx(
                   'text-[13px] font-semibold',
                   mode === m.v ? 'text-brand' : 'text-foreground'
                 )}
@@ -756,7 +756,7 @@ export default function ImpressionsConfig(props: PageProps) {
                 {sorted.map((r) => (
                   <tr key={r.id} className="border-b border-rule/60 last:border-0">
                     <td className="px-4 py-2">
-                      <span className={cn(!r.stoloc && 'italic text-muted-foreground')}>
+                      <span className={cx(!r.stoloc && 'italic text-muted-foreground')}>
                         {r.atelierLabel}
                       </span>
                     </td>

@@ -2,7 +2,7 @@ import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
 import { RefreshCw } from "lucide-react"
 
-import { cn } from "@r/lib/utils"
+import { cx } from "@r/lib/cx"
 import { DynamicIcon } from "./dynamic-icon"
 
 // Toolbar — composant unifié pour les barres de filtrage au-dessus des pages
@@ -49,7 +49,7 @@ function Toolbar({
   return (
     <div
       data-slot="toolbar"
-      className={cn(
+      className={cx(
         "flex flex-none flex-wrap items-center border-b border-border bg-background",
         "px-4",
         gap === "2" && "gap-2",
@@ -75,7 +75,7 @@ function ToolbarGroup({
   return (
     <div
       data-slot="toolbar-group"
-      className={cn("flex items-center gap-1.5", className)}
+      className={cx("flex items-center gap-1.5", className)}
       {...props}
     />
   )
@@ -128,7 +128,7 @@ function ToolbarSegmented({
     <div
       data-slot="toolbar-segmented"
       role="tablist"
-      className={cn(
+      className={cx(
         "inline-flex items-center gap-0.5 rounded-md border border-border bg-card p-0.5",
         className
       )}
@@ -156,7 +156,7 @@ function ToolbarSegment({
       data-slot="toolbar-segment"
       role="tab"
       aria-selected={active}
-      className={cn(segmentedItemVariants({ active, tone }), className)}
+      className={cx(segmentedItemVariants({ active, tone }), className)}
       {...props}
     />
   )
@@ -185,7 +185,7 @@ function ToolbarSearch({
   return (
     <div
       data-slot="toolbar-search"
-      className={cn(
+      className={cx(
         "flex h-[30px] items-center gap-1.5 rounded-full border border-border bg-card px-3",
         "transition-shadow focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/25",
         className
@@ -229,7 +229,7 @@ function ToolbarRefresh({
       type={type ?? "button"}
       disabled={disabled || loading}
       title="Recharger les données X3"
-      className={cn(
+      className={cx(
         "inline-flex items-center gap-1 rounded-full border border-border bg-card p-2",
         "text-foreground transition-colors",
         "hover:border-primary disabled:opacity-50",
@@ -241,7 +241,7 @@ function ToolbarRefresh({
       <RefreshCw
         size={14}
         strokeWidth={1.75}
-        className={cn(
+        className={cx(
           "text-muted-foreground",
           loading && "animate-spin"
         )}
@@ -262,7 +262,7 @@ function ToolbarSeparator({
   return (
     <span
       aria-hidden="true"
-      className={cn("mx-1 h-5 w-px self-center bg-border", className)}
+      className={cx("mx-1 h-5 w-px self-center bg-border", className)}
       {...props}
     />
   )

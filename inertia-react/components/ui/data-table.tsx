@@ -10,7 +10,7 @@ import {
   TableCell as AstryxTableCell,
 } from '@astryxdesign/core/Table'
 
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 
 /**
  * Wrapper DataTable maison (plan §6) : table HTML + tri contrôlé +
@@ -159,14 +159,14 @@ export function DataTable<TRow>({
   }
 
   return (
-    <div className={cn(DEFAULT_SCROLL_CLASS, scrollContainerClass)} ref={scrollRef}>
+    <div className={cx(DEFAULT_SCROLL_CLASS, scrollContainerClass)} ref={scrollRef}>
       {rows.length > 0 ? (
-        <AstryxTable className={cn('w-full border-collapse text-left text-sm', tableClass)}>
+        <AstryxTable className={cx('w-full border-collapse text-left text-sm', tableClass)}>
           <AstryxTableHeader className="sticky top-0 z-10 bg-card">
-            <AstryxTableRow className={cn('border-b', theadRowClass)}>
+            <AstryxTableRow className={cx('border-b', theadRowClass)}>
               {indexColumn && (
                 <AstryxTableHeaderCell
-                  className={cn(
+                  className={cx(
                     'px-3 py-2 text-xs font-medium text-muted-foreground',
                     indexColumn.thClass
                   )}
@@ -191,7 +191,7 @@ export function DataTable<TRow>({
                           : 'ascending'
                         : undefined
                     }
-                    className={cn(
+                    className={cx(
                       'px-3 py-2 text-xs font-medium text-muted-foreground select-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded',
                       col.meta?.thClass,
                       canSort && 'cursor-pointer transition-colors hover:text-foreground',
@@ -237,7 +237,7 @@ export function DataTable<TRow>({
                   key={rowKey}
                   ref={rowVirtualizer.measureElement}
                   data-index={virtualRow.index}
-                  className={cn(
+                  className={cx(
                     'border-b transition-colors last:border-b-0 hover:bg-muted/50',
                     getRowClass?.(row, virtualRow.index),
                     isSelected && 'bg-primary/[0.04] ring-2 ring-inset ring-primary/40'
@@ -246,7 +246,7 @@ export function DataTable<TRow>({
                   style={rowStyle}
                 >
                   {indexColumn && (
-                    <AstryxTableCell className={cn('px-3 py-2', indexColumn.tdClass(row, virtualRow.index))}>
+                    <AstryxTableCell className={cx('px-3 py-2', indexColumn.tdClass(row, virtualRow.index))}>
                       {String(virtualRow.index + 1).padStart(2, '0')}
                     </AstryxTableCell>
                   )}
@@ -255,7 +255,7 @@ export function DataTable<TRow>({
                     const val = getValue(row, col)
 
                     return (
-                      <AstryxTableCell key={columnId} className={cn('px-3 py-2', col.meta?.tdClass)}>
+                      <AstryxTableCell key={columnId} className={cx('px-3 py-2', col.meta?.tdClass)}>
                         {col.cell
                           ? col.cell({
                               row: { original: row },

@@ -6,7 +6,7 @@ import AppLayout from '@r/layouts/app'
 import { ReceptionTableau, ReceptionCalendrier } from '@r/components/receptions/reception-views'
 import { ReceptionBoard, type ReceptionGroupBy } from '@r/components/receptions/reception-board'
 import { useTimedFetch } from '@r/lib/suivi/use-timed-fetch'
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 import {
   PILL,
   Segment,
@@ -280,7 +280,7 @@ export default function Receptions(props: ReceptionsPageProps) {
             <button
               type="button"
               onClick={() => setCriticiteOnly((v) => !v)}
-              className={cn(
+              className={cx(
                 PILL,
                 criticiteOnly ? 'border-destructive bg-destructive/10 text-destructive' : ''
               )}
@@ -332,7 +332,7 @@ export default function Receptions(props: ReceptionsPageProps) {
               <button
                 type="button"
                 onClick={() => window.print()}
-                className={cn(PILL, 'hover:bg-secondary')}
+                className={cx(PILL, 'hover:bg-secondary')}
                 title="Imprimer le board (A3 paysage)"
               >
                 <Printer size={16} strokeWidth={1.75} className="text-muted-foreground" />
@@ -404,7 +404,7 @@ export default function Receptions(props: ReceptionsPageProps) {
           </div>
         ) : (
           <div
-            className={cn(
+            className={cx(
               'flex flex-1 flex-col overflow-hidden transition-opacity duration-150',
               loading && 'pointer-events-none opacity-50'
             )}

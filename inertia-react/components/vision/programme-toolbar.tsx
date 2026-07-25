@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState } from 'react'
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 import { useBoardStore, statusActive } from '@r/lib/board/store'
 import { ChevronDown, SlidersHorizontal, FlaskConical, ClipboardList } from 'lucide-react'
 import { DynamicIcon } from '../ui/dynamic-icon'
@@ -113,7 +113,7 @@ export function ProgrammeToolbar(props: {
             [statuses.ferme, statuses.planifie, statuses.suggere].some(Boolean) ? (
               <span className="ml-0.5 flex items-center gap-0.5" aria-hidden="true">
                 {STATUS_FILTER_CHIPS.filter(({ k }) => statuses[k]).map(({ k }) => (
-                  <span key={k} className={cn('size-1.5 rounded-full', STATUS_DOT_CLASS[k])} />
+                  <span key={k} className={cx('size-1.5 rounded-full', STATUS_DOT_CLASS[k])} />
                 ))}
               </span>
             ) : null
@@ -201,7 +201,7 @@ function ActionsMenu(props: {
       className="relative"
     >
       <summary
-        className={cn(
+        className={cx(
           PILL,
           'cursor-pointer list-none [&::-webkit-details-marker]:hidden',
           open && 'border-brand'
@@ -227,7 +227,7 @@ function ActionsMenu(props: {
               props.onToggleScenario?.()
               setOpen(false)
             }}
-            className={cn(
+            className={cx(
               'flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-semibold transition-colors',
               props.mode !== 'combined'
                 ? 'cursor-not-allowed opacity-40'
@@ -262,7 +262,7 @@ function ActionsMenu(props: {
             name={props.feasLoading ? 'progress_activity' : 'fact_check'}
             size={14}
             strokeWidth={1.75}
-            className={cn('text-muted-foreground', props.feasLoading && 'animate-spin')}
+            className={cx('text-muted-foreground', props.feasLoading && 'animate-spin')}
           />
           <span className="flex-1">
             {props.feasLoading ? 'Calcul en cours…' : 'Faisabilité'}
@@ -279,7 +279,7 @@ function ActionsMenu(props: {
               s.selectMode ? s.exitSelect() : s.enterSelect()
               setOpen(false)
             }}
-            className={cn(
+            className={cx(
               'flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-semibold transition-colors hover:bg-muted',
               selectMode && 'text-brand'
             )}

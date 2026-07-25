@@ -1,7 +1,7 @@
 import { getToolName, type DynamicToolUIPart, type ToolUIPart } from 'ai'
 import { ChevronRight, Wrench } from 'lucide-react'
 
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 import { toolLabel } from '@r/lib/copilote/tool-labels'
 import { readToolOutput } from '@r/lib/copilote/tool-output'
 
@@ -33,7 +33,7 @@ export function ToolTokens(props: { parts: AnyToolPart[] }) {
             <span
               key={`${name}-${idx}`}
               data-status={status}
-              className={cn(
+              className={cx(
                 'inline-flex items-center gap-1.5 font-mono text-[11.5px] whitespace-nowrap text-muted-foreground transition-colors hover:text-foreground',
                 status === 'done' && 'text-ferme',
                 status === 'running' && 'text-suggere',
@@ -66,7 +66,7 @@ export function ToolTokens(props: { parts: AnyToolPart[] }) {
               <div key={`${name}-detail-${idx}`}>
                 <div className="flex items-center gap-1.5 font-mono text-[11px]">
                   <span
-                    className={cn(
+                    className={cx(
                       'size-[7px] rounded-full',
                       status === 'done' && 'bg-ferme',
                       status === 'error' && 'bg-destructive',

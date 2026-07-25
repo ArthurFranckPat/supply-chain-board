@@ -1,6 +1,6 @@
 import { useMemo, useState, useCallback, useRef, useEffect } from 'react'
 import { Undo2 } from 'lucide-react'
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 import { usePrintFitPage } from '@r/lib/board/use-print-fit-page'
 import { TYPO_META } from '@r/lib/board/types'
 import type { OrderCard, OrderLineRow } from '@r/lib/orders/types'
@@ -227,13 +227,13 @@ export function OrderGrid(props: OrderGridProps) {
               return (
                 <div
                   key={di}
-                  className={cn(
+                  className={cx(
                     'border-b border-r border-rule-soft bg-card px-2.5 py-1.5 text-center',
                     day.today && 'bg-brand-soft'
                   )}
                 >
                   <div
-                    className={cn(
+                    className={cx(
                       'font-mono text-[9px] font-bold tracking-[0.1em]',
                       day.today ? 'text-brand' : 'text-muted-foreground'
                     )}
@@ -241,7 +241,7 @@ export function OrderGrid(props: OrderGridProps) {
                     {day.short.replace(/\s*\d+\s*$/, '')}
                   </div>
                   <div
-                    className={cn(
+                    className={cx(
                       'font-fraunces text-[19px] font-bold leading-none tracking-tight',
                       day.today ? 'text-brand italic' : 'text-foreground'
                     )}
@@ -392,7 +392,7 @@ export function OrderGrid(props: OrderGridProps) {
                 return (
                   <div
                     key={ci}
-                    className={cn(
+                    className={cx(
                       'relative flex min-h-[96px] flex-col gap-2 border-r border-rule-soft bg-card p-2',
                       isToday && 'bg-brand-soft',
                       dropCol === cellKey && 'ring-2 ring-brand/70 ring-inset'
@@ -463,7 +463,7 @@ function CardView(props: CardViewProps) {
       tabIndex={props.matches && !ghost ? 0 : -1}
       draggable={props.matches && !card.hasOverride && !ghost}
       data-order-id={card.id}
-      className={cn(
+      className={cx(
         'relative transition-opacity',
         ghost ? 'cursor-default' : 'cursor-pointer',
         !props.matches && 'pointer-events-none opacity-15'

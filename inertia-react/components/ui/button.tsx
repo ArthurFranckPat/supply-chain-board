@@ -2,7 +2,7 @@ import { Button as AstryxButton } from "@astryxdesign/core/Button"
 import { cva, type VariantProps } from "class-variance-authority"
 import * as React from "react"
 
-import { cn } from "@r/lib/utils"
+import { cx } from "@r/lib/cx"
 
 // Aligné sur Airbnb DESIGN.md `button-primary` :
 // • default = 48px (h-12), weight 500, radius 8px (rounded-md sous --radius 14px)
@@ -112,7 +112,7 @@ function Button({ className, variant, size, children, render, ...props }: Button
   const label = props["aria-label"] ?? deriveLabel(children)
   const astryxVariant = variant ? VARIANT_TO_ASTRYX[variant] : "primary"
   const astryxSize = size ? SIZE_TO_ASTRYX[size] : "md"
-  const composedClassName = cn(buttonVariants({ variant, size }), className)
+  const composedClassName = cx(buttonVariants({ variant, size }), className)
 
   // Pattern Base UI `render` : on clone l'élément fourni en lui injectant
   // les classes + data-slot, sans passer par AstryxButton (le consumer
@@ -121,7 +121,7 @@ function Button({ className, variant, size, children, render, ...props }: Button
     const renderProps = render.props as Record<string, unknown>
     return React.cloneElement(render, {
       "data-slot": "button",
-      className: cn(composedClassName, (renderProps.className as string | undefined) ?? ""),
+      className: cx(composedClassName, (renderProps.className as string | undefined) ?? ""),
       ...props,
     } as Record<string, unknown>)
   }

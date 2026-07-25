@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { CalendarClock, CircleX, Package, ShieldCheck, TriangleAlert } from 'lucide-react'
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 import { Sheet } from '@r/components/sheet'
 import { LoadingState } from '@r/components/ui/loading-state'
 
@@ -178,7 +178,7 @@ function TooltipRow({
   return (
     <div className="flex items-center gap-2">
       <span
-        className={cn(
+        className={cx(
           'shrink-0',
           swatch === 'line' ? 'h-[2px] w-3 rounded-full' : 'size-2 rounded-[2px]'
         )}
@@ -188,7 +188,7 @@ function TooltipRow({
         {label}
       </span>
       <span
-        className={cn(
+        className={cx(
           'ml-auto pl-4 font-mono text-[11px] tabular-nums',
           strong ? 'font-bold text-foreground' : 'text-secondary-foreground'
         )}
@@ -807,7 +807,7 @@ function HistoryChart({
           apparaît/disparaît en fondu (opacity). */}
       {hPoint && (
         <div
-          className={cn(
+          className={cx(
             'pointer-events-none absolute top-8 z-10 min-w-[10.5rem] rounded-md border border-rule bg-popover px-3 py-2 shadow-float transition-[left,transform,opacity] duration-150 ease-out',
             hover === null && 'opacity-0'
           )}
@@ -925,7 +925,7 @@ function VerdictBar({
 
   return (
     <div
-      className={cn(
+      className={cx(
         'flex flex-none flex-wrap items-center gap-x-4 gap-y-1.5 border-b px-5 py-2.5',
         sousDelai ? 'border-destructive/30 bg-destructive/10' : 'border-rule bg-secondary'
       )}
@@ -933,11 +933,11 @@ function VerdictBar({
       <Icon
         size={17}
         strokeWidth={1.9}
-        className={cn('shrink-0', sousDelai ? 'text-destructive' : 'text-brand')}
+        className={cx('shrink-0', sousDelai ? 'text-destructive' : 'text-brand')}
       />
       <div className="flex min-w-0 flex-wrap items-baseline gap-x-2.5 gap-y-0.5">
         <span
-          className={cn(
+          className={cx(
             'font-mono text-[13px] font-bold tabular-nums',
             sousDelai ? 'text-destructive' : 'text-foreground'
           )}
@@ -1274,7 +1274,7 @@ export function StockArticleSheet(props: StockArticleSheetProps) {
                     key={u}
                     type="button"
                     onClick={() => setUnit(u)}
-                    className={cn(
+                    className={cx(
                       'rounded-full px-3.5 py-1.5 font-sans text-[11px] font-semibold transition-colors',
                       unit === u ? 'bg-secondary text-brand' : 'text-muted-foreground'
                     )}

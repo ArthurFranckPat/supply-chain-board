@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState, useRef } from 'react'
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 import { Button } from '@r/components/ui/button'
 import { router } from '@inertiajs/react'
 import { route } from '@r/lib/routes'
@@ -213,7 +213,7 @@ export function ScenarioBar({
             name={s.diffLoading ? 'progress_activity' : 'insights'}
             size={15}
             strokeWidth={1.75}
-            className={cn(s.diffLoading && 'animate-spin')}
+            className={cx(s.diffLoading && 'animate-spin')}
           />
           Impacts
         </Button>
@@ -234,7 +234,7 @@ export function ScenarioBar({
             name={applying ? 'progress_activity' : 'play_arrow'}
             size={15}
             strokeWidth={1.75}
-            className={cn(applying && 'animate-spin')}
+            className={cx(applying && 'animate-spin')}
           />
           {applying ? 'Application…' : 'Appliquer'}
         </Button>

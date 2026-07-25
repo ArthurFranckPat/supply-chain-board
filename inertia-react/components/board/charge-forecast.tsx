@@ -1,6 +1,6 @@
 import { useMemo, useState, useCallback } from 'react'
 import { Layers } from 'lucide-react'
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 import { DynamicIcon } from '../ui/dynamic-icon'
 
 /**
@@ -115,7 +115,7 @@ function Stat({ icon, lab, v, unit, tone, sub }: StatProps) {
       </div>
       <div className="mt-1 flex items-baseline gap-1">
         <span
-          className={cn(
+          className={cx(
             'font-fraunces text-[28px] font-black leading-[0.95] tracking-tight',
             tone ?? 'text-foreground'
           )}
@@ -278,13 +278,13 @@ export function ChargeForecast(props: ChargeForecastProps) {
   }, [chart, props.monthLabels.length])
 
   return (
-    <div className={cn('flex flex-col gap-4', props.class)}>
+    <div className={cx('flex flex-col gap-4', props.class)}>
       {/* ══ Controls ══ */}
       <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
         <div className="flex flex-wrap gap-1.5">
           <button
             type="button"
-            className={cn(
+            className={cx(
               'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-mono text-[11px] font-bold transition-colors',
               lineId === 'all'
                 ? 'border-foreground bg-foreground text-card'
@@ -298,7 +298,7 @@ export function ChargeForecast(props: ChargeForecastProps) {
             <button
               key={l.id}
               type="button"
-              className={cn(
+              className={cx(
                 'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-mono text-[11px] font-bold transition-colors',
                 lineId === l.id
                   ? 'border-foreground bg-foreground text-card'
@@ -322,7 +322,7 @@ export function ChargeForecast(props: ChargeForecastProps) {
             <button
               key={g}
               type="button"
-              className={cn(
+              className={cx(
                 'rounded-full px-3.5 py-1.5 text-[11px] font-semibold transition-colors',
                 gran === g
                   ? 'bg-card text-brand'

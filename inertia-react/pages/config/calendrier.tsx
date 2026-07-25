@@ -20,7 +20,7 @@ import {
   CalendarRange,
 } from 'lucide-react'
 import { MultiSelector } from '@astryxdesign/core/MultiSelector'
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 import { route } from '@r/lib/routes'
 
 /**
@@ -129,7 +129,7 @@ function Pills<T extends string>({
           key={o.v}
           type="button"
           onClick={() => onChange(o.v)}
-          className={cn(
+          className={cx(
             'rounded-[5px] px-3 py-1.5 text-[12px] font-semibold transition-colors',
             value === o.v
               ? 'bg-brand-soft text-brand'
@@ -526,13 +526,13 @@ export default function Calendrier(props: CalendrierPageProps) {
                       role="switch"
                       aria-checked={h.active}
                       onClick={() => toggleHoliday(h.date)}
-                      className={cn(
+                      className={cx(
                         'relative ml-auto h-[22px] w-[38px] flex-none rounded-full transition-colors',
                         h.active ? 'bg-ferme' : 'bg-rule'
                       )}
                     >
                       <span
-                        className={cn(
+                        className={cx(
                           'absolute top-[2px] h-[18px] w-[18px] rounded-full bg-white shadow transition-all',
                           h.active ? 'left-[18px]' : 'left-[2px]'
                         )}

@@ -1,6 +1,6 @@
 import * as React from "react"
 
-import { cn } from "@r/lib/utils"
+import { cx } from "@r/lib/cx"
 
 // SearchBar — alignée sur Airbnb DESIGN.md `search-bar-pill` + `search-orb`.
 // Pill 64px de haut, rounded-full, divisée par hairlines verticales en
@@ -43,7 +43,7 @@ function SearchBar({
   return (
     <div
       data-slot="search-bar"
-      className={cn(
+      className={cx(
         // DESIGN.md search-bar-pill : 64px, rounded-full, 1px hairline,
         // shadow tier (le search bar a l'ombre au repos, contrairement aux cards).
         "flex h-16 w-full items-center rounded-full border border-border bg-card pl-8 pr-2",
@@ -88,7 +88,7 @@ function SearchBar({
         type="button"
         onClick={onSubmit}
         aria-label={submitLabel}
-        className={cn(
+        className={cx(
           "ml-2 flex size-12 shrink-0 items-center justify-center rounded-full",
           "bg-primary text-primary-foreground",
           "transition-colors hover:bg-[var(--color-rausch-active,#e00b41)]",

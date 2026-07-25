@@ -4,7 +4,7 @@ import type { DateRange as DayPickerRange } from 'react-day-picker'
 import { Link } from '@inertiajs/react'
 import { Popover } from '@base-ui/react/popover'
 import { CalendarDays, ChevronDown, RefreshCw, SlidersHorizontal } from 'lucide-react'
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 import { Calendar } from '@r/components/ui/calendar'
 import { useRangeCalendar } from '@r/lib/use-range-calendar'
 
@@ -33,7 +33,7 @@ export function ToolbarRow(props: { children: ReactNode; className?: string; noW
   return (
     <div
       data-print-toolbar
-      className={cn(
+      className={cx(
         'flex flex-none items-center gap-2.5 border-b border-rule px-7 py-2 min-h-[48px]',
         props.noWrap ? 'flex-nowrap' : 'flex-wrap',
         props.className
@@ -57,7 +57,7 @@ export function Segment(props: {
   children: ReactNode
 }) {
   return (
-    <div className={cn(SEG, props.className)} role={props.role} aria-label={props.ariaLabel}>
+    <div className={cx(SEG, props.className)} role={props.role} aria-label={props.ariaLabel}>
       {props.label && <span className={SEG_LBL}>{props.label}</span>}
       {props.children}
     </div>
@@ -190,7 +190,7 @@ export function RefreshPill(props: {
     <RefreshCw
       size={14}
       strokeWidth={1.75}
-      className={cn('text-muted-foreground', props.loading && 'animate-spin')}
+      className={cx('text-muted-foreground', props.loading && 'animate-spin')}
     />
   )
   if (props.href) {
@@ -205,7 +205,7 @@ export function RefreshPill(props: {
       type="button"
       disabled={props.loading}
       onClick={props.onClick}
-      className={cn(PILL, 'disabled:opacity-60')}
+      className={cx(PILL, 'disabled:opacity-60')}
       title={title}
       aria-label="Actualiser"
     >
@@ -258,7 +258,7 @@ export function FilterMenu(props: {
       className="relative"
     >
       <summary
-        className={cn(
+        className={cx(
           PILL,
           'cursor-pointer list-none [&::-webkit-details-marker]:hidden',
           open && 'border-brand'
@@ -272,7 +272,7 @@ export function FilterMenu(props: {
       </summary>
 
       <div
-        className={cn(
+        className={cx(
           'absolute top-full z-50 mt-1.5 w-[280px] rounded-lg border border-rule bg-popover p-2.5 shadow-lg',
           align === 'right' ? 'right-0' : 'left-0',
           props.panelClassName

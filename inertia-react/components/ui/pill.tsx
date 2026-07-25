@@ -1,7 +1,7 @@
 import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
 
-import { cn } from "@r/lib/utils"
+import { cx } from "@r/lib/cx"
 
 // Pill — pattern le plus dupliqué du codebase (8 occurrences en Solid,
 // initialement `h-[30px] rounded-full border-rule bg-card px-3`). Extrait
@@ -60,14 +60,14 @@ function Pill({
   children,
   ...props
 }: PillProps) {
-  const classes = cn(pillVariants({ variant, size }), className)
+  const classes = cx(pillVariants({ variant, size }), className)
 
   return (
     <button type="button" className={classes} {...props}>
       {dot && (
         <span
           aria-hidden="true"
-          className={cn("size-1.5 rounded-full bg-current", dotClassName)}
+          className={cx("size-1.5 rounded-full bg-current", dotClassName)}
         />
       )}
       {children}

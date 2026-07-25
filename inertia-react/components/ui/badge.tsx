@@ -2,7 +2,7 @@ import * as React from "react"
 import { Badge as AstryxBadge, type BadgeVariant as AstryxBadgeVariant } from "@astryxdesign/core/Badge"
 import { cva, type VariantProps } from "class-variance-authority"
 
-import { cn } from "@r/lib/utils"
+import { cx } from "@r/lib/cx"
 
 const badgeVariants = cva(
   "group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-all focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3!",
@@ -59,7 +59,7 @@ function Badge({ className, variant = "default", render, children, ...props }: B
     const renderProps = render.props as Record<string, unknown>
     return React.cloneElement(render, {
       "data-slot": "badge",
-      className: cn(badgeVariants({ variant }), className, (renderProps.className as string | undefined) ?? ""),
+      className: cx(badgeVariants({ variant }), className, (renderProps.className as string | undefined) ?? ""),
       ...props,
     } as Record<string, unknown>)
   }
@@ -69,7 +69,7 @@ function Badge({ className, variant = "default", render, children, ...props }: B
       data-slot="badge"
       label={children ?? ""}
       variant={variant ? VARIANT_TO_ASTRYX[variant] : "neutral"}
-      className={cn(badgeVariants({ variant }), className)}
+      className={cx(badgeVariants({ variant }), className)}
       {...props}
     />
   )

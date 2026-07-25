@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 
 const NAV_WIDTH = '260px'
 const INSPECTOR_WIDTH = '300px'
@@ -24,7 +24,7 @@ export function AppShell(props: {
       }}
     >
       <aside
-        className={cn(
+        className={cx(
           'overflow-hidden border-r border-border bg-secondary transition-opacity duration-150',
           props.navCollapsed && 'opacity-0'
         )}
@@ -35,7 +35,7 @@ export function AppShell(props: {
       <div className="flex min-w-0 flex-col overflow-hidden">{props.children}</div>
 
       <aside
-        className={cn(
+        className={cx(
           'overflow-hidden border-l border-border bg-card transition-opacity duration-150',
           props.inspectorCollapsed && 'opacity-0'
         )}

@@ -3,7 +3,7 @@
  * inertia/lib/suivi/proactive-columns.tsx (API ColumnDef du DataTable maison,
  * même JSX cellule que Solid).
  */
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 import type { ColumnDef, DataTableIndexColumn } from '@r/components/ui/data-table'
 import type { ProactiveDisplayRow } from '@r/lib/suivi/types'
 import {
@@ -143,7 +143,7 @@ export function createProactiveColumns({
             <div className="font-mono text-[11px] font-semibold text-foreground">{(getValue() as string) || '—'}</div>
             {rel && (
               <div
-                className={cn(
+                className={cx(
                   'font-sans text-[9px] font-semibold',
                   rel.label.startsWith('Retard')
                     ? 'text-destructive'
@@ -183,7 +183,7 @@ export function createProactiveColumns({
                   <div key={of.numOf} className="flex items-center gap-1 min-w-0">
                     <button
                       type="button"
-                      className={cn(
+                      className={cx(
                         'truncate font-mono text-[10px] font-semibold leading-none',
                         onSelectOf
                           ? 'text-foreground underline decoration-dotted decoration-muted-foreground/40 underline-offset-2 hover:text-foreground/70'
@@ -213,7 +213,7 @@ export function createProactiveColumns({
                     )}
                     {st && (
                       <span
-                        className={cn(
+                        className={cx(
                           'shrink-0 cursor-help rounded px-1 py-px font-mono text-[8px] font-bold leading-none',
                           st.tone
                         )}
@@ -274,8 +274,8 @@ export function createProactiveColumns({
         const o = row.original
         return (
           <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-            <span className={cn('size-1.5 shrink-0 rounded-full', VERDICT_DOT[o.verdictKey])} />
-            <span className={cn('text-[10px] font-semibold', VERDICT_TEXT[o.verdictKey])}>
+            <span className={cx('size-1.5 shrink-0 rounded-full', VERDICT_DOT[o.verdictKey])} />
+            <span className={cx('text-[10px] font-semibold', VERDICT_TEXT[o.verdictKey])}>
               {o.verdictLabel}
             </span>
           </span>
@@ -360,7 +360,7 @@ export function createProactiveColumns({
                           </div>
                           {p.reception ? (
                             <div
-                              className={cn(
+                              className={cx(
                                 'flex items-center gap-0.5 pl-3.5 text-[8.5px] font-medium',
                                 p.reception.overdue
                                   ? 'font-bold text-foreground'
@@ -397,7 +397,7 @@ export function createProactiveColumns({
                   )
                 ) : c.reception ? (
                   <div
-                    className={cn(
+                    className={cx(
                       'mt-0.5 flex items-center gap-1 font-mono text-[9px] leading-none',
                       c.reception.overdue
                         ? 'font-bold text-foreground'
@@ -450,7 +450,7 @@ export function createProactiveIndexCol(): DataTableIndexColumn<ProactiveDisplay
         row.verdictKey === 'blocked' || row.verdictKey === 'uncov'
           ? ('critical' as const)
           : row.lateSeverity
-      return cn(
+      return cx(
         'px-4 py-[7px] align-middle font-sans text-[12px] font-bold leading-none tracking-tight text-muted-foreground/80 tabular-nums',
         LATE_TONE.bar(s)
       )

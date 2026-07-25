@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react'
 import { Head } from '@inertiajs/react'
 import { route } from '@r/lib/routes'
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 
 import { Masthead } from '@r/components/masthead'
 import { Badge } from '@r/components/ui/badge'

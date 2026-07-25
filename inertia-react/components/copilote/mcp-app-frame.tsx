@@ -17,7 +17,7 @@ import { AppBridge, PostMessageTransport } from '@modelcontextprotocol/ext-apps/
 import { getToolName } from 'ai'
 import { Maximize2, Minimize2, TriangleAlert } from 'lucide-react'
 
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 import { readToolOutput } from '@r/lib/copilote/tool-output'
 import type { AnyToolPart } from '@r/components/copilote/tool-tokens'
 import {
@@ -308,9 +308,9 @@ export function McpAppFrame(props: McpAppFrameProps) {
     // Le conteneur passe en `fixed` SANS changer la structure JSX : déplacer
     // l'iframe dans un portail la remonterait, ce qui tuerait le pont et
     // rechargerait l'app à chaque agrandissement.
-    <figure className={cn('my-1.5', fullscreen && 'fixed inset-3 z-50 m-0 sm:inset-6')}>
+    <figure className={cx('my-1.5', fullscreen && 'fixed inset-3 z-50 m-0 sm:inset-6')}>
       <div
-        className={cn(
+        className={cx(
           'relative overflow-hidden rounded-xl bg-card',
           bordered && 'border border-border/60',
           fullscreen && 'flex h-full flex-col border shadow-2xl'
@@ -337,7 +337,7 @@ export function McpAppFrame(props: McpAppFrameProps) {
           // DOM, aux cookies ni au stockage de l'hôte (cf. mcp-host.ts).
           sandbox="allow-scripts"
           style={fullscreen ? undefined : { height: inlineHeight }}
-          className={cn(
+          className={cx(
             'block w-full border-0 bg-transparent',
             fullscreen ? 'min-h-0 flex-1' : 'transition-[height] duration-200'
           )}

@@ -1,6 +1,6 @@
 import { Fragment, type ReactNode } from 'react'
 
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 import { toolLabel } from '@r/lib/copilote/tool-labels'
 
 /**
@@ -16,7 +16,7 @@ export function SourceTag(props: { tool: string; detail?: string; onFlash: (tool
       type="button"
       title={props.detail ? `[${props.tool}: ${props.detail}]` : undefined}
       onClick={() => props.onFlash(props.tool)}
-      className={cn(
+      className={cx(
         'mx-px inline-flex items-center rounded-[5px] border-b-[1.5px] border-transparent bg-brand/10 px-1.5 py-px font-mono text-[10.5px] font-semibold text-primary transition-colors',
         'hover:border-primary hover:bg-primary/[0.18]',
         'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring'

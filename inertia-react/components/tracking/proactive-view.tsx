@@ -5,7 +5,7 @@
  */
 import { useState } from 'react'
 
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 import { TriangleAlert, Loader2, CircleX, FilterX } from 'lucide-react'
 import { SkeletonRow } from '@r/components/ui/skeleton'
 import { DynamicIcon } from '../ui/dynamic-icon'
@@ -68,7 +68,7 @@ export function ProactiveView(props: ProactiveViewProps) {
             getRowClass={(row: ProactiveDisplayRow) => {
               const k = row.verdictKey
               const s = k === 'blocked' || k === 'uncov' ? ('critical' as const) : row.lateSeverity
-              return cn(
+              return cx(
                 'border-t border-rule-soft transition-colors even:bg-foreground/[0.015]',
                 LATE_TONE.bg(s)
               )

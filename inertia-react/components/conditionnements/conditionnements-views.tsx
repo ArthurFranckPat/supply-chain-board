@@ -1,5 +1,5 @@
 import { type ReactNode, useMemo, useState } from 'react'
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 import DataTable, { type ColumnDef, type SortingState } from '@r/components/ui/data-table'
 import type {
   ArticleEnrichissement,
@@ -66,7 +66,7 @@ export function SourceCell({
       title={`${label} — ${src.observations} observation(s) — confiance ${src.confiance}`}
     >
       <span
-        className={cn(
+        className={cx(
           'font-fraunces text-[14px] font-bold tabular-nums',
           tone === 'ferme' ? 'text-ferme' : 'text-planifie'
         )}
@@ -106,7 +106,7 @@ export function ConcordanceBadge({
 
   return (
     <span
-      className={cn(
+      className={cx(
         'inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider',
         badgeClass
       )}
@@ -148,7 +148,7 @@ export function FacetteDropdown({
       <button
         type="button"
         onClick={onToggleOpen}
-        className={cn(
+        className={cx(
           'flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors',
           nbSelectionnees > 0
             ? 'border-brand/40 bg-brand/10 text-brand'
@@ -310,14 +310,14 @@ function buildColumns(estimationsChargees: boolean): ColumnDef<DisplayRow>[] {
       id: 'pcuStuCoe',
       header: 'US/UC',
       accessorFn: (r) => r.pcuStuCoe ?? -1,
-      meta: { thClass: cn(TH_C, 'text-right'), tdClass: cn(TD_C, 'text-right') },
+      meta: { thClass: cx(TH_C, 'text-right'), tdClass: cx(TD_C, 'text-right') },
       cell: ({ row: { original: r } }) => <CoefCell value={r.pcuStuCoe} />,
     },
     {
       id: 'ucParPal',
       header: 'UC/pal',
       accessorFn: (r) => r.ucParPal ?? -1,
-      meta: { thClass: cn(TH_C, 'text-right'), tdClass: cn(TD_C, 'text-right') },
+      meta: { thClass: cx(TH_C, 'text-right'), tdClass: cx(TD_C, 'text-right') },
       cell: ({ row: { original: r } }) => <CoefCell value={r.ucParPal} />,
     },
   ]
@@ -370,7 +370,7 @@ function buildColumns(estimationsChargees: boolean): ColumnDef<DisplayRow>[] {
       id: 'stock',
       header: 'STOCK',
       accessorFn: (r) => r.stock?.usParPalette ?? -1,
-      meta: { thClass: cn(TH_C, 'text-right'), tdClass: cn(TD_C, 'text-right') },
+      meta: { thClass: cx(TH_C, 'text-right'), tdClass: cx(TD_C, 'text-right') },
       cell: ({ row: { original: r } }) =>
         !estimationsChargees ? (
           <Vide variant="attente" />
@@ -382,7 +382,7 @@ function buildColumns(estimationsChargees: boolean): ColumnDef<DisplayRow>[] {
       id: 'stojou',
       header: 'STOJOU',
       accessorFn: (r) => r.stojou?.usParPalette ?? -1,
-      meta: { thClass: cn(TH_C, 'text-right'), tdClass: cn(TD_C, 'text-right') },
+      meta: { thClass: cx(TH_C, 'text-right'), tdClass: cx(TD_C, 'text-right') },
       cell: ({ row: { original: r } }) =>
         !estimationsChargees ? (
           <Vide variant="attente" />
@@ -397,7 +397,7 @@ function buildColumns(estimationsChargees: boolean): ColumnDef<DisplayRow>[] {
       id: 'concordance',
       header: 'Concordance',
       accessorFn: (r) => r.concordance.niveau,
-      meta: { thClass: cn(TH_C, 'text-center'), tdClass: cn(TD_C, 'text-center') },
+      meta: { thClass: cx(TH_C, 'text-center'), tdClass: cx(TD_C, 'text-center') },
       cell: ({ row: { original: r } }) => <ConcordanceBadge concordance={r.concordance} />,
     })
   }
@@ -446,7 +446,7 @@ export function ConditionnementsTable({
         onSortingChange={setSorting}
         getRowKey={(r) => r.article}
         getRowClass={(r) =>
-          cn('border-t border-rule-soft transition-colors even:bg-foreground/[0.015]', rowClass(r))
+          cx('border-t border-rule-soft transition-colors even:bg-foreground/[0.015]', rowClass(r))
         }
         tableClass="min-w-[880px]"
         scrollContainerClass="h-full border border-rule rounded-lg shadow-float bg-card"

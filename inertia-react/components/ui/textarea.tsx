@@ -1,7 +1,7 @@
 import * as React from "react"
 import { TextArea as AstryxTextArea } from "@astryxdesign/core/TextArea"
 
-import { cn } from "@r/lib/utils"
+import { cx } from "@r/lib/cx"
 
 // Textarea — Lot 2 (issue #90). Wrap Astryx TextArea (était <textarea> natif).
 // API shadcn conservée : tous les props <textarea> HTML standard + className.
@@ -42,7 +42,7 @@ function Textarea({
       aria-labelledby={ariaLabelledBy}
       value={normalizedValue}
       onChange={onChange ? (_v: string, e: React.ChangeEvent<HTMLTextAreaElement>) => onChange(e) : undefined}
-      className={cn(
+      className={cx(
         "flex field-sizing-content min-h-16 w-full rounded-[8px] border border-input bg-transparent px-2.5 py-2 text-base transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30 dark:disabled:bg-input/80 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40",
         className
       )}

@@ -6,7 +6,7 @@ import { ArrowLeft, Printer } from 'lucide-react'
 import { Button } from '@r/components/ui/button'
 import Masthead from '@r/components/masthead'
 import { usePrintFitPage } from '@r/lib/board/use-print-fit-page'
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 import type { PlanDiff, AllocationStrategy } from '@r/lib/scenarios/types'
 
 interface ScenarioCompareVm {
@@ -253,7 +253,7 @@ export default function Comparer(props: ComparerPageProps) {
                       {sc.nom}
                     </h2>
                     <span
-                      className={cn(
+                      className={cx(
                         'rounded px-1.5 py-0.5 font-mono text-[9px] font-semibold',
                         sc.statut === 'applique'
                           ? 'bg-ferme/10 text-ferme'
@@ -295,7 +295,7 @@ export default function Comparer(props: ComparerPageProps) {
                   </div>
                   <div className="flex items-center gap-1">
                     <span
-                      className={cn(
+                      className={cx(
                         'text-xs font-bold',
                         clientDelta > 0
                           ? 'text-destructive'
@@ -318,7 +318,7 @@ export default function Comparer(props: ComparerPageProps) {
                   </div>
                   <div className="flex items-center gap-1">
                     <span
-                      className={cn(
+                      className={cx(
                         'text-xs font-bold',
                         shortageDelta > 0
                           ? 'text-destructive'
@@ -347,7 +347,7 @@ export default function Comparer(props: ComparerPageProps) {
                   <div className="flex items-center justify-between">
                     <span className="font-semibold text-muted-foreground">{charge.hours} h total</span>
                     <span
-                      className={cn(
+                      className={cx(
                         'font-bold',
                         hoursDelta > 0
                           ? 'text-destructive'

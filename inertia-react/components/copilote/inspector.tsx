@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { getToolName, isToolUIPart, type UIMessage } from 'ai'
 import { Boxes } from 'lucide-react'
 
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 import { toolLabel } from '@r/lib/copilote/tool-labels'
 import { toolStatus, type AnyToolPart, type ToolStatus } from '@r/components/copilote/tool-tokens'
 import { ToolResultView } from '@r/components/copilote/tool-result-view'
@@ -133,7 +133,7 @@ export function InspectorPanel(props: {
                 if (el) cardRefs.current.set(entry.toolName, el)
                 else cardRefs.current.delete(entry.toolName)
               }}
-              className={cn(
+              className={cx(
                 'rounded-xl border-t border-border/60 py-3.5 transition-shadow duration-150 first:border-none',
                 idx === 0 && 'bg-planifie/[0.06]',
                 flashingTool === entry.toolName &&
@@ -142,7 +142,7 @@ export function InspectorPanel(props: {
             >
               <div className="mb-2 flex items-center gap-1.5 text-[11.5px] font-semibold text-muted-foreground">
                 <span
-                  className={cn(
+                  className={cx(
                     'size-[7px] rounded-full',
                     entry.status === 'done' && 'bg-ferme',
                     entry.status === 'running' && 'bg-suggere animate-pulse',

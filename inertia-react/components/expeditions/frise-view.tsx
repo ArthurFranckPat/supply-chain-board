@@ -10,7 +10,7 @@ import {
   toMinutes,
 } from '@r/components/expeditions/palette-charge'
 import { TriangleAlert, Truck } from 'lucide-react'
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 
 /**
  * Vue « Frise de charge » — port React iso du Solid
@@ -141,7 +141,7 @@ export function FriseView({
                 <div className="flex min-w-0 flex-col gap-0.5 border-r border-rule-soft px-4 py-2">
                   <div className="flex items-center gap-1.5">
                     <span
-                      className={cn(
+                      className={cx(
                         'truncate text-[11.5px] font-bold',
                         c.anomalie ? 'text-destructive' : 'text-foreground'
                       )}
@@ -198,7 +198,7 @@ export function FriseView({
                     role="button"
                     tabIndex={0}
                     aria-label={`${c.client} — ${c.debut} à ${c.fin}, ${c.nbPalettes} palettes`}
-                    className={cn(
+                    className={cx(
                       'absolute flex cursor-pointer items-center overflow-hidden rounded-[5px] px-2 transition-[filter,box-shadow] duration-150',
                       'hover:brightness-110 focus-visible:bg-brand focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand',
                       isSel && 'ring-2 ring-brand ring-offset-1',
@@ -261,7 +261,7 @@ export function FriseView({
               return (
                 <div
                   key={d.i}
-                  className={cn(
+                  className={cx(
                     'absolute bottom-0 flex items-start justify-center rounded-t-[4px] pt-1',
                     cls
                   )}
@@ -286,7 +286,7 @@ export function FriseView({
       {/* Tooltip (portail fixed) */}
       <div
         ref={tipRef}
-        className={cn(
+        className={cx(
           'pointer-events-none fixed z-50 max-w-[240px] rounded-lg border border-rule bg-card p-2.5 text-[11px] shadow-float',
           !hovered && 'hidden'
         )}
@@ -303,7 +303,7 @@ export function FriseView({
             <div className="flex justify-between gap-3.5 font-mono text-[10px] text-muted-foreground">
               <span>Palettes</span>
               <b
-                className={cn(
+                className={cx(
                   'font-bold',
                   chargeText(
                     chargeTier(

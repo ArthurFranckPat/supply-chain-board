@@ -2,7 +2,7 @@ import { useEffect, type ReactNode } from 'react'
 import { Link, usePage } from '@inertiajs/react'
 
 import { route } from '@r/lib/routes'
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 import UserMenu from '@r/components/user-menu'
 
 /**
@@ -51,7 +51,7 @@ const TABS: { key: MastheadTab; label: string; href: string }[] = [
 
 // Variant `stock` — comportement historique.
 const tabClsStock = (active: boolean) =>
-  cn(
+  cx(
     'border-b-2 px-3.5 py-2.5 text-[12px] font-semibold transition-colors',
     active
       ? 'border-primary text-primary'
@@ -69,7 +69,7 @@ const tabClsStock = (active: boolean) =>
 // • inactif : texte muted-foreground, hover foreground
 // Rausch n'apparaît PAS dans la nav chez Airbnb.
 const tabClsAirbnb = (active: boolean) =>
-  cn(
+  cx(
     'border-b-[3px] px-1.5 py-2 text-[12px] font-semibold leading-tight transition-colors',
     active
       ? 'border-foreground text-foreground'
@@ -122,7 +122,7 @@ export function Masthead(props: {
           {env && (
             <span
               title={`Environnement Sage X3 : ${env}`}
-              className={cn(
+              className={cx(
                 'inline-flex items-center gap-1 rounded-full border px-2 py-[2px] font-mono text-[10px] font-bold uppercase tracking-[0.08em]',
                 env === 'test'
                   ? 'border-transparent bg-[var(--color-arches,#fc642d)] text-white'
@@ -180,7 +180,7 @@ export function Masthead(props: {
           {env && (
             <span
               title={`Environnement Sage X3 : ${env}`}
-              className={cn(
+              className={cx(
                 'inline-flex items-center gap-1 rounded-full border px-2 py-[3px] font-mono text-[10px] font-bold uppercase tracking-[0.08em]',
                 env === 'test'
                   ? 'border-transparent bg-[var(--color-arches,#fc642d)] text-white'

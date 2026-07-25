@@ -8,7 +8,7 @@
  */
 import { useMemo, type ReactNode } from 'react'
 import type { ShortageDisplayRow } from '@r/lib/shortages/types'
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 import {
   VERDICT_BADGE,
   groupByComponent,
@@ -59,7 +59,7 @@ export function ShortageComposants({
             return (
               <tr
                 key={g.component}
-                className={cn(
+                className={cx(
                   'border-t border-rule-soft transition-colors',
                   late
                     ? 'bg-destructive/10 hover:bg-destructive/[0.18]'
@@ -67,7 +67,7 @@ export function ShortageComposants({
                 )}
               >
                 <td
-                  className={cn(
+                  className={cx(
                     'px-4 py-[13px] align-middle font-fraunces text-[14px] leading-none text-muted-foreground/80 border-r border-rule-soft',
                     late && 'bg-destructive/[0.05]'
                   )}
@@ -84,7 +84,7 @@ export function ShortageComposants({
                 </td>
                 <td className={`whitespace-nowrap text-right ${TD}`}>
                   <span
-                    className={cn(
+                    className={cx(
                       'font-fraunces text-[14px] font-bold tabular-nums leading-none',
                       late ? 'text-destructive' : 'text-foreground'
                     )}
@@ -108,7 +108,7 @@ export function ShortageComposants({
                         type="button"
                         onClick={() => onSelectOf(l.numOf)}
                         title={`${l.articleParent} · ${l.articleParentDesc} — manque ${l.qteManquante} u`}
-                        className={cn(
+                        className={cx(
                           'cursor-pointer rounded border px-1.5 py-0.5 font-mono text-[10.5px] font-bold transition-colors hover:border-brand hover:text-brand',
                           l.verdictKey === 'sans_couverture'
                             ? 'border-destructive/30 text-destructive'
@@ -128,7 +128,7 @@ export function ShortageComposants({
                           {g.urgent.numCommande}
                         </span>
                         <span
-                          className={cn(
+                          className={cx(
                             'font-mono text-[11px] font-bold',
                             late ? 'text-destructive' : 'text-muted-foreground'
                           )}
@@ -153,7 +153,7 @@ export function ShortageComposants({
                     </span>
                   ) : (
                     <span
-                      className={cn(
+                      className={cx(
                         'inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap',
                         VERDICT_BADGE[g.worstVerdict].cls
                       )}

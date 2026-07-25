@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import AppLayout from '@r/layouts/app'
 import { route } from '@r/lib/routes'
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 import type { PromiseResult, PromiseNode, PromiseReason } from '@r/lib/promesse/types'
 import { DynamicIcon } from '../components/ui/dynamic-icon'
 import { Ban, Headset, Zap, TrendingUp, ChevronRight, TriangleAlert, ArrowRight } from 'lucide-react'
@@ -56,7 +56,7 @@ function TreeNode({ node, depth }: TreeNodeProps) {
   return (
     <li className={depth > 0 ? 'ml-5 border-l border-rule-soft pl-3' : ''}>
       <div
-        className={cn(
+        className={cx(
           'flex items-center gap-2 py-1.5 rounded-md px-2',
           node.onCriticalPath && 'bg-suggere/10 ring-1 ring-suggere/20'
         )}
@@ -66,7 +66,7 @@ function TreeNode({ node, depth }: TreeNodeProps) {
         )}
         <DynamicIcon name={REASON_ICON[node.reason.kind] ?? 'circle'} size={16} className="text-muted-foreground" />
         <span
-          className={cn(
+          className={cx(
             'text-[13px] font-mono',
             node.onCriticalPath ? 'font-bold text-suggere' : 'text-foreground/80'
           )}
@@ -112,11 +112,11 @@ function DateCard({ label, date, color, result }: DateCardProps) {
   }
   const dateColor = { green: 'text-ferme', amber: 'text-suggere' }
   return (
-    <div className={cn('flex-1 rounded-lg border p-4', styles[color])}>
+    <div className={cx('flex-1 rounded-lg border p-4', styles[color])}>
       <div className="text-[11px] font-semibold text-muted-foreground">{label}</div>
       {!result.infeasible ? (
         <>
-          <div className={cn('mt-1 text-2xl font-bold', dateColor[color])}>{frDate(date)}</div>
+          <div className={cx('mt-1 text-2xl font-bold', dateColor[color])}>{frDate(date)}</div>
           <div className="mt-1 text-[12px] text-muted-foreground">
             {reasonText(result.limitingFactor.reason)}
           </div>
@@ -342,7 +342,7 @@ export default function Promesse() {
                     >
                       <ChevronRight
                         size={18}
-                        className={cn(
+                        className={cx(
                           'text-muted-foreground transition-transform',
                           showTree && 'rotate-90'
                         )}

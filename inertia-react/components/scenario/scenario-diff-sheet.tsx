@@ -1,6 +1,6 @@
 import React from 'react'
 import { Sheet } from '@r/components/sheet'
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 import type { PlanDiff, DiffSens } from '@r/lib/scenarios/types'
 
 /**
@@ -71,7 +71,7 @@ export function ScenarioDiffSheet({
                   <span className="text-muted-foreground">
                     {e.article} · {e.client}
                   </span>
-                  <span className={cn('ml-auto font-bold', sensClass(e.sens))}>
+                  <span className={cx('ml-auto font-bold', sensClass(e.sens))}>
                     {e.nouvelle && <>nouvelle · </>}
                     {e.disparue && <>hors plan · </>}
                     {e.statutAvant ?? '—'} → {e.statutApres ?? '—'}
@@ -87,7 +87,7 @@ export function ScenarioDiffSheet({
                 <Row key={`appro-${i}`} sens={e.sens}>
                   <span className="font-mono text-[11px]">{e.composant}</span>
                   <span className="text-muted-foreground">{e.ofs.length} OF</span>
-                  <span className={cn('ml-auto font-bold', sensClass(e.sens))}>
+                  <span className={cx('ml-auto font-bold', sensClass(e.sens))}>
                     manquant {e.manquantAvant} → {e.manquantApres} ({fmtDelta(e.delta, '')})
                   </span>
                 </Row>
@@ -141,7 +141,7 @@ export function ScenarioDiffSheet({
                     {e.ligne ? `#${e.ligne}` : ''}
                   </span>
                   <span className="text-muted-foreground">{e.article}</span>
-                  <span className={cn('ml-auto text-right font-bold', sensClass(e.sens))}>
+                  <span className={cx('ml-auto text-right font-bold', sensClass(e.sens))}>
                     {e.perd.length > 0 && <>perd {e.perd.join(', ')} </>}
                     {e.gagne.length > 0 && <>· gagne {e.gagne.join(', ')} </>}
                     {e.deltaReliquat !== 0 && <> ({fmtDelta(e.deltaReliquat, ' u')})</>}
@@ -183,7 +183,7 @@ interface RowProps {
 function Row({ sens, children }: RowProps) {
   return (
     <div
-      className={cn(
+      className={cx(
         'flex flex-wrap items-center gap-2 rounded-md border-l-2 bg-card px-2.5 py-1.5 text-[12px]',
         sens === 'degradation' ? 'border-l-destructive' : 'border-l-ferme'
       )}

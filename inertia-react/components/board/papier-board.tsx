@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { LayoutGrid } from 'lucide-react'
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 import { ChargeHistogram, type ChargeWeek } from './charge-histogram'
 
 /**
@@ -54,7 +54,7 @@ export function Board(props: BoardProps) {
 
   return (
     <div
-      className={cn(
+      className={cx(
         'overflow-x-auto rounded-lg border border-border bg-card',
         props.class
       )}
@@ -82,11 +82,11 @@ export function Board(props: BoardProps) {
           {props.days.map((d, i) => (
             <div
               key={i}
-              className={cn('bg-secondary px-1 py-1.5 text-center', d.today && 'bg-brand-soft')}
+              className={cx('bg-secondary px-1 py-1.5 text-center', d.today && 'bg-brand-soft')}
             >
               <div className="font-mono text-[9px] uppercase text-muted-foreground">{d.short}</div>
               <div
-                className={cn(
+                className={cx(
                   'font-fraunces text-[15px] font-bold leading-none',
                   d.today ? 'text-brand' : 'text-foreground'
                 )}
@@ -135,7 +135,7 @@ export function Board(props: BoardProps) {
               {props.days.map((d, i) => (
                 <div
                   key={i}
-                  className={cn(
+                  className={cx(
                     'border-r border-rule-soft last:border-r-0',
                     d.today && 'bg-brand-soft'
                   )}

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { router, usePage } from '@inertiajs/react'
 import { LogOut } from 'lucide-react'
 
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 
 /** Identité partagée par `inertia_middleware.share()` sur toutes les pages. */
 type AuthUser = { username: string; env: 'test' | 'prod' } | null
@@ -56,7 +56,7 @@ export function UserMenu() {
         title={user.username}
         aria-haspopup="menu"
         aria-expanded={open}
-        className={cn(
+        className={cx(
           'flex size-7 items-center justify-center rounded-full font-mono text-[10px] font-bold uppercase transition-opacity hover:opacity-85',
           'bg-primary text-primary-foreground'
         )}

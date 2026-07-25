@@ -14,7 +14,7 @@ import { router } from '@inertiajs/react'
 import { Sheet } from '@r/components/sheet'
 import { LoadingState } from '@r/components/ui/loading-state'
 import { Badge } from '@r/components/ui/badge'
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 import {
   CircleX,
   Loader2,
@@ -374,7 +374,7 @@ export function OfDetailSheet(props: {
                   {d.bom.map((row) => (
                     <div
                       key={row.id}
-                      className={cn(
+                      className={cx(
                         'grid grid-cols-[1fr_1.7fr_72px_84px_96px] items-center gap-3 border-b px-3 py-2',
                         !row.ok
                           ? 'border-l-2 border-destructive/20 border-l-destructive bg-destructive/10'
@@ -389,7 +389,7 @@ export function OfDetailSheet(props: {
                       }
                     >
                       <span
-                        className={cn(
+                        className={cx(
                           'truncate font-mono text-[12px] font-bold',
                           row.ok ? 'text-foreground' : 'text-destructive'
                         )}
@@ -453,7 +453,7 @@ function Meta(p: { k: string; v: string; mono?: boolean }) {
   return (
     <div className="flex items-baseline gap-1.5">
       <span className="font-mono text-[10px] font-semibold text-muted-foreground">{p.k}</span>
-      <span className={cn('text-[13px] font-bold text-foreground', p.mono && 'font-mono')}>
+      <span className={cx('text-[13px] font-bold text-foreground', p.mono && 'font-mono')}>
         {p.v}
       </span>
     </div>
@@ -464,7 +464,7 @@ function TabBtn(p: { active: boolean; onClick: () => void; children: ReactNode }
   return (
     <button
       onClick={p.onClick}
-      className={cn(
+      className={cx(
         'flex items-center gap-1.5 border-b-2 px-5 py-2.5 font-mono text-[11px] font-semibold transition-colors',
         p.active
           ? 'border-brand text-brand'

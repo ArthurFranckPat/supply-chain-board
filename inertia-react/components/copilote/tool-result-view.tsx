@@ -18,7 +18,7 @@
 
 import { useMemo } from 'react'
 
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 
 /** Provenance et cadrage — utiles, mais jamais avant la donnée. */
 const META_KEYS = new Set(['_source', 'engine', 'note', 'filtres'])
@@ -80,7 +80,7 @@ function KeyValue(props: { label: string; value: unknown; mono?: boolean }) {
     <div className="flex items-baseline justify-between gap-2 py-0.5">
       <span className="shrink-0 text-[10.5px] text-muted-foreground">{props.label}</span>
       <span
-        className={cn(
+        className={cx(
           'min-w-0 break-words text-right text-[11.5px] text-foreground',
           props.mono && 'font-mono'
         )}

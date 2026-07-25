@@ -1,6 +1,6 @@
 import * as React from "react"
 
-import { cn } from "@r/lib/utils"
+import { cx } from "@r/lib/cx"
 import { Input } from "@r/components/ui/input"
 import { Label } from "@r/components/ui/label"
 
@@ -24,7 +24,7 @@ function TextField({ value, onChange, children, className }: TextFieldProps) {
   })
 
   return (
-    <div data-slot="text-field" className={cn("grid w-full gap-2", className)}>
+    <div data-slot="text-field" className={cx("grid w-full gap-2", className)}>
       {clonedChildren}
     </div>
   )
@@ -40,7 +40,7 @@ function TextFieldInput({ value = "", onChange, className, ...props }: TextField
     <Input
       value={value}
       onChange={onChange}
-      className={cn("h-11", className)}
+      className={cx("h-11", className)}
       {...props}
     />
   )

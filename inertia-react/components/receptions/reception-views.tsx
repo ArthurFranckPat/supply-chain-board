@@ -1,7 +1,7 @@
 import { type ReactNode } from 'react'
 import type { DayChargeDisplay, ReceptionDisplayRow } from '@r/lib/receptions/types'
 import { CalendarX, Lightbulb, TriangleAlert } from 'lucide-react'
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 import { chargeBg, chargeText, chargeTier } from '@r/lib/receptions/charge'
 
 /**
@@ -95,7 +95,7 @@ export function ReceptionTableau({
         return (
           <section
             key={group.date ?? `nodate-${gi}`}
-            className={cn('flex', gi > 0 && 'border-t border-rule')}
+            className={cx('flex', gi > 0 && 'border-t border-rule')}
           >
             {/* ── Rail de date ── */}
             <aside className="flex w-36 flex-none flex-col border-r border-rule-soft py-5 pl-8 pr-3">
@@ -118,7 +118,7 @@ export function ReceptionTableau({
               )}
               {relatif && (
                 <span
-                  className={cn(
+                  className={cx(
                     'mt-2 font-mono text-[10px] font-bold',
                     relatif === 'auj.' ? 'text-brand' : 'text-muted-foreground'
                   )}
@@ -135,7 +135,7 @@ export function ReceptionTableau({
                   {nbFrs} fournisseur{nbFrs > 1 ? 's' : ''}
                 </div>
                 <div
-                  className={cn(
+                  className={cx(
                     'pt-1 font-fraunces text-[15px] font-bold tabular-nums',
                     chargeText(totalTier)
                   )}
@@ -209,7 +209,7 @@ export function ReceptionTableau({
                         <span className="ml-2 text-muted-foreground/50">→</span>
                       </div>
                       <span
-                        className={cn(
+                        className={cx(
                           'font-fraunces text-[19px] font-bold leading-none tabular-nums',
                           row.coefManquant
                             ? 'font-medium text-destructive/45'
@@ -249,7 +249,7 @@ export function ReceptionTableau({
               <div className="ml-6 mr-8 mt-0.5 flex items-baseline gap-3 border-t border-b-[3px] border-double border-foreground pt-2.5 pb-3 pr-2 font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
                 <span>Total du jour</span>
                 <span
-                  className={cn(
+                  className={cx(
                     'ml-auto font-fraunces text-[14px] font-bold normal-case tracking-normal tabular-nums',
                     chargeText(totalTier)
                   )}
@@ -333,7 +333,7 @@ export function ReceptionCalendrier({
                 key={c.day}
                 type="button"
                 onClick={() => onSelectDay(selected ? null : c.day)}
-                className={cn(
+                className={cx(
                   'group flex min-w-[48px] flex-1 flex-col items-center justify-end rounded-md border pb-1.5 transition-colors',
                   selected
                     ? 'border-brand bg-brand/5'
@@ -346,7 +346,7 @@ export function ReceptionCalendrier({
                 <div className="flex h-[135px] w-full flex-col justify-end items-center px-1">
                   {/* Nb palettes au-dessus de la barre */}
                   <div
-                    className={cn(
+                    className={cx(
                       'mb-1 font-fraunces text-[16px] font-bold tabular-nums leading-none',
                       chargeText(tier)
                     )}
@@ -355,7 +355,7 @@ export function ReceptionCalendrier({
                   </div>
                   {/* Barre */}
                   <div
-                    className={cn(
+                    className={cx(
                       'w-full rounded-t-sm transition-all',
                       chargeBg(tier),
                       'group-hover:opacity-90'
@@ -366,7 +366,7 @@ export function ReceptionCalendrier({
                 {/* Jour (relatif + JJ/MM) */}
                 <div className="mt-1.5 px-1 text-center">
                   <div
-                    className={cn(
+                    className={cx(
                       'font-mono text-[10px] font-bold',
                       selected ? 'text-brand' : 'text-foreground'
                     )}
@@ -387,7 +387,7 @@ export function ReceptionCalendrier({
 function Legend({ sw, label }: { sw: string; label: string }) {
   return (
     <span className="flex items-center gap-1.5">
-      <span className={cn('h-[9px] w-5 rounded-[2px]', sw)} />
+      <span className={cx('h-[9px] w-5 rounded-[2px]', sw)} />
       {label}
     </span>
   )

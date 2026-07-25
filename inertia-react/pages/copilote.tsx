@@ -27,7 +27,7 @@ import { useChat } from '@ai-sdk/react'
 import { Bot, Check, Copy, PanelLeft, PanelRight } from 'lucide-react'
 
 import { route } from '@r/lib/routes'
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 
 import { Masthead } from '@r/components/masthead'
 import { Bubble, BubbleContent } from '@r/components/ui/bubble'
@@ -250,7 +250,7 @@ export default function Copilote() {
               onClick={() => setInspectorCollapsed((v) => !v)}
               title="Replier / déplier le contexte"
               aria-pressed={!inspectorCollapsed}
-              className={cn(
+              className={cx(
                 'flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1.5 text-[12px] font-semibold transition-colors hover:border-foreground hover:text-foreground',
                 inspectorCollapsed ? 'text-muted-foreground' : 'text-foreground'
               )}
@@ -350,7 +350,7 @@ export default function Copilote() {
                                 )
                               }
                               title="Copier la réponse"
-                              className={cn(
+                              className={cx(
                                 'mt-2.5 flex size-7 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-secondary hover:text-foreground group-hover/answer:opacity-100',
                                 copiedId === m.id && 'text-ferme opacity-100'
                               )}

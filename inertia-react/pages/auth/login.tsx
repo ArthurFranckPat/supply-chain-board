@@ -2,7 +2,7 @@ import { useMemo, useEffect } from 'react'
 import { Head, useForm } from '@inertiajs/react'
 import { Button } from '@r/components/ui/button'
 import { TextField, TextFieldInput, TextFieldLabel } from '@r/components/ui/text-field'
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 
 interface LoginProps {
   lastUsername: string
@@ -104,7 +104,7 @@ export default function Login(props: LoginProps) {
                     type="button"
                     onClick={() => form.setData('env', opt.value)}
                     aria-pressed={env === opt.value}
-                    className={cn(
+                    className={cx(
                       'rounded-[5px] px-2.5 py-[3px] font-mono text-[10.5px] tracking-wide transition-colors',
                       env === opt.value
                         ? 'bg-card text-primary font-semibold shadow-sm'

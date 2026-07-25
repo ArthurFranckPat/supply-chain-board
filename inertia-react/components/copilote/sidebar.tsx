@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { DateTime } from 'luxon'
 import { MessageSquare, Search, SquarePen, Trash2 } from 'lucide-react'
 
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 
 /** En-tête d'une conversation persistée (liste de la sidebar). */
 export interface ConversationSummary {
@@ -124,7 +124,7 @@ export function CopiloteSidebar(props: {
                   return (
                     <div
                       key={conv.conversationId}
-                      className={cn(
+                      className={cx(
                         'group/item relative flex w-full items-center gap-2 rounded-lg px-2.5 py-2 transition-colors',
                         active ? 'bg-card' : 'hover:bg-card/60'
                       )}
@@ -138,7 +138,7 @@ export function CopiloteSidebar(props: {
                           <span className="before:absolute before:left-0 before:top-[7px] before:bottom-[7px] before:w-[3px] before:rounded-full before:bg-primary" />
                         )}
                         <span
-                          className={cn(
+                          className={cx(
                             'min-w-0 flex-1 truncate text-[13px]',
                             active ? 'font-semibold text-foreground' : 'text-foreground/85'
                           )}
@@ -171,7 +171,7 @@ export function CopiloteSidebar(props: {
 
       <div className="flex items-center gap-2.5 border-t border-border/60 px-3.5 py-2.5">
         <span
-          className={cn(
+          className={cx(
             'flex size-[30px] shrink-0 items-center justify-center rounded-full font-mono text-[11.5px] font-bold uppercase text-white',
             props.env === 'test' ? 'bg-suggere' : 'bg-foreground'
           )}

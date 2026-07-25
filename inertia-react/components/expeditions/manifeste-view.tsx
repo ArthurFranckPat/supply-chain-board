@@ -1,7 +1,7 @@
 import { type CamionDtl } from '@r/components/expeditions/camion-detail-sheet'
 import { chargeBgClass, chargeText, chargeTier } from '@r/components/expeditions/palette-charge'
 import { Clock, TriangleAlert, Truck } from 'lucide-react'
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 
 /**
  * Vue « Manifestes camion » — port React iso du Solid
@@ -61,7 +61,7 @@ export function ManifesteView({
             <button
               key={`${c.bprnum}-${c.debut}-${c.client}`}
               type="button"
-              className={cn(
+              className={cx(
                 'relative flex flex-col gap-3 overflow-hidden rounded-lg border bg-card p-4 text-left transition-[border-color,box-shadow] duration-150',
                 'border-rule hover:border-brand',
                 isSel && 'border-brand ring-2 ring-brand/20',
@@ -90,7 +90,7 @@ export function ManifesteView({
                   <span className="font-mono text-[10px] text-muted-foreground">{c.bprnum}</span>
                 </div>
                 <span
-                  className={cn(
+                  className={cx(
                     'flex flex-none items-center gap-1 whitespace-nowrap rounded-md px-2 py-1 font-mono text-[10px] font-bold',
                     c.anomalie
                       ? 'bg-destructive/10 text-destructive'
@@ -107,7 +107,7 @@ export function ManifesteView({
               <div className="flex flex-col gap-1.5">
                 <div className="flex items-baseline justify-between gap-2">
                   <span
-                    className={cn(
+                    className={cx(
                       'flex items-baseline gap-1 font-fraunces text-[26px] font-black leading-none tracking-tight tabular-nums',
                       chargeText(tier)
                     )}
@@ -152,7 +152,7 @@ export function ManifesteView({
                     />
                   )}
                   <div
-                    className={cn(
+                    className={cx(
                       'h-full rounded-full transition-[width] duration-300',
                       chargeBgClass(tier)
                     )}

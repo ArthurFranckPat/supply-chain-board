@@ -23,7 +23,7 @@
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import * as React from 'react'
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 
 export interface DashboardGridItem {
   id: string
@@ -418,7 +418,7 @@ export function DashboardGrid({
       // React préfixe les keys des enfants d'un tableau ; on retombe sur l'id brut.
       const id = String(child.key).replace(/^\.\$/, '')
       const el = child as React.ReactElement<{ className?: string }>
-      map.set(id, React.cloneElement(el, { className: cn(el.props.className, 'h-full w-full') }))
+      map.set(id, React.cloneElement(el, { className: cx(el.props.className, 'h-full w-full') }))
     })
     return map
   }, [children])
@@ -453,7 +453,7 @@ export function DashboardGrid({
           else nodeRefs.current.delete(id)
         }}
         data-grid-id={id}
-        className={cn('dashboard-grid-item', isActive && 'is-active')}
+        className={cx('dashboard-grid-item', isActive && 'is-active')}
         style={{
           position: 'absolute',
           left: box.left,
@@ -471,7 +471,7 @@ export function DashboardGrid({
   return (
     <div
       ref={containerRef}
-      className={cn('dashboard-grid', activeId && 'is-gesturing', className)}
+      className={cx('dashboard-grid', activeId && 'is-gesturing', className)}
       data-gesture={gestureCursor ?? undefined}
       style={{ position: 'relative', height: Math.max(height, 0) }}
       onPointerDown={onPointerDown}

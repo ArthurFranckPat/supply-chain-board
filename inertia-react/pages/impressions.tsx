@@ -13,7 +13,7 @@ import {
 import AppLayout from '@r/layouts/app'
 import { Button } from '@r/components/ui/button'
 import { Input } from '@r/components/ui/input'
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 import { route } from '@r/lib/routes'
 
 /**
@@ -347,7 +347,7 @@ export default function Impressions(props: PageProps) {
                 key={p.label}
                 type="button"
                 onClick={() => setPeriod(p.v)}
-                className={cn(
+                className={cx(
                   'rounded-[5px] px-2.5 py-1 text-[12px] font-semibold transition-colors',
                   period === p.v
                     ? 'bg-brand-soft text-brand'
@@ -362,7 +362,7 @@ export default function Impressions(props: PageProps) {
           <button
             type="button"
             onClick={() => setFailedOnly((v) => !v)}
-            className={cn(
+            className={cx(
               'inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-[12px] font-semibold transition-colors',
               failedOnly
                 ? 'border-red-300 bg-red-50 text-red-800'
@@ -451,7 +451,7 @@ export default function Impressions(props: PageProps) {
                 {jobs.map((j) => (
                   <Fragment key={j.id}>
                   <tr
-                    className={cn(
+                    className={cx(
                       'border-b border-rule/60',
                       opened.has(j.id) && 'border-b-0',
                       failed(j) && 'bg-red-50/40'
@@ -525,7 +525,7 @@ export default function Impressions(props: PageProps) {
                     </td>
                   </tr>
                   {opened.has(j.id) && (
-                    <tr className={cn('border-b border-rule/60', failed(j) && 'bg-red-50/40')}>
+                    <tr className={cx('border-b border-rule/60', failed(j) && 'bg-red-50/40')}>
                       <td colSpan={8} className="px-4 pb-3 pt-0">
                         <JobDetail j={j} />
                       </td>

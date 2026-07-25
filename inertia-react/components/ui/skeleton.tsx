@@ -1,6 +1,6 @@
 import * as React from "react"
 import { Skeleton as AstryxSkeleton } from "@astryxdesign/core/Skeleton"
-import { cn } from "@r/lib/utils"
+import { cx } from "@r/lib/cx"
 
 // Skeleton — Lot 2 (issue #90). Base wrap sur Astryx Skeleton (était <div>
 // natif avec animate-pulse). Les composés (SkeletonCard/Row/Badge/Chart)
@@ -13,7 +13,7 @@ function Skeleton({
   return (
     <AstryxSkeleton
       data-slot="skeleton"
-      className={cn(
+      className={cx(
         "animate-pulse rounded-md bg-muted/70 dark:bg-muted/40",
         className
       )}
@@ -26,7 +26,7 @@ function SkeletonCard({ className, children, ...props }: React.ComponentProps<"d
   return (
     <div
       data-slot="skeleton-card"
-      className={cn(
+      className={cx(
         "flex flex-col gap-3 rounded-lg border bg-card p-5 shadow-xs",
         className
       )}
@@ -48,7 +48,7 @@ function SkeletonCard({ className, children, ...props }: React.ComponentProps<"d
 
 function SkeletonRow({ count = 3, className }: { count?: number; className?: string }) {
   return (
-    <div className={cn("space-y-2.5", className)}>
+    <div className={cx("space-y-2.5", className)}>
       {Array.from({ length: count }).map((_, i) => (
         <div key={i} className="flex items-center gap-3 rounded-lg border bg-card p-3.5">
           <Skeleton className="size-8 rounded-full" />
@@ -64,12 +64,12 @@ function SkeletonRow({ count = 3, className }: { count?: number; className?: str
 }
 
 function SkeletonBadge({ className }: { className?: string }) {
-  return <Skeleton className={cn("h-5 w-14 rounded-full", className)} />
+  return <Skeleton className={cx("h-5 w-14 rounded-full", className)} />
 }
 
 function SkeletonChart({ className }: { className?: string }) {
   return (
-    <div className={cn("flex flex-col gap-3 rounded-lg border bg-card p-5", className)}>
+    <div className={cx("flex flex-col gap-3 rounded-lg border bg-card p-5", className)}>
       <div className="flex items-center justify-between">
         <Skeleton className="h-4 w-32" />
         <Skeleton className="h-4 w-20 rounded-md" />

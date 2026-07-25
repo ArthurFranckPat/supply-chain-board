@@ -8,7 +8,7 @@
 import { useState, type ReactNode } from 'react'
 import { DataTable, type ColumnDef, type SortingState } from '@r/components/ui/data-table'
 import type { ShortageDisplayRow } from '@r/lib/shortages/types'
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 import { isLate, TH, TH_R, TD } from '@r/lib/shortages/shortage-math'
 
 export function ShortageRegistre({
@@ -44,7 +44,7 @@ export function ShortageRegistre({
       header: () => 'Qté manq.',
       cell: ({ row: { original: row } }) => (
         <span
-          className={cn(
+          className={cx(
             'font-fraunces text-[14px] font-bold tabular-nums leading-none',
             isLate(row) ? 'text-destructive' : 'text-foreground'
           )}
@@ -89,7 +89,7 @@ export function ShortageRegistre({
               </span>
               {row.dateExpedition && (
                 <span
-                  className={cn(
+                  className={cx(
                     'font-mono text-[11px] font-bold',
                     isLate(row) ? 'text-destructive' : 'text-muted-foreground'
                   )}
@@ -168,7 +168,7 @@ export function ShortageRegistre({
       header: () => 'Verdict',
       cell: ({ row: { original: row } }) => (
         <span
-          className={cn(
+          className={cx(
             'inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap',
             row.verdictCls
           )}
@@ -187,7 +187,7 @@ export function ShortageRegistre({
     headerLabel: 'N°',
     thClass: `w-[38px] ${TH}`,
     tdClass: (row: ShortageDisplayRow) =>
-      cn(
+      cx(
         'px-4 py-[13px] align-middle font-fraunces text-[14px] leading-none text-muted-foreground/80 border-r border-rule-soft',
         isLate(row) && 'bg-destructive/[0.05]'
       ),
@@ -204,7 +204,7 @@ export function ShortageRegistre({
       scrollContainerClass="h-full border-0 rounded-none shadow-none"
       theadRowClass="sticky top-0 z-10 bg-secondary"
       getRowClass={(row) =>
-        cn(
+        cx(
           'border-t border-rule-soft transition-colors',
           isLate(row)
             ? 'bg-destructive/10 hover:bg-destructive/[0.18]'

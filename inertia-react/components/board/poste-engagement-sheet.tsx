@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { CircleX, Package, RefreshCw, TriangleAlert } from 'lucide-react'
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 import { Sheet } from '@r/components/sheet'
 import { LoadingState } from '@r/components/ui/loading-state'
 import { route } from '@r/lib/routes'
@@ -189,7 +189,7 @@ export function PosteEngagementSheet(props: PosteEngagementSheetProps) {
                   <div className="flex items-center gap-2">
                     <div className="relative h-1.5 w-24 overflow-hidden rounded-full bg-rule-soft">
                       <div
-                        className={cn(
+                        className={cx(
                           'absolute inset-y-0 left-0 rounded-full transition-all',
                           sat.level === 'ok' && 'bg-ferme',
                           sat.level === 'high' && 'bg-suggere',
@@ -199,7 +199,7 @@ export function PosteEngagementSheet(props: PosteEngagementSheetProps) {
                       />
                     </div>
                     <span
-                      className={cn(
+                      className={cx(
                         'font-mono text-[11px] font-bold tabular-nums',
                         sat.level === 'ok' && 'text-ferme',
                         sat.level === 'high' && 'text-suggere',
@@ -264,7 +264,7 @@ export function PosteEngagementSheet(props: PosteEngagementSheetProps) {
                     <div key={r.numOf}>
                       {showSep && (
                         <div
-                          className={cn(
+                          className={cx(
                             'flex items-center gap-2 px-5 pt-3 pb-1.5 font-mono text-[9px] font-bold uppercase tracking-wider',
                             u === 'overdue' && 'text-danger',
                             u === 'week' && 'text-brand',
@@ -272,7 +272,7 @@ export function PosteEngagementSheet(props: PosteEngagementSheetProps) {
                           )}
                         >
                           <span
-                            className={cn(
+                            className={cx(
                               'inline-block h-px flex-none w-4',
                               u === 'overdue' && 'bg-danger',
                               u === 'week' && 'bg-brand',
@@ -304,7 +304,7 @@ export function PosteEngagementSheet(props: PosteEngagementSheetProps) {
                           <div className="relative h-2.5 w-full">
                             <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 overflow-hidden rounded-full bg-rule-soft">
                               <div
-                                className={cn(
+                                className={cx(
                                   'absolute inset-y-0 left-0 rounded-full',
                                   avancement >= 100 && 'bg-ferme',
                                   avancement > 0 && avancement < 100 && 'bg-planifie'
@@ -351,7 +351,7 @@ export function PosteEngagementSheet(props: PosteEngagementSheetProps) {
                           )}
                         </div>
                         <span
-                          className={cn(
+                          className={cx(
                             'font-mono text-[11px] font-bold tabular-nums',
                             urgencyColor(u)
                           )}

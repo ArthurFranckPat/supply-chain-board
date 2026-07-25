@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react'
 import { Head } from '@inertiajs/react'
 import { route } from '@r/lib/routes'
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 
 import { Masthead } from '@r/components/masthead'
 import { Badge } from '@r/components/ui/badge'
@@ -311,7 +311,7 @@ export default function WritebackTest() {
                 <button
                   key={o}
                   type="button"
-                  className={cn(
+                  className={cx(
                     'rounded-md border px-3 py-1.5 font-mono text-[12px] font-semibold',
                     op === o
                       ? 'border-brand bg-brand/10 text-brand'
@@ -489,7 +489,7 @@ export default function WritebackTest() {
                     {result.messages.map((msg, idx) => (
                       <div
                         key={idx}
-                        className={cn(
+                        className={cx(
                           'rounded px-3 py-1.5 font-mono text-[11px]',
                           MSG_STYLE[msg.type] ?? MSG_STYLE[3]
                         )}

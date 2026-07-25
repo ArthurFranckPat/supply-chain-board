@@ -16,7 +16,7 @@ import { CamionDetailSheet, type CamionDtl } from '@r/components/expeditions/cam
 import { ManifesteView, type ManifesteSort } from '@r/components/expeditions/manifeste-view'
 import { FriseView } from '@r/components/expeditions/frise-view'
 import { useTimedFetch } from '@r/lib/suivi/use-timed-fetch'
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 
 /**
  * Page « Expéditions » (issue #44) — port React iso du Solid
@@ -232,7 +232,7 @@ export default function Expeditions(props: ExpeditionsPageProps) {
           <button
             type="button"
             onClick={() => setAnomalyOnly((v) => !v)}
-            className={cn(
+            className={cx(
               'flex items-center gap-1 rounded-md border px-2.5 py-1.5 font-mono text-[10px] font-semibold transition-colors',
               anomalyOnly
                 ? 'border-destructive/40 bg-destructive/10 text-destructive'
@@ -378,7 +378,7 @@ export default function Expeditions(props: ExpeditionsPageProps) {
 function Legend({ sw, label }: { sw: string; label: string }) {
   return (
     <span className="flex items-center gap-1.5">
-      <span className={cn('h-[9px] w-5 rounded-[2px]', sw)} />
+      <span className={cx('h-[9px] w-5 rounded-[2px]', sw)} />
       {label}
     </span>
   )

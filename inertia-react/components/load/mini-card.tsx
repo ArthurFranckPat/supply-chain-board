@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 import type { LoadLine } from '@r/lib/load/types'
 import { DANGER, FG, BRAND, rtop, satColor, satRate, segsOf, total } from '@r/lib/load/chart-math'
 
@@ -76,7 +76,7 @@ export function MiniCard({ line, months, selected, showCapacity, onSelect }: Min
     <button
       type="button"
       onClick={onSelect}
-      className={cn(
+      className={cx(
         'flex w-[190px] shrink-0 flex-col rounded-lg border bg-card p-3 text-left transition-all hover:-translate-y-px',
         selected
           ? 'border-brand shadow-[0_0_0_2px_var(--color-brand-soft),0_4px_12px_-4px_rgba(0,0,0,.25)]'
@@ -123,7 +123,7 @@ export function MiniCard({ line, months, selected, showCapacity, onSelect }: Min
       <div className="mt-1.5 flex items-baseline justify-between">
         <span className="font-fraunces text-[16px] font-extrabold tracking-tight">{sum}h</span>
         <span
-          className={cn(
+          className={cx(
             'font-mono text-[9px] font-bold',
             selected && peakSat < 85 && 'text-brand',
             !selected && peakSat < 85 && 'text-suggere'

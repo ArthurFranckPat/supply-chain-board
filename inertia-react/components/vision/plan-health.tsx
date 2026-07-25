@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 
 /**
  * Programme v2 — santé du plan. 4 badges toujours rendus (zéro CLS) :
@@ -91,14 +91,14 @@ export function PlanHealth(props: {
           type="button"
           disabled={!b.clickable}
           onClick={() => b.clickable && props.onSelect(b.key as HealthCategory)}
-          className={cn(
+          className={cx(
             'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-2xs font-bold transition-colors',
             TONE_CLASS[b.tone],
             b.clickable ? 'cursor-pointer hover:opacity-80' : 'cursor-default'
           )}
           aria-label={b.label}
         >
-          <span className={cn('size-1.5 rounded-full', DOT_CLASS[b.tone])} />
+          <span className={cx('size-1.5 rounded-full', DOT_CLASS[b.tone])} />
           {b.label}
         </button>
       ))}

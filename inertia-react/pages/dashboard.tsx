@@ -7,7 +7,7 @@ import { Calendar } from '@r/components/ui/calendar'
 import { useRangeCalendar } from '@r/lib/use-range-calendar'
 import { useTimedFetch } from '@r/lib/suivi/use-timed-fetch'
 import { usePrintFitPage } from '@r/lib/board/use-print-fit-page'
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 import { Segment, SegmentButton, DateWindowPill } from '@r/components/vision/toolbar'
 import {
   DEFAULT_DASHBOARD_LAYOUT,
@@ -386,7 +386,7 @@ function Tile({
             <button
               type="button"
               onClick={() => onWidth(1)}
-              className={cn(
+              className={cx(
                 'px-1.5 py-0.5 font-mono text-[10px] font-bold transition-colors',
                 width === 1 ? 'bg-brand text-brand-foreground rounded-xs' : 'text-muted-foreground hover:text-foreground'
               )}
@@ -397,7 +397,7 @@ function Tile({
             <button
               type="button"
               onClick={() => onWidth(2)}
-              className={cn(
+              className={cx(
                 'px-1.5 py-0.5 font-mono text-[10px] font-bold transition-colors',
                 width === 2 ? 'bg-brand text-brand-foreground rounded-xs' : 'text-muted-foreground hover:text-foreground'
               )}
@@ -408,7 +408,7 @@ function Tile({
             <button
               type="button"
               onClick={() => onWidth(3)}
-              className={cn(
+              className={cx(
                 'px-1.5 py-0.5 font-mono text-[10px] font-bold transition-colors',
                 width === 3 ? 'bg-brand text-brand-foreground rounded-xs' : 'text-muted-foreground hover:text-foreground'
               )}
@@ -991,7 +991,7 @@ export default function Dashboard(props: DashboardProps) {
                         </div>
 
                         {otd.map((p, i) => (
-                          <div key={p.label} className={cn('mt-5 border-t border-rule-soft pt-5', i > 0)}>
+                          <div key={p.label} className={cx(i > 0 && 'mt-5 border-t border-rule-soft pt-5')}>
                             <div className="mb-2 font-mono text-[10px] font-semibold text-muted-foreground">
                               {p.label}
                             </div>
@@ -1425,7 +1425,7 @@ export default function Dashboard(props: DashboardProps) {
                           <button
                             type="button"
                             onClick={() => setStockHideZero((v) => !v)}
-                            className={cn(
+                            className={cx(
                               'h-8 rounded-[8px] border px-2.5 font-mono text-[11px] font-semibold transition-colors',
                               stockHideZero
                                 ? 'border-brand/40 bg-brand-soft text-brand'

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { TriangleAlert, Search } from 'lucide-react'
 import { DynamicIcon } from '../../components/ui/dynamic-icon'
 import AppLayout from '@r/layouts/app'
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 import type { LoadPageProps, LoadLine, LoadView } from '@r/lib/load/types'
 import {
   type Gran,
@@ -426,13 +426,13 @@ export default function Load(props: LoadPageProps) {
                 </div>
                 {/* Dégradés de bord */}
                 <div
-                  className={cn(
+                  className={cx(
                     'pointer-events-none absolute inset-y-0 left-0 w-12 bg-gradient-to-r from-background to-transparent transition-opacity duration-200',
                     atStart && 'opacity-0'
                   )}
                 />
                 <div
-                  className={cn(
+                  className={cx(
                     'pointer-events-none absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-background to-transparent transition-opacity duration-200',
                     atEnd && 'opacity-0'
                   )}
@@ -476,7 +476,7 @@ export default function Load(props: LoadPageProps) {
                     <button
                       type="button"
                       onClick={() => setGran('month')}
-                      className={cn(
+                      className={cx(
                         'rounded-full px-3.5 py-1.5 font-sans text-[11px] font-semibold transition-colors',
                         gran === 'month'
                           ? 'bg-card text-brand'
@@ -488,7 +488,7 @@ export default function Load(props: LoadPageProps) {
                     <button
                       type="button"
                       onClick={() => setGran('week')}
-                      className={cn(
+                      className={cx(
                         'rounded-full px-3.5 py-1.5 font-sans text-[11px] font-semibold transition-colors',
                         gran === 'week'
                           ? 'bg-card text-brand'

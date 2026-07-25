@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { ArrowUp, Lock, Square } from 'lucide-react'
 
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 
 export interface PromptChip {
   label: string
@@ -100,7 +100,7 @@ export function Composer(props: {
                 onClick={props.onSend}
                 disabled={!canSend}
                 aria-label="Envoyer"
-                className={cn(
+                className={cx(
                   'flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-white transition-[background,transform]',
                   'hover:bg-[var(--color-rausch-active,#e00b41)] active:scale-90',
                   'disabled:pointer-events-none disabled:bg-border disabled:text-white'

@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 
 /**
  * ChargeHistogram « Papier » — charge d'un poste (hebdo, empilé Ferme/Planifié/Suggéré).
@@ -43,8 +43,8 @@ interface SegProps {
 
 function Seg({ bg, h, label, ink }: SegProps) {
   return (
-    <div className={cn('flex w-full items-center justify-center', bg)} style={{ height: `${h}%` }}>
-      {label && <span className={cn('font-mono text-[8px] font-bold leading-none', ink)}>{label}</span>}
+    <div className={cx('flex w-full items-center justify-center', bg)} style={{ height: `${h}%` }}>
+      {label && <span className={cx('font-mono text-[8px] font-bold leading-none', ink)}>{label}</span>}
     </div>
   )
 }
@@ -74,7 +74,7 @@ export function ChargeHistogram(props: ChargeHistogramProps) {
   const pct = (v: number, t: number) => (t > 0 ? (v / t) * 100 : 0)
 
   return (
-    <div className={cn('flex flex-col gap-1.5', props.class)}>
+    <div className={cx('flex flex-col gap-1.5', props.class)}>
       {/* Hero : total horizon (+ moyenne h/sem en 'full') */}
       <div className="flex flex-wrap items-baseline gap-1.5">
         <span className="font-fraunces text-[26px] font-black leading-none tracking-tight text-foreground">
@@ -112,7 +112,7 @@ export function ChargeHistogram(props: ChargeHistogramProps) {
 
       {/* Barres empilées arrondies */}
       <div
-        className={cn(
+        className={cx(
           'relative flex items-end justify-center border-b border-rule-soft px-1',
           barH,
           gap
@@ -134,7 +134,7 @@ export function ChargeHistogram(props: ChargeHistogramProps) {
           return (
             <div
               key={w.week}
-              className={cn('flex flex-col justify-end overflow-hidden rounded-t-[6px]', barW)}
+              className={cx('flex flex-col justify-end overflow-hidden rounded-t-[6px]', barW)}
               style={{ height: `${barHeight}%` }}
             >
               {/* Induit (besoin brut depth-1) — hachuré terra, en haut de la barre. */}
@@ -174,11 +174,11 @@ export function ChargeHistogram(props: ChargeHistogramProps) {
       </div>
 
       {/* Axe : n° de semaine (+ total en 'full') */}
-      <div className={cn('flex justify-center px-1', gap)}>
+      <div className={cx('flex justify-center px-1', gap)}>
         {props.weeks.map((w) => (
           <span
             key={w.week}
-            className={cn(
+            className={cx(
               'text-center font-mono font-bold text-muted-foreground',
               barW,
               line ? 'text-[10px]' : 'text-[8px]'

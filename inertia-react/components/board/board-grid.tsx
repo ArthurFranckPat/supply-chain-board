@@ -7,7 +7,7 @@ import {
 } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { autoScrollForElements } from '@atlaskit/pragmatic-drag-and-drop-auto-scroll/element'
 
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 import { useBoardStore, cardMatches, lineVisible, feasOf, type BoardState } from '@r/lib/board/store'
 import type { Card, DayCol, LineRow } from '@r/lib/board/types'
 import { TYPO_META } from '@r/lib/board/types'
@@ -314,13 +314,13 @@ export default function BoardGrid(props: BoardGridProps) {
             {days.map((day, di) => (
               <div
                 key={di}
-                className={cn(
+                className={cx(
                   'border-b border-r border-rule-soft bg-card px-2.5 py-1.5 text-center',
                   day.today && 'bg-brand-soft'
                 )}
               >
                 <div
-                  className={cn(
+                  className={cx(
                     'font-mono text-2xs font-bold tracking-[0.1em]',
                     day.today ? 'text-brand' : 'text-muted-foreground'
                   )}
@@ -328,7 +328,7 @@ export default function BoardGrid(props: BoardGridProps) {
                   {day.short.replace(/\s*\d+\s*$/, '')}
                 </div>
                 <div
-                  className={cn(
+                  className={cx(
                     'font-fraunces text-lg font-bold leading-none tracking-tight',
                     day.today ? 'text-brand italic' : 'text-foreground'
                   )}
@@ -442,7 +442,7 @@ function BoardLine({
           dédié : le header est déjà dense (histogramme + PP_830). */}
       <div className="sticky left-0 z-20 flex flex-col gap-1.5 overflow-hidden border-r border-rule bg-card px-3.5 py-3">
         <div
-          className={cn(
+          className={cx(
             'flex items-center gap-2',
             onLineEngagement && 'cursor-pointer transition-colors hover:[&_.line-code]:text-brand'
           )}
@@ -530,7 +530,7 @@ function BoardCell(props: BoardCellProps) {
   return (
     <div
       ref={ref}
-      className={cn(
+      className={cx(
         'relative flex min-h-[96px] flex-col gap-2 border-r border-rule-soft bg-card p-2',
         props.isToday && 'bg-brand-soft'
       )}
@@ -625,7 +625,7 @@ function CardView(props: CardViewProps) {
       role="button"
       tabIndex={matches ? 0 : -1}
       data-num-of={card.id}
-      className={cn(
+      className={cx(
         'relative cursor-pointer transition-opacity',
         !matches && 'pointer-events-none opacity-15',
         selecting && picked && 'rounded-md ring-2 ring-brand ring-offset-1'
@@ -638,7 +638,7 @@ function CardView(props: CardViewProps) {
       {/* Case à cocher (mode sélection) */}
       {selecting && (
         <span
-          className={cn(
+          className={cx(
             'absolute left-1 top-1 z-10 flex size-4 items-center justify-center rounded border bg-card',
             picked ? 'border-brand bg-brand text-card' : 'border-rule text-transparent'
           )}
@@ -649,7 +649,7 @@ function CardView(props: CardViewProps) {
       {/* Badge d'état batch (spinner / ✓ / ✗) par OF */}
       {batchItem && (
         <span
-          className={cn(
+          className={cx(
             'absolute right-1 top-1 z-10 flex size-4 items-center justify-center rounded-full text-card',
             batchItem.st === 'ok' ? 'bg-ferme' : batchItem.st === 'error' ? 'bg-destructive' : 'bg-brand'
           )}
@@ -809,7 +809,7 @@ function VirtualCell(props: VirtualCellProps) {
   return (
     <div
       ref={ref}
-      className={cn(
+      className={cx(
         'flex min-h-[52px] flex-col gap-1 border-r border-dashed border-brand/30 p-1.5',
         over && 'bg-brand-soft'
       )}
@@ -859,7 +859,7 @@ function VirtualOrderChip(props: VirtualOrderChipProps) {
         if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'
       }}
       onClick={toggleCtp}
-      className={cn(
+      className={cx(
         'group relative rounded-[6px] border border-dashed border-brand/60 bg-card/80 px-1.5 py-1 leading-tight shadow-sm',
         'cursor-grab active:cursor-grabbing',
         tone?.border ?? ''
@@ -899,7 +899,7 @@ function VirtualOrderChip(props: VirtualOrderChipProps) {
         )}
         {tone && (
           <span
-            className={cn(
+            className={cx(
               'ml-auto rounded-full bg-card px-1 py-px font-mono text-3xs font-semibold',
               tone.text
             )}

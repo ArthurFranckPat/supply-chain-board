@@ -3,7 +3,7 @@
  * inertia/lib/suivi/reactive-columns.tsx (API ColumnDef du DataTable maison,
  * même JSX cellule que Solid).
  */
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 import type { ColumnDef, DataTableIndexColumn } from '@r/components/ui/data-table'
 import type { SuiviDisplayRow } from '@r/lib/suivi/types'
 import { BADGE_TONE, BADGE_DOT, BADGE_TEXT, LATE_TONE, empKey, getRelativeDateLabel } from '@r/lib/suivi/tracking-shared'
@@ -141,7 +141,7 @@ export function createReactiveColumns({
             <div className="font-mono text-[11px] font-semibold text-foreground">{(getValue() as string) || '—'}</div>
             {rel && (
               <div
-                className={cn(
+                className={cx(
                   'font-sans text-[9px] font-semibold',
                   rel.label.startsWith('Retard')
                     ? 'text-destructive'
@@ -188,7 +188,7 @@ export function createReactiveColumns({
             {visible.map((e, i) => (
               <span
                 key={`${e.nom}-${e.hum}-${i}`}
-                className={cn(
+                className={cx(
                   'flex w-full items-center gap-1.5 whitespace-nowrap rounded border px-2 py-1 font-mono text-[10.5px] leading-[1.4]',
                   e.source === 'STOALL'
                     ? 'border-foreground/15 bg-secondary text-secondary-foreground'
@@ -208,7 +208,7 @@ export function createReactiveColumns({
                     name={e.source === 'STOALL' ? 'check_circle' : 'radio_button_unchecked'}
                     size={13}
                     strokeWidth={1.75}
-                    className={cn(
+                    className={cx(
                       'leading-none',
                       e.source === 'STOALL' ? 'text-foreground' : 'text-muted-foreground/70'
                     )}
@@ -267,8 +267,8 @@ export function createReactiveColumns({
         return (
           <div className="flex flex-col items-start gap-1">
             <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-              <span className={cn('size-1.5 shrink-0 rounded-full', BADGE_DOT[o.statusKey])} />
-              <span className={cn('text-[10px] font-semibold', BADGE_TEXT[o.statusKey])}>
+              <span className={cx('size-1.5 shrink-0 rounded-full', BADGE_DOT[o.statusKey])} />
+              <span className={cx('text-[10px] font-semibold', BADGE_TEXT[o.statusKey])}>
                 {o.statusLabel}
               </span>
             </span>
@@ -353,7 +353,7 @@ export function createReactiveIndexCol(): DataTableIndexColumn<SuiviDisplayRow> 
     thClass:
       'w-[38px] px-4 py-[6px] text-left font-mono text-[11px] font-semibold text-muted-foreground border-b border-rule',
     tdClass: (row: SuiviDisplayRow) =>
-      cn(
+      cx(
         'px-4 py-[5px] align-middle font-sans text-[12px] font-bold leading-none tracking-tight text-muted-foreground/80 tabular-nums',
         LATE_TONE.bar(row.lateSeverity)
       ),

@@ -13,7 +13,7 @@ import {
   type Facette,
 } from '@r/components/conditionnements/conditionnements-views'
 import { useTimedFetch } from '@r/lib/suivi/use-timed-fetch'
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 import type {
   ConditionnementsRowsResponse,
   EstimationsFetchResponse,
@@ -264,7 +264,7 @@ export default function Conditionnements(props: ConditionnementsPageProps) {
           <div>
             Remplissage&nbsp;
             <b
-              className={cn(
+              className={cx(
                 'font-bold tabular-nums',
                 tauxRemplissageFiltre >= 0.8
                   ? 'text-ferme'
@@ -323,7 +323,7 @@ export default function Conditionnements(props: ConditionnementsPageProps) {
                 setSelCategories(new Set<string>())
                 setSelFournisseurs(new Set<string>())
               }}
-              className={cn(PILL, 'text-muted-foreground hover:text-foreground')}
+              className={cx(PILL, 'text-muted-foreground hover:text-foreground')}
             >
               <FilterX size={14} strokeWidth={1.75} />
               Réinitialiser ({nbFiltresActifs})
@@ -348,7 +348,7 @@ export default function Conditionnements(props: ConditionnementsPageProps) {
               <button
                 type="button"
                 onClick={() => setEnrichTrigger((t) => t + 1)}
-                className={cn(PILL, 'border-brand/40 bg-brand-soft text-brand hover:bg-brand/20')}
+                className={cx(PILL, 'border-brand/40 bg-brand-soft text-brand hover:bg-brand/20')}
                 title="Charger les estimations STOCK/STOJOU + mouvements (coûteux)"
               >
                 <Lightbulb size={14} strokeWidth={1.75} />

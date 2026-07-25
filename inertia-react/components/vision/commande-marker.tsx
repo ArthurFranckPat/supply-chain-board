@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { cn } from '@r/lib/utils'
+import { cx } from '@r/lib/cx'
 import type { VisionCommande } from '@r/lib/vision/types'
 import { fmtDay } from '@r/lib/vision/date-utils'
 import type { ImpactVerdict } from '@r/lib/vision/impact'
@@ -87,7 +87,7 @@ export function CommandeMarker(props: {
         setActiveId(null)
         props.onActivate?.(null)
       }}
-      className={cn(
+      className={cx(
         'relative overflow-hidden rounded-[6px] border border-rule bg-brand-soft px-1.5 py-1.5 leading-tight transition-shadow duration-150',
         borderClass,
         cmd.ligne ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer',
@@ -97,7 +97,7 @@ export function CommandeMarker(props: {
     >
       {/* Numéro complet (+ ligne) sur sa propre ligne, police réduite pour rentrer. */}
       <div className="flex items-baseline gap-1 whitespace-nowrap font-mono text-2xs font-bold text-brand">
-        <DynamicIcon name={iconName} size={12} strokeWidth={1.75} className={cn('flex-none self-center', iconClass)} />
+        <DynamicIcon name={iconName} size={12} strokeWidth={1.75} className={cx('flex-none self-center', iconClass)} />
         <span>
           {cmd.numCommande}
           {cmd.ligne && (
@@ -107,7 +107,7 @@ export function CommandeMarker(props: {
         {/* #23 : badge retard « +N j » */}
         {verdict !== null && props.deltaJours !== null && props.deltaJours !== undefined && (
           <span
-            className={cn(
+            className={cx(
               'ml-auto rounded-full px-1 py-px font-mono text-3xs font-bold tabular-nums',
               verdict === 'retard' ? 'bg-destructive/10 text-destructive' : 'bg-suggere/10 text-suggere'
             )}
