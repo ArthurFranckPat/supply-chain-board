@@ -1,0 +1,122 @@
+name: CI
+
+# Remplace l'ancienne CI du monorepo Python (supprimée avec `apps/`,
+# `services/` et `packages/` en 1e47671). Le dépôt est désormais une seule
+# application AdonisJS 7 + React 19, sans Python ni workspace.
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Le dev tourne sur Node 26 — la CI doit valider la même chose.
+  NODE_VERSION: '26'
+
+jobs:
+  quality:
+    name: Quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        # Deux passes : la racine (backend, exclut inertia-react) puis le front.
+        run: npm run typecheck
+
+      # Les deux vérifications suivantes régénèrent un fichier commité et
+      # échouent sur `git diff --exit-code` : elles attrapent un artefact
+      # périmé, pas une erreur de compilation. Le manifeste de routes s'était
+      # déjà désynchronisé sans que personne le voie.
+      - name: Env de boot
+        # `routes:check` boote Adonis (`node ace list:routes`) : il lui faut un
+        # .env. Les valeurs X3 restent celles de l'exemple — rien ne se connecte
+        # au dossier ERP depuis un runner GitHub, X3 étant on-premise.
+        run: |
+          cp .env.example .env
+          echo "APP_KEY=$(openssl rand -base64 32)" >> .env
+
+      - name: Manifeste de routes à jour
+        run: npm run routes:check
+
+      - name: Apps MCP à jour
+        run: npm run mcp:apps:check
+
+  test:
+    name: Tests unitaires
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Env de boot
+        run: |
+          cp .env.example .env
+          echo "APP_KEY=$(openssl rand -base64 32)" >> .env
+
+      - name: Suite unit
+        # Suite `unit` = tests/unit/** + tests/domain/** (adonisrc.ts), tout du
+        # domaine pur : ni X3 ni base de données.
+        #
+        # La suite `functional` est volontairement absente : 3 de ses 6 fichiers
+        # tapent X3, injoignable depuis un runner GitHub. La lancer ici ne
+        # produirait qu'un rouge permanent sans rapport avec le code.
+        run: npm test -- --suite=unit
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Env de boot
+        run: |
+          cp .env.example .env
+          echo "APP_KEY=$(openssl rand -base64 32)" >> .env
+
+      - name: Build
+        # Seul endroit où le packaging est exercé : le typecheck ne voit ni les
+        # assets Vite, ni les `metaFiles` d'adonisrc (vues Edge, apps MCP), ni
+        # la résolution ESM du bundle serveur.
+        run: npm run build
+
+      - name: Vérifier la sortie
+        # `ace build` peut rendre 0 en ayant produit un dossier inutilisable :
+        # on exige les deux sorties réelles (serveur compilé + assets Vite).
+        run: |
+          test -f build/bin/server.js || { echo "::error::build/bin/server.js absent"; exit 1; }
+          test -d build/public/assets || { echo "::error::assets Vite absents du build"; exit 1; }
