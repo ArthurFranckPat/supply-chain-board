@@ -49,7 +49,10 @@ function Calendar({
           "relative flex flex-col gap-4 md:flex-row",
           defaultClassNames.months
         ),
-        month: cn("flex w-full flex-col gap-4", defaultClassNames.month),
+        month: cn(
+          "flex w-full flex-col gap-4 md:[&:not(:first-child)]:border-l md:[&:not(:first-child)]:border-rule-soft md:[&:not(:first-child)]:pl-4",
+          defaultClassNames.month
+        ),
         nav: cn(
           "absolute inset-x-0 top-0 flex w-full items-center justify-between gap-1",
           defaultClassNames.nav
@@ -119,7 +122,7 @@ function Calendar({
           defaultClassNames.range_end
         ),
         today: cn(
-          "rounded-(--cell-radius) bg-muted text-foreground data-[selected=true]:rounded-none",
+          "rounded-(--cell-radius) text-foreground data-[selected=true]:rounded-none",
           defaultClassNames.today
         ),
         outside: cn(
@@ -200,16 +203,23 @@ function CalendarDayButton({
       size="icon"
       data-day={day.date.toLocaleDateString(locale?.code)}
       data-selected-single={
+        !modifiers.outside &&
         modifiers.selected &&
         !modifiers.range_start &&
         !modifiers.range_end &&
         !modifiers.range_middle
       }
-      data-range-start={modifiers.range_start}
-      data-range-end={modifiers.range_end}
+      data-range-start={!modifiers.outside && modifiers.range_start}
+      data-range-end={!modifiers.outside && modifiers.range_end}
       data-range-middle={modifiers.range_middle}
       className={cn(
         "relative isolate z-10 flex aspect-square size-auto w-full min-w-(--cell-size) flex-col gap-1 border-0 leading-none font-normal group-data-[focused=true]/day:relative group-data-[focused=true]/day:z-10 group-data-[focused=true]/day:border-ring group-data-[focused=true]/day:ring-[3px] group-data-[focused=true]/day:ring-ring/50 data-[range-end=true]:rounded-(--cell-radius) data-[range-end=true]:rounded-r-(--cell-radius) data-[range-end=true]:bg-foreground data-[range-end=true]:text-background data-[range-middle=true]:rounded-none data-[range-middle=true]:bg-muted data-[range-middle=true]:text-foreground data-[range-start=true]:rounded-(--cell-radius) data-[range-start=true]:rounded-l-(--cell-radius) data-[range-start=true]:bg-foreground data-[range-start=true]:text-background data-[selected-single=true]:rounded-full data-[selected-single=true]:bg-foreground data-[selected-single=true]:text-background dark:hover:text-foreground [&>span]:text-xs [&>span]:opacity-70",
+        /* « Aujourd'hui » = anneau détaché, lisible sur fond blanc COMME autour
+           d'un disque de borne (l'offset crée un liseré clair). Ne s'écrase pas
+           sous bg-foreground, contrairement à l'ancien fond gris qui se confondait
+           avec la plage. */
+        modifiers.today &&
+          "ring-1 ring-ring/70 ring-offset-2 ring-offset-background",
         defaultClassNames.day,
         className
       )}
