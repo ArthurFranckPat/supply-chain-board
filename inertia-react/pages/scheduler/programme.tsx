@@ -214,12 +214,19 @@ export default function Programme(props: VisionProps) {
       const wasOrderMode = mode === 'planification'
       const willBeOrderMode = newMode === 'planification'
       if (wasOrderMode !== willBeOrderMode) {
+        // `getState()` plutôt que l'objet abonné : un handler veut l'état AU
+        // MOMENT DU CLIC. `useBoardStore()` sans sélecteur renvoie l'état
+        // entier, dont l'identité change à chaque `set()` — le lister en deps
+        // recréerait ce callback à chaque mutation du board, y compris pendant
+        // un drag.
+        const b = useBoardStore.getState()
+        const o = useOrderBoardStore.getState()
         if (willBeOrderMode) {
-          orderStore.onScopeChange(OF_TO_ORDER_SCOPE[boardStore.scope])
-          orderStore.onQueryInput(boardStore.query)
+          o.onScopeChange(OF_TO_ORDER_SCOPE[b.scope])
+          o.onQueryInput(b.query)
         } else {
-          boardStore.onScopeChange(ORDER_TO_OF_SCOPE[orderStore.scope])
-          boardStore.onQueryInput(orderStore.query)
+          b.onScopeChange(ORDER_TO_OF_SCOPE[o.scope])
+          b.onQueryInput(o.query)
         }
       }
       setMode(newMode)
@@ -231,7 +238,7 @@ export default function Programme(props: VisionProps) {
       }
       window.history.replaceState({}, '', url)
     },
-    [mode, boardStore.query, boardStore.scope, orderStore.query, orderStore.scope]
+    [mode]
   )
 
   // Store « actif » selon le mode
@@ -240,18 +247,18 @@ export default function Programme(props: VisionProps) {
   const feasLoading = () => (isOrderMode ? orderStore.feasLoading : boardStore.feasLoading)
   const runFeasibility = useCallback(() => {
     if (isOrderMode) {
-      orderStore.runFeasibility(props.windowFrom, props.windowTo)
+      useOrderBoardStore.getState().runFeasibility(props.windowFrom, props.windowTo)
     } else {
-      boardStore.runFeasibility(props.windowFrom, props.windowTo)
+      useBoardStore.getState().runFeasibility(props.windowFrom, props.windowTo)
     }
   }, [isOrderMode, props.windowFrom, props.windowTo])
   const feasMode = () => (isOrderMode ? orderStore.mode : boardStore.mode)
   const setFeasMode = useCallback(
     (m: 'immediate' | 'sequential') => {
       if (isOrderMode) {
-        orderStore.setMode(m)
+        useOrderBoardStore.getState().setMode(m)
       } else {
-        boardStore.setMode(m)
+        useBoardStore.getState().setMode(m)
       }
     },
     [isOrderMode]
@@ -647,9 +654,15 @@ export default function Programme(props: VisionProps) {
   }, [boardStore.board.lines])
 
   // ── Commandes virtuelles (#58) ──
+  // Sélecteurs fins : ici `getState()` serait FAUX — c'est une valeur dérivée
+  // qui doit provoquer un rendu quand elle change. Un sélecteur n'abonne qu'à
+  // sa tranche et donne une dépendance que la règle sait suivre.
+  const scenarioMutations = useScenarioStore((st) => st.current.mutations)
+  const scenarioDiff = useScenarioStore((st) => st.diff)
+
   const virtualOrders = useMemo(() => {
-    return virtualOrdersFrom(scenarioStore.current.mutations, scenarioStore.diff)
-  }, [scenarioStore.current.mutations, scenarioStore.diff])
+    return virtualOrdersFrom(scenarioMutations, scenarioDiff)
+  }, [scenarioMutations, scenarioDiff])
 
   const virtualOrdersByCol = useMemo(() => {
     const map = new Map<number, typeof virtualOrders>()
@@ -673,15 +686,16 @@ export default function Programme(props: VisionProps) {
 
   const moveVirtualOrder = useCallback(
     (id: string, _col: number, iso: string) => {
-      const existing = scenarioStore.current.mutations.find(
+      const sc = useScenarioStore.getState()
+      const existing = sc.current.mutations.find(
         (m): m is Extract<PlanMutation, { type: 'inject_demand' }> =>
           m.type === 'inject_demand' && m.id === id
       )
       if (!existing) return
-      scenarioStore.upsertMutation({ ...existing, date: iso })
-      scenarioStore.computeDiff(props.windowFrom, props.windowTo)
+      sc.upsertMutation({ ...existing, date: iso })
+      sc.computeDiff(props.windowFrom, props.windowTo)
     },
-    [scenarioStore.current.mutations, props.windowFrom, props.windowTo]
+    [props.windowFrom, props.windowTo]
   )
 
   const removeVirtualOrder = useCallback(
@@ -694,8 +708,9 @@ export default function Programme(props: VisionProps) {
 
   // ── Scénario (#57) ──
   const toggleScenario = useCallback(() => {
-    scenarioStore.setActive(!scenarioStore.active)
-  }, [scenarioStore.active])
+    const sc = useScenarioStore.getState()
+    sc.setActive(!sc.active)
+  }, [])
 
   const applyScenario = useCallback(async () => {
     if (applying) return
