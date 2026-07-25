@@ -52,6 +52,7 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
 } from '@r/components/ui/alert-dialog'
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem, SelectRender } from '@r/components/ui/select'
 
 /** Tokens à inspecter pour la parité thème (Q2). */
 const TOKEN_PROBE: Array<{ key: string; expected: string; source: string }> = [
@@ -168,6 +169,19 @@ export default function AstryxLab() {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
+
+            {/* Démo Select migré (context collecte options). */}
+            <Select defaultValue="a">
+              <SelectTrigger aria-label="Choix">
+                <SelectValue placeholder="Choisir…" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="a">Option A</SelectItem>
+                <SelectItem value="b">Option B</SelectItem>
+                <SelectItem value="c">Option C</SelectItem>
+              </SelectContent>
+              <SelectRender />
+            </Select>
           </section>
 
           {/* ── Colonne 3 : parité tokens + portal Base UI ── */}
