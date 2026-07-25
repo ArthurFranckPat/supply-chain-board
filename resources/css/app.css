@@ -1296,3 +1296,8 @@ up-drawer-dismiss {
   animation-duration: 320ms;
   animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
 }
+
+/* react-grid-layout n'est utilisé que par le dashboard React : les styles de la
+ * grille vivent dans `inertia-react/styles/app.css`. Ce bloc était mort ici
+ * (runtime Solid) et référençait `--brand`, token qui n'existe pas dans cette
+ * feuille (`--color-brand`). Cf. issue #87. */

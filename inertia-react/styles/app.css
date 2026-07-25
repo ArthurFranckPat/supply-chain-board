@@ -560,3 +560,70 @@
     padding-bottom: 8mm !important;
   }
 }
+
+/* ── Styles react-grid-layout & react-resizable ──
+ * Ce bloc est chargé APRÈS `react-grid-layout/css/styles.css` : à spécificité
+ * égale il gagne. Il faut donc rétablir explicitement le `transition: none`
+ * de la lib pendant le drag et le resize — sinon chaque frame du geste est
+ * animée sur 200 ms, la carte traîne derrière le curseur et le geste paraît
+ * inerte (issue #87). */
+.react-grid-item {
+  transition: transform 200ms ease, width 200ms ease, height 200ms ease;
+}
+.react-grid-item.cssTransforms {
+  transition-property: transform, width, height;
+}
+
+/* Pendant le geste : aucune animation, la position suit le pointeur. */
+.react-grid-item.react-draggable-dragging,
+.react-grid-item.resizing {
+  transition: none !important;
+}
+.react-grid-item.resizing {
+  z-index: 100;
+  will-change: width, height;
+}
+.react-grid-item.react-draggable-dragging {
+  z-index: 100;
+  will-change: transform;
+}
+
+/* `--brand` est une couleur complète (var(--primary) → #ff385c) : `hsl(var(--brand))`
+ * était invalide et ces règles étaient mortes. */
+.react-grid-item.react-grid-placeholder {
+  background: color-mix(in oklab, var(--brand) 15%, transparent);
+  border: 2px dashed var(--brand);
+  border-radius: 0.75rem;
+  opacity: 0.8;
+  z-index: 2;
+}
+.react-grid-item.react-grid-placeholder.placeholder-resizing {
+  transition: none;
+}
+
+/* La lib cible la poignée en `.react-grid-item > …` (spécificité supérieure) :
+ * on reprend le même sélecteur, sinon taille, position et chevron sont ignorés. */
+.react-grid-item > .react-resizable-handle {
+  width: 24px;
+  height: 24px;
+  z-index: 40;
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+.react-grid-item:hover > .react-resizable-handle {
+  opacity: 1;
+}
+.react-grid-item > .react-resizable-handle.react-resizable-handle-se {
+  right: 0;
+  bottom: 0;
+  cursor: se-resize;
+}
+.react-grid-item > .react-resizable-handle::after {
+  right: 6px;
+  bottom: 6px;
+  width: 8px;
+  height: 8px;
+  border-right: 2.5px solid var(--brand);
+  border-bottom: 2.5px solid var(--brand);
+  border-radius: 1px;
+}

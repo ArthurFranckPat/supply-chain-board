@@ -26,7 +26,7 @@ interface LayoutState extends DashboardLayout {
   setLayout: (layout: DashboardLayout) => void
   setVisible: (id: KpiId, visible: boolean) => void
   setWidth: (id: KpiId, width: KpiWidth) => void
-  setCustomSize: (id: KpiId, customWidth?: number, customHeight?: number) => void
+  updateGridItems: (gridItems: Array<{ i: string; x: number; y: number; w: number; h: number }>) => void
   moveItem: (draggedId: KpiId, targetId: KpiId) => void
   moveItemDir: (id: KpiId, dir: -1 | 1) => void
   movePrint: (id: KpiId, dir: -1 | 1) => void
@@ -56,12 +56,21 @@ export const useLayoutStore = create<LayoutState>()(
 
       setWidth: (id, width) =>
         set((state) => ({
-          items: state.items.map((it) => (it.id === id ? { ...it, width } : it)),
+          items: state.items.map((it) => {
+            if (it.id !== id) return it
+            const w = width === 2 ? 8 : width === 3 ? 12 : 4
+            return { ...it, width, w }
+          }),
         })),
 
-      setCustomSize: (id, customWidth, customHeight) =>
+      updateGridItems: (gridItems) =>
         set((state) => ({
-          items: state.items.map((it) => (it.id === id ? { ...it, customWidth, customHeight } : it)),
+          items: state.items.map((it) => {
+            const match = gridItems.find((g) => g.i === it.id)
+            if (!match) return it
+            const width: KpiWidth = match.w <= 4 ? 1 : match.w <= 8 ? 2 : 3
+            return { ...it, x: match.x, y: match.y, w: match.w, h: match.h, width }
+          }),
         })),
 
       moveItem: (draggedId, targetId) => {
@@ -108,6 +117,12 @@ export const useLayoutStore = create<LayoutState>()(
       name: 'dashboard-layout',
       // On persiste items + printOrder seulement
       partialize: (state) => ({ items: state.items, printOrder: state.printOrder }),
+      // v1 → v2 : les items persistés avant react-grid-layout n'ont ni x/y ni
+      // w/h. Réhydratés tels quels ils donnent une géométrie NaN à la grille
+      // (drag et resize inertes au premier rendu). On repasse systématiquement
+      // par le normaliseur, qui complète depuis DEFAULT_DASHBOARD_LAYOUT.
+      version: 2,
+      migrate: (persisted) => normalizeDashboardLayout(persisted),
     }
   )
 )
