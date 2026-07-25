@@ -50,22 +50,37 @@ export interface StockFuturePoint {
 }
 
 /**
- * Indicateurs de pilotage dérivés de l'historique déjà chargé — aucune requête
- * X3 supplémentaire : tout se déduit de `series`.
+ * Indicateurs de pilotage — aucune requête X3 supplémentaire : tout se déduit
+ * de `series` (passé) et de la projection `future` (à venir).
  *
- * `null` quand le calcul n'a pas de sens (diviseur nul), jamais 0 : un article
- * sans sortie n'a pas « 0 jour de couverture », il n'en a pas.
+ * `null` quand le calcul n'a pas de sens (diviseur nul, pas de rupture sur
+ * l'horizon), jamais 0 : un article sans sortie n'a pas « 0 jour de
+ * couverture », il n'en a pas.
+ *
+ * **Deux couvertures, deux usages.** Celle qui vient de l'historique décrit le
+ * régime moyen passé ; celle qui vient de la demande à venir est la seule à
+ * porter une décision. Ne pas les afficher côte à côte : elles répondent à des
+ * questions différentes et se contredisent dès que la demande n'est pas plate.
  */
 export interface StockArticleIndicateurs {
+  // --- Descriptif, fenêtre glissante passée ---
   sorties12m: number // Σ des sorties nettes de la fenêtre
   joursFenetre: number // amplitude réelle du calcul, en jours
   cmj: number | null // sorties / jours calendaires
-  couvertureJours: number | null // stock actuel / cmj
+  couvertureJours: number | null // stock actuel / cmj — régime moyen passé
   stockMoyen: number // moyenne du stock de fin de semaine
   rotation: number | null // sorties / stock moyen
-  /** couvertureJours ÷ délai de réappro. < 1 = le stock ne tient pas jusqu'à
-   *  la prochaine livraison possible. C'est le signal actionnable. */
-  ratioCouvertureDelai: number | null
+
+  // --- Décisionnel, demande réelle à venir ---
+  /** Jours avant rupture en déroulant les besoins réels, RÉCEPTIONS EXCLUES.
+   *  `null` = le stock couvre tout l'horizon de projection. */
+  couvertureProspectiveJours: number | null
+  /** Semaine ISO de la rupture (clé YYYY-Www) et sa date, pour l'affichage. */
+  ruptureSemaine: string | null
+  ruptureDateIso: string | null
+  /** couvertureProspectiveJours ÷ délai de réappro. < 1 = commander maintenant
+   *  n'arrive plus à temps. C'est LE signal actionnable. */
+  ratioProspectifDelai: number | null
 }
 
 export interface StockArticleDetail extends StockArticleHistory {
@@ -117,7 +132,12 @@ const toMonday = (d: Date): Date => {
  * Les semaines de bord sont partielles ; l'amplitude est donc exposée
  * (`joursFenetre`) plutôt que figée à 365.
  */
-function computeIndicateurs(history: StockArticleHistory): StockArticleIndicateurs {
+function computeIndicateurs(
+  history: StockArticleHistory,
+  future: StockFuturePoint[],
+  firstMonday: Date,
+  refDate: Date
+): StockArticleIndicateurs {
   const series = history.series
   const sorties12m = series.reduce((t, p) => t + p.sortieQte, 0)
   // 53 points hebdomadaires couvrent 52 intervalles, soit 364 jours.
@@ -129,6 +149,47 @@ function computeIndicateurs(history: StockArticleHistory): StockArticleIndicateu
   const couvertureJours = cmj !== null && cmj > 0 ? history.stock / cmj : null
 
   const round2 = (v: number) => Math.round(v * 100) / 100
+
+  // --- Couverture prospective : déroulé des besoins réels, hors réceptions ---
+  // Exclure les réceptions est le point clé. Les inclure redonnerait la courbe
+  // de projection, qui répond à « où va mon stock » ; ici on demande « combien
+  // de temps je tiens si rien n'arrive », seule formulation comparable à un
+  // délai de réapprovisionnement.
+  //
+  // Une semaine de fermeture usine n'a aucun besoin et allonge donc la
+  // couverture d'autant, automatiquement — c'est précisément ce qu'une CMJ
+  // moyenne, plate par construction, ne sait pas faire.
+  let restant = history.stock
+  let couvertureProspectiveJours: number | null = null
+  let ruptureSemaine: string | null = null
+  let ruptureDateIso: string | null = null
+
+  // Jours entre refDate et le premier seau (S+1) : la projection commence au
+  // lundi suivant, pas aujourd'hui.
+  const joursAvantPremierSeau = Math.max(
+    0,
+    Math.round((firstMonday.getTime() - refDate.getTime()) / 86_400_000)
+  )
+
+  for (let i = 0; i < future.length; i++) {
+    const besoin = future[i].besoinQte
+    if (besoin <= 0) continue
+    if (restant >= besoin) {
+      restant -= besoin
+      continue
+    }
+    // Rupture dans cette semaine. Le besoin hebdomadaire est réputé s'étaler
+    // uniformément sur les 7 jours — d'où l'interpolation du jour de rupture.
+    const fraction = besoin > 0 ? restant / besoin : 0
+    const jourDansSeau = i * 7 + fraction * 7
+    couvertureProspectiveJours = round2(joursAvantPremierSeau + jourDansSeau)
+    ruptureSemaine = future[i].periode
+    const d = new Date(firstMonday.getTime() + jourDansSeau * 86_400_000)
+    ruptureDateIso = isoDay(d)
+    restant = 0
+    break
+  }
+
   return {
     sorties12m: round2(sorties12m),
     joursFenetre,
@@ -136,9 +197,12 @@ function computeIndicateurs(history: StockArticleHistory): StockArticleIndicateu
     couvertureJours: couvertureJours === null ? null : round2(couvertureJours),
     stockMoyen: round2(stockMoyen),
     rotation: stockMoyen > 0 ? round2(sorties12m / stockMoyen) : null,
-    ratioCouvertureDelai:
-      couvertureJours !== null && delai !== null && delai > 0
-        ? round2(couvertureJours / delai)
+    couvertureProspectiveJours,
+    ruptureSemaine,
+    ruptureDateIso,
+    ratioProspectifDelai:
+      couvertureProspectiveJours !== null && delai !== null && delai > 0
+        ? round2(couvertureProspectiveJours / delai)
         : null,
   }
 }
@@ -229,7 +293,11 @@ export async function loadStockArticleDetail(
       })
 
       return {
-        detail: { ...history, future, indicateurs: computeIndicateurs(history) },
+        detail: {
+          ...history,
+          future,
+          indicateurs: computeIndicateurs(history, future, firstMonday, refDate),
+        },
         x3Error,
       }
     },

@@ -54,10 +54,13 @@ interface StockArticleIndicateurs {
   sorties12m: number
   joursFenetre: number
   cmj: number | null
-  couvertureJours: number | null
+  couvertureJours: number | null // régime moyen passé — non affiché, cf. LogistiqueBar
   stockMoyen: number
   rotation: number | null
-  ratioCouvertureDelai: number | null
+  couvertureProspectiveJours: number | null
+  ruptureSemaine: string | null
+  ruptureDateIso: string | null
+  ratioProspectifDelai: number | null
 }
 
 interface StockArticleDetail {
@@ -818,6 +821,9 @@ function LogItem({
 /** Jours entiers — « 140 j ». */
 const fmtJours = (v: number): string => `${fmtQty.format(Math.round(v))} j`
 
+/** ISO machine → jj/mm/aaaa, seul format de date affiché dans ce projet. */
+const fmtDateFr = (iso: string): string => iso.split('-').reverse().join('/')
+
 /**
  * Bandeau des paramètres de pilotage : fournisseur, délai de réappro, lots,
  * stock de sécurité, répartition A/Q. Ce sont eux qui expliquent la forme de la
@@ -914,26 +920,39 @@ function LogistiqueBar({ detail }: { detail: StockArticleDetail }) {
         title={`Consommation moyenne par jour CALENDAIRE (sorties ÷ ${ind.joursFenetre} jours). Diviser par les seuls jours de mouvement doublerait ce chiffre et diviserait la couverture par deux.`}
       />
     )
-  if (ind.couvertureJours !== null) {
-    // Alerte quand le stock ne tient pas jusqu'à la prochaine livraison
-    // possible : une couverture confortable dans l'absolu peut être une rupture
-    // certaine face à un délai de réappro long.
-    const sousDelai = ind.ratioCouvertureDelai !== null && ind.ratioCouvertureDelai < 1
+  // Couverture PROSPECTIVE, jamais celle du régime moyen passé. Les deux se
+  // contredisent dès que la demande n'est pas plate — sur 11022900, 35 j contre
+  // 17,6 j, parce que la fermeture d'été ne consomme rien et qu'une CMJ moyenne
+  // ne sait pas la voir. Les afficher ensemble ne ferait qu'égarer.
+  if (ind.couvertureProspectiveJours !== null) {
+    const sousDelai = ind.ratioProspectifDelai !== null && ind.ratioProspectifDelai < 1
+    const date = ind.ruptureDateIso ? fmtDateFr(ind.ruptureDateIso) : null
     calc.push(
       <LogItem
         key="couv"
-        label="Couverture"
-        value={
-          sousDelai
-            ? `${fmtJours(ind.couvertureJours)} · ${fmtPct(ind.ratioCouvertureDelai!)} du délai`
-            : fmtJours(ind.couvertureJours)
-        }
+        label="Tient jusqu'au"
+        value={[
+          date,
+          `${fmtJours(ind.couvertureProspectiveJours)}`,
+          sousDelai ? `${fmtPct(ind.ratioProspectifDelai!)} du délai` : null,
+        ]
+          .filter(Boolean)
+          .join(' · ')}
         alert={sousDelai}
         title={
           l.delaiReapproJours !== null
-            ? `Stock actuel ÷ CMJ calendaire. Délai de réapprovisionnement : ${fmtJours(l.delaiReapproJours)}${sousDelai ? ' — le stock ne tient pas jusqu\'à la prochaine livraison possible.' : '.'}`
-            : 'Stock actuel ÷ CMJ calendaire.'
+            ? `Besoins réels déroulés depuis le stock actuel, réceptions à venir exclues. Délai de réapprovisionnement ${fmtJours(l.delaiReapproJours)}${sousDelai ? ' — commander maintenant n\'arrive plus à temps.' : ' — commander maintenant arrive encore à temps.'}`
+            : 'Besoins réels déroulés depuis le stock actuel, réceptions à venir exclues.'
         }
+      />
+    )
+  } else if (ind.sorties12m > 0) {
+    calc.push(
+      <LogItem
+        key="couv"
+        label="Tient jusqu'au"
+        value="au-delà de 52 sem."
+        title="Aucune rupture sur l'horizon de projection, réceptions à venir exclues."
       />
     )
   }

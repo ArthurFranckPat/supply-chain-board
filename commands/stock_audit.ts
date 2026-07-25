@@ -131,12 +131,37 @@ export default class StockAudit extends BaseCommand {
           `Logistique : fournisseur ${l.fournisseurNom ?? '—'} (${l.fournisseurCode ?? '—'}) · délai ${opt(l.delaiReapproJours, ' j')} · lot éco ${opt(l.lotEconomique)} · lot techn. ${opt(l.lotTechnique)} · stock sécu ${opt(l.stockSecurite)}`
         )
         this.logger.info(
-          `Indicateurs : sorties 12 m ${Math.round(i.sorties12m)} sur ${i.joursFenetre} j · CMJ ${opt(i.cmj)} · couverture ${opt(i.couvertureJours, ' j')} · stock moyen ${Math.round(i.stockMoyen)} · rotation ${opt(i.rotation, ' ×')}`
+          `Historique : sorties 12 m ${Math.round(i.sorties12m)} sur ${i.joursFenetre} j · CMJ ${opt(i.cmj)} · couverture au régime moyen ${opt(i.couvertureJours, ' j')} · stock moyen ${Math.round(i.stockMoyen)} · rotation ${opt(i.rotation, ' ×')}`
         )
-        if (i.ratioCouvertureDelai !== null) {
-          const pct = Math.round(i.ratioCouvertureDelai * 100)
-          this.logger[i.ratioCouvertureDelai < 1 ? 'warning' : 'info'](
-            `Couverture vs délai de réappro : ${pct} % — ${i.ratioCouvertureDelai < 1 ? 'le stock ne tient PAS jusqu’à la prochaine livraison possible.' : 'le stock tient jusqu’à la prochaine livraison possible.'}`
+        // Les deux couvertures côte à côte : c'est le seul endroit où c'est
+        // utile (l'écart entre elles mesure à quel point la demande n'est pas
+        // plate). L'UI n'affiche que la prospective, pour éviter la confusion.
+        if (i.couvertureProspectiveJours === null) {
+          this.logger.info(
+            'Prospectif : aucune rupture sur l’horizon de projection, réceptions exclues.'
+          )
+        } else {
+          const dateFr = i.ruptureDateIso
+            ? i.ruptureDateIso.split('-').reverse().join('/')
+            : '—'
+          this.logger.info(
+            `Prospectif : rupture le ${dateFr} (${i.ruptureSemaine}), soit ${i.couvertureProspectiveJours} j — besoins réels déroulés, réceptions exclues.`
+          )
+          if (i.cmj !== null && i.couvertureJours !== null && i.couvertureJours > 0) {
+            // L'écart entre les deux couvertures mesure la platitude de la
+            // demande. Hors bande, la moyenne glissante ne décrit plus le
+            // régime à venir et ne doit pas servir à décider.
+            const ecart = Math.round((i.couvertureProspectiveJours / i.couvertureJours) * 100)
+            const horsBande = ecart > 120 || ecart < 80
+            this.logger.info(
+              `  Écart avec le régime moyen : ${ecart} %${horsBande ? ' — la demande n’est PAS plate, la CMJ historique ne décrit pas le régime à venir.' : ' — demande à peu près plate, les deux lectures concordent.'}`
+            )
+          }
+        }
+        if (i.ratioProspectifDelai !== null) {
+          const pct = Math.round(i.ratioProspectifDelai * 100)
+          this.logger[i.ratioProspectifDelai < 1 ? 'warning' : 'info'](
+            `Couverture prospective vs délai de réappro : ${pct} % — ${i.ratioProspectifDelai < 1 ? 'commander maintenant N’ARRIVE PLUS à temps.' : 'commander maintenant arrive encore à temps.'}`
           )
         }
       }
