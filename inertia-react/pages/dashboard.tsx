@@ -346,7 +346,13 @@ function HiddenTile({ id, editMode, screenRank, onShow }: { id: KpiId; editMode:
 
 // Grille maison (issue #87) : react-grid-layout v2 laissait drag et resize
 // inertes, et sa v1 est incompatible React 19 (`ReactDOM.findDOMNode`).
-import { DashboardGrid, type DashboardGridItem } from '@r/components/dashboard/grid'
+import { type DashboardGridItem } from '@r/components/dashboard/grid'
+import {
+  DASHBOARD_LAYOUT_MODE_KEY,
+  DashboardLayoutSwitch,
+  isDashboardLayoutMode,
+  type DashboardLayoutMode,
+} from '@r/components/dashboard/layout-switch'
 
 /**
  * Conteneur de KPI. Le placement est porté par `DashboardGrid` ; ici on ne
@@ -534,6 +540,18 @@ export default function Dashboard(props: DashboardProps) {
 
   // Déclaré avant les mémos qui en dépendent (gridLayout, handleLayoutChange).
   const [editMode, setEditMode] = useState(false)
+
+  // Comparaison des deux modèles de disposition (issue #87). Le choix est gardé
+  // en localStorage pour survivre à un rechargement pendant la comparaison ; il
+  // ne part pas au serveur, ce n'est pas une préférence du produit.
+  const [layoutMode, setLayoutMode] = useState<DashboardLayoutMode>(() => {
+    if (typeof window === 'undefined') return 'grid'
+    const stored = window.localStorage.getItem(DASHBOARD_LAYOUT_MODE_KEY)
+    return isDashboardLayoutMode(stored) ? stored : 'grid'
+  })
+  useEffect(() => {
+    window.localStorage.setItem(DASHBOARD_LAYOUT_MODE_KEY, layoutMode)
+  }, [layoutMode])
 
   const gridLayout = useMemo<DashboardGridItem[]>(
     () =>
@@ -743,7 +761,32 @@ export default function Dashboard(props: DashboardProps) {
               </span>
             )}
             <div className="ml-auto flex items-center gap-2">
-              {editMode && (
+              {/* Comparaison des deux modèles de disposition (issue #87). */}
+              <Segment label="Disposition" ariaLabel="Modèle de disposition" role="radiogroup">
+                <SegmentButton
+                  role="radio"
+                  active={layoutMode === 'grid'}
+                  onClick={() => setLayoutMode('grid')}
+                  title="Grille : placement libre, déplacement et redimensionnement à cran, disposition enregistrée"
+                >
+                  Grille
+                </SegmentButton>
+                <SegmentButton
+                  role="radio"
+                  active={layoutMode === 'panels'}
+                  onClick={() => {
+                    // Le mode édition n'a pas de sens en volets, et ses boutons de
+                    // largeur écriraient `w` — donc redécouperaient les colonnes.
+                    setEditMode(false)
+                    setLayoutMode('panels')
+                  }}
+                  title="Volets : redimensionnement continu, pas de déplacement, tailles non enregistrées"
+                >
+                  Volets
+                </SegmentButton>
+              </Segment>
+
+              {editMode && layoutMode === 'grid' && (
                 <Button
                   type="button"
                   variant="outline"
@@ -755,20 +798,25 @@ export default function Dashboard(props: DashboardProps) {
                   Réinitialiser
                 </Button>
               )}
-              <Button
-                type="button"
-                variant={editMode ? 'default' : 'outline'}
-                size="xs"
-                onClick={() => setEditMode((v) => !v)}
-                className="font-mono text-xs font-semibold"
-              >
-                <SlidersHorizontal size={13} className="mr-1" />
-                {editMode ? 'Terminé' : 'Personnaliser'}
-              </Button>
+              {/* Le mode volets n'a rien à personnaliser : pas de déplacement,
+                  pas de largeur discrète, et les tailles ne sont pas persistées. */}
+              {layoutMode === 'grid' && (
+                <Button
+                  type="button"
+                  variant={editMode ? 'default' : 'outline'}
+                  size="xs"
+                  onClick={() => setEditMode((v) => !v)}
+                  className="font-mono text-xs font-semibold"
+                >
+                  <SlidersHorizontal size={13} className="mr-1" />
+                  {editMode ? 'Terminé' : 'Personnaliser'}
+                </Button>
+              )}
             </div>
           </div>
 
-          <DashboardGrid
+          <DashboardLayoutSwitch
+            mode={layoutMode}
             items={gridLayout}
             editMode={editMode}
             onChange={handleLayoutChange}
@@ -1546,7 +1594,7 @@ export default function Dashboard(props: DashboardProps) {
                 </Tile>
               </div>
             )}
-          </DashboardGrid>
+          </DashboardLayoutSwitch>
 
           {/* Section cartes masquées en mode édition */}
           {editMode && items.some((it) => !it.visible) && (
