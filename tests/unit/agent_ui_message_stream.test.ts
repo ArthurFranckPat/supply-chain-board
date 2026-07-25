@@ -1,7 +1,7 @@
 import { test } from '@japa/runner'
 
 import { AgentUIMessageMapper } from '#services/agent/ui_message_stream'
-import type { AgentSseEvent } from '#services/agent_service'
+import { unwrapToolResult, type AgentSseEvent } from '#services/agent_service'
 
 test.group('agent → UI message stream (mapper)', () => {
   test('session → start avec metadata', ({ assert }) => {
@@ -148,5 +148,38 @@ test.group('agent → UI message stream (mapper)', () => {
       chunks.map((c) => c.type),
       ['finish']
     )
+  })
+})
+
+/**
+ * Le wrapper `AgentToolResult` de pi porte le payload deux fois (sérialisé dans
+ * `content[0].text`, structuré dans `details`). Le streamer tel quel doublait le
+ * SSE et faisait afficher du JSON échappé dans l'inspecteur.
+ */
+test.group('unwrapToolResult', () => {
+  test('details fait foi', ({ assert }) => {
+    const payload = { _source: 'listerReceptions', lignes: [{ article: 'A' }] }
+    assert.deepEqual(
+      unwrapToolResult({ content: [{ type: 'text', text: JSON.stringify(payload) }], details: payload }),
+      payload
+    )
+  })
+
+  test('sans details, content JSON est reparsé', ({ assert }) => {
+    const payload = { ok: true, n: 3 }
+    assert.deepEqual(
+      unwrapToolResult({ content: [{ type: 'text', text: JSON.stringify(payload) }] }),
+      payload
+    )
+  })
+
+  test('content non-JSON reste du texte brut', ({ assert }) => {
+    assert.equal(unwrapToolResult({ content: [{ type: 'text', text: 'X3 injoignable' }] }), 'X3 injoignable')
+  })
+
+  test('formes inconnues passent inchangées', ({ assert }) => {
+    assert.equal(unwrapToolResult('brut'), 'brut')
+    assert.equal(unwrapToolResult(null), null)
+    assert.deepEqual(unwrapToolResult({ autre: 1 }), { autre: 1 })
   })
 })

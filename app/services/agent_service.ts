@@ -60,6 +60,7 @@ export type AgentSseEvent =
       toolName: string
       toolCallId: string
       isError: boolean
+      /** Payload métier seul — le wrapper pi est retiré (cf. unwrapToolResult). */
       result?: unknown
     }
   | { type: 'error'; message: string }
@@ -121,6 +122,46 @@ function formatScreenContext(ctx: RunAgentOptions['screenContext']): string {
   return `${lines.join('\n')}\n\n`
 }
 
+/**
+ * Déballe un `AgentToolResult` pi vers le seul payload métier.
+ *
+ * Pi rend `{ content: [{ type:'text', text: '<json>' }], details: <payload> }` :
+ * le payload y figure DEUX fois, une fois sérialisé dans `content[0].text` et
+ * une fois structuré dans `details`. Streamer le wrapper tel quel doublait le
+ * poids du SSE et faisait afficher à l'inspecteur le protocole plutôt que la
+ * donnée (JSON échappé, illisible).
+ *
+ * `details` fait foi ; `content` sert de repli pour un tool qui n'en poserait
+ * pas. Le texte est reparsé quand c'est du JSON, sinon rendu brut.
+ */
+export function unwrapToolResult(result: unknown): unknown {
+  if (typeof result !== 'object' || result === null) return result
+  const r = result as { details?: unknown; content?: unknown }
+
+  if (r.details !== undefined) return r.details
+
+  if (Array.isArray(r.content)) {
+    const texts = r.content
+      .filter(
+        (c): c is { type: 'text'; text: string } =>
+          typeof c === 'object' &&
+          c !== null &&
+          (c as { type?: unknown }).type === 'text' &&
+          typeof (c as { text?: unknown }).text === 'string'
+      )
+      .map((c) => c.text)
+    if (texts.length === 0) return result
+    const joined = texts.join('\n')
+    try {
+      return JSON.parse(joined)
+    } catch {
+      return joined
+    }
+  }
+
+  return result
+}
+
 function mapPiEvent(event: PiEvent): AgentSseEvent[] {
   switch (event.type) {
     case 'message_update': {
@@ -149,7 +190,7 @@ function mapPiEvent(event: PiEvent): AgentSseEvent[] {
           toolName: event.toolName,
           toolCallId: event.toolCallId,
           isError: Boolean(event.isError),
-          result: event.result,
+          result: unwrapToolResult(event.result),
         },
       ]
     default:

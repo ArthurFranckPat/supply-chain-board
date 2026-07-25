@@ -142,7 +142,11 @@ export function InspectorPanel(props: {
                   {entry.toolName}
                 </span>
               </div>
-              <pre className="max-h-56 overflow-auto rounded-lg bg-secondary p-2.5 font-mono text-[11px] leading-relaxed text-muted-foreground">
+              {/* Le panneau est étroit : sans wrap, une valeur longue (note, engine,
+                  libellé article) sortait du cadre et restait invisible — la barre de
+                  scroll horizontale d'un bloc de 300 px ne se trouve pas. On casse
+                  donc les lignes plutôt que de scroller. */}
+              <pre className="max-h-56 overflow-y-auto whitespace-pre-wrap break-words rounded-lg bg-secondary p-2.5 font-mono text-[11px] leading-relaxed text-muted-foreground">
                 {entry.status === 'error'
                   ? entry.errorText
                   : JSON.stringify(entry.output ?? entry.input, null, 2)}

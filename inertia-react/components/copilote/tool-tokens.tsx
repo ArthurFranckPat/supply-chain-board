@@ -75,7 +75,7 @@ export function ToolTokens(props: { parts: AnyToolPart[] }) {
                   <span className="font-semibold text-foreground">{name}</span>
                   <span className="text-muted-foreground">— {toolLabel(name)}</span>
                 </div>
-                <pre className="mt-1 overflow-x-auto rounded-lg bg-secondary p-2.5 font-mono text-[11px] leading-relaxed text-muted-foreground">
+                <pre className="mt-1 max-h-72 overflow-y-auto whitespace-pre-wrap break-words rounded-lg bg-secondary p-2.5 font-mono text-[11px] leading-relaxed text-muted-foreground">
                   <span className="font-semibold text-foreground">args</span>{' '}
                   {JSON.stringify(part.input, null, 2)}
                   {status !== 'running' && (

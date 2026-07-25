@@ -18,6 +18,7 @@ test.group('agent tools registry', () => {
       'getPromise',
       'listerRetardsPrevus',
       'listerRuptures',
+      'listerReceptions',
       'listerCommandesStatut',
       'getDetailCommande',
       'getStock',
