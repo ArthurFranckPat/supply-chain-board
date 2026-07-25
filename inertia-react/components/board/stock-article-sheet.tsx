@@ -134,6 +134,20 @@ const fmtAxis = (v: number, unit: Unit): string =>
 const fmtVal = (v: number, unit: Unit): string =>
   unit === 'valeur' ? fmtEuro.format(v) : fmtQtyDec.format(v)
 
+/**
+ * Borne d'axe « ronde » immédiatement au-dessus de `v` : 1, 2, 2,5 ou 5 × 10^k.
+ * Sans ça, un maximum de 25 800 donnait une graduation à 27 865 et une médiane
+ * à 13 933 — des nombres qu'on ne lit pas.
+ */
+const niceCeil = (v: number): number => {
+  if (!Number.isFinite(v) || v <= 0) return 1
+  const exp = Math.floor(Math.log10(v))
+  const pow = Math.pow(10, exp)
+  const mant = v / pow
+  const step = mant <= 1 ? 1 : mant <= 2 ? 2 : mant <= 2.5 ? 2.5 : mant <= 5 ? 5 : 10
+  return step * pow
+}
+
 /** Ratio (0.123) → « 12,3 % ». */
 const fmtPct = (v: number): string =>
   `${(Math.round(v * 1000) / 10).toFixed(1).replace('.', ',').replace(/,0$/, '')} %`
@@ -258,10 +272,14 @@ function HistoryChart({
   series,
   future,
   unit,
+  rupturePeriode,
 }: {
   series: StockHistoryPoint[]
   future: StockFuturePoint[]
   unit: Unit
+  /** Semaine ISO de rupture calculée par le verdict — repérée sur la courbe
+   *  pour relier les deux lectures. */
+  rupturePeriode?: string | null
 }) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const [dim, setDim] = useState({ w: 900, h: 300 })
@@ -310,7 +328,9 @@ function HistoryChart({
     () => points.map((p) => [p.line, p.inn, p.out]),
     [points]
   )
-  const lineMax = useMemo(() => Math.max(1, ...targets.map((t) => t[0])) * 1.08, [targets])
+  // Borne ronde plutôt que « max × 1,08 » : elle sert de graduation lisible et
+  // fournit la même marge haute.
+  const lineMax = useMemo(() => niceCeil(Math.max(1, ...targets.map((t) => t[0]))), [targets])
   // Deux échelles de flux, une par moitié. Le journal de stock (mouvements
   // hebdomadaires réels : réceptions, sorties de production) et le carnet à
   // venir (demande client, besoin matière, réceptions attendues) sont deux
@@ -436,6 +456,14 @@ function HistoryChart({
   // charnière passé/futur.
   const nowFrac = fracs[histLen - 1] ?? [0, 0, 0]
   const hasFuture = future.length > 0
+
+  // Index du seau de rupture dans `points` — cherché côté futur uniquement,
+  // les clés de semaine ISO pouvant se répéter entre passé et projection.
+  const ruptureIdx = useMemo(() => {
+    if (!rupturePeriode) return null
+    const i = points.findIndex((p) => p.kind === 'fut' && p.periode === rupturePeriode)
+    return i >= 0 ? i : null
+  }, [points, rupturePeriode])
 
   return (
     <div ref={wrapRef} className="relative h-full w-full">
@@ -647,6 +675,37 @@ function HistoryChart({
           </>
         )}
 
+        {/* Repère de rupture — ancre visuelle du verdict sur la courbe.
+            Nécessaire parce que le stock projeté est borné à 0 : le plateau
+            plat qui suit se lit « on se maintient » alors qu'il masque un
+            manque non servi. */}
+        {ruptureIdx !== null && (
+          <g pointerEvents="none">
+            <line
+              x1={geom.x(ruptureIdx)}
+              x2={geom.x(ruptureIdx)}
+              y1={geom.padT}
+              y2={geom.flowAxis}
+              stroke={COL_SORTIE}
+              strokeWidth={1.25}
+              strokeDasharray="4 3"
+              opacity={0.85}
+            />
+            <text
+              x={geom.x(ruptureIdx)}
+              y={geom.padT - 4}
+              textAnchor="middle"
+              fontFamily="var(--font-mono)"
+              fontSize={8.5}
+              fontWeight={700}
+              letterSpacing="0.08em"
+              fill={COL_SORTIE}
+            >
+              RUPTURE
+            </text>
+          </g>
+        )}
+
         {/* Charnière passé/futur — ligne verticale « auj. » */}
         {hasFuture && (
           <g pointerEvents="none">
@@ -849,15 +908,18 @@ function VerdictBar({
   } else {
     const date = ind.ruptureDateIso ? fmtDateFr(ind.ruptureDateIso) : '—'
     titre = `Tient jusqu’au ${date}`
-    const couv = fmtJours(ind.couvertureProspectiveJours)
+    // « hors réceptions » est explicite : la courbe projetée, elle, LES
+    // intègre, donc elle remonte après le plancher à 0. Sans cette mention les
+    // deux lectures paraissent se contredire.
+    const couv = `${fmtJours(ind.couvertureProspectiveJours)} de couverture hors réceptions`
     if (delai !== null && delai > 0) {
       Icon = sousDelai ? TriangleAlert : ShieldCheck
       detailTexte = sousDelai
-        ? `${couv} de couverture pour ${fmtJours(delai)} de délai — commander maintenant n’arrive plus à temps.`
-        : `${couv} de couverture pour ${fmtJours(delai)} de délai — commander maintenant arrive encore à temps.`
+        ? `${couv}, pour ${fmtJours(delai)} de délai — commander maintenant n’arrive plus à temps.`
+        : `${couv}, pour ${fmtJours(delai)} de délai — commander maintenant arrive encore à temps.`
     } else {
       Icon = CalendarClock
-      detailTexte = `${couv} de couverture. Aucun délai de réapprovisionnement paramétré.`
+      detailTexte = `${couv}. Aucun délai de réapprovisionnement paramétré.`
     }
   }
 
@@ -887,18 +949,33 @@ function VerdictBar({
       <span className="flex-1" />
       {totaux && (
         <div
-          className="flex items-baseline gap-3"
+          className="flex items-baseline gap-x-4"
           title="Totaux sur l'horizon de projection — les barres du graphe ont une échelle par moitié, ces deux nombres donnent les ordres de grandeur réels."
         >
-          <span className="font-mono text-[8.5px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-            52 sem.
-          </span>
-          <span className="font-mono text-[11px] font-semibold tabular-nums" style={{ color: COL_SORTIE }}>
-            {fmtVal(totaux.besoin, unit)}
-          </span>
-          <span className="font-mono text-[11px] font-semibold tabular-nums" style={{ color: COL_ENTREE }}>
-            {fmtVal(totaux.ressource, unit)}
-          </span>
+          {/* Étiquetés, pas seulement colorés : la couleur seule oblige à
+              faire l'aller-retour avec la légende du graphe. */}
+          <div className="flex items-baseline gap-1.5">
+            <span className="font-mono text-[8.5px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+              Besoins 52 s.
+            </span>
+            <span
+              className="font-mono text-[11px] font-semibold tabular-nums"
+              style={{ color: COL_SORTIE }}
+            >
+              {fmtVal(totaux.besoin, unit)}
+            </span>
+          </div>
+          <div className="flex items-baseline gap-1.5">
+            <span className="font-mono text-[8.5px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+              Ressources
+            </span>
+            <span
+              className="font-mono text-[11px] font-semibold tabular-nums"
+              style={{ color: COL_ENTREE }}
+            >
+              {fmtVal(totaux.ressource, unit)}
+            </span>
+          </div>
         </div>
       )}
     </div>
@@ -909,7 +986,9 @@ function VerdictBar({
 function ParamGroup({ titre, children }: { titre: string; children: ReactNode }) {
   return (
     <div className="flex min-w-0 flex-wrap items-baseline gap-x-4 gap-y-1">
-      <span className="font-mono text-[8.5px] font-bold uppercase tracking-[0.14em] text-brand">
+      {/* Volontairement PAS en `text-brand` : ce rouge sert déjà au verdict et
+          aux sorties du graphe. Un intitulé de groupe n'est pas une alerte. */}
+      <span className="font-mono text-[8.5px] font-bold uppercase tracking-[0.18em] text-muted-foreground/80">
         {titre}
       </span>
       {children}
@@ -1226,7 +1305,12 @@ export function StockArticleSheet(props: StockArticleSheetProps) {
             ) : (
               <>
                 <div className="min-h-0 flex-1 px-5 pb-3 pt-2">
-                  <HistoryChart series={detail.series} future={detail.future ?? []} unit={unit} />
+                  <HistoryChart
+                    series={detail.series}
+                    future={detail.future ?? []}
+                    unit={unit}
+                    rupturePeriode={detail.indicateurs.ruptureSemaine}
+                  />
                 </div>
                 {/* Ce qui explique la courbe, sous la courbe : on ne le lit
                     qu'après avoir vu la forme, et jamais avant le verdict. */}
