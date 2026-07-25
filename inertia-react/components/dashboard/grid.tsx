@@ -14,8 +14,14 @@
  * intercepte le geste), pas de possession du DOM par une lib tierce (le
  * dashboard se re-rend à chaque tick de données). Le geste est piloté au pixel
  * et n'est converti en unités de grille que pour l'aperçu et le commit.
+ *
+ * Fluidité : pendant le geste, la position de la tuile manipulée est écrite
+ * directement dans le DOM, hors de React — c'est la technique de
+ * `react-resizable-panels`. Un rendu React n'a lieu qu'au franchissement d'un
+ * cran de grille (l'aperçu de compaction bouge) et au relâchement. Entre deux
+ * crans, un geste ne coûte que quatre propriétés de style.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import * as React from 'react'
 import { cn } from '@r/lib/utils'
 
@@ -139,7 +145,15 @@ export function DashboardGrid({
   const lastCandidateRef = useRef<DashboardGridItem | null>(null)
   const previewRef = useRef<DashboardGridItem[] | null>(null)
   const [preview, setPreview] = useState<DashboardGridItem[] | null>(null)
-  const [ghost, setGhost] = useState<Box | null>(null)
+  /**
+   * Boîte en pixels de la tuile manipulée. Volontairement une ref et non un
+   * état : elle change à chaque frame, et la repasser par React ferait un rendu
+   * par frame. Elle est peinte directement dans le DOM (cf. paintGhost) et
+   * relue au rendu pour que React reparte de la bonne position.
+   */
+  const ghostRef = useRef<Box | null>(null)
+  /** Nœuds des tuiles, pour écrire leur style sans repasser par le rendu. */
+  const nodeRefs = useRef(new Map<string, HTMLDivElement>())
   const [activeId, setActiveId] = useState<string | null>(null)
   /** 'drag' ou l'axe de resize — porte le curseur sur le conteneur pendant le geste. */
   const [gestureCursor, setGestureCursor] = useState<string | null>(null)
@@ -176,14 +190,40 @@ export function DashboardGrid({
   const layout = preview ?? items
   const height = bottomRow(layout) * rowStep - gap
 
+  /**
+   * Applique la boîte courante au nœud de la tuile manipulée, sans rendu React.
+   * C'est le cœur du gain de fluidité : entre deux crans de grille, un geste ne
+   * déclenche plus aucun rendu — seules quatre propriétés de style changent.
+   */
+  const paintGhost = useCallback(() => {
+    const g = gestureRef.current
+    const box = ghostRef.current
+    if (!g || !box) return
+    const node = nodeRefs.current.get(g.id)
+    if (!node) return
+    node.style.left = `${box.left}px`
+    node.style.top = `${box.top}px`
+    node.style.width = `${box.width}px`
+    node.style.height = `${box.height}px`
+  }, [])
+
+  /**
+   * React ne connaît pas les écritures directes ci-dessus : si un rendu survient
+   * en plein geste (franchissement de cran), il peut écraser le style par sa
+   * propre valeur. On repeint après chaque rendu tant que le geste dure.
+   */
+  useLayoutEffect(() => {
+    if (activeId) paintGhost()
+  })
+
   // ----- Geste -----
   const endGesture = useCallback(() => {
     const g = gestureRef.current
     const next = previewRef.current
     gestureRef.current = null
     previewRef.current = null
+    ghostRef.current = null
     setPreview(null)
-    setGhost(null)
     setActiveId(null)
     setGestureCursor(null)
     // Compaction finale sans pin : l'item relâché remonte lui aussi.
@@ -222,7 +262,7 @@ export function DashboardGrid({
       previewRef.current = items
       lastCandidateRef.current = origin
       setPreview(items)
-      setGhost(toBox(origin))
+      ghostRef.current = toBox(origin)
       setActiveId(id)
       setGestureCursor(axis ?? 'drag')
 
@@ -240,7 +280,7 @@ export function DashboardGrid({
         if (g.kind === 'drag') {
           const left = box.left + dx
           const top = Math.max(0, box.top + dy)
-          setGhost({ ...box, left, top })
+          ghostRef.current = { ...box, left, top }
           candidate = {
             ...g.origin,
             x: clamp(Math.round(left / colStep), 0, cols - g.origin.w),
@@ -289,11 +329,12 @@ export function DashboardGrid({
             next.h = Math.max(minH, Math.round((ghostBox.height + gap) / rowStep))
           }
 
-          setGhost(ghostBox)
+          ghostRef.current = ghostBox
           candidate = next
         }
 
         g.dirty = true
+        paintGhost()
 
         // Le fantôme suit le pointeur au pixel, mais l'aperçu de compaction ne
         // bouge qu'au franchissement d'un cran. Sans ce garde-fou on relance un
@@ -350,7 +391,7 @@ export function DashboardGrid({
       window.addEventListener('pointercancel', onUp)
       detachRef.current = detach
     },
-    [editMode, items, toBox, colWidth, colStep, rowStep, rowHeight, gap, cols, minW, minH, endGesture]
+    [editMode, items, toBox, colWidth, colStep, rowStep, rowHeight, gap, cols, minW, minH, endGesture, paintGhost]
   )
 
   // Démontage en plein geste : on ne laisse pas d'écouteur sur window.
@@ -403,10 +444,14 @@ export function DashboardGrid({
     const item = byId.get(id)
     if (!item) continue
     const isActive = id === activeId
-    const box = isActive && ghost ? ghost : toBox(item)
+    const box = (isActive && ghostRef.current) || toBox(item)
     tiles.push(
       <div
         key={id}
+        ref={(el) => {
+          if (el) nodeRefs.current.set(id, el)
+          else nodeRefs.current.delete(id)
+        }}
         data-grid-id={id}
         className={cn('dashboard-grid-item', isActive && 'is-active')}
         style={{
