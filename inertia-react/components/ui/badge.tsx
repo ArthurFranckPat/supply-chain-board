@@ -1,5 +1,5 @@
-import { mergeProps } from "@base-ui/react/merge-props"
-import { useRender } from "@base-ui/react/use-render"
+import * as React from "react"
+import { Badge as AstryxBadge, type BadgeVariant as AstryxBadgeVariant } from "@astryxdesign/core/Badge"
 import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@r/lib/utils"
@@ -30,26 +30,50 @@ const badgeVariants = cva(
   }
 )
 
-function Badge({
-  className,
-  variant = "default",
-  render,
-  ...props
-}: useRender.ComponentProps<"span"> & VariantProps<typeof badgeVariants>) {
-  return useRender({
-    defaultTagName: "span",
-    props: mergeProps<"span">(
-      {
-        className: cn(badgeVariants({ variant }), className),
-      },
-      props
-    ),
-    render,
-    state: {
-      slot: "badge",
-      variant,
-    },
-  })
+/** Map variant shadcn → variant Astryx (pour la couche sémantique native). */
+const VARIANT_TO_ASTRYX: Record<
+  NonNullable<VariantProps<typeof badgeVariants>["variant"]>,
+  AstryxBadgeVariant
+> = {
+  default: "neutral",
+  secondary: "neutral",
+  destructive: "error",
+  outline: "neutral",
+  ghost: "neutral",
+  link: "neutral",
+  success: "success",
+  warning: "warning",
+}
+
+type BadgeProps = Omit<React.ComponentProps<"span">, "color"> &
+  VariantProps<typeof badgeVariants> & {
+    /** Pattern Base UI render — remplacer l'élément racine. */
+    render?: React.ReactElement
+  }
+
+function Badge({ className, variant = "default", render, children, ...props }: BadgeProps) {
+  // Pattern Base UI `render` : on clone l'élément fourni en injectant les
+  // classes cva + data-slot, sans passer par AstryxBadge (le consumer
+  // pilote la racine, e.g. <Badge render={<Link to="…" />} />).
+  if (render) {
+    const renderProps = render.props as Record<string, unknown>
+    return React.cloneElement(render, {
+      "data-slot": "badge",
+      className: cn(badgeVariants({ variant }), className, (renderProps.className as string | undefined) ?? ""),
+      ...props,
+    } as Record<string, unknown>)
+  }
+
+  return (
+    <AstryxBadge
+      data-slot="badge"
+      label={children ?? ""}
+      variant={variant ? VARIANT_TO_ASTRYX[variant] : "neutral"}
+      className={cn(badgeVariants({ variant }), className)}
+      {...props}
+    />
+  )
 }
 
 export { Badge, badgeVariants }
+export type { BadgeProps }

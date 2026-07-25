@@ -1,19 +1,46 @@
 import * as React from "react"
-import { Input as InputPrimitive } from "@base-ui/react/input"
+import { TextInput as AstryxTextInput, type TextInputType } from "@astryxdesign/core/TextInput"
 
 import { cn } from "@r/lib/utils"
 
 // Aligné sur Airbnb DESIGN.md `text-input` :
 // • 56px (h-14), 14×12px padding, 8px radius (rounded-md)
-// • hairline border (border-input = --input token, déjà #c1c1c1 sous .theme-airbnb)
+// • hairline border (border-input = --input token)
 // • focus = ink border épais, PAS de ring bleu / glow.
-//   Implémentation : on retire le focus-visible:ring-* et on force border-foreground
-//   à 2px. Le `border` default reste 1px hairline.
-function Input({ className, type, ...props }: React.ComponentProps<"input">) {
+//
+// Lot 2 (issue #90) — Base UI Input → Astryx TextInput.
+// Astryx TextInput exige `label` (a11y), `value: string` (contrôlé),
+// `onChange(value, e)`. Wrapper normalise.
+
+type InputProps = Omit<
+  React.ComponentProps<"input">,
+  "onChange" | "value" | "defaultValue" | "size"
+> & {
+  value?: string | number | readonly string[]
+  defaultValue?: string | number | readonly string[]
+  onChange?: React.ChangeEventHandler<HTMLInputElement>
+  "aria-label"?: string
+}
+
+function Input({
+  className,
+  type = "text",
+  "aria-label": ariaLabel,
+  value,
+  defaultValue,
+  onChange,
+  ...props
+}: InputProps) {
+  const label = ariaLabel ?? "Input"
+  const normalizedValue = (value ?? defaultValue ?? "") as string
   return (
-    <InputPrimitive
-      type={type}
+    <AstryxTextInput
+      type={(["text", "password", "email"].includes(type as string) ? (type as TextInputType) : "text")}
       data-slot="input"
+      label={label}
+      isLabelHidden
+      value={normalizedValue}
+      onChange={onChange ? (_v: string, e: React.ChangeEvent<HTMLInputElement>) => onChange(e) : undefined}
       className={cn(
         // Grammaire : contrôle = rayon 8 px (airbnb-grammar.html).
         "h-14 w-full min-w-0 rounded-[8px] border bg-transparent px-3.5 py-3.5 text-base font-normal transition-colors outline-none file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground hover:border-[var(--input,#c1c1c1)] focus-visible:border-2 focus-visible:border-foreground disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 aria-invalid:border-destructive aria-invalid:border-2 dark:bg-input/30 dark:disabled:bg-input/80 dark:aria-invalid:border-destructive",
@@ -25,3 +52,4 @@ function Input({ className, type, ...props }: React.ComponentProps<"input">) {
 }
 
 export { Input }
+export type { InputProps }
