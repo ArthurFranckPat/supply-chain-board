@@ -17,7 +17,9 @@ import type {
   KpiWidth,
 } from '@/lib/dashboard/types'
 import {
+  colsForWidth,
   DEFAULT_DASHBOARD_LAYOUT,
+  GRID_COLS,
   normalizeDashboardLayout,
 } from '@/lib/dashboard/types'
 
@@ -44,6 +46,7 @@ const initialLayout = normalizeDashboardLayout(null) ?? DEFAULT_DASHBOARD_LAYOUT
 export const useLayoutStore = create<LayoutState>()(
   persist(
     (set, get) => ({
+      version: initialLayout.version,
       items: initialLayout.items,
       printOrder: initialLayout.printOrder,
 
@@ -58,7 +61,7 @@ export const useLayoutStore = create<LayoutState>()(
         set((state) => ({
           items: state.items.map((it) => {
             if (it.id !== id) return it
-            const w = width === 2 ? 8 : width === 3 ? 12 : 4
+            const w = colsForWidth(width)
             return { ...it, width, w }
           }),
         })),
@@ -68,7 +71,8 @@ export const useLayoutStore = create<LayoutState>()(
           items: state.items.map((it) => {
             const match = gridItems.find((g) => g.i === it.id)
             if (!match) return it
-            const width: KpiWidth = match.w <= 4 ? 1 : match.w <= 8 ? 2 : 3
+            const width: KpiWidth =
+              match.w <= GRID_COLS / 3 ? 1 : match.w <= (GRID_COLS * 2) / 3 ? 2 : 3
             return { ...it, x: match.x, y: match.y, w: match.w, h: match.h, width }
           }),
         })),
@@ -116,12 +120,18 @@ export const useLayoutStore = create<LayoutState>()(
     {
       name: 'dashboard-layout',
       // On persiste items + printOrder seulement
-      partialize: (state) => ({ items: state.items, printOrder: state.printOrder }),
-      // v1 → v2 : les items persistés avant react-grid-layout n'ont ni x/y ni
-      // w/h. Réhydratés tels quels ils donnent une géométrie NaN à la grille
-      // (drag et resize inertes au premier rendu). On repasse systématiquement
-      // par le normaliseur, qui complète depuis DEFAULT_DASHBOARD_LAYOUT.
-      version: 2,
+      partialize: (state) => ({
+        version: state.version,
+        items: state.items,
+        printOrder: state.printOrder,
+      }),
+      // Deux migrations passent par le normaliseur, jamais par une réhydratation
+      // brute :
+      //  - store v2 : les items d'avant la grille n'ont ni x/y ni w/h, et
+      //    donnaient une géométrie NaN au premier rendu ;
+      //  - store v3 : le pas de grille a été divisé par deux, les unités des
+      //    layouts plus anciens doivent être doublées (cf. LAYOUT_VERSION).
+      version: 3,
       migrate: (persisted) => normalizeDashboardLayout(persisted),
     }
   )

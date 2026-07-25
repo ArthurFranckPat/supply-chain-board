@@ -17,6 +17,25 @@ export type KpiId = (typeof KPI_IDS)[number]
 export const KPI_WIDTHS = [1, 2, 3] as const
 export type KpiWidth = (typeof KPI_WIDTHS)[number]
 
+/**
+ * Nombre de colonnes de la grille du tableau de bord. `x` et `w` sont exprimés
+ * dans cette unité. Le pas vertical est porté par `rowHeight` côté composant.
+ */
+export const GRID_COLS = 24
+
+/**
+ * Version du contrat de disposition. La v1 utilisait une grille deux fois plus
+ * grossière (12 colonnes, `rowHeight` 65) ; la v2 double la finesse du pas.
+ * Un payload sans `version` est de la v1 et voit ses unités doublées à la
+ * lecture — la surface occupée est identique, seul le pas d'accrochage change.
+ */
+export const LAYOUT_VERSION = 2
+
+/** Colonnes occupées par une largeur discrète (1 = 1/3, 2 = 2/3, 3 = plein). */
+export function colsForWidth(width: KpiWidth): number {
+  return width === 2 ? (GRID_COLS * 2) / 3 : width === 3 ? GRID_COLS : GRID_COLS / 3
+}
+
 /** Position d'un KPI dans la disposition écran. */
 export interface KpiLayoutItem {
   id: KpiId
@@ -30,6 +49,8 @@ export interface KpiLayoutItem {
 
 /** Disposition complète du tableau de bord d'un utilisateur. */
 export interface DashboardLayout {
+  /** Version du contrat — cf. LAYOUT_VERSION. */
+  version: number
   /** Ordre affiché à l'écran (haut → bas, reflow grille dense). */
   items: KpiLayoutItem[]
   /** Ordre d'impression indépendant de l'ordre écran. */
@@ -42,12 +63,13 @@ export interface DashboardLayout {
  * (lignes en retard, stock par article).
  */
 export const DEFAULT_DASHBOARD_LAYOUT: DashboardLayout = {
+  version: LAYOUT_VERSION,
   items: [
-    { id: 'charge', visible: true, width: 1, x: 0, y: 0, w: 4, h: 5 },
-    { id: 'otd', visible: true, width: 1, x: 0, y: 5, w: 4, h: 5 },
-    { id: 'stock', visible: true, width: 1, x: 0, y: 10, w: 4, h: 5 },
-    { id: 'lignes', visible: true, width: 2, x: 4, y: 0, w: 8, h: 7 },
-    { id: 'stockTable', visible: true, width: 2, x: 4, y: 7, w: 8, h: 8 },
+    { id: 'charge', visible: true, width: 1, x: 0, y: 0, w: 8, h: 10 },
+    { id: 'otd', visible: true, width: 1, x: 0, y: 10, w: 8, h: 10 },
+    { id: 'stock', visible: true, width: 1, x: 0, y: 20, w: 8, h: 10 },
+    { id: 'lignes', visible: true, width: 2, x: 8, y: 0, w: 16, h: 14 },
+    { id: 'stockTable', visible: true, width: 2, x: 8, y: 14, w: 16, h: 16 },
   ],
   printOrder: ['charge', 'otd', 'stock', 'lignes', 'stockTable'],
 }
@@ -67,6 +89,12 @@ export function normalizeDashboardLayout(raw: unknown): DashboardLayout {
   if (!raw || typeof raw !== 'object') return base
   const obj = raw as Record<string, unknown>
 
+  // Un payload sans `version` date de la grille 12 colonnes : ses unités valent
+  // le double aujourd'hui. On ne met à l'échelle que les valeurs réellement
+  // fournies — les valeurs de repli sont déjà exprimées en v2.
+  const version = typeof obj.version === 'number' ? obj.version : 1
+  const scale = version >= LAYOUT_VERSION ? 1 : 2
+
   // items : on reconstruit dans l'ordre canonique, en écrasant avec les valeurs
   // valides trouvées dans le payload. Les doublons/inconnus sont ignorés.
   if (Array.isArray(obj.items)) {
@@ -80,16 +108,16 @@ export function normalizeDashboardLayout(raw: unknown): DashboardLayout {
       seen.add(it.id)
       const width: KpiWidth = it.width === 2 ? 2 : it.width === 3 ? 3 : 1
       const def = DEFAULT_DASHBOARD_LAYOUT.items.find((d) => d.id === it.id)
-      const x = typeof it.x === 'number' ? it.x : (def?.x ?? 0)
-      const y = typeof it.y === 'number' ? it.y : (def?.y ?? 0)
-      const w = typeof it.w === 'number' ? it.w : (def?.w ?? (width === 2 ? 8 : width === 3 ? 12 : 4))
-      const h = typeof it.h === 'number' ? it.h : (def?.h ?? 5)
+      const x = typeof it.x === 'number' ? it.x * scale : (def?.x ?? 0)
+      const y = typeof it.y === 'number' ? it.y * scale : (def?.y ?? 0)
+      const w = typeof it.w === 'number' ? it.w * scale : (def?.w ?? colsForWidth(width))
+      const h = typeof it.h === 'number' ? it.h * scale : (def?.h ?? 10)
       merged.push({ id: it.id, visible: it.visible !== false, width, x, y, w, h })
     }
     // On replace les KPI canoniques absents du payload à la fin (visibles par défaut).
     for (const id of KPI_IDS) {
       if (!seen.has(id)) {
-        const def = DEFAULT_DASHBOARD_LAYOUT.items.find((d) => d.id === id) ?? { x: 0, y: 0, w: 4, h: 5 }
+        const def = DEFAULT_DASHBOARD_LAYOUT.items.find((d) => d.id === id) ?? { x: 0, y: 0, w: GRID_COLS / 3, h: 10 }
         merged.push({ id, visible: true, width: 1, x: def.x, y: def.y, w: def.w, h: def.h })
       }
     }

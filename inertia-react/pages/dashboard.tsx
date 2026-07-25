@@ -11,6 +11,7 @@ import { cn } from '@r/lib/utils'
 import { Segment, SegmentButton, DateWindowPill } from '@r/components/vision/toolbar'
 import {
   DEFAULT_DASHBOARD_LAYOUT,
+  GRID_COLS,
   KPI_TITLES,
   normalizeDashboardLayout,
   type DashboardLayout,
@@ -502,6 +503,7 @@ export default function Dashboard(props: DashboardProps) {
     [props.layout]
   )
   const {
+    version: layoutVersion,
     items,
     printOrder,
     setLayout,
@@ -583,7 +585,9 @@ export default function Dashboard(props: DashboardProps) {
   // ----- Persistance du layout (debounce 600 ms) -----
   useEffect(() => {
     const timer = setTimeout(() => {
-      const layout: DashboardLayout = { items, printOrder }
+      // `version` doit accompagner le payload : sans elle le serveur relit le
+      // layout comme de la v1 et redouble les unités de grille.
+      const layout: DashboardLayout = { version: layoutVersion, items, printOrder }
       fetch('/api/v1/user/dashboard-layout', {
         method: 'PATCH',
         headers: { 'content-type': 'application/json', accept: 'application/json' },
@@ -594,7 +598,7 @@ export default function Dashboard(props: DashboardProps) {
         .catch(() => toast.error('Échec de la sauvegarde de la disposition'))
     }, 600)
     return () => clearTimeout(timer)
-  }, [items, printOrder])
+  }, [layoutVersion, items, printOrder])
 
   // ----- URLs -----
   const otdUrl = useMemo(() => {
@@ -768,11 +772,11 @@ export default function Dashboard(props: DashboardProps) {
             items={gridLayout}
             editMode={editMode}
             onChange={handleLayoutChange}
-            cols={12}
-            rowHeight={65}
+            cols={GRID_COLS}
+            rowHeight={24.5}
             gap={16}
-            minW={3}
-            minH={3}
+            minW={6}
+            minH={6}
           >
             {/* ═════ KPI #1 — Charge en retard par poste ═════ */}
             {isVisible('charge') && (
