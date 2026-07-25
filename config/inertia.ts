@@ -95,6 +95,9 @@ declare module '@adonisjs/inertia/types' {
     'design_system': Record<string, never>
     // Page témoin du socle React (migration react-shadcn, phase 0).
     'react_lab': Record<string, never>
+    // Laboratoire Astryx (spike Lot 0, issue #90) — comparaison shadcn
+    // migré vs Astryx natif sous <Theme>. À retirer au Lot 1 ou NO-GO.
+    'astryx_lab': Record<string, never>
     // POC drag board React (phase 3) — payload OF réel de /programme.
     'react_board': {
       board: BoardProp | null

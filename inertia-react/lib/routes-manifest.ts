@@ -2,7 +2,7 @@
  * AUTO-GÉNÉRÉ par scripts/gen-routes-manifest.mjs — NE PAS ÉDITER À LA MAIN.
  * Source : `start/routes.ts` → `node ace list:routes --jsonl`.
  * Régénérer : `npm run routes:gen` · Vérifier la fraîcheur : `npm run routes:check`.
- * 102 routes nommées.
+ * 103 routes nommées.
  */
 
 export const MANIFEST = {
@@ -16,6 +16,7 @@ export const MANIFEST = {
   "agent.show": { method: "GET", pattern: "/copilote" },
   "assets.css": { method: "GET", pattern: "/css/app.css" },
   "assets.js": { method: "GET", pattern: "/js/app.js" },
+  "astryx_lab": { method: "GET", pattern: "/astryx-lab" },
   "auth.attempt": { method: "POST", pattern: "/login" },
   "auth.login": { method: "GET", pattern: "/login" },
   "auth.logout": { method: "POST", pattern: "/logout" },
@@ -127,6 +128,7 @@ export type RouteParams = {
   "agent.show": void,
   "assets.css": void,
   "assets.js": void,
+  "astryx_lab": void,
   "auth.attempt": void,
   "auth.login": void,
   "auth.logout": void,

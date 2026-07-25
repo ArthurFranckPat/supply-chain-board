@@ -78,6 +78,15 @@ router
       })
       .as('react_lab')
 
+    // Laboratoire Astryx (spike Lot 0, issue #90) — comparaison side-by-side
+    // shadcn migré vs Astryx natif sous <Theme>. À retirer à la décision
+    // NO-GO ou au démarrage du Lot 1 (migration complète).
+    router
+      .get('/astryx-lab', async ({ inertia }) => {
+        return inertia.render('astryx_lab', {})
+      })
+      .as('astryx_lab')
+
     // Write-back X3 (issue #29) — terrain de test read/save/modify sur objets
     // publiés du stub CAdxWebServiceXmlCC. Cible TEST (login env=test). À
     // verrouiller/retirer une fois le write-back fiabilisé.
